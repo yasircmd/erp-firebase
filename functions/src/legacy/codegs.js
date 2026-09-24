@@ -3072,6 +3072,65 @@ async function getSellableItemCodes_(idToken) {
 }
 
 // ============================================================
+// JOB ORDER REQUEST (Sales <-> Production, internal "make this")
+// ============================================================
+// REDESIGNED from a single-item-per-JobOrder model. Confirmed design:
+// each ITEM within a batch is now its own fully independent instance
+// of the exact state machine the original single-item build already
+// had — own Accept/Request Amendment/Stop/Completion, own Sales Order
+// links. The parent BATCH is purely a creation and grouping
+// convenience: submit happens once, at the batch, and fans out into N
+// independent lines sharing a number prefix (JOB-26-03-000001/01,
+// /02, ...) — "it will reduce to process multiple JO" was the
+// explicit reasoning. Nothing about the state machine ITSELF changed
+// from the original build; only its unit of work did (one line, not
+// one whole document).
+//
+// SALES ORDER LINKAGE + FIFO ALLOCATION is genuinely new, not a
+// rescope of prior logic. A Sales-triggered line records which Sales
+// Order LINE(s) it exists to cover (LinkedSalesOrderLines — picked at
+// line-creation time from Sales Order lines currently showing a
+// shortfall). Every time Production posts against a line, the newly
+// produced quantity is allocated across its linked Sales Order lines
+// in FIFO order by each Sales Order's own ConfirmedAt (confirmed as
+// the allocation rule) — a new stock reservation created for each,
+// converting "awaiting production" into "reserved" exactly as
+// designed. Any quantity left over once every linked line is fully
+// covered — overproduction, or a Production-direct line with no links
+// at all — is never reserved by anything; it's free stock the moment
+// it posts, per the confirmed reservation lifecycle.
+//
+// Storage: /jobOrderBatches/{id} = { BatchNumber (blank until
+//   Submitted), Origin ('Sales'|'Production'), CompanyID, DivisionID,
+//   BranchID, CostCenterID, ProfitCenterID, JODate, Description,
+//   Status ('Draft'|'Submitted'), RequestedBy, CreatedAt/By,
+//   UpdatedAt/By, SubmittedAt/By }
+// Storage: /jobOrderLines/{id} = { ParentBatchID, LineNumber,
+//   SubJONumber (blank until Submitted), ItemCode, EnteredUOMID,
+//   OrderedQuantity, TargetDate, Status (same values as the original
+//   single-item build's state machine), LinkedSalesOrderLines: [{
+//   SOID, SOLineID, SONumber }], AmendmentProposedQuantity,
+//   AmendmentProposedDate, AmendmentNote, StopRequestNote,
+//   CreatedAt/By, UpdatedAt/By, SubmittedAt/By, AcceptedAt/By,
+//   StopRequestedAt/By, StoppedAt/By, CancelledAt/By, CompletedAt }
+
+async function getEligibleJobOrderItems(idToken) {
+  const user = await requireUser_(idToken);
+  const data = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const boms = (await firebaseDbRequest_('boms', 'get', null, idToken)) || {};
+  const itemIdsWithActiveBom = new Set(Object.values(boms).filter(b => b.Status === 'Active').map(b => b.ParentItemID));
+  return Object.keys(data)
+    .filter(id => data[id].Status === 'Active')
+    .filter(id => data[id].Category === 'FinishedGood' || data[id].Category === 'SemiFinishedGood')
+    .filter(id => itemIdsWithActiveBom.has(id))
+    .filter(id => userCanAccessCompany_(user.profile, data[id].CompanyID))
+    .map(id => ({
+      ItemID: id, ItemCode: data[id].ItemCode, ItemName: data[id].ItemName, Category: data[id].Category,
+      UOMID: data[id].UOMID, AltUOMID: data[id].AltUOMID || '', CompanyID: data[id].CompanyID || ''
+    }));
+}
+
+// ============================================================
 // STOCK AVAILABILITY (Sales)
 // ============================================================
 // Confirmed design: Sales needs a simple window onto On-Hand, Reserved,
@@ -3145,6 +3204,107 @@ async function getStockAvailabilityList(idToken, companyId) {
       };
     })
     .sort((a, b) => a.ItemCode.localeCompare(b.ItemCode) || a.WarehouseCode.localeCompare(b.WarehouseCode));
+}
+
+// ============================================================
+// INVENTORY VALUATION LIST
+// ============================================================
+// The cost-side counterpart to Price Listing, built the same way but
+// deliberately simpler: cost doesn't have an equivalent to Local/Export
+// customer classification driving multiple lists, so this is ONE flat
+// list of item costs per company, not a set of named lists. Item
+// prices are effective-dated versions, never overwritten in place —
+// same principle as Price Listing and BOM recipe versions, and for the
+// same reason: Production Entry needs to know what an item's cost WAS
+// on the entry's own date, not just what it is today.
+//
+// Scoped to "any BOM item" — items eligible to actually be produced —
+// reusing getEligibleJobOrderItems' own criteria (Finished Good or
+// Semi-Finished Good with an active BOM) rather than duplicating that
+// logic. This is deliberately a manually-maintained reference for now;
+// confirmed future work is a Cost Sheet that computes this bottom-up
+// from BOM component costs instead of a person typing it in — nothing
+// here assumes that exists yet.
+//
+// Storage: /inventoryValuationLines/{id} = { CompanyID, ItemCode,
+//   UnitCost, EffectiveFrom, Status ('Active'|'Inactive'), CreatedAt/By,
+//   UpdatedAt/By }
+
+async function getInventoryValuationLines(idToken, companyId) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'INVENTORYVALUATION', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Inventory Valuation List.');
+  }
+  if (!companyId) throw new Error('Select a Company.');
+  if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+  const data = (await firebaseDbRequest_('inventoryValuationLines', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ LineID: id }, data[id]))
+    .filter(l => l.CompanyID === companyId)
+    .sort((a, b) => (a.ItemCode || '').localeCompare(b.ItemCode || '') || (b.EffectiveFrom || '').localeCompare(a.EffectiveFrom || ''));
+}
+
+async function saveInventoryValuationLine(idToken, lineData) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'INVENTORYVALUATION', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Inventory Valuation List.');
+    }
+    const companyId = String(lineData.CompanyID || '').trim();
+    if (!companyId) throw new Error('Select a Company.');
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+
+    const itemCode = String(lineData.ItemCode || '').trim();
+    if (!itemCode) throw new Error('Select an item.');
+    // Same eligibility as a Job Order line — only items that can
+    // actually be produced (Finished Good or Semi-Finished Good with
+    // an active BOM) belong on a production cost list.
+    const eligibleItems = await getEligibleJobOrderItems(idToken);
+    const eligible = eligibleItems.find(i => i.ItemCode === itemCode && i.CompanyID === companyId);
+    if (!eligible) throw new Error('Item not found, inactive, or has no active BOM — only items eligible for a Job Order can have a valuation line.');
+
+    const unitCost = Number(lineData.UnitCost);
+    if (!(unitCost > 0)) throw new Error('Unit cost must be greater than zero.');
+    const effectiveFrom = String(lineData.EffectiveFrom || '').trim();
+    if (!effectiveFrom) throw new Error('Effective From date is required.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const fields = { CompanyID: companyId, ItemCode: itemCode, UnitCost: unitCost, EffectiveFrom: effectiveFrom, UpdatedAt: now, UpdatedBy: actor };
+
+    const lineId = String(lineData.LineID || '').trim();
+    if (lineId) {
+      const existing = await firebaseDbRequest_('inventoryValuationLines/' + lineId, 'get', null, idToken);
+      if (!existing) throw new Error('Valuation line not found.');
+      await firebaseDbRequest_('inventoryValuationLines/' + lineId, 'patch', fields, idToken);
+      return { success: true, lineId: lineId };
+    }
+
+    const newId = 'IVL-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('inventoryValuationLines/' + newId, 'put', Object.assign({}, fields, {
+      Status: 'Active', CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, lineId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deactivateInventoryValuationLine(idToken, lineId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'INVENTORYVALUATION', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Inventory Valuation List.');
+    }
+    const existing = await firebaseDbRequest_('inventoryValuationLines/' + lineId, 'get', null, idToken);
+    if (!existing) throw new Error('Valuation line not found.');
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('inventoryValuationLines/' + lineId, 'patch', { Status: 'Inactive', UpdatedAt: now, UpdatedBy: actor }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 module.exports = {
@@ -3240,5 +3400,9 @@ module.exports = {
   savePriceListLine,
   deactivatePriceListLine,
   getSellableItemCodes_,
-  getStockAvailabilityList
+  getEligibleJobOrderItems,
+  getStockAvailabilityList,
+  getInventoryValuationLines,
+  saveInventoryValuationLine,
+  deactivateInventoryValuationLine
 };

@@ -33,6 +33,11 @@ exports.deactivateCustomerClassification = onCallWithMessages(opts, (request) =>
   const a = Array.isArray(d.__positional) ? d.__positional : [d.classificationId];
   return run(request, (ctx) => L.deactivateCustomerClassification(ctx, ...a));
 });
+exports.deactivateInventoryValuationLine = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.lineId];
+  return run(request, (ctx) => L.deactivateInventoryValuationLine(ctx, ...a));
+});
 exports.deactivateItem = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.itemId];
@@ -157,6 +162,16 @@ exports.getCustomers = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getCustomers(ctx, ...a));
+});
+exports.getEligibleJobOrderItems = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getEligibleJobOrderItems(ctx, ...a));
+});
+exports.getInventoryValuationLines = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId];
+  return run(request, (ctx) => L.getInventoryValuationLines(ctx, ...a));
 });
 exports.getItemSubCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -352,6 +367,11 @@ exports.saveFirebaseUser = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.userData];
   return run(request, (ctx) => L.saveFirebaseUser(ctx, ...a));
+});
+exports.saveInventoryValuationLine = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.lineData];
+  return run(request, (ctx) => L.saveInventoryValuationLine(ctx, ...a));
 });
 exports.saveItem = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
