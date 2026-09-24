@@ -78,6 +78,11 @@ exports.deactivateVendor = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
   return run(request, (ctx) => L.deactivateVendor(ctx, ...a));
 });
+exports.deleteRole = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.roleId];
+  return run(request, (ctx) => L.deleteRole(ctx, ...a));
+});
 exports.getActiveCurrencies = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -128,6 +133,11 @@ exports.getItems = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getItems(ctx, ...a));
 });
+exports.getModulePermissionsMatrix = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getModulePermissionsMatrix(ctx, ...a));
+});
 exports.getOrgUnits = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -147,6 +157,11 @@ exports.getRequisitionCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getRequisitionCategories(ctx, ...a));
+});
+exports.getRoles = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getRoles(ctx, ...a));
 });
 exports.getSalesTypes = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -233,6 +248,11 @@ exports.saveAccount = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.accountData];
   return run(request, (ctx) => L.saveAccount(ctx, ...a));
 });
+exports.saveAllModulePermissions = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.allPermissions];
+  return run(request, (ctx) => L.saveAllModulePermissions(ctx, ...a));
+});
 exports.saveCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.companyData];
@@ -282,6 +302,11 @@ exports.saveRequisitionCategory = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
   return run(request, (ctx) => L.saveRequisitionCategory(ctx, ...a));
+});
+exports.saveRole = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.roleData];
+  return run(request, (ctx) => L.saveRole(ctx, ...a));
 });
 exports.saveSalesType = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

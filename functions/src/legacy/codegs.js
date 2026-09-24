@@ -9,12 +9,17 @@ const { firebaseDbRequest_, firestoreGet_, firestoreSet_, firestoreUpdate_, fire
 const __auth = require('../auth');
 const __glWriting = require('../glWriting');
 const __masterData = require('../masterData');
+const __moduleRegistry = require('../moduleRegistry');
+const __roles = require('../roles');
 
 // ---- helpers routed to the hand-ported shared modules ----
 const moduleHasCapability_ = (idToken, ...a) => __auth.moduleHasCapability(...a);
+const ensurePermissionsSeeded_ = (idToken, ...a) => __auth.ensurePermissionsSeeded(...a);
 const userCanAccessCompany_ = (...a) => __glWriting.userCanAccessCompany(...a);
+const ensureRolesSeeded_ = (idToken, ...a) => __roles.ensureRolesSeeded(...a);
 
 // ---- constants ----
+const { MODULE_REGISTRY } = __moduleRegistry;
 const { DEFAULT_UOMS } = __masterData;
 // ============================================================
 // CHART OF ACCOUNTS (COA) — Firebase-backed
@@ -222,6 +227,151 @@ const CUSTOMER_CATEGORIES = ['Retailer', 'Wholesaler', 'Distributor', 'Governmen
 const REQUISITION_CATEGORY_REQUIRED_ACCOUNT_TYPE = { FixedAsset: 'Asset', DirectExpense: 'Expense' };
 
 // ---- functions ----
+async function getRoles(idToken) {
+  await requireUser_(idToken);
+  const roles = await ensureRolesSeeded_(idToken);
+  return Object.keys(roles).map(id => Object.assign({ RoleID: id }, roles[id]));
+}
+
+async function saveRole(idToken, roleData) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'ROLES', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to manage roles.');
+    }
+
+    const roleId = String(roleData.RoleID || '').trim();
+    const name = String(roleData.Name || '').trim();
+    const description = String(roleData.Description || '').trim();
+    if (!name) throw new Error('Role name is required.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    if (roleId) {
+      const existing = await firebaseDbRequest_('roles/' + roleId, 'get', null, idToken);
+      if (!existing) throw new Error('Role not found.');
+      await firebaseDbRequest_('roles/' + roleId, 'patch', {
+        Name: name, Description: description, UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, roleId: roleId };
+    }
+
+    const newId = 'ROLE-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('roles/' + newId, 'put', {
+      Name: name, Description: description,
+      CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true, roleId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deleteRole(idToken, roleId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'ROLES', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to manage roles.');
+    }
+
+    const users = (await firebaseDbRequest_('users', 'get', null, idToken)) || {};
+    const inUse = Object.values(users).some(u => u.role === roleId);
+    if (inUse) throw new Error('This role is assigned to one or more users. Reassign them first.');
+
+    const permissions = await ensurePermissionsSeeded_(idToken);
+    ['ROLES', 'USERMGMT'].forEach(moduleId => {
+      const writers = (permissions[moduleId] && permissions[moduleId].write) || [];
+      if (writers.includes(roleId) && writers.length <= 1) {
+        throw new Error('Cannot delete this role — it is the only role that can manage ' + moduleId + '. Grant that permission to another role first.');
+      }
+    });
+
+    await firebaseDbRequest_('roles/' + roleId, 'delete', null, idToken);
+
+    // Clean up dangling references so the matrix and tree don't silently
+    // reference a role that no longer exists.
+    let permissionsChanged = false;
+    Object.keys(permissions).forEach(moduleId => {
+      Object.keys(permissions[moduleId]).forEach(capability => {
+        const idx = permissions[moduleId][capability].indexOf(roleId);
+        if (idx !== -1) { permissions[moduleId][capability].splice(idx, 1); permissionsChanged = true; }
+      });
+    });
+    if (permissionsChanged) await firebaseDbRequest_('permissions', 'put', permissions, idToken);
+
+    const treeNodes = (await firebaseDbRequest_('tree', 'get', null, idToken)) || {};
+    let treeChanged = false;
+    Object.keys(treeNodes).forEach(nodeId => {
+      const idx = (treeNodes[nodeId].AllowedRoles || []).indexOf(roleId);
+      if (idx !== -1) { treeNodes[nodeId].AllowedRoles.splice(idx, 1); treeChanged = true; }
+    });
+    if (treeChanged) await firebaseDbRequest_('tree', 'put', treeNodes, idToken);
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function getModulePermissionsMatrix(idToken) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'ROLES', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Roles & Permissions.');
+  }
+  return {
+    modules: MODULE_REGISTRY,
+    permissions: await ensurePermissionsSeeded_(idToken)
+  };
+}
+
+// The actual save path the Roles & Permissions screen uses. Saving used
+// to call saveModulePermissions once PER MODULE, sequentially — with
+// 30+ modules now registered, that meant 30+ separate round-trips to
+// Apps Script (each one its own Firebase call), one after another. This
+// is the actual fix for that reported slowness: every module's
+// permissions arrive in ONE call and get written in ONE Firebase
+// request (a single put at the /permissions root, which every module's
+// entry lives under), not one request per module.
+//
+// Validates EVERY module before writing anything — if any one module
+// fails validation (e.g. the ROLES/USERMGMT lockout guard), nothing is
+// written at all, rather than partially applying whatever came before
+// the invalid entry. That's a genuine behavior change from the old
+// per-module loop, which could save some modules successfully and then
+// hit an error partway through, leaving the permission set in a
+// half-updated state — this version is all-or-nothing instead.
+async function saveAllModulePermissions(idToken, allPermissions) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'ROLES', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to manage roles.');
+    }
+
+    const cleaned = {};
+    Object.keys(allPermissions || {}).forEach(rawId => {
+      const id = String(rawId || '').trim().toUpperCase();
+      const moduleDef = MODULE_REGISTRY.find(m => m.id === id);
+      if (!moduleDef) throw new Error('Unknown module: ' + rawId);
+
+      const permissionsForModule = allPermissions[rawId] || {};
+      if ((id === 'ROLES' || id === 'USERMGMT') && (!permissionsForModule.write || !permissionsForModule.write.length)) {
+        throw new Error('At least one role must keep write access to ' + id + ' to avoid locking everyone out.');
+      }
+
+      cleaned[id] = {};
+      moduleDef.capabilities.forEach(cap => {
+        cleaned[id][cap] = Array.isArray(permissionsForModule[cap]) ? permissionsForModule[cap] : [];
+      });
+    });
+
+    await firebaseDbRequest_('permissions', 'put', cleaned, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 async function requireModuleWrite_(idToken, user, moduleId) {
   if (!(await moduleHasCapability_(idToken, moduleId, 'write', user.profile.role))) {
     throw new Error('You do not have permission to modify ' + moduleId + '.');
@@ -2278,6 +2428,11 @@ async function deactivatePriceListLine(idToken, lineId) {
 }
 
 module.exports = {
+  getRoles,
+  saveRole,
+  deleteRole,
+  getModulePermissionsMatrix,
+  saveAllModulePermissions,
   requireModuleWrite_,
   getCoaData_,
   ensureSubCategoriesSeeded_,

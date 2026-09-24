@@ -294,7 +294,7 @@ function splitTopLevel(s) {
 }
 for (const mod of MODULES) {
   let s = fs.readFileSync(path.join(GAS, mod + '.html'), 'utf8');
-  const chains = (s.match(/google\.script\.run/g) || []).length;
+  const chains = (s.match(/google\.script\.run\s*[.[]/g) || []).length; // (ignores mentions in comments)
   let converted = 0;
   s = s.replace(/\.(\w+)\(\s*(token|idToken)\b\s*(?:,([\s\S]*?))?\)(\s*;)/g, (m, fn, _t, rest, tail) => {
     const names = argMap[fn] || HAND_ARGS[fn];

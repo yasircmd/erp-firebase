@@ -273,7 +273,7 @@ closure, and emits them VERBATIM (original comments included) into
 | PRICELISTING | ✅ | **not yet** |
 | PROCUREMENTSETUP | ✅ | **not yet** |
 | SALESINVOICESETUP | ✅ | **not yet** |
-| ROLES | — | — |
+| ROLES | ✅ | **not yet** |
 | USERMGMT | — | — |
 | TREEMGMT | — | — |
 | APPROVALCONFIG | — | — |
@@ -306,12 +306,12 @@ closure, and emits them VERBATIM (original comments included) into
 
 Needs redeploy: UOM — dynamic deactivate/reactivate calls now send { __positional: [...] }; the live callables predate that; ITEMSUBCAT — same (__positional); ORGUNITS — same (__positional); COMPANYMASTER — same (__positional); CURRENCYCONFIG — same (__positional). Their functions are included in the list below; deploying getModuleFragment WITHOUT them would break those screens' deactivate/reactivate buttons.
 
-**Next module to port:** ROLES
+**Next module to port:** USERMGMT
 
-**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP) — deploy these 59 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES) — deploy these 64 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getItemSubCategories getItems getOrgUnits getPriceListLines getPriceLists getRequisitionCategories getSalesTypes getUOMs getVendors reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveCompany saveCurrency saveCustomer saveCustomerClassification saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveSalesType saveUOM saveVendor
+getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor deleteRole getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getItemSubCategories getItems getModulePermissionsMatrix getOrgUnits getPriceListLines getPriceLists getRequisitionCategories getRoles getSalesTypes getUOMs getVendors reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveAllModulePermissions saveCompany saveCurrency saveCustomer saveCustomerClassification saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveRole saveSalesType saveUOM saveVendor
 ```
 <!-- PORT-STATUS:end -->
 
