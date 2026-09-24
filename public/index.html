@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker, details > summary::marker { display: none; }
+
+    /* Global print rules — .no-print already appears throughout every
+       module fragment's own @media print block, but the SHELL itself
+       (this file) needs its own copy for shell-level elements like the
+       copyright footer, and this is also where .print-only lives —
+       the mirror image, hidden on screen and shown only when printing,
+       used by modules to show a print-specific company header without
+       needing their own separate stylesheet rule for it. */
+    .print-only { display: none; }
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+    }
+
+    /* Global loading bar — a single, thin indicator for EVERY async
+       action across the whole app (posting, refreshing a list,
+       generating a report, opening a module), driven entirely by
+       wrapping google.script.run itself (see the script near the end
+       of this file) rather than anything each module has to call —
+       no module fragment needs to know this exists. Indeterminate
+       sweep, the same familiar pattern as YouTube/GitHub's own top
+       loading bar: a bright segment travels left to right, loops,
+       fades out cleanly rather than snapping away when the last
+       in-flight call finishes. */
+    #global-loading-bar {
+      position: fixed; top: 0; left: 0; right: 0; height: 3px;
+      z-index: 100; overflow: hidden; pointer-events: none;
+      opacity: 0; transition: opacity 0.15s ease-out;
+    }
+    #global-loading-bar.active { opacity: 1; }
+    #global-loading-bar::before {
+      content: ''; position: absolute; top: 0; bottom: 0; left: -30%; width: 30%;
+      background: linear-gradient(90deg, transparent, #3b82f6, #60a5fa, #3b82f6, transparent);
+      animation: global-loading-sweep 1.1s ease-in-out infinite;
+    }
+    /* blue-400/blue-500 read brightly against the dark theme's own
+       slate background, but the same mid-tone blues wash out to
+       near-pastel against a light background — same reasoning as
+       every other light-theme override in this file: darken to the
+       same blue-600/blue-700-equivalent shades already used
+       elsewhere for exactly this "readable on light" purpose. */
+    [data-theme="light"] #global-loading-bar::before {
+      background: linear-gradient(90deg, transparent, #1d4ed8, #2563eb, #1d4ed8, transparent);
+    }
+    @keyframes global-loading-sweep {
+      0% { left: -30%; }
+      100% { left: 100%; }
+    }
+
+    /* Paired with the Firebase Auth onAuthStateChanged handler in the
+       main script — session-restoring starts visible and login-card
+       starts hidden directly in their own HTML (see there), so there's
+       no attribute gate needed here the way the old synchronous
+       localStorage pre-check required; onAuthStateChanged flips these
+       once it knows whether a session actually exists. */
+
+    /* ============================================================
+       LIGHT THEME
+       ============================================================
+       Every module fragment is injected into this same document (see
+       injectHtmlWithScripts below) and styled entirely with Tailwind
+       utility classes — there's no per-module stylesheet to touch.
+       Rather than rewrite 30+ files, this overrides those SAME class
+       names, scoped under [data-theme="light"] on <html>, so the
+       override cascades automatically to every fragment ever injected,
+       past or future, without any fragment needing to know a light
+       theme exists. Each selector here has higher specificity than
+       Tailwind's own single-class rule (attribute selector + class,
+       vs. just a class), so no !important is needed — normal CSS
+       cascade rules already make these win.
+
+       Mapping principle: lightness is inverted while preserving the
+       ORIGINAL relative relationships — in dark mode, page (950/900)
+       is darkest, cards (800) are lighter than the page, inputs/
+       buttons (700/600) lighter still, and text runs from near-white
+       (100) for primary down to slate-600 for the most muted. Light
+       mode mirrors that same ordering with the scale flipped: page
+       becomes a soft off-white, cards become pure white (lighter than
+       the page, matching dark mode's own card-lighter-than-page
+       relationship), and text runs from near-black down to a light
+       gray for the most muted. Semantic accent colors (blue/red/
+       emerald/amber) mostly keep their hue, but the light "readable
+       on dark" text variants (400) are darkened to stay readable on a
+       light background instead.
+
+       This is a first pass covering every color utility class actually
+       in use across the app as of when this was written (surveyed via
+       grep, not guessed) — a new module using a color class outside
+       this set will simply render dark-styled even in light mode
+       rather than break, which is a real but bounded gap worth testing
+       for across a few modules rather than assuming total coverage.
+    */
+    [data-theme="light"] { color-scheme: light; }
+
+    /* Backgrounds — page/card/input hierarchy */
+    [data-theme="light"] .bg-slate-900 { background-color: #f8fafc; }
+    [data-theme="light"] .bg-slate-900\/40 { background-color: rgba(248,250,252,0.6); }
+    [data-theme="light"] .bg-slate-900\/60 { background-color: rgba(248,250,252,0.8); }
+    [data-theme="light"] .bg-slate-900\/80 { background-color: rgba(248,250,252,0.9); }
+    [data-theme="light"] .bg-slate-900\/95 { background-color: rgba(248,250,252,0.97); }
+    [data-theme="light"] .bg-slate-950\/80 { background-color: rgba(15,23,42,0.5); }
+    [data-theme="light"] .bg-slate-800 { background-color: #ffffff; }
+    [data-theme="light"] .bg-slate-800\/40 { background-color: rgba(255,255,255,0.7); }
+    [data-theme="light"] .bg-slate-800\/60 { background-color: rgba(255,255,255,0.85); }
+    [data-theme="light"] .bg-slate-800\/90 { background-color: rgba(255,255,255,0.97); }
+    [data-theme="light"] .bg-slate-700 { background-color: #f1f5f9; }
+    [data-theme="light"] .bg-slate-600 { background-color: #e2e8f0; }
+
+    /* Text — primary through most-muted, inverted */
+    [data-theme="light"] .text-slate-100 { color: #0f172a; }
+    [data-theme="light"] .text-slate-200 { color: #1e293b; }
+    [data-theme="light"] .text-slate-300 { color: #334155; }
+    [data-theme="light"] .text-slate-400 { color: #64748b; }
+    [data-theme="light"] .text-slate-500 { color: #64748b; }
+    [data-theme="light"] .text-slate-600 { color: #94a3b8; }
+
+    /* Borders — subtle in both themes, just lighter now */
+    [data-theme="light"] .border-slate-600 { border-color: #cbd5e1; }
+    [data-theme="light"] .border-slate-700 { border-color: #e2e8f0; }
+    [data-theme="light"] .border-slate-800 { border-color: #e2e8f0; }
+
+    /* Accent text variants — darkened for contrast on a light background */
+    [data-theme="light"] .text-blue-300 { color: #1d4ed8; }
+    [data-theme="light"] .text-blue-400 { color: #2563eb; }
+    [data-theme="light"] .text-emerald-300 { color: #047857; }
+    [data-theme="light"] .text-emerald-400 { color: #059669; }
+    [data-theme="light"] .text-red-300 { color: #b91c1c; }
+    [data-theme="light"] .text-red-300\/80 { color: rgba(185,28,28,0.8); }
+    [data-theme="light"] .text-red-400 { color: #dc2626; }
+    [data-theme="light"] .text-amber-400 { color: #b45309; }
+
+    /* Accent backgrounds/borders (alert boxes, badges) — subtle tints
+       work on either background, left as-is; blue-500/blue-600 and
+       the other button/badge base colors are also left unchanged,
+       since they're already designed to pop against any surface. */
+
+    /* hover:/focus: variants — Tailwind generates these as ENTIRELY
+       SEPARATE selectors from their plain counterparts (e.g.
+       .hover\:bg-slate-800:hover is not the same rule as .bg-slate-800),
+       so the overrides above do NOT apply to them even though they
+       share a class name. Missing this is what caused tree items and
+       buttons to go dark-text-on-dark-background on hover in light
+       mode — the plain text color was correctly darkened, but the
+       hover background silently kept its dark-theme value with
+       nothing overriding it. Same mapping principles as above, just
+       re-applied to the :hover/:focus selectors specifically. */
+    [data-theme="light"] .hover\:bg-slate-600:hover { background-color: #e2e8f0; }
+    [data-theme="light"] .hover\:bg-slate-700:hover { background-color: #f1f5f9; }
+    /* hover:text-white has no light-mode override anywhere else in
+       this file to piggyback on (only one button actually uses it) —
+       on hover its background already lightens via the rule above,
+       but the text stayed pure white with nothing correcting it,
+       making it unreadable against its own now-light background. */
+    [data-theme="light"] .hover\:text-white:hover { color: #0f172a; }
+    [data-theme="light"] .hover\:bg-slate-800:hover { background-color: #f8fafc; }
+    [data-theme="light"] .hover\:bg-slate-800\/40:hover { background-color: rgba(248,250,252,0.7); }
+    [data-theme="light"] .hover\:bg-slate-800\/60:hover { background-color: rgba(248,250,252,0.85); }
+    [data-theme="light"] .hover\:text-slate-200:hover { color: #1e293b; }
+    [data-theme="light"] .hover\:text-slate-300:hover { color: #334155; }
+    [data-theme="light"] .hover\:text-blue-300:hover { color: #1d4ed8; }
+    [data-theme="light"] .hover\:text-blue-400:hover { color: #2563eb; }
+    [data-theme="light"] .hover\:text-emerald-400:hover { color: #059669; }
+    [data-theme="light"] .hover\:text-red-400:hover { color: #dc2626; }
+  </style>
+  <script>
+    // Applied before the body renders (this script runs synchronously
+    // in <head>, before <body>) to avoid a flash of the wrong theme on
+    // load — reading localStorage here, not after DOMContentLoaded.
+    (function () {
+      const saved = localStorage.getItem('erp-theme');
+      if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-6">
+
+  <div id="global-loading-bar" class="no-print"></div>
+
+  <div id="session-restoring" class="text-center text-slate-400 text-sm space-y-3">
+    <i class="fa-solid fa-spinner animate-spin text-2xl text-blue-400"></i>
+    <p>Restoring your session...</p>
+  </div>
+
+  <div id="login-card" class="hidden w-full max-w-md bg-slate-800/90 border border-slate-700 rounded-xl p-8 shadow-2xl">
+    <div class="flex border-b border-slate-700 mb-6">
+      <button id="tab-login-btn" onclick="switchTab('login')" class="flex-1 pb-3 text-sm font-semibold text-blue-400 border-b-2 border-blue-500">Sign In</button>
+      <button id="tab-pwd-btn" onclick="switchTab('changePassword')" class="flex-1 pb-3 text-sm font-semibold text-slate-400 border-b-2 border-transparent">Forgot Password</button>
+    </div>
+
+    <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Corporate ID</label>
+        <div class="relative">
+          <i class="fa-solid fa-building absolute left-3 top-3 text-xs text-slate-500"></i>
+          <input type="text" id="corporate-id" required value="100" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Email address</label>
+        <div class="relative">
+          <i class="fa-solid fa-envelope absolute left-3 top-3 text-xs text-slate-500"></i>
+          <input type="email" id="email" required placeholder="name@company.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Password</label>
+        <div class="relative">
+          <i class="fa-solid fa-key absolute left-3 top-3 text-xs text-slate-500"></i>
+          <input type="password" id="password" required placeholder="Enter password" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+      </div>
+      <div id="login-error-msg" class="hidden text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg p-2.5 text-center"></div>
+      <button type="submit" id="login-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm">
+        <span>Sign In</span> <i class="fa-solid fa-arrow-right text-xs"></i>
+      </button>
+    </form>
+
+    <form id="pwd-form" onsubmit="handleForgotPassword(event)" class="space-y-4 hidden">
+      <p class="text-xs text-slate-400">Enter your email address and we'll send you a link to reset your password.</p>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Email address</label>
+        <input type="email" id="pwd-email" required placeholder="name@company.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-emerald-500">
+      </div>
+      <div id="pwd-msg" class="hidden text-xs rounded-lg p-2.5 text-center"></div>
+      <button type="submit" id="pwd-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg text-sm">Send Reset Link</button>
+    </form>
+  </div>
+
+  <div id="app-container" class="hidden w-full max-w-6xl mx-auto self-start">
+    <div class="sticky top-0 z-40 bg-slate-900/95 pt-2 pb-3 mb-4 border-b border-slate-800 flex justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <button id="back-to-tree-btn" onclick="handleBackToHierarchy()" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to Hierarchy</button>
+        <h1 id="app-title" class="text-xl font-bold text-blue-400"><i class="fa-solid fa-sitemap"></i> ERP Module Hierarchy Tree</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <div id="tree-controls" class="flex items-center gap-2">
+          <button id="toggle-expand-btn" onclick="toggleExpandCollapse()" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700">Expand All</button>
+          <button id="home-tasks-toggle-btn" onclick="toggleHomeTasksSection()" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-bell"></i> Tasks <span id="home-tasks-count" class="hidden text-red-400 font-semibold"></span></button>
+        </div>
+        <button id="theme-toggle-btn" onclick="toggleTheme()" title="Switch theme" class="no-print bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i id="theme-toggle-icon" class="fa-solid fa-sun"></i></button>
+        <div id="user-menu" class="relative hidden">
+          <button id="user-menu-btn" onclick="toggleUserMenu()" class="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700">
+            <i class="fa-solid fa-circle-user text-slate-500"></i>
+            <span id="user-info-name" class="font-medium"></span>
+            <span class="text-slate-600">·</span>
+            <span id="user-info-role" class="text-slate-400"></span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 ml-1"></i>
+          </button>
+          <div id="user-menu-panel" class="hidden absolute right-0 mt-2 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden z-50">
+            <button id="refresh-btn" onclick="refreshTree()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-rotate"></i> Refresh</button>
+            <button onclick="openChangePasswordModal()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-key"></i> Change Password</button>
+            <button onclick="handleLogout()" class="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tree-view-container">
+      <div id="home-tasks-section" class="hidden mb-6 space-y-4">
+        <div id="home-pending-approvals-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
+            <i class="fa-solid fa-clipboard-check text-blue-400 text-xs"></i>
+            <p class="text-xs font-semibold text-slate-300 uppercase">Your Pending Approvals</p>
+          </div>
+          <div id="home-pending-approvals-list" class="divide-y divide-slate-800"></div>
+        </div>
+        <div id="home-rejected-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
+            <i class="fa-solid fa-circle-exclamation text-red-400 text-xs"></i>
+            <p class="text-xs font-semibold text-slate-300 uppercase">Rejected — Needs Your Resubmission</p>
+          </div>
+          <div id="home-rejected-list" class="divide-y divide-slate-800"></div>
+        </div>
+      </div>
+      <div id="favorites-section" class="hidden mb-5">
+        <div id="favorites-list" class="grid grid-cols-5 gap-2"></div>
+      </div>
+      <div id="tree-container" class="pb-6"></div>
+    </div>
+
+    <!-- Generic module mount point. Every module (User Management, COA, GL, ...)
+         is a self-contained fragment loaded lazily and injected here after a
+         server-side permission check. Nothing is pre-loaded into this page. -->
+    <div id="module-container" class="hidden"></div>
+  </div>
+
+  <div id="app-copyright" class="fixed bottom-0 left-0 right-0 text-center text-[11px] text-slate-600 py-1.5 bg-slate-900/80 no-print"></div>
+
+  <div id="idle-warning-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-[60]">
+    <div class="bg-slate-800 border border-amber-500/40 rounded-xl w-full max-w-sm p-6 shadow-2xl text-center space-y-4">
+      <i class="fa-solid fa-clock text-amber-400 text-3xl"></i>
+      <h3 class="text-lg font-bold text-slate-100">Still there?</h3>
+      <p class="text-sm text-slate-400">You've been inactive for a while. For security, you'll be signed out in <span id="idle-countdown" class="text-amber-400 font-semibold">30</span> seconds.</p>
+      <button id="idle-stay-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm">Stay Signed In</button>
+    </div>
+  </div>
+
+  <div id="change-password-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-[60]">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+        <h3 class="text-lg font-bold text-slate-100"><i class="fa-solid fa-key text-blue-400"></i> Change Password</h3>
+        <button onclick="closeChangePasswordModal()" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form id="change-password-form" onsubmit="handleChangePassword(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Current Password</label>
+          <input type="password" id="cp-current" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">New Password</label>
+          <input type="password" id="cp-new" required minlength="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Confirm New Password</label>
+          <input type="password" id="cp-confirm" required minlength="6" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div id="cp-msg" class="hidden text-xs rounded-lg p-2.5 text-center"></div>
+        <button id="cp-submit-btn" type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm">Update Password</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    // Firebase's own modular SDK, loaded directly from Google's CDN —
+    // no build step, matching how this whole app has stayed a single
+    // static file rather than a bundled project. Kept as its own
+    // separate module script rather than converting the ENTIRE file
+    // below to type="module": nearly every element in this file is
+    // wired up via a plain onclick="someFunction()" attribute, which
+    // depends on that function being a true global — a module's own
+    // top-level declarations are NOT globals by default. Rewriting
+    // every one of those attributes into addEventListener calls would
+    // be a much larger, much riskier change to bundle into this same
+    // migration step, so instead: this module imports what's needed,
+    // then bridges it onto window.__firebaseSdk for the plain script
+    // below (which every onclick in this file already depends on) to
+    // use exactly like any other global.
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+    import {
+      getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+      sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider, updatePassword
+    } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+    import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js';
+
+    // Safe to be public — this identifies the project, it isn't a
+    // secret. Access control is enforced by the Cloud Functions
+    // themselves (see functions/src/auth.js) and by the deny-all
+    // Security Rules, never by hiding this config. Fill in the real
+    // values from Firebase Console > Project Settings > General >
+    // Your apps > Web app (create one there first if none exists yet).
+    const firebaseConfig = {
+      apiKey: 'REPLACE_ME',
+      authDomain: 'erp1-8f4cd.firebaseapp.com',
+      databaseURL: 'https://erp1-8f4cd-default-rtdb.firebaseio.com',
+      projectId: 'erp1-8f4cd',
+      storageBucket: 'REPLACE_ME',
+      messagingSenderId: 'REPLACE_ME',
+      appId: 'REPLACE_ME'
+    };
+
+    const firebaseApp = initializeApp(firebaseConfig);
+    const auth = getAuth(firebaseApp);
+    // Region must match where the Cloud Functions themselves are
+    // deployed (us-central1 — see the top-level migration README for
+    // why) or every call pays a needless cross-region hop.
+    const functionsInstance = getFunctions(firebaseApp, 'us-central1');
+
+    window.__firebaseSdk = {
+      auth, functionsInstance, httpsCallable,
+      signInWithEmailAndPassword, signOut, onAuthStateChanged,
+      sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider, updatePassword
+    };
+  </script>
+
+  <script>
+    // ---------- GLOBAL LOADING BAR ----------
+    let __rpcPendingCount = 0;
+    const __rpcBar = document.getElementById('global-loading-bar');
+    function __rpcStart() {
+      __rpcPendingCount++;
+      __rpcBar.classList.add('active');
+      // Safety net: a caller that ever omits one of the two handlers
+      // would otherwise leave this stuck active forever, since only
+      // one of success/failure ever fires per call. Auto-clears this
+      // one call's contribution after 30s regardless — same reasoning
+      // as the original GAS-era wrapper this replaces.
+      return setTimeout(__rpcFinish, 30000);
+    }
+    function __rpcFinish(timer) {
+      if (timer) clearTimeout(timer);
+      __rpcPendingCount = Math.max(0, __rpcPendingCount - 1);
+      if (__rpcPendingCount === 0) __rpcBar.classList.remove('active');
+    }
+
+    // ---------- RPC BRIDGE ----------
+    // Synthesizes google.script.run's own chaining API
+    // (.withSuccessHandler(fn).withFailureHandler(fn).actualMethod(arg))
+    // on top of Cloud Functions' httpsCallable — purely so every
+    // existing call site elsewhere in this file needs only
+    // "google.script.run" replaced with "rpc", nothing else about its
+    // own structure. A deliberately mechanical substitution rather
+    // than restructuring every caller into async/await during an
+    // already high-stakes migration. Callable functions take a single
+    // data argument (not the old positional-args style) — each call
+    // site below packs its own arguments into a plain object matching
+    // what the matching ported function expects; the caller's own
+    // Firebase ID token is no longer passed explicitly at all, since
+    // callable functions verify it automatically (see
+    // functions/src/auth.js's own requireUser).
+    function __rpcChain(ctx) {
+      return new Proxy({}, {
+        get(_t, prop) {
+          if (prop === 'withSuccessHandler') {
+            return function (fn) { ctx.successFn = fn; return __rpcChain(ctx); };
+          }
+          if (prop === 'withFailureHandler') {
+            return function (fn) { ctx.failureFn = fn; return __rpcChain(ctx); };
+          }
+          return function (arg) {
+            const timer = __rpcStart();
+            const sdk = window.__firebaseSdk;
+            sdk.httpsCallable(sdk.functionsInstance, prop)(arg)
+              .then(result => { __rpcFinish(timer); if (ctx.successFn) ctx.successFn(result.data); })
+              .catch(err => { __rpcFinish(timer); if (ctx.failureFn) ctx.failureFn({ message: err.message || 'Something went wrong.' }); });
+          };
+        }
+      });
+    }
+    // rpc itself must hand back a FRESH chain (fresh ctx) on every
+    // property access, not a shared one — otherwise two concurrent
+    // calls (several modules already fire more than one during their
+    // own initModule()) would have their handlers stomp on each
+    // other's, the same bug the original GAS-era wrapper's own
+    // comment specifically warned about.
+    const rpc = new Proxy({}, { get(_t, prop) { return __rpcChain({})[prop]; } });
+
+    // Compatibility shim for every module fragment NOT yet ported to
+    // Cloud Functions (all 45 others, at the time of this shell port).
+    // Each one still calls google.script.run internally, and on this
+    // Firebase-hosted page that object simply doesn't exist — it was
+    // never a generic web API, only something GAS's own HtmlService
+    // injected. Without this, opening any unported module throws an
+    // uncaught ReferenceError that takes down the whole page. With it,
+    // the exact same call still fails (there's no real Cloud Function
+    // behind its name yet), but fails the way the module's own
+    // existing .withFailureHandler(...) already expects — a clean,
+    // visible error instead of a silent crash. This is a deliberate,
+    // temporary bridge for the staged migration, not a permanent
+    // feature — remove it once every module has its own real port.
+    window.google = { script: { run: rpc } };
+
+    document.getElementById('app-copyright').textContent = '© ' + new Date().getFullYear() + ' Yasir AV. All rights reserved.';
+
+    // ---------- CROSS-TAB ACTIVITY SYNC ----------
+    // Session persistence and cross-tab sign-out are now handled
+    // natively by Firebase Auth's own onAuthStateChanged below — it
+    // already fires in every open tab the moment any one of them
+    // signs out, the same guarantee the old custom
+    // SESSION_STORAGE_KEY-based storage listener existed to provide.
+    // What Firebase Auth does NOT know about is mouse movement — the
+    // idle timer itself stays this app's own concern, so this part of
+    // the old listener is kept, just narrowed to only that.
+    const ACTIVITY_STORAGE_KEY = 'erp-last-activity';
+    window.addEventListener('storage', function (e) {
+      if (e.key === ACTIVITY_STORAGE_KEY && currentUser) {
+        // Activity happened in ANOTHER tab — reset this tab's own idle
+        // timer too (confirmed: the idle timeout applies globally, any
+        // tab counts), but withOUT re-broadcasting — resetIdleTimer's
+        // own broadcast is what's already being responded to here, so
+        // re-broadcasting would ping-pong endlessly between tabs.
+        resetIdleTimer(true);
+      }
+    });
+
+    // ---------- SESSION ----------
+    // onAuthStateChanged fires once on page load with whatever
+    // Firebase Auth already has persisted (or null if nothing does),
+    // AND again any time sign-in/sign-out happens in ANY tab —
+    // replacing both the old attemptSessionRestore() call and the old
+    // cross-tab session-storage listener at once, natively.
+    //
+    // signInWithEmailAndPassword (see handleLogin, further down)
+    // itself triggers this same handler firing too — the ONLY place
+    // that ever builds the actual session response, for either a
+    // fresh login or a restored one, is here, never handleLogin
+    // itself directly. That's deliberate: pendingCorporateId is how
+    // this handler tells the two cases apart. A fresh login needs the
+    // Corporate ID check (completeLogin); a session Firebase Auth is
+    // restoring on its own does not (restoreSession) — matching the
+    // old restoreSession's own "no re-check on restore" behavior
+    // exactly. Letting handleLogin call completeLogin directly INSTEAD
+    // of going through here would race this handler's own automatic
+    // restoreSession call, since signInWithEmailAndPassword succeeding
+    // fires this handler regardless.
+    let currentUser = null;
+    let pendingCorporateId = null;
+
+    function handleSessionResult(response) {
+      currentUser = window.__firebaseSdk.auth.currentUser;
+      document.getElementById('session-restoring').classList.add('hidden');
+      onAuthResponse(response);
+    }
+    function handleSessionFailure(err) {
+      // The Firebase Auth session itself is valid, but the app-level
+      // check rejected it (wrong Corporate ID, or the ERP account was
+      // deactivated since) — sign out entirely rather than leave the
+      // user stuck signed-in-to-Firebase-but-not-into-the-app.
+      window.__firebaseSdk.signOut(window.__firebaseSdk.auth);
+      document.getElementById('session-restoring').classList.add('hidden');
+      document.getElementById('login-card').classList.remove('hidden');
+      showLoginFailure(err);
+    }
+
+    window.__firebaseSdk.onAuthStateChanged(window.__firebaseSdk.auth, function (user) {
+      if (!user) {
+        currentUser = null;
+        pendingCorporateId = null;
+        mainCompanyName = '';
+        clearTimeout(idleTimer); clearTimeout(idleWarningTimer); hideIdleWarning();
+        showTreeNav();
+        document.getElementById('tree-container').innerHTML = '';
+        document.getElementById('module-container').innerHTML = '';
+        document.getElementById('login-form').reset();
+        document.getElementById('login-error-msg').classList.add('hidden');
+        document.getElementById('app-container').classList.add('hidden');
+        document.body.classList.add('items-center', 'justify-center');
+        document.getElementById('session-restoring').classList.add('hidden');
+        document.getElementById('login-card').classList.remove('hidden');
+        document.getElementById('user-menu').classList.add('hidden');
+        document.getElementById('user-menu-panel').classList.add('hidden');
+        document.getElementById('user-info-name').textContent = '';
+        document.getElementById('user-info-role').textContent = '';
+        switchTab('login');
+        return;
+      }
+      const isFreshLogin = pendingCorporateId !== null;
+      const corporateId = pendingCorporateId;
+      pendingCorporateId = null; // consumed exactly once, regardless of outcome
+      if (isFreshLogin) {
+        rpc.withSuccessHandler(handleSessionResult).withFailureHandler(handleSessionFailure).completeLogin({ corporateId: corporateId });
+      } else {
+        rpc.withSuccessHandler(handleSessionResult).withFailureHandler(handleSessionFailure).restoreSession();
+      }
+    });
+
+
+    // ---------- AUTO LOG-OFF (10 min idle) ----------
+    // Security timeout, not a convenience feature — deliberately does
+    // NOT check window.hasUnsavedChanges() the way the manual "Back to
+    // Hierarchy" navigation does. The whole point is protecting an
+    // unattended, signed-in session; asking "are you sure, you'll lose
+    // unsaved changes" would defeat that if nobody's there to answer it.
+    // The 30-second warning countdown is what gives a genuinely-present
+    // user the chance to prevent it, not a bypass for an absent one.
+    const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+    const IDLE_WARNING_LEAD_MS = 30 * 1000;
+    let idleTimer = null;
+    let idleWarningTimer = null;
+    let idleCountdownInterval = null;
+
+    function resetIdleTimer(skipBroadcast) {
+      if (!currentUser) return; // not signed in — nothing to track
+      if (!skipBroadcast) { try { localStorage.setItem(ACTIVITY_STORAGE_KEY, String(Date.now())); } catch (e) {} }
+      clearTimeout(idleTimer);
+      clearTimeout(idleWarningTimer);
+      hideIdleWarning();
+      idleWarningTimer = setTimeout(showIdleWarning, IDLE_TIMEOUT_MS - IDLE_WARNING_LEAD_MS);
+      idleTimer = setTimeout(performIdleLogout, IDLE_TIMEOUT_MS);
+    }
+
+    function showIdleWarning() {
+      document.getElementById('idle-warning-modal').classList.remove('hidden');
+      let remaining = Math.round(IDLE_WARNING_LEAD_MS / 1000);
+      document.getElementById('idle-countdown').textContent = String(remaining);
+      idleCountdownInterval = setInterval(() => {
+        remaining -= 1;
+        document.getElementById('idle-countdown').textContent = String(Math.max(remaining, 0));
+        if (remaining <= 0) clearInterval(idleCountdownInterval);
+      }, 1000);
+    }
+
+    function hideIdleWarning() {
+      document.getElementById('idle-warning-modal').classList.add('hidden');
+      clearInterval(idleCountdownInterval);
+    }
+
+    function performIdleLogout() {
+      hideIdleWarning();
+      if (!currentUser) return; // already signed out some other way
+      // Just signs out — Firebase Auth's own onAuthStateChanged (see
+      // above) fires in every open tab the moment this happens,
+      // cascading the UI reset there too, natively. The old version of
+      // this also force-reloaded the page, specifically to work around
+      // google.script.run's own bridge going stale after a long-open
+      // session — a GAS platform quirk with no equivalent here, so
+      // there's nothing left that reload was actually fixing.
+      window.__firebaseSdk.signOut(window.__firebaseSdk.auth);
+    }
+
+    // A broad, passive activity set covering both desktop and touch —
+    // passive listeners so this never delays or blocks the interactions
+    // it's observing. Wrapped in an arrow function rather than passing
+    // resetIdleTimer directly — a DOM listener invokes its handler as
+    // handler(event), which would otherwise make the event object
+    // itself become resetIdleTimer's own skipBroadcast argument (always
+    // truthy), silently skipping the cross-tab broadcast on every real
+    // local activity and quietly breaking the whole feature.
+    ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(evt => {
+      document.addEventListener(evt, () => resetIdleTimer(), { passive: true });
+    });
+
+    function escapeHtml(value) {
+      const div = document.createElement('div');
+      div.textContent = value == null ? '' : String(value);
+      return div.innerHTML;
+    }
+
+    // The <head> script already applied a saved theme (if any) before
+    // the body rendered, to avoid a flash of the wrong theme — this
+    // just syncs the toggle button's icon to match whatever's already
+    // in effect, and handles switching it afterward.
+    function updateThemeIcon() {
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      document.getElementById('theme-toggle-icon').className = isLight ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+    }
+    function toggleTheme() {
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      if (isLight) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('erp-theme', 'dark');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        localStorage.setItem('erp-theme', 'light');
+      }
+      updateThemeIcon();
+    }
+    updateThemeIcon();
+
+    function switchTab(tab) {
+      const login = tab === 'login';
+      document.getElementById('login-form').classList.toggle('hidden', !login);
+      document.getElementById('pwd-form').classList.toggle('hidden', login);
+      document.getElementById('tab-login-btn').className = login ? 'flex-1 pb-3 text-sm font-semibold text-blue-400 border-b-2 border-blue-500' : 'flex-1 pb-3 text-sm font-semibold text-slate-400 border-b-2 border-transparent';
+      document.getElementById('tab-pwd-btn').className = !login ? 'flex-1 pb-3 text-sm font-semibold text-emerald-400 border-b-2 border-emerald-500' : 'flex-1 pb-3 text-sm font-semibold text-slate-400 border-b-2 border-transparent';
+    }
+
+    function handleLogin(event) {
+      event.preventDefault();
+      const btn = document.getElementById('login-btn');
+      const error = document.getElementById('login-error-msg');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Authenticating...';
+      error.classList.add('hidden');
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const corporateId = document.getElementById('corporate-id').value.trim();
+      const sdk = window.__firebaseSdk;
+
+      // Signals to the onAuthStateChanged handler above that whatever
+      // fires next is a FRESH login (needs the Corporate ID check via
+      // completeLogin), not a restored session — see that handler's
+      // own comment for why this indirection exists at all rather
+      // than calling completeLogin directly from here.
+      pendingCorporateId = corporateId;
+      sdk.signInWithEmailAndPassword(sdk.auth, email, password)
+        .catch(err => {
+          pendingCorporateId = null;
+          showLoginFailure({ message: mapFirebaseAuthError(err) });
+        });
+      // On success, onAuthStateChanged fires automatically and takes
+      // it from here — nothing further to do in this function.
+    }
+
+    function mapFirebaseAuthError(err) {
+      const code = err && err.code;
+      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+        return 'Invalid email or password.';
+      }
+      if (code === 'auth/too-many-requests') return 'Too many attempts — please wait a moment and try again.';
+      if (code === 'auth/user-disabled') return 'This account has been disabled.';
+      return (err && err.message) || 'Unable to sign in.';
+    }
+
+    function showLoginFailure(err) {
+      const btn = document.getElementById('login-btn');
+      btn.disabled = false;
+      btn.innerHTML = '<span>Sign In</span> <i class="fa-solid fa-arrow-right text-xs"></i>';
+      const error = document.getElementById('login-error-msg');
+      error.textContent = err.message || 'Unable to sign in.';
+      error.classList.remove('hidden');
+    }
+
+    function onAuthResponse(response) {
+      // No more (!response.authenticated) check here — completeLogin
+      // and restoreSession now THROW on failure (see
+      // functions/src/session.js) rather than returning a flag, so a
+      // failure is already caught by handleSessionFailure above and
+      // never reaches this function at all.
+      const btn = document.getElementById('login-btn');
+      btn.disabled = false;
+      btn.innerHTML = '<span>Sign In</span> <i class="fa-solid fa-arrow-right text-xs"></i>';
+      document.getElementById('login-card').classList.add('hidden');
+      document.body.classList.remove('items-center', 'justify-center');
+      document.getElementById('app-container').classList.remove('hidden');
+
+      document.getElementById('user-info-name').textContent = response.fullName || '';
+      document.getElementById('user-info-role').textContent = response.roleName || response.role || '';
+      document.getElementById('user-menu').classList.remove('hidden');
+
+      buildTreeUI(response.data);
+      loadMainCompanyName();
+      loadFavorites();
+      loadHomeTasks();
+      resetIdleTimer();
+    }
+
+    function handleForgotPassword(event) {
+      event.preventDefault();
+      const email = document.getElementById('pwd-email').value.trim();
+      const btn = document.getElementById('pwd-btn');
+      const box = document.getElementById('pwd-msg');
+      btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Sending...'; box.classList.add('hidden');
+      const sdk = window.__firebaseSdk;
+      sdk.sendPasswordResetEmail(sdk.auth, email)
+        .then(() => {
+          btn.disabled = false; btn.textContent = 'Send Reset Link';
+          showPasswordMessage('If an account exists for that email, a password reset link has been sent.', true);
+          document.getElementById('pwd-form').reset();
+        })
+        .catch(err => {
+          btn.disabled = false; btn.textContent = 'Send Reset Link';
+          // Same privacy stance the old server-side function had
+          // deliberately built in: never reveal whether an email is
+          // actually registered. auth/user-not-found is treated as a
+          // generic success here for that reason. For this to hold
+          // for every case (not just this one client-side check),
+          // also enable "Email enumeration protection" in Firebase
+          // Console > Authentication > Settings — that setting is what
+          // stops the SDK from ever throwing user-not-found in the
+          // first place, rather than this catch having to paper over
+          // it after the fact.
+          if (err.code === 'auth/user-not-found') {
+            showPasswordMessage('If an account exists for that email, a password reset link has been sent.', true);
+            document.getElementById('pwd-form').reset();
+          } else {
+            showPasswordMessage(err.message || 'Unable to send reset email.', false);
+          }
+        });
+    }
+
+    function showPasswordMessage(message, success) {
+      const box = document.getElementById('pwd-msg');
+      box.textContent = message || 'Request failed.';
+      box.className = success ? 'text-xs rounded-lg p-2.5 text-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'text-xs rounded-lg p-2.5 text-center bg-red-500/10 border border-red-500/20 text-red-400';
+    }
+
+    function handleLogout() {
+      // Just signs out — onAuthStateChanged's own null-user branch
+      // (above) does the entire UI reset, the same code path an idle
+      // timeout or a cross-tab sign-out both already go through too.
+      // One single place that means "user is now signed out",
+      // regardless of what triggered it.
+      window.__firebaseSdk.signOut(window.__firebaseSdk.auth);
+    }
+
+    // ---------- TREE ----------
+
+    let treeExpanded = false;
+    let mainCompanyName = '';
+    let favorites = [];
+
+    function loadFavorites() {
+      rpc
+        .withSuccessHandler(result => {
+          favorites = result || [];
+          renderFavorites();
+          syncTreeStars();
+        })
+        .withFailureHandler(() => { favorites = []; })
+        .getMyFavorites();
+    }
+
+    // ---------- HOME: PENDING APPROVALS / REJECTED-TO-RESUBMIT ----------
+    let homePendingCount = 0;
+    let homeRejectedCount = 0;
+
+    function loadHomeTasks() {
+      rpc
+        .withSuccessHandler(result => { renderPendingApprovals(result || []); })
+        .withFailureHandler(() => { renderPendingApprovals([]); })
+        .getPendingApprovalsForUser();
+
+      rpc
+        .withSuccessHandler(result => { renderRejectedSubmissions(result || []); })
+        .withFailureHandler(() => { renderRejectedSubmissions([]); })
+        .getMyRejectedSubmissions();
+    }
+
+    function openHomeTaskDocument(moduleId, documentId) {
+      openModule(moduleId, { OpenEntryId: documentId });
+    }
+
+    // Collapsed by default (home-tasks-section starts with the hidden
+    // class already, in the HTML itself) — the toggle button is the
+    // ONLY thing that opens or closes it; the counts below only
+    // control the button's own visibility and count text, never the
+    // section's open/closed state directly, so approving something
+    // mid-review doesn't suddenly collapse the list out from under the
+    // user.
+    function toggleHomeTasksSection() {
+      document.getElementById('home-tasks-section').classList.toggle('hidden');
+    }
+
+    function renderPendingApprovals(items) {
+      homePendingCount = items.length;
+      const list = document.getElementById('home-pending-approvals-list');
+      document.getElementById('home-pending-approvals-block').classList.toggle('hidden', items.length === 0);
+      updateHomeTasksToggleButton();
+      list.innerHTML = '';
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-700/30 cursor-pointer text-sm';
+        row.innerHTML = `
+          <div class="min-w-0">
+            <span class="text-slate-200 font-medium">${escapeHtml(item.DocumentNumber || item.DocumentID)}</span>
+            <span class="text-slate-500 text-xs ml-2">${escapeHtml(item.ModuleLabel)}</span>
+          </div>
+          <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>`;
+        row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
+        list.appendChild(row);
+      });
+    }
+
+    function renderRejectedSubmissions(items) {
+      homeRejectedCount = items.length;
+      const list = document.getElementById('home-rejected-list');
+      document.getElementById('home-rejected-block').classList.toggle('hidden', items.length === 0);
+      updateHomeTasksToggleButton();
+      list.innerHTML = '';
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'px-4 py-2.5 hover:bg-slate-700/30 cursor-pointer text-sm space-y-0.5';
+        row.innerHTML = `
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <span class="text-slate-200 font-medium">${escapeHtml(item.DocumentNumber || item.DocumentID)}</span>
+              <span class="text-slate-500 text-xs ml-2">${escapeHtml(item.ModuleLabel)}</span>
+            </div>
+            <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+          </div>
+          ${item.RejectionReason ? `<p class="text-xs text-red-400/80 truncate">${escapeHtml(item.RejectionReason)}</p>` : ''}`;
+        row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
+        list.appendChild(row);
+      });
+    }
+
+    // Drives the toggle button ONLY — visible (with the combined
+    // count) whenever there's at least one task either way, hidden
+    // entirely when there's nothing to show, same "hide when empty"
+    // convention Favorites already uses. Both renderPendingApprovals
+    // and renderRejectedSubmissions call this after updating their own
+    // count, since either one changing can change the combined total.
+    function updateHomeTasksToggleButton() {
+      const total = homePendingCount + homeRejectedCount;
+      const countSpan = document.getElementById('home-tasks-count');
+      // Button itself is always visible now — only the red count badge
+      // shows or hides based on whether there's actually anything
+      // pending, rather than the whole button popping in and out.
+      countSpan.classList.toggle('hidden', total === 0);
+      countSpan.textContent = '(' + total + ')';
+      if (total === 0) document.getElementById('home-tasks-section').classList.add('hidden');
+    }
+
+    // buildTreeUI can render (and does, on login — see onAuthResponse)
+    // before this async favorites fetch resolves, so every star starts
+    // as "not favorited" regardless of actual state. This re-syncs
+    // every star already in the DOM once the real data arrives, rather
+    // than re-running buildTreeUI (which would reset expand/collapse
+    // state the user may have already set).
+    function syncTreeStars() {
+      document.querySelectorAll('[data-favorite-module-id]').forEach(starBtn => {
+        const moduleId = starBtn.getAttribute('data-favorite-module-id');
+        const star = starBtn.querySelector('i');
+        if (star) updateStarIcon(star, isFavorite(moduleId));
+      });
+    }
+
+    function isFavorite(moduleId) { return favorites.some(f => f.moduleId === moduleId); }
+
+    function renderFavorites() {
+      const section = document.getElementById('favorites-section');
+      const list = document.getElementById('favorites-list');
+      section.classList.toggle('hidden', favorites.length === 0);
+      list.innerHTML = '';
+      // Grid of exactly 5 columns regardless of how many favorites exist
+      // (1-5) — always one row, never wraps. Name gets truncated with
+      // an ellipsis rather than wrapping or overflowing; the full name
+      // is still available via the title tooltip. No star icon here —
+      // the section header already says "Favorites" with its own star,
+      // repeating it on every chip was redundant.
+      favorites.forEach(f => {
+        const btn = document.createElement('button');
+        btn.className = 'bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 truncate';
+        btn.title = f.label;
+        btn.textContent = f.label;
+        btn.addEventListener('click', () => openModule(f.moduleId));
+        list.appendChild(btn);
+      });
+    }
+
+    // Toggles a module's favorite status — called from the star icon on
+    // each clickable tree leaf, never from clicking the leaf itself
+    // (stopPropagation in buildTreeUI keeps the two independent, so
+    // starring a module doesn't also open it).
+    function toggleFavoriteClick(moduleId, label, starEl) {
+      rpc
+        .withSuccessHandler(result => {
+          // No more (result.success) check — toggleFavorite now THROWS
+          // on failure (see functions/src/favorites.js) rather than
+          // returning a flag, so a failure is already caught by
+          // withFailureHandler below and never reaches this handler.
+          favorites = result.favorites;
+          renderFavorites();
+          updateStarIcon(starEl, isFavorite(moduleId));
+        })
+        .withFailureHandler(err => alert(err.message || 'Unable to update favorites.'))
+        .toggleFavorite({ moduleId: moduleId, moduleLabel: label });
+    }
+
+    function updateStarIcon(starEl, favorited) {
+      starEl.className = favorited ? 'fa-solid fa-star text-amber-400 text-xs' : 'fa-regular fa-star text-slate-500 text-xs';
+      starEl.title = favorited ? 'Remove from favorites' : 'Add to favorites (up to 5)';
+      // Visibility is identical regardless of favorited state. Uses a
+      // direct hover on the star button ITSELF (not group-hover from
+      // the parent <li>) — the star only appears while the cursor is
+      // exactly over its own small area, not anywhere else on the row.
+      // Hovering the module's text label, for instance, does not reveal
+      // it; only hovering the star's own spot does. Only the icon's own
+      // style (solid amber vs. light outline) reflects favorited status
+      // — a favorited module isn't permanently marked with a visible
+      // star, per explicit correction.
+      const btn = starEl.closest('button');
+      if (btn) btn.className = 'opacity-0 hover:opacity-100 transition-opacity';
+    }
+
+    // "Main company" = whichever company has CompanyRefCode '01' — the
+    // reference code convention already used for voucher numbering
+    // (JV-26-01-000001), so '01' already means "the primary company" in
+    // this system, not a new concept invented just for this.
+    function loadMainCompanyName() {
+      rpc
+        .withSuccessHandler(result => {
+          const main = (result || []).find(c => c.CompanyRefCode === '01');
+          mainCompanyName = main ? main.LegalName : '';
+          applyTreeTitle();
+        })
+        .withFailureHandler(() => { mainCompanyName = ''; })
+        .getActiveCompanies();
+    }
+
+    function applyTreeTitle() {
+      const titleEl = document.getElementById('app-title');
+      // Only touch the title when the tree nav itself is showing — a
+      // module fragment owns app-title's content while it's loaded, and
+      // this must never clobber that.
+      if (!document.getElementById('tree-view-container').classList.contains('hidden')) {
+        titleEl.innerHTML = '<i class="fa-solid fa-sitemap"></i> ERP Module Hierarchy Tree' + (mainCompanyName ? ' - ' + escapeHtml(mainCompanyName) : '');
+      }
+    }
+
+    function buildTreeUI(flatData) {
+      treeExpanded = false;
+      document.getElementById('toggle-expand-btn').textContent = 'Expand All';
+
+      const container = document.getElementById('tree-container'); container.innerHTML = '';
+      if (!flatData || !flatData.length) { container.innerHTML = '<div class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-amber-400 text-sm">No permissions granted or empty tree structure found.</div>'; return; }
+      const root = document.createElement('ul'); root.className = 'divide-y divide-slate-800 border border-slate-800 rounded-lg overflow-hidden bg-slate-900';
+      const stack = [{ depth: -1, container: root }];
+      flatData.forEach((item, index) => {
+        const hasChildren = flatData[index + 1] && flatData[index + 1].depth > item.depth;
+        while (stack.length > 1 && stack[stack.length - 1].depth >= item.depth) stack.pop();
+        const li = document.createElement('li');
+        if (hasChildren) {
+          const details = document.createElement('details'); details.className = 'group';
+          const summary = document.createElement('summary'); summary.className = 'cursor-pointer py-2.5 px-3 flex items-center gap-2.5 font-medium text-slate-200 hover:bg-slate-800';
+          summary.innerHTML = `<i class="fa-solid fa-chevron-right text-xs text-slate-400 group-open:rotate-90"></i><i class="fa-solid ${item.depth === 0 ? 'fa-layer-group text-blue-400' : 'fa-folder text-emerald-400'} text-xs"></i><span>${escapeHtml(item.text)}</span>`;
+          const children = document.createElement('ul'); children.className = 'pl-6 pr-2 pb-1.5 border-l border-slate-800 ml-4';
+          details.append(summary, children); li.appendChild(details); stack[stack.length - 1].container.appendChild(li); stack.push({ depth: item.depth, container: children });
+        } else {
+          li.className = 'py-1.5 pl-7 pr-2 flex items-center justify-between gap-2 text-sm text-slate-400 hover:text-blue-400 hover:bg-slate-800 cursor-pointer';
+          li.innerHTML = `<span class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-[6px] text-slate-500"></i><span>${escapeHtml(item.text)}</span></span>`;
+          if (item.moduleId) {
+            li.classList.add('text-blue-400', 'font-medium');
+            li.addEventListener('click', () => openModule(item.moduleId));
+
+            const starBtn = document.createElement('button');
+            starBtn.type = 'button';
+            starBtn.setAttribute('data-favorite-module-id', item.moduleId);
+            starBtn.title = 'Add to favorites (up to 5)';
+            const star = document.createElement('i');
+            starBtn.appendChild(star);
+            updateStarIcon(star, isFavorite(item.moduleId));
+            starBtn.addEventListener('click', e => {
+              e.stopPropagation(); // never trigger the leaf's own openModule click
+              toggleFavoriteClick(item.moduleId, item.text, star);
+            });
+            li.appendChild(starBtn);
+          }
+          stack[stack.length - 1].container.appendChild(li);
+        }
+      });
+      container.appendChild(root);
+    }
+
+    function toggleAll(expand) { document.querySelectorAll('details').forEach(node => node.open = expand); }
+
+    function toggleExpandCollapse() {
+      treeExpanded = !treeExpanded;
+      toggleAll(treeExpanded);
+      document.getElementById('toggle-expand-btn').textContent = treeExpanded ? 'Collapse All' : 'Expand All';
+    }
+
+    function refreshTree() {
+      closeUserMenu();
+      const btn = document.getElementById('refresh-btn');
+      const original = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Refreshing...';
+      btn.disabled = true;
+      rpc
+        .withSuccessHandler(data => {
+          btn.innerHTML = original;
+          btn.disabled = false;
+          buildTreeUI(data);
+        })
+        .withFailureHandler(err => {
+          btn.innerHTML = original;
+          btn.disabled = false;
+          alert(err.message || 'Unable to refresh.');
+        })
+        .getMyTree();
+    }
+
+    function toggleUserMenu() {
+      document.getElementById('user-menu-panel').classList.toggle('hidden');
+    }
+
+    function closeUserMenu() {
+      document.getElementById('user-menu-panel').classList.add('hidden');
+    }
+
+    // ---------- CHANGE PASSWORD ----------
+    function openChangePasswordModal() {
+      closeUserMenu();
+      document.getElementById('change-password-form').reset();
+      document.getElementById('cp-msg').classList.add('hidden');
+      document.getElementById('change-password-modal').classList.remove('hidden');
+    }
+    function closeChangePasswordModal() {
+      document.getElementById('change-password-modal').classList.add('hidden');
+    }
+    function showChangePasswordMessage(text, success) {
+      const box = document.getElementById('cp-msg');
+      box.textContent = text;
+      box.className = success ? 'text-xs rounded-lg p-2.5 text-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'text-xs rounded-lg p-2.5 text-center bg-red-500/10 border border-red-500/20 text-red-400';
+    }
+    function handleChangePassword(event) {
+      event.preventDefault();
+      const currentPassword = document.getElementById('cp-current').value;
+      const newPassword = document.getElementById('cp-new').value;
+      const confirmPassword = document.getElementById('cp-confirm').value;
+      if (newPassword !== confirmPassword) { showChangePasswordMessage('New password and confirmation do not match.', false); return; }
+
+      const btn = document.getElementById('cp-submit-btn');
+      btn.disabled = true;
+      const original = btn.textContent; btn.textContent = 'Updating...';
+
+      // Client SDK directly — no server function for this at all
+      // anymore (see functions/README.md's own note on why
+      // changeOwnPassword was dropped, not ported). Re-verifying the
+      // CURRENT password before allowing the change is still a
+      // deliberate extra safeguard, same reasoning the old server-side
+      // version had: even though the caller already holds a valid
+      // session, someone finding an unlocked, still-signed-in browser
+      // shouldn't be able to silently take over the account by
+      // changing its password with no further check at all.
+      const sdk = window.__firebaseSdk;
+      const user = sdk.auth.currentUser;
+      const credential = sdk.EmailAuthProvider.credential(user.email, currentPassword);
+
+      sdk.reauthenticateWithCredential(user, credential)
+        .then(() => sdk.updatePassword(user, newPassword))
+        .then(() => {
+          btn.disabled = false; btn.textContent = original;
+          showChangePasswordMessage('Password updated successfully.', true);
+          document.getElementById('change-password-form').reset();
+          setTimeout(closeChangePasswordModal, 1500);
+        })
+        .catch(err => {
+          btn.disabled = false; btn.textContent = original;
+          const message = (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password')
+            ? 'Current password is incorrect.'
+            : (err.message || 'Unable to update password.');
+          showChangePasswordMessage(message, false);
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+      const menu = document.getElementById('user-menu');
+      if (menu && !menu.contains(e.target)) closeUserMenu();
+    });
+
+    // Same reasoning as the activity listeners above — wrapped rather
+    // than passed directly, and this one genuinely SHOULD broadcast:
+    // confirming "still here" is exactly the kind of activity that
+    // ought to reset every open tab's timer, not just this one.
+    document.getElementById('idle-stay-btn').addEventListener('click', () => resetIdleTimer());
+
+    // A loaded module fragment may define window.hasUnsavedChanges() to
+    // report whether leaving right now would lose in-progress data (e.g.
+    // an open, unsaved JV/CBT entry). The shell doesn't know a fragment's
+    // internal state otherwise, so it just asks before navigating away.
+    function handleBackToHierarchy() {
+      if (typeof window.hasUnsavedChanges === 'function' && window.hasUnsavedChanges()) {
+        if (!confirm('You have unsaved changes. Leave without saving?')) return;
+      }
+      showTreeNav();
+      // Refresh here specifically — not inside showTreeNav() itself,
+      // since that's also called by handleLogout() with the token
+      // already cleared, where this would be wasted (or wrong) work.
+      // A pending approval or a rejected item the user just resolved
+      // inside a module needs to actually disappear from this list
+      // once they come back, not linger with a stale count.
+      loadHomeTasks();
+    }
+
+    function showTreeNav() {
+      // Same reasoning as openModule's token bump — this is another path
+      // that wipes module-container's content, so any module's in-flight
+      // async callback needs to see that its DOM is gone too.
+      window.__activeModuleToken = (window.__activeModuleToken || 0) + 1;
+      document.getElementById('module-container').classList.add('hidden');
+      document.getElementById('module-container').innerHTML = '';
+      document.getElementById('back-to-tree-btn').classList.add('hidden');
+      document.getElementById('tree-view-container').classList.remove('hidden');
+      document.getElementById('tree-controls').classList.remove('hidden');
+      document.getElementById('user-menu').classList.remove('hidden');
+      applyTreeTitle();
+    }
+
+    // ---------- GENERIC MODULE LOADER ----------
+    // innerHTML does not execute embedded <script> tags, so injected fragment
+    // scripts are manually recreated and re-appended to force execution.
+
+    function injectHtmlWithScripts(container, html) {
+      container.innerHTML = html;
+      const scripts = Array.from(container.querySelectorAll('script'));
+      scripts.forEach(oldScript => {
+        const newScript = document.createElement('script');
+        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+        newScript.textContent = oldScript.textContent;
+        oldScript.parentNode.replaceChild(newScript, oldScript);
+      });
+    }
+
+    function openModule(moduleId, drillParams, returnChain) {
+      // Fragments run in this same document (not an iframe), so any fragment
+      // can call openModule() directly — that's how cross-report drill-down
+      // links work (e.g. Trial Balance -> GL Report for one account). The
+      // target fragment reads window.__pendingModuleParams itself once its
+      // own reference data (accounts, companies, org units) has loaded.
+      //
+      // returnChain is a stack of { moduleId, label, params } describing
+      // how to walk back — e.g. [{TrialBalance state}, {GLREPORT state}]
+      // when three levels deep. Each fragment that receives a non-empty
+      // chain shows a "Back to X" button using the LAST entry; clicking it
+      // pops that entry and reopens it with the REMAINING chain, so a
+      // multi-hop drill (Report -> GL -> JV -> back -> back) restores each
+      // screen's exact prior state rather than just returning to the tree.
+      window.__pendingModuleParams = drillParams || null;
+      window.__pendingReturnChain = returnChain || [];
+
+      // Every module load gets a fresh token. A fragment's own async
+      // google.script.run callbacks (e.g. loading its list) capture this
+      // value when they fire and skip touching the DOM if it no longer
+      // matches window.__activeModuleToken — i.e. the user has since
+      // navigated to a different module and this container's content
+      // (and this fragment's own elements) no longer exist. Without this,
+      // a late-arriving callback from a PREVIOUS module can throw trying
+      // to read a now-null element, and that crash has nothing to do with
+      // whatever the CURRENT module is doing — it just looks like it does,
+      // since it surfaces while the user is on the new screen.
+      window.__activeModuleToken = (window.__activeModuleToken || 0) + 1;
+      // Captured LOCALLY, tied to THIS specific call — not read back off
+      // window.__activeModuleToken later, since that's a shared, mutable
+      // value another openModule() call (e.g. a double-click on the same
+      // tree item, firing before this one's request even returns) could
+      // have already bumped again by the time this one's response
+      // arrives. Comparing against a snapshot taken at THIS call's start
+      // is what actually distinguishes "my request" from "a newer,
+      // competing one" — reading the live value from both would make
+      // them look identical.
+      const myToken = window.__activeModuleToken;
+
+      // Clear any previous module's dirty-check function before loading a
+      // new one — otherwise a stale reference could point at DOM elements
+      // that no longer exist once this module's fragment replaces it.
+      window.hasUnsavedChanges = undefined;
+      document.getElementById('back-to-tree-btn').classList.remove('hidden');
+      document.getElementById('tree-controls').classList.add('hidden');
+      document.getElementById('tree-view-container').classList.add('hidden');
+      document.getElementById('user-menu').classList.add('hidden');
+      closeUserMenu();
+
+      // Only ONE loading indicator now, not two — the module container's
+      // own message below. The new global loading bar (see the wrapper
+      // near the top of this file) already communicates "something is
+      // in flight" the instant this openModule() call's own
+      // getModuleFragment RPC starts, so app-title no longer needs its
+      // own separate "Loading..." transition text; it stays as
+      // whatever it already showed until this module's own
+      // initModule() sets the real name below.
+      const container = document.getElementById('module-container');
+      container.classList.remove('hidden');
+      container.innerHTML = '<div class="p-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner animate-spin"></i> Loading module...</div>';
+
+      rpc
+        .withSuccessHandler(result => {
+          // A newer openModule() call (or a return to the tree, or a
+          // logout) has already superseded this one — discard this
+          // response entirely rather than injecting a fragment that's
+          // already obsolete. This is what actually closes the
+          // double-load race: only the LATEST request's response is ever
+          // allowed to reach injectHtmlWithScripts/initModule.
+          if (window.__activeModuleToken !== myToken) return;
+          // The exact, final token this specific fragment instance is
+          // allowed to consider itself "current" for — set synchronously,
+          // immediately before initModule runs, so the fragment captures
+          // a value guaranteed correct for this load (not window.__activeModuleToken
+          // read independently later, which is the same trap as above).
+          window.__thisModuleToken = myToken;
+          injectHtmlWithScripts(container, result.html);
+          // Each fragment defines window.initModule(token, canWrite) as
+          // its single entry point. The "token" concept itself is now
+          // obsolete for any PORTED module (callable functions verify
+          // the caller automatically — nothing needs a token passed
+          // manually), so this passes null rather than a real value.
+          // Still-unported fragments that read this and pass it along
+          // to their own google.script.run calls will fail regardless,
+          // the same way any of their own calls do right now (see the
+          // window.google compatibility shim above for why that's a
+          // clean, visible failure rather than a page-crashing one) —
+          // null vs. some other placeholder makes no practical
+          // difference to that outcome.
+          if (typeof window.initModule === 'function') {
+            try { window.initModule(null, result.canWrite); } catch (e) { console.error(e); }
+          }
+        })
+        .withFailureHandler(err => {
+          container.innerHTML = '<div class="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">' + escapeHtml(err.message) + '</div>';
+        })
+        .getModuleFragment({ moduleId: moduleId });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,296 @@
+# ERP: Apps Script → Firebase migration
+
+## ⚠ A live production bug, found during this migration, not caused by it
+
+While porting Warehouse Movement, testing surfaced a genuine data
+integrity bug in `reverseWarehouseMovement_`'s own `outLines`
+construction — confirmed present in the CURRENT, live `Code.gs`, not
+something this migration introduced. Reversing a Warehouse Movement
+appears to succeed (no error, transaction marked reversed), but the
+destination warehouse's stock is never actually reduced — an object-merge
+ordering bug where a stale `WarehouseID` field left over from the
+original posting silently wins over the intended, swapped value. The
+source warehouse happens to come out correct by coincidence (a second,
+unrelated write overwrites the first), which is likely why this hasn't
+been caught by normal use — the numbers looked right on one side.
+
+**Practical impact**: any Warehouse Movement reversal in the live
+system right now may be leaving the destination warehouse's stock
+overstated, silently. Worth checking recent Warehouse Movement
+reversals against physical stock if any have happened. This has been
+fixed in this migration's own `functions/src/warehouseMovement.js`
+(see that file's own comment for the exact trace), but fixing the
+still-active `Code.gs` is a separate, live-system concern from this
+migration project and hasn't been done here — worth flagging to
+Yasir directly as its own priority, not bundled into migration work.
+
+## Status
+
+**The shell is done.** `public/index.html` no longer depends on
+`google.script.run` for anything of its own — 9 functions ported and
+tested, and the client-side rewrite (auth flow, session handling,
+every call site) is complete and verified.
+
+| Function | Replaces | Notes |
+|---|---|---|
+| `getModuleFragment` | `getModuleFragment` | The access-control gate — ported first specifically to prove this pattern |
+| `completeLogin` | `loginWithFirebase` | Client signs in via the Firebase Auth SDK directly first; this checks Corporate ID + builds the session, called right after |
+| `restoreSession` | `restoreSession` | Same session-building, no Corporate ID check — for tab restore/reload |
+| `getMyTree` | `getMyTree` | Refresh-tree action |
+| `getMyFavorites` / `toggleFavorite` | same | Unchanged behavior, 5-favorite limit preserved |
+| `getPendingApprovalsForUser` / `getMyRejectedSubmissions` | same | Both bug fixes from earlier this session carried over and re-tested: orphaned documents, and the stale-rejected-after-resubmit issue |
+| `getActiveCompanies` | same | Missed in the first port pass — found and fixed while sweeping `index.html`'s remaining call sites; needed for `loadMainCompanyName` |
+
+**Dropped entirely, not ported:** `sendPasswordResetEmail` and
+`changeOwnPassword` — both are one-line client SDK calls now
+(`sendPasswordResetEmail(auth, email)`, `reauthenticateWithCredential`
++ `updatePassword`), wired directly into `index.html` itself. No
+server function needed for either.
+
+**Also done: the lock module.** `functions/src/lock.js` replaces
+`LockService.getScriptLock()` with a Firestore-transaction-based
+global lock — the exact same GLOBAL (not per-item) scope as today's
+behavior, deliberately, plus a staleness fallback GAS never needed
+(a crashed Cloud Function has no equivalent of script-execution-ending
+auto-release). 11 tests, including a genuine ~10-second real-time
+timeout test against the actual deployed constant (not accelerated),
+and a verified negative control on the core mutual-exclusion
+guarantee. Now genuinely in use — see Stock Adjustment below.
+
+**Also done: the first full module port, Stock Adjustment.** Every
+server function ported — save, post, approve/reject, delete, list,
+reverse — the first proof that the whole pattern (lock + approval
+engine + two-phase commit-attempt marker + atomic ledger write) works
+together, not just as separate pieces. Built alongside it, in
+`functions/src/`, four shared modules every future stock-module port
+will reuse directly rather than rebuild: `glWriting.js`
+(`validateAndNormalizeLines_`, `writeStockGlEntry_`, voucher
+numbering), `stockMovement.js` (`computeStockMovement_`, plus the
+atomic multi-path ledger write — see its own comment on the specific
+gap in the original GAS code this closes, not just ports faithfully),
+`commitAttempt.js` (the two-phase commit-attempt marker sequence), and
+`approvals.js` (the generic approval workflow engine). 28 tests, plus
+a verified negative control on the specific behavior this whole
+pattern exists to guarantee: that approval actually gates the commit
+(bypassing that check was caught with 2 clear failures — nothing
+physical should happen, and didn't, until genuinely approved).
+
+**The previously disclosed gap is now closed.** `functions/src/reservations.js`
+ports the Sales Order reservation subsystem
+(`createStockReservation_`, `getReservationsForSource_`,
+`refreshSalesOrderReservationStatus_`,
+`allocateAvailableStockToShortfalls_`), and `stockAdjustment.js` now
+genuinely calls it for every Increase line, matching the original's
+own behavior. 12 tests, including — the one that actually matters
+here — posting a real Stock Adjustment Increase against a real,
+open Sales Order shortfall and confirming a reservation actually
+gets created and the Sales Order's own status correctly flips to
+Reserved, not just that the allocation function works in isolation.
+Verified with a negative control on that specific integration (the
+allocation call itself, not just the underlying function), which
+failed with exactly the 2 expected failures when removed.
+
+**Also done: the second full module port, Material Issue.**
+`functions/src/materialIssue.js` — save, post, approve/reject, delete,
+list, reverse, all 7 functions, reusing every shared module built for
+Stock Adjustment with ZERO changes needed to any of them — the
+clearest proof yet that the pattern itself, not just this one
+module's own code, is what got built. 24 tests, covering the module's
+own distinct behavior: the Issue/Return direction toggle and its
+opposite GL logic (Issue debits Consumption, Return credits it),
+reversing an Issue using its original cost even after WAC has since
+drifted, and reversing a Return correctly becoming an Out movement at
+current WAC instead. A verified negative control on the opposite-GL-logic
+feature specifically — caught immediately by the independent GL
+balance check (`Debit 400.00 vs Credit 0.00`), the same way an
+earlier negative control on `lock.js` was, which crashed the test
+before it could print an explicit failure line rather than failing
+silently — worth remembering as a class of "genuine detection, unusual
+shape" result, not a sign something's wrong with the test itself.
+
+A pre-existing quirk in the original Code.gs was found and faithfully
+preserved, not silently corrected: `postMaterialIssue`'s own approval
+preview always computes as `Direction: 'Out'`, even for a Return. The
+cost comes out numerically identical either way, but the
+insufficient-stock guard that check applies would incorrectly also
+constrain a Return's own preview — which should never be
+stock-constrained, since a Return adds stock rather than removing it.
+Documented in the code itself and in this file, not changed — silently
+altering behavior during a migration is its own risk, and this port's
+job is fidelity first.
+
+**Also done: the third full module port, GRN.** `functions/src/grn.js`
+— save, post, approve/reject, delete, list, reverse, plus
+`getEligibleApprovedPOsForGRN` for the client's own PO picker. First
+port to exercise genuinely new territory the other two never touched:
+matching against Purchase Order lines. 21 tests, including the ones
+that actually prove this works — a PO-sourced line's unit cost is
+locked server-side to the PO's own price regardless of what the client
+sends, posting correctly updates the PO line's own `ReceivedQuantity`,
+a PO belonging to a different vendor than the GRN is rejected, and
+reversing a GRN correctly rolls that received quantity back. One
+worth calling out specifically: reversing a GRN whose received stock
+has since been substantially consumed elsewhere (via a Material
+Issue) is correctly blocked — not through any special-case logic
+written for GRN specifically, but because `computeStockMovement`'s
+existing negative-stock guard already protects it automatically, the
+same way it protects every other outbound movement. A verified
+negative control on the unit-cost-locking feature specifically caught
+the bug immediately when the PO's own price was bypassed in favor of
+whatever the client sent.
+
+Same reuse story as Material Issue: zero changes needed to
+`glWriting.js`, `stockMovement.js`, `commitAttempt.js`, `approvals.js`,
+or `lock.js` — now proven across three genuinely different modules,
+not just designed to generalize.
+
+**Also done: the fourth full module port, Warehouse Movement.**
+`functions/src/warehouseMovement.js` — save, post, approve/reject,
+delete, list, reverse. First module with NO GL entry at all (moving
+stock between locations within the same company doesn't change total
+inventory value), so no two-phase commit-attempt marker either — that
+pattern exists specifically to guard a Firestore-GL-vs-RTDB-ledger
+disagreement, and there's no GL write here to disagree with. Also the
+first to genuinely prove a paired transfer within one transaction: an
+Out from the source and an In to the destination, with the
+destination's own cost explicitly carried over from the source's
+resolved cost rather than independently computed — confirmed by a
+dedicated test. 21 tests, including finding and fixing the live
+production bug flagged at the top of this file, with a verified
+negative control specifically reproducing the original broken
+behavior (reverting to the exact original code line) to confirm the
+test genuinely catches it, not just this once by coincidence.
+
+Same reuse story again: zero changes needed to `stockMovement.js` or
+`commitStockLedgerUpdates`'s own atomic multi-path write, now proven
+across four genuinely different modules — this one the first to prove
+it against TWO ledger keys updated together in one commit, not just
+one.
+
+**What changed in `index.html` itself:**
+- Firebase SDK loaded via a small, separate `<script type="module">`, bridged onto `window.__firebaseSdk` — the main script stays a plain (non-module) script on purpose, since dozens of `onclick="..."` attributes throughout this file depend on true globals, which module-scoped declarations aren't
+- An `rpc` proxy synthesizes `google.script.run`'s own `.withSuccessHandler().withFailureHandler().method()` chaining on top of `httpsCallable` — every real call site needed only `google.script.run` replaced with `rpc`, dropping the explicit token argument, and remaining args packed into a single object
+- `onAuthStateChanged` is now the single source of truth for session state — consolidating what were three separate paths (manual restore, manual logout, cross-tab sync) into one; a `pendingCorporateId` handoff keeps a fresh sign-in (needs the Corporate ID check) and a restored session (doesn't) from racing each other
+- `window.google = { script: { run: rpc } }` — a deliberate, temporary compatibility shim. Every OTHER module fragment (all 45, not yet ported) still calls `google.script.run` internally, which doesn't exist at all on a Firebase-hosted page. Without this shim, opening any unported module throws an uncaught `ReferenceError` that takes down the whole page; with it, the same call still fails (no real function behind it yet), but fails the way that module's own existing `.withFailureHandler(...)` already expects — a clean, visible error instead of a crash. Remove once every module has its own real port.
+
+**Not yet started:** every other module — 375 remaining functions
+across JV, CBT, GRN, all stock modules, Vendor/Customer Invoice,
+Purchase Order, the requisition modules, and their own 44 HTML files.
+Opening any of them right now will show a clean "something went
+wrong" error via the compatibility shim above, not a working module —
+expected, not a bug, given the staged plan.
+
+## Key decisions already made
+
+| Decision | Answer | Why |
+|---|---|---|
+| Business logic location | Cloud Functions (2nd gen, callable) | Client-direct + Security Rules can't express GL balance checks, WAC recalculation, or the two-phase commit pattern — this needs to stay server-trusted, same as `Code.gs` today |
+| Region | `us-central1` | Matches the existing RTDB instance exactly (confirmed from its legacy `.firebaseio.com` domain format) |
+| Lock/atomicity | Firestore transaction-based global lock (replaces `LockService`) + RTDB native multi-path `update()` for each commit's own writes | Two different jobs — serializing concurrent commits vs. making one commit's own writes atomic — kept as two separate mechanisms rather than conflated |
+| Auth | Firebase Auth client SDK directly | Callable functions get `context.auth` pre-verified by the platform — this also *removes* the manual `accounts:lookup` REST call `requireUser_` did on every single call today, not just relocates it |
+| Security Rules | Deny-all on both Firestore and RTDB | Every read/write goes through a Cloud Function using the Admin SDK, which bypasses rules by design. Locking rules down is what actually forces that — otherwise a client could read/write directly and skip every bit of ported business logic |
+
+## Structure
+
+```
+firebase.json / .firebaserc     — project config
+firestore.rules                 — deny-all (see above)
+database.rules.json             — deny-all (see above)
+public/
+  index.html                    — the real shell, ported and complete (see Status above)
+  (the other 45 module HTML files land here as each gets ported)
+functions/
+  package.json
+  index.js                      — every callable function gets exported from here
+  src/
+    firebaseAdmin.js            — shared Admin SDK init
+    auth.js                     — requireUser, moduleHasCapability, ensurePermissionsSeeded
+    roles.js                    — DEFAULT_ROLES + ensureRolesSeeded
+    tree.js                     — ensureTreeSeeded, buildVisibleTreeList, buildTreeForRole
+    treeSeedNodes.js             — TREE_SEED_NODES (202 entries), extracted verbatim
+    moduleRegistry.js           — MODULE_REGISTRY + DEFAULT_PERMISSIONS, extracted verbatim
+    approvalRegistry.js         — APPROVAL_GATEABLE_MODULES + APPROVAL_MODULE_STORAGE_, extracted verbatim
+    getModuleFragment.js        — the module-fragment access-control gate
+    session.js                  — completeLogin, restoreSession, getMyTree
+    favorites.js                — getMyFavorites, toggleFavorite
+    homeTasks.js                — getPendingApprovalsForUser, getMyRejectedSubmissions (both fixes carried over)
+    companies.js                — getActiveCompanies (the one missed in the first pass)
+    lock.js                     — Firestore-based global lock, replacing LockService.getScriptLock() — now in real use by stockAdjustment.js
+    glWriting.js                — validateAndNormalizeLines_, writeStockGlEntry_, voucher numbering — shared by every future stock-module port
+    stockMovement.js            — computeStockMovement_, plus the atomic multi-path ledger write (a genuine improvement, not just a port — see its own comment)
+    commitAttempt.js            — the two-phase commit-attempt marker sequence (beginCommitAttempt_/abandonCommitAttempt_/finalizeCommitAttempt_)
+    approvals.js                — the generic approval workflow engine (resolveRequiredApprovalLevels_, beginApprovalInstance_, recordApprovalDecision, etc.)
+    reservations.js             — Sales Order reservation subsystem (createStockReservation_, getReservationsForSource_, refreshSalesOrderReservationStatus_, allocateAvailableStockToShortfalls_)
+    stockAdjustment.js          — the first full module port: save, post, approve/reject, delete, list, reverse — proves the whole pattern together, including Sales Order auto-allocation
+    materialIssue.js            — the second full module port: same 7 functions, zero changes needed to any shared module — Issue/Return direction toggle, opposite GL logic, both reversal directions
+    grn.js                      — the third full module port: save, post, approve/reject, delete, list, reverse, plus getEligibleApprovedPOsForGRN — first to exercise Purchase Order matching, PO cost locking, and PO ReceivedQuantity tracking
+    warehouseMovement.js        — the fourth full module port: save, post, approve/reject, delete, list, reverse — first with no GL entry at all, paired Out+In transfer, and a live production bug found and fixed (see the top of this file)
+  modules/
+    README.md                   — what needs copying here, and why it's a separate copy from public/
+```
+
+## A caching note for whoever deploys this
+
+`firebase.json`'s hosting config sets `Cache-Control: no-cache` on
+every `.html` file. That's deliberate for the duration of active
+migration — the default CDN caching behavior would otherwise mean a
+freshly-deployed module fix isn't visible immediately. Worth
+reconsidering once the migration itself has stabilized and deploys
+aren't happening multiple times a day.
+
+## Testing approach for every future port
+
+`getModuleFragment` was tested with 9 cases (including the specific
+regression this whole approach was chosen to avoid — a role without
+`'access'` capability being able to fetch a module's fragment anyway)
+and one verified negative control, using stub `firebase-admin` /
+`firebase-functions` modules rather than a real `npm install` (the
+real packages are large enough that installation exceeded available
+tool time in this environment — the stubs cover only the actual API
+surface each ported function uses, so it isn't testing against a
+fiction, just a minimal one). The `session`/`favorites`/`homeTasks`
+tests followed with 15 more, including both approval-related bug
+fixes from earlier in the project re-verified as carried over
+correctly, plus a negative control on the Corporate ID gate.
+
+One thing worth knowing if you extend these tests yourself: the first
+version of the RTDB mock only did exact-key lookups, not real RTDB's
+own hierarchical path aggregation (`ref('approvalInstances').get()`
+should return every child under that path, not just a literal key of
+that exact name) — this silently failed two tests with an
+empty-result false negative rather than a crash, which is exactly the
+kind of bug worth watching for in mocks generally: a wrong mock fails
+loud, but an *incomplete* one can just quietly return nothing. Fixed
+in the current stub; the same approach — mock the two
+packages' relevant surface, seed a fake RTDB, exercise every
+authorization branch, confirm at least one negative control — should
+carry through the rest of the port.
+
+## Suggested next step
+
+The shell, the lock module, and four full commit-posting pattern
+ports (Stock Adjustment, Material Issue, GRN, and Warehouse Movement)
+are all complete. `index.html` in `public/` no longer depends on GAS
+for anything of its own; the [Firebase config still needs real values
+filled in](public/index.html) (`apiKey`, `storageBucket`, etc. —
+currently `'REPLACE_ME'`) before it can actually run. What's left:
+
+1. **The live production bug flagged at the top of this file** —
+   worth Yasir's attention as its own priority, separate from this
+   migration.
+2. **A real `npm install` and emulator test**, since every test so far
+   ran against stubs (see Testing approach below) — worth confirming
+   against the real packages before trusting any of this in
+   production. This matters especially for `lock.js`,
+   `stockAdjustment.js`, `materialIssue.js`, `grn.js`,
+   `warehouseMovement.js`, and `reservations.js`: their tests are
+   only as honest as the mock's own Firestore-transaction
+   serialization and RTDB tree semantics (documented there), a
+   reasonable stand-in but not a substitute for proving it against
+   the real thing.
+3. **The next module port** — Warehouse Movement was the first with
+   no GL entry at all, and needed no changes to any shared module
+   either. Production or Physical Count should each go faster still.
+   JV and the invoice modules — the highest financial stakes — should
+   come last, once the pattern has proven itself across a few more
+   lower-stakes modules first.

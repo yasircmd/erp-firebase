@@ -1,0 +1,21 @@
+rules_version = '2';
+
+// Deliberately locked down entirely. Every read and write in this
+// system is meant to go through a Cloud Function, using the Admin SDK
+// — which bypasses these rules by design, running with full trusted
+// privileges (see functions/src/firebaseAdmin.js's own comment on
+// this). That's what lets business logic like GL balance validation,
+// approval gating, and the two-phase commit pattern stay enforced
+// server-side, exactly as it was when Code.gs was the sole gatekeeper.
+//
+// If these rules ever allow a direct client read or write to any
+// path, that's a path bypassing all of that logic entirely — treat
+// any change here as a deliberate, reviewed exception, not a
+// convenience fix for something a Cloud Function should be doing.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
