@@ -16,6 +16,10 @@ exports.deactivateCurrency = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateCurrency(ctx, d.currencyId));
 });
+exports.deactivateItem = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.deactivateItem(ctx, d.itemId));
+});
 exports.deactivateItemSubCategory = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateItemSubCategory(ctx, d.subCategoryId));
@@ -27,6 +31,10 @@ exports.deactivateOrgUnit = onCallWithMessages(opts, (request) => {
 exports.deactivateUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateUOM(ctx, d.uomId));
+});
+exports.getActiveItemSubCategories = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.getActiveItemSubCategories(ctx));
 });
 exports.getChartOfAccounts = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -44,6 +52,10 @@ exports.getItemSubCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.getItemSubCategories(ctx));
 });
+exports.getItems = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.getItems(ctx));
+});
 exports.getOrgUnits = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.getOrgUnits(ctx));
@@ -59,6 +71,10 @@ exports.reactivateCompany = onCallWithMessages(opts, (request) => {
 exports.reactivateCurrency = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.reactivateCurrency(ctx, d.currencyId));
+});
+exports.reactivateItem = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.reactivateItem(ctx, d.itemId));
 });
 exports.reactivateItemSubCategory = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -79,6 +95,10 @@ exports.saveCompany = onCallWithMessages(opts, (request) => {
 exports.saveCurrency = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.saveCurrency(ctx, d.currencyData));
+});
+exports.saveItem = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.saveItem(ctx, d.itemData));
 });
 exports.saveItemSubCategory = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

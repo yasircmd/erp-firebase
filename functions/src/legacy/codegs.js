@@ -744,6 +744,17 @@ async function getItemSubCategories(idToken) {
   return Object.keys(data).map(id => Object.assign({ SubCategoryID: id }, data[id]));
 }
 
+// Minimal reference read — used by Item Master to populate a sub-category
+// picker (filtered client-side to the item's selected Category) without
+// requiring full ITEMSUBCAT access.
+async function getActiveItemSubCategories(idToken) {
+  await requireUser_(idToken);
+  const data = (await firebaseDbRequest_('itemSubCategories', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .filter(id => data[id].Status === 'Active')
+    .map(id => ({ SubCategoryID: id, Name: data[id].Name, ParentCategory: data[id].ParentCategory }));
+}
+
 async function saveItemSubCategory(idToken, data) {
   try {
     const user = await requireUser_(idToken);
@@ -812,6 +823,208 @@ async function reactivateItemSubCategory(idToken, subCategoryId) {
   }
 }
 
+async function generateItemCode_(idToken, category) {
+  const prefix = ITEM_CATEGORY_PREFIXES[category];
+  if (!prefix) throw new Error('Unknown item category: ' + category);
+  const counterPath = 'itemCounters/' + prefix;
+  const current = (await firebaseDbRequest_(counterPath, 'get', null, idToken)) || 0;
+  const next = current + 1;
+  await firebaseDbRequest_(counterPath, 'put', next, idToken);
+  return prefix + '-' + String(next).padStart(6, '0');
+}
+
+async function getItems(idToken) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'ITEMMASTER', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Item Master.');
+  }
+  const data = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ ItemID: id }, data[id]))
+    .filter(item => userCanAccessCompany_(user.profile, item.CompanyID));
+}
+
+async function saveItem(idToken, itemData) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'ITEMMASTER', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Item Master.');
+    }
+
+    const itemId = String(itemData.ItemID || '').trim();
+    const itemName = String(itemData.ItemName || '').trim();
+    const category = String(itemData.Category || '').trim();
+    const subCategoryId = String(itemData.SubCategoryID || '').trim();
+    const uomId = String(itemData.UOMID || '').trim();
+    const altUomId = String(itemData.AltUOMID || '').trim();
+    const conversionFactor = altUomId ? Number(itemData.ConversionFactor) : 0;
+    const companyId = String(itemData.CompanyID || '').trim();
+    const defaultWarehouseId = String(itemData.DefaultWarehouseID || '').trim();
+    const inventoryAccountId = String(itemData.InventoryAccountID || '').trim();
+    const consumptionAccountId = String(itemData.ConsumptionAccountID || '').trim();
+    const salesCogsAccountId = String(itemData.SalesCogsAccountID || '').trim();
+    const writeOffAccountId = String(itemData.WriteOffAccountID || '').trim();
+    const batchTracked = itemData.BatchTracked === true || itemData.BatchTracked === 'true';
+    const reorderLevel = Number(itemData.ReorderLevel) || 0;
+    const status = String(itemData.Status || 'Active').trim();
+
+    if (!itemName) throw new Error('Item name is required.');
+    if (!ITEM_CATEGORY_PREFIXES[category]) throw new Error('Select a valid item category.');
+    if (!uomId) throw new Error('Select a Unit of Measure.');
+    if (!inventoryAccountId) throw new Error('Select an Inventory (asset) account.');
+    if (!consumptionAccountId) throw new Error('Select a Consumption (expense/COGS) account.');
+    if (companyId && !userCanAccessCompany_(user.profile, companyId)) {
+      throw new Error('You do not have access to that company.');
+    }
+
+    if (subCategoryId) {
+      const subCats = (await firebaseDbRequest_('itemSubCategories', 'get', null, idToken)) || {};
+      const subCat = subCats[subCategoryId];
+      if (!subCat) throw new Error('Sub-category not found.');
+      if (subCat.ParentCategory !== category) throw new Error('Sub-category does not belong to the selected Category.');
+    }
+
+    const uoms = (await firebaseDbRequest_('uoms', 'get', null, idToken)) || {};
+    if (!uoms[uomId]) throw new Error('Unit of Measure not found.');
+
+    // Alternate UOM: e.g. base unit KG, alternate BOX where 1 BOX = 200 KG
+    // (ConversionFactor is always expressed as "how many base units per 1
+    // alternate unit"). Optional — an item can stay single-UOM.
+    if (altUomId) {
+      if (altUomId === uomId) throw new Error('Alternate UOM must be different from the base Unit of Measure.');
+      if (!uoms[altUomId]) throw new Error('Alternate Unit of Measure not found.');
+      if (!conversionFactor || conversionFactor <= 0) throw new Error('Enter a conversion factor greater than zero for the alternate UOM.');
+    }
+
+    const coaData = await getCoaData_(idToken);
+
+    const inventoryAccount = coaData[inventoryAccountId];
+    if (!inventoryAccount || !inventoryAccount.IsPostable) throw new Error('Inventory account must be an active, postable account.');
+    if (inventoryAccount.AccountType !== 'Asset') throw new Error('Inventory account must be an Asset-type account.');
+    if (inventoryAccount.CompanyID && companyId && inventoryAccount.CompanyID !== companyId) {
+      throw new Error('Inventory account is restricted to a different company than this item.');
+    }
+
+    // Three possible expense-side accounts, covering the different reasons
+    // stock can leave inventory. Only Consumption is mandatory; the other
+    // two fall back to it if left blank — see resolveItemExpenseAccount_,
+    // used by future Stock transactions to pick the right one per
+    // transaction type. This is what makes it possible for the SAME Raw
+    // Material item to hit "RM Consumption / Production Cost" when issued
+    // to production, but "COGS – Raw Materials" when sold directly, and
+    // "Inventory Write-off" when scrapped or adjusted away — three
+    // different transaction types, three different accounts, same item.
+    //
+    // Sales COGS and Write-off are genuinely expense-only roles (a sale or
+    // a scrap write-off is always an expense), so they stay restricted to
+    // Expense/COGS account types. Consumption is different: Production
+    // Entry now ALSO credits this same field (crediting the item's own
+    // Consumption account when it's produced, mirroring Material Issue's
+    // debit of it when issued) — the same unrestricted, not-paternalistic
+    // treatment already given to GRN's Clearing Account, since a
+    // production-offset/clearing account is just as legitimately a
+    // Liability or Asset in many charts as an Expense.
+    function validateExpenseAccount(accountId, label) {
+      if (!accountId) return;
+      const account = coaData[accountId];
+      if (!account || !account.IsPostable) throw new Error(label + ' account must be an active, postable account.');
+      if (!['Expense', 'COGS'].includes(account.AccountType)) throw new Error(label + ' account must be an Expense or COGS account.');
+      if (account.CompanyID && companyId && account.CompanyID !== companyId) {
+        throw new Error(label + ' account is restricted to a different company than this item.');
+      }
+    }
+    function validateOffsetAccount(accountId, label) {
+      if (!accountId) return;
+      const account = coaData[accountId];
+      if (!account || !account.IsPostable) throw new Error(label + ' account must be an active, postable account.');
+      if (account.CompanyID && companyId && account.CompanyID !== companyId) {
+        throw new Error(label + ' account is restricted to a different company than this item.');
+      }
+    }
+    validateOffsetAccount(consumptionAccountId, 'Consumption');
+    validateExpenseAccount(salesCogsAccountId, 'Sales COGS');
+    validateExpenseAccount(writeOffAccountId, 'Write-off');
+
+    if (defaultWarehouseId) {
+      const orgUnits = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
+      const wh = orgUnits[defaultWarehouseId];
+      if (!wh || wh.Type !== 'Warehouse') throw new Error('Default warehouse not found.');
+    }
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const fields = {
+      ItemName: itemName,
+      Category: category,
+      SubCategoryID: subCategoryId,
+      UOMID: uomId,
+      AltUOMID: altUomId,
+      ConversionFactor: conversionFactor,
+      CompanyID: companyId,
+      DefaultWarehouseID: defaultWarehouseId,
+      InventoryAccountID: inventoryAccountId,
+      ConsumptionAccountID: consumptionAccountId,
+      SalesCogsAccountID: salesCogsAccountId,
+      WriteOffAccountID: writeOffAccountId,
+      BatchTracked: batchTracked,
+      ReorderLevel: reorderLevel,
+      Status: status
+    };
+
+    if (itemId) {
+      const existing = await firebaseDbRequest_('items/' + itemId, 'get', null, idToken);
+      if (!existing) throw new Error('Item not found.');
+      // Category (and therefore the ItemCode prefix) is locked after
+      // creation — same reasoning as COA's AccountType lock: changing it
+      // would orphan the code's meaning and any future stock ledger
+      // history tied to this item.
+      if (existing.Category !== category) throw new Error('Item category cannot be changed after creation.');
+      await firebaseDbRequest_('items/' + itemId, 'patch', Object.assign({}, fields, { UpdatedAt: now, UpdatedBy: actor }), idToken);
+      return { success: true, itemId: itemId, itemCode: existing.ItemCode };
+    }
+
+    const itemCode = await generateItemCode_(idToken, category);
+    const newId = 'ITM-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('items/' + newId, 'put', Object.assign({}, fields, {
+      ItemCode: itemCode, CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }), idToken);
+    return { success: true, itemId: newId, itemCode: itemCode };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deactivateItem(idToken, itemId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'ITEMMASTER', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Item Master.');
+    }
+    const existing = await firebaseDbRequest_('items/' + itemId, 'get', null, idToken);
+    if (!existing) throw new Error('Item not found.');
+    await firebaseDbRequest_('items/' + itemId, 'patch', { Status: 'Inactive', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function reactivateItem(idToken, itemId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'ITEMMASTER', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Item Master.');
+    }
+    const existing = await firebaseDbRequest_('items/' + itemId, 'get', null, idToken);
+    if (!existing) throw new Error('Item not found.');
+    await firebaseDbRequest_('items/' + itemId, 'patch', { Status: 'Active', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   getCoaData_,
   ensureSubCategoriesSeeded_,
@@ -835,7 +1048,13 @@ module.exports = {
   deactivateUOM,
   reactivateUOM,
   getItemSubCategories,
+  getActiveItemSubCategories,
   saveItemSubCategory,
   deactivateItemSubCategory,
-  reactivateItemSubCategory
+  reactivateItemSubCategory,
+  generateItemCode_,
+  getItems,
+  saveItem,
+  deactivateItem,
+  reactivateItem
 };
