@@ -2601,6 +2601,26 @@ async function saveApprovalLevels(idToken, moduleId, scopeKey, levels) {
   }
 }
 
+// Powers the Approval Tracker — the full history, for audit or
+// dispute review. Optional filters narrow it down; with none, returns
+// everything the user has visibility into.
+async function getApprovalHistory(idToken, filters) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'APPROVALTRACKER', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Approval Tracker.');
+  }
+  const f = filters || {};
+  const data = (await firebaseDbRequest_('approvalInstances', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ InstanceID: id }, data[id]))
+    .filter(inst => !f.ModuleID || inst.ModuleID === f.ModuleID)
+    .filter(inst => !f.DocumentNumber || (inst.DocumentNumber || '').toLowerCase().indexOf(String(f.DocumentNumber).toLowerCase()) !== -1)
+    .filter(inst => !f.ApproverUserID || inst.RequiredLevels.some(l => l.ApproverUserID === f.ApproverUserID))
+    .filter(inst => !f.FromDate || (inst.CreatedAt || '') >= f.FromDate)
+    .filter(inst => !f.ToDate || (inst.CreatedAt || '') <= f.ToDate + 'T23:59:59.999Z')
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+}
+
 // ============================================================
 // PRICE LISTING
 // ============================================================
@@ -2919,6 +2939,7 @@ module.exports = {
   getApprovalLevelsForModule,
   validateApprovalScopeKey_,
   saveApprovalLevels,
+  getApprovalHistory,
   getActiveCurrencies,
   getPriceLists,
   savePriceList,

@@ -123,6 +123,11 @@ exports.getApprovalConfigurations = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getApprovalConfigurations(ctx, ...a));
 });
+exports.getApprovalHistory = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.filters];
+  return run(request, (ctx) => L.getApprovalHistory(ctx, ...a));
+});
 exports.getApprovalLevelsForModule = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.moduleId];

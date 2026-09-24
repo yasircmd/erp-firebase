@@ -213,6 +213,11 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   have permission to manage users." — same as the GAS version.
 - User Management: deleting a user removes only the ERP profile; the
   Firebase Auth account remains (as the original's own comment says).
+- Approval Tracker: `getApprovalHistory` applies no company filter — a
+  role with APPROVALTRACKER access sees approval instances for every
+  company (document numbers, amounts, approvers). Same as GAS; the rest
+  of the system is company-scoped, so this is worth a deliberate
+  decision.
 - Stock Adjustment, Material Issue and Warehouse Movement's own reversal
   success alert reads `result.grnNumber` (a copy-paste from GRN), so it
   shows "Reversal posted as undefined." — cosmetic, the reversal is fine.
@@ -283,7 +288,7 @@ closure, and emits them VERBATIM (original comments included) into
 | USERMGMT | ✅ | **not yet** |
 | TREEMGMT | ✅ | **not yet** |
 | APPROVALCONFIG | ✅ | **not yet** |
-| APPROVALTRACKER | — | — |
+| APPROVALTRACKER | ✅ | **not yet** |
 | STOCKAVAILABILITY | — | — |
 | STOCKLEDGER | — | — |
 | STOCKVALUATION | — | — |
@@ -312,12 +317,12 @@ closure, and emits them VERBATIM (original comments included) into
 
 Needs redeploy: UOM — dynamic deactivate/reactivate calls now send { __positional: [...] }; the live callables predate that; ITEMSUBCAT — same (__positional); ORGUNITS — same (__positional); COMPANYMASTER — same (__positional); CURRENCYCONFIG — same (__positional); ITEMMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; COA — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; VENDORMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; CUSTOMERMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; PRICELISTING — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; PROCUREMENTSETUP — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls. Their functions are included in the list below; deploying getModuleFragment WITHOUT them would break those screens' deactivate/reactivate buttons.
 
-**Next module to port:** APPROVALTRACKER
+**Next module to port:** STOCKAVAILABILITY
 
-**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES, USERMGMT, TREEMGMT, APPROVALCONFIG) — deploy these 77 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES, USERMGMT, TREEMGMT, APPROVALCONFIG, APPROVALTRACKER) — deploy these 78 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor deleteFirebaseUser deleteRole deleteTreeNode getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getActiveUsersForPicker getAllFirebaseUsers getApprovalConfigurations getApprovalLevelsForModule getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getItemSubCategories getItems getModulePermissionsMatrix getModuleRegistry getOrgUnits getPriceListLines getPriceLists getRequisitionCategories getRoles getSalesTypes getTreeNodes getUOMs getVendors moveTreeNode reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveAllModulePermissions saveApprovalConfiguration saveApprovalLevels saveCompany saveCurrency saveCustomer saveCustomerClassification saveFirebaseUser saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveRole saveSalesType saveTreeNode saveUOM saveVendor
+getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor deleteFirebaseUser deleteRole deleteTreeNode getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getActiveUsersForPicker getAllFirebaseUsers getApprovalConfigurations getApprovalHistory getApprovalLevelsForModule getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getItemSubCategories getItems getModulePermissionsMatrix getModuleRegistry getOrgUnits getPriceListLines getPriceLists getRequisitionCategories getRoles getSalesTypes getTreeNodes getUOMs getVendors moveTreeNode reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveAllModulePermissions saveApprovalConfiguration saveApprovalLevels saveCompany saveCurrency saveCustomer saveCustomerClassification saveFirebaseUser saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveRole saveSalesType saveTreeNode saveUOM saveVendor
 ```
 <!-- PORT-STATUS:end -->
 
