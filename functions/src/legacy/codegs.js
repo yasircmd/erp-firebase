@@ -152,6 +152,44 @@ const ITEM_CATEGORY_PREFIXES = {
 
 const VENDOR_CATEGORIES = ['RawMaterialSupplier', 'ServiceProvider', 'Contractor', 'Utility', 'Other'];
 
+// ============================================================
+// CUSTOMER MASTER DATA (Accounts Receivable — FI-AR foundation)
+// ============================================================
+// Mirrors Vendor Master Data's overall structure closely, but with two
+// genuine, deliberate differences rather than a straight copy:
+//
+// 1. CODE GENERATION IS SPLIT BY CLASSIFICATION. Vendor used one flat
+//    VEN- counter regardless of Local/Foreign. Customer instead uses
+//    CL- for Local and CE- for Export — same mechanism Item Master
+//    already uses for its own category-prefixed codes (RM-/FG-/etc.),
+//    not a new pattern invented here. Because the code's prefix
+//    literally encodes Classification, Classification is LOCKED after
+//    creation — same rule, same reasoning, Item Master already applies
+//    to Category (its own code-determining field) and Vendor Master
+//    applies to VendorCode/Category.
+//
+// 2. GL MAPPING IS TRADE RECEIVABLES (Asset), NOT TRADE PAYABLES
+//    (Liability) — a customer owes the company money, the reverse of a
+//    vendor, so the account type restriction flips accordingly. Same
+//    reasoning as Vendor's TradePayablesAccountID for why this field is
+//    type-restricted at all (a real, single accounting meaning) — just
+//    pointed the other direction on the balance sheet.
+//
+// Storage: /customers/{id} = { CustomerCode, CustomerName, Category,
+//   Classification ('Local' | 'Export'), Country (required only when
+//   Export), ContactPerson, Phone, Email, AddressLine1, AddressLine2,
+//   TaxRegistrationNumber, PaymentTermsDays, DefaultCurrency,
+//   TradeReceivablesAccountID (Asset-type GL account this customer's
+//   balance posts against — required), BankName, BankAccountNumber,
+//   BankIBAN, BankSwift (for refunds/credit notes, not for paying the
+//   customer the way Vendor's bank details are for paying a vendor),
+//   CompanyID (optional restriction, blank = shared across all
+//   companies), Status, Notes, CreatedAt/By, UpdatedAt/By }
+// /customerCounters/CL, /customerCounters/CE = running sequences, one
+// per classification.
+
+const CUSTOMER_CATEGORIES = ['Retailer', 'Wholesaler', 'Distributor', 'Government', 'Individual', 'Other'];
+
 // ---- functions ----
 async function requireModuleWrite_(idToken, user, moduleId) {
   if (!(await moduleHasCapability_(idToken, moduleId, 'write', user.profile.role))) {
@@ -1492,6 +1530,180 @@ async function reactivateVendor(idToken, vendorId) {
   }
 }
 
+async function ensureCustomerClassificationsSeeded_(idToken, existing) {
+  if (Object.keys(existing).length) return existing;
+  const now = new Date().toISOString();
+  const updates = {};
+  [{ Name: 'Local', IsExport: false }, { Name: 'Export', IsExport: true }].forEach(c => {
+    const id = 'CCLS-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    const record = { Name: c.Name, IsExport: c.IsExport, CompanyID: '', Status: 'Active', CreatedAt: now, CreatedBy: 'system', UpdatedAt: now, UpdatedBy: 'system' };
+    updates[id] = record;
+    existing[id] = record;
+  });
+  await firebaseDbRequest_('customerClassifications', 'patch', updates, idToken);
+  return existing;
+}
+
+// Minimal reference read for Customer Master's own Classification
+// dropdown — no SALESINVOICESETUP access required, same role
+// getActiveRequisitionCategories plays for Purchase Requisition.
+async function getActiveCustomerClassifications(idToken) {
+  const user = await requireUser_(idToken);
+  let data = (await firebaseDbRequest_('customerClassifications', 'get', null, idToken)) || {};
+  data = await ensureCustomerClassificationsSeeded_(idToken, data);
+  return Object.keys(data)
+    .filter(id => data[id].Status === 'Active')
+    .filter(id => userCanAccessCompany_(user.profile, data[id].CompanyID))
+    .map(id => ({ ClassificationID: id, Name: data[id].Name, IsExport: Boolean(data[id].IsExport), CompanyID: data[id].CompanyID || '' }));
+}
+
+async function generateCustomerCode_(idToken, isExport) {
+  const prefix = isExport ? 'CE' : 'CL';
+  const counterPath = 'customerCounters/' + prefix;
+  const current = (await firebaseDbRequest_(counterPath, 'get', null, idToken)) || 0;
+  const next = current + 1;
+  await firebaseDbRequest_(counterPath, 'put', next, idToken);
+  return prefix + '-' + String(next).padStart(6, '0');
+}
+
+async function getCustomers(idToken) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'CUSTOMERMASTER', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Customer Master Data.');
+  }
+  const data = (await firebaseDbRequest_('customers', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ CustomerID: id }, data[id]))
+    .filter(c => userCanAccessCompany_(user.profile, c.CompanyID));
+}
+
+async function saveCustomer(idToken, customerData) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'CUSTOMERMASTER', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Customer Master Data.');
+    }
+
+    const customerId = String(customerData.CustomerID || '').trim();
+    const customerName = String(customerData.CustomerName || '').trim();
+    if (!customerName) throw new Error('Customer name is required.');
+    const category = String(customerData.Category || '').trim();
+    if (category && CUSTOMER_CATEGORIES.indexOf(category) === -1) throw new Error('Unknown customer category.');
+    const companyId = String(customerData.CompanyID || '').trim();
+    if (companyId && !userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+
+    const classification = String(customerData.Classification || '').trim();
+    let classificationData = (await firebaseDbRequest_('customerClassifications', 'get', null, idToken)) || {};
+    classificationData = await ensureCustomerClassificationsSeeded_(idToken, classificationData);
+    const classificationById = {};
+    Object.keys(classificationData).forEach(id => { classificationById[id] = classificationData[id]; });
+    // Backward compatibility: an existing customer record may still
+    // carry the OLD plain-string value ('Local'/'Export') from before
+    // this became a managed list — match on that too, not just an ID,
+    // so nothing already saved needs any migration.
+    const matchedClassification = classificationById[classification]
+      || Object.values(classificationById).find(c => c.Name === classification && c.Status === 'Active');
+    if (!matchedClassification || matchedClassification.Status !== 'Active') throw new Error('Select a valid, active Classification.');
+    const isExport = Boolean(matchedClassification.IsExport);
+    const country = String(customerData.Country || '').trim();
+    if (isExport && !country) throw new Error('Select a country for an Export customer.');
+    const finalCountry = isExport ? country : '';
+
+    // Trade Receivables must be a real, active, postable Asset account —
+    // see the module comment above for why this is Asset, not Liability.
+    const tradeReceivablesAccountId = String(customerData.TradeReceivablesAccountID || '').trim();
+    if (!tradeReceivablesAccountId) throw new Error('Select a Trade Receivables account.');
+    const coaData = await getCoaData_(idToken);
+    const trAccount = coaData[tradeReceivablesAccountId];
+    if (!trAccount || !trAccount.IsPostable || trAccount.Status !== 'Active') throw new Error('Trade Receivables account must be an active, postable account.');
+    if (trAccount.AccountType !== 'Asset') throw new Error('Trade Receivables account must be an Asset-type account.');
+    if (trAccount.CompanyID && companyId && trAccount.CompanyID !== companyId) throw new Error('Trade Receivables account is restricted to a different company.');
+
+    const paymentTermsDays = Number(customerData.PaymentTermsDays);
+    if (!(paymentTermsDays >= 0)) throw new Error('Payment terms (days) must be zero or more.');
+
+    const email = String(customerData.Email || '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email address.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const fields = {
+      CustomerName: customerName, Category: category,
+      Classification: matchedClassification.Name, Country: finalCountry,
+      TradeReceivablesAccountID: tradeReceivablesAccountId,
+      ContactPerson: String(customerData.ContactPerson || '').trim(),
+      Phone: String(customerData.Phone || '').trim(), Email: email,
+      AddressLine1: String(customerData.AddressLine1 || '').trim(),
+      AddressLine2: String(customerData.AddressLine2 || '').trim(),
+      TaxRegistrationNumber: String(customerData.TaxRegistrationNumber || '').trim(),
+      PaymentTermsDays: paymentTermsDays,
+      DefaultCurrency: String(customerData.DefaultCurrency || '').trim(),
+      BankName: String(customerData.BankName || '').trim(),
+      BankAccountNumber: String(customerData.BankAccountNumber || '').trim(),
+      BankIBAN: String(customerData.BankIBAN || '').trim(),
+      BankSwift: String(customerData.BankSwift || '').trim(),
+      CompanyID: companyId, Notes: String(customerData.Notes || '').trim(),
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    if (customerId) {
+      const existing = await firebaseDbRequest_('customers/' + customerId, 'get', null, idToken);
+      if (!existing) throw new Error('Customer not found.');
+      // CustomerCode and Classification are set once at creation and
+      // not editable afterward — the code's own prefix (CL-/CE-)
+      // literally encodes Classification, so changing it later would
+      // misrepresent the code, same rule Item Master enforces on
+      // ItemCode/Category.
+      await firebaseDbRequest_('customers/' + customerId, 'patch', fields, idToken);
+      return { success: true, customerId: customerId };
+    }
+
+    const customerCode = await generateCustomerCode_(idToken, isExport);
+    const newId = 'CST-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('customers/' + newId, 'put', Object.assign({}, fields, {
+      CustomerCode: customerCode, Status: 'Active', CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, customerId: newId, customerCode: customerCode };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deactivateCustomer(idToken, customerId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'CUSTOMERMASTER', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Customer Master Data.');
+    }
+    const existing = await firebaseDbRequest_('customers/' + customerId, 'get', null, idToken);
+    if (!existing) throw new Error('Customer not found.');
+    await firebaseDbRequest_('customers/' + customerId, 'patch', {
+      Status: 'Inactive', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function reactivateCustomer(idToken, customerId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'CUSTOMERMASTER', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Customer Master Data.');
+    }
+    const existing = await firebaseDbRequest_('customers/' + customerId, 'get', null, idToken);
+    if (!existing) throw new Error('Customer not found.');
+    await firebaseDbRequest_('customers/' + customerId, 'patch', {
+      Status: 'Active', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   requireModuleWrite_,
   getCoaData_,
@@ -1533,5 +1745,12 @@ module.exports = {
   getVendors,
   saveVendor,
   deactivateVendor,
-  reactivateVendor
+  reactivateVendor,
+  ensureCustomerClassificationsSeeded_,
+  getActiveCustomerClassifications,
+  generateCustomerCode_,
+  getCustomers,
+  saveCustomer,
+  deactivateCustomer,
+  reactivateCustomer
 };

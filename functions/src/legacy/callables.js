@@ -20,6 +20,10 @@ exports.deactivateCurrency = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateCurrency(ctx, d.currencyId));
 });
+exports.deactivateCustomer = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.deactivateCustomer(ctx, d.customerId));
+});
 exports.deactivateItem = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateItem(ctx, d.itemId));
@@ -40,6 +44,10 @@ exports.deactivateVendor = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateVendor(ctx, d.vendorId));
 });
+exports.getActiveCustomerClassifications = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.getActiveCustomerClassifications(ctx));
+});
 exports.getActiveItemSubCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.getActiveItemSubCategories(ctx));
@@ -55,6 +63,10 @@ exports.getCompanies = onCallWithMessages(opts, (request) => {
 exports.getCurrencies = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.getCurrencies(ctx));
+});
+exports.getCustomers = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.getCustomers(ctx));
 });
 exports.getItemSubCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -88,6 +100,10 @@ exports.reactivateCurrency = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.reactivateCurrency(ctx, d.currencyId));
 });
+exports.reactivateCustomer = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.reactivateCustomer(ctx, d.customerId));
+});
 exports.reactivateItem = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.reactivateItem(ctx, d.itemId));
@@ -119,6 +135,10 @@ exports.saveCompany = onCallWithMessages(opts, (request) => {
 exports.saveCurrency = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.saveCurrency(ctx, d.currencyData));
+});
+exports.saveCustomer = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.saveCustomer(ctx, d.customerData));
 });
 exports.saveItem = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
