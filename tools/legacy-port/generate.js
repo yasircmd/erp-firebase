@@ -162,6 +162,10 @@ const emitted = order.filter(k => fnSet.has(k) && !MAPPED[k]);
 const asyncNames = new Set([...RUNTIME_ASYNC, ...Object.keys(MAPPED).filter(k => MAPPED[k][2] !== 'pure')]);
 function isFn(node) { return n.Function.check(node); }
 function enclosingFn(p) { let q = p.parent; while (q && !isFn(q.node)) q = q.parent; return q; }
+function isSeqCall(node) {
+  return n.CallExpression.check(node) && n.MemberExpression.check(node.callee) &&
+    n.Identifier.check(node.callee.object) && node.callee.object.name === 'seq';
+}
 
 let changed = true; let rounds = 0;
 while (changed) {
@@ -192,7 +196,10 @@ while (changed) {
             b.memberExpression(b.identifier('seq'), b.identifier(combinator)),
             [call.callee.object, ...call.arguments]));
           f.parent.replace(replacement); changed = true;
-        } else if (!(n.CallExpression.check(call) && n.MemberExpression.check(call.callee) && n.Identifier.check(call.callee.object) && call.callee.object.name === 'seq')) {
+        } else if (!isSeqCall(call) &&
+            // Already wrapped earlier in this same pass: the path's parent is now the
+            // `await seq.x(arr, cb)` that replaced the original combinator call.
+            !(n.AwaitExpression.check(call) && isSeqCall(call.argument) && call.argument.arguments.includes(f.node))) {
           warn(name + ': async callback in unsupported position (line ' + (f.node.loc ? f.node.loc.start.line : '?') + ')');
         }
       }
