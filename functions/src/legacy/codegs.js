@@ -1852,6 +1852,47 @@ async function reactivateItem(idToken, itemId) {
   }
 }
 
+// Resolves whichever BOM version was ACTUALLY in effect for a parent
+// item on a specific date — not just whatever's marked Active today.
+// This is what makes the Material Variance Report correct across a
+// period where the recipe changed: a BOM's Status only tells you what's
+// CURRENT, but a production transaction from before a recipe change
+// needs judging against the OLD recipe, which is still on record as
+// Inactive (saveBom preserves history rather than deleting it — see
+// its own comment). Considers every version for the parent regardless
+// of Status, and picks whichever has the latest EffectiveFrom that is
+// still on or before the given date. Returns null if no version was
+// effective yet by that date (e.g. production predates any recorded
+// BOM for that item).
+function getBomEffectiveOnDate_(bomsByParent, parentItemId, date) {
+  const versions = bomsByParent[parentItemId];
+  if (!versions || !versions.length) return null;
+  let match = null;
+  versions.forEach(v => {
+    const effFrom = v.EffectiveFrom || '';
+    if (effFrom && effFrom <= date && (!match || effFrom > (match.EffectiveFrom || ''))) match = v;
+  });
+  return match;
+}
+
+// Groups every BOM (every version, every status) by parent item and
+// sorts each group by EffectiveFrom — the shape getBomEffectiveOnDate_
+// expects. Built once per report run rather than re-querying Firebase
+// per transaction.
+async function groupBomsByParent_(idToken) {
+  const allBoms = (await firebaseDbRequest_('boms', 'get', null, idToken)) || {};
+  const byParent = {};
+  Object.keys(allBoms).forEach(id => {
+    const b = Object.assign({ BOMID: id }, allBoms[id]);
+    if (!byParent[b.ParentItemID]) byParent[b.ParentItemID] = [];
+    byParent[b.ParentItemID].push(b);
+  });
+  Object.keys(byParent).forEach(pid => {
+    byParent[pid].sort((a, b) => String(a.EffectiveFrom || '').localeCompare(String(b.EffectiveFrom || '')));
+  });
+  return byParent;
+}
+
 // ============================================================
 // STOCK VALUATION REPORT
 // ============================================================
@@ -2036,6 +2077,121 @@ async function getStockLedgerReport(idToken, params) {
     ClosingQuantity: rows.length ? rows[rows.length - 1].RunningQuantity : openingQty,
     ClosingValue: rows.length ? rows[rows.length - 1].RunningValue : openingValue
   };
+}
+
+// ============================================================
+// MATERIAL VARIANCE REPORT
+// ============================================================
+// Period-wide, not per-item: explodes EVERY Production Entry in the
+// date range through whichever BOM was actually effective on each
+// transaction's own date, aggregates expected consumption per raw
+// material across every finished good that shares it, and compares
+// against actual net depletion of that material — not just Material
+// Issue, but the net effect of Material Issue, Stock Adjustment, and
+// Physical Count together, since all three move real material out of
+// (or back into) inventory.
+//
+// BOM EFFECTIVITY: this is the part that makes the report correct
+// across a period where a recipe changed. getBomEffectiveOnDate_ is
+// called PER PRODUCTION TRANSACTION, using that transaction's own date
+// — never "whichever BOM is marked Active right now" applied blanket
+// across the whole window. A period spanning a BOM change correctly
+// blends both versions' expectations in the right proportion, because
+// each unit produced is judged against the recipe that was actually in
+// effect when it was made.
+//
+// ACTUAL CONSUMPTION: summed across MaterialIssue, StockAdjustment, and
+// PhysicalCount transaction lines (GRN, Warehouse Movement, and
+// Production itself are irrelevant here — GRN and Warehouse Movement
+// don't consume anything, and Production's own lines are the FG side,
+// not the RM side). Every one of these transaction types already stores
+// Direction ('In'/'Out') on its posted lines, so net consumption is
+// simply Out minus In — an Adjustment or Count increase (found extra)
+// correctly offsets against issues/decreases rather than being ignored.
+//
+// A produced item with no BOM effective on its production date
+// contributes nothing to expected consumption and is called out
+// separately (NoBomWarning) rather than silently ignored — that's a
+// real gap in the data worth surfacing, not something to hide.
+async function getMaterialVarianceReport(idToken, params) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'MATERIALVARIANCE', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Material Variance Report.');
+  }
+
+  const companyId = String(params.CompanyID || '').trim();
+  if (!companyId) throw new Error('Select a Company.');
+  if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+  const fromDate = String(params.FromDate || '').trim();
+  const toDate = String(params.ToDate || '').trim();
+  if (!fromDate || !toDate) throw new Error('Select a date range.');
+
+  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const bomsByParent = await groupBomsByParent_(idToken);
+  const allTx = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+
+  const inWindow = Object.keys(allTx).map(id => allTx[id])
+    .filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);
+
+  // Expected consumption: walk every Production line individually,
+  // resolving the BOM effective on THAT transaction's own date.
+  const expectedByComponent = {};
+  const producedByItem = {};
+  const noBomItemIds = new Set();
+
+  inWindow.filter(t => t.TransactionType === 'Production').forEach(t => {
+    (t.Lines || []).forEach(l => {
+      // [PORT FIX material-variance-production-reversal-sign] a reversal line (Direction Out) cancels output.
+      const producedSign = l.Direction === 'Out' ? -1 : 1;
+      producedByItem[l.ItemID] = Math.round(((producedByItem[l.ItemID] || 0) + producedSign * (l.Quantity || 0)) * 1e6) / 1e6;
+
+      const bom = getBomEffectiveOnDate_(bomsByParent, l.ItemID, t.TransactionDate);
+      if (!bom) { noBomItemIds.add(l.ItemID); return; }
+
+      (bom.Components || []).forEach(c => {
+        const scrapMultiplier = 1 + ((c.ScrapPercent || 0) / 100);
+        const contribution = (c.Quantity || 0) * scrapMultiplier * producedSign * (l.Quantity || 0);
+        expectedByComponent[c.ComponentItemID] = (expectedByComponent[c.ComponentItemID] || 0) + contribution;
+      });
+    });
+  });
+
+  // Actual consumption: net Out across MI, Stock Adjustment, Physical Count.
+  const actualByComponent = {};
+  const CONSUMPTION_TYPES = { MaterialIssue: true, StockAdjustment: true, PhysicalCount: true };
+  inWindow.filter(t => CONSUMPTION_TYPES[t.TransactionType]).forEach(t => {
+    (t.Lines || []).forEach(l => {
+      const sign = l.Direction === 'Out' ? 1 : -1;
+      actualByComponent[l.ItemID] = (actualByComponent[l.ItemID] || 0) + sign * (l.Quantity || 0);
+    });
+  });
+
+  const allComponentIds = {};
+  Object.keys(expectedByComponent).forEach(id => { allComponentIds[id] = true; });
+  Object.keys(actualByComponent).forEach(id => { allComponentIds[id] = true; });
+
+  const rows = Object.keys(allComponentIds).map(cid => {
+    const item = itemsData[cid];
+    const expected = Math.round((expectedByComponent[cid] || 0) * 1e6) / 1e6;
+    const actual = Math.round((actualByComponent[cid] || 0) * 1e6) / 1e6;
+    const variance = Math.round((actual - expected) * 1e6) / 1e6;
+    const variancePercent = expected > 0.000001 ? Math.round((variance / expected) * 10000) / 100 : null;
+    return {
+      ComponentItemID: cid, ComponentItemCode: item ? item.ItemCode : '(item not found)', ComponentItemName: item ? item.ItemName : '',
+      ExpectedConsumption: expected, ActualConsumption: actual,
+      Variance: variance, VariancePercent: variancePercent
+    };
+  }).sort((a, b) => String(a.ComponentItemCode).localeCompare(String(b.ComponentItemCode), undefined, { numeric: true }));
+
+  const producedRows = Object.keys(producedByItem).map(iid => {
+    const item = itemsData[iid];
+    return {
+      ItemID: iid, ItemCode: item ? item.ItemCode : '', ItemName: item ? item.ItemName : '',
+      Quantity: producedByItem[iid], NoBomWarning: noBomItemIds.has(iid)
+    };
+  }).sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }));
+
+  return { ProducedItems: producedRows, Rows: rows };
 }
 
 async function generateVendorCode_(idToken) {
@@ -3358,8 +3514,11 @@ module.exports = {
   saveItem,
   deactivateItem,
   reactivateItem,
+  getBomEffectiveOnDate_,
+  groupBomsByParent_,
   getStockValuationReport,
   getStockLedgerReport,
+  getMaterialVarianceReport,
   generateVendorCode_,
   getVendors,
   saveVendor,

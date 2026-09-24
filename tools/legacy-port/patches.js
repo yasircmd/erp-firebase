@@ -57,5 +57,21 @@ module.exports = [
     });
   }));
 `
+  },
+  {
+    id: 'material-variance-production-reversal-sign',
+    why: 'getMaterialVarianceReport added every Production line as produced output, but a Production REVERSAL is ' +
+      'stored as TransactionType Production with Direction Out — so reversing a run doubled both the produced ' +
+      'quantity and the expected component consumption instead of cancelling them. Reversal lines now count negatively.',
+    find: `      producedByItem[l.ItemID] = Math.round(((producedByItem[l.ItemID] || 0) + (l.Quantity || 0)) * 1e6) / 1e6;`,
+    replace: `      // [PORT FIX material-variance-production-reversal-sign] a reversal line (Direction Out) cancels output.
+      const producedSign = l.Direction === 'Out' ? -1 : 1;
+      producedByItem[l.ItemID] = Math.round(((producedByItem[l.ItemID] || 0) + producedSign * (l.Quantity || 0)) * 1e6) / 1e6;`
+  },
+  {
+    id: 'material-variance-production-reversal-sign (expected)',
+    why: 'Same fix for the expected component consumption derived from that production line.',
+    find: `        const contribution = (c.Quantity || 0) * scrapMultiplier * (l.Quantity || 0);`,
+    replace: `        const contribution = (c.Quantity || 0) * scrapMultiplier * producedSign * (l.Quantity || 0);`
   }
 ];
