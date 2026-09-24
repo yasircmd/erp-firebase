@@ -327,22 +327,22 @@ primitive's REST semantics directly.
 | CUSTOMERMASTER | ✅ | ✅ |
 | PRICELISTING | ✅ | ✅ |
 | PROCUREMENTSETUP | ✅ | ✅ |
-| SALESINVOICESETUP | ✅ | **not yet** |
-| ROLES | ✅ | **not yet** |
-| USERMGMT | ✅ | **not yet** |
-| TREEMGMT | ✅ | **not yet** |
-| APPROVALCONFIG | ✅ | **not yet** |
-| APPROVALTRACKER | ✅ | **not yet** |
-| STOCKAVAILABILITY | ✅ | **not yet** |
-| STOCKLEDGER | ✅ | **not yet** |
-| STOCKVALUATION | ✅ | **not yet** |
-| INVENTORYVALUATION | ✅ | **not yet** |
-| MATERIALVARIANCE | ✅ | **not yet** |
-| GLREPORT | ✅ | **not yet** |
-| TRIALBALANCE | ✅ | **not yet** |
-| BALANCESHEET | ✅ | **not yet** |
-| PROFITLOSS | ✅ | **not yet** |
-| CASHFLOW | ✅ | **not yet** |
+| SALESINVOICESETUP | ✅ | ✅ |
+| ROLES | ✅ | ✅ |
+| USERMGMT | ✅ | ✅ |
+| TREEMGMT | ✅ | ✅ |
+| APPROVALCONFIG | ✅ | ✅ |
+| APPROVALTRACKER | ✅ | ✅ |
+| STOCKAVAILABILITY | ✅ | ✅ |
+| STOCKLEDGER | ✅ | ✅ |
+| STOCKVALUATION | ✅ | ✅ |
+| INVENTORYVALUATION | ✅ | ✅ |
+| MATERIALVARIANCE | ✅ | ✅ |
+| GLREPORT | ✅ | ✅ |
+| TRIALBALANCE | ✅ | ✅ |
+| BALANCESHEET | ✅ | ✅ |
+| PROFITLOSS | ✅ | ✅ |
+| CASHFLOW | ✅ | ✅ |
 | PHYSICALCOUNT | — | — |
 | BOM | — | — |
 | JOBORDERREQUEST | — | — |
@@ -361,24 +361,32 @@ primitive's REST semantics directly.
 
 **Next module to port:** PHYSICALCOUNT
 
-**Committed but NOT yet deployed** (SALESINVOICESETUP, ROLES, USERMGMT, TREEMGMT, APPROVALCONFIG, APPROVALTRACKER, STOCKAVAILABILITY, STOCKLEDGER, STOCKVALUATION, INVENTORYVALUATION, MATERIALVARIANCE, GLREPORT, TRIALBALANCE, BALANCESHEET, PROFITLOSS, CASHFLOW) — deploy these 41 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
-
-```
-getModuleFragment deactivateCustomerClassification deactivateInventoryValuationLine deactivateSalesType deleteFirebaseUser deleteRole deleteTreeNode getActiveUsersForPicker getAllFirebaseUsers getApprovalConfigurations getApprovalHistory getApprovalLevelsForModule getBalanceSheet getCashFlowStatement getCustomerClassifications getEligibleJobOrderItems getGlReport getInventoryValuationLines getMaterialVarianceReport getModulePermissionsMatrix getModuleRegistry getProfitAndLoss getRoles getSalesTypes getStockAvailabilityList getStockLedgerReport getStockValuationReport getTreeNodes getTrialBalance moveTreeNode reactivateCustomerClassification reactivateSalesType saveAllModulePermissions saveApprovalConfiguration saveApprovalLevels saveCustomerClassification saveFirebaseUser saveInventoryValuationLine saveRole saveSalesType saveTreeNode
-```
+Everything ported is deployed.
 <!-- PORT-STATUS:end -->
 
-**Deploy log — 2026-09-24:** the 50 callables behind the 11 live modules
-(UOM … PROCUREMENTSETUP) were redeployed from `b64c41d` with public-invoker
-IAM bindings, by the owner from Cloud Shell. This picks up the
-`__positional` change and the `runtime.js` FieldPath fix (`9e5f34e`).
-`getModuleFragment` was deliberately **not** redeployed: it bundles every
-screen in `functions/modules/`, so deploying it now would expose the 16
-not-yet-deployed modules' screens with no live functions behind them. The
-live screens for the 11 still come from the older `getModuleFragment` and
-keep working, because the new callables accept both named arguments and
-`__positional`. Deploy `getModuleFragment` together with the 40 functions
-listed above, in one batch.
+**Deploy log** (project `erp1-8f4cd`,
+[Firebase console](https://console.firebase.google.com/project/erp1-8f4cd/overview);
+all deploys by the owner from Cloud Shell, batches of ≤6 plus a public-invoker
+IAM binding per function):
+
+- **2026-09-24, batch A:** the 50 callables behind the 11 already-live
+  modules (UOM … PROCUREMENTSETUP) were redeployed from `b64c41d`, picking up
+  the `__positional` change and the `runtime.js` FieldPath fix (`9e5f34e`).
+  `getModuleFragment` was held back so it wouldn't expose the 16 screens
+  that had no live functions yet. The working copy was not verified clean
+  for this batch; batch B below redeployed the same functions from a clean
+  checkout, which settles that.
+- **2026-09-24, batch B:** all 91 generated-port functions (`getModuleFragment`
+  plus the 90 callables for all 27 modules) were deployed from `005021a` on a
+  verified-clean working copy (in-progress Physical Count work stashed
+  first), ending `ALL DONE`. With this, all 27 generated-port modules are
+  live, including the 16 from SALESINVOICESETUP to CASHFLOW.
+  `getModuleFragment` now serves all 31 screens in `functions/modules/`,
+  including the 4 hand-ported stock modules; this log does not record a
+  deploy of those modules' own functions (see the hand-ported sections
+  above).
+- **Rule for every deploy:** `git status --porcelain` must be empty.
+  `firebase deploy` uploads the working copy, not the last commit.
 
 **Deploy note (for whoever deploys):** Claude Code's permission guard
 blocks production deploys from the migration session — including edits
