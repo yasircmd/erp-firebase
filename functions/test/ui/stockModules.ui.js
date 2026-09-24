@@ -172,6 +172,31 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  // 5. GRN PO picker: stock lines selectable, non-stock (category) lines greyed out.
+  await check('GRN: PO picker — stock line fills item code, non-stock line is disabled', async () => {
+    await rtdb.ref('purchaseOrders/PO-UITEST').set({
+      PONumber: 'PO-UI-1', Status: 'Approved', CompanyID: 'C1', VendorID: 'V1',
+      Lines: [
+        { LineID: 'POL-0', ItemCode: 'RM-001', Description: 'Steel sheets', Quantity: 10, UnitPrice: 6, WarehouseID: 'WH1' },
+        { LineID: 'POL-1', ItemCode: '', CategoryID: 'RCAT-X', Description: 'Consulting', Quantity: 1, UnitPrice: 500, WarehouseID: '' }
+      ]
+    });
+    const page = await open('GRN', 'u-admin');
+    await page.click('#grn-new-btn');
+    await page.selectOption('#grn-form-company', 'C1');
+    await page.selectOption('#grn-form-vendor', 'V1');
+    await page.waitForSelector('#grn-po-picker-section:not(.hidden) .grn-po-line-checkbox', { timeout: 15000 });
+    assert.equal(await page.locator('.grn-po-line-checkbox').count(), 1, 'only the stock line is selectable');
+    assert.equal(await page.locator('.grn-po-line-nonstock').count(), 1);
+    assert.equal(await page.locator('.grn-po-line-nonstock').isDisabled(), true);
+    assert.match(await page.locator('#grn-po-picker-list').textContent(), /non-stock line – not received via GRN/);
+    await page.locator('.grn-po-line-checkbox').check();
+    assert.equal(await page.inputValue('input[data-field="item"][data-row="0"]'), 'RM-001');
+    assert.deepEqual(await rpcFailures(page), []);
+    await rtdb.ref('purchaseOrders/PO-UITEST').set(null);
+    await page.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   for (const r of results) console.log(r.join('  '));
   console.log(results.filter(r => r[0] === 'PASS').length + '/' + results.length + ' passed');

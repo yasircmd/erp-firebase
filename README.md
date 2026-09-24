@@ -198,6 +198,13 @@ more gaps, all now closed:
   (`onCallWithMessages`) passes the message through, as the original
   did; all five files above use it.
 
+One deliberate behavior change, at the owner's request: the GRN screen's
+PO picker now greys out non-stock PO lines (lines from a category-based
+Purchase Requisition, which carry no ItemCode) with the note "non-stock
+line – not received via GRN". The GAS version let them be ticked, which
+only produced a GRN line that failed on save. Those lines are meant to be
+billed through Vendor Invoice (not yet ported).
+
 Pre-existing quirks in these screens/functions, preserved and disclosed
 (not changed):
 - Stock Adjustment, Material Issue and Warehouse Movement's own reversal

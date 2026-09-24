@@ -599,6 +599,19 @@
         const label = document.createElement('label');
         label.className = 'flex items-center gap-2 text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1.5 cursor-pointer';
         const remaining = Number(line.RemainingQuantity) || 0;
+        // Non-stock lines (from a category-based Purchase Requisition)
+        // carry no ItemCode — there's nothing to receive into a
+        // warehouse, and picking one only produced a line that failed
+        // on save. Shown for context, but not selectable. (Added during
+        // the Firebase migration at the owner's request; the GAS
+        // version let them be ticked.)
+        if (!line.ItemCode) {
+          label.className = 'flex items-center gap-2 text-xs bg-slate-800/50 border border-slate-800 rounded px-2 py-1.5 opacity-50 cursor-not-allowed';
+          label.title = 'Non-stock line — not received via GRN';
+          label.innerHTML = `<input type="checkbox" class="grn-po-line-nonstock" disabled> <span>${escapeHtml(line.Description || '(no description)')} — Ordered ${line.Quantity} <span class="text-slate-400">(non-stock line – not received via GRN)</span></span>`;
+          wrapper.appendChild(label);
+          return;
+        }
         const overNote = remaining <= 0 ? ' <span class="text-amber-400">(fully received already — still selectable)</span>' : '';
         label.innerHTML = `<input type="checkbox" class="grn-po-line-checkbox" data-key="${key}" ${selectedPOLineKeys.has(key) ? 'checked' : ''}> <span>${escapeHtml(line.ItemCode)} — ${escapeHtml(line.Description || '')} — Ordered ${line.Quantity}, Remaining ${remaining}${overNote}</span>`;
         wrapper.appendChild(label);
