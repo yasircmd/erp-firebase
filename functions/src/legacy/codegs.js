@@ -2858,6 +2858,97 @@ async function deactivatePriceListLine(idToken, lineId) {
   }
 }
 
+// "Sellable" is deliberately defined by real, assigned data — has this
+// item EVER had a price set on ANY price list — rather than a
+// hardcoded item Category check. This decouples what's sellable from
+// how an item happens to be classified in Item Master: if a company
+// wants to sell a Semi-Finished Good or even a Raw Material as a
+// trading item, giving it a price is what makes it sellable, not
+// reclassifying it. Any status, any effective date, any price list —
+// once a price has been assigned at all, the item counts.
+async function getSellableItemCodes_(idToken) {
+  const linesData = (await firebaseDbRequest_('priceListLines', 'get', null, idToken)) || {};
+  const codes = new Set();
+  Object.values(linesData).forEach(line => { if (line.ItemCode) codes.add(line.ItemCode); });
+  return codes;
+}
+
+// ============================================================
+// STOCK AVAILABILITY (Sales)
+// ============================================================
+// Confirmed design: Sales needs a simple window onto On-Hand, Reserved,
+// and Free (Available) stock — no dedicated module ID, since this is a
+// read-only report, not a transactional screen with its own draft/post
+// lifecycle. Gated the same way other cross-cutting reports are: any
+// signed-in user with company access can view it.
+//
+// Free stock CAN legitimately show negative — that's not a bug to
+// guard against, it's the deliberate signal confirmed for the
+// "damages/movement ate into reserved stock" case: rather than
+// blocking a Stock Adjustment or Warehouse Movement that drops
+// on-hand below what's reserved, this screen is where that gets
+// surfaced, clearly, for Sales to act on (Release from a lower-
+// priority order, or raise a new Job Order Request).
+
+// One item+warehouse combination with any of the three figures
+// nonzero — every combination that's ever had stock or ever been
+// reserved, not the full cartesian product of every item against
+// every warehouse (which would be mostly empty noise).
+async function getStockAvailabilityList(idToken, companyId) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'STOCKAVAILABILITY', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Stock Availability.');
+  }
+  if (!companyId) throw new Error('Select a Company.');
+  if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+
+  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  // Restricted to sellable items — same definition as Sales Order's own
+  // item picker (has a price assigned on any price list), not a
+  // hardcoded item Category check. This screen exists so Sales can see
+  // what's available to promise to customers; raw materials and WIP
+  // that nobody's ever priced for sale would just be noise here.
+  const sellableCodes = await getSellableItemCodes_(idToken);
+  const companyItemIds = new Set(Object.keys(itemsData).filter(id => itemsData[id].CompanyID === companyId && sellableCodes.has(itemsData[id].ItemCode)));
+
+  const ledgerData = (await firebaseDbRequest_('stock/ledger', 'get', null, idToken)) || {};
+  const reservationsData = (await firebaseDbRequest_('stock/reservations', 'get', null, idToken)) || {};
+
+  // Key every combination by itemId|warehouseId so on-hand and
+  // reserved figures for the SAME combo merge into one row, whichever
+  // source (ledger or reservations) it was first seen in.
+  const combos = {};
+  Object.keys(ledgerData).forEach(itemId => {
+    if (!companyItemIds.has(itemId)) return;
+    const warehouses = ledgerData[itemId] || {};
+    Object.keys(warehouses).forEach(warehouseId => {
+      const key = itemId + '|' + warehouseId;
+      combos[key] = combos[key] || { itemId: itemId, warehouseId: warehouseId, onHand: 0, reserved: 0 };
+      combos[key].onHand = Number(warehouses[warehouseId].Quantity) || 0;
+    });
+  });
+  Object.values(reservationsData).forEach(r => {
+    if (r.Status !== 'Active' || !companyItemIds.has(r.ItemID)) return;
+    const key = r.ItemID + '|' + r.WarehouseID;
+    combos[key] = combos[key] || { itemId: r.ItemID, warehouseId: r.WarehouseID, onHand: 0, reserved: 0 };
+    combos[key].reserved += Number(r.Quantity) || 0;
+  });
+
+  const orgUnitsData = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
+  return Object.values(combos)
+    .filter(c => c.onHand !== 0 || c.reserved !== 0)
+    .map(c => {
+      const item = itemsData[c.itemId] || {};
+      const warehouse = orgUnitsData[c.warehouseId] || {};
+      return {
+        ItemID: c.itemId, ItemCode: item.ItemCode || '', ItemName: item.ItemName || '',
+        WarehouseID: c.warehouseId, WarehouseCode: warehouse.Code || '', WarehouseName: warehouse.Name || '',
+        OnHand: c.onHand, Reserved: c.reserved, Available: c.onHand - c.reserved
+      };
+    })
+    .sort((a, b) => a.ItemCode.localeCompare(b.ItemCode) || a.WarehouseCode.localeCompare(b.WarehouseCode));
+}
+
 module.exports = {
   requireAdmin_,
   getRoles,
@@ -2947,5 +3038,7 @@ module.exports = {
   reactivatePriceList,
   getPriceListLines,
   savePriceListLine,
-  deactivatePriceListLine
+  deactivatePriceListLine,
+  getSellableItemCodes_,
+  getStockAvailabilityList
 };

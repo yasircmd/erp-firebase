@@ -208,6 +208,11 @@ exports.getSalesTypes = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getSalesTypes(ctx, ...a));
 });
+exports.getStockAvailabilityList = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId];
+  return run(request, (ctx) => L.getStockAvailabilityList(ctx, ...a));
+});
 exports.getTreeNodes = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
