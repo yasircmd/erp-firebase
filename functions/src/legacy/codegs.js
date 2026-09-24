@@ -11,11 +11,13 @@ const __glWriting = require('../glWriting');
 const __masterData = require('../masterData');
 const __moduleRegistry = require('../moduleRegistry');
 const __roles = require('../roles');
+const __tree = require('../tree');
 
 // ---- helpers routed to the hand-ported shared modules ----
 const moduleHasCapability_ = (idToken, ...a) => __auth.moduleHasCapability(...a);
 const ensurePermissionsSeeded_ = (idToken, ...a) => __auth.ensurePermissionsSeeded(...a);
 const userCanAccessCompany_ = (...a) => __glWriting.userCanAccessCompany(...a);
+const ensureTreeSeeded_ = (idToken, ...a) => __tree.ensureTreeSeeded(...a);
 const ensureRolesSeeded_ = (idToken, ...a) => __roles.ensureRolesSeeded(...a);
 
 // ---- constants ----
@@ -245,6 +247,11 @@ async function getRoles(idToken) {
   await requireUser_(idToken);
   const roles = await ensureRolesSeeded_(idToken);
   return Object.keys(roles).map(id => Object.assign({ RoleID: id }, roles[id]));
+}
+
+async function getModuleRegistry(idToken) {
+  await requireUser_(idToken);
+  return MODULE_REGISTRY;
 }
 
 async function saveRole(idToken, roleData) {
@@ -485,6 +492,144 @@ async function deleteFirebaseUser(idToken, userId) {
     // removed separately in the Firebase Authentication console.
     await firebaseDbRequest_(`users/${userId}`, 'delete', null, idToken);
 
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function getTreeNodes(idToken) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'TREEMGMT', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Module Tree & Navigation Management.');
+  }
+  let nodes = await firebaseDbRequest_('tree', 'get', null, idToken);
+  if (!nodes || !Object.keys(nodes).length) nodes = await ensureTreeSeeded_(idToken);
+  return Object.keys(nodes).map(id => Object.assign({ NodeID: id }, nodes[id]));
+}
+
+async function saveTreeNode(idToken, nodeData) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'TREEMGMT', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify the module tree.');
+    }
+
+    const nodeId = String(nodeData.NodeID || '').trim();
+    const text = String(nodeData.Text || '').trim();
+    const parentId = String(nodeData.ParentID || '').trim();
+    const moduleId = String(nodeData.ModuleID || '').trim().toUpperCase();
+    const allowedRoles = Array.isArray(nodeData.AllowedRoles) ? nodeData.AllowedRoles : [];
+
+    if (!text) throw new Error('Item text is required.');
+    if (moduleId && !MODULE_REGISTRY.some(m => m.id === moduleId)) {
+      throw new Error('Unknown module: ' + moduleId);
+    }
+    if (nodeId && parentId === nodeId) {
+      throw new Error('An item cannot be its own parent.');
+    }
+
+    const existingAll = (await firebaseDbRequest_('tree', 'get', null, idToken)) || {};
+
+    if (parentId && !existingAll[parentId]) {
+      throw new Error('Parent item not found.');
+    }
+    if (nodeId && parentId) {
+      let walkId = parentId;
+      while (walkId) {
+        if (walkId === nodeId) throw new Error('Cannot move an item under one of its own descendants.');
+        walkId = existingAll[walkId] ? existingAll[walkId].ParentID : '';
+      }
+    }
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    if (nodeId) {
+      if (!existingAll[nodeId]) throw new Error('Item not found.');
+      await firebaseDbRequest_('tree/' + nodeId, 'patch', {
+        Text: text, ParentID: parentId, ModuleID: moduleId, AllowedRoles: allowedRoles,
+        UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, nodeId: nodeId };
+    }
+
+    const siblingOrders = Object.values(existingAll)
+      .filter(n => (n.ParentID || '') === parentId)
+      .map(n => n.Order || 0);
+    const nextOrder = siblingOrders.length ? Math.max.apply(null, siblingOrders) + 1 : 0;
+
+    const newId = 'NODE-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('tree/' + newId, 'put', {
+      Text: text, ParentID: parentId, Order: nextOrder, ModuleID: moduleId, AllowedRoles: allowedRoles,
+      CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true, nodeId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deleteTreeNode(idToken, nodeId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'TREEMGMT', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify the module tree.');
+    }
+
+    const existingAll = (await firebaseDbRequest_('tree', 'get', null, idToken)) || {};
+    if (!existingAll[nodeId]) throw new Error('Item not found.');
+
+    const hasChildren = Object.values(existingAll).some(n => n.ParentID === nodeId);
+    if (hasChildren) throw new Error('This item has sub-items. Delete or move them first.');
+
+    await firebaseDbRequest_('tree/' + nodeId, 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Repositions draggedNodeId as the previous/next sibling of targetNodeId
+// (position: 'before' | 'after'), adopting the target's parent — this is
+// what makes dropping onto an item under a different parent a re-parent,
+// not just a same-list reorder. Reindexes affected siblings in one
+// atomic Firebase multi-path update.
+async function moveTreeNode(idToken, draggedNodeId, targetNodeId, position) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'TREEMGMT', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify the module tree.');
+    }
+
+    const existingAll = (await firebaseDbRequest_('tree', 'get', null, idToken)) || {};
+    const dragged = existingAll[draggedNodeId];
+    const target = existingAll[targetNodeId];
+    if (!dragged || !target) throw new Error('Item not found.');
+    if (draggedNodeId === targetNodeId) return { success: true };
+
+    let walkId = target.ParentID;
+    while (walkId) {
+      if (walkId === draggedNodeId) throw new Error('Cannot move an item under one of its own descendants.');
+      walkId = existingAll[walkId] ? existingAll[walkId].ParentID : '';
+    }
+
+    const newParentId = target.ParentID || '';
+    const siblings = Object.keys(existingAll)
+      .filter(id => (existingAll[id].ParentID || '') === newParentId && id !== draggedNodeId)
+      .sort((a, b) => (existingAll[a].Order || 0) - (existingAll[b].Order || 0));
+
+    const targetIndex = siblings.indexOf(targetNodeId);
+    const insertAt = position === 'after' ? targetIndex + 1 : targetIndex;
+    siblings.splice(insertAt, 0, draggedNodeId);
+
+    const updates = {};
+    siblings.forEach((id, i) => {
+      updates['tree/' + id + '/Order'] = i;
+      if (id === draggedNodeId) updates['tree/' + id + '/ParentID'] = newParentId;
+    });
+
+    await firebaseDbRequest_('', 'patch', updates, idToken);
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
@@ -2549,6 +2694,7 @@ async function deactivatePriceListLine(idToken, lineId) {
 module.exports = {
   requireAdmin_,
   getRoles,
+  getModuleRegistry,
   saveRole,
   deleteRole,
   getModulePermissionsMatrix,
@@ -2556,6 +2702,10 @@ module.exports = {
   getAllFirebaseUsers,
   saveFirebaseUser,
   deleteFirebaseUser,
+  getTreeNodes,
+  saveTreeNode,
+  deleteTreeNode,
+  moveTreeNode,
   requireModuleWrite_,
   getCoaData_,
   ensureSubCategoriesSeeded_,

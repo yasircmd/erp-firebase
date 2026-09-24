@@ -88,6 +88,11 @@ exports.deleteRole = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.roleId];
   return run(request, (ctx) => L.deleteRole(ctx, ...a));
 });
+exports.deleteTreeNode = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.nodeId];
+  return run(request, (ctx) => L.deleteTreeNode(ctx, ...a));
+});
 exports.getActiveCurrencies = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -148,6 +153,11 @@ exports.getModulePermissionsMatrix = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getModulePermissionsMatrix(ctx, ...a));
 });
+exports.getModuleRegistry = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getModuleRegistry(ctx, ...a));
+});
 exports.getOrgUnits = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -178,6 +188,11 @@ exports.getSalesTypes = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getSalesTypes(ctx, ...a));
 });
+exports.getTreeNodes = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getTreeNodes(ctx, ...a));
+});
 exports.getUOMs = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -187,6 +202,11 @@ exports.getVendors = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getVendors(ctx, ...a));
+});
+exports.moveTreeNode = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.draggedNodeId, d.targetNodeId, d.position];
+  return run(request, (ctx) => L.moveTreeNode(ctx, ...a));
 });
 exports.reactivateAccount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -327,6 +347,11 @@ exports.saveSalesType = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
   return run(request, (ctx) => L.saveSalesType(ctx, ...a));
+});
+exports.saveTreeNode = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.nodeData];
+  return run(request, (ctx) => L.saveTreeNode(ctx, ...a));
 });
 exports.saveUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

@@ -281,7 +281,7 @@ closure, and emits them VERBATIM (original comments included) into
 | SALESINVOICESETUP | ✅ | **not yet** |
 | ROLES | ✅ | **not yet** |
 | USERMGMT | ✅ | **not yet** |
-| TREEMGMT | — | — |
+| TREEMGMT | ✅ | **not yet** |
 | APPROVALCONFIG | — | — |
 | APPROVALTRACKER | — | — |
 | STOCKAVAILABILITY | — | — |
@@ -312,12 +312,12 @@ closure, and emits them VERBATIM (original comments included) into
 
 Needs redeploy: UOM — dynamic deactivate/reactivate calls now send { __positional: [...] }; the live callables predate that; ITEMSUBCAT — same (__positional); ORGUNITS — same (__positional); COMPANYMASTER — same (__positional); CURRENCYCONFIG — same (__positional). Their functions are included in the list below; deploying getModuleFragment WITHOUT them would break those screens' deactivate/reactivate buttons.
 
-**Next module to port:** TREEMGMT
+**Next module to port:** APPROVALCONFIG
 
-**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES, USERMGMT) — deploy these 67 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES, USERMGMT, TREEMGMT) — deploy these 72 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor deleteFirebaseUser deleteRole getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getAllFirebaseUsers getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getItemSubCategories getItems getModulePermissionsMatrix getOrgUnits getPriceListLines getPriceLists getRequisitionCategories getRoles getSalesTypes getUOMs getVendors reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveAllModulePermissions saveCompany saveCurrency saveCustomer saveCustomerClassification saveFirebaseUser saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveRole saveSalesType saveUOM saveVendor
+getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor deleteFirebaseUser deleteRole deleteTreeNode getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getAllFirebaseUsers getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getItemSubCategories getItems getModulePermissionsMatrix getModuleRegistry getOrgUnits getPriceListLines getPriceLists getRequisitionCategories getRoles getSalesTypes getTreeNodes getUOMs getVendors moveTreeNode reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveAllModulePermissions saveCompany saveCurrency saveCustomer saveCustomerClassification saveFirebaseUser saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveRole saveSalesType saveTreeNode saveUOM saveVendor
 ```
 <!-- PORT-STATUS:end -->
 
