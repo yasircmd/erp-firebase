@@ -265,7 +265,25 @@ closure, and emits them VERBATIM (original comments included) into
   either named keys or `__positional`.
 - Bug fixes go in `tools/legacy-port/patches.js` as documented
   find/replace patches on Code.gs (each must match exactly once), never
-  as hand edits to the generated files. (None needed so far.)
+  as hand edits to the generated files. (See "Deviations from Code.gs" below.)
+
+### Deviations from Code.gs (generated port)
+
+Real bugs found while porting, fixed as patches in
+`tools/legacy-port/patches.js` (owner's standing instruction: fix and
+report). Each has a test that fails against the original logic.
+
+1. **Stock Ledger Report ignored transfers into a warehouse, and
+   undercounted multi-line transactions** (`getStockLedgerReport`). A
+   posted Warehouse Movement stores only its Out side (`WarehouseID` =
+   source, `ToWarehouseID` = destination) and the report matched on
+   `WarehouseID` only, so a destination warehouse's report never showed
+   stock moved in and its closing balance disagreed with the real
+   ledger. It also took only the first matching line per transaction, so
+   e.g. a GRN with two lines of the same item into the same warehouse
+   (live PO-26-03-000001 has exactly that shape) was undercounted. Fixed:
+   every matching line counts; a movement line whose `ToWarehouseID` is
+   the selected warehouse counts as In. (`stockLedger` suite.)
 
 ### Generated-port status (kept current after every module)
 
@@ -290,7 +308,7 @@ closure, and emits them VERBATIM (original comments included) into
 | APPROVALCONFIG | ✅ | **not yet** |
 | APPROVALTRACKER | ✅ | **not yet** |
 | STOCKAVAILABILITY | ✅ | **not yet** |
-| STOCKLEDGER | — | — |
+| STOCKLEDGER | ✅ | **not yet** |
 | STOCKVALUATION | — | — |
 | INVENTORYVALUATION | — | — |
 | MATERIALVARIANCE | — | — |
@@ -317,12 +335,12 @@ closure, and emits them VERBATIM (original comments included) into
 
 Needs redeploy: UOM — dynamic deactivate/reactivate calls now send { __positional: [...] }; the live callables predate that; ITEMSUBCAT — same (__positional); ORGUNITS — same (__positional); COMPANYMASTER — same (__positional); CURRENCYCONFIG — same (__positional); ITEMMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; COA — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; VENDORMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; CUSTOMERMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; PRICELISTING — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; PROCUREMENTSETUP — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls. Their functions are included in the list below; deploying getModuleFragment WITHOUT them would break those screens' deactivate/reactivate buttons.
 
-**Next module to port:** STOCKLEDGER
+**Next module to port:** STOCKVALUATION
 
-**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES, USERMGMT, TREEMGMT, APPROVALCONFIG, APPROVALTRACKER, STOCKAVAILABILITY) — deploy these 79 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES, USERMGMT, TREEMGMT, APPROVALCONFIG, APPROVALTRACKER, STOCKAVAILABILITY, STOCKLEDGER) — deploy these 80 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor deleteFirebaseUser deleteRole deleteTreeNode getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getActiveUsersForPicker getAllFirebaseUsers getApprovalConfigurations getApprovalHistory getApprovalLevelsForModule getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getItemSubCategories getItems getModulePermissionsMatrix getModuleRegistry getOrgUnits getPriceListLines getPriceLists getRequisitionCategories getRoles getSalesTypes getStockAvailabilityList getTreeNodes getUOMs getVendors moveTreeNode reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveAllModulePermissions saveApprovalConfiguration saveApprovalLevels saveCompany saveCurrency saveCustomer saveCustomerClassification saveFirebaseUser saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveRole saveSalesType saveTreeNode saveUOM saveVendor
+getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor deleteFirebaseUser deleteRole deleteTreeNode getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getActiveUsersForPicker getAllFirebaseUsers getApprovalConfigurations getApprovalHistory getApprovalLevelsForModule getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getItemSubCategories getItems getModulePermissionsMatrix getModuleRegistry getOrgUnits getPriceListLines getPriceLists getRequisitionCategories getRoles getSalesTypes getStockAvailabilityList getStockLedgerReport getTreeNodes getUOMs getVendors moveTreeNode reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveAllModulePermissions saveApprovalConfiguration saveApprovalLevels saveCompany saveCurrency saveCustomer saveCustomerClassification saveFirebaseUser saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveRole saveSalesType saveTreeNode saveUOM saveVendor
 ```
 <!-- PORT-STATUS:end -->
 

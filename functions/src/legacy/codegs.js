@@ -125,6 +125,18 @@ const ITEM_CATEGORY_PREFIXES = {
   Scrap: 'SCRAP'
 };
 
+const STOCK_VOUCHER_TYPE_TO_MODULE = {
+  GRN: 'GRN',
+  MaterialIssue: 'MATERIALISSUE',
+  Production: 'PRODUCTION',
+  WarehouseMovement: 'WAREHOUSEMOVEMENT',
+  StockAdjustment: 'STOCKADJUSTMENT',
+  PhysicalCount: 'PHYSICALCOUNT',
+  VendorInvoice: 'VENDORINVOICE',
+  DeliveryNote: 'DELIVERYNOTE',
+  CustomerInvoice: 'CUSTOMERINVOICE'
+};
+
 // ============================================================
 // VENDOR MASTER DATA (Accounts Payable — FI-AP foundation)
 // ============================================================
@@ -1840,6 +1852,104 @@ async function reactivateItem(idToken, itemId) {
   }
 }
 
+// ============================================================
+// STOCK LEDGER REPORT
+// ============================================================
+// A transaction-level history for ONE item at ONE location, over a date
+// range — the same shape GL Report already gives for an account: opening
+// balance, each movement, a running balance, closing balance. Requires
+// picking a specific item and a specific warehouse/rack (not "all"),
+// same design choice GL Report already makes for accounts, for the same
+// reason — a combined view across many locations would need its own
+// separate aggregation logic and isn't what this report is for; use
+// Stock Valuation for a cross-location snapshot instead.
+//
+// Walks every POSTED transaction touching this item+location, in the
+// order they were ORIGINALLY posted (CreatedAt — the actual sequence
+// that determined WAC), same ordering rule as recalculateStockLedger.
+// Transactions before the requested date range are folded into the
+// opening balance rather than shown as rows; transactions after the
+// range are excluded entirely so the closing balance reflects the
+// window requested, not today's live balance.
+async function getStockLedgerReport(idToken, params) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'STOCKLEDGER', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Stock Ledger Report.');
+  }
+
+  const itemId = String(params.ItemID || '').trim();
+  if (!itemId) throw new Error('Select an item.');
+  const warehouseId = String(params.WarehouseID || '').trim();
+  if (!warehouseId) throw new Error('Select a warehouse or rack.');
+  const fromDate = String(params.FromDate || '').trim();
+  const toDate = String(params.ToDate || '').trim();
+  if (!fromDate || !toDate) throw new Error('Select a date range.');
+
+  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const item = itemsData[itemId];
+  if (!item) throw new Error('Item not found.');
+  if (item.CompanyID && !userCanAccessCompany_(user.profile, item.CompanyID)) throw new Error('You do not have access to that company.');
+
+  const allTx = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+
+  // [PORT FIX stock-ledger-report-transfers-and-multiline] every line of this
+  // item at this warehouse counts (not just the first), and a Warehouse
+  // Movement line whose DESTINATION is this warehouse counts as an In.
+  const linesHere = t => (t.Lines || []).reduce((acc, l) => {
+    if (l.ItemID !== itemId) return acc;
+    if (l.WarehouseID === warehouseId) acc.push(l);
+    else if (t.TransactionType === 'WarehouseMovement' && l.ToWarehouseID === warehouseId) acc.push(Object.assign({}, l, { Direction: 'In', WarehouseID: warehouseId }));
+    return acc;
+  }, []);
+  const relevant = Object.keys(allTx)
+    .map(id => Object.assign({ _id: id }, allTx[id]))
+    .filter(t => t.Status === 'Posted' && linesHere(t).length)
+    .sort((a, b) => (a.CreatedAt || '').localeCompare(b.CreatedAt || ''));
+
+  let runningQty = 0, runningValue = 0;
+  let openingQty = 0, openingValue = 0;
+  const rows = [];
+
+  relevant.forEach(tx => linesHere(tx).forEach(line => {
+
+    const qty = line.Quantity || 0;
+    const isIn = line.Direction === 'In';
+    const lineValue = (line.TotalValue != null) ? line.TotalValue : Math.round(qty * (line.UnitCost || 0) * 100) / 100;
+
+    if (isIn) {
+      runningValue = Math.round((runningValue + lineValue) * 100) / 100;
+      runningQty = Math.round((runningQty + qty) * 1e6) / 1e6;
+    } else {
+      runningValue = Math.round((runningValue - lineValue) * 100) / 100;
+      runningQty = Math.round((runningQty - qty) * 1e6) / 1e6;
+    }
+    const runningAvgCost = runningQty > 0.000001 ? Math.round((runningValue / runningQty) * 10000) / 10000 : 0;
+
+    if (tx.TransactionDate < fromDate) {
+      openingQty = runningQty;
+      openingValue = runningValue;
+      return; // folds into opening — not shown as its own row
+    }
+    if (tx.TransactionDate > toDate) return; // outside the window entirely
+
+    rows.push({
+      TransactionDate: tx.TransactionDate, TransactionNumber: tx.TransactionNumber || tx._id,
+      TransactionType: tx.TransactionType, Description: line.Description || tx.Description,
+      Direction: line.Direction, Quantity: qty, UnitCost: line.UnitCost || 0,
+      RunningQuantity: runningQty, RunningAvgCost: runningAvgCost, RunningValue: runningValue,
+      LinkedJVID: tx.LinkedJVID || '', SourceModule: STOCK_VOUCHER_TYPE_TO_MODULE[tx.TransactionType] || ''
+    });
+  }));
+
+  return {
+    ItemCode: item.ItemCode, ItemName: item.ItemName,
+    OpeningQuantity: openingQty, OpeningValue: openingValue,
+    Rows: rows,
+    ClosingQuantity: rows.length ? rows[rows.length - 1].RunningQuantity : openingQty,
+    ClosingValue: rows.length ? rows[rows.length - 1].RunningValue : openingValue
+  };
+}
+
 async function generateVendorCode_(idToken) {
   const counterPath = 'vendorCounters/VEN';
   const current = (await firebaseDbRequest_(counterPath, 'get', null, idToken)) || 0;
@@ -3000,6 +3110,7 @@ module.exports = {
   saveItem,
   deactivateItem,
   reactivateItem,
+  getStockLedgerReport,
   generateVendorCode_,
   getVendors,
   saveVendor,
