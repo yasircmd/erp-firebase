@@ -36,6 +36,10 @@ exports.deactivateUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateUOM(ctx, d.uomId));
 });
+exports.deactivateVendor = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.deactivateVendor(ctx, d.vendorId));
+});
 exports.getActiveItemSubCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.getActiveItemSubCategories(ctx));
@@ -68,6 +72,10 @@ exports.getUOMs = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.getUOMs(ctx));
 });
+exports.getVendors = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.getVendors(ctx));
+});
 exports.reactivateAccount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.reactivateAccount(ctx, d.accountId));
@@ -96,6 +104,10 @@ exports.reactivateUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.reactivateUOM(ctx, d.uomId));
 });
+exports.reactivateVendor = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.reactivateVendor(ctx, d.vendorId));
+});
 exports.saveAccount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.saveAccount(ctx, d.accountData));
@@ -123,4 +135,8 @@ exports.saveOrgUnit = onCallWithMessages(opts, (request) => {
 exports.saveUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.saveUOM(ctx, d.uomData));
+});
+exports.saveVendor = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.saveVendor(ctx, d.vendorData));
 });

@@ -116,6 +116,42 @@ const ITEM_CATEGORY_PREFIXES = {
   Scrap: 'SCRAP'
 };
 
+// ============================================================
+// VENDOR MASTER DATA (Accounts Payable — FI-AP foundation)
+// ============================================================
+// First piece of the AP module — everything else planned for it
+// (Invoice Processing / 3-way match against GRN, Automatic Payment,
+// Vendor Ledger reporting) depends on vendors existing first, the same
+// way Item Master had to exist before any GRN/MI/Production could be
+// built. Originally built without a per-vendor GL account, reasoning
+// that vendor-level detail could be tracked via a VendorID dimension
+// on GL lines against one shared, company-wide AP control account
+// (the same pattern GRN Clearing / Production Offset established).
+// Revised on request to add TradePayablesAccountID per vendor instead
+// — a real, legitimate alternative: most vendors can still share one
+// account, but this allows genuinely different treatment where needed
+// (e.g. Local vs Foreign vendors posting to different Trade Payables
+// accounts, which is exactly why Classification was added alongside
+// this). The VendorID-dimension idea isn't gone — it's still how
+// per-vendor drill-down within whichever account a vendor posts to
+// will work once Invoice Processing is built; it just no longer means
+// every vendor is FORCED onto the same single account.
+//
+// Storage: /vendors/{id} = { VendorCode, VendorName, Category,
+//   Classification ('Local' | 'Foreign'), Country (required only when
+//   Foreign — a Local vendor's Country is always blank), ContactPerson,
+//   Phone, Email, AddressLine1, AddressLine2, TaxRegistrationNumber,
+//   PaymentTermsDays, DefaultCurrency, TradePayablesAccountID (the
+//   Liability-type GL account this vendor's balance posts against —
+//   required; see saveVendor's own comment on why this is restricted to
+//   Liability accounts, unlike Item Master's Consumption Account),
+//   BankName, BankAccountNumber, BankIBAN, BankSwift, CompanyID
+//   (optional restriction, blank = shared across all companies, same
+//   convention as COA/Items), Status, Notes, CreatedAt/By, UpdatedAt/By }
+// /vendorCounters/VEN = running sequence for VendorCode.
+
+const VENDOR_CATEGORIES = ['RawMaterialSupplier', 'ServiceProvider', 'Contractor', 'Utility', 'Other'];
+
 // ---- functions ----
 async function requireModuleWrite_(idToken, user, moduleId) {
   if (!(await moduleHasCapability_(idToken, moduleId, 'write', user.profile.role))) {
@@ -1315,6 +1351,147 @@ async function reactivateItem(idToken, itemId) {
   }
 }
 
+async function generateVendorCode_(idToken) {
+  const counterPath = 'vendorCounters/VEN';
+  const current = (await firebaseDbRequest_(counterPath, 'get', null, idToken)) || 0;
+  const next = current + 1;
+  await firebaseDbRequest_(counterPath, 'put', next, idToken);
+  return 'VEN-' + String(next).padStart(6, '0');
+}
+
+async function getVendors(idToken) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'VENDORMASTER', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Vendor Master Data.');
+  }
+  const data = (await firebaseDbRequest_('vendors', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ VendorID: id }, data[id]))
+    .filter(v => userCanAccessCompany_(user.profile, v.CompanyID));
+}
+
+async function saveVendor(idToken, vendorData) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'VENDORMASTER', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Vendor Master Data.');
+    }
+
+    const vendorId = String(vendorData.VendorID || '').trim();
+    const vendorName = String(vendorData.VendorName || '').trim();
+    if (!vendorName) throw new Error('Vendor name is required.');
+    const category = String(vendorData.Category || '').trim();
+    if (category && VENDOR_CATEGORIES.indexOf(category) === -1) throw new Error('Unknown vendor category.');
+    const companyId = String(vendorData.CompanyID || '').trim();
+    if (companyId && !userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+
+    const classification = String(vendorData.Classification || '').trim();
+    if (classification !== 'Local' && classification !== 'Foreign') throw new Error('Select Local or Foreign.');
+    const country = String(vendorData.Country || '').trim();
+    if (classification === 'Foreign' && !country) throw new Error('Select a country for a Foreign vendor.');
+    // A Local vendor's country isn't asked for on the form, but if one
+    // slipped in from switching Classification back and forth, don't
+    // silently keep it — Country only means something for Foreign.
+    const finalCountry = classification === 'Foreign' ? country : '';
+
+    // Trade Payables must be a real, active, postable Liability account
+    // — unlike Item Master's Consumption Account (deliberately left
+    // unrestricted because it serves a dual role across Material Issue
+    // and Production Entry), Trade Payables has exactly one accounting
+    // meaning, so restricting the type here is a real safeguard, not
+    // paternalism.
+    const tradePayablesAccountId = String(vendorData.TradePayablesAccountID || '').trim();
+    if (!tradePayablesAccountId) throw new Error('Select a Trade Payables account.');
+    const coaData = await getCoaData_(idToken);
+    const tpAccount = coaData[tradePayablesAccountId];
+    if (!tpAccount || !tpAccount.IsPostable || tpAccount.Status !== 'Active') throw new Error('Trade Payables account must be an active, postable account.');
+    if (tpAccount.AccountType !== 'Liability') throw new Error('Trade Payables account must be a Liability-type account.');
+    if (tpAccount.CompanyID && companyId && tpAccount.CompanyID !== companyId) throw new Error('Trade Payables account is restricted to a different company.');
+
+    const paymentTermsDays = Number(vendorData.PaymentTermsDays);
+    if (!(paymentTermsDays >= 0)) throw new Error('Payment terms (days) must be zero or more.');
+
+    const email = String(vendorData.Email || '').trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email address.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const fields = {
+      VendorName: vendorName, Category: category,
+      Classification: classification, Country: finalCountry,
+      TradePayablesAccountID: tradePayablesAccountId,
+      ContactPerson: String(vendorData.ContactPerson || '').trim(),
+      Phone: String(vendorData.Phone || '').trim(), Email: email,
+      AddressLine1: String(vendorData.AddressLine1 || '').trim(),
+      AddressLine2: String(vendorData.AddressLine2 || '').trim(),
+      TaxRegistrationNumber: String(vendorData.TaxRegistrationNumber || '').trim(),
+      PaymentTermsDays: paymentTermsDays,
+      DefaultCurrency: String(vendorData.DefaultCurrency || '').trim(),
+      BankName: String(vendorData.BankName || '').trim(),
+      BankAccountNumber: String(vendorData.BankAccountNumber || '').trim(),
+      BankIBAN: String(vendorData.BankIBAN || '').trim(),
+      BankSwift: String(vendorData.BankSwift || '').trim(),
+      CompanyID: companyId, Notes: String(vendorData.Notes || '').trim(),
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    if (vendorId) {
+      const existing = await firebaseDbRequest_('vendors/' + vendorId, 'get', null, idToken);
+      if (!existing) throw new Error('Vendor not found.');
+      // VendorCode and Category are set once at creation and not
+      // editable afterward — same rule Item Master enforces on
+      // ItemCode/Category, since changing either after transactions
+      // exist against this vendor would misrepresent history.
+      await firebaseDbRequest_('vendors/' + vendorId, 'patch', fields, idToken);
+      return { success: true, vendorId: vendorId };
+    }
+
+    const vendorCode = await generateVendorCode_(idToken);
+    const newId = 'VND-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('vendors/' + newId, 'put', Object.assign({}, fields, {
+      VendorCode: vendorCode, Status: 'Active', CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, vendorId: newId, vendorCode: vendorCode };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deactivateVendor(idToken, vendorId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'VENDORMASTER', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Vendor Master Data.');
+    }
+    const existing = await firebaseDbRequest_('vendors/' + vendorId, 'get', null, idToken);
+    if (!existing) throw new Error('Vendor not found.');
+    await firebaseDbRequest_('vendors/' + vendorId, 'patch', {
+      Status: 'Inactive', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function reactivateVendor(idToken, vendorId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'VENDORMASTER', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Vendor Master Data.');
+    }
+    const existing = await firebaseDbRequest_('vendors/' + vendorId, 'get', null, idToken);
+    if (!existing) throw new Error('Vendor not found.');
+    await firebaseDbRequest_('vendors/' + vendorId, 'patch', {
+      Status: 'Active', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   requireModuleWrite_,
   getCoaData_,
@@ -1351,5 +1528,10 @@ module.exports = {
   getItems,
   saveItem,
   deactivateItem,
-  reactivateItem
+  reactivateItem,
+  generateVendorCode_,
+  getVendors,
+  saveVendor,
+  deactivateVendor,
+  reactivateVendor
 };
