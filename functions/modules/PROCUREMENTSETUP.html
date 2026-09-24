@@ -202,7 +202,7 @@
     rpc
       .withSuccessHandler(result => { if (result.success) fetchCategories(); else alert(result.error || 'Unable to update category.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to update category.'))
-      [call]({ categoryId: category.CategoryID });
+      [call]({ __positional: [category.CategoryID] });
   }
 
   // Single entry point called by Index.html after this fragment is injected.

@@ -1,0 +1,364 @@
+<div class="space-y-8">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Accounts Receivable</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-sliders text-blue-500"></i> Sales Invoice Configuration</h2></div>
+  </div>
+
+  <div>
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <p class="text-sm font-semibold text-slate-200">Sales Types</p>
+        <p class="text-xs text-slate-500 max-w-2xl">Each Sales Type maps to its own Revenue account — Customer Invoice requires one per line, with no default, since the SAME item sold locally vs. exported often needs to post to a different account for tax reconciliation.</p>
+      </div>
+      <button id="sis-type-add-btn" class="hidden shrink-0 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Sales Type</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Sales Type</th><th class="py-3 px-4">Revenue Account</th><th class="py-3 px-4">Restricted To</th><th class="py-3 px-4">Status</th><th class="py-3 px-4 text-right">Actions</th>
+          </tr></thead>
+          <tbody id="sis-type-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <p class="text-sm font-semibold text-slate-200">Customer Classifications</p>
+        <p class="text-xs text-slate-500 max-w-2xl">Used by Customer Master Data — the "Export" flag determines the customer's own code prefix (CL-/CE-) and whether a Country is required. Changing a classification's flag only affects customers created afterward — never rewrites an existing customer's already-frozen code.</p>
+      </div>
+      <button id="sis-cls-add-btn" class="hidden shrink-0 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Classification</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Classification</th><th class="py-3 px-4">Export?</th><th class="py-3 px-4">Status</th><th class="py-3 px-4 text-right">Actions</th>
+          </tr></thead>
+          <tbody id="sis-cls-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="sis-type-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="sis-type-modal-title" class="text-lg font-bold">Add Sales Type</h3><button id="sis-type-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <form id="sis-type-form" class="space-y-4">
+      <input type="hidden" id="sis-type-form-id">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Sales Type Name</label><input type="text" id="sis-type-form-name" required placeholder="e.g. Local Sales, Export Sales, RM Sales, Service Invoice" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Restrict to Classification <span class="text-slate-500">(optional)</span></label>
+        <select id="sis-type-form-classification" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Unrestricted — usable for any customer</option></select>
+        <p class="text-xs text-slate-500 mt-1">Links this Sales Type to one Customer Classification — e.g. "Export Sales" restricted to "Export" means it can only be used on an invoice for an Export customer. Leave unrestricted for a Sales Type that applies regardless of classification (e.g. "RM Sales", "Service Invoice").</p>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Company <span class="text-slate-500">(optional — restricts this Sales Type to one company)</span></label>
+        <select id="sis-type-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Shared across all companies</option></select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Revenue Account</label>
+        <select id="sis-type-form-account" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+      </div>
+      <div id="sis-type-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
+        <button type="button" id="sis-type-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
+        <button type="submit" id="sis-type-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Sales Type</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="sis-cls-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="sis-cls-modal-title" class="text-lg font-bold">Add Classification</h3><button id="sis-cls-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <form id="sis-cls-form" class="space-y-4">
+      <input type="hidden" id="sis-cls-form-id">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Classification Name</label><input type="text" id="sis-cls-form-name" required placeholder="e.g. Local, Export, Free Zone" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div>
+        <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="sis-cls-form-export" class="rounded"> This is an Export-type classification</label>
+        <p class="text-xs text-slate-500 mt-1">Determines the customer's own code prefix (CE- vs CL-) and whether a Country is required on Customer Master Data.</p>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Company <span class="text-slate-500">(optional — restricts this classification to one company)</span></label>
+        <select id="sis-cls-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Shared across all companies</option></select>
+      </div>
+      <div id="sis-cls-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
+        <button type="button" id="sis-cls-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
+        <button type="submit" id="sis-cls-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Classification</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canWrite = false;
+  let salesTypes = [];
+  let classifications = [];
+  let companies = [];
+  let accounts = [];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  function accountById(id) { return accounts.find(a => a.AccountID === id); }
+  function salesTypeById(id) { return salesTypes.find(t => t.SalesTypeID === id); }
+  function classificationById(id) { return classifications.find(c => c.ClassificationID === id); }
+
+  function fetchSalesTypes() {
+    rpc
+      .withSuccessHandler(result => { salesTypes = result || []; renderSalesTypeTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load Sales Types.'))
+      .getSalesTypes();
+  }
+  function fetchClassifications() {
+    rpc
+      .withSuccessHandler(result => {
+        classifications = result || [];
+        renderClassificationTable();
+        renderSalesTypeTable(); // re-render so "Restricted To" names resolve now that classifications are actually loaded
+        const select = document.getElementById('sis-type-form-classification');
+        const previous = select.value;
+        select.innerHTML = '<option value="">Unrestricted — usable for any customer</option>';
+        classifications.filter(c => c.Status === 'Active').forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.ClassificationID; opt.textContent = c.Name;
+          select.appendChild(opt);
+        });
+        if ([...select.options].some(o => o.value === previous)) select.value = previous;
+      })
+      .withFailureHandler(err => alert(err.message || 'Unable to load Customer Classifications.'))
+      .getCustomerClassifications();
+  }
+
+  function loadReferenceData() {
+    rpc
+      .withSuccessHandler(result => {
+        companies = result || [];
+        ['sis-type-form-company', 'sis-cls-form-company'].forEach(id => {
+          const select = document.getElementById(id);
+          select.innerHTML = '<option value="">Shared across all companies</option>';
+          companies.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.CompanyID; opt.textContent = c.LegalName;
+            select.appendChild(opt);
+          });
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+
+    rpc
+      .withSuccessHandler(result => {
+        accounts = result || [];
+        const eligible = accounts.filter(a => a.Status === 'Active' && a.IsPostable === true && a.AccountType === 'Revenue')
+          .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
+        const select = document.getElementById('sis-type-form-account');
+        select.innerHTML = '<option value="">Select...</option>';
+        eligible.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a.AccountID; opt.textContent = a.AccountCode + ' — ' + a.AccountName;
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getChartOfAccounts();
+  }
+
+  // ---------- SALES TYPES ----------
+  function renderSalesTypeTable() {
+    const tbody = document.getElementById('sis-type-table-body');
+    tbody.innerHTML = '';
+    if (!salesTypes.length) { tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-500">No Sales Types yet.</td></tr>'; return; }
+
+    salesTypes.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(t => {
+      const account = accountById(t.GLAccountID);
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const actions = canWrite
+        ? `<button data-id="${t.SalesTypeID}" class="sis-type-edit-btn text-blue-400 hover:text-blue-300 text-xs mr-3">Edit</button><button data-id="${t.SalesTypeID}" class="sis-type-toggle-btn text-xs ${t.Status === 'Active' ? 'text-red-400 hover:text-red-300' : 'text-emerald-400 hover:text-emerald-300'}">${t.Status === 'Active' ? 'Deactivate' : 'Reactivate'}</button>`
+        : '';
+      row.innerHTML = `
+        <td class="py-2 px-4 text-slate-200">${escapeHtml(t.Name)}</td>
+        <td class="py-2 px-4 text-xs font-mono text-slate-400">${account ? escapeHtml(account.AccountCode + ' — ' + account.AccountName) : '—'}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${t.RestrictedToClassificationID ? escapeHtml((classificationById(t.RestrictedToClassificationID) || {}).Name || '—') : '<span class="text-slate-600">Unrestricted</span>'}</td>
+        <td class="py-2 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${t.Status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${escapeHtml(t.Status)}</span></td>
+        <td class="py-2 px-4 text-right">${actions}</td>`;
+      tbody.appendChild(row);
+    });
+
+    tbody.querySelectorAll('.sis-type-edit-btn').forEach(btn => btn.addEventListener('click', () => openTypeModal(btn.getAttribute('data-id'))));
+    tbody.querySelectorAll('.sis-type-toggle-btn').forEach(btn => btn.addEventListener('click', () => toggleTypeStatus(salesTypeById(btn.getAttribute('data-id')))));
+  }
+
+  function openTypeModal(salesTypeId) {
+    const form = document.getElementById('sis-type-form');
+    form.reset();
+    document.getElementById('sis-type-form-error').classList.add('hidden');
+
+    if (salesTypeId) {
+      const t = salesTypeById(salesTypeId);
+      if (!t) return;
+      document.getElementById('sis-type-modal-title').textContent = 'Edit Sales Type';
+      document.getElementById('sis-type-form-id').value = t.SalesTypeID;
+      document.getElementById('sis-type-form-name').value = t.Name;
+      document.getElementById('sis-type-form-company').value = t.CompanyID || '';
+      document.getElementById('sis-type-form-classification').value = t.RestrictedToClassificationID || '';
+      document.getElementById('sis-type-form-account').value = t.GLAccountID || '';
+    } else {
+      document.getElementById('sis-type-modal-title').textContent = 'Add Sales Type';
+      document.getElementById('sis-type-form-id').value = '';
+    }
+    document.getElementById('sis-type-modal').classList.remove('hidden');
+  }
+  function closeTypeModal() { document.getElementById('sis-type-modal').classList.add('hidden'); }
+
+  function saveType(event) {
+    event.preventDefault();
+    const data = {
+      SalesTypeID: document.getElementById('sis-type-form-id').value,
+      Name: document.getElementById('sis-type-form-name').value.trim(),
+      CompanyID: document.getElementById('sis-type-form-company').value,
+      RestrictedToClassificationID: document.getElementById('sis-type-form-classification').value,
+      GLAccountID: document.getElementById('sis-type-form-account').value
+    };
+    const error = document.getElementById('sis-type-form-error');
+    const btn = document.getElementById('sis-type-save-btn');
+    error.classList.add('hidden');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Sales Type';
+        if (result.success) { closeTypeModal(); fetchSalesTypes(); }
+        else { error.textContent = result.error || 'Unable to save Sales Type.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Sales Type';
+        error.textContent = err.message || 'Unable to save Sales Type.'; error.classList.remove('hidden');
+      })
+      .saveSalesType({ data: data });
+  }
+
+  function toggleTypeStatus(salesType) {
+    const deactivating = salesType.Status === 'Active';
+    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + salesType.Name + '?')) return;
+    const call = deactivating ? 'deactivateSalesType' : 'reactivateSalesType';
+    rpc
+      .withSuccessHandler(result => { if (result.success) fetchSalesTypes(); else alert(result.error || 'Unable to update Sales Type.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to update Sales Type.'))
+      [call]({ __positional: [salesType.SalesTypeID] });
+  }
+
+  // ---------- CUSTOMER CLASSIFICATIONS ----------
+  function renderClassificationTable() {
+    const tbody = document.getElementById('sis-cls-table-body');
+    tbody.innerHTML = '';
+    if (!classifications.length) { tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-500">No classifications yet.</td></tr>'; return; }
+
+    classifications.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(c => {
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const actions = canWrite
+        ? `<button data-id="${c.ClassificationID}" class="sis-cls-edit-btn text-blue-400 hover:text-blue-300 text-xs mr-3">Edit</button><button data-id="${c.ClassificationID}" class="sis-cls-toggle-btn text-xs ${c.Status === 'Active' ? 'text-red-400 hover:text-red-300' : 'text-emerald-400 hover:text-emerald-300'}">${c.Status === 'Active' ? 'Deactivate' : 'Reactivate'}</button>`
+        : '';
+      row.innerHTML = `
+        <td class="py-2 px-4 text-slate-200">${escapeHtml(c.Name)}</td>
+        <td class="py-2 px-4 text-xs">${c.IsExport ? '<span class="text-blue-400">Yes</span>' : '<span class="text-slate-500">No</span>'}</td>
+        <td class="py-2 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${c.Status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${escapeHtml(c.Status)}</span></td>
+        <td class="py-2 px-4 text-right">${actions}</td>`;
+      tbody.appendChild(row);
+    });
+
+    tbody.querySelectorAll('.sis-cls-edit-btn').forEach(btn => btn.addEventListener('click', () => openClsModal(btn.getAttribute('data-id'))));
+    tbody.querySelectorAll('.sis-cls-toggle-btn').forEach(btn => btn.addEventListener('click', () => toggleClsStatus(classificationById(btn.getAttribute('data-id')))));
+  }
+
+  function openClsModal(classificationId) {
+    const form = document.getElementById('sis-cls-form');
+    form.reset();
+    document.getElementById('sis-cls-form-error').classList.add('hidden');
+
+    if (classificationId) {
+      const c = classificationById(classificationId);
+      if (!c) return;
+      document.getElementById('sis-cls-modal-title').textContent = 'Edit Classification';
+      document.getElementById('sis-cls-form-id').value = c.ClassificationID;
+      document.getElementById('sis-cls-form-name').value = c.Name;
+      document.getElementById('sis-cls-form-export').checked = Boolean(c.IsExport);
+      document.getElementById('sis-cls-form-company').value = c.CompanyID || '';
+    } else {
+      document.getElementById('sis-cls-modal-title').textContent = 'Add Classification';
+      document.getElementById('sis-cls-form-id').value = '';
+    }
+    document.getElementById('sis-cls-modal').classList.remove('hidden');
+  }
+  function closeClsModal() { document.getElementById('sis-cls-modal').classList.add('hidden'); }
+
+  function saveCls(event) {
+    event.preventDefault();
+    const data = {
+      ClassificationID: document.getElementById('sis-cls-form-id').value,
+      Name: document.getElementById('sis-cls-form-name').value.trim(),
+      IsExport: document.getElementById('sis-cls-form-export').checked,
+      CompanyID: document.getElementById('sis-cls-form-company').value
+    };
+    const error = document.getElementById('sis-cls-form-error');
+    const btn = document.getElementById('sis-cls-save-btn');
+    error.classList.add('hidden');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Classification';
+        if (result.success) { closeClsModal(); fetchClassifications(); }
+        else { error.textContent = result.error || 'Unable to save Classification.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Classification';
+        error.textContent = err.message || 'Unable to save Classification.'; error.classList.remove('hidden');
+      })
+      .saveCustomerClassification({ data: data });
+  }
+
+  function toggleClsStatus(classification) {
+    const deactivating = classification.Status === 'Active';
+    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + classification.Name + '?')) return;
+    const call = deactivating ? 'deactivateCustomerClassification' : 'reactivateCustomerClassification';
+    rpc
+      .withSuccessHandler(result => { if (result.success) fetchClassifications(); else alert(result.error || 'Unable to update Classification.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to update Classification.'))
+      [call]({ __positional: [classification.ClassificationID] });
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken, writeAllowed) {
+    token = idToken;
+    canWrite = Boolean(writeAllowed);
+
+    document.getElementById('sis-type-add-btn').classList.toggle('hidden', !canWrite);
+    document.getElementById('sis-cls-add-btn').classList.toggle('hidden', !canWrite);
+    if (canWrite) {
+      document.getElementById('sis-type-add-btn').addEventListener('click', () => openTypeModal());
+      document.getElementById('sis-cls-add-btn').addEventListener('click', () => openClsModal());
+    }
+    document.getElementById('sis-type-modal-close').addEventListener('click', closeTypeModal);
+    document.getElementById('sis-type-modal-cancel').addEventListener('click', closeTypeModal);
+    document.getElementById('sis-type-form').addEventListener('submit', saveType);
+
+    document.getElementById('sis-cls-modal-close').addEventListener('click', closeClsModal);
+    document.getElementById('sis-cls-modal-cancel').addEventListener('click', closeClsModal);
+    document.getElementById('sis-cls-form').addEventListener('submit', saveCls);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> Sales Invoice Configuration';
+    fetchSalesTypes();
+    fetchClassifications();
+    loadReferenceData();
+  };
+})();
+</script>

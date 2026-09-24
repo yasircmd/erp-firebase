@@ -10,201 +10,291 @@ const opts = { region: 'us-central1' };
 
 exports.deactivateAccount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivateAccount(ctx, d.accountId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.accountId];
+  return run(request, (ctx) => L.deactivateAccount(ctx, ...a));
 });
 exports.deactivateCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivateCompany(ctx, d.companyId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId];
+  return run(request, (ctx) => L.deactivateCompany(ctx, ...a));
 });
 exports.deactivateCurrency = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivateCurrency(ctx, d.currencyId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.currencyId];
+  return run(request, (ctx) => L.deactivateCurrency(ctx, ...a));
 });
 exports.deactivateCustomer = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivateCustomer(ctx, d.customerId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.customerId];
+  return run(request, (ctx) => L.deactivateCustomer(ctx, ...a));
+});
+exports.deactivateCustomerClassification = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.classificationId];
+  return run(request, (ctx) => L.deactivateCustomerClassification(ctx, ...a));
 });
 exports.deactivateItem = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivateItem(ctx, d.itemId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.itemId];
+  return run(request, (ctx) => L.deactivateItem(ctx, ...a));
 });
 exports.deactivateItemSubCategory = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivateItemSubCategory(ctx, d.subCategoryId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.subCategoryId];
+  return run(request, (ctx) => L.deactivateItemSubCategory(ctx, ...a));
 });
 exports.deactivateOrgUnit = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivateOrgUnit(ctx, d.unitId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.unitId];
+  return run(request, (ctx) => L.deactivateOrgUnit(ctx, ...a));
 });
 exports.deactivatePriceList = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivatePriceList(ctx, d.priceListId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.priceListId];
+  return run(request, (ctx) => L.deactivatePriceList(ctx, ...a));
 });
 exports.deactivatePriceListLine = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivatePriceListLine(ctx, d.lineId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.lineId];
+  return run(request, (ctx) => L.deactivatePriceListLine(ctx, ...a));
 });
 exports.deactivateRequisitionCategory = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivateRequisitionCategory(ctx, d.categoryId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.categoryId];
+  return run(request, (ctx) => L.deactivateRequisitionCategory(ctx, ...a));
+});
+exports.deactivateSalesType = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.salesTypeId];
+  return run(request, (ctx) => L.deactivateSalesType(ctx, ...a));
 });
 exports.deactivateUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivateUOM(ctx, d.uomId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.uomId];
+  return run(request, (ctx) => L.deactivateUOM(ctx, ...a));
 });
 exports.deactivateVendor = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.deactivateVendor(ctx, d.vendorId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
+  return run(request, (ctx) => L.deactivateVendor(ctx, ...a));
 });
 exports.getActiveCurrencies = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getActiveCurrencies(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getActiveCurrencies(ctx, ...a));
 });
 exports.getActiveCustomerClassifications = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getActiveCustomerClassifications(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getActiveCustomerClassifications(ctx, ...a));
 });
 exports.getActiveItemSubCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getActiveItemSubCategories(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getActiveItemSubCategories(ctx, ...a));
 });
 exports.getChartOfAccounts = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getChartOfAccounts(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getChartOfAccounts(ctx, ...a));
 });
 exports.getCompanies = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getCompanies(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getCompanies(ctx, ...a));
 });
 exports.getCurrencies = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getCurrencies(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getCurrencies(ctx, ...a));
+});
+exports.getCustomerClassifications = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getCustomerClassifications(ctx, ...a));
 });
 exports.getCustomers = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getCustomers(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getCustomers(ctx, ...a));
 });
 exports.getItemSubCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getItemSubCategories(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getItemSubCategories(ctx, ...a));
 });
 exports.getItems = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getItems(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getItems(ctx, ...a));
 });
 exports.getOrgUnits = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getOrgUnits(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getOrgUnits(ctx, ...a));
 });
 exports.getPriceListLines = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getPriceListLines(ctx, d.priceListId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.priceListId];
+  return run(request, (ctx) => L.getPriceListLines(ctx, ...a));
 });
 exports.getPriceLists = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getPriceLists(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getPriceLists(ctx, ...a));
 });
 exports.getRequisitionCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getRequisitionCategories(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getRequisitionCategories(ctx, ...a));
+});
+exports.getSalesTypes = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getSalesTypes(ctx, ...a));
 });
 exports.getUOMs = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getUOMs(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getUOMs(ctx, ...a));
 });
 exports.getVendors = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.getVendors(ctx));
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getVendors(ctx, ...a));
 });
 exports.reactivateAccount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.reactivateAccount(ctx, d.accountId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.accountId];
+  return run(request, (ctx) => L.reactivateAccount(ctx, ...a));
 });
 exports.reactivateCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.reactivateCompany(ctx, d.companyId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId];
+  return run(request, (ctx) => L.reactivateCompany(ctx, ...a));
 });
 exports.reactivateCurrency = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.reactivateCurrency(ctx, d.currencyId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.currencyId];
+  return run(request, (ctx) => L.reactivateCurrency(ctx, ...a));
 });
 exports.reactivateCustomer = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.reactivateCustomer(ctx, d.customerId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.customerId];
+  return run(request, (ctx) => L.reactivateCustomer(ctx, ...a));
+});
+exports.reactivateCustomerClassification = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.classificationId];
+  return run(request, (ctx) => L.reactivateCustomerClassification(ctx, ...a));
 });
 exports.reactivateItem = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.reactivateItem(ctx, d.itemId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.itemId];
+  return run(request, (ctx) => L.reactivateItem(ctx, ...a));
 });
 exports.reactivateItemSubCategory = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.reactivateItemSubCategory(ctx, d.subCategoryId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.subCategoryId];
+  return run(request, (ctx) => L.reactivateItemSubCategory(ctx, ...a));
 });
 exports.reactivateOrgUnit = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.reactivateOrgUnit(ctx, d.unitId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.unitId];
+  return run(request, (ctx) => L.reactivateOrgUnit(ctx, ...a));
 });
 exports.reactivatePriceList = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.reactivatePriceList(ctx, d.priceListId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.priceListId];
+  return run(request, (ctx) => L.reactivatePriceList(ctx, ...a));
 });
 exports.reactivateRequisitionCategory = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.reactivateRequisitionCategory(ctx, d.categoryId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.categoryId];
+  return run(request, (ctx) => L.reactivateRequisitionCategory(ctx, ...a));
+});
+exports.reactivateSalesType = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.salesTypeId];
+  return run(request, (ctx) => L.reactivateSalesType(ctx, ...a));
 });
 exports.reactivateUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.reactivateUOM(ctx, d.uomId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.uomId];
+  return run(request, (ctx) => L.reactivateUOM(ctx, ...a));
 });
 exports.reactivateVendor = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.reactivateVendor(ctx, d.vendorId));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
+  return run(request, (ctx) => L.reactivateVendor(ctx, ...a));
 });
 exports.saveAccount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.saveAccount(ctx, d.accountData));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.accountData];
+  return run(request, (ctx) => L.saveAccount(ctx, ...a));
 });
 exports.saveCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.saveCompany(ctx, d.companyData));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.companyData];
+  return run(request, (ctx) => L.saveCompany(ctx, ...a));
 });
 exports.saveCurrency = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.saveCurrency(ctx, d.currencyData));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.currencyData];
+  return run(request, (ctx) => L.saveCurrency(ctx, ...a));
 });
 exports.saveCustomer = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.saveCustomer(ctx, d.customerData));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.customerData];
+  return run(request, (ctx) => L.saveCustomer(ctx, ...a));
+});
+exports.saveCustomerClassification = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
+  return run(request, (ctx) => L.saveCustomerClassification(ctx, ...a));
 });
 exports.saveItem = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.saveItem(ctx, d.itemData));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.itemData];
+  return run(request, (ctx) => L.saveItem(ctx, ...a));
 });
 exports.saveItemSubCategory = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.saveItemSubCategory(ctx, d.data));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
+  return run(request, (ctx) => L.saveItemSubCategory(ctx, ...a));
 });
 exports.saveOrgUnit = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.saveOrgUnit(ctx, d.unitData));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.unitData];
+  return run(request, (ctx) => L.saveOrgUnit(ctx, ...a));
 });
 exports.savePriceList = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.savePriceList(ctx, d.header));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.header];
+  return run(request, (ctx) => L.savePriceList(ctx, ...a));
 });
 exports.savePriceListLine = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.savePriceListLine(ctx, d.lineData));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.lineData];
+  return run(request, (ctx) => L.savePriceListLine(ctx, ...a));
 });
 exports.saveRequisitionCategory = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.saveRequisitionCategory(ctx, d.data));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
+  return run(request, (ctx) => L.saveRequisitionCategory(ctx, ...a));
+});
+exports.saveSalesType = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
+  return run(request, (ctx) => L.saveSalesType(ctx, ...a));
 });
 exports.saveUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.saveUOM(ctx, d.uomData));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.uomData];
+  return run(request, (ctx) => L.saveUOM(ctx, ...a));
 });
 exports.saveVendor = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  return run(request, (ctx) => L.saveVendor(ctx, d.vendorData));
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorData];
+  return run(request, (ctx) => L.saveVendor(ctx, ...a));
 });

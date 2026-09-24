@@ -1561,6 +1561,130 @@ async function reactivateVendor(idToken, vendorId) {
   }
 }
 
+// Seeds the two classifications every existing customer record
+// already uses as plain strings ('Local'/'Export') — same names, so
+// nothing needs migrating and every existing customer stays valid
+// against this new managed list without any data change at all.
+// IsExport is the field that makes this genuinely extensible: code
+// generation and the country-requirement rule both key off THIS flag
+// now, not a hardcoded string comparison — so a newly added
+// classification (say, "Free Zone") works correctly for both as long
+// as its own IsExport is set correctly, with no code change needed.
+// ============================================================
+// SALES INVOICE CONFIGURATION — mirrors Procurement Setup's own
+// pattern, on the AR side. Two managed lists: Sales Types (each
+// mapped to its own Revenue account — confirmed replacement for
+// Customer Invoice's earlier per-item revenue resolution, since the
+// SAME item sold locally vs. exported needs different accounts, which
+// a fixed per-item field can't represent) and Customer Classifications
+// (see ensureCustomerClassificationsSeeded_ below, which this section
+// also owns).
+// ============================================================
+
+async function getSalesTypes(idToken) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'SALESINVOICESETUP', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Sales Invoice Configuration.');
+  }
+  const data = (await firebaseDbRequest_('salesTypes', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ SalesTypeID: id }, data[id]))
+    .filter(t => userCanAccessCompany_(user.profile, t.CompanyID));
+}
+
+async function saveSalesType(idToken, data) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'SALESINVOICESETUP', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Sales Invoice Configuration.');
+    }
+
+    const salesTypeId = String(data.SalesTypeID || '').trim();
+    const name = String(data.Name || '').trim();
+    if (!name) throw new Error('Sales Type name is required.');
+    const companyId = String(data.CompanyID || '').trim();
+    if (companyId && !userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+
+    const glAccountId = String(data.GLAccountID || '').trim();
+    if (!glAccountId) throw new Error('Select a Sales Revenue account.');
+    const coaData = await getCoaData_(idToken);
+    const account = coaData[glAccountId];
+    if (!account || !account.IsPostable || account.Status !== 'Active') throw new Error('Sales Revenue account must be an active, postable account.');
+    if (account.AccountType !== 'Revenue') throw new Error('Sales Revenue account must be a Revenue-type account.');
+    if (account.CompanyID && companyId && account.CompanyID !== companyId) throw new Error('Sales Revenue account is restricted to a different company.');
+
+    // Optional link to a Customer Classification — this is what
+    // actually connects the two lists. Some Sales Types describe WHO
+    // the customer is (Local Sales, Export Sales) and should only be
+    // usable for a matching customer; others describe WHAT's being
+    // sold (RM Sales, Service Invoice) and reasonably apply regardless
+    // of classification — those are left with no restriction at all,
+    // by leaving this blank. Enforced at Customer Invoice save time,
+    // not just suggested — a mismatch here would genuinely misrepresent
+    // the tax treatment this whole feature exists to get right.
+    const restrictedToClassificationId = String(data.RestrictedToClassificationID || '').trim();
+    if (restrictedToClassificationId) {
+      let classificationData = (await firebaseDbRequest_('customerClassifications', 'get', null, idToken)) || {};
+      classificationData = await ensureCustomerClassificationsSeeded_(idToken, classificationData);
+      const cls = classificationData[restrictedToClassificationId];
+      if (!cls || cls.Status !== 'Active') throw new Error('Select a valid, active Classification to restrict this Sales Type to, or leave it unrestricted.');
+    }
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const fields = { Name: name, GLAccountID: glAccountId, CompanyID: companyId, RestrictedToClassificationID: restrictedToClassificationId, UpdatedAt: now, UpdatedBy: actor };
+
+    if (salesTypeId) {
+      const existing = await firebaseDbRequest_('salesTypes/' + salesTypeId, 'get', null, idToken);
+      if (!existing) throw new Error('Sales Type not found.');
+      await firebaseDbRequest_('salesTypes/' + salesTypeId, 'patch', fields, idToken);
+      return { success: true, salesTypeId: salesTypeId };
+    }
+
+    const newId = 'STYP-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('salesTypes/' + newId, 'put', Object.assign({}, fields, {
+      Status: 'Active', CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, salesTypeId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deactivateSalesType(idToken, salesTypeId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'SALESINVOICESETUP', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Sales Invoice Configuration.');
+    }
+    const existing = await firebaseDbRequest_('salesTypes/' + salesTypeId, 'get', null, idToken);
+    if (!existing) throw new Error('Sales Type not found.');
+    await firebaseDbRequest_('salesTypes/' + salesTypeId, 'patch', {
+      Status: 'Inactive', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function reactivateSalesType(idToken, salesTypeId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'SALESINVOICESETUP', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Sales Invoice Configuration.');
+    }
+    const existing = await firebaseDbRequest_('salesTypes/' + salesTypeId, 'get', null, idToken);
+    if (!existing) throw new Error('Sales Type not found.');
+    await firebaseDbRequest_('salesTypes/' + salesTypeId, 'patch', {
+      Status: 'Active', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 async function ensureCustomerClassificationsSeeded_(idToken, existing) {
   if (Object.keys(existing).length) return existing;
   const now = new Date().toISOString();
@@ -1575,6 +1699,18 @@ async function ensureCustomerClassificationsSeeded_(idToken, existing) {
   return existing;
 }
 
+async function getCustomerClassifications(idToken) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'SALESINVOICESETUP', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Sales Invoice Configuration.');
+  }
+  let data = (await firebaseDbRequest_('customerClassifications', 'get', null, idToken)) || {};
+  data = await ensureCustomerClassificationsSeeded_(idToken, data);
+  return Object.keys(data)
+    .map(id => Object.assign({ ClassificationID: id }, data[id]))
+    .filter(c => userCanAccessCompany_(user.profile, c.CompanyID));
+}
+
 // Minimal reference read for Customer Master's own Classification
 // dropdown — no SALESINVOICESETUP access required, same role
 // getActiveRequisitionCategories plays for Purchase Requisition.
@@ -1586,6 +1722,80 @@ async function getActiveCustomerClassifications(idToken) {
     .filter(id => data[id].Status === 'Active')
     .filter(id => userCanAccessCompany_(user.profile, data[id].CompanyID))
     .map(id => ({ ClassificationID: id, Name: data[id].Name, IsExport: Boolean(data[id].IsExport), CompanyID: data[id].CompanyID || '' }));
+}
+
+async function saveCustomerClassification(idToken, data) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'SALESINVOICESETUP', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Sales Invoice Configuration.');
+    }
+    const classificationId = String(data.ClassificationID || '').trim();
+    const name = String(data.Name || '').trim();
+    if (!name) throw new Error('Classification name is required.');
+    const isExport = data.IsExport === true || data.IsExport === 'true';
+    const companyId = String(data.CompanyID || '').trim();
+    if (companyId && !userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const fields = { Name: name, IsExport: isExport, CompanyID: companyId, UpdatedAt: now, UpdatedBy: actor };
+
+    if (classificationId) {
+      const existing = await firebaseDbRequest_('customerClassifications/' + classificationId, 'get', null, idToken);
+      if (!existing) throw new Error('Classification not found.');
+      // IsExport is editable even after customers exist against this
+      // classification — unlike CustomerCode itself, which freezes at
+      // creation, a classification's own IsExport is read fresh every
+      // time code generation or the country rule runs, so changing it
+      // here only affects customers created AFTER the change, never
+      // rewrites any existing customer's own frozen code.
+      await firebaseDbRequest_('customerClassifications/' + classificationId, 'patch', fields, idToken);
+      return { success: true, classificationId: classificationId };
+    }
+
+    const newId = 'CCLS-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('customerClassifications/' + newId, 'put', Object.assign({}, fields, {
+      Status: 'Active', CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, classificationId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deactivateCustomerClassification(idToken, classificationId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'SALESINVOICESETUP', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Sales Invoice Configuration.');
+    }
+    const existing = await firebaseDbRequest_('customerClassifications/' + classificationId, 'get', null, idToken);
+    if (!existing) throw new Error('Classification not found.');
+    await firebaseDbRequest_('customerClassifications/' + classificationId, 'patch', {
+      Status: 'Inactive', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function reactivateCustomerClassification(idToken, classificationId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'SALESINVOICESETUP', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Sales Invoice Configuration.');
+    }
+    const existing = await firebaseDbRequest_('customerClassifications/' + classificationId, 'get', null, idToken);
+    if (!existing) throw new Error('Classification not found.');
+    await firebaseDbRequest_('customerClassifications/' + classificationId, 'patch', {
+      Status: 'Active', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 async function generateCustomerCode_(idToken, isExport) {
@@ -2109,8 +2319,16 @@ module.exports = {
   saveVendor,
   deactivateVendor,
   reactivateVendor,
+  getSalesTypes,
+  saveSalesType,
+  deactivateSalesType,
+  reactivateSalesType,
   ensureCustomerClassificationsSeeded_,
+  getCustomerClassifications,
   getActiveCustomerClassifications,
+  saveCustomerClassification,
+  deactivateCustomerClassification,
+  reactivateCustomerClassification,
   generateCustomerCode_,
   getCustomers,
   saveCustomer,

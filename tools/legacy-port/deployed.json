@@ -1,1 +1,10 @@
-{ "deployedModules": ["UOM", "ITEMSUBCAT", "ORGUNITS", "COMPANYMASTER", "CURRENCYCONFIG"] }
+{
+  "deployedModules": ["UOM", "ITEMSUBCAT", "ORGUNITS", "COMPANYMASTER", "CURRENCYCONFIG"],
+  "needsRedeploy": {
+    "UOM": "dynamic deactivate/reactivate calls now send { __positional: [...] }; the live callables predate that",
+    "ITEMSUBCAT": "same (__positional)",
+    "ORGUNITS": "same (__positional)",
+    "COMPANYMASTER": "same (__positional)",
+    "CURRENCYCONFIG": "same (__positional)"
+  }
+}

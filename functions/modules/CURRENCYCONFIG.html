@@ -140,7 +140,7 @@
     rpc
       .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update currency.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to update currency.'))
-      [call]({ currencyId: currency.CurrencyID });
+      [call]({ __positional: [currency.CurrencyID] });
   }
 
   // Single entry point called by Index.html after this fragment is injected.

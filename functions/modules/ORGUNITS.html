@@ -234,7 +234,7 @@
     rpc
       .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update item.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to update item.'))
-      [call]({ unitId: unit.UnitID });
+      [call]({ __positional: [unit.UnitID] });
   }
 
   // Single entry point called by Index.html after this fragment is injected.

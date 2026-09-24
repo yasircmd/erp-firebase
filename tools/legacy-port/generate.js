@@ -271,7 +271,8 @@ for (const e of [...entries].sort()) {
   const first = fnNodes[e].params[0];
   if (!first || !n.Identifier.check(first) || !/^(idToken|token)$/.test(first.name)) throw new Error(e + ': first parameter is not idToken');
   const names = paramNames(fnNodes[e]); argMap[e] = names;
-  cal += 'exports.' + e + ' = onCallWithMessages(opts, (request) => {\n  const d = request.data || {};\n  return run(request, (ctx) => L.' + e + '(ctx' + names.map(x => ', d.' + x).join('') + '));\n});\n';
+  const named = '[' + names.map(x => 'd.' + x).join(', ') + ']';
+  cal += 'exports.' + e + ' = onCallWithMessages(opts, (request) => {\n  const d = request.data || {};\n  const a = Array.isArray(d.__positional) ? d.__positional : ' + named + ';\n  return run(request, (ctx) => L.' + e + '(ctx, ...a));\n});\n';
 }
 fs.writeFileSync(path.join(OUT_DIR, 'callables.js'), cal);
 
@@ -305,14 +306,16 @@ for (const mod of MODULES) {
     return '.' + fn + '({ ' + args.map((a, i) => names[i] + ': ' + a).join(', ') + ' })' + tail;
   });
   s = s.replace(/\[\s*(\w+)\s*\]\(\s*(token|idToken)\b\s*(?:,([\s\S]*?))?\)(\s*;)/g, (m, v, _t, rest, tail) => {
+    // Targets may have different parameter names, so dynamic calls pass
+    // their arguments positionally; every generated callable accepts
+    // { __positional: [...] } as well as named keys.
     const cands = dynamicTargets[mod] || [];
-    const sigs = new Set(cands.map(c => JSON.stringify(argMap[c] || HAND_ARGS[c])));
-    if (!cands.length || sigs.size !== 1) throw new Error(mod + ': dynamic call [' + v + '] — candidates ' + cands.join(',') + ' do not share one parameter list');
-    const names = JSON.parse([...sigs][0]);
+    if (!cands.length) throw new Error(mod + ': dynamic call [' + v + '] with no resolvable targets');
+    const handTargets = cands.filter(c => !argMap[c]);
+    if (handTargets.length) throw new Error(mod + ': dynamic call [' + v + '] may reach hand-ported ' + handTargets.join(',') + ' (no __positional support there)');
     const args = rest ? splitTopLevel(rest) : [];
-    if (args.length > names.length) throw new Error(mod + ': dynamic call [' + v + '] has too many args');
     converted++;
-    return '[' + v + '](' + (args.length ? '{ ' + args.map((a, i) => names[i] + ': ' + a).join(', ') + ' }' : '') + ')' + tail;
+    return '[' + v + ']({ __positional: [' + args.join(', ') + '] })' + tail;
   });
   s = s.replace(/google\.script\.run/g, 'rpc');
   if (converted !== chains) throw new Error(mod + ': ' + chains + ' google.script.run chains but ' + converted + ' converted — inspect by hand');

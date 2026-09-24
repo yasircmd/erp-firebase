@@ -312,7 +312,7 @@
     rpc
       .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update company.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to update company.'))
-      [call]({ companyId: company.CompanyID });
+      [call]({ __positional: [company.CompanyID] });
   }
 
   // Single entry point called by Index.html after this fragment is injected.

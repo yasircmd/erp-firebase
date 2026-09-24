@@ -364,7 +364,7 @@
     rpc
       .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update vendor.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to update vendor.'))
-      [call]({ vendorId: vendor.VendorID });
+      [call]({ __positional: [vendor.VendorID] });
   }
 
   // Single entry point called by Index.html after this fragment is injected.
