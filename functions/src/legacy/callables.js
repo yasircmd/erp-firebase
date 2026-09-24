@@ -223,6 +223,11 @@ exports.getPriceLists = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getPriceLists(ctx, ...a));
 });
+exports.getProfitAndLoss = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
+  return run(request, (ctx) => L.getProfitAndLoss(ctx, ...a));
+});
 exports.getRequisitionCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];

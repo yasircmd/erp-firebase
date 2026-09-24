@@ -2124,6 +2124,71 @@ async function getTrialBalance(idToken, params) {
   };
 }
 
+// ---------- Profit and Loss Statement ----------
+// Revenue, COGS, and Expense accounts only, for a date range — a period
+// concept, unlike the cumulative-since-inception Trial Balance/Balance Sheet.
+
+async function getProfitAndLoss(idToken, params) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'PROFITLOSS', 'access', user.profile.role))) {
+    throw new Error('You do not have access to the Profit and Loss Statement.');
+  }
+
+  const fromDate = String(params.FromDate || '').trim();
+  const toDate = String(params.ToDate || '').trim() || new Date().toISOString().substring(0, 10);
+  if (!fromDate) throw new Error('Select a start date.');
+
+  const filters = buildDimensionFilters_(params);
+  const access = applyCompanyAccessRestriction_(user, filters.companyId);
+  filters.companyId = access.companyId;
+  filters.assignedCompanies = access.assignedCompanies;
+  const coaData = await getCoaData_(idToken);
+  const lines = (await getPostedGlLines_(idToken, filters)).filter(l => l.JVDate >= fromDate && l.JVDate <= toDate);
+
+  const netByAccount = {};
+  lines.forEach(l => { netByAccount[l.AccountID] = (netByAccount[l.AccountID] || 0) + (l.Debit - l.Credit); });
+
+  const revenue = [], cogs = [], expense = [];
+  let totalRevenue = 0, totalCogs = 0, totalExpense = 0;
+
+  Object.keys(netByAccount).forEach(accId => {
+    const account = coaData[accId];
+    if (!account) return;
+    const net = Math.round(netByAccount[accId] * 100) / 100;
+    if (Math.abs(net) < 0.005) return;
+
+    if (account.AccountType === 'Revenue') {
+      const amount = -net; // Credit − Debit: positive = revenue earned
+      totalRevenue += amount;
+      revenue.push({ AccountCode: account.AccountCode, AccountName: account.AccountName, Amount: amount });
+    } else if (account.AccountType === 'COGS') {
+      totalCogs += net; // Debit − Credit: positive = cost incurred
+      cogs.push({ AccountCode: account.AccountCode, AccountName: account.AccountName, Amount: net });
+    } else if (account.AccountType === 'Expense') {
+      totalExpense += net;
+      expense.push({ AccountCode: account.AccountCode, AccountName: account.AccountName, Amount: net });
+    }
+  });
+
+  const sortByCode = (a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true });
+  revenue.sort(sortByCode); cogs.sort(sortByCode); expense.sort(sortByCode);
+
+  totalRevenue = Math.round(totalRevenue * 100) / 100;
+  totalCogs = Math.round(totalCogs * 100) / 100;
+  totalExpense = Math.round(totalExpense * 100) / 100;
+  const grossProfit = Math.round((totalRevenue - totalCogs) * 100) / 100;
+  const netIncome = Math.round((grossProfit - totalExpense) * 100) / 100;
+
+  return {
+    fromDate: fromDate, toDate: toDate,
+    revenue: revenue, totalRevenue: totalRevenue,
+    cogs: cogs, totalCogs: totalCogs,
+    grossProfit: grossProfit,
+    expense: expense, totalExpense: totalExpense,
+    netIncome: netIncome
+  };
+}
+
 // ---------- Balance Sheet ----------
 // Asset/Liability/Equity accounts as of a date, with cumulative P&L
 // rolled into Equity as "Retained Earnings (Current Period)" — see the
@@ -3862,6 +3927,7 @@ module.exports = {
   getPostedGlLines_,
   getGlReport,
   getTrialBalance,
+  getProfitAndLoss,
   getBalanceSheet,
   getBomEffectiveOnDate_,
   groupBomsByParent_,
