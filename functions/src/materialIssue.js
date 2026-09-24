@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { HttpsError } = require('firebase-functions/v2/https');
+const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry } = require('./glWriting');
@@ -9,6 +10,12 @@ const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprova
 const { withGlobalLock } = require('./lock');
 
 const onCallOptions = { region: 'us-central1' };
+// Successful save/post/decide/reverse results carry success: true, same as
+// the original's return contract — the module's own screen checks
+// result.success on every one of these and would otherwise report a
+// genuinely successful commit as a failure. Errors still throw (the
+// screen's .withFailureHandler shows err.message), rather than the
+// original's { success: false, error } — both paths end up displayed.
 
 async function requireDraftAccess(moduleId, role) {
   const can = await moduleHasCapability(moduleId, 'draft', role);
@@ -20,7 +27,7 @@ async function requirePostAccess(moduleId, role) {
 }
 
 // Ported from saveMaterialIssueDraft.
-exports.saveMaterialIssueDraft = onCall(onCallOptions, async (request) => {
+exports.saveMaterialIssueDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireDraftAccess('MATERIALISSUE', user.profile.role);
 
@@ -117,16 +124,16 @@ exports.saveMaterialIssueDraft = onCall(onCallOptions, async (request) => {
     if (!existing) throw new HttpsError('not-found', 'Material Issue not found.');
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected Material Issues can be edited.');
     await rtdb.ref('stock/transactions/' + miId).update(fields);
-    return { miId: miId };
+    return { success: true, miId: miId };
   }
 
   const newId = 'MID-' + randomUUID().split('-')[0].toUpperCase();
   await rtdb.ref('stock/transactions/' + newId).set(Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
-  return { miId: newId };
+  return { success: true, miId: newId };
 });
 
 // Ported from postMaterialIssue.
-exports.postMaterialIssue = onCall(onCallOptions, async (request) => {
+exports.postMaterialIssue = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const miId = String(request.data && request.data.miId || '').trim();
 
@@ -173,11 +180,11 @@ exports.postMaterialIssue = onCall(onCallOptions, async (request) => {
         Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
         RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
       });
-      return { status: 'PendingApproval' };
+      return { success: true, status: 'PendingApproval' };
     }
 
     const result = await commitMaterialIssuePosting(user, existing, miId);
-    return { miId: miId, miNumber: result.miNumber, status: 'Posted' };
+    return { success: true, miId: miId, miNumber: result.miNumber, status: 'Posted' };
   });
 });
 
@@ -240,7 +247,7 @@ async function commitMaterialIssuePosting(user, existing, miId) {
 }
 
 // Ported from decideMaterialIssueApproval.
-exports.decideMaterialIssueApproval = onCall(onCallOptions, async (request) => {
+exports.decideMaterialIssueApproval = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requirePostAccess('MATERIALISSUE', user.profile.role);
   const data = request.data || {};
@@ -269,11 +276,11 @@ exports.decideMaterialIssueApproval = onCall(onCallOptions, async (request) => {
       UpdatedAt: now, UpdatedBy: user.profile.username || user.uid
     });
   }
-  return { status: result.status, selfApproved: result.selfApproved };
+  return { success: true, status: result.status, selfApproved: result.selfApproved };
 });
 
 // Ported from deleteMaterialIssueDraft.
-exports.deleteMaterialIssueDraft = onCall(onCallOptions, async (request) => {
+exports.deleteMaterialIssueDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const miId = String(request.data && request.data.miId || '').trim();
   const existingSnap = await rtdb.ref('stock/transactions/' + miId).get();
@@ -287,7 +294,7 @@ exports.deleteMaterialIssueDraft = onCall(onCallOptions, async (request) => {
 });
 
 // Ported from getMaterialIssueEntries.
-exports.getMaterialIssueEntries = onCall(onCallOptions, async (request) => {
+exports.getMaterialIssueEntries = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const canAccess = await moduleHasCapability('MATERIALISSUE', 'access', user.profile.role);
   if (!canAccess) throw new HttpsError('permission-denied', 'You do not have access to Material Issue.');
@@ -313,7 +320,7 @@ exports.getMaterialIssueEntries = onCall(onCallOptions, async (request) => {
 // WAC, with no override mechanism anywhere in this codebase, for any
 // module — consistent with every other Out movement, not a special
 // case for this one).
-exports.reverseMaterialIssue = onCall(onCallOptions, async (request) => {
+exports.reverseMaterialIssue = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const data = request.data || {};
   const miId = String(data.miId || '').trim();
@@ -390,6 +397,6 @@ exports.reverseMaterialIssue = onCall(onCallOptions, async (request) => {
     await rtdb.ref('stock/transactions/' + miId).update({ ReversedByMI: newId });
     await finalizeCommitAttempt(newId, glResult, { Lines: movementLines }, actor);
 
-    return { miId: newId, miNumber: glResult.jvNumber };
+    return { success: true, miId: newId, miNumber: glResult.jvNumber };
   });
 });

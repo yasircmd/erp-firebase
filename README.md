@@ -167,6 +167,50 @@ across four genuinely different modules — this one the first to prove
 it against TWO ledger keys updated together in one commit, not just
 one.
 
+**The four stock modules' screens now actually work (previously they
+didn't open at all).** The commit logic for Stock Adjustment, Material
+Issue, GRN and Warehouse Movement was ported earlier, but their screens
+never were: `functions/modules/` held no fragment files, so opening any
+of them showed "has no fragment file yet". Fixing that surfaced three
+more gaps, all now closed:
+
+- **The screens themselves** — the original `STOCKADJUSTMENT.html`,
+  `MATERIALISSUE.html`, `GRN.html`, `WAREHOUSEMOVEMENT.html` pulled from
+  the live Apps Script project (`clasp clone`), with every
+  `google.script.run.fn(token, a, b)` call rewritten to
+  `rpc.fn({ name: a, ... })` matching each ported function's own
+  argument names. Nothing else in them changed.
+- **9 server functions the screens call that were never ported**, now in
+  `functions/src/masterData.js`: `getModulePermissionsForUser`,
+  `getActiveItems`, `getActiveUOMs` (with its UOM lazy-seed),
+  `getActiveOrgUnits`, `getActiveVendors`, `getStockLedgerEntryPublic`,
+  `getMyPendingApprovalLevel`, `getJournalEntryDetail`,
+  `updatePostedDescription`. Without these no dropdown populated, so no
+  line could ever be entered.
+- **Return-shape mismatch**: every screen checks `result.success` after
+  save/post/approve/reverse, but the ported functions had dropped the
+  original's `success: true` — a genuinely successful post would have
+  displayed as a failure (inviting a double-post). Restored.
+- **Error messages were hidden**: shared logic throws plain `Error`s, and
+  Cloud Functions turns any non-`HttpsError` into a bare "INTERNAL" on
+  the client — so e.g. a correctly-blocked GRN reversal (insufficient
+  stock) told the user nothing. `functions/src/callable.js`
+  (`onCallWithMessages`) passes the message through, as the original
+  did; all five files above use it.
+
+Pre-existing quirks in these screens/functions, preserved and disclosed
+(not changed):
+- Stock Adjustment, Material Issue and Warehouse Movement's own reversal
+  success alert reads `result.grnNumber` (a copy-paste from GRN), so it
+  shows "Reversal posted as undefined." — cosmetic, the reversal is fine.
+- Warehouse Movement's screen offers "edit description" on posted moves,
+  but a movement has no GL entry to edit, so it answers "Entry not
+  found." — same as today's GAS.
+- `updatePostedDescription` only updates the GL entry in Firestore, not
+  the stock transaction's own Description in RTDB (the list keeps the
+  old text); it has no company-access check. `getStockLedgerEntryPublic`
+  has no company-access check either. Both as in the original.
+
 **What changed in `index.html` itself:**
 - Firebase SDK loaded via a small, separate `<script type="module">`, bridged onto `window.__firebaseSdk` — the main script stays a plain (non-module) script on purpose, since dozens of `onclick="..."` attributes throughout this file depend on true globals, which module-scoped declarations aren't
 - An `rpc` proxy synthesizes `google.script.run`'s own `.withSuccessHandler().withFailureHandler().method()` chaining on top of `httpsCallable` — every real call site needed only `google.script.run` replaced with `rpc`, dropping the explicit token argument, and remaining args packed into a single object
@@ -225,8 +269,14 @@ functions/
     materialIssue.js            — the second full module port: same 7 functions, zero changes needed to any shared module — Issue/Return direction toggle, opposite GL logic, both reversal directions
     grn.js                      — the third full module port: save, post, approve/reject, delete, list, reverse, plus getEligibleApprovedPOsForGRN — first to exercise Purchase Order matching, PO cost locking, and PO ReceivedQuantity tracking
     warehouseMovement.js        — the fourth full module port: save, post, approve/reject, delete, list, reverse — first with no GL entry at all, paired Out+In transfer, and a live production bug found and fixed (see the top of this file)
+    masterData.js               — the 9 read-side/helper functions the stock screens call on load (dropdowns, permission flags, stock hint, approval banner, GL impact popup, posted-description edit)
+    callable.js                 — onCallWithMessages: onCall that shows the user the real error message instead of "INTERNAL"
   modules/
     README.md                   — what needs copying here, and why it's a separate copy from public/
+    STOCKADJUSTMENT.html, MATERIALISSUE.html, GRN.html, WAREHOUSEMOVEMENT.html — the 4 ported screens (google.script.run → rpc)
+  test/
+    emulator/stockModules.emulator.test.js — end-to-end, real packages, local emulators (see Testing approach)
+    ui/stockModules.ui.js       — headless-browser click-through of the 4 real screens against the emulators
 ```
 
 ## A caching note for whoever deploys this
@@ -266,19 +316,47 @@ packages' relevant surface, seed a fake RTDB, exercise every
 authorization branch, confirm at least one negative control — should
 carry through the rest of the port.
 
+**Now also: real-package emulator tests, in this repo.** The standing
+"real npm install + emulator" step is done for the four stock modules:
+
+    firebase emulators:start --only database,firestore,functions --project erp1-8f4cd
+    node --test functions/test/emulator/*.test.js      # 21 tests, API level
+    (cd functions && npm i --no-save playwright && npx playwright install chromium)
+    node functions/test/ui/stockModules.ui.js          # 11 checks, real screens
+
+The API test seeds a fixture (it WIPES the emulator database — it
+refuses to run unless both clients point at local emulators, since
+Application Default Credentials in Cloud Shell would otherwise reach
+production), then drives every call the screens make: GRN → MI → SA →
+WM, an approval, every reversal (including the Warehouse Movement
+live-bug regression), GL detail, description edit and permission
+refusals. The UI test runs the screens through the shell's real `rpc`
+bridge (sliced from `public/index.html`) and clicks through create →
+post, GL impact, description edit, reversal and approve. Verified
+negative controls: removing the description-edit permission check, the
+approver-identity check, the item company filter, `success: true` on
+`postGrn`, the error-message wrapper, and one screen call's argument
+conversion were each caught. The auth emulator isn't configured
+(`firebase.json` has no emulators block); callables accept unsigned
+test tokens in the functions emulator, and `requireUser` reads RTDB, so
+it isn't needed.
+
 ## Suggested next step
 
 The shell, the lock module, and four full commit-posting pattern
 ports (Stock Adjustment, Material Issue, GRN, and Warehouse Movement)
 are all complete. `index.html` in `public/` no longer depends on GAS
-for anything of its own; the [Firebase config still needs real values
-filled in](public/index.html) (`apiKey`, `storageBucket`, etc. —
-currently `'REPLACE_ME'`) before it can actually run. What's left:
+for anything of its own, and its Firebase config now holds the real
+values (`grep REPLACE_ME public/index.html` returns nothing). The four
+stock screens work end-to-end against the emulators (see Testing
+approach). What's left:
 
 1. **The live production bug flagged at the top of this file** —
    worth Yasir's attention as its own priority, separate from this
    migration.
-2. **A real `npm install` and emulator test**, since every test so far
+2. **~~A real `npm install` and emulator test~~ — done for the four
+   stock modules** (see Testing approach); the original note follows.
+   **A real `npm install` and emulator test**, since every test so far
    ran against stubs (see Testing approach below) — worth confirming
    against the real packages before trusting any of this in
    production. This matters especially for `lock.js`,

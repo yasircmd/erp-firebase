@@ -1,0 +1,1700 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+    /* The entry screen's live form/grid is now fully replaced by a
+       dedicated #grn-print-document for printing (built in JS from the
+       same data, laid out as an actual document rather than CSS patches
+       over form styling) — the whole screen UI is wrapped in .no-print
+       and hidden outright rather than partially restyled. */
+  }
+  #grn-print-document table { border-collapse: collapse; width: 100%; }
+  #grn-print-document th, #grn-print-document td { border: 1px solid #333; padding: 4px 6px; font-size: 10px; }
+  #grn-print-document thead { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>
+
+<div id="grn-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Stock Management</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-truck-ramp-box text-blue-500"></i> Goods Receipt (GRN)</h2></div>
+    <button id="grn-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New GRN</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="grn-search-input" placeholder="Search number or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="grn-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="grn-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Draft">Draft</option><option value="Posted">Posted</option></select>
+    <input type="date" id="grn-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <input type="date" id="grn-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div id="grn-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">GRN Number</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4">Description</th>
+            <th class="py-3 px-4 text-right">Value</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="grn-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="grn-entry-view" class="hidden space-y-5">
+  <div id="grn-print-header" class="print-only mb-4 pb-4 border-b-2 border-slate-800">
+    <h1 id="grn-print-company-name" class="text-lg font-bold"></h1>
+    <p id="grn-print-company-address" class="text-sm"></p>
+  </div>
+  <div id="grn-print-document" class="print-only"></div>
+  <div class="no-print space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
+    <div class="flex items-center gap-3">
+      <button id="grn-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="grn-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="grn-back-chain-label">Back</span></button>
+      <h2 id="grn-entry-title" class="text-xl font-bold text-blue-400">New GRN</h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="grn-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="grn-gl-impact-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-scale-balanced"></i> View GL Impact</button>
+      <button id="grn-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+
+  <div id="grn-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+  <div id="grn-txn-ref-line" class="hidden text-xs text-slate-500 font-mono"></div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+    <select id="grn-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+    <p class="text-xs text-slate-500 mt-1">Choose a Company first — items below are filtered to what that company can use. This GRN will post automatically against that company's configured GRN Clearing Account (set in Company Master Data) — there's no account to pick here.</p>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Vendor</label>
+    <select id="grn-form-vendor" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+    <p class="text-xs text-slate-500 mt-1">Every GRN belongs to exactly one Vendor — this is what makes it findable when that Vendor's invoice is later matched against it. Choosing a Vendor here reveals their Approved Purchase Orders below, if any are open.</p>
+  </div>
+
+  <div id="grn-po-picker-section" class="hidden space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Receive Against Purchase Orders <span class="normal-case font-normal text-slate-500">(Approved, this Company and Vendor — pick individual lines, not whole POs; price is inherited and cannot be changed)</span></p>
+    <div id="grn-po-picker-list" class="space-y-2"></div>
+    <p id="grn-po-picker-empty" class="hidden text-xs text-slate-500 text-center py-4">No Approved Purchase Orders found for this Company and Vendor.</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="grn-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input type="text" id="grn-form-reference" placeholder="e.g. Vendor invoice #" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
+    <div class="flex gap-2">
+      <input type="text" id="grn-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+      <button id="grn-desc-edit-btn" class="hidden no-print bg-slate-800 hover:bg-slate-700 text-xs px-3 rounded border border-slate-700" title="Edit description"><i class="fa-solid fa-pen-to-square"></i></button>
+      <button id="grn-desc-save-btn" class="hidden no-print bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 rounded">Save</button>
+      <button id="grn-desc-cancel-btn" class="hidden no-print bg-slate-700 hover:bg-slate-600 text-xs px-3 rounded">Cancel</button>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="grn-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="grn-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(line default)</span></label><select id="grn-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="grn-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    </div>
+  </div>
+
+  <div id="grn-company-required-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company above before adding lines — no items can be chosen until then.</div>
+
+  <div class="flex flex-wrap items-center gap-2 no-print">
+    <button id="grn-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+    <button id="grn-paste-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
+    <button id="grn-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy Table</button>
+    <span class="text-xs text-slate-500">Paste columns: Item Code / Warehouse Code / Description / UOM Code / Quantity / Unit Cost / Batch No / Expiry Date / Cost Center Code / Profit Center Code.</span>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table id="grn-grid-table" class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3 w-10">#</th>
+            <th class="py-2 px-3">Item Code</th>
+            <th class="py-2 px-3">Item Name</th>
+            <th class="py-2 px-3">Warehouse</th>
+            <th class="py-2 px-3">Description</th>
+            <th class="py-2 px-3 w-20">UOM</th>
+            <th class="py-2 px-3 text-right w-24">Quantity</th>
+            <th class="py-2 px-3 text-right w-28">Unit Cost</th>
+            <th class="py-2 px-3 text-right w-28">Total Value</th>
+            <th class="py-2 px-3 w-28">Batch No.</th>
+            <th class="py-2 px-3 w-32">Expiry Date</th>
+            <th class="py-2 px-3 w-24">Cost Ctr</th>
+            <th class="py-2 px-3 w-24">Profit Ctr</th>
+            <th class="py-2 px-3 w-10 no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="grn-grid-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        <tfoot>
+          <tr class="bg-slate-900 border-t border-slate-700 font-medium text-sm">
+            <td class="py-2 px-3" colspan="8">Total</td>
+            <td class="py-2 px-3 text-right" id="grn-total-value">0.00</td>
+            <td colspan="4"></td>
+            <td class="no-print"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div id="grn-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="grn-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1 no-print">
+    <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
+    <p id="grn-rejection-reason" class="text-sm text-slate-200"></p>
+    <p class="text-xs text-slate-500">This GRN is fully editable below — make your changes and Post again.</p>
+  </div>
+
+  <div id="grn-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3 no-print">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="grn-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3">
+      <button id="grn-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button>
+      <button id="grn-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button>
+    </div>
+    <div id="grn-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 no-print">
+    <button id="grn-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="grn-duplicate-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs"><i class="fa-solid fa-clone"></i> Duplicate Entry</button>
+    <button id="grn-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse GRN</button>
+    <button id="grn-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
+    <button id="grn-post-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-lock"></i> Post GRN</button>
+  </div>
+  </div>
+</div>
+
+<!-- Shared item-search dropdown — deliberately OUTSIDE the scrollable grid
+     wrapper and positioned with `fixed` (computed via JS from the focused
+     input's bounding rect). A per-row `absolute` dropdown living inside
+     the grid's `overflow-x-auto` container gets clipped to invisibility,
+     since setting overflow-x to a non-visible value forces the browser to
+     also clip overflow-y on that same container — this is what made the
+     original version look like "no suggestions" even though it was
+     rendering correctly, just invisibly. `fixed` positioning escapes that
+     ancestor clipping entirely. -->
+<!-- Item picker modal. Deliberately a CENTERED MODAL rather than a
+     floating dropdown anchored to the input: an anchored dropdown has to
+     survive the grid's overflow clipping, z-index stacking, sticky
+     header, and focus/blur re-render timing — and repeated attempts to
+     make that work reliably here did not. This modal reuses exactly the
+     same structure as the confirm modal below, which is already proven
+     to render correctly in this app, so it has no dependency on any of
+     those fragile behaviours. It also gives room to show code AND name
+     properly, which the cramped inline cell never did. -->
+<div id="grn-item-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg shadow-2xl flex flex-col" style="max-height:80vh">
+    <div class="flex items-center justify-between border-b border-slate-700 p-4">
+      <h3 class="text-lg font-bold text-slate-100">Select Item</h3>
+      <button id="grn-item-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-4 border-b border-slate-700">
+      <input type="text" id="grn-item-search" autocomplete="off" placeholder="Search by item code or name..." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    </div>
+    <div id="grn-item-results" class="overflow-y-auto flex-1 p-2 text-sm"></div>
+  </div>
+</div>
+
+<!-- Custom confirm modal — same rationale as JV/CBT: native confirm()
+     can't be styled and shows an unavoidable "embedded page says" wrapper. -->
+<!-- GL Impact viewer — shows the Dr/Cr breakdown of this entry's linked
+     GL entry inline, JV-style, without navigating away to GL Report. -->
+<div id="grn-gl-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="flex items-center justify-between border-b border-slate-700 p-4">
+      <div>
+        <h3 class="text-lg font-bold text-slate-100">GL Impact</h3>
+        <p id="grn-gl-modal-subtitle" class="text-xs text-slate-500 font-mono"></p>
+      </div>
+      <button id="grn-gl-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-4 overflow-y-auto">
+      <div id="grn-gl-modal-body" class="text-sm text-slate-500">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<div id="grn-confirm-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 id="grn-confirm-title" class="text-lg font-bold text-slate-100">Confirm</h3>
+    <p id="grn-confirm-message" class="text-sm text-slate-300 whitespace-pre-line"></p>
+    <div id="grn-confirm-input-wrap" class="hidden">
+      <input type="date" id="grn-confirm-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    </div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button id="grn-confirm-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button>
+      <button id="grn-confirm-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="grn-item-datalist"></datalist>
+
+<script>
+(function () {
+  let token = '';
+  let canDraft = false;
+  let canPost = false;
+  let entries = [];
+  let entriesTotal = 0;
+  let currentLimit = 100;
+  let items = [];
+  let uoms = [];
+  let companies = [];
+  let orgUnits = [];
+  let vendors = [];
+  let eligiblePOs = [];
+  let selectedPOLineKeys = new Set();
+  let currentGrn = null;
+  // ItemCode is the RAW text the user typed/selected — never silently
+  // resolved-or-cleared on keystroke (that was the original search bug).
+  // ItemName is a live DISPLAY lookup only. Actual resolution to a real
+  // item happens at save time, server-side, same as JV/CBT resolve
+  // AccountCode.
+  let gridLines = []; // { ItemCode, WarehouseID, Description, EnteredUOMID, EnteredQuantity, UnitCost, BatchNumber, ExpiryDate, CostCenterID, ProfitCenterID }
+  let isDirty = false;
+  let pendingOpenEntryId = null;
+  let myReturnChain = [];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function fmt(n) { return (Number(n) || 0).toFixed(2); }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function today() { return new Date().toISOString().substring(0, 10); }
+  function itemByCode(code) { return items.find(i => String(i.ItemCode) === String(code)); }
+  function itemById(id) { return items.find(i => i.ItemID === id); }
+  function uomById(id) { return uoms.find(u => u.UOMID === id); }
+
+  // ---------- CUSTOM CONFIRM MODAL ----------
+  function showConfirm(message, onConfirm, opts) {
+    opts = opts || {};
+    document.getElementById('grn-confirm-title').textContent = opts.title || 'Confirm';
+    document.getElementById('grn-confirm-message').textContent = message;
+    const inputWrap = document.getElementById('grn-confirm-input-wrap');
+    const input = document.getElementById('grn-confirm-input');
+    if (opts.needsDate) {
+      inputWrap.classList.remove('hidden');
+      input.value = opts.defaultDate || today();
+    } else {
+      inputWrap.classList.add('hidden');
+    }
+    document.getElementById('grn-confirm-modal').classList.remove('hidden');
+
+    const okBtn = document.getElementById('grn-confirm-ok');
+    const cancelBtn = document.getElementById('grn-confirm-cancel');
+    function cleanup() {
+      document.getElementById('grn-confirm-modal').classList.add('hidden');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+    }
+    function onOk() { cleanup(); onConfirm(opts.needsDate ? input.value : undefined); }
+    function onCancel() { cleanup(); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  }
+
+  // ---------- LIST VIEW ----------
+
+  function fetchAndRenderList(limit) {
+    currentLimit = limit || currentLimit;
+    rpc
+      .withSuccessHandler(result => {
+        entries = result.entries || []; entriesTotal = result.total || 0; renderList();
+        if (pendingOpenEntryId) {
+          const id = pendingOpenEntryId; pendingOpenEntryId = null;
+          // Drill-through from GL Report passes the GL ENTRY's own ID
+          // (LinkedJVID), not the GRN's own ID — these are two different
+          // documents (the GRN transaction and the GL entry it posted).
+          // Match on LinkedJVID first; fall back to GRNID in case a
+          // future caller ever passes the GRN's own ID directly.
+          const found = entries.find(e => e.LinkedJVID === id || e.GRNID === id);
+          if (found) openEntry(found.GRNID);
+          else alert('That GRN could not be found — it may have been deleted.');
+        }
+      })
+      .withFailureHandler(err => alert(err.message || 'Unable to load GRNs.'))
+      .getGrnEntries({ limit: currentLimit });
+  }
+
+  function renderList() {
+    const tbody = document.getElementById('grn-table-body');
+    const search = document.getElementById('grn-search-input').value.toLowerCase();
+    const companyFilter = document.getElementById('grn-company-filter').value;
+    const status = document.getElementById('grn-status-filter').value;
+    const from = document.getElementById('grn-from-filter').value;
+    const to = document.getElementById('grn-to-filter').value;
+
+    const notice = document.getElementById('grn-list-notice');
+    if (entriesTotal > entries.length) {
+      notice.classList.remove('hidden');
+      notice.innerHTML = `Showing most recent ${entries.length} of ${entriesTotal} GRNs. <button id="grn-load-all-btn" class="text-blue-400 hover:text-blue-300 underline">Load all</button>`;
+      document.getElementById('grn-load-all-btn').addEventListener('click', () => fetchAndRenderList('all'));
+    } else {
+      notice.classList.add('hidden');
+    }
+
+    const filtered = entries.filter(e => {
+      if (search && !`${e.TransactionNumber} ${e.Description}`.toLowerCase().includes(search)) return false;
+      if (companyFilter && e.CompanyID !== companyFilter) return false;
+      if (status && e.Status !== status) return false;
+      if (from && e.TransactionDate < from) return false;
+      if (to && e.TransactionDate > to) return false;
+      return true;
+    }).sort((a, b) => (b.TransactionDate || '').localeCompare(a.TransactionDate || ''));
+
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">No GRNs found.</td></tr>'; return; }
+
+    filtered.forEach(e => {
+      const total = (e.Lines || []).reduce((sum, l) => sum + (l.TotalValue || 0), 0);
+      const statusBadge = e.Status === 'Posted'
+        ? (e.ReversedByGRN ? '<span class="text-amber-400">Posted (Reversed)</span>' : '<span class="text-emerald-400">Posted</span>')
+        : '<span class="text-red-400">Draft</span>';
+      let actions = `<button class="grn-open text-slate-400 hover:text-blue-400 p-1" title="Open"><i class="fa-solid fa-eye"></i></button>`;
+      if (canDraft) actions += `<button class="grn-dup text-slate-400 hover:text-blue-400 p-1" title="Duplicate"><i class="fa-solid fa-clone"></i></button>`;
+      if (e.Status === 'Draft' && canDraft) {
+        actions += `<button class="grn-delete text-slate-400 hover:text-red-400 p-1" title="Delete draft"><i class="fa-solid fa-trash"></i></button>`;
+      }
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      row.innerHTML = `
+        <td class="py-3 px-4 font-mono text-xs text-slate-200">${e.TransactionNumber ? escapeHtml(e.TransactionNumber) : '<span class="text-slate-500">DRAFT</span>'}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(e.TransactionDate)}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(e.Description)}</td>
+        <td class="py-3 px-4 text-xs text-right">${formatMoney(total)}</td>
+        <td class="py-3 px-4 text-xs">${statusBadge}</td>
+        <td class="py-3 px-4 text-right">${actions}</td>`;
+      row.querySelector('.grn-open').addEventListener('click', () => openEntry(e.GRNID));
+      const dup = row.querySelector('.grn-dup');
+      if (dup) dup.addEventListener('click', () => duplicateEntry(e.GRNID));
+      const del = row.querySelector('.grn-delete');
+      if (del) del.addEventListener('click', () => deleteDraft(e.GRNID));
+      tbody.appendChild(row);
+    });
+  }
+
+  function deleteDraft(grnId) {
+    showConfirm('Delete this draft GRN? This cannot be undone.', () => {
+      rpc
+        .withSuccessHandler(result => { if (result.success) fetchAndRenderList(); else alert(result.error || 'Unable to delete draft.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
+        .deleteGrnDraft({ grnId: grnId });
+    }, { title: 'Delete Draft' });
+  }
+
+  function showListView() {
+    document.getElementById('grn-entry-view').classList.add('hidden');
+    document.getElementById('grn-list-view').classList.remove('hidden');
+    isDirty = false;
+    fetchAndRenderList();
+  }
+
+  function goBackToList() {
+    if (isDirty) {
+      showConfirm('You have unsaved changes. Leave without saving?', () => showListView(), { title: 'Unsaved Changes' });
+    } else {
+      showListView();
+    }
+  }
+
+  function goBackInChain() {
+    const doGoBack = () => {
+      const chain = myReturnChain.slice();
+      const target = chain.pop();
+      if (!target) return;
+      openModule(target.moduleId, target.params, chain);
+    };
+    if (isDirty) {
+      showConfirm('You have unsaved changes. Leave without saving?', doGoBack, { title: 'Unsaved Changes' });
+    } else {
+      doGoBack();
+    }
+  }
+
+  // ---------- ITEM PICKER MODAL ----------
+
+  function itemsForCurrentCompany() {
+    const companyId = document.getElementById('grn-form-company').value;
+    if (!companyId) return [];
+    // getActiveItems() already filters to Active items server-side and
+    // never even sends a Status field to the client — checking i.Status
+    // here was always comparing against undefined, making this always
+    // return empty regardless of company. That was the actual root
+    // cause of item search never showing results.
+    return items.filter(i => !i.CompanyID || i.CompanyID === companyId);
+  }
+
+  // Shared datalist for fast native type-ahead on the item code input —
+  // alongside the magnifying-glass modal, not instead of it. The modal
+  // stays for browsing/searching by name; this is for when you already
+  // know roughly what you're typing and want it to autocomplete inline.
+  function populateItemDatalist() {
+    const list = document.getElementById('grn-item-datalist');
+    if (!list) return;
+    list.innerHTML = '';
+    itemsForCurrentCompany().forEach(i => {
+      const opt = document.createElement('option');
+      opt.value = i.ItemCode + ' — ' + i.ItemName;
+      list.appendChild(opt);
+    });
+  }
+
+  function updateCompanyRequiredNote() {
+    document.getElementById('grn-company-required-note').classList.toggle('hidden', Boolean(document.getElementById('grn-form-company').value));
+    populateItemDatalist();
+  }
+
+  // Row the picker is currently open for.
+  let pickerRow = -1;
+
+  function openItemPicker(row) {
+    if (!document.getElementById('grn-form-company').value) {
+      alert('Select a Company first — items are filtered to what that company can use.');
+      return;
+    }
+    pickerRow = row;
+    const search = document.getElementById('grn-item-search');
+    search.value = '';
+    renderItemResults('');
+    document.getElementById('grn-item-modal').classList.remove('hidden');
+    search.focus();
+  }
+
+  function closeItemPicker() {
+    document.getElementById('grn-item-modal').classList.add('hidden');
+    pickerRow = -1;
+  }
+
+  // Empty query lists everything (capped) so the picker is useful for
+  // browsing, not only for searching — matters when someone doesn't know
+  // the code or the exact name.
+  function renderItemResults(query) {
+    const q = String(query || '').trim().toLowerCase();
+    const results = document.getElementById('grn-item-results');
+    const matches = itemsForCurrentCompany()
+      .filter(i => !q || String(i.ItemCode).toLowerCase().includes(q) || String(i.ItemName).toLowerCase().includes(q))
+      .sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }))
+      .slice(0, 100);
+
+    if (!matches.length) {
+      results.innerHTML = '<div class="p-4 text-center text-slate-500">' + (itemsForCurrentCompany().length ? 'No items match that search.' : 'No items showing for this company — either none exist yet, or your account isn\'t assigned to this company in User Management. Check with an admin if you expect items here.') + '</div>';
+      return;
+    }
+
+    results.innerHTML = matches.map(m =>
+      `<button type="button" class="grn-item-option w-full text-left px-3 py-2 rounded hover:bg-slate-700 flex justify-between gap-3" data-code="${escapeHtml(m.ItemCode)}">
+        <span><span class="font-mono text-slate-200">${escapeHtml(m.ItemCode)}</span> <span class="text-slate-400">— ${escapeHtml(m.ItemName)}</span></span>
+        <span class="text-slate-500 text-xs shrink-0">${escapeHtml((uomById(m.UOMID) || {}).Code || '')}</span>
+      </button>`
+    ).join('');
+
+    results.querySelectorAll('.grn-item-option').forEach(btn => {
+      btn.addEventListener('click', () => selectItemForRow(pickerRow, btn.getAttribute('data-code')));
+    });
+  }
+
+  function selectItemForRow(row, itemCode) {
+    if (row < 0 || !gridLines[row]) return;
+    isDirty = true;
+    applyItemToRow(row, itemCode);
+    closeItemPicker();
+    renderGrid();
+    updateTotal();
+  }
+
+  function applyItemToRow(row, itemCode) {
+    gridLines[row].ItemCode = itemCode;
+    const matched = itemByCode(itemCode);
+    if (matched) {
+      if (!gridLines[row].EnteredUOMID) gridLines[row].EnteredUOMID = matched.UOMID;
+      if (matched.DefaultWarehouseID && !gridLines[row].WarehouseID) gridLines[row].WarehouseID = matched.DefaultWarehouseID;
+    }
+  }
+
+  // ---------- ENTRY VIEW / GRID ----------
+
+  function orgUnitOptionsHtml(type, selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        html += `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code)}</option>`;
+      });
+    return html;
+  }
+
+  function uomOptionsForItem(item, selectedId) {
+    if (!item) return '<option value="">—</option>';
+    let html = '';
+    const baseUom = uomById(item.UOMID);
+    if (baseUom) html += `<option value="${baseUom.UOMID}"${baseUom.UOMID === selectedId ? ' selected' : ''}>${escapeHtml(baseUom.Code)}</option>`;
+    if (item.AltUOMID) {
+      const altUom = uomById(item.AltUOMID);
+      if (altUom) html += `<option value="${altUom.UOMID}"${altUom.UOMID === selectedId ? ' selected' : ''}>${escapeHtml(altUom.Code)}</option>`;
+    }
+    return html;
+  }
+
+  function currentHeaderCostCenter() { return document.getElementById('grn-form-costcenter').value; }
+  function currentHeaderProfitCenter() { return document.getElementById('grn-form-profitcenter').value; }
+  function currentHeaderDescription() { return document.getElementById('grn-form-description').value; }
+
+  // GRN-to-PO linking (Phase A of the AP build). Fetches whenever
+  // EITHER Company or Vendor changes — eligibility depends on both
+  // together, and either one alone isn't enough to know what's open.
+  function fetchEligiblePOsForGRN() {
+    const companyId = document.getElementById('grn-form-company').value;
+    const vendorId = document.getElementById('grn-form-vendor').value;
+    const section = document.getElementById('grn-po-picker-section');
+    if (!companyId || !vendorId) { section.classList.add('hidden'); return; }
+    rpc
+      .withSuccessHandler(result => { eligiblePOs = result || []; renderPOPicker(); section.classList.remove('hidden'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load eligible Purchase Orders.'))
+      .getEligibleApprovedPOsForGRN({ companyId: companyId, vendorId: vendorId });
+  }
+
+  // Checkbox PER LINE, not per PO — unlike PR/IPR sourcing into a PO
+  // (where a whole requisition is pulled in at once), a single delivery
+  // commonly contains only SOME of a PO's lines, so line-level picking
+  // is the right granularity here.
+  function renderPOPicker() {
+    const list = document.getElementById('grn-po-picker-list');
+    list.innerHTML = '';
+    document.getElementById('grn-po-picker-empty').classList.toggle('hidden', eligiblePOs.length > 0);
+    eligiblePOs.forEach(po => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'bg-slate-900 border border-slate-700 rounded-lg p-3 space-y-2';
+      const header = document.createElement('p');
+      header.className = 'text-xs font-semibold text-slate-300';
+      header.textContent = (po.PONumber || po.POID) + ' — ' + (po.Lines || []).length + ' line(s)';
+      wrapper.appendChild(header);
+      (po.Lines || []).forEach(line => {
+        const key = po.POID + '|' + line.LineID;
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-2 text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1.5 cursor-pointer';
+        const remaining = Number(line.RemainingQuantity) || 0;
+        const overNote = remaining <= 0 ? ' <span class="text-amber-400">(fully received already — still selectable)</span>' : '';
+        label.innerHTML = `<input type="checkbox" class="grn-po-line-checkbox" data-key="${key}" ${selectedPOLineKeys.has(key) ? 'checked' : ''}> <span>${escapeHtml(line.ItemCode)} — ${escapeHtml(line.Description || '')} — Ordered ${line.Quantity}, Remaining ${remaining}${overNote}</span>`;
+        wrapper.appendChild(label);
+      });
+      list.appendChild(wrapper);
+    });
+    list.querySelectorAll('.grn-po-line-checkbox').forEach(cb => {
+      cb.addEventListener('change', e => {
+        const key = e.target.getAttribute('data-key');
+        const parts = key.split('|');
+        const poId = parts[0]; const lineId = parts[1];
+        const po = eligiblePOs.find(p => p.POID === poId);
+        const line = po ? (po.Lines || []).find(l => l.LineID === lineId) : null;
+        if (e.target.checked) {
+          selectedPOLineKeys.add(key);
+          addLineFromPO(po, line);
+        } else {
+          selectedPOLineKeys.delete(key);
+          removeLineFromPO(poId, lineId);
+        }
+      });
+    });
+  }
+
+  // Adds one PO line to the grid — targeted, not a full rebuild, same
+  // reasoning as PO's own addLinesFromRequisition. Quantity defaults to
+  // whatever's still Remaining when positive; when the line is already
+  // fully received (or over-received), there's no sensible default —
+  // over-receipt is still permitted, but the person has to type an
+  // amount explicitly rather than have one suggested.
+  function addLineFromPO(po, line) {
+    if (!po || !line) return;
+    const item = itemByCode(line.ItemCode);
+    const remaining = Number(line.RemainingQuantity) || 0;
+    const newLine = {
+      ItemCode: line.ItemCode || '', WarehouseID: line.WarehouseID || '',
+      Description: line.Description || currentHeaderDescription(),
+      EnteredUOMID: item ? item.UOMID : '', EnteredQuantity: remaining > 0 ? remaining : '',
+      UnitCost: line.UnitPrice,
+      BatchNumber: '', ExpiryDate: '',
+      CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter(),
+      SourcePOID: po.POID, SourcePOLineID: line.LineID
+    };
+    // Same blank-row criteria as ensureTrailingBlankRow — the grid
+    // always keeps exactly one empty trailing row ready for direct
+    // entry, and picking a PO line should fill that row rather than
+    // leave it sitting there empty while a second, genuinely new row
+    // gets appended below it.
+    const last = gridLines[gridLines.length - 1];
+    if (last && !last.ItemCode && !last.EnteredQuantity && !last.UnitCost) {
+      gridLines[gridLines.length - 1] = newLine;
+    } else {
+      gridLines.push(newLine);
+    }
+    document.getElementById('grn-company-required-note').classList.add('hidden');
+    isDirty = true;
+    renderGrid(); updateTotal();
+  }
+
+  // Removes only THIS specific PO line's own grid row(s) — never
+  // touches lines from any other PO, or direct lines.
+  function removeLineFromPO(poId, lineId) {
+    gridLines = gridLines.filter(l => !(l.SourcePOID === poId && l.SourcePOLineID === lineId));
+    isDirty = true;
+    renderGrid(); updateTotal();
+  }
+
+  function blankLine() {
+    return {
+      ItemCode: '', WarehouseID: '', Description: currentHeaderDescription(),
+      EnteredUOMID: '', EnteredQuantity: '', UnitCost: '',
+      BatchNumber: '', ExpiryDate: '',
+      CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter(),
+      SourcePOID: '', SourcePOLineID: ''
+    };
+  }
+
+  function ensureTrailingBlankRow() {
+    const last = gridLines[gridLines.length - 1];
+    if (!last || last.ItemCode || last.EnteredQuantity || last.UnitCost) {
+      gridLines.push(blankLine());
+      return true; // a new row was actually added
+    }
+    return false;
+  }
+
+  // Column order for BOTH rendering data-col attributes and Paste/Copy —
+  // must stay in sync with the visible grid columns (excluding the two
+  // display-only columns, Item Name and Total Value).
+  const COLUMNS = ['item', 'warehouse', 'description', 'uom', 'quantity', 'unitcost', 'batch', 'expiry', 'costcenter', 'profitcenter'];
+
+  function buildRowMarkup(line, i, readOnly) {
+    const item = itemByCode(line.ItemCode);
+    const missingDesc = line.ItemCode && !String(line.Description || '').trim();
+    const batchTracked = item && item.BatchTracked;
+    const missingBatch = batchTracked && !String(line.BatchNumber || '').trim();
+    // A PO-sourced line locks its own item and price — changing either
+    // independently of the source it was picked from would make the
+    // link meaningless (or, for item, server-rejected outright — see
+    // saveGrnDraft's own validation). Quantity, warehouse, and
+    // everything else stay freely editable even on a PO-sourced line;
+    // only these two fields are ever locked by sourcing.
+    const poLocked = !!(line.SourcePOID && line.SourcePOLineID);
+    const itemLocked = readOnly || poLocked;
+    const priceLocked = readOnly || poLocked;
+    const poBadge = poLocked ? '<span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20" title="Sourced from a Purchase Order — item and price are locked">PO</span>' : '';
+    return `
+      <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+      <td class="py-1 px-1"><div class="flex gap-1 items-center"><input data-row="${i}" data-col="0" data-field="item" list="grn-item-datalist" value="${escapeHtml(line.ItemCode)}" ${itemLocked ? 'disabled' : ''} placeholder="Code" class="grn-item-input w-24 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs font-mono focus:outline-none focus:border-blue-500">${readOnly || poLocked ? '' : `<button type="button" data-row="${i}" class="grn-item-pick shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded px-2 text-xs" title="Search items"><i class="fa-solid fa-magnifying-glass"></i></button>`}${poBadge}</div></td>
+      <td class="py-1 px-2 text-xs text-slate-400 grn-item-name">${item ? escapeHtml(item.ItemName) : (line.ItemCode ? '<span class="text-red-400">not found</span>' : '')}</td>
+      <td class="py-1 px-1"><select data-row="${i}" data-col="1" data-field="warehouse" class="grn-line-wh w-32 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('Warehouse', line.WarehouseID)}</select></td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="2" data-field="description" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${missingDesc ? 'required' : ''}" class="w-full bg-slate-900 border ${missingDesc ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><select data-row="${i}" data-col="3" data-field="uom" class="grn-line-uom w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${uomOptionsForItem(item, line.EnteredUOMID)}</select></td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="4" data-field="quantity" type="text" inputmode="decimal" value="${line.EnteredQuantity === '' ? '' : line.EnteredQuantity}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="5" data-field="unitcost" type="text" inputmode="decimal" value="${line.UnitCost === '' || line.UnitCost === 0 ? '' : formatMoney(line.UnitCost)}" ${priceLocked ? 'disabled' : ''} title="${poLocked ? 'Inherited from the Purchase Order — cannot be edited' : ''}" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1.5 px-3 text-xs text-right font-mono">${formatMoney((parseFloat(String(line.EnteredQuantity).replace(/,/g, '')) || 0) * (parseFloat(String(line.UnitCost).replace(/,/g, '')) || 0))}</td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="6" data-field="batch" value="${escapeHtml(line.BatchNumber)}" ${readOnly ? 'disabled' : ''} placeholder="${missingBatch ? 'required' : ''}" class="w-full bg-slate-900 border ${missingBatch ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="7" data-field="expiry" type="date" value="${escapeHtml(line.ExpiryDate)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><select data-row="${i}" data-col="8" class="grn-line-cc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
+      <td class="py-1 px-1"><select data-row="${i}" data-col="9" class="grn-line-pc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
+      <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-row="${i}" class="grn-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
+  }
+
+  // Wires every listener for ONE row. Used both by renderGrid (all rows,
+  // on a full rebuild) and by appendRowToDom (a single new row, added
+  // WITHOUT touching any other row — see that function's comment for why
+  // this matters).
+  //
+  // NOTE: the item input is deliberately EXCLUDED from the blur-triggered
+  // re-render every other field gets. A full renderGrid() wipes and
+  // rebuilds the entire tbody, which destroys whatever input currently
+  // has focus — for the item field that meant the row (and the search
+  // picker button on it) got torn down after roughly every keystroke,
+  // which is what made item search appear completely broken. The item
+  // cell maintains its own display updates directly in onCellInput (the
+  // name cell beside it, and — since this bit was ALSO missed the first
+  // time — the Warehouse/UOM cells in the same row), so it never needs a
+  // blur-triggered rebuild.
+  function wireRowEvents(tr) {
+    tr.querySelectorAll('input[data-field]:not([data-field="item"])').forEach(el => {
+      el.addEventListener('input', onCellInput);
+      el.addEventListener('blur', () => { renderGrid(); updateTotal(); });
+    });
+    tr.querySelectorAll('input[data-field="item"]').forEach(el => {
+      el.addEventListener('input', onCellInput);
+    });
+    tr.querySelectorAll('select[data-field="warehouse"], select[data-field="uom"]').forEach(el => {
+      el.addEventListener('change', onCellInput);
+    });
+    tr.querySelectorAll('.grn-line-cc').forEach(sel => {
+      sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].CostCenterID = e.target.value; });
+    });
+    tr.querySelectorAll('.grn-line-pc').forEach(sel => {
+      sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].ProfitCenterID = e.target.value; });
+    });
+    tr.querySelectorAll('.grn-remove-row').forEach(btn => {
+      btn.addEventListener('click', () => {
+        isDirty = true;
+        const row = parseInt(btn.getAttribute('data-row'), 10);
+        gridLines.splice(row, 1);
+        renderGrid(); updateTotal();
+      });
+    });
+    tr.querySelectorAll('input[data-field="unitcost"]').forEach(input => {
+      input.addEventListener('focus', e => {
+        const row = parseInt(e.target.getAttribute('data-row'), 10);
+        const raw = gridLines[row].UnitCost;
+        e.target.value = (raw === '' || raw === 0) ? '' : String(raw);
+      });
+    });
+    tr.querySelectorAll('.grn-item-pick').forEach(btn => {
+      btn.addEventListener('click', () => openItemPicker(parseInt(btn.getAttribute('data-row'), 10)));
+    });
+  }
+
+  // Appends exactly one new trailing blank row to the DOM, WITHOUT
+  // touching any existing row — critical because a full renderGrid()
+  // would destroy whatever row (and item input) the user is currently
+  // typing into. This is what makes a new row actually appear as you
+  // fill in an item directly (not via the picker), since that path
+  // deliberately never triggers a full re-render.
+  function appendRowToDom() {
+    const tbody = document.getElementById('grn-grid-body');
+    const i = gridLines.length - 1;
+    const tr = document.createElement('tr');
+    tr.innerHTML = buildRowMarkup(gridLines[i], i, false);
+    tbody.appendChild(tr);
+    wireRowEvents(tr);
+  }
+
+  function renderGrid() {
+    ensureTrailingBlankRow();
+    const tbody = document.getElementById('grn-grid-body');
+    tbody.innerHTML = '';
+    // Same editable/read-only rule as the header form fields —
+    // PendingApproval is read-only too, not just Posted, so grid
+    // rows can't visually appear editable while awaiting a decision
+    // that a save would just be rejected for anyway.
+    const readOnly = currentGrn && currentGrn.Status !== 'Draft' && currentGrn.Status !== 'Rejected';
+
+    gridLines.forEach((line, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = buildRowMarkup(line, i, readOnly);
+      tbody.appendChild(tr);
+    });
+
+    if (!readOnly) {
+      tbody.querySelectorAll('tr').forEach(tr => wireRowEvents(tr));
+    }
+
+    updateTotal();
+  }
+
+  function onCellInput(e) {
+    const row = parseInt(e.target.getAttribute('data-row'), 10);
+    const field = e.target.getAttribute('data-field');
+    let value = e.target.value;
+
+    if (field === 'item') {
+      // A native datalist selection sets the input's raw value to the
+      // FULL "Code — Name" option text, not just the code — itemByCode
+      // does an exact code comparison, so left as-is this would never
+      // match anything (UOM/Warehouse auto-fill silently failing) and
+      // the field would display the combined string instead of the
+      // code. Strip it back down to just the code before anything else,
+      // but only when that prefix is an actual real item code — this
+      // never fires on ordinary character-by-character typing, since
+      // typing would never happen to produce this exact combined
+      // pattern until a datalist option was actually picked.
+      const dashIndex = value.indexOf(' — ');
+      if (dashIndex !== -1 && itemByCode(value.substring(0, dashIndex))) {
+        value = value.substring(0, dashIndex);
+        e.target.value = value;
+      }
+      gridLines[row].ItemCode = value;
+      const matched = itemByCode(value);
+      const tr = e.target.closest('tr');
+      const nameCell = tr.querySelector('.grn-item-name');
+      nameCell.innerHTML = matched ? escapeHtml(matched.ItemName) : (value ? '<span class="text-red-400">not found</span>' : '');
+      if (matched) {
+        // Warehouse and UOM are SEPARATE elements in this row — they
+        // never get touched by a full renderGrid() here (that's the
+        // whole point: re-rendering while typing an item code destroys
+        // the field being typed into). So when either gets auto-set,
+        // update just that one element directly, matching how the name
+        // cell above already does it.
+        if (!gridLines[row].EnteredUOMID) {
+          gridLines[row].EnteredUOMID = matched.UOMID;
+          // UOM's <option> list is item-specific (base + optional
+          // alternate) — unlike Warehouse, this needs a full rebuild of
+          // THIS select's options, not just a value assignment, since a
+          // blank row's UOM select starts with no options at all.
+          const uomSelect = tr.querySelector('select[data-field="uom"]');
+          if (uomSelect) uomSelect.innerHTML = uomOptionsForItem(matched, matched.UOMID);
+        }
+        if (matched.DefaultWarehouseID && !gridLines[row].WarehouseID) {
+          gridLines[row].WarehouseID = matched.DefaultWarehouseID;
+          // Warehouse options are the same regardless of item, so they
+          // already exist — just set the value.
+          const whSelect = tr.querySelector('select[data-field="warehouse"]');
+          if (whSelect) whSelect.value = matched.DefaultWarehouseID;
+        }
+      }
+      // Since this cell never triggers a blur re-render (see wireRowEvents'
+      // note), a newly-needed blank row must be added directly to the DOM
+      // here — appendRowToDom() only ever adds the ONE new row, leaving
+      // every existing row (including whatever's being typed into right
+      // now) completely untouched.
+      if (ensureTrailingBlankRow()) appendRowToDom();
+    } else if (field === 'warehouse') {
+      gridLines[row].WarehouseID = value;
+    } else if (field === 'uom') {
+      gridLines[row].EnteredUOMID = value;
+    } else if (field === 'description') {
+      gridLines[row].Description = value;
+    } else if (field === 'quantity') {
+      gridLines[row].EnteredQuantity = value.replace(/,/g, '');
+    } else if (field === 'unitcost') {
+      gridLines[row].UnitCost = value.replace(/,/g, '');
+    } else if (field === 'batch') {
+      gridLines[row].BatchNumber = value;
+    } else if (field === 'expiry') {
+      gridLines[row].ExpiryDate = value;
+    }
+    updateTotal();
+  }
+
+  function updateTotal() {
+    let total = 0;
+    gridLines.forEach(l => { total += (parseFloat(String(l.EnteredQuantity).replace(/,/g, '')) || 0) * (parseFloat(String(l.UnitCost).replace(/,/g, '')) || 0); });
+    document.getElementById('grn-total-value').textContent = formatMoney(total);
+  }
+
+  function allLineDescriptionsFilled() {
+    return gridLines.every(l => !l.ItemCode || String(l.Description || '').trim());
+  }
+
+  function allBatchNumbersFilled() {
+    return gridLines.every(l => {
+      if (!l.ItemCode) return true;
+      const item = itemByCode(l.ItemCode);
+      if (!item || !item.BatchTracked) return true;
+      return Boolean(String(l.BatchNumber || '').trim());
+    });
+  }
+
+  // ---------- PASTE FROM EXCEL ----------
+  // Columns: Item Code / Warehouse Code / Description / UOM Code /
+  // Quantity / Unit Cost / Batch No / Expiry Date / Cost Center Code /
+  // Profit Center Code — matches COLUMNS above, and the visible grid's
+  // editable-column left-to-right order (skipping the two display-only
+  // columns, Item Name and Total Value).
+
+  function distributePastedText(text, startRow, startCol) {
+    isDirty = true;
+    const rows = text.replace(/\r/g, '').split('\n').filter((r, idx, arr) => !(idx === arr.length - 1 && r === ''));
+
+    rows.forEach((rowText, r) => {
+      const cells = rowText.split('\t');
+      const targetRow = startRow + r;
+      while (gridLines.length <= targetRow) gridLines.push(blankLine());
+
+      cells.forEach((cellText, c) => {
+        const targetCol = startCol + c;
+        if (targetCol >= COLUMNS.length) return;
+        const field = COLUMNS[targetCol];
+        const value = cellText.trim();
+
+        if (field === 'item') {
+          // Same "Code — Name" stripping as onCellInput — see that
+          // comment for why. Handles pasting text copied from somewhere
+          // that includes the item name alongside the code.
+          const dashIndex = value.indexOf(' — ');
+          const stripped = (dashIndex !== -1 && itemByCode(value.substring(0, dashIndex))) ? value.substring(0, dashIndex) : value;
+          gridLines[targetRow].ItemCode = stripped;
+          const matched = itemByCode(stripped);
+          if (matched) {
+            if (!gridLines[targetRow].EnteredUOMID) gridLines[targetRow].EnteredUOMID = matched.UOMID;
+            if (matched.DefaultWarehouseID && !gridLines[targetRow].WarehouseID) gridLines[targetRow].WarehouseID = matched.DefaultWarehouseID;
+          }
+        } else if (field === 'warehouse') {
+          if (value) {
+            const wh = orgUnits.find(u => u.Type === 'Warehouse' && String(u.Code).toLowerCase() === value.toLowerCase());
+            gridLines[targetRow].WarehouseID = wh ? wh.UnitID : '';
+          }
+        } else if (field === 'description') {
+          gridLines[targetRow].Description = value;
+        } else if (field === 'uom') {
+          if (value) {
+            const uom = uoms.find(u => String(u.Code).toLowerCase() === value.toLowerCase());
+            if (uom) gridLines[targetRow].EnteredUOMID = uom.UOMID;
+          }
+        } else if (field === 'quantity') {
+          const cleaned = value.replace(/,/g, '');
+          gridLines[targetRow].EnteredQuantity = cleaned === '' ? '' : (parseFloat(cleaned) || 0);
+        } else if (field === 'unitcost') {
+          const cleaned = value.replace(/,/g, '');
+          gridLines[targetRow].UnitCost = cleaned === '' ? '' : (parseFloat(cleaned) || 0);
+        } else if (field === 'batch') {
+          gridLines[targetRow].BatchNumber = value;
+        } else if (field === 'expiry') {
+          gridLines[targetRow].ExpiryDate = value;
+        } else if (field === 'costcenter') {
+          if (value) {
+            const cc = orgUnits.find(u => u.Type === 'CostCenter' && String(u.Code).toLowerCase() === value.toLowerCase());
+            gridLines[targetRow].CostCenterID = cc ? cc.UnitID : '';
+          }
+        } else if (field === 'profitcenter') {
+          if (value) {
+            const pc = orgUnits.find(u => u.Type === 'ProfitCenter' && String(u.Code).toLowerCase() === value.toLowerCase());
+            gridLines[targetRow].ProfitCenterID = pc ? pc.UnitID : '';
+          }
+        }
+      });
+    });
+
+    renderGrid();
+    updateTotal();
+  }
+
+  function handleGridPaste(e) {
+    const input = e.target;
+    if (!input.matches('input[data-row]')) return;
+    const clipboard = (e.clipboardData || window.clipboardData);
+    if (!clipboard) return;
+    const text = clipboard.getData('text');
+    if (!text || (!text.includes('\t') && !text.includes('\n'))) return; // single value — let default paste happen
+
+    e.preventDefault();
+    const row = parseInt(input.getAttribute('data-row'), 10);
+    const col = parseInt(input.getAttribute('data-col'), 10);
+    distributePastedText(text, row, col);
+  }
+
+  function handlePasteButton() {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      alert('Your browser blocked clipboard access here — click into a cell in the grid and paste directly (Ctrl+V / Cmd+V) instead.');
+      return;
+    }
+    navigator.clipboard.readText().then(text => {
+      if (!text) return;
+      distributePastedText(text, 0, 0);
+    }).catch(() => {
+      alert('Unable to read the clipboard. Click into a cell in the grid and paste directly instead.');
+    });
+  }
+
+  function handleCopyButton() {
+    const rows = gridLines
+      .filter(l => l.ItemCode || l.EnteredQuantity || l.UnitCost)
+      .map(l => {
+        const wh = orgUnits.find(u => u.UnitID === l.WarehouseID);
+        const uom = uomById(l.EnteredUOMID);
+        const cc = orgUnits.find(u => u.UnitID === l.CostCenterID);
+        const pc = orgUnits.find(u => u.UnitID === l.ProfitCenterID);
+        return [
+          l.ItemCode, wh ? wh.Code : '', l.Description, uom ? uom.Code : '',
+          l.EnteredQuantity === '' ? '' : l.EnteredQuantity,
+          l.UnitCost === '' ? '' : fmt(l.UnitCost),
+          l.BatchNumber || '', l.ExpiryDate || '',
+          cc ? cc.Code : '', pc ? pc.Code : ''
+        ].join('\t');
+      });
+    const text = rows.join('\n');
+    if (!text) { alert('Nothing to copy yet.'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => flashCopyButton()).catch(() => fallbackCopyPrompt(text));
+    } else {
+      fallbackCopyPrompt(text);
+    }
+  }
+
+  function flashCopyButton() {
+    const btn = document.getElementById('grn-copy-btn');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
+  }
+
+  // ---------- GL IMPACT VIEWER ----------
+
+  function openGlImpact() {
+    if (!currentGrn || !currentGrn.LinkedJVID) return;
+    document.getElementById('grn-gl-modal-subtitle').textContent = '';
+    document.getElementById('grn-gl-modal-body').innerHTML = '<div class="text-center text-slate-500 py-4">Loading...</div>';
+    document.getElementById('grn-gl-modal').classList.remove('hidden');
+    rpc
+      .withSuccessHandler(entry => renderGlImpact(entry))
+      .withFailureHandler(err => {
+        document.getElementById('grn-gl-modal-body').innerHTML = '<div class="text-center text-red-400 py-4">' + escapeHtml(err.message || 'Unable to load GL entry.') + '</div>';
+      })
+      .getJournalEntryDetail({ jvId: currentGrn.LinkedJVID });
+  }
+
+  function renderGlImpact(entry) {
+    document.getElementById('grn-gl-modal-subtitle').textContent = entry.JVNumber + ' — ' + entry.JVDate;
+    const rows = entry.Lines.map(l => `
+      <tr class="border-b border-slate-700">
+        <td class="py-2 px-3 font-mono text-xs text-slate-300">${escapeHtml(l.AccountCode)}</td>
+        <td class="py-2 px-3 text-sm text-slate-200">${escapeHtml(l.AccountName)}</td>
+        <td class="py-2 px-3 text-sm text-right font-mono ${l.Debit ? 'text-slate-200' : 'text-slate-600'}">${l.Debit ? formatMoney(l.Debit) : '—'}</td>
+        <td class="py-2 px-3 text-sm text-right font-mono ${l.Credit ? 'text-slate-200' : 'text-slate-600'}">${l.Credit ? formatMoney(l.Credit) : '—'}</td>
+      </tr>`).join('');
+    document.getElementById('grn-gl-modal-body').innerHTML = `
+      <p class="text-sm text-slate-300 mb-3">${escapeHtml(entry.Description)}</p>
+      <table class="w-full text-left">
+        <thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Account</th><th class="py-2 px-3">Name</th><th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr class="font-medium border-t border-slate-600"><td class="py-2 px-3" colspan="2">Total</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalDebit)}</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalCredit)}</td></tr></tfoot>
+      </table>`;
+  }
+
+  function closeGlImpact() {
+    document.getElementById('grn-gl-modal').classList.add('hidden');
+  }
+
+
+  function fallbackCopyPrompt(text) {
+    window.prompt('Copy this text (Ctrl+C / Cmd+C, then Enter):', text);
+  }
+
+  // ---------- ENTRY LOAD / SAVE / POST / REVERSE / DUPLICATE ----------
+
+  function openEntry(grnId) {
+    currentGrn = entries.find(e => e.GRNID === grnId) || null;
+    if (!currentGrn) return;
+
+    gridLines = (currentGrn.Lines || []).map(l => {
+      const item = itemById(l.ItemID);
+      return {
+        ItemCode: item ? item.ItemCode : (l.ItemCode || ''),
+        WarehouseID: l.WarehouseID, Description: l.Description,
+        EnteredUOMID: l.EnteredUOMID, EnteredQuantity: l.EnteredQuantity, UnitCost: l.UnitCost,
+        BatchNumber: l.BatchNumber || '', ExpiryDate: l.ExpiryDate || '',
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '',
+        SourcePOID: l.SourcePOID || '', SourcePOLineID: l.SourcePOLineID || ''
+      };
+    });
+    selectedPOLineKeys = new Set(gridLines.filter(l => l.SourcePOID && l.SourcePOLineID).map(l => l.SourcePOID + '|' + l.SourcePOLineID));
+
+    document.getElementById('grn-form-company').value = currentGrn.CompanyID || '';
+    document.getElementById('grn-form-vendor').value = currentGrn.VendorID || '';
+    document.getElementById('grn-form-date').value = currentGrn.TransactionDate || '';
+    document.getElementById('grn-form-reference').value = currentGrn.Reference || '';
+    document.getElementById('grn-form-description').value = currentGrn.Description || '';
+    document.getElementById('grn-form-division').value = currentGrn.DivisionID || '';
+    document.getElementById('grn-form-branch').value = currentGrn.BranchID || '';
+    document.getElementById('grn-form-costcenter').value = currentGrn.CostCenterID || '';
+    document.getElementById('grn-form-profitcenter').value = currentGrn.ProfitCenterID || '';
+    updateCompanyRequiredNote();
+    fetchEligiblePOsForGRN();
+
+    showEntryView();
+  }
+
+  function newEntry() {
+    currentGrn = null;
+    gridLines = [];
+    selectedPOLineKeys = new Set();
+    document.getElementById('grn-form-company').value = '';
+    document.getElementById('grn-form-vendor').value = '';
+    document.getElementById('grn-po-picker-section').classList.add('hidden');
+    document.getElementById('grn-form-date').value = today();
+    document.getElementById('grn-form-reference').value = '';
+    document.getElementById('grn-form-description').value = '';
+    document.getElementById('grn-form-division').value = '';
+    document.getElementById('grn-form-branch').value = '';
+    document.getElementById('grn-form-costcenter').value = '';
+    document.getElementById('grn-form-profitcenter').value = '';
+    updateCompanyRequiredNote();
+    showEntryView();
+  }
+
+  // Copies an existing GRN's lines and dimensions into a fresh, unsaved
+  // draft — same pattern as JV/CBT's duplicate. Date resets to today;
+  // Reference and Description are cleared. Works for both Draft and
+  // Posted source entries.
+  function duplicateEntry(grnId) {
+    const source = entries.find(e => e.GRNID === grnId);
+    if (!source) return;
+
+    const proceed = () => {
+      currentGrn = null;
+      gridLines = (source.Lines || []).map(l => {
+        const item = itemById(l.ItemID);
+        return {
+          ItemCode: item ? item.ItemCode : (l.ItemCode || ''),
+          WarehouseID: l.WarehouseID, Description: l.Description,
+          EnteredUOMID: l.EnteredUOMID, EnteredQuantity: l.EnteredQuantity, UnitCost: l.UnitCost,
+          BatchNumber: l.BatchNumber || '', ExpiryDate: l.ExpiryDate || '',
+          CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '',
+          SourcePOID: l.SourcePOID || '', SourcePOLineID: l.SourcePOLineID || ''
+        };
+      });
+      selectedPOLineKeys = new Set(gridLines.filter(l => l.SourcePOID && l.SourcePOLineID).map(l => l.SourcePOID + '|' + l.SourcePOLineID));
+
+      document.getElementById('grn-form-company').value = source.CompanyID || '';
+      document.getElementById('grn-form-vendor').value = source.VendorID || '';
+      document.getElementById('grn-form-date').value = today();
+      document.getElementById('grn-form-reference').value = '';
+      document.getElementById('grn-form-description').value = '';
+      document.getElementById('grn-form-division').value = source.DivisionID || '';
+      document.getElementById('grn-form-branch').value = source.BranchID || '';
+      document.getElementById('grn-form-costcenter').value = source.CostCenterID || '';
+      document.getElementById('grn-form-profitcenter').value = source.ProfitCenterID || '';
+      updateCompanyRequiredNote();
+      fetchEligiblePOsForGRN();
+      showEntryView();
+    };
+
+    if (isDirty && !document.getElementById('grn-entry-view').classList.contains('hidden')) {
+      showConfirm('You have unsaved changes. Discard them and duplicate this entry instead?', proceed, { title: 'Unsaved Changes' });
+    } else {
+      proceed();
+    }
+  }
+
+  // Populates the print-only company letterhead (hidden on screen, shown
+  // only via the .print-only/@media print rule) from whichever company
+  // is currently relevant — the entry's own CompanyID once one exists,
+  // or the form's current selection for a still-unsaved new entry.
+  function updatePrintHeader() {
+    const companyId = currentGrn ? currentGrn.CompanyID : document.getElementById('grn-form-company').value;
+    const company = companies.find(c => c.CompanyID === companyId);
+    document.getElementById('grn-print-company-name').textContent = company ? company.LegalName : '';
+    const addressParts = company ? [company.AddressLine1, company.AddressLine2].filter(Boolean) : [];
+    document.getElementById('grn-print-company-address').textContent = addressParts.join(', ');
+  }
+
+  // Builds the ENTIRE printed document fresh from current data — not a
+  // CSS-restyled view of the live form, a genuinely separate document
+  // layout (title, voucher meta, line items, totals, signature block).
+  // Rebuilt right before printing (see the print button's own listener)
+  // rather than kept live-updated on every keystroke, so it's always
+  // current at the moment of printing without the cost of rebuilding a
+  // full HTML string on every grid edit.
+  function buildPrintDocument() {
+    const container = document.getElementById('grn-print-document');
+    if (!container) return;
+
+    const voucherNo = currentGrn && currentGrn.TransactionNumber ? currentGrn.TransactionNumber : 'DRAFT';
+    const date = document.getElementById('grn-form-date').value || '';
+    const reference = document.getElementById('grn-form-reference').value || '';
+    const description = document.getElementById('grn-form-description').value || '';
+
+    const validLines = gridLines.filter(l => l.ItemCode);
+    const rows = validLines.map((l, i) => {
+      const item = itemByCode(l.ItemCode);
+      const wh = orgUnits.find(u => u.UnitID === l.WarehouseID);
+      const uom = uomById(l.EnteredUOMID);
+      const qty = Number(l.EnteredQuantity) || 0;
+      const unitCost = Number(l.UnitCost) || 0;
+      const lineTotal = l.TotalValue != null ? l.TotalValue : qty * unitCost;
+      return `<tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(l.ItemCode)}</td>
+        <td>${item ? escapeHtml(item.ItemName) : ''}</td>
+        <td>${wh ? escapeHtml(wh.Code) : ''}</td>
+        <td>${uom ? escapeHtml(uom.Code) : ''}</td>
+        <td style="text-align:right">${formatMoney(qty)}</td>
+        <td style="text-align:right">${formatMoney(unitCost)}</td>
+        <td style="text-align:right">${formatMoney(lineTotal)}</td>
+      </tr>`;
+    }).join('');
+
+    const grandTotal = validLines.reduce((sum, l) => {
+      const qty = Number(l.EnteredQuantity) || 0;
+      const unitCost = Number(l.UnitCost) || 0;
+      return sum + (l.TotalValue != null ? l.TotalValue : qty * unitCost);
+    }, 0);
+
+    container.innerHTML = `
+      <h2 style="text-align:center; font-size:16px; font-weight:bold; text-decoration:underline; margin:8px 0 16px;">GOODS RECEIPT NOTE</h2>
+      <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+        <span>GRN No: <strong>${escapeHtml(voucherNo)}</strong></span>
+        <span>Date: <strong>${escapeHtml(date)}</strong></span>
+      </div>
+      <div style="font-size:11px; margin-bottom:16px;">
+        <span>Reference: ${escapeHtml(reference) || '—'}</span>
+      </div>
+      <p style="font-size:11px; margin-bottom:12px;">Description: ${escapeHtml(description)}</p>
+      <table>
+        <thead><tr>
+          <th>#</th><th>Item Code</th><th>Item Name</th><th>Warehouse</th><th>UOM</th>
+          <th style="text-align:right">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="8" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
+        <tfoot><tr><td colspan="7" style="text-align:right; font-weight:bold;">Grand Total</td><td style="text-align:right; font-weight:bold;">${formatMoney(grandTotal)}</td></tr></tfoot>
+      </table>
+      <div style="display:flex; justify-content:space-between; margin-top:60px; font-size:11px;">
+        <div>Prepared By: _________________</div>
+        <div>Checked By: _________________</div>
+        <div>Approved By: _________________</div>
+      </div>
+      <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>
+    `;
+  }
+
+  function showEntryView() {
+    document.getElementById('grn-list-view').classList.add('hidden');
+    document.getElementById('grn-entry-view').classList.remove('hidden');
+    document.getElementById('grn-form-error').classList.add('hidden');
+    document.getElementById('grn-back-chain-btn').classList.toggle('hidden', !myReturnChain.length);
+    cancelDescriptionEdit();
+
+    // Rejected is editable too, same as Draft — a resubmission reuses
+    // this exact save/post path, same as JV/CBT's own identical fix.
+    const posted = currentGrn && currentGrn.Status === 'Posted';
+    const editableStatus = !currentGrn || currentGrn.Status === 'Draft' || currentGrn.Status === 'Rejected';
+    const readOnly = currentGrn && !editableStatus;
+    const isNew = !currentGrn;
+    updatePrintHeader();
+
+    document.getElementById('grn-entry-title').textContent = isNew ? 'New GRN' : (currentGrn.TransactionNumber || 'Draft GRN');
+    document.getElementById('grn-voucher-no-line').textContent = isNew ? '' : 'Voucher No.: ' + (currentGrn.TransactionNumber || '(assigned when posted)');
+
+    const txnRefLine = document.getElementById('grn-txn-ref-line');
+    if (!isNew && currentGrn.TransactionRef) {
+      txnRefLine.textContent = 'Stock Transaction Ref: ' + currentGrn.TransactionRef;
+      txnRefLine.classList.remove('hidden');
+    } else {
+      txnRefLine.classList.add('hidden');
+    }
+
+    const badge = document.getElementById('grn-status-badge');
+    if (isNew) {
+      badge.classList.add('hidden');
+    } else {
+      badge.classList.remove('hidden');
+      const colors = {
+        Draft: 'bg-slate-700 text-slate-300', PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+        Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20',
+        Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+      };
+      const labels = { PendingApproval: 'Pending Approval', Posted: currentGrn.ReversedByGRN ? 'Posted (Reversed)' : 'Posted' };
+      badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (colors[currentGrn.Status] || colors.Draft);
+      badge.textContent = labels[currentGrn.Status] || currentGrn.Status;
+    }
+
+    document.getElementById('grn-rejection-banner').classList.toggle('hidden', !currentGrn || currentGrn.Status !== 'Rejected');
+    if (currentGrn && currentGrn.Status === 'Rejected') {
+      document.getElementById('grn-rejection-reason').textContent = currentGrn.RejectionReason || '(no reason given)';
+    }
+
+    document.getElementById('grn-my-approval-banner').classList.add('hidden');
+    if (currentGrn && currentGrn.Status === 'PendingApproval' && canPost) {
+      rpc
+        .withSuccessHandler(levelNumber => {
+          if (levelNumber) {
+            document.getElementById('grn-my-approval-banner').classList.remove('hidden');
+            document.getElementById('grn-my-approval-banner').dataset.level = levelNumber;
+          }
+        })
+        .withFailureHandler(() => {})
+        .getMyPendingApprovalLevel({ approvalInstanceId: currentGrn.ApprovalInstanceID });
+    }
+
+    document.getElementById('grn-print-btn').classList.toggle('hidden', !posted);
+    document.getElementById('grn-gl-impact-btn').classList.toggle('hidden', !(posted && currentGrn && currentGrn.LinkedJVID));
+    ['grn-form-company', 'grn-form-vendor', 'grn-form-date', 'grn-form-reference', 'grn-form-division', 'grn-form-branch', 'grn-form-costcenter', 'grn-form-profitcenter'].forEach(id => {
+      document.getElementById(id).disabled = readOnly;
+    });
+    document.getElementById('grn-desc-edit-btn').classList.toggle('hidden', !(posted && canPost));
+    document.getElementById('grn-po-picker-section').classList.toggle('hidden', readOnly || !document.getElementById('grn-form-company').value || !document.getElementById('grn-form-vendor').value);
+
+    document.getElementById('grn-add-line-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('grn-paste-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('grn-save-draft-btn').classList.toggle('hidden', !editableStatus || !canDraft);
+    document.getElementById('grn-post-btn').classList.toggle('hidden', !editableStatus || !canPost);
+    document.getElementById('grn-delete-btn').classList.toggle('hidden', (!currentGrn || currentGrn.Status !== 'Draft') || !canDraft);
+    document.getElementById('grn-duplicate-btn').classList.toggle('hidden', isNew || !canDraft);
+    document.getElementById('grn-reverse-btn').classList.toggle('hidden', !posted || Boolean(currentGrn && currentGrn.ReversedByGRN) || !canPost);
+
+    renderGrid();
+    isDirty = false;
+  }
+
+  // ---------- EDIT DESCRIPTION AFTER POSTING ----------
+
+  function startDescriptionEdit() {
+    document.getElementById('grn-form-description').disabled = false;
+    document.getElementById('grn-form-description').focus();
+    document.getElementById('grn-desc-edit-btn').classList.add('hidden');
+    document.getElementById('grn-desc-save-btn').classList.remove('hidden');
+    document.getElementById('grn-desc-cancel-btn').classList.remove('hidden');
+  }
+
+  function cancelDescriptionEdit() {
+    if (currentGrn) document.getElementById('grn-form-description').value = currentGrn.Description || '';
+    document.getElementById('grn-form-description').disabled = Boolean(currentGrn && currentGrn.Status === 'Posted');
+    document.getElementById('grn-desc-save-btn').classList.add('hidden');
+    document.getElementById('grn-desc-cancel-btn').classList.add('hidden');
+    document.getElementById('grn-desc-edit-btn').classList.toggle('hidden', !(currentGrn && currentGrn.Status === 'Posted' && canPost));
+  }
+
+  function saveDescriptionEdit() {
+    const newDescription = document.getElementById('grn-form-description').value.trim();
+    if (!newDescription) { alert('Description is required.'); return; }
+    const btn = document.getElementById('grn-desc-save-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { currentGrn.Description = newDescription; cancelDescriptionEdit(); }
+        else alert(result.error || 'Unable to update description.');
+      })
+      .withFailureHandler(err => { btn.disabled = false; btn.textContent = original; alert(err.message || 'Unable to update description.'); })
+      .updatePostedDescription({ jvId: currentGrn.LinkedJVID, description: newDescription });
+  }
+
+  function collectHeader() {
+    return {
+      GRNID: currentGrn ? currentGrn.GRNID : '',
+      TransactionDate: document.getElementById('grn-form-date').value,
+      Reference: document.getElementById('grn-form-reference').value.trim(),
+      Description: document.getElementById('grn-form-description').value.trim(),
+      CompanyID: document.getElementById('grn-form-company').value,
+      VendorID: document.getElementById('grn-form-vendor').value,
+      DivisionID: document.getElementById('grn-form-division').value,
+      BranchID: document.getElementById('grn-form-branch').value,
+      CostCenterID: document.getElementById('grn-form-costcenter').value,
+      ProfitCenterID: document.getElementById('grn-form-profitcenter').value,
+      Lines: gridLines.map(l => ({
+        ItemID: (itemByCode(l.ItemCode) || {}).ItemID || '',
+        WarehouseID: l.WarehouseID, Description: l.Description,
+        EnteredUOMID: l.EnteredUOMID, EnteredQuantity: l.EnteredQuantity, UnitCost: l.UnitCost,
+        BatchNumber: l.BatchNumber, ExpiryDate: l.ExpiryDate,
+        CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID,
+        SourcePOID: l.SourcePOID || '', SourcePOLineID: l.SourcePOLineID || ''
+      }))
+    };
+  }
+
+  function saveDraft() {
+    const error = document.getElementById('grn-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('grn-form-company').value) { error.textContent = 'Select a Company for this transaction.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('grn-form-vendor').value) { error.textContent = 'Select a Vendor for this transaction.'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allBatchNumbersFilled()) { error.textContent = 'Batch-tracked items require a batch number.'; error.classList.remove('hidden'); renderGrid(); return; }
+    const btn = document.getElementById('grn-save-draft-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { isDirty = false; showListView(); }
+        else { error.textContent = result.error || 'Unable to save draft.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.textContent = original;
+        error.textContent = err.message || 'Unable to save draft.'; error.classList.remove('hidden');
+      })
+      .saveGrnDraft(collectHeader());
+  }
+
+  function postEntry() {
+    const error = document.getElementById('grn-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('grn-form-company').value) { error.textContent = 'Select a Company for this transaction.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('grn-form-vendor').value) { error.textContent = 'Select a Vendor for this transaction.'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allBatchNumbersFilled()) { error.textContent = 'Batch-tracked items require a batch number.'; error.classList.remove('hidden'); renderGrid(); return; }
+
+    showConfirm('Post this GRN?\n\nOnce posted it becomes permanent, updates stock on hand, and can only be undone with a reversal.', () => {
+      const btn = document.getElementById('grn-post-btn');
+      btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Posting...';
+      rpc
+        .withSuccessHandler(saveResult => {
+          if (!saveResult.success) {
+            btn.disabled = false; btn.innerHTML = original;
+            error.textContent = saveResult.error || 'Unable to save before posting.'; error.classList.remove('hidden');
+            return;
+          }
+          if (!currentGrn) currentGrn = { GRNID: saveResult.grnId, Status: 'Draft' };
+          else currentGrn.GRNID = saveResult.grnId;
+
+          rpc
+            .withSuccessHandler(postResult => {
+              btn.disabled = false; btn.innerHTML = original;
+              if (postResult.success) { isDirty = false; showListView(); }
+              else { error.textContent = postResult.error || 'Unable to post GRN.'; error.classList.remove('hidden'); }
+            })
+            .withFailureHandler(err => {
+              btn.disabled = false; btn.innerHTML = original;
+              error.textContent = err.message || 'Unable to post GRN.'; error.classList.remove('hidden');
+            })
+            .postGrn({ grnId: saveResult.grnId });
+        })
+        .withFailureHandler(err => {
+          btn.disabled = false; btn.innerHTML = original;
+          error.textContent = err.message || 'Unable to save before posting.'; error.classList.remove('hidden');
+        })
+        .saveGrnDraft(collectHeader());
+    }, { title: 'Post GRN' });
+  }
+
+  function deleteCurrentDraft() {
+    if (!currentGrn) return;
+    showConfirm('Delete this draft GRN? This cannot be undone.', () => {
+      rpc
+        .withSuccessHandler(result => { if (result.success) { isDirty = false; showListView(); } else alert(result.error || 'Unable to delete draft.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
+        .deleteGrnDraft({ grnId: currentGrn.GRNID });
+    }, { title: 'Delete Draft' });
+  }
+
+  function decide(decision) {
+    const levelNumber = parseInt(document.getElementById('grn-my-approval-banner').dataset.level, 10);
+    const reason = document.getElementById('grn-decision-reason').value.trim();
+    const error = document.getElementById('grn-decision-error');
+    error.classList.add('hidden');
+    if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
+    showConfirm((decision === 'Approved' ? 'Approve' : 'Reject') + ' this GRN?' + (decision === 'Approved' ? ' This will update stock and post to the GL.' : ''), () => {
+      rpc
+        .withSuccessHandler(result => {
+          if (result.success) { isDirty = false; showListView(); }
+          else { error.textContent = result.error || 'Unable to record decision.'; error.classList.remove('hidden'); }
+        })
+        .withFailureHandler(err => { error.textContent = err.message || 'Unable to record decision.'; error.classList.remove('hidden'); })
+        .decideGrnApproval({ grnId: currentGrn.GRNID, levelNumber: levelNumber, decision: decision, reason: reason });
+    }, { title: decision === 'Approved' ? 'Approve GRN' : 'Reject GRN' });
+  }
+
+  function reverseCurrentEntry() {
+    if (!currentGrn) return;
+    showConfirm('Reverse this posted GRN? This takes the received stock back out — it will fail if some of it has already been issued or consumed elsewhere. The original stays on record.', (date) => {
+      rpc
+        .withSuccessHandler(result => {
+          if (result.success) { alert('Reversal posted as ' + result.grnNumber + '.'); isDirty = false; showListView(); }
+          else alert(result.error || 'Unable to reverse GRN.');
+        })
+        .withFailureHandler(err => alert(err.message || 'Unable to reverse GRN.'))
+        .reverseGrn({ grnId: currentGrn.GRNID, reversalDate: date });
+    }, { title: 'Reverse GRN', needsDate: true, defaultDate: today() });
+  }
+
+  // ---------- REFERENCE DATA ----------
+
+  function populateOrgUnitSelect(selectId, type) {
+    const select = document.getElementById(selectId);
+    const previous = select.value;
+    select.innerHTML = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.UnitID; opt.textContent = u.Code + ' — ' + u.Name;
+        select.appendChild(opt);
+      });
+    if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  }
+
+  function loadReferenceData() {
+    rpc
+      .withSuccessHandler(result => { items = result || []; updateCompanyRequiredNote(); })
+      .withFailureHandler(err => console.error(err))
+      .getActiveItems();
+
+    rpc
+      .withSuccessHandler(result => { uoms = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getActiveUOMs();
+
+    rpc
+      .withSuccessHandler(result => {
+        companies = result || [];
+        // Reference code shown alongside the name so two companies that
+        // happen to share a display name — e.g. two "NEXUS PRODUCTION
+        // LLC" records created at different times — are immediately
+        // distinguishable, rather than silently colliding in the
+        // dropdown with no way to tell them apart.
+        const label = c => c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '');
+        const select = document.getElementById('grn-form-company');
+        select.innerHTML = '<option value="">Select a company...</option>';
+        companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+          const opt = document.createElement('option'); opt.value = c.CompanyID; opt.textContent = label(c);
+          select.appendChild(opt);
+        });
+        const filterSelect = document.getElementById('grn-company-filter');
+        filterSelect.innerHTML = '<option value="">All Companies</option>';
+        companies.forEach(c => {
+          const opt = document.createElement('option'); opt.value = c.CompanyID; opt.textContent = label(c);
+          filterSelect.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+
+    rpc
+      .withSuccessHandler(result => {
+        vendors = result || [];
+        const select = document.getElementById('grn-form-vendor');
+        select.innerHTML = '<option value="">Select...</option>';
+        vendors.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.VendorID; opt.textContent = v.VendorCode + ' — ' + v.VendorName;
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveVendors();
+
+    rpc
+      .withSuccessHandler(result => {
+        orgUnits = result || [];
+        populateOrgUnitSelect('grn-form-division', 'Division');
+        populateOrgUnitSelect('grn-form-branch', 'Branch');
+        populateOrgUnitSelect('grn-form-costcenter', 'CostCenter');
+        populateOrgUnitSelect('grn-form-profitcenter', 'ProfitCenter');
+        if (!document.getElementById('grn-entry-view').classList.contains('hidden')) renderGrid();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits();
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    rpc
+      .withSuccessHandler(perm => {
+        canDraft = Boolean(perm.canDraft);
+        canPost = Boolean(perm.canPost);
+        document.getElementById('grn-new-btn').classList.toggle('hidden', !canDraft);
+        if (canDraft) document.getElementById('grn-new-btn').addEventListener('click', newEntry);
+        renderList();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getModulePermissionsForUser({ moduleId: 'GRN' });
+
+    loadReferenceData();
+
+    document.getElementById('grn-search-input').addEventListener('input', renderList);
+    document.getElementById('grn-company-filter').addEventListener('change', renderList);
+    document.getElementById('grn-status-filter').addEventListener('change', renderList);
+    document.getElementById('grn-from-filter').addEventListener('change', renderList);
+    document.getElementById('grn-to-filter').addEventListener('change', renderList);
+
+    document.getElementById('grn-back-btn').addEventListener('click', goBackToList);
+    document.getElementById('grn-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });
+    document.getElementById('grn-gl-impact-btn').addEventListener('click', openGlImpact);
+    document.getElementById('grn-gl-modal-close').addEventListener('click', closeGlImpact);
+    document.getElementById('grn-gl-modal').addEventListener('click', e => { if (e.target.id === 'grn-gl-modal') closeGlImpact(); });
+    document.getElementById('grn-add-line-btn').addEventListener('click', () => {
+      isDirty = true;
+      gridLines.push(blankLine());
+      renderGrid();
+    });
+    document.getElementById('grn-paste-btn').addEventListener('click', handlePasteButton);
+    document.getElementById('grn-copy-btn').addEventListener('click', handleCopyButton);
+    document.getElementById('grn-grid-table').addEventListener('paste', handleGridPaste, true);
+    document.getElementById('grn-save-draft-btn').addEventListener('click', saveDraft);
+    document.getElementById('grn-post-btn').addEventListener('click', postEntry);
+    // Same fix as JV/CBT's own identical bug: the header Cost
+    // Center/Profit Center fields are "(line default)", but previously
+    // only ever applied to a NEW line, never an already-existing one.
+    // Now fills any existing line whose own value is still empty —
+    // never overwrites one already deliberately set.
+    document.getElementById('grn-form-costcenter').addEventListener('change', () => {
+      const headerValue = currentHeaderCostCenter();
+      if (!headerValue) return;
+      gridLines.forEach(line => { if (!line.CostCenterID) line.CostCenterID = headerValue; });
+      renderGrid();
+    });
+    document.getElementById('grn-form-profitcenter').addEventListener('change', () => {
+      const headerValue = currentHeaderProfitCenter();
+      if (!headerValue) return;
+      gridLines.forEach(line => { if (!line.ProfitCenterID) line.ProfitCenterID = headerValue; });
+      renderGrid();
+    });
+    document.getElementById('grn-delete-btn').addEventListener('click', deleteCurrentDraft);
+    document.getElementById('grn-approve-btn').addEventListener('click', () => decide('Approved'));
+    document.getElementById('grn-reject-btn').addEventListener('click', () => decide('Rejected'));
+    document.getElementById('grn-duplicate-btn').addEventListener('click', () => duplicateEntry(currentGrn.GRNID));
+    document.getElementById('grn-reverse-btn').addEventListener('click', reverseCurrentEntry);
+    document.getElementById('grn-form-company').addEventListener('change', updateCompanyRequiredNote);
+    document.getElementById('grn-form-company').addEventListener('change', updatePrintHeader);
+    document.getElementById('grn-form-company').addEventListener('change', fetchEligiblePOsForGRN);
+    document.getElementById('grn-form-vendor').addEventListener('change', fetchEligiblePOsForGRN);
+    document.getElementById('grn-item-modal-close').addEventListener('click', closeItemPicker);
+    document.getElementById('grn-item-modal').addEventListener('click', e => {
+      // Click the dark backdrop (not the dialog itself) to dismiss.
+      if (e.target.id === 'grn-item-modal') closeItemPicker();
+    });
+    document.getElementById('grn-item-search').addEventListener('input', e => renderItemResults(e.target.value));
+    document.getElementById('grn-item-search').addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeItemPicker();
+      // Enter picks the single remaining match — quickest path when a
+      // search has narrowed to exactly one item.
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const options = document.querySelectorAll('#grn-item-results .grn-item-option');
+        if (options.length === 1) options[0].click();
+      }
+    });
+    document.getElementById('grn-desc-edit-btn').addEventListener('click', startDescriptionEdit);
+    document.getElementById('grn-desc-save-btn').addEventListener('click', saveDescriptionEdit);
+    document.getElementById('grn-desc-cancel-btn').addEventListener('click', cancelDescriptionEdit);
+
+    document.getElementById('grn-entry-view').addEventListener('input', () => { isDirty = true; });
+    document.getElementById('grn-entry-view').addEventListener('change', () => { isDirty = true; });
+
+    // Keeps any still-untouched line's Description in sync with the
+    // header Description as the user types it — see JV.html's identical
+    // comment for the reasoning.
+    document.getElementById('grn-form-description').addEventListener('input', () => {
+      const value = document.getElementById('grn-form-description').value;
+      let changed = false;
+      gridLines.forEach(l => { if (!l.ItemCode && !l.EnteredQuantity && !l.UnitCost) { l.Description = value; changed = true; } });
+      if (changed) renderGrid();
+    });
+
+    window.hasUnsavedChanges = function () {
+      return isDirty && !document.getElementById('grn-entry-view').classList.contains('hidden');
+    };
+
+    myReturnChain = window.__pendingReturnChain || [];
+    window.__pendingReturnChain = [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      document.getElementById('grn-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      document.getElementById('grn-back-chain-btn').addEventListener('click', goBackInChain);
+    }
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-truck-ramp-box"></i> Goods Receipt (GRN)';
+
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) {
+      pendingOpenEntryId = pending.OpenEntryId;
+      document.getElementById('grn-entry-view').classList.add('hidden');
+      document.getElementById('grn-list-view').classList.remove('hidden');
+      fetchAndRenderList('all');
+    } else {
+      showListView();
+    }
+  };
+})();
+</script>

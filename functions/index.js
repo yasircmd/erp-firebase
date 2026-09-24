@@ -25,6 +25,10 @@ const {
   saveWarehouseMovementDraft, postWarehouseMovement, decideWarehouseMovementApproval,
   deleteWarehouseMovementDraft, getWarehouseMovementEntries, reverseWarehouseMovement
 } = require('./src/warehouseMovement');
+const {
+  getModulePermissionsForUser, getActiveItems, getActiveUOMs, getActiveOrgUnits, getActiveVendors,
+  getStockLedgerEntryPublic, getMyPendingApprovalLevel, getJournalEntryDetail, updatePostedDescription
+} = require('./src/masterData');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
@@ -60,3 +64,12 @@ exports.decideWarehouseMovementApproval = decideWarehouseMovementApproval;
 exports.deleteWarehouseMovementDraft = deleteWarehouseMovementDraft;
 exports.getWarehouseMovementEntries = getWarehouseMovementEntries;
 exports.reverseWarehouseMovement = reverseWarehouseMovement;
+exports.getModulePermissionsForUser = getModulePermissionsForUser;
+exports.getActiveItems = getActiveItems;
+exports.getActiveUOMs = getActiveUOMs;
+exports.getActiveOrgUnits = getActiveOrgUnits;
+exports.getActiveVendors = getActiveVendors;
+exports.getStockLedgerEntryPublic = getStockLedgerEntryPublic;
+exports.getMyPendingApprovalLevel = getMyPendingApprovalLevel;
+exports.getJournalEntryDetail = getJournalEntryDetail;
+exports.updatePostedDescription = updatePostedDescription;
