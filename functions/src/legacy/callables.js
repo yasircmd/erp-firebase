@@ -138,6 +138,11 @@ exports.getApprovalLevelsForModule = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.moduleId];
   return run(request, (ctx) => L.getApprovalLevelsForModule(ctx, ...a));
 });
+exports.getBalanceSheet = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
+  return run(request, (ctx) => L.getBalanceSheet(ctx, ...a));
+});
 exports.getChartOfAccounts = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];

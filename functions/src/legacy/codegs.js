@@ -2124,6 +2124,77 @@ async function getTrialBalance(idToken, params) {
   };
 }
 
+// ---------- Balance Sheet ----------
+// Asset/Liability/Equity accounts as of a date, with cumulative P&L
+// rolled into Equity as "Retained Earnings (Current Period)" — see the
+// module-level note above on why.
+
+async function getBalanceSheet(idToken, params) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'BALANCESHEET', 'access', user.profile.role))) {
+    throw new Error('You do not have access to the Balance Sheet.');
+  }
+
+  const asOfDate = String(params.AsOfDate || '').trim() || new Date().toISOString().substring(0, 10);
+  const filters = buildDimensionFilters_(params);
+  const access = applyCompanyAccessRestriction_(user, filters.companyId);
+  filters.companyId = access.companyId;
+  filters.assignedCompanies = access.assignedCompanies;
+  const coaData = await getCoaData_(idToken);
+  const lines = (await getPostedGlLines_(idToken, filters)).filter(l => l.JVDate <= asOfDate);
+
+  const netByAccount = {};
+  lines.forEach(l => { netByAccount[l.AccountID] = (netByAccount[l.AccountID] || 0) + (l.Debit - l.Credit); });
+
+  const assets = [], liabilities = [], equity = [];
+  let totalAssets = 0, totalLiabilities = 0, totalEquity = 0, netIncomeToDate = 0;
+
+  Object.keys(netByAccount).forEach(accId => {
+    const account = coaData[accId];
+    if (!account) return;
+    const net = Math.round(netByAccount[accId] * 100) / 100;
+    if (Math.abs(net) < 0.005) return;
+
+    if (account.AccountType === 'Asset') {
+      totalAssets += net;
+      assets.push({ AccountCode: account.AccountCode, AccountName: account.AccountName, Amount: net });
+    } else if (account.AccountType === 'Liability') {
+      const amount = -net;
+      totalLiabilities += amount;
+      liabilities.push({ AccountCode: account.AccountCode, AccountName: account.AccountName, Amount: amount });
+    } else if (account.AccountType === 'Equity') {
+      const amount = -net;
+      totalEquity += amount;
+      equity.push({ AccountCode: account.AccountCode, AccountName: account.AccountName, Amount: amount });
+    } else if (account.AccountType === 'Revenue') {
+      netIncomeToDate += -net;
+    } else if (account.AccountType === 'COGS' || account.AccountType === 'Expense') {
+      netIncomeToDate -= net;
+    }
+  });
+
+  netIncomeToDate = Math.round(netIncomeToDate * 100) / 100;
+  if (Math.abs(netIncomeToDate) >= 0.005) {
+    equity.push({ AccountCode: '', AccountName: 'Retained Earnings (Current Period — not yet closed)', Amount: netIncomeToDate });
+    totalEquity += netIncomeToDate;
+  }
+
+  const sortByCode = (a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true });
+  assets.sort(sortByCode); liabilities.sort(sortByCode); equity.sort(sortByCode);
+
+  totalAssets = Math.round(totalAssets * 100) / 100;
+  totalLiabilities = Math.round(totalLiabilities * 100) / 100;
+  totalEquity = Math.round(totalEquity * 100) / 100;
+
+  return {
+    asOfDate: asOfDate,
+    assets: assets, totalAssets: totalAssets,
+    liabilities: liabilities, totalLiabilities: totalLiabilities,
+    equity: equity, totalEquity: totalEquity,
+    balanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01
+  };
+}
+
 // Resolves whichever BOM version was ACTUALLY in effect for a parent
 // item on a specific date — not just whatever's marked Active today.
 // This is what makes the Material Variance Report correct across a
@@ -3791,6 +3862,7 @@ module.exports = {
   getPostedGlLines_,
   getGlReport,
   getTrialBalance,
+  getBalanceSheet,
   getBomEffectiveOnDate_,
   groupBomsByParent_,
   getStockValuationReport,
