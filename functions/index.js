@@ -73,3 +73,8 @@ exports.getStockLedgerEntryPublic = getStockLedgerEntryPublic;
 exports.getMyPendingApprovalLevel = getMyPendingApprovalLevel;
 exports.getJournalEntryDetail = getJournalEntryDetail;
 exports.updatePostedDescription = updatePostedDescription;
+
+// Every remaining Code.gs module, ported mechanically (see
+// tools/legacy-port/generate.js): one callable per function a ported
+// screen calls, named exactly as in Code.gs.
+Object.assign(exports, require('./src/legacy/callables'));

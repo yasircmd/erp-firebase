@@ -1,0 +1,260 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Enterprise Structure & Organizational Master Data</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-diagram-project text-blue-500"></i> Organizational Units</h2></div>
+    <button id="ou-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Item</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="ou-search-input" placeholder="Search code or name..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="ou-type-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All Types</option>
+      <option value="Division">Division</option>
+      <option value="Branch">Branch</option>
+      <option value="Warehouse">Warehouse</option>
+      <option value="Rack">Rack</option>
+      <option value="CostCenter">Cost Center</option>
+      <option value="ProfitCenter">Profit Center</option>
+    </select>
+    <select id="ou-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-3 px-4">Code</th><th class="py-3 px-4">Name</th><th class="py-3 px-4">Type</th><th class="py-3 px-4">Company</th><th class="py-3 px-4">Parent</th><th class="py-3 px-4">Status</th><th class="py-3 px-4 text-right">Actions</th>
+        </tr></thead>
+        <tbody id="ou-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="ou-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-5">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="ou-modal-title" class="text-lg font-bold">Add Item</h3><button id="ou-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <form id="ou-form" class="space-y-4">
+      <input type="hidden" id="ou-form-id">
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Type</label>
+        <select id="ou-form-type" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+          <option value="">Select...</option>
+          <option value="Division">Division</option>
+          <option value="Branch">Branch</option>
+          <option value="Warehouse">Warehouse</option>
+          <option value="Rack">Rack</option>
+          <option value="CostCenter">Cost Center</option>
+          <option value="ProfitCenter">Profit Center</option>
+        </select>
+      </div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Code</label><input type="text" id="ou-form-code" required placeholder="e.g. DXB-01" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Name</label><input type="text" id="ou-form-name" required placeholder="e.g. Dubai Branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Parent Item <span class="text-slate-500">(optional)</span></label>
+        <select id="ou-form-parent" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None</option></select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Company <span class="text-slate-500">(optional)</span></label>
+        <select id="ou-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All Companies — shared</option></select>
+        <p class="text-xs text-slate-500 mt-1">Restrict this unit to one company, or leave shared. Particularly relevant for Warehouse — a company-restricted warehouse is only usable by users with access to that company.</p>
+      </div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="ou-form-status" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+      <div id="ou-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
+        <button type="button" id="ou-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
+        <button type="submit" id="ou-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Item</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canWrite = false;
+  let units = [];
+  let companies = [];
+
+  const TYPE_LABELS = { Division: 'Division', Branch: 'Branch', Warehouse: 'Warehouse', Rack: 'Rack', CostCenter: 'Cost Center', ProfitCenter: 'Profit Center' };
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  function unitById(id) { return units.find(u => u.UnitID === id); }
+
+  // Full, unrestricted company list (not the access-scoped
+  // getActiveCompanies) — same reasoning as User Management: an admin
+  // assigning a company to an org unit must be able to pick from every
+  // company regardless of their own assignment.
+  function loadCompanies() {
+    rpc
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const select = document.getElementById('ou-form-company');
+        select.innerHTML = '<option value="">All Companies — shared</option>';
+        companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.CompanyID; opt.textContent = c.LegalName;
+          select.appendChild(opt);
+        });
+        renderTable();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getCompanies();
+  }
+
+  function fetchAndRender() {
+    rpc
+      .withSuccessHandler(result => { units = result || []; renderTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load organizational units.'))
+      .getOrgUnits();
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('ou-table-body');
+    const search = document.getElementById('ou-search-input').value.toLowerCase();
+    const type = document.getElementById('ou-type-filter').value;
+    const status = document.getElementById('ou-status-filter').value;
+
+    const filtered = units.filter(u => {
+      if (search && !`${u.Code} ${u.Name}`.toLowerCase().includes(search)) return false;
+      if (type && u.Type !== type) return false;
+      if (status && u.Status !== status) return false;
+      return true;
+    }).sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }));
+
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">No items found.</td></tr>'; return; }
+
+    filtered.forEach(u => {
+      const parent = u.ParentUnitID ? unitById(u.ParentUnitID) : null;
+      const company = u.CompanyID ? companies.find(c => c.CompanyID === u.CompanyID) : null;
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const actions = canWrite
+        ? `<button class="ou-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+           <button class="ou-toggle text-slate-400 ${u.Status === 'Active' ? 'hover:text-red-400' : 'hover:text-emerald-400'} p-1" title="${u.Status === 'Active' ? 'Deactivate' : 'Reactivate'}"><i class="fa-solid ${u.Status === 'Active' ? 'fa-ban' : 'fa-rotate-left'}"></i></button>`
+        : '';
+      row.innerHTML = `
+        <td class="py-3 px-4 font-mono text-xs text-slate-200">${escapeHtml(u.Code)}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(u.Name)}</td>
+        <td class="py-3 px-4 text-xs">${escapeHtml(TYPE_LABELS[u.Type] || u.Type)}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${company ? escapeHtml(company.LegalName) : '<span class="text-blue-400">Shared</span>'}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${parent ? escapeHtml(parent.Code) : '—'}</td>
+        <td class="py-3 px-4 text-xs">${u.Status === 'Active' ? '<span class="text-emerald-400">Active</span>' : '<span class="text-slate-500">Inactive</span>'}</td>
+        <td class="py-3 px-4 text-right">${actions}</td>`;
+      if (canWrite) {
+        row.querySelector('.ou-edit').addEventListener('click', () => openModal(u.UnitID));
+        row.querySelector('.ou-toggle').addEventListener('click', () => toggleStatus(u));
+      }
+      tbody.appendChild(row);
+    });
+  }
+
+  function populateParentOptions(excludeId) {
+    const select = document.getElementById('ou-form-parent');
+    select.innerHTML = '<option value="">None</option>';
+    const selectedType = document.getElementById('ou-form-type').value;
+    // A Rack must sit under a Warehouse — narrow the parent picker to
+    // just those once "Rack" is selected as the type, so it's not
+    // possible to pick an invalid parent in the first place.
+    const eligible = selectedType === 'Rack' ? units.filter(u => u.Type === 'Warehouse') : units;
+    eligible
+      .filter(u => u.UnitID !== excludeId)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.UnitID;
+        opt.textContent = u.Code + ' — ' + u.Name + ' (' + (TYPE_LABELS[u.Type] || u.Type) + ')';
+        select.appendChild(opt);
+      });
+  }
+
+  function openModal(unitId) {
+    const form = document.getElementById('ou-form');
+    form.reset();
+    document.getElementById('ou-form-error').classList.add('hidden');
+
+    if (unitId) {
+      const u = unitById(unitId);
+      if (!u) return;
+      document.getElementById('ou-modal-title').textContent = 'Edit Item';
+      document.getElementById('ou-form-id').value = u.UnitID;
+      document.getElementById('ou-form-type').value = u.Type;
+      populateParentOptions(unitId); // after Type is set, so Rack correctly filters to Warehouses only
+      document.getElementById('ou-form-code').value = u.Code;
+      document.getElementById('ou-form-name').value = u.Name;
+      document.getElementById('ou-form-parent').value = u.ParentUnitID || '';
+      document.getElementById('ou-form-company').value = u.CompanyID || '';
+      document.getElementById('ou-form-status').value = u.Status;
+    } else {
+      document.getElementById('ou-modal-title').textContent = 'Add Item';
+      document.getElementById('ou-form-id').value = '';
+      populateParentOptions(null);
+    }
+    document.getElementById('ou-modal').classList.remove('hidden');
+  }
+
+  function closeModal() { document.getElementById('ou-modal').classList.add('hidden'); }
+
+  function saveUnit(event) {
+    event.preventDefault();
+    const data = {
+      UnitID: document.getElementById('ou-form-id').value,
+      Type: document.getElementById('ou-form-type').value,
+      Code: document.getElementById('ou-form-code').value.trim(),
+      Name: document.getElementById('ou-form-name').value.trim(),
+      ParentUnitID: document.getElementById('ou-form-parent').value,
+      CompanyID: document.getElementById('ou-form-company').value,
+      Status: document.getElementById('ou-form-status').value
+    };
+    const error = document.getElementById('ou-form-error');
+    const btn = document.getElementById('ou-save-btn');
+    error.classList.add('hidden');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Item';
+        if (result.success) { closeModal(); fetchAndRender(); }
+        else { error.textContent = result.error || 'Unable to save item.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Item';
+        error.textContent = err.message || 'Unable to save item.'; error.classList.remove('hidden');
+      })
+      .saveOrgUnit({ unitData: data });
+  }
+
+  function toggleStatus(unit) {
+    const deactivating = unit.Status === 'Active';
+    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + unit.Code + ' — ' + unit.Name + '?')) return;
+    const call = deactivating ? 'deactivateOrgUnit' : 'reactivateOrgUnit';
+    rpc
+      .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update item.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to update item.'))
+      [call]({ unitId: unit.UnitID });
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken, writeAllowed) {
+    token = idToken;
+    canWrite = Boolean(writeAllowed);
+
+    document.getElementById('ou-add-btn').classList.toggle('hidden', !canWrite);
+    if (canWrite) document.getElementById('ou-add-btn').addEventListener('click', () => openModal());
+    document.getElementById('ou-modal-close').addEventListener('click', closeModal);
+    document.getElementById('ou-modal-cancel').addEventListener('click', closeModal);
+    document.getElementById('ou-form').addEventListener('submit', saveUnit);
+    document.getElementById('ou-form-type').addEventListener('change', () => populateParentOptions(document.getElementById('ou-form-id').value || null));
+    document.getElementById('ou-search-input').addEventListener('input', renderTable);
+    document.getElementById('ou-type-filter').addEventListener('change', renderTable);
+    document.getElementById('ou-status-filter').addEventListener('change', renderTable);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-diagram-project"></i> Organizational Units';
+    fetchAndRender();
+    loadCompanies();
+  };
+})();
+</script>

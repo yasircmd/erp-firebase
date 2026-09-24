@@ -1,0 +1,13 @@
+{
+  "getActiveCompanies": [],
+  "getActiveItems": [],
+  "getActiveUOMs": [],
+  "getActiveOrgUnits": [],
+  "getActiveVendors": [],
+  "getModulePermissionsForUser": ["moduleId"],
+  "getStockLedgerEntryPublic": ["itemId", "warehouseId"],
+  "getJournalEntryDetail": ["jvId"],
+  "updatePostedDescription": ["jvId", "description"],
+  "getMyPendingApprovalLevel": ["approvalInstanceId"],
+  "getEligibleApprovedPOsForGRN": ["companyId", "vendorId"]
+}

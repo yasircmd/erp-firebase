@@ -218,6 +218,69 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   old text); it has no company-access check. `getStockLedgerEntryPublic`
   has no company-access check either. Both as in the original.
 
+**Remaining modules: generated port (in progress).** Everything
+after the four stock modules is ported MECHANICALLY rather than by hand:
+`tools/legacy-port/generate.js` parses the Apps Script `Code.gs`, takes
+exactly the functions each enabled screen calls plus their helper
+closure, and emits them VERBATIM (original comments included) into
+`functions/src/legacy/codegs.js`, changing only what Node requires:
+
+- I/O primitives — `firebaseDbRequest_`, the `firestore*_` helpers,
+  `requireUser_`, `firebaseAuthRequest_` (create-user only),
+  `LockService`, `Utilities` — come from `functions/src/legacy/runtime.js`,
+  which reproduces their REST semantics on the Admin SDK (undefined
+  keys dropped like JSON, PATCH-with-updateMask upsert for
+  `firestoreUpdate_`, `_id` on documents, re-entrant per-request script
+  lock backed by the SAME Firestore global lock the hand-ported modules
+  use).
+- Helpers that already have hand-ported shared versions (stock
+  movement, GL writing, commit attempts, approvals, reservations,
+  permissions, tree/roles seeding) are routed to those modules
+  (`MAPPED` in the generator) — one implementation of each.
+  `recordApprovalDecision` is deliberately NOT mapped: the original
+  returns `{ success, error }`, which its callers rely on.
+- Every function that reaches I/O becomes `async`, every call to one is
+  `await`ed, and array callbacks that became async are routed through
+  `runtime.seq.*` (strictly sequential, like the synchronous original).
+  The generator exits non-zero with a WARNINGS list if it meets an async
+  callback it can't convert.
+- `functions/src/legacy/callables.js`: one callable per screen-called
+  function, named as in Code.gs; `request.data` keys are the original
+  function's own parameter names. Screens are rewritten to match
+  (`google.script.run.fn(token, a, b)` → `rpc.fn({ p1: a, p2: b })`,
+  including dynamic `[fnVar](token, ...)` calls).
+- Bug fixes go in `tools/legacy-port/patches.js` as documented
+  find/replace patches on Code.gs (each must match exactly once), never
+  as hand edits to the generated files. (None needed so far.)
+
+Generated-port modules so far (tested, committed): **UOM, ITEMSUBCAT,
+ORGUNITS, COMPANYMASTER, CURRENCYCONFIG** — 21 callables.
+
+To continue with the next modules (from the repo alone):
+
+    # 1. Apps Script source (not committed — it is the live system):
+    npm i -g @google/clasp && clasp login --no-localhost
+    clasp clone 16XxfqOGutYnR21N2xVOSzagKP_C3jXPBS3j4DufZ71m4woD_aU1OsFkf   # into a scratch dir
+    # 2. Add the next module IDs to tools/legacy-port/modules.json
+    #    (remaining order: ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER,
+    #    PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES, USERMGMT,
+    #    TREEMGMT, APPROVALCONFIG, APPROVALTRACKER; reports STOCKAVAILABILITY,
+    #    STOCKLEDGER, STOCKVALUATION, INVENTORYVALUATION, MATERIALVARIANCE,
+    #    GLREPORT, TRIALBALANCE, BALANCESHEET, PROFITLOSS, CASHFLOW;
+    #    PHYSICALCOUNT, BOM, JOBORDERREQUEST, PRODUCTION, PRODCONSUMPTION;
+    #    PURCHASEREQUISITION, INVENTORYPURCHASEREQUISITION, PURCHASEORDER,
+    #    SALESORDER, DELIVERYNOTE; finance last: JV, CBT, VENDORINVOICE,
+    #    CUSTOMERINVOICE; DATARESET last of all — destructive)
+    (cd tools/legacy-port && npm i && node generate.js <clone-dir>)
+    node tools/legacy-port/check-shell-deps.js <clone-dir>   # old-shell globals a screen needs
+    # 3. Tests (emulators running), then a negative control per module
+    node --test --test-concurrency=1 functions/test/emulator/*.test.js
+    node functions/test/ui/smoke.ui.js        # every ported screen loads cleanly, Admin + Viewer
+
+A new screen that calls a HAND-ported callable needs that callable's
+argument names in `tools/legacy-port/hand-args.json` (the generator
+stops and says so).
+
 **What changed in `index.html` itself:**
 - Firebase SDK loaded via a small, separate `<script type="module">`, bridged onto `window.__firebaseSdk` — the main script stays a plain (non-module) script on purpose, since dozens of `onclick="..."` attributes throughout this file depend on true globals, which module-scoped declarations aren't
 - An `rpc` proxy synthesizes `google.script.run`'s own `.withSuccessHandler().withFailureHandler().method()` chaining on top of `httpsCallable` — every real call site needed only `google.script.run` replaced with `rpc`, dropping the explicit token argument, and remaining args packed into a single object
@@ -278,12 +341,19 @@ functions/
     warehouseMovement.js        — the fourth full module port: save, post, approve/reject, delete, list, reverse — first with no GL entry at all, paired Out+In transfer, and a live production bug found and fixed (see the top of this file)
     masterData.js               — the 9 read-side/helper functions the stock screens call on load (dropdowns, permission flags, stock hint, approval banner, GL impact popup, posted-description edit)
     callable.js                 — onCallWithMessages: onCall that shows the user the real error message instead of "INTERNAL"
+    legacy/runtime.js           — Admin-SDK re-implementation of Code.gs's I/O primitives (REST semantics), LockService, Utilities, seq.*
+    legacy/codegs.js            — GENERATED: verbatim Code.gs functions for the generated-port modules (do not hand-edit)
+    legacy/callables.js         — GENERATED: one callable per screen-called Code.gs function
   modules/
     README.md                   — what needs copying here, and why it's a separate copy from public/
     STOCKADJUSTMENT.html, MATERIALISSUE.html, GRN.html, WAREHOUSEMOVEMENT.html — the 4 ported screens (google.script.run → rpc)
   test/
     emulator/stockModules.emulator.test.js — end-to-end, real packages, local emulators (see Testing approach)
     ui/stockModules.ui.js       — headless-browser click-through of the 4 real screens against the emulators
+    emulator/_helpers.js        — shared guard/fixture/call() for the per-module emulator suites
+    emulator/masters1.emulator.test.js — UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG
+    ui/smoke.ui.js              — every ported screen loads with zero failed calls (Admin + Viewer)
+tools/legacy-port/              — the generator (generate.js, modules.json, patches.js, hand-args.json, check-shell-deps.js); dev-time only
 ```
 
 ## A caching note for whoever deploys this
