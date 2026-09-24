@@ -1,0 +1,342 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-stamp text-blue-500"></i> Approval Configuration</h2></div>
+  </div>
+
+  <p class="text-xs text-slate-500 max-w-3xl">One place for every module's approval rules. Each module can require approval from none, one, or several people depending on the document's value — a level applies whenever the document's amount is at or above that level's own threshold, so giving two levels the same threshold (commonly both 0) means both are always required together, regardless of value. Scope decides what the rule is set per — a Cost Center, Branch, Division, Company, or one single Global rule for the whole system.</p>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-3 px-4">Module</th><th class="py-3 px-4">Enabled</th><th class="py-3 px-4">Scope</th><th class="py-3 px-4">Gate Type</th><th class="py-3 px-4 text-right">Actions</th>
+        </tr></thead>
+        <tbody id="ac-module-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="ac-editor" class="hidden space-y-4 bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+      <h3 id="ac-editor-title" class="text-lg font-bold text-blue-400"></h3>
+      <button id="ac-editor-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <label class="flex items-center gap-2 text-sm text-slate-300 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 cursor-pointer">
+        <input type="checkbox" id="ac-config-enabled"> Enabled
+      </label>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Scope</label>
+        <select id="ac-config-scopetype" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+          <option value="CostCenter">Cost Center</option>
+          <option value="Branch">Branch</option>
+          <option value="Division">Division</option>
+          <option value="Company">Company</option>
+          <option value="Global">Global (one rule for everything)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Gate Type</label>
+        <select id="ac-config-gatetype" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+          <option value="Threshold">Threshold — tiered by amount</option>
+          <option value="Flat">Flat — always required, no amount</option>
+        </select>
+      </div>
+    </div>
+    <div id="ac-config-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+    <div class="flex justify-end"><button id="ac-config-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Module Settings</button></div>
+
+    <div class="border-t border-slate-700 pt-4 space-y-3">
+      <p class="text-xs font-semibold text-slate-400 uppercase">Approval Levels</p>
+      <div id="ac-scope-picker-wrap" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label id="ac-scope-picker-label" class="block text-xs font-medium text-slate-300 mb-1">Scope</label>
+          <select id="ac-scope-picker" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+        </div>
+      </div>
+
+      <div id="ac-levels-block" class="hidden space-y-3">
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-slate-500">No approval levels means nothing is gated for this scope, even if the module is Enabled above.</p>
+          <button id="ac-add-level-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Level</button>
+        </div>
+        <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <table class="w-full text-left">
+            <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+              <th class="py-2 px-3 w-20">Level</th>
+              <th id="ac-threshold-header" class="py-2 px-3">Threshold Amount <span class="normal-case font-normal text-slate-500">(at or above which this level applies — same amount on two levels, e.g. both 0, means both always required together)</span></th>
+              <th class="py-2 px-3">Approver</th><th class="py-2 px-3 w-10"></th>
+            </tr></thead>
+            <tbody id="ac-levels-body" class="divide-y divide-slate-700 text-sm"></tbody>
+          </table>
+        </div>
+        <div id="ac-levels-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+        <div class="flex justify-end"><button id="ac-levels-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Approval Levels</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let modules = [];
+  let currentModuleId = '';
+  let orgUnits = [];
+  let companies = [];
+  let users = [];
+  let scopeLevels = []; // saved level records for the currently open module
+  let currentLevels = []; // in-memory editor state for the selected scope
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function loadReferenceData() {
+    rpc
+      .withSuccessHandler(result => { orgUnits = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits();
+    rpc
+      .withSuccessHandler(result => { companies = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+    rpc
+      .withSuccessHandler(result => { users = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getActiveUsersForPicker();
+  }
+
+  function fetchModules() {
+    rpc
+      .withSuccessHandler(result => { modules = result || []; renderModuleTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load approval configuration.'))
+      .getApprovalConfigurations();
+  }
+
+  function renderModuleTable() {
+    const tbody = document.getElementById('ac-module-table-body');
+    tbody.innerHTML = '';
+    modules.forEach(m => {
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      row.innerHTML = `
+        <td class="py-2 px-4 text-slate-200">${escapeHtml(m.Label)}</td>
+        <td class="py-2 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${m.Enabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${m.Enabled ? 'Enabled' : 'Disabled'}</span></td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(m.ScopeType)}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(m.GateType)}</td>
+        <td class="py-2 px-4 text-right"><button data-id="${m.ModuleID}" class="ac-configure-btn text-blue-400 hover:text-blue-300 text-xs">Configure</button></td>`;
+      tbody.appendChild(row);
+    });
+    tbody.querySelectorAll('.ac-configure-btn').forEach(btn => {
+      btn.addEventListener('click', () => openEditor(btn.getAttribute('data-id')));
+    });
+  }
+
+  function moduleById(id) { return modules.find(m => m.ModuleID === id); }
+
+  function openEditor(moduleId) {
+    currentModuleId = moduleId;
+    const m = moduleById(moduleId);
+    if (!m) return;
+    document.getElementById('ac-editor-title').textContent = m.Label;
+    document.getElementById('ac-config-enabled').checked = m.Enabled;
+    document.getElementById('ac-config-scopetype').value = m.ScopeType;
+    document.getElementById('ac-config-gatetype').value = m.GateType;
+    document.getElementById('ac-config-error').classList.add('hidden');
+    document.getElementById('ac-editor').classList.remove('hidden');
+    updateThresholdHeaderVisibility();
+    populateScopePicker();
+    fetchScopeLevels();
+  }
+
+  function closeEditor() {
+    document.getElementById('ac-editor').classList.add('hidden');
+    currentModuleId = '';
+    document.getElementById('ac-levels-block').classList.add('hidden');
+  }
+
+  function updateThresholdHeaderVisibility() {
+    const isFlat = document.getElementById('ac-config-gatetype').value === 'Flat';
+    document.getElementById('ac-threshold-header').classList.toggle('hidden', isFlat);
+  }
+
+  // The scope picker's own OPTIONS depend entirely on the currently
+  // selected ScopeType — a Cost Center dropdown is meaningless once
+  // the module is set to Global, and vice versa.
+  function populateScopePicker() {
+    const scopeType = document.getElementById('ac-config-scopetype').value;
+    const picker = document.getElementById('ac-scope-picker');
+    const wrap = document.getElementById('ac-scope-picker-wrap');
+    const label = document.getElementById('ac-scope-picker-label');
+
+    if (scopeType === 'Global') {
+      wrap.classList.add('hidden');
+      picker.innerHTML = '<option value="GLOBAL">GLOBAL</option>';
+      picker.value = 'GLOBAL';
+      onScopePickerChange();
+      return;
+    }
+    wrap.classList.remove('hidden');
+    label.textContent = scopeType === 'Company' ? 'Company' : scopeType;
+    picker.innerHTML = '<option value="">Select...</option>';
+    if (scopeType === 'Company') {
+      companies.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.CompanyID; opt.textContent = c.LegalName;
+        picker.appendChild(opt);
+      });
+    } else {
+      orgUnits.filter(u => u.Type === scopeType)
+        .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+        .forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u.UnitID; opt.textContent = u.Code + ' — ' + u.Name;
+          picker.appendChild(opt);
+        });
+    }
+    document.getElementById('ac-levels-block').classList.add('hidden');
+  }
+
+  function fetchScopeLevels() {
+    rpc
+      .withSuccessHandler(result => { scopeLevels = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getApprovalLevelsForModule({ moduleId: currentModuleId });
+  }
+
+  function onScopePickerChange() {
+    const scopeKey = document.getElementById('ac-scope-picker').value;
+    const block = document.getElementById('ac-levels-block');
+    if (!scopeKey) { block.classList.add('hidden'); return; }
+    block.classList.remove('hidden');
+    const existing = scopeLevels.find(s => s.ScopeKey === scopeKey);
+    currentLevels = existing ? existing.Levels.map(l => Object.assign({}, l)) : [];
+    renderLevels();
+  }
+
+  function renderLevels() {
+    const isFlat = document.getElementById('ac-config-gatetype').value === 'Flat';
+    const tbody = document.getElementById('ac-levels-body');
+    tbody.innerHTML = '';
+    if (!currentLevels.length) { tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-slate-500 text-xs">No approval levels set for this scope yet.</td></tr>'; return; }
+
+    currentLevels.forEach((lvl, i) => {
+      const row = document.createElement('tr');
+      const userOptions = users.map(u => `<option value="${u.UserID}" ${u.UserID === lvl.ApproverUserID ? 'selected' : ''}>${escapeHtml(u.FullName || u.Username)}</option>`).join('');
+      row.innerHTML = `
+        <td class="py-2 px-3 text-slate-300 font-medium">${i + 1}</td>
+        <td class="py-2 px-3 ${isFlat ? 'hidden' : ''}"><input data-row="${i}" data-field="threshold" type="text" inputmode="decimal" value="${lvl.ThresholdAmount === undefined ? '' : formatMoney(lvl.ThresholdAmount)}" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs"></td>
+        <td class="py-2 px-3"><select data-row="${i}" data-field="approver" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs"><option value="">Select...</option>${userOptions}</select></td>
+        <td class="py-2 px-3 text-center"><button data-row="${i}" class="ac-remove-level-btn text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button></td>`;
+      tbody.appendChild(row);
+    });
+
+    tbody.querySelectorAll('input[data-field="threshold"]').forEach(input => {
+      input.addEventListener('input', e => {
+        const row = parseInt(e.target.getAttribute('data-row'), 10);
+        currentLevels[row].ThresholdAmount = e.target.value.replace(/,/g, '');
+      });
+    });
+    tbody.querySelectorAll('select[data-field="approver"]').forEach(sel => {
+      sel.addEventListener('change', e => {
+        const row = parseInt(e.target.getAttribute('data-row'), 10);
+        currentLevels[row].ApproverUserID = e.target.value;
+      });
+    });
+    tbody.querySelectorAll('.ac-remove-level-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const row = parseInt(e.currentTarget.getAttribute('data-row'), 10);
+        currentLevels.splice(row, 1);
+        renderLevels();
+      });
+    });
+  }
+
+  function addLevel() {
+    currentLevels.push({ ThresholdAmount: '', ApproverUserID: '' });
+    renderLevels();
+  }
+
+  function saveModuleConfig() {
+    const error = document.getElementById('ac-config-error');
+    error.classList.add('hidden');
+    const config = {
+      Enabled: document.getElementById('ac-config-enabled').checked,
+      ScopeType: document.getElementById('ac-config-scopetype').value,
+      GateType: document.getElementById('ac-config-gatetype').value
+    };
+    const btn = document.getElementById('ac-config-save-btn');
+    btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = original;
+        if (result.success) {
+          const m = moduleById(currentModuleId);
+          Object.assign(m, config);
+          renderModuleTable();
+          updateThresholdHeaderVisibility();
+          populateScopePicker();
+        } else {
+          error.textContent = result.error || 'Unable to save.'; error.classList.remove('hidden');
+        }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = original;
+        error.textContent = err.message || 'Unable to save.'; error.classList.remove('hidden');
+      })
+      .saveApprovalConfiguration({ moduleId: currentModuleId, config: config });
+  }
+
+  function saveLevels() {
+    const scopeKey = document.getElementById('ac-scope-picker').value;
+    if (!scopeKey) return;
+    const error = document.getElementById('ac-levels-error');
+    error.classList.add('hidden');
+    const isFlat = document.getElementById('ac-config-gatetype').value === 'Flat';
+    const payload = currentLevels.map(l => ({ ThresholdAmount: isFlat ? 0 : (Number(l.ThresholdAmount) || 0), ApproverUserID: l.ApproverUserID }));
+
+    const btn = document.getElementById('ac-levels-save-btn');
+    btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = original;
+        if (result.success) {
+          const idx = scopeLevels.findIndex(s => s.ScopeKey === scopeKey);
+          const saved = { ScopeKey: scopeKey, Levels: payload.map((l, i) => Object.assign({ LevelNumber: i + 1 }, l)) };
+          if (idx !== -1) scopeLevels[idx] = saved; else scopeLevels.push(saved);
+        } else {
+          error.textContent = result.error || 'Unable to save approval levels.'; error.classList.remove('hidden');
+        }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = original;
+        error.textContent = err.message || 'Unable to save approval levels.'; error.classList.remove('hidden');
+      })
+      .saveApprovalLevels({ moduleId: currentModuleId, scopeKey: scopeKey, levels: payload });
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    document.getElementById('ac-editor-close').addEventListener('click', closeEditor);
+    document.getElementById('ac-config-gatetype').addEventListener('change', updateThresholdHeaderVisibility);
+    document.getElementById('ac-config-scopetype').addEventListener('change', populateScopePicker);
+    document.getElementById('ac-config-save-btn').addEventListener('click', saveModuleConfig);
+    document.getElementById('ac-scope-picker').addEventListener('change', onScopePickerChange);
+    document.getElementById('ac-add-level-btn').addEventListener('click', addLevel);
+    document.getElementById('ac-levels-save-btn').addEventListener('click', saveLevels);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-stamp"></i> Approval Configuration';
+    fetchModules();
+    loadReferenceData();
+  };
+})();
+</script>

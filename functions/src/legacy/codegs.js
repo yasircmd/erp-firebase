@@ -6,6 +6,7 @@
 /* eslint-disable */
 'use strict';
 const { firebaseDbRequest_, firestoreGet_, firestoreSet_, firestoreUpdate_, firestoreAdd_, firestoreDelete_, firestoreQuery_, firestoreCount_, requireUser_, firebaseAuthRequest_, LockService, Utilities, seq } = require('./runtime');
+const __approvalRegistry = require('../approvalRegistry');
 const __auth = require('../auth');
 const __glWriting = require('../glWriting');
 const __masterData = require('../masterData');
@@ -23,6 +24,7 @@ const ensureRolesSeeded_ = (idToken, ...a) => __roles.ensureRolesSeeded(...a);
 // ---- constants ----
 const { MODULE_REGISTRY } = __moduleRegistry;
 const { DEFAULT_UOMS } = __masterData;
+const { APPROVAL_GATEABLE_MODULES } = __approvalRegistry;
 // ============================================================
 // CHART OF ACCOUNTS (COA) — Firebase-backed
 // ============================================================
@@ -227,6 +229,10 @@ const CUSTOMER_CATEGORIES = ['Retailer', 'Wholesaler', 'Distributor', 'Governmen
 //     blank = shared), Status, CreatedAt/By, UpdatedAt/By }
 
 const REQUISITION_CATEGORY_REQUIRED_ACCOUNT_TYPE = { FixedAsset: 'Asset', DirectExpense: 'Expense' };
+
+const APPROVAL_SCOPE_TYPES = ['Global', 'Company', 'Division', 'Branch', 'CostCenter'];
+
+const APPROVAL_GATE_TYPES = ['Threshold', 'Flat'];
 
 // ---- functions ----
 // Kept as requireAdmin_ for minimal disruption to existing call sites,
@@ -2454,6 +2460,147 @@ async function reactivateRequisitionCategory(idToken, categoryId) {
   }
 }
 
+// Minimal reference read for the approver picker — deliberately NOT
+// gated behind requireAdmin_ (unlike getAllFirebaseUsers) since
+// Procurement Setup's own write capability already controls who can
+// reach this screen at all; a user just needs to be signed in to
+// populate a dropdown of who COULD be assigned as an approver.
+async function getActiveUsersForPicker(idToken) {
+  await requireUser_(idToken);
+  const users = (await firebaseDbRequest_('users', 'get', null, idToken)) || {};
+  return Object.keys(users)
+    .filter(uid => users[uid].status === 'Active')
+    .map(uid => ({ UserID: uid, Username: users[uid].username || '', FullName: users[uid].fullName || '' }));
+}
+
+async function getApprovalConfigurations(idToken) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'APPROVALCONFIG', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Approval Configuration.');
+  }
+  const saved = (await firebaseDbRequest_('approvalConfigurations', 'get', null, idToken)) || {};
+  return APPROVAL_GATEABLE_MODULES.map(m => {
+    const config = saved[m.ModuleID] || {};
+    return {
+      ModuleID: m.ModuleID, Label: m.Label,
+      Enabled: Boolean(config.Enabled),
+      ScopeType: config.ScopeType || 'CostCenter',
+      GateType: config.GateType || 'Threshold',
+      UpdatedAt: config.UpdatedAt || '', UpdatedBy: config.UpdatedBy || ''
+    };
+  });
+}
+
+async function saveApprovalConfiguration(idToken, moduleId, config) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'APPROVALCONFIG', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Approval Configuration.');
+    }
+    if (!APPROVAL_GATEABLE_MODULES.some(m => m.ModuleID === moduleId)) throw new Error('Unknown module.');
+    const scopeType = String((config || {}).ScopeType || '').trim();
+    if (APPROVAL_SCOPE_TYPES.indexOf(scopeType) === -1) throw new Error('Invalid scope type.');
+    const gateType = String((config || {}).GateType || '').trim();
+    if (APPROVAL_GATE_TYPES.indexOf(gateType) === -1) throw new Error('Invalid gate type.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('approvalConfigurations/' + moduleId, 'put', {
+      Enabled: Boolean((config || {}).Enabled), ScopeType: scopeType, GateType: gateType,
+      UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function getApprovalLevelsForModule(idToken, moduleId) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'APPROVALCONFIG', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Approval Configuration.');
+  }
+  const data = (await firebaseDbRequest_('approvalLevels/' + moduleId, 'get', null, idToken)) || {};
+  return Object.keys(data).map(scopeKey => ({
+    ScopeKey: scopeKey, Levels: data[scopeKey].Levels || [],
+    UpdatedAt: data[scopeKey].UpdatedAt, UpdatedBy: data[scopeKey].UpdatedBy
+  }));
+}
+
+// scopeKey's own validity depends entirely on the module's currently
+// configured ScopeType — a Cost Center ID is meaningless for a module
+// scoped Globally, and vice versa.
+async function validateApprovalScopeKey_(idToken, scopeType, scopeKey) {
+  if (scopeType === 'Global') {
+    if (scopeKey !== 'GLOBAL') throw new Error('A Globally-scoped module only has one configuration (scope key must be GLOBAL).');
+    return;
+  }
+  if (scopeType === 'Company') {
+    const companies = (await firebaseDbRequest_('companies', 'get', null, idToken)) || {};
+    if (!companies[scopeKey]) throw new Error('Unknown Company.');
+    return;
+  }
+  // Division / Branch / CostCenter
+  const orgUnits = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
+  if (!orgUnits[scopeKey] || orgUnits[scopeKey].Type !== scopeType) throw new Error('Unknown ' + scopeType + '.');
+}
+
+async function saveApprovalLevels(idToken, moduleId, scopeKey, levels) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'APPROVALCONFIG', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Approval Configuration.');
+    }
+    if (!APPROVAL_GATEABLE_MODULES.some(m => m.ModuleID === moduleId)) throw new Error('Unknown module.');
+    const config = await firebaseDbRequest_('approvalConfigurations/' + moduleId, 'get', null, idToken);
+    if (!config) throw new Error('Configure this module\'s scope and gate type before adding levels.');
+
+    const key = String(scopeKey || '').trim();
+    if (!key) throw new Error('Select a scope.');
+    await validateApprovalScopeKey_(idToken, config.ScopeType, key);
+
+    const activeUsers = (await firebaseDbRequest_('users', 'get', null, idToken)) || {};
+    const isFlat = config.GateType === 'Flat';
+
+    // LevelNumber is always derived from array position, never trusted
+    // from the client, so gaps/duplicates are structurally impossible.
+    // Threshold is "the value AT OR ABOVE which this level's approval
+    // is required" — must never decrease level over level, since a
+    // lower threshold on a later level would make it either redundant
+    // or unreachable in the wrong direction. Equal thresholds ARE
+    // allowed, deliberately: two levels sharing the same threshold
+    // (most commonly both at 0) is exactly how "both of these
+    // approvals are always required together, regardless of value"
+    // gets expressed — a strictly-increasing-only rule couldn't say
+    // that at all. For a Flat gate every level is simply forced to 0,
+    // which is this same mechanism applied uniformly.
+    const cleaned = [];
+    let previousThreshold = -1;
+    (levels || []).forEach((lvl, i) => {
+      const threshold = isFlat ? 0 : Number(lvl.ThresholdAmount);
+      if (!isFlat) {
+        if (!(threshold >= 0)) throw new Error('Level ' + (i + 1) + ': threshold must be zero or more.');
+        if (threshold < previousThreshold) throw new Error('Level ' + (i + 1) + ': threshold cannot be lower than the previous level\'s.');
+        previousThreshold = threshold;
+      }
+
+      const approverId = String(lvl.ApproverUserID || '').trim();
+      if (!approverId) throw new Error('Level ' + (i + 1) + ': select an approver.');
+      if (!activeUsers[approverId] || activeUsers[approverId].status !== 'Active') {
+        throw new Error('Level ' + (i + 1) + ': approver must be an active user.');
+      }
+      cleaned.push({ LevelNumber: i + 1, ThresholdAmount: threshold, ApproverUserID: approverId });
+    });
+
+    await firebaseDbRequest_('approvalLevels/' + moduleId + '/' + key, 'put', {
+      Levels: cleaned, UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // ============================================================
 // PRICE LISTING
 // ============================================================
@@ -2766,6 +2913,12 @@ module.exports = {
   saveRequisitionCategory,
   deactivateRequisitionCategory,
   reactivateRequisitionCategory,
+  getActiveUsersForPicker,
+  getApprovalConfigurations,
+  saveApprovalConfiguration,
+  getApprovalLevelsForModule,
+  validateApprovalScopeKey_,
+  saveApprovalLevels,
   getActiveCurrencies,
   getPriceLists,
   savePriceList,

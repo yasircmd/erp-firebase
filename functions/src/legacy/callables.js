@@ -108,10 +108,25 @@ exports.getActiveItemSubCategories = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getActiveItemSubCategories(ctx, ...a));
 });
+exports.getActiveUsersForPicker = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getActiveUsersForPicker(ctx, ...a));
+});
 exports.getAllFirebaseUsers = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getAllFirebaseUsers(ctx, ...a));
+});
+exports.getApprovalConfigurations = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getApprovalConfigurations(ctx, ...a));
+});
+exports.getApprovalLevelsForModule = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.moduleId];
+  return run(request, (ctx) => L.getApprovalLevelsForModule(ctx, ...a));
 });
 exports.getChartOfAccounts = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -282,6 +297,16 @@ exports.saveAllModulePermissions = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.allPermissions];
   return run(request, (ctx) => L.saveAllModulePermissions(ctx, ...a));
+});
+exports.saveApprovalConfiguration = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.moduleId, d.config];
+  return run(request, (ctx) => L.saveApprovalConfiguration(ctx, ...a));
+});
+exports.saveApprovalLevels = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.moduleId, d.scopeKey, d.levels];
+  return run(request, (ctx) => L.saveApprovalLevels(ctx, ...a));
 });
 exports.saveCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
