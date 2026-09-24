@@ -2077,6 +2077,53 @@ async function getGlReport(idToken, params) {
   };
 }
 
+// ---------- Trial Balance ----------
+// Every account's cumulative net balance as of a date, split into
+// Debit/Credit columns — the two column totals must match, which is the
+// whole point of the report as an integrity check.
+
+async function getTrialBalance(idToken, params) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'TRIALBALANCE', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Trial Balance.');
+  }
+
+  const asOfDate = String(params.AsOfDate || '').trim() || new Date().toISOString().substring(0, 10);
+  const filters = buildDimensionFilters_(params);
+  const access = applyCompanyAccessRestriction_(user, filters.companyId);
+  filters.companyId = access.companyId;
+  filters.assignedCompanies = access.assignedCompanies;
+  const coaData = await getCoaData_(idToken);
+  const lines = (await getPostedGlLines_(idToken, filters)).filter(l => l.JVDate <= asOfDate);
+
+  const netByAccount = {};
+  lines.forEach(l => { netByAccount[l.AccountID] = (netByAccount[l.AccountID] || 0) + (l.Debit - l.Credit); });
+
+  const rows = [];
+  let totalDebit = 0, totalCredit = 0;
+
+  Object.keys(netByAccount).forEach(accId => {
+    const account = coaData[accId];
+    if (!account) return;
+    const net = Math.round(netByAccount[accId] * 100) / 100;
+    if (Math.abs(net) < 0.005) return;
+
+    const debit = net > 0 ? net : 0;
+    const credit = net < 0 ? -net : 0;
+    totalDebit += debit; totalCredit += credit;
+    rows.push({ AccountCode: account.AccountCode, AccountName: account.AccountName, AccountType: account.AccountType, Debit: debit, Credit: credit });
+  });
+
+  rows.sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
+
+  return {
+    asOfDate: asOfDate,
+    rows: rows,
+    totalDebit: Math.round(totalDebit * 100) / 100,
+    totalCredit: Math.round(totalCredit * 100) / 100
+  };
+}
+
 // Resolves whichever BOM version was ACTUALLY in effect for a parent
 // item on a specific date — not just whatever's marked Active today.
 // This is what makes the Material Variance Report correct across a
@@ -3743,6 +3790,7 @@ module.exports = {
   buildDimensionFilters_,
   getPostedGlLines_,
   getGlReport,
+  getTrialBalance,
   getBomEffectiveOnDate_,
   groupBomsByParent_,
   getStockValuationReport,

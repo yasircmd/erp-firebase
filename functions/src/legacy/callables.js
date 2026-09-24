@@ -253,6 +253,11 @@ exports.getTreeNodes = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getTreeNodes(ctx, ...a));
 });
+exports.getTrialBalance = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
+  return run(request, (ctx) => L.getTrialBalance(ctx, ...a));
+});
 exports.getUOMs = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
