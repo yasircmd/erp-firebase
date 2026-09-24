@@ -7,12 +7,15 @@
 'use strict';
 const { firebaseDbRequest_, firestoreGet_, firestoreSet_, firestoreUpdate_, firestoreAdd_, firestoreDelete_, firestoreQuery_, firestoreCount_, requireUser_, firebaseAuthRequest_, LockService, Utilities, seq } = require('./runtime');
 const __approvalRegistry = require('../approvalRegistry');
+const __approvals = require('../approvals');
 const __auth = require('../auth');
+const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
 const __glWriting = require('../glWriting');
 const __masterData = require('../masterData');
 const __moduleRegistry = require('../moduleRegistry');
 const __roles = require('../roles');
+const __stockMovement = require('../stockMovement');
 const __tree = require('../tree');
 
 // ---- helpers routed to the hand-ported shared modules ----
@@ -20,6 +23,17 @@ const moduleHasCapability_ = (idToken, ...a) => __auth.moduleHasCapability(...a)
 const ensurePermissionsSeeded_ = (idToken, ...a) => __auth.ensurePermissionsSeeded(...a);
 const userCanAccessCompany_ = (...a) => __glWriting.userCanAccessCompany(...a);
 const getUserAssignedCompanies_ = (...a) => __companies.getUserAssignedCompanies(...a);
+const computeStockMovement_ = (idToken, ...a) => __stockMovement.computeStockMovement(...a);
+const getStockLedgerEntry_ = (idToken, ...a) => __stockMovement.getStockLedgerEntry(...a);
+const commitStockLedgerUpdates_ = (idToken, ...a) => __stockMovement.commitStockLedgerUpdates(...a);
+const writeStockGlEntry_ = (idToken, ...a) => __glWriting.writeStockGlEntry(...a);
+const generateStockVoucherNumber_ = (idToken, ...a) => __glWriting.generateStockVoucherNumber(...a);
+const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
+const beginCommitAttempt_ = (idToken, ...a) => __commitAttempt.beginCommitAttempt(...a);
+const abandonCommitAttempt_ = (idToken, ...a) => __commitAttempt.abandonCommitAttempt(...a);
+const finalizeCommitAttempt_ = (idToken, ...a) => __commitAttempt.finalizeCommitAttempt(...a);
+const resolveApprovalScopeKeyForDocument_ = (idToken, ...a) => __approvals.resolveApprovalScopeKeyForDocument(...a);
+const beginApprovalInstance_ = (idToken, ...a) => __approvals.beginApprovalInstance(...a);
 const ensureTreeSeeded_ = (idToken, ...a) => __tree.ensureTreeSeeded(...a);
 const ensureRolesSeeded_ = (idToken, ...a) => __roles.ensureRolesSeeded(...a);
 const moduleIdForEntry_ = (...a) => __masterData.moduleIdForEntry(...a);
@@ -140,6 +154,31 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   DeliveryNote: 'DELIVERYNOTE',
   CustomerInvoice: 'CUSTOMERINVOICE'
 };
+
+// ============================================================
+// WAREHOUSE MOVEMENT
+// ============================================================
+// Moves stock of the SAME item from one warehouse/rack to another. No
+// GL entry is posted — the first stock transaction type where that's
+// true. Every item has exactly ONE Inventory account (not one per
+// warehouse), so a transfer would be Dr Inventory / Cr Inventory on the
+// SAME account — a journal entry that nets to itself and carries no
+// financial meaning. This is purely a stock-ledger operation: the
+// source loses quantity at its current WAC, the destination receives
+// the SAME quantity at that SAME cost (valuation is preserved, not
+// recomputed — unlike GRN's fresh receipt cost or Production's derived
+// cost).
+//
+// Still gets its own voucher number and transaction ref for
+// traceability, via assignStockVoucherNumbering_ — the same numbering
+// infrastructure every other stock transaction uses, just without the
+// GL-writing step that normally accompanies it.
+//
+// Storage: /stock/transactions/{id}, TransactionType: 'WarehouseMovement'.
+// Each line carries BOTH FromWarehouseID and ToWarehouseID — the one
+// structural difference from GRN/MI/Production's single-warehouse lines.
+
+const MOVABLE_ORG_UNIT_TYPES = ['Warehouse', 'Rack'];
 
 // ============================================================
 // VENDOR MASTER DATA (Accounts Payable — FI-AP foundation)
@@ -1000,6 +1039,18 @@ async function reactivateAccount(idToken, accountId) {
   }
 }
 
+async function requireDraftAccess_(idToken, user, moduleId) {
+  if (!(await moduleHasCapability_(idToken, moduleId, 'draft', user.profile.role))) {
+    throw new Error('You do not have permission to create or edit entries in ' + moduleId + '.');
+  }
+}
+
+async function requirePostAccess_(idToken, user, moduleId) {
+  if (!(await moduleHasCapability_(idToken, moduleId, 'post', user.profile.role))) {
+    throw new Error('You do not have permission to post or reverse entries in ' + moduleId + '.');
+  }
+}
+
 // Used by every report (TB/P&L/BS/CFS/GL): if the caller explicitly
 // picked one company, it must be one they're allowed to see (or this
 // throws). If they left the company filter blank, scope the report to
@@ -1690,6 +1741,21 @@ async function getItems(idToken) {
   return Object.keys(data)
     .map(id => Object.assign({ ItemID: id }, data[id]))
     .filter(item => userCanAccessCompany_(user.profile, item.CompanyID));
+}
+
+// Minimal reference read for other modules (future Stock transactions) to
+// populate an item picker without requiring full ITEMMASTER access.
+// Picks the correct expense-side GL account for a given outbound stock
+// reason, with graceful fallback to Consumption when the more specific
+// account hasn't been set up for this item. Used by future Stock
+// transactions (Material Issue, Sales integration, Stock Adjustment) —
+// not called anywhere yet, since those transaction types aren't built,
+// but the resolution logic belongs here next to the account fields
+// themselves rather than being re-implemented per transaction screen.
+function resolveItemExpenseAccount_(item, reason) {
+  if (reason === 'Sales' && item.SalesCogsAccountID) return item.SalesCogsAccountID;
+  if (reason === 'WriteOff' && item.WriteOffAccountID) return item.WriteOffAccountID;
+  return item.ConsumptionAccountID;
 }
 
 async function saveItem(idToken, itemData) {
@@ -2404,6 +2470,486 @@ async function groupBomsByParent_(idToken) {
     byParent[pid].sort((a, b) => String(a.EffectiveFrom || '').localeCompare(String(b.EffectiveFrom || '')));
   });
   return byParent;
+}
+
+// ============================================================
+// PHYSICAL / CYCLE COUNT
+// ============================================================
+// Records a physical count against system quantity and posts the
+// difference — a count variance IS a Stock Adjustment under the hood,
+// reusing the exact same GL treatment (per-item Write-off account,
+// polarity by direction) rather than a second implementation of it.
+// What's genuinely different here is the WORKFLOW: the user enters what
+// they physically counted, not a raw increase/decrease quantity, and
+// the system computes the variance.
+//
+// CORRECTNESS NOTE — this is the one real subtlety in this module: the
+// "system quantity" shown while entering a count is only a snapshot for
+// the counter's reference, taken at draft-save time. It is NEVER trusted
+// as the basis for the actual adjustment. If someone else posts a GRN or
+// Material Issue against the same item between when the count was
+// entered and when it's posted, the stored snapshot goes stale — so
+// postPhysicalCount always re-fetches the CURRENT ledger quantity for
+// every line and recomputes the variance fresh, right before posting.
+// Using the stale draft-time snapshot instead would silently post the
+// wrong adjustment whenever stock moved in the meantime.
+//
+// Lines with zero variance (counted matches system) are recorded for a
+// complete audit trail — "we counted 10 items, 2 had a variance" — but
+// do NOT get an adjustment line and do NOT feed into the GL entry. A
+// clean count (nothing to adjust at all) still posts successfully with
+// no GL entry, exactly like Warehouse Movement's "no financial impact"
+// case — there's a real difference between "we counted and everything
+// matched" and "nothing was counted", and this preserves that record
+// either way.
+//
+// Storage: /stock/transactions/{id}, TransactionType: 'PhysicalCount'.
+// Each line carries SystemQuantity (the draft-time snapshot, display
+// only) and CountedQuantity (what was physically counted, base UOM).
+
+async function savePhysicalCountDraft(idToken, pcData) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'PHYSICALCOUNT');
+
+    const pcId = String(pcData.CountID || '').trim();
+    const transactionDate = String(pcData.TransactionDate || '').trim();
+    if (!transactionDate) throw new Error('Transaction date is required.');
+    const description = String(pcData.Description || '').trim();
+    if (!description) throw new Error('Description is required.');
+    const reference = String(pcData.Reference || '').trim();
+    const companyId = String(pcData.CompanyID || '').trim();
+    if (!companyId) throw new Error('Select a Company for this transaction.');
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    const divisionId = String(pcData.DivisionID || '').trim();
+    const branchId = String(pcData.BranchID || '').trim();
+    const costCenterId = String(pcData.CostCenterID || '').trim();
+    const profitCenterId = String(pcData.ProfitCenterID || '').trim();
+
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const uomsData = (await firebaseDbRequest_('uoms', 'get', null, idToken)) || {};
+    const orgUnitsData = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
+
+    const rawLines = pcData.Lines || [];
+    const lines = [];
+    rawLines.forEach((line, idx) => {
+      const itemId = String(line.ItemID || '').trim();
+      if (!itemId) return; // skip blank trailing row
+
+      const item = itemsData[itemId];
+      if (!item) throw new Error('Line ' + (idx + 1) + ': item not found.');
+      const warehouseId = String(line.WarehouseID || '').trim();
+      if (!warehouseId) throw new Error('Line ' + (idx + 1) + ': location is required.');
+      const wh = orgUnitsData[warehouseId];
+      if (!wh || MOVABLE_ORG_UNIT_TYPES.indexOf(wh.Type) === -1) throw new Error('Line ' + (idx + 1) + ': location not found.');
+
+      const enteredUomId = String(line.EnteredUOMID || item.UOMID).trim();
+      const countedQty = Number(line.CountedQuantity);
+      if (!(countedQty >= 0)) throw new Error('Line ' + (idx + 1) + ': enter a counted quantity of zero or more.');
+
+      let countedBaseQty;
+      if (enteredUomId === item.UOMID) {
+        countedBaseQty = countedQty;
+      } else if (enteredUomId === item.AltUOMID) {
+        countedBaseQty = countedQty * (item.ConversionFactor || 0);
+      } else {
+        throw new Error('Line ' + (idx + 1) + ': selected UOM is not valid for this item.');
+      }
+      const enteredUom = uomsData[enteredUomId];
+      if (enteredUom && !enteredUom.AllowDecimals && Math.abs(countedQty - Math.round(countedQty)) > 0.0001) {
+        throw new Error('Line ' + (idx + 1) + ': ' + (enteredUom.Code || 'this unit') + ' does not allow decimal quantities.');
+      }
+
+      const lineDescription = String(line.Description || '').trim();
+      if (!lineDescription) throw new Error('Line ' + (idx + 1) + ': description is required.');
+
+      if (item.BatchTracked && !String(line.BatchNumber || '').trim()) {
+        throw new Error('Line ' + (idx + 1) + ': batch number is required for ' + item.ItemCode + '.');
+      }
+
+      // System quantity is a draft-time snapshot for the counter's own
+      // reference ONLY — see module note above. Never used to compute
+      // the actual adjustment at posting time.
+      const systemQtySnapshot = Number(line.SystemQuantity) || 0;
+
+      lines.push({
+        LineNo: lines.length + 1,
+        ItemID: itemId, ItemCode: item.ItemCode, ItemName: item.ItemName,
+        WarehouseID: warehouseId,
+        EnteredUOMID: enteredUomId, CountedQuantityEntered: countedQty,
+        CountedQuantity: Math.round(countedBaseQty * 1e6) / 1e6,
+        SystemQuantity: systemQtySnapshot,
+        BatchNumber: String(line.BatchNumber || '').trim(),
+        CostCenterID: String(line.CostCenterID || '').trim(),
+        ProfitCenterID: String(line.ProfitCenterID || '').trim(),
+        Description: lineDescription
+      });
+    });
+
+    if (!lines.length) throw new Error('Enter at least one line.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const fields = {
+      TransactionType: 'PhysicalCount',
+      TransactionDate: transactionDate, Description: description, Reference: reference,
+      CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
+      CostCenterID: costCenterId, ProfitCenterID: profitCenterId,
+      Lines: lines,
+      Status: 'Draft',
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    if (pcId) {
+      const existing = await firebaseDbRequest_('stock/transactions/' + pcId, 'get', null, idToken);
+      if (!existing) throw new Error('Physical Count not found.');
+      if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected Physical Counts can be edited.');
+      await firebaseDbRequest_('stock/transactions/' + pcId, 'patch', fields, idToken);
+      return { success: true, pcId: pcId };
+    }
+
+    const newId = 'PCD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('stock/transactions/' + newId, 'put', Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }), idToken);
+    return { success: true, pcId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Computes each line's variance against the CURRENT ledger and splits
+// into finalLines (every line, for the audit trail) and adjustmentLines
+// (only the non-zero-variance ones, what actually posts) — shared by
+// the read-only preview and the actual commit, since this is purely a
+// read (getStockLedgerEntry_) against whatever the ledger says AT THE
+// MOMENT this is called. That's a deliberate, unavoidable consequence
+// of the module's own design (compare against CURRENT stock, never a
+// stale draft-time snapshot) — inserting an approval step between
+// submission and commit means the "current" moment that matters shifts
+// from submit time to approval time, same as it would have shifted
+// from submit time to "whenever someone got around to clicking Post"
+// even before approval existed here at all.
+async function buildPhysicalCountLines_(idToken, existing) {
+  const finalLines = [];
+  const adjustmentLines = [];
+  await seq.forEach(existing.Lines, async (l, idx) => {
+    const currentLedger = await getStockLedgerEntry_(idToken, l.ItemID, l.WarehouseID);
+    const variance = Math.round((l.CountedQuantity - currentLedger.Quantity) * 1e6) / 1e6;
+
+    finalLines.push(Object.assign({}, l, { SystemQuantityAtPosting: currentLedger.Quantity, Variance: variance }));
+
+    if (Math.abs(variance) < 0.000001) return; // clean line, no adjustment needed
+
+    const direction = variance > 0 ? 'In' : 'Out';
+    const line = Object.assign({}, l, { Direction: direction, Quantity: Math.abs(variance) });
+    if (direction === 'In') {
+      if (!(currentLedger.AvgCost > 0)) {
+        throw new Error('Line ' + (idx + 1) + ' (' + l.ItemCode + '): counted quantity is higher than system, but this item has zero current stock/cost — there is no existing cost to value the surplus at. Use GRN or Production Entry first to establish a cost basis.');
+      }
+      line.UnitCost = currentLedger.AvgCost;
+    }
+    adjustmentLines.push(line);
+  });
+  return { finalLines: finalLines, adjustmentLines: adjustmentLines };
+}
+
+async function postPhysicalCount(idToken, pcId) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    const existing = await firebaseDbRequest_('stock/transactions/' + pcId, 'get', null, idToken);
+    if (!existing) throw new Error('Physical Count not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requirePostAccess_(idToken, user, 'PHYSICALCOUNT');
+    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected Physical Counts can be posted.');
+    if (!existing.Lines || !existing.Lines.length) throw new Error('This Physical Count has no lines.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    // Approval amount: total absolute variance value across every
+    // adjustment line (never net, same reasoning as Stock Adjustment).
+    // A clean count naturally previews at 0 — whether that still
+    // requires approval depends entirely on Admin's own configured
+    // gate (e.g. a Flat gate would still require it; that's Admin's
+    // choice to make, not something to special-case around here).
+    // Nothing here writes anything.
+    const preview = await buildPhysicalCountLines_(idToken, existing);
+    // buildPhysicalCountLines_ itself never sets TotalValue — only
+    // computeStockMovement_ does, as a mutation on these same line
+    // objects, so it has to actually run here (read-only; it costs
+    // each line but writes nothing) or every preview would silently
+    // sum to zero. Guarded for the clean-count case, where
+    // computeStockMovement_ would otherwise throw on an empty array.
+    const itemsDataPreview = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const coaDataPreview = await getCoaData_(idToken);
+    if (preview.adjustmentLines.length) {
+      await computeStockMovement_(idToken, itemsDataPreview, coaDataPreview, preview.adjustmentLines);
+    }
+    const previewAmount = preview.adjustmentLines.reduce((sum, l) => sum + (Number(l.TotalValue) || 0), 0);
+
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'PHYSICALCOUNT', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const approval = await beginApprovalInstance_(idToken, 'PHYSICALCOUNT', pcId, '', scopeKey, previewAmount, user.uid);
+
+    if (approval.required) {
+      // Nothing physical happens yet — no stock ledger change, no GL
+      // entry — until this is actually approved (see
+      // decidePhysicalCountApproval). The variance itself will be
+      // RECOMPUTED at that moment, against whatever the ledger says
+      // then — see buildPhysicalCountLines_'s own comment for why.
+      await firebaseDbRequest_('stock/transactions/' + pcId, 'patch', {
+        Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
+        RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'PendingApproval' };
+    }
+
+    const result = await commitPhysicalCountPosting_(idToken, user, existing, pcId);
+    return { success: true, pcId: pcId, pcNumber: result.pcNumber, cleanCount: result.cleanCount, status: 'Posted' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// The actual commit — extracted so it can run from EITHER
+// postPhysicalCount itself (no gate configured) OR
+// decidePhysicalCountApproval (once approved). Recomputes variance
+// fresh against the ledger AT THIS MOMENT — see buildPhysicalCountLines_.
+// Caller MUST already hold LockService.getScriptLock().
+async function commitPhysicalCountPosting_(idToken, user, existing, pcId) {
+  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const coaData = await getCoaData_(idToken);
+  const { finalLines, adjustmentLines } = await buildPhysicalCountLines_(idToken, existing);
+
+  const now = new Date().toISOString();
+  const actor = user.profile.username || user.uid;
+
+  if (!adjustmentLines.length) {
+    // Clean count — nothing to adjust. Still gets a real voucher
+    // number for its own audit trail, same as Warehouse Movement's
+    // no-financial-impact case, but posts no GL entry at all.
+    const year = (new Date(existing.TransactionDate)).getFullYear() || new Date().getFullYear();
+    const voucherNumber = await generateStockVoucherNumber_(idToken, 'PC', year, existing.CompanyID);
+    const transactionRef = await generateStockTransactionRef_(idToken);
+    await firebaseDbRequest_('stock/transactions/' + pcId, 'patch', {
+      Status: 'Posted', TransactionNumber: voucherNumber, TransactionRef: transactionRef,
+      Lines: finalLines,
+      PostedAt: now, PostedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { pcNumber: voucherNumber, cleanCount: true };
+  }
+
+  const movement = await computeStockMovement_(idToken, itemsData, coaData, adjustmentLines);
+
+  const offsetGlLines = adjustmentLines.map(l => {
+    const item = itemsData[l.ItemID];
+    const accountId = resolveItemExpenseAccount_(item, 'WriteOff');
+    const account = coaData[accountId];
+    if (!account || !account.IsPostable) throw new Error('Write-off account for ' + item.ItemCode + ' is not valid — check Item Master.');
+    const isDecrease = l.Direction === 'Out';
+    return {
+      AccountCode: account.AccountCode,
+      Debit: isDecrease ? l.TotalValue : 0, Credit: isDecrease ? 0 : l.TotalValue,
+      Description: l.Description || existing.Description,
+      CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+    };
+  });
+
+  const attemptId = await beginCommitAttempt_(idToken, pcId, actor);
+
+  let glResult;
+  try {
+    glResult = await writeStockGlEntry_(idToken, user, 'PhysicalCount', existing.TransactionDate, existing.Description, existing.Reference,
+      movement.inventoryGlLines.concat(offsetGlLines),
+      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      { CommitAttemptID: attemptId, SourceTransactionID: pcId });
+  } catch (err) {
+    await abandonCommitAttempt_(idToken, pcId, existing.Status, actor);
+    throw err;
+  }
+
+  // A GL entry genuinely exists from here on — no more reverting.
+  await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
+  await finalizeCommitAttempt_(idToken, pcId, glResult, { Lines: finalLines }, actor);
+
+  return { pcNumber: glResult.jvNumber, cleanCount: false };
+}
+
+async function decidePhysicalCountApproval(idToken, pcId, levelNumber, decision, reason) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PHYSICALCOUNT');
+    const existing = await firebaseDbRequest_('stock/transactions/' + pcId, 'get', null, idToken);
+    if (!existing) throw new Error('Physical Count not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'PendingApproval') throw new Error('This Physical Count is not awaiting approval.');
+    if (!existing.ApprovalInstanceID) throw new Error('No approval record found for this Physical Count.');
+
+    const result = await recordApprovalDecision(idToken, existing.ApprovalInstanceID, levelNumber, decision, reason);
+    if (!result.success) throw new Error(result.error);
+
+    if (result.status === 'Approved') {
+      const lock = LockService.getScriptLock();
+      await lock.waitLock(10000);
+      try {
+        await commitPhysicalCountPosting_(idToken, user, existing, pcId);
+      } finally {
+        await lock.releaseLock();
+      }
+    } else if (result.status === 'Rejected') {
+      const now = new Date().toISOString();
+      await firebaseDbRequest_('stock/transactions/' + pcId, 'patch', {
+        Status: 'Rejected', RejectionReason: String(reason || '').trim(),
+        UpdatedAt: now, UpdatedBy: user.profile.username || user.uid
+      }, idToken);
+    }
+    return { success: true, status: result.status, selfApproved: result.selfApproved };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deletePhysicalCountDraft(idToken, pcId) {
+  try {
+    const user = await requireUser_(idToken);
+    const existing = await firebaseDbRequest_('stock/transactions/' + pcId, 'get', null, idToken);
+    if (!existing) throw new Error('Physical Count not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requireDraftAccess_(idToken, user, 'PHYSICALCOUNT');
+    if (existing.Status !== 'Draft') throw new Error('Only draft Physical Counts can be deleted. Posted ones must be reversed instead.');
+    await firebaseDbRequest_('stock/transactions/' + pcId, 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function getPhysicalCountEntries(idToken, limit) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'PHYSICALCOUNT', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Physical / Cycle Count.');
+  }
+  const data = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ CountID: id }, data[id]))
+    .filter(e => e.TransactionType === 'PhysicalCount')
+    .filter(e => userCanAccessCompany_(user.profile, e.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+
+  const useAll = limit === 'all';
+  const capped = useAll ? all : all.slice(0, 100);
+  return { entries: capped, total: all.length };
+}
+
+// Reversing undoes whatever variance adjustments were actually applied —
+// lines that had zero variance never affected the ledger, so there's
+// nothing for them to undo. Same negative-stock/zero-cost guards apply
+// to the flipped-direction lines as the original post.
+async function reversePhysicalCount(idToken, pcId, reversalDate) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    const existing = await firebaseDbRequest_('stock/transactions/' + pcId, 'get', null, idToken);
+    if (!existing) throw new Error('Physical Count not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requirePostAccess_(idToken, user, 'PHYSICALCOUNT');
+    if (existing.Status !== 'Posted') throw new Error('Only posted Physical Counts can be reversed.');
+    if (existing.ReversedByCount) throw new Error('This Physical Count has already been reversed.');
+    // [PORT FIX physical-count-no-reversal-of-reversal] a reversal's lines carry the original Variance, so
+    // reversing it would re-apply the reversal's direction instead of undoing it.
+    if (existing.ReversalOfCount) throw new Error('A reversal entry cannot itself be reversed.');
+    if (!existing.LinkedJVID) throw new Error('This was a clean count with no adjustment — there is nothing to reverse.');
+
+    const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const coaData = await getCoaData_(idToken);
+
+    const varianceLines = (existing.Lines || []).filter(l => Math.abs(l.Variance || 0) >= 0.000001);
+    if (!varianceLines.length) throw new Error('No variance lines found to reverse on this entry.');
+
+    const swapped = varianceLines.map(l => Object.assign({}, l, {
+      Direction: l.Variance > 0 ? 'Out' : 'In', Quantity: Math.abs(l.Variance)
+    }));
+
+    const movementLines = await seq.map(swapped, async (l, idx) => {
+      const line = Object.assign({}, l);
+      if (line.Direction === 'In') {
+        const ledger = await getStockLedgerEntry_(idToken, l.ItemID, l.WarehouseID);
+        if (!(ledger.AvgCost > 0)) {
+          throw new Error('Line ' + (idx + 1) + ' (' + l.ItemCode + '): cannot reverse — this item now has zero current stock, so there is no existing cost to inherit for putting it back.');
+        }
+        line.UnitCost = ledger.AvgCost;
+      }
+      return line;
+    });
+
+    const movement = await computeStockMovement_(idToken, itemsData, coaData, movementLines);
+
+    const offsetGlLines = movementLines.map(l => {
+      const item = itemsData[l.ItemID];
+      const accountId = resolveItemExpenseAccount_(item, 'WriteOff');
+      const account = coaData[accountId];
+      if (!account || !account.IsPostable) throw new Error('Write-off account for ' + item.ItemCode + ' is not valid — check Item Master.');
+      const isDecrease = l.Direction === 'Out';
+      return {
+        AccountCode: account.AccountCode,
+        Debit: isDecrease ? l.TotalValue : 0, Credit: isDecrease ? 0 : l.TotalValue,
+        Description: 'Reversal of ' + existing.TransactionNumber,
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+      };
+    });
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const newId = 'PCD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+
+    const attemptId = Utilities.getUuid();
+    await firebaseDbRequest_('stock/transactions/' + newId, 'put', {
+      TransactionType: 'PhysicalCount', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
+      TransactionDate: date, Description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description,
+      Reference: existing.TransactionNumber,
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
+      CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID,
+      Lines: movementLines,
+      CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
+      ReversalOfCount: pcId, ReversedByCount: ''
+    }, idToken);
+
+    let glResult;
+    try {
+      glResult = await writeStockGlEntry_(idToken, user, 'PhysicalCount', date,
+        'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description, existing.TransactionNumber,
+        movement.inventoryGlLines.concat(offsetGlLines),
+        { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+        { CommitAttemptID: attemptId, SourceTransactionID: newId });
+    } catch (err) {
+      await firebaseDbRequest_('stock/transactions/' + newId, 'delete', null, idToken);
+      throw err;
+    }
+
+    // A GL entry genuinely exists from here on — no more reverting.
+    await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
+
+    // Original patched before the new reversal finalizes — same
+    // deliberate ordering as every other module's reversal.
+    await firebaseDbRequest_('stock/transactions/' + pcId, 'patch', { ReversedByCount: newId }, idToken);
+    await finalizeCommitAttempt_(idToken, newId, glResult, { Lines: movementLines }, actor);
+
+    return { success: true, pcId: newId, pcNumber: glResult.jvNumber };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
 }
 
 // ============================================================
@@ -3468,6 +4014,67 @@ async function saveApprovalLevels(idToken, moduleId, scopeKey, levels) {
   }
 }
 
+// The actual approve/reject action, called by whoever is signing off.
+// Authorization is strict: only the user assigned to a specific
+// REQUIRED level may decide for that level — not any approver from
+// anywhere in the system, and not twice for the same level.
+async function recordApprovalDecision(idToken, instanceId, levelNumber, decision, reason) {
+  try {
+    const user = await requireUser_(idToken);
+    // ApproverUserID (both on a saved level and here) is always the
+    // user's own key in the users collection — the UID — same
+    // convention the config picker itself uses (value="${u.UserID}").
+    // Comparing against username instead, as most CreatedBy/UpdatedBy
+    // fields elsewhere in this system do, would never actually match
+    // a real approver. CreatedBy on the instance follows the same
+    // rule for exactly the same reason — see beginApprovalInstance_'s
+    // own comment on why its caller must pass the creator's UID, not
+    // their display username, for SelfApproved to mean anything.
+    const actor = user.uid;
+    const activeUsers = (await firebaseDbRequest_('users', 'get', null, idToken)) || {};
+    const actorName = (activeUsers[actor] && (activeUsers[actor].fullName || activeUsers[actor].username)) || actor;
+    const instance = await firebaseDbRequest_('approvalInstances/' + instanceId, 'get', null, idToken);
+    if (!instance) throw new Error('Approval record not found.');
+    if (instance.Status !== 'Pending') throw new Error('This document has already been ' + instance.Status.toLowerCase() + '.');
+
+    const level = (instance.RequiredLevels || []).find(l => l.LevelNumber === levelNumber);
+    if (!level) throw new Error('That approval level does not apply to this document.');
+    if (level.ApproverUserID !== actor) throw new Error('You are not the assigned approver for this level.');
+    if ((instance.Decisions || []).some(d => d.LevelNumber === levelNumber)) {
+      throw new Error('This level has already recorded a decision.');
+    }
+
+    if (decision !== 'Approved' && decision !== 'Rejected') throw new Error('Invalid decision.');
+    const reasonText = String(reason || '').trim();
+    if (decision === 'Rejected' && !reasonText) throw new Error('A reason is required to reject.');
+
+    const now = new Date().toISOString();
+    const newDecision = {
+      LevelNumber: levelNumber, ApproverUserID: actor, ApproverName: actorName, Decision: decision,
+      DecidedAt: now, Reason: reasonText, SelfApproved: actor === instance.CreatedBy
+    };
+    const decisions = (instance.Decisions || []).concat([newDecision]);
+
+    // A single rejection, at any level, stops the whole document —
+    // no need for every other level to also weigh in once one has
+    // said no. Otherwise it's Approved only once every required level
+    // has its own decision recorded.
+    let newStatus = instance.Status;
+    if (decision === 'Rejected') {
+      newStatus = 'Rejected';
+    } else if (instance.RequiredLevels.every(l => decisions.some(d => d.LevelNumber === l.LevelNumber && d.Decision === 'Approved'))) {
+      newStatus = 'Approved';
+    }
+
+    await firebaseDbRequest_('approvalInstances/' + instanceId, 'patch', {
+      Decisions: decisions, Status: newStatus, UpdatedAt: now
+    }, idToken);
+    return { success: true, status: newStatus, selfApproved: newDecision.SelfApproved };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // Powers the Approval Tracker — the full history, for audit or
 // dispute review. Optional filters narrow it down; with none, returns
 // everything the user has visibility into.
@@ -3999,6 +4606,8 @@ module.exports = {
   saveAccount,
   deactivateAccount,
   reactivateAccount,
+  requireDraftAccess_,
+  requirePostAccess_,
   applyCompanyAccessRestriction_,
   ensureCompanyRefCodesSeeded_,
   getCompanies,
@@ -4025,6 +4634,7 @@ module.exports = {
   reactivateItemSubCategory,
   generateItemCode_,
   getItems,
+  resolveItemExpenseAccount_,
   saveItem,
   deactivateItem,
   reactivateItem,
@@ -4039,6 +4649,14 @@ module.exports = {
   getCashFlowStatement,
   getBomEffectiveOnDate_,
   groupBomsByParent_,
+  savePhysicalCountDraft,
+  buildPhysicalCountLines_,
+  postPhysicalCount,
+  commitPhysicalCountPosting_,
+  decidePhysicalCountApproval,
+  deletePhysicalCountDraft,
+  getPhysicalCountEntries,
+  reversePhysicalCount,
   getStockValuationReport,
   getStockLedgerReport,
   getMaterialVarianceReport,
@@ -4072,6 +4690,7 @@ module.exports = {
   getApprovalLevelsForModule,
   validateApprovalScopeKey_,
   saveApprovalLevels,
+  recordApprovalDecision,
   getApprovalHistory,
   getActiveCurrencies,
   getPriceLists,

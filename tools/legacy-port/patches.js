@@ -100,5 +100,18 @@ module.exports = [
     parentId = coaData[parentId].ParentAccountID;
   }
   return '';`
+  },
+  {
+    id: 'physical-count-no-reversal-of-reversal',
+    why: 'reversePhysicalCount derives each line\'s direction from its stored Variance, and a reversal entry copies ' +
+      'the ORIGINAL lines\' Variance unchanged. The screen offers "Reverse Count" on a reversal entry too, and ' +
+      'reversing it re-applied the reversal\'s own direction instead of undoing it: count 10 -> 6, reverse (back to ' +
+      '10), reverse the reversal -> 14 instead of 6, with a matching GL entry. Now refused with the same message the ' +
+      'invoice and Delivery Note modules already use; to redo the adjustment, post a new count.',
+    find: `    if (existing.ReversedByCount) throw new Error('This Physical Count has already been reversed.');`,
+    replace: `    if (existing.ReversedByCount) throw new Error('This Physical Count has already been reversed.');
+    // [PORT FIX physical-count-no-reversal-of-reversal] a reversal's lines carry the original Variance, so
+    // reversing it would re-apply the reversal's direction instead of undoing it.
+    if (existing.ReversalOfCount) throw new Error('A reversal entry cannot itself be reversed.');`
   }
 ];

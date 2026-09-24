@@ -83,10 +83,20 @@ exports.deactivateVendor = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
   return run(request, (ctx) => L.deactivateVendor(ctx, ...a));
 });
+exports.decidePhysicalCountApproval = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.pcId, d.levelNumber, d.decision, d.reason];
+  return run(request, (ctx) => L.decidePhysicalCountApproval(ctx, ...a));
+});
 exports.deleteFirebaseUser = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.userId];
   return run(request, (ctx) => L.deleteFirebaseUser(ctx, ...a));
+});
+exports.deletePhysicalCountDraft = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.pcId];
+  return run(request, (ctx) => L.deletePhysicalCountDraft(ctx, ...a));
 });
 exports.deleteRole = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -218,6 +228,11 @@ exports.getOrgUnits = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getOrgUnits(ctx, ...a));
 });
+exports.getPhysicalCountEntries = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
+  return run(request, (ctx) => L.getPhysicalCountEntries(ctx, ...a));
+});
 exports.getPriceListLines = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.priceListId];
@@ -288,6 +303,11 @@ exports.moveTreeNode = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.draggedNodeId, d.targetNodeId, d.position];
   return run(request, (ctx) => L.moveTreeNode(ctx, ...a));
 });
+exports.postPhysicalCount = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.pcId];
+  return run(request, (ctx) => L.postPhysicalCount(ctx, ...a));
+});
 exports.reactivateAccount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.accountId];
@@ -353,6 +373,11 @@ exports.reactivateVendor = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
   return run(request, (ctx) => L.reactivateVendor(ctx, ...a));
 });
+exports.reversePhysicalCount = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.pcId, d.reversalDate];
+  return run(request, (ctx) => L.reversePhysicalCount(ctx, ...a));
+});
 exports.saveAccount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.accountData];
@@ -417,6 +442,11 @@ exports.saveOrgUnit = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.unitData];
   return run(request, (ctx) => L.saveOrgUnit(ctx, ...a));
+});
+exports.savePhysicalCountDraft = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.pcData];
+  return run(request, (ctx) => L.savePhysicalCountDraft(ctx, ...a));
 });
 exports.savePriceList = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

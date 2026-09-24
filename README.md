@@ -228,6 +228,11 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   the stock transaction's own Description in RTDB (the list keeps the
   old text); it has no company-access check. `getStockLedgerEntryPublic`
   has no company-access check either. Both as in the original.
+- Physical Count: reversing a shortfall puts stock back at the item's
+  CURRENT average cost, not the cost it was written off at (a surplus is
+  likewise removed at current cost). If the average cost moved in between,
+  the reversal's GL amount differs from the original's. Both sides of each
+  entry still balance. Same as GAS.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -303,6 +308,18 @@ report). Each has a test that fails against the original logic.
    header said Investing/Financing. Now resolves from the nearest
    categorized ancestor. No live misclassification today (the one blank
    live sub-header's parent is blank too). (`cashFlow` suite.)
+5. **Reversing a Physical Count reversal re-applied it instead of undoing
+   it** (`reversePhysicalCount`). A reversal entry is stored as another
+   Physical Count whose lines copy the original's `Variance`, and the
+   reversal direction is derived from that `Variance`. The screen offers
+   "Reverse Count" on reversal entries too, so reversing one moved stock
+   the same way again: count 10 → 6, reverse → 10, reverse the reversal →
+   **14** instead of 6, with a matching GL entry. Now refused with "A
+   reversal entry cannot itself be reversed." (the wording the invoice and
+   Delivery Note modules already use); to redo an adjustment, post a new
+   count. **This bug is live in the current Apps Script system.** Any
+   Physical Count whose `Reference` is itself a reversal's voucher number
+   should be checked against physical stock. (`physicalCount` suite.)
 
 Port-runtime fix (not a Code.gs deviation): `runtime.js` used
 `admin.firestore.FieldPath`, which isn't a constructor in this
@@ -343,7 +360,7 @@ primitive's REST semantics directly.
 | BALANCESHEET | ✅ | ✅ |
 | PROFITLOSS | ✅ | ✅ |
 | CASHFLOW | ✅ | ✅ |
-| PHYSICALCOUNT | — | — |
+| PHYSICALCOUNT | ✅ | **not yet** |
 | BOM | — | — |
 | JOBORDERREQUEST | — | — |
 | PRODUCTION | — | — |
@@ -359,9 +376,13 @@ primitive's REST semantics directly.
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** PHYSICALCOUNT
+**Next module to port:** BOM
 
-Everything ported is deployed.
+**Committed but NOT yet deployed** (PHYSICALCOUNT) — deploy these 7 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+
+```
+getModuleFragment decidePhysicalCountApproval deletePhysicalCountDraft getPhysicalCountEntries postPhysicalCount reversePhysicalCount savePhysicalCountDraft
+```
 <!-- PORT-STATUS:end -->
 
 **Deploy log** (project `erp1-8f4cd`,
