@@ -168,6 +168,11 @@ exports.getEligibleJobOrderItems = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getEligibleJobOrderItems(ctx, ...a));
 });
+exports.getGlReport = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
+  return run(request, (ctx) => L.getGlReport(ctx, ...a));
+});
 exports.getInventoryValuationLines = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId];

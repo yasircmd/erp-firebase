@@ -8,6 +8,7 @@
 const { firebaseDbRequest_, firestoreGet_, firestoreSet_, firestoreUpdate_, firestoreAdd_, firestoreDelete_, firestoreQuery_, firestoreCount_, requireUser_, firebaseAuthRequest_, LockService, Utilities, seq } = require('./runtime');
 const __approvalRegistry = require('../approvalRegistry');
 const __auth = require('../auth');
+const __companies = require('../companies');
 const __glWriting = require('../glWriting');
 const __masterData = require('../masterData');
 const __moduleRegistry = require('../moduleRegistry');
@@ -18,11 +19,14 @@ const __tree = require('../tree');
 const moduleHasCapability_ = (idToken, ...a) => __auth.moduleHasCapability(...a);
 const ensurePermissionsSeeded_ = (idToken, ...a) => __auth.ensurePermissionsSeeded(...a);
 const userCanAccessCompany_ = (...a) => __glWriting.userCanAccessCompany(...a);
+const getUserAssignedCompanies_ = (...a) => __companies.getUserAssignedCompanies(...a);
 const ensureTreeSeeded_ = (idToken, ...a) => __tree.ensureTreeSeeded(...a);
 const ensureRolesSeeded_ = (idToken, ...a) => __roles.ensureRolesSeeded(...a);
+const moduleIdForEntry_ = (...a) => __masterData.moduleIdForEntry(...a);
 
 // ---- constants ----
 const { MODULE_REGISTRY } = __moduleRegistry;
+const { FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = __glWriting;
 const { DEFAULT_UOMS } = __masterData;
 const { APPROVAL_GATEABLE_MODULES } = __approvalRegistry;
 // ============================================================
@@ -996,6 +1000,23 @@ async function reactivateAccount(idToken, accountId) {
   }
 }
 
+// Used by every report (TB/P&L/BS/CFS/GL): if the caller explicitly
+// picked one company, it must be one they're allowed to see (or this
+// throws). If they left the company filter blank, scope the report to
+// exactly their assigned set instead of "everyone's" — an empty
+// assigned list correctly yields zero rows rather than silently
+// showing all companies' data.
+function applyCompanyAccessRestriction_(user, requestedCompanyId) {
+  const assigned = getUserAssignedCompanies_(user.profile);
+  if (requestedCompanyId) {
+    if (!assigned.includes(requestedCompanyId)) {
+      throw new Error('You do not have access to that company.');
+    }
+    return { companyId: requestedCompanyId, assignedCompanies: null };
+  }
+  return { companyId: '', assignedCompanies: assigned };
+}
+
 // Every company needs a short numeric reference code (2 digits, unique)
 // used ONLY to make voucher numbers identify their company at a glance
 // (e.g. JV-26-01-000001 vs JV-26-02-000001). This code is NOT used as an
@@ -1850,6 +1871,210 @@ async function reactivateItem(idToken, itemId) {
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+// ============================================================
+// FINANCIAL REPORTS (FR)
+// ============================================================
+// All five reports below are pure read-only aggregations over POSTED GL
+// data (JV + CBT entries share one store — see moduleIdForEntry_ earlier).
+// None of them write anything. All support the same dimension filters
+// (Company/Division/Branch header-level; Cost Center/Profit Center
+// line-level) via buildDimensionFilters_/getPostedGlLines_ below.
+//
+// SCALE NOTE: Trial Balance and Balance Sheet call getPostedGlLines_
+// below, which now pushes its Status filter into Firestore rather than
+// fetching the whole collection — but Trial Balance and Balance Sheet
+// are inherently cumulative-since-inception concepts, so
+// there's no way to serve them from a partial/recent-only fetch. This is
+// the same scaling ceiling flagged earlier, now shared by five more
+// endpoints instead of two.
+//
+// BALANCE SHEET NOTE: since there is no period-end closing process,
+// cumulative Revenue − COGS − Expense from inception through the as-of
+// date is rolled into Equity as a computed "Retained Earnings (Current
+// Period)" line, rather than assuming a formal closing entry has already
+// moved it there. This is standard practice for a live, continuously-
+// posting ledger, but worth knowing that's what that line represents.
+//
+// CASH FLOW STATEMENT NOTE: uses the direct method, categorizing each
+// entry's net cash movement by whichever account sits on the OTHER side
+// of the transaction (via COA's CashFlowCategory field, defaulting to
+// Operating if unset). This works because of a property of double-entry
+// bookkeeping: for any entry with a nonzero net cash change, the sum of
+// its non-cash lines' (Credit − Debit) always equals that net cash
+// change exactly — so summing the categorized amounts can never drift
+// from the real cash movement. Entries with NO net cash line change
+// (pure non-cash entries like depreciation, or transfers between two
+// cash/bank accounts) are automatically excluded, correctly. The
+// "reconciles" flag in the response is a live check of this guarantee
+// against the actual GL cash balance change — if it's ever false, that
+// indicates a data problem (e.g. a line missing its AccountID), not a
+// flaw in the method itself.
+
+function buildDimensionFilters_(params) {
+  return {
+    companyId: String(params.CompanyID || '').trim(),
+    divisionId: String(params.DivisionID || '').trim(),
+    branchId: String(params.BranchID || '').trim(),
+    costCenterId: String(params.CostCenterID || '').trim(),
+    profitCenterId: String(params.ProfitCenterID || '').trim()
+  };
+}
+
+// Flattens every POSTED entry's lines into one array, each line annotated
+// with its parent entry's date/number/reference for display, filtered by
+// the given dimensions. Company/Division/Branch are entry-level filters
+// (exclude the whole entry); Cost Center/Profit Center are line-level
+// (exclude just non-matching lines within an otherwise-included entry).
+// Flattens every entry's lines into one array, each line annotated with
+// its parent entry's date/number/reference for display, filtered by the
+// given dimensions. Company/Division/Branch are entry-level filters
+// (exclude the whole entry); Cost Center/Profit Center are line-level
+// (exclude just non-matching lines within an otherwise-included entry).
+//
+// By default only POSTED entries are included — Trial Balance, P&L,
+// Balance Sheet, and Cash Flow must never include unconfirmed data. Pass
+// filters.includeDraft: true to also include Draft entries; this is used
+// ONLY by the General Ledger Report's opt-in "Include Draft Entries"
+// checkbox, since seeing pending activity in context is genuinely useful
+// there in a way it wouldn't be for the other four (a Trial Balance or
+// Balance Sheet that included drafts would be presenting un-posted,
+// still-changeable numbers as if they were final).
+async function getPostedGlLines_(idToken, filters) {
+  const f = filters || {};
+  // Only Status is pushed into Firestore — a single-field filter needs
+  // no composite index at all, unlike combining it with CompanyID/
+  // DivisionID/BranchID would (a different index requirement for every
+  // distinct combination a report actually ends up using). Everything
+  // else stays filtered here in JS, exactly as it did against RTDB —
+  // CostCenterID/ProfitCenterID genuinely HAVE to, since they're
+  // per-LINE fields inside an array; Firestore has no way to query by
+  // a property of an array element at all. This still captures most of
+  // the real benefit (not fetching drafts/rejected entries most report
+  // calls never want) without the index-proliferation risk of trying
+  // to push every possible filter combination server-side up front.
+  const statusFilter = f.includeDraft
+    ? [['Status', 'IN', ['Posted', 'Draft', 'PendingApproval']]]
+    : [['Status', 'EQUAL', 'Posted']];
+  const entries = await firestoreQuery_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, statusFilter, null, null);
+  const lines = [];
+
+  entries.forEach(entry => {
+    const jvId = entry._id;
+    if (f.companyId && entry.CompanyID !== f.companyId) return;
+    // Company access restriction — see applyCompanyAccessRestriction_.
+    // A non-null array here means "scope to exactly these companies";
+    // an EMPTY array correctly excludes every entry rather than being
+    // treated as "no restriction."
+    if (f.assignedCompanies && !f.assignedCompanies.includes(entry.CompanyID)) return;
+    if (f.divisionId && entry.DivisionID !== f.divisionId) return;
+    if (f.branchId && entry.BranchID !== f.branchId) return;
+
+    (entry.Lines || []).forEach(line => {
+      if (f.costCenterId && line.CostCenterID !== f.costCenterId) return;
+      if (f.profitCenterId && line.ProfitCenterID !== f.profitCenterId) return;
+
+      lines.push({
+        JVID: jvId,
+        JVDate: entry.JVDate,
+        JVNumber: entry.JVNumber,
+        TransactionRef: entry.TransactionRef,
+        EntryDescription: entry.Description,
+        Status: entry.Status,
+        VoucherType: entry.VoucherType || '',
+        AccountID: line.AccountID,
+        AccountCode: line.AccountCode,
+        AccountName: line.AccountName,
+        Description: line.Description,
+        Debit: Number(line.Debit) || 0,
+        Credit: Number(line.Credit) || 0,
+        CostCenterID: line.CostCenterID || '',
+        ProfitCenterID: line.ProfitCenterID || ''
+      });
+    });
+  });
+
+  return lines;
+}
+
+// ---------- General Ledger Report ----------
+// One account's full activity over a period, with a running balance —
+// the classic "T-account as a list" view.
+
+async function getGlReport(idToken, params) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'GLREPORT', 'access', user.profile.role))) {
+    throw new Error('You do not have access to General Ledger Reports.');
+  }
+
+  const accountId = String(params.AccountID || '').trim();
+  if (!accountId) throw new Error('Select an account.');
+
+  const coaData = await getCoaData_(idToken);
+  const account = coaData[accountId];
+  if (!account) throw new Error('Account not found.');
+  if (!userCanAccessCompany_(user.profile, account.CompanyID)) {
+    throw new Error('You do not have access to that company.');
+  }
+
+  // A header (non-postable) account rolls up every leaf directly beneath
+  // it into one combined ledger — e.g. selecting "Bank Accounts" shows
+  // every bank sub-account's activity together, sorted into one running
+  // balance. A postable leaf just reports on itself, as before.
+  const isRollup = account.IsPostable !== true;
+  const targetAccountIds = isRollup
+    // [PORT FIX gl-report-rollup-all-descendants] every descendant, not just direct children.
+    ? Object.keys(coaData).filter(id => { let p = coaData[id].ParentAccountID, hops = 0; while (p && hops++ < 50) { if (p === accountId) return true; p = coaData[p] && coaData[p].ParentAccountID; } return false; })
+    : [accountId];
+
+  const filters = buildDimensionFilters_(params);
+  const access = applyCompanyAccessRestriction_(user, filters.companyId);
+  filters.companyId = access.companyId;
+  filters.assignedCompanies = access.assignedCompanies;
+  filters.includeDraft = params.IncludeDraft === true || params.IncludeDraft === 'true';
+  const allLines = (await getPostedGlLines_(idToken, filters)).filter(l => targetAccountIds.includes(l.AccountID));
+
+  const fromDate = String(params.FromDate || '').trim();
+  const toDate = String(params.ToDate || '').trim() || '9999-12-31';
+  const sign = account.NormalBalance === 'Debit' ? 1 : -1;
+
+  let opening = 0;
+  allLines.forEach(l => {
+    if (fromDate && l.JVDate < fromDate) opening += sign * (l.Debit - l.Credit);
+  });
+  opening = Math.round(opening * 100) / 100;
+
+  const periodLines = allLines
+    .filter(l => (!fromDate || l.JVDate >= fromDate) && l.JVDate <= toDate)
+    .sort((a, b) => a.JVDate === b.JVDate
+      ? String(a.TransactionRef || '').localeCompare(String(b.TransactionRef || ''))
+      : a.JVDate.localeCompare(b.JVDate));
+
+  let running = opening;
+  const rows = periodLines.map(l => {
+    running = Math.round((running + sign * (l.Debit - l.Credit)) * 100) / 100;
+    return {
+      JVID: l.JVID, JVDate: l.JVDate, JVNumber: l.JVNumber, TransactionRef: l.TransactionRef,
+      Status: l.Status, VoucherType: l.VoucherType,
+      // Resolved server-side (moduleIdForEntry_ already knows how to
+      // route CBT vouchers, every stock transaction type, and plain JV
+      // entries) rather than leaving the client to guess from VoucherType
+      // alone — a plain truthy check on VoucherType would misroute any
+      // stock-originated line (GRN, MI, etc.) to the CBT screen, since
+      // those also set VoucherType to a non-empty value.
+      SourceModule: moduleIdForEntry_({ VoucherType: l.VoucherType }),
+      AccountCode: l.AccountCode, AccountName: l.AccountName,
+      Description: l.Description || l.EntryDescription, Debit: l.Debit, Credit: l.Credit, Balance: running
+    };
+  });
+
+  return {
+    account: { AccountCode: account.AccountCode, AccountName: account.AccountName, NormalBalance: account.NormalBalance, IsRollup: isRollup },
+    openingBalance: opening,
+    rows: rows,
+    closingBalance: running
+  };
 }
 
 // Resolves whichever BOM version was ACTUALLY in effect for a parent
@@ -3486,6 +3711,7 @@ module.exports = {
   saveAccount,
   deactivateAccount,
   reactivateAccount,
+  applyCompanyAccessRestriction_,
   ensureCompanyRefCodesSeeded_,
   getCompanies,
   saveCompany,
@@ -3514,6 +3740,9 @@ module.exports = {
   saveItem,
   deactivateItem,
   reactivateItem,
+  buildDimensionFilters_,
+  getPostedGlLines_,
+  getGlReport,
   getBomEffectiveOnDate_,
   groupBomsByParent_,
   getStockValuationReport,

@@ -97,7 +97,14 @@ function baseFixture() {
   };
 }
 
+// Accounts get NormalBalance from their type, as saveAccount sets it.
+function withNormalBalance(coa) {
+  Object.values(coa).forEach(a => { if (!a.NormalBalance) a.NormalBalance = ['Asset', 'COGS', 'Expense'].includes(a.AccountType) ? 'Debit' : 'Credit'; });
+  return coa;
+}
+
 async function reset(fixture) {
+  if (fixture.coa) withNormalBalance(fixture.coa);
   await rtdb.ref('/').set(null);
   await fetch('http://' + process.env.FIRESTORE_EMULATOR_HOST + '/emulator/v1/projects/' + PROJECT + '/databases/(default)/documents', { method: 'DELETE' });
   await rtdb.ref('/').set(fixture);

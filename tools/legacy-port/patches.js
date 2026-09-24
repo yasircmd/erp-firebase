@@ -73,5 +73,14 @@ module.exports = [
     why: 'Same fix for the expected component consumption derived from that production line.',
     find: `        const contribution = (c.Quantity || 0) * scrapMultiplier * (l.Quantity || 0);`,
     replace: `        const contribution = (c.Quantity || 0) * scrapMultiplier * producedSign * (l.Quantity || 0);`
+  },
+  {
+    id: 'gl-report-rollup-all-descendants',
+    why: 'getGlReport rolled a header account up over its DIRECT children only. Headers are never postable, so ' +
+      'any account under a sub-header was silently left out of the header\'s report — the live chart has 3 ' +
+      'sub-headers with 6 postable accounts beneath them. A header now rolls up every descendant account.',
+    find: `    ? Object.keys(coaData).filter(id => coaData[id].ParentAccountID === accountId)`,
+    replace: `    // [PORT FIX gl-report-rollup-all-descendants] every descendant, not just direct children.
+    ? Object.keys(coaData).filter(id => { let p = coaData[id].ParentAccountID, hops = 0; while (p && hops++ < 50) { if (p === accountId) return true; p = coaData[p] && coaData[p].ParentAccountID; } return false; })`
   }
 ];

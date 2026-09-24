@@ -18,6 +18,7 @@
 const { AsyncLocalStorage } = require('async_hooks');
 const { randomUUID } = require('crypto');
 const { admin, rtdb, firestore } = require('../firebaseAdmin');
+const { FieldPath, Timestamp } = require('firebase-admin/firestore');
 const { requireUser } = require('../auth');
 const { acquireGlobalLock, releaseGlobalLock } = require('../lock');
 
@@ -86,7 +87,7 @@ function toFs(value) {
 // as ISO strings, as fromFirestoreValue_ returned them.
 function fromFs(value) {
   if (value === null || value === undefined) return value === undefined ? null : value;
-  if (value instanceof admin.firestore.Timestamp) return value.toDate().toISOString();
+  if (value instanceof Timestamp) return value.toDate().toISOString();
   if (Array.isArray(value)) return value.map(fromFs);
   if (typeof value === 'object') {
     const out = {};
@@ -118,7 +119,7 @@ async function firestoreUpdate_(collection, docId, data) {
   const fieldNames = Object.keys(data || {});
   if (!fieldNames.length) return firestoreGet_(collection, docId);
   const ref = firestore.collection(collection).doc(String(docId));
-  await ref.set(toFs(data), { mergeFields: fieldNames.map(f => new admin.firestore.FieldPath(f)) });
+  await ref.set(toFs(data), { mergeFields: fieldNames.map(f => new FieldPath(f)) });
   return docToObj(await ref.get());
 }
 async function firestoreAdd_(collection, data) {
@@ -137,7 +138,7 @@ function applyWhere(q, where) {
   (where || []).forEach(t => {
     const op = OPS[t[1]];
     if (!op) throw new Error('Unsupported Firestore operator: ' + t[1]);
-    q = q.where(new admin.firestore.FieldPath(...String(t[0]).split('.')), op, toFs(t[2]));
+    q = q.where(new FieldPath(...String(t[0]).split('.')), op, toFs(t[2]));
   });
   return q;
 }
