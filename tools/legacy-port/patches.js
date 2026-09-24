@@ -126,5 +126,25 @@ module.exports = [
     // [PORT FIX production-no-reversal-of-reversal] reversing forces every line Out, so reversing a
     // reversal would remove the stock a second time instead of restoring it.
     if (existing.ReversalOfProduction) throw new Error('A reversal entry cannot itself be reversed.');`
+  },
+  {
+    id: 'physical-count-store-movement-fields',
+    why: 'A posted Physical Count stored only its audit lines (CountedQuantity, Variance), dropping the Direction, ' +
+      'Quantity, UnitCost and TotalValue it actually posted, although every stock report reads those fields from ' +
+      'posted lines (and the Material Variance code says every consumption type stores Direction). So a count\'s ' +
+      'adjustment read as zero while its reversal (which does store them) read in full: Stock Ledger\'s running ' +
+      'balance drifted from the real ledger, Material Variance and Production & Consumption missed write-offs and ' +
+      'showed reversed counts as negative consumption, and the count list showed every posted count\'s value as 0. ' +
+      'Each variance line now also stores what it posted; clean lines are unchanged.',
+    find: `  finalizeCommitAttempt_(idToken, pcId, glResult, { Lines: finalLines }, actor);`,
+    replace: `  // [PORT FIX physical-count-store-movement-fields] keep what each variance line actually posted, so the
+  // stock reports (and the count list's total) read a count like any other posting.
+  const postedByLineNo = {};
+  adjustmentLines.forEach(a => { postedByLineNo[a.LineNo] = a; });
+  const storedLines = finalLines.map(f => {
+    const a = postedByLineNo[f.LineNo];
+    return a ? Object.assign({}, f, { Direction: a.Direction, Quantity: a.Quantity, UnitCost: a.UnitCost, TotalValue: a.TotalValue }) : f;
+  });
+  finalizeCommitAttempt_(idToken, pcId, glResult, { Lines: storedLines }, actor);`
   }
 ];

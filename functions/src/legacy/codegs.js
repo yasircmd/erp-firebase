@@ -3470,7 +3470,15 @@ async function commitPhysicalCountPosting_(idToken, user, existing, pcId) {
 
   // A GL entry genuinely exists from here on — no more reverting.
   await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
-  await finalizeCommitAttempt_(idToken, pcId, glResult, { Lines: finalLines }, actor);
+  // [PORT FIX physical-count-store-movement-fields] keep what each variance line actually posted, so the
+  // stock reports (and the count list's total) read a count like any other posting.
+  const postedByLineNo = {};
+  adjustmentLines.forEach(a => { postedByLineNo[a.LineNo] = a; });
+  const storedLines = finalLines.map(f => {
+    const a = postedByLineNo[f.LineNo];
+    return a ? Object.assign({}, f, { Direction: a.Direction, Quantity: a.Quantity, UnitCost: a.UnitCost, TotalValue: a.TotalValue }) : f;
+  });
+  await finalizeCommitAttempt_(idToken, pcId, glResult, { Lines: storedLines }, actor);
 
   return { pcNumber: glResult.jvNumber, cleanCount: false };
 }
@@ -3944,6 +3952,115 @@ async function getMaterialVarianceReport(idToken, params) {
   }).sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }));
 
   return { ProducedItems: producedRows, Rows: rows };
+}
+
+// ============================================================
+// PRODUCTION & CONSUMPTION REPORT
+// ============================================================
+// Aggregate, category/sub-category-grouped view of either total
+// production (from Production Entry) or total consumption (net across
+// Material Issue, Stock Adjustment, and Physical Count — same netting
+// rule as Material Variance Report) across ALL items in a period. This
+// is deliberately a separate module from Stock Ledger Report, not an
+// extension of it: Stock Ledger Report is single-item, transaction-
+// level detail with a running balance (same shape as GL Report for an
+// account); this is the flow equivalent of what Stock Valuation Report
+// already is for balances — a many-item aggregate snapshot, not a
+// detailed trace of any one item.
+//
+// Quantity is shown per item in that item's OWN UOM at the detail row
+// level — meaningful there. But category/sub-category subtotals and
+// the grand total are shown as VALUE, not summed quantity, since
+// different items in the same category can have different UOMs
+// (summing 10 KG and 5 PCS produces a meaningless "15"). Value is
+// free to aggregate this way because every stock transaction line
+// already stores its own TotalValue at posting time.
+async function getProductionConsumptionReport(idToken, params) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'PRODCONSUMPTION', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Production & Consumption Report.');
+  }
+
+  const companyId = String(params.CompanyID || '').trim();
+  if (!companyId) throw new Error('Select a Company.');
+  if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+  const reportType = String(params.ReportType || '').trim();
+  if (reportType !== 'Production' && reportType !== 'Consumption') throw new Error('Select Production or Consumption.');
+  const categoryFilter = String(params.Category || '').trim();
+  const subCategoryFilter = String(params.SubCategoryID || '').trim();
+  const fromDate = String(params.FromDate || '').trim();
+  const toDate = String(params.ToDate || '').trim();
+  if (!fromDate || !toDate) throw new Error('Select a date range.');
+
+  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const subCatsData = (await firebaseDbRequest_('itemSubCategories', 'get', null, idToken)) || {};
+  const uomsData = (await firebaseDbRequest_('uoms', 'get', null, idToken)) || {};
+  const allTx = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+
+  const inWindow = Object.keys(allTx).map(id => allTx[id])
+    .filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);
+
+  const qtyByItem = {};
+  const valueByItem = {};
+
+  function addLine(itemId, qty, value) {
+    qtyByItem[itemId] = (qtyByItem[itemId] || 0) + qty;
+    valueByItem[itemId] = (valueByItem[itemId] || 0) + value;
+  }
+
+  if (reportType === 'Production') {
+    // A reversal is stored as its own Posted 'Production' transaction
+    // with Direction 'Out' lines (the original never changes its own
+    // Status — it stays Posted forever as an audit record, same
+    // pairing convention used everywhere else in this system). Without
+    // checking Direction, a reversal's lines were being summed as MORE
+    // production instead of netting the original back out — this is
+    // the fix.
+    inWindow.filter(t => t.TransactionType === 'Production').forEach(t => {
+      (t.Lines || []).forEach(l => {
+        const sign = l.Direction === 'Out' ? -1 : 1;
+        const value = (l.TotalValue != null) ? l.TotalValue : (l.Quantity || 0) * (l.UnitCost || 0);
+        addLine(l.ItemID, sign * (l.Quantity || 0), sign * value);
+      });
+    });
+  } else {
+    const CONSUMPTION_TYPES = { MaterialIssue: true, StockAdjustment: true, PhysicalCount: true };
+    inWindow.filter(t => CONSUMPTION_TYPES[t.TransactionType]).forEach(t => {
+      (t.Lines || []).forEach(l => {
+        const sign = l.Direction === 'Out' ? 1 : -1;
+        const value = (l.TotalValue != null) ? l.TotalValue : (l.Quantity || 0) * (l.UnitCost || 0);
+        addLine(l.ItemID, sign * (l.Quantity || 0), sign * value);
+      });
+    });
+  }
+
+  const rows = Object.keys(qtyByItem)
+    .map(itemId => {
+      const item = itemsData[itemId];
+      if (!item) return null;
+      const qty = Math.round(qtyByItem[itemId] * 1e6) / 1e6;
+      const uom = uomsData[item.UOMID];
+      const subCat = item.SubCategoryID ? subCatsData[item.SubCategoryID] : null;
+      return {
+        ItemID: itemId, ItemCode: item.ItemCode, ItemName: item.ItemName,
+        Category: item.Category || '(Uncategorized)',
+        SubCategoryID: item.SubCategoryID || '', SubCategoryName: subCat ? subCat.Name : '(No Sub-Category)',
+        UOMCode: uom ? uom.Code : '', Quantity: qty,
+        Value: Math.round((valueByItem[itemId] || 0) * 100) / 100
+      };
+    })
+    .filter(r => r && Math.abs(r.Quantity) > 0.000001)
+    .filter(r => !categoryFilter || r.Category === categoryFilter)
+    .filter(r => !subCategoryFilter || r.SubCategoryID === subCategoryFilter)
+    .sort((a, b) =>
+      String(a.Category).localeCompare(String(b.Category)) ||
+      String(a.SubCategoryName).localeCompare(String(b.SubCategoryName)) ||
+      String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true })
+    );
+
+  const grandTotalValue = Math.round(rows.reduce((sum, r) => sum + r.Value, 0) * 100) / 100;
+
+  return { ReportType: reportType, Rows: rows, GrandTotalValue: grandTotalValue };
 }
 
 async function generateVendorCode_(idToken) {
@@ -6055,6 +6172,7 @@ module.exports = {
   getStockValuationReport,
   getStockLedgerReport,
   getMaterialVarianceReport,
+  getProductionConsumptionReport,
   generateVendorCode_,
   getVendors,
   saveVendor,

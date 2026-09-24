@@ -358,6 +358,27 @@ report). Each has a test that fails against the original logic.
    current Apps Script system.** Any Production entry whose `Reference` is
    a Production reversal's number should be checked.
    (`production` suite.)
+7. **A posted Physical Count didn't store what it posted**
+   (`commitPhysicalCountPosting_`). Its lines kept only the audit fields
+   (`CountedQuantity`, `Variance`) and dropped the `Direction`,
+   `Quantity`, `UnitCost` and `TotalValue` of the adjustment it actually
+   posted. Every stock report reads those fields, and Material Variance's
+   own comment says every consumption type stores `Direction`. So a
+   count's adjustment read as zero while its reversal, which does store
+   them, read in full:
+   - Stock Ledger's running balance drifted from the real ledger.
+   - Material Variance and Production & Consumption missed count
+     write-offs and showed a reversed count as negative consumption
+     (e.g. −4).
+   - The count list showed every posted count's value as 0.
+
+   Each variance line now also stores what it posted; clean lines are
+   unchanged. The readers didn't need changing, so the Stock Ledger and
+   Material Variance reports need no redeploy. **Counts already posted
+   by the live Apps Script system still have the old shape** and stay
+   misread until back-filled; each one's values are recoverable from its
+   linked GL entry. That's a one-off data decision, not done here.
+   (`physicalCount` and `prodConsumption` suites.)
 
 Port-runtime fix (not a Code.gs deviation): `runtime.js` used
 `admin.firestore.FieldPath`, which isn't a constructor in this
@@ -402,7 +423,7 @@ primitive's REST semantics directly.
 | BOM | ✅ | **not yet** |
 | JOBORDERREQUEST | ✅ | **not yet** |
 | PRODUCTION | ✅ | **not yet** |
-| PRODCONSUMPTION | — | — |
+| PRODCONSUMPTION | ✅ | **not yet** |
 | PURCHASEREQUISITION | — | — |
 | INVENTORYPURCHASEREQUISITION | — | — |
 | PURCHASEORDER | — | — |
@@ -414,12 +435,12 @@ primitive's REST semantics directly.
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** PRODCONSUMPTION
+**Next module to port:** PURCHASEREQUISITION
 
-**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM, JOBORDERREQUEST, PRODUCTION) — deploy these 32 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM, JOBORDERREQUEST, PRODUCTION, PRODCONSUMPTION) — deploy these 33 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment acceptJobOrderLine acceptJobOrderLineStop cancelDirectJobOrderLine deactivateBom decidePhysicalCountApproval decideProductionApproval deleteDraftJobOrderBatch deletePhysicalCountDraft deleteProductionDraft getBoms getEligibleJobOrderBatchesForProduction getItemCostForProduction getJobOrderBatches getJobOrderLinesFlat getPhysicalCountEntries getProductionEntries getSalesOrderLineShortfallOptions postPhysicalCount postProduction reactivateBom requestJobOrderLineAmendment requestJobOrderLineStop reversePhysicalCount reverseProduction reviseAndResubmitJobOrderLine saveBom saveDraftJobOrderBatch savePhysicalCountDraft saveProductionDraft submitJobOrderBatch withdrawJobOrderLine
+getModuleFragment acceptJobOrderLine acceptJobOrderLineStop cancelDirectJobOrderLine deactivateBom decidePhysicalCountApproval decideProductionApproval deleteDraftJobOrderBatch deletePhysicalCountDraft deleteProductionDraft getBoms getEligibleJobOrderBatchesForProduction getItemCostForProduction getJobOrderBatches getJobOrderLinesFlat getPhysicalCountEntries getProductionConsumptionReport getProductionEntries getSalesOrderLineShortfallOptions postPhysicalCount postProduction reactivateBom requestJobOrderLineAmendment requestJobOrderLineStop reversePhysicalCount reverseProduction reviseAndResubmitJobOrderLine saveBom saveDraftJobOrderBatch savePhysicalCountDraft saveProductionDraft submitJobOrderBatch withdrawJobOrderLine
 ```
 <!-- PORT-STATUS:end -->
 

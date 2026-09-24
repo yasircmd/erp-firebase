@@ -126,6 +126,28 @@ test('approval gate: nothing moves until approved; variance recomputed at approv
   assert.equal((await val('stock/transactions/' + s.pcId)).Lines[0].Variance, -3);
 });
 
+test('a posted count stores what it posted, so Stock Ledger and the count list read it (Code.gs stored neither)', async () => {
+  const f = fixture();
+  f.stock.ledger = {}; // start from zero and build the ledger from real postings only
+  await reset(f);
+  // An opening receipt, recorded the way a posted GRN stores it, so the report has a history to run from.
+  await rtdb.ref('stock/transactions/OPEN').set({ TransactionType: 'GRN', Status: 'Posted', CompanyID: 'C1', TransactionDate: '2026-09-01', CreatedAt: '2026-09-01T00:00:00Z',
+    Lines: [{ ItemID: 'I1', WarehouseID: 'WH1', Direction: 'In', Quantity: 10, UnitCost: 5, TotalValue: 50 }] });
+  await rtdb.ref('stock/ledger/I1/WH1').set({ Quantity: 10, AvgCost: 5, TotalValue: 50 });
+
+  const s = await draft([line({ CountedQuantity: 6 }), line({ WarehouseID: 'WH2', CountedQuantity: 0 })]);
+  assert.equal((await call('u-admin', 'postPhysicalCount', { pcId: s.pcId })).success, true);
+  const rec = await val('stock/transactions/' + s.pcId);
+  assert.deepEqual(rec.Lines.map(l => [l.Variance, l.Direction, l.Quantity, l.UnitCost, l.TotalValue]),
+    [[-4, 'Out', 4, 5, 20], [0, undefined, undefined, undefined, undefined]], 'variance line stores its movement; clean line unchanged');
+
+  const report = await call('u-admin', 'getStockLedgerReport', { params: { ItemID: 'I1', WarehouseID: 'WH1', FromDate: '2000-01-01', ToDate: '2099-12-31' } });
+  assert.equal(report.ClosingQuantity, 6, 'report closing = real ledger');
+  assert.deepEqual(await ledger('I1', 'WH1'), [6, 5, 30]);
+  const listed = (await call('u-admin', 'getPhysicalCountEntries', {})).entries.find(e => e.CountID === s.pcId);
+  assert.equal(listed.Lines.reduce((sum, l) => sum + (l.TotalValue || 0), 0), 20, 'the list screen sums this for its Value column');
+});
+
 test('validation, delete, list and access checks', async () => {
   await reset(fixture());
   assert.match((await draft([line({ CountedQuantity: -1 })])).error, /counted quantity of zero or more/);
