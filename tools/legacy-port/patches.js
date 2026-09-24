@@ -113,5 +113,18 @@ module.exports = [
     // [PORT FIX physical-count-no-reversal-of-reversal] a reversal's lines carry the original Variance, so
     // reversing it would re-apply the reversal's direction instead of undoing it.
     if (existing.ReversalOfCount) throw new Error('A reversal entry cannot itself be reversed.');`
+  },
+  {
+    id: 'production-no-reversal-of-reversal',
+    why: 'reverseProduction forces every line to Direction Out. A reversal entry is itself a Posted Production ' +
+      'transaction, and the screen offers "Reverse" on it, so reversing a reversal took the produced stock out a ' +
+      'SECOND time instead of putting it back: 20 -> post 5 -> 25 -> reverse -> 20 -> reverse the reversal -> 15 ' +
+      '(should be 25), with a matching GL entry, and a linked Job Order line\'s produced quantity dropped twice. Now ' +
+      'refused with the same message as the invoice and Delivery Note modules; to redo it, post a new entry.',
+    find: `    if (existing.ReversedByProduction) throw new Error('This Production entry has already been reversed.');`,
+    replace: `    if (existing.ReversedByProduction) throw new Error('This Production entry has already been reversed.');
+    // [PORT FIX production-no-reversal-of-reversal] reversing forces every line Out, so reversing a
+    // reversal would remove the stock a second time instead of restoring it.
+    if (existing.ReversalOfProduction) throw new Error('A reversal entry cannot itself be reversed.');`
   }
 ];

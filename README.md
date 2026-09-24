@@ -252,6 +252,14 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   read-then-write counter (`generateVoucherNumber_`) and submit takes no
   lock, so two batches submitted at the same moment can get the same
   number. Same race as GAS. Numbering only, no stock or GL effect.
+- Production: `getItemCostForProduction` checks only that the caller is
+  signed in, not module access or company, so any user can read any
+  company's valuation cost for an item. Same as GAS.
+- GRN (hand-ported, not yet fixed): `reverseGrn` has the same shape as
+  deviation #6. It forces every line Out, doesn't refuse a reversal
+  entry, and the screen offers "Reverse" on one. Reversing a GRN
+  reversal would likely remove the received stock a second time. Needs
+  its own fix and test.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -339,6 +347,17 @@ report). Each has a test that fails against the original logic.
    count. **This bug is live in the current Apps Script system.** Any
    Physical Count whose `Reference` is itself a reversal's voucher number
    should be checked against physical stock. (`physicalCount` suite.)
+6. **Reversing a Production reversal took the stock out twice**
+   (`reverseProduction`). The reversal forces every line to Direction
+   Out, and a reversal entry is itself a Posted Production entry the
+   screen offers to reverse. So reversing one removed the produced stock
+   again instead of restoring it: 20 → post 5 → 25 → reverse → 20 →
+   reverse the reversal → **15** (should be 25). It also posted a
+   matching GL entry and cut a linked Job Order line's produced quantity
+   a second time. Now refused with the same message as #5. **Live in the
+   current Apps Script system.** Any Production entry whose `Reference` is
+   a Production reversal's number should be checked.
+   (`production` suite.)
 
 Port-runtime fix (not a Code.gs deviation): `runtime.js` used
 `admin.firestore.FieldPath`, which isn't a constructor in this
@@ -382,7 +401,7 @@ primitive's REST semantics directly.
 | PHYSICALCOUNT | ✅ | **not yet** |
 | BOM | ✅ | **not yet** |
 | JOBORDERREQUEST | ✅ | **not yet** |
-| PRODUCTION | — | — |
+| PRODUCTION | ✅ | **not yet** |
 | PRODCONSUMPTION | — | — |
 | PURCHASEREQUISITION | — | — |
 | INVENTORYPURCHASEREQUISITION | — | — |
@@ -395,12 +414,12 @@ primitive's REST semantics directly.
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** PRODUCTION
+**Next module to port:** PRODCONSUMPTION
 
-**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM, JOBORDERREQUEST) — deploy these 24 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM, JOBORDERREQUEST, PRODUCTION) — deploy these 32 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment acceptJobOrderLine acceptJobOrderLineStop cancelDirectJobOrderLine deactivateBom decidePhysicalCountApproval deleteDraftJobOrderBatch deletePhysicalCountDraft getBoms getJobOrderBatches getJobOrderLinesFlat getPhysicalCountEntries getSalesOrderLineShortfallOptions postPhysicalCount reactivateBom requestJobOrderLineAmendment requestJobOrderLineStop reversePhysicalCount reviseAndResubmitJobOrderLine saveBom saveDraftJobOrderBatch savePhysicalCountDraft submitJobOrderBatch withdrawJobOrderLine
+getModuleFragment acceptJobOrderLine acceptJobOrderLineStop cancelDirectJobOrderLine deactivateBom decidePhysicalCountApproval decideProductionApproval deleteDraftJobOrderBatch deletePhysicalCountDraft deleteProductionDraft getBoms getEligibleJobOrderBatchesForProduction getItemCostForProduction getJobOrderBatches getJobOrderLinesFlat getPhysicalCountEntries getProductionEntries getSalesOrderLineShortfallOptions postPhysicalCount postProduction reactivateBom requestJobOrderLineAmendment requestJobOrderLineStop reversePhysicalCount reverseProduction reviseAndResubmitJobOrderLine saveBom saveDraftJobOrderBatch savePhysicalCountDraft saveProductionDraft submitJobOrderBatch withdrawJobOrderLine
 ```
 <!-- PORT-STATUS:end -->
 

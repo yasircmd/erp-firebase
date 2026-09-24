@@ -1,0 +1,1661 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+  #prd-print-document table { border-collapse: collapse; width: 100%; }
+  #prd-print-document th, #prd-print-document td { border: 1px solid #333; padding: 4px 6px; font-size: 10px; }
+  #prd-print-document thead { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>
+
+<div id="prd-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Stock Management</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-industry text-blue-500"></i> Production Entry</h2></div>
+    <button id="prd-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Production Entry</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="prd-search-input" placeholder="Search number or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="prd-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="prd-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Draft">Draft</option><option value="Posted">Posted</option></select>
+    <input type="date" id="prd-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <input type="date" id="prd-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div id="prd-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Production No.</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4">Description</th>
+            <th class="py-3 px-4 text-right">Value</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="prd-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="prd-entry-view" class="hidden space-y-5">
+  <div id="prd-print-header" class="print-only mb-4 pb-4 border-b-2 border-slate-800">
+    <h1 id="prd-print-company-name" class="text-lg font-bold"></h1>
+    <p id="prd-print-company-address" class="text-sm"></p>
+  </div>
+  <div id="prd-print-document" class="print-only"></div>
+  <div class="no-print space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
+    <div class="flex items-center gap-3">
+      <button id="prd-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="prd-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="prd-back-chain-label">Back</span></button>
+      <h2 id="prd-entry-title" class="text-xl font-bold text-blue-400">New Production Entry</h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="prd-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="prd-gl-impact-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-scale-balanced"></i> View GL Impact</button>
+      <button id="prd-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+
+  <div id="prd-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+  <div id="prd-txn-ref-line" class="hidden text-xs text-slate-500 font-mono"></div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+    <select id="prd-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+    <p class="text-xs text-slate-500 mt-1">Choose a Company first — items below are filtered to what that company can use. Every line posts automatically against that item's own Consumption account (set in Item Master) — there's no account to pick here.</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="prd-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input type="text" id="prd-form-reference" placeholder="e.g. Work order #" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
+    <div class="flex gap-2">
+      <input type="text" id="prd-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+      <button id="prd-desc-edit-btn" class="hidden no-print bg-slate-800 hover:bg-slate-700 text-xs px-3 rounded border border-slate-700" title="Edit description"><i class="fa-solid fa-pen-to-square"></i></button>
+      <button id="prd-desc-save-btn" class="hidden no-print bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 rounded">Save</button>
+      <button id="prd-desc-cancel-btn" class="hidden no-print bg-slate-700 hover:bg-slate-600 text-xs px-3 rounded">Cancel</button>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="prd-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="prd-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(line default)</span></label><select id="prd-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="prd-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Job Order <span class="text-slate-500">(optional — link this entry's production to a Job Order's fulfillment)</span></label>
+    <select id="prd-form-joborder" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not linked to a Job Order</option></select>
+    <p id="prd-joborder-stop-note" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg py-2 px-3 mt-1">This Job Order has a pending Stop Request — only post if this entry completes work already underway.</p>
+  </div>
+
+  <div id="prd-company-required-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company above before adding lines — no items can be chosen until then.</div>
+
+  <div class="flex flex-wrap items-center gap-2 no-print">
+    <button id="prd-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+    <button id="prd-paste-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
+    <button id="prd-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy Table</button>
+    <span class="text-xs text-slate-500">Paste columns: Item Code / Warehouse Code / Description / UOM Code / Quantity / Unit Cost / Batch No / Expiry Date / Cost Center Code / Profit Center Code.</span>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table id="prd-grid-table" class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3 w-10">#</th>
+            <th class="py-2 px-3">Item Code</th>
+            <th class="py-2 px-3">Item Name</th>
+            <th class="py-2 px-3">Warehouse</th>
+            <th class="py-2 px-3">Description</th>
+            <th class="py-2 px-3 w-20">UOM</th>
+            <th class="py-2 px-3 text-right w-24">Quantity</th>
+            <th class="py-2 px-3 text-right w-28">Unit Cost</th>
+            <th class="py-2 px-3 text-right w-28">Total Value</th>
+            <th class="py-2 px-3 w-28">Batch No.</th>
+            <th class="py-2 px-3 w-32">Expiry Date</th>
+            <th class="py-2 px-3 w-24">Cost Ctr</th>
+            <th class="py-2 px-3 w-24">Profit Ctr</th>
+            <th class="py-2 px-3 w-10 no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="prd-grid-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        <tfoot>
+          <tr class="bg-slate-900 border-t border-slate-700 font-medium text-sm">
+            <td class="py-2 px-3" colspan="8">Total</td>
+            <td class="py-2 px-3 text-right" id="prd-total-value">0.00</td>
+            <td colspan="4"></td>
+            <td class="no-print"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div id="prd-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="prd-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1 no-print">
+    <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
+    <p id="prd-rejection-reason" class="text-sm text-slate-200"></p>
+    <p class="text-xs text-slate-500">This Production entry is fully editable below — make your changes and Post again.</p>
+  </div>
+
+  <div id="prd-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3 no-print">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="prd-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3">
+      <button id="prd-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button>
+      <button id="prd-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button>
+    </div>
+    <div id="prd-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 no-print">
+    <button id="prd-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="prd-duplicate-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs"><i class="fa-solid fa-clone"></i> Duplicate Entry</button>
+    <button id="prd-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse Production</button>
+    <button id="prd-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
+    <button id="prd-post-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-lock"></i> Post Production</button>
+  </div>
+  </div>
+</div>
+
+<!-- Shared item-search dropdown — deliberately OUTSIDE the scrollable grid
+     wrapper and positioned with `fixed` (computed via JS from the focused
+     input's bounding rect). A per-row `absolute` dropdown living inside
+     the grid's `overflow-x-auto` container gets clipped to invisibility,
+     since setting overflow-x to a non-visible value forces the browser to
+     also clip overflow-y on that same container — this is what made the
+     original version look like "no suggestions" even though it was
+     rendering correctly, just invisibly. `fixed` positioning escapes that
+     ancestor clipping entirely. -->
+<!-- Item picker modal. Deliberately a CENTERED MODAL rather than a
+     floating dropdown anchored to the input: an anchored dropdown has to
+     survive the grid's overflow clipping, z-index stacking, sticky
+     header, and focus/blur re-render timing — and repeated attempts to
+     make that work reliably here did not. This modal reuses exactly the
+     same structure as the confirm modal below, which is already proven
+     to render correctly in this app, so it has no dependency on any of
+     those fragile behaviours. It also gives room to show code AND name
+     properly, which the cramped inline cell never did. -->
+<div id="prd-item-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg shadow-2xl flex flex-col" style="max-height:80vh">
+    <div class="flex items-center justify-between border-b border-slate-700 p-4">
+      <h3 class="text-lg font-bold text-slate-100">Select Item</h3>
+      <button id="prd-item-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-4 border-b border-slate-700">
+      <input type="text" id="prd-item-search" autocomplete="off" placeholder="Search by item code or name..." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    </div>
+    <div id="prd-item-results" class="overflow-y-auto flex-1 p-2 text-sm"></div>
+  </div>
+</div>
+
+<!-- Custom confirm modal — same rationale as JV/CBT: native confirm()
+     can't be styled and shows an unavoidable "embedded page says" wrapper. -->
+<!-- GL Impact viewer — shows the Dr/Cr breakdown of this entry's linked
+     GL entry inline, JV-style, without navigating away to GL Report. -->
+<div id="prd-gl-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="flex items-center justify-between border-b border-slate-700 p-4">
+      <div>
+        <h3 class="text-lg font-bold text-slate-100">GL Impact</h3>
+        <p id="prd-gl-modal-subtitle" class="text-xs text-slate-500 font-mono"></p>
+      </div>
+      <button id="prd-gl-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-4 overflow-y-auto">
+      <div id="prd-gl-modal-body" class="text-sm text-slate-500">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<div id="prd-confirm-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 id="prd-confirm-title" class="text-lg font-bold text-slate-100">Confirm</h3>
+    <p id="prd-confirm-message" class="text-sm text-slate-300 whitespace-pre-line"></p>
+    <div id="prd-confirm-input-wrap" class="hidden">
+      <input type="date" id="prd-confirm-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    </div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button id="prd-confirm-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button>
+      <button id="prd-confirm-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="prd-item-datalist"></datalist>
+
+<script>
+(function () {
+  let token = '';
+  let canDraft = false;
+  let canPost = false;
+  let entries = [];
+  let entriesTotal = 0;
+  let currentLimit = 100;
+  let items = [];
+  let uoms = [];
+  let companies = [];
+  let orgUnits = [];
+  let currentProd = null;
+  // ItemCode is the RAW text the user typed/selected — never silently
+  // resolved-or-cleared on keystroke (that was the original search bug).
+  // ItemName is a live DISPLAY lookup only. Actual resolution to a real
+  // item happens at save time, server-side, same as JV/CBT resolve
+  // AccountCode.
+  let gridLines = []; // { ItemCode, WarehouseID, Description, EnteredUOMID, EnteredQuantity, UnitCost, BatchNumber, ExpiryDate, CostCenterID, ProfitCenterID }
+  let eligibleJobOrders = [];
+  let isDirty = false;
+  let pendingOpenEntryId = null;
+  let myReturnChain = [];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function fmt(n) { return (Number(n) || 0).toFixed(2); }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function today() { return new Date().toISOString().substring(0, 10); }
+  function itemByCode(code) { return items.find(i => String(i.ItemCode) === String(code)); }
+  function itemById(id) { return items.find(i => i.ItemID === id); }
+  function uomById(id) { return uoms.find(u => u.UOMID === id); }
+
+  // ---------- CUSTOM CONFIRM MODAL ----------
+  function showConfirm(message, onConfirm, opts) {
+    opts = opts || {};
+    document.getElementById('prd-confirm-title').textContent = opts.title || 'Confirm';
+    document.getElementById('prd-confirm-message').textContent = message;
+    const inputWrap = document.getElementById('prd-confirm-input-wrap');
+    const input = document.getElementById('prd-confirm-input');
+    if (opts.needsDate) {
+      inputWrap.classList.remove('hidden');
+      input.value = opts.defaultDate || today();
+    } else {
+      inputWrap.classList.add('hidden');
+    }
+    document.getElementById('prd-confirm-modal').classList.remove('hidden');
+
+    const okBtn = document.getElementById('prd-confirm-ok');
+    const cancelBtn = document.getElementById('prd-confirm-cancel');
+    function cleanup() {
+      document.getElementById('prd-confirm-modal').classList.add('hidden');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+    }
+    function onOk() { cleanup(); onConfirm(opts.needsDate ? input.value : undefined); }
+    function onCancel() { cleanup(); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  }
+
+  // ---------- LIST VIEW ----------
+
+  function fetchAndRenderList(limit) {
+    currentLimit = limit || currentLimit;
+    rpc
+      .withSuccessHandler(result => {
+        entries = result.entries || []; entriesTotal = result.total || 0; renderList();
+        if (pendingOpenEntryId) {
+          const id = pendingOpenEntryId; pendingOpenEntryId = null;
+          // Drill-through from GL Report passes the GL ENTRY's own ID
+          // (LinkedJVID), not the Production Entry's own ID — these are two different
+          // documents (the Production Entry transaction and the GL entry it posted).
+          // Match on LinkedJVID first; fall back to ProductionID in case a
+          // future caller ever passes the Production Entry's own ID directly.
+          const found = entries.find(e => e.LinkedJVID === id || e.ProductionID === id);
+          if (found) openEntry(found.ProductionID);
+          else alert('That Production Entry could not be found — it may have been deleted.');
+        }
+      })
+      .withFailureHandler(err => alert(err.message || 'Unable to load GRNs.'))
+      .getProductionEntries({ limit: currentLimit });
+  }
+
+  function renderList() {
+    const tbody = document.getElementById('prd-table-body');
+    const search = document.getElementById('prd-search-input').value.toLowerCase();
+    const companyFilter = document.getElementById('prd-company-filter').value;
+    const status = document.getElementById('prd-status-filter').value;
+    const from = document.getElementById('prd-from-filter').value;
+    const to = document.getElementById('prd-to-filter').value;
+
+    const notice = document.getElementById('prd-list-notice');
+    if (entriesTotal > entries.length) {
+      notice.classList.remove('hidden');
+      notice.innerHTML = `Showing most recent ${entries.length} of ${entriesTotal} Production Entries. <button id="prd-load-all-btn" class="text-blue-400 hover:text-blue-300 underline">Load all</button>`;
+      document.getElementById('prd-load-all-btn').addEventListener('click', () => fetchAndRenderList('all'));
+    } else {
+      notice.classList.add('hidden');
+    }
+
+    const filtered = entries.filter(e => {
+      if (search && !`${e.TransactionNumber} ${e.Description}`.toLowerCase().includes(search)) return false;
+      if (companyFilter && e.CompanyID !== companyFilter) return false;
+      if (status && e.Status !== status) return false;
+      if (from && e.TransactionDate < from) return false;
+      if (to && e.TransactionDate > to) return false;
+      return true;
+    }).sort((a, b) => (b.TransactionDate || '').localeCompare(a.TransactionDate || ''));
+
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">No Production Entries found.</td></tr>'; return; }
+
+    filtered.forEach(e => {
+      const total = (e.Lines || []).reduce((sum, l) => sum + (l.TotalValue || 0), 0);
+      const statusBadge = e.Status === 'Posted'
+        ? (e.ReversedByProduction ? '<span class="text-amber-400">Posted (Reversed)</span>' : '<span class="text-emerald-400">Posted</span>')
+        : '<span class="text-red-400">Draft</span>';
+      let actions = `<button class="prd-open text-slate-400 hover:text-blue-400 p-1" title="Open"><i class="fa-solid fa-eye"></i></button>`;
+      if (canDraft) actions += `<button class="prd-dup text-slate-400 hover:text-blue-400 p-1" title="Duplicate"><i class="fa-solid fa-clone"></i></button>`;
+      if (e.Status === 'Draft' && canDraft) {
+        actions += `<button class="prd-delete text-slate-400 hover:text-red-400 p-1" title="Delete draft"><i class="fa-solid fa-trash"></i></button>`;
+      }
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      row.innerHTML = `
+        <td class="py-3 px-4 font-mono text-xs text-slate-200">${e.TransactionNumber ? escapeHtml(e.TransactionNumber) : '<span class="text-slate-500">DRAFT</span>'}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(e.TransactionDate)}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(e.Description)}</td>
+        <td class="py-3 px-4 text-xs text-right">${formatMoney(total)}</td>
+        <td class="py-3 px-4 text-xs">${statusBadge}</td>
+        <td class="py-3 px-4 text-right">${actions}</td>`;
+      row.querySelector('.prd-open').addEventListener('click', () => openEntry(e.ProductionID));
+      const dup = row.querySelector('.prd-dup');
+      if (dup) dup.addEventListener('click', () => duplicateEntry(e.ProductionID));
+      const del = row.querySelector('.prd-delete');
+      if (del) del.addEventListener('click', () => deleteDraft(e.ProductionID));
+      tbody.appendChild(row);
+    });
+  }
+
+  function deleteDraft(prodId) {
+    showConfirm('Delete this draft Production Entry? This cannot be undone.', () => {
+      rpc
+        .withSuccessHandler(result => { if (result.success) fetchAndRenderList(); else alert(result.error || 'Unable to delete draft.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
+        .deleteProductionDraft({ prodId: prodId });
+    }, { title: 'Delete Draft' });
+  }
+
+  function showListView() {
+    document.getElementById('prd-entry-view').classList.add('hidden');
+    document.getElementById('prd-list-view').classList.remove('hidden');
+    isDirty = false;
+    fetchAndRenderList();
+  }
+
+  function goBackToList() {
+    if (isDirty) {
+      showConfirm('You have unsaved changes. Leave without saving?', () => showListView(), { title: 'Unsaved Changes' });
+    } else {
+      showListView();
+    }
+  }
+
+  function goBackInChain() {
+    const doGoBack = () => {
+      const chain = myReturnChain.slice();
+      const target = chain.pop();
+      if (!target) return;
+      openModule(target.moduleId, target.params, chain);
+    };
+    if (isDirty) {
+      showConfirm('You have unsaved changes. Leave without saving?', doGoBack, { title: 'Unsaved Changes' });
+    } else {
+      doGoBack();
+    }
+  }
+
+  // ---------- ITEM PICKER MODAL ----------
+
+  function itemsForCurrentCompany() {
+    const companyId = document.getElementById('prd-form-company').value;
+    if (!companyId) return [];
+    // getActiveItems() already filters to Active items server-side and
+    // never even sends a Status field to the client — checking i.Status
+    // here was always comparing against undefined, making this always
+    // return empty regardless of company. That was the actual root
+    // cause of item search never showing results.
+    let pool = items.filter(i => !i.CompanyID || i.CompanyID === companyId);
+    // Once a Job Order is selected, choices narrow to that batch's own
+    // items — confirmed design: "users can choose Stock items under
+    // this JO." Not a validation rule (nothing stops an unlinked line
+    // from being added some other way), just what's offered here.
+    const jobOrderId = document.getElementById('prd-form-joborder').value;
+    if (jobOrderId) {
+      const batch = eligibleJobOrders.find(b => b.BatchID === jobOrderId);
+      const batchItemCodes = new Set((batch ? batch.Lines : []).map(l => l.ItemCode));
+      pool = pool.filter(i => batchItemCodes.has(i.ItemCode));
+    }
+    return pool;
+  }
+
+  // Shared datalist for fast native type-ahead on the item code input —
+  // alongside the magnifying-glass modal, not instead of it. The modal
+  // stays for browsing/searching by name; this is for when you already
+  // know roughly what you're typing and want it to autocomplete inline.
+  function populateItemDatalist() {
+    const list = document.getElementById('prd-item-datalist');
+    if (!list) return;
+    list.innerHTML = '';
+    itemsForCurrentCompany().forEach(i => {
+      const opt = document.createElement('option');
+      opt.value = i.ItemCode + ' — ' + i.ItemName;
+      list.appendChild(opt);
+    });
+  }
+
+  function updateCompanyRequiredNote(desiredJobOrderId) {
+    document.getElementById('prd-company-required-note').classList.toggle('hidden', Boolean(document.getElementById('prd-form-company').value));
+    populateItemDatalist();
+    loadEligibleJobOrders(desiredJobOrderId);
+  }
+
+  // Populates the "Job Order" picker with whatever's eligible for the
+  // CURRENTLY selected company — re-run every time company changes,
+  // same trigger populateItemDatalist already uses. Job Order's own
+  // linked item isn't cross-checked against this entry's produced
+  // lines here (the grid may still be empty when a user first picks a
+  // Job Order) — saveDraftProduction's own validation is the real
+  // gatekeeper for that, same division of labor as every other
+  // client-side convenience filter in this app.
+  // desiredJobOrderId: explicit value to select once options are
+  // loaded — needed because this call is async, so simply setting
+  // select.value right after calling this (e.g. from openEntry) would
+  // silently fail: the target <option> wouldn't exist yet. Defaults to
+  // whatever's already selected (the company-change case, where
+  // preserving a still-valid prior pick is what's wanted).
+  function loadEligibleJobOrders(desiredJobOrderId) {
+    const companyId = document.getElementById('prd-form-company').value;
+    const select = document.getElementById('prd-form-joborder');
+    const target = desiredJobOrderId !== undefined ? desiredJobOrderId : select.value;
+    rpc
+      .withSuccessHandler(result => {
+        // One entry per BATCH now, each carrying its own eligible LINES
+        // — confirmed design: "only the main JO number need to select."
+        // Which line actually gets credited resolves from the produced
+        // item, not from anything picked here.
+        eligibleJobOrders = result || [];
+        select.innerHTML = '<option value="">Not linked to a Job Order</option>';
+        eligibleJobOrders.forEach(batch => {
+          const opt = document.createElement('option');
+          opt.value = batch.BatchID; opt.textContent = batch.BatchNumber + ' (' + batch.Lines.length + ' item' + (batch.Lines.length === 1 ? '' : 's') + ')';
+          select.appendChild(opt);
+        });
+        if (eligibleJobOrders.some(batch => batch.BatchID === target)) select.value = target;
+        // Re-narrow the item datalist now that the Job Order selection
+        // has actually settled — populateItemDatalist() may already
+        // have run once (synchronously) before this async load
+        // resolved, using whatever was selected at that earlier
+        // moment, which is stale once this restores a different value.
+        populateItemDatalist();
+        updateJobOrderStopNote();
+      })
+      .withFailureHandler(() => { eligibleJobOrders = []; })
+      .getEligibleJobOrderBatchesForProduction({ companyId: companyId });
+  }
+
+  // Whether to show the Stop-Requested warning depends on which items
+  // are ACTUALLY in the produced grid right now, not just which batch
+  // is selected — a batch can have some lines Stop Requested and others
+  // not, so this cross-references gridLines' item codes against the
+  // selected batch's own lines.
+  function updateJobOrderStopNote() {
+    const batchId = document.getElementById('prd-form-joborder').value;
+    const batch = eligibleJobOrders.find(b => b.BatchID === batchId);
+    const anyStopRequested = Boolean(batch) && gridLines.some(line =>
+      line.ItemCode && (batch.Lines || []).some(bl => bl.ItemCode === line.ItemCode && bl.Status === 'Stop Requested')
+    );
+    document.getElementById('prd-joborder-stop-note').classList.toggle('hidden', !anyStopRequested);
+  }
+
+  // Row the picker is currently open for.
+  let pickerRow = -1;
+
+  function openItemPicker(row) {
+    if (!document.getElementById('prd-form-company').value) {
+      alert('Select a Company first — items are filtered to what that company can use.');
+      return;
+    }
+    pickerRow = row;
+    const search = document.getElementById('prd-item-search');
+    search.value = '';
+    renderItemResults('');
+    document.getElementById('prd-item-modal').classList.remove('hidden');
+    search.focus();
+  }
+
+  function closeItemPicker() {
+    document.getElementById('prd-item-modal').classList.add('hidden');
+    pickerRow = -1;
+  }
+
+  // Empty query lists everything (capped) so the picker is useful for
+  // browsing, not only for searching — matters when someone doesn't know
+  // the code or the exact name.
+  function renderItemResults(query) {
+    const q = String(query || '').trim().toLowerCase();
+    const results = document.getElementById('prd-item-results');
+    const matches = itemsForCurrentCompany()
+      .filter(i => !q || String(i.ItemCode).toLowerCase().includes(q) || String(i.ItemName).toLowerCase().includes(q))
+      .sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }))
+      .slice(0, 100);
+
+    if (!matches.length) {
+      results.innerHTML = '<div class="p-4 text-center text-slate-500">' + (itemsForCurrentCompany().length ? 'No items match that search.' : 'No items showing for this company — either none exist yet, or your account isn\'t assigned to this company in User Management. Check with an admin if you expect items here.') + '</div>';
+      return;
+    }
+
+    results.innerHTML = matches.map(m =>
+      `<button type="button" class="prd-item-option w-full text-left px-3 py-2 rounded hover:bg-slate-700 flex justify-between gap-3" data-code="${escapeHtml(m.ItemCode)}">
+        <span><span class="font-mono text-slate-200">${escapeHtml(m.ItemCode)}</span> <span class="text-slate-400">— ${escapeHtml(m.ItemName)}</span></span>
+        <span class="text-slate-500 text-xs shrink-0">${escapeHtml((uomById(m.UOMID) || {}).Code || '')}</span>
+      </button>`
+    ).join('');
+
+    results.querySelectorAll('.prd-item-option').forEach(btn => {
+      btn.addEventListener('click', () => selectItemForRow(pickerRow, btn.getAttribute('data-code')));
+    });
+  }
+
+  function selectItemForRow(row, itemCode) {
+    if (row < 0 || !gridLines[row]) return;
+    isDirty = true;
+    applyItemToRow(row, itemCode);
+    closeItemPicker();
+    renderGrid();
+    updateTotal();
+  }
+
+  function applyItemToRow(row, itemCode) {
+    gridLines[row].ItemCode = itemCode;
+    const matched = itemByCode(itemCode);
+    if (matched) {
+      if (!gridLines[row].EnteredUOMID) gridLines[row].EnteredUOMID = matched.UOMID;
+      if (matched.DefaultWarehouseID && !gridLines[row].WarehouseID) gridLines[row].WarehouseID = matched.DefaultWarehouseID;
+    }
+  }
+
+  // ---------- ENTRY VIEW / GRID ----------
+
+  function orgUnitOptionsHtml(type, selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        html += `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code)}</option>`;
+      });
+    return html;
+  }
+
+  function uomOptionsForItem(item, selectedId) {
+    if (!item) return '<option value="">—</option>';
+    let html = '';
+    const baseUom = uomById(item.UOMID);
+    if (baseUom) html += `<option value="${baseUom.UOMID}"${baseUom.UOMID === selectedId ? ' selected' : ''}>${escapeHtml(baseUom.Code)}</option>`;
+    if (item.AltUOMID) {
+      const altUom = uomById(item.AltUOMID);
+      if (altUom) html += `<option value="${altUom.UOMID}"${altUom.UOMID === selectedId ? ' selected' : ''}>${escapeHtml(altUom.Code)}</option>`;
+    }
+    return html;
+  }
+
+  function currentHeaderCostCenter() { return document.getElementById('prd-form-costcenter').value; }
+  function currentHeaderProfitCenter() { return document.getElementById('prd-form-profitcenter').value; }
+  function currentHeaderDescription() { return document.getElementById('prd-form-description').value; }
+
+  function blankLine() {
+    return {
+      ItemCode: '', WarehouseID: '', Description: currentHeaderDescription(),
+      EnteredUOMID: '', EnteredQuantity: '', UnitCost: '',
+      BatchNumber: '', ExpiryDate: '',
+      CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter()
+    };
+  }
+
+  function ensureTrailingBlankRow() {
+    const last = gridLines[gridLines.length - 1];
+    if (!last || last.ItemCode || last.EnteredQuantity || last.UnitCost) {
+      gridLines.push(blankLine());
+      return true; // a new row was actually added
+    }
+    return false;
+  }
+
+  // Column order for BOTH rendering data-col attributes and Paste/Copy —
+  // must stay in sync with the visible grid columns (excluding the two
+  // display-only columns, Item Name and Total Value).
+  const COLUMNS = ['item', 'warehouse', 'description', 'uom', 'quantity', 'unitcost', 'batch', 'expiry', 'costcenter', 'profitcenter'];
+
+  function buildRowMarkup(line, i, readOnly) {
+    const item = itemByCode(line.ItemCode);
+    const missingDesc = line.ItemCode && !String(line.Description || '').trim();
+    const batchTracked = item && item.BatchTracked;
+    const missingBatch = batchTracked && !String(line.BatchNumber || '').trim();
+    return `
+      <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+      <td class="py-1 px-1"><div class="flex gap-1"><input data-row="${i}" data-col="0" data-field="item" list="prd-item-datalist" value="${escapeHtml(line.ItemCode)}" ${readOnly ? 'disabled' : ''} placeholder="Code" class="prd-item-input w-24 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs font-mono focus:outline-none focus:border-blue-500">${readOnly ? '' : `<button type="button" data-row="${i}" class="prd-item-pick shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded px-2 text-xs" title="Search items"><i class="fa-solid fa-magnifying-glass"></i></button>`}</div></td>
+      <td class="py-1 px-2 text-xs text-slate-400 prd-item-name">${item ? escapeHtml(item.ItemName) : (line.ItemCode ? '<span class="text-red-400">not found</span>' : '')}</td>
+      <td class="py-1 px-1"><select data-row="${i}" data-col="1" data-field="warehouse" class="prd-line-wh w-32 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('Warehouse', line.WarehouseID)}</select></td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="2" data-field="description" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${missingDesc ? 'required' : ''}" class="w-full bg-slate-900 border ${missingDesc ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><select data-row="${i}" data-col="3" data-field="uom" class="prd-line-uom w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${uomOptionsForItem(item, line.EnteredUOMID)}</select></td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="4" data-field="quantity" type="text" inputmode="decimal" value="${line.EnteredQuantity === '' ? '' : line.EnteredQuantity}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="5" data-field="unitcost" type="text" inputmode="decimal" value="${line.UnitCost === '' || line.UnitCost === 0 ? '' : formatMoney(line.UnitCost)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1.5 px-3 text-xs text-right font-mono prd-line-total">${formatMoney((parseFloat(String(line.EnteredQuantity).replace(/,/g, '')) || 0) * (parseFloat(String(line.UnitCost).replace(/,/g, '')) || 0))}</td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="6" data-field="batch" value="${escapeHtml(line.BatchNumber)}" ${readOnly ? 'disabled' : ''} placeholder="${missingBatch ? 'required' : ''}" class="w-full bg-slate-900 border ${missingBatch ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><input data-row="${i}" data-col="7" data-field="expiry" type="date" value="${escapeHtml(line.ExpiryDate)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><select data-row="${i}" data-col="8" class="prd-line-cc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
+      <td class="py-1 px-1"><select data-row="${i}" data-col="9" class="prd-line-pc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
+      <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-row="${i}" class="prd-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
+  }
+
+  // Wires every listener for ONE row. Used both by renderGrid (all rows,
+  // on a full rebuild) and by appendRowToDom (a single new row, added
+  // WITHOUT touching any other row — see that function's comment for why
+  // this matters).
+  //
+  // NOTE: the item input is deliberately EXCLUDED from the blur-triggered
+  // re-render every other field gets. A full renderGrid() wipes and
+  // rebuilds the entire tbody, which destroys whatever input currently
+  // has focus — for the item field that meant the row (and the search
+  // picker button on it) got torn down after roughly every keystroke,
+  // which is what made item search appear completely broken. The item
+  // cell maintains its own display updates directly in onCellInput (the
+  // name cell beside it, and — since this bit was ALSO missed the first
+  // time — the Warehouse/UOM cells in the same row), so it never needs a
+  // blur-triggered rebuild.
+  function wireRowEvents(tr) {
+    tr.querySelectorAll('input[data-field]:not([data-field="item"])').forEach(el => {
+      el.addEventListener('input', onCellInput);
+      el.addEventListener('blur', () => { renderGrid(); updateTotal(); });
+    });
+    tr.querySelectorAll('input[data-field="item"]').forEach(el => {
+      el.addEventListener('input', onCellInput);
+    });
+    tr.querySelectorAll('select[data-field="warehouse"], select[data-field="uom"]').forEach(el => {
+      el.addEventListener('change', onCellInput);
+    });
+    tr.querySelectorAll('.prd-line-cc').forEach(sel => {
+      sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].CostCenterID = e.target.value; });
+    });
+    tr.querySelectorAll('.prd-line-pc').forEach(sel => {
+      sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].ProfitCenterID = e.target.value; });
+    });
+    tr.querySelectorAll('.prd-remove-row').forEach(btn => {
+      btn.addEventListener('click', () => {
+        isDirty = true;
+        const row = parseInt(btn.getAttribute('data-row'), 10);
+        gridLines.splice(row, 1);
+        renderGrid(); updateTotal();
+      });
+    });
+    tr.querySelectorAll('input[data-field="unitcost"]').forEach(input => {
+      input.addEventListener('focus', e => {
+        const row = parseInt(e.target.getAttribute('data-row'), 10);
+        const raw = gridLines[row].UnitCost;
+        e.target.value = (raw === '' || raw === 0) ? '' : String(raw);
+      });
+    });
+    tr.querySelectorAll('.prd-item-pick').forEach(btn => {
+      btn.addEventListener('click', () => openItemPicker(parseInt(btn.getAttribute('data-row'), 10)));
+    });
+  }
+
+  // Appends exactly one new trailing blank row to the DOM, WITHOUT
+  // touching any existing row — critical because a full renderGrid()
+  // would destroy whatever row (and item input) the user is currently
+  // typing into. This is what makes a new row actually appear as you
+  // fill in an item directly (not via the picker), since that path
+  // deliberately never triggers a full re-render.
+  function appendRowToDom() {
+    const tbody = document.getElementById('prd-grid-body');
+    const i = gridLines.length - 1;
+    const tr = document.createElement('tr');
+    tr.innerHTML = buildRowMarkup(gridLines[i], i, false);
+    tbody.appendChild(tr);
+    wireRowEvents(tr);
+  }
+
+  function renderGrid() {
+    ensureTrailingBlankRow();
+    const tbody = document.getElementById('prd-grid-body');
+    tbody.innerHTML = '';
+    // Same editable/read-only rule as the header form fields —
+    // PendingApproval is read-only too, not just Posted, so grid
+    // rows can't visually appear editable while awaiting a decision
+    // that a save would just be rejected for anyway.
+    const readOnly = currentProd && currentProd.Status !== 'Draft' && currentProd.Status !== 'Rejected';
+
+    gridLines.forEach((line, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = buildRowMarkup(line, i, readOnly);
+      tbody.appendChild(tr);
+    });
+
+    if (!readOnly) {
+      tbody.querySelectorAll('tr').forEach(tr => wireRowEvents(tr));
+    }
+
+    updateTotal();
+  }
+
+  function onCellInput(e) {
+    const row = parseInt(e.target.getAttribute('data-row'), 10);
+    const field = e.target.getAttribute('data-field');
+    let value = e.target.value;
+
+    if (field === 'item') {
+      // A native datalist selection sets the input's raw value to the
+      // FULL "Code — Name" option text, not just the code — itemByCode
+      // does an exact code comparison, so left as-is this would never
+      // match anything (UOM/Warehouse auto-fill silently failing) and
+      // the field would display the combined string instead of the
+      // code. Strip it back down to just the code before anything else,
+      // but only when that prefix is an actual real item code — this
+      // never fires on ordinary character-by-character typing, since
+      // typing would never happen to produce this exact combined
+      // pattern until a datalist option was actually picked.
+      const dashIndex = value.indexOf(' — ');
+      if (dashIndex !== -1 && itemByCode(value.substring(0, dashIndex))) {
+        value = value.substring(0, dashIndex);
+        e.target.value = value;
+      }
+      gridLines[row].ItemCode = value;
+      const matched = itemByCode(value);
+      const tr = e.target.closest('tr');
+      const nameCell = tr.querySelector('.prd-item-name');
+      nameCell.innerHTML = matched ? escapeHtml(matched.ItemName) : (value ? '<span class="text-red-400">not found</span>' : '');
+      if (matched) {
+        // Warehouse and UOM are SEPARATE elements in this row — they
+        // never get touched by a full renderGrid() here (that's the
+        // whole point: re-rendering while typing an item code destroys
+        // the field being typed into). So when either gets auto-set,
+        // update just that one element directly, matching how the name
+        // cell above already does it.
+        if (!gridLines[row].EnteredUOMID) {
+          gridLines[row].EnteredUOMID = matched.UOMID;
+          // UOM's <option> list is item-specific (base + optional
+          // alternate) — unlike Warehouse, this needs a full rebuild of
+          // THIS select's options, not just a value assignment, since a
+          // blank row's UOM select starts with no options at all.
+          const uomSelect = tr.querySelector('select[data-field="uom"]');
+          if (uomSelect) uomSelect.innerHTML = uomOptionsForItem(matched, matched.UOMID);
+        }
+        if (matched.DefaultWarehouseID && !gridLines[row].WarehouseID) {
+          gridLines[row].WarehouseID = matched.DefaultWarehouseID;
+          // Warehouse options are the same regardless of item, so they
+          // already exist — just set the value.
+          const whSelect = tr.querySelector('select[data-field="warehouse"]');
+          if (whSelect) whSelect.value = matched.DefaultWarehouseID;
+        }
+        // Unit Cost needs an async lookup (unlike UOM/Warehouse, which
+        // come straight off the matched item object) — resolved from
+        // Inventory Valuation List by the entry's own date, same
+        // "pre-fills but stays editable" reasoning as Sales Order's own
+        // Unit Price. Re-checks UnitCost is STILL empty inside the
+        // callback (not just before firing it) — the user may have
+        // typed a value manually by the time this resolves, and a
+        // stale response must never overwrite that.
+        if (gridLines[row].UnitCost === '' || gridLines[row].UnitCost === undefined) {
+          const companyId = document.getElementById('prd-form-company').value;
+          const txnDate = document.getElementById('prd-form-date').value;
+          rpc
+            .withSuccessHandler(cost => {
+              if (cost != null && (gridLines[row].UnitCost === '' || gridLines[row].UnitCost === undefined)) {
+                gridLines[row].UnitCost = cost;
+                const costInput = tr.querySelector('input[data-field="unitcost"]');
+                if (costInput) costInput.value = formatMoney(cost);
+                const totalCell = tr.querySelector('.prd-line-total');
+                if (totalCell) totalCell.textContent = formatMoney((parseFloat(String(gridLines[row].EnteredQuantity).replace(/,/g, '')) || 0) * cost);
+                updateTotal();
+              }
+            })
+            .withFailureHandler(() => {})
+            .getItemCostForProduction({ companyId: companyId, itemCode: matched.ItemCode, date: txnDate });
+        }
+      }
+      // Since this cell never triggers a blur re-render (see wireRowEvents'
+      // note), a newly-needed blank row must be added directly to the DOM
+      // here — appendRowToDom() only ever adds the ONE new row, leaving
+      // every existing row (including whatever's being typed into right
+      // now) completely untouched.
+      if (ensureTrailingBlankRow()) appendRowToDom();
+    } else if (field === 'warehouse') {
+      gridLines[row].WarehouseID = value;
+    } else if (field === 'uom') {
+      gridLines[row].EnteredUOMID = value;
+    } else if (field === 'description') {
+      gridLines[row].Description = value;
+    } else if (field === 'quantity') {
+      gridLines[row].EnteredQuantity = value.replace(/,/g, '');
+    } else if (field === 'unitcost') {
+      gridLines[row].UnitCost = value.replace(/,/g, '');
+    } else if (field === 'batch') {
+      gridLines[row].BatchNumber = value;
+    } else if (field === 'expiry') {
+      gridLines[row].ExpiryDate = value;
+    }
+    updateTotal();
+  }
+
+  function updateTotal() {
+    let total = 0;
+    gridLines.forEach(l => { total += (parseFloat(String(l.EnteredQuantity).replace(/,/g, '')) || 0) * (parseFloat(String(l.UnitCost).replace(/,/g, '')) || 0); });
+    document.getElementById('prd-total-value').textContent = formatMoney(total);
+  }
+
+  function allLineDescriptionsFilled() {
+    return gridLines.every(l => !l.ItemCode || String(l.Description || '').trim());
+  }
+
+  function allBatchNumbersFilled() {
+    return gridLines.every(l => {
+      if (!l.ItemCode) return true;
+      const item = itemByCode(l.ItemCode);
+      if (!item || !item.BatchTracked) return true;
+      return Boolean(String(l.BatchNumber || '').trim());
+    });
+  }
+
+  // ---------- PASTE FROM EXCEL ----------
+  // Columns: Item Code / Warehouse Code / Description / UOM Code /
+  // Quantity / Unit Cost / Batch No / Expiry Date / Cost Center Code /
+  // Profit Center Code — matches COLUMNS above, and the visible grid's
+  // editable-column left-to-right order (skipping the two display-only
+  // columns, Item Name and Total Value).
+
+  function distributePastedText(text, startRow, startCol) {
+    isDirty = true;
+    const rows = text.replace(/\r/g, '').split('\n').filter((r, idx, arr) => !(idx === arr.length - 1 && r === ''));
+
+    rows.forEach((rowText, r) => {
+      const cells = rowText.split('\t');
+      const targetRow = startRow + r;
+      while (gridLines.length <= targetRow) gridLines.push(blankLine());
+
+      cells.forEach((cellText, c) => {
+        const targetCol = startCol + c;
+        if (targetCol >= COLUMNS.length) return;
+        const field = COLUMNS[targetCol];
+        const value = cellText.trim();
+
+        if (field === 'item') {
+          // Same "Code — Name" stripping as onCellInput — see that
+          // comment for why. Handles pasting text copied from somewhere
+          // that includes the item name alongside the code.
+          const dashIndex = value.indexOf(' — ');
+          const stripped = (dashIndex !== -1 && itemByCode(value.substring(0, dashIndex))) ? value.substring(0, dashIndex) : value;
+          gridLines[targetRow].ItemCode = stripped;
+          const matched = itemByCode(stripped);
+          if (matched) {
+            if (!gridLines[targetRow].EnteredUOMID) gridLines[targetRow].EnteredUOMID = matched.UOMID;
+            if (matched.DefaultWarehouseID && !gridLines[targetRow].WarehouseID) gridLines[targetRow].WarehouseID = matched.DefaultWarehouseID;
+          }
+        } else if (field === 'warehouse') {
+          if (value) {
+            const wh = orgUnits.find(u => u.Type === 'Warehouse' && String(u.Code).toLowerCase() === value.toLowerCase());
+            gridLines[targetRow].WarehouseID = wh ? wh.UnitID : '';
+          }
+        } else if (field === 'description') {
+          gridLines[targetRow].Description = value;
+        } else if (field === 'uom') {
+          if (value) {
+            const uom = uoms.find(u => String(u.Code).toLowerCase() === value.toLowerCase());
+            if (uom) gridLines[targetRow].EnteredUOMID = uom.UOMID;
+          }
+        } else if (field === 'quantity') {
+          const cleaned = value.replace(/,/g, '');
+          gridLines[targetRow].EnteredQuantity = cleaned === '' ? '' : (parseFloat(cleaned) || 0);
+        } else if (field === 'unitcost') {
+          const cleaned = value.replace(/,/g, '');
+          gridLines[targetRow].UnitCost = cleaned === '' ? '' : (parseFloat(cleaned) || 0);
+        } else if (field === 'batch') {
+          gridLines[targetRow].BatchNumber = value;
+        } else if (field === 'expiry') {
+          gridLines[targetRow].ExpiryDate = value;
+        } else if (field === 'costcenter') {
+          if (value) {
+            const cc = orgUnits.find(u => u.Type === 'CostCenter' && String(u.Code).toLowerCase() === value.toLowerCase());
+            gridLines[targetRow].CostCenterID = cc ? cc.UnitID : '';
+          }
+        } else if (field === 'profitcenter') {
+          if (value) {
+            const pc = orgUnits.find(u => u.Type === 'ProfitCenter' && String(u.Code).toLowerCase() === value.toLowerCase());
+            gridLines[targetRow].ProfitCenterID = pc ? pc.UnitID : '';
+          }
+        }
+      });
+    });
+
+    renderGrid();
+    updateTotal();
+  }
+
+  function handleGridPaste(e) {
+    const input = e.target;
+    if (!input.matches('input[data-row]')) return;
+    const clipboard = (e.clipboardData || window.clipboardData);
+    if (!clipboard) return;
+    const text = clipboard.getData('text');
+    if (!text || (!text.includes('\t') && !text.includes('\n'))) return; // single value — let default paste happen
+
+    e.preventDefault();
+    const row = parseInt(input.getAttribute('data-row'), 10);
+    const col = parseInt(input.getAttribute('data-col'), 10);
+    distributePastedText(text, row, col);
+  }
+
+  function handlePasteButton() {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      alert('Your browser blocked clipboard access here — click into a cell in the grid and paste directly (Ctrl+V / Cmd+V) instead.');
+      return;
+    }
+    navigator.clipboard.readText().then(text => {
+      if (!text) return;
+      distributePastedText(text, 0, 0);
+    }).catch(() => {
+      alert('Unable to read the clipboard. Click into a cell in the grid and paste directly instead.');
+    });
+  }
+
+  function handleCopyButton() {
+    const rows = gridLines
+      .filter(l => l.ItemCode || l.EnteredQuantity || l.UnitCost)
+      .map(l => {
+        const wh = orgUnits.find(u => u.UnitID === l.WarehouseID);
+        const uom = uomById(l.EnteredUOMID);
+        const cc = orgUnits.find(u => u.UnitID === l.CostCenterID);
+        const pc = orgUnits.find(u => u.UnitID === l.ProfitCenterID);
+        return [
+          l.ItemCode, wh ? wh.Code : '', l.Description, uom ? uom.Code : '',
+          l.EnteredQuantity === '' ? '' : l.EnteredQuantity,
+          l.UnitCost === '' ? '' : fmt(l.UnitCost),
+          l.BatchNumber || '', l.ExpiryDate || '',
+          cc ? cc.Code : '', pc ? pc.Code : ''
+        ].join('\t');
+      });
+    const text = rows.join('\n');
+    if (!text) { alert('Nothing to copy yet.'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => flashCopyButton()).catch(() => fallbackCopyPrompt(text));
+    } else {
+      fallbackCopyPrompt(text);
+    }
+  }
+
+  // ---------- GL IMPACT VIEWER ----------
+
+  function openGlImpact() {
+    if (!currentProd || !currentProd.LinkedJVID) return;
+    document.getElementById('prd-gl-modal-subtitle').textContent = '';
+    document.getElementById('prd-gl-modal-body').innerHTML = '<div class="text-center text-slate-500 py-4">Loading...</div>';
+    document.getElementById('prd-gl-modal').classList.remove('hidden');
+    rpc
+      .withSuccessHandler(entry => renderGlImpact(entry))
+      .withFailureHandler(err => {
+        document.getElementById('prd-gl-modal-body').innerHTML = '<div class="text-center text-red-400 py-4">' + escapeHtml(err.message || 'Unable to load GL entry.') + '</div>';
+      })
+      .getJournalEntryDetail({ jvId: currentProd.LinkedJVID });
+  }
+
+  function renderGlImpact(entry) {
+    document.getElementById('prd-gl-modal-subtitle').textContent = entry.JVNumber + ' — ' + entry.JVDate;
+    const rows = entry.Lines.map(l => `
+      <tr class="border-b border-slate-700">
+        <td class="py-2 px-3 font-mono text-xs text-slate-300">${escapeHtml(l.AccountCode)}</td>
+        <td class="py-2 px-3 text-sm text-slate-200">${escapeHtml(l.AccountName)}</td>
+        <td class="py-2 px-3 text-sm text-right font-mono ${l.Debit ? 'text-slate-200' : 'text-slate-600'}">${l.Debit ? formatMoney(l.Debit) : '—'}</td>
+        <td class="py-2 px-3 text-sm text-right font-mono ${l.Credit ? 'text-slate-200' : 'text-slate-600'}">${l.Credit ? formatMoney(l.Credit) : '—'}</td>
+      </tr>`).join('');
+    document.getElementById('prd-gl-modal-body').innerHTML = `
+      <p class="text-sm text-slate-300 mb-3">${escapeHtml(entry.Description)}</p>
+      <table class="w-full text-left">
+        <thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Account</th><th class="py-2 px-3">Name</th><th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr class="font-medium border-t border-slate-600"><td class="py-2 px-3" colspan="2">Total</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalDebit)}</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalCredit)}</td></tr></tfoot>
+      </table>`;
+  }
+
+  function closeGlImpact() {
+    document.getElementById('prd-gl-modal').classList.add('hidden');
+  }
+
+  function flashCopyButton() {
+    const btn = document.getElementById('prd-copy-btn');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
+  }
+
+  function fallbackCopyPrompt(text) {
+    window.prompt('Copy this text (Ctrl+C / Cmd+C, then Enter):', text);
+  }
+
+  // ---------- ENTRY LOAD / SAVE / POST / REVERSE / DUPLICATE ----------
+
+  function openEntry(prodId) {
+    currentProd = entries.find(e => e.ProductionID === prodId) || null;
+    if (!currentProd) return;
+
+    gridLines = (currentProd.Lines || []).map(l => {
+      const item = itemById(l.ItemID);
+      return {
+        ItemCode: item ? item.ItemCode : (l.ItemCode || ''),
+        WarehouseID: l.WarehouseID, Description: l.Description,
+        EnteredUOMID: l.EnteredUOMID, EnteredQuantity: l.EnteredQuantity, UnitCost: l.UnitCost,
+        BatchNumber: l.BatchNumber || '', ExpiryDate: l.ExpiryDate || '',
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+      };
+    });
+
+    document.getElementById('prd-form-company').value = currentProd.CompanyID || '';
+    document.getElementById('prd-form-date').value = currentProd.TransactionDate || '';
+    document.getElementById('prd-form-reference').value = currentProd.Reference || '';
+    document.getElementById('prd-form-description').value = currentProd.Description || '';
+    document.getElementById('prd-form-division').value = currentProd.DivisionID || '';
+    document.getElementById('prd-form-branch').value = currentProd.BranchID || '';
+    document.getElementById('prd-form-costcenter').value = currentProd.CostCenterID || '';
+    document.getElementById('prd-form-profitcenter').value = currentProd.ProfitCenterID || '';
+    updateCompanyRequiredNote(currentProd.JobOrderID || '');
+
+    showEntryView();
+  }
+
+  function newEntry() {
+    currentProd = null;
+    gridLines = [];
+    document.getElementById('prd-form-company').value = '';
+    document.getElementById('prd-form-date').value = today();
+    document.getElementById('prd-form-reference').value = '';
+    document.getElementById('prd-form-description').value = '';
+    document.getElementById('prd-form-division').value = '';
+    document.getElementById('prd-form-branch').value = '';
+    document.getElementById('prd-form-costcenter').value = '';
+    document.getElementById('prd-form-profitcenter').value = '';
+    updateCompanyRequiredNote('');
+    showEntryView();
+  }
+
+  // Copies an existing Production Entry's lines and dimensions into a fresh, unsaved
+  // draft — same pattern as JV/CBT's duplicate. Date resets to today;
+  // Reference and Description are cleared. Works for both Draft and
+  // Posted source entries.
+  function duplicateEntry(prodId) {
+    const source = entries.find(e => e.ProductionID === prodId);
+    if (!source) return;
+
+    const proceed = () => {
+      currentProd = null;
+      gridLines = (source.Lines || []).map(l => {
+        const item = itemById(l.ItemID);
+        return {
+          ItemCode: item ? item.ItemCode : (l.ItemCode || ''),
+          WarehouseID: l.WarehouseID, Description: l.Description,
+          EnteredUOMID: l.EnteredUOMID, EnteredQuantity: l.EnteredQuantity, UnitCost: l.UnitCost,
+          BatchNumber: l.BatchNumber || '', ExpiryDate: l.ExpiryDate || '',
+          CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+        };
+      });
+
+      document.getElementById('prd-form-company').value = source.CompanyID || '';
+      document.getElementById('prd-form-date').value = today();
+      document.getElementById('prd-form-reference').value = '';
+      document.getElementById('prd-form-description').value = '';
+      document.getElementById('prd-form-division').value = source.DivisionID || '';
+      document.getElementById('prd-form-branch').value = source.BranchID || '';
+      document.getElementById('prd-form-costcenter').value = source.CostCenterID || '';
+      document.getElementById('prd-form-profitcenter').value = source.ProfitCenterID || '';
+      // Job Order link deliberately NOT carried forward — same
+      // treatment as Reference/Description above. A duplicate is a new,
+      // separate production run; the source's Job Order (if any) may
+      // already be fulfilled or no longer eligible by the time this
+      // duplicate is actually posted, so this always starts unlinked
+      // rather than silently double-counting against it.
+      document.getElementById('prd-form-joborder').value = '';
+      updateCompanyRequiredNote('');
+      showEntryView();
+    };
+
+    if (isDirty && !document.getElementById('prd-entry-view').classList.contains('hidden')) {
+      showConfirm('You have unsaved changes. Discard them and duplicate this entry instead?', proceed, { title: 'Unsaved Changes' });
+    } else {
+      proceed();
+    }
+  }
+
+  // Populates the print-only company letterhead (hidden on screen, shown
+  // only via the .print-only/@media print rule) from whichever company
+  // is currently relevant — the entry's own CompanyID once one exists,
+  // or the form's current selection for a still-unsaved new entry.
+  function updatePrintHeader() {
+    const companyId = currentProd ? currentProd.CompanyID : document.getElementById('prd-form-company').value;
+    const company = companies.find(c => c.CompanyID === companyId);
+    document.getElementById('prd-print-company-name').textContent = company ? company.LegalName : '';
+    const addressParts = company ? [company.AddressLine1, company.AddressLine2].filter(Boolean) : [];
+    document.getElementById('prd-print-company-address').textContent = addressParts.join(', ');
+  }
+
+  // Same approach as GRN's print document — Production's grid shape is
+  // identical to GRN's (Unit Cost + Total Value both present), so this
+  // mirrors it directly rather than needing MI's "value may be unknown"
+  // handling.
+  function buildPrintDocument() {
+    const container = document.getElementById('prd-print-document');
+    if (!container) return;
+
+    const voucherNo = currentProd && currentProd.TransactionNumber ? currentProd.TransactionNumber : 'DRAFT';
+    const date = document.getElementById('prd-form-date').value || '';
+    const reference = document.getElementById('prd-form-reference').value || '';
+    const description = document.getElementById('prd-form-description').value || '';
+
+    const validLines = gridLines.filter(l => l.ItemCode);
+    const rows = validLines.map((l, i) => {
+      const item = itemByCode(l.ItemCode);
+      const wh = orgUnits.find(u => u.UnitID === l.WarehouseID);
+      const uom = uomById(l.EnteredUOMID);
+      const qty = Number(l.EnteredQuantity) || 0;
+      const unitCost = Number(l.UnitCost) || 0;
+      const lineTotal = l.TotalValue != null ? l.TotalValue : qty * unitCost;
+      return `<tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(l.ItemCode)}</td>
+        <td>${item ? escapeHtml(item.ItemName) : ''}</td>
+        <td>${wh ? escapeHtml(wh.Code) : ''}</td>
+        <td>${uom ? escapeHtml(uom.Code) : ''}</td>
+        <td style="text-align:right">${formatMoney(qty)}</td>
+        <td style="text-align:right">${formatMoney(unitCost)}</td>
+        <td style="text-align:right">${formatMoney(lineTotal)}</td>
+      </tr>`;
+    }).join('');
+
+    const grandTotal = validLines.reduce((sum, l) => {
+      const qty = Number(l.EnteredQuantity) || 0;
+      const unitCost = Number(l.UnitCost) || 0;
+      return sum + (l.TotalValue != null ? l.TotalValue : qty * unitCost);
+    }, 0);
+
+    container.innerHTML = `
+      <h2 style="text-align:center; font-size:16px; font-weight:bold; text-decoration:underline; margin:8px 0 16px;">PRODUCTION ENTRY VOUCHER</h2>
+      <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+        <span>Voucher No: <strong>${escapeHtml(voucherNo)}</strong></span>
+        <span>Date: <strong>${escapeHtml(date)}</strong></span>
+      </div>
+      <div style="font-size:11px; margin-bottom:16px;">
+        <span>Reference: ${escapeHtml(reference) || '—'}</span>
+      </div>
+      <p style="font-size:11px; margin-bottom:12px;">Description: ${escapeHtml(description)}</p>
+      <table>
+        <thead><tr>
+          <th>#</th><th>Item Code</th><th>Item Name</th><th>Warehouse</th><th>UOM</th>
+          <th style="text-align:right">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="8" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
+        <tfoot><tr><td colspan="7" style="text-align:right; font-weight:bold;">Grand Total</td><td style="text-align:right; font-weight:bold;">${formatMoney(grandTotal)}</td></tr></tfoot>
+      </table>
+      <div style="display:flex; justify-content:space-between; margin-top:60px; font-size:11px;">
+        <div>Prepared By: _________________</div>
+        <div>Checked By: _________________</div>
+        <div>Approved By: _________________</div>
+      </div>
+      <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>
+    `;
+  }
+
+  function showEntryView() {
+    document.getElementById('prd-list-view').classList.add('hidden');
+    document.getElementById('prd-entry-view').classList.remove('hidden');
+    document.getElementById('prd-form-error').classList.add('hidden');
+    document.getElementById('prd-back-chain-btn').classList.toggle('hidden', !myReturnChain.length);
+    cancelDescriptionEdit();
+
+    // Rejected is editable too, same as Draft — a resubmission reuses
+    // this exact save/post path, same as every other module's own
+    // identical fix.
+    const posted = currentProd && currentProd.Status === 'Posted';
+    const editableStatus = !currentProd || currentProd.Status === 'Draft' || currentProd.Status === 'Rejected';
+    const readOnly = currentProd && !editableStatus;
+    const isNew = !currentProd;
+    updatePrintHeader();
+
+    document.getElementById('prd-entry-title').textContent = isNew ? 'New Production Entry' : (currentProd.TransactionNumber || 'Draft Production Entry');
+    document.getElementById('prd-voucher-no-line').textContent = isNew ? '' : 'Voucher No.: ' + (currentProd.TransactionNumber || '(assigned when posted)');
+
+    const txnRefLine = document.getElementById('prd-txn-ref-line');
+    if (!isNew && currentProd.TransactionRef) {
+      txnRefLine.textContent = 'Stock Transaction Ref: ' + currentProd.TransactionRef;
+      txnRefLine.classList.remove('hidden');
+    } else {
+      txnRefLine.classList.add('hidden');
+    }
+
+    const badge = document.getElementById('prd-status-badge');
+    if (isNew) {
+      badge.classList.add('hidden');
+    } else {
+      badge.classList.remove('hidden');
+      const colors = {
+        Draft: 'bg-slate-700 text-slate-300', PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+        Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20',
+        Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+      };
+      const labels = { PendingApproval: 'Pending Approval', Posted: currentProd.ReversedByProduction ? 'Posted (Reversed)' : 'Posted' };
+      badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (colors[currentProd.Status] || colors.Draft);
+      badge.textContent = labels[currentProd.Status] || currentProd.Status;
+    }
+
+    document.getElementById('prd-rejection-banner').classList.toggle('hidden', !currentProd || currentProd.Status !== 'Rejected');
+    if (currentProd && currentProd.Status === 'Rejected') {
+      document.getElementById('prd-rejection-reason').textContent = currentProd.RejectionReason || '(no reason given)';
+    }
+
+    document.getElementById('prd-my-approval-banner').classList.add('hidden');
+    if (currentProd && currentProd.Status === 'PendingApproval' && canPost) {
+      rpc
+        .withSuccessHandler(levelNumber => {
+          if (levelNumber) {
+            document.getElementById('prd-my-approval-banner').classList.remove('hidden');
+            document.getElementById('prd-my-approval-banner').dataset.level = levelNumber;
+          }
+        })
+        .withFailureHandler(() => {})
+        .getMyPendingApprovalLevel({ approvalInstanceId: currentProd.ApprovalInstanceID });
+    }
+
+    document.getElementById('prd-print-btn').classList.toggle('hidden', !posted);
+    document.getElementById('prd-gl-impact-btn').classList.toggle('hidden', !(posted && currentProd && currentProd.LinkedJVID));
+    ['prd-form-company', 'prd-form-date', 'prd-form-reference', 'prd-form-division', 'prd-form-branch', 'prd-form-costcenter', 'prd-form-profitcenter', 'prd-form-joborder'].forEach(id => {
+      document.getElementById(id).disabled = readOnly;
+    });
+    document.getElementById('prd-desc-edit-btn').classList.toggle('hidden', !(posted && canPost));
+
+    document.getElementById('prd-add-line-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('prd-paste-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('prd-save-draft-btn').classList.toggle('hidden', !editableStatus || !canDraft);
+    document.getElementById('prd-post-btn').classList.toggle('hidden', !editableStatus || !canPost);
+    document.getElementById('prd-delete-btn').classList.toggle('hidden', (!currentProd || currentProd.Status !== 'Draft') || !canDraft);
+    document.getElementById('prd-duplicate-btn').classList.toggle('hidden', isNew || !canDraft);
+    document.getElementById('prd-reverse-btn').classList.toggle('hidden', !posted || Boolean(currentProd && currentProd.ReversedByProduction) || !canPost);
+
+    renderGrid();
+    isDirty = false;
+  }
+
+  // ---------- EDIT DESCRIPTION AFTER POSTING ----------
+
+  function startDescriptionEdit() {
+    document.getElementById('prd-form-description').disabled = false;
+    document.getElementById('prd-form-description').focus();
+    document.getElementById('prd-desc-edit-btn').classList.add('hidden');
+    document.getElementById('prd-desc-save-btn').classList.remove('hidden');
+    document.getElementById('prd-desc-cancel-btn').classList.remove('hidden');
+  }
+
+  function cancelDescriptionEdit() {
+    if (currentProd) document.getElementById('prd-form-description').value = currentProd.Description || '';
+    document.getElementById('prd-form-description').disabled = Boolean(currentProd && currentProd.Status === 'Posted');
+    document.getElementById('prd-desc-save-btn').classList.add('hidden');
+    document.getElementById('prd-desc-cancel-btn').classList.add('hidden');
+    document.getElementById('prd-desc-edit-btn').classList.toggle('hidden', !(currentProd && currentProd.Status === 'Posted' && canPost));
+  }
+
+  function saveDescriptionEdit() {
+    const newDescription = document.getElementById('prd-form-description').value.trim();
+    if (!newDescription) { alert('Description is required.'); return; }
+    const btn = document.getElementById('prd-desc-save-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { currentProd.Description = newDescription; cancelDescriptionEdit(); }
+        else alert(result.error || 'Unable to update description.');
+      })
+      .withFailureHandler(err => { btn.disabled = false; btn.textContent = original; alert(err.message || 'Unable to update description.'); })
+      .updatePostedDescription({ jvId: currentProd.LinkedJVID, description: newDescription });
+  }
+
+  function collectHeader() {
+    return {
+      ProductionID: currentProd ? currentProd.ProductionID : '',
+      TransactionDate: document.getElementById('prd-form-date').value,
+      Reference: document.getElementById('prd-form-reference').value.trim(),
+      Description: document.getElementById('prd-form-description').value.trim(),
+      CompanyID: document.getElementById('prd-form-company').value,
+      DivisionID: document.getElementById('prd-form-division').value,
+      BranchID: document.getElementById('prd-form-branch').value,
+      CostCenterID: document.getElementById('prd-form-costcenter').value,
+      ProfitCenterID: document.getElementById('prd-form-profitcenter').value,
+      JobOrderID: document.getElementById('prd-form-joborder').value,
+      Lines: gridLines.map(l => ({
+        ItemID: (itemByCode(l.ItemCode) || {}).ItemID || '',
+        WarehouseID: l.WarehouseID, Description: l.Description,
+        EnteredUOMID: l.EnteredUOMID, EnteredQuantity: l.EnteredQuantity, UnitCost: l.UnitCost,
+        BatchNumber: l.BatchNumber, ExpiryDate: l.ExpiryDate,
+        CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID
+      }))
+    };
+  }
+
+  function saveDraft() {
+    const error = document.getElementById('prd-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('prd-form-company').value) { error.textContent = 'Select a Company for this transaction.'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allBatchNumbersFilled()) { error.textContent = 'Batch-tracked items require a batch number.'; error.classList.remove('hidden'); renderGrid(); return; }
+    const btn = document.getElementById('prd-save-draft-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { isDirty = false; showListView(); }
+        else { error.textContent = result.error || 'Unable to save draft.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.textContent = original;
+        error.textContent = err.message || 'Unable to save draft.'; error.classList.remove('hidden');
+      })
+      .saveProductionDraft({ prodData: collectHeader() });
+  }
+
+  function postEntry() {
+    const error = document.getElementById('prd-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('prd-form-company').value) { error.textContent = 'Select a Company for this transaction.'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allBatchNumbersFilled()) { error.textContent = 'Batch-tracked items require a batch number.'; error.classList.remove('hidden'); renderGrid(); return; }
+
+    // Soft confirmation only — never a hard block. An in-flight batch
+    // may not be stoppable mid-run, so Production Entries stay postable
+    // against a Job Order with a pending Stop Request; this just makes
+    // sure whoever's posting has actually noticed before proceeding.
+    // Checked per produced item against the selected batch's own
+    // lines — a batch can have some lines Stop Requested and others
+    // not, so this isn't a single yes/no on the batch as a whole.
+    const linkedBatchId = document.getElementById('prd-form-joborder').value;
+    const linkedBatch = eligibleJobOrders.find(b => b.BatchID === linkedBatchId);
+    const anyStopRequested = Boolean(linkedBatch) && gridLines.some(line =>
+      line.ItemCode && (linkedBatch.Lines || []).some(bl => bl.ItemCode === line.ItemCode && bl.Status === 'Stop Requested')
+    );
+    let confirmMessage = 'Post this Production Entry?\n\nOnce posted it becomes permanent, updates stock on hand, and can only be undone with a reversal.';
+    if (anyStopRequested) {
+      confirmMessage += '\n\nOne or more items here belong to a Job Order line with a pending Stop Request — only proceed if this entry completes work already underway.';
+    }
+
+    showConfirm(confirmMessage, () => {
+      const btn = document.getElementById('prd-post-btn');
+      btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Posting...';
+      rpc
+        .withSuccessHandler(saveResult => {
+          if (!saveResult.success) {
+            btn.disabled = false; btn.innerHTML = original;
+            error.textContent = saveResult.error || 'Unable to save before posting.'; error.classList.remove('hidden');
+            return;
+          }
+          if (!currentProd) currentProd = { ProductionID: saveResult.prodId, Status: 'Draft' };
+          else currentProd.ProductionID = saveResult.prodId;
+
+          rpc
+            .withSuccessHandler(postResult => {
+              btn.disabled = false; btn.innerHTML = original;
+              if (postResult.success) { isDirty = false; showListView(); }
+              else { error.textContent = postResult.error || 'Unable to post Production Entry.'; error.classList.remove('hidden'); }
+            })
+            .withFailureHandler(err => {
+              btn.disabled = false; btn.innerHTML = original;
+              error.textContent = err.message || 'Unable to post Production Entry.'; error.classList.remove('hidden');
+            })
+            .postProduction({ prodId: saveResult.prodId });
+        })
+        .withFailureHandler(err => {
+          btn.disabled = false; btn.innerHTML = original;
+          error.textContent = err.message || 'Unable to save before posting.'; error.classList.remove('hidden');
+        })
+        .saveProductionDraft({ prodData: collectHeader() });
+    }, { title: 'Post Production' });
+  }
+
+  function deleteCurrentDraft() {
+    if (!currentProd) return;
+    showConfirm('Delete this draft Production Entry? This cannot be undone.', () => {
+      rpc
+        .withSuccessHandler(result => { if (result.success) { isDirty = false; showListView(); } else alert(result.error || 'Unable to delete draft.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
+        .deleteProductionDraft({ prodId: currentProd.ProductionID });
+    }, { title: 'Delete Draft' });
+  }
+
+  function decide(decision) {
+    const levelNumber = parseInt(document.getElementById('prd-my-approval-banner').dataset.level, 10);
+    const reason = document.getElementById('prd-decision-reason').value.trim();
+    const error = document.getElementById('prd-decision-error');
+    error.classList.add('hidden');
+    if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
+    showConfirm((decision === 'Approved' ? 'Approve' : 'Reject') + ' this Production entry?' + (decision === 'Approved' ? ' This will update stock and post to the GL.' : ''), () => {
+      rpc
+        .withSuccessHandler(result => {
+          if (result.success) { isDirty = false; showListView(); }
+          else { error.textContent = result.error || 'Unable to record decision.'; error.classList.remove('hidden'); }
+        })
+        .withFailureHandler(err => { error.textContent = err.message || 'Unable to record decision.'; error.classList.remove('hidden'); })
+        .decideProductionApproval({ prodId: currentProd.ProductionID, levelNumber: levelNumber, decision: decision, reason: reason });
+    }, { title: decision === 'Approved' ? 'Approve' : 'Reject' });
+  }
+
+  function reverseCurrentEntry() {
+    if (!currentProd) return;
+    showConfirm('Reverse this posted Production Entry? This takes the produced item back out of inventory — it will fail if some of it has already been issued, sold, or consumed elsewhere. The original stays on record.', (date) => {
+      rpc
+        .withSuccessHandler(result => {
+          if (result.success) { alert('Reversal posted as ' + result.grnNumber + '.'); isDirty = false; showListView(); }
+          else alert(result.error || 'Unable to reverse Production Entry.');
+        })
+        .withFailureHandler(err => alert(err.message || 'Unable to reverse Production Entry.'))
+        .reverseProduction({ prodId: currentProd.ProductionID, reversalDate: date });
+    }, { title: 'Reverse Production', needsDate: true, defaultDate: today() });
+  }
+
+  // ---------- REFERENCE DATA ----------
+
+  function populateOrgUnitSelect(selectId, type) {
+    const select = document.getElementById(selectId);
+    const previous = select.value;
+    select.innerHTML = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.UnitID; opt.textContent = u.Code + ' — ' + u.Name;
+        select.appendChild(opt);
+      });
+    if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  }
+
+  function loadReferenceData() {
+    rpc
+      .withSuccessHandler(result => { items = result || []; updateCompanyRequiredNote(); })
+      .withFailureHandler(err => console.error(err))
+      .getActiveItems();
+
+    rpc
+      .withSuccessHandler(result => { uoms = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getActiveUOMs();
+
+    rpc
+      .withSuccessHandler(result => {
+        companies = result || [];
+        // Reference code shown alongside the name so two companies that
+        // happen to share a display name — e.g. two "NEXUS PRODUCTION
+        // LLC" records created at different times — are immediately
+        // distinguishable, rather than silently colliding in the
+        // dropdown with no way to tell them apart.
+        const label = c => c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '');
+        const select = document.getElementById('prd-form-company');
+        select.innerHTML = '<option value="">Select a company...</option>';
+        companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+          const opt = document.createElement('option'); opt.value = c.CompanyID; opt.textContent = label(c);
+          select.appendChild(opt);
+        });
+        const filterSelect = document.getElementById('prd-company-filter');
+        filterSelect.innerHTML = '<option value="">All Companies</option>';
+        companies.forEach(c => {
+          const opt = document.createElement('option'); opt.value = c.CompanyID; opt.textContent = label(c);
+          filterSelect.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+
+    rpc
+      .withSuccessHandler(result => {
+        orgUnits = result || [];
+        populateOrgUnitSelect('prd-form-division', 'Division');
+        populateOrgUnitSelect('prd-form-branch', 'Branch');
+        populateOrgUnitSelect('prd-form-costcenter', 'CostCenter');
+        populateOrgUnitSelect('prd-form-profitcenter', 'ProfitCenter');
+        if (!document.getElementById('prd-entry-view').classList.contains('hidden')) renderGrid();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits();
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    rpc
+      .withSuccessHandler(perm => {
+        canDraft = Boolean(perm.canDraft);
+        canPost = Boolean(perm.canPost);
+        document.getElementById('prd-new-btn').classList.toggle('hidden', !canDraft);
+        if (canDraft) document.getElementById('prd-new-btn').addEventListener('click', newEntry);
+        renderList();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getModulePermissionsForUser({ moduleId: 'PRODUCTION' });
+
+    loadReferenceData();
+
+    document.getElementById('prd-search-input').addEventListener('input', renderList);
+    document.getElementById('prd-company-filter').addEventListener('change', renderList);
+    document.getElementById('prd-status-filter').addEventListener('change', renderList);
+    document.getElementById('prd-from-filter').addEventListener('change', renderList);
+    document.getElementById('prd-to-filter').addEventListener('change', renderList);
+
+    document.getElementById('prd-back-btn').addEventListener('click', goBackToList);
+    document.getElementById('prd-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });
+    document.getElementById('prd-gl-impact-btn').addEventListener('click', openGlImpact);
+    document.getElementById('prd-gl-modal-close').addEventListener('click', closeGlImpact);
+    document.getElementById('prd-gl-modal').addEventListener('click', e => { if (e.target.id === 'prd-gl-modal') closeGlImpact(); });
+    document.getElementById('prd-add-line-btn').addEventListener('click', () => {
+      isDirty = true;
+      gridLines.push(blankLine());
+      renderGrid();
+    });
+    document.getElementById('prd-paste-btn').addEventListener('click', handlePasteButton);
+    document.getElementById('prd-copy-btn').addEventListener('click', handleCopyButton);
+    document.getElementById('prd-grid-table').addEventListener('paste', handleGridPaste, true);
+    document.getElementById('prd-save-draft-btn').addEventListener('click', saveDraft);
+    document.getElementById('prd-post-btn').addEventListener('click', postEntry);
+    // Same fix as JV/CBT/GRN/MI/PC's own identical bug: the header
+    // Cost Center/Profit Center fields are "(line default)", but
+    // previously only ever applied to a NEW line, never an
+    // already-existing one. Now fills any existing line whose own
+    // value is still empty — never overwrites one already deliberately set.
+    document.getElementById('prd-form-costcenter').addEventListener('change', () => {
+      const headerValue = currentHeaderCostCenter();
+      if (!headerValue) return;
+      gridLines.forEach(line => { if (!line.CostCenterID) line.CostCenterID = headerValue; });
+      renderGrid();
+    });
+    document.getElementById('prd-form-profitcenter').addEventListener('change', () => {
+      const headerValue = currentHeaderProfitCenter();
+      if (!headerValue) return;
+      gridLines.forEach(line => { if (!line.ProfitCenterID) line.ProfitCenterID = headerValue; });
+      renderGrid();
+    });
+    document.getElementById('prd-delete-btn').addEventListener('click', deleteCurrentDraft);
+    document.getElementById('prd-approve-btn').addEventListener('click', () => decide('Approved'));
+    document.getElementById('prd-reject-btn').addEventListener('click', () => decide('Rejected'));
+    document.getElementById('prd-duplicate-btn').addEventListener('click', () => duplicateEntry(currentProd.ProductionID));
+    document.getElementById('prd-reverse-btn').addEventListener('click', reverseCurrentEntry);
+    document.getElementById('prd-form-company').addEventListener('change', () => updateCompanyRequiredNote());
+    document.getElementById('prd-form-company').addEventListener('change', updatePrintHeader);
+    document.getElementById('prd-form-joborder').addEventListener('change', () => { updateJobOrderStopNote(); populateItemDatalist(); });
+    document.getElementById('prd-item-modal-close').addEventListener('click', closeItemPicker);
+    document.getElementById('prd-item-modal').addEventListener('click', e => {
+      // Click the dark backdrop (not the dialog itself) to dismiss.
+      if (e.target.id === 'prd-item-modal') closeItemPicker();
+    });
+    document.getElementById('prd-item-search').addEventListener('input', e => renderItemResults(e.target.value));
+    document.getElementById('prd-item-search').addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeItemPicker();
+      // Enter picks the single remaining match — quickest path when a
+      // search has narrowed to exactly one item.
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const options = document.querySelectorAll('#prd-item-results .prd-item-option');
+        if (options.length === 1) options[0].click();
+      }
+    });
+    document.getElementById('prd-desc-edit-btn').addEventListener('click', startDescriptionEdit);
+    document.getElementById('prd-desc-save-btn').addEventListener('click', saveDescriptionEdit);
+    document.getElementById('prd-desc-cancel-btn').addEventListener('click', cancelDescriptionEdit);
+
+    document.getElementById('prd-entry-view').addEventListener('input', () => { isDirty = true; });
+    document.getElementById('prd-entry-view').addEventListener('change', () => { isDirty = true; });
+
+    // Keeps any still-untouched line's Description in sync with the
+    // header Description as the user types it — see JV.html's identical
+    // comment for the reasoning.
+    document.getElementById('prd-form-description').addEventListener('input', () => {
+      const value = document.getElementById('prd-form-description').value;
+      let changed = false;
+      gridLines.forEach(l => { if (!l.ItemCode && !l.EnteredQuantity && !l.UnitCost) { l.Description = value; changed = true; } });
+      if (changed) renderGrid();
+    });
+
+    window.hasUnsavedChanges = function () {
+      return isDirty && !document.getElementById('prd-entry-view').classList.contains('hidden');
+    };
+
+    myReturnChain = window.__pendingReturnChain || [];
+    window.__pendingReturnChain = [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      document.getElementById('prd-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      document.getElementById('prd-back-chain-btn').addEventListener('click', goBackInChain);
+    }
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-industry"></i> Production Entry';
+
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) {
+      pendingOpenEntryId = pending.OpenEntryId;
+      document.getElementById('prd-entry-view').classList.add('hidden');
+      document.getElementById('prd-list-view').classList.remove('hidden');
+      fetchAndRenderList('all');
+    } else {
+      showListView();
+    }
+  };
+})();
+</script>

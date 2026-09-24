@@ -36,7 +36,9 @@ const abandonCommitAttempt_ = (idToken, ...a) => __commitAttempt.abandonCommitAt
 const finalizeCommitAttempt_ = (idToken, ...a) => __commitAttempt.finalizeCommitAttempt(...a);
 const resolveApprovalScopeKeyForDocument_ = (idToken, ...a) => __approvals.resolveApprovalScopeKeyForDocument(...a);
 const beginApprovalInstance_ = (idToken, ...a) => __approvals.beginApprovalInstance(...a);
+const createStockReservation_ = async (idToken, ...a) => { const u = await requireUser_(idToken); return __reservations.createStockReservation(u.profile.username || u.uid, ...a); };
 const getReservationsForSource_ = (idToken, ...a) => __reservations.getReservationsForSource(...a);
+const refreshSalesOrderReservationStatus_ = (idToken, ...a) => __reservations.refreshSalesOrderReservationStatus(...a);
 const ensureTreeSeeded_ = (idToken, ...a) => __tree.ensureTreeSeeded(...a);
 const ensureRolesSeeded_ = (idToken, ...a) => __roles.ensureRolesSeeded(...a);
 const moduleIdForEntry_ = (...a) => __masterData.moduleIdForEntry(...a);
@@ -2716,6 +2718,454 @@ async function reactivateBom(idToken, bomId) {
 }
 
 // ============================================================
+// PRODUCTION ENTRY
+// ============================================================
+// Records a produced Finished or Semi-Finished Good entering inventory —
+// structurally a near-clone of GRN (single inbound direction, manually
+// entered Unit Cost, per-item Consumption account resolved automatically
+// from Item Master), not the earlier dual in/out design.
+//
+// The earlier version consumed component lines AND produced an item in
+// one document, deriving the produced item's cost from what was
+// consumed. That's been deliberately dropped: consumption is now a
+// separate Material Issue transaction, posted independently, at
+// whatever time materials actually leave the warehouse — which may be
+// well before a production run finishes. Production Entry's only job
+// now is recording what came OUT of production and its cost, exactly
+// the same shape as GRN records what came in from a vendor.
+//
+// GL shape: Dr [item]'s Inventory Account (auto, per line) / Cr that same
+// item's own Consumption account (per line — see resolveItemExpenseAccount_,
+// the same one Material Issue debits when the item is issued out).
+// Crediting it here instead of debiting makes Production Entry the
+// mirror image of Material Issue on the same account: its running
+// balance naturally reflects work-in-process or yield variance over
+// time, with no company-level setting to configure. No BOM reference, no
+// component consumption logic here at all.
+//
+// Storage: /stock/transactions/{id}, TransactionType: 'Production'.
+
+async function saveProductionDraft(idToken, prodData) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'PRODUCTION');
+
+    const prodId = String(prodData.ProductionID || '').trim();
+    const transactionDate = String(prodData.TransactionDate || '').trim();
+    if (!transactionDate) throw new Error('Transaction date is required.');
+    const description = String(prodData.Description || '').trim();
+    if (!description) throw new Error('Description is required.');
+    const reference = String(prodData.Reference || '').trim();
+    const companyId = String(prodData.CompanyID || '').trim();
+    if (!companyId) throw new Error('Select a Company for this transaction.');
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    const divisionId = String(prodData.DivisionID || '').trim();
+    const branchId = String(prodData.BranchID || '').trim();
+    const costCenterId = String(prodData.CostCenterID || '').trim();
+    const profitCenterId = String(prodData.ProfitCenterID || '').trim();
+
+    // Job Order link is optional — validated here (at draft-save time)
+    // rather than only at posting, so a bad link surfaces before the
+    // user has filled in the whole grid. The user picks the PARENT
+    // BATCH (confirmed design: "only the main JO number need to
+    // select"); which specific line within it gets credited resolves
+    // per produced item at posting time (see postProduction), not
+    // here — the produced grid may still be in flux while drafting.
+    const jobOrderId = String(prodData.JobOrderID || '').trim();
+    if (jobOrderId) {
+      const batch = await firebaseDbRequest_('jobOrderBatches/' + jobOrderId, 'get', null, idToken);
+      if (!batch) throw new Error('Selected Job Order not found.');
+      if (batch.Status !== 'Submitted') throw new Error('Selected Job Order has not been submitted yet.');
+      if (batch.CompanyID !== companyId) throw new Error('Selected Job Order belongs to a different company.');
+    }
+
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const uomsData = (await firebaseDbRequest_('uoms', 'get', null, idToken)) || {};
+    const orgUnitsData = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
+
+    const rawLines = prodData.Lines || [];
+    const lines = [];
+    rawLines.forEach((line, idx) => {
+      const itemId = String(line.ItemID || '').trim();
+      if (!itemId) return; // skip blank trailing row
+
+      const item = itemsData[itemId];
+      if (!item) throw new Error('Line ' + (idx + 1) + ': item not found.');
+      const warehouseId = String(line.WarehouseID || '').trim();
+      if (!warehouseId) throw new Error('Line ' + (idx + 1) + ': warehouse is required.');
+      const wh = orgUnitsData[warehouseId];
+      if (!wh || wh.Type !== 'Warehouse') throw new Error('Line ' + (idx + 1) + ': warehouse not found.');
+
+      const enteredUomId = String(line.EnteredUOMID || item.UOMID).trim();
+      const enteredQty = Number(line.EnteredQuantity);
+      if (!(enteredQty > 0)) throw new Error('Line ' + (idx + 1) + ': enter a quantity greater than zero.');
+
+      let baseQty;
+      if (enteredUomId === item.UOMID) {
+        baseQty = enteredQty;
+      } else if (enteredUomId === item.AltUOMID) {
+        baseQty = enteredQty * (item.ConversionFactor || 0);
+        if (!(baseQty > 0)) throw new Error('Line ' + (idx + 1) + ': item has no valid alternate UOM conversion factor set.');
+      } else {
+        throw new Error('Line ' + (idx + 1) + ': selected UOM is not valid for this item.');
+      }
+      const enteredUom = uomsData[enteredUomId];
+      if (enteredUom && !enteredUom.AllowDecimals && Math.abs(enteredQty - Math.round(enteredQty)) > 0.0001) {
+        throw new Error('Line ' + (idx + 1) + ': ' + (enteredUom.Code || 'this unit') + ' does not allow decimal quantities.');
+      }
+
+      const unitCost = Number(line.UnitCost);
+      // See computeStockMovement_'s identical check for why this is > 0,
+      // not >= 0.
+      if (!(unitCost > 0)) throw new Error('Line ' + (idx + 1) + ': enter a unit cost greater than zero.');
+
+      const lineDescription = String(line.Description || '').trim();
+      if (!lineDescription) throw new Error('Line ' + (idx + 1) + ': description is required.');
+
+      if (item.BatchTracked && !String(line.BatchNumber || '').trim()) {
+        throw new Error('Line ' + (idx + 1) + ': batch number is required for ' + item.ItemCode + '.');
+      }
+
+      lines.push({
+        LineNo: lines.length + 1,
+        ItemID: itemId, ItemCode: item.ItemCode, ItemName: item.ItemName,
+        WarehouseID: warehouseId,
+        EnteredUOMID: enteredUomId, EnteredQuantity: enteredQty,
+        Quantity: Math.round(baseQty * 1e6) / 1e6,
+        UnitCost: Math.round(unitCost * 10000) / 10000,
+        BatchNumber: String(line.BatchNumber || '').trim(),
+        ExpiryDate: String(line.ExpiryDate || '').trim(),
+        CostCenterID: String(line.CostCenterID || '').trim(),
+        ProfitCenterID: String(line.ProfitCenterID || '').trim(),
+        Description: lineDescription
+      });
+    });
+
+    if (!lines.length) throw new Error('Enter at least one line.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const fields = {
+      TransactionType: 'Production',
+      TransactionDate: transactionDate, Description: description, Reference: reference,
+      CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
+      CostCenterID: costCenterId, ProfitCenterID: profitCenterId,
+      JobOrderID: jobOrderId,
+      Lines: lines,
+      Status: 'Draft',
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    if (prodId) {
+      const existing = await firebaseDbRequest_('stock/transactions/' + prodId, 'get', null, idToken);
+      if (!existing) throw new Error('Production entry not found.');
+      if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected Production entries can be edited.');
+      await firebaseDbRequest_('stock/transactions/' + prodId, 'patch', fields, idToken);
+      return { success: true, prodId: prodId };
+    }
+
+    const newId = 'PRDD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('stock/transactions/' + newId, 'put', Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }), idToken);
+    return { success: true, prodId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function postProduction(idToken, prodId) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    const existing = await firebaseDbRequest_('stock/transactions/' + prodId, 'get', null, idToken);
+    if (!existing) throw new Error('Production entry not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requirePostAccess_(idToken, user, 'PRODUCTION');
+    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected Production entries can be posted.');
+    if (!existing.Lines || !existing.Lines.length) throw new Error('This Production entry has no lines.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    // Approval amount: value of goods produced — quantity x unit cost,
+    // both already fixed on the entry's own lines from draft time
+    // (whether manually entered or auto-filled from the Inventory
+    // Valuation List), NOT dependent on live ledger state the way
+    // Material Issue/Stock Adjustment/Physical Count's costing is.
+    // Nothing here writes anything — and the Job Order line matching
+    // (which DOES depend on live Job Order line status) is
+    // deliberately skipped here; it isn't needed for the amount, and
+    // doing it only at actual commit time means it reflects the Job
+    // Order's real state then, not whatever it was at submission.
+    const previewAmount = existing.Lines.reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0);
+
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'PRODUCTION', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const approval = await beginApprovalInstance_(idToken, 'PRODUCTION', prodId, '', scopeKey, previewAmount, user.uid);
+
+    if (approval.required) {
+      // Nothing physical happens yet — no stock ledger change, no GL
+      // entry, no Job Order progress update, no Sales Order
+      // allocation — until this is actually approved (see
+      // decideProductionApproval, which is where
+      // commitProductionPosting_ runs in that case instead of here).
+      await firebaseDbRequest_('stock/transactions/' + prodId, 'patch', {
+        Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
+        RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'PendingApproval' };
+    }
+
+    const result = await commitProductionPosting_(idToken, user, existing, prodId);
+    return { success: true, prodId: prodId, prodNumber: result.prodNumber, status: 'Posted' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// The actual stock-ledger-and-GL commit, plus Job Order line progress
+// and Sales Order allocation — extracted so it can run from EITHER
+// postProduction itself (no gate configured) OR decideProductionApproval
+// (once approved). Caller MUST already hold LockService.getScriptLock().
+async function commitProductionPosting_(idToken, user, existing, prodId) {
+  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const coaData = await getCoaData_(idToken);
+
+  // Every line is inbound — the produced item entering stock.
+  let movementLines = existing.Lines.map(l => Object.assign({ Direction: 'In' }, l));
+
+  // Resolve which Job Order LINE (within the selected parent batch)
+  // each produced item matches, by item code — confirmed design: the
+  // user only picks the parent batch; the specific line resolves from
+  // what's actually being produced. Read fresh, right now, against
+  // live Job Order line status (see postProduction's own comment for
+  // why this can't happen any earlier).
+  const matchedLineQuantities = {}; // LineID -> total newly-produced qty across this posting
+  if (existing.JobOrderID) {
+    const eligibleStatuses = ['Accepted', 'Open', 'In Progress', 'Stop Requested'];
+    const batchLines = (await linesForBatch_(idToken, existing.JobOrderID)).filter(l => eligibleStatuses.indexOf(l.Status) !== -1);
+    movementLines = movementLines.map(l => {
+      const matchedLine = batchLines.find(bl => bl.ItemCode === l.ItemCode);
+      if (!matchedLine) return l;
+      matchedLineQuantities[matchedLine.LineID] = (matchedLineQuantities[matchedLine.LineID] || 0) + (Number(l.Quantity) || 0);
+      return Object.assign({}, l, { JobOrderLineID: matchedLine.LineID });
+    });
+  }
+
+  const movement = await computeStockMovement_(idToken, itemsData, coaData, movementLines);
+
+  const offsetGlLines = movementLines.map(l => {
+    const item = itemsData[l.ItemID];
+    const accountId = resolveItemExpenseAccount_(item, 'Consumption');
+    const account = coaData[accountId];
+    if (!account || !account.IsPostable) throw new Error('Consumption account for ' + item.ItemCode + ' is not valid — check Item Master.');
+    return {
+      AccountCode: account.AccountCode, Debit: 0, Credit: l.TotalValue,
+      Description: l.Description || existing.Description,
+      CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+    };
+  });
+
+  const actor = user.profile.username || user.uid;
+  // Everything above is pure validation and read-only computation.
+  const attemptId = await beginCommitAttempt_(idToken, prodId, actor);
+
+  let glResult;
+  try {
+    glResult = await writeStockGlEntry_(idToken, user, 'Production', existing.TransactionDate, existing.Description, existing.Reference,
+      movement.inventoryGlLines.concat(offsetGlLines),
+      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      { CommitAttemptID: attemptId, SourceTransactionID: prodId });
+  } catch (err) {
+    await abandonCommitAttempt_(idToken, prodId, existing.Status, actor);
+    throw err;
+  }
+
+  // A GL entry genuinely exists from here on — no more reverting.
+  await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
+  await finalizeCommitAttempt_(idToken, prodId, glResult, { Lines: movementLines }, actor);
+
+  // Job Order progress only ever updates once the transaction is
+  // genuinely, finally committed — same invariant the approval
+  // retrofit already proved ("never before approval"), now equally
+  // true against a failed GL/ledger write: if either of those failed
+  // above, execution never reaches here at all.
+  await seq.forEach(Object.keys(matchedLineQuantities), async lineId => {
+    await updateJobOrderLineProgressAfterProduction_(idToken, lineId, matchedLineQuantities[lineId], prodId);
+  });
+
+  return { prodNumber: glResult.jvNumber };
+}
+
+async function decideProductionApproval(idToken, prodId, levelNumber, decision, reason) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PRODUCTION');
+    const existing = await firebaseDbRequest_('stock/transactions/' + prodId, 'get', null, idToken);
+    if (!existing) throw new Error('Production entry not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'PendingApproval') throw new Error('This Production entry is not awaiting approval.');
+    if (!existing.ApprovalInstanceID) throw new Error('No approval record found for this Production entry.');
+
+    const result = await recordApprovalDecision(idToken, existing.ApprovalInstanceID, levelNumber, decision, reason);
+    if (!result.success) throw new Error(result.error);
+
+    if (result.status === 'Approved') {
+      const lock = LockService.getScriptLock();
+      await lock.waitLock(10000);
+      try {
+        await commitProductionPosting_(idToken, user, existing, prodId);
+      } finally {
+        await lock.releaseLock();
+      }
+    } else if (result.status === 'Rejected') {
+      const now = new Date().toISOString();
+      await firebaseDbRequest_('stock/transactions/' + prodId, 'patch', {
+        Status: 'Rejected', RejectionReason: String(reason || '').trim(),
+        UpdatedAt: now, UpdatedBy: user.profile.username || user.uid
+      }, idToken);
+    }
+    return { success: true, status: result.status, selfApproved: result.selfApproved };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deleteProductionDraft(idToken, prodId) {
+  try {
+    const user = await requireUser_(idToken);
+    const existing = await firebaseDbRequest_('stock/transactions/' + prodId, 'get', null, idToken);
+    if (!existing) throw new Error('Production entry not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requireDraftAccess_(idToken, user, 'PRODUCTION');
+    if (existing.Status !== 'Draft') throw new Error('Only draft Production entries can be deleted. Posted ones must be reversed instead.');
+    await firebaseDbRequest_('stock/transactions/' + prodId, 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function getProductionEntries(idToken, limit) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'PRODUCTION', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Production Entry.');
+  }
+  const data = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ ProductionID: id }, data[id]))
+    .filter(e => e.TransactionType === 'Production')
+    .filter(e => userCanAccessCompany_(user.profile, e.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+
+  const useAll = limit === 'all';
+  const capped = useAll ? all : all.slice(0, 100);
+  return { entries: capped, total: all.length };
+}
+
+// Reversing a Production Entry takes the produced item back OUT — same
+// negative-stock guard as GRN's reversal: if it's already been issued,
+// sold, or consumed elsewhere, the reversal is rejected rather than
+// pushing the ledger negative.
+async function reverseProduction(idToken, prodId, reversalDate) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    const existing = await firebaseDbRequest_('stock/transactions/' + prodId, 'get', null, idToken);
+    if (!existing) throw new Error('Production entry not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requirePostAccess_(idToken, user, 'PRODUCTION');
+    if (existing.Status !== 'Posted') throw new Error('Only posted Production entries can be reversed.');
+    if (existing.ReversedByProduction) throw new Error('This Production entry has already been reversed.');
+    // [PORT FIX production-no-reversal-of-reversal] reversing forces every line Out, so reversing a
+    // reversal would remove the stock a second time instead of restoring it.
+    if (existing.ReversalOfProduction) throw new Error('A reversal entry cannot itself be reversed.');
+
+    const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const coaData = await getCoaData_(idToken);
+
+    const movementLines = existing.Lines.map(l => Object.assign({}, l, { Direction: 'Out' }));
+    const movement = await computeStockMovement_(idToken, itemsData, coaData, movementLines);
+
+    // Same per-item Consumption account as postProduction, polarity
+    // flipped back (debited here, since the reversal is undoing a
+    // credit).
+    const offsetGlLines = movementLines.map(l => {
+      const item = itemsData[l.ItemID];
+      const accountId = resolveItemExpenseAccount_(item, 'Consumption');
+      const account = coaData[accountId];
+      if (!account || !account.IsPostable) throw new Error('Consumption account for ' + item.ItemCode + ' is not valid — check Item Master.');
+      return {
+        AccountCode: account.AccountCode, Debit: l.TotalValue, Credit: 0,
+        Description: 'Reversal of ' + existing.TransactionNumber,
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+      };
+    });
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const newId = 'PRDD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+
+    const attemptId = Utilities.getUuid();
+    await firebaseDbRequest_('stock/transactions/' + newId, 'put', {
+      TransactionType: 'Production', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
+      TransactionDate: date, Description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description,
+      Reference: existing.TransactionNumber,
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
+      CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID,
+      Lines: movementLines,
+      CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
+      ReversalOfProduction: prodId, ReversedByProduction: ''
+    }, idToken);
+
+    let glResult;
+    try {
+      glResult = await writeStockGlEntry_(idToken, user, 'Production', date,
+        'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description, existing.TransactionNumber,
+        movement.inventoryGlLines.concat(offsetGlLines),
+        { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+        { CommitAttemptID: attemptId, SourceTransactionID: newId });
+    } catch (err) {
+      await firebaseDbRequest_('stock/transactions/' + newId, 'delete', null, idToken);
+      throw err;
+    }
+
+    // A GL entry genuinely exists from here on — no more reverting.
+    await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
+
+    // Original patched before the new reversal finalizes — same
+    // deliberate ordering as GRN/Material Issue's reversals.
+    await firebaseDbRequest_('stock/transactions/' + prodId, 'patch', { ReversedByProduction: newId }, idToken);
+    await finalizeCommitAttempt_(idToken, newId, glResult, { Lines: movementLines }, actor);
+
+    // Job Order rollback stays at the very end, in the same relative
+    // position it held before this retrofit — a separate, pre-existing
+    // RTDB-only side effect that this phase isn't targeting.
+    const touchedLineIds = new Set();
+    (existing.Lines || []).forEach(l => { if (l.JobOrderLineID) touchedLineIds.add(l.JobOrderLineID); });
+    await seq.forEach(
+      touchedLineIds,
+      async lineId => await rollbackJobOrderLineAfterReversal_(idToken, lineId, prodId)
+    );
+
+    return { success: true, prodId: newId, prodNumber: glResult.jvNumber };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// ============================================================
 // PHYSICAL / CYCLE COUNT
 // ============================================================
 // Records a physical count against system quantity and posts the
@@ -4338,6 +4788,24 @@ async function getApprovalHistory(idToken, filters) {
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
 }
 
+// Marks one reservation Released — the stock it held becomes available
+// again immediately. Idempotent-safe: releasing an already-Released
+// reservation is a no-op error rather than silently double-processing.
+async function releaseStockReservation_(idToken, reservationId, reason) {
+  const existing = await firebaseDbRequest_('stock/reservations/' + reservationId, 'get', null, idToken);
+  if (!existing) throw new Error('Reservation not found.');
+  if (existing.Status !== 'Active') throw new Error('Only an Active reservation can be released.');
+
+  const now = new Date().toISOString();
+  const user = await requireUser_(idToken);
+  const actor = user.profile.username || user.uid;
+
+  await firebaseDbRequest_('stock/reservations/' + reservationId, 'patch', {
+    Status: 'Released', ReleasedAt: now, ReleasedBy: actor,
+    ReleaseReason: String(reason || '').trim()
+  }, idToken);
+}
+
 // ============================================================
 // PRICE LISTING
 // ============================================================
@@ -4575,6 +5043,21 @@ async function deactivatePriceListLine(idToken, lineId) {
   }
 }
 
+// Mirrors getBomEffectiveOnDate_ exactly — finds the latest version of
+// an item's price on a given list that was effective on or before the
+// given date. linesByItem groups every line (any status) by ItemCode,
+// same shape groupBomsByParent_ builds for BOM.
+function getPriceEffectiveOnDate_(linesByItem, itemCode, date) {
+  const versions = linesByItem[itemCode];
+  if (!versions || !versions.length) return null;
+  let match = null;
+  versions.forEach(v => {
+    const effFrom = v.EffectiveFrom || '';
+    if (effFrom && effFrom <= date && (!match || effFrom > (match.EffectiveFrom || ''))) match = v;
+  });
+  return match;
+}
+
 // "Sellable" is deliberately defined by real, assigned data — has this
 // item EVER had a price set on ANY price list — rather than a
 // hardcoded item Category check. This decouples what's sellable from
@@ -4704,6 +5187,176 @@ async function computeJobOrderLineProducedQty_(idToken, line) {
     });
   });
   return produced;
+}
+
+// FIFO allocation — the genuinely new piece. Called with exactly the
+// quantity THIS posting just produced (not the line's running total),
+// since allocation happens incrementally, once per posting.
+// Deliberately does NOT sort by Sales Order confirmation date (FIFO)
+// — confirmed decision, since real prioritization needs a human call
+// (a rush order, a VIP account) that a date-based rule can't make.
+// Sales makes that call directly via claimStockForSalesOrderLine_ /
+// releaseStockForSalesOrderLine_ (Release stock from a lower-priority
+// order, then Claim it for the one that actually needs it first).
+// This function just needs a DETERMINISTIC default when nobody's
+// actively managing priority, so it walks links in the order they
+// were attached to this Job Order line — simple, predictable, and
+// easily corrected afterward if it picks the "wrong" order by
+// business standards.
+//
+// createdByProductionId: threaded onto every reservation this call
+// creates, so a later reversal of that SAME production posting can
+// find and undo exactly its own contribution — never a different
+// posting's, even if they both fed the same Sales Order line.
+async function allocateProducedQuantityToLinkedSalesOrders_(idToken, line, newlyProducedQty, createdByProductionId) {
+  let remaining = newlyProducedQty;
+  const links = line.LinkedSalesOrderLines || [];
+  if (!links.length || remaining <= 0) return;
+
+  const soData = (await firebaseDbRequest_('salesOrders', 'get', null, idToken)) || {};
+  const candidates = (await seq.map(links, async link => {
+      const so = soData[link.SOID];
+      if (!so || (so.Status !== 'Reserved' && so.Status !== 'Partially Reserved')) return null;
+      const soLine = (so.Lines || []).find(l => l.LineID === link.SOLineID);
+      if (!soLine) return null;
+      const reserved = (await getReservationsForSource_(idToken, 'SalesOrder', link.SOID))
+        .filter(r => r.Status === 'Active' && r.SourceLineID === link.SOLineID)
+        .reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0);
+      const shortfall = Number(soLine.OrderedQuantity) - reserved;
+      if (shortfall <= 0) return null;
+      return { SOID: link.SOID, SONumber: so.SONumber, SOLineID: link.SOLineID, WarehouseID: soLine.WarehouseID, Shortfall: shortfall };
+    }))
+    .filter(Boolean);
+  // No sort — candidates stay in the order LinkedSalesOrderLines was
+  // stored, i.e. the order Sales attached them when building this line.
+
+  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const itemEntry = Object.keys(itemsData).find(id => itemsData[id].ItemCode === line.ItemCode);
+  const itemId = itemEntry || '';
+
+  const touchedSoIds = new Set();
+  await seq.forEach(candidates, async c => {
+    if (remaining <= 0) return;
+    const toAllocate = Math.min(remaining, c.Shortfall);
+    if (toAllocate <= 0) return;
+    await createStockReservation_(idToken, {
+      ItemID: itemId, ItemCode: line.ItemCode, WarehouseID: c.WarehouseID,
+      CompanyID: soData[c.SOID].CompanyID, Quantity: toAllocate,
+      SourceType: 'SalesOrder', SourceID: c.SOID, SourceLineID: c.SOLineID, SourceLabel: c.SONumber,
+      CreatedByProductionID: createdByProductionId || ''
+    });
+    remaining -= toAllocate;
+    touchedSoIds.add(c.SOID);
+  });
+  // Whatever's left after every linked Sales Order line is fully
+  // covered is deliberately NOT reserved by anything — it's free
+  // stock the moment it posts, per the confirmed lifecycle.
+
+  // The reservation itself is the source of truth for what's actually
+  // covered — but the Sales Order's own Status field is a separate,
+  // stored value that nothing else here updates automatically. Without
+  // this, Reserved Quantity correctly grows (readers derive it live
+  // from reservations) while Status stays frozen at whatever it was
+  // when the shortfall was first detected, even once every line is
+  // genuinely fully reserved.
+  await seq.forEach(
+    touchedSoIds,
+    async soId => await refreshSalesOrderReservationStatus_(idToken, soId)
+  );
+}
+
+// Called after a Production Entry linked to a Job Order line
+// successfully posts (or is reversed — see rollbackJobOrderLineAfterReversal_
+// for that direction specifically). Same status-transition rules as
+// the original single-item build (completion checked first, takes
+// precedence over a pending Stop Request; terminal statuses never
+// change automatically), now scoped to one line, plus triggers
+// allocation to whatever Sales Orders this line is linked to (see that
+// function's own comment on why this is no longer FIFO-ordered).
+async function updateJobOrderLineProgressAfterProduction_(idToken, lineId, newlyProducedQty, createdByProductionId) {
+  const line = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
+  if (!line) return;
+  line.LineID = lineId;
+  if (line.Status === 'Stopped' || line.Status === 'Cancelled' || line.Status === 'Completed') return;
+
+  await allocateProducedQuantityToLinkedSalesOrders_(idToken, line, newlyProducedQty, createdByProductionId);
+
+  const produced = await computeJobOrderLineProducedQty_(idToken, line);
+  const now = new Date().toISOString();
+
+  if (produced >= line.OrderedQuantity) {
+    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', { Status: 'Completed', CompletedAt: now, UpdatedAt: now }, idToken);
+    return;
+  }
+  if (line.Status === 'Accepted' || line.Status === 'Open') {
+    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', { Status: 'In Progress', UpdatedAt: now }, idToken);
+  }
+}
+
+// The reversal counterpart. A reversed Production Entry's original
+// record never changes its own Status (it stays Posted forever as an
+// audit trail; the reversal is a separate, paired transaction) — so
+// nothing here re-triggers the forward function above. This handles
+// three things a reversal needs that a new posting never does: produced
+// quantity can go DOWN (possibly below the Completed threshold, or all
+// the way to zero), reservations that this specific posting created via
+// allocation need to be released (not just any reservation on the
+// affected Sales Order — only this posting's own contribution, found
+// via CreatedByProductionID), and the Sales Order's own Status needs
+// re-checking afterward, same as the forward path.
+async function rollbackJobOrderLineAfterReversal_(idToken, lineId, reversedProductionId) {
+  const line = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
+  if (!line) return;
+  line.LineID = lineId;
+
+  // Release exactly this posting's own contribution — never a
+  // different posting's, even if they fed the same Sales Order line.
+  const data = (await firebaseDbRequest_('stock/reservations', 'get', null, idToken)) || {};
+  const touchedSoIds = new Set();
+  await seq.forEach(Object.keys(data), async resId => {
+    const r = data[resId];
+    if (r.Status !== 'Active' || r.CreatedByProductionID !== reversedProductionId) return;
+    await releaseStockReservation_(idToken, resId, 'Production Entry reversed');
+    if (r.SourceType === 'SalesOrder') touchedSoIds.add(r.SourceID);
+  });
+  await seq.forEach(
+    touchedSoIds,
+    async soId => await refreshSalesOrderReservationStatus_(idToken, soId)
+  );
+
+  // Terminal statuses (Stopped/Cancelled) never reopen from a
+  // reversal — a deliberate human decision stays final regardless of
+  // what happens to produced quantity afterward. Pending
+  // Acceptance/Amendment Requested/Stop Requested are also left
+  // alone; none of those are production-derived states.
+  if (line.Status === 'Stopped' || line.Status === 'Cancelled') return;
+
+  const produced = await computeJobOrderLineProducedQty_(idToken, line);
+  const now = new Date().toISOString();
+
+  if (line.OrderedQuantity > 0 && produced >= line.OrderedQuantity) {
+    if (line.Status !== 'Completed') {
+      await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', { Status: 'Completed', CompletedAt: now, UpdatedAt: now }, idToken);
+    }
+    return;
+  }
+
+  if (['Accepted', 'Open', 'In Progress', 'Completed'].indexOf(line.Status) === -1) return;
+
+  // No longer meets the Completed threshold, or produced dropped back
+  // to (or stayed at) zero — step back down to whatever's accurate.
+  // Origin decides the pre-production starting point (Sales lines
+  // start at Accepted, Production-direct at Open), same rule
+  // submitJobOrderBatch itself used originally.
+  const batch = await firebaseDbRequest_('jobOrderBatches/' + line.ParentBatchID, 'get', null, idToken);
+  const preProductionStatus = batch && batch.Origin === 'Production' ? 'Open' : 'Accepted';
+  const targetStatus = produced > 0 ? 'In Progress' : preProductionStatus;
+
+  if (targetStatus !== line.Status) {
+    const fields = { Status: targetStatus, UpdatedAt: now };
+    if (line.Status === 'Completed') fields.CompletedAt = null;
+    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', fields, idToken);
+  }
 }
 
 async function linesForBatch_(idToken, batchId) {
@@ -5078,6 +5731,29 @@ async function deleteDraftJobOrderBatch(idToken, batchId) {
   }
 }
 
+// Minimal reference read for Production Entry's Job Order picker — the
+// user picks the PARENT BATCH (confirmed design: "only the main JO
+// number need to select"); which specific line gets credited resolves
+// server-side from the produced item, at save/post time.
+async function getEligibleJobOrderBatchesForProduction(idToken, companyId) {
+  const user = await requireUser_(idToken);
+  const batchData = (await firebaseDbRequest_('jobOrderBatches', 'get', null, idToken)) || {};
+  const eligibleLineStatuses = ['Accepted', 'Open', 'In Progress', 'Stop Requested'];
+  const result = [];
+  await seq.forEach(Object.keys(batchData), async id => {
+    const batch = batchData[id];
+    if (companyId && batch.CompanyID !== companyId) return;
+    if (!userCanAccessCompany_(user.profile, batch.CompanyID)) return;
+    const eligibleLines = (await linesForBatch_(idToken, id)).filter(l => eligibleLineStatuses.indexOf(l.Status) !== -1);
+    if (!eligibleLines.length) return;
+    result.push({
+      BatchID: id, BatchNumber: batch.BatchNumber || '(unsubmitted)', CompanyID: batch.CompanyID,
+      Lines: eligibleLines.map(l => ({ LineID: l.LineID, ItemCode: l.ItemCode, Status: l.Status, OrderedQuantity: l.OrderedQuantity }))
+    });
+  });
+  return result;
+}
+
 // Public wrapper around getSalesOrderLinesWithShortfall_ — the client
 // calls this while building a Sales-triggered Job Order line, to offer
 // a real picker of outstanding Sales Order demand for the chosen item
@@ -5265,6 +5941,30 @@ async function deactivateInventoryValuationLine(idToken, lineId) {
   }
 }
 
+async function groupValuationLinesByItem_(idToken, companyId) {
+  const data = (await firebaseDbRequest_('inventoryValuationLines', 'get', null, idToken)) || {};
+  const grouped = {};
+  Object.keys(data).forEach(id => {
+    const line = data[id];
+    if (line.CompanyID !== companyId || line.Status !== 'Active') return;
+    if (!grouped[line.ItemCode]) grouped[line.ItemCode] = [];
+    grouped[line.ItemCode].push(Object.assign({ LineID: id }, line));
+  });
+  return grouped;
+}
+
+// Public wrapper Production Entry calls when an item is selected, to
+// pre-fill Unit Cost (which then stays editable — same reasoning as
+// Sales Order's own Unit Price: only WHICH valuation applies is
+// non-negotiable, not the figure on an individual entry).
+async function getItemCostForProduction(idToken, companyId, itemCode, date) {
+  await requireUser_(idToken);
+  if (!companyId || !itemCode) return null;
+  const linesByItem = await groupValuationLinesByItem_(idToken, companyId);
+  const match = getPriceEffectiveOnDate_(linesByItem, itemCode, date || new Date().toISOString().substring(0, 10));
+  return match ? match.UnitCost : null;
+}
+
 module.exports = {
   requireAdmin_,
   getRoles,
@@ -5337,6 +6037,13 @@ module.exports = {
   saveBom,
   deactivateBom,
   reactivateBom,
+  saveProductionDraft,
+  postProduction,
+  commitProductionPosting_,
+  decideProductionApproval,
+  deleteProductionDraft,
+  getProductionEntries,
+  reverseProduction,
   savePhysicalCountDraft,
   buildPhysicalCountLines_,
   postPhysicalCount,
@@ -5380,6 +6087,7 @@ module.exports = {
   saveApprovalLevels,
   recordApprovalDecision,
   getApprovalHistory,
+  releaseStockReservation_,
   getActiveCurrencies,
   getPriceLists,
   savePriceList,
@@ -5388,10 +6096,14 @@ module.exports = {
   getPriceListLines,
   savePriceListLine,
   deactivatePriceListLine,
+  getPriceEffectiveOnDate_,
   getSellableItemCodes_,
   getEligibleJobOrderItems,
   getSalesOrderLinesWithShortfall_,
   computeJobOrderLineProducedQty_,
+  allocateProducedQuantityToLinkedSalesOrders_,
+  updateJobOrderLineProgressAfterProduction_,
+  rollbackJobOrderLineAfterReversal_,
   linesForBatch_,
   getJobOrderBatches,
   getJobOrderLinesFlat,
@@ -5405,9 +6117,12 @@ module.exports = {
   acceptJobOrderLineStop,
   cancelDirectJobOrderLine,
   deleteDraftJobOrderBatch,
+  getEligibleJobOrderBatchesForProduction,
   getSalesOrderLineShortfallOptions,
   getStockAvailabilityList,
   getInventoryValuationLines,
   saveInventoryValuationLine,
-  deactivateInventoryValuationLine
+  deactivateInventoryValuationLine,
+  groupValuationLinesByItem_,
+  getItemCostForProduction
 };
