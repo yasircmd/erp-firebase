@@ -36,6 +36,14 @@ exports.deactivateOrgUnit = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateOrgUnit(ctx, d.unitId));
 });
+exports.deactivatePriceList = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.deactivatePriceList(ctx, d.priceListId));
+});
+exports.deactivatePriceListLine = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.deactivatePriceListLine(ctx, d.lineId));
+});
 exports.deactivateUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateUOM(ctx, d.uomId));
@@ -43,6 +51,10 @@ exports.deactivateUOM = onCallWithMessages(opts, (request) => {
 exports.deactivateVendor = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateVendor(ctx, d.vendorId));
+});
+exports.getActiveCurrencies = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.getActiveCurrencies(ctx));
 });
 exports.getActiveCustomerClassifications = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -80,6 +92,14 @@ exports.getOrgUnits = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.getOrgUnits(ctx));
 });
+exports.getPriceListLines = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.getPriceListLines(ctx, d.priceListId));
+});
+exports.getPriceLists = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.getPriceLists(ctx));
+});
 exports.getUOMs = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.getUOMs(ctx));
@@ -116,6 +136,10 @@ exports.reactivateOrgUnit = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.reactivateOrgUnit(ctx, d.unitId));
 });
+exports.reactivatePriceList = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.reactivatePriceList(ctx, d.priceListId));
+});
 exports.reactivateUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.reactivateUOM(ctx, d.uomId));
@@ -151,6 +175,14 @@ exports.saveItemSubCategory = onCallWithMessages(opts, (request) => {
 exports.saveOrgUnit = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.saveOrgUnit(ctx, d.unitData));
+});
+exports.savePriceList = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.savePriceList(ctx, d.header));
+});
+exports.savePriceListLine = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.savePriceListLine(ctx, d.lineData));
 });
 exports.saveUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

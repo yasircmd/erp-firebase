@@ -1704,6 +1704,243 @@ async function reactivateCustomer(idToken, customerId) {
   }
 }
 
+// ============================================================
+// PRICE LISTING
+// ============================================================
+// Confirmed design: exactly two lists for now (Local -> AED, Export ->
+// USD), auto-derived from a customer's own Classification field on
+// Customer Master (which already uses the identical 'Local'/'Export'
+// enum — no new vocabulary introduced, this just plugs into it). Kept
+// general rather than hardcoded to exactly two, since more price list
+// types (interstate, etc.) were named as a real future need — a list's
+// CustomerClassificationMapping is what makes it auto-selectable; a
+// list with no mapping still exists and can be used, just never
+// auto-picked for a customer.
+//
+// Lines carry price HISTORY the same way BOM carries recipe history —
+// EffectiveFrom-dated versions, never overwritten in place; a genuine
+// price change is a NEW line, resolved by getPriceEffectiveOnDate_
+// exactly like getBomEffectiveOnDate_ resolves a recipe version. This
+// is deliberate, not incidental: Sales Order (built next) needs to
+// know what a price WAS on a given order's date, not just what it is
+// today.
+//
+// Storage: /priceLists/{id} = { Name, CustomerClassificationMapping
+//   ('Local'|'Export'|'' — '' means not auto-selected), CurrencyID,
+//   CompanyID, Status ('Active'|'Inactive'), CreatedAt/By, UpdatedAt/By }
+// Storage: /priceListLines/{id} = { PriceListID, ItemCode, UnitPrice,
+//   EffectiveFrom, Status ('Active'|'Inactive'), CreatedAt/By, UpdatedAt/By }
+
+// Ungated reference read (requireUser_ only, no CURRENCYCONFIG access
+// check) — mirrors getActiveItems' own pattern exactly. A Price List
+// user picking a currency at creation time has no reason to also hold
+// Currency Configuration's own module access.
+async function getActiveCurrencies(idToken) {
+  await requireUser_(idToken);
+  const data = (await firebaseDbRequest_('currencies', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .filter(id => data[id].Status === 'Active')
+    .map(id => ({ CurrencyID: id, Code: data[id].Code, Name: data[id].Name, Symbol: data[id].Symbol || '' }));
+}
+
+async function getPriceLists(idToken) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'PRICELISTING', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Price Listing.');
+  }
+  const data = (await firebaseDbRequest_('priceLists', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ PriceListID: id }, data[id]))
+    .filter(pl => userCanAccessCompany_(user.profile, pl.CompanyID));
+}
+
+async function savePriceList(idToken, header) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'PRICELISTING', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Price Listing.');
+    }
+
+    const companyId = String(header.CompanyID || '').trim();
+    if (!companyId) throw new Error('Select a Company.');
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    const name = String(header.Name || '').trim();
+    if (!name) throw new Error('Enter a name for this price list.');
+    const currencyId = String(header.CurrencyID || '').trim();
+    if (!currencyId) throw new Error('Select a currency.');
+    const currency = await firebaseDbRequest_('currencies/' + currencyId, 'get', null, idToken);
+    if (!currency || currency.Status !== 'Active') throw new Error('Selected currency is not active.');
+    const mapping = String(header.CustomerClassificationMapping || '').trim();
+    if (mapping && mapping !== 'Local' && mapping !== 'Export') {
+      throw new Error('Classification mapping must be Local, Export, or left unset.');
+    }
+
+    const priceListId = String(header.PriceListID || '').trim();
+
+    // Auto-derivation only works if exactly one ACTIVE list claims a
+    // given classification per company — enforce that here rather than
+    // leaving it to whichever list Sales Order happens to find first.
+    if (mapping) {
+      const existingLists = (await firebaseDbRequest_('priceLists', 'get', null, idToken)) || {};
+      const conflict = Object.keys(existingLists).find(id =>
+        id !== priceListId &&
+        existingLists[id].CompanyID === companyId &&
+        existingLists[id].Status !== 'Inactive' &&
+        existingLists[id].CustomerClassificationMapping === mapping
+      );
+      if (conflict) {
+        throw new Error('"' + existingLists[conflict].Name + '" is already mapped to ' + mapping + ' for this company — only one active list can auto-apply per classification.');
+      }
+    }
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const fields = {
+      Name: name, CustomerClassificationMapping: mapping, CurrencyID: currencyId,
+      CompanyID: companyId, UpdatedAt: now, UpdatedBy: actor
+    };
+
+    if (priceListId) {
+      const existing = await firebaseDbRequest_('priceLists/' + priceListId, 'get', null, idToken);
+      if (!existing) throw new Error('Price list not found.');
+      await firebaseDbRequest_('priceLists/' + priceListId, 'patch', fields, idToken);
+      return { success: true, priceListId: priceListId };
+    }
+
+    const newId = 'PL-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('priceLists/' + newId, 'put', Object.assign({}, fields, {
+      Status: 'Active', CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, priceListId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deactivatePriceList(idToken, priceListId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'PRICELISTING', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Price Listing.');
+    }
+    const existing = await firebaseDbRequest_('priceLists/' + priceListId, 'get', null, idToken);
+    if (!existing) throw new Error('Price list not found.');
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('priceLists/' + priceListId, 'patch', { Status: 'Inactive', UpdatedAt: now, UpdatedBy: actor }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function reactivatePriceList(idToken, priceListId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'PRICELISTING', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Price Listing.');
+    }
+    const existing = await firebaseDbRequest_('priceLists/' + priceListId, 'get', null, idToken);
+    if (!existing) throw new Error('Price list not found.');
+
+    // Reactivating must not silently create a second active claim on
+    // the same classification — same uniqueness rule savePriceList enforces.
+    if (existing.CustomerClassificationMapping) {
+      const allLists = (await firebaseDbRequest_('priceLists', 'get', null, idToken)) || {};
+      const conflict = Object.keys(allLists).find(id =>
+        id !== priceListId &&
+        allLists[id].CompanyID === existing.CompanyID &&
+        allLists[id].Status !== 'Inactive' &&
+        allLists[id].CustomerClassificationMapping === existing.CustomerClassificationMapping
+      );
+      if (conflict) {
+        throw new Error('"' + allLists[conflict].Name + '" already actively claims ' + existing.CustomerClassificationMapping + ' for this company — deactivate it first.');
+      }
+    }
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('priceLists/' + priceListId, 'patch', { Status: 'Active', UpdatedAt: now, UpdatedBy: actor }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function getPriceListLines(idToken, priceListId) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'PRICELISTING', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Price Listing.');
+  }
+  const data = (await firebaseDbRequest_('priceListLines', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ LineID: id }, data[id]))
+    .filter(l => l.PriceListID === priceListId)
+    .sort((a, b) => (a.ItemCode || '').localeCompare(b.ItemCode || '') || (b.EffectiveFrom || '').localeCompare(a.EffectiveFrom || ''));
+}
+
+async function savePriceListLine(idToken, lineData) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'PRICELISTING', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Price Listing.');
+    }
+
+    const priceListId = String(lineData.PriceListID || '').trim();
+    if (!priceListId) throw new Error('Missing Price List reference.');
+    const priceList = await firebaseDbRequest_('priceLists/' + priceListId, 'get', null, idToken);
+    if (!priceList) throw new Error('Price list not found.');
+
+    const itemCode = String(lineData.ItemCode || '').trim();
+    if (!itemCode) throw new Error('Select an item.');
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemEntry = Object.keys(itemsData).find(id => itemsData[id].ItemCode === itemCode);
+    if (!itemEntry || itemsData[itemEntry].Status !== 'Active') throw new Error('Item not found or inactive: ' + itemCode);
+
+    const unitPrice = Number(lineData.UnitPrice);
+    if (!(unitPrice > 0)) throw new Error('Unit price must be greater than zero.');
+    const effectiveFrom = String(lineData.EffectiveFrom || '').trim();
+    if (!effectiveFrom) throw new Error('Effective From date is required.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const fields = { PriceListID: priceListId, ItemCode: itemCode, UnitPrice: unitPrice, EffectiveFrom: effectiveFrom, UpdatedAt: now, UpdatedBy: actor };
+
+    const lineId = String(lineData.LineID || '').trim();
+    if (lineId) {
+      const existing = await firebaseDbRequest_('priceListLines/' + lineId, 'get', null, idToken);
+      if (!existing) throw new Error('Price line not found.');
+      await firebaseDbRequest_('priceListLines/' + lineId, 'patch', fields, idToken);
+      return { success: true, lineId: lineId };
+    }
+
+    const newId = 'PLL-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('priceListLines/' + newId, 'put', Object.assign({}, fields, {
+      Status: 'Active', CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, lineId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deactivatePriceListLine(idToken, lineId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'PRICELISTING', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Price Listing.');
+    }
+    const existing = await firebaseDbRequest_('priceListLines/' + lineId, 'get', null, idToken);
+    if (!existing) throw new Error('Price line not found.');
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('priceListLines/' + lineId, 'patch', { Status: 'Inactive', UpdatedAt: now, UpdatedBy: actor }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   requireModuleWrite_,
   getCoaData_,
@@ -1752,5 +1989,13 @@ module.exports = {
   getCustomers,
   saveCustomer,
   deactivateCustomer,
-  reactivateCustomer
+  reactivateCustomer,
+  getActiveCurrencies,
+  getPriceLists,
+  savePriceList,
+  deactivatePriceList,
+  reactivatePriceList,
+  getPriceListLines,
+  savePriceListLine,
+  deactivatePriceListLine
 };

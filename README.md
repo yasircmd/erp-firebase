@@ -267,7 +267,7 @@ closure, and emits them VERBATIM (original comments included) into
 | COA | ✅ | **not yet** |
 | VENDORMASTER | ✅ | **not yet** |
 | CUSTOMERMASTER | ✅ | **not yet** |
-| PRICELISTING | — | — |
+| PRICELISTING | ✅ | **not yet** |
 | PROCUREMENTSETUP | — | — |
 | SALESINVOICESETUP | — | — |
 | ROLES | — | — |
@@ -301,12 +301,12 @@ closure, and emits them VERBATIM (original comments included) into
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** PRICELISTING
+**Next module to port:** PROCUREMENTSETUP
 
-**Committed but NOT yet deployed** (ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER) — deploy these 18 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING) — deploy these 26 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment deactivateAccount deactivateCustomer deactivateItem deactivateVendor getActiveCustomerClassifications getActiveItemSubCategories getCustomers getItems getVendors reactivateAccount reactivateCustomer reactivateItem reactivateVendor saveAccount saveCustomer saveItem saveVendor
+getModuleFragment deactivateAccount deactivateCustomer deactivateItem deactivatePriceList deactivatePriceListLine deactivateVendor getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getCustomers getItems getPriceListLines getPriceLists getVendors reactivateAccount reactivateCustomer reactivateItem reactivatePriceList reactivateVendor saveAccount saveCustomer saveItem savePriceList savePriceListLine saveVendor
 ```
 <!-- PORT-STATUS:end -->
 
