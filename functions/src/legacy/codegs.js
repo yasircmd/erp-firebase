@@ -1998,6 +1998,30 @@ async function getPostedGlLines_(idToken, filters) {
   return lines;
 }
 
+// Leaf accounts under the 100000 (Cash) or 110000 (Bank) headers all get
+// codes starting "10" or "11" per the COA numbering scheme — see COA
+// section above for the full scheme.
+function isCashOrBankAccount_(account) {
+  const prefix = String(account.AccountCode || '').substring(0, 2);
+  return prefix === '10' || prefix === '11';
+}
+
+// Cash Flow Category can only be SET on a non-postable (header) account —
+// see saveAccount, which forces it blank on any postable leaf. A leaf
+// therefore never has its own value; it always resolves from its parent
+// at report time, which means changing the header's category later
+// applies to every leaf beneath it automatically, with nothing to re-save.
+function resolveCashFlowCategory_(account, coaData) {
+  if (account.CashFlowCategory) return account.CashFlowCategory;
+  // [PORT FIX cash-flow-category-nearest-ancestor] walk up to the nearest categorized ancestor.
+  let parentId = account.ParentAccountID, hops = 0;
+  while (parentId && coaData[parentId] && hops++ < 50) {
+    if (coaData[parentId].CashFlowCategory) return coaData[parentId].CashFlowCategory;
+    parentId = coaData[parentId].ParentAccountID;
+  }
+  return '';
+}
+
 // ---------- General Ledger Report ----------
 // One account's full activity over a period, with a running balance —
 // the classic "T-account as a list" view.
@@ -2257,6 +2281,87 @@ async function getBalanceSheet(idToken, params) {
     liabilities: liabilities, totalLiabilities: totalLiabilities,
     equity: equity, totalEquity: totalEquity,
     balanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01
+  };
+}
+
+// ---------- Cash Flow Statement ----------
+// Direct method — see module-level note above for the categorization
+// logic and why it's guaranteed to reconcile.
+
+async function getCashFlowStatement(idToken, params) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'CASHFLOW', 'access', user.profile.role))) {
+    throw new Error('You do not have access to the Cash Flow Statement.');
+  }
+
+  const fromDate = String(params.FromDate || '').trim();
+  const toDate = String(params.ToDate || '').trim() || new Date().toISOString().substring(0, 10);
+  if (!fromDate) throw new Error('Select a start date.');
+
+  const filters = buildDimensionFilters_(params);
+  const access = applyCompanyAccessRestriction_(user, filters.companyId);
+  filters.companyId = access.companyId;
+  filters.assignedCompanies = access.assignedCompanies;
+  const coaData = await getCoaData_(idToken);
+  const allLines = await getPostedGlLines_(idToken, filters);
+
+  const cashLines = allLines.filter(l => { const a = coaData[l.AccountID]; return a && isCashOrBankAccount_(a); });
+  let openingCash = 0, closingCash = 0;
+  cashLines.forEach(l => {
+    const net = l.Debit - l.Credit;
+    if (l.JVDate < fromDate) openingCash += net;
+    if (l.JVDate <= toDate) closingCash += net;
+  });
+  openingCash = Math.round(openingCash * 100) / 100;
+  closingCash = Math.round(closingCash * 100) / 100;
+
+  const periodLines = allLines.filter(l => l.JVDate >= fromDate && l.JVDate <= toDate);
+  const byEntry = {};
+  periodLines.forEach(l => { (byEntry[l.JVID] = byEntry[l.JVID] || []).push(l); });
+
+  const categoryTotals = { Operating: 0, Investing: 0, Financing: 0 };
+  const breakdown = {};
+
+  Object.values(byEntry).forEach(entryLines => {
+    let cashNet = 0;
+    entryLines.forEach(l => {
+      const acc = coaData[l.AccountID];
+      if (acc && isCashOrBankAccount_(acc)) cashNet += (l.Debit - l.Credit);
+    });
+    if (Math.abs(cashNet) < 0.005) return; // no net cash effect: excluded by design
+
+    entryLines.forEach(l => {
+      const acc = coaData[l.AccountID];
+      if (!acc || isCashOrBankAccount_(acc)) return;
+      const impact = l.Credit - l.Debit;
+      const resolvedCategory = resolveCashFlowCategory_(acc, coaData);
+      const category = ['Operating', 'Investing', 'Financing'].includes(resolvedCategory) ? resolvedCategory : 'Operating';
+      categoryTotals[category] += impact;
+      const key = category + '|' + l.AccountID;
+      if (!breakdown[key]) breakdown[key] = { category: category, accountCode: acc.AccountCode, accountName: acc.AccountName, amount: 0 };
+      breakdown[key].amount += impact;
+    });
+  });
+
+  Object.keys(categoryTotals).forEach(k => { categoryTotals[k] = Math.round(categoryTotals[k] * 100) / 100; });
+  const breakdownList = Object.values(breakdown).map(b => Object.assign({}, b, { amount: Math.round(b.amount * 100) / 100 }));
+  const sortByAccount = (a, b) => String(a.accountCode).localeCompare(String(b.accountCode), undefined, { numeric: true });
+
+  const netChange = Math.round((categoryTotals.Operating + categoryTotals.Investing + categoryTotals.Financing) * 100) / 100;
+  const reconciles = Math.abs(netChange - Math.round((closingCash - openingCash) * 100) / 100) < 0.01;
+
+  return {
+    fromDate: fromDate, toDate: toDate,
+    operating: breakdownList.filter(b => b.category === 'Operating').sort(sortByAccount),
+    totalOperating: categoryTotals.Operating,
+    investing: breakdownList.filter(b => b.category === 'Investing').sort(sortByAccount),
+    totalInvesting: categoryTotals.Investing,
+    financing: breakdownList.filter(b => b.category === 'Financing').sort(sortByAccount),
+    totalFinancing: categoryTotals.Financing,
+    netChange: netChange,
+    openingCash: openingCash,
+    closingCash: closingCash,
+    reconciles: reconciles
   };
 }
 
@@ -3925,10 +4030,13 @@ module.exports = {
   reactivateItem,
   buildDimensionFilters_,
   getPostedGlLines_,
+  isCashOrBankAccount_,
+  resolveCashFlowCategory_,
   getGlReport,
   getTrialBalance,
   getProfitAndLoss,
   getBalanceSheet,
+  getCashFlowStatement,
   getBomEffectiveOnDate_,
   groupBomsByParent_,
   getStockValuationReport,

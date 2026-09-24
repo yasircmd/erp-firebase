@@ -297,6 +297,12 @@ report). Each has a test that fails against the original logic.
    was silently excluded. The live chart has 3 sub-headers with 6
    postable accounts beneath them. A header now rolls up all
    descendants. (`glReport` suite.)
+4. **Cash Flow Statement category resolution stopped one level up**
+   (`resolveCashFlowCategory_`). An account under a sub-header with no
+   category of its own defaulted to Operating even when an ancestor
+   header said Investing/Financing. Now resolves from the nearest
+   categorized ancestor. No live misclassification today (the one blank
+   live sub-header's parent is blank too). (`cashFlow` suite.)
 
 Port-runtime fix (not a Code.gs deviation): `runtime.js` used
 `admin.firestore.FieldPath`, which isn't a constructor in this
@@ -336,7 +342,7 @@ primitive's REST semantics directly.
 | TRIALBALANCE | ✅ | **not yet** |
 | BALANCESHEET | ✅ | **not yet** |
 | PROFITLOSS | ✅ | **not yet** |
-| CASHFLOW | — | — |
+| CASHFLOW | ✅ | **not yet** |
 | PHYSICALCOUNT | — | — |
 | BOM | — | — |
 | JOBORDERREQUEST | — | — |
@@ -355,12 +361,12 @@ primitive's REST semantics directly.
 
 Needs redeploy: UOM — dynamic deactivate/reactivate calls now send { __positional: [...] }; the live callables predate that; ITEMSUBCAT — same (__positional); ORGUNITS — same (__positional); COMPANYMASTER — same (__positional); CURRENCYCONFIG — same (__positional); ITEMMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; COA — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; VENDORMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; CUSTOMERMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; PRICELISTING — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; PROCUREMENTSETUP — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls. Their functions are included in the list below; deploying getModuleFragment WITHOUT them would break those screens' deactivate/reactivate buttons.
 
-**Next module to port:** CASHFLOW
+**Next module to port:** PHYSICALCOUNT
 
-**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES, USERMGMT, TREEMGMT, APPROVALCONFIG, APPROVALTRACKER, STOCKAVAILABILITY, STOCKLEDGER, STOCKVALUATION, INVENTORYVALUATION, MATERIALVARIANCE, GLREPORT, TRIALBALANCE, BALANCESHEET, PROFITLOSS) — deploy these 90 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES, USERMGMT, TREEMGMT, APPROVALCONFIG, APPROVALTRACKER, STOCKAVAILABILITY, STOCKLEDGER, STOCKVALUATION, INVENTORYVALUATION, MATERIALVARIANCE, GLREPORT, TRIALBALANCE, BALANCESHEET, PROFITLOSS, CASHFLOW) — deploy these 91 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateInventoryValuationLine deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor deleteFirebaseUser deleteRole deleteTreeNode getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getActiveUsersForPicker getAllFirebaseUsers getApprovalConfigurations getApprovalHistory getApprovalLevelsForModule getBalanceSheet getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getEligibleJobOrderItems getGlReport getInventoryValuationLines getItemSubCategories getItems getMaterialVarianceReport getModulePermissionsMatrix getModuleRegistry getOrgUnits getPriceListLines getPriceLists getProfitAndLoss getRequisitionCategories getRoles getSalesTypes getStockAvailabilityList getStockLedgerReport getStockValuationReport getTreeNodes getTrialBalance getUOMs getVendors moveTreeNode reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveAllModulePermissions saveApprovalConfiguration saveApprovalLevels saveCompany saveCurrency saveCustomer saveCustomerClassification saveFirebaseUser saveInventoryValuationLine saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveRole saveSalesType saveTreeNode saveUOM saveVendor
+getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateInventoryValuationLine deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor deleteFirebaseUser deleteRole deleteTreeNode getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getActiveUsersForPicker getAllFirebaseUsers getApprovalConfigurations getApprovalHistory getApprovalLevelsForModule getBalanceSheet getCashFlowStatement getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getEligibleJobOrderItems getGlReport getInventoryValuationLines getItemSubCategories getItems getMaterialVarianceReport getModulePermissionsMatrix getModuleRegistry getOrgUnits getPriceListLines getPriceLists getProfitAndLoss getRequisitionCategories getRoles getSalesTypes getStockAvailabilityList getStockLedgerReport getStockValuationReport getTreeNodes getTrialBalance getUOMs getVendors moveTreeNode reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveAllModulePermissions saveApprovalConfiguration saveApprovalLevels saveCompany saveCurrency saveCustomer saveCustomerClassification saveFirebaseUser saveInventoryValuationLine saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveRole saveSalesType saveTreeNode saveUOM saveVendor
 ```
 <!-- PORT-STATUS:end -->
 

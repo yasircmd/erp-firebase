@@ -82,5 +82,23 @@ module.exports = [
     find: `    ? Object.keys(coaData).filter(id => coaData[id].ParentAccountID === accountId)`,
     replace: `    // [PORT FIX gl-report-rollup-all-descendants] every descendant, not just direct children.
     ? Object.keys(coaData).filter(id => { let p = coaData[id].ParentAccountID, hops = 0; while (p && hops++ < 50) { if (p === accountId) return true; p = coaData[p] && coaData[p].ParentAccountID; } return false; })`
+  },
+  {
+    id: 'cash-flow-category-nearest-ancestor',
+    why: 'resolveCashFlowCategory_ looked only at the account and its DIRECT parent, but the chart nests headers ' +
+      '(max depth 2 live). An account under a sub-header with no category of its own fell back to Operating even ' +
+      'when an ancestor header said Investing/Financing. Now resolves from the nearest categorized ancestor. (No live ' +
+      'misclassification today — the one blank live sub-header\'s parent is blank too — but it was one edit away.)',
+    find: `  if (account.ParentAccountID && coaData[account.ParentAccountID]) {
+    return coaData[account.ParentAccountID].CashFlowCategory || '';
+  }
+  return '';`,
+    replace: `  // [PORT FIX cash-flow-category-nearest-ancestor] walk up to the nearest categorized ancestor.
+  let parentId = account.ParentAccountID, hops = 0;
+  while (parentId && coaData[parentId] && hops++ < 50) {
+    if (coaData[parentId].CashFlowCategory) return coaData[parentId].CashFlowCategory;
+    parentId = coaData[parentId].ParentAccountID;
+  }
+  return '';`
   }
 ];

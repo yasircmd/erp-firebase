@@ -143,6 +143,11 @@ exports.getBalanceSheet = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
   return run(request, (ctx) => L.getBalanceSheet(ctx, ...a));
 });
+exports.getCashFlowStatement = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
+  return run(request, (ctx) => L.getCashFlowStatement(ctx, ...a));
+});
 exports.getChartOfAccounts = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
