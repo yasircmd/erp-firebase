@@ -78,6 +78,11 @@ exports.deactivateVendor = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
   return run(request, (ctx) => L.deactivateVendor(ctx, ...a));
 });
+exports.deleteFirebaseUser = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.userId];
+  return run(request, (ctx) => L.deleteFirebaseUser(ctx, ...a));
+});
 exports.deleteRole = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.roleId];
@@ -97,6 +102,11 @@ exports.getActiveItemSubCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getActiveItemSubCategories(ctx, ...a));
+});
+exports.getAllFirebaseUsers = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getAllFirebaseUsers(ctx, ...a));
 });
 exports.getChartOfAccounts = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -272,6 +282,11 @@ exports.saveCustomerClassification = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
   return run(request, (ctx) => L.saveCustomerClassification(ctx, ...a));
+});
+exports.saveFirebaseUser = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.userData];
+  return run(request, (ctx) => L.saveFirebaseUser(ctx, ...a));
 });
 exports.saveItem = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

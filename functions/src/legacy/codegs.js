@@ -227,6 +227,20 @@ const CUSTOMER_CATEGORIES = ['Retailer', 'Wholesaler', 'Distributor', 'Governmen
 const REQUISITION_CATEGORY_REQUIRED_ACCOUNT_TYPE = { FixedAsset: 'Asset', DirectExpense: 'Expense' };
 
 // ---- functions ----
+// Kept as requireAdmin_ for minimal disruption to existing call sites,
+// but this is no longer hardcoded to a literal "ADMIN" string — it now
+// checks whichever role(s) currently hold write access to USERMGMT in
+// the permissions matrix.
+async function requireAdmin_(idToken) {
+  const user = await requireUser_(idToken);
+
+  if (!(await moduleHasCapability_(idToken, 'USERMGMT', 'write', user.profile.role))) {
+    throw new Error('You do not have permission to manage users.');
+  }
+
+  return user;
+}
+
 async function getRoles(idToken) {
   await requireUser_(idToken);
   const roles = await ensureRolesSeeded_(idToken);
@@ -366,6 +380,111 @@ async function saveAllModulePermissions(idToken, allPermissions) {
     });
 
     await firebaseDbRequest_('permissions', 'put', cleaned, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// ---------- USER MANAGEMENT ----------
+
+async function getAllFirebaseUsers(idToken) {
+  await requireAdmin_(idToken);
+
+  const users = (await firebaseDbRequest_('users', 'get', null, idToken)) || [];
+
+  return Object.keys(users).map(uid => ({
+    id: uid,
+    username: users[uid].username || '',
+    email: users[uid].email || '',
+    fullName: users[uid].fullName || '',
+    role: users[uid].role || 'VIEWER',
+    status: users[uid].status || 'Active',
+    lastLogin: users[uid].lastLogin || 'Never',
+    assignedCompanies: Array.isArray(users[uid].AssignedCompanies) ? users[uid].AssignedCompanies : []
+  }));
+}
+
+async function saveFirebaseUser(idToken, userData) {
+  try {
+    await requireAdmin_(idToken);
+
+    const id = String(userData.id || '').trim();
+    const username = String(userData.username || '').trim();
+    const email = String(userData.email || '').trim().toLowerCase();
+    const fullName = String(userData.fullName || '').trim();
+    const role = String(userData.role || 'VIEWER').trim();
+    const status = String(userData.status || 'Active').trim();
+    const password = String(userData.password || '');
+    const assignedCompanies = Array.isArray(userData.assignedCompanies)
+      ? userData.assignedCompanies.map(c => String(c).trim()).filter(Boolean)
+      : [];
+
+    if (!username || !fullName) {
+      throw new Error('Username and full name are required.');
+    }
+
+    const roles = await ensureRolesSeeded_(idToken);
+    if (!roles[role]) throw new Error('Unknown role: ' + role);
+
+    if (!id) {
+      if (!email) throw new Error('Email is required for a new Firebase account.');
+      if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+
+      const authUser = await firebaseAuthRequest_('accounts:signUp', {
+        email: email,
+        password: password,
+        returnSecureToken: true
+      });
+
+      await firebaseDbRequest_(
+        `users/${authUser.localId}`,
+        'put',
+        {
+          username: username,
+          email: email,
+          fullName: fullName,
+          role: role,
+          status: status,
+          lastLogin: 'Never',
+          createdAt: new Date().toISOString(),
+          AssignedCompanies: assignedCompanies
+        },
+        idToken
+      );
+    } else {
+      await firebaseDbRequest_(
+        `users/${id}`,
+        'patch',
+        {
+          fullName: fullName,
+          role: role,
+          status: status,
+          updatedAt: new Date().toISOString(),
+          AssignedCompanies: assignedCompanies
+        },
+        idToken
+      );
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deleteFirebaseUser(idToken, userId) {
+  try {
+    const admin = await requireAdmin_(idToken);
+
+    if (admin.uid === userId) {
+      throw new Error('You cannot delete your own administrator profile.');
+    }
+
+    // Removes ERP access only. The Firebase Auth account remains until
+    // removed separately in the Firebase Authentication console.
+    await firebaseDbRequest_(`users/${userId}`, 'delete', null, idToken);
+
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
@@ -2428,11 +2547,15 @@ async function deactivatePriceListLine(idToken, lineId) {
 }
 
 module.exports = {
+  requireAdmin_,
   getRoles,
   saveRole,
   deleteRole,
   getModulePermissionsMatrix,
   saveAllModulePermissions,
+  getAllFirebaseUsers,
+  saveFirebaseUser,
+  deleteFirebaseUser,
   requireModuleWrite_,
   getCoaData_,
   ensureSubCategoriesSeeded_,

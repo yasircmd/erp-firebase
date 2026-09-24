@@ -14,6 +14,12 @@ const listed = require('../../../tools/legacy-port/modules.json').modules;
 const MODULES = process.argv.slice(2).length ? process.argv.slice(2)
   : ['STOCKADJUSTMENT', 'MATERIALISSUE', 'GRN', 'WAREHOUSEMOVEMENT', ...listed];
 
+// Failures that are the ORIGINAL behavior for that role (documented in
+// README's quirks list), not port bugs: module+uid -> regex of allowed problems.
+const EXPECTED = {
+  'USERMGMT|u-viewer': /You do not have permission to manage users\./
+};
+
 (async () => {
   require('./buildHarness');
   const harness = fs.readFileSync(path.join(__dirname, 'harness.html'));
@@ -34,7 +40,8 @@ const MODULES = process.argv.slice(2).length ? process.argv.slice(2)
         const failed = await page.evaluate(() => window.__rpcLog.filter(c => !c.ok).map(c => c.name + ': ' + c.error));
         const loadFailed = await page.evaluate(() => /^LOAD FAILED/.test(document.getElementById('module-container').textContent) ? document.getElementById('module-container').textContent.slice(0, 200) : '');
         const calls = await page.evaluate(() => window.__rpcLog.length);
-        const problems = [...failed, ...errors, ...(loadFailed ? [loadFailed] : [])];
+        const allowed = EXPECTED[mod + '|' + uid];
+        const problems = [...failed, ...errors, ...(loadFailed ? [loadFailed] : [])].filter(p => !(allowed && allowed.test(p)));
         results.push([problems.length ? 'FAIL' : 'PASS', mod, uid, calls + ' calls', problems.join(' | ')]);
       } catch (e) {
         results.push(['FAIL', mod, uid, '', e.message.split('\n')[0]]);

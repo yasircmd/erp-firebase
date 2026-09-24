@@ -207,6 +207,12 @@ billed through Vendor Invoice (not yet ported).
 
 Pre-existing quirks in these screens/functions, preserved and disclosed
 (not changed):
+- User Management: a role with only `access` to USERMGMT can open the
+  screen, but listing users requires `write` (Code.gs's
+  `getAllFirebaseUsers` calls `requireAdmin_`), so it gets "You do not
+  have permission to manage users." — same as the GAS version.
+- User Management: deleting a user removes only the ERP profile; the
+  Firebase Auth account remains (as the original's own comment says).
 - Stock Adjustment, Material Issue and Warehouse Movement's own reversal
   success alert reads `result.grnNumber` (a copy-paste from GRN), so it
   shows "Reversal posted as undefined." — cosmetic, the reversal is fine.
@@ -274,7 +280,7 @@ closure, and emits them VERBATIM (original comments included) into
 | PROCUREMENTSETUP | ✅ | **not yet** |
 | SALESINVOICESETUP | ✅ | **not yet** |
 | ROLES | ✅ | **not yet** |
-| USERMGMT | — | — |
+| USERMGMT | ✅ | **not yet** |
 | TREEMGMT | — | — |
 | APPROVALCONFIG | — | — |
 | APPROVALTRACKER | — | — |
@@ -306,12 +312,12 @@ closure, and emits them VERBATIM (original comments included) into
 
 Needs redeploy: UOM — dynamic deactivate/reactivate calls now send { __positional: [...] }; the live callables predate that; ITEMSUBCAT — same (__positional); ORGUNITS — same (__positional); COMPANYMASTER — same (__positional); CURRENCYCONFIG — same (__positional). Their functions are included in the list below; deploying getModuleFragment WITHOUT them would break those screens' deactivate/reactivate buttons.
 
-**Next module to port:** USERMGMT
+**Next module to port:** TREEMGMT
 
-**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES) — deploy these 64 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG, ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES, USERMGMT) — deploy these 67 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor deleteRole getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getItemSubCategories getItems getModulePermissionsMatrix getOrgUnits getPriceListLines getPriceLists getRequisitionCategories getRoles getSalesTypes getUOMs getVendors reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveAllModulePermissions saveCompany saveCurrency saveCustomer saveCustomerClassification saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveRole saveSalesType saveUOM saveVendor
+getModuleFragment deactivateAccount deactivateCompany deactivateCurrency deactivateCustomer deactivateCustomerClassification deactivateItem deactivateItemSubCategory deactivateOrgUnit deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateSalesType deactivateUOM deactivateVendor deleteFirebaseUser deleteRole getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getAllFirebaseUsers getChartOfAccounts getCompanies getCurrencies getCustomerClassifications getCustomers getItemSubCategories getItems getModulePermissionsMatrix getOrgUnits getPriceListLines getPriceLists getRequisitionCategories getRoles getSalesTypes getUOMs getVendors reactivateAccount reactivateCompany reactivateCurrency reactivateCustomer reactivateCustomerClassification reactivateItem reactivateItemSubCategory reactivateOrgUnit reactivatePriceList reactivateRequisitionCategory reactivateSalesType reactivateUOM reactivateVendor saveAccount saveAllModulePermissions saveCompany saveCurrency saveCustomer saveCustomerClassification saveFirebaseUser saveItem saveItemSubCategory saveOrgUnit savePriceList savePriceListLine saveRequisitionCategory saveRole saveSalesType saveUOM saveVendor
 ```
 <!-- PORT-STATUS:end -->
 
@@ -336,7 +342,10 @@ To continue with the next modules (from the repo alone):
     #    order (finance last; DATARESET last of all — destructive)
     (cd tools/legacy-port && npm i && node generate.js <clone-dir>)
     node tools/legacy-port/check-shell-deps.js <clone-dir>   # old-shell globals a screen needs
-    # 3. Tests (emulators running), then a negative control per module
+    # 3. Tests, then a negative control per module. Emulators (firebase.json
+    #    has an "emulators" block; the Auth emulator is REQUIRED — without it
+    #    User Management's create-user test would reach production Auth):
+    #    firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
     node --test --test-concurrency=1 functions/test/emulator/*.test.js
     node functions/test/ui/smoke.ui.js        # every ported screen loads cleanly, Admin + Viewer
     node functions/test/ui/dynamicToggle.ui.js  # a real [call](...) deactivate/reactivate click
