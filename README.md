@@ -233,6 +233,12 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   likewise removed at current cost). If the average cost moved in between,
   the reversal's GL amount differs from the original's. Both sides of each
   entry still balance. Same as GAS.
+- BOM: no company scoping. `getBoms` returns every company's BOMs, and
+  `saveBom`/`deactivateBom`/`reactivateBom` don't check that the user can
+  access the parent item's company (a component must still belong to
+  the parent's company). Any role with BOM access sees and, with
+  `write`, edits every company's recipes. Same as GAS. Worth a deliberate
+  decision, like Approval Tracker's.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -361,7 +367,7 @@ primitive's REST semantics directly.
 | PROFITLOSS | ✅ | ✅ |
 | CASHFLOW | ✅ | ✅ |
 | PHYSICALCOUNT | ✅ | **not yet** |
-| BOM | — | — |
+| BOM | ✅ | **not yet** |
 | JOBORDERREQUEST | — | — |
 | PRODUCTION | — | — |
 | PRODCONSUMPTION | — | — |
@@ -376,12 +382,12 @@ primitive's REST semantics directly.
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** BOM
+**Next module to port:** JOBORDERREQUEST
 
-**Committed but NOT yet deployed** (PHYSICALCOUNT) — deploy these 7 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM) — deploy these 11 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment decidePhysicalCountApproval deletePhysicalCountDraft getPhysicalCountEntries postPhysicalCount reversePhysicalCount savePhysicalCountDraft
+getModuleFragment deactivateBom decidePhysicalCountApproval deletePhysicalCountDraft getBoms getPhysicalCountEntries postPhysicalCount reactivateBom reversePhysicalCount saveBom savePhysicalCountDraft
 ```
 <!-- PORT-STATUS:end -->
 

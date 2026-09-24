@@ -13,6 +13,11 @@ exports.deactivateAccount = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.accountId];
   return run(request, (ctx) => L.deactivateAccount(ctx, ...a));
 });
+exports.deactivateBom = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.bomId];
+  return run(request, (ctx) => L.deactivateBom(ctx, ...a));
+});
 exports.deactivateCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId];
@@ -152,6 +157,11 @@ exports.getBalanceSheet = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
   return run(request, (ctx) => L.getBalanceSheet(ctx, ...a));
+});
+exports.getBoms = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getBoms(ctx, ...a));
 });
 exports.getCashFlowStatement = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -313,6 +323,11 @@ exports.reactivateAccount = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.accountId];
   return run(request, (ctx) => L.reactivateAccount(ctx, ...a));
 });
+exports.reactivateBom = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.bomId];
+  return run(request, (ctx) => L.reactivateBom(ctx, ...a));
+});
 exports.reactivateCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId];
@@ -397,6 +412,11 @@ exports.saveApprovalLevels = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.moduleId, d.scopeKey, d.levels];
   return run(request, (ctx) => L.saveApprovalLevels(ctx, ...a));
+});
+exports.saveBom = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.bomData];
+  return run(request, (ctx) => L.saveBom(ctx, ...a));
 });
 exports.saveCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

@@ -156,6 +156,41 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
 };
 
 // ============================================================
+// BILL OF MATERIALS (BOM)
+// ============================================================
+// Pure master data — no stock ledger or GL impact at all. Defines what
+// components (and how much of each) are needed to produce ONE unit of a
+// Finished Good or Semi-Finished Good. Consumed by Production Entry
+// (not built yet) to know what to draw from inventory when producing.
+//
+// RULES:
+// - Parent item must be FinishedGood or SemiFinishedGood — only those
+//   categories are ever "produced." RawMaterial/Consumable/Scrap can
+//   never be a BOM's parent.
+// - Component items must be RawMaterial, SemiFinishedGood, or
+//   Consumable — anything that gets CONSUMED into production.
+//   SemiFinishedGood can be BOTH a parent (of its own BOM) AND a
+//   component (of a higher-level BOM) — that's exactly what "semi-
+//   finished" means: an intermediate product with its own recipe that
+//   also feeds into something else.
+// - Only ONE Active BOM per parent item at a time. Saving a new BOM as
+//   Active for a parent that already has one auto-deactivates the old
+//   one — the old version stays on record (Inactive), not deleted.
+// - Circular BOMs are rejected: a parent's own component tree — walked
+//   through every component's OWN active BOM, recursively — must never
+//   loop back to the parent itself. Without this check, a future
+//   Production Entry "explosion" of a BOM tree could recurse forever.
+//
+// Storage: /boms/{id} = { ParentItemID, BOMVersion, Status, EffectiveFrom
+//   (date this version took effect — see saveBom), Components: [
+//   { ComponentItemID, Quantity (in component's base UOM, per 1 unit of
+//   parent), ScrapPercent }], Notes, CreatedAt/By, UpdatedAt/By }
+
+const BOM_PARENT_CATEGORIES = ['FinishedGood', 'SemiFinishedGood'];
+
+const BOM_COMPONENT_CATEGORIES = ['RawMaterial', 'SemiFinishedGood', 'Consumable'];
+
+// ============================================================
 // WAREHOUSE MOVEMENT
 // ============================================================
 // Moves stock of the SAME item from one warehouse/rack to another. No
@@ -2431,6 +2466,15 @@ async function getCashFlowStatement(idToken, params) {
   };
 }
 
+async function getBoms(idToken) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'BOM', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Bill of Materials.');
+  }
+  const data = (await firebaseDbRequest_('boms', 'get', null, idToken)) || {};
+  return Object.keys(data).map(id => Object.assign({ BOMID: id }, data[id]));
+}
+
 // Resolves whichever BOM version was ACTUALLY in effect for a parent
 // item on a specific date — not just whatever's marked Active today.
 // This is what makes the Material Variance Report correct across a
@@ -2470,6 +2514,180 @@ async function groupBomsByParent_(idToken) {
     byParent[pid].sort((a, b) => String(a.EffectiveFrom || '').localeCompare(String(b.EffectiveFrom || '')));
   });
   return byParent;
+}
+
+// Walks a proposed component tree looking for the parent item appearing
+// anywhere below it — directly, or nested inside a component's OWN
+// active BOM, however many levels deep. `visited` guards against
+// runaway recursion if bad data already contains a cycle elsewhere in
+// the graph (shouldn't happen once this check is in place, but existing
+// data predates it being possible to check).
+function bomTreeContainsItem_(allBomsByParent, startItemId, targetItemId, visited) {
+  if (visited.has(startItemId)) return false;
+  visited.add(startItemId);
+  const bom = allBomsByParent[startItemId];
+  if (!bom) return false;
+  for (let i = 0; i < bom.Components.length; i++) {
+    const compId = bom.Components[i].ComponentItemID;
+    if (compId === targetItemId) return true;
+    if (bomTreeContainsItem_(allBomsByParent, compId, targetItemId, visited)) return true;
+  }
+  return false;
+}
+
+async function saveBom(idToken, bomData) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'BOM', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Bill of Materials.');
+    }
+
+    const bomId = String(bomData.BOMID || '').trim();
+    const parentItemId = String(bomData.ParentItemID || '').trim();
+    const bomVersion = String(bomData.BOMVersion || '').trim() || '1.0';
+    const status = String(bomData.Status || 'Active').trim();
+    const notes = String(bomData.Notes || '').trim();
+    // When this recipe actually took effect — required so the Material
+    // Variance Report (and anything else needing "what was the recipe
+    // on date X") can resolve the CORRECT version for a given production
+    // transaction's date, not just whichever version happens to be
+    // marked Active today. Defaults to today only as a convenience for
+    // a brand-new BOM; a genuine recipe CHANGE should always get an
+    // explicit, correct effective date, not silently inherit "now".
+    const effectiveFrom = String(bomData.EffectiveFrom || '').trim() || new Date().toISOString().substring(0, 10);
+
+    if (!parentItemId) throw new Error('Select a parent item.');
+
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const parentItem = itemsData[parentItemId];
+    if (!parentItem) throw new Error('Parent item not found.');
+    if (BOM_PARENT_CATEGORIES.indexOf(parentItem.Category) === -1) {
+      throw new Error('Parent item must be a Finished Good or Semi-Finished Good.');
+    }
+
+    const rawComponents = bomData.Components || [];
+    const components = [];
+    rawComponents.forEach((c, idx) => {
+      const componentItemId = String(c.ComponentItemID || '').trim();
+      if (!componentItemId) return; // skip blank trailing row
+
+      const compItem = itemsData[componentItemId];
+      if (!compItem) throw new Error('Component ' + (idx + 1) + ': item not found.');
+      if (BOM_COMPONENT_CATEGORIES.indexOf(compItem.Category) === -1) {
+        throw new Error('Component ' + (idx + 1) + ' (' + compItem.ItemCode + '): must be Raw Material, Semi-Finished Good, or Consumable.');
+      }
+      if (componentItemId === parentItemId) {
+        throw new Error('Component ' + (idx + 1) + ': an item cannot be a component of its own BOM.');
+      }
+      if (parentItem.CompanyID && compItem.CompanyID && parentItem.CompanyID !== compItem.CompanyID) {
+        throw new Error('Component ' + (idx + 1) + ' (' + compItem.ItemCode + ') belongs to a different company than the parent item.');
+      }
+
+      const quantity = Number(c.Quantity);
+      if (!(quantity > 0)) throw new Error('Component ' + (idx + 1) + ' (' + compItem.ItemCode + '): enter a quantity greater than zero.');
+      const scrapPercent = Number(c.ScrapPercent) || 0;
+      if (scrapPercent < 0 || scrapPercent >= 100) throw new Error('Component ' + (idx + 1) + ' (' + compItem.ItemCode + '): scrap % must be between 0 and 100.');
+
+      components.push({
+        ComponentItemID: componentItemId, ComponentItemCode: compItem.ItemCode, ComponentItemName: compItem.ItemName,
+        Quantity: Math.round(quantity * 1e6) / 1e6, UOMID: compItem.UOMID,
+        ScrapPercent: Math.round(scrapPercent * 100) / 100
+      });
+    });
+
+    if (!components.length) throw new Error('Add at least one component.');
+
+    // Cycle detection — only meaningful if this BOM is (or will be)
+    // Active, since an Inactive BOM never actually gets used by
+    // Production and can't create a real circular consumption path.
+    if (status === 'Active') {
+      const allBoms = (await firebaseDbRequest_('boms', 'get', null, idToken)) || {};
+      const allBomsByParent = {};
+      Object.keys(allBoms).forEach(id => {
+        if (id === bomId) return; // exclude the record being edited — its old component list is irrelevant here
+        const b = allBoms[id];
+        if (b.Status === 'Active') allBomsByParent[b.ParentItemID] = b;
+      });
+      // Inject the PROPOSED version of this BOM so the walk checks
+      // against what's about to be saved, not stale data.
+      allBomsByParent[parentItemId] = { Components: components };
+
+      for (let i = 0; i < components.length; i++) {
+        if (bomTreeContainsItem_(allBomsByParent, components[i].ComponentItemID, parentItemId, new Set())) {
+          throw new Error('This would create a circular BOM: ' + components[i].ComponentItemCode + '\'s own recipe eventually consumes ' + parentItem.ItemCode + ' again.');
+        }
+      }
+    }
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const updates = {};
+
+    // Only one Active BOM per parent — saving this one as Active
+    // deactivates any other Active BOM for the same parent (history
+    // stays on record as Inactive, not deleted).
+    if (status === 'Active') {
+      const allBoms = (await firebaseDbRequest_('boms', 'get', null, idToken)) || {};
+      Object.keys(allBoms).forEach(id => {
+        if (id === bomId) return;
+        if (allBoms[id].ParentItemID === parentItemId && allBoms[id].Status === 'Active') {
+          updates[id] = Object.assign({}, allBoms[id], { Status: 'Inactive', UpdatedAt: now, UpdatedBy: actor });
+        }
+      });
+    }
+
+    const fields = {
+      ParentItemID: parentItemId, ParentItemCode: parentItem.ItemCode, ParentItemName: parentItem.ItemName,
+      BOMVersion: bomVersion, Status: status, Components: components, Notes: notes, EffectiveFrom: effectiveFrom,
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    if (bomId) {
+      const existing = await firebaseDbRequest_('boms/' + bomId, 'get', null, idToken);
+      if (!existing) throw new Error('BOM not found.');
+      updates[bomId] = Object.assign({}, existing, fields);
+    } else {
+      const newId = 'BOM-' + Utilities.getUuid().split('-')[0].toUpperCase();
+      updates[newId] = Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor });
+    }
+
+    await firebaseDbRequest_('boms', 'patch', updates, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deactivateBom(idToken, bomId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'BOM', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Bill of Materials.');
+    }
+    const existing = await firebaseDbRequest_('boms/' + bomId, 'get', null, idToken);
+    if (!existing) throw new Error('BOM not found.');
+    await firebaseDbRequest_('boms/' + bomId, 'patch', { Status: 'Inactive', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Reactivating re-runs the SAME "only one Active BOM per parent" and
+// cycle-detection rules saveBom applies — reactivation is just another
+// path to an Active BOM, and must not bypass either check.
+async function reactivateBom(idToken, bomId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'BOM', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Bill of Materials.');
+    }
+    const existing = await firebaseDbRequest_('boms/' + bomId, 'get', null, idToken);
+    if (!existing) throw new Error('BOM not found.');
+    return await saveBom(idToken, Object.assign({}, existing, { BOMID: bomId, Status: 'Active' }));
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 // ============================================================
@@ -4647,8 +4865,13 @@ module.exports = {
   getProfitAndLoss,
   getBalanceSheet,
   getCashFlowStatement,
+  getBoms,
   getBomEffectiveOnDate_,
   groupBomsByParent_,
+  bomTreeContainsItem_,
+  saveBom,
+  deactivateBom,
+  reactivateBom,
   savePhysicalCountDraft,
   buildPhysicalCountLines_,
   postPhysicalCount,

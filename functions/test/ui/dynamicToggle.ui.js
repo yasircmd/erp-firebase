@@ -9,7 +9,9 @@ const { chromium } = require('playwright');
 const admin = require('firebase-admin');
 const app = admin.initializeApp({ projectId: 'erp1-8f4cd', databaseURL: 'https://erp1-8f4cd-default-rtdb.firebaseio.com' }, 'toggle');
 const CASES = [
-  { module: 'UOM', button: '.uom-toggle', fn: /^(de|re)activateUOM$/ }
+  { module: 'UOM', button: '.uom-toggle', fn: /^(de|re)activateUOM$/ },
+  // BOM confirms through its own modal rather than window.confirm.
+  { module: 'BOM', button: '.bom-toggle', confirm: '#bom-confirm-ok', fn: /^(de|re)activateBom$/ }
 ];
 (async () => {
   require('./buildHarness');
@@ -23,6 +25,7 @@ const CASES = [
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForLoadState('networkidle');
     await page.locator(c.button).first().click();
+    if (c.confirm) await page.locator(c.confirm).click();
     await page.waitForFunction(re => window.__rpcLog.some(x => new RegExp(re).test(x.name)), c.fn.source, { timeout: 20000 });
     const call = await page.evaluate(re => window.__rpcLog.find(x => new RegExp(re).test(x.name)), c.fn.source);
     const good = call.ok && call.arg && Array.isArray(call.arg.__positional);
