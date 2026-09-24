@@ -268,7 +268,7 @@ closure, and emits them VERBATIM (original comments included) into
 | VENDORMASTER | ✅ | **not yet** |
 | CUSTOMERMASTER | ✅ | **not yet** |
 | PRICELISTING | ✅ | **not yet** |
-| PROCUREMENTSETUP | — | — |
+| PROCUREMENTSETUP | ✅ | **not yet** |
 | SALESINVOICESETUP | — | — |
 | ROLES | — | — |
 | USERMGMT | — | — |
@@ -301,12 +301,12 @@ closure, and emits them VERBATIM (original comments included) into
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** PROCUREMENTSETUP
+**Next module to port:** SALESINVOICESETUP
 
-**Committed but NOT yet deployed** (ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING) — deploy these 26 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER, PRICELISTING, PROCUREMENTSETUP) — deploy these 30 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment deactivateAccount deactivateCustomer deactivateItem deactivatePriceList deactivatePriceListLine deactivateVendor getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getCustomers getItems getPriceListLines getPriceLists getVendors reactivateAccount reactivateCustomer reactivateItem reactivatePriceList reactivateVendor saveAccount saveCustomer saveItem savePriceList savePriceListLine saveVendor
+getModuleFragment deactivateAccount deactivateCustomer deactivateItem deactivatePriceList deactivatePriceListLine deactivateRequisitionCategory deactivateVendor getActiveCurrencies getActiveCustomerClassifications getActiveItemSubCategories getCustomers getItems getPriceListLines getPriceLists getRequisitionCategories getVendors reactivateAccount reactivateCustomer reactivateItem reactivatePriceList reactivateRequisitionCategory reactivateVendor saveAccount saveCustomer saveItem savePriceList savePriceListLine saveRequisitionCategory saveVendor
 ```
 <!-- PORT-STATUS:end -->
 

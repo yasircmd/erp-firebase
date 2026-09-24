@@ -44,6 +44,10 @@ exports.deactivatePriceListLine = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivatePriceListLine(ctx, d.lineId));
 });
+exports.deactivateRequisitionCategory = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.deactivateRequisitionCategory(ctx, d.categoryId));
+});
 exports.deactivateUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateUOM(ctx, d.uomId));
@@ -100,6 +104,10 @@ exports.getPriceLists = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.getPriceLists(ctx));
 });
+exports.getRequisitionCategories = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.getRequisitionCategories(ctx));
+});
 exports.getUOMs = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.getUOMs(ctx));
@@ -139,6 +147,10 @@ exports.reactivateOrgUnit = onCallWithMessages(opts, (request) => {
 exports.reactivatePriceList = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.reactivatePriceList(ctx, d.priceListId));
+});
+exports.reactivateRequisitionCategory = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.reactivateRequisitionCategory(ctx, d.categoryId));
 });
 exports.reactivateUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -183,6 +195,10 @@ exports.savePriceList = onCallWithMessages(opts, (request) => {
 exports.savePriceListLine = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.savePriceListLine(ctx, d.lineData));
+});
+exports.saveRequisitionCategory = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.saveRequisitionCategory(ctx, d.data));
 });
 exports.saveUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

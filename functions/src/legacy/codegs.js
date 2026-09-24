@@ -190,6 +190,37 @@ const VENDOR_CATEGORIES = ['RawMaterialSupplier', 'ServiceProvider', 'Contractor
 
 const CUSTOMER_CATEGORIES = ['Retailer', 'Wholesaler', 'Distributor', 'Government', 'Individual', 'Other'];
 
+// ============================================================
+// PROCUREMENT SETUP (foundation for Purchase Requisition and
+// Inventory Purchase Requisition)
+// ============================================================
+// REQUISITION CATEGORIES — a curated, GL-mapped list so a non-finance
+// requester (Marketing, HR, etc.) picks a friendly name like
+// "Printing & Stationery" instead of a raw account code. Each
+// category has a Type (FixedAsset | DirectExpense) that determines
+// which account TYPE it may map to — Fixed Asset categories can only
+// map to Asset-type accounts (capitalized), Direct Expense categories
+// only to Expense-type accounts (expensed on receipt). This mirrors
+// Vendor/Customer Master's own TradePayables/TradeReceivables
+// pattern of restricting an account picker by required AccountType,
+// just with the required type itself varying by the category's Type
+// field instead of being fixed.
+//
+// Approval levels used to live here too, scoped only to Cost Center
+// and only for what would eventually become PO. That's now the
+// master Approval Configuration module instead — admin-controlled,
+// covering every gated module (not just Procurement) with a choice
+// of scope, not just Cost Center. See that module's own header for
+// the storage shape and the cascading, multi-approver resolution
+// rule.
+//
+// Storage:
+//   /requisitionCategories/{id} = { Name, Type ('FixedAsset' |
+//     'DirectExpense'), GLAccountID, CompanyID (optional restriction,
+//     blank = shared), Status, CreatedAt/By, UpdatedAt/By }
+
+const REQUISITION_CATEGORY_REQUIRED_ACCOUNT_TYPE = { FixedAsset: 'Asset', DirectExpense: 'Expense' };
+
 // ---- functions ----
 async function requireModuleWrite_(idToken, user, moduleId) {
   if (!(await moduleHasCapability_(idToken, moduleId, 'write', user.profile.role))) {
@@ -1704,6 +1735,101 @@ async function reactivateCustomer(idToken, customerId) {
   }
 }
 
+async function getRequisitionCategories(idToken) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'PROCUREMENTSETUP', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Procurement Setup.');
+  }
+  const data = (await firebaseDbRequest_('requisitionCategories', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ CategoryID: id }, data[id]))
+    .filter(c => userCanAccessCompany_(user.profile, c.CompanyID));
+}
+
+async function saveRequisitionCategory(idToken, data) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'PROCUREMENTSETUP', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Procurement Setup.');
+    }
+
+    const categoryId = String(data.CategoryID || '').trim();
+    const name = String(data.Name || '').trim();
+    if (!name) throw new Error('Category name is required.');
+    const type = String(data.Type || '').trim();
+    const requiredAccountType = REQUISITION_CATEGORY_REQUIRED_ACCOUNT_TYPE[type];
+    if (!requiredAccountType) throw new Error('Select Fixed Asset or Direct Expense.');
+    const companyId = String(data.CompanyID || '').trim();
+    if (companyId && !userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+
+    const glAccountId = String(data.GLAccountID || '').trim();
+    if (!glAccountId) throw new Error('Select a GL account.');
+    const coaData = await getCoaData_(idToken);
+    const account = coaData[glAccountId];
+    if (!account || !account.IsPostable || account.Status !== 'Active') throw new Error('GL account must be an active, postable account.');
+    if (account.AccountType !== requiredAccountType) {
+      throw new Error((type === 'FixedAsset' ? 'Fixed Asset' : 'Direct Expense') + ' categories must map to a(n) ' + requiredAccountType + '-type account.');
+    }
+    if (account.CompanyID && companyId && account.CompanyID !== companyId) throw new Error('GL account is restricted to a different company.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const fields = {
+      Name: name, Type: type, GLAccountID: glAccountId, CompanyID: companyId,
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    if (categoryId) {
+      const existing = await firebaseDbRequest_('requisitionCategories/' + categoryId, 'get', null, idToken);
+      if (!existing) throw new Error('Category not found.');
+      await firebaseDbRequest_('requisitionCategories/' + categoryId, 'patch', fields, idToken);
+      return { success: true, categoryId: categoryId };
+    }
+
+    const newId = 'RCAT-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('requisitionCategories/' + newId, 'put', Object.assign({}, fields, {
+      Status: 'Active', CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, categoryId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deactivateRequisitionCategory(idToken, categoryId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'PROCUREMENTSETUP', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Procurement Setup.');
+    }
+    const existing = await firebaseDbRequest_('requisitionCategories/' + categoryId, 'get', null, idToken);
+    if (!existing) throw new Error('Category not found.');
+    await firebaseDbRequest_('requisitionCategories/' + categoryId, 'patch', {
+      Status: 'Inactive', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function reactivateRequisitionCategory(idToken, categoryId) {
+  try {
+    const user = await requireUser_(idToken);
+    if (!(await moduleHasCapability_(idToken, 'PROCUREMENTSETUP', 'write', user.profile.role))) {
+      throw new Error('You do not have permission to modify Procurement Setup.');
+    }
+    const existing = await firebaseDbRequest_('requisitionCategories/' + categoryId, 'get', null, idToken);
+    if (!existing) throw new Error('Category not found.');
+    await firebaseDbRequest_('requisitionCategories/' + categoryId, 'patch', {
+      Status: 'Active', UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // ============================================================
 // PRICE LISTING
 // ============================================================
@@ -1990,6 +2116,10 @@ module.exports = {
   saveCustomer,
   deactivateCustomer,
   reactivateCustomer,
+  getRequisitionCategories,
+  saveRequisitionCategory,
+  deactivateRequisitionCategory,
+  reactivateRequisitionCategory,
   getActiveCurrencies,
   getPriceLists,
   savePriceList,
