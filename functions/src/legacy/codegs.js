@@ -14,6 +14,7 @@ const __companies = require('../companies');
 const __glWriting = require('../glWriting');
 const __masterData = require('../masterData');
 const __moduleRegistry = require('../moduleRegistry');
+const __reservations = require('../reservations');
 const __roles = require('../roles');
 const __stockMovement = require('../stockMovement');
 const __tree = require('../tree');
@@ -27,6 +28,7 @@ const computeStockMovement_ = (idToken, ...a) => __stockMovement.computeStockMov
 const getStockLedgerEntry_ = (idToken, ...a) => __stockMovement.getStockLedgerEntry(...a);
 const commitStockLedgerUpdates_ = (idToken, ...a) => __stockMovement.commitStockLedgerUpdates(...a);
 const writeStockGlEntry_ = (idToken, ...a) => __glWriting.writeStockGlEntry(...a);
+const getCompanyRefCode_ = (idToken, ...a) => __glWriting.getCompanyRefCode(...a);
 const generateStockVoucherNumber_ = (idToken, ...a) => __glWriting.generateStockVoucherNumber(...a);
 const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
 const beginCommitAttempt_ = (idToken, ...a) => __commitAttempt.beginCommitAttempt(...a);
@@ -34,6 +36,7 @@ const abandonCommitAttempt_ = (idToken, ...a) => __commitAttempt.abandonCommitAt
 const finalizeCommitAttempt_ = (idToken, ...a) => __commitAttempt.finalizeCommitAttempt(...a);
 const resolveApprovalScopeKeyForDocument_ = (idToken, ...a) => __approvals.resolveApprovalScopeKeyForDocument(...a);
 const beginApprovalInstance_ = (idToken, ...a) => __approvals.beginApprovalInstance(...a);
+const getReservationsForSource_ = (idToken, ...a) => __reservations.getReservationsForSource(...a);
 const ensureTreeSeeded_ = (idToken, ...a) => __tree.ensureTreeSeeded(...a);
 const ensureRolesSeeded_ = (idToken, ...a) => __roles.ensureRolesSeeded(...a);
 const moduleIdForEntry_ = (...a) => __masterData.moduleIdForEntry(...a);
@@ -1084,6 +1087,28 @@ async function requirePostAccess_(idToken, user, moduleId) {
   if (!(await moduleHasCapability_(idToken, moduleId, 'post', user.profile.role))) {
     throw new Error('You do not have permission to post or reverse entries in ' + moduleId + '.');
   }
+}
+
+// Must be called while the caller already holds LockService.getScriptLock() —
+// no internal locking here, to avoid nested lock acquisition in the same call.
+// Counter is scoped per prefix, year, AND company:
+// /gl/counters/{prefix}/{year}/{companyRefCode} — so each company's
+// sequence starts independently at 000001, e.g. a company's first JV of
+// the year is JV-26-01-000001 regardless of how many entries OTHER
+// companies have already posted that year. The company reference code
+// exists ONLY for this display string — it is not used as an identifier
+// anywhere else (CompanyID remains the real key everywhere else in the
+// system). The counter path itself still keys on the full 4-digit year
+// (avoids any ambiguity at a century rollover); only the DISPLAYED
+// voucher number is shortened to 2 digits.
+async function generateVoucherNumber_(idToken, prefix, year, companyId) {
+  const companyRefCode = await getCompanyRefCode_(idToken, companyId);
+  const yy = String(year).slice(-2);
+  const counterPath = 'gl/counters/' + prefix + '/' + year + '/' + companyRefCode;
+  const current = (await firebaseDbRequest_(counterPath, 'get', null, idToken)) || 0;
+  const next = current + 1;
+  await firebaseDbRequest_(counterPath, 'put', next, idToken);
+  return prefix + '-' + yy + '-' + companyRefCode + '-' + String(next).padStart(6, '0');
 }
 
 // Used by every report (TB/P&L/BS/CFS/GL): if the caller explicitly
@@ -4624,6 +4649,445 @@ async function getEligibleJobOrderItems(idToken) {
     }));
 }
 
+// Sales Order lines currently showing a shortfall for a given item —
+// the picker source when a Sales-triggered Job Order line is created,
+// so Sales links it to real outstanding demand rather than typing a
+// Sales Order number from memory. "Shortfall" is always computed live
+// (Ordered minus whatever's currently Reserved for that specific
+// line), never stored.
+async function getSalesOrderLinesWithShortfall_(idToken, itemCode, companyId) {
+  const soData = (await firebaseDbRequest_('salesOrders', 'get', null, idToken)) || {};
+  const results = [];
+  await seq.forEach(Object.keys(soData), async soId => {
+    const so = soData[soId];
+    if (so.CompanyID !== companyId) return;
+    if (so.Status !== 'Reserved' && so.Status !== 'Partially Reserved') return;
+    await seq.forEach(so.Lines || [], async line => {
+      if (line.ItemCode !== itemCode) return;
+      const reserved = (await getReservationsForSource_(idToken, 'SalesOrder', soId))
+        .filter(r => r.Status === 'Active' && r.SourceLineID === line.LineID)
+        .reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0);
+      const shortfall = Number(line.OrderedQuantity) - reserved;
+      if (shortfall > 0) {
+        results.push({ SOID: soId, SONumber: so.SONumber, SOLineID: line.LineID, WarehouseID: line.WarehouseID, ShortfallQuantity: shortfall, ConfirmedAt: so.ConfirmedAt || '' });
+      }
+    });
+  });
+  return results;
+}
+
+// Produced quantity for ONE line — never stored, always summed live
+// from every Production Entry posted against it, same "never trust a
+// snapshot" principle as before. Matches on the line's own ID now
+// (JobOrderLineID, resolved server-side by Production Entry when the
+// user picks an item under a batch — see saveProductionDraft), not by
+// re-deriving from item code each time.
+async function computeJobOrderLineProducedQty_(idToken, line) {
+  const productions = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  let produced = 0;
+  Object.values(productions).forEach(txn => {
+    if (txn.TransactionType !== 'Production' || txn.Status !== 'Posted') return;
+    // JobOrderLineID lives on each LINE, not the transaction header — a
+    // single Production Entry can produce more than one item, each
+    // potentially matching a different Job Order line. A reversal is
+    // its own separate, Posted transaction whose lines carry the same
+    // JobOrderLineID (copied over from what it's reversing) but with
+    // Direction 'Out' — netting those out here is what makes a
+    // reversed posting actually disappear from this total, since the
+    // original posting's own Status never changes (it stays Posted
+    // forever as an audit record; only a paired reversal cancels its
+    // effect).
+    (txn.Lines || []).forEach(l => {
+      if (l.ItemCode !== line.ItemCode || l.JobOrderLineID !== line.LineID) return;
+      if (l.Direction === 'In') produced += Number(l.Quantity) || 0;
+      else if (l.Direction === 'Out') produced -= Number(l.Quantity) || 0;
+    });
+  });
+  return produced;
+}
+
+async function linesForBatch_(idToken, batchId) {
+  const data = (await firebaseDbRequest_('jobOrderLines', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ LineID: id }, data[id]))
+    .filter(l => l.ParentBatchID === batchId)
+    .sort((a, b) => (a.LineNumber || 0) - (b.LineNumber || 0));
+}
+
+// Parent-grouped view — each batch with its lines nested, for creation
+// and at-a-glance status.
+async function getJobOrderBatches(idToken, limit) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'JOBORDERREQUEST', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Job Order Request.');
+  }
+  const data = (await firebaseDbRequest_('jobOrderBatches', 'get', null, idToken)) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ BatchID: id }, data[id]))
+    .filter(b => userCanAccessCompany_(user.profile, b.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const capped = limit ? all.slice(0, limit) : all;
+  await seq.forEach(capped, async b => {
+    b.Lines = await linesForBatch_(idToken, b.BatchID);
+    await seq.forEach(
+      b.Lines,
+      async l => { l.ProducedQuantity = await computeJobOrderLineProducedQty_(idToken, l); }
+    );
+  });
+  return { entries: capped, total: all.length };
+}
+
+// Flat, cross-batch view of every line — the actual work queue,
+// filterable by status/item regardless of which batch it came from.
+// Per the confirmed requirement for a "full list" alongside the
+// grouped one.
+async function getJobOrderLinesFlat(idToken, limit) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'JOBORDERREQUEST', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Job Order Request.');
+  }
+  const batchData = (await firebaseDbRequest_('jobOrderBatches', 'get', null, idToken)) || {};
+  const lineData = (await firebaseDbRequest_('jobOrderLines', 'get', null, idToken)) || {};
+  const all = (await seq.map(Object.keys(lineData)
+    .map(id => Object.assign({ LineID: id }, lineData[id]))
+    .filter(l => {
+      const batch = batchData[l.ParentBatchID];
+      return batch && userCanAccessCompany_(user.profile, batch.CompanyID);
+    }), async l => {
+      const batch = batchData[l.ParentBatchID] || {};
+      return Object.assign({}, l, {
+        Origin: batch.Origin, CompanyID: batch.CompanyID, BatchNumber: batch.BatchNumber,
+        ProducedQuantity: await computeJobOrderLineProducedQty_(idToken, l)
+      });
+    }))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const capped = limit ? all.slice(0, limit) : all;
+  return { entries: capped, total: all.length };
+}
+
+async function saveDraftJobOrderBatch(idToken, header) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'JOBORDERREQUEST');
+
+    const orgUnits = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
+    const companyId = String(header.CompanyID || '').trim();
+    if (!companyId) throw new Error('Select a Company.');
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    const costCenterId = String(header.CostCenterID || '').trim();
+    if (!costCenterId) throw new Error('Select a Cost Center.');
+    if (!orgUnits[costCenterId] || orgUnits[costCenterId].Type !== 'CostCenter') throw new Error('Unknown Cost Center.');
+    const origin = String(header.Origin || '').trim();
+    if (origin !== 'Sales' && origin !== 'Production') throw new Error('Select Sales or Production as the origin.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const batchFields = {
+      Origin: origin, CompanyID: companyId,
+      DivisionID: String(header.DivisionID || '').trim(), BranchID: String(header.BranchID || '').trim(),
+      CostCenterID: costCenterId, ProfitCenterID: String(header.ProfitCenterID || '').trim(),
+      JODate: header.JODate || '', Description: String(header.Description || '').trim(),
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    let batchId = String(header.BatchID || '').trim();
+    if (batchId) {
+      const existing = await firebaseDbRequest_('jobOrderBatches/' + batchId, 'get', null, idToken);
+      if (!existing) throw new Error('Job Order batch not found.');
+      if (existing.Status !== 'Draft') throw new Error('Only a Draft batch can be edited.');
+      await firebaseDbRequest_('jobOrderBatches/' + batchId, 'patch', batchFields, idToken);
+    } else {
+      batchId = 'JOB-' + Utilities.getUuid().split('-')[0].toUpperCase();
+      await firebaseDbRequest_('jobOrderBatches/' + batchId, 'put', Object.assign({}, batchFields, {
+        BatchNumber: '', Status: 'Draft', RequestedBy: actor, CreatedAt: now, CreatedBy: actor
+      }), idToken);
+    }
+
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemByCode = {};
+    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });
+    const boms = (await firebaseDbRequest_('boms', 'get', null, idToken)) || {};
+    const itemIdsWithActiveBom = new Set(Object.values(boms).filter(b => b.Status === 'Active').map(b => b.ParentItemID));
+
+    // Whole batch's line set is replaced each save — matches every
+    // other grid-based module's convention (client sends the current
+    // full set; whatever existed before and isn't in this payload is
+    // removed). Safe here because a batch's lines are ALL still Draft
+    // until the batch itself is submitted.
+    const existingLines = await linesForBatch_(idToken, batchId);
+    const incomingLineIds = new Set();
+
+    const payloadLines = (header.Lines || []).filter(l => String(l.ItemCode || '').trim());
+    await seq.forEach(payloadLines, async (l, idx) => {
+      const itemCode = String(l.ItemCode).trim();
+      const item = itemByCode[itemCode];
+      if (!item || item.Status !== 'Active') throw new Error('Line ' + (idx + 1) + ': unknown or inactive item.');
+      if (item.Category !== 'FinishedGood' && item.Category !== 'SemiFinishedGood') {
+        throw new Error('Line ' + (idx + 1) + ': only Finished Goods or Semi-Finished Goods can have a Job Order.');
+      }
+      if (!itemIdsWithActiveBom.has(item.ItemID)) {
+        throw new Error('Line ' + (idx + 1) + ' (' + itemCode + '): no active BOM — a Job Order line needs a recipe to produce against.');
+      }
+      const orderedQuantity = Number(l.OrderedQuantity);
+      if (!(orderedQuantity > 0)) throw new Error('Line ' + (idx + 1) + ': quantity must be greater than zero.');
+      const targetDate = l.TargetDate || '';
+      if (origin === 'Sales' && !targetDate) throw new Error('Line ' + (idx + 1) + ': Target Date is required for a Sales-triggered line.');
+
+      const links = (l.LinkedSalesOrderLines || []).map(link => ({
+        SOID: String(link.SOID || '').trim(), SOLineID: String(link.SOLineID || '').trim(), SONumber: String(link.SONumber || '').trim()
+      })).filter(link => link.SOID && link.SOLineID);
+
+      const lineFields = {
+        ParentBatchID: batchId, LineNumber: idx + 1, ItemCode: itemCode,
+        EnteredUOMID: String(l.EnteredUOMID || item.UOMID || '').trim(),
+        OrderedQuantity: orderedQuantity, TargetDate: targetDate,
+        LinkedSalesOrderLines: links, UpdatedAt: now, UpdatedBy: actor
+      };
+
+      const lineId = String(l.LineID || '').trim();
+      if (lineId) {
+        incomingLineIds.add(lineId);
+        await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', lineFields, idToken);
+      } else {
+        const newLineId = 'JOL-' + Utilities.getUuid().split('-')[0].toUpperCase();
+        incomingLineIds.add(newLineId);
+        await firebaseDbRequest_('jobOrderLines/' + newLineId, 'put', Object.assign({}, lineFields, {
+          SubJONumber: '', Status: 'Draft', CreatedAt: now, CreatedBy: actor
+        }), idToken);
+      }
+    });
+
+    await seq.forEach(existingLines, async existingLine => {
+      if (!incomingLineIds.has(existingLine.LineID)) {
+        await firebaseDbRequest_('jobOrderLines/' + existingLine.LineID, 'delete', null, idToken);
+      }
+    });
+
+    return { success: true, batchId: batchId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// The fan-out — assigns the batch number, then walks every line in
+// this batch assigning its sub-number (BatchNumber + '/' + 2-digit
+// line number) and its origin-appropriate starting status. Every line
+// starts independently from here; nothing about them stays linked to
+// the others after this point except the shared number prefix and
+// (for traceability) ParentBatchID.
+async function submitJobOrderBatch(idToken, batchId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'JOBORDERREQUEST');
+    const existing = await firebaseDbRequest_('jobOrderBatches/' + batchId, 'get', null, idToken);
+    if (!existing) throw new Error('Job Order batch not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft batch can be submitted.');
+
+    const lines = await linesForBatch_(idToken, batchId);
+    if (!lines.length) throw new Error('Add at least one line before submitting.');
+
+    const year = (new Date(existing.JODate)).getFullYear() || new Date().getFullYear();
+    const batchNumber = await generateVoucherNumber_(idToken, 'JOB', year, existing.CompanyID);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const startingStatus = existing.Origin === 'Sales' ? 'Pending Acceptance' : 'Open';
+
+    await seq.forEach(lines, async line => {
+      const subJONumber = batchNumber + '/' + String(line.LineNumber).padStart(2, '0');
+      await firebaseDbRequest_('jobOrderLines/' + line.LineID, 'patch', {
+        SubJONumber: subJONumber, Status: startingStatus, SubmittedAt: now, SubmittedBy: actor,
+        UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+    });
+
+    await firebaseDbRequest_('jobOrderBatches/' + batchId, 'patch', {
+      BatchNumber: batchNumber, Status: 'Submitted', SubmittedAt: now, SubmittedBy: actor,
+      UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true, batchNumber: batchNumber };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function acceptJobOrderLine(idToken, lineId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'JOBORDERREQUEST');
+    const existing = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
+    if (!existing) throw new Error('Job Order line not found.');
+    if (existing.Status !== 'Pending Acceptance') throw new Error('Only a line Pending Acceptance can be accepted.');
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      Status: 'Accepted', AcceptedAt: now, AcceptedBy: actor,
+      AmendmentProposedQuantity: null, AmendmentProposedDate: null, AmendmentNote: null,
+      UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function requestJobOrderLineAmendment(idToken, lineId, proposedQuantity, proposedDate, note) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'JOBORDERREQUEST');
+    const existing = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
+    if (!existing) throw new Error('Job Order line not found.');
+    if (existing.Status !== 'Pending Acceptance') throw new Error('Only a line Pending Acceptance can have an amendment requested.');
+    const qty = proposedQuantity === '' || proposedQuantity === undefined || proposedQuantity === null ? null : Number(proposedQuantity);
+    if (qty !== null && !(qty > 0)) throw new Error('Proposed quantity must be greater than zero.');
+    const noteText = String(note || '').trim();
+    if (!noteText) throw new Error('Explain what you\'d like changed.');
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      Status: 'Amendment Requested', AmendmentProposedQuantity: qty, AmendmentProposedDate: proposedDate || null,
+      AmendmentNote: noteText, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function reviseAndResubmitJobOrderLine(idToken, lineId, revisedQuantity, revisedDate) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'JOBORDERREQUEST');
+    const existing = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
+    if (!existing) throw new Error('Job Order line not found.');
+    if (existing.Status !== 'Amendment Requested') throw new Error('Only a line with a pending amendment request can be revised.');
+    const qty = Number(revisedQuantity);
+    if (!(qty > 0)) throw new Error('Revised quantity must be greater than zero.');
+    const date = String(revisedDate || '').trim();
+    if (!date) throw new Error('Revised Target Date is required.');
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      OrderedQuantity: qty, TargetDate: date, Status: 'Pending Acceptance',
+      AmendmentProposedQuantity: null, AmendmentProposedDate: null, AmendmentNote: null,
+      UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function withdrawJobOrderLine(idToken, lineId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'JOBORDERREQUEST');
+    const existing = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
+    if (!existing) throw new Error('Job Order line not found.');
+    if (existing.Status !== 'Pending Acceptance' && existing.Status !== 'Amendment Requested') {
+      throw new Error('Only a not-yet-accepted line can be withdrawn — once Accepted, request a Stop instead.');
+    }
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      Status: 'Cancelled', CancelledAt: now, CancelledBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function requestJobOrderLineStop(idToken, lineId, note) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'JOBORDERREQUEST');
+    const existing = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
+    if (!existing) throw new Error('Job Order line not found.');
+    const batch = await firebaseDbRequest_('jobOrderBatches/' + existing.ParentBatchID, 'get', null, idToken);
+    if (!batch || batch.Origin !== 'Sales') throw new Error('Only a Sales-triggered line can have a stop requested.');
+    if (existing.Status !== 'Accepted' && existing.Status !== 'In Progress') {
+      throw new Error('A stop can only be requested once the line is Accepted or In Progress.');
+    }
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      Status: 'Stop Requested', StopRequestedAt: now, StopRequestedBy: actor,
+      StopRequestNote: String(note || '').trim(), UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function acceptJobOrderLineStop(idToken, lineId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'JOBORDERREQUEST');
+    const existing = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
+    if (!existing) throw new Error('Job Order line not found.');
+    if (existing.Status !== 'Stop Requested') throw new Error('Only a line with a pending Stop Request can be closed this way.');
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      Status: 'Stopped', StoppedAt: now, StoppedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function cancelDirectJobOrderLine(idToken, lineId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'JOBORDERREQUEST');
+    const existing = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
+    if (!existing) throw new Error('Job Order line not found.');
+    const batch = await firebaseDbRequest_('jobOrderBatches/' + existing.ParentBatchID, 'get', null, idToken);
+    if (!batch || batch.Origin !== 'Production') throw new Error('Only a Production-direct line can be self-cancelled this way — a Sales-triggered one needs a Stop request instead.');
+    if (existing.Status !== 'Open' && existing.Status !== 'In Progress') {
+      throw new Error('Only an Open or In Progress line can be cancelled.');
+    }
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      Status: 'Cancelled', CancelledAt: now, CancelledBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deleteDraftJobOrderBatch(idToken, batchId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'JOBORDERREQUEST');
+    const existing = await firebaseDbRequest_('jobOrderBatches/' + batchId, 'get', null, idToken);
+    if (!existing) throw new Error('Job Order batch not found.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft batch can be deleted.');
+    await seq.forEach(await linesForBatch_(idToken, batchId), async line => {
+      await firebaseDbRequest_('jobOrderLines/' + line.LineID, 'delete', null, idToken);
+    });
+    await firebaseDbRequest_('jobOrderBatches/' + batchId, 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Public wrapper around getSalesOrderLinesWithShortfall_ — the client
+// calls this while building a Sales-triggered Job Order line, to offer
+// a real picker of outstanding Sales Order demand for the chosen item
+// rather than asking Sales to type a Sales Order number from memory.
+async function getSalesOrderLineShortfallOptions(idToken, itemCode, companyId) {
+  await requireUser_(idToken);
+  if (!itemCode || !companyId) return [];
+  return await getSalesOrderLinesWithShortfall_(idToken, itemCode, companyId);
+}
+
 // ============================================================
 // STOCK AVAILABILITY (Sales)
 // ============================================================
@@ -4826,6 +5290,7 @@ module.exports = {
   reactivateAccount,
   requireDraftAccess_,
   requirePostAccess_,
+  generateVoucherNumber_,
   applyCompanyAccessRestriction_,
   ensureCompanyRefCodesSeeded_,
   getCompanies,
@@ -4925,6 +5390,22 @@ module.exports = {
   deactivatePriceListLine,
   getSellableItemCodes_,
   getEligibleJobOrderItems,
+  getSalesOrderLinesWithShortfall_,
+  computeJobOrderLineProducedQty_,
+  linesForBatch_,
+  getJobOrderBatches,
+  getJobOrderLinesFlat,
+  saveDraftJobOrderBatch,
+  submitJobOrderBatch,
+  acceptJobOrderLine,
+  requestJobOrderLineAmendment,
+  reviseAndResubmitJobOrderLine,
+  withdrawJobOrderLine,
+  requestJobOrderLineStop,
+  acceptJobOrderLineStop,
+  cancelDirectJobOrderLine,
+  deleteDraftJobOrderBatch,
+  getSalesOrderLineShortfallOptions,
   getStockAvailabilityList,
   getInventoryValuationLines,
   saveInventoryValuationLine,

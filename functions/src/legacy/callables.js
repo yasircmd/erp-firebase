@@ -8,6 +8,21 @@ const L = require('./codegs');
 
 const opts = { region: 'us-central1' };
 
+exports.acceptJobOrderLine = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.lineId];
+  return run(request, (ctx) => L.acceptJobOrderLine(ctx, ...a));
+});
+exports.acceptJobOrderLineStop = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.lineId];
+  return run(request, (ctx) => L.acceptJobOrderLineStop(ctx, ...a));
+});
+exports.cancelDirectJobOrderLine = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.lineId];
+  return run(request, (ctx) => L.cancelDirectJobOrderLine(ctx, ...a));
+});
 exports.deactivateAccount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.accountId];
@@ -92,6 +107,11 @@ exports.decidePhysicalCountApproval = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.pcId, d.levelNumber, d.decision, d.reason];
   return run(request, (ctx) => L.decidePhysicalCountApproval(ctx, ...a));
+});
+exports.deleteDraftJobOrderBatch = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.batchId];
+  return run(request, (ctx) => L.deleteDraftJobOrderBatch(ctx, ...a));
 });
 exports.deleteFirebaseUser = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -218,6 +238,16 @@ exports.getItems = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getItems(ctx, ...a));
 });
+exports.getJobOrderBatches = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
+  return run(request, (ctx) => L.getJobOrderBatches(ctx, ...a));
+});
+exports.getJobOrderLinesFlat = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
+  return run(request, (ctx) => L.getJobOrderLinesFlat(ctx, ...a));
+});
 exports.getMaterialVarianceReport = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
@@ -267,6 +297,11 @@ exports.getRoles = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getRoles(ctx, ...a));
+});
+exports.getSalesOrderLineShortfallOptions = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.itemCode, d.companyId];
+  return run(request, (ctx) => L.getSalesOrderLineShortfallOptions(ctx, ...a));
 });
 exports.getSalesTypes = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -388,10 +423,25 @@ exports.reactivateVendor = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
   return run(request, (ctx) => L.reactivateVendor(ctx, ...a));
 });
+exports.requestJobOrderLineAmendment = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.lineId, d.proposedQuantity, d.proposedDate, d.note];
+  return run(request, (ctx) => L.requestJobOrderLineAmendment(ctx, ...a));
+});
+exports.requestJobOrderLineStop = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.lineId, d.note];
+  return run(request, (ctx) => L.requestJobOrderLineStop(ctx, ...a));
+});
 exports.reversePhysicalCount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.pcId, d.reversalDate];
   return run(request, (ctx) => L.reversePhysicalCount(ctx, ...a));
+});
+exports.reviseAndResubmitJobOrderLine = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.lineId, d.revisedQuantity, d.revisedDate];
+  return run(request, (ctx) => L.reviseAndResubmitJobOrderLine(ctx, ...a));
 });
 exports.saveAccount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -437,6 +487,11 @@ exports.saveCustomerClassification = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
   return run(request, (ctx) => L.saveCustomerClassification(ctx, ...a));
+});
+exports.saveDraftJobOrderBatch = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.header];
+  return run(request, (ctx) => L.saveDraftJobOrderBatch(ctx, ...a));
 });
 exports.saveFirebaseUser = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -507,4 +562,14 @@ exports.saveVendor = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorData];
   return run(request, (ctx) => L.saveVendor(ctx, ...a));
+});
+exports.submitJobOrderBatch = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.batchId];
+  return run(request, (ctx) => L.submitJobOrderBatch(ctx, ...a));
+});
+exports.withdrawJobOrderLine = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.lineId];
+  return run(request, (ctx) => L.withdrawJobOrderLine(ctx, ...a));
 });

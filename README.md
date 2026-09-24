@@ -239,6 +239,19 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   the parent's company). Any role with BOM access sees and, with
   `write`, edits every company's recipes. Same as GAS. Worth a deliberate
   decision, like Approval Tracker's.
+- Job Order Request, company scoping: listing and submit are
+  company-checked, but the per-line actions (accept, amendment,
+  revise, withdraw, stop, cancel), `deleteDraftJobOrderBatch`, and
+  editing an existing draft batch check only the role's capability, so
+  they work on another company's lines given the ID.
+  `getSalesOrderLineShortfallOptions` checks neither module access nor
+  company: any signed-in user can list any company's open Sales Order
+  shortfalls. Linked Sales Order lines aren't validated on save. All as
+  in GAS.
+- Job Order Request, numbering: batch numbers come from a
+  read-then-write counter (`generateVoucherNumber_`) and submit takes no
+  lock, so two batches submitted at the same moment can get the same
+  number. Same race as GAS. Numbering only, no stock or GL effect.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -368,7 +381,7 @@ primitive's REST semantics directly.
 | CASHFLOW | ✅ | ✅ |
 | PHYSICALCOUNT | ✅ | **not yet** |
 | BOM | ✅ | **not yet** |
-| JOBORDERREQUEST | — | — |
+| JOBORDERREQUEST | ✅ | **not yet** |
 | PRODUCTION | — | — |
 | PRODCONSUMPTION | — | — |
 | PURCHASEREQUISITION | — | — |
@@ -382,12 +395,12 @@ primitive's REST semantics directly.
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** JOBORDERREQUEST
+**Next module to port:** PRODUCTION
 
-**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM) — deploy these 11 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM, JOBORDERREQUEST) — deploy these 24 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment deactivateBom decidePhysicalCountApproval deletePhysicalCountDraft getBoms getPhysicalCountEntries postPhysicalCount reactivateBom reversePhysicalCount saveBom savePhysicalCountDraft
+getModuleFragment acceptJobOrderLine acceptJobOrderLineStop cancelDirectJobOrderLine deactivateBom decidePhysicalCountApproval deleteDraftJobOrderBatch deletePhysicalCountDraft getBoms getJobOrderBatches getJobOrderLinesFlat getPhysicalCountEntries getSalesOrderLineShortfallOptions postPhysicalCount reactivateBom requestJobOrderLineAmendment requestJobOrderLineStop reversePhysicalCount reviseAndResubmitJobOrderLine saveBom saveDraftJobOrderBatch savePhysicalCountDraft submitJobOrderBatch withdrawJobOrderLine
 ```
 <!-- PORT-STATUS:end -->
 
