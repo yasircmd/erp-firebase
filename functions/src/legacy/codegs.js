@@ -1853,6 +1853,94 @@ async function reactivateItem(idToken, itemId) {
 }
 
 // ============================================================
+// STOCK VALUATION REPORT
+// ============================================================
+// A snapshot of current stock-on-hand and its value, across all items —
+// the inventory equivalent of a trial balance. Reads /stock/ledger/
+// directly (current balances only), no transaction history involved.
+//
+// Racks vs warehouses (aggregateRacks parameter): implements the
+// requirement noted in the Core Engine's storage comment when Warehouse
+// Movement was built — a rack's balance is tracked completely separately
+// from its parent warehouse's own balance, so a naive per-warehouse
+// report would silently exclude anything sitting in a rack. This report
+// can show either view: aggregateRacks=true merges every rack's balance
+// into its parent warehouse's row (one number per warehouse, everything
+// included); aggregateRacks=false shows each warehouse and each rack as
+// its own separate row (grouped display like "WH-01 / A1"), so you can
+// see exactly what's in the main area versus a specific rack.
+async function getStockValuationReport(idToken, params) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'STOCKVALUATION', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Stock Valuation.');
+  }
+
+  const companyId = String(params.CompanyID || '').trim();
+  if (!companyId) throw new Error('Select a Company.');
+  if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+  const categoryFilter = String(params.Category || '').trim();
+  const aggregateRacks = params.AggregateRacks !== false; // default true
+
+  const ledgerData = (await firebaseDbRequest_('stock/ledger', 'get', null, idToken)) || {};
+  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const orgUnitsData = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
+
+  const rowsMap = {};
+
+  Object.keys(ledgerData).forEach(itemId => {
+    const item = itemsData[itemId];
+    if (!item) return; // orphaned ledger entry (item since deleted) — nothing to report against
+    if (item.CompanyID && item.CompanyID !== companyId) return;
+    if (categoryFilter && item.Category !== categoryFilter) return;
+
+    const locations = ledgerData[itemId] || {};
+    Object.keys(locations).forEach(locationId => {
+      const entry = locations[locationId];
+      if (!entry || Math.abs(entry.Quantity || 0) < 0.000001) return; // nothing on hand here — skip entirely
+
+      const loc = orgUnitsData[locationId];
+      let effectiveLocationId = locationId;
+      let locationLabel = loc ? loc.Code : locationId;
+      let isRackRow = false;
+
+      if (loc && loc.Type === 'Rack') {
+        if (aggregateRacks) {
+          effectiveLocationId = loc.ParentUnitID || locationId;
+          const parentWh = orgUnitsData[effectiveLocationId];
+          locationLabel = parentWh ? parentWh.Code : effectiveLocationId;
+        } else {
+          const parentWh = orgUnitsData[loc.ParentUnitID];
+          locationLabel = (parentWh ? parentWh.Code : '?') + ' / ' + loc.Code;
+          isRackRow = true;
+        }
+      }
+
+      const key = itemId + '|' + effectiveLocationId;
+      if (!rowsMap[key]) {
+        rowsMap[key] = {
+          ItemID: itemId, ItemCode: item.ItemCode, ItemName: item.ItemName, Category: item.Category,
+          LocationID: effectiveLocationId, LocationLabel: locationLabel, IsRack: isRackRow,
+          Quantity: 0, TotalValue: 0
+        };
+      }
+      rowsMap[key].Quantity = Math.round((rowsMap[key].Quantity + entry.Quantity) * 1e6) / 1e6;
+      rowsMap[key].TotalValue = Math.round((rowsMap[key].TotalValue + entry.TotalValue) * 100) / 100;
+    });
+  });
+
+  const rows = Object.keys(rowsMap).map(k => rowsMap[k]).map(r => Object.assign({}, r, {
+    AvgCost: r.Quantity > 0.000001 ? Math.round((r.TotalValue / r.Quantity) * 10000) / 10000 : 0
+  })).sort((a, b) =>
+    String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }) ||
+    String(a.LocationLabel).localeCompare(String(b.LocationLabel))
+  );
+
+  const grandTotal = Math.round(rows.reduce((sum, r) => sum + r.TotalValue, 0) * 100) / 100;
+
+  return { rows: rows, grandTotal: grandTotal, aggregateRacks: aggregateRacks };
+}
+
+// ============================================================
 // STOCK LEDGER REPORT
 // ============================================================
 // A transaction-level history for ONE item at ONE location, over a date
@@ -3110,6 +3198,7 @@ module.exports = {
   saveItem,
   deactivateItem,
   reactivateItem,
+  getStockValuationReport,
   getStockLedgerReport,
   generateVendorCode_,
   getVendors,

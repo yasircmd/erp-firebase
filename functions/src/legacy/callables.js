@@ -218,6 +218,11 @@ exports.getStockLedgerReport = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
   return run(request, (ctx) => L.getStockLedgerReport(ctx, ...a));
 });
+exports.getStockValuationReport = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
+  return run(request, (ctx) => L.getStockValuationReport(ctx, ...a));
+});
 exports.getTreeNodes = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
