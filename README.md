@@ -272,12 +272,12 @@ closure, and emits them VERBATIM (original comments included) into
 | ORGUNITS | ✅ | ⚠️ live, needs redeploy |
 | COMPANYMASTER | ✅ | ⚠️ live, needs redeploy |
 | CURRENCYCONFIG | ✅ | ⚠️ live, needs redeploy |
-| ITEMMASTER | ✅ | **not yet** |
-| COA | ✅ | **not yet** |
-| VENDORMASTER | ✅ | **not yet** |
-| CUSTOMERMASTER | ✅ | **not yet** |
-| PRICELISTING | ✅ | **not yet** |
-| PROCUREMENTSETUP | ✅ | **not yet** |
+| ITEMMASTER | ✅ | ⚠️ live, needs redeploy |
+| COA | ✅ | ⚠️ live, needs redeploy |
+| VENDORMASTER | ✅ | ⚠️ live, needs redeploy |
+| CUSTOMERMASTER | ✅ | ⚠️ live, needs redeploy |
+| PRICELISTING | ✅ | ⚠️ live, needs redeploy |
+| PROCUREMENTSETUP | ✅ | ⚠️ live, needs redeploy |
 | SALESINVOICESETUP | ✅ | **not yet** |
 | ROLES | ✅ | **not yet** |
 | USERMGMT | ✅ | **not yet** |
@@ -310,7 +310,7 @@ closure, and emits them VERBATIM (original comments included) into
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-Needs redeploy: UOM — dynamic deactivate/reactivate calls now send { __positional: [...] }; the live callables predate that; ITEMSUBCAT — same (__positional); ORGUNITS — same (__positional); COMPANYMASTER — same (__positional); CURRENCYCONFIG — same (__positional). Their functions are included in the list below; deploying getModuleFragment WITHOUT them would break those screens' deactivate/reactivate buttons.
+Needs redeploy: UOM — dynamic deactivate/reactivate calls now send { __positional: [...] }; the live callables predate that; ITEMSUBCAT — same (__positional); ORGUNITS — same (__positional); COMPANYMASTER — same (__positional); CURRENCYCONFIG — same (__positional); ITEMMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; COA — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; VENDORMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; CUSTOMERMASTER — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; PRICELISTING — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls; PROCUREMENTSETUP — live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls. Their functions are included in the list below; deploying getModuleFragment WITHOUT them would break those screens' deactivate/reactivate buttons.
 
 **Next module to port:** APPROVALCONFIG
 

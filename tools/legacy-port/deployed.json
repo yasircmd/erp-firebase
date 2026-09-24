@@ -1,10 +1,28 @@
 {
-  "deployedModules": ["UOM", "ITEMSUBCAT", "ORGUNITS", "COMPANYMASTER", "CURRENCYCONFIG"],
+  "deployedModules": [
+    "UOM",
+    "ITEMSUBCAT",
+    "ORGUNITS",
+    "COMPANYMASTER",
+    "CURRENCYCONFIG",
+    "ITEMMASTER",
+    "COA",
+    "VENDORMASTER",
+    "CUSTOMERMASTER",
+    "PRICELISTING",
+    "PROCUREMENTSETUP"
+  ],
   "needsRedeploy": {
     "UOM": "dynamic deactivate/reactivate calls now send { __positional: [...] }; the live callables predate that",
     "ITEMSUBCAT": "same (__positional)",
     "ORGUNITS": "same (__positional)",
     "COMPANYMASTER": "same (__positional)",
-    "CURRENCYCONFIG": "same (__positional)"
+    "CURRENCYCONFIG": "same (__positional)",
+    "ITEMMASTER": "live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls",
+    "COA": "live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls",
+    "VENDORMASTER": "live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls",
+    "CUSTOMERMASTER": "live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls",
+    "PRICELISTING": "live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls",
+    "PROCUREMENTSETUP": "live from 9d6a1c7, before the __positional change for dynamic deactivate/reactivate calls"
   }
 }
