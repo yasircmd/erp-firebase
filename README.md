@@ -468,15 +468,17 @@ IAM binding per function):
 - **Rule for every deploy:** `git status --porcelain` must be empty.
   `firebase deploy` uploads the working copy, not the last commit.
 
-**Deploy note (for whoever deploys):** Claude Code's permission guard
-blocks production deploys from the migration session — including edits
-to `tools/deploy-migration.sh`. So the session commits + pushes each
-module and lists what's not yet live above; the owner (or a session
-allowed to deploy) deploys that list. `tools/deploy-migration.sh`
-currently still holds batch 1's list; replace its `FNS=(...)` with the
-"not yet deployed" list above and run it (batches of ≤6 + IAM binding per
-function, ends ALL DONE), then add the modules to
-`tools/legacy-port/deployed.json` and run `node tools/legacy-port/status.js`.
+**Deploy note (for whoever deploys):** the migration session commits
+and pushes each module; the owner deploys from Cloud Shell. Run
+`tools/deploy-migration.sh` on a clean checkout of the branch. It refuses
+to run if `git status --porcelain` isn't empty, because `firebase deploy`
+uploads the working copy, not the last commit. It takes the "not yet
+deployed" list above from `node tools/legacy-port/status.js --pending`,
+adds the hand-ported helpers the stock and production screens call on
+load, and deploys in batches of ≤6 with the IAM binding for each
+function, ending `ALL DONE`. There's no list to edit. Afterwards, add the
+modules to `tools/legacy-port/deployed.json` and run
+`node tools/legacy-port/status.js`.
 
 To continue with the next modules (from the repo alone):
 

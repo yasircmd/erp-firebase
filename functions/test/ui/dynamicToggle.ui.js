@@ -11,7 +11,10 @@ const app = admin.initializeApp({ projectId: 'erp1-8f4cd', databaseURL: 'https:/
 const CASES = [
   { module: 'UOM', button: '.uom-toggle', fn: /^(de|re)activateUOM$/ },
   // BOM confirms through its own modal rather than window.confirm.
-  { module: 'BOM', button: '.bom-toggle', confirm: '#bom-confirm-ok', fn: /^(de|re)activateBom$/ }
+  { module: 'BOM', button: '.bom-toggle', confirm: '#bom-confirm-ok', fn: /^(de|re)activateBom$/,
+    // Seeded here so this case doesn't depend on which emulator suite ran last.
+    seed: { 'boms/BOM-UITEST': { ParentItemID: 'FG-UI', ParentItemCode: 'FG-UI', ParentItemName: 'UI test parent', BOMVersion: '1.0',
+      Status: 'Active', EffectiveFrom: '2026-01-01', Components: [{ ComponentItemID: 'I1', ComponentItemCode: 'RM-001', Quantity: 1 }] } } }
 ];
 (async () => {
   require('./buildHarness');
@@ -19,6 +22,7 @@ const CASES = [
   const server = http.createServer((q, r) => { r.writeHead(200, { 'Content-Type': 'text/html' }); r.end(harness); }).listen(8126);
   const browser = await chromium.launch(); let ok = 0;
   for (const c of CASES) {
+    if (c.seed) await app.database().ref().update(c.seed);
     const page = await browser.newPage();
     page.on('dialog', d => d.accept());
     await page.goto('http://127.0.0.1:8126/?module=' + c.module + '&uid=u-admin');
