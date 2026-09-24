@@ -358,13 +358,13 @@
     // values from Firebase Console > Project Settings > General >
     // Your apps > Web app (create one there first if none exists yet).
     const firebaseConfig = {
-      apiKey: 'REPLACE_ME',
+      apiKey: 'AIzaSyDmCsLCTsWbkztfHlwj5Qgag8cQksIgfbM',
       authDomain: 'erp1-8f4cd.firebaseapp.com',
       databaseURL: 'https://erp1-8f4cd-default-rtdb.firebaseio.com',
       projectId: 'erp1-8f4cd',
-      storageBucket: 'REPLACE_ME',
-      messagingSenderId: 'REPLACE_ME',
-      appId: 'REPLACE_ME'
+      storageBucket: 'erp1-8f4cd.firebasestorage.app',
+      messagingSenderId: '303168627971',
+      appId: '1:303168627971:web:96c097ce8ce38692d63536'
     };
 
     const firebaseApp = initializeApp(firebaseConfig);
@@ -379,6 +379,8 @@
       signInWithEmailAndPassword, signOut, onAuthStateChanged,
       sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider, updatePassword
     };
+
+    window.dispatchEvent(new Event('firebaseSdkReady'));
   </script>
 
   <script>
@@ -520,6 +522,7 @@
       showLoginFailure(err);
     }
 
+    window.addEventListener('firebaseSdkReady', function () {
     window.__firebaseSdk.onAuthStateChanged(window.__firebaseSdk.auth, function (user) {
       if (!user) {
         currentUser = null;
@@ -553,6 +556,7 @@
     });
 
 
+    });
     // ---------- AUTO LOG-OFF (10 min idle) ----------
     // Security timeout, not a convenience feature — deliberately does
     // NOT check window.hasUnsavedChanges() the way the manual "Back to

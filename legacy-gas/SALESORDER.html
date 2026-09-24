@@ -1,0 +1,746 @@
+<div id="so-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Sales</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-file-invoice-dollar text-blue-500"></i> Sales Order</h2></div>
+    <button id="so-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Sales Order</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="so-search-input" placeholder="Search number or customer..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="so-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="so-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All Statuses</option>
+      <option value="Draft">Draft</option><option value="Reserved">Reserved</option>
+      <option value="Partially Reserved">Partially Reserved</option><option value="Cancelled">Cancelled</option>
+    </select>
+    <input type="date" id="so-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div id="so-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">SO Number</th>
+            <th class="py-3 px-4">Customer</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4 text-right">Total</th>
+            <th class="py-3 px-4">Status</th>
+          </tr>
+        </thead>
+        <tbody id="so-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="so-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="so-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h2 id="so-entry-title" class="text-xl font-bold text-blue-400">New Sales Order</h2>
+    </div>
+    <span id="so-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+  </div>
+
+  <div id="so-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+
+  <div id="so-shortfall-banner" class="hidden bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+    <p class="text-xs font-semibold text-amber-400 uppercase">Partially Reserved</p>
+    <p class="text-sm text-slate-300 mt-1">One or more lines could not be fully covered from available stock. Raise a Job Order Request from the Job Order Request module to cover the shortfall — one Job Order can cover several Sales Orders at once.</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+      <select id="so-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Customer</label>
+      <select id="so-form-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a customer...</option></select>
+    </div>
+  </div>
+
+  <div id="so-pricelist-note" class="hidden text-xs text-slate-400 bg-slate-800/60 border border-slate-700 rounded-lg py-2 px-3"></div>
+  <div id="so-nopricelist-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">No price list is mapped to this customer's classification — line prices will need to be entered manually.</div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Order Date</label><input type="date" id="so-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Requested Delivery Date</label><input type="date" id="so-form-deliverydate" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Description <span class="text-slate-500">(optional)</span></label><input type="text" id="so-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="so-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="so-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="so-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(optional)</span></label><select id="so-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    </div>
+  </div>
+
+  <div id="so-company-required-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company and Customer above before adding lines.</div>
+
+  <div class="flex flex-wrap items-center gap-2 no-print">
+    <button id="so-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table id="so-grid-table" class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3 w-10">#</th>
+            <th class="py-2 px-3">Item Code</th>
+            <th class="py-2 px-3">Item Name</th>
+            <th class="py-2 px-3">Warehouse</th>
+            <th class="py-2 px-3 text-right w-24">Quantity</th>
+            <th class="py-2 px-3 text-right w-28">Unit Price</th>
+            <th class="py-2 px-3 text-right w-28">Line Total</th>
+            <th id="so-reserved-col-header" class="hidden py-2 px-3 text-right w-24">Reserved</th>
+            <th id="so-delivered-col-header" class="hidden py-2 px-3 text-right w-24">Delivered</th>
+            <th id="so-remaining-col-header" class="hidden py-2 px-3 text-right w-24">Remaining</th>
+            <th id="so-status-col-header" class="hidden py-2 px-3 w-32">Status</th>
+            <th id="so-actions-col-header" class="hidden py-2 px-3 w-40">Actions</th>
+            <th class="py-2 px-3 w-10 no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="so-grid-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        <tfoot>
+          <tr class="border-t border-slate-700 bg-slate-900/50">
+            <td colspan="6" class="py-2 px-3 text-right text-xs font-semibold text-slate-400 uppercase">Total</td>
+            <td id="so-grand-total" class="py-2 px-3 text-right font-mono font-bold text-slate-200"></td>
+            <td colspan="6" class="no-print"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div id="so-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 no-print">
+    <button id="so-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="so-cancel-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Cancel Sales Order</button>
+    <button id="so-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
+    <button id="so-confirm-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-check"></i> Confirm</button>
+  </div>
+</div>
+
+<datalist id="so-item-datalist"></datalist>
+
+<!-- Claim / Release modal — shared by both actions, distinguished by mode -->
+<div id="so-claim-release-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 id="so-cr-title" class="text-lg font-bold border-b border-slate-700 pb-3">Claim Stock</h3>
+    <p id="so-cr-subtitle" class="text-xs text-slate-500"></p>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Quantity</label>
+      <input type="text" inputmode="decimal" id="so-cr-quantity" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Reason <span class="text-red-400">*</span></label>
+      <input type="text" id="so-cr-reason" placeholder="e.g. Priority customer — expedite" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    </div>
+    <div id="so-cr-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button type="button" id="so-cr-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
+      <button type="button" id="so-cr-submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canDraft = false;
+  let canPost = false;
+  let currentLimit = 100;
+  let currentSo = null;
+  let gridLines = []; // { LineID, ItemCode, WarehouseID, OrderedQuantity, EnteredUOMID, UnitPrice, LineTotal, ReservedQuantity }
+  let entries = [];
+  let entriesTotal = 0;
+  let companies = [];
+  let orgUnits = [];
+  let items = [];
+  let customers = [];
+  let currentPriceList = null;
+  let isDirty = false;
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function itemByCode(code) { return items.find(i => String(i.ItemCode) === String(code)); }
+  function customerById(id) { return customers.find(c => c.CustomerID === id); }
+  function orgUnitById(id) { return orgUnits.find(u => u.UnitID === id); }
+
+  function orgUnitOptionsHtml(type, selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => { html += `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code + ' — ' + u.Name)}</option>`; });
+    return html;
+  }
+  function warehouseOptionsHtml(selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === 'Warehouse')
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => { html += `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code + ' — ' + u.Name)}</option>`; });
+    return html;
+  }
+  function populateItemDatalist(companyId) {
+    const datalist = document.getElementById('so-item-datalist');
+    datalist.innerHTML = '';
+    items.filter(i => !i.CompanyID || i.CompanyID === companyId).forEach(i => {
+      const opt = document.createElement('option');
+      opt.value = i.ItemCode + ' — ' + i.ItemName;
+      datalist.appendChild(opt);
+    });
+  }
+
+  // ---------- LIST VIEW ----------
+  function fetchAndRenderList(limit) {
+    currentLimit = limit || currentLimit;
+    google.script.run
+      .withSuccessHandler(result => { entries = result.entries || []; entriesTotal = result.total || 0; renderList(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load Sales Orders.'))
+      .getSalesOrderEntries(token, currentLimit);
+  }
+
+  const STATUS_COLORS = { Draft: 'bg-slate-700 text-slate-300', Reserved: 'bg-emerald-500/10 text-emerald-400', 'Partially Reserved': 'bg-amber-500/10 text-amber-400', Cancelled: 'bg-red-500/10 text-red-400' };
+
+  function renderList() {
+    const query = document.getElementById('so-search-input').value.trim().toLowerCase();
+    const companyFilter = document.getElementById('so-company-filter').value;
+    const statusFilter = document.getElementById('so-status-filter').value;
+    const fromFilter = document.getElementById('so-from-filter').value;
+
+    const filtered = entries.filter(so => {
+      if (companyFilter && so.CompanyID !== companyFilter) return false;
+      if (statusFilter && so.Status !== statusFilter) return false;
+      if (fromFilter && so.SODate < fromFilter) return false;
+      const customer = customerById(so.CustomerID);
+      if (query && !((so.SONumber || '').toLowerCase().includes(query) || (customer && customer.CustomerName || '').toLowerCase().includes(query))) return false;
+      return true;
+    });
+
+    const tbody = document.getElementById('so-table-body');
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500">No Sales Orders found.</td></tr>'; }
+    filtered.forEach(so => {
+      const customer = customerById(so.CustomerID);
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer';
+      row.innerHTML = `
+        <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(so.SONumber || 'DRAFT')}</td>
+        <td class="py-2 px-4 text-slate-200">${customer ? escapeHtml(customer.CustomerName) : '—'}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(so.SODate || '')}</td>
+        <td class="py-2 px-4 text-right font-mono">${formatMoney(so.Total)}</td>
+        <td class="py-2 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[so.Status] || 'bg-slate-700 text-slate-400'}">${escapeHtml(so.Status)}</span></td>`;
+      row.addEventListener('click', () => openEntry(so.SOID));
+      tbody.appendChild(row);
+    });
+
+    const notice = document.getElementById('so-list-notice');
+    if (entriesTotal > entries.length) {
+      notice.classList.remove('hidden');
+      notice.innerHTML = `Showing ${entries.length} of ${entriesTotal}. <button id="so-load-more-btn" class="text-blue-400 hover:text-blue-300 underline">Load more</button>`;
+      document.getElementById('so-load-more-btn').addEventListener('click', () => fetchAndRenderList(currentLimit + 100));
+    } else {
+      notice.classList.add('hidden');
+    }
+  }
+
+  function loadReferenceData() {
+    google.script.run
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const filterSelect = document.getElementById('so-company-filter');
+        filterSelect.innerHTML = '<option value="">All Companies</option>';
+        const formSelect = document.getElementById('so-form-company');
+        formSelect.innerHTML = '<option value="">Select a company...</option>';
+        companies.forEach(c => {
+          [filterSelect, formSelect].forEach(sel => {
+            const opt = document.createElement('option');
+            opt.value = c.CompanyID; opt.textContent = c.LegalName;
+            sel.appendChild(opt);
+          });
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        orgUnits = result || [];
+        document.getElementById('so-form-division').innerHTML = orgUnitOptionsHtml('Division', '');
+        document.getElementById('so-form-branch').innerHTML = orgUnitOptionsHtml('Branch', '');
+        document.getElementById('so-form-costcenter').innerHTML = orgUnitOptionsHtml('CostCenter', '');
+        document.getElementById('so-form-profitcenter').innerHTML = orgUnitOptionsHtml('ProfitCenter', '');
+        renderList();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits(token);
+
+    google.script.run
+      .withSuccessHandler(result => { items = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getSellableItems(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        customers = result || [];
+        const sel = document.getElementById('so-form-customer');
+        sel.innerHTML = '<option value="">Select a customer...</option>';
+        customers.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.CustomerID; opt.textContent = c.CustomerCode + ' — ' + c.CustomerName;
+          sel.appendChild(opt);
+        });
+        renderList();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCustomers(token);
+  }
+
+  // ---------- ENTRY VIEW ----------
+  function showListView() {
+    document.getElementById('so-entry-view').classList.add('hidden');
+    document.getElementById('so-list-view').classList.remove('hidden');
+    fetchAndRenderList();
+  }
+
+  function currentHeaderCostCenter() { return document.getElementById('so-form-costcenter').value; }
+
+  function loadPriceListForCurrentCustomer(onDone) {
+    const companyId = document.getElementById('so-form-company').value;
+    const customerId = document.getElementById('so-form-customer').value;
+    currentPriceList = null;
+    document.getElementById('so-pricelist-note').classList.add('hidden');
+    document.getElementById('so-nopricelist-note').classList.add('hidden');
+    if (!companyId || !customerId) { if (onDone) onDone(); return; }
+    google.script.run
+      .withSuccessHandler(result => {
+        currentPriceList = result || null;
+        const customer = customerById(customerId);
+        if (currentPriceList) {
+          document.getElementById('so-pricelist-note').textContent = (customer ? customer.Classification + ' customer — ' : '') + 'using "' + currentPriceList.Name + '" price list.';
+          document.getElementById('so-pricelist-note').classList.remove('hidden');
+        } else {
+          document.getElementById('so-nopricelist-note').classList.remove('hidden');
+        }
+        if (onDone) onDone();
+      })
+      .withFailureHandler(() => { if (onDone) onDone(); })
+      .getPriceListForCustomer(token, companyId, customerId);
+  }
+
+  function showEntryView() {
+    document.getElementById('so-list-view').classList.add('hidden');
+    document.getElementById('so-entry-view').classList.remove('hidden');
+
+    const isNew = !currentSo;
+    const status = currentSo ? currentSo.Status : 'Draft';
+    const isDraft = status === 'Draft';
+
+    document.getElementById('so-entry-title').textContent = isNew ? 'New Sales Order' : (currentSo.SONumber || 'Draft Sales Order');
+    document.getElementById('so-voucher-no-line').textContent = isNew ? '' : 'SO No.: ' + (currentSo.SONumber || '(assigned when confirmed)');
+
+    const badge = document.getElementById('so-status-badge');
+    if (isNew) { badge.classList.add('hidden'); }
+    else {
+      badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (STATUS_COLORS[status] || '');
+      badge.textContent = status;
+      badge.classList.remove('hidden');
+    }
+
+    document.getElementById('so-shortfall-banner').classList.toggle('hidden', status !== 'Partially Reserved');
+    document.getElementById('so-reserved-col-header').classList.toggle('hidden', isDraft);
+    document.getElementById('so-delivered-col-header').classList.toggle('hidden', isDraft);
+    document.getElementById('so-remaining-col-header').classList.toggle('hidden', isDraft);
+    document.getElementById('so-status-col-header').classList.toggle('hidden', isDraft);
+    document.getElementById('so-actions-col-header').classList.toggle('hidden', isDraft || !canPost);
+
+    ['so-form-company', 'so-form-customer', 'so-form-date', 'so-form-deliverydate', 'so-form-description', 'so-form-division', 'so-form-branch', 'so-form-costcenter', 'so-form-profitcenter'].forEach(id => {
+      document.getElementById(id).disabled = !isDraft;
+    });
+
+    document.getElementById('so-save-draft-btn').classList.toggle('hidden', !isDraft || !canDraft);
+    document.getElementById('so-confirm-btn').classList.toggle('hidden', !isDraft || !canPost);
+    document.getElementById('so-delete-btn').classList.toggle('hidden', !isDraft || !currentSo || !canDraft);
+    document.getElementById('so-cancel-btn').classList.toggle('hidden', !currentSo || status === 'Cancelled' || !canPost);
+    document.getElementById('so-add-line-btn').classList.toggle('hidden', !isDraft);
+
+    updateCompanyRequiredNote();
+    renderGrid();
+    isDirty = false;
+  }
+
+  function updateCompanyRequiredNote() {
+    const ready = Boolean(document.getElementById('so-form-company').value) && Boolean(document.getElementById('so-form-customer').value);
+    document.getElementById('so-company-required-note').classList.toggle('hidden', ready);
+  }
+
+  function openEntry(soId) {
+    currentSo = entries.find(e => e.SOID === soId) || null;
+    if (!currentSo) return;
+    gridLines = (currentSo.Lines || []).map(l => ({
+      LineID: l.LineID, ItemCode: l.ItemCode, WarehouseID: l.WarehouseID || '',
+      OrderedQuantity: l.OrderedQuantity, EnteredUOMID: l.EnteredUOMID || '',
+      UnitPrice: l.UnitPrice, LineTotal: l.LineTotal, ReservedQuantity: l.ReservedQuantity || 0
+    }));
+    document.getElementById('so-form-company').value = currentSo.CompanyID || '';
+    document.getElementById('so-form-customer').value = currentSo.CustomerID || '';
+    document.getElementById('so-form-date').value = currentSo.SODate || '';
+    document.getElementById('so-form-deliverydate').value = currentSo.RequestedDeliveryDate || '';
+    document.getElementById('so-form-description').value = currentSo.Description || '';
+    document.getElementById('so-form-division').value = currentSo.DivisionID || '';
+    document.getElementById('so-form-branch').value = currentSo.BranchID || '';
+    document.getElementById('so-form-costcenter').value = currentSo.CostCenterID || '';
+    document.getElementById('so-form-profitcenter').value = currentSo.ProfitCenterID || '';
+    populateItemDatalist(currentSo.CompanyID);
+    loadPriceListForCurrentCustomer(showEntryView);
+  }
+
+  function newEntry() {
+    currentSo = null;
+    gridLines = [];
+    document.getElementById('so-form-company').value = '';
+    document.getElementById('so-form-customer').value = '';
+    document.getElementById('so-form-date').value = today();
+    document.getElementById('so-form-deliverydate').value = '';
+    document.getElementById('so-form-description').value = '';
+    document.getElementById('so-form-division').value = '';
+    document.getElementById('so-form-branch').value = '';
+    document.getElementById('so-form-costcenter').value = '';
+    document.getElementById('so-form-profitcenter').value = '';
+    currentPriceList = null;
+    document.getElementById('so-pricelist-note').classList.add('hidden');
+    document.getElementById('so-nopricelist-note').classList.add('hidden');
+    showEntryView();
+  }
+
+  function today() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function ensureTrailingBlankRow() {
+    const last = gridLines[gridLines.length - 1];
+    if (!last || last.ItemCode) gridLines.push({ LineID: '', ItemCode: '', WarehouseID: '', OrderedQuantity: '', EnteredUOMID: '', UnitPrice: '', LineTotal: 0, ReservedQuantity: 0 });
+  }
+
+  function recomputeLineTotal(line) {
+    line.LineTotal = (Number(line.OrderedQuantity) || 0) * (Number(line.UnitPrice) || 0);
+  }
+
+  // Claim only offered when the line has an outstanding shortfall to
+  // claim INTO; Release only when it has something reserved to release
+  // FROM. Both can show at once (partially covered) or neither
+  // (fully covered with nothing further to do here).
+  function soLineActionsHtml(line, rowIndex) {
+    const ordered = Number(line.OrderedQuantity) || 0;
+    const reserved = Number(line.ReservedQuantity) || 0;
+    let html = '';
+    if (ordered > reserved) html += `<button data-row="${rowIndex}" class="so-claim-btn text-xs text-blue-400 hover:text-blue-300 underline mr-2">Claim</button>`;
+    if (reserved > 0) html += `<button data-row="${rowIndex}" class="so-release-btn text-xs text-amber-400 hover:text-amber-300 underline">Release</button>`;
+    return html;
+  }
+
+  function renderGrid() {
+    const readOnly = currentSo && currentSo.Status !== 'Draft';
+    if (!readOnly) ensureTrailingBlankRow();
+    const tbody = document.getElementById('so-grid-body');
+    tbody.innerHTML = '';
+    let grandTotal = 0;
+
+    gridLines.forEach((line, i) => {
+      const item = itemByCode(line.ItemCode);
+      grandTotal += Number(line.LineTotal) || 0;
+      const missingWh = line.ItemCode && !line.WarehouseID;
+      // Same pattern as Purchase Order's own Received/Remaining/Status
+      // — computed fresh from Ordered vs Delivered every render, never
+      // stored as its own field, so nothing here can drift out of sync
+      // with the actual delivery history.
+      const ordered = Number(line.OrderedQuantity) || 0;
+      const delivered = Number(line.DeliveredQuantity) || 0;
+      const remaining = Math.max(0, ordered - delivered);
+      let statusLabel, statusClass;
+      if (delivered <= 0) { statusLabel = 'Not Started'; statusClass = 'bg-slate-700 text-slate-300'; }
+      else if (delivered < ordered) { statusLabel = 'Partial'; statusClass = 'bg-blue-500/10 text-blue-400 border border-blue-500/20'; }
+      else if (delivered === ordered) { statusLabel = 'Fully Delivered'; statusClass = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'; }
+      else { statusLabel = 'Over-Delivered'; statusClass = 'bg-amber-500/10 text-amber-400 border border-amber-500/20'; }
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="item" list="so-item-datalist" value="${escapeHtml(line.ItemCode)}" ${readOnly ? 'disabled' : ''} placeholder="Code" class="w-28 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs font-mono focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-2 text-xs text-slate-400">${item ? escapeHtml(item.ItemName) : (line.ItemCode ? '<span class="text-red-400">not found</span>' : '')}</td>
+        <td class="py-1 px-1"><select data-row="${i}" class="so-line-wh w-full bg-slate-900 border ${missingWh ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${warehouseOptionsHtml(line.WarehouseID)}</select></td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="quantity" type="text" inputmode="decimal" value="${line.OrderedQuantity === '' || line.OrderedQuantity === undefined ? '' : line.OrderedQuantity}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="price" type="text" inputmode="decimal" value="${line.UnitPrice === '' || line.UnitPrice === undefined ? '' : line.UnitPrice}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1.5 px-3 text-right font-mono text-xs">${line.ItemCode ? formatMoney(line.LineTotal) : ''}</td>
+        <td class="${readOnly ? '' : 'hidden'} py-1.5 px-3 text-right font-mono text-xs text-emerald-400">${line.ItemCode ? formatMoney(line.ReservedQuantity) : ''}</td>
+        <td class="${readOnly ? '' : 'hidden'} py-1.5 px-3 text-right font-mono text-xs text-slate-300">${line.ItemCode ? formatMoney(delivered) : ''}</td>
+        <td class="${readOnly ? '' : 'hidden'} py-1.5 px-3 text-right font-mono text-xs text-slate-300">${line.ItemCode ? formatMoney(remaining) : ''}</td>
+        <td class="${readOnly ? '' : 'hidden'} py-1.5 px-3">${line.ItemCode ? `<span class="text-[10px] px-2 py-0.5 rounded-full font-medium ${statusClass}">${statusLabel}</span>` : ''}</td>
+        <td class="${(readOnly && canPost) ? '' : 'hidden'} py-1.5 px-3">${line.ItemCode ? soLineActionsHtml(line, i) : ''}</td>
+        <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-row="${i}" class="so-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('so-grand-total').textContent = formatMoney(grandTotal);
+
+    if (readOnly && canPost) {
+      tbody.querySelectorAll('.so-claim-btn').forEach(btn => {
+        btn.addEventListener('click', e => openClaimReleaseModal('claim', parseInt(e.currentTarget.getAttribute('data-row'), 10)));
+      });
+      tbody.querySelectorAll('.so-release-btn').forEach(btn => {
+        btn.addEventListener('click', e => openClaimReleaseModal('release', parseInt(e.currentTarget.getAttribute('data-row'), 10)));
+      });
+    }
+
+    if (!readOnly) {
+      tbody.querySelectorAll('input[data-field="item"]').forEach(el => {
+        el.addEventListener('input', e => {
+          isDirty = true;
+          const row = parseInt(e.target.getAttribute('data-row'), 10);
+          let value = e.target.value;
+          const dashIndex = value.indexOf(' — ');
+          if (dashIndex !== -1 && itemByCode(value.substring(0, dashIndex))) value = value.substring(0, dashIndex);
+          gridLines[row].ItemCode = value;
+          const matched = itemByCode(value);
+          if (matched) {
+            if (!gridLines[row].EnteredUOMID) gridLines[row].EnteredUOMID = matched.UOMID;
+            if (!gridLines[row].WarehouseID && matched.DefaultWarehouseID) gridLines[row].WarehouseID = matched.DefaultWarehouseID;
+            if (currentPriceList && (gridLines[row].UnitPrice === '' || gridLines[row].UnitPrice === undefined)) {
+              google.script.run
+                .withSuccessHandler(price => {
+                  if (price != null && (gridLines[row].UnitPrice === '' || gridLines[row].UnitPrice === undefined)) {
+                    gridLines[row].UnitPrice = price;
+                    recomputeLineTotal(gridLines[row]);
+                    renderGrid();
+                  }
+                })
+                .withFailureHandler(() => {})
+                .getItemPriceOnPriceList(token, currentPriceList.PriceListID, value, document.getElementById('so-form-date').value);
+            }
+          }
+        });
+        el.addEventListener('blur', renderGrid);
+      });
+      tbody.querySelectorAll('input[data-field]:not([data-field="item"])').forEach(input => {
+        input.addEventListener('input', e => {
+          isDirty = true;
+          const row = parseInt(e.target.getAttribute('data-row'), 10);
+          const field = e.target.getAttribute('data-field');
+          gridLines[row][field === 'quantity' ? 'OrderedQuantity' : 'UnitPrice'] = e.target.value;
+          recomputeLineTotal(gridLines[row]);
+        });
+        input.addEventListener('blur', renderGrid);
+      });
+      tbody.querySelectorAll('.so-line-wh').forEach(sel => {
+        sel.addEventListener('change', e => { isDirty = true; gridLines[parseInt(e.target.getAttribute('data-row'), 10)].WarehouseID = e.target.value; renderGrid(); });
+      });
+      tbody.querySelectorAll('.so-remove-row').forEach(btn => {
+        btn.addEventListener('click', e => {
+          isDirty = true;
+          gridLines.splice(parseInt(e.currentTarget.getAttribute('data-row'), 10), 1);
+          renderGrid();
+        });
+      });
+    }
+  }
+
+  function allLinesValid() {
+    return gridLines.every(l => !l.ItemCode || (l.WarehouseID && Number(l.OrderedQuantity) > 0));
+  }
+
+  function collectHeader() {
+    return {
+      SOID: currentSo ? currentSo.SOID : '',
+      CompanyID: document.getElementById('so-form-company').value,
+      CustomerID: document.getElementById('so-form-customer').value,
+      SODate: document.getElementById('so-form-date').value,
+      RequestedDeliveryDate: document.getElementById('so-form-deliverydate').value,
+      Description: document.getElementById('so-form-description').value.trim(),
+      DivisionID: document.getElementById('so-form-division').value,
+      BranchID: document.getElementById('so-form-branch').value,
+      CostCenterID: document.getElementById('so-form-costcenter').value,
+      ProfitCenterID: document.getElementById('so-form-profitcenter').value,
+      Lines: gridLines.filter(l => l.ItemCode).map(l => ({
+        LineID: l.LineID, ItemCode: l.ItemCode, WarehouseID: l.WarehouseID,
+        OrderedQuantity: l.OrderedQuantity, EnteredUOMID: l.EnteredUOMID, UnitPrice: l.UnitPrice
+      }))
+    };
+  }
+
+  function saveDraft() {
+    const error = document.getElementById('so-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('so-form-company').value) { error.textContent = 'Select a Company.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('so-form-customer').value) { error.textContent = 'Select a Customer.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('so-form-costcenter').value) { error.textContent = 'Select a Cost Center.'; error.classList.remove('hidden'); return; }
+    if (!allLinesValid()) { error.textContent = 'Every line needs a warehouse and a quantity greater than zero.'; error.classList.remove('hidden'); renderGrid(); return; }
+    const btn = document.getElementById('so-save-draft-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { isDirty = false; showListView(); }
+        else { error.textContent = result.error || 'Unable to save draft.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => { btn.disabled = false; btn.textContent = original; error.textContent = err.message || 'Unable to save draft.'; error.classList.remove('hidden'); })
+      .saveDraftSalesOrder(token, collectHeader());
+  }
+
+  function confirmEntry() {
+    const error = document.getElementById('so-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('so-form-company').value) { error.textContent = 'Select a Company.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('so-form-customer').value) { error.textContent = 'Select a Customer.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('so-form-costcenter').value) { error.textContent = 'Select a Cost Center.'; error.classList.remove('hidden'); return; }
+    if (!allLinesValid()) { error.textContent = 'Every line needs a warehouse and a quantity greater than zero.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!gridLines.some(l => l.ItemCode)) { error.textContent = 'Add at least one line before confirming.'; error.classList.remove('hidden'); return; }
+
+    const btn = document.getElementById('so-confirm-btn');
+    btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Checking stock...';
+    google.script.run
+      .withSuccessHandler(saveResult => {
+        if (!saveResult.success) { btn.disabled = false; btn.innerHTML = original; error.textContent = saveResult.error || 'Unable to save before confirming.'; error.classList.remove('hidden'); return; }
+        google.script.run
+          .withSuccessHandler(confirmResult => {
+            btn.disabled = false; btn.innerHTML = original;
+            if (confirmResult.success) { isDirty = false; showListView(); }
+            else { error.textContent = confirmResult.error || 'Unable to confirm.'; error.classList.remove('hidden'); }
+          })
+          .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to confirm.'; error.classList.remove('hidden'); })
+          .confirmSalesOrder(token, saveResult.soId);
+      })
+      .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to save before confirming.'; error.classList.remove('hidden'); })
+      .saveDraftSalesOrder(token, collectHeader());
+  }
+
+  function deleteDraft() {
+    if (!currentSo) return;
+    if (!confirm('Delete this draft Sales Order? This cannot be undone.')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to delete draft.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
+      .deleteDraftSalesOrder(token, currentSo.SOID);
+  }
+
+  function cancelEntry() {
+    if (!currentSo) return;
+    if (!confirm('Cancel this Sales Order? Any reserved stock will be released back to available.')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to cancel.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to cancel.'))
+      .cancelSalesOrder(token, currentSo.SOID, '');
+  }
+
+  // ---------- CLAIM / RELEASE ----------
+  // Confirmed design: FIFO can't make a real business priority call, so
+  // Sales gets direct manual control instead — Claim pulls currently-
+  // free stock into this line (capped by both its own shortfall and
+  // what's actually available), Release lets some of it go back to
+  // general availability. A reason is required on both; this can
+  // visibly favor one customer's order over another's.
+  let claimReleaseMode = '';
+  let claimReleaseRowIndex = -1;
+
+  function openClaimReleaseModal(mode, rowIndex) {
+    claimReleaseMode = mode;
+    claimReleaseRowIndex = rowIndex;
+    const line = gridLines[rowIndex];
+    const ordered = Number(line.OrderedQuantity) || 0;
+    const reserved = Number(line.ReservedQuantity) || 0;
+
+    document.getElementById('so-cr-title').textContent = mode === 'claim' ? 'Claim Stock' : 'Release Stock';
+    document.getElementById('so-cr-subtitle').textContent = mode === 'claim'
+      ? 'Reserve currently-free stock for this line — up to the outstanding shortfall (' + formatMoney(ordered - reserved) + '), and only what\'s actually available right now.'
+      : 'Release some of this line\'s reserved stock (' + formatMoney(reserved) + ' currently reserved) back to general availability — e.g. to let another order claim it first.';
+    document.getElementById('so-cr-quantity').value = '';
+    document.getElementById('so-cr-reason').value = '';
+    document.getElementById('so-cr-error').classList.add('hidden');
+    document.getElementById('so-claim-release-modal').classList.remove('hidden');
+  }
+  function closeClaimReleaseModal() { document.getElementById('so-claim-release-modal').classList.add('hidden'); }
+
+  function submitClaimReleaseModal() {
+    if (!currentSo || claimReleaseRowIndex < 0) return;
+    const line = gridLines[claimReleaseRowIndex];
+    const quantity = document.getElementById('so-cr-quantity').value;
+    const reason = document.getElementById('so-cr-reason').value.trim();
+    const error = document.getElementById('so-cr-error');
+    error.classList.add('hidden');
+    if (!(Number(quantity) > 0)) { error.textContent = 'Enter a quantity greater than zero.'; error.classList.remove('hidden'); return; }
+    if (!reason) { error.textContent = 'A reason is required.'; error.classList.remove('hidden'); return; }
+
+    const btn = document.getElementById('so-cr-submit');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    const rpcName = claimReleaseMode === 'claim' ? 'claimStockForSalesOrderLine' : 'releaseStockForSalesOrderLine';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { closeClaimReleaseModal(); showListView(); }
+        else { error.textContent = result.error || 'Unable to save.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.textContent = original;
+        error.textContent = err.message || 'Unable to save.'; error.classList.remove('hidden');
+      })
+      [rpcName](token, currentSo.SOID, line.LineID, quantity, reason);
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    google.script.run
+      .withSuccessHandler(perms => {
+        canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost);
+        document.getElementById('so-new-btn').classList.toggle('hidden', !canDraft);
+        if (canDraft) document.getElementById('so-new-btn').addEventListener('click', newEntry);
+      })
+      .withFailureHandler(() => {})
+      .getModulePermissionsForUser(token, 'SALESORDER');
+
+    document.getElementById('so-back-btn').addEventListener('click', showListView);
+    document.getElementById('so-search-input').addEventListener('input', renderList);
+    document.getElementById('so-company-filter').addEventListener('change', renderList);
+    document.getElementById('so-status-filter').addEventListener('change', renderList);
+    document.getElementById('so-from-filter').addEventListener('change', renderList);
+
+    document.getElementById('so-form-company').addEventListener('change', () => {
+      isDirty = true; updateCompanyRequiredNote(); populateItemDatalist(document.getElementById('so-form-company').value);
+      loadPriceListForCurrentCustomer();
+    });
+    document.getElementById('so-form-customer').addEventListener('change', () => {
+      isDirty = true; updateCompanyRequiredNote(); loadPriceListForCurrentCustomer();
+    });
+    document.getElementById('so-add-line-btn').addEventListener('click', () => {
+      isDirty = true;
+      gridLines.push({ LineID: '', ItemCode: '', WarehouseID: '', OrderedQuantity: '', EnteredUOMID: '', UnitPrice: '', LineTotal: 0, ReservedQuantity: 0 });
+      renderGrid();
+    });
+
+    document.getElementById('so-save-draft-btn').addEventListener('click', saveDraft);
+    document.getElementById('so-confirm-btn').addEventListener('click', confirmEntry);
+    document.getElementById('so-delete-btn').addEventListener('click', deleteDraft);
+    document.getElementById('so-cancel-btn').addEventListener('click', cancelEntry);
+    document.getElementById('so-cr-cancel').addEventListener('click', closeClaimReleaseModal);
+    document.getElementById('so-cr-submit').addEventListener('click', submitClaimReleaseModal);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-invoice-dollar"></i> Sales Order';
+    fetchAndRenderList();
+    loadReferenceData();
+  };
+})();
+</script>

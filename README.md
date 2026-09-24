@@ -258,9 +258,10 @@ ORGUNITS, COMPANYMASTER, CURRENCYCONFIG** — 21 callables.
 
 To continue with the next modules (from the repo alone):
 
-    # 1. Apps Script source (not committed — it is the live system):
-    npm i -g @google/clasp && clasp login --no-localhost
-    clasp clone 16XxfqOGutYnR21N2xVOSzagKP_C3jXPBS3j4DufZ71m4woD_aU1OsFkf   # into a scratch dir
+    # 1. Apps Script source: a reference snapshot is committed in legacy-gas/
+    #    (use it as <clone-dir> below). To refresh it from the live project:
+    #    npm i -g @google/clasp && clasp login --no-localhost
+    #    clasp clone 16XxfqOGutYnR21N2xVOSzagKP_C3jXPBS3j4DufZ71m4woD_aU1OsFkf   # into a scratch dir
     # 2. Add the next module IDs to tools/legacy-port/modules.json
     #    (remaining order: ITEMMASTER, COA, VENDORMASTER, CUSTOMERMASTER,
     #    PRICELISTING, PROCUREMENTSETUP, SALESINVOICESETUP, ROLES, USERMGMT,
@@ -276,6 +277,9 @@ To continue with the next modules (from the repo alone):
     # 3. Tests (emulators running), then a negative control per module
     node --test --test-concurrency=1 functions/test/emulator/*.test.js
     node functions/test/ui/smoke.ui.js        # every ported screen loads cleanly, Admin + Viewer
+    # 4. Deploy: extend tools/deploy-migration.sh with the new callables
+    #    (batches of <=6 — Cloud Shell times out on bigger ones — plus the
+    #    public-invoker IAM binding per new function), then run it.
 
 A new screen that calls a HAND-ported callable needs that callable's
 argument names in `tools/legacy-port/hand-args.json` (the generator

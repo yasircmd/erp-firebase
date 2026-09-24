@@ -1,0 +1,1104 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+  #dn-print-document table { border-collapse: collapse; width: 100%; }
+  #dn-print-document th, #dn-print-document td { border: 1px solid #333; padding: 4px 6px; font-size: 10px; }
+  #dn-print-document thead { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>
+
+<div id="dn-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Accounts Receivable</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-truck text-blue-500"></i> Delivery Note (Goods Dispatch)</h2></div>
+    <button id="dn-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Delivery</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="dn-search-input" placeholder="Search number or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="dn-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="dn-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Draft">Draft</option><option value="Posted">Posted</option></select>
+    <input type="date" id="dn-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <input type="date" id="dn-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div id="dn-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Delivery Number</th>
+            <th class="py-3 px-4">Customer</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4">Reference</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="dn-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="dn-entry-view" class="hidden space-y-5">
+  <div id="dn-print-header" class="print-only mb-4 pb-4 border-b-2 border-slate-800">
+    <h1 id="dn-print-company-name" class="text-lg font-bold"></h1>
+    <p id="dn-print-company-address" class="text-sm"></p>
+  </div>
+  <div id="dn-print-document" class="print-only"></div>
+  <div class="no-print space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="dn-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="dn-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="dn-back-chain-label">Back</span></button>
+      <h2 id="dn-entry-title" class="text-xl font-bold text-blue-400">New Delivery Note</h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="dn-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="dn-print-dn-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print Delivery Note</button>
+      <button id="dn-print-pl-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print Packing List</button>
+      <button id="dn-gl-impact-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-scale-balanced"></i> View GL Impact</button>
+    </div>
+  </div>
+
+  <div id="dn-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+
+  <div id="dn-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="dn-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1">
+    <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
+    <p id="dn-rejection-reason" class="text-sm text-slate-200"></p>
+    <p class="text-xs text-slate-500">This Delivery Note is fully editable below — make your changes and Post again.</p>
+  </div>
+
+  <div id="dn-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="dn-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3">
+      <button id="dn-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button>
+      <button id="dn-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button>
+    </div>
+    <div id="dn-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+      <select id="dn-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Customer</label>
+      <select id="dn-form-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+      <p class="text-xs text-slate-500 mt-1">Choosing a Customer reveals their Reserved / Partially Reserved Sales Orders below.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Transaction Date</label><input type="date" id="dn-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference</label><input type="text" id="dn-form-reference" placeholder="e.g. delivery driver, shipment #" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
+    <input type="text" id="dn-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="dn-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="dn-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(line default)</span></label><select id="dn-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="dn-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    </div>
+  </div>
+
+  <div id="dn-so-picker-section" class="hidden space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase" id="dn-so-picker-heading">Ship Against Sales Orders <span class="normal-case font-normal text-slate-500">(Reserved / Partially Reserved — pick individual lines, capped at what's currently reserved; price and warehouse are inherited and cannot be changed)</span></p>
+    <div id="dn-so-picker-list" class="space-y-2"></div>
+    <p id="dn-so-picker-empty" class="hidden text-xs text-slate-500 text-center py-4">No eligible Sales Orders found for this Company and Customer.</p>
+  </div>
+
+  <div class="space-y-3">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-semibold text-slate-400 uppercase">Lines</p>
+      <button id="dn-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700 no-print"><i class="fa-solid fa-copy"></i> Copy Table</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3 w-10">#</th><th class="py-2 px-3">Item</th><th class="py-2 px-3">Warehouse</th>
+            <th class="py-2 px-3 text-right w-28">Quantity</th><th class="py-2 px-3 text-right w-28">Unit Price</th>
+            <th class="py-2 px-3">Description</th><th class="py-2 px-3">Cost Center</th><th class="py-2 px-3">Profit Center</th><th class="py-2 px-3 w-10"></th>
+          </tr></thead>
+          <tbody id="dn-grid-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-slate-800">
+    <button id="dn-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="dn-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse</button>
+    <button id="dn-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save Draft</button>
+    <button id="dn-post-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">Post</button>
+  </div>
+  </div>
+</div>
+
+<div id="dn-gl-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="flex items-center justify-between border-b border-slate-700 p-4">
+      <div>
+        <h3 class="text-lg font-bold text-slate-100">GL Impact</h3>
+        <p id="dn-gl-modal-subtitle" class="text-xs text-slate-500 font-mono"></p>
+      </div>
+      <button id="dn-gl-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-4 overflow-y-auto">
+      <div id="dn-gl-modal-body" class="text-sm text-slate-500">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<div id="dn-confirm-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 id="dn-confirm-title" class="text-lg font-bold text-slate-100">Confirm</h3>
+    <p id="dn-confirm-message" class="text-sm text-slate-300 whitespace-pre-line"></p>
+    <div id="dn-confirm-input-wrap" class="hidden">
+      <input type="date" id="dn-confirm-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    </div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button id="dn-confirm-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button>
+      <button id="dn-confirm-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = null;
+  let canDraft = false;
+  let canPost = false;
+  let entries = [];
+  let companies = [];
+  let customers = [];
+  let orgUnits = [];
+  let items = [];
+  let uoms = [];
+  let currentDN = null;
+  let gridLines = []; // { ItemCode, ItemName, WarehouseID, Quantity, UnitPrice, Description, CostCenterID, ProfitCenterID, SourceSOID, SourceSOLineID, MaxShippable }
+  let eligibleSOs = [];
+  let selectedSOLineKeys = new Set();
+  let isDirty = false;
+  let pendingOpenEntryId = null;
+  let myReturnChain = [];
+
+  const STATUS_COLORS = {
+    Draft: 'bg-slate-700 text-slate-300',
+    PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+    Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20',
+    Committing: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+    Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+  };
+  const STATUS_LABELS = { PendingApproval: 'Pending Approval' };
+
+  // Single source of truth for how a Delivery Note's status should be
+  // shown — a reversed original and the reversal record it produced
+  // both carry Status 'Posted' on their own raw field, indistinguishable
+  // without this.
+  function dnStatusDisplay(e) {
+    if (e.Status === 'Posted' && e.ReversalOfDeliveryNoteID) {
+      return { label: 'Reversal Entry', colorClass: 'bg-purple-500/10 text-purple-400 border border-purple-500/20' };
+    }
+    if (e.Status === 'Posted' && e.ReversedByDeliveryNoteID) {
+      return { label: 'Posted (Reversed)', colorClass: 'bg-amber-500/10 text-amber-400 border border-amber-500/20' };
+    }
+    return { label: STATUS_LABELS[e.Status] || e.Status, colorClass: STATUS_COLORS[e.Status] || 'bg-slate-700 text-slate-400' };
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML;
+  }
+  function formatMoney(n) {
+    const num = parseFloat(String(n == null ? 0 : n).toString().replace(/,/g, '')) || 0;
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function parseAmount(v) { return parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
+  function today() { return new Date().toISOString().substring(0, 10); }
+  function customerById(id) { return customers.find(c => c.CustomerID === id); }
+  // Same "join whatever's actually filled in, skip the rest" pattern
+  // updatePrintHeader already uses for the company's own address.
+  function customerAddressLine(customer) {
+    if (!customer) return '';
+    return [customer.AddressLine1, customer.AddressLine2, customer.Country].filter(Boolean).join(', ');
+  }
+  function customerContactLine(customer) {
+    if (!customer) return '';
+    return [customer.ContactPerson, customer.Phone].filter(Boolean).join(' — ');
+  }
+  function itemNameByCode(code) { const item = items.find(i => i.ItemCode === code); return item ? item.ItemName : ''; }
+  function itemByCode(code) { return items.find(i => i.ItemCode === code); }
+  function uomById(id) { return uoms.find(u => u.UOMID === id); }
+  function warehouseName(id) { const u = orgUnits.find(o => o.UnitID === id); return u ? (u.Code + ' — ' + u.Name) : id; }
+
+  function currentHeaderDescription() { return document.getElementById('dn-form-description').value.trim(); }
+  function currentHeaderCostCenter() { return document.getElementById('dn-form-costcenter').value; }
+  function currentHeaderProfitCenter() { return document.getElementById('dn-form-profitcenter').value; }
+
+  function orgUnitOptionsHtml(type, selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type).forEach(u => {
+      html += `<option value="${u.UnitID}" ${u.UnitID === selectedId ? 'selected' : ''}>${escapeHtml(u.Code + ' — ' + u.Name)}</option>`;
+    });
+    return html;
+  }
+
+  // Populates a HEADER-level dimension select with real options —
+  // orgUnitOptionsHtml above only ever builds options for a per-line
+  // grid dropdown's own <select>, rebuilt fresh every renderGrid() call;
+  // the header's own Division/Branch/Cost Center/Profit Center selects
+  // are never rebuilt that way; each needs its OWN options populated
+  // once, here, after orgUnits actually loads.
+  function populateOrgUnitSelect(selectId, type) {
+    const select = document.getElementById(selectId);
+    const previous = select.value;
+    select.innerHTML = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.UnitID; opt.textContent = u.Code + ' — ' + u.Name;
+        select.appendChild(opt);
+      });
+    if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  }
+
+  function showConfirm(message, onConfirm, opts) {
+    opts = opts || {};
+    document.getElementById('dn-confirm-title').textContent = opts.title || 'Confirm';
+    document.getElementById('dn-confirm-message').textContent = message;
+    const inputWrap = document.getElementById('dn-confirm-input-wrap');
+    const input = document.getElementById('dn-confirm-input');
+    if (opts.needsDate) { inputWrap.classList.remove('hidden'); input.value = opts.defaultDate || today(); }
+    else { inputWrap.classList.add('hidden'); }
+    document.getElementById('dn-confirm-modal').classList.remove('hidden');
+
+    const okBtn = document.getElementById('dn-confirm-ok');
+    const cancelBtn = document.getElementById('dn-confirm-cancel');
+    function cleanup() {
+      document.getElementById('dn-confirm-modal').classList.add('hidden');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+    }
+    function onOk() { cleanup(); onConfirm(opts.needsDate ? input.value : undefined); }
+    function onCancel() { cleanup(); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  }
+
+  // ---------- LIST VIEW ----------
+  function renderList() {
+    const search = document.getElementById('dn-search-input').value.trim().toLowerCase();
+    const companyFilter = document.getElementById('dn-company-filter').value;
+    const statusFilter = document.getElementById('dn-status-filter').value;
+    const fromFilter = document.getElementById('dn-from-filter').value;
+    const toFilter = document.getElementById('dn-to-filter').value;
+
+    const filtered = entries.filter(e => {
+      if (companyFilter && e.CompanyID !== companyFilter) return false;
+      if (statusFilter && e.Status !== statusFilter) return false;
+      if (fromFilter && e.TransactionDate < fromFilter) return false;
+      if (toFilter && e.TransactionDate > toFilter) return false;
+      if (search) {
+        const hay = ((e.TransactionNumber || '') + ' ' + (e.Description || '') + ' ' + (e.Reference || '')).toLowerCase();
+        if (hay.indexOf(search) === -1) return false;
+      }
+      return true;
+    });
+
+    const tbody = document.getElementById('dn-table-body');
+    tbody.innerHTML = '';
+    filtered.forEach(e => {
+      const customer = customerById(e.CustomerID);
+      const statusDisplay = dnStatusDisplay(e);
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-700/30 cursor-pointer';
+      tr.innerHTML = `
+        <td class="py-2.5 px-4 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}</td>
+        <td class="py-2.5 px-4 text-sm">${escapeHtml(customer ? customer.CustomerName : '')}</td>
+        <td class="py-2.5 px-4 text-xs text-slate-400">${escapeHtml(e.TransactionDate || '')}</td>
+        <td class="py-2.5 px-4 text-xs text-slate-400">${escapeHtml(e.Reference || '')}</td>
+        <td class="py-2.5 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${statusDisplay.colorClass}">${escapeHtml(statusDisplay.label)}</span></td>
+        <td class="py-2.5 px-4 text-right"><button class="text-xs text-blue-400 hover:text-blue-300">Open</button></td>`;
+      tr.addEventListener('click', () => openEntry(e.DeliveryNoteID));
+      tbody.appendChild(tr);
+    });
+
+    const notice = document.getElementById('dn-list-notice');
+    if (!filtered.length) {
+      notice.classList.remove('hidden');
+      notice.textContent = entries.length ? 'No Delivery Notes match the current filters.' : 'No Delivery Notes yet.';
+    } else {
+      notice.classList.add('hidden');
+    }
+  }
+
+  function fetchEntries(limit) {
+    google.script.run
+      .withSuccessHandler(result => {
+        entries = (result && result.entries) || []; renderList();
+        if (pendingOpenEntryId) {
+          const id = pendingOpenEntryId; pendingOpenEntryId = null;
+          // Drill-through from GL Report passes the GL ENTRY's own ID
+          // (LinkedJVID), not the delivery's own ID.
+          const found = entries.find(e => e.LinkedJVID === id || e.DeliveryNoteID === id);
+          if (found) openEntry(found.DeliveryNoteID);
+          else alert('That Delivery Note could not be found — it may have been deleted.');
+        }
+      })
+      .withFailureHandler(err => console.error(err))
+      .getDeliveryNoteEntries(token, limit || 100);
+  }
+
+  function showListView() {
+    document.getElementById('dn-entry-view').classList.add('hidden');
+    document.getElementById('dn-list-view').classList.remove('hidden');
+    fetchEntries();
+  }
+  function showEntryView() {
+    document.getElementById('dn-list-view').classList.add('hidden');
+    document.getElementById('dn-entry-view').classList.remove('hidden');
+  }
+
+  function goBackToList() {
+    if (isDirty) showConfirm('You have unsaved changes. Leave without saving?', () => showListView(), { title: 'Unsaved Changes' });
+    else showListView();
+  }
+  function goBackInChain() {
+    const doGoBack = () => {
+      const chain = myReturnChain.slice();
+      const target = chain.pop();
+      if (!target) return;
+      openModule(target.moduleId, target.params, chain);
+    };
+    if (isDirty) showConfirm('You have unsaved changes. Leave without saving?', doGoBack, { title: 'Unsaved Changes' });
+    else doGoBack();
+  }
+
+  // ---------- SO LINE PICKER ----------
+  // A Draft or Rejected (or brand new) Delivery Note is the only state
+  // where the SO picker and grid are still live/editable — everything
+  // else is a historical, immutable record.
+  function isDNEditable() {
+    return !currentDN || currentDN.Status === 'Draft' || currentDN.Status === 'Rejected';
+  }
+
+  function fetchEligibleSOs() {
+    const companyId = document.getElementById('dn-form-company').value;
+    const customerId = document.getElementById('dn-form-customer').value;
+    const section = document.getElementById('dn-so-picker-section');
+    const heading = document.getElementById('dn-so-picker-heading');
+    if (!companyId || !customerId) { section.classList.add('hidden'); eligibleSOs = []; return; }
+
+    if (!isDNEditable()) {
+      // Historical record — show exactly which SO lines this delivery
+      // actually shipped against, as a plain read-only list, computed
+      // synchronously (no async gap for anything to race against).
+      const sourceLines = gridLines.filter(l => l.SourceSOID && l.SourceSOLineID);
+      if (!sourceLines.length) { section.classList.add('hidden'); eligibleSOs = []; return; }
+      heading.innerHTML = 'Shipped Against Sales Orders';
+      eligibleSOs = [];
+      renderSOPicker(true);
+      section.classList.remove('hidden');
+      return;
+    }
+
+    heading.innerHTML = 'Ship Against Sales Orders <span class="normal-case font-normal text-slate-500">(Reserved / Partially Reserved — pick individual lines, capped at what\'s currently reserved; price and warehouse are inherited and cannot be changed)</span>';
+    google.script.run
+      .withSuccessHandler(result => {
+        eligibleSOs = result || [];
+        renderSOPicker(false);
+        section.classList.remove('hidden');
+      })
+      .withFailureHandler(err => alert(err.message || 'Unable to load eligible Sales Orders.'))
+      .getEligibleSOsForDelivery(token, companyId, customerId);
+  }
+
+  function renderSOPicker(readOnlyHistorical) {
+    const list = document.getElementById('dn-so-picker-list');
+    list.innerHTML = '';
+    const editable = isDNEditable();
+
+    if (readOnlyHistorical) {
+      document.getElementById('dn-so-picker-empty').classList.add('hidden');
+      gridLines.filter(l => l.SourceSOID && l.SourceSOLineID).forEach(l => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 text-sm bg-slate-900 border border-slate-700 rounded-lg px-3 py-2';
+        row.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> <span>${escapeHtml(l.SourceSONumber || l.SourceSOID)} — ${escapeHtml(l.ItemCode)} — <span class="font-mono">${formatMoney(l.Quantity)}</span></span>`;
+        list.appendChild(row);
+      });
+      return;
+    }
+
+    document.getElementById('dn-so-picker-empty').classList.toggle('hidden', eligibleSOs.length > 0);
+    eligibleSOs.forEach(so => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'bg-slate-900 border border-slate-700 rounded-lg p-3 space-y-2';
+      const header = document.createElement('p');
+      header.className = 'text-xs font-semibold text-slate-300';
+      header.textContent = (so.SONumber || so.SOID) + ' — ' + (so.Lines || []).length + ' line(s)';
+      wrapper.appendChild(header);
+      (so.Lines || []).forEach(line => {
+        const key = so.SOID + '|' + line.LineID;
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-2 text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1.5 cursor-pointer';
+        const maxShip = Number(line.MaxShippable) || 0;
+        const disabledNote = maxShip <= 0 ? ' <span class="text-amber-400">(nothing currently shippable)</span>' : '';
+        label.innerHTML = `<input type="checkbox" class="dn-so-line-checkbox" data-key="${key}" ${selectedSOLineKeys.has(key) ? 'checked' : ''} ${maxShip <= 0 ? 'disabled' : ''}> <span>${escapeHtml(line.ItemCode)} — ${escapeHtml(itemNameByCode(line.ItemCode))} — Ordered ${line.OrderedQuantity}, Remaining ${line.RemainingQuantity}, Reserved ${line.ReservedQuantity} — max shippable now: <span class="font-mono">${maxShip}</span>${disabledNote}</span>`;
+        wrapper.appendChild(label);
+      });
+      list.appendChild(wrapper);
+    });
+    list.querySelectorAll('.dn-so-line-checkbox').forEach(cb => {
+      cb.addEventListener('change', e => {
+        const key = e.target.getAttribute('data-key');
+        const parts = key.split('|');
+        const soId = parts[0]; const lineId = parts[1];
+        const so = eligibleSOs.find(s => s.SOID === soId);
+        const line = so ? (so.Lines || []).find(l => l.LineID === lineId) : null;
+        if (e.target.checked) {
+          selectedSOLineKeys.add(key);
+          addLineFromSO(so, line);
+        } else {
+          selectedSOLineKeys.delete(key);
+          removeLineFromSO(soId, lineId);
+        }
+      });
+    });
+  }
+
+  function addLineFromSO(so, line) {
+    if (!so || !line) return;
+    const maxShip = Number(line.MaxShippable) || 0;
+    gridLines.push({
+      ItemCode: line.ItemCode, ItemName: itemNameByCode(line.ItemCode) || line.ItemCode, WarehouseID: line.WarehouseID,
+      Quantity: maxShip > 0 ? maxShip : '', UnitPrice: line.UnitPrice,
+      Description: currentHeaderDescription() || ('Delivery for ' + (so.SONumber || so.SOID)),
+      CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter(),
+      SourceSOID: so.SOID, SourceSOLineID: line.LineID, SourceSONumber: so.SONumber,
+      MaxShippable: maxShip
+    });
+    isDirty = true;
+    renderGrid();
+  }
+  function removeLineFromSO(soId, lineId) {
+    gridLines = gridLines.filter(l => !(l.SourceSOID === soId && l.SourceSOLineID === lineId));
+    isDirty = true;
+    renderGrid();
+  }
+
+  // ---------- GRID ----------
+  function buildRowMarkup(line, i, readOnly) {
+    const overCap = !readOnly && Number(line.Quantity) > Number(line.MaxShippable) + 0.000001;
+    return `
+      <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+      <td class="py-1.5 px-3 text-xs font-mono">${escapeHtml(line.ItemCode)} <span class="text-slate-500">${escapeHtml(line.ItemName || '')}</span></td>
+      <td class="py-1.5 px-3 text-xs text-slate-400">${escapeHtml(warehouseName(line.WarehouseID))}</td>
+      <td class="py-1 px-1"><input data-row="${i}" data-field="quantity" type="text" inputmode="decimal" value="${line.Quantity === '' ? '' : line.Quantity}" ${readOnly ? 'disabled' : ''} title="${!readOnly ? ('Max shippable right now: ' + line.MaxShippable) : ''}" class="w-full bg-slate-900 border ${overCap ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1.5 px-3 text-xs text-right font-mono text-slate-400" title="Inherited from the Sales Order — cannot be edited">${formatMoney(line.UnitPrice)}</td>
+      <td class="py-1 px-1"><input data-row="${i}" data-field="description" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><select data-row="${i}" class="dn-line-cc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
+      <td class="py-1 px-1"><select data-row="${i}" class="dn-line-pc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
+      <td class="py-1 px-1 text-center">${readOnly ? '' : `<button data-row="${i}" class="dn-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
+  }
+  function wireRowEvents(tr, readOnly) {
+    if (readOnly) return;
+    tr.querySelectorAll('input[data-field]').forEach(el => {
+      el.addEventListener('input', e => {
+        const row = parseInt(e.target.getAttribute('data-row'), 10);
+        const field = e.target.getAttribute('data-field');
+        gridLines[row][field === 'quantity' ? 'Quantity' : 'Description'] = field === 'quantity' ? e.target.value.replace(/,/g, '') : e.target.value;
+        isDirty = true;
+      });
+      el.addEventListener('blur', renderGrid);
+    });
+    tr.querySelectorAll('.dn-line-cc').forEach(sel => sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].CostCenterID = e.target.value; isDirty = true; }));
+    tr.querySelectorAll('.dn-line-pc').forEach(sel => sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].ProfitCenterID = e.target.value; isDirty = true; }));
+    tr.querySelectorAll('.dn-remove-row').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const row = parseInt(btn.getAttribute('data-row'), 10);
+        const line = gridLines[row];
+        if (line.SourceSOID && line.SourceSOLineID) selectedSOLineKeys.delete(line.SourceSOID + '|' + line.SourceSOLineID);
+        gridLines.splice(row, 1);
+        isDirty = true;
+        renderGrid();
+      });
+    });
+  }
+  function renderGrid() {
+    const tbody = document.getElementById('dn-grid-body');
+    tbody.innerHTML = '';
+    const readOnly = !isDNEditable();
+    gridLines.forEach((line, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = buildRowMarkup(line, i, readOnly);
+      tbody.appendChild(tr);
+      wireRowEvents(tr, readOnly);
+    });
+  }
+
+  // ---------- FORM COLLECTION ----------
+  function collectHeader() {
+    return {
+      DeliveryNoteID: currentDN ? currentDN.DeliveryNoteID : '',
+      TransactionDate: document.getElementById('dn-form-date').value,
+      Description: document.getElementById('dn-form-description').value.trim(),
+      Reference: document.getElementById('dn-form-reference').value.trim(),
+      CompanyID: document.getElementById('dn-form-company').value,
+      CustomerID: document.getElementById('dn-form-customer').value,
+      DivisionID: document.getElementById('dn-form-division').value,
+      BranchID: document.getElementById('dn-form-branch').value,
+      CostCenterID: document.getElementById('dn-form-costcenter').value,
+      ProfitCenterID: document.getElementById('dn-form-profitcenter').value,
+      Lines: gridLines.map(l => ({
+        SourceSOID: l.SourceSOID, SourceSOLineID: l.SourceSOLineID,
+        Quantity: l.Quantity, Description: l.Description,
+        CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID
+      }))
+    };
+  }
+
+  function validateBeforeSave() {
+    const error = document.getElementById('dn-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('dn-form-company').value) { error.textContent = 'Select a Company.'; error.classList.remove('hidden'); return false; }
+    if (!document.getElementById('dn-form-customer').value) { error.textContent = 'Select a Customer.'; error.classList.remove('hidden'); return false; }
+    if (!gridLines.length) { error.textContent = 'Add at least one line from a Sales Order.'; error.classList.remove('hidden'); return false; }
+    return true;
+  }
+
+  function saveDraft() {
+    if (!validateBeforeSave()) return;
+    const error = document.getElementById('dn-form-error');
+    const btn = document.getElementById('dn-save-draft-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { isDirty = false; showListView(); }
+        else { error.textContent = result.error || 'Unable to save draft.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => { btn.disabled = false; btn.textContent = original; error.textContent = err.message || 'Unable to save draft.'; error.classList.remove('hidden'); })
+      .saveDeliveryNoteDraft(token, collectHeader());
+  }
+
+  function postEntry() {
+    if (!validateBeforeSave()) return;
+    const error = document.getElementById('dn-form-error');
+    showConfirm('Post this Delivery Note? This will move stock and post the GL entry.', () => {
+      const btn = document.getElementById('dn-post-btn');
+      btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Posting...';
+      google.script.run
+        .withSuccessHandler(saveResult => {
+          if (!saveResult.success) {
+            btn.disabled = false; btn.innerHTML = original;
+            error.textContent = saveResult.error || 'Unable to save before posting.'; error.classList.remove('hidden');
+            return;
+          }
+          google.script.run
+            .withSuccessHandler(postResult => {
+              btn.disabled = false; btn.innerHTML = original;
+              if (postResult.success) { isDirty = false; showListView(); }
+              else { error.textContent = postResult.error || 'Unable to post.'; error.classList.remove('hidden'); }
+            })
+            .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to post.'; error.classList.remove('hidden'); })
+            .postDeliveryNote(token, saveResult.dnId);
+        })
+        .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to save before posting.'; error.classList.remove('hidden'); })
+        .saveDeliveryNoteDraft(token, collectHeader());
+    });
+  }
+
+  function deleteDraft() {
+    if (!currentDN) return;
+    showConfirm('Delete this draft? This cannot be undone.', () => {
+      google.script.run
+        .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to delete.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to delete.'))
+        .deleteDeliveryNoteDraft(token, currentDN.DeliveryNoteID);
+    });
+  }
+
+  function reverseEntry() {
+    if (!currentDN) return;
+    showConfirm('Reverse this Delivery Note? This will restore the shipped stock and re-reserve it against the Sales Order.', (reversalDate) => {
+      google.script.run
+        .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to reverse.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to reverse.'))
+        .reverseDeliveryNote(token, currentDN.DeliveryNoteID, reversalDate);
+    }, { title: 'Reverse Delivery Note', needsDate: true, defaultDate: today() });
+  }
+
+  function decide(decision) {
+    const levelNumber = parseInt(document.getElementById('dn-my-approval-banner').dataset.level, 10);
+    const reason = document.getElementById('dn-decision-reason').value.trim();
+    const error = document.getElementById('dn-decision-error');
+    error.classList.add('hidden');
+    if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
+    showConfirm((decision === 'Approved' ? 'Approve' : 'Reject') + ' this Delivery Note?' + (decision === 'Approved' ? ' This will move stock and post the GL entry.' : ''), () => {
+      google.script.run
+        .withSuccessHandler(result => {
+          if (result.success) { isDirty = false; showListView(); }
+          else { error.textContent = result.error || 'Unable to record decision.'; error.classList.remove('hidden'); }
+        })
+        .withFailureHandler(err => { error.textContent = err.message || 'Unable to record decision.'; error.classList.remove('hidden'); })
+        .decideDeliveryNoteApproval(token, currentDN.DeliveryNoteID, levelNumber, decision, reason);
+    });
+  }
+
+  // ---------- ENTRY VIEW LOAD ----------
+  function populateHeaderFromDN(dn) {
+    document.getElementById('dn-form-company').value = dn.CompanyID || '';
+    document.getElementById('dn-form-customer').value = dn.CustomerID || '';
+    document.getElementById('dn-form-date').value = dn.TransactionDate || '';
+    document.getElementById('dn-form-reference').value = dn.Reference || '';
+    document.getElementById('dn-form-description').value = dn.Description || '';
+    document.getElementById('dn-form-division').value = dn.DivisionID || '';
+    document.getElementById('dn-form-branch').value = dn.BranchID || '';
+    document.getElementById('dn-form-costcenter').value = dn.CostCenterID || '';
+    document.getElementById('dn-form-profitcenter').value = dn.ProfitCenterID || '';
+  }
+
+  function openEntry(dnId) {
+    currentDN = entries.find(e => e.DeliveryNoteID === dnId) || null;
+    if (!currentDN) return;
+    isDirty = false;
+
+    gridLines = (currentDN.Lines || []).map(l => Object.assign({}, l));
+    selectedSOLineKeys = new Set(gridLines.filter(l => l.SourceSOID && l.SourceSOLineID).map(l => l.SourceSOID + '|' + l.SourceSOLineID));
+    populateHeaderFromDN(currentDN);
+    document.getElementById('dn-entry-title').textContent = currentDN.TransactionNumber || '(unposted)';
+    document.getElementById('dn-voucher-no-line').textContent = currentDN.TransactionNumber ? 'Delivery No: ' + currentDN.TransactionNumber : '';
+
+    fetchEligibleSOs();
+    refreshStatusUI();
+    renderGrid();
+    showEntryView();
+  }
+
+  function newEntry() {
+    currentDN = null;
+    gridLines = [];
+    selectedSOLineKeys = new Set();
+    document.getElementById('dn-form-company').value = '';
+    document.getElementById('dn-form-customer').value = '';
+    document.getElementById('dn-so-picker-section').classList.add('hidden');
+    document.getElementById('dn-form-date').value = today();
+    document.getElementById('dn-form-reference').value = '';
+    document.getElementById('dn-form-description').value = '';
+    document.getElementById('dn-form-division').value = '';
+    document.getElementById('dn-form-branch').value = '';
+    document.getElementById('dn-form-costcenter').value = '';
+    document.getElementById('dn-form-profitcenter').value = '';
+    document.getElementById('dn-entry-title').textContent = 'New Delivery Note';
+    document.getElementById('dn-voucher-no-line').textContent = '';
+    refreshStatusUI();
+    renderGrid();
+    showEntryView();
+  }
+
+  // ---------- STATUS-DRIVEN UI ----------
+  function refreshStatusUI() {
+    const posted = currentDN && currentDN.Status === 'Posted';
+    const editableStatus = isDNEditable();
+    const readOnly = currentDN && !editableStatus;
+    const isNew = !currentDN;
+
+    const badge = document.getElementById('dn-status-badge');
+    if (isNew) {
+      badge.classList.add('hidden');
+    } else {
+      badge.classList.remove('hidden');
+      const statusDisplay = dnStatusDisplay(currentDN);
+      badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + statusDisplay.colorClass;
+      badge.textContent = statusDisplay.label;
+    }
+
+    document.getElementById('dn-rejection-banner').classList.toggle('hidden', !currentDN || currentDN.Status !== 'Rejected');
+    if (currentDN && currentDN.Status === 'Rejected') {
+      document.getElementById('dn-rejection-reason').textContent = currentDN.RejectionReason || '(no reason given)';
+    }
+
+    document.getElementById('dn-my-approval-banner').classList.add('hidden');
+    if (currentDN && currentDN.Status === 'PendingApproval' && canPost) {
+      google.script.run
+        .withSuccessHandler(levelNumber => {
+          if (levelNumber) {
+            document.getElementById('dn-my-approval-banner').classList.remove('hidden');
+            document.getElementById('dn-my-approval-banner').dataset.level = levelNumber;
+          }
+        })
+        .withFailureHandler(() => {})
+        .getMyPendingApprovalLevel(token, currentDN.ApprovalInstanceID);
+    }
+
+    ['dn-form-company', 'dn-form-customer', 'dn-form-date', 'dn-form-reference', 'dn-form-description',
+      'dn-form-division', 'dn-form-branch', 'dn-form-costcenter', 'dn-form-profitcenter'].forEach(id => {
+      document.getElementById(id).disabled = readOnly;
+    });
+
+    document.getElementById('dn-save-draft-btn').classList.toggle('hidden', !editableStatus || !canDraft);
+    document.getElementById('dn-post-btn').classList.toggle('hidden', !editableStatus || !canPost);
+    document.getElementById('dn-delete-btn').classList.toggle('hidden', (!currentDN || currentDN.Status !== 'Draft') || !canDraft);
+    document.getElementById('dn-reverse-btn').classList.toggle('hidden', !posted || Boolean(currentDN && (currentDN.ReversedByDeliveryNoteID || currentDN.ReversalOfDeliveryNoteID || currentDN.MatchedToInvoiceID)) || !canPost);
+    document.getElementById('dn-gl-impact-btn').classList.toggle('hidden', !(posted && currentDN && currentDN.LinkedJVID));
+    document.getElementById('dn-print-dn-btn').classList.toggle('hidden', !posted);
+    document.getElementById('dn-print-pl-btn').classList.toggle('hidden', !posted);
+    updatePrintHeader();
+  }
+
+  // ---------- GL IMPACT ----------
+  function openGlImpact() {
+    if (!currentDN || !currentDN.LinkedJVID) return;
+    document.getElementById('dn-gl-modal-subtitle').textContent = '';
+    document.getElementById('dn-gl-modal-body').innerHTML = '<div class="text-center text-slate-500 py-4">Loading...</div>';
+    document.getElementById('dn-gl-modal').classList.remove('hidden');
+    google.script.run
+      .withSuccessHandler(entry => renderGlImpact(entry))
+      .withFailureHandler(err => {
+        document.getElementById('dn-gl-modal-body').innerHTML = '<div class="text-center text-red-400 py-4">' + escapeHtml(err.message || 'Unable to load GL entry.') + '</div>';
+      })
+      .getJournalEntryDetail(token, currentDN.LinkedJVID);
+  }
+  function renderGlImpact(entry) {
+    document.getElementById('dn-gl-modal-subtitle').textContent = entry.JVNumber + ' — ' + entry.JVDate;
+    const rows = entry.Lines.map(l => `
+      <tr class="border-b border-slate-700">
+        <td class="py-2 px-3 font-mono text-xs text-slate-300">${escapeHtml(l.AccountCode)}</td>
+        <td class="py-2 px-3 text-sm text-slate-200">${escapeHtml(l.AccountName)}</td>
+        <td class="py-2 px-3 text-sm text-right font-mono ${l.Debit ? 'text-slate-200' : 'text-slate-600'}">${l.Debit ? formatMoney(l.Debit) : '—'}</td>
+        <td class="py-2 px-3 text-sm text-right font-mono ${l.Credit ? 'text-slate-200' : 'text-slate-600'}">${l.Credit ? formatMoney(l.Credit) : '—'}</td>
+      </tr>`).join('');
+    document.getElementById('dn-gl-modal-body').innerHTML = `
+      <p class="text-sm text-slate-300 mb-3">${escapeHtml(entry.Description)}</p>
+      <table class="w-full text-left">
+        <thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Account</th><th class="py-2 px-3">Name</th><th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr class="font-medium border-t border-slate-600"><td class="py-2 px-3" colspan="2">Total</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalDebit)}</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalCredit)}</td></tr></tfoot>
+      </table>`;
+  }
+  function closeGlImpact() { document.getElementById('dn-gl-modal').classList.add('hidden'); }
+
+  // "Copy Table" — same pattern GRN's own grid copy button uses:
+  // modern Clipboard API first, a manual-copy prompt as fallback for
+  // any browser/context where it's unavailable.
+  function handleCopyButton() {
+    const rows = gridLines
+      .filter(l => l.ItemCode)
+      .map(l => {
+        const wh = orgUnits.find(u => u.UnitID === l.WarehouseID);
+        const cc = orgUnits.find(u => u.UnitID === l.CostCenterID);
+        const pc = orgUnits.find(u => u.UnitID === l.ProfitCenterID);
+        return [
+          l.ItemCode, l.ItemName || '', wh ? wh.Code : '',
+          l.Quantity === '' ? '' : l.Quantity, formatMoney(l.UnitPrice),
+          l.Description || '', l.SourceSONumber || '',
+          cc ? cc.Code : '', pc ? pc.Code : ''
+        ].join('\t');
+      });
+    const header = ['Item Code', 'Item Name', 'Warehouse', 'Quantity', 'Unit Price', 'Description', 'SO No.', 'Cost Center', 'Profit Center'].join('\t');
+    const text = [header].concat(rows).join('\n');
+    if (!rows.length) { alert('Nothing to copy yet.'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => flashCopyButton()).catch(() => fallbackCopyPrompt(text));
+    } else {
+      fallbackCopyPrompt(text);
+    }
+  }
+  function flashCopyButton() {
+    const btn = document.getElementById('dn-copy-btn');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
+  }
+  function fallbackCopyPrompt(text) {
+    window.prompt('Copy this text (Ctrl+C / Cmd+C, then Enter):', text);
+  }
+
+  // Populates the print-only company letterhead — same pattern GRN's
+  // own updatePrintHeader uses.
+  function updatePrintHeader() {
+    const companyId = currentDN ? currentDN.CompanyID : document.getElementById('dn-form-company').value;
+    const company = companies.find(c => c.CompanyID === companyId);
+    document.getElementById('dn-print-company-name').textContent = company ? company.LegalName : '';
+    const addressParts = company ? [company.AddressLine1, company.AddressLine2].filter(Boolean) : [];
+    document.getElementById('dn-print-company-address').textContent = addressParts.join(', ');
+  }
+
+  // Shared by both print documents — same line data, confirmed design,
+  // just two different framings. Warehouse and Item Code are internal
+  // details, deliberately left off both — Item Name alone is what a
+  // customer or delivery driver actually needs. Quantity is always the
+  // base-UOM figure Delivery Note actually stores; the alternate
+  // figure (when the item has one configured) is a pure display-time
+  // conversion, never touching the underlying data.
+  function buildPrintRows(valueColumns) {
+    if (!currentDN) return '';
+    return (currentDN.Lines || []).map((l, i) => {
+      const item = itemByCode(l.ItemCode);
+      const uom = item ? uomById(item.UOMID) : null;
+      const qty = Number(l.Quantity) || 0;
+      let altQtyCell = '—';
+      if (item && item.AltUOMID && Number(item.ConversionFactor) > 0) {
+        const altUom = uomById(item.AltUOMID);
+        const altQty = qty / Number(item.ConversionFactor);
+        altQtyCell = formatMoney(altQty) + (altUom ? ' ' + escapeHtml(altUom.Code) : '');
+      }
+      const valueCells = valueColumns ? `<td style="text-align:right">${formatMoney(l.UnitPrice)}</td><td style="text-align:right">${formatMoney(qty * (Number(l.UnitPrice) || 0))}</td>` : '';
+      return `<tr>
+        <td>${i + 1}</td>
+        <td>${item ? escapeHtml(item.ItemName) : escapeHtml(l.ItemName || '')}</td>
+        <td style="text-align:right">${formatMoney(qty)}${uom ? ' ' + escapeHtml(uom.Code) : ''}</td>
+        <td style="text-align:right">${altQtyCell}</td>
+        <td>${escapeHtml(l.SourceSONumber || '')}</td>
+        ${valueCells}
+      </tr>`;
+    }).join('');
+  }
+
+  // Standard business format, customer-facing — company letterhead,
+  // customer details, every SO this delivery covers, quantity only
+  // (confirmed: no value columns), alternate unit where configured,
+  // and a proper three-way signature block for proof of delivery.
+  function buildPrintDocumentDN() {
+    const container = document.getElementById('dn-print-document');
+    if (!container || !currentDN) return;
+
+    const customer = customerById(currentDN.CustomerID);
+    const voucherNo = currentDN.TransactionNumber || 'DRAFT';
+    const soNumbers = Array.from(new Set((currentDN.Lines || []).map(l => l.SourceSONumber).filter(Boolean)));
+
+    const rows = buildPrintRows(false);
+
+    container.innerHTML = `
+      <h2 style="text-align:center; font-size:16px; font-weight:bold; text-decoration:underline; margin:8px 0 16px;">DELIVERY NOTE</h2>
+      <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+        <span>Delivery No: <strong>${escapeHtml(voucherNo)}</strong></span>
+        <span>Date: <strong>${escapeHtml(currentDN.TransactionDate || '')}</strong></span>
+      </div>
+      <div style="font-size:11px; margin-bottom:4px;">
+        <span>Customer: <strong>${escapeHtml(customer ? customer.CustomerName : '')}</strong></span>
+      </div>
+      <div style="font-size:11px; margin-bottom:4px;">
+        <span>Address: ${escapeHtml(customerAddressLine(customer)) || '—'}</span>
+      </div>
+      <div style="font-size:11px; margin-bottom:4px;">
+        <span>Contact: ${escapeHtml(customerContactLine(customer)) || '—'}</span>
+      </div>
+      <div style="font-size:11px; margin-bottom:4px;">
+        <span>Reference: ${escapeHtml(currentDN.Reference || '') || '—'}</span>
+      </div>
+      <div style="font-size:11px; margin-bottom:16px;">
+        <span>Sales Order(s): ${soNumbers.length ? escapeHtml(soNumbers.join(', ')) : '—'}</span>
+      </div>
+      <p style="font-size:11px; margin-bottom:12px;">Description: ${escapeHtml(currentDN.Description || '')}</p>
+      <table>
+        <thead><tr>
+          <th>#</th><th>Item Name</th>
+          <th style="text-align:right">Qty</th><th style="text-align:right">Alt Qty</th><th>SO No.</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="5" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
+      </table>
+      <div style="display:flex; justify-content:space-between; margin-top:60px; font-size:11px;">
+        <div>Delivered By: _________________</div>
+        <div>Received By: _________________</div>
+        <div>Date: _________________</div>
+      </div>
+      <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>
+    `;
+  }
+
+  // Packing List — simplified version for now (confirmed): same line
+  // data as the Delivery Note above, warehouse/logistics framing
+  // rather than customer-facing, no signature block. A proper
+  // carton/package-level packing list is a separate, larger feature
+  // for later — this is intentionally the same flat line list, just
+  // relabelled, per the confirmed scope for this pass.
+  function buildPrintDocumentPL() {
+    const container = document.getElementById('dn-print-document');
+    if (!container || !currentDN) return;
+
+    const customer = customerById(currentDN.CustomerID);
+    const voucherNo = currentDN.TransactionNumber || 'DRAFT';
+    const soNumbers = Array.from(new Set((currentDN.Lines || []).map(l => l.SourceSONumber).filter(Boolean)));
+
+    const rows = buildPrintRows(false);
+
+    container.innerHTML = `
+      <h2 style="text-align:center; font-size:16px; font-weight:bold; text-decoration:underline; margin:8px 0 16px;">PACKING LIST</h2>
+      <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+        <span>Delivery No: <strong>${escapeHtml(voucherNo)}</strong></span>
+        <span>Date: <strong>${escapeHtml(currentDN.TransactionDate || '')}</strong></span>
+      </div>
+      <div style="font-size:11px; margin-bottom:4px;">
+        <span>Customer: <strong>${escapeHtml(customer ? customer.CustomerName : '')}</strong></span>
+      </div>
+      <div style="font-size:11px; margin-bottom:4px;">
+        <span>Address: ${escapeHtml(customerAddressLine(customer)) || '—'}</span>
+      </div>
+      <div style="font-size:11px; margin-bottom:4px;">
+        <span>Contact: ${escapeHtml(customerContactLine(customer)) || '—'}</span>
+      </div>
+      <div style="font-size:11px; margin-bottom:16px;">
+        <span>Sales Order(s): ${soNumbers.length ? escapeHtml(soNumbers.join(', ')) : '—'}</span>
+      </div>
+      <table>
+        <thead><tr>
+          <th>#</th><th>Item Name</th>
+          <th style="text-align:right">Qty</th><th style="text-align:right">Alt Qty</th><th>SO No.</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="5" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
+      </table>
+      <div style="margin-top:40px; font-size:11px;">
+        <div>Packed By: _________________</div>
+      </div>
+      <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document — simplified packing list, package/carton-level detail not yet included.</p>
+    `;
+  }
+
+  // ---------- INIT ----------
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    google.script.run
+      .withSuccessHandler(perms => { canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost); document.getElementById('dn-new-btn').classList.toggle('hidden', !canDraft); })
+      .withFailureHandler(err => console.error(err))
+      .getModulePermissionsForUser(token, 'DELIVERYNOTE');
+
+    google.script.run
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const label = c => c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '');
+        const select = document.getElementById('dn-form-company');
+        select.innerHTML = '<option value="">Select a company...</option>';
+        companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+          const opt = document.createElement('option'); opt.value = c.CompanyID; opt.textContent = label(c);
+          select.appendChild(opt);
+        });
+        const filterSelect = document.getElementById('dn-company-filter');
+        filterSelect.innerHTML = '<option value="">All Companies</option>';
+        companies.forEach(c => {
+          const opt = document.createElement('option'); opt.value = c.CompanyID; opt.textContent = label(c);
+          filterSelect.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        customers = result || [];
+        const select = document.getElementById('dn-form-customer');
+        select.innerHTML = '<option value="">Select...</option>';
+        customers.forEach(c => {
+          const opt = document.createElement('option'); opt.value = c.CustomerID; opt.textContent = c.CustomerCode + ' — ' + c.CustomerName;
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCustomers(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        orgUnits = result || [];
+        populateOrgUnitSelect('dn-form-division', 'Division');
+        populateOrgUnitSelect('dn-form-branch', 'Branch');
+        populateOrgUnitSelect('dn-form-costcenter', 'CostCenter');
+        populateOrgUnitSelect('dn-form-profitcenter', 'ProfitCenter');
+        if (!document.getElementById('dn-entry-view').classList.contains('hidden')) renderGrid();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits(token);
+
+    google.script.run
+      .withSuccessHandler(result => { items = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getActiveItems(token);
+
+    google.script.run
+      .withSuccessHandler(result => { uoms = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getActiveUOMs(token);
+
+    document.getElementById('dn-new-btn').addEventListener('click', newEntry);
+    document.getElementById('dn-back-btn').addEventListener('click', goBackToList);
+    document.getElementById('dn-search-input').addEventListener('input', renderList);
+    document.getElementById('dn-company-filter').addEventListener('change', renderList);
+    document.getElementById('dn-status-filter').addEventListener('change', renderList);
+    document.getElementById('dn-from-filter').addEventListener('change', renderList);
+    document.getElementById('dn-to-filter').addEventListener('change', renderList);
+
+    document.getElementById('dn-form-company').addEventListener('change', fetchEligibleSOs);
+    document.getElementById('dn-form-customer').addEventListener('change', fetchEligibleSOs);
+
+    // Same fix as GRN/JV/CBT's own identical bug: the header Cost
+    // Center/Profit Center fields are "(line default)", but only ever
+    // applied to a NEW line at the moment it's added — never
+    // propagated to a line already sitting there if the header field
+    // is set (or changed) afterward. Fills any existing line whose own
+    // value is still empty — never overwrites one already deliberately
+    // set per-line.
+    document.getElementById('dn-form-costcenter').addEventListener('change', () => {
+      const headerValue = currentHeaderCostCenter();
+      if (!headerValue) return;
+      gridLines.forEach(line => { if (!line.CostCenterID) line.CostCenterID = headerValue; });
+      renderGrid();
+    });
+    document.getElementById('dn-form-profitcenter').addEventListener('change', () => {
+      const headerValue = currentHeaderProfitCenter();
+      if (!headerValue) return;
+      gridLines.forEach(line => { if (!line.ProfitCenterID) line.ProfitCenterID = headerValue; });
+      renderGrid();
+    });
+
+    document.getElementById('dn-save-draft-btn').addEventListener('click', saveDraft);
+    document.getElementById('dn-post-btn').addEventListener('click', postEntry);
+    document.getElementById('dn-delete-btn').addEventListener('click', deleteDraft);
+    document.getElementById('dn-reverse-btn').addEventListener('click', reverseEntry);
+    document.getElementById('dn-approve-btn').addEventListener('click', () => decide('Approved'));
+    document.getElementById('dn-reject-btn').addEventListener('click', () => decide('Rejected'));
+    document.getElementById('dn-gl-impact-btn').addEventListener('click', openGlImpact);
+    document.getElementById('dn-print-dn-btn').addEventListener('click', () => { buildPrintDocumentDN(); window.print(); });
+    document.getElementById('dn-print-pl-btn').addEventListener('click', () => { buildPrintDocumentPL(); window.print(); });
+    document.getElementById('dn-copy-btn').addEventListener('click', handleCopyButton);
+    document.getElementById('dn-gl-modal-close').addEventListener('click', closeGlImpact);
+    document.getElementById('dn-gl-modal').addEventListener('click', e => { if (e.target.id === 'dn-gl-modal') closeGlImpact(); });
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-truck"></i> Delivery Note (Goods Dispatch)';
+
+    myReturnChain = window.__pendingReturnChain || [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      document.getElementById('dn-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      document.getElementById('dn-back-chain-btn').classList.remove('hidden');
+      document.getElementById('dn-back-chain-btn').addEventListener('click', goBackInChain);
+    }
+
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) {
+      pendingOpenEntryId = pending.OpenEntryId;
+      document.getElementById('dn-entry-view').classList.add('hidden');
+      document.getElementById('dn-list-view').classList.remove('hidden');
+      fetchEntries('all');
+    } else {
+      fetchEntries();
+    }
+  };
+})();
+</script>

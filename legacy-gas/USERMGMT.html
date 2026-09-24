@@ -1,0 +1,216 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Admin</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-users-gear text-blue-500"></i> User Management</h2></div>
+    <button id="um-add-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-user-plus"></i> Add New User</button>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="um-search-input" placeholder="Search username, email, or name..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="um-role-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Roles</option></select>
+    <select id="um-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+  </div>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase"><th class="py-3 px-4">User</th><th class="py-3 px-4">Role</th><th class="py-3 px-4">Companies</th><th class="py-3 px-4">Status</th><th class="py-3 px-4">Last Login</th><th class="py-3 px-4 text-right">Actions</th></tr></thead><tbody id="um-table-body" class="divide-y divide-slate-700 text-sm"></tbody></table></div></div>
+</div>
+
+<div id="um-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-5">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="um-modal-title" class="text-lg font-bold">Add New User</h3><button id="um-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <form id="um-form" class="space-y-4">
+      <input type="hidden" id="um-form-id">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Username</label><input type="text" id="um-form-username" required placeholder="e.g. jdoe" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div id="um-email-field"><label class="block text-xs font-medium text-slate-300 mb-1">Email address</label><input type="email" id="um-form-email" required placeholder="user@company.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Full name</label><input type="text" id="um-form-fullname" required placeholder="e.g. John Doe" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div id="um-password-field"><label class="block text-xs font-medium text-slate-300 mb-1">Password (minimum 6 characters)</label><input type="password" id="um-form-password" minlength="6" placeholder="Enter password" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div class="grid grid-cols-2 gap-4"><div><label class="block text-xs font-medium text-slate-300 mb-1">Role</label><select id="um-form-role" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div><div><label class="block text-xs font-medium text-slate-300 mb-1">Account status</label><select id="um-form-status" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div></div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-2">Assigned Companies</label>
+        <div id="um-form-companies" class="max-h-40 overflow-y-auto space-y-1.5 bg-slate-900/60 border border-slate-700 rounded-lg p-3 text-sm"></div>
+        <p class="text-xs text-amber-400 mt-1">Leaving this empty gives the user NO access to Chart of Accounts, Journal Entries, Cash &amp; Bank Transactions, or Financial Reports for any company. It does not affect Company Master Data, Currency Configuration, Organizational Units, or other admin screens.</p>
+      </div>
+      <div id="um-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700"><button type="button" id="um-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button><button type="submit" id="um-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save User</button></div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let users = [];
+  let roles = [];
+  let companies = [];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  function roleName(roleId) {
+    const r = roles.find(item => item.RoleID === roleId);
+    return r ? r.Name : roleId;
+  }
+
+  // Uses the FULL company list (getCompanies), not the access-restricted
+  // getActiveCompanies used elsewhere — an ADMIN assigning companies to
+  // OTHER users must be able to pick from every company regardless of
+  // their own assignment, or they could get stuck unable to grant access
+  // to companies they themselves don't currently have.
+  function loadCompanies() {
+    google.script.run
+      .withSuccessHandler(result => { companies = result || []; renderTable(); })
+      .withFailureHandler(err => console.error(err))
+      .getCompanies(token);
+  }
+
+  function renderCompanyCheckboxes(selectedIds) {
+    const container = document.getElementById('um-form-companies');
+    container.innerHTML = '';
+    if (!companies.length) {
+      container.innerHTML = '<p class="text-slate-500 italic">No companies set up yet — add one in Company Master Data first.</p>';
+      return;
+    }
+    companies
+      .sort((a, b) => a.LegalName.localeCompare(b.LegalName))
+      .forEach(c => {
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-2 text-slate-300';
+        label.innerHTML = `<input type="checkbox" value="${escapeHtml(c.CompanyID)}" class="um-company-checkbox w-4 h-4"> ${escapeHtml(c.LegalName)}`;
+        if (selectedIds.includes(c.CompanyID)) label.querySelector('input').checked = true;
+        container.appendChild(label);
+      });
+  }
+
+  function populateRoleDropdowns() {
+    const filter = document.getElementById('um-role-filter');
+    const formSelect = document.getElementById('um-form-role');
+    filter.innerHTML = '<option value="">All Roles</option>';
+    formSelect.innerHTML = '';
+    roles
+      .sort((a, b) => a.Name.localeCompare(b.Name))
+      .forEach(r => {
+        const opt1 = document.createElement('option'); opt1.value = r.RoleID; opt1.textContent = r.Name;
+        filter.appendChild(opt1);
+        const opt2 = document.createElement('option'); opt2.value = r.RoleID; opt2.textContent = r.Name;
+        formSelect.appendChild(opt2);
+      });
+  }
+
+  function fetchAndRenderUsers() {
+    google.script.run
+      .withSuccessHandler(result => { users = result || []; renderTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load users.'))
+      .getAllFirebaseUsers(token);
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('um-table-body');
+    const search = document.getElementById('um-search-input').value.toLowerCase();
+    const role = document.getElementById('um-role-filter').value;
+    const status = document.getElementById('um-status-filter').value;
+    const filtered = users.filter(u => (!search || `${u.username} ${u.email} ${u.fullName}`.toLowerCase().includes(search)) && (!role || u.role === role) && (!status || u.status === status));
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">No users found.</td></tr>'; return; }
+    filtered.forEach(u => {
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const assigned = u.assignedCompanies || [];
+      const companyCell = assigned.length
+        ? assigned.map(id => escapeHtml((companies.find(c => c.CompanyID === id) || {}).LegalName || id)).join(', ')
+        : '<span class="text-red-400">None — no access</span>';
+      row.innerHTML = `<td class="py-3 px-4"><div class="font-medium text-slate-200">${escapeHtml(u.fullName)}</div><div class="text-xs text-slate-400">${escapeHtml(u.email || '@' + u.username)}</div></td><td class="py-3 px-4 text-xs">${escapeHtml(roleName(u.role))}</td><td class="py-3 px-4 text-xs">${companyCell}</td><td class="py-3 px-4 text-xs">${escapeHtml(u.status)}</td><td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(u.lastLogin)}</td><td class="py-3 px-4 text-right"><button class="um-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button><button class="um-delete text-slate-400 hover:text-red-400 p-1" title="Remove ERP access"><i class="fa-solid fa-trash"></i></button></td>`;
+      row.querySelector('.um-edit').addEventListener('click', () => openModal(u.id));
+      row.querySelector('.um-delete').addEventListener('click', () => deleteUser(u.id));
+      tbody.appendChild(row);
+    });
+  }
+
+  function openModal(userId) {
+    const modal = document.getElementById('um-modal');
+    const form = document.getElementById('um-form');
+    form.reset();
+    document.getElementById('um-form-error').classList.add('hidden');
+    const editing = Boolean(userId);
+    document.getElementById('um-password-field').classList.toggle('hidden', editing);
+    document.getElementById('um-email-field').classList.toggle('hidden', editing);
+    document.getElementById('um-form-password').required = !editing;
+    document.getElementById('um-form-email').required = !editing;
+    if (editing) {
+      const u = users.find(item => item.id === userId);
+      if (!u) return;
+      document.getElementById('um-modal-title').textContent = 'Edit User & Role';
+      document.getElementById('um-form-id').value = u.id;
+      document.getElementById('um-form-username').value = u.username;
+      document.getElementById('um-form-username').disabled = true;
+      document.getElementById('um-form-fullname').value = u.fullName;
+      document.getElementById('um-form-role').value = u.role;
+      document.getElementById('um-form-status').value = u.status;
+      renderCompanyCheckboxes(u.assignedCompanies || []);
+    } else {
+      document.getElementById('um-modal-title').textContent = 'Add New User';
+      document.getElementById('um-form-username').disabled = false;
+      renderCompanyCheckboxes([]);
+    }
+    modal.classList.remove('hidden');
+  }
+
+  function closeModal() { document.getElementById('um-modal').classList.add('hidden'); }
+
+  function saveUser(event) {
+    event.preventDefault();
+    const id = document.getElementById('um-form-id').value;
+    const data = {
+      id,
+      username: document.getElementById('um-form-username').value.trim(),
+      email: document.getElementById('um-form-email').value.trim(),
+      fullName: document.getElementById('um-form-fullname').value.trim(),
+      role: document.getElementById('um-form-role').value,
+      status: document.getElementById('um-form-status').value,
+      password: document.getElementById('um-form-password').value,
+      assignedCompanies: [...document.querySelectorAll('.um-company-checkbox:checked')].map(cb => cb.value)
+    };
+    const error = document.getElementById('um-form-error');
+    const btn = document.getElementById('um-save-btn');
+    error.classList.add('hidden');
+    if (!id && data.password.length < 6) { error.textContent = 'Password must be at least 6 characters long.'; error.classList.remove('hidden'); return; }
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save User';
+        if (result.success) { closeModal(); fetchAndRenderUsers(); }
+        else { error.textContent = result.error || 'Unable to save user.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save User';
+        error.textContent = err.message || 'Unable to save user.'; error.classList.remove('hidden');
+      })
+      .saveFirebaseUser(token, data);
+  }
+
+  function deleteUser(userId) {
+    if (!confirm('Remove this user\'s ERP access? Their Firebase Authentication account will remain.')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) fetchAndRenderUsers(); else alert(result.error || 'Unable to remove user.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to remove user.'))
+      .deleteFirebaseUser(token, userId);
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+    document.getElementById('um-add-btn').addEventListener('click', () => openModal());
+    document.getElementById('um-modal-close').addEventListener('click', closeModal);
+    document.getElementById('um-modal-cancel').addEventListener('click', closeModal);
+    document.getElementById('um-form').addEventListener('submit', saveUser);
+    document.getElementById('um-search-input').addEventListener('input', renderTable);
+    document.getElementById('um-role-filter').addEventListener('change', renderTable);
+    document.getElementById('um-status-filter').addEventListener('change', renderTable);
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-users-gear"></i> User Management';
+
+    google.script.run
+      .withSuccessHandler(result => { roles = result || []; populateRoleDropdowns(); fetchAndRenderUsers(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load roles.'))
+      .getRoles(token);
+
+    loadCompanies();
+  };
+})();
+</script>

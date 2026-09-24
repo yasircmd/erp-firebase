@@ -1,0 +1,496 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Stock Management</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-boxes-stacked text-blue-500"></i> Item Master</h2></div>
+    <button id="im-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Item</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="im-search-input" placeholder="Search code or name..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="im-category-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All Categories</option>
+      <option value="RawMaterial">Raw Material</option>
+      <option value="SemiFinishedGood">Semi-Finished Good</option>
+      <option value="FinishedGood">Finished Good</option>
+      <option value="Consumable">Consumable</option>
+      <option value="Scrap">Scrap</option>
+    </select>
+    <select id="im-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="im-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-3 px-4">Code</th><th class="py-3 px-4">Name</th><th class="py-3 px-4">Category</th><th class="py-3 px-4">Sub-Category</th><th class="py-3 px-4">UOM</th><th class="py-3 px-4">Company</th><th class="py-3 px-4">Batch/Expiry</th><th class="py-3 px-4">Status</th><th class="py-3 px-4 text-right">Actions</th>
+        </tr></thead>
+        <tbody id="im-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="im-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="im-modal-title" class="text-lg font-bold">Add Item</h3><button id="im-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <form id="im-form" class="space-y-4">
+      <input type="hidden" id="im-form-id">
+
+      <div id="im-code-preview" class="hidden text-xs text-slate-400 font-mono">Item Code: <span id="im-code-value" class="text-slate-200"></span></div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Category</label>
+          <select id="im-form-category" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+            <option value="">Select...</option>
+            <option value="RawMaterial">Raw Material</option>
+            <option value="SemiFinishedGood">Semi-Finished Good</option>
+            <option value="FinishedGood">Finished Good</option>
+            <option value="Consumable">Consumable</option>
+            <option value="Scrap">Scrap</option>
+          </select>
+          <p id="im-category-locked-note" class="hidden text-xs text-amber-400 mt-1">Category can't be changed after an item is created — its code depends on it.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Sub-Category <span class="text-slate-500">(optional)</span></label>
+          <select id="im-form-subcategory" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a Category first...</option></select>
+        </div>
+      </div>
+
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Item Name</label><input type="text" id="im-form-name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+
+      <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+        <p class="text-xs font-semibold text-slate-400 uppercase">Unit of Measure</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Base UOM</label>
+            <select id="im-form-uom" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Alternate UOM <span class="text-slate-500">(optional)</span></label>
+            <select id="im-form-altuom" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None</option></select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Conversion Factor</label>
+            <input type="number" id="im-form-conversion" min="0" step="any" disabled placeholder="e.g. 200" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm disabled:opacity-40">
+          </div>
+        </div>
+        <p class="text-xs text-slate-500">Conversion factor = how many Base UOM in 1 Alternate UOM. Example: Base = KG, Alternate = BOX, factor = 200 means 1 BOX = 200 KG.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Company <span class="text-slate-500">(optional)</span></label>
+          <select id="im-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All Companies — shared</option></select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Default Warehouse <span class="text-slate-500">(optional)</span></label>
+          <select id="im-form-warehouse" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None</option></select>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+        <p class="text-xs font-semibold text-slate-400 uppercase">GL Account Linkage</p>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Inventory Account <span class="text-slate-500">(Asset)</span></label>
+          <select id="im-form-inventory-account" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Consumption Account</label>
+            <select id="im-form-consumption-account" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+            <p class="text-xs text-slate-500 mt-1">Debited when this item is issued to production (Material Issue), credited back when this item is produced (Production Entry). Not restricted to Expense-type accounts — a Liability or Asset account is equally valid here.</p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Sales COGS Account <span class="text-slate-500">(optional)</span></label>
+            <select id="im-form-salescogs-account" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Same as Consumption</option></select>
+            <p class="text-xs text-slate-500 mt-1">Used when sold directly — e.g. "COGS – Raw Materials", distinct from production consumption.</p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1">Write-off Account <span class="text-slate-500">(optional)</span></label>
+            <select id="im-form-writeoff-account" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Same as Consumption</option></select>
+            <p class="text-xs text-slate-500 mt-1">Used for stock adjustments, scrap, or expiry write-offs.</p>
+          </div>
+        </div>
+        <p class="text-xs text-slate-500">Every stock transaction posts to the GL automatically using these accounts, picked by transaction type — never chosen per-transaction.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="flex items-center gap-2 bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3">
+          <input type="checkbox" id="im-form-batchtracked" class="w-4 h-4">
+          <label for="im-form-batchtracked" class="text-xs text-slate-300">Batch / Expiry tracked</label>
+        </div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Reorder Level <span class="text-slate-500">(optional)</span></label><input type="number" id="im-form-reorder" min="0" step="any" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      </div>
+
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="im-form-status" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+
+      <div id="im-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
+        <button type="button" id="im-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
+        <button type="submit" id="im-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Item</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canWrite = false;
+  let items = [];
+  let uoms = [];
+  let companies = [];
+  let warehouses = [];
+  let accounts = [];
+  let subCategories = [];
+
+  const CATEGORY_LABELS = {
+    RawMaterial: 'Raw Material', SemiFinishedGood: 'Semi-Finished Good', FinishedGood: 'Finished Good',
+    Consumable: 'Consumable', Scrap: 'Scrap'
+  };
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  function itemById(id) { return items.find(i => i.ItemID === id); }
+  function uomById(id) { return uoms.find(u => u.UOMID === id); }
+  function companyById(id) { return companies.find(c => c.CompanyID === id); }
+  function subCategoryById(id) { return subCategories.find(s => s.SubCategoryID === id); }
+
+  function fetchAndRender() {
+    google.script.run
+      .withSuccessHandler(result => { items = result || []; renderTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load items.'))
+      .getItems(token);
+  }
+
+  function loadReferenceData() {
+    google.script.run
+      .withSuccessHandler(result => {
+        uoms = result || [];
+        ['im-form-uom', 'im-form-altuom'].forEach(id => {
+          const select = document.getElementById(id);
+          const placeholder = id === 'im-form-uom' ? 'Select...' : 'None';
+          select.innerHTML = `<option value="">${placeholder}</option>`;
+          uoms.sort((a, b) => a.Code.localeCompare(b.Code)).forEach(u => {
+            const opt = document.createElement('option'); opt.value = u.UOMID; opt.textContent = u.Code + ' — ' + u.Name;
+            select.appendChild(opt);
+          });
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveUOMs(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        subCategories = result || [];
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveItemSubCategories(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        companies = result || [];
+        ['im-form-company', 'im-company-filter'].forEach(id => {
+          const select = document.getElementById(id);
+          const placeholder = id === 'im-form-company' ? 'All Companies — shared' : 'All Companies';
+          select.innerHTML = `<option value="">${placeholder}</option>`;
+          companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+            const opt = document.createElement('option'); opt.value = c.CompanyID;
+            // Reference code shown alongside the name — makes two
+            // companies sharing a display name immediately distinguishable
+            // (matters especially here, since this is where an item's
+            // CompanyID gets set, and GRN's item picker filters against it).
+            opt.textContent = c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '');
+            select.appendChild(opt);
+          });
+        });
+        renderTable();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getCompanies(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        warehouses = (result || []).filter(u => u.Type === 'Warehouse');
+        const select = document.getElementById('im-form-warehouse');
+        select.innerHTML = '<option value="">None</option>';
+        warehouses.sort((a, b) => a.Code.localeCompare(b.Code)).forEach(w => {
+          const opt = document.createElement('option'); opt.value = w.UnitID; opt.textContent = w.Code + ' — ' + w.Name;
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        accounts = result || [];
+        const invSelect = document.getElementById('im-form-inventory-account');
+        invSelect.innerHTML = '<option value="">Select...</option>';
+        accounts.filter(a => a.Status === 'Active' && a.IsPostable === true && a.AccountType === 'Asset')
+          .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }))
+          .forEach(a => {
+            const opt = document.createElement('option'); opt.value = a.AccountID; opt.textContent = a.AccountCode + ' — ' + a.AccountName;
+            invSelect.appendChild(opt);
+          });
+
+        // Consumption gets its OWN pool — any active, postable account,
+        // not just Expense/COGS. Production Entry now credits this same
+        // field when an item is produced (mirroring Material Issue's
+        // debit of it when issued), and a production-offset/clearing
+        // account is just as legitimately a Liability or Asset in many
+        // charts as an Expense — same unrestricted treatment as GRN's
+        // Clearing Account. Sales COGS and Write-off stay genuinely
+        // expense-only roles (a sale or a scrap write-off is always an
+        // expense), so they keep the narrower Expense/COGS-only pool.
+        const anyPostableAccount = accounts.filter(a => a.Status === 'Active' && a.IsPostable === true)
+          .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
+        const expenseAccounts = accounts.filter(a => a.Status === 'Active' && a.IsPostable === true && ['Expense', 'COGS'].includes(a.AccountType))
+          .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
+        const consumptionSelect = document.getElementById('im-form-consumption-account');
+        consumptionSelect.innerHTML = '<option value="">Select...</option>';
+        anyPostableAccount.forEach(a => {
+          const opt = document.createElement('option'); opt.value = a.AccountID; opt.textContent = a.AccountCode + ' — ' + a.AccountName + ' (' + a.AccountType + ')';
+          consumptionSelect.appendChild(opt);
+        });
+
+        [
+          ['im-form-salescogs-account', 'Same as Consumption'],
+          ['im-form-writeoff-account', 'Same as Consumption']
+        ].forEach(([id, placeholder]) => {
+          const select = document.getElementById(id);
+          select.innerHTML = `<option value="">${placeholder}</option>`;
+          expenseAccounts.forEach(a => {
+            const opt = document.createElement('option'); opt.value = a.AccountID; opt.textContent = a.AccountCode + ' — ' + a.AccountName;
+            select.appendChild(opt);
+          });
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getChartOfAccounts(token);
+  }
+
+  function updateSubCategoryOptions(selectedCategory, preselectId) {
+    const select = document.getElementById('im-form-subcategory');
+    select.innerHTML = '';
+    const matching = subCategories.filter(s => s.ParentCategory === selectedCategory);
+    if (!selectedCategory) {
+      select.innerHTML = '<option value="">Select a Category first...</option>';
+      return;
+    }
+    select.innerHTML = '<option value="">None</option>';
+    matching.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(s => {
+      const opt = document.createElement('option'); opt.value = s.SubCategoryID; opt.textContent = s.Name;
+      select.appendChild(opt);
+    });
+    if (preselectId && matching.some(s => s.SubCategoryID === preselectId)) select.value = preselectId;
+  }
+
+  function updateConversionEnabled() {
+    document.getElementById('im-form-conversion').disabled = !document.getElementById('im-form-altuom').value;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('im-table-body');
+    const search = document.getElementById('im-search-input').value.toLowerCase();
+    const category = document.getElementById('im-category-filter').value;
+    const companyFilter = document.getElementById('im-company-filter').value;
+    const status = document.getElementById('im-status-filter').value;
+
+    const filtered = items.filter(i => {
+      if (search && !`${i.ItemCode} ${i.ItemName}`.toLowerCase().includes(search)) return false;
+      if (category && i.Category !== category) return false;
+      if (companyFilter && i.CompanyID !== companyFilter) return false;
+      if (status && i.Status !== status) return false;
+      return true;
+    }).sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }));
+
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" class="py-6 text-center text-slate-500">No items found.</td></tr>'; return; }
+
+    filtered.forEach(i => {
+      const uom = uomById(i.UOMID);
+      const company = i.CompanyID ? companyById(i.CompanyID) : null;
+      const subCat = i.SubCategoryID ? subCategoryById(i.SubCategoryID) : null;
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      let actions = `<button class="im-dup text-slate-400 hover:text-blue-400 p-1" title="Duplicate"><i class="fa-solid fa-clone"></i></button>`;
+      if (canWrite) {
+        actions += `<button class="im-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+           <button class="im-toggle text-slate-400 ${i.Status === 'Active' ? 'hover:text-red-400' : 'hover:text-emerald-400'} p-1" title="${i.Status === 'Active' ? 'Deactivate' : 'Reactivate'}"><i class="fa-solid ${i.Status === 'Active' ? 'fa-ban' : 'fa-rotate-left'}"></i></button>`;
+      }
+      row.innerHTML = `
+        <td class="py-3 px-4 font-mono text-xs text-slate-200">${escapeHtml(i.ItemCode)}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(i.ItemName)}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(CATEGORY_LABELS[i.Category] || i.Category)}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${subCat ? escapeHtml(subCat.Name) : '—'}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${uom ? escapeHtml(uom.Code) : '—'}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${company ? escapeHtml(company.LegalName + (company.CompanyRefCode ? ' (' + company.CompanyRefCode + ')' : '')) : '<span class="text-blue-400">Shared</span>'}</td>
+        <td class="py-3 px-4 text-xs">${i.BatchTracked ? '<span class="text-amber-400"><i class="fa-solid fa-calendar-days"></i> Tracked</span>' : '—'}</td>
+        <td class="py-3 px-4 text-xs">${i.Status === 'Active' ? '<span class="text-emerald-400">Active</span>' : '<span class="text-slate-500">Inactive</span>'}</td>
+        <td class="py-3 px-4 text-right">${actions}</td>`;
+      row.querySelector('.im-dup').addEventListener('click', () => duplicateItem(i.ItemID));
+      if (canWrite) {
+        row.querySelector('.im-edit').addEventListener('click', () => openModal(i.ItemID));
+        row.querySelector('.im-toggle').addEventListener('click', () => toggleStatus(i));
+      }
+      tbody.appendChild(row);
+    });
+  }
+
+  function resetForm() {
+    const form = document.getElementById('im-form');
+    form.reset();
+    document.getElementById('im-form-error').classList.add('hidden');
+    document.getElementById('im-code-preview').classList.add('hidden');
+    document.getElementById('im-category-locked-note').classList.add('hidden');
+    document.getElementById('im-form-category').disabled = false;
+    updateSubCategoryOptions('');
+    updateConversionEnabled();
+  }
+
+  function openModal(itemId) {
+    resetForm();
+
+    if (itemId) {
+      const i = itemById(itemId);
+      if (!i) return;
+      document.getElementById('im-modal-title').textContent = 'Edit Item';
+      document.getElementById('im-form-id').value = i.ItemID;
+      document.getElementById('im-form-category').value = i.Category;
+      document.getElementById('im-form-category').disabled = true;
+      document.getElementById('im-category-locked-note').classList.remove('hidden');
+      updateSubCategoryOptions(i.Category, i.SubCategoryID);
+      document.getElementById('im-form-name').value = i.ItemName;
+      document.getElementById('im-form-uom').value = i.UOMID;
+      document.getElementById('im-form-altuom').value = i.AltUOMID || '';
+      document.getElementById('im-form-conversion').value = i.ConversionFactor || '';
+      updateConversionEnabled();
+      document.getElementById('im-form-company').value = i.CompanyID || '';
+      document.getElementById('im-form-warehouse').value = i.DefaultWarehouseID || '';
+      document.getElementById('im-form-inventory-account').value = i.InventoryAccountID;
+      document.getElementById('im-form-consumption-account').value = i.ConsumptionAccountID;
+      document.getElementById('im-form-salescogs-account').value = i.SalesCogsAccountID || '';
+      document.getElementById('im-form-writeoff-account').value = i.WriteOffAccountID || '';
+      document.getElementById('im-form-batchtracked').checked = i.BatchTracked === true;
+      document.getElementById('im-form-reorder').value = i.ReorderLevel || '';
+      document.getElementById('im-form-status').value = i.Status;
+      document.getElementById('im-code-value').textContent = i.ItemCode;
+      document.getElementById('im-code-preview').classList.remove('hidden');
+    } else {
+      document.getElementById('im-modal-title').textContent = 'Add Item';
+      document.getElementById('im-form-id').value = '';
+    }
+    document.getElementById('im-modal').classList.remove('hidden');
+  }
+
+  // Copies an existing item's settings (category, UOM/conversion, company,
+  // warehouse, GL accounts, batch/reorder settings) into a fresh, unsaved
+  // item — same pattern as JV/CBT's duplicate. ItemName is cleared (forces
+  // a distinct name) and ItemCode is never carried over — it's always
+  // freshly generated on save. Status resets to Active regardless of the
+  // source item's status.
+  function duplicateItem(itemId) {
+    const source = itemById(itemId);
+    if (!source) return;
+    resetForm();
+
+    document.getElementById('im-modal-title').textContent = 'Add Item';
+    document.getElementById('im-form-id').value = '';
+    document.getElementById('im-form-category').value = source.Category;
+    updateSubCategoryOptions(source.Category, source.SubCategoryID);
+    document.getElementById('im-form-name').value = '';
+    document.getElementById('im-form-uom').value = source.UOMID;
+    document.getElementById('im-form-altuom').value = source.AltUOMID || '';
+    document.getElementById('im-form-conversion').value = source.ConversionFactor || '';
+    updateConversionEnabled();
+    document.getElementById('im-form-company').value = source.CompanyID || '';
+    document.getElementById('im-form-warehouse').value = source.DefaultWarehouseID || '';
+    document.getElementById('im-form-inventory-account').value = source.InventoryAccountID;
+    document.getElementById('im-form-consumption-account').value = source.ConsumptionAccountID;
+    document.getElementById('im-form-salescogs-account').value = source.SalesCogsAccountID || '';
+    document.getElementById('im-form-writeoff-account').value = source.WriteOffAccountID || '';
+    document.getElementById('im-form-batchtracked').checked = source.BatchTracked === true;
+    document.getElementById('im-form-reorder').value = source.ReorderLevel || '';
+    document.getElementById('im-form-status').value = 'Active';
+
+    document.getElementById('im-modal').classList.remove('hidden');
+    document.getElementById('im-form-name').focus();
+  }
+
+  function closeModal() { document.getElementById('im-modal').classList.add('hidden'); }
+
+  function saveItem(event) {
+    event.preventDefault();
+    const data = {
+      ItemID: document.getElementById('im-form-id').value,
+      Category: document.getElementById('im-form-category').value,
+      SubCategoryID: document.getElementById('im-form-subcategory').value,
+      ItemName: document.getElementById('im-form-name').value.trim(),
+      UOMID: document.getElementById('im-form-uom').value,
+      AltUOMID: document.getElementById('im-form-altuom').value,
+      ConversionFactor: document.getElementById('im-form-conversion').value,
+      CompanyID: document.getElementById('im-form-company').value,
+      DefaultWarehouseID: document.getElementById('im-form-warehouse').value,
+      InventoryAccountID: document.getElementById('im-form-inventory-account').value,
+      ConsumptionAccountID: document.getElementById('im-form-consumption-account').value,
+      SalesCogsAccountID: document.getElementById('im-form-salescogs-account').value,
+      WriteOffAccountID: document.getElementById('im-form-writeoff-account').value,
+      BatchTracked: document.getElementById('im-form-batchtracked').checked,
+      ReorderLevel: document.getElementById('im-form-reorder').value,
+      Status: document.getElementById('im-form-status').value
+    };
+    const error = document.getElementById('im-form-error');
+    const btn = document.getElementById('im-save-btn');
+    error.classList.add('hidden');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Item';
+        if (result.success) { closeModal(); fetchAndRender(); }
+        else { error.textContent = result.error || 'Unable to save item.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Item';
+        error.textContent = err.message || 'Unable to save item.'; error.classList.remove('hidden');
+      })
+      .saveItem(token, data);
+  }
+
+  function toggleStatus(item) {
+    const deactivating = item.Status === 'Active';
+    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + item.ItemCode + ' — ' + item.ItemName + '?')) return;
+    const call = deactivating ? 'deactivateItem' : 'reactivateItem';
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update item.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to update item.'))
+      [call](token, item.ItemID);
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken, writeAllowed) {
+    token = idToken;
+    canWrite = Boolean(writeAllowed);
+
+    document.getElementById('im-add-btn').classList.toggle('hidden', !canWrite);
+    if (canWrite) document.getElementById('im-add-btn').addEventListener('click', () => openModal());
+    document.getElementById('im-modal-close').addEventListener('click', closeModal);
+    document.getElementById('im-modal-cancel').addEventListener('click', closeModal);
+    document.getElementById('im-form').addEventListener('submit', saveItem);
+    document.getElementById('im-form-category').addEventListener('change', () => updateSubCategoryOptions(document.getElementById('im-form-category').value));
+    document.getElementById('im-form-altuom').addEventListener('change', updateConversionEnabled);
+    document.getElementById('im-search-input').addEventListener('input', renderTable);
+    document.getElementById('im-category-filter').addEventListener('change', renderTable);
+    document.getElementById('im-company-filter').addEventListener('change', renderTable);
+    document.getElementById('im-status-filter').addEventListener('change', renderTable);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-boxes-stacked"></i> Item Master';
+    loadReferenceData();
+    fetchAndRender();
+  };
+})();
+</script>

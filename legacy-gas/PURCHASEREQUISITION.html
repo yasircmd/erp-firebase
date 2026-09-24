@@ -1,0 +1,616 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+</style>
+
+<div id="pr-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Procurement</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-cart-shopping text-blue-500"></i> Purchase Requisition</h2></div>
+    <button id="pr-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Requisition</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="pr-search-input" placeholder="Search number or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="pr-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="pr-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All Statuses</option>
+      <option value="Draft">Draft</option><option value="Submitted">Submitted</option>
+      <option value="Closed">Closed</option><option value="Cancelled">Cancelled</option>
+    </select>
+    <input type="date" id="pr-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <input type="date" id="pr-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div id="pr-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">PR Number</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4">Cost Center</th>
+            <th class="py-3 px-4">Description</th>
+            <th class="py-3 px-4">Priority</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="pr-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="pr-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="pr-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h2 id="pr-entry-title" class="text-xl font-bold text-blue-400">New Requisition</h2>
+    </div>
+    <span id="pr-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+  </div>
+
+  <div id="pr-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+    <select id="pr-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="pr-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Needed By</label><input type="date" id="pr-form-neededby" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Priority</label>
+      <select id="pr-form-priority" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+        <option value="Normal">Normal</option><option value="Urgent">Urgent</option>
+      </select>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Description / Purpose</label>
+    <input type="text" id="pr-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="pr-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="pr-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(requesting department)</span></label><select id="pr-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(optional)</span></label><select id="pr-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    </div>
+  </div>
+
+  <div id="pr-company-required-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company and Cost Center above before adding lines.</div>
+
+  <div class="flex flex-wrap items-center gap-2 no-print">
+    <button id="pr-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table id="pr-grid-table" class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3 w-10">#</th>
+            <th class="py-2 px-3">Category</th>
+            <th class="py-2 px-3">GL Account <span class="normal-case font-normal text-slate-500">(from category)</span></th>
+            <th class="py-2 px-3">Description</th>
+            <th class="py-2 px-3 text-right w-24">Quantity</th>
+            <th class="py-2 px-3 w-20">Unit</th>
+            <th class="py-2 px-3 w-24">Cost Ctr</th>
+            <th class="py-2 px-3 w-10 no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="pr-grid-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="pr-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="pr-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1 no-print">
+    <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
+    <p id="pr-rejection-reason" class="text-sm text-slate-200"></p>
+    <p class="text-xs text-slate-500">This requisition is fully editable below — make your changes and Submit again.</p>
+  </div>
+
+  <div id="pr-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3 no-print">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="pr-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3">
+      <button id="pr-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button>
+      <button id="pr-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button>
+    </div>
+    <div id="pr-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 no-print">
+    <button id="pr-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="pr-cancel-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Cancel Requisition</button>
+    <button id="pr-close-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs">Mark Closed</button>
+    <button id="pr-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
+    <button id="pr-submit-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canDraft = false;
+  let canPost = false;
+  let currentLimit = 100;
+  let currentPr = null;
+  let gridLines = []; // { CategoryID, Description, Quantity, Unit, CostCenterID }
+  let entries = [];
+  let entriesTotal = 0;
+  let companies = [];
+  let orgUnits = [];
+  let categories = [];
+  let isDirty = false;
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function categoryById(id) { return categories.find(c => c.CategoryID === id); }
+  function orgUnitById(id) { return orgUnits.find(u => u.UnitID === id); }
+
+  function orgUnitOptionsHtml(type, selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => { html += `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code + ' — ' + u.Name)}</option>`; });
+    return html;
+  }
+
+  function categoryOptionsHtml(companyId, selectedId) {
+    let html = '<option value="">Select...</option>';
+    categories.filter(c => !c.CompanyID || c.CompanyID === companyId)
+      .sort((a, b) => a.Name.localeCompare(b.Name))
+      .forEach(c => { html += `<option value="${c.CategoryID}"${c.CategoryID === selectedId ? ' selected' : ''}>${escapeHtml(c.Name)}</option>`; });
+    return html;
+  }
+
+  // ---------- LIST VIEW ----------
+  function fetchAndRenderList(limit) {
+    currentLimit = limit || currentLimit;
+    google.script.run
+      .withSuccessHandler(result => { entries = result.entries || []; entriesTotal = result.total || 0; renderList(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load requisitions.'))
+      .getPurchaseRequisitionEntries(token, currentLimit);
+  }
+
+  function renderList() {
+    const query = document.getElementById('pr-search-input').value.trim().toLowerCase();
+    const companyFilter = document.getElementById('pr-company-filter').value;
+    const statusFilter = document.getElementById('pr-status-filter').value;
+    const fromFilter = document.getElementById('pr-from-filter').value;
+    const toFilter = document.getElementById('pr-to-filter').value;
+
+    const filtered = entries.filter(pr => {
+      if (companyFilter && pr.CompanyID !== companyFilter) return false;
+      if (statusFilter && pr.Status !== statusFilter) return false;
+      if (fromFilter && pr.PRDate < fromFilter) return false;
+      if (toFilter && pr.PRDate > toFilter) return false;
+      if (query && !((pr.PRNumber || '').toLowerCase().includes(query) || (pr.Description || '').toLowerCase().includes(query))) return false;
+      return true;
+    });
+
+    const tbody = document.getElementById('pr-table-body');
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">No requisitions found.</td></tr>'; }
+    filtered.forEach(pr => {
+      const cc = orgUnitById(pr.CostCenterID);
+      const statusColors = { Draft: 'bg-slate-700 text-slate-300', Submitted: 'bg-blue-500/10 text-blue-400', Closed: 'bg-emerald-500/10 text-emerald-400', Cancelled: 'bg-red-500/10 text-red-400' };
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer';
+      row.innerHTML = `
+        <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(pr.PRNumber || 'DRAFT')}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(pr.PRDate || '')}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${cc ? escapeHtml(cc.Code) : '—'}</td>
+        <td class="py-2 px-4 text-slate-200">${escapeHtml(pr.Description || '')}</td>
+        <td class="py-2 px-4 text-xs ${pr.Priority === 'Urgent' ? 'text-amber-400 font-medium' : 'text-slate-400'}">${escapeHtml(pr.Priority || 'Normal')}</td>
+        <td class="py-2 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${statusColors[pr.Status] || 'bg-slate-700 text-slate-400'}">${escapeHtml(pr.Status)}</span></td>
+        <td class="py-2 px-4 text-right"><button data-id="${pr.PRID}" class="pr-open-btn text-blue-400 hover:text-blue-300 text-xs">Open</button></td>`;
+      row.addEventListener('click', () => openEntry(pr.PRID));
+      tbody.appendChild(row);
+    });
+
+    const notice = document.getElementById('pr-list-notice');
+    if (entriesTotal > entries.length) {
+      notice.classList.remove('hidden');
+      notice.innerHTML = `Showing ${entries.length} of ${entriesTotal}. <button id="pr-load-more-btn" class="text-blue-400 hover:text-blue-300 underline">Load more</button>`;
+      document.getElementById('pr-load-more-btn').addEventListener('click', () => fetchAndRenderList(currentLimit + 100));
+    } else {
+      notice.classList.add('hidden');
+    }
+  }
+
+  function loadReferenceData() {
+    google.script.run
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const filterSelect = document.getElementById('pr-company-filter');
+        filterSelect.innerHTML = '<option value="">All Companies</option>';
+        const formSelect = document.getElementById('pr-form-company');
+        formSelect.innerHTML = '<option value="">Select a company...</option>';
+        companies.forEach(c => {
+          [filterSelect, formSelect].forEach(sel => {
+            const opt = document.createElement('option');
+            opt.value = c.CompanyID; opt.textContent = c.LegalName;
+            sel.appendChild(opt);
+          });
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        orgUnits = result || [];
+        document.getElementById('pr-form-division').innerHTML = orgUnitOptionsHtml('Division', '');
+        document.getElementById('pr-form-branch').innerHTML = orgUnitOptionsHtml('Branch', '');
+        document.getElementById('pr-form-costcenter').innerHTML = orgUnitOptionsHtml('CostCenter', '');
+        document.getElementById('pr-form-profitcenter').innerHTML = orgUnitOptionsHtml('ProfitCenter', '');
+        renderList();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits(token);
+
+    google.script.run
+      .withSuccessHandler(result => { categories = (result || []).filter(c => true); renderGrid(); })
+      .withFailureHandler(err => console.error(err))
+      .getActiveRequisitionCategories(token);
+  }
+
+  // ---------- ENTRY VIEW ----------
+  function currentHeaderCostCenter() { return document.getElementById('pr-form-costcenter').value; }
+
+  function showListView() {
+    document.getElementById('pr-entry-view').classList.add('hidden');
+    document.getElementById('pr-list-view').classList.remove('hidden');
+    fetchAndRenderList();
+  }
+
+  function showEntryView() {
+    document.getElementById('pr-list-view').classList.add('hidden');
+    document.getElementById('pr-entry-view').classList.remove('hidden');
+
+    // Rejected is now an editable state too, same as Draft — a
+    // requisition sent back can be freely revised (any line added,
+    // removed, or changed; nothing downstream has committed to its
+    // specific lines the way a Purchase Order commits to what it
+    // sourced). PendingApproval is the one genuinely read-only state
+    // beyond the old Submitted/Closed/Cancelled set.
+    const editableStatus = !currentPr || currentPr.Status === 'Draft' || currentPr.Status === 'Rejected';
+    const readOnly = currentPr && !editableStatus;
+    const isNew = !currentPr;
+
+    document.getElementById('pr-entry-title').textContent = isNew ? 'New Requisition' : (currentPr.PRNumber || 'Draft Requisition');
+
+    const voucherLine = document.getElementById('pr-voucher-no-line');
+    voucherLine.textContent = isNew ? '' : 'PR No.: ' + (currentPr.PRNumber || '(assigned when submitted)');
+
+    const badge = document.getElementById('pr-status-badge');
+    if (isNew) { badge.classList.add('hidden'); }
+    else {
+      const colors = {
+        Draft: 'bg-slate-700 text-slate-300', PendingApproval: 'bg-blue-500/10 text-blue-400',
+        Submitted: 'bg-blue-500/10 text-blue-400', Rejected: 'bg-red-500/10 text-red-400',
+        Closed: 'bg-emerald-500/10 text-emerald-400', Cancelled: 'bg-red-500/10 text-red-400'
+      };
+      const labels = { PendingApproval: 'Pending Approval' };
+      badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (colors[currentPr.Status] || '');
+      badge.textContent = labels[currentPr.Status] || currentPr.Status;
+      badge.classList.remove('hidden');
+    }
+
+    document.getElementById('pr-rejection-banner').classList.toggle('hidden', !currentPr || currentPr.Status !== 'Rejected');
+    if (currentPr && currentPr.Status === 'Rejected') {
+      document.getElementById('pr-rejection-reason').textContent = currentPr.RejectionReason || '(no reason given)';
+    }
+
+    ['pr-form-company', 'pr-form-date', 'pr-form-neededby', 'pr-form-priority', 'pr-form-description', 'pr-form-division', 'pr-form-branch', 'pr-form-costcenter', 'pr-form-profitcenter'].forEach(id => {
+      document.getElementById(id).disabled = readOnly;
+    });
+
+    document.getElementById('pr-save-draft-btn').classList.toggle('hidden', !editableStatus || !canDraft);
+    document.getElementById('pr-submit-btn').classList.toggle('hidden', !editableStatus || !canPost);
+    document.getElementById('pr-delete-btn').classList.toggle('hidden', (!currentPr || currentPr.Status !== 'Draft') || !canDraft);
+    document.getElementById('pr-cancel-btn').classList.toggle('hidden', !currentPr || ['Draft', 'Submitted', 'PendingApproval', 'Rejected'].indexOf(currentPr.Status) === -1 || !canPost);
+    document.getElementById('pr-close-btn').classList.toggle('hidden', !currentPr || currentPr.Status !== 'Submitted' || !canPost);
+    document.getElementById('pr-add-line-btn').classList.toggle('hidden', !editableStatus);
+
+    document.getElementById('pr-my-approval-banner').classList.add('hidden');
+    if (currentPr && currentPr.Status === 'PendingApproval' && canPost) {
+      google.script.run
+        .withSuccessHandler(levelNumber => {
+          if (levelNumber) {
+            document.getElementById('pr-my-approval-banner').classList.remove('hidden');
+            document.getElementById('pr-my-approval-banner').dataset.level = levelNumber;
+          }
+        })
+        .withFailureHandler(() => {})
+        .getMyPendingApprovalLevel(token, currentPr.ApprovalInstanceID);
+    }
+
+    updateCompanyRequiredNote();
+    renderGrid();
+    isDirty = false;
+  }
+
+  function updateCompanyRequiredNote() {
+    const ready = Boolean(document.getElementById('pr-form-company').value) && Boolean(document.getElementById('pr-form-costcenter').value);
+    document.getElementById('pr-company-required-note').classList.toggle('hidden', ready);
+  }
+
+  function openEntry(prId) {
+    currentPr = entries.find(e => e.PRID === prId) || null;
+    if (!currentPr) return;
+    gridLines = (currentPr.Lines || []).map(l => ({
+      CategoryID: l.CategoryID, Description: l.Description, Quantity: l.Quantity,
+      Unit: l.Unit || '', CostCenterID: l.CostCenterID || ''
+    }));
+    document.getElementById('pr-form-company').value = currentPr.CompanyID || '';
+    document.getElementById('pr-form-date').value = currentPr.PRDate || '';
+    document.getElementById('pr-form-neededby').value = currentPr.NeededByDate || '';
+    document.getElementById('pr-form-priority').value = currentPr.Priority || 'Normal';
+    document.getElementById('pr-form-description').value = currentPr.Description || '';
+    document.getElementById('pr-form-division').value = currentPr.DivisionID || '';
+    document.getElementById('pr-form-branch').value = currentPr.BranchID || '';
+    document.getElementById('pr-form-costcenter').value = currentPr.CostCenterID || '';
+    document.getElementById('pr-form-profitcenter').value = currentPr.ProfitCenterID || '';
+    showEntryView();
+  }
+
+  function newEntry() {
+    currentPr = null;
+    gridLines = [];
+    document.getElementById('pr-form-company').value = '';
+    document.getElementById('pr-form-date').value = today();
+    document.getElementById('pr-form-neededby').value = '';
+    document.getElementById('pr-form-priority').value = 'Normal';
+    document.getElementById('pr-form-description').value = '';
+    document.getElementById('pr-form-division').value = '';
+    document.getElementById('pr-form-branch').value = '';
+    document.getElementById('pr-form-costcenter').value = '';
+    document.getElementById('pr-form-profitcenter').value = '';
+    showEntryView();
+  }
+
+  function today() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function ensureTrailingBlankRow() {
+    const last = gridLines[gridLines.length - 1];
+    if (!last || last.CategoryID) gridLines.push({ CategoryID: '', Description: '', Quantity: '', Unit: '', CostCenterID: currentHeaderCostCenter() });
+  }
+
+  function renderGrid() {
+    const readOnly = currentPr && currentPr.Status !== 'Draft';
+    if (!readOnly) ensureTrailingBlankRow();
+    const tbody = document.getElementById('pr-grid-body');
+    tbody.innerHTML = '';
+    const companyId = document.getElementById('pr-form-company').value;
+
+    gridLines.forEach((line, i) => {
+      const category = categoryById(line.CategoryID);
+      const account = category ? category.GLAccountID : null;
+      const missingDesc = line.CategoryID && !String(line.Description || '').trim();
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+        <td class="py-1 px-1"><select data-row="${i}" data-field="category" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs">${categoryOptionsHtml(companyId, line.CategoryID)}</select></td>
+        <td class="py-1 px-2 text-xs text-slate-500 font-mono">${category ? escapeHtml(category.Type === 'FixedAsset' ? 'Fixed Asset' : 'Direct Expense') : ''}</td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="description" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${missingDesc ? 'required' : ''}" class="w-full bg-slate-900 border ${missingDesc ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="quantity" type="text" inputmode="decimal" value="${line.Quantity === '' || line.Quantity === undefined ? '' : line.Quantity}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="unit" value="${escapeHtml(line.Unit || '')}" placeholder="Nos" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><select data-row="${i}" class="pr-line-cc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
+        <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-row="${i}" class="pr-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    if (!readOnly) {
+      tbody.querySelectorAll('select[data-field="category"]').forEach(sel => {
+        sel.addEventListener('change', e => {
+          isDirty = true;
+          gridLines[parseInt(e.target.getAttribute('data-row'), 10)].CategoryID = e.target.value;
+          renderGrid();
+        });
+      });
+      tbody.querySelectorAll('input[data-field]').forEach(input => {
+        input.addEventListener('input', e => {
+          isDirty = true;
+          const row = parseInt(e.target.getAttribute('data-row'), 10);
+          const field = e.target.getAttribute('data-field');
+          gridLines[row][field === 'description' ? 'Description' : field === 'quantity' ? 'Quantity' : 'Unit'] = e.target.value;
+        });
+        input.addEventListener('blur', renderGrid);
+      });
+      tbody.querySelectorAll('.pr-line-cc').forEach(sel => {
+        sel.addEventListener('change', e => { isDirty = true; gridLines[parseInt(e.target.getAttribute('data-row'), 10)].CostCenterID = e.target.value; });
+      });
+      tbody.querySelectorAll('.pr-remove-row').forEach(btn => {
+        btn.addEventListener('click', e => {
+          isDirty = true;
+          gridLines.splice(parseInt(e.currentTarget.getAttribute('data-row'), 10), 1);
+          renderGrid();
+        });
+      });
+    }
+  }
+
+  function allLineDescriptionsFilled() {
+    return gridLines.every(l => !l.CategoryID || String(l.Description || '').trim());
+  }
+
+  function collectHeader() {
+    return {
+      PRID: currentPr ? currentPr.PRID : '',
+      PRDate: document.getElementById('pr-form-date').value,
+      NeededByDate: document.getElementById('pr-form-neededby').value,
+      Priority: document.getElementById('pr-form-priority').value,
+      Description: document.getElementById('pr-form-description').value.trim(),
+      CompanyID: document.getElementById('pr-form-company').value,
+      DivisionID: document.getElementById('pr-form-division').value,
+      BranchID: document.getElementById('pr-form-branch').value,
+      CostCenterID: document.getElementById('pr-form-costcenter').value,
+      ProfitCenterID: document.getElementById('pr-form-profitcenter').value,
+      Lines: gridLines.filter(l => l.CategoryID).map(l => ({
+        CategoryID: l.CategoryID, Description: l.Description, Quantity: l.Quantity,
+        Unit: l.Unit, CostCenterID: l.CostCenterID
+      }))
+    };
+  }
+
+  function saveDraft() {
+    const error = document.getElementById('pr-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('pr-form-company').value) { error.textContent = 'Select a Company for this requisition.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('pr-form-costcenter').value) { error.textContent = 'Select a Cost Center (requesting department).'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with a category needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    const btn = document.getElementById('pr-save-draft-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { isDirty = false; showListView(); }
+        else { error.textContent = result.error || 'Unable to save draft.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.textContent = original;
+        error.textContent = err.message || 'Unable to save draft.'; error.classList.remove('hidden');
+      })
+      .saveDraftPurchaseRequisition(token, collectHeader());
+  }
+
+  function submitEntry() {
+    const error = document.getElementById('pr-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('pr-form-company').value) { error.textContent = 'Select a Company for this requisition.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('pr-form-costcenter').value) { error.textContent = 'Select a Cost Center (requesting department).'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with a category needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!gridLines.some(l => l.CategoryID)) { error.textContent = 'Add at least one line before submitting.'; error.classList.remove('hidden'); return; }
+
+    const btn = document.getElementById('pr-submit-btn');
+    btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Saving...';
+    google.script.run
+      .withSuccessHandler(saveResult => {
+        if (!saveResult.success) {
+          btn.disabled = false; btn.innerHTML = original;
+          error.textContent = saveResult.error || 'Unable to save before submitting.'; error.classList.remove('hidden');
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(submitResult => {
+            btn.disabled = false; btn.innerHTML = original;
+            if (submitResult.success) { isDirty = false; showListView(); }
+            else { error.textContent = submitResult.error || 'Unable to submit.'; error.classList.remove('hidden'); }
+          })
+          .withFailureHandler(err => {
+            btn.disabled = false; btn.innerHTML = original;
+            error.textContent = err.message || 'Unable to submit.'; error.classList.remove('hidden');
+          })
+          .submitPurchaseRequisition(token, saveResult.prId);
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = original;
+        error.textContent = err.message || 'Unable to save before submitting.'; error.classList.remove('hidden');
+      })
+      .saveDraftPurchaseRequisition(token, collectHeader());
+  }
+
+  function deleteDraft() {
+    if (!currentPr) return;
+    if (!confirm('Delete this draft requisition? This cannot be undone.')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to delete draft.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
+      .deleteDraftPurchaseRequisition(token, currentPr.PRID);
+  }
+
+  function cancelEntry() {
+    if (!currentPr) return;
+    if (!confirm('Cancel this requisition? This cannot be undone.')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to cancel.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to cancel.'))
+      .cancelPurchaseRequisition(token, currentPr.PRID);
+  }
+
+  function closeEntry() {
+    if (!currentPr) return;
+    if (!confirm('Mark this requisition as Closed?')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to close.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to close.'))
+      .closePurchaseRequisition(token, currentPr.PRID);
+  }
+
+  function decide(decision) {
+    const levelNumber = parseInt(document.getElementById('pr-my-approval-banner').dataset.level, 10);
+    const reason = document.getElementById('pr-decision-reason').value.trim();
+    const error = document.getElementById('pr-decision-error');
+    error.classList.add('hidden');
+    if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
+    if (!confirm((decision === 'Approved' ? 'Approve' : 'Reject') + ' this requisition?')) return;
+    google.script.run
+      .withSuccessHandler(result => {
+        if (result.success) showListView();
+        else { error.textContent = result.error || 'Unable to record decision.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => { error.textContent = err.message || 'Unable to record decision.'; error.classList.remove('hidden'); })
+      .decidePurchaseRequisitionApproval(token, currentPr.PRID, levelNumber, decision, reason);
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    google.script.run
+      .withSuccessHandler(perms => {
+        canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost);
+        document.getElementById('pr-new-btn').classList.toggle('hidden', !canDraft);
+        if (canDraft) document.getElementById('pr-new-btn').addEventListener('click', newEntry);
+      })
+      .withFailureHandler(() => {})
+      .getModulePermissionsForUser(token, 'PURCHASEREQUISITION');
+
+    document.getElementById('pr-back-btn').addEventListener('click', showListView);
+    document.getElementById('pr-search-input').addEventListener('input', renderList);
+    document.getElementById('pr-company-filter').addEventListener('change', renderList);
+    document.getElementById('pr-status-filter').addEventListener('change', renderList);
+    document.getElementById('pr-from-filter').addEventListener('change', renderList);
+    document.getElementById('pr-to-filter').addEventListener('change', renderList);
+
+    document.getElementById('pr-form-company').addEventListener('change', () => { isDirty = true; updateCompanyRequiredNote(); renderGrid(); });
+    document.getElementById('pr-form-costcenter').addEventListener('change', () => { isDirty = true; updateCompanyRequiredNote(); });
+    document.getElementById('pr-add-line-btn').addEventListener('click', () => {
+      isDirty = true;
+      gridLines.push({ CategoryID: '', Description: '', Quantity: '', Unit: '', CostCenterID: currentHeaderCostCenter() });
+      renderGrid();
+    });
+
+    document.getElementById('pr-save-draft-btn').addEventListener('click', saveDraft);
+    document.getElementById('pr-submit-btn').addEventListener('click', submitEntry);
+    document.getElementById('pr-delete-btn').addEventListener('click', deleteDraft);
+    document.getElementById('pr-cancel-btn').addEventListener('click', cancelEntry);
+    document.getElementById('pr-close-btn').addEventListener('click', closeEntry);
+    document.getElementById('pr-approve-btn').addEventListener('click', () => decide('Approved'));
+    document.getElementById('pr-reject-btn').addEventListener('click', () => decide('Rejected'));
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-cart-shopping"></i> Purchase Requisition';
+    fetchAndRenderList();
+    loadReferenceData();
+  };
+})();
+</script>

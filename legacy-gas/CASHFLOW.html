@@ -1,0 +1,267 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+</style>
+
+<div class="space-y-6">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
+    <div class="flex items-center gap-3">
+      <button id="cfs-back-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="cfs-back-label">Back</span></button>
+      <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Financial Reports</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-money-bill-wave text-blue-500"></i> Cash Flow Statement (CFS)</h2></div>
+    </div>
+    <button id="cfs-print-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3 no-print">
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">From</label><input type="date" id="cfs-from-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">To</label><input type="date" id="cfs-to-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="cfs-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="cfs-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="cfs-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="cfs-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="cfs-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button id="cfs-copy-btn" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-copy"></i> Copy Table</button>
+      <button id="cfs-run-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg font-medium">Run Report</button>
+    </div>
+  </div>
+
+  <div id="cfs-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="cfs-results" class="hidden space-y-4">
+    <h3 class="text-sm text-slate-400">For the period <span id="cfs-period-label" class="text-slate-200 font-medium"></span></h3>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <table class="w-full text-left">
+        <tbody id="cfs-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+
+    <div id="cfs-reconcile-note" class="text-sm px-4 py-2.5 rounded-lg border"></div>
+    <p class="text-xs text-slate-500">Categorized by whichever account sits on the other side of each cash movement (direct method). Accounts without a Cash Flow Category set on the Chart of Accounts default to Operating — set it on each account for a more precise breakdown.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let orgUnits = [];
+  let lastReport = null;
+  let lastParams = null;
+  let myReturnChain = [];
+  let companiesReady = false, orgUnitsReady = false;
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmt(n) { return (Number(n) || 0).toFixed(2); }
+  function today() { return new Date().toISOString().substring(0, 10); }
+  function firstOfMonth() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().substring(0, 10); }
+
+  function populateOrgUnitSelect(selectId, type) {
+    const select = document.getElementById(selectId);
+    select.innerHTML = '<option value="">All</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.UnitID; opt.textContent = u.Code + ' — ' + u.Name;
+        select.appendChild(opt);
+      });
+  }
+
+  function checkReadyAndApplyPending() {
+    if (!companiesReady || !orgUnitsReady) return;
+    const p = window.__pendingModuleParams;
+    if (!p) return;
+    window.__pendingModuleParams = null;
+
+    document.getElementById('cfs-from-date').value = p.FromDate || firstOfMonth();
+    document.getElementById('cfs-to-date').value = p.ToDate || today();
+    document.getElementById('cfs-company').value = p.CompanyID || '';
+    document.getElementById('cfs-division').value = p.DivisionID || '';
+    document.getElementById('cfs-branch').value = p.BranchID || '';
+    document.getElementById('cfs-costcenter').value = p.CostCenterID || '';
+    document.getElementById('cfs-profitcenter').value = p.ProfitCenterID || '';
+
+    runReport();
+  }
+
+  function loadReferenceData() {
+    google.script.run
+      .withSuccessHandler(result => {
+        const select = document.getElementById('cfs-company');
+        select.innerHTML = '<option value="">All</option>';
+        (result || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+          const opt = document.createElement('option'); opt.value = c.CompanyID; opt.textContent = c.LegalName;
+          select.appendChild(opt);
+        });
+        companiesReady = true;
+        checkReadyAndApplyPending();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        orgUnits = result || [];
+        populateOrgUnitSelect('cfs-division', 'Division');
+        populateOrgUnitSelect('cfs-branch', 'Branch');
+        populateOrgUnitSelect('cfs-costcenter', 'CostCenter');
+        populateOrgUnitSelect('cfs-profitcenter', 'ProfitCenter');
+        orgUnitsReady = true;
+        checkReadyAndApplyPending();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits(token);
+  }
+
+  function runReport() {
+    const error = document.getElementById('cfs-error');
+    error.classList.add('hidden');
+    document.getElementById('cfs-results').classList.add('hidden');
+
+    const params = {
+      FromDate: document.getElementById('cfs-from-date').value,
+      ToDate: document.getElementById('cfs-to-date').value,
+      CompanyID: document.getElementById('cfs-company').value,
+      DivisionID: document.getElementById('cfs-division').value,
+      BranchID: document.getElementById('cfs-branch').value,
+      CostCenterID: document.getElementById('cfs-costcenter').value,
+      ProfitCenterID: document.getElementById('cfs-profitcenter').value
+    };
+    lastParams = params;
+
+    const btn = document.getElementById('cfs-run-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Running...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        lastReport = result;
+        renderReport(result);
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.textContent = original;
+        error.textContent = err.message || 'Unable to run report.'; error.classList.remove('hidden');
+      })
+      .getCashFlowStatement(token, params);
+  }
+
+  // Drills into GL Report using lastParams — the EXACT period/filters that
+  // produced the currently-displayed breakdown, and hands back a
+  // return-chain entry so GL Report's "Back" restores this exact view.
+  function drillToGl(accountCode) {
+    openModule('GLREPORT', {
+      AccountCode: accountCode,
+      FromDate: lastParams.FromDate,
+      ToDate: lastParams.ToDate,
+      CompanyID: lastParams.CompanyID,
+      DivisionID: lastParams.DivisionID,
+      BranchID: lastParams.BranchID,
+      CostCenterID: lastParams.CostCenterID,
+      ProfitCenterID: lastParams.ProfitCenterID
+    }, [...myReturnChain, { moduleId: 'CASHFLOW', label: 'Cash Flow Statement', params: lastParams }]);
+  }
+
+  function sectionRows(title, items, total) {
+    let html = `<tr class="bg-slate-900/60"><td class="py-2 px-4 font-semibold text-xs text-slate-400 uppercase" colspan="2">${title} Activities</td></tr>`;
+    if (!items.length) {
+      html += `<tr><td class="py-2 px-4 pl-8 text-slate-500 text-sm italic" colspan="2">No activity</td></tr>`;
+    }
+    items.forEach(i => {
+      html += `<tr><td class="py-2 px-4 pl-8 text-slate-300 text-sm"><button class="cfs-drill-link underline decoration-dotted hover:text-blue-400" data-code="${escapeHtml(i.accountCode)}">${escapeHtml(i.accountCode)} — ${escapeHtml(i.accountName)}</button></td><td class="py-2 px-4 text-right text-sm">${formatMoney(i.amount)}</td></tr>`;
+    });
+    html += `<tr class="border-t border-slate-700"><td class="py-2 px-4 font-medium text-sm">Net Cash from ${title} Activities</td><td class="py-2 px-4 text-right font-medium text-sm">${formatMoney(total)}</td></tr>`;
+    return html;
+  }
+
+  function renderReport(result) {
+    document.getElementById('cfs-results').classList.remove('hidden');
+    document.getElementById('cfs-period-label').textContent = result.fromDate + ' to ' + result.toDate;
+
+    let html = '';
+    html += sectionRows('Operating', result.operating, result.totalOperating);
+    html += sectionRows('Investing', result.investing, result.totalInvesting);
+    html += sectionRows('Financing', result.financing, result.totalFinancing);
+    const netClass = result.netChange >= 0 ? 'text-emerald-400' : 'text-red-400';
+    html += `<tr class="border-t-2 border-slate-600 bg-slate-900/40"><td class="py-3 px-4 font-bold ${netClass}">Net Increase (Decrease) in Cash</td><td class="py-3 px-4 text-right font-bold ${netClass}">${formatMoney(result.netChange)}</td></tr>`;
+    html += `<tr><td class="py-2 px-4 text-slate-400 text-sm">Cash at Beginning of Period</td><td class="py-2 px-4 text-right text-sm">${formatMoney(result.openingCash)}</td></tr>`;
+    html += `<tr class="border-t-2 border-slate-600 bg-slate-900/60"><td class="py-3 px-4 font-bold text-lg text-slate-100">Cash at End of Period</td><td class="py-3 px-4 text-right font-bold text-lg text-slate-100">${formatMoney(result.closingCash)}</td></tr>`;
+
+    document.getElementById('cfs-table-body').innerHTML = html;
+    document.querySelectorAll('.cfs-drill-link').forEach(el => {
+      el.addEventListener('click', () => drillToGl(el.getAttribute('data-code')));
+    });
+
+    const note = document.getElementById('cfs-reconcile-note');
+    note.className = 'text-sm px-4 py-2.5 rounded-lg border ' + (result.reconciles ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400');
+    note.textContent = result.reconciles
+      ? 'Reconciled — the categorized net change matches the actual GL cash balance change for this period.'
+      : 'Does not reconcile — the categorized total does not match the actual GL cash balance change. This indicates a data problem (e.g. a line missing its account) and should be investigated.';
+  }
+
+  function copyTable() {
+    if (!lastReport) { alert('Run the report first.'); return; }
+    const rows = [];
+    function section(title, items, total) {
+      rows.push([title + ' Activities', ''].join('\t'));
+      items.forEach(i => rows.push([i.accountCode + ' - ' + i.accountName, fmt(i.amount)].join('\t')));
+      rows.push(['Net Cash from ' + title + ' Activities', fmt(total)].join('\t'));
+    }
+    section('Operating', lastReport.operating, lastReport.totalOperating);
+    section('Investing', lastReport.investing, lastReport.totalInvesting);
+    section('Financing', lastReport.financing, lastReport.totalFinancing);
+    rows.push(['Net Increase (Decrease) in Cash', fmt(lastReport.netChange)].join('\t'));
+    rows.push(['Cash at Beginning of Period', fmt(lastReport.openingCash)].join('\t'));
+    rows.push(['Cash at End of Period', fmt(lastReport.closingCash)].join('\t'));
+    const text = rows.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(() => window.prompt('Copy this text:', text));
+    } else {
+      window.prompt('Copy this text:', text);
+    }
+  }
+
+  function goBackInChain() {
+    const chain = myReturnChain.slice();
+    const target = chain.pop();
+    if (!target) return;
+    openModule(target.moduleId, target.params, chain);
+  }
+
+  window.initModule = function (idToken) {
+    token = idToken;
+    document.getElementById('cfs-from-date').value = firstOfMonth();
+    document.getElementById('cfs-to-date').value = today();
+
+    myReturnChain = window.__pendingReturnChain || [];
+    window.__pendingReturnChain = [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      document.getElementById('cfs-back-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      document.getElementById('cfs-back-btn').classList.remove('hidden');
+      document.getElementById('cfs-back-btn').addEventListener('click', goBackInChain);
+    }
+
+    loadReferenceData();
+
+    document.getElementById('cfs-run-btn').addEventListener('click', runReport);
+    document.getElementById('cfs-copy-btn').addEventListener('click', copyTable);
+    document.getElementById('cfs-print-btn').addEventListener('click', () => window.print());
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-money-bill-wave"></i> Cash Flow Statement (CFS)';
+  };
+})();
+</script>

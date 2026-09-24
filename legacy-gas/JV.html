@@ -1,0 +1,1264 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+  #jv-print-document table { border-collapse: collapse; width: 100%; }
+  #jv-print-document th, #jv-print-document td { border: 1px solid #333; padding: 4px 6px; font-size: 10px; }
+  #jv-print-document thead { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>
+
+<div id="jv-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Financial Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-file-invoice text-blue-500"></i> Journal Entry Processing (JV)</h2></div>
+    <button id="jv-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Entry</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="jv-search-input" placeholder="Search number or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="jv-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="jv-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Draft">Draft</option><option value="Posted">Posted</option></select>
+    <input type="date" id="jv-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <input type="date" id="jv-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div id="jv-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">JV Number</th>
+            <th class="py-3 px-4">Txn Ref</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4">Description</th>
+            <th class="py-3 px-4 text-right">Debit</th>
+            <th class="py-3 px-4 text-right">Credit</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="jv-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="jv-entry-view" class="hidden space-y-5">
+  <div id="jv-print-header" class="print-only mb-4 pb-4 border-b-2 border-slate-800">
+    <h1 id="jv-print-company-name" class="text-lg font-bold"></h1>
+    <p id="jv-print-company-address" class="text-sm"></p>
+  </div>
+  <div id="jv-print-document" class="print-only"></div>
+  <div class="no-print space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
+    <div class="flex items-center gap-3">
+      <button id="jv-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="jv-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="jv-back-chain-label">Back</span></button>
+      <h2 id="jv-entry-title" class="text-xl font-bold text-blue-400">New Journal Entry</h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="jv-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="jv-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+
+  <div id="jv-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+  <div id="jv-txn-ref-line" class="hidden text-xs text-slate-500 font-mono"></div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Entry Date</label><input type="date" id="jv-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input type="text" id="jv-form-reference" placeholder="e.g. Invoice #, PO #" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div class="md:col-span-1">
+      <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
+      <div class="flex gap-2">
+        <input type="text" id="jv-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+        <button id="jv-desc-edit-btn" class="hidden no-print bg-slate-800 hover:bg-slate-700 text-xs px-3 rounded border border-slate-700" title="Edit description"><i class="fa-solid fa-pen-to-square"></i></button>
+        <button id="jv-desc-save-btn" class="hidden no-print bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 rounded">Save</button>
+        <button id="jv-desc-cancel-btn" class="hidden no-print bg-slate-700 hover:bg-slate-600 text-xs px-3 rounded">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Currency</label><input type="text" id="jv-form-currency" readonly class="w-full bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-400"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="jv-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="jv-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="jv-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(line default)</span></label><select id="jv-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="jv-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    </div>
+    <p class="text-xs text-slate-500">New lines pick up the Cost Center / Profit Center above as a starting default — each line can still be changed individually afterward.</p>
+  </div>
+
+  <div id="jv-company-required-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company above before adding lines — no accounts can be chosen until then.</div>
+
+  <div class="flex flex-wrap items-center gap-2 no-print">
+    <button id="jv-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+    <button id="jv-paste-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
+    <button id="jv-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy Table</button>
+    <span class="text-xs text-slate-500">Paste columns: Account Code / Description / Debit / Credit / Cost Center Code / Profit Center Code.</span>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table id="jv-grid-table" class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3 w-10">#</th>
+            <th class="py-2 px-3">Account Code</th>
+            <th class="py-2 px-3">Account Name</th>
+            <th class="py-2 px-3">Description</th>
+            <th class="py-2 px-3 text-right w-28">Debit</th>
+            <th class="py-2 px-3 text-right w-28">Credit</th>
+            <th class="py-2 px-3 w-24">Cost Ctr</th>
+            <th class="py-2 px-3 w-24">Profit Ctr</th>
+            <th class="py-2 px-3 w-10 no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="jv-grid-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        <tfoot>
+          <tr class="bg-slate-900 border-t border-slate-700 font-medium text-sm">
+            <td class="py-2 px-3" colspan="4">Totals</td>
+            <td class="py-2 px-3 text-right" id="jv-total-debit">0.00</td>
+            <td class="py-2 px-3 text-right" id="jv-total-credit">0.00</td>
+            <td colspan="2"></td>
+            <td class="no-print"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div id="jv-balance-indicator" class="hidden text-sm px-4 py-2.5 rounded-lg border no-print"></div>
+  <div id="jv-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="jv-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1 no-print">
+    <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
+    <p id="jv-rejection-reason" class="text-sm text-slate-200"></p>
+    <p class="text-xs text-slate-500">This entry is fully editable below — make your changes and Post again.</p>
+  </div>
+
+  <div id="jv-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3 no-print">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="jv-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3">
+      <button id="jv-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button>
+      <button id="jv-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button>
+    </div>
+    <div id="jv-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 no-print">
+    <button id="jv-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="jv-duplicate-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs"><i class="fa-solid fa-clone"></i> Duplicate Entry</button>
+    <button id="jv-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse Entry</button>
+    <button id="jv-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
+    <button id="jv-post-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-lock"></i> Post Entry</button>
+  </div>
+  </div>
+</div>
+
+<datalist id="jv-account-datalist"></datalist>
+
+<!-- Custom confirm modal — replaces native confirm()/prompt() styling, which
+     can't be themed and shows an unavoidable "embedded page says" wrapper. -->
+<div id="jv-confirm-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 id="jv-confirm-title" class="text-lg font-bold text-slate-100">Confirm</h3>
+    <p id="jv-confirm-message" class="text-sm text-slate-300 whitespace-pre-line"></p>
+    <div id="jv-confirm-input-wrap" class="hidden">
+      <input type="date" id="jv-confirm-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    </div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button id="jv-confirm-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button>
+      <button id="jv-confirm-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canDraft = false;
+  let canPost = false;
+  let entries = [];
+  let entriesTotal = 0;
+  let currentLimit = 100;
+  let accounts = [];
+  let companies = [];
+  let orgUnits = [];
+  let defaultCurrency = null;
+  let currentJv = null; // { JVID, JVDate, Description, Reference, Status, ... } or null for a new entry
+  let gridLines = [];   // in-memory rows: { AccountCode, Description, Debit, Credit, CostCenterID, ProfitCenterID }
+  let isDirty = false;
+  let pendingOpenEntryId = null;
+  let myReturnChain = [];
+
+  // Mirrors Code.gs's COST_CENTER_REQUIRED_TYPES — kept in sync manually
+  // since client and server are separate files. Only P&L-facing account
+  // types require a Cost Center per line.
+  const COST_CENTER_REQUIRED_TYPES = ['Expense', 'Revenue', 'COGS'];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  // Plain 2-decimal string, no thousand separators — used for Excel copy-out
+  // so pasted values parse cleanly back into a spreadsheet.
+  function fmt(n) { return (Number(n) || 0).toFixed(2); }
+
+  // Comma-grouped 2-decimal display string — used everywhere amounts are
+  // shown to a person (grid cells when not focused, totals, list table).
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function today() { return new Date().toISOString().substring(0, 10); }
+
+  // ---------- CUSTOM CONFIRM MODAL ----------
+  function showConfirm(message, onConfirm, opts) {
+    opts = opts || {};
+    document.getElementById('jv-confirm-title').textContent = opts.title || 'Confirm';
+    document.getElementById('jv-confirm-message').textContent = message;
+    const inputWrap = document.getElementById('jv-confirm-input-wrap');
+    const input = document.getElementById('jv-confirm-input');
+    if (opts.needsDate) {
+      inputWrap.classList.remove('hidden');
+      input.value = opts.defaultDate || today();
+    } else {
+      inputWrap.classList.add('hidden');
+    }
+    document.getElementById('jv-confirm-modal').classList.remove('hidden');
+
+    const okBtn = document.getElementById('jv-confirm-ok');
+    const cancelBtn = document.getElementById('jv-confirm-cancel');
+    function cleanup() {
+      document.getElementById('jv-confirm-modal').classList.add('hidden');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+    }
+    function onOk() { cleanup(); onConfirm(opts.needsDate ? input.value : undefined); }
+    function onCancel() { cleanup(); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  }
+
+  // ---------- LIST VIEW ----------
+
+  function fetchAndRenderList(limit) {
+    currentLimit = limit || currentLimit;
+    google.script.run
+      .withSuccessHandler(result => {
+        entries = result.entries || []; entriesTotal = result.total || 0; renderList();
+        if (pendingOpenEntryId) {
+          const id = pendingOpenEntryId; pendingOpenEntryId = null;
+          const found = entries.find(e => e.JVID === id);
+          if (found) openEntry(id);
+          else alert('That entry could not be found — it may have been deleted.');
+        }
+      })
+      .withFailureHandler(err => alert(err.message || 'Unable to load journal entries.'))
+      .getJournalEntries(token, currentLimit);
+  }
+
+  function renderList() {
+    const tbody = document.getElementById('jv-table-body');
+    const search = document.getElementById('jv-search-input').value.toLowerCase();
+    const companyFilter = document.getElementById('jv-company-filter').value;
+    const status = document.getElementById('jv-status-filter').value;
+    const from = document.getElementById('jv-from-filter').value;
+    const to = document.getElementById('jv-to-filter').value;
+
+    const notice = document.getElementById('jv-list-notice');
+    if (entriesTotal > entries.length) {
+      notice.classList.remove('hidden');
+      notice.innerHTML = `Showing most recent ${entries.length} of ${entriesTotal} entries. <button id="jv-load-all-btn" class="text-blue-400 hover:text-blue-300 underline">Load all</button>`;
+      document.getElementById('jv-load-all-btn').addEventListener('click', () => fetchAndRenderList('all'));
+    } else {
+      notice.classList.add('hidden');
+    }
+
+    const filtered = entries.filter(e => {
+      if (search && !`${e.JVNumber} ${e.Description}`.toLowerCase().includes(search)) return false;
+      if (companyFilter && e.CompanyID !== companyFilter) return false;
+      if (status && e.Status !== status) return false;
+      if (from && e.JVDate < from) return false;
+      if (to && e.JVDate > to) return false;
+      return true;
+    }).sort((a, b) => (b.JVDate || '').localeCompare(a.JVDate || ''));
+
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-slate-500">No journal entries found.</td></tr>'; return; }
+
+    filtered.forEach(e => {
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const statusBadge = e.Status === 'Posted'
+        ? (e.ReversedByJV ? '<span class="text-amber-400">Posted (Reversed)</span>' : '<span class="text-emerald-400">Posted</span>')
+        : '<span class="text-red-400">Draft</span>';
+      let actions = `<button class="jv-open text-slate-400 hover:text-blue-400 p-1" title="Open"><i class="fa-solid fa-eye"></i></button>`;
+      if (canDraft) {
+        actions += `<button class="jv-dup text-slate-400 hover:text-blue-400 p-1" title="Duplicate"><i class="fa-solid fa-clone"></i></button>`;
+      }
+      if (e.Status === 'Draft' && canDraft) {
+        actions += `<button class="jv-delete text-slate-400 hover:text-red-400 p-1" title="Delete draft"><i class="fa-solid fa-trash"></i></button>`;
+      }
+      row.innerHTML = `
+        <td class="py-3 px-4 font-mono text-xs text-slate-200">${e.JVNumber ? escapeHtml(e.JVNumber) : '<span class="text-slate-500">DRAFT</span>'}</td>
+        <td class="py-3 px-4 font-mono text-xs text-slate-500">${escapeHtml(e.TransactionRef || '—')}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(e.JVDate)}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(e.Description)}</td>
+        <td class="py-3 px-4 text-xs text-right">${formatMoney(e.TotalDebit)}</td>
+        <td class="py-3 px-4 text-xs text-right">${formatMoney(e.TotalCredit)}</td>
+        <td class="py-3 px-4 text-xs">${statusBadge}</td>
+        <td class="py-3 px-4 text-right">${actions}</td>`;
+      row.querySelector('.jv-open').addEventListener('click', () => openEntry(e.JVID));
+      const dup = row.querySelector('.jv-dup');
+      if (dup) dup.addEventListener('click', () => duplicateEntry(e.JVID));
+      const del = row.querySelector('.jv-delete');
+      if (del) del.addEventListener('click', () => deleteDraft(e.JVID));
+      tbody.appendChild(row);
+    });
+  }
+
+  function deleteDraft(jvId) {
+    showConfirm('Delete this draft journal entry? This cannot be undone.', () => {
+      google.script.run
+        .withSuccessHandler(result => { if (result.success) fetchAndRenderList(); else alert(result.error || 'Unable to delete draft.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
+        .deleteJournalDraft(token, jvId);
+    }, { title: 'Delete Draft' });
+  }
+
+  function showListView() {
+    document.getElementById('jv-entry-view').classList.add('hidden');
+    document.getElementById('jv-list-view').classList.remove('hidden');
+    isDirty = false;
+    fetchAndRenderList();
+  }
+
+  function goBackToList() {
+    if (isDirty) {
+      showConfirm('You have unsaved changes. Leave without saving?', () => showListView(), { title: 'Unsaved Changes' });
+    } else {
+      showListView();
+    }
+  }
+
+  // Pops the last entry off the return chain and reopens it with the
+  // REMAINING chain — same pattern as GL Report's identical function,
+  // so a multi-hop drill (Report -> GL -> here -> back -> back) restores
+  // each screen's exact prior state.
+  function goBackInChain() {
+    const doGoBack = () => {
+      const chain = myReturnChain.slice();
+      const target = chain.pop();
+      if (!target) return;
+      openModule(target.moduleId, target.params, chain);
+    };
+    if (isDirty) {
+      showConfirm('You have unsaved changes. Leave without saving?', doGoBack, { title: 'Unsaved Changes' });
+    } else {
+      doGoBack();
+    }
+  }
+
+  // ---------- ENTRY VIEW / GRID ----------
+
+  function accountByCode(code) { return accounts.find(a => String(a.AccountCode) === String(code)); }
+
+  // Company is now mandatory (not just an optional restriction match) —
+  // without one selected, no accounts list at all, shared or otherwise.
+  // This is a hard gate, not just a filter.
+  function accountAllowedForCompany(account, companyId) {
+    if (!companyId) return false;
+    return !account.CompanyID || account.CompanyID === companyId;
+  }
+
+  function rebuildAccountDatalist() {
+    const companyId = document.getElementById('jv-form-company').value;
+    const datalist = document.getElementById('jv-account-datalist');
+    datalist.innerHTML = '';
+    document.getElementById('jv-company-required-note').classList.toggle('hidden', Boolean(companyId));
+    if (!companyId) return;
+    accounts.filter(a => a.Status === 'Active' && a.IsPostable === true && accountAllowedForCompany(a, companyId))
+      .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }))
+      .forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.AccountCode;
+        // Only the name in the label — the browser already shows the value
+        // (the code) alongside it natively; including the code in both
+        // produced a visible duplicate like "610001 610001 - Name".
+        opt.label = a.AccountName;
+        datalist.appendChild(opt);
+      });
+  }
+
+  function orgUnitOptionsHtml(type, selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        html += `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code)}</option>`;
+      });
+    return html;
+  }
+
+  function currentHeaderCostCenter() { return document.getElementById('jv-form-costcenter').value; }
+  function currentHeaderProfitCenter() { return document.getElementById('jv-form-profitcenter').value; }
+  function currentHeaderDescription() { return document.getElementById('jv-form-description').value; }
+
+  // A new row defaults its Description to the header Description — often
+  // the line matches the overall entry, and the user can still edit or
+  // clear it per line. Blankness for "is this row still unused" is judged
+  // by AccountCode/Debit/Credit only, NOT Description, so a freshly
+  // defaulted row doesn't get treated as "filled in" before the user has
+  // actually touched it.
+  function ensureTrailingBlankRow() {
+    const last = gridLines[gridLines.length - 1];
+    if (!last || last.AccountCode || last.Debit || last.Credit) {
+      gridLines.push({
+        AccountCode: '', Description: currentHeaderDescription(), Debit: '', Credit: '',
+        CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter()
+      });
+    }
+  }
+
+  function renderGrid(focusRow, focusCol) {
+    ensureTrailingBlankRow();
+    const tbody = document.getElementById('jv-grid-body');
+    tbody.innerHTML = '';
+    const readOnly = currentJv && currentJv.Status === 'Posted';
+
+    gridLines.forEach((line, i) => {
+      const account = accountByCode(line.AccountCode);
+      const missingDesc = line.AccountCode && !String(line.Description || '').trim();
+      const ccRequired = account && COST_CENTER_REQUIRED_TYPES.includes(account.AccountType);
+      const missingCC = ccRequired && !line.CostCenterID;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+        <td class="py-1 px-1"><input data-row="${i}" data-col="0" list="jv-account-datalist" value="${escapeHtml(line.AccountCode)}" ${readOnly ? 'disabled' : ''} class="w-28 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs font-mono focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-2 text-xs text-slate-400 jv-account-name">${account ? escapeHtml(account.AccountName) : (line.AccountCode ? '<span class="text-red-400">not found</span>' : '')}</td>
+        <td class="py-1 px-1"><input data-row="${i}" data-col="1" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${missingDesc ? 'required' : ''}" class="w-full bg-slate-900 border ${missingDesc ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><input data-row="${i}" data-col="2" type="text" inputmode="decimal" value="${line.Debit === '' || line.Debit === 0 ? '' : formatMoney(line.Debit)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><input data-row="${i}" data-col="3" type="text" inputmode="decimal" value="${line.Credit === '' || line.Credit === 0 ? '' : formatMoney(line.Credit)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><select data-row="${i}" class="jv-line-cc w-full bg-slate-900 border ${missingCC ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''} title="${missingCC ? 'Required for ' + account.AccountType + ' accounts' : ''}">${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
+        <td class="py-1 px-1"><select data-row="${i}" class="jv-line-pc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
+        <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-row="${i}" class="jv-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    if (!readOnly) {
+      tbody.querySelectorAll('input[data-col]').forEach(input => {
+        input.addEventListener('input', onCellInput);
+        input.addEventListener('blur', () => { renderGrid(); updateTotals(); });
+      });
+      tbody.querySelectorAll('input[data-col="2"], input[data-col="3"]').forEach(input => {
+        input.addEventListener('focus', e => {
+          const row = parseInt(e.target.getAttribute('data-row'), 10);
+          const field = e.target.getAttribute('data-col') === '2' ? 'Debit' : 'Credit';
+          const raw = gridLines[row][field];
+          e.target.value = (raw === '' || raw === 0) ? '' : String(raw);
+        });
+      });
+      tbody.querySelectorAll('.jv-line-cc').forEach(sel => {
+        sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].CostCenterID = e.target.value; });
+      });
+      tbody.querySelectorAll('.jv-line-pc').forEach(sel => {
+        sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].ProfitCenterID = e.target.value; });
+      });
+      tbody.querySelectorAll('.jv-remove-row').forEach(btn => {
+        btn.addEventListener('click', () => {
+          isDirty = true;
+          const row = parseInt(btn.getAttribute('data-row'), 10);
+          gridLines.splice(row, 1);
+          renderGrid(); updateTotals();
+        });
+      });
+    }
+
+    updateTotals();
+
+    if (focusRow != null) {
+      const el = tbody.querySelector(`input[data-row="${focusRow}"][data-col="${focusCol || 0}"]`);
+      if (el) el.focus();
+    }
+  }
+
+  function onCellInput(e) {
+    const row = parseInt(e.target.getAttribute('data-row'), 10);
+    const col = parseInt(e.target.getAttribute('data-col'), 10);
+    const field = ['AccountCode', 'Description', 'Debit', 'Credit'][col];
+    let value = e.target.value;
+    if (field === 'Debit' || field === 'Credit') value = value.replace(/,/g, '');
+    gridLines[row][field] = value;
+
+    if (col === 0) {
+      const account = accountByCode(value);
+      const nameCell = e.target.closest('tr').querySelector('.jv-account-name');
+      nameCell.innerHTML = account ? escapeHtml(account.AccountName) : (value ? '<span class="text-red-400">not found</span>' : '');
+    }
+    updateTotals();
+  }
+
+  function updateTotals() {
+    let totalDebit = 0, totalCredit = 0;
+    gridLines.forEach(l => { totalDebit += parseFloat(String(l.Debit).replace(/,/g, '')) || 0; totalCredit += parseFloat(String(l.Credit).replace(/,/g, '')) || 0; });
+    document.getElementById('jv-total-debit').textContent = formatMoney(totalDebit);
+    document.getElementById('jv-total-credit').textContent = formatMoney(totalCredit);
+    // No live balance message here anymore — it was showing constantly
+    // while just editing, which is noise the user doesn't need mid-entry.
+    // checkBalance() below is what actually surfaces it, and only when
+    // it matters: at Save/Post time, and only if there IS a variance.
+    document.getElementById('jv-balance-indicator').classList.add('hidden');
+  }
+
+  // Called from saveDraft/postEntry, not from every keystroke. Returns
+  // true if balanced (nothing shown — a successful save/post is itself
+  // the confirmation), false if out of balance (shows the warning and
+  // the caller should stop). A balanced entry gets no message at all;
+  // there's nothing useful "Balanced — totals both X" adds once you're
+  // about to save or post anyway.
+  function checkBalance() {
+    let totalDebit = 0, totalCredit = 0;
+    gridLines.forEach(l => { totalDebit += parseFloat(String(l.Debit).replace(/,/g, '')) || 0; totalCredit += parseFloat(String(l.Credit).replace(/,/g, '')) || 0; });
+    const diff = Math.round((totalDebit - totalCredit) * 100) / 100;
+    const indicator = document.getElementById('jv-balance-indicator');
+    if (diff === 0) {
+      indicator.classList.add('hidden');
+      return true;
+    }
+    indicator.className = 'text-sm px-4 py-2.5 rounded-lg border no-print bg-red-500/10 border-red-500/20 text-red-400';
+    indicator.textContent = 'Out of balance by ' + formatMoney(Math.abs(diff)) + ' (' + (diff > 0 ? 'debit' : 'credit') + ' heavy).';
+    return false;
+  }
+
+  function allLineDescriptionsFilled() {
+    return gridLines.every(l => !l.AccountCode || String(l.Description || '').trim());
+  }
+
+  function allRequiredCostCentersFilled() {
+    return gridLines.every(l => {
+      if (!l.AccountCode) return true;
+      const account = accountByCode(l.AccountCode);
+      if (!account || !COST_CENTER_REQUIRED_TYPES.includes(account.AccountType)) return true;
+      return Boolean(l.CostCenterID);
+    });
+  }
+
+  // ---------- PASTE FROM EXCEL ----------
+  // Columns: Account Code / Description / Debit / Credit / Cost Center Code / Profit Center Code
+
+  function distributePastedText(text, startRow, startCol) {
+    isDirty = true;
+    const rows = text.replace(/\r/g, '').split('\n').filter((r, idx, arr) => !(idx === arr.length - 1 && r === ''));
+    const fields = ['AccountCode', 'Description', 'Debit', 'Credit', 'CostCenterCode', 'ProfitCenterCode'];
+
+    rows.forEach((rowText, r) => {
+      const cells = rowText.split('\t');
+      const targetRow = startRow + r;
+      while (gridLines.length <= targetRow) gridLines.push({ AccountCode: '', Description: currentHeaderDescription(), Debit: '', Credit: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter() });
+
+      cells.forEach((cellText, c) => {
+        const targetCol = startCol + c;
+        if (targetCol > 5) return;
+        const field = fields[targetCol];
+        let value = cellText.trim();
+
+        if (field === 'Debit' || field === 'Credit') {
+          value = value.replace(/,/g, '');
+          value = value === '' ? '' : (parseFloat(value) || 0);
+          gridLines[targetRow][field] = value;
+        } else if (field === 'CostCenterCode' || field === 'ProfitCenterCode') {
+          if (value) {
+            const type = field === 'CostCenterCode' ? 'CostCenter' : 'ProfitCenter';
+            const match = orgUnits.find(u => u.Type === type && String(u.Code).toLowerCase() === value.toLowerCase());
+            gridLines[targetRow][field === 'CostCenterCode' ? 'CostCenterID' : 'ProfitCenterID'] = match ? match.UnitID : '';
+          }
+        } else {
+          gridLines[targetRow][field] = value;
+        }
+      });
+    });
+
+    renderGrid();
+  }
+
+  function handleGridPaste(e) {
+    const input = e.target;
+    if (!input.matches('input[data-row]')) return;
+    const clipboard = (e.clipboardData || window.clipboardData);
+    if (!clipboard) return;
+    const text = clipboard.getData('text');
+    if (!text || (!text.includes('\t') && !text.includes('\n'))) return; // single value — let default paste happen
+
+    e.preventDefault();
+    const row = parseInt(input.getAttribute('data-row'), 10);
+    const col = parseInt(input.getAttribute('data-col'), 10);
+    distributePastedText(text, row, col);
+  }
+
+  function handlePasteButton() {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      alert('Your browser blocked clipboard access here — click into a cell in the grid and paste directly (Ctrl+V / Cmd+V) instead.');
+      return;
+    }
+    navigator.clipboard.readText().then(text => {
+      if (!text) return;
+      distributePastedText(text, 0, 0);
+    }).catch(() => {
+      alert('Unable to read the clipboard. Click into a cell in the grid and paste directly instead.');
+    });
+  }
+
+  function handleCopyButton() {
+    const rows = gridLines
+      .filter(l => l.AccountCode || l.Description || l.Debit || l.Credit)
+      .map(l => {
+        const cc = orgUnits.find(u => u.UnitID === l.CostCenterID);
+        const pc = orgUnits.find(u => u.UnitID === l.ProfitCenterID);
+        return [l.AccountCode, l.Description, l.Debit === '' ? '' : fmt(l.Debit), l.Credit === '' ? '' : fmt(l.Credit), cc ? cc.Code : '', pc ? pc.Code : ''].join('\t');
+      });
+    const text = rows.join('\n');
+    if (!text) { alert('Nothing to copy yet.'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => flashCopyButton()).catch(() => fallbackCopyPrompt(text));
+    } else {
+      fallbackCopyPrompt(text);
+    }
+  }
+
+  function flashCopyButton() {
+    const btn = document.getElementById('jv-copy-btn');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
+  }
+
+  function fallbackCopyPrompt(text) {
+    window.prompt('Copy this text (Ctrl+C / Cmd+C, then Enter):', text);
+  }
+
+  // ---------- ENTRY LOAD / SAVE / POST / REVERSE / DUPLICATE ----------
+
+  function openEntry(jvId) {
+    currentJv = entries.find(e => e.JVID === jvId) || null;
+    if (!currentJv) return;
+
+    gridLines = (currentJv.Lines || []).map(l => ({
+      AccountCode: l.AccountCode, Description: l.Description, Debit: l.Debit || '', Credit: l.Credit || '',
+      CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+    }));
+
+    document.getElementById('jv-form-date').value = currentJv.JVDate || '';
+    document.getElementById('jv-form-reference').value = currentJv.Reference || '';
+    document.getElementById('jv-form-description').value = currentJv.Description || '';
+
+    document.getElementById('jv-form-company').value = currentJv.CompanyID || '';
+    document.getElementById('jv-form-division').value = currentJv.DivisionID || '';
+    document.getElementById('jv-form-branch').value = currentJv.BranchID || '';
+    document.getElementById('jv-form-costcenter').value = currentJv.CostCenterID || '';
+    document.getElementById('jv-form-profitcenter').value = currentJv.ProfitCenterID || '';
+    if (currentJv.CurrencyCode) document.getElementById('jv-form-currency').value = currentJv.CurrencyCode;
+    rebuildAccountDatalist();
+
+    showEntryView();
+  }
+
+  function newEntry() {
+    currentJv = null;
+    gridLines = [];
+    document.getElementById('jv-form-date').value = today();
+    document.getElementById('jv-form-reference').value = '';
+    document.getElementById('jv-form-description').value = '';
+    document.getElementById('jv-form-company').value = '';
+    document.getElementById('jv-form-division').value = '';
+    document.getElementById('jv-form-branch').value = '';
+    document.getElementById('jv-form-costcenter').value = '';
+    document.getElementById('jv-form-profitcenter').value = '';
+    document.getElementById('jv-form-currency').value = defaultCurrency ? (defaultCurrency.Code + (defaultCurrency.Symbol ? ' (' + defaultCurrency.Symbol + ')' : '')) : 'No default currency set';
+    rebuildAccountDatalist();
+    showEntryView();
+  }
+
+  // Duplicates an existing (draft or posted) entry's lines and dimensions
+  // into a fresh, unsaved draft. Date resets to today; Reference and
+  // Description are cleared — everything else (accounts, amounts, per-line
+  // Cost/Profit Center, header dimensions) carries over as a starting point.
+  function duplicateEntry(jvId) {
+    const source = entries.find(e => e.JVID === jvId);
+    if (!source) return;
+
+    const proceed = () => {
+      currentJv = null;
+      gridLines = (source.Lines || []).map(l => ({
+        AccountCode: l.AccountCode, Description: l.Description, Debit: l.Debit || '', Credit: l.Credit || '',
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+      }));
+
+      document.getElementById('jv-form-date').value = today();
+      document.getElementById('jv-form-reference').value = '';
+      document.getElementById('jv-form-description').value = '';
+      document.getElementById('jv-form-company').value = source.CompanyID || '';
+      document.getElementById('jv-form-division').value = source.DivisionID || '';
+      document.getElementById('jv-form-branch').value = source.BranchID || '';
+      document.getElementById('jv-form-costcenter').value = source.CostCenterID || '';
+      document.getElementById('jv-form-profitcenter').value = source.ProfitCenterID || '';
+      document.getElementById('jv-form-currency').value = defaultCurrency ? (defaultCurrency.Code + (defaultCurrency.Symbol ? ' (' + defaultCurrency.Symbol + ')' : '')) : 'No default currency set';
+      rebuildAccountDatalist();
+      showEntryView();
+    };
+
+    if (isDirty && currentJv !== undefined && !document.getElementById('jv-entry-view').classList.contains('hidden')) {
+      showConfirm('You have unsaved changes. Discard them and duplicate this entry instead?', proceed, { title: 'Unsaved Changes' });
+    } else {
+      proceed();
+    }
+  }
+
+  // Populates the print-only company letterhead — same pattern as the
+  // stock transaction modules.
+  function updatePrintHeader() {
+    const companyId = currentJv ? currentJv.CompanyID : document.getElementById('jv-form-company').value;
+    const company = companies.find(c => c.CompanyID === companyId);
+    document.getElementById('jv-print-company-name').textContent = company ? company.LegalName : '';
+    const addressParts = company ? [company.AddressLine1, company.AddressLine2].filter(Boolean) : [];
+    document.getElementById('jv-print-company-address').textContent = addressParts.join(', ');
+  }
+
+  // Same approach as the stock-transaction print documents (GRN/MI/
+  // etc.) — a genuinely separate document, not a restyled form. JV's
+  // line shape is Dr/Cr accounting lines rather than item/quantity, so
+  // the columns and totals reflect that (Debit/Credit totals, which
+  // must balance to have been postable at all — same reason no "Status:"
+  // line is shown: Print is only ever reachable once Posted, so it
+  // would always read "Posted", which is redundant information.
+  function buildPrintDocument() {
+    const container = document.getElementById('jv-print-document');
+    if (!container) return;
+
+    const voucherNo = currentJv && currentJv.JVNumber ? currentJv.JVNumber : 'DRAFT';
+    const date = document.getElementById('jv-form-date').value || '';
+    const reference = document.getElementById('jv-form-reference').value || '';
+    const description = document.getElementById('jv-form-description').value || '';
+
+    const validLines = gridLines.filter(l => l.AccountCode);
+    const rows = validLines.map((l, i) => {
+      const account = accountByCode(l.AccountCode);
+      const debit = Number(l.Debit) || 0;
+      const credit = Number(l.Credit) || 0;
+      return `<tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(l.AccountCode)}</td>
+        <td>${account ? escapeHtml(account.AccountName) : ''}</td>
+        <td>${escapeHtml(l.Description || '')}</td>
+        <td style="text-align:right">${debit ? formatMoney(debit) : ''}</td>
+        <td style="text-align:right">${credit ? formatMoney(credit) : ''}</td>
+      </tr>`;
+    }).join('');
+
+    const totalDebit = validLines.reduce((sum, l) => sum + (Number(l.Debit) || 0), 0);
+    const totalCredit = validLines.reduce((sum, l) => sum + (Number(l.Credit) || 0), 0);
+
+    container.innerHTML = `
+      <h2 style="text-align:center; font-size:16px; font-weight:bold; text-decoration:underline; margin:8px 0 16px;">JOURNAL VOUCHER</h2>
+      <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+        <span>JV No: <strong>${escapeHtml(voucherNo)}</strong></span>
+        <span>Date: <strong>${escapeHtml(date)}</strong></span>
+      </div>
+      <div style="font-size:11px; margin-bottom:16px;">
+        <span>Reference: ${escapeHtml(reference) || '—'}</span>
+      </div>
+      <p style="font-size:11px; margin-bottom:12px;">Description: ${escapeHtml(description)}</p>
+      <table>
+        <thead><tr>
+          <th>#</th><th>Account Code</th><th>Account Name</th><th>Description</th>
+          <th style="text-align:right">Debit</th><th style="text-align:right">Credit</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="6" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
+        <tfoot><tr>
+          <td colspan="4" style="text-align:right; font-weight:bold;">Totals</td>
+          <td style="text-align:right; font-weight:bold;">${formatMoney(totalDebit)}</td>
+          <td style="text-align:right; font-weight:bold;">${formatMoney(totalCredit)}</td>
+        </tr></tfoot>
+      </table>
+      <div style="display:flex; justify-content:space-between; margin-top:60px; font-size:11px;">
+        <div>Prepared By: _________________</div>
+        <div>Checked By: _________________</div>
+        <div>Approved By: _________________</div>
+      </div>
+      <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>
+    `;
+  }
+
+  function showEntryView() {
+    document.getElementById('jv-list-view').classList.add('hidden');
+    document.getElementById('jv-entry-view').classList.remove('hidden');
+    document.getElementById('jv-form-error').classList.add('hidden');
+    cancelDescriptionEdit();
+    document.getElementById('jv-back-chain-btn').classList.toggle('hidden', !myReturnChain.length);
+
+    // Rejected is now editable too, same as Draft — a resubmission
+    // reuses this exact save/post path. PendingApproval is the one
+    // genuinely new read-only state beyond the old Posted set.
+    const posted = currentJv && currentJv.Status === 'Posted';
+    const editableStatus = !currentJv || currentJv.Status === 'Draft' || currentJv.Status === 'Rejected';
+    const readOnly = currentJv && !editableStatus;
+    const isNew = !currentJv;
+    updatePrintHeader();
+
+    document.getElementById('jv-entry-title').textContent = isNew
+      ? 'New Journal Entry'
+      : (currentJv.JVNumber || 'Draft Entry');
+
+    const voucherLine = document.getElementById('jv-voucher-no-line');
+    if (isNew) {
+      voucherLine.textContent = '';
+    } else {
+      voucherLine.textContent = 'Voucher No.: ' + (currentJv.JVNumber || '(assigned when posted — may differ from any number shown while still a draft)');
+    }
+
+    const txnRefLine = document.getElementById('jv-txn-ref-line');
+    if (!isNew && currentJv.TransactionRef) {
+      txnRefLine.textContent = 'GL Transaction Ref: ' + currentJv.TransactionRef;
+      txnRefLine.classList.remove('hidden');
+    } else {
+      txnRefLine.classList.add('hidden');
+    }
+
+    const badge = document.getElementById('jv-status-badge');
+    if (isNew) {
+      badge.classList.add('hidden');
+    } else {
+      badge.classList.remove('hidden');
+      const colors = {
+        Draft: 'bg-slate-700 text-slate-300', PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+        Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20',
+        Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+      };
+      const labels = { PendingApproval: 'Pending Approval', Posted: currentJv.ReversedByJV ? 'Posted (Reversed)' : 'Posted' };
+      badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (colors[currentJv.Status] || colors.Draft);
+      badge.textContent = labels[currentJv.Status] || currentJv.Status;
+    }
+
+    document.getElementById('jv-rejection-banner').classList.toggle('hidden', !currentJv || currentJv.Status !== 'Rejected');
+    if (currentJv && currentJv.Status === 'Rejected') {
+      document.getElementById('jv-rejection-reason').textContent = currentJv.RejectionReason || '(no reason given)';
+    }
+
+    document.getElementById('jv-my-approval-banner').classList.add('hidden');
+    if (currentJv && currentJv.Status === 'PendingApproval' && canPost) {
+      google.script.run
+        .withSuccessHandler(levelNumber => {
+          if (levelNumber) {
+            document.getElementById('jv-my-approval-banner').classList.remove('hidden');
+            document.getElementById('jv-my-approval-banner').dataset.level = levelNumber;
+          }
+        })
+        .withFailureHandler(() => {})
+        .getMyPendingApprovalLevel(token, currentJv.ApprovalInstanceID);
+    }
+
+    // Print only makes sense for a permanent, posted record — a draft can
+    // still change, so printing one would be printing something stale.
+    document.getElementById('jv-print-btn').classList.toggle('hidden', !posted);
+
+    ['jv-form-date', 'jv-form-reference', 'jv-form-description', 'jv-form-company', 'jv-form-division', 'jv-form-branch', 'jv-form-costcenter', 'jv-form-profitcenter'].forEach(id => {
+      document.getElementById(id).disabled = readOnly;
+    });
+
+    // Posted entries stay fully locked EXCEPT the description, which can be
+    // corrected via its own small edit control — see the Description
+    // edit/save/cancel buttons.
+    document.getElementById('jv-desc-edit-btn').classList.toggle('hidden', !(posted && canPost));
+
+    document.getElementById('jv-add-line-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('jv-paste-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('jv-save-draft-btn').classList.toggle('hidden', !editableStatus || !canDraft);
+    document.getElementById('jv-post-btn').classList.toggle('hidden', !editableStatus || !canPost);
+    document.getElementById('jv-delete-btn').classList.toggle('hidden', (!currentJv || currentJv.Status !== 'Draft') || !canDraft);
+    document.getElementById('jv-duplicate-btn').classList.toggle('hidden', isNew || !canDraft);
+    document.getElementById('jv-reverse-btn').classList.toggle('hidden', !posted || Boolean(currentJv && currentJv.ReversedByJV) || !canPost);
+
+    renderGrid();
+    isDirty = false;
+  }
+
+  // ---------- EDIT DESCRIPTION AFTER POSTING ----------
+
+  function startDescriptionEdit() {
+    document.getElementById('jv-form-description').disabled = false;
+    document.getElementById('jv-form-description').focus();
+    document.getElementById('jv-desc-edit-btn').classList.add('hidden');
+    document.getElementById('jv-desc-save-btn').classList.remove('hidden');
+    document.getElementById('jv-desc-cancel-btn').classList.remove('hidden');
+  }
+
+  function cancelDescriptionEdit() {
+    if (currentJv) document.getElementById('jv-form-description').value = currentJv.Description || '';
+    document.getElementById('jv-form-description').disabled = Boolean(currentJv && currentJv.Status === 'Posted');
+    document.getElementById('jv-desc-save-btn').classList.add('hidden');
+    document.getElementById('jv-desc-cancel-btn').classList.add('hidden');
+    document.getElementById('jv-desc-edit-btn').classList.toggle('hidden', !(currentJv && currentJv.Status === 'Posted' && canPost));
+  }
+
+  function saveDescriptionEdit() {
+    const newDescription = document.getElementById('jv-form-description').value.trim();
+    if (!newDescription) { alert('Description is required.'); return; }
+    const btn = document.getElementById('jv-desc-save-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) {
+          currentJv.Description = newDescription;
+          cancelDescriptionEdit();
+        } else {
+          alert(result.error || 'Unable to update description.');
+        }
+      })
+      .withFailureHandler(err => { btn.disabled = false; btn.textContent = original; alert(err.message || 'Unable to update description.'); })
+      .updatePostedDescription(token, currentJv.JVID, newDescription);
+  }
+
+  function collectHeader() {
+    return {
+      JVID: currentJv ? currentJv.JVID : '',
+      JVDate: document.getElementById('jv-form-date').value,
+      Reference: document.getElementById('jv-form-reference').value.trim(),
+      Description: document.getElementById('jv-form-description').value.trim(),
+      Lines: gridLines,
+      CurrencyCode: defaultCurrency ? defaultCurrency.Code : '',
+      CompanyID: document.getElementById('jv-form-company').value,
+      DivisionID: document.getElementById('jv-form-division').value,
+      BranchID: document.getElementById('jv-form-branch').value,
+      CostCenterID: document.getElementById('jv-form-costcenter').value,
+      ProfitCenterID: document.getElementById('jv-form-profitcenter').value
+    };
+  }
+
+  function saveDraft() {
+    const error = document.getElementById('jv-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('jv-form-company').value) { error.textContent = 'Select a Company for this entry.'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an account needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allRequiredCostCentersFilled()) { error.textContent = 'Expense, Revenue, and COGS lines require a Cost Center.'; error.classList.remove('hidden'); renderGrid(); return; }
+    // A draft is legitimately allowed to be incomplete/unbalanced work
+    // in progress — show the warning if there's a variance, but don't
+    // block saving it, unlike posting below.
+    checkBalance();
+    const btn = document.getElementById('jv-save-draft-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { isDirty = false; showListView(); }
+        else { error.textContent = result.error || 'Unable to save draft.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.textContent = original;
+        error.textContent = err.message || 'Unable to save draft.'; error.classList.remove('hidden');
+      })
+      .saveJournalDraft(token, collectHeader());
+  }
+
+  // Confirms BEFORE touching the database — previously this saved a draft
+  // first and confirmed second, so clicking Cancel still left a draft
+  // behind (and currentJv was never updated to point at it, so clicking
+  // Post again created ANOTHER new draft rather than reusing it). Now
+  // nothing is written unless the user actually confirms.
+  function postEntry() {
+    const error = document.getElementById('jv-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('jv-form-company').value) { error.textContent = 'Select a Company for this entry.'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an account needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allRequiredCostCentersFilled()) { error.textContent = 'Expense, Revenue, and COGS lines require a Cost Center.'; error.classList.remove('hidden'); renderGrid(); return; }
+    // Posting, unlike saving a draft, must be balanced — this is a hard
+    // stop, not just a warning.
+    if (!checkBalance()) return;
+
+    showConfirm('Post this journal entry?\n\nOnce posted it becomes permanent and can only be undone with a reversing entry.', () => {
+      const btn = document.getElementById('jv-post-btn');
+      btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Posting...';
+      google.script.run
+        .withSuccessHandler(saveResult => {
+          if (!saveResult.success) {
+            btn.disabled = false; btn.innerHTML = original;
+            error.textContent = saveResult.error || 'Unable to save before posting.'; error.classList.remove('hidden');
+            return;
+          }
+          // Track the now-persisted ID so a retry after a post failure
+          // updates this same draft instead of creating a duplicate.
+          if (!currentJv) currentJv = { JVID: saveResult.jvId, Status: 'Draft' };
+          else currentJv.JVID = saveResult.jvId;
+
+          google.script.run
+            .withSuccessHandler(postResult => {
+              btn.disabled = false; btn.innerHTML = original;
+              if (postResult.success) { isDirty = false; showListView(); }
+              else { error.textContent = postResult.error || 'Unable to post entry.'; error.classList.remove('hidden'); }
+            })
+            .withFailureHandler(err => {
+              btn.disabled = false; btn.innerHTML = original;
+              error.textContent = err.message || 'Unable to post entry.'; error.classList.remove('hidden');
+            })
+            .postJournalEntry(token, saveResult.jvId);
+        })
+        .withFailureHandler(err => {
+          btn.disabled = false; btn.innerHTML = original;
+          error.textContent = err.message || 'Unable to save before posting.'; error.classList.remove('hidden');
+        })
+        .saveJournalDraft(token, collectHeader());
+    }, { title: 'Post Journal Entry' });
+  }
+
+  function deleteCurrentDraft() {
+    if (!currentJv) return;
+    showConfirm('Delete this draft journal entry? This cannot be undone.', () => {
+      google.script.run
+        .withSuccessHandler(result => { if (result.success) { isDirty = false; showListView(); } else alert(result.error || 'Unable to delete draft.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
+        .deleteJournalDraft(token, currentJv.JVID);
+    }, { title: 'Delete Draft' });
+  }
+
+  function decide(decision) {
+    const levelNumber = parseInt(document.getElementById('jv-my-approval-banner').dataset.level, 10);
+    const reason = document.getElementById('jv-decision-reason').value.trim();
+    const error = document.getElementById('jv-decision-error');
+    error.classList.add('hidden');
+    if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
+    showConfirm((decision === 'Approved' ? 'Approve' : 'Reject') + ' this journal entry?', () => {
+      google.script.run
+        .withSuccessHandler(result => {
+          if (result.success) { isDirty = false; showListView(); }
+          else { error.textContent = result.error || 'Unable to record decision.'; error.classList.remove('hidden'); }
+        })
+        .withFailureHandler(err => { error.textContent = err.message || 'Unable to record decision.'; error.classList.remove('hidden'); })
+        .decideJournalEntryApproval(token, currentJv.JVID, levelNumber, decision, reason);
+    }, { title: decision === 'Approved' ? 'Approve Entry' : 'Reject Entry' });
+  }
+
+  function reverseCurrentEntry() {
+    if (!currentJv) return;
+    showConfirm('Reverse this posted entry? This creates a new offsetting entry — the original stays on record.', (date) => {
+      google.script.run
+        .withSuccessHandler(result => {
+          if (result.success) { alert('Reversal posted as ' + result.jvNumber + '.'); isDirty = false; showListView(); }
+          else alert(result.error || 'Unable to reverse entry.');
+        })
+        .withFailureHandler(err => alert(err.message || 'Unable to reverse entry.'))
+        .reverseJournalEntry(token, currentJv.JVID, date);
+    }, { title: 'Reverse Entry', needsDate: true, defaultDate: today() });
+  }
+
+  function loadAccountsForDatalist() {
+    google.script.run
+      .withSuccessHandler(result => { accounts = result || []; rebuildAccountDatalist(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load Chart of Accounts.'))
+      .getChartOfAccounts(token);
+  }
+
+  // ---------- DIMENSIONS (Currency / Company / Division / Branch / Cost Center / Profit Center) ----------
+
+  function populateOrgUnitSelect(selectId, type) {
+    const select = document.getElementById(selectId);
+    const previous = select.value;
+    select.innerHTML = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.UnitID;
+        opt.textContent = u.Code + ' — ' + u.Name;
+        select.appendChild(opt);
+      });
+    if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  }
+
+  function populateDimensionDropdowns() {
+    const companySelect = document.getElementById('jv-form-company');
+    const previous = companySelect.value;
+    companySelect.innerHTML = '<option value="">—</option>';
+    companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.CompanyID;
+      opt.textContent = c.LegalName;
+      companySelect.appendChild(opt);
+    });
+    if ([...companySelect.options].some(o => o.value === previous)) companySelect.value = previous;
+
+    // Same source list for the list-view search filter — kept separate
+    // from the entry-form dropdown above (different default option text,
+    // and this one should never be reset by header-form logic).
+    const filterSelect = document.getElementById('jv-company-filter');
+    const previousFilter = filterSelect.value;
+    filterSelect.innerHTML = '<option value="">All Companies</option>';
+    companies.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.CompanyID;
+      opt.textContent = c.LegalName;
+      filterSelect.appendChild(opt);
+    });
+    if ([...filterSelect.options].some(o => o.value === previousFilter)) filterSelect.value = previousFilter;
+
+    populateOrgUnitSelect('jv-form-division', 'Division');
+    populateOrgUnitSelect('jv-form-branch', 'Branch');
+    populateOrgUnitSelect('jv-form-costcenter', 'CostCenter');
+    populateOrgUnitSelect('jv-form-profitcenter', 'ProfitCenter');
+
+    // Line-level Cost/Profit Center dropdowns depend on the same orgUnits
+    // list — refresh the grid too if it's currently visible, so lines don't
+    // sit with empty dropdowns if this data arrived after the grid first drew.
+    if (!document.getElementById('jv-entry-view').classList.contains('hidden')) renderGrid();
+  }
+
+  function loadDimensionReferenceData() {
+    google.script.run
+      .withSuccessHandler(result => { companies = result || []; populateDimensionDropdowns(); })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies(token);
+
+    google.script.run
+      .withSuccessHandler(result => { orgUnits = result || []; populateDimensionDropdowns(); })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        defaultCurrency = result;
+        document.getElementById('jv-form-currency').value = result ? (result.Code + (result.Symbol ? ' (' + result.Symbol + ')' : '')) : 'No default currency set';
+      })
+      .withFailureHandler(err => console.error(err))
+      .getDefaultCurrency(token);
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    google.script.run
+      .withSuccessHandler(perm => {
+        canDraft = Boolean(perm.canDraft);
+        canPost = Boolean(perm.canPost);
+        document.getElementById('jv-new-btn').classList.toggle('hidden', !canDraft);
+        if (canDraft) document.getElementById('jv-new-btn').addEventListener('click', newEntry);
+        renderList();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getModulePermissionsForUser(idToken, 'JV');
+
+    loadAccountsForDatalist();
+    loadDimensionReferenceData();
+
+    document.getElementById('jv-search-input').addEventListener('input', renderList);
+    document.getElementById('jv-company-filter').addEventListener('change', renderList);
+    document.getElementById('jv-status-filter').addEventListener('change', renderList);
+    document.getElementById('jv-from-filter').addEventListener('change', renderList);
+    document.getElementById('jv-to-filter').addEventListener('change', renderList);
+
+    document.getElementById('jv-back-btn').addEventListener('click', goBackToList);
+    document.getElementById('jv-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });
+    document.getElementById('jv-add-line-btn').addEventListener('click', () => {
+      isDirty = true;
+      gridLines.push({ AccountCode: '', Description: currentHeaderDescription(), Debit: '', Credit: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter() });
+      renderGrid();
+    });
+    document.getElementById('jv-paste-btn').addEventListener('click', handlePasteButton);
+    document.getElementById('jv-copy-btn').addEventListener('click', handleCopyButton);
+    document.getElementById('jv-grid-table').addEventListener('paste', handleGridPaste, true);
+    document.getElementById('jv-save-draft-btn').addEventListener('click', saveDraft);
+    document.getElementById('jv-post-btn').addEventListener('click', postEntry);
+    // Fixes a real point of confusion: the header Cost Center/Profit
+    // Center fields are labeled "(line default)", but previously only
+    // ever applied to a NEW line created after the header was set —
+    // any line that already existed at that point (most commonly the
+    // single blank line present when the form first opens) never
+    // picked up a later header change at all. Now, changing either
+    // header field fills in any EXISTING line whose own value is still
+    // empty — never overwrites a line that already has its own,
+    // deliberately-set value, same "fills but never overwrites" rule
+    // used everywhere else in this build.
+    document.getElementById('jv-form-costcenter').addEventListener('change', () => {
+      const headerValue = currentHeaderCostCenter();
+      if (!headerValue) return;
+      gridLines.forEach(line => { if (!line.CostCenterID) line.CostCenterID = headerValue; });
+      renderGrid();
+    });
+    document.getElementById('jv-form-profitcenter').addEventListener('change', () => {
+      const headerValue = currentHeaderProfitCenter();
+      if (!headerValue) return;
+      gridLines.forEach(line => { if (!line.ProfitCenterID) line.ProfitCenterID = headerValue; });
+      renderGrid();
+    });
+    document.getElementById('jv-delete-btn').addEventListener('click', deleteCurrentDraft);
+    document.getElementById('jv-approve-btn').addEventListener('click', () => decide('Approved'));
+    document.getElementById('jv-reject-btn').addEventListener('click', () => decide('Rejected'));
+    document.getElementById('jv-duplicate-btn').addEventListener('click', () => duplicateEntry(currentJv.JVID));
+    document.getElementById('jv-reverse-btn').addEventListener('click', reverseCurrentEntry);
+    document.getElementById('jv-form-company').addEventListener('change', rebuildAccountDatalist);
+    document.getElementById('jv-form-company').addEventListener('change', updatePrintHeader);
+    document.getElementById('jv-desc-edit-btn').addEventListener('click', startDescriptionEdit);
+    document.getElementById('jv-desc-save-btn').addEventListener('click', saveDescriptionEdit);
+    document.getElementById('jv-desc-cancel-btn').addEventListener('click', cancelDescriptionEdit);
+
+    // Marks the entry as having unsaved changes on any edit within it —
+    // used both by the "Back to List" guard here and by the shell's
+    // "Back to Hierarchy" guard (see window.hasUnsavedChanges below).
+    document.getElementById('jv-entry-view').addEventListener('input', () => { isDirty = true; });
+    document.getElementById('jv-entry-view').addEventListener('change', () => { isDirty = true; });
+
+    // Keeps any still-untouched line's Description in sync with the header
+    // Description as the user types it — this is what makes the FIRST line
+    // (created the instant a new entry opens, before the header has been
+    // typed yet) actually pick up the default too, not just lines added
+    // afterward. Only lines with no AccountCode/Debit/Credit yet are
+    // considered "untouched"; anything the user has started filling in is
+    // left alone.
+    document.getElementById('jv-form-description').addEventListener('input', () => {
+      const value = document.getElementById('jv-form-description').value;
+      let changed = false;
+      gridLines.forEach(l => {
+        if (!l.AccountCode && !l.Debit && !l.Credit) { l.Description = value; changed = true; }
+      });
+      if (changed) renderGrid();
+    });
+
+    window.hasUnsavedChanges = function () {
+      return isDirty && !document.getElementById('jv-entry-view').classList.contains('hidden');
+    };
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-invoice"></i> Journal Entry Processing (JV)';
+
+    myReturnChain = window.__pendingReturnChain || [];
+    window.__pendingReturnChain = [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      document.getElementById('jv-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      document.getElementById('jv-back-chain-btn').addEventListener('click', goBackInChain);
+    }
+
+    // If we were opened via a drill-down link (e.g. from a GL Report row),
+    // fetch the FULL list rather than the default recent-100 — the target
+    // entry could be older than that cap — then open it directly instead
+    // of landing on the list view.
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) {
+      pendingOpenEntryId = pending.OpenEntryId;
+      document.getElementById('jv-entry-view').classList.add('hidden');
+      document.getElementById('jv-list-view').classList.remove('hidden');
+      fetchAndRenderList('all');
+    } else {
+      showListView();
+    }
+  };
+})();
+</script>

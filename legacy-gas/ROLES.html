@@ -1,0 +1,224 @@
+<div class="space-y-8">
+  <div class="border-b border-slate-800 pb-4">
+    <div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Admin</div>
+    <h2 class="text-2xl font-bold"><i class="fa-solid fa-user-shield text-blue-500"></i> Roles & Permissions</h2>
+  </div>
+
+  <!-- ROLES -->
+  <div class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-slate-300 uppercase">Roles</h3>
+      <button id="role-add-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Role</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Name</th><th class="py-3 px-4">Description</th><th class="py-3 px-4 text-right">Actions</th>
+          </tr></thead>
+          <tbody id="role-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PERMISSIONS MATRIX -->
+  <div class="space-y-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-semibold text-slate-300 uppercase">Module Permissions</h3>
+        <p class="text-xs text-slate-500 mt-1">Check a box to grant that role the capability for that module. At least one role must always keep write access to Roles & Permissions and User Management.</p>
+      </div>
+      <button id="perm-save-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-floppy-disk"></i> Save Permissions</button>
+    </div>
+    <div id="perm-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Module</th><th class="py-3 px-4">Capability</th><th id="perm-role-headers" class="py-3 px-4"></th>
+          </tr></thead>
+          <tbody id="perm-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="role-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-5">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="role-modal-title" class="text-lg font-bold">Add Role</h3><button id="role-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <form id="role-form" class="space-y-4">
+      <input type="hidden" id="role-form-id">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Name</label><input type="text" id="role-form-name" required placeholder="e.g. AP_CLERK" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Description <span class="text-slate-500">(optional)</span></label><input type="text" id="role-form-description" placeholder="What this role is for" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div id="role-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700"><button type="button" id="role-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button><button type="submit" id="role-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Role</button></div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let roles = [];
+  let modules = [];
+  let permissions = {};
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  function fetchRoles() {
+    google.script.run
+      .withSuccessHandler(result => { roles = result || []; renderRoleTable(); renderPermMatrix(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load roles.'))
+      .getRoles(token);
+  }
+
+  function renderRoleTable() {
+    const tbody = document.getElementById('role-table-body');
+    tbody.innerHTML = '';
+    if (!roles.length) { tbody.innerHTML = '<tr><td colspan="3" class="py-6 text-center text-slate-500">No roles found.</td></tr>'; return; }
+    roles.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(r => {
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      row.innerHTML = `<td class="py-3 px-4 font-medium text-slate-200">${escapeHtml(r.Name)}</td><td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(r.Description || '—')}</td><td class="py-3 px-4 text-right"><button class="role-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button><button class="role-delete text-slate-400 hover:text-red-400 p-1" title="Delete"><i class="fa-solid fa-trash"></i></button></td>`;
+      row.querySelector('.role-edit').addEventListener('click', () => openRoleModal(r.RoleID));
+      row.querySelector('.role-delete').addEventListener('click', () => deleteRole(r.RoleID));
+      tbody.appendChild(row);
+    });
+  }
+
+  function openRoleModal(roleId) {
+    const form = document.getElementById('role-form');
+    form.reset();
+    document.getElementById('role-form-error').classList.add('hidden');
+    if (roleId) {
+      const r = roles.find(item => item.RoleID === roleId);
+      if (!r) return;
+      document.getElementById('role-modal-title').textContent = 'Edit Role';
+      document.getElementById('role-form-id').value = r.RoleID;
+      document.getElementById('role-form-name').value = r.Name;
+      document.getElementById('role-form-description').value = r.Description || '';
+    } else {
+      document.getElementById('role-modal-title').textContent = 'Add Role';
+      document.getElementById('role-form-id').value = '';
+    }
+    document.getElementById('role-modal').classList.remove('hidden');
+  }
+
+  function closeRoleModal() { document.getElementById('role-modal').classList.add('hidden'); }
+
+  function saveRole(event) {
+    event.preventDefault();
+    const data = {
+      RoleID: document.getElementById('role-form-id').value,
+      Name: document.getElementById('role-form-name').value.trim(),
+      Description: document.getElementById('role-form-description').value.trim()
+    };
+    const error = document.getElementById('role-form-error');
+    const btn = document.getElementById('role-save-btn');
+    error.classList.add('hidden');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Role';
+        if (result.success) { closeRoleModal(); fetchRoles(); }
+        else { error.textContent = result.error || 'Unable to save role.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Role';
+        error.textContent = err.message || 'Unable to save role.'; error.classList.remove('hidden');
+      })
+      .saveRole(token, data);
+  }
+
+  function deleteRole(roleId) {
+    if (!confirm('Delete this role? This only works if no user currently has it, and it is not the last role with admin write access.')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) { fetchRoles(); } else alert(result.error || 'Unable to delete role.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to delete role.'))
+      .deleteRole(token, roleId);
+  }
+
+  // ---------- PERMISSIONS MATRIX ----------
+
+  function fetchMatrix() {
+    google.script.run
+      .withSuccessHandler(result => { modules = result.modules || []; permissions = result.permissions || {}; renderPermMatrix(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load permissions.'))
+      .getModulePermissionsMatrix(token);
+  }
+
+  function renderPermMatrix() {
+    if (!modules.length || !roles.length) return;
+
+    const headerRow = document.getElementById('perm-role-headers');
+    headerRow.innerHTML = roles.sort((a, b) => a.Name.localeCompare(b.Name)).map(r => `<span class="inline-block w-20 text-center">${escapeHtml(r.Name)}</span>`).join('');
+
+    const tbody = document.getElementById('perm-table-body');
+    tbody.innerHTML = '';
+
+    modules.forEach(mod => {
+      mod.capabilities.forEach((cap, i) => {
+        const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+        const modCell = i === 0 ? `<td class="py-2 px-4 font-medium text-slate-200 align-top" rowspan="${mod.capabilities.length}">${escapeHtml(mod.label)}</td>` : '';
+        const checks = roles.map(r => {
+          const checked = ((permissions[mod.id] && permissions[mod.id][cap]) || []).includes(r.RoleID);
+          return `<span class="inline-block w-20 text-center"><input type="checkbox" data-module="${mod.id}" data-cap="${cap}" data-role="${r.RoleID}" ${checked ? 'checked' : ''} class="w-4 h-4"></span>`;
+        }).join('');
+        row.innerHTML = `${modCell}<td class="py-2 px-4 text-xs text-slate-400 capitalize">${escapeHtml(cap)}</td><td class="py-2 px-4">${checks}</td>`;
+        tbody.appendChild(row);
+      });
+    });
+  }
+
+  function savePermissions() {
+    const error = document.getElementById('perm-error');
+    error.classList.add('hidden');
+
+    // Rebuild the in-memory permissions object from checkbox state, then
+    // save every module in ONE call — this used to loop module-by-module
+    // with a separate google.script.run round-trip each time, which is
+    // what actually made saving slow once enough modules existed (30+
+    // sequential round-trips). saveAllModulePermissions takes the whole
+    // rebuilt object and writes it in a single Firebase request instead.
+    const rebuilt = {};
+    modules.forEach(mod => { rebuilt[mod.id] = {}; mod.capabilities.forEach(cap => { rebuilt[mod.id][cap] = []; }); });
+    document.querySelectorAll('#perm-table-body input[type="checkbox"]').forEach(cb => {
+      if (cb.checked) rebuilt[cb.getAttribute('data-module')][cb.getAttribute('data-cap')].push(cb.getAttribute('data-role'));
+    });
+
+    const btn = document.getElementById('perm-save-btn');
+    btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Saving...';
+
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = original;
+        if (result.success) { permissions = rebuilt; }
+        else { error.textContent = result.error || 'Unable to save permissions.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = original;
+        error.textContent = err.message || 'Unable to save permissions.'; error.classList.remove('hidden');
+      })
+      .saveAllModulePermissions(token, rebuilt);
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+    document.getElementById('role-add-btn').addEventListener('click', () => openRoleModal());
+    document.getElementById('role-modal-close').addEventListener('click', closeRoleModal);
+    document.getElementById('role-modal-cancel').addEventListener('click', closeRoleModal);
+    document.getElementById('role-form').addEventListener('submit', saveRole);
+    document.getElementById('perm-save-btn').addEventListener('click', savePermissions);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-user-shield"></i> Roles & Permissions';
+    fetchRoles();
+    fetchMatrix();
+  };
+})();
+</script>
