@@ -8,6 +8,10 @@ const L = require('./codegs');
 
 const opts = { region: 'us-central1' };
 
+exports.deactivateAccount = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.deactivateAccount(ctx, d.accountId));
+});
 exports.deactivateCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.deactivateCompany(ctx, d.companyId));
@@ -64,6 +68,10 @@ exports.getUOMs = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.getUOMs(ctx));
 });
+exports.reactivateAccount = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.reactivateAccount(ctx, d.accountId));
+});
 exports.reactivateCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.reactivateCompany(ctx, d.companyId));
@@ -87,6 +95,10 @@ exports.reactivateOrgUnit = onCallWithMessages(opts, (request) => {
 exports.reactivateUOM = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   return run(request, (ctx) => L.reactivateUOM(ctx, d.uomId));
+});
+exports.saveAccount = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  return run(request, (ctx) => L.saveAccount(ctx, d.accountData));
 });
 exports.saveCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

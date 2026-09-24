@@ -264,7 +264,7 @@ closure, and emits them VERBATIM (original comments included) into
 | COMPANYMASTER | ✅ | ✅ |
 | CURRENCYCONFIG | ✅ | ✅ |
 | ITEMMASTER | ✅ | **not yet** |
-| COA | — | — |
+| COA | ✅ | **not yet** |
 | VENDORMASTER | — | — |
 | CUSTOMERMASTER | — | — |
 | PRICELISTING | — | — |
@@ -301,12 +301,12 @@ closure, and emits them VERBATIM (original comments included) into
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** COA
+**Next module to port:** VENDORMASTER
 
-**Committed but NOT yet deployed** (ITEMMASTER) — deploy these 6 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (ITEMMASTER, COA) — deploy these 9 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment deactivateItem getActiveItemSubCategories getItems reactivateItem saveItem
+getModuleFragment deactivateAccount deactivateItem getActiveItemSubCategories getItems reactivateAccount reactivateItem saveAccount saveItem
 ```
 <!-- PORT-STATUS:end -->
 

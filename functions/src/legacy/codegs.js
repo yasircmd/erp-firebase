@@ -117,6 +117,12 @@ const ITEM_CATEGORY_PREFIXES = {
 };
 
 // ---- functions ----
+async function requireModuleWrite_(idToken, user, moduleId) {
+  if (!(await moduleHasCapability_(idToken, moduleId, 'write', user.profile.role))) {
+    throw new Error('You do not have permission to modify ' + moduleId + '.');
+  }
+}
+
 async function getCoaData_(idToken) {
   return (await firebaseDbRequest_('coa', 'get', null, idToken)) || {};
 }
@@ -155,6 +161,107 @@ async function ensureSubCategoriesSeeded_(idToken, existing) {
   return existing;
 }
 
+// Three levels supported: a top-level header (e.g. 220000), an optional
+// non-postable SUB-PARENT directly beneath one header (e.g. 221000 —
+// digit 3 becomes 1-9, distinguishing it from ordinary leaves), and
+// postable leaves under either a header directly (0001-0999, digit 3
+// stays 0) or under a sub-parent (221001, 221002, ... — the sub-parent's
+// own 4 digits plus a 3-digit sequence). The numbering scheme has no
+// room for a further level beneath a sub-parent — see the error thrown
+// in that branch below.
+function generateAccountCode_(accountType, parentAccountId, existingAccounts, isPostable) {
+  const config = ACCOUNT_TYPE_CONFIG[accountType];
+  if (!config) throw new Error('Unknown account type: ' + accountType);
+  const categoryDigit = config.digit;
+
+  if (!parentAccountId) {
+    const used = new Set();
+    Object.values(existingAccounts).forEach(a => {
+      const code = String(a.AccountCode || '');
+      if (code.charAt(0) === categoryDigit && !a.ParentAccountID) {
+        used.add(code.charAt(1));
+      }
+    });
+    for (let d = 0; d <= 9; d++) {
+      if (!used.has(String(d))) {
+        return categoryDigit + String(d) + '0000';
+      }
+    }
+    throw new Error('All 10 sub-category slots for this account type are used.');
+  }
+
+  const parent = existingAccounts[parentAccountId];
+  if (!parent) throw new Error('Parent account not found.');
+  if (parent.IsPostable === true) {
+    throw new Error('Parent account must be a non-postable header or sub-parent.');
+  }
+
+  const parentCode = String(parent.AccountCode || '');
+
+  // Parent is a top-level header (e.g. 220000).
+  if (/^\d{2}0000$/.test(parentCode)) {
+    const prefix = parentCode.substring(0, 2);
+
+    if (!isPostable) {
+      // Creating a SUB-PARENT under this header — takes the next
+      // available "thousand slot" (221000, 222000, ... 229000), kept
+      // visually distinct from ordinary leaves (which stay in the
+      // 0001-0999 range directly under the header, digit 3 fixed at 0).
+      const usedSlots = new Set();
+      Object.values(existingAccounts).forEach(a => {
+        const code = String(a.AccountCode || '');
+        if (code.substring(0, 2) === prefix && /^\d{2}[1-9]000$/.test(code)) {
+          usedSlots.add(code.charAt(2));
+        }
+      });
+      for (let d = 1; d <= 9; d++) {
+        if (!usedSlots.has(String(d))) {
+          return prefix + String(d) + '000';
+        }
+      }
+      throw new Error('All 9 sub-parent slots under this header are used.');
+    }
+
+    // Ordinary postable leaf directly under the header — digit 3 stays 0,
+    // sequence runs 0001-0999 (capped below 1000 so it can never collide
+    // with the X1000-X9000 sub-parent slots above).
+    let maxSeq = 0;
+    Object.values(existingAccounts).forEach(a => {
+      const code = String(a.AccountCode || '');
+      if (code.substring(0, 2) === prefix && /^\d{2}0\d{3}$/.test(code)) {
+        const seq = parseInt(code.substring(3), 10);
+        if (!isNaN(seq)) maxSeq = Math.max(maxSeq, seq);
+      }
+    });
+    const nextSeq = maxSeq + 1;
+    if (nextSeq > 999) throw new Error('This header has reached its maximum of 999 directly-postable accounts — consider grouping further accounts under a sub-parent.');
+    return prefix + '0' + String(nextSeq).padStart(3, '0');
+  }
+
+  // Parent is a sub-parent (e.g. 221000) — its children are always
+  // postable leaves; the 6-digit scheme has no digits left for a further
+  // level beneath this one.
+  if (/^\d{2}[1-9]000$/.test(parentCode)) {
+    if (!isPostable) {
+      throw new Error('A sub-parent cannot itself have another sub-parent — only one level of grouping is supported beneath a header.');
+    }
+    const prefix = parentCode.substring(0, 3);
+    let maxSeq = 0;
+    Object.values(existingAccounts).forEach(a => {
+      const code = String(a.AccountCode || '');
+      if (code.substring(0, 3) === prefix && code !== parentCode) {
+        const seq = parseInt(code.substring(3), 10);
+        if (!isNaN(seq)) maxSeq = Math.max(maxSeq, seq);
+      }
+    });
+    const nextSeq = maxSeq + 1;
+    if (nextSeq > 999) throw new Error('This sub-parent has reached its maximum of 999 accounts.');
+    return prefix + String(nextSeq).padStart(3, '0');
+  }
+
+  throw new Error('New accounts can only be created under a top-level header or a sub-parent beneath one.');
+}
+
 async function getChartOfAccounts(idToken) {
   const user = await requireUser_(idToken);
 
@@ -167,6 +274,189 @@ async function getChartOfAccounts(idToken) {
   return Object.keys(data)
     .map(id => Object.assign({ AccountID: id }, data[id]))
     .filter(a => userCanAccessCompany_(user.profile, a.CompanyID));
+}
+
+async function saveAccount(idToken, accountData) {
+  const user = await requireUser_(idToken);
+
+  try {
+    await requireModuleWrite_(idToken, user, 'COA');
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    const accountId = String(accountData.AccountID || '').trim();
+    const accountName = String(accountData.AccountName || '').trim();
+    const accountSubType = String(accountData.AccountSubType || '').trim();
+    const parentAccountId = String(accountData.ParentAccountID || '').trim();
+    const isPostable = accountData.IsPostable === true || accountData.IsPostable === 'true';
+    const companyId = String(accountData.CompanyID || '').trim();
+    if (companyId && !userCanAccessCompany_(user.profile, companyId)) {
+      throw new Error('You do not have access to that company.');
+    }
+    // Cash Flow Category can only ever be set on a non-postable (header)
+    // account — postable leaf accounts always inherit it from their parent
+    // at report time (see resolveCashFlowCategory_), so no value is ever
+    // stored directly on a leaf, even if one was sent.
+    const cashFlowCategory = isPostable ? '' : String(accountData.CashFlowCategory || '').trim();
+    const status = String(accountData.Status || 'Active').trim();
+
+    if (cashFlowCategory && !['Operating', 'Investing', 'Financing'].includes(cashFlowCategory)) {
+      throw new Error('Cash Flow Category must be Operating, Investing, or Financing.');
+    }
+
+    if (!accountName) {
+      throw new Error('Account name is required.');
+    }
+
+    const existing = await getCoaData_(idToken);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    if (!accountId) {
+      const accountType = String(accountData.AccountType || '').trim();
+      if (!ACCOUNT_TYPE_CONFIG[accountType]) {
+        throw new Error('Account type must be one of: Asset, Liability, Equity, Revenue, COGS, Expense.');
+      }
+
+      if (parentAccountId) {
+        const parent = existing[parentAccountId];
+        if (!parent) throw new Error('Parent account not found.');
+        if (parent.AccountType !== accountType) {
+          throw new Error('Parent account must be the same account type.');
+        }
+        if (parent.CompanyID && parent.CompanyID !== companyId) {
+          throw new Error('Parent account is restricted to a specific company; this account must belong to the same company.');
+        }
+      }
+
+      const code = generateAccountCode_(accountType, parentAccountId || null, existing, isPostable);
+      const newId = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase();
+
+      const record = {
+        AccountCode: code,
+        AccountName: accountName,
+        AccountType: accountType,
+        AccountSubType: accountSubType,
+        NormalBalance: ACCOUNT_TYPE_CONFIG[accountType].normalBalance,
+        ParentAccountID: parentAccountId,
+        IsPostable: isPostable,
+        CompanyID: companyId,
+        CashFlowCategory: cashFlowCategory,
+        Status: status,
+        CreatedAt: now, CreatedBy: actor,
+        UpdatedAt: now, UpdatedBy: actor
+      };
+
+      await firebaseDbRequest_('coa/' + newId, 'put', record, idToken);
+      return { success: true, accountId: newId, accountCode: code };
+    }
+
+    const current = existing[accountId];
+    if (!current) throw new Error('Account not found.');
+
+    if (parentAccountId) {
+      if (parentAccountId === accountId) throw new Error('An account cannot be its own parent.');
+      const parent = existing[parentAccountId];
+      if (!parent) throw new Error('Parent account not found.');
+      if (parent.AccountType !== current.AccountType) {
+        throw new Error('Parent account must be the same account type.');
+      }
+      if (parent.CompanyID && parent.CompanyID !== companyId) {
+        throw new Error('Parent account is restricted to a specific company; this account must belong to the same company.');
+      }
+    }
+
+    const hasChildren = Object.keys(existing).some(id => existing[id].ParentAccountID === accountId);
+    if (hasChildren && isPostable) {
+      throw new Error('This account has child accounts and cannot be marked postable.');
+    }
+
+    // If this becomes company-restricted (or changes company), any existing
+    // children must already match — otherwise they'd be orphaned into an
+    // inconsistent scope.
+    if (companyId) {
+      const mismatchedChild = Object.keys(existing).some(id =>
+        existing[id].ParentAccountID === accountId && existing[id].CompanyID && existing[id].CompanyID !== companyId
+      );
+      if (mismatchedChild) {
+        throw new Error('This account has child accounts belonging to a different company. Reassign them first.');
+      }
+    }
+
+    const record = {
+      AccountCode: current.AccountCode,
+      AccountName: accountName,
+      AccountType: current.AccountType,
+      AccountSubType: accountSubType,
+      NormalBalance: current.NormalBalance,
+      ParentAccountID: parentAccountId,
+      IsPostable: isPostable,
+      CompanyID: companyId,
+      CashFlowCategory: cashFlowCategory,
+      Status: status,
+      CreatedAt: current.CreatedAt, CreatedBy: current.CreatedBy,
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    await firebaseDbRequest_('coa/' + accountId, 'put', record, idToken);
+    return { success: true, accountId: accountId, accountCode: current.AccountCode };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+async function deactivateAccount(idToken, accountId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireModuleWrite_(idToken, user, 'COA');
+
+    const existing = await getCoaData_(idToken);
+    if (!existing[accountId]) throw new Error('Account not found.');
+
+    const hasActiveChildren = Object.keys(existing).some(id =>
+      existing[id].ParentAccountID === accountId && existing[id].Status === 'Active'
+    );
+    if (hasActiveChildren) {
+      throw new Error('Deactivate or reassign this account\'s child accounts first.');
+    }
+
+    await firebaseDbRequest_('coa/' + accountId, 'patch', {
+      Status: 'Inactive',
+      UpdatedAt: new Date().toISOString(),
+      UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function reactivateAccount(idToken, accountId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireModuleWrite_(idToken, user, 'COA');
+
+    const existing = await getCoaData_(idToken);
+    if (!existing[accountId]) throw new Error('Account not found.');
+
+    await firebaseDbRequest_('coa/' + accountId, 'patch', {
+      Status: 'Active',
+      UpdatedAt: new Date().toISOString(),
+      UpdatedBy: user.profile.username || user.uid
+    }, idToken);
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 // Every company needs a short numeric reference code (2 digits, unique)
@@ -1026,9 +1316,14 @@ async function reactivateItem(idToken, itemId) {
 }
 
 module.exports = {
+  requireModuleWrite_,
   getCoaData_,
   ensureSubCategoriesSeeded_,
+  generateAccountCode_,
   getChartOfAccounts,
+  saveAccount,
+  deactivateAccount,
+  reactivateAccount,
   ensureCompanyRefCodesSeeded_,
   getCompanies,
   saveCompany,
