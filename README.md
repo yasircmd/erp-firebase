@@ -335,6 +335,12 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   account's company restriction. Unlike Delivery Note, a commit failure
   at approval time is rolled back to Rejected (the GAS code already did
   this here and for Customer Invoice). As in GAS.
+- Customer Invoice: same draft edit/delete company gap as Vendor
+  Invoice. A DN's billed amount is its lines' `Quantity × UnitPrice`
+  (the SO price locked at delivery). All DN revenue on one invoice posts
+  to the header Cost Center, not each DN line's own. Sales Types are
+  checked against the customer's classification only when the type is
+  restricted. As in GAS.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -544,6 +550,24 @@ report). Each has a test that fails against the original logic.
 
    **Both are live in the current Apps Script system.**
    (`grnGuards` suite.)
+16. **One delivery could be billed twice** (`commitCustomerInvoicePosting_`).
+   This is the customer-side twin of #14. The "already matched" check on
+   a source Delivery Note ran only at draft save, so two drafts built
+   from the same delivery both posted, doubling AR and revenue. A
+   delivery reversed after the draft was saved (goods returned) could
+   also be billed, and so could a Delivery Note reversal entry itself,
+   which is a Posted Delivery Note for the same customer. Every source
+   DN is now re-checked at commit. **Live in the current Apps Script
+   system.** Check for two posted, unreversed Customer Invoices listing
+   the same DN, or any invoice listing a reversed DN or a reversal
+   entry. (`customerInvoice` suite.)
+17. **Both invoice pickers offered reversed documents and reversal
+   entries** (`getEligibleGRNsForInvoice`,
+   `getEligibleDeliveryNotesForInvoice`). A GRN or Delivery Note reversal
+   is stored as another Posted document of the same type, and neither
+   picker excluded those or the documents they reversed. They're now left
+   out; the commit re-checks (#14, #16) refuse them anyway.
+   (`customerInvoice` suite.)
 
 Port-runtime fix (not a Code.gs deviation): `runtime.js` used
 `admin.firestore.FieldPath`, which isn't a constructor in this
@@ -597,15 +621,15 @@ primitive's REST semantics directly.
 | JV | ✅ | **not yet** |
 | CBT | ✅ | **not yet** |
 | VENDORINVOICE | ✅ | **not yet** |
-| CUSTOMERINVOICE | — | — |
+| CUSTOMERINVOICE | ✅ | **not yet** |
 | DATARESET | — | — |
 
-**Next module to port:** CUSTOMERINVOICE
+**Next module to port:** DATARESET
 
-**Committed but NOT yet deployed** (JV, CBT, VENDORINVOICE) — deploy these 18 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (JV, CBT, VENDORINVOICE, CUSTOMERINVOICE) — deploy these 27 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment decideJournalEntryApproval decideVendorInvoiceApproval decideVendorInvoiceReversalApproval deleteJournalDraft deleteVendorInvoiceDraft getCbtEntries getDefaultCurrency getEligibleGRNsForInvoice getJournalEntries getVendorInvoiceEntries postJournalEntry postVendorInvoice requestReverseVendorInvoice reverseJournalEntry saveCbtDraft saveJournalDraft saveVendorInvoiceDraft
+getModuleFragment decideCustomerInvoiceApproval decideCustomerInvoiceReversalApproval decideJournalEntryApproval decideVendorInvoiceApproval decideVendorInvoiceReversalApproval deleteCustomerInvoiceDraft deleteJournalDraft deleteVendorInvoiceDraft getActiveSalesTypes getCbtEntries getCustomerInvoiceEntries getDefaultCurrency getEligibleDeliveryNotesForInvoice getEligibleGRNsForInvoice getJournalEntries getVendorInvoiceEntries postCustomerInvoice postJournalEntry postVendorInvoice requestReverseCustomerInvoice requestReverseVendorInvoice reverseJournalEntry saveCbtDraft saveCustomerInvoiceDraft saveJournalDraft saveVendorInvoiceDraft
 ```
 <!-- PORT-STATUS:end -->
 

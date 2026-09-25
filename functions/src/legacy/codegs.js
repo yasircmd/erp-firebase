@@ -3848,7 +3848,8 @@ async function getEligibleGRNsForInvoice(idToken, companyId, vendorId) {
   const data = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
   return Object.keys(data)
     .map(id => Object.assign({ GRNID: id }, data[id]))
-    .filter(g => g.TransactionType === 'GRN' && g.Status === 'Posted' && g.CompanyID === companyId && g.VendorID === vendorId && !g.MatchedToInvoiceID)
+    // [PORT FIX invoice-pickers-skip-reversals] reversed GRNs and reversal entries aren't invoiceable.
+    .filter(g => g.TransactionType === 'GRN' && g.Status === 'Posted' && g.CompanyID === companyId && g.VendorID === vendorId && !g.MatchedToInvoiceID && !g.ReversedByGRN && !g.ReversalOfGRN)
     .map(g => ({
       GRNID: g.GRNID, GRNNumber: g.TransactionNumber, TransactionDate: g.TransactionDate,
       Description: g.Description,
@@ -4388,6 +4389,740 @@ async function decideVendorInvoiceReversalApproval(idToken, invoiceId, levelNumb
     }
     if (result.status === 'Rejected') {
       await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', {
+        Status: 'Posted', ReversalApprovalInstanceID: '', PendingReversalDate: '',
+        ReversalRejectionReason: String(reason || '').trim(), UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'Rejected' };
+    }
+    return { success: true, status: result.status };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// ============================================================
+// CUSTOMER INVOICE PROCESSING — AR's counterpart to Vendor Invoice
+// ============================================================
+// Matches a Customer's Posted, not-yet-invoiced Delivery Notes (whole
+// Delivery Notes, mirroring Vendor Invoice's own whole-GRN picker —
+// not line-level, unlike Delivery Note's own line-level SO picker)
+// against a manually entered Discount, Tax %, and Round Off, plus
+// optional direct (non-delivery) lines for charges never shipped at
+// all (installation, consulting). Delivery Note's own UnitPrice is
+// already locked to the Sales Order's own price at delivery time, so
+// there's no price disagreement possible here either — same reasoning
+// as Vendor Invoice's own GRN-sourced lines.
+//
+// GL shape — mirrors Vendor Invoice's structure, but genuinely
+// different in one place, not just relabelled: revenue is resolved by
+// SALES TYPE, not by item. Each Sales Type (Local Sales, Export Sales,
+// RM Sales, Service Invoice, etc. — managed in Sales Invoice
+// Configuration) maps to its own Revenue account, since the SAME item
+// sold locally vs. exported often needs to post to a different
+// account for tax reconciliation — something a fixed per-item field
+// couldn't represent. Sales Types can genuinely mix within one
+// invoice (confirmed: an Export Sales invoice can still carry a
+// Local-flavored direct line like freight), so each Delivery Note and
+// each direct line carries its OWN required Sales Type — no default —
+// rather than one choice for the whole invoice. A Sales Type may
+// optionally be restricted to one Customer Classification (e.g.
+// "Export Sales" restricted to "Export" customers only); enforced at
+// save time via resolveAndValidateSalesType_, not just suggested.
+//
+//   Dr Accounts Receivable (customer's own TradeReceivablesAccountID)
+//   Cr Revenue (per Sales Type's own mapped account — aggregated, so
+//     several lines sharing one Sales Type still produce one credit)
+//   Cr Revenue (direct lines' own Sales Type, same aggregation — a
+//     direct line here is additional billing, not an expense the way
+//     Vendor Invoice's own direct lines are)
+//   Dr Discount Given (if any — company account, mirrors Discount
+//     Received but the opposite side, since giving a discount reduces
+//     what we're owed rather than what we owe)
+//   Cr Output Tax (if any — company account, a liability we now owe
+//     the tax authority, mirroring Input Tax's opposite role as a
+//     receivable)
+//   Dr OR Cr Round Off — THE SIGN CONVENTION FLIPS from Vendor
+//     Invoice's own: AP sits on the credit side there, so a positive
+//     round-off (owing slightly more) debits Round Off to balance.
+//     Here AR sits on the DEBIT side, so a positive round-off
+//     (owed slightly more) needs to CREDIT Round Off instead, to
+//     balance against the larger AR debit. Proven with a direct
+//     balance test, not just mirrored blind.
+//
+// Storage: /customerInvoices/{id}, using the SAME commit-marker safety
+// pattern as Vendor Invoice — collectionPath is 'customerInvoices'
+// throughout, not the default 'stock/transactions'.
+
+async function getCustomerInvoiceEntries(idToken, limit) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'CUSTOMERINVOICE', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Customer Invoice Processing.');
+  }
+  const data = (await firebaseDbRequest_('customerInvoices', 'get', null, idToken)) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ CustomerInvoiceID: id }, data[id]))
+    .filter(inv => userCanAccessCompany_(user.profile, inv.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const useAll = limit === 'all';
+  const capped = useAll ? all : all.slice(0, 100);
+  return { entries: capped, total: all.length };
+}
+
+// Posted Delivery Notes for the given company AND customer, not
+// already matched to any invoice. Customer is required, same
+// reasoning as Delivery Note's own single-customer-per-document rule
+// — an invoice belongs to exactly one customer, and every Delivery
+// Note it can possibly match against already carries its own
+// CustomerID.
+async function getEligibleDeliveryNotesForInvoice(idToken, companyId, customerId) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'CUSTOMERINVOICE', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Customer Invoice Processing.');
+  }
+  if (!companyId || !customerId) return [];
+
+  const data = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ DeliveryNoteID: id }, data[id]))
+    // [PORT FIX invoice-pickers-skip-reversals] reversed deliveries and reversal entries aren't invoiceable.
+    .filter(dn => dn.TransactionType === 'DeliveryNote' && dn.Status === 'Posted' && dn.CompanyID === companyId && dn.CustomerID === customerId && !dn.MatchedToInvoiceID && !dn.ReversedByDeliveryNoteID && !dn.ReversalOfDeliveryNoteID)
+    .map(dn => ({
+      DeliveryNoteID: dn.DeliveryNoteID, DeliveryNoteNumber: dn.TransactionNumber, TransactionDate: dn.TransactionDate,
+      Description: dn.Description,
+      Amount: (dn.Lines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0), 0)
+    }));
+}
+
+async function deleteCustomerInvoiceDraft(idToken, invoiceId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'CUSTOMERINVOICE');
+    const existing = await firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken);
+    if (!existing) throw new Error('Customer Invoice not found.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft Customer Invoice can be deleted.');
+    await firebaseDbRequest_('customerInvoices/' + invoiceId, 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Shared by saveCustomerInvoiceDraft, commitCustomerInvoicePosting_ and
+// executeCustomerInvoiceReversal_ — resolves a chosen Sales Type,
+// confirms it's active, and if it's restricted to a specific Customer
+// Classification, confirms the invoice's own customer actually holds
+// that classification. customerClassificationName is the customer's
+// own stored Classification (a NAME string, matching
+// saveCustomer's own storage), resolved to a ClassificationID here the
+// same backward-compatible way saveCustomer itself resolves it, so a
+// customer classified under either the current managed list or an
+// old pre-migration plain string is handled identically.
+async function resolveAndValidateSalesType_(idToken, salesTypeId, customerClassificationName, label) {
+  const id = String(salesTypeId || '').trim();
+  if (!id) throw new Error(label + ': a Sales Type is required.');
+  const salesTypeData = await firebaseDbRequest_('salesTypes/' + id, 'get', null, idToken);
+  if (!salesTypeData || salesTypeData.Status !== 'Active') throw new Error(label + ': unknown or inactive Sales Type.');
+
+  if (salesTypeData.RestrictedToClassificationID) {
+    let classificationData = (await firebaseDbRequest_('customerClassifications', 'get', null, idToken)) || {};
+    classificationData = await ensureCustomerClassificationsSeeded_(idToken, classificationData);
+    const customerClassification = classificationData[customerClassificationName]
+      || Object.values(classificationData).find(c => c.Name === customerClassificationName);
+    const restrictionClassification = classificationData[salesTypeData.RestrictedToClassificationID];
+    const customerClassificationId = customerClassification
+      ? Object.keys(classificationData).find(cid => classificationData[cid] === customerClassification)
+      : null;
+    if (customerClassificationId !== salesTypeData.RestrictedToClassificationID) {
+      throw new Error(label + ': Sales Type "' + salesTypeData.Name + '" is restricted to ' +
+        (restrictionClassification ? restrictionClassification.Name : 'a different') +
+        ' customers — this customer is classified as ' + (customerClassificationName || 'unset') + '.');
+    }
+  }
+
+  return Object.assign({ SalesTypeID: id }, salesTypeData);
+}
+
+async function saveCustomerInvoiceDraft(idToken, invoiceData) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'CUSTOMERINVOICE');
+
+    const invoiceId = String(invoiceData.CustomerInvoiceID || '').trim();
+    const invoiceDate = String(invoiceData.InvoiceDate || '').trim();
+    if (!invoiceDate) throw new Error('Invoice date is required.');
+    const description = String(invoiceData.Description || '').trim();
+    if (!description) throw new Error('Description is required.');
+    const companyId = String(invoiceData.CompanyID || '').trim();
+    if (!companyId) throw new Error('Select a Company for this invoice.');
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    const customerId = String(invoiceData.CustomerID || '').trim();
+    if (!customerId) throw new Error('Select a Customer for this invoice.');
+    const customerData = await firebaseDbRequest_('customers/' + customerId, 'get', null, idToken);
+    if (!customerData || customerData.Status !== 'Active') throw new Error('Unknown or inactive Customer.');
+
+    const divisionId = String(invoiceData.DivisionID || '').trim();
+    const branchId = String(invoiceData.BranchID || '').trim();
+    const costCenterId = String(invoiceData.CostCenterID || '').trim();
+    const profitCenterId = String(invoiceData.ProfitCenterID || '').trim();
+
+    // Source Delivery Notes — each must be Posted, same Company AND
+    // Customer as this invoice, and not already matched to a
+    // DIFFERENT invoice (matched to THIS SAME draft, on a re-save, is
+    // fine). Each carries its OWN required Sales Type — no default,
+    // and validated against the customer's own Classification via
+    // resolveAndValidateSalesType_ — since Sales Types can genuinely
+    // mix within one invoice (confirmed: an Export Sales invoice can
+    // still carry a Local-flavored direct line like freight, or vice
+    // versa), each Delivery Note (and each direct line, below) is
+    // tagged independently rather than the invoice as a whole. Each
+    // line's own item/quantity/price is still carried through for
+    // audit/display purposes, even though revenue GL posting itself no
+    // longer needs it — see commitCustomerInvoicePosting_'s own
+    // section comment for why.
+    const rawDNs = invoiceData.SourceDeliveryNotes || [];
+    const dnCache = {};
+    async function loadDN_(dnId) {
+      if (!dnCache.hasOwnProperty(dnId)) dnCache[dnId] = await firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
+      return dnCache[dnId];
+    }
+    const sourceDeliveryNotes = await seq.map(rawDNs, async (d, idx) => {
+      const dnId = String(d.DeliveryNoteID || '').trim();
+      if (!dnId) throw new Error('Source Delivery Note ' + (idx + 1) + ': missing ID.');
+      const dn = await loadDN_(dnId);
+      if (!dn || dn.TransactionType !== 'DeliveryNote' || dn.Status !== 'Posted') {
+        throw new Error('Source Delivery Note ' + (idx + 1) + ': not found or not Posted.');
+      }
+      if (dn.CompanyID !== companyId) throw new Error('Source Delivery Note ' + (idx + 1) + ': belongs to a different Company.');
+      if (dn.CustomerID !== customerId) throw new Error('Source Delivery Note ' + (idx + 1) + ': belongs to a different Customer — an invoice can only draw from one Customer\'s Delivery Notes.');
+      if (dn.MatchedToInvoiceID && dn.MatchedToInvoiceID !== invoiceId) {
+        throw new Error('Source Delivery Note ' + (idx + 1) + ' (' + (dn.TransactionNumber || dnId) + ') is already matched to a different invoice.');
+      }
+      const salesType = await resolveAndValidateSalesType_(idToken, d.SalesTypeID, customerData.Classification, 'Source Delivery Note ' + (idx + 1) + ' (' + (dn.TransactionNumber || dnId) + ')');
+      const lines = (dn.Lines || []).map(l => ({ ItemCode: l.ItemCode, Quantity: Number(l.Quantity) || 0, UnitPrice: Number(l.UnitPrice) || 0, CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '' }));
+      const amount = lines.reduce((sum, l) => sum + l.Quantity * l.UnitPrice, 0);
+      return { DeliveryNoteID: dnId, DeliveryNoteNumber: dn.TransactionNumber || '', SalesTypeID: salesType.SalesTypeID, Amount: Math.round(amount * 100) / 100, Lines: lines };
+    });
+
+    // Direct lines — non-delivery charges (installation, consulting).
+    // Each is always a CREDIT to its own account — additional billing,
+    // not an expense, the opposite role Vendor Invoice's own direct
+    // lines play. Each also carries its OWN required Sales Type, same
+    // as a Delivery Note above — e.g. a freight charge added to an
+    // otherwise Export Sales invoice might reasonably be tagged with a
+    // different Sales Type of its own.
+    const coaData = await getCoaData_(idToken);
+    const rawDirectLines = (invoiceData.DirectLines || []).filter(l => String(l.AccountCode || '').trim());
+    const directLines = await seq.map(rawDirectLines, async (l, idx) => {
+      const accountCode = String(l.AccountCode || '').trim();
+      const account = Object.values(coaData).find(a => a.AccountCode === accountCode);
+      if (!account || !account.IsPostable || account.Status !== 'Active') {
+        throw new Error('Direct line ' + (idx + 1) + ': unknown or non-postable account.');
+      }
+      const amount = Number(l.Amount);
+      if (!(amount > 0)) throw new Error('Direct line ' + (idx + 1) + ': amount must be greater than zero.');
+      const lineDescription = String(l.Description || '').trim();
+      if (!lineDescription) throw new Error('Direct line ' + (idx + 1) + ': description is required.');
+      const salesType = await resolveAndValidateSalesType_(idToken, l.SalesTypeID, customerData.Classification, 'Direct line ' + (idx + 1));
+      return {
+        AccountCode: accountCode, Description: lineDescription, Amount: Math.round(amount * 100) / 100,
+        SalesTypeID: salesType.SalesTypeID,
+        CostCenterID: String(l.CostCenterID || '').trim(), ProfitCenterID: String(l.ProfitCenterID || '').trim()
+      };
+    });
+
+    if (!sourceDeliveryNotes.length && !directLines.length) {
+      throw new Error('Add at least one Delivery Note or one direct line.');
+    }
+
+    // Cost Center is required somewhere for the Revenue side of every
+    // line — either the line's own (Direct Lines only expose this),
+    // or the header's own as a fallback — same reasoning and same
+    // wording as Delivery Note's own established pattern: Revenue is
+    // one of the account types that always triggers the
+    // Cost-Center-required rule, so catching a missing one clearly
+    // here, at save time, is better than letting it surface as a
+    // cryptic account-code error deep in GL posting at commit time.
+    if (sourceDeliveryNotes.length && !costCenterId) {
+      throw new Error('A Cost Center is required (set the header default) — every Delivery Note-sourced line posts to a Revenue account, which always needs one.');
+    }
+    directLines.forEach((l, idx) => {
+      if (!l.CostCenterID && !costCenterId) {
+        throw new Error('Direct line ' + (idx + 1) + ': Cost Center is required — set one on this line or as the header default.');
+      }
+    });
+
+    const discount = Number(invoiceData.Discount) || 0;
+    if (discount < 0) throw new Error('Discount cannot be negative.');
+    const taxPercent = Number(invoiceData.TaxPercent) || 0;
+    if (taxPercent < 0) throw new Error('Tax % cannot be negative.');
+    const roundOff = Number(invoiceData.RoundOff) || 0;
+
+    const dnSubtotal = sourceDeliveryNotes.reduce((sum, d) => sum + d.Amount, 0);
+    const directTotal = directLines.reduce((sum, l) => sum + l.Amount, 0);
+    const subtotal = Math.round((dnSubtotal + directTotal) * 100) / 100;
+    if (discount > subtotal) throw new Error('Discount cannot exceed the invoice subtotal.');
+    // Tax computed on the NET of discount, same confirmed formula as
+    // Vendor Invoice's own.
+    const taxAmount = Math.round(((subtotal - discount) * taxPercent / 100) * 100) / 100;
+    const total = Math.round((subtotal - discount + taxAmount + roundOff) * 100) / 100;
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const fields = {
+      TransactionType: 'CustomerInvoice',
+      InvoiceDate: invoiceDate, Description: description,
+      CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
+      CostCenterID: costCenterId, ProfitCenterID: profitCenterId, CustomerID: customerId,
+      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
+      Discount: discount, TaxPercent: taxPercent, TaxAmount: taxAmount, RoundOff: roundOff,
+      Subtotal: subtotal, Total: total,
+      Status: 'Draft',
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    if (invoiceId) {
+      const existing = await firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken);
+      if (!existing) throw new Error('Customer Invoice not found.');
+      if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected invoices can be edited.');
+      await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', fields, idToken);
+      return { success: true, invoiceId: invoiceId };
+    }
+
+    const newId = 'CINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('customerInvoices/' + newId, 'put', Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }), idToken);
+    return { success: true, invoiceId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function postCustomerInvoice(idToken, invoiceId) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    const existing = await firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken);
+    if (!existing) throw new Error('Customer Invoice not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requirePostAccess_(idToken, user, 'CUSTOMERINVOICE');
+    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected invoices can be posted.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'CUSTOMERINVOICE', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const approval = await beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, '', scopeKey, existing.Total, user.uid);
+
+    if (approval.required) {
+      await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', {
+        Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
+        RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'PendingApproval' };
+    }
+
+    const result = await commitCustomerInvoicePosting_(idToken, user, existing, invoiceId);
+    return { success: true, invoiceId: invoiceId, invoiceNumber: result.invoiceNumber, status: 'Posted' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// Caller MUST already hold LockService.getScriptLock().
+async function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId) {
+  // [PORT FIX customer-invoice-recheck-dns-at-post] the draft-time Delivery Note checks can be stale by now.
+  for (const d of (existing.SourceDeliveryNotes || [])) {
+    const dn = await firebaseDbRequest_('stock/transactions/' + d.DeliveryNoteID, 'get', null, idToken);
+    const label = d.DeliveryNoteNumber || d.DeliveryNoteID;
+    if (!dn || dn.TransactionType !== 'DeliveryNote' || dn.Status !== 'Posted' || dn.ReversedByDeliveryNoteID || dn.ReversalOfDeliveryNoteID) {
+      throw new Error('Delivery Note ' + label + ' is no longer a posted, unreversed delivery — remove it from this invoice and save again.');
+    }
+    if (dn.CompanyID !== existing.CompanyID || dn.CustomerID !== existing.CustomerID) {
+      throw new Error('Delivery Note ' + label + ' does not belong to this invoice\'s company and customer.');
+    }
+    if (dn.MatchedToInvoiceID && dn.MatchedToInvoiceID !== invoiceId) {
+      throw new Error('Delivery Note ' + label + ' has already been invoiced on another Customer Invoice — remove it from this invoice and save again.');
+    }
+  }
+  const customer = await firebaseDbRequest_('customers/' + existing.CustomerID, 'get', null, idToken);
+  const coaData = await getCoaData_(idToken);
+  if (!customer || !customer.TradeReceivablesAccountID) {
+    throw new Error('This Customer has no Trade Receivables Account configured. Set one in Customer Master Data before posting.');
+  }
+  const arAccount = coaData[customer.TradeReceivablesAccountID];
+  if (!arAccount || !arAccount.IsPostable) throw new Error('This Customer\'s Trade Receivables Account is no longer valid.');
+
+  const salesTypeData = (await firebaseDbRequest_('salesTypes', 'get', null, idToken)) || {};
+
+  const glLines = [];
+
+  // Revenue, aggregated by SALES TYPE — replaces the earlier per-item
+  // resolution entirely. Each Delivery Note and each direct line
+  // already carries its own validated SalesTypeID (set and checked
+  // against the customer's own Classification back at save time), so
+  // this only needs to look up each Sales Type's own mapped account —
+  // no per-line item lookups needed here at all, genuinely simpler
+  // than the design it replaces.
+  //
+  // Aggregated by a COMPOSITE key (account + Cost Center + Profit
+  // Center), not by account alone — a Direct Line carries its own
+  // editable Cost Center/Profit Center (shown right in the grid), and
+  // collapsing everything to the header's own would silently discard
+  // whatever the user actually chose there. A Delivery Note has no
+  // single dimension of its own to offer here (its Lines can span
+  // several), so DN-sourced revenue always uses the header's — which
+  // is exactly why the header Cost Center is required at save time
+  // whenever any Delivery Note is attached.
+  const revenueByKey = {};
+  function addRevenue_(salesTypeId, amount, costCenterId, profitCenterId, contextLabel) {
+    const salesType = salesTypeData[salesTypeId];
+    if (!salesType || salesType.Status !== 'Active') throw new Error(contextLabel + ': its Sales Type is no longer valid — check Sales Invoice Configuration.');
+    const key = salesType.GLAccountID + '|' + costCenterId + '|' + profitCenterId;
+    if (!revenueByKey[key]) revenueByKey[key] = { accountId: salesType.GLAccountID, costCenterId: costCenterId, profitCenterId: profitCenterId, amount: 0 };
+    revenueByKey[key].amount += amount;
+  }
+  (existing.SourceDeliveryNotes || []).forEach(dn => {
+    addRevenue_(dn.SalesTypeID, dn.Amount, existing.CostCenterID || '', existing.ProfitCenterID || '', 'Delivery Note ' + (dn.DeliveryNoteNumber || dn.DeliveryNoteID));
+  });
+  (existing.DirectLines || []).forEach(l => {
+    // A direct line's OWN account (l.AccountCode) is what it's
+    // eventually billed against in the customer-facing sense, but
+    // revenue recognition itself follows the same Sales-Type-mapped
+    // account as everything else — consistent treatment across the
+    // whole invoice regardless of source.
+    addRevenue_(l.SalesTypeID, l.Amount, l.CostCenterID || existing.CostCenterID || '', l.ProfitCenterID || existing.ProfitCenterID || '', 'Direct line — ' + l.Description);
+  });
+  Object.values(revenueByKey).forEach(entry => {
+    const account = coaData[entry.accountId];
+    if (!account || !account.IsPostable) throw new Error('A Sales Type\'s mapped Revenue Account is no longer valid — check Sales Invoice Configuration.');
+    glLines.push({
+      AccountCode: account.AccountCode, Debit: 0, Credit: Math.round(entry.amount * 100) / 100,
+      Description: existing.Description, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId
+    });
+  });
+
+  if (existing.Discount > 0) {
+    const discountAccountId = await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'DiscountGivenAccountID', 'Discount Given Account');
+    const discountAccount = coaData[discountAccountId];
+    if (!discountAccount || !discountAccount.IsPostable) throw new Error('This company\'s Discount Given Account is no longer valid.');
+    glLines.push({
+      AccountCode: discountAccount.AccountCode, Debit: Math.round(existing.Discount * 100) / 100, Credit: 0,
+      Description: 'Discount given — ' + existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || ''
+    });
+  }
+
+  if (existing.TaxAmount > 0) {
+    const taxAccountId = await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'OutputTaxAccountID', 'Output Tax Account');
+    const taxAccount = coaData[taxAccountId];
+    if (!taxAccount || !taxAccount.IsPostable) throw new Error('This company\'s Output Tax Account is no longer valid.');
+    glLines.push({
+      AccountCode: taxAccount.AccountCode, Debit: 0, Credit: Math.round(existing.TaxAmount * 100) / 100,
+      Description: 'Output tax — ' + existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || ''
+    });
+  }
+
+  if (existing.RoundOff) {
+    const roundOffAccountId = await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'RoundOffAccountID', 'Round Off Account');
+    const roundOffAccount = coaData[roundOffAccountId];
+    if (!roundOffAccount || !roundOffAccount.IsPostable) throw new Error('This company\'s Round Off Account is no longer valid.');
+    const magnitude = Math.round(Math.abs(existing.RoundOff) * 100) / 100;
+    // Sign convention FLIPPED from Vendor Invoice — see this module's
+    // own section comment for the full reasoning: AR sits on the debit
+    // side here, so a positive round-off credits Round Off, not debits
+    // it.
+    if (existing.RoundOff > 0) {
+      glLines.push({ AccountCode: roundOffAccount.AccountCode, Debit: 0, Credit: magnitude, Description: 'Round off — ' + existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+    } else {
+      glLines.push({ AccountCode: roundOffAccount.AccountCode, Debit: magnitude, Credit: 0, Description: 'Round off — ' + existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+    }
+  }
+
+  glLines.push({
+    AccountCode: arAccount.AccountCode, Debit: Math.round(existing.Total * 100) / 100, Credit: 0,
+    Description: existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || ''
+  });
+
+  const actor = user.profile.username || user.uid;
+  const attemptId = await beginCommitAttempt_(idToken, invoiceId, actor, 'customerInvoices');
+
+  let glResult;
+  try {
+    glResult = await writeStockGlEntry_(idToken, user, 'CustomerInvoice', existing.InvoiceDate, existing.Description, '',
+      glLines,
+      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      { CommitAttemptID: attemptId, SourceTransactionID: invoiceId });
+  } catch (err) {
+    await abandonCommitAttempt_(idToken, invoiceId, existing.Status, actor, 'customerInvoices');
+    throw err;
+  }
+
+  // A GL entry genuinely exists from here on — no more reverting.
+  // Marks each matched Delivery Note so it drops out of every future
+  // invoice picker.
+  await seq.forEach(existing.SourceDeliveryNotes || [], async dn => {
+    await firebaseDbRequest_('stock/transactions/' + dn.DeliveryNoteID, 'patch', { MatchedToInvoiceID: invoiceId }, idToken);
+  });
+
+  await finalizeCommitAttempt_(idToken, invoiceId, glResult, {}, actor, 'customerInvoices');
+
+  return { invoiceNumber: glResult.jvNumber };
+}
+
+async function decideCustomerInvoiceApproval(idToken, invoiceId, levelNumber, decision, reason) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    await requirePostAccess_(idToken, user, 'CUSTOMERINVOICE');
+    const existing = await firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken);
+    if (!existing) throw new Error('Customer Invoice not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'PendingApproval') throw new Error('This invoice is not awaiting approval.');
+    if (!existing.ApprovalInstanceID) throw new Error('No approval record found for this invoice.');
+
+    const result = await recordApprovalDecision(idToken, existing.ApprovalInstanceID, levelNumber, decision, reason);
+    if (!result.success) throw new Error(result.error);
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    if (result.status === 'Approved') {
+      try {
+        const commitResult = await commitCustomerInvoicePosting_(idToken, user, existing, invoiceId);
+        return { success: true, status: 'Approved', invoiceNumber: commitResult.invoiceNumber };
+      } catch (commitErr) {
+        // recordApprovalDecision, above, already permanently persisted
+        // this decision to Firebase before the commit was even
+        // attempted — the two are NOT atomic. Left alone, a commit
+        // failure here (a missing Cost Center, an invalid account,
+        // etc.) leaves the invoice stuck forever: still
+        // PendingApproval, so the client locks every field including
+        // the one that needs fixing — while the approval instance
+        // itself is already Approved, so a retry (approve OR reject)
+        // is refused, since recordApprovalDecision only accepts a
+        // decision on a still-Pending instance.
+        //
+        // Roll the instance back to Pending, dropping this level's now-
+        // invalid decision, and return the INVOICE itself to Rejected
+        // — reusing Rejected's existing, already fully-editable
+        // semantics rather than inventing a new status — so the user
+        // can actually fix the problem and resubmit.
+        const instance = await firebaseDbRequest_('approvalInstances/' + existing.ApprovalInstanceID, 'get', null, idToken);
+        if (instance) {
+          const revertedDecisions = (instance.Decisions || []).filter(d => d.LevelNumber !== levelNumber);
+          await firebaseDbRequest_('approvalInstances/' + existing.ApprovalInstanceID, 'patch', {
+            Decisions: revertedDecisions, Status: 'Pending', UpdatedAt: new Date().toISOString()
+          }, idToken);
+        }
+        await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', {
+          Status: 'Rejected',
+          RejectionReason: 'Posting failed and could not be completed: ' + commitErr.message + ' — please fix and resubmit.',
+          UpdatedAt: new Date().toISOString(), UpdatedBy: actor
+        }, idToken);
+        throw new Error('Posting failed: ' + commitErr.message + '. The invoice has been returned to an editable state — fix the issue and resubmit.');
+      }
+    }
+    if (result.status === 'Rejected') {
+      await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', {
+        Status: 'Rejected', RejectionReason: String(reason || '').trim(), UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'Rejected' };
+    }
+    return { success: true, status: result.status };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// Core reversal execution — builds and posts the offsetting GL entry,
+// unmatches the source Delivery Notes, and links the two records
+// together. Called either immediately (no approval gate configured)
+// or once a reversal request has actually been approved. Caller MUST
+// already hold LockService.getScriptLock() and have validated
+// existing.Status === 'Posted' with no prior ReversedByInvoiceID.
+async function executeCustomerInvoiceReversal_(idToken, user, existing, invoiceId, date) {
+  const customer = await firebaseDbRequest_('customers/' + existing.CustomerID, 'get', null, idToken);
+  const coaData = await getCoaData_(idToken);
+  const arAccount = coaData[customer.TradeReceivablesAccountID];
+
+  const salesTypeData = (await firebaseDbRequest_('salesTypes', 'get', null, idToken)) || {};
+
+  // Same GL lines as the original, every Debit/Credit swapped — same
+  // Sales-Type-based, composite-key aggregation as
+  // commitCustomerInvoicePosting_'s own (see its section comment for
+  // the full reasoning), reusing exactly the SalesTypeID each line
+  // already carries from when it was originally posted (not
+  // re-validated against the customer's current Classification here —
+  // this is reproducing a historical entry, not making a new
+  // classification decision).
+  const glLines = [];
+  const revenueByKey = {};
+  function addReversalRevenue_(salesTypeId, amount, costCenterId, profitCenterId) {
+    const salesType = salesTypeData[salesTypeId];
+    if (!salesType) return;
+    const key = salesType.GLAccountID + '|' + costCenterId + '|' + profitCenterId;
+    if (!revenueByKey[key]) revenueByKey[key] = { accountId: salesType.GLAccountID, costCenterId: costCenterId, profitCenterId: profitCenterId, amount: 0 };
+    revenueByKey[key].amount += amount;
+  }
+  (existing.SourceDeliveryNotes || []).forEach(dn => {
+    addReversalRevenue_(dn.SalesTypeID, dn.Amount, existing.CostCenterID || '', existing.ProfitCenterID || '');
+  });
+  (existing.DirectLines || []).forEach(l => {
+    addReversalRevenue_(l.SalesTypeID, l.Amount, l.CostCenterID || existing.CostCenterID || '', l.ProfitCenterID || existing.ProfitCenterID || '');
+  });
+  Object.values(revenueByKey).forEach(entry => {
+    const account = coaData[entry.accountId];
+    glLines.push({ AccountCode: account.AccountCode, Debit: Math.round(entry.amount * 100) / 100, Credit: 0, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: entry.costCenterId, ProfitCenterID: entry.profitCenterId });
+  });
+  if (existing.Discount > 0) {
+    const discountAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'DiscountGivenAccountID', 'Discount Given Account')];
+    glLines.push({ AccountCode: discountAccount.AccountCode, Debit: 0, Credit: Math.round(existing.Discount * 100) / 100, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+  }
+  if (existing.TaxAmount > 0) {
+    const taxAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'OutputTaxAccountID', 'Output Tax Account')];
+    glLines.push({ AccountCode: taxAccount.AccountCode, Debit: Math.round(existing.TaxAmount * 100) / 100, Credit: 0, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+  }
+  if (existing.RoundOff) {
+    const roundOffAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'RoundOffAccountID', 'Round Off Account')];
+    const magnitude = Math.round(Math.abs(existing.RoundOff) * 100) / 100;
+    if (existing.RoundOff > 0) {
+      glLines.push({ AccountCode: roundOffAccount.AccountCode, Debit: magnitude, Credit: 0, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+    } else {
+      glLines.push({ AccountCode: roundOffAccount.AccountCode, Debit: 0, Credit: magnitude, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+    }
+  }
+  glLines.push({ AccountCode: arAccount.AccountCode, Debit: 0, Credit: Math.round(existing.Total * 100) / 100, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+
+  const now = new Date().toISOString();
+  const actor = user.profile.username || user.uid;
+  const newId = 'CINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+
+  const attemptId = Utilities.getUuid();
+  await firebaseDbRequest_('customerInvoices/' + newId, 'put', {
+    TransactionType: 'CustomerInvoice', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
+    InvoiceDate: date, Description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description,
+    CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
+    CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID, CustomerID: existing.CustomerID,
+    SourceDeliveryNotes: existing.SourceDeliveryNotes || [], DirectLines: existing.DirectLines || [],
+    Discount: existing.Discount, TaxPercent: existing.TaxPercent, TaxAmount: existing.TaxAmount, RoundOff: existing.RoundOff,
+    Subtotal: existing.Subtotal, Total: existing.Total,
+    CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
+    ReversalOfInvoiceID: invoiceId, ReversedByInvoiceID: ''
+  }, idToken);
+
+  let glResult;
+  try {
+    glResult = await writeStockGlEntry_(idToken, user, 'CustomerInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, '',
+      glLines,
+      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      { CommitAttemptID: attemptId, SourceTransactionID: newId });
+  } catch (err) {
+    await firebaseDbRequest_('customerInvoices/' + newId, 'delete', null, idToken);
+    throw err;
+  }
+
+  // Status reset back to Posted here too — when a reversal gate is
+  // configured, requestReverseCustomerInvoice already moved the
+  // original to PendingReversalApproval, and nothing else ever moved
+  // it back; leaving it there was a real bug (the invoice stayed
+  // stuck showing "Pending Reversal Approval" forever, even after the
+  // reversal had actually gone through) — same bug also found and
+  // fixed in Vendor Invoice's own reversal.
+  await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', { Status: 'Posted', ReversalApprovalInstanceID: '', PendingReversalDate: '', ReversedByInvoiceID: newId }, idToken);
+  await finalizeCommitAttempt_(idToken, newId, glResult, {}, actor, 'customerInvoices');
+
+  await seq.forEach(existing.SourceDeliveryNotes || [], async dn => {
+    await firebaseDbRequest_('stock/transactions/' + dn.DeliveryNoteID, 'patch', { MatchedToInvoiceID: '' }, idToken);
+  });
+
+  return { invoiceId: newId, invoiceNumber: glResult.jvNumber };
+}
+
+// Reversal requires the SAME approval treatment as original posting —
+// same confirmed rule as Vendor Invoice's own. Resolved fresh against
+// the CURRENT, live CUSTOMERINVOICE approval configuration.
+async function requestReverseCustomerInvoice(idToken, invoiceId, reversalDate) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    const existing = await firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken);
+    if (!existing) throw new Error('Customer Invoice not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requirePostAccess_(idToken, user, 'CUSTOMERINVOICE');
+    if (existing.Status !== 'Posted') throw new Error('Only posted invoices can be reversed.');
+    if (existing.ReversedByInvoiceID) throw new Error('This invoice has already been reversed.');
+    if (existing.ReversalOfInvoiceID) throw new Error('A reversal entry cannot itself be reversed.');
+
+    const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'CUSTOMERINVOICE', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const approval = await beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, existing.Total, user.uid);
+
+    if (approval.required) {
+      await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', {
+        Status: 'PendingReversalApproval', ReversalApprovalInstanceID: approval.instanceId,
+        PendingReversalDate: date, UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'PendingReversalApproval' };
+    }
+
+    const result = await executeCustomerInvoiceReversal_(idToken, user, existing, invoiceId, date);
+    return { success: true, invoiceId: result.invoiceId, invoiceNumber: result.invoiceNumber, status: 'Posted' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// A rejected reversal request falls back to Posted, not a generic
+// 'Rejected' state — same reasoning as Vendor Invoice's own.
+async function decideCustomerInvoiceReversalApproval(idToken, invoiceId, levelNumber, decision, reason) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    await requirePostAccess_(idToken, user, 'CUSTOMERINVOICE');
+    const existing = await firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken);
+    if (!existing) throw new Error('Customer Invoice not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'PendingReversalApproval') throw new Error('This invoice is not awaiting reversal approval.');
+    if (!existing.ReversalApprovalInstanceID) throw new Error('No approval record found for this reversal request.');
+
+    const result = await recordApprovalDecision(idToken, existing.ReversalApprovalInstanceID, levelNumber, decision, reason);
+    if (!result.success) throw new Error(result.error);
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    if (result.status === 'Approved') {
+      const date = existing.PendingReversalDate || new Date().toISOString().substring(0, 10);
+      const reversalResult = await executeCustomerInvoiceReversal_(idToken, user, existing, invoiceId, date);
+      return { success: true, status: 'Approved', invoiceId: reversalResult.invoiceId, invoiceNumber: reversalResult.invoiceNumber };
+    }
+    if (result.status === 'Rejected') {
+      await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', {
         Status: 'Posted', ReversalApprovalInstanceID: '', PendingReversalDate: '',
         ReversalRejectionReason: String(reason || '').trim(), UpdatedAt: now, UpdatedBy: actor
       }, idToken);
@@ -5979,6 +6714,18 @@ async function getSalesTypes(idToken) {
   return Object.keys(data)
     .map(id => Object.assign({ SalesTypeID: id }, data[id]))
     .filter(t => userCanAccessCompany_(user.profile, t.CompanyID));
+}
+
+// Minimal reference read for Customer Invoice's own Sales Type picker
+// — no SALESINVOICESETUP access required, same role
+// getActiveRequisitionCategories plays for Purchase Requisition.
+async function getActiveSalesTypes(idToken) {
+  const user = await requireUser_(idToken);
+  const data = (await firebaseDbRequest_('salesTypes', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .filter(id => data[id].Status === 'Active')
+    .filter(id => userCanAccessCompany_(user.profile, data[id].CompanyID))
+    .map(id => ({ SalesTypeID: id, Name: data[id].Name, GLAccountID: data[id].GLAccountID, CompanyID: data[id].CompanyID || '', RestrictedToClassificationID: data[id].RestrictedToClassificationID || '' }));
 }
 
 async function saveSalesType(idToken, data) {
@@ -9538,6 +10285,17 @@ module.exports = {
   executeVendorInvoiceReversal_,
   requestReverseVendorInvoice,
   decideVendorInvoiceReversalApproval,
+  getCustomerInvoiceEntries,
+  getEligibleDeliveryNotesForInvoice,
+  deleteCustomerInvoiceDraft,
+  resolveAndValidateSalesType_,
+  saveCustomerInvoiceDraft,
+  postCustomerInvoice,
+  commitCustomerInvoicePosting_,
+  decideCustomerInvoiceApproval,
+  executeCustomerInvoiceReversal_,
+  requestReverseCustomerInvoice,
+  decideCustomerInvoiceReversalApproval,
   getDeliveryNoteEntries,
   saveDeliveryNoteDraft,
   deleteDeliveryNoteDraft,
@@ -9564,6 +10322,7 @@ module.exports = {
   deactivateVendor,
   reactivateVendor,
   getSalesTypes,
+  getActiveSalesTypes,
   saveSalesType,
   deactivateSalesType,
   reactivateSalesType,

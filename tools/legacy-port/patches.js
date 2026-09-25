@@ -302,5 +302,47 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
     }
   }
   const vendor = firebaseDbRequest_('vendors/' + existing.VendorID, 'get', null, idToken);`
+    },
+  {
+    id: 'customer-invoice-recheck-dns-at-post',
+    why: 'Same gap as Vendor Invoice (deviation #14): the "already matched to a different invoice" check on a source ' +
+      'Delivery Note ran only at draft save. Two drafts built from the same delivery could both post, billing the ' +
+      'customer twice (AR and revenue doubled). A delivery reversed after the draft was saved (goods came back), or a ' +
+      'Delivery Note REVERSAL entry itself (a Posted Delivery Note for the same customer, never excluded), could be ' +
+      'invoiced too. Now every source Delivery Note is re-checked at commit (post and approval).',
+    find: `function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId) {
+  const customer = firebaseDbRequest_('customers/' + existing.CustomerID, 'get', null, idToken);`,
+    replace: `function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId) {
+  // [PORT FIX customer-invoice-recheck-dns-at-post] the draft-time Delivery Note checks can be stale by now.
+  for (const d of (existing.SourceDeliveryNotes || [])) {
+    const dn = firebaseDbRequest_('stock/transactions/' + d.DeliveryNoteID, 'get', null, idToken);
+    const label = d.DeliveryNoteNumber || d.DeliveryNoteID;
+    if (!dn || dn.TransactionType !== 'DeliveryNote' || dn.Status !== 'Posted' || dn.ReversedByDeliveryNoteID || dn.ReversalOfDeliveryNoteID) {
+      throw new Error('Delivery Note ' + label + ' is no longer a posted, unreversed delivery — remove it from this invoice and save again.');
+    }
+    if (dn.CompanyID !== existing.CompanyID || dn.CustomerID !== existing.CustomerID) {
+      throw new Error('Delivery Note ' + label + ' does not belong to this invoice\\'s company and customer.');
+    }
+    if (dn.MatchedToInvoiceID && dn.MatchedToInvoiceID !== invoiceId) {
+      throw new Error('Delivery Note ' + label + ' has already been invoiced on another Customer Invoice — remove it from this invoice and save again.');
+    }
+  }
+  const customer = firebaseDbRequest_('customers/' + existing.CustomerID, 'get', null, idToken);`
+  },
+  {
+    id: 'invoice-pickers-skip-reversals',
+    why: 'The Vendor and Customer Invoice pickers listed every Posted, unmatched GRN / Delivery Note, including ones ' +
+      'already reversed and the reversal entries themselves (stored as Posted documents of the same type). Those can\'t ' +
+      'be invoiced any more (the commit re-checks above refuse them), so they are no longer offered.',
+    find: `    .filter(g => g.TransactionType === 'GRN' && g.Status === 'Posted' && g.CompanyID === companyId && g.VendorID === vendorId && !g.MatchedToInvoiceID)`,
+    replace: `    // [PORT FIX invoice-pickers-skip-reversals] reversed GRNs and reversal entries aren't invoiceable.
+    .filter(g => g.TransactionType === 'GRN' && g.Status === 'Posted' && g.CompanyID === companyId && g.VendorID === vendorId && !g.MatchedToInvoiceID && !g.ReversedByGRN && !g.ReversalOfGRN)`
+  },
+  {
+    id: 'invoice-pickers-skip-reversals (customer)',
+    why: 'Customer side of the patch above.',
+    find: `    .filter(dn => dn.TransactionType === 'DeliveryNote' && dn.Status === 'Posted' && dn.CompanyID === companyId && dn.CustomerID === customerId && !dn.MatchedToInvoiceID)`,
+    replace: `    // [PORT FIX invoice-pickers-skip-reversals] reversed deliveries and reversal entries aren't invoiceable.
+    .filter(dn => dn.TransactionType === 'DeliveryNote' && dn.Status === 'Posted' && dn.CompanyID === companyId && dn.CustomerID === customerId && !dn.MatchedToInvoiceID && !dn.ReversedByDeliveryNoteID && !dn.ReversalOfDeliveryNoteID)`
   }
 ];

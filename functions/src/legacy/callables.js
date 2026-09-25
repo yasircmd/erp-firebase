@@ -148,6 +148,16 @@ exports.deactivateVendor = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
   return run(request, (ctx) => L.deactivateVendor(ctx, ...a));
 });
+exports.decideCustomerInvoiceApproval = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.levelNumber, d.decision, d.reason];
+  return run(request, (ctx) => L.decideCustomerInvoiceApproval(ctx, ...a));
+});
+exports.decideCustomerInvoiceReversalApproval = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.levelNumber, d.decision, d.reason];
+  return run(request, (ctx) => L.decideCustomerInvoiceReversalApproval(ctx, ...a));
+});
 exports.decideDeliveryNoteApproval = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.dnId, d.levelNumber, d.decision, d.reason];
@@ -197,6 +207,11 @@ exports.decideVendorInvoiceReversalApproval = onCallWithMessages(opts, (request)
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.levelNumber, d.decision, d.reason];
   return run(request, (ctx) => L.decideVendorInvoiceReversalApproval(ctx, ...a));
+});
+exports.deleteCustomerInvoiceDraft = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId];
+  return run(request, (ctx) => L.deleteCustomerInvoiceDraft(ctx, ...a));
 });
 exports.deleteDeliveryNoteDraft = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -288,6 +303,11 @@ exports.getActiveRequisitionCategories = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getActiveRequisitionCategories(ctx, ...a));
 });
+exports.getActiveSalesTypes = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getActiveSalesTypes(ctx, ...a));
+});
 exports.getActiveUsersForPicker = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -353,6 +373,11 @@ exports.getCustomerClassifications = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getCustomerClassifications(ctx, ...a));
 });
+exports.getCustomerInvoiceEntries = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
+  return run(request, (ctx) => L.getCustomerInvoiceEntries(ctx, ...a));
+});
 exports.getCustomers = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -367,6 +392,11 @@ exports.getDeliveryNoteEntries = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
   return run(request, (ctx) => L.getDeliveryNoteEntries(ctx, ...a));
+});
+exports.getEligibleDeliveryNotesForInvoice = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId, d.customerId];
+  return run(request, (ctx) => L.getEligibleDeliveryNotesForInvoice(ctx, ...a));
 });
 exports.getEligibleGRNsForInvoice = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -583,6 +613,11 @@ exports.moveTreeNode = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.draggedNodeId, d.targetNodeId, d.position];
   return run(request, (ctx) => L.moveTreeNode(ctx, ...a));
 });
+exports.postCustomerInvoice = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId];
+  return run(request, (ctx) => L.postCustomerInvoice(ctx, ...a));
+});
 exports.postDeliveryNote = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.dnId];
@@ -698,6 +733,11 @@ exports.requestReopenPurchaseOrder = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.poId];
   return run(request, (ctx) => L.requestReopenPurchaseOrder(ctx, ...a));
 });
+exports.requestReverseCustomerInvoice = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.reversalDate];
+  return run(request, (ctx) => L.requestReverseCustomerInvoice(ctx, ...a));
+});
 exports.requestReverseVendorInvoice = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.reversalDate];
@@ -782,6 +822,11 @@ exports.saveCustomerClassification = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
   return run(request, (ctx) => L.saveCustomerClassification(ctx, ...a));
+});
+exports.saveCustomerInvoiceDraft = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceData];
+  return run(request, (ctx) => L.saveCustomerInvoiceDraft(ctx, ...a));
 });
 exports.saveDeliveryNoteDraft = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
