@@ -23,10 +23,20 @@ exports.cancelDirectJobOrderLine = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.lineId];
   return run(request, (ctx) => L.cancelDirectJobOrderLine(ctx, ...a));
 });
+exports.cancelInventoryPurchaseRequisition = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.iprId];
+  return run(request, (ctx) => L.cancelInventoryPurchaseRequisition(ctx, ...a));
+});
 exports.cancelPurchaseRequisition = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.prId];
   return run(request, (ctx) => L.cancelPurchaseRequisition(ctx, ...a));
+});
+exports.closeInventoryPurchaseRequisition = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.iprId];
+  return run(request, (ctx) => L.closeInventoryPurchaseRequisition(ctx, ...a));
 });
 exports.closePurchaseRequisition = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -113,6 +123,11 @@ exports.deactivateVendor = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
   return run(request, (ctx) => L.deactivateVendor(ctx, ...a));
 });
+exports.decideInventoryPurchaseRequisitionApproval = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.iprId, d.levelNumber, d.decision, d.reason];
+  return run(request, (ctx) => L.decideInventoryPurchaseRequisitionApproval(ctx, ...a));
+});
 exports.decidePhysicalCountApproval = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.pcId, d.levelNumber, d.decision, d.reason];
@@ -127,6 +142,11 @@ exports.decidePurchaseRequisitionApproval = onCallWithMessages(opts, (request) =
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.prId, d.levelNumber, d.decision, d.reason];
   return run(request, (ctx) => L.decidePurchaseRequisitionApproval(ctx, ...a));
+});
+exports.deleteDraftInventoryPurchaseRequisition = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.iprId];
+  return run(request, (ctx) => L.deleteDraftInventoryPurchaseRequisition(ctx, ...a));
 });
 exports.deleteDraftJobOrderBatch = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -262,6 +282,11 @@ exports.getGlReport = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
   return run(request, (ctx) => L.getGlReport(ctx, ...a));
+});
+exports.getInventoryPurchaseRequisitionEntries = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
+  return run(request, (ctx) => L.getInventoryPurchaseRequisitionEntries(ctx, ...a));
 });
 exports.getInventoryValuationLines = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -558,6 +583,11 @@ exports.saveCustomerClassification = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
   return run(request, (ctx) => L.saveCustomerClassification(ctx, ...a));
 });
+exports.saveDraftInventoryPurchaseRequisition = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.header];
+  return run(request, (ctx) => L.saveDraftInventoryPurchaseRequisition(ctx, ...a));
+});
 exports.saveDraftJobOrderBatch = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.header];
@@ -642,6 +672,11 @@ exports.saveVendor = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorData];
   return run(request, (ctx) => L.saveVendor(ctx, ...a));
+});
+exports.submitInventoryPurchaseRequisition = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.iprId];
+  return run(request, (ctx) => L.submitInventoryPurchaseRequisition(ctx, ...a));
 });
 exports.submitJobOrderBatch = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

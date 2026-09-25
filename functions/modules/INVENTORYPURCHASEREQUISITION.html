@@ -1,0 +1,670 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+</style>
+
+<div id="ipr-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Procurement</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-boxes-packing text-blue-500"></i> Inventory Purchase Requisition</h2></div>
+    <button id="ipr-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Requisition</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="ipr-search-input" placeholder="Search number or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="ipr-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="ipr-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All Statuses</option>
+      <option value="Draft">Draft</option><option value="Submitted">Submitted</option>
+      <option value="Closed">Closed</option><option value="Cancelled">Cancelled</option>
+    </select>
+    <input type="date" id="ipr-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <input type="date" id="ipr-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div id="ipr-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">IPR Number</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4">Cost Center</th>
+            <th class="py-3 px-4">Description</th>
+            <th class="py-3 px-4">Priority</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ipr-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="ipr-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="ipr-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h2 id="ipr-entry-title" class="text-xl font-bold text-blue-400">New Requisition</h2>
+    </div>
+    <span id="ipr-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+  </div>
+
+  <div id="ipr-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+    <select id="ipr-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="ipr-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Needed By</label><input type="date" id="ipr-form-neededby" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Priority</label>
+      <select id="ipr-form-priority" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+        <option value="Normal">Normal</option><option value="Urgent">Urgent</option>
+      </select>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Description / Purpose</label>
+    <input type="text" id="ipr-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="ipr-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="ipr-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(requesting department)</span></label><select id="ipr-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(optional)</span></label><select id="ipr-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    </div>
+  </div>
+
+  <div id="ipr-company-required-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company and Cost Center above before adding lines.</div>
+
+  <div class="flex flex-wrap items-center gap-2 no-print">
+    <button id="ipr-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table id="ipr-grid-table" class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3 w-10">#</th>
+            <th class="py-2 px-3">Item Code</th>
+            <th class="py-2 px-3">Item Name</th>
+            <th class="py-2 px-3">Warehouse <span class="normal-case font-normal text-slate-500">(delivery, optional)</span></th>
+            <th class="py-2 px-3">Description</th>
+            <th class="py-2 px-3 w-20">UOM</th>
+            <th class="py-2 px-3 text-right w-24">Quantity</th>
+            <th class="py-2 px-3 w-24">Cost Ctr</th>
+            <th class="py-2 px-3 w-10 no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="ipr-grid-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="ipr-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="ipr-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1 no-print">
+    <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
+    <p id="ipr-rejection-reason" class="text-sm text-slate-200"></p>
+    <p class="text-xs text-slate-500">This requisition is fully editable below — make your changes and Submit again.</p>
+  </div>
+
+  <div id="ipr-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3 no-print">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="ipr-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3">
+      <button id="ipr-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button>
+      <button id="ipr-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button>
+    </div>
+    <div id="ipr-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 no-print">
+    <button id="ipr-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="ipr-cancel-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Cancel Requisition</button>
+    <button id="ipr-close-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs">Mark Closed</button>
+    <button id="ipr-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
+    <button id="ipr-submit-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+  </div>
+</div>
+
+<!-- Shared item-search dropdown — deliberately OUTSIDE the scrollable grid
+     wrapper, same convention as GRN/MI/etc. -->
+<datalist id="ipr-item-datalist"></datalist>
+
+<script>
+(function () {
+  let token = '';
+  let canDraft = false;
+  let canPost = false;
+  let currentLimit = 100;
+  let currentIpr = null;
+  let gridLines = []; // { ItemCode, WarehouseID, Description, EnteredUOMID, EnteredQuantity, CostCenterID }
+  let entries = [];
+  let entriesTotal = 0;
+  let companies = [];
+  let orgUnits = [];
+  let items = [];
+  let uoms = [];
+  let isDirty = false;
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function itemByCode(code) { return items.find(i => String(i.ItemCode) === String(code)); }
+  function uomById(id) { return uoms.find(u => u.UOMID === id); }
+  function orgUnitById(id) { return orgUnits.find(u => u.UnitID === id); }
+
+  function orgUnitOptionsHtml(type, selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => { html += `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code + ' — ' + u.Name)}</option>`; });
+    return html;
+  }
+
+  // Deliberately unrestricted — every warehouse the company has, not
+  // filtered to the item's default. This is a REQUEST for delivery
+  // location once purchased, not a stock movement, so any warehouse is
+  // a legitimate choice regardless of what the item's own default is.
+  function warehouseOptionsHtml(selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === 'Warehouse')
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => { html += `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code + ' — ' + u.Name)}</option>`; });
+    return html;
+  }
+
+  // Mirrors GRN's own uomOptionsForItem — base UOM plus the item's
+  // alternate UOM if it has one, nothing else.
+  function uomOptionsForItem(item, selectedId) {
+    if (!item) return '<option value="">—</option>';
+    let html = '';
+    const baseUom = uomById(item.UOMID);
+    if (baseUom) html += `<option value="${baseUom.UOMID}"${baseUom.UOMID === selectedId ? ' selected' : ''}>${escapeHtml(baseUom.Code)}</option>`;
+    if (item.AltUOMID) {
+      const altUom = uomById(item.AltUOMID);
+      if (altUom) html += `<option value="${altUom.UOMID}"${altUom.UOMID === selectedId ? ' selected' : ''}>${escapeHtml(altUom.Code)}</option>`;
+    }
+    return html;
+  }
+
+  function populateItemDatalist(companyId) {
+    const datalist = document.getElementById('ipr-item-datalist');
+    datalist.innerHTML = '';
+    items.filter(i => !i.CompanyID || i.CompanyID === companyId).forEach(i => {
+      const opt = document.createElement('option');
+      opt.value = i.ItemCode + ' — ' + i.ItemName;
+      datalist.appendChild(opt);
+    });
+  }
+
+  // ---------- LIST VIEW ----------
+  function fetchAndRenderList(limit) {
+    currentLimit = limit || currentLimit;
+    rpc
+      .withSuccessHandler(result => { entries = result.entries || []; entriesTotal = result.total || 0; renderList(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load requisitions.'))
+      .getInventoryPurchaseRequisitionEntries({ limit: currentLimit });
+  }
+
+  function renderList() {
+    const query = document.getElementById('ipr-search-input').value.trim().toLowerCase();
+    const companyFilter = document.getElementById('ipr-company-filter').value;
+    const statusFilter = document.getElementById('ipr-status-filter').value;
+    const fromFilter = document.getElementById('ipr-from-filter').value;
+    const toFilter = document.getElementById('ipr-to-filter').value;
+
+    const filtered = entries.filter(pr => {
+      if (companyFilter && pr.CompanyID !== companyFilter) return false;
+      if (statusFilter && pr.Status !== statusFilter) return false;
+      if (fromFilter && pr.IPRDate < fromFilter) return false;
+      if (toFilter && pr.IPRDate > toFilter) return false;
+      if (query && !((pr.IPRNumber || '').toLowerCase().includes(query) || (pr.Description || '').toLowerCase().includes(query))) return false;
+      return true;
+    });
+
+    const tbody = document.getElementById('ipr-table-body');
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">No requisitions found.</td></tr>'; }
+    filtered.forEach(pr => {
+      const cc = orgUnitById(pr.CostCenterID);
+      const statusColors = { Draft: 'bg-slate-700 text-slate-300', Submitted: 'bg-blue-500/10 text-blue-400', Closed: 'bg-emerald-500/10 text-emerald-400', Cancelled: 'bg-red-500/10 text-red-400' };
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer';
+      row.innerHTML = `
+        <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(pr.IPRNumber || 'DRAFT')}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(pr.IPRDate || '')}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${cc ? escapeHtml(cc.Code) : '—'}</td>
+        <td class="py-2 px-4 text-slate-200">${escapeHtml(pr.Description || '')}</td>
+        <td class="py-2 px-4 text-xs ${pr.Priority === 'Urgent' ? 'text-amber-400 font-medium' : 'text-slate-400'}">${escapeHtml(pr.Priority || 'Normal')}</td>
+        <td class="py-2 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${statusColors[pr.Status] || 'bg-slate-700 text-slate-400'}">${escapeHtml(pr.Status)}</span></td>
+        <td class="py-2 px-4 text-right"><button data-id="${pr.IPRID}" class="ipr-open-btn text-blue-400 hover:text-blue-300 text-xs">Open</button></td>`;
+      row.addEventListener('click', () => openEntry(pr.IPRID));
+      tbody.appendChild(row);
+    });
+
+    const notice = document.getElementById('ipr-list-notice');
+    if (entriesTotal > entries.length) {
+      notice.classList.remove('hidden');
+      notice.innerHTML = `Showing ${entries.length} of ${entriesTotal}. <button id="ipr-load-more-btn" class="text-blue-400 hover:text-blue-300 underline">Load more</button>`;
+      document.getElementById('ipr-load-more-btn').addEventListener('click', () => fetchAndRenderList(currentLimit + 100));
+    } else {
+      notice.classList.add('hidden');
+    }
+  }
+
+  function loadReferenceData() {
+    rpc
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const filterSelect = document.getElementById('ipr-company-filter');
+        filterSelect.innerHTML = '<option value="">All Companies</option>';
+        const formSelect = document.getElementById('ipr-form-company');
+        formSelect.innerHTML = '<option value="">Select a company...</option>';
+        companies.forEach(c => {
+          [filterSelect, formSelect].forEach(sel => {
+            const opt = document.createElement('option');
+            opt.value = c.CompanyID; opt.textContent = c.LegalName;
+            sel.appendChild(opt);
+          });
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+
+    rpc
+      .withSuccessHandler(result => {
+        orgUnits = result || [];
+        document.getElementById('ipr-form-division').innerHTML = orgUnitOptionsHtml('Division', '');
+        document.getElementById('ipr-form-branch').innerHTML = orgUnitOptionsHtml('Branch', '');
+        document.getElementById('ipr-form-costcenter').innerHTML = orgUnitOptionsHtml('CostCenter', '');
+        document.getElementById('ipr-form-profitcenter').innerHTML = orgUnitOptionsHtml('ProfitCenter', '');
+        renderList();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits();
+
+    rpc
+      .withSuccessHandler(result => { items = result || []; populateItemDatalist(document.getElementById('ipr-form-company').value); renderGrid(); })
+      .withFailureHandler(err => console.error(err))
+      .getActiveItems();
+
+    rpc
+      .withSuccessHandler(result => { uoms = result || []; renderGrid(); })
+      .withFailureHandler(err => console.error(err))
+      .getActiveUOMs();
+  }
+
+  // ---------- ENTRY VIEW ----------
+  function currentHeaderCostCenter() { return document.getElementById('ipr-form-costcenter').value; }
+
+  function showListView() {
+    document.getElementById('ipr-entry-view').classList.add('hidden');
+    document.getElementById('ipr-list-view').classList.remove('hidden');
+    fetchAndRenderList();
+  }
+
+  function showEntryView() {
+    document.getElementById('ipr-list-view').classList.add('hidden');
+    document.getElementById('ipr-entry-view').classList.remove('hidden');
+
+    // Same reasoning as Purchase Requisition's own identical change:
+    // Rejected is now editable too — any line freely added, removed,
+    // or changed, since nothing downstream has committed to this
+    // requisition's specific lines yet.
+    const editableStatus = !currentIpr || currentIpr.Status === 'Draft' || currentIpr.Status === 'Rejected';
+    const readOnly = currentIpr && !editableStatus;
+    const isNew = !currentIpr;
+
+    document.getElementById('ipr-entry-title').textContent = isNew ? 'New Requisition' : (currentIpr.IPRNumber || 'Draft Requisition');
+
+    const voucherLine = document.getElementById('ipr-voucher-no-line');
+    voucherLine.textContent = isNew ? '' : 'IPR No.: ' + (currentIpr.IPRNumber || '(assigned when submitted)');
+
+    const badge = document.getElementById('ipr-status-badge');
+    if (isNew) { badge.classList.add('hidden'); }
+    else {
+      const colors = {
+        Draft: 'bg-slate-700 text-slate-300', PendingApproval: 'bg-blue-500/10 text-blue-400',
+        Submitted: 'bg-blue-500/10 text-blue-400', Rejected: 'bg-red-500/10 text-red-400',
+        Closed: 'bg-emerald-500/10 text-emerald-400', Cancelled: 'bg-red-500/10 text-red-400'
+      };
+      const labels = { PendingApproval: 'Pending Approval' };
+      badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (colors[currentIpr.Status] || '');
+      badge.textContent = labels[currentIpr.Status] || currentIpr.Status;
+      badge.classList.remove('hidden');
+    }
+
+    document.getElementById('ipr-rejection-banner').classList.toggle('hidden', !currentIpr || currentIpr.Status !== 'Rejected');
+    if (currentIpr && currentIpr.Status === 'Rejected') {
+      document.getElementById('ipr-rejection-reason').textContent = currentIpr.RejectionReason || '(no reason given)';
+    }
+
+    ['ipr-form-company', 'ipr-form-date', 'ipr-form-neededby', 'ipr-form-priority', 'ipr-form-description', 'ipr-form-division', 'ipr-form-branch', 'ipr-form-costcenter', 'ipr-form-profitcenter'].forEach(id => {
+      document.getElementById(id).disabled = readOnly;
+    });
+
+    document.getElementById('ipr-save-draft-btn').classList.toggle('hidden', !editableStatus || !canDraft);
+    document.getElementById('ipr-submit-btn').classList.toggle('hidden', !editableStatus || !canPost);
+    document.getElementById('ipr-delete-btn').classList.toggle('hidden', (!currentIpr || currentIpr.Status !== 'Draft') || !canDraft);
+    document.getElementById('ipr-cancel-btn').classList.toggle('hidden', !currentIpr || ['Draft', 'Submitted', 'PendingApproval', 'Rejected'].indexOf(currentIpr.Status) === -1 || !canPost);
+    document.getElementById('ipr-close-btn').classList.toggle('hidden', !currentIpr || currentIpr.Status !== 'Submitted' || !canPost);
+    document.getElementById('ipr-add-line-btn').classList.toggle('hidden', !editableStatus);
+
+    document.getElementById('ipr-my-approval-banner').classList.add('hidden');
+    if (currentIpr && currentIpr.Status === 'PendingApproval' && canPost) {
+      rpc
+        .withSuccessHandler(levelNumber => {
+          if (levelNumber) {
+            document.getElementById('ipr-my-approval-banner').classList.remove('hidden');
+            document.getElementById('ipr-my-approval-banner').dataset.level = levelNumber;
+          }
+        })
+        .withFailureHandler(() => {})
+        .getMyPendingApprovalLevel({ approvalInstanceId: currentIpr.ApprovalInstanceID });
+    }
+
+    updateCompanyRequiredNote();
+    renderGrid();
+    isDirty = false;
+  }
+
+  function updateCompanyRequiredNote() {
+    const ready = Boolean(document.getElementById('ipr-form-company').value) && Boolean(document.getElementById('ipr-form-costcenter').value);
+    document.getElementById('ipr-company-required-note').classList.toggle('hidden', ready);
+  }
+
+  function openEntry(iprId) {
+    currentIpr = entries.find(e => e.IPRID === iprId) || null;
+    if (!currentIpr) return;
+    gridLines = (currentIpr.Lines || []).map(l => ({
+      ItemCode: l.ItemCode, WarehouseID: l.WarehouseID || '', Description: l.Description,
+      EnteredUOMID: l.EnteredUOMID || '', EnteredQuantity: l.EnteredQuantity, CostCenterID: l.CostCenterID || ''
+    }));
+    document.getElementById('ipr-form-company').value = currentIpr.CompanyID || '';
+    document.getElementById('ipr-form-date').value = currentIpr.IPRDate || '';
+    document.getElementById('ipr-form-neededby').value = currentIpr.NeededByDate || '';
+    document.getElementById('ipr-form-priority').value = currentIpr.Priority || 'Normal';
+    document.getElementById('ipr-form-description').value = currentIpr.Description || '';
+    document.getElementById('ipr-form-division').value = currentIpr.DivisionID || '';
+    document.getElementById('ipr-form-branch').value = currentIpr.BranchID || '';
+    document.getElementById('ipr-form-costcenter').value = currentIpr.CostCenterID || '';
+    document.getElementById('ipr-form-profitcenter').value = currentIpr.ProfitCenterID || '';
+    showEntryView();
+  }
+
+  function newEntry() {
+    currentIpr = null;
+    gridLines = [];
+    document.getElementById('ipr-form-company').value = '';
+    document.getElementById('ipr-form-date').value = today();
+    document.getElementById('ipr-form-neededby').value = '';
+    document.getElementById('ipr-form-priority').value = 'Normal';
+    document.getElementById('ipr-form-description').value = '';
+    document.getElementById('ipr-form-division').value = '';
+    document.getElementById('ipr-form-branch').value = '';
+    document.getElementById('ipr-form-costcenter').value = '';
+    document.getElementById('ipr-form-profitcenter').value = '';
+    showEntryView();
+  }
+
+  function today() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function ensureTrailingBlankRow() {
+    const last = gridLines[gridLines.length - 1];
+    if (!last || last.ItemCode) gridLines.push({ ItemCode: '', WarehouseID: '', Description: '', EnteredUOMID: '', EnteredQuantity: '', CostCenterID: currentHeaderCostCenter() });
+  }
+
+  function renderGrid() {
+    const readOnly = currentIpr && currentIpr.Status !== 'Draft';
+    if (!readOnly) ensureTrailingBlankRow();
+    const tbody = document.getElementById('ipr-grid-body');
+    tbody.innerHTML = '';
+
+    gridLines.forEach((line, i) => {
+      const item = itemByCode(line.ItemCode);
+      const missingDesc = line.ItemCode && !String(line.Description || '').trim();
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="item" list="ipr-item-datalist" value="${escapeHtml(line.ItemCode)}" ${readOnly ? 'disabled' : ''} placeholder="Code" class="ipr-item-input w-28 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs font-mono focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-2 text-xs text-slate-400 ipr-item-name">${item ? escapeHtml(item.ItemName) : (line.ItemCode ? '<span class="text-red-400">not found</span>' : '')}</td>
+        <td class="py-1 px-1"><select data-row="${i}" class="ipr-line-wh w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${warehouseOptionsHtml(line.WarehouseID)}</select></td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="description" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${missingDesc ? 'required' : ''}" class="w-full bg-slate-900 border ${missingDesc ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><select data-row="${i}" class="ipr-line-uom w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${uomOptionsForItem(item, line.EnteredUOMID)}</select></td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="quantity" type="text" inputmode="decimal" value="${line.EnteredQuantity === '' || line.EnteredQuantity === undefined ? '' : line.EnteredQuantity}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><select data-row="${i}" class="ipr-line-cc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
+        <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-row="${i}" class="ipr-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    if (!readOnly) {
+      tbody.querySelectorAll('input[data-field="item"]').forEach(el => {
+        el.addEventListener('input', e => {
+          isDirty = true;
+          const row = parseInt(e.target.getAttribute('data-row'), 10);
+          // Raw typed text is stored as-is — never silently resolved or
+          // cleared on keystroke (same GRN/MI convention: item name is a
+          // live display lookup only, actual resolution happens at
+          // save time server-side).
+          let value = e.target.value;
+          const dashIndex = value.indexOf(' — ');
+          if (dashIndex !== -1 && itemByCode(value.substring(0, dashIndex))) value = value.substring(0, dashIndex);
+          gridLines[row].ItemCode = value;
+          const matched = itemByCode(value);
+          if (matched && !gridLines[row].EnteredUOMID) gridLines[row].EnteredUOMID = matched.UOMID;
+          if (matched && !gridLines[row].WarehouseID && matched.DefaultWarehouseID) gridLines[row].WarehouseID = matched.DefaultWarehouseID;
+        });
+        el.addEventListener('blur', renderGrid);
+      });
+      tbody.querySelectorAll('input[data-field]:not([data-field="item"])').forEach(input => {
+        input.addEventListener('input', e => {
+          isDirty = true;
+          const row = parseInt(e.target.getAttribute('data-row'), 10);
+          const field = e.target.getAttribute('data-field');
+          gridLines[row][field === 'description' ? 'Description' : 'EnteredQuantity'] = e.target.value;
+        });
+        input.addEventListener('blur', renderGrid);
+      });
+      tbody.querySelectorAll('.ipr-line-wh').forEach(sel => {
+        sel.addEventListener('change', e => { isDirty = true; gridLines[parseInt(e.target.getAttribute('data-row'), 10)].WarehouseID = e.target.value; });
+      });
+      tbody.querySelectorAll('.ipr-line-uom').forEach(sel => {
+        sel.addEventListener('change', e => { isDirty = true; gridLines[parseInt(e.target.getAttribute('data-row'), 10)].EnteredUOMID = e.target.value; });
+      });
+      tbody.querySelectorAll('.ipr-line-cc').forEach(sel => {
+        sel.addEventListener('change', e => { isDirty = true; gridLines[parseInt(e.target.getAttribute('data-row'), 10)].CostCenterID = e.target.value; });
+      });
+      tbody.querySelectorAll('.ipr-remove-row').forEach(btn => {
+        btn.addEventListener('click', e => {
+          isDirty = true;
+          gridLines.splice(parseInt(e.currentTarget.getAttribute('data-row'), 10), 1);
+          renderGrid();
+        });
+      });
+    }
+  }
+
+  function allLineDescriptionsFilled() {
+    return gridLines.every(l => !l.ItemCode || String(l.Description || '').trim());
+  }
+
+  function collectHeader() {
+    return {
+      IPRID: currentIpr ? currentIpr.IPRID : '',
+      IPRDate: document.getElementById('ipr-form-date').value,
+      NeededByDate: document.getElementById('ipr-form-neededby').value,
+      Priority: document.getElementById('ipr-form-priority').value,
+      Description: document.getElementById('ipr-form-description').value.trim(),
+      CompanyID: document.getElementById('ipr-form-company').value,
+      DivisionID: document.getElementById('ipr-form-division').value,
+      BranchID: document.getElementById('ipr-form-branch').value,
+      CostCenterID: document.getElementById('ipr-form-costcenter').value,
+      ProfitCenterID: document.getElementById('ipr-form-profitcenter').value,
+      Lines: gridLines.filter(l => l.ItemCode).map(l => ({
+        ItemCode: l.ItemCode, WarehouseID: l.WarehouseID, Description: l.Description,
+        EnteredUOMID: l.EnteredUOMID, EnteredQuantity: l.EnteredQuantity, CostCenterID: l.CostCenterID
+      }))
+    };
+  }
+
+  function saveDraft() {
+    const error = document.getElementById('ipr-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('ipr-form-company').value) { error.textContent = 'Select a Company for this requisition.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('ipr-form-costcenter').value) { error.textContent = 'Select a Cost Center (requesting department).'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    const btn = document.getElementById('ipr-save-draft-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { isDirty = false; showListView(); }
+        else { error.textContent = result.error || 'Unable to save draft.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.textContent = original;
+        error.textContent = err.message || 'Unable to save draft.'; error.classList.remove('hidden');
+      })
+      .saveDraftInventoryPurchaseRequisition({ header: collectHeader() });
+  }
+
+  function submitEntry() {
+    const error = document.getElementById('ipr-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('ipr-form-company').value) { error.textContent = 'Select a Company for this requisition.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('ipr-form-costcenter').value) { error.textContent = 'Select a Cost Center (requesting department).'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!gridLines.some(l => l.ItemCode)) { error.textContent = 'Add at least one line before submitting.'; error.classList.remove('hidden'); return; }
+
+    const btn = document.getElementById('ipr-submit-btn');
+    btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Saving...';
+    rpc
+      .withSuccessHandler(saveResult => {
+        if (!saveResult.success) {
+          btn.disabled = false; btn.innerHTML = original;
+          error.textContent = saveResult.error || 'Unable to save before submitting.'; error.classList.remove('hidden');
+          return;
+        }
+        rpc
+          .withSuccessHandler(submitResult => {
+            btn.disabled = false; btn.innerHTML = original;
+            if (submitResult.success) { isDirty = false; showListView(); }
+            else { error.textContent = submitResult.error || 'Unable to submit.'; error.classList.remove('hidden'); }
+          })
+          .withFailureHandler(err => {
+            btn.disabled = false; btn.innerHTML = original;
+            error.textContent = err.message || 'Unable to submit.'; error.classList.remove('hidden');
+          })
+          .submitInventoryPurchaseRequisition({ iprId: saveResult.iprId });
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = original;
+        error.textContent = err.message || 'Unable to save before submitting.'; error.classList.remove('hidden');
+      })
+      .saveDraftInventoryPurchaseRequisition({ header: collectHeader() });
+  }
+
+  function deleteDraft() {
+    if (!currentIpr) return;
+    if (!confirm('Delete this draft requisition? This cannot be undone.')) return;
+    rpc
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to delete draft.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
+      .deleteDraftInventoryPurchaseRequisition({ iprId: currentIpr.IPRID });
+  }
+
+  function cancelEntry() {
+    if (!currentIpr) return;
+    if (!confirm('Cancel this requisition? This cannot be undone.')) return;
+    rpc
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to cancel.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to cancel.'))
+      .cancelInventoryPurchaseRequisition({ iprId: currentIpr.IPRID });
+  }
+
+  function closeEntry() {
+    if (!currentIpr) return;
+    if (!confirm('Mark this requisition as Closed?')) return;
+    rpc
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to close.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to close.'))
+      .closeInventoryPurchaseRequisition({ iprId: currentIpr.IPRID });
+  }
+
+  function decide(decision) {
+    const levelNumber = parseInt(document.getElementById('ipr-my-approval-banner').dataset.level, 10);
+    const reason = document.getElementById('ipr-decision-reason').value.trim();
+    const error = document.getElementById('ipr-decision-error');
+    error.classList.add('hidden');
+    if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
+    if (!confirm((decision === 'Approved' ? 'Approve' : 'Reject') + ' this requisition?')) return;
+    rpc
+      .withSuccessHandler(result => {
+        if (result.success) showListView();
+        else { error.textContent = result.error || 'Unable to record decision.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => { error.textContent = err.message || 'Unable to record decision.'; error.classList.remove('hidden'); })
+      .decideInventoryPurchaseRequisitionApproval({ iprId: currentIpr.IPRID, levelNumber: levelNumber, decision: decision, reason: reason });
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    rpc
+      .withSuccessHandler(perms => {
+        canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost);
+        document.getElementById('ipr-new-btn').classList.toggle('hidden', !canDraft);
+        if (canDraft) document.getElementById('ipr-new-btn').addEventListener('click', newEntry);
+      })
+      .withFailureHandler(() => {})
+      .getModulePermissionsForUser({ moduleId: 'PURCHASEREQUISITION' });
+
+    document.getElementById('ipr-back-btn').addEventListener('click', showListView);
+    document.getElementById('ipr-search-input').addEventListener('input', renderList);
+    document.getElementById('ipr-company-filter').addEventListener('change', renderList);
+    document.getElementById('ipr-status-filter').addEventListener('change', renderList);
+    document.getElementById('ipr-from-filter').addEventListener('change', renderList);
+    document.getElementById('ipr-to-filter').addEventListener('change', renderList);
+
+    document.getElementById('ipr-form-company').addEventListener('change', () => { isDirty = true; updateCompanyRequiredNote(); populateItemDatalist(document.getElementById('ipr-form-company').value); renderGrid(); });
+    document.getElementById('ipr-form-costcenter').addEventListener('change', () => { isDirty = true; updateCompanyRequiredNote(); });
+    document.getElementById('ipr-add-line-btn').addEventListener('click', () => {
+      isDirty = true;
+      gridLines.push({ ItemCode: '', WarehouseID: '', Description: '', EnteredUOMID: '', EnteredQuantity: '', CostCenterID: currentHeaderCostCenter() });
+      renderGrid();
+    });
+
+    document.getElementById('ipr-save-draft-btn').addEventListener('click', saveDraft);
+    document.getElementById('ipr-submit-btn').addEventListener('click', submitEntry);
+    document.getElementById('ipr-delete-btn').addEventListener('click', deleteDraft);
+    document.getElementById('ipr-cancel-btn').addEventListener('click', cancelEntry);
+    document.getElementById('ipr-close-btn').addEventListener('click', closeEntry);
+    document.getElementById('ipr-approve-btn').addEventListener('click', () => decide('Approved'));
+    document.getElementById('ipr-reject-btn').addEventListener('click', () => decide('Rejected'));
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-boxes-packing"></i> Inventory Purchase Requisition';
+    fetchAndRenderList();
+    loadReferenceData();
+  };
+})();
+</script>

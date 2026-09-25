@@ -5157,6 +5157,219 @@ async function deleteDraftPurchaseRequisition(idToken, prId) {
   }
 }
 
+// ============================================================
+// INVENTORY PURCHASE REQUISITION (Sales / Production -> Purchase, to
+// BUY externally rather than make internally — the Job Order Request
+// counterpart)
+// ============================================================
+// Structurally near-identical to Purchase Requisition (no value field,
+// no approval gate, same Draft -> Submitted -> Closed/Cancelled
+// workflow, same draft/post capability split) — the one real
+// difference is WHAT gets requested: a real item from Item Master
+// rather than a free-text category line, since this is genuine stock,
+// not a non-stock spend. Confirmed explicitly: item selection is
+// unrestricted here — any item, any Category, any type — the
+// requester (Sales or Production) judges for themselves what they
+// need bought rather than made.
+//
+// Storage: /inventoryPurchaseRequisitions/{id} = { IPRNumber (blank
+//   until Submitted), IPRDate, CompanyID, DivisionID, BranchID,
+//   CostCenterID, ProfitCenterID, Priority ('Normal'|'Urgent'),
+//   NeededByDate, Description, RequestedBy, Status, Lines: [{ ItemCode,
+//   WarehouseID (delivery destination once purchased — optional),
+//   Description, EnteredUOMID, EnteredQuantity, CostCenterID (line
+//   default from header) }], CreatedAt/By, UpdatedAt/By, SubmittedAt/By,
+//   ClosedAt/By, CancelledAt/By }
+
+async function getInventoryPurchaseRequisitionEntries(idToken, limit) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'INVENTORYPURCHASEREQUISITION', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Inventory Purchase Requisition.');
+  }
+  const data = (await firebaseDbRequest_('inventoryPurchaseRequisitions', 'get', null, idToken)) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ IPRID: id }, data[id]))
+    .filter(ipr => userCanAccessCompany_(user.profile, ipr.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const capped = limit ? all.slice(0, limit) : all;
+  return { entries: capped, total: all.length };
+}
+
+async function saveDraftInventoryPurchaseRequisition(idToken, header) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'INVENTORYPURCHASEREQUISITION');
+
+    const orgUnits = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
+    const companyId = String(header.CompanyID || '').trim();
+    if (!companyId) throw new Error('Select a Company for this requisition.');
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    const costCenterId = String(header.CostCenterID || '').trim();
+    if (!costCenterId) throw new Error('Select a Cost Center (requesting department) for this requisition.');
+    if (!orgUnits[costCenterId] || orgUnits[costCenterId].Type !== 'CostCenter') throw new Error('Unknown Cost Center.');
+    const priority = String(header.Priority || 'Normal').trim();
+    if (priority !== 'Normal' && priority !== 'Urgent') throw new Error('Priority must be Normal or Urgent.');
+
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemByCode = {};
+    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });
+
+    // Deliberately no Category/type restriction on which items are
+    // eligible — confirmed explicitly: any item can appear on this
+    // requisition, unlike Purchase Requisition's category system.
+    const lines = (header.Lines || [])
+      .filter(l => String(l.ItemCode || '').trim())
+      .map(l => {
+        const itemCode = String(l.ItemCode).trim();
+        const item = itemByCode[itemCode];
+        if (!item || item.Status !== 'Active') throw new Error('One or more lines reference an unknown or inactive item: ' + itemCode);
+        const quantity = Number(l.EnteredQuantity);
+        if (!(quantity > 0)) throw new Error('Every line needs a quantity greater than zero.');
+        return {
+          ItemCode: itemCode, WarehouseID: String(l.WarehouseID || '').trim(),
+          Description: String(l.Description || '').trim(),
+          EnteredUOMID: String(l.EnteredUOMID || item.UOMID || '').trim(),
+          EnteredQuantity: quantity,
+          CostCenterID: String(l.CostCenterID || costCenterId).trim()
+        };
+      });
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const fields = {
+      IPRDate: header.IPRDate || '', CompanyID: companyId,
+      DivisionID: String(header.DivisionID || '').trim(), BranchID: String(header.BranchID || '').trim(),
+      CostCenterID: costCenterId, ProfitCenterID: String(header.ProfitCenterID || '').trim(),
+      Priority: priority, NeededByDate: header.NeededByDate || '',
+      Description: String(header.Description || '').trim(),
+      Lines: lines, UpdatedAt: now, UpdatedBy: actor
+    };
+
+    const iprId = String(header.IPRID || '').trim();
+    if (iprId) {
+      const existing = await firebaseDbRequest_('inventoryPurchaseRequisitions/' + iprId, 'get', null, idToken);
+      if (!existing) throw new Error('Requisition not found.');
+      // Rejected is editable too now — same reasoning as Purchase
+      // Requisition's own identical fix.
+      if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a Draft or Rejected requisition can be edited.');
+      await firebaseDbRequest_('inventoryPurchaseRequisitions/' + iprId, 'patch', fields, idToken);
+      return { success: true, iprId: iprId };
+    }
+
+    const newId = 'IPR-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('inventoryPurchaseRequisitions/' + newId, 'put', Object.assign({}, fields, {
+      IPRNumber: '', Status: 'Draft', RequestedBy: actor, CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, iprId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function submitInventoryPurchaseRequisition(idToken, iprId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'INVENTORYPURCHASEREQUISITION');
+    const existing = await firebaseDbRequest_('inventoryPurchaseRequisitions/' + iprId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a Draft or Rejected requisition can be submitted.');
+    if (!existing.Lines || !existing.Lines.length) throw new Error('Add at least one line before submitting.');
+
+    const year = (new Date(existing.IPRDate)).getFullYear() || new Date().getFullYear();
+    const iprNumber = await generateVoucherNumber_(idToken, 'IPR', year, existing.CompanyID);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'INVENTORYPURCHASEREQUISITION', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const approval = await beginApprovalInstance_(idToken, 'INVENTORYPURCHASEREQUISITION', iprId, iprNumber, scopeKey, 0, user.uid);
+
+    const fields = {
+      IPRNumber: iprNumber, RejectionReason: '', SubmittedAt: now, SubmittedBy: actor,
+      UpdatedAt: now, UpdatedBy: actor
+    };
+    if (approval.required) {
+      fields.Status = 'PendingApproval'; fields.ApprovalInstanceID = approval.instanceId;
+    } else {
+      fields.Status = 'Submitted';
+    }
+    await firebaseDbRequest_('inventoryPurchaseRequisitions/' + iprId, 'patch', fields, idToken);
+    return { success: true, iprNumber: iprNumber, status: fields.Status };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function decideInventoryPurchaseRequisitionApproval(idToken, iprId, levelNumber, decision, reason) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'INVENTORYPURCHASEREQUISITION');
+    const existing = await firebaseDbRequest_('inventoryPurchaseRequisitions/' + iprId, 'get', null, idToken);
+    if (existing && !userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    const result = await decideApprovalForDocument_(idToken, 'inventoryPurchaseRequisitions', iprId, levelNumber, decision, reason, 'Submitted');
+    return Object.assign({ success: true }, result);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function closeInventoryPurchaseRequisition(idToken, iprId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'INVENTORYPURCHASEREQUISITION');
+    const existing = await firebaseDbRequest_('inventoryPurchaseRequisitions/' + iprId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'Submitted') throw new Error('Only a Submitted requisition can be closed.');
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('inventoryPurchaseRequisitions/' + iprId, 'patch', {
+      Status: 'Closed', ClosedAt: now, ClosedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function cancelInventoryPurchaseRequisition(idToken, iprId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'INVENTORYPURCHASEREQUISITION');
+    const existing = await firebaseDbRequest_('inventoryPurchaseRequisitions/' + iprId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (['Draft', 'Submitted', 'PendingApproval', 'Rejected'].indexOf(existing.Status) === -1) {
+      throw new Error('This requisition can no longer be cancelled.');
+    }
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('inventoryPurchaseRequisitions/' + iprId, 'patch', {
+      Status: 'Cancelled', CancelledAt: now, CancelledBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deleteDraftInventoryPurchaseRequisition(idToken, iprId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'INVENTORYPURCHASEREQUISITION');
+    const existing = await firebaseDbRequest_('inventoryPurchaseRequisitions/' + iprId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft requisition can be deleted.');
+    await firebaseDbRequest_('inventoryPurchaseRequisitions/' + iprId, 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // Marks one reservation Released — the stock it held becomes available
 // again immediately. Idempotent-safe: releasing an already-Released
 // reservation is a no-op error rather than silently double-processing.
@@ -6532,6 +6745,13 @@ module.exports = {
   closePurchaseRequisition,
   cancelPurchaseRequisition,
   deleteDraftPurchaseRequisition,
+  getInventoryPurchaseRequisitionEntries,
+  saveDraftInventoryPurchaseRequisition,
+  submitInventoryPurchaseRequisition,
+  decideInventoryPurchaseRequisitionApproval,
+  closeInventoryPurchaseRequisition,
+  cancelInventoryPurchaseRequisition,
+  deleteDraftInventoryPurchaseRequisition,
   releaseStockReservation_,
   getActiveCurrencies,
   getPriceLists,

@@ -274,6 +274,12 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   (two simultaneous submits can share a number). An empty draft saves
   but can't be submitted. There's no value field and no stock or GL
   effect, as designed in GAS.
+- Inventory Purchase Requisition: the same company-scoping gaps and
+  numbering behavior as Purchase Requisition above. Its lines look an
+  item up by `ItemCode` across ALL companies. The item's company isn't
+  checked, and if two companies share a code, the last one read wins.
+  That's deliberate "any item" per its GAS comment. Line warehouse and
+  UOM aren't validated. As in GAS.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -439,7 +445,7 @@ primitive's REST semantics directly.
 | PRODUCTION | ✅ | **not yet** |
 | PRODCONSUMPTION | ✅ | **not yet** |
 | PURCHASEREQUISITION | ✅ | **not yet** |
-| INVENTORYPURCHASEREQUISITION | — | — |
+| INVENTORYPURCHASEREQUISITION | ✅ | **not yet** |
 | PURCHASEORDER | — | — |
 | SALESORDER | — | — |
 | DELIVERYNOTE | — | — |
@@ -449,12 +455,12 @@ primitive's REST semantics directly.
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** INVENTORYPURCHASEREQUISITION
+**Next module to port:** PURCHASEORDER
 
-**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM, JOBORDERREQUEST, PRODUCTION, PRODCONSUMPTION, PURCHASEREQUISITION) — deploy these 41 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM, JOBORDERREQUEST, PRODUCTION, PRODCONSUMPTION, PURCHASEREQUISITION, INVENTORYPURCHASEREQUISITION) — deploy these 48 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment acceptJobOrderLine acceptJobOrderLineStop cancelDirectJobOrderLine cancelPurchaseRequisition closePurchaseRequisition deactivateBom decidePhysicalCountApproval decideProductionApproval decidePurchaseRequisitionApproval deleteDraftJobOrderBatch deleteDraftPurchaseRequisition deletePhysicalCountDraft deleteProductionDraft getActiveRequisitionCategories getBoms getEligibleJobOrderBatchesForProduction getItemCostForProduction getJobOrderBatches getJobOrderLinesFlat getPhysicalCountEntries getProductionConsumptionReport getProductionEntries getPurchaseRequisitionEntries getSalesOrderLineShortfallOptions postPhysicalCount postProduction reactivateBom requestJobOrderLineAmendment requestJobOrderLineStop reversePhysicalCount reverseProduction reviseAndResubmitJobOrderLine saveBom saveDraftJobOrderBatch saveDraftPurchaseRequisition savePhysicalCountDraft saveProductionDraft submitJobOrderBatch submitPurchaseRequisition withdrawJobOrderLine
+getModuleFragment acceptJobOrderLine acceptJobOrderLineStop cancelDirectJobOrderLine cancelInventoryPurchaseRequisition cancelPurchaseRequisition closeInventoryPurchaseRequisition closePurchaseRequisition deactivateBom decideInventoryPurchaseRequisitionApproval decidePhysicalCountApproval decideProductionApproval decidePurchaseRequisitionApproval deleteDraftInventoryPurchaseRequisition deleteDraftJobOrderBatch deleteDraftPurchaseRequisition deletePhysicalCountDraft deleteProductionDraft getActiveRequisitionCategories getBoms getEligibleJobOrderBatchesForProduction getInventoryPurchaseRequisitionEntries getItemCostForProduction getJobOrderBatches getJobOrderLinesFlat getPhysicalCountEntries getProductionConsumptionReport getProductionEntries getPurchaseRequisitionEntries getSalesOrderLineShortfallOptions postPhysicalCount postProduction reactivateBom requestJobOrderLineAmendment requestJobOrderLineStop reversePhysicalCount reverseProduction reviseAndResubmitJobOrderLine saveBom saveDraftInventoryPurchaseRequisition saveDraftJobOrderBatch saveDraftPurchaseRequisition savePhysicalCountDraft saveProductionDraft submitInventoryPurchaseRequisition submitJobOrderBatch submitPurchaseRequisition withdrawJobOrderLine
 ```
 <!-- PORT-STATUS:end -->
 
