@@ -1,6 +1,6 @@
 # Party Payments & Bill-wise Allocation (JV and CBT)
 
-**Status:** design agreed · **Roadmap:** [#0](../ROADMAP.md)
+**Status:** tested, not deployed · **Roadmap:** [#0](../ROADMAP.md) · **Branch:** `party-payments`
 
 ## Purpose
 
@@ -195,3 +195,44 @@ Both need access to JV or CBT.
   allocations are already on the entry, so no data is split between the
   two writes.
 - Historical payments stay untagged (decision 6).
+
+## Build notes (2026-09-25)
+
+**Code**
+- `functions/src/journal.js`: JV and CBT, moved verbatim from the
+  generated code in its own commit, then changed for party lines.
+- `functions/src/partyLedger.js`: the tagging rules, derived open items
+  and outstanding, the reversal guards, the invoice-list annotation.
+- `functions/src/invoiceAllocations.js`: the six invoice callables
+  wrapped around their unchanged generated versions.
+- Screens: `JV.html` and `CBT.html` share one party/allocation block (a
+  sub-row under each payables/receivables line, plus an Allocate dialog
+  with "Oldest first"). The invoice lists gain Outstanding and a Payment
+  column (Unpaid / Partly paid / Paid, due date, overdue in red).
+- Generator: `tools/legacy-port/modules.json` → `handScreens` (JV, CBT,
+  VENDORINVOICE, CUSTOMERINVOICE) and `tools/legacy-port/keep.json`.
+  Regenerating reproduces the committed `legacy/` output exactly.
+
+**Tests**
+- `functions/test/emulator/partyPayments.emulator.test.js` (8): vendor
+  payment against bills, the tagging rules, advance plus settlement JV and
+  the reversal guards, the re-check at post, the approval path, the
+  invoice reversal guard, customer receipt plus write-off, the pickers.
+  Negative control: with the outstanding check and the invoice guard
+  disabled, 5 of 8 fail.
+- `functions/test/ui/partyPayments.ui.js` (3): the CBT payment and JV
+  write-off driven through the real screens, and the invoice list.
+  Negative control: with CBT not sending allocations, 2 of 3 fail.
+- Full run: 190/190 emulator tests, 93/93 smoke, 2/2 dynamic toggle.
+
+**Behavior changes to know before deploying**
+- From the deploy on, every JV/CBT line on a vendor's payables or a
+  customer's receivables account needs its party. Existing drafts with
+  such lines will be refused at post until the party is picked.
+- `decideJournalEntryApproval` now takes the global lock.
+- A reversal with vendor/customer lines can't itself be reversed.
+
+**Deploy:** 17 functions in `tools/deploy-sets/party-payments.txt`
+(2 new: `getPartyAccounts`, `getPartyOpenItems`), `getModuleFragment` last:
+`tools/deploy-functions.sh party-payments` from a clean checkout of this
+branch. Then record it in [DEPLOY_LOG.md](../DEPLOY_LOG.md).

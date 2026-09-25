@@ -1,0 +1,20 @@
+# Party Payments & Bill-wise Allocation (docs/modules/PARTY_PAYMENTS.md).
+# Server first; getModuleFragment (the new JV/CBT/invoice screens) last,
+# so no screen goes live before the functions it calls.
+getPartyAccounts            # new
+getPartyOpenItems           # new
+saveJournalDraft
+saveCbtDraft
+postJournalEntry
+decideJournalEntryApproval
+reverseJournalEntry
+getJournalEntries           # moved to src/journal.js, unchanged
+getCbtEntries               # moved, unchanged
+deleteJournalDraft          # moved, unchanged
+getVendorInvoiceEntries
+getCustomerInvoiceEntries
+requestReverseVendorInvoice
+decideVendorInvoiceReversalApproval
+requestReverseCustomerInvoice
+decideCustomerInvoiceReversalApproval
+getModuleFragment

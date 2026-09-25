@@ -53,14 +53,18 @@ functions/
     getModuleFragment.js        — serves a screen after the access check
     stockAdjustment.js, materialIssue.js, grn.js, warehouseMovement.js, masterData.js
                                 — hand-written modules (the pattern for new modules)
+    journal.js                  — JV and CBT (moved out of the generated code)
+    partyLedger.js              — vendor/customer tags and bill-wise allocation on JV/CBT lines
+    invoiceAllocations.js       — Vendor/Customer Invoice list and reversal wrappers for allocation
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
   modules/*.html                — the screens, served by getModuleFragment
   test/emulator/*.test.js       — one API suite per module, against the local emulators
-  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens)
+  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments)
 tools/
   legacy-port/                  — the Code.gs → Cloud Functions generator (migration only)
   deploy-migration.sh           — deploys pending generated-port functions
+  deploy-functions.sh           — deploys a named set (tools/deploy-sets/<set>.txt) for new development
   deploy-runtime.sh             — moves every live function onto engines.node's runtime
 legacy-gas/                     — read-only snapshot of the old Apps Script project
 docs/                           — see Documents above
@@ -104,6 +108,7 @@ firebase emulators:start --only auth,database,firestore,functions --project erp1
 node --test --test-concurrency=1 functions/test/emulator/*.test.js
 node functions/test/ui/smoke.ui.js          # every screen loads cleanly (Admin + Viewer)
 node functions/test/ui/dynamicToggle.ui.js  # a real deactivate/reactivate click
+node functions/test/ui/partyPayments.ui.js  # after the partyPayments suite: JV/CBT allocation screens
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for
@@ -115,8 +120,8 @@ node functions/test/ui/dynamicToggle.ui.js  # a real deactivate/reactivate click
   Restart it after changing code, including for negative controls.
 - **Safety:** the suites WIPE the emulator database. `_helpers.js` refuses
   to run unless every client points at the local emulators.
-- **Last full run** (2026-09-25): 182/182 emulator tests, 93/93 smoke,
-  2/2 dynamic toggle.
+- **Last full run** (2026-09-25, `party-payments` branch): 190/190 emulator
+  tests, 93/93 smoke, 2/2 dynamic toggle, 3/3 party payments UI.
 
 ## Deploying
 
@@ -126,9 +131,10 @@ node functions/test/ui/dynamicToggle.ui.js  # a real deactivate/reactivate click
 - **Every new callable needs a public-invoker binding**, since a 2nd-gen
   function doesn't get one automatically:
   `gcloud functions add-invoker-policy-binding FN --region=us-central1 --member=allUsers --gen2 --project=erp1-8f4cd`
-- **New modules:** `firebase deploy --project erp1-8f4cd --only functions:a,functions:b,...`
-  per batch, then the binding for each new function. Include
-  `getModuleFragment` when a new screen is added, so it can be served.
+- **New modules:** list the functions in `tools/deploy-sets/<set>.txt` and
+  run `tools/deploy-functions.sh <set>` (clean-copy check, batches of ≤6,
+  retries, the binding for each). Put `getModuleFragment` last when a
+  screen changes, so it can't go live before the functions it calls.
 - **Generated-port functions:** `tools/deploy-migration.sh` (reads the
   pending list from `tools/legacy-port/status.js`).
 - **Hosting (`public/index.html`):** `firebase deploy --project erp1-8f4cd --only hosting`.
