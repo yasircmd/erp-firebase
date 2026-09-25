@@ -1,6 +1,6 @@
 # Vendor SOA (Statement of Account)
 
-**Status:** tested 2026-09-25 (not deployed) · **Roadmap:** [#3](../ROADMAP.md) · **Branch:** `party-statements` (from `sales-return`)
+**Status:** deployed 2026-09-25 · **Roadmap:** [#3](../ROADMAP.md) · **Branch:** `party-statements` (from `sales-return`)
 
 ## Purpose
 

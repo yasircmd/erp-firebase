@@ -14,10 +14,10 @@ fresh session can continue from GitHub.
 | # | Module | Design doc | Status | Notes |
 |---|---|---|---|---|
 | 0 | Party Payments & Bill-wise Allocation (JV, CBT) | [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md) | deployed | Live 2026-09-25 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). |
-| 1 | Purchase Return / Debit Note | [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) | tested | Built and tested 2026-09-25 on branch `purchase-return`; not deployed. Next: owner review, then deploy (`tools/deploy-sets/purchase-return.txt`) and link it in Tree Management. |
-| 2 | Sales Return / Credit Note | [SALES_RETURN.md](modules/SALES_RETURN.md) | tested | Built and tested 2026-09-25 on branch `sales-return` (contains #1); not deployed. Next: owner review, then deploy (`tools/deploy-sets/purchase-return.txt`, then `sales-return.txt`) and link it in Tree Management. |
-| 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | tested | Built and tested 2026-09-25 on branch `party-statements` (contains #1 and #2); not deployed. Deploy after the return sets (`tools/deploy-sets/party-statements.txt`), then link in Tree Management. |
-| 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | tested | Built with #3 on one engine, same branch; not deployed. |
+| 1 | Purchase Return / Debit Note | [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) | deployed | Live 2026-09-25 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). To do in the app: link it in Tree Management, set the Purchase Return Variance Account where needed. Branch not yet merged into `main`. |
+| 2 | Sales Return / Credit Note | [SALES_RETURN.md](modules/SALES_RETURN.md) | deployed | Live 2026-09-25. To do in the app: link it in Tree Management, set each company's Sales Returns Account. |
+| 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | deployed | Live 2026-09-25. To do in the app: link it in Tree Management. Branch `party-statements` contains #1–#4. |
+| 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | deployed | Live 2026-09-25 with #3. To do in the app: link it in Tree Management. |
 
 **Order:** #0 first (the owner's priority, and the SOAs need it). Then the returns, which the SOAs report on, and
 the SOAs last because they only read.

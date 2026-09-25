@@ -1,6 +1,6 @@
 # Sales Return / Credit Note
 
-**Status:** tested 2026-09-25 (not deployed) · **Roadmap:** [#2](../ROADMAP.md) · **Branch:** `sales-return` (from `purchase-return`)
+**Status:** deployed 2026-09-25 · **Roadmap:** [#2](../ROADMAP.md) · **Branch:** `sales-return` (from `purchase-return`)
 
 ## Purpose
 

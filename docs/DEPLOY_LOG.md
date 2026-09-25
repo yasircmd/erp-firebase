@@ -117,3 +117,31 @@ from, and how it was verified. The deploy procedure is in the
   module screen (pages measured 10–11% shorter). No functions changed.
   `https://erp1-8f4cd.web.app/` returns 200 and matches that commit's
   `public/index.html` byte for byte.
+
+- **2026-09-25, Purchase Return, Sales Return, Vendor and Customer SOA
+  (roadmap #1–#4):** the owner ran `tools/deploy-functions.sh
+  returns-and-statements`, which deployed the 34 functions in
+  `tools/deploy-sets/returns-and-statements.txt` from `a4c0f0d` (branch
+  `party-statements`, not yet merged into `main`, clean checkout). That
+  set is the union of the `purchase-return`, `sales-return` and
+  `party-statements` sets, with each function listed once. It ran in 6
+  batches with no retries and no IAM failures, ending `ALL DONE`.
+  - **New (15):** the 7 Purchase Return callables, the 7 Sales Return
+    callables and `getPartyStatement`.
+  - **Updated (19):** the existing functions that read the changed module,
+    approval and voucher-type lists, plus the Vendor/Customer Invoice
+    reversal guards, `reverseJournalEntry`, `saveCompany`, and the GL and
+    Stock Ledger reports. `getModuleFragment` went last, serving the four
+    new screens and the Company Master fields.
+  - The first batch reported four Purchase Return functions as "update"
+    rather than "create". The log doesn't say why; they are live and
+    public like the rest.
+  - **Verified:** all 34 answer an unauthenticated call with "Please sign
+    in again", so they're public and live. The project now has 259
+    functions.
+  - **Beforehand:** 205/205 emulator tests, smoke 101/101, dynamic toggle
+    2/2, and the purchase return, sales return and statements UI checks
+    4/4 each.
+  - **Still to do in the app:** link the four screens with Tree
+    Management, and set each company's Sales Returns Account (and, where
+    needed, its Purchase Return Variance Account) in Company Master.
