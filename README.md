@@ -535,9 +535,9 @@ primitive's REST semantics directly.
 | JOBORDERREQUEST | ✅ | ✅ |
 | PRODUCTION | ✅ | ✅ |
 | PRODCONSUMPTION | ✅ | ✅ |
-| PURCHASEREQUISITION | ✅ | **not yet** |
-| INVENTORYPURCHASEREQUISITION | ✅ | **not yet** |
-| PURCHASEORDER | ✅ | **not yet** |
+| PURCHASEREQUISITION | ✅ | ✅ |
+| INVENTORYPURCHASEREQUISITION | ✅ | ✅ |
+| PURCHASEORDER | ✅ | ✅ |
 | SALESORDER | ✅ | **not yet** |
 | DELIVERYNOTE | ✅ | **not yet** |
 | JV | — | — |
@@ -548,10 +548,10 @@ primitive's REST semantics directly.
 
 **Next module to port:** JV
 
-**Committed but NOT yet deployed** (PURCHASEREQUISITION, INVENTORYPURCHASEREQUISITION, PURCHASEORDER, SALESORDER, DELIVERYNOTE) — deploy these 45 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (SALESORDER, DELIVERYNOTE) — deploy these 19 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment cancelInventoryPurchaseRequisition cancelPurchaseOrder cancelPurchaseRequisition cancelSalesOrder claimStockForSalesOrderLine closeInventoryPurchaseRequisition closePurchaseOrder closePurchaseRequisition confirmSalesOrder decideDeliveryNoteApproval decideInventoryPurchaseRequisitionApproval decidePurchaseOrderApproval decidePurchaseOrderReopenApproval decidePurchaseRequisitionApproval deleteDeliveryNoteDraft deleteDraftInventoryPurchaseRequisition deleteDraftPurchaseOrder deleteDraftPurchaseRequisition deleteDraftSalesOrder getActiveCustomers getActiveRequisitionCategories getDeliveryNoteEntries getEligibleRequisitionsForPO getEligibleSOsForDelivery getInventoryPurchaseRequisitionEntries getItemPriceOnPriceList getPriceListForCustomer getPurchaseOrderEntries getPurchaseRequisitionEntries getSalesOrderEntries getSellableItems postDeliveryNote releaseStockForSalesOrderLine requestReopenPurchaseOrder reverseDeliveryNote reviseAndResubmitPurchaseOrder saveDeliveryNoteDraft saveDraftInventoryPurchaseRequisition saveDraftPurchaseOrder saveDraftPurchaseRequisition saveDraftSalesOrder submitInventoryPurchaseRequisition submitPurchaseOrder submitPurchaseRequisition
+getModuleFragment cancelSalesOrder claimStockForSalesOrderLine confirmSalesOrder decideDeliveryNoteApproval deleteDeliveryNoteDraft deleteDraftSalesOrder getActiveCustomers getDeliveryNoteEntries getEligibleSOsForDelivery getItemPriceOnPriceList getPriceListForCustomer getSalesOrderEntries getSellableItems postDeliveryNote releaseStockForSalesOrderLine reverseDeliveryNote saveDeliveryNoteDraft saveDraftSalesOrder
 ```
 <!-- PORT-STATUS:end -->
 
@@ -585,6 +585,10 @@ IAM binding per function):
   Unauthenticated probes of `getBoms`, `postProduction` and
   `getProductionConsumptionReport` return 401 from the function (not
   403 from IAM), so they're public and live.
+- **2026-09-25, batch D:** PURCHASEREQUISITION, INVENTORYPURCHASEREQUISITION and
+  PURCHASEORDER (27 functions with the helpers) were deployed from `390662c`
+  the same way (clean worktree, migration session), ending `ALL DONE`. Probes
+  reach the functions.
 - **Rule for every deploy:** `git status --porcelain` must be empty.
   `firebase deploy` uploads the working copy, not the last commit.
 
