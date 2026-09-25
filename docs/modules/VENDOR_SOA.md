@@ -1,44 +1,71 @@
 # Vendor SOA (Statement of Account)
 
-**Status:** not started · **Roadmap:** [#3](../ROADMAP.md)
+**Status:** design agreed · **Roadmap:** [#3](../ROADMAP.md) · **Module ID:** `VENDORSOA`
 
 ## Purpose
 
-A read-only statement for one vendor over a date range: opening balance,
-every invoice, debit note and payment in date order, a running balance,
-and the closing balance. Printable or exportable to send to the vendor.
+A read-only statement for one vendor over a date range: the opening
+balance, every invoice, debit note, payment and adjustment in date order
+with a running balance, and the closing balance. Printable or exportable
+to send to the vendor.
 
-## What already exists (from the code)
+Menu: the existing tree node *Accounts Payable (FI-AP) → Vendor Account
+Statement* gets Module ID `VENDORSOA` once deployed.
 
-- **Vendor Invoices** (RTDB `vendorInvoices`) carry `VendorID`, number,
-  date, totals, status and reversal links.
-- **Debit notes:** not yet built (see
-  [PURCHASE_RETURN.md](PURCHASE_RETURN.md)).
-- **Payments:** posted through CBT (Firestore `journalEntries`,
-  `VoucherType` cash/bank). **CBT lines store only a GL account, with no
-  vendor.** Nothing records what's paid or outstanding per invoice.
-- Each vendor has its own `TradePayablesAccountID`.
+## Design
 
-## Design (to be agreed)
+One hand-written report function, `getPartyStatement`, serves both
+statements. Each screen is a thin view over it.
 
-Depends on roadmap decision **#0** (how a payment is tied to a vendor):
-- **A:** list invoices, debit notes and the CBT lines tagged with this
-  vendor.
-- **B:** read the GL for the vendor's payables account.
-- **C:** read the new Vendor Payment documents with their allocations.
+### Filters
 
-The layout, whatever the source:
-- **Columns:** date, document, reference, debit, credit, running balance.
-- **Rows:** opening balance first, closing balance last.
-- **Filters:** company, vendor, date range.
-- **Access:** company-scoped like every report.
+Company (required, limited to the user's companies), vendor (required),
+From and To dates.
 
-## Open questions for the owner
+### Rows
 
-1. **Roadmap #0:** option A, B or C?
-2. **Invoice detail:** show open/paid status per invoice (needs C), or
-   only the running balance?
-3. **Aging:** include an aging summary (0–30, 31–60, 61–90, 90+ days)?
-4. **Output:** on screen only, print/PDF, or Excel export?
-5. **Currency:** statements in the invoice currency, or the company's
-   base currency?
+Everything posted for that vendor in that company, in date order:
+- **Vendor Invoices:** each posted invoice, and each invoice reversal as its
+  own row (from RTDB `vendorInvoices`).
+- **Every party-tagged journal line** naming this vendor: debit notes,
+  payments/advances and adjustments through CBT and JV, and the
+  reversals of any of these (reversal entries keep the party tag).
+
+Only posted documents count. Drafts and anything pending approval are
+left out. A reversed document and its reversal both appear, since both
+happened and they net to zero.
+
+### Columns
+
+Date, document type, number, reference, description, Debit, Credit, and
+the running balance.
+
+### Balance
+
+- Shown as **payable**: credits (bills) increase it, debits
+  (payments, debit notes) reduce it. A negative balance means the vendor
+  owes the company.
+- **Opening balance:** every row before the From date.
+- **Closing balance:** the last running balance.
+
+### Output
+
+On screen, **Print** (browser print / save as PDF, with the company
+letterhead as the other screens print it) and an **Excel (CSV)**
+download.
+
+## Owner decisions (2026-09-25)
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Roadmap #0 (tying payments to a party) | Party-tagged JV/CBT lines with bill-wise allocation, built and live |
+| 2 | Content | The **running ledger** (opening, rows, closing). No open-items or aging section for now |
+| 3 | Output | Screen, **print** and **Excel (CSV) export** |
+| 4 | Currency | The system has one default currency and no conversion, so amounts are as posted |
+| 5 | Permissions | Access only, same default roles as GL Report |
+
+## Known limits
+
+- Payments and receipts posted before party tagging went live
+  (2026-09-25) carry no party, so they don't appear.
+  Such history needs a settling JV (party payments decision 6).
