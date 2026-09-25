@@ -16,14 +16,20 @@ async function getStockLedgerEntry(itemId, warehouseId) {
 // gives: a future In line's cost derived from its own Out lines (e.g.
 // Production) needs the Out side settled first, and this ordering is
 // already correct for that even though nothing uses it yet.
-async function computeStockMovement(itemsData, coaData, lines) {
+//
+// readLedger (optional, port addition): where a starting balance comes
+// from, defaulting to the live RTDB ledger. Data Reset's ledger rebuild
+// passes an in-memory reader so it can replay every transaction without
+// touching the stored ledger until the whole replay has succeeded.
+async function computeStockMovement(itemsData, coaData, lines, readLedger) {
   if (!lines || !lines.length) throw new Error('Enter at least one line.');
 
+  const readEntry = readLedger || getStockLedgerEntry;
   const ledgerUpdates = {};
   function ledgerKey(itemId, warehouseId) { return itemId + '|' + warehouseId; }
   async function currentLedger(itemId, warehouseId) {
     const key = ledgerKey(itemId, warehouseId);
-    if (!ledgerUpdates[key]) ledgerUpdates[key] = await getStockLedgerEntry(itemId, warehouseId);
+    if (!ledgerUpdates[key]) ledgerUpdates[key] = await readEntry(itemId, warehouseId);
     return ledgerUpdates[key];
   }
 

@@ -17,17 +17,31 @@ const MODULES = process.argv.slice(2).length ? process.argv.slice(2)
 // Failures that are the ORIGINAL behavior for that role (documented in
 // README's quirks list), not port bugs: module+uid -> regex of allowed problems.
 const EXPECTED = {
-  'USERMGMT|u-viewer': /You do not have permission to manage users\./
+  'USERMGMT|u-viewer': /You do not have permission to manage users\./,
+  // Data Reset hard-checks the literal role 'ADMIN' (requireAdminRole_).
+  'DATARESET|u-admin': /Only Admin users can access Data Reset\./,
+  'DATARESET|u-viewer': /Only Admin users can access Data Reset\./
 };
+// Data Reset is also loaded as a real 'ADMIN' user, seeded below.
+const usersFor = (mod) => mod === 'DATARESET' ? ['u-admin', 'u-viewer', 'u-root'] : ['u-admin', 'u-viewer'];
+
+async function seedDataResetAdmin() {
+  const rtdb = (p, body) => fetch('http://127.0.0.1:9000/' + p + '.json?ns=erp1-8f4cd-default-rtdb', {
+    method: 'PUT', headers: { Authorization: 'Bearer owner' }, body: JSON.stringify(body)
+  });
+  await rtdb('users/u-root', { status: 'Active', role: 'ADMIN', username: 'root', fullName: 'Root', AssignedCompanies: ['C1'] });
+  await rtdb('permissions/DATARESET', { access: ['ADMIN', 'Admin', 'Viewer'], write: ['ADMIN'] });
+}
 
 (async () => {
+  if (MODULES.includes('DATARESET')) await seedDataResetAdmin();
   require('./buildHarness');
   const harness = fs.readFileSync(path.join(__dirname, 'harness.html'));
   const server = http.createServer((q, r) => { r.writeHead(200, { 'Content-Type': 'text/html' }); r.end(harness); }).listen(8125);
   const browser = await chromium.launch();
   const results = [];
   for (const mod of MODULES) {
-    for (const uid of ['u-admin', 'u-viewer']) {
+    for (const uid of usersFor(mod)) {
       const page = await browser.newPage();
       const errors = [];
       page.on('pageerror', e => errors.push('pageerror: ' + e.message));

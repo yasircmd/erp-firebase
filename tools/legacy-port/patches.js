@@ -344,5 +344,107 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
     find: `    .filter(dn => dn.TransactionType === 'DeliveryNote' && dn.Status === 'Posted' && dn.CompanyID === companyId && dn.CustomerID === customerId && !dn.MatchedToInvoiceID)`,
     replace: `    // [PORT FIX invoice-pickers-skip-reversals] reversed deliveries and reversal entries aren't invoiceable.
     .filter(dn => dn.TransactionType === 'DeliveryNote' && dn.Status === 'Posted' && dn.CompanyID === companyId && dn.CustomerID === customerId && !dn.MatchedToInvoiceID && !dn.ReversedByDeliveryNoteID && !dn.ReversalOfDeliveryNoteID)`
+  },
+  {
+    id: 'recalculate-stock-ledger-replay',
+    why: 'recalculateStockLedger could destroy the stock ledger. (1) A posted Warehouse Movement stores only its Out ' +
+      'lines, so the replay took the stock out of the source and never put it into the destination; a later issue ' +
+      'from the destination then failed. (2) It replayed in CreatedAt order, which is when the DRAFT was created, not ' +
+      'when it posted, so WAC came out wrong or an issue replayed before the receipt it drew on. (3) It deleted ' +
+      'stock/ledger first and committed transaction by transaction, so any failure left the ledger wiped or half ' +
+      'rebuilt. (4) It took no lock, so a posting during the rebuild read a half-built ledger. Now: movements replay ' +
+      'both sides exactly as their posting did; order is PostedAt (CreatedAt only if missing); the whole replay runs ' +
+      'in memory under the global lock and the ledger is replaced in one write only if every transaction replays; ' +
+      'Physical Counts posted before deviation #7 (variance lines without Direction) are refused by name rather than ' +
+      'silently dropped.',
+    find: `    firebaseDbRequest_('stock/ledger', 'delete', null, idToken);
+
+    const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};
+    const coaData = getCoaData_(idToken);
+    const allTx = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+
+    const posted = Object.keys(allTx)
+      .map(id => Object.assign({ _id: id }, allTx[id]))
+      .filter(t => t.Status === 'Posted' && t.Lines && t.Lines.length)
+      .sort((a, b) => (a.CreatedAt || '').localeCompare(b.CreatedAt || ''));
+
+    posted.forEach(tx => {
+      const lines = tx.Lines.map(l => Object.assign({}, l));
+      const movement = computeStockMovement_(idToken, itemsData, coaData, lines);
+      commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
+    });
+
+    return { success: true, count: posted.length };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}`,
+    replace: `    // [PORT FIX recalculate-stock-ledger-replay] see patches.js. The replay
+    // runs in memory under the global lock; stock/ledger is replaced in one
+    // write only once every transaction has replayed, so a failure changes
+    // nothing.
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    try {
+      const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};
+      const coaData = getCoaData_(idToken);
+      const allTx = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+
+      const posted = Object.keys(allTx)
+        .map(id => Object.assign({ _id: id }, allTx[id]))
+        .filter(t => t.Status === 'Posted' && t.Lines && t.Lines.length)
+        .sort((a, b) => (a.PostedAt || a.CreatedAt || '').localeCompare(b.PostedAt || b.CreatedAt || ''));
+
+      const oldShapeCounts = posted
+        .filter(t => t.TransactionType === 'PhysicalCount' && t.Lines.some(l => Number(l.Variance) && !l.Direction))
+        .map(t => t.TransactionNumber || t._id);
+      if (oldShapeCounts.length) {
+        throw new Error('These Physical Counts were posted without their adjustment details and would be left out of the rebuild: ' +
+          oldShapeCounts.join(', ') + '. Nothing was changed.');
+      }
+
+      const rebuilt = {};
+      const readLedger = (itemId, warehouseId) => Object.assign({ Quantity: 0, AvgCost: 0, TotalValue: 0 }, rebuilt[itemId + '|' + warehouseId]);
+
+      posted.forEach(tx => {
+        try {
+          if (tx.TransactionType === 'WarehouseMovement') {
+            // Same two computations as commitWarehouseMovementPosting_, both
+            // from the same starting balances: Out at the source, then In at
+            // the destination at the Out side's replayed cost.
+            const outLines = tx.Lines.map(l => Object.assign({}, l, { Direction: 'Out', WarehouseID: l.FromWarehouseID || l.WarehouseID }));
+            const outMovement = computeStockMovement_(idToken, itemsData, coaData, outLines, readLedger);
+            const inLines = tx.Lines.map((l, idx) => Object.assign({}, l, { Direction: 'In', WarehouseID: l.ToWarehouseID, UnitCost: outLines[idx].UnitCost }));
+            const inMovement = computeStockMovement_(idToken, itemsData, coaData, inLines, readLedger);
+            Object.assign(rebuilt, outMovement.ledgerUpdates, inMovement.ledgerUpdates);
+            return;
+          }
+          const lines = tx.Lines.map(l => Object.assign({}, l));
+          if (!lines.some(l => l.Direction === 'In' || l.Direction === 'Out')) return; // clean Physical Count
+          const movement = computeStockMovement_(idToken, itemsData, coaData, lines, readLedger);
+          Object.assign(rebuilt, movement.ledgerUpdates);
+        } catch (e) {
+          throw new Error((tx.TransactionNumber || tx._id) + ': ' + e.message + ' Nothing was changed.');
+        }
+      });
+
+      const now = new Date().toISOString();
+      const ledgerTree = {};
+      Object.keys(rebuilt).forEach(key => {
+        const parts = key.split('|');
+        const entry = rebuilt[key];
+        ledgerTree[parts[0]] = ledgerTree[parts[0]] || {};
+        ledgerTree[parts[0]][parts[1]] = { Quantity: entry.Quantity, AvgCost: entry.AvgCost, TotalValue: entry.TotalValue, UpdatedAt: now };
+      });
+      firebaseDbRequest_('stock/ledger', 'put', ledgerTree, idToken);
+
+      return { success: true, count: posted.length };
+    } finally {
+      lock.releaseLock();
+    }
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}`
   }
 ];

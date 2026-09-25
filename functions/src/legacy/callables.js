@@ -48,6 +48,16 @@ exports.claimStockForSalesOrderLine = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.soId, d.lineId, d.quantity, d.reason];
   return run(request, (ctx) => L.claimStockForSalesOrderLine(ctx, ...a));
 });
+exports.clearDataCategories = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.categoryKeys, d.confirmPhrase];
+  return run(request, (ctx) => L.clearDataCategories(ctx, ...a));
+});
+exports.clearSelectedRecords = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.categoryKey, d.recordIds, d.confirmPhrase];
+  return run(request, (ctx) => L.clearSelectedRecords(ctx, ...a));
+});
 exports.closeInventoryPurchaseRequisition = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.iprId];
@@ -348,6 +358,11 @@ exports.getCashFlowStatement = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
   return run(request, (ctx) => L.getCashFlowStatement(ctx, ...a));
 });
+exports.getCategoryRecords = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.categoryKey];
+  return run(request, (ctx) => L.getCategoryRecords(ctx, ...a));
+});
 exports.getCbtEntries = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
@@ -382,6 +397,11 @@ exports.getCustomers = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getCustomers(ctx, ...a));
+});
+exports.getDataResetCounts = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getDataResetCounts(ctx, ...a));
 });
 exports.getDefaultCurrency = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -472,6 +492,11 @@ exports.getJournalEntries = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
   return run(request, (ctx) => L.getJournalEntries(ctx, ...a));
+});
+exports.getLifetimeAuditCounterValues = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getLifetimeAuditCounterValues(ctx, ...a));
 });
 exports.getMaterialVarianceReport = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -713,6 +738,11 @@ exports.reactivateVendor = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
   return run(request, (ctx) => L.reactivateVendor(ctx, ...a));
 });
+exports.recalculateStockLedger = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.confirmPhrase];
+  return run(request, (ctx) => L.recalculateStockLedger(ctx, ...a));
+});
 exports.releaseStockForSalesOrderLine = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.soId, d.lineId, d.quantity, d.reason];
@@ -742,6 +772,11 @@ exports.requestReverseVendorInvoice = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.reversalDate];
   return run(request, (ctx) => L.requestReverseVendorInvoice(ctx, ...a));
+});
+exports.resetLifetimeAuditCounters = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.confirmPhrase];
+  return run(request, (ctx) => L.resetLifetimeAuditCounters(ctx, ...a));
 });
 exports.reverseDeliveryNote = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

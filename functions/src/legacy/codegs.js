@@ -222,6 +222,51 @@ const BOM_PARENT_CATEGORIES = ['FinishedGood', 'SemiFinishedGood'];
 const BOM_COMPONENT_CATEGORIES = ['RawMaterial', 'SemiFinishedGood', 'Consumable'];
 
 // ============================================================
+// DATA RESET — admin-only testing/setup utility
+// ============================================================
+// Lets an Admin wipe test data without touching Firebase directly.
+// Deliberately gated MORE strictly than the standard capability system:
+// every function here hard-checks user.profile.role === 'ADMIN'
+// directly, rather than relying solely on moduleHasCapability_/
+// DEFAULT_PERMISSIONS — those control ordinary feature access, and this
+// is destructive, irreversible data loss, not an ordinary feature.
+// DEFAULT_PERMISSIONS.DATARESET is ALSO restricted to ADMIN, so both
+// layers agree, but this function-level check is the one that actually
+// matters if the permission config is ever changed by mistake.
+//
+// Categories are grouped into 'transactional' (safe to clear repeatedly
+// during testing — GL entries, stock data, BOMs) and 'master' (the
+// structural setup — items, COA, companies, etc. — cleared far less
+// often, and each requires the SAME explicit selection + confirmation
+// phrase as everything else; nothing here is pre-selected for the user).
+//
+// User Management, Roles, Tree structure, and Permissions are
+// deliberately NEVER offered here — clearing those could lock every
+// user (including the person running this) out of the system entirely.
+
+const DATA_RESET_CATEGORIES = {
+  // 'firestore:' prefix marks the one path that actually moved — the
+  // journal entries themselves. gl/counters and gl/transactionRefCounter
+  // deliberately stay in RTDB (see writeStockGlEntry_/postJournalEntry's
+  // own comments on why), so this category is genuinely mixed-backend;
+  // every function below that walks .paths or uses .recordsPath checks
+  // for this prefix rather than assuming everything is an RTDB path.
+  glEntries: { paths: ['firestore:journalEntries', 'gl/counters', 'gl/transactionRefCounter'], recordsPath: 'firestore:journalEntries', label: 'GL Journal Entries', detail: 'JV, CBT, and every stock- or AP/AR-originated entry (GRN, Material Issue, Production, Warehouse Movement, Stock Adjustment, Physical Count, Delivery Note, Vendor Invoice, Customer Invoice) — plus their voucher numbering sequences and the lifetime TXN- audit reference.', group: 'transactional' },
+  stockData: { paths: ['stock/transactions', 'stock/ledger', 'stock/counters'], recordsPath: 'stock/transactions', label: 'Stock Transactions & Ledger', detail: 'GRN, Material Issue, Production, Warehouse Movement, Stock Adjustment, Physical Count, and Delivery Note records, current stock-on-hand balances, stock voucher numbering, and the lifetime STK- audit reference (nested under stock/counters, cleared along with it).', group: 'transactional' },
+  vendorInvoices: { paths: ['vendorInvoices'], recordsPath: 'vendorInvoices', label: 'Vendor Invoice Processing', detail: 'Every Vendor Invoice record (its own collection, separate from GL Journal Entries and Stock Transactions) — Draft, Posted, and reversal entries alike.', group: 'transactional' },
+  customerInvoices: { paths: ['customerInvoices'], recordsPath: 'customerInvoices', label: 'Customer Invoice Processing', detail: 'Every Customer Invoice record (its own collection, separate from GL Journal Entries and Stock Transactions) — Draft, Posted, and reversal entries alike.', group: 'transactional' },
+  boms: { paths: ['boms'], recordsPath: 'boms', label: 'Bill of Materials', detail: 'All BOM records.', group: 'transactional' },
+  items: { paths: ['items', 'itemCounters'], recordsPath: 'items', label: 'Item Master', detail: 'Every item and the item-code numbering sequence.', group: 'master' },
+  itemSubCategories: { paths: ['itemSubCategories'], recordsPath: 'itemSubCategories', label: 'Item Sub-Categories', detail: 'Sub-category master list.', group: 'master' },
+  uoms: { paths: ['uoms'], recordsPath: 'uoms', label: 'Units of Measure', detail: 'UOM master list — will reseed defaults (KG/PCS/etc.) next time it\'s opened.', group: 'master' },
+  coa: { paths: ['coa'], recordsPath: 'coa', label: 'Chart of Accounts', detail: 'The entire chart. Clearing this alone, without also clearing GL Journal Entries, will leave every posted entry referencing accounts that no longer exist.', group: 'master' },
+  companies: { paths: ['companies'], recordsPath: 'companies', label: 'Company Master Data', detail: 'Every company record and its configured accounts.', group: 'master' },
+  orgUnits: { paths: ['orgUnits'], recordsPath: 'orgUnits', label: 'Organizational Units', detail: 'Divisions, Branches, Warehouses, Racks, Cost Centers, Profit Centers.', group: 'master' },
+  salesTypes: { paths: ['salesTypes'], recordsPath: 'salesTypes', label: 'Sales Types', detail: 'Local Sales, Export Sales, and any other Sales Type configured for Customer Invoice — clearing this without also addressing Customer Invoice will leave posted invoices referencing a Sales Type that no longer exists.', group: 'master' },
+  customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications', detail: 'Local/Export and any other classification configured for Customer Master Data — will reseed the Local/Export defaults next time it\'s opened.', group: 'master' }
+};
+
+// ============================================================
 // WAREHOUSE MOVEMENT
 // ============================================================
 // Moves stock of the SAME item from one warehouse/rack to another. No
@@ -5646,6 +5691,349 @@ async function reverseDeliveryNote(idToken, dnId, reversalDate) {
   }
 }
 
+// One-line, human-readable summary per record, per category — used only
+// for the individual-record browse/select list, never stored.
+function summarizeDataResetRecord_(categoryKey, id, r) {
+  switch (categoryKey) {
+    case 'glEntries':
+      return (r.JVNumber || 'DRAFT') + ' — ' + (r.JVDate || '') + ' — ' + (r.Description || '') + ' [' + (r.VoucherType || 'JV') + ', ' + (r.Status || '') + ']';
+    case 'stockData':
+      return (r.TransactionNumber || 'DRAFT') + ' — ' + (r.TransactionDate || '') + ' — ' + (r.Description || '') + ' [' + (r.TransactionType || '') + ', ' + (r.Status || '') + ']';
+    case 'vendorInvoices':
+      return (r.TransactionNumber || 'DRAFT') + ' — ' + (r.InvoiceDate || '') + ' — ' + (r.Description || '') + ' [' + (r.Status || '') + ']';
+    case 'customerInvoices':
+      return (r.TransactionNumber || 'DRAFT') + ' — ' + (r.InvoiceDate || '') + ' — ' + (r.Description || '') + ' [' + (r.Status || '') + ']';
+    case 'boms':
+      return (r.ParentItemCode || '') + ' — ' + (r.ParentItemName || '') + ' (v' + (r.BOMVersion || '') + ', ' + (r.Status || '') + ')';
+    case 'items':
+      return (r.ItemCode || '') + ' — ' + (r.ItemName || '') + ' [' + (r.Category || '') + ']';
+    case 'itemSubCategories':
+      return r.Name || '';
+    case 'uoms':
+      return (r.Code || '') + ' — ' + (r.Name || '');
+    case 'coa':
+      return (r.AccountCode || '') + ' — ' + (r.AccountName || '') + ' [' + (r.AccountType || '') + ']';
+    case 'companies':
+      return r.LegalName || '';
+    case 'orgUnits':
+      return (r.Code || '') + ' — ' + (r.Name || '') + ' [' + (r.Type || '') + ']';
+    case 'salesTypes':
+      return (r.Name || '') + (r.RestrictedToClassificationID ? ' [restricted]' : ' [unrestricted]');
+    case 'customerClassifications':
+      return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');
+    default:
+      return id;
+  }
+}
+
+// Lists individual records in a category with a display summary — the
+// browse/select view for deleting SPECIFIC entries rather than the whole
+// category at once.
+async function getCategoryRecords(idToken, categoryKey) {
+  const user = await requireUser_(idToken);
+  requireAdminRole_(user);
+  const cat = DATA_RESET_CATEGORIES[categoryKey];
+  if (!cat || !cat.recordsPath) throw new Error('Unknown or unsupported category.');
+
+  if (cat.recordsPath.indexOf('firestore:') === 0) {
+    const collection = cat.recordsPath.substring('firestore:'.length);
+    const rows = await firestoreQuery_(collection, null, null, null);
+    return rows
+      .map(r => ({ id: r._id, summary: summarizeDataResetRecord_(categoryKey, r._id, r) }))
+      .sort((a, b) => b.id.localeCompare(a.id));
+  }
+
+  const data = (await firebaseDbRequest_(cat.recordsPath, 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => ({ id: id, summary: summarizeDataResetRecord_(categoryKey, id, data[id]) }))
+    .sort((a, b) => b.id.localeCompare(a.id));
+}
+
+// Deletes SPECIFIC records within a category, not the whole thing.
+//
+// A stock transaction (GRN/MI/Production) and its linked GL entry are
+// two SEPARATE records — deleting only one would silently orphan the
+// other (a GL entry nobody can trace back to a source document, or a
+// stock record with no corresponding ledger impact explained anywhere).
+// This keeps the two in sync regardless of which side you delete from:
+// deleting a stock transaction also deletes its LinkedJVID GL entry;
+// deleting a stock-originated GL entry also deletes the stock
+// transaction that points to it.
+//
+// This does NOT recalculate the stock ledger — deleting historical
+// transactions leaves quantity/WAC balances reflecting transactions
+// that no longer exist. Use recalculateStockLedger separately for that.
+async function clearSelectedRecords(idToken, categoryKey, recordIds, confirmPhrase) {
+  try {
+    const user = await requireUser_(idToken);
+    requireAdminRole_(user);
+    if (String(confirmPhrase || '') !== 'DELETE') throw new Error('Type DELETE exactly to confirm.');
+    if (!Array.isArray(recordIds) || !recordIds.length) throw new Error('Select at least one record to delete.');
+
+    const cat = DATA_RESET_CATEGORIES[categoryKey];
+    if (!cat || !cat.recordsPath) throw new Error('Unknown or unsupported category.');
+
+    let linkedCleared = 0;
+
+    // stockData, vendorInvoices, and customerInvoices all carry their
+    // own LinkedJVID — deleting one of their records individually
+    // should also remove the GL entry it posted, the same way clearing
+    // glEntries individually needs to reach back into ALL THREE of
+    // these source-side collections, not just stock/transactions, to
+    // avoid leaving Vendor/Customer Invoice records pointing at a GL
+    // entry that no longer exists.
+    const LINKED_JV_SOURCE_CATEGORIES = ['stockData', 'vendorInvoices', 'customerInvoices'];
+    if (LINKED_JV_SOURCE_CATEGORIES.indexOf(categoryKey) !== -1) {
+      await seq.forEach(recordIds, async id => {
+        const record = await firebaseDbRequest_(cat.recordsPath + '/' + id, 'get', null, idToken);
+        if (record && record.LinkedJVID) {
+          await firestoreDelete_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, record.LinkedJVID);
+          linkedCleared++;
+        }
+      });
+    } else if (categoryKey === 'glEntries') {
+      const idSet = {};
+      recordIds.forEach(id => { idSet[id] = true; });
+      await seq.forEach(LINKED_JV_SOURCE_CATEGORIES, async sourceKey => {
+        const sourcePath = DATA_RESET_CATEGORIES[sourceKey].recordsPath;
+        const allSourceRecords = (await firebaseDbRequest_(sourcePath, 'get', null, idToken)) || {};
+        await seq.forEach(Object.keys(allSourceRecords), async sourceId => {
+          const linked = allSourceRecords[sourceId].LinkedJVID;
+          if (linked && idSet[linked]) {
+            await firebaseDbRequest_(sourcePath + '/' + sourceId, 'delete', null, idToken);
+            linkedCleared++;
+          }
+        });
+      });
+    }
+
+    if (cat.recordsPath.indexOf('firestore:') === 0) {
+      const collection = cat.recordsPath.substring('firestore:'.length);
+      await seq.forEach(recordIds, async id => { await firestoreDelete_(collection, id); });
+    } else {
+      await seq.forEach(recordIds, async id => {
+        await firebaseDbRequest_(cat.recordsPath + '/' + id, 'delete', null, idToken);
+      });
+    }
+
+    return { success: true, count: recordIds.length, linkedCleared: linkedCleared };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Wipes the stock ledger entirely and rebuilds it from whatever POSTED
+// stock transactions remain, replayed in the order they were ORIGINALLY
+// posted (CreatedAt, not TransactionDate — the latter is user-editable/
+// backdatable and would give the wrong sequence for WAC purposes).
+//
+// Reuses computeStockMovement_/commitStockLedgerUpdates_ one transaction
+// at a time rather than reimplementing WAC math — each call reads
+// whatever the PREVIOUS call just committed, so Out lines correctly cost
+// at the REPLAYED (not the original, now possibly stale) WAC. In lines
+// reuse their originally saved UnitCost, since a receipt's cost is a
+// historical fact independent of ledger sequence — the one deliberate
+// exception is a Material Issue reversal's In line, whose saved cost was
+// itself WAC-derived at original posting time and could theoretically
+// differ slightly after a replay; treating "what it originally cost" as
+// the stable, correct value for a reversal is a reasonable simplification,
+// not a fully exhaustive re-derivation of every historical WAC.
+async function recalculateStockLedger(idToken, confirmPhrase) {
+  try {
+    const user = await requireUser_(idToken);
+    requireAdminRole_(user);
+    if (String(confirmPhrase || '') !== 'DELETE') throw new Error('Type DELETE exactly to confirm.');
+
+    // [PORT FIX recalculate-stock-ledger-replay] see patches.js. The replay
+    // runs in memory under the global lock; stock/ledger is replaced in one
+    // write only once every transaction has replayed, so a failure changes
+    // nothing.
+    const lock = LockService.getScriptLock();
+    await lock.waitLock(10000);
+    try {
+      const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+      const coaData = await getCoaData_(idToken);
+      const allTx = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+
+      const posted = Object.keys(allTx)
+        .map(id => Object.assign({ _id: id }, allTx[id]))
+        .filter(t => t.Status === 'Posted' && t.Lines && t.Lines.length)
+        .sort((a, b) => (a.PostedAt || a.CreatedAt || '').localeCompare(b.PostedAt || b.CreatedAt || ''));
+
+      const oldShapeCounts = posted
+        .filter(t => t.TransactionType === 'PhysicalCount' && t.Lines.some(l => Number(l.Variance) && !l.Direction))
+        .map(t => t.TransactionNumber || t._id);
+      if (oldShapeCounts.length) {
+        throw new Error('These Physical Counts were posted without their adjustment details and would be left out of the rebuild: ' +
+          oldShapeCounts.join(', ') + '. Nothing was changed.');
+      }
+
+      const rebuilt = {};
+      const readLedger = (itemId, warehouseId) => Object.assign({ Quantity: 0, AvgCost: 0, TotalValue: 0 }, rebuilt[itemId + '|' + warehouseId]);
+
+      await seq.forEach(posted, async tx => {
+        try {
+          if (tx.TransactionType === 'WarehouseMovement') {
+            // Same two computations as commitWarehouseMovementPosting_, both
+            // from the same starting balances: Out at the source, then In at
+            // the destination at the Out side's replayed cost.
+            const outLines = tx.Lines.map(l => Object.assign({}, l, { Direction: 'Out', WarehouseID: l.FromWarehouseID || l.WarehouseID }));
+            const outMovement = await computeStockMovement_(idToken, itemsData, coaData, outLines, readLedger);
+            const inLines = tx.Lines.map((l, idx) => Object.assign({}, l, { Direction: 'In', WarehouseID: l.ToWarehouseID, UnitCost: outLines[idx].UnitCost }));
+            const inMovement = await computeStockMovement_(idToken, itemsData, coaData, inLines, readLedger);
+            Object.assign(rebuilt, outMovement.ledgerUpdates, inMovement.ledgerUpdates);
+            return;
+          }
+          const lines = tx.Lines.map(l => Object.assign({}, l));
+          if (!lines.some(l => l.Direction === 'In' || l.Direction === 'Out')) return; // clean Physical Count
+          const movement = await computeStockMovement_(idToken, itemsData, coaData, lines, readLedger);
+          Object.assign(rebuilt, movement.ledgerUpdates);
+        } catch (e) {
+          throw new Error((tx.TransactionNumber || tx._id) + ': ' + e.message + ' Nothing was changed.');
+        }
+      });
+
+      const now = new Date().toISOString();
+      const ledgerTree = {};
+      Object.keys(rebuilt).forEach(key => {
+        const parts = key.split('|');
+        const entry = rebuilt[key];
+        ledgerTree[parts[0]] = ledgerTree[parts[0]] || {};
+        ledgerTree[parts[0]][parts[1]] = { Quantity: entry.Quantity, AvgCost: entry.AvgCost, TotalValue: entry.TotalValue, UpdatedAt: now };
+      });
+      await firebaseDbRequest_('stock/ledger', 'put', ledgerTree, idToken);
+
+      return { success: true, count: posted.length };
+    } finally {
+      await lock.releaseLock();
+    }
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Named distinctly from the EXISTING requireAdmin_(idToken) (used by
+// User Management, which checks whoever currently holds USERMGMT write
+// capability — a configurable role, not necessarily literally "ADMIN").
+// This one is deliberately different: a hard-coded, non-configurable
+// check that the CURRENT role is literally 'ADMIN', for a feature where
+// "whoever the permissions matrix says can write here" isn't a strong
+// enough guarantee.
+function requireAdminRole_(user) {
+  if (user.profile.role !== 'ADMIN') throw new Error('Only Admin users can access Data Reset.');
+}
+
+// Returns a live record count per category so the UI can show exactly
+// what's at stake BEFORE anything is selected for deletion.
+async function getDataResetCounts(idToken) {
+  const user = await requireUser_(idToken);
+  requireAdminRole_(user);
+  const counts = {};
+  await seq.forEach(Object.keys(DATA_RESET_CATEGORIES), async key => {
+    const cat = DATA_RESET_CATEGORIES[key];
+    let total = 0;
+    await seq.forEach(cat.paths, async path => {
+      if (path.indexOf('firestore:') === 0) {
+        // A genuine improvement over the RTDB path below, not just
+        // parity — a server-side count, not a whole-collection fetch
+        // just to measure its size.
+        total += await firestoreCount_(path.substring('firestore:'.length), null);
+        return;
+      }
+      const data = await firebaseDbRequest_(path, 'get', null, idToken);
+      if (data && typeof data === 'object') total += Object.keys(data).length;
+    });
+    counts[key] = { label: cat.label, detail: cat.detail, group: cat.group, count: total };
+  });
+  return counts;
+}
+
+// Returns the CURRENT value of both lifetime audit counters (TXN- and
+// STK-), so the UI can show what's actually stored before offering to
+// reset them — same "show what's at stake first" principle as
+// getDataResetCounts.
+async function getLifetimeAuditCounterValues(idToken) {
+  const user = await requireUser_(idToken);
+  requireAdminRole_(user);
+  return {
+    txn: (await firebaseDbRequest_('gl/transactionRefCounter', 'get', null, idToken)) || 0,
+    stk: (await firebaseDbRequest_('stock/counters/transactionRef', 'get', null, idToken)) || 0
+  };
+}
+
+// A separate, much narrower operation from clearDataCategories — this
+// touches ONLY the two lifetime audit-reference counters (TXN-/STK-),
+// never the journalEntries collection, stock/transactions, or any voucher-numbering
+// counter. Safe to run at any time, including after new transactions
+// have already been posted since a prior reset — it can't orphan or
+// duplicate anything, since TXN-/STK- values are audit labels, not
+// foreign keys anything else in the system looks up by. Exists
+// specifically to recover from a reset performed before this file's
+// glEntries category included gl/transactionRefCounter in its own
+// cleared paths (see that category's own comment) — after this fix,
+// clearing "GL Journal Entries" going forward handles TXN- on its own,
+// and "Stock Transactions & Ledger" already handled STK- correctly
+// (it's nested under stock/counters, which that category clears).
+async function resetLifetimeAuditCounters(idToken, confirmPhrase) {
+  try {
+    const user = await requireUser_(idToken);
+    requireAdminRole_(user);
+    if (String(confirmPhrase || '') !== 'DELETE') throw new Error('Type DELETE exactly to confirm.');
+    await firebaseDbRequest_('gl/transactionRefCounter', 'delete', null, idToken);
+    await firebaseDbRequest_('stock/counters/transactionRef', 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Deletes every path under each selected category — a Firebase REST
+// DELETE on a collection-level path (not a single record) removes that
+// entire node and everything under it, same mechanism used everywhere
+// else in this file for single-record deletes, just at a wider path.
+// Requires the literal phrase "DELETE" as an explicit, typed
+// confirmation — this is not something a stray click should be able to
+// trigger.
+async function clearDataCategories(idToken, categoryKeys, confirmPhrase) {
+  try {
+    const user = await requireUser_(idToken);
+    requireAdminRole_(user);
+    if (String(confirmPhrase || '') !== 'DELETE') throw new Error('Type DELETE exactly to confirm.');
+    if (!Array.isArray(categoryKeys) || !categoryKeys.length) throw new Error('Select at least one category to clear.');
+
+    const invalid = categoryKeys.filter(key => !DATA_RESET_CATEGORIES[key]);
+    if (invalid.length) throw new Error('Unknown category: ' + invalid.join(', '));
+
+    const clearedLabels = [];
+    await seq.forEach(categoryKeys, async key => {
+      const cat = DATA_RESET_CATEGORIES[key];
+      await seq.forEach(cat.paths, async path => {
+        if (path.indexOf('firestore:') === 0) {
+          // Firestore's REST API has no single-call "delete this whole
+          // collection" the way an RTDB node delete does — every
+          // document genuinely has to be deleted one at a time. For a
+          // large collection this is real: noticeably slower than the
+          // RTDB equivalent, and at some size could risk Apps Script's
+          // own execution time limit. Acceptable at today's testing-
+          // stage data volumes; worth revisiting (batched deletes,
+          // or a dedicated cleanup trigger) if this category ever
+          // grows large before a reset is needed.
+          const collection = path.substring('firestore:'.length);
+          const rows = await firestoreQuery_(collection, null, null, null);
+          await seq.forEach(rows, async r => await firestoreDelete_(collection, r._id));
+          return;
+        }
+        await firebaseDbRequest_(path, 'delete', null, idToken);
+      });
+      clearedLabels.push(cat.label);
+    });
+
+    return { success: true, cleared: clearedLabels };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // ============================================================
 // PHYSICAL / CYCLE COUNT
 // ============================================================
@@ -10304,6 +10692,15 @@ module.exports = {
   commitDeliveryNotePosting_,
   decideDeliveryNoteApproval,
   reverseDeliveryNote,
+  summarizeDataResetRecord_,
+  getCategoryRecords,
+  clearSelectedRecords,
+  recalculateStockLedger,
+  requireAdminRole_,
+  getDataResetCounts,
+  getLifetimeAuditCounterValues,
+  resetLifetimeAuditCounters,
+  clearDataCategories,
   savePhysicalCountDraft,
   buildPhysicalCountLines_,
   postPhysicalCount,

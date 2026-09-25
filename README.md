@@ -341,8 +341,23 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   to the header Cost Center, not each DN line's own. Sales Types are
   checked against the customer's classification only when the type is
   restricted. As in GAS.
+- Data Reset: every function requires the role ID to be literally
+  `ADMIN`, whatever the permissions matrix says. A custom admin-like role
+  gets "Only Admin users can access Data Reset." As in GAS.
+- Data Reset, scope: the categories never include Purchase Requisitions,
+  Purchase Orders, Sales Orders, Job Orders, reservations
+  (`stock/reservations`) or approval instances. Clearing "Stock
+  Transactions & Ledger" leaves Active reservations holding stock that
+  is no longer on hand. Deleting single records doesn't recalculate the
+  ledger. Deleting a reversal entry leaves its original marked as
+  reversed. As in GAS.
+- Data Reset, speed and locking: clearing "GL Journal Entries" deletes
+  its Firestore documents one at a time. A very large collection could
+  hit the callable's 60-second timeout, and running it again finishes
+  the job. The clear functions take no lock (only Recalculate does, see
+  #18), so don't run them while others are posting. As in GAS.
 
-**Remaining modules: generated port (in progress).** Everything
+**Remaining modules: generated port (complete, DATARESET last).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
 `tools/legacy-port/generate.js` parses the Apps Script `Code.gs`, takes
 exactly the functions each enabled screen calls plus their helper
@@ -568,6 +583,41 @@ report). Each has a test that fails against the original logic.
    picker excluded those or the documents they reversed. They're now left
    out; the commit re-checks (#14, #16) refuse them anyway.
    (`customerInvoice` suite.)
+18. **Data Reset's "Recalculate Stock Ledger" could destroy the ledger**
+   (`recalculateStockLedger`). It deletes `stock/ledger` and rebuilds it
+   by replaying every Posted stock transaction. Four problems:
+   - **Warehouse Movements replayed one-sided.** A posted movement stores
+     only its Out lines, so the replay took stock out of the source and
+     never put it into the destination. The destination's stock vanished,
+     and any later issue from it made the replay fail.
+   - **Wrong order.** It replayed in `CreatedAt` order, which is when the
+     *draft* was created. A draft saved before the stock it draws on
+     existed replayed too early, so WAC came out wrong or the replay failed
+     with "insufficient stock". It now uses `PostedAt`, which every
+     posting path sets, and falls back to `CreatedAt` only if `PostedAt`
+     is missing.
+   - **Not atomic.** The ledger was deleted first and rebuilt one
+     transaction at a time, so any failure left every balance wiped or
+     half-built. The replay now runs in memory, and the ledger is replaced
+     in one write only if every transaction replays. A failure names the
+     transaction and changes nothing.
+   - **No lock.** A posting that ran during the rebuild read a half-built
+     ledger. The rebuild now holds the global lock.
+
+   Physical Counts posted before #7, whose variance lines have no
+   `Direction`, would be silently dropped from a rebuild, so they're now
+   refused by voucher number. Back-fill them first (see #7).
+
+   A movement reversal is replayed as the transfer it records (from
+   `FromWarehouseID`), so a rebuild also corrects stock left overstated
+   by the live Warehouse Movement reversal bug at the top of this file.
+   `computeStockMovement` in `stockMovement.js` gained an optional ledger
+   reader for this. Nothing else passes one, so no other module's
+   behavior changed. **All four problems are live in the current Apps
+   Script system:** running Recalculate there with any posted Warehouse
+   Movement loses the destination's stock. (`dataReset` suite; negative
+   controls with the one-sided replay and the `CreatedAt` order restored
+   were each caught.)
 
 Port-runtime fix (not a Code.gs deviation): `runtime.js` used
 `admin.firestore.FieldPath`, which isn't a constructor in this
@@ -622,11 +672,15 @@ primitive's REST semantics directly.
 | CBT | ✅ | ✅ |
 | VENDORINVOICE | ✅ | ✅ |
 | CUSTOMERINVOICE | ✅ | ✅ |
-| DATARESET | — | — |
+| DATARESET | ✅ | **not yet** |
 
-**Next module to port:** DATARESET
+**Next module to port:** (none — all ported)
 
-Everything ported is deployed.
+**Committed but NOT yet deployed** (DATARESET) — deploy these 8 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+
+```
+getModuleFragment clearDataCategories clearSelectedRecords getCategoryRecords getDataResetCounts getLifetimeAuditCounterValues recalculateStockLedger resetLifetimeAuditCounters
+```
 <!-- PORT-STATUS:end -->
 
 **Deploy log** (project `erp1-8f4cd`,
@@ -687,6 +741,16 @@ IAM binding per function):
   checkout. Check afterwards:
   `gcloud functions list --project=erp1-8f4cd --format="value(buildConfig.runtime)" | sort | uniq -c`
   should show only `nodejs24`.
+- **Batch G, prepared 2026-09-25, not yet deployed:** DATARESET, the last
+  module (7 callables plus `getModuleFragment`, so the screen appears).
+  It includes the ledger-rebuild fix (deviation #18). The change to
+  `stockMovement.js` is backward-compatible, so the hand-ported stock
+  functions don't need a redeploy. Verified beforehand: 182/182
+  emulator tests (in two chunks with an emulator restart between them),
+  smoke UI 93/93 (Data Reset loaded as Admin, Viewer and a real `ADMIN`
+  user) and dynamic toggle 2/2. To deploy, run
+  `tools/deploy-migration.sh`. Only users whose role ID is `ADMIN` can
+  use the screen.
 - **Rule for every deploy:** `git status --porcelain` must be empty.
   `firebase deploy` uploads the working copy, not the last commit.
 
@@ -739,12 +803,11 @@ stops and says so).
 - `onAuthStateChanged` is now the single source of truth for session state — consolidating what were three separate paths (manual restore, manual logout, cross-tab sync) into one; a `pendingCorporateId` handoff keeps a fresh sign-in (needs the Corporate ID check) and a restored session (doesn't) from racing each other
 - `window.google = { script: { run: rpc } }` — a deliberate, temporary compatibility shim. Every OTHER module fragment (all 45, not yet ported) still calls `google.script.run` internally, which doesn't exist at all on a Firebase-hosted page. Without this shim, opening any unported module throws an uncaught `ReferenceError` that takes down the whole page; with it, the same call still fails (no real function behind it yet), but fails the way that module's own existing `.withFailureHandler(...)` already expects — a clean, visible error instead of a crash. Remove once every module has its own real port.
 
-**Not yet started:** every other module — 375 remaining functions
-across JV, CBT, GRN, all stock modules, Vendor/Customer Invoice,
-Purchase Order, the requisition modules, and their own 44 HTML files.
-Opening any of them right now will show a clean "something went
-wrong" error via the compatibility shim above, not a working module —
-expected, not a bug, given the staged plan.
+**Every module is now ported** (DATARESET last, 2026-09-25). No screen in
+`functions/modules/` calls `google.script.run` any more; the only
+reference left is the compatibility shim above in `public/index.html`.
+Once DATARESET is deployed, the shim can be removed with a Hosting
+redeploy. Leaving it in is harmless until then.
 
 ## Key decisions already made
 
@@ -872,32 +935,23 @@ it isn't needed.
 
 ## Suggested next step
 
-The shell, the lock module, and four full commit-posting pattern
-ports (Stock Adjustment, Material Issue, GRN, and Warehouse Movement)
-are all complete. `index.html` in `public/` no longer depends on GAS
-for anything of its own, and its Firebase config now holds the real
-values (`grep REPLACE_ME public/index.html` returns nothing). The four
-stock screens work end-to-end against the emulators (see Testing
-approach). What's left:
+Every module is ported: the 4 hand-ported stock modules plus 42 generated
+ones, DATARESET last. What's left:
 
-1. **The live production bug flagged at the top of this file** —
-   worth Yasir's attention as its own priority, separate from this
-   migration.
-2. **~~A real `npm install` and emulator test~~ — done for the four
-   stock modules** (see Testing approach); the original note follows.
-   **A real `npm install` and emulator test**, since every test so far
-   ran against stubs (see Testing approach below) — worth confirming
-   against the real packages before trusting any of this in
-   production. This matters especially for `lock.js`,
-   `stockAdjustment.js`, `materialIssue.js`, `grn.js`,
-   `warehouseMovement.js`, and `reservations.js`: their tests are
-   only as honest as the mock's own Firestore-transaction
-   serialization and RTDB tree semantics (documented there), a
-   reasonable stand-in but not a substitute for proving it against
-   the real thing.
-3. **The next module port** — Warehouse Movement was the first with
-   no GL entry at all, and needed no changes to any shared module
-   either. Production or Physical Count should each go faster still.
-   JV and the invoice modules — the highest financial stakes — should
-   come last, once the pattern has proven itself across a few more
-   lower-stakes modules first.
+1. **Deploy batch G (DATARESET)**: run `tools/deploy-migration.sh` on a
+   clean checkout, then add `DATARESET` to `tools/legacy-port/deployed.json`
+   and run `node tools/legacy-port/status.js`. See the deploy log.
+2. **Node.js runtime**: `engines.node` is `"24"` (see the deploy log's
+   runtime-upgrade entry), and Node 20 is decommissioned on 2026-10-30.
+   Run `tools/deploy-runtime.sh` if it hasn't finished, then confirm
+   every live function reports `nodejs24`. Batch G deploys on Node 24
+   either way.
+3. **The live Apps Script bugs** flagged at the top of this file and
+   marked "Live in the current Apps Script system" under Deviations
+   (#5, #6, #8, #11, #12, #14–#16, #18). These need the owner's
+   attention as data checks in the running system, separate from this
+   migration. Don't run Recalculate Stock Ledger in the Apps Script
+   system (#18).
+4. **Cleanup**: remove the `google.script.run` shim from
+   `public/index.html` once DATARESET is live (Hosting redeploy), then
+   merge the working branch into `main`.
