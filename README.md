@@ -316,6 +316,16 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   stays PendingApproval, with no way to resubmit it. It has to be
   cleared by hand. Physical Count and Production have the same
   shape. As in GAS.
+- JV: editing an existing draft isn't company-checked, and saving any
+  draft through `saveJournalDraft` stamps `VoucherType: 'JV'`. A CBT
+  draft ID passed there becomes a plain JV. A reversal can itself be
+  reversed; unlike the stock modules this is harmless here, since a
+  reversal swaps Dr/Cr exactly. The approval decision assigns the
+  lifetime `TXN-` reference without taking the lock. Posting and
+  reversal do take it, so a decision at the same moment as another post
+  can duplicate a reference, which is audit numbering only. An account
+  deactivated between approval request and final approval isn't
+  re-checked when the entry becomes Posted. As in GAS.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -490,6 +500,14 @@ report). Each has a test that fails against the original logic.
    otherwise the returned stock is simply free. **Live in the current
    Apps Script system.** Check for Active reservations whose source SO is
    Cancelled. (`deliveryNote` suite.)
+13. **The JV reversal accepted any GL entry** (`reverseJournalEntry`).
+   The JV and CBT screens only offer "Reverse" on their own entries.
+   But a direct call with a stock or invoice posting's GL entry ID
+   (GRN, Delivery Note, Vendor/Customer Invoice...) reversed the GL
+   while leaving the stock and the source document untouched. The source
+   module's own reversal stayed available, so the GL could be reversed
+   twice. It needed only that module's post right. Now refused with
+   "reverse it from that module". (`jv` suite.)
 
 Port-runtime fix (not a Code.gs deviation): `runtime.js` used
 `admin.firestore.FieldPath`, which isn't a constructor in this
@@ -540,18 +558,18 @@ primitive's REST semantics directly.
 | PURCHASEORDER | ✅ | ✅ |
 | SALESORDER | ✅ | **not yet** |
 | DELIVERYNOTE | ✅ | **not yet** |
-| JV | — | — |
+| JV | ✅ | **not yet** |
 | CBT | — | — |
 | VENDORINVOICE | — | — |
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** JV
+**Next module to port:** CBT
 
-**Committed but NOT yet deployed** (SALESORDER, DELIVERYNOTE) — deploy these 19 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (SALESORDER, DELIVERYNOTE, JV) — deploy these 26 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment cancelSalesOrder claimStockForSalesOrderLine confirmSalesOrder decideDeliveryNoteApproval deleteDeliveryNoteDraft deleteDraftSalesOrder getActiveCustomers getDeliveryNoteEntries getEligibleSOsForDelivery getItemPriceOnPriceList getPriceListForCustomer getSalesOrderEntries getSellableItems postDeliveryNote releaseStockForSalesOrderLine reverseDeliveryNote saveDeliveryNoteDraft saveDraftSalesOrder
+getModuleFragment cancelSalesOrder claimStockForSalesOrderLine confirmSalesOrder decideDeliveryNoteApproval decideJournalEntryApproval deleteDeliveryNoteDraft deleteDraftSalesOrder deleteJournalDraft getActiveCustomers getDefaultCurrency getDeliveryNoteEntries getEligibleSOsForDelivery getItemPriceOnPriceList getJournalEntries getPriceListForCustomer getSalesOrderEntries getSellableItems postDeliveryNote postJournalEntry releaseStockForSalesOrderLine reverseDeliveryNote reverseJournalEntry saveDeliveryNoteDraft saveDraftSalesOrder saveJournalDraft
 ```
 <!-- PORT-STATUS:end -->
 

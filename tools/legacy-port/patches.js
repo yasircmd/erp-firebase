@@ -260,5 +260,20 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
     replace: `      const so = firebaseDbRequest_('salesOrders/' + l.SourceSOID, 'get', null, idToken);
       // [PORT FIX delivery-note-reversal-no-reserve-on-cancelled-so] a Cancelled SO's reservation could never be released.
       if (so && (so.Status === 'Reserved' || so.Status === 'Partially Reserved')) {`
+    },
+  {
+    id: 'jv-reverse-only-journal-and-cbt',
+    why: 'reverseJournalEntry reverses whatever GL entry ID it is given. The JV and CBT screens only offer it on their ' +
+      'own entries, but the callable also accepted the GL side of a stock or invoice posting (GRN, Delivery Note, ' +
+      'Vendor/Customer Invoice...) for anyone with that module\'s post right: the GL was reversed while the stock and ' +
+      'the source document were not, and the source module\'s own reversal stayed available, reversing the GL a ' +
+      'second time. Now refused; those entries are reversed from their own module.',
+    find: `    if (existing.ReversedByJV) throw new Error('This entry has already been reversed.');`,
+    replace: `    if (existing.ReversedByJV) throw new Error('This entry has already been reversed.');
+    // [PORT FIX jv-reverse-only-journal-and-cbt] a stock/invoice entry must be reversed by its own module, which
+    // also undoes the stock and the source document.
+    if (existing.VoucherType && STOCK_VOUCHER_TYPE_TO_MODULE[existing.VoucherType]) {
+      throw new Error('This entry was posted by ' + existing.VoucherType + ' — reverse it from that module, not here.');
+    }`
   }
 ];
