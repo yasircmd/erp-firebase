@@ -110,3 +110,10 @@ from, and how it was verified. The deploy procedure is in the
   toggle 2/2, party payments UI 3/3. From now on, JV/CBT lines on a
   payables or receivables account need their vendor or customer.
 
+- **2026-09-25, Hosting — compact density:** `firebase deploy --only hosting`
+  from `b1054bc` (branch `ui-compact`, clean checkout), at the owner's
+  go-ahead. The shell's stylesheet gains `--erp-density: 0.88`: about 12%
+  less vertical spacing and smaller page titles on the home page and every
+  module screen (pages measured 10–11% shorter). No functions changed.
+  `https://erp1-8f4cd.web.app/` returns 200 and matches that commit's
+  `public/index.html` byte for byte.
