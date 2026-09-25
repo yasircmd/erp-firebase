@@ -39,7 +39,8 @@ read it first, every session.
   finished; to confirm, check that every live function reports nodejs24.
 
 ## Testing
-Node.js unit tests against stub firebase-admin/firebase-functions live
-outside this repo currently (see README's Testing approach section) — a
-real npm install + firebase emulators:start test is the standing next step
-before trusting any new module in production.
+Real-package tests against the local Firebase emulators, one suite per
+module in functions/test/emulator/ plus UI checks in functions/test/ui/.
+Commands and the emulator memory caveat: README's "To continue with the
+next modules", step 3. The old stub-based tests are history (see README's
+Testing approach section).

@@ -26,6 +26,15 @@ Yasir directly as its own priority, not bundled into migration work.
 
 ## Status
 
+**At a glance (2026-09-25):** all 46 modules are ported and tested: the
+shell, the 4 hand-ported stock modules, and the 42 generated-port modules
+in the status table below. 45 are live in production. DATARESET, the
+last one, is kept for last because it deletes data, and is committed
+but not yet deployed (batch G in the deploy log). The functions runtime
+is moving from Node 20 to 24 (see the deploy log). What else is open:
+see "Suggested next step" at the end of this file. The sections below are
+in the order the work was done.
+
 **The shell is done.** `public/index.html` no longer depends on
 `google.script.run` for anything of its own — 9 functions ported and
 tested, and the client-side rewrite (auth flow, session handling,
@@ -203,7 +212,7 @@ PO picker now greys out non-stock PO lines (lines from a category-based
 Purchase Requisition, which carry no ItemCode) with the note "non-stock
 line – not received via GRN". The GAS version let them be ticked, which
 only produced a GRN line that failed on save. Those lines are meant to be
-billed through Vendor Invoice (not yet ported).
+billed through Vendor Invoice (ported since; see the status table).
 
 Pre-existing quirks in these screens/functions, preserved and disclosed
 (not changed):
@@ -685,8 +694,8 @@ getModuleFragment clearDataCategories clearSelectedRecords getCategoryRecords ge
 
 **Deploy log** (project `erp1-8f4cd`,
 [Firebase console](https://console.firebase.google.com/project/erp1-8f4cd/overview);
-all deploys by the owner from Cloud Shell, batches of ≤6 plus a public-invoker
-IAM binding per function):
+all deploys from Cloud Shell, by the owner or by the migration session, in
+batches of ≤6 with a public-invoker IAM binding for each new function):
 
 - **2026-09-24, batch A:** the 50 callables behind the 11 already-live
   modules (UOM … PROCUREMENTSETUP) were redeployed from `b64c41d`, picking up
@@ -801,13 +810,7 @@ stops and says so).
 - Firebase SDK loaded via a small, separate `<script type="module">`, bridged onto `window.__firebaseSdk` — the main script stays a plain (non-module) script on purpose, since dozens of `onclick="..."` attributes throughout this file depend on true globals, which module-scoped declarations aren't
 - An `rpc` proxy synthesizes `google.script.run`'s own `.withSuccessHandler().withFailureHandler().method()` chaining on top of `httpsCallable` — every real call site needed only `google.script.run` replaced with `rpc`, dropping the explicit token argument, and remaining args packed into a single object
 - `onAuthStateChanged` is now the single source of truth for session state — consolidating what were three separate paths (manual restore, manual logout, cross-tab sync) into one; a `pendingCorporateId` handoff keeps a fresh sign-in (needs the Corporate ID check) and a restored session (doesn't) from racing each other
-- `window.google = { script: { run: rpc } }` — a deliberate, temporary compatibility shim. Every OTHER module fragment (all 45, not yet ported) still calls `google.script.run` internally, which doesn't exist at all on a Firebase-hosted page. Without this shim, opening any unported module throws an uncaught `ReferenceError` that takes down the whole page; with it, the same call still fails (no real function behind it yet), but fails the way that module's own existing `.withFailureHandler(...)` already expects — a clean, visible error instead of a crash. Remove once every module has its own real port.
-
-**Every module is now ported** (DATARESET last, 2026-09-25). No screen in
-`functions/modules/` calls `google.script.run` any more; the only
-reference left is the compatibility shim above in `public/index.html`.
-Once DATARESET is deployed, the shim can be removed with a Hosting
-redeploy. Leaving it in is harmless until then.
+- `window.google = { script: { run: rpc } }` (`public/index.html`, near line 461) — a temporary compatibility shim from before the modules were ported, when module fragments still called `google.script.run` and would otherwise have crashed the page with a `ReferenceError`. **No longer used:** all 46 screens in `functions/modules/` call `rpc` directly, and none contains `google.script.run`. Leaving it in is harmless. Remove it with a Hosting redeploy once DATARESET is deployed.
 
 ## Key decisions already made
 
@@ -827,7 +830,7 @@ firestore.rules                 — deny-all (see above)
 database.rules.json             — deny-all (see above)
 public/
   index.html                    — the real shell, ported and complete (see Status above)
-  (the other 45 module HTML files land here as each gets ported)
+legacy-gas/                     — reference snapshot of the Apps Script project (Code.js + every screen), the generator's input
 functions/
   package.json
   index.js                      — every callable function gets exported from here
@@ -861,14 +864,17 @@ functions/
     legacy/callables.js         — GENERATED: one callable per screen-called Code.gs function
   modules/
     README.md                   — what needs copying here, and why it's a separate copy from public/
-    STOCKADJUSTMENT.html, MATERIALISSUE.html, GRN.html, WAREHOUSEMOVEMENT.html — the 4 ported screens (google.script.run → rpc)
+    *.html                      — the 46 ported screens (google.script.run → rpc), served by getModuleFragment
   test/
-    emulator/stockModules.emulator.test.js — end-to-end, real packages, local emulators (see Testing approach)
-    ui/stockModules.ui.js       — headless-browser click-through of the 4 real screens against the emulators
     emulator/_helpers.js        — shared guard/fixture/call() for the per-module emulator suites
-    emulator/masters1.emulator.test.js — UOM, ITEMSUBCAT, ORGUNITS, COMPANYMASTER, CURRENCYCONFIG
+    emulator/*.emulator.test.js — one suite per module (masters1 covers UOM … CURRENCYCONFIG; stockModules the 4 hand-ported ones)
+    ui/stockModules.ui.js       — headless-browser click-through of the 4 hand-ported screens against the emulators
     ui/smoke.ui.js              — every ported screen loads with zero failed calls (Admin + Viewer)
-tools/legacy-port/              — the generator (generate.js, modules.json, patches.js, hand-args.json, check-shell-deps.js); dev-time only
+    ui/dynamicToggle.ui.js      — a real deactivate/reactivate click through the dynamic [fnVar](...) call path
+tools/
+  legacy-port/                  — the generator (generate.js, modules.json, patches.js, hand-args.json, check-shell-deps.js, status.js); dev-time only
+  deploy-migration.sh           — deploys the not-yet-deployed ported functions (see Deploy note)
+  deploy-runtime.sh             — moves every live function onto engines.node's runtime (see deploy log)
 ```
 
 ## A caching note for whoever deploys this
@@ -882,56 +888,37 @@ aren't happening multiple times a day.
 
 ## Testing approach for every future port
 
-`getModuleFragment` was tested with 9 cases (including the specific
-regression this whole approach was chosen to avoid — a role without
-`'access'` capability being able to fetch a module's fragment anyway)
-and one verified negative control, using stub `firebase-admin` /
-`firebase-functions` modules rather than a real `npm install` (the
-real packages are large enough that installation exceeded available
-tool time in this environment — the stubs cover only the actual API
-surface each ported function uses, so it isn't testing against a
-fiction, just a minimal one). The `session`/`favorites`/`homeTasks`
-tests followed with 15 more, including both approval-related bug
-fixes from earlier in the project re-verified as carried over
-correctly, plus a negative control on the Corporate ID gate.
+**Current method: real packages against local emulators.** Every ported
+module has its own suite in `functions/test/emulator/`, plus the UI checks
+in `functions/test/ui/`. The exact commands, including the Auth emulator
+requirement and the emulator memory limit, are in step 3 of "To continue
+with the next modules" above. The latest full run (batch G) was
+182/182 emulator tests, 93/93 smoke UI, and 2/2 dynamic toggle. Each module also needs a
+negative control: break the logic on purpose, confirm a test fails, then
+restore it.
 
-One thing worth knowing if you extend these tests yourself: the first
-version of the RTDB mock only did exact-key lookups, not real RTDB's
-own hierarchical path aggregation (`ref('approvalInstances').get()`
-should return every child under that path, not just a literal key of
-that exact name) — this silently failed two tests with an
-empty-result false negative rather than a crash, which is exactly the
-kind of bug worth watching for in mocks generally: a wrong mock fails
-loud, but an *incomplete* one can just quietly return nothing. Fixed
-in the current stub; the same approach — mock the two
-packages' relevant surface, seed a fake RTDB, exercise every
-authorization branch, confirm at least one negative control — should
-carry through the rest of the port.
-
-**Now also: real-package emulator tests, in this repo.** The standing
-"real npm install + emulator" step is done for the four stock modules:
-
-    firebase emulators:start --only database,firestore,functions --project erp1-8f4cd
-    node --test functions/test/emulator/*.test.js      # 21 tests, API level
-    (cd functions && npm i --no-save playwright && npx playwright install chromium)
-    node functions/test/ui/stockModules.ui.js          # 11 checks, real screens
-
-The API test seeds a fixture (it WIPES the emulator database — it
-refuses to run unless both clients point at local emulators, since
+The API suites seed a fixture that WIPES the emulator database. `_helpers.js`
+refuses to run unless every client points at the local emulators, because
 Application Default Credentials in Cloud Shell would otherwise reach
-production), then drives every call the screens make: GRN → MI → SA →
-WM, an approval, every reversal (including the Warehouse Movement
-live-bug regression), GL detail, description edit and permission
-refusals. The UI test runs the screens through the shell's real `rpc`
-bridge (sliced from `public/index.html`) and clicks through create →
-post, GL impact, description edit, reversal and approve. Verified
-negative controls: removing the description-edit permission check, the
-approver-identity check, the item company filter, `success: true` on
-`postGrn`, the error-message wrapper, and one screen call's argument
-conversion were each caught. The auth emulator isn't configured
-(`firebase.json` has no emulators block); callables accept unsigned
-test tokens in the functions emulator, and `requireUser` reads RTDB, so
-it isn't needed.
+production. The first real-package run, for the four stock modules, drove
+every call their screens make (GRN → MI → SA → WM, an approval, every
+reversal including the Warehouse Movement live-bug regression, GL detail,
+description edit, permission refusals). `stockModules.ui.js` clicks through
+the real screens via the shell's own `rpc` bridge. Its negative controls
+covered the description-edit permission check, the approver-identity check,
+the item company filter, `success: true` on `postGrn`, the error-message
+wrapper, and one screen call's argument conversion. Each break was caught.
+
+**History: the stub-based tests.** The shell's functions (`getModuleFragment`:
+9 cases; `session`/`favorites`/`homeTasks`: 15) and the first stock-module
+ports were originally tested against stub `firebase-admin` /
+`firebase-functions` packages kept outside this repo, because a real `npm
+install` didn't fit in the tool time available back then. The emulator
+suites have replaced them. One lesson from that period still applies to
+any mock: the first RTDB stub did only exact-key lookups, not real RTDB's
+path aggregation. It silently returned empty results, which made two tests
+pass for the wrong reason. A wrong mock fails loudly; an *incomplete* one
+can quietly return nothing.
 
 ## Suggested next step
 
@@ -955,3 +942,11 @@ ones, DATARESET last. What's left:
 4. **Cleanup**: remove the `google.script.run` shim from
    `public/index.html` once DATARESET is live (Hosting redeploy), then
    merge the working branch into `main`.
+5. **Decisions the owner should make about disclosed quirks.** These were
+   preserved as in GAS, not fixed. They include the missing company scoping
+   in Approval Tracker and BOM, the company gaps in draft edit/delete across
+   modules, and the no-lock numbering and reservation races. All are listed
+   in the Status section above.
+6. **Once deploys slow down:** revisit the `no-cache` hosting header (see
+   "A caching note"), and retire the Apps Script project once the owner is
+   satisfied with Firebase in production.
