@@ -13,15 +13,16 @@ fresh session can continue from GitHub.
 
 | # | Module | Design doc | Status | Notes |
 |---|---|---|---|---|
+| 0 | Party Payments & Bill-wise Allocation (JV, CBT) | [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md) | design | Owner's first priority. Settles decision #0. |
 | 1 | Purchase Return / Debit Note | [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) | not started | Mirrors GRN and Vendor Invoice |
 | 2 | Sales Return / Credit Note | [SALES_RETURN.md](modules/SALES_RETURN.md) | not started | Mirrors Delivery Note and Customer Invoice |
-| 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | not started | Read-only report. Needs the payment question in #0. |
-| 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | not started | Read-only report. Needs the payment question in #0. |
+| 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | not started | Read-only report. Builds on #0. |
+| 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | not started | Read-only report. Builds on #0. |
 
-**Order:** the returns come first because the SOAs report on them, and
+**Order:** #0 first (the owner's priority, and the SOAs need it). Then the returns, which the SOAs report on, and
 the SOAs last because they only read.
 
-### #0 — decision needed before 1–4: tying payments to a party
+### #0 — tying payments to a party (decided)
 
 An SOA lists a vendor's or customer's invoices, notes and payments.
 Invoices carry `VendorID`/`CustomerID`, but payments and receipts are
@@ -40,7 +41,7 @@ invoice. Each vendor and customer does have its own
   against invoices (outstanding tracking). Most complete; effectively two
   more modules.
 
-Decision: _pending_.
+Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged with the vendor or customer, as a New Ref (for example an advance) or Against Ref (offsetting posted bills). Design: [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md).
 
 ## Follow-ups from the migration
 
