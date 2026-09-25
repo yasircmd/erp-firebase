@@ -4461,6 +4461,28 @@ async function getCustomers(idToken) {
     .filter(c => userCanAccessCompany_(user.profile, c.CompanyID));
 }
 
+// Minimal reference read for future AR transaction screens (Sales
+// Invoicing, Cash Application) to populate a customer picker without
+// requiring full CUSTOMERMASTER access — same role getActiveVendors
+// plays for AP.
+async function getActiveCustomers(idToken) {
+  const user = await requireUser_(idToken);
+  const data = (await firebaseDbRequest_('customers', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .filter(id => data[id].Status === 'Active')
+    .filter(id => userCanAccessCompany_(user.profile, data[id].CompanyID))
+    .map(id => ({
+      CustomerID: id, CustomerCode: data[id].CustomerCode, CustomerName: data[id].CustomerName,
+      Category: data[id].Category || '', CompanyID: data[id].CompanyID || '',
+      Classification: data[id].Classification || '', Country: data[id].Country || '',
+      AddressLine1: data[id].AddressLine1 || '', AddressLine2: data[id].AddressLine2 || '',
+      ContactPerson: data[id].ContactPerson || '', Phone: data[id].Phone || '',
+      TradeReceivablesAccountID: data[id].TradeReceivablesAccountID || '',
+      TaxRegistrationNumber: data[id].TaxRegistrationNumber || '',
+      PaymentTermsDays: data[id].PaymentTermsDays || 0, DefaultCurrency: data[id].DefaultCurrency || ''
+    }));
+}
+
 async function saveCustomer(idToken, customerData) {
   try {
     const user = await requireUser_(idToken);
@@ -5370,6 +5392,77 @@ async function deleteDraftInventoryPurchaseRequisition(idToken, iprId) {
   }
 }
 
+// ============================================================
+// STOCK RESERVATION SUBSYSTEM
+// ============================================================
+// Foundational to Sales Order / Job Order Request's upcoming
+// availability-checking design (confirmed across a design discussion,
+// not yet built as screens) — everything after this depends on it, so
+// it comes first and stands on its own, with no dedicated module
+// screen of its own. Introduces the one concept the stock ledger never
+// had: the difference between what's physically on hand and what's
+// actually free to promise to a new Sales Order.
+//
+//   Free Stock = On-Hand Quantity − sum of Active reservations
+//
+// Confirmed reservation lifecycle (this subsystem provides the
+// generic primitives; WHEN to call them is each source module's own
+// business logic, built later):
+//   - Created when a Sales Order confirms and stock is available (for
+//     the available portion only — a shortfall gets NO reservation
+//     record; it's just implied by ordered > reserved until Job Order
+//     production later allocates against it)
+//   - Created again, via FIFO allocation, as linked Job Order lines
+//     produce the shortfall (built when Job Order Request is
+//     redesigned — needs the JO-line-to-SO-line link that doesn't
+//     exist yet)
+//   - Released in full — including any portion already produced and
+//     allocated — when the source Sales Order is cancelled; the freed
+//     stock becomes available again immediately, no distinction
+//     between "was always on hand" and "was just produced for this"
+//   - NEVER released by a future Delivery/Shipment step — that step
+//     CONSUMES the reservation permanently (goods gone) rather than
+//     releasing it back to available. Delivery doesn't exist yet, so
+//     nothing here calls that path; noted for whoever builds it.
+//   - Overproduction against a Job Order line is never reserved by
+//     anything — it becomes free stock the moment it posts, same as
+//     any other stock receipt
+//
+// Deliberately follows this codebase's own established convention
+// (see computeJobOrderProducedQty_'s "never trust a snapshot" comment)
+// of deriving reserved quantity live from the actual reservation
+// records on every read, rather than maintaining a denormalized
+// running counter that could drift from what's actually reserved.
+//
+// Storage: /stock/reservations/{id} = { ItemID, ItemCode, WarehouseID,
+//   CompanyID, Quantity, Status ('Active'|'Released'), SourceType
+//   (e.g. 'SalesOrder' — kept as a field rather than hardcoded, so a
+//   future source type doesn't need this subsystem touched), SourceID,
+//   SourceLineID, SourceLabel (human-readable, e.g. 'SO-26-01-000004'),
+//   CreatedAt, CreatedBy, ReleasedAt, ReleasedBy, ReleaseReason }
+
+// All Active reservations for one item+warehouse, regardless of source
+// — the building block getReservedQuantity_/getAvailableQuantity_ both
+// sum over. Fetches the whole reservations node and filters, same
+// pattern every other collection-scan function in this file already
+// uses (see getJobOrderEntries, computeJobOrderProducedQty_).
+async function getActiveReservationsForItem_(idToken, itemId, warehouseId) {
+  const data = (await firebaseDbRequest_('stock/reservations', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ ReservationID: id }, data[id]))
+    .filter(r => r.Status === 'Active' && r.ItemID === itemId && r.WarehouseID === warehouseId);
+}
+
+async function getReservedQuantity_(idToken, itemId, warehouseId) {
+  return (await getActiveReservationsForItem_(idToken, itemId, warehouseId))
+    .reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0);
+}
+
+async function getAvailableQuantity_(idToken, itemId, warehouseId) {
+  const onHand = Number((await getStockLedgerEntry_(idToken, itemId, warehouseId)).Quantity) || 0;
+  return onHand - (await getReservedQuantity_(idToken, itemId, warehouseId));
+}
+
 // Marks one reservation Released — the stock it held becomes available
 // again immediately. Idempotent-safe: releasing an already-Released
 // reservation is a no-op error rather than silently double-processing.
@@ -5385,6 +5478,32 @@ async function releaseStockReservation_(idToken, reservationId, reason) {
   await firebaseDbRequest_('stock/reservations/' + reservationId, 'patch', {
     Status: 'Released', ReleasedAt: now, ReleasedBy: actor,
     ReleaseReason: String(reason || '').trim()
+  }, idToken);
+}
+
+// Reduces one reservation's Quantity by a given amount WITHOUT fully
+// releasing it — the primitive a partial Release (e.g. release 15 of a
+// 30-unit reservation) needs, since releaseStockReservation_ is only
+// ever all-or-nothing on one record. If the reduction consumes the
+// entire remaining quantity, this defers to a full release instead of
+// leaving a Quantity: 0 "Active" record sitting around.
+async function reduceStockReservationQuantity_(idToken, reservationId, reduceBy, reason) {
+  const existing = await firebaseDbRequest_('stock/reservations/' + reservationId, 'get', null, idToken);
+  if (!existing) throw new Error('Reservation not found.');
+  if (existing.Status !== 'Active') throw new Error('Only an Active reservation can be reduced.');
+  if (!(reduceBy > 0)) throw new Error('Reduction amount must be greater than zero.');
+  if (reduceBy > Number(existing.Quantity)) throw new Error('Cannot reduce a reservation by more than its own quantity.');
+
+  if (reduceBy === Number(existing.Quantity)) {
+    await releaseStockReservation_(idToken, reservationId, reason);
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const user = await requireUser_(idToken);
+  const actor = user.profile.username || user.uid;
+  await firebaseDbRequest_('stock/reservations/' + reservationId, 'patch', {
+    Quantity: Number(existing.Quantity) - reduceBy, UpdatedAt: now, UpdatedBy: actor
   }, idToken);
 }
 
@@ -5640,6 +5759,34 @@ function getPriceEffectiveOnDate_(linesByItem, itemCode, date) {
   return match;
 }
 
+async function groupPriceListLinesByItem_(idToken, priceListId) {
+  const data = (await firebaseDbRequest_('priceListLines', 'get', null, idToken)) || {};
+  const grouped = {};
+  Object.keys(data).forEach(id => {
+    const line = data[id];
+    if (line.PriceListID !== priceListId || line.Status !== 'Active') return;
+    if (!grouped[line.ItemCode]) grouped[line.ItemCode] = [];
+    grouped[line.ItemCode].push(Object.assign({ LineID: id }, line));
+  });
+  return grouped;
+}
+
+// The auto-derivation itself, ready for Sales Order to call: given a
+// company and a customer's Classification, finds the one Active price
+// list mapped to it. Returns null if none is mapped (a Sales Order
+// would then need a manual price list choice — not this function's
+// concern).
+async function resolvePriceListForClassification_(idToken, companyId, classification) {
+  if (!classification) return null;
+  const data = (await firebaseDbRequest_('priceLists', 'get', null, idToken)) || {};
+  const matchId = Object.keys(data).find(id =>
+    data[id].CompanyID === companyId &&
+    data[id].Status === 'Active' &&
+    data[id].CustomerClassificationMapping === classification
+  );
+  return matchId ? Object.assign({ PriceListID: matchId }, data[matchId]) : null;
+}
+
 // "Sellable" is deliberately defined by real, assigned data — has this
 // item EVER had a price set on ANY price list — rather than a
 // hardcoded item Category check. This decouples what's sellable from
@@ -5653,6 +5800,410 @@ async function getSellableItemCodes_(idToken) {
   const codes = new Set();
   Object.values(linesData).forEach(line => { if (line.ItemCode) codes.add(line.ItemCode); });
   return codes;
+}
+
+// Public wrapper for Sales Order's own item picker — mirrors
+// getActiveItems' shape exactly, just pre-filtered to sellable items.
+async function getSellableItems(idToken) {
+  const user = await requireUser_(idToken);
+  const data = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const sellableCodes = await getSellableItemCodes_(idToken);
+  return Object.keys(data)
+    .filter(id => data[id].Status === 'Active')
+    .filter(id => sellableCodes.has(data[id].ItemCode))
+    .filter(id => userCanAccessCompany_(user.profile, data[id].CompanyID))
+    .map(id => ({
+      ItemID: id, ItemCode: data[id].ItemCode, ItemName: data[id].ItemName,
+      Category: data[id].Category, UOMID: data[id].UOMID, AltUOMID: data[id].AltUOMID || '',
+      ConversionFactor: data[id].ConversionFactor || 0, CompanyID: data[id].CompanyID || '',
+      DefaultWarehouseID: data[id].DefaultWarehouseID || ''
+    }));
+}
+
+// ============================================================
+// SALES ORDER
+// ============================================================
+// The first real caller of both the Stock Reservation subsystem and
+// Price Listing — confirmed design across a multi-part discussion:
+//
+// PRICING: price list auto-derives from the customer's own
+// Classification via resolvePriceListForClassification_ (already
+// built) — a customer never picks a price list directly. Each line's
+// price resolves from that list on the SO's OWN date via
+// getPriceEffectiveOnDate_ (already built), then is SNAPSHOTTED onto
+// the line — same principle as GRN capturing UnitCost at receipt
+// time rather than deriving it live forever after. The resolved price
+// pre-fills but stays editable — real sales negotiate off list price,
+// and nothing in the confirmed design said otherwise; only which
+// PRICE LIST applies was said to be non-negotiable, not the price on
+// on individual line.
+//
+// STOCK CHECK, on Confirm only (never on Draft save): for each line,
+// reserve min(Ordered, Available) via createStockReservation_.
+// Whatever's short is NOT reserved — Sales Order doesn't create a Job
+// Order itself; raising one (possibly covering several Sales Orders
+// with the same shortfall) is a separate, manual action Sales takes
+// in Job Order Request, built next. Status becomes 'Reserved' if every
+// line was fully covered, 'Partially Reserved' if any line came up
+// short.
+//
+// CANCELLATION releases every Active reservation tied to this SO back
+// to available stock — including any portion a Job Order already
+// produced and allocated here, per the confirmed reservation
+// lifecycle. A Draft SO has no reservations yet, so cancelling one is
+// just a status change.
+//
+// HONEST GAP, not a silent omission: there is no 'Fulfilled' status
+// yet, because there is nothing that could set it correctly — a
+// Delivery/Shipment module is confirmed future work ("only then does
+// Finished stock actually go out"), and until it exists there's no
+// real goods-movement event to hang "Fulfilled" on. Inventing a manual
+// "mark fulfilled" button now would let a reservation be abandoned
+// without any stock actually having left, which is worse than not
+// offering the status at all. A Confirmed Sales Order's lifecycle
+// currently ends at Reserved / Partially Reserved or Cancelled.
+//
+// NO GL IMPACT: Sales Order records a commitment, not revenue —
+// standard practice recognizes revenue at billing/delivery, not at
+// order confirmation, and Billing & Revenue Recognition is its own
+// unbuilt future module. Confirming a Sales Order posts nothing to
+// the GL.
+//
+// Storage: /salesOrders/{id} = { SONumber (blank until Confirmed),
+//   CustomerID, CompanyID, DivisionID, BranchID, CostCenterID,
+//   ProfitCenterID, SODate, RequestedDeliveryDate, PriceListID,
+//   CurrencyID, Description, Status ('Draft'|'Reserved'|'Partially
+//   Reserved'|'Cancelled'), Lines: [{ LineID, ItemCode, WarehouseID,
+//   OrderedQuantity, EnteredUOMID, UnitPrice, LineTotal }], Total,
+//   RequestedBy, CreatedAt/By, UpdatedAt/By, ConfirmedAt/By,
+//   CancelledAt/By, CancelReason }
+
+// Public wrapper around resolvePriceListForClassification_ — the
+// client calls this once a customer is picked, to know which list
+// (and therefore which currency) applies before any line is priced.
+async function getPriceListForCustomer(idToken, companyId, customerId) {
+  await requireUser_(idToken);
+  const customersData = (await firebaseDbRequest_('customers', 'get', null, idToken)) || {};
+  const customer = customersData[customerId];
+  if (!customer) throw new Error('Customer not found.');
+  return await resolvePriceListForClassification_(idToken, companyId, customer.Classification || '');
+}
+
+// Public wrapper resolving one item's price on one list as of one date
+// — the client calls this each time an item is picked on a line, to
+// pre-fill Unit Price (which then stays editable, per the module's own
+// header comment on why).
+async function getItemPriceOnPriceList(idToken, priceListId, itemCode, date) {
+  await requireUser_(idToken);
+  if (!priceListId) return null;
+  const linesByItem = await groupPriceListLinesByItem_(idToken, priceListId);
+  const match = getPriceEffectiveOnDate_(linesByItem, itemCode, date || new Date().toISOString().substring(0, 10));
+  return match ? match.UnitPrice : null;
+}
+
+async function getSalesOrderEntries(idToken, limit) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'SALESORDER', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Sales Order.');
+  }
+  const data = (await firebaseDbRequest_('salesOrders', 'get', null, idToken)) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ SOID: id }, data[id]))
+    .filter(so => userCanAccessCompany_(user.profile, so.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const capped = limit ? all.slice(0, limit) : all;
+
+  // Reserved quantity per line, computed live from actual reservation
+  // records — never trusted from a stored snapshot, same principle as
+  // computeJobOrderProducedQty_.
+  await seq.forEach(capped, async so => {
+    const reservations = (await getReservationsForSource_(idToken, 'SalesOrder', so.SOID)).filter(r => r.Status === 'Active');
+    (so.Lines || []).forEach(line => {
+      line.ReservedQuantity = reservations
+        .filter(r => r.SourceLineID === line.LineID)
+        .reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0);
+    });
+  });
+  return { entries: capped, total: all.length };
+}
+
+async function saveDraftSalesOrder(idToken, header) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'SALESORDER');
+
+    const orgUnits = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
+    const companyId = String(header.CompanyID || '').trim();
+    if (!companyId) throw new Error('Select a Company.');
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    const costCenterId = String(header.CostCenterID || '').trim();
+    if (!costCenterId) throw new Error('Select a Cost Center.');
+    if (!orgUnits[costCenterId] || orgUnits[costCenterId].Type !== 'CostCenter') throw new Error('Unknown Cost Center.');
+
+    const customerId = String(header.CustomerID || '').trim();
+    if (!customerId) throw new Error('Select a Customer.');
+    const customersData = (await firebaseDbRequest_('customers', 'get', null, idToken)) || {};
+    const customer = customersData[customerId];
+    if (!customer || customer.Status !== 'Active') throw new Error('Customer not found or inactive.');
+
+    const soDate = header.SODate || new Date().toISOString().substring(0, 10);
+    const priceList = await resolvePriceListForClassification_(idToken, companyId, customer.Classification || '');
+
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemByCode = {};
+    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });
+
+    let total = 0;
+    const lines = (header.Lines || [])
+      .filter(l => String(l.ItemCode || '').trim())
+      .map((l, idx) => {
+        const itemCode = String(l.ItemCode).trim();
+        const item = itemByCode[itemCode];
+        if (!item || item.Status !== 'Active') throw new Error('Line ' + (idx + 1) + ': unknown or inactive item (' + itemCode + ').');
+        const warehouseId = String(l.WarehouseID || '').trim();
+        if (!warehouseId) throw new Error('Line ' + (idx + 1) + ': select a warehouse.');
+        const quantity = Number(l.OrderedQuantity);
+        if (!(quantity > 0)) throw new Error('Line ' + (idx + 1) + ': quantity must be greater than zero.');
+        const unitPrice = Number(l.UnitPrice) || 0;
+        const lineTotal = quantity * unitPrice;
+        total += lineTotal;
+        // LineID is assigned once and never regenerated — reservations
+        // reference it directly, so an existing line keeps the same
+        // identity across edits.
+        const lineId = String(l.LineID || '').trim() || ('SOL-' + Utilities.getUuid().split('-')[0].toUpperCase());
+        return {
+          LineID: lineId, ItemCode: itemCode, WarehouseID: warehouseId,
+          OrderedQuantity: quantity, EnteredUOMID: String(l.EnteredUOMID || item.UOMID || '').trim(),
+          UnitPrice: unitPrice, LineTotal: lineTotal
+        };
+      });
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const fields = {
+      CustomerID: customerId, CompanyID: companyId,
+      DivisionID: String(header.DivisionID || '').trim(), BranchID: String(header.BranchID || '').trim(),
+      CostCenterID: costCenterId, ProfitCenterID: String(header.ProfitCenterID || '').trim(),
+      SODate: soDate, RequestedDeliveryDate: header.RequestedDeliveryDate || '',
+      PriceListID: priceList ? priceList.PriceListID : '', CurrencyID: priceList ? priceList.CurrencyID : '',
+      Description: String(header.Description || '').trim(),
+      Lines: lines, Total: total, UpdatedAt: now, UpdatedBy: actor
+    };
+
+    const soId = String(header.SOID || '').trim();
+    if (soId) {
+      const existing = await firebaseDbRequest_('salesOrders/' + soId, 'get', null, idToken);
+      if (!existing) throw new Error('Sales Order not found.');
+      if (existing.Status !== 'Draft') throw new Error('Only a Draft Sales Order can be edited.');
+      await firebaseDbRequest_('salesOrders/' + soId, 'patch', fields, idToken);
+      return { success: true, soId: soId };
+    }
+
+    const newId = 'SO-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('salesOrders/' + newId, 'put', Object.assign({}, fields, {
+      SONumber: '', Status: 'Draft', RequestedBy: actor, CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, soId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// The core action — stock check plus reservation, atomically, at
+// confirm time. Never re-run automatically later; if stock frees up
+// after a Partially Reserved confirm, covering the rest is what the
+// linked Job Order's own production-allocation is for (built when Job
+// Order Request is redesigned), not a re-confirm of this SO.
+async function confirmSalesOrder(idToken, soId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'SALESORDER');
+    const existing = await firebaseDbRequest_('salesOrders/' + soId, 'get', null, idToken);
+    if (!existing) throw new Error('Sales Order not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft Sales Order can be confirmed.');
+    if (!existing.Lines || !existing.Lines.length) throw new Error('Add at least one line before confirming.');
+
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemByCode = {};
+    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });
+
+    const year = (new Date(existing.SODate)).getFullYear() || new Date().getFullYear();
+    const soNumber = await generateVoucherNumber_(idToken, 'SO', year, existing.CompanyID);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    let anyShortfall = false;
+    await seq.forEach(existing.Lines, async line => {
+      const item = itemByCode[line.ItemCode];
+      if (!item) throw new Error('Line references an item that no longer exists: ' + line.ItemCode);
+      const available = await getAvailableQuantity_(idToken, item.ItemID, line.WarehouseID);
+      const toReserve = Math.min(line.OrderedQuantity, Math.max(available, 0));
+      if (toReserve < line.OrderedQuantity) anyShortfall = true;
+      if (toReserve > 0) {
+        await createStockReservation_(idToken, {
+          ItemID: item.ItemID, ItemCode: line.ItemCode, WarehouseID: line.WarehouseID, CompanyID: existing.CompanyID,
+          Quantity: toReserve, SourceType: 'SalesOrder', SourceID: soId, SourceLineID: line.LineID, SourceLabel: soNumber
+        });
+      }
+    });
+
+    const finalStatus = anyShortfall ? 'Partially Reserved' : 'Reserved';
+    await firebaseDbRequest_('salesOrders/' + soId, 'patch', {
+      SONumber: soNumber, Status: finalStatus, ConfirmedAt: now, ConfirmedBy: actor,
+      UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true, soNumber: soNumber, status: finalStatus };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function cancelSalesOrder(idToken, soId, reason) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'SALESORDER');
+    const existing = await firebaseDbRequest_('salesOrders/' + soId, 'get', null, idToken);
+    if (!existing) throw new Error('Sales Order not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status === 'Cancelled') throw new Error('This Sales Order is already Cancelled.');
+
+    // Release every Active reservation tied to this SO — including
+    // anything a linked Job Order already produced and allocated here,
+    // per the confirmed reservation lifecycle. A Draft SO simply has
+    // none yet, so this is a no-op loop for that case.
+    const reservations = (await getReservationsForSource_(idToken, 'SalesOrder', soId)).filter(r => r.Status === 'Active');
+    await seq.forEach(
+      reservations,
+      async r => await releaseStockReservation_(idToken, r.ReservationID, 'Sales Order cancelled')
+    );
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('salesOrders/' + soId, 'patch', {
+      Status: 'Cancelled', CancelledAt: now, CancelledBy: actor, CancelReason: String(reason || '').trim(),
+      UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true, releasedCount: reservations.length };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deleteDraftSalesOrder(idToken, soId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'SALESORDER');
+    const existing = await firebaseDbRequest_('salesOrders/' + soId, 'get', null, idToken);
+    if (!existing) throw new Error('Sales Order not found.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft Sales Order can be deleted.');
+    await firebaseDbRequest_('salesOrders/' + soId, 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// CLAIM / RELEASE — confirmed design: pure FIFO can't handle a real
+// business priority call (a rush order, a VIP account), so instead of
+// trying to encode priority into the automatic allocation rule, Sales
+// gets direct manual control over an individual line's reservation.
+// Available any time a Sales Order is Reserved or Partially Reserved
+// (dispatch-based locking is confirmed future work, not built yet).
+// A reason is REQUIRED on both — this can visibly favor one customer
+// over another, and that decision should be answerable later, same
+// principle as Job Order's Stop Request already requiring one.
+//
+// Deliberately two separate, single-purpose actions rather than one
+// "move between orders" transfer: each stays tied to exactly one
+// Sales Order and leaves its own clean, independently-reasoned trail
+// — why THIS order's reservation dropped, and separately, why THAT
+// order's grew — rather than one opaque combined event.
+
+// Claim can only pull from stock that's genuinely UNRESERVED right
+// now — never directly from another order's existing reservation. If
+// the stock a line needs is sitting inside a different order's
+// reservation, that order has to Release first. Two-step and
+// two-screen by design: it's what keeps this auditable and stops a
+// Claim from silently outbidding someone.
+async function claimStockForSalesOrderLine(idToken, soId, lineId, quantity, reason) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'SALESORDER');
+    const so = await firebaseDbRequest_('salesOrders/' + soId, 'get', null, idToken);
+    if (!so) throw new Error('Sales Order not found.');
+    if (!userCanAccessCompany_(user.profile, so.CompanyID)) throw new Error('You do not have access to that company.');
+    if (so.Status !== 'Reserved' && so.Status !== 'Partially Reserved') throw new Error('Stock can only be claimed for a Reserved or Partially Reserved Sales Order.');
+    const line = (so.Lines || []).find(l => l.LineID === lineId);
+    if (!line) throw new Error('Line not found on this Sales Order.');
+
+    const qty = Number(quantity);
+    if (!(qty > 0)) throw new Error('Claim quantity must be greater than zero.');
+    const reasonText = String(reason || '').trim();
+    if (!reasonText) throw new Error('A reason is required to claim stock.');
+
+    const reserved = (await getReservationsForSource_(idToken, 'SalesOrder', soId))
+      .filter(r => r.Status === 'Active' && r.SourceLineID === lineId)
+      .reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0);
+    const shortfall = Number(line.OrderedQuantity) - reserved;
+    if (qty > shortfall) throw new Error('Cannot claim more than this line\'s outstanding shortfall (' + shortfall + ').');
+
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemEntry = Object.keys(itemsData).find(id => itemsData[id].ItemCode === line.ItemCode);
+    if (!itemEntry) throw new Error('Item not found: ' + line.ItemCode);
+    const available = await getAvailableQuantity_(idToken, itemEntry, line.WarehouseID);
+    if (qty > available) throw new Error('Not enough free stock available to claim (' + available + ' available).');
+
+    await createStockReservation_(idToken, {
+      ItemID: itemEntry, ItemCode: line.ItemCode, WarehouseID: line.WarehouseID, CompanyID: so.CompanyID,
+      Quantity: qty, SourceType: 'SalesOrder', SourceID: soId, SourceLineID: lineId, SourceLabel: so.SONumber,
+      Reason: reasonText
+    });
+    await refreshSalesOrderReservationStatus_(idToken, soId);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Releases up to the requested quantity from this line's own Active
+// reservations, oldest first — which specific record gets reduced
+// first doesn't matter substantively (all fungible, same item and
+// warehouse), so this just needs to be deterministic, not clever.
+async function releaseStockForSalesOrderLine(idToken, soId, lineId, quantity, reason) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'SALESORDER');
+    const so = await firebaseDbRequest_('salesOrders/' + soId, 'get', null, idToken);
+    if (!so) throw new Error('Sales Order not found.');
+    if (!userCanAccessCompany_(user.profile, so.CompanyID)) throw new Error('You do not have access to that company.');
+    if (so.Status !== 'Reserved' && so.Status !== 'Partially Reserved') throw new Error('Stock can only be released for a Reserved or Partially Reserved Sales Order.');
+    const line = (so.Lines || []).find(l => l.LineID === lineId);
+    if (!line) throw new Error('Line not found on this Sales Order.');
+
+    const qty = Number(quantity);
+    if (!(qty > 0)) throw new Error('Release quantity must be greater than zero.');
+    const reasonText = String(reason || '').trim();
+    if (!reasonText) throw new Error('A reason is required to release stock.');
+
+    const lineReservations = (await getReservationsForSource_(idToken, 'SalesOrder', soId))
+      .filter(r => r.Status === 'Active' && r.SourceLineID === lineId)
+      .sort((a, b) => (a.CreatedAt || '').localeCompare(b.CreatedAt || ''));
+    const totalReserved = lineReservations.reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0);
+    if (qty > totalReserved) throw new Error('Cannot release more than is currently reserved for this line (' + totalReserved + ').');
+
+    let remaining = qty;
+    await seq.forEach(lineReservations, async r => {
+      if (remaining <= 0) return;
+      const toReduce = Math.min(remaining, Number(r.Quantity));
+      await reduceStockReservationQuantity_(idToken, r.ReservationID, toReduce, reasonText);
+      remaining -= toReduce;
+    });
+    await refreshSalesOrderReservationStatus_(idToken, soId);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 // ============================================================
@@ -7241,6 +7792,7 @@ module.exports = {
   reactivateCustomerClassification,
   generateCustomerCode_,
   getCustomers,
+  getActiveCustomers,
   saveCustomer,
   deactivateCustomer,
   reactivateCustomer,
@@ -7272,7 +7824,11 @@ module.exports = {
   closeInventoryPurchaseRequisition,
   cancelInventoryPurchaseRequisition,
   deleteDraftInventoryPurchaseRequisition,
+  getActiveReservationsForItem_,
+  getReservedQuantity_,
+  getAvailableQuantity_,
   releaseStockReservation_,
+  reduceStockReservationQuantity_,
   getActiveCurrencies,
   getPriceLists,
   savePriceList,
@@ -7282,7 +7838,19 @@ module.exports = {
   savePriceListLine,
   deactivatePriceListLine,
   getPriceEffectiveOnDate_,
+  groupPriceListLinesByItem_,
+  resolvePriceListForClassification_,
   getSellableItemCodes_,
+  getSellableItems,
+  getPriceListForCustomer,
+  getItemPriceOnPriceList,
+  getSalesOrderEntries,
+  saveDraftSalesOrder,
+  confirmSalesOrder,
+  cancelSalesOrder,
+  deleteDraftSalesOrder,
+  claimStockForSalesOrderLine,
+  releaseStockForSalesOrderLine,
   getEligibleJobOrderItems,
   getSalesOrderLinesWithShortfall_,
   computeJobOrderLineProducedQty_,

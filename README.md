@@ -294,6 +294,21 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   for `'all'`. The screen's requisition-category lookup is
   `getRequisitionCategories`, which requires Procurement Setup access. As
   in GAS.
+- Sales Order: confirm, cancel, claim and release are company-checked.
+  `deleteDraftSalesOrder` and editing an existing draft aren't.
+  `getPriceListForCustomer` and `getItemPriceOnPriceList` need only a
+  signed-in user (no module or company check). The sellable-item picker
+  treats any item on ANY price list line (active or not, any company's
+  list) as sellable. As in GAS.
+- Sales Order, reservations: confirm and claim take no lock, so two
+  orders confirmed at the same moment can both reserve the same free
+  stock (reservations can exceed on-hand). Same class of race as the
+  voucher numbering. Confirm isn't atomic: if a later line fails (an item
+  deleted since the draft was saved), reservations already made for
+  earlier lines stay Active on a still-Draft order. Cancelling that order
+  releases them, but confirming again would reserve those lines twice.
+  Items are deactivated, not deleted, in normal use. Cancelling is
+  allowed from any status except Cancelled. As in GAS.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -490,7 +505,7 @@ primitive's REST semantics directly.
 | PURCHASEREQUISITION | ✅ | **not yet** |
 | INVENTORYPURCHASEREQUISITION | ✅ | **not yet** |
 | PURCHASEORDER | ✅ | **not yet** |
-| SALESORDER | — | — |
+| SALESORDER | ✅ | **not yet** |
 | DELIVERYNOTE | — | — |
 | JV | — | — |
 | CBT | — | — |
@@ -498,12 +513,12 @@ primitive's REST semantics directly.
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** SALESORDER
+**Next module to port:** DELIVERYNOTE
 
-**Committed but NOT yet deployed** (PURCHASEREQUISITION, INVENTORYPURCHASEREQUISITION, PURCHASEORDER) — deploy these 27 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (PURCHASEREQUISITION, INVENTORYPURCHASEREQUISITION, PURCHASEORDER, SALESORDER) — deploy these 38 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment cancelInventoryPurchaseRequisition cancelPurchaseOrder cancelPurchaseRequisition closeInventoryPurchaseRequisition closePurchaseOrder closePurchaseRequisition decideInventoryPurchaseRequisitionApproval decidePurchaseOrderApproval decidePurchaseOrderReopenApproval decidePurchaseRequisitionApproval deleteDraftInventoryPurchaseRequisition deleteDraftPurchaseOrder deleteDraftPurchaseRequisition getActiveRequisitionCategories getEligibleRequisitionsForPO getInventoryPurchaseRequisitionEntries getPurchaseOrderEntries getPurchaseRequisitionEntries requestReopenPurchaseOrder reviseAndResubmitPurchaseOrder saveDraftInventoryPurchaseRequisition saveDraftPurchaseOrder saveDraftPurchaseRequisition submitInventoryPurchaseRequisition submitPurchaseOrder submitPurchaseRequisition
+getModuleFragment cancelInventoryPurchaseRequisition cancelPurchaseOrder cancelPurchaseRequisition cancelSalesOrder claimStockForSalesOrderLine closeInventoryPurchaseRequisition closePurchaseOrder closePurchaseRequisition confirmSalesOrder decideInventoryPurchaseRequisitionApproval decidePurchaseOrderApproval decidePurchaseOrderReopenApproval decidePurchaseRequisitionApproval deleteDraftInventoryPurchaseRequisition deleteDraftPurchaseOrder deleteDraftPurchaseRequisition deleteDraftSalesOrder getActiveCustomers getActiveRequisitionCategories getEligibleRequisitionsForPO getInventoryPurchaseRequisitionEntries getItemPriceOnPriceList getPriceListForCustomer getPurchaseOrderEntries getPurchaseRequisitionEntries getSalesOrderEntries getSellableItems releaseStockForSalesOrderLine requestReopenPurchaseOrder reviseAndResubmitPurchaseOrder saveDraftInventoryPurchaseRequisition saveDraftPurchaseOrder saveDraftPurchaseRequisition saveDraftSalesOrder submitInventoryPurchaseRequisition submitPurchaseOrder submitPurchaseRequisition
 ```
 <!-- PORT-STATUS:end -->
 

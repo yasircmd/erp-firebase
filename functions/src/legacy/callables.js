@@ -38,6 +38,16 @@ exports.cancelPurchaseRequisition = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.prId];
   return run(request, (ctx) => L.cancelPurchaseRequisition(ctx, ...a));
 });
+exports.cancelSalesOrder = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.soId, d.reason];
+  return run(request, (ctx) => L.cancelSalesOrder(ctx, ...a));
+});
+exports.claimStockForSalesOrderLine = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.soId, d.lineId, d.quantity, d.reason];
+  return run(request, (ctx) => L.claimStockForSalesOrderLine(ctx, ...a));
+});
 exports.closeInventoryPurchaseRequisition = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.iprId];
@@ -52,6 +62,11 @@ exports.closePurchaseRequisition = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.prId];
   return run(request, (ctx) => L.closePurchaseRequisition(ctx, ...a));
+});
+exports.confirmSalesOrder = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.soId];
+  return run(request, (ctx) => L.confirmSalesOrder(ctx, ...a));
 });
 exports.deactivateAccount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -183,6 +198,11 @@ exports.deleteDraftPurchaseRequisition = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.prId];
   return run(request, (ctx) => L.deleteDraftPurchaseRequisition(ctx, ...a));
 });
+exports.deleteDraftSalesOrder = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.soId];
+  return run(request, (ctx) => L.deleteDraftSalesOrder(ctx, ...a));
+});
 exports.deleteFirebaseUser = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.userId];
@@ -217,6 +237,11 @@ exports.getActiveCustomerClassifications = onCallWithMessages(opts, (request) =>
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getActiveCustomerClassifications(ctx, ...a));
+});
+exports.getActiveCustomers = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getActiveCustomers(ctx, ...a));
 });
 exports.getActiveItemSubCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -328,6 +353,11 @@ exports.getItemCostForProduction = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId, d.itemCode, d.date];
   return run(request, (ctx) => L.getItemCostForProduction(ctx, ...a));
 });
+exports.getItemPriceOnPriceList = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.priceListId, d.itemCode, d.date];
+  return run(request, (ctx) => L.getItemPriceOnPriceList(ctx, ...a));
+});
 exports.getItemSubCategories = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -372,6 +402,11 @@ exports.getPhysicalCountEntries = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
   return run(request, (ctx) => L.getPhysicalCountEntries(ctx, ...a));
+});
+exports.getPriceListForCustomer = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId, d.customerId];
+  return run(request, (ctx) => L.getPriceListForCustomer(ctx, ...a));
 });
 exports.getPriceListLines = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -418,6 +453,11 @@ exports.getRoles = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getRoles(ctx, ...a));
 });
+exports.getSalesOrderEntries = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
+  return run(request, (ctx) => L.getSalesOrderEntries(ctx, ...a));
+});
 exports.getSalesOrderLineShortfallOptions = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.itemCode, d.companyId];
@@ -427,6 +467,11 @@ exports.getSalesTypes = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getSalesTypes(ctx, ...a));
+});
+exports.getSellableItems = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [];
+  return run(request, (ctx) => L.getSellableItems(ctx, ...a));
 });
 exports.getStockAvailabilityList = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -548,6 +593,11 @@ exports.reactivateVendor = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
   return run(request, (ctx) => L.reactivateVendor(ctx, ...a));
 });
+exports.releaseStockForSalesOrderLine = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.soId, d.lineId, d.quantity, d.reason];
+  return run(request, (ctx) => L.releaseStockForSalesOrderLine(ctx, ...a));
+});
 exports.requestJobOrderLineAmendment = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.lineId, d.proposedQuantity, d.proposedDate, d.note];
@@ -647,6 +697,11 @@ exports.saveDraftPurchaseRequisition = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.header];
   return run(request, (ctx) => L.saveDraftPurchaseRequisition(ctx, ...a));
+});
+exports.saveDraftSalesOrder = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.header];
+  return run(request, (ctx) => L.saveDraftSalesOrder(ctx, ...a));
 });
 exports.saveFirebaseUser = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
