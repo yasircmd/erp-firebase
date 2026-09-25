@@ -6547,6 +6547,326 @@ async function getItemCostForProduction(idToken, companyId, itemCode, date) {
   return match ? match.UnitCost : null;
 }
 
+// ============================================================
+// PURCHASE ORDER
+// ============================================================
+// The module this whole approval-gate arc was built for. Confirmed
+// design across several turns:
+// - A line can either come from a requisition or be entered directly.
+//   The original design required every PO to originate from a
+//   requisition (PR/IPR exist specifically to authorize a purchase
+//   before Procurement acts); that was confirmed reversed — direct
+//   entry is now supported for emergency purchases, blanket orders,
+//   and similar cases where a formal requisition trail isn't
+//   practical. Mixing both kinds of line on the same PO is allowed. A
+//   direct line's ItemCode/CategoryID is validated at save time,
+//   since nothing upstream has already checked it the way a
+//   requisition-sourced line was validated when that requisition was
+//   itself created.
+// - Requisitions eligible for a PO are no longer restricted to the
+//   PO's own Cost Center. That restriction was confirmed reversed — it
+//   was blocking a real, common case: the same items requested by
+//   several different departments, which Procurement had no way to
+//   see or combine into one PO at all. The PO's own CostCenterID
+//   remains its own independent field (still what the approval gate
+//   resolves against — one PO, one unambiguous scope, unchanged), it
+//   just no longer has to match, or even be present on, every
+//   requisition the PO happens to pull lines from.
+// - Vendor is chosen AFTER requisitions are selected, not before —
+//   this system has no vendor-item catalog to auto-detect a mismatch,
+//   so Procurement needs to actually see what's being combined before
+//   committing to who it's being bought from. If what's selected
+//   genuinely needs two vendors, that becomes two POs; a PO staying a
+//   single-vendor document was never in question, only when that
+//   choice gets made.
+// - A selected requisition is pulled in WHOLE — every line, not a
+//   subset — and is immediately Closed once the PO submits, so it
+//   can never be sourced into a second PO by mistake. If a
+//   requisition mixes items that genuinely need different vendors,
+//   it should have been raised as separate requisitions in the first
+//   place; this build doesn't support splitting one after the fact.
+// - Pricing is manually entered per line — no vendor price list
+//   exists or has been discussed, so none is assumed here.
+// - Approval is resolved through the generic engine: submitting
+//   computes the PO's own Total, resolves the right scope key for
+//   however PURCHASEORDER is currently configured in Approval
+//   Configuration, and only enters PendingApproval if that
+//   configuration actually requires it — an unconfigured or Disabled
+//   gate lets a PO go straight to Approved. This applies identically
+//   whether the PO is requisition-sourced or fully direct — a direct
+//   PO skips the requisition trail, not the approval gate.
+// - Rejection is not terminal — Procurement can revise (only the
+//   lines/prices, never which requisitions were pulled in, and never
+//   adding or removing lines of any kind) and resubmit, which creates
+//   a fresh approval instance; the rejected one stays in history
+//   exactly as it was decided.
+// - Deliberately NOT built here: any link to GRN. That's confirmed,
+//   separate follow-up work — GRN still has no PO reference at all.
+//
+// Storage: /purchaseOrders/{id} = { PONumber (blank until Submitted),
+//   VendorID, CompanyID, DivisionID, BranchID, CostCenterID,
+//   ProfitCenterID, PODate, Currency (locked from the vendor's own
+//   DefaultCurrency — not independently editable, since it isn't a
+//   judgment call the way a price is), SourceRequisitions: [{
+//   RequisitionType ('PR'|'IPR'), RequisitionID, RequisitionNumber }],
+//   Lines: [{ LineID, SourceRequisitionType, SourceRequisitionID,
+//   SourceLineIndex (PR/IPR lines have no LineID of their own — array
+//   position is the only stable reference back to the exact source
+//   line), ItemCode (IPR-sourced only), CategoryID (PR-sourced only),
+//   Description, Quantity, UOM, WarehouseID (IPR-sourced only, carried
+//   over from the requisition line), UnitPrice, LineTotal }], Total,
+//   Status ('Draft'|'PendingApproval'|'Approved'|'Rejected'|'Closed'|
+//   'Cancelled'), ApprovalInstanceID, RejectionReason (a display
+//   convenience snapshotting the latest rejecting level's own reason —
+//   the full trail always lives in the approval instance itself, this
+//   just avoids an extra round trip to show it inline), CreatedAt/By,
+//   UpdatedAt/By, SubmittedAt/By, ApprovedAt, ClosedAt/By,
+//   CancelledAt/By }
+
+async function getEligibleRequisitionsForPO(idToken, companyId) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'PURCHASEORDER', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Purchase Order.');
+  }
+  if (!companyId) return { pr: [], ipr: [] };
+
+  // No longer filtered by Cost Center — confirmed fix for a real
+  // processing gap: the same items were often requested by different
+  // departments, and a same-Cost-Center-only rule meant Procurement
+  // couldn't see or combine them into one PO at all. The PO's own
+  // CostCenterID is an independent field the PO carries for its own
+  // approval scope, not something that has to match — or even be
+  // present on — every requisition it happens to pull lines from.
+  const prData = (await firebaseDbRequest_('purchaseRequisitions', 'get', null, idToken)) || {};
+  const pr = Object.keys(prData)
+    .map(id => Object.assign({ RequisitionID: id }, prData[id]))
+    .filter(r => r.Status === 'Submitted' && r.CompanyID === companyId);
+
+  const iprData = (await firebaseDbRequest_('inventoryPurchaseRequisitions', 'get', null, idToken)) || {};
+  const ipr = Object.keys(iprData)
+    .map(id => Object.assign({ RequisitionID: id }, iprData[id]))
+    .filter(r => r.Status === 'Submitted' && r.CompanyID === companyId);
+
+  return { pr: pr, ipr: ipr };
+}
+
+async function getPurchaseOrderEntries(idToken, limit) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'PURCHASEORDER', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Purchase Order.');
+  }
+  const data = (await firebaseDbRequest_('purchaseOrders', 'get', null, idToken)) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ POID: id }, data[id]))
+    .filter(po => userCanAccessCompany_(user.profile, po.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const useAll = limit === 'all';
+  const capped = useAll ? all : all.slice(0, 100);
+  return { entries: capped, total: all.length };
+}
+
+async function saveDraftPurchaseOrder(idToken, poData) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'PURCHASEORDER');
+    const companyId = String(poData.CompanyID || '').trim();
+    if (!companyId) throw new Error('Select a Company.');
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    const costCenterId = String(poData.CostCenterID || '').trim();
+    if (!costCenterId) throw new Error('Select a Cost Center.');
+    const vendorId = String(poData.VendorID || '').trim();
+    if (!vendorId) throw new Error('Select a Vendor.');
+
+    const vendorData = await firebaseDbRequest_('vendors/' + vendorId, 'get', null, idToken);
+    if (!vendorData || vendorData.Status !== 'Active') throw new Error('Unknown or inactive Vendor.');
+
+    // Confirmed reversal of the original design: a PO no longer has to
+    // originate from a requisition. A line either carries a
+    // SourceRequisitionID (pulled in from a Submitted PR/IPR, already
+    // validated when that requisition was itself created) or is
+    // entered directly — and a direct line's ItemCode/CategoryID gets
+    // validated HERE, since nothing upstream has checked it yet the
+    // way a requisition-sourced line already was. Mixing both kinds of
+    // line on the same PO is allowed — Procurement combining an
+    // approved requisition item with one urgent, un-requisitioned item
+    // is a normal, legitimate case, not an edge case to special-case
+    // around.
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const categoriesData = (await firebaseDbRequest_('requisitionCategories', 'get', null, idToken)) || {};
+    const lines = (poData.Lines || []).filter(l => l.ItemCode || l.CategoryID);
+    if (!lines.length) throw new Error('Add at least one line — from a requisition, or entered directly.');
+    lines.forEach((l, i) => {
+      // Quantity is validated for every line regardless of source —
+      // it's now freely editable even on a requisition-sourced line
+      // (removing a line entirely, or adjusting its quantity, is a
+      // confirmed capability), and unlike Unit Price, there's no
+      // legitimate "not decided yet" reason for a zero, negative, or
+      // non-numeric quantity to ever sit in a draft.
+      if (!(Number(l.Quantity) > 0)) throw new Error('Line ' + (i + 1) + ': quantity must be greater than zero.');
+      if (!l.SourceRequisitionID) {
+        if (l.ItemCode) {
+          const itemMatch = Object.keys(itemsData).find(id => itemsData[id].ItemCode === l.ItemCode && itemsData[id].Status === 'Active');
+          if (!itemMatch) throw new Error('Line ' + (i + 1) + ': unknown or inactive item.');
+        } else {
+          const cat = categoriesData[l.CategoryID];
+          if (!cat || cat.Status !== 'Active') throw new Error('Line ' + (i + 1) + ': unknown or inactive category.');
+        }
+      }
+    });
+
+    let total = 0;
+    const cleanedLines = lines.map((l, i) => {
+      const qty = Number(l.Quantity);
+      const price = Number(l.UnitPrice) || 0;
+      const lineTotal = qty * price;
+      total += lineTotal;
+      return {
+        LineID: l.LineID || ('POL-' + i), SourceRequisitionType: l.SourceRequisitionID ? l.SourceRequisitionType : '',
+        SourceRequisitionID: l.SourceRequisitionID || '', SourceLineIndex: l.SourceRequisitionID ? l.SourceLineIndex : null,
+        ItemCode: l.ItemCode || '', CategoryID: l.CategoryID || '', Description: l.Description || '',
+        Quantity: qty, UOM: l.UOM || '', WarehouseID: l.WarehouseID || '',
+        UnitPrice: price, LineTotal: lineTotal
+      };
+    });
+
+    // Distinct source requisitions referenced by the lines, for the
+    // header's own traceability list and for closing them on submit —
+    // a direct line (no SourceRequisitionID) simply contributes none,
+    // rather than needing to be filtered out separately here.
+    const sourceMap = {};
+    cleanedLines.forEach(l => { if (l.SourceRequisitionID) sourceMap[l.SourceRequisitionType + '|' + l.SourceRequisitionID] = l; });
+    const sourceRequisitions = await seq.map(Object.keys(sourceMap), async key => {
+      const l = sourceMap[key];
+      const path = l.SourceRequisitionType === 'PR' ? 'purchaseRequisitions/' : 'inventoryPurchaseRequisitions/';
+      const req = await firebaseDbRequest_(path + l.SourceRequisitionID, 'get', null, idToken);
+      const number = req ? (l.SourceRequisitionType === 'PR' ? req.PRNumber : req.IPRNumber) : '';
+      return { RequisitionType: l.SourceRequisitionType, RequisitionID: l.SourceRequisitionID, RequisitionNumber: number };
+    });
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const fields = {
+      CompanyID: companyId, DivisionID: poData.DivisionID || '', BranchID: poData.BranchID || '',
+      CostCenterID: costCenterId, ProfitCenterID: poData.ProfitCenterID || '',
+      VendorID: vendorId, PODate: poData.PODate || '', Currency: vendorData.DefaultCurrency || '',
+      SourceRequisitions: sourceRequisitions, Lines: cleanedLines, Total: total,
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    const poId = String(poData.POID || '').trim();
+    if (poId) {
+      const existing = await firebaseDbRequest_('purchaseOrders/' + poId, 'get', null, idToken);
+      if (!existing) throw new Error('Purchase Order not found.');
+      if (existing.Status !== 'Draft') throw new Error('Only a Draft Purchase Order can be edited this way.');
+      await firebaseDbRequest_('purchaseOrders/' + poId, 'patch', fields, idToken);
+      return { success: true, poId: poId };
+    }
+
+    const newId = 'PO-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('purchaseOrders/' + newId, 'put', Object.assign({}, fields, {
+      PONumber: '', Status: 'Draft', CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, poId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Confirmed design: if the same item (or non-stock category) with the
+// same Description appears on more than one line — most commonly
+// because it was requested by two different Cost Centers via separate
+// requisitions, now that a PO can combine those — those lines are
+// combined into one at submit time, quantity summed. Draft editing
+// itself is left untouched; Procurement still sees and can adjust
+// each source line individually right up until they submit — only the
+// final, submitted record consolidates them, never the draft in
+// progress. Unit Price on a merged line becomes a quantity-weighted
+// average of its contributing lines — the only choice that doesn't
+// silently discard value, since the merged line's own total exactly
+// equals what the separate lines would have summed to.
+function mergeMatchingPOLines_(lines) {
+  const merged = [];
+  const indexByKey = {};
+  (lines || []).forEach(l => {
+    const key = (l.ItemCode || l.CategoryID) + '|' + l.Description;
+    if (indexByKey.hasOwnProperty(key)) {
+      const target = merged[indexByKey[key]];
+      const combinedQty = Number(target.Quantity) + Number(l.Quantity);
+      const combinedValue = (Number(target.Quantity) * Number(target.UnitPrice)) + (Number(l.Quantity) * Number(l.UnitPrice));
+      target.Quantity = combinedQty;
+      target.UnitPrice = combinedQty > 0 ? combinedValue / combinedQty : 0;
+      target.LineTotal = combinedQty * target.UnitPrice;
+    } else {
+      indexByKey[key] = merged.length;
+      const qty = Number(l.Quantity);
+      const price = Number(l.UnitPrice);
+      merged.push(Object.assign({}, l, { Quantity: qty, UnitPrice: price, LineTotal: qty * price }));
+    }
+  });
+  // Re-sequence LineIDs to match the new, possibly shorter array —
+  // the old ones were just array-position labels to begin with.
+  return merged.map((l, i) => Object.assign({}, l, { LineID: 'POL-' + i }));
+}
+
+async function submitPurchaseOrder(idToken, poId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PURCHASEORDER');
+    const existing = await firebaseDbRequest_('purchaseOrders/' + poId, 'get', null, idToken);
+    if (!existing) throw new Error('Purchase Order not found.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft Purchase Order can be submitted.');
+    if (!existing.Lines || !existing.Lines.length) throw new Error('Add at least one line before submitting.');
+    if (existing.Lines.some(l => !(l.UnitPrice > 0))) throw new Error('Every line needs a Unit Price greater than zero.');
+    // [PORT FIX po-source-requisition-still-open] a requisition feeds exactly one PO: refuse if another PO
+    // (or a cancellation) has already taken it since this draft was saved.
+    for (const src of (existing.SourceRequisitions || [])) {
+      const req = await firebaseDbRequest_((src.RequisitionType === 'PR' ? 'purchaseRequisitions/' : 'inventoryPurchaseRequisitions/') + src.RequisitionID, 'get', null, idToken);
+      const label = (src.RequisitionNumber || src.RequisitionID);
+      if (!req || req.CompanyID !== existing.CompanyID) throw new Error('Requisition ' + label + ' was not found for this company.');
+      if (req.Status !== 'Submitted') throw new Error('Requisition ' + label + ' is ' + req.Status + ' — it may already be on another Purchase Order. Remove its lines and save before submitting.');
+    }
+
+    const mergedLines = mergeMatchingPOLines_(existing.Lines);
+    const mergedTotal = mergedLines.reduce((sum, l) => sum + l.LineTotal, 0);
+
+    const year = (new Date(existing.PODate)).getFullYear() || new Date().getFullYear();
+    const poNumber = await generateVoucherNumber_(idToken, 'PO', year, existing.CompanyID);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'PURCHASEORDER', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const approval = await beginApprovalInstance_(idToken, 'PURCHASEORDER', poId, poNumber, scopeKey, mergedTotal, user.uid);
+
+    const fields = {
+      Lines: mergedLines, Total: mergedTotal,
+      PONumber: poNumber, SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    };
+    if (approval.required) {
+      fields.Status = 'PendingApproval';
+      fields.ApprovalInstanceID = approval.instanceId;
+    } else {
+      fields.Status = 'Approved';
+      fields.ApprovedAt = now;
+    }
+    await firebaseDbRequest_('purchaseOrders/' + poId, 'patch', fields, idToken);
+
+    // Every source requisition is fully consumed by this PO (all its
+    // lines were pulled in whole) — close it now so it can't
+    // accidentally be sourced into a second, different PO later.
+    await seq.forEach(existing.SourceRequisitions || [], async src => {
+      const path = src.RequisitionType === 'PR' ? 'purchaseRequisitions/' : 'inventoryPurchaseRequisitions/';
+      await firebaseDbRequest_(path + src.RequisitionID, 'patch', { Status: 'Closed', ClosedAt: now, ClosedBy: actor, UpdatedAt: now, UpdatedBy: actor }, idToken);
+    });
+
+    return { success: true, poNumber: poNumber, status: fields.Status };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // Generic decide-approval action — the part every module's own thin
 // wrapper delegates to. collectionPath is the Firebase collection the
 // document itself lives under (e.g. 'purchaseOrders',
@@ -6611,6 +6931,206 @@ async function decideApprovalForDocument_(
     else await firebaseDbRequest_(collectionPath + '/' + documentId, 'patch', fields, idToken);
   }
   return { status: result.status, selfApproved: result.selfApproved };
+}
+
+async function decidePurchaseOrderApproval(idToken, poId, levelNumber, decision, reason) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PURCHASEORDER');
+    const existing = await firebaseDbRequest_('purchaseOrders/' + poId, 'get', null, idToken);
+    if (existing && !userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    const result = await decideApprovalForDocument_(idToken, 'purchaseOrders', poId, levelNumber, decision, reason, 'Approved');
+    return Object.assign({ success: true }, result);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// After a rejection, Procurement can adjust prices/quantities on the
+// existing lines and resubmit — but never add, remove, or swap which
+// requisitions were pulled in; that would mean re-running the whole
+// sourcing decision, which is a new PO, not a revision of this one.
+async function reviseAndResubmitPurchaseOrder(idToken, poId, updatedLines) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PURCHASEORDER');
+    const existing = await firebaseDbRequest_('purchaseOrders/' + poId, 'get', null, idToken);
+    if (!existing) throw new Error('Purchase Order not found.');
+    if (existing.Status !== 'Rejected') throw new Error('Only a Rejected Purchase Order can be revised.');
+
+    const existingLineIds = new Set((existing.Lines || []).map(l => l.LineID));
+    let total = 0;
+    const cleanedLines = (updatedLines || []).map(l => {
+      if (!existingLineIds.has(l.LineID)) throw new Error('Cannot add or remove lines during a revision — only prices and quantities.');
+      const original = existing.Lines.find(orig => orig.LineID === l.LineID);
+      const qty = Number(l.Quantity);
+      // [PORT FIX po-revision-quantity-positive] same rule as saveDraftPurchaseOrder.
+      if (!(qty > 0)) throw new Error('Every line needs a quantity greater than zero.');
+      const price = Number(l.UnitPrice) || 0;
+      const lineTotal = qty * price;
+      total += lineTotal;
+      return Object.assign({}, original, { Quantity: qty, UnitPrice: price, LineTotal: lineTotal });
+    });
+    if (cleanedLines.length !== existing.Lines.length) throw new Error('Every original line must be present in a revision.');
+    if (cleanedLines.some(l => !(l.UnitPrice > 0))) throw new Error('Every line needs a Unit Price greater than zero.');
+
+    const year = (new Date(existing.PODate)).getFullYear() || new Date().getFullYear();
+    const poNumber = await generateVoucherNumber_(idToken, 'PO', year, existing.CompanyID);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'PURCHASEORDER', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const approval = await beginApprovalInstance_(idToken, 'PURCHASEORDER', poId, poNumber, scopeKey, total, user.uid);
+
+    const fields = {
+      Lines: cleanedLines, Total: total, PONumber: poNumber,
+      RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    };
+    if (approval.required) {
+      fields.Status = 'PendingApproval'; fields.ApprovalInstanceID = approval.instanceId;
+    } else {
+      fields.Status = 'Approved'; fields.ApprovedAt = now;
+    }
+    await firebaseDbRequest_('purchaseOrders/' + poId, 'patch', fields, idToken);
+    return { success: true, status: fields.Status };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function cancelPurchaseOrder(idToken, poId, reason) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PURCHASEORDER');
+    const existing = await firebaseDbRequest_('purchaseOrders/' + poId, 'get', null, idToken);
+    if (!existing) throw new Error('Purchase Order not found.');
+    if (existing.Status === 'Closed' || existing.Status === 'Cancelled') {
+      throw new Error('This Purchase Order is already ' + existing.Status.toLowerCase() + '.');
+    }
+    // Any receipt at all — even partial — means goods have already
+    // physically arrived (and possibly been invoiced) against this PO.
+    // Cancelling it at that point would contradict what's already
+    // happened; the GRN(s) need to be reversed first, which is itself
+    // a deliberate, auditable action rather than something this
+    // cancellation should silently imply.
+    const hasReceipts = (existing.Lines || []).some(l => Number(l.ReceivedQuantity || 0) > 0);
+    if (hasReceipts) {
+      throw new Error('This Purchase Order has goods received against it and cannot be cancelled. Reverse the associated GRN(s) first.');
+    }
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('purchaseOrders/' + poId, 'patch', {
+      Status: 'Cancelled', CancelledAt: now, CancelledBy: actor, CancelReason: String(reason || '').trim(),
+      UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function closePurchaseOrder(idToken, poId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PURCHASEORDER');
+    const existing = await firebaseDbRequest_('purchaseOrders/' + poId, 'get', null, idToken);
+    if (!existing) throw new Error('Purchase Order not found.');
+    if (existing.Status !== 'Approved') throw new Error('Only an Approved Purchase Order can be closed.');
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('purchaseOrders/' + poId, 'patch', {
+      Status: 'Closed', ClosedAt: now, ClosedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Reopening a Closed PO requires the same approval treatment as an
+// original submission — deliberately, not a unilateral one-click
+// action, since a Closed PO was already treated as finished business.
+// Uses the CURRENT, live PURCHASEORDER approval configuration — the
+// exact same gate resolution submitPurchaseOrder itself uses, not a
+// frozen snapshot of whatever the gate looked like when this PO was
+// first approved. If no gate is currently configured at all, this
+// behaves exactly like submitting a PO with no gate: reopens straight
+// to Approved, same "no gate configured means no gate" rule every
+// other approval-gated action in this system already follows.
+//
+// Reuses the same 'PendingApproval' status a fresh submission uses
+// (the shared decideApprovalForDocument_ helper only recognizes that
+// one awaiting-decision state) — ReopenRequested distinguishes this
+// from an original submission for display purposes without needing a
+// second status value.
+async function requestReopenPurchaseOrder(idToken, poId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PURCHASEORDER');
+    const existing = await firebaseDbRequest_('purchaseOrders/' + poId, 'get', null, idToken);
+    if (!existing) throw new Error('Purchase Order not found.');
+    if (existing.Status !== 'Closed') throw new Error('Only a Closed Purchase Order can be reopened.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'PURCHASEORDER', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const approval = await beginApprovalInstance_(idToken, 'PURCHASEORDER', poId, existing.PONumber || '', scopeKey, existing.Total || 0, user.uid);
+
+    const fields = { ReopenRequested: true, UpdatedAt: now, UpdatedBy: actor };
+    if (approval.required) {
+      fields.Status = 'PendingApproval';
+      fields.ApprovalInstanceID = approval.instanceId;
+    } else {
+      fields.Status = 'Approved';
+      fields.ApprovedAt = now;
+      fields.ReopenRequested = false;
+    }
+    await firebaseDbRequest_('purchaseOrders/' + poId, 'patch', fields, idToken);
+    return { success: true, status: fields.Status };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// A rejected reopen request falls back to Closed, not the generic
+// 'Rejected' state a fresh submission would use — there's no edit form
+// for a reopen request, nothing to revise and resubmit, so 'Rejected'
+// (which implies exactly that) would be misleading here.
+async function decidePurchaseOrderReopenApproval(idToken, poId, levelNumber, decision, reason) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PURCHASEORDER');
+    const existing = await firebaseDbRequest_('purchaseOrders/' + poId, 'get', null, idToken);
+    if (existing && !userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    const result = await decideApprovalForDocument_(idToken, 'purchaseOrders', poId, levelNumber, decision, reason, 'Approved', undefined, 'Closed');
+    // [PORT FIX po-reopen-flag-until-resolved] keep the flag while later levels still have to decide.
+    if (result.status === 'Approved' || result.status === 'Rejected') await firebaseDbRequest_('purchaseOrders/' + poId, 'patch', { ReopenRequested: false }, idToken);
+    return Object.assign({ success: true }, result);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deleteDraftPurchaseOrder(idToken, poId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'PURCHASEORDER');
+    const existing = await firebaseDbRequest_('purchaseOrders/' + poId, 'get', null, idToken);
+    if (!existing) throw new Error('Purchase Order not found.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft Purchase Order can be deleted.');
+    await firebaseDbRequest_('purchaseOrders/' + poId, 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 module.exports = {
@@ -6790,5 +7310,17 @@ module.exports = {
   deactivateInventoryValuationLine,
   groupValuationLinesByItem_,
   getItemCostForProduction,
-  decideApprovalForDocument_
+  getEligibleRequisitionsForPO,
+  getPurchaseOrderEntries,
+  saveDraftPurchaseOrder,
+  mergeMatchingPOLines_,
+  submitPurchaseOrder,
+  decideApprovalForDocument_,
+  decidePurchaseOrderApproval,
+  reviseAndResubmitPurchaseOrder,
+  cancelPurchaseOrder,
+  closePurchaseOrder,
+  requestReopenPurchaseOrder,
+  decidePurchaseOrderReopenApproval,
+  deleteDraftPurchaseOrder
 };

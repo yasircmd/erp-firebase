@@ -127,6 +127,7 @@ function identifiersIn(node) {
 }
 
 // ---- entries: token-first server calls in the enabled modules' screens ----
+const TERNARY_CALL = /\[([^[\]]*?\?\s*['"](\w+)['"]\s*:\s*['"](\w+)['"]\s*)\]\(\s*(?:token|idToken)\b\s*(?:,([\s\S]*?))?\)(\s*;)/g;
 const screenCalls = {}; // module -> [fn]
 const dynamicTargets = {}; // module -> [fn] called via [var](token, ...)
 const entries = new Set();
@@ -141,6 +142,9 @@ for (const mod of MODULES) {
     dynamicTargets[mod] = [...new Set(dyn)];
     dyn.forEach(x => names.add(x));
   }
+  // Conditional calls — ...[cond ? 'fnA' : 'fnB'](token, ...) — name
+  // both targets inline.
+  for (const m of html.matchAll(TERNARY_CALL)) { names.add(m[2]); names.add(m[3]); }
   screenCalls[mod] = [...names];
   names.forEach(fn => { if (!HAND_EXPORTS.has(fn)) entries.add(fn); });
 }
@@ -323,6 +327,12 @@ for (const mod of MODULES) {
     const args = rest ? splitTopLevel(rest) : [];
     converted++;
     return '[' + v + ']({ __positional: [' + args.join(', ') + '] })' + tail;
+  });
+  s = s.replace(TERNARY_CALL, (m, expr, a, b, rest, tail) => {
+    // Either target may have different parameter names: pass positionally.
+    for (const fn of [a, b]) if (!argMap[fn]) throw new Error(mod + ': conditional call may reach hand-ported ' + fn + ' (no __positional support there)');
+    converted++;
+    return '[' + expr + ']({ __positional: [' + (rest ? splitTopLevel(rest).join(', ') : '') + '] })' + tail;
   });
   s = s.replace(/google\.script\.run/g, 'rpc');
   if (converted !== chains) throw new Error(mod + ': ' + chains + ' google.script.run chains but ' + converted + ' converted — inspect by hand');

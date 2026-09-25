@@ -280,6 +280,20 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   checked, and if two companies share a code, the last one read wins.
   That's deliberate "any item" per its GAS comment. Line warehouse and
   UOM aren't validated. As in GAS.
+- Purchase Order, company scoping: listing, draft create, reopen and
+  approval decisions are company-checked. Submit, revise, close, cancel,
+  delete and editing an existing draft check only the role's capability.
+  `getEligibleRequisitionsForPO` doesn't check that the caller belongs to
+  the company it's asked about. As in GAS.
+- Purchase Order, lifecycle: source requisitions close at submit, even
+  when the PO then waits for approval, and cancelling the PO (allowed
+  from any status except Closed/Cancelled, unless goods were received)
+  doesn't reopen them. A new requisition is needed. Every submit and
+  revision draws a fresh PO number (the rejected attempt's number is
+  skipped). The list returns at most 100 entries unless the screen asks
+  for `'all'`. The screen's requisition-category lookup is
+  `getRequisitionCategories`, which requires Procurement Setup access. As
+  in GAS.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -399,6 +413,35 @@ report). Each has a test that fails against the original logic.
    misread until back-filled; each one's values are recoverable from its
    linked GL entry. That's a one-off data decision, not done here.
    (`physicalCount` and `prodConsumption` suites.)
+8. **One requisition could feed two Purchase Orders**
+   (`submitPurchaseOrder`). The design says a requisition is pulled into
+   one PO and Closed when that PO submits, "so it can never be sourced
+   into a second PO by mistake". But submit never checked the
+   requisition's status. Two draft POs built from the same Submitted
+   requisition could both submit, ordering the same goods twice. A draft
+   could also submit after its requisition was Cancelled, or cite a
+   requisition ID that doesn't exist, which also skipped the direct-line
+   item/category check. Submit now refuses unless every source
+   requisition exists, belongs to the PO's company and is still
+   Submitted. The error tells the user to remove that requisition's
+   lines and save. **Live in the current Apps Script system.** It's worth
+   checking whether any PR/IPR number appears in more than one PO's
+   `SourceRequisitions`. (`purchaseOrder` suite.)
+9. **A PO revision accepted a zero or negative quantity**
+   (`reviseAndResubmitPurchaseOrder`). The draft save refuses one, but
+   the revision didn't check quantity. A negative line lowered the Total
+   that the approval thresholds are resolved against, so a revision could
+   skip the higher approval levels. The revision now applies the draft's
+   rule. (`purchaseOrder` suite.)
+10. **A multi-level PO reopen lost its "reopen" flag after the first
+   approval** (`decidePurchaseOrderReopenApproval`). It cleared
+   `ReopenRequested` after every decision, including a level-1 approval
+   that leaves the request pending. The screen picks the decide function
+   from that flag, so level 2's decision went through the ordinary PO
+   approval instead. A rejection there left the Closed PO "Rejected":
+   editable, re-priceable and renumbered on resubmit, instead of back to
+   Closed. The flag is now cleared only once the request resolves.
+   (`purchaseOrder` suite.)
 
 Port-runtime fix (not a Code.gs deviation): `runtime.js` used
 `admin.firestore.FieldPath`, which isn't a constructor in this
@@ -439,14 +482,14 @@ primitive's REST semantics directly.
 | BALANCESHEET | ✅ | ✅ |
 | PROFITLOSS | ✅ | ✅ |
 | CASHFLOW | ✅ | ✅ |
-| PHYSICALCOUNT | ✅ | **not yet** |
-| BOM | ✅ | **not yet** |
-| JOBORDERREQUEST | ✅ | **not yet** |
-| PRODUCTION | ✅ | **not yet** |
-| PRODCONSUMPTION | ✅ | **not yet** |
+| PHYSICALCOUNT | ✅ | ✅ |
+| BOM | ✅ | ✅ |
+| JOBORDERREQUEST | ✅ | ✅ |
+| PRODUCTION | ✅ | ✅ |
+| PRODCONSUMPTION | ✅ | ✅ |
 | PURCHASEREQUISITION | ✅ | **not yet** |
 | INVENTORYPURCHASEREQUISITION | ✅ | **not yet** |
-| PURCHASEORDER | — | — |
+| PURCHASEORDER | ✅ | **not yet** |
 | SALESORDER | — | — |
 | DELIVERYNOTE | — | — |
 | JV | — | — |
@@ -455,12 +498,12 @@ primitive's REST semantics directly.
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** PURCHASEORDER
+**Next module to port:** SALESORDER
 
-**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM, JOBORDERREQUEST, PRODUCTION, PRODCONSUMPTION, PURCHASEREQUISITION, INVENTORYPURCHASEREQUISITION) — deploy these 48 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (PURCHASEREQUISITION, INVENTORYPURCHASEREQUISITION, PURCHASEORDER) — deploy these 27 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment acceptJobOrderLine acceptJobOrderLineStop cancelDirectJobOrderLine cancelInventoryPurchaseRequisition cancelPurchaseRequisition closeInventoryPurchaseRequisition closePurchaseRequisition deactivateBom decideInventoryPurchaseRequisitionApproval decidePhysicalCountApproval decideProductionApproval decidePurchaseRequisitionApproval deleteDraftInventoryPurchaseRequisition deleteDraftJobOrderBatch deleteDraftPurchaseRequisition deletePhysicalCountDraft deleteProductionDraft getActiveRequisitionCategories getBoms getEligibleJobOrderBatchesForProduction getInventoryPurchaseRequisitionEntries getItemCostForProduction getJobOrderBatches getJobOrderLinesFlat getPhysicalCountEntries getProductionConsumptionReport getProductionEntries getPurchaseRequisitionEntries getSalesOrderLineShortfallOptions postPhysicalCount postProduction reactivateBom requestJobOrderLineAmendment requestJobOrderLineStop reversePhysicalCount reverseProduction reviseAndResubmitJobOrderLine saveBom saveDraftInventoryPurchaseRequisition saveDraftJobOrderBatch saveDraftPurchaseRequisition savePhysicalCountDraft saveProductionDraft submitInventoryPurchaseRequisition submitJobOrderBatch submitPurchaseRequisition withdrawJobOrderLine
+getModuleFragment cancelInventoryPurchaseRequisition cancelPurchaseOrder cancelPurchaseRequisition closeInventoryPurchaseRequisition closePurchaseOrder closePurchaseRequisition decideInventoryPurchaseRequisitionApproval decidePurchaseOrderApproval decidePurchaseOrderReopenApproval decidePurchaseRequisitionApproval deleteDraftInventoryPurchaseRequisition deleteDraftPurchaseOrder deleteDraftPurchaseRequisition getActiveRequisitionCategories getEligibleRequisitionsForPO getInventoryPurchaseRequisitionEntries getPurchaseOrderEntries getPurchaseRequisitionEntries requestReopenPurchaseOrder reviseAndResubmitPurchaseOrder saveDraftInventoryPurchaseRequisition saveDraftPurchaseOrder saveDraftPurchaseRequisition submitInventoryPurchaseRequisition submitPurchaseOrder submitPurchaseRequisition
 ```
 <!-- PORT-STATUS:end -->
 
@@ -485,6 +528,15 @@ IAM binding per function):
   including the 4 hand-ported stock modules; this log does not record a
   deploy of those modules' own functions (see the hand-ported sections
   above).
+- **2026-09-25, batch C:** PHYSICALCOUNT, BOM, JOBORDERREQUEST, PRODUCTION
+  and PRODCONSUMPTION (33 callables, plus `getModuleFragment` and the 8
+  hand-ported helpers the script adds) were deployed from `e490376` by the
+  migration session itself. It ran `tools/deploy-migration.sh` in a
+  separate clean `git worktree` of that commit so porting could continue
+  in the main checkout. 7 batches, all IAM bindings OK, ending `ALL DONE`.
+  Unauthenticated probes of `getBoms`, `postProduction` and
+  `getProductionConsumptionReport` return 401 from the function (not
+  403 from IAM), so they're public and live.
 - **Rule for every deploy:** `git status --porcelain` must be empty.
   `firebase deploy` uploads the working copy, not the last commit.
 

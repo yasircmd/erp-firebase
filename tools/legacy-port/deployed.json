@@ -26,7 +26,12 @@
     "TRIALBALANCE",
     "BALANCESHEET",
     "PROFITLOSS",
-    "CASHFLOW"
+    "CASHFLOW",
+    "PHYSICALCOUNT",
+    "BOM",
+    "JOBORDERREQUEST",
+    "PRODUCTION",
+    "PRODCONSUMPTION"
   ],
   "needsRedeploy": {}
 }

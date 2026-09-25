@@ -146,5 +146,52 @@ module.exports = [
     return a ? Object.assign({}, f, { Direction: a.Direction, Quantity: a.Quantity, UnitCost: a.UnitCost, TotalValue: a.TotalValue }) : f;
   });
   finalizeCommitAttempt_(idToken, pcId, glResult, { Lines: storedLines }, actor);`
+    },
+  {
+    id: 'po-source-requisition-still-open',
+    why: 'A requisition is meant to be pulled into ONE PO and is Closed when that PO submits, "so it can never be ' +
+      'sourced into a second PO by mistake". But nothing checked it at submit: two draft POs built from the same ' +
+      'Submitted requisition (both drafted before either submitted) could BOTH submit, ordering the same goods twice. ' +
+      'A draft could likewise be submitted after its requisition was Cancelled, or cite a requisition ID that doesn\'t ' +
+      'exist (which also skipped the direct-line item/category check). Submit now refuses unless every source ' +
+      'requisition exists, belongs to the PO\'s company, and is still Submitted.',
+    find: `    if (existing.Lines.some(l => !(l.UnitPrice > 0))) throw new Error('Every line needs a Unit Price greater than zero.');
+
+    const mergedLines = mergeMatchingPOLines_(existing.Lines);`,
+    replace: `    if (existing.Lines.some(l => !(l.UnitPrice > 0))) throw new Error('Every line needs a Unit Price greater than zero.');
+    // [PORT FIX po-source-requisition-still-open] a requisition feeds exactly one PO: refuse if another PO
+    // (or a cancellation) has already taken it since this draft was saved.
+    for (const src of (existing.SourceRequisitions || [])) {
+      const req = firebaseDbRequest_((src.RequisitionType === 'PR' ? 'purchaseRequisitions/' : 'inventoryPurchaseRequisitions/') + src.RequisitionID, 'get', null, idToken);
+      const label = (src.RequisitionNumber || src.RequisitionID);
+      if (!req || req.CompanyID !== existing.CompanyID) throw new Error('Requisition ' + label + ' was not found for this company.');
+      if (req.Status !== 'Submitted') throw new Error('Requisition ' + label + ' is ' + req.Status + ' — it may already be on another Purchase Order. Remove its lines and save before submitting.');
+    }
+
+    const mergedLines = mergeMatchingPOLines_(existing.Lines);`
+  },
+  {
+    id: 'po-revision-quantity-positive',
+    why: 'saveDraftPurchaseOrder refuses a zero, negative or non-numeric quantity ("no legitimate reason" for one), ' +
+      'but reviseAndResubmitPurchaseOrder didn\'t check quantity at all. A revision could set a negative quantity, ' +
+      'lowering the PO Total that the approval threshold is resolved against (skipping higher approval levels) and ' +
+      'storing a negative order line. The revision now applies the same quantity rule as the draft.',
+    find: `      const original = existing.Lines.find(orig => orig.LineID === l.LineID);
+      const qty = Number(l.Quantity);`,
+    replace: `      const original = existing.Lines.find(orig => orig.LineID === l.LineID);
+      const qty = Number(l.Quantity);
+      // [PORT FIX po-revision-quantity-positive] same rule as saveDraftPurchaseOrder.
+      if (!(qty > 0)) throw new Error('Every line needs a quantity greater than zero.');`
+  },
+  {
+    id: 'po-reopen-flag-until-resolved',
+    why: 'decidePurchaseOrderReopenApproval cleared ReopenRequested after EVERY decision, including a level-1 ' +
+      'approval that leaves a multi-level reopen still pending. The screen picks which decide function to call from ' +
+      'that flag, so the next level\'s decision went through decidePurchaseOrderApproval instead, and a rejection ' +
+      'there left the PO "Rejected" (editable, re-priceable, and renumbered on resubmit) instead of back to Closed. ' +
+      'The flag is now cleared only once the reopen request resolves.',
+    find: `    firebaseDbRequest_('purchaseOrders/' + poId, 'patch', { ReopenRequested: false }, idToken);`,
+    replace: `    // [PORT FIX po-reopen-flag-until-resolved] keep the flag while later levels still have to decide.
+    if (result.status === 'Approved' || result.status === 'Rejected') firebaseDbRequest_('purchaseOrders/' + poId, 'patch', { ReopenRequested: false }, idToken);`
   }
 ];
