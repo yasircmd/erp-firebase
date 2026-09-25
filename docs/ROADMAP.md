@@ -14,10 +14,10 @@ fresh session can continue from GitHub.
 | # | Module | Design doc | Status | Notes |
 |---|---|---|---|---|
 | 0 | Party Payments & Bill-wise Allocation (JV, CBT) | [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md) | deployed | Live 2026-09-25 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). |
-| 1 | Purchase Return / Debit Note | [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) | design agreed | Against posted Vendor Invoices; goods and value lines; auto-settles its invoice |
-| 2 | Sales Return / Credit Note | [SALES_RETURN.md](modules/SALES_RETURN.md) | design agreed | Against posted Customer Invoices; goods and value lines; auto-settles its invoice |
-| 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | design agreed | Running ledger, print, CSV |
-| 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | design agreed | Running ledger, print, CSV |
+| 1 | Purchase Return / Debit Note | [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) | tested | Against posted Vendor Invoices; goods and value lines; auto-settles its invoice |
+| 2 | Sales Return / Credit Note | [SALES_RETURN.md](modules/SALES_RETURN.md) | tested | Against posted Customer Invoices; goods and value lines; auto-settles its invoice |
+| 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | tested | Running ledger, print, CSV |
+| 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | tested | Running ledger, print, CSV |
 
 **Order:** #0 first (the owner's priority, and the SOAs need it). Then the returns, which the SOAs report on, and
 the SOAs last because they only read.

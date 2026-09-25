@@ -56,15 +56,19 @@ functions/
     journal.js                  — JV and CBT (moved out of the generated code)
     partyLedger.js              — vendor/customer tags and bill-wise allocation on JV/CBT lines
     invoiceAllocations.js       — Vendor/Customer Invoice list and reversal wrappers for allocation
+    returns.js                  — Purchase Return / Debit Note and Sales Return / Credit Note (one engine)
+    soa.js                      — Vendor and Customer Account Statements
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
-  modules/*.html                — the screens, served by getModuleFragment
+  modules/*.html                — the screens, served by getModuleFragment (PURCHASERETURN, SALESRETURN,
+                                  VENDORSOA, CUSTOMERSOA are built from tools/screen-templates/)
   test/emulator/*.test.js       — one API suite per module, against the local emulators
-  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments)
+  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments, returns)
 tools/
   legacy-port/                  — the Code.gs → Cloud Functions generator (migration only)
   deploy-migration.sh           — deploys pending generated-port functions
   deploy-functions.sh           — deploys a named set (tools/deploy-sets/<set>.txt) for new development
+  screen-templates/             — one template per mirror-image screen pair; build.js writes functions/modules/
   deploy-runtime.sh             — moves every live function onto engines.node's runtime
 legacy-gas/                     — read-only snapshot of the old Apps Script project
 docs/                           — see Documents above
@@ -109,19 +113,23 @@ node --test --test-concurrency=1 functions/test/emulator/*.test.js
 node functions/test/ui/smoke.ui.js          # every screen loads cleanly (Admin + Viewer)
 node functions/test/ui/dynamicToggle.ui.js  # a real deactivate/reactivate click
 node functions/test/ui/partyPayments.ui.js  # after the partyPayments suite: JV/CBT allocation screens
+node functions/test/ui/returns.ui.js        # after the returns suite: debit note + vendor statement screens
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for
   each function it has run and never frees them. The full suite plus the
-  full smoke run fills Cloud Shell's 16 GB (exit 137). Run the suite in two
-  halves and restart the emulators before the smoke run. After a crash:
-  `pkill -f '[f]unctionsEmulatorRuntime'`.
+  full smoke run fills Cloud Shell's 16 GB (exit 137). With 266 functions,
+  two halves no longer fit either: run the suites in chunks of about 11
+  files, restarting the emulators before each chunk and before the smoke
+  run. After a crash: `kill $(pgrep -f '[f]unctionsEmulatorRuntime')`
+  (the bracket keeps the pattern from matching your own shell).
 - **Hot reload:** the functions emulator doesn't pick up source edits.
   Restart it after changing code, including for negative controls.
 - **Safety:** the suites WIPE the emulator database. `_helpers.js` refuses
   to run unless every client points at the local emulators.
-- **Last full run** (2026-09-25, `party-payments` branch): 190/190 emulator
-  tests, 93/93 smoke, 2/2 dynamic toggle, 3/3 party payments UI.
+- **Last full run** (2026-09-25, `returns-and-soa` branch): 199/199 emulator
+  tests (4 chunks), 101/101 smoke, 2/2 dynamic toggle, 3/3 party payments UI,
+  2/2 returns UI.
 
 ## Deploying
 

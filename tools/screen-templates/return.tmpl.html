@@ -1,0 +1,668 @@
+<!-- %%TITLE%% (docs/modules/%%DOC%%). GENERATED from
+     tools/screen-templates/return.tmpl.html by build.js: edit the template, then
+     run node tools/screen-templates/build.js. Server side: functions/src/returns.js. -->
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+</style>
+
+<div id="%%P%%-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">%%SECTION%%</div><h2 class="text-2xl font-bold"><i class="fa-solid %%ICON%% text-blue-500"></i> %%TITLE%%</h2></div>
+    <button id="%%P%%-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New %%NOTE%%</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="%%P%%-search-input" placeholder="Search number, invoice or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="%%P%%-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="%%P%%-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Draft">Draft</option><option value="PendingApproval">Pending Approval</option><option value="Rejected">Rejected</option><option value="Posted">Posted</option></select>
+  </div>
+
+  <div id="%%P%%-list-notice" class="hidden text-xs text-slate-500"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Number</th>
+            <th class="py-3 px-4">%%PARTY%%</th>
+            <th class="py-3 px-4">Invoice</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4">Description</th>
+            <th class="py-3 px-4 text-right">Total</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="%%P%%-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="%%P%%-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
+    <div class="flex items-center gap-3">
+      <button id="%%P%%-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h2 id="%%P%%-entry-title" class="text-xl font-bold text-blue-400">New %%NOTE%%</h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="%%P%%-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="%%P%%-gl-impact-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-scale-balanced"></i> View GL Impact</button>
+      <button id="%%P%%-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+
+  <div id="%%P%%-voucher-line" class="text-xs text-slate-500 font-mono"></div>
+  <div id="%%P%%-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="%%P%%-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1 no-print">
+    <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
+    <p id="%%P%%-rejection-reason" class="text-sm text-slate-200"></p>
+    <p class="text-xs text-slate-500">This note is editable below — make your changes and Post again.</p>
+  </div>
+
+  <div id="%%P%%-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3 no-print">
+    <p id="%%P%%-approval-heading" class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="%%P%%-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3">
+      <button id="%%P%%-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button>
+      <button id="%%P%%-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button>
+    </div>
+    <div id="%%P%%-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+      <select id="%%P%%-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">%%PARTY%%</label>
+      <select id="%%P%%-form-party" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Against %%INVOICE%%</label>
+      <select id="%%P%%-form-invoice" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a %%PARTYLC%% first...</option></select>
+    </div>
+  </div>
+
+  <div id="%%P%%-settings" class="hidden bg-slate-800/60 border border-slate-700 rounded-xl p-3 flex flex-wrap items-center gap-3 text-xs no-print">
+    <span class="text-slate-400">Sales Returns account for this company:</span>
+    <select id="%%P%%-settings-account" class="bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs max-w-xs"></select>
+    <button id="%%P%%-settings-save" class="hidden bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded">Save</button>
+    <span id="%%P%%-settings-note" class="text-slate-500"></span>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="%%P%%-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional, e.g. %%REFHINT%%)</span></label><input type="text" id="%%P%%-form-reference" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Description</label><input type="text" id="%%P%%-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="%%P%%-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="%%P%%-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-red-400">*</span></label><select id="%%P%%-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="%%P%%-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    </div>
+  </div>
+
+  <div class="space-y-2">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Returned Goods <span class="normal-case font-normal text-slate-500">(lines of the invoice's %%SOURCE%%s; leave a quantity at 0 to keep it)</span></p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+              <th class="py-2 px-3">%%SOURCE%%</th><th class="py-2 px-3">Item</th><th class="py-2 px-3">%%WHLABEL%%</th>
+              <th class="py-2 px-3 text-right">%%QTYLABEL%%</th><th class="py-2 px-3 text-right">Returned</th><th class="py-2 px-3 text-right">Left</th>
+              <th class="py-2 px-3 text-right">Price</th><th class="py-2 px-3 text-right w-28">Return Qty</th><th class="py-2 px-3 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="%%P%%-goods-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="space-y-2">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-semibold text-slate-400 uppercase">Value Lines <span class="normal-case font-normal text-slate-500">(price correction or rebate, no goods: %%VALUEHINT%%)</span></p>
+      <button id="%%P%%-add-value-btn" class="no-print bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Value Line</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3">Account</th><th class="py-2 px-3">Name</th><th class="py-2 px-3">Description</th>
+            <th class="py-2 px-3 text-right w-32">Amount</th><th class="py-2 px-3 w-32">Cost Ctr</th><th class="py-2 px-3 w-10 no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="%%P%%-value-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="flex justify-end">
+    <table class="text-sm w-full max-w-sm">
+      <tr><td class="py-1 text-slate-400">Goods value</td><td id="%%P%%-sum-goods" class="py-1 text-right font-mono">0.00</td></tr>
+      <tr><td class="py-1 text-slate-400">Less discount share <span id="%%P%%-sum-discount-note" class="text-slate-500"></span></td><td id="%%P%%-sum-discount" class="py-1 text-right font-mono">0.00</td></tr>
+      <tr><td class="py-1 text-slate-400">Value lines</td><td id="%%P%%-sum-value" class="py-1 text-right font-mono">0.00</td></tr>
+      <tr><td class="py-1 text-slate-400">Tax <span id="%%P%%-sum-tax-pct" class="text-slate-500"></span></td><td id="%%P%%-sum-tax" class="py-1 text-right font-mono">0.00</td></tr>
+      <tr class="border-t border-slate-700 font-semibold"><td class="py-1.5">Total</td><td id="%%P%%-sum-total" class="py-1.5 text-right font-mono">0.00</td></tr>
+      <tr><td colspan="2" id="%%P%%-sum-settle" class="py-1 text-xs text-slate-500"></td></tr>
+    </table>
+  </div>
+
+  <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 no-print">
+    <button id="%%P%%-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="%%P%%-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse</button>
+    <button id="%%P%%-save-draft-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
+    <button id="%%P%%-post-btn" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-lock"></i> Post</button>
+  </div>
+</div>
+
+<datalist id="%%P%%-account-datalist"></datalist>
+
+<div id="%%P%%-confirm-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 id="%%P%%-confirm-title" class="text-lg font-bold text-slate-100">Confirm</h3>
+    <p id="%%P%%-confirm-message" class="text-sm text-slate-300 whitespace-pre-line"></p>
+    <div id="%%P%%-confirm-input-wrap" class="hidden"><input type="date" id="%%P%%-confirm-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button id="%%P%%-confirm-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button>
+      <button id="%%P%%-confirm-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="%%P%%-gl-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl p-6 shadow-2xl space-y-4">
+    <h3 class="text-lg font-bold text-slate-100">GL Impact <span id="%%P%%-gl-number" class="text-sm font-mono text-slate-400"></span></h3>
+    <div id="%%P%%-gl-body" class="overflow-x-auto"></div>
+    <div class="flex justify-end"><button id="%%P%%-gl-close" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Close</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const P = '%%P%%';
+  const MODULE = '%%MODULE%%';
+  const IS_SALES = %%ISSALES%%;
+  let canDraft = false, canPost = false;
+  let entries = [], companies = [], parties = [], orgUnits = [], accounts = [];
+  let current = null;     // the open note, or null for a new one
+  let source = null;      // getXReturnSource result for the chosen invoice
+  let goods = {};         // SourceKey -> { Quantity, WarehouseID }
+  let valueLines = [];    // { AccountCode, Description, Amount, CostCenterID }
+  let isDirty = false;
+  let pendingOpenEntryId = null;
+  let settings = null;
+
+  const $ = (id) => document.getElementById(P + '-' + id);
+  const STATUS_COLORS = {
+    Draft: 'bg-slate-700 text-slate-300', PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+    PendingReversalApproval: 'bg-amber-500/10 text-amber-400 border border-amber-500/20', Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20',
+    Committing: 'bg-amber-500/10 text-amber-400 border border-amber-500/20', Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+  };
+  const STATUS_LABELS = { PendingApproval: 'Pending Approval', PendingReversalApproval: 'Pending Reversal Approval' };
+  function statusDisplay(e) {
+    if (e.Status === 'Posted' && e.ReversalOfReturnID) return { label: 'Reversal Entry', cls: 'bg-purple-500/10 text-purple-400 border border-purple-500/20' };
+    if (e.Status === 'Posted' && e.ReversedByReturnID) return { label: 'Posted (Reversed)', cls: 'bg-amber-500/10 text-amber-400 border border-amber-500/20' };
+    return { label: STATUS_LABELS[e.Status] || e.Status, cls: STATUS_COLORS[e.Status] || 'bg-slate-700 text-slate-400' };
+  }
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function formatMoney(n) { return (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  const r2 = n => Math.round(n * 100) / 100;
+  function parseAmount(v) { return parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
+  function today() { return new Date().toISOString().substring(0, 10); }
+  function partyLabel(id) { const p = parties.find(x => x.id === id); return p ? p.label : (id || ''); }
+  function unitLabel(id) { const u = orgUnits.find(x => x.UnitID === id); return u ? u.Code : (id || ''); }
+  function showError(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
+  const editable = () => !current || current.Status === 'Draft' || current.Status === 'Rejected';
+
+  function showConfirm(message, onConfirm, opts) {
+    opts = opts || {};
+    $('confirm-title').textContent = opts.title || 'Confirm';
+    $('confirm-message').textContent = message;
+    $('confirm-input-wrap').classList.toggle('hidden', !opts.needsDate);
+    if (opts.needsDate) $('confirm-input').value = today();
+    $('confirm-modal').classList.remove('hidden');
+    $('confirm-ok').onclick = () => { $('confirm-modal').classList.add('hidden'); onConfirm(opts.needsDate ? $('confirm-input').value : undefined); };
+    $('confirm-cancel').onclick = () => $('confirm-modal').classList.add('hidden');
+  }
+
+  function unitOptions(type, selected, companyId) {
+    return '<option value="">—</option>' + orgUnits
+      .filter(u => u.Type === type && (!companyId || !u.CompanyID || u.CompanyID === companyId))
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .map(u => `<option value="${u.UnitID}"${u.UnitID === selected ? ' selected' : ''}>${escapeHtml(u.Code + ' — ' + u.Name)}</option>`).join('');
+  }
+  function populateDims() {
+    const map = { division: 'Division', branch: 'Branch', costcenter: 'CostCenter', profitcenter: 'ProfitCenter' };
+    Object.keys(map).forEach(k => { const sel = $('form-' + k); const prev = sel.value; sel.innerHTML = unitOptions(map[k], prev); });
+  }
+
+  // ---------- LIST ----------
+
+  function fetchList(limit) {
+    rpc.withSuccessHandler(res => {
+      entries = res.entries || [];
+      renderList();
+      if (pendingOpenEntryId) { const id = pendingOpenEntryId; pendingOpenEntryId = null; openEntry(id); }
+    }).withFailureHandler(err => showError($('list-notice'), err.message))
+      .%%FN_ENTRIES%%({ limit: limit || 100 });
+  }
+
+  function renderList() {
+    const q = $('search-input').value.trim().toLowerCase();
+    const company = $('company-filter').value;
+    const status = $('status-filter').value;
+    const rows = entries.filter(e => (!company || e.CompanyID === company) && (!status || e.Status === status) &&
+      (!q || ((e.TransactionNumber || '') + ' ' + (e.SourceInvoiceNumber || '') + ' ' + (e.Description || '')).toLowerCase().indexOf(q) >= 0));
+    const body = $('table-body');
+    body.innerHTML = '';
+    rows.forEach(e => {
+      const st = statusDisplay(e);
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-700/30 cursor-pointer';
+      tr.innerHTML = `
+        <td class="py-2.5 px-4 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}</td>
+        <td class="py-2.5 px-4">${escapeHtml(partyLabel(e.%%PARTYFIELD%%))}</td>
+        <td class="py-2.5 px-4 font-mono text-xs">${escapeHtml(e.SourceInvoiceNumber || '')}</td>
+        <td class="py-2.5 px-4 text-xs text-slate-400">${escapeHtml(e.TransactionDate || '')}</td>
+        <td class="py-2.5 px-4 text-xs">${escapeHtml(e.Description || '')}</td>
+        <td class="py-2.5 px-4 text-right font-mono">${formatMoney(e.Total)}</td>
+        <td class="py-2.5 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${st.cls}">${escapeHtml(st.label)}</span></td>
+        <td class="py-2.5 px-4 text-right"><button class="${P}-open text-xs text-blue-400 hover:text-blue-300">Open</button></td>`;
+      tr.addEventListener('click', () => openEntry(e.ReturnID));
+      body.appendChild(tr);
+    });
+    const notice = $('list-notice');
+    notice.classList.toggle('hidden', rows.length > 0);
+    notice.textContent = entries.length ? 'No notes match the current filters.' : 'No %%NOTE%%s yet.';
+  }
+
+  function showList() {
+    $('entry-view').classList.add('hidden');
+    $('list-view').classList.remove('hidden');
+    current = null; isDirty = false;
+    fetchList();
+  }
+
+  // ---------- ENTRY ----------
+
+  function newEntry() {
+    current = null; source = null; goods = {}; valueLines = [];
+    $('form-company').value = companies.length === 1 ? companies[0].CompanyID : '';
+    $('form-party').value = '';
+    $('form-date').value = today();
+    $('form-reference').value = '';
+    $('form-description').value = '';
+    ['division', 'branch', 'costcenter', 'profitcenter'].forEach(k => { $('form-' + k).value = ''; });
+    loadInvoices();
+    showEntry();
+  }
+
+  function openEntry(id) {
+    current = entries.find(e => e.ReturnID === id) || null;
+    if (!current) return;
+    goods = {};
+    (current.Lines || []).forEach(l => { goods[l.SourceKey] = { Quantity: l.Quantity, WarehouseID: l.WarehouseID }; });
+    valueLines = (current.ValueLines || []).map(v => ({ AccountCode: v.AccountCode, Description: v.Description, Amount: v.Amount, CostCenterID: v.CostCenterID || '' }));
+    $('form-company').value = current.CompanyID || '';
+    $('form-party').value = current.%%PARTYFIELD%% || '';
+    $('form-date').value = current.TransactionDate || '';
+    $('form-reference').value = current.Reference || '';
+    $('form-description').value = current.Description || '';
+    $('form-division').value = current.DivisionID || '';
+    $('form-branch').value = current.BranchID || '';
+    $('form-costcenter').value = current.CostCenterID || '';
+    $('form-profitcenter').value = current.ProfitCenterID || '';
+    source = null;
+    loadInvoices(current.SourceInvoiceID, current.SourceInvoiceNumber);
+    showEntry();
+  }
+
+  function showEntry() {
+    $('list-view').classList.add('hidden');
+    $('entry-view').classList.remove('hidden');
+    $('form-error').classList.add('hidden');
+    const ed = editable();
+    const posted = current && current.Status === 'Posted';
+    $('entry-title').textContent = current ? (current.TransactionNumber || 'Draft %%NOTE%%') : 'New %%NOTE%%';
+    $('voucher-line').textContent = current && current.TransactionNumber ? 'Voucher No.: ' + current.TransactionNumber + (current.TransactionRef ? '   ·   ' + current.TransactionRef : '') : '';
+    const badge = $('status-badge');
+    badge.classList.toggle('hidden', !current);
+    if (current) { const st = statusDisplay(current); badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + st.cls; badge.textContent = st.label; }
+    $('rejection-banner').classList.toggle('hidden', !(current && current.Status === 'Rejected'));
+    if (current && current.Status === 'Rejected') $('rejection-reason').textContent = current.RejectionReason || '(no reason given)';
+    ['form-company', 'form-party', 'form-invoice', 'form-date', 'form-reference', 'form-description', 'form-division', 'form-branch', 'form-costcenter', 'form-profitcenter']
+      .forEach(k => { $(k).disabled = !ed; });
+    $('add-value-btn').classList.toggle('hidden', !ed);
+    $('save-draft-btn').classList.toggle('hidden', !ed || !canDraft);
+    $('post-btn').classList.toggle('hidden', !ed || !canPost);
+    $('delete-btn').classList.toggle('hidden', !(current && current.Status === 'Draft') || !canDraft);
+    $('reverse-btn').classList.toggle('hidden', !(posted && !current.ReversedByReturnID && !current.ReversalOfReturnID) || !canPost);
+    $('gl-impact-btn').classList.toggle('hidden', !(current && current.LinkedJVID));
+    $('print-btn').classList.toggle('hidden', !posted);
+
+    $('my-approval-banner').classList.add('hidden');
+    const instance = current && (current.Status === 'PendingApproval' ? current.ApprovalInstanceID : (current.Status === 'PendingReversalApproval' ? current.ReversalApprovalInstanceID : ''));
+    if (instance && canPost) {
+      rpc.withSuccessHandler(level => {
+        if (!level) return;
+        $('approval-heading').textContent = current.Status === 'PendingReversalApproval' ? 'Your approval is needed to reverse this note' : 'Your approval is needed';
+        $('my-approval-banner').dataset.level = level;
+        $('my-approval-banner').classList.remove('hidden');
+      }).withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: instance });
+    }
+    loadSettings();
+    renderGoods(); renderValueLines(); updateTotals();
+    isDirty = false;
+  }
+
+  // The chosen company + party's open invoices; keeps the note's own
+  // invoice listed even when it's no longer returnable.
+  function loadInvoices(keepId, keepNumber) {
+    const sel = $('form-invoice');
+    const companyId = $('form-company').value, partyId = $('form-party').value;
+    if (!companyId || !partyId) { sel.innerHTML = '<option value="">Select a company and %%PARTYLC%% first...</option>'; loadSource(''); return; }
+    rpc.withSuccessHandler(list => {
+      sel.innerHTML = '<option value="">Select...</option>' + (list || []).map(i =>
+        `<option value="${i.InvoiceID}">${escapeHtml(i.Number + ' — ' + i.InvoiceDate + ' — ' + formatMoney(i.Total))}</option>`).join('');
+      if (keepId && ![...sel.options].some(o => o.value === keepId)) sel.insertAdjacentHTML('beforeend', `<option value="${keepId}">${escapeHtml(keepNumber || keepId)}</option>`);
+      if (keepId) sel.value = keepId;
+      loadSource(sel.value);
+    }).withFailureHandler(err => showError($('form-error'), err.message))
+      .%%FN_INVOICES%%({ companyId: companyId, partyId: partyId });
+  }
+
+  function loadSource(invoiceId) {
+    source = null;
+    if (!invoiceId) { renderGoods(); updateTotals(); return; }
+    rpc.withSuccessHandler(res => { source = res; renderGoods(); updateTotals(); })
+      .withFailureHandler(err => {
+        // A posted note's invoice may no longer be returnable (e.g. it
+        // was paid, or later reversed); show the stored lines instead.
+        if (current && !editable()) { renderGoods(); updateTotals(); return; }
+        showError($('form-error'), err.message);
+      })
+      .%%FN_SOURCE%%({ invoiceId: invoiceId, excludeReturnId: current ? current.ReturnID : '' });
+  }
+
+  function goodsRows() {
+    if (source) return source.Lines;
+    // No source (posted note whose invoice can't be loaded): its own lines.
+    return ((current && current.Lines) || []).map(l => ({ SourceKey: l.SourceKey, SourceDocNumber: l.SourceDocNumber, ItemCode: l.ItemCode, ItemName: l.ItemName,
+      WarehouseID: l.WarehouseID, Quantity: '', Returned: '', Returnable: '', UnitPrice: l.UnitPrice }));
+  }
+
+  function renderGoods() {
+    const body = $('goods-body');
+    const ed = editable();
+    const rows = goodsRows();
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="9" class="py-3 px-3 text-xs text-slate-500">Choose the invoice to see its lines.</td></tr>'; return; }
+    const companyId = $('form-company').value;
+    body.innerHTML = rows.map(l => {
+      const g = goods[l.SourceKey] || { Quantity: '', WarehouseID: '' };
+      const wh = g.WarehouseID || l.WarehouseID;
+      const whCell = IS_SALES && ed
+        ? `<select data-key="${escapeHtml(l.SourceKey)}" class="${P}-wh bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs">${unitOptions('Warehouse', wh, companyId)}</select>`
+        : escapeHtml(unitLabel(wh));
+      const qtyCell = ed
+        ? `<input data-key="${escapeHtml(l.SourceKey)}" type="text" inputmode="decimal" value="${g.Quantity || ''}" placeholder="0" class="${P}-qty w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right">`
+        : (g.Quantity || '');
+      return `<tr>
+        <td class="py-1.5 px-3 font-mono text-xs">${escapeHtml(l.SourceDocNumber)}</td>
+        <td class="py-1.5 px-3 text-xs">${escapeHtml((l.ItemCode || '') + (l.ItemName ? ' — ' + l.ItemName : ''))}</td>
+        <td class="py-1.5 px-3 text-xs">${whCell}</td>
+        <td class="py-1.5 px-3 text-xs text-right">${l.Quantity}</td>
+        <td class="py-1.5 px-3 text-xs text-right text-slate-400">${l.Returned}</td>
+        <td class="py-1.5 px-3 text-xs text-right">${l.Returnable}</td>
+        <td class="py-1.5 px-3 text-xs text-right font-mono">${formatMoney(l.UnitPrice)}</td>
+        <td class="py-1 px-2 text-xs text-right">${qtyCell}</td>
+        <td class="py-1.5 px-3 text-xs text-right font-mono ${P}-amt" data-key="${escapeHtml(l.SourceKey)}">${formatMoney(parseAmount(g.Quantity) * l.UnitPrice)}</td>
+      </tr>`;
+    }).join('');
+    body.querySelectorAll('.' + P + '-qty').forEach(inp => inp.addEventListener('input', e => {
+      const key = e.target.dataset.key;
+      goods[key] = Object.assign(goods[key] || {}, { Quantity: e.target.value.replace(/,/g, '') });
+      const row = rows.find(r => r.SourceKey === key);
+      body.querySelector('.' + P + '-amt[data-key="' + CSS.escape(key) + '"]').textContent = formatMoney(parseAmount(goods[key].Quantity) * row.UnitPrice);
+      isDirty = true; updateTotals();
+    }));
+    body.querySelectorAll('.' + P + '-wh').forEach(sel => sel.addEventListener('change', e => {
+      goods[e.target.dataset.key] = Object.assign(goods[e.target.dataset.key] || {}, { WarehouseID: e.target.value });
+      isDirty = true;
+    }));
+  }
+
+  function renderValueLines() {
+    const body = $('value-body');
+    const ed = editable();
+    if (!valueLines.length) { body.innerHTML = '<tr><td colspan="6" class="py-3 px-3 text-xs text-slate-500">None.</td></tr>'; return; }
+    body.innerHTML = valueLines.map((v, i) => {
+      const account = accounts.find(a => String(a.AccountCode) === String(v.AccountCode));
+      return `<tr>
+        <td class="py-1 px-1"><input data-i="${i}" data-f="AccountCode" list="${P}-account-datalist" value="${escapeHtml(v.AccountCode)}" ${ed ? '' : 'disabled'} class="${P}-v w-28 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs font-mono"></td>
+        <td class="py-1 px-2 text-xs text-slate-400">${account ? escapeHtml(account.AccountName) : (v.AccountCode ? '<span class="text-red-400">not found</span>' : '')}</td>
+        <td class="py-1 px-1"><input data-i="${i}" data-f="Description" value="${escapeHtml(v.Description)}" ${ed ? '' : 'disabled'} class="${P}-v w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs"></td>
+        <td class="py-1 px-1"><input data-i="${i}" data-f="Amount" inputmode="decimal" value="${v.Amount === '' ? '' : v.Amount}" ${ed ? '' : 'disabled'} class="${P}-v w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right"></td>
+        <td class="py-1 px-1"><select data-i="${i}" data-f="CostCenterID" ${ed ? '' : 'disabled'} class="${P}-v w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs">${unitOptions('CostCenter', v.CostCenterID)}</select></td>
+        <td class="py-1 px-1 text-center no-print">${ed ? `<button data-i="${i}" class="${P}-v-del text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>` : ''}</td>
+      </tr>`;
+    }).join('');
+    body.querySelectorAll('.' + P + '-v').forEach(el => {
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', e => {
+        const i = parseInt(e.target.dataset.i, 10);
+        valueLines[i][e.target.dataset.f] = e.target.dataset.f === 'Amount' ? e.target.value.replace(/,/g, '') : e.target.value;
+        isDirty = true; updateTotals();
+      });
+    });
+    body.querySelectorAll('input[data-f="AccountCode"]').forEach(el => el.addEventListener('blur', renderValueLines));
+    body.querySelectorAll('.' + P + '-v-del').forEach(btn => btn.addEventListener('click', () => {
+      valueLines.splice(parseInt(btn.dataset.i, 10), 1); isDirty = true; renderValueLines(); updateTotals();
+    }));
+  }
+
+  // Same arithmetic as the server (returns.js buildReturn), for display.
+  function updateTotals() {
+    const rows = goodsRows();
+    const goodsValue = r2(rows.reduce((s, l) => s + r2(parseAmount((goods[l.SourceKey] || {}).Quantity) * l.UnitPrice), 0));
+    const valueTotal = r2(valueLines.reduce((s, v) => s + parseAmount(v.Amount), 0));
+    let discount = 0, taxPct = 0;
+    if (source) {
+      discount = source.Subtotal > 0 ? r2((source.Discount || 0) * goodsValue / source.Subtotal) : 0;
+      taxPct = Number(source.TaxPercent) || 0;
+    } else if (current) {
+      discount = current.Discount || 0; taxPct = current.TaxPercent || 0;
+    }
+    const tax = r2((goodsValue - discount + valueTotal) * taxPct / 100);
+    const total = r2(goodsValue - discount + valueTotal + tax);
+    $('sum-goods').textContent = formatMoney(goodsValue);
+    $('sum-discount').textContent = formatMoney(discount);
+    $('sum-discount-note').textContent = source && source.Discount ? '(invoice discount ' + formatMoney(source.Discount) + ' pro rata)' : '';
+    $('sum-value').textContent = formatMoney(valueTotal);
+    $('sum-tax-pct').textContent = '(' + taxPct + '%)';
+    $('sum-tax').textContent = formatMoney(tax);
+    $('sum-total').textContent = formatMoney(current && !editable() ? current.Total : total);
+    let settle = '';
+    if (current && current.Status === 'Posted' && !current.ReversalOfReturnID) {
+      const s = Number(current.SettledAgainstInvoice) || 0;
+      settle = 'Settled ' + formatMoney(s) + ' against ' + (current.SourceInvoiceNumber || 'the invoice') +
+        (current.Total - s > 0.005 ? '; ' + formatMoney(current.Total - s) + ' is a New Ref (credit in the %%PARTYLC%%\'s account, usable in a JV or payment).' : '.');
+    } else if (source) {
+      settle = 'Invoice total ' + formatMoney(source.Total) + (source.PriorNotesTotal ? ', earlier notes ' + formatMoney(source.PriorNotesTotal) : '') +
+        '. On posting, this settles the invoice first; any excess becomes a New Ref.';
+    }
+    $('sum-settle').textContent = settle;
+  }
+
+  function collect() {
+    return {
+      ReturnID: current ? current.ReturnID : '',
+      CompanyID: $('form-company').value, SourceInvoiceID: $('form-invoice').value,
+      TransactionDate: $('form-date').value, Reference: $('form-reference').value.trim(), Description: $('form-description').value.trim(),
+      DivisionID: $('form-division').value, BranchID: $('form-branch').value, CostCenterID: $('form-costcenter').value, ProfitCenterID: $('form-profitcenter').value,
+      Lines: Object.keys(goods).filter(k => parseAmount(goods[k].Quantity) > 0).map(k => ({ SourceKey: k, Quantity: parseAmount(goods[k].Quantity), WarehouseID: goods[k].WarehouseID || '' })),
+      ValueLines: valueLines.filter(v => String(v.AccountCode || '').trim())
+    };
+  }
+
+  function save(then) {
+    const error = $('form-error');
+    error.classList.add('hidden');
+    rpc.withSuccessHandler(res => { if (!current) current = { ReturnID: res.returnId, Status: 'Draft' }; isDirty = false; then(res); })
+      .withFailureHandler(err => showError(error, err.message || 'Unable to save.'))
+      .%%FN_SAVE%%(collect());
+  }
+
+  function saveDraft() { save(() => showList()); }
+
+  function post() {
+    showConfirm('Post this %%NOTE_LC%%?\n\nIt settles the invoice and moves the stock. Once posted it can only be undone by reversing it.', () => {
+      save(res => {
+        rpc.withSuccessHandler(p => {
+          if (p.status === 'PendingApproval') alert('Sent for approval.');
+          showList();
+        }).withFailureHandler(err => showError($('form-error'), err.message || 'Unable to post.'))
+          .%%FN_POST%%({ returnId: res.returnId });
+      });
+    }, { title: 'Post %%NOTE%%' });
+  }
+
+  function decide(decision) {
+    const level = parseInt($('my-approval-banner').dataset.level, 10);
+    const reason = $('decision-reason').value.trim();
+    const error = $('decision-error');
+    error.classList.add('hidden');
+    if (decision === 'Rejected' && !reason) return showError(error, 'A reason is required to reject.');
+    const fn = current.Status === 'PendingReversalApproval' ? '%%FN_DECIDEREV%%' : '%%FN_DECIDE%%';
+    rpc.withSuccessHandler(() => showList())
+      .withFailureHandler(err => showError(error, err.message || 'Unable to record decision.'))
+      [fn]({ returnId: current.ReturnID, levelNumber: level, decision: decision, reason: reason });
+  }
+
+  function reverse() {
+    showConfirm('Reverse this posted note? The stock and the invoice settlement are undone by a new offsetting entry.', (date) => {
+      rpc.withSuccessHandler(res => {
+        alert(res.status === 'PendingReversalApproval' ? 'Reversal sent for approval.' : 'Reversal posted as ' + res.number + '.');
+        showList();
+      }).withFailureHandler(err => alert(err.message || 'Unable to reverse.'))
+        .%%FN_REVERSE%%({ returnId: current.ReturnID, reversalDate: date });
+    }, { title: 'Reverse %%NOTE%%', needsDate: true });
+  }
+
+  function remove() {
+    showConfirm('Delete this draft? This cannot be undone.', () => {
+      rpc.withSuccessHandler(() => showList()).withFailureHandler(err => alert(err.message)).%%FN_DELETE%%({ returnId: current.ReturnID });
+    }, { title: 'Delete Draft' });
+  }
+
+  function openGlImpact() {
+    rpc.withSuccessHandler(entry => {
+      $('gl-number').textContent = entry.JVNumber || '';
+      $('gl-body').innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 px-3">Account</th><th class="py-2 px-3">Name</th><th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th></tr></thead><tbody>` +
+        (entry.Lines || []).map(l => `<tr class="border-b border-slate-800"><td class="py-1.5 px-3 font-mono text-xs">${escapeHtml(l.AccountCode)}</td>
+          <td class="py-1.5 px-3 text-xs">${escapeHtml(l.AccountName || '')}${l.PartyName ? ' <span class="text-slate-500">(' + escapeHtml(l.PartyName) + ')</span>' : ''}</td>
+          <td class="py-1.5 px-3 text-right font-mono text-xs">${l.Debit ? formatMoney(l.Debit) : ''}</td><td class="py-1.5 px-3 text-right font-mono text-xs">${l.Credit ? formatMoney(l.Credit) : ''}</td></tr>`).join('') +
+        `</tbody><tfoot><tr class="font-medium"><td class="py-2 px-3" colspan="2">Total</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalDebit)}</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalCredit)}</td></tr></tfoot></table>`;
+      $('gl-modal').classList.remove('hidden');
+    }).withFailureHandler(err => alert(err.message)).getJournalEntryDetail({ jvId: current.LinkedJVID });
+  }
+
+  // Sales Return only: the company's Sales Returns account (owner decision 8).
+  function loadSettings() {
+    if (!IS_SALES) return;
+    const companyId = $('form-company').value;
+    const box = $('settings');
+    if (!companyId) { box.classList.add('hidden'); return; }
+    rpc.withSuccessHandler(res => {
+      settings = res;
+      const revenue = accounts.filter(a => a.AccountType === 'Revenue' && (!a.CompanyID || a.CompanyID === companyId));
+      const sel = $('settings-account');
+      sel.innerHTML = '<option value="">Not set</option>' + revenue.map(a => `<option value="${a.AccountID}"${a.AccountID === res.SalesReturnsAccountID ? ' selected' : ''}>${escapeHtml(a.AccountCode + ' — ' + a.AccountName)}</option>`).join('');
+      sel.disabled = !res.canEdit;
+      $('settings-save').classList.toggle('hidden', !res.canEdit);
+      $('settings-note').textContent = res.SalesReturnsAccountID ? '' : (res.canEdit ? 'Required before posting.' : 'Not set: ask someone with Company Master Data access to set it.');
+      box.classList.remove('hidden');
+    }).withFailureHandler(err => console.error(err)).getSalesReturnSettings({ companyId: companyId });
+  }
+  function saveSettings() {
+    rpc.withSuccessHandler(() => { $('settings-note').textContent = 'Saved.'; })
+      .withFailureHandler(err => { $('settings-note').textContent = err.message; })
+      .setSalesReturnsAccount({ companyId: $('form-company').value, accountId: $('settings-account').value });
+  }
+
+  function printNote() { window.print(); }
+
+  window.initModule = function () {
+    rpc.withSuccessHandler(perms => {
+      canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost);
+      $('new-btn').classList.toggle('hidden', !canDraft);
+    }).withFailureHandler(err => console.error(err)).getModulePermissionsForUser({ moduleId: MODULE });
+
+    rpc.withSuccessHandler(res => {
+      companies = (res || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName));
+      const opts = companies.map(c => `<option value="${c.CompanyID}">${escapeHtml(c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : ''))}</option>`).join('');
+      $('form-company').innerHTML = '<option value="">Select a company...</option>' + opts;
+      $('company-filter').innerHTML = '<option value="">All Companies</option>' + opts;
+    }).withFailureHandler(err => console.error(err)).getActiveCompanies();
+
+    rpc.withSuccessHandler(res => {
+      parties = (res || []).map(p => ({ id: p.%%PARTYFIELD%%, label: (p.%%CODEFIELD%% ? p.%%CODEFIELD%% + ' — ' : '') + p.%%NAMEFIELD%% }));
+      $('form-party').innerHTML = '<option value="">Select...</option>' + parties.map(p => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('');
+      renderList();
+    }).withFailureHandler(err => console.error(err)).%%FN_PARTIES%%();
+
+    rpc.withSuccessHandler(res => { orgUnits = res || []; populateDims(); }).withFailureHandler(err => console.error(err)).getActiveOrgUnits();
+
+    rpc.withSuccessHandler(res => {
+      accounts = (res || []).filter(a => a.Status === 'Active' && a.IsPostable === true);
+      $('account-datalist').innerHTML = accounts.map(a => `<option value="${escapeHtml(a.AccountCode)}" label="${escapeHtml(a.AccountName)}"></option>`).join('');
+    }).withFailureHandler(err => console.error(err)).getChartOfAccounts();
+
+    $('search-input').addEventListener('input', renderList);
+    $('company-filter').addEventListener('change', renderList);
+    $('status-filter').addEventListener('change', renderList);
+    $('new-btn').addEventListener('click', newEntry);
+    $('back-btn').addEventListener('click', () => {
+      if (isDirty) showConfirm('You have unsaved changes. Leave without saving?', showList, { title: 'Unsaved Changes' }); else showList();
+    });
+    $('form-company').addEventListener('change', () => { goods = {}; loadInvoices(); loadSettings(); });
+    $('form-party').addEventListener('change', () => { goods = {}; loadInvoices(); });
+    $('form-invoice').addEventListener('change', e => { goods = {}; isDirty = true; loadSource(e.target.value); });
+    $('add-value-btn').addEventListener('click', () => {
+      valueLines.push({ AccountCode: '', Description: $('form-description').value.trim(), Amount: '', CostCenterID: $('form-costcenter').value });
+      isDirty = true; renderValueLines();
+    });
+    $('save-draft-btn').addEventListener('click', saveDraft);
+    $('post-btn').addEventListener('click', post);
+    $('delete-btn').addEventListener('click', remove);
+    $('reverse-btn').addEventListener('click', reverse);
+    $('approve-btn').addEventListener('click', () => decide('Approved'));
+    $('reject-btn').addEventListener('click', () => decide('Rejected'));
+    $('gl-impact-btn').addEventListener('click', openGlImpact);
+    $('gl-close').addEventListener('click', () => $('gl-modal').classList.add('hidden'));
+    $('print-btn').addEventListener('click', printNote);
+    $('settings-save').addEventListener('click', saveSettings);
+    $('entry-view').addEventListener('input', () => { isDirty = true; });
+
+    window.hasUnsavedChanges = function () { return isDirty && !$('entry-view').classList.contains('hidden'); };
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid %%ICON%%"></i> %%TITLE%%';
+
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) { pendingOpenEntryId = pending.OpenEntryId; fetchList('all'); } else fetchList();
+  };
+})();
+</script>

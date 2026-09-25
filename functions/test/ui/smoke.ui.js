@@ -12,7 +12,9 @@ const { chromium } = require('playwright');
 
 const listed = require('../../../tools/legacy-port/modules.json').modules;
 const MODULES = process.argv.slice(2).length ? process.argv.slice(2)
-  : ['STOCKADJUSTMENT', 'MATERIALISSUE', 'GRN', 'WAREHOUSEMOVEMENT', ...listed];
+  : ['STOCKADJUSTMENT', 'MATERIALISSUE', 'GRN', 'WAREHOUSEMOVEMENT', ...listed,
+    // New development (hand-written screens, docs/modules/).
+    'PURCHASERETURN', 'SALESRETURN', 'VENDORSOA', 'CUSTOMERSOA'];
 
 // Failures that are the ORIGINAL behavior for that role (documented in
 // docs/MIGRATION.md's quirks list), not port bugs: module+uid -> regex of allowed problems.

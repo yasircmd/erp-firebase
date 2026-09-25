@@ -1,6 +1,6 @@
 # Purchase Return / Debit Note
 
-**Status:** design agreed · **Roadmap:** [#1](../ROADMAP.md) · **Module ID:** `PURCHASERETURN`
+**Status:** tested · **Roadmap:** [#1](../ROADMAP.md) · **Module ID:** `PURCHASERETURN`
 
 ## Purpose
 
@@ -119,3 +119,30 @@ PendingReversalApproval). The flow and guards follow Vendor Invoice:
   not yet invoiced go back through a GRN reversal, as today.
 - The GL Report's drill-down doesn't link `DBN` entries back to this
   screen. That mapping lives in the generated code.
+
+## Build notes (2026-09-25)
+
+- **Code:** `functions/src/returns.js` (one engine for Purchase Return and
+  Sales Return), `functions/src/soa.js` (both statements). The screens
+  `PURCHASERETURN.html`, `SALESRETURN.html`, `VENDORSOA.html` and
+  `CUSTOMERSOA.html` are generated from `tools/screen-templates/` by
+  `build.js`. Edit the template, not the output.
+- **Shared changes:**
+  - `writeStockGlEntry` keeps a line's party tag.
+  - Voucher prefixes `DBN`/`CRN`.
+  - Module registry, default permissions and the approval registry list
+    the four modules.
+  - JV reversal refuses a note's GL entry.
+  - Vendor/Customer Invoice reversal is refused while a posted return
+    exists against it.
+- **Tests:** `functions/test/emulator/returns.emulator.test.js` (9),
+  including Data Reset's stock ledger rebuild replaying returns and their
+  reversals exactly. `functions/test/ui/returns.ui.js` (2) drives a debit
+  note and a vendor statement through the real screens.
+- **Negative controls:**
+  - API: returnable-quantity cap and invoice guard disabled, 3 of 9 fail.
+  - UI: the screen sending no lines, 1 of 2 fails.
+- **Full run:** 199/199 emulator tests, 101/101 smoke, all UI checks.
+- **Deploy set:** `tools/deploy-sets/returns-and-soa.txt` (39 functions:
+  22 new, 16 existing that read the changed registries or guards,
+  `getModuleFragment` last).

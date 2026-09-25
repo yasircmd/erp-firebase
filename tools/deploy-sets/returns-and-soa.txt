@@ -1,0 +1,46 @@
+# Purchase/Sales Returns and Vendor/Customer Account Statements
+# (docs/modules/PURCHASE_RETURN.md, SALES_RETURN.md, VENDOR_SOA.md, CUSTOMER_SOA.md).
+# New functions first, then existing ones whose code or registries changed,
+# getModuleFragment (the four new screens) last.
+getPurchaseReturnEntries
+getVendorInvoicesForReturn
+getPurchaseReturnSource
+savePurchaseReturnDraft
+postPurchaseReturn
+decidePurchaseReturnApproval
+deletePurchaseReturnDraft
+requestReversePurchaseReturn
+decidePurchaseReturnReversalApproval
+getSalesReturnEntries
+getCustomerInvoicesForReturn
+getSalesReturnSource
+saveSalesReturnDraft
+postSalesReturn
+decideSalesReturnApproval
+deleteSalesReturnDraft
+requestReverseSalesReturn
+decideSalesReturnReversalApproval
+getSalesReturnSettings
+setSalesReturnsAccount
+getPartyStatement
+getStatementParties
+# Existing: guards and voucher-type mappings for the notes.
+reverseJournalEntry                     # refuses a DBN/CRN GL entry
+requestReverseVendorInvoice             # refused while a posted return exists
+decideVendorInvoiceReversalApproval
+requestReverseCustomerInvoice
+decideCustomerInvoiceReversalApproval
+getJournalEntryDetail                   # GL impact popup, module routing
+updatePostedDescription
+getPendingApprovalsForUser              # home tasks: new approval storage
+getMyRejectedSubmissions
+# Existing generated functions that read the module/approval registries,
+# so Roles, Tree Management and Approval Configuration know the new modules.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getApprovalConfigurations
+saveApprovalConfiguration
+saveApprovalLevels
+getModuleFragment
