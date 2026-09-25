@@ -13,10 +13,11 @@ if [ -n "$(git status --porcelain)" ]; then
   echo "STOP: working copy not clean — commit or 'git stash push -u' first:"; git status --short; exit 1
 fi
 
-# Hand-ported helpers (functions/src/masterData.js) the stock/production screens
-# call on load. Harmless to redeploy if already live; required if not.
-HAND=(getActiveItems getActiveUOMs getActiveOrgUnits getModulePermissionsForUser getMyPendingApprovalLevel
-      getJournalEntryDetail getStockLedgerEntryPublic updatePostedDescription)
+# Hand-ported functions (functions/src/*.js, not the generated port): the helpers
+# the stock/production/purchasing screens call on load, plus reverseGrn (GRN
+# reversal guards, deviation #15). Harmless to redeploy if already live; required if not.
+HAND=(getActiveItems getActiveUOMs getActiveOrgUnits getActiveVendors getModulePermissionsForUser getMyPendingApprovalLevel
+      getJournalEntryDetail getStockLedgerEntryPublic updatePostedDescription reverseGrn)
 read -r -a PENDING <<< "$(node tools/legacy-port/status.js --pending)"
 FNS=("${PENDING[@]}" "${HAND[@]}")
 if [ ${#PENDING[@]} -eq 0 ]; then echo "Nothing pending in tools/legacy-port/status.js."; exit 0; fi
