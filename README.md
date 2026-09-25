@@ -28,9 +28,8 @@ Yasir directly as its own priority, not bundled into migration work.
 
 **At a glance (2026-09-25):** all 46 modules are ported and tested: the
 shell, the 4 hand-ported stock modules, and the 42 generated-port modules
-in the status table below. 45 are live in production. DATARESET, the
-last one, is kept for last because it deletes data, and is committed
-but not yet deployed (batch G in the deploy log). All functions run on
+in the status table below. All 46 are live in production, DATARESET
+last because it deletes data (batch G in the deploy log). All functions run on
 Node 24 (moved from Node 20 before its 2026-10-30 shutdown). What else is open:
 see "Suggested next step" at the end of this file. The sections below are
 in the order the work was done.
@@ -681,15 +680,11 @@ primitive's REST semantics directly.
 | CBT | ✅ | ✅ |
 | VENDORINVOICE | ✅ | ✅ |
 | CUSTOMERINVOICE | ✅ | ✅ |
-| DATARESET | ✅ | **not yet** |
+| DATARESET | ✅ | ✅ |
 
 **Next module to port:** (none — all ported)
 
-**Committed but NOT yet deployed** (DATARESET) — deploy these 8 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
-
-```
-getModuleFragment clearDataCategories clearSelectedRecords getCategoryRecords getDataResetCounts getLifetimeAuditCounterValues recalculateStockLedger resetLifetimeAuditCounters
-```
+Everything ported is deployed.
 <!-- PORT-STATUS:end -->
 
 **Deploy log** (project `erp1-8f4cd`,
@@ -756,8 +751,17 @@ batches of ≤6 with a public-invoker IAM binding for each new function):
   `nodejs24 ACTIVE`. Unauthenticated probes of `restoreSession`,
   `postCustomerInvoice`, `getSalesTypes`, `reverseGrn` and `getActiveUOMs`
   return the function's own 401, so they're running and still public.
-- **Batch G, prepared 2026-09-25, not yet deployed:** DATARESET, the last
-  module (7 callables plus `getModuleFragment`, so the screen appears).
+- **2026-09-25, batch G:** DATARESET went live, deployed by the migration
+  session after the Node 24 upgrade finished. `tools/deploy-migration.sh`
+  deployed 18 functions from `25c30f7` (function code identical to
+  `84c9cdb`, the tested commit) in 3 batches with no retries, all IAM
+  bindings OK, ending `ALL DONE`. Unauthenticated probes of all 7 Data
+  Reset callables and `getModuleFragment` answer "Please sign in again."
+  from the function, so they're public and live. The project now has 242
+  functions, all on `nodejs24`. The original notes follow.
+
+  DATARESET is the last module (7 callables plus `getModuleFragment`, so
+  the screen appears).
   It includes the ledger-rebuild fix (deviation #18). The change to
   `stockMovement.js` is backward-compatible, so the hand-ported stock
   functions don't need a redeploy. Verified beforehand: 182/182
@@ -931,9 +935,8 @@ can quietly return nothing.
 Every module is ported: the 4 hand-ported stock modules plus 42 generated
 ones, DATARESET last. What's left:
 
-1. **Deploy batch G (DATARESET)**: run `tools/deploy-migration.sh` on a
-   clean checkout, then add `DATARESET` to `tools/legacy-port/deployed.json`
-   and run `node tools/legacy-port/status.js`. See the deploy log.
+1. ~~**Deploy batch G (DATARESET)**~~ — done: live since 2026-09-25 (see
+   the deploy log). Every ported function is deployed.
 2. ~~**Node.js runtime**~~ — done: every live function runs on `nodejs24`
    (see the deploy log). Batch G deploys on Node 24 too.
 3. **The live Apps Script bugs** flagged at the top of this file and

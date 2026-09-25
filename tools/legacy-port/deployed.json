@@ -40,7 +40,8 @@
     "JV",
     "CBT",
     "VENDORINVOICE",
-    "CUSTOMERINVOICE"
+    "CUSTOMERINVOICE",
+    "DATARESET"
   ],
   "needsRedeploy": {}
 }
