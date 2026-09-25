@@ -41,7 +41,11 @@ const html = `<!doctype html><html><head><meta charset="utf-8">
 ${slice(rpcStart, rpcEnd)}
 ${slice(escStart, escStart + 4)}
 ${slice(injStart, injStart + 9)}
-  window.openModule = function (moduleId) {
+  // Same drill-through contract as the shell's openModule: the target
+  // reads window.__pendingModuleParams / __pendingReturnChain in initModule.
+  window.openModule = function (moduleId, drillParams, returnChain) {
+    window.__pendingModuleParams = drillParams || null;
+    window.__pendingReturnChain = returnChain || [];
     const container = document.getElementById('module-container');
     rpc.withSuccessHandler(result => {
       injectHtmlWithScripts(container, result.html);

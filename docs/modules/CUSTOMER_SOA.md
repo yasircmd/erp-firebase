@@ -1,6 +1,6 @@
 # Customer SOA (Statement of Account)
 
-**Status:** design agreed 2026-09-25 · **Roadmap:** [#4](../ROADMAP.md) · **Branch:** `party-statements` (from `sales-return`)
+**Status:** tested 2026-09-25 (not deployed) · **Roadmap:** [#4](../ROADMAP.md) · **Branch:** `party-statements` (from `sales-return`)
 
 ## Purpose
 
@@ -38,3 +38,7 @@ entry) is Dr `Total`; receipts are Cr; a credit note is Cr (its
 remainder an open credit). Reconciliation against the customer's
 `TradeReceivablesAccountID`. Built on the same engine
 (`functions/src/partyStatement.js`), screen `CUSTOMERSOA.html`.
+
+## As built (2026-09-25)
+
+Built with Vendor SOA on one engine: see [VENDOR_SOA.md](VENDOR_SOA.md) → As built.

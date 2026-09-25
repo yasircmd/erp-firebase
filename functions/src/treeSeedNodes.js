@@ -20,10 +20,14 @@ const TREE_SEED_NODES = [
   { text: 'Vendor Ledger & Down Payment Handling', depth: 3 },
   // New development (not in Code.gs): docs/modules/PURCHASE_RETURN.md.
   { text: 'Purchase Return / Debit Note', depth: 3, moduleId: 'PURCHASERETURN' },
+  // New development (not in Code.gs): docs/modules/VENDOR_SOA.md.
+  { text: 'Vendor Statement of Account (SOA)', depth: 3, moduleId: 'VENDORSOA' },
   { text: 'Accounts Receivable (FI-AR)', depth: 2 },
   { text: 'Customer Master Data & Credit Limits', depth: 3 },
   // New development (not in Code.gs): docs/modules/SALES_RETURN.md.
   { text: 'Sales Return / Credit Note', depth: 3, moduleId: 'SALESRETURN' },
+  // New development (not in Code.gs): docs/modules/CUSTOMER_SOA.md.
+  { text: 'Customer Statement of Account (SOA)', depth: 3, moduleId: 'CUSTOMERSOA' },
   { text: 'Customer Invoicing & Billing Integration', depth: 3 },
   { text: 'Cash Application & Incoming Payments', depth: 3 },
   { text: 'Dunning & Dispute Management', depth: 3 },

@@ -1,0 +1,10 @@
+# Vendor and Customer Statements of Account (docs/modules/VENDOR_SOA.md,
+# CUSTOMER_SOA.md). This branch also contains both return modules: deploy
+# purchase-return.txt and sales-return.txt first if they aren't live yet.
+# getModuleFragment (the two new screens) last.
+getPartyStatement                # new
+getModuleRegistry                # MODULE_REGISTRY: Tree Management, Roles & Permissions
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment

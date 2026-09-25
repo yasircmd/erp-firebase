@@ -1,0 +1,307 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+    #soa-report, #soa-report * { color: black !important; border-color: #999 !important; background: white !important; }
+  }
+</style>
+
+<div class="space-y-6">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
+    <div class="flex items-center gap-3">
+      <button id="soa-back-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="soa-back-label">Back</span></button>
+      <div><div id="soa-kicker" class="text-xs font-semibold text-blue-400 uppercase mb-1">Accounts Payable</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-file-lines text-blue-500"></i> <span id="soa-heading">Vendor Statement of Account</span></h2></div>
+    </div>
+    <div class="flex gap-2">
+      <button id="soa-csv-btn" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-file-csv"></i> CSV</button>
+      <button id="soa-print-btn" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3 no-print">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="soa-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select></div>
+      <div class="col-span-2 md:col-span-1"><label id="soa-party-label" class="block text-xs font-medium text-slate-300 mb-1">Vendor</label><select id="soa-party" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">From</label><input type="date" id="soa-from" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">To</label><input type="date" id="soa-to" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="flex items-end"><button id="soa-run-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm">Run</button></div>
+    </div>
+    <div id="soa-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div id="soa-report" class="hidden space-y-5">
+    <div class="flex flex-col md:flex-row md:justify-between gap-2">
+      <div>
+        <p id="soa-company-name" class="text-xs text-slate-400 uppercase"></p>
+        <h3 class="text-lg font-bold"><span id="soa-title">Statement of Account</span></h3>
+        <p id="soa-party-line" class="text-sm text-slate-300"></p>
+        <p id="soa-party-address" class="text-xs text-slate-500"></p>
+      </div>
+      <div class="text-sm text-slate-300 md:text-right">
+        <p id="soa-period"></p>
+        <p id="soa-terms" class="text-xs text-slate-500"></p>
+      </div>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3">Date</th><th class="py-2 px-3">Document</th><th class="py-2 px-3">Type</th><th class="py-2 px-3">Reference / Description</th>
+            <th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th><th class="py-2 px-3 text-right">Balance</th>
+          </tr></thead>
+          <tbody id="soa-rows" class="divide-y divide-slate-700 text-sm"></tbody>
+          <tfoot id="soa-foot" class="text-sm font-medium border-t border-slate-600"></tfoot>
+        </table>
+      </div>
+    </div>
+    <p id="soa-balance-note" class="text-xs text-slate-500"></p>
+
+    <div class="space-y-2">
+      <p class="text-xs font-semibold text-slate-400 uppercase">Open Items <span id="soa-asat" class="normal-case font-normal text-slate-500"></span></p>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+              <th class="py-2 px-3">Document</th><th class="py-2 px-3">Type</th><th class="py-2 px-3">Date</th><th class="py-2 px-3">Due</th>
+              <th class="py-2 px-3 text-right">Days Overdue</th><th class="py-2 px-3 text-right">Amount</th><th class="py-2 px-3 text-right">Outstanding</th>
+            </tr></thead>
+            <tbody id="soa-open" class="divide-y divide-slate-700 text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-2" id="soa-aging"></div>
+
+    <div id="soa-recon" class="no-print text-xs rounded-lg p-3 border"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Vendor and Customer SOA share this file: CUSTOMERSOA.html is this file
+  // with only the CONFIG block swapped (see tools/build-soa-screens.js).
+  // CONFIG-START
+  const CONFIG = {
+    moduleId: 'VENDORSOA', partyType: 'Vendor', kicker: 'Accounts Payable', heading: 'Vendor Statement of Account',
+    partyLabel: 'Vendor', listFn: 'getActiveVendors', idField: 'VendorID', codeField: 'VendorCode', nameField: 'VendorName',
+    invoiceModule: 'VENDORINVOICE'
+  };
+  // CONFIG-END
+  const SOURCE_MODULES = {
+    'Invoice': CONFIG.invoiceModule, 'Invoice Reversal': CONFIG.invoiceModule,
+    'Debit Note': 'PURCHASERETURN', 'Debit Note Reversal': 'PURCHASERETURN',
+    'Credit Note': 'SALESRETURN', 'Credit Note Reversal': 'SALESRETURN',
+    'Journal': 'JV', 'Journal Reversal': 'JV'
+  };
+  const sourceModule = type => SOURCE_MODULES[type] || (/^(Cash|Bank) (Receipt|Payment)/.test(type) ? 'CBT' : '');
+
+  let parties = [];
+  let report = null;
+  let lastParams = null;
+  let myReturnChain = [];
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  const money = n => (Number(n) ? formatMoney(n) : '');
+  function today() { return new Date().toISOString().substring(0, 10); }
+
+  function fillParties() {
+    const company = document.getElementById('soa-company').value;
+    const select = document.getElementById('soa-party');
+    const previous = select.value;
+    if (!company) { select.innerHTML = '<option value="">Select a company first</option>'; return; }
+    select.innerHTML = '<option value="">Select...</option>';
+    parties.filter(p => !p.CompanyID || p.CompanyID === company)
+      .sort((a, b) => String(a[CONFIG.nameField]).localeCompare(String(b[CONFIG.nameField])))
+      .forEach(p => {
+        const opt = document.createElement('option'); opt.value = p[CONFIG.idField];
+        opt.textContent = p[CONFIG.codeField] + ' — ' + p[CONFIG.nameField];
+        select.appendChild(opt);
+      });
+    if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  }
+
+  function showError(msg) { const e = document.getElementById('soa-error'); e.textContent = msg; e.classList.toggle('hidden', !msg); }
+
+  function run() {
+    const params = {
+      partyType: CONFIG.partyType, companyId: document.getElementById('soa-company').value,
+      partyId: document.getElementById('soa-party').value,
+      fromDate: document.getElementById('soa-from').value, toDate: document.getElementById('soa-to').value
+    };
+    if (!params.companyId) return showError('Select a Company.');
+    if (!params.partyId) return showError('Select a ' + CONFIG.partyLabel + '.');
+    if (!params.fromDate || !params.toDate) return showError('Select a date range.');
+    showError('');
+    const btn = document.getElementById('soa-run-btn');
+    btn.disabled = true; btn.textContent = 'Running...';
+    rpc
+      .withSuccessHandler(result => { btn.disabled = false; btn.textContent = 'Run'; lastParams = params; report = result; render(); })
+      .withFailureHandler(err => { btn.disabled = false; btn.textContent = 'Run'; showError(err.message || 'Unable to run the statement.'); })
+      .getPartyStatement(params);
+  }
+
+  function render() {
+    const r = report;
+    document.getElementById('soa-report').classList.remove('hidden');
+    document.getElementById('soa-csv-btn').disabled = false;
+    document.getElementById('soa-print-btn').disabled = false;
+    document.getElementById('soa-company-name').textContent = r.CompanyName;
+    document.getElementById('soa-title').textContent = 'Statement of Account';
+    document.getElementById('soa-party-line').textContent = CONFIG.partyLabel + ': ' + r.PartyCode + ' — ' + r.PartyName;
+    document.getElementById('soa-party-address').textContent = r.PartyAddress;
+    document.getElementById('soa-period').textContent = 'Period: ' + r.FromDate + ' to ' + r.ToDate;
+    document.getElementById('soa-terms').textContent = 'Payment terms: ' + (r.PaymentTermsDays ? r.PaymentTermsDays + ' days' : 'due on invoice');
+
+    const tbody = document.getElementById('soa-rows');
+    tbody.innerHTML = `<tr class="text-slate-400"><td class="py-2 px-3 text-xs">${escapeHtml(r.FromDate)}</td><td class="py-2 px-3" colspan="5">Opening balance</td>
+      <td class="py-2 px-3 text-right font-mono">${formatMoney(r.Opening)}</td></tr>`;
+    r.Rows.forEach(row => {
+      const tr = document.createElement('tr');
+      const mark = row.IsReversal ? ' <span class="text-purple-400">(reversal)</span>' : (row.Reversed ? ' <span class="text-amber-400">(reversed)</span>' : '');
+      const target = sourceModule(row.Type);
+      tr.innerHTML = `
+        <td class="py-2 px-3 text-xs text-slate-400">${escapeHtml(row.Date)}</td>
+        <td class="py-2 px-3 font-mono text-xs">${target && row.LinkedJVID ? `<button class="soa-open text-blue-400 hover:text-blue-300 underline">${escapeHtml(row.Number)}</button>` : escapeHtml(row.Number)}</td>
+        <td class="py-2 px-3 text-xs">${escapeHtml(row.Type)}${mark}</td>
+        <td class="py-2 px-3 text-xs text-slate-300">${escapeHtml([row.Reference, row.Description].filter(Boolean).join(' — '))}</td>
+        <td class="py-2 px-3 text-right font-mono">${money(row.Debit)}</td>
+        <td class="py-2 px-3 text-right font-mono">${money(row.Credit)}</td>
+        <td class="py-2 px-3 text-right font-mono">${formatMoney(row.Balance)}</td>`;
+      const btn = tr.querySelector('.soa-open');
+      if (btn) btn.addEventListener('click', () => openSource(target, row.LinkedJVID));
+      tbody.appendChild(tr);
+    });
+    document.getElementById('soa-foot').innerHTML = `
+      <tr><td class="py-2 px-3" colspan="4">Totals for the period</td><td class="py-2 px-3 text-right font-mono">${formatMoney(r.Totals.Debit)}</td>
+        <td class="py-2 px-3 text-right font-mono">${formatMoney(r.Totals.Credit)}</td><td></td></tr>
+      <tr class="font-bold"><td class="py-2 px-3" colspan="6">Closing balance — ${escapeHtml(r.BalanceLabel.toLowerCase())}</td>
+        <td id="soa-closing" class="py-2 px-3 text-right font-mono">${formatMoney(r.Closing)}</td></tr>`;
+    document.getElementById('soa-balance-note').textContent = 'Balance = ' + r.BalanceLabel.toLowerCase() + '. A negative balance is in the ' +
+      (CONFIG.partyType === 'Vendor' ? 'company\'s favour (the vendor owes us).' : 'customer\'s favour (we owe the customer).');
+
+    document.getElementById('soa-asat').textContent = '(as at ' + r.ToDate + ')';
+    const open = document.getElementById('soa-open');
+    open.innerHTML = r.OpenItems.length ? '' : '<tr><td colspan="7" class="py-3 px-3 text-xs text-slate-500 text-center">Nothing open.</td></tr>';
+    r.OpenItems.forEach(i => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-2 px-3 font-mono text-xs">${escapeHtml(i.Number)}</td>
+        <td class="py-2 px-3 text-xs">${escapeHtml(i.Type)}</td>
+        <td class="py-2 px-3 text-xs text-slate-400">${escapeHtml(i.Date)}</td>
+        <td class="py-2 px-3 text-xs text-slate-400">${escapeHtml(i.DueDate)}</td>
+        <td class="py-2 px-3 text-right text-xs ${i.DaysOverdue > 0 ? 'text-red-400' : 'text-slate-400'}">${i.DaysOverdue || ''}</td>
+        <td class="py-2 px-3 text-right font-mono">${formatMoney(i.Amount)}</td>
+        <td class="py-2 px-3 text-right font-mono">${formatMoney(i.Outstanding)}</td>`;
+      open.appendChild(tr);
+    });
+    document.getElementById('soa-aging').innerHTML = r.Aging.concat([{ key: 'total', label: 'Total open', amount: r.OpenTotal }]).map(b => `
+      <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-3" data-bucket="${b.key}">
+        <p class="text-xs text-slate-400">${escapeHtml(b.label)}${b.key !== 'notDue' && b.key !== 'total' ? ' overdue' : ''}</p>
+        <p class="font-mono text-sm ${b.key === 'total' ? 'font-bold' : ''}">${formatMoney(b.amount)}</p>
+      </div>`).join('');
+
+    const rec = r.Reconciliation;
+    const box = document.getElementById('soa-recon');
+    if (rec.status === 'ok') {
+      const okay = Math.abs(rec.Difference) < 0.005;
+      box.className = 'no-print text-xs rounded-lg p-3 border ' + (okay ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-amber-500/30 bg-amber-500/10 text-amber-300');
+      box.textContent = 'Reconciliation: GL account ' + rec.AccountCode + ' ' + rec.AccountName + ' shows ' + formatMoney(rec.Balance) + ' at ' + r.ToDate +
+        (okay ? ' — agrees with this statement.' : ' — differs from this statement by ' + formatMoney(rec.Difference) +
+          '. Usually an old payment or adjustment posted without this ' + CONFIG.partyLabel.toLowerCase() + ' tagged; settle it with a tagged JV.');
+    } else {
+      box.className = 'no-print text-xs rounded-lg p-3 border border-slate-700 text-slate-400';
+      box.textContent = rec.status === 'shared'
+        ? 'Reconciliation: GL account ' + rec.AccountCode + ' is shared with other parties, so its balance can\'t be compared with one statement.'
+        : 'Reconciliation: this ' + CONFIG.partyLabel.toLowerCase() + ' has no control account set.';
+    }
+  }
+
+  function openSource(moduleId, jvId) {
+    const chainEntry = { moduleId: CONFIG.moduleId, label: CONFIG.heading, params: lastParams };
+    openModule(moduleId, { OpenEntryId: jvId }, [...myReturnChain, chainEntry]);
+  }
+
+  function csvCell(v) { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  function downloadCsv() {
+    const r = report;
+    if (!r) return;
+    const lines = [
+      ['Statement of Account', r.CompanyName], [CONFIG.partyLabel, r.PartyCode + ' — ' + r.PartyName], ['Period', r.FromDate + ' to ' + r.ToDate], [],
+      ['Date', 'Document', 'Type', 'Reference', 'Description', 'Debit', 'Credit', 'Balance'],
+      [r.FromDate, '', 'Opening balance', '', '', '', '', r.Opening.toFixed(2)]
+    ];
+    r.Rows.forEach(x => lines.push([x.Date, x.Number, x.Type + (x.IsReversal ? ' (reversal)' : x.Reversed ? ' (reversed)' : ''), x.Reference, x.Description,
+      x.Debit ? x.Debit.toFixed(2) : '', x.Credit ? x.Credit.toFixed(2) : '', x.Balance.toFixed(2)]));
+    lines.push(['', '', 'Closing balance', '', '', r.Totals.Debit.toFixed(2), r.Totals.Credit.toFixed(2), r.Closing.toFixed(2)], [],
+      ['Open items as at ' + r.ToDate], ['Document', 'Type', 'Date', 'Due', 'Days overdue', 'Amount', 'Outstanding']);
+    r.OpenItems.forEach(i => lines.push([i.Number, i.Type, i.Date, i.DueDate, i.DaysOverdue, i.Amount.toFixed(2), i.Outstanding.toFixed(2)]));
+    lines.push([], ['Aging'].concat(r.Aging.map(b => b.label), ['Total']), [''].concat(r.Aging.map(b => b.amount.toFixed(2)), [r.OpenTotal.toFixed(2)]));
+    const blob = new Blob(['﻿' + lines.map(l => l.map(csvCell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'SOA_' + (r.PartyCode || r.PartyID) + '_' + r.FromDate + '_' + r.ToDate + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  window.initModule = function () {
+    document.getElementById('soa-kicker').textContent = CONFIG.kicker;
+    document.getElementById('soa-heading').textContent = CONFIG.heading;
+    document.getElementById('soa-party-label').textContent = CONFIG.partyLabel;
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-lines"></i> ' + escapeHtml(CONFIG.heading);
+    const t = today();
+    document.getElementById('soa-from').value = t.substring(0, 4) + '-01-01';
+    document.getElementById('soa-to').value = t;
+
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    myReturnChain = window.__pendingReturnChain || [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      document.getElementById('soa-back-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      const back = document.getElementById('soa-back-btn');
+      back.classList.remove('hidden');
+      back.addEventListener('click', () => { const chain = myReturnChain.slice(); const tgt = chain.pop(); openModule(tgt.moduleId, tgt.params, chain); });
+    }
+
+    let companiesLoaded = false, partiesLoaded = false;
+    function restore() {
+      if (!companiesLoaded || !partiesLoaded || !pending || !pending.partyId) return;
+      document.getElementById('soa-company').value = pending.companyId;
+      fillParties();
+      document.getElementById('soa-party').value = pending.partyId;
+      document.getElementById('soa-from').value = pending.fromDate;
+      document.getElementById('soa-to').value = pending.toDate;
+      run();
+    }
+    rpc
+      .withSuccessHandler(result => {
+        const select = document.getElementById('soa-company');
+        (result || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+          const opt = document.createElement('option'); opt.value = c.CompanyID;
+          opt.textContent = c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '');
+          select.appendChild(opt);
+        });
+        if (select.options.length === 2) { select.selectedIndex = 1; }
+        companiesLoaded = true; fillParties(); restore();
+      })
+      .withFailureHandler(err => showError(err.message || 'Unable to load companies.'))
+      .getActiveCompanies();
+    rpc
+      .withSuccessHandler(result => { parties = result || []; partiesLoaded = true; fillParties(); restore(); })
+      .withFailureHandler(err => showError(err.message || 'Unable to load the list.'))
+      [CONFIG.listFn]();
+
+    document.getElementById('soa-company').addEventListener('change', fillParties);
+    document.getElementById('soa-run-btn').addEventListener('click', run);
+    document.getElementById('soa-print-btn').addEventListener('click', () => window.print());
+    document.getElementById('soa-csv-btn').addEventListener('click', downloadCsv);
+  };
+})();
+</script>

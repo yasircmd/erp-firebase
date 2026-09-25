@@ -45,6 +45,7 @@ const {
   getReturnableCustomerInvoices, saveSalesReturnDraft, postSalesReturn, decideSalesReturnApproval,
   deleteSalesReturnDraft, getSalesReturnEntries, reverseSalesReturn
 } = require('./src/salesReturn');
+const { getPartyStatement } = require('./src/partyStatement');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
@@ -119,6 +120,7 @@ exports.decideSalesReturnApproval = decideSalesReturnApproval;
 exports.deleteSalesReturnDraft = deleteSalesReturnDraft;
 exports.getSalesReturnEntries = getSalesReturnEntries;
 exports.reverseSalesReturn = reverseSalesReturn;
+exports.getPartyStatement = getPartyStatement;
 
 // Every remaining Code.gs module, ported mechanically (see
 // tools/legacy-port/generate.js): one callable per function a ported

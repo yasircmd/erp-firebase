@@ -1,6 +1,6 @@
 # Vendor SOA (Statement of Account)
 
-**Status:** design agreed 2026-09-25 · **Roadmap:** [#3](../ROADMAP.md) · **Branch:** `party-statements` (from `sales-return`)
+**Status:** tested 2026-09-25 (not deployed) · **Roadmap:** [#3](../ROADMAP.md) · **Branch:** `party-statements` (from `sales-return`)
 
 ## Purpose
 
@@ -63,3 +63,48 @@ when no other vendor/customer uses that account.
 **Code:** `functions/src/partyStatement.js` (one engine, one callable per
 party type), screens `VENDORSOA.html` / `CUSTOMERSOA.html`, emulator suite
 and UI check, negative controls.
+
+## As built (2026-09-25)
+
+**Code:** `functions/src/partyStatement.js`, one callable for both
+statements: `getPartyStatement({ partyType, partyId, companyId, fromDate,
+toDate })`, gated by `VENDORSOA` / `CUSTOMERSOA` access. Screens:
+`functions/modules/VENDORSOA.html`, plus `CUSTOMERSOA.html`, generated from
+it by `node tools/build-soa-screens.js`. Edit only the vendor file; the
+UI check fails if the two drift apart.
+
+**Behaviour worth knowing:**
+- The rows are the party's invoices (and invoice reversal entries, on the
+  opposite side) plus every line tagged with the party on a posted GL
+  entry. Sorted by date, then posting time.
+- **Invariant:** every tagged amount is allocated (New or Against), so the
+  open items add up to the closing balance. The suite checks this.
+- **Open items** come from `partyLedger.getOpenItemsForParty`, which
+  gained an optional as-of date. With no date it works as before. An
+  invoice waiting on reversal approval appears in the rows but not in
+  the open items, the same as the Party Payments pickers.
+- **Reconciliation** compares with the party's control account in this
+  company. It's skipped when another party usable in this company (same
+  company or unassigned) has the same account. A party of another company
+  on the same account doesn't count, since the GL is per company.
+- Each document number links through to its source screen (invoice, JV,
+  CBT, debit or credit note), with a back button that re-runs the
+  statement.
+- CSV is built in the browser (UTF-8 with a byte-order mark, so Excel
+  opens it correctly). Print uses the browser's print dialog. The
+  reconciliation line is left out of the print.
+
+**Test tooling:** the UI harness's `openModule` now forwards drill-through
+parameters and the back-chain like the real shell does
+(`functions/test/ui/buildHarness.js`).
+
+**After deploy:** link both screens into the live menu with Tree
+Management. Deploy set: `tools/deploy-sets/party-statements.txt`, after
+the two return sets.
+
+**Tests:** `functions/test/emulator/partyStatement.emulator.test.js` (3
+tests) and `functions/test/ui/partyStatement.ui.js` (4 checks). Negative
+controls, each confirmed caught, then restored:
+1. The open items ignoring the end date.
+2. An invoice reversal booked on the invoice's own side.
+3. Rows dated on the start date folded into the opening balance.

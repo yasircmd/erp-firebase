@@ -58,16 +58,18 @@ functions/
     invoiceAllocations.js       — Vendor/Customer Invoice list and reversal wrappers for allocation
     purchaseReturn.js           — Purchase Return / Debit Note (docs/modules/PURCHASE_RETURN.md)
     salesReturn.js              — Sales Return / Credit Note (docs/modules/SALES_RETURN.md)
+    partyStatement.js           — Vendor and Customer Statements of Account (docs/modules/VENDOR_SOA.md)
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
   modules/*.html                — the screens, served by getModuleFragment
   test/emulator/*.test.js       — one API suite per module, against the local emulators
-  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments, purchase and sales return)
+  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments, returns, statements)
 tools/
   legacy-port/                  — the Code.gs → Cloud Functions generator (migration only)
   deploy-migration.sh           — deploys pending generated-port functions
   deploy-functions.sh           — deploys a named set (tools/deploy-sets/<set>.txt) for new development
   deploy-runtime.sh             — moves every live function onto engines.node's runtime
+  build-soa-screens.js          — writes CUSTOMERSOA.html from VENDORSOA.html (edit only the vendor one)
 legacy-gas/                     — read-only snapshot of the old Apps Script project
 docs/                           — see Documents above
 ```
@@ -116,6 +118,7 @@ node functions/test/ui/dynamicToggle.ui.js  # a real deactivate/reactivate click
 node functions/test/ui/partyPayments.ui.js  # after the partyPayments suite: JV/CBT allocation screens
 node functions/test/ui/purchaseReturn.ui.js # after the purchaseReturn suite: the Purchase Return screen
 node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the Sales Return screen
+node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: the two SOA screens
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for
@@ -127,13 +130,13 @@ node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the S
   Restart it after changing code, including for negative controls.
 - **Safety:** the suites WIPE the emulator database. `_helpers.js` refuses
   to run unless every client points at the local emulators.
-- **Last full run** (2026-09-25, `sales-return` branch): 202/202 emulator
-  tests, 97/97 smoke, 2/2 dynamic toggle, 4/4 purchase return UI, 4/4
-  sales return UI. The
-  party payments UI check passed 2/3 here and 0/3 on `main` just after an
-  emulator restart. Its fixed short waits lose to function cold starts
-  (the JV check passes with a longer wait), so it needs `waitForSelector`
-  waits like `purchaseReturn.ui.js`.
+- **Last full run** (2026-09-25, `party-statements` branch): 205/205
+  emulator tests, 101/101 smoke, 2/2 dynamic toggle, 4/4 each for the
+  purchase return, sales return and statements UI checks. The party
+  payments UI check passes 2/3 (0/3 on `main` right after an emulator
+  restart): its fixed short waits lose to function cold starts, and the
+  JV check passes with a longer wait. It's a roadmap follow-up to switch
+  it to `waitForSelector` waits like the newer checks.
 
 ## Deploying
 
