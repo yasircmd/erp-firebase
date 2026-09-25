@@ -50,7 +50,12 @@ const MODULE_REGISTRY = [
   { id: 'VENDORINVOICE', label: 'Vendor Invoice Processing', capabilities: ['access', 'draft', 'post'] },
   { id: 'DELIVERYNOTE', label: 'Delivery Note (Goods Dispatch)', capabilities: ['access', 'draft', 'post'] },
   { id: 'CUSTOMERINVOICE', label: 'Customer Invoice Processing', capabilities: ['access', 'draft', 'post'] },
-  { id: 'DATARESET', label: 'Data Reset (Admin)', capabilities: ['access', 'write'] }
+  { id: 'DATARESET', label: 'Data Reset (Admin)', capabilities: ['access', 'write'] },
+  // New development (not in Code.gs): docs/modules/*.md.
+  { id: 'PURCHASERETURN', label: 'Purchase Return / Debit Note', capabilities: ['access', 'draft', 'post'] },
+  { id: 'SALESRETURN', label: 'Sales Return / Credit Note', capabilities: ['access', 'draft', 'post'] },
+  { id: 'VENDORSOA', label: 'Vendor Account Statement', capabilities: ['access'] },
+  { id: 'CUSTOMERSOA', label: 'Customer Account Statement', capabilities: ['access'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -133,7 +138,13 @@ const DEFAULT_PERMISSIONS = {
   PHYSICALCOUNT:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   BOM:                { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
   MATERIALVARIANCE:   { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
-  DATARESET:          { access: ['ADMIN'], write: ['ADMIN'] }
+  DATARESET:          { access: ['ADMIN'], write: ['ADMIN'] },
+  // New development: same defaults as the invoices they adjust, and as GL
+  // Report for the read-only statements.
+  PURCHASERETURN:     { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
+  SALESRETURN:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
+  VENDORSOA:          { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  CUSTOMERSOA:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

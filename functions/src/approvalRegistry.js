@@ -22,6 +22,9 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'VENDORINVOICE', Label: 'Vendor Invoice Processing' },
   { ModuleID: 'DELIVERYNOTE', Label: 'Delivery Note (Goods Dispatch)' },
   { ModuleID: 'CUSTOMERINVOICE', Label: 'Customer Invoice Processing' },
+  // New development (not in Code.gs).
+  { ModuleID: 'PURCHASERETURN', Label: 'Purchase Return / Debit Note' },
+  { ModuleID: 'SALESRETURN', Label: 'Sales Return / Credit Note' },
 ];
 
 const APPROVAL_MODULE_STORAGE_ = {
@@ -37,6 +40,8 @@ const APPROVAL_MODULE_STORAGE_ = {
   PURCHASEORDER: { type: 'rtdb', path: 'purchaseOrders' },
   VENDORINVOICE: { type: 'rtdb', path: 'vendorInvoices' },
   CUSTOMERINVOICE: { type: 'rtdb', path: 'customerInvoices' },
+  PURCHASERETURN: { type: 'rtdb', path: 'stock/transactions' },
+  SALESRETURN: { type: 'rtdb', path: 'stock/transactions' },
   PURCHASEREQUISITION: { type: 'rtdb', path: 'purchaseRequisitions' },
   INVENTORYPURCHASEREQUISITION: { type: 'rtdb', path: 'inventoryPurchaseRequisitions' },
   JOBORDERREQUEST: { type: 'rtdb', path: 'jobOrderBatches' }

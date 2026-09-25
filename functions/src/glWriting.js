@@ -8,7 +8,9 @@ const COST_CENTER_REQUIRED_TYPES = ['Expense', 'Revenue', 'COGS'];
 const STOCK_TRANSACTION_PREFIXES = {
   GRN: 'GRN', MaterialIssue: 'MI', Production: 'PRD', WarehouseMovement: 'WM',
   StockAdjustment: 'ADJ', PhysicalCount: 'PC', VendorInvoice: 'VINV',
-  DeliveryNote: 'DN', CustomerInvoice: 'CINV'
+  DeliveryNote: 'DN', CustomerInvoice: 'CINV',
+  // New development (docs/modules/PURCHASE_RETURN.md, SALES_RETURN.md).
+  PurchaseReturn: 'DBN', SalesReturn: 'CRN'
 };
 
 function userCanAccessCompany(profile, companyId) {
@@ -123,6 +125,18 @@ async function generateStockTransactionRef() {
   return 'STK-' + String(next).padStart(8, '0');
 }
 
+// A line's vendor/customer tag and allocations (partyLedger.js), which
+// validateAndNormalizeLines doesn't carry over. Only lines that have them
+// get them, so every other posting keeps its exact shape. Normalization
+// skips blank-account lines and otherwise keeps order.
+function keepPartyFields(rawLines, normalizedLines) {
+  const raw = (rawLines || []).filter(l => String(l.AccountCode || '').trim());
+  normalizedLines.forEach((l, i) => {
+    const r = raw[i] || {};
+    ['PartyType', 'PartyID', 'PartyName', 'Allocations'].forEach(f => { if (r[f] !== undefined) l[f] = r[f]; });
+  });
+}
+
 // Ported from writeStockGlEntry_. Caller MUST already hold the global
 // lock (see lock.js) — same contract as the original.
 async function writeStockGlEntry(user, stockTransactionType, transactionDate, description, reference, rawGlLines, dimensions, extraFields) {
@@ -133,6 +147,7 @@ async function writeStockGlEntry(user, stockTransactionType, transactionDate, de
   const coaSnap = await rtdb.ref('coa').get();
   const coaData = coaSnap.val() || {};
   const normalized = validateAndNormalizeLines(rawGlLines, coaData, dim.CompanyID);
+  keepPartyFields(rawGlLines, normalized.lines);
   const totalDebit = normalized.totalDebit;
   const totalCredit = normalized.totalCredit;
   if (Math.round((totalDebit - totalCredit) * 100) !== 0) {

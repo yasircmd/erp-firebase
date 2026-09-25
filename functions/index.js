@@ -98,6 +98,33 @@ exports.decideVendorInvoiceReversalApproval = decideVendorInvoiceReversalApprova
 exports.requestReverseCustomerInvoice = requestReverseCustomerInvoice;
 exports.decideCustomerInvoiceReversalApproval = decideCustomerInvoiceReversalApproval;
 
+// Purchase Return / Debit Note and Sales Return / Credit Note (docs/modules/).
+const returns = require('./src/returns');
+exports.getPurchaseReturnEntries = returns.getPurchaseReturnEntries;
+exports.getVendorInvoicesForReturn = returns.getVendorInvoicesForReturn;
+exports.getPurchaseReturnSource = returns.getPurchaseReturnSource;
+exports.savePurchaseReturnDraft = returns.savePurchaseReturnDraft;
+exports.postPurchaseReturn = returns.postPurchaseReturn;
+exports.decidePurchaseReturnApproval = returns.decidePurchaseReturnApproval;
+exports.deletePurchaseReturnDraft = returns.deletePurchaseReturnDraft;
+exports.requestReversePurchaseReturn = returns.requestReversePurchaseReturn;
+exports.decidePurchaseReturnReversalApproval = returns.decidePurchaseReturnReversalApproval;
+exports.getSalesReturnEntries = returns.getSalesReturnEntries;
+exports.getCustomerInvoicesForReturn = returns.getCustomerInvoicesForReturn;
+exports.getSalesReturnSource = returns.getSalesReturnSource;
+exports.saveSalesReturnDraft = returns.saveSalesReturnDraft;
+exports.postSalesReturn = returns.postSalesReturn;
+exports.decideSalesReturnApproval = returns.decideSalesReturnApproval;
+exports.deleteSalesReturnDraft = returns.deleteSalesReturnDraft;
+exports.requestReverseSalesReturn = returns.requestReverseSalesReturn;
+exports.decideSalesReturnReversalApproval = returns.decideSalesReturnReversalApproval;
+exports.getSalesReturnSettings = returns.getSalesReturnSettings;
+exports.setSalesReturnsAccount = returns.setSalesReturnsAccount;
+// Vendor and Customer Account Statements (docs/modules/VENDOR_SOA.md).
+const soa = require('./src/soa');
+exports.getPartyStatement = soa.getPartyStatement;
+exports.getStatementParties = soa.getStatementParties;
+
 // Every remaining Code.gs module, ported mechanically (see
 // tools/legacy-port/generate.js): one callable per function a ported
 // screen calls, named exactly as in Code.gs.

@@ -52,7 +52,11 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   PhysicalCount: 'PHYSICALCOUNT',
   VendorInvoice: 'VENDORINVOICE',
   DeliveryNote: 'DELIVERYNOTE',
-  CustomerInvoice: 'CUSTOMERINVOICE'
+  CustomerInvoice: 'CUSTOMERINVOICE',
+  // Not in Code.gs: the debit/credit notes' GL entries are reversed from
+  // their own modules too.
+  PurchaseReturn: 'PURCHASERETURN',
+  SalesReturn: 'SALESRETURN'
 };
 
 // ============================================================
