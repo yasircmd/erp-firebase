@@ -95,5 +95,18 @@ from, and how it was verified. The deploy procedure is in the
 
 ## New development (from 2026-09-25)
 
-No deploys yet.
+- **2026-09-25, Party Payments & Bill-wise Allocation (roadmap #0):**
+  `tools/deploy-functions.sh party-payments` deployed the 17 functions in
+  `tools/deploy-sets/party-payments.txt` from `a0185f6` (branch
+  `party-payments`, clean checkout), at the owner's go-ahead. It ran in 3
+  batches with no retries, all IAM bindings OK, ending `ALL DONE`. Two
+  functions are new (`getPartyAccounts`, `getPartyOpenItems`), and
+  `getModuleFragment` went last, serving the new JV, CBT and invoice
+  screens. Unauthenticated probes of `getPartyAccounts`,
+  `getPartyOpenItems`, `saveCbtDraft`, `getVendorInvoiceEntries` and
+  `getModuleFragment` answer "Please sign in again." from the function,
+  so they're public and live. The project now has 244 functions.
+  Verified beforehand: 190/190 emulator tests, smoke 93/93, dynamic
+  toggle 2/2, party payments UI 3/3. From now on, JV/CBT lines on a
+  payables or receivables account need their vendor or customer.
 

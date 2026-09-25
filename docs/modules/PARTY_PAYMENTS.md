@@ -1,6 +1,6 @@
 # Party Payments & Bill-wise Allocation (JV and CBT)
 
-**Status:** tested, not deployed · **Roadmap:** [#0](../ROADMAP.md) · **Branch:** `party-payments`
+**Status:** deployed 2026-09-25 · **Roadmap:** [#0](../ROADMAP.md) · **Branch:** `party-payments`
 
 ## Purpose
 
