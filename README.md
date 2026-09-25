@@ -256,8 +256,7 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   signed in, not module access or company, so any user can read any
   company's valuation cost for an item. Same as GAS.
 - GRN (hand-ported): the `reverseGrn` reversal-of-a-reversal problem
-  noted here earlier is fixed in code (deviation #15). It goes live with
-  batch F, because no earlier batch deployed `reverseGrn`.
+  noted here earlier is fixed (deviation #15) and live since batch F.
 - Purchase Requisition, company scoping: listing, submit, close, cancel
   and approval decisions are company-checked. `deleteDraftPurchaseRequisition`
   and editing an existing draft check only the role's capability, so
@@ -619,19 +618,15 @@ primitive's REST semantics directly.
 | PURCHASEORDER | ✅ | ✅ |
 | SALESORDER | ✅ | ✅ |
 | DELIVERYNOTE | ✅ | ✅ |
-| JV | ✅ | **not yet** |
-| CBT | ✅ | **not yet** |
-| VENDORINVOICE | ✅ | **not yet** |
-| CUSTOMERINVOICE | ✅ | **not yet** |
+| JV | ✅ | ✅ |
+| CBT | ✅ | ✅ |
+| VENDORINVOICE | ✅ | ✅ |
+| CUSTOMERINVOICE | ✅ | ✅ |
 | DATARESET | — | — |
 
 **Next module to port:** DATARESET
 
-**Committed but NOT yet deployed** (JV, CBT, VENDORINVOICE, CUSTOMERINVOICE) — deploy these 27 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
-
-```
-getModuleFragment decideCustomerInvoiceApproval decideCustomerInvoiceReversalApproval decideJournalEntryApproval decideVendorInvoiceApproval decideVendorInvoiceReversalApproval deleteCustomerInvoiceDraft deleteJournalDraft deleteVendorInvoiceDraft getActiveSalesTypes getCbtEntries getCustomerInvoiceEntries getDefaultCurrency getEligibleDeliveryNotesForInvoice getEligibleGRNsForInvoice getJournalEntries getVendorInvoiceEntries postCustomerInvoice postJournalEntry postVendorInvoice requestReverseCustomerInvoice requestReverseVendorInvoice reverseJournalEntry saveCbtDraft saveCustomerInvoiceDraft saveJournalDraft saveVendorInvoiceDraft
-```
+Everything ported is deployed.
 <!-- PORT-STATUS:end -->
 
 **Deploy log** (project `erp1-8f4cd`,
@@ -670,19 +665,16 @@ IAM binding per function):
   reach the functions.
 - **2026-09-25, batch E:** SALESORDER and DELIVERYNOTE (19 functions with the
   helpers) from `1633f44`, same method, ending `ALL DONE`.
-- **Batch F, prepared 2026-09-25, not yet deployed:** JV, CBT,
-  VENDORINVOICE and CUSTOMERINVOICE (27 generated functions), plus 10
-  hand-ported ones, including two that no earlier batch deployed:
-  - `reverseGrn`, which carries the GRN reversal guards (deviation #15,
-    committed after batch E's source commit). Until it's deployed,
-    production still lets a GRN reversal be reversed.
-  - `getActiveVendors`, which fills the Purchase Order and GRN vendor
-    dropdowns.
+- **2026-09-25, batch F:** JV, CBT, VENDORINVOICE and CUSTOMERINVOICE went
+  live. `tools/deploy-migration.sh` deployed 37 functions from `f66c2bc`
+  (reported by the owner as completed): the 27 generated functions plus
+  10 hand-ported ones. Two of those no earlier batch had deployed:
+  - `reverseGrn`, so the GRN reversal guards (deviation #15) are now live.
+  - `getActiveVendors`, the Purchase Order and GRN vendor dropdown.
 
   Verified on `a2cbb08` beforehand: 173/173 emulator tests and smoke UI
   90/90, run in chunks with an emulator restart between them (see the
-  MEMORY note in step 3), plus dynamic toggle 2/2. To deploy, run
-  `tools/deploy-migration.sh` (37 functions).
+  MEMORY note in step 3), plus dynamic toggle 2/2.
 - **Rule for every deploy:** `git status --porcelain` must be empty.
   `firebase deploy` uploads the working copy, not the last commit.
 

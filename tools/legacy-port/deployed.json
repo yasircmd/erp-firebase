@@ -36,7 +36,11 @@
     "INVENTORYPURCHASEREQUISITION",
     "PURCHASEORDER",
     "SALESORDER",
-    "DELIVERYNOTE"
+    "DELIVERYNOTE",
+    "JV",
+    "CBT",
+    "VENDORINVOICE",
+    "CUSTOMERINVOICE"
   ],
   "needsRedeploy": {}
 }
