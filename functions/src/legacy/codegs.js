@@ -4599,6 +4599,21 @@ async function getRequisitionCategories(idToken) {
     .filter(c => userCanAccessCompany_(user.profile, c.CompanyID));
 }
 
+// Minimal reference read for Purchase Requisition's category picker —
+// no PROCUREMENTSETUP access required, same role getActiveVendors etc.
+// play for their own modules.
+async function getActiveRequisitionCategories(idToken) {
+  const user = await requireUser_(idToken);
+  const data = (await firebaseDbRequest_('requisitionCategories', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .filter(id => data[id].Status === 'Active')
+    .filter(id => userCanAccessCompany_(user.profile, data[id].CompanyID))
+    .map(id => ({
+      CategoryID: id, Name: data[id].Name, Type: data[id].Type,
+      GLAccountID: data[id].GLAccountID, CompanyID: data[id].CompanyID || ''
+    }));
+}
+
 async function saveRequisitionCategory(idToken, data) {
   try {
     const user = await requireUser_(idToken);
@@ -4903,6 +4918,243 @@ async function getApprovalHistory(idToken, filters) {
     .filter(inst => !f.FromDate || (inst.CreatedAt || '') >= f.FromDate)
     .filter(inst => !f.ToDate || (inst.CreatedAt || '') <= f.ToDate + 'T23:59:59.999Z')
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+}
+
+// PURCHASE REQUISITION (non-stock — Fixed Asset / Direct Expense only)
+// ============================================================
+// Open to every department, not just finance-adjacent ones — see the
+// deliberately broad PURCHASEREQUISITION permission default above. Two
+// design points settled explicitly during this build, not guessed:
+//
+// 1. NO VALUE FIELD ANYWHERE ON THIS ENTITY. A requisition's real price
+//    only exists once vendor quotations are compared at PO stage — this
+//    module only ever expresses need (what, how much, which GL-mapped
+//    category), never cost. The Procurement Setup approval chain
+//    (levels + thresholds) checks the PO's value once PO exists; it has
+//    nothing to check here, which is why this module carries no
+//    approval step of its own.
+//
+// 2. Requisition Category (from Procurement Setup) supplies BOTH the
+//    Type (Fixed Asset | Direct Expense) and the GL account a line
+//    posts against — the requester picks a friendly category name,
+//    never an account code directly.
+//
+// Status: Draft (editable) -> Submitted (locked, PR Number assigned
+// here, not at draft-save — mirrors every other voucher in this system
+// only consuming a real sequential number once it's no longer just a
+// draft) -> Closed (write-access users mark this once Procurement has
+// dealt with it, since there's no PO yet to close it automatically) or
+// Cancelled (requester or write-access users, from Draft or Submitted).
+//
+// Storage: /purchaseRequisitions/{id} = { PRNumber (blank until
+//   Submitted), PRDate, CompanyID, DivisionID, BranchID, CostCenterID,
+//   ProfitCenterID, Priority ('Normal'|'Urgent'), NeededByDate,
+//   Description, RequestedBy, Status, Lines: [{ CategoryID,
+//   Description, Quantity, Unit, CostCenterID (line-level override,
+//   defaults from header) }], CreatedAt/By, UpdatedAt/By, SubmittedAt/By,
+//   ClosedAt/By, CancelledAt/By }
+
+async function getPurchaseRequisitionEntries(idToken, limit) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'PURCHASEREQUISITION', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Purchase Requisition.');
+  }
+  const data = (await firebaseDbRequest_('purchaseRequisitions', 'get', null, idToken)) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ PRID: id }, data[id]))
+    .filter(pr => userCanAccessCompany_(user.profile, pr.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const capped = limit ? all.slice(0, limit) : all;
+  return { entries: capped, total: all.length };
+}
+
+function validatePrHeader_(idToken, header, orgUnits) {
+  const companyId = String(header.CompanyID || '').trim();
+  if (!companyId) throw new Error('Select a Company for this requisition.');
+  const costCenterId = String(header.CostCenterID || '').trim();
+  if (!costCenterId) throw new Error('Select a Cost Center (requesting department) for this requisition.');
+  if (!orgUnits[costCenterId] || orgUnits[costCenterId].Type !== 'CostCenter') throw new Error('Unknown Cost Center.');
+  const priority = String(header.Priority || 'Normal').trim();
+  if (priority !== 'Normal' && priority !== 'Urgent') throw new Error('Priority must be Normal or Urgent.');
+  return { companyId, costCenterId, priority };
+}
+
+async function saveDraftPurchaseRequisition(idToken, header) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const orgUnits = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
+    const { companyId, costCenterId, priority } = validatePrHeader_(idToken, header, orgUnits);
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+
+    const categories = (await firebaseDbRequest_('requisitionCategories', 'get', null, idToken)) || {};
+    const lines = (header.Lines || [])
+      .filter(l => String(l.CategoryID || '').trim())
+      .map(l => {
+        const categoryId = String(l.CategoryID).trim();
+        const category = categories[categoryId];
+        if (!category || category.Status !== 'Active') throw new Error('One or more lines reference an inactive or unknown category.');
+        const description = String(l.Description || '').trim();
+        if (!description) throw new Error('Every line needs a description.');
+        const quantity = Number(l.Quantity);
+        if (!(quantity > 0)) throw new Error('Every line needs a quantity greater than zero.');
+        return {
+          CategoryID: categoryId, Description: description, Quantity: quantity,
+          Unit: String(l.Unit || '').trim(),
+          CostCenterID: String(l.CostCenterID || costCenterId).trim()
+        };
+      });
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const fields = {
+      PRDate: header.PRDate || '', CompanyID: companyId,
+      DivisionID: String(header.DivisionID || '').trim(), BranchID: String(header.BranchID || '').trim(),
+      CostCenterID: costCenterId, ProfitCenterID: String(header.ProfitCenterID || '').trim(),
+      Priority: priority, NeededByDate: header.NeededByDate || '',
+      Description: String(header.Description || '').trim(),
+      Lines: lines, UpdatedAt: now, UpdatedBy: actor
+    };
+
+    const prId = String(header.PRID || '').trim();
+    if (prId) {
+      const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+      if (!existing) throw new Error('Requisition not found.');
+      // Rejected is editable too now — a resubmission after revision
+      // reuses this exact save path, same as first drafting.
+      if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a Draft or Rejected requisition can be edited.');
+      await firebaseDbRequest_('purchaseRequisitions/' + prId, 'patch', fields, idToken);
+      return { success: true, prId: prId };
+    }
+
+    const newId = 'PRQ-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('purchaseRequisitions/' + newId, 'put', Object.assign({}, fields, {
+      PRNumber: '', Status: 'Draft', RequestedBy: actor, CreatedAt: now, CreatedBy: actor
+    }), idToken);
+    return { success: true, prId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function submitPurchaseRequisition(idToken, prId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // Draft (first submission) or Rejected (resubmitting after a
+    // revision) — both go through identical logic below, since a
+    // resubmission is structurally the same action as a first
+    // submission, just starting from a different status.
+    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a Draft or Rejected requisition can be submitted.');
+    if (!existing.Lines || !existing.Lines.length) throw new Error('Add at least one line before submitting.');
+
+    const year = (new Date(existing.PRDate)).getFullYear() || new Date().getFullYear();
+    const prNumber = await generateVoucherNumber_(idToken, 'PR', year, existing.CompanyID);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    // No value field exists anywhere on a Purchase Requisition —
+    // pricing only exists from Purchase Order onward — so the amount
+    // passed here is always 0. Confirmed design: a Threshold gate with
+    // a level set at 0 behaves exactly like Flat in this case, which
+    // is intentional, not a workaround; Admin can use either.
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'PURCHASEREQUISITION', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const approval = await beginApprovalInstance_(idToken, 'PURCHASEREQUISITION', prId, prNumber, scopeKey, 0, user.uid);
+
+    const fields = {
+      PRNumber: prNumber, RejectionReason: '', SubmittedAt: now, SubmittedBy: actor,
+      UpdatedAt: now, UpdatedBy: actor
+    };
+    if (approval.required) {
+      fields.Status = 'PendingApproval'; fields.ApprovalInstanceID = approval.instanceId;
+    } else {
+      // Submitted remains the same final, actionable status it always
+      // was — getEligibleRequisitionsForPO and everything else that
+      // checks for it needed no changes at all.
+      fields.Status = 'Submitted';
+    }
+    await firebaseDbRequest_('purchaseRequisitions/' + prId, 'patch', fields, idToken);
+    return { success: true, prNumber: prNumber, status: fields.Status };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function decidePurchaseRequisitionApproval(idToken, prId, levelNumber, decision, reason) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (existing && !userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    const result = await decideApprovalForDocument_(idToken, 'purchaseRequisitions', prId, levelNumber, decision, reason, 'Submitted');
+    return Object.assign({ success: true }, result);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function closePurchaseRequisition(idToken, prId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'Submitted') throw new Error('Only a Submitted requisition can be closed.');
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('purchaseRequisitions/' + prId, 'patch', {
+      Status: 'Closed', ClosedAt: now, ClosedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function cancelPurchaseRequisition(idToken, prId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requirePostAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // PendingApproval and Rejected are now real, reachable statuses —
+    // a requisition sitting in either should still be abandonable,
+    // not stuck waiting on an approval or a resubmission nobody wants
+    // to pursue anymore.
+    if (['Draft', 'Submitted', 'PendingApproval', 'Rejected'].indexOf(existing.Status) === -1) {
+      throw new Error('This requisition can no longer be cancelled.');
+    }
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    await firebaseDbRequest_('purchaseRequisitions/' + prId, 'patch', {
+      Status: 'Cancelled', CancelledAt: now, CancelledBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deleteDraftPurchaseRequisition(idToken, prId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft requisition can be deleted.');
+    await firebaseDbRequest_('purchaseRequisitions/' + prId, 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 // Marks one reservation Released — the stock it held becomes available
@@ -6082,6 +6334,72 @@ async function getItemCostForProduction(idToken, companyId, itemCode, date) {
   return match ? match.UnitCost : null;
 }
 
+// Generic decide-approval action — the part every module's own thin
+// wrapper delegates to. collectionPath is the Firebase collection the
+// document itself lives under (e.g. 'purchaseOrders',
+// 'purchaseRequisitions'); approvedStatus is what the document's
+// Status becomes once EVERY required level has approved — this
+// varies by module (Purchase Order uses 'Approved'; Purchase
+// Requisition and Inventory Purchase Requisition use 'Submitted',
+// since that's already their own pre-existing "fully processed"
+// terminal state, and reusing it means nothing downstream — like
+// getEligibleRequisitionsForPO — needs to change at all). Throws on
+// error; each module's own public wrapper does its own permission
+// check and try/catch around this.
+// backend: optional, defaults to RTDB (every existing caller — PO, PR,
+// IPR, and every stock module — passes nothing here and is completely
+// unaffected). Pass 'firestore' for a Firestore-backed document (JV,
+// CBT); collectionPath then means a Firestore collection name, not an
+// RTDB path.
+// rejectedStatus: optional, defaults to 'Rejected' — the status a
+// document falls back to if this decision resolves to Rejected. Most
+// callers want the standard 'Rejected' (editable, resubmittable) state,
+// but some approval flows aren't really "edit and resubmit" at all —
+// e.g. reopening a Closed PO is a yes/no request with nothing to edit,
+// so a rejection there should fall back to 'Closed', not a generic
+// 'Rejected' state that implies an edit form exists to go with it.
+async function decideApprovalForDocument_(
+  idToken,
+  collectionPath,
+  documentId,
+  levelNumber,
+  decision,
+  reason,
+  approvedStatus,
+  backend,
+  rejectedStatus
+) {
+  const useFirestore = backend === 'firestore';
+  const existing = useFirestore
+    ? await firestoreGet_(collectionPath, documentId)
+    : await firebaseDbRequest_(collectionPath + '/' + documentId, 'get', null, idToken);
+  if (!existing) throw new Error('Document not found.');
+  if (existing.Status !== 'PendingApproval') throw new Error('This document is not awaiting approval.');
+  if (!existing.ApprovalInstanceID) throw new Error('No approval record found for this document.');
+
+  const result = await recordApprovalDecision(idToken, existing.ApprovalInstanceID, levelNumber, decision, reason);
+  if (!result.success) throw new Error(result.error);
+
+  const user = await requireUser_(idToken);
+  const now = new Date().toISOString();
+  const actor = user.profile.username || user.uid;
+  const fields = { UpdatedAt: now, UpdatedBy: actor };
+  if (result.status === 'Approved') {
+    fields.Status = approvedStatus;
+    if (approvedStatus === 'Approved') fields.ApprovedAt = now;
+  } else if (result.status === 'Rejected') {
+    fields.Status = rejectedStatus || 'Rejected';
+    fields.RejectionReason = String(reason || '').trim();
+  }
+  // Still Pending (some required levels haven't decided yet) — the
+  // document itself doesn't change status until the instance resolves.
+  if (fields.Status) {
+    if (useFirestore) await firestoreUpdate_(collectionPath, documentId, fields);
+    else await firebaseDbRequest_(collectionPath + '/' + documentId, 'patch', fields, idToken);
+  }
+  return { status: result.status, selfApproved: result.selfApproved };
+}
+
 module.exports = {
   requireAdmin_,
   getRoles,
@@ -6194,6 +6512,7 @@ module.exports = {
   deactivateCustomer,
   reactivateCustomer,
   getRequisitionCategories,
+  getActiveRequisitionCategories,
   saveRequisitionCategory,
   deactivateRequisitionCategory,
   reactivateRequisitionCategory,
@@ -6205,6 +6524,14 @@ module.exports = {
   saveApprovalLevels,
   recordApprovalDecision,
   getApprovalHistory,
+  getPurchaseRequisitionEntries,
+  validatePrHeader_,
+  saveDraftPurchaseRequisition,
+  submitPurchaseRequisition,
+  decidePurchaseRequisitionApproval,
+  closePurchaseRequisition,
+  cancelPurchaseRequisition,
+  deleteDraftPurchaseRequisition,
   releaseStockReservation_,
   getActiveCurrencies,
   getPriceLists,
@@ -6242,5 +6569,6 @@ module.exports = {
   saveInventoryValuationLine,
   deactivateInventoryValuationLine,
   groupValuationLinesByItem_,
-  getItemCostForProduction
+  getItemCostForProduction,
+  decideApprovalForDocument_
 };

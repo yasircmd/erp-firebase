@@ -260,6 +260,20 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   entry, and the screen offers "Reverse" on one. Reversing a GRN
   reversal would likely remove the received stock a second time. Needs
   its own fix and test.
+- Purchase Requisition, company scoping: listing, submit, close, cancel
+  and approval decisions are company-checked. `deleteDraftPurchaseRequisition`
+  and editing an existing draft check only the role's capability, so
+  they work on another company's draft given its ID. An edit re-checks
+  the NEW header's company, so it can also move a draft to a company
+  the editor belongs to. `getActiveRequisitionCategories` needs only a
+  signed-in user, not module access (on purpose, per its comment).
+  All as in GAS.
+- Purchase Requisition, numbering: every submit draws a fresh PR number,
+  including a resubmission after rejection, so the rejected attempt's
+  number is skipped. There's the same no-lock race as Job Order Request
+  (two simultaneous submits can share a number). An empty draft saves
+  but can't be submitted. There's no value field and no stock or GL
+  effect, as designed in GAS.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -424,7 +438,7 @@ primitive's REST semantics directly.
 | JOBORDERREQUEST | ✅ | **not yet** |
 | PRODUCTION | ✅ | **not yet** |
 | PRODCONSUMPTION | ✅ | **not yet** |
-| PURCHASEREQUISITION | — | — |
+| PURCHASEREQUISITION | ✅ | **not yet** |
 | INVENTORYPURCHASEREQUISITION | — | — |
 | PURCHASEORDER | — | — |
 | SALESORDER | — | — |
@@ -435,12 +449,12 @@ primitive's REST semantics directly.
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** PURCHASEREQUISITION
+**Next module to port:** INVENTORYPURCHASEREQUISITION
 
-**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM, JOBORDERREQUEST, PRODUCTION, PRODCONSUMPTION) — deploy these 33 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (PHYSICALCOUNT, BOM, JOBORDERREQUEST, PRODUCTION, PRODCONSUMPTION, PURCHASEREQUISITION) — deploy these 41 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment acceptJobOrderLine acceptJobOrderLineStop cancelDirectJobOrderLine deactivateBom decidePhysicalCountApproval decideProductionApproval deleteDraftJobOrderBatch deletePhysicalCountDraft deleteProductionDraft getBoms getEligibleJobOrderBatchesForProduction getItemCostForProduction getJobOrderBatches getJobOrderLinesFlat getPhysicalCountEntries getProductionConsumptionReport getProductionEntries getSalesOrderLineShortfallOptions postPhysicalCount postProduction reactivateBom requestJobOrderLineAmendment requestJobOrderLineStop reversePhysicalCount reverseProduction reviseAndResubmitJobOrderLine saveBom saveDraftJobOrderBatch savePhysicalCountDraft saveProductionDraft submitJobOrderBatch withdrawJobOrderLine
+getModuleFragment acceptJobOrderLine acceptJobOrderLineStop cancelDirectJobOrderLine cancelPurchaseRequisition closePurchaseRequisition deactivateBom decidePhysicalCountApproval decideProductionApproval decidePurchaseRequisitionApproval deleteDraftJobOrderBatch deleteDraftPurchaseRequisition deletePhysicalCountDraft deleteProductionDraft getActiveRequisitionCategories getBoms getEligibleJobOrderBatchesForProduction getItemCostForProduction getJobOrderBatches getJobOrderLinesFlat getPhysicalCountEntries getProductionConsumptionReport getProductionEntries getPurchaseRequisitionEntries getSalesOrderLineShortfallOptions postPhysicalCount postProduction reactivateBom requestJobOrderLineAmendment requestJobOrderLineStop reversePhysicalCount reverseProduction reviseAndResubmitJobOrderLine saveBom saveDraftJobOrderBatch saveDraftPurchaseRequisition savePhysicalCountDraft saveProductionDraft submitJobOrderBatch submitPurchaseRequisition withdrawJobOrderLine
 ```
 <!-- PORT-STATUS:end -->
 
