@@ -1,0 +1,293 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Backend Application & Development Layer</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-sitemap text-blue-500"></i> Module Tree & Navigation Management</h2></div>
+    <button id="tree-add-root-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Top-Level Item</button>
+  </div>
+
+  <p class="text-xs text-slate-500">Drag an item and drop it onto another item — dropping on the top half inserts it before that item, the bottom half inserts it after (this also moves it to that item's parent, if different). This list controls what appears in the main navigation tree for each role.</p>
+
+  <div id="tree-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="tree-list" class="bg-slate-800 border border-slate-700 rounded-xl divide-y divide-slate-800 overflow-hidden"></div>
+</div>
+
+<div id="tree-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="tree-modal-title" class="text-lg font-bold">Add Item</h3><button id="tree-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <form id="tree-form" class="space-y-4">
+      <input type="hidden" id="tree-form-id">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Item Text</label><input type="text" id="tree-form-text" required placeholder="e.g. Chart of Accounts (COA) Management" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Parent Item</label><select id="tree-form-parent" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None (top level)</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Linked Module <span class="text-slate-500">(optional)</span></label><select id="tree-form-module" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None — reference item only</option></select></div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-2">Visible To</label>
+        <div id="tree-form-roles" class="grid grid-cols-2 gap-2"></div>
+      </div>
+      <div id="tree-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
+        <button type="button" id="tree-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
+        <button type="submit" id="tree-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Item</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let nodes = [];
+  let roles = [];
+  let moduleRegistry = [];
+  let dragNodeId = null;
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  function childMap() {
+    const map = {};
+    nodes.forEach(n => {
+      const parent = n.ParentID || '';
+      if (!map[parent]) map[parent] = [];
+      map[parent].push(n);
+    });
+    Object.keys(map).forEach(p => map[p].sort((a, b) => (a.Order || 0) - (b.Order || 0)));
+    return map;
+  }
+
+  function fetchAll() {
+    google.script.run
+      .withSuccessHandler(result => { nodes = result || []; renderTree(); })
+      .withFailureHandler(err => showError(err.message || 'Unable to load the module tree.'))
+      .getTreeNodes(token);
+  }
+
+  function showError(msg) {
+    const box = document.getElementById('tree-error');
+    box.textContent = msg;
+    box.classList.remove('hidden');
+  }
+
+  function renderTree() {
+    const container = document.getElementById('tree-list');
+    container.innerHTML = '';
+    const map = childMap();
+
+    function renderLevel(parentId, depth) {
+      (map[parentId] || []).forEach(node => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 py-2.5 px-4 hover:bg-slate-800/60';
+        row.setAttribute('draggable', 'true');
+        row.setAttribute('data-node-id', node.NodeID);
+        row.style.paddingLeft = (16 + depth * 24) + 'px';
+
+        const moduleBadge = node.ModuleID
+          ? `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">${escapeHtml(node.ModuleID)}</span>`
+          : '';
+        const roleBadge = `<span class="text-[10px] text-slate-500">${(node.AllowedRoles || []).length} role(s)</span>`;
+
+        row.innerHTML = `
+          <i class="fa-solid fa-grip-vertical text-slate-600 cursor-grab text-xs"></i>
+          <span class="flex-1 text-sm text-slate-200">${escapeHtml(node.Text)}</span>
+          ${moduleBadge}
+          ${roleBadge}
+          <button class="tree-add-child text-slate-500 hover:text-blue-400 p-1" title="Add sub-item"><i class="fa-solid fa-plus"></i></button>
+          <button class="tree-edit text-slate-500 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+          <button class="tree-delete text-slate-500 hover:text-red-400 p-1" title="Delete"><i class="fa-solid fa-trash"></i></button>`;
+
+        row.querySelector('.tree-add-child').addEventListener('click', () => openModal(null, node.NodeID));
+        row.querySelector('.tree-edit').addEventListener('click', () => openModal(node.NodeID));
+        row.querySelector('.tree-delete').addEventListener('click', () => deleteNode(node.NodeID));
+
+        row.addEventListener('dragstart', e => { dragNodeId = node.NodeID; e.dataTransfer.effectAllowed = 'move'; });
+        row.addEventListener('dragover', e => {
+          e.preventDefault();
+          const rect = row.getBoundingClientRect();
+          const upperHalf = (e.clientY - rect.top) < rect.height / 2;
+          row.style.borderTop = upperHalf ? '2px solid #3b82f6' : '';
+          row.style.borderBottom = !upperHalf ? '2px solid #3b82f6' : '';
+        });
+        row.addEventListener('dragleave', () => { row.style.borderTop = ''; row.style.borderBottom = ''; });
+        row.addEventListener('drop', e => {
+          e.preventDefault();
+          row.style.borderTop = ''; row.style.borderBottom = '';
+          if (!dragNodeId || dragNodeId === node.NodeID) return;
+          const rect = row.getBoundingClientRect();
+          const position = (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after';
+          moveNode(dragNodeId, node.NodeID, position);
+        });
+
+        container.appendChild(row);
+        renderLevel(node.NodeID, depth + 1);
+      });
+    }
+
+    renderLevel('', 0);
+    if (!nodes.length) container.innerHTML = '<div class="p-6 text-center text-slate-500 text-sm">No items yet.</div>';
+  }
+
+  function moveNode(draggedId, targetId, position) {
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) fetchAll(); else showError(result.error || 'Unable to move item.'); })
+      .withFailureHandler(err => showError(err.message || 'Unable to move item.'))
+      .moveTreeNode(token, draggedId, targetId, position);
+  }
+
+  function deleteNode(nodeId) {
+    if (!confirm('Delete this item? Items with sub-items must be emptied first.')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) fetchAll(); else showError(result.error || 'Unable to delete item.'); })
+      .withFailureHandler(err => showError(err.message || 'Unable to delete item.'))
+      .deleteTreeNode(token, nodeId);
+  }
+
+  // ---------- MODAL ----------
+
+  function populateParentOptions(excludeId) {
+    const select = document.getElementById('tree-form-parent');
+    select.innerHTML = '<option value="">None (top level)</option>';
+    const map = childMap();
+
+    // Exclude the node being edited and all of its descendants — you
+    // can't move an item under itself or under its own child.
+    const excluded = new Set();
+    function markDescendants(id) {
+      excluded.add(id);
+      (map[id] || []).forEach(child => markDescendants(child.NodeID));
+    }
+    if (excludeId) markDescendants(excludeId);
+
+    function walk(parentId, depth) {
+      (map[parentId] || []).forEach(node => {
+        if (!excluded.has(node.NodeID)) {
+          const opt = document.createElement('option');
+          opt.value = node.NodeID;
+          opt.textContent = '—'.repeat(depth) + ' ' + node.Text;
+          select.appendChild(opt);
+        }
+        walk(node.NodeID, depth + 1);
+      });
+    }
+    walk('', 0);
+  }
+
+  function populateModuleOptions() {
+    const select = document.getElementById('tree-form-module');
+    select.innerHTML = '<option value="">None — reference item only</option>';
+    moduleRegistry.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.label;
+      select.appendChild(opt);
+    });
+  }
+
+  function populateRoleCheckboxes(selectedRoleIds) {
+    const container = document.getElementById('tree-form-roles');
+    container.innerHTML = '';
+    roles.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(r => {
+      const label = document.createElement('label');
+      label.className = 'flex items-center gap-2 text-xs text-slate-300 bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3';
+      const checked = (selectedRoleIds || []).includes(r.RoleID) ? 'checked' : '';
+      label.innerHTML = `<input type="checkbox" value="${r.RoleID}" ${checked} class="w-4 h-4"> ${escapeHtml(r.Name)}`;
+      container.appendChild(label);
+    });
+  }
+
+  function openModal(nodeId, presetParentId) {
+    // Re-fetch roles + module registry fresh every time the modal opens,
+    // and wait for both before rendering. Relying on the copies loaded at
+    // initModule() time was the bug: if this was clicked before that
+    // background fetch finished, the module dropdown would still be empty
+    // and a save would silently record ModuleID: "" with no error.
+    let rolesReady = false;
+    let modulesReady = false;
+
+    function tryShow() {
+      if (!rolesReady || !modulesReady) return;
+      showModalWithData(nodeId, presetParentId);
+    }
+
+    google.script.run
+      .withSuccessHandler(r => { roles = r || []; rolesReady = true; tryShow(); })
+      .withFailureHandler(err => showError(err.message || 'Unable to load roles.'))
+      .getRoles(token);
+
+    google.script.run
+      .withSuccessHandler(r => { moduleRegistry = r || []; modulesReady = true; tryShow(); })
+      .withFailureHandler(err => showError(err.message || 'Unable to load module list.'))
+      .getModuleRegistry(token);
+  }
+
+  function showModalWithData(nodeId, presetParentId) {
+    const form = document.getElementById('tree-form');
+    form.reset();
+    document.getElementById('tree-form-error').classList.add('hidden');
+    populateParentOptions(nodeId || null);
+    populateModuleOptions();
+
+    if (nodeId) {
+      const node = nodes.find(n => n.NodeID === nodeId);
+      if (!node) return;
+      document.getElementById('tree-modal-title').textContent = 'Edit Item';
+      document.getElementById('tree-form-id').value = node.NodeID;
+      document.getElementById('tree-form-text').value = node.Text;
+      document.getElementById('tree-form-parent').value = node.ParentID || '';
+      document.getElementById('tree-form-module').value = node.ModuleID || '';
+      populateRoleCheckboxes(node.AllowedRoles);
+    } else {
+      document.getElementById('tree-modal-title').textContent = 'Add Item';
+      document.getElementById('tree-form-id').value = '';
+      document.getElementById('tree-form-parent').value = presetParentId || '';
+      populateRoleCheckboxes([]);
+    }
+    document.getElementById('tree-modal').classList.remove('hidden');
+  }
+
+  function closeModal() { document.getElementById('tree-modal').classList.add('hidden'); }
+
+  function saveNode(event) {
+    event.preventDefault();
+    const allowedRoles = Array.from(document.querySelectorAll('#tree-form-roles input:checked')).map(cb => cb.value);
+    const data = {
+      NodeID: document.getElementById('tree-form-id').value,
+      Text: document.getElementById('tree-form-text').value.trim(),
+      ParentID: document.getElementById('tree-form-parent').value,
+      ModuleID: document.getElementById('tree-form-module').value,
+      AllowedRoles: allowedRoles
+    };
+    const error = document.getElementById('tree-form-error');
+    const btn = document.getElementById('tree-save-btn');
+    error.classList.add('hidden');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Item';
+        if (result.success) { closeModal(); fetchAll(); }
+        else { error.textContent = result.error || 'Unable to save item.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Item';
+        error.textContent = err.message || 'Unable to save item.'; error.classList.remove('hidden');
+      })
+      .saveTreeNode(token, data);
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+    document.getElementById('tree-add-root-btn').addEventListener('click', () => openModal(null, ''));
+    document.getElementById('tree-modal-close').addEventListener('click', closeModal);
+    document.getElementById('tree-modal-cancel').addEventListener('click', closeModal);
+    document.getElementById('tree-form').addEventListener('submit', saveNode);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sitemap"></i> Module Tree & Navigation Management';
+
+    google.script.run.withSuccessHandler(r => { roles = r || []; }).withFailureHandler(err => showError(err.message)).getRoles(token);
+    google.script.run.withSuccessHandler(r => { moduleRegistry = r || []; }).withFailureHandler(err => showError(err.message)).getModuleRegistry(token);
+    fetchAll();
+  };
+})();
+</script>

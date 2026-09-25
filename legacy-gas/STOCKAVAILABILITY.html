@@ -1,0 +1,140 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Sales</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-boxes-stacked text-blue-500"></i> Stock Availability</h2></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <select id="sa-company-select" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">Select a company...</option></select>
+    <input type="text" id="sa-search-input" placeholder="Search item code or name..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="sa-warehouse-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Warehouses</option></select>
+    <label class="flex items-center gap-2 text-sm text-slate-300 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 cursor-pointer">
+      <input type="checkbox" id="sa-negative-only"> Negative free stock only
+    </label>
+  </div>
+
+  <div id="sa-select-company-note" class="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company above to see stock availability.</div>
+
+  <div id="sa-table-wrap" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Item Code</th>
+            <th class="py-3 px-4">Item Name</th>
+            <th class="py-3 px-4">Warehouse</th>
+            <th class="py-3 px-4 text-right">On-Hand</th>
+            <th class="py-3 px-4 text-right">Reserved</th>
+            <th class="py-3 px-4 text-right">Free</th>
+          </tr>
+        </thead>
+        <tbody id="sa-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let companies = [];
+  let orgUnits = [];
+  let rows = [];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function loadReferenceData() {
+    google.script.run
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const sel = document.getElementById('sa-company-select');
+        sel.innerHTML = '<option value="">Select a company...</option>';
+        companies.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.CompanyID; opt.textContent = c.LegalName;
+          sel.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies(token);
+
+    google.script.run
+      .withSuccessHandler(result => { orgUnits = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits(token);
+  }
+
+  function populateWarehouseFilter() {
+    const sel = document.getElementById('sa-warehouse-filter');
+    const warehouseIds = new Set(rows.map(r => r.WarehouseID));
+    sel.innerHTML = '<option value="">All Warehouses</option>';
+    orgUnits.filter(u => u.Type === 'Warehouse' && warehouseIds.has(u.UnitID))
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.UnitID; opt.textContent = u.Code + ' — ' + u.Name;
+        sel.appendChild(opt);
+      });
+  }
+
+  function loadAvailability() {
+    const companyId = document.getElementById('sa-company-select').value;
+    document.getElementById('sa-select-company-note').classList.toggle('hidden', Boolean(companyId));
+    document.getElementById('sa-table-wrap').classList.toggle('hidden', !companyId);
+    if (!companyId) { rows = []; return; }
+    google.script.run
+      .withSuccessHandler(result => { rows = result || []; populateWarehouseFilter(); renderTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load stock availability.'))
+      .getStockAvailabilityList(token, companyId);
+  }
+
+  function renderTable() {
+    const query = document.getElementById('sa-search-input').value.trim().toLowerCase();
+    const warehouseFilter = document.getElementById('sa-warehouse-filter').value;
+    const negativeOnly = document.getElementById('sa-negative-only').checked;
+
+    const filtered = rows.filter(r => {
+      if (warehouseFilter && r.WarehouseID !== warehouseFilter) return false;
+      if (negativeOnly && r.Available >= 0) return false;
+      if (query && !((r.ItemCode || '').toLowerCase().includes(query) || (r.ItemName || '').toLowerCase().includes(query))) return false;
+      return true;
+    });
+
+    const tbody = document.getElementById('sa-table-body');
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">No stock activity found.</td></tr>'; return; }
+    filtered.forEach(r => {
+      const row = document.createElement('tr');
+      const availableClass = r.Available < 0 ? 'text-red-400 font-bold' : 'text-emerald-400';
+      row.innerHTML = `
+        <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(r.ItemCode)}</td>
+        <td class="py-2 px-4 text-slate-200">${escapeHtml(r.ItemName)}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(r.WarehouseCode)} — ${escapeHtml(r.WarehouseName)}</td>
+        <td class="py-2 px-4 text-right font-mono">${formatMoney(r.OnHand)}</td>
+        <td class="py-2 px-4 text-right font-mono text-amber-400">${formatMoney(r.Reserved)}</td>
+        <td class="py-2 px-4 text-right font-mono ${availableClass}">${formatMoney(r.Available)}</td>`;
+      tbody.appendChild(row);
+    });
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    document.getElementById('sa-company-select').addEventListener('change', loadAvailability);
+    document.getElementById('sa-search-input').addEventListener('input', renderTable);
+    document.getElementById('sa-warehouse-filter').addEventListener('change', renderTable);
+    document.getElementById('sa-negative-only').addEventListener('change', renderTable);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-boxes-stacked"></i> Stock Availability';
+    loadReferenceData();
+  };
+})();
+</script>

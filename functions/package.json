@@ -2,7 +2,7 @@
   "name": "erp-functions",
   "description": "Cloud Functions backend for the ERP system — porting Code.gs off Apps Script.",
   "engines": {
-    "node": "20"
+    "node": "24"
   },
   "main": "index.js",
   "scripts": {

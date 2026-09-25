@@ -1,0 +1,161 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Enterprise Structure & Organizational Master Data</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-coins text-blue-500"></i> Currency Configuration</h2></div>
+    <button id="cc-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Currency</button>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-3 px-4">Code</th><th class="py-3 px-4">Name</th><th class="py-3 px-4">Symbol</th><th class="py-3 px-4">Default</th><th class="py-3 px-4">Status</th><th class="py-3 px-4 text-right">Actions</th>
+        </tr></thead>
+        <tbody id="cc-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="cc-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-5">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="cc-modal-title" class="text-lg font-bold">Add Currency</h3><button id="cc-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <form id="cc-form" class="space-y-4">
+      <input type="hidden" id="cc-form-id">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Code (ISO 4217)</label><input type="text" id="cc-form-code" required maxlength="3" placeholder="e.g. AED" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Name</label><input type="text" id="cc-form-name" required placeholder="e.g. UAE Dirham" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Symbol <span class="text-slate-500">(optional)</span></label><input type="text" id="cc-form-symbol" placeholder="e.g. د.إ" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div class="flex items-center gap-2 bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3">
+        <input type="checkbox" id="cc-form-default" class="w-4 h-4">
+        <label for="cc-form-default" class="text-xs text-slate-300">Set as default (functional) currency</label>
+      </div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="cc-form-status" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+      <div id="cc-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
+        <button type="button" id="cc-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
+        <button type="submit" id="cc-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Currency</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canWrite = false;
+  let currencies = [];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  function fetchAndRender() {
+    google.script.run
+      .withSuccessHandler(result => { currencies = result || []; renderTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load currencies.'))
+      .getCurrencies(token);
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('cc-table-body');
+    tbody.innerHTML = '';
+    if (!currencies.length) { tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">No currencies configured yet.</td></tr>'; return; }
+
+    currencies.sort((a, b) => a.Code.localeCompare(b.Code)).forEach(c => {
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const actions = canWrite
+        ? `<button class="cc-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+           <button class="cc-toggle text-slate-400 ${c.Status === 'Active' ? 'hover:text-red-400' : 'hover:text-emerald-400'} p-1" title="${c.Status === 'Active' ? 'Deactivate' : 'Reactivate'}"><i class="fa-solid ${c.Status === 'Active' ? 'fa-ban' : 'fa-rotate-left'}"></i></button>`
+        : '';
+      row.innerHTML = `
+        <td class="py-3 px-4 font-mono text-xs text-slate-200">${escapeHtml(c.Code)}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(c.Name)}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(c.Symbol || '—')}</td>
+        <td class="py-3 px-4 text-xs">${c.IsDefault ? '<span class="text-emerald-400"><i class="fa-solid fa-star"></i> Default</span>' : ''}</td>
+        <td class="py-3 px-4 text-xs">${c.Status === 'Active' ? '<span class="text-emerald-400">Active</span>' : '<span class="text-slate-500">Inactive</span>'}</td>
+        <td class="py-3 px-4 text-right">${actions}</td>`;
+      if (canWrite) {
+        row.querySelector('.cc-edit').addEventListener('click', () => openModal(c.CurrencyID));
+        row.querySelector('.cc-toggle').addEventListener('click', () => toggleStatus(c));
+      }
+      tbody.appendChild(row);
+    });
+  }
+
+  function openModal(currencyId) {
+    const form = document.getElementById('cc-form');
+    form.reset();
+    document.getElementById('cc-form-error').classList.add('hidden');
+    if (currencyId) {
+      const c = currencies.find(item => item.CurrencyID === currencyId);
+      if (!c) return;
+      document.getElementById('cc-modal-title').textContent = 'Edit Currency';
+      document.getElementById('cc-form-id').value = c.CurrencyID;
+      document.getElementById('cc-form-code').value = c.Code;
+      document.getElementById('cc-form-name').value = c.Name;
+      document.getElementById('cc-form-symbol').value = c.Symbol || '';
+      document.getElementById('cc-form-default').checked = c.IsDefault === true;
+      document.getElementById('cc-form-status').value = c.Status;
+    } else {
+      document.getElementById('cc-modal-title').textContent = 'Add Currency';
+      document.getElementById('cc-form-id').value = '';
+    }
+    document.getElementById('cc-modal').classList.remove('hidden');
+  }
+
+  function closeModal() { document.getElementById('cc-modal').classList.add('hidden'); }
+
+  function saveCurrency(event) {
+    event.preventDefault();
+    const data = {
+      CurrencyID: document.getElementById('cc-form-id').value,
+      Code: document.getElementById('cc-form-code').value.trim(),
+      Name: document.getElementById('cc-form-name').value.trim(),
+      Symbol: document.getElementById('cc-form-symbol').value.trim(),
+      IsDefault: document.getElementById('cc-form-default').checked,
+      Status: document.getElementById('cc-form-status').value
+    };
+    const error = document.getElementById('cc-form-error');
+    const btn = document.getElementById('cc-save-btn');
+    error.classList.add('hidden');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Currency';
+        if (result.success) { closeModal(); fetchAndRender(); }
+        else { error.textContent = result.error || 'Unable to save currency.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Currency';
+        error.textContent = err.message || 'Unable to save currency.'; error.classList.remove('hidden');
+      })
+      .saveCurrency(token, data);
+  }
+
+  function toggleStatus(currency) {
+    const deactivating = currency.Status === 'Active';
+    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + currency.Code + '?')) return;
+    const call = deactivating ? 'deactivateCurrency' : 'reactivateCurrency';
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update currency.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to update currency.'))
+      [call](token, currency.CurrencyID);
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken, writeAllowed) {
+    token = idToken;
+    canWrite = Boolean(writeAllowed);
+
+    document.getElementById('cc-add-btn').classList.toggle('hidden', !canWrite);
+    if (canWrite) document.getElementById('cc-add-btn').addEventListener('click', () => openModal());
+    document.getElementById('cc-modal-close').addEventListener('click', closeModal);
+    document.getElementById('cc-modal-cancel').addEventListener('click', closeModal);
+    document.getElementById('cc-form').addEventListener('submit', saveCurrency);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-coins"></i> Currency Configuration';
+    fetchAndRender();
+  };
+})();
+</script>

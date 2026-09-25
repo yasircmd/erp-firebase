@@ -1,0 +1,225 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Procurement</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-sliders text-blue-500"></i> Procurement Setup</h2></div>
+  </div>
+
+  <div id="ps-approval-moved-note" class="text-xs text-slate-500 bg-slate-800/60 border border-slate-700 rounded-lg py-2 px-3">Approval levels for Purchase Order (and other gated modules) now live under <span class="text-slate-300 font-medium">Approval Configuration</span>, not here — a single admin-controlled screen covering every module that needs approval, not just Procurement.</div>
+
+  <div class="flex items-center justify-between mb-4">
+    <p class="text-xs text-slate-500 max-w-2xl">A curated, GL-mapped list so requesters pick a friendly name (e.g. "Printing &amp; Stationery") instead of an account code. Fixed Asset categories may only map to Asset-type accounts; Direct Expense categories only to Expense-type accounts.</p>
+    <button id="ps-cat-add-btn" class="hidden shrink-0 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Category</button>
+  </div>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-3 px-4">Category</th><th class="py-3 px-4">Type</th><th class="py-3 px-4">GL Account</th><th class="py-3 px-4">Status</th><th class="py-3 px-4 text-right">Actions</th>
+        </tr></thead>
+        <tbody id="ps-cat-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="ps-cat-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="ps-cat-modal-title" class="text-lg font-bold">Add Category</h3><button id="ps-cat-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <form id="ps-cat-form" class="space-y-4">
+      <input type="hidden" id="ps-cat-form-id">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Category Name</label><input type="text" id="ps-cat-form-name" required placeholder="e.g. Printing &amp; Stationery" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Type</label>
+        <select id="ps-cat-form-type" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+          <option value="">Select...</option>
+          <option value="FixedAsset">Fixed Asset</option>
+          <option value="DirectExpense">Direct Expense</option>
+        </select>
+        <p id="ps-cat-type-locked-note" class="hidden text-xs text-amber-400 mt-1">Type can't be changed after a category is created — it determines which account types are offered below.</p>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Company <span class="text-slate-500">(optional — restricts this category to one company)</span></label>
+        <select id="ps-cat-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Shared across all companies</option></select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">GL Account</label>
+        <select id="ps-cat-form-account" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a Type first...</option></select>
+      </div>
+      <div id="ps-cat-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
+        <button type="button" id="ps-cat-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
+        <button type="submit" id="ps-cat-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Category</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canWrite = false;
+  let categories = [];
+  let companies = [];
+  let accounts = [];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  const TYPE_LABELS = { FixedAsset: 'Fixed Asset', DirectExpense: 'Direct Expense' };
+  const TYPE_REQUIRED_ACCOUNT_TYPE = { FixedAsset: 'Asset', DirectExpense: 'Expense' };
+
+  function accountById(id) { return accounts.find(a => a.AccountID === id); }
+  function categoryById(id) { return categories.find(c => c.CategoryID === id); }
+
+  function fetchCategories() {
+    google.script.run
+      .withSuccessHandler(result => { categories = result || []; renderCategoryTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load requisition categories.'))
+      .getRequisitionCategories(token);
+  }
+
+  function loadReferenceData() {
+    google.script.run
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const select = document.getElementById('ps-cat-form-company');
+        select.innerHTML = '<option value="">Shared across all companies</option>';
+        companies.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.CompanyID; opt.textContent = c.LegalName;
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies(token);
+
+    google.script.run
+      .withSuccessHandler(result => { accounts = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getChartOfAccounts(token);
+  }
+
+  function populateAccountOptionsForType(type, selectedId) {
+    const select = document.getElementById('ps-cat-form-account');
+    const requiredType = TYPE_REQUIRED_ACCOUNT_TYPE[type];
+    if (!requiredType) { select.innerHTML = '<option value="">Select a Type first...</option>'; return; }
+    const eligible = accounts.filter(a => a.Status === 'Active' && a.IsPostable === true && a.AccountType === requiredType)
+      .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
+    select.innerHTML = '<option value="">Select...</option>';
+    eligible.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.AccountID; opt.textContent = a.AccountCode + ' — ' + a.AccountName;
+      select.appendChild(opt);
+    });
+    if (selectedId) select.value = selectedId;
+  }
+
+  function renderCategoryTable() {
+    const tbody = document.getElementById('ps-cat-table-body');
+    tbody.innerHTML = '';
+    if (!categories.length) { tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500">No requisition categories yet.</td></tr>'; return; }
+
+    categories.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(c => {
+      const account = accountById(c.GLAccountID);
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const actions = canWrite
+        ? `<button data-id="${c.CategoryID}" class="ps-cat-edit-btn text-blue-400 hover:text-blue-300 text-xs mr-3">Edit</button><button data-id="${c.CategoryID}" class="ps-cat-toggle-btn text-xs ${c.Status === 'Active' ? 'text-red-400 hover:text-red-300' : 'text-emerald-400 hover:text-emerald-300'}">${c.Status === 'Active' ? 'Deactivate' : 'Reactivate'}</button>`
+        : '';
+      row.innerHTML = `
+        <td class="py-2 px-4 text-slate-200">${escapeHtml(c.Name)}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(TYPE_LABELS[c.Type] || c.Type)}</td>
+        <td class="py-2 px-4 text-xs font-mono text-slate-400">${account ? escapeHtml(account.AccountCode + ' — ' + account.AccountName) : '—'}</td>
+        <td class="py-2 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${c.Status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${escapeHtml(c.Status)}</span></td>
+        <td class="py-2 px-4 text-right">${actions}</td>`;
+      tbody.appendChild(row);
+    });
+
+    tbody.querySelectorAll('.ps-cat-edit-btn').forEach(btn => btn.addEventListener('click', () => openCatModal(btn.getAttribute('data-id'))));
+    tbody.querySelectorAll('.ps-cat-toggle-btn').forEach(btn => btn.addEventListener('click', () => toggleCategoryStatus(categoryById(btn.getAttribute('data-id')))));
+  }
+
+  function openCatModal(categoryId) {
+    const form = document.getElementById('ps-cat-form');
+    form.reset();
+    document.getElementById('ps-cat-form-error').classList.add('hidden');
+    const typeSelect = document.getElementById('ps-cat-form-type');
+
+    if (categoryId) {
+      const c = categoryById(categoryId);
+      if (!c) return;
+      document.getElementById('ps-cat-modal-title').textContent = 'Edit Category';
+      document.getElementById('ps-cat-form-id').value = c.CategoryID;
+      document.getElementById('ps-cat-form-name').value = c.Name;
+      typeSelect.value = c.Type;
+      typeSelect.disabled = true;
+      document.getElementById('ps-cat-type-locked-note').classList.remove('hidden');
+      document.getElementById('ps-cat-form-company').value = c.CompanyID || '';
+      populateAccountOptionsForType(c.Type, c.GLAccountID);
+    } else {
+      document.getElementById('ps-cat-modal-title').textContent = 'Add Category';
+      document.getElementById('ps-cat-form-id').value = '';
+      typeSelect.disabled = false;
+      document.getElementById('ps-cat-type-locked-note').classList.add('hidden');
+      populateAccountOptionsForType('', '');
+    }
+    document.getElementById('ps-cat-modal').classList.remove('hidden');
+  }
+
+  function closeCatModal() { document.getElementById('ps-cat-modal').classList.add('hidden'); }
+
+  function saveCategory(event) {
+    event.preventDefault();
+    const data = {
+      CategoryID: document.getElementById('ps-cat-form-id').value,
+      Name: document.getElementById('ps-cat-form-name').value.trim(),
+      Type: document.getElementById('ps-cat-form-type').value,
+      CompanyID: document.getElementById('ps-cat-form-company').value,
+      GLAccountID: document.getElementById('ps-cat-form-account').value
+    };
+    const error = document.getElementById('ps-cat-form-error');
+    const btn = document.getElementById('ps-cat-save-btn');
+    error.classList.add('hidden');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Category';
+        if (result.success) { closeCatModal(); fetchCategories(); }
+        else { error.textContent = result.error || 'Unable to save category.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Category';
+        error.textContent = err.message || 'Unable to save category.'; error.classList.remove('hidden');
+      })
+      .saveRequisitionCategory(token, data);
+  }
+
+  function toggleCategoryStatus(category) {
+    const deactivating = category.Status === 'Active';
+    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + category.Name + '?')) return;
+    const call = deactivating ? 'deactivateRequisitionCategory' : 'reactivateRequisitionCategory';
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) fetchCategories(); else alert(result.error || 'Unable to update category.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to update category.'))
+      [call](token, category.CategoryID);
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken, writeAllowed) {
+    token = idToken;
+    canWrite = Boolean(writeAllowed);
+
+    document.getElementById('ps-cat-add-btn').classList.toggle('hidden', !canWrite);
+    if (canWrite) document.getElementById('ps-cat-add-btn').addEventListener('click', () => openCatModal());
+    document.getElementById('ps-cat-modal-close').addEventListener('click', closeCatModal);
+    document.getElementById('ps-cat-modal-cancel').addEventListener('click', closeCatModal);
+    document.getElementById('ps-cat-form').addEventListener('submit', saveCategory);
+    document.getElementById('ps-cat-form-type').addEventListener('change', e => populateAccountOptionsForType(e.target.value, ''));
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> Procurement Setup';
+    fetchCategories();
+    loadReferenceData();
+  };
+})();
+</script>

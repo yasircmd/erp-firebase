@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { HttpsError } = require('firebase-functions/v2/https');
+const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry } = require('./glWriting');
@@ -9,6 +10,12 @@ const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprova
 const { withGlobalLock } = require('./lock');
 
 const onCallOptions = { region: 'us-central1' };
+// Successful save/post/decide/reverse results carry success: true, same as
+// the original's return contract — the module's own screen checks
+// result.success on every one of these and would otherwise report a
+// genuinely successful commit as a failure. Errors still throw (the
+// screen's .withFailureHandler shows err.message), rather than the
+// original's { success: false, error } — both paths end up displayed.
 
 async function requireDraftAccess(moduleId, role) {
   const can = await moduleHasCapability(moduleId, 'draft', role);
@@ -63,7 +70,7 @@ async function rollbackPOLineReceivedQuantity(poId, poLineId, reversedQty) {
 }
 
 // Ported from getEligibleApprovedPOsForGRN.
-exports.getEligibleApprovedPOsForGRN = onCall(onCallOptions, async (request) => {
+exports.getEligibleApprovedPOsForGRN = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const canAccess = await moduleHasCapability('GRN', 'access', user.profile.role);
   if (!canAccess) throw new HttpsError('permission-denied', 'You do not have access to Goods Receipt.');
@@ -85,7 +92,7 @@ exports.getEligibleApprovedPOsForGRN = onCall(onCallOptions, async (request) => 
 });
 
 // Ported from saveGrnDraft.
-exports.saveGrnDraft = onCall(onCallOptions, async (request) => {
+exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireDraftAccess('GRN', user.profile.role);
 
@@ -226,16 +233,16 @@ exports.saveGrnDraft = onCall(onCallOptions, async (request) => {
     if (!existing) throw new HttpsError('not-found', 'GRN not found.');
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected GRNs can be edited.');
     await rtdb.ref('stock/transactions/' + grnId).update(fields);
-    return { grnId: grnId };
+    return { success: true, grnId: grnId };
   }
 
   const newId = 'GRND-' + randomUUID().split('-')[0].toUpperCase();
   await rtdb.ref('stock/transactions/' + newId).set(Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
-  return { grnId: newId };
+  return { success: true, grnId: newId };
 });
 
 // Ported from postGrn.
-exports.postGrn = onCall(onCallOptions, async (request) => {
+exports.postGrn = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const grnId = String(request.data && request.data.grnId || '').trim();
 
@@ -269,11 +276,11 @@ exports.postGrn = onCall(onCallOptions, async (request) => {
         Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
         RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
       });
-      return { status: 'PendingApproval' };
+      return { success: true, status: 'PendingApproval' };
     }
 
     const result = await commitGrnPosting(user, existing, grnId);
-    return { grnId: grnId, grnNumber: result.grnNumber, status: 'Posted' };
+    return { success: true, grnId: grnId, grnNumber: result.grnNumber, status: 'Posted' };
   });
 });
 
@@ -329,7 +336,7 @@ async function commitGrnPosting(user, existing, grnId) {
 }
 
 // Ported from decideGrnApproval.
-exports.decideGrnApproval = onCall(onCallOptions, async (request) => {
+exports.decideGrnApproval = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requirePostAccess('GRN', user.profile.role);
   const data = request.data || {};
@@ -358,11 +365,11 @@ exports.decideGrnApproval = onCall(onCallOptions, async (request) => {
       UpdatedAt: now, UpdatedBy: user.profile.username || user.uid
     });
   }
-  return { status: result.status, selfApproved: result.selfApproved };
+  return { success: true, status: result.status, selfApproved: result.selfApproved };
 });
 
 // Ported from deleteGrnDraft.
-exports.deleteGrnDraft = onCall(onCallOptions, async (request) => {
+exports.deleteGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const grnId = String(request.data && request.data.grnId || '').trim();
   const existingSnap = await rtdb.ref('stock/transactions/' + grnId).get();
@@ -376,7 +383,7 @@ exports.deleteGrnDraft = onCall(onCallOptions, async (request) => {
 });
 
 // Ported from getGrnEntries.
-exports.getGrnEntries = onCall(onCallOptions, async (request) => {
+exports.getGrnEntries = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const canAccess = await moduleHasCapability('GRN', 'access', user.profile.role);
   if (!canAccess) throw new HttpsError('permission-denied', 'You do not have access to Goods Receipt.');
@@ -401,7 +408,7 @@ exports.getGrnEntries = onCall(onCallOptions, async (request) => {
 // reversal is rejected rather than silently pushing a ledger negative
 // — no special-case logic needed, it falls out of the same validation
 // every outbound line already gets.
-exports.reverseGrn = onCall(onCallOptions, async (request) => {
+exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const data = request.data || {};
   const grnId = String(data.grnId || '').trim();
@@ -414,6 +421,14 @@ exports.reverseGrn = onCall(onCallOptions, async (request) => {
     await requirePostAccess('GRN', user.profile.role);
     if (existing.Status !== 'Posted') throw new HttpsError('failed-precondition', 'Only posted GRNs can be reversed.');
     if (existing.ReversedByGRN) throw new HttpsError('failed-precondition', 'This GRN has already been reversed.');
+    // PORT FIX (not in Code.gs): a reversal entry is itself a Posted GRN and
+    // forcing its lines Out would remove the received stock a second time,
+    // same shape as README deviations #5/#6.
+    if (existing.ReversalOfGRN) throw new HttpsError('failed-precondition', 'A reversal entry cannot itself be reversed.');
+    // PORT FIX (not in Code.gs): reversing an invoiced GRN left the Vendor
+    // Invoice's payable standing against goods that were sent back. Same
+    // guard (and wording) as reverseDeliveryNote's Customer Invoice check.
+    if (existing.MatchedToInvoiceID) throw new HttpsError('failed-precondition', 'This GRN has already been matched to a Vendor Invoice and cannot be reversed. Reverse the invoice first.');
 
     const date = String(data.reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
     const itemsSnap = await rtdb.ref('items').get();
@@ -481,6 +496,6 @@ exports.reverseGrn = onCall(onCallOptions, async (request) => {
       }
     }
 
-    return { grnId: newId, grnNumber: glResult.jvNumber };
+    return { success: true, grnId: newId, grnNumber: glResult.jvNumber };
   });
 });

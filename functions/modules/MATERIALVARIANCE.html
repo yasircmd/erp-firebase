@@ -1,0 +1,185 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+</style>
+
+<div class="space-y-6">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Stock Reports</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-scale-unbalanced text-blue-500"></i> Material Variance Report</h2></div>
+    <button id="mv-print-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-2 text-sm text-slate-300 no-print">
+    <p><i class="fa-solid fa-circle-info text-blue-400"></i> Covers every item produced in the period, not one product at a time. Each unit is judged against whichever BOM was actually in effect on the date it was produced — if a recipe changed mid-period, both versions are correctly accounted for in their own proportion, not blended incorrectly.</p>
+    <p class="text-slate-400">"Actual" consumption nets Material Issue, Stock Adjustment, and Physical Count together for each material — not Material Issue alone — since all three move real material out of (or back into) inventory.</p>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3 no-print">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="mv-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">From</label><input type="date" id="mv-from-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">To</label><input type="date" id="mv-to-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button id="mv-copy-btn" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-copy"></i> Copy Table</button>
+      <button id="mv-run-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg font-medium">Run Report</button>
+    </div>
+  </div>
+
+  <div id="mv-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="mv-results" class="hidden space-y-6">
+    <div>
+      <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Produced in this period</p>
+      <div id="mv-produced-list" class="flex flex-wrap gap-2"></div>
+      <p id="mv-no-production-note" class="hidden text-sm text-slate-500">Nothing was produced in this period.</p>
+    </div>
+
+    <div>
+      <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Material consumption vs. BOM standard</p>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+                <th class="py-3 px-4">Material</th>
+                <th class="py-3 px-4 text-right">Expected (BOM)</th>
+                <th class="py-3 px-4 text-right">Actual</th>
+                <th class="py-3 px-4 text-right">Variance</th>
+                <th class="py-3 px-4 text-right">Variance %</th>
+              </tr>
+            </thead>
+            <tbody id="mv-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+      <p id="mv-empty-note" class="hidden text-sm text-slate-500 text-center py-4">No material movement or expected consumption in this period.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let companies = [];
+  let lastReport = null;
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmt(n) { return (Number(n) || 0).toFixed(2); }
+  function today() { return new Date().toISOString().substring(0, 10); }
+  function firstOfMonth() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().substring(0, 10); }
+
+  function loadReferenceData() {
+    rpc
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const select = document.getElementById('mv-company');
+        select.innerHTML = '<option value="">Select...</option>';
+        companies.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.CompanyID; opt.textContent = c.LegalName;
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+  }
+
+  function runReport() {
+    const error = document.getElementById('mv-error');
+    error.classList.add('hidden');
+    document.getElementById('mv-results').classList.add('hidden');
+
+    const companyId = document.getElementById('mv-company').value;
+    if (!companyId) { error.textContent = 'Select a Company.'; error.classList.remove('hidden'); return; }
+    const fromDate = document.getElementById('mv-from-date').value;
+    const toDate = document.getElementById('mv-to-date').value;
+    if (!fromDate || !toDate) { error.textContent = 'Select a date range.'; error.classList.remove('hidden'); return; }
+
+    const params = { CompanyID: companyId, FromDate: fromDate, ToDate: toDate };
+
+    const btn = document.getElementById('mv-run-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Running...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        lastReport = result;
+        renderReport(result);
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.textContent = original;
+        error.textContent = err.message || 'Unable to run report.'; error.classList.remove('hidden');
+      })
+      .getMaterialVarianceReport({ params: params });
+  }
+
+  function renderReport(result) {
+    document.getElementById('mv-results').classList.remove('hidden');
+
+    const producedList = document.getElementById('mv-produced-list');
+    producedList.innerHTML = '';
+    document.getElementById('mv-no-production-note').classList.toggle('hidden', result.ProducedItems.length > 0);
+    result.ProducedItems.forEach(p => {
+      const chip = document.createElement('div');
+      chip.className = 'text-xs bg-slate-800 border rounded-full px-3 py-1.5 ' + (p.NoBomWarning ? 'border-amber-500/40' : 'border-slate-700');
+      chip.innerHTML = `<span class="font-mono text-slate-300">${escapeHtml(p.ItemCode)}</span> <span class="text-slate-400">${escapeHtml(p.ItemName)}</span> <span class="text-slate-200 font-medium">× ${formatMoney(p.Quantity)}</span>` +
+        (p.NoBomWarning ? ' <i class="fa-solid fa-triangle-exclamation text-amber-400" title="No BOM was effective for this item on its production date(s) — not included in expected consumption below"></i>' : '');
+      producedList.appendChild(chip);
+    });
+
+    const tbody = document.getElementById('mv-table-body');
+    tbody.innerHTML = '';
+    document.getElementById('mv-empty-note').classList.toggle('hidden', result.Rows.length > 0);
+
+    result.Rows.forEach(r => {
+      const varianceColor = r.Variance > 0.000001 ? 'text-red-400' : (r.Variance < -0.000001 ? 'text-emerald-400' : 'text-slate-400');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-2 px-4"><span class="font-mono text-xs text-slate-300">${escapeHtml(r.ComponentItemCode)}</span> <span class="text-slate-400">${escapeHtml(r.ComponentItemName)}</span></td>
+        <td class="py-2 px-4 text-right text-xs font-mono">${formatMoney(r.ExpectedConsumption)}</td>
+        <td class="py-2 px-4 text-right text-xs font-mono">${formatMoney(r.ActualConsumption)}</td>
+        <td class="py-2 px-4 text-right text-xs font-mono ${varianceColor}">${r.Variance > 0 ? '+' : ''}${formatMoney(r.Variance)}</td>
+        <td class="py-2 px-4 text-right text-xs font-mono ${varianceColor}">${r.VariancePercent === null ? '—' : (r.VariancePercent > 0 ? '+' : '') + formatMoney(r.VariancePercent) + '%'}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function copyTable() {
+    if (!lastReport) { alert('Run the report first.'); return; }
+    const rows = [['Component Code', 'Component Name', 'Expected', 'Actual', 'Variance', 'Variance %'].join('\t')];
+    lastReport.Rows.forEach(r => {
+      rows.push([r.ComponentItemCode, r.ComponentItemName, fmt(r.ExpectedConsumption), fmt(r.ActualConsumption), fmt(r.Variance), r.VariancePercent === null ? '' : fmt(r.VariancePercent)].join('\t'));
+    });
+    const text = rows.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(() => window.prompt('Copy this text:', text));
+    } else {
+      window.prompt('Copy this text:', text);
+    }
+  }
+
+  window.initModule = function (idToken) {
+    token = idToken;
+    document.getElementById('mv-from-date').value = firstOfMonth();
+    document.getElementById('mv-to-date').value = today();
+
+    loadReferenceData();
+
+    document.getElementById('mv-run-btn').addEventListener('click', runReport);
+    document.getElementById('mv-copy-btn').addEventListener('click', copyTable);
+    document.getElementById('mv-print-btn').addEventListener('click', () => window.print());
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-scale-unbalanced"></i> Material Variance Report';
+  };
+})();
+</script>

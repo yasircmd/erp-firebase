@@ -1,0 +1,376 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Financial Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-book text-blue-500"></i> Chart of Accounts</h2></div>
+    <button id="coa-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Account</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="coa-search-input" placeholder="Search code or name..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="coa-type-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All Types</option>
+      <option value="Asset">Asset</option>
+      <option value="Liability">Liability</option>
+      <option value="Equity">Equity</option>
+      <option value="Revenue">Revenue</option>
+      <option value="COGS">COGS</option>
+      <option value="Expense">Expense</option>
+    </select>
+    <select id="coa-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+    <select id="coa-postable-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Accounts</option><option value="true">Postable only</option><option value="false">Header/group only</option></select>
+    <select id="coa-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option><option value="__shared__">Shared (All Companies)</option></select>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Code</th>
+            <th class="py-3 px-4">Name</th>
+            <th class="py-3 px-4">Type</th>
+            <th class="py-3 px-4">Sub-Type</th>
+            <th class="py-3 px-4">Normal Bal.</th>
+            <th class="py-3 px-4">Parent</th>
+            <th class="py-3 px-4">Postable</th>
+            <th class="py-3 px-4">Company</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="coa-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="coa-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+      <h3 id="coa-modal-title" class="text-lg font-bold">Add Account</h3>
+      <button id="coa-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <form id="coa-form" class="space-y-4">
+      <input type="hidden" id="coa-form-id">
+
+      <div id="coa-code-preview" class="hidden text-xs text-slate-400 bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3">
+        Account code: <span id="coa-code-value" class="font-mono text-slate-200"></span>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Account Type</label>
+        <select id="coa-form-type" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+          <option value="">Select...</option>
+          <option value="Asset">Asset (Debit)</option>
+          <option value="Liability">Liability (Credit)</option>
+          <option value="Equity">Equity (Credit)</option>
+          <option value="Revenue">Revenue (Credit)</option>
+          <option value="COGS">Cost of Goods Sold (Debit)</option>
+          <option value="Expense">Operating Expense (Debit)</option>
+        </select>
+        <p id="coa-type-locked-note" class="hidden text-xs text-amber-400 mt-1">Account type can't be changed after an account is created — its code depends on it.</p>
+      </div>
+
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Account Name</label><input type="text" id="coa-form-name" required placeholder="e.g. Accounts Receivable - Trade" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Sub-Type <span class="text-slate-500">(optional)</span></label><input type="text" id="coa-form-subtype" placeholder="e.g. Current Asset" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Parent Account <span class="text-slate-500">(optional)</span></label>
+        <select id="coa-form-parent" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None — creates a new top-level sub-category</option></select>
+        <p class="text-xs text-slate-500 mt-1">Pick a header to create an account under it, or pick a sub-parent (shown indented) to create one under that instead. Leave blank to create a new top-level sub-category (e.g. "Bank Accounts") under the selected type.</p>
+      </div>
+
+      <div class="flex items-center gap-2 bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3">
+        <input type="checkbox" id="coa-form-postable" class="w-4 h-4">
+        <label for="coa-form-postable" class="text-xs text-slate-300">Postable — journal lines can post directly to this account. Leave unchecked for a header, or for a sub-parent grouping (e.g. "Accrued & Clearing Liabilities") under a header — only one level of sub-parent is supported.</label>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+        <select id="coa-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All Companies — shared</option></select>
+        <p class="text-xs text-slate-500 mt-1">Restrict this account to one company, or leave shared. A child account must belong to the same company as a company-restricted parent.</p>
+      </div>
+
+      <div id="coa-cashflowcategory-field">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Cash Flow Category <span class="text-slate-500">(for the Cash Flow Statement)</span></label>
+        <select id="coa-form-cashflowcategory" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+          <option value="">Not applicable / not set</option>
+          <option value="Operating">Operating</option>
+          <option value="Investing">Investing</option>
+          <option value="Financing">Financing</option>
+        </select>
+        <p class="text-xs text-slate-500 mt-1">Only settable on a header (non-postable) account — leave blank for Cash/Bank headers themselves. Every postable account under this header inherits it automatically.</p>
+      </div>
+
+      <div id="coa-cashflowcategory-inherited" class="hidden text-xs text-slate-400 bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3">
+        Cash Flow Category: <span id="coa-cashflowcategory-inherited-value" class="text-slate-200 font-medium"></span> <span class="text-slate-500">(inherited from parent — set it there, not here)</span>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Status</label>
+        <select id="coa-form-status" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+      </div>
+
+      <div id="coa-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
+        <button type="button" id="coa-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
+        <button type="submit" id="coa-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Account</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canWrite = false;
+  let accounts = [];
+  let companies = [];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  function companyById(id) { return companies.find(c => c.CompanyID === id); }
+  function companyLabel(id) { const c = companyById(id); return c ? c.LegalName : 'Unknown company'; }
+
+  function populateCompanyDropdowns() {
+    const filter = document.getElementById('coa-company-filter');
+    const formSelect = document.getElementById('coa-form-company');
+    // Filter keeps its two fixed options (All / Shared) already in the markup.
+    Array.from(filter.querySelectorAll('option[data-company]')).forEach(o => o.remove());
+    formSelect.innerHTML = '<option value="">All Companies — shared</option>';
+    companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+      const opt1 = document.createElement('option'); opt1.value = c.CompanyID; opt1.textContent = c.LegalName; opt1.setAttribute('data-company', '1');
+      filter.appendChild(opt1);
+      const opt2 = document.createElement('option'); opt2.value = c.CompanyID; opt2.textContent = c.LegalName;
+      formSelect.appendChild(opt2);
+    });
+  }
+
+  function fetchAndRender() {
+    rpc
+      .withSuccessHandler(result => { accounts = result || []; renderTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load Chart of Accounts.'))
+      .getChartOfAccounts();
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('coa-table-body');
+    const search = document.getElementById('coa-search-input').value.toLowerCase();
+    const type = document.getElementById('coa-type-filter').value;
+    const status = document.getElementById('coa-status-filter').value;
+    const postable = document.getElementById('coa-postable-filter').value;
+    const companyFilter = document.getElementById('coa-company-filter').value;
+
+    const byId = {};
+    accounts.forEach(a => { byId[a.AccountID] = a; });
+
+    const filtered = accounts.filter(a => {
+      if (search && !`${a.AccountCode} ${a.AccountName}`.toLowerCase().includes(search)) return false;
+      if (type && a.AccountType !== type) return false;
+      if (status && a.Status !== status) return false;
+      if (postable === 'true' && a.IsPostable !== true) return false;
+      if (postable === 'false' && a.IsPostable === true) return false;
+      if (companyFilter === '__shared__' && a.CompanyID) return false;
+      if (companyFilter && companyFilter !== '__shared__' && a.CompanyID !== companyFilter) return false;
+      return true;
+    }).sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
+
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="10" class="py-6 text-center text-slate-500">No accounts found.</td></tr>'; return; }
+
+    filtered.forEach(a => {
+      const parent = a.ParentAccountID ? byId[a.ParentAccountID] : null;
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const actionsHtml = canWrite
+        ? `<button class="coa-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+           <button class="coa-toggle text-slate-400 ${a.Status === 'Active' ? 'hover:text-red-400' : 'hover:text-emerald-400'} p-1" title="${a.Status === 'Active' ? 'Deactivate' : 'Reactivate'}">
+             <i class="fa-solid ${a.Status === 'Active' ? 'fa-ban' : 'fa-rotate-left'}"></i>
+           </button>`
+        : '';
+      const companyCell = a.CompanyID
+        ? `<span class="text-amber-400">${escapeHtml(companyLabel(a.CompanyID))}</span>`
+        : '<span class="text-slate-500">All Companies</span>';
+      row.innerHTML = `
+        <td class="py-3 px-4 font-mono text-xs text-slate-200">${escapeHtml(a.AccountCode)}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}</td>
+        <td class="py-3 px-4 text-xs">${escapeHtml(a.AccountType)}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(a.AccountSubType || '—')}</td>
+        <td class="py-3 px-4 text-xs">${escapeHtml(a.NormalBalance)}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${parent ? escapeHtml(parent.AccountCode) : '—'}</td>
+        <td class="py-3 px-4 text-xs">${a.IsPostable === true ? '<span class="text-emerald-400">Yes</span>' : '<span class="text-slate-500">No (header)</span>'}</td>
+        <td class="py-3 px-4 text-xs">${companyCell}</td>
+        <td class="py-3 px-4 text-xs">${a.Status === 'Active' ? '<span class="text-emerald-400">Active</span>' : '<span class="text-slate-500">Inactive</span>'}</td>
+        <td class="py-3 px-4 text-right">${actionsHtml}</td>`;
+      if (canWrite) {
+        row.querySelector('.coa-edit').addEventListener('click', () => openModal(a.AccountID));
+        row.querySelector('.coa-toggle').addEventListener('click', () => toggleStatus(a));
+      }
+      tbody.appendChild(row);
+    });
+  }
+
+  // Parent options are restricted to non-postable, top-level sub-category
+  // headers (code ending "0000") of the currently selected type — the
+  // only kind of parent the numbering scheme in Code.gs can build a code under.
+  function populateParentOptions(selectedType, excludeId) {
+    const select = document.getElementById('coa-form-parent');
+    select.innerHTML = '<option value="">None — creates a new top-level sub-category</option>';
+    accounts
+      .filter(a =>
+        a.AccountType === selectedType &&
+        a.IsPostable !== true &&
+        a.AccountID !== excludeId &&
+        /000$/.test(String(a.AccountCode || '')) // header (…0000) OR sub-parent (…1000, …2000, etc.)
+      )
+      .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }))
+      .forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.AccountID;
+        // Indent sub-parents under their header visually, so the two
+        // levels are easy to tell apart in a flat dropdown list.
+        const isSubParent = /^\d{2}[1-9]000$/.test(String(a.AccountCode || ''));
+        opt.textContent = (isSubParent ? '— ' : '') + a.AccountCode + ' — ' + a.AccountName;
+        select.appendChild(opt);
+      });
+  }
+
+  function onTypeChange() {
+    const type = document.getElementById('coa-form-type').value;
+    populateParentOptions(type, document.getElementById('coa-form-id').value || null);
+    updateCashFlowCategoryVisibility();
+  }
+
+  function updateCashFlowCategoryVisibility() {
+    const isPostable = document.getElementById('coa-form-postable').checked;
+    const editableField = document.getElementById('coa-cashflowcategory-field');
+    const inheritedField = document.getElementById('coa-cashflowcategory-inherited');
+
+    if (!isPostable) {
+      editableField.classList.remove('hidden');
+      inheritedField.classList.add('hidden');
+      return;
+    }
+
+    editableField.classList.add('hidden');
+    inheritedField.classList.remove('hidden');
+    document.getElementById('coa-form-cashflowcategory').value = '';
+
+    const parentId = document.getElementById('coa-form-parent').value;
+    const parent = accounts.find(a => a.AccountID === parentId);
+    document.getElementById('coa-cashflowcategory-inherited-value').textContent = (parent && parent.CashFlowCategory) || 'Not set on parent';
+  }
+
+  function openModal(accountId) {
+    const form = document.getElementById('coa-form');
+    form.reset();
+    document.getElementById('coa-form-error').classList.add('hidden');
+    document.getElementById('coa-code-preview').classList.add('hidden');
+    document.getElementById('coa-type-locked-note').classList.add('hidden');
+    document.getElementById('coa-form-type').disabled = false;
+
+    if (accountId) {
+      const a = accounts.find(item => item.AccountID === accountId);
+      if (!a) return;
+      document.getElementById('coa-modal-title').textContent = 'Edit Account';
+      document.getElementById('coa-form-id').value = a.AccountID;
+      document.getElementById('coa-form-type').value = a.AccountType;
+      document.getElementById('coa-form-type').disabled = true;
+      document.getElementById('coa-type-locked-note').classList.remove('hidden');
+      document.getElementById('coa-form-name').value = a.AccountName;
+      document.getElementById('coa-form-subtype').value = a.AccountSubType || '';
+      document.getElementById('coa-form-postable').checked = a.IsPostable === true;
+      document.getElementById('coa-form-company').value = a.CompanyID || '';
+      document.getElementById('coa-form-cashflowcategory').value = a.CashFlowCategory || '';
+      document.getElementById('coa-form-status').value = a.Status;
+      document.getElementById('coa-code-value').textContent = a.AccountCode;
+      document.getElementById('coa-code-preview').classList.remove('hidden');
+      populateParentOptions(a.AccountType, a.AccountID);
+      document.getElementById('coa-form-parent').value = a.ParentAccountID || '';
+    } else {
+      document.getElementById('coa-modal-title').textContent = 'Add Account';
+      document.getElementById('coa-form-id').value = '';
+      populateParentOptions('', null);
+    }
+    updateCashFlowCategoryVisibility();
+    document.getElementById('coa-modal').classList.remove('hidden');
+  }
+
+  function closeModal() { document.getElementById('coa-modal').classList.add('hidden'); }
+
+  function saveAccount(event) {
+    event.preventDefault();
+    const data = {
+      AccountID: document.getElementById('coa-form-id').value,
+      AccountName: document.getElementById('coa-form-name').value.trim(),
+      AccountType: document.getElementById('coa-form-type').value,
+      AccountSubType: document.getElementById('coa-form-subtype').value.trim(),
+      ParentAccountID: document.getElementById('coa-form-parent').value,
+      IsPostable: document.getElementById('coa-form-postable').checked,
+      CompanyID: document.getElementById('coa-form-company').value,
+      CashFlowCategory: document.getElementById('coa-form-cashflowcategory').value,
+      Status: document.getElementById('coa-form-status').value
+    };
+    const error = document.getElementById('coa-form-error');
+    const btn = document.getElementById('coa-save-btn');
+    error.classList.add('hidden');
+    if (!data.AccountType) { error.textContent = 'Account type is required.'; error.classList.remove('hidden'); return; }
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Account';
+        if (result.success) { closeModal(); fetchAndRender(); }
+        else { error.textContent = result.error || 'Unable to save account.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Account';
+        error.textContent = err.message || 'Unable to save account.'; error.classList.remove('hidden');
+      })
+      .saveAccount({ accountData: data });
+  }
+
+  function toggleStatus(account) {
+    const deactivating = account.Status === 'Active';
+    const msg = deactivating
+      ? `Deactivate account ${account.AccountCode} — ${account.AccountName}? It will remain visible in historical records but can no longer be used going forward.`
+      : `Reactivate account ${account.AccountCode} — ${account.AccountName}?`;
+    if (!confirm(msg)) return;
+    const call = deactivating ? 'deactivateAccount' : 'reactivateAccount';
+    rpc
+      .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update account.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to update account.'))
+      [call]({ __positional: [account.AccountID] });
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken, writeAllowed) {
+    token = idToken;
+    canWrite = Boolean(writeAllowed);
+
+    document.getElementById('coa-add-btn').classList.toggle('hidden', !canWrite);
+    if (canWrite) document.getElementById('coa-add-btn').addEventListener('click', () => openModal());
+
+    document.getElementById('coa-modal-close').addEventListener('click', closeModal);
+    document.getElementById('coa-modal-cancel').addEventListener('click', closeModal);
+    document.getElementById('coa-form').addEventListener('submit', saveAccount);
+    document.getElementById('coa-form-type').addEventListener('change', onTypeChange);
+    document.getElementById('coa-form-postable').addEventListener('change', updateCashFlowCategoryVisibility);
+    document.getElementById('coa-form-parent').addEventListener('change', updateCashFlowCategoryVisibility);
+    document.getElementById('coa-search-input').addEventListener('input', renderTable);
+    document.getElementById('coa-type-filter').addEventListener('change', renderTable);
+    document.getElementById('coa-status-filter').addEventListener('change', renderTable);
+    document.getElementById('coa-postable-filter').addEventListener('change', renderTable);
+    document.getElementById('coa-company-filter').addEventListener('change', renderTable);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-book"></i> Chart of Accounts';
+
+    rpc
+      .withSuccessHandler(result => { companies = result || []; populateCompanyDropdowns(); fetchAndRender(); })
+      .withFailureHandler(err => { alert(err.message || 'Unable to load company list.'); fetchAndRender(); })
+      .getActiveCompanies();
+  };
+})();
+</script>

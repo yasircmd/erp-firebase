@@ -1,0 +1,1301 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+  #cbt-print-document table { border-collapse: collapse; width: 100%; }
+  #cbt-print-document th, #cbt-print-document td { border: 1px solid #333; padding: 4px 6px; font-size: 10px; }
+  #cbt-print-document thead { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>
+
+<div id="cbt-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Financial Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-money-bill-transfer text-blue-500"></i> Cash and Bank Transactions (CBT)</h2></div>
+    <button id="cbt-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Transaction</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="cbt-search-input" placeholder="Search number or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="cbt-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="cbt-type-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All Types</option>
+      <option value="Cash Receipt">Cash Receipt</option>
+      <option value="Bank Receipt">Bank Receipt</option>
+      <option value="Cash Payment">Cash Payment</option>
+      <option value="Bank Payment">Bank Payment</option>
+    </select>
+    <select id="cbt-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Draft">Draft</option><option value="Posted">Posted</option></select>
+    <input type="date" id="cbt-date-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div id="cbt-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Voucher No.</th>
+            <th class="py-3 px-4">Txn Ref</th>
+            <th class="py-3 px-4">Type</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4">Ledger</th>
+            <th class="py-3 px-4">Description</th>
+            <th class="py-3 px-4 text-right">Amount</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="cbt-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="cbt-entry-view" class="hidden space-y-5">
+  <div id="cbt-print-header" class="print-only mb-4 pb-4 border-b-2 border-slate-800">
+    <h1 id="cbt-print-company-name" class="text-lg font-bold"></h1>
+    <p id="cbt-print-company-address" class="text-sm"></p>
+  </div>
+  <div id="cbt-print-document" class="print-only"></div>
+  <div class="no-print space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
+    <div class="flex items-center gap-3">
+      <button id="cbt-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="cbt-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="cbt-back-chain-label">Back</span></button>
+      <h2 id="cbt-entry-title" class="text-xl font-bold text-blue-400">New Transaction</h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="cbt-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="cbt-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+
+  <div id="cbt-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+  <div id="cbt-txn-ref-line" class="hidden text-xs text-slate-500 font-mono"></div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-2">Transaction Type</label>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="cbt-type-buttons">
+      <button data-type="Cash Receipt" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Cash Receipt</div><div class="text-xs text-slate-500">Money in — cash</div></button>
+      <button data-type="Bank Receipt" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Bank Receipt</div><div class="text-xs text-slate-500">Money in — bank</div></button>
+      <button data-type="Cash Payment" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Cash Payment</div><div class="text-xs text-slate-500">Money out — cash</div></button>
+      <button data-type="Bank Payment" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Bank Payment</div><div class="text-xs text-slate-500">Money out — bank</div></button>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+    <select id="cbt-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+    <p class="text-xs text-slate-500 mt-1">Choose a Company first — the Ledger Account and opposite accounts below are filtered to what that company can use.</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1" id="cbt-ledger-label">Ledger Account</label>
+      <select id="cbt-form-ledger" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select transaction type first...</option></select>
+    </div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="cbt-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input type="text" id="cbt-form-reference" placeholder="e.g. Receipt #, Cheque #" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
+    <div class="flex gap-2">
+      <input type="text" id="cbt-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+      <button id="cbt-desc-edit-btn" class="hidden no-print bg-slate-800 hover:bg-slate-700 text-xs px-3 rounded border border-slate-700" title="Edit description"><i class="fa-solid fa-pen-to-square"></i></button>
+      <button id="cbt-desc-save-btn" class="hidden no-print bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 rounded">Save</button>
+      <button id="cbt-desc-cancel-btn" class="hidden no-print bg-slate-700 hover:bg-slate-600 text-xs px-3 rounded">Cancel</button>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Currency</label><input type="text" id="cbt-form-currency" readonly class="w-full bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-400"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="cbt-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="cbt-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(line default)</span></label><select id="cbt-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="cbt-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    </div>
+    <p class="text-xs text-slate-500">New lines pick up the Cost Center / Profit Center above as a starting default — each line can still be changed individually afterward.</p>
+  </div>
+
+  <div id="cbt-company-required-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company above before choosing a ledger or opposite accounts — no accounts can be chosen until then.</div>
+
+  <div class="flex flex-wrap items-center gap-2 no-print">
+    <span id="cbt-lines-label" class="text-xs font-medium text-slate-300">Opposite Accounts</span>
+    <button id="cbt-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+    <button id="cbt-paste-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
+    <button id="cbt-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy Table</button>
+    <span class="text-xs text-slate-500">Paste columns: Account Code / Description / Amount / Cost Center Code / Profit Center Code.</span>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table id="cbt-grid-table" class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3 w-10">#</th>
+            <th class="py-2 px-3">Account Code</th>
+            <th class="py-2 px-3">Account Name</th>
+            <th class="py-2 px-3">Description</th>
+            <th class="py-2 px-3 text-right w-32">Amount</th>
+            <th class="py-2 px-3 w-24">Cost Ctr</th>
+            <th class="py-2 px-3 w-24">Profit Ctr</th>
+            <th class="py-2 px-3 w-10 no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="cbt-grid-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        <tfoot>
+          <tr class="bg-slate-900 border-t border-slate-700 font-medium text-sm">
+            <td class="py-2 px-3" colspan="3">Total</td>
+            <td class="py-2 px-3 text-right" id="cbt-total-amount">0.00</td>
+            <td colspan="2"></td>
+            <td class="no-print"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div id="cbt-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="cbt-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1 no-print">
+    <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
+    <p id="cbt-rejection-reason" class="text-sm text-slate-200"></p>
+    <p class="text-xs text-slate-500">This transaction is fully editable below — make your changes and Post again.</p>
+  </div>
+
+  <div id="cbt-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3 no-print">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="cbt-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3">
+      <button id="cbt-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button>
+      <button id="cbt-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button>
+    </div>
+    <div id="cbt-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 no-print">
+    <button id="cbt-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="cbt-duplicate-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs"><i class="fa-solid fa-clone"></i> Duplicate Entry</button>
+    <button id="cbt-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse Entry</button>
+    <button id="cbt-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
+    <button id="cbt-post-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-lock"></i> Post Entry</button>
+  </div>
+  </div>
+</div>
+
+<datalist id="cbt-opposite-datalist"></datalist>
+
+<!-- Custom confirm modal — same rationale as JV: native confirm()/prompt()
+     can't be styled and shows an unavoidable "embedded page says" wrapper. -->
+<div id="cbt-confirm-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 id="cbt-confirm-title" class="text-lg font-bold text-slate-100">Confirm</h3>
+    <p id="cbt-confirm-message" class="text-sm text-slate-300 whitespace-pre-line"></p>
+    <div id="cbt-confirm-input-wrap" class="hidden">
+      <input type="date" id="cbt-confirm-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    </div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button id="cbt-confirm-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button>
+      <button id="cbt-confirm-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canDraft = false;
+  let canPost = false;
+  let entries = [];
+  let entriesTotal = 0;
+  let currentLimit = 100;
+  let accounts = [];
+  let currentEntry = null;
+  let currentType = '';
+  let gridLines = []; // { AccountCode, Description, Amount, CostCenterID, ProfitCenterID }
+  let companies = [];
+  let orgUnits = [];
+  let defaultCurrency = null;
+  let isDirty = false;
+  let pendingOpenEntryId = null;
+  let myReturnChain = [];
+
+  // Mirrors Code.gs's COST_CENTER_REQUIRED_TYPES — kept in sync manually
+  // since client and server are separate files. Only P&L-facing account
+  // types require a Cost Center per line.
+  const COST_CENTER_REQUIRED_TYPES = ['Expense', 'Revenue', 'COGS'];
+
+  const TYPE_CONFIG = {
+    'Cash Receipt': { prefix: '10', ledgerLabel: 'Cash Account', linesLabel: 'Received From (Accounts)' },
+    'Bank Receipt': { prefix: '11', ledgerLabel: 'Bank Account', linesLabel: 'Received From (Accounts)' },
+    'Cash Payment': { prefix: '10', ledgerLabel: 'Cash Account', linesLabel: 'Paid To (Accounts)' },
+    'Bank Payment': { prefix: '11', ledgerLabel: 'Bank Account', linesLabel: 'Paid To (Accounts)' }
+  };
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  function fmt(n) { return (Number(n) || 0).toFixed(2); }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function today() { return new Date().toISOString().substring(0, 10); }
+  function accountByCode(code) { return accounts.find(a => String(a.AccountCode) === String(code)); }
+
+  // Company is now mandatory — without one selected, no ledger or opposite
+  // accounts list at all, shared or otherwise. A hard gate, not a filter.
+  function accountAllowedForCompany(account, companyId) {
+    if (!companyId) return false;
+    return !account.CompanyID || account.CompanyID === companyId;
+  }
+
+  // ---------- CUSTOM CONFIRM MODAL ----------
+
+  function showConfirm(message, onConfirm, opts) {
+    opts = opts || {};
+    document.getElementById('cbt-confirm-title').textContent = opts.title || 'Confirm';
+    document.getElementById('cbt-confirm-message').textContent = message;
+    const inputWrap = document.getElementById('cbt-confirm-input-wrap');
+    const input = document.getElementById('cbt-confirm-input');
+    if (opts.needsDate) {
+      inputWrap.classList.remove('hidden');
+      input.value = opts.defaultDate || today();
+    } else {
+      inputWrap.classList.add('hidden');
+    }
+    document.getElementById('cbt-confirm-modal').classList.remove('hidden');
+
+    const okBtn = document.getElementById('cbt-confirm-ok');
+    const cancelBtn = document.getElementById('cbt-confirm-cancel');
+    function cleanup() {
+      document.getElementById('cbt-confirm-modal').classList.add('hidden');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+    }
+    function onOk() { cleanup(); onConfirm(opts.needsDate ? input.value : undefined); }
+    function onCancel() { cleanup(); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  }
+
+  // ---------- LIST VIEW ----------
+
+  function fetchAndRenderList(limit) {
+    currentLimit = limit || currentLimit;
+    rpc
+      .withSuccessHandler(result => {
+        entries = result.entries || []; entriesTotal = result.total || 0; renderList();
+        if (pendingOpenEntryId) {
+          const id = pendingOpenEntryId; pendingOpenEntryId = null;
+          const found = entries.find(e => e.JVID === id);
+          if (found) openEntry(id);
+          else alert('That transaction could not be found — it may have been deleted.');
+        }
+      })
+      .withFailureHandler(err => alert(err.message || 'Unable to load transactions.'))
+      .getCbtEntries({ limit: currentLimit });
+  }
+
+  function renderList() {
+    const tbody = document.getElementById('cbt-table-body');
+    const search = document.getElementById('cbt-search-input').value.toLowerCase();
+    const companyFilter = document.getElementById('cbt-company-filter').value;
+    const type = document.getElementById('cbt-type-filter').value;
+    const status = document.getElementById('cbt-status-filter').value;
+    const date = document.getElementById('cbt-date-filter').value;
+
+    const notice = document.getElementById('cbt-list-notice');
+    if (entriesTotal > entries.length) {
+      notice.classList.remove('hidden');
+      notice.innerHTML = `Showing most recent ${entries.length} of ${entriesTotal} transactions. <button id="cbt-load-all-btn" class="text-blue-400 hover:text-blue-300 underline">Load all</button>`;
+      document.getElementById('cbt-load-all-btn').addEventListener('click', () => fetchAndRenderList('all'));
+    } else {
+      notice.classList.add('hidden');
+    }
+
+    const filtered = entries.filter(e => {
+      if (search && !`${e.JVNumber} ${e.Description}`.toLowerCase().includes(search)) return false;
+      if (companyFilter && e.CompanyID !== companyFilter) return false;
+      if (type && e.VoucherType !== type) return false;
+      if (status && e.Status !== status) return false;
+      if (date && e.JVDate !== date) return false;
+      return true;
+    }).sort((a, b) => (b.JVDate || '').localeCompare(a.JVDate || ''));
+
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="9" class="py-6 text-center text-slate-500">No transactions found.</td></tr>'; return; }
+
+    filtered.forEach(e => {
+      const total = Math.max(e.TotalDebit || 0, e.TotalCredit || 0);
+      const statusBadge = e.Status === 'Posted'
+        ? (e.ReversedByJV ? '<span class="text-amber-400">Posted (Reversed)</span>' : '<span class="text-emerald-400">Posted</span>')
+        : '<span class="text-red-400">Draft</span>';
+      let actions = `<button class="cbt-open text-slate-400 hover:text-blue-400 p-1" title="Open"><i class="fa-solid fa-eye"></i></button>`;
+      if (canDraft) {
+        actions += `<button class="cbt-dup text-slate-400 hover:text-blue-400 p-1" title="Duplicate"><i class="fa-solid fa-clone"></i></button>`;
+      }
+      if (e.Status === 'Draft' && canDraft) {
+        actions += `<button class="cbt-delete text-slate-400 hover:text-red-400 p-1" title="Delete draft"><i class="fa-solid fa-trash"></i></button>`;
+      }
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      row.innerHTML = `
+        <td class="py-3 px-4 font-mono text-xs text-slate-200">${e.JVNumber ? escapeHtml(e.JVNumber) : '<span class="text-slate-500">DRAFT</span>'}</td>
+        <td class="py-3 px-4 font-mono text-xs text-slate-500">${escapeHtml(e.TransactionRef || '—')}</td>
+        <td class="py-3 px-4 text-xs">${escapeHtml(e.VoucherType)}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(e.JVDate)}</td>
+        <td class="py-3 px-4 text-xs font-mono">${escapeHtml(e.SelectedAccountCode)}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(e.Description)}</td>
+        <td class="py-3 px-4 text-xs text-right">${formatMoney(total)}</td>
+        <td class="py-3 px-4 text-xs">${statusBadge}</td>
+        <td class="py-3 px-4 text-right">${actions}</td>`;
+      row.querySelector('.cbt-open').addEventListener('click', () => openEntry(e.JVID));
+      const dup = row.querySelector('.cbt-dup');
+      if (dup) dup.addEventListener('click', () => duplicateEntry(e.JVID));
+      const del = row.querySelector('.cbt-delete');
+      if (del) del.addEventListener('click', () => deleteDraft(e.JVID));
+      tbody.appendChild(row);
+    });
+  }
+
+  function deleteDraft(jvId) {
+    showConfirm('Delete this draft transaction? This cannot be undone.', () => {
+      rpc
+        .withSuccessHandler(result => { if (result.success) fetchAndRenderList(); else alert(result.error || 'Unable to delete draft.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
+        .deleteJournalDraft({ jvId: jvId });
+    }, { title: 'Delete Draft' });
+  }
+
+  function showListView() {
+    document.getElementById('cbt-entry-view').classList.add('hidden');
+    document.getElementById('cbt-list-view').classList.remove('hidden');
+    isDirty = false;
+    fetchAndRenderList();
+  }
+
+  function goBackToList() {
+    if (isDirty) {
+      showConfirm('You have unsaved changes. Leave without saving?', () => showListView(), { title: 'Unsaved Changes' });
+    } else {
+      showListView();
+    }
+  }
+
+  // Pops the last entry off the return chain and reopens it with the
+  // REMAINING chain — same pattern as GL Report's identical function.
+  function goBackInChain() {
+    const doGoBack = () => {
+      const chain = myReturnChain.slice();
+      const target = chain.pop();
+      if (!target) return;
+      openModule(target.moduleId, target.params, chain);
+    };
+    if (isDirty) {
+      showConfirm('You have unsaved changes. Leave without saving?', doGoBack, { title: 'Unsaved Changes' });
+    } else {
+      doGoBack();
+    }
+  }
+
+  // ---------- TYPE SELECTION / LEDGER DROPDOWN ----------
+
+  function selectType(type) {
+    currentType = type;
+    document.querySelectorAll('.cbt-type-btn').forEach(btn => {
+      const active = btn.getAttribute('data-type') === type;
+      btn.classList.toggle('border-blue-500', active);
+      btn.classList.toggle('bg-blue-500/20', active);
+      const check = btn.querySelector('.cbt-type-check');
+      if (check) check.classList.toggle('hidden', !active);
+    });
+
+    const config = TYPE_CONFIG[type];
+    document.getElementById('cbt-ledger-label').textContent = config.ledgerLabel;
+    document.getElementById('cbt-lines-label').textContent = config.linesLabel;
+    populateLedgerOptions(config.prefix);
+    rebuildOppositeDatalist();
+  }
+
+  function populateLedgerOptions(prefix) {
+    const companyId = document.getElementById('cbt-form-company').value;
+    const select = document.getElementById('cbt-form-ledger');
+    const previous = select.value;
+    if (!companyId) { select.innerHTML = '<option value="">Select a Company first...</option>'; return; }
+    select.innerHTML = '<option value="">Select...</option>';
+    accounts
+      .filter(a => a.Status === 'Active' && a.IsPostable === true && String(a.AccountCode).substring(0, 2) === prefix && accountAllowedForCompany(a, companyId))
+      .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }))
+      .forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.AccountCode;
+        opt.textContent = a.AccountCode + ' — ' + a.AccountName;
+        select.appendChild(opt);
+      });
+    if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  }
+
+  function rebuildOppositeDatalist() {
+    const selected = document.getElementById('cbt-form-ledger').value;
+    const companyId = document.getElementById('cbt-form-company').value;
+    const datalist = document.getElementById('cbt-opposite-datalist');
+    datalist.innerHTML = '';
+    document.getElementById('cbt-company-required-note').classList.toggle('hidden', Boolean(companyId));
+    if (!companyId) return;
+    accounts
+      .filter(a => a.Status === 'Active' && a.IsPostable === true && a.AccountCode !== selected && accountAllowedForCompany(a, companyId))
+      .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }))
+      .forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.AccountCode;
+        // Only the name in the label — the browser already shows the value
+        // (the code) alongside it natively; including the code in both
+        // produced a visible duplicate like "610001 610001 - Name".
+        opt.label = a.AccountName;
+        datalist.appendChild(opt);
+      });
+  }
+
+  function onCompanyChange() {
+    if (currentType) populateLedgerOptions(TYPE_CONFIG[currentType].prefix);
+    rebuildOppositeDatalist();
+  }
+
+  // ---------- GRID (opposite lines) ----------
+
+  function orgUnitOptionsHtml(type, selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        html += `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code)}</option>`;
+      });
+    return html;
+  }
+
+  function currentHeaderCostCenter() { return document.getElementById('cbt-form-costcenter').value; }
+  function currentHeaderProfitCenter() { return document.getElementById('cbt-form-profitcenter').value; }
+  function currentHeaderDescription() { return document.getElementById('cbt-form-description').value; }
+
+  // A new row defaults its Description to the header Description — see
+  // JV.html's identical comment for the reasoning. Blankness is judged by
+  // AccountCode/Amount only, not Description, so a freshly defaulted row
+  // isn't mistaken for "already filled in."
+  function ensureTrailingBlankRow() {
+    const last = gridLines[gridLines.length - 1];
+    if (!last || last.AccountCode || last.Amount) {
+      gridLines.push({ AccountCode: '', Description: currentHeaderDescription(), Amount: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter() });
+    }
+  }
+
+  function renderGrid(focusRow, focusCol) {
+    ensureTrailingBlankRow();
+    const tbody = document.getElementById('cbt-grid-body');
+    tbody.innerHTML = '';
+    const readOnly = currentEntry && currentEntry.Status === 'Posted';
+
+    gridLines.forEach((line, i) => {
+      const account = accountByCode(line.AccountCode);
+      const missingDesc = line.AccountCode && !String(line.Description || '').trim();
+      const ccRequired = account && COST_CENTER_REQUIRED_TYPES.includes(account.AccountType);
+      const missingCC = ccRequired && !line.CostCenterID;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+        <td class="py-1 px-1"><input data-row="${i}" data-col="0" list="cbt-opposite-datalist" value="${escapeHtml(line.AccountCode)}" ${readOnly ? 'disabled' : ''} class="w-28 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs font-mono focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-2 text-xs text-slate-400 cbt-account-name">${account ? escapeHtml(account.AccountName) : (line.AccountCode ? '<span class="text-red-400">not found</span>' : '')}</td>
+        <td class="py-1 px-1"><input data-row="${i}" data-col="1" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${missingDesc ? 'required' : ''}" class="w-full bg-slate-900 border ${missingDesc ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><input data-row="${i}" data-col="2" type="text" inputmode="decimal" value="${line.Amount === '' || line.Amount === 0 ? '' : formatMoney(line.Amount)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><select data-row="${i}" class="cbt-line-cc w-full bg-slate-900 border ${missingCC ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''} title="${missingCC ? 'Required for ' + account.AccountType + ' accounts' : ''}">${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
+        <td class="py-1 px-1"><select data-row="${i}" class="cbt-line-pc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
+        <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-row="${i}" class="cbt-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    if (!readOnly) {
+      tbody.querySelectorAll('input[data-col]').forEach(input => {
+        input.addEventListener('input', onCellInput);
+        input.addEventListener('blur', () => { renderGrid(); updateTotal(); });
+      });
+      tbody.querySelectorAll('input[data-col="2"]').forEach(input => {
+        input.addEventListener('focus', e => {
+          const row = parseInt(e.target.getAttribute('data-row'), 10);
+          const raw = gridLines[row].Amount;
+          e.target.value = (raw === '' || raw === 0) ? '' : String(raw);
+        });
+      });
+      tbody.querySelectorAll('.cbt-line-cc').forEach(sel => {
+        sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].CostCenterID = e.target.value; });
+      });
+      tbody.querySelectorAll('.cbt-line-pc').forEach(sel => {
+        sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].ProfitCenterID = e.target.value; });
+      });
+      tbody.querySelectorAll('.cbt-remove-row').forEach(btn => {
+        btn.addEventListener('click', () => {
+          isDirty = true;
+          const row = parseInt(btn.getAttribute('data-row'), 10);
+          gridLines.splice(row, 1);
+          renderGrid(); updateTotal();
+        });
+      });
+    }
+
+    updateTotal();
+
+    if (focusRow != null) {
+      const el = tbody.querySelector(`input[data-row="${focusRow}"][data-col="${focusCol || 0}"]`);
+      if (el) el.focus();
+    }
+  }
+
+  function onCellInput(e) {
+    const row = parseInt(e.target.getAttribute('data-row'), 10);
+    const col = parseInt(e.target.getAttribute('data-col'), 10);
+    const field = ['AccountCode', 'Description', 'Amount'][col];
+    let value = e.target.value;
+    if (field === 'Amount') value = value.replace(/,/g, '');
+    gridLines[row][field] = value;
+
+    if (col === 0) {
+      const account = accountByCode(value);
+      const nameCell = e.target.closest('tr').querySelector('.cbt-account-name');
+      nameCell.innerHTML = account ? escapeHtml(account.AccountName) : (value ? '<span class="text-red-400">not found</span>' : '');
+    }
+    updateTotal();
+  }
+
+  function updateTotal() {
+    let total = 0;
+    gridLines.forEach(l => { total += parseFloat(String(l.Amount).replace(/,/g, '')) || 0; });
+    document.getElementById('cbt-total-amount').textContent = formatMoney(total);
+  }
+
+  function allLineDescriptionsFilled() {
+    return gridLines.every(l => !l.AccountCode || String(l.Description || '').trim());
+  }
+
+  function allRequiredCostCentersFilled() {
+    return gridLines.every(l => {
+      if (!l.AccountCode) return true;
+      const account = accountByCode(l.AccountCode);
+      if (!account || !COST_CENTER_REQUIRED_TYPES.includes(account.AccountType)) return true;
+      return Boolean(l.CostCenterID);
+    });
+  }
+
+  // ---------- PASTE FROM EXCEL ----------
+  // Columns: Account Code / Description / Amount / Cost Center Code / Profit Center Code
+
+  function distributePastedText(text, startRow, startCol) {
+    isDirty = true;
+    const rows = text.replace(/\r/g, '').split('\n').filter((r, idx, arr) => !(idx === arr.length - 1 && r === ''));
+    const fields = ['AccountCode', 'Description', 'Amount', 'CostCenterCode', 'ProfitCenterCode'];
+
+    rows.forEach((rowText, r) => {
+      const cells = rowText.split('\t');
+      const targetRow = startRow + r;
+      while (gridLines.length <= targetRow) gridLines.push({ AccountCode: '', Description: currentHeaderDescription(), Amount: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter() });
+
+      cells.forEach((cellText, c) => {
+        const targetCol = startCol + c;
+        if (targetCol > 4) return;
+        const field = fields[targetCol];
+        let value = cellText.trim();
+
+        if (field === 'Amount') {
+          value = value.replace(/,/g, '');
+          value = value === '' ? '' : (parseFloat(value) || 0);
+          gridLines[targetRow][field] = value;
+        } else if (field === 'CostCenterCode' || field === 'ProfitCenterCode') {
+          if (value) {
+            const type = field === 'CostCenterCode' ? 'CostCenter' : 'ProfitCenter';
+            const match = orgUnits.find(u => u.Type === type && String(u.Code).toLowerCase() === value.toLowerCase());
+            gridLines[targetRow][field === 'CostCenterCode' ? 'CostCenterID' : 'ProfitCenterID'] = match ? match.UnitID : '';
+          }
+        } else {
+          gridLines[targetRow][field] = value;
+        }
+      });
+    });
+
+    renderGrid();
+  }
+
+  function handleGridPaste(e) {
+    const input = e.target;
+    if (!input.matches('input[data-row]')) return;
+    const clipboard = (e.clipboardData || window.clipboardData);
+    if (!clipboard) return;
+    const text = clipboard.getData('text');
+    if (!text || (!text.includes('\t') && !text.includes('\n'))) return;
+
+    e.preventDefault();
+    const row = parseInt(input.getAttribute('data-row'), 10);
+    const col = parseInt(input.getAttribute('data-col'), 10);
+    distributePastedText(text, row, col);
+  }
+
+  function handlePasteButton() {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      alert('Your browser blocked clipboard access here — click into a cell in the grid and paste directly (Ctrl+V / Cmd+V) instead.');
+      return;
+    }
+    navigator.clipboard.readText().then(text => {
+      if (!text) return;
+      distributePastedText(text, 0, 0);
+    }).catch(() => {
+      alert('Unable to read the clipboard. Click into a cell in the grid and paste directly instead.');
+    });
+  }
+
+  function handleCopyButton() {
+    const rows = gridLines
+      .filter(l => l.AccountCode || l.Description || l.Amount)
+      .map(l => {
+        const cc = orgUnits.find(u => u.UnitID === l.CostCenterID);
+        const pc = orgUnits.find(u => u.UnitID === l.ProfitCenterID);
+        return [l.AccountCode, l.Description, l.Amount === '' ? '' : fmt(l.Amount), cc ? cc.Code : '', pc ? pc.Code : ''].join('\t');
+      });
+    const text = rows.join('\n');
+    if (!text) { alert('Nothing to copy yet.'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => flashCopyButton()).catch(() => fallbackCopyPrompt(text));
+    } else {
+      fallbackCopyPrompt(text);
+    }
+  }
+
+  function flashCopyButton() {
+    const btn = document.getElementById('cbt-copy-btn');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
+  }
+
+  function fallbackCopyPrompt(text) {
+    window.prompt('Copy this text (Ctrl+C / Cmd+C, then Enter):', text);
+  }
+
+  // ---------- ENTRY LOAD / SAVE / POST / REVERSE / DUPLICATE ----------
+
+  function openEntry(jvId) {
+    currentEntry = entries.find(e => e.JVID === jvId) || null;
+    if (!currentEntry) return;
+
+    currentType = currentEntry.VoucherType;
+    gridLines = (currentEntry.Lines || [])
+      .filter(l => l.AccountCode !== currentEntry.SelectedAccountCode)
+      .map(l => ({ AccountCode: l.AccountCode, Description: l.Description, Amount: l.Debit || l.Credit || '', CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '' }));
+
+    document.getElementById('cbt-form-date').value = currentEntry.JVDate || '';
+    document.getElementById('cbt-form-reference').value = currentEntry.Reference || '';
+    document.getElementById('cbt-form-description').value = currentEntry.Description || '';
+
+    document.getElementById('cbt-form-company').value = currentEntry.CompanyID || '';
+    document.getElementById('cbt-form-division').value = currentEntry.DivisionID || '';
+    document.getElementById('cbt-form-branch').value = currentEntry.BranchID || '';
+    document.getElementById('cbt-form-costcenter').value = currentEntry.CostCenterID || '';
+    document.getElementById('cbt-form-profitcenter').value = currentEntry.ProfitCenterID || '';
+    if (currentEntry.CurrencyCode) document.getElementById('cbt-form-currency').value = currentEntry.CurrencyCode;
+
+    showEntryView();
+
+    selectType(currentType);
+    document.getElementById('cbt-form-ledger').value = currentEntry.SelectedAccountCode || '';
+    rebuildOppositeDatalist();
+    renderGrid();
+  }
+
+  function newEntry() {
+    currentEntry = null;
+    currentType = '';
+    gridLines = [];
+    document.getElementById('cbt-form-date').value = today();
+    document.getElementById('cbt-form-reference').value = '';
+    document.getElementById('cbt-form-description').value = '';
+    document.getElementById('cbt-form-company').value = '';
+    document.getElementById('cbt-form-division').value = '';
+    document.getElementById('cbt-form-branch').value = '';
+    document.getElementById('cbt-form-costcenter').value = '';
+    document.getElementById('cbt-form-profitcenter').value = '';
+    document.getElementById('cbt-form-currency').value = defaultCurrency ? (defaultCurrency.Code + (defaultCurrency.Symbol ? ' (' + defaultCurrency.Symbol + ')' : '')) : 'No default currency set';
+    showEntryView();
+    document.querySelectorAll('.cbt-type-btn').forEach(btn => {
+      btn.classList.remove('border-blue-500', 'bg-blue-500/20');
+      const check = btn.querySelector('.cbt-type-check');
+      if (check) check.classList.add('hidden');
+    });
+    document.getElementById('cbt-form-ledger').innerHTML = '<option value="">Select transaction type first...</option>';
+    renderGrid();
+  }
+
+  // Duplicates an existing (draft or posted) transaction's type, ledger,
+  // opposite lines, and dimensions into a fresh, unsaved draft. Date resets
+  // to today; Reference and Description are cleared.
+  function duplicateEntry(jvId) {
+    const source = entries.find(e => e.JVID === jvId);
+    if (!source) return;
+
+    const proceed = () => {
+      currentEntry = null;
+      currentType = source.VoucherType;
+      gridLines = (source.Lines || [])
+        .filter(l => l.AccountCode !== source.SelectedAccountCode)
+        .map(l => ({ AccountCode: l.AccountCode, Description: l.Description, Amount: l.Debit || l.Credit || '', CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '' }));
+
+      document.getElementById('cbt-form-date').value = today();
+      document.getElementById('cbt-form-reference').value = '';
+      document.getElementById('cbt-form-description').value = '';
+      document.getElementById('cbt-form-company').value = source.CompanyID || '';
+      document.getElementById('cbt-form-division').value = source.DivisionID || '';
+      document.getElementById('cbt-form-branch').value = source.BranchID || '';
+      document.getElementById('cbt-form-costcenter').value = source.CostCenterID || '';
+      document.getElementById('cbt-form-profitcenter').value = source.ProfitCenterID || '';
+      document.getElementById('cbt-form-currency').value = defaultCurrency ? (defaultCurrency.Code + (defaultCurrency.Symbol ? ' (' + defaultCurrency.Symbol + ')' : '')) : 'No default currency set';
+
+      showEntryView();
+      selectType(currentType);
+      document.getElementById('cbt-form-ledger').value = source.SelectedAccountCode || '';
+      rebuildOppositeDatalist();
+      renderGrid();
+    };
+
+    if (isDirty && !document.getElementById('cbt-entry-view').classList.contains('hidden')) {
+      showConfirm('You have unsaved changes. Discard them and duplicate this transaction instead?', proceed, { title: 'Unsaved Changes' });
+    } else {
+      proceed();
+    }
+  }
+
+  // Populates the print-only company letterhead — same pattern as the
+  // stock transaction modules.
+  function updatePrintHeader() {
+    const companyId = currentEntry ? currentEntry.CompanyID : document.getElementById('cbt-form-company').value;
+    const company = companies.find(c => c.CompanyID === companyId);
+    document.getElementById('cbt-print-company-name').textContent = company ? company.LegalName : '';
+    const addressParts = company ? [company.AddressLine1, company.AddressLine2].filter(Boolean) : [];
+    document.getElementById('cbt-print-company-address').textContent = addressParts.join(', ');
+  }
+
+  // Same approach as JV's print document. CBT's own shape is different
+  // from JV's Dr/Cr split — one Ledger Account (the cash/bank account
+  // itself) plus a single-Amount grid of "opposite" accounts, with
+  // direction (money in/out) implied by Transaction Type rather than
+  // separate Debit/Credit columns — so both the Transaction Type and
+  // the Ledger Account are shown prominently, and the grid uses one
+  // Amount column, not two.
+  function buildPrintDocument() {
+    const container = document.getElementById('cbt-print-document');
+    if (!container) return;
+
+    const voucherNo = currentEntry && currentEntry.JVNumber ? currentEntry.JVNumber : 'DRAFT';
+    const date = document.getElementById('cbt-form-date').value || '';
+    const reference = document.getElementById('cbt-form-reference').value || '';
+    const description = document.getElementById('cbt-form-description').value || '';
+    const ledgerSelect = document.getElementById('cbt-form-ledger');
+    const ledgerLabel = ledgerSelect.selectedOptions.length ? ledgerSelect.selectedOptions[0].textContent : '';
+
+    const validLines = gridLines.filter(l => l.AccountCode);
+    const rows = validLines.map((l, i) => {
+      const account = accountByCode(l.AccountCode);
+      const amount = Number(l.Amount) || 0;
+      return `<tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(l.AccountCode)}</td>
+        <td>${account ? escapeHtml(account.AccountName) : ''}</td>
+        <td>${escapeHtml(l.Description || '')}</td>
+        <td style="text-align:right">${formatMoney(amount)}</td>
+      </tr>`;
+    }).join('');
+
+    const total = validLines.reduce((sum, l) => sum + (Number(l.Amount) || 0), 0);
+
+    // Receipt types (money in) print as a Payment Receipt — a document
+    // meant to be handed to the payer as their proof of payment, signed
+    // by whoever on the company side physically accepted the cash or
+    // cheque. Payment types (money out) keep the existing
+    // voucher/internal-signoff format, since that wasn't asked to change.
+    const isReceiptType = currentType === 'Cash Receipt' || currentType === 'Bank Receipt';
+    const title = isReceiptType ? 'PAYMENT RECEIPT' : escapeHtml((currentType || 'CASH/BANK TRANSACTION').toUpperCase()) + ' VOUCHER';
+    const signatureBlock = isReceiptType
+      ? `<div style="margin-top:60px; font-size:11px;">
+          <div>Received By: _________________ (Signature &amp; Name — Company Representative)</div>
+        </div>`
+      : `<div style="display:flex; justify-content:space-between; margin-top:60px; font-size:11px;">
+          <div>Prepared By: _________________</div>
+          <div>Checked By: _________________</div>
+          <div>Approved By: _________________</div>
+        </div>`;
+
+    container.innerHTML = `
+      <h2 style="text-align:center; font-size:16px; font-weight:bold; text-decoration:underline; margin:8px 0 16px;">${title}</h2>
+      <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+        <span>Voucher No: <strong>${escapeHtml(voucherNo)}</strong></span>
+        <span>Date: <strong>${escapeHtml(date)}</strong></span>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;">
+        <span>Ledger Account: <strong>${escapeHtml(ledgerLabel)}</strong></span>
+        <span>Reference: ${escapeHtml(reference) || '—'}</span>
+      </div>
+      <p style="font-size:11px; margin: 8px 0 12px;">Description: ${escapeHtml(description)}</p>
+      <table>
+        <thead><tr>
+          <th>#</th><th>Account Code</th><th>Account Name</th><th>Description</th><th style="text-align:right">Amount</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="5" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
+        <tfoot><tr><td colspan="4" style="text-align:right; font-weight:bold;">Total</td><td style="text-align:right; font-weight:bold;">${formatMoney(total)}</td></tr></tfoot>
+      </table>
+      ${signatureBlock}
+      <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>
+    `;
+  }
+
+  function showEntryView() {
+    document.getElementById('cbt-list-view').classList.add('hidden');
+    document.getElementById('cbt-entry-view').classList.remove('hidden');
+    document.getElementById('cbt-form-error').classList.add('hidden');
+    cancelDescriptionEdit();
+    document.getElementById('cbt-back-chain-btn').classList.toggle('hidden', !myReturnChain.length);
+
+    // Rejected is now editable too, same as Draft — a resubmission
+    // reuses this exact save/post path, same as JV's own identical fix.
+    const posted = currentEntry && currentEntry.Status === 'Posted';
+    const editableStatus = !currentEntry || currentEntry.Status === 'Draft' || currentEntry.Status === 'Rejected';
+    const readOnly = currentEntry && !editableStatus;
+    const isNew = !currentEntry;
+    updatePrintHeader();
+
+    document.getElementById('cbt-entry-title').textContent = isNew
+      ? 'New Transaction'
+      : (currentEntry.JVNumber || 'Draft Transaction');
+
+    const voucherLine = document.getElementById('cbt-voucher-no-line');
+    if (isNew) {
+      voucherLine.textContent = '';
+    } else {
+      voucherLine.textContent = 'Voucher No.: ' + (currentEntry.JVNumber || '(assigned when posted — may differ from any number shown while still a draft)');
+    }
+
+    const txnRefLine = document.getElementById('cbt-txn-ref-line');
+    if (!isNew && currentEntry.TransactionRef) {
+      txnRefLine.textContent = 'GL Transaction Ref: ' + currentEntry.TransactionRef;
+      txnRefLine.classList.remove('hidden');
+    } else {
+      txnRefLine.classList.add('hidden');
+    }
+
+    const badge = document.getElementById('cbt-status-badge');
+    if (isNew) {
+      badge.classList.add('hidden');
+    } else {
+      badge.classList.remove('hidden');
+      const colors = {
+        Draft: 'bg-slate-700 text-slate-300', PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+        Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20',
+        Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+      };
+      const labels = { PendingApproval: 'Pending Approval', Posted: currentEntry.ReversedByJV ? 'Posted (Reversed)' : 'Posted' };
+      badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (colors[currentEntry.Status] || colors.Draft);
+      badge.textContent = labels[currentEntry.Status] || currentEntry.Status;
+    }
+
+    document.getElementById('cbt-rejection-banner').classList.toggle('hidden', !currentEntry || currentEntry.Status !== 'Rejected');
+    if (currentEntry && currentEntry.Status === 'Rejected') {
+      document.getElementById('cbt-rejection-reason').textContent = currentEntry.RejectionReason || '(no reason given)';
+    }
+
+    document.getElementById('cbt-my-approval-banner').classList.add('hidden');
+    if (currentEntry && currentEntry.Status === 'PendingApproval' && canPost) {
+      rpc
+        .withSuccessHandler(levelNumber => {
+          if (levelNumber) {
+            document.getElementById('cbt-my-approval-banner').classList.remove('hidden');
+            document.getElementById('cbt-my-approval-banner').dataset.level = levelNumber;
+          }
+        })
+        .withFailureHandler(() => {})
+        .getMyPendingApprovalLevel({ approvalInstanceId: currentEntry.ApprovalInstanceID });
+    }
+
+    document.getElementById('cbt-print-btn').classList.toggle('hidden', !posted);
+
+    ['cbt-form-date', 'cbt-form-reference', 'cbt-form-description', 'cbt-form-ledger', 'cbt-form-company', 'cbt-form-division', 'cbt-form-branch', 'cbt-form-costcenter', 'cbt-form-profitcenter'].forEach(id => {
+      document.getElementById(id).disabled = readOnly;
+    });
+    document.querySelectorAll('.cbt-type-btn').forEach(btn => { btn.disabled = readOnly; });
+
+    document.getElementById('cbt-desc-edit-btn').classList.toggle('hidden', !(posted && canPost));
+
+    document.getElementById('cbt-add-line-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('cbt-paste-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('cbt-save-draft-btn').classList.toggle('hidden', !editableStatus || !canDraft);
+    document.getElementById('cbt-post-btn').classList.toggle('hidden', !editableStatus || !canPost);
+    document.getElementById('cbt-delete-btn').classList.toggle('hidden', (!currentEntry || currentEntry.Status !== 'Draft') || !canDraft);
+    document.getElementById('cbt-duplicate-btn').classList.toggle('hidden', isNew || !canDraft);
+    document.getElementById('cbt-reverse-btn').classList.toggle('hidden', !posted || Boolean(currentEntry && currentEntry.ReversedByJV) || !canPost);
+
+    isDirty = false;
+  }
+
+  // ---------- EDIT DESCRIPTION AFTER POSTING ----------
+
+  function startDescriptionEdit() {
+    document.getElementById('cbt-form-description').disabled = false;
+    document.getElementById('cbt-form-description').focus();
+    document.getElementById('cbt-desc-edit-btn').classList.add('hidden');
+    document.getElementById('cbt-desc-save-btn').classList.remove('hidden');
+    document.getElementById('cbt-desc-cancel-btn').classList.remove('hidden');
+  }
+
+  function cancelDescriptionEdit() {
+    if (currentEntry) document.getElementById('cbt-form-description').value = currentEntry.Description || '';
+    document.getElementById('cbt-form-description').disabled = Boolean(currentEntry && currentEntry.Status === 'Posted');
+    document.getElementById('cbt-desc-save-btn').classList.add('hidden');
+    document.getElementById('cbt-desc-cancel-btn').classList.add('hidden');
+    document.getElementById('cbt-desc-edit-btn').classList.toggle('hidden', !(currentEntry && currentEntry.Status === 'Posted' && canPost));
+  }
+
+  function saveDescriptionEdit() {
+    const newDescription = document.getElementById('cbt-form-description').value.trim();
+    if (!newDescription) { alert('Description is required.'); return; }
+    const btn = document.getElementById('cbt-desc-save-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) {
+          currentEntry.Description = newDescription;
+          cancelDescriptionEdit();
+        } else {
+          alert(result.error || 'Unable to update description.');
+        }
+      })
+      .withFailureHandler(err => { btn.disabled = false; btn.textContent = original; alert(err.message || 'Unable to update description.'); })
+      .updatePostedDescription({ jvId: currentEntry.JVID, description: newDescription });
+  }
+
+  function collectHeader() {
+    return {
+      JVID: currentEntry ? currentEntry.JVID : '',
+      VoucherType: currentType,
+      SelectedAccountCode: document.getElementById('cbt-form-ledger').value,
+      JVDate: document.getElementById('cbt-form-date').value,
+      Reference: document.getElementById('cbt-form-reference').value.trim(),
+      Description: document.getElementById('cbt-form-description').value.trim(),
+      OppositeLines: gridLines,
+      CurrencyCode: defaultCurrency ? defaultCurrency.Code : '',
+      CompanyID: document.getElementById('cbt-form-company').value,
+      DivisionID: document.getElementById('cbt-form-division').value,
+      BranchID: document.getElementById('cbt-form-branch').value,
+      CostCenterID: document.getElementById('cbt-form-costcenter').value,
+      ProfitCenterID: document.getElementById('cbt-form-profitcenter').value
+    };
+  }
+
+  function saveDraft() {
+    const error = document.getElementById('cbt-form-error');
+    error.classList.add('hidden');
+    if (!currentType) { error.textContent = 'Select a transaction type.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('cbt-form-company').value) { error.textContent = 'Select a Company for this entry.'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an account needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allRequiredCostCentersFilled()) { error.textContent = 'Expense, Revenue, and COGS lines require a Cost Center.'; error.classList.remove('hidden'); renderGrid(); return; }
+    const btn = document.getElementById('cbt-save-draft-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { isDirty = false; showListView(); }
+        else { error.textContent = result.error || 'Unable to save draft.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.textContent = original;
+        error.textContent = err.message || 'Unable to save draft.'; error.classList.remove('hidden');
+      })
+      .saveCbtDraft({ cbtData: collectHeader() });
+  }
+
+  // Confirms BEFORE touching the database — previously this saved a draft
+  // first and confirmed second, so clicking Cancel still left a draft
+  // behind. Now nothing is written unless the user actually confirms.
+  function postEntry() {
+    const error = document.getElementById('cbt-form-error');
+    error.classList.add('hidden');
+    if (!currentType) { error.textContent = 'Select a transaction type.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('cbt-form-company').value) { error.textContent = 'Select a Company for this entry.'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an account needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allRequiredCostCentersFilled()) { error.textContent = 'Expense, Revenue, and COGS lines require a Cost Center.'; error.classList.remove('hidden'); renderGrid(); return; }
+
+    showConfirm('Post this transaction?\n\nOnce posted it becomes permanent and can only be undone with a reversing entry.', () => {
+      const btn = document.getElementById('cbt-post-btn');
+      btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Posting...';
+      rpc
+        .withSuccessHandler(saveResult => {
+          if (!saveResult.success) {
+            btn.disabled = false; btn.innerHTML = original;
+            error.textContent = saveResult.error || 'Unable to save before posting.'; error.classList.remove('hidden');
+            return;
+          }
+          // Track the now-persisted ID so a retry after a post failure
+          // updates this same draft instead of creating a duplicate.
+          if (!currentEntry) currentEntry = { JVID: saveResult.jvId, Status: 'Draft' };
+          else currentEntry.JVID = saveResult.jvId;
+
+          rpc
+            .withSuccessHandler(postResult => {
+              btn.disabled = false; btn.innerHTML = original;
+              if (postResult.success) { isDirty = false; showListView(); }
+              else { error.textContent = postResult.error || 'Unable to post entry.'; error.classList.remove('hidden'); }
+            })
+            .withFailureHandler(err => {
+              btn.disabled = false; btn.innerHTML = original;
+              error.textContent = err.message || 'Unable to post entry.'; error.classList.remove('hidden');
+            })
+            .postJournalEntry({ jvId: saveResult.jvId });
+        })
+        .withFailureHandler(err => {
+          btn.disabled = false; btn.innerHTML = original;
+          error.textContent = err.message || 'Unable to save before posting.'; error.classList.remove('hidden');
+        })
+        .saveCbtDraft({ cbtData: collectHeader() });
+    }, { title: 'Post Transaction' });
+  }
+
+  function deleteCurrentDraft() {
+    if (!currentEntry) return;
+    showConfirm('Delete this draft transaction? This cannot be undone.', () => {
+      rpc
+        .withSuccessHandler(result => { if (result.success) { isDirty = false; showListView(); } else alert(result.error || 'Unable to delete draft.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
+        .deleteJournalDraft({ jvId: currentEntry.JVID });
+    }, { title: 'Delete Draft' });
+  }
+
+  function decide(decision) {
+    const levelNumber = parseInt(document.getElementById('cbt-my-approval-banner').dataset.level, 10);
+    const reason = document.getElementById('cbt-decision-reason').value.trim();
+    const error = document.getElementById('cbt-decision-error');
+    error.classList.add('hidden');
+    if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
+    showConfirm((decision === 'Approved' ? 'Approve' : 'Reject') + ' this transaction?', () => {
+      rpc
+        .withSuccessHandler(result => {
+          if (result.success) { isDirty = false; showListView(); }
+          else { error.textContent = result.error || 'Unable to record decision.'; error.classList.remove('hidden'); }
+        })
+        .withFailureHandler(err => { error.textContent = err.message || 'Unable to record decision.'; error.classList.remove('hidden'); })
+        .decideJournalEntryApproval({ jvId: currentEntry.JVID, levelNumber: levelNumber, decision: decision, reason: reason });
+    }, { title: decision === 'Approved' ? 'Approve Transaction' : 'Reject Transaction' });
+  }
+
+  function reverseCurrentEntry() {
+    if (!currentEntry) return;
+    showConfirm('Reverse this posted transaction? This creates a new offsetting entry — the original stays on record.', (date) => {
+      rpc
+        .withSuccessHandler(result => {
+          if (result.success) { alert('Reversal posted as ' + result.jvNumber + '.'); isDirty = false; showListView(); }
+          else alert(result.error || 'Unable to reverse entry.');
+        })
+        .withFailureHandler(err => alert(err.message || 'Unable to reverse entry.'))
+        .reverseJournalEntry({ jvId: currentEntry.JVID, reversalDate: date });
+    }, { title: 'Reverse Transaction', needsDate: true, defaultDate: today() });
+  }
+
+  function loadAccounts() {
+    rpc
+      .withSuccessHandler(result => { accounts = result || []; })
+      .withFailureHandler(err => alert(err.message || 'Unable to load Chart of Accounts.'))
+      .getChartOfAccounts();
+  }
+
+  // ---------- DIMENSIONS (Currency / Company / Division / Branch / Cost Center / Profit Center) ----------
+
+  function populateOrgUnitSelect(selectId, type) {
+    const select = document.getElementById(selectId);
+    const previous = select.value;
+    select.innerHTML = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.UnitID;
+        opt.textContent = u.Code + ' — ' + u.Name;
+        select.appendChild(opt);
+      });
+    if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  }
+
+  function populateDimensionDropdowns() {
+    const companySelect = document.getElementById('cbt-form-company');
+    const previous = companySelect.value;
+    companySelect.innerHTML = '<option value="">Select a company...</option>';
+    companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.CompanyID;
+      opt.textContent = c.LegalName;
+      companySelect.appendChild(opt);
+    });
+    if ([...companySelect.options].some(o => o.value === previous)) companySelect.value = previous;
+
+    // Same source list for the list-view search filter — kept separate
+    // from the entry-form dropdown above (different default option text).
+    const filterSelect = document.getElementById('cbt-company-filter');
+    const previousFilter = filterSelect.value;
+    filterSelect.innerHTML = '<option value="">All Companies</option>';
+    companies.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.CompanyID;
+      opt.textContent = c.LegalName;
+      filterSelect.appendChild(opt);
+    });
+    if ([...filterSelect.options].some(o => o.value === previousFilter)) filterSelect.value = previousFilter;
+
+    populateOrgUnitSelect('cbt-form-division', 'Division');
+    populateOrgUnitSelect('cbt-form-branch', 'Branch');
+    populateOrgUnitSelect('cbt-form-costcenter', 'CostCenter');
+    populateOrgUnitSelect('cbt-form-profitcenter', 'ProfitCenter');
+
+    if (!document.getElementById('cbt-entry-view').classList.contains('hidden')) renderGrid();
+  }
+
+  function loadDimensionReferenceData() {
+    rpc
+      .withSuccessHandler(result => { companies = result || []; populateDimensionDropdowns(); })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+
+    rpc
+      .withSuccessHandler(result => { orgUnits = result || []; populateDimensionDropdowns(); })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits();
+
+    rpc
+      .withSuccessHandler(result => {
+        defaultCurrency = result;
+        document.getElementById('cbt-form-currency').value = result ? (result.Code + (result.Symbol ? ' (' + result.Symbol + ')' : '')) : 'No default currency set';
+      })
+      .withFailureHandler(err => console.error(err))
+      .getDefaultCurrency();
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    rpc
+      .withSuccessHandler(perm => {
+        canDraft = Boolean(perm.canDraft);
+        canPost = Boolean(perm.canPost);
+        document.getElementById('cbt-new-btn').classList.toggle('hidden', !canDraft);
+        if (canDraft) document.getElementById('cbt-new-btn').addEventListener('click', newEntry);
+        renderList();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getModulePermissionsForUser({ moduleId: 'CBT' });
+
+    loadAccounts();
+    loadDimensionReferenceData();
+
+    document.getElementById('cbt-search-input').addEventListener('input', renderList);
+    document.getElementById('cbt-company-filter').addEventListener('change', renderList);
+    document.getElementById('cbt-type-filter').addEventListener('change', renderList);
+    document.getElementById('cbt-status-filter').addEventListener('change', renderList);
+    document.getElementById('cbt-date-filter').addEventListener('change', renderList);
+
+    document.getElementById('cbt-back-btn').addEventListener('click', goBackToList);
+    document.getElementById('cbt-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });
+    document.querySelectorAll('.cbt-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => { isDirty = true; selectType(btn.getAttribute('data-type')); });
+    });
+    document.getElementById('cbt-form-ledger').addEventListener('change', rebuildOppositeDatalist);
+    document.getElementById('cbt-form-company').addEventListener('change', onCompanyChange);
+    document.getElementById('cbt-form-company').addEventListener('change', updatePrintHeader);
+    document.getElementById('cbt-add-line-btn').addEventListener('click', () => {
+      isDirty = true;
+      gridLines.push({ AccountCode: '', Description: currentHeaderDescription(), Amount: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter() });
+      renderGrid();
+    });
+    document.getElementById('cbt-paste-btn').addEventListener('click', handlePasteButton);
+    document.getElementById('cbt-copy-btn').addEventListener('click', handleCopyButton);
+    document.getElementById('cbt-grid-table').addEventListener('paste', handleGridPaste, true);
+    document.getElementById('cbt-save-draft-btn').addEventListener('click', saveDraft);
+    document.getElementById('cbt-post-btn').addEventListener('click', postEntry);
+    // Same fix as JV's own identical bug: the header Cost
+    // Center/Profit Center fields are "(line default)", but previously
+    // only ever applied to a NEW line, never an already-existing one
+    // (most commonly the single blank line present when the form
+    // first opens). Now fills any existing line whose own value is
+    // still empty — never overwrites one already deliberately set.
+    document.getElementById('cbt-form-costcenter').addEventListener('change', () => {
+      const headerValue = currentHeaderCostCenter();
+      if (!headerValue) return;
+      gridLines.forEach(line => { if (!line.CostCenterID) line.CostCenterID = headerValue; });
+      renderGrid();
+    });
+    document.getElementById('cbt-form-profitcenter').addEventListener('change', () => {
+      const headerValue = currentHeaderProfitCenter();
+      if (!headerValue) return;
+      gridLines.forEach(line => { if (!line.ProfitCenterID) line.ProfitCenterID = headerValue; });
+      renderGrid();
+    });
+    document.getElementById('cbt-delete-btn').addEventListener('click', deleteCurrentDraft);
+    document.getElementById('cbt-approve-btn').addEventListener('click', () => decide('Approved'));
+    document.getElementById('cbt-reject-btn').addEventListener('click', () => decide('Rejected'));
+    document.getElementById('cbt-duplicate-btn').addEventListener('click', () => duplicateEntry(currentEntry.JVID));
+    document.getElementById('cbt-reverse-btn').addEventListener('click', reverseCurrentEntry);
+    document.getElementById('cbt-desc-edit-btn').addEventListener('click', startDescriptionEdit);
+    document.getElementById('cbt-desc-save-btn').addEventListener('click', saveDescriptionEdit);
+    document.getElementById('cbt-desc-cancel-btn').addEventListener('click', cancelDescriptionEdit);
+
+    document.getElementById('cbt-entry-view').addEventListener('input', () => { isDirty = true; });
+    document.getElementById('cbt-entry-view').addEventListener('change', () => { isDirty = true; });
+
+    // Keeps any still-untouched opposite line's Description in sync with
+    // the header Description as the user types it — see JV.html's
+    // identical comment for the reasoning (this is what makes the FIRST
+    // line pick up the default too, not just lines added afterward).
+    document.getElementById('cbt-form-description').addEventListener('input', () => {
+      const value = document.getElementById('cbt-form-description').value;
+      let changed = false;
+      gridLines.forEach(l => {
+        if (!l.AccountCode && !l.Amount) { l.Description = value; changed = true; }
+      });
+      if (changed) renderGrid();
+    });
+
+    window.hasUnsavedChanges = function () {
+      return isDirty && !document.getElementById('cbt-entry-view').classList.contains('hidden');
+    };
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-money-bill-transfer"></i> Cash and Bank Transactions (CBT)';
+
+    myReturnChain = window.__pendingReturnChain || [];
+    window.__pendingReturnChain = [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      document.getElementById('cbt-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      document.getElementById('cbt-back-chain-btn').addEventListener('click', goBackInChain);
+    }
+
+    // If we were opened via a drill-down link (e.g. from a GL Report row),
+    // fetch the FULL list rather than the default recent-100, then open
+    // the target entry directly instead of landing on the list view.
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) {
+      pendingOpenEntryId = pending.OpenEntryId;
+      document.getElementById('cbt-entry-view').classList.add('hidden');
+      document.getElementById('cbt-list-view').classList.remove('hidden');
+      fetchAndRenderList('all');
+    } else {
+      showListView();
+    }
+  };
+})();
+</script>

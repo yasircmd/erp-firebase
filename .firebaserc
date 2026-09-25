@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "erp1-8f4cd"
-  }
+    "default": "erp1-8f4cd",
+    "erp": "erp1-8f4cd"
+  },
+  "targets": {},
+  "etags": {}
 }

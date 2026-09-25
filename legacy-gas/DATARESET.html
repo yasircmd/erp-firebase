@@ -1,0 +1,431 @@
+<div id="dr-categories-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-red-400 uppercase mb-1">Admin</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-trash-can text-red-500"></i> Data Reset</h2></div>
+    <button id="dr-refresh-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-rotate"></i> Refresh Counts</button>
+  </div>
+
+  <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex gap-3">
+    <i class="fa-solid fa-triangle-exclamation text-red-400 text-lg shrink-0 mt-0.5"></i>
+    <div class="text-sm text-red-300">
+      <p class="font-semibold">This tool permanently deletes data. There is no undo.</p>
+      <p class="mt-1 text-red-300/80">Meant for clearing test data while setting up — never use this against real, live records. Nothing here touches Users, Roles, or the navigation tree, so you can't lock yourself or anyone else out.</p>
+    </div>
+  </div>
+
+  <div id="dr-loading" class="text-sm text-slate-500">Loading current counts...</div>
+
+  <div id="dr-content" class="hidden space-y-6">
+    <div>
+      <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Transactional Data</p>
+      <p class="text-xs text-slate-500 mb-3">Safe to clear repeatedly while testing — this is what accumulates from GRN, Material Issue, Production, JV, and CBT entries. Clear the whole category, or open it to remove specific entries only.</p>
+      <div id="dr-transactional-list" class="space-y-2"></div>
+    </div>
+
+    <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-2">
+      <p class="text-sm font-medium text-slate-200"><i class="fa-solid fa-calculator"></i> Recalculate Stock Ledger</p>
+      <p class="text-xs text-slate-500">If you've deleted individual stock transactions above, current stock-on-hand balances may no longer be correct — they still reflect quantities from transactions that no longer exist. This rebuilds every balance from whatever transactions remain, replayed in the order they were originally posted.</p>
+      <div class="flex items-center gap-3">
+        <input type="text" id="dr-recalc-confirm" placeholder="Type DELETE to enable" autocomplete="off" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono focus:outline-none focus:border-red-500 w-48">
+        <button id="dr-recalc-btn" disabled class="bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-2 rounded-lg"><i class="fa-solid fa-calculator"></i> Recalculate Now</button>
+      </div>
+      <div id="dr-recalc-result" class="hidden text-xs rounded-lg p-2.5"></div>
+    </div>
+
+    <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-2">
+      <p class="text-sm font-medium text-slate-200"><i class="fa-solid fa-hashtag"></i> Reset Lifetime Audit Counters (TXN- / STK-)</p>
+      <p class="text-xs text-slate-500">TXN- and STK- are separate from voucher numbers (JV-26-01-000001, GRN-26-01-000001, etc.) — a lifetime sequence that never resets by year, so clearing GL Journal Entries or Stock Transactions above does not touch it on its own. Safe to reset at any time — it's just an audit label, not something anything else looks up by, so it can never orphan or duplicate a record. Current values: <span id="dr-audit-counter-values" class="font-mono text-slate-300">—</span></p>
+      <div class="flex items-center gap-3">
+        <input type="text" id="dr-audit-confirm" placeholder="Type DELETE to enable" autocomplete="off" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono focus:outline-none focus:border-red-500 w-48">
+        <button id="dr-audit-reset-btn" disabled class="bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-2 rounded-lg"><i class="fa-solid fa-hashtag"></i> Reset to 0</button>
+      </div>
+      <div id="dr-audit-result" class="hidden text-xs rounded-lg p-2.5"></div>
+    </div>
+
+    <div>
+      <p class="text-xs font-semibold text-red-400 uppercase mb-2">Master Data — Danger Zone</p>
+      <p class="text-xs text-slate-500 mb-3">Your structural setup — items, chart of accounts, companies. Clearing these means rebuilding from scratch. Nothing here is pre-selected.</p>
+      <div id="dr-master-list" class="space-y-2"></div>
+    </div>
+
+    <div id="dr-selection-summary" class="hidden bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+      <p class="text-xs font-semibold text-slate-400 uppercase mb-2">You are about to permanently delete these ENTIRE categories:</p>
+      <ul id="dr-selection-items" class="text-sm text-slate-200 space-y-1 list-disc list-inside"></ul>
+    </div>
+
+    <div id="dr-confirm-section" class="hidden bg-red-500/10 border border-red-500/30 rounded-xl p-4 space-y-3">
+      <label class="block text-sm font-medium text-red-300">Type <span class="font-mono bg-slate-900 px-1.5 py-0.5 rounded">DELETE</span> to confirm</label>
+      <input type="text" id="dr-confirm-input" autocomplete="off" class="w-full bg-slate-900 border border-red-500/40 rounded-lg py-2 px-3 text-sm font-mono focus:outline-none focus:border-red-500">
+      <button id="dr-clear-btn" disabled class="w-full bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium px-4 py-2.5 rounded-lg text-sm"><i class="fa-solid fa-trash-can"></i> Permanently Delete Selected Categories</button>
+    </div>
+
+    <div id="dr-result" class="hidden text-sm rounded-xl p-4"></div>
+  </div>
+</div>
+
+<!-- Individual record browse/select view for one category -->
+<div id="dr-records-view" class="hidden space-y-5">
+  <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+    <button id="dr-records-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to Categories</button>
+    <h2 id="dr-records-title" class="text-xl font-bold text-red-400"></h2>
+  </div>
+
+  <p id="dr-records-link-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Deleting a stock transaction, Vendor Invoice, or Customer Invoice also deletes its own linked GL entry (and vice versa, for any GL entry originating from one of those) — kept in sync so nothing is left orphaned.</p>
+
+  <input type="text" id="dr-records-search" placeholder="Filter..." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+
+  <div class="flex items-center gap-3 text-xs">
+    <button id="dr-records-select-all" class="text-blue-400 hover:text-blue-300 underline">Select all shown</button>
+    <button id="dr-records-select-none" class="text-slate-400 hover:text-slate-300 underline">Clear selection</button>
+    <span id="dr-records-selected-count" class="text-slate-500"></span>
+  </div>
+
+  <div id="dr-records-list" class="bg-slate-800 border border-slate-700 rounded-xl divide-y divide-slate-700 max-h-96 overflow-y-auto"></div>
+
+  <div id="dr-records-confirm-section" class="hidden bg-red-500/10 border border-red-500/30 rounded-xl p-4 space-y-3">
+    <label class="block text-sm font-medium text-red-300">Type <span class="font-mono bg-slate-900 px-1.5 py-0.5 rounded">DELETE</span> to confirm</label>
+    <input type="text" id="dr-records-confirm-input" autocomplete="off" class="w-full bg-slate-900 border border-red-500/40 rounded-lg py-2 px-3 text-sm font-mono focus:outline-none focus:border-red-500">
+    <button id="dr-records-delete-btn" disabled class="w-full bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium px-4 py-2.5 rounded-lg text-sm"><i class="fa-solid fa-trash-can"></i> Permanently Delete Selected Records</button>
+  </div>
+
+  <div id="dr-records-result" class="hidden text-sm rounded-xl p-4"></div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let counts = {};
+  let selectedCategories = new Set();
+
+  // Records-view state
+  let currentCategoryKey = null;
+  let records = [];
+  let selectedRecordIds = new Set();
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  // ---------- CATEGORIES VIEW ----------
+
+  function fetchCounts() {
+    document.getElementById('dr-loading').classList.remove('hidden');
+    document.getElementById('dr-content').classList.add('hidden');
+    google.script.run
+      .withSuccessHandler(result => {
+        counts = result || {};
+        document.getElementById('dr-loading').classList.add('hidden');
+        document.getElementById('dr-content').classList.remove('hidden');
+        renderCategoryLists();
+      })
+      .withFailureHandler(err => {
+        document.getElementById('dr-loading').textContent = err.message || 'Unable to load counts — this screen is Admin-only.';
+      })
+      .getDataResetCounts(token);
+  }
+
+  function renderCategoryLists() {
+    const transactionalContainer = document.getElementById('dr-transactional-list');
+    const masterContainer = document.getElementById('dr-master-list');
+    transactionalContainer.innerHTML = '';
+    masterContainer.innerHTML = '';
+
+    Object.keys(counts).forEach(key => {
+      const cat = counts[key];
+      const container = cat.group === 'master' ? masterContainer : transactionalContainer;
+      const row = document.createElement('div');
+      row.className = 'flex items-start gap-3 bg-slate-800/60 border border-slate-700 rounded-lg p-3';
+      row.innerHTML = `
+        <input type="checkbox" data-key="${key}" class="mt-1 w-4 h-4 dr-cat-checkbox">
+        <div class="flex-1">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-sm font-medium text-slate-200">${escapeHtml(cat.label)}</span>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-xs font-mono ${cat.count > 0 ? 'text-amber-400' : 'text-slate-600'}">${cat.count} record${cat.count === 1 ? '' : 's'}</span>
+              ${cat.count > 0 ? `<button data-key="${key}" class="dr-browse-btn text-xs text-blue-400 hover:text-blue-300 underline whitespace-nowrap">Browse &amp; select...</button>` : ''}
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(cat.detail)}</p>
+        </div>`;
+      row.querySelector('.dr-cat-checkbox').addEventListener('change', e => {
+        if (e.target.checked) selectedCategories.add(key); else selectedCategories.delete(key);
+        updateCategorySelectionSummary();
+      });
+      const browseBtn = row.querySelector('.dr-browse-btn');
+      if (browseBtn) browseBtn.addEventListener('click', () => openRecordsView(key));
+      container.appendChild(row);
+    });
+
+    updateCategorySelectionSummary();
+  }
+
+  function updateCategorySelectionSummary() {
+    const summaryBox = document.getElementById('dr-selection-summary');
+    const summaryList = document.getElementById('dr-selection-items');
+    const confirmSection = document.getElementById('dr-confirm-section');
+
+    if (!selectedCategories.size) {
+      summaryBox.classList.add('hidden');
+      confirmSection.classList.add('hidden');
+      return;
+    }
+
+    summaryBox.classList.remove('hidden');
+    confirmSection.classList.remove('hidden');
+    summaryList.innerHTML = [...selectedCategories].map(key => {
+      const cat = counts[key];
+      return `<li>${escapeHtml(cat.label)} — <span class="font-mono ${cat.count > 0 ? 'text-amber-400' : 'text-slate-500'}">${cat.count} record${cat.count === 1 ? '' : 's'}</span></li>`;
+    }).join('');
+
+    // Re-confirmation required after any selection change — typing
+    // DELETE once should not silently authorize a later, different
+    // selection.
+    document.getElementById('dr-confirm-input').value = '';
+    document.getElementById('dr-clear-btn').disabled = true;
+  }
+
+  function clearSelectedCategories() {
+    const result = document.getElementById('dr-result');
+    result.classList.add('hidden');
+    const btn = document.getElementById('dr-clear-btn');
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = 'Deleting...';
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.innerHTML = original;
+        result.classList.remove('hidden');
+        if (res.success) {
+          result.className = 'text-sm rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300';
+          result.innerHTML = '<p class="font-semibold">Cleared successfully:</p><ul class="list-disc list-inside mt-1">' + res.cleared.map(l => '<li>' + escapeHtml(l) + '</li>').join('') + '</ul>';
+          selectedCategories = new Set();
+          fetchCounts();
+        } else {
+          result.className = 'text-sm rounded-xl p-4 bg-red-500/10 border border-red-500/30 text-red-300';
+          result.textContent = res.error || 'Unable to clear the selected data.';
+          document.getElementById('dr-confirm-input').value = '';
+          btn.disabled = true;
+        }
+      })
+      .withFailureHandler(err => {
+        btn.innerHTML = original;
+        result.classList.remove('hidden');
+        result.className = 'text-sm rounded-xl p-4 bg-red-500/10 border border-red-500/30 text-red-300';
+        result.textContent = err.message || 'Unable to clear the selected data.';
+      })
+      .clearDataCategories(token, [...selectedCategories], document.getElementById('dr-confirm-input').value);
+  }
+
+  function recalculateLedger() {
+    const btn = document.getElementById('dr-recalc-btn');
+    const result = document.getElementById('dr-recalc-result');
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = 'Recalculating...';
+    result.classList.add('hidden');
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.innerHTML = original;
+        result.classList.remove('hidden');
+        if (res.success) {
+          result.className = 'text-xs rounded-lg p-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300';
+          result.textContent = 'Ledger rebuilt from ' + res.count + ' posted transaction(s).';
+          document.getElementById('dr-recalc-confirm').value = '';
+          fetchCounts();
+        } else {
+          result.className = 'text-xs rounded-lg p-2.5 bg-red-500/10 border border-red-500/30 text-red-300';
+          result.textContent = res.error || 'Unable to recalculate the ledger.';
+          btn.disabled = true;
+        }
+      })
+      .withFailureHandler(err => {
+        btn.innerHTML = original;
+        result.classList.remove('hidden');
+        result.className = 'text-xs rounded-lg p-2.5 bg-red-500/10 border border-red-500/30 text-red-300';
+        result.textContent = err.message || 'Unable to recalculate the ledger.';
+      })
+      .recalculateStockLedger(token, document.getElementById('dr-recalc-confirm').value);
+  }
+
+  function loadAuditCounterValues() {
+    google.script.run
+      .withSuccessHandler(res => {
+        document.getElementById('dr-audit-counter-values').textContent =
+          'TXN-' + String(res.txn).padStart(8, '0') + '  /  STK-' + String(res.stk).padStart(8, '0');
+      })
+      .withFailureHandler(() => {})
+      .getLifetimeAuditCounterValues(token);
+  }
+
+  function resetAuditCounters() {
+    const btn = document.getElementById('dr-audit-reset-btn');
+    const result = document.getElementById('dr-audit-result');
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = 'Resetting...';
+    result.classList.add('hidden');
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.innerHTML = original;
+        result.classList.remove('hidden');
+        if (res.success) {
+          result.className = 'text-xs rounded-lg p-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300';
+          result.textContent = 'TXN- and STK- counters reset to 0. The next posted entry of each type will start at 1.';
+          document.getElementById('dr-audit-confirm').value = '';
+          loadAuditCounterValues();
+        } else {
+          result.className = 'text-xs rounded-lg p-2.5 bg-red-500/10 border border-red-500/30 text-red-300';
+          result.textContent = res.error || 'Unable to reset the counters.';
+          btn.disabled = true;
+        }
+      })
+      .withFailureHandler(err => {
+        btn.innerHTML = original;
+        result.classList.remove('hidden');
+        result.className = 'text-xs rounded-lg p-2.5 bg-red-500/10 border border-red-500/30 text-red-300';
+        result.textContent = err.message || 'Unable to reset the counters.';
+      })
+      .resetLifetimeAuditCounters(token, document.getElementById('dr-audit-confirm').value);
+  }
+
+  // ---------- INDIVIDUAL RECORDS VIEW ----------
+
+  function openRecordsView(categoryKey) {
+    currentCategoryKey = categoryKey;
+    selectedRecordIds = new Set();
+    document.getElementById('dr-categories-view').classList.add('hidden');
+    document.getElementById('dr-records-view').classList.remove('hidden');
+    document.getElementById('dr-records-title').textContent = counts[categoryKey].label;
+    document.getElementById('dr-records-link-note').classList.toggle('hidden', ['stockData', 'glEntries', 'vendorInvoices', 'customerInvoices'].indexOf(categoryKey) === -1);
+    document.getElementById('dr-records-search').value = '';
+    document.getElementById('dr-records-confirm-input').value = '';
+    document.getElementById('dr-records-result').classList.add('hidden');
+    document.getElementById('dr-records-list').innerHTML = '<div class="p-4 text-center text-slate-500 text-sm">Loading...</div>';
+
+    google.script.run
+      .withSuccessHandler(result => {
+        records = result || [];
+        renderRecordsList();
+      })
+      .withFailureHandler(err => {
+        document.getElementById('dr-records-list').innerHTML = '<div class="p-4 text-center text-red-400 text-sm">' + escapeHtml(err.message || 'Unable to load records.') + '</div>';
+      })
+      .getCategoryRecords(token, categoryKey);
+  }
+
+  function backToCategories() {
+    document.getElementById('dr-records-view').classList.add('hidden');
+    document.getElementById('dr-categories-view').classList.remove('hidden');
+    fetchCounts();
+  }
+
+  function renderRecordsList() {
+    const query = document.getElementById('dr-records-search').value.trim().toLowerCase();
+    const filtered = records.filter(r => !query || r.summary.toLowerCase().includes(query));
+    const list = document.getElementById('dr-records-list');
+    list.innerHTML = '';
+
+    if (!filtered.length) {
+      list.innerHTML = '<div class="p-4 text-center text-slate-500 text-sm">No records match.</div>';
+    } else {
+      filtered.forEach(r => {
+        const row = document.createElement('label');
+        row.className = 'flex items-center gap-3 p-3 hover:bg-slate-800/60 cursor-pointer text-sm';
+        row.innerHTML = `<input type="checkbox" data-id="${escapeHtml(r.id)}" class="w-4 h-4 dr-record-checkbox" ${selectedRecordIds.has(r.id) ? 'checked' : ''}><span class="text-slate-200">${escapeHtml(r.summary)}</span>`;
+        row.querySelector('input').addEventListener('change', e => {
+          if (e.target.checked) selectedRecordIds.add(r.id); else selectedRecordIds.delete(r.id);
+          updateRecordSelectionState();
+        });
+        list.appendChild(row);
+      });
+    }
+
+    updateRecordSelectionState();
+  }
+
+  function updateRecordSelectionState() {
+    const count = selectedRecordIds.size;
+    document.getElementById('dr-records-selected-count').textContent = count ? count + ' selected' : '';
+    document.getElementById('dr-records-confirm-section').classList.toggle('hidden', count === 0);
+    // Same re-confirmation-on-change rule as the category view.
+    document.getElementById('dr-records-confirm-input').value = '';
+    document.getElementById('dr-records-delete-btn').disabled = true;
+  }
+
+  function deleteSelectedRecords() {
+    const result = document.getElementById('dr-records-result');
+    result.classList.add('hidden');
+    const btn = document.getElementById('dr-records-delete-btn');
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = 'Deleting...';
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.innerHTML = original;
+        result.classList.remove('hidden');
+        if (res.success) {
+          result.className = 'text-sm rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300';
+          result.textContent = 'Deleted ' + res.count + ' record(s)' + (res.linkedCleared ? ', plus ' + res.linkedCleared + ' linked record(s) kept in sync' : '') + '.';
+          selectedRecordIds = new Set();
+          openRecordsView(currentCategoryKey);
+        } else {
+          result.className = 'text-sm rounded-xl p-4 bg-red-500/10 border border-red-500/30 text-red-300';
+          result.textContent = res.error || 'Unable to delete the selected records.';
+          document.getElementById('dr-records-confirm-input').value = '';
+          btn.disabled = true;
+        }
+      })
+      .withFailureHandler(err => {
+        btn.innerHTML = original;
+        result.classList.remove('hidden');
+        result.className = 'text-sm rounded-xl p-4 bg-red-500/10 border border-red-500/30 text-red-300';
+        result.textContent = err.message || 'Unable to delete the selected records.';
+      })
+      .clearSelectedRecords(token, currentCategoryKey, [...selectedRecordIds], document.getElementById('dr-records-confirm-input').value);
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    document.getElementById('dr-refresh-btn').addEventListener('click', fetchCounts);
+    document.getElementById('dr-confirm-input').addEventListener('input', e => {
+      document.getElementById('dr-clear-btn').disabled = e.target.value !== 'DELETE';
+    });
+    document.getElementById('dr-clear-btn').addEventListener('click', clearSelectedCategories);
+    document.getElementById('dr-recalc-confirm').addEventListener('input', e => {
+      document.getElementById('dr-recalc-btn').disabled = e.target.value !== 'DELETE';
+    });
+    document.getElementById('dr-recalc-btn').addEventListener('click', recalculateLedger);
+    document.getElementById('dr-audit-confirm').addEventListener('input', e => {
+      document.getElementById('dr-audit-reset-btn').disabled = e.target.value !== 'DELETE';
+    });
+    document.getElementById('dr-audit-reset-btn').addEventListener('click', resetAuditCounters);
+    loadAuditCounterValues();
+
+    document.getElementById('dr-records-back-btn').addEventListener('click', backToCategories);
+    document.getElementById('dr-records-search').addEventListener('input', renderRecordsList);
+    document.getElementById('dr-records-select-all').addEventListener('click', () => {
+      const query = document.getElementById('dr-records-search').value.trim().toLowerCase();
+      records.filter(r => !query || r.summary.toLowerCase().includes(query)).forEach(r => selectedRecordIds.add(r.id));
+      renderRecordsList();
+    });
+    document.getElementById('dr-records-select-none').addEventListener('click', () => {
+      selectedRecordIds = new Set();
+      renderRecordsList();
+    });
+    document.getElementById('dr-records-confirm-input').addEventListener('input', e => {
+      document.getElementById('dr-records-delete-btn').disabled = e.target.value !== 'DELETE';
+    });
+    document.getElementById('dr-records-delete-btn').addEventListener('click', deleteSelectedRecords);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-trash-can"></i> Data Reset';
+    fetchCounts();
+  };
+})();
+</script>

@@ -1,0 +1,451 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+  #gl-print-document table { border-collapse: collapse; width: 100%; }
+  #gl-print-document th, #gl-print-document td { border: 1px solid #333; padding: 4px 6px; font-size: 10px; }
+  #gl-print-document thead { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>
+
+<div class="space-y-6">
+  <div id="gl-print-header" class="print-only mb-4 pb-4 border-b-2 border-slate-800">
+    <h1 id="gl-print-company-name" class="text-lg font-bold"></h1>
+    <p id="gl-print-company-address" class="text-sm"></p>
+  </div>
+  <div id="gl-print-document" class="print-only"></div>
+  <div class="no-print space-y-6">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
+    <div class="flex items-center gap-3">
+      <button id="gl-back-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="gl-back-label">Back</span></button>
+      <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Financial Reports</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-book-open text-blue-500"></i> General Ledger Reports (GL)</h2></div>
+    </div>
+    <button id="gl-print-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3 no-print">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div class="md:col-span-2">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Account</label>
+        <input type="text" id="gl-account-input" list="gl-account-datalist" placeholder="Type a code or name — pick a header account to roll up all its sub-accounts" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+      </div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">From</label><input type="date" id="gl-from-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">To</label><input type="date" id="gl-to-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="gl-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="gl-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="gl-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="gl-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="gl-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+    </div>
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <input type="checkbox" id="gl-include-draft" class="w-4 h-4">
+        <label for="gl-include-draft" class="text-xs text-slate-300">Include Draft entries <span class="text-slate-500">(not yet posted — figures shown may still change)</span></label>
+      </div>
+      <div class="flex gap-2">
+        <button id="gl-copy-btn" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-copy"></i> Copy Table</button>
+        <button id="gl-run-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg font-medium">Run Report</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="gl-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="gl-results" class="hidden space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 id="gl-account-title" class="text-lg font-semibold text-slate-200"></h3>
+      <span id="gl-account-normal" class="text-xs text-slate-500"></span>
+    </div>
+    <div id="gl-rollup-note" class="hidden text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-lg py-2 px-3">This is a header account — activity from every sub-account beneath it is combined below.</div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+              <th class="py-3 px-4">Date</th>
+              <th class="py-3 px-4">Voucher No.</th>
+              <th class="py-3 px-4">Txn Ref</th>
+              <th class="py-3 px-4">Account</th>
+              <th class="py-3 px-4">Description</th>
+              <th class="py-3 px-4 text-right">Debit</th>
+              <th class="py-3 px-4 text-right">Credit</th>
+              <th class="py-3 px-4 text-right">Balance</th>
+            </tr>
+          </thead>
+          <tbody id="gl-table-body" class="divide-y divide-slate-700 text-sm">
+            <tr><td class="py-3 px-4 text-slate-400 italic" colspan="5">Opening Balance</td><td></td><td></td><td class="py-3 px-4 text-right font-mono" id="gl-opening-cell"></td></tr>
+          </tbody>
+          <tfoot>
+            <tr class="bg-slate-900 border-t border-slate-700 font-medium text-sm">
+              <td class="py-2 px-4" colspan="5">Closing Balance</td>
+              <td class="py-2 px-4 text-right" id="gl-total-debit"></td>
+              <td class="py-2 px-4 text-right" id="gl-total-credit"></td>
+              <td class="py-2 px-4 text-right font-mono" id="gl-closing-cell"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <p class="text-xs text-slate-500 no-print">Click a Voucher No. to open that entry — including drafts, which are shown highlighted above.</p>
+  </div>
+  </div>
+</div>
+
+<datalist id="gl-account-datalist"></datalist>
+
+<script>
+(function () {
+  let token = '';
+  let accounts = [];
+  let companies = [];
+  let orgUnits = [];
+  let lastReport = null;
+  let lastParams = null;
+  let myReturnChain = [];
+  let accountsReady = false, companiesReady = false, orgUnitsReady = false;
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmt(n) { return (Number(n) || 0).toFixed(2); }
+  function today() { return new Date().toISOString().substring(0, 10); }
+  function firstOfMonth() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().substring(0, 10); }
+
+  function populateOrgUnitSelect(selectId, type) {
+    const select = document.getElementById(selectId);
+    select.innerHTML = '<option value="">All</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.UnitID;
+        opt.textContent = u.Code + ' — ' + u.Name;
+        select.appendChild(opt);
+      });
+  }
+
+  // ---------- RECEIVING A DRILL-IN FROM ANOTHER REPORT ----------
+  // Other reports (Trial Balance, P&L, Balance Sheet, Cash Flow) call
+  // openModule('GLREPORT', {...}) directly — see Index.html's openModule
+  // comment. We can only apply those params once ALL THREE reference-data
+  // loads have finished (account lookup needs `accounts`, and the
+  // dimension dropdowns need their options to exist before .value= sticks).
+  function checkReadyAndApplyPending() {
+    if (!accountsReady || !companiesReady || !orgUnitsReady) return;
+    const p = window.__pendingModuleParams;
+    if (!p) return;
+    window.__pendingModuleParams = null; // consume once
+
+    const match = accounts.find(a => String(a.AccountCode) === String(p.AccountCode));
+    if (match) document.getElementById('gl-account-input').value = match.AccountCode + ' — ' + match.AccountName;
+    if (p.FromDate !== undefined) document.getElementById('gl-from-date').value = p.FromDate || '';
+    if (p.ToDate) document.getElementById('gl-to-date').value = p.ToDate;
+    document.getElementById('gl-company').value = p.CompanyID || '';
+    document.getElementById('gl-division').value = p.DivisionID || '';
+    document.getElementById('gl-branch').value = p.BranchID || '';
+    document.getElementById('gl-costcenter').value = p.CostCenterID || '';
+    document.getElementById('gl-profitcenter').value = p.ProfitCenterID || '';
+    document.getElementById('gl-include-draft').checked = Boolean(p.IncludeDraft);
+
+    if (match) runReport();
+  }
+
+  function loadReferenceData() {
+    google.script.run
+      .withSuccessHandler(result => {
+        accounts = result || [];
+        const datalist = document.getElementById('gl-account-datalist');
+        datalist.innerHTML = '';
+        accounts.filter(a => a.Status === 'Active')
+          .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }))
+          .forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.AccountCode + ' — ' + a.AccountName;
+            datalist.appendChild(opt);
+          });
+        accountsReady = true;
+        checkReadyAndApplyPending();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getChartOfAccounts(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const select = document.getElementById('gl-company');
+        select.innerHTML = '<option value="">All</option>';
+        companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.CompanyID; opt.textContent = c.LegalName;
+          select.appendChild(opt);
+        });
+        companiesReady = true;
+        checkReadyAndApplyPending();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        orgUnits = result || [];
+        populateOrgUnitSelect('gl-division', 'Division');
+        populateOrgUnitSelect('gl-branch', 'Branch');
+        populateOrgUnitSelect('gl-costcenter', 'CostCenter');
+        populateOrgUnitSelect('gl-profitcenter', 'ProfitCenter');
+        orgUnitsReady = true;
+        checkReadyAndApplyPending();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits(token);
+  }
+
+  function resolveAccountId() {
+    const typed = document.getElementById('gl-account-input').value.trim();
+    const code = typed.split(' — ')[0].trim();
+    const match = accounts.find(a => String(a.AccountCode) === code);
+    return match ? match.AccountID : '';
+  }
+
+  // Populates the print-only company letterhead. Unlike the entry
+  // screens, GL Report's Company filter can be left as "All" — a
+  // report spanning every company genuinely has no single company to
+  // attribute the letterhead to, so this intentionally leaves it blank
+  // rather than guessing or showing the first company found.
+  function updatePrintHeader() {
+    const companyId = document.getElementById('gl-company').value;
+    const company = companyId ? companies.find(c => c.CompanyID === companyId) : null;
+    document.getElementById('gl-print-company-name').textContent = company ? company.LegalName : '';
+    const addressParts = company ? [company.AddressLine1, company.AddressLine2].filter(Boolean) : [];
+    document.getElementById('gl-print-company-address').textContent = addressParts.join(', ');
+  }
+
+  // A genuinely separate report document, not a restyled screen — GL
+  // Report is an output of a query, not a transaction someone signs
+  // off on, so this has no signature block, just the parameters that
+  // produced it (so anyone reading a printed copy later knows exactly
+  // what was run) followed by the same opening/transactions/closing
+  // structure the screen itself shows. Selected-option text is read
+  // directly from each filter <select> rather than re-resolved from
+  // companies/orgUnits, so it can never drift from what the screen
+  // itself displayed when the report was run.
+  function buildPrintDocument() {
+    const container = document.getElementById('gl-print-document');
+    if (!container || !lastReport) { if (container) container.innerHTML = ''; return; }
+
+    const accountLabel = lastReport.account.AccountCode + ' — ' + lastReport.account.AccountName;
+    const fromDate = document.getElementById('gl-from-date').value || '—';
+    const toDate = document.getElementById('gl-to-date').value || '—';
+    const includeDraft = document.getElementById('gl-include-draft').checked ? 'Yes' : 'No';
+
+    const optLabel = (id) => {
+      const el = document.getElementById(id);
+      return el.selectedOptions.length ? el.selectedOptions[0].textContent : 'All';
+    };
+
+    const rows = lastReport.rows.map(r => {
+      const isDraft = r.Status === 'Draft';
+      return `<tr>
+        <td>${escapeHtml(r.JVDate)}</td>
+        <td>${isDraft ? 'DRAFT' : escapeHtml(r.JVNumber)}</td>
+        <td>${escapeHtml(r.TransactionRef || '—')}</td>
+        <td>${escapeHtml(r.AccountCode)}</td>
+        <td>${escapeHtml(r.Description)}</td>
+        <td style="text-align:right">${r.Debit ? formatMoney(r.Debit) : ''}</td>
+        <td style="text-align:right">${r.Credit ? formatMoney(r.Credit) : ''}</td>
+        <td style="text-align:right">${formatMoney(r.Balance)}</td>
+      </tr>`;
+    }).join('');
+
+    let totalDebit = 0, totalCredit = 0;
+    lastReport.rows.forEach(r => { totalDebit += r.Debit; totalCredit += r.Credit; });
+
+    container.innerHTML = `
+      <h2 style="text-align:center; font-size:16px; font-weight:bold; text-decoration:underline; margin:8px 0 16px;">GENERAL LEDGER REPORT</h2>
+      <div style="font-size:11px; margin-bottom:4px;"><strong>Account:</strong> ${escapeHtml(accountLabel)} &nbsp; (Normal Balance: ${escapeHtml(lastReport.account.NormalBalance)})</div>
+      <div style="font-size:11px; margin-bottom:4px;"><strong>Period:</strong> ${escapeHtml(fromDate)} to ${escapeHtml(toDate)} &nbsp; <strong>Include Draft:</strong> ${includeDraft}</div>
+      <div style="font-size:11px; margin-bottom:16px;">
+        <strong>Company:</strong> ${escapeHtml(optLabel('gl-company'))} &nbsp;
+        <strong>Division:</strong> ${escapeHtml(optLabel('gl-division'))} &nbsp;
+        <strong>Branch:</strong> ${escapeHtml(optLabel('gl-branch'))} &nbsp;
+        <strong>Cost Center:</strong> ${escapeHtml(optLabel('gl-costcenter'))} &nbsp;
+        <strong>Profit Center:</strong> ${escapeHtml(optLabel('gl-profitcenter'))}
+      </div>
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Voucher No.</th><th>Txn Ref</th><th>Account</th><th>Description</th>
+          <th style="text-align:right">Debit</th><th style="text-align:right">Credit</th><th style="text-align:right">Balance</th>
+        </tr></thead>
+        <tbody>
+          <tr><td colspan="5" style="font-style:italic;">Opening Balance</td><td></td><td></td><td style="text-align:right">${formatMoney(lastReport.openingBalance)}</td></tr>
+          ${rows || '<tr><td colspan="8" style="text-align:center; color:#888;">No activity in this period.</td></tr>'}
+        </tbody>
+        <tfoot><tr>
+          <td colspan="5" style="font-weight:bold;">Closing Balance</td>
+          <td style="text-align:right; font-weight:bold;">${formatMoney(totalDebit)}</td>
+          <td style="text-align:right; font-weight:bold;">${formatMoney(totalCredit)}</td>
+          <td style="text-align:right; font-weight:bold;">${formatMoney(lastReport.closingBalance)}</td>
+        </tr></tfoot>
+      </table>
+      <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated report.</p>
+    `;
+  }
+
+  function runReport() {
+    const error = document.getElementById('gl-error');
+    error.classList.add('hidden');
+    document.getElementById('gl-results').classList.add('hidden');
+
+    const accountId = resolveAccountId();
+    if (!accountId) { error.textContent = 'Select a valid account from the list.'; error.classList.remove('hidden'); return; }
+    const resolvedAccount = accounts.find(a => a.AccountID === accountId);
+
+    const params = {
+      AccountID: accountId,
+      FromDate: document.getElementById('gl-from-date').value,
+      ToDate: document.getElementById('gl-to-date').value,
+      IncludeDraft: document.getElementById('gl-include-draft').checked,
+      CompanyID: document.getElementById('gl-company').value,
+      DivisionID: document.getElementById('gl-division').value,
+      BranchID: document.getElementById('gl-branch').value,
+      CostCenterID: document.getElementById('gl-costcenter').value,
+      ProfitCenterID: document.getElementById('gl-profitcenter').value
+    };
+
+    // Stored under AccountCode (not the internal AccountID) so this can be
+    // handed straight back into openModule('GLREPORT', ...) later — that's
+    // the same shape every other report's drillToGl() sends, keeping one
+    // consistent "how to reopen GL Report" format everywhere.
+    lastParams = Object.assign({}, params, { AccountCode: resolvedAccount ? resolvedAccount.AccountCode : '' });
+
+    const btn = document.getElementById('gl-run-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Running...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        lastReport = result;
+        updatePrintHeader();
+        renderReport(result);
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.textContent = original;
+        error.textContent = err.message || 'Unable to run report.'; error.classList.remove('hidden');
+      })
+      .getGlReport(token, params);
+  }
+
+  // Opens the source JV or CBT entry for a row — works for drafts too,
+  // since JVID is always present regardless of Status. Fragments share
+  // this document's global scope, so openModule() (defined in Index.html)
+  // is callable directly; the target module reads OpenEntryId itself.
+  // Appends THIS report (with its exact current params) to whatever
+  // return chain we ourselves were opened with, so a "Back" press from
+  // JV/CBT lands back here with the same account/dates/filters, and this
+  // screen still remembers how to walk back further (e.g. to Trial Balance)
+  // after that.
+  // Routes to whichever module actually owns this entry — resolved
+  // server-side (SourceModule, from moduleIdForEntry_) rather than
+  // guessed here from voucherType, since a plain truthy check would
+  // misroute a stock-originated entry (GRN, MI, etc.) to the CBT screen.
+  function openSourceEntry(jvId, sourceModule) {
+    const chainEntry = { moduleId: 'GLREPORT', label: 'General Ledger Report', params: lastParams };
+    openModule(sourceModule || 'JV', { OpenEntryId: jvId }, [...myReturnChain, chainEntry]);
+  }
+
+  function renderReport(result) {
+    document.getElementById('gl-results').classList.remove('hidden');
+    document.getElementById('gl-account-title').textContent = result.account.AccountCode + ' — ' + result.account.AccountName;
+    document.getElementById('gl-account-normal').textContent = 'Normal Balance: ' + result.account.NormalBalance;
+    document.getElementById('gl-rollup-note').classList.toggle('hidden', !result.account.IsRollup);
+    document.getElementById('gl-opening-cell').textContent = formatMoney(result.openingBalance);
+
+    const tbody = document.getElementById('gl-table-body');
+    const openingRow = tbody.rows[0];
+    tbody.innerHTML = '';
+    tbody.appendChild(openingRow);
+
+    let totalDebit = 0, totalCredit = 0;
+    if (!result.rows.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td class="py-4 px-4 text-center text-slate-500" colspan="8">No activity in this period.</td>';
+      tbody.appendChild(tr);
+    }
+    result.rows.forEach(r => {
+      totalDebit += r.Debit; totalCredit += r.Credit;
+      const isDraft = r.Status === 'Draft';
+      const tr = document.createElement('tr');
+      if (isDraft) tr.className = 'bg-amber-500/5';
+      tr.innerHTML = `
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(r.JVDate)}</td>
+        <td class="py-2 px-4 font-mono text-xs"><button class="gl-open-entry underline decoration-dotted hover:text-blue-400 ${isDraft ? 'text-amber-400' : 'text-slate-200'}">${isDraft ? 'DRAFT' : escapeHtml(r.JVNumber)}</button></td>
+        <td class="py-2 px-4 font-mono text-xs text-slate-500">${escapeHtml(r.TransactionRef || '—')}</td>
+        <td class="py-2 px-4 font-mono text-xs text-slate-400">${escapeHtml(r.AccountCode)}</td>
+        <td class="py-2 px-4 text-slate-200">${escapeHtml(r.Description)}</td>
+        <td class="py-2 px-4 text-right text-xs">${r.Debit ? formatMoney(r.Debit) : ''}</td>
+        <td class="py-2 px-4 text-right text-xs">${r.Credit ? formatMoney(r.Credit) : ''}</td>
+        <td class="py-2 px-4 text-right text-xs font-mono">${formatMoney(r.Balance)}</td>`;
+      tr.querySelector('.gl-open-entry').addEventListener('click', () => openSourceEntry(r.JVID, r.SourceModule));
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('gl-total-debit').textContent = formatMoney(totalDebit);
+    document.getElementById('gl-total-credit').textContent = formatMoney(totalCredit);
+    document.getElementById('gl-closing-cell').textContent = formatMoney(result.closingBalance);
+  }
+
+  function copyTable() {
+    if (!lastReport) { alert('Run the report first.'); return; }
+    const rows = [['Date', 'Voucher No.', 'Txn Ref', 'Account', 'Description', 'Debit', 'Credit', 'Balance'].join('\t')];
+    rows.push(['', '', '', '', 'Opening Balance', '', '', fmt(lastReport.openingBalance)].join('\t'));
+    lastReport.rows.forEach(r => {
+      rows.push([r.JVDate, r.JVNumber || 'DRAFT', r.TransactionRef || '', r.AccountCode, r.Description, r.Debit ? fmt(r.Debit) : '', r.Credit ? fmt(r.Credit) : '', fmt(r.Balance)].join('\t'));
+    });
+    const text = rows.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(() => window.prompt('Copy this text:', text));
+    } else {
+      window.prompt('Copy this text:', text);
+    }
+  }
+
+  // Pops the last entry off the return chain and reopens it with the
+  // REMAINING chain — this is what makes multi-hop back navigation work
+  // (Report -> GL -> JV -> back -> back), not just a single-level return.
+  function goBackInChain() {
+    const chain = myReturnChain.slice();
+    const target = chain.pop();
+    if (!target) return;
+    openModule(target.moduleId, target.params, chain);
+  }
+
+  window.initModule = function (idToken) {
+    token = idToken;
+    document.getElementById('gl-from-date').value = firstOfMonth();
+    document.getElementById('gl-to-date').value = today();
+
+    myReturnChain = window.__pendingReturnChain || [];
+    window.__pendingReturnChain = [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      document.getElementById('gl-back-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      document.getElementById('gl-back-btn').classList.remove('hidden');
+      document.getElementById('gl-back-btn').addEventListener('click', goBackInChain);
+    }
+
+    loadReferenceData();
+
+    document.getElementById('gl-run-btn').addEventListener('click', runReport);
+    document.getElementById('gl-copy-btn').addEventListener('click', copyTable);
+    document.getElementById('gl-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-book-open"></i> General Ledger Reports (GL)';
+  };
+})();
+</script>

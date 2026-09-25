@@ -1,0 +1,611 @@
+<div id="bom-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Stock Management</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-sitemap text-blue-500"></i> Bill of Materials</h2></div>
+    <button id="bom-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New BOM</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="bom-search-input" placeholder="Search parent item code or name..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="bom-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Parent Item</th>
+            <th class="py-3 px-4">Version</th>
+            <th class="py-3 px-4">Effective From</th>
+            <th class="py-3 px-4 text-center">Components</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="bom-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="bom-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="bom-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h2 id="bom-entry-title" class="text-xl font-bold text-blue-400">New BOM</h2>
+    </div>
+    <span id="bom-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-2">
+      <label class="block text-xs font-medium text-slate-300">Parent Item <span class="text-slate-500">(Finished or Semi-Finished Good)</span></label>
+      <p id="bom-parent-selected" class="text-sm text-slate-200">None selected</p>
+      <input type="text" id="bom-parent-filter" placeholder="Type to filter by code or name..." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+      <!-- No `size` attribute — a multi-row listbox (size > 1) is
+           reliably respected on desktop browsers, but mobile Safari and
+           Chrome collapse it to the SAME thin single-line control as a
+           normal select regardless, which looked empty/broken with no
+           indication there was anything to tap. A plain <select> is
+           exactly what mobile browsers already render it as, so this is
+           the honest, correctly-behaving version of the same control —
+           tapping it opens the native OS picker either way. -->
+      <select id="bom-parent-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></select>
+      <p id="bom-parent-empty-note" class="hidden text-xs text-amber-400">No Finished Good or Semi-Finished Good items found. Create one in Item Master first — this list only shows those two categories.</p>
+      <p class="text-xs text-slate-500">Click an item in the list, or filter first then click. This is a plain, standard list box — no custom search box that can silently fail.</p>
+    </div>
+    <div class="grid grid-cols-1 gap-4">
+      <div class="grid grid-cols-3 gap-4">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Version</label><input type="text" id="bom-form-version" value="1.0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Effective From</label><input type="date" id="bom-form-effective" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="bom-form-status" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+      </div>
+      <p class="text-xs text-slate-500">The date this recipe actually took effect — not just today's date if you're recording a change that started earlier. Reports that need "what was the recipe on date X" (like Material Variance) use this, not just whichever version is marked Active right now.</p>
+      <p id="bom-active-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Saving this as Active will automatically deactivate any other Active BOM already on record for this parent item — only one recipe is ever in effect at a time.</p>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Notes <span class="text-slate-500">(optional)</span></label><input type="text" id="bom-form-notes" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-2">
+    <label class="block text-xs font-medium text-slate-300">Add Component <span class="text-slate-500">(Raw Material, Semi-Finished Good, or Consumable)</span></label>
+    <div class="flex gap-3">
+      <div class="flex-1 space-y-2">
+        <input type="text" id="bom-component-filter" placeholder="Type to filter by code or name..." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+        <select id="bom-component-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></select>
+        <p id="bom-component-empty-note" class="hidden text-xs text-amber-400">No eligible components found — create Raw Material, Semi-Finished Good, or Consumable items in Item Master first.</p>
+      </div>
+      <div class="flex flex-col justify-end">
+        <button id="bom-add-component-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg whitespace-nowrap"><i class="fa-solid fa-plus"></i> Add to BOM</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2">
+    <button id="bom-paste-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
+    <button id="bom-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy Table</button>
+    <span class="text-xs text-slate-500">Paste columns: Component Code / Quantity / Scrap %. Quantity is per 1 unit of the parent item, in the component's own base UOM.</span>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table id="bom-component-table" class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3 w-10">#</th>
+            <th class="py-2 px-3">Component Code</th>
+            <th class="py-2 px-3">Component Name</th>
+            <th class="py-2 px-3 text-right w-28">Quantity</th>
+            <th class="py-2 px-3 w-20">UOM</th>
+            <th class="py-2 px-3 text-right w-24">Scrap %</th>
+            <th class="py-2 px-3 w-10"></th>
+          </tr>
+        </thead>
+        <tbody id="bom-component-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="bom-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+    <button id="bom-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-floppy-disk"></i> Save BOM</button>
+  </div>
+</div>
+
+<div id="bom-confirm-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 class="text-lg font-bold text-slate-100">Confirm</h3>
+    <p id="bom-confirm-message" class="text-sm text-slate-300"></p>
+    <div class="flex justify-end gap-3 pt-2">
+      <button id="bom-confirm-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button>
+      <button id="bom-confirm-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  // Captured the instant this fragment's script executes. This reads
+  // window.__thisModuleToken — NOT window.__activeModuleToken directly —
+  // because __activeModuleToken is a live, shared counter that a second,
+  // faster openModule() call (e.g. a double-click on the same tree item)
+  // can bump again before this fragment even finishes loading; reading it
+  // here would risk two competing loads both capturing the same value and
+  // becoming indistinguishable. __thisModuleToken is set once by
+  // Index.html's openModule(), synchronously, immediately before THIS
+  // specific fragment's initModule() runs, and only for the load that
+  // actually won the race — see openModule's own comment for the full
+  // reasoning.
+  const myModuleToken = window.__thisModuleToken;
+  function stillActive() { return window.__activeModuleToken === myModuleToken; }
+  let canWrite = false;
+  let boms = [];
+  let items = [];
+  let uoms = [];
+  let currentBom = null;
+  let parentItem = null;
+  let components = []; // { ComponentItemID, Quantity, ScrapPercent }
+
+  const PARENT_CATEGORIES = ['FinishedGood', 'SemiFinishedGood'];
+  const COMPONENT_CATEGORIES = ['RawMaterial', 'SemiFinishedGood', 'Consumable'];
+  const CATEGORY_LABELS = { RawMaterial: 'Raw Material', SemiFinishedGood: 'Semi-Finished Good', FinishedGood: 'Finished Good', Consumable: 'Consumable', Scrap: 'Scrap' };
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function itemById(id) { return items.find(i => i.ItemID === id); }
+  function itemByCode(code) { return items.find(i => String(i.ItemCode) === String(code)); }
+  function uomById(id) { return uoms.find(u => u.UOMID === id); }
+
+  function showConfirm(message, onConfirm) {
+    document.getElementById('bom-confirm-message').textContent = message;
+    document.getElementById('bom-confirm-modal').classList.remove('hidden');
+    const okBtn = document.getElementById('bom-confirm-ok');
+    const cancelBtn = document.getElementById('bom-confirm-cancel');
+    function cleanup() {
+      document.getElementById('bom-confirm-modal').classList.add('hidden');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+    }
+    function onOk() { cleanup(); onConfirm(); }
+    function onCancel() { cleanup(); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  }
+
+  // ---------- LIST VIEW ----------
+
+  function fetchAndRender() {
+    rpc
+      .withSuccessHandler(result => { if (!stillActive()) return; boms = result || []; renderList(); })
+      .withFailureHandler(err => { if (!stillActive()) return; alert(err.message || 'Unable to load BOMs.'); })
+      .getBoms();
+  }
+
+  function renderList() {
+    // Defensive, independent of the token mechanism above: if this
+    // module's own elements aren't in the DOM for ANY reason — a stale
+    // callback, a deployment that hasn't picked up Index.html's guard
+    // yet, or something not yet accounted for — bail out here directly
+    // rather than crashing. This is the one check that can never fail to
+    // prevent this specific crash, since it asks the DOM itself rather
+    // than trusting a token comparison to have worked correctly.
+    const searchEl = document.getElementById('bom-search-input');
+    const statusEl = document.getElementById('bom-status-filter');
+    if (!searchEl || !statusEl) return;
+    const tbody = document.getElementById('bom-table-body');
+    const search = searchEl.value.toLowerCase();
+    const status = statusEl.value;
+
+    const filtered = boms.filter(b => {
+      if (search && !`${b.ParentItemCode} ${b.ParentItemName}`.toLowerCase().includes(search)) return false;
+      if (status && b.Status !== status) return false;
+      return true;
+    }).sort((a, b) => String(a.ParentItemCode).localeCompare(String(b.ParentItemCode), undefined, { numeric: true }));
+
+    tbody.innerHTML = '';
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">No BOMs found.</td></tr>'; return; }
+
+    filtered.forEach(b => {
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      let actions = '';
+      if (canWrite) {
+        actions = `<button class="bom-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+           <button class="bom-dup text-slate-400 hover:text-blue-400 p-1" title="Duplicate"><i class="fa-solid fa-clone"></i></button>
+           <button class="bom-toggle text-slate-400 ${b.Status === 'Active' ? 'hover:text-red-400' : 'hover:text-emerald-400'} p-1" title="${b.Status === 'Active' ? 'Deactivate' : 'Reactivate'}"><i class="fa-solid ${b.Status === 'Active' ? 'fa-ban' : 'fa-rotate-left'}"></i></button>`;
+      }
+      row.innerHTML = `
+        <td class="py-3 px-4"><span class="font-mono text-xs text-slate-200">${escapeHtml(b.ParentItemCode)}</span> <span class="text-slate-400">— ${escapeHtml(b.ParentItemName)}</span></td>
+        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(b.BOMVersion)}</td>
+        <td class="py-3 px-4 text-xs text-slate-400 font-mono">${escapeHtml(b.EffectiveFrom || '—')}</td>
+        <td class="py-3 px-4 text-xs text-center">${(b.Components || []).length}</td>
+        <td class="py-3 px-4 text-xs">${b.Status === 'Active' ? '<span class="text-emerald-400">Active</span>' : '<span class="text-slate-500">Inactive</span>'}</td>
+        <td class="py-3 px-4 text-right">${actions}</td>`;
+      if (canWrite) {
+        row.querySelector('.bom-edit').addEventListener('click', () => openEntry(b.BOMID));
+        row.querySelector('.bom-dup').addEventListener('click', () => duplicateEntry(b.BOMID));
+        row.querySelector('.bom-toggle').addEventListener('click', () => toggleStatus(b));
+      }
+      tbody.appendChild(row);
+    });
+  }
+
+  function toggleStatus(bom) {
+    const activating = bom.Status !== 'Active';
+    const message = activating
+      ? 'Reactivate this BOM for ' + bom.ParentItemCode + '? Any other Active BOM already on record for this parent will be deactivated.'
+      : 'Deactivate this BOM for ' + bom.ParentItemCode + '?';
+    showConfirm(message, () => {
+      const call = activating ? 'reactivateBom' : 'deactivateBom';
+      rpc
+        .withSuccessHandler(result => { if (!stillActive()) return; if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update BOM.'); })
+        .withFailureHandler(err => { if (!stillActive()) return; alert(err.message || 'Unable to update BOM.'); })
+        [call]({ __positional: [bom.BOMID] });
+    });
+  }
+
+  // ---------- PARENT ITEM: plain native listbox, filtered by a plain
+  // text input that rebuilds the listbox's own <option> elements. No
+  // custom modal, no custom keyboard handling, no positioning — the
+  // browser's own <select> handles everything about the list itself. ----------
+
+  function eligibleParentItems() {
+    // getActiveItems() already filters to Active items server-side and
+    // never even sends a Status field to the client — checking i.Status
+    // here was always comparing against undefined, making this always
+    // return empty. This was the actual reason BOM's item picker never
+    // showed any items, not a UI/modal issue.
+    return items.filter(i => PARENT_CATEGORIES.indexOf(i.Category) !== -1);
+  }
+
+  function renderParentOptions() {
+    const query = document.getElementById('bom-parent-filter').value.trim().toLowerCase();
+    const select = document.getElementById('bom-parent-select');
+    const allEligible = eligibleParentItems();
+    let pool = allEligible
+      .filter(i => !query || String(i.ItemCode).toLowerCase().includes(query) || String(i.ItemName).toLowerCase().includes(query))
+      .sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }));
+    // A filter change after picking a parent would otherwise rebuild the
+    // list without the already-picked item in it (if the new filter
+    // text doesn't happen to match it) — the select's value silently
+    // resets to empty, making a real, already-registered selection look
+    // like it never took. Keep the current pick in the pool regardless
+    // of what the filter currently says, and mark it selected.
+    if (parentItem && !pool.some(i => i.ItemID === parentItem.ItemID) && allEligible.some(i => i.ItemID === parentItem.ItemID)) {
+      pool = [parentItem, ...pool];
+    }
+    select.innerHTML = pool.map(i =>
+      `<option value="${i.ItemID}"${parentItem && i.ItemID === parentItem.ItemID ? ' selected' : ''}>${escapeHtml(i.ItemCode)} — ${escapeHtml(i.ItemName)} (${escapeHtml(CATEGORY_LABELS[i.Category] || i.Category)})</option>`
+    ).join('') || `<option value="" disabled>${query ? 'No matching items' : 'None available'}</option>`;
+    // Visible regardless of whether the select is tapped/opened — the
+    // select's own empty state is easy to miss, especially on mobile
+    // where it renders as a thin, single-line control.
+    document.getElementById('bom-parent-empty-note').classList.toggle('hidden', allEligible.length > 0);
+  }
+
+  function onParentSelected() {
+    const select = document.getElementById('bom-parent-select');
+    const item = itemById(select.value);
+    if (!item) return;
+    parentItem = item;
+    document.getElementById('bom-parent-selected').innerHTML = `<span class="font-mono text-slate-200">${escapeHtml(item.ItemCode)}</span> — ${escapeHtml(item.ItemName)} <span class="text-slate-500">(${escapeHtml(CATEGORY_LABELS[item.Category] || item.Category)})</span>`;
+    // The parent item itself must disappear from the component list if
+    // it was somehow already selectable there (can't be its own
+    // ingredient), and the component pool depends on which items are
+    // already added — refresh it.
+    renderComponentOptions();
+  }
+
+  // ---------- COMPONENT PICKER: same plain listbox pattern ----------
+
+  function eligibleComponentItems() {
+    return items.filter(i => {
+      // Same root cause as eligibleParentItems() above — see that comment.
+      if (COMPONENT_CATEGORIES.indexOf(i.Category) === -1) return false;
+      if (parentItem && i.ItemID === parentItem.ItemID) return false;
+      if (components.some(c => c.ComponentItemID === i.ItemID)) return false;
+      return true;
+    });
+  }
+
+  function renderComponentOptions() {
+    const query = document.getElementById('bom-component-filter').value.trim().toLowerCase();
+    const select = document.getElementById('bom-component-select');
+    const allEligible = eligibleComponentItems();
+    const pool = allEligible
+      .filter(i => !query || String(i.ItemCode).toLowerCase().includes(query) || String(i.ItemName).toLowerCase().includes(query))
+      .sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }));
+    select.innerHTML = pool.map(i =>
+      `<option value="${i.ItemID}">${escapeHtml(i.ItemCode)} — ${escapeHtml(i.ItemName)} (${escapeHtml(CATEGORY_LABELS[i.Category] || i.Category)})</option>`
+    ).join('') || `<option value="" disabled>${query ? 'No matching items' : 'None available'}</option>`;
+    document.getElementById('bom-component-empty-note').classList.toggle('hidden', allEligible.length > 0);
+  }
+
+  function addSelectedComponent() {
+    const select = document.getElementById('bom-component-select');
+    if (!select.value) return;
+    components.push({ ComponentItemID: select.value, Quantity: '', ScrapPercent: '' });
+    renderComponents();
+    renderComponentOptions();
+    document.getElementById('bom-component-filter').value = '';
+  }
+
+  // ---------- COMPONENT GRID ----------
+
+  function renderComponents() {
+    const tbody = document.getElementById('bom-component-body');
+    tbody.innerHTML = '';
+    if (!components.length) { tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">No components added yet.</td></tr>'; return; }
+
+    components.forEach((c, i) => {
+      const item = itemById(c.ComponentItemID);
+      const uom = item ? uomById(item.UOMID) : null;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+        <td class="py-1.5 px-3 font-mono text-xs text-slate-200">${item ? escapeHtml(item.ItemCode) : '—'}</td>
+        <td class="py-1.5 px-3 text-xs text-slate-400">${item ? escapeHtml(item.ItemName) : '<span class="text-red-400">not found</span>'}</td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="qty" type="text" inputmode="decimal" value="${c.Quantity === '' ? '' : c.Quantity}" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1.5 px-3 text-xs text-slate-400">${uom ? escapeHtml(uom.Code) : '—'}</td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="scrap" type="text" inputmode="decimal" value="${c.ScrapPercent === '' ? '' : c.ScrapPercent}" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1 text-center"><button data-row="${i}" class="bom-remove-component text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button></td>`;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('input[data-field="qty"]').forEach(input => {
+      input.addEventListener('input', e => { components[parseInt(e.target.getAttribute('data-row'), 10)].Quantity = e.target.value.replace(/,/g, ''); });
+    });
+    tbody.querySelectorAll('input[data-field="scrap"]').forEach(input => {
+      input.addEventListener('input', e => { components[parseInt(e.target.getAttribute('data-row'), 10)].ScrapPercent = e.target.value.replace(/,/g, ''); });
+    });
+    tbody.querySelectorAll('.bom-remove-component').forEach(btn => {
+      btn.addEventListener('click', () => {
+        components.splice(parseInt(btn.getAttribute('data-row'), 10), 1);
+        renderComponents();
+        renderComponentOptions(); // removed item becomes eligible again
+      });
+    });
+  }
+
+  // ---------- PASTE FROM EXCEL / COPY TABLE ----------
+  // Columns: Component Code / Quantity / Scrap %. Simpler than GRN/MI's
+  // paste since there's no warehouse/UOM/cost-center per component —
+  // just resolve the code against the eligible component pool.
+
+  function handlePasteButton() {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      alert('Your browser blocked clipboard access here. Copy your data (Ctrl+C), then try again.');
+      return;
+    }
+    navigator.clipboard.readText().then(text => applyPastedText(text)).catch(() => {
+      alert('Unable to read the clipboard.');
+    });
+  }
+
+  function applyPastedText(text) {
+    if (!text) return;
+    const rows = text.replace(/\r/g, '').split('\n').filter(r => r.trim() !== '');
+    let skipped = 0;
+    rows.forEach(rowText => {
+      const cells = rowText.split('\t');
+      const code = (cells[0] || '').trim();
+      if (!code) return;
+      const item = itemByCode(code);
+      if (!item || COMPONENT_CATEGORIES.indexOf(item.Category) === -1 || (parentItem && item.ItemID === parentItem.ItemID)) {
+        skipped++;
+        return;
+      }
+      const qty = (cells[1] || '').trim().replace(/,/g, '');
+      const scrap = (cells[2] || '').trim().replace(/,/g, '');
+      const existing = components.find(c => c.ComponentItemID === item.ItemID);
+      if (existing) {
+        if (qty !== '') existing.Quantity = parseFloat(qty) || '';
+        if (scrap !== '') existing.ScrapPercent = parseFloat(scrap) || '';
+      } else {
+        components.push({ ComponentItemID: item.ItemID, Quantity: qty === '' ? '' : (parseFloat(qty) || ''), ScrapPercent: scrap === '' ? '' : (parseFloat(scrap) || '') });
+      }
+    });
+    renderComponents();
+    renderComponentOptions();
+    if (skipped) alert(skipped + ' row(s) were skipped — code not found, not an eligible component category, or matched the parent item itself.');
+  }
+
+  function handleCopyButton() {
+    const rows = components.map(c => {
+      const item = itemById(c.ComponentItemID);
+      return [item ? item.ItemCode : '', c.Quantity === '' ? '' : c.Quantity, c.ScrapPercent === '' ? '' : c.ScrapPercent].join('\t');
+    });
+    const text = rows.join('\n');
+    if (!text) { alert('Nothing to copy yet.'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => flashCopyButton()).catch(() => window.prompt('Copy this text:', text));
+    } else {
+      window.prompt('Copy this text:', text);
+    }
+  }
+
+  function flashCopyButton() {
+    const btn = document.getElementById('bom-copy-btn');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
+  }
+
+  // ---------- ENTRY VIEW ----------
+
+  function resetEntryState() {
+    currentBom = null;
+    parentItem = null;
+    components = [];
+    document.getElementById('bom-parent-selected').textContent = 'None selected';
+    document.getElementById('bom-parent-filter').value = '';
+    document.getElementById('bom-component-filter').value = '';
+    document.getElementById('bom-form-version').value = '1.0';
+    document.getElementById('bom-form-effective').value = new Date().toISOString().substring(0, 10);
+    document.getElementById('bom-form-status').value = 'Active';
+    document.getElementById('bom-form-notes').value = '';
+  }
+
+  function newEntry() {
+    resetEntryState();
+    showEntryView();
+  }
+
+  function openEntry(bomId) {
+    const bom = boms.find(b => b.BOMID === bomId);
+    if (!bom) return;
+    resetEntryState();
+    currentBom = bom;
+    parentItem = itemById(bom.ParentItemID) || { ItemID: bom.ParentItemID, ItemCode: bom.ParentItemCode, ItemName: bom.ParentItemName };
+    components = (bom.Components || []).map(c => ({ ComponentItemID: c.ComponentItemID, Quantity: c.Quantity, ScrapPercent: c.ScrapPercent || '' }));
+
+    document.getElementById('bom-parent-selected').innerHTML = `<span class="font-mono text-slate-200">${escapeHtml(bom.ParentItemCode)}</span> — ${escapeHtml(bom.ParentItemName)}`;
+    document.getElementById('bom-form-version').value = bom.BOMVersion || '1.0';
+    document.getElementById('bom-form-effective').value = bom.EffectiveFrom || '';
+    document.getElementById('bom-form-status').value = bom.Status || 'Active';
+    document.getElementById('bom-form-notes').value = bom.Notes || '';
+    showEntryView();
+  }
+
+  // Copies an existing BOM's parent, version, notes, and full component
+  // list into a fresh, unsaved entry — same "starting point, not
+  // automatic" philosophy as JV/CBT/GRN/MI's duplicate. Everything stays
+  // editable, including the parent item, since a common use is "new
+  // product, almost the same recipe."
+  function duplicateEntry(bomId) {
+    const source = boms.find(b => b.BOMID === bomId);
+    if (!source) return;
+    resetEntryState();
+    currentBom = null;
+    parentItem = itemById(source.ParentItemID) || { ItemID: source.ParentItemID, ItemCode: source.ParentItemCode, ItemName: source.ParentItemName };
+    components = (source.Components || []).map(c => ({ ComponentItemID: c.ComponentItemID, Quantity: c.Quantity, ScrapPercent: c.ScrapPercent || '' }));
+
+    document.getElementById('bom-parent-selected').innerHTML = `<span class="font-mono text-slate-200">${escapeHtml(source.ParentItemCode)}</span> — ${escapeHtml(source.ParentItemName)}`;
+    document.getElementById('bom-form-version').value = source.BOMVersion || '1.0';
+    document.getElementById('bom-form-effective').value = new Date().toISOString().substring(0, 10);
+    document.getElementById('bom-form-status').value = 'Active';
+    document.getElementById('bom-form-notes').value = source.Notes || '';
+    showEntryView();
+  }
+
+  function showEntryView() {
+    document.getElementById('bom-list-view').classList.add('hidden');
+    document.getElementById('bom-entry-view').classList.remove('hidden');
+    document.getElementById('bom-form-error').classList.add('hidden');
+    document.getElementById('bom-entry-title').textContent = currentBom ? 'Edit BOM' : 'New BOM';
+    document.getElementById('bom-active-note').classList.toggle('hidden', document.getElementById('bom-form-status').value !== 'Active');
+
+    const badge = document.getElementById('bom-status-badge');
+    if (currentBom) {
+      badge.classList.remove('hidden');
+      badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (currentBom.Status === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-700 text-slate-400 border border-slate-600');
+      badge.textContent = currentBom.Status;
+    } else {
+      badge.classList.add('hidden');
+    }
+
+    renderParentOptions();
+    renderComponentOptions();
+    renderComponents();
+  }
+
+  function showListView() {
+    document.getElementById('bom-entry-view').classList.add('hidden');
+    document.getElementById('bom-list-view').classList.remove('hidden');
+    fetchAndRender();
+  }
+
+  function saveBom() {
+    const error = document.getElementById('bom-form-error');
+    error.classList.add('hidden');
+    if (!parentItem) { error.textContent = 'Select a parent item.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('bom-form-effective').value) { error.textContent = 'Enter the date this recipe took effect.'; error.classList.remove('hidden'); return; }
+    if (!components.length) { error.textContent = 'Add at least one component.'; error.classList.remove('hidden'); return; }
+    for (let i = 0; i < components.length; i++) {
+      if (!(Number(components[i].Quantity) > 0)) {
+        error.textContent = 'Enter a quantity greater than zero for every component.'; error.classList.remove('hidden'); return;
+      }
+    }
+
+    const payload = {
+      BOMID: currentBom ? currentBom.BOMID : '',
+      ParentItemID: parentItem.ItemID,
+      BOMVersion: document.getElementById('bom-form-version').value.trim(),
+      EffectiveFrom: document.getElementById('bom-form-effective').value,
+      Status: document.getElementById('bom-form-status').value,
+      Notes: document.getElementById('bom-form-notes').value.trim(),
+      Components: components.map(c => ({ ComponentItemID: c.ComponentItemID, Quantity: c.Quantity, ScrapPercent: c.ScrapPercent }))
+    };
+
+    const btn = document.getElementById('bom-save-btn');
+    btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        if (!stillActive()) return;
+        btn.disabled = false; btn.innerHTML = original;
+        if (result.success) showListView();
+        else { error.textContent = result.error || 'Unable to save BOM.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        if (!stillActive()) return;
+        btn.disabled = false; btn.innerHTML = original;
+        error.textContent = err.message || 'Unable to save BOM.'; error.classList.remove('hidden');
+      })
+      .saveBom({ bomData: payload });
+  }
+
+  // ---------- REFERENCE DATA ----------
+
+  function loadReferenceData() {
+    rpc
+      .withSuccessHandler(result => { if (!stillActive()) return; items = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getActiveItems();
+
+    rpc
+      .withSuccessHandler(result => { if (!stillActive()) return; uoms = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getActiveUOMs();
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken, writeAllowed) {
+    token = idToken;
+    canWrite = Boolean(writeAllowed);
+
+    document.getElementById('bom-new-btn').classList.toggle('hidden', !canWrite);
+    if (canWrite) document.getElementById('bom-new-btn').addEventListener('click', newEntry);
+    document.getElementById('bom-back-btn').addEventListener('click', showListView);
+    document.getElementById('bom-search-input').addEventListener('input', renderList);
+    document.getElementById('bom-status-filter').addEventListener('change', renderList);
+    document.getElementById('bom-save-btn').addEventListener('click', saveBom);
+    document.getElementById('bom-form-status').addEventListener('change', () => {
+      document.getElementById('bom-active-note').classList.toggle('hidden', document.getElementById('bom-form-status').value !== 'Active');
+    });
+
+    document.getElementById('bom-parent-filter').addEventListener('input', renderParentOptions);
+    document.getElementById('bom-parent-select').addEventListener('change', onParentSelected);
+    document.getElementById('bom-component-filter').addEventListener('input', renderComponentOptions);
+    document.getElementById('bom-add-component-btn').addEventListener('click', addSelectedComponent);
+    // Double-click an option as a quick shortcut for "Add to BOM".
+    document.getElementById('bom-component-select').addEventListener('dblclick', addSelectedComponent);
+
+    document.getElementById('bom-paste-btn').addEventListener('click', handlePasteButton);
+    document.getElementById('bom-copy-btn').addEventListener('click', handleCopyButton);
+    document.getElementById('bom-component-table').addEventListener('paste', e => {
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      if (text && (text.includes('\t') || text.includes('\n'))) { e.preventDefault(); applyPastedText(text); }
+    }, true);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sitemap"></i> Bill of Materials';
+    loadReferenceData();
+    // showListView() already calls fetchAndRender() itself — calling it
+    // again here was redundant (two in-flight getBoms requests instead
+    // of one) without being wrong, but no reason to keep the waste.
+    showListView();
+  };
+})();
+</script>

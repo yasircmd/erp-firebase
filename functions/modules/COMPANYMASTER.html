@@ -1,0 +1,335 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Enterprise Structure & Organizational Master Data</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-building text-blue-500"></i> Company Master Data</h2></div>
+    <button id="co-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Company</button>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-3 px-4">Legal Name</th><th class="py-3 px-4">Code</th><th class="py-3 px-4">Parent Company</th><th class="py-3 px-4">Tax Numbers</th><th class="py-3 px-4">City / Country</th><th class="py-3 px-4">Status</th><th class="py-3 px-4 text-right">Actions</th>
+        </tr></thead>
+        <tbody id="co-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="co-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="co-modal-title" class="text-lg font-bold">Add Company</h3><button id="co-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <form id="co-form" class="space-y-4">
+      <input type="hidden" id="co-form-id">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Legal Company Name</label><input type="text" id="co-form-name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Reference Code</label>
+          <input type="text" id="co-form-refcode" pattern="\d{2}" maxlength="2" placeholder="e.g. 01" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono focus:outline-none focus:border-blue-500">
+          <p class="text-xs text-slate-500 mt-1">2 digits, appears in voucher numbers (e.g. JV-26-01-000001). Leave blank on a new company to auto-assign the next available.</p>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Parent Company <span class="text-slate-500">(leave blank for a top-level entity)</span></label>
+        <select id="co-form-parent" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None — top-level entity</option></select>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+        <label class="block text-xs font-medium text-slate-300 mb-1">GRN Clearing Account <span class="text-slate-500">(optional)</span></label>
+        <select id="co-form-grnclearing" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
+        <p class="text-xs text-slate-500 mt-1">The account Goods Receipt (GRN) posts against automatically for this company — fixed, not chosen per-transaction, since a clearing account only works if it's always the same account. GRN cannot be posted for this company until this is set.</p>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-4">
+        <p class="text-xs font-semibold text-slate-400 uppercase">Vendor Invoice Processing — Fixed Accounts <span class="normal-case font-normal text-slate-500">(each optional until actually needed — Accounts Payable itself is set per-Vendor, on Vendor Master Data, not here)</span></p>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Discount Received Account</label>
+          <select id="co-form-discount" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
+          <p class="text-xs text-slate-500 mt-1">Only needed if an invoice actually carries a non-zero discount.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Input Tax Account</label>
+          <select id="co-form-tax" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
+          <p class="text-xs text-slate-500 mt-1">Only needed if an invoice actually carries a non-zero tax amount.</p>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-4">
+        <p class="text-xs font-semibold text-slate-400 uppercase">Customer Invoice Processing — Fixed Accounts <span class="normal-case font-normal text-slate-500">(each optional until actually needed — Accounts Receivable itself is set per-Customer, on Customer Master Data, not here)</span></p>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Discount Given Account</label>
+          <select id="co-form-discount-given" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
+          <p class="text-xs text-slate-500 mt-1">Only needed if an invoice actually carries a non-zero discount.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Output Tax Account</label>
+          <select id="co-form-tax-output" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
+          <p class="text-xs text-slate-500 mt-1">Only needed if an invoice actually carries a non-zero tax amount.</p>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-4">
+        <p class="text-xs font-semibold text-slate-400 uppercase">Round Off Account <span class="normal-case font-normal text-slate-500">(shared by both Vendor and Customer Invoice Processing — a rounding adjustment is the same kind of immaterial P&amp;L difference regardless of direction)</span></p>
+        <div>
+          <select id="co-form-roundoff" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
+          <p class="text-xs text-slate-500 mt-1">Only needed if an invoice actually carries a non-zero rounding adjustment.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-xs font-medium text-slate-300">Tax Registration Numbers</label>
+          <button type="button" id="co-add-tax-btn" class="text-xs text-blue-400 hover:text-blue-300"><i class="fa-solid fa-plus"></i> Add</button>
+        </div>
+        <div id="co-tax-list" class="space-y-2"></div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Address Line 1</label><input type="text" id="co-form-address1" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Address Line 2 <span class="text-slate-500">(optional)</span></label><input type="text" id="co-form-address2" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">City</label><input type="text" id="co-form-city" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">State / Emirate</label><input type="text" id="co-form-state" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Country</label><input type="text" id="co-form-country" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Postal Code / PO Box</label><input type="text" id="co-form-postal" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      </div>
+
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="co-form-status" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+
+      <div id="co-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
+        <button type="button" id="co-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
+        <button type="submit" id="co-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Company</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canWrite = false;
+  let companies = [];
+  let accounts = [];
+
+  // Full chart of accounts — this is an admin screen (COMPANYMASTER
+  // write access), so no need to restrict by the acting user's own
+  // company assignment the way GRN's item/account pickers must.
+  function loadAccounts() {
+    rpc
+      .withSuccessHandler(result => {
+        accounts = result || [];
+        const eligible = accounts.filter(a => a.Status === 'Active' && a.IsPostable === true)
+          .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
+        ['co-form-grnclearing', 'co-form-discount', 'co-form-tax', 'co-form-roundoff', 'co-form-discount-given', 'co-form-tax-output'].forEach(fieldId => {
+          const select = document.getElementById(fieldId);
+          select.innerHTML = '<option value="">Not configured</option>';
+          eligible.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.AccountID; opt.textContent = a.AccountCode + ' — ' + a.AccountName;
+            select.appendChild(opt);
+          });
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getChartOfAccounts();
+  }
+  let taxRows = [];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  function companyById(id) { return companies.find(c => c.CompanyID === id); }
+
+  function fetchAndRender() {
+    rpc
+      .withSuccessHandler(result => { companies = result || []; renderTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load companies.'))
+      .getCompanies();
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('co-table-body');
+    tbody.innerHTML = '';
+    if (!companies.length) { tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">No companies added yet.</td></tr>'; return; }
+
+    companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+      const parent = c.ParentCompanyID ? companyById(c.ParentCompanyID) : null;
+      const taxSummary = (c.TaxNumbers || []).map(t => t.Type + ': ' + t.Number).join(', ') || '—';
+      const location = [c.City, c.Country].filter(Boolean).join(', ') || '—';
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const actions = canWrite
+        ? `<button class="co-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+           <button class="co-toggle text-slate-400 ${c.Status === 'Active' ? 'hover:text-red-400' : 'hover:text-emerald-400'} p-1" title="${c.Status === 'Active' ? 'Deactivate' : 'Reactivate'}"><i class="fa-solid ${c.Status === 'Active' ? 'fa-ban' : 'fa-rotate-left'}"></i></button>`
+        : '';
+      row.innerHTML = `
+        <td class="py-3 px-4 text-slate-200 font-medium">${escapeHtml(c.LegalName)}</td>
+        <td class="py-3 px-4 text-xs font-mono text-slate-300">${escapeHtml(c.CompanyRefCode || '—')}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${parent ? escapeHtml(parent.LegalName) : '<span class="text-blue-400">Top-level</span>'}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(taxSummary)}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(location)}</td>
+        <td class="py-3 px-4 text-xs">${c.Status === 'Active' ? '<span class="text-emerald-400">Active</span>' : '<span class="text-slate-500">Inactive</span>'}</td>
+        <td class="py-3 px-4 text-right">${actions}</td>`;
+      if (canWrite) {
+        row.querySelector('.co-edit').addEventListener('click', () => openModal(c.CompanyID));
+        row.querySelector('.co-toggle').addEventListener('click', () => toggleStatus(c));
+      }
+      tbody.appendChild(row);
+    });
+  }
+
+  function populateParentOptions(excludeId) {
+    const select = document.getElementById('co-form-parent');
+    select.innerHTML = '<option value="">None — top-level entity</option>';
+
+    const excluded = new Set();
+    function markDescendants(id) {
+      excluded.add(id);
+      companies.filter(c => c.ParentCompanyID === id).forEach(child => markDescendants(child.CompanyID));
+    }
+    if (excludeId) markDescendants(excludeId);
+
+    companies
+      .filter(c => !excluded.has(c.CompanyID))
+      .sort((a, b) => a.LegalName.localeCompare(b.LegalName))
+      .forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.CompanyID;
+        opt.textContent = c.LegalName;
+        select.appendChild(opt);
+      });
+  }
+
+  function renderTaxRows() {
+    const container = document.getElementById('co-tax-list');
+    container.innerHTML = '';
+    if (!taxRows.length) container.innerHTML = '<p class="text-xs text-slate-500">No tax numbers added yet.</p>';
+    taxRows.forEach((row, i) => {
+      const div = document.createElement('div');
+      div.className = 'flex gap-2';
+      div.innerHTML = `
+        <input data-row="${i}" data-field="Type" placeholder="e.g. VAT TRN" value="${escapeHtml(row.Type)}" class="w-40 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+        <input data-row="${i}" data-field="Number" placeholder="Number" value="${escapeHtml(row.Number)}" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+        <button type="button" data-row="${i}" class="co-remove-tax text-slate-500 hover:text-red-400 px-2"><i class="fa-solid fa-xmark"></i></button>`;
+      container.appendChild(div);
+    });
+    container.querySelectorAll('input').forEach(input => {
+      input.addEventListener('input', e => {
+        const row = parseInt(e.target.getAttribute('data-row'), 10);
+        taxRows[row][e.target.getAttribute('data-field')] = e.target.value;
+      });
+    });
+    container.querySelectorAll('.co-remove-tax').forEach(btn => {
+      btn.addEventListener('click', () => { taxRows.splice(parseInt(btn.getAttribute('data-row'), 10), 1); renderTaxRows(); });
+    });
+  }
+
+  function openModal(companyId) {
+    const form = document.getElementById('co-form');
+    form.reset();
+    document.getElementById('co-form-error').classList.add('hidden');
+    populateParentOptions(companyId || null);
+
+    if (companyId) {
+      const c = companyById(companyId);
+      if (!c) return;
+      document.getElementById('co-modal-title').textContent = 'Edit Company';
+      document.getElementById('co-form-id').value = c.CompanyID;
+      document.getElementById('co-form-name').value = c.LegalName;
+      document.getElementById('co-form-refcode').value = c.CompanyRefCode || '';
+      document.getElementById('co-form-parent').value = c.ParentCompanyID || '';
+      document.getElementById('co-form-grnclearing').value = c.GrnClearingAccountID || '';
+      document.getElementById('co-form-discount').value = c.DiscountReceivedAccountID || '';
+      document.getElementById('co-form-tax').value = c.InputTaxAccountID || '';
+      document.getElementById('co-form-roundoff').value = c.RoundOffAccountID || '';
+      document.getElementById('co-form-discount-given').value = c.DiscountGivenAccountID || '';
+      document.getElementById('co-form-tax-output').value = c.OutputTaxAccountID || '';
+      document.getElementById('co-form-address1').value = c.AddressLine1 || '';
+      document.getElementById('co-form-address2').value = c.AddressLine2 || '';
+      document.getElementById('co-form-city').value = c.City || '';
+      document.getElementById('co-form-state').value = c.StateOrEmirate || '';
+      document.getElementById('co-form-country').value = c.Country || '';
+      document.getElementById('co-form-postal').value = c.PostalCode || '';
+      document.getElementById('co-form-status').value = c.Status;
+      taxRows = (c.TaxNumbers || []).map(t => ({ Type: t.Type || '', Number: t.Number || '' }));
+    } else {
+      document.getElementById('co-modal-title').textContent = 'Add Company';
+      document.getElementById('co-form-id').value = '';
+      taxRows = [];
+    }
+    renderTaxRows();
+    document.getElementById('co-modal').classList.remove('hidden');
+  }
+
+  function closeModal() { document.getElementById('co-modal').classList.add('hidden'); }
+
+  function saveCompany(event) {
+    event.preventDefault();
+    const data = {
+      CompanyID: document.getElementById('co-form-id').value,
+      LegalName: document.getElementById('co-form-name').value.trim(),
+      CompanyRefCode: document.getElementById('co-form-refcode').value.trim(),
+      ParentCompanyID: document.getElementById('co-form-parent').value,
+      GrnClearingAccountID: document.getElementById('co-form-grnclearing').value,
+      DiscountReceivedAccountID: document.getElementById('co-form-discount').value,
+      InputTaxAccountID: document.getElementById('co-form-tax').value,
+      RoundOffAccountID: document.getElementById('co-form-roundoff').value,
+      DiscountGivenAccountID: document.getElementById('co-form-discount-given').value,
+      OutputTaxAccountID: document.getElementById('co-form-tax-output').value,
+      TaxNumbers: taxRows,
+      AddressLine1: document.getElementById('co-form-address1').value.trim(),
+      AddressLine2: document.getElementById('co-form-address2').value.trim(),
+      City: document.getElementById('co-form-city').value.trim(),
+      StateOrEmirate: document.getElementById('co-form-state').value.trim(),
+      Country: document.getElementById('co-form-country').value.trim(),
+      PostalCode: document.getElementById('co-form-postal').value.trim(),
+      Status: document.getElementById('co-form-status').value
+    };
+    const error = document.getElementById('co-form-error');
+    const btn = document.getElementById('co-save-btn');
+    error.classList.add('hidden');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Company';
+        if (result.success) { closeModal(); fetchAndRender(); }
+        else { error.textContent = result.error || 'Unable to save company.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Company';
+        error.textContent = err.message || 'Unable to save company.'; error.classList.remove('hidden');
+      })
+      .saveCompany({ companyData: data });
+  }
+
+  function toggleStatus(company) {
+    const deactivating = company.Status === 'Active';
+    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + company.LegalName + '?')) return;
+    const call = deactivating ? 'deactivateCompany' : 'reactivateCompany';
+    rpc
+      .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update company.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to update company.'))
+      [call]({ __positional: [company.CompanyID] });
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken, writeAllowed) {
+    token = idToken;
+    canWrite = Boolean(writeAllowed);
+
+    document.getElementById('co-add-btn').classList.toggle('hidden', !canWrite);
+    if (canWrite) document.getElementById('co-add-btn').addEventListener('click', () => openModal());
+    document.getElementById('co-modal-close').addEventListener('click', closeModal);
+    document.getElementById('co-modal-cancel').addEventListener('click', closeModal);
+    document.getElementById('co-form').addEventListener('submit', saveCompany);
+    document.getElementById('co-add-tax-btn').addEventListener('click', () => { taxRows.push({ Type: '', Number: '' }); renderTaxRows(); });
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-building"></i> Company Master Data';
+    fetchAndRender();
+    loadAccounts();
+  };
+})();
+</script>

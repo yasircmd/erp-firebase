@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { HttpsError } = require('firebase-functions/v2/https');
+const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry } = require('./glWriting');
@@ -10,6 +11,12 @@ const { allocateAvailableStockToShortfalls } = require('./reservations');
 const { withGlobalLock } = require('./lock');
 
 const onCallOptions = { region: 'us-central1' };
+// Successful save/post/decide/reverse results carry success: true, same as
+// the original's return contract — the module's own screen checks
+// result.success on every one of these and would otherwise report a
+// genuinely successful commit as a failure. Errors still throw (the
+// screen's .withFailureHandler shows err.message), rather than the
+// original's { success: false, error } — both paths end up displayed.
 const MOVABLE_ORG_UNIT_TYPES = ['Warehouse', 'Rack'];
 
 async function requireDraftAccess(moduleHasCapability, moduleId, role) {
@@ -22,7 +29,7 @@ async function requirePostAccess(moduleHasCapability, moduleId, role) {
 }
 
 // Ported from saveStockAdjustmentDraft.
-exports.saveStockAdjustmentDraft = onCall(onCallOptions, async (request) => {
+exports.saveStockAdjustmentDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireDraftAccess(moduleHasCapability, 'STOCKADJUSTMENT', user.profile.role);
 
@@ -121,12 +128,12 @@ exports.saveStockAdjustmentDraft = onCall(onCallOptions, async (request) => {
     if (!existing) throw new HttpsError('not-found', 'Stock Adjustment not found.');
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected Stock Adjustments can be edited.');
     await rtdb.ref('stock/transactions/' + adjId).update(fields);
-    return { adjId: adjId };
+    return { success: true, adjId: adjId };
   }
 
   const newId = 'ADJD-' + randomUUID().split('-')[0].toUpperCase();
   await rtdb.ref('stock/transactions/' + newId).set(Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
-  return { adjId: newId };
+  return { success: true, adjId: newId };
 });
 
 // Ported from buildStockAdjustmentMovementLines_.
@@ -212,7 +219,7 @@ async function commitStockAdjustmentPosting(user, existing, adjId) {
 }
 
 // Ported from postStockAdjustment.
-exports.postStockAdjustment = onCall(onCallOptions, async (request) => {
+exports.postStockAdjustment = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const adjId = String(request.data && request.data.adjId || '').trim();
 
@@ -247,16 +254,16 @@ exports.postStockAdjustment = onCall(onCallOptions, async (request) => {
         Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
         RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
       });
-      return { status: 'PendingApproval' };
+      return { success: true, status: 'PendingApproval' };
     }
 
     const result = await commitStockAdjustmentPosting(user, existing, adjId);
-    return { adjId: adjId, adjNumber: result.adjNumber, status: 'Posted' };
+    return { success: true, adjId: adjId, adjNumber: result.adjNumber, status: 'Posted' };
   });
 });
 
 // Ported from decideStockAdjustmentApproval.
-exports.decideStockAdjustmentApproval = onCall(onCallOptions, async (request) => {
+exports.decideStockAdjustmentApproval = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requirePostAccess(moduleHasCapability, 'STOCKADJUSTMENT', user.profile.role);
   const data = request.data || {};
@@ -285,11 +292,11 @@ exports.decideStockAdjustmentApproval = onCall(onCallOptions, async (request) =>
       UpdatedAt: now, UpdatedBy: user.profile.username || user.uid
     });
   }
-  return { status: result.status, selfApproved: result.selfApproved };
+  return { success: true, status: result.status, selfApproved: result.selfApproved };
 });
 
 // Ported from deleteStockAdjustmentDraft.
-exports.deleteStockAdjustmentDraft = onCall(onCallOptions, async (request) => {
+exports.deleteStockAdjustmentDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const adjId = String(request.data && request.data.adjId || '').trim();
   const existingSnap = await rtdb.ref('stock/transactions/' + adjId).get();
@@ -303,7 +310,7 @@ exports.deleteStockAdjustmentDraft = onCall(onCallOptions, async (request) => {
 });
 
 // Ported from getStockAdjustmentEntries.
-exports.getStockAdjustmentEntries = onCall(onCallOptions, async (request) => {
+exports.getStockAdjustmentEntries = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const canAccess = await moduleHasCapability('STOCKADJUSTMENT', 'access', user.profile.role);
   if (!canAccess) throw new HttpsError('permission-denied', 'You do not have access to Stock Adjustment.');
@@ -323,7 +330,7 @@ exports.getStockAdjustmentEntries = onCall(onCallOptions, async (request) => {
 });
 
 // Ported from reverseStockAdjustment.
-exports.reverseStockAdjustment = onCall(onCallOptions, async (request) => {
+exports.reverseStockAdjustment = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const data = request.data || {};
   const adjId = String(data.adjId || '').trim();
@@ -416,6 +423,6 @@ exports.reverseStockAdjustment = onCall(onCallOptions, async (request) => {
     await rtdb.ref('stock/transactions/' + adjId).update({ ReversedByAdjustment: newId });
     await finalizeCommitAttempt(newId, glResult, { Lines: movementLines }, actor);
 
-    return { adjId: newId, adjNumber: glResult.jvNumber };
+    return { success: true, adjId: newId, adjNumber: glResult.jvNumber };
   });
 });

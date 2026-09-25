@@ -1,0 +1,249 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-clock-rotate-left text-blue-500"></i> Approval Tracker</h2></div>
+    <button id="at-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy to Excel</button>
+  </div>
+
+  <p class="text-xs text-slate-500 max-w-3xl">Every approval decision across every gated module, one row each — including levels still waiting on a decision, so an outstanding approval is as visible as a completed one. Time Taken measures from when the approval was first requested, not from a previous level's decision, since every required level can act independently.</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <select id="at-module-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Modules</option></select>
+    <input type="text" id="at-document-filter" placeholder="Document number..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="at-approver-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Approvers</option></select>
+    <input type="date" id="at-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <input type="date" id="at-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Module</th>
+            <th class="py-3 px-4">Document</th>
+            <th class="py-3 px-4 text-right">Amount</th>
+            <th class="py-3 px-4">Submitted</th>
+            <th class="py-3 px-4">Level</th>
+            <th class="py-3 px-4">Approver</th>
+            <th class="py-3 px-4">Decision</th>
+            <th class="py-3 px-4">Decided At</th>
+            <th class="py-3 px-4">Time Taken</th>
+            <th class="py-3 px-4">Self-Approved</th>
+            <th class="py-3 px-4">Reason</th>
+          </tr>
+        </thead>
+        <tbody id="at-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden staging element for the copy-to-clipboard trick — more
+     reliable inside Google Apps Script's iframed HTML Service than
+     the modern async Clipboard API, which can hit permission issues
+     in a sandboxed iframe. -->
+<textarea id="at-copy-staging" class="sr-only" style="position:absolute; left:-9999px;"></textarea>
+
+<script>
+(function () {
+  let token = '';
+  let history = [];
+  let users = [];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function formatDateTime(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  // Human-readable duration between two ISO timestamps — minutes for
+  // anything under an hour, hours+minutes under a day, days+hours
+  // beyond that. Deliberately coarse; an exact millisecond count adds
+  // nothing for an audit review.
+  function formatDuration(fromIso, toIso) {
+    const from = new Date(fromIso).getTime();
+    const to = new Date(toIso).getTime();
+    const ms = Math.max(0, to - from);
+    const minutes = Math.floor(ms / 60000);
+    if (minutes < 60) return minutes + 'm';
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return hours + 'h ' + (minutes % 60) + 'm';
+    const days = Math.floor(hours / 24);
+    return days + 'd ' + (hours % 24) + 'h';
+  }
+
+  const DECISION_COLORS = { Approved: 'bg-emerald-500/10 text-emerald-400', Rejected: 'bg-red-500/10 text-red-400', Pending: 'bg-amber-500/10 text-amber-400' };
+  function decisionBadgeHtml(decision) {
+    return `<span class="text-xs px-2 py-0.5 rounded-full ${DECISION_COLORS[decision] || 'bg-slate-700 text-slate-400'}">${escapeHtml(decision)}</span>`;
+  }
+
+  function loadReferenceData() {
+    google.script.run
+      .withSuccessHandler(result => {
+        const sel = document.getElementById('at-module-filter');
+        (result || []).forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.ModuleID; opt.textContent = m.Label;
+          sel.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getApprovalConfigurations(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        users = result || [];
+        const sel = document.getElementById('at-approver-filter');
+        users.forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u.UserID; opt.textContent = u.FullName || u.Username;
+          sel.appendChild(opt);
+        });
+        // fetchHistory() and this call both fire on load with no
+        // guaranteed order — if history came back first, the table
+        // already rendered with raw UIDs for every still-Pending level
+        // (nothing else can resolve a name for one, since a level with
+        // no decision yet has no ApproverName anywhere but here).
+        // Re-rendering once this resolves, whichever order it lands in,
+        // is what actually fixes it rather than just narrowing the
+        // window.
+        renderTable();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveUsersForPicker(token);
+  }
+
+  function currentFilters() {
+    return {
+      ModuleID: document.getElementById('at-module-filter').value,
+      DocumentNumber: document.getElementById('at-document-filter').value.trim(),
+      ApproverUserID: document.getElementById('at-approver-filter').value,
+      FromDate: document.getElementById('at-from-filter').value,
+      ToDate: document.getElementById('at-to-filter').value
+    };
+  }
+
+  function fetchHistory() {
+    google.script.run
+      .withSuccessHandler(result => { history = result || []; renderTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load approval history.'))
+      .getApprovalHistory(token, currentFilters());
+  }
+
+  // Flattens each instance into one row per required level — a
+  // decided one shows its actual outcome, an undecided one shows
+  // Pending with a live-computed "how long has this been sitting"
+  // duration, which is exactly the kind of thing worth surfacing for
+  // an audit rather than only ever showing completed history.
+  function flattenedRows() {
+    const rows = [];
+    history.forEach(inst => {
+      const approverFilter = document.getElementById('at-approver-filter').value;
+      (inst.RequiredLevels || []).forEach(level => {
+        if (approverFilter && level.ApproverUserID !== approverFilter) return;
+        const decision = (inst.Decisions || []).find(d => d.LevelNumber === level.LevelNumber);
+        // A decided level already carries its own ApproverName,
+        // recorded at the moment that specific person decided. A still-
+        // Pending level has no decision at all yet, so nothing there
+        // can supply a name — RequiredLevels only ever stores the raw
+        // UID. Resolving it against the fetched user list is the only
+        // way to show a real name instead of that UID; if the user
+        // genuinely can't be found (e.g. deactivated since), the UID is
+        // still shown as a last resort rather than hiding the row.
+        const assignedUser = users.find(u => u.UserID === level.ApproverUserID);
+        const assignedName = assignedUser ? (assignedUser.FullName || assignedUser.Username) : level.ApproverUserID;
+        rows.push({
+          ModuleID: inst.ModuleID, DocumentNumber: inst.DocumentNumber, Amount: inst.Amount,
+          CreatedAt: inst.CreatedAt, LevelNumber: level.LevelNumber,
+          ApproverName: (decision && decision.ApproverName) || assignedName,
+          Decision: decision ? decision.Decision : 'Pending',
+          DecidedAt: decision ? decision.DecidedAt : '',
+          SelfApproved: decision ? decision.SelfApproved : null,
+          Reason: decision ? decision.Reason : ''
+        });
+      });
+    });
+    return rows;
+  }
+
+  function renderTable() {
+    const rows = flattenedRows();
+    const tbody = document.getElementById('at-table-body');
+    tbody.innerHTML = '';
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="11" class="py-6 text-center text-slate-500">No approval activity found.</td></tr>'; return; }
+    rows.forEach(r => {
+      const timeTaken = r.DecidedAt ? formatDuration(r.CreatedAt, r.DecidedAt) : ('pending ' + formatDuration(r.CreatedAt, new Date().toISOString()));
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(r.ModuleID)}</td>
+        <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(r.DocumentNumber)}</td>
+        <td class="py-2 px-4 text-right font-mono">${formatMoney(r.Amount)}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(formatDateTime(r.CreatedAt))}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${r.LevelNumber}</td>
+        <td class="py-2 px-4 text-slate-200">${escapeHtml(r.ApproverName)}</td>
+        <td class="py-2 px-4">${decisionBadgeHtml(r.Decision)}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${r.DecidedAt ? escapeHtml(formatDateTime(r.DecidedAt)) : '—'}</td>
+        <td class="py-2 px-4 text-xs ${r.DecidedAt ? 'text-slate-400' : 'text-amber-400'}">${escapeHtml(timeTaken)}</td>
+        <td class="py-2 px-4 text-xs">${r.SelfApproved === null ? '—' : (r.SelfApproved ? '<span class="text-amber-400">Yes</span>' : 'No')}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(r.Reason || '')}</td>`;
+      tbody.appendChild(row);
+    });
+  }
+
+  // TSV, not CSV — pasting tab-separated text directly into Excel or
+  // Google Sheets lands each field in its own cell with no import
+  // dialog; CSV would too, but only after a save-and-reopen round
+  // trip, which defeats the point of a "copy" action.
+  function copyToExcel() {
+    const rows = flattenedRows();
+    const headers = ['Module', 'Document', 'Amount', 'Submitted', 'Level', 'Approver', 'Decision', 'Decided At', 'Time Taken', 'Self-Approved', 'Reason'];
+    const lines = [headers.join('\t')];
+    rows.forEach(r => {
+      const timeTaken = r.DecidedAt ? formatDuration(r.CreatedAt, r.DecidedAt) : ('pending ' + formatDuration(r.CreatedAt, new Date().toISOString()));
+      lines.push([
+        r.ModuleID, r.DocumentNumber, formatMoney(r.Amount), formatDateTime(r.CreatedAt),
+        r.LevelNumber, r.ApproverName, r.Decision, r.DecidedAt ? formatDateTime(r.DecidedAt) : '',
+        timeTaken, r.SelfApproved === null ? '' : (r.SelfApproved ? 'Yes' : 'No'), r.Reason || ''
+      ].join('\t'));
+    });
+    const tsv = lines.join('\n');
+
+    const staging = document.getElementById('at-copy-staging');
+    staging.value = tsv;
+    staging.style.display = 'block';
+    staging.focus();
+    staging.select();
+    let copied = false;
+    try { copied = document.execCommand('copy'); } catch (e) { copied = false; }
+    staging.style.display = 'none';
+
+    const btn = document.getElementById('at-copy-btn');
+    const original = btn.innerHTML;
+    btn.innerHTML = copied ? '<i class="fa-solid fa-check"></i> Copied!' : '<i class="fa-solid fa-triangle-exclamation"></i> Copy failed';
+    setTimeout(() => { btn.innerHTML = original; }, 2000);
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    document.getElementById('at-module-filter').addEventListener('change', fetchHistory);
+    document.getElementById('at-document-filter').addEventListener('input', fetchHistory);
+    document.getElementById('at-approver-filter').addEventListener('change', renderTable);
+    document.getElementById('at-from-filter').addEventListener('change', fetchHistory);
+    document.getElementById('at-to-filter').addEventListener('change', fetchHistory);
+    document.getElementById('at-copy-btn').addEventListener('click', copyToExcel);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-clock-rotate-left"></i> Approval Tracker';
+    fetchHistory();
+    loadReferenceData();
+  };
+})();
+</script>

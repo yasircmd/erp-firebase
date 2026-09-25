@@ -1,0 +1,6 @@
+# Firebase CLI / emulator artifacts
+.firebase/
+*-debug.log
+
+# Dependencies
+node_modules/

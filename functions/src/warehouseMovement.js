@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { HttpsError } = require('firebase-functions/v2/https');
+const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, assignStockVoucherNumbering } = require('./glWriting');
@@ -9,6 +10,12 @@ const { allocateAvailableStockToShortfalls } = require('./reservations');
 const { withGlobalLock } = require('./lock');
 
 const onCallOptions = { region: 'us-central1' };
+// Successful save/post/decide/reverse results carry success: true, same as
+// the original's return contract — the module's own screen checks
+// result.success on every one of these and would otherwise report a
+// genuinely successful commit as a failure. Errors still throw (the
+// screen's .withFailureHandler shows err.message), rather than the
+// original's { success: false, error } — both paths end up displayed.
 const MOVABLE_ORG_UNIT_TYPES = ['Warehouse', 'Rack'];
 
 async function requireDraftAccess(moduleId, role) {
@@ -21,7 +28,7 @@ async function requirePostAccess(moduleId, role) {
 }
 
 // Ported from saveWarehouseMovementDraft.
-exports.saveWarehouseMovementDraft = onCall(onCallOptions, async (request) => {
+exports.saveWarehouseMovementDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireDraftAccess('WAREHOUSEMOVEMENT', user.profile.role);
 
@@ -123,16 +130,16 @@ exports.saveWarehouseMovementDraft = onCall(onCallOptions, async (request) => {
     if (!existing) throw new HttpsError('not-found', 'Warehouse Movement not found.');
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected Warehouse Movements can be edited.');
     await rtdb.ref('stock/transactions/' + moveId).update(fields);
-    return { moveId: moveId };
+    return { success: true, moveId: moveId };
   }
 
   const newId = 'WMD-' + randomUUID().split('-')[0].toUpperCase();
   await rtdb.ref('stock/transactions/' + newId).set(Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
-  return { moveId: newId };
+  return { success: true, moveId: newId };
 });
 
 // Ported from postWarehouseMovement.
-exports.postWarehouseMovement = onCall(onCallOptions, async (request) => {
+exports.postWarehouseMovement = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const moveId = String(request.data && request.data.moveId || '').trim();
 
@@ -175,11 +182,11 @@ exports.postWarehouseMovement = onCall(onCallOptions, async (request) => {
         Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
         RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
       });
-      return { status: 'PendingApproval' };
+      return { success: true, status: 'PendingApproval' };
     }
 
     const result = await commitWarehouseMovementPosting(user, existing, moveId);
-    return { moveId: moveId, moveNumber: result.moveNumber, status: 'Posted' };
+    return { success: true, moveId: moveId, moveNumber: result.moveNumber, status: 'Posted' };
   });
 });
 
@@ -238,7 +245,7 @@ async function commitWarehouseMovementPosting(user, existing, moveId) {
 }
 
 // Ported from decideWarehouseMovementApproval.
-exports.decideWarehouseMovementApproval = onCall(onCallOptions, async (request) => {
+exports.decideWarehouseMovementApproval = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requirePostAccess('WAREHOUSEMOVEMENT', user.profile.role);
   const data = request.data || {};
@@ -267,11 +274,11 @@ exports.decideWarehouseMovementApproval = onCall(onCallOptions, async (request) 
       UpdatedAt: now, UpdatedBy: user.profile.username || user.uid
     });
   }
-  return { status: result.status, selfApproved: result.selfApproved };
+  return { success: true, status: result.status, selfApproved: result.selfApproved };
 });
 
 // Ported from deleteWarehouseMovementDraft.
-exports.deleteWarehouseMovementDraft = onCall(onCallOptions, async (request) => {
+exports.deleteWarehouseMovementDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const moveId = String(request.data && request.data.moveId || '').trim();
   const existingSnap = await rtdb.ref('stock/transactions/' + moveId).get();
@@ -285,7 +292,7 @@ exports.deleteWarehouseMovementDraft = onCall(onCallOptions, async (request) => 
 });
 
 // Ported from getWarehouseMovementEntries.
-exports.getWarehouseMovementEntries = onCall(onCallOptions, async (request) => {
+exports.getWarehouseMovementEntries = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const canAccess = await moduleHasCapability('WAREHOUSEMOVEMENT', 'access', user.profile.role);
   if (!canAccess) throw new HttpsError('permission-denied', 'You do not have access to Warehouse Movement.');
@@ -309,7 +316,7 @@ exports.getWarehouseMovementEntries = onCall(onCallOptions, async (request) => {
 // destination no longer has enough (moved again, issued, sold), the
 // reversal is rejected. No GL entry here either, same as the original
 // post.
-exports.reverseWarehouseMovement = onCall(onCallOptions, async (request) => {
+exports.reverseWarehouseMovement = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const data = request.data || {};
   const moveId = String(data.moveId || '').trim();
@@ -380,6 +387,6 @@ exports.reverseWarehouseMovement = onCall(onCallOptions, async (request) => {
 
     await rtdb.ref('stock/transactions/' + moveId).update({ ReversedByWarehouseMovement: newId });
 
-    return { moveId: newId, moveNumber: numbering.voucherNumber };
+    return { success: true, moveId: newId, moveNumber: numbering.voucherNumber };
   });
 });

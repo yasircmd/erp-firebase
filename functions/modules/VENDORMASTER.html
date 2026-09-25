@@ -1,0 +1,389 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Accounts Payable (FI-AP)</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-truck-field text-blue-500"></i> Vendor Master Data</h2></div>
+    <button id="ven-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Vendor</button>
+  </div>
+
+  <input type="text" id="ven-search" placeholder="Search by code, name, or contact..." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-3 px-4">Code</th><th class="py-3 px-4">Vendor Name</th><th class="py-3 px-4">Category</th><th class="py-3 px-4">Classification</th><th class="py-3 px-4">Contact</th><th class="py-3 px-4 text-right">Terms</th><th class="py-3 px-4">Status</th><th class="py-3 px-4 text-right">Actions</th>
+        </tr></thead>
+        <tbody id="ven-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="ven-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="ven-modal-title" class="text-lg font-bold">Add Vendor</h3><button id="ven-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <form id="ven-form" class="space-y-4">
+      <input type="hidden" id="ven-form-id">
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Vendor Name</label><input type="text" id="ven-form-name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Vendor Code</label>
+          <input type="text" id="ven-form-code" disabled placeholder="Auto-assigned on save" class="w-full bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono text-slate-500">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Category <span class="text-slate-500">(optional)</span></label>
+          <select id="ven-form-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+            <option value="">Not classified</option>
+            <option value="RawMaterialSupplier">Raw Material Supplier</option>
+            <option value="ServiceProvider">Service Provider</option>
+            <option value="Contractor">Contractor</option>
+            <option value="Utility">Utility</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Company <span class="text-slate-500">(optional — restricts this vendor to one company)</span></label>
+          <select id="ven-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Shared across all companies</option></select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Classification</label>
+          <select id="ven-form-classification" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+            <option value="Local">Local</option>
+            <option value="Foreign">Foreign</option>
+          </select>
+        </div>
+        <div id="ven-form-country-wrap" class="hidden">
+          <label class="block text-xs font-medium text-slate-300 mb-1">Country</label>
+          <select id="ven-form-country" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Trade Payables Account</label>
+        <select id="ven-form-payables" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+        <p class="text-xs text-slate-500 mt-1">The Liability account this vendor's balance posts against. Most vendors can share one account, but different vendors can be assigned different accounts where needed — e.g. separate Trade Payables accounts for Local vs Foreign vendors.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Contact Person</label><input type="text" id="ven-form-contact" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Phone</label><input type="text" id="ven-form-phone" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Email</label><input type="email" id="ven-form-email" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Address Line 1</label><input type="text" id="ven-form-address1" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Address Line 2 <span class="text-slate-500">(optional)</span></label><input type="text" id="ven-form-address2" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Tax Registration No. <span class="text-slate-500">(optional)</span></label><input type="text" id="ven-form-taxreg" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment Terms (days)</label><input type="number" id="ven-form-terms" min="0" value="30" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Default Currency <span class="text-slate-500">(optional)</span></label>
+          <select id="ven-form-currency" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Company default</option></select>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+        <p class="text-xs font-semibold text-slate-400 uppercase">Bank Details <span class="text-slate-500 normal-case font-normal">(optional — for future payment processing)</span></p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Bank Name</label><input type="text" id="ven-form-bankname" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Account Number</label><input type="text" id="ven-form-bankaccount" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">IBAN</label><input type="text" id="ven-form-iban" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono focus:outline-none focus:border-blue-500"></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">SWIFT / BIC</label><input type="text" id="ven-form-swift" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono focus:outline-none focus:border-blue-500"></div>
+        </div>
+      </div>
+
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Notes <span class="text-slate-500">(optional)</span></label><input type="text" id="ven-form-notes" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+
+      <div id="ven-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
+        <button type="button" id="ven-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
+        <button type="submit" id="ven-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Vendor</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = '';
+  let canWrite = false;
+  let vendors = [];
+  let companies = [];
+  let currencies = [];
+  let accounts = [];
+
+  // Standard country list (ISO 3166-1 short names, UN member states +
+  // commonly-traded-with territories), alphabetical — static, since
+  // this doesn't change and doesn't need a server round-trip.
+  const COUNTRIES = [
+    'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia',
+    'Australia', 'Austria', 'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium',
+    'Belize', 'Benin', 'Bhutan', 'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria',
+    'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cambodia', 'Cameroon', 'Canada', 'Central African Republic', 'Chad',
+    'Chile', 'China', 'Colombia', 'Comoros', 'Congo (Republic of the)', 'Congo (Democratic Republic of the)',
+    'Costa Rica', "Cote d'Ivoire", 'Croatia', 'Cuba', 'Cyprus', 'Czechia', 'Denmark', 'Djibouti', 'Dominica',
+    'Dominican Republic', 'Ecuador', 'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini',
+    'Ethiopia', 'Fiji', 'Finland', 'France', 'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada',
+    'Guatemala', 'Guinea', 'Guinea-Bissau', 'Guyana', 'Haiti', 'Honduras', 'Hong Kong', 'Hungary', 'Iceland',
+    'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Israel', 'Italy', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan',
+    'Kenya', 'Kiribati', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya',
+    'Liechtenstein', 'Lithuania', 'Luxembourg', 'Macao', 'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali',
+    'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico', 'Micronesia', 'Moldova', 'Monaco',
+    'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru', 'Nepal', 'Netherlands',
+    'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman',
+    'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland',
+    'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia',
+    'Saint Vincent and the Grenadines', 'Samoa', 'San Marino', 'Sao Tome and Principe', 'Saudi Arabia', 'Senegal',
+    'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia',
+    'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden',
+    'Switzerland', 'Syria', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Timor-Leste', 'Togo', 'Tonga',
+    'Trinidad and Tobago', 'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu', 'Uganda', 'Ukraine',
+    'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu',
+    'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
+  ];
+
+  function populateCountrySelect() {
+    const select = document.getElementById('ven-form-country');
+    select.innerHTML = '<option value="">Select...</option>';
+    COUNTRIES.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      select.appendChild(opt);
+    });
+  }
+
+  function updateCountryVisibility() {
+    const isForeign = document.getElementById('ven-form-classification').value === 'Foreign';
+    document.getElementById('ven-form-country-wrap').classList.toggle('hidden', !isForeign);
+    document.getElementById('ven-form-country').required = isForeign;
+    if (!isForeign) document.getElementById('ven-form-country').value = '';
+  }
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+
+  const CATEGORY_LABELS = {
+    RawMaterialSupplier: 'Raw Material Supplier', ServiceProvider: 'Service Provider',
+    Contractor: 'Contractor', Utility: 'Utility', Other: 'Other'
+  };
+
+  function vendorById(id) { return vendors.find(v => v.VendorID === id); }
+
+  function fetchAndRender() {
+    rpc
+      .withSuccessHandler(result => { vendors = result || []; renderTable(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load vendors.'))
+      .getVendors();
+  }
+
+  function loadReferenceData() {
+    rpc
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const select = document.getElementById('ven-form-company');
+        select.innerHTML = '<option value="">Shared across all companies</option>';
+        companies.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.CompanyID; opt.textContent = c.LegalName;
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+
+    rpc
+      .withSuccessHandler(result => {
+        currencies = (result || []).filter(c => c.Status === 'Active');
+        const select = document.getElementById('ven-form-currency');
+        select.innerHTML = '<option value="">Company default</option>';
+        currencies.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.Code; opt.textContent = c.Code + (c.Symbol ? ' (' + c.Symbol + ')' : '');
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getCurrencies();
+
+    // Trade Payables must be a Liability-type account — see saveVendor's
+    // own comment for why this one IS type-restricted, unlike Item
+    // Master's Consumption Account.
+    rpc
+      .withSuccessHandler(result => {
+        accounts = result || [];
+        const eligible = accounts.filter(a => a.Status === 'Active' && a.IsPostable === true && a.AccountType === 'Liability')
+          .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
+        const select = document.getElementById('ven-form-payables');
+        select.innerHTML = '<option value="">Select...</option>';
+        eligible.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a.AccountID; opt.textContent = a.AccountCode + ' — ' + a.AccountName;
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getChartOfAccounts();
+  }
+
+  function renderTable() {
+    const query = document.getElementById('ven-search').value.trim().toLowerCase();
+    const tbody = document.getElementById('ven-table-body');
+    tbody.innerHTML = '';
+
+    const filtered = vendors
+      .filter(v => !query ||
+        String(v.VendorCode).toLowerCase().includes(query) ||
+        String(v.VendorName).toLowerCase().includes(query) ||
+        String(v.ContactPerson || '').toLowerCase().includes(query))
+      .sort((a, b) => a.VendorName.localeCompare(b.VendorName));
+
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-slate-500">No vendors found.</td></tr>'; return; }
+
+    filtered.forEach(v => {
+      const contact = [v.ContactPerson, v.Phone].filter(Boolean).join(' — ') || '—';
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const actions = canWrite
+        ? `<button data-id="${v.VendorID}" class="ven-edit-btn text-blue-400 hover:text-blue-300 text-xs mr-3">Edit</button><button data-id="${v.VendorID}" class="ven-toggle-btn text-xs ${v.Status === 'Active' ? 'text-red-400 hover:text-red-300' : 'text-emerald-400 hover:text-emerald-300'}">${v.Status === 'Active' ? 'Deactivate' : 'Reactivate'}</button>`
+        : '';
+      row.innerHTML = `
+        <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(v.VendorCode)}</td>
+        <td class="py-2 px-4 text-slate-200">${escapeHtml(v.VendorName)}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(CATEGORY_LABELS[v.Category] || '—')}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${v.Classification === 'Foreign' ? escapeHtml('Foreign — ' + (v.Country || '')) : 'Local'}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(contact)}</td>
+        <td class="py-2 px-4 text-right text-xs font-mono text-slate-400">${v.PaymentTermsDays != null ? v.PaymentTermsDays + 'd' : '—'}</td>
+        <td class="py-2 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${v.Status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${escapeHtml(v.Status)}</span></td>
+        <td class="py-2 px-4 text-right">${actions}</td>`;
+      tbody.appendChild(row);
+    });
+
+    tbody.querySelectorAll('.ven-edit-btn').forEach(btn => btn.addEventListener('click', () => openModal(btn.getAttribute('data-id'))));
+    tbody.querySelectorAll('.ven-toggle-btn').forEach(btn => btn.addEventListener('click', () => toggleStatus(vendorById(btn.getAttribute('data-id')))));
+  }
+
+  function openModal(vendorId) {
+    const form = document.getElementById('ven-form');
+    form.reset();
+    document.getElementById('ven-form-error').classList.add('hidden');
+
+    if (vendorId) {
+      const v = vendorById(vendorId);
+      if (!v) return;
+      document.getElementById('ven-modal-title').textContent = 'Edit Vendor';
+      document.getElementById('ven-form-id').value = v.VendorID;
+      document.getElementById('ven-form-code').value = v.VendorCode;
+      document.getElementById('ven-form-name').value = v.VendorName;
+      document.getElementById('ven-form-category').value = v.Category || '';
+      document.getElementById('ven-form-company').value = v.CompanyID || '';
+      document.getElementById('ven-form-classification').value = v.Classification || 'Local';
+      updateCountryVisibility();
+      document.getElementById('ven-form-country').value = v.Country || '';
+      document.getElementById('ven-form-payables').value = v.TradePayablesAccountID || '';
+      document.getElementById('ven-form-contact').value = v.ContactPerson || '';
+      document.getElementById('ven-form-phone').value = v.Phone || '';
+      document.getElementById('ven-form-email').value = v.Email || '';
+      document.getElementById('ven-form-address1').value = v.AddressLine1 || '';
+      document.getElementById('ven-form-address2').value = v.AddressLine2 || '';
+      document.getElementById('ven-form-taxreg').value = v.TaxRegistrationNumber || '';
+      document.getElementById('ven-form-terms').value = v.PaymentTermsDays != null ? v.PaymentTermsDays : 30;
+      document.getElementById('ven-form-currency').value = v.DefaultCurrency || '';
+      document.getElementById('ven-form-bankname').value = v.BankName || '';
+      document.getElementById('ven-form-bankaccount').value = v.BankAccountNumber || '';
+      document.getElementById('ven-form-iban').value = v.BankIBAN || '';
+      document.getElementById('ven-form-swift').value = v.BankSwift || '';
+      document.getElementById('ven-form-notes').value = v.Notes || '';
+    } else {
+      document.getElementById('ven-modal-title').textContent = 'Add Vendor';
+      document.getElementById('ven-form-id').value = '';
+      document.getElementById('ven-form-code').value = '';
+      document.getElementById('ven-form-terms').value = 30;
+      document.getElementById('ven-form-classification').value = 'Local';
+      updateCountryVisibility();
+    }
+    document.getElementById('ven-modal').classList.remove('hidden');
+  }
+
+  function closeModal() { document.getElementById('ven-modal').classList.add('hidden'); }
+
+  function saveVendor(event) {
+    event.preventDefault();
+    const data = {
+      VendorID: document.getElementById('ven-form-id').value,
+      VendorName: document.getElementById('ven-form-name').value.trim(),
+      Category: document.getElementById('ven-form-category').value,
+      CompanyID: document.getElementById('ven-form-company').value,
+      Classification: document.getElementById('ven-form-classification').value,
+      Country: document.getElementById('ven-form-country').value,
+      TradePayablesAccountID: document.getElementById('ven-form-payables').value,
+      ContactPerson: document.getElementById('ven-form-contact').value.trim(),
+      Phone: document.getElementById('ven-form-phone').value.trim(),
+      Email: document.getElementById('ven-form-email').value.trim(),
+      AddressLine1: document.getElementById('ven-form-address1').value.trim(),
+      AddressLine2: document.getElementById('ven-form-address2').value.trim(),
+      TaxRegistrationNumber: document.getElementById('ven-form-taxreg').value.trim(),
+      PaymentTermsDays: document.getElementById('ven-form-terms').value,
+      DefaultCurrency: document.getElementById('ven-form-currency').value,
+      BankName: document.getElementById('ven-form-bankname').value.trim(),
+      BankAccountNumber: document.getElementById('ven-form-bankaccount').value.trim(),
+      BankIBAN: document.getElementById('ven-form-iban').value.trim(),
+      BankSwift: document.getElementById('ven-form-swift').value.trim(),
+      Notes: document.getElementById('ven-form-notes').value.trim()
+    };
+    const error = document.getElementById('ven-form-error');
+    const btn = document.getElementById('ven-save-btn');
+    error.classList.add('hidden');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Vendor';
+        if (result.success) { closeModal(); fetchAndRender(); }
+        else { error.textContent = result.error || 'Unable to save vendor.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Vendor';
+        error.textContent = err.message || 'Unable to save vendor.'; error.classList.remove('hidden');
+      })
+      .saveVendor({ vendorData: data });
+  }
+
+  function toggleStatus(vendor) {
+    const deactivating = vendor.Status === 'Active';
+    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + vendor.VendorName + '?')) return;
+    const call = deactivating ? 'deactivateVendor' : 'reactivateVendor';
+    rpc
+      .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update vendor.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to update vendor.'))
+      [call]({ __positional: [vendor.VendorID] });
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken, writeAllowed) {
+    token = idToken;
+    canWrite = Boolean(writeAllowed);
+
+    document.getElementById('ven-add-btn').classList.toggle('hidden', !canWrite);
+    if (canWrite) document.getElementById('ven-add-btn').addEventListener('click', () => openModal());
+    document.getElementById('ven-modal-close').addEventListener('click', closeModal);
+    document.getElementById('ven-modal-cancel').addEventListener('click', closeModal);
+    document.getElementById('ven-form').addEventListener('submit', saveVendor);
+    document.getElementById('ven-search').addEventListener('input', renderTable);
+    document.getElementById('ven-form-classification').addEventListener('change', updateCountryVisibility);
+
+    populateCountrySelect();
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-truck-field"></i> Vendor Master Data';
+    fetchAndRender();
+    loadReferenceData();
+  };
+})();
+</script>

@@ -1,0 +1,911 @@
+<div id="jo-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Production</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-industry text-blue-500"></i> Job Order Request</h2></div>
+    <button id="jo-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Job Order</button>
+  </div>
+
+  <div class="flex border-b border-slate-800">
+    <button id="jo-tab-batches" class="px-4 py-2 text-sm font-semibold text-blue-400 border-b-2 border-blue-500">By Batch</button>
+    <button id="jo-tab-flat" class="px-4 py-2 text-sm font-semibold text-slate-400 border-b-2 border-transparent">Full List</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="jo-search-input" placeholder="Search number or item..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="jo-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="jo-origin-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">Sales &amp; Production</option><option value="Sales">Sales-triggered</option><option value="Production">Production-direct</option></select>
+    <select id="jo-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All Statuses</option>
+      <option value="Draft">Draft</option><option value="Pending Acceptance">Pending Acceptance</option>
+      <option value="Amendment Requested">Amendment Requested</option><option value="Accepted">Accepted</option>
+      <option value="Open">Open</option><option value="In Progress">In Progress</option>
+      <option value="Stop Requested">Stop Requested</option><option value="Stopped">Stopped</option>
+      <option value="Cancelled">Cancelled</option><option value="Completed">Completed</option>
+    </select>
+    <input type="date" id="jo-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <!-- By Batch view -->
+  <div id="jo-batches-container" class="space-y-3"></div>
+  <div id="jo-batches-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
+
+  <!-- Full List view -->
+  <div id="jo-flat-container" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Sub JO Number</th>
+            <th class="py-3 px-4">Origin</th>
+            <th class="py-3 px-4">Item</th>
+            <th class="py-3 px-4 text-right">Ordered</th>
+            <th class="py-3 px-4 text-right">Produced</th>
+            <th class="py-3 px-4">Target Date</th>
+            <th class="py-3 px-4">Status</th>
+          </tr>
+        </thead>
+        <tbody id="jo-flat-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+    <div id="jo-flat-notice" class="hidden text-xs text-slate-500 flex items-center gap-2 p-3 border-t border-slate-700"></div>
+  </div>
+</div>
+
+<!-- ============ BATCH EDIT VIEW (Draft only) ============ -->
+<div id="jo-batch-edit-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="jo-batch-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h2 class="text-xl font-bold text-blue-400">New Job Order</h2>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-2">Origin</label>
+    <div class="grid grid-cols-2 gap-3">
+      <button type="button" data-origin="Sales" class="jo-origin-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="jo-origin-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Sales-triggered</div><div class="text-xs text-slate-500">Each line requires Production's acceptance</div></button>
+      <button type="button" data-origin="Production" class="jo-origin-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="jo-origin-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Production-direct</div><div class="text-xs text-slate-500">No acceptance needed — mostly for Semi-Finished Goods</div></button>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+    <select id="jo-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="jo-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Description <span class="text-slate-500">(optional)</span></label><input type="text" id="jo-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="jo-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="jo-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="jo-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(optional)</span></label><select id="jo-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    </div>
+  </div>
+
+  <div id="jo-company-required-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company above before adding lines.</div>
+
+  <div class="flex flex-wrap items-center gap-2 no-print">
+    <button id="jo-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table id="jo-grid-table" class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3 w-10">#</th>
+            <th class="py-2 px-3">Item</th>
+            <th class="py-2 px-3 text-right w-24">Quantity</th>
+            <th id="jo-grid-target-header" class="py-2 px-3 w-32">Target Date</th>
+            <th class="py-2 px-3">Linked Sales Orders</th>
+            <th class="py-2 px-3 w-10 no-print"></th>
+          </tr>
+        </thead>
+        <tbody id="jo-grid-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="jo-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-slate-800">
+    <button id="jo-delete-batch-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="jo-save-batch-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
+    <button id="jo-submit-batch-btn" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+  </div>
+</div>
+
+<!-- ============ LINE DETAIL VIEW (Submitted lines) ============ -->
+<div id="jo-line-detail-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="jo-line-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h2 id="jo-line-title" class="text-xl font-bold text-blue-400"></h2>
+    </div>
+    <span id="jo-line-status-badge" class="text-xs px-2.5 py-1 rounded-full font-medium"></span>
+  </div>
+
+  <p id="jo-line-batch-ref" class="text-xs text-slate-500 font-mono"></p>
+
+  <div id="jo-amendment-banner" class="hidden bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 space-y-1">
+    <p class="text-xs font-semibold text-amber-400 uppercase">Production has requested an amendment</p>
+    <p id="jo-amendment-details" class="text-sm text-slate-200"></p>
+    <p id="jo-amendment-note" class="text-xs text-slate-400 italic"></p>
+  </div>
+
+  <div id="jo-stop-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1">
+    <p class="text-xs font-semibold text-red-400 uppercase">Sales has requested a stop</p>
+    <p id="jo-stop-note" class="text-sm text-slate-300"></p>
+    <p class="text-xs text-slate-500">Production Entries can still be posted against this line to finish any batch already underway — close it out with "Accept Stop" once genuinely done.</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div><p class="text-xs text-slate-500 uppercase mb-1">Item</p><p id="jo-line-item-display" class="text-sm text-slate-200"></p></div>
+    <div><p class="text-xs text-slate-500 uppercase mb-1">Target Date</p><p id="jo-line-target-display" class="text-sm text-slate-200"></p></div>
+    <div><p class="text-xs text-slate-500 uppercase mb-1">Origin</p><p id="jo-line-origin-display" class="text-sm text-slate-200"></p></div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 grid grid-cols-3 gap-4 text-center">
+    <div><p class="text-xs text-slate-500 uppercase">Ordered</p><p id="jo-progress-ordered" class="text-lg font-bold text-slate-200"></p></div>
+    <div><p class="text-xs text-slate-500 uppercase">Produced</p><p id="jo-progress-produced" class="text-lg font-bold text-emerald-400"></p></div>
+    <div><p class="text-xs text-slate-500 uppercase">Remaining</p><p id="jo-progress-remaining" class="text-lg font-bold text-blue-400"></p></div>
+  </div>
+
+  <div id="jo-linked-so-section" class="hidden space-y-2">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Linked Sales Orders</p>
+    <div id="jo-linked-so-list" class="flex flex-wrap gap-2"></div>
+  </div>
+
+  <div id="jo-line-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-slate-800">
+    <button id="jo-request-amendment-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Request Amendment</button>
+    <button id="jo-accept-btn" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Accept</button>
+    <button id="jo-withdraw-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Withdraw</button>
+    <button id="jo-revise-resubmit-btn" class="hidden px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">Revise &amp; Resubmit</button>
+    <button id="jo-request-stop-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Request Stop</button>
+    <button id="jo-cancel-direct-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Cancel Line</button>
+    <button id="jo-accept-stop-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-medium">Accept Stop</button>
+  </div>
+</div>
+
+<!-- Link Sales Orders modal (batch edit, per grid row) -->
+<div id="jo-link-so-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+    <h3 class="text-lg font-bold border-b border-slate-700 pb-3">Link Sales Orders</h3>
+    <p class="text-xs text-slate-500">Sales Order lines currently showing a shortfall for this item — check any this Job Order line should cover.</p>
+    <div id="jo-link-so-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+    <p id="jo-link-so-empty" class="hidden text-xs text-slate-500 text-center py-4">No Sales Orders currently show a shortfall for this item.</p>
+    <div class="flex justify-end gap-3 pt-2"><button type="button" id="jo-link-so-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button><button type="button" id="jo-link-so-done" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs">Done</button></div>
+  </div>
+</div>
+
+<!-- Request Amendment modal -->
+<div id="jo-amend-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 class="text-lg font-bold border-b border-slate-700 pb-3">Request Amendment</h3>
+    <p class="text-xs text-slate-500">Propose a different quantity and/or target date — Sales will review and either revise and resubmit, or withdraw.</p>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Proposed Quantity <span class="text-slate-500">(optional)</span></label><input type="text" inputmode="decimal" id="jo-amend-qty" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Proposed Target Date <span class="text-slate-500">(optional)</span></label><input type="date" id="jo-amend-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Note <span class="text-red-400">*</span></label><input type="text" id="jo-amend-note" placeholder="Explain what needs to change and why" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div id="jo-amend-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+    <div class="flex justify-end gap-3 pt-2"><button type="button" id="jo-amend-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button><button type="button" id="jo-amend-submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs">Send Request</button></div>
+  </div>
+</div>
+
+<!-- Revise & Resubmit modal -->
+<div id="jo-revise-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 class="text-lg font-bold border-b border-slate-700 pb-3">Revise &amp; Resubmit</h3>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Quantity</label><input type="text" inputmode="decimal" id="jo-revise-qty" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Target Date</label><input type="date" id="jo-revise-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div id="jo-revise-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+    <div class="flex justify-end gap-3 pt-2"><button type="button" id="jo-revise-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button><button type="button" id="jo-revise-submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs">Resubmit</button></div>
+  </div>
+</div>
+
+<!-- Request Stop modal -->
+<div id="jo-stop-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 class="text-lg font-bold border-b border-slate-700 pb-3">Request Stop</h3>
+    <p class="text-xs text-slate-500">Production Entries will remain postable until Production explicitly accepts the stop — this only signals the request.</p>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reason <span class="text-slate-500">(optional)</span></label><input type="text" id="jo-stop-note-input" placeholder="e.g. Customer cancelled the order" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div class="flex justify-end gap-3 pt-2"><button type="button" id="jo-stop-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button><button type="button" id="jo-stop-submit" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs">Send Request</button></div>
+  </div>
+</div>
+
+<datalist id="jo-item-datalist"></datalist>
+
+<script>
+(function () {
+  let token = '';
+  let canDraft = false;
+  let canPost = false;
+  let currentLimit = 100;
+  let batchesTotal = 0;
+  let flatLinesTotal = 0;
+  let currentBatch = null;   // batch being edited (Draft)
+  let currentLine = null;    // line being viewed (Submitted)
+  let batches = [];
+  let flatLines = [];
+  let companies = [];
+  let orgUnits = [];
+  let items = [];
+  let gridLines = []; // { LineID, ItemCode, OrderedQuantity, TargetDate, LinkedSalesOrderLines }
+  let currentOrigin = '';
+  let linkSoModalRowIndex = -1;
+  let linkSoModalOptions = [];
+  let activeTab = 'batches';
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function itemByCode(code) { return items.find(i => String(i.ItemCode) === String(code)); }
+  function orgUnitById(id) { return orgUnits.find(u => u.UnitID === id); }
+
+  function orgUnitOptionsHtml(type, selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => { html += `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code + ' — ' + u.Name)}</option>`; });
+    return html;
+  }
+  function populateItemDatalist(companyId) {
+    const datalist = document.getElementById('jo-item-datalist');
+    datalist.innerHTML = '';
+    items.filter(i => !i.CompanyID || i.CompanyID === companyId).forEach(i => {
+      const opt = document.createElement('option');
+      opt.value = i.ItemCode + ' — ' + i.ItemName;
+      datalist.appendChild(opt);
+    });
+  }
+
+  const STATUS_COLORS = {
+    Draft: 'bg-slate-700 text-slate-300', 'Pending Acceptance': 'bg-blue-500/10 text-blue-400',
+    'Amendment Requested': 'bg-amber-500/10 text-amber-400', Accepted: 'bg-emerald-500/10 text-emerald-400',
+    Open: 'bg-emerald-500/10 text-emerald-400', 'In Progress': 'bg-blue-500/10 text-blue-400',
+    'Stop Requested': 'bg-red-500/10 text-red-400', Stopped: 'bg-slate-700 text-slate-400',
+    Cancelled: 'bg-red-500/10 text-red-400', Completed: 'bg-emerald-500/10 text-emerald-400'
+  };
+  function statusBadgeHtml(status) {
+    return `<span class="text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[status] || 'bg-slate-700 text-slate-400'}">${escapeHtml(status)}</span>`;
+  }
+
+  // ---------- LIST VIEW ----------
+  function fetchAndRenderList(limit) {
+    currentLimit = limit || currentLimit;
+    google.script.run
+      .withSuccessHandler(result => { batches = result.entries || []; batchesTotal = result.total || 0; renderBatchesView(); renderLoadMoreNotices(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load Job Orders.'))
+      .getJobOrderBatches(token, currentLimit);
+    google.script.run
+      .withSuccessHandler(result => { flatLines = result.entries || []; flatLinesTotal = result.total || 0; renderFlatView(); renderLoadMoreNotices(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load Job Order lines.'))
+      .getJobOrderLinesFlat(token, currentLimit);
+  }
+
+  // Both views share one Load More action — increasing currentLimit
+  // re-fetches both (they're just two views over the same underlying
+  // Job Order space), simpler and more consistent than tracking two
+  // independent limits for what's really one dataset.
+  function renderLoadMoreNotices() {
+    const batchesNotice = document.getElementById('jo-batches-notice');
+    if (batchesTotal > batches.length) {
+      batchesNotice.classList.remove('hidden');
+      batchesNotice.innerHTML = `Showing ${batches.length} of ${batchesTotal} batches. <button id="jo-batches-load-more-btn" class="text-blue-400 hover:text-blue-300 underline">Load more</button>`;
+      document.getElementById('jo-batches-load-more-btn').addEventListener('click', () => fetchAndRenderList(currentLimit + 100));
+    } else {
+      batchesNotice.classList.add('hidden');
+    }
+
+    const flatNotice = document.getElementById('jo-flat-notice');
+    if (flatLinesTotal > flatLines.length) {
+      flatNotice.classList.remove('hidden');
+      flatNotice.innerHTML = `Showing ${flatLines.length} of ${flatLinesTotal} lines. <button id="jo-flat-load-more-btn" class="text-blue-400 hover:text-blue-300 underline">Load more</button>`;
+      document.getElementById('jo-flat-load-more-btn').addEventListener('click', () => fetchAndRenderList(currentLimit + 100));
+    } else {
+      flatNotice.classList.add('hidden');
+    }
+  }
+
+  function passesFilters(originVal, statusVal, dateVal, searchTarget) {
+    const query = document.getElementById('jo-search-input').value.trim().toLowerCase();
+    const companyFilter = document.getElementById('jo-company-filter').value;
+    const originFilter = document.getElementById('jo-origin-filter').value;
+    const statusFilter = document.getElementById('jo-status-filter').value;
+    const fromFilter = document.getElementById('jo-from-filter').value;
+    if (originFilter && originVal !== originFilter) return false;
+    if (statusFilter && statusVal !== statusFilter) return false;
+    if (fromFilter && dateVal < fromFilter) return false;
+    if (query && !searchTarget.toLowerCase().includes(query)) return false;
+    return true;
+  }
+
+  function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('jo-batches-container').classList.toggle('hidden', tab !== 'batches');
+    document.getElementById('jo-flat-container').classList.toggle('hidden', tab !== 'flat');
+    document.getElementById('jo-tab-batches').className = tab === 'batches' ? 'px-4 py-2 text-sm font-semibold text-blue-400 border-b-2 border-blue-500' : 'px-4 py-2 text-sm font-semibold text-slate-400 border-b-2 border-transparent';
+    document.getElementById('jo-tab-flat').className = tab === 'flat' ? 'px-4 py-2 text-sm font-semibold text-blue-400 border-b-2 border-blue-500' : 'px-4 py-2 text-sm font-semibold text-slate-400 border-b-2 border-transparent';
+  }
+
+  function renderBatchesView() {
+    const companyFilter = document.getElementById('jo-company-filter').value;
+    const container = document.getElementById('jo-batches-container');
+    container.innerHTML = '';
+    const filtered = batches.filter(b => {
+      if (companyFilter && b.CompanyID !== companyFilter) return false;
+      const anyLineMatches = (b.Lines || []).some(l => passesFilters(b.Origin, l.Status, b.JODate, (b.BatchNumber || '') + ' ' + l.ItemCode));
+      return anyLineMatches || !b.Lines || !b.Lines.length;
+    });
+    if (!filtered.length) { container.innerHTML = '<p class="text-center text-slate-500 py-6 text-sm">No Job Orders found.</p>'; return; }
+
+    filtered.forEach(b => {
+      const card = document.createElement('div');
+      card.className = 'bg-slate-800 border border-slate-700 rounded-xl overflow-hidden';
+      const lineRows = (b.Lines || []).map(l => `
+        <tr class="jo-flat-row hover:bg-slate-800/40 cursor-pointer" data-line-id="${l.LineID}" data-batch-id="${b.BatchID}">
+          <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(l.SubJONumber || '(unsubmitted)')}</td>
+          <td class="py-2 px-4 text-slate-200">${escapeHtml(l.ItemCode)}</td>
+          <td class="py-2 px-4 text-right text-xs font-mono">${formatMoney(l.OrderedQuantity)}</td>
+          <td class="py-2 px-4 text-right text-xs font-mono text-emerald-400">${formatMoney(l.ProducedQuantity || 0)}</td>
+          <td class="py-2 px-4">${statusBadgeHtml(l.Status)}</td>
+        </tr>`).join('');
+      card.innerHTML = `
+        <div class="bg-slate-900 px-4 py-3 flex items-center justify-between cursor-pointer jo-batch-header" data-batch-id="${b.BatchID}">
+          <div class="flex items-center gap-3">
+            <span class="font-mono text-sm text-slate-200">${escapeHtml(b.BatchNumber || 'DRAFT')}</span>
+            <span class="text-xs text-slate-500">${escapeHtml(b.Origin)}</span>
+            ${b.Status === 'Draft' ? statusBadgeHtml('Draft') : ''}
+          </div>
+          <span class="text-xs text-slate-500">${(b.Lines || []).length} line(s)</span>
+        </div>
+        ${b.Lines && b.Lines.length ? `<table class="w-full text-left"><tbody>${lineRows}</tbody></table>` : '<p class="text-xs text-slate-500 px-4 py-3">No lines yet.</p>'}`;
+      card.querySelector('.jo-batch-header').addEventListener('click', () => {
+        if (b.Status === 'Draft') openBatchForEdit(b.BatchID);
+      });
+      card.querySelectorAll('.jo-flat-row').forEach(row => {
+        row.addEventListener('click', () => {
+          if (b.Status === 'Draft') openBatchForEdit(b.BatchID);
+          else openLineDetail(row.getAttribute('data-line-id'));
+        });
+      });
+      container.appendChild(card);
+    });
+  }
+
+  function renderFlatView() {
+    const companyFilter = document.getElementById('jo-company-filter').value;
+    const tbody = document.getElementById('jo-flat-table-body');
+    tbody.innerHTML = '';
+    const filtered = flatLines.filter(l => {
+      if (companyFilter && l.CompanyID !== companyFilter) return false;
+      return passesFilters(l.Origin, l.Status, l.TargetDate || '', (l.SubJONumber || '') + ' ' + l.ItemCode);
+    });
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">No Job Order lines found.</td></tr>'; return; }
+    filtered.forEach(l => {
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer';
+      row.innerHTML = `
+        <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(l.SubJONumber || '(unsubmitted)')}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(l.Origin || '')}</td>
+        <td class="py-2 px-4 text-slate-200">${escapeHtml(l.ItemCode)}</td>
+        <td class="py-2 px-4 text-right text-xs font-mono">${formatMoney(l.OrderedQuantity)}</td>
+        <td class="py-2 px-4 text-right text-xs font-mono text-emerald-400">${formatMoney(l.ProducedQuantity || 0)}</td>
+        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(l.TargetDate || '—')}</td>
+        <td class="py-2 px-4">${statusBadgeHtml(l.Status)}</td>`;
+      row.addEventListener('click', () => {
+        if (l.Status === 'Draft') openBatchForEdit(l.ParentBatchID);
+        else openLineDetail(l.LineID);
+      });
+      tbody.appendChild(row);
+    });
+  }
+
+  function loadReferenceData() {
+    google.script.run
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const filterSelect = document.getElementById('jo-company-filter');
+        filterSelect.innerHTML = '<option value="">All Companies</option>';
+        const formSelect = document.getElementById('jo-form-company');
+        formSelect.innerHTML = '<option value="">Select a company...</option>';
+        companies.forEach(c => {
+          [filterSelect, formSelect].forEach(sel => {
+            const opt = document.createElement('option');
+            opt.value = c.CompanyID; opt.textContent = c.LegalName;
+            sel.appendChild(opt);
+          });
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies(token);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        orgUnits = result || [];
+        document.getElementById('jo-form-division').innerHTML = orgUnitOptionsHtml('Division', '');
+        document.getElementById('jo-form-branch').innerHTML = orgUnitOptionsHtml('Branch', '');
+        document.getElementById('jo-form-costcenter').innerHTML = orgUnitOptionsHtml('CostCenter', '');
+        document.getElementById('jo-form-profitcenter').innerHTML = orgUnitOptionsHtml('ProfitCenter', '');
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits(token);
+
+    google.script.run
+      .withSuccessHandler(result => { items = result || []; })
+      .withFailureHandler(err => console.error(err))
+      .getEligibleJobOrderItems(token);
+  }
+
+  // ---------- BATCH EDIT VIEW ----------
+  function showListView() {
+    document.getElementById('jo-batch-edit-view').classList.add('hidden');
+    document.getElementById('jo-line-detail-view').classList.add('hidden');
+    document.getElementById('jo-list-view').classList.remove('hidden');
+    fetchAndRenderList();
+  }
+
+  function selectOrigin(origin) {
+    currentOrigin = origin;
+    document.querySelectorAll('.jo-origin-btn').forEach(btn => {
+      const active = btn.getAttribute('data-origin') === origin;
+      btn.classList.toggle('border-blue-500', active);
+      btn.classList.toggle('bg-blue-500/20', active);
+      const check = btn.querySelector('.jo-origin-check');
+      if (check) check.classList.toggle('hidden', !active);
+    });
+    document.getElementById('jo-grid-target-header').textContent = origin === 'Sales' ? 'Target Date *' : 'Target Date';
+    renderGrid();
+  }
+
+  function currentHeaderCostCenter() { return document.getElementById('jo-form-costcenter').value; }
+
+  function showBatchEditView() {
+    document.getElementById('jo-list-view').classList.add('hidden');
+    document.getElementById('jo-line-detail-view').classList.add('hidden');
+    document.getElementById('jo-batch-edit-view').classList.remove('hidden');
+
+    const isNew = !currentBatch;
+    document.querySelectorAll('.jo-origin-btn').forEach(btn => { btn.disabled = !isNew; });
+    if (isNew && !currentOrigin) selectOrigin('Sales');
+    else if (!isNew) selectOrigin(currentBatch.Origin);
+
+    document.getElementById('jo-save-batch-btn').classList.toggle('hidden', !canDraft);
+    document.getElementById('jo-submit-batch-btn').classList.toggle('hidden', !canPost);
+    document.getElementById('jo-delete-batch-btn').classList.toggle('hidden', !currentBatch || !canDraft);
+
+    updateCompanyRequiredNote();
+    renderGrid();
+  }
+
+  function updateCompanyRequiredNote() {
+    document.getElementById('jo-company-required-note').classList.toggle('hidden', Boolean(document.getElementById('jo-form-company').value));
+  }
+
+  function openBatchForEdit(batchId) {
+    currentBatch = batches.find(b => b.BatchID === batchId) || null;
+    if (!currentBatch) return;
+    gridLines = (currentBatch.Lines || []).map(l => ({
+      LineID: l.LineID, ItemCode: l.ItemCode, OrderedQuantity: l.OrderedQuantity,
+      TargetDate: l.TargetDate || '', LinkedSalesOrderLines: l.LinkedSalesOrderLines || []
+    }));
+    document.getElementById('jo-form-company').value = currentBatch.CompanyID || '';
+    document.getElementById('jo-form-date').value = currentBatch.JODate || '';
+    document.getElementById('jo-form-description').value = currentBatch.Description || '';
+    document.getElementById('jo-form-division').value = currentBatch.DivisionID || '';
+    document.getElementById('jo-form-branch').value = currentBatch.BranchID || '';
+    document.getElementById('jo-form-costcenter').value = currentBatch.CostCenterID || '';
+    document.getElementById('jo-form-profitcenter').value = currentBatch.ProfitCenterID || '';
+    populateItemDatalist(currentBatch.CompanyID);
+    showBatchEditView();
+  }
+
+  function newEntry() {
+    currentBatch = null;
+    currentOrigin = '';
+    gridLines = [];
+    document.getElementById('jo-form-company').value = '';
+    document.getElementById('jo-form-date').value = today();
+    document.getElementById('jo-form-description').value = '';
+    document.getElementById('jo-form-division').value = '';
+    document.getElementById('jo-form-branch').value = '';
+    document.getElementById('jo-form-costcenter').value = '';
+    document.getElementById('jo-form-profitcenter').value = '';
+    showBatchEditView();
+  }
+
+  function today() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function ensureTrailingBlankRow() {
+    const last = gridLines[gridLines.length - 1];
+    if (!last || last.ItemCode) gridLines.push({ LineID: '', ItemCode: '', OrderedQuantity: '', TargetDate: '', LinkedSalesOrderLines: [] });
+  }
+
+  function renderGrid() {
+    ensureTrailingBlankRow();
+    const tbody = document.getElementById('jo-grid-body');
+    tbody.innerHTML = '';
+
+    gridLines.forEach((line, i) => {
+      const item = itemByCode(line.ItemCode);
+      const linkedBadges = (line.LinkedSalesOrderLines || []).map(l => `<span class="text-xs bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded">${escapeHtml(l.SONumber)}</span>`).join(' ');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+        <td class="py-1 px-1">
+          <input data-row="${i}" data-field="item" list="jo-item-datalist" value="${escapeHtml(line.ItemCode)}" placeholder="Item code or name" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs font-mono focus:outline-none focus:border-blue-500">
+          ${item ? `<span class="text-xs text-slate-500">${escapeHtml(item.ItemName)}</span>` : ''}
+        </td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="quantity" type="text" inputmode="decimal" value="${line.OrderedQuantity === '' || line.OrderedQuantity === undefined ? '' : line.OrderedQuantity}" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-1"><input data-row="${i}" data-field="targetdate" type="date" value="${escapeHtml(line.TargetDate || '')}" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+        <td class="py-1 px-2">
+          ${currentOrigin === 'Sales' && line.ItemCode ? `<button data-row="${i}" class="jo-link-so-btn text-xs text-blue-400 hover:text-blue-300 underline mr-2">Link Sales Orders</button>` : ''}
+          ${linkedBadges}
+        </td>
+        <td class="py-1 px-1 text-center no-print">${line.ItemCode ? `<button data-row="${i}" class="jo-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>` : ''}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('input[data-field="item"]').forEach(el => {
+      el.addEventListener('input', e => {
+        const row = parseInt(e.target.getAttribute('data-row'), 10);
+        let value = e.target.value;
+        const dashIndex = value.indexOf(' — ');
+        if (dashIndex !== -1 && itemByCode(value.substring(0, dashIndex))) value = value.substring(0, dashIndex);
+        gridLines[row].ItemCode = value;
+      });
+      el.addEventListener('blur', renderGrid);
+    });
+    tbody.querySelectorAll('input[data-field]:not([data-field="item"])').forEach(input => {
+      input.addEventListener('input', e => {
+        const row = parseInt(e.target.getAttribute('data-row'), 10);
+        const field = e.target.getAttribute('data-field');
+        gridLines[row][field === 'quantity' ? 'OrderedQuantity' : 'TargetDate'] = e.target.value;
+      });
+      input.addEventListener('blur', renderGrid);
+    });
+    tbody.querySelectorAll('.jo-remove-row').forEach(btn => {
+      btn.addEventListener('click', e => {
+        gridLines.splice(parseInt(e.currentTarget.getAttribute('data-row'), 10), 1);
+        renderGrid();
+      });
+    });
+    tbody.querySelectorAll('.jo-link-so-btn').forEach(btn => {
+      btn.addEventListener('click', e => openLinkSoModal(parseInt(e.currentTarget.getAttribute('data-row'), 10)));
+    });
+  }
+
+  function allLineDescriptionsFilled() {
+    return gridLines.every(l => !l.ItemCode || (Number(l.OrderedQuantity) > 0 && (currentOrigin !== 'Sales' || l.TargetDate)));
+  }
+
+  function collectHeader() {
+    return {
+      BatchID: currentBatch ? currentBatch.BatchID : '',
+      Origin: currentOrigin,
+      CompanyID: document.getElementById('jo-form-company').value,
+      JODate: document.getElementById('jo-form-date').value,
+      Description: document.getElementById('jo-form-description').value.trim(),
+      DivisionID: document.getElementById('jo-form-division').value,
+      BranchID: document.getElementById('jo-form-branch').value,
+      CostCenterID: document.getElementById('jo-form-costcenter').value,
+      ProfitCenterID: document.getElementById('jo-form-profitcenter').value,
+      Lines: gridLines.filter(l => l.ItemCode).map(l => ({
+        LineID: l.LineID, ItemCode: l.ItemCode, OrderedQuantity: l.OrderedQuantity,
+        TargetDate: l.TargetDate, LinkedSalesOrderLines: l.LinkedSalesOrderLines
+      }))
+    };
+  }
+
+  function saveDraft() {
+    const error = document.getElementById('jo-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('jo-form-company').value) { error.textContent = 'Select a Company.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('jo-form-costcenter').value) { error.textContent = 'Select a Cost Center.'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line needs a quantity greater than zero' + (currentOrigin === 'Sales' ? ' and a Target Date' : '') + '.'; error.classList.remove('hidden'); return; }
+    const btn = document.getElementById('jo-save-batch-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    google.script.run
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { showListView(); }
+        else { error.textContent = result.error || 'Unable to save.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => { btn.disabled = false; btn.textContent = original; error.textContent = err.message || 'Unable to save.'; error.classList.remove('hidden'); })
+      .saveDraftJobOrderBatch(token, collectHeader());
+  }
+
+  function submitBatch() {
+    const error = document.getElementById('jo-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('jo-form-company').value) { error.textContent = 'Select a Company.'; error.classList.remove('hidden'); return; }
+    if (!document.getElementById('jo-form-costcenter').value) { error.textContent = 'Select a Cost Center.'; error.classList.remove('hidden'); return; }
+    if (!allLineDescriptionsFilled()) { error.textContent = 'Every line needs a quantity greater than zero' + (currentOrigin === 'Sales' ? ' and a Target Date' : '') + '.'; error.classList.remove('hidden'); return; }
+    if (!gridLines.some(l => l.ItemCode)) { error.textContent = 'Add at least one line before submitting.'; error.classList.remove('hidden'); return; }
+
+    const btn = document.getElementById('jo-submit-batch-btn');
+    btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Submitting...';
+    google.script.run
+      .withSuccessHandler(saveResult => {
+        if (!saveResult.success) { btn.disabled = false; btn.innerHTML = original; error.textContent = saveResult.error || 'Unable to save before submitting.'; error.classList.remove('hidden'); return; }
+        google.script.run
+          .withSuccessHandler(submitResult => {
+            btn.disabled = false; btn.innerHTML = original;
+            if (submitResult.success) { showListView(); }
+            else { error.textContent = submitResult.error || 'Unable to submit.'; error.classList.remove('hidden'); }
+          })
+          .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to submit.'; error.classList.remove('hidden'); })
+          .submitJobOrderBatch(token, saveResult.batchId);
+      })
+      .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to save before submitting.'; error.classList.remove('hidden'); })
+      .saveDraftJobOrderBatch(token, collectHeader());
+  }
+
+  function deleteBatch() {
+    if (!currentBatch) return;
+    if (!confirm('Delete this draft Job Order? This cannot be undone.')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to delete.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to delete.'))
+      .deleteDraftJobOrderBatch(token, currentBatch.BatchID);
+  }
+
+  // ---------- LINK SALES ORDERS MODAL ----------
+  function openLinkSoModal(rowIndex) {
+    linkSoModalRowIndex = rowIndex;
+    const line = gridLines[rowIndex];
+    const companyId = document.getElementById('jo-form-company').value;
+    document.getElementById('jo-link-so-modal').classList.remove('hidden');
+    document.getElementById('jo-link-so-list').innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Loading...</p>';
+    document.getElementById('jo-link-so-empty').classList.add('hidden');
+    google.script.run
+      .withSuccessHandler(options => {
+        linkSoModalOptions = options || [];
+        renderLinkSoModal();
+      })
+      .withFailureHandler(() => { linkSoModalOptions = []; renderLinkSoModal(); })
+      .getSalesOrderLineShortfallOptions(token, line.ItemCode, companyId);
+  }
+
+  function renderLinkSoModal() {
+    const line = gridLines[linkSoModalRowIndex];
+    const listEl = document.getElementById('jo-link-so-list');
+    const linkedIds = new Set((line.LinkedSalesOrderLines || []).map(l => l.SOLineID));
+    listEl.innerHTML = '';
+    document.getElementById('jo-link-so-empty').classList.toggle('hidden', linkSoModalOptions.length > 0);
+    linkSoModalOptions.forEach(opt => {
+      const label = document.createElement('label');
+      label.className = 'flex items-center gap-2 text-sm bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 cursor-pointer';
+      label.innerHTML = `<input type="checkbox" class="jo-link-so-checkbox" data-so-id="${opt.SOID}" data-so-line-id="${opt.SOLineID}" data-so-number="${escapeHtml(opt.SONumber)}" ${linkedIds.has(opt.SOLineID) ? 'checked' : ''}> <span>${escapeHtml(opt.SONumber)} — shortfall ${formatMoney(opt.ShortfallQuantity)}</span>`;
+      listEl.appendChild(label);
+    });
+  }
+
+  function saveLinkSoModal() {
+    const line = gridLines[linkSoModalRowIndex];
+    const checked = [...document.querySelectorAll('.jo-link-so-checkbox:checked')];
+    line.LinkedSalesOrderLines = checked.map(cb => ({
+      SOID: cb.getAttribute('data-so-id'), SOLineID: cb.getAttribute('data-so-line-id'), SONumber: cb.getAttribute('data-so-number')
+    }));
+    document.getElementById('jo-link-so-modal').classList.add('hidden');
+    renderGrid();
+  }
+
+  // ---------- LINE DETAIL VIEW ----------
+  function openLineDetail(lineId) {
+    currentLine = flatLines.find(l => l.LineID === lineId) || null;
+    if (!currentLine) return;
+    document.getElementById('jo-list-view').classList.add('hidden');
+    document.getElementById('jo-batch-edit-view').classList.add('hidden');
+    document.getElementById('jo-line-detail-view').classList.remove('hidden');
+
+    const status = currentLine.Status;
+    document.getElementById('jo-line-title').textContent = currentLine.SubJONumber || '(unsubmitted)';
+    document.getElementById('jo-line-batch-ref').textContent = 'Batch: ' + (currentLine.BatchNumber || '');
+    const badge = document.getElementById('jo-line-status-badge');
+    badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (STATUS_COLORS[status] || '');
+    badge.textContent = status;
+
+    const item = itemByCode(currentLine.ItemCode);
+    document.getElementById('jo-line-item-display').textContent = currentLine.ItemCode + (item ? ' — ' + item.ItemName : '');
+    document.getElementById('jo-line-target-display').textContent = currentLine.TargetDate || '—';
+    document.getElementById('jo-line-origin-display').textContent = currentLine.Origin || '';
+
+    const hasAmendment = status === 'Amendment Requested';
+    document.getElementById('jo-amendment-banner').classList.toggle('hidden', !hasAmendment);
+    if (hasAmendment) {
+      const parts = [];
+      if (currentLine.AmendmentProposedQuantity != null) parts.push('Quantity: ' + formatMoney(currentLine.AmendmentProposedQuantity));
+      if (currentLine.AmendmentProposedDate) parts.push('Target Date: ' + currentLine.AmendmentProposedDate);
+      document.getElementById('jo-amendment-details').textContent = parts.length ? parts.join(' | ') : '(no specific values proposed — see note)';
+      document.getElementById('jo-amendment-note').textContent = currentLine.AmendmentNote ? '"' + currentLine.AmendmentNote + '"' : '';
+    }
+
+    const hasStopRequest = status === 'Stop Requested';
+    document.getElementById('jo-stop-banner').classList.toggle('hidden', !hasStopRequest);
+    if (hasStopRequest) document.getElementById('jo-stop-note').textContent = currentLine.StopRequestNote || '(no reason given)';
+
+    const ordered = Number(currentLine.OrderedQuantity) || 0;
+    const produced = Number(currentLine.ProducedQuantity) || 0;
+    document.getElementById('jo-progress-ordered').textContent = formatMoney(ordered);
+    document.getElementById('jo-progress-produced').textContent = formatMoney(produced);
+    document.getElementById('jo-progress-remaining').textContent = formatMoney(Math.max(ordered - produced, 0));
+
+    const links = currentLine.LinkedSalesOrderLines || [];
+    document.getElementById('jo-linked-so-section').classList.toggle('hidden', !links.length);
+    document.getElementById('jo-linked-so-list').innerHTML = links.map(l => `<span class="text-xs bg-blue-500/10 text-blue-400 px-2 py-1 rounded">${escapeHtml(l.SONumber)}</span>`).join('');
+
+    document.getElementById('jo-accept-btn').classList.toggle('hidden', status !== 'Pending Acceptance' || !canPost);
+    document.getElementById('jo-request-amendment-btn').classList.toggle('hidden', status !== 'Pending Acceptance' || !canPost);
+    document.getElementById('jo-withdraw-btn').classList.toggle('hidden', (status !== 'Pending Acceptance' && status !== 'Amendment Requested') || !canPost);
+    document.getElementById('jo-revise-resubmit-btn').classList.toggle('hidden', status !== 'Amendment Requested' || !canPost);
+    document.getElementById('jo-request-stop-btn').classList.toggle('hidden', currentLine.Origin !== 'Sales' || (status !== 'Accepted' && status !== 'In Progress') || !canPost);
+    document.getElementById('jo-cancel-direct-btn').classList.toggle('hidden', currentLine.Origin !== 'Production' || (status !== 'Open' && status !== 'In Progress') || !canPost);
+    document.getElementById('jo-accept-stop-btn').classList.toggle('hidden', status !== 'Stop Requested' || !canPost);
+  }
+
+  function acceptLine() {
+    if (!currentLine) return;
+    if (!confirm('Accept this Job Order line as-is?')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to accept.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to accept.'))
+      .acceptJobOrderLine(token, currentLine.LineID);
+  }
+  function withdrawLine() {
+    if (!currentLine) return;
+    if (!confirm('Withdraw this Job Order line? This cannot be undone.')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to withdraw.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to withdraw.'))
+      .withdrawJobOrderLine(token, currentLine.LineID);
+  }
+  function acceptStopLine() {
+    if (!currentLine) return;
+    if (!confirm('Accept this stop request? Only do this once any in-flight batch is genuinely finished.')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to accept stop.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to accept stop.'))
+      .acceptJobOrderLineStop(token, currentLine.LineID);
+  }
+  function cancelDirectLine() {
+    if (!currentLine) return;
+    if (!confirm('Cancel this Job Order line? This cannot be undone.')) return;
+    google.script.run
+      .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to cancel.'); })
+      .withFailureHandler(err => alert(err.message || 'Unable to cancel.'))
+      .cancelDirectJobOrderLine(token, currentLine.LineID);
+  }
+
+  function openAmendModal() {
+    document.getElementById('jo-amend-qty').value = '';
+    document.getElementById('jo-amend-date').value = '';
+    document.getElementById('jo-amend-note').value = '';
+    document.getElementById('jo-amend-error').classList.add('hidden');
+    document.getElementById('jo-amend-modal').classList.remove('hidden');
+  }
+  function closeAmendModal() { document.getElementById('jo-amend-modal').classList.add('hidden'); }
+  function submitAmendModal() {
+    if (!currentLine) return;
+    const note = document.getElementById('jo-amend-note').value.trim();
+    const error = document.getElementById('jo-amend-error');
+    if (!note) { error.textContent = 'A note is required.'; error.classList.remove('hidden'); return; }
+    google.script.run
+      .withSuccessHandler(result => {
+        if (result.success) { closeAmendModal(); showListView(); }
+        else { error.textContent = result.error || 'Unable to request amendment.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => { error.textContent = err.message || 'Unable to request amendment.'; error.classList.remove('hidden'); })
+      .requestJobOrderLineAmendment(token, currentLine.LineID, document.getElementById('jo-amend-qty').value, document.getElementById('jo-amend-date').value, note);
+  }
+
+  function openReviseModal() {
+    document.getElementById('jo-revise-qty').value = currentLine.AmendmentProposedQuantity != null ? currentLine.AmendmentProposedQuantity : currentLine.OrderedQuantity;
+    document.getElementById('jo-revise-date').value = currentLine.AmendmentProposedDate || currentLine.TargetDate || '';
+    document.getElementById('jo-revise-error').classList.add('hidden');
+    document.getElementById('jo-revise-modal').classList.remove('hidden');
+  }
+  function closeReviseModal() { document.getElementById('jo-revise-modal').classList.add('hidden'); }
+  function submitReviseModal() {
+    if (!currentLine) return;
+    const error = document.getElementById('jo-revise-error');
+    google.script.run
+      .withSuccessHandler(result => {
+        if (result.success) { closeReviseModal(); showListView(); }
+        else { error.textContent = result.error || 'Unable to resubmit.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => { error.textContent = err.message || 'Unable to resubmit.'; error.classList.remove('hidden'); })
+      .reviseAndResubmitJobOrderLine(token, currentLine.LineID, document.getElementById('jo-revise-qty').value, document.getElementById('jo-revise-date').value);
+  }
+
+  function openStopModal() {
+    document.getElementById('jo-stop-note-input').value = '';
+    document.getElementById('jo-stop-modal').classList.remove('hidden');
+  }
+  function closeStopModal() { document.getElementById('jo-stop-modal').classList.add('hidden'); }
+  function submitStopModal() {
+    if (!currentLine) return;
+    google.script.run
+      .withSuccessHandler(result => {
+        if (result.success) { closeStopModal(); showListView(); }
+        else alert(result.error || 'Unable to request stop.');
+      })
+      .withFailureHandler(err => alert(err.message || 'Unable to request stop.'))
+      .requestJobOrderLineStop(token, currentLine.LineID, document.getElementById('jo-stop-note-input').value.trim());
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    google.script.run
+      .withSuccessHandler(perms => {
+        canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost);
+        document.getElementById('jo-new-btn').classList.toggle('hidden', !canDraft);
+        if (canDraft) document.getElementById('jo-new-btn').addEventListener('click', newEntry);
+      })
+      .withFailureHandler(() => {})
+      .getModulePermissionsForUser(token, 'JOBORDERREQUEST');
+
+    document.getElementById('jo-tab-batches').addEventListener('click', () => switchTab('batches'));
+    document.getElementById('jo-tab-flat').addEventListener('click', () => switchTab('flat'));
+    document.getElementById('jo-batch-back-btn').addEventListener('click', showListView);
+    document.getElementById('jo-line-back-btn').addEventListener('click', showListView);
+    document.getElementById('jo-search-input').addEventListener('input', () => { renderBatchesView(); renderFlatView(); });
+    document.getElementById('jo-company-filter').addEventListener('change', () => { renderBatchesView(); renderFlatView(); });
+    document.getElementById('jo-origin-filter').addEventListener('change', () => { renderBatchesView(); renderFlatView(); });
+    document.getElementById('jo-status-filter').addEventListener('change', () => { renderBatchesView(); renderFlatView(); });
+    document.getElementById('jo-from-filter').addEventListener('change', () => { renderBatchesView(); renderFlatView(); });
+
+    document.querySelectorAll('.jo-origin-btn').forEach(btn => {
+      btn.addEventListener('click', () => { if (!btn.disabled) selectOrigin(btn.getAttribute('data-origin')); });
+    });
+    document.getElementById('jo-form-company').addEventListener('change', () => { updateCompanyRequiredNote(); populateItemDatalist(document.getElementById('jo-form-company').value); });
+    document.getElementById('jo-add-line-btn').addEventListener('click', () => {
+      gridLines.push({ LineID: '', ItemCode: '', OrderedQuantity: '', TargetDate: '', LinkedSalesOrderLines: [] });
+      renderGrid();
+    });
+    document.getElementById('jo-save-batch-btn').addEventListener('click', saveDraft);
+    document.getElementById('jo-submit-batch-btn').addEventListener('click', submitBatch);
+    document.getElementById('jo-delete-batch-btn').addEventListener('click', deleteBatch);
+
+    document.getElementById('jo-link-so-cancel').addEventListener('click', () => document.getElementById('jo-link-so-modal').classList.add('hidden'));
+    document.getElementById('jo-link-so-done').addEventListener('click', saveLinkSoModal);
+
+    document.getElementById('jo-accept-btn').addEventListener('click', acceptLine);
+    document.getElementById('jo-withdraw-btn').addEventListener('click', withdrawLine);
+    document.getElementById('jo-accept-stop-btn').addEventListener('click', acceptStopLine);
+    document.getElementById('jo-cancel-direct-btn').addEventListener('click', cancelDirectLine);
+
+    document.getElementById('jo-request-amendment-btn').addEventListener('click', openAmendModal);
+    document.getElementById('jo-amend-cancel').addEventListener('click', closeAmendModal);
+    document.getElementById('jo-amend-submit').addEventListener('click', submitAmendModal);
+
+    document.getElementById('jo-revise-resubmit-btn').addEventListener('click', openReviseModal);
+    document.getElementById('jo-revise-cancel').addEventListener('click', closeReviseModal);
+    document.getElementById('jo-revise-submit').addEventListener('click', submitReviseModal);
+
+    document.getElementById('jo-request-stop-btn').addEventListener('click', openStopModal);
+    document.getElementById('jo-stop-cancel').addEventListener('click', closeStopModal);
+    document.getElementById('jo-stop-submit').addEventListener('click', submitStopModal);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-industry"></i> Job Order Request';
+    fetchAndRenderList();
+    loadReferenceData();
+  };
+})();
+</script>

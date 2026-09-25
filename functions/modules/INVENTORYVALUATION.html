@@ -1,0 +1,192 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Production Setup</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-coins text-blue-500"></i> Inventory Valuation List</h2></div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+    <select id="iv-company-select" class="w-full md:w-96 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+  </div>
+
+  <div id="iv-select-company-note" class="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company above to view or add item costs.</div>
+
+  <div id="iv-content" class="hidden space-y-4">
+    <p class="text-xs text-slate-500">Scoped to items eligible for a Job Order (Finished Good or Semi-Finished Good with an active BOM) — the same set Production actually produces against. A new cost for an item already listed adds a new effective-dated line rather than overwriting the old one, same as BOM recipe versions and Price List lines.</p>
+
+    <div id="iv-add-form" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Item</label>
+        <input type="text" id="iv-line-item" list="iv-item-datalist" placeholder="Item code or name" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono focus:outline-none focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Unit Cost</label>
+        <input type="text" inputmode="decimal" id="iv-line-cost" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Effective From</label>
+        <input type="date" id="iv-line-effdate" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+      </div>
+      <button id="iv-add-line-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> Add Cost</button>
+    </div>
+    <div id="iv-line-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+              <th class="py-2 px-3">Item</th>
+              <th class="py-2 px-3 text-right">Unit Cost</th>
+              <th class="py-2 px-3">Effective From</th>
+              <th class="py-2 px-3">Status</th>
+              <th class="py-2 px-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="iv-lines-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<datalist id="iv-item-datalist"></datalist>
+
+<script>
+(function () {
+  let token = '';
+  let canWrite = false;
+  let items = [];
+  let currentLines = [];
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  function formatMoney(n) {
+    const num = Number(n) || 0;
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function itemByCode(code) { return items.find(i => String(i.ItemCode) === String(code)); }
+
+  function loadReferenceData() {
+    rpc
+      .withSuccessHandler(result => {
+        const sel = document.getElementById('iv-company-select');
+        sel.innerHTML = '<option value="">Select a company...</option>';
+        (result || []).forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.CompanyID; opt.textContent = c.LegalName;
+          sel.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+  }
+
+  function populateItemDatalist(companyId) {
+    rpc
+      .withSuccessHandler(result => {
+        items = (result || []).filter(i => i.CompanyID === companyId);
+        const datalist = document.getElementById('iv-item-datalist');
+        datalist.innerHTML = '';
+        items.forEach(i => {
+          const opt = document.createElement('option');
+          opt.value = i.ItemCode + ' — ' + i.ItemName;
+          datalist.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getEligibleJobOrderItems();
+  }
+
+  function onCompanyChange() {
+    const companyId = document.getElementById('iv-company-select').value;
+    document.getElementById('iv-select-company-note').classList.toggle('hidden', Boolean(companyId));
+    document.getElementById('iv-content').classList.toggle('hidden', !companyId);
+    if (!companyId) { currentLines = []; return; }
+    populateItemDatalist(companyId);
+    loadLines();
+  }
+
+  function loadLines() {
+    const companyId = document.getElementById('iv-company-select').value;
+    if (!companyId) return;
+    rpc
+      .withSuccessHandler(result => { currentLines = result || []; renderLines(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load valuation lines.'))
+      .getInventoryValuationLines({ companyId: companyId });
+  }
+
+  function renderLines() {
+    const tbody = document.getElementById('iv-lines-body');
+    tbody.innerHTML = '';
+    if (!currentLines.length) { tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-slate-500 text-xs">No item costs added yet.</td></tr>'; return; }
+    currentLines.forEach(line => {
+      const item = itemByCode(line.ItemCode);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-2 px-3 text-slate-200">${escapeHtml(line.ItemCode)}${item ? ' — ' + escapeHtml(item.ItemName) : ''}</td>
+        <td class="py-2 px-3 text-right font-mono">${formatMoney(line.UnitCost)}</td>
+        <td class="py-2 px-3 text-xs text-slate-400">${escapeHtml(line.EffectiveFrom)}</td>
+        <td class="py-2 px-3"><span class="text-xs px-2 py-0.5 rounded-full ${line.Status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${escapeHtml(line.Status)}</span></td>
+        <td class="py-2 px-3 text-right">${line.Status === 'Active' && canWrite ? `<button data-id="${line.LineID}" class="iv-deactivate-line text-red-400 hover:text-red-300 text-xs">Deactivate</button>` : ''}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.iv-deactivate-line').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const lineId = e.target.getAttribute('data-id');
+        if (!confirm('Deactivate this cost?')) return;
+        rpc
+          .withSuccessHandler(result => { if (result.success) loadLines(); else alert(result.error || 'Unable to deactivate.'); })
+          .withFailureHandler(err => alert(err.message || 'Unable to deactivate.'))
+          .deactivateInventoryValuationLine({ lineId: lineId });
+      });
+    });
+  }
+
+  function addLine() {
+    const error = document.getElementById('iv-line-error');
+    error.classList.add('hidden');
+    const companyId = document.getElementById('iv-company-select').value;
+    const rawItem = document.getElementById('iv-line-item').value;
+    const dashIndex = rawItem.indexOf(' — ');
+    const itemCode = dashIndex !== -1 ? rawItem.substring(0, dashIndex) : rawItem;
+    const cost = document.getElementById('iv-line-cost').value;
+    const effDate = document.getElementById('iv-line-effdate').value;
+
+    const btn = document.getElementById('iv-add-line-btn');
+    btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Adding...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.innerHTML = original;
+        if (result.success) {
+          document.getElementById('iv-line-item').value = '';
+          document.getElementById('iv-line-cost').value = '';
+          document.getElementById('iv-line-effdate').value = '';
+          loadLines();
+        } else {
+          error.textContent = result.error || 'Unable to add cost.'; error.classList.remove('hidden');
+        }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = original;
+        error.textContent = err.message || 'Unable to add cost.'; error.classList.remove('hidden');
+      })
+      .saveInventoryValuationLine({ lineData: { CompanyID: companyId, ItemCode: itemCode, UnitCost: cost, EffectiveFrom: effDate } });
+  }
+
+  // Single entry point called by Index.html after this fragment is injected.
+  window.initModule = function (idToken, writeAllowed) {
+    token = idToken;
+    canWrite = Boolean(writeAllowed);
+    document.getElementById('iv-add-form').classList.toggle('hidden', !canWrite);
+
+    document.getElementById('iv-company-select').addEventListener('change', onCompanyChange);
+    document.getElementById('iv-add-line-btn').addEventListener('click', addLine);
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-coins"></i> Inventory Valuation List';
+    loadReferenceData();
+  };
+})();
+</script>
