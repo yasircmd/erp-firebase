@@ -7,11 +7,15 @@
 //     while a live JV/CBT entry allocates against the invoice. The check
 //     runs under the global lock, which the wrapped function re-enters,
 //     so no allocation can be posted between the check and the reversal.
+//   - a Vendor Invoice reversal is also refused while a live Purchase
+//     Return exists against it (docs/modules/PURCHASE_RETURN.md, decision 9),
+//     even one whose value went entirely to a New Ref.
 'use strict';
 const { onCallWithMessages } = require('./callable');
 const { run, LockService } = require('./legacy/runtime');
 const L = require('./legacy/codegs');
 const { assertInvoiceHasNoAllocations, annotateInvoiceOutstanding } = require('./partyLedger');
+const { assertInvoiceHasNoLiveReturns } = require('./purchaseReturn');
 
 function withEntries(invoiceType, fn) {
   return async (ctx, limit) => {
@@ -30,7 +34,10 @@ function guardedReversal(invoiceType, fn, isDecision) {
     try {
       const approving = !isDecision || rest[1] === 'Approved';
       if (approving) {
-        try { await assertInvoiceHasNoAllocations(invoiceType, invoiceId); }
+        try {
+          if (invoiceType === 'VendorInvoice') await assertInvoiceHasNoLiveReturns(invoiceId);
+          await assertInvoiceHasNoAllocations(invoiceType, invoiceId);
+        }
         catch (err) { return { success: false, error: err.message }; }
       }
       return await fn(ctx, invoiceId, ...rest);

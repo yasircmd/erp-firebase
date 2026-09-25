@@ -18,6 +18,8 @@ const TREE_SEED_NODES = [
   { text: 'Invoice Processing & Automated Matching (3-Way Match)', depth: 3 },
   { text: 'Automatic Payment Program (APP)', depth: 3 },
   { text: 'Vendor Ledger & Down Payment Handling', depth: 3 },
+  // New development (not in Code.gs): docs/modules/PURCHASE_RETURN.md.
+  { text: 'Purchase Return / Debit Note', depth: 3, moduleId: 'PURCHASERETURN' },
   { text: 'Accounts Receivable (FI-AR)', depth: 2 },
   { text: 'Customer Master Data & Credit Limits', depth: 3 },
   { text: 'Customer Invoicing & Billing Integration', depth: 3 },

@@ -8,7 +8,8 @@ const COST_CENTER_REQUIRED_TYPES = ['Expense', 'Revenue', 'COGS'];
 const STOCK_TRANSACTION_PREFIXES = {
   GRN: 'GRN', MaterialIssue: 'MI', Production: 'PRD', WarehouseMovement: 'WM',
   StockAdjustment: 'ADJ', PhysicalCount: 'PC', VendorInvoice: 'VINV',
-  DeliveryNote: 'DN', CustomerInvoice: 'CINV'
+  DeliveryNote: 'DN', CustomerInvoice: 'CINV',
+  PurchaseReturn: 'DBN' // hand-written module, docs/modules/PURCHASE_RETURN.md
 };
 
 function userCanAccessCompany(profile, companyId) {
@@ -123,6 +124,23 @@ async function generateStockTransactionRef() {
   return 'STK-' + String(next).padStart(8, '0');
 }
 
+// validateAndNormalizeLines rebuilds each line from a fixed field list, so
+// a vendor/customer tag on a stock-module GL line (Purchase Return's
+// payables line) would be dropped. Normalization skips blank-account
+// lines and otherwise keeps order, so the non-blank raw lines line up
+// one-to-one — same pairing as partyLedger.attachPartyFields. Lines with
+// no party fields (every other caller) come back unchanged.
+function carryPartyFields(rawLines, normalizedLines) {
+  const raw = (rawLines || []).filter(l => String(l.AccountCode || '').trim());
+  return normalizedLines.map((l, i) => {
+    const r = raw[i] || {};
+    if (!r.PartyType) return l;
+    return Object.assign({}, l, {
+      PartyType: r.PartyType, PartyID: r.PartyID || '', PartyName: r.PartyName || '', Allocations: r.Allocations || []
+    });
+  });
+}
+
 // Ported from writeStockGlEntry_. Caller MUST already hold the global
 // lock (see lock.js) — same contract as the original.
 async function writeStockGlEntry(user, stockTransactionType, transactionDate, description, reference, rawGlLines, dimensions, extraFields) {
@@ -133,6 +151,7 @@ async function writeStockGlEntry(user, stockTransactionType, transactionDate, de
   const coaSnap = await rtdb.ref('coa').get();
   const coaData = coaSnap.val() || {};
   const normalized = validateAndNormalizeLines(rawGlLines, coaData, dim.CompanyID);
+  normalized.lines = carryPartyFields(rawGlLines, normalized.lines);
   const totalDebit = normalized.totalDebit;
   const totalCredit = normalized.totalCredit;
   if (Math.round((totalDebit - totalCredit) * 100) !== 0) {

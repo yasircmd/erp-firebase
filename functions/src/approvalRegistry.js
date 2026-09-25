@@ -20,6 +20,7 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'PHYSICALCOUNT', Label: 'Physical Inventory Counting & Adjustments' },
   { ModuleID: 'PURCHASEORDER', Label: 'Purchase Order' },
   { ModuleID: 'VENDORINVOICE', Label: 'Vendor Invoice Processing' },
+  { ModuleID: 'PURCHASERETURN', Label: 'Purchase Return / Debit Note' },
   { ModuleID: 'DELIVERYNOTE', Label: 'Delivery Note (Goods Dispatch)' },
   { ModuleID: 'CUSTOMERINVOICE', Label: 'Customer Invoice Processing' },
 ];
@@ -36,6 +37,7 @@ const APPROVAL_MODULE_STORAGE_ = {
   DELIVERYNOTE: { type: 'rtdb', path: 'stock/transactions' },
   PURCHASEORDER: { type: 'rtdb', path: 'purchaseOrders' },
   VENDORINVOICE: { type: 'rtdb', path: 'vendorInvoices' },
+  PURCHASERETURN: { type: 'rtdb', path: 'stock/transactions' },
   CUSTOMERINVOICE: { type: 'rtdb', path: 'customerInvoices' },
   PURCHASEREQUISITION: { type: 'rtdb', path: 'purchaseRequisitions' },
   INVENTORYPURCHASEREQUISITION: { type: 'rtdb', path: 'inventoryPurchaseRequisitions' },

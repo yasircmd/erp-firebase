@@ -1,0 +1,28 @@
+# Purchase Return / Debit Note (docs/modules/PURCHASE_RETURN.md).
+# Server first; getModuleFragment (the new PURCHASERETURN screen and the
+# Company Master field) last, so no screen goes live before the functions
+# it calls.
+getReturnableVendorInvoices      # new
+savePurchaseReturnDraft          # new
+postPurchaseReturn               # new
+decidePurchaseReturnApproval     # new
+deletePurchaseReturnDraft        # new
+getPurchaseReturnEntries         # new
+reversePurchaseReturn            # new
+reverseJournalEntry              # refuses a DBN GL entry (module map)
+requestReverseVendorInvoice      # refused while a live return exists
+decideVendorInvoiceReversalApproval
+saveCompany                      # PurchaseReturnVarianceAccountID
+getStockLedgerReport             # rows link to the Purchase Return screen
+getGlReport                      # drill-through to the Purchase Return screen
+updatePostedDescription          # module map
+getModuleRegistry                # MODULE_REGISTRY: Tree Management, Roles & Permissions
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getApprovalConfigurations        # APPROVAL_GATEABLE_MODULES: Approval Configuration
+saveApprovalConfiguration
+saveApprovalLevels
+getPendingApprovalsForUser       # home tasks for pending returns
+getMyRejectedSubmissions
+getModuleFragment

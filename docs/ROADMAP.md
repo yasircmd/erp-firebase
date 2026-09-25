@@ -14,7 +14,7 @@ fresh session can continue from GitHub.
 | # | Module | Design doc | Status | Notes |
 |---|---|---|---|---|
 | 0 | Party Payments & Bill-wise Allocation (JV, CBT) | [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md) | deployed | Live 2026-09-25 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). |
-| 1 | Purchase Return / Debit Note | [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) | design agreed | Owner agreed 2026-09-25. Against a posted Vendor Invoice, prefix `DBN`. Branch `purchase-return`. |
+| 1 | Purchase Return / Debit Note | [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) | tested | Built and tested 2026-09-25 on branch `purchase-return`; not deployed. Next: owner review, then deploy (`tools/deploy-sets/purchase-return.txt`) and link it in Tree Management. |
 | 2 | Sales Return / Credit Note | [SALES_RETURN.md](modules/SALES_RETURN.md) | not started | Mirrors Delivery Note and Customer Invoice |
 | 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | not started | Read-only report. Builds on #0. |
 | 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | not started | Read-only report. Builds on #0. |

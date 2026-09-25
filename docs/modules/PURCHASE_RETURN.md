@@ -1,6 +1,6 @@
 # Purchase Return / Debit Note
 
-**Status:** design agreed 2026-09-25 · **Roadmap:** [#1](../ROADMAP.md) · **Branch:** `purchase-return`
+**Status:** tested 2026-09-25 (not deployed) · **Roadmap:** [#1](../ROADMAP.md) · **Branch:** `purchase-return`
 
 ## Purpose
 
@@ -54,9 +54,12 @@ re-checked at post under the global lock.
 
 **Values.** For each line, `ReturnValue = Quantity × GRN unit cost`
 (the invoice clears GRNs at their full GRN value, so this is the invoiced
-price). Let `ratio = Σ ReturnValue / invoice GRN subtotal`. The note
-reverses `Discount × ratio` and `TaxAmount × ratio`, rounded to 2 dp.
-`Total = Σ ReturnValue − discount share + tax share`.
+price). The invoice takes its discount on the whole subtotal (GRNs plus
+direct lines) and tax on the net of discount, so the note does the same
+for its own share: `DiscountShare = invoice Discount × ΣReturnValue /
+invoice Subtotal`, `Tax = (ΣReturnValue − DiscountShare) × TaxPercent`,
+`Total = ΣReturnValue − DiscountShare + Tax`, each rounded to 2 dp. The
+invoice's round-off isn't reversed.
 
 **Posting** (one stock transaction, type `PurchaseReturn`, prefix `DBN`):
 - Stock: Out from the GRN warehouse, costed at current WAC by
@@ -89,3 +92,67 @@ allocations on live entries (same rule as JV/CBT).
 **Code:** hand-written `functions/src/purchaseReturn.js` modelled on
 `grn.js`; emulator suite `functions/test/emulator/purchaseReturn.test.js`
 plus UI checks, with a negative control.
+
+## As built (2026-09-25)
+
+**Callables** (`functions/src/purchaseReturn.js`):
+`getReturnableVendorInvoices`, `savePurchaseReturnDraft`,
+`postPurchaseReturn`, `decidePurchaseReturnApproval`,
+`deletePurchaseReturnDraft`, `getPurchaseReturnEntries`,
+`reversePurchaseReturn`. Screen: `functions/modules/PURCHASERETURN.html`.
+
+**Record** (RTDB `stock/transactions/PRTD-…`, `TransactionType:
+'PurchaseReturn'`): `SourceInvoiceID/Number`, `VendorID`, the invoice's
+dimensions, and lines with `SourceGRNID`, `SourceGRNLineNo`, `Quantity`
+(base unit), `InvoiceUnitCost`, `ReturnValue`. Posting adds `Direction:
+'Out'` and the WAC `UnitCost`/`TotalValue` to each line, plus
+`StockValue`, `VarianceAmount` and `AllocatedToInvoice`. What's left to
+return on a GRN line is derived from live returns (posted or committing,
+not reversed, not a reversal), never stored.
+
+**Choices made while building** (not owner decisions; say if any should
+change):
+- The return's date, description and an optional vendor credit-note
+  reference are entered. Its dimensions are copied from the invoice.
+- Quantities are entered in the item's base unit.
+- **Reversal is not approval-gated**, like GRN and the other stock
+  modules. Vendor Invoice reversals are gated; this can be added.
+- A failed commit at final approval sends the return back to Rejected
+  with the reason, the same as Vendor Invoice.
+- The reversal brings stock back at the unit cost it left at and mirrors
+  the GL entry line for line. Both GL entries are then marked
+  reversed/reversal (`ReversedByJV`/`ReversalOfJV`), so their allocations
+  stop counting and the invoice's outstanding is restored.
+
+**Changes to shared and existing code:**
+- `glWriting.js`: prefix `PurchaseReturn: 'DBN'`. `writeStockGlEntry` now
+  keeps `PartyType/PartyID/PartyName/Allocations` on a line that has
+  them. No other caller sends them, so nothing else changes.
+- `invoiceAllocations.js`: Vendor Invoice reversal (request and approval)
+  is refused while a live return exists. That matters even when nothing
+  is allocated: an invoice paid, then returned, then the payment reversed.
+- `journal.js` / `masterData.js`: `PurchaseReturn → PURCHASERETURN` in
+  the voucher-type map, so the JV screen refuses to reverse a DBN entry
+  and GL Report drill-through opens this screen.
+- Company Master: optional `PurchaseReturnVarianceAccountID`. The server
+  save uses three generator patches (`tools/legacy-port/patches.js`,
+  marked NEW DEVELOPMENT). The screen became hand-maintained
+  (`handScreens` in `tools/legacy-port/modules.json`), because patches
+  apply only to Code.gs.
+- Stock Ledger Report rows link here (generator patch
+  `stock-voucher-type-purchase-return`).
+- Registries: `moduleRegistry.js`, `approvalRegistry.js`, and a menu
+  node in `treeSeedNodes.js` (fresh installs only).
+
+**After deploy:** link "Purchase Return / Debit Note" into the live menu
+with Tree Management. The seed node only applies to an empty tree. Set a
+Purchase Return Variance Account on each company that will post returns
+with a cost difference. Deploy set: `tools/deploy-sets/purchase-return.txt`.
+
+**Tests:** `functions/test/emulator/purchaseReturn.emulator.test.js` (6
+tests) and `functions/test/ui/purchaseReturn.ui.js` (4 checks). Negative
+controls, each confirmed caught, then restored:
+1. Tax on the gross instead of the net: 4 tests failed.
+2. The Vendor Invoice return guard removed: 2 tests failed. One of them
+   actually reversed an invoice that had a live return against it.
+3. The note never settling its invoice: 2 tests failed.

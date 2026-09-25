@@ -56,11 +56,12 @@ functions/
     journal.js                  — JV and CBT (moved out of the generated code)
     partyLedger.js              — vendor/customer tags and bill-wise allocation on JV/CBT lines
     invoiceAllocations.js       — Vendor/Customer Invoice list and reversal wrappers for allocation
+    purchaseReturn.js           — Purchase Return / Debit Note (docs/modules/PURCHASE_RETURN.md)
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
   modules/*.html                — the screens, served by getModuleFragment
   test/emulator/*.test.js       — one API suite per module, against the local emulators
-  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments)
+  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments, purchase return)
 tools/
   legacy-port/                  — the Code.gs → Cloud Functions generator (migration only)
   deploy-migration.sh           — deploys pending generated-port functions
@@ -85,7 +86,10 @@ docs/                           — see Documents above
    regenerated from Code.gs.
 3. **Register it:** capabilities and default permissions in
    `moduleRegistry.js`, a menu entry in `treeSeedNodes.js`, and, if it can
-   be approval-gated, `approvalRegistry.js`.
+   be approval-gated, `approvalRegistry.js`. A stock/GL module also goes in
+   the voucher-type maps in `journal.js` and `masterData.js` (and, by
+   generator patch, the Stock Ledger Report's). After deploy, link it into
+   the live menu with Tree Management; the seed only fills an empty tree.
 4. **Screen:** `functions/modules/<ID>.html`, calling the server with
    `rpc.<fn>({...})`.
 5. **Tests:** an emulator suite in `functions/test/emulator/`, including a
@@ -109,6 +113,7 @@ node --test --test-concurrency=1 functions/test/emulator/*.test.js
 node functions/test/ui/smoke.ui.js          # every screen loads cleanly (Admin + Viewer)
 node functions/test/ui/dynamicToggle.ui.js  # a real deactivate/reactivate click
 node functions/test/ui/partyPayments.ui.js  # after the partyPayments suite: JV/CBT allocation screens
+node functions/test/ui/purchaseReturn.ui.js # after the purchaseReturn suite: the Purchase Return screen
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for
@@ -120,8 +125,12 @@ node functions/test/ui/partyPayments.ui.js  # after the partyPayments suite: JV/
   Restart it after changing code, including for negative controls.
 - **Safety:** the suites WIPE the emulator database. `_helpers.js` refuses
   to run unless every client points at the local emulators.
-- **Last full run** (2026-09-25, `party-payments` branch): 190/190 emulator
-  tests, 93/93 smoke, 2/2 dynamic toggle, 3/3 party payments UI.
+- **Last full run** (2026-09-25, `purchase-return` branch): 196/196 emulator
+  tests, 95/95 smoke, 2/2 dynamic toggle, 4/4 purchase return UI. The
+  party payments UI check passed 2/3 here and 0/3 on `main` just after an
+  emulator restart. Its fixed short waits lose to function cold starts
+  (the JV check passes with a longer wait), so it needs `waitForSelector`
+  waits like `purchaseReturn.ui.js`.
 
 ## Deploying
 

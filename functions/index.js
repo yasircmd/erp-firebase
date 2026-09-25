@@ -37,6 +37,10 @@ const {
   getVendorInvoiceEntries, getCustomerInvoiceEntries, requestReverseVendorInvoice, decideVendorInvoiceReversalApproval,
   requestReverseCustomerInvoice, decideCustomerInvoiceReversalApproval
 } = require('./src/invoiceAllocations');
+const {
+  getReturnableVendorInvoices, savePurchaseReturnDraft, postPurchaseReturn, decidePurchaseReturnApproval,
+  deletePurchaseReturnDraft, getPurchaseReturnEntries, reversePurchaseReturn
+} = require('./src/purchaseReturn');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
@@ -97,6 +101,13 @@ exports.requestReverseVendorInvoice = requestReverseVendorInvoice;
 exports.decideVendorInvoiceReversalApproval = decideVendorInvoiceReversalApproval;
 exports.requestReverseCustomerInvoice = requestReverseCustomerInvoice;
 exports.decideCustomerInvoiceReversalApproval = decideCustomerInvoiceReversalApproval;
+exports.getReturnableVendorInvoices = getReturnableVendorInvoices;
+exports.savePurchaseReturnDraft = savePurchaseReturnDraft;
+exports.postPurchaseReturn = postPurchaseReturn;
+exports.decidePurchaseReturnApproval = decidePurchaseReturnApproval;
+exports.deletePurchaseReturnDraft = deletePurchaseReturnDraft;
+exports.getPurchaseReturnEntries = getPurchaseReturnEntries;
+exports.reversePurchaseReturn = reversePurchaseReturn;
 
 // Every remaining Code.gs module, ported mechanically (see
 // tools/legacy-port/generate.js): one callable per function a ported
