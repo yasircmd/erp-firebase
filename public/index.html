@@ -24,7 +24,7 @@
     /* Global loading bar — a single, thin indicator for EVERY async
        action across the whole app (posting, refreshing a list,
        generating a report, opening a module), driven entirely by
-       wrapping google.script.run itself (see the script near the end
+       wrapping the rpc bridge itself (see the script near the end
        of this file) rather than anything each module has to call —
        no module fragment needs to know this exists. Indeterminate
        sweep, the same familiar pattern as YouTube/GitHub's own top
@@ -444,21 +444,6 @@
     // other's, the same bug the original GAS-era wrapper's own
     // comment specifically warned about.
     const rpc = new Proxy({}, { get(_t, prop) { return __rpcChain({})[prop]; } });
-
-    // Compatibility shim for every module fragment NOT yet ported to
-    // Cloud Functions (all 45 others, at the time of this shell port).
-    // Each one still calls google.script.run internally, and on this
-    // Firebase-hosted page that object simply doesn't exist — it was
-    // never a generic web API, only something GAS's own HtmlService
-    // injected. Without this, opening any unported module throws an
-    // uncaught ReferenceError that takes down the whole page. With it,
-    // the exact same call still fails (there's no real Cloud Function
-    // behind its name yet), but fails the way the module's own
-    // existing .withFailureHandler(...) already expects — a clean,
-    // visible error instead of a silent crash. This is a deliberate,
-    // temporary bridge for the staged migration, not a permanent
-    // feature — remove it once every module has its own real port.
-    window.google = { script: { run: rpc } };
 
     document.getElementById('app-copyright').textContent = '© ' + new Date().getFullYear() + ' Yasir AV. All rights reserved.';
 
@@ -1194,7 +1179,7 @@
       window.__pendingReturnChain = returnChain || [];
 
       // Every module load gets a fresh token. A fragment's own async
-      // google.script.run callbacks (e.g. loading its list) capture this
+      // rpc callbacks (e.g. loading its list) capture this
       // value when they fire and skip touching the DOM if it no longer
       // matches window.__activeModuleToken — i.e. the user has since
       // navigated to a different module and this container's content
@@ -1258,13 +1243,7 @@
           // obsolete for any PORTED module (callable functions verify
           // the caller automatically — nothing needs a token passed
           // manually), so this passes null rather than a real value.
-          // Still-unported fragments that read this and pass it along
-          // to their own google.script.run calls will fail regardless,
-          // the same way any of their own calls do right now (see the
-          // window.google compatibility shim above for why that's a
-          // clean, visible failure rather than a page-crashing one) —
-          // null vs. some other placeholder makes no practical
-          // difference to that outcome.
+          // Every fragment is ported to rpc; none reads it any more.
           if (typeof window.initModule === 'function') {
             try { window.initModule(null, result.canWrite); } catch (e) { console.error(e); }
           }

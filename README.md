@@ -810,7 +810,7 @@ stops and says so).
 - Firebase SDK loaded via a small, separate `<script type="module">`, bridged onto `window.__firebaseSdk` — the main script stays a plain (non-module) script on purpose, since dozens of `onclick="..."` attributes throughout this file depend on true globals, which module-scoped declarations aren't
 - An `rpc` proxy synthesizes `google.script.run`'s own `.withSuccessHandler().withFailureHandler().method()` chaining on top of `httpsCallable` — every real call site needed only `google.script.run` replaced with `rpc`, dropping the explicit token argument, and remaining args packed into a single object
 - `onAuthStateChanged` is now the single source of truth for session state — consolidating what were three separate paths (manual restore, manual logout, cross-tab sync) into one; a `pendingCorporateId` handoff keeps a fresh sign-in (needs the Corporate ID check) and a restored session (doesn't) from racing each other
-- `window.google = { script: { run: rpc } }` (`public/index.html`, near line 461) — a temporary compatibility shim from before the modules were ported, when module fragments still called `google.script.run` and would otherwise have crashed the page with a `ReferenceError`. **No longer used:** all 46 screens in `functions/modules/` call `rpc` directly, and none contains `google.script.run`. Leaving it in is harmless. Remove it with a Hosting redeploy once DATARESET is deployed.
+- `window.google = { script: { run: rpc } }`, a temporary compatibility shim for fragments that still called `google.script.run`, was **removed** (2026-09-25) once all 46 screens used `rpc`. Smoke UI passed 93/93 without it. As a negative control, a `google.script.run` call added to UOM.html failed the smoke test with `google is not defined`. It goes live with the next Hosting deploy.
 
 ## Key decisions already made
 
@@ -939,8 +939,8 @@ ones, DATARESET last. What's left:
    attention as data checks in the running system, separate from this
    migration. Don't run Recalculate Stock Ledger in the Apps Script
    system (#18).
-4. **Cleanup**: remove the `google.script.run` shim from
-   `public/index.html` once DATARESET is live (Hosting redeploy), then
+4. **Cleanup**: the `google.script.run` shim is removed in the repo; deploy
+   Hosting (`firebase deploy --only hosting`) after batch G is live, then
    merge the working branch into `main`.
 5. **Decisions the owner should make about disclosed quirks.** These were
    preserved as in GAS, not fixed. They include the missing company scoping

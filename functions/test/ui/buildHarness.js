@@ -39,7 +39,6 @@ const html = `<!doctype html><html><head><meta charset="utf-8">
     }
   };
 ${slice(rpcStart, rpcEnd)}
-  window.google = { script: { run: rpc } };
 ${slice(escStart, escStart + 4)}
 ${slice(injStart, injStart + 9)}
   window.openModule = function (moduleId) {
