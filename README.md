@@ -770,6 +770,10 @@ batches of ≤6 with a public-invoker IAM binding for each new function):
   user) and dynamic toggle 2/2. To deploy, run
   `tools/deploy-migration.sh`. Only users whose role ID is `ADMIN` can
   use the screen.
+- **2026-09-25, Hosting:** `firebase deploy --only hosting` from `ee3b088`,
+  a clean checkout, after batch G. This put the shim-free `index.html`
+  live. `https://erp1-8f4cd.web.app/` returns 200 and matches the repo's
+  `public/index.html` byte for byte (no shim, no `REPLACE_ME`).
 - **Rule for every deploy:** `git status --porcelain` must be empty.
   `firebase deploy` uploads the working copy, not the last commit.
 
@@ -820,7 +824,7 @@ stops and says so).
 - Firebase SDK loaded via a small, separate `<script type="module">`, bridged onto `window.__firebaseSdk` — the main script stays a plain (non-module) script on purpose, since dozens of `onclick="..."` attributes throughout this file depend on true globals, which module-scoped declarations aren't
 - An `rpc` proxy synthesizes `google.script.run`'s own `.withSuccessHandler().withFailureHandler().method()` chaining on top of `httpsCallable` — every real call site needed only `google.script.run` replaced with `rpc`, dropping the explicit token argument, and remaining args packed into a single object
 - `onAuthStateChanged` is now the single source of truth for session state — consolidating what were three separate paths (manual restore, manual logout, cross-tab sync) into one; a `pendingCorporateId` handoff keeps a fresh sign-in (needs the Corporate ID check) and a restored session (doesn't) from racing each other
-- `window.google = { script: { run: rpc } }`, a temporary compatibility shim for fragments that still called `google.script.run`, was **removed** (2026-09-25) once all 46 screens used `rpc`. Smoke UI passed 93/93 without it. As a negative control, a `google.script.run` call added to UOM.html failed the smoke test with `google is not defined`. It goes live with the next Hosting deploy.
+- `window.google = { script: { run: rpc } }`, a temporary compatibility shim for fragments that still called `google.script.run`, was **removed** (2026-09-25) once all 46 screens used `rpc`. Smoke UI passed 93/93 without it. As a negative control, a `google.script.run` call added to UOM.html failed the smoke test with `google is not defined`. Live since the 2026-09-25 Hosting deploy (see the deploy log).
 
 ## Key decisions already made
 
@@ -945,9 +949,9 @@ ones, DATARESET last. What's left:
    attention as data checks in the running system, separate from this
    migration. Don't run Recalculate Stock Ledger in the Apps Script
    system (#18).
-4. **Cleanup**: the `google.script.run` shim is removed in the repo; deploy
-   Hosting (`firebase deploy --only hosting`) after batch G is live, then
-   merge the working branch into `main`.
+4. **Cleanup**: the `google.script.run` shim removal is live (Hosting
+   deployed 2026-09-25). What remains is merging the working branch into
+   `main`.
 5. **Decisions the owner should make about disclosed quirks.** These were
    preserved as in GAS, not fixed. They include the missing company scoping
    in Approval Tracker and BOM, the company gaps in draft edit/delete across
