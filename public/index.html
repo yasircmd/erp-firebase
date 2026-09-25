@@ -170,6 +170,69 @@
     [data-theme="light"] .hover\:text-blue-400:hover { color: #2563eb; }
     [data-theme="light"] .hover\:text-emerald-400:hover { color: #059669; }
     [data-theme="light"] .hover\:text-red-400:hover { color: #dc2626; }
+
+    /* ============================================================
+       COMPACT DENSITY
+       ============================================================
+       Tightens vertical spacing across the home page and every module
+       screen by one factor, --erp-density (0.88 = 12% less; 1 turns it
+       off). Same technique as the light theme above: every fragment is
+       injected into #app-container and styled with Tailwind utilities,
+       so this re-states the vertical padding/margin/space-y and
+       line-height utilities actually in use (surveyed via grep), scoped
+       under #app-container — the id selector outranks Tailwind's own
+       single-class rules. Horizontal spacing, widths and font sizes are
+       untouched, except the page titles, which shrink by the same
+       factor. A utility not listed here simply keeps Tailwind's size.
+       The login card is outside #app-container and unchanged. */
+    :root { --erp-density: 0.88; }
+    #app-container { line-height: calc(1.5 * var(--erp-density)); }
+    #app-container .py-0\.5 { padding-top: calc(0.125rem * var(--erp-density)); padding-bottom: calc(0.125rem * var(--erp-density)); }
+    #app-container .py-1 { padding-top: calc(0.25rem * var(--erp-density)); padding-bottom: calc(0.25rem * var(--erp-density)); }
+    #app-container .py-1\.5 { padding-top: calc(0.375rem * var(--erp-density)); padding-bottom: calc(0.375rem * var(--erp-density)); }
+    #app-container .py-2 { padding-top: calc(0.5rem * var(--erp-density)); padding-bottom: calc(0.5rem * var(--erp-density)); }
+    #app-container .py-2\.5 { padding-top: calc(0.625rem * var(--erp-density)); padding-bottom: calc(0.625rem * var(--erp-density)); }
+    #app-container .py-3 { padding-top: calc(0.75rem * var(--erp-density)); padding-bottom: calc(0.75rem * var(--erp-density)); }
+    #app-container .py-4 { padding-top: calc(1rem * var(--erp-density)); padding-bottom: calc(1rem * var(--erp-density)); }
+    #app-container .py-6 { padding-top: calc(1.5rem * var(--erp-density)); padding-bottom: calc(1.5rem * var(--erp-density)); }
+    #app-container .pt-1 { padding-top: calc(0.25rem * var(--erp-density)); }
+    #app-container .pt-2 { padding-top: calc(0.5rem * var(--erp-density)); }
+    #app-container .pt-3 { padding-top: calc(0.75rem * var(--erp-density)); }
+    #app-container .pt-4 { padding-top: calc(1rem * var(--erp-density)); }
+    #app-container .pb-1\.5 { padding-bottom: calc(0.375rem * var(--erp-density)); }
+    #app-container .pb-2 { padding-bottom: calc(0.5rem * var(--erp-density)); }
+    #app-container .pb-3 { padding-bottom: calc(0.75rem * var(--erp-density)); }
+    #app-container .pb-4 { padding-bottom: calc(1rem * var(--erp-density)); }
+    #app-container .pb-6 { padding-bottom: calc(1.5rem * var(--erp-density)); }
+    #app-container .mt-0\.5 { margin-top: calc(0.125rem * var(--erp-density)); }
+    #app-container .mt-1 { margin-top: calc(0.25rem * var(--erp-density)); }
+    #app-container .mt-2 { margin-top: calc(0.5rem * var(--erp-density)); }
+    #app-container .mb-1 { margin-bottom: calc(0.25rem * var(--erp-density)); }
+    #app-container .mb-2 { margin-bottom: calc(0.5rem * var(--erp-density)); }
+    #app-container .mb-3 { margin-bottom: calc(0.75rem * var(--erp-density)); }
+    #app-container .mb-4 { margin-bottom: calc(1rem * var(--erp-density)); }
+    #app-container .mb-5 { margin-bottom: calc(1.25rem * var(--erp-density)); }
+    #app-container .mb-6 { margin-bottom: calc(1.5rem * var(--erp-density)); }
+    #app-container .space-y-0\.5 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.125rem * var(--erp-density)); }
+    #app-container .space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.25rem * var(--erp-density)); }
+    #app-container .space-y-1\.5 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.375rem * var(--erp-density)); }
+    #app-container .space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.5rem * var(--erp-density)); }
+    #app-container .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(0.75rem * var(--erp-density)); }
+    #app-container .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1rem * var(--erp-density)); }
+    #app-container .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1.25rem * var(--erp-density)); }
+    #app-container .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(1.5rem * var(--erp-density)); }
+    #app-container .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: calc(2rem * var(--erp-density)); }
+    #app-container .text-xs { line-height: calc(1rem * var(--erp-density)); }
+    #app-container .text-sm { line-height: calc(1.25rem * var(--erp-density)); }
+    #app-container .text-base { line-height: calc(1.5rem * var(--erp-density)); }
+    #app-container .text-lg { line-height: calc(1.75rem * var(--erp-density)); }
+    #app-container .text-xl { line-height: calc(1.75rem * var(--erp-density)); }
+    #app-container .text-2xl { line-height: calc(2rem * var(--erp-density)); }
+    #app-container .text-3xl { line-height: calc(2.25rem * var(--erp-density)); }
+    /* Page titles: the shell's h1 and each module's h2 header. */
+    #app-container h1.text-xl { font-size: calc(1.25rem * var(--erp-density)); }
+    #app-container h2.text-2xl { font-size: calc(1.5rem * var(--erp-density)); }
+    #app-container h2.text-xl { font-size: calc(1.25rem * var(--erp-density)); }
   </style>
   <script>
     // Applied before the body renders (this script runs synchronously
