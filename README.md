@@ -256,7 +256,8 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   signed in, not module access or company, so any user can read any
   company's valuation cost for an item. Same as GAS.
 - GRN (hand-ported): the `reverseGrn` reversal-of-a-reversal problem
-  noted here earlier is now fixed. See deviation #15.
+  noted here earlier is fixed in code (deviation #15). It goes live with
+  batch F, because no earlier batch deployed `reverseGrn`.
 - Purchase Requisition, company scoping: listing, submit, close, cancel
   and approval decisions are company-checked. `deleteDraftPurchaseRequisition`
   and editing an existing draft check only the role's capability, so
@@ -669,6 +670,19 @@ IAM binding per function):
   reach the functions.
 - **2026-09-25, batch E:** SALESORDER and DELIVERYNOTE (19 functions with the
   helpers) from `1633f44`, same method, ending `ALL DONE`.
+- **Batch F, prepared 2026-09-25, not yet deployed:** JV, CBT,
+  VENDORINVOICE and CUSTOMERINVOICE (27 generated functions), plus 10
+  hand-ported ones, including two that no earlier batch deployed:
+  - `reverseGrn`, which carries the GRN reversal guards (deviation #15,
+    committed after batch E's source commit). Until it's deployed,
+    production still lets a GRN reversal be reversed.
+  - `getActiveVendors`, which fills the Purchase Order and GRN vendor
+    dropdowns.
+
+  Verified on `a2cbb08` beforehand: 173/173 emulator tests and smoke UI
+  90/90, run in chunks with an emulator restart between them (see the
+  MEMORY note in step 3), plus dynamic toggle 2/2. To deploy, run
+  `tools/deploy-migration.sh` (37 functions).
 - **Rule for every deploy:** `git status --porcelain` must be empty.
   `firebase deploy` uploads the working copy, not the last commit.
 
