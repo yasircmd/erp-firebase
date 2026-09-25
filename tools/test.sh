@@ -71,6 +71,14 @@ run_ui() {  # UI script name + args
   [ $rc = 0 ] && ! grep -q '^FAIL' "$log" || { FAILED=1; SUMMARY+=("   full output: $log"); }
 }
 
+# Screens need active users with every permission granted. Suites leave the
+# database however their last test left it, so seed the shared base fixture.
+seed_base() {
+  node -e "const H = require('./functions/test/emulator/_helpers');
+    H.reset(H.baseFixture()).then(() => process.exit(0), e => { console.error(e); process.exit(1); })" \
+    || { echo "STOP: could not seed the base fixture"; exit 1; }
+}
+
 suite_file() { local f="functions/test/emulator/$1.emulator.test.js"; [ -f "$f" ] && echo "$f"; }
 has_ui() { [ -f "functions/test/ui/$1.ui.js" ] && [[ ! $1 =~ ^(smoke|dynamicToggle|buildHarness)$ ]]; }
 
@@ -88,14 +96,12 @@ if [ "$1" = full ]; then
   # runs in two halves and each UI stage gets a fresh emulator.
   restart_emulators; run_suites "${ALL[@]:0:half}"
   restart_emulators; run_suites "${ALL[@]:half}"
-  # Smoke and dynamic toggle need seeded data; partyPayments.ui needs exactly
-  # the fixture the partyPayments suite leaves behind.
-  restart_emulators; run_suites "$(suite_file partyPayments)"
-  run_ui smoke; run_ui dynamicToggle; run_ui partyPayments
+  restart_emulators; seed_base
+  run_ui smoke; run_ui dynamicToggle
+  # Each other UI check needs exactly the fixture its own suite leaves behind.
   restart_emulators
   for f in functions/test/ui/*.ui.js; do
     n=$(basename "$f" .ui.js)
-    [ "$n" = partyPayments ] && continue
     has_ui "$n" && [ -n "$(suite_file "$n")" ] && { run_suites "$(suite_file "$n")"; run_ui "$n"; }
   done
   finish
@@ -137,10 +143,8 @@ fi
 echo "Quick run: suites [${SUITES[*]}] screens [${SCREENS[*]}]${SHARED:+ (shared code changed: ${SHARED[*]})}"
 [ $PLAN = 1 ] && exit 0
 restart_emulators
-# Smoke needs some seeded data; any suite leaves it.
-[ ${#SUITES[@]} -eq 0 ] && add_suite runtime
+if [ ${#SCREENS[@]} -gt 0 ]; then seed_base; run_ui smoke "${SCREENS[@]}"; fi
 for s in "${SUITES[@]}"; do run_suites "$(suite_file "$s")"; has_ui "$s" && run_ui "$s"; done
-[ ${#SCREENS[@]} -gt 0 ] && run_ui smoke "${SCREENS[@]}"
 if [ ${#SHARED[@]} -gt 0 ]; then
   SUMMARY+=("NOTE: shared code changed (${SHARED[*]}): run 'tools/test.sh full' before committing")
 fi
