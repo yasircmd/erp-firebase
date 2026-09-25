@@ -421,6 +421,14 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
     await requirePostAccess('GRN', user.profile.role);
     if (existing.Status !== 'Posted') throw new HttpsError('failed-precondition', 'Only posted GRNs can be reversed.');
     if (existing.ReversedByGRN) throw new HttpsError('failed-precondition', 'This GRN has already been reversed.');
+    // PORT FIX (not in Code.gs): a reversal entry is itself a Posted GRN and
+    // forcing its lines Out would remove the received stock a second time,
+    // same shape as README deviations #5/#6.
+    if (existing.ReversalOfGRN) throw new HttpsError('failed-precondition', 'A reversal entry cannot itself be reversed.');
+    // PORT FIX (not in Code.gs): reversing an invoiced GRN left the Vendor
+    // Invoice's payable standing against goods that were sent back. Same
+    // guard (and wording) as reverseDeliveryNote's Customer Invoice check.
+    if (existing.MatchedToInvoiceID) throw new HttpsError('failed-precondition', 'This GRN has already been matched to a Vendor Invoice and cannot be reversed. Reverse the invoice first.');
 
     const date = String(data.reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
     const itemsSnap = await rtdb.ref('items').get();

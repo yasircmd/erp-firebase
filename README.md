@@ -255,11 +255,8 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
 - Production: `getItemCostForProduction` checks only that the caller is
   signed in, not module access or company, so any user can read any
   company's valuation cost for an item. Same as GAS.
-- GRN (hand-ported, not yet fixed): `reverseGrn` has the same shape as
-  deviation #6. It forces every line Out, doesn't refuse a reversal
-  entry, and the screen offers "Reverse" on one. Reversing a GRN
-  reversal would likely remove the received stock a second time. Needs
-  its own fix and test.
+- GRN (hand-ported): the `reverseGrn` reversal-of-a-reversal problem
+  noted here earlier is now fixed. See deviation #15.
 - Purchase Requisition, company scoping: listing, submit, close, cancel
   and approval decisions are company-checked. `deleteDraftPurchaseRequisition`
   and editing an existing draft check only the role's capability, so
@@ -533,6 +530,20 @@ report). Each has a test that fails against the original logic.
    matched to no other invoice. **Live in the current Apps Script
    system.** Check for two posted, unreversed Vendor Invoices listing the
    same GRN in `SourceGRNs`. (`vendorInvoice` suite.)
+15. **GRN reversal: two guards the original lacked** (hand-ported
+   `functions/src/grn.js`, not a generated patch).
+   - **Reversal of a reversal:** a reversal entry is itself a Posted GRN,
+     and reversing forces every line Out. Reversing a reversal therefore
+     removed the received stock a second time, the same shape as #5/#6.
+     This was only caught by the negative-stock guard when no other stock
+     existed. It is now refused.
+   - **Invoiced GRN:** reversing a GRN already matched to a Vendor Invoice
+     left the invoice's payable standing against goods that were sent
+     back. It is now refused with "Reverse the invoice first", the same
+     guard Delivery Note already has for Customer Invoices.
+
+   **Both are live in the current Apps Script system.**
+   (`grnGuards` suite.)
 
 Port-runtime fix (not a Code.gs deviation): `runtime.js` used
 `admin.firestore.FieldPath`, which isn't a constructor in this
