@@ -97,6 +97,23 @@ docs/                           — see Documents above
 ## Testing
 
 ```bash
+# day to day: tools/test.sh starts/restarts the emulators itself
+tools/test.sh                  # quick: only what this branch changed vs origin/main
+tools/test.sh purchaseReturn PURCHASERETURN   # quick: named suite(s) / screen(s)
+tools/test.sh --plan           # show what a quick run would test
+tools/test.sh full             # everything, memory-safe (before committing)
+```
+
+Work in quick mode, then do one full run before committing, or whenever
+the quick run notes that shared code changed (glWriting, stockMovement,
+index.js, legacy/, ...). Only one run holds the emulators at a time: a
+run in another tab waits, and emulators started by hand in another
+checkout are left alone. The smoke run loads 4 screens at once
+(`SMOKE_PARALLEL=1` for the old serial run).
+
+Manual steps, which the script automates:
+
+```bash
 # once per machine
 npm ci --prefix functions
 npm i --no-save --prefix functions playwright && (cd functions && npx playwright install chromium)

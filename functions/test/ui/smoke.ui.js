@@ -39,9 +39,14 @@ async function seedDataResetAdmin() {
   const harness = fs.readFileSync(path.join(__dirname, 'harness.html'));
   const server = http.createServer((q, r) => { r.writeHead(200, { 'Content-Type': 'text/html' }); r.end(harness); }).listen(8125);
   const browser = await chromium.launch();
-  const results = [];
-  for (const mod of MODULES) {
-    for (const uid of usersFor(mod)) {
+  // Screens load independently, so SMOKE_PARALLEL pages (default 4) run at
+  // once; results keep the module order. SMOKE_PARALLEL=1 is the old serial run.
+  const jobs = MODULES.flatMap(mod => usersFor(mod).map(uid => [mod, uid]));
+  const results = new Array(jobs.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < jobs.length) {
+      const i = next++, [mod, uid] = jobs[i];
       const page = await browser.newPage();
       const errors = [];
       page.on('pageerror', e => errors.push('pageerror: ' + e.message));
@@ -56,13 +61,15 @@ async function seedDataResetAdmin() {
         const calls = await page.evaluate(() => window.__rpcLog.length);
         const allowed = EXPECTED[mod + '|' + uid];
         const problems = [...failed, ...errors, ...(loadFailed ? [loadFailed] : [])].filter(p => !(allowed && allowed.test(p)));
-        results.push([problems.length ? 'FAIL' : 'PASS', mod, uid, calls + ' calls', problems.join(' | ')]);
+        results[i] = [problems.length ? 'FAIL' : 'PASS', mod, uid, calls + ' calls', problems.join(' | ')];
       } catch (e) {
-        results.push(['FAIL', mod, uid, '', e.message.split('\n')[0]]);
+        results[i] = ['FAIL', mod, uid, '', e.message.split('\n')[0]];
       }
       await page.close();
     }
-  }
+  };
+  const parallel = Math.max(1, Number(process.env.SMOKE_PARALLEL) || 4);
+  await Promise.all(Array.from({ length: Math.min(parallel, jobs.length) }, worker));
   await browser.close(); server.close();
   for (const r of results) console.log(r.join('  '));
   const passed = results.filter(r => r[0] === 'PASS').length;
