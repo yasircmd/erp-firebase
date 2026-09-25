@@ -34,8 +34,9 @@ read it first, every session.
 - Watch for duplicate project copies outside ~/erp-firebase/ — a prior
   double-unzip caused a wrong-directory deploy. Always confirm `pwd` before
   git or firebase commands if anything behaves unexpectedly.
-- Node.js 20 functions runtime decommissions 2026-10-30 — needs upgrading
-  before then.
+- Functions runtime moved Node 20 → 24 (engines.node; Node 20 decommissions
+  2026-10-30). Check README's deploy log that tools/deploy-runtime.sh
+  finished; to confirm, check that every live function reports nodejs24.
 
 ## Testing
 Node.js unit tests against stub firebase-admin/firebase-functions live

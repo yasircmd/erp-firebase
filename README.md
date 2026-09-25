@@ -675,6 +675,18 @@ IAM binding per function):
   Verified on `a2cbb08` beforehand: 173/173 emulator tests and smoke UI
   90/90, run in chunks with an emulator restart between them (see the
   MEMORY note in step 3), plus dynamic toggle 2/2.
+- **2026-09-25, runtime upgrade Node 20 → 24:** `functions/package.json`
+  `engines.node` is now `"24"`. Node 20 is decommissioned 2026-10-30, and Node 24
+  is GA until 2028-10-31. The emulator tests have always run on the local
+  Node 24, so no code changed. `functions/` is identical to the batch-F code (`a2cbb08`).
+  All 235 live functions (the same set `functions/index.js` exports) were on
+  `nodejs20`. `tools/deploy-runtime.sh` redeploys every function whose live
+  runtime differs from `engines.node`, ≤6 per batch. It is idempotent, so re-run it
+  after a timeout. It needs no IAM step because redeployed functions keep their
+  bindings. Run it from a clean worktree, since `.claude/` is untracked in the main
+  checkout. Check afterwards:
+  `gcloud functions list --project=erp1-8f4cd --format="value(buildConfig.runtime)" | sort | uniq -c`
+  should show only `nodejs24`.
 - **Rule for every deploy:** `git status --porcelain` must be empty.
   `firebase deploy` uploads the working copy, not the last commit.
 
