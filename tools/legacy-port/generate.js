@@ -44,6 +44,13 @@ const REPO = path.resolve(__dirname, '../..');
 const OUT_DIR = path.join(REPO, 'functions/src/legacy');
 const MODULES_OUT = path.join(REPO, 'functions/modules');
 const MODULES = require('./modules.json').modules;
+// Modules whose screens are hand-maintained now: still scanned for the
+// server calls they make, but their functions/modules/<ID>.html is never
+// overwritten.
+const HAND_SCREENS = new Set(require('./modules.json').handScreens || []);
+// codegs.js helpers that hand-written modules import (e.g. journal.js):
+// always emitted, even if no generated screen reaches them any more.
+const KEEP = require('./keep.json');
 const PATCHES = require('./patches');
 
 // ---- configuration ----
@@ -152,7 +159,8 @@ for (const e of entries) if (!fnNodes[e]) throw new Error('Screen calls ' + e + 
 
 // ---- closure ----
 const fnSet = new Set(); const constSet = new Set();
-const stack = [...entries];
+for (const k of KEEP) if (!fnNodes[k]) throw new Error('keep.json names ' + k + ' but Code.gs has no such function.');
+const stack = [...entries, ...KEEP];
 while (stack.length) {
   const k = stack.pop();
   if (fnSet.has(k) || constSet.has(k) || SHIMMED.has(k) || DROPPED_CONSTS.has(k)) continue;
@@ -312,7 +320,7 @@ function splitTopLevel(s) {
   if (cur.trim()) outArr.push(cur.trim());
   return outArr;
 }
-for (const mod of MODULES) {
+for (const mod of MODULES.filter(m => !HAND_SCREENS.has(m))) {
   let s = fs.readFileSync(path.join(GAS, mod + '.html'), 'utf8');
   const chains = (s.match(/google\.script\.run\s*[.[]/g) || []).length; // (ignores mentions in comments)
   let converted = 0;

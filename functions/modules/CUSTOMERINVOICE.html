@@ -33,6 +33,8 @@
             <th class="py-3 px-4">Customer</th>
             <th class="py-3 px-4">Date</th>
             <th class="py-3 px-4 text-right">Total</th>
+            <th class="py-3 px-4 text-right">Outstanding</th>
+            <th class="py-3 px-4">Payment</th>
             <th class="py-3 px-4">Status</th>
             <th class="py-3 px-4 text-right">Actions</th>
           </tr>
@@ -355,6 +357,17 @@
   }
 
   // ---------- LIST VIEW ----------
+  // Outstanding / PaymentStatus / DueDate come from the server, derived
+  // from the JV/CBT lines allocated against this invoice
+  // (docs/modules/PARTY_PAYMENTS.md). Overdue = unpaid past its due date.
+  function paymentStatusHtml(e) {
+    if (!e.PaymentStatus) return '';
+    const overdue = e.PaymentStatus !== 'Paid' && e.DueDate && e.DueDate < new Date().toISOString().substring(0, 10);
+    const color = e.PaymentStatus === 'Paid' ? 'text-emerald-400' : (overdue ? 'text-red-400' : (e.PaymentStatus === 'Partly paid' ? 'text-amber-400' : 'text-slate-300'));
+    return `<span class="${color}">${escapeHtml(e.PaymentStatus)}</span>` +
+      (e.DueDate && e.PaymentStatus !== 'Paid' ? `<div class="text-slate-500">${overdue ? 'Overdue — due ' : 'Due '}${escapeHtml(e.DueDate)}</div>` : '');
+  }
+
   function renderList() {
     const search = document.getElementById('cinv-search-input').value.trim().toLowerCase();
     const companyFilter = document.getElementById('cinv-company-filter').value;
@@ -386,6 +399,8 @@
         <td class="py-2.5 px-4 text-sm">${escapeHtml(customer ? customer.CustomerName : '')}</td>
         <td class="py-2.5 px-4 text-xs text-slate-400">${escapeHtml(e.InvoiceDate || '')}</td>
         <td class="py-2.5 px-4 text-right font-mono text-sm">${formatMoney(e.Total)}</td>
+        <td class="py-2.5 px-4 text-right font-mono text-sm">${e.Outstanding === undefined ? '' : formatMoney(e.Outstanding)}</td>
+        <td class="py-2.5 px-4 text-xs">${paymentStatusHtml(e)}</td>
         <td class="py-2.5 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${statusDisplay.colorClass}">${escapeHtml(statusDisplay.label)}</span></td>
         <td class="py-2.5 px-4 text-right"><button class="text-xs text-blue-400 hover:text-blue-300">Open</button></td>`;
       tr.addEventListener('click', () => openEntry(e.CustomerInvoiceID));

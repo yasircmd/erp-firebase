@@ -163,11 +163,6 @@ exports.decideCustomerInvoiceApproval = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.levelNumber, d.decision, d.reason];
   return run(request, (ctx) => L.decideCustomerInvoiceApproval(ctx, ...a));
 });
-exports.decideCustomerInvoiceReversalApproval = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.levelNumber, d.decision, d.reason];
-  return run(request, (ctx) => L.decideCustomerInvoiceReversalApproval(ctx, ...a));
-});
 exports.decideDeliveryNoteApproval = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.dnId, d.levelNumber, d.decision, d.reason];
@@ -177,11 +172,6 @@ exports.decideInventoryPurchaseRequisitionApproval = onCallWithMessages(opts, (r
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.iprId, d.levelNumber, d.decision, d.reason];
   return run(request, (ctx) => L.decideInventoryPurchaseRequisitionApproval(ctx, ...a));
-});
-exports.decideJournalEntryApproval = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.jvId, d.levelNumber, d.decision, d.reason];
-  return run(request, (ctx) => L.decideJournalEntryApproval(ctx, ...a));
 });
 exports.decidePhysicalCountApproval = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -212,11 +202,6 @@ exports.decideVendorInvoiceApproval = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.levelNumber, d.decision, d.reason];
   return run(request, (ctx) => L.decideVendorInvoiceApproval(ctx, ...a));
-});
-exports.decideVendorInvoiceReversalApproval = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.levelNumber, d.decision, d.reason];
-  return run(request, (ctx) => L.decideVendorInvoiceReversalApproval(ctx, ...a));
 });
 exports.deleteCustomerInvoiceDraft = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -257,11 +242,6 @@ exports.deleteFirebaseUser = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.userId];
   return run(request, (ctx) => L.deleteFirebaseUser(ctx, ...a));
-});
-exports.deleteJournalDraft = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.jvId];
-  return run(request, (ctx) => L.deleteJournalDraft(ctx, ...a));
 });
 exports.deletePhysicalCountDraft = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -363,11 +343,6 @@ exports.getCategoryRecords = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.categoryKey];
   return run(request, (ctx) => L.getCategoryRecords(ctx, ...a));
 });
-exports.getCbtEntries = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
-  return run(request, (ctx) => L.getCbtEntries(ctx, ...a));
-});
 exports.getChartOfAccounts = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -387,11 +362,6 @@ exports.getCustomerClassifications = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getCustomerClassifications(ctx, ...a));
-});
-exports.getCustomerInvoiceEntries = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
-  return run(request, (ctx) => L.getCustomerInvoiceEntries(ctx, ...a));
 });
 exports.getCustomers = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -487,11 +457,6 @@ exports.getJobOrderLinesFlat = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
   return run(request, (ctx) => L.getJobOrderLinesFlat(ctx, ...a));
-});
-exports.getJournalEntries = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
-  return run(request, (ctx) => L.getJournalEntries(ctx, ...a));
 });
 exports.getLifetimeAuditCounterValues = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -623,11 +588,6 @@ exports.getUOMs = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getUOMs(ctx, ...a));
 });
-exports.getVendorInvoiceEntries = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
-  return run(request, (ctx) => L.getVendorInvoiceEntries(ctx, ...a));
-});
 exports.getVendors = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -647,11 +607,6 @@ exports.postDeliveryNote = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.dnId];
   return run(request, (ctx) => L.postDeliveryNote(ctx, ...a));
-});
-exports.postJournalEntry = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.jvId];
-  return run(request, (ctx) => L.postJournalEntry(ctx, ...a));
 });
 exports.postPhysicalCount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -763,16 +718,6 @@ exports.requestReopenPurchaseOrder = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.poId];
   return run(request, (ctx) => L.requestReopenPurchaseOrder(ctx, ...a));
 });
-exports.requestReverseCustomerInvoice = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.reversalDate];
-  return run(request, (ctx) => L.requestReverseCustomerInvoice(ctx, ...a));
-});
-exports.requestReverseVendorInvoice = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.reversalDate];
-  return run(request, (ctx) => L.requestReverseVendorInvoice(ctx, ...a));
-});
 exports.resetLifetimeAuditCounters = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.confirmPhrase];
@@ -782,11 +727,6 @@ exports.reverseDeliveryNote = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.dnId, d.reversalDate];
   return run(request, (ctx) => L.reverseDeliveryNote(ctx, ...a));
-});
-exports.reverseJournalEntry = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.jvId, d.reversalDate];
-  return run(request, (ctx) => L.reverseJournalEntry(ctx, ...a));
 });
 exports.reversePhysicalCount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -832,11 +772,6 @@ exports.saveBom = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.bomData];
   return run(request, (ctx) => L.saveBom(ctx, ...a));
-});
-exports.saveCbtDraft = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.cbtData];
-  return run(request, (ctx) => L.saveCbtDraft(ctx, ...a));
 });
 exports.saveCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -912,11 +847,6 @@ exports.saveItemSubCategory = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
   return run(request, (ctx) => L.saveItemSubCategory(ctx, ...a));
-});
-exports.saveJournalDraft = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.jvData];
-  return run(request, (ctx) => L.saveJournalDraft(ctx, ...a));
 });
 exports.saveOrgUnit = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

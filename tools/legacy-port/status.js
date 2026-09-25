@@ -1,4 +1,4 @@
-// Rewrites README.md's generated-port status block (between the
+// Rewrites docs/MIGRATION.md's generated-port status block (between the
 // PORT-STATUS markers) from modules.json + deployed.json + the screens.
 //   node tools/legacy-port/status.js
 const fs = require('fs'), path = require('path');
@@ -36,8 +36,8 @@ if (pendingFns.length) {
 } else block += 'Everything ported is deployed.\n';
 // (after a successful deploy: move modules into deployedModules, clear needsRedeploy, rerun)
 block += '<!-- PORT-STATUS:end -->';
-const readme = path.join(REPO, 'README.md'); let s = fs.readFileSync(readme, 'utf8');
+const readme = path.join(REPO, 'docs/MIGRATION.md'); let s = fs.readFileSync(readme, 'utf8');
 const re = /<!-- PORT-STATUS:start[\s\S]*?<!-- PORT-STATUS:end -->/;
-if (!re.test(s)) throw new Error('PORT-STATUS markers missing from README.md');
+if (!re.test(s)) throw new Error('PORT-STATUS markers missing from docs/MIGRATION.md');
 fs.writeFileSync(readme, s.replace(re, block));
-console.log('README status updated: ' + ported.length + ' ported, ' + deployed.size + ' deployed, next ' + next + ', pending fns ' + pendingFns.length);
+console.log('docs/MIGRATION.md status updated: ' + ported.length + ' ported, ' + deployed.size + ' deployed, next ' + next + ', pending fns ' + pendingFns.length);

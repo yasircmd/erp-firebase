@@ -466,6 +466,249 @@
   function onCompanyChange() {
     if (currentType) populateLedgerOptions(TYPE_CONFIG[currentType].prefix);
     rebuildOppositeDatalist();
+    party.load(document.getElementById('cbt-form-company').value, () => renderGrid());
+  }
+
+  // ---------- VENDOR / CUSTOMER ON A LINE, AND BILL-WISE ALLOCATION ----------
+  // (docs/modules/PARTY_PAYMENTS.md — the same block is in JV.html and
+  // CBT.html.) A line on a vendor's payables or customer's receivables
+  // account must name the party, and says which open items (bills,
+  // earlier advances) its amount settles: Against Ref allocations. Any
+  // remainder becomes a New Ref (e.g. an advance). Line state:
+  // { PartyType, PartyID, Against: [{ RefID, RefNumber, Amount }] }.
+  function createPartyAllocation(prefix) {
+    let partyAccounts = [];
+    let loadedFor = null;
+
+    const round2 = n => Math.round(n * 100) / 100;
+    const money = n => formatMoney(round2(n));
+    const key = p => p.PartyType + ':' + p.PartyID;
+
+    function load(companyId, done) {
+      if (!companyId) { partyAccounts = []; loadedFor = null; if (done) done(); return; }
+      if (loadedFor === companyId) { if (done) done(); return; }
+      rpc
+        .withSuccessHandler(list => { partyAccounts = list || []; loadedFor = companyId; if (done) done(); })
+        .withFailureHandler(err => { console.error(err); partyAccounts = []; loadedFor = null; if (done) done(); })
+        .getPartyAccounts({ companyId: companyId });
+    }
+
+    function isControlCode(code) { return partyAccounts.some(p => p.AccountCode === String(code || '')); }
+    function partyOf(line) { return partyAccounts.find(p => p.PartyType === line.PartyType && p.PartyID === line.PartyID); }
+    function againstTotal(line) { return round2((line.Against || []).reduce((s, a) => s + (Number(a.Amount) || 0), 0)); }
+
+    // Keeps a line's party consistent with its account: cleared when the
+    // account is no longer that party's control account. Only once this
+    // company's list has loaded, so a pending load can't wipe a party.
+    function syncLine(line, companyId) {
+      if (!line.PartyID || !loadedFor || loadedFor !== companyId) return;
+      const p = partyOf(line);
+      if (!p || p.AccountCode !== String(line.AccountCode || '')) { line.PartyType = ''; line.PartyID = ''; line.Against = []; }
+    }
+
+    function summary(line, amount) {
+      const parts = (line.Against || []).map(a => 'Against ' + escapeHtml(a.RefNumber || a.RefID) + ' ' + money(a.Amount));
+      const rest = round2(amount - againstTotal(line));
+      if (rest > 0.005) parts.push('New Ref ' + money(rest));
+      if (rest < -0.005) parts.push('<span class="text-red-400">allocated ' + money(againstTotal(line)) + ' exceeds the line amount</span>');
+      return parts.join(' · ');
+    }
+
+    // The sub-row under a grid line: party picker + allocation summary.
+    function subRowHtml(line, i, readOnly, colspan, amount) {
+      if (!line.AccountCode || !(isControlCode(line.AccountCode) || line.PartyID)) return '';
+      const current = partyOf(line);
+      let body;
+      if (readOnly) {
+        body = `<span class="text-slate-300">${escapeHtml(line.PartyType || '')}: ${escapeHtml(line.PartyName || (current ? current.Name : line.PartyID) || '—')}</span>
+          <span class="text-slate-400">${summary(line, amount)}</span>`;
+      } else {
+        const options = partyAccounts
+          .filter(p => p.AccountCode === String(line.AccountCode) && (p.Status === 'Active' || key(p) === key(line)))
+          .map(p => `<option value="${escapeHtml(key(p))}"${key(p) === key(line) ? ' selected' : ''}>${escapeHtml(p.PartyType + ' — ' + (p.Code ? p.Code + ' ' : '') + p.Name)}</option>`)
+          .join('');
+        const missing = !line.PartyID;
+        body = `<label class="text-slate-400">Vendor / Customer</label>
+          <select data-row="${i}" class="${prefix}-party-select bg-slate-900 border ${missing ? 'border-red-500/50' : 'border-slate-700'} rounded py-1 px-2 text-xs max-w-xs">
+            <option value="">Select…</option>${options}</select>
+          <button data-row="${i}" class="${prefix}-allocate-btn ${line.PartyID ? '' : 'hidden'} bg-slate-800 hover:bg-slate-700 text-xs px-2.5 py-1 rounded border border-slate-700"><i class="fa-solid fa-list-check"></i> Allocate…</button>
+          <span class="text-slate-400">${line.PartyID ? summary(line, amount) : ''}</span>`;
+      }
+      return `<tr class="${prefix}-party-row bg-slate-900/40"><td></td><td colspan="${colspan}" class="py-1.5 px-2 text-xs"><div class="flex flex-wrap items-center gap-2">${body}</div></td></tr>`;
+    }
+
+    function bind(tbody, lines, rerender, lineInfo) {
+      tbody.querySelectorAll('.' + prefix + '-party-select').forEach(sel => {
+        sel.addEventListener('change', e => {
+          const line = lines[parseInt(e.target.getAttribute('data-row'), 10)];
+          const [pt, pid] = (e.target.value || ':').split(':');
+          line.PartyType = pt || ''; line.PartyID = pid || ''; line.Against = [];
+          rerender();
+        });
+      });
+      tbody.querySelectorAll('.' + prefix + '-allocate-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const row = parseInt(btn.getAttribute('data-row'), 10);
+          const info = lineInfo(lines[row]);
+          openAllocate(lines[row], info.amount, info.side, info.companyId, rerender);
+        });
+      });
+    }
+
+    function modal() {
+      let el = document.getElementById(prefix + '-alloc-modal');
+      if (el) return el;
+      el = document.createElement('div');
+      el.id = prefix + '-alloc-modal';
+      el.className = 'fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print';
+      el.innerHTML = `
+        <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-3xl p-6 shadow-2xl space-y-4">
+          <h3 class="text-lg font-bold text-slate-100">Allocate — <span class="${prefix}-alloc-party"></span></h3>
+          <p class="text-xs text-slate-400">Enter how much of this line settles each open item. Whatever is left becomes a New Ref (for example an advance).</p>
+          <div class="overflow-x-auto max-h-80 overflow-y-auto border border-slate-700 rounded-lg">
+            <table class="w-full text-left text-sm">
+              <thead><tr class="bg-slate-900 text-xs text-slate-400 uppercase">
+                <th class="py-2 px-3">Number</th><th class="py-2 px-3">Date</th><th class="py-2 px-3">Due</th>
+                <th class="py-2 px-3">Description</th><th class="py-2 px-3 text-right">Outstanding</th><th class="py-2 px-3 text-right w-32">Allocate</th>
+              </tr></thead>
+              <tbody class="${prefix}-alloc-body divide-y divide-slate-700"></tbody>
+            </table>
+          </div>
+          <div class="flex flex-wrap justify-between gap-2 text-xs text-slate-300">
+            <span>Line amount: <b class="${prefix}-alloc-line"></b></span>
+            <span>Allocated: <b class="${prefix}-alloc-total"></b></span>
+            <span>New Ref: <b class="${prefix}-alloc-rest"></b></span>
+          </div>
+          <div class="${prefix}-alloc-error hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+          <div class="flex justify-between gap-3 pt-2">
+            <div class="flex gap-2">
+              <button class="${prefix}-alloc-auto px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Oldest first</button>
+              <button class="${prefix}-alloc-clear px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Clear</button>
+            </div>
+            <div class="flex gap-2">
+              <button class="${prefix}-alloc-cancel px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button>
+              <button class="${prefix}-alloc-ok px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Done</button>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(el);
+      return el;
+    }
+
+    function openAllocate(line, amount, side, companyId, onDone) {
+      const el = modal();
+      const q = s => el.querySelector('.' + prefix + '-alloc-' + s);
+      const party = partyOf(line);
+      q('party').textContent = (party ? party.Name : line.PartyID) + ' (' + line.PartyType + ')';
+      q('line').textContent = money(amount);
+      q('error').classList.add('hidden');
+      q('body').innerHTML = '<tr><td colspan="6" class="py-3 px-3 text-xs text-slate-500">Loading open items…</td></tr>';
+      el.classList.remove('hidden');
+      let items = [];
+      const current = {};
+      (line.Against || []).forEach(a => { current[a.RefID] = a.Amount; });
+
+      function inputs() { return [...q('body').querySelectorAll('input[data-ref]')]; }
+      function totals() {
+        const total = round2(inputs().reduce((s, inp) => s + (parseFloat(String(inp.value).replace(/,/g, '')) || 0), 0));
+        q('total').textContent = money(total);
+        q('rest').textContent = money(Math.max(0, amount - total));
+        return total;
+      }
+      function render() {
+        // Only items on the other side can be settled by this line: a
+        // debit line settles credit items (vendor bills), and vice versa.
+        const usable = items.filter(i => !side || i.Side !== side);
+        if (!usable.length) {
+          q('body').innerHTML = '<tr><td colspan="6" class="py-3 px-3 text-xs text-slate-500">No open items this line can settle — the whole amount will be a New Ref.</td></tr>';
+        } else {
+          q('body').innerHTML = usable.map(i => `
+            <tr>
+              <td class="py-1.5 px-3 font-mono text-xs">${escapeHtml(i.Number || i.RefID)}</td>
+              <td class="py-1.5 px-3 text-xs">${escapeHtml(i.Date)}</td>
+              <td class="py-1.5 px-3 text-xs">${escapeHtml(i.DueDate)}</td>
+              <td class="py-1.5 px-3 text-xs text-slate-400">${escapeHtml(i.Description)}</td>
+              <td class="py-1.5 px-3 text-xs text-right">${money(i.Outstanding)}</td>
+              <td class="py-1 px-2"><input data-ref="${escapeHtml(i.RefID)}" data-num="${escapeHtml(i.Number || '')}" data-max="${i.Outstanding}" type="text" inputmode="decimal"
+                value="${current[i.RefID] ? current[i.RefID] : ''}" class="w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right"></td>
+            </tr>`).join('');
+          inputs().forEach(inp => inp.addEventListener('input', totals));
+        }
+        totals();
+      }
+      rpc
+        .withSuccessHandler(list => { items = list || []; render(); })
+        .withFailureHandler(err => { q('body').innerHTML = ''; q('error').textContent = err.message || 'Unable to load open items.'; q('error').classList.remove('hidden'); })
+        .getPartyOpenItems({ partyType: line.PartyType, partyId: line.PartyID, companyId: companyId });
+
+      const close = () => { el.classList.add('hidden'); ['auto', 'clear', 'cancel', 'ok'].forEach(s => { q(s).onclick = null; }); };
+      q('auto').onclick = () => {
+        let left = amount;
+        inputs().forEach(inp => {
+          const take = round2(Math.max(0, Math.min(left, Number(inp.getAttribute('data-max')))));
+          inp.value = take > 0 ? take : '';
+          left = round2(left - take);
+        });
+        totals();
+      };
+      q('clear').onclick = () => { inputs().forEach(inp => { inp.value = ''; }); totals(); };
+      q('cancel').onclick = close;
+      q('ok').onclick = () => {
+        const against = [];
+        let bad = '';
+        inputs().forEach(inp => {
+          const v = round2(parseFloat(String(inp.value).replace(/,/g, '')) || 0);
+          if (v < 0) bad = 'Amounts cannot be negative.';
+          if (v > Number(inp.getAttribute('data-max')) + 0.005) bad = (inp.getAttribute('data-num') || 'An item') + ' has only ' + money(Number(inp.getAttribute('data-max'))) + ' outstanding.';
+          if (v > 0) against.push({ RefID: inp.getAttribute('data-ref'), RefNumber: inp.getAttribute('data-num'), Amount: v });
+        });
+        const total = round2(against.reduce((s, a) => s + a.Amount, 0));
+        if (!bad && total > amount + 0.005) bad = 'Allocated ' + money(total) + ' is more than the line amount ' + money(amount) + '.';
+        if (bad) { q('error').textContent = bad; q('error').classList.remove('hidden'); return; }
+        line.Against = against;
+        close();
+        onDone();
+      };
+    }
+
+    // Client-side checks before save/post; the server re-checks all of it.
+    function validate(lines, amountOf) {
+      for (let i = 0; i < lines.length; i++) {
+        const l = lines[i];
+        if (!l.AccountCode) continue;
+        if (isControlCode(l.AccountCode) && !l.PartyID) return 'Line ' + (i + 1) + ': select the Vendor or Customer for account ' + l.AccountCode + '.';
+        if (l.PartyID && againstTotal(l) > amountOf(l) + 0.005) return 'Line ' + (i + 1) + ': allocations exceed the line amount.';
+      }
+      return '';
+    }
+
+    // Fields sent to the server for one line.
+    function toServer(line, amount) {
+      if (!line.PartyID) return {};
+      const allocations = (line.Against || []).map(a => ({ RefType: 'Against', RefID: a.RefID, Amount: a.Amount }));
+      const rest = round2(amount - againstTotal(line));
+      if (rest > 0.005) allocations.push({ RefType: 'New', Amount: rest });
+      return { PartyType: line.PartyType, PartyID: line.PartyID, Allocations: allocations };
+    }
+
+    // A stored line's party state, for the grid. keepAllocations false
+    // (Duplicate) copies the party but not what it settled.
+    function fromServer(l, keepAllocations) {
+      if (!l.PartyID) return { PartyType: '', PartyID: '', Against: [] };
+      return {
+        PartyType: l.PartyType, PartyID: l.PartyID, PartyName: l.PartyName || '',
+        Against: keepAllocations ? (l.Allocations || []).filter(a => a.RefType === 'Against').map(a => ({ RefID: a.RefID, RefNumber: a.RefNumber || '', Amount: a.Amount })) : []
+      };
+    }
+
+    return { load, isControlCode, syncLine, subRowHtml, bind, validate, toServer, fromServer, summary };
+  }
+
+  const party = createPartyAllocation('cbt');
+  function amountOf(line) { return parseFloat(String(line.Amount).replace(/,/g, '')) || 0; }
+  // Every opposite line of a Payment is a debit, of a Receipt a credit.
+  function partyLineInfo(line) {
+    return { amount: amountOf(line), side: String(currentType).indexOf('Payment') >= 0 ? 'Dr' : 'Cr', companyId: document.getElementById('cbt-form-company').value };
   }
 
   // ---------- GRID (opposite lines) ----------
@@ -500,8 +743,10 @@
     const tbody = document.getElementById('cbt-grid-body');
     tbody.innerHTML = '';
     const readOnly = currentEntry && currentEntry.Status === 'Posted';
+    const partyReadOnly = readOnly || Boolean(currentEntry && currentEntry.Status === 'PendingApproval');
 
     gridLines.forEach((line, i) => {
+      party.syncLine(line, document.getElementById('cbt-form-company').value);
       const account = accountByCode(line.AccountCode);
       const missingDesc = line.AccountCode && !String(line.Description || '').trim();
       const ccRequired = account && COST_CENTER_REQUIRED_TYPES.includes(account.AccountType);
@@ -517,7 +762,10 @@
         <td class="py-1 px-1"><select data-row="${i}" class="cbt-line-pc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
         <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-row="${i}" class="cbt-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
       tbody.appendChild(tr);
+      const partyRow = party.subRowHtml(line, i, partyReadOnly, 7, amountOf(line));
+      if (partyRow) tbody.insertAdjacentHTML('beforeend', partyRow);
     });
+    if (!partyReadOnly) party.bind(tbody, gridLines, () => { isDirty = true; renderGrid(); }, partyLineInfo);
 
     if (!readOnly) {
       tbody.querySelectorAll('input[data-col]').forEach(input => {
@@ -692,7 +940,7 @@
     currentType = currentEntry.VoucherType;
     gridLines = (currentEntry.Lines || [])
       .filter(l => l.AccountCode !== currentEntry.SelectedAccountCode)
-      .map(l => ({ AccountCode: l.AccountCode, Description: l.Description, Amount: l.Debit || l.Credit || '', CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '' }));
+      .map(l => Object.assign({ AccountCode: l.AccountCode, Description: l.Description, Amount: l.Debit || l.Credit || '', CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '' }, party.fromServer(l, true)));
 
     document.getElementById('cbt-form-date').value = currentEntry.JVDate || '';
     document.getElementById('cbt-form-reference').value = currentEntry.Reference || '';
@@ -711,6 +959,7 @@
     document.getElementById('cbt-form-ledger').value = currentEntry.SelectedAccountCode || '';
     rebuildOppositeDatalist();
     renderGrid();
+    party.load(currentEntry.CompanyID || '', () => renderGrid());
   }
 
   function newEntry() {
@@ -748,7 +997,7 @@
       currentType = source.VoucherType;
       gridLines = (source.Lines || [])
         .filter(l => l.AccountCode !== source.SelectedAccountCode)
-        .map(l => ({ AccountCode: l.AccountCode, Description: l.Description, Amount: l.Debit || l.Credit || '', CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '' }));
+        .map(l => Object.assign({ AccountCode: l.AccountCode, Description: l.Description, Amount: l.Debit || l.Credit || '', CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '' }, party.fromServer(l, false)));
 
       document.getElementById('cbt-form-date').value = today();
       document.getElementById('cbt-form-reference').value = '';
@@ -765,6 +1014,7 @@
       document.getElementById('cbt-form-ledger').value = source.SelectedAccountCode || '';
       rebuildOppositeDatalist();
       renderGrid();
+      party.load(source.CompanyID || '', () => renderGrid());
     };
 
     if (isDirty && !document.getElementById('cbt-entry-view').classList.contains('hidden')) {
@@ -989,7 +1239,7 @@
       JVDate: document.getElementById('cbt-form-date').value,
       Reference: document.getElementById('cbt-form-reference').value.trim(),
       Description: document.getElementById('cbt-form-description').value.trim(),
-      OppositeLines: gridLines,
+      OppositeLines: gridLines.map(l => Object.assign({}, l, party.toServer(l, amountOf(l)))),
       CurrencyCode: defaultCurrency ? defaultCurrency.Code : '',
       CompanyID: document.getElementById('cbt-form-company').value,
       DivisionID: document.getElementById('cbt-form-division').value,
@@ -1006,6 +1256,8 @@
     if (!document.getElementById('cbt-form-company').value) { error.textContent = 'Select a Company for this entry.'; error.classList.remove('hidden'); return; }
     if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an account needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allRequiredCostCentersFilled()) { error.textContent = 'Expense, Revenue, and COGS lines require a Cost Center.'; error.classList.remove('hidden'); renderGrid(); return; }
+    const partyError = party.validate(gridLines, amountOf);
+    if (partyError) { error.textContent = partyError; error.classList.remove('hidden'); renderGrid(); return; }
     const btn = document.getElementById('cbt-save-draft-btn');
     btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
     rpc
@@ -1031,6 +1283,8 @@
     if (!document.getElementById('cbt-form-company').value) { error.textContent = 'Select a Company for this entry.'; error.classList.remove('hidden'); return; }
     if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an account needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allRequiredCostCentersFilled()) { error.textContent = 'Expense, Revenue, and COGS lines require a Cost Center.'; error.classList.remove('hidden'); renderGrid(); return; }
+    const partyError = party.validate(gridLines, amountOf);
+    if (partyError) { error.textContent = partyError; error.classList.remove('hidden'); renderGrid(); return; }
 
     showConfirm('Post this transaction?\n\nOnce posted it becomes permanent and can only be undone with a reversing entry.', () => {
       const btn = document.getElementById('cbt-post-btn');

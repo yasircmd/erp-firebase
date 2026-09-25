@@ -29,6 +29,14 @@ const {
   getModulePermissionsForUser, getActiveItems, getActiveUOMs, getActiveOrgUnits, getActiveVendors,
   getStockLedgerEntryPublic, getMyPendingApprovalLevel, getJournalEntryDetail, updatePostedDescription
 } = require('./src/masterData');
+const {
+  getJournalEntries, getCbtEntries, saveJournalDraft, saveCbtDraft, deleteJournalDraft,
+  postJournalEntry, decideJournalEntryApproval, reverseJournalEntry, getPartyAccounts, getPartyOpenItems
+} = require('./src/journal');
+const {
+  getVendorInvoiceEntries, getCustomerInvoiceEntries, requestReverseVendorInvoice, decideVendorInvoiceReversalApproval,
+  requestReverseCustomerInvoice, decideCustomerInvoiceReversalApproval
+} = require('./src/invoiceAllocations');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
@@ -73,6 +81,22 @@ exports.getStockLedgerEntryPublic = getStockLedgerEntryPublic;
 exports.getMyPendingApprovalLevel = getMyPendingApprovalLevel;
 exports.getJournalEntryDetail = getJournalEntryDetail;
 exports.updatePostedDescription = updatePostedDescription;
+exports.getJournalEntries = getJournalEntries;
+exports.getCbtEntries = getCbtEntries;
+exports.saveJournalDraft = saveJournalDraft;
+exports.saveCbtDraft = saveCbtDraft;
+exports.deleteJournalDraft = deleteJournalDraft;
+exports.postJournalEntry = postJournalEntry;
+exports.decideJournalEntryApproval = decideJournalEntryApproval;
+exports.reverseJournalEntry = reverseJournalEntry;
+exports.getPartyAccounts = getPartyAccounts;
+exports.getPartyOpenItems = getPartyOpenItems;
+exports.getVendorInvoiceEntries = getVendorInvoiceEntries;
+exports.getCustomerInvoiceEntries = getCustomerInvoiceEntries;
+exports.requestReverseVendorInvoice = requestReverseVendorInvoice;
+exports.decideVendorInvoiceReversalApproval = decideVendorInvoiceReversalApproval;
+exports.requestReverseCustomerInvoice = requestReverseCustomerInvoice;
+exports.decideCustomerInvoiceReversalApproval = decideCustomerInvoiceReversalApproval;
 
 // Every remaining Code.gs module, ported mechanically (see
 // tools/legacy-port/generate.js): one callable per function a ported
