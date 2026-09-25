@@ -30,8 +30,8 @@ Yasir directly as its own priority, not bundled into migration work.
 shell, the 4 hand-ported stock modules, and the 42 generated-port modules
 in the status table below. 45 are live in production. DATARESET, the
 last one, is kept for last because it deletes data, and is committed
-but not yet deployed (batch G in the deploy log). The functions runtime
-is moving from Node 20 to 24 (see the deploy log). What else is open:
+but not yet deployed (batch G in the deploy log). All functions run on
+Node 24 (moved from Node 20 before its 2026-10-30 shutdown). What else is open:
 see "Suggested next step" at the end of this file. The sections below are
 in the order the work was done.
 
@@ -750,6 +750,12 @@ batches of ≤6 with a public-invoker IAM binding for each new function):
   checkout. Check afterwards:
   `gcloud functions list --project=erp1-8f4cd --format="value(buildConfig.runtime)" | sort | uniq -c`
   should show only `nodejs24`.
+  **Done 2026-09-25:** the migration session ran it from a clean worktree of
+  `7cb2b65`: a canary (`getActiveUOMs`), then 234 functions in 39 batches,
+  with no retries, ending `ALL DONE`. The check shows all 235 functions as
+  `nodejs24 ACTIVE`. Unauthenticated probes of `restoreSession`,
+  `postCustomerInvoice`, `getSalesTypes`, `reverseGrn` and `getActiveUOMs`
+  return the function's own 401, so they're running and still public.
 - **Batch G, prepared 2026-09-25, not yet deployed:** DATARESET, the last
   module (7 callables plus `getModuleFragment`, so the screen appears).
   It includes the ledger-rebuild fix (deviation #18). The change to
@@ -928,11 +934,8 @@ ones, DATARESET last. What's left:
 1. **Deploy batch G (DATARESET)**: run `tools/deploy-migration.sh` on a
    clean checkout, then add `DATARESET` to `tools/legacy-port/deployed.json`
    and run `node tools/legacy-port/status.js`. See the deploy log.
-2. **Node.js runtime**: `engines.node` is `"24"` (see the deploy log's
-   runtime-upgrade entry), and Node 20 is decommissioned on 2026-10-30.
-   Run `tools/deploy-runtime.sh` if it hasn't finished, then confirm
-   every live function reports `nodejs24`. Batch G deploys on Node 24
-   either way.
+2. ~~**Node.js runtime**~~ — done: every live function runs on `nodejs24`
+   (see the deploy log). Batch G deploys on Node 24 too.
 3. **The live Apps Script bugs** flagged at the top of this file and
    marked "Live in the current Apps Script system" under Deviations
    (#5, #6, #8, #11, #12, #14–#16, #18). These need the owner's

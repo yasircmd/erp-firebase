@@ -34,9 +34,9 @@ read it first, every session.
 - Watch for duplicate project copies outside ~/erp-firebase/ — a prior
   double-unzip caused a wrong-directory deploy. Always confirm `pwd` before
   git or firebase commands if anything behaves unexpectedly.
-- Functions runtime moved Node 20 → 24 (engines.node; Node 20 decommissions
-  2026-10-30). Check README's deploy log that tools/deploy-runtime.sh
-  finished; to confirm, check that every live function reports nodejs24.
+- Functions runtime is Node 24 (engines.node), and all live functions moved
+  2026-09-25. After a future engines.node bump, run tools/deploy-runtime.sh
+  from a clean worktree.
 
 ## Testing
 Real-package tests against the local Firebase emulators, one suite per
