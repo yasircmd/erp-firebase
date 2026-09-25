@@ -22,6 +22,8 @@ const TREE_SEED_NODES = [
   { text: 'Purchase Return / Debit Note', depth: 3, moduleId: 'PURCHASERETURN' },
   { text: 'Accounts Receivable (FI-AR)', depth: 2 },
   { text: 'Customer Master Data & Credit Limits', depth: 3 },
+  // New development (not in Code.gs): docs/modules/SALES_RETURN.md.
+  { text: 'Sales Return / Credit Note', depth: 3, moduleId: 'SALESRETURN' },
   { text: 'Customer Invoicing & Billing Integration', depth: 3 },
   { text: 'Cash Application & Incoming Payments', depth: 3 },
   { text: 'Dunning & Dispute Management', depth: 3 },

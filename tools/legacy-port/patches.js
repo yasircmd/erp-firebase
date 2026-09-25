@@ -484,5 +484,40 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
     replace: `  CustomerInvoice: 'CUSTOMERINVOICE',
   PurchaseReturn: 'PURCHASERETURN' // [NEW DEVELOPMENT] docs/modules/PURCHASE_RETURN.md
 };`
+  },
+  // ---- NEW DEVELOPMENT: Sales Return (docs/modules/SALES_RETURN.md) ----
+  {
+    id: 'company-sales-returns-account (read)',
+    why: 'NEW DEVELOPMENT. Company Master gains an optional Sales Returns Account (contra revenue, e.g. 410000 Sales ' +
+      'Returns & Discounts): a credit note debits returned goods there rather than back to the Sales Type account.',
+    find: `    const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();`,
+    replace: `    const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();
+    // [NEW DEVELOPMENT company-sales-returns-account]
+    const salesReturnsAccountId = String(companyData.SalesReturnsAccountID || '').trim();`
+  },
+  {
+    id: 'company-sales-returns-account (validate)',
+    why: 'Same checks as the other fixed accounts.',
+    find: `      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' }
+    ];`,
+    replace: `      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' },
+      { id: salesReturnsAccountId, label: 'Sales Returns Account' }
+    ];`
+  },
+  {
+    id: 'company-sales-returns-account (store)',
+    why: 'Stored on the company record next to the other fixed accounts.',
+    find: `      PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,`,
+    replace: `      PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,
+      SalesReturnsAccountID: salesReturnsAccountId,`
+  },
+  {
+    id: 'stock-voucher-type-sales-return',
+    why: 'NEW DEVELOPMENT. Stock Ledger Report rows of a Sales Return open the Sales Return screen.',
+    find: `  PurchaseReturn: 'PURCHASERETURN' // [NEW DEVELOPMENT] docs/modules/PURCHASE_RETURN.md
+};`,
+    replace: `  PurchaseReturn: 'PURCHASERETURN', // [NEW DEVELOPMENT] docs/modules/PURCHASE_RETURN.md
+  SalesReturn: 'SALESRETURN' // [NEW DEVELOPMENT] docs/modules/SALES_RETURN.md
+};`
   }
 ];

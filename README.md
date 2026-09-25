@@ -57,11 +57,12 @@ functions/
     partyLedger.js              — vendor/customer tags and bill-wise allocation on JV/CBT lines
     invoiceAllocations.js       — Vendor/Customer Invoice list and reversal wrappers for allocation
     purchaseReturn.js           — Purchase Return / Debit Note (docs/modules/PURCHASE_RETURN.md)
+    salesReturn.js              — Sales Return / Credit Note (docs/modules/SALES_RETURN.md)
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
   modules/*.html                — the screens, served by getModuleFragment
   test/emulator/*.test.js       — one API suite per module, against the local emulators
-  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments, purchase return)
+  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments, purchase and sales return)
 tools/
   legacy-port/                  — the Code.gs → Cloud Functions generator (migration only)
   deploy-migration.sh           — deploys pending generated-port functions
@@ -114,6 +115,7 @@ node functions/test/ui/smoke.ui.js          # every screen loads cleanly (Admin 
 node functions/test/ui/dynamicToggle.ui.js  # a real deactivate/reactivate click
 node functions/test/ui/partyPayments.ui.js  # after the partyPayments suite: JV/CBT allocation screens
 node functions/test/ui/purchaseReturn.ui.js # after the purchaseReturn suite: the Purchase Return screen
+node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the Sales Return screen
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for
@@ -125,8 +127,9 @@ node functions/test/ui/purchaseReturn.ui.js # after the purchaseReturn suite: th
   Restart it after changing code, including for negative controls.
 - **Safety:** the suites WIPE the emulator database. `_helpers.js` refuses
   to run unless every client points at the local emulators.
-- **Last full run** (2026-09-25, `purchase-return` branch): 196/196 emulator
-  tests, 95/95 smoke, 2/2 dynamic toggle, 4/4 purchase return UI. The
+- **Last full run** (2026-09-25, `sales-return` branch): 202/202 emulator
+  tests, 97/97 smoke, 2/2 dynamic toggle, 4/4 purchase return UI, 4/4
+  sales return UI. The
   party payments UI check passed 2/3 here and 0/3 on `main` just after an
   emulator restart. Its fixed short waits lose to function cold starts
   (the JV check passes with a longer wait), so it needs `waitForSelector`

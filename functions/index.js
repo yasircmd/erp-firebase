@@ -41,6 +41,10 @@ const {
   getReturnableVendorInvoices, savePurchaseReturnDraft, postPurchaseReturn, decidePurchaseReturnApproval,
   deletePurchaseReturnDraft, getPurchaseReturnEntries, reversePurchaseReturn
 } = require('./src/purchaseReturn');
+const {
+  getReturnableCustomerInvoices, saveSalesReturnDraft, postSalesReturn, decideSalesReturnApproval,
+  deleteSalesReturnDraft, getSalesReturnEntries, reverseSalesReturn
+} = require('./src/salesReturn');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
@@ -108,6 +112,13 @@ exports.decidePurchaseReturnApproval = decidePurchaseReturnApproval;
 exports.deletePurchaseReturnDraft = deletePurchaseReturnDraft;
 exports.getPurchaseReturnEntries = getPurchaseReturnEntries;
 exports.reversePurchaseReturn = reversePurchaseReturn;
+exports.getReturnableCustomerInvoices = getReturnableCustomerInvoices;
+exports.saveSalesReturnDraft = saveSalesReturnDraft;
+exports.postSalesReturn = postSalesReturn;
+exports.decideSalesReturnApproval = decideSalesReturnApproval;
+exports.deleteSalesReturnDraft = deleteSalesReturnDraft;
+exports.getSalesReturnEntries = getSalesReturnEntries;
+exports.reverseSalesReturn = reverseSalesReturn;
 
 // Every remaining Code.gs module, ported mechanically (see
 // tools/legacy-port/generate.js): one callable per function a ported

@@ -9,7 +9,8 @@ const STOCK_TRANSACTION_PREFIXES = {
   GRN: 'GRN', MaterialIssue: 'MI', Production: 'PRD', WarehouseMovement: 'WM',
   StockAdjustment: 'ADJ', PhysicalCount: 'PC', VendorInvoice: 'VINV',
   DeliveryNote: 'DN', CustomerInvoice: 'CINV',
-  PurchaseReturn: 'DBN' // hand-written module, docs/modules/PURCHASE_RETURN.md
+  PurchaseReturn: 'DBN', // hand-written module, docs/modules/PURCHASE_RETURN.md
+  SalesReturn: 'CRN' // hand-written module, docs/modules/SALES_RETURN.md
 };
 
 function userCanAccessCompany(profile, companyId) {

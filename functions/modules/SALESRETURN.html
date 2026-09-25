@@ -1,0 +1,724 @@
+<div id="srt-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Accounts Receivable</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-rotate-right text-blue-500"></i> Sales Return / Credit Note</h2></div>
+    <button id="srt-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Return</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="srt-search-input" placeholder="Search number, invoice or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="srt-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="srt-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Draft">Draft</option><option value="PendingApproval">Pending Approval</option><option value="Rejected">Rejected</option><option value="Posted">Posted</option></select>
+    <input type="date" id="srt-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <input type="date" id="srt-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div id="srt-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Credit Note</th>
+            <th class="py-3 px-4">Customer</th>
+            <th class="py-3 px-4">Against Invoice</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4 text-right">Total</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="srt-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="srt-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="srt-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="srt-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="srt-back-chain-label">Back</span></button>
+      <h2 id="srt-entry-title" class="text-xl font-bold text-blue-400">New Sales Return</h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="srt-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="srt-gl-impact-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-scale-balanced"></i> View GL Impact</button>
+    </div>
+  </div>
+
+  <div id="srt-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+
+  <div id="srt-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="srt-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1">
+    <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
+    <p id="srt-rejection-reason" class="text-sm text-slate-200"></p>
+    <p class="text-xs text-slate-500">This return is fully editable below — make your changes and Post again.</p>
+  </div>
+
+  <div id="srt-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="srt-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3">
+      <button id="srt-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button>
+      <button id="srt-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button>
+    </div>
+    <div id="srt-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+      <select id="srt-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Customer</label>
+      <select id="srt-form-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Against Customer Invoice</label>
+    <select id="srt-form-invoice" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company and customer first</option></select>
+    <p id="srt-invoice-hint" class="text-xs text-slate-500 mt-1">Posted invoices of this customer with goods still returnable.</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Return Date</label><input type="date" id="srt-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Customer's Return Reference <span class="text-slate-500">(optional)</span></label><input type="text" id="srt-form-reference" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
+    <input type="text" id="srt-form-description" placeholder="e.g. Customer returned damaged units" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+  </div>
+
+  <div class="space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Goods Returned <span class="normal-case font-normal text-slate-500">(from the invoice's Delivery Notes — credited at the invoice price; stock comes back at the cost it left at, into the warehouse chosen per line)</span></p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3">Delivery Note</th><th class="py-2 px-3">Item</th><th class="py-2 px-3">Return Into Warehouse</th>
+            <th class="py-2 px-3 text-right">Unit Price</th><th class="py-2 px-3 text-right" id="srt-col-avail">Returnable</th>
+            <th class="py-2 px-3 text-right w-32">Return Qty</th><th class="py-2 px-3 text-right">Value</th>
+          </tr></thead>
+          <tbody id="srt-grid-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        </table>
+      </div>
+      <p id="srt-grid-empty" class="text-xs text-slate-500 text-center py-4">Choose an invoice to see its goods.</p>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-1 text-sm">
+    <div class="flex justify-between text-slate-400"><span>Goods at invoice price</span><span id="srt-value-display" class="font-mono">0.00</span></div>
+    <div class="flex justify-between text-slate-400"><span>Less: share of invoice discount</span><span id="srt-discount-display" class="font-mono">0.00</span></div>
+    <div class="flex justify-between text-slate-400"><span>Tax (<span id="srt-taxpct-display">0</span>%)</span><span id="srt-tax-display" class="font-mono">0.00</span></div>
+    <div class="flex justify-between text-base font-bold pt-1 border-t border-slate-700"><span>Credit Note Total</span><span id="srt-total-display" class="font-mono">0.00</span></div>
+    <p id="srt-settle-note" class="text-xs text-slate-500 pt-2"></p>
+    <p id="srt-posted-note" class="hidden text-xs text-slate-500 pt-2"></p>
+  </div>
+
+  <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-slate-800">
+    <button id="srt-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="srt-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse</button>
+    <button id="srt-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save Draft</button>
+    <button id="srt-post-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">Post</button>
+  </div>
+</div>
+
+<div id="srt-gl-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="flex items-center justify-between border-b border-slate-700 p-4">
+      <div>
+        <h3 class="text-lg font-bold text-slate-100">GL Impact</h3>
+        <p id="srt-gl-modal-subtitle" class="text-xs text-slate-500 font-mono"></p>
+      </div>
+      <button id="srt-gl-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-4 overflow-y-auto">
+      <div id="srt-gl-modal-body" class="text-sm text-slate-500">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<div id="srt-confirm-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 id="srt-confirm-title" class="text-lg font-bold text-slate-100">Confirm</h3>
+    <p id="srt-confirm-message" class="text-sm text-slate-300 whitespace-pre-line"></p>
+    <div id="srt-confirm-input-wrap" class="hidden">
+      <input type="date" id="srt-confirm-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    </div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button id="srt-confirm-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button>
+      <button id="srt-confirm-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Sales Return / Credit Note — docs/modules/SALES_RETURN.md.
+  let token = null;
+  let canDraft = false;
+  let canPost = false;
+  let entries = [];
+  let companies = [];
+  let customers = [];
+  let orgUnits = [];
+  let invoices = [];      // returnable invoices for the chosen company + customer
+  let current = null;     // the open return, or null for a new one
+  let qtyByKey = {};      // 'DNID#LineNo' -> entered return quantity
+  let whByKey = {};       // 'DNID#LineNo' -> warehouse chosen (default: the DN line's)
+  let isDirty = false;
+  let pendingOpenEntryId = null;
+  let myReturnChain = [];
+
+  const STATUS_COLORS = {
+    Draft: 'bg-slate-700 text-slate-300',
+    PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+    Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20',
+    Committing: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+    Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+  };
+  const STATUS_LABELS = { PendingApproval: 'Pending Approval' };
+
+  function statusDisplay(e) {
+    if (e.Status === 'Posted' && e.ReversalOfReturnID) return { label: 'Reversal Entry', colorClass: 'bg-purple-500/10 text-purple-400 border border-purple-500/20' };
+    if (e.Status === 'Posted' && e.ReversedByReturnID) return { label: 'Posted (Reversed)', colorClass: 'bg-amber-500/10 text-amber-400 border border-amber-500/20' };
+    return { label: STATUS_LABELS[e.Status] || e.Status, colorClass: STATUS_COLORS[e.Status] || 'bg-slate-700 text-slate-400' };
+  }
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function formatMoney(n) {
+    const num = parseFloat(String(n == null ? 0 : n).replace(/,/g, '')) || 0;
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function round2(n) { return Math.round(n * 100) / 100; }
+  function parseQty(v) { return parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
+  function today() { return new Date().toISOString().substring(0, 10); }
+  function lineKey(dnId, lineNo) { return dnId + '#' + lineNo; }
+  function customerName(id) { const v = customers.find(x => x.CustomerID === id); return v ? v.CustomerName : id || ''; }
+  function warehouseOptions(selected) {
+    const company = document.getElementById('srt-form-company').value;
+    return orgUnits.filter(u => u.Type === 'Warehouse' && (!u.CompanyID || u.CompanyID === company))
+      .map(u => `<option value="${escapeHtml(u.UnitID)}" ${u.UnitID === selected ? 'selected' : ''}>${escapeHtml(u.Code + ' — ' + u.Name)}</option>`).join('');
+  }
+  function warehouseName(id) { const u = orgUnits.find(x => x.UnitID === id); return u ? u.Code + ' — ' + u.Name : id || ''; }
+  function isEditable() { return !current || current.Status === 'Draft' || current.Status === 'Rejected'; }
+  function selectedInvoice() { const id = document.getElementById('srt-form-invoice').value; return invoices.find(i => i.CustomerInvoiceID === id) || null; }
+
+  function showConfirm(message, onConfirm, opts) {
+    opts = opts || {};
+    document.getElementById('srt-confirm-title').textContent = opts.title || 'Confirm';
+    document.getElementById('srt-confirm-message').textContent = message;
+    const inputWrap = document.getElementById('srt-confirm-input-wrap');
+    const input = document.getElementById('srt-confirm-input');
+    inputWrap.classList.toggle('hidden', !opts.needsDate);
+    if (opts.needsDate) input.value = opts.defaultDate || today();
+    document.getElementById('srt-confirm-modal').classList.remove('hidden');
+    const okBtn = document.getElementById('srt-confirm-ok');
+    const cancelBtn = document.getElementById('srt-confirm-cancel');
+    function cleanup() {
+      document.getElementById('srt-confirm-modal').classList.add('hidden');
+      okBtn.removeEventListener('click', onOk); cancelBtn.removeEventListener('click', onCancel);
+    }
+    function onOk() { cleanup(); onConfirm(opts.needsDate ? input.value : undefined); }
+    function onCancel() { cleanup(); }
+    okBtn.addEventListener('click', onOk); cancelBtn.addEventListener('click', onCancel);
+  }
+
+  // ---------- LIST VIEW ----------
+  function renderList() {
+    const search = document.getElementById('srt-search-input').value.trim().toLowerCase();
+    const companyFilter = document.getElementById('srt-company-filter').value;
+    const statusFilter = document.getElementById('srt-status-filter').value;
+    const fromFilter = document.getElementById('srt-from-filter').value;
+    const toFilter = document.getElementById('srt-to-filter').value;
+    const filtered = entries.filter(e => {
+      if (companyFilter && e.CompanyID !== companyFilter) return false;
+      if (statusFilter && e.Status !== statusFilter) return false;
+      if (fromFilter && e.TransactionDate < fromFilter) return false;
+      if (toFilter && e.TransactionDate > toFilter) return false;
+      if (search) {
+        const hay = ((e.TransactionNumber || '') + ' ' + (e.SourceInvoiceNumber || '') + ' ' + (e.Description || '') + ' ' + (e.Reference || '')).toLowerCase();
+        if (hay.indexOf(search) === -1) return false;
+      }
+      return true;
+    });
+    const tbody = document.getElementById('srt-table-body');
+    tbody.innerHTML = '';
+    filtered.forEach(e => {
+      const st = statusDisplay(e);
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-700/30 cursor-pointer';
+      tr.innerHTML = `
+        <td class="py-2.5 px-4 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}</td>
+        <td class="py-2.5 px-4 text-sm">${escapeHtml(customerName(e.CustomerID))}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-slate-400">${escapeHtml(e.SourceInvoiceNumber || '')}</td>
+        <td class="py-2.5 px-4 text-xs text-slate-400">${escapeHtml(e.TransactionDate || '')}</td>
+        <td class="py-2.5 px-4 text-right font-mono text-sm">${formatMoney(e.Total)}</td>
+        <td class="py-2.5 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${st.colorClass}">${escapeHtml(st.label)}</span></td>
+        <td class="py-2.5 px-4 text-right"><button class="text-xs text-blue-400 hover:text-blue-300">Open</button></td>`;
+      tr.addEventListener('click', () => openEntry(e.ReturnID));
+      tbody.appendChild(tr);
+    });
+    const notice = document.getElementById('srt-list-notice');
+    notice.classList.toggle('hidden', filtered.length > 0);
+    if (!filtered.length) notice.textContent = entries.length ? 'No returns match the current filters.' : 'No Sales Returns yet.';
+  }
+
+  function fetchEntries(limit) {
+    rpc
+      .withSuccessHandler(result => {
+        entries = (result && result.entries) || []; renderList();
+        if (pendingOpenEntryId) {
+          // Drill-through (GL Report, Stock Ledger) passes the GL entry's ID.
+          const id = pendingOpenEntryId; pendingOpenEntryId = null;
+          const found = entries.find(e => e.LinkedJVID === id || e.ReturnID === id || e.TransactionNumber === id);
+          if (found) openEntry(found.ReturnID);
+          else alert('That Sales Return could not be found — it may have been deleted.');
+        }
+      })
+      .withFailureHandler(err => console.error(err))
+      .getSalesReturnEntries({ limit: limit || 100 });
+  }
+
+  function showListView() {
+    document.getElementById('srt-entry-view').classList.add('hidden');
+    document.getElementById('srt-list-view').classList.remove('hidden');
+    fetchEntries();
+  }
+  function showEntryView() {
+    document.getElementById('srt-list-view').classList.add('hidden');
+    document.getElementById('srt-entry-view').classList.remove('hidden');
+  }
+  function goBackToList() {
+    if (isDirty) showConfirm('You have unsaved changes. Leave without saving?', () => showListView(), { title: 'Unsaved Changes' });
+    else showListView();
+  }
+  function goBackInChain() {
+    const doGoBack = () => {
+      const chain = myReturnChain.slice();
+      const target = chain.pop();
+      if (target) openModule(target.moduleId, target.params, chain);
+    };
+    if (isDirty) showConfirm('You have unsaved changes. Leave without saving?', doGoBack, { title: 'Unsaved Changes' });
+    else doGoBack();
+  }
+
+  // ---------- INVOICE PICKER ----------
+  function fetchInvoices() {
+    const companyId = document.getElementById('srt-form-company').value;
+    const customerId = document.getElementById('srt-form-customer').value;
+    const select = document.getElementById('srt-form-invoice');
+    invoices = [];
+    if (!companyId || !customerId) {
+      select.innerHTML = '<option value="">Select a company and customer first</option>';
+      renderGrid(); updateTotals();
+      return;
+    }
+    select.innerHTML = '<option value="">Loading...</option>';
+    const keep = current ? current.SourceInvoiceID : '';
+    rpc
+      .withSuccessHandler(result => {
+        invoices = result || [];
+        select.innerHTML = '<option value="">' + (invoices.length ? 'Select an invoice...' : 'No invoices with returnable goods') + '</option>';
+        invoices.forEach(inv => {
+          const opt = document.createElement('option');
+          opt.value = inv.CustomerInvoiceID;
+          opt.textContent = inv.TransactionNumber + ' — ' + inv.InvoiceDate + ' — ' + inv.Description + ' — ' + formatMoney(inv.Total);
+          select.appendChild(opt);
+        });
+        if (keep && invoices.some(i => i.CustomerInvoiceID === keep)) select.value = keep;
+        renderGrid(); updateTotals();
+      })
+      .withFailureHandler(err => { select.innerHTML = '<option value="">Unable to load invoices</option>'; alert(err.message || 'Unable to load invoices.'); })
+      .getReturnableCustomerInvoices({ companyId: companyId, customerId: customerId, excludeReturnId: current ? current.ReturnID : '', includeInvoiceId: keep });
+  }
+
+  // ---------- LINES ----------
+  // Editable: every Delivery Note line of the chosen invoice, with a quantity box.
+  // Otherwise: the lines the return actually holds, as stored.
+  function gridRows() {
+    if (!isEditable()) {
+      return (current.Lines || []).map(l => ({
+        SourceDNNumber: l.SourceDNNumber, ItemCode: l.ItemCode, ItemName: l.ItemName, WarehouseID: l.WarehouseID,
+        UnitPrice: l.UnitPrice, Available: null, key: lineKey(l.SourceDNID, l.SourceDNLineNo), qty: l.Quantity, value: l.ReturnValue
+      }));
+    }
+    const inv = selectedInvoice();
+    if (!inv) return [];
+    return inv.Lines.map(l => {
+      const key = lineKey(l.SourceDNID, l.SourceDNLineNo);
+      const qty = parseQty(qtyByKey[key]);
+      return Object.assign({}, l, { Available: l.ReturnableQuantity, key: key, qty: qtyByKey[key] == null ? '' : qtyByKey[key], value: round2(qty * l.UnitPrice),
+        WarehouseID: whByKey[key] || l.WarehouseID });
+    });
+  }
+
+  function renderGrid() {
+    const rows = gridRows();
+    const tbody = document.getElementById('srt-grid-body');
+    const editable = isEditable();
+    tbody.innerHTML = '';
+    document.getElementById('srt-col-avail').textContent = editable ? 'Returnable' : '';
+    document.getElementById('srt-grid-empty').classList.toggle('hidden', rows.length > 0);
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const over = editable && parseQty(r.qty) > r.Available + 0.000001;
+      tr.innerHTML = `
+        <td class="py-1.5 px-3 font-mono text-xs text-slate-400">${escapeHtml(r.SourceDNNumber)}</td>
+        <td class="py-1.5 px-3 text-sm">${escapeHtml((r.ItemCode || '') + ' — ' + (r.ItemName || ''))}</td>
+        <td class="py-1 px-1">${editable
+          ? `<select data-key="${escapeHtml(r.key)}" class="srt-wh w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs">${warehouseOptions(r.WarehouseID)}</select>`
+          : `<span class="text-xs text-slate-400 px-2">${escapeHtml(warehouseName(r.WarehouseID))}</span>`}</td>
+        <td class="py-1.5 px-3 text-right font-mono text-xs">${formatMoney(r.UnitPrice)}</td>
+        <td class="py-1.5 px-3 text-right font-mono text-xs text-slate-400">${editable ? escapeHtml(r.Available) : ''}</td>
+        <td class="py-1 px-1">${editable
+          ? `<input data-key="${escapeHtml(r.key)}" type="text" inputmode="decimal" value="${escapeHtml(r.qty)}" ${r.Available > 0 ? '' : 'disabled'} class="srt-qty w-full bg-slate-900 border ${over ? 'border-red-500/60' : 'border-slate-700'} rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500">`
+          : `<div class="text-right font-mono text-xs px-2">${escapeHtml(r.qty)}</div>`}</td>
+        <td class="py-1.5 px-3 text-right font-mono text-xs">${formatMoney(r.value)}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.srt-wh').forEach(el => {
+      el.addEventListener('change', e => { whByKey[e.target.getAttribute('data-key')] = e.target.value; isDirty = true; });
+    });
+    tbody.querySelectorAll('.srt-qty').forEach(el => {
+      el.addEventListener('input', e => { qtyByKey[e.target.getAttribute('data-key')] = e.target.value; isDirty = true; updateTotals(); });
+      el.addEventListener('blur', () => renderGrid());
+    });
+  }
+
+  // Same formula as the server (salesReturn.js computeValues).
+  function updateTotals() {
+    const settle = document.getElementById('srt-settle-note');
+    const postedNote = document.getElementById('srt-posted-note');
+    if (!isEditable()) {
+      document.getElementById('srt-value-display').textContent = formatMoney(current.ReturnValue);
+      document.getElementById('srt-discount-display').textContent = formatMoney(current.DiscountAmount);
+      document.getElementById('srt-taxpct-display').textContent = current.TaxPercent || 0;
+      document.getElementById('srt-tax-display').textContent = formatMoney(current.TaxAmount);
+      document.getElementById('srt-total-display').textContent = formatMoney(current.Total);
+      settle.textContent = '';
+      postedNote.classList.toggle('hidden', current.Status !== 'Posted' || Boolean(current.ReversalOfReturnID));
+      if (current.Status === 'Posted' && !current.ReversalOfReturnID) {
+        const open = round2((current.Total || 0) - (current.AllocatedToInvoice || 0));
+        postedNote.textContent = 'Stock returned at cost ' + formatMoney(current.CostValue) +
+          '. Settled ' + formatMoney(current.AllocatedToInvoice) + ' against ' + (current.SourceInvoiceNumber || 'the invoice') +
+          (open > 0.005 ? '; ' + formatMoney(open) + ' left as an open credit for the customer.' : '.');
+      }
+      return;
+    }
+    postedNote.classList.add('hidden');
+    const inv = selectedInvoice();
+    const value = round2(gridRows().reduce((s, r) => s + r.value, 0));
+    const subtotal = inv ? Number(inv.Subtotal) || 0 : 0;
+    const discount = subtotal > 0 ? round2((Number(inv.Discount) || 0) * value / subtotal) : 0;
+    const taxPct = inv ? Number(inv.TaxPercent) || 0 : 0;
+    const tax = round2((value - discount) * taxPct / 100);
+    const total = round2(value - discount + tax);
+    document.getElementById('srt-value-display').textContent = formatMoney(value);
+    document.getElementById('srt-discount-display').textContent = formatMoney(discount);
+    document.getElementById('srt-taxpct-display').textContent = taxPct;
+    document.getElementById('srt-tax-display').textContent = formatMoney(tax);
+    document.getElementById('srt-total-display').textContent = formatMoney(total);
+    if (inv && inv.Outstanding !== undefined && total > 0) {
+      const against = Math.min(total, Math.max(0, inv.Outstanding));
+      settle.textContent = inv.TransactionNumber + ' has ' + formatMoney(inv.Outstanding) + ' outstanding. On posting, ' + formatMoney(against) + ' settles it' +
+        (total - against > 0.005 ? ' and ' + formatMoney(total - against) + ' stays as an open credit for the customer (to offset a later invoice or be refunded).' : '.');
+    } else {
+      settle.textContent = '';
+    }
+  }
+
+  // ---------- SAVE / POST / DELETE / REVERSE / DECIDE ----------
+  function collect() {
+    const inv = selectedInvoice();
+    return {
+      ReturnID: current ? current.ReturnID : '',
+      TransactionDate: document.getElementById('srt-form-date').value,
+      Reference: document.getElementById('srt-form-reference').value.trim(),
+      Description: document.getElementById('srt-form-description').value.trim(),
+      CompanyID: document.getElementById('srt-form-company').value,
+      CustomerID: document.getElementById('srt-form-customer').value,
+      SourceInvoiceID: document.getElementById('srt-form-invoice').value,
+      Lines: inv ? inv.Lines.filter(l => parseQty(qtyByKey[lineKey(l.SourceDNID, l.SourceDNLineNo)]) > 0).map(l => ({
+        SourceDNID: l.SourceDNID, SourceDNLineNo: l.SourceDNLineNo, Quantity: parseQty(qtyByKey[lineKey(l.SourceDNID, l.SourceDNLineNo)]),
+        WarehouseID: whByKey[lineKey(l.SourceDNID, l.SourceDNLineNo)] || l.WarehouseID
+      })) : []
+    };
+  }
+
+  function showError(msg) { const e = document.getElementById('srt-form-error'); e.textContent = msg; e.classList.remove('hidden'); }
+  function validateBeforeSave() {
+    document.getElementById('srt-form-error').classList.add('hidden');
+    if (!document.getElementById('srt-form-company').value) { showError('Select a Company.'); return false; }
+    if (!document.getElementById('srt-form-customer').value) { showError('Select a Customer.'); return false; }
+    if (!document.getElementById('srt-form-invoice').value) { showError('Select the Customer Invoice the goods are being returned against.'); return false; }
+    return true;
+  }
+
+  function save(then) {
+    rpc
+      .withSuccessHandler(result => then(null, result))
+      .withFailureHandler(err => then(err))
+      .saveSalesReturnDraft(collect());
+  }
+
+  function saveDraft() {
+    if (!validateBeforeSave()) return;
+    const btn = document.getElementById('srt-save-draft-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    save((err) => {
+      btn.disabled = false; btn.textContent = original;
+      if (err) return showError(err.message || 'Unable to save draft.');
+      isDirty = false; showListView();
+    });
+  }
+
+  function postEntry() {
+    if (!validateBeforeSave()) return;
+    showConfirm('Post this Sales Return? The goods come back into stock and the customer\'s receivable is reduced.', () => {
+      const btn = document.getElementById('srt-post-btn');
+      btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Posting...';
+      save((err, saved) => {
+        if (err) { btn.disabled = false; btn.innerHTML = original; return showError(err.message || 'Unable to save before posting.'); }
+        if (!current) current = { ReturnID: saved.returnId, Status: 'Draft' };
+        rpc
+          .withSuccessHandler(() => { btn.disabled = false; btn.innerHTML = original; isDirty = false; showListView(); })
+          .withFailureHandler(e => { btn.disabled = false; btn.innerHTML = original; showError(e.message || 'Unable to post.'); })
+          .postSalesReturn({ returnId: saved.returnId });
+      });
+    });
+  }
+
+  function deleteDraft() {
+    if (!current) return;
+    showConfirm('Delete this draft? This cannot be undone.', () => {
+      rpc
+        .withSuccessHandler(() => showListView())
+        .withFailureHandler(err => alert(err.message || 'Unable to delete.'))
+        .deleteSalesReturnDraft({ returnId: current.ReturnID });
+    });
+  }
+
+  function reverseEntry() {
+    if (!current) return;
+    showConfirm('Reverse this Sales Return? The goods leave stock again (at the current average cost) and the customer\'s receivable is restored.', (date) => {
+      rpc
+        .withSuccessHandler(() => showListView())
+        .withFailureHandler(err => alert(err.message || 'Unable to reverse.'))
+        .reverseSalesReturn({ returnId: current.ReturnID, reversalDate: date });
+    }, { title: 'Reverse Sales Return', needsDate: true, defaultDate: today() });
+  }
+
+  function decide(decision) {
+    const levelNumber = parseInt(document.getElementById('srt-my-approval-banner').dataset.level, 10);
+    const reason = document.getElementById('srt-decision-reason').value.trim();
+    const error = document.getElementById('srt-decision-error');
+    error.classList.add('hidden');
+    if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
+    showConfirm((decision === 'Approved' ? 'Approve' : 'Reject') + ' this return?' + (decision === 'Approved' ? ' This will post it.' : ''), () => {
+      const returnId = current.ReturnID;
+      rpc
+        .withSuccessHandler(() => { isDirty = false; showListView(); })
+        .withFailureHandler(err => {
+          error.textContent = err.message || 'Unable to record decision.'; error.classList.remove('hidden');
+          // A failed commit hands the return back as Rejected — reload it.
+          rpc.withSuccessHandler(r => { entries = (r && r.entries) || []; if (entries.some(e => e.ReturnID === returnId)) openEntry(returnId); })
+            .withFailureHandler(() => {}).getSalesReturnEntries({ limit: 'all' });
+        })
+        .decideSalesReturnApproval({ returnId: returnId, levelNumber: levelNumber, decision: decision, reason: reason });
+    });
+  }
+
+  // ---------- ENTRY VIEW ----------
+  function fillForm(r) {
+    document.getElementById('srt-form-company').value = r ? r.CompanyID || '' : '';
+    document.getElementById('srt-form-customer').value = r ? r.CustomerID || '' : '';
+    document.getElementById('srt-form-date').value = r ? r.TransactionDate || '' : today();
+    document.getElementById('srt-form-reference').value = r ? r.Reference || '' : '';
+    document.getElementById('srt-form-description').value = r ? r.Description || '' : '';
+    const invSelect = document.getElementById('srt-form-invoice');
+    invSelect.innerHTML = r && r.SourceInvoiceID
+      ? `<option value="${escapeHtml(r.SourceInvoiceID)}">${escapeHtml(r.SourceInvoiceNumber || r.SourceInvoiceID)}</option>`
+      : '<option value="">Select a company and customer first</option>';
+    if (r) invSelect.value = r.SourceInvoiceID || '';
+  }
+
+  function openEntry(returnId) {
+    current = entries.find(e => e.ReturnID === returnId) || null;
+    if (!current) return;
+    isDirty = false;
+    qtyByKey = {};
+    whByKey = {};
+    (current.Lines || []).forEach(l => {
+      qtyByKey[lineKey(l.SourceDNID, l.SourceDNLineNo)] = String(l.Quantity);
+      whByKey[lineKey(l.SourceDNID, l.SourceDNLineNo)] = l.WarehouseID;
+    });
+    fillForm(current);
+    document.getElementById('srt-entry-title').textContent = current.TransactionNumber || '(unposted)';
+    document.getElementById('srt-voucher-no-line').textContent = current.TransactionNumber
+      ? 'Credit Note No: ' + current.TransactionNumber + (current.TransactionRef ? '   TXN Ref: ' + current.TransactionRef : '') : '';
+    invoices = [];
+    refreshStatusUI();
+    if (isEditable()) fetchInvoices();
+    renderGrid(); updateTotals();
+    showEntryView();
+  }
+
+  function newEntry() {
+    current = null; qtyByKey = {}; whByKey = {}; invoices = []; isDirty = false;
+    fillForm(null);
+    document.getElementById('srt-entry-title').textContent = 'New Sales Return';
+    document.getElementById('srt-voucher-no-line').textContent = '';
+    document.getElementById('srt-form-error').classList.add('hidden');
+    refreshStatusUI();
+    renderGrid(); updateTotals();
+    showEntryView();
+  }
+
+  function refreshStatusUI() {
+    const editable = isEditable();
+    const posted = current && current.Status === 'Posted';
+    const badge = document.getElementById('srt-status-badge');
+    badge.classList.toggle('hidden', !current);
+    if (current) { const st = statusDisplay(current); badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + st.colorClass; badge.textContent = st.label; }
+
+    document.getElementById('srt-rejection-banner').classList.toggle('hidden', !current || current.Status !== 'Rejected');
+    if (current && current.Status === 'Rejected') document.getElementById('srt-rejection-reason').textContent = current.RejectionReason || '(no reason given)';
+
+    document.getElementById('srt-my-approval-banner').classList.add('hidden');
+    if (current && current.Status === 'PendingApproval' && canPost) {
+      rpc
+        .withSuccessHandler(levelNumber => {
+          if (!levelNumber) return;
+          const banner = document.getElementById('srt-my-approval-banner');
+          banner.classList.remove('hidden'); banner.dataset.level = levelNumber;
+        })
+        .withFailureHandler(() => {})
+        .getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
+    }
+
+    ['srt-form-company', 'srt-form-customer', 'srt-form-invoice', 'srt-form-date', 'srt-form-reference', 'srt-form-description']
+      .forEach(id => { document.getElementById(id).disabled = !editable; });
+    document.getElementById('srt-save-draft-btn').classList.toggle('hidden', !editable || !canDraft);
+    document.getElementById('srt-post-btn').classList.toggle('hidden', !editable || !canPost);
+    document.getElementById('srt-delete-btn').classList.toggle('hidden', !current || current.Status !== 'Draft' || !canDraft);
+    document.getElementById('srt-reverse-btn').classList.toggle('hidden', !posted || Boolean(current.ReversedByReturnID || current.ReversalOfReturnID) || !canPost);
+    document.getElementById('srt-gl-impact-btn').classList.toggle('hidden', !(posted && current.LinkedJVID));
+  }
+
+  function openGlImpact() {
+    if (!current || !current.LinkedJVID) return;
+    document.getElementById('srt-gl-modal-subtitle').textContent = '';
+    document.getElementById('srt-gl-modal-body').innerHTML = '<div class="text-center text-slate-500 py-4">Loading...</div>';
+    document.getElementById('srt-gl-modal').classList.remove('hidden');
+    rpc
+      .withSuccessHandler(entry => {
+        document.getElementById('srt-gl-modal-subtitle').textContent = entry.JVNumber + ' — ' + entry.JVDate;
+        const rows = entry.Lines.map(l => `
+          <tr class="border-b border-slate-700">
+            <td class="py-2 px-3 font-mono text-xs text-slate-300">${escapeHtml(l.AccountCode)}</td>
+            <td class="py-2 px-3 text-sm text-slate-200">${escapeHtml(l.AccountName)}</td>
+            <td class="py-2 px-3 text-sm text-right font-mono ${l.Debit ? 'text-slate-200' : 'text-slate-600'}">${l.Debit ? formatMoney(l.Debit) : '—'}</td>
+            <td class="py-2 px-3 text-sm text-right font-mono ${l.Credit ? 'text-slate-200' : 'text-slate-600'}">${l.Credit ? formatMoney(l.Credit) : '—'}</td>
+          </tr>`).join('');
+        document.getElementById('srt-gl-modal-body').innerHTML = `
+          <p class="text-sm text-slate-300 mb-3">${escapeHtml(entry.Description)}</p>
+          <table class="w-full text-left">
+            <thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Account</th><th class="py-2 px-3">Name</th><th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th></tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot><tr class="font-medium border-t border-slate-600"><td class="py-2 px-3" colspan="2">Total</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalDebit)}</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalCredit)}</td></tr></tfoot>
+          </table>`;
+      })
+      .withFailureHandler(err => {
+        document.getElementById('srt-gl-modal-body').innerHTML = '<div class="text-center text-red-400 py-4">' + escapeHtml(err.message || 'Unable to load GL entry.') + '</div>';
+      })
+      .getJournalEntryDetail({ jvId: current.LinkedJVID });
+  }
+  function closeGlImpact() { document.getElementById('srt-gl-modal').classList.add('hidden'); }
+
+  // ---------- INIT ----------
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    rpc
+      .withSuccessHandler(perms => { canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost); document.getElementById('srt-new-btn').classList.toggle('hidden', !canDraft); })
+      .withFailureHandler(err => console.error(err))
+      .getModulePermissionsForUser({ moduleId: 'SALESRETURN' });
+
+    rpc
+      .withSuccessHandler(result => {
+        companies = (result || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName));
+        const label = c => c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '');
+        const select = document.getElementById('srt-form-company');
+        const filter = document.getElementById('srt-company-filter');
+        select.innerHTML = '<option value="">Select a company...</option>';
+        filter.innerHTML = '<option value="">All Companies</option>';
+        companies.forEach(c => {
+          [select, filter].forEach(s => { const opt = document.createElement('option'); opt.value = c.CompanyID; opt.textContent = label(c); s.appendChild(opt); });
+        });
+        if (current) select.value = current.CompanyID || '';
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+
+    rpc
+      .withSuccessHandler(result => {
+        customers = result || [];
+        const select = document.getElementById('srt-form-customer');
+        select.innerHTML = '<option value="">Select...</option>';
+        customers.forEach(v => { const opt = document.createElement('option'); opt.value = v.CustomerID; opt.textContent = v.CustomerCode + ' — ' + v.CustomerName; select.appendChild(opt); });
+        if (current) select.value = current.CustomerID || '';
+        renderList();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCustomers();
+
+    rpc
+      .withSuccessHandler(result => { orgUnits = result || []; if (!document.getElementById('srt-entry-view').classList.contains('hidden')) renderGrid(); })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits();
+
+    document.getElementById('srt-new-btn').addEventListener('click', newEntry);
+    document.getElementById('srt-back-btn').addEventListener('click', goBackToList);
+    ['srt-search-input'].forEach(id => document.getElementById(id).addEventListener('input', renderList));
+    ['srt-company-filter', 'srt-status-filter', 'srt-from-filter', 'srt-to-filter'].forEach(id => document.getElementById(id).addEventListener('change', renderList));
+    document.getElementById('srt-form-company').addEventListener('change', () => { isDirty = true; qtyByKey = {}; fetchInvoices(); });
+    document.getElementById('srt-form-customer').addEventListener('change', () => { isDirty = true; qtyByKey = {}; fetchInvoices(); });
+    document.getElementById('srt-form-invoice').addEventListener('change', () => { isDirty = true; qtyByKey = {}; renderGrid(); updateTotals(); });
+    ['srt-form-date', 'srt-form-reference', 'srt-form-description'].forEach(id => document.getElementById(id).addEventListener('input', () => { isDirty = true; }));
+    document.getElementById('srt-save-draft-btn').addEventListener('click', saveDraft);
+    document.getElementById('srt-post-btn').addEventListener('click', postEntry);
+    document.getElementById('srt-delete-btn').addEventListener('click', deleteDraft);
+    document.getElementById('srt-reverse-btn').addEventListener('click', reverseEntry);
+    document.getElementById('srt-approve-btn').addEventListener('click', () => decide('Approved'));
+    document.getElementById('srt-reject-btn').addEventListener('click', () => decide('Rejected'));
+    document.getElementById('srt-gl-impact-btn').addEventListener('click', openGlImpact);
+    document.getElementById('srt-gl-modal-close').addEventListener('click', closeGlImpact);
+    document.getElementById('srt-gl-modal').addEventListener('click', e => { if (e.target.id === 'srt-gl-modal') closeGlImpact(); });
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-rotate-right"></i> Sales Return / Credit Note';
+
+    myReturnChain = window.__pendingReturnChain || [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      document.getElementById('srt-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      document.getElementById('srt-back-chain-btn').classList.remove('hidden');
+      document.getElementById('srt-back-chain-btn').addEventListener('click', goBackInChain);
+    }
+
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) {
+      pendingOpenEntryId = pending.OpenEntryId;
+      fetchEntries('all');
+    } else {
+      fetchEntries();
+    }
+  };
+})();
+</script>

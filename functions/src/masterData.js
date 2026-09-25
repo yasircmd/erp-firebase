@@ -180,7 +180,8 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   VendorInvoice: 'VENDORINVOICE',
   DeliveryNote: 'DELIVERYNOTE',
   CustomerInvoice: 'CUSTOMERINVOICE',
-  PurchaseReturn: 'PURCHASERETURN' // new development, not in Code.gs
+  PurchaseReturn: 'PURCHASERETURN', // new development, not in Code.gs
+  SalesReturn: 'SALESRETURN' // new development, not in Code.gs
 };
 
 // Ported from moduleIdForEntry_.

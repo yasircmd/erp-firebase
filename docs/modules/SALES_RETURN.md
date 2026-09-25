@@ -1,6 +1,6 @@
 # Sales Return / Credit Note
 
-**Status:** design agreed 2026-09-25 · **Roadmap:** [#2](../ROADMAP.md) · **Branch:** `sales-return` (from `purchase-return`)
+**Status:** tested 2026-09-25 (not deployed) · **Roadmap:** [#2](../ROADMAP.md) · **Branch:** `sales-return` (from `purchase-return`)
 
 ## Purpose
 
@@ -80,8 +80,12 @@ isn't reversed. `CostValue = Quantity × DN UnitCost` per line.
 **Lifecycle:** Draft → Post (→ Pending Approval → Posted/Rejected; a
 failed commit at approval returns it to Rejected) → Reversal. Reversal
 takes the stock back Out of the warehouse it went into (refused if it's no
-longer there), mirrors the GL entry, and is refused while its New Ref
-remainder has been settled by a live JV/CBT.
+longer there) and is refused while its New Ref remainder has been settled
+by a live JV/CBT. Stock can only leave at the **current average cost**, so
+the reversal mirrors the Sales Returns, discount, tax and receivables
+lines exactly but books the stock side afresh, like a delivery: Dr Sales
+COGS / Cr Inventory at that cost. When the average has moved since the
+return, the reversal's cost differs from the return's.
 
 **Changes to existing modules:**
 - Customer Invoice reversal is refused while a live Sales Return exists
@@ -95,3 +99,53 @@ remainder has been settled by a live JV/CBT.
 `purchaseReturn.js`; emulator suite `functions/test/emulator/salesReturn.emulator.test.js`,
 UI check `functions/test/ui/salesReturn.ui.js`, smoke entry, negative
 controls.
+
+## As built (2026-09-25)
+
+**Callables** (`functions/src/salesReturn.js`):
+`getReturnableCustomerInvoices`, `saveSalesReturnDraft`,
+`postSalesReturn`, `decideSalesReturnApproval`, `deleteSalesReturnDraft`,
+`getSalesReturnEntries`, `reverseSalesReturn`. Screen:
+`functions/modules/SALESRETURN.html`.
+
+**Record** (RTDB `stock/transactions/SRTD-…`, `TransactionType:
+'SalesReturn'`): `SourceInvoiceID/Number`, `CustomerID`, the invoice's
+dimensions, and lines with `SourceDNID`, `SourceDNLineNo`, `WarehouseID`
+(chosen), `Quantity` (base unit), `UnitPrice`, `ReturnValue`, `UnitCost`
+(the DN line's), `CostValue`, and the DN line's cost/profit center (used
+on the COGS line). Totals: `ReturnValue`, `DiscountAmount`, `TaxAmount`,
+`Total`, `CostValue`, and after posting `AllocatedToInvoice`.
+
+**Choices made while building** (not owner decisions; say if any should
+change):
+- The return's date, description and an optional customer return
+  reference are entered. Dimensions come from the invoice.
+- Quantities are in the item's base unit. The warehouse must be one of
+  the invoice's company (or unassigned).
+- A DN line that left at no recorded cost (average 0) can't be returned
+  into stock. The stock ledger refuses an inbound line at cost 0.
+- Reversal isn't approval-gated, as for Purchase Return.
+
+**Changes to shared and existing code:** prefix `SalesReturn: 'CRN'` in
+`glWriting.js`. Customer Invoice reversal (request and approval) is
+refused while a live return exists (`invoiceAllocations.js`).
+`SalesReturn → SALESRETURN` in the `journal.js`/`masterData.js` maps and,
+by generator patch, the Stock Ledger Report's. Company Master gains
+`SalesReturnsAccountID` (three generator patches plus the hand-maintained
+screen). Registries: `moduleRegistry.js` and `approvalRegistry.js`, plus
+a seed menu node under Accounts Receivable.
+
+**After deploy:** link "Sales Return / Credit Note" into the live menu
+with Tree Management, and set each company's Sales Returns Account (e.g.
+410000). Deploy set: `tools/deploy-sets/sales-return.txt`. It needs the
+Purchase Return set deployed too, because this branch contains both.
+
+**Tests:** `functions/test/emulator/salesReturn.emulator.test.js` (6
+tests) and `functions/test/ui/salesReturn.ui.js` (4 checks). Negative
+controls, each confirmed caught, then restored:
+1. Stock returned at the selling price instead of the delivered cost:
+   3 tests failed.
+2. The Customer Invoice return guard removed: 2 tests failed, including
+   the paid-then-unpaid invoice that only this guard protects.
+3. A reversal at the original cost instead of the current average:
+   1 test failed.

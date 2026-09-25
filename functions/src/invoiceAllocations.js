@@ -9,13 +9,15 @@
 //     so no allocation can be posted between the check and the reversal.
 //   - a Vendor Invoice reversal is also refused while a live Purchase
 //     Return exists against it (docs/modules/PURCHASE_RETURN.md, decision 9),
-//     even one whose value went entirely to a New Ref.
+//     even one whose value went entirely to a New Ref. Likewise a Customer
+//     Invoice with a live Sales Return (docs/modules/SALES_RETURN.md).
 'use strict';
 const { onCallWithMessages } = require('./callable');
 const { run, LockService } = require('./legacy/runtime');
 const L = require('./legacy/codegs');
 const { assertInvoiceHasNoAllocations, annotateInvoiceOutstanding } = require('./partyLedger');
 const { assertInvoiceHasNoLiveReturns } = require('./purchaseReturn');
+const { assertInvoiceHasNoLiveSalesReturns } = require('./salesReturn');
 
 function withEntries(invoiceType, fn) {
   return async (ctx, limit) => {
@@ -36,6 +38,7 @@ function guardedReversal(invoiceType, fn, isDecision) {
       if (approving) {
         try {
           if (invoiceType === 'VendorInvoice') await assertInvoiceHasNoLiveReturns(invoiceId);
+          if (invoiceType === 'CustomerInvoice') await assertInvoiceHasNoLiveSalesReturns(invoiceId);
           await assertInvoiceHasNoAllocations(invoiceType, invoiceId);
         }
         catch (err) { return { success: false, error: err.message }; }
