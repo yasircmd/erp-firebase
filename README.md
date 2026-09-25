@@ -592,8 +592,8 @@ primitive's REST semantics directly.
 | PURCHASEREQUISITION | ✅ | ✅ |
 | INVENTORYPURCHASEREQUISITION | ✅ | ✅ |
 | PURCHASEORDER | ✅ | ✅ |
-| SALESORDER | ✅ | **not yet** |
-| DELIVERYNOTE | ✅ | **not yet** |
+| SALESORDER | ✅ | ✅ |
+| DELIVERYNOTE | ✅ | ✅ |
 | JV | ✅ | **not yet** |
 | CBT | ✅ | **not yet** |
 | VENDORINVOICE | ✅ | **not yet** |
@@ -602,10 +602,10 @@ primitive's REST semantics directly.
 
 **Next module to port:** CUSTOMERINVOICE
 
-**Committed but NOT yet deployed** (SALESORDER, DELIVERYNOTE, JV, CBT, VENDORINVOICE) — deploy these 36 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (JV, CBT, VENDORINVOICE) — deploy these 18 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment cancelSalesOrder claimStockForSalesOrderLine confirmSalesOrder decideDeliveryNoteApproval decideJournalEntryApproval decideVendorInvoiceApproval decideVendorInvoiceReversalApproval deleteDeliveryNoteDraft deleteDraftSalesOrder deleteJournalDraft deleteVendorInvoiceDraft getActiveCustomers getCbtEntries getDefaultCurrency getDeliveryNoteEntries getEligibleGRNsForInvoice getEligibleSOsForDelivery getItemPriceOnPriceList getJournalEntries getPriceListForCustomer getSalesOrderEntries getSellableItems getVendorInvoiceEntries postDeliveryNote postJournalEntry postVendorInvoice releaseStockForSalesOrderLine requestReverseVendorInvoice reverseDeliveryNote reverseJournalEntry saveCbtDraft saveDeliveryNoteDraft saveDraftSalesOrder saveJournalDraft saveVendorInvoiceDraft
+getModuleFragment decideJournalEntryApproval decideVendorInvoiceApproval decideVendorInvoiceReversalApproval deleteJournalDraft deleteVendorInvoiceDraft getCbtEntries getDefaultCurrency getEligibleGRNsForInvoice getJournalEntries getVendorInvoiceEntries postJournalEntry postVendorInvoice requestReverseVendorInvoice reverseJournalEntry saveCbtDraft saveJournalDraft saveVendorInvoiceDraft
 ```
 <!-- PORT-STATUS:end -->
 
@@ -643,6 +643,8 @@ IAM binding per function):
   PURCHASEORDER (27 functions with the helpers) were deployed from `390662c`
   the same way (clean worktree, migration session), ending `ALL DONE`. Probes
   reach the functions.
+- **2026-09-25, batch E:** SALESORDER and DELIVERYNOTE (19 functions with the
+  helpers) from `1633f44`, same method, ending `ALL DONE`.
 - **Rule for every deploy:** `git status --porcelain` must be empty.
   `firebase deploy` uploads the working copy, not the last commit.
 
