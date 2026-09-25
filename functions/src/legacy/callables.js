@@ -313,6 +313,11 @@ exports.getCashFlowStatement = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.params];
   return run(request, (ctx) => L.getCashFlowStatement(ctx, ...a));
 });
+exports.getCbtEntries = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
+  return run(request, (ctx) => L.getCbtEntries(ctx, ...a));
+});
 exports.getChartOfAccounts = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -717,6 +722,11 @@ exports.saveBom = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.bomData];
   return run(request, (ctx) => L.saveBom(ctx, ...a));
+});
+exports.saveCbtDraft = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.cbtData];
+  return run(request, (ctx) => L.saveCbtDraft(ctx, ...a));
 });
 exports.saveCompany = onCallWithMessages(opts, (request) => {
   const d = request.data || {};

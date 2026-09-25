@@ -29,6 +29,7 @@ const getStockLedgerEntry_ = (idToken, ...a) => __stockMovement.getStockLedgerEn
 const commitStockLedgerUpdates_ = (idToken, ...a) => __stockMovement.commitStockLedgerUpdates(...a);
 const writeStockGlEntry_ = (idToken, ...a) => __glWriting.writeStockGlEntry(...a);
 const validateAndNormalizeLines_ = (...a) => __glWriting.validateAndNormalizeLines(...a);
+const parseAmountServer_ = (...a) => __glWriting.parseAmountServer(...a);
 const getCompanyRefCode_ = (idToken, ...a) => __glWriting.getCompanyRefCode(...a);
 const generateStockVoucherNumber_ = (idToken, ...a) => __glWriting.generateStockVoucherNumber(...a);
 const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
@@ -1189,6 +1190,26 @@ async function getJournalEntries(idToken, limit) {
   return { entries: entries, total: total };
 }
 
+async function getCbtEntries(idToken, limit) {
+  const user = await requireUser_(idToken);
+
+  if (!(await moduleHasCapability_(idToken, 'CBT', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Cash and Bank Transactions.');
+  }
+
+  const assignedCompanies = getUserAssignedCompanies_(user.profile);
+  if (!assignedCompanies.length) return { entries: [], total: 0 };
+
+  const cbtTypes = Object.keys(CBT_VOUCHER_CONFIG);
+  const where = [['VoucherType', 'IN', cbtTypes], ['CompanyID', 'IN', assignedCompanies]];
+  const cap = (limit === 'all' || limit === 0) ? 1000 : (Number(limit) || 100);
+
+  const rows = await firestoreQuery_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, where, [['CreatedAt', 'DESCENDING']], cap);
+  const total = await firestoreCount_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, where);
+  const entries = rows.map(e => Object.assign({ JVID: e._id }, e));
+  return { entries: entries, total: total };
+}
+
 // Shared core used by both saveJournalDraft() (plain manual JV) and
 // saveCbtDraft() (Cash/Bank voucher entry) — both ultimately produce the
 // same kind of GL record; only how the lines get built differs, and
@@ -1491,6 +1512,108 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
     return { success: false, error: err.message };
   } finally {
     await lock.releaseLock();
+  }
+}
+
+// headerDescription is used for the ledger (Cash/Bank) line's own
+// Description, since that line has no user-facing description field of
+// its own — mirroring the header keeps it meaningful now that every line
+// requires a description. headerDimensions supplies the ledger line's
+// Cost/Profit Center default (it isn't part of the editable opposite-lines
+// grid, so it always inherits from the header, never overridden per line).
+function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines, headerDescription, headerDimensions) {
+  const config = CBT_VOUCHER_CONFIG[voucherType];
+  if (!config) throw new Error('Unknown transaction type: ' + voucherType);
+
+  const rawLines = [];
+
+  (oppositeLines || []).forEach((line, idx) => {
+    const code = String(line.AccountCode || '').trim();
+    if (!code) return;
+    if (code === selectedAccountCode) {
+      throw new Error('Line ' + (idx + 1) + ': cannot use the same account selected as the ' + (config.ledgerPrefix === '10' ? 'cash' : 'bank') + ' ledger.');
+    }
+    const amount = parseAmountServer_(line.Amount);
+    if (amount <= 0) throw new Error('Line ' + (idx + 1) + ': enter an amount greater than zero.');
+
+    rawLines.push({
+      AccountCode: code,
+      Description: String(line.Description || '').trim(),
+      Debit: config.ledgerIsDebit ? 0 : amount,
+      Credit: config.ledgerIsDebit ? amount : 0,
+      CostCenterID: String(line.CostCenterID || ''),
+      ProfitCenterID: String(line.ProfitCenterID || '')
+    });
+  });
+
+  if (!rawLines.length) throw new Error('Enter at least one line.');
+
+  const total = rawLines.reduce((sum, l) => sum + l.Debit + l.Credit, 0);
+  const dim = headerDimensions || {};
+
+  rawLines.unshift({
+    AccountCode: selectedAccountCode,
+    Description: String(headerDescription || '').trim(),
+    Debit: config.ledgerIsDebit ? total : 0,
+    Credit: config.ledgerIsDebit ? 0 : total,
+    CostCenterID: String(dim.CostCenterID || ''),
+    ProfitCenterID: String(dim.ProfitCenterID || '')
+  });
+
+  return rawLines;
+}
+
+async function saveCbtDraft(idToken, cbtData) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'CBT');
+
+    const voucherType = String(cbtData.VoucherType || '').trim();
+    const config = CBT_VOUCHER_CONFIG[voucherType];
+    if (!config) throw new Error('Select a transaction type.');
+
+    const selectedAccountCode = String(cbtData.SelectedAccountCode || '').trim();
+    if (!selectedAccountCode) throw new Error('Select a cash or bank ledger.');
+
+    const companyId = String(cbtData.CompanyID || '').trim();
+
+    const coaData = await getCoaData_(idToken);
+    const selectedAccount = Object.keys(coaData)
+      .map(id => Object.assign({ AccountID: id }, coaData[id]))
+      .find(a => String(a.AccountCode) === selectedAccountCode);
+
+    if (!selectedAccount) throw new Error('Selected ledger account not found.');
+    if (selectedAccount.Status !== 'Active') throw new Error('Selected ledger account is inactive.');
+    if (selectedAccount.IsPostable !== true) throw new Error('Selected ledger account is a header account and cannot be posted to.');
+    if (String(selectedAccount.AccountCode).substring(0, 2) !== config.ledgerPrefix) {
+      throw new Error('Selected account is not a valid ' + (config.ledgerPrefix === '10' ? 'Cash' : 'Bank') + ' ledger account.');
+    }
+    if (selectedAccount.CompanyID && selectedAccount.CompanyID !== companyId) {
+      throw new Error('Selected ledger account is restricted to a specific company — select that company for this entry.');
+    }
+
+    const rawLines = buildLinesFromVoucher_(
+      voucherType, selectedAccountCode, cbtData.OppositeLines,
+      cbtData.Description,
+      { CostCenterID: cbtData.CostCenterID, ProfitCenterID: cbtData.ProfitCenterID }
+    );
+
+    return await saveJournalRecord_(
+      idToken, 'CBT',
+      String(cbtData.JVID || '').trim(),
+      String(cbtData.JVDate || '').trim(),
+      String(cbtData.Description || '').trim(),
+      String(cbtData.Reference || '').trim(),
+      rawLines,
+      {
+        CurrencyCode: cbtData.CurrencyCode, CompanyID: cbtData.CompanyID,
+        DivisionID: cbtData.DivisionID, BranchID: cbtData.BranchID,
+        CostCenterID: cbtData.CostCenterID, ProfitCenterID: cbtData.ProfitCenterID
+      },
+      { VoucherType: voucherType, SelectedAccountCode: selectedAccountCode }
+    );
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -8691,12 +8814,15 @@ module.exports = {
   generateVoucherNumber_,
   generateGlTransactionRef_,
   getJournalEntries,
+  getCbtEntries,
   saveJournalRecord_,
   saveJournalDraft,
   deleteJournalDraft,
   postJournalEntry,
   decideJournalEntryApproval,
   reverseJournalEntry,
+  buildLinesFromVoucher_,
+  saveCbtDraft,
   applyCompanyAccessRestriction_,
   getDefaultCurrency,
   ensureCompanyRefCodesSeeded_,

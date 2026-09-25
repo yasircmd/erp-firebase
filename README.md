@@ -326,6 +326,11 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   can duplicate a reference, which is audit numbering only. An account
   deactivated between approval request and final approval isn't
   re-checked when the entry becomes Posted. As in GAS.
+- CBT: shares JV's engine and quirks above (post, approval and reversal
+  go through the JV callables). Mirror of the JV stamping quirk: saving a
+  plain JV draft's ID through `saveCbtDraft` turns it into a CBT voucher.
+  Cash vs Bank is decided purely by the ledger account code prefix
+  (`10`/`11`), per the COA numbering scheme. As in GAS.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -559,17 +564,17 @@ primitive's REST semantics directly.
 | SALESORDER | ✅ | **not yet** |
 | DELIVERYNOTE | ✅ | **not yet** |
 | JV | ✅ | **not yet** |
-| CBT | — | — |
+| CBT | ✅ | **not yet** |
 | VENDORINVOICE | — | — |
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** CBT
+**Next module to port:** VENDORINVOICE
 
-**Committed but NOT yet deployed** (SALESORDER, DELIVERYNOTE, JV) — deploy these 26 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (SALESORDER, DELIVERYNOTE, JV, CBT) — deploy these 28 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment cancelSalesOrder claimStockForSalesOrderLine confirmSalesOrder decideDeliveryNoteApproval decideJournalEntryApproval deleteDeliveryNoteDraft deleteDraftSalesOrder deleteJournalDraft getActiveCustomers getDefaultCurrency getDeliveryNoteEntries getEligibleSOsForDelivery getItemPriceOnPriceList getJournalEntries getPriceListForCustomer getSalesOrderEntries getSellableItems postDeliveryNote postJournalEntry releaseStockForSalesOrderLine reverseDeliveryNote reverseJournalEntry saveDeliveryNoteDraft saveDraftSalesOrder saveJournalDraft
+getModuleFragment cancelSalesOrder claimStockForSalesOrderLine confirmSalesOrder decideDeliveryNoteApproval decideJournalEntryApproval deleteDeliveryNoteDraft deleteDraftSalesOrder deleteJournalDraft getActiveCustomers getCbtEntries getDefaultCurrency getDeliveryNoteEntries getEligibleSOsForDelivery getItemPriceOnPriceList getJournalEntries getPriceListForCustomer getSalesOrderEntries getSellableItems postDeliveryNote postJournalEntry releaseStockForSalesOrderLine reverseDeliveryNote reverseJournalEntry saveCbtDraft saveDeliveryNoteDraft saveDraftSalesOrder saveJournalDraft
 ```
 <!-- PORT-STATUS:end -->
 
