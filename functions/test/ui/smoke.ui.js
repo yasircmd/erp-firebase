@@ -15,7 +15,7 @@ const MODULES = process.argv.slice(2).length ? process.argv.slice(2)
   : ['STOCKADJUSTMENT', 'MATERIALISSUE', 'GRN', 'WAREHOUSEMOVEMENT', ...listed];
 
 // Failures that are the ORIGINAL behavior for that role (documented in
-// README's quirks list), not port bugs: module+uid -> regex of allowed problems.
+// docs/MIGRATION.md's quirks list), not port bugs: module+uid -> regex of allowed problems.
 const EXPECTED = {
   'USERMGMT|u-viewer': /You do not have permission to manage users\./,
   // Data Reset hard-checks the literal role 'ADMIN' (requireAdminRole_).

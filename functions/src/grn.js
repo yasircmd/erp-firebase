@@ -423,7 +423,7 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
     if (existing.ReversedByGRN) throw new HttpsError('failed-precondition', 'This GRN has already been reversed.');
     // PORT FIX (not in Code.gs): a reversal entry is itself a Posted GRN and
     // forcing its lines Out would remove the received stock a second time,
-    // same shape as README deviations #5/#6.
+    // same shape as docs/MIGRATION.md deviations #5/#6.
     if (existing.ReversalOfGRN) throw new HttpsError('failed-precondition', 'A reversal entry cannot itself be reversed.');
     // PORT FIX (not in Code.gs): reversing an invoiced GRN left the Vendor
     // Invoice's payable standing against goods that were sent back. Same

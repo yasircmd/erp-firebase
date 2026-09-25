@@ -2,8 +2,8 @@
 
 Snapshot (via `clasp clone`) of the live Google Apps Script ERP that this
 repo is porting to Firebase: `Code.js` (the old Code.gs) and every module
-screen. It is the source of truth for the remaining module ports — see the
-root README's "Remaining modules: generated port" section.
+screen. It was the source of truth for the module ports (the migration is
+complete; see docs/MIGRATION.md, "Remaining modules: generated port").
 
 - This folder is **not** a clasp project on purpose (`.clasp.json` omitted),
   so nobody can `clasp push` from here and overwrite the live script.
