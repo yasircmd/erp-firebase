@@ -29,6 +29,10 @@ const {
   getModulePermissionsForUser, getActiveItems, getActiveUOMs, getActiveOrgUnits, getActiveVendors,
   getStockLedgerEntryPublic, getMyPendingApprovalLevel, getJournalEntryDetail, updatePostedDescription
 } = require('./src/masterData');
+const {
+  getJournalEntries, getCbtEntries, saveJournalDraft, saveCbtDraft, deleteJournalDraft,
+  postJournalEntry, decideJournalEntryApproval, reverseJournalEntry
+} = require('./src/journal');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
@@ -73,6 +77,14 @@ exports.getStockLedgerEntryPublic = getStockLedgerEntryPublic;
 exports.getMyPendingApprovalLevel = getMyPendingApprovalLevel;
 exports.getJournalEntryDetail = getJournalEntryDetail;
 exports.updatePostedDescription = updatePostedDescription;
+exports.getJournalEntries = getJournalEntries;
+exports.getCbtEntries = getCbtEntries;
+exports.saveJournalDraft = saveJournalDraft;
+exports.saveCbtDraft = saveCbtDraft;
+exports.deleteJournalDraft = deleteJournalDraft;
+exports.postJournalEntry = postJournalEntry;
+exports.decideJournalEntryApproval = decideJournalEntryApproval;
+exports.reverseJournalEntry = reverseJournalEntry;
 
 // Every remaining Code.gs module, ported mechanically (see
 // tools/legacy-port/generate.js): one callable per function a ported

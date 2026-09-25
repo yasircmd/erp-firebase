@@ -1,0 +1,9 @@
+[
+  "getCoaData_",
+  "decideApprovalForDocument_",
+  "requireDraftAccess_",
+  "requirePostAccess_",
+  "generateVoucherNumber_",
+  "generateGlTransactionRef_",
+  "voucherPrefixForEntry_"
+]
