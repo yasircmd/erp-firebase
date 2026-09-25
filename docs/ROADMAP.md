@@ -13,7 +13,7 @@ fresh session can continue from GitHub.
 
 | # | Module | Design doc | Status | Notes |
 |---|---|---|---|---|
-| 0 | Party Payments & Bill-wise Allocation (JV, CBT) | [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md) | design | Owner's first priority. Settles decision #0. |
+| 0 | Party Payments & Bill-wise Allocation (JV, CBT) | [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md) | design agreed | Owner's first priority. Settles decision #0. Open questions answered 2026-09-25. |
 | 1 | Purchase Return / Debit Note | [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) | not started | Mirrors GRN and Vendor Invoice |
 | 2 | Sales Return / Credit Note | [SALES_RETURN.md](modules/SALES_RETURN.md) | not started | Mirrors Delivery Note and Customer Invoice |
 | 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | not started | Read-only report. Builds on #0. |

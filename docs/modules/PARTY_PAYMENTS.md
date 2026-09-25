@@ -1,6 +1,6 @@
 # Party Payments & Bill-wise Allocation (JV and CBT)
 
-**Status:** design · **Roadmap:** [#0](../ROADMAP.md)
+**Status:** design agreed · **Roadmap:** [#0](../ROADMAP.md)
 
 ## Purpose
 
@@ -11,9 +11,27 @@ adjustment belongs to, and **how it's allocated**:
 - **Against Ref:** offsets one or more bills already posted (Vendor or
   Customer Invoices), or an earlier New Ref such as an advance.
 
+CBT handles payments and receipts. JV handles adjustments: discount,
+writing off a balance, settling an advance against a bill.
+
 This settles roadmap decision #0 (tag payments with a party, plus
 allocation against bills). It's the base for Vendor SOA and Customer SOA,
 and gives every invoice an outstanding amount.
+
+## Owner decisions (2026-09-25)
+
+| # | Question | Decision |
+|---|---|---|
+| 0 | Scope | Tagging **and** bill-wise allocation now |
+| 1 | Reference types | New Ref and Against Ref only (an advance is a New Ref) |
+| 2 | Mandatory tagging | Yes: every line on a vendor's or customer's control account must name the party |
+| 2a | Which account a tagged line may use | Only that party's own `TradePayablesAccountID` / `TradeReceivablesAccountID`. Discount and write-off amounts go on the other line |
+| 3 | Split lines | Yes: one line can settle several bills |
+| 4 | Advance settlement | A JV with two lines on the party's account, one Against the bill, one Against the advance |
+| 5 | Invoice reversal with payments allocated | Refused until those payments are reversed |
+| 6 | Historical payments | Left untagged. Invoices posted before this start fully outstanding; anything already paid needs a settling JV |
+| 7 | Due dates | Invoice date + the party's `PaymentTermsDays` |
+| 8 | Structural change | JV and CBT move out of the generator first, as a separate commit with no behavior change |
 
 ## What already exists (from the code)
 
@@ -32,97 +50,148 @@ and gives every invoice an outstanding amount.
   `glWriting.js` rebuilds each line from a fixed field list, so any party
   field sent today would be lost.
 - **Parties:** each vendor has a `TradePayablesAccountID`, each customer a
-  `TradeReceivablesAccountID`, and both have `PaymentTermsDays`.
+  `TradeReceivablesAccountID`, and both have `PaymentTermsDays` and an
+  optional `CompanyID`.
 - **Invoices:** a posted Vendor Invoice credits the vendor's payables
   account with `Total`, and a Customer Invoice debits receivables with its
   `Total`. They're stored in RTDB `vendorInvoices` / `customerInvoices`,
   with nothing recording what has been paid against them.
 
-## Structural change: take JV and CBT out of the generator
+## Structural change: JV and CBT out of the generator
 
-JV, CBT and their screens are generator output, so hand edits would be
-overwritten if `tools/legacy-port/generate.js` is ever re-run.
-**Proposed:** move them out:
-- Their callables move into a hand-written `functions/src/journal.js`,
-  starting from the current generated code unchanged, and `functions/index.js`
-  exports them. The generator skips anything `index.js` exports by hand.
-- JV and CBT come out of `tools/legacy-port/modules.json`, and
-  `functions/modules/JV.html` and `CBT.html` become hand-maintained.
+JV, CBT and their screens were generator output, so hand edits would be
+overwritten if `tools/legacy-port/generate.js` were re-run.
+- Their 8 callables (`saveJournalDraft`, `saveCbtDraft`,
+  `deleteJournalDraft`, `postJournalEntry`, `decideJournalEntryApproval`,
+  `reverseJournalEntry`, `getJournalEntries`, `getCbtEntries`) move into a
+  hand-written `functions/src/journal.js`, starting from the generated code
+  unchanged, and `functions/index.js` exports them. The generator already
+  skips anything `index.js` exports by hand.
+- JV and CBT stay in `tools/legacy-port/modules.json` (the generator
+  still scans their original screens for the shared calls such as
+  `getDefaultCurrency`), but a new `handScreens` list stops it writing
+  their `functions/modules/*.html`, which are now hand-maintained. The
+  same list covers VENDORINVOICE and CUSTOMERINVOICE, whose screens get an
+  Outstanding column.
+- A `keep` list makes the generator always emit the `codegs.js` helpers
+  that hand-written code imports, so a re-run can't drop them.
 
 That move is a behavior-neutral first commit, tested on its own, before
 any feature change.
 
-## Design (proposed)
+## Design
 
-**Line tagging.** A JV or CBT line may carry:
+### Line tagging
+
+A JV or CBT line may carry:
 - `PartyType`: `Vendor` or `Customer`
-- `PartyID`
+- `PartyID`, plus `PartyName` (snapshot for display)
 - `Allocations`: a list of `{ RefType: 'New' | 'Against', RefID, Amount }`
 
-Rules:
-- A tagged line's account must be that party's payables or receivables
-  account.
-- On any line hitting a vendor's or customer's control account, the
-  party is required (see question 2).
-- The allocations must add up to the line amount.
+Rules, checked at save and again at post:
+- A line on any vendor's payables account or any customer's receivables
+  account must name a party (decision 2).
+- A tagged line's account must be that party's own control account
+  (decision 2a). A tag on any other account is refused.
+- A party restricted to a company can only be used in that company's
+  entries.
+- The allocations must add up to the line amount. A tagged line sent with
+  no allocations gets one New Ref for its full amount. At most one New
+  Ref per line.
 
-**CBT screen.** An opposite line on a payables or receivables account
-shows a Vendor/Customer picker. The screen then lists that party's open
-items (bills and earlier New Refs, each with date, number, due date and
-outstanding) to allocate against. Any remainder becomes a New Ref. The
-JV screen gets the same controls per line.
+### Open items and outstanding: derived, not stored
 
-**Open items.** An open item is anything with an outstanding balance for
-a party:
-- a posted, unreversed invoice: outstanding = `Total` − allocated
-- a New Ref from a JV/CBT line: outstanding = its amount − allocated
+An open item is anything with an outstanding balance for a party:
+- a posted Vendor/Customer Invoice that isn't a reversal, isn't reversed
+  and isn't pending reversal approval: `RefID = VendorInvoice:<id>` or
+  `CustomerInvoice:<id>`, amount = `Total`, side Cr (vendor) or Dr
+  (customer)
+- a New Ref on a posted JV/CBT line: `RefID = NewRef:<jvId>:<lineNo>`,
+  amount and side from the line
 
-Each open item stores its allocated total and the entries that allocated
-it, so outstanding can be read directly and an SOA can list the history.
+Outstanding = amount − the Against allocations on **live** entries, where
+live means Posted, not reversed and not itself a reversal.
 
-**Direction.** An allocation must reduce the item. A payment to a vendor
-(Dr Payables) settles a vendor bill (Cr Payables); a receipt from a
-customer (Cr Receivables) settles a customer invoice (Dr Receivables).
+Nothing about allocations is stored outside the journal entries. The
+earlier draft proposed a separate open-items store; deriving it instead
+means there is one source of truth and nothing to keep in sync. Posting,
+reversal, Data Reset and "clear selected records" all stay consistent on
+their own, and every allocation is committed by the single write of its
+own entry.
 
-**Posting** (at post, and again at the approval commit, under the global
-lock):
-- Re-check that every Against allocation is ≤ the item's outstanding
-  *at that moment*. A draft's snapshot isn't trusted, the same rule as
-  deviations #11, #14 and #16.
-- Record the allocations and create any New Refs.
+To find them cheaply, each entry also stores `PartyKeys`
+(`['Vendor:V1', …]`) and `AllocatedRefs` (the Against RefIDs). Both are
+array-contains queries on one field, so no composite index is needed.
 
-**Reversal.** Reversing a JV/CBT releases its allocations and cancels
-the New Refs it created. If a New Ref has since been allocated, the
-reversal is refused until that settlement is reversed.
+### Direction
 
-**Settling an advance against a later bill.** A JV with two lines on the
-same party's account: one Against the bill, one Against the advance.
-They net to zero in the GL, and both items drop to zero outstanding.
+An allocation must reduce the item: the line's side (Dr/Cr) must be
+opposite to the item's. A payment to a vendor (Dr Payables) settles a
+vendor bill (Cr Payables). A receipt from a customer (Cr Receivables)
+settles a customer invoice (Dr Receivables). An advance paid (Dr
+Payables, New Ref) is settled by a Cr Payables line Against it.
 
-**Invoices.**
-- The Vendor/Customer Invoice lists show Outstanding and a payment status
-  (Unpaid / Partly paid / Paid).
-- An invoice with allocations can't be reversed until those payments are
-  reversed (see question 5).
+### Posting
 
-## Open questions for the owner
+At `postJournalEntry` (under the global lock), every Against allocation
+is re-checked against the item's outstanding *at that moment*, including
+several lines of the same entry against one item. A draft's snapshot
+isn't trusted, the same rule as deviations #11, #14 and #16.
 
-1. **Reference types:** only New Ref and Against Ref? Or also Tally's
-   **On Account** (party-tagged but not bill-wise) and a separate
-   **Advance** type?
-2. **Mandatory tagging:** must every new JV/CBT line on a payables or
-   receivables account name the party? (Recommended: yes.)
-3. **Split lines:** can one payment line settle several bills at once?
-   (Recommended: yes.)
-4. **Advance settlement:** by a JV as described, or a "settle advance"
-   action on the invoice itself?
-5. **Invoice reversal with payments allocated:** refuse until the payment
-   is reversed (recommended), or release the allocation automatically,
-   turning the payment into an on-account amount?
-6. **Historical payments:** CBT/JV entries already posted in production
-   have no party. Leave them untagged (the SOAs then show only new
-   activity plus invoices), or build a one-off tool to tag them?
-7. **Due dates:** invoice date + the party's `PaymentTermsDays`, for
-   overdue marking and aging. Correct?
-8. **Structural change:** agree to taking JV and CBT out of the generator
-   as described above?
+With an approval gate the entry goes to PendingApproval and allocates
+nothing yet. `decideJournalEntryApproval` now takes the global lock and,
+on an Approve, re-checks the allocations first. If they no longer fit,
+the approval is refused with the reason, and the approver can Reject it
+back for editing. This also closes the "TXN reference assigned without
+the lock" quirk for this path.
+
+### Reversal
+
+Reversing a JV/CBT releases its allocations automatically, since the
+reversed entry no longer counts as live. It's refused while any New Ref
+it created is allocated by another live entry: that settlement must be
+reversed first. The reversal entry keeps the party tags, for the SOA, but
+carries no allocations.
+
+A reversal can't itself be reversed when it has party-tagged lines. That
+would re-post the payment in the GL without re-allocating it. Post a new
+entry instead.
+
+### Invoices
+
+- `requestReverseVendorInvoice` / `requestReverseCustomerInvoice` and
+  their reversal-approval decisions refuse while any live entry allocates
+  against the invoice (decision 5). They're wrapped by hand, under the
+  global lock, around the generated functions.
+- `getVendorInvoiceEntries` / `getCustomerInvoiceEntries` add
+  `Outstanding`, `PaymentStatus` (Unpaid / Partly paid / Paid) and
+  `DueDate` to each posted invoice. The invoice lists show them.
+
+### New callables
+
+- `getPartyAccounts({ companyId })`: vendors and customers usable in that
+  company, with their control account codes. The screens use it to know
+  which lines need a party.
+- `getPartyOpenItems({ partyType, partyId, companyId, excludeJvId })`:
+  that party's open items with date, number, due date, side and
+  outstanding. `excludeJvId` leaves out the entry being edited.
+
+Both need access to JV or CBT.
+
+### Screens
+
+- **CBT and JV:** a line whose account is a party control account shows a
+  Party picker. After choosing the party, an Allocate panel lists its open
+  items (items on the opposite side only), each with an amount box. The
+  remainder becomes a New Ref automatically.
+- A posted entry shows each line's party and allocations.
+- **Vendor/Customer Invoice lists:** Outstanding and payment status
+  columns.
+
+## Known gaps
+
+- On the approval path, `decideApprovalForDocument_` writes Status Posted
+  and the TXN reference follows in a second write, as before. The
+  allocations are already on the entry, so no data is split between the
+  two writes.
+- Historical payments stay untagged (decision 6).
