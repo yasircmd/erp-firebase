@@ -1,0 +1,971 @@
+<div id="vinv-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Accounts Payable</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-file-invoice-dollar text-blue-500"></i> Vendor Invoice Processing</h2></div>
+    <button id="vinv-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Invoice</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="vinv-search-input" placeholder="Search number or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="vinv-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="vinv-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Draft">Draft</option><option value="Posted">Posted</option></select>
+    <input type="date" id="vinv-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <input type="date" id="vinv-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div id="vinv-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-4">Invoice Number</th>
+            <th class="py-3 px-4">Vendor</th>
+            <th class="py-3 px-4">Date</th>
+            <th class="py-3 px-4">Vendor Ref #</th>
+            <th class="py-3 px-4 text-right">Total</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="vinv-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="vinv-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="vinv-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="vinv-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="vinv-back-chain-label">Back</span></button>
+      <h2 id="vinv-entry-title" class="text-xl font-bold text-blue-400">New Vendor Invoice</h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="vinv-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="vinv-gl-impact-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-scale-balanced"></i> View GL Impact</button>
+    </div>
+  </div>
+
+  <div id="vinv-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+  <div id="vinv-txn-ref-line" class="hidden text-xs text-slate-500 font-mono"></div>
+
+  <div id="vinv-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+
+  <div id="vinv-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1">
+    <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
+    <p id="vinv-rejection-reason" class="text-sm text-slate-200"></p>
+    <p class="text-xs text-slate-500">This invoice is fully editable below — make your changes and Post again.</p>
+  </div>
+
+  <div id="vinv-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="vinv-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3">
+      <button id="vinv-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button>
+      <button id="vinv-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button>
+    </div>
+    <div id="vinv-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+      <select id="vinv-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Vendor</label>
+      <select id="vinv-form-vendor" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+      <p class="text-xs text-slate-500 mt-1">Choosing a Vendor reveals their Posted, not-yet-invoiced GRNs below.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Invoice Date</label><input type="date" id="vinv-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Vendor's Own Invoice Number</label><input type="text" id="vinv-form-vendorref" placeholder="As printed on their bill" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+  </div>
+
+  <div>
+    <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
+    <input type="text" id="vinv-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Dimensions</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="vinv-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="vinv-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center <span class="text-slate-500">(line default)</span></label><select id="vinv-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center <span class="text-slate-500">(line default)</span></label><select id="vinv-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    </div>
+  </div>
+
+  <div id="vinv-grn-picker-section" class="hidden space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase" id="vinv-grn-picker-heading">Match Against Purchase Order GRNs <span class="normal-case font-normal text-slate-500">(Posted, not yet matched to any invoice — whole GRNs only, each contributes its own total value at the price it was received)</span></p>
+    <div id="vinv-grn-picker-list" class="space-y-2"></div>
+    <p id="vinv-grn-picker-empty" class="hidden text-xs text-slate-500 text-center py-4">No eligible GRNs found for this Company and Vendor.</p>
+  </div>
+
+  <div class="space-y-3">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-semibold text-slate-400 uppercase">Direct Lines <span class="normal-case font-normal text-slate-500">(charges not tied to any GRN — freight, services, etc.)</span></p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button id="vinv-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-2 px-3 w-10">#</th><th class="py-2 px-3">Account</th><th class="py-2 px-3"></th><th class="py-2 px-3">Description</th>
+            <th class="py-2 px-3 text-right w-32">Amount</th><th class="py-2 px-3">Cost Center</th><th class="py-2 px-3">Profit Center</th><th class="py-2 px-3 w-10"></th>
+          </tr></thead>
+          <tbody id="vinv-grid-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+    <datalist id="vinv-account-datalist"></datalist>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-4">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Adjustments</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Discount</label><input type="text" inputmode="decimal" id="vinv-form-discount" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Tax %</label><input type="text" inputmode="decimal" id="vinv-form-taxpercent" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Round Off <span class="text-slate-500">(+/-)</span></label><input type="text" inputmode="decimal" id="vinv-form-roundoff" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
+    </div>
+    <div class="border-t border-slate-700 pt-3 space-y-1 text-sm">
+      <div class="flex justify-between text-slate-400"><span>Subtotal (GRNs + direct lines)</span><span id="vinv-subtotal-display" class="font-mono">0.00</span></div>
+      <div class="flex justify-between text-slate-400"><span>Discount</span><span id="vinv-discount-display" class="font-mono">0.00</span></div>
+      <div class="flex justify-between text-slate-400"><span>Tax Amount</span><span id="vinv-tax-display" class="font-mono">0.00</span></div>
+      <div class="flex justify-between text-slate-400"><span>Round Off</span><span id="vinv-roundoff-display" class="font-mono">0.00</span></div>
+      <div class="flex justify-between text-base font-bold pt-1 border-t border-slate-700"><span>Total</span><span id="vinv-total-display" class="font-mono">0.00</span></div>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-slate-800">
+    <button id="vinv-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="vinv-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse</button>
+    <button id="vinv-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save Draft</button>
+    <button id="vinv-post-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">Post</button>
+  </div>
+</div>
+
+<div id="vinv-gl-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="flex items-center justify-between border-b border-slate-700 p-4">
+      <div>
+        <h3 class="text-lg font-bold text-slate-100">GL Impact</h3>
+        <p id="vinv-gl-modal-subtitle" class="text-xs text-slate-500 font-mono"></p>
+      </div>
+      <button id="vinv-gl-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-4 overflow-y-auto">
+      <div id="vinv-gl-modal-body" class="text-sm text-slate-500">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<div id="vinv-confirm-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 id="vinv-confirm-title" class="text-lg font-bold text-slate-100">Confirm</h3>
+    <p id="vinv-confirm-message" class="text-sm text-slate-300 whitespace-pre-line"></p>
+    <div id="vinv-confirm-input-wrap" class="hidden">
+      <input type="date" id="vinv-confirm-input" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    </div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button id="vinv-confirm-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button>
+      <button id="vinv-confirm-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let token = null;
+  let canDraft = false;
+  let canPost = false;
+  let entries = [];
+  let companies = [];
+  let vendors = [];
+  let orgUnits = [];
+  let coaAccounts = [];
+  let currentInvoice = null;
+  let gridLines = []; // direct lines: { AccountCode, Description, Amount, CostCenterID, ProfitCenterID }
+  let eligibleGRNs = [];
+  let selectedGRNIds = new Set();
+  let isDirty = false;
+  let pendingOpenEntryId = null;
+  let myReturnChain = [];
+
+  const STATUS_COLORS = {
+    Draft: 'bg-slate-700 text-slate-300',
+    PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+    PendingReversalApproval: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+    Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20',
+    Committing: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+    Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+  };
+  const STATUS_LABELS = { PendingApproval: 'Pending Approval', PendingReversalApproval: 'Pending Reversal Approval' };
+
+  // Single source of truth for how an invoice's status should be
+  // shown — used by both the list and the detail view. A reversed
+  // original and the reversal record it produced both carry Status
+  // 'Posted' on their own raw field, which is exactly what made them
+  // indistinguishable at a glance in the list.
+  function invoiceStatusDisplay(e) {
+    if (e.Status === 'Posted' && e.ReversalOfInvoiceID) {
+      return { label: 'Reversal Entry', colorClass: 'bg-purple-500/10 text-purple-400 border border-purple-500/20' };
+    }
+    if (e.Status === 'Posted' && e.ReversedByInvoiceID) {
+      return { label: 'Posted (Reversed)', colorClass: 'bg-amber-500/10 text-amber-400 border border-amber-500/20' };
+    }
+    return { label: STATUS_LABELS[e.Status] || e.Status, colorClass: STATUS_COLORS[e.Status] || 'bg-slate-700 text-slate-400' };
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML;
+  }
+  function formatMoney(n) {
+    const num = parseFloat(String(n == null ? 0 : n).toString().replace(/,/g, '')) || 0;
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function parseAmount(v) { return parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
+  function today() { return new Date().toISOString().substring(0, 10); }
+  function vendorById(id) { return vendors.find(v => v.VendorID === id); }
+  function accountByCode(code) { return coaAccounts.find(a => a.AccountCode === code); }
+
+  function currentHeaderDescription() { return document.getElementById('vinv-form-description').value.trim(); }
+  function currentHeaderCostCenter() { return document.getElementById('vinv-form-costcenter').value; }
+  function currentHeaderProfitCenter() { return document.getElementById('vinv-form-profitcenter').value; }
+
+  function orgUnitOptionsHtml(type, selectedId) {
+    let html = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type).forEach(u => {
+      html += `<option value="${u.UnitID}" ${u.UnitID === selectedId ? 'selected' : ''}>${escapeHtml(u.Code + ' — ' + u.Name)}</option>`;
+    });
+    return html;
+  }
+
+  // Grid-row selects (Cost Center / Profit Center per line) are
+  // rebuilt fresh from orgUnitOptionsHtml every time renderGrid() runs
+  // — but the four HEADER dimension selects (Division/Branch/Cost
+  // Center/Profit Center) are static elements in the page's own HTML
+  // and are never rebuilt that way; each needs its OWN options
+  // populated once, here, after orgUnits actually loads. Missing this
+  // left every header Cost Center dropdown permanently empty — same
+  // bug already found and fixed in Delivery Note's own client.
+  function populateOrgUnitSelect(selectId, type) {
+    const select = document.getElementById(selectId);
+    const previous = select.value;
+    select.innerHTML = '<option value="">—</option>';
+    orgUnits.filter(u => u.Type === type)
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.UnitID; opt.textContent = u.Code + ' — ' + u.Name;
+        select.appendChild(opt);
+      });
+    if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  }
+
+  function showConfirm(message, onConfirm, opts) {
+    opts = opts || {};
+    document.getElementById('vinv-confirm-title').textContent = opts.title || 'Confirm';
+    document.getElementById('vinv-confirm-message').textContent = message;
+    const inputWrap = document.getElementById('vinv-confirm-input-wrap');
+    const input = document.getElementById('vinv-confirm-input');
+    if (opts.needsDate) {
+      inputWrap.classList.remove('hidden');
+      input.value = opts.defaultDate || today();
+    } else {
+      inputWrap.classList.add('hidden');
+    }
+    document.getElementById('vinv-confirm-modal').classList.remove('hidden');
+
+    const okBtn = document.getElementById('vinv-confirm-ok');
+    const cancelBtn = document.getElementById('vinv-confirm-cancel');
+    function cleanup() {
+      document.getElementById('vinv-confirm-modal').classList.add('hidden');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+    }
+    function onOk() { cleanup(); onConfirm(opts.needsDate ? input.value : undefined); }
+    function onCancel() { cleanup(); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  }
+
+  // ---------- LIST VIEW ----------
+  function renderList() {
+    const search = document.getElementById('vinv-search-input').value.trim().toLowerCase();
+    const companyFilter = document.getElementById('vinv-company-filter').value;
+    const statusFilter = document.getElementById('vinv-status-filter').value;
+    const fromFilter = document.getElementById('vinv-from-filter').value;
+    const toFilter = document.getElementById('vinv-to-filter').value;
+
+    const filtered = entries.filter(e => {
+      if (companyFilter && e.CompanyID !== companyFilter) return false;
+      if (statusFilter && e.Status !== statusFilter) return false;
+      if (fromFilter && e.InvoiceDate < fromFilter) return false;
+      if (toFilter && e.InvoiceDate > toFilter) return false;
+      if (search) {
+        const hay = ((e.TransactionNumber || '') + ' ' + (e.Description || '') + ' ' + (e.VendorRefNumber || '')).toLowerCase();
+        if (hay.indexOf(search) === -1) return false;
+      }
+      return true;
+    });
+
+    const tbody = document.getElementById('vinv-table-body');
+    tbody.innerHTML = '';
+    filtered.forEach(e => {
+      const vendor = vendorById(e.VendorID);
+      const statusDisplay = invoiceStatusDisplay(e);
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-700/30 cursor-pointer';
+      tr.innerHTML = `
+        <td class="py-2.5 px-4 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}</td>
+        <td class="py-2.5 px-4 text-sm">${escapeHtml(vendor ? vendor.VendorName : '')}</td>
+        <td class="py-2.5 px-4 text-xs text-slate-400">${escapeHtml(e.InvoiceDate || '')}</td>
+        <td class="py-2.5 px-4 text-xs text-slate-400 font-mono">${escapeHtml(e.VendorRefNumber || '')}</td>
+        <td class="py-2.5 px-4 text-right font-mono text-sm">${formatMoney(e.Total)}</td>
+        <td class="py-2.5 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${statusDisplay.colorClass}">${escapeHtml(statusDisplay.label)}</span></td>
+        <td class="py-2.5 px-4 text-right"><button class="text-xs text-blue-400 hover:text-blue-300">Open</button></td>`;
+      tr.addEventListener('click', () => openEntry(e.VendorInvoiceID));
+      tbody.appendChild(tr);
+    });
+
+    const notice = document.getElementById('vinv-list-notice');
+    if (!filtered.length) {
+      notice.classList.remove('hidden');
+      notice.textContent = entries.length ? 'No invoices match the current filters.' : 'No Vendor Invoices yet.';
+    } else {
+      notice.classList.add('hidden');
+    }
+  }
+
+  function fetchEntries(limit) {
+    rpc
+      .withSuccessHandler(result => {
+        entries = (result && result.entries) || []; renderList();
+        if (pendingOpenEntryId) {
+          const id = pendingOpenEntryId; pendingOpenEntryId = null;
+          // Drill-through from GL Report passes the GL ENTRY's own ID
+          // (LinkedJVID), not the invoice's own ID — these are two
+          // different documents. Match on LinkedJVID first; fall back
+          // to VendorInvoiceID in case a future caller ever passes the
+          // invoice's own ID directly.
+          const found = entries.find(e => e.LinkedJVID === id || e.VendorInvoiceID === id);
+          if (found) openEntry(found.VendorInvoiceID);
+          else alert('That Vendor Invoice could not be found — it may have been deleted.');
+        }
+      })
+      .withFailureHandler(err => console.error(err))
+      .getVendorInvoiceEntries({ limit: limit || 100 });
+  }
+
+  function showListView() {
+    document.getElementById('vinv-entry-view').classList.add('hidden');
+    document.getElementById('vinv-list-view').classList.remove('hidden');
+    fetchEntries();
+  }
+  function showEntryView() {
+    document.getElementById('vinv-list-view').classList.add('hidden');
+    document.getElementById('vinv-entry-view').classList.remove('hidden');
+  }
+
+  function goBackToList() {
+    if (isDirty) {
+      showConfirm('You have unsaved changes. Leave without saving?', () => showListView(), { title: 'Unsaved Changes' });
+    } else {
+      showListView();
+    }
+  }
+
+  function goBackInChain() {
+    const doGoBack = () => {
+      const chain = myReturnChain.slice();
+      const target = chain.pop();
+      if (!target) return;
+      openModule(target.moduleId, target.params, chain);
+    };
+    if (isDirty) {
+      showConfirm('You have unsaved changes. Leave without saving?', doGoBack, { title: 'Unsaved Changes' });
+    } else {
+      doGoBack();
+    }
+  }
+
+  // ---------- GRN PICKER ----------
+  // A Draft or Rejected invoice (or a brand new one) is the only state
+  // where GRN matching and totals are still live/editable. Everything
+  // else (PendingApproval, Committing, Posted) is a historical record —
+  // matching is fixed and totals should show exactly what was actually
+  // posted, not a live recomputation.
+  function isInvoiceEditable() {
+    return !currentInvoice || currentInvoice.Status === 'Draft' || currentInvoice.Status === 'Rejected';
+  }
+
+  function fetchEligibleGRNs() {
+    const companyId = document.getElementById('vinv-form-company').value;
+    const vendorId = document.getElementById('vinv-form-vendor').value;
+    const section = document.getElementById('vinv-grn-picker-section');
+    const heading = document.getElementById('vinv-grn-picker-heading');
+    if (!companyId || !vendorId) { section.classList.add('hidden'); eligibleGRNs = []; return; }
+
+    if (!isInvoiceEditable()) {
+      // Historical record — no need to query "eligible" (unmatched)
+      // GRNs at all, since this invoice's own matching is fixed. Show
+      // exactly the GRNs it actually matched, as a plain read-only
+      // list — synchronous, so there's no async gap for the totals
+      // display (below) to race against.
+      const sourceGRNs = currentInvoice.SourceGRNs || [];
+      if (!sourceGRNs.length) { section.classList.add('hidden'); eligibleGRNs = []; return; }
+      heading.innerHTML = 'Matched Purchase Order GRNs';
+      eligibleGRNs = sourceGRNs.map(g => Object.assign({ Description: '' }, g));
+      renderGRNPicker();
+      section.classList.remove('hidden');
+      return;
+    }
+
+    heading.innerHTML = 'Match Against Purchase Order GRNs <span class="normal-case font-normal text-slate-500">(Posted, not yet matched to any invoice — whole GRNs only, each contributes its own total value at the price it was received)</span>';
+    rpc
+      .withSuccessHandler(result => {
+        eligibleGRNs = result || [];
+        renderGRNPicker();
+        section.classList.remove('hidden');
+        // Totals may already have been computed once, synchronously,
+        // before this async response arrived — recompute now that the
+        // real GRN data is actually here.
+        updateTotals();
+      })
+      .withFailureHandler(err => alert(err.message || 'Unable to load eligible GRNs.'))
+      .getEligibleGRNsForInvoice({ companyId: companyId, vendorId: vendorId });
+  }
+
+  // Whole-GRN selection only, never partial lines — confirmed design.
+  // Renders as an interactive checkbox picker only while the invoice
+  // is actually editable; otherwise a plain, non-interactive list.
+  function renderGRNPicker() {
+    const list = document.getElementById('vinv-grn-picker-list');
+    list.innerHTML = '';
+    const editable = isInvoiceEditable();
+    document.getElementById('vinv-grn-picker-empty').classList.toggle('hidden', eligibleGRNs.length > 0);
+    eligibleGRNs.forEach(g => {
+      const row = document.createElement(editable ? 'label' : 'div');
+      row.className = 'flex items-center gap-2 text-sm bg-slate-900 border border-slate-700 rounded-lg px-3 py-2' + (editable ? ' cursor-pointer' : '');
+      const marker = editable
+        ? `<input type="checkbox" class="vinv-grn-checkbox" data-id="${g.GRNID}" ${selectedGRNIds.has(g.GRNID) ? 'checked' : ''}>`
+        : '<i class="fa-solid fa-check text-emerald-400"></i>';
+      row.innerHTML = `${marker} <span>${escapeHtml(g.GRNNumber || g.GRNID)} — ${escapeHtml(g.Description || '')} — <span class="font-mono">${formatMoney(g.Amount)}</span></span>`;
+      list.appendChild(row);
+    });
+    if (!editable) return;
+    list.querySelectorAll('.vinv-grn-checkbox').forEach(cb => {
+      cb.addEventListener('change', e => {
+        const id = e.target.getAttribute('data-id');
+        if (e.target.checked) selectedGRNIds.add(id); else selectedGRNIds.delete(id);
+        isDirty = true;
+        updateTotals();
+      });
+    });
+  }
+
+  // ---------- DIRECT LINES GRID ----------
+  function blankLine() {
+    return { AccountCode: '', Description: currentHeaderDescription(), Amount: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter() };
+  }
+  function ensureTrailingBlankRow() {
+    const last = gridLines[gridLines.length - 1];
+    if (!last || last.AccountCode || last.Amount) gridLines.push(blankLine());
+  }
+  function buildRowMarkup(line, i, readOnly) {
+    const account = accountByCode(line.AccountCode);
+    const missingDesc = line.AccountCode && !String(line.Description || '').trim();
+    return `
+      <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+      <td class="py-1 px-1"><input data-row="${i}" data-field="account" list="vinv-account-datalist" value="${escapeHtml(line.AccountCode)}" ${readOnly ? 'disabled' : ''} class="w-28 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs font-mono focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-2 text-xs text-slate-400 vinv-account-name">${account ? escapeHtml(account.AccountName) : (line.AccountCode ? '<span class="text-red-400">not found</span>' : '')}</td>
+      <td class="py-1 px-1"><input data-row="${i}" data-field="description" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${missingDesc ? 'required' : ''}" class="w-full bg-slate-900 border ${missingDesc ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><input data-row="${i}" data-field="amount" type="text" inputmode="decimal" value="${line.Amount === '' || line.Amount === 0 ? '' : formatMoney(line.Amount)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
+      <td class="py-1 px-1"><select data-row="${i}" class="vinv-line-cc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
+      <td class="py-1 px-1"><select data-row="${i}" class="vinv-line-pc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
+      <td class="py-1 px-1 text-center">${readOnly ? '' : `<button data-row="${i}" class="vinv-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
+  }
+  function wireRowEvents(tr, readOnly) {
+    if (readOnly) return;
+    tr.querySelectorAll('input[data-field]').forEach(el => {
+      el.addEventListener('input', e => {
+        const row = parseInt(e.target.getAttribute('data-row'), 10);
+        const field = e.target.getAttribute('data-field');
+        const key = field === 'account' ? 'AccountCode' : field === 'description' ? 'Description' : 'Amount';
+        gridLines[row][key] = field === 'amount' ? e.target.value.replace(/,/g, '') : e.target.value;
+        isDirty = true;
+      });
+      el.addEventListener('blur', () => { renderGrid(); updateTotals(); });
+    });
+    tr.querySelectorAll('.vinv-line-cc').forEach(sel => {
+      sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].CostCenterID = e.target.value; isDirty = true; });
+    });
+    tr.querySelectorAll('.vinv-line-pc').forEach(sel => {
+      sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].ProfitCenterID = e.target.value; isDirty = true; });
+    });
+    tr.querySelectorAll('.vinv-remove-row').forEach(btn => {
+      btn.addEventListener('click', () => {
+        isDirty = true;
+        gridLines.splice(parseInt(btn.getAttribute('data-row'), 10), 1);
+        renderGrid(); updateTotals();
+      });
+    });
+  }
+  function renderGrid() {
+    ensureTrailingBlankRow();
+    const tbody = document.getElementById('vinv-grid-body');
+    tbody.innerHTML = '';
+    const readOnly = currentInvoice && currentInvoice.Status !== 'Draft' && currentInvoice.Status !== 'Rejected';
+    gridLines.forEach((line, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = buildRowMarkup(line, i, readOnly);
+      tbody.appendChild(tr);
+      wireRowEvents(tr, readOnly);
+    });
+  }
+
+  // ---------- LIVE TOTALS ----------
+  function updateTotals() {
+    if (currentInvoice && !isInvoiceEditable()) {
+      // Historical record — show exactly what was actually posted,
+      // not a live recomputation. This also completely removes any
+      // dependency on eligibleGRNs having finished loading yet, which
+      // is what a recompute-based display would otherwise race
+      // against for a Posted/PendingApproval/Committing invoice.
+      document.getElementById('vinv-subtotal-display').textContent = formatMoney(currentInvoice.Subtotal);
+      document.getElementById('vinv-discount-display').textContent = formatMoney(currentInvoice.Discount);
+      document.getElementById('vinv-tax-display').textContent = formatMoney(currentInvoice.TaxAmount);
+      document.getElementById('vinv-roundoff-display').textContent = formatMoney(currentInvoice.RoundOff);
+      document.getElementById('vinv-total-display').textContent = formatMoney(currentInvoice.Total);
+      return;
+    }
+    const grnSubtotal = eligibleGRNs.filter(g => selectedGRNIds.has(g.GRNID)).reduce((s, g) => s + (Number(g.Amount) || 0), 0);
+    const directTotal = gridLines.reduce((s, l) => s + (parseAmount(l.Amount) || 0), 0);
+    const subtotal = grnSubtotal + directTotal;
+    const discount = parseAmount(document.getElementById('vinv-form-discount').value);
+    const taxPercent = parseAmount(document.getElementById('vinv-form-taxpercent').value);
+    const roundOff = parseAmount(document.getElementById('vinv-form-roundoff').value);
+    const taxAmount = (subtotal - discount) * taxPercent / 100;
+    const total = subtotal - discount + taxAmount + roundOff;
+
+    document.getElementById('vinv-subtotal-display').textContent = formatMoney(subtotal);
+    document.getElementById('vinv-discount-display').textContent = formatMoney(discount);
+    document.getElementById('vinv-tax-display').textContent = formatMoney(taxAmount);
+    document.getElementById('vinv-roundoff-display').textContent = formatMoney(roundOff);
+    document.getElementById('vinv-total-display').textContent = formatMoney(total);
+  }
+
+  // ---------- FORM COLLECTION ----------
+  function collectHeader() {
+    return {
+      VendorInvoiceID: currentInvoice ? currentInvoice.VendorInvoiceID : '',
+      InvoiceDate: document.getElementById('vinv-form-date').value,
+      VendorRefNumber: document.getElementById('vinv-form-vendorref').value.trim(),
+      Description: document.getElementById('vinv-form-description').value.trim(),
+      CompanyID: document.getElementById('vinv-form-company').value,
+      VendorID: document.getElementById('vinv-form-vendor').value,
+      DivisionID: document.getElementById('vinv-form-division').value,
+      BranchID: document.getElementById('vinv-form-branch').value,
+      CostCenterID: document.getElementById('vinv-form-costcenter').value,
+      ProfitCenterID: document.getElementById('vinv-form-profitcenter').value,
+      SourceGRNs: Array.from(selectedGRNIds).map(id => ({ GRNID: id })),
+      DirectLines: gridLines.filter(l => l.AccountCode).map(l => ({
+        AccountCode: l.AccountCode, Description: l.Description, Amount: l.Amount,
+        CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID
+      })),
+      Discount: parseAmount(document.getElementById('vinv-form-discount').value),
+      TaxPercent: parseAmount(document.getElementById('vinv-form-taxpercent').value),
+      RoundOff: parseAmount(document.getElementById('vinv-form-roundoff').value)
+    };
+  }
+
+  function validateBeforeSave() {
+    const error = document.getElementById('vinv-form-error');
+    error.classList.add('hidden');
+    if (!document.getElementById('vinv-form-company').value) { error.textContent = 'Select a Company.'; error.classList.remove('hidden'); return false; }
+    if (!document.getElementById('vinv-form-vendor').value) { error.textContent = 'Select a Vendor.'; error.classList.remove('hidden'); return false; }
+    if (!document.getElementById('vinv-form-vendorref').value.trim()) { error.textContent = 'Enter the Vendor\'s own invoice number.'; error.classList.remove('hidden'); return false; }
+    return true;
+  }
+
+  function saveDraft() {
+    if (!validateBeforeSave()) return;
+    const error = document.getElementById('vinv-form-error');
+    const btn = document.getElementById('vinv-save-draft-btn');
+    btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
+    rpc
+      .withSuccessHandler(result => {
+        btn.disabled = false; btn.textContent = original;
+        if (result.success) { isDirty = false; showListView(); }
+        else { error.textContent = result.error || 'Unable to save draft.'; error.classList.remove('hidden'); }
+      })
+      .withFailureHandler(err => { btn.disabled = false; btn.textContent = original; error.textContent = err.message || 'Unable to save draft.'; error.classList.remove('hidden'); })
+      .saveVendorInvoiceDraft({ invoiceData: collectHeader() });
+  }
+
+  function postEntry() {
+    if (!validateBeforeSave()) return;
+    const error = document.getElementById('vinv-form-error');
+    showConfirm('Post this Vendor Invoice?', () => {
+      const btn = document.getElementById('vinv-post-btn');
+      btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Posting...';
+      rpc
+        .withSuccessHandler(saveResult => {
+          if (!saveResult.success) {
+            btn.disabled = false; btn.innerHTML = original;
+            error.textContent = saveResult.error || 'Unable to save before posting.'; error.classList.remove('hidden');
+            return;
+          }
+          if (!currentInvoice) currentInvoice = { VendorInvoiceID: saveResult.invoiceId, Status: 'Draft' };
+          else currentInvoice.VendorInvoiceID = saveResult.invoiceId;
+
+          rpc
+            .withSuccessHandler(postResult => {
+              btn.disabled = false; btn.innerHTML = original;
+              if (postResult.success) { isDirty = false; showListView(); }
+              else { error.textContent = postResult.error || 'Unable to post.'; error.classList.remove('hidden'); }
+            })
+            .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to post.'; error.classList.remove('hidden'); })
+            .postVendorInvoice({ invoiceId: saveResult.invoiceId });
+        })
+        .withFailureHandler(err => { btn.disabled = false; btn.innerHTML = original; error.textContent = err.message || 'Unable to save before posting.'; error.classList.remove('hidden'); })
+        .saveVendorInvoiceDraft({ invoiceData: collectHeader() });
+    });
+  }
+
+  function deleteDraft() {
+    if (!currentInvoice) return;
+    showConfirm('Delete this draft? This cannot be undone.', () => {
+      rpc
+        .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to delete.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to delete.'))
+        .deleteVendorInvoiceDraft({ invoiceId: currentInvoice.VendorInvoiceID });
+    });
+  }
+
+  function reverseEntry() {
+    if (!currentInvoice) return;
+    showConfirm('Reverse this Vendor Invoice? This will create an offsetting entry and free up its matched GRN(s) for re-invoicing.' + (canPost ? ' This requires the same approval as the original posting.' : ''), (reversalDate) => {
+      rpc
+        .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to reverse.'); })
+        .withFailureHandler(err => alert(err.message || 'Unable to reverse.'))
+        .requestReverseVendorInvoice({ invoiceId: currentInvoice.VendorInvoiceID, reversalDate: reversalDate });
+    }, { title: 'Reverse Vendor Invoice', needsDate: true, defaultDate: today() });
+  }
+
+  function decide(decision) {
+    const levelNumber = parseInt(document.getElementById('vinv-my-approval-banner').dataset.level, 10);
+    const reason = document.getElementById('vinv-decision-reason').value.trim();
+    const error = document.getElementById('vinv-decision-error');
+    error.classList.add('hidden');
+    if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
+    // An invoice can be awaiting approval for two different reasons —
+    // the original posting, or a reversal request — each with its own
+    // decide function and its own consequence if rejected (falls back
+    // to Rejected for a posting, or stays Posted for a reversal).
+    const isReversal = currentInvoice.Status === 'PendingReversalApproval';
+    const confirmMessage = isReversal
+      ? ((decision === 'Approved' ? 'Approve' : 'Reject') + ' this reversal request?' + (decision === 'Approved' ? ' This will post the offsetting entry and free up its matched GRN(s).' : ' The invoice will remain posted, unreversed.'))
+      : ((decision === 'Approved' ? 'Approve' : 'Reject') + ' this invoice?' + (decision === 'Approved' ? ' This will post to the GL and match the selected GRN(s).' : ''));
+    showConfirm(confirmMessage, () => {
+      const invoiceId = currentInvoice.VendorInvoiceID;
+      rpc
+        .withSuccessHandler(result => {
+          if (result.success) { isDirty = false; showListView(); }
+          else {
+            error.textContent = result.error || 'Unable to record decision.';
+            error.classList.remove('hidden');
+            // Same fix as Customer Invoice's own decide() — see its
+            // comment for the full reasoning: a commit failure AFTER
+            // approval can move the invoice to Rejected server-side even
+            // though this call reports failure, but this client's own
+            // stale currentInvoice kept showing the Approve/Reject
+            // banner regardless. Reloading the invoice's actual current
+            // state lets its own rejection banner take over instead.
+            rpc
+              .withSuccessHandler(freshResult => {
+                entries = (freshResult && freshResult.entries) || [];
+                if (entries.some(e => e.VendorInvoiceID === invoiceId)) openEntry(invoiceId);
+              })
+              .withFailureHandler(() => {})
+              .getVendorInvoiceEntries({ limit: 'all' });
+          }
+        })
+        .withFailureHandler(err => { error.textContent = err.message || 'Unable to record decision.'; error.classList.remove('hidden'); })
+        [isReversal ? 'decideVendorInvoiceReversalApproval' : 'decideVendorInvoiceApproval']({ __positional: [invoiceId, levelNumber, decision, reason] });
+    });
+  }
+
+  // ---------- ENTRY VIEW LOAD ----------
+  function populateHeaderFromInvoice(inv) {
+    document.getElementById('vinv-form-company').value = inv.CompanyID || '';
+    document.getElementById('vinv-form-vendor').value = inv.VendorID || '';
+    document.getElementById('vinv-form-date').value = inv.InvoiceDate || '';
+    document.getElementById('vinv-form-vendorref').value = inv.VendorRefNumber || '';
+    document.getElementById('vinv-form-description').value = inv.Description || '';
+    document.getElementById('vinv-form-division').value = inv.DivisionID || '';
+    document.getElementById('vinv-form-branch').value = inv.BranchID || '';
+    document.getElementById('vinv-form-costcenter').value = inv.CostCenterID || '';
+    document.getElementById('vinv-form-profitcenter').value = inv.ProfitCenterID || '';
+    document.getElementById('vinv-form-discount').value = inv.Discount || 0;
+    document.getElementById('vinv-form-taxpercent').value = inv.TaxPercent || 0;
+    document.getElementById('vinv-form-roundoff').value = inv.RoundOff || 0;
+  }
+
+  function openEntry(invoiceId) {
+    currentInvoice = entries.find(e => e.VendorInvoiceID === invoiceId) || null;
+    if (!currentInvoice) return;
+    isDirty = false;
+
+    gridLines = (currentInvoice.DirectLines || []).map(l => Object.assign({}, l));
+    selectedGRNIds = new Set((currentInvoice.SourceGRNs || []).map(g => g.GRNID));
+    populateHeaderFromInvoice(currentInvoice);
+    document.getElementById('vinv-entry-title').textContent = currentInvoice.TransactionNumber || '(unposted)';
+    document.getElementById('vinv-voucher-no-line').textContent = currentInvoice.TransactionNumber ? 'Invoice No: ' + currentInvoice.TransactionNumber : '';
+    document.getElementById('vinv-txn-ref-line').classList.toggle('hidden', !currentInvoice.TransactionRef);
+    if (currentInvoice.TransactionRef) document.getElementById('vinv-txn-ref-line').textContent = 'TXN Ref: ' + currentInvoice.TransactionRef;
+
+    fetchEligibleGRNs();
+    refreshStatusUI();
+    renderGrid();
+    updateTotals();
+    showEntryView();
+  }
+
+  function newEntry() {
+    currentInvoice = null;
+    gridLines = [];
+    selectedGRNIds = new Set();
+    document.getElementById('vinv-form-company').value = '';
+    document.getElementById('vinv-form-vendor').value = '';
+    document.getElementById('vinv-grn-picker-section').classList.add('hidden');
+    document.getElementById('vinv-form-date').value = today();
+    document.getElementById('vinv-form-vendorref').value = '';
+    document.getElementById('vinv-form-description').value = '';
+    document.getElementById('vinv-form-division').value = '';
+    document.getElementById('vinv-form-branch').value = '';
+    document.getElementById('vinv-form-costcenter').value = '';
+    document.getElementById('vinv-form-profitcenter').value = '';
+    document.getElementById('vinv-form-discount').value = 0;
+    document.getElementById('vinv-form-taxpercent').value = 0;
+    document.getElementById('vinv-form-roundoff').value = 0;
+    document.getElementById('vinv-entry-title').textContent = 'New Vendor Invoice';
+    document.getElementById('vinv-voucher-no-line').textContent = '';
+    document.getElementById('vinv-txn-ref-line').classList.add('hidden');
+    refreshStatusUI();
+    renderGrid();
+    updateTotals();
+    showEntryView();
+  }
+
+  // ---------- STATUS-DRIVEN UI ----------
+  function refreshStatusUI() {
+    const posted = currentInvoice && currentInvoice.Status === 'Posted';
+    const editableStatus = !currentInvoice || currentInvoice.Status === 'Draft' || currentInvoice.Status === 'Rejected';
+    const readOnly = currentInvoice && !editableStatus;
+    const isNew = !currentInvoice;
+
+    const badge = document.getElementById('vinv-status-badge');
+    if (isNew) {
+      badge.classList.add('hidden');
+    } else {
+      badge.classList.remove('hidden');
+      const statusDisplay = invoiceStatusDisplay(currentInvoice);
+      badge.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + statusDisplay.colorClass;
+      badge.textContent = statusDisplay.label;
+    }
+
+    document.getElementById('vinv-rejection-banner').classList.toggle('hidden', !currentInvoice || currentInvoice.Status !== 'Rejected');
+    if (currentInvoice && currentInvoice.Status === 'Rejected') {
+      document.getElementById('vinv-rejection-reason').textContent = currentInvoice.RejectionReason || '(no reason given)';
+    }
+
+    document.getElementById('vinv-my-approval-banner').classList.add('hidden');
+    if (currentInvoice && (currentInvoice.Status === 'PendingApproval' || currentInvoice.Status === 'PendingReversalApproval') && canPost) {
+      const instanceId = currentInvoice.Status === 'PendingReversalApproval' ? currentInvoice.ReversalApprovalInstanceID : currentInvoice.ApprovalInstanceID;
+      rpc
+        .withSuccessHandler(levelNumber => {
+          if (levelNumber) {
+            document.getElementById('vinv-my-approval-banner').classList.remove('hidden');
+            document.getElementById('vinv-my-approval-banner').dataset.level = levelNumber;
+          }
+        })
+        .withFailureHandler(() => {})
+        .getMyPendingApprovalLevel({ approvalInstanceId: instanceId });
+    }
+
+    ['vinv-form-company', 'vinv-form-vendor', 'vinv-form-date', 'vinv-form-vendorref', 'vinv-form-description',
+      'vinv-form-division', 'vinv-form-branch', 'vinv-form-costcenter', 'vinv-form-profitcenter',
+      'vinv-form-discount', 'vinv-form-taxpercent', 'vinv-form-roundoff'].forEach(id => {
+      document.getElementById(id).disabled = readOnly;
+    });
+
+    document.getElementById('vinv-add-line-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('vinv-save-draft-btn').classList.toggle('hidden', !editableStatus || !canDraft);
+    document.getElementById('vinv-post-btn').classList.toggle('hidden', !editableStatus || !canPost);
+    document.getElementById('vinv-delete-btn').classList.toggle('hidden', (!currentInvoice || currentInvoice.Status !== 'Draft') || !canDraft);
+    document.getElementById('vinv-reverse-btn').classList.toggle('hidden', !posted || Boolean(currentInvoice && (currentInvoice.ReversedByInvoiceID || currentInvoice.ReversalOfInvoiceID)) || !canPost);
+    document.getElementById('vinv-gl-impact-btn').classList.toggle('hidden', !(currentInvoice && currentInvoice.LinkedJVID && (posted || currentInvoice.Status === 'PendingReversalApproval')));
+  }
+
+  function openGlImpact() {
+    if (!currentInvoice || !currentInvoice.LinkedJVID) return;
+    document.getElementById('vinv-gl-modal-subtitle').textContent = '';
+    document.getElementById('vinv-gl-modal-body').innerHTML = '<div class="text-center text-slate-500 py-4">Loading...</div>';
+    document.getElementById('vinv-gl-modal').classList.remove('hidden');
+    rpc
+      .withSuccessHandler(entry => renderGlImpact(entry))
+      .withFailureHandler(err => {
+        document.getElementById('vinv-gl-modal-body').innerHTML = '<div class="text-center text-red-400 py-4">' + escapeHtml(err.message || 'Unable to load GL entry.') + '</div>';
+      })
+      .getJournalEntryDetail({ jvId: currentInvoice.LinkedJVID });
+  }
+
+  function renderGlImpact(entry) {
+    document.getElementById('vinv-gl-modal-subtitle').textContent = entry.JVNumber + ' — ' + entry.JVDate;
+    const rows = entry.Lines.map(l => `
+      <tr class="border-b border-slate-700">
+        <td class="py-2 px-3 font-mono text-xs text-slate-300">${escapeHtml(l.AccountCode)}</td>
+        <td class="py-2 px-3 text-sm text-slate-200">${escapeHtml(l.AccountName)}</td>
+        <td class="py-2 px-3 text-sm text-right font-mono ${l.Debit ? 'text-slate-200' : 'text-slate-600'}">${l.Debit ? formatMoney(l.Debit) : '—'}</td>
+        <td class="py-2 px-3 text-sm text-right font-mono ${l.Credit ? 'text-slate-200' : 'text-slate-600'}">${l.Credit ? formatMoney(l.Credit) : '—'}</td>
+      </tr>`).join('');
+    document.getElementById('vinv-gl-modal-body').innerHTML = `
+      <p class="text-sm text-slate-300 mb-3">${escapeHtml(entry.Description)}</p>
+      <table class="w-full text-left">
+        <thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Account</th><th class="py-2 px-3">Name</th><th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr class="font-medium border-t border-slate-600"><td class="py-2 px-3" colspan="2">Total</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalDebit)}</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalCredit)}</td></tr></tfoot>
+      </table>`;
+  }
+
+  function closeGlImpact() {
+    document.getElementById('vinv-gl-modal').classList.add('hidden');
+  }
+
+  // ---------- INIT ----------
+  window.initModule = function (idToken) {
+    token = idToken;
+
+    rpc
+      .withSuccessHandler(perms => { canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost); document.getElementById('vinv-new-btn').classList.toggle('hidden', !canDraft); })
+      .withFailureHandler(err => console.error(err))
+      .getModulePermissionsForUser({ moduleId: 'VENDORINVOICE' });
+
+    rpc
+      .withSuccessHandler(result => {
+        companies = result || [];
+        const label = c => c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '');
+        const select = document.getElementById('vinv-form-company');
+        select.innerHTML = '<option value="">Select a company...</option>';
+        companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+          const opt = document.createElement('option'); opt.value = c.CompanyID; opt.textContent = label(c);
+          select.appendChild(opt);
+        });
+        const filterSelect = document.getElementById('vinv-company-filter');
+        filterSelect.innerHTML = '<option value="">All Companies</option>';
+        companies.forEach(c => {
+          const opt = document.createElement('option'); opt.value = c.CompanyID; opt.textContent = label(c);
+          filterSelect.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+
+    rpc
+      .withSuccessHandler(result => {
+        vendors = result || [];
+        const select = document.getElementById('vinv-form-vendor');
+        select.innerHTML = '<option value="">Select...</option>';
+        vendors.forEach(v => {
+          const opt = document.createElement('option'); opt.value = v.VendorID; opt.textContent = v.VendorCode + ' — ' + v.VendorName;
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveVendors();
+
+    rpc
+      .withSuccessHandler(result => {
+        orgUnits = result || [];
+        populateOrgUnitSelect('vinv-form-division', 'Division');
+        populateOrgUnitSelect('vinv-form-branch', 'Branch');
+        populateOrgUnitSelect('vinv-form-costcenter', 'CostCenter');
+        populateOrgUnitSelect('vinv-form-profitcenter', 'ProfitCenter');
+        if (!document.getElementById('vinv-entry-view').classList.contains('hidden')) renderGrid();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits();
+
+    rpc
+      .withSuccessHandler(result => {
+        coaAccounts = (result || []).filter(a => a.Status === 'Active' && a.IsPostable === true);
+        const datalist = document.getElementById('vinv-account-datalist');
+        datalist.innerHTML = '';
+        coaAccounts.forEach(a => {
+          const opt = document.createElement('option'); opt.value = a.AccountCode; opt.label = a.AccountName;
+          datalist.appendChild(opt);
+        });
+      })
+      .withFailureHandler(err => console.error(err))
+      .getChartOfAccounts();
+
+    document.getElementById('vinv-new-btn').addEventListener('click', newEntry);
+    document.getElementById('vinv-back-btn').addEventListener('click', goBackToList);
+    document.getElementById('vinv-search-input').addEventListener('input', renderList);
+    document.getElementById('vinv-company-filter').addEventListener('change', renderList);
+    document.getElementById('vinv-status-filter').addEventListener('change', renderList);
+    document.getElementById('vinv-from-filter').addEventListener('change', renderList);
+    document.getElementById('vinv-to-filter').addEventListener('change', renderList);
+
+    document.getElementById('vinv-form-company').addEventListener('change', fetchEligibleGRNs);
+    document.getElementById('vinv-form-vendor').addEventListener('change', fetchEligibleGRNs);
+    document.getElementById('vinv-form-discount').addEventListener('input', updateTotals);
+    document.getElementById('vinv-form-taxpercent').addEventListener('input', updateTotals);
+    document.getElementById('vinv-form-roundoff').addEventListener('input', updateTotals);
+
+    document.getElementById('vinv-add-line-btn').addEventListener('click', () => {
+      gridLines.push(blankLine());
+      renderGrid(); updateTotals();
+    });
+
+    document.getElementById('vinv-save-draft-btn').addEventListener('click', saveDraft);
+    document.getElementById('vinv-post-btn').addEventListener('click', postEntry);
+    document.getElementById('vinv-delete-btn').addEventListener('click', deleteDraft);
+    document.getElementById('vinv-reverse-btn').addEventListener('click', reverseEntry);
+    document.getElementById('vinv-approve-btn').addEventListener('click', () => decide('Approved'));
+    document.getElementById('vinv-reject-btn').addEventListener('click', () => decide('Rejected'));
+    document.getElementById('vinv-gl-impact-btn').addEventListener('click', openGlImpact);
+    document.getElementById('vinv-gl-modal-close').addEventListener('click', closeGlImpact);
+    document.getElementById('vinv-gl-modal').addEventListener('click', e => { if (e.target.id === 'vinv-gl-modal') closeGlImpact(); });
+
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-invoice-dollar"></i> Vendor Invoice Processing';
+
+    myReturnChain = window.__pendingReturnChain || [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      document.getElementById('vinv-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      document.getElementById('vinv-back-chain-btn').classList.remove('hidden');
+      document.getElementById('vinv-back-chain-btn').addEventListener('click', goBackInChain);
+    }
+
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) {
+      pendingOpenEntryId = pending.OpenEntryId;
+      document.getElementById('vinv-entry-view').classList.add('hidden');
+      document.getElementById('vinv-list-view').classList.remove('hidden');
+      fetchEntries('all');
+    } else {
+      fetchEntries();
+    }
+  };
+})();
+</script>

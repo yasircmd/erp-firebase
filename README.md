@@ -331,6 +331,13 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   plain JV draft's ID through `saveCbtDraft` turns it into a CBT voucher.
   Cash vs Bank is decided purely by the ledger account code prefix
   (`10`/`11`), per the COA numbering scheme. As in GAS.
+- Vendor Invoice: editing an existing draft and
+  `deleteVendorInvoiceDraft` aren't company-checked. The GRN amount is
+  recomputed from `Quantity × UnitCost` at save and stored; a later
+  change to the GRN wouldn't be reflected. Direct lines don't check the
+  account's company restriction. Unlike Delivery Note, a commit failure
+  at approval time is rolled back to Rejected (the GAS code already did
+  this here and for Customer Invoice). As in GAS.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -513,6 +520,19 @@ report). Each has a test that fails against the original logic.
    module's own reversal stayed available, so the GL could be reversed
    twice. It needed only that module's post right. Now refused with
    "reverse it from that module". (`jv` suite.)
+14. **One GRN could be invoiced twice** (`commitVendorInvoicePosting_`).
+   Saving a Vendor Invoice draft refuses a GRN already matched to
+   another invoice, but posting never re-checked. Two drafts built from
+   the same unmatched GRN could both post. The vendor's payable was
+   booked twice and GRN Clearing debited twice, and
+   `MatchedToInvoiceID` was overwritten by the second. Reversing either
+   invoice then unmatched the GRN while the other still claimed it. A
+   GRN reversed after the draft was saved was likewise still invoiced.
+   Every source GRN is now re-checked at commit (post and approval): it
+   must still be a Posted, unreversed GRN of this company and vendor,
+   matched to no other invoice. **Live in the current Apps Script
+   system.** Check for two posted, unreversed Vendor Invoices listing the
+   same GRN in `SourceGRNs`. (`vendorInvoice` suite.)
 
 Port-runtime fix (not a Code.gs deviation): `runtime.js` used
 `admin.firestore.FieldPath`, which isn't a constructor in this
@@ -565,16 +585,16 @@ primitive's REST semantics directly.
 | DELIVERYNOTE | ✅ | **not yet** |
 | JV | ✅ | **not yet** |
 | CBT | ✅ | **not yet** |
-| VENDORINVOICE | — | — |
+| VENDORINVOICE | ✅ | **not yet** |
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** VENDORINVOICE
+**Next module to port:** CUSTOMERINVOICE
 
-**Committed but NOT yet deployed** (SALESORDER, DELIVERYNOTE, JV, CBT) — deploy these 28 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (SALESORDER, DELIVERYNOTE, JV, CBT, VENDORINVOICE) — deploy these 36 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment cancelSalesOrder claimStockForSalesOrderLine confirmSalesOrder decideDeliveryNoteApproval decideJournalEntryApproval deleteDeliveryNoteDraft deleteDraftSalesOrder deleteJournalDraft getActiveCustomers getCbtEntries getDefaultCurrency getDeliveryNoteEntries getEligibleSOsForDelivery getItemPriceOnPriceList getJournalEntries getPriceListForCustomer getSalesOrderEntries getSellableItems postDeliveryNote postJournalEntry releaseStockForSalesOrderLine reverseDeliveryNote reverseJournalEntry saveCbtDraft saveDeliveryNoteDraft saveDraftSalesOrder saveJournalDraft
+getModuleFragment cancelSalesOrder claimStockForSalesOrderLine confirmSalesOrder decideDeliveryNoteApproval decideJournalEntryApproval decideVendorInvoiceApproval decideVendorInvoiceReversalApproval deleteDeliveryNoteDraft deleteDraftSalesOrder deleteJournalDraft deleteVendorInvoiceDraft getActiveCustomers getCbtEntries getDefaultCurrency getDeliveryNoteEntries getEligibleGRNsForInvoice getEligibleSOsForDelivery getItemPriceOnPriceList getJournalEntries getPriceListForCustomer getSalesOrderEntries getSellableItems getVendorInvoiceEntries postDeliveryNote postJournalEntry postVendorInvoice releaseStockForSalesOrderLine requestReverseVendorInvoice reverseDeliveryNote reverseJournalEntry saveCbtDraft saveDeliveryNoteDraft saveDraftSalesOrder saveJournalDraft saveVendorInvoiceDraft
 ```
 <!-- PORT-STATUS:end -->
 

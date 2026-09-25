@@ -275,5 +275,32 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
     if (existing.VoucherType && STOCK_VOUCHER_TYPE_TO_MODULE[existing.VoucherType]) {
       throw new Error('This entry was posted by ' + existing.VoucherType + ' — reverse it from that module, not here.');
     }`
+    },
+  {
+    id: 'vendor-invoice-recheck-grns-at-post',
+    why: 'saveVendorInvoiceDraft refuses a GRN already matched to a different invoice, but that is a draft-time check ' +
+      'and posting never repeated it. Two drafts built from the same unmatched GRN could both post: the vendor\'s ' +
+      'payable was booked twice and GRN Clearing debited twice, with MatchedToInvoiceID overwritten by the second — ' +
+      'and reversing either invoice then unmatched the GRN while the other still claimed it. A GRN reversed after the ' +
+      'draft was saved was likewise still invoiced. Now every source GRN is re-checked at commit (post and approval): ' +
+      'still a Posted, unreversed GRN of this company and vendor, matched to no other invoice.',
+    find: `function commitVendorInvoicePosting_(idToken, user, existing, invoiceId) {
+  const vendor = firebaseDbRequest_('vendors/' + existing.VendorID, 'get', null, idToken);`,
+    replace: `function commitVendorInvoicePosting_(idToken, user, existing, invoiceId) {
+  // [PORT FIX vendor-invoice-recheck-grns-at-post] the draft-time GRN checks can be stale by now.
+  for (const g of (existing.SourceGRNs || [])) {
+    const grn = firebaseDbRequest_('stock/transactions/' + g.GRNID, 'get', null, idToken);
+    const label = g.GRNNumber || g.GRNID;
+    if (!grn || grn.TransactionType !== 'GRN' || grn.Status !== 'Posted' || grn.ReversedByGRN || grn.ReversalOfGRN) {
+      throw new Error('GRN ' + label + ' is no longer a posted, unreversed GRN — remove it from this invoice and save again.');
+    }
+    if (grn.CompanyID !== existing.CompanyID || grn.VendorID !== existing.VendorID) {
+      throw new Error('GRN ' + label + ' does not belong to this invoice\\'s company and vendor.');
+    }
+    if (grn.MatchedToInvoiceID && grn.MatchedToInvoiceID !== invoiceId) {
+      throw new Error('GRN ' + label + ' has already been invoiced on another Vendor Invoice — remove it from this invoice and save again.');
+    }
+  }
+  const vendor = firebaseDbRequest_('vendors/' + existing.VendorID, 'get', null, idToken);`
   }
 ];

@@ -3084,6 +3084,34 @@ async function consumeReservationForDelivery_(idToken, soId, soLineId, shippedQt
   });
 }
 
+async function resolveGrnClearingAccount_(idToken, companyId) {
+  const companies = (await firebaseDbRequest_('companies', 'get', null, idToken)) || {};
+  const company = companies[companyId];
+  if (!company) throw new Error('Company not found.');
+  if (!company.GrnClearingAccountID) {
+    throw new Error('This company has no GRN Clearing Account configured. Set one in Company Master Data before posting a GRN.');
+  }
+  return company.GrnClearingAccountID;
+}
+
+// Generic resolver for every OTHER fixed, per-company account Vendor
+// Invoice Processing needs — Accounts Payable, Discount Received,
+// Input Tax, Round Off. Always throws if missing; it's the CALLER's
+// job to decide whether a given account is even needed for a specific
+// invoice (Discount Received, for instance, is only actually resolved
+// when an invoice has a non-zero discount — an invoice with no
+// discount at all shouldn't be blocked by a company that's simply
+// never bothered configuring an account it's never needed yet).
+async function resolveCompanyFixedAccount_(idToken, companyId, fieldName, label) {
+  const companies = (await firebaseDbRequest_('companies', 'get', null, idToken)) || {};
+  const company = companies[companyId];
+  if (!company) throw new Error('Company not found.');
+  if (!company[fieldName]) {
+    throw new Error('This company has no ' + label + ' configured. Set one in Company Master Data before posting this invoice.');
+  }
+  return company[fieldName];
+}
+
 async function getBoms(idToken) {
   const user = await requireUser_(idToken);
   if (!(await moduleHasCapability_(idToken, 'BOM', 'access', user.profile.role))) {
@@ -3749,6 +3777,623 @@ async function reverseProduction(idToken, prodId, reversalDate) {
     );
 
     return { success: true, prodId: newId, prodNumber: glResult.jvNumber };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// ============================================================
+// VENDOR INVOICE PROCESSING (Phase B of the AP build)
+// ============================================================
+// Matches a Vendor's Posted, not-yet-invoiced GRNs (whole GRNs, never
+// partial lines — confirmed design) against a manually entered
+// Discount, Tax %, and Round Off, plus optional direct (non-GRN)
+// expense lines for charges that never went through goods receipt at
+// all (freight, services). Since GRN price is already locked to PO
+// price at receipt time (see saveGrnDraft's own comment on this), an
+// invoice line sourced from a GRN can never itself carry a price
+// disagreement — there's no editable price field on that path at
+// all. The real reconciliation happening here is simpler than a
+// textbook three-way match: does what's been entered (which GRNs,
+// what discount, what tax) actually total correctly, not "is the
+// price right" — that question was already closed at GRN time.
+//
+// GL shape, once posted:
+//   Dr GRN Clearing (company's own account, same one GRN itself
+//     credited — this is what actually clears that suspense balance)
+//   Dr each direct line's own account, for its own amount
+//   Cr Discount Received (company's own account) — only if Discount > 0
+//   Dr Input Tax (company's own account) — only if TaxAmount > 0
+//   Dr OR Cr Round Off (company's own account, by sign) — only if != 0
+//   Cr the VENDOR's own TradePayablesAccountID — the invoice Total
+//
+// Storage: /vendorInvoices/{id}. Uses the SAME commit-marker safety
+// pattern as every stock module (see beginCommitAttempt_'s own section
+// comment for the full reasoning) — posting here has the identical
+// cross-database risk shape: a Firestore GL write paired with an RTDB
+// side effect (marking each matched GRN's MatchedToInvoiceID, so it
+// drops out of every future invoice picker — the double-invoicing
+// prevention). collectionPath is 'vendorInvoices' throughout, not the
+// default 'stock/transactions'.
+
+async function getVendorInvoiceEntries(idToken, limit) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'VENDORINVOICE', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Vendor Invoice Processing.');
+  }
+  const data = (await firebaseDbRequest_('vendorInvoices', 'get', null, idToken)) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ VendorInvoiceID: id }, data[id]))
+    .filter(inv => userCanAccessCompany_(user.profile, inv.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const useAll = limit === 'all';
+  const capped = useAll ? all : all.slice(0, 100);
+  return { entries: capped, total: all.length };
+}
+
+// Posted GRNs for the given company AND vendor, not already matched to
+// any invoice. Vendor is required, same reasoning as GRN's own
+// single-vendor-per-document picker — an invoice belongs to exactly
+// one vendor, and every GRN it can possibly match against already
+// carries its own VendorID (set at GRN save time, Phase A).
+async function getEligibleGRNsForInvoice(idToken, companyId, vendorId) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'VENDORINVOICE', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Vendor Invoice Processing.');
+  }
+  if (!companyId || !vendorId) return [];
+
+  const data = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ GRNID: id }, data[id]))
+    .filter(g => g.TransactionType === 'GRN' && g.Status === 'Posted' && g.CompanyID === companyId && g.VendorID === vendorId && !g.MatchedToInvoiceID)
+    .map(g => ({
+      GRNID: g.GRNID, GRNNumber: g.TransactionNumber, TransactionDate: g.TransactionDate,
+      Description: g.Description,
+      Amount: (g.Lines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0)
+    }));
+}
+
+async function deleteVendorInvoiceDraft(idToken, invoiceId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'VENDORINVOICE');
+    const existing = await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'get', null, idToken);
+    if (!existing) throw new Error('Vendor Invoice not found.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft Vendor Invoice can be deleted.');
+    await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function saveVendorInvoiceDraft(idToken, invoiceData) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'VENDORINVOICE');
+
+    const invoiceId = String(invoiceData.VendorInvoiceID || '').trim();
+    const invoiceDate = String(invoiceData.InvoiceDate || '').trim();
+    if (!invoiceDate) throw new Error('Invoice date is required.');
+    const description = String(invoiceData.Description || '').trim();
+    if (!description) throw new Error('Description is required.');
+    const vendorRefNumber = String(invoiceData.VendorRefNumber || '').trim();
+    if (!vendorRefNumber) throw new Error('The Vendor\'s own invoice number is required.');
+    const companyId = String(invoiceData.CompanyID || '').trim();
+    if (!companyId) throw new Error('Select a Company for this invoice.');
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    const vendorId = String(invoiceData.VendorID || '').trim();
+    if (!vendorId) throw new Error('Select a Vendor for this invoice.');
+    const vendorData = await firebaseDbRequest_('vendors/' + vendorId, 'get', null, idToken);
+    if (!vendorData || vendorData.Status !== 'Active') throw new Error('Unknown or inactive Vendor.');
+
+    const divisionId = String(invoiceData.DivisionID || '').trim();
+    const branchId = String(invoiceData.BranchID || '').trim();
+    const costCenterId = String(invoiceData.CostCenterID || '').trim();
+    const profitCenterId = String(invoiceData.ProfitCenterID || '').trim();
+
+    // Source GRNs — each must be Posted, same Company AND Vendor as
+    // this invoice, and not already matched to a DIFFERENT invoice
+    // (matched to THIS SAME draft, on a re-save, is fine).
+    const rawGRNs = invoiceData.SourceGRNs || [];
+    const grnCache = {};
+    async function loadGRN_(grnId) {
+      if (!grnCache.hasOwnProperty(grnId)) grnCache[grnId] = await firebaseDbRequest_('stock/transactions/' + grnId, 'get', null, idToken);
+      return grnCache[grnId];
+    }
+    const sourceGRNs = await seq.map(rawGRNs, async (g, idx) => {
+      const grnId = String(g.GRNID || '').trim();
+      if (!grnId) throw new Error('Source GRN ' + (idx + 1) + ': missing ID.');
+      const grn = await loadGRN_(grnId);
+      if (!grn || grn.TransactionType !== 'GRN' || grn.Status !== 'Posted') {
+        throw new Error('Source GRN ' + (idx + 1) + ': not found or not Posted.');
+      }
+      if (grn.CompanyID !== companyId) throw new Error('Source GRN ' + (idx + 1) + ': belongs to a different Company.');
+      if (grn.VendorID !== vendorId) throw new Error('Source GRN ' + (idx + 1) + ': belongs to a different Vendor — an invoice can only draw from one Vendor\'s GRNs.');
+      if (grn.MatchedToInvoiceID && grn.MatchedToInvoiceID !== invoiceId) {
+        throw new Error('Source GRN ' + (idx + 1) + ' (' + (grn.TransactionNumber || grnId) + ') is already matched to a different invoice.');
+      }
+      const amount = (grn.Lines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0);
+      return { GRNID: grnId, GRNNumber: grn.TransactionNumber || '', Amount: Math.round(amount * 100) / 100 };
+    });
+
+    // Direct lines — non-GRN charges (freight, services). Each is
+    // always a debit to its own account; there's no "direction" to
+    // pick, since a vendor invoice line not tied to a GRN is
+    // essentially always an expense or asset being incurred.
+    const coaData = await getCoaData_(idToken);
+    const rawDirectLines = (invoiceData.DirectLines || []).filter(l => String(l.AccountCode || '').trim());
+    const directLines = rawDirectLines.map((l, idx) => {
+      const accountCode = String(l.AccountCode || '').trim();
+      const account = Object.values(coaData).find(a => a.AccountCode === accountCode);
+      if (!account || !account.IsPostable || account.Status !== 'Active') {
+        throw new Error('Direct line ' + (idx + 1) + ': unknown or non-postable account.');
+      }
+      const amount = Number(l.Amount);
+      if (!(amount > 0)) throw new Error('Direct line ' + (idx + 1) + ': amount must be greater than zero.');
+      const lineDescription = String(l.Description || '').trim();
+      if (!lineDescription) throw new Error('Direct line ' + (idx + 1) + ': description is required.');
+      return {
+        AccountCode: accountCode, Description: lineDescription, Amount: Math.round(amount * 100) / 100,
+        CostCenterID: String(l.CostCenterID || '').trim(), ProfitCenterID: String(l.ProfitCenterID || '').trim()
+      };
+    });
+
+    if (!sourceGRNs.length && !directLines.length) {
+      throw new Error('Add at least one GRN or one direct line.');
+    }
+
+    const discount = Number(invoiceData.Discount) || 0;
+    if (discount < 0) throw new Error('Discount cannot be negative.');
+    const taxPercent = Number(invoiceData.TaxPercent) || 0;
+    if (taxPercent < 0) throw new Error('Tax % cannot be negative.');
+    const roundOff = Number(invoiceData.RoundOff) || 0;
+
+    const grnSubtotal = sourceGRNs.reduce((sum, g) => sum + g.Amount, 0);
+    const directTotal = directLines.reduce((sum, l) => sum + l.Amount, 0);
+    const subtotal = Math.round((grnSubtotal + directTotal) * 100) / 100;
+    if (discount > subtotal) throw new Error('Discount cannot exceed the invoice subtotal.');
+    // Tax computed on the NET of discount, per the confirmed formula —
+    // most tax regimes calculate this way, not on the gross.
+    const taxAmount = Math.round(((subtotal - discount) * taxPercent / 100) * 100) / 100;
+    const total = Math.round((subtotal - discount + taxAmount + roundOff) * 100) / 100;
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const fields = {
+      TransactionType: 'VendorInvoice',
+      InvoiceDate: invoiceDate, Description: description, VendorRefNumber: vendorRefNumber,
+      CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
+      CostCenterID: costCenterId, ProfitCenterID: profitCenterId, VendorID: vendorId,
+      SourceGRNs: sourceGRNs, DirectLines: directLines,
+      Discount: discount, TaxPercent: taxPercent, TaxAmount: taxAmount, RoundOff: roundOff,
+      Subtotal: subtotal, Total: total,
+      Status: 'Draft',
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    if (invoiceId) {
+      const existing = await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'get', null, idToken);
+      if (!existing) throw new Error('Vendor Invoice not found.');
+      if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected invoices can be edited.');
+      await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', fields, idToken);
+      return { success: true, invoiceId: invoiceId };
+    }
+
+    const newId = 'VINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('vendorInvoices/' + newId, 'put', Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }), idToken);
+    return { success: true, invoiceId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function postVendorInvoice(idToken, invoiceId) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    const existing = await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'get', null, idToken);
+    if (!existing) throw new Error('Vendor Invoice not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requirePostAccess_(idToken, user, 'VENDORINVOICE');
+    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected invoices can be posted.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'VENDORINVOICE', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const approval = await beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, '', scopeKey, existing.Total, user.uid);
+
+    if (approval.required) {
+      // Nothing physical happens yet — no GL entry, no GRN matched —
+      // until this is actually approved (see decideVendorInvoiceApproval,
+      // which is where commitVendorInvoicePosting_ runs in that case).
+      await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', {
+        Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
+        RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'PendingApproval' };
+    }
+
+    const result = await commitVendorInvoicePosting_(idToken, user, existing, invoiceId);
+    return { success: true, invoiceId: invoiceId, invoiceNumber: result.invoiceNumber, status: 'Posted' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// Caller MUST already hold LockService.getScriptLock() — same
+// precondition as every other commit*Posting_ function.
+async function commitVendorInvoicePosting_(idToken, user, existing, invoiceId) {
+  // [PORT FIX vendor-invoice-recheck-grns-at-post] the draft-time GRN checks can be stale by now.
+  for (const g of (existing.SourceGRNs || [])) {
+    const grn = await firebaseDbRequest_('stock/transactions/' + g.GRNID, 'get', null, idToken);
+    const label = g.GRNNumber || g.GRNID;
+    if (!grn || grn.TransactionType !== 'GRN' || grn.Status !== 'Posted' || grn.ReversedByGRN || grn.ReversalOfGRN) {
+      throw new Error('GRN ' + label + ' is no longer a posted, unreversed GRN — remove it from this invoice and save again.');
+    }
+    if (grn.CompanyID !== existing.CompanyID || grn.VendorID !== existing.VendorID) {
+      throw new Error('GRN ' + label + ' does not belong to this invoice\'s company and vendor.');
+    }
+    if (grn.MatchedToInvoiceID && grn.MatchedToInvoiceID !== invoiceId) {
+      throw new Error('GRN ' + label + ' has already been invoiced on another Vendor Invoice — remove it from this invoice and save again.');
+    }
+  }
+  const vendor = await firebaseDbRequest_('vendors/' + existing.VendorID, 'get', null, idToken);
+  const coaData = await getCoaData_(idToken);
+  if (!vendor || !vendor.TradePayablesAccountID) {
+    throw new Error('This Vendor has no Trade Payables Account configured. Set one in Vendor Master Data before posting.');
+  }
+  const apAccount = coaData[vendor.TradePayablesAccountID];
+  if (!apAccount || !apAccount.IsPostable) throw new Error('This Vendor\'s Trade Payables Account is no longer valid.');
+
+  const glLines = [];
+
+  const grnSubtotal = (existing.SourceGRNs || []).reduce((sum, g) => sum + (Number(g.Amount) || 0), 0);
+  if (grnSubtotal > 0) {
+    const clearingAccountId = await resolveGrnClearingAccount_(idToken, existing.CompanyID);
+    const clearingAccount = coaData[clearingAccountId];
+    if (!clearingAccount || !clearingAccount.IsPostable) throw new Error('This company\'s GRN Clearing Account is no longer valid.');
+    glLines.push({
+      AccountCode: clearingAccount.AccountCode, Debit: Math.round(grnSubtotal * 100) / 100, Credit: 0,
+      Description: existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || ''
+    });
+  }
+
+  (existing.DirectLines || []).forEach(l => {
+    glLines.push({
+      AccountCode: l.AccountCode, Debit: l.Amount, Credit: 0,
+      Description: l.Description, CostCenterID: l.CostCenterID || existing.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || existing.ProfitCenterID || ''
+    });
+  });
+
+  if (existing.Discount > 0) {
+    const discountAccountId = await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'DiscountReceivedAccountID', 'Discount Received Account');
+    const discountAccount = coaData[discountAccountId];
+    if (!discountAccount || !discountAccount.IsPostable) throw new Error('This company\'s Discount Received Account is no longer valid.');
+    glLines.push({
+      AccountCode: discountAccount.AccountCode, Debit: 0, Credit: Math.round(existing.Discount * 100) / 100,
+      Description: 'Discount received — ' + existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || ''
+    });
+  }
+
+  if (existing.TaxAmount > 0) {
+    const taxAccountId = await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'InputTaxAccountID', 'Input Tax Account');
+    const taxAccount = coaData[taxAccountId];
+    if (!taxAccount || !taxAccount.IsPostable) throw new Error('This company\'s Input Tax Account is no longer valid.');
+    glLines.push({
+      AccountCode: taxAccount.AccountCode, Debit: Math.round(existing.TaxAmount * 100) / 100, Credit: 0,
+      Description: 'Input tax — ' + existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || ''
+    });
+  }
+
+  if (existing.RoundOff) {
+    const roundOffAccountId = await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'RoundOffAccountID', 'Round Off Account');
+    const roundOffAccount = coaData[roundOffAccountId];
+    if (!roundOffAccount || !roundOffAccount.IsPostable) throw new Error('This company\'s Round Off Account is no longer valid.');
+    const magnitude = Math.round(Math.abs(existing.RoundOff) * 100) / 100;
+    if (existing.RoundOff > 0) {
+      glLines.push({ AccountCode: roundOffAccount.AccountCode, Debit: magnitude, Credit: 0, Description: 'Round off — ' + existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+    } else {
+      glLines.push({ AccountCode: roundOffAccount.AccountCode, Debit: 0, Credit: magnitude, Description: 'Round off — ' + existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+    }
+  }
+
+  glLines.push({
+    AccountCode: apAccount.AccountCode, Debit: 0, Credit: Math.round(existing.Total * 100) / 100,
+    Description: existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || ''
+  });
+
+  const actor = user.profile.username || user.uid;
+  // Everything above is pure validation and read-only computation —
+  // nothing written yet, so any failure up to here is ordinary and
+  // safely retriable. From here on, see beginCommitAttempt_'s own
+  // section comment for the full reasoning.
+  const attemptId = await beginCommitAttempt_(idToken, invoiceId, actor, 'vendorInvoices');
+
+  let glResult;
+  try {
+    glResult = await writeStockGlEntry_(idToken, user, 'VendorInvoice', existing.InvoiceDate, existing.Description, existing.VendorRefNumber,
+      glLines,
+      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      { CommitAttemptID: attemptId, SourceTransactionID: invoiceId });
+  } catch (err) {
+    await abandonCommitAttempt_(idToken, invoiceId, existing.Status, actor, 'vendorInvoices');
+    throw err;
+  }
+
+  // A GL entry genuinely exists from here on — no more reverting.
+  // Marks each matched GRN so it drops out of every future invoice
+  // picker — the actual double-invoicing prevention, and the RTDB-side
+  // effect this whole commit-marker pattern exists to protect.
+  await seq.forEach(existing.SourceGRNs || [], async g => {
+    await firebaseDbRequest_('stock/transactions/' + g.GRNID, 'patch', { MatchedToInvoiceID: invoiceId }, idToken);
+  });
+
+  await finalizeCommitAttempt_(idToken, invoiceId, glResult, {}, actor, 'vendorInvoices');
+
+  return { invoiceNumber: glResult.jvNumber };
+}
+
+async function decideVendorInvoiceApproval(idToken, invoiceId, levelNumber, decision, reason) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    await requirePostAccess_(idToken, user, 'VENDORINVOICE');
+    const existing = await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'get', null, idToken);
+    if (!existing) throw new Error('Vendor Invoice not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'PendingApproval') throw new Error('This invoice is not awaiting approval.');
+    if (!existing.ApprovalInstanceID) throw new Error('No approval record found for this invoice.');
+
+    const result = await recordApprovalDecision(idToken, existing.ApprovalInstanceID, levelNumber, decision, reason);
+    if (!result.success) throw new Error(result.error);
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    if (result.status === 'Approved') {
+      try {
+        const commitResult = await commitVendorInvoicePosting_(idToken, user, existing, invoiceId);
+        return { success: true, status: 'Approved', invoiceNumber: commitResult.invoiceNumber };
+      } catch (commitErr) {
+        // Same architectural gap, same fix, as Customer Invoice's own
+        // decideCustomerInvoiceApproval — see its comment for the full
+        // reasoning: recordApprovalDecision already permanently
+        // persisted this decision before the commit was attempted, so
+        // a commit failure here needs an explicit rollback, or the
+        // invoice gets stuck forever (still PendingApproval and locked
+        // for editing, while the approval instance itself already
+        // shows Approved and refuses any further decision).
+        const instance = await firebaseDbRequest_('approvalInstances/' + existing.ApprovalInstanceID, 'get', null, idToken);
+        if (instance) {
+          const revertedDecisions = (instance.Decisions || []).filter(d => d.LevelNumber !== levelNumber);
+          await firebaseDbRequest_('approvalInstances/' + existing.ApprovalInstanceID, 'patch', {
+            Decisions: revertedDecisions, Status: 'Pending', UpdatedAt: new Date().toISOString()
+          }, idToken);
+        }
+        await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', {
+          Status: 'Rejected',
+          RejectionReason: 'Posting failed and could not be completed: ' + commitErr.message + ' — please fix and resubmit.',
+          UpdatedAt: new Date().toISOString(), UpdatedBy: actor
+        }, idToken);
+        throw new Error('Posting failed: ' + commitErr.message + '. The invoice has been returned to an editable state — fix the issue and resubmit.');
+      }
+    }
+    if (result.status === 'Rejected') {
+      await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', {
+        Status: 'Rejected', RejectionReason: String(reason || '').trim(), UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'Rejected' };
+    }
+    return { success: true, status: result.status };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// Core reversal execution — builds and posts the offsetting GL entry,
+// unmatches the source GRNs, and links the two records together.
+// Called either immediately (no approval gate configured) or once a
+// reversal request has actually been approved. Caller MUST already
+// hold LockService.getScriptLock() and have validated existing.Status
+// === 'Posted' with no prior ReversedByInvoiceID.
+async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId, date) {
+  const vendor = await firebaseDbRequest_('vendors/' + existing.VendorID, 'get', null, idToken);
+  const coaData = await getCoaData_(idToken);
+  const apAccount = coaData[vendor.TradePayablesAccountID];
+
+  // Same GL lines as the original, every Debit/Credit swapped.
+  const glLines = [];
+  const grnSubtotal = (existing.SourceGRNs || []).reduce((sum, g) => sum + (Number(g.Amount) || 0), 0);
+  if (grnSubtotal > 0) {
+    const clearingAccount = coaData[await resolveGrnClearingAccount_(idToken, existing.CompanyID)];
+    glLines.push({ AccountCode: clearingAccount.AccountCode, Debit: 0, Credit: Math.round(grnSubtotal * 100) / 100, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+  }
+  (existing.DirectLines || []).forEach(l => {
+    glLines.push({ AccountCode: l.AccountCode, Debit: 0, Credit: l.Amount, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: l.CostCenterID || existing.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || existing.ProfitCenterID || '' });
+  });
+  if (existing.Discount > 0) {
+    const discountAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'DiscountReceivedAccountID', 'Discount Received Account')];
+    glLines.push({ AccountCode: discountAccount.AccountCode, Debit: Math.round(existing.Discount * 100) / 100, Credit: 0, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+  }
+  if (existing.TaxAmount > 0) {
+    const taxAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'InputTaxAccountID', 'Input Tax Account')];
+    glLines.push({ AccountCode: taxAccount.AccountCode, Debit: 0, Credit: Math.round(existing.TaxAmount * 100) / 100, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+  }
+  if (existing.RoundOff) {
+    const roundOffAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'RoundOffAccountID', 'Round Off Account')];
+    const magnitude = Math.round(Math.abs(existing.RoundOff) * 100) / 100;
+    if (existing.RoundOff > 0) {
+      glLines.push({ AccountCode: roundOffAccount.AccountCode, Debit: 0, Credit: magnitude, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+    } else {
+      glLines.push({ AccountCode: roundOffAccount.AccountCode, Debit: magnitude, Credit: 0, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+    }
+  }
+  glLines.push({ AccountCode: apAccount.AccountCode, Debit: Math.round(existing.Total * 100) / 100, Credit: 0, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
+
+  const now = new Date().toISOString();
+  const actor = user.profile.username || user.uid;
+  const newId = 'VINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+
+  const attemptId = Utilities.getUuid();
+  await firebaseDbRequest_('vendorInvoices/' + newId, 'put', {
+    TransactionType: 'VendorInvoice', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
+    InvoiceDate: date, Description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description,
+    VendorRefNumber: existing.VendorRefNumber,
+    CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
+    CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID, VendorID: existing.VendorID,
+    SourceGRNs: existing.SourceGRNs || [], DirectLines: existing.DirectLines || [],
+    Discount: existing.Discount, TaxPercent: existing.TaxPercent, TaxAmount: existing.TaxAmount, RoundOff: existing.RoundOff,
+    Subtotal: existing.Subtotal, Total: existing.Total,
+    CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
+    ReversalOfInvoiceID: invoiceId, ReversedByInvoiceID: ''
+  }, idToken);
+
+  let glResult;
+  try {
+    glResult = await writeStockGlEntry_(idToken, user, 'VendorInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.VendorRefNumber,
+      glLines,
+      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      { CommitAttemptID: attemptId, SourceTransactionID: newId });
+  } catch (err) {
+    await firebaseDbRequest_('vendorInvoices/' + newId, 'delete', null, idToken);
+    throw err;
+  }
+
+  // Original patched before the new reversal finalizes — same
+  // deliberate ordering as every other module's reversal, preventing
+  // double-reversal even under a failure at the worst possible
+  // moment. Status reset back to Posted here too — when a reversal
+  // gate is configured, requestReverseVendorInvoice already moved the
+  // original to PendingReversalApproval, and nothing else ever moved
+  // it back; leaving it there was a real bug (the invoice stayed
+  // stuck showing "Pending Reversal Approval" forever, even after the
+  // reversal had actually gone through).
+  await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', { Status: 'Posted', ReversalApprovalInstanceID: '', PendingReversalDate: '', ReversedByInvoiceID: newId }, idToken);
+  await finalizeCommitAttempt_(idToken, newId, glResult, {}, actor, 'vendorInvoices');
+
+  // Unmatch every GRN this invoice had claimed — they become
+  // available in every future invoice picker again.
+  await seq.forEach(existing.SourceGRNs || [], async g => {
+    await firebaseDbRequest_('stock/transactions/' + g.GRNID, 'patch', { MatchedToInvoiceID: '' }, idToken);
+  });
+
+  return { invoiceId: newId, invoiceNumber: glResult.jvNumber };
+}
+
+// Reversal requires the SAME approval treatment as original posting —
+// confirmed deliberately, a genuine departure from every other module
+// in this system, where reversal never requires approval. Resolved
+// fresh against the CURRENT, live VENDORINVOICE approval configuration
+// — the exact same gate resolution postVendorInvoice itself uses, not
+// a frozen snapshot of whatever gate existed when this invoice was
+// first posted. If no gate is currently configured, reversal proceeds
+// immediately, same "no gate configured means no gate" rule every
+// other approval-gated action in this system already follows.
+async function requestReverseVendorInvoice(idToken, invoiceId, reversalDate) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    const existing = await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'get', null, idToken);
+    if (!existing) throw new Error('Vendor Invoice not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requirePostAccess_(idToken, user, 'VENDORINVOICE');
+    if (existing.Status !== 'Posted') throw new Error('Only posted invoices can be reversed.');
+    if (existing.ReversedByInvoiceID) throw new Error('This invoice has already been reversed.');
+    if (existing.ReversalOfInvoiceID) throw new Error('A reversal entry cannot itself be reversed.');
+
+    const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'VENDORINVOICE', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const approval = await beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, existing.Total, user.uid);
+
+    if (approval.required) {
+      // Nothing physical happens yet — no GL entry, no GRN unmatched —
+      // until this is actually approved (see
+      // decideVendorInvoiceReversalApproval, which is where
+      // executeVendorInvoiceReversal_ runs in that case). A dedicated
+      // status, not the shared 'PendingApproval' a fresh submission
+      // uses — that distinction matters here: it makes it structurally
+      // impossible for decideVendorInvoiceApproval (which only ever
+      // acts on 'PendingApproval') to be called against a
+      // reversal-in-progress invoice by mistake, which would otherwise
+      // risk re-triggering a normal post on an already-posted invoice.
+      await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', {
+        Status: 'PendingReversalApproval', ReversalApprovalInstanceID: approval.instanceId,
+        PendingReversalDate: date, UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'PendingReversalApproval' };
+    }
+
+    const result = await executeVendorInvoiceReversal_(idToken, user, existing, invoiceId, date);
+    return { success: true, invoiceId: result.invoiceId, invoiceNumber: result.invoiceNumber, status: 'Posted' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// A rejected reversal request falls back to Posted, not a generic
+// 'Rejected' state — there's no edit form for a reversal request,
+// nothing to revise and resubmit. The invoice simply remains exactly
+// as it was: posted, unreversed.
+async function decideVendorInvoiceReversalApproval(idToken, invoiceId, levelNumber, decision, reason) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    await requirePostAccess_(idToken, user, 'VENDORINVOICE');
+    const existing = await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'get', null, idToken);
+    if (!existing) throw new Error('Vendor Invoice not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'PendingReversalApproval') throw new Error('This invoice is not awaiting reversal approval.');
+    if (!existing.ReversalApprovalInstanceID) throw new Error('No approval record found for this reversal request.');
+
+    const result = await recordApprovalDecision(idToken, existing.ReversalApprovalInstanceID, levelNumber, decision, reason);
+    if (!result.success) throw new Error(result.error);
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    if (result.status === 'Approved') {
+      const date = existing.PendingReversalDate || new Date().toISOString().substring(0, 10);
+      const reversalResult = await executeVendorInvoiceReversal_(idToken, user, existing, invoiceId, date);
+      return { success: true, status: 'Approved', invoiceId: reversalResult.invoiceId, invoiceNumber: reversalResult.invoiceNumber };
+    }
+    if (result.status === 'Rejected') {
+      await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', {
+        Status: 'Posted', ReversalApprovalInstanceID: '', PendingReversalDate: '',
+        ReversalRejectionReason: String(reason || '').trim(), UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'Rejected' };
+    }
+    return { success: true, status: result.status };
   } catch (err) {
     return { success: false, error: err.message };
   } finally {
@@ -8867,6 +9512,8 @@ module.exports = {
   updateSOLineDeliveredQuantity_,
   rollbackSOLineDeliveredQuantity_,
   consumeReservationForDelivery_,
+  resolveGrnClearingAccount_,
+  resolveCompanyFixedAccount_,
   getBoms,
   getBomEffectiveOnDate_,
   groupBomsByParent_,
@@ -8881,6 +9528,16 @@ module.exports = {
   deleteProductionDraft,
   getProductionEntries,
   reverseProduction,
+  getVendorInvoiceEntries,
+  getEligibleGRNsForInvoice,
+  deleteVendorInvoiceDraft,
+  saveVendorInvoiceDraft,
+  postVendorInvoice,
+  commitVendorInvoicePosting_,
+  decideVendorInvoiceApproval,
+  executeVendorInvoiceReversal_,
+  requestReverseVendorInvoice,
+  decideVendorInvoiceReversalApproval,
   getDeliveryNoteEntries,
   saveDeliveryNoteDraft,
   deleteDeliveryNoteDraft,
