@@ -16,8 +16,8 @@ fresh session can continue from GitHub.
 | 0 | Party Payments & Bill-wise Allocation (JV, CBT) | [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md) | deployed | Live 2026-09-25 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). |
 | 1 | Purchase Return / Debit Note | [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) | tested | Built and tested 2026-09-25 on branch `purchase-return`; not deployed. Next: owner review, then deploy (`tools/deploy-sets/purchase-return.txt`) and link it in Tree Management. |
 | 2 | Sales Return / Credit Note | [SALES_RETURN.md](modules/SALES_RETURN.md) | tested | Built and tested 2026-09-25 on branch `sales-return` (contains #1); not deployed. Next: owner review, then deploy (`tools/deploy-sets/purchase-return.txt`, then `sales-return.txt`) and link it in Tree Management. |
-| 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | not started | Read-only report. Builds on #0. |
-| 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | not started | Read-only report. Builds on #0. |
+| 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | design agreed | Owner agreed 2026-09-25: statement, open items, aging, print/CSV, reconciliation. Branch `party-statements` (from `sales-return`). |
+| 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | design agreed | Same decisions as #3, one shared engine. Branch `party-statements`. |
 
 **Order:** #0 first (the owner's priority, and the SOAs need it). Then the returns, which the SOAs report on, and
 the SOAs last because they only read.
@@ -42,6 +42,15 @@ invoice. Each vendor and customer does have its own
   more modules.
 
 Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged with the vendor or customer, as a New Ref (for example an advance) or Against Ref (offsetting posted bills). Design: [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md).
+
+## Follow-ups from new development
+
+- [ ] **Customer credit control** (from Customer SOA decision C1): a
+  credit limit on Customer Master and a warning on new Sales Orders for
+  overdue or over-limit customers. Needs its own design doc.
+- [ ] **Party Payments UI check timing:** `functions/test/ui/partyPayments.ui.js`
+  uses fixed short waits and fails after a cold emulator start; switch it
+  to `waitForSelector` waits like the return screens' checks.
 
 ## Follow-ups from the migration
 
