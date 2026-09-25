@@ -171,6 +171,10 @@ function isSeqCall(node) {
     n.Identifier.check(node.callee.object) && node.callee.object.name === 'seq';
 }
 
+// Nested named helpers (function x() {...} declared inside a ported
+// function) that become async: calls to them inside that same function
+// get awaited too. Scoped per enclosing top-level function.
+const localAsync = {}; // top-level name -> Set of nested async function names
 let changed = true; let rounds = 0;
 while (changed) {
   changed = false; rounds++;
@@ -181,7 +185,7 @@ while (changed) {
       visitCallExpression(p) {
         this.traverse(p);
         const c = p.node.callee;
-        const isAsyncCall = (n.Identifier.check(c) && asyncNames.has(c.name)) ||
+        const isAsyncCall = (n.Identifier.check(c) && (asyncNames.has(c.name) || (localAsync[name] && localAsync[name].has(c.name)))) ||
           (n.MemberExpression.check(c) && !c.computed && LOCK_METHODS.has(c.property.name));
         if (isAsyncCall && !n.AwaitExpression.check(p.parent.node)) { p.replace(b.awaitExpression(p.node)); changed = true; }
       },
@@ -192,6 +196,11 @@ while (changed) {
         if (!f.node.async) { f.node.async = true; changed = true; }
         if (f.node === root) { if (!asyncNames.has(name)) { asyncNames.add(name); changed = true; } return; }
         // Nested function became async — its caller must cope.
+        if (n.FunctionDeclaration.check(f.node) && f.node.id) {
+          localAsync[name] = localAsync[name] || new Set();
+          if (!localAsync[name].has(f.node.id.name)) { localAsync[name].add(f.node.id.name); changed = true; }
+          return;
+        }
         const call = f.parent && f.parent.node;
         if (n.CallExpression.check(call) && call.arguments[0] === f.node && n.MemberExpression.check(call.callee) &&
             !call.callee.computed && COMBINATORS.has(call.callee.property.name)) {

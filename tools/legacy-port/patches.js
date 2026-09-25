@@ -193,5 +193,72 @@ module.exports = [
     find: `    firebaseDbRequest_('purchaseOrders/' + poId, 'patch', { ReopenRequested: false }, idToken);`,
     replace: `    // [PORT FIX po-reopen-flag-until-resolved] keep the flag while later levels still have to decide.
     if (result.status === 'Approved' || result.status === 'Rejected') firebaseDbRequest_('purchaseOrders/' + poId, 'patch', { ReopenRequested: false }, idToken);`
+    },
+  {
+    id: 'delivery-note-recheck-at-post',
+    why: 'saveDeliveryNoteDraft caps each line at min(remaining on the SO line, reserved for it), but that is a ' +
+      'draft-time snapshot and posting never re-checked it. Two drafts against the same SO line (each within the cap ' +
+      'on its own), a draft whose Sales Order was cancelled after saving, or two DN lines pointing at the same SO line ' +
+      'all posted anyway: DeliveredQuantity went past OrderedQuantity and the shipment took free stock (or stock ' +
+      'reserved for other orders), with COGS booked. Now the cap is re-checked, summed per SO line, against the live ' +
+      'SO and reservations when the DN is posted/submitted and again at commit (which also covers approval). The same ' +
+      '"never trust the draft-time snapshot" rule Physical Count follows.',
+    find: `function commitDeliveryNotePosting_(idToken, user, existing, dnId) {`,
+    replace: `// [PORT FIX delivery-note-recheck-at-post] re-applies saveDeliveryNoteDraft's per-line ship cap against the
+// LIVE Sales Order and reservations, summed per SO line — the draft-time check can be stale by now.
+function assertDeliveryNoteStillShippable_(idToken, dn) {
+  const wanted = {};
+  const order = [];
+  for (const l of (dn.Lines || [])) {
+    const key = l.SourceSOID + '|' + l.SourceSOLineID;
+    if (!wanted.hasOwnProperty(key)) {
+      wanted[key] = { soId: l.SourceSOID, lineId: l.SourceSOLineID, label: l.SourceSONumber || l.SourceSOID, itemCode: l.ItemCode, qty: 0 };
+      order.push(key);
+    }
+    wanted[key].qty += Number(l.Quantity) || 0;
+  }
+  for (const key of order) {
+    const w = wanted[key];
+    const so = firebaseDbRequest_('salesOrders/' + w.soId, 'get', null, idToken);
+    if (!so || (so.Status !== 'Reserved' && so.Status !== 'Partially Reserved')) {
+      throw new Error('Sales Order ' + w.label + ' is no longer available for delivery' + (so ? ' (' + so.Status + ')' : '') + '.');
+    }
+    const soLine = (so.Lines || []).find(x => x.LineID === w.lineId);
+    if (!soLine) throw new Error('Sales Order ' + w.label + ': the line for ' + w.itemCode + ' was not found.');
+    const reserved = getReservationsForSource_(idToken, 'SalesOrder', w.soId)
+      .filter(r => r.Status === 'Active' && r.SourceLineID === w.lineId)
+      .reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0);
+    const remaining = Math.max(0, Number(soLine.OrderedQuantity || 0) - Number(soLine.DeliveredQuantity || 0));
+    const maxShippable = Math.min(remaining, reserved);
+    if (w.qty > maxShippable + 0.000001) {
+      throw new Error('Sales Order ' + w.label + ', ' + w.itemCode + ': this Delivery Note ships ' + w.qty + ' but only ' + maxShippable +
+        ' can ship now (remaining on order ' + remaining + ', reserved ' + reserved + '). Another delivery or a release may have used it since this draft was saved — adjust the quantities and save again.');
+    }
+  }
+}
+
+function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
+  assertDeliveryNoteStillShippable_(idToken, existing);`
+  },
+  {
+    id: 'delivery-note-recheck-at-post (submit)',
+    why: 'Same check as above at submission, so a stale DN is refused before an approval instance is started for it.',
+    find: `    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a draft or rejected Delivery Note can be posted.');`,
+    replace: `    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a draft or rejected Delivery Note can be posted.');
+    // [PORT FIX delivery-note-recheck-at-post]
+    assertDeliveryNoteStillShippable_(idToken, existing);`
+  },
+  {
+    id: 'delivery-note-reversal-no-reserve-on-cancelled-so',
+    why: 'reverseDeliveryNote re-reserves the returned quantity on the Sales Order whenever the SO still exists. If ' +
+      'the SO was cancelled after the delivery (allowed: cancel only refuses an already-Cancelled SO), the reversal ' +
+      'created an Active reservation on a Cancelled order, and nothing can ever release it (release and claim need a ' +
+      'Reserved/Partially Reserved SO; cancel refuses a Cancelled one) — so that stock stayed unavailable forever. ' +
+      'Now it re-reserves only for a Reserved/Partially Reserved SO; otherwise the returned stock is simply free.',
+    find: `      const so = firebaseDbRequest_('salesOrders/' + l.SourceSOID, 'get', null, idToken);
+      if (so) {`,
+    replace: `      const so = firebaseDbRequest_('salesOrders/' + l.SourceSOID, 'get', null, idToken);
+      // [PORT FIX delivery-note-reversal-no-reserve-on-cancelled-so] a Cancelled SO's reservation could never be released.
+      if (so && (so.Status === 'Reserved' || so.Status === 'Partially Reserved')) {`
   }
 ];

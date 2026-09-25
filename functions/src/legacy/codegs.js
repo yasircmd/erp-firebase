@@ -2493,6 +2493,82 @@ async function getCashFlowStatement(idToken, params) {
   };
 }
 
+// Sales Order counterpart — Reserved or Partially Reserved SOs for the
+// given company AND customer. Each line's own RemainingQuantity is
+// Ordered minus already-Delivered, same shape as PO's own
+// RemainingQuantity above; separately, ReservedQuantity is what's
+// currently actually set aside and physically shippable right now —
+// the two can differ when a line was only partially reserved due to a
+// stock shortfall at confirm time, so the real cap on what Delivery
+// Note can ship for a line is whichever of the two is smaller, not
+// RemainingQuantity alone.
+async function getEligibleSOsForDelivery(idToken, companyId, customerId) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'DELIVERYNOTE', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Delivery Note.');
+  }
+  if (!companyId || !customerId) return [];
+
+  const data = (await firebaseDbRequest_('salesOrders', 'get', null, idToken)) || {};
+  return await seq.map(Object.keys(data)
+    .map(id => Object.assign({ SOID: id }, data[id]))
+    .filter(so => (so.Status === 'Reserved' || so.Status === 'Partially Reserved') && so.CompanyID === companyId && so.CustomerID === customerId), async so => {
+      const reservations = (await getReservationsForSource_(idToken, 'SalesOrder', so.SOID)).filter(r => r.Status === 'Active');
+      return Object.assign({}, so, {
+        Lines: (so.Lines || []).map(l => {
+          const reserved = reservations.filter(r => r.SourceLineID === l.LineID).reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0);
+          const remaining = Math.max(0, Number(l.OrderedQuantity || 0) - Number(l.DeliveredQuantity || 0));
+          return Object.assign({}, l, { RemainingQuantity: remaining, ReservedQuantity: reserved, MaxShippable: Math.min(remaining, reserved) });
+        })
+      });
+    });
+}
+
+// Same role on the sales side as updatePOLineReceivedQuantity_ above —
+// tracks how much of an SO line has actually shipped, independent of
+// its live reservation figure (which shrinks as stock ships, per
+// refreshSalesOrderReservationStatus_'s own comment on why "covered"
+// needs both numbers together).
+async function updateSOLineDeliveredQuantity_(idToken, soId, soLineId, deliveredQty) {
+  if (!soId || !soLineId) return;
+  const so = await firebaseDbRequest_('salesOrders/' + soId, 'get', null, idToken);
+  if (!so || !so.Lines) return;
+  const lines = so.Lines.map(l => l.LineID === soLineId
+    ? Object.assign({}, l, { DeliveredQuantity: Number(l.DeliveredQuantity || 0) + Number(deliveredQty || 0) })
+    : l);
+  await firebaseDbRequest_('salesOrders/' + soId, 'patch', { Lines: lines }, idToken);
+}
+
+async function rollbackSOLineDeliveredQuantity_(idToken, soId, soLineId, reversedQty) {
+  if (!soId || !soLineId) return;
+  const so = await firebaseDbRequest_('salesOrders/' + soId, 'get', null, idToken);
+  if (!so || !so.Lines) return;
+  const lines = so.Lines.map(l => l.LineID === soLineId
+    ? Object.assign({}, l, { DeliveredQuantity: Math.max(0, Number(l.DeliveredQuantity || 0) - Number(reversedQty || 0)) })
+    : l);
+  await firebaseDbRequest_('salesOrders/' + soId, 'patch', { Lines: lines }, idToken);
+}
+
+// Reduces this line's own Active reservation(s) by exactly what just
+// shipped — the stock is genuinely gone now, not sitting reserved.
+// Same underlying primitive releaseStockForSalesOrderLine already
+// uses (oldest reservation first, deterministic not meaningful), but
+// called automatically as a direct consequence of shipping rather
+// than as a manual user action, and with no "reason" required — the
+// delivery itself IS the reason.
+async function consumeReservationForDelivery_(idToken, soId, soLineId, shippedQty) {
+  const lineReservations = (await getReservationsForSource_(idToken, 'SalesOrder', soId))
+    .filter(r => r.Status === 'Active' && r.SourceLineID === soLineId)
+    .sort((a, b) => (a.CreatedAt || '').localeCompare(b.CreatedAt || ''));
+  let remaining = Math.min(shippedQty, lineReservations.reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0));
+  await seq.forEach(lineReservations, async r => {
+    if (remaining <= 0) return;
+    const toReduce = Math.min(remaining, Number(r.Quantity));
+    await reduceStockReservationQuantity_(idToken, r.ReservationID, toReduce, 'Consumed by Delivery Note');
+    remaining -= toReduce;
+  });
+}
+
 async function getBoms(idToken) {
   const user = await requireUser_(idToken);
   if (!(await moduleHasCapability_(idToken, 'BOM', 'access', user.profile.role))) {
@@ -3158,6 +3234,516 @@ async function reverseProduction(idToken, prodId, reversalDate) {
     );
 
     return { success: true, prodId: newId, prodNumber: glResult.jvNumber };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// ============================================================
+// DELIVERY NOTE (Goods Dispatch) — SO's counterpart to GRN
+// ============================================================
+// Outbound stock movement fulfilling a Sales Order, sourced ONLY from
+// SO lines — confirmed design: unlike GRN (which mixes PO-sourced and
+// free-entry lines), Delivery Note has no direct-entry mode at all,
+// since shipping stock with no order behind it doesn't fit this
+// system's flow. Every line locks to its SO line's own Warehouse (the
+// reservation sits at a specific warehouse — shipping from a different
+// one would leave that reservation meaningless) and own UnitPrice
+// (confirmed: same price as the SO, not re-enterable), and is capped
+// at whichever is smaller of what's still Remaining on the line or
+// what's currently Reserved for it — confirmed: never more than SO
+// quantity, a deliberate asymmetry from GRN's own permitted
+// over-receipt.
+//
+// GL shape, once posted — simpler than GRN's, deliberately (see the
+// Delivery Note design discussion): no clearing/suspense account,
+// since there's no price uncertainty the way GRN has before its
+// invoice arrives. Cost is fully known the instant goods leave:
+//   Cr Inventory (item's own InventoryAccountID, at WAC — exactly what
+//     computeStockMovement_ already produces for any outbound line)
+//   Dr COGS (resolveItemExpenseAccount_(item, 'Sales') — already
+//     exists, already checks item.SalesCogsAccountID first, same
+//     mechanism Material Issue's own Consumption side already uses
+//     live)
+// UnitPrice carried on each line is NOT used in this GL entry at all —
+// it rides along purely for Customer Invoice to read later, the same
+// role GRN's own locked PO price plays for Vendor Invoice.
+//
+// Same commit-safety pattern as every stock module (write-ahead
+// marker, Firestore GL write, RTDB side effects, reconciliation
+// sweep) — collectionPath stays the default 'stock/transactions',
+// since this genuinely IS a stock module like GRN, not a different
+// collection the way Vendor Invoice needed.
+//
+// RTDB side effects on successful commit: each SO line's own
+// DeliveredQuantity accumulates (mirrors updatePOLineReceivedQuantity_),
+// its matching reservation shrinks by the shipped amount
+// (consumeReservationForDelivery_), and the SO's own Reserved/Partially
+// Reserved status is refreshed to account for both together.
+
+async function getDeliveryNoteEntries(idToken, limit) {
+  const user = await requireUser_(idToken);
+  if (!(await moduleHasCapability_(idToken, 'DELIVERYNOTE', 'access', user.profile.role))) {
+    throw new Error('You do not have access to Delivery Note.');
+  }
+  const data = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ DeliveryNoteID: id }, data[id]))
+    .filter(dn => dn.TransactionType === 'DeliveryNote')
+    .filter(dn => userCanAccessCompany_(user.profile, dn.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const useAll = limit === 'all';
+  const capped = useAll ? all : all.slice(0, 100);
+  return { entries: capped, total: all.length };
+}
+
+async function saveDeliveryNoteDraft(idToken, dnData) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'DELIVERYNOTE');
+
+    const dnId = String(dnData.DeliveryNoteID || '').trim();
+    const transactionDate = String(dnData.TransactionDate || '').trim();
+    if (!transactionDate) throw new Error('Transaction date is required.');
+    const description = String(dnData.Description || '').trim();
+    if (!description) throw new Error('Description is required.');
+    const reference = String(dnData.Reference || '').trim();
+    const companyId = String(dnData.CompanyID || '').trim();
+    if (!companyId) throw new Error('Select a Company for this transaction.');
+    if (!userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    const divisionId = String(dnData.DivisionID || '').trim();
+    const branchId = String(dnData.BranchID || '').trim();
+    const costCenterId = String(dnData.CostCenterID || '').trim();
+    const profitCenterId = String(dnData.ProfitCenterID || '').trim();
+
+    const customerId = String(dnData.CustomerID || '').trim();
+    if (!customerId) throw new Error('Select a Customer for this transaction.');
+    const customerData = await firebaseDbRequest_('customers/' + customerId, 'get', null, idToken);
+    if (!customerData || customerData.Status !== 'Active') throw new Error('Unknown or inactive Customer.');
+
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const itemByCode = {};
+    Object.keys(itemsData).forEach(id => { itemByCode[itemsData[id].ItemCode] = Object.assign({ ItemID: id }, itemsData[id]); });
+
+    // Source SOs referenced by any line, cached once — a single
+    // delivery commonly pulls several lines from the same SO.
+    // Confirmed design mirrors GRN's own single-vendor rule: one
+    // Delivery Note is restricted to exactly one Customer, even across
+    // multiple SOs.
+    const soCache = {};
+    async function loadSourceSO_(soId) {
+      if (!soCache.hasOwnProperty(soId)) soCache[soId] = await firebaseDbRequest_('salesOrders/' + soId, 'get', null, idToken);
+      return soCache[soId];
+    }
+
+    const rawLines = dnData.Lines || [];
+    const lines = [];
+    await seq.forEach(rawLines, async (line, idx) => {
+      const sourceSOId = String(line.SourceSOID || '').trim();
+      const sourceSOLineId = String(line.SourceSOLineID || '').trim();
+      if (!sourceSOId || !sourceSOLineId) return; // skip blank trailing row
+
+      const sourceSO = await loadSourceSO_(sourceSOId);
+      if (!sourceSO || (sourceSO.Status !== 'Reserved' && sourceSO.Status !== 'Partially Reserved')) {
+        throw new Error('Line ' + (idx + 1) + ': the referenced Sales Order is no longer available for delivery.');
+      }
+      if (sourceSO.CompanyID !== companyId) throw new Error('Line ' + (idx + 1) + ': the referenced Sales Order belongs to a different Company.');
+      if (sourceSO.CustomerID !== customerId) throw new Error('Line ' + (idx + 1) + ': the referenced Sales Order belongs to a different Customer than this Delivery Note — a Delivery Note can only draw from one Customer\'s Sales Orders.');
+      const sourceSOLine = (sourceSO.Lines || []).find(l => l.LineID === sourceSOLineId);
+      if (!sourceSOLine) throw new Error('Line ' + (idx + 1) + ': the referenced Sales Order line was not found.');
+
+      const item = itemByCode[sourceSOLine.ItemCode];
+      if (!item) throw new Error('Line ' + (idx + 1) + ': item not found (' + sourceSOLine.ItemCode + ').');
+
+      // Warehouse is LOCKED to the SO line's own — the reservation sits
+      // at that specific warehouse, so shipping from anywhere else
+      // would leave it meaningless. Unlike GRN, this is never a
+      // freely-editable field.
+      const warehouseId = sourceSOLine.WarehouseID;
+
+      const enteredQty = Number(line.Quantity);
+      if (!(enteredQty > 0)) throw new Error('Line ' + (idx + 1) + ': enter a quantity greater than zero.');
+
+      // Confirmed cap: never more than what's still on the SO line AND
+      // never more than what's actually reserved right now — the
+      // smaller of the two, since a line only partially reserved (a
+      // stock shortfall at confirm time) can't physically ship more
+      // than what's genuinely set aside for it, even if more remains
+      // on order.
+      const activeReservations = (await getReservationsForSource_(idToken, 'SalesOrder', sourceSOId)).filter(r => r.Status === 'Active' && r.SourceLineID === sourceSOLineId);
+      const reservedQty = activeReservations.reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0);
+      const remainingQty = Math.max(0, Number(sourceSOLine.OrderedQuantity || 0) - Number(sourceSOLine.DeliveredQuantity || 0));
+      const maxShippable = Math.min(remainingQty, reservedQty);
+      if (enteredQty > maxShippable + 0.000001) {
+        throw new Error('Line ' + (idx + 1) + ': cannot ship more than ' + maxShippable + ' — capped at the smaller of what remains on the order (' + remainingQty + ') and what is currently reserved (' + reservedQty + ').');
+      }
+
+      // Price is LOCKED to the SO line's own — confirmed: same price
+      // as ordered, never re-entered. This never feeds Delivery Note's
+      // own GL entry (which is pure cost/WAC) — it rides along purely
+      // for Customer Invoice to read later.
+      const unitPrice = Number(sourceSOLine.UnitPrice) || 0;
+
+      const lineDescription = String(line.Description || '').trim();
+      if (!lineDescription) throw new Error('Line ' + (idx + 1) + ': description is required.');
+
+      // No batch requirement here — Delivery Note is a pure outbound
+      // shipment, same as Material Issue (the one other existing
+      // outbound module, which also has no such requirement). The
+      // stock ledger itself has no batch dimension at all
+      // (stockLedgerPath_ is keyed by item+warehouse only), confirming
+      // BatchNumber is purely a reference/traceability field recorded
+      // at the point stock ENTERS the system (GRN, an Increase
+      // Adjustment) — there's nothing to select or re-enter when it
+      // leaves.
+
+      // Cost Center is required somewhere for every line — either the
+      // line's own, or the header's own as a fallback default (the
+      // client already defaults every new line's Cost Center from the
+      // header at the moment it's added, but a line can still end up
+      // blank if the header's own Cost Center was itself blank at that
+      // moment). This matters more here than it does for GRN: GRN's
+      // own offsetting account (GRN Clearing) is a Liability, which
+      // never triggers the Cost-Center-required rule — Delivery
+      // Note's own COGS account is always an Expense, which always
+      // does. Catching it here, clearly, at save time, is better than
+      // letting it surface as a cryptic account-code error deep in GL
+      // posting at commit time.
+      const lineCostCenterId = String(line.CostCenterID || '').trim() || costCenterId;
+      if (!lineCostCenterId) throw new Error('Line ' + (idx + 1) + ': Cost Center is required — set one on this line or as the header default.');
+
+      lines.push({
+        LineNo: lines.length + 1,
+        ItemID: item.ItemID, ItemCode: item.ItemCode, ItemName: item.ItemName,
+        WarehouseID: warehouseId,
+        Quantity: Math.round(enteredQty * 1e6) / 1e6,
+        UnitPrice: Math.round(unitPrice * 10000) / 10000,
+        BatchNumber: String(line.BatchNumber || '').trim(),
+        ExpiryDate: String(line.ExpiryDate || '').trim(),
+        CostCenterID: lineCostCenterId,
+        ProfitCenterID: String(line.ProfitCenterID || '').trim(),
+        Description: lineDescription,
+        SourceSOID: sourceSOId, SourceSOLineID: sourceSOLineId, SourceSONumber: sourceSO.SONumber || ''
+      });
+    });
+
+    if (!lines.length) throw new Error('Enter at least one line.');
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const fields = {
+      TransactionType: 'DeliveryNote',
+      TransactionDate: transactionDate, Description: description, Reference: reference,
+      CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
+      CostCenterID: costCenterId, ProfitCenterID: profitCenterId, CustomerID: customerId,
+      Lines: lines, Status: 'Draft', UpdatedAt: now, UpdatedBy: actor
+    };
+
+    if (dnId) {
+      const existing = await firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
+      if (!existing || existing.TransactionType !== 'DeliveryNote') throw new Error('Delivery Note not found.');
+      if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a draft or rejected Delivery Note can be edited.');
+      await firebaseDbRequest_('stock/transactions/' + dnId, 'patch', fields, idToken);
+      return { success: true, dnId: dnId };
+    }
+
+    const newId = 'DND-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    await firebaseDbRequest_('stock/transactions/' + newId, 'put', Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }), idToken);
+    return { success: true, dnId: newId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function deleteDeliveryNoteDraft(idToken, dnId) {
+  try {
+    const user = await requireUser_(idToken);
+    await requireDraftAccess_(idToken, user, 'DELIVERYNOTE');
+    const existing = await firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
+    if (!existing || existing.TransactionType !== 'DeliveryNote') throw new Error('Delivery Note not found.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft Delivery Note can be deleted.');
+    await firebaseDbRequest_('stock/transactions/' + dnId, 'delete', null, idToken);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function postDeliveryNote(idToken, dnId) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    const existing = await firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
+    if (!existing || existing.TransactionType !== 'DeliveryNote') throw new Error('Delivery Note not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requirePostAccess_(idToken, user, 'DELIVERYNOTE');
+    if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a draft or rejected Delivery Note can be posted.');
+    // [PORT FIX delivery-note-recheck-at-post]
+    await assertDeliveryNoteStillShippable_(idToken, existing);
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'DELIVERYNOTE', {
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
+      BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
+    });
+    const totalValue = (existing.Lines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0), 0);
+    const approval = await beginApprovalInstance_(idToken, 'DELIVERYNOTE', dnId, '', scopeKey, totalValue, user.uid);
+
+    if (approval.required) {
+      await firebaseDbRequest_('stock/transactions/' + dnId, 'patch', {
+        Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
+        RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'PendingApproval' };
+    }
+
+    const result = await commitDeliveryNotePosting_(idToken, user, existing, dnId);
+    return { success: true, dnId: dnId, dnNumber: result.dnNumber, status: 'Posted' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+// Caller MUST already hold LockService.getScriptLock().
+// [PORT FIX delivery-note-recheck-at-post] re-applies saveDeliveryNoteDraft's per-line ship cap against the
+// LIVE Sales Order and reservations, summed per SO line — the draft-time check can be stale by now.
+async function assertDeliveryNoteStillShippable_(idToken, dn) {
+  const wanted = {};
+  const order = [];
+  for (const l of (dn.Lines || [])) {
+    const key = l.SourceSOID + '|' + l.SourceSOLineID;
+    if (!wanted.hasOwnProperty(key)) {
+      wanted[key] = { soId: l.SourceSOID, lineId: l.SourceSOLineID, label: l.SourceSONumber || l.SourceSOID, itemCode: l.ItemCode, qty: 0 };
+      order.push(key);
+    }
+    wanted[key].qty += Number(l.Quantity) || 0;
+  }
+  for (const key of order) {
+    const w = wanted[key];
+    const so = await firebaseDbRequest_('salesOrders/' + w.soId, 'get', null, idToken);
+    if (!so || (so.Status !== 'Reserved' && so.Status !== 'Partially Reserved')) {
+      throw new Error('Sales Order ' + w.label + ' is no longer available for delivery' + (so ? ' (' + so.Status + ')' : '') + '.');
+    }
+    const soLine = (so.Lines || []).find(x => x.LineID === w.lineId);
+    if (!soLine) throw new Error('Sales Order ' + w.label + ': the line for ' + w.itemCode + ' was not found.');
+    const reserved = (await getReservationsForSource_(idToken, 'SalesOrder', w.soId))
+      .filter(r => r.Status === 'Active' && r.SourceLineID === w.lineId)
+      .reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0);
+    const remaining = Math.max(0, Number(soLine.OrderedQuantity || 0) - Number(soLine.DeliveredQuantity || 0));
+    const maxShippable = Math.min(remaining, reserved);
+    if (w.qty > maxShippable + 0.000001) {
+      throw new Error('Sales Order ' + w.label + ', ' + w.itemCode + ': this Delivery Note ships ' + w.qty + ' but only ' + maxShippable +
+        ' can ship now (remaining on order ' + remaining + ', reserved ' + reserved + '). Another delivery or a release may have used it since this draft was saved — adjust the quantities and save again.');
+    }
+  }
+}
+
+async function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
+  await assertDeliveryNoteStillShippable_(idToken, existing);
+  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  const coaData = await getCoaData_(idToken);
+
+  const movementLines = existing.Lines.map(l => Object.assign({ Direction: 'Out' }, l));
+  const movement = await computeStockMovement_(idToken, itemsData, coaData, movementLines);
+
+  const cogsGlLines = movementLines.map(l => {
+    const item = itemsData[l.ItemID];
+    const accountId = resolveItemExpenseAccount_(item, 'Sales');
+    const account = coaData[accountId];
+    if (!account || !account.IsPostable) throw new Error('Sales COGS account for ' + item.ItemCode + ' is not valid — check Item Master.');
+    return {
+      AccountCode: account.AccountCode, Debit: l.TotalValue, Credit: 0,
+      Description: l.Description || existing.Description,
+      CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+    };
+  });
+
+  const actor = user.profile.username || user.uid;
+  // Everything above is pure validation and read-only computation —
+  // see beginCommitAttempt_'s own section comment for the full
+  // reasoning behind what follows.
+  const attemptId = await beginCommitAttempt_(idToken, dnId, actor);
+
+  let glResult;
+  try {
+    glResult = await writeStockGlEntry_(idToken, user, 'DeliveryNote', existing.TransactionDate, existing.Description, existing.Reference,
+      movement.inventoryGlLines.concat(cogsGlLines),
+      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      { CommitAttemptID: attemptId, SourceTransactionID: dnId });
+  } catch (err) {
+    await abandonCommitAttempt_(idToken, dnId, existing.Status, actor);
+    throw err;
+  }
+
+  // A GL entry genuinely exists from here on — no more reverting.
+  // Stock ledger update, then the three SO-side effects: accumulate
+  // DeliveredQuantity, shrink the matching reservation, refresh the
+  // SO's own header status.
+  await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
+  await seq.forEach(existing.Lines, async l => {
+    await updateSOLineDeliveredQuantity_(idToken, l.SourceSOID, l.SourceSOLineID, l.Quantity);
+    await consumeReservationForDelivery_(idToken, l.SourceSOID, l.SourceSOLineID, l.Quantity);
+  });
+  // Distinct SO ids only — a multi-line delivery from the same SO
+  // should only refresh its header status once.
+  const distinctSOIds = Array.from(new Set(existing.Lines.map(l => l.SourceSOID)));
+  await seq.forEach(
+    distinctSOIds,
+    async soId => await refreshSalesOrderReservationStatus_(idToken, soId)
+  );
+
+  await finalizeCommitAttempt_(idToken, dnId, glResult, { Lines: movementLines }, actor);
+
+  return { dnNumber: glResult.jvNumber };
+}
+
+async function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    await requirePostAccess_(idToken, user, 'DELIVERYNOTE');
+    const existing = await firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
+    if (!existing || existing.TransactionType !== 'DeliveryNote') throw new Error('Delivery Note not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    if (existing.Status !== 'PendingApproval') throw new Error('This Delivery Note is not awaiting approval.');
+    if (!existing.ApprovalInstanceID) throw new Error('No approval record found for this Delivery Note.');
+
+    const result = await recordApprovalDecision(idToken, existing.ApprovalInstanceID, levelNumber, decision, reason);
+    if (!result.success) throw new Error(result.error);
+
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    if (result.status === 'Approved') {
+      const commitResult = await commitDeliveryNotePosting_(idToken, user, existing, dnId);
+      return { success: true, status: 'Approved', dnNumber: commitResult.dnNumber };
+    }
+    if (result.status === 'Rejected') {
+      await firebaseDbRequest_('stock/transactions/' + dnId, 'patch', {
+        Status: 'Rejected', RejectionReason: String(reason || '').trim(), UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+      return { success: true, status: 'Rejected' };
+    }
+    return { success: true, status: result.status };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
+  }
+}
+
+async function reverseDeliveryNote(idToken, dnId, reversalDate) {
+  const user = await requireUser_(idToken);
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
+
+  try {
+    const existing = await firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
+    if (!existing || existing.TransactionType !== 'DeliveryNote') throw new Error('Delivery Note not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    await requirePostAccess_(idToken, user, 'DELIVERYNOTE');
+    if (existing.Status !== 'Posted') throw new Error('Only a posted Delivery Note can be reversed.');
+    if (existing.ReversedByDeliveryNoteID) throw new Error('This Delivery Note has already been reversed.');
+    if (existing.ReversalOfDeliveryNoteID) throw new Error('A reversal entry cannot itself be reversed.');
+    if (existing.MatchedToInvoiceID) throw new Error('This Delivery Note has already been matched to a Customer Invoice and cannot be reversed. Reverse the invoice first.');
+
+    const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+    const coaData = await getCoaData_(idToken);
+
+    // Same lines, movement direction flipped — an 'In' movement puts
+    // the exact quantity back at the exact WAC it left at (each
+    // original line already carries its own UnitCost from the
+    // original commit), same reasoning as every other module's
+    // reversal.
+    // Object.assign order matters here: l is the ALREADY-COMMITTED
+    // line, which carries its own Direction: 'Out' baked in from the
+    // original commit — merging it AFTER the override would let that
+    // stale value win instead of the 'In' this reversal actually
+    // needs, silently producing the exact same direction as the
+    // original posting rather than reversing it.
+    const reversalMovementLines = existing.Lines.map(l => Object.assign({}, l, { Direction: 'In' }));
+    const movement = await computeStockMovement_(idToken, itemsData, coaData, reversalMovementLines);
+
+    const cogsGlLines = existing.Lines.map(l => {
+      const item = itemsData[l.ItemID];
+      const accountId = resolveItemExpenseAccount_(item, 'Sales');
+      const account = coaData[accountId];
+      return {
+        AccountCode: account.AccountCode, Debit: 0, Credit: l.TotalValue,
+        Description: 'Reversal of ' + (existing.TransactionNumber || ''),
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+      };
+    });
+
+    const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+    const newId = 'DND-' + Utilities.getUuid().split('-')[0].toUpperCase();
+
+    const attemptId = Utilities.getUuid();
+    await firebaseDbRequest_('stock/transactions/' + newId, 'put', {
+      TransactionType: 'DeliveryNote', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
+      TransactionDate: date, Description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description,
+      Reference: existing.Reference,
+      CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
+      CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID, CustomerID: existing.CustomerID,
+      Lines: existing.Lines,
+      CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
+      ReversalOfDeliveryNoteID: dnId, ReversedByDeliveryNoteID: ''
+    }, idToken);
+
+    let glResult;
+    try {
+      glResult = await writeStockGlEntry_(idToken, user, 'DeliveryNote', date,
+        'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.Reference,
+        movement.inventoryGlLines.concat(cogsGlLines),
+        { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+        { CommitAttemptID: attemptId, SourceTransactionID: newId });
+    } catch (err) {
+      await firebaseDbRequest_('stock/transactions/' + newId, 'delete', null, idToken);
+      throw err;
+    }
+
+    // Original patched before the new reversal finalizes — same
+    // deliberate ordering as every other module's reversal, preventing
+    // double-reversal even under a failure at the worst possible
+    // moment.
+    await firebaseDbRequest_('stock/transactions/' + dnId, 'patch', { ReversedByDeliveryNoteID: newId }, idToken);
+    await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
+    await finalizeCommitAttempt_(idToken, newId, glResult, { Lines: reversalMovementLines }, actor);
+
+    // Roll back the SO-side effects: give back DeliveredQuantity,
+    // re-reserve the shipped amount (the stock physically came back),
+    // refresh the header status.
+    await seq.forEach(existing.Lines, async l => {
+      await rollbackSOLineDeliveredQuantity_(idToken, l.SourceSOID, l.SourceSOLineID, l.Quantity);
+      const so = await firebaseDbRequest_('salesOrders/' + l.SourceSOID, 'get', null, idToken);
+      // [PORT FIX delivery-note-reversal-no-reserve-on-cancelled-so] a Cancelled SO's reservation could never be released.
+      if (so && (so.Status === 'Reserved' || so.Status === 'Partially Reserved')) {
+        await createStockReservation_(idToken, {
+          ItemID: l.ItemID, ItemCode: l.ItemCode, WarehouseID: l.WarehouseID, CompanyID: existing.CompanyID,
+          Quantity: l.Quantity, SourceType: 'SalesOrder', SourceID: l.SourceSOID, SourceLineID: l.SourceSOLineID,
+          SourceLabel: so.SONumber, Reason: 'Restored by Delivery Note reversal'
+        });
+      }
+    });
+    await seq.forEach(
+      Array.from(new Set(existing.Lines.map(l => l.SourceSOID))),
+      async soId => await refreshSalesOrderReservationStatus_(idToken, soId)
+    );
+
+    return { success: true, dnId: newId, dnNumber: glResult.jvNumber };
   } catch (err) {
     return { success: false, error: err.message };
   } finally {
@@ -7749,6 +8335,10 @@ module.exports = {
   getProfitAndLoss,
   getBalanceSheet,
   getCashFlowStatement,
+  getEligibleSOsForDelivery,
+  updateSOLineDeliveredQuantity_,
+  rollbackSOLineDeliveredQuantity_,
+  consumeReservationForDelivery_,
   getBoms,
   getBomEffectiveOnDate_,
   groupBomsByParent_,
@@ -7763,6 +8353,14 @@ module.exports = {
   deleteProductionDraft,
   getProductionEntries,
   reverseProduction,
+  getDeliveryNoteEntries,
+  saveDeliveryNoteDraft,
+  deleteDeliveryNoteDraft,
+  postDeliveryNote,
+  assertDeliveryNoteStillShippable_,
+  commitDeliveryNotePosting_,
+  decideDeliveryNoteApproval,
+  reverseDeliveryNote,
   savePhysicalCountDraft,
   buildPhysicalCountLines_,
   postPhysicalCount,

@@ -309,6 +309,13 @@ Pre-existing quirks in these screens/functions, preserved and disclosed
   releases them, but confirming again would reserve those lines twice.
   Items are deactivated, not deleted, in normal use. Cancelling is
   allowed from any status except Cancelled. As in GAS.
+- Delivery Note: editing an existing draft and `deleteDeliveryNoteDraft`
+  aren't company-checked. If the stock check fails when an approval
+  completes (stock moved since submission, or the re-checked ship cap),
+  the approval instance is already recorded as Approved while the DN
+  stays PendingApproval, with no way to resubmit it. It has to be
+  cleared by hand. Physical Count and Production have the same
+  shape. As in GAS.
 
 **Remaining modules: generated port (in progress).** Everything
 after the four stock modules is ported MECHANICALLY rather than by hand:
@@ -457,6 +464,32 @@ report). Each has a test that fails against the original logic.
    editable, re-priceable and renumbered on resubmit, instead of back to
    Closed. The flag is now cleared only once the request resolves.
    (`purchaseOrder` suite.)
+11. **A Delivery Note's ship cap was only checked when the draft was
+   saved** (`postDeliveryNote` / `commitDeliveryNotePosting_`). Each
+   line is capped at min(remaining on the SO line, reserved for it), but
+   posting (or approval, possibly days later) never re-checked it. Three
+   cases all posted anyway:
+   - two drafts against the same SO line, each within the cap alone
+   - two lines on one DN pointing at the same SO line
+   - a draft whose Sales Order was cancelled after saving
+
+   In each case `DeliveredQuantity` passed `OrderedQuantity` and the
+   shipment took free stock, or stock reserved for other orders, with
+   COGS booked. The cap is now re-checked, summed per SO line, against
+   the live SO and reservations at submit and again at commit. This is
+   the "never trust the draft-time snapshot" rule Physical Count already
+   follows. **Live in the current Apps Script system.** Any SO line with
+   `DeliveredQuantity > OrderedQuantity`, or any delivery against a
+   Cancelled SO, is a sign it happened. (`deliveryNote` suite.)
+12. **Reversing a delivery after its Sales Order was cancelled locked
+   the stock forever** (`reverseDeliveryNote`). The reversal re-reserved
+   the returned quantity whenever the SO still existed, so a Cancelled
+   SO got a new Active reservation. Nothing can release it: release and
+   claim need a Reserved SO, and cancel refuses an already-Cancelled one.
+   It now re-reserves only for a Reserved or Partially Reserved SO;
+   otherwise the returned stock is simply free. **Live in the current
+   Apps Script system.** Check for Active reservations whose source SO is
+   Cancelled. (`deliveryNote` suite.)
 
 Port-runtime fix (not a Code.gs deviation): `runtime.js` used
 `admin.firestore.FieldPath`, which isn't a constructor in this
@@ -506,19 +539,19 @@ primitive's REST semantics directly.
 | INVENTORYPURCHASEREQUISITION | ✅ | **not yet** |
 | PURCHASEORDER | ✅ | **not yet** |
 | SALESORDER | ✅ | **not yet** |
-| DELIVERYNOTE | — | — |
+| DELIVERYNOTE | ✅ | **not yet** |
 | JV | — | — |
 | CBT | — | — |
 | VENDORINVOICE | — | — |
 | CUSTOMERINVOICE | — | — |
 | DATARESET | — | — |
 
-**Next module to port:** DELIVERYNOTE
+**Next module to port:** JV
 
-**Committed but NOT yet deployed** (PURCHASEREQUISITION, INVENTORYPURCHASEREQUISITION, PURCHASEORDER, SALESORDER) — deploy these 38 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
+**Committed but NOT yet deployed** (PURCHASEREQUISITION, INVENTORYPURCHASEREQUISITION, PURCHASEORDER, SALESORDER, DELIVERYNOTE) — deploy these 45 functions (≤6 per `firebase deploy --only functions:a,functions:b,...` batch), then add the public-invoker IAM binding to each, then add the modules to `tools/legacy-port/deployed.json` and rerun this script:
 
 ```
-getModuleFragment cancelInventoryPurchaseRequisition cancelPurchaseOrder cancelPurchaseRequisition cancelSalesOrder claimStockForSalesOrderLine closeInventoryPurchaseRequisition closePurchaseOrder closePurchaseRequisition confirmSalesOrder decideInventoryPurchaseRequisitionApproval decidePurchaseOrderApproval decidePurchaseOrderReopenApproval decidePurchaseRequisitionApproval deleteDraftInventoryPurchaseRequisition deleteDraftPurchaseOrder deleteDraftPurchaseRequisition deleteDraftSalesOrder getActiveCustomers getActiveRequisitionCategories getEligibleRequisitionsForPO getInventoryPurchaseRequisitionEntries getItemPriceOnPriceList getPriceListForCustomer getPurchaseOrderEntries getPurchaseRequisitionEntries getSalesOrderEntries getSellableItems releaseStockForSalesOrderLine requestReopenPurchaseOrder reviseAndResubmitPurchaseOrder saveDraftInventoryPurchaseRequisition saveDraftPurchaseOrder saveDraftPurchaseRequisition saveDraftSalesOrder submitInventoryPurchaseRequisition submitPurchaseOrder submitPurchaseRequisition
+getModuleFragment cancelInventoryPurchaseRequisition cancelPurchaseOrder cancelPurchaseRequisition cancelSalesOrder claimStockForSalesOrderLine closeInventoryPurchaseRequisition closePurchaseOrder closePurchaseRequisition confirmSalesOrder decideDeliveryNoteApproval decideInventoryPurchaseRequisitionApproval decidePurchaseOrderApproval decidePurchaseOrderReopenApproval decidePurchaseRequisitionApproval deleteDeliveryNoteDraft deleteDraftInventoryPurchaseRequisition deleteDraftPurchaseOrder deleteDraftPurchaseRequisition deleteDraftSalesOrder getActiveCustomers getActiveRequisitionCategories getDeliveryNoteEntries getEligibleRequisitionsForPO getEligibleSOsForDelivery getInventoryPurchaseRequisitionEntries getItemPriceOnPriceList getPriceListForCustomer getPurchaseOrderEntries getPurchaseRequisitionEntries getSalesOrderEntries getSellableItems postDeliveryNote releaseStockForSalesOrderLine requestReopenPurchaseOrder reverseDeliveryNote reviseAndResubmitPurchaseOrder saveDeliveryNoteDraft saveDraftInventoryPurchaseRequisition saveDraftPurchaseOrder saveDraftPurchaseRequisition saveDraftSalesOrder submitInventoryPurchaseRequisition submitPurchaseOrder submitPurchaseRequisition
 ```
 <!-- PORT-STATUS:end -->
 
@@ -584,6 +617,11 @@ To continue with the next modules (from the repo alone):
     #    firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
     node --test --test-concurrency=1 functions/test/emulator/*.test.js
     node functions/test/ui/smoke.ui.js        # every ported screen loads cleanly, Admin + Viewer
+    #    MEMORY: the functions emulator keeps one ~100 MB worker per function it
+    #    has run and never frees them. With 170+ callables, the full suite plus
+    #    the full smoke run fills Cloud Shell's 16 GB and the emulator is killed
+    #    (exit 137). Restart the emulators between the suite and the smoke run,
+    #    and after a crash kill leftover workers: pkill -f '[f]unctionsEmulatorRuntime'
     node functions/test/ui/dynamicToggle.ui.js  # a real [call](...) deactivate/reactivate click
     # 4. node tools/legacy-port/status.js   # refresh the status table + pending-deploy list
     # 5. Commit and `git push` after EVERY module (sessions can be cut off).

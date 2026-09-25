@@ -148,6 +148,11 @@ exports.deactivateVendor = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.vendorId];
   return run(request, (ctx) => L.deactivateVendor(ctx, ...a));
 });
+exports.decideDeliveryNoteApproval = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.dnId, d.levelNumber, d.decision, d.reason];
+  return run(request, (ctx) => L.decideDeliveryNoteApproval(ctx, ...a));
+});
 exports.decideInventoryPurchaseRequisitionApproval = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.iprId, d.levelNumber, d.decision, d.reason];
@@ -177,6 +182,11 @@ exports.decidePurchaseRequisitionApproval = onCallWithMessages(opts, (request) =
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.prId, d.levelNumber, d.decision, d.reason];
   return run(request, (ctx) => L.decidePurchaseRequisitionApproval(ctx, ...a));
+});
+exports.deleteDeliveryNoteDraft = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.dnId];
+  return run(request, (ctx) => L.deleteDeliveryNoteDraft(ctx, ...a));
 });
 exports.deleteDraftInventoryPurchaseRequisition = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -318,6 +328,11 @@ exports.getCustomers = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getCustomers(ctx, ...a));
 });
+exports.getDeliveryNoteEntries = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
+  return run(request, (ctx) => L.getDeliveryNoteEntries(ctx, ...a));
+});
 exports.getEligibleJobOrderBatchesForProduction = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId];
@@ -332,6 +347,11 @@ exports.getEligibleRequisitionsForPO = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId];
   return run(request, (ctx) => L.getEligibleRequisitionsForPO(ctx, ...a));
+});
+exports.getEligibleSOsForDelivery = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.companyId, d.customerId];
+  return run(request, (ctx) => L.getEligibleSOsForDelivery(ctx, ...a));
 });
 exports.getGlReport = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -513,6 +533,11 @@ exports.moveTreeNode = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.draggedNodeId, d.targetNodeId, d.position];
   return run(request, (ctx) => L.moveTreeNode(ctx, ...a));
 });
+exports.postDeliveryNote = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.dnId];
+  return run(request, (ctx) => L.postDeliveryNote(ctx, ...a));
+});
 exports.postPhysicalCount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.pcId];
@@ -613,6 +638,11 @@ exports.requestReopenPurchaseOrder = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.poId];
   return run(request, (ctx) => L.requestReopenPurchaseOrder(ctx, ...a));
 });
+exports.reverseDeliveryNote = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.dnId, d.reversalDate];
+  return run(request, (ctx) => L.reverseDeliveryNote(ctx, ...a));
+});
 exports.reversePhysicalCount = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.pcId, d.reversalDate];
@@ -677,6 +707,11 @@ exports.saveCustomerClassification = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.data];
   return run(request, (ctx) => L.saveCustomerClassification(ctx, ...a));
+});
+exports.saveDeliveryNoteDraft = onCallWithMessages(opts, (request) => {
+  const d = request.data || {};
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.dnData];
+  return run(request, (ctx) => L.saveDeliveryNoteDraft(ctx, ...a));
 });
 exports.saveDraftInventoryPurchaseRequisition = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
