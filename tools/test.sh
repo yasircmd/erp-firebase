@@ -42,7 +42,8 @@ restart_emulators() {
   pkill -f '[e]mulators:start'; pkill -f '[f]unctionsEmulatorRuntime'
   timeout 30 bash -c 'while pgrep -f "[e]mulators:start" >/dev/null; do sleep 1; done'
   local log="$LOGDIR/emulators-$SECONDS.log"
-  nohup firebase emulators:start --only auth,database,firestore,functions --project $P > "$log" 2>&1 &
+  # 9>&-: the emulators outlive this run and must not inherit its lock.
+  nohup firebase emulators:start --only auth,database,firestore,functions --project $P > "$log" 2>&1 9>&- &
   if ! timeout 180 bash -c "until grep -q 'All emulators ready' '$log'; do sleep 2; done"; then
     echo "STOP: emulators did not start. Log: $log"; tail -20 "$log"; exit 1
   fi
