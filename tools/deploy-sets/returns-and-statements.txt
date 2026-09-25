@@ -1,0 +1,39 @@
+# Purchase Return, Sales Return and the two Statements of Account together
+# (roadmap #1-#4): the union of purchase-return.txt, sales-return.txt and
+# party-statements.txt, each function once. New functions first, then the
+# existing ones they change, getModuleFragment (the new screens) last.
+getReturnableVendorInvoices
+savePurchaseReturnDraft
+postPurchaseReturn
+decidePurchaseReturnApproval
+deletePurchaseReturnDraft
+getPurchaseReturnEntries
+reversePurchaseReturn
+getReturnableCustomerInvoices
+saveSalesReturnDraft
+postSalesReturn
+decideSalesReturnApproval
+deleteSalesReturnDraft
+getSalesReturnEntries
+reverseSalesReturn
+getPartyStatement
+# existing functions whose behaviour or lists change
+reverseJournalEntry
+requestReverseVendorInvoice
+decideVendorInvoiceReversalApproval
+saveCompany
+getStockLedgerReport
+getGlReport
+updatePostedDescription
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getApprovalConfigurations
+saveApprovalConfiguration
+saveApprovalLevels
+getPendingApprovalsForUser
+getMyRejectedSubmissions
+requestReverseCustomerInvoice
+decideCustomerInvoiceReversalApproval
+getModuleFragment
