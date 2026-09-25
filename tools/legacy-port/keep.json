@@ -5,5 +5,11 @@
   "requirePostAccess_",
   "generateVoucherNumber_",
   "generateGlTransactionRef_",
-  "voucherPrefixForEntry_"
+  "voucherPrefixForEntry_",
+  "getVendorInvoiceEntries",
+  "getCustomerInvoiceEntries",
+  "requestReverseVendorInvoice",
+  "decideVendorInvoiceReversalApproval",
+  "requestReverseCustomerInvoice",
+  "decideCustomerInvoiceReversalApproval"
 ]

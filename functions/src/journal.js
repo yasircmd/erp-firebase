@@ -24,6 +24,9 @@ const { getUserAssignedCompanies } = require('./companies');
 const { userCanAccessCompany, validateAndNormalizeLines, parseAmountServer, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance } = require('./approvals');
 const { moduleIdForEntry } = require('./masterData');
+const {
+  attachPartyFields, resolvePartyLines, assertEntryReversible, listPartyAccounts, listOpenItems
+} = require('./partyLedger');
 
 // Same adapters codegs.js uses for these helpers.
 const moduleHasCapability_ = (idToken, ...a) => moduleHasCapability(...a);
@@ -169,6 +172,10 @@ async function saveJournalRecord_(
 
   const coaData = await getCoaData_(idToken);
   const normalized = validateAndNormalizeLines_(rawLines, coaData, dimensionFields.CompanyID);
+  // Party tags and allocations (docs/modules/PARTY_PAYMENTS.md): checked
+  // here for early feedback, and again at post under the lock.
+  const party = await resolvePartyLines(attachPartyFields(rawLines, normalized.lines), dimensionFields.CompanyID);
+  normalized.lines = party.lines;
   const now = new Date().toISOString();
   const actor = user.profile.username || user.uid;
 
@@ -180,7 +187,7 @@ async function saveJournalRecord_(
     // for Purchase Requisition and Inventory Purchase Requisition.
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected entries can be edited. Posted entries must be reversed instead.');
 
-    const record = Object.assign({}, existing, dimensionFields, extraFields || {}, {
+    const record = Object.assign({}, existing, dimensionFields, extraFields || {}, party.fields, {
       JVDate: jvDate, Description: description, Reference: reference,
       Lines: normalized.lines, TotalDebit: normalized.totalDebit, TotalCredit: normalized.totalCredit,
       UpdatedAt: now, UpdatedBy: actor
@@ -202,7 +209,7 @@ async function saveJournalRecord_(
     TotalDebit: normalized.totalDebit, TotalCredit: normalized.totalCredit,
     CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
     PostedAt: '', PostedBy: '', ReversedByJV: '', ReversalOfJV: '', VoucherType: 'JV'
-  }, dimensionFields, extraFields || {});
+  }, dimensionFields, extraFields || {}, party.fields);
   await firestoreSet_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, newId, record);
   return { success: true, jvId: newId };
 }
@@ -275,6 +282,10 @@ async function postJournalEntry(idToken, jvId) {
     if (Math.abs(normalized.totalDebit - normalized.totalCredit) > 0.005) {
       throw new Error('Entry is not balanced: total debit ' + normalized.totalDebit.toFixed(2) + ' vs total credit ' + normalized.totalCredit.toFixed(2) + '.');
     }
+    // The authoritative allocation check: under the lock, against what is
+    // outstanding right now, not the draft's snapshot.
+    const party = await resolvePartyLines(attachPartyFields(existing.Lines, normalized.lines), existing.CompanyID);
+    normalized.lines = party.lines;
 
     const year = (new Date(existing.JVDate)).getFullYear() || new Date().getFullYear();
     const prefix = voucherPrefixForEntry_(existing);
@@ -311,7 +322,7 @@ async function postJournalEntry(idToken, jvId) {
     });
     const approval = await beginApprovalInstance_(idToken, moduleId, jvId, jvNumber, scopeKey, normalized.totalDebit, user.uid);
 
-    const record = Object.assign({}, existing, {
+    const record = Object.assign({}, existing, party.fields, {
       JVNumber: jvNumber, Lines: normalized.lines,
       TotalDebit: normalized.totalDebit, TotalCredit: normalized.totalCredit,
       RejectionReason: '', SubmittedAt: now, SubmittedBy: actor
@@ -344,13 +355,23 @@ async function postJournalEntry(idToken, jvId) {
   }
 }
 
+// Takes the global lock (the generated original didn't): an Approve
+// re-checks the entry's allocations against what is outstanding now, and
+// the final one makes them count, so it must not interleave with another
+// post. If they no longer fit, the approval is refused with the reason;
+// the approver can Reject the entry back for editing.
 async function decideJournalEntryApproval(idToken, jvId, levelNumber, decision, reason) {
+  const lock = LockService.getScriptLock();
+  await lock.waitLock(10000);
   try {
     const user = await requireUser_(idToken);
     const existing = await firestoreGet_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, jvId);
     if (existing) {
       await requirePostAccess_(idToken, user, moduleIdForEntry_(existing));
       if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+      if (decision === 'Approved' && existing.Status === 'PendingApproval') {
+        await resolvePartyLines(existing.Lines, existing.CompanyID);
+      }
     }
     const result = await decideApprovalForDocument_(idToken, FIRESTORE_JOURNAL_ENTRIES_COLLECTION, jvId, levelNumber, decision, reason, 'Posted', 'firestore');
     if (result.status === 'Approved') {
@@ -365,6 +386,8 @@ async function decideJournalEntryApproval(idToken, jvId, levelNumber, decision, 
     return Object.assign({ success: true }, result);
   } catch (err) {
     return { success: false, error: err.message };
+  } finally {
+    await lock.releaseLock();
   }
 }
 
@@ -385,11 +408,18 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
     if (existing.VoucherType && STOCK_VOUCHER_TYPE_TO_MODULE[existing.VoucherType]) {
       throw new Error('This entry was posted by ' + existing.VoucherType + ' — reverse it from that module, not here.');
     }
+    // Reversing releases this entry's allocations (it stops being live);
+    // refused while something else has settled one of its New Refs.
+    await assertEntryReversible(jvId, existing);
 
     const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
-    const reversedLines = (existing.Lines || []).map(line => Object.assign({}, line, {
-      Debit: line.Credit, Credit: line.Debit
-    }));
+    // The reversal keeps the party tags (for statements) but allocates
+    // nothing itself.
+    const reversedLines = (existing.Lines || []).map(line => {
+      const l = Object.assign({}, line, { Debit: line.Credit, Credit: line.Debit });
+      delete l.Allocations;
+      return l;
+    });
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
@@ -410,7 +440,8 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
       VoucherType: existing.VoucherType || 'JV', SelectedAccountCode: existing.SelectedAccountCode || '',
       CurrencyCode: existing.CurrencyCode || '', CompanyID: existing.CompanyID || '',
       DivisionID: existing.DivisionID || '', BranchID: existing.BranchID || '',
-      CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || ''
+      CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '',
+      PartyKeys: existing.PartyKeys || [], AllocatedRefs: [], AllocatedRefTypes: []
     };
 
     await firestoreSet_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, newId, reversalRecord);
@@ -451,7 +482,9 @@ function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines,
       Debit: config.ledgerIsDebit ? 0 : amount,
       Credit: config.ledgerIsDebit ? amount : 0,
       CostCenterID: String(line.CostCenterID || ''),
-      ProfitCenterID: String(line.ProfitCenterID || '')
+      ProfitCenterID: String(line.ProfitCenterID || ''),
+      // Party tag and allocations, checked by resolvePartyLines.
+      PartyType: line.PartyType, PartyID: line.PartyID, Allocations: line.Allocations
     });
   });
 
@@ -526,6 +559,35 @@ async function saveCbtDraft(idToken, cbtData) {
   }
 }
 
+// Party pickers for the JV and CBT screens (docs/modules/PARTY_PAYMENTS.md).
+async function requireJournalAccess_(user) {
+  const role = user.profile.role;
+  if (!(await moduleHasCapability('JV', 'access', role)) && !(await moduleHasCapability('CBT', 'access', role))) {
+    throw new Error('You do not have access to Journal Entry Processing or Cash and Bank Transactions.');
+  }
+}
+
+// Every vendor and customer usable in this company, with the control
+// account a line must use to name it.
+async function getPartyAccounts(idToken, companyId) {
+  const user = await requireUser_(idToken);
+  await requireJournalAccess_(user);
+  const id = String(companyId || '').trim();
+  if (!id) return [];
+  if (!userCanAccessCompany_(user.profile, id)) throw new Error('You do not have access to that company.');
+  return listPartyAccounts(id);
+}
+
+// One party's open items in this company, outstanding > 0.
+async function getPartyOpenItems(idToken, partyType, partyId, companyId) {
+  const user = await requireUser_(idToken);
+  await requireJournalAccess_(user);
+  const id = String(companyId || '').trim();
+  if (!id) throw new Error('Select a Company first.');
+  if (!userCanAccessCompany_(user.profile, id)) throw new Error('You do not have access to that company.');
+  return listOpenItems(String(partyType || '').trim(), String(partyId || '').trim(), id);
+}
+
 // ---- callables ----
 // Same shape as the generated ones in legacy/callables.js: request.data
 // keys are the function's own parameter names, and { __positional: [...] }
@@ -547,3 +609,5 @@ exports.deleteJournalDraft = callable(deleteJournalDraft, ['jvId']);
 exports.postJournalEntry = callable(postJournalEntry, ['jvId']);
 exports.decideJournalEntryApproval = callable(decideJournalEntryApproval, ['jvId', 'levelNumber', 'decision', 'reason']);
 exports.reverseJournalEntry = callable(reverseJournalEntry, ['jvId', 'reversalDate']);
+exports.getPartyAccounts = callable(getPartyAccounts, ['companyId']);
+exports.getPartyOpenItems = callable(getPartyOpenItems, ['partyType', 'partyId', 'companyId']);

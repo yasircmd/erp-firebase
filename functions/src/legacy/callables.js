@@ -163,11 +163,6 @@ exports.decideCustomerInvoiceApproval = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.levelNumber, d.decision, d.reason];
   return run(request, (ctx) => L.decideCustomerInvoiceApproval(ctx, ...a));
 });
-exports.decideCustomerInvoiceReversalApproval = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.levelNumber, d.decision, d.reason];
-  return run(request, (ctx) => L.decideCustomerInvoiceReversalApproval(ctx, ...a));
-});
 exports.decideDeliveryNoteApproval = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.dnId, d.levelNumber, d.decision, d.reason];
@@ -207,11 +202,6 @@ exports.decideVendorInvoiceApproval = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.levelNumber, d.decision, d.reason];
   return run(request, (ctx) => L.decideVendorInvoiceApproval(ctx, ...a));
-});
-exports.decideVendorInvoiceReversalApproval = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.levelNumber, d.decision, d.reason];
-  return run(request, (ctx) => L.decideVendorInvoiceReversalApproval(ctx, ...a));
 });
 exports.deleteCustomerInvoiceDraft = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -372,11 +362,6 @@ exports.getCustomerClassifications = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getCustomerClassifications(ctx, ...a));
-});
-exports.getCustomerInvoiceEntries = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
-  return run(request, (ctx) => L.getCustomerInvoiceEntries(ctx, ...a));
 });
 exports.getCustomers = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
@@ -603,11 +588,6 @@ exports.getUOMs = onCallWithMessages(opts, (request) => {
   const a = Array.isArray(d.__positional) ? d.__positional : [];
   return run(request, (ctx) => L.getUOMs(ctx, ...a));
 });
-exports.getVendorInvoiceEntries = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
-  return run(request, (ctx) => L.getVendorInvoiceEntries(ctx, ...a));
-});
 exports.getVendors = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [];
@@ -737,16 +717,6 @@ exports.requestReopenPurchaseOrder = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
   const a = Array.isArray(d.__positional) ? d.__positional : [d.poId];
   return run(request, (ctx) => L.requestReopenPurchaseOrder(ctx, ...a));
-});
-exports.requestReverseCustomerInvoice = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.reversalDate];
-  return run(request, (ctx) => L.requestReverseCustomerInvoice(ctx, ...a));
-});
-exports.requestReverseVendorInvoice = onCallWithMessages(opts, (request) => {
-  const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.invoiceId, d.reversalDate];
-  return run(request, (ctx) => L.requestReverseVendorInvoice(ctx, ...a));
 });
 exports.resetLifetimeAuditCounters = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
