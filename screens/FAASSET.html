@@ -113,7 +113,7 @@
     FullyDepreciated: 'bg-blue-500/10 text-blue-400 border border-blue-500/20', Disposed: 'bg-red-500/10 text-red-400 border border-red-500/20', Transferred: 'bg-slate-700 text-slate-400'
   };
   const STATUS_LABELS = { FullyDepreciated: 'Fully Depreciated' };
-  const EVENT_LABELS = { Capitalization: 'Capitalization', Addition: 'Addition', TakeOver: 'Take-over', Depreciation: 'Depreciation', AdditionalDepreciation: 'Additional Depreciation', MasterChange: 'Master data change', Reversal: 'Reversal' };
+  const EVENT_LABELS = { Capitalization: 'Capitalization', Addition: 'Addition', TakeOver: 'Take-over', Depreciation: 'Depreciation', AdditionalDepreciation: 'Additional Depreciation', Disposal: 'Retirement', MasterChange: 'Master data change', Reversal: 'Reversal' };
   const FIELD_LABELS = { UsefulLifeMonths: 'Useful life (months)', WdvRate: 'WDV rate', ResidualValue: 'Residual value', DepStartDate: 'Depreciation start', Method: 'Method', CostCenterID: 'Cost center', ProfitCenterID: 'Profit center', DivisionID: 'Division', BranchID: 'Branch', SupplierID: 'Supplier', SupplierName: 'Supplier', PurchaseInvoiceRef: 'Purchase invoice', PurchaseDate: 'Purchase date', SerialNumber: 'Serial number', TagNumber: 'Tag', Quantity: 'Quantity', Notes: 'Notes', Description: 'Description' };
 
   function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
@@ -240,6 +240,8 @@
     $('faa-history-body').innerHTML = rows.map(t => {
       const details = t.Type === 'MasterChange' ? (t.Changes || []).map(c => (FIELD_LABELS[c.Field] || c.Field) + ': ' + (c.From === '' ? '—' : c.From) + ' → ' + (c.To === '' ? '—' : c.To)).join('; ') + (t.Reason ? ' (' + t.Reason + ')' : '')
         : t.Type === 'Reversal' ? 'Reverses ' + (EVENT_LABELS[t.ReversalOfType] || t.ReversalOfType) + (t.Reason ? ' — ' + t.Reason : '')
+        : t.Type === 'Disposal' ? t.RetirementType + ': proceeds ' + formatMoney(t.Proceeds) + ', NBV ' + formatMoney(t.NBVAtDisposal) + ', gain/loss ' + formatMoney(t.GainLoss) + (t.Reason ? ' (' + t.Reason + ')' : '')
+        : t.Type === 'Depreciation' && t.DepKind === 'Retirement' ? 'up to the retirement date' + (t.CatchUpFrom ? ', from ' + t.CatchUpFrom : '')
         : t.Type === 'Depreciation' ? t.Period + (t.CatchUp ? ' (incl. catch-up ' + formatMoney(t.CatchUp) + ' from ' + t.CatchUpFrom + ')' : '')
         : t.Type === 'TakeOver' ? 'Capitalized ' + (t.CapitalizationDateGiven || '') + ', depreciated to ' + (t.LastDepPeriodGiven || '—')
         : (t.Reason || '') + ((t.ClearingItems || []).length ? 'From ' + t.ClearingItems.map(i => i.JVNumber).join(', ') : '');

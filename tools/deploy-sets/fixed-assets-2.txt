@@ -1,0 +1,44 @@
+# Fixed Assets, phase 2 retirement (sale, scrap) + the owner's menu names
+# (docs/modules/FIXED_ASSETS.md → As built — phase 2). Server first;
+# getModuleFragment last. Then the screens (--screens). No Hosting change.
+getFaRetirementSetup             # new — Fixed Asset Retirement
+previewFaRetirement              # new
+getFaRights                      # FARETIRE rights; module labels in messages
+getFaConfig
+saveFaSettings
+saveFaAccountDetermination
+saveFaClass
+getFaAssetSetup
+getFaAssets                      # FARETIRE may list assets
+getFaAsset
+saveFaAsset
+deleteFaAsset
+getFaClearingItems
+getFaPostings                    # FARETIRE documents
+saveFaPostingDraft               # Retirement type
+deleteFaPostingDraft
+postFaPosting
+decideFaPostingApproval
+reverseFaPosting
+previewFaDepreciation            # disposed assets left out (engine)
+postFaDepreciation
+reverseFaDepreciation
+getFaRuns
+getFaDepreciationRegister
+getFaRegister                    # Retirements, Disposal Value, Gain/Loss
+reverseJournalEntry              # refuses an FAR entry (module map); label in the capitalized-purchase message
+requestReverseVendorInvoice      # label in the capitalized-purchase message
+decideVendorInvoiceReversalApproval
+getGlReport                      # drill-through to Fixed Asset Retirement
+updatePostedDescription          # module map
+getPartyStatement                # "Asset Sale" rows
+getModuleRegistry                # MODULE_REGISTRY: FARETIRE + renamed labels
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getApprovalConfigurations        # APPROVAL_GATEABLE_MODULES: FARETIRE + renamed label
+saveApprovalConfiguration
+saveApprovalLevels
+getPendingApprovalsForUser       # Home tasks labels
+getMyRejectedSubmissions
+getModuleFragment

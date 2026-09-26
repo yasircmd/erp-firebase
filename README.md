@@ -62,8 +62,8 @@ functions/
     partyStatement.js           — Vendor and Customer Statements of Account (docs/modules/VENDOR_SOA.md)
     pdc.js                      — PDC Received and PDC Issued, post-dated cheques (docs/modules/PDC.md)
     faDepreciation.js           — Fixed Assets depreciation engine, pure functions (docs/modules/FIXED_ASSETS.md)
-    fixedAssets*.js             — Fixed Assets phase 1: Config, Master, Postings (capitalization, take-over,
-                                  additional depreciation), Depreciation (run, registers), Common
+    fixedAssets*.js             — Fixed Assets: Config, Master, Postings (capitalization, take-over,
+                                  additional depreciation), Retirement (sale, scrap), Depreciation (run, registers), Common
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
   test/unit/*.test.js           — pure-function tests, no emulators (the depreciation engine)

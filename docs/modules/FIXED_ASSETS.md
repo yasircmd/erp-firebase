@@ -1,6 +1,6 @@
 # Fixed Assets (Asset Accounting, FI-AA)
 
-**Status:** phase 1 deployed 2026-09-26 ([DEPLOY_LOG.md](../DEPLOY_LOG.md)); phases 2–3 not started · **Roadmap:** [#6](../ROADMAP.md) · **Branch:** `worktree-fixed-assets-design`
+**Status:** phase 1 deployed 2026-09-26 ([DEPLOY_LOG.md](../DEPLOY_LOG.md)); phase 2 retirement (sale, scrap) built and tested 2026-09-26, not deployed; transfer, AuC and phase 3 not started · **Roadmap:** [#6](../ROADMAP.md) · **Branch:** `worktree-fixed-assets-design`
 
 ## Purpose
 
@@ -660,4 +660,60 @@ match them: Fixed Asset Configuration (FACONFIG), Fixed Asset Master
 (FAASSET), Fixed Asset Capitalization (FAACQ), Depreciation Run
 (FADEPRUN), Additional Depreciation (FAADDDEP), Fixed Asset Register
 (FAREGISTER). The sub-module table above keeps the working names.
+
+## As built — phase 2, retirement (2026-09-26)
+
+**Owner (2026-09-26):** "go phase 2 — retirement as scrap, sale". Built
+as **Fixed Asset Retirement** (FARETIRE), following the owner's naming.
+Write-off / other retirement, Asset Transfer and Assets under
+Construction are not built yet.
+
+**How it works**
+- A retirement document holds one or more assets, a date, Sale or Scrap,
+  and a reason (required). Sale: proceeds per asset (excluding VAT), to a
+  bank/cash account (`10…`/`11…`) or to a customer on account, and an
+  optional VAT % posted to the company's Output Tax account. Scrap: no
+  proceeds.
+- The date must be after the company's last posted depreciation month
+  and after the month the asset is depreciated up to. Depreciation up to
+  the date is every unposted month before it in full, plus the days of
+  the retirement month before the date (`faDepreciation.computeToDate`:
+  retired 16 March → 15/31 of March; on the 1st → nothing for March).
+- **One GL entry, voucher FAR** (a deviation from the design, which had
+  the depreciation as its own FAD entry: one document, one voucher, one
+  commit): Dr Depreciation Expense · Cr Accumulated Depreciation (to the
+  date); Dr Accumulated Depreciation (all) · Cr Asset Cost; Dr Loss or
+  Cr Gain (proceeds − NBV); Dr Bank/Customer (proceeds + VAT) · Cr Output
+  VAT. The customer line is party-tagged as a New Ref, so it shows in the
+  customer's SOA ("Asset Sale") and is settled by a CBT receipt.
+- The asset becomes **Disposed** (balances 0; `DisposedAt`,
+  `DisposalType`). Runs, additional depreciation, capitalization, a
+  second retirement and master edits all refuse a disposed asset.
+- **Reversal** (reason required): mirror entry and reversal
+  transactions dated as the original; the asset returns to its previous
+  status and balances. Refused once a later depreciation month has been
+  posted for the company (reverse those first, as decided), and while a
+  customer receipt is allocated to the sale (Party Payments' guard).
+- Sub-ledger: a `Depreciation` transaction (`DepKind: 'Retirement'`) and
+  a `Disposal` transaction (cost and accumulated depreciation off, with
+  proceeds, NBV at disposal and gain/loss). Fixed Asset Register: new
+  **Retirements** column (cost retired), and Disposal Value and Gain/Loss
+  filled in; as at a date before the retirement, the asset shows as it
+  was.
+- Registries: `FARETIRE` (rights as Capitalization; gateable in Approval
+  Configuration), voucher prefix `FAR` (`FARetirement`), JV refuses to
+  reverse it, GL Report opens the screen, menu seed *Fixed Asset
+  Retirement*. Code: `functions/src/fixedAssetsRetirement.js`
+  (`getFaRetirementSetup`, `previewFaRetirement`; draft, post, approval
+  and reversal through the existing posting calls); screen `FARETIRE`.
+
+**Tests:** engine 17/17 (two new: retirement month by day, catch-up,
+nothing before the start, the brief's NBV example); emulator: sale to a
+bank with VAT and a loss, disposed asset refused everywhere, register
+before/after, reversal order; the brief's 6,000 / 4,000 / 1,000 example
+sold on account, scrap, reversal blocked by an allocated receipt; UI
+check 8/8 (a scrap from the screen). Negative controls, each caught: the
+retirement month charged in full; the date check (the asset's own
+"depreciated up to" check then still refused it); the receipt guard on
+reversal; the screen not calculating.
 

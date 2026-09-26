@@ -36,7 +36,7 @@
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
     <table id="far-table" class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
       <th class="py-2 px-2">Asset</th><th class="py-2 px-2">Class</th><th class="py-2 px-2">Cost Center</th><th class="py-2 px-2">Capitalized</th>
-      <th class="py-2 px-2 text-right">Original Cost</th><th class="py-2 px-2 text-right">Additions</th><th class="py-2 px-2 text-right">Transfers</th>
+      <th class="py-2 px-2 text-right">Original Cost</th><th class="py-2 px-2 text-right">Additions</th><th class="py-2 px-2 text-right">Transfers</th><th class="py-2 px-2 text-right">Retirements</th>
       <th class="py-2 px-2 text-right">Acc. Depreciation</th><th class="py-2 px-2 text-right">This Period</th><th class="py-2 px-2 text-right">NBV</th>
       <th class="py-2 px-2 text-right">Disposal Value</th><th class="py-2 px-2 text-right">Gain/Loss</th><th class="py-2 px-2">Status</th></tr></thead>
     <tbody id="far-body" class="divide-y divide-slate-700 text-sm"></tbody>
@@ -59,9 +59,9 @@
   let companies = [];
   let orgUnits = [];
   let rows = [];
-  const NUM = ['OriginalCost', 'Additions', 'Transfers', 'AccDep', 'CurrentPeriodDep', 'NBV', 'DisposalValue', 'GainLoss'];
+  const NUM = ['OriginalCost', 'Additions', 'Transfers', 'Retirements', 'AccDep', 'CurrentPeriodDep', 'NBV', 'DisposalValue', 'GainLoss'];
   const STATUS_LABELS = { FullyDepreciated: 'Fully Depreciated' };
-  const EVENT_LABELS = { Capitalization: 'Capitalization', Addition: 'Addition', TakeOver: 'Take-over', Depreciation: 'Depreciation', AdditionalDepreciation: 'Additional Depreciation', MasterChange: 'Master data change', Reversal: 'Reversal' };
+  const EVENT_LABELS = { Capitalization: 'Capitalization', Addition: 'Addition', TakeOver: 'Take-over', Depreciation: 'Depreciation', AdditionalDepreciation: 'Additional Depreciation', Disposal: 'Retirement', MasterChange: 'Master data change', Reversal: 'Reversal' };
 
   function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
   function formatMoney(n) { return (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -97,12 +97,12 @@
     $('far-body').innerHTML = list.map(x => '<tr class="hover:bg-slate-700/30 cursor-pointer" data-id="' + escapeHtml(x.AssetID) + '"><td class="py-2 px-2"><span class="font-mono text-xs">' + escapeHtml(x.AssetNumber) + '</span> ' + escapeHtml(x.Description) +
       '</td><td class="py-2 px-2 text-xs">' + escapeHtml(x.ClassCode) + '</td><td class="py-2 px-2 text-xs">' + escapeHtml(unitCode(x.CostCenterID)) + '</td><td class="py-2 px-2 text-xs text-slate-400">' + escapeHtml(x.CapitalizationDate) + '</td>' +
       NUM.map(f => '<td class="py-2 px-2 text-right font-mono text-xs">' + formatMoney(x[f]) + '</td>').join('') + '<td class="py-2 px-2 text-xs">' + escapeHtml(STATUS_LABELS[x.Status] || x.Status) + '</td></tr>').join('') ||
-      '<tr><td colspan="13" class="py-3 px-3 text-xs text-slate-500">No assets.</td></tr>';
+      '<tr><td colspan="14" class="py-3 px-3 text-xs text-slate-500">No assets.</td></tr>';
     $('far-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => showHistory(tr.dataset.id)));
     const total = f => list.reduce((s, x) => s + (x[f] || 0), 0);
     $('far-foot').innerHTML = '<tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-2" colspan="4">Total</td>' + NUM.map(f => '<td class="py-2 px-2 text-right font-mono text-xs">' + formatMoney(total(f)) + '</td>').join('') + '<td></td></tr>';
     const byClass = {};
-    list.forEach(x => { const c = byClass[x.ClassCode] = byClass[x.ClassCode] || { name: x.ClassName, cost: 0, acc: 0, nbv: 0, n: 0 }; c.cost += x.OriginalCost + x.Additions; c.acc += x.AccDep; c.nbv += x.NBV; c.n += 1; });
+    list.forEach(x => { const c = byClass[x.ClassCode] = byClass[x.ClassCode] || { name: x.ClassName, cost: 0, acc: 0, nbv: 0, n: 0 }; c.cost += x.OriginalCost + x.Additions + (x.Retirements || 0); c.acc += x.AccDep; c.nbv += x.NBV; c.n += 1; });
     $('far-by-class').innerHTML = Object.keys(byClass).sort().map(k => { const c = byClass[k];
       return '<div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3"><p class="font-semibold">' + escapeHtml(k + ' — ' + c.name) + ' <span class="text-slate-500">(' + c.n + ')</span></p>' +
         '<div class="flex justify-between"><span>Cost</span><span class="font-mono">' + formatMoney(c.cost) + '</span></div><div class="flex justify-between"><span>Acc. depreciation</span><span class="font-mono">' + formatMoney(c.acc) +
@@ -113,7 +113,7 @@
       const a = r.asset;
       $('far-modal-title').textContent = a.AssetNumber + ' — ' + a.Description;
       $('far-modal-body').innerHTML = '<table class="w-full text-left text-xs"><thead><tr class="text-slate-400 uppercase"><th class="py-1 pr-2">Date</th><th class="py-1 pr-2">Event</th><th class="py-1 pr-2">Document</th><th class="py-1 pr-2 text-right">Cost</th><th class="py-1 pr-2 text-right">Acc. Dep.</th><th class="py-1">By</th></tr></thead><tbody>' +
-        (r.history || []).map(t => '<tr class="border-t border-slate-800' + (t.ReversedByTxnID ? ' text-slate-500' : '') + '"><td class="py-1 pr-2">' + escapeHtml(t.Date) + '</td><td class="py-1 pr-2">' + escapeHtml(EVENT_LABELS[t.Type] || t.Type) + (t.Type === 'Depreciation' ? ' ' + escapeHtml(t.Period) : '') + (t.ReversedByTxnID ? ' (reversed)' : '') +
+        (r.history || []).map(t => '<tr class="border-t border-slate-800' + (t.ReversedByTxnID ? ' text-slate-500' : '') + '"><td class="py-1 pr-2">' + escapeHtml(t.Date) + '</td><td class="py-1 pr-2">' + escapeHtml(EVENT_LABELS[t.Type] || t.Type) + (t.Type === 'Depreciation' ? ' ' + escapeHtml(t.DepKind === 'Retirement' ? 'to the retirement date' : t.Period) : '') + (t.Type === 'Disposal' ? ' (' + escapeHtml(t.RetirementType) + ', proceeds ' + formatMoney(t.Proceeds) + ', gain/loss ' + formatMoney(t.GainLoss) + ')' : '') + (t.ReversedByTxnID ? ' (reversed)' : '') +
           '</td><td class="py-1 pr-2 font-mono">' + escapeHtml(t.PostingNumber || t.JVNumber || '') + '</td><td class="py-1 pr-2 text-right font-mono">' + (t.CostDelta ? formatMoney(t.CostDelta) : '') + '</td><td class="py-1 pr-2 text-right font-mono">' + (t.AccDepDelta ? formatMoney(t.AccDepDelta) : '') +
           '</td><td class="py-1">' + escapeHtml(t.CreatedBy || '') + '</td></tr>').join('') + '</tbody></table>';
       $('far-modal').classList.remove('hidden');
@@ -121,8 +121,8 @@
   }
   function exportCsv() {
     const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const header = ['Asset', 'Description', 'Class', 'Serial', 'Cost Center', 'Supplier', 'Purchase Date', 'Capitalized', 'Original Cost', 'Additions', 'Transfers', 'Acc Dep (scheduled)', 'Acc Dep (additional)', 'Acc Dep', 'This Period', 'NBV', 'Disposal Value', 'Gain/Loss', 'Status'];
-    const data = filtered().map(x => [x.AssetNumber, x.Description, x.ClassCode, x.SerialNumber, unitCode(x.CostCenterID), x.SupplierName, x.PurchaseDate, x.CapitalizationDate, x.OriginalCost, x.Additions, x.Transfers, x.AccDepScheduled, x.AccDepAdditional, x.AccDep, x.CurrentPeriodDep, x.NBV, x.DisposalValue, x.GainLoss, x.Status]);
+    const header = ['Asset', 'Description', 'Class', 'Serial', 'Cost Center', 'Supplier', 'Purchase Date', 'Capitalized', 'Original Cost', 'Additions', 'Transfers', 'Retirements', 'Acc Dep (scheduled)', 'Acc Dep (additional)', 'Acc Dep', 'This Period', 'NBV', 'Disposal Value', 'Gain/Loss', 'Status'];
+    const data = filtered().map(x => [x.AssetNumber, x.Description, x.ClassCode, x.SerialNumber, unitCode(x.CostCenterID), x.SupplierName, x.PurchaseDate, x.CapitalizationDate, x.OriginalCost, x.Additions, x.Transfers, x.Retirements, x.AccDepScheduled, x.AccDepAdditional, x.AccDep, x.CurrentPeriodDep, x.NBV, x.DisposalValue, x.GainLoss, x.Status]);
     const blob = new Blob([[header].concat(data).map(r => r.map(q).join(',')).join('\n')], { type: 'text/csv' });
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'fixed-asset-register-' + val('far-asof') + '.csv'; link.click();
   }

@@ -21,12 +21,13 @@ async function seed() {
   const acc = (code, name, type) => ({ AccountCode: code, AccountName: name, AccountType: type, Status: 'Active', IsPostable: true });
   Object.assign(f.coa, {
     'A-FACLR': acc('2300', 'Fixed Asset Clearing', 'Liability'), 'A-VEH': acc('1600', 'Vehicles', 'Asset'),
-    'A-VEHAD': acc('1690', 'Acc. Depreciation Vehicles', 'Asset'), 'A-DEP': acc('6200', 'Depreciation Expense', 'Expense')
+    'A-VEHAD': acc('1690', 'Acc. Depreciation Vehicles', 'Asset'), 'A-DEP': acc('6200', 'Depreciation Expense', 'Expense'),
+    'A-LOSS': acc('6300', 'Loss on Disposal', 'Expense'), 'A-GAIN': acc('4200', 'Gain on Disposal', 'Revenue')
   });
   f.currencies = { CUR1: { Code: 'AED', Name: 'Dirham', IsDefault: true, Status: 'Active' } };
   await H.reset(f);
   ok(await H.call('u-admin', 'saveFaSettings', { CompanyID: 'C1', ClearingAccountID: 'A-FACLR' }));
-  const det = ok(await H.call('u-admin', 'saveFaAccountDetermination', { Code: 'VEH', Name: 'Vehicles', ByCompany: { SHARED: { AssetCostAccountID: 'A-VEH', AccumDepAccountID: 'A-VEHAD', DepExpenseAccountID: 'A-DEP' } } }));
+  const det = ok(await H.call('u-admin', 'saveFaAccountDetermination', { Code: 'VEH', Name: 'Vehicles', ByCompany: { SHARED: { AssetCostAccountID: 'A-VEH', AccumDepAccountID: 'A-VEHAD', DepExpenseAccountID: 'A-DEP', LossAccountID: 'A-LOSS', GainAccountID: 'A-GAIN' } } }));
   ok(await H.call('u-admin', 'saveFaClass', { Code: 'VEH', Name: 'Vehicles', Kind: 'Tangible', DefaultMethod: 'SL', DefaultUsefulLifeMonths: 120, AccountDeterminationID: det.determinationId }));
   const jv = ok(await H.call('u-admin', 'saveJournalDraft', { jvData: { JVDate: '2026-01-01', Description: 'Van purchase', CompanyID: 'C1', Lines: [
     { AccountCode: '2300', Debit: 120000, Description: 'Van' }, { AccountCode: '1100', Credit: 120000, Description: 'Bank' }] } }));
@@ -185,6 +186,32 @@ async function seed() {
     const asset = await open('FAASSET', 'u-viewer');
     assert.ok(!(await asset.isVisible('#faa-new-btn')));
     await clean(asset); await asset.close();
+  });
+
+  await check('retirement: scrap the van, the figures before posting, the register afterwards', async () => {
+    const page = await open('FARETIRE', 'u-admin');
+    await page.click('#frt-new-btn');
+    await page.selectOption('#frt-form-company', 'C1');
+    await settle(page);
+    await page.fill('#frt-form-date', '2026-03-01');
+    await page.selectOption('#frt-form-type', 'Scrap');
+    assert.ok(!(await page.isVisible('#frt-sale')), 'no proceeds for a scrap');
+    await page.fill('#frt-form-reason', 'Written off after accident');
+    await page.selectOption('#frt-lines-body select.frt-asset', { label: 'FA-01-000001 — Delivery van' });
+    // January posted, 500 additional in February; the scrap on 1 March charges February as catch-up.
+    await page.waitForFunction(() => /from 2026-02/.test(document.getElementById('frt-lines-body').textContent), null, { timeout: 15000 });
+    const nbv = await page.evaluate(() => document.querySelectorAll('#frt-lines-body td')[4].textContent);
+    const gl = await page.evaluate(() => document.querySelectorAll('#frt-lines-body td')[6].textContent);
+    assert.equal(gl, '-' + nbv, 'a scrap loses its whole NBV');
+    await page.click('#frt-post-btn');
+    await page.waitForFunction(() => document.getElementById('frt-status-badge').textContent === 'Posted', null, { timeout: 20000 });
+    assert.match(await page.textContent('#frt-title'), /FAR-26-01-\d{6}/);
+    await clean(page); await page.close();
+    const reg = await open('FAREGISTER', 'u-admin');
+    await reg.selectOption('#far-company', 'C1');
+    await reg.waitForSelector('#far-body tr[data-id]', { timeout: 15000 });
+    assert.match(await reg.textContent('#far-body'), /FA-01-000001.*-120,000\.00.*Disposed/s);
+    await clean(reg); await reg.close();
   });
 
   await browser.close(); server.close(); await H.app.delete();
