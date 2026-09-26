@@ -1,11 +1,12 @@
 #!/bin/bash
 # Moves every deployed function onto the runtime in functions/package.json
 # "engines.node" (Node 20 is decommissioned 2026-10-30). Redeploys, in
-# batches of <=6, only the functions whose live runtime differs, so it is
+# batches (see tools/deploy-lib.sh), only the functions whose live runtime differs, so it is
 # idempotent: re-run after a timeout and it picks up where it stopped.
 # Existing functions keep their public-invoker IAM binding across a redeploy.
 cd "$(dirname "$0")/.." || exit 1
 P=erp1-8f4cd
+source tools/deploy-lib.sh
 WANT="nodejs$(node -p 'require("./functions/package.json").engines.node')"
 
 # firebase deploy uploads the working copy, not the last commit.
@@ -21,12 +22,5 @@ if [ ${#todo[@]} -eq 0 ]; then echo "All functions already on $WANT."; exit 0; f
 echo "Redeploying ${#todo[@]} functions onto $WANT from $(git log -1 --format='%h %s')"
 
 fail=0
-for ((i=0; i<${#todo[@]}; i+=6)); do
-  batch=("${todo[@]:i:6}"); only=$(printf 'functions:%s,' "${batch[@]}"); only=${only%,}
-  echo "== batch $((i/6+1))/$(( (${#todo[@]}+5)/6 )): ${batch[*]}"
-  for attempt in 1 2 3; do
-    firebase deploy --project $P --only "$only" --force && break
-    [ $attempt = 3 ] && fail=1; echo "retrying batch ($attempt)..."; sleep 10
-  done
-done
+deploy_batches --force "${todo[@]}"
 [ $fail = 0 ] && echo "ALL DONE" || echo "SOME STEPS FAILED — re-run this script"

@@ -48,9 +48,24 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 - [ ] **Customer credit control** (from Customer SOA decision C1): a
   credit limit on Customer Master and a warning on new Sales Orders for
   overdue or over-limit customers. Needs its own design doc.
-- [ ] **Party Payments UI check timing:** `functions/test/ui/partyPayments.ui.js`
-  uses fixed short waits and fails after a cold emulator start; switch it
-  to `waitForSelector` waits like the return screens' checks.
+- [x] **Party Payments UI check timing** (2026-09-26): it now waits for
+  elements and options instead of fixed times; 3/3 right after an
+  emulator restart (was 0/3).
+- [x] **Faster deploys** (2026-09-26): inside tmux, batches of 20 instead
+  of 6; invoker bindings 8 at a time instead of one by one
+  (`tools/deploy-lib.sh`). First deploy with batches of 20 is untried:
+  if it times out or hits API quota, rerun with `BATCH=10`.
+- [ ] **Design: serve screens from Hosting.** Screens (`functions/modules/*.html`)
+  are served by `getModuleFragment`, so a screen-only change needs a
+  function deploy. From Hosting it would be a ~30 s Hosting deploy. Open
+  question for the owner: the permission check `getModuleFragment` does
+  before handing out a screen would move to the data calls only (they
+  already check). Needs a design doc before any code.
+- [ ] **Design: module/approval/voucher-type lists out of the code.** These
+  lists are built into every function, so adding a module redeployed 19
+  unchanged functions in the returns-and-statements deploy. Kept in
+  Firestore, a new module would deploy only its own functions. Needs a
+  design doc; touches ported modules (MIGRATION.md).
 
 ## Follow-ups from the migration
 

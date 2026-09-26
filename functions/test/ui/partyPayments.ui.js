@@ -53,28 +53,34 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   }
   const rpcFailures = page => page.evaluate(() => window.__rpcLog.filter(c => !c.ok).map(c => c.name + ': ' + c.error));
   const settle = async page => { await page.waitForLoadState('networkidle'); await page.waitForTimeout(400); };
+  // Waits for what the next step needs rather than a fixed time, so a
+  // function's cold start on a fresh emulator can't outrun the check.
+  const T = { timeout: 30000 };
+  const option = (page, sel, value) => page.waitForFunction(([s, v]) =>
+    [...document.querySelectorAll(s + ' option')].some(o => o.value === v), [sel, value], T);
 
   await check('CBT: vendor payment picks the vendor, allocates oldest first, posts', async () => {
     const page = await open('CBT', 'u-admin');
     await page.click('#cbt-new-btn');
     await page.click('.cbt-type-btn[data-type="Bank Payment"]');
     await page.selectOption('#cbt-form-company', 'C1');
-    await settle(page);
+    await option(page, '#cbt-form-ledger', '1100');
     await page.selectOption('#cbt-form-ledger', '1100');
     await page.fill('#cbt-form-description', 'Pay Acme');
     const acct = page.locator('#cbt-grid-body input[data-row="0"][data-col="0"]');
     await acct.fill('2000'); await acct.blur();
     const amt = page.locator('#cbt-grid-body input[data-row="0"][data-col="2"]');
     await amt.fill('150'); await amt.blur();
-    assert.ok(await page.isVisible('.cbt-party-select'), 'party picker shown for a payables line');
+    await page.waitForSelector('.cbt-party-select', { state: 'visible', ...T });
 
     // Posting without a vendor is stopped on the client.
     await page.click('#cbt-post-btn');
     assert.match(await page.textContent('#cbt-form-error'), /Line 1: select the Vendor or Customer for account 2000/);
 
+    await option(page, '.cbt-party-select', 'Vendor:V1');
     await page.selectOption('.cbt-party-select', 'Vendor:V1');
     await page.click('.cbt-allocate-btn');
-    await page.waitForSelector('#cbt-alloc-modal input[data-ref]');
+    await page.waitForSelector('#cbt-alloc-modal input[data-ref]', T);
     await page.click('.cbt-alloc-auto');
     assert.equal(await page.textContent('.cbt-alloc-total'), '150.00');
     assert.equal(await page.textContent('.cbt-alloc-rest'), '0.00');
@@ -83,14 +89,15 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
     await page.click('#cbt-post-btn');
     await page.click('#cbt-confirm-ok');
+    await page.waitForSelector('#cbt-list-view', { state: 'visible', ...T });
     await settle(page);
-    assert.ok(await page.isVisible('#cbt-list-view'), 'back on the list after posting');
     assert.deepEqual(await rpcFailures(page), []);
     assert.deepEqual(page.__errors, []);
     assert.deepEqual((await outstanding('Vendor', 'V1')).find(i => i[0] === bill.invoiceNumber), [bill.invoiceNumber, 250]);
 
     // The posted entry shows its party and allocation read-only.
     await page.locator('.cbt-open').first().click();
+    await page.waitForSelector('.cbt-party-row', T);
     await settle(page);
     const row = await page.textContent('.cbt-party-row');
     assert.match(row, /Vendor: Acme Metals/);
@@ -104,7 +111,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const page = await open('JV', 'u-admin');
     await page.click('#jv-new-btn');
     await page.selectOption('#jv-form-company', 'C1');
-    await settle(page);
+    await option(page, '#jv-form-costcenter', 'CC1');
     await page.fill('#jv-form-description', 'Write off');
     await page.selectOption('#jv-form-costcenter', 'CC1');
     const cell = (r, c) => page.locator(`#jv-grid-body input[data-row="${r}"][data-col="${c}"]`);
@@ -112,15 +119,17 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await cell(0, 2).fill('20'); await cell(0, 2).blur();
     await cell(1, 0).fill('1200'); await cell(1, 0).blur();
     await cell(1, 3).fill('20'); await cell(1, 3).blur();
+    await option(page, '.jv-party-select', 'Customer:CU1');
     await page.selectOption('.jv-party-select', 'Customer:CU1');
     await page.click('.jv-allocate-btn');
-    await page.waitForSelector('#jv-alloc-modal input[data-ref]');
+    await page.waitForSelector('#jv-alloc-modal input[data-ref]', T);
     await page.click('.jv-alloc-auto');
     await page.click('.jv-alloc-ok');
     await page.click('#jv-post-btn');
     await page.click('#jv-confirm-ok');
+    await page.waitForSelector('#jv-list-view', { state: 'visible', ...T })
+      .catch(async e => { throw new Error((await page.textContent('#jv-form-error')) || e.message); });
     await settle(page);
-    assert.ok(await page.isVisible('#jv-list-view'), await page.textContent('#jv-form-error'));
     assert.deepEqual(await rpcFailures(page), []);
     assert.deepEqual(page.__errors, []);
     const after = (await outstanding('Customer', 'CU1')).find(i => i[0] === 'CINV-26-01-000001');
@@ -130,7 +139,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
   await check('Vendor Invoice list: Outstanding and payment status', async () => {
     const page = await open('VENDORINVOICE', 'u-admin');
-    const row = await page.locator('#vinv-table-body tr', { hasText: bill.invoiceNumber }).textContent();
+    const row = await page.locator('#vinv-table-body tr', { hasText: bill.invoiceNumber }).textContent(T);
     assert.match(row, /250\.00/);
     assert.match(row, /Partly paid/);
     assert.deepEqual(page.__errors, []);

@@ -113,9 +113,11 @@ npm i --no-save --prefix functions playwright && (cd functions && npx playwright
 firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
 
 node --test --test-concurrency=1 functions/test/emulator/*.test.js
+# while developing, run just the module's suite (seconds, not the full run):
+#   node --test functions/test/emulator/salesReturn.emulator.test.js
 node functions/test/ui/smoke.ui.js          # every screen loads cleanly (Admin + Viewer)
 node functions/test/ui/dynamicToggle.ui.js  # a real deactivate/reactivate click
-node functions/test/ui/partyPayments.ui.js  # after the partyPayments suite: JV/CBT allocation screens
+node functions/test/ui/partyPayments.ui.js  # right after the partyPayments suite, every time: JV/CBT allocation screens
 node functions/test/ui/purchaseReturn.ui.js # after the purchaseReturn suite: the Purchase Return screen
 node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the Sales Return screen
 node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: the two SOA screens
@@ -133,22 +135,31 @@ node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: th
 - **Last full run** (2026-09-25, `party-statements` branch): 205/205
   emulator tests, 101/101 smoke, 2/2 dynamic toggle, 4/4 each for the
   purchase return, sales return and statements UI checks. The party
-  payments UI check passes 2/3 (0/3 on `main` right after an emulator
-  restart): its fixed short waits lose to function cold starts, and the
-  JV check passes with a longer wait. It's a roadmap follow-up to switch
-  it to `waitForSelector` waits like the newer checks.
+  payments UI check now waits for elements instead of fixed times
+  (2026-09-26): 3/3 right after an emulator restart. Each run adds a bill,
+  so rerun the partyPayments suite before rerunning it, or "oldest first"
+  allocates against the previous run's bill.
+- **Full run vs. one suite:** the full run above is for before a deploy or
+  merge. While building or fixing a module, run only its suite (and its
+  UI check); it doesn't need the two-halves split.
 
 ## Deploying
 
 - **Always from a clean checkout:** `git status --porcelain` must be empty,
   because `firebase deploy` uploads the working copy, not the last commit.
-- **Batches of ≤6 functions**, to avoid Cloud Shell connection timeouts.
+- **Run deploys inside tmux** (`tmux new -s deploy`; after a disconnect,
+  `tmux attach -t deploy`). A dropped Cloud Shell connection then can't
+  kill the deploy, so the scripts use batches of 20 instead of 6; the CLI
+  deploys a batch's functions in parallel, and each batch repeats the
+  source upload. Outside tmux/screen they fall back to 6. Override with
+  `BATCH=N`. Shared steps: `tools/deploy-lib.sh`, tested by
+  `bash tools/test-deploy-lib.sh` (stubs; nothing reaches Google).
 - **Every new callable needs a public-invoker binding**, since a 2nd-gen
   function doesn't get one automatically:
   `gcloud functions add-invoker-policy-binding FN --region=us-central1 --member=allUsers --gen2 --project=erp1-8f4cd`
 - **New modules:** list the functions in `tools/deploy-sets/<set>.txt` and
-  run `tools/deploy-functions.sh <set>` (clean-copy check, batches of ≤6,
-  retries, the binding for each). Put `getModuleFragment` last when a
+  run `tools/deploy-functions.sh <set>` (clean-copy check, batches,
+  retries, the binding for each, 8 bindings at a time). Put `getModuleFragment` last when a
   screen changes, so it can't go live before the functions it calls.
 - **Generated-port functions:** `tools/deploy-migration.sh` (reads the
   pending list from `tools/legacy-port/status.js`).

@@ -43,8 +43,9 @@ preserved quirks). Read it when touching a ported module.
 - Every onCall Cloud Function needs an explicit public-invoker IAM binding
   after deploy (2nd Gen quirk, not automatic):
   gcloud functions add-invoker-policy-binding FUNCTION_NAME --region=us-central1 --member=allUsers --gen2
-- Deploy from a clean checkout only (`git status --porcelain` empty), in
-  batches of ≤6 functions. Details: README → Deploying.
+- Deploy from a clean checkout only (`git status --porcelain` empty),
+  inside tmux: batches of 20 there, 6 outside (the old limit, from Cloud
+  Shell connection timeouts). Details: README → Deploying.
 - Firebase config in public/index.html must be the REAL values, not
   REPLACE_ME placeholders. Verify with: grep REPLACE_ME public/index.html
   (should return nothing).
