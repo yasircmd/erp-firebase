@@ -1,6 +1,6 @@
 # PDC Received and PDC Issued (post-dated cheques)
 
-**Status:** design · **Roadmap:** [#5](../ROADMAP.md) · **Branch:** `pdc`
+**Status:** design agreed 2026-09-26 · **Roadmap:** [#5](../ROADMAP.md) · **Branch:** `pdc`
 
 ## Purpose
 
@@ -47,7 +47,7 @@ vendor's and customer's SOA show the cheques still waiting to clear.
 
 ## The two banks on a PDC Received
 
-"Manually type bank" is read as follows (to confirm, question 1):
+"Manually type bank" means (decision 1):
 - **Drawee bank** (the customer's bank the cheque is drawn on): typed in
   as free text, with the cheque number. It's for identifying the cheque.
 - **Deposit bank** (our bank account the money lands in): one of our
@@ -149,9 +149,11 @@ design does with it:
 | Cheque printing on our cheque stock | Not proposed |
 | Home-screen reminder of cheques maturing | Question 5 |
 
-## Open questions (owner's decisions)
+## Owner decisions (2026-09-26)
 
-| # | Question | Proposal |
+The owner agreed every proposal. The tree nodes are named **PDC Received** and **PDC Issued**.
+
+| # | Question | Decision |
 |---|---|---|
 | 1 | Received: is the typed bank the **customer's (drawee) bank**, with our deposit bank picked from our bank accounts at clearing? | Yes, as above |
 | 2 | Allocation: does a PDC settle invoices **at receipt/issue** (invoice shows paid; a bounce reopens it), or stay a New Ref until cleared? | At receipt/issue, matching the posting |
@@ -163,7 +165,7 @@ design does with it:
 | 8 | Leave series entry and stale-cheque warnings for later? | Yes |
 | 9 | Roles: as CBT (access: ADMIN, FINANCE_MGR, ACCOUNTANT, VIEWER; draft: + ACCOUNTANT; post, clear, bounce: ADMIN, FINANCE_MGR)? | Yes |
 | 10 | Invoice lists: show "Paid (PDC pending)" while the settling cheque hasn't cleared? | Yes |
-| 11 | The existing tree nodes: what are they called, so I link the right ones (module IDs `PDCRECEIVED`, `PDCISSUED`)? | — |
+| 11 | The existing tree nodes | "PDC Received" and "PDC Issued", linked to `PDCRECEIVED` / `PDCISSUED` |
 
 ## Build plan (after the design is agreed)
 
