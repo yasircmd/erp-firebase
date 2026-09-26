@@ -10,7 +10,9 @@ const rpcStart = find(/let __rpcPendingCount = 0;/);
 const rpcEnd = find(/const rpc = new Proxy\(\{\}/);
 const escStart = find(/function escapeHtml\(value\)/);
 const injStart = find(/function injectHtmlWithScripts\(container, html\)/);
-if (!rpcStart || !rpcEnd || !escStart || !injStart) throw new Error('could not locate shell code');
+const scStart = find(/---------- SINGLE-COMPANY DEFAULT ----------/);
+const scEnd = find(/---------- END SINGLE-COMPANY DEFAULT ----------/);
+if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd) throw new Error('could not locate shell code');
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
 <script src="https://cdn.tailwindcss.com"></script>
@@ -41,6 +43,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8">
 ${slice(rpcStart, rpcEnd)}
 ${slice(escStart, escStart + 4)}
 ${slice(injStart, injStart + 9)}
+${slice(scStart, scEnd)}
   // Same drill-through contract as the shell's openModule: the target
   // reads window.__pendingModuleParams / __pendingReturnChain in initModule.
   window.openModule = function (moduleId, drillParams, returnChain) {
@@ -54,7 +57,13 @@ ${slice(injStart, injStart + 9)}
     }).withFailureHandler(err => { container.textContent = 'LOAD FAILED: ' + err.message; })
       .getModuleFragment({ moduleId });
   };
-  openModule(new URLSearchParams(location.search).get('module'));
+  // As at the shell's login: the user's companies first (a user with
+  // exactly one gets it filled into every company dropdown), then the module.
+  rpc.withSuccessHandler(companies => {
+    setSingleCompany(companies);
+    openModule(new URLSearchParams(location.search).get('module'));
+  }).withFailureHandler(err => { document.getElementById('module-container').textContent = 'LOAD FAILED: ' + err.message; })
+    .getActiveCompanies();
 </script></body></html>`;
 fs.writeFileSync(__dirname + '/harness.html', html);
 console.log('harness.html written');

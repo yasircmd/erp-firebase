@@ -598,7 +598,7 @@
       if (!user) {
         currentUser = null;
         pendingCorporateId = null;
-        mainCompanyName = '';
+        mainCompanyName = ''; setSingleCompany([]);
         clearTimeout(idleTimer); clearTimeout(idleWarningTimer); hideIdleWarning();
         showTreeNav();
         document.getElementById('tree-container').innerHTML = '';
@@ -1156,16 +1156,59 @@
     // reference code convention already used for voucher numbering
     // (JV-26-01-000001), so '01' already means "the primary company" in
     // this system, not a new concept invented just for this.
+    // getActiveCompanies returns only the user's own assigned companies,
+    // so a user with exactly one sees that company's name instead, and
+    // module screens default to it (see SINGLE-COMPANY DEFAULT below).
     function loadMainCompanyName() {
       rpc
         .withSuccessHandler(result => {
-          const main = (result || []).find(c => c.CompanyRefCode === '01');
+          const companies = result || [];
+          const main = companies.length === 1 ? companies[0] : companies.find(c => c.CompanyRefCode === '01');
           mainCompanyName = main ? main.LegalName : '';
           applyTreeTitle();
+          setSingleCompany(companies);
         })
-        .withFailureHandler(() => { mainCompanyName = ''; })
+        .withFailureHandler(() => { mainCompanyName = ''; setSingleCompany([]); })
         .getActiveCompanies();
     }
+
+    // ---------- SINGLE-COMPANY DEFAULT ----------
+    // A user assigned exactly one active company never has to pick it:
+    // every company dropdown in a module screen (entry forms, list
+    // filters, report selectors) is set to that company whenever it's
+    // blank. Done once here rather than in each screen, since most
+    // screens are generated (tools/legacy-port). A screen's reset
+    // (select.value = '') changes no DOM, so the check reruns on any
+    // element or class change in the module container: a reset is always
+    // followed by showing the form or re-rendering something.
+    // The fill fires a synthetic, non-bubbling change so the select's own
+    // listeners load what depends on the company (accounts, items,
+    // eligible documents), while a form-wide "something changed" listener
+    // on an ancestor doesn't mark an untouched new entry as unsaved.
+    // Listeners on the select itself that mark the form dirty check
+    // event.isTrusted for the same reason.
+    // A blank option that is a real choice ("Shared across all
+    // companies" on master data, "None") is left alone.
+    let singleCompanyId = '';
+    function setSingleCompany(companies) {
+      singleCompanyId = companies && companies.length === 1 ? companies[0].CompanyID : '';
+      applySingleCompanyDefault();
+    }
+    function applySingleCompanyDefault() {
+      if (!singleCompanyId) return;
+      document.querySelectorAll('#module-container select[id*="company"]').forEach(select => {
+        if (select.value !== '' || select.disabled) return;
+        const options = Array.from(select.options);
+        if (!options.some(o => o.value === singleCompanyId)) return;
+        const blank = options.find(o => o.value === '');
+        if (blank && /shared|none/i.test(blank.textContent)) return;
+        select.value = singleCompanyId;
+        select.dispatchEvent(new Event('change'));
+      });
+    }
+    new MutationObserver(applySingleCompanyDefault).observe(document.getElementById('module-container'),
+      { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'disabled'] });
+    // ---------- END SINGLE-COMPANY DEFAULT ----------
 
     function applyTreeTitle() {
       const titleEl = document.getElementById('app-title');

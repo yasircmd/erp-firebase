@@ -886,8 +886,8 @@
       updateSelection();
     });
     document.getElementById('pdc-clear-selected-btn').addEventListener('click', clearSelected);
-    document.getElementById('pdc-form-company').addEventListener('change', () => {
-      isDirty = true; allocByRef = {};
+    document.getElementById('pdc-form-company').addEventListener('change', e => {
+      if (e.isTrusted) isDirty = true; allocByRef = {};
       loadSetup(val('pdc-form-company'), {}, fetchOpenItems);
     });
     document.getElementById('pdc-form-party').addEventListener('change', () => { isDirty = true; allocByRef = {}; populateReplaces(); fetchOpenItems(); });

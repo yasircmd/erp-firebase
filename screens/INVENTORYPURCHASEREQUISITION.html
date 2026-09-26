@@ -646,7 +646,7 @@
     document.getElementById('ipr-from-filter').addEventListener('change', renderList);
     document.getElementById('ipr-to-filter').addEventListener('change', renderList);
 
-    document.getElementById('ipr-form-company').addEventListener('change', () => { isDirty = true; updateCompanyRequiredNote(); populateItemDatalist(document.getElementById('ipr-form-company').value); renderGrid(); });
+    document.getElementById('ipr-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; updateCompanyRequiredNote(); populateItemDatalist(document.getElementById('ipr-form-company').value); renderGrid(); });
     document.getElementById('ipr-form-costcenter').addEventListener('change', () => { isDirty = true; updateCompanyRequiredNote(); });
     document.getElementById('ipr-add-line-btn').addEventListener('click', () => {
       isDirty = true;

@@ -718,8 +718,8 @@
     document.getElementById('so-status-filter').addEventListener('change', renderList);
     document.getElementById('so-from-filter').addEventListener('change', renderList);
 
-    document.getElementById('so-form-company').addEventListener('change', () => {
-      isDirty = true; updateCompanyRequiredNote(); populateItemDatalist(document.getElementById('so-form-company').value);
+    document.getElementById('so-form-company').addEventListener('change', e => {
+      if (e.isTrusted) isDirty = true; updateCompanyRequiredNote(); populateItemDatalist(document.getElementById('so-form-company').value);
       loadPriceListForCurrentCustomer();
     });
     document.getElementById('so-form-customer').addEventListener('change', () => {

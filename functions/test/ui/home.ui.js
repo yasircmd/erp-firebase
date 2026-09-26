@@ -4,7 +4,7 @@
 // in-memory data below), so this checks the shell's own behaviour:
 // the user name cut to a fixed width, the theme switch in the user menu,
 // Configure Favourites (every star shown, ends on opening a module or a
-// refresh), module search, the Expand/Collapse icon, and the light-mode
+// refresh), module search, the company name in the title, the Expand/Collapse icon, and the light-mode
 // row highlight and dividers.
 //   node functions/test/ui/home.ui.js
 const http = require('http');
@@ -56,6 +56,7 @@ function stubs() {
           ? favorites.filter(f => f.moduleId !== arg.moduleId)
           : favorites.concat([{ moduleId: arg.moduleId, label: arg.moduleLabel }]);
         return { favorites };
+      case 'getActiveCompanies': return window.__companies || [];
       case 'getModuleFragment': return { html: '<div id="stub-module">Module ' + arg.moduleId + '</div>', canWrite: true };
       default: return [];
     }
@@ -69,7 +70,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(INDEX); }).listen(8131);
   const browser = await chromium.launch();
 
-  async function open(theme) {
+  async function open(theme, companies) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     page.__errors = [];
     page.on('pageerror', e => page.__errors.push(e.message));
@@ -79,6 +80,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     });
     await page.addInitScript(stubs);
     if (theme) await page.addInitScript(t => localStorage.setItem('erp-theme', t), theme);
+    if (companies) await page.addInitScript(c => { window.__companies = c; }, companies);
     await page.goto('http://127.0.0.1:8131/');
     await page.waitForSelector('#tree-container li[data-module-id]', { state: 'attached', timeout: 30000 });
     await page.waitForTimeout(300);
@@ -210,6 +212,30 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
       }
       await page.close();
     }
+  });
+
+  await check('title: a one-company user sees their company; otherwise the main (01) company', async () => {
+    const title = page => page.textContent('#app-title').then(t => t.trim());
+    let page = await open(null, [{ CompanyID: 'C7', LegalName: 'Solo Trading LLC', CompanyRefCode: '07' }]);
+    await page.waitForFunction(() => /Solo/.test(document.getElementById('app-title').textContent));
+    assert.equal(await title(page), 'ERP Module Hierarchy Tree - Solo Trading LLC');
+    await page.click('#toggle-expand-btn');
+    await page.click('#tree-container li[data-module-id="CUSTOMERINVOICE"]');
+    await page.waitForSelector('#stub-module');
+    await page.click('#back-to-tree-btn');
+    assert.equal(await title(page), 'ERP Module Hierarchy Tree - Solo Trading LLC', 'restored on returning from a module');
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+
+    page = await open(null, [{ CompanyID: 'C2', LegalName: 'Second Co', CompanyRefCode: '02' }, { CompanyID: 'C1', LegalName: 'Main Co', CompanyRefCode: '01' }]);
+    await page.waitForFunction(() => /Main Co/.test(document.getElementById('app-title').textContent));
+    assert.equal(await title(page), 'ERP Module Hierarchy Tree - Main Co');
+    await page.close();
+
+    page = await open();
+    await page.waitForTimeout(300);
+    assert.equal(await title(page), 'ERP Module Hierarchy Tree');
+    await page.close();
   });
 
   await browser.close(); server.close();
