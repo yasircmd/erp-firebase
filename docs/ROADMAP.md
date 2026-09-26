@@ -94,7 +94,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   now redraw it when the rights arrive ([PDC.md](modules/PDC.md) → Fix).
   Same change: the SOA's "if pending PDCs bounce" lines removed (owner).
 - [x] **One-company users: company chosen for them** (owner, 2026-09-26;
-  tested, not deployed; branch `worktree-single-company-default`).
+  live 2026-09-26, PR #10, [DEPLOY_LOG.md](DEPLOY_LOG.md)).
   1. A user assigned exactly one active company finds it already selected
      in every company dropdown on every screen: entry forms (also after
      New), list filters and report selectors. Done once in the shell
@@ -122,7 +122,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   "01 only" rule. Every other UI check reran green (fixture users all
   have one company): smoke 105/105, dynamic toggle 2/2, stock 12/12,
   party payments 3/3, returns 4/4 each, statements 4/4, PDC 8/8.
-  **Deploy:** Hosting (`index.html`) and a screen release; no functions.
+  Deployed: Hosting plus screen release `20260926T115827Z-d933363`; no
+  functions.
 - [ ] **Design: module/approval/voucher-type lists out of the code.** These
   lists are built into every function, so adding a module redeployed 19
   unchanged functions in the returns-and-statements deploy. Kept in

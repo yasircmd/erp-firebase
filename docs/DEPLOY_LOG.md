@@ -254,3 +254,16 @@ from, and how it was verified. The deploy procedure is in the
     of the six changed screens 12/12. Negative controls: without the
     redraw the Tasks check fails; with a bounce line put back the SOA check
     fails.
+
+- **2026-09-26, one-company users (ROADMAP → "One-company users: company
+  chosen for them", PR #10):** from `d933363` (`main` after the merge,
+  clean checkout; no functions changed).
+  `firebase deploy --project erp1-8f4cd --only hosting` (`release
+  complete`), then `tools/release-screens.sh` released
+  `20260926T115827Z-d933363` (52 screens; took about 5 minutes, exit 0).
+  - **Verified:** the live `https://erp1-8f4cd.web.app/` is byte-identical
+    to `public/index.html` at `d933363` (contains SINGLE-COMPANY DEFAULT;
+    no `REPLACE_ME`). Active screen release `20260926T115827Z-d933363`.
+  - **Beforehand:** singleCompany UI 45/45, Home 7/7, smoke 105/105,
+    dynamic toggle 2/2, stock 12/12, party payments 3/3, returns 4/4 each,
+    statements 4/4, PDC 8/8; four negative controls caught.
