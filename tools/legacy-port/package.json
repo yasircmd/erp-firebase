@@ -1,6 +1,6 @@
 {
   "name": "legacy-port",
   "private": true,
-  "description": "Generates functions/src/legacy/* and functions/modules/*.html from the Apps Script source (Code.gs + module .html). Dev-time only; not deployed.",
+  "description": "Generates functions/src/legacy/* and screens/*.html from the Apps Script source (Code.gs + module .html). Dev-time only; not deployed.",
   "dependencies": { "acorn": "^8.11.0", "acorn-walk": "^8.3.0", "recast": "^0.23.0" }
 }

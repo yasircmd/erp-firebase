@@ -82,7 +82,11 @@ async function queryEntries(field, op, value) {
 }
 
 // Every open item of one party (outstanding may be zero), keyed by RefID.
-async function getOpenItemsForParty(partyType, partyId, party) {
+// asOf (optional, 'YYYY-MM-DD', the party statements): only invoices and
+// entries dated on or before it count — both the items and the Against
+// allocations reducing them. Omitted, everything counts (as before).
+async function getOpenItemsForParty(partyType, partyId, party, asOf) {
+  const dated = d => !asOf || String(d || '') <= asOf;
   const cfg = PARTY_TYPES[partyType];
   const items = new Map();
 
@@ -91,6 +95,7 @@ async function getOpenItemsForParty(partyType, partyId, party) {
     const inv = invoices[id];
     if (inv[cfg.invoicePartyField] !== partyId) return;
     if (inv.Status !== 'Posted' || inv.ReversedByInvoiceID || inv.ReversalOfInvoiceID) return;
+    if (!dated(inv.InvoiceDate)) return;
     items.set(cfg.invoiceType + ':' + id, {
       RefID: cfg.invoiceType + ':' + id, ItemType: cfg.invoiceType, Number: inv.TransactionNumber || '',
       Date: inv.InvoiceDate || '', DueDate: addDays(inv.InvoiceDate, party ? party.PaymentTermsDays : 0),
@@ -100,7 +105,7 @@ async function getOpenItemsForParty(partyType, partyId, party) {
   });
 
   const key = partyType + ':' + partyId;
-  const entries = (await queryEntries('PartyKeys', 'array-contains', key)).filter(isLive);
+  const entries = (await queryEntries('PartyKeys', 'array-contains', key)).filter(e => isLive(e) && dated(e.JVDate));
   const against = [];
   entries.forEach(e => (e.Lines || []).forEach(l => {
     if (l.PartyType !== partyType || l.PartyID !== partyId) return;
@@ -339,6 +344,6 @@ async function listOpenItems(partyType, partyId, companyId) {
 }
 
 module.exports = {
-  PARTY_TYPES, isLive, attachPartyFields, resolvePartyLines, getOpenItemsForParty,
+  PARTY_TYPES, isLive, addDays, queryEntries, attachPartyFields, resolvePartyLines, getOpenItemsForParty,
   assertEntryReversible, assertInvoiceHasNoAllocations, annotateInvoiceOutstanding, listPartyAccounts, listOpenItems
 };

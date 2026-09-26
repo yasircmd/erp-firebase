@@ -1,0 +1,4 @@
+# Screens served from Firestore releases (docs/modules/SCREENS_ON_HOSTING.md).
+# First switch-over: run tools/release-screens.sh BEFORE this set — the new
+# getModuleFragment finds no screens until a release exists.
+getModuleFragment

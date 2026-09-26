@@ -117,3 +117,51 @@ from, and how it was verified. The deploy procedure is in the
   module screen (pages measured 10–11% shorter). No functions changed.
   `https://erp1-8f4cd.web.app/` returns 200 and matches that commit's
   `public/index.html` byte for byte.
+
+- **2026-09-25, Purchase Return, Sales Return, Vendor and Customer SOA
+  (roadmap #1–#4):** the owner ran `tools/deploy-functions.sh
+  returns-and-statements`, which deployed the 34 functions in
+  `tools/deploy-sets/returns-and-statements.txt` from `a4c0f0d` (branch
+  `party-statements`, not yet merged into `main`, clean checkout). That
+  set is the union of the `purchase-return`, `sales-return` and
+  `party-statements` sets, with each function listed once. It ran in 6
+  batches with no retries and no IAM failures, ending `ALL DONE`.
+  - **New (15):** the 7 Purchase Return callables, the 7 Sales Return
+    callables and `getPartyStatement`.
+  - **Updated (19):** the existing functions that read the changed module,
+    approval and voucher-type lists, plus the Vendor/Customer Invoice
+    reversal guards, `reverseJournalEntry`, `saveCompany`, and the GL and
+    Stock Ledger reports. `getModuleFragment` went last, serving the four
+    new screens and the Company Master fields.
+  - The first batch reported four Purchase Return functions as "update"
+    rather than "create". The log doesn't say why; they are live and
+    public like the rest.
+  - **Verified:** all 34 answer an unauthenticated call with "Please sign
+    in again", so they're public and live. The project now has 259
+    functions.
+  - **Beforehand:** 205/205 emulator tests, smoke 101/101, dynamic toggle
+    2/2, and the purchase return, sales return and statements UI checks
+    4/4 each.
+  - **Still to do in the app:** link the four screens with Tree
+    Management, and set each company's Sales Returns Account (and, where
+    needed, its Purchase Return Variance Account) in Company Master.
+
+- **2026-09-26, screens released without a function deploy
+  ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md)):** two steps
+  from `b0cd09d` (branch `party-statements`, clean checkout), run by the
+  owner in this order:
+  1. `tools/release-screens.sh` wrote release
+     `20260926T051858Z-b0cd09d` (all 50 screens) to production Firestore,
+     verified it and made it active. It's the first release. It took
+     about 2 minutes, not the few seconds expected; it exited 0.
+  2. `tools/deploy-functions.sh screen-releases` deployed
+     `getModuleFragment` (1 batch, `ALL DONE`, updated 05:28:49 UTC,
+     Node 24). It now serves the active release instead of its own
+     copies. Its checks, messages and reply are unchanged.
+  - **Verified:** the `allUsers` invoker binding is still in place, and an
+    unauthenticated call gets "Please sign in again". The owner opened
+    screens in the app and they load fine. The project still has 259
+    functions.
+  - **From now on**, screen-only changes go live with
+    `tools/release-screens.sh`; roll back with `list` and
+    `rollback <ID>`.

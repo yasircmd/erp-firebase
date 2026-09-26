@@ -41,7 +41,11 @@ const html = `<!doctype html><html><head><meta charset="utf-8">
 ${slice(rpcStart, rpcEnd)}
 ${slice(escStart, escStart + 4)}
 ${slice(injStart, injStart + 9)}
-  window.openModule = function (moduleId) {
+  // Same drill-through contract as the shell's openModule: the target
+  // reads window.__pendingModuleParams / __pendingReturnChain in initModule.
+  window.openModule = function (moduleId, drillParams, returnChain) {
+    window.__pendingModuleParams = drillParams || null;
+    window.__pendingReturnChain = returnChain || [];
     const container = document.getElementById('module-container');
     rpc.withSuccessHandler(result => {
       injectHtmlWithScripts(container, result.html);
@@ -54,3 +58,9 @@ ${slice(injStart, injStart + 9)}
 </script></body></html>`;
 fs.writeFileSync(__dirname + '/harness.html', html);
 console.log('harness.html written');
+
+// getModuleFragment serves the active screen release, and the emulator
+// suites wipe it, so release the working copy's screens/ into the
+// EMULATOR (the variable is forced, never inherited) before any check.
+require('child_process').execSync('node ' + require('path').join(__dirname, '../../../tools/screen-release.js') + ' release --project erp1-8f4cd',
+  { env: { ...process.env, FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' }, stdio: 'inherit' });

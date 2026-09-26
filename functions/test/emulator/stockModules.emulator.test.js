@@ -299,6 +299,10 @@ test('delete draft: save then delete removes it', async () => {
 // ---------- the screens themselves ----------
 
 test('getModuleFragment serves all four ported screens, with no google.script.run left', async () => {
+  // Screens come from the active release (screenRelease suite); the wipe above removed any.
+  const screenRelease = require('../../../tools/screen-release');
+  const { MODULE_REGISTRY } = require('../../src/moduleRegistry');
+  await screenRelease.releaseScreens(firestore, { screens: screenRelease.loadScreens(), registryIds: MODULE_REGISTRY.map(m => m.id), commit: 'stock-' + Date.now() });
   for (const id of ['STOCKADJUSTMENT', 'MATERIALISSUE', 'GRN', 'WAREHOUSEMOVEMENT']) {
     const r = await call('u-admin', 'getModuleFragment', { moduleId: id });
     assert.ok(r.html.length > 10000, id + ' html served');

@@ -14,10 +14,10 @@ fresh session can continue from GitHub.
 | # | Module | Design doc | Status | Notes |
 |---|---|---|---|---|
 | 0 | Party Payments & Bill-wise Allocation (JV, CBT) | [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md) | deployed | Live 2026-09-25 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). |
-| 1 | Purchase Return / Debit Note | [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) | not started | Mirrors GRN and Vendor Invoice |
-| 2 | Sales Return / Credit Note | [SALES_RETURN.md](modules/SALES_RETURN.md) | not started | Mirrors Delivery Note and Customer Invoice |
-| 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | not started | Read-only report. Builds on #0. |
-| 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | not started | Read-only report. Builds on #0. |
+| 1 | Purchase Return / Debit Note | [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) | deployed | Live 2026-09-25 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). To do in the app: link it in Tree Management, set the Purchase Return Variance Account where needed. Branch not yet merged into `main`. |
+| 2 | Sales Return / Credit Note | [SALES_RETURN.md](modules/SALES_RETURN.md) | deployed | Live 2026-09-25. To do in the app: link it in Tree Management, set each company's Sales Returns Account. |
+| 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | deployed | Live 2026-09-25. To do in the app: link it in Tree Management. Branch `party-statements` contains #1–#4. |
+| 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | deployed | Live 2026-09-25 with #3. To do in the app: link it in Tree Management. |
 
 **Order:** #0 first (the owner's priority, and the SOAs need it). Then the returns, which the SOAs report on, and
 the SOAs last because they only read.
@@ -42,6 +42,31 @@ invoice. Each vendor and customer does have its own
   more modules.
 
 Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged with the vendor or customer, as a New Ref (for example an advance) or Against Ref (offsetting posted bills). Design: [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md).
+
+## Follow-ups from new development
+
+- [ ] **Customer credit control** (from Customer SOA decision C1): a
+  credit limit on Customer Master and a warning on new Sales Orders for
+  overdue or over-limit customers. Needs its own design doc.
+- [x] **Party Payments UI check timing** (2026-09-26): it now waits for
+  elements and options instead of fixed times; 3/3 right after an
+  emulator restart (was 0/3).
+- [x] **Faster deploys** (2026-09-26): inside tmux, batches of 20 instead
+  of 6; invoker bindings 8 at a time instead of one by one
+  (`tools/deploy-lib.sh`). First deploy with batches of 20 is untried:
+  if it times out or hits API quota, rerun with `BATCH=10`.
+- [x] **Release screens without a function deploy**
+  ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md)): live
+  2026-09-26 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). Owner's decisions: access
+  check kept (B), Firestore, last 10 releases. Screens are in `screens/`;
+  `getModuleFragment` serves the active release (first release
+  `20260926T051858Z-b0cd09d`). Screen-only changes now go live with
+  `tools/release-screens.sh`, not a function deploy.
+- [ ] **Design: module/approval/voucher-type lists out of the code.** These
+  lists are built into every function, so adding a module redeployed 19
+  unchanged functions in the returns-and-statements deploy. Kept in
+  Firestore, a new module would deploy only its own functions. Needs a
+  design doc; touches ported modules (MIGRATION.md).
 
 ## Follow-ups from the migration
 

@@ -53,6 +53,11 @@
           <select id="co-form-tax" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
           <p class="text-xs text-slate-500 mt-1">Only needed if an invoice actually carries a non-zero tax amount.</p>
         </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Purchase Return Variance Account</label>
+          <select id="co-form-return-variance" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
+          <p class="text-xs text-slate-500 mt-1">Used by Purchase Return: the vendor is debited at the invoice price while stock leaves at its current average cost, and any difference posts here. Only needed when a return actually has a difference.</p>
+        </div>
       </div>
 
       <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-4">
@@ -66,6 +71,11 @@
           <label class="block text-xs font-medium text-slate-300 mb-1">Output Tax Account</label>
           <select id="co-form-tax-output" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
           <p class="text-xs text-slate-500 mt-1">Only needed if an invoice actually carries a non-zero tax amount.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Sales Returns Account</label>
+          <select id="co-form-sales-returns" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
+          <p class="text-xs text-slate-500 mt-1">Used by Sales Return: returned goods are debited here at the invoice price (e.g. 410000 Sales Returns &amp; Discounts), so returns show separately from sales. Needed before this company posts its first return.</p>
         </div>
       </div>
 
@@ -121,7 +131,7 @@
         accounts = result || [];
         const eligible = accounts.filter(a => a.Status === 'Active' && a.IsPostable === true)
           .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
-        ['co-form-grnclearing', 'co-form-discount', 'co-form-tax', 'co-form-roundoff', 'co-form-discount-given', 'co-form-tax-output'].forEach(fieldId => {
+        ['co-form-grnclearing', 'co-form-discount', 'co-form-tax', 'co-form-roundoff', 'co-form-discount-given', 'co-form-tax-output', 'co-form-return-variance', 'co-form-sales-returns'].forEach(fieldId => {
           const select = document.getElementById(fieldId);
           select.innerHTML = '<option value="">Not configured</option>';
           eligible.forEach(a => {
@@ -247,6 +257,8 @@
       document.getElementById('co-form-roundoff').value = c.RoundOffAccountID || '';
       document.getElementById('co-form-discount-given').value = c.DiscountGivenAccountID || '';
       document.getElementById('co-form-tax-output').value = c.OutputTaxAccountID || '';
+      document.getElementById('co-form-return-variance').value = c.PurchaseReturnVarianceAccountID || '';
+      document.getElementById('co-form-sales-returns').value = c.SalesReturnsAccountID || '';
       document.getElementById('co-form-address1').value = c.AddressLine1 || '';
       document.getElementById('co-form-address2').value = c.AddressLine2 || '';
       document.getElementById('co-form-city').value = c.City || '';
@@ -279,6 +291,8 @@
       RoundOffAccountID: document.getElementById('co-form-roundoff').value,
       DiscountGivenAccountID: document.getElementById('co-form-discount-given').value,
       OutputTaxAccountID: document.getElementById('co-form-tax-output').value,
+      PurchaseReturnVarianceAccountID: document.getElementById('co-form-return-variance').value,
+      SalesReturnsAccountID: document.getElementById('co-form-sales-returns').value,
       TaxNumbers: taxRows,
       AddressLine1: document.getElementById('co-form-address1').value.trim(),
       AddressLine2: document.getElementById('co-form-address2').value.trim(),

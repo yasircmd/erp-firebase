@@ -1,0 +1,29 @@
+# Sales Return / Credit Note (docs/modules/SALES_RETURN.md).
+# This branch also contains Purchase Return: if purchase-return.txt hasn't
+# been deployed yet, deploy that set first (from this same clean checkout),
+# then this one. Server first; getModuleFragment (the new SALESRETURN
+# screen and the Company Master field) last.
+getReturnableCustomerInvoices    # new
+saveSalesReturnDraft             # new
+postSalesReturn                  # new
+decideSalesReturnApproval        # new
+deleteSalesReturnDraft           # new
+getSalesReturnEntries            # new
+reverseSalesReturn               # new
+requestReverseCustomerInvoice    # refused while a live return exists
+decideCustomerInvoiceReversalApproval
+reverseJournalEntry              # refuses a CRN GL entry (module map)
+saveCompany                      # SalesReturnsAccountID
+getStockLedgerReport             # rows link to the Sales Return screen
+getGlReport                      # drill-through to the Sales Return screen
+updatePostedDescription          # module map
+getModuleRegistry                # MODULE_REGISTRY: Tree Management, Roles & Permissions
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getApprovalConfigurations        # APPROVAL_GATEABLE_MODULES: Approval Configuration
+saveApprovalConfiguration
+saveApprovalLevels
+getPendingApprovalsForUser       # home tasks for pending returns
+getMyRejectedSubmissions
+getModuleFragment

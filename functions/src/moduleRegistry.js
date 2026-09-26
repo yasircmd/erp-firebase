@@ -48,8 +48,15 @@ const MODULE_REGISTRY = [
   { id: 'BOM', label: 'Bill of Materials', capabilities: ['access', 'write'] },
   { id: 'MATERIALVARIANCE', label: 'Material Variance Report', capabilities: ['access'] },
   { id: 'VENDORINVOICE', label: 'Vendor Invoice Processing', capabilities: ['access', 'draft', 'post'] },
+  // New development (not in Code.gs): docs/modules/PURCHASE_RETURN.md.
+  { id: 'PURCHASERETURN', label: 'Purchase Return / Debit Note', capabilities: ['access', 'draft', 'post'] },
   { id: 'DELIVERYNOTE', label: 'Delivery Note (Goods Dispatch)', capabilities: ['access', 'draft', 'post'] },
   { id: 'CUSTOMERINVOICE', label: 'Customer Invoice Processing', capabilities: ['access', 'draft', 'post'] },
+  // New development (not in Code.gs): docs/modules/SALES_RETURN.md.
+  { id: 'SALESRETURN', label: 'Sales Return / Credit Note', capabilities: ['access', 'draft', 'post'] },
+  // New development (not in Code.gs): docs/modules/VENDOR_SOA.md, CUSTOMER_SOA.md.
+  { id: 'VENDORSOA', label: 'Vendor Statement of Account (SOA)', capabilities: ['access'] },
+  { id: 'CUSTOMERSOA', label: 'Customer Statement of Account (SOA)', capabilities: ['access'] },
   { id: 'DATARESET', label: 'Data Reset (Admin)', capabilities: ['access', 'write'] }
 ];
 
@@ -124,8 +131,15 @@ const DEFAULT_PERMISSIONS = {
   CASHFLOW:     { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   GRN:                { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   VENDORINVOICE:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
+  // Same as Vendor Invoice (owner decision 7, docs/modules/PURCHASE_RETURN.md).
+  PURCHASERETURN:     { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   DELIVERYNOTE:       { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   CUSTOMERINVOICE:    { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
+  // Same as Customer Invoice (owner decision 6, docs/modules/SALES_RETURN.md).
+  SALESRETURN:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
+  // Read-only reports, same broad access as the other reports (SOA decision 6).
+  VENDORSOA:          { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  CUSTOMERSOA:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   MATERIALISSUE:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   PRODUCTION:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   WAREHOUSEMOVEMENT:  { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },

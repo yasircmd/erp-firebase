@@ -37,6 +37,15 @@ const {
   getVendorInvoiceEntries, getCustomerInvoiceEntries, requestReverseVendorInvoice, decideVendorInvoiceReversalApproval,
   requestReverseCustomerInvoice, decideCustomerInvoiceReversalApproval
 } = require('./src/invoiceAllocations');
+const {
+  getReturnableVendorInvoices, savePurchaseReturnDraft, postPurchaseReturn, decidePurchaseReturnApproval,
+  deletePurchaseReturnDraft, getPurchaseReturnEntries, reversePurchaseReturn
+} = require('./src/purchaseReturn');
+const {
+  getReturnableCustomerInvoices, saveSalesReturnDraft, postSalesReturn, decideSalesReturnApproval,
+  deleteSalesReturnDraft, getSalesReturnEntries, reverseSalesReturn
+} = require('./src/salesReturn');
+const { getPartyStatement } = require('./src/partyStatement');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
@@ -97,6 +106,21 @@ exports.requestReverseVendorInvoice = requestReverseVendorInvoice;
 exports.decideVendorInvoiceReversalApproval = decideVendorInvoiceReversalApproval;
 exports.requestReverseCustomerInvoice = requestReverseCustomerInvoice;
 exports.decideCustomerInvoiceReversalApproval = decideCustomerInvoiceReversalApproval;
+exports.getReturnableVendorInvoices = getReturnableVendorInvoices;
+exports.savePurchaseReturnDraft = savePurchaseReturnDraft;
+exports.postPurchaseReturn = postPurchaseReturn;
+exports.decidePurchaseReturnApproval = decidePurchaseReturnApproval;
+exports.deletePurchaseReturnDraft = deletePurchaseReturnDraft;
+exports.getPurchaseReturnEntries = getPurchaseReturnEntries;
+exports.reversePurchaseReturn = reversePurchaseReturn;
+exports.getReturnableCustomerInvoices = getReturnableCustomerInvoices;
+exports.saveSalesReturnDraft = saveSalesReturnDraft;
+exports.postSalesReturn = postSalesReturn;
+exports.decideSalesReturnApproval = decideSalesReturnApproval;
+exports.deleteSalesReturnDraft = deleteSalesReturnDraft;
+exports.getSalesReturnEntries = getSalesReturnEntries;
+exports.reverseSalesReturn = reverseSalesReturn;
+exports.getPartyStatement = getPartyStatement;
 
 // Every remaining Code.gs module, ported mechanically (see
 // tools/legacy-port/generate.js): one callable per function a ported

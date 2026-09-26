@@ -2,8 +2,10 @@
 // place behavior deliberately differs from the Apps Script original.
 // Each: { id, why, find, replace } — `find` must match Code.gs exactly
 // once (the generator fails loudly otherwise, so a changed original
-// can't silently skip a fix). Every entry is also listed in docs/MIGRATION.md
-// under "Deviations from Code.gs".
+// can't silently skip a fix). Every migration entry is also listed in
+// docs/MIGRATION.md under "Deviations from Code.gs". Entries marked
+// NEW DEVELOPMENT (after the migration) are features, not fixes; each is
+// recorded in its module's design doc under docs/modules/.
 module.exports = [
   {
     id: 'stock-ledger-report-transfers-and-multiline',
@@ -446,5 +448,76 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
     return { success: false, error: err.message };
   }
 }`
+  },
+  // ---- NEW DEVELOPMENT: Purchase Return (docs/modules/PURCHASE_RETURN.md) ----
+  {
+    id: 'company-purchase-return-variance-account (read)',
+    why: 'NEW DEVELOPMENT. Company Master gains an optional Purchase Return Variance Account: a debit note credits ' +
+      'stock at its current average cost while the vendor is debited at the invoice price, and the difference posts here.',
+    find: `    const outputTaxAccountId = String(companyData.OutputTaxAccountID || '').trim();`,
+    replace: `    const outputTaxAccountId = String(companyData.OutputTaxAccountID || '').trim();
+    // [NEW DEVELOPMENT company-purchase-return-variance-account]
+    const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();`
+  },
+  {
+    id: 'company-purchase-return-variance-account (validate)',
+    why: 'Same checks as the other fixed accounts: active, postable, not restricted to another company.',
+    find: `      { id: outputTaxAccountId, label: 'Output Tax Account' }
+    ];`,
+    replace: `      { id: outputTaxAccountId, label: 'Output Tax Account' },
+      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' }
+    ];`
+  },
+  {
+    id: 'company-purchase-return-variance-account (store)',
+    why: 'Stored on the company record next to the other fixed accounts.',
+    find: `      OutputTaxAccountID: outputTaxAccountId,`,
+    replace: `      OutputTaxAccountID: outputTaxAccountId,
+      PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,`
+  },
+  {
+    id: 'stock-voucher-type-purchase-return',
+    why: 'NEW DEVELOPMENT. The Stock Ledger Report links each row to its source module through this map; a Purchase ' +
+      'Return row opens the Purchase Return screen.',
+    find: `  CustomerInvoice: 'CUSTOMERINVOICE'
+};`,
+    replace: `  CustomerInvoice: 'CUSTOMERINVOICE',
+  PurchaseReturn: 'PURCHASERETURN' // [NEW DEVELOPMENT] docs/modules/PURCHASE_RETURN.md
+};`
+  },
+  // ---- NEW DEVELOPMENT: Sales Return (docs/modules/SALES_RETURN.md) ----
+  {
+    id: 'company-sales-returns-account (read)',
+    why: 'NEW DEVELOPMENT. Company Master gains an optional Sales Returns Account (contra revenue, e.g. 410000 Sales ' +
+      'Returns & Discounts): a credit note debits returned goods there rather than back to the Sales Type account.',
+    find: `    const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();`,
+    replace: `    const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();
+    // [NEW DEVELOPMENT company-sales-returns-account]
+    const salesReturnsAccountId = String(companyData.SalesReturnsAccountID || '').trim();`
+  },
+  {
+    id: 'company-sales-returns-account (validate)',
+    why: 'Same checks as the other fixed accounts.',
+    find: `      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' }
+    ];`,
+    replace: `      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' },
+      { id: salesReturnsAccountId, label: 'Sales Returns Account' }
+    ];`
+  },
+  {
+    id: 'company-sales-returns-account (store)',
+    why: 'Stored on the company record next to the other fixed accounts.',
+    find: `      PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,`,
+    replace: `      PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,
+      SalesReturnsAccountID: salesReturnsAccountId,`
+  },
+  {
+    id: 'stock-voucher-type-sales-return',
+    why: 'NEW DEVELOPMENT. Stock Ledger Report rows of a Sales Return open the Sales Return screen.',
+    find: `  PurchaseReturn: 'PURCHASERETURN' // [NEW DEVELOPMENT] docs/modules/PURCHASE_RETURN.md
+};`,
+    replace: `  PurchaseReturn: 'PURCHASERETURN', // [NEW DEVELOPMENT] docs/modules/PURCHASE_RETURN.md
+  SalesReturn: 'SALESRETURN' // [NEW DEVELOPMENT] docs/modules/SALES_RETURN.md
+};`
   }
 ];

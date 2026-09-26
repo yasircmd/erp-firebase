@@ -179,7 +179,9 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   PhysicalCount: 'PHYSICALCOUNT',
   VendorInvoice: 'VENDORINVOICE',
   DeliveryNote: 'DELIVERYNOTE',
-  CustomerInvoice: 'CUSTOMERINVOICE'
+  CustomerInvoice: 'CUSTOMERINVOICE',
+  PurchaseReturn: 'PURCHASERETURN', // new development, not in Code.gs
+  SalesReturn: 'SALESRETURN' // new development, not in Code.gs
 };
 
 // Ported from moduleIdForEntry_.

@@ -181,7 +181,9 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   PhysicalCount: 'PHYSICALCOUNT',
   VendorInvoice: 'VENDORINVOICE',
   DeliveryNote: 'DELIVERYNOTE',
-  CustomerInvoice: 'CUSTOMERINVOICE'
+  CustomerInvoice: 'CUSTOMERINVOICE',
+  PurchaseReturn: 'PURCHASERETURN', // [NEW DEVELOPMENT] docs/modules/PURCHASE_RETURN.md
+  SalesReturn: 'SALESRETURN' // [NEW DEVELOPMENT] docs/modules/SALES_RETURN.md
 };
 
 // ============================================================
@@ -1295,6 +1297,10 @@ async function saveCompany(idToken, companyData) {
     const roundOffAccountId = String(companyData.RoundOffAccountID || '').trim();
     const discountGivenAccountId = String(companyData.DiscountGivenAccountID || '').trim();
     const outputTaxAccountId = String(companyData.OutputTaxAccountID || '').trim();
+    // [NEW DEVELOPMENT company-purchase-return-variance-account]
+    const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();
+    // [NEW DEVELOPMENT company-sales-returns-account]
+    const salesReturnsAccountId = String(companyData.SalesReturnsAccountID || '').trim();
     let refCode = String(companyData.CompanyRefCode || '').trim();
 
     if (!legalName) throw new Error('Legal company name is required.');
@@ -1337,7 +1343,9 @@ async function saveCompany(idToken, companyData) {
       { id: inputTaxAccountId, label: 'Input Tax Account' },
       { id: roundOffAccountId, label: 'Round Off Account' },
       { id: discountGivenAccountId, label: 'Discount Given Account' },
-      { id: outputTaxAccountId, label: 'Output Tax Account' }
+      { id: outputTaxAccountId, label: 'Output Tax Account' },
+      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' },
+      { id: salesReturnsAccountId, label: 'Sales Returns Account' }
     ];
     await seq.forEach(fixedAccountFields, async f => {
       if (!f.id) return;
@@ -1410,6 +1418,8 @@ async function saveCompany(idToken, companyData) {
       RoundOffAccountID: roundOffAccountId,
       DiscountGivenAccountID: discountGivenAccountId,
       OutputTaxAccountID: outputTaxAccountId,
+      PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,
+      SalesReturnsAccountID: salesReturnsAccountId,
       Status: status
     };
 

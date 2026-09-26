@@ -50,22 +50,28 @@ functions/
     moduleRegistry.js           — every module's capabilities + default role permissions
     treeSeedNodes.js            — the menu tree
     approvalRegistry.js         — which modules can be approval-gated, and where their documents live
-    getModuleFragment.js        — serves a screen after the access check
+    getModuleFragment.js        — serves a screen from the active screen release, after the access check
     stockAdjustment.js, materialIssue.js, grn.js, warehouseMovement.js, masterData.js
                                 — hand-written modules (the pattern for new modules)
     journal.js                  — JV and CBT (moved out of the generated code)
     partyLedger.js              — vendor/customer tags and bill-wise allocation on JV/CBT lines
     invoiceAllocations.js       — Vendor/Customer Invoice list and reversal wrappers for allocation
+    purchaseReturn.js           — Purchase Return / Debit Note (docs/modules/PURCHASE_RETURN.md)
+    salesReturn.js              — Sales Return / Credit Note (docs/modules/SALES_RETURN.md)
+    partyStatement.js           — Vendor and Customer Statements of Account (docs/modules/VENDOR_SOA.md)
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
-  modules/*.html                — the screens, served by getModuleFragment
   test/emulator/*.test.js       — one API suite per module, against the local emulators
-  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments)
+  test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments, returns, statements)
 tools/
   legacy-port/                  — the Code.gs → Cloud Functions generator (migration only)
   deploy-migration.sh           — deploys pending generated-port functions
   deploy-functions.sh           — deploys a named set (tools/deploy-sets/<set>.txt) for new development
   deploy-runtime.sh             — moves every live function onto engines.node's runtime
+  build-soa-screens.js          — writes CUSTOMERSOA.html from VENDORSOA.html (edit only the vendor one)
+  release-screens.sh            — releases screens/ to production (list, rollback)
+  screen-release.js             — the release logic (verify, activate, keep the last 10)
+screens/*.html                  — the module screens, released to Firestore (screens/README.md)
 legacy-gas/                     — read-only snapshot of the old Apps Script project
 docs/                           — see Documents above
 ```
@@ -85,8 +91,11 @@ docs/                           — see Documents above
    regenerated from Code.gs.
 3. **Register it:** capabilities and default permissions in
    `moduleRegistry.js`, a menu entry in `treeSeedNodes.js`, and, if it can
-   be approval-gated, `approvalRegistry.js`.
-4. **Screen:** `functions/modules/<ID>.html`, calling the server with
+   be approval-gated, `approvalRegistry.js`. A stock/GL module also goes in
+   the voucher-type maps in `journal.js` and `masterData.js` (and, by
+   generator patch, the Stock Ledger Report's). After deploy, link it into
+   the live menu with Tree Management; the seed only fills an empty tree.
+4. **Screen:** `screens/<ID>.html`, calling the server with
    `rpc.<fn>({...})`.
 5. **Tests:** an emulator suite in `functions/test/emulator/`, including a
    verified negative control (break the logic on purpose, confirm a test
@@ -106,9 +115,14 @@ npm i --no-save --prefix functions playwright && (cd functions && npx playwright
 firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
 
 node --test --test-concurrency=1 functions/test/emulator/*.test.js
+# while developing, run just the module's suite (seconds, not the full run):
+#   node --test functions/test/emulator/salesReturn.emulator.test.js
 node functions/test/ui/smoke.ui.js          # every screen loads cleanly (Admin + Viewer)
 node functions/test/ui/dynamicToggle.ui.js  # a real deactivate/reactivate click
-node functions/test/ui/partyPayments.ui.js  # after the partyPayments suite: JV/CBT allocation screens
+node functions/test/ui/partyPayments.ui.js  # right after the partyPayments suite, every time: JV/CBT allocation screens
+node functions/test/ui/purchaseReturn.ui.js # after the purchaseReturn suite: the Purchase Return screen
+node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the Sales Return screen
+node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: the two SOA screens
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for
@@ -120,21 +134,49 @@ node functions/test/ui/partyPayments.ui.js  # after the partyPayments suite: JV/
   Restart it after changing code, including for negative controls.
 - **Safety:** the suites WIPE the emulator database. `_helpers.js` refuses
   to run unless every client points at the local emulators.
-- **Last full run** (2026-09-25, `party-payments` branch): 190/190 emulator
-  tests, 93/93 smoke, 2/2 dynamic toggle, 3/3 party payments UI.
+- **Screens in tests:** `getModuleFragment` serves the active screen
+  release, and the suites' wipe removes it. The UI harness releases the
+  working copy's `screens/` into the emulator before each UI check, and
+  the suites that open screens release them themselves (not every reset:
+  a release takes about 0.7 s).
+- **Smoke fixture:** run smoke and dynamic toggle after a suite that uses
+  `_helpers.js`'s all-modules permissions (e.g. `vendorMaster`), not after
+  `stockModules`, which grants only its four modules.
+- **Last full run** (2026-09-26, `party-statements` branch): 213/213
+  emulator tests, 101/101 smoke, 2/2 dynamic toggle, 12/12 stock screens,
+  3/3 party payments, 4/4 each for the purchase return, sales return and
+  statements UI checks. The party payments check waits for elements, not
+  fixed times, so it passes right after an emulator restart. Each run adds
+  a bill, so rerun the partyPayments suite before rerunning it, or "oldest
+  first" allocates against the previous run's bill.
+- **Full run vs. one suite:** the full run above is for before a deploy or
+  merge. While building or fixing a module, run only its suite (and its
+  UI check); it doesn't need the two-halves split.
 
 ## Deploying
 
 - **Always from a clean checkout:** `git status --porcelain` must be empty,
   because `firebase deploy` uploads the working copy, not the last commit.
-- **Batches of ≤6 functions**, to avoid Cloud Shell connection timeouts.
+- **Run deploys inside tmux** (`tmux new -s deploy`; after a disconnect,
+  `tmux attach -t deploy`). A dropped Cloud Shell connection then can't
+  kill the deploy, so the scripts use batches of 20 instead of 6; the CLI
+  deploys a batch's functions in parallel, and each batch repeats the
+  source upload. Outside tmux/screen they fall back to 6. Override with
+  `BATCH=N`. Shared steps: `tools/deploy-lib.sh`, tested by
+  `bash tools/test-deploy-lib.sh` (stubs; nothing reaches Google).
 - **Every new callable needs a public-invoker binding**, since a 2nd-gen
   function doesn't get one automatically:
   `gcloud functions add-invoker-policy-binding FN --region=us-central1 --member=allUsers --gen2 --project=erp1-8f4cd`
 - **New modules:** list the functions in `tools/deploy-sets/<set>.txt` and
-  run `tools/deploy-functions.sh <set>` (clean-copy check, batches of ≤6,
-  retries, the binding for each). Put `getModuleFragment` last when a
-  screen changes, so it can't go live before the functions it calls.
+  run `tools/deploy-functions.sh <set>` (clean-copy check, batches,
+  retries, the binding for each, 8 bindings at a time). Add `--screens`
+  when screens changed: it releases them after the functions, so a screen
+  can't go live before the functions it calls.
+- **Screens (`screens/*.html`):** `tools/release-screens.sh` (clean-copy
+  check, then write, verify and activate a release in production
+  Firestore). Users get it on their next screen open. No function deploy.
+  `tools/release-screens.sh list` and `rollback <ID>` undo a release. The
+  last 10 are kept. Record releases in the deploy log.
 - **Generated-port functions:** `tools/deploy-migration.sh` (reads the
   pending list from `tools/legacy-port/status.js`).
 - **Hosting (`public/index.html`):** `firebase deploy --project erp1-8f4cd --only hosting`.
