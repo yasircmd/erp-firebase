@@ -1,158 +1,166 @@
-# Screens on Hosting
+# Screens released without a function deploy
 
-**Status:** design, awaiting the owner's decisions · **Roadmap:** follow-up "Design: serve screens from Hosting" ([ROADMAP.md](../ROADMAP.md))
+**Status:** design, owner chose option B on 2026-09-26; two follow-up questions open · **Roadmap:** follow-up "Design: serve screens from Hosting" ([ROADMAP.md](../ROADMAP.md))
+
+(File name kept from the first draft, which proposed serving screens from Hosting.)
 
 ## Purpose
 
-Make a screen-only change (a label, a layout fix, a client-side check) a
-Hosting deploy instead of a Cloud Functions deploy. Today every screen is
-bundled into the `getModuleFragment` function, so changing one line of
-HTML means redeploying a function.
+Make a screen-only change (a label, a layout fix, a client-side check)
+quick to release. Today every screen is bundled into the
+`getModuleFragment` function, so changing one line of HTML means
+redeploying a function.
+
+## Owner decisions (2026-09-26)
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | A: public screen files on Hosting; B: keep the sign-in and access check, move the files out of the function; C: not now | **B.** Screen code stays downloadable only by a signed-in user whose role has access to that module, exactly as today |
+| 2 | Where `canWrite` comes from | Agreed, but not needed under B: `getModuleFragment` keeps returning it |
+| 3 | Keep `no-cache` so a fix shows on the next open | Agreed. Under B it becomes: a release shows on the next screen open (see "Releases") |
+| 4 | Keep the old function one week for tabs opened earlier | Agreed, but not needed under B: the shell and the function's reply don't change, so open tabs keep working |
+| 5 | Switch all screens at once | **Yes**, all 51 in one release |
+
+**Open, for the owner:**
+
+| # | Question | Recommendation |
+|---|---|---|
+| 6 | Where the screens are kept: Firestore or Cloud Storage? Option B was described with Cloud Storage | **Firestore.** The project has no Storage bucket yet (only Google's internal function-source buckets). Storage would add a bucket, storage rules and the Storage emulator in tests. Firestore is already set up: its rules block every direct browser read or write (`firestore.rules`), the tests already use its emulator, and the largest screen (GRN, 97 KB) is far under its 1 MB limit per record. Either way, users see no difference |
+| 7 | How many past releases to keep for rollback | **The last 10.** Older ones are deleted by the release script |
 
 ## What exists today (from the code)
 
-- **Screens:** 51 files in `functions/modules/<ID>.html`, 1.9 MB in all
-  (about 37 KB each), named after their `MODULE_REGISTRY` id. Each one is
-  HTML plus an inline `<script>` that defines `window.initModule(token, canWrite)`.
+- **Screens:** 51 files in `functions/modules/<ID>.html`, 1.9 MB in all,
+  named after their `MODULE_REGISTRY` id. Each one is HTML plus an inline
+  `<script>` that defines `window.initModule(token, canWrite)`.
 - **`getModuleFragment`** (`functions/src/getModuleFragment.js`, ported
   from Code.gs): signed-in user → module must be in `MODULE_REGISTRY` →
   the user's role must have the `access` capability for it → reads the
   file from its own deploy package → returns `{ html, canWrite }`.
   `canWrite` = the module has `write` in the registry **and** the role
-  has `write` in the permissions table (RTDB, `ensurePermissionsSeeded`).
-- **The shell** (`public/index.html`, `openModule`): calls
-  `getModuleFragment`, injects the HTML (re-creating `<script>` tags so
-  they run), then calls `initModule(null, canWrite)`. Screens call
-  `openModule` themselves for drill-down (Trial Balance → GL Report →
-  JV), so a screen can open one that isn't in the user's menu tree.
-- **Every data call checks permissions itself** (`requireUser`, module
-  capability, company access). The screen's own code is not what
-  protects the data.
+  has `write` in the permissions table (RTDB).
+- **The shell** (`public/index.html`, `openModule`) calls it, injects the
+  HTML and calls `initModule(null, canWrite)`. **Under B the shell
+  doesn't change.**
 - **Written by tools:** `tools/build-soa-screens.js` (SOA screens) and
   `tools/legacy-port/generate.js` + `check-shell-deps.js` (ported
   screens) write to or read `functions/modules/`.
 - **Tests:** `stockModules.emulator.test.js` calls `getModuleFragment`;
-  every UI check's harness (`functions/test/ui/buildHarness.js`) loads
-  screens through it.
+  every UI check's harness loads screens through it. The emulator suites
+  wipe the emulator database.
 - **Deploy order rule:** `getModuleFragment` goes last in a deploy set,
   so a new screen can't go live before the functions it calls.
-- **Hosting** already sends `Cache-Control: no-cache` for every `.html`
-  file (`firebase.json`), so browsers always recheck with the server.
-  Unchanged files come back as a small "not modified" reply.
 
-## What it saves, honestly
+## What it saves
 
-- **Screen-only fixes:** a Hosting deploy of `public/` (the shell plus the
-  screens, released together in one step) instead of a function deploy
-  plus its checks. These are the cases this design is for.
+- **Screen-only fixes:** one script run that writes 51 Firestore records
+  and takes seconds, instead of a function deploy. This is the case the
+  design is for.
 - **Screen + server changes** (most new modules): little saved. The
-  functions still deploy. `getModuleFragment` was 1 of the 34 functions in
-  the last deploy. Hosting becomes one more step, after the functions.
+  functions still deploy, then the screens are released.
 - **History:** none of the last 40 commits that touched
-  `functions/modules/` changed only screens. Every one also changed
-  server code. The saving shows up as the app settles and changes become
-  UI tweaks from users. It isn't there yet.
-- **For users:** opening a screen becomes a CDN fetch (plus, under
-  option A1, one small call in parallel) instead of a function call that
-  can hit a cold start. Screens should open a little faster.
+  `functions/modules/` changed only screens. The saving shows up as
+  changes become UI tweaks from users.
+- **For users:** no change. Screens open as today, plus one small
+  Firestore read, and the check still runs on every open.
 - **Adding a module** still needs a function deploy until the separate
-  "lists out of the code" item is done, because the module registry is
-  in the code.
+  "lists out of the code" item is done (the registry is in the code).
 
-## Options
+## Design
 
-**A. Screens are public files on Hosting (recommended).**
-Move them to `public/screens/<ID>.html`. The shell fetches the file and,
-at the same time, asks the server whether this user may open the module
-and write in it. It shows the screen only if the answer is yes.
-- **Gain:** a screen-only change is a Hosting deploy. Hosting releases
-  are atomic (the shell and all screens switch together) and can be
-  rolled back from the Firebase console.
-- **Cost:** anyone, even someone not signed in, could download a
-  screen's HTML/JS (for example `/screens/USERMGMT.html`). They get no
-  data: every data call still checks the user. What they see is the
-  screen's layout, field names and the names of the functions it calls.
-  The port deliberately kept this gate as "defense in depth"
-  (`getModuleFragment.js` header). Removing it is a real, if small,
-  loss. Scan of all 51 screens: no keys, secrets or real addresses (one
-  placeholder `user@company.com`, and password-field labels in User
-  Management).
+**Files:** `functions/modules/*.html` → `screens/<ID>.html` at the repo
+root (git move, contents unchanged). They're outside `functions/`, so
+they're no longer bundled into every function, and outside `public/`,
+so Hosting never publishes them. `functions/modules/README.md` moves
+with them and is rewritten.
 
-**B. Keep the gate; move the files to Cloud Storage.**
-`getModuleFragment` keeps its exact checks but reads each screen from a
-Storage bucket (cached in memory) instead of its own package. A screen
-change becomes an upload script.
-- **Gain:** nothing becomes public. The ported function's behavior
-  doesn't change.
-- **Cost:** a new moving part: a bucket, an upload script with its own
-  clean-copy rule, and the Storage emulator in tests. There's no atomic
-  release or rollback for the shell and screens together. The function
-  still runs on every screen open, so there's no speed gain for users.
+**Firestore layout** (the Admin SDK only; the rules keep blocking
+browsers):
+- `screenReleases/{releaseId}`: `{ commit, createdAt, createdBy, count }`
+- `screenReleases/{releaseId}/screens/{ID}`: `{ html, sha256 }`
+- `config/screens`: `{ activeRelease }`, the release every user gets
 
-**C. Do nothing.** Screen-only changes stay function deploys. With the
-faster deploy scripts (2026-09-26), deploying `getModuleFragment` alone
-takes one batch.
+`releaseId` = UTC time plus the git commit, for example
+`20260926T1030Z-4063763`, so the list sorts by date.
 
-## Design for option A
+**Releases** (`tools/release-screens.sh`, with the logic in
+`tools/screen-release.js` so tests can call it):
+1. Refuses to run unless the working copy is clean, as for deploys.
+2. Checks that every `MODULE_REGISTRY` id has a screen file and that no
+   screen contains `google.script.run`.
+3. Writes the new release: every screen, its hash, then the release
+   record.
+4. Reads the release back and compares each hash. Stops on any mismatch
+   and leaves the active release as it was.
+5. Points `config/screens.activeRelease` at it. This one write switches
+   every user at once, so no one sees half a release.
+6. Deletes releases beyond the last 10 (question 7), never the active
+   one.
+- `--list` shows the releases (active marked). `--rollback <releaseId>`
+  points back to an earlier one, which is a single write.
 
-**Files:** `functions/modules/*.html` → `public/screens/*.html` (git
-move, contents unchanged). `functions/modules/README.md` is replaced by a
-note in `public/README.md`.
+**`getModuleFragment`** (behavior change, recorded here and in the
+roadmap): the same checks in the same order with the same error
+messages. Only where the HTML comes from changes:
+1. Signed in, known module, `access` capability: unchanged, and done
+   **before** anything is read, so a refused user never gets screen
+   content.
+2. Reads `config/screens` (one small read per open, so a release or
+   rollback shows on the next open).
+3. Takes the screen from an in-memory cache keyed by release + id, or
+   reads it from `screenReleases/{active}/screens/{ID}` and caches it.
+   A release never changes after it's written, so the cache is never
+   stale.
+4. No active release, or no screen for this id: the same message as
+   today's missing file, "Module "X" has no fragment file yet."
+5. Returns `{ html, canWrite }` exactly as today.
 
-**New callable `getModuleAccess`** (`functions/src/getModuleAccess.js`,
-hand-written): the same first three steps as `getModuleFragment` (signed
-in, known module, `access` capability, with the same error messages),
-returning `{ canWrite }` computed exactly as today.
+**Switch-over order** (no gap for users):
+1. Run the release script. The old function ignores Firestore, so
+   nothing changes yet.
+2. Deploy the new `getModuleFragment`. From then on it serves the
+   release, which has the same contents.
 
-**Shell `openModule`:** starts `fetch('/screens/' + id + '.html')` and
-`getModuleAccess({ moduleId })` together. If access is refused, it shows
-the error as today and never injects the HTML. Otherwise it injects the
-HTML and calls `initModule(null, canWrite)`. The token/double-click
-guard is unchanged: the stale-response check happens after both
-requests finish. If the fetch fails, it shows "Couldn't load this
-screen, please reload."
-
-**`getModuleFragment`:** kept deployed, unchanged, for a transition
-period. A tab opened before the switch still runs the old shell and
-calls it, and gets the old bundled copy of the screen. It's deleted in a
-later deploy after the owner decides it's safe (question 4).
-
-**Deploy rule:** functions first, then Hosting, so a screen can't go
-live before its functions. That's the same rule as "getModuleFragment
-last", in a new form. `tools/deploy-functions.sh` gets an optional
-`--hosting` flag that runs the Hosting deploy (with the `REPLACE_ME`
-check) after the last batch and bindings succeed.
+**Deploy rule after the switch:** functions first, then
+`tools/release-screens.sh`, so a screen can't go live before its
+functions. That's the same rule as "getModuleFragment last", in a new
+form. `tools/deploy-functions.sh` gets an optional `--screens` flag that
+runs the release after the last batch and bindings succeed.
 
 **Tools:** `build-soa-screens.js`, `legacy-port/generate.js` and
-`check-shell-deps.js` get the new output/input path. They're tooling,
-not `functions/src/legacy/`, so they can change, and the generated
-screens stay byte-identical.
+`check-shell-deps.js` get the new path. They're tooling, not
+`functions/src/legacy/`, and the generated screens stay byte-identical.
 
-**Tests:**
-- Emulator: `getModuleAccess`: unknown module, no access, access
-  without write, access with write, not signed in. Also a file check
-  that every `MODULE_REGISTRY` id has a `public/screens/<ID>.html` and no
-  screen contains `google.script.run`. This replaces the current
-  `getModuleFragment` test, which stays until that function is deleted.
-- UI: the harness serves `public/screens/` from its own local server and
-  uses the new `openModule` code from the shell. All UI checks (smoke
-  101, dynamic toggle, the five module checks) must pass unchanged.
-- Negative controls: return `canWrite: true` for a read-only role
-  (the Viewer checks must fail), and skip the access check in the
-  shell (a no-access open must fail).
+## Tests
 
-## Open questions for the owner
-
-| # | Question | Recommendation |
-|---|---|---|
-| 1 | A (public screen files), B (Storage, gate kept) or C (not now)? | **A.** The screens hold no data or secrets, every data call checks the user, and it's the only option that also speeds up screen opening. Choose B if screen code must never be downloadable without signing in. Choose C if you'd rather wait until UI-only changes are actually common |
-| 2 | Where does `canWrite` come from? A small call made alongside the file fetch, or the menu tree at login? | **The small call.** It works for drill-down to modules outside the tree and doesn't touch the ported login/tree code. It costs one call per screen open, in parallel with the fetch |
-| 3 | Keep `no-cache` on screens (always recheck, small "not modified" replies)? | **Yes.** A fix shows on the next open. Revisit together with the shell's header when deploys become rare |
-| 4 | How long does `getModuleFragment` stay deployed after the switch? | **One week**, then delete it, so open tabs from before the switch keep working until they're reloaded |
-| 5 | Switch all 51 screens at once, or a few first? | **All at once.** The contents don't change and the UI checks cover every screen. A half-and-half shell would be more code and more to test |
+- **Emulator, `getModuleFragment`:**
+  - serves the active release's screen, with `canWrite` as today
+  - after a new release, the next call serves the new content, and
+    after a rollback the old content, even with a warm cache
+  - no access: refused, and no screen is read
+  - unknown module, not signed in, no active release, missing screen:
+    today's messages
+- **Emulator, release script logic:**
+  - a release with a missing screen or `google.script.run` is refused
+  - a hash mismatch leaves the active release unchanged
+  - only the last 10 releases are kept, and the active one is never
+    deleted
+  - the script refuses to run against production unless `--project`
+    is given
+- **Setup:** because the suites wipe the database, the test helpers
+  release the working copy's `screens/` into the emulator after each
+  wipe. The UI checks then load screens exactly as production does. All
+  UI checks (smoke 101, dynamic toggle, the five module checks) must
+  pass unchanged.
+- **Negative controls:**
+  - move the access check after the screen read: the "no screen is
+    read" test must fail
+  - key the cache by id only: the release-switch test must fail
+  - flip the pointer before verifying the release: the hash-mismatch
+    test must fail
 
 ## Not in scope
 
 - Moving the module, approval and voucher-type lists out of the code
   (the separate roadmap item that saves most on new-module deploys).
-- Any change to screen contents, permissions or the permissions table.
+- Any change to screen contents, permissions, the shell or Hosting.
