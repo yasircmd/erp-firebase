@@ -222,9 +222,11 @@ The owner agreed every proposal. The tree nodes are named **PDC Received** and *
 - SOA (`partyStatement.js`): PDC rows are labelled "PDC Received", and
   "PDC Received Bounced" / "… Cancelled" for the reversals. New
   `PendingPdcs` as at the end date: posted on or before it and not
-  cleared, bounced or cancelled by then. Also `PendingPdcTotal` and
-  `BalanceIfPdcsBounce` (closing + pending). They appear on the screen, in
-  print and in CSV.
+  cleared, bounced or cancelled by then, with their total
+  (`PendingPdcTotal`). They appear on the screen, in print and in CSV.
+  **Changed 2026-09-26 (owner):** the "of which by pending PDCs" and
+  "Balance if pending PDCs bounce" lines were removed. Only the Pending
+  PDCs table and its total remain.
 - Home: a "Post-dated Cheques Due to Clear" block (`public/index.html`,
   Hosting) for roles with `post` on the module, using the user's local
   date.
@@ -268,6 +270,17 @@ The owner agreed every proposal. The tree nodes are named **PDC Received** and *
   2. Duplicate cheque check off → the validation test fails.
   3. The SOA ignoring when a cheque cleared, bounced or was cancelled →
      the statements test fails.
+
+**Fix 2026-09-26: approving from Home Tasks.** Opening a PDC from Tasks
+loads the cheque list and the user's rights in parallel. When the list
+came first, the entry was drawn as if the user had no post right, so the
+approval banner and action buttons stayed hidden. The screen now redraws
+them when the rights arrive. Purchase Return and Sales Return had the
+same race and got the same fix. UI check "approval from Home Tasks" (the
+rights call is held back on purpose). Negative controls: without the
+redraw, that check fails; with an "if they bounce" line put back, the
+SOA check fails. Deploy: `tools/deploy-sets/pdc-fixes.txt`
+(`getPartyStatement`) with `--screens`.
 
 **Deploy:** 33 functions in `tools/deploy-sets/pdc.txt`, then the
 screens, then Hosting:

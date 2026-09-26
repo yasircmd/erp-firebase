@@ -145,6 +145,43 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  await check('approval from Home Tasks: the approver sees Approve even when rights arrive after the entry', async () => {
+    const rtdb = (path, body) => fetch('http://127.0.0.1:9000/' + path + '.json?ns=erp1-8f4cd-default-rtdb', {
+      method: 'PUT', headers: { Authorization: 'Bearer owner' }, body: JSON.stringify(body) });
+    await rtdb('approvalConfigurations/PDCRECEIVED', { Enabled: true, ScopeType: 'Global' });
+    await rtdb('approvalLevels/PDCRECEIVED', { GLOBAL: { Levels: [{ LevelNumber: 1, ApproverUserID: 'u-approver', ThresholdAmount: 0 }] } });
+    try {
+      const s = await call('u-admin', 'savePdcDraft', { Direction: 'Received', CompanyID: 'C1', PartyID: 'CU1', TransactionDate: today, ChequeDate: today,
+        ChequeNumber: 'UI-APPR', DraweeBank: 'Mashreq', Amount: 50, Description: 'Needs approval', Allocations: [] });
+      assert.equal((await call('u-admin', 'postPdc', { pdcId: s.pdcId })).status, 'PendingApproval');
+      const task = (await call('u-approver', 'getPendingApprovalsForUser')).find(t => t.DocumentID === s.pdcId);
+      assert.equal(task.ModuleID, 'PDCRECEIVED');
+
+      // As the shell's Home task does: open the module with the document ID.
+      // The rights call is held back so the entry is drawn first (the race).
+      const page = await browser.newPage();
+      page.__errors = [];
+      page.on('pageerror', e => page.__errors.push(e.message));
+      page.on('dialog', d => d.accept());
+      await page.route('**/getModulePermissionsForUser', async route => { await new Promise(r => setTimeout(r, 2500)); await route.continue(); });
+      await page.goto('http://127.0.0.1:8128/?module=PDCRECEIVED&uid=u-approver');
+      await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
+      await page.evaluate(id => openModule('PDCRECEIVED', { OpenEntryId: id }), task.DocumentID);
+      await page.waitForSelector('#pdc-my-approval-banner', { state: 'visible', timeout: 30000 });
+      await page.click('#pdc-approve-btn');
+      await page.waitForSelector('#pdc-list-view', { state: 'visible', timeout: 30000 });
+      await settle(page);
+      assert.equal((await entries('Received')).find(e => e.PdcID === s.pdcId).Status, 'Pending');
+      assert.deepEqual(page.__errors, []);
+      await page.close();
+      // Out of the way of the SOA check below.
+      await call('u-admin', 'cancelPdc', { pdcId: s.pdcId, date: today, reason: 'UI check' });
+    } finally {
+      await rtdb('approvalConfigurations/PDCRECEIVED', null);
+      await rtdb('approvalLevels/PDCRECEIVED', null);
+    }
+  });
+
   await check('Viewer: sees the list, cannot create or clear', async () => {
     const page = await open('PDCRECEIVED', 'u-viewer');
     assert.ok(!(await page.isVisible('#pdc-new-btn')));
@@ -155,7 +192,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
-  await check('Customer SOA: pending PDCs and the balance if they bounce', async () => {
+  await check('Customer SOA: pending PDCs with their total, no "if they bounce" lines', async () => {
     // One more pending cheque, dated into next month.
     const next = new Date(Date.now() + 20 * 86400000).toISOString().substring(0, 10);
     const s = await call('u-admin', 'savePdcDraft', { Direction: 'Received', CompanyID: 'C1', PartyID: 'CU1', TransactionDate: today, ChequeDate: next,
@@ -173,8 +210,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const rows = await page.locator('#soa-pdc-rows tr').allTextContents();
     assert.equal(rows.length, 1);
     assert.match(rows[0], /UI-888.*Mashreq.*100\.00/s);
-    const closing = Number((await page.textContent('#soa-closing')).replace(/,/g, ''));
-    assert.equal(Number((await page.textContent('#soa-pdc-if-bounce')).replace(/,/g, '')), closing + 100);
+    assert.equal(await page.textContent('#soa-pdc-total'), '100.00');
+    assert.doesNotMatch(await page.textContent('#soa-report'), /if pending PDCs bounce|of which settled by pending PDCs/);
     assert.deepEqual(await rpcFailures(page), []);
     assert.deepEqual(page.__errors, []);
     await page.close();

@@ -850,6 +850,10 @@
         canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost);
         document.getElementById('pdc-new-btn').classList.toggle('hidden', !canDraft);
         renderList();
+        // Opened from Home/GL Report, the entry may already be showing,
+        // drawn before these rights arrived: redraw its buttons and the
+        // approval banner.
+        if (current && !document.getElementById('pdc-entry-view').classList.contains('hidden')) refreshStatusUI();
       })
       .withFailureHandler(err => console.error(err))
       .getModulePermissionsForUser({ moduleId: CONFIG.moduleId });

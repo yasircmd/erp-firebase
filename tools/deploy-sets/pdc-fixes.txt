@@ -1,0 +1,4 @@
+# PDC follow-up fixes (docs/modules/PDC.md → Fix 2026-09-26). Run with
+# --screens: the PDC, Purchase Return and Sales Return screens (approving
+# from Home Tasks) and the two SOA screens (no "if they bounce" lines).
+getPartyStatement                # drops BalanceIfPdcsBounce

@@ -88,6 +88,11 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   `index.html` with the Firebase SDK stubbed; no emulators). Negative
   controls, each caught: the light hover rule removed; the mode not
   ending on opening a module; search matching only the start of a name.
+- [x] **Approving from Home Tasks** (owner report, 2026-09-26): PDC,
+  Purchase Return and Sales Return screens drew an entry opened from Tasks
+  before the user's rights had loaded, so no Approve/Reject appeared. They
+  now redraw it when the rights arrive ([PDC.md](modules/PDC.md) → Fix).
+  Same change: the SOA's "if pending PDCs bounce" lines removed (owner).
 - [ ] **Design: module/approval/voucher-type lists out of the code.** These
   lists are built into every function, so adding a module redeployed 19
   unchanged functions in the returns-and-statements deploy. Kept in

@@ -159,8 +159,6 @@ async function buildStatement(partyType, partyId, companyId, fromDate, toDate) {
   if (gl.status === 'ok') gl.Difference = round2(closing - gl.Balance);
 
   // Post-dated cheques still to clear as at the end date (docs/modules/PDC.md).
-  // Each already reduced the balance when received/issued; if they all
-  // bounced, the balance would go back up by their total.
   const pendingPdcs = (await pendingPdcsForParty(partyType, partyId, companyId, toDate))
     .map(p => Object.assign(p, { DaysToMaturity: daysBetween(toDate, p.ChequeDate) }));
   const pendingPdcTotal = round2(pendingPdcs.reduce((sum, p) => sum + p.Amount, 0));
@@ -173,7 +171,7 @@ async function buildStatement(partyType, partyId, companyId, fromDate, toDate) {
     BalanceLabel: partyType === 'Vendor' ? 'Payable to vendor' : 'Receivable from customer',
     Opening: opening, Rows: rows, Totals: totals, Closing: closing,
     OpenItems: open, OpenTotal: openTotal, Aging: aging, Reconciliation: gl,
-    PendingPdcs: pendingPdcs, PendingPdcTotal: pendingPdcTotal, BalanceIfPdcsBounce: round2(closing + pendingPdcTotal)
+    PendingPdcs: pendingPdcs, PendingPdcTotal: pendingPdcTotal
   };
 }
 

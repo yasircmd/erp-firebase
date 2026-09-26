@@ -629,7 +629,9 @@
     token = idToken;
 
     rpc
-      .withSuccessHandler(perms => { canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost); document.getElementById('prt-new-btn').classList.toggle('hidden', !canDraft); })
+      .withSuccessHandler(perms => { canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost); document.getElementById('prt-new-btn').classList.toggle('hidden', !canDraft);
+        // Opened from Home, the entry may already be showing, drawn before these rights arrived.
+        if (current && !document.getElementById('prt-entry-view').classList.contains('hidden')) refreshStatusUI(); })
       .withFailureHandler(err => console.error(err))
       .getModulePermissionsForUser({ moduleId: 'PURCHASERETURN' });
 

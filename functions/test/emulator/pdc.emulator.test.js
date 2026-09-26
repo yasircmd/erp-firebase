@@ -259,7 +259,7 @@ test('approval: nothing posts until approved; a failed commit returns the PDC to
   assert.equal((await val('approvalInstances/' + p.ApprovalInstanceID)).Status, 'Pending');
 });
 
-test('statements: PDC rows, pending PDCs as at the end date, balance if they bounce', async () => {
+test('statements: PDC rows, pending PDCs as at the end date', async () => {
   await reset(fixture());
   const a = await posted(received({ ChequeNumber: 'A1', Amount: 600 }));
   const b = await posted(received({ ChequeNumber: 'B1', Amount: 300, TransactionDate: '2026-07-05', ChequeDate: '2026-09-01',
@@ -271,7 +271,8 @@ test('statements: PDC rows, pending PDCs as at the end date, balance if they bou
   // 31 July: both cheques pending.
   let s = await st('2026-07-31');
   assert.deepEqual(s.PendingPdcs.map(p => [p.ChequeNumber, p.Bank, p.Amount, p.DaysToMaturity]), [['A1', 'Emirates NBD', 600, 1], ['B1', 'Emirates NBD', 300, 32]]);
-  assert.deepEqual([s.Closing, s.PendingPdcTotal, s.BalanceIfPdcsBounce], [400, 900, 1300]);
+  assert.deepEqual([s.Closing, s.PendingPdcTotal], [400, 900]);
+  assert.equal(s.BalanceIfPdcsBounce, undefined, 'no "if they bounce" figure (owner, 2026-09-26)');
   assert.deepEqual(s.Rows.map(r => [r.Type, r.Debit, r.Credit]), [['Invoice', 1000, 0], ['Invoice', 300, 0], ['PDC Received', 0, 600], ['PDC Received', 0, 300]]);
   // 15 August: A1 cleared on 2 August, B1 still pending.
   s = await st('2026-08-15');
@@ -286,5 +287,5 @@ test('statements: PDC rows, pending PDCs as at the end date, balance if they bou
   await posted(issued());
   const v = await call('u-admin', 'getPartyStatement', { partyType: 'Vendor', partyId: 'V1', companyId: 'C1', fromDate: '2026-06-01', toDate: '2026-07-31' });
   assert.deepEqual(v.PendingPdcs.map(p => [p.ChequeNumber, p.Bank, p.Amount]), [['500001', '1100', 500]]);
-  assert.deepEqual([v.Closing, v.BalanceIfPdcsBounce], [300, 800]);
+  assert.deepEqual([v.Closing, v.PendingPdcTotal], [300, 500]);
 });

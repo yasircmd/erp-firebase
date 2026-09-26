@@ -84,10 +84,10 @@
               <th class="py-2 px-3">Cheque Date</th><th class="py-2 px-3 text-right">Days to Maturity</th><th class="py-2 px-3 text-right">Amount</th>
             </tr></thead>
             <tbody id="soa-pdc-rows" class="divide-y divide-slate-700 text-sm"></tbody>
+            <tfoot id="soa-pdc-foot" class="text-sm font-medium border-t border-slate-600"></tfoot>
           </table>
         </div>
       </div>
-      <div id="soa-pdc-summary" class="text-sm space-y-1"></div>
     </div>
 
     <div id="soa-recon" class="no-print text-xs rounded-lg p-3 border"></div>
@@ -264,10 +264,8 @@
       if (btn) btn.addEventListener('click', () => openSource(module, p.LinkedJVID));
       tbody.appendChild(tr);
     });
-    document.getElementById('soa-pdc-summary').innerHTML = list.length ? `
-      <div class="flex justify-between max-w-md"><span class="text-slate-400">Closing balance</span><span class="font-mono">${formatMoney(r.Closing)}</span></div>
-      <div class="flex justify-between max-w-md"><span class="text-slate-400">of which settled by pending PDCs</span><span class="font-mono">${formatMoney(r.PendingPdcTotal)}</span></div>
-      <div class="flex justify-between max-w-md font-semibold"><span>Balance if pending PDCs bounce</span><span id="soa-pdc-if-bounce" class="font-mono">${formatMoney(r.BalanceIfPdcsBounce)}</span></div>` : '';
+    document.getElementById('soa-pdc-foot').innerHTML = list.length
+      ? `<tr><td class="py-2 px-3" colspan="6">Total pending</td><td id="soa-pdc-total" class="py-2 px-3 text-right font-mono">${formatMoney(r.PendingPdcTotal)}</td></tr>` : '';
   }
 
   function openSource(moduleId, jvId) {
@@ -293,7 +291,7 @@
     const pdcs = r.PendingPdcs || [];
     lines.push([], ['Pending PDCs as at ' + r.ToDate], ['Document', 'Date', 'Cheque No.', 'Bank', 'Cheque Date', 'Days to maturity', 'Amount']);
     pdcs.forEach(p => lines.push([p.Number, p.Date, p.ChequeNumber, p.Bank, p.ChequeDate, p.DaysToMaturity, p.Amount.toFixed(2)]));
-    if (pdcs.length) lines.push(['', '', '', '', '', 'Total pending', r.PendingPdcTotal.toFixed(2)], ['', '', '', '', '', 'Balance if pending PDCs bounce', r.BalanceIfPdcsBounce.toFixed(2)]);
+    if (pdcs.length) lines.push(['', '', '', '', '', 'Total pending', r.PendingPdcTotal.toFixed(2)]);
     const blob = new Blob(['﻿' + lines.map(l => l.map(csvCell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
