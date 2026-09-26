@@ -62,6 +62,31 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   `getModuleFragment` serves the active release (first release
   `20260926T051858Z-b0cd09d`). Screen-only changes now go live with
   `tools/release-screens.sh`, not a function deploy.
+- [x] **Home screen improvements** (owner, 2026-09-26; `public/index.html`,
+  Hosting; live 2026-09-26, PR #8):
+  1. User name (8rem) and role (6rem) are cut with an ellipsis; the full
+     text is the user button's tooltip.
+  2. Light/Dark mode moved into the user menu. The user menu isn't shown
+     inside a module, so neither is the switch.
+  3. **Configure Favourites** in the user menu: expands the whole tree
+     and shows every module's star, with a banner and a Done button. It
+     ends on Done, opening a module, Refresh, or a page reload (it's
+     only held in memory). Stars no longer appear on hover. Outside the
+     mode they're hidden, so a favourite still isn't marked in the tree.
+  4. **Module search** box in the Home header: filters as you type
+     (module names, and a folder name shows everything under it), opens
+     the matching folders, shows "No modules match". Enter opens the
+     module when there's exactly one match; Esc clears and restores the
+     tree's open/closed state.
+  5. Light mode highlights the hovered tree row (`#e2e8f0`), as dark mode
+     does. Also fixed: row dividers (`divide-slate-700/800`, 83 uses
+     including module tables) kept their dark colour in light mode.
+  6. Expand/Collapse is a single icon button (double chevrons down/up,
+     with a tooltip).
+  Test: `functions/test/ui/home.ui.js` (6 checks, runs the real
+  `index.html` with the Firebase SDK stubbed; no emulators). Negative
+  controls, each caught: the light hover rule removed; the mode not
+  ending on opening a module; search matching only the start of a name.
 - [ ] **Design: module/approval/voucher-type lists out of the code.** These
   lists are built into every function, so adding a module redeployed 19
   unchanged functions in the returns-and-statements deploy. Kept in

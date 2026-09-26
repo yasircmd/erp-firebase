@@ -127,6 +127,10 @@
     [data-theme="light"] .border-slate-600 { border-color: #cbd5e1; }
     [data-theme="light"] .border-slate-700 { border-color: #e2e8f0; }
     [data-theme="light"] .border-slate-800 { border-color: #e2e8f0; }
+    /* Row dividers (divide-y) are borders too; without these they kept
+       their dark-theme colour and drew dark lines in light mode. */
+    [data-theme="light"] .divide-slate-700 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0; }
+    [data-theme="light"] .divide-slate-800 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0; }
 
     /* Accent text variants — darkened for contrast on a light background */
     [data-theme="light"] .text-blue-300 { color: #1d4ed8; }
@@ -164,6 +168,10 @@
     [data-theme="light"] .hover\:bg-slate-800:hover { background-color: #f8fafc; }
     [data-theme="light"] .hover\:bg-slate-800\/40:hover { background-color: rgba(248,250,252,0.7); }
     [data-theme="light"] .hover\:bg-slate-800\/60:hover { background-color: rgba(248,250,252,0.85); }
+    /* The Home tree sits on bg-slate-900, which in light mode is the
+       same #f8fafc as the hover:bg-slate-800 override above, so a
+       hovered row didn't change at all. Give it a visible shade. */
+    [data-theme="light"] #tree-view-container .hover\:bg-slate-800:hover { background-color: #e2e8f0; }
     [data-theme="light"] .hover\:text-slate-200:hover { color: #1e293b; }
     [data-theme="light"] .hover\:text-slate-300:hover { color: #334155; }
     [data-theme="light"] .hover\:text-blue-300:hover { color: #1d4ed8; }
@@ -306,19 +314,25 @@
       </div>
       <div class="flex items-center gap-2">
         <div id="tree-controls" class="flex items-center gap-2">
-          <button id="toggle-expand-btn" onclick="toggleExpandCollapse()" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700">Expand All</button>
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500"></i>
+            <input type="search" id="module-search" placeholder="Search modules" autocomplete="off" title="Type to filter the menu; Enter opens the only match, Esc clears" class="w-44 bg-slate-800 border border-slate-700 rounded text-xs py-1.5 pl-7 pr-2 focus:outline-none focus:border-blue-500">
+          </div>
+          <button id="toggle-expand-btn" onclick="toggleExpandCollapse()" title="Expand all" aria-label="Expand all" class="bg-slate-800 hover:bg-slate-700 text-xs w-8 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-angles-down"></i></button>
+          <button id="fav-config-done-btn" onclick="setFavoriteConfigMode(false)" class="hidden bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-check"></i> Done</button>
           <button id="home-tasks-toggle-btn" onclick="toggleHomeTasksSection()" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-bell"></i> Tasks <span id="home-tasks-count" class="hidden text-red-400 font-semibold"></span></button>
         </div>
-        <button id="theme-toggle-btn" onclick="toggleTheme()" title="Switch theme" class="no-print bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i id="theme-toggle-icon" class="fa-solid fa-sun"></i></button>
         <div id="user-menu" class="relative hidden">
           <button id="user-menu-btn" onclick="toggleUserMenu()" class="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700">
             <i class="fa-solid fa-circle-user text-slate-500"></i>
-            <span id="user-info-name" class="font-medium"></span>
+            <span id="user-info-name" class="font-medium inline-block max-w-[8rem] truncate align-bottom"></span>
             <span class="text-slate-600">·</span>
-            <span id="user-info-role" class="text-slate-400"></span>
+            <span id="user-info-role" class="text-slate-400 inline-block max-w-[6rem] truncate align-bottom"></span>
             <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 ml-1"></i>
           </button>
-          <div id="user-menu-panel" class="hidden absolute right-0 mt-2 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden z-50">
+          <div id="user-menu-panel" class="hidden absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden z-50">
+            <button id="theme-toggle-btn" onclick="toggleTheme()" class="no-print w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i id="theme-toggle-icon" class="fa-solid fa-sun"></i> <span id="theme-toggle-label">Light mode</span></button>
+            <button id="fav-config-btn" onclick="setFavoriteConfigMode(true)" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-star text-amber-400"></i> Configure Favourites</button>
             <button id="refresh-btn" onclick="refreshTree()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-rotate"></i> Refresh</button>
             <button onclick="openChangePasswordModal()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-key"></i> Change Password</button>
             <button onclick="handleLogout()" class="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
@@ -344,6 +358,8 @@
           <div id="home-rejected-list" class="divide-y divide-slate-800"></div>
         </div>
       </div>
+      <div id="fav-config-banner" class="hidden mb-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2"><i class="fa-solid fa-star"></i> Click a star to add or remove a favourite (up to 5). Click Done when finished.</div>
+      <div id="module-search-empty" class="hidden mb-3 p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 text-sm">No modules match your search.</div>
       <div id="favorites-section" class="hidden mb-5">
         <div id="favorites-list" class="grid grid-cols-5 gap-2"></div>
       </div>
@@ -683,6 +699,7 @@
     function updateThemeIcon() {
       const isLight = document.documentElement.getAttribute('data-theme') === 'light';
       document.getElementById('theme-toggle-icon').className = isLight ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+      document.getElementById('theme-toggle-label').textContent = isLight ? 'Dark mode' : 'Light mode';
     }
     function toggleTheme() {
       const isLight = document.documentElement.getAttribute('data-theme') === 'light';
@@ -767,6 +784,8 @@
 
       document.getElementById('user-info-name').textContent = response.fullName || '';
       document.getElementById('user-info-role').textContent = response.roleName || response.role || '';
+      // Name and role are cut to a fixed width in the header; the full text is in the tooltip.
+      document.getElementById('user-menu-btn').title = [response.fullName, response.roleName || response.role].filter(Boolean).join(' · ');
       document.getElementById('user-menu').classList.remove('hidden');
 
       buildTreeUI(response.data);
@@ -1001,9 +1020,95 @@
       // style (solid amber vs. light outline) reflects favorited status
       // — a favorited module isn't permanently marked with a visible
       // star, per explicit correction.
+      //
+      // Replaced 2026-09-26 (owner): stars no longer appear on hover.
+      // They're hidden until the user picks Configure Favourites in the
+      // user menu, which shows every star at once (see
+      // setFavoriteConfigMode).
       const btn = starEl.closest('button');
-      if (btn) btn.className = 'opacity-0 hover:opacity-100 transition-opacity';
+      if (btn) btn.className = 'fav-star-btn px-1' + (favoriteConfigMode ? '' : ' hidden');
     }
+
+    // ---------- CONFIGURE FAVOURITES ----------
+    // A temporary mode: every module is expanded and its star shown, so
+    // favourites can be changed in one pass. It's only in memory, so a
+    // page refresh ends it; opening a module or refreshing the tree
+    // ends it too.
+    let favoriteConfigMode = false;
+    function setFavoriteConfigMode(on) {
+      favoriteConfigMode = on;
+      closeUserMenu();
+      document.querySelectorAll('.fav-star-btn').forEach(b => b.classList.toggle('hidden', !on));
+      document.getElementById('fav-config-banner').classList.toggle('hidden', !on);
+      document.getElementById('fav-config-done-btn').classList.toggle('hidden', !on);
+      if (on) setTreeExpanded(true);
+    }
+
+    // ---------- MODULE SEARCH ----------
+    // Filters the tree as the user types: a module shows when its name
+    // matches, and a folder shows everything under it when the folder's
+    // own name matches. Matching folders are opened. Clearing the search
+    // puts back the open/closed state the tree had before it.
+    let searchSnapshot = null;
+    function applyModuleSearch() {
+      const query = document.getElementById('module-search').value.trim().toLowerCase();
+      const root = document.querySelector('#tree-container > ul');
+      if (!root) return;
+      const details = Array.from(root.querySelectorAll('details'));
+      if (!query) {
+        root.querySelectorAll('li').forEach(li => li.classList.remove('hidden'));
+        if (searchSnapshot) details.forEach((d, i) => { d.open = searchSnapshot[i]; });
+        searchSnapshot = null;
+        document.getElementById('module-search-empty').classList.add('hidden');
+        return;
+      }
+      if (!searchSnapshot) searchSnapshot = details.map(d => d.open);
+      const textOf = el => (el.textContent || '').toLowerCase();
+      // Returns whether anything under this list is shown.
+      function filter(ul, parentMatched) {
+        let any = false;
+        Array.from(ul.children).forEach(li => {
+          const d = li.querySelector(':scope > details');
+          let show;
+          if (d) {
+            const selfMatch = parentMatched || textOf(d.querySelector(':scope > summary')).includes(query);
+            show = filter(d.querySelector(':scope > ul'), selfMatch) || selfMatch;
+            d.open = show;
+          } else {
+            show = parentMatched || textOf(li).includes(query);
+          }
+          li.classList.toggle('hidden', !show);
+          any = any || show;
+        });
+        return any;
+      }
+      const any = filter(root, false);
+      document.getElementById('module-search-empty').classList.toggle('hidden', any);
+    }
+    // Shown = not filtered out and every folder above it open. (A row in
+    // a closed <details> still has a layout box in current browsers, so
+    // offsetParent can't tell.)
+    function visibleSearchModules() {
+      return Array.from(document.querySelectorAll('#tree-container [data-module-id]')).filter(li => {
+        if (li.closest('li.hidden')) return false;
+        for (let d = li.parentElement.closest('details'); d; d = d.parentElement.closest('details')) if (!d.open) return false;
+        return true;
+      });
+    }
+    function clearModuleSearch() {
+      const input = document.getElementById('module-search');
+      if (!input.value) return;
+      input.value = '';
+      applyModuleSearch();
+    }
+    document.getElementById('module-search').addEventListener('input', applyModuleSearch);
+    document.getElementById('module-search').addEventListener('keydown', e => {
+      if (e.key === 'Escape') { clearModuleSearch(); e.target.blur(); }
+      if (e.key === 'Enter') {
+        const hits = visibleSearchModules();
+        if (hits.length === 1) openModule(hits[0].getAttribute('data-module-id'));
+      }
+    });
 
     // "Main company" = whichever company has CompanyRefCode '01' — the
     // reference code convention already used for voucher numbering
@@ -1031,8 +1136,11 @@
     }
 
     function buildTreeUI(flatData) {
-      treeExpanded = false;
-      document.getElementById('toggle-expand-btn').textContent = 'Expand All';
+      setFavoriteConfigMode(false);
+      searchSnapshot = null;
+      document.getElementById('module-search').value = '';
+      document.getElementById('module-search-empty').classList.add('hidden');
+      setTreeExpanded(false);
 
       const container = document.getElementById('tree-container'); container.innerHTML = '';
       if (!flatData || !flatData.length) { container.innerHTML = '<div class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-amber-400 text-sm">No permissions granted or empty tree structure found.</div>'; return; }
@@ -1053,6 +1161,7 @@
           li.innerHTML = `<span class="flex items-center gap-2"><i class="fa-solid fa-circle-dot text-[6px] text-slate-500"></i><span>${escapeHtml(item.text)}</span></span>`;
           if (item.moduleId) {
             li.classList.add('text-blue-400', 'font-medium');
+            li.setAttribute('data-module-id', item.moduleId);
             li.addEventListener('click', () => openModule(item.moduleId));
 
             const starBtn = document.createElement('button');
@@ -1076,10 +1185,19 @@
 
     function toggleAll(expand) { document.querySelectorAll('details').forEach(node => node.open = expand); }
 
+    function setTreeExpanded(expand) {
+      treeExpanded = expand;
+      toggleAll(expand);
+      const btn = document.getElementById('toggle-expand-btn');
+      const label = expand ? 'Collapse all' : 'Expand all';
+      btn.innerHTML = '<i class="fa-solid ' + (expand ? 'fa-angles-up' : 'fa-angles-down') + '"></i>';
+      btn.title = label;
+      btn.setAttribute('aria-label', label);
+    }
+
     function toggleExpandCollapse() {
-      treeExpanded = !treeExpanded;
-      toggleAll(treeExpanded);
-      document.getElementById('toggle-expand-btn').textContent = treeExpanded ? 'Collapse All' : 'Expand All';
+      clearModuleSearch();
+      setTreeExpanded(!treeExpanded);
     }
 
     function refreshTree() {
@@ -1267,6 +1385,7 @@
       // new one — otherwise a stale reference could point at DOM elements
       // that no longer exist once this module's fragment replaces it.
       window.hasUnsavedChanges = undefined;
+      if (favoriteConfigMode) setFavoriteConfigMode(false);
       document.getElementById('back-to-tree-btn').classList.remove('hidden');
       document.getElementById('tree-controls').classList.add('hidden');
       document.getElementById('tree-view-container').classList.add('hidden');
