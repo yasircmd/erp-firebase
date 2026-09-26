@@ -296,6 +296,7 @@ function kindOf(t) {
   if (type === 'Addition' || type === 'AuCSettlement') return 'addition';
   if (type === 'AdditionalDepreciation') return 'additional';
   if (type === 'Depreciation') return 'scheduled';
+  if (type === 'Disposal') return 'disposal';
   return 'other';
 }
 
@@ -359,19 +360,27 @@ exports.getFaRegister = onCallWithMessages(onCallOptions, async (request) => {
     const additions = sum('addition', 'CostDelta');
     const scheduled = sum('scheduled', 'AccDepDelta') + sum('original', 'AccDepDelta');
     const additional = sum('additional', 'AccDepDelta');
-    const cost = round2(original + additions);
-    const accDep = round2(scheduled + additional);
+    // A retirement takes the cost and all the depreciation off the books;
+    // its proceeds and gain/loss count unless reversed by the date.
+    const retired = sum('disposal', 'CostDelta');
+    const retiredAccDep = sum('disposal', 'AccDepDelta');
+    const live = t => t.Type === 'Disposal' && !(t.ReversedByTxnID && txns.some(r => r._id === t.ReversedByTxnID));
+    const disposalValue = round2(txns.filter(live).reduce((s, t) => s + (t.Proceeds || 0), 0));
+    const gainLoss = round2(txns.filter(live).reduce((s, t) => s + (t.GainLoss || 0), 0));
+    const cost = round2(original + additions + retired);
+    const accDep = round2(scheduled + additional + retiredAccDep);
     return {
       AssetID: a._id, AssetNumber: a.AssetNumber, Description: a.Description, ClassID: a.ClassID, ClassCode: a.ClassCode, ClassName: a.ClassName,
       SerialNumber: a.SerialNumber || '', CostCenterID: a.CostCenterID || '', ProfitCenterID: a.ProfitCenterID || '',
       DivisionID: a.DivisionID || '', BranchID: a.BranchID || '', DepartmentID: a.DepartmentID || '', LocationID: a.LocationID || '',
       SupplierID: a.SupplierID || '', SupplierName: a.SupplierName || '', PurchaseDate: a.PurchaseDate || '',
       CapitalizationDate: cost ? a.CapitalizationDate || '' : '', Status: a.Status,
-      OriginalCost: original, Additions: additions, Transfers: 0, Cost: cost,
+      OriginalCost: original, Additions: additions, Transfers: 0, Retirements: retired, Cost: cost,
       AccDepScheduled: round2(scheduled), AccDepAdditional: additional, AccDep: accDep,
       CurrentPeriodDep: round2(sum('scheduled', 'AccDepDelta', periodStart) + sum('additional', 'AccDepDelta', periodStart)),
-      NBV: round2(cost - accDep), DisposalValue: 0, GainLoss: 0
+      NBV: round2(cost - accDep), DisposalValue: disposalValue, GainLoss: gainLoss,
+      DisposedAt: a.DisposedAt || '', DisposalType: a.DisposalType || ''
     };
-  }).filter(r => r.Cost || r.AccDep || r.Status === 'Planned');
+  }).filter(r => r.Cost || r.AccDep || r.Status === 'Planned' || r.Retirements);
   return { rows: rows.sort((x, y) => x.AssetNumber.localeCompare(y.AssetNumber)), asOfDate: asOf };
 });

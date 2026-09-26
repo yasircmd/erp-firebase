@@ -15,7 +15,8 @@ const STOCK_TRANSACTION_PREFIXES = {
   PDCReceived: 'PDR', PDCReceivedClear: 'PDRC', PDCIssued: 'PDI', PDCIssuedClear: 'PDIC',
   // hand-written module, docs/modules/FIXED_ASSETS.md: capitalization,
   // scheduled and additional depreciation (GL); take-over (number only)
-  FACapitalization: 'FAA', FADepreciation: 'FAD', FAAdditionalDepreciation: 'FAU', FATakeOver: 'FAO'
+  FACapitalization: 'FAA', FADepreciation: 'FAD', FAAdditionalDepreciation: 'FAU', FATakeOver: 'FAO',
+  FARetirement: 'FAR' // phase 2: sale / scrapping
 };
 
 function userCanAccessCompany(profile, companyId) {

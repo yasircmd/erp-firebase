@@ -372,3 +372,127 @@ test('a JV drafted to an asset account before it was configured can\'t be approv
   assert.match(await err(call('u-approver', 'decideJournalEntryApproval', { jvId: s.jvId, levelNumber: 1, decision: 'Approved' })), /account 1600 is kept by the Fixed Assets module/);
   assert.equal((await doc('journalEntries', s.jvId)).Status, 'PendingApproval');
 });
+
+// ---------- phase 2: retirement (sale, scrap) ----------
+
+function retireFixture() {
+  const f = fixture();
+  f.companies.C1.OutputTaxAccountID = 'A-VATOUT';
+  f.customers = { CU1: { CustomerCode: 'C001', CustomerName: 'Retail Co', Status: 'Active', CompanyID: 'C1', TradeReceivablesAccountID: 'A-AR' } };
+  return f;
+}
+const retire = (o) => call('u-admin', 'saveFaPostingDraft', Object.assign({ Type: 'Retirement', CompanyID: 'C1', Reason: 'Replaced' }, o));
+async function retired(o) {
+  const s = ok(await retire(o));
+  const p = ok(await call('u-admin', 'postFaPosting', { postingId: s.postingId }));
+  return Object.assign(p, { postingId: s.postingId });
+}
+// Two capitalized vans, depreciated for January and February.
+async function twoVans() {
+  const { vehClass } = await configure();
+  const a = await newAsset(vehClass, { DepStartDate: '2026-01-01' });
+  const b = await newAsset(vehClass, { Description: 'Pick-up', DepStartDate: '2026-01-01' });
+  const ja = await jvPurchase(120000, '2026-01-01');
+  const jb = await jvPurchase(60000, '2026-01-01', 'Pick-up');
+  const it = await items();
+  const pick = jv => { const i = it.find(x => x.JVID === jv); return [{ JVID: i.JVID, LineNo: i.LineNo, Amount: i.Open }]; };
+  ok(await capitalize(a.assetId, pick(ja), '2026-01-01'));
+  ok(await capitalize(b.assetId, pick(jb), '2026-01-01'));
+  ok(await call('u-admin', 'postFaDepreciation', { companyId: 'C1', period: '2026-01' }));
+  ok(await call('u-admin', 'postFaDepreciation', { companyId: 'C1', period: '2026-02' }));
+  return { vehClass, a: a.assetId, b: b.assetId };
+}
+
+test('retirement by sale to a bank with VAT: depreciation to the date, loss, one GL entry, asset disposed', async () => {
+  await reset(retireFixture());
+  const { a, b } = await twoVans();
+  const line = (o) => [Object.assign({ AssetID: a, Proceeds: 100000 }, o)];
+  // Guards.
+  assert.match(await err(retire({ RetirementType: 'Sale', Date: '2026-02-20', ProceedsTo: 'Bank', BankAccountID: 'A-BANK', Lines: line() })), /after the last posted depreciation month \(2026-02\)/);
+  assert.match(await err(retire({ RetirementType: 'Sale', Date: '2026-03-16', ProceedsTo: 'Bank', BankAccountID: 'A-BANK', Lines: line({ Proceeds: 0 }) })), /enter the sale proceeds/);
+  assert.match(await err(retire({ RetirementType: 'Scrap', Date: '2026-03-16', Lines: line({ Proceeds: 5 }) })), /a scrapped asset has no proceeds/);
+  assert.match(await err(retire({ RetirementType: 'Sale', Date: '2026-03-16', ProceedsTo: 'Bank', BankAccountID: 'A-AR', Lines: line() })), /cash or bank account/);
+  assert.match(await err(retire({ RetirementType: 'Sale', Date: '2026-03-16', Reason: '', ProceedsTo: 'Bank', BankAccountID: 'A-BANK', Lines: line() })), /A reason is required/);
+
+  const preview = await call('u-admin', 'previewFaRetirement', { RetirementType: 'Sale', CompanyID: 'C1', Date: '2026-03-16', Reason: 'Sold', ProceedsTo: 'Bank', BankAccountID: 'A-BANK', VatPercent: 5, Lines: line() });
+  assert.deepEqual([preview.Lines[0].DepToDate, preview.Lines[0].AccDepTotal, preview.Lines[0].NBV, preview.Lines[0].GainLoss, preview.VatAmount, preview.ReceiptTotal],
+    [483.87, 2483.87, 117516.13, -17516.13, 5000, 105000]);
+
+  const r = await retired({ RetirementType: 'Sale', Date: '2026-03-16', ProceedsTo: 'Bank', BankAccountID: 'A-BANK', VatPercent: 5, Lines: line() });
+  assert.match(r.postingNumber, /^FAR-26-01-\d{6}$/);
+  const p = await doc('faPostings', r.postingId);
+  assert.deepEqual(await glLines(p.JVID), [
+    ['6200', 483.87, 0, 'CC1'], ['1690', 0, 483.87, 'CC1'], ['1690', 2483.87, 0, 'CC1'], ['1600', 0, 120000, 'CC1'],
+    ['6300', 17516.13, 0, 'CC1'], ['1100', 105000, 0, ''], ['2200', 0, 5000, '']]);
+  assert.equal((await doc('journalEntries', p.JVID)).VoucherType, 'FARetirement');
+  const rec = await asset(a);
+  assert.deepEqual([rec.Status, rec.DisposedAt, rec.DisposalType, rec.Areas.BOOK.Cost, rec.Areas.BOOK.AccDep], ['Disposed', '2026-03-16', 'Sale', 0, 0]);
+  assert.equal(await balance('A-VEH'), 60000, 'only the pick-up is left');
+
+  // Nothing more on a disposed asset: not in the run, no additional depreciation, no second retirement, no edits.
+  const pv = await call('u-admin', 'previewFaDepreciation', { companyId: 'C1', period: '2026-03' });
+  assert.deepEqual(pv.lines.map(l => l.AssetNumber), ['FA-01-000002']);
+  assert.match(await err(call('u-admin', 'saveFaPostingDraft', { Type: 'AdditionalDepreciation', CompanyID: 'C1', Date: '2026-03-20', Reason: 'x', Lines: [{ AssetID: a, Amount: 1 }] })), /only an Active asset/);
+  assert.match(await err(retire({ RetirementType: 'Scrap', Date: '2026-03-20', Lines: [{ AssetID: a }] })), /a Disposed asset can't be retired/);
+  assert.match(await err(call('u-admin', 'saveFaAsset', Object.assign({}, rec, { AssetID: a, Description: 'x' }))), /disposed asset can't be changed/);
+
+  // Register: off the books after the date, with the sale's value and loss; on the books before it.
+  const after = (await call('u-admin', 'getFaRegister', { companyId: 'C1', asOfDate: '2026-03-31' })).rows.find(x => x.AssetID === a);
+  assert.deepEqual([after.OriginalCost, after.Retirements, after.Cost, after.AccDep, after.NBV, after.DisposalValue, after.GainLoss, after.CurrentPeriodDep],
+    [120000, -120000, 0, 0, 0, 100000, -17516.13, 483.87]);
+  const before = (await call('u-admin', 'getFaRegister', { companyId: 'C1', asOfDate: '2026-03-15' })).rows.find(x => x.AssetID === a);
+  assert.deepEqual([before.Cost, before.NBV, before.DisposalValue], [120000, 118000, 0]);
+  const h = await call('u-admin', 'getFaAsset', { assetId: a });
+  assert.deepEqual(h.history.map(x => x.Type).slice(-2), ['Depreciation', 'Disposal']);
+
+  // Reversal waits for later depreciation months to be reversed.
+  ok(await call('u-admin', 'postFaDepreciation', { companyId: 'C1', period: '2026-03' }));
+  assert.match(await err(call('u-admin', 'reverseFaPosting', { postingId: r.postingId, reason: 'Sale cancelled' })), /Depreciation up to 2026-03 has been posted since/);
+  ok(await call('u-admin', 'reverseFaDepreciation', { companyId: 'C1', period: '2026-03', reason: 'redo' }));
+  ok(await call('u-admin', 'reverseFaPosting', { postingId: r.postingId, reason: 'Sale cancelled' }));
+  const back = await asset(a);
+  assert.deepEqual([back.Status, back.DisposedAt, back.Areas.BOOK.Cost, back.Areas.BOOK.AccDep, back.Areas.BOOK.LastDepPeriod], ['Active', '', 120000, 2000, '2026-02']);
+  assert.equal(await balance('A-VEH'), 180000);
+  assert.equal(await balance('A-VATOUT'), 0);
+  assert.equal((await call('u-admin', 'previewFaDepreciation', { companyId: 'C1', period: '2026-03' })).lines.length, 2, 'depreciated again');
+  assert.ok(b);
+});
+
+test('the brief\'s example on account and a scrap: gain/loss from NBV, customer open item, reversal guarded by the receipt', async () => {
+  await reset(retireFixture());
+  const { vehClass } = await configure();
+  const take = async (desc) => (await newAsset(vehClass, { Description: desc })).assetId;
+  const x = await take('Laptop pool'); const y = await take('Old forklift');
+  const to = ok(await call('u-admin', 'saveFaPostingDraft', { Type: 'TakeOver', CompanyID: 'C1', Date: '2026-02-28', Lines: [
+    { AssetID: x, Cost: 6000, AccDep: 4000, CapitalizationDate: '2023-03-01', LastDepPeriod: '2026-02' },
+    { AssetID: y, Cost: 9000, AccDep: 8000, CapitalizationDate: '2020-01-01', LastDepPeriod: '2026-02' }] }));
+  ok(await call('u-admin', 'postFaPosting', { postingId: to.postingId }));
+
+  // Cost 6,000, accumulated 4,000, NBV 2,000, sold for 1,000 on account: loss 1,000.
+  const s = await retired({ RetirementType: 'Sale', Date: '2026-03-01', ProceedsTo: 'Customer', CustomerID: 'CU1', Lines: [{ AssetID: x, Proceeds: 1000 }] });
+  const sp = await doc('faPostings', s.postingId);
+  assert.deepEqual(await glLines(sp.JVID), [['1690', 4000, 0, 'CC1'], ['1600', 0, 6000, 'CC1'], ['6300', 1000, 0, 'CC1'], ['1200', 1000, 0, '']]);
+  const arLine = (await doc('journalEntries', sp.JVID)).Lines.find(l => l.AccountCode === '1200');
+  assert.deepEqual([arLine.PartyType, arLine.PartyID, arLine.Allocations[0].RefType], ['Customer', 'CU1', 'New']);
+  const open = await call('u-admin', 'getPartyOpenItems', { partyType: 'Customer', partyId: 'CU1', companyId: 'C1' });
+  assert.deepEqual(open.map(i => [i.Outstanding, i.Side]), [[1000, 'Dr']]);
+
+  // Scrapped: no proceeds, the NBV of 1,000 is the loss.
+  const sc = await retired({ RetirementType: 'Scrap', Date: '2026-03-01', Reason: 'Beyond repair', Lines: [{ AssetID: y }] });
+  assert.deepEqual(await glLines((await doc('faPostings', sc.postingId)).JVID), [['1690', 8000, 0, 'CC1'], ['1600', 0, 9000, 'CC1'], ['6300', 1000, 0, 'CC1']]);
+  // A take-over posts nothing (the GL already held these assets before
+  // go-live); this fixture's GL didn't, so the two retirements leave −15,000.
+  assert.equal(await balance('A-VEH'), -15000);
+  assert.equal(await balance('A-LOSS'), 2000);
+
+  // The customer pays, allocated to the sale: the sale can't be reversed until that receipt is.
+  const rc = ok(await call('u-admin', 'saveCbtDraft', { cbtData: { VoucherType: 'Bank Receipt', SelectedAccountCode: '1100', JVDate: '2026-03-10', Description: 'Receipt',
+    CompanyID: 'C1', CostCenterID: 'CC1', OppositeLines: [{ AccountCode: '1200', Amount: 1000, Description: 'Laptops', PartyType: 'Customer', PartyID: 'CU1',
+      Allocations: [{ RefType: 'Against', RefID: open[0].RefID, Amount: 1000 }] }] } }));
+  ok(await call('u-admin', 'postJournalEntry', { jvId: rc.jvId }));
+  assert.match(await err(call('u-admin', 'reverseFaPosting', { postingId: s.postingId, reason: 'x' })), /allocat|settled/i);
+  ok(await call('u-admin', 'reverseJournalEntry', { jvId: rc.jvId, reversalDate: '2026-03-10' }));
+  ok(await call('u-admin', 'reverseFaPosting', { postingId: s.postingId, reason: 'Wrong buyer' }));
+  assert.equal((await call('u-admin', 'getPartyOpenItems', { partyType: 'Customer', partyId: 'CU1', companyId: 'C1' })).length, 0);
+  assert.equal((await asset(x)).Status, 'Active');
+});

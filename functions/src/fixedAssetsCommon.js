@@ -31,7 +31,8 @@ const COL = {
 };
 const MODULES = {
   FACONFIG: 'Fixed Asset Configuration', FAASSET: 'Fixed Asset Master', FAACQ: 'Fixed Asset Capitalization',
-  FADEPRUN: 'Depreciation Run', FAADDDEP: 'Additional Depreciation', FAREGISTER: 'Fixed Asset Register'
+  FADEPRUN: 'Depreciation Run', FAADDDEP: 'Additional Depreciation', FAREGISTER: 'Fixed Asset Register',
+  FARETIRE: 'Fixed Asset Retirement'
 };
 const CLASS_KINDS = ['Tangible', 'Land', 'Intangible', 'AuC'];
 // Account determination: field, label, required account type(s).

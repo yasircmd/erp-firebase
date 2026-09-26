@@ -67,6 +67,8 @@ const MODULE_REGISTRY = [
   { id: 'FADEPRUN', label: 'Depreciation Run', capabilities: ['access', 'post', 'reverse'] },
   { id: 'FAADDDEP', label: 'Additional Depreciation', capabilities: ['access', 'draft', 'post'] },
   { id: 'FAREGISTER', label: 'Fixed Asset Register', capabilities: ['access'] },
+  // docs/modules/FIXED_ASSETS.md, phase 2.
+  { id: 'FARETIRE', label: 'Fixed Asset Retirement', capabilities: ['access', 'draft', 'post'] },
   { id: 'DATARESET', label: 'Data Reset (Admin)', capabilities: ['access', 'write'] }
 ];
 
@@ -159,6 +161,7 @@ const DEFAULT_PERMISSIONS = {
   FADEPRUN:           { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], post: ['ADMIN', 'FINANCE_MGR'], reverse: ['ADMIN', 'FINANCE_MGR'] },
   FAADDDEP:           { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   FAREGISTER:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  FARETIRE:           { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   MATERIALISSUE:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   PRODUCTION:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   WAREHOUSEMOVEMENT:  { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },

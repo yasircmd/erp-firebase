@@ -157,3 +157,26 @@ test('date helpers', () => {
   assert.equal(E.prevPeriod('2026-01'), '2025-12');
   assert.equal(E.periodFactor('2026-03', '2026-03-17', '2036-03-17'), 15 / 31);
 });
+
+test('retirement: the retirement month counts the days before the date; earlier unposted months in full', () => {
+  const posted = asset({ Method: 'SL', UsefulLifeMonths: 120, ResidualValue: 0, DepStartDate: '2026-01-01' },
+    [cap('2026-01-01', 120000), { Type: 'Depreciation', Date: '2026-02-28', CostDelta: 0, AccDepDelta: 2000 }], '2026-02');
+  const r = E.computeToDate(posted, '2026-03-16');
+  assert.deepEqual([r.current, r.catchUp, r.total, r.closing.accDep, r.closing.nbv], [483.87, 0, 483.87, 2483.87, 117516.13]);
+  assert.equal(E.computeToDate(posted, '2026-03-01').total, 0, 'retired on the 1st: nothing for that month');
+
+  const fresh = asset({ Method: 'SL', UsefulLifeMonths: 120, ResidualValue: 0, DepStartDate: '2026-01-01' }, [cap('2026-01-01', 120000)]);
+  const c = E.computeToDate(fresh, '2026-03-16');
+  assert.deepEqual([c.catchUp, c.current, c.total], [2000, 483.87, 2483.87]);
+  assert.deepEqual(c.periods.map(p => p.period), ['2026-01', '2026-02', '2026-03']);
+});
+
+test('retirement: nothing before the depreciation start; the brief\'s NBV example', () => {
+  const later = asset({ Method: 'SL', UsefulLifeMonths: 60, ResidualValue: 0, DepStartDate: '2026-06-01' }, [cap('2026-05-20', 6000)]);
+  assert.equal(E.computeToDate(later, '2026-05-25').total, 0);
+  // Cost 6,000, 4,000 depreciated up to February: retired 1 March, NBV 2,000.
+  const t = asset({ Method: 'SL', UsefulLifeMonths: 60, ResidualValue: 0, DepStartDate: '2023-03-01' },
+    [{ Type: 'TakeOver', Date: '2026-02-28', CostDelta: 6000, AccDepDelta: 4000 }], '2026-02');
+  const r = E.computeToDate(t, '2026-03-01');
+  assert.deepEqual([r.total, r.closing.accDep, r.closing.nbv], [0, 4000, 2000]);
+});

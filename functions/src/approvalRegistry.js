@@ -28,6 +28,7 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'PDCISSUED', Label: 'PDC Issued' },
   { ModuleID: 'FAACQ', Label: 'Fixed Asset Capitalization' },
   { ModuleID: 'FAADDDEP', Label: 'Additional Depreciation' },
+  { ModuleID: 'FARETIRE', Label: 'Fixed Asset Retirement' },
 ];
 
 const APPROVAL_MODULE_STORAGE_ = {
@@ -48,6 +49,7 @@ const APPROVAL_MODULE_STORAGE_ = {
   PDCISSUED: { type: 'rtdb', path: 'pdcCheques' },
   FAACQ: { type: 'firestore', collection: 'faPostings' },
   FAADDDEP: { type: 'firestore', collection: 'faPostings' },
+  FARETIRE: { type: 'firestore', collection: 'faPostings' },
   CUSTOMERINVOICE: { type: 'rtdb', path: 'customerInvoices' },
   PURCHASEREQUISITION: { type: 'rtdb', path: 'purchaseRequisitions' },
   INVENTORYPURCHASEREQUISITION: { type: 'rtdb', path: 'inventoryPurchaseRequisitions' },

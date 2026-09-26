@@ -28,13 +28,16 @@ const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprova
 const { withGlobalLock } = require('./lock');
 const E = require('./faDepreciation');
 const C = require('./fixedAssetsCommon');
+const R = require('./fixedAssetsRetirement');
 const { COL, AREA, str, round2 } = C;
 
 const onCallOptions = { region: 'us-central1' };
 const TYPES = {
   Capitalization: { moduleId: 'FAACQ', label: 'Capitalization', voucher: 'FACapitalization' },
   TakeOver: { moduleId: 'FAACQ', label: 'Take-over', voucher: 'FATakeOver' },
-  AdditionalDepreciation: { moduleId: 'FAADDDEP', label: 'Additional Depreciation', voucher: 'FAAdditionalDepreciation' }
+  AdditionalDepreciation: { moduleId: 'FAADDDEP', label: 'Additional Depreciation', voucher: 'FAAdditionalDepreciation' },
+  // Phase 2: sale / scrapping, handled by fixedAssetsRetirement.js.
+  Retirement: { moduleId: 'FARETIRE', label: 'Retirement', voucher: 'FARetirement' }
 };
 const depreciates = kind => kind === 'Tangible' || kind === 'Intangible';
 const amt = v => round2(parseAmountServer(v));
@@ -133,6 +136,7 @@ async function loadAssets(ids) {
 // draft), re-reading everything from live data. Posting calls it again
 // under the global lock.
 async function prepare(user, data) {
+  if (str(data.Type) === 'Retirement') return R.prepare(user, data);
   const cfg = typeOf(data.Type);
   const companyId = str(data.CompanyID);
   C.requireCompany(user, companyId);
@@ -264,7 +268,7 @@ async function prepare(user, data) {
 exports.getFaPostings = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const d = request.data || {};
-  const moduleId = d.moduleId === 'FAADDDEP' ? 'FAADDDEP' : 'FAACQ';
+  const moduleId = ['FAADDDEP', 'FARETIRE'].includes(d.moduleId) ? d.moduleId : 'FAACQ';
   await C.requireCap(moduleId, 'access', user.profile.role);
   const rows = (await C.listWhere(COL.postings, 'ModuleID', moduleId)).filter(p => userCanAccessCompany(user.profile, p.CompanyID));
   return rows.map(p => Object.assign({ PostingID: p._id }, p)).sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
@@ -401,6 +405,7 @@ async function originFromItems(a, items) {
 
 // Caller holds the global lock; `prepared` was built under it.
 async function commitPosting(user, postingId, existing, prepared) {
+  if (prepared.doc.Type === 'Retirement') return R.commit(user, postingId, existing, prepared);
   const { doc, assets, chart } = prepared;
   const now = C.nowIso();
   const actor = C.actorOf(user);
@@ -511,6 +516,7 @@ exports.reverseFaPosting = onCallWithMessages(onCallOptions, async (request) => 
     if (p.Status !== 'Posted') throw new HttpsError('failed-precondition', 'Only a posted document can be reversed.');
     const settings = await C.assertFaPostingOpen(user, p.CompanyID, p.Date);
     if (settings.RunInProgress) throw new Error('A depreciation run is being posted for this company; finish it first.');
+    if (p.Type === 'Retirement') return R.reverse(user, p, reason, settings);
 
     // The posting must be each asset's latest financial transaction.
     const own = {};

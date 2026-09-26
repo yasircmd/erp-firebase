@@ -191,6 +191,30 @@ function computeScheduled(asset, period) {
   return out;
 }
 
+// Depreciation due when an asset is retired on `date`: every unposted
+// month before it in full (catch-up), and the retirement month for the
+// days before `date` only (retired on 16 March → 15/31 of March's
+// charge; on the 1st → nothing for that month).
+function computeToDate(asset, date) {
+  const period = periodOf(date);
+  const r = computeScheduled(asset, period);
+  const last = r.periods[r.periods.length - 1];
+  if (!last || last.period !== period || !last.amount) return r;
+  const v = asset.valuation;
+  const end = lifeEndDate(v.DepStartDate, Number(v.UsefulLifeMonths));
+  const full = periodFactor(period, v.DepStartDate, end);
+  const part = periodFactor(period, v.DepStartDate, date < end ? date : end);
+  const scaled = full > 0 ? round2(last.amount * Math.min(1, part / full)) : 0;
+  const total = round2(r.total - last.amount + scaled);
+  const accDep = round2(r.opening.accDep + total);
+  return Object.assign({}, r, {
+    periods: r.periods.slice(0, -1).concat([{ period: period, amount: scaled }]),
+    total: total, current: scaled,
+    closing: { cost: r.opening.cost, accDep: accDep, nbv: round2(r.opening.cost - accDep) },
+    fullyDepreciated: r.opening.cost > 0 && round2(r.opening.cost - round2(Number(v.ResidualValue) || 0) - accDep) <= 0
+  });
+}
+
 // The most additional depreciation an asset can take on `date`:
 // NBV − residual.
 function maxAdditional(asset, date) {
@@ -201,5 +225,5 @@ function maxAdditional(asset, date) {
 
 module.exports = {
   METHODS, round2, isDate, isPeriod, periodOf, firstDay, lastDay, nextPeriod, prevPeriod, addMonths, lifeEndDate,
-  periodFactor, remainingFactor, balancesAt, validateValuation, computeScheduled, maxAdditional
+  periodFactor, remainingFactor, balancesAt, validateValuation, computeScheduled, computeToDate, maxAdditional
 };

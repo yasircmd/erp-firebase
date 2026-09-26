@@ -51,7 +51,7 @@ exports.getFaAssetSetup = onCallWithMessages(onCallOptions, async (request) => {
 exports.getFaAssets = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const d = request.data || {};
-  const moduleId = ['FAASSET', 'FAACQ', 'FAADDDEP', 'FADEPRUN', 'FAREGISTER'].includes(d.moduleId) ? d.moduleId : 'FAASSET';
+  const moduleId = ['FAASSET', 'FAACQ', 'FAADDDEP', 'FADEPRUN', 'FAREGISTER', 'FARETIRE'].includes(d.moduleId) ? d.moduleId : 'FAASSET';
   await C.requireCap(moduleId, 'access', user.profile.role);
   const companyId = str(d.companyId);
   let assets;
