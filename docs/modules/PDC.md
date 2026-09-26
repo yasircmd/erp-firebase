@@ -1,6 +1,6 @@
 # PDC Received and PDC Issued (post-dated cheques)
 
-**Status:** deployed 2026-09-26 (functions and screens; Hosting pending) · **Roadmap:** [#5](../ROADMAP.md) · **Branch:** `pdc`
+**Status:** deployed 2026-09-26 · **Roadmap:** [#5](../ROADMAP.md) · **Branch:** `pdc`
 
 ## Purpose
 

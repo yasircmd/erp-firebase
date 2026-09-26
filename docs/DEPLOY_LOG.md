@@ -230,3 +230,27 @@ from, and how it was verified. The deploy procedure is in the
     Clearing Accounts in Company Master for each company. Link the
     "PDC Received" and "PDC Issued" tree nodes to `PDCRECEIVED` and
     `PDCISSUED` in Tree Management.
+
+- **2026-09-26, PDC follow-up fixes and Hosting ([PDC.md](modules/PDC.md) → Fix):**
+  `tools/deploy-functions.sh pdc-fixes --screens` from `9edc574` (branch
+  `pdc`, clean checkout, in tmux) updated `getPartyStatement` (drops the
+  "if pending PDCs bounce" figure). The first run's screen release failed
+  with a Firestore `DEADLINE_EXCEEDED` after 300 s and left
+  `20260926T104043Z-9edc574` INCOMPLETE (never active, so users stayed on
+  the previous release). The re-run redeployed the function and released
+  `20260926T105242Z-9edc574`: PDC, Purchase Return and Sales Return
+  screens (approving from Home Tasks) and the two SOA screens. `ALL DONE`.
+  Then `firebase deploy --project erp1-8f4cd --only hosting` from the
+  same commit, which also completes the first PDC deploy's pending Hosting
+  step (the Home "Post-dated Cheques Due to Clear" block).
+  `release complete`.
+  - **Verified:** `getPartyStatement` updated 10:52 UTC and answers an
+    unauthenticated call with "Please sign in again". Active screen
+    release `20260926T105242Z-9edc574` (52 screens). The live
+    `https://erp1-8f4cd.web.app/` is byte-identical to `public/index.html`
+    at `9edc574`. No `REPLACE_ME` placeholders.
+  - **Beforehand:** pdc suite 6/6, PDC UI 8/8 (new "approval from Home
+    Tasks" check), Purchase Return, Sales Return and SOA UI 4/4 each, smoke
+    of the six changed screens 12/12. Negative controls: without the
+    redraw the Tasks check fails; with a bounce line put back the SOA check
+    fails.
