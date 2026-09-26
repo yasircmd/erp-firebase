@@ -26,6 +26,8 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'SALESRETURN', Label: 'Sales Return / Credit Note' },
   { ModuleID: 'PDCRECEIVED', Label: 'PDC Received' },
   { ModuleID: 'PDCISSUED', Label: 'PDC Issued' },
+  { ModuleID: 'FAACQ', Label: 'Asset Capitalization' },
+  { ModuleID: 'FAADDDEP', Label: 'Additional Depreciation' },
 ];
 
 const APPROVAL_MODULE_STORAGE_ = {
@@ -44,6 +46,8 @@ const APPROVAL_MODULE_STORAGE_ = {
   SALESRETURN: { type: 'rtdb', path: 'stock/transactions' },
   PDCRECEIVED: { type: 'rtdb', path: 'pdcCheques' },
   PDCISSUED: { type: 'rtdb', path: 'pdcCheques' },
+  FAACQ: { type: 'firestore', collection: 'faPostings' },
+  FAADDDEP: { type: 'firestore', collection: 'faPostings' },
   CUSTOMERINVOICE: { type: 'rtdb', path: 'customerInvoices' },
   PURCHASEREQUISITION: { type: 'rtdb', path: 'purchaseRequisitions' },
   INVENTORYPURCHASEREQUISITION: { type: 'rtdb', path: 'inventoryPurchaseRequisitions' },

@@ -265,6 +265,9 @@ const DATA_RESET_CATEGORIES = {
   salesTypes: { paths: ['salesTypes'], recordsPath: 'salesTypes', label: 'Sales Types', detail: 'Local Sales, Export Sales, and any other Sales Type configured for Customer Invoice — clearing this without also addressing Customer Invoice will leave posted invoices referencing a Sales Type that no longer exists.', group: 'master' },
   // [NEW DEVELOPMENT data-reset-pdc-cheques] docs/modules/PDC.md
   pdcCheques: { paths: ['pdcCheques'], recordsPath: 'pdcCheques', label: 'PDC Received & Issued', detail: 'Every post-dated cheque record (PDC Received and PDC Issued) — Draft, Pending, Cleared, Bounced and Cancelled alike. Their GL entries are in GL Journal Entries: clear both together.', group: 'transactional' },
+  // [NEW DEVELOPMENT data-reset-fixed-assets] docs/modules/FIXED_ASSETS.md
+  fixedAssets: { paths: ['firestore:faAssets', 'firestore:faTransactions', 'firestore:faPostings', 'firestore:faClearingUse', 'firestore:faRuns', 'firestore:faPeriods', 'firestore:faRunState', 'fa/counters'], recordsPath: 'firestore:faAssets', label: 'Fixed Assets', detail: 'Every asset, its transactions (capitalization, take-over, depreciation, additional depreciation, reversals), capitalization and depreciation documents, depreciation runs and periods, and the asset-number counter. Their GL entries are in GL Journal Entries: clear both together. Deleting single assets here leaves their transactions behind.', group: 'transactional' },
+  fixedAssetSetup: { paths: ['firestore:faClasses', 'firestore:faAccountDetermination', 'firestore:faSettings'], recordsPath: 'firestore:faClasses', label: 'Fixed Asset Configuration', detail: 'Asset classes, account determination and the Fixed Asset Clearing Account of each company. Clearing this while assets exist leaves them without a class.', group: 'master' },
   customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications', detail: 'Local/Export and any other classification configured for Customer Master Data — will reseed the Local/Export defaults next time it\'s opened.', group: 'master' }
 };
 
@@ -5283,6 +5286,10 @@ function summarizeDataResetRecord_(categoryKey, id, r) {
       return (r.Name || '') + (r.RestrictedToClassificationID ? ' [restricted]' : ' [unrestricted]');
     case 'customerClassifications':
       return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');
+    case 'fixedAssets':
+      return (r.AssetNumber || '') + ' — ' + (r.Description || '') + ' [' + (r.Status || '') + ']';
+    case 'fixedAssetSetup':
+      return (r.Code || '') + ' — ' + (r.Name || '') + ' [' + (r.Kind || '') + ', ' + (r.Status || '') + ']';
     case 'pdcCheques':
       return (r.TransactionNumber || 'DRAFT') + ' — ' + (r.Direction || '') + ' cheque ' + (r.ChequeNumber || '') + ' dated ' + (r.ChequeDate || '') + ' [' + (r.Status || '') + ']';
     default:

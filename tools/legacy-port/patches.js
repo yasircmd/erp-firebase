@@ -567,5 +567,27 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
       return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');
     case 'pdcCheques':
       return (r.TransactionNumber || 'DRAFT') + ' — ' + (r.Direction || '') + ' cheque ' + (r.ChequeNumber || '') + ' dated ' + (r.ChequeDate || '') + ' [' + (r.Status || '') + ']';`
+  },
+  {
+    id: 'data-reset-fixed-assets (category)',
+    why: 'NEW DEVELOPMENT. Fixed Assets keep their sub-ledger in Firestore (faAssets, faTransactions, ...) and their ' +
+      'set-up in faClasses / faAccountDetermination / faSettings, so Data Reset needs a category for each, as it has for PDC.',
+    find: `  customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications',`,
+    replace: `  // [NEW DEVELOPMENT data-reset-fixed-assets] docs/modules/FIXED_ASSETS.md
+  fixedAssets: { paths: ['firestore:faAssets', 'firestore:faTransactions', 'firestore:faPostings', 'firestore:faClearingUse', 'firestore:faRuns', 'firestore:faPeriods', 'firestore:faRunState', 'fa/counters'], recordsPath: 'firestore:faAssets', label: 'Fixed Assets', detail: 'Every asset, its transactions (capitalization, take-over, depreciation, additional depreciation, reversals), capitalization and depreciation documents, depreciation runs and periods, and the asset-number counter. Their GL entries are in GL Journal Entries: clear both together. Deleting single assets here leaves their transactions behind.', group: 'transactional' },
+  fixedAssetSetup: { paths: ['firestore:faClasses', 'firestore:faAccountDetermination', 'firestore:faSettings'], recordsPath: 'firestore:faClasses', label: 'Fixed Asset Configuration', detail: 'Asset classes, account determination and the Fixed Asset Clearing Account of each company. Clearing this while assets exist leaves them without a class.', group: 'master' },
+  customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications',`
+  },
+  {
+    id: 'data-reset-fixed-assets (summary)',
+    why: 'How an asset and an asset class are listed when browsing their categories.',
+    find: `    case 'customerClassifications':
+      return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');`,
+    replace: `    case 'customerClassifications':
+      return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');
+    case 'fixedAssets':
+      return (r.AssetNumber || '') + ' — ' + (r.Description || '') + ' [' + (r.Status || '') + ']';
+    case 'fixedAssetSetup':
+      return (r.Code || '') + ' — ' + (r.Name || '') + ' [' + (r.Kind || '') + ', ' + (r.Status || '') + ']';`
   }
 ];

@@ -183,7 +183,9 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   PurchaseReturn: 'PURCHASERETURN', // new development, not in Code.gs
   SalesReturn: 'SALESRETURN', // new development, not in Code.gs
   // new development, not in Code.gs: docs/modules/PDC.md
-  PDCReceived: 'PDCRECEIVED', PDCReceivedClear: 'PDCRECEIVED', PDCIssued: 'PDCISSUED', PDCIssuedClear: 'PDCISSUED'
+  PDCReceived: 'PDCRECEIVED', PDCReceivedClear: 'PDCRECEIVED', PDCIssued: 'PDCISSUED', PDCIssuedClear: 'PDCISSUED',
+  // new development, not in Code.gs: docs/modules/FIXED_ASSETS.md
+  FACapitalization: 'FAACQ', FADepreciation: 'FADEPRUN', FAAdditionalDepreciation: 'FAADDDEP'
 };
 
 // Ported from moduleIdForEntry_.

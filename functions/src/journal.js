@@ -27,6 +27,10 @@ const { moduleIdForEntry } = require('./masterData');
 const {
   attachPartyFields, resolvePartyLines, assertEntryReversible, listPartyAccounts, listOpenItems
 } = require('./partyLedger');
+// Fixed Assets (docs/modules/FIXED_ASSETS.md, decision 16): asset cost,
+// accumulated depreciation and AuC accounts are the asset module's alone;
+// and an entry whose clearing amount was capitalized can't be reversed.
+const { assertNoFaControlledAccounts, assertEntryNotCapitalized } = require('./fixedAssetsCommon');
 
 // Same adapters codegs.js uses for these helpers.
 const moduleHasCapability_ = (idToken, ...a) => moduleHasCapability(...a);
@@ -56,7 +60,9 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   PurchaseReturn: 'PURCHASERETURN', // new development, not in Code.gs
   SalesReturn: 'SALESRETURN', // new development, not in Code.gs
   // new development, not in Code.gs: docs/modules/PDC.md
-  PDCReceived: 'PDCRECEIVED', PDCReceivedClear: 'PDCRECEIVED', PDCIssued: 'PDCISSUED', PDCIssuedClear: 'PDCISSUED'
+  PDCReceived: 'PDCRECEIVED', PDCReceivedClear: 'PDCRECEIVED', PDCIssued: 'PDCISSUED', PDCIssuedClear: 'PDCISSUED',
+  // new development, not in Code.gs: docs/modules/FIXED_ASSETS.md
+  FACapitalization: 'FAACQ', FADepreciation: 'FADEPRUN', FAAdditionalDepreciation: 'FAADDDEP'
 };
 
 // ============================================================
@@ -176,6 +182,7 @@ async function saveJournalRecord_(
 
   const coaData = await getCoaData_(idToken);
   const normalized = validateAndNormalizeLines_(rawLines, coaData, dimensionFields.CompanyID);
+  await assertNoFaControlledAccounts(normalized.lines);
   // Party tags and allocations (docs/modules/PARTY_PAYMENTS.md): checked
   // here for early feedback, and again at post under the lock.
   const party = await resolvePartyLines(attachPartyFields(rawLines, normalized.lines), dimensionFields.CompanyID);
@@ -280,6 +287,7 @@ async function postJournalEntry(idToken, jvId) {
 
     const coaData = await getCoaData_(idToken);
     const normalized = validateAndNormalizeLines_(existing.Lines, coaData, existing.CompanyID);
+    await assertNoFaControlledAccounts(normalized.lines);
 
     if (normalized.lines.length < 2) throw new Error('A journal entry needs at least two lines.');
     if (normalized.totalDebit === 0) throw new Error('Entry has no amounts.');
@@ -415,6 +423,7 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
     // Reversing releases this entry's allocations (it stops being live);
     // refused while something else has settled one of its New Refs.
     await assertEntryReversible(jvId, existing);
+    await assertEntryNotCapitalized(jvId);
 
     const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
     // The reversal keeps the party tags (for statements) but allocates
