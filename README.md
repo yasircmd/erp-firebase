@@ -123,6 +123,7 @@ node functions/test/ui/partyPayments.ui.js  # right after the partyPayments suit
 node functions/test/ui/purchaseReturn.ui.js # after the purchaseReturn suite: the Purchase Return screen
 node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the Sales Return screen
 node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: the two SOA screens
+node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for
