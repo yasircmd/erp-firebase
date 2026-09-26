@@ -1,6 +1,6 @@
 # Sales Return / Credit Note
 
-**Status:** deployed 2026-09-25 · **Roadmap:** [#2](../ROADMAP.md) · **Branch:** `sales-return` (from `purchase-return`)
+**Status:** deployed 2026-09-25 · Sales Returns Account per Sales Type 2026-09-26 (not deployed) · **Roadmap:** [#2](../ROADMAP.md) · **Branch:** `sales-return` (from `purchase-return`)
 
 ## Purpose
 
@@ -13,7 +13,7 @@ the revenue and output tax, and puts the stock back.
 | # | Question | Decision |
 |---|---|---|
 | 1 | Raised against what | A posted, unreversed Customer Invoice. Lines come from the items on its Delivery Notes; partial quantities allowed, capped at invoiced quantity minus earlier live returns. Credited at the DN line's locked price, with the invoice's discount reversed in proportion and output tax recomputed on the net (the invoice's own formula). Returns before invoicing use the existing whole-DN reversal; partial pre-invoice returns are deferred |
-| 2 | Revenue side | A separate contra-revenue account, not the Sales Type's account: a new optional company **Sales Returns Account** in Company Master (e.g. 410000 Sales Returns & Discounts), with the invoice's cost center |
+| 2 | Revenue side | A separate contra-revenue account, not the Sales Type's Revenue account. ~~A company **Sales Returns Account** in Company Master~~ **Changed 2026-09-26:** each **Sales Type** has its own Sales Returns Account (Sales Invoice Configuration, after Revenue Account), because sales under different tax treatments can't all be returned to one account. With the invoice's cost center |
 | 3 | Returned stock | In to a warehouse chosen per line, defaulting to the DN's warehouse, at the DN line's original unit cost (reverses exactly the COGS booked: Dr Inventory / Cr Cost of Sales; no variance). No write-off inside the return: damaged goods are written off afterwards with Stock Adjustment. A quarantine/QC warehouse is just an ordinary warehouse chosen on the return |
 | 4 | Sales Order | Left as is: delivered quantity and reservations are not touched. A replacement goes through a new Sales Order |
 | 5 | Non-stock credit notes | Not in this version. A customer-tagged JV (Party Payments) covers price adjustments and rebates |
@@ -149,3 +149,55 @@ controls, each confirmed caught, then restored:
    the paid-then-unpaid invoice that only this guard protects.
 3. A reversal at the original cost instead of the current average:
    1 test failed.
+
+## Change (2026-09-26): Sales Returns Account per Sales Type
+
+**Why (owner):** because of sales tax, all sales returns can't be
+recorded in one account. Local and export sales, for example, need their
+returns kept apart, just as their revenue already is.
+
+**Owner decisions (2026-09-26):**
+- The Sales Returns Account moves from Company Master to each Sales Type
+  in Sales Invoice Configuration, as a field after Revenue Account. The
+  Company Master field is **removed**, with no fallback.
+- It is **required** when a Sales Type is saved, including when an
+  existing Sales Type is next edited.
+
+**As built:**
+- `saveSalesType` (generator patches `sales-type-returns-account`)
+  requires `SalesReturnsAccountID` and checks it the same way as the
+  Revenue account: active, postable, Revenue-type, not restricted to
+  another company. It's stored on the Sales Type.
+- Sales Return: each line records the Sales Type it was invoiced under
+  (`SalesTypeID`, taken from its Delivery Note on the invoice). Posting
+  debits each Sales Type's Sales Returns Account with its lines' value,
+  one GL line per account, with the invoice's cost/profit center as
+  before. Reversal mirrors it line for line. A return is refused at
+  posting (or at final approval, which sends it back to Rejected) if a
+  line's Sales Type has no Sales Returns Account or it is no longer valid.
+  The message names the Sales Type.
+- Company Master: the field, its screen control and its three generator
+  patches are gone. A value already saved on a company stays in the
+  database, but nothing reads it.
+- Sales Invoice Configuration's screen is now hand-maintained (`handScreens`
+  in `tools/legacy-port/modules.json`). It has the new field and a table
+  column that shows "Not set" in amber for Sales Types still without one.
+- Bug fixed in passing: the Sales Types table wasn't redrawn once the
+  chart of accounts had loaded, so account names could show as "—"
+  depending on load order. It now redraws, as it already did for
+  classifications.
+- Posted returns keep their GL entries. Their reversals mirror the
+  original lines, so they still use the old company account.
+
+**Tests:** salesReturn suite 7/7 (new: lines of two Sales Types posted to
+two accounts and mirrored on reversal; Sales Type save rules; missing or
+invalid account refused at post and at approval), salesInvoiceSetup,
+partyStatement, customerInvoice, masters1 and purchaseReturn 27/27, UI
+4/4, smoke 101/101. Negative controls, each caught by its own test, then
+restored: every line posted to the first line's Sales Type (split test
+failed); the required check removed from `saveSalesType` (save-rules
+test failed).
+
+**After deploy:** in Sales Invoice Configuration, set a Sales Returns
+Account on every Sales Type that's used in sales. Until then, returns of
+those types are refused at posting.

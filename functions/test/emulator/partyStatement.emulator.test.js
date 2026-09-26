@@ -15,11 +15,11 @@ function fixture() {
   f.coa['A-FRT'] = { AccountCode: '6100', AccountName: 'Freight', AccountType: 'Expense', Status: 'Active', IsPostable: true };
   f.coa['A-SRET'] = { AccountCode: '410000', AccountName: 'Sales Returns & Discounts', AccountType: 'Revenue', Status: 'Active', IsPostable: true };
   f.coa['A-PRV'] = { AccountCode: '5200', AccountName: 'Purchase Return Variance', AccountType: 'Expense', Status: 'Active', IsPostable: true };
-  Object.assign(f.companies.C1, { SalesReturnsAccountID: 'A-SRET', PurchaseReturnVarianceAccountID: 'A-PRV' });
+  Object.assign(f.companies.C1, { PurchaseReturnVarianceAccountID: 'A-PRV' });
   f.vendors.V1.PaymentTermsDays = 30;
   f.vendors.V9 = { VendorCode: 'V009', VendorName: 'C2 Vendor', Status: 'Active', CompanyID: 'C2', TradePayablesAccountID: 'A-AP' };
   f.customers = { CU1: { CustomerCode: 'C001', CustomerName: 'Retail Co', Status: 'Active', CompanyID: 'C1', TradeReceivablesAccountID: 'A-AR', PaymentTermsDays: 15 } };
-  f.salesTypes = { ST1: { Name: 'Goods', GLAccountID: 'A-REV', Status: 'Active', CompanyID: 'C1' } };
+  f.salesTypes = { ST1: { Name: 'Goods', GLAccountID: 'A-REV', SalesReturnsAccountID: 'A-SRET', Status: 'Active', CompanyID: 'C1' } };
   f.items.I1.SalesCogsAccountID = 'A-COGS';
   const line = (wh, dir, qty, cost, extra) => Object.assign({ LineNo: 1, ItemID: 'I1', ItemCode: 'RM-001', ItemName: 'Steel Sheet', WarehouseID: wh,
     Direction: dir, Quantity: qty, UnitCost: cost, TotalValue: qty * cost, CostCenterID: 'CC1', Description: 'Line' }, extra || {});

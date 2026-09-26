@@ -1299,8 +1299,6 @@ async function saveCompany(idToken, companyData) {
     const outputTaxAccountId = String(companyData.OutputTaxAccountID || '').trim();
     // [NEW DEVELOPMENT company-purchase-return-variance-account]
     const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();
-    // [NEW DEVELOPMENT company-sales-returns-account]
-    const salesReturnsAccountId = String(companyData.SalesReturnsAccountID || '').trim();
     let refCode = String(companyData.CompanyRefCode || '').trim();
 
     if (!legalName) throw new Error('Legal company name is required.');
@@ -1344,8 +1342,7 @@ async function saveCompany(idToken, companyData) {
       { id: roundOffAccountId, label: 'Round Off Account' },
       { id: discountGivenAccountId, label: 'Discount Given Account' },
       { id: outputTaxAccountId, label: 'Output Tax Account' },
-      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' },
-      { id: salesReturnsAccountId, label: 'Sales Returns Account' }
+      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' }
     ];
     await seq.forEach(fixedAccountFields, async f => {
       if (!f.id) return;
@@ -1419,7 +1416,6 @@ async function saveCompany(idToken, companyData) {
       DiscountGivenAccountID: discountGivenAccountId,
       OutputTaxAccountID: outputTaxAccountId,
       PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,
-      SalesReturnsAccountID: salesReturnsAccountId,
       Status: status
     };
 
@@ -6693,6 +6689,13 @@ async function saveSalesType(idToken, data) {
     if (!account || !account.IsPostable || account.Status !== 'Active') throw new Error('Sales Revenue account must be an active, postable account.');
     if (account.AccountType !== 'Revenue') throw new Error('Sales Revenue account must be a Revenue-type account.');
     if (account.CompanyID && companyId && account.CompanyID !== companyId) throw new Error('Sales Revenue account is restricted to a different company.');
+    // [NEW DEVELOPMENT sales-type-returns-account]
+    const salesReturnsAccountId = String(data.SalesReturnsAccountID || '').trim();
+    if (!salesReturnsAccountId) throw new Error('Select a Sales Returns account.');
+    const returnsAccount = coaData[salesReturnsAccountId];
+    if (!returnsAccount || !returnsAccount.IsPostable || returnsAccount.Status !== 'Active') throw new Error('Sales Returns account must be an active, postable account.');
+    if (returnsAccount.AccountType !== 'Revenue') throw new Error('Sales Returns account must be a Revenue-type account.');
+    if (returnsAccount.CompanyID && companyId && returnsAccount.CompanyID !== companyId) throw new Error('Sales Returns account is restricted to a different company.');
 
     // Optional link to a Customer Classification — this is what
     // actually connects the two lists. Some Sales Types describe WHO
@@ -6713,7 +6716,7 @@ async function saveSalesType(idToken, data) {
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
-    const fields = { Name: name, GLAccountID: glAccountId, CompanyID: companyId, RestrictedToClassificationID: restrictedToClassificationId, UpdatedAt: now, UpdatedBy: actor };
+    const fields = { Name: name, GLAccountID: glAccountId, SalesReturnsAccountID: salesReturnsAccountId, CompanyID: companyId, RestrictedToClassificationID: restrictedToClassificationId, UpdatedAt: now, UpdatedBy: actor };
 
     if (salesTypeId) {
       const existing = await firebaseDbRequest_('salesTypes/' + salesTypeId, 'get', null, idToken);

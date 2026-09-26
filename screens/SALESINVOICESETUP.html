@@ -7,7 +7,7 @@
     <div class="flex items-center justify-between mb-4">
       <div>
         <p class="text-sm font-semibold text-slate-200">Sales Types</p>
-        <p class="text-xs text-slate-500 max-w-2xl">Each Sales Type maps to its own Revenue account — Customer Invoice requires one per line, with no default, since the SAME item sold locally vs. exported often needs to post to a different account for tax reconciliation.</p>
+        <p class="text-xs text-slate-500 max-w-2xl">Each Sales Type maps to its own Revenue account — Customer Invoice requires one per line, with no default, since the SAME item sold locally vs. exported often needs to post to a different account for tax reconciliation. For the same reason, each has its own Sales Returns account, which Sales Return debits for goods sold under that type.</p>
       </div>
       <button id="sis-type-add-btn" class="hidden shrink-0 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Sales Type</button>
     </div>
@@ -15,7 +15,7 @@
       <div class="overflow-x-auto">
         <table class="w-full text-left">
           <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
-            <th class="py-3 px-4">Sales Type</th><th class="py-3 px-4">Revenue Account</th><th class="py-3 px-4">Restricted To</th><th class="py-3 px-4">Status</th><th class="py-3 px-4 text-right">Actions</th>
+            <th class="py-3 px-4">Sales Type</th><th class="py-3 px-4">Revenue Account</th><th class="py-3 px-4">Sales Returns Account</th><th class="py-3 px-4">Restricted To</th><th class="py-3 px-4">Status</th><th class="py-3 px-4 text-right">Actions</th>
           </tr></thead>
           <tbody id="sis-type-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
         </table>
@@ -62,6 +62,11 @@
       <div>
         <label class="block text-xs font-medium text-slate-300 mb-1">Revenue Account</label>
         <select id="sis-type-form-account" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Sales Returns Account</label>
+        <select id="sis-type-form-returns-account" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+        <p class="text-xs text-slate-500 mt-1">Sales Return debits returned goods of this Sales Type here at the invoice price (e.g. a Sales Returns account per tax treatment).</p>
       </div>
       <div id="sis-type-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
       <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
@@ -162,13 +167,16 @@
         accounts = result || [];
         const eligible = accounts.filter(a => a.Status === 'Active' && a.IsPostable === true && a.AccountType === 'Revenue')
           .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
-        const select = document.getElementById('sis-type-form-account');
-        select.innerHTML = '<option value="">Select...</option>';
-        eligible.forEach(a => {
-          const opt = document.createElement('option');
-          opt.value = a.AccountID; opt.textContent = a.AccountCode + ' — ' + a.AccountName;
-          select.appendChild(opt);
+        ['sis-type-form-account', 'sis-type-form-returns-account'].forEach(fieldId => {
+          const select = document.getElementById(fieldId);
+          select.innerHTML = '<option value="">Select...</option>';
+          eligible.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.AccountID; opt.textContent = a.AccountCode + ' — ' + a.AccountName;
+            select.appendChild(opt);
+          });
         });
+        renderSalesTypeTable(); // re-render so account names resolve now that accounts are loaded
       })
       .withFailureHandler(err => console.error(err))
       .getChartOfAccounts();
@@ -178,10 +186,11 @@
   function renderSalesTypeTable() {
     const tbody = document.getElementById('sis-type-table-body');
     tbody.innerHTML = '';
-    if (!salesTypes.length) { tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-500">No Sales Types yet.</td></tr>'; return; }
+    if (!salesTypes.length) { tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">No Sales Types yet.</td></tr>'; return; }
 
     salesTypes.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(t => {
       const account = accountById(t.GLAccountID);
+      const returnsAccount = accountById(t.SalesReturnsAccountID);
       const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
       const actions = canWrite
         ? `<button data-id="${t.SalesTypeID}" class="sis-type-edit-btn text-blue-400 hover:text-blue-300 text-xs mr-3">Edit</button><button data-id="${t.SalesTypeID}" class="sis-type-toggle-btn text-xs ${t.Status === 'Active' ? 'text-red-400 hover:text-red-300' : 'text-emerald-400 hover:text-emerald-300'}">${t.Status === 'Active' ? 'Deactivate' : 'Reactivate'}</button>`
@@ -189,6 +198,7 @@
       row.innerHTML = `
         <td class="py-2 px-4 text-slate-200">${escapeHtml(t.Name)}</td>
         <td class="py-2 px-4 text-xs font-mono text-slate-400">${account ? escapeHtml(account.AccountCode + ' — ' + account.AccountName) : '—'}</td>
+        <td class="py-2 px-4 text-xs font-mono text-slate-400">${returnsAccount ? escapeHtml(returnsAccount.AccountCode + ' — ' + returnsAccount.AccountName) : '<span class="text-amber-400 font-sans">Not set</span>'}</td>
         <td class="py-2 px-4 text-xs text-slate-400">${t.RestrictedToClassificationID ? escapeHtml((classificationById(t.RestrictedToClassificationID) || {}).Name || '—') : '<span class="text-slate-600">Unrestricted</span>'}</td>
         <td class="py-2 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${t.Status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700 text-slate-400'}">${escapeHtml(t.Status)}</span></td>
         <td class="py-2 px-4 text-right">${actions}</td>`;
@@ -213,6 +223,7 @@
       document.getElementById('sis-type-form-company').value = t.CompanyID || '';
       document.getElementById('sis-type-form-classification').value = t.RestrictedToClassificationID || '';
       document.getElementById('sis-type-form-account').value = t.GLAccountID || '';
+      document.getElementById('sis-type-form-returns-account').value = t.SalesReturnsAccountID || '';
     } else {
       document.getElementById('sis-type-modal-title').textContent = 'Add Sales Type';
       document.getElementById('sis-type-form-id').value = '';
@@ -228,7 +239,8 @@
       Name: document.getElementById('sis-type-form-name').value.trim(),
       CompanyID: document.getElementById('sis-type-form-company').value,
       RestrictedToClassificationID: document.getElementById('sis-type-form-classification').value,
-      GLAccountID: document.getElementById('sis-type-form-account').value
+      GLAccountID: document.getElementById('sis-type-form-account').value,
+      SalesReturnsAccountID: document.getElementById('sis-type-form-returns-account').value
     };
     const error = document.getElementById('sis-type-form-error');
     const btn = document.getElementById('sis-type-save-btn');

@@ -3,7 +3,7 @@
 // new return picked from the invoice's Delivery Note lines into a chosen
 // warehouse, with live totals, posted; the posted note read-only with its
 // GL impact; reversal from the screen; the Viewer's read-only access; and
-// Company Master's new account field. Run the salesReturn emulator suite
+// the Sales Returns Account per Sales Type in Sales Invoice Configuration. Run the salesReturn emulator suite
 // first — its last test leaves the fixture this relies on (one posted
 // invoice for CU1 with 6 of DeliveryNote-2 and 3 of DeliveryNote-5 still
 // returnable):
@@ -124,14 +124,29 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
-  await check('Company Master: Sales Returns Account field', async () => {
-    const page = await open('COMPANYMASTER', 'u-admin');
-    await page.locator('tr', { hasText: 'Test Co One' }).locator('.co-edit').first().click();
+  await check('Sales Invoice Configuration: Sales Returns Account per Sales Type; gone from Company Master', async () => {
+    const page = await open('SALESINVOICESETUP', 'u-admin');
+    const row = page.locator('#sis-type-table-body tr', { hasText: 'Goods' });
+    assert.match(await row.textContent(), /410000 — Sales Returns & Discounts/);
+    assert.match(await page.locator('#sis-type-table-body tr', { hasText: 'Export' }).textContent(), /410100 — Sales Returns — Export/);
+    await row.locator('.sis-type-edit-btn').click();
     await settle(page);
-    assert.equal(await page.inputValue('#co-form-sales-returns'), 'A-SRET');
-    assert.match(await page.locator('#co-form-sales-returns option[value="A-SRET"]').textContent(), /410000 — Sales Returns & Discounts/);
+    assert.equal(await page.inputValue('#sis-type-form-returns-account'), 'A-SRET');
+    // Revenue accounts only, as for the Revenue Account.
+    assert.equal(await page.locator('#sis-type-form-returns-account option[value="A-DISCG"]').count(), 0);
+    await page.selectOption('#sis-type-form-returns-account', 'A-SRETX');
+    await page.click('#sis-type-save-btn');
+    await page.waitForSelector('#sis-type-modal', { state: 'hidden', timeout: 15000 })
+      .catch(async () => { throw new Error('modal still open: ' + await page.textContent('#sis-type-form-error')); });
+    assert.equal((await call('u-admin', 'getSalesTypes')).find(t => t.SalesTypeID === 'ST1').SalesReturnsAccountID, 'A-SRETX');
+    assert.deepEqual(await rpcFailures(page), []);
     assert.deepEqual(page.__errors, []);
     await page.close();
+
+    const co = await open('COMPANYMASTER', 'u-admin');
+    assert.equal(await co.locator('#co-form-sales-returns').count(), 0);
+    assert.deepEqual(co.__errors, []);
+    await co.close();
   });
 
   await browser.close(); server.close();
