@@ -145,3 +145,23 @@ from, and how it was verified. The deploy procedure is in the
   - **Still to do in the app:** link the four screens with Tree
     Management, and set each company's Sales Returns Account (and, where
     needed, its Purchase Return Variance Account) in Company Master.
+
+- **2026-09-26, screens released without a function deploy
+  ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md)):** two steps
+  from `b0cd09d` (branch `party-statements`, clean checkout), run by the
+  owner in this order:
+  1. `tools/release-screens.sh` wrote release
+     `20260926T051858Z-b0cd09d` (all 50 screens) to production Firestore,
+     verified it and made it active. It's the first release. It took
+     about 2 minutes, not the few seconds expected; it exited 0.
+  2. `tools/deploy-functions.sh screen-releases` deployed
+     `getModuleFragment` (1 batch, `ALL DONE`, updated 05:28:49 UTC,
+     Node 24). It now serves the active release instead of its own
+     copies. Its checks, messages and reply are unchanged.
+  - **Verified:** the `allUsers` invoker binding is still in place, and an
+    unauthenticated call gets "Please sign in again". The owner opened
+    screens in the app and they load fine. The project still has 259
+    functions.
+  - **From now on**, screen-only changes go live with
+    `tools/release-screens.sh`; roll back with `list` and
+    `rollback <ID>`.

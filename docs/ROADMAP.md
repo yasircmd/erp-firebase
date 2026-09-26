@@ -55,15 +55,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   of 6; invoker bindings 8 at a time instead of one by one
   (`tools/deploy-lib.sh`). First deploy with batches of 20 is untried:
   if it times out or hits API quota, rerun with `BATCH=10`.
-- [ ] **Release screens without a function deploy**
-  ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md)): built and
-  tested 2026-09-26, **not deployed**. Owner's decisions: access check
-  kept (B), Firestore, last 10 releases. Screens moved to `screens/`;
-  `getModuleFragment` serves the active release (behavior change: where
-  the HTML comes from; checks, messages and reply unchanged). **To go
-  live, in this order:** `tools/release-screens.sh`, then deploy
-  `getModuleFragment` (the new function finds no screens until a release
-  exists), then open a few screens and record both in the deploy log.
+- [x] **Release screens without a function deploy**
+  ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md)): live
+  2026-09-26 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). Owner's decisions: access
+  check kept (B), Firestore, last 10 releases. Screens are in `screens/`;
+  `getModuleFragment` serves the active release (first release
+  `20260926T051858Z-b0cd09d`). Screen-only changes now go live with
+  `tools/release-screens.sh`, not a function deploy.
 - [ ] **Design: module/approval/voucher-type lists out of the code.** These
   lists are built into every function, so adding a module redeployed 19
   unchanged functions in the returns-and-statements deploy. Kept in

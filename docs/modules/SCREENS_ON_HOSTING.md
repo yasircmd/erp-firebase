@@ -1,6 +1,6 @@
 # Screens released without a function deploy
 
-**Status:** built and tested 2026-09-26, not deployed · **Roadmap:** follow-up "Design: serve screens from Hosting" ([ROADMAP.md](../ROADMAP.md))
+**Status:** deployed 2026-09-26 ([DEPLOY_LOG.md](../DEPLOY_LOG.md)) · **Roadmap:** follow-up "Design: serve screens from Hosting" ([ROADMAP.md](../ROADMAP.md))
 
 (File name kept from the first draft, which proposed serving screens from Hosting.)
 
