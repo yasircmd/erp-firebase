@@ -260,11 +260,14 @@ The owner agreed every proposal. The tree nodes are named **PDC Received** and *
   issued cheque plus the history and drill-through, the Viewer, the
   Customer SOA's pending PDCs, and the Company Master fields.
 - Smoke now loads both PDC screens (105/105).
-- **Negative control: not yet run.** Three deliberate breaks were
-  prepared: the clearing-date check, the duplicate check, and the SOA's
-  "pending as at the end date" rule. Claude Code's permission guard
-  refused to start the emulators with those checks disabled, so the code
-  was restored untested. It needs the owner's go-ahead (see ROADMAP).
+- **Negative control** (2026-09-26, run with the owner's go-ahead after
+  the permission guard first refused it): three breaks at once, each
+  caught, then restored and the suite green again (6/6).
+  1. Clearing before the cheque date allowed → the received-lifecycle
+     and batch-clearing tests fail.
+  2. Duplicate cheque check off → the validation test fails.
+  3. The SOA ignoring when a cheque cleared, bounced or was cancelled →
+     the statements test fails.
 
 **Deploy:** 33 functions in `tools/deploy-sets/pdc.txt`, then the
 screens, then Hosting:
