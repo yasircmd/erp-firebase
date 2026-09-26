@@ -29,7 +29,7 @@
 //
 // Outputs: functions/src/legacy/codegs.js, functions/src/legacy/callables.js
 // (one callable per screen-called function; its data keys are the
-// original function's own parameter names), and functions/modules/<ID>.html
+// original function's own parameter names), and screens/<ID>.html
 // for every module listed in modules.json (google.script.run → rpc).
 'use strict';
 const fs = require('fs');
@@ -42,10 +42,10 @@ const n = recast.types.namedTypes;
 const GAS = path.resolve(process.argv[2] || '');
 const REPO = path.resolve(__dirname, '../..');
 const OUT_DIR = path.join(REPO, 'functions/src/legacy');
-const MODULES_OUT = path.join(REPO, 'functions/modules');
+const MODULES_OUT = path.join(REPO, 'screens');
 const MODULES = require('./modules.json').modules;
 // Modules whose screens are hand-maintained now: still scanned for the
-// server calls they make, but their functions/modules/<ID>.html is never
+// server calls they make, but their screens/<ID>.html is never
 // overwritten.
 const HAND_SCREENS = new Set(require('./modules.json').handScreens || []);
 // codegs.js helpers that hand-written modules import (e.g. journal.js):

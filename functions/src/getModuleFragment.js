@@ -1,8 +1,7 @@
-const fs = require('fs');
-const path = require('path');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { MODULE_REGISTRY } = require('./moduleRegistry');
+const { firestore } = require('./firebaseAdmin');
 
 // Ported from getModuleFragment in Code.gs. Deliberately preserves the
 // EXACT same access-control sequence as the original — requireUser,
@@ -16,13 +15,17 @@ const { MODULE_REGISTRY } = require('./moduleRegistry');
 // operations would still be blocked at their own RPC layer, but
 // that's a real loss of defense-in-depth, not a cosmetic detail.
 //
-// The one thing that actually changes from the original: GAS's
-// HtmlService.createHtmlOutputFromFile(id) read a file living
-// alongside Code.gs in the same Apps Script project. Here, each
-// module's .html file is bundled into this Cloud Function's own
-// deployment package under modules/ — see that folder's own README
-// for exactly what needs to be copied there from the old project.
+// The one thing that changes from the original: GAS's
+// HtmlService.createHtmlOutputFromFile(id) read a file living alongside
+// Code.gs. Here the screen comes from the active screen release in
+// Firestore (docs/modules/SCREENS_ON_HOSTING.md; written by
+// tools/release-screens.sh from screens/), so a screen change needs no
+// function deploy. The release is read only AFTER the access check, and
+// a release never changes once written, so caching its screens in memory
+// is safe; the cache is dropped whenever the active release changes.
 const onCallOptions = { region: 'us-central1' };
+let cachedRelease = null;
+const cache = new Map();
 
 exports.getModuleFragment = onCall(onCallOptions, async (request) => {
   const user = await requireUser(request);
@@ -38,10 +41,15 @@ exports.getModuleFragment = onCall(onCallOptions, async (request) => {
     throw new HttpsError('permission-denied', 'You do not have access to this module.');
   }
 
-  let html;
-  try {
-    html = fs.readFileSync(path.join(__dirname, '..', 'modules', id + '.html'), 'utf8');
-  } catch (err) {
+  const pointer = await firestore.doc('system/screens').get();
+  const release = pointer.exists ? pointer.get('activeRelease') : null;
+  if (release !== cachedRelease) { cache.clear(); cachedRelease = release; }
+  let html = cache.get(id);
+  if (html === undefined && release) {
+    const snap = await firestore.doc('screenReleases/' + release + '/screens/' + id).get();
+    if (snap.exists) { html = snap.get('html'); cache.set(id, html); }
+  }
+  if (!html) {
     throw new HttpsError('not-found', 'Module "' + id + '" has no fragment file yet.');
   }
 

@@ -10,7 +10,7 @@ const od = defs(oldIdx), nd = defs(newIdx);
 const ids = s => new Set([...s.matchAll(/id="([\w-]+)"/g)].map(m => m[1]));
 const shellIds = ids(newIdx);
 for (const m of mods) {
-  const s = fs.readFileSync(path.join(__dirname, '../../functions/modules', m + '.html'), 'utf8');
+  const s = fs.readFileSync(path.join(__dirname, '../../screens', m + '.html'), 'utf8');
   const own = defs(s); const ownIds = ids(s);
   const missing = [...od].filter(x => !nd.has(x) && !own.has(x) && x.length > 3 && new RegExp('(^|[^.\\w])' + x + '\\s*\\(').test(s));
   const badIds = [...new Set([...s.matchAll(/getElementById\('([\w-]+)'\)/g)].map(x => x[1]))].filter(i => !ownIds.has(i) && !shellIds.has(i));

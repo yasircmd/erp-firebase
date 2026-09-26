@@ -1,4 +1,4 @@
-// Drives the four real module screens (functions/modules/*.html) in
+// Drives the four real module screens (screens/*.html) in
 // headless Chromium against the emulators, through the shell's REAL rpc
 // bridge (see buildHarness.js). Run the API emulator test first — it
 // seeds the fixture this relies on:

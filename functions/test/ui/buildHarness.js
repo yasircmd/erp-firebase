@@ -58,3 +58,9 @@ ${slice(injStart, injStart + 9)}
 </script></body></html>`;
 fs.writeFileSync(__dirname + '/harness.html', html);
 console.log('harness.html written');
+
+// getModuleFragment serves the active screen release, and the emulator
+// suites wipe it, so release the working copy's screens/ into the
+// EMULATOR (the variable is forced, never inherited) before any check.
+require('child_process').execSync('node ' + require('path').join(__dirname, '../../../tools/screen-release.js') + ' release --project erp1-8f4cd',
+  { env: { ...process.env, FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' }, stdio: 'inherit' });

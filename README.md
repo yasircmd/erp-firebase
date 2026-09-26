@@ -50,7 +50,7 @@ functions/
     moduleRegistry.js           — every module's capabilities + default role permissions
     treeSeedNodes.js            — the menu tree
     approvalRegistry.js         — which modules can be approval-gated, and where their documents live
-    getModuleFragment.js        — serves a screen after the access check
+    getModuleFragment.js        — serves a screen from the active screen release, after the access check
     stockAdjustment.js, materialIssue.js, grn.js, warehouseMovement.js, masterData.js
                                 — hand-written modules (the pattern for new modules)
     journal.js                  — JV and CBT (moved out of the generated code)
@@ -61,7 +61,6 @@ functions/
     partyStatement.js           — Vendor and Customer Statements of Account (docs/modules/VENDOR_SOA.md)
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
-  modules/*.html                — the screens, served by getModuleFragment
   test/emulator/*.test.js       — one API suite per module, against the local emulators
   test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments, returns, statements)
 tools/
@@ -70,6 +69,9 @@ tools/
   deploy-functions.sh           — deploys a named set (tools/deploy-sets/<set>.txt) for new development
   deploy-runtime.sh             — moves every live function onto engines.node's runtime
   build-soa-screens.js          — writes CUSTOMERSOA.html from VENDORSOA.html (edit only the vendor one)
+  release-screens.sh            — releases screens/ to production (list, rollback)
+  screen-release.js             — the release logic (verify, activate, keep the last 10)
+screens/*.html                  — the module screens, released to Firestore (screens/README.md)
 legacy-gas/                     — read-only snapshot of the old Apps Script project
 docs/                           — see Documents above
 ```
@@ -93,7 +95,7 @@ docs/                           — see Documents above
    the voucher-type maps in `journal.js` and `masterData.js` (and, by
    generator patch, the Stock Ledger Report's). After deploy, link it into
    the live menu with Tree Management; the seed only fills an empty tree.
-4. **Screen:** `functions/modules/<ID>.html`, calling the server with
+4. **Screen:** `screens/<ID>.html`, calling the server with
    `rpc.<fn>({...})`.
 5. **Tests:** an emulator suite in `functions/test/emulator/`, including a
    verified negative control (break the logic on purpose, confirm a test
@@ -132,13 +134,21 @@ node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: th
   Restart it after changing code, including for negative controls.
 - **Safety:** the suites WIPE the emulator database. `_helpers.js` refuses
   to run unless every client points at the local emulators.
-- **Last full run** (2026-09-25, `party-statements` branch): 205/205
-  emulator tests, 101/101 smoke, 2/2 dynamic toggle, 4/4 each for the
-  purchase return, sales return and statements UI checks. The party
-  payments UI check now waits for elements instead of fixed times
-  (2026-09-26): 3/3 right after an emulator restart. Each run adds a bill,
-  so rerun the partyPayments suite before rerunning it, or "oldest first"
-  allocates against the previous run's bill.
+- **Screens in tests:** `getModuleFragment` serves the active screen
+  release, and the suites' wipe removes it. The UI harness releases the
+  working copy's `screens/` into the emulator before each UI check, and
+  the suites that open screens release them themselves (not every reset:
+  a release takes about 0.7 s).
+- **Smoke fixture:** run smoke and dynamic toggle after a suite that uses
+  `_helpers.js`'s all-modules permissions (e.g. `vendorMaster`), not after
+  `stockModules`, which grants only its four modules.
+- **Last full run** (2026-09-26, `party-statements` branch): 213/213
+  emulator tests, 101/101 smoke, 2/2 dynamic toggle, 12/12 stock screens,
+  3/3 party payments, 4/4 each for the purchase return, sales return and
+  statements UI checks. The party payments check waits for elements, not
+  fixed times, so it passes right after an emulator restart. Each run adds
+  a bill, so rerun the partyPayments suite before rerunning it, or "oldest
+  first" allocates against the previous run's bill.
 - **Full run vs. one suite:** the full run above is for before a deploy or
   merge. While building or fixing a module, run only its suite (and its
   UI check); it doesn't need the two-halves split.
@@ -159,8 +169,14 @@ node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: th
   `gcloud functions add-invoker-policy-binding FN --region=us-central1 --member=allUsers --gen2 --project=erp1-8f4cd`
 - **New modules:** list the functions in `tools/deploy-sets/<set>.txt` and
   run `tools/deploy-functions.sh <set>` (clean-copy check, batches,
-  retries, the binding for each, 8 bindings at a time). Put `getModuleFragment` last when a
-  screen changes, so it can't go live before the functions it calls.
+  retries, the binding for each, 8 bindings at a time). Add `--screens`
+  when screens changed: it releases them after the functions, so a screen
+  can't go live before the functions it calls.
+- **Screens (`screens/*.html`):** `tools/release-screens.sh` (clean-copy
+  check, then write, verify and activate a release in production
+  Firestore). Users get it on their next screen open. No function deploy.
+  `tools/release-screens.sh list` and `rollback <ID>` undo a release. The
+  last 10 are kept. Record releases in the deploy log.
 - **Generated-port functions:** `tools/deploy-migration.sh` (reads the
   pending list from `tools/legacy-port/status.js`).
 - **Hosting (`public/index.html`):** `firebase deploy --project erp1-8f4cd --only hosting`.

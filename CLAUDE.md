@@ -46,6 +46,10 @@ preserved quirks). Read it when touching a ported module.
 - Deploy from a clean checkout only (`git status --porcelain` empty),
   inside tmux: batches of 20 there, 6 outside (the old limit, from Cloud
   Shell connection timeouts). Details: README → Deploying.
+- Screens (screens/*.html) go live with tools/release-screens.sh, not a
+  function deploy. Functions first, then the release (or
+  deploy-functions.sh <set> --screens). Never put screens in public/:
+  they stay behind getModuleFragment's access check (owner, 2026-09-26).
 - Firebase config in public/index.html must be the REAL values, not
   REPLACE_ME placeholders. Verify with: grep REPLACE_ME public/index.html
   (should return nothing).

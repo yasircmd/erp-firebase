@@ -1,6 +1,8 @@
 #!/bin/bash
 # Deploys a named set of functions for new development:
-#   tools/deploy-functions.sh <set>      (reads tools/deploy-sets/<set>.txt)
+#   tools/deploy-functions.sh <set> [--screens]   (reads tools/deploy-sets/<set>.txt)
+# --screens: after every batch and binding succeeded, release screens/
+# (tools/release-screens.sh), so screens never go live before their functions.
 # One function name per line, in deploy order (blank lines and # comments
 # ignored). Same rules as the migration deploys: clean working copy only,
 # batches with retries (6, or 20 inside tmux/screen: tools/deploy-lib.sh),
@@ -11,7 +13,8 @@ cd "$(dirname "$0")/.." || exit 1
 P=erp1-8f4cd
 source tools/deploy-lib.sh
 SET="tools/deploy-sets/$1.txt"
-[ -f "$SET" ] || { echo "usage: tools/deploy-functions.sh <set>  (no $SET)"; ls tools/deploy-sets; exit 1; }
+[ -f "$SET" ] || { echo "usage: tools/deploy-functions.sh <set> [--screens]  (no $SET)"; ls tools/deploy-sets; exit 1; }
+SCREENS=0; [ "$2" = "--screens" ] && SCREENS=1
 
 # firebase deploy uploads the working copy, not the last commit.
 if [ -n "$(git status --porcelain)" ]; then
@@ -24,4 +27,5 @@ echo "Deploying ${#FNS[@]} functions from $(git log -1 --format='%h %s'):"; echo
 fail=0
 deploy_batches "" "${FNS[@]}"
 grant_invokers "${FNS[@]}"
+if [ $fail = 0 ] && [ $SCREENS = 1 ]; then tools/release-screens.sh || fail=1; fi
 [ $fail = 0 ] && echo "ALL DONE" || echo "SOME STEPS FAILED — re-run this script"

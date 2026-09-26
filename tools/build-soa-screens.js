@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Writes functions/modules/CUSTOMERSOA.html from VENDORSOA.html: the two
+// Writes screens/CUSTOMERSOA.html from VENDORSOA.html: the two
 // Statement of Account screens are one template with a different CONFIG
 // block (docs/modules/CUSTOMER_SOA.md). Edit VENDORSOA.html, then run:
 //   node tools/build-soa-screens.js          (write)
@@ -8,7 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const dir = path.join(__dirname, '../functions/modules');
+const dir = path.join(__dirname, '../screens');
 const vendor = fs.readFileSync(path.join(dir, 'VENDORSOA.html'), 'utf8');
 const CUSTOMER_CONFIG = `  const CONFIG = {
     moduleId: 'CUSTOMERSOA', partyType: 'Customer', kicker: 'Accounts Receivable', heading: 'Customer Statement of Account',
