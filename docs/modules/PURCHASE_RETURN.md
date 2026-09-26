@@ -1,6 +1,6 @@
 # Purchase Return / Debit Note
 
-**Status:** deployed 2026-09-25 · **Roadmap:** [#1](../ROADMAP.md) · **Branch:** `purchase-return`
+**Status:** deployed 2026-09-25 · cost-center fix 2026-09-26 (not deployed) · **Roadmap:** [#1](../ROADMAP.md) · **Branch:** `purchase-return`
 
 ## Purpose
 
@@ -156,3 +156,33 @@ controls, each confirmed caught, then restored:
 2. The Vendor Invoice return guard removed: 2 tests failed. One of them
    actually reversed an invoice that had a live return against it.
 3. The note never settling its invoice: 2 tests failed.
+
+## Fix (2026-09-26): cost center on the variance line
+
+**Bug, reported live:** posting failed with "Line 4: account 510001 (COGS)
+requires a Cost Center." The company's Purchase Return Variance Account
+is a COGS account, which needs a Cost Center, and the variance line took
+the cost center from the Vendor Invoice header. That header field is
+optional and was empty. The emulator suite never caught this because its
+invoice always had one.
+
+**Behavior change (owner: "cost centre should be same of original
+purchase entry"):** each return line now carries the cost center (and
+profit center) its goods were received under: the GRN line's, else the
+GRN header's, else the invoice header's. That value goes on:
+- the return's stored lines (`CostCenterID`, `ProfitCenterID`);
+- the Inventory credit for the line, mirroring the GRN's own debit;
+- the Purchase Return Variance, now one line per cost center, each for
+  the variance of the lines received under it. A center whose variance
+  nets to zero gets no line.
+
+The payables, discount and tax lines still use the invoice header, as
+the invoice itself does. Drafts saved before the fix pick up the cost
+centers at post, because lines are rebuilt from the GRNs then. If a GRN
+has no cost center anywhere and the invoice header has none either, the
+error still appears. There's no purchase cost center to copy in that case.
+
+**Tests:** new emulator test `cost centers: …` (COGS-type variance
+account, invoice without a cost center, two GRNs under CC1/CC2, post and
+reversal). Negative control: the pre-fix `purchaseReturn.js` fails that
+test, then restored. Suite 7/7, UI 4/4.

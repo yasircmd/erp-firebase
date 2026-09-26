@@ -126,6 +126,37 @@ test('reversal: stock back at the cost it left at, GL mirrored, invoice restored
   assert.match((await draft(inv, [['G1', 1]]).catch(e => e)).message, /no longer a posted, unreversed invoice/);
 });
 
+test('cost centers: variance and stock lines take the cost center of the GRN line returned, not the invoice header', async () => {
+  // As reported live: the variance account is a COGS account (needs a
+  // Cost Center) and the invoice header has none. G1's line and G2's
+  // header carry one each; WH2's average is now 11, so G2 also has a variance.
+  const f = fixture();
+  f.companies.C1.PurchaseReturnVarianceAccountID = 'A-COGS';
+  f.orgUnits.CC2 = { Type: 'CostCenter', Code: 'CC2', Name: 'Stores', Status: 'Active', CompanyID: 'C1' };
+  f.stock.transactions.G1.Lines[0].CostCenterID = 'CC1';
+  f.stock.transactions.G2.CostCenterID = 'CC2';
+  f.stock.ledger.I1.WH2 = { Quantity: 5, AvgCost: 11, TotalValue: 55 };
+  await reset(f);
+  const s = ok(await call('u-admin', 'saveVendorInvoiceDraft', { invoiceData: {
+    InvoiceDate: D, Description: 'Invoice 78', VendorRefNumber: 'ACME-78', CompanyID: 'C1', VendorID: 'V1',
+    SourceGRNs: [{ GRNID: 'G1' }, { GRNID: 'G2' }], DirectLines: [], Discount: 0, TaxPercent: 0 } }));
+  ok(await call('u-admin', 'postVendorInvoice', { invoiceId: s.invoiceId }));
+  const inv = { id: s.invoiceId };
+
+  const d = ok(await draft(inv, [['G1', 4], ['G2', 2]]));
+  assert.deepEqual((await rec(d.returnId)).Lines.map(l => l.CostCenterID), ['CC1', 'CC2']);
+  ok(await postReturn(d.returnId));
+  const r = await rec(d.returnId);
+  assert.equal(r.VarianceAmount, -10);
+  const byCenter = async (jvId) => (await glDoc(jvId)).Lines.filter(l => ['5000', '1300'].includes(l.AccountCode))
+    .map(l => [l.AccountCode, l.CostCenterID, l.Debit, l.Credit]).sort();
+  // 4 × (20 − 22) = −8 on CC1; 2 × (10 − 11) = −2 on CC2.
+  assert.deepEqual(await byCenter(r.LinkedJVID), [['1300', 'CC1', 0, 88], ['1300', 'CC2', 0, 22], ['5000', 'CC1', 8, 0], ['5000', 'CC2', 2, 0]]);
+
+  const rv = ok(await call('u-admin', 'reversePurchaseReturn', { returnId: d.returnId, reversalDate: D }));
+  assert.deepEqual(await byCenter((await rec(rv.returnId)).LinkedJVID), [['1300', 'CC1', 88, 0], ['1300', 'CC2', 22, 0], ['5000', 'CC1', 0, 8], ['5000', 'CC2', 0, 2]]);
+});
+
 test('invoice already paid: the whole note is an open debit (New Ref); its reversal waits for the refund to be reversed', async () => {
   const f = fixture();
   delete f.companies.C1.PurchaseReturnVarianceAccountID; // G2 returns at its own average: no variance, account not needed
