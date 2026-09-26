@@ -210,3 +210,23 @@ from, and how it was verified. The deploy procedure is in the
     negative controls.
   - Users get it on their next page load. A reload may be needed if the
     browser has the old page cached.
+
+- **2026-09-26, PDC Received / PDC Issued ([PDC.md](modules/PDC.md)):**
+  `tools/deploy-functions.sh pdc --screens` from `a706976` (branch `pdc`,
+  clean checkout, in tmux, run by the owner). 33 functions: the 12 new PDC
+  callables plus 21 existing ones that read the changed registries,
+  voucher-type maps, Data Reset categories, invoice lists, statements and
+  Company Master (`tools/deploy-sets/pdc.txt`). 2 batches, all 33
+  successful, then released screens `20260926T092427Z-a706976`. `ALL DONE`,
+  exit 0.
+  - **Verified:** the 12 new functions and `getPartyStatement` answer an
+    unauthenticated call with "Please sign in again", so they're public
+    and live.
+  - **Beforehand:** pdc suite 6/6 with negative controls (3 breaks, each
+    caught), PDC UI 7/7, full run 221/221, smoke 105/105.
+  - **Hosting not yet deployed:** the Home "Post-dated Cheques Due to
+    Clear" block needs `firebase deploy --project erp1-8f4cd --only hosting`.
+  - **Still to do in the app:** set the PDC Received and PDC Issued
+    Clearing Accounts in Company Master for each company. Link the
+    "PDC Received" and "PDC Issued" tree nodes to `PDCRECEIVED` and
+    `PDCISSUED` in Tree Management.
