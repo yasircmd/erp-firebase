@@ -109,10 +109,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
      screens; the three generated ones also edited in `legacy-gas/`).
   2. Home title: "ERP Module Hierarchy Tree - <their company>" for such a
      user (others still see the `01` company).
-  3. **Assumption, for the owner to confirm:** master-data forms whose
-     blank option is a real choice ("Shared across all companies" on
-     Customer, Vendor, Item, COA, Org Units, Procurement and Sales Invoice
-     setup) still default to shared, not to the user's company.
+  3. **Owner's decision (2026-09-26):** master-data forms whose blank
+     option is a real choice ("Shared across all companies" on Customer,
+     Vendor, Item, COA, Org Units, Procurement and Sales Invoice setup)
+     keep shared as the default, not the user's company.
   Users with two or more companies see no change. Tests:
   `functions/test/ui/singleCompany.ui.js` (41 screens as a one-company
   user, 4 as a two-company user; 45/45), a title check in `home.ui.js`
