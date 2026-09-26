@@ -1,6 +1,6 @@
 # Sales Return / Credit Note
 
-**Status:** deployed 2026-09-25 · Sales Returns Account per Sales Type 2026-09-26 (not deployed) · **Roadmap:** [#2](../ROADMAP.md) · **Branch:** `sales-return` (from `purchase-return`)
+**Status:** deployed 2026-09-25 · Sales Returns Account per Sales Type deployed 2026-09-26 · **Roadmap:** [#2](../ROADMAP.md) · **Branch:** `sales-return` (from `purchase-return`)
 
 ## Purpose
 
