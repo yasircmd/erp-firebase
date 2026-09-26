@@ -1,6 +1,6 @@
 # PDC Received and PDC Issued (post-dated cheques)
 
-**Status:** design agreed 2026-09-26 · **Roadmap:** [#5](../ROADMAP.md) · **Branch:** `pdc`
+**Status:** tested 2026-09-26, not deployed · **Roadmap:** [#5](../ROADMAP.md) · **Branch:** `pdc`
 
 ## Purpose
 
@@ -182,3 +182,94 @@ The owner agreed every proposal. The tree nodes are named **PDC Received** and *
 6. Tests: emulator suite (lifecycle both ways, bounce reopening invoices,
    guards, duplicate check, SOA as-at-date) and a UI check; negative
    controls. Then deploy set, deploy, release screens, link in the tree.
+
+## As built (2026-09-26)
+
+**Code**
+- `functions/src/pdc.js`: one engine for both directions. Callables:
+  `getPdcSetup`, `getPdcOpenItems`, `savePdcDraft`, `deletePdcDraft`,
+  `postPdc`, `decidePdcApproval`, `clearPdcs` (one or many),
+  `bouncePdc`, `cancelPdc`, `undoPdcClearing`, `getPdcEntries`,
+  `getPdcsDueForUser` (Home). Store: RTDB `pdcCheques/{id}`.
+- Numbering: `PDR` (received), `PDRC` (its clearing), `PDI` (issued),
+  `PDIC` (its clearing), per company and year like the other vouchers
+  (`glWriting.js`). A bounce or cancellation takes the next number of its
+  post type; undoing a clearing, the next of its clearing type.
+- The party line goes through Party Payments' own check
+  (`partyLedger.resolvePartyLines`). The screen sends only what the
+  cheque settles (Against), and the rest of the cheque becomes one New
+  Ref. The check runs again at post, under the global lock.
+- Bounce and cancel reverse the post entry (party tag kept, no
+  allocations, `PdcEvent` = Bounced / Cancelled), so its allocations are
+  released. They're refused on a Cleared cheque and while a New Ref the
+  cheque created is settled elsewhere (`assertEntryReversible`).
+- Company Master: `PdcReceivedClearingAccountID` and
+  `PdcIssuedClearingAccountID` through generator patches (read, validate,
+  store). Posting and clearing refuse a clearing account that is missing,
+  inactive, a cash/bank account (`10…`/`11…`) or any party's control
+  account.
+- Registries: `moduleRegistry.js` (permissions as CBT),
+  `approvalRegistry.js` (gateable, storage `pdcCheques`), the voucher-type
+  maps in `journal.js` and `masterData.js` (JV refuses to reverse a PDC
+  entry; GL Report opens the PDC screen), and `treeSeedNodes.js` (fresh
+  installs only).
+- Data Reset: new category `pdcCheques` (generator patch). Deleting
+  single PDC records doesn't remove their GL entries, and deleting GL
+  entries doesn't remove the PDC: clear both categories together.
+- Invoice lists: `annotateInvoiceOutstanding` adds `PdcPending`, the part
+  settled by cheques still Pending. The lists show "(PDC pending)" under
+  the payment status, which keeps its old values.
+- SOA (`partyStatement.js`): PDC rows are labelled "PDC Received", and
+  "PDC Received Bounced" / "… Cancelled" for the reversals. New
+  `PendingPdcs` as at the end date: posted on or before it and not
+  cleared, bounced or cancelled by then. Also `PendingPdcTotal` and
+  `BalanceIfPdcsBounce` (closing + pending). They appear on the screen, in
+  print and in CSV.
+- Home: a "Post-dated Cheques Due to Clear" block (`public/index.html`,
+  Hosting) for roles with `post` on the module, using the user's local
+  date.
+- Screens: `PDCRECEIVED.html` is the template. `PDCISSUED.html` is
+  written from it by `node tools/build-pdc-screens.js`, so edit only the
+  Received file (the UI check fails if they drift apart). The list has a
+  "Due to clear" view with totals per bank, and selected Pending cheques
+  can be cleared together. Each cheque has an entry form with an
+  Allocate table and "Oldest first", a history with a link to each GL
+  entry, a print receipt/voucher, and actions for approval, clear,
+  bounce, cancel and undo.
+
+**Known gaps**
+- Clearing, bounce and undo write the GL entry and then update the
+  cheque, without the commit-attempt marker, because the cheque already
+  carries its post entry's number. If the second write failed, the GL
+  entry would exist with the cheque still showing its old status.
+  They run under the global lock, and the gap is the same size as the
+  approval path's (Party Payments → Known gaps).
+- The duplicate-cheque check at save isn't under the lock. It runs again
+  at post, which is under the lock.
+
+**Tests**
+- `functions/test/emulator/pdc.emulator.test.js` (6): the received
+  lifecycle (post, clear, undo, bounce, invoice reopened, clearing
+  account back to zero); issued with a New Ref advance and the cancel
+  guard, JV and GL Report guards; validation, duplicates, clearing
+  account rules, partial allocation, Company Master save, access;
+  all-or-nothing batch clearing and the Home list; approval; statements
+  as at three dates for both parties.
+- `functions/test/ui/pdc.ui.js` (7): the template check, a received
+  cheque with "Oldest first", clearing from the due view, bouncing an
+  issued cheque plus the history and drill-through, the Viewer, the
+  Customer SOA's pending PDCs, and the Company Master fields.
+- Smoke now loads both PDC screens (105/105).
+- **Negative control: not yet run.** Three deliberate breaks were
+  prepared: the clearing-date check, the duplicate check, and the SOA's
+  "pending as at the end date" rule. Claude Code's permission guard
+  refused to start the emulators with those checks disabled, so the code
+  was restored untested. It needs the owner's go-ahead (see ROADMAP).
+
+**Deploy:** 33 functions in `tools/deploy-sets/pdc.txt`, then the
+screens, then Hosting:
+`tools/deploy-functions.sh pdc --screens` from a clean checkout, then
+`firebase deploy --project erp1-8f4cd --only hosting`. After that: set
+both clearing accounts in Company Master for each company, and link the
+existing "PDC Received" / "PDC Issued" tree nodes to `PDCRECEIVED` /
+`PDCISSUED` in Tree Management.
