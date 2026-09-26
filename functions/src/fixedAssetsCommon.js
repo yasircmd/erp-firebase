@@ -22,6 +22,8 @@ const { moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, getCompanyRefCode } = require('./glWriting');
 
 const AREA = 'BOOK';
+// Key of an account determination's shared row (Firestore map keys can't be empty).
+const SHARED = 'SHARED';
 const COL = {
   settings: 'faSettings', classes: 'faClasses', determination: 'faAccountDetermination', assets: 'faAssets',
   txns: 'faTransactions', postings: 'faPostings', clearingUse: 'faClearingUse', runs: 'faRuns', periods: 'faPeriods',
@@ -112,13 +114,13 @@ async function assertFaPostingOpen(user, companyId, date) {
 }
 
 // The accounts a class uses for a company: the company's row of its
-// account determination, else the shared row; the clearing account
+// account determination, else the shared row (SHARED); the clearing account
 // falls back to the company setting.
 async function accountsFor(cls, companyId, settings) {
   const det = await getDoc(COL.determination, cls.AccountDeterminationID);
   if (!det || det.Status !== 'Active') throw new Error('Class ' + cls.Code + ' has no active account determination.');
   const rows = det.ByCompany || {};
-  const row = Object.assign({}, rows[''] || {}, rows[companyId] || {});
+  const row = Object.assign({}, rows[SHARED] || {}, rows[companyId] || {});
   if (!row.ClearingAccountID) row.ClearingAccountID = (settings || await getSettings(companyId)).ClearingAccountID || '';
   return { det: det, accounts: row };
 }
@@ -165,7 +167,7 @@ async function clearingAccountIds(companyId) {
   if (s.ClearingAccountID) ids.add(s.ClearingAccountID);
   docsOf(await firestore.collection(COL.determination).get()).forEach(d => {
     const rows = d.ByCompany || {};
-    [rows[''], rows[companyId]].forEach(r => { if (r && r.ClearingAccountID) ids.add(r.ClearingAccountID); });
+    [rows[SHARED], rows[companyId]].forEach(r => { if (r && r.ClearingAccountID) ids.add(r.ClearingAccountID); });
   });
   return ids;
 }
@@ -214,7 +216,7 @@ function assertBatchSize(n) {
 }
 
 module.exports = {
-  AREA, COL, MODULES, CLASS_KINDS, ACCOUNT_FIELDS, CONTROLLED_FIELDS, ON_BOOKS,
+  AREA, SHARED, COL, MODULES, CLASS_KINDS, ACCOUNT_FIELDS, CONTROLLED_FIELDS, ON_BOOKS,
   round2, isDate, str, actorOf, nowIso, newId, docsOf, getDoc, listWhere, coa,
   requireCap, requireCompany, rightsFor, getSettings, assertFaPostingOpen, accountsFor, requireAccount,
   controlledAccountIds, assertNoFaControlledAccounts, clearingAccountIds, assertEntryNotCapitalized,

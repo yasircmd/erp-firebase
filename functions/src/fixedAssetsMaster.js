@@ -188,6 +188,7 @@ exports.saveFaAsset = onCallWithMessages(onCallOptions, async (request) => {
       if (depPosted) throw new HttpsError('failed-precondition', 'Depreciation has been posted for this asset: change its ' + ORG_TYPES[f].replace('Center', ' center').toLowerCase() + ' with an Asset Transfer.');
       changes.push({ Field: f, From: existing[f] || '', To: fields[f] }); update[f] = fields[f];
     });
+    if (!v.DepStartDate) v.DepStartDate = area.DepStartDate || ''; // not sent: unchanged
     VALUATION_FIELDS.forEach(f => {
       const before = area[f] == null ? '' : area[f];
       if (String(before) === String(v[f])) return;

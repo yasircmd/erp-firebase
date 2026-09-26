@@ -35,7 +35,7 @@ exports.getFaConfig = onCallWithMessages(onCallOptions, async (request) => {
       .sort((a, b) => a.Code.localeCompare(b.Code)),
     determinations: C.docsOf(dets).map(d => {
       const rows = {};
-      Object.keys(d.ByCompany || {}).forEach(k => { if (mine(k)) rows[k] = d.ByCompany[k]; });
+      Object.keys(d.ByCompany || {}).forEach(k => { if (k === C.SHARED || mine(k)) rows[k] = d.ByCompany[k]; });
       return Object.assign({}, d, { DeterminationID: d._id, ByCompany: rows });
     }).sort((a, b) => a.Code.localeCompare(b.Code)),
     settings: C.docsOf(settings).filter(s => mine(s.CompanyID)),
@@ -79,8 +79,9 @@ exports.saveFaSettings = onCallWithMessages(onCallOptions, async (request) => {
   return { success: true };
 });
 
-// One company row (or the shared row, key '') of an account determination.
+// One company row (or the shared row, key SHARED) of an account determination.
 async function checkRow(key, row, chart) {
+  const shared = key === C.SHARED;
   const out = {};
   const seen = {};
   for (const spec of C.ACCOUNT_FIELDS) {
@@ -88,10 +89,10 @@ async function checkRow(key, row, chart) {
     out[spec.field] = id;
     if (!id) continue;
     const a = chart[id];
-    const where = (key ? 'Company row' : 'Shared row') + ', ' + spec.label + ': ';
+    const where = (shared ? 'Shared row' : 'Company row') + ', ' + spec.label + ': ';
     if (!a || a.Status !== 'Active' || a.IsPostable !== true) throw new Error(where + 'must be an active, postable account.');
     if (!spec.types.includes(a.AccountType)) throw new Error(where + 'must be an account of type ' + spec.types.join(' or ') + '.');
-    if (a.CompanyID && a.CompanyID !== key) throw new Error(where + 'account ' + a.AccountCode + ' is restricted to ' + (key ? 'another company' : 'one company, so it can\'t be in the shared row') + '.');
+    if (a.CompanyID && (shared || a.CompanyID !== key)) throw new Error(where + 'account ' + a.AccountCode + ' is restricted to ' + (shared ? 'one company, so it can\'t be in the shared row' : 'another company') + '.');
     if (C.CONTROLLED_FIELDS.includes(spec.field) && isCashOrBank(a)) throw new Error(where + 'must not be a cash or bank account.');
     if (C.CONTROLLED_FIELDS.includes(spec.field)) {
       if (seen[id]) throw new Error(where + 'is already used as ' + seen[id] + ' in this row.');
@@ -100,7 +101,7 @@ async function checkRow(key, row, chart) {
   }
   if (out.ClearingAccountID) {
     if (C.CONTROLLED_FIELDS.some(f => out[f] === out.ClearingAccountID)) throw new Error('The clearing override must not be one of the row\'s asset accounts.');
-    await checkClearing(out.ClearingAccountID, key, chart, (key ? 'Company row' : 'Shared row') + ', Fixed Asset Clearing (override)');
+    await checkClearing(out.ClearingAccountID, shared ? '' : key, chart, (shared ? 'Shared row' : 'Company row') + ', Fixed Asset Clearing (override)');
   }
   return out;
 }
@@ -126,7 +127,7 @@ exports.saveFaAccountDetermination = onCallWithMessages(onCallOptions, async (re
     const rows = Object.assign({}, existing ? existing.ByCompany || {} : {});
     const sent = d.ByCompany || {};
     for (const key of Object.keys(sent)) {
-      if (key && !userCanAccessCompany(user.profile, key)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+      if (key !== C.SHARED && !userCanAccessCompany(user.profile, key)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
       const row = await checkRow(key, sent[key] || {}, chart);
       if (Object.values(row).some(Boolean)) rows[key] = row; else delete rows[key];
     }
