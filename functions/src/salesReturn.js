@@ -6,7 +6,8 @@
 // Stored in stock/transactions (TransactionType 'SalesReturn'), so the
 // stock ledger, its rebuild and the stock reports read it like any other
 // In movement. Posting writes one GL entry (prefix CRN):
-//   Dr Sales Returns (company account)   goods at the DN price
+//   Dr Sales Returns (Sales Type's)      goods at the DN price, one line per
+//                                        Sales Returns account
 //   Cr Discount Given                    the invoice discount's share
 //   Dr Output Tax                        the invoice tax's share
 //   Cr Trade Receivables                 Total, tagged with the customer
@@ -107,6 +108,7 @@ async function invoiceDnLines(invoiceId, inv, excludeReturnId, allTx) {
       const done = returned.get(dnLineKey(d.DeliveryNoteID, lineNo)) || 0;
       out.push({
         SourceDNID: d.DeliveryNoteID, SourceDNNumber: dn.TransactionNumber || d.DeliveryNoteNumber || '', SourceDNLineNo: lineNo,
+        SalesTypeID: d.SalesTypeID || '',
         ItemID: l.ItemID, ItemCode: l.ItemCode || '', ItemName: l.ItemName || '', WarehouseID: l.WarehouseID,
         BatchNumber: l.BatchNumber || '', CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '',
         UnitPrice: Number(l.UnitPrice) || 0, UnitCost: Number(l.UnitCost) || 0,
@@ -169,7 +171,7 @@ async function buildLines(rawLines, invoiceId, inv, excludeReturnId) {
     if (!(src.UnitCost > 0)) throw new Error(n + src.ItemCode + ' left ' + src.SourceDNNumber + ' at no recorded cost, so it cannot be returned into stock.');
     lines.push({
       LineNo: lines.length + 1,
-      SourceDNID: src.SourceDNID, SourceDNNumber: src.SourceDNNumber, SourceDNLineNo: src.SourceDNLineNo,
+      SourceDNID: src.SourceDNID, SourceDNNumber: src.SourceDNNumber, SourceDNLineNo: src.SourceDNLineNo, SalesTypeID: src.SalesTypeID,
       ItemID: src.ItemID, ItemCode: src.ItemCode || (item && item.ItemCode) || '', ItemName: src.ItemName || (item && item.ItemName) || '',
       WarehouseID: warehouseId, BatchNumber: src.BatchNumber, CostCenterID: src.CostCenterID, ProfitCenterID: src.ProfitCenterID,
       Quantity: round6(qty), UnitPrice: src.UnitPrice, ReturnValue: round2(qty * src.UnitPrice),
@@ -188,6 +190,29 @@ async function resolveCompanyAccount(companyId, field, label, coaData) {
   const account = coaData[id];
   if (!account || !account.IsPostable) throw new Error('This company\'s ' + label + ' is no longer valid — check it in Company Master Data.');
   return account;
+}
+
+// The goods' debit, per Sales Returns account: each line goes to the
+// account of the Sales Type it was invoiced under (its Delivery Note's on
+// the invoice), because sales under different tax treatments are returned
+// to different accounts.
+function salesReturnsDebits(lines, salesTypes, coaData) {
+  const byAccount = new Map();
+  lines.forEach((l, idx) => {
+    const st = salesTypes[l.SalesTypeID];
+    if (!st) throw new Error('Line ' + (idx + 1) + ': its Sales Type on the invoice no longer exists.');
+    if (!st.SalesReturnsAccountID) {
+      throw new Error('Sales Type "' + (st.Name || l.SalesTypeID) + '" has no Sales Returns Account. Set one in Sales Invoice Configuration before posting this return.');
+    }
+    const account = coaData[st.SalesReturnsAccountID];
+    if (!account || !account.IsPostable || account.Status !== 'Active') {
+      throw new Error('Sales Type "' + (st.Name || l.SalesTypeID) + '": its Sales Returns Account is no longer valid. Check it in Sales Invoice Configuration.');
+    }
+    const d = byAccount.get(account.AccountCode) || { AccountCode: account.AccountCode, Amount: 0 };
+    d.Amount = round2(d.Amount + l.ReturnValue);
+    byAccount.set(account.AccountCode, d);
+  });
+  return [...byAccount.values()];
 }
 
 // COGS credit per returned line, at the value its stock came back in at.
@@ -324,8 +349,8 @@ async function commitSalesReturnPosting(user, existing, returnId) {
   const lines = await buildLines(existing.Lines, existing.SourceInvoiceID, inv, returnId);
   const values = computeValues(lines, inv);
 
-  const [itemsSnap, coaSnap, customerSnap] = await Promise.all([
-    rtdb.ref('items').get(), rtdb.ref('coa').get(), rtdb.ref('customers/' + existing.CustomerID).get()
+  const [itemsSnap, coaSnap, customerSnap, salesTypesSnap] = await Promise.all([
+    rtdb.ref('items').get(), rtdb.ref('coa').get(), rtdb.ref('customers/' + existing.CustomerID).get(), rtdb.ref('salesTypes').get()
   ]);
   const itemsData = itemsSnap.val() || {};
   const coaData = coaSnap.val() || {};
@@ -333,7 +358,7 @@ async function commitSalesReturnPosting(user, existing, returnId) {
   if (!customer || !customer.TradeReceivablesAccountID) throw new Error('This Customer has no Trade Receivables Account configured. Set one in Customer Master Data before posting.');
   const arAccount = coaData[customer.TradeReceivablesAccountID];
   if (!arAccount || !arAccount.IsPostable) throw new Error('This Customer\'s Trade Receivables Account is no longer valid.');
-  const returnsAccount = await resolveCompanyAccount(existing.CompanyID, 'SalesReturnsAccountID', 'Sales Returns Account', coaData);
+  const returnsDebits = salesReturnsDebits(lines, salesTypesSnap.val() || {}, coaData);
 
   // In at the cost each line left at (the DN line's UnitCost).
   const movementLines = lines.map(l => Object.assign({ Direction: 'In' }, l));
@@ -351,7 +376,7 @@ async function commitSalesReturnPosting(user, existing, returnId) {
   if (values.Total - against > 0.005) allocations.push({ RefType: 'New', RefID: '', Amount: round2(values.Total - against) });
 
   const glLines = [
-    Object.assign({ AccountCode: returnsAccount.AccountCode, Debit: values.ReturnValue, Credit: 0, Description: label }, dims),
+    ...returnsDebits.map(d => Object.assign({ AccountCode: d.AccountCode, Debit: d.Amount, Credit: 0, Description: label }, dims)),
     Object.assign({
       AccountCode: arAccount.AccountCode, Debit: 0, Credit: values.Total, Description: label,
       PartyType: 'Customer', PartyID: existing.CustomerID, PartyName: customer.CustomerName || customer.CustomerCode || '', Allocations: allocations

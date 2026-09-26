@@ -486,30 +486,29 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
 };`
   },
   // ---- NEW DEVELOPMENT: Sales Return (docs/modules/SALES_RETURN.md) ----
+  // ---- NEW DEVELOPMENT: Sales Returns Account per Sales Type (docs/modules/SALES_RETURN.md) ----
   {
-    id: 'company-sales-returns-account (read)',
-    why: 'NEW DEVELOPMENT. Company Master gains an optional Sales Returns Account (contra revenue, e.g. 410000 Sales ' +
-      'Returns & Discounts): a credit note debits returned goods there rather than back to the Sales Type account.',
-    find: `    const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();`,
-    replace: `    const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();
-    // [NEW DEVELOPMENT company-sales-returns-account]
-    const salesReturnsAccountId = String(companyData.SalesReturnsAccountID || '').trim();`
+    id: 'sales-type-returns-account (read and validate)',
+    why: 'NEW DEVELOPMENT. Each Sales Type has its own Sales Returns Account (replacing the single company-level one), ' +
+      'because sales under different tax treatments must be returned to different accounts. Required on save, with the ' +
+      'same checks as the Revenue account.',
+    find: `    if (account.CompanyID && companyId && account.CompanyID !== companyId) throw new Error('Sales Revenue account is restricted to a different company.');
+`,
+    replace: `    if (account.CompanyID && companyId && account.CompanyID !== companyId) throw new Error('Sales Revenue account is restricted to a different company.');
+    // [NEW DEVELOPMENT sales-type-returns-account]
+    const salesReturnsAccountId = String(data.SalesReturnsAccountID || '').trim();
+    if (!salesReturnsAccountId) throw new Error('Select a Sales Returns account.');
+    const returnsAccount = coaData[salesReturnsAccountId];
+    if (!returnsAccount || !returnsAccount.IsPostable || returnsAccount.Status !== 'Active') throw new Error('Sales Returns account must be an active, postable account.');
+    if (returnsAccount.AccountType !== 'Revenue') throw new Error('Sales Returns account must be a Revenue-type account.');
+    if (returnsAccount.CompanyID && companyId && returnsAccount.CompanyID !== companyId) throw new Error('Sales Returns account is restricted to a different company.');
+`
   },
   {
-    id: 'company-sales-returns-account (validate)',
-    why: 'Same checks as the other fixed accounts.',
-    find: `      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' }
-    ];`,
-    replace: `      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' },
-      { id: salesReturnsAccountId, label: 'Sales Returns Account' }
-    ];`
-  },
-  {
-    id: 'company-sales-returns-account (store)',
-    why: 'Stored on the company record next to the other fixed accounts.',
-    find: `      PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,`,
-    replace: `      PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,
-      SalesReturnsAccountID: salesReturnsAccountId,`
+    id: 'sales-type-returns-account (store)',
+    why: 'Stored on the Sales Type next to its Revenue account.',
+    find: `    const fields = { Name: name, GLAccountID: glAccountId, CompanyID: companyId, RestrictedToClassificationID: restrictedToClassificationId, UpdatedAt: now, UpdatedBy: actor };`,
+    replace: `    const fields = { Name: name, GLAccountID: glAccountId, SalesReturnsAccountID: salesReturnsAccountId, CompanyID: companyId, RestrictedToClassificationID: restrictedToClassificationId, UpdatedAt: now, UpdatedBy: actor };`
   },
   {
     id: 'stock-voucher-type-sales-return',

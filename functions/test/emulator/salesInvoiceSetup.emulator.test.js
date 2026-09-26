@@ -20,10 +20,10 @@ test('classification: create, listed', async () => {
 
 test('sales type: revenue account rule, restriction to a classification', async () => {
   assert.equal((await call('u-admin', 'saveSalesType', { data: { Name: 'Bad', GLAccountID: 'A-AR' } })).error, 'Sales Revenue account must be a Revenue-type account.');
-  const r = await call('u-admin', 'saveSalesType', { data: { Name: 'Export Sales', GLAccountID: 'A-REV', CompanyID: 'C1', RestrictedToClassificationID: state.cls } });
+  const r = await call('u-admin', 'saveSalesType', { data: { Name: 'Export Sales', GLAccountID: 'A-REV', SalesReturnsAccountID: 'A-REV', CompanyID: 'C1', RestrictedToClassificationID: state.cls } });
   assert.equal(r.success, true, JSON.stringify(r));
   state.st = r.salesTypeId;
-  assert.match((await call('u-admin', 'saveSalesType', { data: { Name: 'X', GLAccountID: 'A-REV', RestrictedToClassificationID: 'NOPE' } })).error, /Select a valid, active Classification/);
+  assert.match((await call('u-admin', 'saveSalesType', { data: { Name: 'X', GLAccountID: 'A-REV', SalesReturnsAccountID: 'A-REV', RestrictedToClassificationID: 'NOPE' } })).error, /Select a valid, active Classification/);
   assert.ok((await call('u-admin', 'getSalesTypes')).some(s => s.Name === 'Export Sales'));
 });
 

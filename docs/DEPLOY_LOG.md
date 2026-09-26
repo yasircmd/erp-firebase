@@ -181,3 +181,20 @@ from, and how it was verified. The deploy procedure is in the
     sign in again", so they're still public and live.
   - **Beforehand:** purchaseReturn emulator suite 7/7 (with a negative
     control) and UI checks 4/4.
+
+- **2026-09-26, Sales Returns Account per Sales Type
+  ([SALES_RETURN.md](modules/SALES_RETURN.md), PR #7):**
+  `tools/deploy-functions.sh sales-type-returns-account --screens` from
+  `2c04eab` (branch `sales-type-returns-account`, clean checkout, in tmux)
+  updated six existing functions: `saveSalesType`, `saveCompany`,
+  `getReturnableCustomerInvoices`, `saveSalesReturnDraft`,
+  `postSalesReturn`, `decideSalesReturnApproval` (1 batch, Node 24). It then
+  released screens `20260926T063920Z-2c04eab` (Sales Invoice Configuration
+  with the new field; Company Master without it). `ALL DONE`, exit 0.
+  - **Verified:** all six answer an unauthenticated call with "Please
+    sign in again", so they're still public and live.
+  - **Beforehand:** salesReturn 7/7 with negative controls, related suites
+    27/27, UI 4/4, smoke 101/101.
+  - **Still to do in the app:** set a Sales Returns Account on every Sales
+    Type in use (Sales Invoice Configuration). Until then, returns of that
+    type are refused at posting.

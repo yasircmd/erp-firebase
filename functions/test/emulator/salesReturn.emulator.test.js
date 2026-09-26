@@ -5,8 +5,9 @@
 // Dr Inventory / Cr Sales COGS), a paid invoice's open credit, approval
 // (and the rollback to Rejected when the commit fails), reversal (stock
 // out at the current average cost, revenue side mirrored, and its
-// guards), the Customer Invoice reversal guard, Company Master's new
-// account, the ledger rebuild, validation and access.
+// guards), the Customer Invoice reversal guard, the Sales Returns account
+// per Sales Type (split by type; required on save), the ledger rebuild,
+// validation and access.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { app, rtdb, firestore, call, reset, baseFixture, val } = require('./_helpers');
@@ -17,7 +18,8 @@ function fixture() {
   f.users['u-root'] = { status: 'Active', role: 'ADMIN', username: 'root', fullName: 'Root', AssignedCompanies: ['C1'] };
   f.coa['A-DISCG'] = { AccountCode: '5300', AccountName: 'Discount Given', AccountType: 'Expense', Status: 'Active', IsPostable: true };
   f.coa['A-SRET'] = { AccountCode: '410000', AccountName: 'Sales Returns & Discounts', AccountType: 'Revenue', Status: 'Active', IsPostable: true };
-  Object.assign(f.companies.C1, { DiscountGivenAccountID: 'A-DISCG', OutputTaxAccountID: 'A-VATOUT', SalesReturnsAccountID: 'A-SRET' });
+  f.coa['A-SRETX'] = { AccountCode: '410100', AccountName: 'Sales Returns — Export', AccountType: 'Revenue', Status: 'Active', IsPostable: true };
+  Object.assign(f.companies.C1, { DiscountGivenAccountID: 'A-DISCG', OutputTaxAccountID: 'A-VATOUT' });
   f.items.I1.SalesCogsAccountID = 'A-COGS';
   f.orgUnits.WH3 = { Type: 'Warehouse', Code: 'WH3', Name: 'Returns Bay', Status: 'Active', CompanyID: 'C1' };
   f.orgUnits.WH9 = { Type: 'Warehouse', Code: 'WH9', Name: 'C2 Store', Status: 'Active', CompanyID: 'C2' };
@@ -25,7 +27,10 @@ function fixture() {
     CU1: { CustomerCode: 'C001', CustomerName: 'Retail Co', Status: 'Active', CompanyID: 'C1', Classification: 'Retail', TradeReceivablesAccountID: 'A-AR' },
     CU2: { CustomerCode: 'C002', CustomerName: 'Other', Status: 'Active', CompanyID: 'C1', Classification: 'Retail', TradeReceivablesAccountID: 'A-AR' }
   };
-  f.salesTypes = { ST1: { Name: 'Goods', GLAccountID: 'A-REV', Status: 'Active', CompanyID: 'C1' } };
+  f.salesTypes = {
+    ST1: { Name: 'Goods', GLAccountID: 'A-REV', SalesReturnsAccountID: 'A-SRET', Status: 'Active', CompanyID: 'C1' },
+    ST2: { Name: 'Export', GLAccountID: 'A-REV', SalesReturnsAccountID: 'A-SRETX', Status: 'Active', CompanyID: 'C1' }
+  };
   const at = n => '2026-09-0' + n + 'T00:00:00Z';
   const line = (wh, dir, qty, cost, extra) => Object.assign({ LineNo: 1, ItemID: 'I1', ItemCode: 'RM-001', ItemName: 'Steel Sheet', WarehouseID: wh,
     Direction: dir, Quantity: qty, UnitCost: cost, TotalValue: qty * cost, CostCenterID: 'CC1', Description: 'Line' }, extra || {});
@@ -57,10 +62,10 @@ const ledger = async (wh) => { const l = await val('stock/ledger/I1/' + wh); ret
 
 // Invoice for N1 (10 × 50 = 500) + N2 (5 × 20 = 100): subtotal 600,
 // discount 60, tax 5% on 540 = 27, total 567 — through its real flow.
-async function invoice() {
+async function invoice(n2SalesType) {
   const s = ok(await call('u-admin', 'saveCustomerInvoiceDraft', { invoiceData: {
     InvoiceDate: D, Description: 'Invoice 9', CompanyID: 'C1', CustomerID: 'CU1', CostCenterID: 'CC1',
-    SourceDeliveryNotes: [{ DeliveryNoteID: 'N1', SalesTypeID: 'ST1' }, { DeliveryNoteID: 'N2', SalesTypeID: 'ST1' }],
+    SourceDeliveryNotes: [{ DeliveryNoteID: 'N1', SalesTypeID: 'ST1' }, { DeliveryNoteID: 'N2', SalesTypeID: n2SalesType || 'ST1' }],
     DirectLines: [], Discount: 60, TaxPercent: 5 } }));
   const p = ok(await call('u-admin', 'postCustomerInvoice', { invoiceId: s.invoiceId }));
   return { id: s.invoiceId, ref: 'CustomerInvoice:' + s.invoiceId, number: p.invoiceNumber };
@@ -111,6 +116,20 @@ test('post: stock back at the cost it left at, GL at the invoice price to Sales 
   assert.match((await call('u-admin', 'requestReverseCustomerInvoice', { invoiceId: inv.id, reversalDate: D })).error,
     new RegExp('Sales Returns posted against it \\(' + p.returnNumber + '\\) — reverse those first'));
   assert.deepEqual((await call('u-admin', 'getSalesReturnEntries', {})).entries.map(e => e.TransactionNumber), [p.returnNumber]);
+});
+
+test('sales types: each line is debited to its own Sales Type\'s Sales Returns account, and mirrored on reversal', async () => {
+  await reset(fixture());
+  const inv = await invoice('ST2'); // N1 sold as Goods, N2 as Export
+  const s = ok(await draft(inv, [['N1', 4], ['N2', 2]]));
+  ok(await postReturn(s.returnId));
+  const r = await rec(s.returnId);
+  assert.deepEqual(r.Lines.map(l => l.SalesTypeID), ['ST1', 'ST2']);
+  // 4 × 50 = 200 to Goods returns, 2 × 20 = 40 to Export returns.
+  const returnsLines = async (jvId) => (await jvLines(jvId)).filter(l => l[0].startsWith('410'));
+  assert.deepEqual(await returnsLines(r.LinkedJVID), [['410000', 200, 0], ['410100', 40, 0]]);
+  const rv = ok(await reverse(s.returnId));
+  assert.deepEqual(await returnsLines((await rec(rv.returnId)).LinkedJVID), [['410000', 0, 200], ['410100', 0, 40]]);
 });
 
 test('a chosen warehouse; reversal takes stock out at the current average cost and mirrors the rest; guards', async () => {
@@ -201,9 +220,9 @@ test('approval: gated post, nothing moves until approved; a failed commit return
   ok(await draft(inv, [['N1', 2]], { ReturnID: t.returnId }));
 
   await postReturn(t.returnId);
-  await rtdb.ref('companies/C1/SalesReturnsAccountID').remove();
+  await rtdb.ref('salesTypes/ST1/SalesReturnsAccountID').remove();
   assert.match(await err(call('u-approver', 'decideSalesReturnApproval', { returnId: t.returnId, levelNumber: 1, decision: 'Approved', reason: '' })),
-    /Posting failed: This company has no Sales Returns Account configured/);
+    /Posting failed: Sales Type "Goods" has no Sales Returns Account\. Set one in Sales Invoice Configuration/);
   r = await rec(t.returnId);
   assert.equal(r.Status, 'Rejected');
   assert.equal((await val('approvalInstances/' + r.ApprovalInstanceID)).Status, 'Pending');
@@ -226,8 +245,11 @@ test('validation, warehouses, missing account, delete, company scoping and acces
   // No Sales Returns account: refused at post, still a draft.
   const s = ok(await draft(inv, [['N1', 1]]));
   assert.match(await err(postReturn(s.returnId, 'u-viewer')), /permission to post/);
-  await rtdb.ref('companies/C1/SalesReturnsAccountID').remove();
-  assert.match(await err(postReturn(s.returnId)), /This company has no Sales Returns Account configured/);
+  await rtdb.ref('salesTypes/ST1/SalesReturnsAccountID').remove();
+  assert.match(await err(postReturn(s.returnId)), /Sales Type "Goods" has no Sales Returns Account/);
+  await rtdb.ref('salesTypes/ST1/SalesReturnsAccountID').set('A-VATOUT');
+  await rtdb.ref('coa/A-VATOUT/Status').set('Inactive');
+  assert.match(await err(postReturn(s.returnId)), /Sales Type "Goods": its Sales Returns Account is no longer valid/);
   assert.equal((await rec(s.returnId)).Status, 'Draft');
 
   // A delivery line with no recorded cost can't be returned into stock.
@@ -241,12 +263,20 @@ test('validation, warehouses, missing account, delete, company scoping and acces
   assert.equal(await rec(s.returnId), null);
 });
 
-test('Company Master stores the Sales Returns account; the ledger rebuild replays returns and their reversals', async () => {
+test('Sales Type stores its Sales Returns account (required, Revenue, same company); the ledger rebuild replays returns and their reversals', async () => {
   await reset(fixture());
-  const company = async (extra) => call('u-admin', 'saveCompany', { companyData: Object.assign({ CompanyID: 'C1' }, await val('companies/C1'), extra) });
-  ok(await company({ SalesReturnsAccountID: 'A-SRET' }));
-  assert.equal((await val('companies/C1')).SalesReturnsAccountID, 'A-SRET');
-  assert.deepEqual(await company({ SalesReturnsAccountID: 'NOPE' }), { success: false, error: 'Sales Returns Account must be an active, postable account.' });
+  const saveType = (extra) => call('u-admin', 'saveSalesType', { data: Object.assign({ SalesTypeID: 'ST1', Name: 'Goods', GLAccountID: 'A-REV', CompanyID: 'C1' }, extra) });
+  assert.deepEqual(await saveType({}), { success: false, error: 'Select a Sales Returns account.' });
+  assert.deepEqual(await saveType({ SalesReturnsAccountID: 'NOPE' }), { success: false, error: 'Sales Returns account must be an active, postable account.' });
+  assert.deepEqual(await saveType({ SalesReturnsAccountID: 'A-DISCG' }), { success: false, error: 'Sales Returns account must be a Revenue-type account.' });
+  await rtdb.ref('coa/A-SRETX/CompanyID').set('C2');
+  assert.deepEqual(await saveType({ SalesReturnsAccountID: 'A-SRETX' }), { success: false, error: 'Sales Returns account is restricted to a different company.' });
+  await rtdb.ref('coa/A-SRETX/CompanyID').remove();
+  ok(await saveType({ SalesReturnsAccountID: 'A-SRET' }));
+  assert.equal((await val('salesTypes/ST1')).SalesReturnsAccountID, 'A-SRET');
+  // Company Master no longer has one.
+  ok(await call('u-admin', 'saveCompany', { companyData: Object.assign({ CompanyID: 'C1' }, await val('companies/C1'), { SalesReturnsAccountID: 'A-SRET' }) }));
+  assert.equal((await val('companies/C1')).SalesReturnsAccountID, undefined);
 
   const inv = await invoice();
   const a = ok(await draft(inv, [['N1', 4], ['N2', 2, 'WH3']]));

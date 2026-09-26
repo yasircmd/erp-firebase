@@ -1,0 +1,8 @@
+# Sales Returns Account per Sales Type (docs/modules/SALES_RETURN.md, Change 2026-09-26).
+# Existing functions. Run with --screens: SALESINVOICESETUP and COMPANYMASTER changed.
+saveSalesType                    # requires and stores SalesReturnsAccountID
+saveCompany                      # no longer stores SalesReturnsAccountID
+getReturnableCustomerInvoices    # return lines carry their Sales Type
+saveSalesReturnDraft
+postSalesReturn                  # debits each Sales Type's Sales Returns Account
+decideSalesReturnApproval        # final approval commits the same way
