@@ -55,12 +55,11 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   of 6; invoker bindings 8 at a time instead of one by one
   (`tools/deploy-lib.sh`). First deploy with batches of 20 is untried:
   if it times out or hits API quota, rerun with `BATCH=10`.
-- [ ] **Design: serve screens from Hosting.** Screens (`functions/modules/*.html`)
-  are served by `getModuleFragment`, so a screen-only change needs a
-  function deploy. From Hosting it would be a ~30 s Hosting deploy. Open
-  question for the owner: the permission check `getModuleFragment` does
-  before handing out a screen would move to the data calls only (they
-  already check). Needs a design doc before any code.
+- [ ] **Design: serve screens from Hosting**
+  ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md), drafted
+  2026-09-26): a screen-only change becomes a Hosting deploy. Awaiting the
+  owner's answers to its 5 questions (the main one: may screen code be
+  downloadable without signing in?). No code until agreed.
 - [ ] **Design: module/approval/voucher-type lists out of the code.** These
   lists are built into every function, so adding a module redeployed 19
   unchanged functions in the returns-and-statements deploy. Kept in
