@@ -1,6 +1,6 @@
 # Fixed Assets (Asset Accounting, FI-AA)
 
-**Status:** design agreed 2026-09-26 · **Roadmap:** [#6](../ROADMAP.md) · **Branch:** `worktree-fixed-assets-design`
+**Status:** phase 1 built and tested 2026-09-26, not deployed; phases 2–3 not started · **Roadmap:** [#6](../ROADMAP.md) · **Branch:** `worktree-fixed-assets-design`
 
 ## Purpose
 
@@ -481,7 +481,7 @@ needs no restructuring.
 | Module | access | draft | post | other |
 |---|---|---|---|---|
 | FACONFIG | ADMIN, FINANCE_MGR, ACCOUNTANT, VIEWER | — | — | write: ADMIN, FINANCE_MGR |
-| FAASSET | all four | ADMIN, FINANCE_MGR, ACCOUNTANT | ADMIN, FINANCE_MGR | |
+| FAASSET | all four | ADMIN, FINANCE_MGR, ACCOUNTANT | — (phase 1 has nothing to post) | |
 | FAACQ, FAADDDEP, FATRANSFER, FARETIRE, FAAUC | all four | ADMIN, FINANCE_MGR, ACCOUNTANT | ADMIN, FINANCE_MGR | |
 | FADEPRUN | all four | — | ADMIN, FINANCE_MGR | reverse: ADMIN, FINANCE_MGR |
 | FAREGISTER, FARECON, FADASHBOARD | all four | — | — | |
@@ -568,3 +568,85 @@ Phase 1 (`FACONFIG`, `FAASSET`, `FAACQ`, `FADEPRUN`, `FAADDDEP`, `FAREGISTER`):
 
 Phase 2 (`FATRANSFER`, `FARETIRE`, `FAAUC`) and phase 3 (`FARECON`,
 `FADASHBOARD`) follow the same steps.
+
+## As built — phase 1 (2026-09-26)
+
+**Code** (`functions/src/`)
+- `faDepreciation.js`: the engine, pure functions (no database), unit
+  tests in `functions/test/unit/faDepreciation.test.js`.
+- `fixedAssetsCommon.js`: collections, rights, account resolution, the
+  reserved posting guard (`assertFaPostingOpen`), the JV/CBT guard
+  (`assertNoFaControlledAccounts`), the reversal guard for capitalized
+  purchases (`assertEntryNotCapitalized`), asset numbering.
+- `fixedAssetsConfig.js` (FACONFIG): `getFaRights`, `getFaConfig`,
+  `saveFaSettings`, `saveFaAccountDetermination`, `saveFaClass`.
+- `fixedAssetsMaster.js` (FAASSET): `getFaAssetSetup`, `getFaAssets`,
+  `getFaAsset` (with history), `saveFaAsset`, `deleteFaAsset`.
+- `fixedAssetsPostings.js` (FAACQ, FAADDDEP): `getFaClearingItems`,
+  `getFaPostings`, `saveFaPostingDraft`, `deleteFaPostingDraft`,
+  `postFaPosting`, `decideFaPostingApproval`, `reverseFaPosting`.
+- `fixedAssetsDepreciation.js` (FADEPRUN, FAREGISTER):
+  `previewFaDepreciation`, `postFaDepreciation`, `reverseFaDepreciation`,
+  `getFaRuns`, `getFaDepreciationRegister`, `getFaRegister`.
+- `glWriting.js`: `buildStockGlEntry` (the entry without the write, for
+  one Firestore commit with the sub-ledger); `writeStockGlEntry` now calls
+  it, unchanged for its callers. Voucher prefixes `FAA` (capitalization),
+  `FAD` (depreciation), `FAU` (additional), `FAO` (take-over, number only).
+- Registries: `moduleRegistry.js` (six modules, rights as in
+  Permissions), `approvalRegistry.js` (FAACQ, FAADDDEP gateable, stored
+  in `faPostings`), the voucher maps in `journal.js` / `masterData.js`
+  (JV refuses to reverse an FA entry; GL Report opens the FA screen),
+  `treeSeedNodes.js` (fresh installs). Data Reset: categories
+  `fixedAssets` and `fixedAssetSetup` (generator patch).
+- Screens: `FACONFIG`, `FAASSET`, `FAACQ`, `FADEPRUN`, `FAADDDEP`,
+  `FAREGISTER`.
+
+**Decided while building** (within the agreed design)
+- The account determination's shared row is keyed `SHARED` (Firestore
+  map keys can't be empty).
+- Run state (last posted period, a run in progress) is in `faRunState`,
+  apart from `faSettings`, so Data Reset can clear transactions and keep
+  the configuration.
+- Asset Master: cost/profit center, division and branch can still be
+  corrected while no depreciation has been posted for the asset (recorded
+  in its history); after that only a Transfer (phase 2) moves it.
+  FAASSET has only `access` and `draft` in phase 1.
+- A reversal (capitalization, take-over, additional depreciation, a run)
+  is dated the same day as what it reverses, so every as-at report stays
+  consistent. It is refused while the asset has a later financial
+  transaction (reverse that first). A run can only be reversed for the
+  latest posted period.
+- Capitalization fills the asset's blank supplier, purchase invoice and
+  purchase date from the clearing items (the Vendor Invoice, or a JV/CBT
+  line tagged with a vendor).
+- The JV/CBT guard also runs when a JV pending approval is approved.
+  Reversing a JV, CBT or Vendor Invoice is refused while any of its
+  clearing lines is capitalized.
+- Take-over: the original capitalization date, cost, accumulated
+  depreciation, the last period depreciated, and for WDV optionally the
+  NBV at the start of the year.
+- A large run is written in chunks of 200 assets; an interrupted run is
+  finished by posting the same period again, and other asset postings of
+  the company wait until it is.
+
+**Tests** (2026-09-26): engine 15/15 unit tests; emulator suite
+`fixedAssets.emulator.test.js` 8 tests; UI check `fixedAssets.ui.js`
+7/7; the six screens in the smoke check. Negative controls, each caught:
+the depreciable-amount cap removed (engine), day pro-rata off (engine),
+the duplicate-period check removed, the "still open" check on clearing
+lines removed, the JV/CBT account guard removed, the class defaults not
+applied on the asset form (UI).
+
+**Known gaps**
+- Open clearing items are found by reading the company's posted GL
+  entries; fine at SME volume, an index (or a clearing-line log) later if
+  it grows.
+- A run stores its lines on the run document (Firestore's 1 MB limit:
+  a few thousand assets per company per month).
+- The run and the registers read all of the company's asset
+  transactions each time (one per asset per month); period snapshots can
+  be added if that grows slow.
+- Postings to the clearing account by modules other than Vendor
+  Invoice, CBT and JV aren't guarded against reversal after
+  capitalization; the reconciliation (phase 3) will show any difference.
+

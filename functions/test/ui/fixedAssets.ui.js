@@ -94,7 +94,7 @@ async function seed() {
 
   await check('capitalization: open clearing item to the asset, post', async () => {
     const page = await open('FAACQ', 'u-admin');
-    await page.click('#fap-new-cap-btn');
+    await page.click('#fap-new-btn');
     await page.selectOption('#fap-form-company', 'C1');
     await page.waitForSelector('#fap-items-body .fap-all', { timeout: 15000 });
     assert.match(await page.textContent('#fap-items-body'), /Journal.*Van.*120,000\.00/s);

@@ -2,7 +2,7 @@
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Asset Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-file-invoice-dollar text-blue-500"></i> Asset Capitalization</h2></div>
     <div class="flex gap-2">
-      <button id="fap-new-cap-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Capitalization</button>
+      <button id="fap-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Capitalization</button>
       <button id="fap-new-to-btn" class="hidden bg-slate-800 hover:bg-slate-700 font-medium px-4 py-2 rounded-lg text-sm border border-slate-700"><i class="fa-solid fa-plus"></i> New Take-over</button>
     </div>
   </div>
@@ -353,7 +353,7 @@
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-invoice-dollar"></i> Asset Capitalization';
     rpc.withSuccessHandler(r => {
       rights = r.FAACQ || {};
-      $('fap-new-cap-btn').classList.toggle('hidden', !rights.draft); $('fap-new-to-btn').classList.toggle('hidden', !rights.draft);
+      $('fap-new-btn').classList.toggle('hidden', !rights.draft); $('fap-new-to-btn').classList.toggle('hidden', !rights.draft);
       if (!$('fap-entry-view').classList.contains('hidden')) refreshStatusUi();
     }).withFailureHandler(e => console.error(e)).getFaRights();
     rpc.withSuccessHandler(r => {
@@ -365,7 +365,7 @@
       });
     }).withFailureHandler(e => console.error(e)).getActiveCompanies();
 
-    $('fap-new-cap-btn').addEventListener('click', () => newEntry('Capitalization'));
+    $('fap-new-btn').addEventListener('click', () => newEntry('Capitalization'));
     $('fap-new-to-btn').addEventListener('click', () => newEntry('TakeOver'));
     $('fap-back-btn').addEventListener('click', () => confirmLeave(showList));
     $('fap-search').addEventListener('input', renderList);

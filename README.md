@@ -4,8 +4,9 @@ A multi-company ERP: finance (chart of accounts, JV, cash and bank, GL
 reports, financial statements), inventory (GRN, material issue, stock
 adjustment, warehouse movement, physical count, valuation), production
 (BOM, job orders, production), purchasing (requisitions, purchase orders,
-vendor invoices) and sales (price lists, sales orders, delivery notes,
-customer invoices), with role-based access and configurable approvals.
+vendor invoices), sales (price lists, sales orders, delivery notes,
+customer invoices) and fixed assets (asset sub-ledger and depreciation),
+with role-based access and configurable approvals.
 
 It runs on Firebase project `erp1-8f4cd`: Cloud Functions (2nd gen,
 callable, Node 24), Hosting, Realtime Database and Firestore. It was
@@ -60,8 +61,12 @@ functions/
     salesReturn.js              — Sales Return / Credit Note (docs/modules/SALES_RETURN.md)
     partyStatement.js           — Vendor and Customer Statements of Account (docs/modules/VENDOR_SOA.md)
     pdc.js                      — PDC Received and PDC Issued, post-dated cheques (docs/modules/PDC.md)
+    faDepreciation.js           — Fixed Assets depreciation engine, pure functions (docs/modules/FIXED_ASSETS.md)
+    fixedAssets*.js             — Fixed Assets phase 1: Config, Master, Postings (capitalization, take-over,
+                                  additional depreciation), Depreciation (run, registers), Common
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
+  test/unit/*.test.js           — pure-function tests, no emulators (the depreciation engine)
   test/emulator/*.test.js       — one API suite per module, against the local emulators
   test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments, returns, statements)
 tools/
@@ -116,6 +121,7 @@ npm i --no-save --prefix functions playwright && (cd functions && npx playwright
 # create-user test would reach production Auth)
 firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
 
+node --test functions/test/unit/*.test.js   # no emulators needed
 node --test --test-concurrency=1 functions/test/emulator/*.test.js
 # while developing, run just the module's suite (seconds, not the full run):
 #   node --test functions/test/emulator/salesReturn.emulator.test.js
@@ -128,6 +134,7 @@ node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: th
 node functions/test/ui/pdc.ui.js            # after the pdc suite: the two PDC screens, SOA pending PDCs
 node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed
 node functions/test/ui/singleCompany.ui.js  # one-company user: company preselected on every screen (after vendorMaster)
+node functions/test/ui/fixedAssets.ui.js    # the six Fixed Asset screens; seeds its own data
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for

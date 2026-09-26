@@ -382,6 +382,7 @@ async function decideJournalEntryApproval(idToken, jvId, levelNumber, decision, 
       await requirePostAccess_(idToken, user, moduleIdForEntry_(existing));
       if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
       if (decision === 'Approved' && existing.Status === 'PendingApproval') {
+        await assertNoFaControlledAccounts(existing.Lines);
         await resolvePartyLines(existing.Lines, existing.CompanyID);
       }
     }

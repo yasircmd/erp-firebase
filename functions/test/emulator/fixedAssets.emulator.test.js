@@ -359,3 +359,16 @@ test('approval gating on capitalization; other company refused', async () => {
   assert.match(await err(call('u-other', 'postFaDepreciation', { companyId: 'C1', period: '2026-01' })), /do not have access to that company/);
   assert.match(await err(call('u-other', 'getFaClearingItems', { companyId: 'C1' })), /do not have access to that company/);
 });
+
+test('a JV drafted to an asset account before it was configured can\'t be approved afterwards', async () => {
+  const f = fixture();
+  f.approvalConfigurations = { JV: { Enabled: true, ScopeType: 'Global' } };
+  f.approvalLevels = { JV: { GLOBAL: { Levels: [{ LevelNumber: 1, ApproverUserID: 'u-approver', ThresholdAmount: 0 }] } } };
+  await reset(f);
+  const s = ok(await call('u-admin', 'saveJournalDraft', { jvData: { JVDate: '2026-01-05', Description: 'Old habit', CompanyID: 'C1', Lines: [
+    { AccountCode: '1600', Debit: 10, Description: 'a' }, { AccountCode: '1100', Credit: 10, Description: 'b' }] } }));
+  assert.equal((await call('u-admin', 'postJournalEntry', { jvId: s.jvId })).status, 'PendingApproval');
+  await configure();
+  assert.match(await err(call('u-approver', 'decideJournalEntryApproval', { jvId: s.jvId, levelNumber: 1, decision: 'Approved' })), /account 1600 is kept by the Fixed Assets module/);
+  assert.equal((await doc('journalEntries', s.jvId)).Status, 'PendingApproval');
+});
