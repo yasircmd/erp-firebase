@@ -63,7 +63,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   `20260926T051858Z-b0cd09d`). Screen-only changes now go live with
   `tools/release-screens.sh`, not a function deploy.
 - [x] **Home screen improvements** (owner, 2026-09-26; `public/index.html`,
-  Hosting; branch `home-screen-improvements`, **not deployed**):
+  Hosting; live 2026-09-26, PR #8):
   1. User name (8rem) and role (6rem) are cut with an ellipsis; the full
      text is the user button's tooltip.
   2. Light/Dark mode moved into the user menu. The user menu isn't shown

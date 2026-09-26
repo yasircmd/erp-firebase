@@ -198,3 +198,15 @@ from, and how it was verified. The deploy procedure is in the
   - **Still to do in the app:** set a Sales Returns Account on every Sales
     Type in use (Sales Invoice Configuration). Until then, returns of that
     type are refused at posting.
+
+- **2026-09-26, Home screen improvements (PR #8, see ROADMAP follow-ups):**
+  `firebase deploy --project erp1-8f4cd --only hosting` from `b413e6c`
+  (branch `home-screen-improvements`, clean checkout, in tmux). Hosting
+  only: no functions, no screen release. `release complete`, exit 0.
+  - **Verified:** the live `https://erp1-8f4cd.web.app/` is byte-identical
+    to `public/index.html` at `b413e6c` (module search and Configure
+    Favourites present). No `REPLACE_ME` placeholders.
+  - **Beforehand:** `functions/test/ui/home.ui.js` 6/6, with three
+    negative controls.
+  - Users get it on their next page load. A reload may be needed if the
+    browser has the old page cached.
