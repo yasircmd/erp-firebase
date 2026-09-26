@@ -97,9 +97,12 @@ test('Physical Counts posted without adjustment details are refused by name, not
 
 test('getDataResetCounts counts every path of every category', async () => {
   const c = await call('u-root', 'getDataResetCounts');
-  assert.equal(Object.keys(c).length, 14);
+  assert.equal(Object.keys(c).length, 16);
   // New development: PDC cheques (docs/modules/PDC.md).
   assert.deepEqual([c.pdcCheques.label, c.pdcCheques.group, c.pdcCheques.count], ['PDC Received & Issued', 'transactional', 0]);
+  // New development: Fixed Assets (docs/modules/FIXED_ASSETS.md).
+  assert.deepEqual([c.fixedAssets.label, c.fixedAssets.group, c.fixedAssets.count], ['Fixed Assets', 'transactional', 0]);
+  assert.deepEqual([c.fixedAssetSetup.label, c.fixedAssetSetup.group], ['Fixed Asset Configuration', 'master']);
   const tx = Object.keys(await val('stock/transactions')).length;
   const stockKeys = tx + Object.keys(await val('stock/ledger')).length + Object.keys(await val('stock/counters')).length;
   assert.equal(c.stockData.count, stockKeys);

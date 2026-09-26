@@ -20,7 +20,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const { onCallWithMessages } = require('./callable');
 const { firestore } = require('./firebaseAdmin');
 const { requireUser } = require('./auth');
-const { buildStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
+const { userCanAccessCompany, buildStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { withGlobalLock } = require('./lock');
 const E = require('./faDepreciation');
 const C = require('./fixedAssetsCommon');
@@ -270,16 +270,20 @@ exports.reverseFaDepreciation = onCallWithMessages(onCallOptions, async (request
   });
 });
 
-// Every run of the user's companies (or one company), newest first.
+// The runs of one company (with its run state), or of every company
+// the user can see (GL Report drill-through), newest first.
 exports.getFaRuns = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await C.requireCap('FADEPRUN', 'access', user.profile.role);
   const companyId = str(request.data && request.data.companyId);
+  const newest = (a, b) => (b.Period + b.CreatedAt).localeCompare(a.Period + a.CreatedAt);
+  if (!companyId) {
+    const runs = C.docsOf(await firestore.collection(COL.runs).get()).filter(r => userCanAccessCompany(user.profile, r.CompanyID));
+    return { runs: runs.map(r => Object.assign({ RunID: r._id }, r)).sort(newest) };
+  }
   C.requireCompany(user, companyId);
   const settings = await C.getSettings(companyId);
-  const runs = (await C.listWhere(COL.runs, 'CompanyID', companyId))
-    .map(r => Object.assign({ RunID: r._id }, r))
-    .sort((a, b) => (b.Period + b.CreatedAt).localeCompare(a.Period + a.CreatedAt));
+  const runs = (await C.listWhere(COL.runs, 'CompanyID', companyId)).map(r => Object.assign({ RunID: r._id }, r)).sort(newest);
   return { runs, lastPostedPeriod: settings.LastPostedPeriod || '', runInProgress: settings.RunInProgress || '' };
 });
 

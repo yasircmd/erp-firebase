@@ -31,7 +31,8 @@ const depreciates = kind => kind === 'Tangible' || kind === 'Intangible';
 // Classes and vendors an asset of this company can use.
 exports.getFaAssetSetup = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
-  await C.requireCap('FAASSET', 'access', user.profile.role);
+  const moduleId = ['FAASSET', 'FAADDDEP'].includes(request.data && request.data.moduleId) ? request.data.moduleId : 'FAASSET';
+  await C.requireCap(moduleId, 'access', user.profile.role);
   const companyId = str(request.data && request.data.companyId);
   if (!companyId) return { classes: [], vendors: [] };
   C.requireCompany(user, companyId);

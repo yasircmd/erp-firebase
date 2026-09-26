@@ -1,0 +1,404 @@
+<div id="fap-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Asset Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-file-invoice-dollar text-blue-500"></i> Asset Capitalization</h2></div>
+    <div class="flex gap-2">
+      <button id="fap-new-cap-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Capitalization</button>
+      <button id="fap-new-to-btn" class="hidden bg-slate-800 hover:bg-slate-700 font-medium px-4 py-2 rounded-lg text-sm border border-slate-700"><i class="fa-solid fa-plus"></i> New Take-over</button>
+    </div>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="fap-search" placeholder="Search number, asset, description..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    <select id="fap-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="fap-type-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Types</option><option value="Capitalization">Capitalization</option><option value="TakeOver">Take-over</option></select>
+    <select id="fap-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option>Draft</option><option value="PendingApproval">Pending Approval</option><option>Rejected</option><option>Posted</option><option>Reversed</option></select>
+  </div>
+  <div id="fap-list-notice" class="hidden text-xs text-slate-500"></div>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-3 px-3">Number</th><th class="py-3 px-3">Type</th><th class="py-3 px-3">Date</th><th class="py-3 px-3">Assets</th><th class="py-3 px-3">Description</th><th class="py-3 px-3 text-right">Amount</th><th class="py-3 px-3">Status</th></tr></thead>
+    <tbody id="fap-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+</div>
+
+<div id="fap-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="fap-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="fap-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="fap-back-chain-label">Back</span></button>
+      <h2 id="fap-title" class="text-xl font-bold text-blue-400"></h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="fap-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="fap-gl-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-book"></i> GL Entry</button>
+    </div>
+  </div>
+  <div id="fap-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  <div id="fap-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3"></div>
+  <div id="fap-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4"><p class="text-xs font-semibold text-red-400 uppercase">Rejected</p><p id="fap-rejection-reason" class="text-sm text-slate-200"></p></div>
+  <div id="fap-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="fap-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3"><button id="fap-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button><button id="fap-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="fap-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
+    <div><label id="fap-date-label" class="block text-xs font-medium text-slate-300 mb-1">Posting Date</label><input type="date" id="fap-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input id="fap-form-reference" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Description</label><input id="fap-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+  </div>
+
+  <!-- CAPITALIZATION -->
+  <div id="fap-cap" class="space-y-4">
+    <div id="fap-items-wrap" class="space-y-2">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-xs font-semibold text-slate-400 uppercase">Open items on the Fixed Asset Clearing Account <span id="fap-open-total" class="normal-case font-normal text-slate-500"></span></p>
+        <div class="flex items-center gap-2">
+          <select id="fap-target-asset" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm min-w-[18rem]"><option value="">Asset to capitalize to...</option></select>
+          <button id="fap-add-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-lg"><i class="fa-solid fa-arrow-down"></i> Add amounts to asset</button>
+        </div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+        <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-2 px-3">Date</th><th class="py-2 px-3">Voucher</th><th class="py-2 px-3">Source</th><th class="py-2 px-3">Vendor</th><th class="py-2 px-3">Description</th><th class="py-2 px-3 text-right">Open</th><th class="py-2 px-3 text-right w-40">Amount to use</th></tr></thead>
+        <tbody id="fap-items-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+      </div></div>
+      <div id="fap-credits" class="hidden text-xs text-slate-400"></div>
+    </div>
+    <p class="text-xs font-semibold text-slate-400 uppercase">Assets capitalized by this document</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase"><th class="py-2 px-3">Asset</th><th class="py-2 px-3">From</th><th class="py-2 px-3 text-right">Amount</th><th class="py-2 px-3 w-10"></th></tr></thead>
+      <tbody id="fap-lines-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      <tfoot><tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3" colspan="2">Total — Dr Asset Cost · Cr Fixed Asset Clearing</td><td id="fap-lines-total" class="py-2 px-3 text-right font-mono"></td><td></td></tr></tfoot></table>
+    </div>
+  </div>
+
+  <!-- TAKE-OVER -->
+  <div id="fap-to" class="hidden space-y-3">
+    <p class="text-xs text-slate-500">Assets bought before go-live whose cost and depreciation are already in the GL: no GL entry is posted. Depreciation continues from the period after the last one given.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Asset (never capitalized)</th><th class="py-2 px-3">Original capitalization</th><th class="py-2 px-3 text-right">Cost</th><th class="py-2 px-3 text-right">Acc. Depreciation</th><th class="py-2 px-3">Depreciated up to</th><th class="py-2 px-3 text-right" title="WDV only: NBV at the start of this year">Year-start NBV (WDV)</th><th class="py-2 px-3 w-10"></th></tr></thead>
+      <tbody id="fap-to-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <button id="fap-to-add" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add asset</button>
+  </div>
+
+  <div class="flex flex-wrap gap-2">
+    <button id="fap-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-lg text-sm">Save Draft</button>
+    <button id="fap-post-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm">Post</button>
+    <button id="fap-delete-btn" class="hidden bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-sm">Delete Draft</button>
+    <button id="fap-reverse-btn" class="hidden bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-sm">Reverse</button>
+  </div>
+</div>
+
+<div id="fap-gl-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-3xl space-y-3">
+    <div class="flex items-center justify-between"><h3 id="fap-gl-title" class="font-semibold"></h3><button id="fap-gl-close" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div>
+    <div id="fap-gl-body" class="text-sm"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Asset Capitalization — docs/modules/FIXED_ASSETS.md (FAACQ).
+  // Capitalization moves amounts from the Fixed Asset Clearing Account
+  // (fed by Vendor Invoice, CBT and JV) to assets; Take-over brings in
+  // assets already in the GL, with no GL entry.
+  let rights = {};
+  let entries = [];
+  let companies = [];
+  let assets = [];
+  let items = [];
+  let current = null;       // stored posting, or null for a new one
+  let type = 'Capitalization';
+  let lines = [];           // capitalization: [{ AssetID, Items: [{ JVID, LineNo, JVNumber, Amount }] }]; take-over: rows
+  let isDirty = false;
+  let myReturnChain = [];
+  const STATUS_COLORS = {
+    Draft: 'bg-slate-700 text-slate-300', PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+    Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20', Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20', Reversed: 'bg-slate-700 text-slate-400'
+  };
+  const LABELS = { PendingApproval: 'Pending Approval', TakeOver: 'Take-over', Capitalization: 'Capitalization' };
+  const SOURCES = { VendorInvoice: 'Vendor Invoice', JV: 'Journal', 'Bank Payment': 'Bank Payment', 'Cash Payment': 'Cash Payment', 'Bank Receipt': 'Bank Receipt', 'Cash Receipt': 'Cash Receipt' };
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function formatMoney(n) { return (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  const round2 = n => Math.round(n * 100) / 100;
+  const parseAmount = v => parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0;
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  const today = () => new Date().toISOString().substring(0, 10);
+  const badge = s => '<span class="text-xs px-2 py-0.5 rounded-full ' + (STATUS_COLORS[s] || '') + '">' + escapeHtml(LABELS[s] || s) + '</span>';
+  const assetById = id => assets.find(a => a.AssetID === id);
+  const assetLabel = id => { const a = assetById(id); return a ? a.AssetNumber + ' — ' + a.Description : id; };
+  const isEditable = () => rights.draft && (!current || current.Status === 'Draft' || current.Status === 'Rejected');
+  function showError(msg) { $('fap-error').textContent = msg || ''; $('fap-error').classList.toggle('hidden', !msg); }
+
+  // ---------- list ----------
+  function renderList() {
+    const q = val('fap-search').trim().toLowerCase();
+    const co = val('fap-company-filter'); const ty = val('fap-type-filter'); const st = val('fap-status-filter');
+    const rows = entries.filter(e => (!co || e.CompanyID === co) && (!ty || e.Type === ty) && (!st || e.Status === st) &&
+      (!q || [e.PostingNumber, e.Description, e.Reference, (e.Lines || []).map(l => l.AssetNumber + ' ' + l.AssetDescription).join(' ')].join(' ').toLowerCase().includes(q)));
+    $('fap-body').innerHTML = rows.map(e => '<tr class="hover:bg-slate-700/30 cursor-pointer" data-id="' + escapeHtml(e.PostingID) + '"><td class="py-2.5 px-3 font-mono text-xs">' + escapeHtml(e.PostingNumber || '(unposted)') +
+      '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(LABELS[e.Type] || e.Type) + '</td><td class="py-2.5 px-3 text-xs text-slate-400">' + escapeHtml(e.Date) +
+      '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml((e.Lines || []).map(l => l.AssetNumber).join(', ')) + '</td><td class="py-2.5 px-3">' + escapeHtml(e.Description) +
+      '</td><td class="py-2.5 px-3 text-right font-mono">' + formatMoney(e.Total) + '</td><td class="py-2.5 px-3">' + badge(e.Status) + '</td></tr>').join('');
+    $('fap-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openEntry(tr.dataset.id)));
+    $('fap-list-notice').classList.toggle('hidden', rows.length > 0);
+    $('fap-list-notice').textContent = entries.length ? 'Nothing matches the filters.' : 'No capitalizations yet.';
+  }
+  function fetchEntries(then) {
+    rpc.withSuccessHandler(r => { entries = r || []; renderList(); if (then) then(); }).withFailureHandler(e => console.error(e)).getFaPostings({ moduleId: 'FAACQ' });
+  }
+  function showList() { $('fap-entry-view').classList.add('hidden'); $('fap-list-view').classList.remove('hidden'); fetchEntries(); }
+  function confirmLeave(then) { if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return; then(); }
+
+  // ---------- company data: assets and open items ----------
+  function loadCompany(companyId, then) {
+    assets = []; items = [];
+    if (!companyId) { renderAll(); if (then) then(); return; }
+    let pending = 2;
+    const done = () => { if (--pending === 0) { renderAll(); if (then) then(); } };
+    rpc.withSuccessHandler(r => { assets = r || []; done(); }).withFailureHandler(e => { showError(e.message); done(); }).getFaAssets({ companyId: companyId, moduleId: 'FAACQ' });
+    if (type !== 'Capitalization') { done(); return; }
+    rpc.withSuccessHandler(r => {
+      items = r.items || [];
+      $('fap-open-total').textContent = r.configured ? '— ' + formatMoney(r.openTotal) + ' open' : '';
+      if (!r.configured) showError('This company has no Fixed Asset Clearing Account: set it in Fixed Asset Configuration → Settings.');
+      const credits = r.credits || [];
+      $('fap-credits').classList.toggle('hidden', !credits.length);
+      $('fap-credits').textContent = credits.length ? 'Credits on the clearing account (not capitalized): ' + credits.map(c => c.JVNumber + ' ' + formatMoney(c.Amount)).join(', ') : '';
+      done();
+    }).withFailureHandler(e => { showError(e.message); done(); }).getFaClearingItems({ companyId: companyId });
+  }
+
+  // What this document already takes from an item.
+  function usedHere(jvId, lineNo) {
+    return round2(lines.reduce((s, l) => s + (l.Items || []).filter(i => i.JVID === jvId && i.LineNo === lineNo).reduce((t, i) => t + i.Amount, 0), 0));
+  }
+  function renderItems() {
+    const editable = isEditable();
+    $('fap-items-wrap').classList.toggle('hidden', !editable);
+    const rows = items.map(i => Object.assign({}, i, { Left: round2(i.Open - usedHere(i.JVID, i.LineNo)) })).filter(i => i.Left > 0);
+    $('fap-items-body').innerHTML = rows.map(i => '<tr><td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(i.JVDate) + '</td><td class="py-2 px-3 font-mono text-xs">' + escapeHtml(i.JVNumber) +
+      '</td><td class="py-2 px-3 text-xs">' + escapeHtml(SOURCES[i.VoucherType] || i.VoucherType) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(i.VendorName || '') +
+      '</td><td class="py-2 px-3 text-xs">' + escapeHtml(i.Description) + (i.VendorRefNumber ? ' <span class="text-slate-500">(' + escapeHtml(i.VendorRefNumber) + ')</span>' : '') +
+      '</td><td class="py-2 px-3 text-right font-mono text-xs">' + formatMoney(i.Left) + '</td><td class="py-2 px-3"><div class="flex gap-1"><input data-key="' + escapeHtml(i.JVID + '|' + i.LineNo) +
+      '" inputmode="decimal" class="fap-use w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right font-mono"><button data-all="' + escapeHtml(i.JVID + '|' + i.LineNo) + '" data-left="' + i.Left +
+      '" class="fap-all text-xs px-2 bg-slate-700 rounded" title="Use all">All</button></div></td></tr>').join('') ||
+      '<tr><td colspan="7" class="py-4 px-3 text-xs text-slate-500">' + (val('fap-form-company') ? 'Nothing open on the Fixed Asset Clearing Account.' : 'Select a company.') + '</td></tr>';
+    $('fap-items-body').querySelectorAll('.fap-all').forEach(b => b.addEventListener('click', () => {
+      $('fap-items-body').querySelector('input[data-key="' + b.dataset.all + '"]').value = b.dataset.left;
+    }));
+    const target = $('fap-target-asset'); const keep = target.value;
+    target.innerHTML = '<option value="">Asset to capitalize to...</option>' + assets.filter(a => ['Planned', 'Active', 'FullyDepreciated'].includes(a.Status) && a.ClassKind !== 'AuC')
+      .map(a => '<option value="' + escapeHtml(a.AssetID) + '">' + escapeHtml(a.AssetNumber + ' — ' + a.Description + (a.Status === 'Planned' ? '' : ' (addition)')) + '</option>').join('');
+    target.value = keep;
+  }
+  function addToAsset() {
+    showError('');
+    const assetId = val('fap-target-asset');
+    if (!assetId) return showError('Select the asset first.');
+    const picks = [];
+    for (const input of $('fap-items-body').querySelectorAll('.fap-use')) {
+      const amount = round2(parseAmount(input.value));
+      if (!amount) continue;
+      const [jvId, lineNo] = input.dataset.key.split('|');
+      const item = items.find(i => i.JVID === jvId && String(i.LineNo) === lineNo);
+      const left = round2(item.Open - usedHere(item.JVID, item.LineNo));
+      if (amount < 0 || amount > left + 0.005) return showError(item.JVNumber + ': at most ' + formatMoney(left) + ' is left.');
+      picks.push({ JVID: item.JVID, LineNo: item.LineNo, JVNumber: item.JVNumber, Amount: amount });
+    }
+    if (!picks.length) return showError('Enter an amount against at least one open item.');
+    let line = lines.find(l => l.AssetID === assetId);
+    if (!line) { line = { AssetID: assetId, Items: [] }; lines.push(line); }
+    picks.forEach(p => {
+      const same = line.Items.find(i => i.JVID === p.JVID && i.LineNo === p.LineNo);
+      if (same) same.Amount = round2(same.Amount + p.Amount); else line.Items.push(p);
+    });
+    isDirty = true;
+    renderAll();
+  }
+  function renderCapLines() {
+    const editable = isEditable();
+    $('fap-lines-body').innerHTML = lines.map((l, idx) => {
+      const total = round2((l.Items || []).reduce((s, i) => s + i.Amount, 0));
+      return '<tr><td class="py-2 px-3">' + escapeHtml(l.AssetNumber ? l.AssetNumber + ' — ' + (l.AssetDescription || '') : assetLabel(l.AssetID)) + '</td><td class="py-2 px-3 text-xs text-slate-400">' +
+        escapeHtml((l.Items || []).map(i => i.JVNumber + ': ' + formatMoney(i.Amount)).join(' · ')) + '</td><td class="py-2 px-3 text-right font-mono">' + formatMoney(total) +
+        '</td><td class="py-2 px-3">' + (editable ? '<button data-i="' + idx + '" class="fap-rm text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>' : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="4" class="py-3 px-3 text-xs text-slate-500">Enter amounts above, choose the asset, then "Add amounts to asset".</td></tr>';
+    $('fap-lines-body').querySelectorAll('.fap-rm').forEach(b => b.addEventListener('click', () => { lines.splice(Number(b.dataset.i), 1); isDirty = true; renderAll(); }));
+    $('fap-lines-total').textContent = formatMoney(lines.reduce((s, l) => s + (l.Items || []).reduce((t, i) => t + i.Amount, 0), 0));
+  }
+
+  // ---------- take-over ----------
+  function renderTakeOver() {
+    const editable = isEditable();
+    const planned = assets.filter(a => a.Status === 'Planned' && a.ClassKind !== 'AuC');
+    $('fap-to-body').innerHTML = lines.map((l, idx) => {
+      const opts = planned.concat(l.AssetID && !planned.some(a => a.AssetID === l.AssetID) ? [{ AssetID: l.AssetID, AssetNumber: l.AssetNumber || l.AssetID, Description: l.AssetDescription || '' }] : []);
+      const input = (f, cls, t) => '<input data-i="' + idx + '" data-f="' + f + '" ' + (t ? 'type="' + t + '" ' : 'inputmode="decimal" ') + 'value="' + escapeHtml(l[f] == null ? '' : l[f]) + '" class="fap-to-in w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs ' + cls + '"' + (editable ? '' : ' disabled') + '>';
+      return '<tr><td class="py-2 px-3"><select data-i="' + idx + '" data-f="AssetID" class="fap-to-in w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"' + (editable ? '' : ' disabled') + '><option value="">Select...</option>' +
+        opts.map(a => '<option value="' + escapeHtml(a.AssetID) + '"' + (a.AssetID === l.AssetID ? ' selected' : '') + '>' + escapeHtml(a.AssetNumber + ' — ' + a.Description) + '</option>').join('') + '</select></td>' +
+        '<td class="py-2 px-3">' + input('CapitalizationDate', '', 'date') + '</td><td class="py-2 px-3">' + input('Cost', 'text-right font-mono') + '</td><td class="py-2 px-3">' + input('AccDep', 'text-right font-mono') +
+        '</td><td class="py-2 px-3">' + input('LastDepPeriod', '', 'month') + '</td><td class="py-2 px-3">' + input('YearStartNBV', 'text-right font-mono') + '</td><td class="py-2 px-3">' +
+        (editable ? '<button data-i="' + idx + '" class="fap-to-rm text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>' : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="py-3 px-3 text-xs text-slate-500">Add the assets to take over (create them first in Asset Master).</td></tr>';
+    $('fap-to-body').querySelectorAll('.fap-to-in').forEach(el => el.addEventListener('change', () => { lines[Number(el.dataset.i)][el.dataset.f] = el.value; isDirty = true; }));
+    $('fap-to-body').querySelectorAll('.fap-to-rm').forEach(b => b.addEventListener('click', () => { lines.splice(Number(b.dataset.i), 1); isDirty = true; renderTakeOver(); }));
+    $('fap-to-add').classList.toggle('hidden', !editable);
+  }
+
+  // ---------- entry ----------
+  function renderAll() {
+    $('fap-cap').classList.toggle('hidden', type !== 'Capitalization');
+    $('fap-to').classList.toggle('hidden', type !== 'TakeOver');
+    if (type === 'Capitalization') { renderItems(); renderCapLines(); } else renderTakeOver();
+  }
+  function refreshStatusUi() {
+    const s = current ? current.Status : 'Draft';
+    const editable = isEditable();
+    $('fap-title').textContent = (LABELS[type] || type) + (current && current.PostingNumber ? ' ' + current.PostingNumber : current ? ' (draft)' : ' — new');
+    $('fap-date-label').textContent = type === 'TakeOver' ? 'Take-over Date' : 'Posting Date';
+    $('fap-status-badge').classList.toggle('hidden', !current);
+    if (current) { $('fap-status-badge').className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (STATUS_COLORS[s] || ''); $('fap-status-badge').textContent = LABELS[s] || s; }
+    ['fap-form-company', 'fap-form-date', 'fap-form-reference', 'fap-form-description'].forEach(id => { $(id).disabled = !editable; });
+    $('fap-form-company').disabled = !editable || lines.length > 0;
+    $('fap-save-btn').classList.toggle('hidden', !editable);
+    $('fap-post-btn').classList.toggle('hidden', !(editable && rights.post));
+    $('fap-delete-btn').classList.toggle('hidden', !(current && s === 'Draft' && rights.draft));
+    $('fap-reverse-btn').classList.toggle('hidden', !(current && s === 'Posted' && rights.post));
+    $('fap-gl-btn').classList.toggle('hidden', !(current && current.JVID));
+    $('fap-rejection-banner').classList.toggle('hidden', s !== 'Rejected');
+    $('fap-rejection-reason').textContent = current ? current.RejectionReason || '' : '';
+    const note = $('fap-note');
+    const msg = s === 'Reversed' ? 'Reversed ' + (current.ReversalJVNumber ? '(' + current.ReversalJVNumber + ') ' : '') + '— ' + (current.ReversalReason || '')
+      : s === 'PendingApproval' ? 'Waiting for approval. Nothing is posted until it is approved.' : '';
+    note.textContent = msg; note.classList.toggle('hidden', !msg);
+    $('fap-approval-banner').classList.add('hidden');
+    if (s === 'PendingApproval' && current.ApprovalInstanceID) {
+      rpc.withSuccessHandler(level => { if (level) { $('fap-approval-banner').classList.remove('hidden'); $('fap-approval-banner').dataset.level = level; } })
+        .withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
+    }
+    renderAll();
+  }
+  function newEntry(t) {
+    type = t; current = null; lines = []; isDirty = false; showError('');
+    $('fap-form-company').value = ''; $('fap-form-date').value = today(); $('fap-form-reference').value = ''; $('fap-form-description').value = '';
+    $('fap-list-view').classList.add('hidden'); $('fap-entry-view').classList.remove('hidden');
+    loadCompany('', () => refreshStatusUi());
+    refreshStatusUi();
+  }
+  function openEntry(id) {
+    const e = entries.find(x => x.PostingID === id);
+    if (!e) return;
+    type = e.Type; current = e; isDirty = false; showError('');
+    lines = JSON.parse(JSON.stringify(e.Lines || []));
+    $('fap-form-company').value = e.CompanyID; $('fap-form-date').value = e.Date; $('fap-form-reference').value = e.Reference || ''; $('fap-form-description').value = e.Description || '';
+    $('fap-list-view').classList.add('hidden'); $('fap-entry-view').classList.remove('hidden');
+    refreshStatusUi();
+    loadCompany(e.CompanyID, () => refreshStatusUi());
+  }
+  function payload() {
+    const base = { PostingID: current ? current.PostingID : '', Type: type, CompanyID: val('fap-form-company'), Date: val('fap-form-date'), Reference: val('fap-form-reference'), Description: val('fap-form-description') };
+    base.Lines = type === 'Capitalization'
+      ? lines.map(l => ({ AssetID: l.AssetID, Items: l.Items.map(i => ({ JVID: i.JVID, LineNo: i.LineNo, Amount: i.Amount })) }))
+      : lines.map(l => ({ AssetID: l.AssetID, CapitalizationDate: l.CapitalizationDate, Cost: l.Cost, AccDep: l.AccDep, LastDepPeriod: l.LastDepPeriod, YearStartNBV: l.YearStartNBV }));
+    return base;
+  }
+  function saveDraft(then) {
+    showError('');
+    rpc.withSuccessHandler(r => {
+      isDirty = false;
+      fetchEntries(() => { openEntry(r.postingId); if (typeof then === 'function') then(r.postingId); });
+    }).withFailureHandler(e => showError(e.message || String(e))).saveFaPostingDraft(payload());
+  }
+  function post() {
+    if (!window.confirm(type === 'TakeOver' ? 'Post this take-over? No GL entry is made.' : 'Post? Dr Asset Cost · Cr Fixed Asset Clearing for ' + $('fap-lines-total').textContent + '.')) return;
+    saveDraft(id => {
+      rpc.withSuccessHandler(r => { fetchEntries(() => openEntry(id)); if (r.status === 'PendingApproval') alert('Sent for approval.'); })
+        .withFailureHandler(e => showError(e.message || String(e))).postFaPosting({ postingId: id });
+    });
+  }
+  function del() {
+    if (!current || !window.confirm('Delete this draft?')) return;
+    rpc.withSuccessHandler(() => { isDirty = false; showList(); }).withFailureHandler(e => showError(e.message)).deleteFaPostingDraft({ postingId: current.PostingID });
+  }
+  function reverse() {
+    const reason = window.prompt('Reason for reversing ' + (current.PostingNumber || '') + ':');
+    if (reason == null) return;
+    rpc.withSuccessHandler(() => fetchEntries(() => openEntry(current.PostingID)))
+      .withFailureHandler(e => showError(e.message || String(e))).reverseFaPosting({ postingId: current.PostingID, reason: reason });
+  }
+  function decide(decision) {
+    const reason = val('fap-decision-reason');
+    if (!window.confirm((decision === 'Approved' ? 'Approve and post' : 'Reject') + ' this document?')) return;
+    rpc.withSuccessHandler(() => fetchEntries(() => openEntry(current.PostingID)))
+      .withFailureHandler(e => showError(e.message || String(e)))
+      .decideFaPostingApproval({ postingId: current.PostingID, levelNumber: Number($('fap-approval-banner').dataset.level), decision: decision, reason: reason });
+  }
+  function showGl() {
+    const ids = [current.JVID, current.ReversalJVID].filter(Boolean);
+    $('fap-gl-body').innerHTML = ''; $('fap-gl-modal').classList.remove('hidden'); $('fap-gl-title').textContent = 'GL entries';
+    ids.forEach(id => rpc.withSuccessHandler(e => {
+      $('fap-gl-body').innerHTML += '<p class="font-mono text-xs text-blue-400 mt-2">' + escapeHtml(e.JVNumber + ' — ' + e.JVDate + ' — ' + e.Description) + '</p><table class="w-full text-left text-xs"><tbody>' +
+        (e.Lines || []).map(l => '<tr class="border-b border-slate-800"><td class="py-1 pr-2 font-mono">' + escapeHtml(l.AccountCode) + '</td><td class="py-1 pr-2">' + escapeHtml(l.AccountName || '') + '</td><td class="py-1 pr-2 text-slate-400">' + escapeHtml(l.Description) +
+          '</td><td class="py-1 pr-2 text-right font-mono">' + (l.Debit ? formatMoney(l.Debit) : '') + '</td><td class="py-1 text-right font-mono">' + (l.Credit ? formatMoney(l.Credit) : '') + '</td></tr>').join('') + '</tbody></table>';
+    }).withFailureHandler(e => { $('fap-gl-body').innerHTML += '<p class="text-red-400 text-xs">' + escapeHtml(e.message) + '</p>'; }).getJournalEntryDetail({ jvId: id }));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-invoice-dollar"></i> Asset Capitalization';
+    rpc.withSuccessHandler(r => {
+      rights = r.FAACQ || {};
+      $('fap-new-cap-btn').classList.toggle('hidden', !rights.draft); $('fap-new-to-btn').classList.toggle('hidden', !rights.draft);
+      if (!$('fap-entry-view').classList.contains('hidden')) refreshStatusUi();
+    }).withFailureHandler(e => console.error(e)).getFaRights();
+    rpc.withSuccessHandler(r => {
+      companies = (r || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName));
+      [$('fap-form-company'), $('fap-company-filter')].forEach((s, i) => {
+        const keep = s.value;
+        s.innerHTML = '<option value="">' + (i ? 'All Companies' : 'Select a company...') + '</option>' + companies.map(c => '<option value="' + escapeHtml(c.CompanyID) + '">' + escapeHtml(c.LegalName) + '</option>').join('');
+        s.value = current && !i ? current.CompanyID : keep;
+      });
+    }).withFailureHandler(e => console.error(e)).getActiveCompanies();
+
+    $('fap-new-cap-btn').addEventListener('click', () => newEntry('Capitalization'));
+    $('fap-new-to-btn').addEventListener('click', () => newEntry('TakeOver'));
+    $('fap-back-btn').addEventListener('click', () => confirmLeave(showList));
+    $('fap-search').addEventListener('input', renderList);
+    ['fap-company-filter', 'fap-type-filter', 'fap-status-filter'].forEach(id => $(id).addEventListener('change', renderList));
+    $('fap-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; lines = []; loadCompany(val('fap-form-company')); });
+    ['fap-form-date', 'fap-form-reference', 'fap-form-description'].forEach(id => $(id).addEventListener('input', () => { isDirty = true; }));
+    $('fap-add-btn').addEventListener('click', addToAsset);
+    $('fap-to-add').addEventListener('click', () => { lines.push({ AssetID: '', CapitalizationDate: '', Cost: '', AccDep: '', LastDepPeriod: '', YearStartNBV: '' }); renderTakeOver(); });
+    $('fap-save-btn').addEventListener('click', () => saveDraft());
+    $('fap-post-btn').addEventListener('click', post);
+    $('fap-delete-btn').addEventListener('click', del);
+    $('fap-reverse-btn').addEventListener('click', reverse);
+    $('fap-approve-btn').addEventListener('click', () => decide('Approved'));
+    $('fap-reject-btn').addEventListener('click', () => decide('Rejected'));
+    $('fap-gl-btn').addEventListener('click', showGl);
+    $('fap-gl-close').addEventListener('click', () => $('fap-gl-modal').classList.add('hidden'));
+
+    myReturnChain = window.__pendingReturnChain || [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      $('fap-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      $('fap-back-chain-btn').classList.remove('hidden');
+      $('fap-back-chain-btn').addEventListener('click', () => confirmLeave(() => { const chain = myReturnChain.slice(); const t = chain.pop(); if (t) openModule(t.moduleId, t.params, chain); }));
+    }
+    // Drill-through: GL Report passes a GL entry id, Home Tasks the document id.
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    fetchEntries(() => {
+      if (!pending || !pending.OpenEntryId) return;
+      const id = pending.OpenEntryId;
+      const found = entries.find(e => e.PostingID === id || e.JVID === id || e.ReversalJVID === id);
+      if (found) openEntry(found.PostingID); else alert('That document could not be found.');
+    });
+  };
+})();
+</script>

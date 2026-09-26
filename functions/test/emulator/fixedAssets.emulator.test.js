@@ -162,6 +162,9 @@ test('capitalization from clearing: JV + CBT + Vendor Invoice, one atomic entry,
   assert.equal(await balance('A-VEH'), 120000);
   const rec = await asset(a.assetId);
   assert.deepEqual([rec.Status, rec.CapitalizationDate, rec.Areas.BOOK.Cost, rec.Areas.BOOK.DepStartDate], ['Active', '2026-01-10', 120000, '2026-01-10']);
+  // Blank origin fields come from the items: the Vendor Invoice's vendor and number, the earliest purchase date.
+  assert.deepEqual([rec.SupplierID, rec.SupplierName, rec.PurchaseDate], ['V1', 'Acme Metals', '2026-01-05']);
+  assert.match(rec.PurchaseInvoiceRef, /^B-1 \/ VINV-26-01-\d{6}$/);
   const txn = await doc('faTransactions', r.postingId + '_' + a.assetId);
   assert.deepEqual([txn.Type, txn.CostDelta, txn.ClearingItems.length], ['Capitalization', 120000, 3]);
   assert.equal((await items()).length, 0, 'nothing left open');

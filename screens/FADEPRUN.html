@@ -1,0 +1,221 @@
+<div id="fdr-root" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Asset Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-calculator text-blue-500"></i> Depreciation Run</h2></div>
+    <button id="fdr-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="fdr-back-chain-label">Back</span></button>
+  </div>
+
+  <div class="flex gap-2 border-b border-slate-800">
+    <button data-tab="run" class="fdr-tab px-4 py-2 text-sm border-b-2 border-blue-500 text-blue-400">Run</button>
+    <button data-tab="register" class="fdr-tab px-4 py-2 text-sm border-b-2 border-transparent text-slate-400">Depreciation Register</button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="fdr-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
+    <div id="fdr-state" class="md:col-span-3 text-xs text-slate-400 flex items-end pb-2"></div>
+  </div>
+  <div id="fdr-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  <div id="fdr-ok" class="hidden text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-lg"></div>
+
+  <!-- RUN -->
+  <div id="fdr-pane-run" class="space-y-4">
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Period</label><input type="month" id="fdr-period" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <button id="fdr-preview-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-eye"></i> Preview</button>
+      <button id="fdr-post-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-check"></i> Post Depreciation</button>
+      <button id="fdr-csv-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded border border-slate-700"><i class="fa-solid fa-file-csv"></i> CSV</button>
+    </div>
+    <div id="fdr-blockers" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3"></div>
+    <div id="fdr-preview" class="hidden space-y-3">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+        <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-2 px-3">Asset</th><th class="py-2 px-3">Class</th><th class="py-2 px-3">Method</th><th class="py-2 px-3 text-right">Opening NBV</th><th class="py-2 px-3 text-right">This month</th><th class="py-2 px-3 text-right">Catch-up</th><th class="py-2 px-3 text-right">Closing Acc. Dep.</th><th class="py-2 px-3 text-right">Closing NBV</th><th class="py-2 px-3">Notes</th></tr></thead>
+        <tbody id="fdr-preview-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        <tfoot><tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3" colspan="4">Total</td><td id="fdr-total-current" class="py-2 px-3 text-right font-mono"></td><td id="fdr-total-catchup" class="py-2 px-3 text-right font-mono"></td><td colspan="3" id="fdr-total" class="py-2 px-3 font-mono"></td></tr></tfoot></table>
+      </div></div>
+      <div id="fdr-totals" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs"></div>
+    </div>
+    <p class="text-xs font-semibold text-slate-400 uppercase">Runs</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Period</th><th class="py-2 px-3">Status</th><th class="py-2 px-3 text-right">Assets</th><th class="py-2 px-3 text-right">Total</th><th class="py-2 px-3">GL Voucher</th><th class="py-2 px-3">Posted</th><th class="py-2 px-3">Reversal</th><th class="py-2 px-3"></th></tr></thead>
+      <tbody id="fdr-runs-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+  </div>
+
+  <!-- REGISTER -->
+  <div id="fdr-pane-register" class="hidden space-y-4">
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">From period</label><input type="month" id="fdr-reg-from" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">To period</label><input type="month" id="fdr-reg-to" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <button id="fdr-reg-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-lg text-sm">Show</button>
+      <button id="fdr-reg-csv" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded border border-slate-700"><i class="fa-solid fa-file-csv"></i> CSV</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Asset</th><th class="py-2 px-3">Class</th><th class="py-2 px-3 text-right">Opening NBV</th><th class="py-2 px-3 text-right">Scheduled</th><th class="py-2 px-3 text-right">Additional</th><th class="py-2 px-3 text-right">Acc. Depreciation</th><th class="py-2 px-3 text-right">Closing NBV</th></tr></thead>
+      <tbody id="fdr-reg-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      <tfoot id="fdr-reg-foot"></tfoot></table>
+    </div></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Depreciation Run — docs/modules/FIXED_ASSETS.md (FADEPRUN).
+  let rights = {};
+  let companies = [];
+  let preview = null;
+  let runs = [];
+  let state = { lastPostedPeriod: '', runInProgress: '' };
+  let register = [];
+  let myReturnChain = [];
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function formatMoney(n) { return (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  const nextPeriod = p => { let [y, m] = p.split('-').map(Number); m += 1; if (m > 12) { m = 1; y += 1; } return y + '-' + String(m).padStart(2, '0'); };
+  function flash(ok, msg) {
+    $('fdr-error').classList.toggle('hidden', ok || !msg); $('fdr-ok').classList.toggle('hidden', !ok || !msg);
+    (ok ? $('fdr-ok') : $('fdr-error')).textContent = msg || '';
+  }
+  function csv(name, header, rows) {
+    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const blob = new Blob([[header].concat(rows).map(r => r.map(q).join(',')).join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  }
+
+  function loadRuns(then) {
+    const co = val('fdr-company');
+    if (!co) { runs = []; state = {}; renderRuns(); renderState(); return; }
+    rpc.withSuccessHandler(r => {
+      runs = r.runs || []; state = { lastPostedPeriod: r.lastPostedPeriod || '', runInProgress: r.runInProgress || '' };
+      if (!val('fdr-period')) $('fdr-period').value = state.lastPostedPeriod ? nextPeriod(state.lastPostedPeriod) : new Date().toISOString().substring(0, 7);
+      renderRuns(); renderState(); if (then) then();
+    }).withFailureHandler(e => flash(false, e.message)).getFaRuns({ companyId: co });
+  }
+  function renderState() {
+    $('fdr-state').textContent = !val('fdr-company') ? '' : state.runInProgress ? 'A run is still being posted — post its period again to finish it.'
+      : state.lastPostedPeriod ? 'Last posted period: ' + state.lastPostedPeriod + ' · next: ' + nextPeriod(state.lastPostedPeriod) : 'No depreciation posted yet: the first run can be any period.';
+  }
+  function renderRuns() {
+    $('fdr-runs-body').innerHTML = runs.map(r => {
+      const latest = r.Status === 'Posted' && r.Period === state.lastPostedPeriod;
+      return '<tr><td class="py-2 px-3 font-mono text-xs">' + escapeHtml(r.Period) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(r.Status) +
+        '</td><td class="py-2 px-3 text-right text-xs">' + (r.Lines || []).length + '</td><td class="py-2 px-3 text-right font-mono">' + formatMoney(r.Total) +
+        '</td><td class="py-2 px-3 font-mono text-xs">' + escapeHtml(r.JVNumber || '') + '</td><td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml((r.PostedBy || '') + ' ' + (r.PostedAt || '').replace('T', ' ').substring(0, 16)) +
+        '</td><td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(r.ReversalJVNumber ? r.ReversalJVNumber + ' — ' + (r.ReversalReason || '') : '') +
+        '</td><td class="py-2 px-3 text-right">' + '<button data-run="' + escapeHtml(r.RunID) + '" class="fdr-view text-xs text-blue-400 mr-3">Lines</button>' +
+        (latest && rights.reverse ? '<button data-period="' + escapeHtml(r.Period) + '" class="fdr-reverse text-xs text-red-400">Reverse</button>' : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="8" class="py-3 px-3 text-xs text-slate-500">' + (val('fdr-company') ? 'No runs yet.' : 'Select a company.') + '</td></tr>';
+    $('fdr-runs-body').querySelectorAll('.fdr-reverse').forEach(b => b.addEventListener('click', () => reverse(b.dataset.period)));
+    $('fdr-runs-body').querySelectorAll('.fdr-view').forEach(b => b.addEventListener('click', () => showRun(runs.find(r => r.RunID === b.dataset.run))));
+  }
+  function renderPreview(p, readOnlyTitle) {
+    preview = p;
+    $('fdr-preview').classList.remove('hidden');
+    const blockers = (p.blockers || []).concat(p.errors || []);
+    $('fdr-blockers').classList.toggle('hidden', !blockers.length || Boolean(readOnlyTitle));
+    $('fdr-blockers').innerHTML = blockers.map(escapeHtml).join('<br>');
+    $('fdr-preview-body').innerHTML = (p.lines || []).map(l => '<tr><td class="py-2 px-3"><span class="font-mono text-xs">' + escapeHtml(l.AssetNumber) + '</span> ' + escapeHtml(l.Description) +
+      '</td><td class="py-2 px-3 text-xs">' + escapeHtml(l.ClassCode) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(l.Method) +
+      '</td><td class="py-2 px-3 text-right font-mono text-xs">' + formatMoney(l.OpeningNBV) + '</td><td class="py-2 px-3 text-right font-mono text-xs">' + formatMoney(l.Current) +
+      '</td><td class="py-2 px-3 text-right font-mono text-xs">' + (l.CatchUp ? formatMoney(l.CatchUp) + ' <span class="text-slate-500">from ' + escapeHtml(l.CatchUpFrom) + '</span>' : '') +
+      '</td><td class="py-2 px-3 text-right font-mono text-xs">' + formatMoney(l.ClosingAccDep) + '</td><td class="py-2 px-3 text-right font-mono text-xs">' + formatMoney(l.ClosingNBV) +
+      '</td><td class="py-2 px-3 text-xs">' + (l.FullyDepreciated ? '<span class="text-blue-400">fully depreciated</span> ' : '') + '<span class="text-red-400">' + escapeHtml((l.Errors || []).join(' ')) + '</span></td></tr>').join('') ||
+      '<tr><td colspan="9" class="py-3 px-3 text-xs text-slate-500">Nothing to depreciate for this period.</td></tr>';
+    const sum = f => (p.lines || []).reduce((s, l) => s + (l[f] || 0), 0);
+    $('fdr-total-current').textContent = formatMoney(sum('Current')); $('fdr-total-catchup').textContent = formatMoney(sum('CatchUp'));
+    $('fdr-total').textContent = (readOnlyTitle ? readOnlyTitle + ' · ' : '') + 'Dr Depreciation Expense · Cr Accumulated Depreciation: ' + formatMoney(sum('Amount'));
+    const block = (title, obj) => '<div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3"><p class="font-semibold text-slate-400 uppercase mb-1">' + title + '</p>' +
+      Object.keys(obj || {}).sort().map(k => '<div class="flex justify-between"><span>' + escapeHtml(k) + '</span><span class="font-mono">' + formatMoney(obj[k]) + '</span></div>').join('') + '</div>';
+    $('fdr-totals').innerHTML = p.totals ? block('By class', p.totals.byClass) + block('By expense account', p.totals.byAccount) : '';
+    const postable = !readOnlyTitle && rights.post && (p.lines || []).length && !blockers.length;
+    $('fdr-post-btn').classList.toggle('hidden', !postable && !(p.resumable && rights.post));
+    $('fdr-post-btn').innerHTML = p.resumable ? '<i class="fa-solid fa-rotate"></i> Finish Posting' : '<i class="fa-solid fa-check"></i> Post Depreciation';
+    $('fdr-csv-btn').classList.toggle('hidden', !(p.lines || []).length);
+  }
+  function doPreview() {
+    flash(true, '');
+    if (!val('fdr-company') || !val('fdr-period')) return flash(false, 'Select the company and the period.');
+    rpc.withSuccessHandler(p => renderPreview(p)).withFailureHandler(e => flash(false, e.message)).previewFaDepreciation({ companyId: val('fdr-company'), period: val('fdr-period') });
+  }
+  function post() {
+    const total = (preview.lines || []).reduce((s, l) => s + l.Amount, 0);
+    if (!window.confirm('Post depreciation for ' + val('fdr-period') + ': ' + formatMoney(total) + ' on ' + preview.lines.length + ' assets?')) return;
+    $('fdr-post-btn').disabled = true;
+    rpc.withSuccessHandler(r => {
+      $('fdr-post-btn').disabled = false; flash(true, 'Posted ' + r.jvNumber + ': ' + formatMoney(r.total) + ' on ' + r.assets + ' assets.');
+      $('fdr-preview').classList.add('hidden'); $('fdr-post-btn').classList.add('hidden');
+      $('fdr-period').value = nextPeriod(val('fdr-period')); loadRuns();
+    }).withFailureHandler(e => { $('fdr-post-btn').disabled = false; flash(false, e.message); }).postFaDepreciation({ companyId: val('fdr-company'), period: val('fdr-period') });
+  }
+  function reverse(period) {
+    const reason = window.prompt('Reverse the depreciation of ' + period + '? Reason:');
+    if (reason == null) return;
+    rpc.withSuccessHandler(r => { flash(true, 'Reversed (' + r.reversalNumber + '). ' + period + ' can be posted again.'); $('fdr-period').value = period; loadRuns(); })
+      .withFailureHandler(e => flash(false, e.message)).reverseFaDepreciation({ companyId: val('fdr-company'), period: period, reason: reason });
+  }
+  function showRun(r) {
+    if (!r) return;
+    renderPreview({ lines: r.Lines || [], blockers: [], errors: [] }, 'Run ' + r.Period + ' (' + r.Status + ')');
+  }
+  function showTab(tab) {
+    document.querySelectorAll('.fdr-tab').forEach(x => { const on = x.dataset.tab === tab; x.classList.toggle('border-blue-500', on); x.classList.toggle('text-blue-400', on); x.classList.toggle('border-transparent', !on); x.classList.toggle('text-slate-400', !on); });
+    $('fdr-pane-run').classList.toggle('hidden', tab !== 'run'); $('fdr-pane-register').classList.toggle('hidden', tab !== 'register');
+  }
+  function loadRegister() {
+    flash(true, '');
+    if (!val('fdr-company')) return flash(false, 'Select a company.');
+    rpc.withSuccessHandler(r => {
+      register = r.rows || [];
+      $('fdr-reg-body').innerHTML = register.map(x => '<tr><td class="py-2 px-3"><span class="font-mono text-xs">' + escapeHtml(x.AssetNumber) + '</span> ' + escapeHtml(x.Description) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(x.ClassCode) +
+        '</td>' + ['OpeningNBV', 'Scheduled', 'Additional', 'AccDep', 'ClosingNBV'].map(f => '<td class="py-2 px-3 text-right font-mono text-xs">' + formatMoney(x[f]) + '</td>').join('') + '</tr>').join('') ||
+        '<tr><td colspan="7" class="py-3 px-3 text-xs text-slate-500">Nothing in this range.</td></tr>';
+      const t = f => register.reduce((s, x) => s + (x[f] || 0), 0);
+      $('fdr-reg-foot').innerHTML = '<tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3" colspan="2">Total</td>' + ['OpeningNBV', 'Scheduled', 'Additional', 'AccDep', 'ClosingNBV'].map(f => '<td class="py-2 px-3 text-right font-mono">' + formatMoney(t(f)) + '</td>').join('') + '</tr>';
+    }).withFailureHandler(e => flash(false, e.message)).getFaDepreciationRegister({ companyId: val('fdr-company'), fromPeriod: val('fdr-reg-from'), toPeriod: val('fdr-reg-to') });
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-calculator"></i> Depreciation Run';
+    const y = new Date().getFullYear();
+    $('fdr-reg-from').value = y + '-01'; $('fdr-reg-to').value = new Date().toISOString().substring(0, 7);
+    rpc.withSuccessHandler(r => { rights = r.FADEPRUN || {}; renderRuns(); if (preview) renderPreview(preview); }).withFailureHandler(e => console.error(e)).getFaRights();
+    rpc.withSuccessHandler(r => {
+      companies = (r || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName));
+      $('fdr-company').innerHTML = '<option value="">Select a company...</option>' + companies.map(c => '<option value="' + escapeHtml(c.CompanyID) + '">' + escapeHtml(c.LegalName) + '</option>').join('');
+    }).withFailureHandler(e => console.error(e)).getActiveCompanies();
+    document.querySelectorAll('.fdr-tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    $('fdr-company').addEventListener('change', () => { preview = null; $('fdr-preview').classList.add('hidden'); $('fdr-post-btn').classList.add('hidden'); $('fdr-period').value = ''; loadRuns(); });
+    $('fdr-period').addEventListener('change', () => { $('fdr-preview').classList.add('hidden'); $('fdr-post-btn').classList.add('hidden'); });
+    $('fdr-preview-btn').addEventListener('click', doPreview);
+    $('fdr-post-btn').addEventListener('click', post);
+    $('fdr-csv-btn').addEventListener('click', () => csv('depreciation-' + val('fdr-period') + '.csv',
+      ['Asset', 'Description', 'Class', 'Method', 'Opening NBV', 'This month', 'Catch-up', 'Catch-up from', 'Closing Acc Dep', 'Closing NBV'],
+      (preview.lines || []).map(l => [l.AssetNumber, l.Description, l.ClassCode, l.Method, l.OpeningNBV, l.Current, l.CatchUp, l.CatchUpFrom, l.ClosingAccDep, l.ClosingNBV])));
+    $('fdr-reg-btn').addEventListener('click', loadRegister);
+    $('fdr-reg-csv').addEventListener('click', () => csv('depreciation-register.csv', ['Asset', 'Description', 'Class', 'Opening NBV', 'Scheduled', 'Additional', 'Acc Depreciation', 'Closing NBV'],
+      register.map(x => [x.AssetNumber, x.Description, x.ClassCode, x.OpeningNBV, x.Scheduled, x.Additional, x.AccDep, x.ClosingNBV])));
+
+    myReturnChain = window.__pendingReturnChain || [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      $('fdr-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      $('fdr-back-chain-btn').classList.remove('hidden');
+      $('fdr-back-chain-btn').addEventListener('click', () => { const chain = myReturnChain.slice(); const t = chain.pop(); if (t) openModule(t.moduleId, t.params, chain); });
+    }
+    // GL Report drill-through: the run whose entry (or reversal) this is.
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) {
+      rpc.withSuccessHandler(r => {
+        const run = (r.runs || []).find(x => x.JVID === pending.OpenEntryId || x.ReversalJVID === pending.OpenEntryId);
+        if (!run) return alert('That depreciation run could not be found.');
+        $('fdr-company').value = run.CompanyID;
+        loadRuns(() => showRun(runs.find(x => x.RunID === run.RunID)));
+      }).withFailureHandler(e => flash(false, e.message)).getFaRuns({});
+    }
+  };
+})();
+</script>

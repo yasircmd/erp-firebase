@@ -1,0 +1,255 @@
+<div id="fac-root" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Asset Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-sliders text-blue-500"></i> Fixed Asset Configuration</h2></div>
+    <div id="fac-readonly-note" class="hidden text-xs text-slate-500">View only — you can't change the configuration.</div>
+  </div>
+
+  <div class="flex gap-2 border-b border-slate-800">
+    <button data-tab="settings" class="fac-tab px-4 py-2 text-sm border-b-2 border-blue-500 text-blue-400">Settings</button>
+    <button data-tab="dets" class="fac-tab px-4 py-2 text-sm border-b-2 border-transparent text-slate-400">Account Determination</button>
+    <button data-tab="classes" class="fac-tab px-4 py-2 text-sm border-b-2 border-transparent text-slate-400">Asset Classes</button>
+  </div>
+
+  <div id="fac-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  <div id="fac-ok" class="hidden text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-lg"></div>
+
+  <!-- SETTINGS -->
+  <div id="fac-pane-settings" class="space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">Every asset purchase (Vendor Invoice, CBT, JV) is posted to the company's <b>Fixed Asset Clearing Account</b>; Asset Capitalization then moves it from there to the asset's cost account.</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="fac-set-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Fixed Asset Clearing Account</label><select id="fac-set-clearing" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-500 mb-1">Period lock <span class="text-slate-600">(available later)</span></label><input type="date" disabled class="w-full bg-slate-900/50 border border-slate-800 rounded-lg py-2 px-3 text-sm text-slate-600"></div>
+      <div class="md:col-span-2 flex items-end"><button id="fac-set-save" class="fac-write bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm">Save Settings</button></div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase"><th class="py-3 px-3">Company</th><th class="py-3 px-3">Fixed Asset Clearing Account</th></tr></thead>
+      <tbody id="fac-set-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ACCOUNT DETERMINATION -->
+  <div id="fac-pane-dets" class="hidden space-y-4">
+    <div class="flex items-center justify-between">
+      <p class="text-xs text-slate-500 max-w-3xl">GL accounts are never set on an asset: a class points to one of these, and the accounts come from the company's row, else the shared row.</p>
+      <button id="fac-det-new" class="fac-write bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase"><th class="py-3 px-3">Code</th><th class="py-3 px-3">Name</th><th class="py-3 px-3">Rows</th><th class="py-3 px-3">Status</th></tr></thead>
+      <tbody id="fac-det-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div>
+    <div id="fac-det-form" class="hidden space-y-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Code</label><input id="fac-det-code" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase"></div>
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Name</label><input id="fac-det-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="fac-det-status" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option>Active</option><option>Inactive</option></select></div>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="text-xs font-medium text-slate-300">Row</label>
+        <select id="fac-det-row" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select>
+        <span class="text-xs text-slate-500">Blank fields fall back to the shared row. Asset Cost, Accumulated Depreciation and AuC accounts can't then be used by JV or CBT.</span>
+      </div>
+      <div id="fac-det-fields" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      <div class="flex gap-2">
+        <button id="fac-det-save" class="fac-write bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm">Save</button>
+        <button id="fac-det-cancel" class="bg-slate-800 hover:bg-slate-700 text-sm px-4 py-2 rounded-lg border border-slate-700">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLASSES -->
+  <div id="fac-pane-classes" class="hidden space-y-4">
+    <div class="flex items-center justify-between">
+      <p class="text-xs text-slate-500 max-w-3xl">Each class suggests the useful life, method and residual value of its assets, and names their account determination.</p>
+      <button id="fac-cls-new" class="fac-write bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Class</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase"><th class="py-3 px-3">Code</th><th class="py-3 px-3">Name</th><th class="py-3 px-3">Kind</th><th class="py-3 px-3">Method</th><th class="py-3 px-3">Life</th><th class="py-3 px-3">Accounts</th><th class="py-3 px-3">Company</th><th class="py-3 px-3">Status</th></tr></thead>
+      <tbody id="fac-cls-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div>
+    <div id="fac-cls-form" class="hidden space-y-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Code</label><input id="fac-cls-code" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase"></div>
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Name</label><input id="fac-cls-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Kind</label><select id="fac-cls-kind" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+          <option value="Tangible">Tangible</option><option value="Intangible">Intangible (amortized)</option><option value="Land">Land (not depreciated)</option><option value="AuC">Assets under Construction</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Default Method</label><select id="fac-cls-method" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="SL">Straight Line</option><option value="WDV">Written Down Value</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Useful Life (years)</label><input id="fac-cls-years" type="number" min="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">+ months</label><input id="fac-cls-months" type="number" min="0" max="11" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">WDV Rate % / year</label><input id="fac-cls-rate" type="number" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Residual % of cost</label><input id="fac-cls-residual" type="number" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Account Determination</label><select id="fac-cls-det" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="fac-cls-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Shared across all companies</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="fac-cls-status" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option>Active</option><option>Inactive</option></select></div>
+      </div>
+      <div class="flex gap-2">
+        <button id="fac-cls-save" class="fac-write bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm">Save</button>
+        <button id="fac-cls-cancel" class="bg-slate-800 hover:bg-slate-700 text-sm px-4 py-2 rounded-lg border border-slate-700">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Fixed Asset Configuration — docs/modules/FIXED_ASSETS.md (FACONFIG).
+  let canWrite = false;
+  let cfg = { classes: [], determinations: [], settings: [], accounts: [], fields: [] };
+  let companies = [];
+  let det = null;      // determination being edited (with ByCompany rows)
+  let detRow = 'SHARED';
+  let cls = null;
+  const KIND_LABELS = { Tangible: 'Tangible', Intangible: 'Intangible', Land: 'Land', AuC: 'AuC' };
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  const $ = id => document.getElementById(id);
+  const companyName = id => { const c = companies.find(x => x.CompanyID === id); return c ? c.LegalName : (id || ''); };
+  const accountLabel = id => { const a = cfg.accounts.find(x => x.AccountID === id); return a ? a.AccountCode + ' — ' + a.AccountName : (id ? '(' + id + ')' : ''); };
+  function flash(ok, msg) {
+    $('fac-error').classList.toggle('hidden', ok); $('fac-ok').classList.toggle('hidden', !ok);
+    (ok ? $('fac-ok') : $('fac-error')).textContent = msg;
+    if (ok) setTimeout(() => $('fac-ok').classList.add('hidden'), 3000);
+  }
+  function call(fn, data, done) {
+    rpc.withSuccessHandler(r => { if (r && r.success === false) flash(false, r.error); else done(r); })
+      .withFailureHandler(e => flash(false, e.message || String(e)))[fn](data);
+  }
+  function options(select, list, blank, keep) {
+    select.innerHTML = (blank != null ? '<option value="">' + escapeHtml(blank) + '</option>' : '') +
+      list.map(o => '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>').join('');
+    if (keep != null) select.value = keep;
+  }
+  const accountsOfType = types => cfg.accounts.filter(a => types.includes(a.AccountType)).map(a => ({ value: a.AccountID, label: a.AccountCode + ' — ' + a.AccountName + (a.CompanyID ? ' [' + companyName(a.CompanyID) + ']' : '') }));
+
+  function load() {
+    rpc.withSuccessHandler(r => { cfg = r; renderAll(); }).withFailureHandler(e => flash(false, e.message)).getFaConfig();
+  }
+  function renderAll() { renderSettings(); renderDets(); renderClasses(); applyRights(); }
+  function applyRights() {
+    document.querySelectorAll('.fac-write').forEach(b => b.classList.toggle('hidden', !canWrite));
+    $('fac-readonly-note').classList.toggle('hidden', canWrite);
+  }
+
+  // ---------- settings ----------
+  function renderSettings() {
+    const keep = $('fac-set-clearing').value;
+    options($('fac-set-clearing'), accountsOfType(['Asset', 'Liability']), 'Select...', keep);
+    const byCo = {}; cfg.settings.forEach(s => { byCo[s.CompanyID] = s; });
+    $('fac-set-body').innerHTML = companies.map(c => {
+      const s = byCo[c.CompanyID] || {};
+      return '<tr><td class="py-2.5 px-3">' + escapeHtml(c.LegalName) + '</td><td class="py-2.5 px-3 font-mono text-xs">' +
+        (s.ClearingAccountID ? escapeHtml(accountLabel(s.ClearingAccountID)) : '<span class="text-amber-400">not set</span>') +
+        '</td></tr>';
+    }).join('');
+    const co = $('fac-set-company').value;
+    if (co && !keep) $('fac-set-clearing').value = (byCo[co] || {}).ClearingAccountID || '';
+  }
+
+  // ---------- account determination ----------
+  function renderDets() {
+    $('fac-det-body').innerHTML = cfg.determinations.map(d => '<tr class="hover:bg-slate-700/30 cursor-pointer" data-id="' + escapeHtml(d.DeterminationID) + '"><td class="py-2.5 px-3 font-mono text-xs">' + escapeHtml(d.Code) +
+      '</td><td class="py-2.5 px-3">' + escapeHtml(d.Name) + '</td><td class="py-2.5 px-3 text-xs text-slate-400">' +
+      Object.keys(d.ByCompany || {}).map(k => k === 'SHARED' ? 'Shared' : companyName(k)).map(escapeHtml).join(', ') +
+      '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(d.Status) + '</td></tr>').join('') ||
+      '<tr><td colspan="4" class="py-4 px-3 text-xs text-slate-500">None yet.</td></tr>';
+    $('fac-det-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openDet(cfg.determinations.find(d => d.DeterminationID === tr.dataset.id))));
+    const keep = $('fac-cls-det').value;
+    options($('fac-cls-det'), cfg.determinations.map(d => ({ value: d.DeterminationID, label: d.Code + ' — ' + d.Name + (d.Status === 'Active' ? '' : ' (inactive)') })), 'Select...', keep);
+  }
+  function openDet(d) {
+    det = JSON.parse(JSON.stringify(d || { DeterminationID: '', Code: '', Name: '', Status: 'Active', ByCompany: {} }));
+    $('fac-det-code').value = det.Code; $('fac-det-name').value = det.Name; $('fac-det-status').value = det.Status;
+    options($('fac-det-row'), [{ value: 'SHARED', label: 'Shared (all companies)' }].concat(companies.map(c => ({ value: c.CompanyID, label: c.LegalName }))), null, 'SHARED');
+    detRow = 'SHARED';
+    renderDetFields();
+    $('fac-det-form').classList.remove('hidden');
+  }
+  function captureDetRow() {
+    const row = {};
+    cfg.fields.forEach(f => { const v = $('fac-det-f-' + f.field).value; if (v) row[f.field] = v; });
+    det.ByCompany[detRow] = row;
+  }
+  function renderDetFields() {
+    const row = det.ByCompany[detRow] || {};
+    $('fac-det-fields').innerHTML = cfg.fields.map(f => '<div><label class="block text-xs font-medium text-slate-300 mb-1">' + escapeHtml(f.label) +
+      ' <span class="text-slate-500">(' + f.types.join(' / ') + ')</span></label><select id="fac-det-f-' + f.field + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>').join('');
+    cfg.fields.forEach(f => options($('fac-det-f-' + f.field), accountsOfType(f.types), detRow === 'SHARED' ? '—' : 'Use shared row', row[f.field] || ''));
+    document.querySelectorAll('#fac-det-fields select').forEach(s => { s.disabled = !canWrite; });
+  }
+  function saveDet() {
+    captureDetRow();
+    call('saveFaAccountDetermination', { DeterminationID: det.DeterminationID, Code: $('fac-det-code').value, Name: $('fac-det-name').value, Status: $('fac-det-status').value, ByCompany: det.ByCompany }, r => {
+      det.DeterminationID = r.determinationId; flash(true, 'Account determination saved.'); load();
+    });
+  }
+
+  // ---------- classes ----------
+  function renderClasses() {
+    const detName = id => { const d = cfg.determinations.find(x => x.DeterminationID === id); return d ? d.Code : ''; };
+    $('fac-cls-body').innerHTML = cfg.classes.map(c => '<tr class="hover:bg-slate-700/30 cursor-pointer" data-id="' + escapeHtml(c.ClassID) + '"><td class="py-2.5 px-3 font-mono text-xs">' + escapeHtml(c.Code) +
+      '</td><td class="py-2.5 px-3">' + escapeHtml(c.Name) + '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(KIND_LABELS[c.Kind] || c.Kind) +
+      '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(c.DefaultMethod === 'WDV' ? 'WDV ' + c.DefaultWdvRate + '%' : c.DefaultMethod === 'SL' ? 'Straight Line' : '—') +
+      '</td><td class="py-2.5 px-3 text-xs">' + (c.DefaultUsefulLifeMonths ? Math.floor(c.DefaultUsefulLifeMonths / 12) + 'y' + (c.DefaultUsefulLifeMonths % 12 ? ' ' + c.DefaultUsefulLifeMonths % 12 + 'm' : '') : '—') +
+      '</td><td class="py-2.5 px-3 font-mono text-xs">' + escapeHtml(detName(c.AccountDeterminationID)) + '</td><td class="py-2.5 px-3 text-xs text-slate-400">' + escapeHtml(c.CompanyID ? companyName(c.CompanyID) : 'Shared') +
+      '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(c.Status) + '</td></tr>').join('') ||
+      '<tr><td colspan="8" class="py-4 px-3 text-xs text-slate-500">No classes yet: set up an account determination first, then the classes (Land, Buildings, Machinery, Vehicles, …).</td></tr>';
+    $('fac-cls-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openClass(cfg.classes.find(c => c.ClassID === tr.dataset.id))));
+  }
+  function syncKind() {
+    const dep = ['Tangible', 'Intangible'].includes($('fac-cls-kind').value);
+    ['fac-cls-method', 'fac-cls-years', 'fac-cls-months', 'fac-cls-residual'].forEach(id => { $(id).disabled = !dep || !canWrite; });
+    $('fac-cls-rate').disabled = !dep || $('fac-cls-method').value !== 'WDV' || !canWrite;
+  }
+  function openClass(c) {
+    cls = c || { ClassID: '', Code: '', Name: '', Kind: 'Tangible', DefaultMethod: 'SL', DefaultUsefulLifeMonths: 60, DefaultWdvRate: 0, DefaultResidualPercent: 0, AccountDeterminationID: '', CompanyID: '', Status: 'Active' };
+    $('fac-cls-code').value = cls.Code; $('fac-cls-name').value = cls.Name; $('fac-cls-kind').value = cls.Kind;
+    $('fac-cls-method').value = cls.DefaultMethod === 'WDV' ? 'WDV' : 'SL';
+    $('fac-cls-years').value = Math.floor((cls.DefaultUsefulLifeMonths || 0) / 12) || ''; $('fac-cls-months').value = (cls.DefaultUsefulLifeMonths || 0) % 12 || '';
+    $('fac-cls-rate').value = cls.DefaultWdvRate || ''; $('fac-cls-residual').value = cls.DefaultResidualPercent || '';
+    $('fac-cls-det').value = cls.AccountDeterminationID || ''; $('fac-cls-company').value = cls.CompanyID || ''; $('fac-cls-status').value = cls.Status;
+    document.querySelectorAll('#fac-cls-form input, #fac-cls-form select').forEach(el => { el.disabled = !canWrite; });
+    syncKind();
+    $('fac-cls-form').classList.remove('hidden');
+  }
+  function saveClass() {
+    const months = (parseInt($('fac-cls-years').value, 10) || 0) * 12 + (parseInt($('fac-cls-months').value, 10) || 0);
+    call('saveFaClass', {
+      ClassID: cls.ClassID, Code: $('fac-cls-code').value, Name: $('fac-cls-name').value, Kind: $('fac-cls-kind').value,
+      DefaultMethod: $('fac-cls-method').value, DefaultUsefulLifeMonths: months, DefaultWdvRate: $('fac-cls-rate').value,
+      DefaultResidualPercent: $('fac-cls-residual').value, AccountDeterminationID: $('fac-cls-det').value,
+      CompanyID: $('fac-cls-company').value, Status: $('fac-cls-status').value
+    }, r => { cls.ClassID = r.classId; flash(true, 'Class saved.'); load(); });
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> Fixed Asset Configuration';
+    document.querySelectorAll('.fac-tab').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('.fac-tab').forEach(x => { const on = x === b; x.classList.toggle('border-blue-500', on); x.classList.toggle('text-blue-400', on); x.classList.toggle('border-transparent', !on); x.classList.toggle('text-slate-400', !on); });
+      ['settings', 'dets', 'classes'].forEach(t => $('fac-pane-' + t).classList.toggle('hidden', t !== b.dataset.tab));
+    }));
+    rpc.withSuccessHandler(r => { canWrite = Boolean(r.FACONFIG && r.FACONFIG.write); applyRights(); })
+      .withFailureHandler(e => console.error(e)).getFaRights();
+    rpc.withSuccessHandler(r => {
+      companies = (r || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName));
+      options($('fac-set-company'), companies.map(c => ({ value: c.CompanyID, label: c.LegalName })), 'Select a company...', '');
+      options($('fac-cls-company'), companies.map(c => ({ value: c.CompanyID, label: c.LegalName })), 'Shared across all companies', '');
+      renderAll();
+    }).withFailureHandler(e => console.error(e)).getActiveCompanies();
+    $('fac-set-company').addEventListener('change', () => {
+      const s = cfg.settings.find(x => x.CompanyID === $('fac-set-company').value) || {};
+      $('fac-set-clearing').value = s.ClearingAccountID || '';
+    });
+    $('fac-set-save').addEventListener('click', () => call('saveFaSettings', { CompanyID: $('fac-set-company').value, ClearingAccountID: $('fac-set-clearing').value }, () => { flash(true, 'Settings saved.'); load(); }));
+    $('fac-det-new').addEventListener('click', () => openDet(null));
+    $('fac-det-row').addEventListener('change', () => { captureDetRow(); detRow = $('fac-det-row').value; renderDetFields(); });
+    $('fac-det-save').addEventListener('click', saveDet);
+    $('fac-det-cancel').addEventListener('click', () => $('fac-det-form').classList.add('hidden'));
+    $('fac-cls-new').addEventListener('click', () => openClass(null));
+    $('fac-cls-kind').addEventListener('change', syncKind);
+    $('fac-cls-method').addEventListener('change', syncKind);
+    $('fac-cls-save').addEventListener('click', saveClass);
+    $('fac-cls-cancel').addEventListener('click', () => $('fac-cls-form').classList.add('hidden'));
+    load();
+  };
+})();
+</script>

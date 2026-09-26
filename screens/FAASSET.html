@@ -1,0 +1,336 @@
+<div id="faa-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Asset Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-truck-front text-blue-500"></i> Asset Master</h2></div>
+    <button id="faa-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Asset</button>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="faa-search" placeholder="Search number, description, serial, tag..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    <select id="faa-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="faa-class-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Classes</option></select>
+    <select id="faa-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All Statuses</option><option value="Planned">Planned</option><option value="Active">Active</option><option value="FullyDepreciated">Fully Depreciated</option><option value="Disposed">Disposed</option><option value="Transferred">Transferred</option>
+    </select>
+  </div>
+  <div id="faa-list-notice" class="hidden text-xs text-slate-500"></div>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-3 px-3">Asset No.</th><th class="py-3 px-3">Description</th><th class="py-3 px-3">Class</th><th class="py-3 px-3">Cost Center</th>
+      <th class="py-3 px-3">Capitalized</th><th class="py-3 px-3 text-right">Cost</th><th class="py-3 px-3 text-right">Acc. Dep.</th><th class="py-3 px-3 text-right">NBV</th><th class="py-3 px-3">Status</th></tr></thead>
+    <tbody id="faa-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+</div>
+
+<div id="faa-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="faa-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="faa-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="faa-back-chain-label">Back</span></button>
+      <h2 id="faa-title" class="text-xl font-bold text-blue-400"></h2>
+    </div>
+    <span id="faa-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+  </div>
+  <div class="flex gap-2 border-b border-slate-800">
+    <button data-tab="details" class="faa-tab px-4 py-2 text-sm border-b-2 border-blue-500 text-blue-400">Details</button>
+    <button data-tab="history" class="faa-tab px-4 py-2 text-sm border-b-2 border-transparent text-slate-400">History</button>
+  </div>
+  <div id="faa-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  <div id="faa-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3"></div>
+
+  <div id="faa-pane-details" class="space-y-5">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="faa-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Asset Class</label><select id="faa-form-class" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first</option></select></div>
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Description</label><input id="faa-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Serial Number</label><input id="faa-form-serial" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Tag / Barcode</label><input id="faa-form-tag" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Quantity</label><input id="faa-form-qty" type="number" min="0" step="any" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Purchase Date</label><input id="faa-form-purchase-date" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Supplier</label><select id="faa-form-supplier" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Purchase Invoice</label><input id="faa-form-invoice" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+
+    <div>
+      <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Assignment</p>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="faa-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="faa-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="faa-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="faa-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-500 mb-1">Department <span class="text-slate-600">(available later)</span></label><select disabled data-reserved class="w-full bg-slate-900/50 border border-slate-800 rounded-lg py-2 px-3 text-sm text-slate-600"><option>—</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-500 mb-1">Location <span class="text-slate-600">(available later)</span></label><select disabled data-reserved class="w-full bg-slate-900/50 border border-slate-800 rounded-lg py-2 px-3 text-sm text-slate-600"><option>—</option></select></div>
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-500 mb-1">Responsible Employee <span class="text-slate-600">(available later)</span></label><input disabled data-reserved class="w-full bg-slate-900/50 border border-slate-800 rounded-lg py-2 px-3 text-sm text-slate-600"></div>
+      </div>
+    </div>
+
+    <div id="faa-valuation">
+      <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Depreciation</p>
+      <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Method</label><select id="faa-form-method" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="SL">Straight Line</option><option value="WDV">Written Down Value</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Useful Life (years)</label><input id="faa-form-years" type="number" min="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">+ months</label><input id="faa-form-months" type="number" min="0" max="11" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">WDV Rate % / year</label><input id="faa-form-rate" type="number" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Residual Value</label><input id="faa-form-residual" inputmode="decimal" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right font-mono"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Depreciation Start</label><input id="faa-form-depstart" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      </div>
+      <p class="text-xs text-slate-500 mt-1">Blank start: the capitalization date. A change after capitalization applies from the next depreciation period.</p>
+    </div>
+
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Notes</label><textarea id="faa-form-notes" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+    <div id="faa-reason-wrap" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Reason for the change <span class="text-slate-500">(kept in the history)</span></label><input id="faa-form-reason" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+
+    <div id="faa-balances" class="hidden grid grid-cols-2 md:grid-cols-6 gap-3 bg-slate-800/60 border border-slate-700 rounded-xl p-4 text-sm"></div>
+
+    <div class="flex gap-2">
+      <button id="faa-save-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm">Save</button>
+      <button id="faa-delete-btn" class="hidden bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-sm">Delete</button>
+    </div>
+  </div>
+
+  <div id="faa-pane-history" class="hidden">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-3 px-3">Date</th><th class="py-3 px-3">Event</th><th class="py-3 px-3">Document / GL</th><th class="py-3 px-3 text-right">Cost</th><th class="py-3 px-3 text-right">Acc. Dep.</th><th class="py-3 px-3">Details</th><th class="py-3 px-3">By / At</th></tr></thead>
+      <tbody id="faa-history-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Asset Master — docs/modules/FIXED_ASSETS.md (FAASSET).
+  let canDraft = false;
+  let assets = [];
+  let companies = [];
+  let orgUnits = [];
+  let setup = { classes: [], vendors: [] };
+  let setupCompany = '';
+  let current = null;
+  let history = [];
+  let isDirty = false;
+  let myReturnChain = [];
+  const STATUS_COLORS = {
+    Planned: 'bg-slate-700 text-slate-300', Active: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+    FullyDepreciated: 'bg-blue-500/10 text-blue-400 border border-blue-500/20', Disposed: 'bg-red-500/10 text-red-400 border border-red-500/20', Transferred: 'bg-slate-700 text-slate-400'
+  };
+  const STATUS_LABELS = { FullyDepreciated: 'Fully Depreciated' };
+  const EVENT_LABELS = { Capitalization: 'Capitalization', Addition: 'Addition', TakeOver: 'Take-over', Depreciation: 'Depreciation', AdditionalDepreciation: 'Additional Depreciation', MasterChange: 'Master data change', Reversal: 'Reversal' };
+  const FIELD_LABELS = { UsefulLifeMonths: 'Useful life (months)', WdvRate: 'WDV rate', ResidualValue: 'Residual value', DepStartDate: 'Depreciation start', Method: 'Method', CostCenterID: 'Cost center', ProfitCenterID: 'Profit center', DivisionID: 'Division', BranchID: 'Branch', SupplierID: 'Supplier', SupplierName: 'Supplier', PurchaseInvoiceRef: 'Purchase invoice', PurchaseDate: 'Purchase date', SerialNumber: 'Serial number', TagNumber: 'Tag', Quantity: 'Quantity', Notes: 'Notes', Description: 'Description' };
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function formatMoney(n) { return (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  const badge = s => '<span class="text-xs px-2 py-0.5 rounded-full ' + (STATUS_COLORS[s] || 'bg-slate-700 text-slate-400') + '">' + escapeHtml(STATUS_LABELS[s] || s) + '</span>';
+  const bookOf = a => (a.Areas || {}).BOOK || {};
+  const unitName = id => { const u = orgUnits.find(x => x.UnitID === id); return u ? u.Code + ' — ' + u.Name : (id || ''); };
+  function showError(msg) { $('faa-error').textContent = msg || ''; $('faa-error').classList.toggle('hidden', !msg); }
+
+  // ---------- list ----------
+  function renderList() {
+    const q = val('faa-search').trim().toLowerCase();
+    const co = val('faa-company-filter'); const cl = val('faa-class-filter'); const st = val('faa-status-filter');
+    const rows = assets.filter(a => (!co || a.CompanyID === co) && (!cl || a.ClassCode === cl) && (!st || a.Status === st) &&
+      (!q || [a.AssetNumber, a.Description, a.SerialNumber, a.TagNumber, a.ClassName].join(' ').toLowerCase().includes(q)));
+    $('faa-body').innerHTML = rows.map(a => {
+      const b = bookOf(a);
+      return '<tr class="hover:bg-slate-700/30 cursor-pointer" data-id="' + escapeHtml(a.AssetID) + '"><td class="py-2.5 px-3 font-mono text-xs">' + escapeHtml(a.AssetNumber) +
+        '</td><td class="py-2.5 px-3">' + escapeHtml(a.Description) + '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(a.ClassCode) +
+        '</td><td class="py-2.5 px-3 text-xs text-slate-400">' + escapeHtml(unitName(a.CostCenterID)) + '</td><td class="py-2.5 px-3 text-xs text-slate-400">' + escapeHtml(a.CapitalizationDate || '') +
+        '</td><td class="py-2.5 px-3 text-right font-mono">' + formatMoney(b.Cost) + '</td><td class="py-2.5 px-3 text-right font-mono">' + formatMoney(b.AccDep) +
+        '</td><td class="py-2.5 px-3 text-right font-mono">' + formatMoney((b.Cost || 0) - (b.AccDep || 0)) + '</td><td class="py-2.5 px-3">' + badge(a.Status) + '</td></tr>';
+    }).join('');
+    $('faa-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openAsset(tr.dataset.id)));
+    $('faa-list-notice').classList.toggle('hidden', rows.length > 0);
+    $('faa-list-notice').textContent = assets.length ? 'No assets match the filters.' : 'No assets yet.';
+    const classes = [...new Set(assets.map(a => a.ClassCode))].sort();
+    const keep = val('faa-class-filter');
+    $('faa-class-filter').innerHTML = '<option value="">All Classes</option>' + classes.map(c => '<option>' + escapeHtml(c) + '</option>').join('');
+    $('faa-class-filter').value = keep;
+  }
+  function fetchAssets(then) {
+    rpc.withSuccessHandler(r => { assets = r || []; renderList(); if (then) then(); }).withFailureHandler(e => console.error(e)).getFaAssets({});
+  }
+  function showList() { $('faa-entry-view').classList.add('hidden'); $('faa-list-view').classList.remove('hidden'); fetchAssets(); }
+  function confirmLeave(then) { if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return; then(); }
+
+  // ---------- set-up per company ----------
+  function loadSetup(companyId, keep, then) {
+    if (!companyId) { setup = { classes: [], vendors: [] }; setupCompany = ''; renderSetup(keep || {}); if (then) then(); return; }
+    rpc.withSuccessHandler(r => { setup = r; setupCompany = companyId; renderSetup(keep || {}); if (then) then(); })
+      .withFailureHandler(e => showError(e.message)).getFaAssetSetup({ companyId: companyId });
+  }
+  function renderSetup(keep) {
+    const cls = $('faa-form-class');
+    cls.innerHTML = '<option value="">' + (setupCompany ? 'Select...' : 'Select a company first') + '</option>' +
+      setup.classes.filter(c => c.Kind !== 'AuC').map(c => '<option value="' + escapeHtml(c.ClassID) + '">' + escapeHtml(c.Code + ' — ' + c.Name) + '</option>').join('');
+    if (keep.ClassID && !setup.classes.some(c => c.ClassID === keep.ClassID)) cls.innerHTML += '<option value="' + escapeHtml(keep.ClassID) + '">' + escapeHtml((keep.ClassCode || '') + ' — ' + (keep.ClassName || '')) + '</option>';
+    cls.value = keep.ClassID || '';
+    const sup = $('faa-form-supplier');
+    sup.innerHTML = '<option value="">—</option>' + setup.vendors.map(v => '<option value="' + escapeHtml(v.VendorID) + '">' + escapeHtml((v.Code ? v.Code + ' — ' : '') + v.Name) + '</option>').join('');
+    if (keep.SupplierID && !setup.vendors.some(v => v.VendorID === keep.SupplierID)) sup.innerHTML += '<option value="' + escapeHtml(keep.SupplierID) + '">' + escapeHtml(keep.SupplierName || keep.SupplierID) + '</option>';
+    sup.value = keep.SupplierID || '';
+    populateOrgUnits(keep);
+    syncClass();
+  }
+  function populateOrgUnits(keep) {
+    const co = val('faa-form-company');
+    [['faa-form-division', 'Division', 'DivisionID'], ['faa-form-branch', 'Branch', 'BranchID'], ['faa-form-costcenter', 'CostCenter', 'CostCenterID'], ['faa-form-profitcenter', 'ProfitCenter', 'ProfitCenterID']].forEach(([id, type, f]) => {
+      const units = orgUnits.filter(u => u.Type === type && (!u.CompanyID || u.CompanyID === co));
+      $(id).innerHTML = '<option value="">—</option>' + units.map(u => '<option value="' + escapeHtml(u.UnitID) + '">' + escapeHtml(u.Code + ' — ' + u.Name) + '</option>').join('');
+      $(id).value = (keep && keep[f]) || '';
+    });
+  }
+  const selectedClass = () => setup.classes.find(c => c.ClassID === val('faa-form-class')) || (current && current.ClassID === val('faa-form-class') ? { Kind: current.ClassKind } : null);
+  function syncClass(applyDefaults) {
+    const c = selectedClass();
+    const dep = !c || c.Kind === 'Tangible' || c.Kind === 'Intangible';
+    $('faa-valuation').classList.toggle('hidden', !dep);
+    if (c && applyDefaults && dep) {
+      $('faa-form-method').value = c.DefaultMethod === 'WDV' ? 'WDV' : 'SL';
+      $('faa-form-years').value = Math.floor((c.DefaultUsefulLifeMonths || 0) / 12) || '';
+      $('faa-form-months').value = (c.DefaultUsefulLifeMonths || 0) % 12 || '';
+      $('faa-form-rate').value = c.DefaultWdvRate || '';
+    }
+    $('faa-form-rate').disabled = $('faa-form-method').value !== 'WDV' || !isEditable();
+  }
+
+  // ---------- entry ----------
+  const isEditable = () => canDraft && (!current || !['Disposed', 'Transferred'].includes(current.Status));
+  function fillForm(a) {
+    const b = bookOf(a);
+    $('faa-form-company').value = a.CompanyID || '';
+    $('faa-form-description').value = a.Description || ''; $('faa-form-serial').value = a.SerialNumber || ''; $('faa-form-tag').value = a.TagNumber || '';
+    $('faa-form-qty').value = a.Quantity == null ? 1 : a.Quantity; $('faa-form-purchase-date').value = a.PurchaseDate || '';
+    $('faa-form-invoice').value = a.PurchaseInvoiceRef || ''; $('faa-form-notes').value = a.Notes || '';
+    $('faa-form-method').value = b.Method === 'WDV' ? 'WDV' : 'SL';
+    $('faa-form-years').value = Math.floor((b.UsefulLifeMonths || 0) / 12) || ''; $('faa-form-months').value = (b.UsefulLifeMonths || 0) % 12 || '';
+    $('faa-form-rate').value = b.WdvRate || ''; $('faa-form-residual').value = b.ResidualValue || ''; $('faa-form-depstart').value = b.DepStartDate || '';
+    $('faa-form-reason').value = '';
+  }
+  function refreshUi() {
+    const a = current;
+    const capitalized = a && a.Status !== 'Planned';
+    $('faa-title').textContent = a ? a.AssetNumber + ' — ' + a.Description : 'New Asset';
+    $('faa-status-badge').classList.toggle('hidden', !a);
+    if (a) { $('faa-status-badge').className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (STATUS_COLORS[a.Status] || ''); $('faa-status-badge').textContent = STATUS_LABELS[a.Status] || a.Status; }
+    const editable = isEditable();
+    // Reserved fields (department, location, employee) stay disabled until their masters exist.
+    document.querySelectorAll('#faa-pane-details input, #faa-pane-details select, #faa-pane-details textarea').forEach(el => {
+      el.disabled = el.hasAttribute('data-reserved') || !editable;
+    });
+    $('faa-form-company').disabled = Boolean(a) || !editable;
+    $('faa-form-class').disabled = capitalized || !editable;
+    $('faa-reason-wrap').classList.toggle('hidden', !capitalized || !editable);
+    $('faa-save-btn').classList.toggle('hidden', !editable);
+    $('faa-delete-btn').classList.toggle('hidden', !(a && a.Status === 'Planned' && canDraft));
+    const note = $('faa-note');
+    note.classList.toggle('hidden', !capitalized);
+    if (capitalized) note.textContent = 'Capitalized ' + (a.CapitalizationDate || '') + '. Class and company are fixed; valuation changes apply from the next depreciation period. After depreciation is posted, move it with an Asset Transfer.';
+    const b = a ? bookOf(a) : {};
+    $('faa-balances').classList.toggle('hidden', !capitalized);
+    if (capitalized) {
+      const cell = (l, v) => '<div><div class="text-xs text-slate-500">' + l + '</div><div class="font-mono">' + v + '</div></div>';
+      $('faa-balances').innerHTML = cell('Cost', formatMoney(b.Cost)) + cell('Acc. Dep. (scheduled)', formatMoney(b.AccDepScheduled)) + cell('Acc. Dep. (additional)', formatMoney(b.AccDepAdditional)) +
+        cell('Net Book Value', formatMoney((b.Cost || 0) - (b.AccDep || 0))) + cell('Last depreciated', escapeHtml(b.LastDepPeriod || '—')) + cell('Currency', escapeHtml(a.CurrencyCode || ''));
+    }
+    syncClass(false);
+  }
+  function renderHistory() {
+    const rows = [{ Date: (current.CreatedAt || '').substring(0, 10), Type: 'Created', CreatedBy: current.CreatedBy, CreatedAt: current.CreatedAt }].concat(history);
+    $('faa-history-body').innerHTML = rows.map(t => {
+      const details = t.Type === 'MasterChange' ? (t.Changes || []).map(c => (FIELD_LABELS[c.Field] || c.Field) + ': ' + (c.From === '' ? '—' : c.From) + ' → ' + (c.To === '' ? '—' : c.To)).join('; ') + (t.Reason ? ' (' + t.Reason + ')' : '')
+        : t.Type === 'Reversal' ? 'Reverses ' + (EVENT_LABELS[t.ReversalOfType] || t.ReversalOfType) + (t.Reason ? ' — ' + t.Reason : '')
+        : t.Type === 'Depreciation' ? t.Period + (t.CatchUp ? ' (incl. catch-up ' + formatMoney(t.CatchUp) + ' from ' + t.CatchUpFrom + ')' : '')
+        : t.Type === 'TakeOver' ? 'Capitalized ' + (t.CapitalizationDateGiven || '') + ', depreciated to ' + (t.LastDepPeriodGiven || '—')
+        : (t.Reason || '') + ((t.ClearingItems || []).length ? 'From ' + t.ClearingItems.map(i => i.JVNumber).join(', ') : '');
+      const doc = [t.PostingNumber, t.JVNumber && t.JVNumber !== t.PostingNumber ? t.JVNumber : ''].filter(Boolean).join(' · ');
+      return '<tr' + (t.ReversedByTxnID ? ' class="text-slate-500"' : '') + '><td class="py-2 px-3 text-xs">' + escapeHtml(t.Date) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(EVENT_LABELS[t.Type] || t.Type) + (t.ReversedByTxnID ? ' <span class="text-red-400">(reversed)</span>' : '') +
+        '</td><td class="py-2 px-3 font-mono text-xs">' + escapeHtml(doc) + '</td><td class="py-2 px-3 text-right font-mono text-xs">' + (t.CostDelta ? formatMoney(t.CostDelta) : '') +
+        '</td><td class="py-2 px-3 text-right font-mono text-xs">' + (t.AccDepDelta ? formatMoney(t.AccDepDelta) : '') + '</td><td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(details) +
+        '</td><td class="py-2 px-3 text-xs text-slate-500">' + escapeHtml((t.CreatedBy || '') + ' ' + (t.CreatedAt || '').replace('T', ' ').substring(0, 16)) + '</td></tr>';
+    }).join('');
+  }
+  function showTab(tab) {
+    document.querySelectorAll('.faa-tab').forEach(x => { const on = x.dataset.tab === tab; x.classList.toggle('border-blue-500', on); x.classList.toggle('text-blue-400', on); x.classList.toggle('border-transparent', !on); x.classList.toggle('text-slate-400', !on); });
+    $('faa-pane-details').classList.toggle('hidden', tab !== 'details'); $('faa-pane-history').classList.toggle('hidden', tab !== 'history');
+  }
+  function newAsset() {
+    current = null; history = []; isDirty = false; showError('');
+    fillForm({ Quantity: 1 });
+    $('faa-form-company').value = '';
+    loadSetup('', {});
+    $('faa-list-view').classList.add('hidden'); $('faa-entry-view').classList.remove('hidden');
+    showTab('details'); refreshUi();
+    document.querySelector('.faa-tab[data-tab="history"]').classList.add('hidden');
+  }
+  function openAsset(id) {
+    rpc.withSuccessHandler(r => {
+      current = r.asset; history = r.history || []; isDirty = false; showError('');
+      fillForm(current);
+      loadSetup(current.CompanyID, current, () => refreshUi());
+      $('faa-list-view').classList.add('hidden'); $('faa-entry-view').classList.remove('hidden');
+      document.querySelector('.faa-tab[data-tab="history"]').classList.remove('hidden');
+      showTab('details'); refreshUi(); renderHistory();
+    }).withFailureHandler(e => alert(e.message || 'Unable to open the asset.')).getFaAsset({ assetId: id });
+  }
+  function collect() {
+    const months = (parseInt(val('faa-form-years'), 10) || 0) * 12 + (parseInt(val('faa-form-months'), 10) || 0);
+    return {
+      AssetID: current ? current.AssetID : '', CompanyID: val('faa-form-company'), ClassID: val('faa-form-class'),
+      Description: val('faa-form-description'), SerialNumber: val('faa-form-serial'), TagNumber: val('faa-form-tag'), Quantity: val('faa-form-qty'),
+      PurchaseDate: val('faa-form-purchase-date'), SupplierID: val('faa-form-supplier'), PurchaseInvoiceRef: val('faa-form-invoice'), Notes: val('faa-form-notes'),
+      DivisionID: val('faa-form-division'), BranchID: val('faa-form-branch'), CostCenterID: val('faa-form-costcenter'), ProfitCenterID: val('faa-form-profitcenter'),
+      Method: val('faa-form-method'), UsefulLifeMonths: months || '', WdvRate: val('faa-form-rate'), ResidualValue: val('faa-form-residual'), DepStartDate: val('faa-form-depstart'),
+      ChangeReason: val('faa-form-reason')
+    };
+  }
+  function save() {
+    showError('');
+    rpc.withSuccessHandler(r => { isDirty = false; openAsset(r.assetId); })
+      .withFailureHandler(e => showError(e.message || String(e))).saveFaAsset(collect());
+  }
+  function del() {
+    if (!current || !window.confirm('Delete asset ' + current.AssetNumber + '? Its number will not be reused.')) return;
+    rpc.withSuccessHandler(() => { isDirty = false; showList(); }).withFailureHandler(e => showError(e.message)).deleteFaAsset({ assetId: current.AssetID });
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-truck-front"></i> Asset Master';
+    rpc.withSuccessHandler(r => { canDraft = Boolean(r.FAASSET && r.FAASSET.draft); $('faa-new-btn').classList.toggle('hidden', !canDraft); if (!$('faa-entry-view').classList.contains('hidden')) refreshUi(); })
+      .withFailureHandler(e => console.error(e)).getFaRights();
+    rpc.withSuccessHandler(r => {
+      companies = (r || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName));
+      [$('faa-form-company'), $('faa-company-filter')].forEach((s, i) => {
+        s.innerHTML = '<option value="">' + (i ? 'All Companies' : 'Select a company...') + '</option>' + companies.map(c => '<option value="' + escapeHtml(c.CompanyID) + '">' + escapeHtml(c.LegalName) + '</option>').join('');
+      });
+      if (current) $('faa-form-company').value = current.CompanyID;
+    }).withFailureHandler(e => console.error(e)).getActiveCompanies();
+    rpc.withSuccessHandler(r => { orgUnits = r || []; populateOrgUnits(current || {}); renderList(); }).withFailureHandler(e => console.error(e)).getActiveOrgUnits();
+
+    $('faa-new-btn').addEventListener('click', newAsset);
+    $('faa-back-btn').addEventListener('click', () => confirmLeave(showList));
+    $('faa-search').addEventListener('input', renderList);
+    ['faa-company-filter', 'faa-class-filter', 'faa-status-filter'].forEach(id => $(id).addEventListener('change', renderList));
+    document.querySelectorAll('.faa-tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    $('faa-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; loadSetup(val('faa-form-company'), {}); });
+    $('faa-form-class').addEventListener('change', () => { isDirty = true; syncClass(true); });
+    $('faa-form-method').addEventListener('change', () => syncClass(false));
+    document.querySelectorAll('#faa-pane-details input, #faa-pane-details select, #faa-pane-details textarea').forEach(el => {
+      if (el.id !== 'faa-form-company') el.addEventListener('input', () => { isDirty = true; });
+    });
+    $('faa-save-btn').addEventListener('click', save);
+    $('faa-delete-btn').addEventListener('click', del);
+
+    myReturnChain = window.__pendingReturnChain || [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      $('faa-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      $('faa-back-chain-btn').classList.remove('hidden');
+      $('faa-back-chain-btn').addEventListener('click', () => confirmLeave(() => { const chain = myReturnChain.slice(); const t = chain.pop(); if (t) openModule(t.moduleId, t.params, chain); }));
+    }
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    fetchAssets(() => { if (pending && pending.OpenEntryId) openAsset(pending.OpenEntryId); });
+  };
+})();
+</script>

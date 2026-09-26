@@ -48,6 +48,13 @@ function typeOf(t) {
 
 // ---------- open clearing items ----------
 
+// The vendor of a GL entry: its vendor-tagged line (Vendor Invoice's
+// payables line, a JV/CBT line tagged with a vendor), if any.
+function vendorOfEntry(e) {
+  const l = (e.Lines || []).find(x => x.PartyType === 'Vendor' && x.PartyID);
+  return l ? l.PartyID : '';
+}
+
 // Every posted debit line on this company's clearing account(s), less
 // what has been capitalized from it. Reversed entries and reversals are
 // not items. Credits on clearing (a debit note, a correction) are
@@ -73,7 +80,7 @@ async function clearingItems(companyId) {
       const base = {
         JVID: doc.id, LineNo: lineNo, JVNumber: e.JVNumber || '', JVDate: e.JVDate || '', VoucherType: e.VoucherType || 'JV',
         AccountID: l.AccountID, AccountCode: l.AccountCode, Description: l.Description || e.Description || '',
-        Reference: e.Reference || '', VendorID: e.VendorID || '', SourceTransactionID: e.SourceTransactionID || ''
+        Reference: e.Reference || '', VendorID: vendorOfEntry(e), SourceTransactionID: e.SourceTransactionID || ''
       };
       if (base.VendorID && vendorNames[base.VendorID]) base.VendorName = vendorNames[base.VendorID].VendorName || '';
       if (round2(l.Debit || 0) > 0) {
@@ -123,8 +130,8 @@ async function loadAssets(ids) {
 }
 
 // Builds and checks a posting from what the screen sent (or a stored
-// draft). With `live`, also returns what posting writes: GL lines,
-// transactions and asset updates. Everything is re-read from live data.
+// draft), re-reading everything from live data. Posting calls it again
+// under the global lock.
 async function prepare(user, data) {
   const cfg = typeOf(data.Type);
   const companyId = str(data.CompanyID);
@@ -235,7 +242,7 @@ async function prepare(user, data) {
       const open = round2(gl.Debit - usedElsewhere);
       if (want[k] > open + 0.005) throw new Error(jv.JVNumber + ' line ' + lineNo + ': only ' + open.toFixed(2) + ' is still open, ' + want[k].toFixed(2) + ' asked.');
       lines.forEach(l => l.Items.forEach(it => {
-        if (itemKey(it.JVID, it.LineNo) === k) Object.assign(it, { JVNumber: jv.JVNumber, JVDate: jv.JVDate, AccountID: gl.AccountID, AccountCode: gl.AccountCode });
+        if (itemKey(it.JVID, it.LineNo) === k) Object.assign(it, { JVNumber: jv.JVNumber, JVDate: jv.JVDate, AccountID: gl.AccountID, AccountCode: gl.AccountCode, VendorID: vendorOfEntry(jv), VoucherType: jv.VoucherType || 'JV', SourceTransactionID: jv.SourceTransactionID || '' });
       }));
     }
   }
@@ -373,6 +380,25 @@ function dimsOf(doc) {
   return { CompanyID: doc.CompanyID, DivisionID: doc.DivisionID || '', BranchID: doc.BranchID || '', CostCenterID: doc.CostCenterID || '', ProfitCenterID: '' };
 }
 
+// The asset's blank supplier, purchase invoice and purchase date, from
+// the first clearing item that has them (a Vendor Invoice, or a JV/CBT
+// line tagged with a vendor).
+async function originFromItems(a, items) {
+  const out = {};
+  const inv = items.find(it => it.VoucherType === 'VendorInvoice' && it.SourceTransactionID);
+  const invRec = inv ? (await rtdb.ref('vendorInvoices/' + inv.SourceTransactionID).get()).val() || {} : null;
+  const vendorId = (items.find(it => it.VendorID) || {}).VendorID || (invRec && invRec.VendorID) || '';
+  if (!a.SupplierID && vendorId) {
+    const v = (await rtdb.ref('vendors/' + vendorId).get()).val();
+    if (v) { out.SupplierID = vendorId; out.SupplierName = v.VendorName || ''; }
+  }
+  if (!a.PurchaseInvoiceRef && invRec) {
+    out.PurchaseInvoiceRef = [invRec.VendorRefNumber, invRec.TransactionNumber || inv.JVNumber].filter(Boolean).join(' / ');
+  }
+  if (!a.PurchaseDate && items.length) out.PurchaseDate = items.map(it => it.JVDate).filter(Boolean).sort()[0] || '';
+  return out;
+}
+
 // Caller holds the global lock; `prepared` was built under it.
 async function commitPosting(user, postingId, existing, prepared) {
   const { doc, assets, chart } = prepared;
@@ -426,6 +452,7 @@ async function commitPosting(user, postingId, existing, prepared) {
       if (first) {
         upd.CapitalizationDate = doc.Date;
         if (!area.DepStartDate && a.ClassKind !== 'Land') upd[`Areas.${AREA}.DepStartDate`] = doc.Date;
+        Object.assign(upd, await originFromItems(a, l.Items));
       }
       l.Items.forEach(it => {
         const k = itemKey(it.JVID, it.LineNo);
