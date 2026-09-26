@@ -137,8 +137,9 @@ node functions/test/ui/partyPayments.ui.js  # after the partyPayments suite: JV/
   Restart it after changing code, including for negative controls.
 - **Safety:** the suites WIPE the emulator database. `_helpers.js` refuses
   to run unless every client points at the local emulators.
-- **Last full run** (2026-09-25, `party-payments` branch): 190/190 emulator
-  tests, 93/93 smoke, 2/2 dynamic toggle, 3/3 party payments UI.
+- **Last full run** (2026-09-26, `test-speed` branch, `tools/test.sh full`,
+  13m): 190/190 emulator tests, 93/93 smoke, 2/2 dynamic toggle,
+  8/8 + 3/3 party payments, 21/21 + 12/12 stock modules.
 
 ## Deploying
 

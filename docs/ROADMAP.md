@@ -43,6 +43,16 @@ invoice. Each vendor and customer does have its own
 
 Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged with the vendor or customer, as a New Ref (for example an advance) or Against Ref (offsetting posted bills). Design: [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md).
 
+## Tooling
+
+- [x] **Faster testing** (2026-09-26, branch `test-speed`): `tools/test.sh`
+  runs only what a branch changed (about 1–3 min), or `full` for
+  everything with the emulator restarts and memory split automated
+  (about 13 min). One run holds the emulators at a time, so two tabs
+  can't clobber each other. The smoke check loads 4 screens at once
+  (4m28s → 2m46s). Screens load on the seeded base fixture, because some
+  suites leave permissions revoked. Details: README → Testing.
+
 ## Follow-ups from the migration
 
 - [ ] **Data checks in the old Apps Script system** for the bugs still
