@@ -139,9 +139,12 @@ node functions/test/ui/fixedAssets.ui.js    # the six Fixed Asset screens; seeds
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for
   each function it has run and never frees them. The full suite plus the
-  full smoke run fills Cloud Shell's 16 GB (exit 137). Run the suite in two
-  halves and restart the emulators before the smoke run. After a crash:
-  `pkill -f '[f]unctionsEmulatorRuntime'`.
+  full smoke run fills Cloud Shell's 16 GB (exit 137). Run the suite in
+  three parts, restarting the emulators before each and before the smoke
+  run (two halves stopped fitting with the Fixed Assets suite: a half
+  reached 152 workers and a suite hung). Every third file per part:
+  `ls functions/test/emulator/*.test.js | awk 'NR % 3 == 1'` (then `== 2`, `== 0`).
+  After a crash: `pkill -f '[f]unctionsEmulatorRuntime'`.
 - **Hot reload:** the functions emulator doesn't pick up source edits.
   Restart it after changing code, including for negative controls.
 - **Safety:** the suites WIPE the emulator database. `_helpers.js` refuses
@@ -163,7 +166,7 @@ node functions/test/ui/fixedAssets.ui.js    # the six Fixed Asset screens; seeds
   first" allocates against the previous run's bill.
 - **Full run vs. one suite:** the full run above is for before a deploy or
   merge. While building or fixing a module, run only its suite (and its
-  UI check); it doesn't need the two-halves split.
+  UI check); it doesn't need the split.
 
 ## Deploying
 
