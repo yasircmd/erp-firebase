@@ -113,7 +113,7 @@ test('asset master: numbering, mandatory fields, rights, company access, delete'
   assert.match(await err(call('u-admin', 'saveFaAsset', { CompanyID: 'C1', Description: 'x', CostCenterID: 'CC1' })), /Select an asset class/);
   assert.match(await err(call('u-admin', 'saveFaAsset', { CompanyID: 'C1', ClassID: vehClass, Description: 'x' })), /Select a Cost Center/);
   assert.match(await err(call('u-admin', 'saveFaAsset', { CompanyID: 'C1', ClassID: vehClass, Description: 'x', CostCenterID: 'CC1', Method: 'WDV' })), /WDV rate is required/);
-  assert.match(await err(call('u-viewer', 'saveFaAsset', { CompanyID: 'C1', ClassID: vehClass, Description: 'x', CostCenterID: 'CC1' })), /permission to create or edit entries in Asset Master/);
+  assert.match(await err(call('u-viewer', 'saveFaAsset', { CompanyID: 'C1', ClassID: vehClass, Description: 'x', CostCenterID: 'CC1' })), /permission to create or edit entries in Fixed Asset Master/);
   const a = await newAsset(vehClass);
   const b = await newAsset(landClass, { Description: 'Plot 7', CostCenterID: '' });
   assert.deepEqual([a.assetNumber, b.assetNumber], ['FA-01-000001', 'FA-01-000002']);
@@ -352,7 +352,7 @@ test('approval gating on capitalization; other company refused', async () => {
   assert.equal(r.status, 'PendingApproval');
   assert.equal((await asset(a.assetId)).Status, 'Planned');
   const tasks = await call('u-approver', 'getPendingApprovalsForUser');
-  assert.deepEqual(tasks.map(t => [t.ModuleID, t.ModuleLabel, t.DocumentID]), [['FAACQ', 'Asset Capitalization', r.postingId]]);
+  assert.deepEqual(tasks.map(t => [t.ModuleID, t.ModuleLabel, t.DocumentID]), [['FAACQ', 'Fixed Asset Capitalization', r.postingId]]);
   const d = ok(await call('u-approver', 'decideFaPostingApproval', { postingId: r.postingId, levelNumber: 1, decision: 'Approved' }));
   assert.equal(d.status, 'Approved');
   assert.equal((await asset(a.assetId)).Status, 'Active');

@@ -26,7 +26,7 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'SALESRETURN', Label: 'Sales Return / Credit Note' },
   { ModuleID: 'PDCRECEIVED', Label: 'PDC Received' },
   { ModuleID: 'PDCISSUED', Label: 'PDC Issued' },
-  { ModuleID: 'FAACQ', Label: 'Asset Capitalization' },
+  { ModuleID: 'FAACQ', Label: 'Fixed Asset Capitalization' },
   { ModuleID: 'FAADDDEP', Label: 'Additional Depreciation' },
 ];
 

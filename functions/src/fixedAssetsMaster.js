@@ -231,7 +231,7 @@ exports.deleteFaAsset = onCallWithMessages(onCallOptions, async (request) => {
     if ((await C.listWhere(COL.txns, 'AssetID', assetId)).length) throw new HttpsError('failed-precondition', 'This asset has transactions and can\'t be deleted.');
     const drafts = (await firestore.collection(COL.postings).where('AssetIDs', 'array-contains', assetId).get()).docs.map(x => x.data());
     const live = drafts.find(p => p.Status !== 'Reversed');
-    if (live) throw new HttpsError('failed-precondition', 'This asset is on ' + (live.PostingNumber || 'a draft') + ' in ' + (live.Type === 'AdditionalDepreciation' ? 'Additional Depreciation' : 'Asset Capitalization') + '; remove it there first.');
+    if (live) throw new HttpsError('failed-precondition', 'This asset is on ' + (live.PostingNumber || 'a draft') + ' in ' + (live.Type === 'AdditionalDepreciation' ? 'Additional Depreciation' : 'Fixed Asset Capitalization') + '; remove it there first.');
     await firestore.collection(COL.assets).doc(assetId).delete();
     return { success: true };
   });

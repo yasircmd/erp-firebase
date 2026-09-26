@@ -70,11 +70,11 @@ own screen, own menu node), under *Asset Accounting (FI-AA)*.
 | # | Sub-module (menu node) | Module ID | What it does | Phase |
 |---|---|---|---|---|
 | 1 | **Fixed Asset Configuration** (new node) | `FACONFIG` | Asset classes; account determination; per-company settings: Fixed Asset Clearing Account, asset number counter; reserved: period lock, locations | 1 |
-| 2 | **Asset Master** (*Capital Asset Master Management*) | `FAASSET` | Create and maintain assets; asset list and search; **History** tab (every transaction and master change); change of estimate (method, life, residual) | 1 |
-| 3 | **Asset Capitalization** (*Asset Acquisition & Capital Work-in-Progress (CWIP)*) | `FAACQ` | Capitalize from the clearing account (first acquisition and additions); take-over of existing assets; reversal | 1 |
+| 2 | **Fixed Asset Master** (*Capital Asset Master Management*) | `FAASSET` | Create and maintain assets; asset list and search; **History** tab (every transaction and master change); change of estimate (method, life, residual) | 1 |
+| 3 | **Fixed Asset Capitalization** (*Asset Acquisition & Capital Work-in-Progress (CWIP)*) | `FAACQ` | Capitalize from the clearing account (first acquisition and additions); take-over of existing assets; reversal | 1 |
 | 4 | **Depreciation Run** (*Multi-GAAP Depreciation Calculation Engine*) | `FADEPRUN` | Monthly scheduled depreciation: select, preview, post, reverse; depreciation register | 1 |
 | 5 | **Additional Depreciation** (new node) | `FAADDDEP` | Extra (unplanned) depreciation on chosen assets, with reason; reversal | 1 |
-| 6 | **Asset Register** (new node) | `FAREGISTER` | Fixed Asset Register as at a date with filters; asset history report | 1 |
+| 6 | **Fixed Asset Register** (new node) | `FAREGISTER` | Fixed Asset Register as at a date with filters; asset history report | 1 |
 | 7 | **Asset Transfer** (new node) | `FATRANSFER` | Transfers between cost centers, profit centers, divisions, branches (reserved: departments, locations, employees); transfer history | 2 |
 | 8 | **Asset Retirement** (*Asset Retirement, Transfer & Impairment*) | `FARETIRE` | Sale, scrapping, write-off, other retirement; gain/loss; reversal | 2 |
 | 9 | **Assets under Construction** (new node) | `FAAUC` | Cost collected on an AuC from the clearing account; settlement to final assets | 2 |
@@ -410,7 +410,7 @@ An AuC is an asset of an `AuC` class (status `UnderConstruction`).
 
 ## Reports
 
-**Asset Register** (`FAREGISTER`), as at a date. Filters: asset number,
+**Fixed Asset Register** (`FAREGISTER`), as at a date. Filters: asset number,
 class, description, cost center, status, acquisition and capitalization
 date ranges, supplier; department and location when they exist. Columns:
 original cost, additions, transfers, accumulated depreciation (scheduled,
@@ -652,4 +652,12 @@ full run, where the shell's one-company default loads the items twice).
 - Postings to the clearing account by modules other than Vendor
   Invoice, CBT and JV aren't guarded against reversal after
   capitalization; the reconciliation (phase 3) will show any difference.
+
+**Names (owner, 2026-09-26):** the menu entries were renamed in the live
+tree, and the labels everywhere (Roles & Permissions, Approval
+Configuration, Home tasks, screen headings, messages, the menu seed) now
+match them: Fixed Asset Configuration (FACONFIG), Fixed Asset Master
+(FAASSET), Fixed Asset Capitalization (FAACQ), Depreciation Run
+(FADEPRUN), Additional Depreciation (FAADDDEP), Fixed Asset Register
+(FAREGISTER). The sub-module table above keeps the working names.
 

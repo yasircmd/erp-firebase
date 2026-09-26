@@ -62,11 +62,11 @@ const MODULE_REGISTRY = [
   { id: 'PDCISSUED', label: 'PDC Issued', capabilities: ['access', 'draft', 'post'] },
   // New development (not in Code.gs): docs/modules/FIXED_ASSETS.md, phase 1.
   { id: 'FACONFIG', label: 'Fixed Asset Configuration', capabilities: ['access', 'write'] },
-  { id: 'FAASSET', label: 'Asset Master', capabilities: ['access', 'draft'] },
-  { id: 'FAACQ', label: 'Asset Capitalization', capabilities: ['access', 'draft', 'post'] },
+  { id: 'FAASSET', label: 'Fixed Asset Master', capabilities: ['access', 'draft'] },
+  { id: 'FAACQ', label: 'Fixed Asset Capitalization', capabilities: ['access', 'draft', 'post'] },
   { id: 'FADEPRUN', label: 'Depreciation Run', capabilities: ['access', 'post', 'reverse'] },
   { id: 'FAADDDEP', label: 'Additional Depreciation', capabilities: ['access', 'draft', 'post'] },
-  { id: 'FAREGISTER', label: 'Asset Register', capabilities: ['access'] },
+  { id: 'FAREGISTER', label: 'Fixed Asset Register', capabilities: ['access'] },
   { id: 'DATARESET', label: 'Data Reset (Admin)', capabilities: ['access', 'write'] }
 ];
 

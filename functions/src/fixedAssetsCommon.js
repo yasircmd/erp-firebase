@@ -30,8 +30,8 @@ const COL = {
   runState: 'faRunState'
 };
 const MODULES = {
-  FACONFIG: 'Fixed Asset Configuration', FAASSET: 'Asset Master', FAACQ: 'Asset Capitalization',
-  FADEPRUN: 'Depreciation Run', FAADDDEP: 'Additional Depreciation', FAREGISTER: 'Asset Register'
+  FACONFIG: 'Fixed Asset Configuration', FAASSET: 'Fixed Asset Master', FAACQ: 'Fixed Asset Capitalization',
+  FADEPRUN: 'Depreciation Run', FAADDDEP: 'Additional Depreciation', FAREGISTER: 'Fixed Asset Register'
 };
 const CLASS_KINDS = ['Tangible', 'Land', 'Intangible', 'AuC'];
 // Account determination: field, label, required account type(s).
@@ -180,7 +180,7 @@ async function assertEntryNotCapitalized(jvId) {
   const used = uses.filter(u => round2(u.Capitalized || 0) > 0);
   if (used.length) {
     const assets = [...new Set(used.flatMap(u => (u.Uses || []).filter(x => !x.Reversed).map(x => x.AssetNumber)))].join(', ');
-    throw new Error('This entry has been capitalized to fixed assets (' + assets + '). Reverse the capitalization in Asset Capitalization first.');
+    throw new Error('This entry has been capitalized to fixed assets (' + assets + '). Reverse the capitalization in Fixed Asset Capitalization first.');
   }
 }
 
