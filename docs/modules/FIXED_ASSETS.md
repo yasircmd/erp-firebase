@@ -1,6 +1,6 @@
 # Fixed Assets (Asset Accounting, FI-AA)
 
-**Status:** phase 1 built and tested 2026-09-26, not deployed; phases 2–3 not started · **Roadmap:** [#6](../ROADMAP.md) · **Branch:** `worktree-fixed-assets-design`
+**Status:** phase 1 deployed 2026-09-26 ([DEPLOY_LOG.md](../DEPLOY_LOG.md)); phases 2–3 not started · **Roadmap:** [#6](../ROADMAP.md) · **Branch:** `worktree-fixed-assets-design`
 
 ## Purpose
 
