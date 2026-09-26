@@ -19,5 +19,6 @@ function) and outside `public/` (Hosting never publishes it).
 - **A release is refused** if a registry module has no screen, a screen
   isn't in the registry, or a screen still calls `google.script.run`.
 - **Generated or built files:** the ported screens come from
-  `tools/legacy-port/generate.js`, and `CUSTOMERSOA.html` from
-  `tools/build-soa-screens.js`. Edit their sources, not the output.
+  `tools/legacy-port/generate.js`, `CUSTOMERSOA.html` from
+  `tools/build-soa-screens.js`, and `PDCISSUED.html` from
+  `tools/build-pdc-screens.js`. Edit their sources, not the output.

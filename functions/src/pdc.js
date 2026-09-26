@@ -115,11 +115,19 @@ async function resolvePartyLine(cfg, doc, coa) {
   if (!account) throw new Error('This ' + cfg.partyType.toLowerCase() + ' has no ' + pcfg.accountLabel + ' account configured. Set one in ' + cfg.partyType + ' Master Data.');
   const amount = round2(doc.Amount);
   const received = cfg.partyType === 'Customer';
+  // The screen sends what the cheque settles (Against); the rest of the
+  // cheque is kept as an advance (one New Ref).
+  const against = (doc.Allocations || []).filter(a => a.RefType !== 'New');
+  const againstTotal = round2(against.reduce((sum, a) => sum + (Number(a.Amount) || 0), 0));
+  if (againstTotal > amount + 0.005) {
+    throw new Error('The allocations (' + againstTotal.toFixed(2) + ') are more than the cheque amount (' + amount.toFixed(2) + ').');
+  }
+  const allocations = against.concat(amount - againstTotal > 0.005 ? [{ RefType: 'New', RefID: '', Amount: round2(amount - againstTotal) }] : []);
   const line = {
     LineNo: 1, AccountID: party[pcfg.accountField], AccountCode: account.AccountCode, AccountName: account.AccountName,
     Debit: received ? 0 : amount, Credit: received ? amount : 0,
     CostCenterID: doc.CostCenterID || '', ProfitCenterID: doc.ProfitCenterID || '',
-    PartyType: cfg.partyType, PartyID: doc.PartyID, Allocations: doc.Allocations || []
+    PartyType: cfg.partyType, PartyID: doc.PartyID, Allocations: allocations
   };
   let resolved;
   try {
@@ -458,10 +466,9 @@ exports.clearPdcs = onCallWithMessages(onCallOptions, async (request) => {
       const received = p.Direction === 'Received';
       const label = cfg.label + ' ' + p.ChequeNumber + ' cleared — ' + (p.PartyName || '');
       const dims = { CostCenterID: p.CostCenterID || '', ProfitCenterID: p.ProfitCenterID || '' };
-      const glLines = [
-        Object.assign({ AccountCode: bank.AccountCode, Debit: received ? amount : 0, Credit: received ? 0 : amount, Description: label }, dims),
-        Object.assign({ AccountCode: clearing.AccountCode, Debit: received ? 0 : amount, Credit: received ? amount : 0, Description: label }, dims)
-      ];
+      const bankLine = Object.assign({ AccountCode: bank.AccountCode, Debit: received ? amount : 0, Credit: received ? 0 : amount, Description: label }, dims);
+      const clearingLine = Object.assign({ AccountCode: clearing.AccountCode, Debit: received ? 0 : amount, Credit: received ? amount : 0, Description: label }, dims);
+      const glLines = received ? [bankLine, clearingLine] : [clearingLine, bankLine];
       const glResult = await writeStockGlEntry(user, cfg.clearType, clearDate, label, p.TransactionNumber || p.ChequeNumber, glLines, dimsOf(p),
         { SourceTransactionID: id, ReversalOfJV: '', PartyKeys: [], AllocatedRefs: [], AllocatedRefTypes: [] });
       const now = new Date().toISOString();

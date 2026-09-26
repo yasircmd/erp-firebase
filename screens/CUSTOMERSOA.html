@@ -74,6 +74,22 @@
 
     <div class="grid grid-cols-2 md:grid-cols-6 gap-2" id="soa-aging"></div>
 
+    <div id="soa-pdc-section" class="space-y-2">
+      <p class="text-xs font-semibold text-slate-400 uppercase">Pending PDCs <span id="soa-pdc-asat" class="normal-case font-normal text-slate-500"></span></p>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+              <th class="py-2 px-3">Document</th><th class="py-2 px-3">Date</th><th class="py-2 px-3">Cheque No.</th><th class="py-2 px-3">Bank</th>
+              <th class="py-2 px-3">Cheque Date</th><th class="py-2 px-3 text-right">Days to Maturity</th><th class="py-2 px-3 text-right">Amount</th>
+            </tr></thead>
+            <tbody id="soa-pdc-rows" class="divide-y divide-slate-700 text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="soa-pdc-summary" class="text-sm space-y-1"></div>
+    </div>
+
     <div id="soa-recon" class="no-print text-xs rounded-lg p-3 border"></div>
   </div>
 </div>
@@ -95,7 +111,10 @@
     'Credit Note': 'SALESRETURN', 'Credit Note Reversal': 'SALESRETURN',
     'Journal': 'JV', 'Journal Reversal': 'JV'
   };
-  const sourceModule = type => SOURCE_MODULES[type] || (/^(Cash|Bank) (Receipt|Payment)/.test(type) ? 'CBT' : '');
+  // PDC rows: 'PDC Received', 'PDC Received Bounced', 'PDC Issued Cancelled', …
+  const PDC_MODULES = { 'PDC Received': 'PDCRECEIVED', 'PDC Issued': 'PDCISSUED' };
+  const sourceModule = type => SOURCE_MODULES[type] || (/^(Cash|Bank) (Receipt|Payment)/.test(type) ? 'CBT' : '') ||
+    PDC_MODULES[(/^PDC (Received|Issued)/.exec(type) || [''])[0]] || '';
 
   let parties = [];
   let report = null;
@@ -206,6 +225,8 @@
         <p class="font-mono text-sm ${b.key === 'total' ? 'font-bold' : ''}">${formatMoney(b.amount)}</p>
       </div>`).join('');
 
+    renderPendingPdcs(r);
+
     const rec = r.Reconciliation;
     const box = document.getElementById('soa-recon');
     if (rec.status === 'ok') {
@@ -220,6 +241,33 @@
         ? 'Reconciliation: GL account ' + rec.AccountCode + ' is shared with other parties, so its balance can\'t be compared with one statement.'
         : 'Reconciliation: this ' + CONFIG.partyLabel.toLowerCase() + ' has no control account set.';
     }
+  }
+
+  // Post-dated cheques not yet cleared at the end date (docs/modules/PDC.md).
+  function renderPendingPdcs(r) {
+    const list = r.PendingPdcs || [];
+    document.getElementById('soa-pdc-asat').textContent = '(not yet cleared at ' + r.ToDate + ')';
+    const tbody = document.getElementById('soa-pdc-rows');
+    tbody.innerHTML = list.length ? '' : '<tr><td colspan="7" class="py-3 px-3 text-xs text-slate-500 text-center">No post-dated cheques pending.</td></tr>';
+    list.forEach(p => {
+      const tr = document.createElement('tr');
+      const module = p.Direction === 'Received' ? 'PDCRECEIVED' : 'PDCISSUED';
+      tr.innerHTML = `
+        <td class="py-2 px-3 font-mono text-xs">${p.LinkedJVID ? `<button class="soa-open text-blue-400 hover:text-blue-300 underline">${escapeHtml(p.Number)}</button>` : escapeHtml(p.Number)}</td>
+        <td class="py-2 px-3 text-xs text-slate-400">${escapeHtml(p.Date)}</td>
+        <td class="py-2 px-3 font-mono text-xs">${escapeHtml(p.ChequeNumber)}</td>
+        <td class="py-2 px-3 text-xs">${escapeHtml(p.Bank)}</td>
+        <td class="py-2 px-3 text-xs text-slate-400">${escapeHtml(p.ChequeDate)}</td>
+        <td class="py-2 px-3 text-right text-xs ${p.DaysToMaturity < 0 ? 'text-red-400' : 'text-slate-400'}">${p.DaysToMaturity < 0 ? Math.abs(p.DaysToMaturity) + ' overdue' : p.DaysToMaturity}</td>
+        <td class="py-2 px-3 text-right font-mono">${formatMoney(p.Amount)}</td>`;
+      const btn = tr.querySelector('.soa-open');
+      if (btn) btn.addEventListener('click', () => openSource(module, p.LinkedJVID));
+      tbody.appendChild(tr);
+    });
+    document.getElementById('soa-pdc-summary').innerHTML = list.length ? `
+      <div class="flex justify-between max-w-md"><span class="text-slate-400">Closing balance</span><span class="font-mono">${formatMoney(r.Closing)}</span></div>
+      <div class="flex justify-between max-w-md"><span class="text-slate-400">of which settled by pending PDCs</span><span class="font-mono">${formatMoney(r.PendingPdcTotal)}</span></div>
+      <div class="flex justify-between max-w-md font-semibold"><span>Balance if pending PDCs bounce</span><span id="soa-pdc-if-bounce" class="font-mono">${formatMoney(r.BalanceIfPdcsBounce)}</span></div>` : '';
   }
 
   function openSource(moduleId, jvId) {
@@ -242,6 +290,10 @@
       ['Open items as at ' + r.ToDate], ['Document', 'Type', 'Date', 'Due', 'Days overdue', 'Amount', 'Outstanding']);
     r.OpenItems.forEach(i => lines.push([i.Number, i.Type, i.Date, i.DueDate, i.DaysOverdue, i.Amount.toFixed(2), i.Outstanding.toFixed(2)]));
     lines.push([], ['Aging'].concat(r.Aging.map(b => b.label), ['Total']), [''].concat(r.Aging.map(b => b.amount.toFixed(2)), [r.OpenTotal.toFixed(2)]));
+    const pdcs = r.PendingPdcs || [];
+    lines.push([], ['Pending PDCs as at ' + r.ToDate], ['Document', 'Date', 'Cheque No.', 'Bank', 'Cheque Date', 'Days to maturity', 'Amount']);
+    pdcs.forEach(p => lines.push([p.Number, p.Date, p.ChequeNumber, p.Bank, p.ChequeDate, p.DaysToMaturity, p.Amount.toFixed(2)]));
+    if (pdcs.length) lines.push(['', '', '', '', '', 'Total pending', r.PendingPdcTotal.toFixed(2)], ['', '', '', '', '', 'Balance if pending PDCs bounce', r.BalanceIfPdcsBounce.toFixed(2)]);
     const blob = new Blob(['﻿' + lines.map(l => l.map(csvCell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
