@@ -16,13 +16,14 @@ const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { PARTY_TYPES, addDays, queryEntries, getOpenItemsForParty } = require('./partyLedger');
+const { pendingPdcsForParty } = require('./pdc');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULES = { Vendor: 'VENDORSOA', Customer: 'CUSTOMERSOA' };
 // Which side increases the balance, in the party's natural sense.
 const GROWS = { Vendor: 'Cr', Customer: 'Dr' };
 const DOC_TYPES = {
-  JV: 'Journal', PurchaseReturn: 'Debit Note', SalesReturn: 'Credit Note',
+  JV: 'Journal', PurchaseReturn: 'Debit Note', SalesReturn: 'Credit Note', PDCReceived: 'PDC Received', PDCIssued: 'PDC Issued',
   'Cash Receipt': 'Cash Receipt', 'Bank Receipt': 'Bank Receipt', 'Cash Payment': 'Cash Payment', 'Bank Payment': 'Bank Payment'
 };
 const AGING = [
@@ -65,7 +66,8 @@ async function partyMovements(partyType, partyId, companyId) {
       const debit = Number(l.Debit) || 0;
       rows.push({
         Date: e.JVDate || '', Order: e.PostedAt || e.CreatedAt || '', Number: e.JVNumber || '',
-        Type: (DOC_TYPES[e.VoucherType] || e.VoucherType || 'Journal') + (e.ReversalOfJV ? ' Reversal' : ''),
+        // A PDC's bounce or cancellation reverses its post entry.
+        Type: (DOC_TYPES[e.VoucherType] || e.VoucherType || 'Journal') + (e.ReversalOfJV ? (e.PdcEvent ? ' ' + e.PdcEvent : ' Reversal') : ''),
         Reference: e.Reference || '', Description: l.Description || e.Description || '',
         Side: debit > 0 ? 'Dr' : 'Cr', Amount: round2(debit > 0 ? debit : Number(l.Credit) || 0),
         Reversed: Boolean(e.ReversedByJV), IsReversal: Boolean(e.ReversalOfJV), SourceID: e._id, LinkedJVID: e._id,
@@ -156,6 +158,13 @@ async function buildStatement(partyType, partyId, companyId, fromDate, toDate) {
   const gl = await controlAccountBalance(partyType, partyId, party, companyId, toDate);
   if (gl.status === 'ok') gl.Difference = round2(closing - gl.Balance);
 
+  // Post-dated cheques still to clear as at the end date (docs/modules/PDC.md).
+  // Each already reduced the balance when received/issued; if they all
+  // bounced, the balance would go back up by their total.
+  const pendingPdcs = (await pendingPdcsForParty(partyType, partyId, companyId, toDate))
+    .map(p => Object.assign(p, { DaysToMaturity: daysBetween(toDate, p.ChequeDate) }));
+  const pendingPdcTotal = round2(pendingPdcs.reduce((sum, p) => sum + p.Amount, 0));
+
   return {
     PartyType: partyType, PartyID: partyId, PartyCode: party[cfg.codeField] || '', PartyName: party[cfg.nameField] || '',
     PartyAddress: [party.AddressLine1, party.AddressLine2, party.Country].filter(Boolean).join(', '),
@@ -163,7 +172,8 @@ async function buildStatement(partyType, partyId, companyId, fromDate, toDate) {
     CompanyID: companyId, CompanyName: company.LegalName || '', FromDate: fromDate, ToDate: toDate,
     BalanceLabel: partyType === 'Vendor' ? 'Payable to vendor' : 'Receivable from customer',
     Opening: opening, Rows: rows, Totals: totals, Closing: closing,
-    OpenItems: open, OpenTotal: openTotal, Aging: aging, Reconciliation: gl
+    OpenItems: open, OpenTotal: openTotal, Aging: aging, Reconciliation: gl,
+    PendingPdcs: pendingPdcs, PendingPdcTotal: pendingPdcTotal, BalanceIfPdcsBounce: round2(closing + pendingPdcTotal)
   };
 }
 

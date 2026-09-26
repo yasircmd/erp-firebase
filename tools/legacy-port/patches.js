@@ -518,5 +518,54 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
     replace: `  PurchaseReturn: 'PURCHASERETURN', // [NEW DEVELOPMENT] docs/modules/PURCHASE_RETURN.md
   SalesReturn: 'SALESRETURN' // [NEW DEVELOPMENT] docs/modules/SALES_RETURN.md
 };`
+  },
+  // ---- NEW DEVELOPMENT: PDC Received / PDC Issued (docs/modules/PDC.md) ----
+  {
+    id: 'company-pdc-clearing-accounts (read)',
+    why: 'NEW DEVELOPMENT. Company Master gains the PDC Received and PDC Issued Clearing Accounts: a post-dated ' +
+      'cheque sits in its clearing account between receipt/issue and clearing to the bank.',
+    find: `    const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();`,
+    replace: `    const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();
+    // [NEW DEVELOPMENT company-pdc-clearing-accounts]
+    const pdcReceivedClearingAccountId = String(companyData.PdcReceivedClearingAccountID || '').trim();
+    const pdcIssuedClearingAccountId = String(companyData.PdcIssuedClearingAccountID || '').trim();`
+  },
+  {
+    id: 'company-pdc-clearing-accounts (validate)',
+    why: 'Same checks as the other fixed accounts: active, postable, not restricted to another company. PDC posting ' +
+      'also refuses a bank account or a party control account (functions/src/pdc.js).',
+    find: `      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' }
+    ];`,
+    replace: `      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' },
+      { id: pdcReceivedClearingAccountId, label: 'PDC Received Clearing Account' },
+      { id: pdcIssuedClearingAccountId, label: 'PDC Issued Clearing Account' }
+    ];`
+  },
+  {
+    id: 'company-pdc-clearing-accounts (store)',
+    why: 'Stored on the company record next to the other fixed accounts.',
+    find: `      PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,`,
+    replace: `      PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,
+      PdcReceivedClearingAccountID: pdcReceivedClearingAccountId,
+      PdcIssuedClearingAccountID: pdcIssuedClearingAccountId,`
+  },
+  {
+    id: 'data-reset-pdc-cheques (category)',
+    why: 'NEW DEVELOPMENT. PDC documents live in their own RTDB path (pdcCheques), so Data Reset needs a category ' +
+      'for them, as it has for Vendor and Customer Invoices.',
+    find: `  customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications',`,
+    replace: `  // [NEW DEVELOPMENT data-reset-pdc-cheques] docs/modules/PDC.md
+  pdcCheques: { paths: ['pdcCheques'], recordsPath: 'pdcCheques', label: 'PDC Received & Issued', detail: 'Every post-dated cheque record (PDC Received and PDC Issued) — Draft, Pending, Cleared, Bounced and Cancelled alike. Their GL entries are in GL Journal Entries: clear both together.', group: 'transactional' },
+  customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications',`
+  },
+  {
+    id: 'data-reset-pdc-cheques (summary)',
+    why: 'How a PDC record is listed when browsing the category.',
+    find: `    case 'customerClassifications':
+      return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');`,
+    replace: `    case 'customerClassifications':
+      return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');
+    case 'pdcCheques':
+      return (r.TransactionNumber || 'DRAFT') + ' — ' + (r.Direction || '') + ' cheque ' + (r.ChequeNumber || '') + ' dated ' + (r.ChequeDate || '') + ' [' + (r.Status || '') + ']';`
   }
 ];

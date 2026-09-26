@@ -61,6 +61,20 @@
       </div>
 
       <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-4">
+        <p class="text-xs font-semibold text-slate-400 uppercase">Post-dated Cheques (PDC) — Clearing Accounts <span class="normal-case font-normal text-slate-500">(each needed before that kind of PDC can be posted)</span></p>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">PDC Received Clearing Account</label>
+          <select id="co-form-pdc-received" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
+          <p class="text-xs text-slate-500 mt-1">A customer's post-dated cheque is debited here when received and credited when it clears to the bank. Not a bank account or a customer/vendor account.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">PDC Issued Clearing Account</label>
+          <select id="co-form-pdc-issued" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Not configured</option></select>
+          <p class="text-xs text-slate-500 mt-1">A post-dated cheque issued to a vendor is credited here when issued and debited when it clears from the bank. Not a bank account or a customer/vendor account.</p>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-4">
         <p class="text-xs font-semibold text-slate-400 uppercase">Customer Invoice Processing — Fixed Accounts <span class="normal-case font-normal text-slate-500">(each optional until actually needed — Accounts Receivable itself is set per-Customer, on Customer Master Data, not here)</span></p>
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">Discount Given Account</label>
@@ -126,7 +140,7 @@
         accounts = result || [];
         const eligible = accounts.filter(a => a.Status === 'Active' && a.IsPostable === true)
           .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
-        ['co-form-grnclearing', 'co-form-discount', 'co-form-tax', 'co-form-roundoff', 'co-form-discount-given', 'co-form-tax-output', 'co-form-return-variance'].forEach(fieldId => {
+        ['co-form-grnclearing', 'co-form-discount', 'co-form-tax', 'co-form-roundoff', 'co-form-discount-given', 'co-form-tax-output', 'co-form-return-variance', 'co-form-pdc-received', 'co-form-pdc-issued'].forEach(fieldId => {
           const select = document.getElementById(fieldId);
           select.innerHTML = '<option value="">Not configured</option>';
           eligible.forEach(a => {
@@ -253,6 +267,8 @@
       document.getElementById('co-form-discount-given').value = c.DiscountGivenAccountID || '';
       document.getElementById('co-form-tax-output').value = c.OutputTaxAccountID || '';
       document.getElementById('co-form-return-variance').value = c.PurchaseReturnVarianceAccountID || '';
+      document.getElementById('co-form-pdc-received').value = c.PdcReceivedClearingAccountID || '';
+      document.getElementById('co-form-pdc-issued').value = c.PdcIssuedClearingAccountID || '';
       document.getElementById('co-form-address1').value = c.AddressLine1 || '';
       document.getElementById('co-form-address2').value = c.AddressLine2 || '';
       document.getElementById('co-form-city').value = c.City || '';
@@ -286,6 +302,8 @@
       DiscountGivenAccountID: document.getElementById('co-form-discount-given').value,
       OutputTaxAccountID: document.getElementById('co-form-tax-output').value,
       PurchaseReturnVarianceAccountID: document.getElementById('co-form-return-variance').value,
+      PdcReceivedClearingAccountID: document.getElementById('co-form-pdc-received').value,
+      PdcIssuedClearingAccountID: document.getElementById('co-form-pdc-issued').value,
       TaxNumbers: taxRows,
       AddressLine1: document.getElementById('co-form-address1').value.trim(),
       AddressLine2: document.getElementById('co-form-address2').value.trim(),

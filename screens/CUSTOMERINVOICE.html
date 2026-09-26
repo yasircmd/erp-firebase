@@ -365,6 +365,7 @@
     const overdue = e.PaymentStatus !== 'Paid' && e.DueDate && e.DueDate < new Date().toISOString().substring(0, 10);
     const color = e.PaymentStatus === 'Paid' ? 'text-emerald-400' : (overdue ? 'text-red-400' : (e.PaymentStatus === 'Partly paid' ? 'text-amber-400' : 'text-slate-300'));
     return `<span class="${color}">${escapeHtml(e.PaymentStatus)}</span>` +
+      (e.PdcPending > 0 ? `<div class="text-amber-400" title="${formatMoney(e.PdcPending)} is settled by post-dated cheques that haven't cleared yet">(PDC pending)</div>` : '') +
       (e.DueDate && e.PaymentStatus !== 'Paid' ? `<div class="text-slate-500">${overdue ? 'Overdue — due ' : 'Due '}${escapeHtml(e.DueDate)}</div>` : '');
   }
 

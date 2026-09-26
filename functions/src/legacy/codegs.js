@@ -263,6 +263,8 @@ const DATA_RESET_CATEGORIES = {
   companies: { paths: ['companies'], recordsPath: 'companies', label: 'Company Master Data', detail: 'Every company record and its configured accounts.', group: 'master' },
   orgUnits: { paths: ['orgUnits'], recordsPath: 'orgUnits', label: 'Organizational Units', detail: 'Divisions, Branches, Warehouses, Racks, Cost Centers, Profit Centers.', group: 'master' },
   salesTypes: { paths: ['salesTypes'], recordsPath: 'salesTypes', label: 'Sales Types', detail: 'Local Sales, Export Sales, and any other Sales Type configured for Customer Invoice — clearing this without also addressing Customer Invoice will leave posted invoices referencing a Sales Type that no longer exists.', group: 'master' },
+  // [NEW DEVELOPMENT data-reset-pdc-cheques] docs/modules/PDC.md
+  pdcCheques: { paths: ['pdcCheques'], recordsPath: 'pdcCheques', label: 'PDC Received & Issued', detail: 'Every post-dated cheque record (PDC Received and PDC Issued) — Draft, Pending, Cleared, Bounced and Cancelled alike. Their GL entries are in GL Journal Entries: clear both together.', group: 'transactional' },
   customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications', detail: 'Local/Export and any other classification configured for Customer Master Data — will reseed the Local/Export defaults next time it\'s opened.', group: 'master' }
 };
 
@@ -1299,6 +1301,9 @@ async function saveCompany(idToken, companyData) {
     const outputTaxAccountId = String(companyData.OutputTaxAccountID || '').trim();
     // [NEW DEVELOPMENT company-purchase-return-variance-account]
     const purchaseReturnVarianceAccountId = String(companyData.PurchaseReturnVarianceAccountID || '').trim();
+    // [NEW DEVELOPMENT company-pdc-clearing-accounts]
+    const pdcReceivedClearingAccountId = String(companyData.PdcReceivedClearingAccountID || '').trim();
+    const pdcIssuedClearingAccountId = String(companyData.PdcIssuedClearingAccountID || '').trim();
     let refCode = String(companyData.CompanyRefCode || '').trim();
 
     if (!legalName) throw new Error('Legal company name is required.');
@@ -1342,7 +1347,9 @@ async function saveCompany(idToken, companyData) {
       { id: roundOffAccountId, label: 'Round Off Account' },
       { id: discountGivenAccountId, label: 'Discount Given Account' },
       { id: outputTaxAccountId, label: 'Output Tax Account' },
-      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' }
+      { id: purchaseReturnVarianceAccountId, label: 'Purchase Return Variance Account' },
+      { id: pdcReceivedClearingAccountId, label: 'PDC Received Clearing Account' },
+      { id: pdcIssuedClearingAccountId, label: 'PDC Issued Clearing Account' }
     ];
     await seq.forEach(fixedAccountFields, async f => {
       if (!f.id) return;
@@ -1416,6 +1423,8 @@ async function saveCompany(idToken, companyData) {
       DiscountGivenAccountID: discountGivenAccountId,
       OutputTaxAccountID: outputTaxAccountId,
       PurchaseReturnVarianceAccountID: purchaseReturnVarianceAccountId,
+      PdcReceivedClearingAccountID: pdcReceivedClearingAccountId,
+      PdcIssuedClearingAccountID: pdcIssuedClearingAccountId,
       Status: status
     };
 
@@ -5274,6 +5283,8 @@ function summarizeDataResetRecord_(categoryKey, id, r) {
       return (r.Name || '') + (r.RestrictedToClassificationID ? ' [restricted]' : ' [unrestricted]');
     case 'customerClassifications':
       return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');
+    case 'pdcCheques':
+      return (r.TransactionNumber || 'DRAFT') + ' — ' + (r.Direction || '') + ' cheque ' + (r.ChequeNumber || '') + ' dated ' + (r.ChequeDate || '') + ' [' + (r.Status || '') + ']';
     default:
       return id;
   }

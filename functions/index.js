@@ -46,6 +46,10 @@ const {
   deleteSalesReturnDraft, getSalesReturnEntries, reverseSalesReturn
 } = require('./src/salesReturn');
 const { getPartyStatement } = require('./src/partyStatement');
+const {
+  getPdcSetup, getPdcOpenItems, savePdcDraft, deletePdcDraft, postPdc, decidePdcApproval,
+  clearPdcs, bouncePdc, cancelPdc, undoPdcClearing, getPdcEntries, getPdcsDueForUser
+} = require('./src/pdc');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
@@ -121,6 +125,18 @@ exports.deleteSalesReturnDraft = deleteSalesReturnDraft;
 exports.getSalesReturnEntries = getSalesReturnEntries;
 exports.reverseSalesReturn = reverseSalesReturn;
 exports.getPartyStatement = getPartyStatement;
+exports.getPdcSetup = getPdcSetup;
+exports.getPdcOpenItems = getPdcOpenItems;
+exports.savePdcDraft = savePdcDraft;
+exports.deletePdcDraft = deletePdcDraft;
+exports.postPdc = postPdc;
+exports.decidePdcApproval = decidePdcApproval;
+exports.clearPdcs = clearPdcs;
+exports.bouncePdc = bouncePdc;
+exports.cancelPdc = cancelPdc;
+exports.undoPdcClearing = undoPdcClearing;
+exports.getPdcEntries = getPdcEntries;
+exports.getPdcsDueForUser = getPdcsDueForUser;
 
 // Every remaining Code.gs module, ported mechanically (see
 // tools/legacy-port/generate.js): one callable per function a ported
