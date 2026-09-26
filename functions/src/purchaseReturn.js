@@ -118,6 +118,9 @@ async function invoiceGrnLines(invoiceId, inv, excludeReturnId, allTx) {
         SourceGRNID: g.GRNID, SourceGRNNumber: grn.TransactionNumber || g.GRNNumber || '', SourceGRNLineNo: lineNo,
         ItemID: l.ItemID, ItemCode: l.ItemCode || '', ItemName: l.ItemName || '', WarehouseID: l.WarehouseID,
         BatchNumber: l.BatchNumber || '', UnitCost: Number(l.UnitCost) || 0,
+        // The cost center the goods were received under: the GRN line's,
+        // else the GRN's own.
+        CostCenterID: l.CostCenterID || grn.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || grn.ProfitCenterID || '',
         Quantity: qty, ReturnedQuantity: done, ReturnableQuantity: Math.max(0, round6(qty - done))
       });
     });
@@ -172,6 +175,7 @@ async function buildLines(rawLines, invoiceId, inv, excludeReturnId) {
       SourceGRNID: src.SourceGRNID, SourceGRNNumber: src.SourceGRNNumber, SourceGRNLineNo: src.SourceGRNLineNo,
       ItemID: src.ItemID, ItemCode: src.ItemCode || (item && item.ItemCode) || '', ItemName: src.ItemName || (item && item.ItemName) || '',
       WarehouseID: src.WarehouseID, BatchNumber: src.BatchNumber,
+      CostCenterID: src.CostCenterID || inv.CostCenterID || '', ProfitCenterID: src.ProfitCenterID || inv.ProfitCenterID || '',
       Quantity: round6(qty), InvoiceUnitCost: src.UnitCost, ReturnValue: round2(qty * src.UnitCost),
       Description: String(raw.Description || '').trim() || ('Return ' + (src.ItemCode || '') + ' — ' + src.SourceGRNNumber)
     });
@@ -357,10 +361,23 @@ async function commitPurchaseReturnPosting(user, existing, returnId) {
   }
   if (variance !== 0) {
     const acc = await resolveCompanyAccount(existing.CompanyID, 'PurchaseReturnVarianceAccountID', 'Purchase Return Variance Account', coaData);
-    glLines.push(Object.assign({
-      AccountCode: acc.AccountCode, Debit: variance < 0 ? -variance : 0, Credit: variance > 0 ? variance : 0,
-      Description: 'Return at invoice price vs stock value — ' + existing.Description
-    }, dims));
+    // One variance line per cost center the goods were received under, so
+    // the variance lands where the original purchase did.
+    const byCenter = new Map();
+    movementLines.forEach(l => {
+      const key = l.CostCenterID + '|' + l.ProfitCenterID;
+      const v = byCenter.get(key) || { CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID, Amount: 0 };
+      v.Amount = round2(v.Amount + l.ReturnValue - l.TotalValue);
+      byCenter.set(key, v);
+    });
+    byCenter.forEach(v => {
+      if (v.Amount === 0) return;
+      glLines.push({
+        AccountCode: acc.AccountCode, Debit: v.Amount < 0 ? -v.Amount : 0, Credit: v.Amount > 0 ? v.Amount : 0,
+        Description: 'Return at invoice price vs stock value — ' + existing.Description,
+        CostCenterID: v.CostCenterID, ProfitCenterID: v.ProfitCenterID
+      });
+    });
   }
 
   const actor = user.profile.username || user.uid;

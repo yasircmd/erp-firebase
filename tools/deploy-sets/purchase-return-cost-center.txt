@@ -1,0 +1,6 @@
+# Purchase Return cost-center fix (docs/modules/PURCHASE_RETURN.md, Fix 2026-09-26).
+# Existing functions; no screen change.
+getReturnableVendorInvoices      # return lines carry the GRN's cost center
+savePurchaseReturnDraft          # stores it on the lines
+postPurchaseReturn               # variance per cost center
+decidePurchaseReturnApproval     # final approval commits the same way

@@ -165,3 +165,19 @@ from, and how it was verified. The deploy procedure is in the
   - **From now on**, screen-only changes go live with
     `tools/release-screens.sh`; roll back with `list` and
     `rollback <ID>`.
+
+- **2026-09-26, Purchase Return cost-center fix
+  ([PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md), PR #6):**
+  `tools/deploy-functions.sh purchase-return-cost-center` from `39276cd`
+  (branch `purchase-return-cost-center`, clean checkout, in tmux)
+  updated four existing functions: `getReturnableVendorInvoices`,
+  `savePurchaseReturnDraft`, `postPurchaseReturn`,
+  `decidePurchaseReturnApproval` (1 batch, `ALL DONE`, Node 24). No screen
+  change.
+  - **Fixes:** posting refused with "account 510001 (COGS) requires a
+    Cost Center" when the invoice header had no cost center. The variance
+    and Inventory lines now take the GRN's cost center.
+  - **Verified:** all four answer an unauthenticated call with "Please
+    sign in again", so they're still public and live.
+  - **Beforehand:** purchaseReturn emulator suite 7/7 (with a negative
+    control) and UI checks 4/4.
