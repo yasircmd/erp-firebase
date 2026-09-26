@@ -94,12 +94,22 @@ async function seed() {
 
   await check('capitalization: open clearing item to the asset, post', async () => {
     const page = await open('FAACQ', 'u-admin');
+    // The company's items load twice (the shell's one-company default, then
+    // the pick below). Hold the first answer back until after an amount is
+    // entered: a late, stale answer must not redraw the list and wipe it.
+    let first = true;
+    await page.route('**/getFaClearingItems', async route => {
+      if (first) { first = false; await new Promise(r => setTimeout(r, 3000)); }
+      await route.continue();
+    });
     await page.click('#fap-new-btn');
     await page.selectOption('#fap-form-company', 'C1');
     await page.waitForSelector('#fap-items-body .fap-all', { timeout: 15000 });
     assert.match(await page.textContent('#fap-items-body'), /Journal.*Van.*120,000\.00/s);
     await page.fill('#fap-form-date', '2026-01-01');
     await page.click('#fap-items-body .fap-all');
+    await page.waitForTimeout(3500);
+    assert.equal(await page.inputValue('#fap-items-body .fap-use'), '120000', 'the amount survives the late load');
     await page.selectOption('#fap-target-asset', { label: 'FA-01-000001 — Delivery van' });
     await page.click('#fap-add-btn');
     assert.equal(await page.textContent('#fap-lines-total'), '120,000.00');

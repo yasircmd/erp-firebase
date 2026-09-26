@@ -113,6 +113,8 @@
   let current = null;       // stored posting, or null for a new one
   let type = 'Capitalization';
   let lines = [];           // capitalization: [{ AssetID, Items: [{ JVID, LineNo, JVNumber, Amount }] }]; take-over: rows
+  let useAmounts = {};      // amounts typed against open items, by "JVID|LineNo" (kept across redraws)
+  let loadSeq = 0;          // only the latest company load may draw
   let isDirty = false;
   let myReturnChain = [];
   const STATUS_COLORS = {
@@ -157,13 +159,15 @@
 
   // ---------- company data: assets and open items ----------
   function loadCompany(companyId, then) {
+    const seq = ++loadSeq;
     assets = []; items = [];
     if (!companyId) { renderAll(); if (then) then(); return; }
     let pending = 2;
-    const done = () => { if (--pending === 0) { renderAll(); if (then) then(); } };
-    rpc.withSuccessHandler(r => { assets = r || []; done(); }).withFailureHandler(e => { showError(e.message); done(); }).getFaAssets({ companyId: companyId, moduleId: 'FAACQ' });
+    const done = () => { if (seq === loadSeq && --pending === 0) { renderAll(); if (then) then(); } };
+    rpc.withSuccessHandler(r => { if (seq === loadSeq) assets = r || []; done(); }).withFailureHandler(e => { showError(e.message); done(); }).getFaAssets({ companyId: companyId, moduleId: 'FAACQ' });
     if (type !== 'Capitalization') { done(); return; }
     rpc.withSuccessHandler(r => {
+      if (seq !== loadSeq) return;
       items = r.items || [];
       $('fap-open-total').textContent = r.configured ? '— ' + formatMoney(r.openTotal) + ' open' : '';
       if (!r.configured) showError('This company has no Fixed Asset Clearing Account: set it in Fixed Asset Configuration → Settings.');
@@ -186,11 +190,13 @@
       '</td><td class="py-2 px-3 text-xs">' + escapeHtml(SOURCES[i.VoucherType] || i.VoucherType) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(i.VendorName || '') +
       '</td><td class="py-2 px-3 text-xs">' + escapeHtml(i.Description) + (i.VendorRefNumber ? ' <span class="text-slate-500">(' + escapeHtml(i.VendorRefNumber) + ')</span>' : '') +
       '</td><td class="py-2 px-3 text-right font-mono text-xs">' + formatMoney(i.Left) + '</td><td class="py-2 px-3"><div class="flex gap-1"><input data-key="' + escapeHtml(i.JVID + '|' + i.LineNo) +
-      '" inputmode="decimal" class="fap-use w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right font-mono"><button data-all="' + escapeHtml(i.JVID + '|' + i.LineNo) + '" data-left="' + i.Left +
+      '" value="' + escapeHtml(useAmounts[i.JVID + '|' + i.LineNo] || '') + '" inputmode="decimal" class="fap-use w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right font-mono"><button data-all="' + escapeHtml(i.JVID + '|' + i.LineNo) + '" data-left="' + i.Left +
       '" class="fap-all text-xs px-2 bg-slate-700 rounded" title="Use all">All</button></div></td></tr>').join('') ||
       '<tr><td colspan="7" class="py-4 px-3 text-xs text-slate-500">' + (val('fap-form-company') ? 'Nothing open on the Fixed Asset Clearing Account.' : 'Select a company.') + '</td></tr>';
+    $('fap-items-body').querySelectorAll('.fap-use').forEach(inp => inp.addEventListener('input', () => { useAmounts[inp.dataset.key] = inp.value; }));
     $('fap-items-body').querySelectorAll('.fap-all').forEach(b => b.addEventListener('click', () => {
       $('fap-items-body').querySelector('input[data-key="' + b.dataset.all + '"]').value = b.dataset.left;
+      useAmounts[b.dataset.all] = b.dataset.left;
     }));
     const target = $('fap-target-asset'); const keep = target.value;
     target.innerHTML = '<option value="">Asset to capitalize to...</option>' + assets.filter(a => ['Planned', 'Active', 'FullyDepreciated'].includes(a.Status) && a.ClassKind !== 'AuC')
@@ -218,6 +224,7 @@
       const same = line.Items.find(i => i.JVID === p.JVID && i.LineNo === p.LineNo);
       if (same) same.Amount = round2(same.Amount + p.Amount); else line.Items.push(p);
     });
+    useAmounts = {};
     isDirty = true;
     renderAll();
   }
@@ -285,7 +292,7 @@
     renderAll();
   }
   function newEntry(t) {
-    type = t; current = null; lines = []; isDirty = false; showError('');
+    type = t; current = null; lines = []; useAmounts = {}; isDirty = false; showError('');
     $('fap-form-company').value = ''; $('fap-form-date').value = today(); $('fap-form-reference').value = ''; $('fap-form-description').value = '';
     $('fap-list-view').classList.add('hidden'); $('fap-entry-view').classList.remove('hidden');
     loadCompany('', () => refreshStatusUi());
@@ -294,7 +301,7 @@
   function openEntry(id) {
     const e = entries.find(x => x.PostingID === id);
     if (!e) return;
-    type = e.Type; current = e; isDirty = false; showError('');
+    type = e.Type; current = e; useAmounts = {}; isDirty = false; showError('');
     lines = JSON.parse(JSON.stringify(e.Lines || []));
     $('fap-form-company').value = e.CompanyID; $('fap-form-date').value = e.Date; $('fap-form-reference').value = e.Reference || ''; $('fap-form-description').value = e.Description || '';
     $('fap-list-view').classList.add('hidden'); $('fap-entry-view').classList.remove('hidden');
@@ -370,7 +377,7 @@
     $('fap-back-btn').addEventListener('click', () => confirmLeave(showList));
     $('fap-search').addEventListener('input', renderList);
     ['fap-company-filter', 'fap-type-filter', 'fap-status-filter'].forEach(id => $(id).addEventListener('change', renderList));
-    $('fap-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; lines = []; loadCompany(val('fap-form-company')); });
+    $('fap-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; lines = []; useAmounts = {}; loadCompany(val('fap-form-company')); });
     ['fap-form-date', 'fap-form-reference', 'fap-form-description'].forEach(id => $(id).addEventListener('input', () => { isDirty = true; }));
     $('fap-add-btn').addEventListener('click', addToAsset);
     $('fap-to-add').addEventListener('click', () => { lines.push({ AssetID: '', CapitalizationDate: '', Cost: '', AccDep: '', LastDepPeriod: '', YearStartNBV: '' }); renderTakeOver(); });

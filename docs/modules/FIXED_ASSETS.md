@@ -635,7 +635,10 @@ Phase 2 (`FATRANSFER`, `FARETIRE`, `FAAUC`) and phase 3 (`FARECON`,
 the depreciable-amount cap removed (engine), day pro-rata off (engine),
 the duplicate-period check removed, the "still open" check on clearing
 lines removed, the JV/CBT account guard removed, the class defaults not
-applied on the asset form (UI).
+applied on the asset form (UI); the Capitalization screen without its
+stale-load guard (UI: a late answer for the company's open items, forced
+by the check, wiped the amount typed against an item — found by the
+full run, where the shell's one-company default loads the items twice).
 
 **Known gaps**
 - Open clearing items are found by reading the company's posted GL
