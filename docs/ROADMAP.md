@@ -18,6 +18,7 @@ fresh session can continue from GitHub.
 | 2 | Sales Return / Credit Note | [SALES_RETURN.md](modules/SALES_RETURN.md) | deployed | Live 2026-09-25. To do in the app: link it in Tree Management. Change 2026-09-26: Sales Returns Account per Sales Type (Sales Invoice Configuration), replacing the company field; live 2026-09-26 (PR #7). To do in the app: set it on every Sales Type. |
 | 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | deployed | Live 2026-09-25. To do in the app: link it in Tree Management. Merged into `main` 2026-09-26 (PR #5). |
 | 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | deployed | Live 2026-09-25 with #3. To do in the app: link it in Tree Management. |
+| 5 | PDC Received and PDC Issued | [PDC.md](modules/PDC.md) | deployed | Live 2026-09-26: functions, screens and Hosting ([DEPLOY_LOG.md](DEPLOY_LOG.md)), plus the follow-up fixes (approving from Home Tasks; no "if they bounce" lines in the SOA). To do in the app: set both PDC clearing accounts in Company Master, and link the "PDC Received" / "PDC Issued" tree nodes to `PDCRECEIVED` / `PDCISSUED`. Branch `pdc`, not yet merged into `main`. |
 
 **Order:** #0 first (the owner's priority, and the SOAs need it). Then the returns, which the SOAs report on, and
 the SOAs last because they only read.
@@ -87,6 +88,11 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   `index.html` with the Firebase SDK stubbed; no emulators). Negative
   controls, each caught: the light hover rule removed; the mode not
   ending on opening a module; search matching only the start of a name.
+- [x] **Approving from Home Tasks** (owner report, 2026-09-26): PDC,
+  Purchase Return and Sales Return screens drew an entry opened from Tasks
+  before the user's rights had loaded, so no Approve/Reject appeared. They
+  now redraw it when the rights arrive ([PDC.md](modules/PDC.md) → Fix).
+  Same change: the SOA's "if pending PDCs bounce" lines removed (owner).
 - [ ] **Design: module/approval/voucher-type lists out of the code.** These
   lists are built into every function, so adding a module redeployed 19
   unchanged functions in the returns-and-statements deploy. Kept in

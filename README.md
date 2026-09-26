@@ -59,6 +59,7 @@ functions/
     purchaseReturn.js           — Purchase Return / Debit Note (docs/modules/PURCHASE_RETURN.md)
     salesReturn.js              — Sales Return / Credit Note (docs/modules/SALES_RETURN.md)
     partyStatement.js           — Vendor and Customer Statements of Account (docs/modules/VENDOR_SOA.md)
+    pdc.js                      — PDC Received and PDC Issued, post-dated cheques (docs/modules/PDC.md)
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
   test/emulator/*.test.js       — one API suite per module, against the local emulators
@@ -69,6 +70,7 @@ tools/
   deploy-functions.sh           — deploys a named set (tools/deploy-sets/<set>.txt) for new development
   deploy-runtime.sh             — moves every live function onto engines.node's runtime
   build-soa-screens.js          — writes CUSTOMERSOA.html from VENDORSOA.html (edit only the vendor one)
+  build-pdc-screens.js          — writes PDCISSUED.html from PDCRECEIVED.html (edit only the received one)
   release-screens.sh            — releases screens/ to production (list, rollback)
   screen-release.js             — the release logic (verify, activate, keep the last 10)
 screens/*.html                  — the module screens, released to Firestore (screens/README.md)
@@ -123,6 +125,7 @@ node functions/test/ui/partyPayments.ui.js  # right after the partyPayments suit
 node functions/test/ui/purchaseReturn.ui.js # after the purchaseReturn suite: the Purchase Return screen
 node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the Sales Return screen
 node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: the two SOA screens
+node functions/test/ui/pdc.ui.js            # after the pdc suite: the two PDC screens, SOA pending PDCs
 node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed
 ```
 
@@ -143,10 +146,10 @@ node functions/test/ui/home.ui.js           # the Home shell (public/index.html)
 - **Smoke fixture:** run smoke and dynamic toggle after a suite that uses
   `_helpers.js`'s all-modules permissions (e.g. `vendorMaster`), not after
   `stockModules`, which grants only its four modules.
-- **Last full run** (2026-09-26, `party-statements` branch): 213/213
-  emulator tests, 101/101 smoke, 2/2 dynamic toggle, 12/12 stock screens,
+- **Last full run** (2026-09-26, `pdc` branch): 221/221 emulator tests
+  (in two halves), 105/105 smoke, 2/2 dynamic toggle, 12/12 stock screens,
   3/3 party payments, 4/4 each for the purchase return, sales return and
-  statements UI checks. The party payments check waits for elements, not
+  statements UI checks, 7/7 PDC, 6/6 Home. The party payments check waits for elements, not
   fixed times, so it passes right after an emulator restart. Each run adds
   a bill, so rerun the partyPayments suite before rerunning it, or "oldest
   first" allocates against the previous run's bill.

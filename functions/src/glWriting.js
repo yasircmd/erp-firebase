@@ -10,7 +10,9 @@ const STOCK_TRANSACTION_PREFIXES = {
   StockAdjustment: 'ADJ', PhysicalCount: 'PC', VendorInvoice: 'VINV',
   DeliveryNote: 'DN', CustomerInvoice: 'CINV',
   PurchaseReturn: 'DBN', // hand-written module, docs/modules/PURCHASE_RETURN.md
-  SalesReturn: 'CRN' // hand-written module, docs/modules/SALES_RETURN.md
+  SalesReturn: 'CRN', // hand-written module, docs/modules/SALES_RETURN.md
+  // hand-written module, docs/modules/PDC.md: receipt/issue and clearing
+  PDCReceived: 'PDR', PDCReceivedClear: 'PDRC', PDCIssued: 'PDI', PDCIssuedClear: 'PDIC'
 };
 
 function userCanAccessCompany(profile, companyId) {

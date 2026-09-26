@@ -1,0 +1,936 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+  #pdc-print-document table { border-collapse: collapse; width: 100%; }
+  #pdc-print-document th, #pdc-print-document td { border: 1px solid #333; padding: 4px 6px; font-size: 10px; }
+</style>
+
+<div id="pdc-print-document" class="print-only"></div>
+
+<div id="pdc-list-view" class="space-y-6 no-print">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div id="pdc-kicker" class="text-xs font-semibold text-blue-400 uppercase mb-1"></div><h2 class="text-2xl font-bold"><i class="fa-solid fa-money-check text-blue-500"></i> <span id="pdc-heading"></span></h2></div>
+    <div class="flex gap-2">
+      <button id="pdc-clear-selected-btn" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-building-columns"></i> Clear Selected (<span id="pdc-selected-count">0</span>)</button>
+      <button id="pdc-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New PDC</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-6 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="pdc-search-input" placeholder="Search number, cheque, party, bank..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="pdc-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="pdc-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All Statuses</option><option value="Draft">Draft</option><option value="PendingApproval">Pending Approval</option><option value="Rejected">Rejected</option>
+      <option value="Pending">Pending</option><option value="Cleared">Cleared</option><option value="Bounced">Bounced</option><option value="Cancelled">Cancelled</option>
+    </select>
+    <input type="date" id="pdc-from-filter" title="Cheque date from" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <input type="date" id="pdc-to-filter" title="Cheque date to" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+  </div>
+
+  <div class="flex items-center gap-3">
+    <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer"><input type="checkbox" id="pdc-due-toggle" class="accent-blue-500"> Due to clear <span class="text-slate-500 text-xs">(Pending, cheque date up to today)</span></label>
+  </div>
+  <div id="pdc-due-summary" class="hidden bg-slate-800/60 border border-slate-700 rounded-xl p-4 text-sm"></div>
+
+  <div id="pdc-list-notice" class="hidden text-xs text-slate-500"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+            <th class="py-3 px-3 w-8"><input type="checkbox" id="pdc-select-all" class="accent-blue-500" title="Select every Pending cheque shown"></th>
+            <th class="py-3 px-3">PDC No.</th>
+            <th class="py-3 px-3" id="pdc-col-party">Party</th>
+            <th class="py-3 px-3">Cheque No.</th>
+            <th class="py-3 px-3">Bank</th>
+            <th class="py-3 px-3">Cheque Date</th>
+            <th class="py-3 px-3 text-right">Amount</th>
+            <th class="py-3 px-3">Status</th>
+          </tr>
+        </thead>
+        <tbody id="pdc-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="pdc-entry-view" class="hidden space-y-5 no-print">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="pdc-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="pdc-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="pdc-back-chain-label">Back</span></button>
+      <h2 id="pdc-entry-title" class="text-xl font-bold text-blue-400"></h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="pdc-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="pdc-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+
+  <div id="pdc-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+  <div id="pdc-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  <div id="pdc-setup-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3"></div>
+
+  <div id="pdc-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1">
+    <p class="text-xs font-semibold text-red-400 uppercase">Rejected</p>
+    <p id="pdc-rejection-reason" class="text-sm text-slate-200"></p>
+    <p class="text-xs text-slate-500">This PDC is fully editable below — make your changes and Post again.</p>
+  </div>
+
+  <div id="pdc-my-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="pdc-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3">
+      <button id="pdc-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button>
+      <button id="pdc-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button>
+    </div>
+    <div id="pdc-decision-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+      <select id="pdc-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
+    </div>
+    <div>
+      <label id="pdc-party-label" class="block text-xs font-medium text-slate-300 mb-1">Party</label>
+      <select id="pdc-form-party" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first</option></select>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div><label id="pdc-date-label" class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="pdc-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Cheque Date</label><input type="date" id="pdc-form-cheque-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Cheque No.</label><input type="text" id="pdc-form-cheque-no" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Amount</label><input type="text" inputmode="decimal" id="pdc-form-amount" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right font-mono"></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div id="pdc-drawee-wrap">
+      <label class="block text-xs font-medium text-slate-300 mb-1">Drawee Bank <span class="text-slate-500">(the customer's bank the cheque is drawn on)</span></label>
+      <input type="text" id="pdc-form-drawee" list="pdc-drawee-list" placeholder="e.g. Emirates NBD" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+      <datalist id="pdc-drawee-list"></datalist>
+    </div>
+    <div id="pdc-bank-wrap" class="hidden">
+      <label class="block text-xs font-medium text-slate-300 mb-1">Bank Account <span class="text-slate-500">(our account the cheque is drawn on)</span></label>
+      <select id="pdc-form-bank" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first</option></select>
+    </div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input type="text" id="pdc-form-reference" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+  </div>
+
+  <div><label class="block text-xs font-medium text-slate-300 mb-1">Description</label><input type="text" id="pdc-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="pdc-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="pdc-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="pdc-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="pdc-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Replaces <span class="text-slate-500">(bounced PDC)</span></label><select id="pdc-form-replaces" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
+  </div>
+
+  <div class="space-y-3">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-semibold text-slate-400 uppercase">Settles <span id="pdc-alloc-hint" class="normal-case font-normal text-slate-500"></span></p>
+      <button id="pdc-oldest-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-2.5 py-1 rounded border border-slate-700"><i class="fa-solid fa-arrow-down-short-wide"></i> Oldest first</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <table class="w-full text-left">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-2 px-3">Document</th><th class="py-2 px-3">Date</th><th class="py-2 px-3">Due</th>
+          <th class="py-2 px-3 text-right">Amount</th><th class="py-2 px-3 text-right">Outstanding</th><th class="py-2 px-3 text-right w-36">Allocate</th>
+        </tr></thead>
+        <tbody id="pdc-alloc-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+      <p id="pdc-alloc-empty" class="text-xs text-slate-500 text-center py-4"></p>
+    </div>
+    <p id="pdc-alloc-summary" class="text-xs text-slate-400"></p>
+  </div>
+
+  <div id="pdc-history-wrap" class="hidden space-y-2">
+    <p class="text-xs font-semibold text-slate-400 uppercase">History</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <table class="w-full text-left">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-2 px-3">Event</th><th class="py-2 px-3">Date</th><th class="py-2 px-3">GL Entry</th><th class="py-2 px-3">Reason</th><th class="py-2 px-3">By</th>
+        </tr></thead>
+        <tbody id="pdc-history-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-slate-800">
+    <button id="pdc-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
+    <button id="pdc-cancel-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel Cheque</button>
+    <button id="pdc-bounce-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Bounced</button>
+    <button id="pdc-undo-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Undo Clearing</button>
+    <button id="pdc-clear-btn" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Clear to Bank</button>
+    <button id="pdc-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save Draft</button>
+    <button id="pdc-post-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">Post</button>
+  </div>
+</div>
+
+<div id="pdc-action-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <h3 id="pdc-action-title" class="text-lg font-bold text-slate-100"></h3>
+    <p id="pdc-action-message" class="text-sm text-slate-300 whitespace-pre-line"></p>
+    <div id="pdc-action-date-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="pdc-action-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div id="pdc-action-bank-wrap" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Deposited into</label><select id="pdc-action-bank" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+    <div id="pdc-action-reason-wrap" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Reason</label><input type="text" id="pdc-action-reason" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div id="pdc-action-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+    <div class="flex justify-end gap-3 pt-2">
+      <button id="pdc-action-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Close</button>
+      <button id="pdc-action-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="pdc-gl-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="flex items-center justify-between border-b border-slate-700 p-4">
+      <div><h3 class="text-lg font-bold text-slate-100">GL Impact</h3><p id="pdc-gl-modal-subtitle" class="text-xs text-slate-500 font-mono"></p></div>
+      <button id="pdc-gl-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-4 overflow-y-auto"><div id="pdc-gl-modal-body" class="text-sm text-slate-500">Loading...</div></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // PDC Received / PDC Issued — docs/modules/PDC.md. One template:
+  // screens/PDCISSUED.html is written from this file by
+  // tools/build-pdc-screens.js (edit only this one).
+  // CONFIG-START
+  const CONFIG = {
+    moduleId: 'PDCRECEIVED', direction: 'Received', kicker: 'Accounts Receivable', heading: 'PDC Received',
+    partyType: 'Customer', partyLabel: 'Customer', dateLabel: 'Receipt Date', invoiceModule: 'CUSTOMERINVOICE',
+    postNote: 'The cheque is debited to the PDC Received Clearing Account and credited to the customer.'
+  };
+  // CONFIG-END
+  const RECEIVED = CONFIG.direction === 'Received';
+
+  let canDraft = false;
+  let canPost = false;
+  let entries = [];
+  let companies = [];
+  let orgUnits = [];
+  let setup = { parties: [], bankAccounts: [], clearingConfigured: true };
+  let setupCompany = '';
+  let openItems = [];
+  let allocByRef = {};    // RefID -> entered amount
+  let current = null;
+  let isDirty = false;
+  let selected = new Set();
+  let pendingOpenEntryId = null;
+  let myReturnChain = [];
+
+  const STATUS_COLORS = {
+    Draft: 'bg-slate-700 text-slate-300',
+    PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+    Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20',
+    Committing: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+    Pending: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+    Cleared: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+    Bounced: 'bg-red-500/10 text-red-400 border border-red-500/20',
+    Cancelled: 'bg-slate-700 text-slate-400'
+  };
+  const STATUS_LABELS = { PendingApproval: 'Pending Approval' };
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function formatMoney(n) {
+    const num = parseFloat(String(n == null ? 0 : n).replace(/,/g, '')) || 0;
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function round2(n) { return Math.round(n * 100) / 100; }
+  function parseAmount(v) { return parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
+  function today() { return new Date().toISOString().substring(0, 10); }
+  function isEditable() { return !current || current.Status === 'Draft' || current.Status === 'Rejected'; }
+  function badge(status) { return '<span class="text-xs px-2 py-0.5 rounded-full ' + (STATUS_COLORS[status] || 'bg-slate-700 text-slate-400') + '">' + escapeHtml(STATUS_LABELS[status] || status) + '</span>'; }
+  function bankOf(e) { return RECEIVED ? (e.DraweeBank || '') : (e.BankAccountCode || ''); }
+  function isDue(e) { return e.Status === 'Pending' && e.ChequeDate <= today(); }
+  function val(id) { return document.getElementById(id).value; }
+
+  // ---------- LIST VIEW ----------
+  function filtered() {
+    const search = val('pdc-search-input').trim().toLowerCase();
+    const company = val('pdc-company-filter');
+    const status = val('pdc-status-filter');
+    const from = val('pdc-from-filter');
+    const to = val('pdc-to-filter');
+    const due = document.getElementById('pdc-due-toggle').checked;
+    return entries.filter(e => {
+      if (due && !isDue(e)) return false;
+      if (company && e.CompanyID !== company) return false;
+      if (status && e.Status !== status) return false;
+      if (from && e.ChequeDate < from) return false;
+      if (to && e.ChequeDate > to) return false;
+      if (search) {
+        const hay = [e.TransactionNumber, e.ChequeNumber, e.PartyName, bankOf(e), e.Description, e.Reference].join(' ').toLowerCase();
+        if (hay.indexOf(search) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderList() {
+    const rows = filtered();
+    const due = document.getElementById('pdc-due-toggle').checked;
+    if (due) rows.sort((a, b) => (a.ChequeDate + (a.TransactionNumber || '')).localeCompare(b.ChequeDate + (b.TransactionNumber || '')));
+    [...selected].forEach(id => { if (!rows.some(e => e.PdcID === id && e.Status === 'Pending')) selected.delete(id); });
+    const tbody = document.getElementById('pdc-table-body');
+    tbody.innerHTML = '';
+    rows.forEach(e => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-700/30 cursor-pointer';
+      const overdue = isDue(e);
+      tr.innerHTML = `
+        <td class="py-2.5 px-3">${e.Status === 'Pending' && canPost ? `<input type="checkbox" class="pdc-row-check accent-blue-500" data-id="${escapeHtml(e.PdcID)}" ${selected.has(e.PdcID) ? 'checked' : ''}>` : ''}</td>
+        <td class="py-2.5 px-3 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}</td>
+        <td class="py-2.5 px-3">${escapeHtml(e.PartyName || '')}</td>
+        <td class="py-2.5 px-3 font-mono text-xs">${escapeHtml(e.ChequeNumber || '')}</td>
+        <td class="py-2.5 px-3 text-xs text-slate-400">${escapeHtml(bankOf(e))}</td>
+        <td class="py-2.5 px-3 text-xs ${overdue ? 'text-red-400 font-medium' : 'text-slate-400'}">${escapeHtml(e.ChequeDate || '')}</td>
+        <td class="py-2.5 px-3 text-right font-mono">${formatMoney(e.Amount)}</td>
+        <td class="py-2.5 px-3">${badge(e.Status)}</td>`;
+      tr.addEventListener('click', ev => { if (!ev.target.classList.contains('pdc-row-check')) openEntry(e.PdcID); });
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.pdc-row-check').forEach(cb => cb.addEventListener('change', ev => {
+      const id = ev.target.getAttribute('data-id');
+      if (ev.target.checked) selected.add(id); else selected.delete(id);
+      updateSelection();
+    }));
+    const notice = document.getElementById('pdc-list-notice');
+    notice.classList.toggle('hidden', rows.length > 0);
+    if (!rows.length) notice.textContent = entries.length ? 'No cheques match the current filters.' : 'No ' + CONFIG.heading + ' yet.';
+    renderDueSummary(due, rows);
+    updateSelection();
+  }
+
+  // Totals per bank for the due view.
+  function renderDueSummary(due, rows) {
+    const box = document.getElementById('pdc-due-summary');
+    box.classList.toggle('hidden', !due || !rows.length);
+    if (!due || !rows.length) return;
+    const byBank = {};
+    rows.forEach(e => { const k = bankOf(e) || '—'; byBank[k] = round2((byBank[k] || 0) + (Number(e.Amount) || 0)); });
+    const total = round2(rows.reduce((s, e) => s + (Number(e.Amount) || 0), 0));
+    box.innerHTML = '<div class="flex flex-wrap gap-x-6 gap-y-1">' +
+      Object.keys(byBank).sort().map(k => `<span class="text-slate-400">${escapeHtml(k)}: <span class="font-mono text-slate-200">${formatMoney(byBank[k])}</span></span>`).join('') +
+      `<span class="font-semibold">${rows.length} cheque${rows.length === 1 ? '' : 's'} due: <span class="font-mono">${formatMoney(total)}</span></span></div>`;
+  }
+
+  function updateSelection() {
+    document.getElementById('pdc-selected-count').textContent = selected.size;
+    document.getElementById('pdc-clear-selected-btn').classList.toggle('hidden', !canPost || selected.size === 0);
+    const checks = [...document.querySelectorAll('.pdc-row-check')];
+    const all = document.getElementById('pdc-select-all');
+    all.checked = checks.length > 0 && checks.every(c => c.checked);
+    all.disabled = !checks.length;
+  }
+
+  function fetchEntries(limit) {
+    rpc
+      .withSuccessHandler(result => {
+        entries = (result && result.entries) || [];
+        renderList();
+        if (pendingOpenEntryId) {
+          // Drill-through: GL Report / SOA pass a GL entry ID, Home passes the PDC ID.
+          const id = pendingOpenEntryId; pendingOpenEntryId = null;
+          const found = entries.find(e => e.PdcID === id || (e.JVIDs || []).includes(id) || e.TransactionNumber === id);
+          if (found) openEntry(found.PdcID);
+          else alert('That PDC could not be found — it may have been deleted.');
+        }
+      })
+      .withFailureHandler(err => console.error(err))
+      .getPdcEntries({ direction: CONFIG.direction, limit: limit || 100 });
+  }
+
+  function showListView() {
+    document.getElementById('pdc-entry-view').classList.add('hidden');
+    document.getElementById('pdc-list-view').classList.remove('hidden');
+    fetchEntries();
+  }
+  function showEntryView() {
+    document.getElementById('pdc-list-view').classList.add('hidden');
+    document.getElementById('pdc-entry-view').classList.remove('hidden');
+  }
+  function confirmLeave(then) {
+    if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return;
+    then();
+  }
+  function goBackInChain() {
+    confirmLeave(() => {
+      const chain = myReturnChain.slice();
+      const target = chain.pop();
+      if (target) openModule(target.moduleId, target.params, chain);
+    });
+  }
+
+  // ---------- COMPANY SET-UP: parties, bank accounts ----------
+  // keep: the party and bank to select once loaded (an opened entry's own).
+  function loadSetup(companyId, keep, then) {
+    if (!companyId) { setup = { parties: [], bankAccounts: [], clearingConfigured: true }; setupCompany = ''; renderSetup(keep || {}); if (then) then(); return; }
+    rpc
+      .withSuccessHandler(result => { setup = result; setupCompany = companyId; renderSetup(keep || {}); if (then) then(); })
+      .withFailureHandler(err => alert(err.message || 'Unable to load the company set-up.'))
+      .getPdcSetup({ direction: CONFIG.direction, companyId: companyId });
+  }
+
+  function renderSetup(keep) {
+    const party = document.getElementById('pdc-form-party');
+    const keepParty = keep.PartyID || '';
+    party.innerHTML = '<option value="">' + (setupCompany ? 'Select...' : 'Select a company first') + '</option>';
+    setup.parties.forEach(p => { const o = document.createElement('option'); o.value = p.PartyID; o.textContent = (p.Code ? p.Code + ' — ' : '') + p.Name; party.appendChild(o); });
+    if (keepParty && !setup.parties.some(p => p.PartyID === keepParty)) {
+      const o = document.createElement('option'); o.value = keepParty; o.textContent = keep.PartyName || keepParty; party.appendChild(o);
+    }
+    party.value = keepParty;
+
+    const bank = document.getElementById('pdc-form-bank');
+    const keepBank = keep.BankAccountID || '';
+    bank.innerHTML = '<option value="">' + (setupCompany ? 'Select...' : 'Select a company first') + '</option>';
+    setup.bankAccounts.forEach(a => { const o = document.createElement('option'); o.value = a.AccountID; o.textContent = a.AccountCode + ' — ' + a.AccountName; bank.appendChild(o); });
+    bank.value = keepBank || '';
+
+    const note = document.getElementById('pdc-setup-note');
+    const missing = setupCompany && !setup.clearingConfigured;
+    note.classList.toggle('hidden', !missing);
+    if (missing) note.textContent = 'This company has no ' + CONFIG.heading + ' Clearing Account yet. Set it in Company Master Data before posting.';
+    populateOrgUnits();
+    populateReplaces();
+  }
+
+  function populateOrgUnits() {
+    const companyId = val('pdc-form-company');
+    [['pdc-form-division', 'Division'], ['pdc-form-branch', 'Branch'], ['pdc-form-costcenter', 'CostCenter'], ['pdc-form-profitcenter', 'ProfitCenter']].forEach(([id, type]) => {
+      const select = document.getElementById(id);
+      const keep = select.value;
+      select.innerHTML = '<option value="">—</option>';
+      orgUnits.filter(u => u.Type === type && (!u.CompanyID || u.CompanyID === companyId))
+        .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+        .forEach(u => { const o = document.createElement('option'); o.value = u.UnitID; o.textContent = u.Code + ' — ' + u.Name; select.appendChild(o); });
+      if ([...select.options].some(o => o.value === keep)) select.value = keep;
+    });
+  }
+
+  // Bounced cheques of this party that a new cheque can replace.
+  function populateReplaces() {
+    const select = document.getElementById('pdc-form-replaces');
+    const keep = current ? current.ReplacesPdcID || '' : select.value;
+    const partyId = val('pdc-form-party');
+    select.innerHTML = '<option value="">—</option>';
+    entries.filter(e => e.Status === 'Bounced' && e.PartyID === partyId && e.CompanyID === val('pdc-form-company'))
+      .forEach(e => { const o = document.createElement('option'); o.value = e.PdcID; o.textContent = e.TransactionNumber + ' — ' + e.ChequeNumber + ' — ' + formatMoney(e.Amount); select.appendChild(o); });
+    if (keep && ![...select.options].some(o => o.value === keep)) {
+      const o = document.createElement('option'); o.value = keep; o.textContent = (current && current.ReplacesPdcNumber) || keep; select.appendChild(o);
+    }
+    select.value = keep;
+  }
+
+  // ---------- ALLOCATION ----------
+  function fetchOpenItems() {
+    const companyId = val('pdc-form-company');
+    const partyId = val('pdc-form-party');
+    openItems = [];
+    if (!isEditable() || !companyId || !partyId) { renderAllocations(); return; }
+    rpc
+      .withSuccessHandler(result => { openItems = result || []; renderAllocations(); })
+      .withFailureHandler(err => { alert(err.message || 'Unable to load open items.'); renderAllocations(); })
+      .getPdcOpenItems({ direction: CONFIG.direction, companyId: companyId, partyId: partyId });
+  }
+
+  function allocationRows() {
+    if (!isEditable()) {
+      return (current.Allocations || []).filter(a => a.RefType === 'Against')
+        .map(a => ({ RefID: a.RefID, Number: a.RefNumber || a.RefID, Date: '', DueDate: '', Amount: null, Outstanding: null, value: a.Amount }));
+    }
+    const rows = openItems.map(i => Object.assign({}, i, { value: allocByRef[i.RefID] == null ? '' : allocByRef[i.RefID] }));
+    // A draft's allocation to an item no longer open still shows (the server will refuse it).
+    Object.keys(allocByRef).forEach(ref => {
+      if (!rows.some(r => r.RefID === ref) && parseAmount(allocByRef[ref]) > 0) rows.push({ RefID: ref, Number: ref, Date: '', DueDate: '', Amount: null, Outstanding: 0, value: allocByRef[ref] });
+    });
+    return rows;
+  }
+
+  function renderAllocations() {
+    const editable = isEditable();
+    const rows = allocationRows();
+    const tbody = document.getElementById('pdc-alloc-body');
+    tbody.innerHTML = '';
+    rows.forEach(r => {
+      const over = editable && r.Outstanding != null && parseAmount(r.value) > r.Outstanding + 0.005;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-1.5 px-3 font-mono text-xs">${escapeHtml(r.Number)}${r.ItemType === 'NewRef' ? ' <span class="text-slate-500">(open ' + (RECEIVED ? 'debit' : 'credit') + ')</span>' : ''}</td>
+        <td class="py-1.5 px-3 text-xs text-slate-400">${escapeHtml(r.Date || '')}</td>
+        <td class="py-1.5 px-3 text-xs ${r.DueDate && r.DueDate < today() ? 'text-red-400' : 'text-slate-400'}">${escapeHtml(r.DueDate || '')}</td>
+        <td class="py-1.5 px-3 text-right font-mono text-xs">${r.Amount == null ? '' : formatMoney(r.Amount)}</td>
+        <td class="py-1.5 px-3 text-right font-mono text-xs">${r.Outstanding == null ? '' : formatMoney(r.Outstanding)}</td>
+        <td class="py-1 px-1">${editable
+          ? `<input data-ref="${escapeHtml(r.RefID)}" type="text" inputmode="decimal" value="${escapeHtml(r.value)}" class="pdc-alloc w-full bg-slate-900 border ${over ? 'border-red-500/60' : 'border-slate-700'} rounded py-1.5 px-2 text-xs text-right">`
+          : `<div class="text-right font-mono text-xs px-2">${formatMoney(r.value)}</div>`}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.pdc-alloc').forEach(el => {
+      el.addEventListener('input', e => { allocByRef[e.target.getAttribute('data-ref')] = e.target.value; isDirty = true; renderAllocSummary(); });
+      el.addEventListener('blur', () => renderAllocations());
+    });
+    const empty = document.getElementById('pdc-alloc-empty');
+    empty.classList.toggle('hidden', rows.length > 0);
+    empty.textContent = !val('pdc-form-party') ? 'Choose the ' + CONFIG.partyLabel.toLowerCase() + ' to see what this cheque can settle.'
+      : (editable ? 'No open invoices — the whole cheque is kept as an advance (New Ref).' : 'Nothing settled — kept as an advance (New Ref).');
+    document.getElementById('pdc-oldest-btn').classList.toggle('hidden', !editable || !openItems.length);
+    document.getElementById('pdc-alloc-hint').textContent = editable ? '(open ' + (RECEIVED ? 'invoices' : 'bills') + ' of the ' + CONFIG.partyLabel.toLowerCase() + '; what isn\'t allocated is kept as an advance)' : '';
+    renderAllocSummary();
+  }
+
+  function allocatedTotal() {
+    return round2(Object.keys(allocByRef).reduce((s, k) => s + parseAmount(allocByRef[k]), 0));
+  }
+
+  function renderAllocSummary() {
+    const amount = isEditable() ? parseAmount(val('pdc-form-amount')) : Number(current.Amount) || 0;
+    const against = isEditable() ? allocatedTotal()
+      : round2((current.Allocations || []).filter(a => a.RefType === 'Against').reduce((s, a) => s + a.Amount, 0));
+    const rest = round2(amount - against);
+    const el = document.getElementById('pdc-alloc-summary');
+    el.className = 'text-xs ' + (rest < -0.005 ? 'text-red-400' : 'text-slate-400');
+    el.textContent = 'Cheque ' + formatMoney(amount) + ' — settles ' + formatMoney(against) +
+      (rest < -0.005 ? ' — more than the cheque amount.' : (rest > 0.005 ? ' — ' + formatMoney(rest) + ' kept as an advance (New Ref).' : '.'));
+  }
+
+  function allocateOldestFirst() {
+    let left = parseAmount(val('pdc-form-amount'));
+    allocByRef = {};
+    openItems.slice().sort((a, b) => ((a.DueDate || a.Date) + a.Number).localeCompare((b.DueDate || b.Date) + b.Number)).forEach(i => {
+      if (left <= 0.005) return;
+      const take = round2(Math.min(left, i.Outstanding));
+      if (take > 0) { allocByRef[i.RefID] = String(take); left = round2(left - take); }
+    });
+    isDirty = true;
+    renderAllocations();
+  }
+
+  // ---------- SAVE / POST / DELETE / DECIDE ----------
+  function collect() {
+    return {
+      PdcID: current ? current.PdcID : '', Direction: CONFIG.direction,
+      CompanyID: val('pdc-form-company'), PartyID: val('pdc-form-party'),
+      TransactionDate: val('pdc-form-date'), ChequeDate: val('pdc-form-cheque-date'), ChequeNumber: val('pdc-form-cheque-no').trim(),
+      Amount: parseAmount(val('pdc-form-amount')), DraweeBank: RECEIVED ? val('pdc-form-drawee').trim() : '',
+      BankAccountID: RECEIVED ? '' : val('pdc-form-bank'), Reference: val('pdc-form-reference').trim(), Description: val('pdc-form-description').trim(),
+      DivisionID: val('pdc-form-division'), BranchID: val('pdc-form-branch'), CostCenterID: val('pdc-form-costcenter'), ProfitCenterID: val('pdc-form-profitcenter'),
+      ReplacesPdcID: val('pdc-form-replaces'),
+      Allocations: Object.keys(allocByRef).filter(k => parseAmount(allocByRef[k]) > 0).map(k => ({ RefType: 'Against', RefID: k, Amount: parseAmount(allocByRef[k]) }))
+    };
+  }
+
+  function showError(msg) { const e = document.getElementById('pdc-form-error'); e.textContent = msg; e.classList.remove('hidden'); }
+  function validateBeforeSave() {
+    document.getElementById('pdc-form-error').classList.add('hidden');
+    const d = collect();
+    if (!d.CompanyID) { showError('Select a Company.'); return false; }
+    if (!d.PartyID) { showError('Select a ' + CONFIG.partyLabel + '.'); return false; }
+    if (!d.ChequeNumber) { showError('Enter the cheque number.'); return false; }
+    if (!(d.Amount > 0)) { showError('Enter the amount.'); return false; }
+    if (allocatedTotal() > d.Amount + 0.005) { showError('The allocations are more than the cheque amount.'); return false; }
+    return true;
+  }
+
+  function save(then) {
+    rpc.withSuccessHandler(result => then(null, result)).withFailureHandler(err => then(err)).savePdcDraft(collect());
+  }
+
+  function busy(btnId, text) {
+    const btn = document.getElementById(btnId);
+    const original = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = text;
+    return () => { btn.disabled = false; btn.innerHTML = original; };
+  }
+
+  function saveDraft() {
+    if (!validateBeforeSave()) return;
+    const done = busy('pdc-save-draft-btn', 'Saving...');
+    save(err => {
+      done();
+      if (err) return showError(err.message || 'Unable to save draft.');
+      isDirty = false; showListView();
+    });
+  }
+
+  function postEntry() {
+    if (!validateBeforeSave()) return;
+    if (!window.confirm('Post this ' + CONFIG.heading + '? ' + CONFIG.postNote)) return;
+    const done = busy('pdc-post-btn', 'Posting...');
+    save((err, saved) => {
+      if (err) { done(); return showError(err.message || 'Unable to save before posting.'); }
+      rpc
+        .withSuccessHandler(() => { done(); isDirty = false; showListView(); })
+        .withFailureHandler(e => { done(); current = current || { PdcID: saved.pdcId, Status: 'Draft' }; showError(e.message || 'Unable to post.'); })
+        .postPdc({ pdcId: saved.pdcId });
+    });
+  }
+
+  function deleteDraft() {
+    if (!current || !window.confirm('Delete this draft? This cannot be undone.')) return;
+    rpc.withSuccessHandler(() => showListView()).withFailureHandler(err => alert(err.message || 'Unable to delete.')).deletePdcDraft({ pdcId: current.PdcID });
+  }
+
+  function decide(decision) {
+    const levelNumber = parseInt(document.getElementById('pdc-my-approval-banner').dataset.level, 10);
+    const reason = val('pdc-decision-reason').trim();
+    const error = document.getElementById('pdc-decision-error');
+    error.classList.add('hidden');
+    if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
+    if (!window.confirm((decision === 'Approved' ? 'Approve and post' : 'Reject') + ' this PDC?')) return;
+    const pdcId = current.PdcID;
+    rpc
+      .withSuccessHandler(() => { isDirty = false; showListView(); })
+      .withFailureHandler(err => {
+        error.textContent = err.message || 'Unable to record decision.'; error.classList.remove('hidden');
+        rpc.withSuccessHandler(r => { entries = (r && r.entries) || []; if (entries.some(e => e.PdcID === pdcId)) openEntry(pdcId); })
+          .withFailureHandler(() => {}).getPdcEntries({ direction: CONFIG.direction, limit: 'all' });
+      })
+      .decidePdcApproval({ pdcId: pdcId, levelNumber: levelNumber, decision: decision, reason: reason });
+  }
+
+  // ---------- CLEAR / BOUNCE / CANCEL / UNDO ----------
+  // One dialog for every action on a posted cheque.
+  function openAction(opts) {
+    document.getElementById('pdc-action-title').textContent = opts.title;
+    document.getElementById('pdc-action-message').textContent = opts.message;
+    document.getElementById('pdc-action-date').value = opts.defaultDate || today();
+    document.getElementById('pdc-action-bank-wrap').classList.toggle('hidden', !opts.needsBank);
+    document.getElementById('pdc-action-reason-wrap').classList.toggle('hidden', !opts.needsReason);
+    document.getElementById('pdc-action-reason').value = '';
+    document.getElementById('pdc-action-error').classList.add('hidden');
+    if (opts.needsBank) {
+      const select = document.getElementById('pdc-action-bank');
+      select.innerHTML = '<option value="">Select...</option>';
+      (opts.banks || []).forEach(a => { const o = document.createElement('option'); o.value = a.AccountID; o.textContent = a.AccountCode + ' — ' + a.AccountName; select.appendChild(o); });
+    }
+    const modal = document.getElementById('pdc-action-modal');
+    modal.classList.remove('hidden');
+    const ok = document.getElementById('pdc-action-ok');
+    const cancel = document.getElementById('pdc-action-cancel');
+    function close() { modal.classList.add('hidden'); ok.removeEventListener('click', onOk); cancel.removeEventListener('click', close); }
+    function onOk() {
+      const input = { date: val('pdc-action-date'), bank: val('pdc-action-bank'), reason: val('pdc-action-reason').trim() };
+      const error = document.getElementById('pdc-action-error');
+      const fail = msg => { error.textContent = msg; error.classList.remove('hidden'); ok.disabled = false; };
+      if (!input.date) return fail('Enter the date.');
+      if (opts.needsBank && !input.bank) return fail('Select the bank account.');
+      if (opts.needsReason && !input.reason) return fail('Enter the reason.');
+      ok.disabled = true;
+      opts.run(input, err => {
+        ok.disabled = false;
+        if (err) return fail(err.message || 'Unable to complete this.');
+        close();
+        showListView();
+      });
+    }
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', close);
+  }
+
+  function run(fn, data) {
+    return (input, done) => rpc.withSuccessHandler(() => done(null)).withFailureHandler(done)[fn](data(input));
+  }
+
+  // Received cheques go into a bank chosen now (the company's bank accounts);
+  // issued ones clear from their own bank.
+  function clearCheques(ids, companyId, defaultDate) {
+    const go = banks => openAction({
+      title: 'Clear to Bank',
+      message: ids.length === 1 ? 'Record that the cheque has cleared. The clearing account is emptied into the bank.' : 'Clear ' + ids.length + ' cheques on the same date' + (RECEIVED ? ' into the same bank.' : '.') + ' Each gets its own GL entry.',
+      defaultDate: defaultDate, needsBank: RECEIVED, banks: banks,
+      run: run('clearPdcs', i => ({ pdcIds: ids, clearDate: i.date, depositAccountId: i.bank }))
+    });
+    if (!RECEIVED) return go([]);
+    rpc.withSuccessHandler(r => go(r.bankAccounts || [])).withFailureHandler(err => alert(err.message || 'Unable to load bank accounts.'))
+      .getPdcSetup({ direction: CONFIG.direction, companyId: companyId });
+  }
+
+  function clearSelected() {
+    const chosen = entries.filter(e => selected.has(e.PdcID));
+    if (!chosen.length) return;
+    const companyIds = [...new Set(chosen.map(e => e.CompanyID))];
+    if (companyIds.length > 1) return alert('Select cheques of one company at a time.');
+    const latest = chosen.map(e => e.ChequeDate).sort().pop();
+    clearCheques(chosen.map(e => e.PdcID), companyIds[0], latest > today() ? latest : today());
+  }
+
+  function closeCheque(event) {
+    const bounce = event === 'Bounced';
+    openAction({
+      title: bounce ? 'Cheque Bounced' : 'Cancel Cheque',
+      message: (bounce ? 'The bank returned the cheque unpaid.' : 'The cheque is returned to the ' + CONFIG.partyLabel.toLowerCase() + ' or stopped, before clearing.') +
+        ' The original entry is reversed: the ' + CONFIG.partyLabel.toLowerCase() + '\'s balance goes back up and the invoices it settled are open again.',
+      needsReason: true,
+      run: run(bounce ? 'bouncePdc' : 'cancelPdc', i => ({ pdcId: current.PdcID, date: i.date, reason: i.reason }))
+    });
+  }
+
+  function undoClearing() {
+    openAction({
+      title: 'Undo Clearing',
+      message: 'Reverses the clearing entry (for a clearing entered by mistake). The cheque goes back to Pending.',
+      defaultDate: current.ClearedDate > today() ? current.ClearedDate : today(), needsReason: true,
+      run: run('undoPdcClearing', i => ({ pdcId: current.PdcID, date: i.date, reason: i.reason }))
+    });
+  }
+
+  // ---------- ENTRY VIEW ----------
+  function fillForm(p) {
+    document.getElementById('pdc-form-company').value = p ? p.CompanyID || '' : '';
+    document.getElementById('pdc-form-date').value = p ? p.TransactionDate || '' : today();
+    document.getElementById('pdc-form-cheque-date').value = p ? p.ChequeDate || '' : '';
+    document.getElementById('pdc-form-cheque-no').value = p ? p.ChequeNumber || '' : '';
+    document.getElementById('pdc-form-amount').value = p ? p.Amount || '' : '';
+    document.getElementById('pdc-form-drawee').value = p ? p.DraweeBank || '' : '';
+    document.getElementById('pdc-form-reference').value = p ? p.Reference || '' : '';
+    document.getElementById('pdc-form-description').value = p ? p.Description || '' : '';
+    populateOrgUnits();
+    ['division', 'branch', 'costcenter', 'profitcenter'].forEach(k => {
+      const f = { division: 'DivisionID', branch: 'BranchID', costcenter: 'CostCenterID', profitcenter: 'ProfitCenterID' }[k];
+      const select = document.getElementById('pdc-form-' + k);
+      select.value = p ? p[f] || '' : '';
+    });
+    allocByRef = {};
+    ((p && p.Allocations) || []).filter(a => a.RefType === 'Against').forEach(a => { allocByRef[a.RefID] = String(a.Amount); });
+  }
+
+  function openEntry(pdcId) {
+    current = entries.find(e => e.PdcID === pdcId) || null;
+    if (!current) return;
+    isDirty = false;
+    fillForm(current);
+    document.getElementById('pdc-entry-title').textContent = current.TransactionNumber || '(unposted)';
+    document.getElementById('pdc-voucher-no-line').textContent = current.TransactionNumber
+      ? 'PDC No: ' + current.TransactionNumber + (current.TransactionRef ? '   TXN Ref: ' + current.TransactionRef : '') : '';
+    document.getElementById('pdc-form-error').classList.add('hidden');
+    refreshStatusUI();
+    loadSetup(current.CompanyID, current, () => { fillForm(current); populateReplaces(); fetchOpenItems(); });
+    renderAllocations();
+    renderHistory();
+    showEntryView();
+  }
+
+  function newEntry() {
+    current = null; isDirty = false; openItems = [];
+    fillForm(null);
+    document.getElementById('pdc-entry-title').textContent = 'New ' + CONFIG.heading;
+    document.getElementById('pdc-voucher-no-line').textContent = '';
+    document.getElementById('pdc-form-error').classList.add('hidden');
+    loadSetup('', {});
+    refreshStatusUI();
+    renderAllocations();
+    renderHistory();
+    showEntryView();
+  }
+
+  function renderHistory() {
+    const wrap = document.getElementById('pdc-history-wrap');
+    const history = (current && current.History) || [];
+    wrap.classList.toggle('hidden', !history.length);
+    const tbody = document.getElementById('pdc-history-body');
+    tbody.innerHTML = '';
+    history.forEach(h => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-1.5 px-3">${escapeHtml(h.Event)}</td>
+        <td class="py-1.5 px-3 text-xs text-slate-400">${escapeHtml(h.Date)}</td>
+        <td class="py-1.5 px-3 font-mono text-xs">${h.JVID ? `<button class="pdc-gl-link text-blue-400 hover:text-blue-300" data-jv="${escapeHtml(h.JVID)}">${escapeHtml(h.JVNumber || h.JVID)}</button>` : ''}</td>
+        <td class="py-1.5 px-3 text-xs text-slate-400">${escapeHtml(h.Reason || '')}</td>
+        <td class="py-1.5 px-3 text-xs text-slate-400">${escapeHtml(h.By || '')}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.pdc-gl-link').forEach(b => b.addEventListener('click', () => openGlImpact(b.getAttribute('data-jv'))));
+  }
+
+  function refreshStatusUI() {
+    const editable = isEditable();
+    const status = current ? current.Status : '';
+    const b = document.getElementById('pdc-status-badge');
+    b.classList.toggle('hidden', !current);
+    if (current) { b.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (STATUS_COLORS[status] || ''); b.textContent = STATUS_LABELS[status] || status; }
+
+    document.getElementById('pdc-rejection-banner').classList.toggle('hidden', status !== 'Rejected');
+    if (status === 'Rejected') document.getElementById('pdc-rejection-reason').textContent = current.RejectionReason || '(no reason given)';
+    document.getElementById('pdc-my-approval-banner').classList.add('hidden');
+    if (status === 'PendingApproval' && canPost) {
+      rpc.withSuccessHandler(levelNumber => {
+        if (!levelNumber) return;
+        const banner = document.getElementById('pdc-my-approval-banner');
+        banner.classList.remove('hidden'); banner.dataset.level = levelNumber;
+      }).withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
+    }
+
+    ['pdc-form-company', 'pdc-form-party', 'pdc-form-date', 'pdc-form-cheque-date', 'pdc-form-cheque-no', 'pdc-form-amount', 'pdc-form-drawee', 'pdc-form-bank',
+      'pdc-form-reference', 'pdc-form-description', 'pdc-form-division', 'pdc-form-branch', 'pdc-form-costcenter', 'pdc-form-profitcenter', 'pdc-form-replaces']
+      .forEach(id => { document.getElementById(id).disabled = !editable; });
+    const show = (id, on) => document.getElementById(id).classList.toggle('hidden', !on);
+    show('pdc-save-draft-btn', editable && canDraft);
+    show('pdc-post-btn', editable && canPost);
+    show('pdc-delete-btn', status === 'Draft' && canDraft);
+    show('pdc-clear-btn', status === 'Pending' && canPost);
+    show('pdc-bounce-btn', status === 'Pending' && canPost);
+    show('pdc-cancel-btn', status === 'Pending' && canPost);
+    show('pdc-undo-btn', status === 'Cleared' && canPost);
+    show('pdc-print-btn', Boolean(current && current.TransactionNumber));
+  }
+
+  function openGlImpact(jvId) {
+    document.getElementById('pdc-gl-modal-subtitle').textContent = '';
+    document.getElementById('pdc-gl-modal-body').innerHTML = '<div class="text-center text-slate-500 py-4">Loading...</div>';
+    document.getElementById('pdc-gl-modal').classList.remove('hidden');
+    rpc
+      .withSuccessHandler(entry => {
+        document.getElementById('pdc-gl-modal-subtitle').textContent = entry.JVNumber + ' — ' + entry.JVDate;
+        const rows = entry.Lines.map(l => `
+          <tr class="border-b border-slate-700">
+            <td class="py-2 px-3 font-mono text-xs text-slate-300">${escapeHtml(l.AccountCode)}</td>
+            <td class="py-2 px-3 text-sm text-slate-200">${escapeHtml(l.AccountName)}${l.PartyName ? ' <span class="text-slate-500 text-xs">(' + escapeHtml(l.PartyName) + ')</span>' : ''}</td>
+            <td class="py-2 px-3 text-sm text-right font-mono">${l.Debit ? formatMoney(l.Debit) : '—'}</td>
+            <td class="py-2 px-3 text-sm text-right font-mono">${l.Credit ? formatMoney(l.Credit) : '—'}</td>
+          </tr>`).join('');
+        document.getElementById('pdc-gl-modal-body').innerHTML = `
+          <p class="text-sm text-slate-300 mb-3">${escapeHtml(entry.Description)}</p>
+          <table class="w-full text-left">
+            <thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Account</th><th class="py-2 px-3">Name</th><th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th></tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot><tr class="font-medium border-t border-slate-600"><td class="py-2 px-3" colspan="2">Total</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalDebit)}</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalCredit)}</td></tr></tfoot>
+          </table>`;
+      })
+      .withFailureHandler(err => { document.getElementById('pdc-gl-modal-body').innerHTML = '<div class="text-center text-red-400 py-4">' + escapeHtml(err.message || 'Unable to load GL entry.') + '</div>'; })
+      .getJournalEntryDetail({ jvId: jvId });
+  }
+  function closeGlImpact() { document.getElementById('pdc-gl-modal').classList.add('hidden'); }
+
+  // A cheque receipt (received) or a cheque voucher (issued).
+  function printVoucher() {
+    if (!current) return;
+    const company = companies.find(c => c.CompanyID === current.CompanyID);
+    const settled = (current.Allocations || []).filter(a => a.RefType === 'Against');
+    const rows = settled.map(a => `<tr><td>${escapeHtml(a.RefNumber || a.RefID)}</td><td style="text-align:right">${formatMoney(a.Amount)}</td></tr>`).join('');
+    const advance = round2((Number(current.Amount) || 0) - settled.reduce((s, a) => s + a.Amount, 0));
+    document.getElementById('pdc-print-document').innerHTML = `
+      <p style="text-align:center; font-size:12px; margin:0;">${escapeHtml(company ? company.LegalName : '')}</p>
+      <h2 style="text-align:center; font-size:16px; font-weight:bold; text-decoration:underline; margin:8px 0 16px;">${RECEIVED ? 'POST-DATED CHEQUE RECEIPT' : 'POST-DATED CHEQUE VOUCHER'}</h2>
+      <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;"><span>No: <strong>${escapeHtml(current.TransactionNumber)}</strong></span><span>Date: <strong>${escapeHtml(current.TransactionDate)}</strong></span></div>
+      <p style="font-size:11px; margin:4px 0;">${RECEIVED ? 'Received from' : 'Issued to'}: <strong>${escapeHtml(current.PartyName)}</strong></p>
+      <table style="margin:8px 0;"><tbody>
+        <tr><td>Cheque No.</td><td>${escapeHtml(current.ChequeNumber)}</td><td>Cheque Date</td><td>${escapeHtml(current.ChequeDate)}</td></tr>
+        <tr><td>Bank</td><td>${escapeHtml(bankOf(current))}</td><td>Amount</td><td style="text-align:right"><strong>${formatMoney(current.Amount)}</strong></td></tr>
+      </tbody></table>
+      <p style="font-size:11px; margin: 8px 0;">Description: ${escapeHtml(current.Description)}</p>
+      ${rows || advance > 0.005 ? `<table><thead><tr><th>Against</th><th style="text-align:right">Amount</th></tr></thead><tbody>${rows}${advance > 0.005 ? `<tr><td>On account (advance)</td><td style="text-align:right">${formatMoney(advance)}</td></tr>` : ''}</tbody></table>` : ''}
+      <p style="font-size:10px; margin-top:12px;">${RECEIVED ? 'Subject to realisation of the cheque on or after its date.' : ''}</p>
+      <div style="display:flex; justify-content:space-between; margin-top:60px; font-size:11px;"><div>Prepared By: _________________</div><div>${RECEIVED ? 'Received By' : 'Approved By'}: _________________</div></div>
+      <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>`;
+    window.print();
+  }
+
+  // ---------- INIT ----------
+  window.initModule = function () {
+    document.getElementById('pdc-kicker').textContent = CONFIG.kicker;
+    document.getElementById('pdc-heading').textContent = CONFIG.heading;
+    document.getElementById('pdc-col-party').textContent = CONFIG.partyLabel;
+    document.getElementById('pdc-party-label').textContent = CONFIG.partyLabel;
+    document.getElementById('pdc-date-label').textContent = CONFIG.dateLabel;
+    document.getElementById('pdc-drawee-wrap').classList.toggle('hidden', !RECEIVED);
+    document.getElementById('pdc-bank-wrap').classList.toggle('hidden', RECEIVED);
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-money-check"></i> ' + escapeHtml(CONFIG.heading);
+
+    rpc
+      .withSuccessHandler(perms => {
+        canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost);
+        document.getElementById('pdc-new-btn').classList.toggle('hidden', !canDraft);
+        renderList();
+        // Opened from Home/GL Report, the entry may already be showing,
+        // drawn before these rights arrived: redraw its buttons and the
+        // approval banner.
+        if (current && !document.getElementById('pdc-entry-view').classList.contains('hidden')) refreshStatusUI();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getModulePermissionsForUser({ moduleId: CONFIG.moduleId });
+
+    rpc
+      .withSuccessHandler(result => {
+        companies = (result || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName));
+        const label = c => c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '');
+        const select = document.getElementById('pdc-form-company');
+        const filter = document.getElementById('pdc-company-filter');
+        select.innerHTML = '<option value="">Select a company...</option>';
+        filter.innerHTML = '<option value="">All Companies</option>';
+        companies.forEach(c => [select, filter].forEach(s => { const o = document.createElement('option'); o.value = c.CompanyID; o.textContent = label(c); s.appendChild(o); }));
+        if (current) select.value = current.CompanyID || '';
+      })
+      .withFailureHandler(err => console.error(err))
+      .getActiveCompanies();
+
+    rpc
+      .withSuccessHandler(result => { orgUnits = result || []; populateOrgUnits(); if (current) fillForm(current); })
+      .withFailureHandler(err => console.error(err))
+      .getActiveOrgUnits();
+
+    document.getElementById('pdc-new-btn').addEventListener('click', newEntry);
+    document.getElementById('pdc-back-btn').addEventListener('click', () => confirmLeave(showListView));
+    document.getElementById('pdc-search-input').addEventListener('input', renderList);
+    ['pdc-company-filter', 'pdc-status-filter', 'pdc-from-filter', 'pdc-to-filter', 'pdc-due-toggle'].forEach(id => document.getElementById(id).addEventListener('change', renderList));
+    document.getElementById('pdc-select-all').addEventListener('change', e => {
+      document.querySelectorAll('.pdc-row-check').forEach(cb => { cb.checked = e.target.checked; if (cb.checked) selected.add(cb.getAttribute('data-id')); else selected.delete(cb.getAttribute('data-id')); });
+      updateSelection();
+    });
+    document.getElementById('pdc-clear-selected-btn').addEventListener('click', clearSelected);
+    document.getElementById('pdc-form-company').addEventListener('change', () => {
+      isDirty = true; allocByRef = {};
+      loadSetup(val('pdc-form-company'), {}, fetchOpenItems);
+    });
+    document.getElementById('pdc-form-party').addEventListener('change', () => { isDirty = true; allocByRef = {}; populateReplaces(); fetchOpenItems(); });
+    document.getElementById('pdc-form-amount').addEventListener('input', () => { isDirty = true; renderAllocSummary(); });
+    ['pdc-form-date', 'pdc-form-cheque-date', 'pdc-form-cheque-no', 'pdc-form-drawee', 'pdc-form-bank', 'pdc-form-reference', 'pdc-form-description',
+      'pdc-form-division', 'pdc-form-branch', 'pdc-form-costcenter', 'pdc-form-profitcenter', 'pdc-form-replaces']
+      .forEach(id => document.getElementById(id).addEventListener('input', () => { isDirty = true; }));
+    document.getElementById('pdc-oldest-btn').addEventListener('click', allocateOldestFirst);
+    document.getElementById('pdc-save-draft-btn').addEventListener('click', saveDraft);
+    document.getElementById('pdc-post-btn').addEventListener('click', postEntry);
+    document.getElementById('pdc-delete-btn').addEventListener('click', deleteDraft);
+    document.getElementById('pdc-clear-btn').addEventListener('click', () => clearCheques([current.PdcID], current.CompanyID, current.ChequeDate > today() ? current.ChequeDate : today()));
+    document.getElementById('pdc-bounce-btn').addEventListener('click', () => closeCheque('Bounced'));
+    document.getElementById('pdc-cancel-btn').addEventListener('click', () => closeCheque('Cancelled'));
+    document.getElementById('pdc-undo-btn').addEventListener('click', undoClearing);
+    document.getElementById('pdc-approve-btn').addEventListener('click', () => decide('Approved'));
+    document.getElementById('pdc-reject-btn').addEventListener('click', () => decide('Rejected'));
+    document.getElementById('pdc-print-btn').addEventListener('click', printVoucher);
+    document.getElementById('pdc-gl-modal-close').addEventListener('click', closeGlImpact);
+    document.getElementById('pdc-gl-modal').addEventListener('click', e => { if (e.target.id === 'pdc-gl-modal') closeGlImpact(); });
+
+    // Drawee banks already typed, as suggestions.
+    rpc.withSuccessHandler(r => {
+      const banks = [...new Set(((r && r.entries) || []).map(e => e.DraweeBank).filter(Boolean))].sort();
+      document.getElementById('pdc-drawee-list').innerHTML = banks.map(b => '<option value="' + escapeHtml(b) + '">').join('');
+    }).withFailureHandler(() => {}).getPdcEntries({ direction: CONFIG.direction, limit: 'all' });
+
+    myReturnChain = window.__pendingReturnChain || [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      document.getElementById('pdc-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      document.getElementById('pdc-back-chain-btn').classList.remove('hidden');
+      document.getElementById('pdc-back-chain-btn').addEventListener('click', goBackInChain);
+    }
+
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) {
+      pendingOpenEntryId = pending.OpenEntryId;
+      fetchEntries('all');
+    } else {
+      fetchEntries();
+    }
+  };
+})();
+</script>

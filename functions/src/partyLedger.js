@@ -283,15 +283,21 @@ async function assertInvoiceHasNoAllocations(invoiceType, invoiceId) {
 }
 
 // Adds Outstanding, PaymentStatus and DueDate to each open invoice in a
-// Vendor/Customer Invoice list.
+// Vendor/Customer Invoice list. PdcPending is the part settled by
+// post-dated cheques that haven't cleared yet (docs/modules/PDC.md,
+// decision 10); the invoice lists then add "(PDC pending)".
 async function annotateInvoiceOutstanding(invoiceType, invoices) {
   const partyType = INVOICE_TYPES[invoiceType];
   const cfg = PARTY_TYPES[partyType];
   const allocated = new Map();
+  const byPdc = new Map();
+  const pdcs = (await rtdb.ref('pdcCheques').get()).val() || {};
+  const pendingPdcJvIds = new Set(Object.values(pdcs).filter(p => p.Status === 'Pending' && p.LinkedJVID).map(p => p.LinkedJVID));
   (await queryEntries('AllocatedRefTypes', 'array-contains', invoiceType)).filter(isLive).forEach(e => {
     (e.Lines || []).forEach(l => (l.Allocations || []).forEach(a => {
       if (a.RefType === 'Against' && String(a.RefID).startsWith(invoiceType + ':')) {
         allocated.set(a.RefID, round2((allocated.get(a.RefID) || 0) + (Number(a.Amount) || 0)));
+        if (pendingPdcJvIds.has(e._id)) byPdc.set(a.RefID, round2((byPdc.get(a.RefID) || 0) + (Number(a.Amount) || 0)));
       }
     }));
   });
@@ -304,6 +310,7 @@ async function annotateInvoiceOutstanding(invoiceType, invoices) {
     const outstanding = round2(total - (allocated.get(invoiceType + ':' + inv[idField]) || 0));
     inv.Outstanding = outstanding;
     inv.PaymentStatus = outstanding <= 0.005 ? 'Paid' : (outstanding < total - 0.005 ? 'Partly paid' : 'Unpaid');
+    inv.PdcPending = byPdc.get(invoiceType + ':' + inv[idField]) || 0;
     const party = parties[inv[cfg.invoicePartyField]];
     inv.DueDate = addDays(inv.InvoiceDate, party ? party.PaymentTermsDays : 0);
   });

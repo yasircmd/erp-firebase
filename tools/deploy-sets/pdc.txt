@@ -1,0 +1,37 @@
+# PDC Received / PDC Issued (docs/modules/PDC.md).
+# Server first; getModuleFragment last. Then the screens (--screens), then
+# Hosting (public/index.html: the Home "PDCs due to clear" block calls
+# getPdcsDueForUser, so it must go after the functions).
+getPdcSetup                      # new
+getPdcOpenItems                  # new
+savePdcDraft                     # new
+deletePdcDraft                   # new
+postPdc                          # new
+decidePdcApproval                # new
+clearPdcs                        # new
+bouncePdc                        # new
+cancelPdc                        # new
+undoPdcClearing                  # new
+getPdcEntries                    # new
+getPdcsDueForUser                # new (Home task)
+getVendorInvoiceEntries          # PdcPending: "(PDC pending)" on the invoice lists
+getCustomerInvoiceEntries
+getPartyStatement                # pending PDCs, PDC row labels
+reverseJournalEntry              # refuses a PDC GL entry (module map)
+getGlReport                      # drill-through to the PDC screens
+updatePostedDescription          # module map
+saveCompany                      # PDC Received / Issued Clearing Accounts
+getDataResetCounts               # new Data Reset category pdcCheques
+getCategoryRecords
+clearSelectedRecords
+clearDataCategories
+getModuleRegistry                # MODULE_REGISTRY: Tree Management, Roles & Permissions
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getApprovalConfigurations        # APPROVAL_GATEABLE_MODULES: Approval Configuration
+saveApprovalConfiguration
+saveApprovalLevels
+getPendingApprovalsForUser       # home tasks for pending PDC approvals
+getMyRejectedSubmissions
+getModuleFragment

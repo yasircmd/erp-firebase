@@ -22,12 +22,16 @@ const TREE_SEED_NODES = [
   { text: 'Purchase Return / Debit Note', depth: 3, moduleId: 'PURCHASERETURN' },
   // New development (not in Code.gs): docs/modules/VENDOR_SOA.md.
   { text: 'Vendor Statement of Account (SOA)', depth: 3, moduleId: 'VENDORSOA' },
+  // New development (not in Code.gs): docs/modules/PDC.md.
+  { text: 'PDC Issued', depth: 3, moduleId: 'PDCISSUED' },
   { text: 'Accounts Receivable (FI-AR)', depth: 2 },
   { text: 'Customer Master Data & Credit Limits', depth: 3 },
   // New development (not in Code.gs): docs/modules/SALES_RETURN.md.
   { text: 'Sales Return / Credit Note', depth: 3, moduleId: 'SALESRETURN' },
   // New development (not in Code.gs): docs/modules/CUSTOMER_SOA.md.
   { text: 'Customer Statement of Account (SOA)', depth: 3, moduleId: 'CUSTOMERSOA' },
+  // New development (not in Code.gs): docs/modules/PDC.md.
+  { text: 'PDC Received', depth: 3, moduleId: 'PDCRECEIVED' },
   { text: 'Customer Invoicing & Billing Integration', depth: 3 },
   { text: 'Cash Application & Incoming Payments', depth: 3 },
   { text: 'Dunning & Dispute Management', depth: 3 },
