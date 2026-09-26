@@ -689,7 +689,7 @@
     document.getElementById('srt-back-btn').addEventListener('click', goBackToList);
     ['srt-search-input'].forEach(id => document.getElementById(id).addEventListener('input', renderList));
     ['srt-company-filter', 'srt-status-filter', 'srt-from-filter', 'srt-to-filter'].forEach(id => document.getElementById(id).addEventListener('change', renderList));
-    document.getElementById('srt-form-company').addEventListener('change', () => { isDirty = true; qtyByKey = {}; fetchInvoices(); });
+    document.getElementById('srt-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; qtyByKey = {}; fetchInvoices(); });
     document.getElementById('srt-form-customer').addEventListener('change', () => { isDirty = true; qtyByKey = {}; fetchInvoices(); });
     document.getElementById('srt-form-invoice').addEventListener('change', () => { isDirty = true; qtyByKey = {}; renderGrid(); updateTotals(); });
     ['srt-form-date', 'srt-form-reference', 'srt-form-description'].forEach(id => document.getElementById(id).addEventListener('input', () => { isDirty = true; }));

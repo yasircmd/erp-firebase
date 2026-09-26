@@ -93,6 +93,36 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   before the user's rights had loaded, so no Approve/Reject appeared. They
   now redraw it when the rights arrive ([PDC.md](modules/PDC.md) → Fix).
   Same change: the SOA's "if pending PDCs bounce" lines removed (owner).
+- [x] **One-company users: company chosen for them** (owner, 2026-09-26;
+  tested, not deployed; branch `worktree-single-company-default`).
+  1. A user assigned exactly one active company finds it already selected
+     in every company dropdown on every screen: entry forms (also after
+     New), list filters and report selectors. Done once in the shell
+     (`public/index.html`, SINGLE-COMPANY DEFAULT), not per screen, since
+     most screens are generated. It fills a company select whenever it's
+     blank, and fires a non-bubbling `change` so the screen loads what
+     depends on the company (accounts, items, eligible documents).
+     Company selects on the 7 screens whose own change handler marked
+     the form dirty now do so only for a user's change (`e.isTrusted`),
+     so Back from an untouched New doesn't ask about unsaved changes
+     (PR, Inventory PR, Sales Order, Purchase/Sales Return, both PDC
+     screens; the three generated ones also edited in `legacy-gas/`).
+  2. Home title: "ERP Module Hierarchy Tree - <their company>" for such a
+     user (others still see the `01` company).
+  3. **Owner's decision (2026-09-26):** master-data forms whose blank
+     option is a real choice ("Shared across all companies" on Customer,
+     Vendor, Item, COA, Org Units, Procurement and Sales Invoice setup)
+     keep shared as the default, not the user's company.
+  Users with two or more companies see no change. Tests:
+  `functions/test/ui/singleCompany.ui.js` (41 screens as a one-company
+  user, 4 as a two-company user; 45/45), a title check in `home.ui.js`
+  (7/7). Negative controls, each caught: the fill turned off; the
+  `isTrusted` guard removed on Purchase Return; the fill's event made to
+  bubble (JV and GRN then asked about unsaved changes); the title's old
+  "01 only" rule. Every other UI check reran green (fixture users all
+  have one company): smoke 105/105, dynamic toggle 2/2, stock 12/12,
+  party payments 3/3, returns 4/4 each, statements 4/4, PDC 8/8.
+  **Deploy:** Hosting (`index.html`) and a screen release; no functions.
 - [ ] **Design: module/approval/voucher-type lists out of the code.** These
   lists are built into every function, so adding a module redeployed 19
   unchanged functions in the returns-and-statements deploy. Kept in

@@ -672,7 +672,7 @@
     document.getElementById('prt-back-btn').addEventListener('click', goBackToList);
     ['prt-search-input'].forEach(id => document.getElementById(id).addEventListener('input', renderList));
     ['prt-company-filter', 'prt-status-filter', 'prt-from-filter', 'prt-to-filter'].forEach(id => document.getElementById(id).addEventListener('change', renderList));
-    document.getElementById('prt-form-company').addEventListener('change', () => { isDirty = true; qtyByKey = {}; fetchInvoices(); });
+    document.getElementById('prt-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; qtyByKey = {}; fetchInvoices(); });
     document.getElementById('prt-form-vendor').addEventListener('change', () => { isDirty = true; qtyByKey = {}; fetchInvoices(); });
     document.getElementById('prt-form-invoice').addEventListener('change', () => { isDirty = true; qtyByKey = {}; renderGrid(); updateTotals(); });
     ['prt-form-date', 'prt-form-reference', 'prt-form-description'].forEach(id => document.getElementById(id).addEventListener('input', () => { isDirty = true; }));

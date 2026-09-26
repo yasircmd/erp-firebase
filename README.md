@@ -127,6 +127,7 @@ node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the S
 node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: the two SOA screens
 node functions/test/ui/pdc.ui.js            # after the pdc suite: the two PDC screens, SOA pending PDCs
 node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed
+node functions/test/ui/singleCompany.ui.js  # one-company user: company preselected on every screen (after vendorMaster)
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for
