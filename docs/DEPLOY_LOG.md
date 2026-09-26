@@ -297,3 +297,27 @@ from, and how it was verified. The deploy procedure is in the
     Asset Configuration: each company's Fixed Asset Clearing Account, the
     account determinations and the asset classes.
 
+- **2026-09-26, Fixed Assets phase 2: Fixed Asset Retirement (sale, scrap) and
+  the owner's menu names ([FIXED_ASSETS.md](modules/FIXED_ASSETS.md) → As
+  built — phase 2):** from `081fd56` (branch `worktree-fixed-assets-design`,
+  clean worktree), owner's go-ahead, inside tmux: `tools/deploy-functions.sh
+  fixed-assets-2 --screens`, 41 functions (2 new: `getFaRetirementSetup`,
+  `previewFaRetirement`; the other Fixed Asset callables; JV / Vendor
+  Invoice reversal, GL Report, `updatePostedDescription`,
+  `getPartyStatement`; registries, approvals, Home tasks;
+  `getModuleFragment`). First run in batches of 20: batches 1 and 2 still
+  had Cloud Functions API request errors after 3 attempts each (different
+  functions each time), so the script skipped the screen release. Re-run
+  with `BATCH=6`: all 7 batches succeeded first time, bindings done,
+  screen release `20260926T212000Z-081fd56` (FARETIRE plus the renamed
+  headings), `ALL DONE`.
+  - **Verified:** all 41 answer an unauthenticated call with "Please sign
+    in again".
+  - **Beforehand**, on `081fd56`: engine 17/17; emulator suite in thirds
+    73 + 72 + 86 = 231/231; smoke 119/119; one-company 52/52; Home 7/7;
+    Fixed Assets UI 8/8; Party Payments UI 3/3; PDC UI 8/8.
+  - **To do in the app:** add a *Fixed Asset Retirement* node (FARETIRE)
+    in Tree Management; set Gain on Disposal and Loss on Disposal in the
+    account determinations; set the company's Output Tax account if
+    sales carry VAT.
+
