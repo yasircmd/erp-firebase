@@ -1,6 +1,6 @@
 # Purchase Return / Debit Note
 
-**Status:** deployed 2026-09-25 · cost-center fix 2026-09-26 (not deployed) · **Roadmap:** [#1](../ROADMAP.md) · **Branch:** `purchase-return`
+**Status:** deployed 2026-09-25 · cost-center fix deployed 2026-09-26 · **Roadmap:** [#1](../ROADMAP.md) · **Branch:** `purchase-return`
 
 ## Purpose
 
