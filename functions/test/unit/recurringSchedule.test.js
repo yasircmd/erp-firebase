@@ -163,6 +163,13 @@ test('service period: a stored plan keeps its amounts after runs post; without i
   const posted = base[d[0]];
   const p = S.installments('Period', lines, posted, rest, base, w);
   rest.forEach(x => assert.deepEqual(p[x], base[x]));
+  // 1,000: re-sharing what's left after the first run would move February by a cent; the stored plan doesn't.
+  const small = [L(1000), L(0, 1000)];
+  const b2 = S.periodBase(small, [], d, w);
+  const kept = S.installments('Period', small, b2[d[0]], rest, b2, w);
+  assert.deepEqual(kept['2027-02-28'], b2['2027-02-28']);
+  assert.deepEqual(b2['2027-02-28'], [76.71, 76.71]);
+  assert.deepEqual(S.installments('Period', small, b2[d[0]], rest, null, w)['2027-02-28'], [76.72, 76.72], 'without it, the cent moves');
   // A skipped month: the stored plan no longer adds up, so its share goes to the others by days.
   const fewer = rest.filter(x => x !== '2027-02-28');
   const q = S.installments('Period', lines, posted, fewer, base, w);

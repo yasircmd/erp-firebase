@@ -1,0 +1,19 @@
+# Recurring Journal Entries: "Spread by service period" (owner, 2026-09-27;
+# docs/modules/RECURRING_JOURNAL.md → Change 2026-09-27). Every recurring
+# callable shares the schedule/amount engine, so all 15 go. Then the screen
+# (--screens). No Hosting change.
+getRecurringJournalSetup
+getRecurringJournals
+getRecurringJournal
+previewRecurringJournal
+saveRecurringJournalDraft
+deleteRecurringJournalDraft
+activateRecurringJournal
+decideRecurringJournalApproval
+pauseRecurringJournal
+endRecurringJournal
+postRecurringJournalRuns
+repostRecurringJournalRun
+skipRecurringJournalRun
+reverseRecurringJournalRun
+getRecurringJournalsDueForUser

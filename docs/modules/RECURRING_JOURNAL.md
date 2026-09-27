@@ -1,6 +1,6 @@
 # Recurring Journal Entries
 
-**Status:** deployed 2026-09-27 · **Roadmap:** [#7](../ROADMAP.md) · **Branch:** `worktree-recurring-journal-entries`
+**Status:** deployed 2026-09-27; change "Spread by service period" tested, not deployed · **Roadmap:** [#7](../ROADMAP.md) · **Branch:** `worktree-recurring-journal-entries`
 
 ## Purpose
 
@@ -284,3 +284,56 @@ then the screens, then Hosting, from a clean checkout in tmux:
 `firebase deploy --project erp1-8f4cd --only hosting`. After that, link
 the existing "Recurring Journal Entries" tree node to `RECURRINGJV` in
 Tree Management.
+
+## Change 2026-09-27: Spread by service period
+
+**Owner's request:** a prepaid for a service period that starts mid-month
+(e.g. 16 Sep 2026 – 15 Sep 2027) must charge the partial first month and
+add a run for the partial last month, instead of equal shares.
+
+**Owner's decisions (2026-09-27):**
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | A partial month's share | **Exact days over the whole period:** total × days the run covers ÷ days in the period |
+| 2 | What the user enters | **Total + service period** (from, to) |
+| 3 | When the last partial month posts | **At that month's month end** |
+| 4 | Which schedules | **Month end only** |
+
+With decision 1, 12,000 for 16 Sep 2026 – 15 Sep 2027 (365 days) gives
+493.15 (15 days), 1,019.18 for a 31-day month, 986.30 for 30 days, 920.54
+for February, and 493.15 for 1–15 Sep 2027, 12,000.00 in all. (The owner's
+example of 500 / 1,000 / 500 would be "days in that month" instead; the
+owner chose exact days over the period.)
+
+**As built**
+- Amount mode `Period` ("Spread by service period"). The schedule is
+  built from `ServiceFrom`/`ServiceTo`: a run at every month end from the
+  start month to the end month (`recurringSchedule.periodSchedule`), each
+  covering the service days in its month (`periodDays`).
+- Amounts: what's left (total − posted) is shared over the open dates by
+  their days, with cumulative rounding per line, each run balanced across
+  lines, and the last open date taking exactly what remains. The per-date
+  plan is stored (`SpreadBase`, as for Spread) when the entry is saved,
+  activated or has a date skipped, so posting a run never moves a cent to
+  another date. A skip or an edit re-shares what's left by days.
+- Screen: the third amount mode swaps the frequency and start/end pickers
+  for Service from / Service to; the run list shows each run's days.
+
+**Tests**
+- Unit (3 more, 16 in all): dates and days for the example, a period
+  within one month, validation; 493.15 / 1,019.18 / 986.30 / 493.15 and
+  the exact total; balance with uneven lines; the stored plan keeping a
+  cent that re-sharing would move (1,000: February 76.71, not 76.72); a
+  skipped month re-shared.
+- Emulator (6th test): a period from the 16th two months back, 13 month
+  ends, the first run's days and amount, total 12,000, the two due runs
+  posted with the planned amounts and the rest unchanged, validation,
+  preview with days. UI check (6th): the mode's fields and the preview
+  for the example. Smoke green.
+- **Negative control** (2026-09-27): (1) runs counting from the 1st of
+  the month (ignoring the service start) → two unit tests fail; (2) the
+  stored plan ignored → the stored-plan test fails. Both restored, green.
+
+**Deploy:** `tools/deploy-functions.sh recurring-journal-period --screens`
+(the 15 recurring callables, then the screen). No Hosting change.
