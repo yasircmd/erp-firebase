@@ -1,0 +1,147 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+    #far-table th, #far-table td { color: black !important; font-size: 9px; padding: 2px 4px; }
+  }
+</style>
+<div id="far-root" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Asset Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-table-list text-blue-500"></i> Fixed Asset Register</h2></div>
+    <div class="flex gap-2 no-print">
+      <button id="far-csv" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded border border-slate-700"><i class="fa-solid fa-file-csv"></i> CSV</button>
+      <button id="far-print" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-6 gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700 no-print">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="far-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">As at</label><input type="date" id="far-asof" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div class="flex items-end"><button id="far-show" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm w-full">Show</button></div>
+    <div class="md:col-span-3"></div>
+    <input id="far-f-number" placeholder="Asset number" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    <select id="far-f-class" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All classes</option></select>
+    <input id="far-f-description" placeholder="Description" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    <select id="far-f-costcenter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All cost centers</option></select>
+    <select id="far-f-status" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All statuses</option><option value="Planned">Planned</option><option value="Active">Active</option><option value="FullyDepreciated">Fully Depreciated</option><option value="Disposed">Disposed</option></select>
+    <select id="far-f-supplier" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All suppliers</option></select>
+    <div><label class="block text-xs text-slate-400 mb-1">Capitalized from / to</label><div class="flex gap-1"><input type="date" id="far-f-cap-from" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"><input type="date" id="far-f-cap-to" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"></div></div>
+    <div><label class="block text-xs text-slate-400 mb-1">Acquired (purchase) from / to</label><div class="flex gap-1"><input type="date" id="far-f-acq-from" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"><input type="date" id="far-f-acq-to" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"></div></div>
+    <div><label class="block text-xs text-slate-500 mb-1">Department <span class="text-slate-600">(later)</span></label><select disabled class="w-full bg-slate-900/50 border border-slate-800 rounded-lg py-1.5 px-2 text-xs text-slate-600"><option>All</option></select></div>
+    <div><label class="block text-xs text-slate-500 mb-1">Location <span class="text-slate-600">(later)</span></label><select disabled class="w-full bg-slate-900/50 border border-slate-800 rounded-lg py-1.5 px-2 text-xs text-slate-600"><option>All</option></select></div>
+  </div>
+
+  <div id="far-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  <div id="far-heading" class="text-sm text-slate-400"></div>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table id="far-table" class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-2 px-2">Asset</th><th class="py-2 px-2">Class</th><th class="py-2 px-2">Cost Center</th><th class="py-2 px-2">Capitalized</th>
+      <th class="py-2 px-2 text-right">Original Cost</th><th class="py-2 px-2 text-right">Additions</th><th class="py-2 px-2 text-right">Transfers</th><th class="py-2 px-2 text-right">Retirements</th>
+      <th class="py-2 px-2 text-right">Acc. Depreciation</th><th class="py-2 px-2 text-right">This Period</th><th class="py-2 px-2 text-right">NBV</th>
+      <th class="py-2 px-2 text-right">Disposal Value</th><th class="py-2 px-2 text-right">Gain/Loss</th><th class="py-2 px-2">Status</th></tr></thead>
+    <tbody id="far-body" class="divide-y divide-slate-700 text-sm"></tbody>
+    <tfoot id="far-foot"></tfoot></table>
+  </div></div>
+  <div id="far-by-class" class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs"></div>
+</div>
+
+<div id="far-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 no-print">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-4xl space-y-3 max-h-[85vh] overflow-y-auto">
+    <div class="flex items-center justify-between"><h3 id="far-modal-title" class="font-semibold"></h3><button id="far-modal-close" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div>
+    <div id="far-modal-body" class="text-sm"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Fixed Asset Register — docs/modules/FIXED_ASSETS.md (FAREGISTER).
+  // Built from the asset transactions, so any past date gives that day's figures.
+  let companies = [];
+  let orgUnits = [];
+  let rows = [];
+  const NUM = ['OriginalCost', 'Additions', 'Transfers', 'Retirements', 'AccDep', 'CurrentPeriodDep', 'NBV', 'DisposalValue', 'GainLoss'];
+  const STATUS_LABELS = { FullyDepreciated: 'Fully Depreciated' };
+  const EVENT_LABELS = { Capitalization: 'Capitalization', Addition: 'Addition', TakeOver: 'Take-over', Depreciation: 'Depreciation', AdditionalDepreciation: 'Additional Depreciation', Disposal: 'Retirement', MasterChange: 'Master data change', Reversal: 'Reversal' };
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function formatMoney(n) { return (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  const unitCode = id => { const u = orgUnits.find(x => x.UnitID === id); return u ? u.Code : (id || ''); };
+  function showError(m) { $('far-error').textContent = m || ''; $('far-error').classList.toggle('hidden', !m); }
+
+  function load() {
+    showError('');
+    if (!val('far-company')) return showError('Select a company.');
+    rpc.withSuccessHandler(r => {
+      rows = r.rows || [];
+      const fill = (id, list, all) => { const keep = val(id); $(id).innerHTML = '<option value="">' + all + '</option>' + list.map(([v, l]) => '<option value="' + escapeHtml(v) + '">' + escapeHtml(l) + '</option>').join(''); $(id).value = keep; };
+      fill('far-f-class', [...new Map(rows.map(x => [x.ClassCode, x.ClassCode + ' — ' + x.ClassName]))], 'All classes');
+      fill('far-f-costcenter', [...new Map(rows.filter(x => x.CostCenterID).map(x => [x.CostCenterID, unitCode(x.CostCenterID)]))], 'All cost centers');
+      fill('far-f-supplier', [...new Map(rows.filter(x => x.SupplierID).map(x => [x.SupplierID, x.SupplierName || x.SupplierID]))], 'All suppliers');
+      render();
+    }).withFailureHandler(e => showError(e.message)).getFaRegister({ companyId: val('far-company'), asOfDate: val('far-asof') });
+  }
+  function filtered() {
+    const num = val('far-f-number').trim().toLowerCase(); const desc = val('far-f-description').trim().toLowerCase();
+    const inRange = (d, from, to) => (!from || (d && d >= from)) && (!to || (d && d <= to));
+    return rows.filter(x => (!num || x.AssetNumber.toLowerCase().includes(num)) && (!desc || (x.Description || '').toLowerCase().includes(desc)) &&
+      (!val('far-f-class') || x.ClassCode === val('far-f-class')) && (!val('far-f-costcenter') || x.CostCenterID === val('far-f-costcenter')) &&
+      (!val('far-f-status') || x.Status === val('far-f-status')) && (!val('far-f-supplier') || x.SupplierID === val('far-f-supplier')) &&
+      inRange(x.CapitalizationDate, val('far-f-cap-from'), val('far-f-cap-to')) && inRange(x.PurchaseDate, val('far-f-acq-from'), val('far-f-acq-to')));
+  }
+  function render() {
+    const list = filtered();
+    const company = companies.find(c => c.CompanyID === val('far-company'));
+    $('far-heading').textContent = (company ? company.LegalName : '') + ' — as at ' + val('far-asof') + ' — ' + list.length + ' asset' + (list.length === 1 ? '' : 's');
+    $('far-body').innerHTML = list.map(x => '<tr class="hover:bg-slate-700/30 cursor-pointer" data-id="' + escapeHtml(x.AssetID) + '"><td class="py-2 px-2"><span class="font-mono text-xs">' + escapeHtml(x.AssetNumber) + '</span> ' + escapeHtml(x.Description) +
+      '</td><td class="py-2 px-2 text-xs">' + escapeHtml(x.ClassCode) + '</td><td class="py-2 px-2 text-xs">' + escapeHtml(unitCode(x.CostCenterID)) + '</td><td class="py-2 px-2 text-xs text-slate-400">' + escapeHtml(x.CapitalizationDate) + '</td>' +
+      NUM.map(f => '<td class="py-2 px-2 text-right font-mono text-xs">' + formatMoney(x[f]) + '</td>').join('') + '<td class="py-2 px-2 text-xs">' + escapeHtml(STATUS_LABELS[x.Status] || x.Status) + '</td></tr>').join('') ||
+      '<tr><td colspan="14" class="py-3 px-3 text-xs text-slate-500">No assets.</td></tr>';
+    $('far-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => showHistory(tr.dataset.id)));
+    const total = f => list.reduce((s, x) => s + (x[f] || 0), 0);
+    $('far-foot').innerHTML = '<tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-2" colspan="4">Total</td>' + NUM.map(f => '<td class="py-2 px-2 text-right font-mono text-xs">' + formatMoney(total(f)) + '</td>').join('') + '<td></td></tr>';
+    const byClass = {};
+    list.forEach(x => { const c = byClass[x.ClassCode] = byClass[x.ClassCode] || { name: x.ClassName, cost: 0, acc: 0, nbv: 0, n: 0 }; c.cost += x.OriginalCost + x.Additions + (x.Retirements || 0); c.acc += x.AccDep; c.nbv += x.NBV; c.n += 1; });
+    $('far-by-class').innerHTML = Object.keys(byClass).sort().map(k => { const c = byClass[k];
+      return '<div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3"><p class="font-semibold">' + escapeHtml(k + ' — ' + c.name) + ' <span class="text-slate-500">(' + c.n + ')</span></p>' +
+        '<div class="flex justify-between"><span>Cost</span><span class="font-mono">' + formatMoney(c.cost) + '</span></div><div class="flex justify-between"><span>Acc. depreciation</span><span class="font-mono">' + formatMoney(c.acc) +
+        '</span></div><div class="flex justify-between font-semibold"><span>NBV</span><span class="font-mono">' + formatMoney(c.nbv) + '</span></div></div>'; }).join('');
+  }
+  function showHistory(id) {
+    rpc.withSuccessHandler(r => {
+      const a = r.asset;
+      $('far-modal-title').textContent = a.AssetNumber + ' — ' + a.Description;
+      $('far-modal-body').innerHTML = '<table class="w-full text-left text-xs"><thead><tr class="text-slate-400 uppercase"><th class="py-1 pr-2">Date</th><th class="py-1 pr-2">Event</th><th class="py-1 pr-2">Document</th><th class="py-1 pr-2 text-right">Cost</th><th class="py-1 pr-2 text-right">Acc. Dep.</th><th class="py-1">By</th></tr></thead><tbody>' +
+        (r.history || []).map(t => '<tr class="border-t border-slate-800' + (t.ReversedByTxnID ? ' text-slate-500' : '') + '"><td class="py-1 pr-2">' + escapeHtml(t.Date) + '</td><td class="py-1 pr-2">' + escapeHtml(EVENT_LABELS[t.Type] || t.Type) + (t.Type === 'Depreciation' ? ' ' + escapeHtml(t.DepKind === 'Retirement' ? 'to the retirement date' : t.Period) : '') + (t.Type === 'Disposal' ? ' (' + escapeHtml(t.RetirementType) + ', proceeds ' + formatMoney(t.Proceeds) + ', gain/loss ' + formatMoney(t.GainLoss) + ')' : '') + (t.ReversedByTxnID ? ' (reversed)' : '') +
+          '</td><td class="py-1 pr-2 font-mono">' + escapeHtml(t.PostingNumber || t.JVNumber || '') + '</td><td class="py-1 pr-2 text-right font-mono">' + (t.CostDelta ? formatMoney(t.CostDelta) : '') + '</td><td class="py-1 pr-2 text-right font-mono">' + (t.AccDepDelta ? formatMoney(t.AccDepDelta) : '') +
+          '</td><td class="py-1">' + escapeHtml(t.CreatedBy || '') + '</td></tr>').join('') + '</tbody></table>';
+      $('far-modal').classList.remove('hidden');
+    }).withFailureHandler(e => showError(e.message)).getFaAsset({ assetId: id, moduleId: 'FAREGISTER' });
+  }
+  function exportCsv() {
+    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const header = ['Asset', 'Description', 'Class', 'Serial', 'Cost Center', 'Supplier', 'Purchase Date', 'Capitalized', 'Original Cost', 'Additions', 'Transfers', 'Retirements', 'Acc Dep (scheduled)', 'Acc Dep (additional)', 'Acc Dep', 'This Period', 'NBV', 'Disposal Value', 'Gain/Loss', 'Status'];
+    const data = filtered().map(x => [x.AssetNumber, x.Description, x.ClassCode, x.SerialNumber, unitCode(x.CostCenterID), x.SupplierName, x.PurchaseDate, x.CapitalizationDate, x.OriginalCost, x.Additions, x.Transfers, x.Retirements, x.AccDepScheduled, x.AccDepAdditional, x.AccDep, x.CurrentPeriodDep, x.NBV, x.DisposalValue, x.GainLoss, x.Status]);
+    const blob = new Blob([[header].concat(data).map(r => r.map(q).join(',')).join('\n')], { type: 'text/csv' });
+    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'fixed-asset-register-' + val('far-asof') + '.csv'; link.click();
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-table-list"></i> Fixed Asset Register';
+    $('far-asof').value = new Date().toISOString().substring(0, 10);
+    rpc.withSuccessHandler(r => {
+      companies = (r || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName));
+      $('far-company').innerHTML = '<option value="">Select a company...</option>' + companies.map(c => '<option value="' + escapeHtml(c.CompanyID) + '">' + escapeHtml(c.LegalName) + '</option>').join('');
+    }).withFailureHandler(e => console.error(e)).getActiveCompanies();
+    rpc.withSuccessHandler(r => { orgUnits = r || []; if (rows.length) render(); }).withFailureHandler(e => console.error(e)).getActiveOrgUnits();
+    $('far-company').addEventListener('change', () => { if (val('far-company')) load(); });
+    $('far-show').addEventListener('click', load);
+    ['far-f-number', 'far-f-description'].forEach(id => $(id).addEventListener('input', render));
+    ['far-f-class', 'far-f-costcenter', 'far-f-status', 'far-f-supplier', 'far-f-cap-from', 'far-f-cap-to', 'far-f-acq-from', 'far-f-acq-to'].forEach(id => $(id).addEventListener('change', render));
+    $('far-csv').addEventListener('click', exportCsv);
+    $('far-print').addEventListener('click', () => window.print());
+    $('far-modal-close').addEventListener('click', () => $('far-modal').classList.add('hidden'));
+  };
+})();
+</script>

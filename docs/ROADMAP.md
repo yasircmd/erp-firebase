@@ -19,6 +19,7 @@ fresh session can continue from GitHub.
 | 3 | Vendor SOA | [VENDOR_SOA.md](modules/VENDOR_SOA.md) | deployed | Live 2026-09-25. To do in the app: link it in Tree Management. Merged into `main` 2026-09-26 (PR #5). |
 | 4 | Customer SOA | [CUSTOMER_SOA.md](modules/CUSTOMER_SOA.md) | deployed | Live 2026-09-25 with #3. To do in the app: link it in Tree Management. |
 | 5 | PDC Received and PDC Issued | [PDC.md](modules/PDC.md) | deployed | Live 2026-09-26: functions, screens and Hosting ([DEPLOY_LOG.md](DEPLOY_LOG.md)), plus the follow-up fixes (approving from Home Tasks; no "if they bounce" lines in the SOA). To do in the app: set both PDC clearing accounts in Company Master, and link the "PDC Received" / "PDC Issued" tree nodes to `PDCRECEIVED` / `PDCISSUED`. Merged into `main` 2026-09-26 (PR #9). |
+| 6 | Fixed Assets (Asset Accounting, FI-AA) | [FIXED_ASSETS.md](modules/FIXED_ASSETS.md) | phase 1 + retirement deployed | Design agreed 2026-09-26 (owner: purchases through the existing Fixed Asset Clearing Account; separate configuration; period lock, department, location and employee reserved; additional depreciation). Phase 1 live 2026-09-26 ([DEPLOY_LOG.md](DEPLOY_LOG.md)): Fixed Asset Configuration, Asset Master, Asset Capitalization (incl. take-over), Depreciation Run, Additional Depreciation, Asset Register ([As built](modules/FIXED_ASSETS.md#as-built--phase-1-2026-09-26)). Menu entries renamed by the owner 2026-09-26: Fixed Asset Configuration, Fixed Asset Master, Fixed Asset Capitalization, Depreciation Run, Additional Depreciation, Fixed Asset Register; the labels in the system now match. To do in the app: set up the clearing account, account determination and classes. Phase 2: **Fixed Asset Retirement** (sale, scrap) live 2026-09-26 with the renamed labels ([As built](modules/FIXED_ASSETS.md#as-built--phase-2-retirement-2026-09-26), [DEPLOY_LOG.md](DEPLOY_LOG.md)); to do in the app: a *Fixed Asset Retirement* node (FARETIRE), Gain/Loss on Disposal in the account determinations. Next: Asset Transfer and Assets under Construction, then phase 3 (Reconciliation, Dashboard). |
 
 **Order:** #0 first (the owner's priority, and the SOAs need it). Then the returns, which the SOAs report on, and
 the SOAs last because they only read.
@@ -55,7 +56,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 - [x] **Faster deploys** (2026-09-26): inside tmux, batches of 20 instead
   of 6; invoker bindings 8 at a time instead of one by one
   (`tools/deploy-lib.sh`). First deploy with batches of 20 is untried:
-  if it times out or hits API quota, rerun with `BATCH=10`.
+  if it times out or hits API quota, rerun with `BATCH=10`. **Tried
+  2026-09-26 (Fixed Assets, both phases):** batches of 20 hit Cloud
+  Functions API request errors every time, a few functions per batch;
+  `BATCH=6` then went through first time. Use `BATCH=6` for large sets.
 - [x] **Release screens without a function deploy**
   ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md)): live
   2026-09-26 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). Owner's decisions: access

@@ -50,6 +50,12 @@ const {
   getPdcSetup, getPdcOpenItems, savePdcDraft, deletePdcDraft, postPdc, decidePdcApproval,
   clearPdcs, bouncePdc, cancelPdc, undoPdcClearing, getPdcEntries, getPdcsDueForUser
 } = require('./src/pdc');
+// Fixed Assets, phase 1 (docs/modules/FIXED_ASSETS.md).
+const faConfig = require('./src/fixedAssetsConfig');
+const faMaster = require('./src/fixedAssetsMaster');
+const faPostings = require('./src/fixedAssetsPostings');
+const faDepreciation = require('./src/fixedAssetsDepreciation');
+const faRetirement = require('./src/fixedAssetsRetirement');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
@@ -137,6 +143,9 @@ exports.cancelPdc = cancelPdc;
 exports.undoPdcClearing = undoPdcClearing;
 exports.getPdcEntries = getPdcEntries;
 exports.getPdcsDueForUser = getPdcsDueForUser;
+for (const [name, fn] of Object.entries(Object.assign({}, faConfig, faMaster, faPostings, faDepreciation, faRetirement))) {
+  if (fn && fn.__endpoint) exports[name] = fn; // callables only, not helpers
+}
 
 // Every remaining Code.gs module, ported mechanically (see
 // tools/legacy-port/generate.js): one callable per function a ported

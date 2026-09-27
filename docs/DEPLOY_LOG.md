@@ -267,3 +267,57 @@ from, and how it was verified. The deploy procedure is in the
   - **Beforehand:** singleCompany UI 45/45, Home 7/7, smoke 105/105,
     dynamic toggle 2/2, stock 12/12, party payments 3/3, returns 4/4 each,
     statements 4/4, PDC 8/8; four negative controls caught.
+
+- **2026-09-26, Fixed Assets phase 1 ([FIXED_ASSETS.md](modules/FIXED_ASSETS.md)):**
+  from `9357d09` (branch `worktree-fixed-assets-design`, clean worktree),
+  inside tmux: `tools/deploy-functions.sh fixed-assets-1 --screens`, the
+  first deploy in batches of 20. 46 functions: the 23 new Fixed Asset
+  callables, plus JV/CBT (asset-account guard), JV and Vendor Invoice
+  reversal (capitalized-purchase guard), GL Report and
+  `updatePostedDescription` (module map), Data Reset (two new
+  categories), Roles/Tree Management and Approval Configuration (module
+  lists), Home tasks, `getModuleFragment`. Batches 1 and 2 each needed a
+  retry for transient Cloud Functions API request errors
+  (`reverseFaPosting`; `saveAllModulePermissions`, `saveTreeNode`); all
+  succeeded, `ALL DONE`. Screen release `20260926T154532Z-9357d09`
+  (the six new screens). No Hosting change.
+  - **Verified:** all 46 answer an unauthenticated call with "Please sign
+    in again" (`saveJournalDraft` with a `jvData` argument: it reads it
+    before the sign-in check, as before).
+  - **Beforehand**, on `9357d09`: engine 15/15 unit tests; the emulator
+    suite in three parts 73 + 72 + 84 = 229/229 (thirds now: halves ran out
+    of memory); smoke 117/117, dynamic toggle 2/2, one-company 51/51,
+    Home 7/7, Fixed Assets UI 7/7, Party Payments UI 3/3, PDC 6/6 + UI
+    8/8. Negative controls as listed in FIXED_ASSETS.md → As built.
+  - **To do in the app:** in Tree Management link *Capital Asset Master
+    Management* → FAASSET, *Asset Acquisition & Capital Work-in-Progress
+    (CWIP)* → FAACQ, *Multi-GAAP Depreciation Calculation Engine* →
+    FADEPRUN, and add *Fixed Asset Configuration* (FACONFIG), *Additional
+    Depreciation* (FAADDDEP), *Asset Register* (FAREGISTER). Then in Fixed
+    Asset Configuration: each company's Fixed Asset Clearing Account, the
+    account determinations and the asset classes.
+
+- **2026-09-26, Fixed Assets phase 2: Fixed Asset Retirement (sale, scrap) and
+  the owner's menu names ([FIXED_ASSETS.md](modules/FIXED_ASSETS.md) → As
+  built — phase 2):** from `081fd56` (branch `worktree-fixed-assets-design`,
+  clean worktree), owner's go-ahead, inside tmux: `tools/deploy-functions.sh
+  fixed-assets-2 --screens`, 41 functions (2 new: `getFaRetirementSetup`,
+  `previewFaRetirement`; the other Fixed Asset callables; JV / Vendor
+  Invoice reversal, GL Report, `updatePostedDescription`,
+  `getPartyStatement`; registries, approvals, Home tasks;
+  `getModuleFragment`). First run in batches of 20: batches 1 and 2 still
+  had Cloud Functions API request errors after 3 attempts each (different
+  functions each time), so the script skipped the screen release. Re-run
+  with `BATCH=6`: all 7 batches succeeded first time, bindings done,
+  screen release `20260926T212000Z-081fd56` (FARETIRE plus the renamed
+  headings), `ALL DONE`.
+  - **Verified:** all 41 answer an unauthenticated call with "Please sign
+    in again".
+  - **Beforehand**, on `081fd56`: engine 17/17; emulator suite in thirds
+    73 + 72 + 86 = 231/231; smoke 119/119; one-company 52/52; Home 7/7;
+    Fixed Assets UI 8/8; Party Payments UI 3/3; PDC UI 8/8.
+  - **To do in the app:** add a *Fixed Asset Retirement* node (FARETIRE)
+    in Tree Management; set Gain on Disposal and Loss on Disposal in the
+    account determinations; set the company's Output Tax account if
+    sales carry VAT.
+

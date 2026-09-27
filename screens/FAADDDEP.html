@@ -1,0 +1,288 @@
+<div id="fad-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Asset Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-arrow-trend-down text-blue-500"></i> Additional Depreciation</h2></div>
+    <button id="fad-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New</button>
+  </div>
+  <p class="text-xs text-slate-500 max-w-3xl">Depreciation beyond the schedule (heavier use, damage, a policy decision). It can't take an asset below its residual value, and the schedule then spreads the lower remainder over the remaining life.</p>
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="fad-search" placeholder="Search number, asset, reason..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    <select id="fad-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="fad-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option>Draft</option><option value="PendingApproval">Pending Approval</option><option>Rejected</option><option>Posted</option><option>Reversed</option></select>
+  </div>
+  <div id="fad-list-notice" class="hidden text-xs text-slate-500"></div>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-3 px-3">Number</th><th class="py-3 px-3">Date</th><th class="py-3 px-3">Assets</th><th class="py-3 px-3">Reason</th><th class="py-3 px-3 text-right">Amount</th><th class="py-3 px-3">Status</th></tr></thead>
+    <tbody id="fad-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+</div>
+
+<div id="fad-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="fad-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="fad-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="fad-back-chain-label">Back</span></button>
+      <h2 id="fad-title" class="text-xl font-bold text-blue-400"></h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="fad-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="fad-gl-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-book"></i> GL Entry</button>
+    </div>
+  </div>
+  <div id="fad-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  <div id="fad-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3"></div>
+  <div id="fad-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4"><p class="text-xs font-semibold text-red-400 uppercase">Rejected</p><p id="fad-rejection-reason" class="text-sm text-slate-200"></p></div>
+  <div id="fad-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="fad-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3"><button id="fad-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button><button id="fad-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="fad-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="fad-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><p id="fad-date-hint" class="text-xs text-slate-500 mt-1"></p></div>
+    <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Reason</label><input id="fad-form-reason" placeholder="Required, e.g. accident damage" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Description</label><input id="fad-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input id="fad-form-reference" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-2 px-3">Asset</th><th class="py-2 px-3 text-right">NBV now</th><th class="py-2 px-3 text-right">At most</th><th class="py-2 px-3 text-right w-44">Additional depreciation</th><th class="py-2 px-3 w-10"></th></tr></thead>
+    <tbody id="fad-lines-body" class="divide-y divide-slate-700 text-sm"></tbody>
+    <tfoot><tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3" colspan="3">Total — Dr Additional Depreciation Expense · Cr Accumulated Depreciation</td><td id="fad-total" class="py-2 px-3 text-right font-mono"></td><td></td></tr></tfoot></table>
+  </div></div>
+  <button id="fad-add-line" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add asset</button>
+
+  <div class="flex flex-wrap gap-2">
+    <button id="fad-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-lg text-sm">Save Draft</button>
+    <button id="fad-post-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm">Post</button>
+    <button id="fad-delete-btn" class="hidden bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-sm">Delete Draft</button>
+    <button id="fad-reverse-btn" class="hidden bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-sm">Reverse</button>
+  </div>
+</div>
+
+<div id="fad-gl-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-3xl space-y-3">
+    <div class="flex items-center justify-between"><h3 class="font-semibold">GL entries</h3><button id="fad-gl-close" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div>
+    <div id="fad-gl-body" class="text-sm"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Additional Depreciation — docs/modules/FIXED_ASSETS.md (FAADDDEP).
+  let rights = {};
+  let entries = [];
+  let companies = [];
+  let assets = [];
+  let lastPosted = '';
+  let current = null;
+  let lines = [];
+  let isDirty = false;
+  let loadSeq = 0;          // only the latest company load may draw
+  let myReturnChain = [];
+  const STATUS_COLORS = {
+    Draft: 'bg-slate-700 text-slate-300', PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+    Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20', Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20', Reversed: 'bg-slate-700 text-slate-400'
+  };
+  const LABELS = { PendingApproval: 'Pending Approval' };
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function formatMoney(n) { return (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  const round2 = n => Math.round(n * 100) / 100;
+  const parseAmount = v => parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0;
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  const today = () => new Date().toISOString().substring(0, 10);
+  const badge = s => '<span class="text-xs px-2 py-0.5 rounded-full ' + (STATUS_COLORS[s] || '') + '">' + escapeHtml(LABELS[s] || s) + '</span>';
+  const bookOf = a => (a && a.Areas && a.Areas.BOOK) || {};
+  const isEditable = () => rights.draft && (!current || current.Status === 'Draft' || current.Status === 'Rejected');
+  function showError(msg) { $('fad-error').textContent = msg || ''; $('fad-error').classList.toggle('hidden', !msg); }
+
+  function renderList() {
+    const q = val('fad-search').trim().toLowerCase();
+    const co = val('fad-company-filter'); const st = val('fad-status-filter');
+    const rows = entries.filter(e => (!co || e.CompanyID === co) && (!st || e.Status === st) &&
+      (!q || [e.PostingNumber, e.Reason, e.Description, (e.Lines || []).map(l => l.AssetNumber + ' ' + l.AssetDescription).join(' ')].join(' ').toLowerCase().includes(q)));
+    $('fad-body').innerHTML = rows.map(e => '<tr class="hover:bg-slate-700/30 cursor-pointer" data-id="' + escapeHtml(e.PostingID) + '"><td class="py-2.5 px-3 font-mono text-xs">' + escapeHtml(e.PostingNumber || '(unposted)') +
+      '</td><td class="py-2.5 px-3 text-xs text-slate-400">' + escapeHtml(e.Date) + '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml((e.Lines || []).map(l => l.AssetNumber).join(', ')) +
+      '</td><td class="py-2.5 px-3">' + escapeHtml(e.Reason) + '</td><td class="py-2.5 px-3 text-right font-mono">' + formatMoney(e.Total) + '</td><td class="py-2.5 px-3">' + badge(e.Status) + '</td></tr>').join('');
+    $('fad-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openEntry(tr.dataset.id)));
+    $('fad-list-notice').classList.toggle('hidden', rows.length > 0);
+    $('fad-list-notice').textContent = entries.length ? 'Nothing matches the filters.' : 'No additional depreciation yet.';
+  }
+  function fetchEntries(then) {
+    rpc.withSuccessHandler(r => { entries = r || []; renderList(); if (then) then(); }).withFailureHandler(e => console.error(e)).getFaPostings({ moduleId: 'FAADDDEP' });
+  }
+  function showList() { $('fad-entry-view').classList.add('hidden'); $('fad-list-view').classList.remove('hidden'); fetchEntries(); }
+  function confirmLeave(then) { if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return; then(); }
+
+  function loadCompany(companyId, then) {
+    const seq = ++loadSeq;
+    assets = []; lastPosted = '';
+    if (!companyId) { renderLines(); if (then) then(); return; }
+    let pending = 2;
+    const done = () => { if (seq === loadSeq && --pending === 0) { renderLines(); if (then) then(); } };
+    rpc.withSuccessHandler(r => { if (seq === loadSeq) assets = r || []; done(); }).withFailureHandler(e => { showError(e.message); done(); }).getFaAssets({ companyId: companyId, moduleId: 'FAADDDEP' });
+    rpc.withSuccessHandler(r => { if (seq === loadSeq) lastPosted = r.lastPostedPeriod || ''; done(); }).withFailureHandler(() => done()).getFaAssetSetup({ companyId: companyId, moduleId: 'FAADDDEP' });
+  }
+  const maxFor = a => round2(Math.max(0, (bookOf(a).Cost || 0) - (bookOf(a).ResidualValue || 0) - (bookOf(a).AccDep || 0)));
+  function renderLines() {
+    const editable = isEditable();
+    const eligible = assets.filter(a => a.Status === 'Active' && (a.ClassKind === 'Tangible' || a.ClassKind === 'Intangible'));
+    $('fad-lines-body').innerHTML = lines.map((l, idx) => {
+      const a = assets.find(x => x.AssetID === l.AssetID);
+      const opts = eligible.concat(l.AssetID && !eligible.some(x => x.AssetID === l.AssetID) ? [{ AssetID: l.AssetID, AssetNumber: l.AssetNumber || l.AssetID, Description: l.AssetDescription || '' }] : []);
+      return '<tr><td class="py-2 px-3"><select data-i="' + idx + '" class="fad-asset w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"' + (editable ? '' : ' disabled') + '><option value="">Select...</option>' +
+        opts.map(x => '<option value="' + escapeHtml(x.AssetID) + '"' + (x.AssetID === l.AssetID ? ' selected' : '') + '>' + escapeHtml(x.AssetNumber + ' — ' + x.Description) + '</option>').join('') + '</select></td>' +
+        '<td class="py-2 px-3 text-right font-mono text-xs">' + (a ? formatMoney((bookOf(a).Cost || 0) - (bookOf(a).AccDep || 0)) : '') + '</td><td class="py-2 px-3 text-right font-mono text-xs text-slate-400">' + (a && editable ? formatMoney(maxFor(a)) : '') +
+        '</td><td class="py-2 px-3"><input data-i="' + idx + '" inputmode="decimal" value="' + escapeHtml(l.Amount || '') + '" class="fad-amount w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right font-mono"' + (editable ? '' : ' disabled') + '></td>' +
+        '<td class="py-2 px-3">' + (editable ? '<button data-i="' + idx + '" class="fad-rm text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>' : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="py-3 px-3 text-xs text-slate-500">' + (val('fad-form-company') ? 'Add the assets.' : 'Select a company.') + '</td></tr>';
+    $('fad-lines-body').querySelectorAll('.fad-asset').forEach(el => el.addEventListener('change', () => { lines[Number(el.dataset.i)].AssetID = el.value; isDirty = true; renderLines(); }));
+    $('fad-lines-body').querySelectorAll('.fad-amount').forEach(el => el.addEventListener('input', () => { lines[Number(el.dataset.i)].Amount = el.value; isDirty = true; renderTotal(); }));
+    $('fad-lines-body').querySelectorAll('.fad-rm').forEach(b => b.addEventListener('click', () => { lines.splice(Number(b.dataset.i), 1); isDirty = true; renderLines(); }));
+    $('fad-add-line').classList.toggle('hidden', !editable);
+    $('fad-date-hint').textContent = lastPosted && editable ? 'After ' + lastPosted + ' (last posted depreciation).' : '';
+    renderTotal();
+  }
+  function renderTotal() { $('fad-total').textContent = formatMoney(lines.reduce((s, l) => s + parseAmount(l.Amount), 0)); }
+
+  function refreshStatusUi() {
+    const s = current ? current.Status : 'Draft';
+    const editable = isEditable();
+    $('fad-title').textContent = 'Additional Depreciation' + (current && current.PostingNumber ? ' ' + current.PostingNumber : current ? ' (draft)' : ' — new');
+    $('fad-status-badge').classList.toggle('hidden', !current);
+    if (current) { $('fad-status-badge').className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (STATUS_COLORS[s] || ''); $('fad-status-badge').textContent = LABELS[s] || s; }
+    ['fad-form-company', 'fad-form-date', 'fad-form-reason', 'fad-form-description', 'fad-form-reference'].forEach(id => { $(id).disabled = !editable; });
+    $('fad-form-company').disabled = !editable || lines.some(l => l.AssetID);
+    $('fad-save-btn').classList.toggle('hidden', !editable);
+    $('fad-post-btn').classList.toggle('hidden', !(editable && rights.post));
+    $('fad-delete-btn').classList.toggle('hidden', !(current && s === 'Draft' && rights.draft));
+    $('fad-reverse-btn').classList.toggle('hidden', !(current && s === 'Posted' && rights.post));
+    $('fad-gl-btn').classList.toggle('hidden', !(current && current.JVID));
+    $('fad-rejection-banner').classList.toggle('hidden', s !== 'Rejected');
+    $('fad-rejection-reason').textContent = current ? current.RejectionReason || '' : '';
+    const msg = s === 'Reversed' ? 'Reversed ' + (current.ReversalJVNumber ? '(' + current.ReversalJVNumber + ') ' : '') + '— ' + (current.ReversalReason || '')
+      : s === 'PendingApproval' ? 'Waiting for approval. Nothing is posted until it is approved.' : '';
+    $('fad-note').textContent = msg; $('fad-note').classList.toggle('hidden', !msg);
+    $('fad-approval-banner').classList.add('hidden');
+    if (s === 'PendingApproval' && current.ApprovalInstanceID) {
+      rpc.withSuccessHandler(level => { if (level) { $('fad-approval-banner').classList.remove('hidden'); $('fad-approval-banner').dataset.level = level; } })
+        .withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
+    }
+    renderLines();
+  }
+  function newEntry() {
+    current = null; lines = [{ AssetID: '', Amount: '' }]; isDirty = false; showError('');
+    $('fad-form-company').value = ''; $('fad-form-date').value = today();
+    ['fad-form-reason', 'fad-form-description', 'fad-form-reference'].forEach(id => { $(id).value = ''; });
+    $('fad-list-view').classList.add('hidden'); $('fad-entry-view').classList.remove('hidden');
+    loadCompany('');
+    refreshStatusUi();
+  }
+  function openEntry(id) {
+    const e = entries.find(x => x.PostingID === id);
+    if (!e) return;
+    current = e; isDirty = false; showError('');
+    lines = (e.Lines || []).map(l => ({ AssetID: l.AssetID, AssetNumber: l.AssetNumber, AssetDescription: l.AssetDescription, Amount: l.Amount }));
+    $('fad-form-company').value = e.CompanyID; $('fad-form-date').value = e.Date; $('fad-form-reason').value = e.Reason || '';
+    $('fad-form-description').value = e.Description || ''; $('fad-form-reference').value = e.Reference || '';
+    $('fad-list-view').classList.add('hidden'); $('fad-entry-view').classList.remove('hidden');
+    refreshStatusUi();
+    loadCompany(e.CompanyID, () => refreshStatusUi());
+  }
+  function payload() {
+    return {
+      PostingID: current ? current.PostingID : '', Type: 'AdditionalDepreciation', CompanyID: val('fad-form-company'), Date: val('fad-form-date'),
+      Reason: val('fad-form-reason'), Description: val('fad-form-description') || 'Additional depreciation', Reference: val('fad-form-reference'),
+      Lines: lines.filter(l => l.AssetID).map(l => ({ AssetID: l.AssetID, Amount: l.Amount }))
+    };
+  }
+  function saveDraft(then) {
+    showError('');
+    rpc.withSuccessHandler(r => { isDirty = false; fetchEntries(() => { openEntry(r.postingId); if (typeof then === 'function') then(r.postingId); }); })
+      .withFailureHandler(e => showError(e.message || String(e))).saveFaPostingDraft(payload());
+  }
+  function post() {
+    if (!window.confirm('Post additional depreciation of ' + $('fad-total').textContent + '?')) return;
+    saveDraft(id => {
+      rpc.withSuccessHandler(r => { fetchEntries(() => openEntry(id)); if (r.status === 'PendingApproval') alert('Sent for approval.'); })
+        .withFailureHandler(e => showError(e.message || String(e))).postFaPosting({ postingId: id });
+    });
+  }
+  function del() {
+    if (!current || !window.confirm('Delete this draft?')) return;
+    rpc.withSuccessHandler(() => { isDirty = false; showList(); }).withFailureHandler(e => showError(e.message)).deleteFaPostingDraft({ postingId: current.PostingID });
+  }
+  function reverse() {
+    const reason = window.prompt('Reason for reversing ' + (current.PostingNumber || '') + ':');
+    if (reason == null) return;
+    rpc.withSuccessHandler(() => fetchEntries(() => openEntry(current.PostingID))).withFailureHandler(e => showError(e.message || String(e)))
+      .reverseFaPosting({ postingId: current.PostingID, reason: reason });
+  }
+  function decide(decision) {
+    if (!window.confirm((decision === 'Approved' ? 'Approve and post' : 'Reject') + ' this document?')) return;
+    rpc.withSuccessHandler(() => fetchEntries(() => openEntry(current.PostingID))).withFailureHandler(e => showError(e.message || String(e)))
+      .decideFaPostingApproval({ postingId: current.PostingID, levelNumber: Number($('fad-approval-banner').dataset.level), decision: decision, reason: val('fad-decision-reason') });
+  }
+  function showGl() {
+    $('fad-gl-body').innerHTML = ''; $('fad-gl-modal').classList.remove('hidden');
+    [current.JVID, current.ReversalJVID].filter(Boolean).forEach(id => rpc.withSuccessHandler(e => {
+      $('fad-gl-body').innerHTML += '<p class="font-mono text-xs text-blue-400 mt-2">' + escapeHtml(e.JVNumber + ' — ' + e.JVDate + ' — ' + e.Description) + '</p><table class="w-full text-left text-xs"><tbody>' +
+        (e.Lines || []).map(l => '<tr class="border-b border-slate-800"><td class="py-1 pr-2 font-mono">' + escapeHtml(l.AccountCode) + '</td><td class="py-1 pr-2">' + escapeHtml(l.AccountName || '') +
+          '</td><td class="py-1 pr-2 text-right font-mono">' + (l.Debit ? formatMoney(l.Debit) : '') + '</td><td class="py-1 text-right font-mono">' + (l.Credit ? formatMoney(l.Credit) : '') + '</td></tr>').join('') + '</tbody></table>';
+    }).withFailureHandler(e => { $('fad-gl-body').innerHTML += '<p class="text-red-400 text-xs">' + escapeHtml(e.message) + '</p>'; }).getJournalEntryDetail({ jvId: id }));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-arrow-trend-down"></i> Additional Depreciation';
+    rpc.withSuccessHandler(r => {
+      rights = r.FAADDDEP || {};
+      $('fad-new-btn').classList.toggle('hidden', !rights.draft);
+      if (!$('fad-entry-view').classList.contains('hidden')) refreshStatusUi();
+    }).withFailureHandler(e => console.error(e)).getFaRights();
+    rpc.withSuccessHandler(r => {
+      companies = (r || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName));
+      [$('fad-form-company'), $('fad-company-filter')].forEach((s, i) => {
+        const keep = s.value;
+        s.innerHTML = '<option value="">' + (i ? 'All Companies' : 'Select a company...') + '</option>' + companies.map(c => '<option value="' + escapeHtml(c.CompanyID) + '">' + escapeHtml(c.LegalName) + '</option>').join('');
+        s.value = current && !i ? current.CompanyID : keep;
+      });
+    }).withFailureHandler(e => console.error(e)).getActiveCompanies();
+
+    $('fad-new-btn').addEventListener('click', newEntry);
+    $('fad-back-btn').addEventListener('click', () => confirmLeave(showList));
+    $('fad-search').addEventListener('input', renderList);
+    ['fad-company-filter', 'fad-status-filter'].forEach(id => $(id).addEventListener('change', renderList));
+    $('fad-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; lines = [{ AssetID: '', Amount: '' }]; loadCompany(val('fad-form-company')); });
+    ['fad-form-date', 'fad-form-reason', 'fad-form-description', 'fad-form-reference'].forEach(id => $(id).addEventListener('input', () => { isDirty = true; }));
+    $('fad-add-line').addEventListener('click', () => { lines.push({ AssetID: '', Amount: '' }); renderLines(); });
+    $('fad-save-btn').addEventListener('click', () => saveDraft());
+    $('fad-post-btn').addEventListener('click', post);
+    $('fad-delete-btn').addEventListener('click', del);
+    $('fad-reverse-btn').addEventListener('click', reverse);
+    $('fad-approve-btn').addEventListener('click', () => decide('Approved'));
+    $('fad-reject-btn').addEventListener('click', () => decide('Rejected'));
+    $('fad-gl-btn').addEventListener('click', showGl);
+    $('fad-gl-close').addEventListener('click', () => $('fad-gl-modal').classList.add('hidden'));
+
+    myReturnChain = window.__pendingReturnChain || [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      $('fad-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      $('fad-back-chain-btn').classList.remove('hidden');
+      $('fad-back-chain-btn').addEventListener('click', () => confirmLeave(() => { const chain = myReturnChain.slice(); const t = chain.pop(); if (t) openModule(t.moduleId, t.params, chain); }));
+    }
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    fetchEntries(() => {
+      if (!pending || !pending.OpenEntryId) return;
+      const id = pending.OpenEntryId;
+      const found = entries.find(e => e.PostingID === id || e.JVID === id || e.ReversalJVID === id);
+      if (found) openEntry(found.PostingID); else alert('That document could not be found.');
+    });
+  };
+})();
+</script>

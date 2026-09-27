@@ -60,6 +60,15 @@ const MODULE_REGISTRY = [
   // New development (not in Code.gs): docs/modules/PDC.md.
   { id: 'PDCRECEIVED', label: 'PDC Received', capabilities: ['access', 'draft', 'post'] },
   { id: 'PDCISSUED', label: 'PDC Issued', capabilities: ['access', 'draft', 'post'] },
+  // New development (not in Code.gs): docs/modules/FIXED_ASSETS.md, phase 1.
+  { id: 'FACONFIG', label: 'Fixed Asset Configuration', capabilities: ['access', 'write'] },
+  { id: 'FAASSET', label: 'Fixed Asset Master', capabilities: ['access', 'draft'] },
+  { id: 'FAACQ', label: 'Fixed Asset Capitalization', capabilities: ['access', 'draft', 'post'] },
+  { id: 'FADEPRUN', label: 'Depreciation Run', capabilities: ['access', 'post', 'reverse'] },
+  { id: 'FAADDDEP', label: 'Additional Depreciation', capabilities: ['access', 'draft', 'post'] },
+  { id: 'FAREGISTER', label: 'Fixed Asset Register', capabilities: ['access'] },
+  // docs/modules/FIXED_ASSETS.md, phase 2.
+  { id: 'FARETIRE', label: 'Fixed Asset Retirement', capabilities: ['access', 'draft', 'post'] },
   { id: 'DATARESET', label: 'Data Reset (Admin)', capabilities: ['access', 'write'] }
 ];
 
@@ -146,6 +155,13 @@ const DEFAULT_PERMISSIONS = {
   // Same as CBT (PDC decision 9); 'post' also covers clear, bounce, cancel and undo.
   PDCRECEIVED:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   PDCISSUED:          { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
+  FACONFIG:           { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
+  FAASSET:            { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'] },
+  FAACQ:              { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
+  FADEPRUN:           { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], post: ['ADMIN', 'FINANCE_MGR'], reverse: ['ADMIN', 'FINANCE_MGR'] },
+  FAADDDEP:           { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
+  FAREGISTER:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  FARETIRE:           { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   MATERIALISSUE:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   PRODUCTION:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   WAREHOUSEMOVEMENT:  { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },

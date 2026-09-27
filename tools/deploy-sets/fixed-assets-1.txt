@@ -1,0 +1,50 @@
+# Fixed Assets, phase 1 (docs/modules/FIXED_ASSETS.md): configuration,
+# asset master, capitalization / take-over, depreciation run, additional
+# depreciation, asset register. Server first; getModuleFragment last.
+# Then the screens (--screens). No Hosting change.
+getFaRights                      # new
+getFaConfig                      # new — Fixed Asset Configuration
+saveFaSettings                   # new
+saveFaAccountDetermination       # new
+saveFaClass                      # new
+getFaAssetSetup                  # new — Asset Master
+getFaAssets                      # new
+getFaAsset                       # new
+saveFaAsset                      # new
+deleteFaAsset                    # new
+getFaClearingItems               # new — Asset Capitalization / Additional Depreciation
+getFaPostings                    # new
+saveFaPostingDraft               # new
+deleteFaPostingDraft             # new
+postFaPosting                    # new
+decideFaPostingApproval          # new
+reverseFaPosting                 # new
+previewFaDepreciation            # new — Depreciation Run
+postFaDepreciation               # new
+reverseFaDepreciation            # new
+getFaRuns                        # new
+getFaDepreciationRegister        # new
+getFaRegister                    # new — Asset Register
+saveJournalDraft                 # JV/CBT refuse asset cost, acc. depreciation and AuC accounts
+saveCbtDraft
+postJournalEntry
+decideJournalEntryApproval
+reverseJournalEntry              # refuses an FA entry (module map) and a capitalized purchase
+requestReverseVendorInvoice      # refused while its clearing lines are capitalized
+decideVendorInvoiceReversalApproval
+getGlReport                      # drill-through to the FA screens
+updatePostedDescription          # module map
+getDataResetCounts               # new Data Reset categories fixedAssets, fixedAssetSetup
+getCategoryRecords
+clearSelectedRecords
+clearDataCategories
+getModuleRegistry                # MODULE_REGISTRY: Tree Management, Roles & Permissions
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getApprovalConfigurations        # APPROVAL_GATEABLE_MODULES: Approval Configuration
+saveApprovalConfiguration
+saveApprovalLevels
+getPendingApprovalsForUser       # home tasks for pending FA approvals
+getMyRejectedSubmissions
+getModuleFragment

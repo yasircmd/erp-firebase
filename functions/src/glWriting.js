@@ -12,7 +12,11 @@ const STOCK_TRANSACTION_PREFIXES = {
   PurchaseReturn: 'DBN', // hand-written module, docs/modules/PURCHASE_RETURN.md
   SalesReturn: 'CRN', // hand-written module, docs/modules/SALES_RETURN.md
   // hand-written module, docs/modules/PDC.md: receipt/issue and clearing
-  PDCReceived: 'PDR', PDCReceivedClear: 'PDRC', PDCIssued: 'PDI', PDCIssuedClear: 'PDIC'
+  PDCReceived: 'PDR', PDCReceivedClear: 'PDRC', PDCIssued: 'PDI', PDCIssuedClear: 'PDIC',
+  // hand-written module, docs/modules/FIXED_ASSETS.md: capitalization,
+  // scheduled and additional depreciation (GL); take-over (number only)
+  FACapitalization: 'FAA', FADepreciation: 'FAD', FAAdditionalDepreciation: 'FAU', FATakeOver: 'FAO',
+  FARetirement: 'FAR' // phase 2: sale / scrapping
 };
 
 function userCanAccessCompany(profile, companyId) {
@@ -147,6 +151,16 @@ function carryPartyFields(rawLines, normalizedLines) {
 // Ported from writeStockGlEntry_. Caller MUST already hold the global
 // lock (see lock.js) — same contract as the original.
 async function writeStockGlEntry(user, stockTransactionType, transactionDate, description, reference, rawGlLines, dimensions, extraFields) {
+  const built = await buildStockGlEntry(user, stockTransactionType, transactionDate, description, reference, rawGlLines, dimensions, extraFields);
+  await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(built.jvId).set(built.record);
+  return { jvId: built.jvId, jvNumber: built.jvNumber, transactionRef: built.transactionRef };
+}
+
+// writeStockGlEntry's validation, numbering and record, without the
+// write: for callers that commit the entry together with their own
+// Firestore documents in one batch (Fixed Assets). Takes the voucher
+// number, so the same lock contract applies.
+async function buildStockGlEntry(user, stockTransactionType, transactionDate, description, reference, rawGlLines, dimensions, extraFields) {
   const dim = dimensions || {};
   if (!dim.CompanyID) throw new Error('Select a Company for this transaction.');
   if (!userCanAccessCompany(user.profile, dim.CompanyID)) throw new Error('You do not have access to that company.');
@@ -184,8 +198,7 @@ async function writeStockGlEntry(user, stockTransactionType, transactionDate, de
     CostCenterID: dim.CostCenterID || '', ProfitCenterID: dim.ProfitCenterID || ''
   }, extraFields || {});
 
-  await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(newId).set(record);
-  return { jvId: newId, jvNumber: jvNumber, transactionRef: transactionRef };
+  return { jvId: newId, jvNumber: jvNumber, transactionRef: transactionRef, record: record };
 }
 
 // Ported from assignStockVoucherNumbering_ — a thin wrapper over the
@@ -204,5 +217,5 @@ async function assignStockVoucherNumbering(stockTransactionType, transactionDate
 module.exports = {
   FIRESTORE_JOURNAL_ENTRIES_COLLECTION, STOCK_TRANSACTION_PREFIXES, COST_CENTER_REQUIRED_TYPES,
   userCanAccessCompany, parseAmountServer, validateAndNormalizeLines,
-  getCompanyRefCode, generateStockVoucherNumber, generateStockTransactionRef, assignStockVoucherNumbering, writeStockGlEntry
+  getCompanyRefCode, generateStockVoucherNumber, generateStockTransactionRef, assignStockVoucherNumbering, writeStockGlEntry, buildStockGlEntry
 };

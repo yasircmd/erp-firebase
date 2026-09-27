@@ -4,8 +4,9 @@ A multi-company ERP: finance (chart of accounts, JV, cash and bank, GL
 reports, financial statements), inventory (GRN, material issue, stock
 adjustment, warehouse movement, physical count, valuation), production
 (BOM, job orders, production), purchasing (requisitions, purchase orders,
-vendor invoices) and sales (price lists, sales orders, delivery notes,
-customer invoices), with role-based access and configurable approvals.
+vendor invoices), sales (price lists, sales orders, delivery notes,
+customer invoices) and fixed assets (asset sub-ledger and depreciation),
+with role-based access and configurable approvals.
 
 It runs on Firebase project `erp1-8f4cd`: Cloud Functions (2nd gen,
 callable, Node 24), Hosting, Realtime Database and Firestore. It was
@@ -60,8 +61,12 @@ functions/
     salesReturn.js              — Sales Return / Credit Note (docs/modules/SALES_RETURN.md)
     partyStatement.js           — Vendor and Customer Statements of Account (docs/modules/VENDOR_SOA.md)
     pdc.js                      — PDC Received and PDC Issued, post-dated cheques (docs/modules/PDC.md)
+    faDepreciation.js           — Fixed Assets depreciation engine, pure functions (docs/modules/FIXED_ASSETS.md)
+    fixedAssets*.js             — Fixed Assets: Config, Master, Postings (capitalization, take-over,
+                                  additional depreciation), Retirement (sale, scrap), Depreciation (run, registers), Common
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
+  test/unit/*.test.js           — pure-function tests, no emulators (the depreciation engine)
   test/emulator/*.test.js       — one API suite per module, against the local emulators
   test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments, returns, statements)
 tools/
@@ -116,6 +121,7 @@ npm i --no-save --prefix functions playwright && (cd functions && npx playwright
 # create-user test would reach production Auth)
 firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
 
+node --test functions/test/unit/*.test.js   # no emulators needed
 node --test --test-concurrency=1 functions/test/emulator/*.test.js
 # while developing, run just the module's suite (seconds, not the full run):
 #   node --test functions/test/emulator/salesReturn.emulator.test.js
@@ -128,13 +134,17 @@ node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: th
 node functions/test/ui/pdc.ui.js            # after the pdc suite: the two PDC screens, SOA pending PDCs
 node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed
 node functions/test/ui/singleCompany.ui.js  # one-company user: company preselected on every screen (after vendorMaster)
+node functions/test/ui/fixedAssets.ui.js    # the six Fixed Asset screens; seeds its own data
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for
   each function it has run and never frees them. The full suite plus the
-  full smoke run fills Cloud Shell's 16 GB (exit 137). Run the suite in two
-  halves and restart the emulators before the smoke run. After a crash:
-  `pkill -f '[f]unctionsEmulatorRuntime'`.
+  full smoke run fills Cloud Shell's 16 GB (exit 137). Run the suite in
+  three parts, restarting the emulators before each and before the smoke
+  run (two halves stopped fitting with the Fixed Assets suite: a half
+  reached 152 workers and a suite hung). Every third file per part:
+  `ls functions/test/emulator/*.test.js | awk 'NR % 3 == 1'` (then `== 2`, `== 0`).
+  After a crash: `pkill -f '[f]unctionsEmulatorRuntime'`.
 - **Hot reload:** the functions emulator doesn't pick up source edits.
   Restart it after changing code, including for negative controls.
 - **Safety:** the suites WIPE the emulator database. `_helpers.js` refuses
@@ -156,7 +166,7 @@ node functions/test/ui/singleCompany.ui.js  # one-company user: company preselec
   first" allocates against the previous run's bill.
 - **Full run vs. one suite:** the full run above is for before a deploy or
   merge. While building or fixing a module, run only its suite (and its
-  UI check); it doesn't need the two-halves split.
+  UI check); it doesn't need the split.
 
 ## Deploying
 
