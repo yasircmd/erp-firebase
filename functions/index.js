@@ -46,6 +46,7 @@ const {
   deleteSalesReturnDraft, getSalesReturnEntries, reverseSalesReturn
 } = require('./src/salesReturn');
 const { getPartyStatement } = require('./src/partyStatement');
+const { getTrialBalancePeriod } = require('./src/trialBalance');
 const {
   getPdcSetup, getPdcOpenItems, savePdcDraft, deletePdcDraft, postPdc, decidePdcApproval,
   clearPdcs, bouncePdc, cancelPdc, undoPdcClearing, getPdcEntries, getPdcsDueForUser
@@ -131,6 +132,7 @@ exports.deleteSalesReturnDraft = deleteSalesReturnDraft;
 exports.getSalesReturnEntries = getSalesReturnEntries;
 exports.reverseSalesReturn = reverseSalesReturn;
 exports.getPartyStatement = getPartyStatement;
+exports.getTrialBalancePeriod = getTrialBalancePeriod;
 exports.getPdcSetup = getPdcSetup;
 exports.getPdcOpenItems = getPdcOpenItems;
 exports.savePdcDraft = savePdcDraft;

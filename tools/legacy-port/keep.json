@@ -11,5 +11,8 @@
   "requestReverseVendorInvoice",
   "decideVendorInvoiceReversalApproval",
   "requestReverseCustomerInvoice",
-  "decideCustomerInvoiceReversalApproval"
+  "decideCustomerInvoiceReversalApproval",
+  "buildDimensionFilters_",
+  "applyCompanyAccessRestriction_",
+  "getPostedGlLines_"
 ]

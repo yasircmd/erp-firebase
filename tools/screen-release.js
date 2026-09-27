@@ -18,6 +18,27 @@ const SCREENS_DIR = path.join(__dirname, '..', 'screens');
 const KEEP = 10;
 const POINTER = 'system/screens';
 const sha256 = s => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
+const VERIFY_CHUNK = 10;
+const VERIFY_TIMEOUT_MS = 60000;
+const VERIFY_TRIES = 3;
+
+// A read that gives up after timeoutMs and is tried again, up to
+// VERIFY_TRIES times (reads only: safe to repeat).
+async function withRetry(fn, what, { timeoutMs = VERIFY_TIMEOUT_MS, log = () => {} } = {}) {
+  for (let attempt = 1; ; attempt++) {
+    let timer;
+    try {
+      return await Promise.race([fn(), new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timed out after ' + timeoutMs / 1000 + 's reading ' + what)), timeoutMs);
+      })]);
+    } catch (e) {
+      if (attempt >= VERIFY_TRIES) throw e;
+      log('retrying ' + what + ' (' + e.message + ')');
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
 
 // { ID: html } for every screens/<ID>.html.
 function loadScreens(dir = SCREENS_DIR) {
@@ -52,7 +73,8 @@ async function activeRelease(db) {
 // only moves after every screen has been read back with a matching hash,
 // so a failed or partial write leaves users on the previous release.
 // hooks.afterWrite(releaseRef) exists for the tests.
-async function releaseScreens(db, { screens, registryIds, commit, createdBy = '', now = new Date(), keep = KEEP, hooks = {} }) {
+async function releaseScreens(db, { screens, registryIds, commit, createdBy = '', now = new Date(), keep = KEEP, hooks = {}, log = () => {}, timeoutMs = VERIFY_TIMEOUT_MS }) {
+  const opts = { timeoutMs, log };
   checkScreens(screens, registryIds);
   const id = releaseIdFor(commit, now);
   const ref = db.collection('screenReleases').doc(id);
@@ -62,14 +84,25 @@ async function releaseScreens(db, { screens, registryIds, commit, createdBy = ''
     const batch = db.batch();
     ids.slice(i, i + 20).forEach(s => batch.set(ref.collection('screens').doc(s), { html: screens[s], sha256: sha256(screens[s]) }));
     await batch.commit();
+    log('written ' + Math.min(i + 20, ids.length) + '/' + ids.length);
   }
   if (hooks.afterWrite) await hooks.afterWrite(ref);
-  const stored = await ref.collection('screens').get();
+  // Read back in small groups, each retried: one query for every screen
+  // (~2 MB) stalled past Firestore's 5-minute deadline on a slow Cloud
+  // Shell link (2026-09-27, three failed releases). Ids only for the count.
+  const storedIds = (await withRetry(() => ref.collection('screens').select().get(), 'screen list', opts)).docs.map(d => d.id);
+  const stored = {};
+  for (let i = 0; i < ids.length; i += VERIFY_CHUNK) {
+    const refs = ids.slice(i, i + VERIFY_CHUNK).map(s => ref.collection('screens').doc(s));
+    const docs = await withRetry(() => db.getAll(...refs), 'screens ' + (i + 1) + '–' + (i + refs.length), opts);
+    docs.forEach(d => { if (d.exists) stored[d.id] = d; });
+    log('verified ' + Math.min(i + VERIFY_CHUNK, ids.length) + '/' + ids.length);
+  }
   const bad = ids.filter(s => {
-    const d = stored.docs.find(x => x.id === s);
+    const d = stored[s];
     return !d || d.get('sha256') !== sha256(screens[s]) || sha256(d.get('html')) !== sha256(screens[s]);
   });
-  if (stored.size !== ids.length || bad.length) {
+  if (storedIds.length !== ids.length || bad.length) {
     throw new Error('Release ' + id + ' failed verification (' + (bad.join(', ') || 'unexpected screens') + '); the active release is unchanged.');
   }
   await ref.set({ commit, createdAt: now.toISOString(), createdBy, count: ids.length });
@@ -108,7 +141,7 @@ async function prune(db, keep = KEEP) {
   }
 }
 
-module.exports = { loadScreens, checkScreens, releaseScreens, listReleases, rollback, prune, activeRelease, releaseIdFor, KEEP, POINTER, SCREENS_DIR };
+module.exports = { withRetry, loadScreens, checkScreens, releaseScreens, listReleases, rollback, prune, activeRelease, releaseIdFor, KEEP, POINTER, SCREENS_DIR };
 
 // ---- command line ----
 if (require.main === module) {
@@ -133,7 +166,8 @@ if (require.main === module) {
       const { MODULE_REGISTRY } = require('../functions/src/moduleRegistry');
       const id = await releaseScreens(db, {
         screens: loadScreens(), registryIds: MODULE_REGISTRY.map(m => m.id),
-        commit: git('rev-parse --short HEAD'), createdBy: git('config user.name')
+        commit: git('rev-parse --short HEAD'), createdBy: git('config user.name'),
+        log: m => console.log('  ' + m)
       });
       console.log('Released and active: ' + id);
     } else if (cmd === 'list') {

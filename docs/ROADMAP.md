@@ -47,6 +47,40 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [ ] **Monthly and yearly closing** (owner, 2026-09-27): closing moves
+  the income and expense account balances into one P&L account, so they
+  stop carrying forward in the Trial Balance's opening. Needs its own
+  design doc.
+- [x] **GL Report: compact view** (owner request 2026-09-27; branch
+  `trial-balance-ob-cb`, PR #13; **live 2026-09-27**, release
+  `20260927T072723Z-19e00b8`, [DEPLOY_LOG.md](DEPLOY_LOG.md)): the same
+  tight rows and columns as the Trial Balance, smaller header and filter
+  panel. Screen only, no function change; GLREPORT is now a
+  hand-maintained screen (`tools/legacy-port/modules.json`). Check added
+  to `functions/test/ui/trialBalance.ui.js` (now 6), negative control on
+  the compact CSS. Release: `tools/release-screens.sh`. Three release
+  attempts timed out on 2026-09-27 (nothing changed for users); the
+  release tool now reads screens back in retried groups
+  ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md#change-2026-09-27-read-back-in-groups)).
+- [x] **Trial Balance: opening, transactions, closing** (owner request
+  2026-09-27; branch `trial-balance-ob-cb`, PR #13; **live 2026-09-27**,
+  [DEPLOY_LOG.md](DEPLOY_LOG.md)). Income and expense accounts carry an
+  opening balance until period closing exists (owner, 2026-09-27: see
+  *Monthly and yearly closing* above).
+  The screen now takes From and To dates (both required; defaults: the
+  1st of this month to today) and shows per account Opening Dr/Cr
+  (everything before From), Transactions Dr/Cr (gross, From..To
+  inclusive) and Closing Dr/Cr, with totals and a balance check on all
+  three; compact grid (tight rows and columns). Balances stay cumulative
+  since inception, as before (no year-end close, so income and expense
+  accounts carry an opening balance). Drill-through to GL Report passes
+  the same From/To. New hand-written callable `getTrialBalancePeriod`
+  (`functions/src/trialBalance.js`); the legacy `getTrialBalance` stays
+  deployed but unused by the screen. TRIALBALANCE is now a hand-maintained
+  screen (`tools/legacy-port/modules.json` handScreens). Tests: 4 new
+  emulator tests in trialBalance suite, `functions/test/ui/trialBalance.ui.js`
+  (5 checks), negative controls on the opening cutoff and the compact CSS.
+  Deployed with `tools/deploy-functions.sh trial-balance-period --screens`.
 - [ ] **Customer credit control** (from Customer SOA decision C1): a
   credit limit on Customer Master and a warning on new Sales Orders for
   overdue or over-limit customers. Needs its own design doc.

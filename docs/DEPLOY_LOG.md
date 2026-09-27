@@ -321,3 +321,28 @@ from, and how it was verified. The deploy procedure is in the
     account determinations; set the company's Output Tax account if
     sales carry VAT.
 
+- **2026-09-27, Trial Balance: opening, transactions, closing (ROADMAP →
+  Follow-ups; PR #13):** `tools/deploy-functions.sh trial-balance-period
+  --screens`, run by the owner from `31c9d01` (branch
+  `trial-balance-ob-cb`): 1 new function, `getTrialBalancePeriod`
+  (created, Node.js 24, 2nd Gen, invoker binding with no failures), then
+  screen release `20260927T062419Z-31c9d01` (TRIALBALANCE with From/To and
+  the compact grid), `ALL DONE`. Not in tmux: batch of 6 (only 1 needed).
+  - **Verified:** it answers an unauthenticated call with "Please sign in
+    again".
+  - **Beforehand**, on `31c9d01`: trialBalance emulator suite 6/6;
+    Trial Balance UI 5/5; one-company 52/52; negative controls on the
+    opening cutoff and the compact CSS.
+- **2026-09-27, GL Report compact view (ROADMAP → Follow-ups; PR #13):**
+  screen release `20260927T072723Z-19e00b8` via `tools/release-screens.sh`,
+  run by the owner from `19e00b8` (branch `trial-balance-ob-cb`): 59
+  screens written and verified in groups of 10, `Released and active`. No
+  function change.
+  - **Before it:** three attempts from `6a2bd0e` failed with
+    `DEADLINE_EXCEEDED` (5 min): all screens written, but the single
+    verify query stalled on a slow Cloud Shell link, so the active release
+    (`20260927T062419Z-31c9d01`) never changed. They are listed as
+    INCOMPLETE and will be pruned. Fixed in `19e00b8`: read-back in retried
+    groups ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md#change-2026-09-27-read-back-in-groups)).
+  - **Beforehand**, on `19e00b8`: screenRelease suite 10/10; Trial
+    Balance UI 6/6 (incl. the GL Report check); one-company 3/3; smoke 4/4.

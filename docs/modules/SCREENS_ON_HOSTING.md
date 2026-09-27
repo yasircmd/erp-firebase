@@ -168,6 +168,20 @@ runs the release after the last batch and bindings succeed.
   `deploy-functions.sh`. Both are a few lines around the tested release
   logic. The first production release is their check.
 
+## Change 2026-09-27: read-back in groups
+
+Three production releases in a row failed with `DEADLINE_EXCEEDED`
+(5 minutes): every screen was written, but the single verify query
+reading all 59 back (~2 MB) stalled on a slow Cloud Shell link, so the
+pointer never moved (users unaffected; the attempts are listed as
+INCOMPLETE and pruned later). `tools/screen-release.js` now reads the
+screens back 10 at a time with `getAll`, each group limited to 60 s and
+tried up to 3 times, plus an ids-only query for the count (an
+unexpected extra screen still fails verification). It prints progress
+(`written n/59`, `verified n/59`). Same checks, same pointer rule. Tests:
+two new in the screenRelease suite (10/10), negative controls on the
+count check and the retry.
+
 ## Not in scope
 
 - Moving the module, approval and voucher-type lists out of the code
