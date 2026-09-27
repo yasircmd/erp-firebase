@@ -154,7 +154,10 @@ const isDebit = l => (Number(l.Debit) || 0) > 0;
 // balanced by putting any rounding cent on the largest line of the
 // lighter side, and the last date takes exactly what remains (so it's
 // balanced too, and the line totals are exact).
-function installments(mode, lines, released, openDates) {
+// base: the installment fixed when the template was last saved,
+// activated or had a date skipped (spreadBase). With it, posting a run
+// doesn't re-divide what's left, so the rounding stays on the last date.
+function installments(mode, lines, released, openDates, base) {
   const out = {};
   if (!openDates.length) return out;
   if (mode !== 'Spread') {
@@ -166,23 +169,13 @@ function installments(mode, lines, released, openDates) {
     if (r < -0.005) throw new Error('Line ' + (i + 1) + ': ' + (Number(released[i]) || 0).toFixed(2) + ' has already been posted, more than its total of ' + lineAmount(lines[i]).toFixed(2) + '.');
   });
   const m = openDates.length;
+  const fits = b => Array.isArray(b) && b.length === lines.length &&
+    remaining.every((r, i) => (Number(b[i]) || 0) >= 0 && r - (Number(b[i]) || 0) * (m - 1) > -0.005);
+  const each = fits(base) ? base.map(b => round2(Number(b) || 0)) : equalShare(lines, remaining, m);
   const given = lines.map(() => 0);
   openDates.forEach((d, j) => {
-    let amounts;
-    if (j === m - 1) {
-      amounts = remaining.map((r, i) => round2(r - given[i]));
-    } else {
-      amounts = remaining.map(r => round2(r / m));
-      const side = debit => round2(amounts.reduce((s, a, i) => s + (isDebit(lines[i]) === debit ? a : 0), 0));
-      const diff = round2(side(true) - side(false));
-      if (diff !== 0) {
-        const lighterDebit = diff < 0;
-        let best = -1;
-        amounts.forEach((a, i) => { if (isDebit(lines[i]) === lighterDebit && (best < 0 || a > amounts[best])) best = i; });
-        amounts[best] = round2(amounts[best] + Math.abs(diff));
-      }
-      amounts.forEach((a, i) => { given[i] = round2(given[i] + a); });
-    }
+    const amounts = j === m - 1 ? remaining.map((r, i) => round2(r - given[i])) : each.slice();
+    if (j < m - 1) amounts.forEach((a, i) => { given[i] = round2(given[i] + a); });
     amounts.forEach((a, i) => {
       if (a < -0.005) throw new Error('Line ' + (i + 1) + ': the amount left to spread is too small for this many runs.');
     });
@@ -191,8 +184,30 @@ function installments(mode, lines, released, openDates) {
   return out;
 }
 
+// One balanced installment of what's left over m dates: each line's share
+// rounded to the cent, any difference put on the largest line of the
+// lighter side.
+function equalShare(lines, remaining, m) {
+  const amounts = remaining.map(r => round2(r / m));
+  const side = debit => round2(amounts.reduce((s, a, i) => s + (isDebit(lines[i]) === debit ? a : 0), 0));
+  const diff = round2(side(true) - side(false));
+  if (diff !== 0) {
+    const lighterDebit = diff < 0;
+    let best = -1;
+    amounts.forEach((a, i) => { if (isDebit(lines[i]) === lighterDebit && (best < 0 || a > amounts[best])) best = i; });
+    amounts[best] = round2(amounts[best] + Math.abs(diff));
+  }
+  return amounts;
+}
+
+// The installment to fix for a spread template now (see installments).
+function spreadBase(lines, released, openCount) {
+  if (!openCount) return [];
+  return equalShare(lines, lines.map((l, i) => round2(lineAmount(l) - (Number(released[i]) || 0))), openCount);
+}
+
 module.exports = {
   TIME_ZONE, MAX_RUNS, FREQUENCIES, WEEKDAYS,
   round2, isDate, addDays, todayIn, normalizeSchedule, scheduleDates, describeSchedule, expandText,
-  lineAmount, installments
+  lineAmount, installments, spreadBase
 };

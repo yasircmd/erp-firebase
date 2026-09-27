@@ -99,6 +99,15 @@ function runTotal(lines, amounts) {
   return round2((amounts || []).reduce((s, a, i) => s + ((Number(lines[i].Debit) || 0) > 0 ? a : 0), 0));
 }
 
+// This template's per-line amounts for each open date.
+function amountsOf(t) {
+  return S.installments(t.AmountMode, t.Lines || [], releasedPerLine(t), openDates(t), t.SpreadBase);
+}
+// The spread installment to store after a save, activation or skip.
+function baseFor(t) {
+  return t.AmountMode === 'Spread' ? S.spreadBase(t.Lines || [], releasedPerLine(t), openDates(t).length) : [];
+}
+
 // A date is due when it's open, not waiting for a deliberate re-post
 // (Reversed), up to asOf, and the template is Active.
 function isDue(t, date, asOf) {
@@ -113,7 +122,7 @@ function planOf(t, asOf) {
   let amounts = {};
   let planError = '';
   try {
-    amounts = S.installments(t.AmountMode, t.Lines || [], releasedPerLine(t), open);
+    amounts = amountsOf(t);
   } catch (err) {
     planError = err.message;
   }
@@ -188,8 +197,8 @@ async function validateTemplate(t, coa) {
       throw new Error('Runs of this spread entry have been posted: its lines\' accounts and sides can no longer change (the amounts and the period can).');
     }
   }
-  const check = Object.assign({}, t, { Lines: lines });
-  S.installments(check.AmountMode, lines, releasedPerLine(check), openDates(check));
+  const check = Object.assign({}, t, { Lines: lines, SpreadBase: null });
+  amountsOf(check);
   return { lines: lines, totalDebit: normalized.totalDebit, totalCredit: normalized.totalCredit };
 }
 
@@ -252,6 +261,7 @@ exports.previewRecurringJournal = onCallWithMessages(onCallOptions, async (reque
     Status: saved.Status || 'Draft', AmountMode: d.AmountMode === 'Spread' ? 'Spread' : 'Fixed',
     Schedule: S.normalizeSchedule(d.Schedule), Lines: lines, Runs: saved.Runs || {}
   };
+  t.SpreadBase = baseFor(t); // as it would be stored on save
   const plan = planOf(t, today());
   return {
     rows: plan.rows.map(r => ({ Date: r.Date, Status: r.Status, Amount: r.Amount, JVNumber: r.JVNumber })),
@@ -301,6 +311,7 @@ exports.saveRecurringJournalDraft = onCallWithMessages(onCallOptions, async (req
     CompanyID: t.CompanyID, DivisionID: t.DivisionID, BranchID: t.BranchID, CostCenterID: t.CostCenterID, ProfitCenterID: t.ProfitCenterID,
     Description: t.Description, Reference: t.Reference, AmountMode: t.AmountMode, Schedule: t.Schedule,
     ScheduleText: S.describeSchedule(t.Schedule), Lines: v.lines, TotalDebit: v.totalDebit, TotalCredit: v.totalCredit,
+    SpreadBase: baseFor(Object.assign({}, t, { Lines: v.lines })),
     CurrencyCode: (existing && existing.CurrencyCode) || await defaultCurrencyCode(),
     UpdatedAt: now, UpdatedBy: actorOf(user)
   };
@@ -344,6 +355,7 @@ async function commitActivation(user, id, t, event) {
   const status = open.length ? 'Active' : 'Completed';
   await rtdb.ref(PATH + '/' + id).update({
     Status: status, Lines: v.lines, Schedule: t.Schedule, RejectionReason: '',
+    SpreadBase: baseFor(Object.assign({}, t, { Lines: v.lines })),
     ActivatedAt: now, ActivatedBy: actorOf(user), UpdatedAt: now, UpdatedBy: actorOf(user),
     History: historyWith(t, event, user)
   });
@@ -484,7 +496,10 @@ async function postRun(user, id, date, mode) {
     const runRef = rtdb.ref(PATH + '/' + id + '/Runs/' + date);
     const prior = runsOf(t)[date] || {};
     const actor = actorOf(user);
-    if (prior.Status === 'Posted') return { Status: 'Posted', JVNumber: prior.JVNumber, Already: true };
+    if (prior.Status === 'Posted') {
+      if (mode === 'repost') throw new HttpsError('failed-precondition', 'The run of ' + date + ' is Posted.');
+      return { Status: 'Posted', JVNumber: prior.JVNumber, Already: true };
+    }
     if (prior.Status === 'Committing') {
       const entry = await findRunEntry(id, date);
       if (entry) {
@@ -507,7 +522,7 @@ async function postRun(user, id, date, mode) {
     let glLines;
     let partyFields;
     try {
-      amounts = S.installments(t.AmountMode, t.Lines, releasedPerLine(t), openDates(t))[date];
+      amounts = amountsOf(t)[date];
       if (!amounts || amounts.every(a => !(a > 0))) {
         await runRef.set({ Status: 'Skipped', Reason: 'Nothing left to post on this date.', At: new Date().toISOString(), By: actor });
         await completeIfDone(id, user);
@@ -635,6 +650,9 @@ exports.skipRecurringJournalRun = onCallWithMessages(onCallOptions, async (reque
     const prior = runsOf(t)[date] || {};
     await rtdb.ref(PATH + '/' + id + '/Runs/' + date).set(Object.assign({}, prior, { Status: 'Skipped', Reason: reason, Error: '', At: now, By: actorOf(user) }));
     await rtdb.ref(PATH + '/' + id + '/History').set(historyWith(t, 'Run skipped', user, { Date: date, Note: reason }));
+    // A spread entry's skipped amount is re-spread over its other open dates.
+    const runs = Object.assign({}, runsOf(t), { [date]: { Status: 'Skipped' } });
+    await rtdb.ref(PATH + '/' + id + '/SpreadBase').set(baseFor(Object.assign({}, t, { Runs: runs })));
     await completeIfDone(id, user);
     return { success: true };
   });

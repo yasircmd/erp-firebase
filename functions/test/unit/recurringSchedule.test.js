@@ -105,3 +105,15 @@ test('spread: what is already released is taken off; over-released refuses', () 
   assert.throws(() => S.installments('Spread', [L(300), L(0, 300)], [400, 400], ['a']), /already been posted/);
   assert.deepEqual(S.installments('Spread', [L(300), L(0, 300)], [300, 300], []), {});
 });
+
+test('spread with a fixed base: posting a run does not move the rounding off the last date', () => {
+  const lines = [L(10000), L(0, 10000)];
+  const base = S.spreadBase(lines, [], 3);
+  assert.deepEqual(base, [3333.33, 3333.33]);
+  // After the first run posted 3,333.33, the two open dates stay 3,333.33 then 3,333.34.
+  assert.deepEqual(S.installments('Spread', lines, [3333.33, 3333.33], ['b', 'c'], base), { b: [3333.33, 3333.33], c: [3333.34, 3333.34] });
+  // Without the base, the rest is re-divided (what an edit or a skip does on purpose).
+  assert.deepEqual(S.installments('Spread', lines, [3333.33, 3333.33], ['b', 'c']), { b: [3333.34, 3333.34], c: [3333.33, 3333.33] });
+  // A base that no longer fits (the total was lowered) is ignored.
+  assert.deepEqual(S.installments('Spread', [L(3000), L(0, 3000)], [], ['a', 'b'], [4000, 4000]), { a: [1500, 1500], b: [1500, 1500] });
+});
