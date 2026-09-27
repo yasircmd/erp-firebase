@@ -51,8 +51,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   the income and expense account balances into one P&L account, so they
   stop carrying forward in the Trial Balance's opening. Needs its own
   design doc.
-- [ ] **GL Report: compact view** (owner request 2026-09-27; branch
-  `trial-balance-ob-cb`, PR #13; tested, **not released**): the same
+- [x] **GL Report: compact view** (owner request 2026-09-27; branch
+  `trial-balance-ob-cb`, PR #13; **live 2026-09-27**, release
+  `20260927T072723Z-19e00b8`, [DEPLOY_LOG.md](DEPLOY_LOG.md)): the same
   tight rows and columns as the Trial Balance, smaller header and filter
   panel. Screen only, no function change; GLREPORT is now a
   hand-maintained screen (`tools/legacy-port/modules.json`). Check added
