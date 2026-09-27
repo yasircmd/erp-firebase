@@ -295,24 +295,26 @@ add a run for the partial last month, instead of equal shares.
 
 | # | Question | Decision |
 |---|---|---|
-| 1 | A partial month's share | **Exact days over the whole period:** total × days the run covers ÷ days in the period |
+| 1 | A partial month's share | **Days in that month:** monthly amount × days the run covers ÷ days in its month. First chosen as "exact days over the whole period"; changed the same day by the owner so the example gives 500 |
 | 2 | What the user enters | **Total + service period** (from, to) |
 | 3 | When the last partial month posts | **At that month's month end** |
 | 4 | Which schedules | **Month end only** |
 
-With decision 1, 12,000 for 16 Sep 2026 – 15 Sep 2027 (365 days) gives
-493.15 (15 days), 1,019.18 for a 31-day month, 986.30 for 30 days, 920.54
-for February, and 493.15 for 1–15 Sep 2027, 12,000.00 in all. (The owner's
-example of 500 / 1,000 / 500 would be "days in that month" instead; the
-owner chose exact days over the period.)
+The monthly amount is the total ÷ the period's length in months (the sum of
+each run's share of its month). 12,000 for 16 Sep 2026 – 15 Sep 2027 is
+12 months: **500** (16–30 Sep, 15/30), **1,000** for every full month
+(February too), **500** (1–15 Sep 2027). A 5 Oct start gives 870.97
+(27/31) and 129.03 (4/31); 3,000 for 15 Feb – 30 Apr 2027 (2.5 months)
+gives 600 / 1,200 / 1,200.
 
 **As built**
 - Amount mode `Period` ("Spread by service period"). The schedule is
   built from `ServiceFrom`/`ServiceTo`: a run at every month end from the
   start month to the end month (`recurringSchedule.periodSchedule`), each
-  covering the service days in its month (`periodDays`).
+  covering the service days in its month (`periodDays`), weighted by its
+  share of that month (`periodWeight` = days ÷ days in the month).
 - Amounts: what's left (total − posted) is shared over the open dates by
-  their days, with cumulative rounding per line, each run balanced across
+  those weights, with cumulative rounding per line, each run balanced across
   lines, and the last open date taking exactly what remains. The per-date
   plan is stored (`SpreadBase`, as for Spread) when the entry is saved,
   activated or has a date skipped, so posting a run never moves a cent to
@@ -321,11 +323,11 @@ owner chose exact days over the period.)
   for Service from / Service to; the run list shows each run's days.
 
 **Tests**
-- Unit (3 more, 16 in all): dates and days for the example, a period
-  within one month, validation; 493.15 / 1,019.18 / 986.30 / 493.15 and
-  the exact total; balance with uneven lines; the stored plan keeping a
-  cent that re-sharing would move (1,000: February 76.71, not 76.72); a
-  skipped month re-shared.
+- Unit (3 more, 16 in all): dates, days and month shares for the example
+  (12 months), a period within one month, validation; 500 / 1,000 × 11 /
+  500, the 5 Oct and mid-February cases, exact totals, balance with
+  uneven lines; the stored plan keeping a cent that re-sharing would move
+  (1,000: November 83.33, not 83.34); a skipped month re-shared.
 - Emulator (6th test): a period from the 16th two months back, 13 month
   ends, the first run's days and amount, total 12,000, the two due runs
   posted with the planned amounts and the rest unchanged, validation,
@@ -333,7 +335,9 @@ owner chose exact days over the period.)
   for the example. Smoke green.
 - **Negative control** (2026-09-27): (1) runs counting from the 1st of
   the month (ignoring the service start) → two unit tests fail; (2) the
-  stored plan ignored → the stored-plan test fails. Both restored, green.
+  stored plan ignored → the stored-plan test fails; (3) after the switch,
+  raw days as weights again (the first rule) → three unit tests fail. All
+  restored, green.
 
 **Deploy:** `tools/deploy-functions.sh recurring-journal-period --screens`
 (the 15 recurring callables, then the screen). No Hosting change.
