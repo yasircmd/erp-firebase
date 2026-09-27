@@ -2,7 +2,7 @@
 // 2026-09-27) in headless Chromium against the emulators, through the
 // shell's real rpc bridge: From/To run, the nine columns and totals, the
 // compact grid, drill-through to GL Report with the same period and back,
-// and the Viewer. Run the trialBalance emulator suite first — it leaves
+// the compact GL Report it opens, and the Viewer. Run the trialBalance emulator suite first — it leaves
 // the journal entries this check reads:
 //   node --test functions/test/emulator/trialBalance.emulator.test.js
 //   node functions/test/ui/trialBalance.ui.js
@@ -99,6 +99,25 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await page.inputValue('#tb-from-date'), '2026-09-01');
     assert.equal(await page.inputValue('#tb-to-date'), '2026-09-30');
     assert.equal((await tableRows(page)).length, 3);
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
+  await check('GL Report is compact too: opening, rows, closing; tight cells', async () => {
+    const page = await open('TRIALBALANCE', 'u-admin');
+    await runTb(page, '2026-09-01', '2026-09-30');
+    await page.click('#tb-table-body tr:first-child .tb-drill-link');
+    await page.waitForSelector('#gl-results:not(.hidden)', { timeout: 30000 });
+    assert.equal(await page.textContent('#gl-opening-cell'), '500.00');
+    assert.equal(await page.textContent('#gl-closing-cell'), '380.00');
+    assert.equal(await page.textContent('#gl-total-credit'), '120.00');
+    const cells = await page.$$eval('#gl-table-body tr td, #gl-results thead th, #gl-results tfoot td', tds => tds.map(td => {
+      const s = getComputedStyle(td);
+      return Math.max(parseFloat(s.paddingTop), parseFloat(s.paddingLeft) / 2);
+    }));
+    assert.ok(cells.length > 10 && cells.every(p => p <= 4), 'cell padding ' + JSON.stringify(cells));
+    const h = await page.$eval('#gl-table-body tr:nth-child(2)', tr => tr.getBoundingClientRect().height);
+    assert.ok(h <= 26, 'row height ' + h + 'px');
     assert.deepEqual(page.__errors, []);
     await page.close();
   });

@@ -47,10 +47,22 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [ ] **Monthly and yearly closing** (owner, 2026-09-27): closing moves
+  the income and expense account balances into one P&L account, so they
+  stop carrying forward in the Trial Balance's opening. Needs its own
+  design doc.
+- [ ] **GL Report: compact view** (owner request 2026-09-27; branch
+  `trial-balance-ob-cb`, PR #13; tested, **not released**): the same
+  tight rows and columns as the Trial Balance, smaller header and filter
+  panel. Screen only, no function change; GLREPORT is now a
+  hand-maintained screen (`tools/legacy-port/modules.json`). Check added
+  to `functions/test/ui/trialBalance.ui.js` (now 6), negative control on
+  the compact CSS. Release: `tools/release-screens.sh`.
 - [x] **Trial Balance: opening, transactions, closing** (owner request
   2026-09-27; branch `trial-balance-ob-cb`, PR #13; **live 2026-09-27**,
-  [DEPLOY_LOG.md](DEPLOY_LOG.md)). Open question for the owner: should
-  income and expense accounts' opening reset at the financial year start?
+  [DEPLOY_LOG.md](DEPLOY_LOG.md)). Income and expense accounts carry an
+  opening balance until period closing exists (owner, 2026-09-27: see
+  *Monthly and yearly closing* below).
   The screen now takes From and To dates (both required; defaults: the
   1st of this month to today) and shows per account Opening Dr/Cr
   (everything before From), Transactions Dr/Cr (gross, From..To
