@@ -589,5 +589,24 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
       return (r.AssetNumber || '') + ' — ' + (r.Description || '') + ' [' + (r.Status || '') + ']';
     case 'fixedAssetSetup':
       return (r.Code || '') + ' — ' + (r.Name || '') + ' [' + (r.Kind || '') + ', ' + (r.Status || '') + ']';`
+  },
+  {
+    id: 'data-reset-recurring-journals (category)',
+    why: 'NEW DEVELOPMENT. Recurring journal templates live in their own RTDB path (recurringJournals), so Data Reset ' +
+      'needs a category for them, as it has for PDC.',
+    find: `  customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications',`,
+    replace: `  // [NEW DEVELOPMENT data-reset-recurring-journals] docs/modules/RECURRING_JOURNAL.md
+  recurringJournals: { paths: ['recurringJournals'], recordsPath: 'recurringJournals', label: 'Recurring Journal Entries', detail: 'Every recurring journal template with its schedule and run log — Draft, Active, Paused, Completed and Ended alike. The entries its runs posted are in GL Journal Entries: clear both together.', group: 'transactional' },
+  customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications',`
+  },
+  {
+    id: 'data-reset-recurring-journals (summary)',
+    why: 'How a recurring template is listed when browsing the category.',
+    find: `    case 'customerClassifications':
+      return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');`,
+    replace: `    case 'customerClassifications':
+      return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');
+    case 'recurringJournals':
+      return (r.TemplateNumber || 'DRAFT') + ' — ' + (r.Description || '') + ' [' + (r.Status || '') + ']';`
   }
 ];

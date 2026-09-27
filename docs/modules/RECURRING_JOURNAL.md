@@ -1,6 +1,6 @@
 # Recurring Journal Entries
 
-**Status:** design · **Roadmap:** [#6](../ROADMAP.md) · **Branch:** `worktree-recurring-journal-entries`
+**Status:** design · **Roadmap:** [#7](../ROADMAP.md) · **Branch:** `worktree-recurring-journal-entries`
 
 ## Purpose
 
