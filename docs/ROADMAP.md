@@ -57,12 +57,15 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   panel. Screen only, no function change; GLREPORT is now a
   hand-maintained screen (`tools/legacy-port/modules.json`). Check added
   to `functions/test/ui/trialBalance.ui.js` (now 6), negative control on
-  the compact CSS. Release: `tools/release-screens.sh`.
+  the compact CSS. Release: `tools/release-screens.sh`. Three release
+  attempts timed out on 2026-09-27 (nothing changed for users); the
+  release tool now reads screens back in retried groups
+  ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md#change-2026-09-27-read-back-in-groups)).
 - [x] **Trial Balance: opening, transactions, closing** (owner request
   2026-09-27; branch `trial-balance-ob-cb`, PR #13; **live 2026-09-27**,
   [DEPLOY_LOG.md](DEPLOY_LOG.md)). Income and expense accounts carry an
   opening balance until period closing exists (owner, 2026-09-27: see
-  *Monthly and yearly closing* below).
+  *Monthly and yearly closing* above).
   The screen now takes From and To dates (both required; defaults: the
   1st of this month to today) and shows per account Opening Dr/Cr
   (everything before From), Transactions Dr/Cr (gross, From..To

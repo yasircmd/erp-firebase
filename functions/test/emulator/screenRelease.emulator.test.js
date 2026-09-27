@@ -86,6 +86,31 @@ test('a release that fails verification leaves the active release unchanged', as
   await assert.rejects(sr.rollback(firestore, 'nope'), /No complete release nope/);
 });
 
+test('verification reads back in groups: a missing or an extra screen still fails it; progress is logged', async () => {
+  const good = await release();
+  await assert.rejects(release({ hooks: { afterWrite: ref => ref.collection('screens').doc('WAREHOUSEMOVEMENT').delete() } }),
+    /failed verification \(WAREHOUSEMOVEMENT\); the active release is unchanged/);
+  await assert.rejects(release({ hooks: { afterWrite: ref => ref.collection('screens').doc('EXTRA').set({ html: 'x', sha256: 'y' }) } }),
+    /failed verification \(unexpected screens\); the active release is unchanged/);
+  assert.equal(await pointer(), good);
+  const lines = [];
+  await release({ log: m => lines.push(m) });
+  const n = Object.keys(SCREENS).length;
+  assert.ok(lines.includes('written ' + n + '/' + n) && lines.includes('verified ' + n + '/' + n), lines.join(' | '));
+  assert.ok(lines.filter(l => l.startsWith('verified ')).length >= 5, 'read back in groups of 10');
+});
+
+test('a stalled read is retried, and given up after three tries', async () => {
+  let calls = 0;
+  const stallTwice = () => (++calls <= 2 ? new Promise(() => {}) : Promise.resolve('ok'));
+  const logged = [];
+  assert.equal(await sr.withRetry(stallTwice, 'x', { timeoutMs: 50, log: m => logged.push(m) }), 'ok');
+  assert.equal(calls, 3);
+  assert.equal(logged.length, 2);
+  assert.match(logged[0], /retrying x \(timed out after 0\.05s reading x\)/);
+  await assert.rejects(sr.withRetry(() => new Promise(() => {}), 'y', { timeoutMs: 50 }), /timed out after 0\.05s reading y/);
+});
+
 test('keeps the last 10 releases, and never deletes the active one', async () => {
   const tiny = { screens: { A: '<a>', B: '<b>' }, registryIds: ['A', 'B'] };
   const at = i => new Date(Date.UTC(2026, 0, 1, 0, 0, i));
