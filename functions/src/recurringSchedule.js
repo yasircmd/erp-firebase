@@ -65,6 +65,19 @@ function periodDays(s, date) {
   return end < start ? 0 : dayDiff(start, end) + 1;
 }
 
+// A run's share of the period in months (owner, 2026-09-27: "days in that
+// month"): the days it covers ÷ the days in its month, so a full month is 1
+// (February too) and 16–30 Sep is 0.5. Each run gets total × this ÷ the
+// period's months: 12,000 over 16 Sep – 15 Sep → 500, 1,000 × 11, 500.
+function periodWeight(s, date) {
+  return periodDays(s, date) / daysIn(Number(date.substring(0, 4)), Number(date.substring(5, 7)));
+}
+
+// The period's length in months (sum of its runs' weights).
+function periodMonths(s) {
+  return scheduleDates(s).reduce((sum, d) => sum + periodWeight(s, d), 0);
+}
+
 // Checks and normalizes a schedule as the screen sends it. Throws a
 // message the user can act on. mode 'Period' builds it from the service
 // period instead.
@@ -156,7 +169,8 @@ function scheduleDates(s) {
 
 function describeSchedule(s) {
   if (s.ServiceFrom) {
-    return 'Month end, by days of the service period ' + s.ServiceFrom + ' to ' + s.ServiceTo + ' (' + (dayDiff(s.ServiceFrom, s.ServiceTo) + 1) + ' days)';
+    const months = Math.round(periodMonths(s) * 100) / 100;
+    return 'Month end, by days in each month of the service period ' + s.ServiceFrom + ' to ' + s.ServiceTo + ' (' + months + ' month' + (months === 1 ? '' : 's') + ')';
   }
   const every = n => (s.Interval > 1 ? 'every ' + s.Interval + ' ' + n + 's' : 'every ' + n);
   let what;
@@ -192,7 +206,7 @@ const isDebit = l => (Number(l.Debit) || 0) > 0;
 // activated or had a date skipped (spreadBase). With it, posting a run
 // doesn't re-divide what's left, so the rounding stays on the last date.
 // Period (by service days): what's left is shared over the open dates in
-// proportion to the days each covers (weights: date → days). base is then
+// proportion to their weights (date → periodWeight: the share of its month). base is then
 // the stored per-date plan (periodBase), used while it still adds up.
 function installments(mode, lines, released, openDates, base, weights) {
   const out = {};
@@ -301,5 +315,5 @@ function spreadBase(lines, released, openCount) {
 module.exports = {
   TIME_ZONE, MAX_RUNS, FREQUENCIES, WEEKDAYS,
   round2, isDate, addDays, todayIn, normalizeSchedule, scheduleDates, describeSchedule, expandText,
-  lineAmount, installments, spreadBase, periodBase, periodDays, monthEndOf
+  lineAmount, installments, spreadBase, periodBase, periodDays, periodWeight, periodMonths, monthEndOf
 };

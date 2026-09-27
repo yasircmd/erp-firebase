@@ -103,10 +103,10 @@ function runTotal(lines, amounts) {
 function amountsOf(t) {
   return S.installments(t.AmountMode, t.Lines || [], releasedPerLine(t), openDates(t), t.SpreadBase, weightsOf(t));
 }
-// Period mode: the service days each plan date covers.
+// Period mode: each plan date's share of its month (days covered ÷ days in the month).
 function weightsOf(t) {
   const w = {};
-  if (t.AmountMode === 'Period') planDates(t).forEach(d => { w[d] = S.periodDays(t.Schedule, d); });
+  if (t.AmountMode === 'Period') planDates(t).forEach(d => { w[d] = S.periodWeight(t.Schedule, d); });
   return w;
 }
 // The spread installment to store after a save, activation or skip.

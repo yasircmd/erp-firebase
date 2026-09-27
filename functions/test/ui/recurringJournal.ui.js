@@ -158,7 +158,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
-  await check('spread by service period: from/to replace the schedule; preview by days (12,000, 16 Sep 2026 – 15 Sep 2027)', async () => {
+  await check('spread by service period: from/to replace the schedule; preview by days (12,000, 16 Sep 2026 – 15 Sep 2027: 500, 1,000 × 11, 500)', async () => {
     const page = await open('RECURRINGJV', 'u-admin');
     await page.click('#rj-new-btn');
     await page.selectOption('#rj-form-company', 'C1');
@@ -175,12 +175,13 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.locator('#rj-lines-body input[data-f="Credit"]').nth(1).fill('12000');
     await settle(page);
     assert.match(await page.textContent('#rj-lines-hint'), /totals/);
-    assert.match(await page.textContent('#rj-schedule-text'), /service period 2026-09-16 to 2027-09-15 \(365 days\)/);
+    assert.match(await page.textContent('#rj-schedule-text'), /service period 2026-09-16 to 2027-09-15 \(12 months\)/);
     const rows = await page.locator('#rj-plan-body tr').allTextContents();
     assert.equal(rows.length, 13);
-    assert.match(rows[0], /2026-09-30.*493\.15.*15 days/s);
-    assert.match(rows[1], /2026-10-31.*1,019\.18.*31 days/s);
-    assert.match(rows[12], /2027-09-30.*493\.15.*15 days/s);
+    assert.match(rows[0], /2026-09-30.*500\.00.*15 days/s);
+    assert.match(rows[1], /2026-10-31.*1,000\.00.*31 days/s);
+    assert.match(rows[5], /2027-02-28.*1,000\.00.*28 days/s);
+    assert.match(rows[12], /2027-09-30.*500\.00.*15 days/s);
     assert.match(await page.textContent('#rj-plan-summary'), /13 runs, 0 posted, total 12,000\.00/);
     assert.deepEqual(await rpcFailures(page), []);
     assert.deepEqual(page.__errors, []);

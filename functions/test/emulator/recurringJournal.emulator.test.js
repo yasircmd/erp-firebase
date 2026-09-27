@@ -301,15 +301,18 @@ test('spread by service period: partial first month by days, 13 month ends, exac
   });
   const id = await active(data);
   const t = await rec(id);
-  assert.match(t.ScheduleText, /^Month end, by days of the service period .* \((365|366) days\)$/);
+  assert.match(t.ScheduleText, /^Month end, by days in each month of the service period .* \(\d+(\.\d+)? months?\)$/);
   let d = await detail(id);
-  const totalDays = d.Plan.reduce((s, r) => s + r.Days, 0);
+  // Days in that month (owner): a run's share is its days ÷ the days in its month.
+  const share = r => r.Days / Number(r.Date.substring(8));
+  const months = d.Plan.reduce((s, r) => s + share(r), 0);
   assert.equal(d.Plan.length, 13);
   assert.equal(d.Plan[0].Date, monthEnd(-2));
   assert.equal(d.Plan[12].Date, S.monthEndOf(toDate), 'last run at the end month\'s month end');
   const firstDays = Number(monthEnd(-2).substring(8)) - 15;
   assert.equal(d.Plan[0].Days, firstDays);
-  assert.equal(d.Plan[0].Amount, Math.round(12000 * firstDays / totalDays * 100) / 100);
+  assert.equal(d.Plan[0].Amount, Math.round(12000 * share(d.Plan[0]) / months * 100) / 100);
+  assert.equal(d.Plan[1].Amount, Math.round(12000 / months * 100) / 100, 'a full month');
   assert.equal(Math.round(d.Plan.reduce((s, r) => s + r.Amount, 0) * 100) / 100, 12000);
   const planned = d.Plan.map(r => r.Amount);
 

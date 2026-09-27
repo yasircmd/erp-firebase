@@ -118,34 +118,44 @@ test('spread with a fixed base: posting a run does not move the rounding off the
   assert.deepEqual(S.installments('Spread', [L(3000), L(0, 3000)], [], ['a', 'b'], [4000, 4000]), { a: [1500, 1500], b: [1500, 1500] });
 });
 
-// Spread by service period (owner, 2026-09-27): exact days over the whole period.
+// Spread by service period (owner, 2026-09-27): days in that month — a
+// run's weight is the days it covers ÷ the days in its month.
 const period = (from, to) => {
   const s = S.normalizeSchedule({ ServiceFrom: from, ServiceTo: to }, 'Period');
   const d = S.scheduleDates(s);
-  const w = {}; d.forEach(x => { w[x] = S.periodDays(s, x); });
-  return { s, d, w };
+  const w = {}; d.forEach(x => { w[x] = S.periodWeight(s, x); });
+  const days = {}; d.forEach(x => { days[x] = S.periodDays(s, x); });
+  return { s, d, w, days };
 };
 
 test('service period: month ends from the start month to the end month, days per run', () => {
-  const { s, d, w } = period('2026-09-16', '2027-09-15');
+  const { s, d, w, days } = period('2026-09-16', '2027-09-15');
   assert.equal(d.length, 13);
   assert.deepEqual([d[0], d[12]], ['2026-09-30', '2027-09-30'], 'the last run is at the end month\'s end');
-  assert.deepEqual([w['2026-09-30'], w['2026-10-31'], w['2027-02-28'], w['2027-09-30']], [15, 31, 28, 15]);
-  assert.equal(Object.values(w).reduce((a, b) => a + b, 0), 365);
-  assert.equal(S.describeSchedule(s), 'Month end, by days of the service period 2026-09-16 to 2027-09-15 (365 days)');
-  assert.deepEqual(period('2026-10-05', '2026-10-20').w, { '2026-10-31': 16 }, 'within one month: one run');
+  assert.deepEqual([days['2026-09-30'], days['2026-10-31'], days['2027-02-28'], days['2027-09-30']], [15, 31, 28, 15]);
+  assert.deepEqual([w['2026-09-30'], w['2026-10-31'], w['2027-02-28'], w['2027-09-30']], [0.5, 1, 1, 0.5], 'share of each month');
+  assert.equal(S.periodMonths(s), 12);
+  assert.equal(S.describeSchedule(s), 'Month end, by days in each month of the service period 2026-09-16 to 2027-09-15 (12 months)');
+  assert.deepEqual(period('2026-10-05', '2026-10-20').days, { '2026-10-31': 16 }, 'within one month: one run');
   assert.throws(() => S.normalizeSchedule({ ServiceFrom: '2026-10-05', ServiceTo: '2026-10-01' }, 'Period'), /end date is before/);
   assert.throws(() => S.normalizeSchedule({ ServiceFrom: '', ServiceTo: '2026-10-01' }, 'Period'), /start date is required/);
 });
 
-test('service period: 12,000 by days — partial first and last month, exact total, rounding on the last', () => {
+test('service period: 12,000 for 16 Sep – 15 Sep → 500, 1,000 × 11, 500; other starts; balance', () => {
   const { d, w } = period('2026-09-16', '2027-09-15');
   const lines = [L(12000), L(0, 12000)];
   const p = S.installments('Period', lines, [], d, null, w);
-  assert.deepEqual(p['2026-09-30'], [493.15, 493.15]);
-  assert.deepEqual(p['2026-10-31'], [1019.18, 1019.18]);
-  assert.deepEqual(p['2026-11-30'], [986.3, 986.3]);
-  assert.deepEqual(p['2027-09-30'], [493.15, 493.15]);
+  assert.deepEqual(p['2026-09-30'], [500, 500]);
+  assert.ok(d.slice(1, 12).every(x => p[x][0] === 1000), 'every full month 1,000, February too');
+  assert.deepEqual(p['2027-09-30'], [500, 500]);
+  // A 5 Oct start: 27/31 of October, then 4/31 of the last October.
+  const o = period('2026-10-05', '2027-10-04');
+  const q0 = S.installments('Period', lines, [], o.d, null, o.w);
+  assert.deepEqual([q0['2026-10-31'][0], q0['2027-02-28'][0], q0['2027-10-31'][0]], [870.97, 1000, 129.03]);
+  assert.equal(sum(q0, 0), 12000);
+  // 15 Feb – 30 Apr 2027: half of February (14/28), March, April → 2.5 months.
+  const f = period('2027-02-15', '2027-04-30');
+  assert.deepEqual(S.installments('Period', [L(3000), L(0, 3000)], [], f.d, null, f.w), { '2027-02-28': [600, 600], '2027-03-31': [1200, 1200], '2027-04-30': [1200, 1200] });
   assert.equal(sum(p, 0), 12000);
   Object.values(p).forEach(a => assert.ok(balanced(lines, a)));
   // Uneven credit lines still balance run by run, and every line total is exact.
@@ -163,13 +173,13 @@ test('service period: a stored plan keeps its amounts after runs post; without i
   const posted = base[d[0]];
   const p = S.installments('Period', lines, posted, rest, base, w);
   rest.forEach(x => assert.deepEqual(p[x], base[x]));
-  // 1,000: re-sharing what's left after the first run would move February by a cent; the stored plan doesn't.
+  // 1,000: re-sharing what's left after the first run would move November by a cent; the stored plan doesn't.
   const small = [L(1000), L(0, 1000)];
   const b2 = S.periodBase(small, [], d, w);
   const kept = S.installments('Period', small, b2[d[0]], rest, b2, w);
-  assert.deepEqual(kept['2027-02-28'], b2['2027-02-28']);
-  assert.deepEqual(b2['2027-02-28'], [76.71, 76.71]);
-  assert.deepEqual(S.installments('Period', small, b2[d[0]], rest, null, w)['2027-02-28'], [76.72, 76.72], 'without it, the cent moves');
+  assert.deepEqual(kept['2026-11-30'], b2['2026-11-30']);
+  assert.deepEqual(b2['2026-11-30'], [83.33, 83.33]);
+  assert.deepEqual(S.installments('Period', small, b2[d[0]], rest, null, w)['2026-11-30'], [83.34, 83.34], 'without it, the cent moves');
   // A skipped month: the stored plan no longer adds up, so its share goes to the others by days.
   const fewer = rest.filter(x => x !== '2027-02-28');
   const q = S.installments('Period', lines, posted, fewer, base, w);
