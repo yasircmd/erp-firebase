@@ -1,0 +1,5 @@
+# Recurring Journal Entries, second pass (2026-09-27): the two updates that
+# failed three times in the recurring-journal run (API request errors in a
+# batch of 20; the previous versions kept serving), then the screens.
+getGlReport                      # drill-through to the recurring screen
+getDataResetCounts               # new Data Reset category recurringJournals
