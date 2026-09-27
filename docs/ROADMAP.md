@@ -47,8 +47,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
-- [ ] **Trial Balance: opening, transactions, closing** (owner request
-  2026-09-27; branch `trial-balance-ob-cb`, tested, **not deployed**).
+- [x] **Trial Balance: opening, transactions, closing** (owner request
+  2026-09-27; branch `trial-balance-ob-cb`, PR #13; **live 2026-09-27**,
+  [DEPLOY_LOG.md](DEPLOY_LOG.md)). Open question for the owner: should
+  income and expense accounts' opening reset at the financial year start?
   The screen now takes From and To dates (both required; defaults: the
   1st of this month to today) and shows per account Opening Dr/Cr
   (everything before From), Transactions Dr/Cr (gross, From..To
@@ -62,7 +64,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   screen (`tools/legacy-port/modules.json` handScreens). Tests: 4 new
   emulator tests in trialBalance suite, `functions/test/ui/trialBalance.ui.js`
   (5 checks), negative controls on the opening cutoff and the compact CSS.
-  Deploy: `tools/deploy-functions.sh trial-balance-period --screens`.
+  Deployed with `tools/deploy-functions.sh trial-balance-period --screens`.
 - [ ] **Customer credit control** (from Customer SOA decision C1): a
   credit limit on Customer Master and a warning on new Sales Orders for
   overdue or over-limit customers. Needs its own design doc.

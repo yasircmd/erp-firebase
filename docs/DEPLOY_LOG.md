@@ -321,3 +321,15 @@ from, and how it was verified. The deploy procedure is in the
     account determinations; set the company's Output Tax account if
     sales carry VAT.
 
+- **2026-09-27, Trial Balance: opening, transactions, closing (ROADMAP →
+  Follow-ups; PR #13):** `tools/deploy-functions.sh trial-balance-period
+  --screens`, run by the owner from `31c9d01` (branch
+  `trial-balance-ob-cb`): 1 new function, `getTrialBalancePeriod`
+  (created, Node.js 24, 2nd Gen, invoker binding with no failures), then
+  screen release `20260927T062419Z-31c9d01` (TRIALBALANCE with From/To and
+  the compact grid), `ALL DONE`. Not in tmux: batch of 6 (only 1 needed).
+  - **Verified:** it answers an unauthenticated call with "Please sign in
+    again".
+  - **Beforehand**, on `31c9d01`: trialBalance emulator suite 6/6;
+    Trial Balance UI 5/5; one-company 52/52; negative controls on the
+    opening cutoff and the compact CSS.
