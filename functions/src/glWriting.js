@@ -16,7 +16,8 @@ const STOCK_TRANSACTION_PREFIXES = {
   // hand-written module, docs/modules/FIXED_ASSETS.md: capitalization,
   // scheduled and additional depreciation (GL); take-over (number only)
   FACapitalization: 'FAA', FADepreciation: 'FAD', FAAdditionalDepreciation: 'FAU', FATakeOver: 'FAO',
-  FARetirement: 'FAR' // phase 2: sale / scrapping
+  FARetirement: 'FAR', // phase 2: sale / scrapping
+  RecurringJV: 'RJV' // hand-written module, docs/modules/RECURRING_JOURNAL.md: a run and its reversal
 };
 
 function userCanAccessCompany(profile, companyId) {

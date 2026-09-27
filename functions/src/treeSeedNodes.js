@@ -12,6 +12,8 @@ const TREE_SEED_NODES = [
   { text: 'Chart of Accounts (COA) Management', depth: 3, moduleId: 'COA' },
   { text: 'Parallel Accounting & Multi-Ledger Framework', depth: 3 },
   { text: 'Journal Entry Processing (JV)', depth: 3, moduleId: 'JV' },
+  // New development (not in Code.gs): docs/modules/RECURRING_JOURNAL.md.
+  { text: 'Recurring Journal Entries', depth: 3, moduleId: 'RECURRINGJV' },
   { text: 'Period-End Closing & Financial Statements', depth: 3 },
   { text: 'Accounts Payable (FI-AP)', depth: 2 },
   { text: 'Vendor Master Data & Evaluation', depth: 3 },

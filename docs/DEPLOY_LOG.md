@@ -346,3 +346,50 @@ from, and how it was verified. The deploy procedure is in the
     groups ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md#change-2026-09-27-read-back-in-groups)).
   - **Beforehand**, on `19e00b8`: screenRelease suite 10/10; Trial
     Balance UI 6/6 (incl. the GL Report check); one-company 3/3; smoke 4/4.
+- **2026-09-27, Recurring Journal Entries (ROADMAP #7; PR #14):** two
+  passes, run by the owner (detached tmux, `~/deploy-rj.sh`) from the
+  branch `worktree-recurring-journal-entries`.
+  1. `tools/deploy-functions.sh recurring-journal --screens` from
+     `800007e`, then Hosting: 33 functions in batches of 20. The 15 new
+     callables (`getRecurringJournalSetup` … `getRecurringJournalsDueForUser`)
+     were created, Node.js 24, 2nd Gen, and every invoker binding
+     succeeded. `getGlReport` and `getDataResetCounts` failed all three
+     retries ("Failed to make request", API errors in a batch of 20). Their
+     previous versions kept serving. Every other update succeeded. The
+     script ended `SOME STEPS FAILED`, so it skipped the screen release.
+     The wrapper then deployed Hosting (the Home "Recurring Journal Entries
+     Due to Post" block) anyway, because it didn't check that line. That
+     was harmless: the block shows nothing when its call fails. The
+     wrapper was fixed for the second pass.
+  2. `tools/deploy-functions.sh recurring-journal-retry --screens` from
+     `ea83977`: `getGlReport` and `getDataResetCounts` updated, then
+     screen release `20260927T090709Z-ea83977` (RECURRINGJV, and the
+     SOA screens' drill-through), `ALL DONE`.
+  - **Verified:** unauthenticated calls to `getRecurringJournals`,
+    `postRecurringJournalRuns`, `getRecurringJournalsDueForUser`,
+    `reverseRecurringJournalRun`, `getGlReport` and `getDataResetCounts`
+    answer "Please sign in again". All 15 new functions are ACTIVE
+    (`gcloud functions list`).
+  - **Beforehand**, on `800007e`: unit 30/30; recurringJournal suite 5/5
+    plus JV, CBT, Data Reset, Approval Config, GL Report, Party Payments,
+    PDC, Tree, Roles, Fixed Assets, Vendor Master and Party Statement
+    suites green; UI: recurring 5/5, Home 8/8, statements 4/4, smoke and
+    one-company green with RECURRINGJV; negative control (3 breaks, each
+    caught).
+  - **To do in the app:** link the existing "Recurring Journal Entries"
+    tree node under FI to `RECURRINGJV` in Tree Management.
+- **2026-09-27, Recurring Journal Entries: "Spread by service period"
+  (owner's change; PR #14):** `tools/deploy-functions.sh
+  recurring-journal-period --screens`, run by the owner (detached tmux,
+  `~/deploy-rj.sh`) from `477bf33`: the 15 recurring callables updated
+  (batch of 20; `getRecurringJournalsDueForUser` and then
+  `reverseRecurringJournalRun` failed once each with API request errors
+  and went through on the retries), then screen release
+  `20260927T101610Z-477bf33`, `ALL DONE`. No Hosting change.
+  - **Verified:** all 15 show ACTIVE, updated 10:15 UTC (`gcloud functions
+    list`); `previewRecurringJournal` answers an unauthenticated call with
+    "Please sign in again".
+  - **Beforehand**, on `477bf33`: unit 16/16; recurringJournal suite 6/6;
+    recurring UI 6/6 (the preview shows 500 / 1,000 × 11 / 500); smoke
+    green; negative controls (service start ignored; stored plan ignored;
+    raw days as weights), each caught.

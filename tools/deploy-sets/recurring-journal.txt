@@ -1,0 +1,38 @@
+# Recurring Journal Entries (docs/modules/RECURRING_JOURNAL.md).
+# Server first; getModuleFragment last. Then the screens (--screens:
+# RECURRINGJV, and VENDORSOA/CUSTOMERSOA's drill-through), then Hosting
+# (public/index.html: the Home "Recurring Journal Entries Due to Post"
+# block calls getRecurringJournalsDueForUser, so it must go after the functions).
+getRecurringJournalSetup         # new
+getRecurringJournals             # new
+getRecurringJournal              # new
+previewRecurringJournal          # new
+saveRecurringJournalDraft        # new
+deleteRecurringJournalDraft      # new
+activateRecurringJournal         # new
+decideRecurringJournalApproval   # new
+pauseRecurringJournal            # new
+endRecurringJournal              # new
+postRecurringJournalRuns         # new ("Post Due Runs")
+repostRecurringJournalRun        # new
+skipRecurringJournalRun          # new
+reverseRecurringJournalRun       # new
+getRecurringJournalsDueForUser   # new (Home task)
+reverseJournalEntry              # refuses a RecurringJV entry (module map)
+getGlReport                      # drill-through to the recurring screen
+updatePostedDescription          # module map
+getPartyStatement                # "Recurring Journal" rows
+getDataResetCounts               # new Data Reset category recurringJournals
+getCategoryRecords
+clearSelectedRecords
+clearDataCategories
+getModuleRegistry                # MODULE_REGISTRY: Tree Management, Roles & Permissions
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getApprovalConfigurations        # APPROVAL_GATEABLE_MODULES: Approval Configuration
+saveApprovalConfiguration
+saveApprovalLevels
+getPendingApprovalsForUser       # Home tasks for pending activations
+getMyRejectedSubmissions
+getModuleFragment

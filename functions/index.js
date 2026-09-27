@@ -57,6 +57,8 @@ const faMaster = require('./src/fixedAssetsMaster');
 const faPostings = require('./src/fixedAssetsPostings');
 const faDepreciation = require('./src/fixedAssetsDepreciation');
 const faRetirement = require('./src/fixedAssetsRetirement');
+// Recurring Journal Entries (docs/modules/RECURRING_JOURNAL.md).
+const recurringJournal = require('./src/recurringJournal');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
@@ -145,7 +147,7 @@ exports.cancelPdc = cancelPdc;
 exports.undoPdcClearing = undoPdcClearing;
 exports.getPdcEntries = getPdcEntries;
 exports.getPdcsDueForUser = getPdcsDueForUser;
-for (const [name, fn] of Object.entries(Object.assign({}, faConfig, faMaster, faPostings, faDepreciation, faRetirement))) {
+for (const [name, fn] of Object.entries(Object.assign({}, faConfig, faMaster, faPostings, faDepreciation, faRetirement, recurringJournal))) {
   if (fn && fn.__endpoint) exports[name] = fn; // callables only, not helpers
 }
 
