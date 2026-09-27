@@ -135,6 +135,7 @@ node functions/test/ui/pdc.ui.js            # after the pdc suite: the two PDC s
 node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed
 node functions/test/ui/singleCompany.ui.js  # one-company user: company preselected on every screen (after vendorMaster)
 node functions/test/ui/fixedAssets.ui.js    # the six Fixed Asset screens; seeds its own data
+node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for

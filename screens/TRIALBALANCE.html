@@ -1,62 +1,73 @@
 <style>
+  /* Compact grid: tight rows and columns (owner request 2026-09-27). */
+  .tb-compact th, .tb-compact td { padding: 0.2rem 0.5rem; line-height: 1.15rem; white-space: nowrap; }
+  .tb-compact td.tb-name { white-space: normal; }
   @media print {
     #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
     body, #app-container { background: white !important; color: black !important; }
   }
 </style>
 
-<div class="space-y-6">
-  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
+<div class="space-y-3">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-2 no-print">
     <div class="flex items-center gap-3">
       <button id="tb-back-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="tb-back-label">Back</span></button>
-      <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Financial Reports</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-scale-balanced text-blue-500"></i> Trial Balance (TB)</h2></div>
+      <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Financial Reports</div><h2 class="text-xl font-bold"><i class="fa-solid fa-scale-balanced text-blue-500"></i> Trial Balance (TB)</h2></div>
     </div>
     <button id="tb-print-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
   </div>
 
-  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3 no-print">
-    <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">As Of</label><input type="date" id="tb-asof-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="tb-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="tb-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="tb-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="tb-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="tb-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 space-y-2 no-print">
+    <div class="grid grid-cols-2 md:grid-cols-7 gap-2">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">From</label><input type="date" id="tb-from-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">To</label><input type="date" id="tb-to-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="tb-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="tb-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="tb-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="tb-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="tb-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
     </div>
     <div class="flex justify-end gap-2">
-      <button id="tb-copy-btn" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-copy"></i> Copy Table</button>
-      <button id="tb-run-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg font-medium">Run Report</button>
+      <button id="tb-copy-btn" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg"><i class="fa-solid fa-copy"></i> Copy Table</button>
+      <button id="tb-run-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium">Run Report</button>
     </div>
   </div>
 
   <div id="tb-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
 
-  <div id="tb-results" class="hidden space-y-3">
-    <h3 class="text-sm text-slate-400">As of <span id="tb-asof-label" class="text-slate-200 font-medium"></span></h3>
+  <div id="tb-results" class="hidden space-y-2">
+    <h3 class="text-sm text-slate-400">Period <span id="tb-period-label" class="text-slate-200 font-medium"></span></h3>
     <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="w-full text-left">
+        <table class="w-full text-left tb-compact">
           <thead>
+            <tr class="bg-slate-900 text-xs text-slate-400 uppercase">
+              <th rowspan="2" class="border-b border-slate-700">Code</th>
+              <th rowspan="2" class="border-b border-slate-700">Account</th>
+              <th rowspan="2" class="border-b border-slate-700">Type</th>
+              <th colspan="2" class="text-center border-l border-slate-700">Opening</th>
+              <th colspan="2" class="text-center border-l border-slate-700">Transactions</th>
+              <th colspan="2" class="text-center border-l border-slate-700">Closing</th>
+            </tr>
             <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
-              <th class="py-3 px-4">Code</th>
-              <th class="py-3 px-4">Account</th>
-              <th class="py-3 px-4">Type</th>
-              <th class="py-3 px-4 text-right">Debit</th>
-              <th class="py-3 px-4 text-right">Credit</th>
+              <th class="text-right border-l border-slate-700">Debit</th><th class="text-right">Credit</th>
+              <th class="text-right border-l border-slate-700">Debit</th><th class="text-right">Credit</th>
+              <th class="text-right border-l border-slate-700">Debit</th><th class="text-right">Credit</th>
             </tr>
           </thead>
-          <tbody id="tb-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+          <tbody id="tb-table-body" class="divide-y divide-slate-700/60 text-xs"></tbody>
           <tfoot>
-            <tr class="bg-slate-900 border-t border-slate-700 font-medium text-sm">
-              <td class="py-2 px-4" colspan="3">Totals</td>
-              <td class="py-2 px-4 text-right" id="tb-total-debit"></td>
-              <td class="py-2 px-4 text-right" id="tb-total-credit"></td>
+            <tr class="bg-slate-900 border-t border-slate-700 font-medium text-xs">
+              <td colspan="3">Totals</td>
+              <td class="text-right border-l border-slate-700" id="tb-total-od"></td><td class="text-right" id="tb-total-oc"></td>
+              <td class="text-right border-l border-slate-700" id="tb-total-pd"></td><td class="text-right" id="tb-total-pc"></td>
+              <td class="text-right border-l border-slate-700" id="tb-total-cd"></td><td class="text-right" id="tb-total-cc"></td>
             </tr>
           </tfoot>
         </table>
       </div>
     </div>
-    <div id="tb-balance-note" class="text-sm px-4 py-2.5 rounded-lg border"></div>
+    <div id="tb-balance-note" class="text-xs px-3 py-1.5 rounded-lg border"></div>
   </div>
 </div>
 
@@ -80,6 +91,7 @@
   }
   function fmt(n) { return (Number(n) || 0).toFixed(2); }
   function today() { return new Date().toISOString().substring(0, 10); }
+  function monthStart() { return today().substring(0, 8) + '01'; }
 
   function populateOrgUnitSelect(selectId, type) {
     const select = document.getElementById(selectId);
@@ -103,7 +115,8 @@
     if (!p) return;
     window.__pendingModuleParams = null;
 
-    document.getElementById('tb-asof-date').value = p.AsOfDate || today();
+    document.getElementById('tb-from-date').value = p.FromDate || monthStart();
+    document.getElementById('tb-to-date').value = p.ToDate || p.AsOfDate || today();
     document.getElementById('tb-company').value = p.CompanyID || '';
     document.getElementById('tb-division').value = p.DivisionID || '';
     document.getElementById('tb-branch').value = p.BranchID || '';
@@ -148,7 +161,8 @@
     document.getElementById('tb-results').classList.add('hidden');
 
     const params = {
-      AsOfDate: document.getElementById('tb-asof-date').value,
+      FromDate: document.getElementById('tb-from-date').value,
+      ToDate: document.getElementById('tb-to-date').value,
       CompanyID: document.getElementById('tb-company').value,
       DivisionID: document.getElementById('tb-division').value,
       BranchID: document.getElementById('tb-branch').value,
@@ -169,7 +183,7 @@
         btn.disabled = false; btn.textContent = original;
         error.textContent = err.message || 'Unable to run report.'; error.classList.remove('hidden');
       })
-      .getTrialBalance({ params: params });
+      .getTrialBalancePeriod({ params: params });
   }
 
   // Drills into GL Report using lastParams — the EXACT parameters that
@@ -180,8 +194,8 @@
   function drillToGl(accountCode) {
     openModule('GLREPORT', {
       AccountCode: accountCode,
-      FromDate: '',
-      ToDate: lastParams.AsOfDate,
+      FromDate: lastParams.FromDate,
+      ToDate: lastParams.ToDate,
       CompanyID: lastParams.CompanyID,
       DivisionID: lastParams.DivisionID,
       BranchID: lastParams.BranchID,
@@ -190,41 +204,45 @@
     }, [...myReturnChain, { moduleId: 'TRIALBALANCE', label: 'Trial Balance', params: lastParams }]);
   }
 
+  const COLS = ['OpeningDebit', 'OpeningCredit', 'PeriodDebit', 'PeriodCredit', 'ClosingDebit', 'ClosingCredit'];
+  const TOTAL_IDS = ['tb-total-od', 'tb-total-oc', 'tb-total-pd', 'tb-total-pc', 'tb-total-cd', 'tb-total-cc'];
+  const money = n => (n ? formatMoney(n) : '');
+
   function renderReport(result) {
     document.getElementById('tb-results').classList.remove('hidden');
-    document.getElementById('tb-asof-label').textContent = result.asOfDate;
+    document.getElementById('tb-period-label').textContent = result.fromDate + ' to ' + result.toDate;
 
     const tbody = document.getElementById('tb-table-body');
     tbody.innerHTML = '';
     if (!result.rows.length) {
-      tbody.innerHTML = '<tr><td class="py-4 px-4 text-center text-slate-500" colspan="5">No posted activity as of this date.</td></tr>';
+      tbody.innerHTML = '<tr><td class="py-3 text-center text-slate-500" colspan="9">No posted balances or activity for this period.</td></tr>';
     }
     result.rows.forEach(r => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="py-2 px-4 font-mono text-xs"><button class="tb-drill-link text-slate-200 underline decoration-dotted hover:text-blue-400">${escapeHtml(r.AccountCode)}</button></td>
-        <td class="py-2 px-4 text-slate-200">${escapeHtml(r.AccountName)}</td>
-        <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(r.AccountType)}</td>
-        <td class="py-2 px-4 text-right text-xs">${r.Debit ? formatMoney(r.Debit) : ''}</td>
-        <td class="py-2 px-4 text-right text-xs">${r.Credit ? formatMoney(r.Credit) : ''}</td>`;
+        <td class="font-mono"><button class="tb-drill-link text-slate-200 underline decoration-dotted hover:text-blue-400">${escapeHtml(r.AccountCode)}</button></td>
+        <td class="tb-name text-slate-200">${escapeHtml(r.AccountName)}</td>
+        <td class="text-slate-400">${escapeHtml(r.AccountType)}</td>
+        ${COLS.map((k, i) => `<td class="text-right${i % 2 ? '' : ' border-l border-slate-700/60'}">${money(r[k])}</td>`).join('')}`;
       tr.querySelector('.tb-drill-link').addEventListener('click', () => drillToGl(r.AccountCode));
       tbody.appendChild(tr);
     });
 
-    document.getElementById('tb-total-debit').textContent = formatMoney(result.totalDebit);
-    document.getElementById('tb-total-credit').textContent = formatMoney(result.totalCredit);
+    COLS.forEach((k, i) => { document.getElementById(TOTAL_IDS[i]).textContent = formatMoney(result.totals[k]); });
 
+    const t = result.totals;
     const note = document.getElementById('tb-balance-note');
-    const balanced = Math.abs(result.totalDebit - result.totalCredit) < 0.01;
-    note.className = 'text-sm px-4 py-2.5 rounded-lg border ' + (balanced ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400');
-    note.textContent = balanced ? 'Debit and Credit totals match.' : 'Debit and Credit totals do NOT match — this indicates a data problem and should be investigated.';
+    const balanced = [['OpeningDebit', 'OpeningCredit'], ['PeriodDebit', 'PeriodCredit'], ['ClosingDebit', 'ClosingCredit']]
+      .every(([d, c]) => Math.abs(t[d] - t[c]) < 0.01);
+    note.className = 'text-xs px-3 py-1.5 rounded-lg border ' + (balanced ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400');
+    note.textContent = balanced ? 'Debit and Credit totals match (opening, transactions and closing).' : 'Debit and Credit totals do NOT match — this indicates a data problem and should be investigated.';
   }
 
   function copyTable() {
     if (!lastReport) { alert('Run the report first.'); return; }
-    const rows = [['Code', 'Account', 'Type', 'Debit', 'Credit'].join('\t')];
-    lastReport.rows.forEach(r => rows.push([r.AccountCode, r.AccountName, r.AccountType, r.Debit ? fmt(r.Debit) : '', r.Credit ? fmt(r.Credit) : ''].join('\t')));
-    rows.push(['', '', 'Totals', fmt(lastReport.totalDebit), fmt(lastReport.totalCredit)].join('\t'));
+    const rows = [['Code', 'Account', 'Type', 'Opening Debit', 'Opening Credit', 'Period Debit', 'Period Credit', 'Closing Debit', 'Closing Credit'].join('\t')];
+    lastReport.rows.forEach(r => rows.push([r.AccountCode, r.AccountName, r.AccountType, ...COLS.map(k => (r[k] ? fmt(r[k]) : ''))].join('\t')));
+    rows.push(['', '', 'Totals', ...COLS.map(k => fmt(lastReport.totals[k]))].join('\t'));
     const text = rows.join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).catch(() => window.prompt('Copy this text:', text));
@@ -242,7 +260,8 @@
 
   window.initModule = function (idToken) {
     token = idToken;
-    document.getElementById('tb-asof-date').value = today();
+    document.getElementById('tb-from-date').value = monthStart();
+    document.getElementById('tb-to-date').value = today();
 
     myReturnChain = window.__pendingReturnChain || [];
     window.__pendingReturnChain = [];

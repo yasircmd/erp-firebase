@@ -47,6 +47,22 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [ ] **Trial Balance: opening, transactions, closing** (owner request
+  2026-09-27; branch `trial-balance-ob-cb`, tested, **not deployed**).
+  The screen now takes From and To dates (both required; defaults: the
+  1st of this month to today) and shows per account Opening Dr/Cr
+  (everything before From), Transactions Dr/Cr (gross, From..To
+  inclusive) and Closing Dr/Cr, with totals and a balance check on all
+  three; compact grid (tight rows and columns). Balances stay cumulative
+  since inception, as before (no year-end close, so income and expense
+  accounts carry an opening balance). Drill-through to GL Report passes
+  the same From/To. New hand-written callable `getTrialBalancePeriod`
+  (`functions/src/trialBalance.js`); the legacy `getTrialBalance` stays
+  deployed but unused by the screen. TRIALBALANCE is now a hand-maintained
+  screen (`tools/legacy-port/modules.json` handScreens). Tests: 4 new
+  emulator tests in trialBalance suite, `functions/test/ui/trialBalance.ui.js`
+  (5 checks), negative controls on the opening cutoff and the compact CSS.
+  Deploy: `tools/deploy-functions.sh trial-balance-period --screens`.
 - [ ] **Customer credit control** (from Customer SOA decision C1): a
   credit limit on Customer Master and a warning on new Sales Orders for
   overdue or over-limit customers. Needs its own design doc.

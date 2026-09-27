@@ -1,0 +1,5 @@
+# Trial Balance with opening / transactions / closing and From/To dates
+# (owner request 2026-09-27; docs/ROADMAP.md → Follow-ups). One new
+# callable; the legacy getTrialBalance stays deployed. Then the screen
+# (--screens). No Hosting change.
+getTrialBalancePeriod            # new
