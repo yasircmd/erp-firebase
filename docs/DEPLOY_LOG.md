@@ -378,3 +378,18 @@ from, and how it was verified. The deploy procedure is in the
     caught).
   - **To do in the app:** link the existing "Recurring Journal Entries"
     tree node under FI to `RECURRINGJV` in Tree Management.
+- **2026-09-27, Recurring Journal Entries: "Spread by service period"
+  (owner's change; PR #14):** `tools/deploy-functions.sh
+  recurring-journal-period --screens`, run by the owner (detached tmux,
+  `~/deploy-rj.sh`) from `477bf33`: the 15 recurring callables updated
+  (batch of 20; `getRecurringJournalsDueForUser` and then
+  `reverseRecurringJournalRun` failed once each with API request errors
+  and went through on the retries), then screen release
+  `20260927T101610Z-477bf33`, `ALL DONE`. No Hosting change.
+  - **Verified:** all 15 show ACTIVE, updated 10:15 UTC (`gcloud functions
+    list`); `previewRecurringJournal` answers an unauthenticated call with
+    "Please sign in again".
+  - **Beforehand**, on `477bf33`: unit 16/16; recurringJournal suite 6/6;
+    recurring UI 6/6 (the preview shows 500 / 1,000 × 11 / 500); smoke
+    green; negative controls (service start ignored; stored plan ignored;
+    raw days as weights), each caught.

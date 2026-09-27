@@ -1,6 +1,6 @@
 # Recurring Journal Entries
 
-**Status:** deployed 2026-09-27; change "Spread by service period" tested, not deployed · **Roadmap:** [#7](../ROADMAP.md) · **Branch:** `worktree-recurring-journal-entries`
+**Status:** deployed 2026-09-27, with the change "Spread by service period" · **Roadmap:** [#7](../ROADMAP.md) · **Branch:** `worktree-recurring-journal-entries`
 
 ## Purpose
 
