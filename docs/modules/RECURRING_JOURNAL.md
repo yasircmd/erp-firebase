@@ -1,6 +1,6 @@
 # Recurring Journal Entries
 
-**Status:** tested 2026-09-27, not deployed · **Roadmap:** [#7](../ROADMAP.md) · **Branch:** `worktree-recurring-journal-entries`
+**Status:** deployed 2026-09-27 · **Roadmap:** [#7](../ROADMAP.md) · **Branch:** `worktree-recurring-journal-entries`
 
 ## Purpose
 
