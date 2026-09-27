@@ -64,9 +64,11 @@ functions/
     faDepreciation.js           — Fixed Assets depreciation engine, pure functions (docs/modules/FIXED_ASSETS.md)
     fixedAssets*.js             — Fixed Assets: Config, Master, Postings (capitalization, take-over,
                                   additional depreciation), Retirement (sale, scrap), Depreciation (run, registers), Common
+    recurringSchedule.js        — Recurring Journal Entries: run dates and spread amounts, pure functions
+    recurringJournal.js         — Recurring Journal Entries: templates, Post Due Runs, reversal (docs/modules/RECURRING_JOURNAL.md)
     callable.js                 — onCallWithMessages: shows the real error message to the user
     legacy/                     — GENERATED from Code.gs, never hand-edit (see docs/MIGRATION.md)
-  test/unit/*.test.js           — pure-function tests, no emulators (the depreciation engine)
+  test/unit/*.test.js           — pure-function tests, no emulators (the depreciation and recurring-schedule engines)
   test/emulator/*.test.js       — one API suite per module, against the local emulators
   test/ui/                      — headless-browser checks (smoke, dynamic toggle, stock screens, party payments, returns, statements)
 tools/
@@ -136,6 +138,7 @@ node functions/test/ui/home.ui.js           # the Home shell (public/index.html)
 node functions/test/ui/singleCompany.ui.js  # one-company user: company preselected on every screen (after vendorMaster)
 node functions/test/ui/fixedAssets.ui.js    # the six Fixed Asset screens; seeds its own data
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
+node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen
 ```
 
 - **Emulator memory:** the functions emulator keeps a ~100 MB worker for

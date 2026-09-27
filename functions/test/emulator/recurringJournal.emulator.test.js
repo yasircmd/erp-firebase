@@ -283,6 +283,8 @@ test('weekly and Nth-weekday schedules; validation; vendor line as New Ref; comp
   assert.equal((await rec(v)).Status, 'Completed');
   const open = await call('u-admin', 'getPartyOpenItems', { partyType: 'Vendor', partyId: 'V1', companyId: 'C1' });
   assert.deepEqual(open.map(i => [i.Outstanding, i.Side]), [[250, 'Cr']]);
+  const soa = await call('u-admin', 'getPartyStatement', { partyType: 'Vendor', partyId: 'V1', companyId: 'C1', fromDate: monthStart(-1), toDate: TODAY });
+  assert.deepEqual(soa.Rows.map(x => [x.Type, x.Credit]), [['Recurring Journal', 250]], 'the vendor\'s statement shows the run');
 
   // Delete: a never-activated draft only.
   ok(await call('u-admin', 'deleteRecurringJournalDraft', { templateId: s.templateId }));
