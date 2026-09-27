@@ -27,7 +27,7 @@ const {
 } = require('./glWriting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { withGlobalLock } = require('./lock');
-const { attachPartyFields, resolvePartyLines, assertEntryReversible } = require('./partyLedger');
+const { attachPartyFields, resolvePartyLines, assertEntryReversible, listPartyAccounts } = require('./partyLedger');
 const { assertNoFaControlledAccounts, assertEntryNotCapitalized } = require('./fixedAssetsCommon');
 const S = require('./recurringSchedule');
 
@@ -215,6 +215,24 @@ function historyWith(t, event, user, extra) {
 
 // ---------- callables ----------
 
+// What the entry screen needs for one company: its postable accounts and
+// the vendor/customer control accounts (a line on one names its party).
+exports.getRecurringJournalSetup = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap('access', user.profile.role);
+  const companyId = String(request.data && request.data.companyId || '').trim();
+  if (!companyId) return { accounts: [], parties: [] };
+  requireCompany(user, companyId);
+  const coa = (await rtdb.ref('coa').get()).val() || {};
+  return {
+    accounts: Object.keys(coa)
+      .filter(id => coa[id].Status === 'Active' && coa[id].IsPostable === true && (!coa[id].CompanyID || coa[id].CompanyID === companyId))
+      .map(id => ({ AccountID: id, AccountCode: String(coa[id].AccountCode), AccountName: coa[id].AccountName || '', AccountType: coa[id].AccountType || '' }))
+      .sort((a, b) => a.AccountCode.localeCompare(b.AccountCode, undefined, { numeric: true })),
+    parties: (await listPartyAccounts(companyId)).filter(p => p.Status === 'Active')
+  };
+});
+
 exports.getRecurringJournals = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap('access', user.profile.role);
@@ -234,15 +252,20 @@ exports.getRecurringJournals = onCallWithMessages(onCallOptions, async (request)
   return { entries: entries, today: asOf };
 });
 
-// One template with its full plan and history (the entry screen).
+// One template with its full plan and history (the entry screen). Also
+// takes the GL entry ID of a run or its reversal (GL Report drill-through).
 exports.getRecurringJournal = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap('access', user.profile.role);
-  const id = String(request.data && request.data.templateId || '').trim();
+  let id = String(request.data && request.data.templateId || '').trim();
+  if (id && !(await rtdb.ref(PATH + '/' + id).get()).exists()) {
+    const gl = await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(id).get();
+    if (gl.exists && gl.data().RecurringTemplateID) id = gl.data().RecurringTemplateID;
+  }
   const t = await load(id);
   requireCompany(user, t.CompanyID);
   const plan = planOf(t, today());
-  return Object.assign({ TemplateID: id }, t, { Plan: plan.rows, PlanError: plan.planError, today: today() }, plan.summary);
+  return Object.assign({}, t, { TemplateID: id, Plan: plan.rows, PlanError: plan.planError, today: today() }, plan.summary);
 });
 
 // The screen's live preview: the plan of what's in the form (merged with

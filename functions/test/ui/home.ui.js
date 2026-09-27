@@ -57,6 +57,7 @@ function stubs() {
           : favorites.concat([{ moduleId: arg.moduleId, label: arg.moduleLabel }]);
         return { favorites };
       case 'getActiveCompanies': return window.__companies || [];
+      case 'getRecurringJournalsDueForUser': return window.__recurringDue || [];
       case 'getModuleFragment': return { html: '<div id="stub-module">Module ' + arg.moduleId + '</div>', canWrite: true };
       default: return [];
     }
@@ -236,6 +237,30 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.waitForTimeout(300);
     assert.equal(await title(page), 'ERP Module Hierarchy Tree');
     await page.close();
+  });
+
+  await check('tasks: recurring journal entries due to post, counted and opened (docs/modules/RECURRING_JOURNAL.md)', async () => {
+    let page = await open();
+    assert.ok(await page.isHidden('#home-recurring-due-block'), 'nothing due, no block');
+    await page.close();
+    const context = await browser.newContext();
+    page = await context.newPage();
+    page.__errors = [];
+    page.on('pageerror', e => page.__errors.push(e.message));
+    await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
+    await page.addInitScript(stubs);
+    await page.addInitScript(() => { window.__recurringDue = [{ ModuleID: 'RECURRINGJV', ModuleLabel: 'Recurring Journal Entries', DocumentID: 'RJ-1', DocumentNumber: 'RJT-26-01-000001', Description: 'Rent {MONTH}', DueCount: 2, FailedCount: 1, OldestDueDate: '2026-08-01' }]; });
+    await page.goto('http://127.0.0.1:8131/');
+    await page.waitForSelector('#home-recurring-due-block:not(.hidden)', { state: 'attached', timeout: 30000 });
+    assert.equal((await page.textContent('#home-tasks-count')).trim(), '(1)');
+    const row = await page.textContent('#home-recurring-due-list');
+    assert.match(row, /RJT-26-01-000001.*Rent \{MONTH\}.*2 due since 2026-08-01.*1 failed/s);
+    await page.evaluate(() => toggleHomeTasksSection());
+    await page.click('#home-recurring-due-list > div');
+    await page.waitForSelector('#stub-module');
+    assert.match(await page.textContent('#stub-module'), /Module RECURRINGJV/);
+    assert.deepEqual(page.__errors, []);
+    await context.close();
   });
 
   await browser.close(); server.close();

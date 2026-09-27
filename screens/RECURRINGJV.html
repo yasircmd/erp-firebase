@@ -1,0 +1,644 @@
+<div id="rj-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Financial Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-repeat text-blue-500"></i> Recurring Journal Entries</h2></div>
+    <div class="flex items-center gap-2">
+      <button id="rj-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="rj-back-chain-label">Back</span></button>
+      <button id="rj-post-all-btn" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-play"></i> Post Due Runs</button>
+      <button id="rj-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Recurring Entry</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="rj-search-input" placeholder="Search number or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
+    <select id="rj-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="rj-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All Statuses</option><option value="Draft">Draft</option><option value="PendingApproval">Pending Approval</option><option value="Rejected">Rejected</option>
+      <option value="Active">Active</option><option value="Paused">Paused</option><option value="Completed">Completed</option><option value="Ended">Ended</option>
+    </select>
+  </div>
+  <div id="rj-due-summary" class="hidden text-sm text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3"></div>
+  <div id="rj-list-message" class="hidden text-xs p-2.5 rounded-lg"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-3 px-3">Number</th><th class="py-3 px-3">Description</th><th class="py-3 px-3">Schedule</th><th class="py-3 px-3">Amount</th>
+          <th class="py-3 px-3">Next Run</th><th class="py-3 px-3 text-right">Posted</th><th class="py-3 px-3">Status</th></tr></thead>
+        <tbody id="rj-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="rj-list-notice" class="hidden text-xs text-slate-500"></div>
+</div>
+
+<div id="rj-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="rj-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h2 id="rj-entry-title" class="text-xl font-bold text-blue-400">New Recurring Entry</h2>
+      <span id="rj-status-badge" class="hidden"></span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button id="rj-delete-btn" class="hidden bg-slate-800 hover:bg-red-600/80 text-xs px-3 py-2 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Delete</button>
+      <button id="rj-end-btn" class="hidden bg-slate-800 hover:bg-red-600/80 text-xs px-3 py-2 rounded border border-slate-700"><i class="fa-solid fa-stop"></i> End</button>
+      <button id="rj-pause-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded border border-slate-700"><i class="fa-solid fa-pause"></i> Pause</button>
+      <button id="rj-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+      <button id="rj-activate-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-check"></i> <span id="rj-activate-label">Activate</span></button>
+      <button id="rj-post-due-btn" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-play"></i> Post Due Runs</button>
+    </div>
+  </div>
+
+  <div id="rj-rejection-banner" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg">Rejected: <span id="rj-rejection-reason"></span></div>
+  <div id="rj-my-approval-banner" class="hidden flex items-center justify-between gap-3 text-sm text-blue-300 bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
+    <span>This recurring entry is waiting for your approval.</span>
+    <div class="flex gap-2"><button id="rj-reject-btn" class="bg-slate-800 hover:bg-red-600/80 text-xs px-3 py-1.5 rounded border border-slate-700">Reject</button><button id="rj-approve-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Approve</button></div>
+  </div>
+  <div id="rj-paused-note" class="hidden text-xs text-slate-400 bg-slate-800/60 border border-slate-700 p-2.5 rounded-lg">Paused: edit and save, then Resume. Posted runs don't change; only the dates still open do.</div>
+  <div id="rj-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  <div id="rj-ok" class="hidden text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-lg"></div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="rj-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
+    <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Description <span class="text-slate-500">({MONTH}, {DATE} and {YEAR} are filled in on each run)</span></label><input type="text" id="rj-form-description" placeholder="e.g. Office rent {MONTH}" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference</label><input type="text" id="rj-form-reference" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select id="rj-form-division" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="rj-form-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center (line default)</label><select id="rj-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center (line default)</label><select id="rj-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <p class="text-xs font-semibold text-slate-400 uppercase">Schedule and period</p>
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+      <div class="col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Runs</label>
+        <select id="rj-freq" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+          <option value="MonthlyDay">Monthly, on a day of the month</option><option value="MonthEnd">Monthly, at month end (EOM)</option>
+          <option value="Weekly">Weekly, on a weekday</option><option value="MonthlyWeekday">Monthly, on the first/…/last weekday</option>
+        </select></div>
+      <div id="rj-day-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">Day</label><input type="number" id="rj-day" min="1" max="31" value="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div id="rj-nth-wrap" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Which</label>
+        <select id="rj-nth" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="1">First</option><option value="2">Second</option><option value="3">Third</option><option value="4">Fourth</option><option value="-1">Last</option></select></div>
+      <div id="rj-weekday-wrap" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Weekday</label>
+        <select id="rj-weekday" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="7">Sunday</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Every <span id="rj-interval-unit">month(s)</span></label><input type="number" id="rj-interval" min="1" value="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+      <div class="col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Start date</label><input type="date" id="rj-start" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Ends</label>
+        <select id="rj-endmode" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Count">After a number of runs</option><option value="EndDate">On an end date</option></select></div>
+      <div id="rj-count-wrap" class="col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Number of runs</label><input type="number" id="rj-count" min="1" max="240" value="12" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div id="rj-enddate-wrap" class="hidden col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">End date</label><input type="date" id="rj-enddate" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Amounts</label>
+        <select id="rj-mode" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+          <option value="Fixed">Fixed: the lines' amounts on every run</option><option value="Spread">Spread a total: the lines are totals, shared equally over the runs</option>
+        </select></div>
+      <div id="rj-schedule-text" class="text-xs text-slate-400 flex items-end pb-2"></div>
+    </div>
+  </div>
+
+  <!-- LINES -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-700">
+      <p class="text-xs font-semibold text-slate-400 uppercase">Lines <span id="rj-lines-hint" class="normal-case font-normal text-slate-500">(amount per run)</span></p>
+      <button id="rj-add-line-btn" class="text-xs text-blue-400 hover:text-blue-300"><i class="fa-solid fa-plus"></i> Add line</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+          <th class="py-2 px-2">Account</th><th class="py-2 px-2">Vendor / Customer</th><th class="py-2 px-2">Description</th><th class="py-2 px-2 text-right">Debit</th><th class="py-2 px-2 text-right">Credit</th>
+          <th class="py-2 px-2">Cost Center</th><th class="py-2 px-2">Profit Center</th><th></th></tr></thead>
+        <tbody id="rj-lines-body" class="divide-y divide-slate-700 text-sm"></tbody>
+        <tfoot><tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-2" colspan="3">Total <span id="rj-balance-note" class="text-xs font-normal"></span></td>
+          <td id="rj-total-debit" class="py-2 px-2 text-right font-mono"></td><td id="rj-total-credit" class="py-2 px-2 text-right font-mono"></td><td colspan="3"></td></tr></tfoot>
+      </table>
+    </div>
+    <datalist id="rj-account-datalist"></datalist>
+  </div>
+
+  <!-- RUNS -->
+  <div class="space-y-2">
+    <div class="flex items-center justify-between"><p class="text-xs font-semibold text-slate-400 uppercase">Run dates <span id="rj-plan-summary" class="normal-case font-normal text-slate-500"></span></p><span id="rj-today" class="text-xs text-slate-500"></span></div>
+    <div id="rj-plan-error" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3"></div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto max-h-96 overflow-y-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Date</th><th class="py-2 px-3 text-right">Amount</th><th class="py-2 px-3">Status</th><th class="py-2 px-3">GL Voucher</th><th class="py-2 px-3">Note</th><th class="py-2 px-3 text-right"></th></tr></thead>
+      <tbody id="rj-plan-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+  </div>
+
+  <div id="rj-history-wrap" class="hidden space-y-2">
+    <p class="text-xs font-semibold text-slate-400 uppercase">History</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Event</th><th class="py-2 px-3">Run date</th><th class="py-2 px-3">GL Voucher</th><th class="py-2 px-3">Note</th><th class="py-2 px-3">By</th><th class="py-2 px-3">At</th></tr></thead>
+      <tbody id="rj-history-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+  </div>
+</div>
+
+<div id="rj-gl-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl p-5">
+    <div class="flex items-center justify-between mb-3"><div><h3 class="font-bold">GL Entry</h3><p id="rj-gl-modal-subtitle" class="text-xs text-slate-400"></p></div><button id="rj-gl-modal-close" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div>
+    <div id="rj-gl-modal-body"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Recurring Journal Entries — docs/modules/RECURRING_JOURNAL.md (RECURRINGJV).
+  // Runs are posted here ("Post Due Runs") or from the Home task; the
+  // server decides "today" (Asia/Dubai) and every amount.
+  const MODULE_ID = 'RECURRINGJV';
+  let canDraft = false;
+  let canPost = false;
+  let entries = [];
+  let serverToday = '';
+  let companies = [];
+  let orgUnits = [];
+  let setup = { accounts: [], parties: [] };
+  let setupCompany = '';
+  let current = null;       // the saved template (with Plan and History) or null for a new one
+  let lines = [];
+  let isDirty = false;
+  let previewTimer = null;
+  let previewSeq = 0;
+  let pendingOpenEntryId = null;
+  let myReturnChain = [];
+
+  const STATUS_COLORS = {
+    Draft: 'bg-slate-700 text-slate-300', PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+    Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20', Active: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+    Paused: 'bg-amber-500/10 text-amber-400 border border-amber-500/20', Completed: 'bg-slate-700 text-slate-300', Ended: 'bg-slate-700 text-slate-400',
+    Scheduled: 'bg-slate-700 text-slate-300', Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+    Failed: 'bg-red-500/10 text-red-400 border border-red-500/20', Skipped: 'bg-slate-700 text-slate-400',
+    Reversed: 'bg-amber-500/10 text-amber-400 border border-amber-500/20', Committing: 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+  };
+  const STATUS_LABELS = { PendingApproval: 'Pending Approval' };
+  const EDITABLE = ['Draft', 'Rejected', 'Paused'];
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function formatMoney(n) { return (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function round2(n) { return Math.round(n * 100) / 100; }
+  function parseAmount(v) { return parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function badge(status) { return '<span class="text-xs px-2 py-0.5 rounded-full ' + (STATUS_COLORS[status] || 'bg-slate-700 text-slate-400') + '">' + escapeHtml(STATUS_LABELS[status] || status) + '</span>'; }
+  function isEditable() { return !current || EDITABLE.includes(current.Status); }
+  function flash(ok, msg) {
+    $('rj-error').classList.toggle('hidden', ok || !msg); $('rj-ok').classList.toggle('hidden', !ok || !msg);
+    (ok ? $('rj-ok') : $('rj-error')).textContent = msg || '';
+  }
+  function listMessage(ok, msg) {
+    const m = $('rj-list-message');
+    m.classList.toggle('hidden', !msg);
+    m.className = 'text-xs p-2.5 rounded-lg ' + (ok ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-red-400 bg-red-500/10 border border-red-500/20') + (msg ? '' : ' hidden');
+    m.textContent = msg || '';
+  }
+  const call = (name, data) => new Promise((resolve, reject) => rpc.withSuccessHandler(resolve).withFailureHandler(reject)[name](data));
+
+  // ---------- LIST ----------
+  function companyLabel(id) { const c = companies.find(x => x.CompanyID === id); return c ? (c.CompanyRefCode || c.LegalName) : id; }
+  function renderList() {
+    const search = val('rj-search-input').trim().toLowerCase();
+    const company = val('rj-company-filter');
+    const status = val('rj-status-filter');
+    const rows = entries.filter(e => (!company || e.CompanyID === company) && (!status || e.Status === status) &&
+      (!search || [e.TemplateNumber, e.Description, e.Reference].join(' ').toLowerCase().indexOf(search) !== -1));
+    const tbody = $('rj-table-body');
+    tbody.innerHTML = '';
+    rows.forEach(e => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-700/30 cursor-pointer';
+      tr.innerHTML = `
+        <td class="py-2.5 px-3 font-mono text-xs">${escapeHtml(e.TemplateNumber || '(draft)')}<div class="text-slate-500">${escapeHtml(companyLabel(e.CompanyID))}</div></td>
+        <td class="py-2.5 px-3">${escapeHtml(e.Description || '')}</td>
+        <td class="py-2.5 px-3 text-xs text-slate-400">${escapeHtml(e.ScheduleText || '')}</td>
+        <td class="py-2.5 px-3 text-xs"><span class="font-mono">${formatMoney(e.TotalDebit)}</span> <span class="text-slate-500">${e.AmountMode === 'Spread' ? 'total, spread' : 'per run'}</span></td>
+        <td class="py-2.5 px-3 text-xs">${escapeHtml(e.NextRunDate || '—')}${e.DueCount ? ` <span class="text-amber-400">(${e.DueCount} due)</span>` : ''}${e.FailedCount ? ` <span class="text-red-400">(${e.FailedCount} failed)</span>` : ''}</td>
+        <td class="py-2.5 px-3 text-right text-xs">${e.PostedCount || 0} / ${e.RunCount || 0}</td>
+        <td class="py-2.5 px-3">${badge(e.Status)}</td>`;
+      tr.addEventListener('click', () => openEntry(e.TemplateID));
+      tbody.appendChild(tr);
+    });
+    $('rj-list-notice').classList.toggle('hidden', rows.length > 0);
+    $('rj-list-notice').textContent = entries.length ? 'No recurring entries match the current filters.' : 'No recurring entries yet.';
+    const due = entries.filter(e => e.Status === 'Active' && e.DueCount > 0);
+    const runs = due.reduce((s, e) => s + e.DueCount, 0);
+    $('rj-due-summary').classList.toggle('hidden', !runs);
+    $('rj-due-summary').textContent = runs ? runs + ' run' + (runs === 1 ? '' : 's') + ' due on ' + due.length + ' recurring entr' + (due.length === 1 ? 'y' : 'ies') + ' (up to ' + serverToday + ').' : '';
+    $('rj-post-all-btn').classList.toggle('hidden', !canPost || !runs);
+  }
+
+  function fetchEntries(then) {
+    call('getRecurringJournals', {}).then(r => {
+      entries = r.entries || []; serverToday = r.today || '';
+      renderList();
+      if (pendingOpenEntryId) {
+        // Home passes the template ID; GL Report passes a run's GL entry ID.
+        const id = pendingOpenEntryId; pendingOpenEntryId = null;
+        openEntry(id); // the server resolves a run's GL entry ID to its template
+      }
+      if (then) then();
+    }).catch(err => listMessage(false, err.message));
+  }
+
+  function summarize(r) {
+    const failed = (r.results || []).filter(x => x.Status === 'Failed');
+    let msg = r.posted + ' run' + (r.posted === 1 ? '' : 's') + ' posted.';
+    if (failed.length) msg += ' ' + failed.length + ' failed: ' + failed.map(f => (f.TemplateNumber || '') + ' ' + f.Date + ' — ' + f.Error).join('; ');
+    if (r.remaining) msg += ' ' + r.remaining + ' more still due: post again.';
+    return { ok: !failed.length, msg: msg };
+  }
+
+  function postAllDue() {
+    if (!window.confirm('Post every due run of every active recurring entry, up to ' + serverToday + '?')) return;
+    $('rj-post-all-btn').disabled = true;
+    call('postRecurringJournalRuns', {}).then(r => { const s = summarize(r); listMessage(s.ok, s.msg); fetchEntries(); })
+      .catch(err => listMessage(false, err.message)).finally(() => { $('rj-post-all-btn').disabled = false; });
+  }
+
+  function showListView() {
+    $('rj-entry-view').classList.add('hidden'); $('rj-list-view').classList.remove('hidden');
+    current = null; isDirty = false; fetchEntries();
+  }
+  function showEntryView() { $('rj-list-view').classList.add('hidden'); $('rj-entry-view').classList.remove('hidden'); }
+  function confirmLeave(then) { if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return; then(); }
+  function goBackInChain() {
+    confirmLeave(() => { const chain = myReturnChain.slice(); const target = chain.pop(); if (target) openModule(target.moduleId, target.params, chain); });
+  }
+
+  // ---------- COMPANY SET-UP ----------
+  function loadSetup(companyId, then) {
+    if (!companyId) { setup = { accounts: [], parties: [] }; setupCompany = ''; afterSetup(); if (then) then(); return; }
+    call('getRecurringJournalSetup', { companyId: companyId }).then(r => { setup = r; setupCompany = companyId; afterSetup(); if (then) then(); })
+      .catch(err => flash(false, err.message));
+  }
+  function afterSetup() {
+    $('rj-account-datalist').innerHTML = setup.accounts.map(a => `<option value="${escapeHtml(a.AccountCode)}" label="${escapeHtml(a.AccountName)}">`).join('');
+    populateOrgUnits(); renderLines();
+  }
+  function populateOrgUnits() {
+    const companyId = val('rj-form-company');
+    [['rj-form-division', 'Division'], ['rj-form-branch', 'Branch'], ['rj-form-costcenter', 'CostCenter'], ['rj-form-profitcenter', 'ProfitCenter']].forEach(([id, type]) => {
+      const select = $(id); const keep = select.value;
+      select.innerHTML = '<option value="">—</option>' + unitsOf(type, companyId).map(u => `<option value="${escapeHtml(u.UnitID)}">${escapeHtml(u.Code + ' — ' + u.Name)}</option>`).join('');
+      if ([...select.options].some(o => o.value === keep)) select.value = keep;
+    });
+  }
+  function unitsOf(type, companyId) {
+    return orgUnits.filter(u => u.Type === type && (!u.CompanyID || u.CompanyID === companyId))
+      .sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }));
+  }
+
+  // ---------- LINES ----------
+  const partiesFor = code => setup.parties.filter(p => p.AccountCode === String(code || ''));
+  function renderLines() {
+    const editable = isEditable();
+    const companyId = val('rj-form-company');
+    const unitOptions = (type, sel) => '<option value="">(default)</option>' + unitsOf(type, companyId)
+      .map(u => `<option value="${escapeHtml(u.UnitID)}"${u.UnitID === sel ? ' selected' : ''}>${escapeHtml(u.Code)}</option>`).join('');
+    const tbody = $('rj-lines-body');
+    tbody.innerHTML = '';
+    lines.forEach((l, i) => {
+      const parties = partiesFor(l.AccountCode);
+      if (!parties.length) { l.PartyType = ''; l.PartyID = ''; }
+      const account = setup.accounts.find(a => a.AccountCode === String(l.AccountCode || ''));
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-1.5 px-2"><input list="rj-account-datalist" data-i="${i}" data-f="AccountCode" value="${escapeHtml(l.AccountCode || '')}" class="rj-line w-28 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs font-mono">
+          <div class="text-[10px] text-slate-500 truncate max-w-[10rem]">${escapeHtml(account ? account.AccountName : '')}</div></td>
+        <td class="py-1.5 px-2">${parties.length ? `<select data-i="${i}" data-f="Party" class="rj-line w-40 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"><option value="">Select...</option>${parties.map(p => {
+          const k = p.PartyType + ':' + p.PartyID;
+          return `<option value="${escapeHtml(k)}"${k === l.PartyType + ':' + l.PartyID ? ' selected' : ''}>${escapeHtml(p.PartyType + ' — ' + (p.Code ? p.Code + ' ' : '') + p.Name)}</option>`;
+        }).join('')}</select><div class="text-[10px] text-slate-500">New Ref each run</div>` : '<span class="text-xs text-slate-600">—</span>'}</td>
+        <td class="py-1.5 px-2"><input data-i="${i}" data-f="Description" value="${escapeHtml(l.Description || '')}" class="rj-line w-48 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"></td>
+        <td class="py-1.5 px-2 text-right"><input data-i="${i}" data-f="Debit" value="${l.Debit ? escapeHtml(l.Debit) : ''}" inputmode="decimal" class="rj-line w-28 text-right bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs font-mono"></td>
+        <td class="py-1.5 px-2 text-right"><input data-i="${i}" data-f="Credit" value="${l.Credit ? escapeHtml(l.Credit) : ''}" inputmode="decimal" class="rj-line w-28 text-right bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs font-mono"></td>
+        <td class="py-1.5 px-2"><select data-i="${i}" data-f="CostCenterID" class="rj-line w-24 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs">${unitOptions('CostCenter', l.CostCenterID)}</select></td>
+        <td class="py-1.5 px-2"><select data-i="${i}" data-f="ProfitCenterID" class="rj-line w-24 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs">${unitOptions('ProfitCenter', l.ProfitCenterID)}</select></td>
+        <td class="py-1.5 px-2">${editable ? `<button data-i="${i}" class="rj-remove text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>` : ''}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.rj-line').forEach(el => {
+      el.disabled = !editable;
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', ev => {
+        const l = lines[Number(el.dataset.i)]; const f = el.dataset.f;
+        if (f === 'Party') { const [pt, pid] = el.value.split(':'); l.PartyType = pt || ''; l.PartyID = pid || ''; }
+        else l[f] = el.value;
+        if (f === 'Debit' && parseAmount(el.value) > 0) { l.Credit = ''; const other = tbody.querySelector(`[data-i="${el.dataset.i}"][data-f="Credit"]`); if (other) other.value = ''; }
+        if (f === 'Credit' && parseAmount(el.value) > 0) { l.Debit = ''; const other = tbody.querySelector(`[data-i="${el.dataset.i}"][data-f="Debit"]`); if (other) other.value = ''; }
+        isDirty = true; renderTotals(); schedulePreview();
+      });
+      if (el.dataset.f === 'AccountCode') el.addEventListener('change', () => renderLines());
+    });
+    tbody.querySelectorAll('.rj-remove').forEach(b => b.addEventListener('click', () => { lines.splice(Number(b.dataset.i), 1); isDirty = true; renderLines(); schedulePreview(); }));
+    $('rj-add-line-btn').classList.toggle('hidden', !editable);
+    renderTotals();
+  }
+  function renderTotals() {
+    const dr = round2(lines.reduce((s, l) => s + parseAmount(l.Debit), 0));
+    const cr = round2(lines.reduce((s, l) => s + parseAmount(l.Credit), 0));
+    $('rj-total-debit').textContent = formatMoney(dr); $('rj-total-credit').textContent = formatMoney(cr);
+    const note = $('rj-balance-note');
+    note.textContent = dr === cr ? (dr ? '(balanced)' : '') : '(difference ' + formatMoney(Math.abs(dr - cr)) + ')';
+    note.className = 'text-xs font-normal ' + (dr === cr ? 'text-emerald-400' : 'text-red-400');
+  }
+  function addLine() { lines.push({ AccountCode: '', Description: '', Debit: '', Credit: '', CostCenterID: '', ProfitCenterID: '', PartyType: '', PartyID: '' }); renderLines(); }
+
+  // ---------- SCHEDULE ----------
+  function scheduleFromForm() {
+    const s = { Frequency: val('rj-freq'), Interval: val('rj-interval'), StartDate: val('rj-start'), EndMode: val('rj-endmode') };
+    if (s.Frequency === 'MonthlyDay') s.Day = val('rj-day');
+    if (s.Frequency === 'Weekly' || s.Frequency === 'MonthlyWeekday') s.Weekday = val('rj-weekday');
+    if (s.Frequency === 'MonthlyWeekday') s.Nth = val('rj-nth');
+    if (s.EndMode === 'EndDate') s.EndDate = val('rj-enddate'); else s.RunCount = val('rj-count');
+    return s;
+  }
+  function syncScheduleFields() {
+    const f = val('rj-freq');
+    $('rj-day-wrap').classList.toggle('hidden', f !== 'MonthlyDay');
+    $('rj-weekday-wrap').classList.toggle('hidden', f !== 'Weekly' && f !== 'MonthlyWeekday');
+    $('rj-nth-wrap').classList.toggle('hidden', f !== 'MonthlyWeekday');
+    $('rj-interval-unit').textContent = f === 'Weekly' ? 'week(s)' : 'month(s)';
+    $('rj-count-wrap').classList.toggle('hidden', val('rj-endmode') !== 'Count');
+    $('rj-enddate-wrap').classList.toggle('hidden', val('rj-endmode') !== 'EndDate');
+    $('rj-lines-hint').textContent = val('rj-mode') === 'Spread' ? '(totals to spread over the runs)' : '(amount per run)';
+  }
+  function formData() {
+    return {
+      TemplateID: current ? current.TemplateID : '', CompanyID: val('rj-form-company'),
+      DivisionID: val('rj-form-division'), BranchID: val('rj-form-branch'), CostCenterID: val('rj-form-costcenter'), ProfitCenterID: val('rj-form-profitcenter'),
+      Description: val('rj-form-description').trim(), Reference: val('rj-form-reference').trim(), AmountMode: val('rj-mode'), Schedule: scheduleFromForm(),
+      Lines: lines.filter(l => String(l.AccountCode || '').trim()).map(l => ({
+        AccountCode: String(l.AccountCode).trim(), Description: l.Description || '', Debit: parseAmount(l.Debit), Credit: parseAmount(l.Credit),
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', PartyType: l.PartyType || '', PartyID: l.PartyID || ''
+      }))
+    };
+  }
+
+  // Live preview of the run dates while editing (the server's rules).
+  function schedulePreview() {
+    if (!isEditable()) return;
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => {
+      const seq = ++previewSeq;
+      const d = formData();
+      call('previewRecurringJournal', { TemplateID: d.TemplateID, AmountMode: d.AmountMode, Schedule: d.Schedule, Lines: d.Lines }).then(r => {
+        if (seq !== previewSeq) return;
+        $('rj-schedule-text').textContent = r.scheduleText || '';
+        renderPlan(r.rows, r.planError, r.summary, false);
+      }).catch(err => {
+        if (seq !== previewSeq) return;
+        $('rj-schedule-text').textContent = '';
+        renderPlan([], err.message, null, false);
+      });
+    }, 300);
+  }
+
+  function renderPlan(rows, planError, summary, withActions) {
+    $('rj-plan-error').classList.toggle('hidden', !planError);
+    $('rj-plan-error').textContent = planError || '';
+    $('rj-plan-summary').textContent = summary ? '— ' + rows.length + ' run' + (rows.length === 1 ? '' : 's') + ', ' + (summary.PostedCount || 0) + ' posted, total ' +
+      formatMoney(round2((summary.PostedTotal || 0) + (summary.OpenTotal || 0))) : '';
+    const status = current ? current.Status : '';
+    const act = withActions && canPost;
+    $('rj-plan-body').innerHTML = rows.map(r => {
+      const open = ['Scheduled', 'Failed', 'Reversed'].includes(r.Status);
+      const buttons = [];
+      if (act && r.Status === 'Posted') buttons.push(`<button data-act="reverse" data-date="${r.Date}" class="rj-run text-xs text-red-400 hover:text-red-300">Reverse</button>`);
+      if (act && r.Status === 'Reversed' && status === 'Active' && r.Date <= serverToday) buttons.push(`<button data-act="repost" data-date="${r.Date}" class="rj-run text-xs text-emerald-400 hover:text-emerald-300">Post again</button>`);
+      if (act && open && ['Active', 'Paused'].includes(status)) buttons.push(`<button data-act="skip" data-date="${r.Date}" class="rj-run text-xs text-slate-400 hover:text-slate-200">Skip</button>`);
+      const voucher = (r.JVID ? `<button data-jv="${escapeHtml(r.JVID)}" class="rj-gl text-blue-400 hover:text-blue-300">${escapeHtml(r.JVNumber)}</button>` : escapeHtml(r.JVNumber || '')) +
+        (r.ReversalJVID ? ` <span class="text-slate-500">rev.</span> <button data-jv="${escapeHtml(r.ReversalJVID)}" class="rj-gl text-blue-400 hover:text-blue-300">${escapeHtml(r.ReversalJVNumber)}</button>` : '');
+      return `<tr class="${r.Due ? 'bg-amber-500/5' : ''}"><td class="py-1.5 px-3 font-mono text-xs">${escapeHtml(r.Date)}${r.Due ? ' <span class="text-amber-400">due</span>' : ''}</td>
+        <td class="py-1.5 px-3 text-right font-mono">${r.Status === 'Skipped' ? '—' : formatMoney(r.Amount)}</td><td class="py-1.5 px-3">${badge(r.Status)}</td>
+        <td class="py-1.5 px-3 font-mono text-xs">${voucher}</td><td class="py-1.5 px-3 text-xs ${r.Error ? 'text-red-400' : 'text-slate-400'}">${escapeHtml(r.Error || r.Reason || '')}</td>
+        <td class="py-1.5 px-3 text-right space-x-3 whitespace-nowrap">${buttons.join('')}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="py-3 px-3 text-xs text-slate-500">Set the schedule to see the run dates.</td></tr>';
+    $('rj-plan-body').querySelectorAll('.rj-run').forEach(b => b.addEventListener('click', () => runAction(b.dataset.act, b.dataset.date)));
+    $('rj-plan-body').querySelectorAll('.rj-gl').forEach(b => b.addEventListener('click', () => openGlImpact(b.dataset.jv)));
+  }
+
+  function renderHistory() {
+    const h = (current && current.History) || [];
+    $('rj-history-wrap').classList.toggle('hidden', !h.length);
+    $('rj-history-body').innerHTML = h.slice().reverse().map(x => `<tr>
+      <td class="py-1.5 px-3">${escapeHtml(x.Event)}</td><td class="py-1.5 px-3 font-mono text-xs">${escapeHtml(x.Date || '')}</td>
+      <td class="py-1.5 px-3 font-mono text-xs">${x.JVID ? `<button data-jv="${escapeHtml(x.JVID)}" class="rj-gl text-blue-400 hover:text-blue-300">${escapeHtml(x.JVNumber || x.JVID)}</button>` : ''}</td>
+      <td class="py-1.5 px-3 text-xs text-slate-400">${escapeHtml(x.Note || '')}</td><td class="py-1.5 px-3 text-xs text-slate-400">${escapeHtml(x.By || '')}</td>
+      <td class="py-1.5 px-3 text-xs text-slate-500">${escapeHtml((x.At || '').replace('T', ' ').substring(0, 16))}</td></tr>`).join('');
+    $('rj-history-body').querySelectorAll('.rj-gl').forEach(b => b.addEventListener('click', () => openGlImpact(b.dataset.jv)));
+  }
+
+  // ---------- ENTRY ----------
+  function newEntry() {
+    current = null; isDirty = false; flash(true, '');
+    const t = serverToday || new Date().toISOString().substring(0, 10);
+    fillForm({ CompanyID: val('rj-company-filter'), Description: '', Reference: '', AmountMode: 'Fixed',
+      Schedule: { Frequency: 'MonthEnd', Interval: 1, StartDate: t, EndMode: 'Count', RunCount: 12 }, Lines: [] });
+    lines = [{}, {}].map(() => ({ AccountCode: '', Description: '', Debit: '', Credit: '', CostCenterID: '', ProfitCenterID: '' }));
+    showEntryView(); refreshStatusUI();
+    loadSetup(val('rj-form-company'), () => { renderLines(); schedulePreview(); });
+  }
+
+  function fillForm(t) {
+    $('rj-form-company').value = t.CompanyID || '';
+    populateOrgUnits();
+    $('rj-form-division').value = t.DivisionID || ''; $('rj-form-branch').value = t.BranchID || '';
+    $('rj-form-costcenter').value = t.CostCenterID || ''; $('rj-form-profitcenter').value = t.ProfitCenterID || '';
+    $('rj-form-description').value = t.Description || ''; $('rj-form-reference').value = t.Reference || '';
+    $('rj-mode').value = t.AmountMode || 'Fixed';
+    const s = t.Schedule || {};
+    $('rj-freq').value = s.Frequency || 'MonthEnd'; $('rj-interval').value = s.Interval || 1; $('rj-day').value = s.Day || 1;
+    $('rj-weekday').value = String(s.Weekday || 1); $('rj-nth').value = String(s.Nth || 1); $('rj-start').value = s.StartDate || '';
+    $('rj-endmode').value = s.EndMode || 'Count'; $('rj-count').value = s.RunCount || 12; $('rj-enddate').value = s.EndDate || '';
+    $('rj-schedule-text').textContent = t.ScheduleText || '';
+    lines = (t.Lines || []).map(l => ({
+      AccountCode: l.AccountCode, Description: l.Description, Debit: l.Debit || '', Credit: l.Credit || '',
+      CostCenterID: l.CostCenterID === t.CostCenterID ? '' : l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID === t.ProfitCenterID ? '' : l.ProfitCenterID || '',
+      PartyType: l.PartyType || '', PartyID: l.PartyID || ''
+    }));
+    syncScheduleFields();
+  }
+
+  function openEntry(id, then) {
+    flash(true, '');
+    call('getRecurringJournal', { templateId: id }).then(t => {
+      current = t; serverToday = t.today || serverToday; isDirty = false;
+      fillForm(t); showEntryView(); refreshStatusUI();
+      renderPlan(t.Plan || [], t.PlanError, t, true); renderHistory();
+      loadSetup(t.CompanyID);
+      if (then) then();
+    }).catch(err => alert(err.message));
+  }
+
+  function refreshStatusUI() {
+    const status = current ? current.Status : '';
+    const editable = isEditable();
+    $('rj-entry-title').textContent = current ? (current.TemplateNumber || 'Draft recurring entry') : 'New Recurring Entry';
+    const b = $('rj-status-badge');
+    b.classList.toggle('hidden', !current);
+    if (current) { b.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (STATUS_COLORS[status] || ''); b.textContent = STATUS_LABELS[status] || status; }
+    $('rj-rejection-banner').classList.toggle('hidden', status !== 'Rejected');
+    if (status === 'Rejected') $('rj-rejection-reason').textContent = current.RejectionReason || '(no reason given)';
+    $('rj-paused-note').classList.toggle('hidden', status !== 'Paused');
+    $('rj-my-approval-banner').classList.add('hidden');
+    if (status === 'PendingApproval' && canPost) {
+      rpc.withSuccessHandler(level => {
+        if (!level) return;
+        $('rj-my-approval-banner').classList.remove('hidden'); $('rj-my-approval-banner').dataset.level = level;
+      }).withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
+    }
+    ['rj-form-company', 'rj-form-division', 'rj-form-branch', 'rj-form-costcenter', 'rj-form-profitcenter', 'rj-form-description', 'rj-form-reference',
+      'rj-freq', 'rj-interval', 'rj-day', 'rj-weekday', 'rj-nth', 'rj-start', 'rj-endmode', 'rj-count', 'rj-enddate', 'rj-mode']
+      .forEach(id => { $(id).disabled = !editable; });
+    if (current && current.TemplateNumber) $('rj-form-company').disabled = true;
+    const show = (id, on) => $(id).classList.toggle('hidden', !on);
+    show('rj-save-btn', editable && canDraft);
+    show('rj-activate-btn', editable && canPost);
+    $('rj-activate-label').textContent = status === 'Paused' ? 'Resume' : (status === 'Rejected' ? 'Resubmit' : 'Activate');
+    show('rj-delete-btn', status === 'Draft' && !current.TemplateNumber && canDraft);
+    show('rj-pause-btn', status === 'Active' && canPost);
+    show('rj-end-btn', ['Active', 'Paused', 'Rejected'].includes(status) && canPost);
+    show('rj-post-due-btn', status === 'Active' && canPost && (current.DueCount || 0) > 0);
+    renderLines();
+  }
+
+  function save(then) {
+    flash(true, '');
+    call('saveRecurringJournalDraft', formData()).then(r => {
+      isDirty = false;
+      openEntry(r.templateId, () => { flash(true, 'Saved.'); if (then) then(r.templateId); });
+    }).catch(err => flash(false, err.message));
+  }
+
+  function activate() {
+    const go = id => {
+      const label = current && current.Status === 'Paused' ? 'Resume' : 'Activate';
+      if (!window.confirm(label + ' this recurring entry? Its runs are then posted with "Post Due Runs" on or after each date.')) return;
+      call('activateRecurringJournal', { templateId: id }).then(r => {
+        openEntry(id, () => flash(true, r.status === 'PendingApproval' ? 'Submitted for approval.' : (r.status === 'Completed' ? 'Nothing left to post: completed.' : 'Active. Runs due: ' + (current.DueCount || 0) + '.')));
+      }).catch(err => flash(false, err.message));
+    };
+    if (!current || isDirty) { if (!canDraft) return flash(false, 'Save the changes first.'); save(go); } else go(current.TemplateID);
+  }
+
+  function simple(name, confirmText, needReason, done) {
+    if (confirmText && !window.confirm(confirmText)) return;
+    const data = { templateId: current.TemplateID };
+    if (needReason) { const reason = window.prompt('Reason:'); if (reason === null) return; data.reason = reason; }
+    call(name, data).then(() => { if (done) done(); else openEntry(current.TemplateID); }).catch(err => flash(false, err.message));
+  }
+
+  function postDueThis() {
+    call('postRecurringJournalRuns', { templateIds: [current.TemplateID] }).then(r => {
+      const s = summarize(r);
+      openEntry(current.TemplateID, () => flash(s.ok, s.msg));
+    }).catch(err => flash(false, err.message));
+  }
+
+  function runAction(act, date) {
+    const id = current.TemplateID;
+    if (act === 'skip') {
+      const reason = window.prompt('Skip the run of ' + date + '? Reason:'); if (reason === null) return;
+      call('skipRecurringJournalRun', { templateId: id, date: date, reason: reason }).then(() => openEntry(id, () => flash(true, date + ' skipped.'))).catch(err => flash(false, err.message));
+    } else if (act === 'reverse') {
+      const reason = window.prompt('Reverse the run of ' + date + '? Reason:'); if (reason === null) return;
+      const on = window.prompt('Reversal date (YYYY-MM-DD):', serverToday); if (on === null) return;
+      call('reverseRecurringJournalRun', { templateId: id, date: date, reason: reason, reversalDate: on.trim() })
+        .then(r => openEntry(id, () => flash(true, 'Reversed by ' + r.reversalNumber + '. Use "Post again" to post the date again, or Skip it.'))).catch(err => flash(false, err.message));
+    } else if (act === 'repost') {
+      call('repostRecurringJournalRun', { templateId: id, date: date }).then(r => openEntry(id, () => flash(true, 'Posted ' + r.JVNumber + '.'))).catch(err => flash(false, err.message));
+    }
+  }
+
+  function decide(decision) {
+    const level = Number($('rj-my-approval-banner').dataset.level);
+    let reason = '';
+    if (decision === 'Rejected') { reason = window.prompt('Reason for rejecting:'); if (reason === null) return; }
+    call('decideRecurringJournalApproval', { templateId: current.TemplateID, levelNumber: level, decision: decision, reason: reason })
+      .then(() => openEntry(current.TemplateID, () => flash(true, decision === 'Approved' ? 'Approved.' : 'Rejected.'))).catch(err => flash(false, err.message));
+  }
+
+  function openGlImpact(jvId) {
+    $('rj-gl-modal-subtitle').textContent = '';
+    $('rj-gl-modal-body').innerHTML = '<div class="text-center text-slate-500 py-4">Loading...</div>';
+    $('rj-gl-modal').classList.remove('hidden');
+    rpc.withSuccessHandler(entry => {
+      $('rj-gl-modal-subtitle').textContent = entry.JVNumber + ' — ' + entry.JVDate;
+      const rows = entry.Lines.map(l => `<tr class="border-b border-slate-700"><td class="py-2 px-3 font-mono text-xs">${escapeHtml(l.AccountCode)}</td>
+        <td class="py-2 px-3 text-sm">${escapeHtml(l.AccountName)}${l.PartyName ? ' <span class="text-slate-500 text-xs">(' + escapeHtml(l.PartyName) + ')</span>' : ''}</td>
+        <td class="py-2 px-3 text-sm text-right font-mono">${l.Debit ? formatMoney(l.Debit) : '—'}</td><td class="py-2 px-3 text-sm text-right font-mono">${l.Credit ? formatMoney(l.Credit) : '—'}</td></tr>`).join('');
+      $('rj-gl-modal-body').innerHTML = `<p class="text-sm text-slate-300 mb-3">${escapeHtml(entry.Description)}</p><table class="w-full text-left">
+        <thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Account</th><th class="py-2 px-3">Name</th><th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th></tr></thead>
+        <tbody>${rows}</tbody><tfoot><tr class="font-medium border-t border-slate-600"><td class="py-2 px-3" colspan="2">Total</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalDebit)}</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalCredit)}</td></tr></tfoot></table>`;
+    }).withFailureHandler(err => { $('rj-gl-modal-body').innerHTML = '<div class="text-center text-red-400 py-4">' + escapeHtml(err.message || 'Unable to load GL entry.') + '</div>'; })
+      .getJournalEntryDetail({ jvId: jvId });
+  }
+
+  // ---------- INIT ----------
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-repeat"></i> Recurring Journal Entries';
+    rpc.withSuccessHandler(perms => {
+      canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost);
+      $('rj-new-btn').classList.toggle('hidden', !canDraft);
+      renderList();
+      // Opened from Home, the entry may already be showing, drawn before these rights arrived.
+      if (current && !$('rj-entry-view').classList.contains('hidden')) { refreshStatusUI(); renderPlan(current.Plan || [], current.PlanError, current, true); }
+    }).withFailureHandler(err => console.error(err)).getModulePermissionsForUser({ moduleId: MODULE_ID });
+
+    rpc.withSuccessHandler(result => {
+      companies = (result || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName));
+      const label = c => c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '');
+      const select = $('rj-form-company'); const filter = $('rj-company-filter');
+      select.innerHTML = '<option value="">Select a company...</option>'; filter.innerHTML = '<option value="">All Companies</option>';
+      companies.forEach(c => [select, filter].forEach(s => { const o = document.createElement('option'); o.value = c.CompanyID; o.textContent = label(c); s.appendChild(o); }));
+      if (current) select.value = current.CompanyID || '';
+      renderList();
+    }).withFailureHandler(err => console.error(err)).getActiveCompanies();
+
+    rpc.withSuccessHandler(result => { orgUnits = result || []; populateOrgUnits(); if (current) fillForm(current); renderLines(); })
+      .withFailureHandler(err => console.error(err)).getActiveOrgUnits();
+
+    $('rj-new-btn').addEventListener('click', newEntry);
+    $('rj-post-all-btn').addEventListener('click', postAllDue);
+    $('rj-back-btn').addEventListener('click', () => confirmLeave(showListView));
+    $('rj-search-input').addEventListener('input', renderList);
+    ['rj-company-filter', 'rj-status-filter'].forEach(id => $(id).addEventListener('change', renderList));
+    $('rj-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; loadSetup(val('rj-form-company')); });
+    ['rj-form-division', 'rj-form-branch', 'rj-form-costcenter', 'rj-form-profitcenter', 'rj-form-description', 'rj-form-reference']
+      .forEach(id => $(id).addEventListener('input', () => { isDirty = true; }));
+    ['rj-freq', 'rj-interval', 'rj-day', 'rj-weekday', 'rj-nth', 'rj-start', 'rj-endmode', 'rj-count', 'rj-enddate', 'rj-mode'].forEach(id => {
+      $(id).addEventListener('input', () => { isDirty = true; syncScheduleFields(); schedulePreview(); });
+      $(id).addEventListener('change', () => { isDirty = true; syncScheduleFields(); schedulePreview(); });
+    });
+    $('rj-add-line-btn').addEventListener('click', () => { addLine(); isDirty = true; });
+    $('rj-save-btn').addEventListener('click', () => save());
+    $('rj-activate-btn').addEventListener('click', activate);
+    $('rj-delete-btn').addEventListener('click', () => simple('deleteRecurringJournalDraft', 'Delete this draft?', false, showListView));
+    $('rj-pause-btn').addEventListener('click', () => simple('pauseRecurringJournal', 'Pause this recurring entry? Nothing is posted while it is paused.', false));
+    $('rj-end-btn').addEventListener('click', () => simple('endRecurringJournal', 'End this recurring entry for good? Posted runs stay posted.', true));
+    $('rj-post-due-btn').addEventListener('click', postDueThis);
+    $('rj-approve-btn').addEventListener('click', () => decide('Approved'));
+    $('rj-reject-btn').addEventListener('click', () => decide('Rejected'));
+    $('rj-gl-modal-close').addEventListener('click', () => $('rj-gl-modal').classList.add('hidden'));
+    $('rj-gl-modal').addEventListener('click', e => { if (e.target.id === 'rj-gl-modal') $('rj-gl-modal').classList.add('hidden'); });
+
+    myReturnChain = window.__pendingReturnChain || [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      $('rj-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      $('rj-back-chain-btn').classList.remove('hidden');
+      $('rj-back-chain-btn').addEventListener('click', goBackInChain);
+    }
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) pendingOpenEntryId = pending.OpenEntryId;
+    fetchEntries();
+  };
+})();
+</script>
