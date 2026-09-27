@@ -36,9 +36,40 @@ function todayIn(timeZone, now) {
 
 const int = v => (v === '' || v == null ? NaN : Number(v));
 
+// A service-period schedule (amount mode Period, owner 2026-09-27): runs at
+// every month end from the month the service starts to the month it ends,
+// the last one at that month's end.
+function periodSchedule(raw) {
+  const r = raw || {};
+  const from = String(r.ServiceFrom || '').trim();
+  const to = String(r.ServiceTo || '').trim();
+  if (!isDate(from)) throw new Error('Service period: the start date is required.');
+  if (!isDate(to)) throw new Error('Service period: the end date is required.');
+  if (to < from) throw new Error('Service period: the end date is before the start date.');
+  const s = { Frequency: 'MonthEnd', Interval: 1, StartDate: from, EndMode: 'EndDate', EndDate: monthEndOf(to), ServiceFrom: from, ServiceTo: to };
+  scheduleDates(s); // refuses more than MAX_RUNS
+  return s;
+}
+
+const monthEndOf = d => ymd(Number(d.substring(0, 4)), Number(d.substring(5, 7)), daysIn(Number(d.substring(0, 4)), Number(d.substring(5, 7))));
+const dayDiff = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
+
+// The service days a month-end run covers: from the later of the service
+// start and the 1st of its month, to the earlier of the service end and
+// the run date.
+function periodDays(s, date) {
+  if (!s || !s.ServiceFrom) return 0;
+  const first = date.substring(0, 8) + '01';
+  const start = s.ServiceFrom > first ? s.ServiceFrom : first;
+  const end = s.ServiceTo < date ? s.ServiceTo : date;
+  return end < start ? 0 : dayDiff(start, end) + 1;
+}
+
 // Checks and normalizes a schedule as the screen sends it. Throws a
-// message the user can act on.
-function normalizeSchedule(raw) {
+// message the user can act on. mode 'Period' builds it from the service
+// period instead.
+function normalizeSchedule(raw, mode) {
+  if (mode === 'Period') return periodSchedule(raw);
   const r = raw || {};
   const s = { Frequency: String(r.Frequency || '').trim() };
   if (!FREQUENCIES.includes(s.Frequency)) throw new Error('Choose how often the entry runs.');
@@ -124,6 +155,9 @@ function scheduleDates(s) {
 }
 
 function describeSchedule(s) {
+  if (s.ServiceFrom) {
+    return 'Month end, by days of the service period ' + s.ServiceFrom + ' to ' + s.ServiceTo + ' (' + (dayDiff(s.ServiceFrom, s.ServiceTo) + 1) + ' days)';
+  }
   const every = n => (s.Interval > 1 ? 'every ' + s.Interval + ' ' + n + 's' : 'every ' + n);
   let what;
   if (s.Frequency === 'MonthEnd') what = 'Month end, ' + every('month');
@@ -157,9 +191,13 @@ const isDebit = l => (Number(l.Debit) || 0) > 0;
 // base: the installment fixed when the template was last saved,
 // activated or had a date skipped (spreadBase). With it, posting a run
 // doesn't re-divide what's left, so the rounding stays on the last date.
-function installments(mode, lines, released, openDates, base) {
+// Period (by service days): what's left is shared over the open dates in
+// proportion to the days each covers (weights: date → days). base is then
+// the stored per-date plan (periodBase), used while it still adds up.
+function installments(mode, lines, released, openDates, base, weights) {
   const out = {};
   if (!openDates.length) return out;
+  if (mode === 'Period') return periodInstallments(lines, released, openDates, base, weights || {});
   if (mode !== 'Spread') {
     openDates.forEach(d => { out[d] = lines.map(lineAmount); });
     return out;
@@ -184,6 +222,55 @@ function installments(mode, lines, released, openDates, base) {
   return out;
 }
 
+function remainingOf(lines, released) {
+  const remaining = lines.map((l, i) => round2(lineAmount(l) - (Number(released[i]) || 0)));
+  remaining.forEach((r, i) => {
+    if (r < -0.005) throw new Error('Line ' + (i + 1) + ': ' + (Number(released[i]) || 0).toFixed(2) + ' has already been posted, more than its total of ' + lineAmount(lines[i]).toFixed(2) + '.');
+  });
+  return remaining;
+}
+
+// Puts a run's rounding difference on the largest line of the lighter side.
+function balance(lines, amounts) {
+  const side = debit => round2(amounts.reduce((s, a, i) => s + (isDebit(lines[i]) === debit ? a : 0), 0));
+  const diff = round2(side(true) - side(false));
+  if (diff === 0) return amounts;
+  const lighterDebit = diff < 0;
+  let best = -1;
+  amounts.forEach((a, i) => { if (isDebit(lines[i]) === lighterDebit && (best < 0 || a > amounts[best])) best = i; });
+  amounts[best] = round2(amounts[best] + Math.abs(diff));
+  return amounts;
+}
+
+function periodInstallments(lines, released, openDates, base, weights) {
+  const remaining = remainingOf(lines, released);
+  const m = openDates.length;
+  const out = {};
+  // The stored plan, while it still covers these dates and adds up to what's left.
+  const fits = base && !Array.isArray(base) && typeof base === 'object' && openDates.every(d => Array.isArray(base[d]) && base[d].length === lines.length) &&
+    remaining.every((r, i) => Math.abs(openDates.reduce((s, d) => s + (Number(base[d][i]) || 0), 0) - r) < 0.005 && openDates.every(d => (Number(base[d][i]) || 0) >= 0));
+  const total = openDates.reduce((s, d) => s + (Number(weights[d]) || 0), 0);
+  if (!fits && !(total > 0)) throw new Error('None of the open dates covers any day of the service period.');
+  const given = lines.map(() => 0);
+  let cum = 0;
+  openDates.forEach((d, j) => {
+    let amounts;
+    if (j === m - 1) {
+      amounts = remaining.map((r, i) => round2(r - given[i]));
+    } else if (fits) {
+      amounts = base[d].map(a => round2(Number(a) || 0));
+    } else {
+      // Cumulative rounding: each line's running total tracks its exact share.
+      cum += Number(weights[d]) || 0;
+      amounts = balance(lines, remaining.map((r, i) => Math.max(0, round2(r * cum / total - given[i]))));
+    }
+    if (j < m - 1) amounts.forEach((a, i) => { given[i] = round2(given[i] + a); });
+    amounts.forEach((a, i) => { if (a < -0.005) throw new Error('Line ' + (i + 1) + ': the amount left is too small for these dates.'); });
+    out[d] = amounts;
+  });
+  return out;
+}
+
 // One balanced installment of what's left over m dates: each line's share
 // rounded to the cent, any difference put on the largest line of the
 // lighter side.
@@ -201,6 +288,11 @@ function equalShare(lines, remaining, m) {
 }
 
 // The installment to fix for a spread template now (see installments).
+// Period: the per-date plan to store (see installments).
+function periodBase(lines, released, openDates, weights) {
+  return periodInstallments(lines, released, openDates, null, weights);
+}
+
 function spreadBase(lines, released, openCount) {
   if (!openCount) return [];
   return equalShare(lines, lines.map((l, i) => round2(lineAmount(l) - (Number(released[i]) || 0))), openCount);
@@ -209,5 +301,5 @@ function spreadBase(lines, released, openCount) {
 module.exports = {
   TIME_ZONE, MAX_RUNS, FREQUENCIES, WEEKDAYS,
   round2, isDate, addDays, todayIn, normalizeSchedule, scheduleDates, describeSchedule, expandText,
-  lineAmount, installments, spreadBase
+  lineAmount, installments, spreadBase, periodBase, periodDays, monthEndOf
 };

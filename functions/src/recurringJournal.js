@@ -101,10 +101,17 @@ function runTotal(lines, amounts) {
 
 // This template's per-line amounts for each open date.
 function amountsOf(t) {
-  return S.installments(t.AmountMode, t.Lines || [], releasedPerLine(t), openDates(t), t.SpreadBase);
+  return S.installments(t.AmountMode, t.Lines || [], releasedPerLine(t), openDates(t), t.SpreadBase, weightsOf(t));
+}
+// Period mode: the service days each plan date covers.
+function weightsOf(t) {
+  const w = {};
+  if (t.AmountMode === 'Period') planDates(t).forEach(d => { w[d] = S.periodDays(t.Schedule, d); });
+  return w;
 }
 // The spread installment to store after a save, activation or skip.
 function baseFor(t) {
+  if (t.AmountMode === 'Period') return openDates(t).length ? S.periodBase(t.Lines || [], releasedPerLine(t), openDates(t), weightsOf(t)) : {};
   return t.AmountMode === 'Spread' ? S.spreadBase(t.Lines || [], releasedPerLine(t), openDates(t).length) : [];
 }
 
@@ -135,6 +142,7 @@ function planOf(t, asOf) {
       Error: r.Error || '', Reason: r.Reason || '', By: r.By || '', At: r.At || ''
     };
     if (amounts[d]) row.Amounts = amounts[d];
+    if (t.AmountMode === 'Period') row.Days = S.periodDays(t.Schedule, d);
     return row;
   });
   const due = rows.filter(r => r.Due);
@@ -157,8 +165,8 @@ function planOf(t, asOf) {
 async function validateTemplate(t, coa) {
   if (!t.CompanyID) throw new HttpsError('invalid-argument', 'Select a Company for this entry.');
   if (!t.Description) throw new HttpsError('invalid-argument', 'Description is required.');
-  if (!['Fixed', 'Spread'].includes(t.AmountMode)) throw new HttpsError('invalid-argument', 'Choose the amount mode: fixed per run, or spread a total.');
-  t.Schedule = S.normalizeSchedule(t.Schedule);
+  if (!['Fixed', 'Spread', 'Period'].includes(t.AmountMode)) throw new HttpsError('invalid-argument', 'Choose the amount mode: fixed per run, spread a total, or spread by service period.');
+  t.Schedule = S.normalizeSchedule(t.Schedule, t.AmountMode);
 
   const raw = (t.Lines || []).map(l => Object.assign({}, l, {
     CostCenterID: l.CostCenterID || t.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || t.ProfitCenterID || ''
@@ -190,7 +198,7 @@ async function validateTemplate(t, coa) {
   if (lost.length) {
     throw new Error('The schedule no longer includes ' + lost[0] + ', which is already ' + runs[lost[0]].Status.toLowerCase() + ' — keep it in the period.');
   }
-  if (t.AmountMode === 'Spread' && Object.values(runs).some(r => r.Status === 'Posted' || r.Status === 'Committing')) {
+  if (t.AmountMode !== 'Fixed' && Object.values(runs).some(r => r.Status === 'Posted' || r.Status === 'Committing')) {
     const before = lineKeys(t.PreviousLines || []);
     const after = lineKeys(lines);
     if (before.length && before.join('\n') !== after.join('\n')) {
@@ -281,13 +289,14 @@ exports.previewRecurringJournal = onCallWithMessages(onCallOptions, async (reque
   const lines = (d.Lines || []).map(l => ({ Debit: round2(Number(l.Debit) || 0), Credit: round2(Number(l.Credit) || 0) }))
     .filter(l => l.Debit > 0 || l.Credit > 0);
   const t = {
-    Status: saved.Status || 'Draft', AmountMode: d.AmountMode === 'Spread' ? 'Spread' : 'Fixed',
-    Schedule: S.normalizeSchedule(d.Schedule), Lines: lines, Runs: saved.Runs || {}
+    Status: saved.Status || 'Draft', AmountMode: ['Spread', 'Period'].includes(d.AmountMode) ? d.AmountMode : 'Fixed',
+    Schedule: null, Lines: lines, Runs: saved.Runs || {}
   };
+  t.Schedule = S.normalizeSchedule(d.Schedule, t.AmountMode);
   t.SpreadBase = baseFor(t); // as it would be stored on save
   const plan = planOf(t, today());
   return {
-    rows: plan.rows.map(r => ({ Date: r.Date, Status: r.Status, Amount: r.Amount, JVNumber: r.JVNumber })),
+    rows: plan.rows.map(r => ({ Date: r.Date, Status: r.Status, Amount: r.Amount, JVNumber: r.JVNumber, Days: r.Days })),
     planError: plan.planError, scheduleText: S.describeSchedule(t.Schedule), today: today(), summary: plan.summary
   };
 });
@@ -665,7 +674,7 @@ exports.skipRecurringJournalRun = onCallWithMessages(onCallOptions, async (reque
     if (!['Active', 'Paused'].includes(t.Status)) throw new HttpsError('failed-precondition', 'Only an Active or Paused recurring entry can skip a run.');
     const open = openDates(t);
     if (!open.includes(date) || (runsOf(t)[date] || {}).Status === 'Committing') throw new HttpsError('failed-precondition', 'The run of ' + date + ' is not open.');
-    if (t.AmountMode === 'Spread' && open.length === 1) {
+    if (t.AmountMode !== 'Fixed' && open.length === 1) {
       const left = releasedPerLine(t).some((r, i) => S.lineAmount(t.Lines[i]) - r > 0.005);
       if (left) throw new Error('This is the last open date of a spread entry: skipping it would leave part of the total unposted. End the entry instead.');
     }

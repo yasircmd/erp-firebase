@@ -158,6 +158,35 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  await check('spread by service period: from/to replace the schedule; preview by days (12,000, 16 Sep 2026 – 15 Sep 2027)', async () => {
+    const page = await open('RECURRINGJV', 'u-admin');
+    await page.click('#rj-new-btn');
+    await page.selectOption('#rj-form-company', 'C1');
+    await settle(page);
+    await page.selectOption('#rj-mode', 'Period');
+    assert.ok(await page.isVisible('#rj-service-from'));
+    assert.ok(await page.isHidden('#rj-freq'), 'the frequency pickers give way to the period');
+    await page.fill('#rj-service-from', '2026-09-16');
+    await page.fill('#rj-service-to', '2027-09-15');
+    const acct = page.locator('#rj-lines-body input[data-f="AccountCode"]');
+    await acct.nth(0).fill('6100'); await acct.nth(0).dispatchEvent('change');
+    await page.locator('#rj-lines-body input[data-f="Debit"]').nth(0).fill('12000');
+    await acct.nth(1).fill('1500'); await acct.nth(1).dispatchEvent('change');
+    await page.locator('#rj-lines-body input[data-f="Credit"]').nth(1).fill('12000');
+    await settle(page);
+    assert.match(await page.textContent('#rj-lines-hint'), /totals/);
+    assert.match(await page.textContent('#rj-schedule-text'), /service period 2026-09-16 to 2027-09-15 \(365 days\)/);
+    const rows = await page.locator('#rj-plan-body tr').allTextContents();
+    assert.equal(rows.length, 13);
+    assert.match(rows[0], /2026-09-30.*493\.15.*15 days/s);
+    assert.match(rows[1], /2026-10-31.*1,019\.18.*31 days/s);
+    assert.match(rows[12], /2027-09-30.*493\.15.*15 days/s);
+    assert.match(await page.textContent('#rj-plan-summary'), /13 runs, 0 posted, total 12,000\.00/);
+    assert.deepEqual(await rpcFailures(page), []);
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
   await check('Viewer: read-only list', async () => {
     const page = await open('RECURRINGJV', 'u-viewer');
     assert.ok(await page.isHidden('#rj-new-btn'));

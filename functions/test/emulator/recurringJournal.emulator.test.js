@@ -291,6 +291,43 @@ test('weekly and Nth-weekday schedules; validation; vendor line as New Ref; comp
   assert.equal(await rec(s.templateId), null);
 });
 
+test('spread by service period: partial first month by days, 13 month ends, exact total, stable after posting', async () => {
+  await reset(fixture());
+  const from = S.addDays(monthStart(-2), 15); // the 16th, two months back
+  const toDate = S.addDays(String(Number(from.substring(0, 4)) + 1) + from.substring(4), -1); // one year of service
+  const data = rent({
+    AmountMode: 'Period', Description: 'Insurance {MONTH}', Schedule: { ServiceFrom: from, ServiceTo: toDate },
+    Lines: [{ AccountCode: '6100', Debit: 12000, Description: 'Insurance' }, { AccountCode: '1500', Credit: 12000, Description: 'Prepaid insurance' }]
+  });
+  const id = await active(data);
+  const t = await rec(id);
+  assert.match(t.ScheduleText, /^Month end, by days of the service period .* \((365|366) days\)$/);
+  let d = await detail(id);
+  const totalDays = d.Plan.reduce((s, r) => s + r.Days, 0);
+  assert.equal(d.Plan.length, 13);
+  assert.equal(d.Plan[0].Date, monthEnd(-2));
+  assert.equal(d.Plan[12].Date, S.monthEndOf(toDate), 'last run at the end month\'s month end');
+  const firstDays = Number(monthEnd(-2).substring(8)) - 15;
+  assert.equal(d.Plan[0].Days, firstDays);
+  assert.equal(d.Plan[0].Amount, Math.round(12000 * firstDays / totalDays * 100) / 100);
+  assert.equal(Math.round(d.Plan.reduce((s, r) => s + r.Amount, 0) * 100) / 100, 12000);
+  const planned = d.Plan.map(r => r.Amount);
+
+  // Two month ends are past: posted with the planned amounts; the rest don't move.
+  assert.equal(ok(await postDue([id])).posted, 2);
+  d = await detail(id);
+  assert.deepEqual(d.Plan.map(r => r.Amount), planned);
+  assert.deepEqual(d.Plan.slice(0, 3).map(r => r.Status), ['Posted', 'Posted', 'Scheduled']);
+  assert.equal(await balance('A-RENT'), Math.round((planned[0] + planned[1]) * 100) / 100);
+
+  // Validation: the period is required and ordered.
+  assert.match(await err(save(rent({ AmountMode: 'Period', Schedule: { ServiceFrom: from } }))), /end date is required/);
+  // Preview for the screen: days on every row.
+  const p = await call('u-admin', 'previewRecurringJournal', { AmountMode: 'Period', Schedule: { ServiceFrom: from, ServiceTo: toDate }, Lines: [{ Debit: 12000 }, { Credit: 12000 }] });
+  assert.deepEqual(p.rows.map(r => r.Amount), planned);
+  assert.equal(p.rows[0].Days, firstDays);
+});
+
 test('approval gates activation and resume; rejection hands it back; approval tasks', async () => {
   await reset(Object.assign(fixture(), {
     approvalConfigurations: { RECURRINGJV: { Enabled: true, ScopeType: 'Global' } },
