@@ -69,6 +69,8 @@ const MODULE_REGISTRY = [
   { id: 'FAREGISTER', label: 'Fixed Asset Register', capabilities: ['access'] },
   // docs/modules/FIXED_ASSETS.md, phase 2.
   { id: 'FARETIRE', label: 'Fixed Asset Retirement', capabilities: ['access', 'draft', 'post'] },
+  // Capital Work in Progress (Assets under Construction), owner 2026-09-28.
+  { id: 'FAAUC', label: 'Capital Work in Progress', capabilities: ['access', 'draft', 'post'] },
   // New development (not in Code.gs): docs/modules/RECURRING_JOURNAL.md.
   { id: 'RECURRINGJV', label: 'Recurring Journal Entries', capabilities: ['access', 'draft', 'post'] },
   { id: 'DATARESET', label: 'Data Reset (Admin)', capabilities: ['access', 'write'] }
@@ -164,6 +166,7 @@ const DEFAULT_PERMISSIONS = {
   FAADDDEP:           { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   FAREGISTER:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   FARETIRE:           { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
+  FAAUC:              { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   RECURRINGJV:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   MATERIALISSUE:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   PRODUCTION:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },

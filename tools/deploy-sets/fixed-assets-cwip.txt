@@ -1,0 +1,27 @@
+# Fixed Assets: Capital Work in Progress (FAAUC; owner 2026-09-28;
+# docs/modules/FIXED_ASSETS.md → Capital Work in Progress). Server first;
+# getModuleFragment last. Run with --screens: FAAUC (new), FAASSET (AuC
+# classes, CWIP statuses), FAREGISTER (CWIP statuses, history labels).
+getFaRights                      # FAAUC rights (first call seeds its default permissions)
+saveFaAsset                      # AuC-kind classes allowed: a CWIP is created in Fixed Asset Master
+getFaAssets                      # FAAUC may list assets
+getFaClearingItems               # FAAUC may read open clearing items
+getFaPostings                    # FAAUC documents
+saveFaPostingDraft               # AuCCost, AuCSettlement types; Capitalization refuses a CWIP
+postFaPosting                    # CWIP cost (FAA) and settlement (FAS)
+decideFaPostingApproval          # FAAUC gateable
+reverseFaPosting                 # settlement reversal restores the CWIP too
+getFaRegister                    # CWIP cost as original cost; settlements out as Transfers
+getGlReport                      # drill-through to Capital Work in Progress
+reverseJournalEntry              # refuses FAAuCCost / FAAuCSettlement entries (module map)
+updatePostedDescription          # module map
+getModuleRegistry                # MODULE_REGISTRY: FAAUC
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode                     # a menu node can link FAAUC
+getApprovalConfigurations        # APPROVAL_GATEABLE_MODULES: FAAUC
+saveApprovalConfiguration
+saveApprovalLevels
+getPendingApprovalsForUser       # Home task label "Capital Work in Progress"
+getMyRejectedSubmissions
+getModuleFragment                # serves the FAAUC screen

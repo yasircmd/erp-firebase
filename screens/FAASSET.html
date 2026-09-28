@@ -8,7 +8,7 @@
     <select id="faa-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
     <select id="faa-class-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Classes</option></select>
     <select id="faa-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
-      <option value="">All Statuses</option><option value="Planned">Planned</option><option value="Active">Active</option><option value="FullyDepreciated">Fully Depreciated</option><option value="Disposed">Disposed</option><option value="Transferred">Transferred</option>
+      <option value="">All Statuses</option><option value="Planned">Planned</option><option value="Active">Active</option><option value="FullyDepreciated">Fully Depreciated</option><option value="Disposed">Disposed</option><option value="Transferred">Transferred</option><option value="UnderConstruction">Under Construction (CWIP)</option><option value="Settled">Settled (CWIP)</option>
     </select>
   </div>
   <div id="faa-list-notice" class="hidden text-xs text-slate-500"></div>
@@ -110,10 +110,11 @@
   let myReturnChain = [];
   const STATUS_COLORS = {
     Planned: 'bg-slate-700 text-slate-300', Active: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
-    FullyDepreciated: 'bg-blue-500/10 text-blue-400 border border-blue-500/20', Disposed: 'bg-red-500/10 text-red-400 border border-red-500/20', Transferred: 'bg-slate-700 text-slate-400'
+    FullyDepreciated: 'bg-blue-500/10 text-blue-400 border border-blue-500/20', Disposed: 'bg-red-500/10 text-red-400 border border-red-500/20', Transferred: 'bg-slate-700 text-slate-400',
+    UnderConstruction: 'bg-amber-500/10 text-amber-400 border border-amber-500/20', Settled: 'bg-slate-700 text-slate-400'
   };
-  const STATUS_LABELS = { FullyDepreciated: 'Fully Depreciated' };
-  const EVENT_LABELS = { Capitalization: 'Capitalization', Addition: 'Addition', TakeOver: 'Take-over', Depreciation: 'Depreciation', AdditionalDepreciation: 'Additional Depreciation', Disposal: 'Retirement', MasterChange: 'Master data change', Reversal: 'Reversal' };
+  const STATUS_LABELS = { FullyDepreciated: 'Fully Depreciated', UnderConstruction: 'Under Construction (CWIP)', Settled: 'Settled (CWIP)' };
+  const EVENT_LABELS = { Capitalization: 'Capitalization', Addition: 'Addition', TakeOver: 'Take-over', Depreciation: 'Depreciation', AdditionalDepreciation: 'Additional Depreciation', Disposal: 'Retirement', MasterChange: 'Master data change', Reversal: 'Reversal', AuCCost: 'CWIP cost', AuCSettlement: 'Settled from CWIP', AuCSettlementOut: 'CWIP settlement' };
   const FIELD_LABELS = { UsefulLifeMonths: 'Useful life (months)', WdvRate: 'WDV rate', ResidualValue: 'Residual value', DepStartDate: 'Depreciation start', Method: 'Method', CostCenterID: 'Cost center', ProfitCenterID: 'Profit center', DivisionID: 'Division', BranchID: 'Branch', SupplierID: 'Supplier', SupplierName: 'Supplier', PurchaseInvoiceRef: 'Purchase invoice', PurchaseDate: 'Purchase date', SerialNumber: 'Serial number', TagNumber: 'Tag', Quantity: 'Quantity', Notes: 'Notes', Description: 'Description' };
 
   function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
@@ -162,7 +163,8 @@
   function renderSetup(keep) {
     const cls = $('faa-form-class');
     cls.innerHTML = '<option value="">' + (setupCompany ? 'Select...' : 'Select a company first') + '</option>' +
-      setup.classes.filter(c => c.Kind !== 'AuC').map(c => '<option value="' + escapeHtml(c.ClassID) + '">' + escapeHtml(c.Code + ' — ' + c.Name) + '</option>').join('');
+      // AuC-kind classes too: a Capital Work in Progress is created here (owner, 2026-09-28).
+      setup.classes.map(c => '<option value="' + escapeHtml(c.ClassID) + '">' + escapeHtml(c.Code + ' — ' + c.Name + (c.Kind === 'AuC' ? ' (Capital Work in Progress)' : '')) + '</option>').join('');
     if (keep.ClassID && !setup.classes.some(c => c.ClassID === keep.ClassID)) cls.innerHTML += '<option value="' + escapeHtml(keep.ClassID) + '">' + escapeHtml((keep.ClassCode || '') + ' — ' + (keep.ClassName || '')) + '</option>';
     cls.value = keep.ClassID || '';
     const sup = $('faa-form-supplier');
@@ -244,7 +246,9 @@
         : t.Type === 'Depreciation' && t.DepKind === 'Retirement' ? 'up to the retirement date' + (t.CatchUpFrom ? ', from ' + t.CatchUpFrom : '')
         : t.Type === 'Depreciation' ? t.Period + (t.CatchUp ? ' (incl. catch-up ' + formatMoney(t.CatchUp) + ' from ' + t.CatchUpFrom + ')' : '')
         : t.Type === 'TakeOver' ? 'Capitalized ' + (t.CapitalizationDateGiven || '') + ', depreciated to ' + (t.LastDepPeriodGiven || '—')
-        : (t.Reason || '') + ((t.ClearingItems || []).length ? 'From ' + t.ClearingItems.map(i => i.JVNumber).join(', ') : '');
+        : t.Type === 'AuCSettlementOut' ? 'To ' + (t.SettledTo || []).map(x => x.AssetNumber + ' ' + formatMoney(x.Amount)).join(', ')
+        : t.Type === 'AuCSettlement' ? 'From ' + (t.SourceAssetNumber || '') + (t.First ? ' (capitalized)' : '')
+        : (t.Category ? t.Category + ' — ' : '') + (t.Reason || '') + ((t.ClearingItems || []).length ? 'From ' + t.ClearingItems.map(i => i.JVNumber).join(', ') : '');
       const doc = [t.PostingNumber, t.JVNumber && t.JVNumber !== t.PostingNumber ? t.JVNumber : ''].filter(Boolean).join(' · ');
       return '<tr' + (t.ReversedByTxnID ? ' class="text-slate-500"' : '') + '><td class="py-2 px-3 text-xs">' + escapeHtml(t.Date) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(EVENT_LABELS[t.Type] || t.Type) + (t.ReversedByTxnID ? ' <span class="text-red-400">(reversed)</span>' : '') +
         '</td><td class="py-2 px-3 font-mono text-xs">' + escapeHtml(doc) + '</td><td class="py-2 px-3 text-right font-mono text-xs">' + (t.CostDelta ? formatMoney(t.CostDelta) : '') +

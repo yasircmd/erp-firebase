@@ -46,6 +46,7 @@ const TREE_SEED_NODES = [
   { text: 'Additional Depreciation', depth: 3, moduleId: 'FAADDDEP' },
   { text: 'Fixed Asset Register', depth: 3, moduleId: 'FAREGISTER' },
   { text: 'Fixed Asset Retirement', depth: 3, moduleId: 'FARETIRE' },
+  { text: 'Capital Work in Progress', depth: 3, moduleId: 'FAAUC' },
   { text: 'Bank & Cash Ledger (FI-BL)', depth: 2 },
   { text: 'Bank Account Management (BAM)', depth: 3 },
   { text: 'Cash and Bank Transactions (CBT)', depth: 3, moduleId: 'CBT' },

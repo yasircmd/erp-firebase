@@ -22,7 +22,8 @@ async function seed() {
   Object.assign(f.coa, {
     'A-FACLR': acc('2300', 'Fixed Asset Clearing', 'Liability'), 'A-VEH': acc('1600', 'Vehicles', 'Asset'),
     'A-VEHAD': acc('1690', 'Acc. Depreciation Vehicles', 'Asset'), 'A-DEP': acc('6200', 'Depreciation Expense', 'Expense'),
-    'A-LOSS': acc('6300', 'Loss on Disposal', 'Expense'), 'A-GAIN': acc('4200', 'Gain on Disposal', 'Revenue')
+    'A-LOSS': acc('6300', 'Loss on Disposal', 'Expense'), 'A-GAIN': acc('4200', 'Gain on Disposal', 'Revenue'),
+    'A-CWIP': acc('1700', 'Capital Work in Progress', 'Asset')
   });
   f.currencies = { CUR1: { Code: 'AED', Name: 'Dirham', IsDefault: true, Status: 'Active' } };
   await H.reset(f);
@@ -212,6 +213,66 @@ async function seed() {
     await reg.waitForSelector('#far-body tr[data-id]', { timeout: 15000 });
     assert.match(await reg.textContent('#far-body'), /FA-01-000001.*-120,000\.00.*Disposed/s);
     await clean(reg); await reg.close();
+  });
+
+  // Capital Work in Progress (owner 2026-09-28): a CWIP created in Fixed
+  // Asset Master (AuC class), cost from clearing with a category, then
+  // settled into a Planned asset, all through the screens.
+  await check('capital work in progress: created in Master, cost from clearing, settled into a final asset', async () => {
+    const auc = ok(await H.call('u-admin', 'saveFaAccountDetermination', { Code: 'CWIP', Name: 'CWIP', ByCompany: { SHARED: { AuCAccountID: 'A-CWIP' } } }));
+    ok(await H.call('u-admin', 'saveFaClass', { Code: 'CWIP', Name: 'Building works', Kind: 'AuC', AccountDeterminationID: auc.determinationId }));
+    const cls = (await H.call('u-admin', 'getFaConfig', {})).classes.find(c => c.Code === 'VEH');
+    const finalAsset = ok(await H.call('u-admin', 'saveFaAsset', { CompanyID: 'C1', ClassID: cls.ClassID, Description: 'Workshop van', CostCenterID: 'CC1' }));
+    const jv = ok(await H.call('u-admin', 'saveJournalDraft', { jvData: { JVDate: '2026-03-02', Description: 'Contractor', CompanyID: 'C1', Lines: [
+      { AccountCode: '2300', Debit: 9000, Description: 'Works' }, { AccountCode: '1100', Credit: 9000, Description: 'Bank' }] } }));
+    ok(await H.call('u-admin', 'postJournalEntry', { jvId: jv.jvId }));
+
+    const m = await open('FAASSET', 'u-admin');
+    await m.click('#faa-new-btn');
+    await m.selectOption('#faa-form-company', 'C1');
+    await settle(m);
+    await m.selectOption('#faa-form-class', { label: 'CWIP — Building works (Capital Work in Progress)' });
+    assert.ok(!(await m.isVisible('#faa-valuation')), 'no depreciation settings for a CWIP');
+    await m.fill('#faa-form-description', 'Warehouse extension');
+    await m.click('#faa-save-btn');
+    await m.waitForFunction(() => /FA-01-\d{6}/.test(document.getElementById('faa-title').textContent), null, { timeout: 15000 });
+    const cwipNo = (await m.textContent('#faa-title')).match(/FA-01-\d{6}/)[0];
+    await clean(m); await m.close();
+
+    const page = await open('FAAUC', 'u-admin');
+    await page.click('#fcw-new-cost-btn');
+    await page.selectOption('#fcw-form-company', 'C1');
+    await settle(page);
+    await page.fill('#fcw-form-date', '2026-03-05');
+    await page.click('#fcw-items-body .fcw-all');
+    await page.selectOption('#fcw-target', { label: cwipNo + ' — Warehouse extension (0.00)' });
+    await page.selectOption('#fcw-category', 'Contractors');
+    await page.click('#fcw-add-btn');
+    assert.match(await page.textContent('#fcw-cost-lines'), /Warehouse extension.*9,000\.00/s, await page.textContent('#fcw-error'));
+    await page.click('#fcw-post-btn');
+    await page.waitForFunction(() => /FAA-/.test(document.getElementById('fcw-title').textContent) || document.getElementById('fcw-error').textContent, null, { timeout: 20000 });
+    assert.match(await page.textContent('#fcw-title'), /CWIP Cost FAA-26-01-\d{6}/, await page.textContent('#fcw-error'));
+
+    await page.click('#fcw-back-btn');
+    await page.click('#fcw-new-settle-btn');
+    await page.selectOption('#fcw-form-company', 'C1');
+    await settle(page);
+    await page.fill('#fcw-form-date', '2026-03-31');
+    await page.selectOption('#fcw-source', { label: cwipNo + ' — Warehouse extension' });
+    assert.equal(await page.textContent('#fcw-balance'), '9,000.00');
+    await page.click('#fcw-settle-add');
+    await page.selectOption('#fcw-settle-lines select', finalAsset.assetId);
+    await page.click('#fcw-settle-rest');
+    assert.equal(await page.textContent('#fcw-left'), '0.00');
+    await page.click('#fcw-post-btn');
+    await page.waitForFunction(() => /FAS-/.test(document.getElementById('fcw-title').textContent) || document.getElementById('fcw-error').textContent, null, { timeout: 20000 });
+    assert.match(await page.textContent('#fcw-title'), /CWIP Settlement FAS-26-01-\d{6}/, await page.textContent('#fcw-error'));
+    await clean(page); await page.close();
+    const assets = await H.call('u-admin', 'getFaAssets', { companyId: 'C1', moduleId: 'FAAUC' });
+    const byNo = Object.fromEntries(assets.map(a => [a.AssetNumber, a]));
+    assert.equal(byNo[cwipNo].Status, 'Settled');
+    const fin = assets.find(a => a.AssetID === finalAsset.assetId);
+    assert.deepEqual([fin.Status, fin.CapitalizationDate, fin.Areas.BOOK.Cost], ['Active', '2026-03-31', 9000]);
   });
 
   await browser.close(); server.close(); await H.app.delete();

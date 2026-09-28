@@ -1,6 +1,6 @@
 # Fixed Assets (Asset Accounting, FI-AA)
 
-**Status:** phase 1 deployed 2026-09-26 ([DEPLOY_LOG.md](../DEPLOY_LOG.md)); phase 2 retirement (sale, scrap) deployed 2026-09-26; transfer, AuC and phase 3 not started · **Roadmap:** [#6](../ROADMAP.md) · **Branch:** `worktree-fixed-assets-design`
+**Status:** phase 1 deployed 2026-09-26 ([DEPLOY_LOG.md](../DEPLOY_LOG.md)); phase 2 retirement (sale, scrap) deployed 2026-09-26; Capital Work in Progress (AuC) being built (2026-09-28); transfer, reconciliation and dashboard not started · **Roadmap:** [#6](../ROADMAP.md) · **Branch:** `worktree-fixed-assets-design`
 
 ## Purpose
 
@@ -408,6 +408,60 @@ An AuC is an asset of an `AuC` class (status `UnderConstruction`).
   closed with a zero balance.
 - The AuC's history lists every cost line and settlement.
 
+### Capital Work in Progress: owner's decisions and rules (2026-09-28)
+
+The owner asked for "Fixed Asset phase 3 — WIP", meaning this AuC
+sub-module (FAAUC). The owner decided:
+
+1. **Name:** **Capital Work in Progress** (CWIP), in the menu and on
+   screens. The code stays `FAAUC`, and the class kind stays `AuC`.
+2. **A CWIP is created in Fixed Asset Master** like any asset, by choosing
+   an AuC-kind class. It has no depreciation settings. A cost center is
+   optional.
+3. **Settlement picks existing assets.** The final assets are created
+   first in Fixed Asset Master (Planned), or an Active asset takes the
+   amount as an addition, as in Capitalization.
+4. **Approvals:** optional per company in Approval Configuration, as for
+   Capitalization.
+
+Rules, following the agreed design and the existing sub-modules:
+
+- **Cost** (voucher `FAA`, like capitalization):
+  - Picked from open clearing items, with a category per CWIP line:
+    Materials, Contractors, Labour, Consultants or Other.
+  - Dr the class's AuC account · Cr FA Clearing.
+  - Status Planned → **UnderConstruction**. The clearing amount is
+    tracked as used, exactly as for capitalization.
+  - A settled CWIP takes no more cost.
+- **Settlement** (voucher `FAS`):
+  - One CWIP per document, and one or more final assets of depreciable,
+    Land or Intangible classes (not another CWIP), each with an amount.
+  - The total can't exceed the CWIP's balance on the date, and the date
+    can't be before its latest cost.
+  - Dr each final asset's cost account · Cr the CWIP's AuC account.
+  - A Planned final asset is capitalized on the settlement date. Its
+    depreciation start defaults to that date, and its depreciation
+    settings are checked as for a capitalization. An Active or Fully
+    Depreciated asset takes it as an addition.
+  - The CWIP keeps any rest. At zero it becomes **Settled** (closed).
+- **Reversal:** as every posting.
+  - Reason required, dated as the original, mirror GL entry.
+  - Refused while an asset in it has a later financial transaction:
+    reverse the later settlement first, or the depreciation run.
+  - Reversing a cost frees its clearing amounts.
+  - Reversing a settlement restores the CWIP's balance and status, and
+    each final asset's previous status and dates.
+- **Register:**
+  - A CWIP's cost shows as Original Cost, and settlements out of it
+    under Transfers.
+  - A final asset's first settlement counts as its Original Cost, later
+    ones as Additions.
+  - A CWIP is never depreciated, sold or scrapped.
+- **Registries:** module `FAAUC` (rights as Capitalization), menu node
+  *Capital Work in Progress*, gateable in Approval Configuration, voucher
+  types `FAAuCCost` (`FAA`) and `FAAuCSettlement` (`FAS`). JV refuses to
+  reverse them, and GL Report opens the CWIP screen.
+
 ## Reports
 
 **Fixed Asset Register** (`FAREGISTER`), as at a date. Filters: asset number,
@@ -717,3 +771,98 @@ retirement month charged in full; the date check (the asset's own
 "depreciated up to" check then still refused it); the receipt guard on
 reversal; the screen not calculating.
 
+
+## As built — Capital Work in Progress (2026-09-28)
+
+**Owner (2026-09-28):** "develop Fixed asset phase 3 — WIP". Built as
+**Capital Work in Progress** (FAAUC), with the decisions and rules under
+*Capital Work in Progress: owner's decisions and rules* above.
+
+**How it works**
+- **Fixed Asset Master** now offers AuC-kind classes, labelled "(Capital
+  Work in Progress)". A CWIP has no depreciation settings, and a cost
+  center is optional. New statuses: **Under Construction (CWIP)** and
+  **Settled (CWIP)**. History shows CWIP cost (with its category), the
+  settlement out (to which assets) and "Settled from CWIP" on the final
+  asset.
+- **Capital Work in Progress** screen, two document types, with the same
+  save / post / approval / reversal calls as Capitalization:
+  - **CWIP Cost:**
+    - Open items on the Fixed Asset Clearing Account are picked with an
+      amount, then added to a CWIP with a category.
+    - Voucher `FAA`: Dr the class's AuC account · Cr FA Clearing. The
+      clearing amounts count as used, exactly as for a capitalization.
+  - **CWIP Settlement:**
+    - One CWIP and its balance; final assets with an amount each. "Rest
+      to last line" puts what's left on the last line.
+    - Voucher `FAS`: Dr each final asset's cost account · Cr AuC.
+    - A Planned final asset is capitalized on the settlement date, with
+      the depreciation start defaulting to that date. An Active one takes
+      an addition.
+    - The CWIP becomes **Settled** at zero.
+- **Refused:**
+  - capitalizing a CWIP in Fixed Asset Capitalization, or giving it a
+    take-over or additional depreciation;
+  - CWIP cost on a non-CWIP asset;
+  - cost without a category;
+  - more than the clearing item has open;
+  - cost on a Settled CWIP;
+  - a settlement more than the balance on its date, before the CWIP's
+    latest cost, into a CWIP or into itself.
+- **Reversal** follows the existing rule: an asset's latest transaction
+  first. So a settlement is reversed before the cost it used, and a
+  depreciation run on a final asset blocks reversing its settlement.
+  Reversing a settlement restores the CWIP's balance and status, and the
+  final asset's status, capitalization date and depreciation start.
+  Reversing a cost frees its clearing amounts.
+- **Fixed Asset Register:**
+  - A CWIP's cost is its Original Cost; settlements out are in
+    **Transfers**, so a settled CWIP nets to zero.
+  - A final asset's first settlement is its Original Cost, later ones
+    Additions.
+- **Registries:** module `FAAUC` (rights as Capitalization); menu seed
+  *Capital Work in Progress*; gateable in Approval Configuration (Home
+  task label "Capital Work in Progress"); voucher types `FAAuCCost` →
+  `FAA` and `FAAuCSettlement` → `FAS`. JV refuses to reverse them, and GL
+  Report drill-through opens the screen.
+- **Screen fix, found by the UI check:** the shell's single-company
+  default fires the company "change" again. The CWIP screen now reloads
+  and resets only when the company really changes, so a late second load
+  can't wipe what was entered.
+- **Code:**
+  - `fixedAssetsPostings.js` (the two types, `prepareSettlement`, commit
+    and reversal);
+  - `fixedAssetsMaster.js`, `fixedAssetsDepreciation.js` (register);
+  - the registries: `moduleRegistry.js`, `approvalRegistry.js`,
+    `treeSeedNodes.js`, `glWriting.js`, `journal.js`, `masterData.js`,
+    `fixedAssetsCommon.js`;
+  - screens `FAAUC` (new), `FAASSET`, `FAREGISTER`.
+
+**Tests (2026-09-28):**
+- Emulator suite `fixedAssetsCwip.emulator.test.js`, 4/4:
+  - creation in Master; cost with category and clearing use; refusals;
+    the JV guards;
+  - settlement into a Planned van (capitalized) and an Active plot
+    (addition); balance and date checks; Settled; the register as at two
+    dates; the depreciation run (the van, not the CWIP), and the run
+    blocking the settlement's reversal;
+  - reversal order, and everything restored;
+  - approval gating with the Home task label.
+- The existing `fixedAssets` suite: 10/10.
+- UI check in `fixedAssets.ui.js`: 9/9. The new check creates a CWIP in
+  Master, collects cost, then settles it into a final asset from the
+  screen.
+- Negative controls, each caught:
+  - the balance check removed;
+  - the CWIP left out of a settlement's reversal;
+  - never Settled;
+  - the first settlement counted as an addition in the register;
+  - the capitalization/CWIP kind check removed;
+  - the final asset's depreciation start not restored on reversal;
+  - clearing use not recorded;
+  - Master still hiding AuC classes (UI);
+  - the settlement sent without its CWIP (UI).
+- **Deploy:** "functions set, then screens", set `fixed-assets-cwip`
+  (25 functions). Then link a *Capital Work in Progress* menu node to
+  FAAUC in Tree Management, and in Fixed Asset Configuration create an
+  AuC-kind class whose account determination has the AuC account.

@@ -1,0 +1,469 @@
+<div id="fcw-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Asset Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-helmet-safety text-blue-500"></i> Capital Work in Progress</h2></div>
+    <div class="flex gap-2">
+      <button id="fcw-new-cost-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New CWIP Cost</button>
+      <button id="fcw-new-settle-btn" class="hidden bg-slate-800 hover:bg-slate-700 font-medium px-4 py-2 rounded-lg text-sm border border-slate-700"><i class="fa-solid fa-right-from-bracket"></i> New Settlement</button>
+    </div>
+  </div>
+  <p class="text-xs text-slate-500">A Capital Work in Progress (CWIP) is created in Fixed Asset Master with an AuC class. It collects cost here from the Fixed Asset Clearing Account and is settled into its final assets, which are created first in Fixed Asset Master.</p>
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="fcw-search" placeholder="Search number, CWIP, asset, description..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    <select id="fcw-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="fcw-type-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Types</option><option value="AuCCost">CWIP Cost</option><option value="AuCSettlement">Settlement</option></select>
+    <select id="fcw-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option>Draft</option><option value="PendingApproval">Pending Approval</option><option>Rejected</option><option>Posted</option><option>Reversed</option></select>
+  </div>
+  <div id="fcw-list-notice" class="hidden text-xs text-slate-500"></div>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-3 px-3">Number</th><th class="py-3 px-3">Type</th><th class="py-3 px-3">Date</th><th class="py-3 px-3">CWIP / Assets</th><th class="py-3 px-3">Description</th><th class="py-3 px-3 text-right">Amount</th><th class="py-3 px-3">Status</th></tr></thead>
+    <tbody id="fcw-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+</div>
+
+<div id="fcw-entry-view" class="hidden space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-3">
+      <button id="fcw-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <button id="fcw-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="fcw-back-chain-label">Back</span></button>
+      <h2 id="fcw-title" class="text-xl font-bold text-blue-400"></h2>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="fcw-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="fcw-gl-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-book"></i> GL Entry</button>
+    </div>
+  </div>
+  <div id="fcw-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  <div id="fcw-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3"></div>
+  <div id="fcw-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4"><p class="text-xs font-semibold text-red-400 uppercase">Rejected</p><p id="fcw-rejection-reason" class="text-sm text-slate-200"></p></div>
+  <div id="fcw-approval-banner" class="hidden bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-3">
+    <p class="text-xs font-semibold text-blue-400 uppercase">Your approval is needed</p>
+    <textarea id="fcw-decision-reason" placeholder="Reason (required if rejecting)" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" rows="2"></textarea>
+    <div class="flex gap-3"><button id="fcw-approve-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Approve</button><button id="fcw-reject-btn" class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Reject</button></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="fcw-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Posting Date</label><input type="date" id="fcw-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input id="fcw-form-reference" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Description</label><input id="fcw-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+  </div>
+
+  <!-- CWIP COST -->
+  <div id="fcw-cost" class="space-y-4">
+    <div id="fcw-items-wrap" class="space-y-2">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-xs font-semibold text-slate-400 uppercase">Open items on the Fixed Asset Clearing Account <span id="fcw-open-total" class="normal-case font-normal text-slate-500"></span></p>
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="fcw-target" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm min-w-[16rem]"><option value="">Capital Work in Progress...</option></select>
+          <select id="fcw-category" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"><option value="">Category...</option></select>
+          <button id="fcw-add-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-lg"><i class="fa-solid fa-arrow-down"></i> Add amounts to CWIP</button>
+        </div>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+        <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-2 px-3">Date</th><th class="py-2 px-3">Voucher</th><th class="py-2 px-3">Source</th><th class="py-2 px-3">Vendor</th><th class="py-2 px-3">Description</th><th class="py-2 px-3 text-right">Open</th><th class="py-2 px-3 text-right w-40">Amount to use</th></tr></thead>
+        <tbody id="fcw-items-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+      </div></div>
+    </div>
+    <p class="text-xs font-semibold text-slate-400 uppercase">Cost collected by this document</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase"><th class="py-2 px-3">Capital Work in Progress</th><th class="py-2 px-3">Category</th><th class="py-2 px-3">From</th><th class="py-2 px-3 text-right">Amount</th><th class="py-2 px-3 w-10"></th></tr></thead>
+      <tbody id="fcw-cost-lines" class="divide-y divide-slate-700 text-sm"></tbody>
+      <tfoot><tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3" colspan="3">Total — Dr CWIP (AuC) · Cr Fixed Asset Clearing</td><td id="fcw-cost-total" class="py-2 px-3 text-right font-mono"></td><td></td></tr></tfoot></table>
+    </div>
+  </div>
+
+  <!-- SETTLEMENT -->
+  <div id="fcw-settle" class="hidden space-y-4">
+    <div class="flex flex-wrap items-end gap-4">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Capital Work in Progress to settle</label><select id="fcw-source" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm min-w-[18rem]"><option value="">Select...</option></select></div>
+      <p class="text-sm text-slate-300">Balance: <span id="fcw-balance" class="font-mono">—</span> · Settling: <span id="fcw-settle-total" class="font-mono">0.00</span> · Left on the CWIP: <span id="fcw-left" class="font-mono">—</span></p>
+    </div>
+    <p class="text-xs text-slate-500">Final assets are created first in Fixed Asset Master. A Planned asset is capitalized on the settlement date; an Active one takes the amount as an addition.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase"><th class="py-2 px-3">Final asset</th><th class="py-2 px-3 text-right w-48">Amount</th><th class="py-2 px-3 w-10"></th></tr></thead>
+      <tbody id="fcw-settle-lines" class="divide-y divide-slate-700 text-sm"></tbody>
+      <tfoot><tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3">Total — Dr Asset Cost · Cr CWIP (AuC)</td><td id="fcw-settle-foot" class="py-2 px-3 text-right font-mono"></td><td></td></tr></tfoot></table>
+    </div>
+    <div class="flex gap-2">
+      <button id="fcw-settle-add" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add final asset</button>
+      <button id="fcw-settle-rest" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700" title="Put what is left on the CWIP on the last line">Rest to last line</button>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap gap-2">
+    <button id="fcw-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-lg text-sm">Save Draft</button>
+    <button id="fcw-post-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm">Post</button>
+    <button id="fcw-delete-btn" class="hidden bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-sm">Delete Draft</button>
+    <button id="fcw-reverse-btn" class="hidden bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-sm">Reverse</button>
+  </div>
+</div>
+
+<div id="fcw-gl-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-3xl space-y-3">
+    <div class="flex items-center justify-between"><h3 class="font-semibold">GL entries</h3><button id="fcw-gl-close" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button></div>
+    <div id="fcw-gl-body" class="text-sm"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Capital Work in Progress — docs/modules/FIXED_ASSETS.md (FAAUC; owner
+  // 2026-09-28). Cost: amounts from the Fixed Asset Clearing Account onto a
+  // CWIP (an asset of an AuC class), each with a category. Settlement: the
+  // CWIP into its final assets (existing assets, created in Fixed Asset
+  // Master). Same posting calls as Capitalization.
+  let rights = {};
+  let entries = [];
+  let companies = [];
+  let assets = [];
+  let items = [];
+  let current = null;       // stored posting, or null for a new one
+  let type = 'AuCCost';
+  let lines = [];           // cost: [{ AssetID, Category, Items: [...] }]; settlement: [{ AssetID, Amount }]
+  let sourceId = '';        // settlement: the CWIP
+  let useAmounts = {};      // amounts typed against open items, by "JVID|LineNo"
+  let loadSeq = 0;          // only the latest company load may draw
+  let loadedCompany = null; // the company the form's data is for
+  let isDirty = false;
+  let myReturnChain = [];
+  const CATEGORIES = ['Materials', 'Contractors', 'Labour', 'Consultants', 'Other'];
+  const STATUS_COLORS = {
+    Draft: 'bg-slate-700 text-slate-300', PendingApproval: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+    Rejected: 'bg-red-500/10 text-red-400 border border-red-500/20', Posted: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20', Reversed: 'bg-slate-700 text-slate-400'
+  };
+  const LABELS = { PendingApproval: 'Pending Approval', AuCCost: 'CWIP Cost', AuCSettlement: 'CWIP Settlement' };
+  const SOURCES = { VendorInvoice: 'Vendor Invoice', GRN: 'GRN', JV: 'Journal', 'Bank Payment': 'Bank Payment', 'Cash Payment': 'Cash Payment', 'Bank Receipt': 'Bank Receipt', 'Cash Receipt': 'Cash Receipt' };
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function formatMoney(n) { return (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  const round2 = n => Math.round(n * 100) / 100;
+  const parseAmount = v => parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0;
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  const today = () => new Date().toISOString().substring(0, 10);
+  const badge = s => '<span class="text-xs px-2 py-0.5 rounded-full ' + (STATUS_COLORS[s] || '') + '">' + escapeHtml(LABELS[s] || s) + '</span>';
+  const assetById = id => assets.find(a => a.AssetID === id);
+  const assetLabel = id => { const a = assetById(id); return a ? a.AssetNumber + ' — ' + a.Description : id; };
+  const costOf = a => round2(((a && a.Areas && a.Areas.BOOK) || {}).Cost || 0);
+  const isCwip = a => a.ClassKind === 'AuC';
+  const isEditable = () => rights.draft && (!current || current.Status === 'Draft' || current.Status === 'Rejected');
+  function showError(msg) { $('fcw-error').textContent = msg || ''; $('fcw-error').classList.toggle('hidden', !msg); }
+
+  // ---------- list ----------
+  function renderList() {
+    const q = val('fcw-search').trim().toLowerCase();
+    const co = val('fcw-company-filter'); const ty = val('fcw-type-filter'); const st = val('fcw-status-filter');
+    const who = e => (e.Type === 'AuCSettlement' ? (e.SourceAssetNumber || '') + ' → ' : '') + (e.Lines || []).map(l => l.AssetNumber).join(', ');
+    const rows = entries.filter(e => (!co || e.CompanyID === co) && (!ty || e.Type === ty) && (!st || e.Status === st) &&
+      (!q || [e.PostingNumber, e.Description, e.Reference, who(e), (e.Lines || []).map(l => l.AssetDescription).join(' '), e.SourceAssetDescription].join(' ').toLowerCase().includes(q)));
+    $('fcw-body').innerHTML = rows.map(e => '<tr class="hover:bg-slate-700/30 cursor-pointer" data-id="' + escapeHtml(e.PostingID) + '"><td class="py-2.5 px-3 font-mono text-xs">' + escapeHtml(e.PostingNumber || '(unposted)') +
+      '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(LABELS[e.Type] || e.Type) + '</td><td class="py-2.5 px-3 text-xs text-slate-400">' + escapeHtml(e.Date) +
+      '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(who(e)) + '</td><td class="py-2.5 px-3">' + escapeHtml(e.Description) +
+      '</td><td class="py-2.5 px-3 text-right font-mono">' + formatMoney(e.Total) + '</td><td class="py-2.5 px-3">' + badge(e.Status) + '</td></tr>').join('');
+    $('fcw-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openEntry(tr.dataset.id)));
+    $('fcw-list-notice').classList.toggle('hidden', rows.length > 0);
+    $('fcw-list-notice').textContent = entries.length ? 'Nothing matches the filters.' : 'No Capital Work in Progress documents yet.';
+  }
+  function fetchEntries(then) {
+    rpc.withSuccessHandler(r => { entries = r || []; renderList(); if (then) then(); }).withFailureHandler(e => console.error(e)).getFaPostings({ moduleId: 'FAAUC' });
+  }
+  function showList() { $('fcw-entry-view').classList.add('hidden'); $('fcw-list-view').classList.remove('hidden'); fetchEntries(); }
+  function confirmLeave(then) { if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return; then(); }
+
+  // ---------- company data: assets and open items ----------
+  function loadCompany(companyId, then) {
+    const seq = ++loadSeq;
+    loadedCompany = companyId;
+    assets = []; items = [];
+    if (!companyId) { renderAll(); if (then) then(); return; }
+    let pending = type === 'AuCCost' ? 2 : 1;
+    const done = () => { if (seq === loadSeq && --pending === 0) { renderAll(); if (then) then(); } };
+    rpc.withSuccessHandler(r => { if (seq === loadSeq) assets = r || []; done(); }).withFailureHandler(e => { showError(e.message); done(); }).getFaAssets({ companyId: companyId, moduleId: 'FAAUC' });
+    if (type !== 'AuCCost') return;
+    rpc.withSuccessHandler(r => {
+      if (seq !== loadSeq) return;
+      items = r.items || [];
+      $('fcw-open-total').textContent = r.configured ? '— ' + formatMoney(r.openTotal) + ' open' : '';
+      if (!r.configured) showError('This company has no Fixed Asset Clearing Account: set it in Fixed Asset Configuration → Settings.');
+      done();
+    }).withFailureHandler(e => { showError(e.message); done(); }).getFaClearingItems({ companyId: companyId, moduleId: 'FAAUC' });
+  }
+
+  // ---------- cost ----------
+  function usedHere(jvId, lineNo) {
+    return round2(lines.reduce((s, l) => s + (l.Items || []).filter(i => i.JVID === jvId && i.LineNo === lineNo).reduce((t, i) => t + i.Amount, 0), 0));
+  }
+  function renderItems() {
+    const editable = isEditable();
+    $('fcw-items-wrap').classList.toggle('hidden', !editable);
+    const rows = items.map(i => Object.assign({}, i, { Left: round2(i.Open - usedHere(i.JVID, i.LineNo)) })).filter(i => i.Left > 0);
+    $('fcw-items-body').innerHTML = rows.map(i => '<tr><td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(i.JVDate) + '</td><td class="py-2 px-3 font-mono text-xs">' + escapeHtml(i.JVNumber) +
+      '</td><td class="py-2 px-3 text-xs">' + escapeHtml(SOURCES[i.VoucherType] || i.VoucherType) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(i.VendorName || '') +
+      '</td><td class="py-2 px-3 text-xs">' + escapeHtml(i.Description) + '</td><td class="py-2 px-3 text-right font-mono text-xs">' + formatMoney(i.Left) +
+      '</td><td class="py-2 px-3"><div class="flex gap-1"><input data-key="' + escapeHtml(i.JVID + '|' + i.LineNo) + '" value="' + escapeHtml(useAmounts[i.JVID + '|' + i.LineNo] || '') +
+      '" inputmode="decimal" class="fcw-use w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right font-mono"><button data-all="' + escapeHtml(i.JVID + '|' + i.LineNo) + '" data-left="' + i.Left +
+      '" class="fcw-all text-xs px-2 bg-slate-700 rounded" title="Use all">All</button></div></td></tr>').join('') ||
+      '<tr><td colspan="7" class="py-4 px-3 text-xs text-slate-500">' + (val('fcw-form-company') ? 'Nothing open on the Fixed Asset Clearing Account.' : 'Select a company.') + '</td></tr>';
+    $('fcw-items-body').querySelectorAll('.fcw-use').forEach(inp => inp.addEventListener('input', () => { useAmounts[inp.dataset.key] = inp.value; }));
+    $('fcw-items-body').querySelectorAll('.fcw-all').forEach(b => b.addEventListener('click', () => {
+      $('fcw-items-body').querySelector('input[data-key="' + b.dataset.all + '"]').value = b.dataset.left;
+      useAmounts[b.dataset.all] = b.dataset.left;
+    }));
+    const target = $('fcw-target'); const keep = target.value;
+    target.innerHTML = '<option value="">Capital Work in Progress...</option>' + assets.filter(a => isCwip(a) && ['Planned', 'UnderConstruction'].includes(a.Status))
+      .map(a => '<option value="' + escapeHtml(a.AssetID) + '">' + escapeHtml(a.AssetNumber + ' — ' + a.Description + ' (' + formatMoney(costOf(a)) + ')') + '</option>').join('');
+    target.value = keep;
+  }
+  function addToCwip() {
+    showError('');
+    const assetId = val('fcw-target');
+    if (!assetId) return showError('Select the Capital Work in Progress first.');
+    const category = val('fcw-category');
+    if (!category) return showError('Select a cost category.');
+    const picks = [];
+    for (const input of $('fcw-items-body').querySelectorAll('.fcw-use')) {
+      const amount = round2(parseAmount(input.value));
+      if (!amount) continue;
+      const [jvId, lineNo] = input.dataset.key.split('|');
+      const item = items.find(i => i.JVID === jvId && String(i.LineNo) === lineNo);
+      const left = round2(item.Open - usedHere(item.JVID, item.LineNo));
+      if (amount < 0 || amount > left + 0.005) return showError(item.JVNumber + ': at most ' + formatMoney(left) + ' is left.');
+      picks.push({ JVID: item.JVID, LineNo: item.LineNo, JVNumber: item.JVNumber, Amount: amount });
+    }
+    if (!picks.length) return showError('Enter an amount against at least one open item.');
+    let line = lines.find(l => l.AssetID === assetId);
+    if (!line) { line = { AssetID: assetId, Category: category, Items: [] }; lines.push(line); }
+    line.Category = category;
+    picks.forEach(p => {
+      const same = line.Items.find(i => i.JVID === p.JVID && i.LineNo === p.LineNo);
+      if (same) same.Amount = round2(same.Amount + p.Amount); else line.Items.push(p);
+    });
+    useAmounts = {};
+    isDirty = true;
+    renderAll();
+  }
+  function renderCostLines() {
+    const editable = isEditable();
+    $('fcw-cost-lines').innerHTML = lines.map((l, idx) => {
+      const total = round2((l.Items || []).reduce((s, i) => s + i.Amount, 0));
+      const cat = editable
+        ? '<select data-i="' + idx + '" class="fcw-line-cat bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs">' + CATEGORIES.map(c => '<option' + (c === l.Category ? ' selected' : '') + '>' + c + '</option>').join('') + '</select>'
+        : escapeHtml(l.Category || '');
+      return '<tr><td class="py-2 px-3">' + escapeHtml(l.AssetNumber ? l.AssetNumber + ' — ' + (l.AssetDescription || '') : assetLabel(l.AssetID)) + '</td><td class="py-2 px-3 text-xs">' + cat +
+        '</td><td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml((l.Items || []).map(i => i.JVNumber + ': ' + formatMoney(i.Amount)).join(' · ')) + '</td><td class="py-2 px-3 text-right font-mono">' + formatMoney(total) +
+        '</td><td class="py-2 px-3">' + (editable ? '<button data-i="' + idx + '" class="fcw-rm text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>' : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="py-3 px-3 text-xs text-slate-500">Enter amounts above, choose the CWIP and a category, then "Add amounts to CWIP".</td></tr>';
+    $('fcw-cost-lines').querySelectorAll('.fcw-line-cat').forEach(s => s.addEventListener('change', () => { lines[Number(s.dataset.i)].Category = s.value; isDirty = true; }));
+    $('fcw-cost-lines').querySelectorAll('.fcw-rm').forEach(b => b.addEventListener('click', () => { lines.splice(Number(b.dataset.i), 1); isDirty = true; renderAll(); }));
+    $('fcw-cost-total').textContent = formatMoney(lines.reduce((s, l) => s + (l.Items || []).reduce((t, i) => t + i.Amount, 0), 0));
+  }
+
+  // ---------- settlement ----------
+  function settleTotal() { return round2(lines.reduce((s, l) => s + parseAmount(l.Amount), 0)); }
+  function renderSettlement() {
+    const editable = isEditable();
+    const src = $('fcw-source');
+    const cwips = assets.filter(a => isCwip(a) && (a.Status === 'UnderConstruction' || a.AssetID === sourceId));
+    src.innerHTML = '<option value="">Select...</option>' + cwips.map(a => '<option value="' + escapeHtml(a.AssetID) + '">' + escapeHtml(a.AssetNumber + ' — ' + a.Description) + '</option>').join('') +
+      (sourceId && !cwips.some(a => a.AssetID === sourceId) && current ? '<option value="' + escapeHtml(sourceId) + '">' + escapeHtml((current.SourceAssetNumber || '') + ' — ' + (current.SourceAssetDescription || '')) + '</option>' : '');
+    src.value = sourceId;
+    src.disabled = !editable;
+    const finals = assets.filter(a => !isCwip(a) && ['Planned', 'Active', 'FullyDepreciated'].includes(a.Status));
+    $('fcw-settle-lines').innerHTML = lines.map((l, idx) => {
+      const opts = finals.concat(l.AssetID && !finals.some(a => a.AssetID === l.AssetID) ? [{ AssetID: l.AssetID, AssetNumber: l.AssetNumber || l.AssetID, Description: l.AssetDescription || '', Status: '' }] : []);
+      return '<tr><td class="py-2 px-3"><select data-i="' + idx + '" data-f="AssetID" class="fcw-set-in w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"' + (editable ? '' : ' disabled') + '><option value="">Select...</option>' +
+        opts.map(a => '<option value="' + escapeHtml(a.AssetID) + '"' + (a.AssetID === l.AssetID ? ' selected' : '') + '>' + escapeHtml(a.AssetNumber + ' — ' + a.Description + (a.Status === 'Planned' ? ' (capitalize)' : a.Status ? ' (addition)' : '')) + '</option>').join('') +
+        '</select></td><td class="py-2 px-3"><input data-i="' + idx + '" data-f="Amount" inputmode="decimal" value="' + escapeHtml(l.Amount == null ? '' : l.Amount) + '" class="fcw-set-in w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right font-mono"' + (editable ? '' : ' disabled') +
+        '></td><td class="py-2 px-3">' + (editable ? '<button data-i="' + idx + '" class="fcw-set-rm text-red-400 text-xs"><i class="fa-solid fa-trash"></i></button>' : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="3" class="py-3 px-3 text-xs text-slate-500">Add the final assets and the amount each takes.</td></tr>';
+    $('fcw-settle-lines').querySelectorAll('.fcw-set-in').forEach(el => el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
+      lines[Number(el.dataset.i)][el.dataset.f] = el.value; isDirty = true; renderSettleTotals();
+    }));
+    $('fcw-settle-lines').querySelectorAll('.fcw-set-rm').forEach(b => b.addEventListener('click', () => { lines.splice(Number(b.dataset.i), 1); isDirty = true; renderSettlement(); }));
+    $('fcw-settle-add').classList.toggle('hidden', !editable);
+    $('fcw-settle-rest').classList.toggle('hidden', !editable);
+    renderSettleTotals();
+  }
+  function renderSettleTotals() {
+    const a = assetById(sourceId);
+    const total = settleTotal();
+    // A posted settlement has already taken its amount off the CWIP.
+    const balance = a ? round2(costOf(a) + (current && current.Status === 'Posted' ? total : 0)) : null;
+    $('fcw-balance').textContent = balance == null ? '—' : formatMoney(balance);
+    $('fcw-settle-total').textContent = formatMoney(total);
+    $('fcw-settle-foot').textContent = formatMoney(total);
+    $('fcw-left').textContent = balance == null ? '—' : formatMoney(round2(balance - total));
+    $('fcw-left').classList.toggle('text-red-400', balance != null && total > balance + 0.005);
+  }
+  function restToLast() {
+    const a = assetById(sourceId);
+    if (!a) return showError('Select the Capital Work in Progress first.');
+    if (!lines.length) lines.push({ AssetID: '', Amount: '' });
+    const others = round2(lines.slice(0, -1).reduce((s, l) => s + parseAmount(l.Amount), 0));
+    lines[lines.length - 1].Amount = String(Math.max(0, round2(costOf(a) - others)));
+    isDirty = true;
+    renderSettlement();
+  }
+
+  // ---------- entry ----------
+  function renderAll() {
+    $('fcw-cost').classList.toggle('hidden', type !== 'AuCCost');
+    $('fcw-settle').classList.toggle('hidden', type !== 'AuCSettlement');
+    if (type === 'AuCCost') { renderItems(); renderCostLines(); } else renderSettlement();
+  }
+  function refreshStatusUi() {
+    const s = current ? current.Status : 'Draft';
+    const editable = isEditable();
+    $('fcw-title').textContent = LABELS[type] + (current && current.PostingNumber ? ' ' + current.PostingNumber : current ? ' (draft)' : ' — new');
+    $('fcw-status-badge').classList.toggle('hidden', !current);
+    if (current) { $('fcw-status-badge').className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (STATUS_COLORS[s] || ''); $('fcw-status-badge').textContent = LABELS[s] || s; }
+    ['fcw-form-date', 'fcw-form-reference', 'fcw-form-description'].forEach(id => { $(id).disabled = !editable; });
+    $('fcw-form-company').disabled = !editable || lines.length > 0 || Boolean(sourceId);
+    $('fcw-save-btn').classList.toggle('hidden', !editable);
+    $('fcw-post-btn').classList.toggle('hidden', !(editable && rights.post));
+    $('fcw-delete-btn').classList.toggle('hidden', !(current && s === 'Draft' && rights.draft));
+    $('fcw-reverse-btn').classList.toggle('hidden', !(current && s === 'Posted' && rights.post));
+    $('fcw-gl-btn').classList.toggle('hidden', !(current && current.JVID));
+    $('fcw-rejection-banner').classList.toggle('hidden', s !== 'Rejected');
+    $('fcw-rejection-reason').textContent = current ? current.RejectionReason || '' : '';
+    const msg = s === 'Reversed' ? 'Reversed ' + (current.ReversalJVNumber ? '(' + current.ReversalJVNumber + ') ' : '') + '— ' + (current.ReversalReason || '')
+      : s === 'PendingApproval' ? 'Waiting for approval. Nothing is posted until it is approved.' : '';
+    $('fcw-note').textContent = msg; $('fcw-note').classList.toggle('hidden', !msg);
+    $('fcw-approval-banner').classList.add('hidden');
+    if (s === 'PendingApproval' && current.ApprovalInstanceID) {
+      rpc.withSuccessHandler(level => { if (level) { $('fcw-approval-banner').classList.remove('hidden'); $('fcw-approval-banner').dataset.level = level; } })
+        .withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
+    }
+    renderAll();
+  }
+  function newEntry(t) {
+    type = t; current = null; lines = []; sourceId = ''; useAmounts = {}; isDirty = false; showError('');
+    $('fcw-form-company').value = ''; $('fcw-form-date').value = today(); $('fcw-form-reference').value = ''; $('fcw-form-description').value = '';
+    $('fcw-list-view').classList.add('hidden'); $('fcw-entry-view').classList.remove('hidden');
+    refreshStatusUi();
+    loadCompany('', () => refreshStatusUi()); // the shell fills in a single company (a change event)
+  }
+  function openEntry(id) {
+    const e = entries.find(x => x.PostingID === id);
+    if (!e) return;
+    type = e.Type; current = e; useAmounts = {}; isDirty = false; showError('');
+    lines = JSON.parse(JSON.stringify(e.Lines || []));
+    sourceId = e.SourceAssetID || '';
+    $('fcw-form-company').value = e.CompanyID; $('fcw-form-date').value = e.Date; $('fcw-form-reference').value = e.Reference || ''; $('fcw-form-description').value = e.Description || '';
+    $('fcw-list-view').classList.add('hidden'); $('fcw-entry-view').classList.remove('hidden');
+    refreshStatusUi();
+    loadCompany(e.CompanyID, () => refreshStatusUi());
+  }
+  function payload() {
+    const base = { PostingID: current ? current.PostingID : '', Type: type, CompanyID: val('fcw-form-company'), Date: val('fcw-form-date'), Reference: val('fcw-form-reference'), Description: val('fcw-form-description') };
+    if (type === 'AuCCost') base.Lines = lines.map(l => ({ AssetID: l.AssetID, Category: l.Category, Items: l.Items.map(i => ({ JVID: i.JVID, LineNo: i.LineNo, Amount: i.Amount })) }));
+    else { base.SourceAssetID = sourceId; base.Lines = lines.map(l => ({ AssetID: l.AssetID, Amount: l.Amount })); }
+    return base;
+  }
+  function saveDraft(then) {
+    showError('');
+    rpc.withSuccessHandler(r => {
+      isDirty = false;
+      fetchEntries(() => { openEntry(r.postingId); if (typeof then === 'function') then(r.postingId); });
+    }).withFailureHandler(e => showError(e.message || String(e))).saveFaPostingDraft(payload());
+  }
+  function post() {
+    const msg = type === 'AuCCost' ? 'Post? Dr CWIP · Cr Fixed Asset Clearing for ' + $('fcw-cost-total').textContent + '.'
+      : 'Post? Dr Asset Cost · Cr CWIP for ' + $('fcw-settle-total').textContent + '.';
+    if (!window.confirm(msg)) return;
+    saveDraft(id => {
+      rpc.withSuccessHandler(r => { fetchEntries(() => openEntry(id)); if (r.status === 'PendingApproval') alert('Sent for approval.'); })
+        .withFailureHandler(e => showError(e.message || String(e))).postFaPosting({ postingId: id });
+    });
+  }
+  function del() {
+    if (!current || !window.confirm('Delete this draft?')) return;
+    rpc.withSuccessHandler(() => { isDirty = false; showList(); }).withFailureHandler(e => showError(e.message)).deleteFaPostingDraft({ postingId: current.PostingID });
+  }
+  function reverse() {
+    const reason = window.prompt('Reason for reversing ' + (current.PostingNumber || '') + ':');
+    if (reason == null) return;
+    rpc.withSuccessHandler(() => fetchEntries(() => openEntry(current.PostingID)))
+      .withFailureHandler(e => showError(e.message || String(e))).reverseFaPosting({ postingId: current.PostingID, reason: reason });
+  }
+  function decide(decision) {
+    const reason = val('fcw-decision-reason');
+    if (!window.confirm((decision === 'Approved' ? 'Approve and post' : 'Reject') + ' this document?')) return;
+    rpc.withSuccessHandler(() => fetchEntries(() => openEntry(current.PostingID)))
+      .withFailureHandler(e => showError(e.message || String(e)))
+      .decideFaPostingApproval({ postingId: current.PostingID, levelNumber: Number($('fcw-approval-banner').dataset.level), decision: decision, reason: reason });
+  }
+  function showGl() {
+    const ids = [current.JVID, current.ReversalJVID].filter(Boolean);
+    $('fcw-gl-body').innerHTML = ''; $('fcw-gl-modal').classList.remove('hidden');
+    ids.forEach(id => rpc.withSuccessHandler(e => {
+      $('fcw-gl-body').innerHTML += '<p class="font-mono text-xs text-blue-400 mt-2">' + escapeHtml(e.JVNumber + ' — ' + e.JVDate + ' — ' + e.Description) + '</p><table class="w-full text-left text-xs"><tbody>' +
+        (e.Lines || []).map(l => '<tr class="border-b border-slate-800"><td class="py-1 pr-2 font-mono">' + escapeHtml(l.AccountCode) + '</td><td class="py-1 pr-2">' + escapeHtml(l.AccountName || '') + '</td><td class="py-1 pr-2 text-slate-400">' + escapeHtml(l.Description) +
+          '</td><td class="py-1 pr-2 text-right font-mono">' + (l.Debit ? formatMoney(l.Debit) : '') + '</td><td class="py-1 text-right font-mono">' + (l.Credit ? formatMoney(l.Credit) : '') + '</td></tr>').join('') + '</tbody></table>';
+    }).withFailureHandler(e => { $('fcw-gl-body').innerHTML += '<p class="text-red-400 text-xs">' + escapeHtml(e.message) + '</p>'; }).getJournalEntryDetail({ jvId: id }));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-helmet-safety"></i> Capital Work in Progress';
+    $('fcw-category').innerHTML = '<option value="">Category...</option>' + CATEGORIES.map(c => '<option>' + c + '</option>').join('');
+    rpc.withSuccessHandler(r => {
+      rights = r.FAAUC || {};
+      $('fcw-new-cost-btn').classList.toggle('hidden', !rights.draft); $('fcw-new-settle-btn').classList.toggle('hidden', !rights.draft);
+      if (!$('fcw-entry-view').classList.contains('hidden')) refreshStatusUi();
+    }).withFailureHandler(e => console.error(e)).getFaRights();
+    rpc.withSuccessHandler(r => {
+      companies = (r || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName));
+      [$('fcw-form-company'), $('fcw-company-filter')].forEach((s, i) => {
+        const keep = s.value;
+        s.innerHTML = '<option value="">' + (i ? 'All Companies' : 'Select a company...') + '</option>' + companies.map(c => '<option value="' + escapeHtml(c.CompanyID) + '">' + escapeHtml(c.LegalName) + '</option>').join('');
+        s.value = current && !i ? current.CompanyID : keep;
+      });
+    }).withFailureHandler(e => console.error(e)).getActiveCompanies();
+
+    $('fcw-new-cost-btn').addEventListener('click', () => newEntry('AuCCost'));
+    $('fcw-new-settle-btn').addEventListener('click', () => newEntry('AuCSettlement'));
+    $('fcw-back-btn').addEventListener('click', () => confirmLeave(showList));
+    $('fcw-search').addEventListener('input', renderList);
+    ['fcw-company-filter', 'fcw-type-filter', 'fcw-status-filter'].forEach(id => $(id).addEventListener('change', renderList));
+    // Only a real change of company resets the form: the shell's single-company
+    // default can fire "change" again with the same company.
+    $('fcw-form-company').addEventListener('change', e => {
+      if (val('fcw-form-company') === loadedCompany) return;
+      if (e.isTrusted) isDirty = true;
+      lines = []; sourceId = ''; useAmounts = {}; loadCompany(val('fcw-form-company'));
+    });
+    ['fcw-form-date', 'fcw-form-reference', 'fcw-form-description'].forEach(id => $(id).addEventListener('input', () => { isDirty = true; }));
+    $('fcw-add-btn').addEventListener('click', addToCwip);
+    $('fcw-source').addEventListener('change', () => { sourceId = val('fcw-source'); isDirty = true; refreshStatusUi(); });
+    $('fcw-settle-add').addEventListener('click', () => { lines.push({ AssetID: '', Amount: '' }); isDirty = true; renderSettlement(); });
+    $('fcw-settle-rest').addEventListener('click', restToLast);
+    $('fcw-save-btn').addEventListener('click', () => saveDraft());
+    $('fcw-post-btn').addEventListener('click', post);
+    $('fcw-delete-btn').addEventListener('click', del);
+    $('fcw-reverse-btn').addEventListener('click', reverse);
+    $('fcw-approve-btn').addEventListener('click', () => decide('Approved'));
+    $('fcw-reject-btn').addEventListener('click', () => decide('Rejected'));
+    $('fcw-gl-btn').addEventListener('click', showGl);
+    $('fcw-gl-close').addEventListener('click', () => $('fcw-gl-modal').classList.add('hidden'));
+
+    myReturnChain = window.__pendingReturnChain || [];
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      $('fcw-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      $('fcw-back-chain-btn').classList.remove('hidden');
+      $('fcw-back-chain-btn').addEventListener('click', () => confirmLeave(() => { const chain = myReturnChain.slice(); const t = chain.pop(); if (t) openModule(t.moduleId, t.params, chain); }));
+    }
+    // Drill-through: GL Report passes a GL entry id, Home Tasks the document id.
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    fetchEntries(() => {
+      if (!pending || !pending.OpenEntryId) return;
+      const id = pending.OpenEntryId;
+      const found = entries.find(e => e.PostingID === id || e.JVID === id || e.ReversalJVID === id);
+      if (found) openEntry(found.PostingID); else alert('That document could not be found.');
+    });
+  };
+})();
+</script>
