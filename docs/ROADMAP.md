@@ -177,16 +177,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   succeeded with `ALL DONE` ([DEPLOY_LOG.md](DEPLOY_LOG.md)). Follow-ups:
   - upgrade `firebase-functions` (the CLI warns it's outdated; breaking
     changes, so it needs its own tested change);
-  - **move the workflow's actions off Node 20.** Every run warns that
-    `actions/checkout@v4`, `actions/setup-node@v4`,
-    `google-github-actions/auth@v2` and `setup-gcloud@v2` target Node 20,
-    and GitHub already forces them onto Node 24. Bump each to its Node 24
-    major, then prove the workflow with a harmless run ("screens only"
-    re-releases the same screens).
-  - **Runner image:** `runs-on: ubuntu-latest` moves from Ubuntu 24.04 to
-    Ubuntu 26 from 2026-10-19 (GitHub notice). Runs so far used
-    `ubuntu-24.04`. Pin `ubuntu-24.04` so the image changes only when
-    we choose, or try Ubuntu 26 deliberately with a harmless run first.
+  - **Workflow actions off Node 20, runner pinned:** a PR moves them to
+    `actions/checkout@v6`, `actions/setup-node@v6` (dependency cache
+    off), `google-github-actions/auth@v3` and `setup-gcloud@v3`, all
+    Node 24. It also pins `runs-on: ubuntu-24.04`, because `ubuntu-latest`
+    becomes Ubuntu 26 from 2026-10-19. **Proven once** a harmless run
+    ("screens only") passes after merging. Moving to Ubuntu 26 later is
+    a deliberate change with its own test run.
   - **Cloud Run readiness timeouts:** in run #9 one batch failed after 15
     minutes ("Resource readiness deadline exceeded"). The script's retry
     deployed it. If it recurs, look at Cloud Run in the console for that
