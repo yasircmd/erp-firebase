@@ -73,6 +73,14 @@ jobs:
           node tools/legacy-port/generate.js legacy-gas
           git diff --exit-code -- functions/src/legacy functions/modules
 
+      # tools/screen-release.js records who released (git config user.name);
+      # the runner has no git identity, so use the person who started the run.
+      # Repo-local config, not a working-copy change: the clean-copy check still passes.
+      - name: Record who is deploying
+        run: |
+          git config user.name "${{ github.actor }} (GitHub Actions)"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
       - uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
