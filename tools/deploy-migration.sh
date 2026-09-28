@@ -27,4 +27,4 @@ echo "Deploying ${#FNS[@]} functions from $(git log -1 --format='%h %s'):"; echo
 fail=0
 deploy_batches "" "${FNS[@]}"
 grant_invokers "${FNS[@]}"
-[ $fail = 0 ] && echo "ALL DONE" || echo "SOME STEPS FAILED — re-run this script"
+if [ $fail = 0 ]; then echo "ALL DONE"; else echo "SOME STEPS FAILED — re-run this script"; exit 1; fi

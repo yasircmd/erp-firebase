@@ -76,6 +76,7 @@ tools/
   deploy-migration.sh           — deploys pending generated-port functions
   deploy-functions.sh           — deploys a named set (tools/deploy-sets/<set>.txt) for new development
   deploy-runtime.sh             — moves every live function onto engines.node's runtime
+  (.github/workflows/deploy.yml — runs the deploy scripts from GitHub Actions, manual only)
   build-soa-screens.js          — writes CUSTOMERSOA.html from VENDORSOA.html (edit only the vendor one)
   build-pdc-screens.js          — writes PDCISSUED.html from PDCRECEIVED.html (edit only the received one)
   release-screens.sh            — releases screens/ to production (list, rollback)
@@ -198,6 +199,20 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
   last 10 are kept. Record releases in the deploy log.
 - **Generated-port functions:** `tools/deploy-migration.sh` (reads the
   pending list from `tools/legacy-port/status.js`).
+- **From GitHub instead of Cloud Shell:** go to GitHub → Actions →
+  **Deploy** → Run workflow, and type `DEPLOY`. Choose one task:
+  - a functions set, optionally followed by its screens;
+  - screens only;
+  - the runtime move.
+
+  It runs the same scripts on a clean checkout of `main`
+  (`.github/workflows/deploy.yml`), with batches of 6 (20 hit API errors in
+  practice, see the roadmap), after checking
+  that the generated code matches the generator's output. It needs the
+  repository secret `GCP_SA_KEY`: the JSON key of a service account with
+  Firebase Admin, Cloud Functions Admin, Cloud Run Admin and Service
+  Account User. Log each run in the deploy log. All the deploy scripts
+  exit non-zero when a step fails, so a failed run shows red.
 - **Hosting (`public/index.html`):** `firebase deploy --project erp1-8f4cd --only hosting`.
   Check first that `grep REPLACE_ME public/index.html` returns nothing.
 - **Runtime:** functions run on Node 24 (`engines.node`). After a future

@@ -1,0 +1,93 @@
+# Production deploys for erp1-8f4cd from GitHub, without Cloud Shell. Runs the
+# same tools/ scripts on a clean checkout. Manual only: GitHub → Actions →
+# "Deploy" → Run workflow (choose the branch). Never runs on push.
+#
+# Needs one repository secret, GCP_SA_KEY: the JSON key of a Google Cloud
+# service account with Firebase Admin, Cloud Functions Admin, Cloud Run Admin
+# (for the public-invoker binding) and Service Account User.
+# Record every run in docs/DEPLOY_LOG.md afterwards, as with Cloud Shell deploys.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'What to deploy'
+        type: choice
+        options:
+          - functions set                 # tools/deploy-functions.sh <set>
+          - functions set, then screens   # tools/deploy-functions.sh <set> --screens
+          - screens only                  # tools/release-screens.sh
+          - runtime                       # tools/deploy-runtime.sh
+        default: functions set
+      set:
+        description: 'Deploy set name, from tools/deploy-sets/ without .txt (for the "functions set" tasks)'
+        required: false
+        default: ''
+      confirm:
+        description: 'Type DEPLOY to confirm a production deploy'
+        required: true
+
+# One deploy at a time; a second run waits rather than racing the first.
+concurrency:
+  group: deploy-erp1-8f4cd
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 180
+    steps:
+      - name: Check confirmation, branch and inputs
+        env:
+          TASK: ${{ inputs.task }}
+          SET: ${{ inputs.set }}
+        run: |
+          [ "${{ inputs.confirm }}" = "DEPLOY" ] || { echo "Type DEPLOY in the confirm box to run a production deploy."; exit 1; }
+          [ "${{ github.ref_name }}" = "main" ] || { echo "Deploys run only from main (got ${{ github.ref_name }})."; exit 1; }
+          case "$TASK" in
+            "functions set"*) [[ "$SET" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "Give a deploy set name (a file in tools/deploy-sets/)."; exit 1; } ;;
+          esac
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: functions/package.json   # engines.node
+
+      - name: Install dependencies
+        run: |
+          (cd functions && npm ci)
+          (cd tools/legacy-port && npm ci)
+          npm install -g firebase-tools
+
+      # The generated code must be exactly what the generator produces from the
+      # committed Apps Script snapshot and patches; a hand edit fails here.
+      - name: Check generated code is up to date
+        run: |
+          node tools/legacy-port/generate.js legacy-gas
+          git diff --exit-code -- functions/src/legacy functions/modules
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy
+        env:
+          TASK: ${{ inputs.task }}
+          SET: ${{ inputs.set }}
+          # 20 hit Cloud Functions API errors in practice (docs/ROADMAP.md, 2026-09-26); 6 goes through.
+          BATCH: '6'
+        run: |
+          case "$TASK" in
+            "functions set")               bash tools/deploy-functions.sh "$SET" ;;
+            "functions set, then screens") bash tools/deploy-functions.sh "$SET" --screens ;;
+            "screens only")                bash tools/release-screens.sh ;;
+            "runtime")                     bash tools/deploy-runtime.sh ;;
+          esac

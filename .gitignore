@@ -4,3 +4,6 @@
 
 # Dependencies
 node_modules/
+
+# Credentials file written by google-github-actions/auth in CI (never commit)
+gha-creds-*.json
