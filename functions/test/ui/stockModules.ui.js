@@ -197,6 +197,52 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  // 6. A GRN waiting for approval or posted shows only the PO lines it took,
+  // locked; a rejected one is editable again with every line (owner, 2026-09-28).
+  await check('GRN: PO picker — pending/posted show only this GRN\'s lines, locked; rejected shows all', async () => {
+    await rtdb.ref('purchaseOrders/PO-UITEST2').set({
+      PONumber: 'PO-UI-2', Status: 'Approved', CompanyID: 'C1', VendorID: 'V1',
+      Lines: [
+        { LineID: 'POL-A', ItemCode: 'RM-001', Description: 'Line A', Quantity: 10, UnitPrice: 6, WarehouseID: 'WH1' },
+        { LineID: 'POL-B', ItemCode: 'RM-001', Description: 'Line B', Quantity: 5, UnitPrice: 6, WarehouseID: 'WH1' }
+      ]
+    });
+    await rtdb.ref('approvalConfigurations/GRN').set({ Enabled: true, ScopeType: 'Global' });
+    await rtdb.ref('approvalLevels/GRN/GLOBAL').set({ Levels: [{ LevelNumber: 1, ApproverUserID: 'u-approver', ThresholdAmount: 0 }] });
+    const line = { ItemID: 'I1', WarehouseID: 'WH1', EnteredUOMID: 'UOM-PCS', EnteredQuantity: 4, UnitCost: 6, Description: 'A', SourcePOID: 'PO-UITEST2', SourcePOLineID: 'POL-A' };
+    const pending = await call('u-admin', 'saveGrnDraft', { TransactionDate: today, Description: 'Picker pending', CompanyID: 'C1', VendorID: 'V1', Lines: [line] });
+    assert.equal((await call('u-admin', 'postGrn', { grnId: pending.grnId })).status, 'PendingApproval');
+    const rejected = await call('u-admin', 'saveGrnDraft', { TransactionDate: today, Description: 'Picker rejected', CompanyID: 'C1', VendorID: 'V1', Lines: [line] });
+    await call('u-admin', 'postGrn', { grnId: rejected.grnId });
+    await call('u-approver', 'decideGrnApproval', { grnId: rejected.grnId, levelNumber: 1, decision: 'Rejected', reason: 'wrong qty' });
+    await rtdb.ref('approvalConfigurations/GRN').set(null);
+    const posted = await call('u-admin', 'saveGrnDraft', { TransactionDate: today, Description: 'Picker posted', CompanyID: 'C1', VendorID: 'V1', Lines: [line] });
+    assert.equal((await call('u-admin', 'postGrn', { grnId: posted.grnId })).status, 'Posted');
+
+    const page = await open('GRN', 'u-admin');
+    const openGrn = async description => {
+      if (await page.isVisible('#grn-back-btn')) await page.click('#grn-back-btn');
+      await page.waitForSelector('#grn-list-view:not(.hidden)', { timeout: 15000 });
+      await page.fill('#grn-search-input', description);
+      await page.locator('#grn-table-body .grn-open').first().click();
+      await page.waitForSelector('#grn-entry-view:not(.hidden)', { timeout: 15000 });
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(500);
+      return page.evaluate(() => ({
+        shown: !document.getElementById('grn-po-picker-section').classList.contains('hidden'),
+        boxes: [...document.querySelectorAll('.grn-po-line-checkbox')].map(b => [b.dataset.key.split('|')[1], b.checked, b.disabled])
+      }));
+    };
+    for (const d of ['Picker pending', 'Picker posted']) {
+      assert.deepEqual(await openGrn(d), { shown: true, boxes: [['POL-A', true, true]] }, d);
+    }
+    assert.deepEqual(await openGrn('Picker rejected'), { shown: true, boxes: [['POL-A', true, false], ['POL-B', false, false]] });
+    assert.deepEqual(await rpcFailures(page), []);
+    assert.deepEqual(page.__errors, []);
+    await rtdb.ref('purchaseOrders/PO-UITEST2').set(null);
+    await page.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   for (const r of results) console.log(r.join('  '));
   console.log(results.filter(r => r[0] === 'PASS').length + '/' + results.length + ' passed');
