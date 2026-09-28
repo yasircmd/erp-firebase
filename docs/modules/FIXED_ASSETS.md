@@ -872,4 +872,13 @@ amounts to CWIP" with no CWIP to pick, and got "Select the Capital Work
 in Progress first." None had been created yet in Fixed Asset Master. The
 list now reads "No CWIP yet — create one in Fixed Asset Master" when the
 company has none open. The message then says where to create one, or
-where to select it. UI check added; the old screen fails it.
+where to select it. UI check added; the old screen fails it. Live
+2026-09-28 (PR #26, Deploy run #12).
+
+**Verified in production by the owner (2026-09-28):**
+- the first CWIP was created in Fixed Asset Master;
+- its cost (12,000 from a bank payment on the clearing account) was
+  posted, with the FAA entry Dr CWIP · Cr Fixed Asset Clearing;
+- the CWIP shows Under Construction;
+- the clearing item is used up;
+- the register shows the CWIP's cost.

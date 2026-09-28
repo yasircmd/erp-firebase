@@ -515,3 +515,12 @@ from, and how it was verified. The deploy procedure is in the
     carries the Job Order fix.
   - The owner then used CWIP Cost with no CWIP selected. The screen's
     message was unclear, which led to the follow-up in the next PR.
+- **2026-09-28, screen release: clearer CWIP empty state (PR #26):** Deploy
+  workflow task "screens only" from `c031af6` (`main`, the PR #26 merge),
+  run
+  [#12](https://github.com/yasircmd/erp-firebase/actions/runs/36474971111),
+  19:50–19:51 UTC, success, on `ubuntu-24.04` with the Node 24 actions.
+  Release **`20260928T195106Z-c031af6`**: 61/61 screens written and
+  verified, active. The CWIP Cost list now says "No CWIP yet — create one
+  in Fixed Asset Master" when a company has none open. No function
+  deploy.
