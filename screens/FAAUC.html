@@ -212,14 +212,21 @@
       useAmounts[b.dataset.all] = b.dataset.left;
     }));
     const target = $('fcw-target'); const keep = target.value;
-    target.innerHTML = '<option value="">Capital Work in Progress...</option>' + assets.filter(a => isCwip(a) && ['Planned', 'UnderConstruction'].includes(a.Status))
+    const open = assets.filter(a => isCwip(a) && ['Planned', 'UnderConstruction'].includes(a.Status));
+    // Say so when there is nothing to pick (a CWIP is created in Fixed Asset Master).
+    target.innerHTML = '<option value="">' + (val('fcw-form-company') && !open.length ? 'No CWIP yet — create one in Fixed Asset Master' : 'Capital Work in Progress...') + '</option>' + open
       .map(a => '<option value="' + escapeHtml(a.AssetID) + '">' + escapeHtml(a.AssetNumber + ' — ' + a.Description + ' (' + formatMoney(costOf(a)) + ')') + '</option>').join('');
     target.value = keep;
   }
   function addToCwip() {
     showError('');
     const assetId = val('fcw-target');
-    if (!assetId) return showError('Select the Capital Work in Progress first.');
+    if (!assetId) {
+      const none = !assets.some(a => isCwip(a) && ['Planned', 'UnderConstruction'].includes(a.Status));
+      return showError(none
+        ? 'This company has no open Capital Work in Progress. Create one in Fixed Asset Master with a Capital Work in Progress (AuC) class, then pick it here.'
+        : 'Select the Capital Work in Progress to add these amounts to (the list next to the category).');
+    }
     const category = val('fcw-category');
     if (!category) return showError('Select a cost category.');
     const picks = [];

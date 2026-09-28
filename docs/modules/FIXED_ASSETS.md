@@ -1,6 +1,6 @@
 # Fixed Assets (Asset Accounting, FI-AA)
 
-**Status:** phase 1 deployed 2026-09-26 ([DEPLOY_LOG.md](../DEPLOY_LOG.md)); phase 2 retirement (sale, scrap) deployed 2026-09-26; Capital Work in Progress (AuC) being built (2026-09-28); transfer, reconciliation and dashboard not started · **Roadmap:** [#6](../ROADMAP.md) · **Branch:** `worktree-fixed-assets-design`
+**Status:** phase 1 deployed 2026-09-26 ([DEPLOY_LOG.md](../DEPLOY_LOG.md)); phase 2 retirement (sale, scrap) deployed 2026-09-26; Capital Work in Progress (AuC) live 2026-09-28 (PR #25, run #11); transfer, reconciliation and dashboard not started · **Roadmap:** [#6](../ROADMAP.md) · **Branch:** `worktree-fixed-assets-design`
 
 ## Purpose
 
@@ -866,3 +866,10 @@ reversal; the screen not calculating.
   (25 functions). Then link a *Capital Work in Progress* menu node to
   FAAUC in Tree Management, and in Fixed Asset Configuration create an
   AuC-kind class whose account determination has the AuC account.
+
+**Follow-up (2026-09-28):** in the live app the owner clicked "Add
+amounts to CWIP" with no CWIP to pick, and got "Select the Capital Work
+in Progress first." None had been created yet in Fixed Asset Master. The
+list now reads "No CWIP yet — create one in Fixed Asset Master" when the
+company has none open. The message then says where to create one, or
+where to select it. UI check added; the old screen fails it.
