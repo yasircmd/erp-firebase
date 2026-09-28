@@ -1,0 +1,13 @@
+# Non-stock lines in GRN (owner, 2026-09-28; docs/modules/GRN_NON_STOCK.md).
+# Run with --screens: screens/GRN.html (non-stock grid, PO category lines
+# selectable, direct non-stock lines, totals and print).
+saveGrnDraft                     # validates NonStockLines (category, PO line, price, cost center)
+postGrn                          # approval amount includes non-stock; posts Dr category account
+decideGrnApproval                # posts on the last approval (same commit as postGrn)
+reverseGrn                       # mirrors the non-stock lines; rolls back the PO received quantity
+getEligibleGRNsForInvoice        # a GRN's amount includes its non-stock lines
+saveVendorInvoiceDraft           # same, for the invoice's GRN amount
+getFaClearingItems               # a GRN clearing item carries the GRN's vendor
+saveFaPostingDraft               # capitalization: supplier from the GRN's vendor
+postFaPosting                    # same
+decideFaPostingApproval          # same

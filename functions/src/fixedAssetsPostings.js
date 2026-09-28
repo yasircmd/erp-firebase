@@ -72,6 +72,15 @@ async function clearingItems(companyId) {
   const used = {};
   uses.forEach(u => { used[u._id] = round2(u.Capitalized || 0); });
   const vendorNames = (await rtdb.ref('vendors').get()).val() || {};
+  // A GRN's non-stock line for a Fixed Asset category debits clearing
+  // (docs/modules/GRN_NON_STOCK.md); its vendor is on the GRN itself.
+  const grnIds = new Set();
+  entries.docs.forEach(doc => {
+    const e = doc.data();
+    if (e.VoucherType === 'GRN' && e.SourceTransactionID && (e.Lines || []).some(l => accounts.has(l.AccountID))) grnIds.add(e.SourceTransactionID);
+  });
+  const grnVendors = {};
+  for (const id of grnIds) grnVendors[id] = ((await rtdb.ref('stock/transactions/' + id + '/VendorID').get()).val()) || '';
   const items = [];
   const credits = [];
   entries.docs.forEach(doc => {
@@ -83,7 +92,7 @@ async function clearingItems(companyId) {
       const base = {
         JVID: doc.id, LineNo: lineNo, JVNumber: e.JVNumber || '', JVDate: e.JVDate || '', VoucherType: e.VoucherType || 'JV',
         AccountID: l.AccountID, AccountCode: l.AccountCode, Description: l.Description || e.Description || '',
-        Reference: e.Reference || '', VendorID: vendorOfEntry(e), SourceTransactionID: e.SourceTransactionID || ''
+        Reference: e.Reference || '', VendorID: vendorOfEntry(e) || (e.VoucherType === 'GRN' ? grnVendors[e.SourceTransactionID] || '' : ''), SourceTransactionID: e.SourceTransactionID || ''
       };
       if (base.VendorID && vendorNames[base.VendorID]) base.VendorName = vendorNames[base.VendorID].VendorName || '';
       if (round2(l.Debit || 0) > 0) {
@@ -245,8 +254,11 @@ async function prepare(user, data) {
       const usedElsewhere = round2((use && use.Capitalized) || 0) - (use && excludePosting ? round2((use.Uses || []).filter(u => u.PostingID === excludePosting && !u.Reversed).reduce((s, u) => s + u.Amount, 0)) : 0);
       const open = round2(gl.Debit - usedElsewhere);
       if (want[k] > open + 0.005) throw new Error(jv.JVNumber + ' line ' + lineNo + ': only ' + open.toFixed(2) + ' is still open, ' + want[k].toFixed(2) + ' asked.');
+      // A GRN's vendor is on the GRN (docs/modules/GRN_NON_STOCK.md).
+      const vendorId = vendorOfEntry(jv) || (jv.VoucherType === 'GRN' && jv.SourceTransactionID
+        ? ((await rtdb.ref('stock/transactions/' + jv.SourceTransactionID + '/VendorID').get()).val() || '') : '');
       lines.forEach(l => l.Items.forEach(it => {
-        if (itemKey(it.JVID, it.LineNo) === k) Object.assign(it, { JVNumber: jv.JVNumber, JVDate: jv.JVDate, AccountID: gl.AccountID, AccountCode: gl.AccountCode, VendorID: vendorOfEntry(jv), VoucherType: jv.VoucherType || 'JV', SourceTransactionID: jv.SourceTransactionID || '' });
+        if (itemKey(it.JVID, it.LineNo) === k) Object.assign(it, { JVNumber: jv.JVNumber, JVDate: jv.JVDate, AccountID: gl.AccountID, AccountCode: gl.AccountCode, VendorID: vendorId, VoucherType: jv.VoucherType || 'JV', SourceTransactionID: jv.SourceTransactionID || '' });
       }));
     }
   }

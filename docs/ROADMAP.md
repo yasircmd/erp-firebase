@@ -72,7 +72,12 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 - [ ] **GRN: non-stock lines** (owner, 2026-09-28;
   [GRN_NON_STOCK.md](modules/GRN_NON_STOCK.md)). Dr the category
   account · Cr GRN Clearing, from PO category lines or entered directly.
-  **Design awaiting the owner's agreement.**
+  Built and tested (the owner agreed the design as written). **To go
+  live:** Deploy → "functions set, then screens", set `grn-non-stock`.
+  - For Fixed Asset categories to reach Fixed Assets, the category must
+    point at the Fixed Asset Clearing Account. That account must then be
+    Asset-type, since Procurement Setup requires Asset for a Fixed Asset
+    category.
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any
