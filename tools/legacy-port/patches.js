@@ -795,5 +795,19 @@ function linesForBatch_(idToken, batchId) {
   const approvalUsers = firebaseDbRequest_('users', 'get', null, idToken) || {};
   capped.forEach(l => annotateJobOrderApproval_(l, user.uid, approvalInstances, approvalUsers));
 `
+  },
+  {
+    id: 'grn-non-stock-invoice-eligible-amount',
+    why: "Owner decision 2026-09-28 (docs/modules/GRN_NON_STOCK.md): a GRN can carry non-stock lines (a Procurement Setup category, no item), kept in their own NonStockLines list and posted Dr the category account · Cr GRN Clearing. The Vendor Invoice bills a GRN for its GRN Clearing amount, so that amount must include them.",
+    find: `      Amount: (g.Lines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0)`,
+    replace: `      // [PORT CHANGE grn-non-stock] a GRN's non-stock lines count too.
+      Amount: (g.Lines || []).concat(g.NonStockLines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0)`
+  },
+  {
+    id: 'grn-non-stock-invoice-draft-amount',
+    why: "Owner decision 2026-09-28 (docs/modules/GRN_NON_STOCK.md): a GRN can carry non-stock lines (a Procurement Setup category, no item), kept in their own NonStockLines list and posted Dr the category account · Cr GRN Clearing. The Vendor Invoice bills a GRN for its GRN Clearing amount, so that amount must include them.",
+    find: `      const amount = (grn.Lines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0);`,
+    replace: `      // [PORT CHANGE grn-non-stock] a GRN's non-stock lines count too.
+      const amount = (grn.Lines || []).concat(grn.NonStockLines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0);`
   }
 ];

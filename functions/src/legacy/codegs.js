@@ -3465,7 +3465,8 @@ async function getEligibleGRNsForInvoice(idToken, companyId, vendorId) {
     .map(g => ({
       GRNID: g.GRNID, GRNNumber: g.TransactionNumber, TransactionDate: g.TransactionDate,
       Description: g.Description,
-      Amount: (g.Lines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0)
+      // [PORT CHANGE grn-non-stock] a GRN's non-stock lines count too.
+      Amount: (g.Lines || []).concat(g.NonStockLines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0)
     }));
 }
 
@@ -3529,7 +3530,8 @@ async function saveVendorInvoiceDraft(idToken, invoiceData) {
       if (grn.MatchedToInvoiceID && grn.MatchedToInvoiceID !== invoiceId) {
         throw new Error('Source GRN ' + (idx + 1) + ' (' + (grn.TransactionNumber || grnId) + ') is already matched to a different invoice.');
       }
-      const amount = (grn.Lines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0);
+      // [PORT CHANGE grn-non-stock] a GRN's non-stock lines count too.
+      const amount = (grn.Lines || []).concat(grn.NonStockLines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0);
       return { GRNID: grnId, GRNNumber: grn.TransactionNumber || '', Amount: Math.round(amount * 100) / 100 };
     });
 

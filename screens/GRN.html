@@ -157,6 +157,45 @@
     </div>
   </div>
 
+  <!-- Non-stock lines (owner, 2026-09-28; docs/modules/GRN_NON_STOCK.md):
+       a Procurement Setup category instead of an item — no warehouse, no
+       stock. Posts Dr the category's GL account. -->
+  <div id="grn-nonstock-section" class="space-y-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <p class="text-xs font-semibold text-slate-400 uppercase">Non-stock lines <span class="normal-case font-normal text-slate-500">(Direct Expense / Fixed Asset categories — posted to the category's account, no stock)</span></p>
+      <button id="grn-add-nonstock-btn" class="no-print bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Non-stock Line</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+              <th class="py-2 px-3 w-10">#</th>
+              <th class="py-2 px-3">Category</th>
+              <th class="py-2 px-3">Description</th>
+              <th class="py-2 px-3 text-right w-24">Quantity</th>
+              <th class="py-2 px-3 text-right w-28">Unit Cost</th>
+              <th class="py-2 px-3 text-right w-28">Total Value</th>
+              <th class="py-2 px-3 w-24">Cost Ctr</th>
+              <th class="py-2 px-3 w-24">Profit Ctr</th>
+              <th class="py-2 px-3 w-10 no-print"></th>
+            </tr>
+          </thead>
+          <tbody id="grn-ns-body" class="divide-y divide-slate-700 text-sm"></tbody>
+          <tfoot>
+            <tr class="bg-slate-900 border-t border-slate-700 font-medium text-sm">
+              <td class="py-2 px-3" colspan="5">Non-stock total</td>
+              <td class="py-2 px-3 text-right" id="grn-ns-total">0.00</td>
+              <td colspan="2"></td>
+              <td class="no-print"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <p class="text-sm font-medium text-right text-slate-200">GRN total: <span id="grn-grand-total" class="font-mono">0.00</span></p>
+  </div>
+
   <div id="grn-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
 
   <div id="grn-rejection-banner" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-1 no-print">
@@ -266,6 +305,8 @@
   let vendors = [];
   let eligiblePOs = [];
   let selectedPOLineKeys = new Set();
+  let categories = []; // active requisition categories (Procurement Setup)
+  let nonStockLines = []; // { CategoryID, Description, Quantity, UnitCost, CostCenterID, ProfitCenterID, SourcePOID, SourcePOLineID }
   let currentGrn = null;
   // ItemCode is the RAW text the user typed/selected — never silently
   // resolved-or-cleared on keystroke (that was the original search bug).
@@ -373,7 +414,8 @@
     if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">No GRNs found.</td></tr>'; return; }
 
     filtered.forEach(e => {
-      const total = (e.Lines || []).reduce((sum, l) => sum + (l.TotalValue || 0), 0);
+      const total = (e.Lines || []).reduce((sum, l) => sum + (l.TotalValue || 0), 0)
+        + (e.NonStockLines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0);
       const statusBadge = e.Status === 'Posted'
         ? (e.ReversedByGRN ? '<span class="text-amber-400">Posted (Reversed)</span>' : '<span class="text-emerald-400">Posted</span>')
         : '<span class="text-red-400">Draft</span>';
@@ -612,16 +654,13 @@
         const label = document.createElement('label');
         label.className = 'flex items-center gap-2 text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1.5 cursor-pointer';
         const remaining = Number(line.RemainingQuantity) || 0;
-        // Non-stock lines (from a category-based Purchase Requisition)
-        // carry no ItemCode — there's nothing to receive into a
-        // warehouse, and picking one only produced a line that failed
-        // on save. Shown for context, but not selectable. (Added during
-        // the Firebase migration at the owner's request; the GAS
-        // version let them be ticked.)
+        // Non-stock lines (a category, no ItemCode) are received too since
+        // 2026-09-28 (owner; docs/modules/GRN_NON_STOCK.md): they go to
+        // the Non-stock lines grid. They were greyed out before.
         if (!line.ItemCode) {
-          label.className = 'flex items-center gap-2 text-xs bg-slate-800/50 border border-slate-800 rounded px-2 py-1.5 opacity-50 cursor-not-allowed';
-          label.title = 'Non-stock line — not received via GRN';
-          label.innerHTML = `<input type="checkbox" class="grn-po-line-nonstock" disabled> <span>${escapeHtml(line.Description || '(no description)')} — Ordered ${line.Quantity} <span class="text-slate-400">(non-stock line – not received via GRN)</span></span>`;
+          const category = categories.find(c => c.CategoryID === line.CategoryID);
+          const nsOver = remaining <= 0 ? ' <span class="text-amber-400">(fully received already — still selectable)</span>' : '';
+          label.innerHTML = `<input type="checkbox" class="grn-po-line-checkbox" data-key="${key}" ${selectedPOLineKeys.has(key) ? 'checked' : ''} ${locked ? 'disabled' : ''}> <span><span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">Non-stock</span> ${escapeHtml(category ? category.Name : (line.CategoryID || ''))} — ${escapeHtml(line.Description || '')} — Ordered ${line.Quantity}, Remaining ${remaining}${nsOver}</span>`;
           wrapper.appendChild(label);
           return;
         }
@@ -657,6 +696,18 @@
   // amount explicitly rather than have one suggested.
   function addLineFromPO(po, line) {
     if (!po || !line) return;
+    if (!line.ItemCode) {
+      const nsRemaining = Number(line.RemainingQuantity) || 0;
+      nonStockLines.push({
+        CategoryID: line.CategoryID || '', Description: line.Description || currentHeaderDescription(),
+        Quantity: nsRemaining > 0 ? nsRemaining : '', UnitCost: line.UnitPrice,
+        CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter(),
+        SourcePOID: po.POID, SourcePOLineID: line.LineID
+      });
+      isDirty = true;
+      renderNonStock();
+      return;
+    }
     const item = itemByCode(line.ItemCode);
     const remaining = Number(line.RemainingQuantity) || 0;
     const newLine = {
@@ -688,8 +739,9 @@
   // touches lines from any other PO, or direct lines.
   function removeLineFromPO(poId, lineId) {
     gridLines = gridLines.filter(l => !(l.SourcePOID === poId && l.SourcePOLineID === lineId));
+    nonStockLines = nonStockLines.filter(l => !(l.SourcePOID === poId && l.SourcePOLineID === lineId));
     isDirty = true;
-    renderGrid(); updateTotal();
+    renderGrid(); renderNonStock();
   }
 
   function blankLine() {
@@ -912,10 +964,83 @@
     updateTotal();
   }
 
+  const num = v => parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0;
   function updateTotal() {
     let total = 0;
-    gridLines.forEach(l => { total += (parseFloat(String(l.EnteredQuantity).replace(/,/g, '')) || 0) * (parseFloat(String(l.UnitCost).replace(/,/g, '')) || 0); });
+    gridLines.forEach(l => { total += num(l.EnteredQuantity) * num(l.UnitCost); });
     document.getElementById('grn-total-value').textContent = formatMoney(total);
+    const nsTotal = nonStockLines.reduce((sum, l) => sum + num(l.Quantity) * num(l.UnitCost), 0);
+    document.getElementById('grn-ns-total').textContent = formatMoney(nsTotal);
+    document.getElementById('grn-grand-total').textContent = formatMoney(total + nsTotal);
+  }
+
+  // ---------- NON-STOCK LINES ----------
+
+  function categoriesForCurrentCompany() {
+    const companyId = document.getElementById('grn-form-company').value;
+    return categories.filter(c => !c.CompanyID || c.CompanyID === companyId);
+  }
+  function categoryOptionsHtml(selectedId) {
+    let html = '<option value="">Select...</option>';
+    const list = categoriesForCurrentCompany();
+    // A saved line's category stays visible even if it has since changed.
+    if (selectedId && !list.some(c => c.CategoryID === selectedId)) html += `<option value="${escapeHtml(selectedId)}" selected>${escapeHtml(selectedId)}</option>`;
+    list.slice().sort((a, b) => String(a.Name).localeCompare(String(b.Name))).forEach(c => {
+      html += `<option value="${escapeHtml(c.CategoryID)}"${c.CategoryID === selectedId ? ' selected' : ''}>${escapeHtml(c.Name)} (${escapeHtml(c.Type === 'FixedAsset' ? 'Fixed Asset' : 'Direct Expense')})</option>`;
+    });
+    return html;
+  }
+  function blankNonStockLine() {
+    return { CategoryID: '', Description: currentHeaderDescription(), Quantity: '', UnitCost: '',
+      CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter(), SourcePOID: '', SourcePOLineID: '' };
+  }
+
+  function renderNonStock() {
+    const readOnly = currentGrn && currentGrn.Status !== 'Draft' && currentGrn.Status !== 'Rejected';
+    const tbody = document.getElementById('grn-ns-body');
+    document.getElementById('grn-add-nonstock-btn').classList.toggle('hidden', Boolean(readOnly));
+    // Nothing to show on a read-only GRN without non-stock lines.
+    document.getElementById('grn-nonstock-section').classList.toggle('hidden', Boolean(readOnly) && !nonStockLines.length);
+    tbody.innerHTML = nonStockLines.length ? '' : '<tr><td colspan="9" class="py-3 text-center text-xs text-slate-500">No non-stock lines.</td></tr>';
+    nonStockLines.forEach((line, i) => {
+      const poLocked = Boolean(line.SourcePOID && line.SourcePOLineID);
+      const lock = readOnly || poLocked;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
+        <td class="py-1 px-1"><div class="flex gap-1 items-center"><select data-ns-row="${i}" data-ns-field="CategoryID" class="grn-ns-category w-48 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${lock ? 'disabled' : ''}>${categoryOptionsHtml(line.CategoryID)}</select>${poLocked ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20" title="Sourced from a Purchase Order — category and price are locked">PO</span>' : ''}</div></td>
+        <td class="py-1 px-1"><input data-ns-row="${i}" data-ns-field="Description" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs"></td>
+        <td class="py-1 px-1"><input data-ns-row="${i}" data-ns-field="Quantity" type="text" inputmode="decimal" value="${line.Quantity === '' ? '' : escapeHtml(line.Quantity)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right"></td>
+        <td class="py-1 px-1"><input data-ns-row="${i}" data-ns-field="UnitCost" type="text" inputmode="decimal" value="${line.UnitCost === '' ? '' : escapeHtml(line.UnitCost)}" ${lock ? 'disabled' : ''} title="${poLocked ? 'Inherited from the Purchase Order — cannot be edited' : ''}" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right"></td>
+        <td class="py-1.5 px-3 text-xs text-right font-mono grn-ns-line-total">${formatMoney(num(line.Quantity) * num(line.UnitCost))}</td>
+        <td class="py-1 px-1"><select data-ns-row="${i}" data-ns-field="CostCenterID" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
+        <td class="py-1 px-1"><select data-ns-row="${i}" data-ns-field="ProfitCenterID" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
+        <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-ns-row="${i}" class="grn-ns-remove text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
+      tbody.appendChild(tr);
+    });
+    if (!readOnly) {
+      tbody.querySelectorAll('[data-ns-field]').forEach(el => {
+        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', e => {
+          const row = parseInt(e.target.getAttribute('data-ns-row'), 10);
+          const field = e.target.getAttribute('data-ns-field');
+          nonStockLines[row][field] = (field === 'Quantity' || field === 'UnitCost') ? e.target.value.replace(/,/g, '') : e.target.value;
+          isDirty = true;
+          e.target.closest('tr').querySelector('.grn-ns-line-total').textContent = formatMoney(num(nonStockLines[row].Quantity) * num(nonStockLines[row].UnitCost));
+          updateTotal();
+        });
+      });
+      tbody.querySelectorAll('.grn-ns-remove').forEach(btn => btn.addEventListener('click', () => {
+        const line = nonStockLines[parseInt(btn.getAttribute('data-ns-row'), 10)];
+        if (line.SourcePOID && line.SourcePOLineID) selectedPOLineKeys.delete(line.SourcePOID + '|' + line.SourcePOLineID);
+        nonStockLines.splice(parseInt(btn.getAttribute('data-ns-row'), 10), 1);
+        isDirty = true;
+        renderNonStock(); renderPOPicker();
+      }));
+    }
+    updateTotal();
+  }
+  function allNonStockLinesComplete() {
+    return nonStockLines.every(l => !l.CategoryID || String(l.Description || '').trim());
   }
 
   function allLineDescriptionsFilled() {
@@ -1123,7 +1248,8 @@
         SourcePOID: l.SourcePOID || '', SourcePOLineID: l.SourcePOLineID || ''
       };
     });
-    selectedPOLineKeys = new Set(gridLines.filter(l => l.SourcePOID && l.SourcePOLineID).map(l => l.SourcePOID + '|' + l.SourcePOLineID));
+    nonStockLines = (currentGrn.NonStockLines || []).map(l => Object.assign({}, l));
+    selectedPOLineKeys = new Set(gridLines.concat(nonStockLines).filter(l => l.SourcePOID && l.SourcePOLineID).map(l => l.SourcePOID + '|' + l.SourcePOLineID));
 
     document.getElementById('grn-form-company').value = currentGrn.CompanyID || '';
     document.getElementById('grn-form-vendor').value = currentGrn.VendorID || '';
@@ -1143,6 +1269,7 @@
   function newEntry() {
     currentGrn = null;
     gridLines = [];
+    nonStockLines = [];
     selectedPOLineKeys = new Set();
     document.getElementById('grn-form-company').value = '';
     document.getElementById('grn-form-vendor').value = '';
@@ -1179,7 +1306,11 @@
           SourcePOID: l.SourcePOID || '', SourcePOLineID: l.SourcePOLineID || ''
         };
       });
-      selectedPOLineKeys = new Set(gridLines.filter(l => l.SourcePOID && l.SourcePOLineID).map(l => l.SourcePOID + '|' + l.SourcePOLineID));
+      nonStockLines = (source.NonStockLines || []).map(l => ({
+        CategoryID: l.CategoryID, Description: l.Description, Quantity: l.Quantity, UnitCost: l.UnitCost,
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', SourcePOID: l.SourcePOID || '', SourcePOLineID: l.SourcePOLineID || ''
+      }));
+      selectedPOLineKeys = new Set(gridLines.concat(nonStockLines).filter(l => l.SourcePOID && l.SourcePOLineID).map(l => l.SourcePOID + '|' + l.SourcePOLineID));
 
       document.getElementById('grn-form-company').value = source.CompanyID || '';
       document.getElementById('grn-form-vendor').value = source.VendorID || '';
@@ -1250,11 +1381,24 @@
       </tr>`;
     }).join('');
 
+    const nsValid = nonStockLines.filter(l => l.CategoryID);
+    const nsRows = nsValid.map((l, i) => {
+      const category = categories.find(c => c.CategoryID === l.CategoryID);
+      return `<tr>
+        <td>${validLines.length + i + 1}</td>
+        <td>Non-stock</td>
+        <td>${escapeHtml((category ? category.Name : l.CategoryName || l.CategoryID) + ' — ' + (l.Description || ''))}</td>
+        <td></td><td></td>
+        <td style="text-align:right">${formatMoney(num(l.Quantity))}</td>
+        <td style="text-align:right">${formatMoney(num(l.UnitCost))}</td>
+        <td style="text-align:right">${formatMoney(num(l.Quantity) * num(l.UnitCost))}</td>
+      </tr>`;
+    }).join('');
     const grandTotal = validLines.reduce((sum, l) => {
       const qty = Number(l.EnteredQuantity) || 0;
       const unitCost = Number(l.UnitCost) || 0;
       return sum + (l.TotalValue != null ? l.TotalValue : qty * unitCost);
-    }, 0);
+    }, 0) + nsValid.reduce((sum, l) => sum + num(l.Quantity) * num(l.UnitCost), 0);
 
     container.innerHTML = `
       <h2 style="text-align:center; font-size:16px; font-weight:bold; text-decoration:underline; margin:8px 0 16px;">GOODS RECEIPT NOTE</h2>
@@ -1271,7 +1415,7 @@
           <th>#</th><th>Item Code</th><th>Item Name</th><th>Warehouse</th><th>UOM</th>
           <th style="text-align:right">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th>
         </tr></thead>
-        <tbody>${rows || '<tr><td colspan="8" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
+        <tbody>${(rows + nsRows) || '<tr><td colspan="8" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
         <tfoot><tr><td colspan="7" style="text-align:right; font-weight:bold;">Grand Total</td><td style="text-align:right; font-weight:bold;">${formatMoney(grandTotal)}</td></tr></tfoot>
       </table>
       <div style="display:flex; justify-content:space-between; margin-top:60px; font-size:11px;">
@@ -1363,6 +1507,7 @@
     document.getElementById('grn-reverse-btn').classList.toggle('hidden', !posted || Boolean(currentGrn && currentGrn.ReversedByGRN) || !canPost);
 
     renderGrid();
+    renderNonStock();
     isDirty = false;
   }
 
@@ -1418,6 +1563,11 @@
         BatchNumber: l.BatchNumber, ExpiryDate: l.ExpiryDate,
         CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID,
         SourcePOID: l.SourcePOID || '', SourcePOLineID: l.SourcePOLineID || ''
+      })),
+      NonStockLines: nonStockLines.map(l => ({
+        CategoryID: l.CategoryID, Description: l.Description, Quantity: l.Quantity, UnitCost: l.UnitCost,
+        CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID,
+        SourcePOID: l.SourcePOID || '', SourcePOLineID: l.SourcePOLineID || ''
       }))
     };
   }
@@ -1429,6 +1579,7 @@
     if (!document.getElementById('grn-form-vendor').value) { error.textContent = 'Select a Vendor for this transaction.'; error.classList.remove('hidden'); return; }
     if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allBatchNumbersFilled()) { error.textContent = 'Batch-tracked items require a batch number.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allNonStockLinesComplete()) { error.textContent = 'Every non-stock line needs a description.'; error.classList.remove('hidden'); return; }
     const btn = document.getElementById('grn-save-draft-btn');
     btn.disabled = true; const original = btn.textContent; btn.textContent = 'Saving...';
     rpc
@@ -1451,6 +1602,7 @@
     if (!document.getElementById('grn-form-vendor').value) { error.textContent = 'Select a Vendor for this transaction.'; error.classList.remove('hidden'); return; }
     if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an item needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
     if (!allBatchNumbersFilled()) { error.textContent = 'Batch-tracked items require a batch number.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allNonStockLinesComplete()) { error.textContent = 'Every non-stock line needs a description.'; error.classList.remove('hidden'); return; }
 
     showConfirm('Post this GRN?\n\nOnce posted it becomes permanent, updates stock on hand, and can only be undone with a reversal.', () => {
       const btn = document.getElementById('grn-post-btn');
@@ -1553,6 +1705,11 @@
       .getActiveUOMs();
 
     rpc
+      .withSuccessHandler(result => { categories = result || []; if (!document.getElementById('grn-entry-view').classList.contains('hidden')) { renderNonStock(); renderPOPicker(); } })
+      .withFailureHandler(err => console.error(err))
+      .getActiveRequisitionCategories();
+
+    rpc
       .withSuccessHandler(result => {
         companies = result || [];
         // Reference code shown alongside the name so two companies that
@@ -1637,6 +1794,12 @@
       gridLines.push(blankLine());
       renderGrid();
     });
+    document.getElementById('grn-add-nonstock-btn').addEventListener('click', () => {
+      if (!document.getElementById('grn-form-company').value) { alert('Select a Company first — categories are filtered to what that company can use.'); return; }
+      isDirty = true;
+      nonStockLines.push(blankNonStockLine());
+      renderNonStock();
+    });
     document.getElementById('grn-paste-btn').addEventListener('click', handlePasteButton);
     document.getElementById('grn-copy-btn').addEventListener('click', handleCopyButton);
     document.getElementById('grn-grid-table').addEventListener('paste', handleGridPaste, true);
@@ -1651,13 +1814,15 @@
       const headerValue = currentHeaderCostCenter();
       if (!headerValue) return;
       gridLines.forEach(line => { if (!line.CostCenterID) line.CostCenterID = headerValue; });
-      renderGrid();
+      nonStockLines.forEach(line => { if (!line.CostCenterID) line.CostCenterID = headerValue; });
+      renderGrid(); renderNonStock();
     });
     document.getElementById('grn-form-profitcenter').addEventListener('change', () => {
       const headerValue = currentHeaderProfitCenter();
       if (!headerValue) return;
       gridLines.forEach(line => { if (!line.ProfitCenterID) line.ProfitCenterID = headerValue; });
-      renderGrid();
+      nonStockLines.forEach(line => { if (!line.ProfitCenterID) line.ProfitCenterID = headerValue; });
+      renderGrid(); renderNonStock();
     });
     document.getElementById('grn-delete-btn').addEventListener('click', deleteCurrentDraft);
     document.getElementById('grn-approve-btn').addEventListener('click', () => decide('Approved'));
@@ -1665,6 +1830,7 @@
     document.getElementById('grn-duplicate-btn').addEventListener('click', () => duplicateEntry(currentGrn.GRNID));
     document.getElementById('grn-reverse-btn').addEventListener('click', reverseCurrentEntry);
     document.getElementById('grn-form-company').addEventListener('change', updateCompanyRequiredNote);
+    document.getElementById('grn-form-company').addEventListener('change', () => renderNonStock());
     document.getElementById('grn-form-company').addEventListener('change', updatePrintHeader);
     document.getElementById('grn-form-company').addEventListener('change', fetchEligiblePOsForGRN);
     document.getElementById('grn-form-vendor').addEventListener('change', fetchEligiblePOsForGRN);

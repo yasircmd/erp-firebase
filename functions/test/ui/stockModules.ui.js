@@ -172,8 +172,11 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
-  // 5. GRN PO picker: stock lines selectable, non-stock (category) lines greyed out.
-  await check('GRN: PO picker — stock line fills item code, non-stock line is disabled', async () => {
+  // 5. GRN PO picker: stock lines fill the stock grid; non-stock (category)
+  // lines are selectable too since 2026-09-28 and fill the Non-stock grid,
+  // category and price locked (docs/modules/GRN_NON_STOCK.md).
+  await rtdb.ref('requisitionCategories/RCAT-X').set({ Name: 'Consulting', Type: 'DirectExpense', GLAccountID: 'A-CONS', Status: 'Active', CompanyID: 'C1' });
+  await check('GRN: PO picker — stock line fills item code, non-stock line fills the non-stock grid', async () => {
     await rtdb.ref('purchaseOrders/PO-UITEST').set({
       PONumber: 'PO-UI-1', Status: 'Approved', CompanyID: 'C1', VendorID: 'V1',
       Lines: [
@@ -186,12 +189,20 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.selectOption('#grn-form-company', 'C1');
     await page.selectOption('#grn-form-vendor', 'V1');
     await page.waitForSelector('#grn-po-picker-section:not(.hidden) .grn-po-line-checkbox', { timeout: 15000 });
-    assert.equal(await page.locator('.grn-po-line-checkbox').count(), 1, 'only the stock line is selectable');
-    assert.equal(await page.locator('.grn-po-line-nonstock').count(), 1);
-    assert.equal(await page.locator('.grn-po-line-nonstock').isDisabled(), true);
-    assert.match(await page.locator('#grn-po-picker-list').textContent(), /non-stock line – not received via GRN/);
-    await page.locator('.grn-po-line-checkbox').check();
+    assert.equal(await page.locator('.grn-po-line-checkbox').count(), 2, 'both lines selectable');
+    assert.match(await page.locator('#grn-po-picker-list').textContent(), /Non-stock\s+Consulting/);
+    await page.locator('.grn-po-line-checkbox[data-key="PO-UITEST|POL-0"]').check();
     assert.equal(await page.inputValue('input[data-field="item"][data-row="0"]'), 'RM-001');
+    await page.locator('.grn-po-line-checkbox[data-key="PO-UITEST|POL-1"]').check();
+    const ns = page.locator('#grn-ns-body select[data-ns-field="CategoryID"]');
+    assert.equal(await ns.count(), 1);
+    assert.equal(await ns.inputValue(), 'RCAT-X');
+    assert.equal(await ns.isDisabled(), true, 'category locked to the PO');
+    assert.equal(await page.inputValue('#grn-ns-body input[data-ns-field="UnitCost"]'), '500');
+    assert.equal(await page.isDisabled('#grn-ns-body input[data-ns-field="UnitCost"]'), true, 'price locked to the PO');
+    assert.equal(await page.textContent('#grn-grand-total'), '560.00');
+    await page.locator('.grn-po-line-checkbox[data-key="PO-UITEST|POL-1"]').uncheck();
+    assert.equal(await ns.count(), 0, 'unticking removes it');
     assert.deepEqual(await rpcFailures(page), []);
     await rtdb.ref('purchaseOrders/PO-UITEST').set(null);
     await page.close();
@@ -240,6 +251,41 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(await rpcFailures(page), []);
     assert.deepEqual(page.__errors, []);
     await rtdb.ref('purchaseOrders/PO-UITEST2').set(null);
+    await page.close();
+  });
+
+  // 7. A direct non-stock line entered and posted from the screen, then
+  // shown read-only.
+  await check('GRN: direct non-stock line — add, post, then read-only', async () => {
+    const page = await open('GRN', 'u-admin');
+    await page.click('#grn-new-btn');
+    await page.selectOption('#grn-form-company', 'C1');
+    await page.selectOption('#grn-form-vendor', 'V1');
+    await page.fill('#grn-form-description', 'UI non-stock receipt');
+    await page.selectOption('#grn-form-costcenter', 'CC1');
+    await page.click('#grn-add-nonstock-btn');
+    await page.selectOption('#grn-ns-body select[data-ns-field="CategoryID"]', 'RCAT-X');
+    await page.fill('#grn-ns-body input[data-ns-field="Quantity"]', '2');
+    await page.fill('#grn-ns-body input[data-ns-field="UnitCost"]', '75');
+    assert.equal(await page.textContent('#grn-ns-total'), '150.00');
+    assert.equal(await page.inputValue('#grn-ns-body select[data-ns-field="CostCenterID"]'), 'CC1', 'header cost center fills the line');
+    await page.click('#grn-post-btn');
+    await page.click('#grn-confirm-ok');
+    await page.waitForSelector('#grn-list-view:not(.hidden)', { timeout: 20000 });
+    assert.deepEqual(await rpcFailures(page), []);
+    const all = (await rtdb.ref('stock/transactions').get()).val();
+    const grn = Object.values(all).find(t => t.Description === 'UI non-stock receipt');
+    assert.equal(grn.Status, 'Posted');
+    assert.deepEqual(grn.NonStockLines.map(l => [l.CategoryID, l.Quantity, l.UnitCost, l.AccountCode, l.CostCenterID]), [['RCAT-X', 2, 75, '5100', 'CC1']]);
+
+    await page.fill('#grn-search-input', 'UI non-stock receipt');
+    await page.locator('#grn-table-body .grn-open').first().click();
+    await page.waitForSelector('#grn-entry-view:not(.hidden)', { timeout: 15000 });
+    await page.waitForLoadState('networkidle');
+    assert.equal(await page.isVisible('#grn-add-nonstock-btn'), false);
+    assert.equal(await page.isDisabled('#grn-ns-body input[data-ns-field="Quantity"]'), true);
+    assert.equal(await page.textContent('#grn-grand-total'), '150.00');
+    assert.deepEqual(page.__errors, []);
     await page.close();
   });
 

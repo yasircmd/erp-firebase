@@ -1,6 +1,7 @@
 # Non-stock lines in GRN
 
-Status: **design, awaiting the owner's agreement** (2026-09-28). No code yet.
+Status: **built and tested; not yet deployed** (2026-09-28). The owner
+agreed the design as written, including the three points below.
 
 ## The request
 
@@ -84,7 +85,7 @@ A non-stock line holds:
 - **Add non-stock line** adds a direct line to that grid.
 - The total and the print include both grids.
 
-## Points for the owner to confirm
+## Points the owner confirmed (2026-09-28, as recommended)
 
 1. **Fixed Asset categories.** Fixed Assets capitalizes from open items on
    the **FA Clearing Account**. A GRN for a Fixed Asset category reaches
@@ -122,3 +123,50 @@ A non-stock line holds:
   - a direct non-stock line;
   - saving and posting from the screen.
 - A negative control for each.
+
+## As built (2026-09-28)
+
+- **Server:** `functions/src/grn.js`:
+  - save validates `NonStockLines`;
+  - post and approval count them in the amount and post Dr the category
+    account;
+  - reversal mirrors them;
+  - PO received quantities move for non-stock PO lines too.
+  - A non-stock-only GRN skips the stock movement.
+- **Category account check:** the category's account is re-checked when
+  posting. A category changed to an invalid account since saving is
+  refused, and nothing is posted.
+- **Vendor Invoice:** two documented patches
+  (`grn-non-stock-invoice-eligible-amount`,
+  `grn-non-stock-invoice-draft-amount`); `codegs.js` regenerated.
+- **Fixed Assets** (`fixedAssetsPostings.js`): a GRN clearing item, and
+  a capitalization drawn from it, carry the GRN's vendor as supplier.
+- **Screen** (`screens/GRN.html`):
+  - PO category lines are selectable and fill the Non-stock grid, with
+    category and price locked.
+  - **Add Non-stock Line** adds a direct line.
+  - Header cost center and profit center fill lines that have none.
+  - Totals, the list total and the print include non-stock.
+  - A posted GRN shows its non-stock lines read-only.
+- **Fixed Asset categories and the clearing account.** Procurement Setup
+  requires a Fixed Asset category's account to be of type **Asset**. For
+  such a GRN to reach Fixed Assets, the company's Fixed Asset Clearing
+  Account must therefore be an Asset-type account, and the category must
+  point at it. A Liability-type clearing account can't be chosen for a
+  category.
+- **Tests:**
+  - `functions/test/emulator/grnNonStock.emulator.test.js`, 7/7:
+    - mixed GRN, and the PO price winning;
+    - non-stock-only direct GRN;
+    - Vendor Invoice amount and posting, and Purchase Return offering
+      stock lines only;
+    - approval threshold reached only through non-stock; rejection and
+      correction; reversal and the PO rollback;
+    - Recalculate Stock Ledger;
+    - Fixed Asset clearing item with the vendor;
+    - refusals.
+  - `functions/test/ui/stockModules.ui.js` checks 5 and 7: PO category
+    line into the non-stock grid, locked; a direct line posted from the
+    screen, then read-only.
+- **Deploy:** the Deploy workflow's "functions set, then screens", set
+  `grn-non-stock` (11 functions).

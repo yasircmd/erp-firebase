@@ -3,7 +3,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
-const { userCanAccessCompany, writeStockGlEntry } = require('./glWriting');
+const { userCanAccessCompany, writeStockGlEntry, COST_CENTER_REQUIRED_TYPES } = require('./glWriting');
 const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
 const { beginCommitAttempt, abandonCommitAttempt, finalizeCommitAttempt } = require('./commitAttempt');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
@@ -67,6 +67,30 @@ async function rollbackPOLineReceivedQuantity(poId, poLineId, reversedQty) {
     ? Object.assign({}, l, { ReceivedQuantity: Math.max(0, Number(l.ReceivedQuantity || 0) - Number(reversedQty || 0)) })
     : l);
   await rtdb.ref('purchaseOrders/' + poId).update({ Lines: lines });
+}
+
+// Non-stock lines (owner, 2026-09-28; docs/modules/GRN_NON_STOCK.md):
+// a category (Procurement Setup) instead of an item, no warehouse, no
+// stock ledger. Posted Dr the category's GL account · Cr GRN Clearing.
+// Kept in their own NonStockLines list, not in Lines: Recalculate Stock
+// Ledger, the stock reports, the reversal's stock movement and Purchase
+// Return all read every GRN Lines entry as stock.
+const round2 = n => Math.round(n * 100) / 100;
+const lineValue = l => (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0);
+const grnAmount = grn => (grn.Lines || []).reduce((sum, l) => sum + lineValue(l), 0) + (grn.NonStockLines || []).reduce((sum, l) => sum + lineValue(l), 0);
+
+// The category's GL account, checked as the GL entry will check it, so a
+// problem shows at save rather than after an approval.
+function resolveCategoryAccount(category, coaData, companyId, costCenterId, label) {
+  const account = coaData[category.GLAccountID];
+  if (!account || account.Status !== 'Active' || account.IsPostable !== true) {
+    throw new HttpsError('failed-precondition', label + ': the category ' + (category.Name || '') + ' has no valid GL account — check it in Procurement Setup.');
+  }
+  if (account.CompanyID && account.CompanyID !== companyId) throw new HttpsError('failed-precondition', label + ': the category\'s GL account belongs to a different Company.');
+  if (COST_CENTER_REQUIRED_TYPES.includes(account.AccountType) && !costCenterId) {
+    throw new HttpsError('invalid-argument', label + ': select a Cost Center (' + (category.Name || 'this category') + ' posts to an ' + account.AccountType + ' account).');
+  }
+  return account;
 }
 
 // Ported from getEligibleApprovedPOsForGRN.
@@ -214,7 +238,58 @@ exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
     });
   }
 
-  if (!lines.length) throw new HttpsError('invalid-argument', 'Enter at least one line.');
+  const [categoriesSnap, coaSnap] = await Promise.all([rtdb.ref('requisitionCategories').get(), rtdb.ref('coa').get()]);
+  const categoriesData = categoriesSnap.val() || {};
+  const coaData = coaSnap.val() || {};
+  const nonStockLines = [];
+  const rawNonStock = grnData.NonStockLines || [];
+  for (let idx = 0; idx < rawNonStock.length; idx++) {
+    const line = rawNonStock[idx];
+    const categoryId = String(line.CategoryID || '').trim();
+    if (!categoryId) continue; // blank row
+    const label = 'Non-stock line ' + (idx + 1);
+    const category = categoriesData[categoryId];
+    if (!category || category.Status !== 'Active') throw new HttpsError('invalid-argument', label + ': category not found or inactive.');
+    if (category.CompanyID && category.CompanyID !== companyId) throw new HttpsError('invalid-argument', label + ': the category belongs to a different Company.');
+    const quantity = Number(line.Quantity);
+    if (!(quantity > 0)) throw new HttpsError('invalid-argument', label + ': enter a quantity greater than zero.');
+
+    // Same rules as a PO-sourced stock line: approved PO of this company
+    // and vendor, the line's own category, and its price.
+    const sourcePOId = String(line.SourcePOID || '').trim();
+    const sourcePOLineId = String(line.SourcePOLineID || '').trim();
+    let unitCost;
+    if (sourcePOId && sourcePOLineId) {
+      const sourcePO = await loadSourcePO(sourcePOId);
+      if (!sourcePO || sourcePO.Status !== 'Approved') throw new HttpsError('invalid-argument', label + ': the referenced Purchase Order is no longer approved and available for receipt.');
+      if (sourcePO.CompanyID !== companyId) throw new HttpsError('invalid-argument', label + ': the referenced Purchase Order belongs to a different Company.');
+      if (sourcePO.VendorID !== vendorId) throw new HttpsError('invalid-argument', label + ': the referenced Purchase Order belongs to a different Vendor than this GRN — a GRN can only draw from one Vendor\'s Purchase Orders.');
+      const sourcePOLine = (sourcePO.Lines || []).find(l => l.LineID === sourcePOLineId);
+      if (!sourcePOLine) throw new HttpsError('invalid-argument', label + ': the referenced Purchase Order line was not found.');
+      if (sourcePOLine.CategoryID !== categoryId) throw new HttpsError('invalid-argument', label + ': category does not match the referenced Purchase Order line.');
+      unitCost = Number(sourcePOLine.UnitPrice) || 0;
+    } else {
+      unitCost = Number(line.UnitCost);
+    }
+    if (!(unitCost > 0)) throw new HttpsError('invalid-argument', label + ': enter a unit cost greater than zero.');
+    const lineDescription = String(line.Description || '').trim();
+    if (!lineDescription) throw new HttpsError('invalid-argument', label + ': description is required.');
+    const lineCostCenter = String(line.CostCenterID || '').trim() || costCenterId;
+    resolveCategoryAccount(category, coaData, companyId, lineCostCenter, label);
+
+    nonStockLines.push({
+      LineNo: nonStockLines.length + 1,
+      CategoryID: categoryId, CategoryName: category.Name || '', CategoryType: category.Type || '',
+      Description: lineDescription,
+      Quantity: Math.round(quantity * 1e6) / 1e6,
+      UnitCost: Math.round(unitCost * 10000) / 10000,
+      CostCenterID: lineCostCenter,
+      ProfitCenterID: String(line.ProfitCenterID || '').trim() || profitCenterId,
+      SourcePOID: sourcePOId, SourcePOLineID: sourcePOLineId
+    });
+  }
+
+  if (!lines.length && !nonStockLines.length) throw new HttpsError('invalid-argument', 'Enter at least one line.');
 
   const now = new Date().toISOString();
   const actor = user.profile.username || user.uid;
@@ -224,7 +299,7 @@ exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
     TransactionDate: transactionDate, Description: description, Reference: reference,
     CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
     CostCenterID: costCenterId, ProfitCenterID: profitCenterId,
-    VendorID: vendorId, Lines: lines, Status: 'Draft', UpdatedAt: now, UpdatedBy: actor
+    VendorID: vendorId, Lines: lines, NonStockLines: nonStockLines, Status: 'Draft', UpdatedAt: now, UpdatedBy: actor
   };
 
   if (grnId) {
@@ -253,7 +328,7 @@ exports.postGrn = onCallWithMessages(onCallOptions, async (request) => {
     if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
     await requirePostAccess('GRN', user.profile.role);
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected GRNs can be posted.');
-    if (!existing.Lines || !existing.Lines.length) throw new HttpsError('failed-precondition', 'This GRN has no lines.');
+    if (!(existing.Lines || []).length && !(existing.NonStockLines || []).length) throw new HttpsError('failed-precondition', 'This GRN has no lines.');
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
@@ -263,7 +338,7 @@ exports.postGrn = onCallWithMessages(onCallOptions, async (request) => {
     // computeStockMovement, which also reads the live stock ledger and
     // validates scenarios this always-inbound module never uses. Keeps
     // checking the gate completely free of side effects.
-    const previewAmount = existing.Lines.reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0);
+    const previewAmount = grnAmount(existing);
 
     const scopeKey = await resolveApprovalScopeKeyForDocument('GRN', {
       CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
@@ -296,10 +371,25 @@ async function commitGrnPosting(user, existing, grnId) {
   if (!offsetAccount || !offsetAccount.IsPostable) throw new Error('This company\'s configured GRN Clearing Account is no longer valid — check it in Company Master Data.');
 
   // Every GRN line is inbound.
-  const movementLines = existing.Lines.map(l => Object.assign({ Direction: 'In' }, l));
-  const movement = await computeStockMovement(itemsData, coaData, movementLines);
+  const movementLines = (existing.Lines || []).map(l => Object.assign({ Direction: 'In' }, l));
+  // A non-stock-only GRN has no stock movement (computeStockMovement refuses an empty list).
+  const movement = movementLines.length ? await computeStockMovement(itemsData, coaData, movementLines) : { ledgerUpdates: {}, inventoryGlLines: [] };
 
-  const totalValue = movement.inventoryGlLines.reduce((sum, l) => sum + l.Debit, 0);
+  // Non-stock: Dr the category's account, as it is now (re-checked here,
+  // since the category may have changed since the GRN was saved).
+  const categoriesData = (await rtdb.ref('requisitionCategories').get()).val() || {};
+  const nonStockLines = (existing.NonStockLines || []).map((l, idx) => {
+    const category = categoriesData[l.CategoryID];
+    if (!category) throw new Error('Non-stock line ' + (idx + 1) + ': category not found.');
+    const account = resolveCategoryAccount(category, coaData, existing.CompanyID, l.CostCenterID, 'Non-stock line ' + (idx + 1));
+    return Object.assign({}, l, { AccountID: category.GLAccountID, AccountCode: account.AccountCode });
+  });
+  const nonStockGlLines = nonStockLines.map(l => ({
+    AccountCode: l.AccountCode, Debit: round2(lineValue(l)), Credit: 0,
+    Description: l.Description, CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+  }));
+
+  const totalValue = movement.inventoryGlLines.reduce((sum, l) => sum + l.Debit, 0) + nonStockGlLines.reduce((sum, l) => sum + l.Debit, 0);
   const offsetLine = {
     AccountCode: offsetAccount.AccountCode, Debit: 0, Credit: Math.round(totalValue * 100) / 100,
     Description: existing.Description, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || ''
@@ -311,7 +401,7 @@ async function commitGrnPosting(user, existing, grnId) {
   let glResult;
   try {
     glResult = await writeStockGlEntry(user, 'GRN', existing.TransactionDate, existing.Description, existing.Reference,
-      movement.inventoryGlLines.concat([offsetLine]),
+      movement.inventoryGlLines.concat(nonStockGlLines, [offsetLine]),
       { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
       { CommitAttemptID: attemptId, SourceTransactionID: grnId });
   } catch (err) {
@@ -321,12 +411,12 @@ async function commitGrnPosting(user, existing, grnId) {
 
   // A GL entry genuinely exists from here on — no more reverting.
   await commitStockLedgerUpdates(movement.ledgerUpdates);
-  await finalizeCommitAttempt(grnId, glResult, { Lines: movementLines }, actor);
+  await finalizeCommitAttempt(grnId, glResult, { Lines: movementLines, NonStockLines: nonStockLines }, actor);
 
   // PO received-quantity progress only ever updates once the
   // transaction is genuinely, finally committed. Direct (non-PO)
   // lines simply contribute nothing.
-  for (const l of movementLines) {
+  for (const l of movementLines.concat(nonStockLines)) {
     if (l.SourcePOID && l.SourcePOLineID) {
       await updatePOLineReceivedQuantity(l.SourcePOID, l.SourcePOLineID, l.Quantity);
     }
@@ -442,10 +532,16 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
     const offsetAccount = coaData[clearingAccountId];
     if (!offsetAccount || !offsetAccount.IsPostable) throw new Error('This company\'s configured GRN Clearing Account is no longer valid — check it in Company Master Data.');
 
-    const movementLines = existing.Lines.map(l => Object.assign({}, l, { Direction: 'Out' }));
-    const movement = await computeStockMovement(itemsData, coaData, movementLines);
+    const movementLines = (existing.Lines || []).map(l => Object.assign({}, l, { Direction: 'Out' }));
+    const movement = movementLines.length ? await computeStockMovement(itemsData, coaData, movementLines) : { ledgerUpdates: {}, inventoryGlLines: [] };
+    // Non-stock: Cr the same account the GRN debited.
+    const nonStockLines = existing.NonStockLines || [];
+    const nonStockGlLines = nonStockLines.map(l => ({
+      AccountCode: l.AccountCode, Debit: 0, Credit: round2(lineValue(l)),
+      Description: 'Reversal of ' + existing.TransactionNumber + ' — ' + l.Description, CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+    }));
 
-    const totalValue = movement.inventoryGlLines.reduce((sum, l) => sum + l.Credit, 0);
+    const totalValue = movement.inventoryGlLines.reduce((sum, l) => sum + l.Credit, 0) + nonStockGlLines.reduce((sum, l) => sum + l.Credit, 0);
     const offsetLine = {
       AccountCode: offsetAccount.AccountCode, Debit: Math.round(totalValue * 100) / 100, Credit: 0,
       Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || ''
@@ -462,7 +558,7 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
       Reference: existing.TransactionNumber,
       CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
       CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID,
-      Lines: movementLines,
+      Lines: movementLines, NonStockLines: nonStockLines,
       CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
       ReversalOfGRN: grnId, ReversedByGRN: '', VendorID: existing.VendorID || ''
     });
@@ -471,7 +567,7 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
     try {
       glResult = await writeStockGlEntry(user, 'GRN', date,
         'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description, existing.TransactionNumber,
-        movement.inventoryGlLines.concat([offsetLine]),
+        movement.inventoryGlLines.concat(nonStockGlLines, [offsetLine]),
         { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
         { CommitAttemptID: attemptId, SourceTransactionID: newId });
     } catch (err) {
@@ -486,11 +582,11 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
     // reversal can never be triggered even if something fails between
     // these two writes.
     await rtdb.ref('stock/transactions/' + grnId).update({ ReversedByGRN: newId });
-    await finalizeCommitAttempt(newId, glResult, { Lines: movementLines }, actor);
+    await finalizeCommitAttempt(newId, glResult, { Lines: movementLines, NonStockLines: nonStockLines }, actor);
 
     // Roll back exactly this GRN's own contribution to each PO line it
     // touched.
-    for (const l of movementLines) {
+    for (const l of movementLines.concat(nonStockLines)) {
       if (l.SourcePOID && l.SourcePOLineID) {
         await rollbackPOLineReceivedQuantity(l.SourcePOID, l.SourcePOLineID, l.Quantity);
       }
