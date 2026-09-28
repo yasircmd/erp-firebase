@@ -55,7 +55,8 @@ const APPROVAL_MODULE_STORAGE_ = {
   CUSTOMERINVOICE: { type: 'rtdb', path: 'customerInvoices' },
   PURCHASEREQUISITION: { type: 'rtdb', path: 'purchaseRequisitions' },
   INVENTORYPURCHASEREQUISITION: { type: 'rtdb', path: 'inventoryPurchaseRequisitions' },
-  JOBORDERREQUEST: { type: 'rtdb', path: 'jobOrderBatches' }
+  // One approval per Job Order LINE (acceptance / stop, docs/modules/JOB_ORDER_ACCEPTANCE.md).
+  JOBORDERREQUEST: { type: 'rtdb', path: 'jobOrderLines' }
 };
 
 module.exports = { FIRESTORE_JOURNAL_ENTRIES_COLLECTION, APPROVAL_GATEABLE_MODULES, APPROVAL_MODULE_STORAGE_ };

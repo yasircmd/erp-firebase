@@ -8955,6 +8955,54 @@ async function rollbackJobOrderLineAfterReversal_(idToken, lineId, reversedProdu
   }
 }
 
+// [PORT CHANGE job-order-approval] Job Order acceptance / stop through
+// Approval Configuration, levels in order (docs/modules/JOB_ORDER_ACCEPTANCE.md).
+// One approval record per line (DocumentID = the line's own ID).
+async function beginJobOrderLineApproval_(idToken, batch, lineId, documentNumber, createdByUid) {
+  const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, 'JOBORDERREQUEST', {
+    CompanyID: batch.CompanyID, DivisionID: batch.DivisionID, BranchID: batch.BranchID, CostCenterID: batch.CostCenterID
+  });
+  const approval = await beginApprovalInstance_(idToken, 'JOBORDERREQUEST', lineId, documentNumber, scopeKey, 0, createdByUid);
+  return approval.required ? approval.instanceId : '';
+}
+
+// The lowest level with no decision yet on a Pending record: levels act in order.
+function jobOrderCurrentLevel_(instance) {
+  if (!instance || instance.Status !== 'Pending') return null;
+  const decided = (instance.Decisions || []).map(d => d.LevelNumber);
+  return (instance.RequiredLevels || []).slice().sort((a, b) => a.LevelNumber - b.LevelNumber)
+    .find(l => decided.indexOf(l.LevelNumber) === -1) || null;
+}
+
+async function jobOrderPendingApproval_(idToken, line) {
+  if (!line.ApprovalInstanceID) return null;
+  const instance = await firebaseDbRequest_('approvalInstances/' + line.ApprovalInstanceID, 'get', null, idToken);
+  return instance && instance.Status === 'Pending' ? instance : null;
+}
+
+// Records the current level's decision; only that level's approver may act.
+// Returns the record's new status: 'Pending' (more levels), 'Approved' or 'Rejected'.
+async function decideJobOrderLineLevel_(idToken, user, line, decision, reason) {
+  const level = jobOrderCurrentLevel_(await jobOrderPendingApproval_(idToken, line));
+  if (!level) throw new Error('This line has no approval waiting.');
+  if (level.ApproverUserID !== user.uid) {
+    throw new Error('This line is waiting on approval level ' + level.LevelNumber + '. Only its assigned approver can act on it now.');
+  }
+  const result = await recordApprovalDecision(idToken, line.ApprovalInstanceID, level.LevelNumber, decision, reason);
+  if (!result.success) throw new Error(result.error);
+  return result.status;
+}
+
+// For the screen: which level a line waits on, who that is, and whether it's the caller.
+function annotateJobOrderApproval_(line, actorUid, instances, usersData) {
+  const level = line.ApprovalInstanceID ? jobOrderCurrentLevel_(instances[line.ApprovalInstanceID]) : null;
+  const approver = level ? usersData[level.ApproverUserID] : null;
+  line.ApprovalPending = Boolean(level);
+  line.AwaitingLevel = level ? level.LevelNumber : null;
+  line.AwaitingApproverName = level ? ((approver && (approver.fullName || approver.username)) || level.ApproverUserID) : '';
+  line.CanActOnApproval = Boolean(level) && level.ApproverUserID === actorUid;
+}
+
 async function linesForBatch_(idToken, batchId) {
   const data = (await firebaseDbRequest_('jobOrderLines', 'get', null, idToken)) || {};
   return Object.keys(data)
@@ -9011,6 +9059,10 @@ async function getJobOrderLinesFlat(idToken, limit) {
     }))
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
   const capped = limit ? all.slice(0, limit) : all;
+  // [PORT CHANGE job-order-approval] which level each line waits on, and whether the caller can act.
+  const approvalInstances = (await firebaseDbRequest_('approvalInstances', 'get', null, idToken)) || {};
+  const approvalUsers = (await firebaseDbRequest_('users', 'get', null, idToken)) || {};
+  capped.forEach(l => annotateJobOrderApproval_(l, user.uid, approvalInstances, approvalUsers));
   return { entries: capped, total: all.length };
 }
 
@@ -9144,9 +9196,11 @@ async function submitJobOrderBatch(idToken, batchId) {
 
     await seq.forEach(lines, async line => {
       const subJONumber = batchNumber + '/' + String(line.LineNumber).padStart(2, '0');
+      // [PORT CHANGE job-order-approval] a line awaiting acceptance starts its approval (if configured).
+      const approvalId = startingStatus === 'Pending Acceptance' ? await beginJobOrderLineApproval_(idToken, existing, line.LineID, subJONumber, user.uid) : '';
       await firebaseDbRequest_('jobOrderLines/' + line.LineID, 'patch', {
         SubJONumber: subJONumber, Status: startingStatus, SubmittedAt: now, SubmittedBy: actor,
-        UpdatedAt: now, UpdatedBy: actor
+        ApprovalInstanceID: approvalId, UpdatedAt: now, UpdatedBy: actor
       }, idToken);
     });
 
@@ -9167,6 +9221,15 @@ async function acceptJobOrderLine(idToken, lineId) {
     const existing = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
     if (!existing) throw new Error('Job Order line not found.');
     if (existing.Status !== 'Pending Acceptance') throw new Error('Only a line Pending Acceptance can be accepted.');
+    // [PORT CHANGE job-order-approval] with an approval waiting, only the current level's approver accepts;
+    // the line is Accepted after the last level.
+    if (await jobOrderPendingApproval_(idToken, existing)) {
+      const approvalStatus = await decideJobOrderLineLevel_(idToken, user, existing, 'Approved', '');
+      if (approvalStatus !== 'Approved') {
+        await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', { UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid }, idToken);
+        return { success: true, status: 'Pending Acceptance' };
+      }
+    }
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
     await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
@@ -9193,6 +9256,9 @@ async function requestJobOrderLineAmendment(idToken, lineId, proposedQuantity, p
     if (!noteText) throw new Error('Explain what you\'d like changed.');
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
+    // [PORT CHANGE job-order-approval] with an approval waiting, only the current level's approver may ask;
+    // it ends the chain as a rejection, so the submitter sees it in Home tasks.
+    if (await jobOrderPendingApproval_(idToken, existing)) await decideJobOrderLineLevel_(idToken, user, existing, 'Rejected', noteText);
     await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
       Status: 'Amendment Requested', AmendmentProposedQuantity: qty, AmendmentProposedDate: proposedDate || null,
       AmendmentNote: noteText, UpdatedAt: now, UpdatedBy: actor
@@ -9216,8 +9282,11 @@ async function reviseAndResubmitJobOrderLine(idToken, lineId, revisedQuantity, r
     if (!date) throw new Error('Revised Target Date is required.');
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
+    // [PORT CHANGE job-order-approval] resubmitting starts a fresh approval from level 1 (if configured).
+    const resubmitBatch = (await firebaseDbRequest_('jobOrderBatches/' + existing.ParentBatchID, 'get', null, idToken)) || {};
+    const resubmitApprovalId = await beginJobOrderLineApproval_(idToken, resubmitBatch, lineId, existing.SubJONumber || '', user.uid);
     await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
-      OrderedQuantity: qty, TargetDate: date, Status: 'Pending Acceptance',
+      OrderedQuantity: qty, TargetDate: date, Status: 'Pending Acceptance', ApprovalInstanceID: resubmitApprovalId,
       AmendmentProposedQuantity: null, AmendmentProposedDate: null, AmendmentNote: null,
       UpdatedAt: now, UpdatedBy: actor
     }, idToken);
@@ -9235,6 +9304,13 @@ async function withdrawJobOrderLine(idToken, lineId) {
     if (!existing) throw new Error('Job Order line not found.');
     if (existing.Status !== 'Pending Acceptance' && existing.Status !== 'Amendment Requested') {
       throw new Error('Only a not-yet-accepted line can be withdrawn — once Accepted, request a Stop instead.');
+    }
+    // [PORT CHANGE job-order-approval] close its approval, so no Home task is left behind.
+    if (existing.ApprovalInstanceID) {
+      const withdrawnApproval = await firebaseDbRequest_('approvalInstances/' + existing.ApprovalInstanceID, 'get', null, idToken);
+      if (withdrawnApproval && (withdrawnApproval.Status === 'Pending' || withdrawnApproval.Status === 'Rejected')) {
+        await firebaseDbRequest_('approvalInstances/' + existing.ApprovalInstanceID, 'patch', { Status: 'Withdrawn', UpdatedAt: new Date().toISOString() }, idToken);
+      }
     }
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
@@ -9260,8 +9336,12 @@ async function requestJobOrderLineStop(idToken, lineId, note) {
     }
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
+    // [PORT CHANGE job-order-approval] the stop goes through the same approvers (if configured);
+    // otherwise the line keeps its earlier, finished approval and the stop works as before.
+    const stopApprovalId = await beginJobOrderLineApproval_(idToken, batch, lineId, (existing.SubJONumber || '') + ' (stop)', user.uid);
     await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
       Status: 'Stop Requested', StopRequestedAt: now, StopRequestedBy: actor,
+      ApprovalInstanceID: stopApprovalId || existing.ApprovalInstanceID || '',
       StopRequestNote: String(note || '').trim(), UpdatedAt: now, UpdatedBy: actor
     }, idToken);
     return { success: true };
@@ -9277,6 +9357,15 @@ async function acceptJobOrderLineStop(idToken, lineId) {
     const existing = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
     if (!existing) throw new Error('Job Order line not found.');
     if (existing.Status !== 'Stop Requested') throw new Error('Only a line with a pending Stop Request can be closed this way.');
+    // [PORT CHANGE job-order-approval] with a stop approval waiting, only the current level's approver accepts;
+    // the line is Stopped after the last level.
+    if (await jobOrderPendingApproval_(idToken, existing)) {
+      const approvalStatus = await decideJobOrderLineLevel_(idToken, user, existing, 'Approved', '');
+      if (approvalStatus !== 'Approved') {
+        await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', { UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid }, idToken);
+        return { success: true, status: 'Stop Requested' };
+      }
+    }
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
     await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
@@ -10368,6 +10457,11 @@ module.exports = {
   allocateProducedQuantityToLinkedSalesOrders_,
   updateJobOrderLineProgressAfterProduction_,
   rollbackJobOrderLineAfterReversal_,
+  beginJobOrderLineApproval_,
+  jobOrderCurrentLevel_,
+  jobOrderPendingApproval_,
+  decideJobOrderLineLevel_,
+  annotateJobOrderApproval_,
   linesForBatch_,
   getJobOrderBatches,
   getJobOrderLinesFlat,
