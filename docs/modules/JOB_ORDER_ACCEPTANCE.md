@@ -1,6 +1,7 @@
 # Job Order acceptance through Approval Configuration
 
-Status: **built and tested; not yet deployed** (2026-09-28). The owner
+Status: **live** since 2026-09-28 (PR #21, Deploy run #7), tested by the
+owner. The owner
 agreed the design as written, including the three details below.
 
 ## The problem

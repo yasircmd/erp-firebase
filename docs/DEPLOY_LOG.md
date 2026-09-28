@@ -444,3 +444,20 @@ from, and how it was verified. The deploy procedure is in the
     user.name". `tools/screen-release.js` records the releaser's git name,
     and the runner had none. PR #20 made the workflow set it to
     "<actor> (GitHub Actions)", then the release went through.
+- **2026-09-28, Job Order acceptance through Approval Configuration
+  (PR #21):** Deploy workflow task "functions set, then screens", set
+  `job-order-acceptance`, from `9c1de3d` (`main`, the PR #21 merge), run
+  [#7](https://github.com/yasircmd/erp-firebase/actions/runs/36436602882),
+  14:31–14:36 UTC, success.
+  - **Functions:** the 10 in the set, updated in two batches (6, then 4),
+    "Deploy complete!" each. Public-invoker bindings were applied by the
+    script, which exits on any failure; the run ended `ALL DONE`.
+  - **Screens:** release **`20260928T143614Z-9c1de3d`**, 60/60 written and
+    verified, active. It carries the hand-maintained Job Order Request
+    screen.
+  - The owner tested it afterwards.
+  - Runs [#5](https://github.com/yasircmd/erp-firebase/actions/runs/36429143655)
+    and [#6](https://github.com/yasircmd/erp-firebase/actions/runs/36429375445),
+    from `5adca41` before the merge, both failed without deploying. #5 had
+    no set name given. #6 named a set that wasn't on `main` yet; the
+    script listed the sets that were.

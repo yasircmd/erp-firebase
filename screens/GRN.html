@@ -573,8 +573,9 @@
     const vendorId = document.getElementById('grn-form-vendor').value;
     const section = document.getElementById('grn-po-picker-section');
     if (!companyId || !vendorId) { section.classList.add('hidden'); return; }
+    eligiblePOs = []; // not the previous entry's POs while this loads
     rpc
-      .withSuccessHandler(result => { eligiblePOs = result || []; renderPOPicker(); section.classList.remove('hidden'); })
+      .withSuccessHandler(result => { eligiblePOs = result || []; renderPOPicker(); })
       .withFailureHandler(err => alert(err.message || 'Unable to load eligible Purchase Orders.'))
       .getEligibleApprovedPOsForGRN({ companyId: companyId, vendorId: vendorId });
   }
@@ -583,11 +584,23 @@
   // (where a whole requisition is pulled in at once), a single delivery
   // commonly contains only SOME of a PO's lines, so line-level picking
   // is the right granularity here.
+  // Once a GRN is posted or waiting for approval, the picker lists only
+  // the PO lines this GRN took, ticked and locked; the rest of the PO is
+  // hidden. Draft and Rejected GRNs are editable, so every line shows
+  // (owner, 2026-09-28). This used to show the whole PO on a posted GRN:
+  // the eligible-PO load re-showed the section after the screen had hidden it.
   function renderPOPicker() {
+    const section = document.getElementById('grn-po-picker-section');
     const list = document.getElementById('grn-po-picker-list');
     list.innerHTML = '';
-    document.getElementById('grn-po-picker-empty').classList.toggle('hidden', eligiblePOs.length > 0);
-    eligiblePOs.forEach(po => {
+    const locked = Boolean(currentGrn && currentGrn.Status !== 'Draft' && currentGrn.Status !== 'Rejected');
+    const pos = locked
+      ? eligiblePOs.map(po => Object.assign({}, po, { Lines: (po.Lines || []).filter(l => selectedPOLineKeys.has(po.POID + '|' + l.LineID)) }))
+        .filter(po => po.Lines.length)
+      : eligiblePOs;
+    section.classList.toggle('hidden', locked && !pos.length);
+    document.getElementById('grn-po-picker-empty').classList.toggle('hidden', pos.length > 0);
+    pos.forEach(po => {
       const wrapper = document.createElement('div');
       wrapper.className = 'bg-slate-900 border border-slate-700 rounded-lg p-3 space-y-2';
       const header = document.createElement('p');
@@ -613,7 +626,7 @@
           return;
         }
         const overNote = remaining <= 0 ? ' <span class="text-amber-400">(fully received already — still selectable)</span>' : '';
-        label.innerHTML = `<input type="checkbox" class="grn-po-line-checkbox" data-key="${key}" ${selectedPOLineKeys.has(key) ? 'checked' : ''}> <span>${escapeHtml(line.ItemCode)} — ${escapeHtml(line.Description || '')} — Ordered ${line.Quantity}, Remaining ${remaining}${overNote}</span>`;
+        label.innerHTML = `<input type="checkbox" class="grn-po-line-checkbox" data-key="${key}" ${selectedPOLineKeys.has(key) ? 'checked' : ''} ${locked ? 'disabled' : ''}> <span>${escapeHtml(line.ItemCode)} — ${escapeHtml(line.Description || '')} — Ordered ${line.Quantity}, Remaining ${remaining}${overNote}</span>`;
         wrapper.appendChild(label);
       });
       list.appendChild(wrapper);
@@ -1335,7 +1348,11 @@
       document.getElementById(id).disabled = readOnly;
     });
     document.getElementById('grn-desc-edit-btn').classList.toggle('hidden', !(posted && canPost));
-    document.getElementById('grn-po-picker-section').classList.toggle('hidden', readOnly || !document.getElementById('grn-form-company').value || !document.getElementById('grn-form-vendor').value);
+    if (!document.getElementById('grn-form-company').value || !document.getElementById('grn-form-vendor').value) {
+      document.getElementById('grn-po-picker-section').classList.add('hidden');
+    } else {
+      renderPOPicker(); // posted / pending: only this GRN's own PO lines, locked
+    }
 
     document.getElementById('grn-add-line-btn').classList.toggle('hidden', !editableStatus);
     document.getElementById('grn-paste-btn').classList.toggle('hidden', !editableStatus);
