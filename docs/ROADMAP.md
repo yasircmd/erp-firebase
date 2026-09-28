@@ -48,7 +48,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
-- [ ] **Job Order acceptance through Approval Configuration** (owner,
+- [x] **Job Order acceptance through Approval Configuration** (owner,
   2026-09-28; [JOB_ORDER_ACCEPTANCE.md](modules/JOB_ORDER_ACCEPTANCE.md)).
   Pending Acceptance and Stop Requested lines now go to the Job Order
   Request approvers, levels in order.
@@ -57,8 +57,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - An amendment request becomes the submitter's task.
 
   Approval Configuration's Job Order entry did nothing before (also in
-  Apps Script). Built and tested; **to go live:** Deploy → "functions
-  set, then screens", set `job-order-acceptance`.
+  Apps Script). **Live 2026-09-28** (PR #21; Deploy run #7, release
+  `20260928T143614Z-9c1de3d`); the owner tested it.
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any
