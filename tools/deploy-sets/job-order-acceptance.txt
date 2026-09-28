@@ -1,0 +1,14 @@
+# Job Order acceptance and stop through Approval Configuration, levels in
+# order (owner, 2026-09-28; docs/modules/JOB_ORDER_ACCEPTANCE.md). Run with
+# --screens: screens/JOBORDERREQUEST.html (approver-only buttons, "waiting
+# on level N", Home task opens the line).
+submitJobOrderBatch              # starts an approval per line awaiting acceptance
+acceptJobOrderLine               # current level's approver only; Accepted after the last level
+requestJobOrderLineAmendment     # current level's approver only; ends the chain as a rejection
+reviseAndResubmitJobOrderLine    # fresh chain from level 1
+withdrawJobOrderLine             # marks the line's open/rejected approval Withdrawn
+requestJobOrderLineStop          # a "(stop)" approval through the same approvers
+acceptJobOrderLineStop           # current level's approver only; Stopped after the last level
+getJobOrderLinesFlat             # which level a line waits on, and whether the caller can act
+getPendingApprovalsForUser       # Job Order task only for the current level's approver
+getMyRejectedSubmissions         # Job Order approvals now live on jobOrderLines (registry)

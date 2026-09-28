@@ -36,6 +36,13 @@ exports.getPendingApprovalsForUser = onCall(onCallOptions, async (request) => {
     .filter(inst => inst.Status === 'Pending')
     .filter(inst => {
       const decidedLevels = new Set((inst.Decisions || []).map(d => d.LevelNumber));
+      // Job Order acceptance / stop acts level by level (owner, 2026-09-28): only the
+      // lowest undecided level's approver has the task. Other modules: any undecided level.
+      if (inst.ModuleID === 'JOBORDERREQUEST') {
+        const current = inst.RequiredLevels.slice().sort((a, b) => a.LevelNumber - b.LevelNumber)
+          .find(l => !decidedLevels.has(l.LevelNumber));
+        return Boolean(current) && current.ApproverUserID === actor;
+      }
       return inst.RequiredLevels.some(l => l.ApproverUserID === actor && !decidedLevels.has(l.LevelNumber));
     });
 

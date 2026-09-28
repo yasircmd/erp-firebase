@@ -608,5 +608,192 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
       return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');
     case 'recurringJournals':
       return (r.TemplateNumber || 'DRAFT') + ' — ' + (r.Description || '') + ' [' + (r.Status || '') + ']';`
+  },
+  {
+    id: 'job-order-approval-helpers',
+    why: "Owner decision 2026-09-28 (docs/modules/JOB_ORDER_ACCEPTANCE.md): a Sales-triggered Job Order line waiting for acceptance (or a stop) goes through the users set for Job Order Request in Approval Configuration, levels in order, and only they can act. Code.gs listed JOBORDERREQUEST as approval-gateable but never used it. Not configured for the batch's scope = as before.",
+    find: `function linesForBatch_(idToken, batchId) {
+`,
+    replace: `// [PORT CHANGE job-order-approval] Job Order acceptance / stop through
+// Approval Configuration, levels in order (docs/modules/JOB_ORDER_ACCEPTANCE.md).
+// One approval record per line (DocumentID = the line's own ID).
+function beginJobOrderLineApproval_(idToken, batch, lineId, documentNumber, createdByUid) {
+  const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'JOBORDERREQUEST', {
+    CompanyID: batch.CompanyID, DivisionID: batch.DivisionID, BranchID: batch.BranchID, CostCenterID: batch.CostCenterID
+  });
+  const approval = beginApprovalInstance_(idToken, 'JOBORDERREQUEST', lineId, documentNumber, scopeKey, 0, createdByUid);
+  return approval.required ? approval.instanceId : '';
+}
+
+// The lowest level with no decision yet on a Pending record: levels act in order.
+function jobOrderCurrentLevel_(instance) {
+  if (!instance || instance.Status !== 'Pending') return null;
+  const decided = (instance.Decisions || []).map(d => d.LevelNumber);
+  return (instance.RequiredLevels || []).slice().sort((a, b) => a.LevelNumber - b.LevelNumber)
+    .find(l => decided.indexOf(l.LevelNumber) === -1) || null;
+}
+
+function jobOrderPendingApproval_(idToken, line) {
+  if (!line.ApprovalInstanceID) return null;
+  const instance = firebaseDbRequest_('approvalInstances/' + line.ApprovalInstanceID, 'get', null, idToken);
+  return instance && instance.Status === 'Pending' ? instance : null;
+}
+
+// Records the current level's decision; only that level's approver may act.
+// Returns the record's new status: 'Pending' (more levels), 'Approved' or 'Rejected'.
+function decideJobOrderLineLevel_(idToken, user, line, decision, reason) {
+  const level = jobOrderCurrentLevel_(jobOrderPendingApproval_(idToken, line));
+  if (!level) throw new Error('This line has no approval waiting.');
+  if (level.ApproverUserID !== user.uid) {
+    throw new Error('This line is waiting on approval level ' + level.LevelNumber + '. Only its assigned approver can act on it now.');
+  }
+  const result = recordApprovalDecision(idToken, line.ApprovalInstanceID, level.LevelNumber, decision, reason);
+  if (!result.success) throw new Error(result.error);
+  return result.status;
+}
+
+// For the screen: which level a line waits on, who that is, and whether it's the caller.
+function annotateJobOrderApproval_(line, actorUid, instances, usersData) {
+  const level = line.ApprovalInstanceID ? jobOrderCurrentLevel_(instances[line.ApprovalInstanceID]) : null;
+  const approver = level ? usersData[level.ApproverUserID] : null;
+  line.ApprovalPending = Boolean(level);
+  line.AwaitingLevel = level ? level.LevelNumber : null;
+  line.AwaitingApproverName = level ? ((approver && (approver.fullName || approver.username)) || level.ApproverUserID) : '';
+  line.CanActOnApproval = Boolean(level) && level.ApproverUserID === actorUid;
+}
+
+function linesForBatch_(idToken, batchId) {
+`
+  },
+  {
+    id: 'job-order-approval-submit',
+    why: "Owner decision 2026-09-28 (docs/modules/JOB_ORDER_ACCEPTANCE.md): a Sales-triggered Job Order line waiting for acceptance (or a stop) goes through the users set for Job Order Request in Approval Configuration, levels in order, and only they can act. Code.gs listed JOBORDERREQUEST as approval-gateable but never used it. Not configured for the batch's scope = as before.",
+    find: `    lines.forEach(line => {
+      const subJONumber = batchNumber + '/' + String(line.LineNumber).padStart(2, '0');
+      firebaseDbRequest_('jobOrderLines/' + line.LineID, 'patch', {
+        SubJONumber: subJONumber, Status: startingStatus, SubmittedAt: now, SubmittedBy: actor,
+        UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+    });
+`,
+    replace: `    lines.forEach(line => {
+      const subJONumber = batchNumber + '/' + String(line.LineNumber).padStart(2, '0');
+      // [PORT CHANGE job-order-approval] a line awaiting acceptance starts its approval (if configured).
+      const approvalId = startingStatus === 'Pending Acceptance' ? beginJobOrderLineApproval_(idToken, existing, line.LineID, subJONumber, user.uid) : '';
+      firebaseDbRequest_('jobOrderLines/' + line.LineID, 'patch', {
+        SubJONumber: subJONumber, Status: startingStatus, SubmittedAt: now, SubmittedBy: actor,
+        ApprovalInstanceID: approvalId, UpdatedAt: now, UpdatedBy: actor
+      }, idToken);
+    });
+`
+  },
+  {
+    id: 'job-order-approval-accept',
+    why: "Owner decision 2026-09-28 (docs/modules/JOB_ORDER_ACCEPTANCE.md): a Sales-triggered Job Order line waiting for acceptance (or a stop) goes through the users set for Job Order Request in Approval Configuration, levels in order, and only they can act. Code.gs listed JOBORDERREQUEST as approval-gateable but never used it. Not configured for the batch's scope = as before.",
+    find: `    if (existing.Status !== 'Pending Acceptance') throw new Error('Only a line Pending Acceptance can be accepted.');
+`,
+    replace: `    if (existing.Status !== 'Pending Acceptance') throw new Error('Only a line Pending Acceptance can be accepted.');
+    // [PORT CHANGE job-order-approval] with an approval waiting, only the current level's approver accepts;
+    // the line is Accepted after the last level.
+    if (jobOrderPendingApproval_(idToken, existing)) {
+      const approvalStatus = decideJobOrderLineLevel_(idToken, user, existing, 'Approved', '');
+      if (approvalStatus !== 'Approved') {
+        firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', { UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid }, idToken);
+        return { success: true, status: 'Pending Acceptance' };
+      }
+    }
+`
+  },
+  {
+    id: 'job-order-approval-amend',
+    why: "Owner decision 2026-09-28 (docs/modules/JOB_ORDER_ACCEPTANCE.md): a Sales-triggered Job Order line waiting for acceptance (or a stop) goes through the users set for Job Order Request in Approval Configuration, levels in order, and only they can act. Code.gs listed JOBORDERREQUEST as approval-gateable but never used it. Not configured for the batch's scope = as before.",
+    find: `    firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      Status: 'Amendment Requested',`,
+    replace: `    // [PORT CHANGE job-order-approval] with an approval waiting, only the current level's approver may ask;
+    // it ends the chain as a rejection, so the submitter sees it in Home tasks.
+    if (jobOrderPendingApproval_(idToken, existing)) decideJobOrderLineLevel_(idToken, user, existing, 'Rejected', noteText);
+    firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      Status: 'Amendment Requested',`
+  },
+  {
+    id: 'job-order-approval-resubmit',
+    why: "Owner decision 2026-09-28 (docs/modules/JOB_ORDER_ACCEPTANCE.md): a Sales-triggered Job Order line waiting for acceptance (or a stop) goes through the users set for Job Order Request in Approval Configuration, levels in order, and only they can act. Code.gs listed JOBORDERREQUEST as approval-gateable but never used it. Not configured for the batch's scope = as before.",
+    find: `    firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      OrderedQuantity: qty, TargetDate: date, Status: 'Pending Acceptance',
+`,
+    replace: `    // [PORT CHANGE job-order-approval] resubmitting starts a fresh approval from level 1 (if configured).
+    const resubmitBatch = firebaseDbRequest_('jobOrderBatches/' + existing.ParentBatchID, 'get', null, idToken) || {};
+    const resubmitApprovalId = beginJobOrderLineApproval_(idToken, resubmitBatch, lineId, existing.SubJONumber || '', user.uid);
+    firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      OrderedQuantity: qty, TargetDate: date, Status: 'Pending Acceptance', ApprovalInstanceID: resubmitApprovalId,
+`
+  },
+  {
+    id: 'job-order-approval-withdraw',
+    why: "Owner decision 2026-09-28 (docs/modules/JOB_ORDER_ACCEPTANCE.md): a Sales-triggered Job Order line waiting for acceptance (or a stop) goes through the users set for Job Order Request in Approval Configuration, levels in order, and only they can act. Code.gs listed JOBORDERREQUEST as approval-gateable but never used it. Not configured for the batch's scope = as before.",
+    find: `      throw new Error('Only a not-yet-accepted line can be withdrawn — once Accepted, request a Stop instead.');
+    }
+`,
+    replace: `      throw new Error('Only a not-yet-accepted line can be withdrawn — once Accepted, request a Stop instead.');
+    }
+    // [PORT CHANGE job-order-approval] close its approval, so no Home task is left behind.
+    if (existing.ApprovalInstanceID) {
+      const withdrawnApproval = firebaseDbRequest_('approvalInstances/' + existing.ApprovalInstanceID, 'get', null, idToken);
+      if (withdrawnApproval && (withdrawnApproval.Status === 'Pending' || withdrawnApproval.Status === 'Rejected')) {
+        firebaseDbRequest_('approvalInstances/' + existing.ApprovalInstanceID, 'patch', { Status: 'Withdrawn', UpdatedAt: new Date().toISOString() }, idToken);
+      }
+    }
+`
+  },
+  {
+    id: 'job-order-approval-request-stop',
+    why: "Owner decision 2026-09-28 (docs/modules/JOB_ORDER_ACCEPTANCE.md): a Sales-triggered Job Order line waiting for acceptance (or a stop) goes through the users set for Job Order Request in Approval Configuration, levels in order, and only they can act. Code.gs listed JOBORDERREQUEST as approval-gateable but never used it. Not configured for the batch's scope = as before.",
+    find: `    firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      Status: 'Stop Requested', StopRequestedAt: now, StopRequestedBy: actor,
+`,
+    replace: `    // [PORT CHANGE job-order-approval] the stop goes through the same approvers (if configured);
+    // otherwise the line keeps its earlier, finished approval and the stop works as before.
+    const stopApprovalId = beginJobOrderLineApproval_(idToken, batch, lineId, (existing.SubJONumber || '') + ' (stop)', user.uid);
+    firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', {
+      Status: 'Stop Requested', StopRequestedAt: now, StopRequestedBy: actor,
+      ApprovalInstanceID: stopApprovalId || existing.ApprovalInstanceID || '',
+`
+  },
+  {
+    id: 'job-order-approval-accept-stop',
+    why: "Owner decision 2026-09-28 (docs/modules/JOB_ORDER_ACCEPTANCE.md): a Sales-triggered Job Order line waiting for acceptance (or a stop) goes through the users set for Job Order Request in Approval Configuration, levels in order, and only they can act. Code.gs listed JOBORDERREQUEST as approval-gateable but never used it. Not configured for the batch's scope = as before.",
+    find: `    if (existing.Status !== 'Stop Requested') throw new Error('Only a line with a pending Stop Request can be closed this way.');
+`,
+    replace: `    if (existing.Status !== 'Stop Requested') throw new Error('Only a line with a pending Stop Request can be closed this way.');
+    // [PORT CHANGE job-order-approval] with a stop approval waiting, only the current level's approver accepts;
+    // the line is Stopped after the last level.
+    if (jobOrderPendingApproval_(idToken, existing)) {
+      const approvalStatus = decideJobOrderLineLevel_(idToken, user, existing, 'Approved', '');
+      if (approvalStatus !== 'Approved') {
+        firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', { UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid }, idToken);
+        return { success: true, status: 'Stop Requested' };
+      }
+    }
+`
+  },
+  {
+    id: 'job-order-approval-list',
+    why: "Owner decision 2026-09-28 (docs/modules/JOB_ORDER_ACCEPTANCE.md): a Sales-triggered Job Order line waiting for acceptance (or a stop) goes through the users set for Job Order Request in Approval Configuration, levels in order, and only they can act. Code.gs listed JOBORDERREQUEST as approval-gateable but never used it. Not configured for the batch's scope = as before.",
+    find: `        ProducedQuantity: computeJobOrderLineProducedQty_(idToken, l)
+      });
+    })
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const capped = limit ? all.slice(0, limit) : all;
+`,
+    replace: `        ProducedQuantity: computeJobOrderLineProducedQty_(idToken, l)
+      });
+    })
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const capped = limit ? all.slice(0, limit) : all;
+  // [PORT CHANGE job-order-approval] which level each line waits on, and whether the caller can act.
+  const approvalInstances = firebaseDbRequest_('approvalInstances', 'get', null, idToken) || {};
+  const approvalUsers = firebaseDbRequest_('users', 'get', null, idToken) || {};
+  capped.forEach(l => annotateJobOrderApproval_(l, user.uid, approvalInstances, approvalUsers));
+`
   }
 ];

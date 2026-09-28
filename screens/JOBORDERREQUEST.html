@@ -131,6 +131,7 @@
   </div>
 
   <p id="jo-line-batch-ref" class="text-xs text-slate-500 font-mono"></p>
+  <p id="jo-approval-waiting" class="hidden text-xs text-amber-400"></p>
 
   <div id="jo-amendment-banner" class="hidden bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 space-y-1">
     <p class="text-xs font-semibold text-amber-400 uppercase">Production has requested an amendment</p>
@@ -231,6 +232,19 @@
   let flatLinesTotal = 0;
   let currentBatch = null;   // batch being edited (Draft)
   let currentLine = null;    // line being viewed (Submitted)
+  // Home task: open this line once the line list and item names have loaded.
+  let pendingOpenLineId = null;
+  let flatLoaded = false;
+  let itemsLoaded = false;
+  function openPendingLine() {
+    if (!pendingOpenLineId || !flatLoaded || !itemsLoaded) return;
+    const id = pendingOpenLineId;
+    if (flatLines.some(l => l.LineID === id)) { pendingOpenLineId = null; openLineDetail(id); return; }
+    // Older than the first page: load every line once, then try again.
+    if (flatLines.length < flatLinesTotal) { flatLoaded = false; fetchAndRenderList(flatLinesTotal); return; }
+    pendingOpenLineId = null;
+    alert('That Job Order line could not be found — it may have been deleted.');
+  }
   let batches = [];
   let flatLines = [];
   let companies = [];
@@ -290,7 +304,7 @@
       .withFailureHandler(err => alert(err.message || 'Unable to load Job Orders.'))
       .getJobOrderBatches({ limit: currentLimit });
     rpc
-      .withSuccessHandler(result => { flatLines = result.entries || []; flatLinesTotal = result.total || 0; renderFlatView(); renderLoadMoreNotices(); })
+      .withSuccessHandler(result => { flatLines = result.entries || []; flatLinesTotal = result.total || 0; renderFlatView(); renderLoadMoreNotices(); flatLoaded = true; openPendingLine(); })
       .withFailureHandler(err => alert(err.message || 'Unable to load Job Order lines.'))
       .getJobOrderLinesFlat({ limit: currentLimit });
   }
@@ -443,8 +457,8 @@
       .getActiveOrgUnits();
 
     rpc
-      .withSuccessHandler(result => { items = result || []; })
-      .withFailureHandler(err => console.error(err))
+      .withSuccessHandler(result => { items = result || []; itemsLoaded = true; openPendingLine(); })
+      .withFailureHandler(err => { console.error(err); itemsLoaded = true; openPendingLine(); })
       .getEligibleJobOrderItems();
   }
 
@@ -749,13 +763,21 @@
     document.getElementById('jo-linked-so-section').classList.toggle('hidden', !links.length);
     document.getElementById('jo-linked-so-list').innerHTML = links.map(l => `<span class="text-xs bg-blue-500/10 text-blue-400 px-2 py-1 rounded">${escapeHtml(l.SONumber)}</span>`).join('');
 
-    document.getElementById('jo-accept-btn').classList.toggle('hidden', status !== 'Pending Acceptance' || !canPost);
-    document.getElementById('jo-request-amendment-btn').classList.toggle('hidden', status !== 'Pending Acceptance' || !canPost);
+    // With an approval waiting (Approval Configuration, levels in order), only the current
+    // level's approver can accept, ask for an amendment or accept a stop. Otherwise as before.
+    const canDecide = currentLine.ApprovalPending ? Boolean(currentLine.CanActOnApproval) : canPost;
+    const waiting = document.getElementById('jo-approval-waiting');
+    waiting.classList.toggle('hidden', !currentLine.ApprovalPending);
+    waiting.textContent = currentLine.ApprovalPending
+      ? 'Waiting on approval level ' + currentLine.AwaitingLevel + ': ' + (currentLine.CanActOnApproval ? 'you' : currentLine.AwaitingApproverName)
+      : '';
+    document.getElementById('jo-accept-btn').classList.toggle('hidden', status !== 'Pending Acceptance' || !canDecide);
+    document.getElementById('jo-request-amendment-btn').classList.toggle('hidden', status !== 'Pending Acceptance' || !canDecide);
     document.getElementById('jo-withdraw-btn').classList.toggle('hidden', (status !== 'Pending Acceptance' && status !== 'Amendment Requested') || !canPost);
     document.getElementById('jo-revise-resubmit-btn').classList.toggle('hidden', status !== 'Amendment Requested' || !canPost);
     document.getElementById('jo-request-stop-btn').classList.toggle('hidden', currentLine.Origin !== 'Sales' || (status !== 'Accepted' && status !== 'In Progress') || !canPost);
     document.getElementById('jo-cancel-direct-btn').classList.toggle('hidden', currentLine.Origin !== 'Production' || (status !== 'Open' && status !== 'In Progress') || !canPost);
-    document.getElementById('jo-accept-stop-btn').classList.toggle('hidden', status !== 'Stop Requested' || !canPost);
+    document.getElementById('jo-accept-stop-btn').classList.toggle('hidden', status !== 'Stop Requested' || !canDecide);
   }
 
   function acceptLine() {
@@ -904,6 +926,9 @@
     document.getElementById('jo-stop-submit').addEventListener('click', submitStopModal);
 
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-industry"></i> Job Order Request';
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) pendingOpenLineId = pending.OpenEntryId;
     fetchAndRenderList();
     loadReferenceData();
   };
