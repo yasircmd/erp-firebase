@@ -59,7 +59,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   Approval Configuration's Job Order entry did nothing before (also in
   Apps Script). **Live 2026-09-28** (PR #21; Deploy run #7, release
   `20260928T143614Z-9c1de3d`); the owner tested it.
-- [ ] **GRN: a posted or pending GRN showed its whole PO in the picker**
+- [x] **GRN: a posted or pending GRN showed its whole PO in the picker**
   (owner, 2026-09-28). The picker re-appeared after the screen hid it,
   listing every line of the PO. Fixed in `screens/GRN.html`:
   - Posted and Pending Approval GRNs show only the PO lines they took,
@@ -68,7 +68,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - Fully received lines still show until the PO is closed (owner).
 
   UI check in `stockModules.ui.js`; its negative control was caught.
-  **To go live:** Deploy → "screens only".
+  **Live 2026-09-28** (PR #22; Deploy run #8, release
+  `20260928T153508Z-f75f256`).
 - [ ] **GRN: non-stock lines** (owner, 2026-09-28;
   [GRN_NON_STOCK.md](modules/GRN_NON_STOCK.md)). Dr the category
   account · Cr GRN Clearing, from PO category lines or entered directly.

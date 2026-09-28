@@ -461,3 +461,9 @@ from, and how it was verified. The deploy procedure is in the
     from `5adca41` before the merge, both failed without deploying. #5 had
     no set name given. #6 named a set that wasn't on `main` yet; the
     script listed the sets that were.
+- **2026-09-28, screen release: GRN picker fix (PR #22):** Deploy workflow
+  task "screens only" from `f75f256` (`main`, the PR #22 merge), run
+  [#8](https://github.com/yasircmd/erp-firebase/actions/runs/36444550141),
+  15:34–15:35 UTC, success. Release **`20260928T153508Z-f75f256`**: 60/60
+  screens written and verified, active. A posted or pending GRN now shows
+  only its own PO lines, locked. No function deploy.
