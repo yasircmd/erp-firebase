@@ -293,7 +293,13 @@ exports.getFaRuns = onCallWithMessages(onCallOptions, async (request) => {
 function kindOf(t) {
   const type = t.Type === 'Reversal' ? t.ReversalOfType : t.Type;
   if (type === 'Capitalization' || type === 'TakeOver') return 'original';
-  if (type === 'Addition' || type === 'AuCSettlement') return 'addition';
+  // Capital Work in Progress: its cost is its original cost; settling it
+  // is a transfer out; a final asset's first settlement is its original
+  // cost, later ones additions.
+  if (type === 'AuCCost') return 'original';
+  if (type === 'AuCSettlementOut') return 'transfer';
+  if (type === 'AuCSettlement') return t.First ? 'original' : 'addition';
+  if (type === 'Addition') return 'addition';
   if (type === 'AdditionalDepreciation') return 'additional';
   if (type === 'Depreciation') return 'scheduled';
   if (type === 'Disposal') return 'disposal';
@@ -363,11 +369,12 @@ exports.getFaRegister = onCallWithMessages(onCallOptions, async (request) => {
     // A retirement takes the cost and all the depreciation off the books;
     // its proceeds and gain/loss count unless reversed by the date.
     const retired = sum('disposal', 'CostDelta');
+    const transfers = sum('transfer', 'CostDelta');
     const retiredAccDep = sum('disposal', 'AccDepDelta');
     const live = t => t.Type === 'Disposal' && !(t.ReversedByTxnID && txns.some(r => r._id === t.ReversedByTxnID));
     const disposalValue = round2(txns.filter(live).reduce((s, t) => s + (t.Proceeds || 0), 0));
     const gainLoss = round2(txns.filter(live).reduce((s, t) => s + (t.GainLoss || 0), 0));
-    const cost = round2(original + additions + retired);
+    const cost = round2(original + additions + retired + transfers);
     const accDep = round2(scheduled + additional + retiredAccDep);
     return {
       AssetID: a._id, AssetNumber: a.AssetNumber, Description: a.Description, ClassID: a.ClassID, ClassCode: a.ClassCode, ClassName: a.ClassName,
@@ -375,12 +382,12 @@ exports.getFaRegister = onCallWithMessages(onCallOptions, async (request) => {
       DivisionID: a.DivisionID || '', BranchID: a.BranchID || '', DepartmentID: a.DepartmentID || '', LocationID: a.LocationID || '',
       SupplierID: a.SupplierID || '', SupplierName: a.SupplierName || '', PurchaseDate: a.PurchaseDate || '',
       CapitalizationDate: cost ? a.CapitalizationDate || '' : '', Status: a.Status,
-      OriginalCost: original, Additions: additions, Transfers: 0, Retirements: retired, Cost: cost,
+      OriginalCost: original, Additions: additions, Transfers: transfers, Retirements: retired, Cost: cost,
       AccDepScheduled: round2(scheduled), AccDepAdditional: additional, AccDep: accDep,
       CurrentPeriodDep: round2(sum('scheduled', 'AccDepDelta', periodStart) + sum('additional', 'AccDepDelta', periodStart)),
       NBV: round2(cost - accDep), DisposalValue: disposalValue, GainLoss: gainLoss,
       DisposedAt: a.DisposedAt || '', DisposalType: a.DisposalType || ''
     };
-  }).filter(r => r.Cost || r.AccDep || r.Status === 'Planned' || r.Retirements);
+  }).filter(r => r.Cost || r.AccDep || r.Status === 'Planned' || r.Retirements || r.Transfers);
   return { rows: rows.sort((x, y) => x.AssetNumber.localeCompare(y.AssetNumber)), asOfDate: asOf };
 });

@@ -43,8 +43,13 @@ async function seed() {
   const browser = await chromium.launch();
 
   // As the shell's Home task does: openModule(id, { OpenEntryId }), after the module has loaded once.
-  async function openLine(uid, lineId) {
+  async function openLine(uid, lineId, slowPermissions) {
     const page = await browser.newPage();
+    // The line can open before the user's permissions arrive; it must be
+    // redrawn when they do (a slow answer, forced here).
+    if (slowPermissions) {
+      await page.route('**/getModulePermissionsForUser', async route => { await new Promise(r => setTimeout(r, 1500)); await route.continue(); });
+    }
     page.__dialogs = [];
     page.on('dialog', d => { page.__dialogs.push(d.message()); d.accept(); });
     await page.goto('http://127.0.0.1:8142/?module=JOBORDERREQUEST&uid=' + uid);
@@ -52,7 +57,7 @@ async function seed() {
     await page.waitForLoadState('networkidle');
     await page.evaluate(id => openModule('JOBORDERREQUEST', { OpenEntryId: id }), lineId);
     await page.waitForSelector('#jo-line-detail-view:not(.hidden)', { timeout: 30000 });
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(slowPermissions ? 2500 : 300);
     return page;
   }
   const buttons = page => page.evaluate(() => ['jo-accept-btn', 'jo-request-amendment-btn']
@@ -87,7 +92,7 @@ async function seed() {
   });
 
   await check('A line pending from before go-live keeps the old buttons for post users', async () => {
-    const page = await openLine('u-admin', ids.legacy);
+    const page = await openLine('u-admin', ids.legacy, true);
     assert.deepEqual(await buttons(page), [true, true]);
     assert.equal(await page.isVisible('#jo-approval-waiting'), false);
     await page.close();

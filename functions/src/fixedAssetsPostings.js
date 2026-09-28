@@ -37,8 +37,16 @@ const TYPES = {
   TakeOver: { moduleId: 'FAACQ', label: 'Take-over', voucher: 'FATakeOver' },
   AdditionalDepreciation: { moduleId: 'FAADDDEP', label: 'Additional Depreciation', voucher: 'FAAdditionalDepreciation' },
   // Phase 2: sale / scrapping, handled by fixedAssetsRetirement.js.
-  Retirement: { moduleId: 'FARETIRE', label: 'Retirement', voucher: 'FARetirement' }
+  Retirement: { moduleId: 'FARETIRE', label: 'Retirement', voucher: 'FARetirement' },
+  // Capital Work in Progress (owner 2026-09-28; FIXED_ASSETS.md → Capital
+  // Work in Progress): cost into a CWIP from clearing, and its settlement
+  // into final assets.
+  AuCCost: { moduleId: 'FAAUC', label: 'CWIP Cost', voucher: 'FAAuCCost' },
+  AuCSettlement: { moduleId: 'FAAUC', label: 'CWIP Settlement', voucher: 'FAAuCSettlement' }
 };
+const CWIP_CATEGORIES = ['Materials', 'Contractors', 'Labour', 'Consultants', 'Other'];
+// Types whose lines draw on open clearing items.
+const FROM_CLEARING = ['Capitalization', 'AuCCost'];
 const depreciates = kind => kind === 'Tangible' || kind === 'Intangible';
 const amt = v => round2(parseAmountServer(v));
 const itemKey = (jvId, lineNo) => jvId + '_' + lineNo;
@@ -109,7 +117,7 @@ async function clearingItems(companyId) {
 
 exports.getFaClearingItems = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
-  await C.requireCap('FAACQ', 'access', user.profile.role);
+  await C.requireCap(request.data && request.data.moduleId === 'FAAUC' ? 'FAAUC' : 'FAACQ', 'access', user.profile.role);
   const companyId = str(request.data && request.data.companyId);
   C.requireCompany(user, companyId);
   const r = await clearingItems(companyId);
@@ -146,6 +154,7 @@ async function loadAssets(ids) {
 // under the global lock.
 async function prepare(user, data) {
   if (str(data.Type) === 'Retirement') return R.prepare(user, data);
+  if (str(data.Type) === 'AuCSettlement') return prepareSettlement(user, data);
   const cfg = typeOf(data.Type);
   const companyId = str(data.CompanyID);
   C.requireCompany(user, companyId);
@@ -174,14 +183,26 @@ async function prepare(user, data) {
     const line = { AssetID: a._id, AssetNumber: a.AssetNumber, AssetDescription: a.Description };
     const area = (a.Areas || {})[AREA] || {};
     const { accounts } = await C.accountsFor(cls, companyId, settings);
-    const costAcc = C.requireAccount(accounts, 'AssetCostAccountID', cls, companyId, chart);
+    if ((cls.Kind === 'AuC') !== (data.Type === 'AuCCost')) {
+      throw new Error(name + (cls.Kind === 'AuC' ? 'a Capital Work in Progress takes cost in Capital Work in Progress, not here.' : 'is not a Capital Work in Progress (its class isn\'t of the AuC kind).'));
+    }
+    const costAcc = data.Type === 'AuCCost'
+      ? C.requireAccount(accounts, 'AuCAccountID', cls, companyId, chart)
+      : C.requireAccount(accounts, 'AssetCostAccountID', cls, companyId, chart);
     if (depreciates(cls.Kind)) {
       C.requireAccount(accounts, 'AccumDepAccountID', cls, companyId, chart);
       C.requireAccount(accounts, 'DepExpenseAccountID', cls, companyId, chart);
       if (!a.CostCenterID) throw new Error(name + 'has no cost center (depreciation expense needs one).');
     }
 
-    if (data.Type === 'Capitalization') {
+    if (data.Type === 'AuCCost') {
+      if (!['Planned', 'UnderConstruction'].includes(a.Status)) throw new Error(name + 'a ' + a.Status + ' Capital Work in Progress takes no more cost.');
+      const category = str(raw.Category);
+      if (!CWIP_CATEGORIES.includes(category)) throw new HttpsError('invalid-argument', name + 'select a cost category (' + CWIP_CATEGORIES.join(', ') + ').');
+      const items = (raw.Items || []).map(it => ({ JVID: str(it.JVID), LineNo: Number(it.LineNo), Amount: amt(it.Amount) })).filter(it => it.JVID && it.Amount > 0);
+      if (!items.length) throw new HttpsError('invalid-argument', name + 'pick at least one clearing item and an amount.');
+      Object.assign(line, { Category: category, Items: items, Amount: round2(items.reduce((s, it) => s + it.Amount, 0)), CostAccountID: costAcc.AccountID });
+    } else if (data.Type === 'Capitalization') {
       if (!['Planned', 'Active', 'FullyDepreciated'].includes(a.Status)) throw new Error(name + 'a ' + a.Status + ' asset can\'t be capitalized.');
       const items = (raw.Items || []).map(it => ({ JVID: str(it.JVID), LineNo: Number(it.LineNo), Amount: amt(it.Amount) })).filter(it => it.JVID && it.Amount > 0);
       if (!items.length) throw new HttpsError('invalid-argument', name + 'pick at least one clearing item and an amount.');
@@ -235,7 +256,7 @@ async function prepare(user, data) {
   // Clearing items: posted, on a clearing account of this company, dated
   // on or before the posting, with enough still open for every line
   // drawing on them.
-  if (data.Type === 'Capitalization') {
+  if (FROM_CLEARING.includes(data.Type)) {
     const accounts = await C.clearingAccountIds(companyId);
     if (!accounts.size) throw new Error('This company has no Fixed Asset Clearing Account — set it in Fixed Asset Configuration → Settings.');
     const want = {};
@@ -275,12 +296,86 @@ async function prepare(user, data) {
   };
 }
 
+// A CWIP settlement: one CWIP (SourceAssetID), final assets with amounts.
+async function prepareSettlement(user, data) {
+  const cfg = TYPES.AuCSettlement;
+  const companyId = str(data.CompanyID);
+  C.requireCompany(user, companyId);
+  const date = str(data.Date);
+  if (!E.isDate(date)) throw new HttpsError('invalid-argument', 'Posting date is required.');
+  const settings = await C.getSettings(companyId);
+  if (settings.RunInProgress) throw new Error('A depreciation run is being posted for this company; finish it in Depreciation Run (Post again) first.');
+  const chart = await C.coa();
+
+  const sourceId = str(data.SourceAssetID);
+  if (!sourceId) throw new HttpsError('invalid-argument', 'Select the Capital Work in Progress to settle.');
+  const src = await C.getDoc(COL.assets, sourceId);
+  if (!src) throw new HttpsError('not-found', 'Capital Work in Progress not found.');
+  if (src.CompanyID !== companyId) throw new HttpsError('invalid-argument', src.AssetNumber + ' belongs to a different company.');
+  if (src.ClassKind !== 'AuC') throw new HttpsError('invalid-argument', src.AssetNumber + ' is not a Capital Work in Progress.');
+  if (src.Status !== 'UnderConstruction') throw new Error(src.AssetNumber + ' has ' + (src.Status === 'Settled' ? 'already been fully settled.' : 'no cost to settle yet.'));
+  const srcCls = await C.getDoc(COL.classes, src.ClassID);
+  if (!srcCls) throw new Error(src.AssetNumber + ': its class was not found.');
+  const aucAcc = C.requireAccount((await C.accountsFor(srcCls, companyId, settings)).accounts, 'AuCAccountID', srcCls, companyId, chart);
+  // The balance on the settlement date, and not before its latest cost.
+  const srcTxns = (await C.assetTxns(sourceId)).filter(t => (t.Area || AREA) === AREA);
+  const balance = round2(srcTxns.filter(t => t.Date <= date).reduce((s, t) => s + (t.CostDelta || 0), 0));
+  const lastIn = srcTxns.filter(t => t.Type === 'AuCCost' && !t.ReversedByTxnID).map(t => t.Date).sort().pop() || '';
+  if (lastIn && date < lastIn) throw new HttpsError('invalid-argument', 'The settlement date is before ' + src.AssetNumber + '\'s latest cost (' + lastIn + ').');
+
+  const rawLines = (data.Lines || []).filter(l => str(l.AssetID));
+  if (!rawLines.length) throw new HttpsError('invalid-argument', 'Add at least one final asset.');
+  const ids = rawLines.map(l => str(l.AssetID));
+  if (new Set(ids).size !== ids.length) throw new HttpsError('invalid-argument', 'An asset appears twice; put it on one line.');
+  if (ids.includes(sourceId)) throw new HttpsError('invalid-argument', 'A Capital Work in Progress can\'t be settled into itself.');
+  const assets = await loadAssets(ids);
+  assets[sourceId] = src;
+  const classes = { [srcCls._id]: srcCls };
+  const lines = [];
+  for (const [i, raw] of rawLines.entries()) {
+    const a = assets[str(raw.AssetID)];
+    const name = 'Line ' + (i + 1) + ' (' + a.AssetNumber + '): ';
+    if (a.CompanyID !== companyId) throw new HttpsError('invalid-argument', name + 'belongs to a different company.');
+    const cls = classes[a.ClassID] || (classes[a.ClassID] = await C.getDoc(COL.classes, a.ClassID));
+    if (!cls) throw new Error(name + 'its class was not found.');
+    if (cls.Kind === 'AuC') throw new Error(name + 'a Capital Work in Progress can\'t be a final asset.');
+    if (!['Planned', 'Active', 'FullyDepreciated'].includes(a.Status)) throw new Error(name + 'a ' + a.Status + ' asset can\'t take a settlement.');
+    const amount = amt(raw.Amount);
+    if (!(amount > 0)) throw new HttpsError('invalid-argument', name + 'amount must be more than zero.');
+    const { accounts } = await C.accountsFor(cls, companyId, settings);
+    const costAcc = C.requireAccount(accounts, 'AssetCostAccountID', cls, companyId, chart);
+    if (depreciates(cls.Kind)) {
+      C.requireAccount(accounts, 'AccumDepAccountID', cls, companyId, chart);
+      C.requireAccount(accounts, 'DepExpenseAccountID', cls, companyId, chart);
+      if (!a.CostCenterID) throw new Error(name + 'has no cost center (depreciation expense needs one).');
+      if (a.Status === 'Planned') {
+        const area = (a.Areas || {})[AREA] || {};
+        const err = E.validateValuation(Object.assign({}, area, { DepStartDate: area.DepStartDate || date }), cls.Kind);
+        if (err) throw new Error(name + err);
+      }
+    }
+    lines.push({ AssetID: a._id, AssetNumber: a.AssetNumber, AssetDescription: a.Description, Amount: amount, CostAccountID: costAcc.AccountID });
+  }
+  const total = round2(lines.reduce((s, l) => s + l.Amount, 0));
+  if (total > balance + 0.005) throw new Error(src.AssetNumber + ' has ' + balance.toFixed(2) + ' to settle on ' + date + '; this settles ' + total.toFixed(2) + '.');
+  return {
+    cfg: cfg, settings: settings, assets: assets, classes: classes, chart: chart,
+    doc: {
+      Type: 'AuCSettlement', ModuleID: cfg.moduleId, CompanyID: companyId, Date: date, Period: E.periodOf(date),
+      Description: str(data.Description) || cfg.label, Reference: str(data.Reference), Reason: str(data.Reason),
+      DivisionID: str(data.DivisionID), BranchID: str(data.BranchID), CostCenterID: str(data.CostCenterID),
+      SourceAssetID: sourceId, SourceAssetNumber: src.AssetNumber, SourceAssetDescription: src.Description, AuCAccountID: aucAcc.AccountID,
+      Lines: lines, AssetIDs: [sourceId].concat(ids), Total: total
+    }
+  };
+}
+
 // ---------- drafts, list ----------
 
 exports.getFaPostings = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const d = request.data || {};
-  const moduleId = ['FAADDDEP', 'FARETIRE'].includes(d.moduleId) ? d.moduleId : 'FAACQ';
+  const moduleId = ['FAADDDEP', 'FARETIRE', 'FAAUC'].includes(d.moduleId) ? d.moduleId : 'FAACQ';
   await C.requireCap(moduleId, 'access', user.profile.role);
   const rows = (await C.listWhere(COL.postings, 'ModuleID', moduleId)).filter(p => userCanAccessCompany(user.profile, p.CompanyID));
   return rows.map(p => Object.assign({ PostingID: p._id }, p)).sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
@@ -433,14 +528,21 @@ async function commitPosting(user, postingId, existing, prepared) {
       const a = assets[l.AssetID];
       const dims = { CostCenterID: a.CostCenterID || '', ProfitCenterID: a.ProfitCenterID || '' };
       const text = label + ' ' + a.AssetNumber + ' — ' + a.Description;
-      if (doc.Type === 'Capitalization') {
-        glLines.push(Object.assign({ AccountCode: chart[l.CostAccountID].AccountCode, Debit: l.Amount, Credit: 0, Description: text }, dims));
+      if (FROM_CLEARING.includes(doc.Type)) {
+        glLines.push(Object.assign({ AccountCode: chart[l.CostAccountID].AccountCode, Debit: l.Amount, Credit: 0, Description: text + (l.Category ? ' (' + l.Category + ')' : '') }, dims));
         l.Items.forEach(it => glLines.push(Object.assign({ AccountCode: it.AccountCode, Debit: 0, Credit: it.Amount, Description: text + ' (from ' + it.JVNumber + ')' }, dims)));
+      } else if (doc.Type === 'AuCSettlement') {
+        glLines.push(Object.assign({ AccountCode: chart[l.CostAccountID].AccountCode, Debit: l.Amount, Credit: 0, Description: text + ' (from ' + doc.SourceAssetNumber + ')' }, dims));
       } else {
         glLines.push(Object.assign({ AccountCode: chart[l.ExpenseAccountID].AccountCode, Debit: l.Amount, Credit: 0, Description: text + ' — ' + doc.Reason }, dims));
         glLines.push(Object.assign({ AccountCode: chart[l.AccumAccountID].AccountCode, Debit: 0, Credit: l.Amount, Description: text + ' — ' + doc.Reason }, dims));
       }
     });
+    if (doc.Type === 'AuCSettlement') {
+      const src = assets[doc.SourceAssetID];
+      glLines.push({ AccountCode: chart[doc.AuCAccountID].AccountCode, Debit: 0, Credit: doc.Total, Description: label + ' ' + src.AssetNumber + ' — ' + src.Description,
+        CostCenterID: src.CostCenterID || '', ProfitCenterID: src.ProfitCenterID || '' });
+    }
     const built = await buildStockGlEntry(user, TYPES[doc.Type].voucher, doc.Date, doc.Description, doc.Reference, glLines, dimsOf(doc),
       { SourceTransactionID: postingId, ReversalOfJV: '', FixedAssetPostingID: postingId });
     batch.set(col(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(built.jvId), built.record);
@@ -449,7 +551,7 @@ async function commitPosting(user, postingId, existing, prepared) {
     postingNumber = await generateStockVoucherNumber('FAO', Number(doc.Date.substring(0, 4)), doc.CompanyID);
   }
 
-  C.assertBatchSize(doc.Lines.length * 3 + 2);
+  C.assertBatchSize(doc.Lines.length * 3 + 4);
   for (const l of doc.Lines) {
     const a = assets[l.AssetID];
     const area = (a.Areas || {})[AREA] || {};
@@ -461,7 +563,29 @@ async function commitPosting(user, postingId, existing, prepared) {
       ReversedByTxnID: '', CreatedAt: now, CreatedBy: actor
     }, prev);
     const upd = { UpdatedAt: now, UpdatedBy: actor };
-    if (doc.Type === 'Capitalization') {
+    if (doc.Type === 'AuCCost') {
+      Object.assign(txn, { Type: 'AuCCost', Category: l.Category, CostDelta: l.Amount, AccDepDelta: 0, ClearingItems: l.Items });
+      upd[`Areas.${AREA}.Cost`] = FieldValue.increment(l.Amount);
+      upd.Status = 'UnderConstruction';
+      l.Items.forEach(it => {
+        const k = itemKey(it.JVID, it.LineNo);
+        batch.set(col(COL.clearingUse).doc(k), {
+          JVID: it.JVID, LineNo: it.LineNo, JVNumber: it.JVNumber, CompanyID: doc.CompanyID,
+          Capitalized: FieldValue.increment(it.Amount),
+          Uses: FieldValue.arrayUnion({ PostingID: postingId, AssetID: l.AssetID, AssetNumber: a.AssetNumber, Amount: it.Amount, Reversed: false })
+        }, { merge: true });
+      });
+    } else if (doc.Type === 'AuCSettlement') {
+      // Into a final asset: its first cost capitalizes it, as a capitalization would.
+      const first = a.Status === 'Planned';
+      Object.assign(txn, { Type: 'AuCSettlement', First: first, SourceAssetID: doc.SourceAssetID, SourceAssetNumber: doc.SourceAssetNumber, CostDelta: l.Amount, AccDepDelta: 0 });
+      upd[`Areas.${AREA}.Cost`] = FieldValue.increment(l.Amount);
+      upd.Status = 'Active';
+      if (first) {
+        upd.CapitalizationDate = doc.Date;
+        if (!area.DepStartDate && a.ClassKind !== 'Land') upd[`Areas.${AREA}.DepStartDate`] = doc.Date;
+      }
+    } else if (doc.Type === 'Capitalization') {
       const first = a.Status === 'Planned';
       Object.assign(txn, { Type: first ? 'Capitalization' : 'Addition', CostDelta: l.Amount, AccDepDelta: 0, ClearingItems: l.Items });
       upd[`Areas.${AREA}.Cost`] = FieldValue.increment(l.Amount);
@@ -502,6 +626,20 @@ async function commitPosting(user, postingId, existing, prepared) {
     batch.set(col(COL.txns).doc(txnId), txn);
     batch.update(col(COL.assets).doc(l.AssetID), upd);
   }
+  if (doc.Type === 'AuCSettlement') {
+    // Out of the CWIP; at zero it is Settled (closed).
+    const src = assets[doc.SourceAssetID];
+    const srcArea = (src.Areas || {})[AREA] || {};
+    const left = round2((srcArea.Cost || 0) - doc.Total);
+    batch.set(col(COL.txns).doc(postingId + '_' + src._id), {
+      AssetID: src._id, AssetNumber: src.AssetNumber, CompanyID: doc.CompanyID, Area: AREA, Date: doc.Date, Period: doc.Period,
+      PostingID: postingId, PostingNumber: postingNumber, JVID: jvId, JVNumber: jvNumber, Reason: doc.Reason || '',
+      ReversedByTxnID: '', CreatedAt: now, CreatedBy: actor, PrevStatus: src.Status, PrevCapitalizationDate: src.CapitalizationDate || '',
+      PrevLastDepPeriod: '', PrevDepStartDate: '',
+      Type: 'AuCSettlementOut', CostDelta: -doc.Total, AccDepDelta: 0, SettledTo: doc.Lines.map(l => ({ AssetID: l.AssetID, AssetNumber: l.AssetNumber, Amount: l.Amount }))
+    });
+    batch.update(col(COL.assets).doc(src._id), { [`Areas.${AREA}.Cost`]: FieldValue.increment(-doc.Total), Status: left <= 0.005 ? 'Settled' : 'UnderConstruction', UpdatedAt: now, UpdatedBy: actor });
+  }
 
   batch.update(col(COL.postings).doc(postingId), Object.assign({}, doc, {
     Status: 'Posted', PostingNumber: postingNumber, JVID: jvId, JVNumber: jvNumber, PostedAt: now, PostedBy: actor,
@@ -530,9 +668,12 @@ exports.reverseFaPosting = onCallWithMessages(onCallOptions, async (request) => 
     if (settings.RunInProgress) throw new Error('A depreciation run is being posted for this company; finish it first.');
     if (p.Type === 'Retirement') return R.reverse(user, p, reason, settings);
 
-    // The posting must be each asset's latest financial transaction.
+    // The posting must be each asset's latest financial transaction (for a
+    // settlement, the CWIP it came out of too).
     const own = {};
-    for (const l of p.Lines) {
+    const touched = p.Lines.map(l => ({ AssetID: l.AssetID, AssetNumber: l.AssetNumber }));
+    if (p.Type === 'AuCSettlement') touched.push({ AssetID: p.SourceAssetID, AssetNumber: p.SourceAssetNumber });
+    for (const l of touched) {
       const txns = await C.assetTxns(l.AssetID);
       const live = txns.filter(t => (t.CostDelta || t.AccDepDelta) && t.Type !== 'Reversal' && !t.ReversedByTxnID)
         .sort((a, b) => (a.CreatedAt || '').localeCompare(b.CreatedAt || ''));
@@ -565,14 +706,14 @@ exports.reverseFaPosting = onCallWithMessages(onCallOptions, async (request) => 
       batch.update(col(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(p.JVID), { ReversedByJV: revJv.jvId, UpdatedAt: now, UpdatedBy: actor });
     }
 
-    C.assertBatchSize(p.Lines.length * 4 + 4);
+    C.assertBatchSize(touched.length * 4 + 4);
     const clearingUpdates = {};
-    for (const l of p.Lines) {
+    for (const l of touched) {
       const t = own[l.AssetID];
       const revId = t._id + '_R';
       batch.set(col(COL.txns).doc(revId), {
         AssetID: l.AssetID, AssetNumber: t.AssetNumber, CompanyID: p.CompanyID, Area: AREA, Type: 'Reversal', ReversalOfTxnID: t._id,
-        ReversalOfType: t.Type, Date: t.Date, Period: t.Period, CostDelta: -(t.CostDelta || 0), AccDepDelta: -(t.AccDepDelta || 0),
+        ReversalOfType: t.Type, First: Boolean(t.First), Date: t.Date, Period: t.Period, CostDelta: -(t.CostDelta || 0), AccDepDelta: -(t.AccDepDelta || 0),
         PostingID: postingId, PostingNumber: p.PostingNumber, JVID: revJv ? revJv.jvId : '', JVNumber: revJv ? revJv.jvNumber : '',
         Reason: reason, ReversedByTxnID: '', CreatedAt: now, CreatedBy: actor
       });
@@ -589,7 +730,7 @@ exports.reverseFaPosting = onCallWithMessages(onCallOptions, async (request) => 
         if (t.PrevStatus !== 'FullyDepreciated') upd[`Areas.${AREA}.FullyDepreciatedAt`] = '';
       } else {
         upd[`Areas.${AREA}.Cost`] = FieldValue.increment(-t.CostDelta);
-        if (t.Type === 'Capitalization') upd[`Areas.${AREA}.DepStartDate`] = t.PrevDepStartDate;
+        if (t.Type === 'Capitalization' || (t.Type === 'AuCSettlement' && t.First)) upd[`Areas.${AREA}.DepStartDate`] = t.PrevDepStartDate;
         (t.ClearingItems || []).forEach(it => {
           const k = itemKey(it.JVID, it.LineNo);
           clearingUpdates[k] = clearingUpdates[k] || [];

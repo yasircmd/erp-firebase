@@ -107,3 +107,17 @@ screens" with a new `job-order-acceptance` deploy set.
   - the task's line ID ignored.
 - **Deploy:** the Deploy workflow's "functions set, then screens", set
   `job-order-acceptance` (10 functions).
+
+## Fix (2026-09-28): buttons missing after a slow permissions answer
+
+Found by an intermittent UI failure during the Capital Work in Progress
+regression (about one run in three). A line opened straight from a Home
+task could be drawn before the user's permissions arrived. For a line
+without an approval (one pending since before go-live), the Accept and
+Request Amendment buttons then stayed hidden for a user with "post"
+rights.
+
+The screen now redraws the open line once the permissions arrive. The UI
+check now delays that answer by 1.5 s, so it catches the race every
+time: the old screen failed 2/2, the fixed one passes 3/3. Goes live with
+the next screen release.

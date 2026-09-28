@@ -51,7 +51,7 @@ exports.getFaAssetSetup = onCallWithMessages(onCallOptions, async (request) => {
 exports.getFaAssets = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const d = request.data || {};
-  const moduleId = ['FAASSET', 'FAACQ', 'FAADDDEP', 'FADEPRUN', 'FAREGISTER', 'FARETIRE'].includes(d.moduleId) ? d.moduleId : 'FAASSET';
+  const moduleId = ['FAASSET', 'FAACQ', 'FAADDDEP', 'FADEPRUN', 'FAREGISTER', 'FARETIRE', 'FAAUC'].includes(d.moduleId) ? d.moduleId : 'FAASSET';
   await C.requireCap(moduleId, 'access', user.profile.role);
   const companyId = str(d.companyId);
   let assets;
@@ -83,7 +83,6 @@ async function buildAsset(d, user, existing) {
   if (!cls) throw new HttpsError('invalid-argument', 'Select an asset class.');
   if (!existing && cls.Status !== 'Active') throw new HttpsError('invalid-argument', 'That asset class is inactive.');
   if (cls.CompanyID && cls.CompanyID !== companyId) throw new HttpsError('invalid-argument', 'That asset class belongs to a different company.');
-  if (cls.Kind === 'AuC') throw new HttpsError('failed-precondition', 'Assets under Construction are handled by their own sub-module (phase 2).');
 
   const out = { CompanyID: companyId, ClassID: cls._id, ClassCode: cls.Code, ClassName: cls.Name, ClassKind: cls.Kind };
   out.Description = str(d.Description);

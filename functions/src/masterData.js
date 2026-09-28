@@ -186,7 +186,7 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   PDCReceived: 'PDCRECEIVED', PDCReceivedClear: 'PDCRECEIVED', PDCIssued: 'PDCISSUED', PDCIssuedClear: 'PDCISSUED',
   // new development, not in Code.gs: docs/modules/FIXED_ASSETS.md
   FACapitalization: 'FAACQ', FADepreciation: 'FADEPRUN', FAAdditionalDepreciation: 'FAADDDEP',
-  FARetirement: 'FARETIRE',
+  FARetirement: 'FARETIRE', FAAuCCost: 'FAAUC', FAAuCSettlement: 'FAAUC',
   // new development, not in Code.gs: docs/modules/RECURRING_JOURNAL.md
   RecurringJV: 'RECURRINGJV'
 };
