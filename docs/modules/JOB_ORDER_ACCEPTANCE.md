@@ -1,6 +1,7 @@
 # Job Order acceptance through Approval Configuration
 
-Status: **design, awaiting the owner's go-ahead** (2026-09-28).
+Status: **built and tested; not yet deployed** (2026-09-28). The owner
+agreed the design as written, including the three details below.
 
 ## The problem
 
@@ -77,3 +78,31 @@ other gated document uses, so the existing Home machinery does the rest.
 
 Functions, then screens: the Deploy workflow's "functions set, then
 screens" with a new `job-order-acceptance` deploy set.
+
+## As built (2026-09-28)
+
+- **Server:** nine documented patches in `tools/legacy-port/patches.js`
+  (`job-order-approval-*`); `functions/src/legacy/codegs.js` is regenerated
+  from them.
+  - `approvalRegistry.js` stores Job Order approvals on `jobOrderLines`.
+  - `homeTasks.js` gives a Job Order pending task only to the current
+    level's approver. Other modules are unchanged: any undecided level
+    sees it.
+- **Screen:** `screens/JOBORDERREQUEST.html` is hand-maintained now
+  (`handScreens`).
+- **Approvers need Job Order "post" permission:** as with every other
+  module's approval, the accept functions still check it first.
+- **Withdraw** marks the line's open or rejected approval **Withdrawn**, so
+  no Home task is left behind.
+- **Tests:**
+  - `functions/test/emulator/jobOrderAcceptance.emulator.test.js`, 6/6;
+  - `functions/test/ui/jobOrderAcceptance.ui.js`, 4/4.
+- **Negative controls, each caught:**
+  - levels reversed;
+  - Home ignoring the order;
+  - withdraw not closing the approval;
+  - registry on batches;
+  - screen buttons ignoring the approval;
+  - the task's line ID ignored.
+- **Deploy:** the Deploy workflow's "functions set, then screens", set
+  `job-order-acceptance` (10 functions).

@@ -48,6 +48,29 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [ ] **Job Order acceptance through Approval Configuration** (owner,
+  2026-09-28; [JOB_ORDER_ACCEPTANCE.md](modules/JOB_ORDER_ACCEPTANCE.md)).
+  Pending Acceptance and Stop Requested lines now go to the Job Order
+  Request approvers, levels in order.
+  - They show in the approver's Home tasks, which open the line itself.
+  - Only the current level's approver can act.
+  - An amendment request becomes the submitter's task.
+
+  Approval Configuration's Job Order entry did nothing before (also in
+  Apps Script). Built and tested; **to go live:** Deploy → "functions
+  set, then screens", set `job-order-acceptance`.
+- [ ] **Found while building it, not fixed:**
+  - **Approvals elsewhere aren't sequential.** For every module except
+    Job Order, all levels see the task at once and may decide in any
+    order; the document is approved once all have. Say if they should go
+    in order too.
+  - **Cancelling a document leaves its approval open.** Purchase
+    Requisition is one example, and likely others: cancel doesn't close
+    its pending approval, so approvers keep a Home task for a cancelled
+    document (Home only checks that the document exists). Job Order
+    withdraw now closes it.
+  - **Purchase Order's Home task still opens the list,** not the order
+    (`OpenEntryId` gap).
 - [x] **Purchase Requisition and Inventory Purchase Requisition fixes**
   (owner, 2026-09-28). Live 2026-09-28 in screen release
   `20260928T122017Z-5adca41` ([DEPLOY_LOG.md](DEPLOY_LOG.md)); no function
