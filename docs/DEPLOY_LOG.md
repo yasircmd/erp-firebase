@@ -393,3 +393,25 @@ from, and how it was verified. The deploy procedure is in the
     recurring UI 6/6 (the preview shows 500 / 1,000 × 11 / 500); smoke
     green; negative controls (service start ignored; stored plan ignored;
     raw days as weights), each caught.
+- **2026-09-28, first deploy from GitHub Actions (PR #16):** a test run of
+  the new **Deploy** workflow (`.github/workflows/deploy.yml`), started by
+  the owner while Cloud Shell's weekly limit was reached. Task "functions
+  set", set `trial-balance-period`, from `24622fd` (`main`, the PR #16
+  merge). Run
+  [#1](https://github.com/yasircmd/erp-firebase/actions/runs/36413715887),
+  11:07–11:09 UTC, success.
+  - **What changed in production:** nothing functional. The one function,
+    `getTrialBalancePeriod`, was redeployed on Node.js 24 ("Successful
+    update operation"), and `functions/src` is identical to the last
+    deploy (`477bf33`). Then `ALL DONE` with no `IAM FAILED`, so the
+    public-invoker binding worked.
+  - **This confirms** the service account behind `GCP_SA_KEY` has every
+    role a functions deploy needs, including Cloud Run Admin (added by the
+    owner 2026-09-28 for the binding). The workflow's clean-checkout and
+    generated-code checks passed, and the auth action removed its
+    credentials file after the run.
+  - **Warnings, not blocking:**
+    - `firebase-functions` is reported outdated; upgrading has breaking
+      changes and needs its own tested change.
+    - The four actions used still target Node 20; GitHub runs them on
+      Node 24 for now.
