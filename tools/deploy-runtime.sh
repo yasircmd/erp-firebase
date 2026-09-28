@@ -23,4 +23,4 @@ echo "Redeploying ${#todo[@]} functions onto $WANT from $(git log -1 --format='%
 
 fail=0
 deploy_batches --force "${todo[@]}"
-[ $fail = 0 ] && echo "ALL DONE" || echo "SOME STEPS FAILED — re-run this script"
+if [ $fail = 0 ]; then echo "ALL DONE"; else echo "SOME STEPS FAILED — re-run this script"; exit 1; fi

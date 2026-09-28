@@ -28,4 +28,4 @@ fail=0
 deploy_batches "" "${FNS[@]}"
 grant_invokers "${FNS[@]}"
 if [ $fail = 0 ] && [ $SCREENS = 1 ]; then tools/release-screens.sh || fail=1; fi
-[ $fail = 0 ] && echo "ALL DONE" || echo "SOME STEPS FAILED — re-run this script"
+if [ $fail = 0 ]; then echo "ALL DONE"; else echo "SOME STEPS FAILED — re-run this script"; exit 1; fi
