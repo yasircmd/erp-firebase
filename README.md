@@ -206,7 +206,8 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
   - the runtime move.
 
   It runs the same scripts on a clean checkout of `main`
-  (`.github/workflows/deploy.yml`), with batches of 20, after checking
+  (`.github/workflows/deploy.yml`), with batches of 6 (20 hit API errors in
+  practice, see the roadmap), after checking
   that the generated code matches the generator's output. It needs the
   repository secret `GCP_SA_KEY`: the JSON key of a service account with
   Firebase Admin, Cloud Functions Admin, Cloud Run Admin and Service

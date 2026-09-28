@@ -82,7 +82,8 @@ jobs:
         env:
           TASK: ${{ inputs.task }}
           SET: ${{ inputs.set }}
-          BATCH: '20'   # no dropped-connection risk here (see tools/deploy-lib.sh)
+          # 20 hit Cloud Functions API errors in practice (docs/ROADMAP.md, 2026-09-26); 6 goes through.
+          BATCH: '6'
         run: |
           case "$TASK" in
             "functions set")               bash tools/deploy-functions.sh "$SET" ;;
