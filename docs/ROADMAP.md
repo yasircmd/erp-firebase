@@ -48,6 +48,27 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [ ] **Purchase Requisition and Inventory Purchase Requisition fixes**
+  (owner, 2026-09-28). Built and tested; **to go live, run a screen
+  release only**, no function deploy.
+  1. A Rejected requisition's item lines were locked. The header, the
+     buttons and the "fully editable below" banner already allowed
+     editing, and so did the server; the line grid unlocked only for
+     Draft (inherited from Code.gs). It now unlocks for Draft or Rejected,
+     like GRN, Stock Adjustment and the invoices.
+  2. A Home task (pending approval or rejection) opened the module's list,
+     not the requisition. Both screens now take the task's `OpenEntryId`,
+     as 26 other screens do. They open the entry only once its company and
+     cost-center dropdowns have loaded, so those don't show blank, and they
+     load more than the first 100 entries when needed.
+
+  Both screens are now hand-maintained (`handScreens`). Tests:
+  `functions/test/ui/requisitions.ui.js`, 6/6; negative controls (lines
+  locked again; task ID ignored; no wait for dropdown data), each caught
+  exactly its checks. PR/IPR emulator suites 8/8; smoke 4/4.
+  **Same gap, not fixed yet:** Job Order Request and Purchase Order
+  don't read `OpenEntryId` either, so their Home tasks also land on the
+  list.
 - [ ] **Monthly and yearly closing** (owner, 2026-09-27): closing moves
   the income and expense account balances into one P&L account, so they
   stop carrying forward in the Trial Balance's opening. Needs its own

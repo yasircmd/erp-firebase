@@ -154,6 +154,22 @@
   let orgUnits = [];
   let categories = [];
   let isDirty = false;
+  // Home task / drill-through: open this entry once the list AND the
+  // header dropdowns (companies, org units) have loaded, so its company
+  // and cost center show instead of a blank selection.
+  let pendingOpenEntryId = null;
+  let listLoaded = false;
+  let refPending = 2;
+  function refDone() { refPending--; openPendingEntry(); }
+  function openPendingEntry() {
+    if (!pendingOpenEntryId || !listLoaded || refPending > 0) return;
+    const id = pendingOpenEntryId;
+    if (entries.some(e => e.PRID === id)) { pendingOpenEntryId = null; openEntry(id); return; }
+    // Older than the first page: load every entry once, then try again.
+    if (entries.length < entriesTotal) { listLoaded = false; fetchAndRenderList(entriesTotal); return; }
+    pendingOpenEntryId = null;
+    alert('That requisition could not be found — it may have been deleted.');
+  }
 
   function escapeHtml(value) {
     const div = document.createElement('div');
@@ -183,7 +199,7 @@
   function fetchAndRenderList(limit) {
     currentLimit = limit || currentLimit;
     rpc
-      .withSuccessHandler(result => { entries = result.entries || []; entriesTotal = result.total || 0; renderList(); })
+      .withSuccessHandler(result => { entries = result.entries || []; entriesTotal = result.total || 0; renderList(); listLoaded = true; openPendingEntry(); })
       .withFailureHandler(err => alert(err.message || 'Unable to load requisitions.'))
       .getPurchaseRequisitionEntries({ limit: currentLimit });
   }
@@ -248,8 +264,9 @@
             sel.appendChild(opt);
           });
         });
+        refDone();
       })
-      .withFailureHandler(err => console.error(err))
+      .withFailureHandler(err => { console.error(err); refDone(); })
       .getActiveCompanies();
 
     rpc
@@ -260,8 +277,9 @@
         document.getElementById('pr-form-costcenter').innerHTML = orgUnitOptionsHtml('CostCenter', '');
         document.getElementById('pr-form-profitcenter').innerHTML = orgUnitOptionsHtml('ProfitCenter', '');
         renderList();
+        refDone();
       })
-      .withFailureHandler(err => console.error(err))
+      .withFailureHandler(err => { console.error(err); refDone(); })
       .getActiveOrgUnits();
 
     rpc
@@ -396,7 +414,9 @@
   }
 
   function renderGrid() {
-    const readOnly = currentPr && currentPr.Status !== 'Draft';
+    // Rejected is editable like Draft (the header, buttons and the "fully
+    // editable below" banner already said so); Code.gs locked the lines.
+    const readOnly = currentPr && currentPr.Status !== 'Draft' && currentPr.Status !== 'Rejected';
     if (!readOnly) ensureTrailingBlankRow();
     const tbody = document.getElementById('pr-grid-body');
     tbody.innerHTML = '';
@@ -609,6 +629,9 @@
     document.getElementById('pr-reject-btn').addEventListener('click', () => decide('Rejected'));
 
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-cart-shopping"></i> Purchase Requisition';
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) pendingOpenEntryId = pending.OpenEntryId;
     fetchAndRenderList();
     loadReferenceData();
   };
