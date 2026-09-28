@@ -14,13 +14,15 @@
     <button id="dn-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Delivery</button>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+  <div class="grid grid-cols-1 md:grid-cols-6 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
     <input type="text" id="dn-search-input" placeholder="Search number or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
     <select id="dn-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
     <select id="dn-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Draft">Draft</option><option value="Posted">Posted</option></select>
     <input type="date" id="dn-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
     <input type="date" id="dn-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <select id="dn-invoice-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All invoicing</option><option value="Pending">Pending invoice</option><option value="OnDraftInvoice">On draft invoice</option><option value="Invoiced">Invoiced</option></select>
   </div>
+  <div id="dn-invoice-summary" class="hidden text-sm font-medium text-slate-300"></div>
 
   <div id="dn-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
 
@@ -34,6 +36,7 @@
             <th class="py-3 px-4">Date</th>
             <th class="py-3 px-4">Reference</th>
             <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4">Invoice</th>
             <th class="py-3 px-4 text-right">Actions</th>
           </tr>
         </thead>
@@ -185,6 +188,7 @@
   let canDraft = false;
   let canPost = false;
   let entries = [];
+  let entriesTotal = 0;
   let companies = [];
   let customers = [];
   let orgUnits = [];
@@ -302,18 +306,47 @@
   }
 
   // ---------- LIST VIEW ----------
+
+  // Invoicing state (owner, 2026-09-28): the server marks each posted,
+  // unreversed document Invoiced (with the Customer Invoice number), On draft
+  // invoice, or Pending; the invoice number opens the invoice.
+  function invoiceCellHtml(e) {
+    if (e.InvoiceStatus === 'Invoiced') return `<button class="dn-inv-link text-xs font-mono text-emerald-400 hover:text-emerald-300 underline" data-inv="${escapeHtml(e.InvoiceID)}" title="Open the invoice">${escapeHtml(e.InvoiceNumber || 'Invoiced')}</button>`;
+    if (e.InvoiceStatus === 'OnDraftInvoice') return `<button class="dn-inv-link text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20" data-inv="${escapeHtml(e.InvoiceID)}" title="An unposted invoice lists it (${escapeHtml(e.InvoiceDocStatus || '')})">On draft invoice</button>`;
+    if (e.InvoiceStatus === 'Pending') return '<span class="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">Pending invoice</span>';
+    return '<span class="text-xs text-slate-600">—</span>';
+  }
+  function wireInvoiceLinks(root) {
+    root.querySelectorAll('.dn-inv-link').forEach(b => b.addEventListener('click', ev => {
+      ev.stopPropagation();
+      openModule('CUSTOMERINVOICE', { OpenEntryId: b.dataset.inv });
+    }));
+  }
+  // Count and value of the rows shown, when filtering on invoicing.
+  function invoiceSummary(rows, valueOf) {
+    const el = document.getElementById('dn-invoice-summary');
+    const f = document.getElementById('dn-invoice-filter').value;
+    if (!f) { el.classList.add('hidden'); return; }
+    const names = { Pending: 'pending invoice', OnDraftInvoice: 'on a draft invoice', Invoiced: 'invoiced' };
+    const total = rows.reduce((s, e) => s + valueOf(e), 0);
+    el.textContent = rows.length + ' ' + names[f] + ' — value ' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    el.classList.remove('hidden');
+  }
+
   function renderList() {
     const search = document.getElementById('dn-search-input').value.trim().toLowerCase();
     const companyFilter = document.getElementById('dn-company-filter').value;
     const statusFilter = document.getElementById('dn-status-filter').value;
     const fromFilter = document.getElementById('dn-from-filter').value;
     const toFilter = document.getElementById('dn-to-filter').value;
+    const invoiceFilter = document.getElementById('dn-invoice-filter').value;
 
     const filtered = entries.filter(e => {
       if (companyFilter && e.CompanyID !== companyFilter) return false;
       if (statusFilter && e.Status !== statusFilter) return false;
       if (fromFilter && e.TransactionDate < fromFilter) return false;
       if (toFilter && e.TransactionDate > toFilter) return false;
+      if (invoiceFilter && e.InvoiceStatus !== invoiceFilter) return false;
       if (search) {
         const hay = ((e.TransactionNumber || '') + ' ' + (e.Description || '') + ' ' + (e.Reference || '')).toLowerCase();
         if (hay.indexOf(search) === -1) return false;
@@ -321,6 +354,7 @@
       return true;
     });
 
+    invoiceSummary(filtered, e => (e.Lines || []).reduce((s, l) => s + (Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0), 0));
     const tbody = document.getElementById('dn-table-body');
     tbody.innerHTML = '';
     filtered.forEach(e => {
@@ -334,7 +368,9 @@
         <td class="py-2.5 px-4 text-xs text-slate-400">${escapeHtml(e.TransactionDate || '')}</td>
         <td class="py-2.5 px-4 text-xs text-slate-400">${escapeHtml(e.Reference || '')}</td>
         <td class="py-2.5 px-4"><span class="text-xs px-2 py-0.5 rounded-full ${statusDisplay.colorClass}">${escapeHtml(statusDisplay.label)}</span></td>
+        <td class="py-2.5 px-4">${invoiceCellHtml(e)}</td>
         <td class="py-2.5 px-4 text-right"><button class="text-xs text-blue-400 hover:text-blue-300">Open</button></td>`;
+      wireInvoiceLinks(tr);
       tr.addEventListener('click', () => openEntry(e.DeliveryNoteID));
       tbody.appendChild(tr);
     });
@@ -351,7 +387,7 @@
   function fetchEntries(limit) {
     rpc
       .withSuccessHandler(result => {
-        entries = (result && result.entries) || []; renderList();
+        entries = (result && result.entries) || []; entriesTotal = (result && result.total) || 0; renderList();
         if (pendingOpenEntryId) {
           const id = pendingOpenEntryId; pendingOpenEntryId = null;
           // Drill-through from GL Report passes the GL ENTRY's own ID
@@ -1042,6 +1078,10 @@
     document.getElementById('dn-status-filter').addEventListener('change', renderList);
     document.getElementById('dn-from-filter').addEventListener('change', renderList);
     document.getElementById('dn-to-filter').addEventListener('change', renderList);
+    // Finding pending ones must not miss older notes: load them all first.
+    document.getElementById('dn-invoice-filter').addEventListener('change', () => {
+      if (document.getElementById('dn-invoice-filter').value && entriesTotal > entries.length) fetchEntries('all'); else renderList();
+    });
 
     document.getElementById('dn-form-company').addEventListener('change', fetchEligibleSOs);
     document.getElementById('dn-form-customer').addEventListener('change', fetchEligibleSOs);

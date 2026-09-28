@@ -809,5 +809,35 @@ function linesForBatch_(idToken, batchId) {
     find: `      const amount = (grn.Lines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0);`,
     replace: `      // [PORT CHANGE grn-non-stock] a GRN's non-stock lines count too.
       const amount = (grn.Lines || []).concat(grn.NonStockLines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0);`
+  },
+  {
+    id: 'delivery-note-invoice-state',
+    why: "Owner decision 2026-09-28: the Delivery Note list shows whether each posted note is invoiced (with the Customer Invoice number), on an unposted invoice, or pending, and can be filtered on it. MatchedToInvoiceID is set when a Customer Invoice posts and cleared when it is reversed; drafts don't set it, so they are found from the invoices' SourceDeliveryNotes. Same rule as the GRN list (functions/src/grn.js).",
+    find: `    .filter(dn => userCanAccessCompany_(user.profile, dn.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const useAll = limit === 'all';
+  const capped = useAll ? all : all.slice(0, 100);
+  return { entries: capped, total: all.length };
+}`,
+    replace: `    .filter(dn => userCanAccessCompany_(user.profile, dn.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  const useAll = limit === 'all';
+  const capped = useAll ? all : all.slice(0, 100);
+  // [PORT CHANGE delivery-note-invoice-state] Invoiced / On draft invoice / Pending, for the list.
+  const invoices = firebaseDbRequest_('customerInvoices', 'get', null, idToken) || {};
+  const unposted = ['Draft', 'PendingApproval', 'Rejected'];
+  capped.forEach(dn => {
+    if (dn.Status !== 'Posted' || dn.ReversedByDeliveryNoteID || dn.ReversalOfDeliveryNoteID) { dn.InvoiceStatus = ''; return; }
+    if (dn.MatchedToInvoiceID) {
+      Object.assign(dn, { InvoiceStatus: 'Invoiced', InvoiceID: dn.MatchedToInvoiceID, InvoiceNumber: (invoices[dn.MatchedToInvoiceID] || {}).TransactionNumber || '' });
+      return;
+    }
+    const draftId = Object.keys(invoices).find(id => unposted.includes(invoices[id].Status) &&
+      (invoices[id].SourceDeliveryNotes || []).some(d => d.DeliveryNoteID === dn.DeliveryNoteID));
+    if (draftId) Object.assign(dn, { InvoiceStatus: 'OnDraftInvoice', InvoiceID: draftId, InvoiceNumber: invoices[draftId].TransactionNumber || '', InvoiceDocStatus: invoices[draftId].Status });
+    else dn.InvoiceStatus = 'Pending';
+  });
+  return { entries: capped, total: all.length };
+}`
   }
 ];

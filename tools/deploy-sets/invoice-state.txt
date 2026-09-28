@@ -1,0 +1,5 @@
+# Invoicing state on the GRN and Delivery Note lists (owner, 2026-09-28):
+# Invoiced (number) / On draft invoice / Pending invoice, with a filter.
+# Run with --screens: GRN, DELIVERYNOTE (now hand-maintained).
+getGrnEntries                    # annotates each GRN from vendorInvoices
+getDeliveryNoteEntries           # same from customerInvoices (patch delivery-note-invoice-state)

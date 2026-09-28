@@ -472,6 +472,23 @@ exports.deleteGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
   return { success: true };
 });
 
+// Invoicing state of a posted GRN for its list (owner, 2026-09-28):
+// Invoiced (a posted Vendor Invoice matched it: MatchedToInvoiceID), On
+// draft invoice (an unposted invoice lists it), or Pending. Nothing for
+// drafts, reversed GRNs and reversal entries.
+const UNPOSTED_INVOICE = ['Draft', 'PendingApproval', 'Rejected'];
+function invoiceStateOf(grn, invoices) {
+  if (grn.Status !== 'Posted' || grn.ReversedByGRN || grn.ReversalOfGRN) return { InvoiceStatus: '' };
+  if (grn.MatchedToInvoiceID) {
+    const inv = invoices[grn.MatchedToInvoiceID] || {};
+    return { InvoiceStatus: 'Invoiced', InvoiceID: grn.MatchedToInvoiceID, InvoiceNumber: inv.TransactionNumber || '' };
+  }
+  const draftId = Object.keys(invoices).find(id => UNPOSTED_INVOICE.includes(invoices[id].Status) &&
+    (invoices[id].SourceGRNs || []).some(g => g.GRNID === grn.GRNID));
+  if (draftId) return { InvoiceStatus: 'OnDraftInvoice', InvoiceID: draftId, InvoiceNumber: invoices[draftId].TransactionNumber || '', InvoiceDocStatus: invoices[draftId].Status };
+  return { InvoiceStatus: 'Pending' };
+}
+
 // Ported from getGrnEntries.
 exports.getGrnEntries = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
@@ -489,6 +506,8 @@ exports.getGrnEntries = onCallWithMessages(onCallOptions, async (request) => {
   const limit = request.data && request.data.limit;
   const useAll = limit === 'all';
   const capped = useAll ? all : all.slice(0, 100);
+  const invoices = (await rtdb.ref('vendorInvoices').get()).val() || {};
+  capped.forEach(e => Object.assign(e, invoiceStateOf(e, invoices)));
   return { entries: capped, total: all.length };
 });
 
