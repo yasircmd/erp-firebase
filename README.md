@@ -5,13 +5,15 @@ reports, financial statements), inventory (GRN, material issue, stock
 adjustment, warehouse movement, physical count, valuation), production
 (BOM, job orders, production), purchasing (requisitions, purchase orders,
 vendor invoices), sales (price lists, sales orders, delivery notes,
-customer invoices) and fixed assets (asset sub-ledger and depreciation),
-with role-based access and configurable approvals.
+customer invoices) and fixed assets (asset sub-ledger, depreciation,
+retirement and Capital Work in Progress), with role-based access and
+configurable approvals.
 
 It runs on Firebase project `erp1-8f4cd`: Cloud Functions (2nd gen,
 callable, Node 24), Hosting, Realtime Database and Firestore. It was
 migrated from Google Apps Script, and that migration finished on
-2026-09-25. All 46 screens are live.
+2026-09-25 with 46 screens; new development since then brings the live
+screen release to 61 (see [docs/DEPLOY_LOG.md](docs/DEPLOY_LOG.md)).
 
 ## Documents
 
@@ -53,7 +55,8 @@ functions/
     approvalRegistry.js         — which modules can be approval-gated, and where their documents live
     getModuleFragment.js        — serves a screen from the active screen release, after the access check
     stockAdjustment.js, materialIssue.js, grn.js, warehouseMovement.js, masterData.js
-                                — hand-written modules (the pattern for new modules)
+                                — hand-written modules (the pattern for new modules); grn.js also
+                                  takes non-stock lines (docs/modules/GRN_NON_STOCK.md)
     journal.js                  — JV and CBT (moved out of the generated code)
     partyLedger.js              — vendor/customer tags and bill-wise allocation on JV/CBT lines
     invoiceAllocations.js       — Vendor/Customer Invoice list and reversal wrappers for allocation
@@ -63,7 +66,8 @@ functions/
     pdc.js                      — PDC Received and PDC Issued, post-dated cheques (docs/modules/PDC.md)
     faDepreciation.js           — Fixed Assets depreciation engine, pure functions (docs/modules/FIXED_ASSETS.md)
     fixedAssets*.js             — Fixed Assets: Config, Master, Postings (capitalization, take-over,
-                                  additional depreciation), Retirement (sale, scrap), Depreciation (run, registers), Common
+                                  additional depreciation, Capital Work in Progress cost and settlement),
+                                  Retirement (sale, scrap), Depreciation (run, registers), Common
     recurringSchedule.js        — Recurring Journal Entries: run dates and spread amounts, pure functions
     recurringJournal.js         — Recurring Journal Entries: templates, Post Due Runs, reversal (docs/modules/RECURRING_JOURNAL.md)
     callable.js                 — onCallWithMessages: shows the real error message to the user
@@ -135,9 +139,13 @@ node functions/test/ui/purchaseReturn.ui.js # after the purchaseReturn suite: th
 node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the Sales Return screen
 node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: the two SOA screens
 node functions/test/ui/pdc.ui.js            # after the pdc suite: the two PDC screens, SOA pending PDCs
-node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed
+node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed, but it needs
+                                            # cdn.tailwindcss.com: where that's blocked, 6 of its 8 checks fail
 node functions/test/ui/singleCompany.ui.js  # one-company user: company preselected on every screen (after vendorMaster)
-node functions/test/ui/fixedAssets.ui.js    # the six Fixed Asset screens; seeds its own data
+node functions/test/ui/fixedAssets.ui.js    # the Fixed Asset screens, incl. Retirement and Capital Work in Progress; seeds its own data
+node functions/test/ui/stockModules.ui.js   # after the stockModules suite: the four stock screens, GRN PO picker and non-stock lines
+node functions/test/ui/requisitions.ui.js   # PR / IPR: rejected lines editable, Home task opens the entry; seeds its own data
+node functions/test/ui/jobOrderAcceptance.ui.js # Job Order acceptance through approvals; seeds its own data
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen
 ```
@@ -162,13 +170,20 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
 - **Smoke fixture:** run smoke and dynamic toggle after a suite that uses
   `_helpers.js`'s all-modules permissions (e.g. `vendorMaster`), not after
   `stockModules`, which grants only its four modules.
-- **Last full run** (2026-09-26, `pdc` branch): 221/221 emulator tests
-  (in two halves), 105/105 smoke, 2/2 dynamic toggle, 12/12 stock screens,
-  3/3 party payments, 4/4 each for the purchase return, sales return and
-  statements UI checks, 7/7 PDC, 6/6 Home. The party payments check waits for elements, not
-  fixed times, so it passes right after an emulator restart. Each run adds
-  a bill, so rerun the partyPayments suite before rerunning it, or "oldest
-  first" allocates against the previous run's bill.
+- **Last full run** (2026-09-28, before the Capital Work in Progress
+  deploy):
+  - Emulator tests: 260/260, in chunks of 7 files with an emulator
+    restart between them.
+  - Smoke: 93/93, plus FAAUC and its neighbours 16/16.
+  - Single-company: 54/54. Dynamic toggle: 2/2.
+  - UI checks: Fixed Assets 9/9, stock screens 14/14, Purchase Return
+    4/4, requisitions 6/6, Job Order 4/4.
+  - Home: 2/8, only because the cloud test container blocks the Tailwind
+    CDN (see above); unaffected by those changes.
+- **Party payments:** its check waits for elements, not fixed times, so it
+  passes right after an emulator restart. Each run adds a bill, so rerun
+  the partyPayments suite before rerunning it, or "oldest first" allocates
+  against the previous run's bill.
 - **Full run vs. one suite:** the full run above is for before a deploy or
   merge. While building or fixing a module, run only its suite (and its
   UI check); it doesn't need the split.
