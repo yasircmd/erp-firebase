@@ -95,7 +95,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   2026-09-26 (Fixed Assets, both phases):** batches of 20 hit Cloud
   Functions API request errors every time, a few functions per batch;
   `BATCH=6` then went through first time. Use `BATCH=6` for large sets.
-- [ ] **Deploy from GitHub Actions** (2026-09-28, after hitting Cloud
+- [x] **Deploy from GitHub Actions** (2026-09-28, after hitting Cloud
   Shell's weekly limit): `.github/workflows/deploy.yml` runs the same
   deploy scripts from GitHub on a clean checkout of `main`. It's manual,
   asks you to type `DEPLOY`, runs one deploy at a time, and uses batches
@@ -107,7 +107,12 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - Save its JSON key as the repository secret `GCP_SA_KEY`.
   - Optionally, require a reviewer on the `production` environment.
 
-  **Untried:** the first run will show whether a role is missing.
+  **Done:** the secret is set (Cloud Run Admin added 2026-09-28), PR #16 is
+  merged, and the first run (a no-op redeploy of `trial-balance-period`)
+  succeeded with `ALL DONE` ([DEPLOY_LOG.md](DEPLOY_LOG.md)). Follow-ups:
+  - upgrade `firebase-functions` (the CLI warns it's outdated; breaking
+    changes, so it needs its own tested change);
+  - bump the workflow's actions off Node 20 when new major versions ship.
 - [x] **Release screens without a function deploy**
   ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md)): live
   2026-09-26 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). Owner's decisions: access
