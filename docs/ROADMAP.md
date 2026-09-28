@@ -70,11 +70,11 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   UI check in `stockModules.ui.js`; its negative control was caught.
   **Live 2026-09-28** (PR #22; Deploy run #8, release
   `20260928T153508Z-f75f256`).
-- [ ] **GRN: non-stock lines** (owner, 2026-09-28;
+- [x] **GRN: non-stock lines** (owner, 2026-09-28;
   [GRN_NON_STOCK.md](modules/GRN_NON_STOCK.md)). Dr the category
   account · Cr GRN Clearing, from PO category lines or entered directly.
-  Built and tested (the owner agreed the design as written). **To go
-  live:** Deploy → "functions set, then screens", set `grn-non-stock`.
+  **Live 2026-09-28** (PR #23; Deploy run #9, release
+  `20260928T170924Z-ce7496b`).
   - For Fixed Asset categories to reach Fixed Assets, the category must
     point at the Fixed Asset Clearing Account. That account must then be
     Asset-type, since Procurement Setup requires Asset for a Fixed Asset
@@ -177,7 +177,17 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   succeeded with `ALL DONE` ([DEPLOY_LOG.md](DEPLOY_LOG.md)). Follow-ups:
   - upgrade `firebase-functions` (the CLI warns it's outdated; breaking
     changes, so it needs its own tested change);
-  - bump the workflow's actions off Node 20 when new major versions ship.
+  - **Workflow actions off Node 20, runner pinned:** a PR moves them to
+    `actions/checkout@v6`, `actions/setup-node@v6` (dependency cache
+    off), `google-github-actions/auth@v3` and `setup-gcloud@v3`, all
+    Node 24. It also pins `runs-on: ubuntu-24.04`, because `ubuntu-latest`
+    becomes Ubuntu 26 from 2026-10-19. **Proven once** a harmless run
+    ("screens only") passes after merging. Moving to Ubuntu 26 later is
+    a deliberate change with its own test run.
+  - **Cloud Run readiness timeouts:** in run #9 one batch failed after 15
+    minutes ("Resource readiness deadline exceeded"). The script's retry
+    deployed it. If it recurs, look at Cloud Run in the console for that
+    window.
 - [x] **Release screens without a function deploy**
   ([SCREENS_ON_HOSTING.md](modules/SCREENS_ON_HOSTING.md)): live
   2026-09-26 ([DEPLOY_LOG.md](DEPLOY_LOG.md)). Owner's decisions: access

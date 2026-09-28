@@ -1,6 +1,6 @@
 # Non-stock lines in GRN
 
-Status: **built and tested; not yet deployed** (2026-09-28). The owner
+Status: **live** since 2026-09-28 (PR #23, Deploy run #9). The owner
 agreed the design as written, including the three points below.
 
 ## The request
@@ -169,4 +169,4 @@ A non-stock line holds:
     line into the non-stock grid, locked; a direct line posted from the
     screen, then read-only.
 - **Deploy:** the Deploy workflow's "functions set, then screens", set
-  `grn-non-stock` (11 functions).
+  `grn-non-stock` (10 functions).

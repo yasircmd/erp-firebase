@@ -467,3 +467,28 @@ from, and how it was verified. The deploy procedure is in the
   15:34–15:35 UTC, success. Release **`20260928T153508Z-f75f256`**: 60/60
   screens written and verified, active. A posted or pending GRN now shows
   only its own PO lines, locked. No function deploy.
+- **2026-09-28, GRN non-stock lines (PR #23):** Deploy workflow task
+  "functions set, then screens", set `grn-non-stock`, from `ce7496b`
+  (`main`, the PR #23 merge), run
+  [#9](https://github.com/yasircmd/erp-firebase/actions/runs/36453439590),
+  16:46–17:09 UTC, success.
+  - **Functions:** the 10 in the set, in two batches.
+    - Batch 1: the four GRN functions, `getEligibleGRNsForInvoice` and
+      `saveVendorInvoiceDraft`. "Deploy complete!" in 2 minutes.
+    - Batch 2, the four Fixed Assets functions: the first attempt failed
+      after 15 minutes. All four gave "Could not create or update Cloud
+      Run service … Resource readiness deadline exceeded". The script's
+      automatic retry deployed all four ("Deploy complete!", 17:09).
+      Hence the 23-minute run.
+    - The run ended `ALL DONE`, and the script exits on any failure, so
+      the invoker bindings were applied.
+  - **Screens:** release **`20260928T170924Z-ce7496b`**, 60/60 written and
+    verified, active (GRN non-stock grid).
+  - The owner deployed and confirmed it.
+  - **Notices on the run, not blocking** (follow-ups in the roadmap):
+    - The four actions still target Node 20 and are forced onto Node 24.
+    - `ubuntu-latest` moves to Ubuntu 26 from 2026-10-19; this run used
+      `ubuntu-24.04`.
+    - Also in the log: "invalid or damaged lockfile detected" from
+      `npm ci` in `functions/`. The install still succeeded. Worth
+      regenerating the lockfile in the `firebase-functions` upgrade.
