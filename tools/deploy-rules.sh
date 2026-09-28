@@ -1,0 +1,16 @@
+#!/bin/bash
+# Deploys the security rules in database.rules.json (RTDB) and firestore.rules.
+# Both are deny-all: every read and write goes through a Cloud Function with
+# the Admin SDK, which bypasses rules by design. RTDB was "auth != null" only
+# while the Apps Script system (which read RTDB with users' own ID tokens)
+# was in use; it was retired 2026-09-28. Same clean-copy rule as the other deploys.
+cd "$(dirname "$0")/.." || exit 1
+P=erp1-8f4cd
+FIREBASE=${FIREBASE:-firebase}
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "STOP: working copy not clean — commit or 'git stash push -u' first:"; git status --short; exit 1
+fi
+echo "Deploying database.rules.json and firestore.rules from $(git log -1 --format='%h %s'):"
+cat database.rules.json
+if $FIREBASE deploy --project "$P" --only database,firestore:rules; then echo "ALL DONE"; else echo "RULES DEPLOY FAILED"; exit 1; fi

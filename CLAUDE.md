@@ -36,10 +36,13 @@ preserved quirks). Read it when touching a ported module.
   deploy in docs/DEPLOY_LOG.md.
 
 ## Deployment facts learned the hard way — don't rediscover these
-- RTDB auth: the Apps Script Code.gs used a REAL user ID token for RTDB
-  (firebaseDbRequest_) but IAM/OAuth for Firestore (firestoreRequest_).
-  These have different Security Rules implications. Confirm the current
-  database.rules.json state before ever touching RTDB rules again.
+- Security rules are deny-all on both RTDB and Firestore: every read and
+  write goes through a Cloud Function with the Admin SDK. RTDB was
+  `auth != null` only while the Apps Script system (which read RTDB with
+  users' own ID tokens) was in use. It was retired 2026-09-28 (owner).
+  Deploy rules with tools/deploy-rules.sh (or the Deploy workflow's
+  "database rules" task). Never open a path to clients as a shortcut for
+  something a Cloud Function should do.
 - Every onCall Cloud Function needs an explicit public-invoker IAM binding
   after deploy (2nd Gen quirk, not automatic):
   gcloud functions add-invoker-policy-binding FUNCTION_NAME --region=us-central1 --member=allUsers --gen2

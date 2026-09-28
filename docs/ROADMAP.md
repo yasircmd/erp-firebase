@@ -189,8 +189,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from the migration
 
-- [ ] **Data checks in the old Apps Script system** for the bugs still
-  live there: deviations #5, #6, #8, #11, #12, #14–#16 and #18 in
+- [ ] **Data checks on the data the Apps Script system wrote** before its
+  retirement (2026-09-28), for the bugs that were live in it: deviations #5, #6, #8, #11, #12, #14–#16 and #18 in
   [MIGRATION.md](MIGRATION.md) → "Deviations from Code.gs". Don't use its
   "Recalculate Stock Ledger" (#18).
 - [ ] **Back-fill Physical Counts** posted by the Apps Script system before
@@ -200,5 +200,24 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   scoping in Approval Tracker and BOM, the company gaps in draft
   edit/delete, and the no-lock numbering and reservation races. All are
   listed in [MIGRATION.md](MIGRATION.md) → Status.
-- [ ] **Retire the Apps Script project** once the owner is satisfied, then
-  revisit the `no-cache` Hosting header (README → Caching).
+- [ ] **Retire the Apps Script project.** The owner decided 2026-09-28 it
+  is no longer used. Code side done:
+  - `database.rules.json` is deny-all, as the design always intended; it
+    was `auth != null` only for Apps Script's RTDB access;
+  - `tools/deploy-rules.sh` and the Deploy workflow's "database rules"
+    task deploy it;
+  - the docs are updated.
+
+  **Still to do (owner):**
+  - in the Apps Script editor, archive the web app deployment. It was
+    published to anyone, even anonymous, and runs as the owner's account
+    with Firestore access;
+  - check its Triggers page is empty;
+  - delete the `FIREBASE_API_KEY` script property and `Temp.js`;
+  - change the passwords that were hard-coded in `Temp.js`, if those
+    accounts still exist;
+  - remove the script's access to the Google account;
+  - then run the "database rules" deploy.
+
+  Afterwards, revisit the `no-cache` Hosting header (README → Caching).
+  Deploys are still frequent, so keep it for now.

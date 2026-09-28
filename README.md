@@ -199,6 +199,8 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
   last 10 are kept. Record releases in the deploy log.
 - **Generated-port functions:** `tools/deploy-migration.sh` (reads the
   pending list from `tools/legacy-port/status.js`).
+- **Security rules:** `tools/deploy-rules.sh` deploys `database.rules.json`
+  and `firestore.rules`. Both are deny-all.
 - **From GitHub instead of Cloud Shell:** go to GitHub → Actions →
   **Deploy** → Run workflow, and type `DEPLOY`. Choose one task:
   - a functions set, optionally followed by its screens;
@@ -228,7 +230,15 @@ deployed fix shows immediately. Revisit it once deploys become infrequent.
 
 ## The old Apps Script system
 
-Several bugs fixed during the migration are **still live in the Apps
-Script system** while it runs. [docs/MIGRATION.md](docs/MIGRATION.md) →
-"Deviations from Code.gs" lists each one with the data check to run. In
-particular, don't use its "Recalculate Stock Ledger" button (#18).
+**Retired 2026-09-28 (owner): no longer used.** Its source is kept
+read-only in `legacy-gas/` as the generator's input. Don't bring it back
+into use:
+- the bugs fixed during the migration are still in it;
+- its RTDB access needed the looser `auth != null` rules that are now
+  closed (see Security Rules above).
+
+The data it wrote before retirement is still in production.
+[docs/MIGRATION.md](docs/MIGRATION.md) → "Deviations from Code.gs" lists
+the data check for each bug that affected that data; see the roadmap's
+migration follow-ups. In particular, never use its "Recalculate Stock
+Ledger" (#18).
