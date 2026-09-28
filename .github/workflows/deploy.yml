@@ -19,6 +19,7 @@ on:
           - functions set, then screens   # tools/deploy-functions.sh <set> --screens
           - screens only                  # tools/release-screens.sh
           - runtime                       # tools/deploy-runtime.sh
+          - database rules                # tools/deploy-rules.sh (RTDB + Firestore rules)
         default: functions set
       set:
         description: 'Deploy set name, from tools/deploy-sets/ without .txt (for the "functions set" tasks)'
@@ -90,4 +91,5 @@ jobs:
             "functions set, then screens") bash tools/deploy-functions.sh "$SET" --screens ;;
             "screens only")                bash tools/release-screens.sh ;;
             "runtime")                     bash tools/deploy-runtime.sh ;;
+            "database rules")              bash tools/deploy-rules.sh ;;
           esac
