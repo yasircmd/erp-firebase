@@ -48,9 +48,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
-- [ ] **Purchase Requisition and Inventory Purchase Requisition fixes**
-  (owner, 2026-09-28). Built and tested; **to go live, run a screen
-  release only**, no function deploy.
+- [x] **Purchase Requisition and Inventory Purchase Requisition fixes**
+  (owner, 2026-09-28). Live 2026-09-28 in screen release
+  `20260928T122017Z-5adca41` ([DEPLOY_LOG.md](DEPLOY_LOG.md)); no function
+  deploy was needed.
   1. A Rejected requisition's item lines were locked. The header, the
      buttons and the "fully editable below" banner already allowed
      editing, and so did the server; the line grid unlocked only for

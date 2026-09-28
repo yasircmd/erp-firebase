@@ -430,3 +430,17 @@ from, and how it was verified. The deploy procedure is in the
     in, screens, posting). Nothing in the app reads the database directly,
     and the functions use the Admin SDK, which bypasses rules. Rollback, if
     ever needed: revert `database.rules.json` and run this task again.
+- **2026-09-28, screen release: PR and IPR fixes (PR #19):** Deploy
+  workflow task "screens only" (`tools/release-screens.sh`) from `5adca41`
+  (`main`, the PR #20 merge), run
+  [#4](https://github.com/yasircmd/erp-firebase/actions/runs/36421065625),
+  success. Release **`20260928T122017Z-5adca41`**: 60/60 screens written
+  and verified, active. It contains the Purchase Requisition and Inventory
+  Purchase Requisition fixes (Rejected lines editable; Home tasks open the
+  entry). No function deploy.
+  - The first attempt, run
+    [#3](https://github.com/yasircmd/erp-firebase/actions/runs/36420417597)
+    from `ac90c00`, failed before writing: "Command failed: git config
+    user.name". `tools/screen-release.js` records the releaser's git name,
+    and the runner had none. PR #20 made the workflow set it to
+    "<actor> (GitHub Actions)", then the release went through.
