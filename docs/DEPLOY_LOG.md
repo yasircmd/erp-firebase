@@ -502,3 +502,16 @@ from, and how it was verified. The deploy procedure is in the
   - No Node 20 warning.
   - Release **`20260928T172632Z-43a9cc0`**: 60/60 screens written and
     verified, active. The same screens as before, a harmless re-release.
+- **2026-09-28, Fixed Assets: Capital Work in Progress + Job Order screen
+  fix (PR #25):** Deploy workflow task "functions set, then screens", set
+  `fixed-assets-cwip`, from `4ea8010` (`main`, the PR #25 merge), run
+  [#11](https://github.com/yasircmd/erp-firebase/actions/runs/36468224611),
+  18:52–19:07 UTC, success.
+  - **Functions:** the 25 in the set, in batches of 6. The last batch
+    ended with `getModuleFragment` "Successful update operation". The run
+    ended `ALL DONE` (the script exits on any failure).
+  - **Screens:** release **`20260928T190649Z-4ea8010`**, 61/61 written
+    and verified, active. The new `FAAUC` screen makes it 61. It also
+    carries the Job Order fix.
+  - The owner then used CWIP Cost with no CWIP selected. The screen's
+    message was unclear, which led to the follow-up in the next PR.

@@ -227,6 +227,18 @@ async function seed() {
       { AccountCode: '2300', Debit: 9000, Description: 'Works' }, { AccountCode: '1100', Credit: 9000, Description: 'Bank' }] } }));
     ok(await H.call('u-admin', 'postJournalEntry', { jvId: jv.jvId }));
 
+    // Before any CWIP exists the screen says where to create one.
+    const e = await open('FAAUC', 'u-admin');
+    await e.click('#fcw-new-cost-btn');
+    await e.selectOption('#fcw-form-company', 'C1');
+    await settle(e);
+    assert.equal(await e.textContent('#fcw-target option'), 'No CWIP yet — create one in Fixed Asset Master');
+    await e.click('#fcw-items-body .fcw-all');
+    await e.selectOption('#fcw-category', 'Other');
+    await e.click('#fcw-add-btn');
+    assert.match(await e.textContent('#fcw-error'), /no open Capital Work in Progress\. Create one in Fixed Asset Master/);
+    await clean(e); await e.close();
+
     const m = await open('FAASSET', 'u-admin');
     await m.click('#faa-new-btn');
     await m.selectOption('#faa-form-company', 'C1');
