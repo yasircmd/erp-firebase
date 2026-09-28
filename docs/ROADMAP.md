@@ -181,8 +181,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `actions/checkout@v6`, `actions/setup-node@v6` (dependency cache
     off), `google-github-actions/auth@v3` and `setup-gcloud@v3`, all
     Node 24. It also pins `runs-on: ubuntu-24.04`, because `ubuntu-latest`
-    becomes Ubuntu 26 from 2026-10-19. **Proven once** a harmless run
-    ("screens only") passes after merging. Moving to Ubuntu 26 later is
+    becomes Ubuntu 26 from 2026-10-19. **Done and proven** (PR #24): run
+    #10 ("screens only") passed on `ubuntu-24.04` with no Node 20 warning. Moving to Ubuntu 26 later is
     a deliberate change with its own test run.
   - **Cloud Run readiness timeouts:** in run #9 one batch failed after 15
     minutes ("Resource readiness deadline exceeded"). The script's retry

@@ -492,3 +492,13 @@ from, and how it was verified. The deploy procedure is in the
     - Also in the log: "invalid or damaged lockfile detected" from
       `npm ci` in `functions/`. The install still succeeded. Worth
       regenerating the lockfile in the `firebase-functions` upgrade.
+- **2026-09-28, workflow test after PR #24 (actions on Node 24, runner
+  pinned):** Deploy workflow task "screens only" from `43a9cc0` (`main`,
+  the PR #24 merge), run
+  [#10](https://github.com/yasircmd/erp-firebase/actions/runs/36458035329),
+  17:25–17:26 UTC, success.
+  - Ran on `ubuntu-24.04` with `actions/checkout@v6`, `setup-node@v6`,
+    `google-github-actions/auth@v3` and `setup-gcloud@v3`.
+  - No Node 20 warning.
+  - Release **`20260928T172632Z-43a9cc0`**: 60/60 screens written and
+    verified, active. The same screens as before, a harmless re-release.
