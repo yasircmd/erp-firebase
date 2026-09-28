@@ -48,6 +48,27 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [ ] **Purchase Requisition and Inventory Purchase Requisition fixes**
+  (owner, 2026-09-28). Built and tested; **to go live, run a screen
+  release only**, no function deploy.
+  1. A Rejected requisition's item lines were locked. The header, the
+     buttons and the "fully editable below" banner already allowed
+     editing, and so did the server; the line grid unlocked only for
+     Draft (inherited from Code.gs). It now unlocks for Draft or Rejected,
+     like GRN, Stock Adjustment and the invoices.
+  2. A Home task (pending approval or rejection) opened the module's list,
+     not the requisition. Both screens now take the task's `OpenEntryId`,
+     as 26 other screens do. They open the entry only once its company and
+     cost-center dropdowns have loaded, so those don't show blank, and they
+     load more than the first 100 entries when needed.
+
+  Both screens are now hand-maintained (`handScreens`). Tests:
+  `functions/test/ui/requisitions.ui.js`, 6/6; negative controls (lines
+  locked again; task ID ignored; no wait for dropdown data), each caught
+  exactly its checks. PR/IPR emulator suites 8/8; smoke 4/4.
+  **Same gap, not fixed yet:** Job Order Request and Purchase Order
+  don't read `OpenEntryId` either, so their Home tasks also land on the
+  list.
 - [ ] **Monthly and yearly closing** (owner, 2026-09-27): closing moves
   the income and expense account balances into one P&L account, so they
   stop carrying forward in the Trial Balance's opening. Needs its own
@@ -200,24 +221,16 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   scoping in Approval Tracker and BOM, the company gaps in draft
   edit/delete, and the no-lock numbering and reservation races. All are
   listed in [MIGRATION.md](MIGRATION.md) → Status.
-- [ ] **Retire the Apps Script project.** The owner decided 2026-09-28 it
-  is no longer used. Code side done:
-  - `database.rules.json` is deny-all, as the design always intended; it
-    was `auth != null` only for Apps Script's RTDB access;
-  - `tools/deploy-rules.sh` and the Deploy workflow's "database rules"
-    task deploy it;
-  - the docs are updated.
+- [x] **Retire the Apps Script project** (done 2026-09-28; owner decision:
+  no longer used):
+  - `database.rules.json` is deny-all and live in production (Deploy run
+    #2, [DEPLOY_LOG.md](DEPLOY_LOG.md)). It was `auth != null` only for
+    Apps Script's RTDB access;
+  - the owner confirmed the console steps: web app deployment archived,
+    no triggers, `FIREBASE_API_KEY` and `Temp.js` deleted, the `Temp.js`
+    passwords changed, the script's account access removed;
+  - the owner confirmed the app works after the rules change.
 
-  **Still to do (owner):**
-  - in the Apps Script editor, archive the web app deployment. It was
-    published to anyone, even anonymous, and runs as the owner's account
-    with Firestore access;
-  - check its Triggers page is empty;
-  - delete the `FIREBASE_API_KEY` script property and `Temp.js`;
-  - change the passwords that were hard-coded in `Temp.js`, if those
-    accounts still exist;
-  - remove the script's access to the Google account;
-  - then run the "database rules" deploy.
-
-  Afterwards, revisit the `no-cache` Hosting header (README → Caching).
-  Deploys are still frequent, so keep it for now.
+  Still separate: the data checks and the Physical Count back-fill below,
+  on the data it wrote before retirement. The `no-cache` Hosting header
+  (README → Caching) stays while deploys are frequent.
