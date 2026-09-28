@@ -879,6 +879,9 @@
         canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost);
         document.getElementById('jo-new-btn').classList.toggle('hidden', !canDraft);
         if (canDraft) document.getElementById('jo-new-btn').addEventListener('click', newEntry);
+        // A line opened (e.g. from a Home task) before this answer came back was
+        // drawn without the "post" buttons: draw it again now.
+        if (currentLine && !document.getElementById('jo-line-detail-view').classList.contains('hidden')) openLineDetail(currentLine.LineID);
       })
       .withFailureHandler(() => {})
       .getModulePermissionsForUser({ moduleId: 'JOBORDERREQUEST' });

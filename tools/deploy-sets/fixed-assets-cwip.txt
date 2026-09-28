@@ -2,6 +2,8 @@
 # docs/modules/FIXED_ASSETS.md → Capital Work in Progress). Server first;
 # getModuleFragment last. Run with --screens: FAAUC (new), FAASSET (AuC
 # classes, CWIP statuses), FAREGISTER (CWIP statuses, history labels).
+# The same screen release also carries a JOBORDERREQUEST fix (docs/modules/
+# JOB_ORDER_ACCEPTANCE.md → Fix 2026-09-28); no function for it.
 getFaRights                      # FAAUC rights (first call seeds its default permissions)
 saveFaAsset                      # AuC-kind classes allowed: a CWIP is created in Fixed Asset Master
 getFaAssets                      # FAAUC may list assets
