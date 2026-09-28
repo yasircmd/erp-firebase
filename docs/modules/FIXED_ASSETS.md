@@ -872,4 +872,5 @@ amounts to CWIP" with no CWIP to pick, and got "Select the Capital Work
 in Progress first." None had been created yet in Fixed Asset Master. The
 list now reads "No CWIP yet — create one in Fixed Asset Master" when the
 company has none open. The message then says where to create one, or
-where to select it. UI check added; the old screen fails it.
+where to select it. UI check added; the old screen fails it. Live
+2026-09-28 (PR #26, Deploy run #12).
