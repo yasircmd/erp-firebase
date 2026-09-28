@@ -200,24 +200,16 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   scoping in Approval Tracker and BOM, the company gaps in draft
   edit/delete, and the no-lock numbering and reservation races. All are
   listed in [MIGRATION.md](MIGRATION.md) → Status.
-- [ ] **Retire the Apps Script project.** The owner decided 2026-09-28 it
-  is no longer used. Code side done:
-  - `database.rules.json` is deny-all, as the design always intended; it
-    was `auth != null` only for Apps Script's RTDB access;
-  - `tools/deploy-rules.sh` and the Deploy workflow's "database rules"
-    task deploy it;
-  - the docs are updated.
+- [x] **Retire the Apps Script project** (done 2026-09-28; owner decision:
+  no longer used):
+  - `database.rules.json` is deny-all and live in production (Deploy run
+    #2, [DEPLOY_LOG.md](DEPLOY_LOG.md)). It was `auth != null` only for
+    Apps Script's RTDB access;
+  - the owner confirmed the console steps: web app deployment archived,
+    no triggers, `FIREBASE_API_KEY` and `Temp.js` deleted, the `Temp.js`
+    passwords changed, the script's account access removed;
+  - the owner confirmed the app works after the rules change.
 
-  **Still to do (owner):**
-  - in the Apps Script editor, archive the web app deployment. It was
-    published to anyone, even anonymous, and runs as the owner's account
-    with Firestore access;
-  - check its Triggers page is empty;
-  - delete the `FIREBASE_API_KEY` script property and `Temp.js`;
-  - change the passwords that were hard-coded in `Temp.js`, if those
-    accounts still exist;
-  - remove the script's access to the Google account;
-  - then run the "database rules" deploy.
-
-  Afterwards, revisit the `no-cache` Hosting header (README → Caching).
-  Deploys are still frequent, so keep it for now.
+  Still separate: the data checks and the Physical Count back-fill below,
+  on the data it wrote before retirement. The `no-cache` Hosting header
+  (README → Caching) stays while deploys are frequent.

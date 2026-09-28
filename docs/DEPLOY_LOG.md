@@ -415,3 +415,18 @@ from, and how it was verified. The deploy procedure is in the
       changes and needs its own tested change.
     - The four actions used still target Node 20; GitHub runs them on
       Node 24 for now.
+- **2026-09-28, security rules: RTDB locked to deny-all (Apps Script
+  retired; PR #18):** Deploy workflow task "database rules"
+  (`tools/deploy-rules.sh`) from `bb1cfe4` (`main`, the PR #18 merge), run
+  [#2](https://github.com/yasircmd/erp-firebase/actions/runs/36416877541),
+  11:38–11:39 UTC, success.
+  - **RTDB:** "rules for database erp1-8f4cd-default-rtdb released
+    successfully". It was `auth != null`, which let any signed-in user read
+    and write the whole database directly; that existed only for the Apps
+    Script system, retired by the owner the same day. It is now
+    `".read": false, ".write": false`.
+  - **Firestore:** already deny-all; "already up to date, skipping upload".
+  - `ALL DONE`. The owner confirmed afterwards that the app works (sign
+    in, screens, posting). Nothing in the app reads the database directly,
+    and the functions use the Admin SDK, which bypasses rules. Rollback, if
+    ever needed: revert `database.rules.json` and run this task again.
