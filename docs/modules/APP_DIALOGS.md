@@ -97,6 +97,12 @@ unchanged, and so is what each button does, apart from one bug (below).
   - the one-at-a-time queue removed;
   - a screen back on the browser's `confirm()` (the UI test and the guard
     both fail).
+- **Full UI regression** (smoke on every screen, all UI checks after their
+  suites): all pass except home.ui (8) and the Trial Balance row heights
+  (2), which fail the same way on `main` here (the Tailwind CDN is
+  blocked in this container). On the way, `recurringJournal.ui.js` was
+  found reading the debounced live preview after a fixed wait; it now
+  waits for the preview itself.
 - The converter bug found while building it (a call to a function named
   `valueOf` was mistaken for a popup) is covered by the converter test.
 
