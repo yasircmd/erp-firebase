@@ -201,3 +201,16 @@ test failed).
 **After deploy:** in Sales Invoice Configuration, set a Sales Returns
 Account on every Sales Type that's used in sales. Until then, returns of
 those types are refused at posting.
+
+## Print (owner, 2026-09-29)
+
+A posted return prints as a **Credit Note** ("Tax Credit Note" when it carries tax), in the
+Sales Invoice's format:
+- the company letterhead;
+- the customer's name, address, contact and tax registration number;
+- the note's number and date, the invoice it's against, and the reference;
+- the reason (the description);
+- one line per returned item: its Delivery Note, quantity, unit price and amount;
+- subtotal, discount, tax (with its rate) and total.
+
+A reversal entry has no Print. `salesReturn.ui.js` checks it.

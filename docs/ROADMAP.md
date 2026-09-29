@@ -132,7 +132,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - It has its own approval entry, copied once from Bank Payment.
   - **Live 2026-09-29** (PR #31; Deploy run #22, release
     `20260929T092926Z-03f421e`).
-- [ ] **Report links restyled** (owner, 2026-09-29). The drill-through
+- [x] **Report links restyled** (owner, 2026-09-29). The drill-through
   links in GL, TB, P&L, Balance Sheet, Cash Flow and Stock Ledger were
   dotted-underlined. They are now blue, underlined only on hover (GL
   drafts stay amber).
@@ -140,6 +140,17 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     screens (`handScreens`), like GL and TB.
   - `trialBalance.ui.js` checks the TB and GL link styles; both negative
     controls (dotted again) were caught. Smoke passes for all six.
+  - **Live 2026-09-29** (PR #33; Deploy run #23, release
+    `20260929T102829Z-833c3b7`).
+- [ ] **Print for Credit and Debit Notes** (owner, 2026-09-29). Sales and
+  Purchase Returns had no print. A posted return now prints as a Credit /
+  Debit Note ("Tax …" when it carries tax), in the Sales Invoice's format.
+  - Details are in [SALES_RETURN.md](modules/SALES_RETURN.md) and
+    [PURCHASE_RETURN.md](modules/PURCHASE_RETURN.md) → Print.
+  - Screens only, no server change.
+  - `salesReturn.ui.js` and `purchaseReturn.ui.js` check the print. Three
+    negative controls were caught: the note titled as an invoice, the form
+    printed too, and no Print button.
   - **To go live:** Deploy → "screens only".
   - CBT gets four Approval Configuration entries (Cash / Bank ×
     Receipt / Payment). Today's CBT setup is copied into all four.
