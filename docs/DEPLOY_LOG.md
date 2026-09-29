@@ -579,3 +579,11 @@ from, and how it was verified. The deploy procedure is in the
     08:05–08:06 UTC, success.
   - The owner confirmed the deploy, then asked for a fifth CBT type for
     transfers between cash and bank accounts (Fund Transfer).
+- **2026-09-29, CBT Fund Transfer (PR #31):** Deploy task "functions set,
+  then screens", set `cbt-fund-transfer`, from `03f421e` (`main`, the PR #31
+  merge), run
+  [#22](https://github.com/yasircmd/erp-firebase/actions/runs/36548892490),
+  09:23–09:29 UTC, success on `ubuntu-24.04`, `ALL DONE`.
+  - **Functions:** the 15 in the set.
+  - **Screens:** release **`20260929T092926Z-03f421e`**, 61/61 written and
+    verified, active.
