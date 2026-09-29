@@ -229,7 +229,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     - no compact tables;
     - the table rule winning inside grids;
     - Trial Balance not excluded.
-  - **To go live:** Deploy → "hosting".
+  - **To go live:** PR #38, then Deploy → "hosting".
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any
