@@ -1,6 +1,6 @@
 # Line grids: compact, room for the name, no empty line once posted
 
-Status: **built** (2026-09-29), not yet live.
+Status: **live** 2026-09-29 (PR #38; Deploy run #32).
 
 ## The request (owner, 2026-09-29)
 
