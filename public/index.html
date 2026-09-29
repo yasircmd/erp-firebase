@@ -357,6 +357,13 @@
           </div>
           <div id="home-rejected-list" class="divide-y divide-slate-800"></div>
         </div>
+        <div id="home-followup-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
+            <i class="fa-solid fa-person-running text-cyan-400 text-xs"></i>
+            <p class="text-xs font-semibold text-slate-300 uppercase">Ready for You to Act On</p>
+          </div>
+          <div id="home-followup-list" class="divide-y divide-slate-800"></div>
+        </div>
         <div id="home-drafts-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
           <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
             <i class="fa-solid fa-pen-to-square text-slate-400 text-xs"></i>
@@ -888,6 +895,7 @@
     let homePdcDueCount = 0;
     let homeRecurringDueCount = 0;
     let homeDraftsCount = 0;
+    let homeFollowUpCount = 0;
 
     function loadHomeTasks() {
       rpc
@@ -906,6 +914,13 @@
         .withSuccessHandler(result => { renderMyDrafts(result || []); })
         .withFailureHandler(() => { renderMyDrafts([]); })
         .getMyDraftsForUser();
+
+      // Accepted Sales Job Order lines and submitted requisitions, for the
+      // follow-up team set in Approval Configuration (docs/modules/APPROVAL_ROUTING.md).
+      rpc
+        .withSuccessHandler(result => { renderFollowUps(result || []); })
+        .withFailureHandler(() => { renderFollowUps([]); })
+        .getMyFollowUpTasksForUser();
 
       // Pending PDCs dated up to today (docs/modules/PDC.md), for users
       // who can clear them. "Today" is the user's own date.
@@ -966,6 +981,29 @@
           <div class="flex items-center gap-3 shrink-0">
             <span class="text-xs ${item.Overdue ? 'text-red-400' : 'text-amber-400'}">${escapeHtml(item.ChequeDate)}</span>
             <span class="font-mono text-xs text-slate-300">${amount}</span>
+            <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+          </div>`;
+        row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
+        list.appendChild(row);
+      });
+    }
+
+    function renderFollowUps(items) {
+      homeFollowUpCount = items.length;
+      const list = document.getElementById('home-followup-list');
+      document.getElementById('home-followup-block').classList.toggle('hidden', items.length === 0);
+      updateHomeTasksToggleButton();
+      list.innerHTML = '';
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-700/30 cursor-pointer text-sm';
+        row.innerHTML = `
+          <div class="min-w-0 truncate">
+            <span class="text-slate-200 font-medium">${escapeHtml(item.DocumentNumber || item.DocumentID)}</span>
+            <span class="text-slate-500 text-xs ml-2">${escapeHtml(item.ModuleLabel)}${item.Description ? ' · ' + escapeHtml(item.Description) : ''}</span>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            ${item.DocumentDate ? `<span class="text-xs text-slate-500">${escapeHtml(item.DocumentDate)}</span>` : ''}
             <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
           </div>`;
         row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
@@ -1063,7 +1101,7 @@
     // and renderRejectedSubmissions call this after updating their own
     // count, since either one changing can change the combined total.
     function updateHomeTasksToggleButton() {
-      const total = homePendingCount + homeRejectedCount + homePdcDueCount + homeRecurringDueCount + homeDraftsCount;
+      const total = homePendingCount + homeRejectedCount + homePdcDueCount + homeRecurringDueCount + homeDraftsCount + homeFollowUpCount;
       const countSpan = document.getElementById('home-tasks-count');
       // Button itself is always visible now — only the red count badge
       // shows or hides based on whether there's actually anything

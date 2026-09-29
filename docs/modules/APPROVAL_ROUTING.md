@@ -1,7 +1,7 @@
 # Approval routing: CBT by voucher type, and follow-up teams
 
-Status: **design agreed** (2026-09-29): the owner answered the four open
-questions (see Owner's decisions).
+Status: **built, awaiting deploy** (2026-09-29). Design agreed by the
+owner (see Owner's decisions).
 
 ## The request (owner, 2026-09-29)
 
@@ -111,3 +111,71 @@ Requisition**:
    it.
 4. **The team is the users listed per scope** in a Follow-up team section
    of Approval Configuration. It works even when approval itself is off.
+
+## As built (2026-09-29)
+
+- **CBT:**
+  - `approvalRegistry.js` lists `CBT_CASHRECEIPT`, `CBT_BANKRECEIPT`,
+    `CBT_CASHPAYMENT` and `CBT_BANKPAYMENT` in place of `CBT`.
+  - `journal.js` posts a CBT voucher through its voucher type's entry. The
+    approval record keeps `ModuleID: 'CBT'` and adds `ConfigKey`, the entry
+    used.
+  - Home tasks and rejections are labelled by that entry, e.g. "Cash &
+    Bank — Bank Payment". The Approval Tracker's filter finds them by it.
+  - **The copy:** `approvals.js ensureCbtSplit` runs once, the first time
+    Approval Configuration is opened or a CBT voucher is posted. It copies
+    the CBT settings and levels into each of the four entries that has no
+    setup of its own, then records `approvalMigrations/cbtSplit`. The old
+    `CBT` setup is left in place, unused.
+  - CBT approvals from before the split have no `ConfigKey`. They finish
+    as they started, show as "Cash & Bank Transactions", and a voucher-type
+    filter in the Tracker doesn't find them.
+- **Follow-up teams:**
+  - `functions/src/followUps.js`: `getFollowUpTeams`, `saveFollowUpTeam`
+    (Approval Configuration access / write) and
+    `getMyFollowUpTasksForUser`.
+  - Teams are stored at `approvalFollowUps/<module>/<scope>`, under the
+    module's own scope type. The module's settings must be saved before a
+    team can be set. An empty team is removed.
+- **Screens:**
+  - Approval Configuration is now hand-maintained. It gains the Follow-up
+    Team section, shown for Job Order Request, PR and IPR once a scope is
+    chosen.
+  - Home (`public/index.html`) gains **Ready for You to Act On**, counted
+    in the Tasks total.
+- **Fixed on the way (Approval Configuration):**
+  - A Global-scope module showed no approval levels until it was reopened:
+    the levels were drawn before they had loaded.
+  - The follow-up team's checkboxes appear only once the saved team has
+    loaded, so a late redraw can't wipe a tick (found by the UI test).
+- **Generator:** a patch may now call a shared helper Code.gs never defined
+  (`ensureCbtSplit_`, mapped in `generate.js`).
+- **Tests:**
+  - The `approvalRouting` emulator suite (8) covers:
+    - the copy, and an entry with its own setup (before or after) never
+      being overwritten;
+    - each voucher type's own approvers;
+    - labels and the Tracker filter;
+    - an approval pending from before the split;
+    - saving teams, with its checks;
+    - PR / IPR tasks by scope, a draft PO vs a submitted one, and closing;
+    - Job Order tasks through their statuses;
+    - module access and company.
+  - `approvalRouting.ui.js` (3): the four CBT entries with the copied
+    approver, saving and reloading a team, and the tasks opening the PR
+    and the Job Order line.
+  - `home.ui.js` gains a check of the new block.
+- **Negative controls, each caught:**
+  - CBT keyed to the module, not the voucher type;
+  - levels not copied;
+  - an entry's own setup overwritten by the copy;
+  - labels ignoring the voucher type;
+  - the Tracker patch removed;
+  - PR tasks for any status but Closed;
+  - team scope ignored;
+  - In Progress Job Order lines kept;
+  - module access check dropped;
+  - inactive users accepted in a team;
+  - the Global-scope levels redraw removed;
+  - ticks allowed before the saved team loads (the UI test delays it);
+  - the new block left out of the Tasks count.

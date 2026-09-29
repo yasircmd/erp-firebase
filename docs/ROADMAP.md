@@ -124,7 +124,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     changes aren't released yet.
 - [ ] **Approval routing: CBT by voucher type, and follow-up teams**
   (owner, 2026-09-29; [APPROVAL_ROUTING.md](modules/APPROVAL_ROUTING.md)).
-  **Design agreed**, not started.
+  **Built** (2026-09-29): see the doc's As built.
+  - **To go live:** Deploy → "functions set, then screens", set
+    `approval-routing`; then Deploy → "hosting". After that, set the
+    follow-up teams in Approval Configuration.
   - CBT gets four Approval Configuration entries (Cash / Bank ×
     Receipt / Payment). Today's CBT setup is copied into all four.
   - A Follow-up team per scope for Job Order Request, PR and IPR. Its

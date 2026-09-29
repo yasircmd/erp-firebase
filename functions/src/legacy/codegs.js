@@ -36,6 +36,7 @@ const abandonCommitAttempt_ = (idToken, ...a) => __commitAttempt.abandonCommitAt
 const finalizeCommitAttempt_ = (idToken, ...a) => __commitAttempt.finalizeCommitAttempt(...a);
 const resolveApprovalScopeKeyForDocument_ = (idToken, ...a) => __approvals.resolveApprovalScopeKeyForDocument(...a);
 const beginApprovalInstance_ = (idToken, ...a) => __approvals.beginApprovalInstance(...a);
+const ensureCbtSplit_ = (idToken, ...a) => __approvals.ensureCbtSplit(...a);
 const createStockReservation_ = async (idToken, ...a) => { const u = await requireUser_(idToken); return __reservations.createStockReservation(u.profile.username || u.uid, ...a); };
 const getReservationsForSource_ = (idToken, ...a) => __reservations.getReservationsForSource(...a);
 const refreshSalesOrderReservationStatus_ = (idToken, ...a) => __reservations.refreshSalesOrderReservationStatus(...a);
@@ -7217,6 +7218,8 @@ async function getApprovalConfigurations(idToken) {
   if (!(await moduleHasCapability_(idToken, 'APPROVALCONFIG', 'access', user.profile.role))) {
     throw new Error('You do not have access to Approval Configuration.');
   }
+  // [PORT CHANGE approval-config-cbt-split] copy the CBT setup into its four voucher-type entries once.
+  await ensureCbtSplit_(idToken);
   const saved = (await firebaseDbRequest_('approvalConfigurations', 'get', null, idToken)) || {};
   return APPROVAL_GATEABLE_MODULES.map(m => {
     const config = saved[m.ModuleID] || {};
@@ -7413,7 +7416,7 @@ async function getApprovalHistory(idToken, filters) {
   const data = (await firebaseDbRequest_('approvalInstances', 'get', null, idToken)) || {};
   return Object.keys(data)
     .map(id => Object.assign({ InstanceID: id }, data[id]))
-    .filter(inst => !f.ModuleID || inst.ModuleID === f.ModuleID)
+    .filter(inst => !f.ModuleID || inst.ModuleID === f.ModuleID || inst.ConfigKey === f.ModuleID) // [PORT CHANGE approval-tracker-config-key]
     .filter(inst => !f.DocumentNumber || (inst.DocumentNumber || '').toLowerCase().indexOf(String(f.DocumentNumber).toLowerCase()) !== -1)
     .filter(inst => !f.ApproverUserID || inst.RequiredLevels.some(l => l.ApproverUserID === f.ApproverUserID))
     .filter(inst => !f.FromDate || (inst.CreatedAt || '') >= f.FromDate)

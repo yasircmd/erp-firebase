@@ -23,6 +23,7 @@ const { moduleHasCapability } = require('./auth');
 const { getUserAssignedCompanies } = require('./companies');
 const { userCanAccessCompany, validateAndNormalizeLines, parseAmountServer, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance } = require('./approvals');
+const { CBT_APPROVAL_KEYS } = require('./approvalRegistry');
 const { moduleIdForEntry } = require('./masterData');
 const {
   attachPartyFields, resolvePartyLines, assertEntryReversible, listPartyAccounts, listOpenItems
@@ -331,11 +332,14 @@ async function postJournalEntry(idToken, jvId) {
     // is left blank, no gate applies — the same "can't resolve scope
     // means no gate" behavior already established for every other
     // retrofit, not special-cased here.
-    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, moduleId, {
+    // A CBT voucher uses its own voucher type's Approval Configuration entry
+    // (owner, 2026-09-29; docs/modules/APPROVAL_ROUTING.md).
+    const configKey = moduleId === 'CBT' ? CBT_APPROVAL_KEYS[existing.VoucherType] : undefined;
+    const scopeKey = await resolveApprovalScopeKeyForDocument_(idToken, configKey || moduleId, {
       CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
       BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
     });
-    const approval = await beginApprovalInstance_(idToken, moduleId, jvId, jvNumber, scopeKey, normalized.totalDebit, user.uid);
+    const approval = await beginApprovalInstance_(idToken, moduleId, jvId, jvNumber, scopeKey, normalized.totalDebit, user.uid, configKey);
 
     const record = Object.assign({}, existing, party.fields, {
       JVNumber: jvNumber, Lines: normalized.lines,

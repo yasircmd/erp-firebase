@@ -11,7 +11,13 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'INVENTORYPURCHASEREQUISITION', Label: 'Inventory Purchase Requisition' },
   { ModuleID: 'JOBORDERREQUEST', Label: 'Job Order Request' },
   { ModuleID: 'JV', Label: 'Journal Entry (JV)' },
-  { ModuleID: 'CBT', Label: 'Cash & Bank Transactions' },
+  // CBT is four transactions, each with its own approvers (owner, 2026-09-29;
+  // docs/modules/APPROVAL_ROUTING.md). The approval still belongs to CBT;
+  // these are the Approval Configuration entries its voucher types use.
+  { ModuleID: 'CBT_CASHRECEIPT', Label: 'Cash & Bank — Cash Receipt' },
+  { ModuleID: 'CBT_BANKRECEIPT', Label: 'Cash & Bank — Bank Receipt' },
+  { ModuleID: 'CBT_CASHPAYMENT', Label: 'Cash & Bank — Cash Payment' },
+  { ModuleID: 'CBT_BANKPAYMENT', Label: 'Cash & Bank — Bank Payment' },
   { ModuleID: 'GRN', Label: 'Goods Receipt Note' },
   { ModuleID: 'MATERIALISSUE', Label: 'Material Issue' },
   { ModuleID: 'PRODUCTION', Label: 'Production Entry' },
@@ -61,4 +67,20 @@ const APPROVAL_MODULE_STORAGE_ = {
   JOBORDERREQUEST: { type: 'rtdb', path: 'jobOrderLines' }
 };
 
-module.exports = { FIRESTORE_JOURNAL_ENTRIES_COLLECTION, APPROVAL_GATEABLE_MODULES, APPROVAL_MODULE_STORAGE_ };
+// CBT voucher type -> its Approval Configuration entry.
+const CBT_APPROVAL_KEYS = {
+  'Cash Receipt': 'CBT_CASHRECEIPT', 'Bank Receipt': 'CBT_BANKRECEIPT',
+  'Cash Payment': 'CBT_CASHPAYMENT', 'Bank Payment': 'CBT_BANKPAYMENT'
+};
+
+// The label a Home task or list shows for an approval: its Approval
+// Configuration entry (ConfigKey, e.g. a CBT voucher type), else its module.
+// CBT approvals from before the split have no ConfigKey.
+function approvalLabelOf(inst) {
+  const byId = id => APPROVAL_GATEABLE_MODULES.find(m => m.ModuleID === id);
+  const entry = (inst.ConfigKey && byId(inst.ConfigKey)) || byId(inst.ModuleID);
+  if (entry) return entry.Label;
+  return inst.ModuleID === 'CBT' ? 'Cash & Bank Transactions' : inst.ModuleID;
+}
+
+module.exports = { FIRESTORE_JOURNAL_ENTRIES_COLLECTION, APPROVAL_GATEABLE_MODULES, APPROVAL_MODULE_STORAGE_, CBT_APPROVAL_KEYS, approvalLabelOf };

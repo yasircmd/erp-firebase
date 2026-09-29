@@ -839,5 +839,21 @@ function linesForBatch_(idToken, batchId) {
   });
   return { entries: capped, total: all.length };
 }`
+  },
+  {
+    id: 'approval-config-cbt-split',
+    why: "NEW DEVELOPMENT (owner, 2026-09-29; docs/modules/APPROVAL_ROUTING.md): CBT's four voucher types each have their own Approval Configuration entry. Before the list is shown, today's single CBT setup is copied into the four once (approvals.js ensureCbtSplit), so nothing changes until someone edits one.",
+    find: `  const saved = firebaseDbRequest_('approvalConfigurations', 'get', null, idToken) || {};
+  return APPROVAL_GATEABLE_MODULES.map(m => {`,
+    replace: `  // [PORT CHANGE approval-config-cbt-split] copy the CBT setup into its four voucher-type entries once.
+  ensureCbtSplit_(idToken);
+  const saved = firebaseDbRequest_('approvalConfigurations', 'get', null, idToken) || {};
+  return APPROVAL_GATEABLE_MODULES.map(m => {`
+  },
+  {
+    id: 'approval-tracker-config-key',
+    why: "NEW DEVELOPMENT (owner, 2026-09-29; docs/modules/APPROVAL_ROUTING.md): the Approval Tracker's module filter lists the Approval Configuration entries, and a CBT approval is filed under its voucher type's entry (ConfigKey). Filtering on one of them finds those approvals; CBT approvals from before the split have no ConfigKey.",
+    find: `    .filter(inst => !f.ModuleID || inst.ModuleID === f.ModuleID)`,
+    replace: `    .filter(inst => !f.ModuleID || inst.ModuleID === f.ModuleID || inst.ConfigKey === f.ModuleID) // [PORT CHANGE approval-tracker-config-key]`
   }
 ];
