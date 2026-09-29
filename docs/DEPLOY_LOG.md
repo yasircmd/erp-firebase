@@ -633,3 +633,7 @@ from, and how it was verified. The deploy procedure is in the
   "hosting" from `ffbb6ea` (`main`, the PR #38 merge), run
   [#32](https://github.com/yasircmd/erp-firebase/actions/runs/36593101304),
   15:49–15:50 UTC, success, `ALL DONE`.
+- **2026-09-29, copyright on the login page and Home only (PR #39):**
+  Deploy task "hosting" from `3ab374a` (`main`, the PR #39 merge), run
+  [#33](https://github.com/yasircmd/erp-firebase/actions/runs/36594734223),
+  16:02–16:03 UTC, success, `ALL DONE`.
