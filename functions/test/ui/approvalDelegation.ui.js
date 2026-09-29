@@ -63,7 +63,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(await page.textContent('#at-delegate-error'), /reason/, 'a reason is required');
     await page.fill('#at-delegate-reason', 'On annual leave');
     await page.click('#at-delegate-ok');
-    await page.waitForSelector('#at-delegate-modal.hidden');
+    await page.waitForFunction(() => document.getElementById('at-delegate-modal').classList.contains('hidden'), null, { timeout: 15000 });
     await page.waitForSelector('.at-delegation');
     const [l1] = await levels(page);
     assert.match(l1[1], /^Cara\s*delegated from Anna by Admin User, \d\d\/\d\d\/\d{4} \d\d:\d\d: On annual leave$/);
@@ -82,9 +82,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.selectOption('#at-delegate-to', 'u-cara'); // Cara already has level 1
     await page.fill('#at-delegate-reason', 'Travelling');
     await page.click('#at-delegate-ok');
-    await page.waitForFunction(() => document.getElementById('app-dialog') && !document.getElementById('app-dialog').classList.contains('hidden'), null, { timeout: 15000 });
-    assert.match(await page.textContent('#app-dialog-message'), /^0 approvals delegated to Cara\.\s+Not moved:\s+• Journal Entry \(JV\) JV-.*, level 2: Cara already approves another level of this document\.$/s);
-    await page.click('#app-dialog-ok');
+    // The summary is an in-app message (answered by onAppDialog, which records it).
+    const summary = async n => { for (let i = 0; i < 150 && page.__alerts.length < n; i++) await page.waitForTimeout(100); return page.__alerts[n - 1] || ''; };
+    assert.match(await summary(1), /^0 approvals delegated to Cara\.\s+Not moved:\s+• Journal Entry \(JV\) JV-.*, level 2: Cara already approves another level of this document\.$/s);
 
     // To Anna instead: it moves.
     await page.click('#at-delegate-all-btn');
@@ -92,10 +92,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.selectOption('#at-delegate-to', 'u-anna');
     await page.fill('#at-delegate-reason', 'Travelling');
     await page.click('#at-delegate-ok');
-    await page.waitForFunction(() => /1 approval delegated to Anna\./.test(document.getElementById('app-dialog-message').textContent), null, { timeout: 15000 });
-    await page.click('#app-dialog-ok');
+    assert.match(await summary(2), /^1 approval delegated to Anna\.$/);
     await page.waitForFunction(() => document.querySelectorAll('.at-delegation').length === 2);
-    assert.deepEqual((await levels(page)).map(r => [r[0], r[1].split(/\s/)[0], r[2]]), [[1, 'Cara', false], [2, 'Anna', false]], 'Ben has nothing left to delegate');
+    assert.deepEqual((await levels(page)).map(r => [r[0], r[1].split('delegated')[0].trim(), r[2]]), [[1, 'Cara', false], [2, 'Anna', false]], 'Ben has nothing left to delegate');
     assert.deepEqual(page.__errors, []);
     await page.close();
   });

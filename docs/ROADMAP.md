@@ -277,10 +277,14 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     - a decided level;
     - Job Order company not from the batch;
     - an approver moving another's all.
+  - `approvalDelegation.ui.js` (2); its negative control (Delegate shown
+    on others' levels) was caught. The Approval Tracker and Approval
+    Configuration suites, the Tracker smoke check and the Approval
+    Routing UI checks all pass.
   - **To go live:** Deploy → "functions set", set `approval-delegation`,
     with screens.
-- [ ] **BOM: the parent item's current name after a rename** (owner,
-  2026-09-29; bug).
+- [x] **BOM: the parent item's current name after a rename** (owner,
+  2026-09-29; bug). **Live 2026-09-29** (PR #42; Deploy run #39).
   - A BOM stored its parent's code and name as saved, and the list showed
     that copy.
   - `getBoms` now returns the parent's current code and name (patch
