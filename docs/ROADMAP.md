@@ -125,14 +125,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   **Live 2026-09-29** (PR #30; Deploy runs #20 and #21, release
   `20260929T080311Z-e114c8b`). The follow-up teams are set in Approval
   Configuration.
-- [ ] **CBT Fund Transfer** (owner, 2026-09-29;
+- [x] **CBT Fund Transfer** (owner, 2026-09-29;
   [APPROVAL_ROUTING.md](modules/APPROVAL_ROUTING.md), addendum). A fifth
   CBT type for moving money between the company's own cash and bank
   accounts: one From account, one To account, numbered `FT-…`.
   - It has its own approval entry, copied once from Bank Payment.
-  - **Built** (2026-09-29).
-  - **To go live:** Deploy → "functions set, then screens", set
-    `cbt-fund-transfer`. No Hosting deploy needed.
+  - **Live 2026-09-29** (PR #31; Deploy run #22, release
+    `20260929T092926Z-03f421e`).
   - CBT gets four Approval Configuration entries (Cash / Bank ×
     Receipt / Payment). Today's CBT setup is copied into all four.
   - A Follow-up team per scope for Job Order Request, PR and IPR. Its

@@ -1,7 +1,7 @@
 # Approval routing: CBT by voucher type, and follow-up teams
 
-Status: **built, awaiting deploy** (2026-09-29). Design agreed by the
-owner (see Owner's decisions).
+Status: **live** (2026-09-29): approval routing (PR #30) and Fund Transfer
+(PR #31). Design agreed by the owner (see Owner's decisions).
 
 ## The request (owner, 2026-09-29)
 
@@ -218,6 +218,8 @@ account on the other side, so it went to that type's approvers.
   show both accounts as usual.
 
 ### As built (2026-09-29)
+
+**Live 2026-09-29** (PR #31; Deploy run #22, release `20260929T092926Z-03f421e`).
 
 - **Server:**
   - `journal.js`: the `Fund Transfer` type. The From account must be
