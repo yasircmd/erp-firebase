@@ -6,6 +6,7 @@
 process.env.FIREBASE_DATABASE_EMULATOR_HOST = '127.0.0.1:9000';
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
+const { onAppDialog } = require('./_appDialogs');
 const admin = require('firebase-admin');
 const app = admin.initializeApp({ projectId: 'erp1-8f4cd', databaseURL: 'https://erp1-8f4cd-default-rtdb.firebaseio.com' }, 'toggle');
 const CASES = [
@@ -24,7 +25,7 @@ const CASES = [
   for (const c of CASES) {
     if (c.seed) await app.database().ref().update(c.seed);
     const page = await browser.newPage();
-    page.on('dialog', d => d.accept());
+    await onAppDialog(page, d => d.accept());
     await page.goto('http://127.0.0.1:8126/?module=' + c.module + '&uid=u-admin');
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForLoadState('networkidle');

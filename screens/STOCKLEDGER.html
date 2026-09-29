@@ -252,7 +252,7 @@
     document.getElementById('sl-closing-value').textContent = formatMoney(result.ClosingValue);
   }
 
-  function copyTable() {
+  async function copyTable() {
     if (!lastReport) { alert('Run the report first.'); return; }
     const rows = [['Date', 'Voucher No.', 'Type', 'Description', 'In', 'Out', 'Balance Qty', 'Avg Cost', 'Balance Value'].join('\t')];
     rows.push(['', '', '', 'Opening Balance', '', '', fmt(lastReport.OpeningQuantity), '', fmt(lastReport.OpeningValue)].join('\t'));
@@ -263,9 +263,9 @@
     });
     const text = rows.join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).catch(() => window.prompt('Copy this text:', text));
+      navigator.clipboard.writeText(text).catch(async () => (await appPrompt('Copy this text:', text)));
     } else {
-      window.prompt('Copy this text:', text);
+      (await appPrompt('Copy this text:', text));
     }
   }
 

@@ -259,9 +259,9 @@
       .saveSalesType({ data: data });
   }
 
-  function toggleTypeStatus(salesType) {
+  async function toggleTypeStatus(salesType) {
     const deactivating = salesType.Status === 'Active';
-    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + salesType.Name + '?')) return;
+    if (!(await appConfirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + salesType.Name + '?'))) return;
     const call = deactivating ? 'deactivateSalesType' : 'reactivateSalesType';
     rpc
       .withSuccessHandler(result => { if (result.success) fetchSalesTypes(); else alert(result.error || 'Unable to update Sales Type.'); })
@@ -338,9 +338,9 @@
       .saveCustomerClassification({ data: data });
   }
 
-  function toggleClsStatus(classification) {
+  async function toggleClsStatus(classification) {
     const deactivating = classification.Status === 'Active';
-    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + classification.Name + '?')) return;
+    if (!(await appConfirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + classification.Name + '?'))) return;
     const call = deactivating ? 'deactivateCustomerClassification' : 'reactivateCustomerClassification';
     rpc
       .withSuccessHandler(result => { if (result.success) fetchClassifications(); else alert(result.error || 'Unable to update Classification.'); })

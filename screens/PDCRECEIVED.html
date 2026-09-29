@@ -357,8 +357,8 @@
     document.getElementById('pdc-list-view').classList.add('hidden');
     document.getElementById('pdc-entry-view').classList.remove('hidden');
   }
-  function confirmLeave(then) {
-    if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return;
+  async function confirmLeave(then) {
+    if (isDirty && !(await appConfirm('You have unsaved changes. Leave without saving?'))) return;
     then();
   }
   function goBackInChain() {
@@ -561,9 +561,9 @@
     });
   }
 
-  function postEntry() {
+  async function postEntry() {
     if (!validateBeforeSave()) return;
-    if (!window.confirm('Post this ' + CONFIG.heading + '? ' + CONFIG.postNote)) return;
+    if (!(await appConfirm('Post this ' + CONFIG.heading + '? ' + CONFIG.postNote))) return;
     const done = busy('pdc-post-btn', 'Posting...');
     save((err, saved) => {
       if (err) { done(); return showError(err.message || 'Unable to save before posting.'); }
@@ -574,18 +574,18 @@
     });
   }
 
-  function deleteDraft() {
-    if (!current || !window.confirm('Delete this draft? This cannot be undone.')) return;
+  async function deleteDraft() {
+    if (!current || !(await appConfirm('Delete this draft? This cannot be undone.'))) return;
     rpc.withSuccessHandler(() => showListView()).withFailureHandler(err => alert(err.message || 'Unable to delete.')).deletePdcDraft({ pdcId: current.PdcID });
   }
 
-  function decide(decision) {
+  async function decide(decision) {
     const levelNumber = parseInt(document.getElementById('pdc-my-approval-banner').dataset.level, 10);
     const reason = val('pdc-decision-reason').trim();
     const error = document.getElementById('pdc-decision-error');
     error.classList.add('hidden');
     if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
-    if (!window.confirm((decision === 'Approved' ? 'Approve and post' : 'Reject') + ' this PDC?')) return;
+    if (!(await appConfirm((decision === 'Approved' ? 'Approve and post' : 'Reject') + ' this PDC?'))) return;
     const pdcId = current.PdcID;
     rpc
       .withSuccessHandler(() => { isDirty = false; showListView(); })

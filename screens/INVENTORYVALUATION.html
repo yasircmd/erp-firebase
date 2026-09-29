@@ -134,9 +134,9 @@
       tbody.appendChild(tr);
     });
     tbody.querySelectorAll('.iv-deactivate-line').forEach(btn => {
-      btn.addEventListener('click', e => {
+      btn.addEventListener('click', async e => {
         const lineId = e.target.getAttribute('data-id');
-        if (!confirm('Deactivate this cost?')) return;
+        if (!(await appConfirm('Deactivate this cost?'))) return;
         rpc
           .withSuccessHandler(result => { if (result.success) loadLines(); else alert(result.error || 'Unable to deactivate.'); })
           .withFailureHandler(err => alert(err.message || 'Unable to deactivate.'))

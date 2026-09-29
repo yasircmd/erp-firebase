@@ -732,9 +732,9 @@
       .saveDraftPurchaseOrder({ poData: collectPOPayload() });
   }
 
-  function deleteDraft() {
+  async function deleteDraft() {
     if (!currentPO) return;
-    if (!confirm('Delete this draft Purchase Order?')) return;
+    if (!(await appConfirm('Delete this draft Purchase Order?'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to delete.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to delete.'))
@@ -957,7 +957,7 @@
       .reviseAndResubmitPurchaseOrder({ poId: currentPO.POID, updatedLines: currentPO.Lines });
   }
 
-  function decide(decision) {
+  async function decide(decision) {
     const levelNumber = parseInt(document.getElementById('po-my-approval-banner').dataset.level, 10);
     const reason = document.getElementById('po-decision-reason').value.trim();
     const error = document.getElementById('po-decision-error');
@@ -969,7 +969,7 @@
     // reopen falls back to Closed rather than the generic Rejected
     // state a rejected submission uses.
     const isReopen = Boolean(currentPO.ReopenRequested);
-    if (!confirm((decision === 'Approved' ? 'Approve' : 'Reject') + (isReopen ? ' this reopen request?' : ' this Purchase Order?'))) return;
+    if (!(await appConfirm((decision === 'Approved' ? 'Approve' : 'Reject') + (isReopen ? ' this reopen request?' : ' this Purchase Order?')))) return;
     rpc
       .withSuccessHandler(result => {
         if (result.success) showListView();
@@ -979,27 +979,29 @@
       [isReopen ? 'decidePurchaseOrderReopenApproval' : 'decidePurchaseOrderApproval']({ __positional: [currentPO.POID, levelNumber, decision, reason] });
   }
 
-  function reopenPO() {
+  async function reopenPO() {
     if (!currentPO) return;
-    if (!confirm('Request to reopen this Purchase Order? This requires the same approval this PO originally needed before it can actually reopen.')) return;
+    if (!(await appConfirm('Request to reopen this Purchase Order? This requires the same approval this PO originally needed before it can actually reopen.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to request reopen.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to request reopen.'))
       .requestReopenPurchaseOrder({ poId: currentPO.POID });
   }
 
-  function cancelPO() {
+  async function cancelPO() {
     if (!currentPO) return;
-    const reason = prompt('Reason for cancelling this Purchase Order (optional):') || '';
+    // Cancel on the question keeps the PO (it used to cancel it anyway).
+    const reason = await appPrompt('Reason for cancelling this Purchase Order (optional):');
+    if (reason === null) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to cancel.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to cancel.'))
       .cancelPurchaseOrder({ poId: currentPO.POID, reason: reason });
   }
 
-  function closePO() {
+  async function closePO() {
     if (!currentPO) return;
-    if (!confirm('Close this Purchase Order?')) return;
+    if (!(await appConfirm('Close this Purchase Order?'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to close.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to close.'))

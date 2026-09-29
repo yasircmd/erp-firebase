@@ -251,6 +251,130 @@
       if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
     })();
   </script>
+  <script>
+    // ---------- APP DIALOGS ----------
+    // Every message, confirmation and text question is shown inside the
+    // app, never as a browser popup (owner, 2026-09-29): browser popups
+    // can't be themed, name the site ("… says") and block the page.
+    //   appAlert(message, opts)                 → Promise, settles on OK
+    //   appConfirm(message, opts)               → Promise<boolean>
+    //   appPrompt(message, defaultValue, opts)  → Promise<string|null>
+    // opts: { title, okLabel, cancelLabel, danger }. Screens run inside
+    // this page, so these are theirs too. A plain alert() is routed here
+    // as well; confirm() and prompt() can't be (they must answer
+    // synchronously), so screens await appConfirm / appPrompt instead,
+    // and functions/test/ui/noBrowserDialogs.test.js keeps it that way.
+    // One dialog at a time; others wait their turn. Enter is OK, Esc is
+    // Cancel; keys never reach the screen underneath while one is open.
+    (function () {
+      const queue = [];
+      let active = null, els = null, returnFocus = null;
+      window.__appDialogLog = [];
+      const WARNING = /error|fail|unable|cannot|can't|could not|not allowed|not found|required|invalid|must|please/i;
+      const DANGER = /delete|remove|cancel this|deactivate|reverse|reject|withdraw|discard|leave without saving/i;
+
+      function build() {
+        const root = document.createElement('div');
+        root.id = 'app-dialog';
+        root.className = 'fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-[70] no-print';
+        root.setAttribute('role', 'dialog');
+        root.setAttribute('aria-modal', 'true');
+        root.setAttribute('aria-labelledby', 'app-dialog-title');
+        root.innerHTML =
+          '<div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">' +
+            '<h3 class="text-lg font-bold text-slate-100 flex items-center gap-2"><i id="app-dialog-icon"></i><span id="app-dialog-title"></span></h3>' +
+            '<p id="app-dialog-message" class="text-sm text-slate-300 whitespace-pre-line break-words max-h-80 overflow-y-auto"></p>' +
+            '<input id="app-dialog-input" type="text" class="hidden w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-blue-500">' +
+            '<textarea id="app-dialog-textarea" rows="8" class="hidden w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-xs font-mono text-slate-100 focus:outline-none focus:border-blue-500"></textarea>' +
+            '<div class="flex justify-end gap-3 pt-2">' +
+              '<button type="button" id="app-dialog-cancel" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-100"></button>' +
+              '<button type="button" id="app-dialog-ok" class="px-4 py-2 rounded-lg text-xs text-white"></button>' +
+            '</div>' +
+          '</div>';
+        document.body.appendChild(root);
+        const $ = id => document.getElementById(id);
+        els = { root, icon: $('app-dialog-icon'), title: $('app-dialog-title'), message: $('app-dialog-message'),
+          input: $('app-dialog-input'), textarea: $('app-dialog-textarea'), ok: $('app-dialog-ok'), cancel: $('app-dialog-cancel') };
+        els.ok.addEventListener('click', () => close(true));
+        els.cancel.addEventListener('click', () => close(false));
+        window.addEventListener('keydown', onKey, true);
+      }
+
+      function field() { return active && active.textarea ? els.textarea : els.input; }
+
+      function onKey(e) {
+        if (!active) return;
+        const inside = els.root.contains(e.target);
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(false); return; }
+        if (e.key === 'Enter' && !(inside && e.target.tagName === 'BUTTON')) { e.preventDefault(); e.stopPropagation(); close(true); return; }
+        if (e.key === 'Tab') {
+          const stops = [field(), els.cancel, els.ok].filter(el => !el.classList.contains('hidden'));
+          const i = stops.indexOf(document.activeElement);
+          e.preventDefault(); e.stopPropagation();
+          stops[(i + (e.shiftKey ? stops.length - 1 : 1)) % stops.length].focus();
+          return;
+        }
+        e.stopPropagation(); // the screen underneath never sees it
+        if (!inside) e.preventDefault();
+      }
+
+      function render(d) {
+        const o = d.opts;
+        const warning = d.type === 'alert' && WARNING.test(d.message);
+        const danger = d.type === 'confirm' && (o.danger !== undefined ? o.danger : DANGER.test(d.message));
+        els.title.textContent = o.title || (d.type === 'confirm' ? 'Please confirm' : d.type === 'prompt' ? 'Input needed' : warning ? 'Attention' : 'Notice');
+        els.icon.className = 'fa-solid ' + (d.type === 'confirm' ? 'fa-circle-question ' + (danger ? 'text-red-400' : 'text-blue-400')
+          : d.type === 'prompt' ? 'fa-pen-to-square text-blue-400' : warning ? 'fa-triangle-exclamation text-amber-400' : 'fa-circle-info text-blue-400');
+        els.message.textContent = d.message;
+        els.ok.textContent = o.okLabel || (d.type === 'confirm' ? 'Confirm' : 'OK');
+        els.ok.className = 'px-4 py-2 rounded-lg text-xs text-white ' + (danger ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500');
+        els.cancel.textContent = o.cancelLabel || 'Cancel';
+        els.cancel.classList.toggle('hidden', d.type === 'alert');
+        d.textarea = d.type === 'prompt' && /\n/.test(d.defaultValue);
+        els.input.classList.toggle('hidden', d.type !== 'prompt' || d.textarea);
+        els.textarea.classList.toggle('hidden', !d.textarea);
+        if (d.type === 'prompt') field().value = d.defaultValue;
+        returnFocus = document.activeElement;
+        els.root.classList.remove('hidden');
+        if (d.type === 'prompt') { field().focus(); field().select(); } else els.ok.focus();
+        window.__appDialogLog.push({ type: d.type, message: d.message });
+        window.dispatchEvent(new CustomEvent('app-dialog', { detail: { type: d.type, message: d.message, defaultValue: d.defaultValue } }));
+      }
+
+      function close(ok) {
+        if (!active) return;
+        const d = active;
+        active = null;
+        els.root.classList.add('hidden');
+        const value = d.type === 'alert' ? undefined : d.type === 'confirm' ? ok : ok ? field().value : null;
+        if (returnFocus && returnFocus.focus && document.contains(returnFocus)) returnFocus.focus();
+        d.resolve(value);
+        pump();
+      }
+
+      function pump() {
+        if (active || !queue.length) return;
+        if (!document.body) { document.addEventListener('DOMContentLoaded', pump, { once: true }); return; }
+        if (!els) build();
+        active = queue.shift();
+        render(active);
+      }
+
+      function show(type, message, defaultValue, opts) {
+        return new Promise(resolve => {
+          queue.push({ type, message: message == null ? '' : String(message),
+            defaultValue: defaultValue == null ? '' : String(defaultValue), opts: opts || {}, resolve });
+          pump();
+        });
+      }
+
+      window.appAlert = (message, opts) => show('alert', message, null, opts);
+      window.appConfirm = (message, opts) => show('confirm', message, null, opts);
+      window.appPrompt = (message, defaultValue, opts) => show('prompt', message, defaultValue, opts);
+      window.alert = message => { window.appAlert(message); };
+    })();
+    // ---------- END APP DIALOGS ----------
+  </script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-6">
 
@@ -1501,9 +1625,9 @@
     // report whether leaving right now would lose in-progress data (e.g.
     // an open, unsaved JV/CBT entry). The shell doesn't know a fragment's
     // internal state otherwise, so it just asks before navigating away.
-    function handleBackToHierarchy() {
+    async function handleBackToHierarchy() {
       if (typeof window.hasUnsavedChanges === 'function' && window.hasUnsavedChanges()) {
-        if (!confirm('You have unsaved changes. Leave without saving?')) return;
+        if (!(await appConfirm('You have unsaved changes. Leave without saving?'))) return;
       }
       showTreeNav();
       // Refresh here specifically — not inside showTreeNav() itself,

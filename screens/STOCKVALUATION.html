@@ -165,7 +165,7 @@
     document.getElementById('sv-grand-total').textContent = formatMoney(result.grandTotal);
   }
 
-  function copyTable() {
+  async function copyTable() {
     if (!lastReport) { alert('Run the report first.'); return; }
     const rows = [['Item Code', 'Item Name', 'Category', 'Location', 'Quantity', 'Avg Cost', 'Total Value'].join('\t')];
     lastReport.rows.forEach(r => {
@@ -174,9 +174,9 @@
     rows.push(['', '', '', '', '', 'Grand Total', fmt(lastReport.grandTotal)].join('\t'));
     const text = rows.join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).catch(() => window.prompt('Copy this text:', text));
+      navigator.clipboard.writeText(text).catch(async () => (await appPrompt('Copy this text:', text)));
     } else {
-      window.prompt('Copy this text:', text);
+      (await appPrompt('Copy this text:', text));
     }
   }
 

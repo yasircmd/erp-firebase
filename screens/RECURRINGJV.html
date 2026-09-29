@@ -259,8 +259,8 @@
     return { ok: !failed.length, msg: msg };
   }
 
-  function postAllDue() {
-    if (!window.confirm('Post every due run of every active recurring entry, up to ' + serverToday + '?')) return;
+  async function postAllDue() {
+    if (!(await appConfirm('Post every due run of every active recurring entry, up to ' + serverToday + '?'))) return;
     $('rj-post-all-btn').disabled = true;
     call('postRecurringJournalRuns', {}).then(r => { const s = summarize(r); listMessage(s.ok, s.msg); fetchEntries(); })
       .catch(err => listMessage(false, err.message)).finally(() => { $('rj-post-all-btn').disabled = false; });
@@ -271,7 +271,7 @@
     current = null; isDirty = false; fetchEntries();
   }
   function showEntryView() { $('rj-list-view').classList.add('hidden'); $('rj-entry-view').classList.remove('hidden'); }
-  function confirmLeave(then) { if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return; then(); }
+  async function confirmLeave(then) { if (isDirty && !(await appConfirm('You have unsaved changes. Leave without saving?'))) return; then(); }
   function goBackInChain() {
     confirmLeave(() => { const chain = myReturnChain.slice(); const target = chain.pop(); if (target) openModule(target.moduleId, target.params, chain); });
   }
@@ -528,9 +528,9 @@
   }
 
   function activate() {
-    const go = id => {
+    const go = async id => {
       const label = current && current.Status === 'Paused' ? 'Resume' : 'Activate';
-      if (!window.confirm(label + ' this recurring entry? Its runs are then posted with "Post Due Runs" on or after each date.')) return;
+      if (!(await appConfirm(label + ' this recurring entry? Its runs are then posted with "Post Due Runs" on or after each date.'))) return;
       call('activateRecurringJournal', { templateId: id }).then(r => {
         openEntry(id, () => flash(true, r.status === 'PendingApproval' ? 'Submitted for approval.' : (r.status === 'Completed' ? 'Nothing left to post: completed.' : 'Active. Runs due: ' + (current.DueCount || 0) + '.')));
       }).catch(err => flash(false, err.message));
@@ -538,10 +538,10 @@
     if (!current || isDirty) { if (!canDraft) return flash(false, 'Save the changes first.'); save(go); } else go(current.TemplateID);
   }
 
-  function simple(name, confirmText, needReason, done) {
-    if (confirmText && !window.confirm(confirmText)) return;
+  async function simple(name, confirmText, needReason, done) {
+    if (confirmText && !(await appConfirm(confirmText))) return;
     const data = { templateId: current.TemplateID };
-    if (needReason) { const reason = window.prompt('Reason:'); if (reason === null) return; data.reason = reason; }
+    if (needReason) { const reason = (await appPrompt('Reason:')); if (reason === null) return; data.reason = reason; }
     call(name, data).then(() => { if (done) done(); else openEntry(current.TemplateID); }).catch(err => flash(false, err.message));
   }
 
@@ -552,14 +552,14 @@
     }).catch(err => flash(false, err.message));
   }
 
-  function runAction(act, date) {
+  async function runAction(act, date) {
     const id = current.TemplateID;
     if (act === 'skip') {
-      const reason = window.prompt('Skip the run of ' + date + '? Reason:'); if (reason === null) return;
+      const reason = (await appPrompt('Skip the run of ' + date + '? Reason:')); if (reason === null) return;
       call('skipRecurringJournalRun', { templateId: id, date: date, reason: reason }).then(() => openEntry(id, () => flash(true, date + ' skipped.'))).catch(err => flash(false, err.message));
     } else if (act === 'reverse') {
-      const reason = window.prompt('Reverse the run of ' + date + '? Reason:'); if (reason === null) return;
-      const on = window.prompt('Reversal date (YYYY-MM-DD):', serverToday); if (on === null) return;
+      const reason = (await appPrompt('Reverse the run of ' + date + '? Reason:')); if (reason === null) return;
+      const on = (await appPrompt('Reversal date (YYYY-MM-DD):', serverToday)); if (on === null) return;
       call('reverseRecurringJournalRun', { templateId: id, date: date, reason: reason, reversalDate: on.trim() })
         .then(r => openEntry(id, () => flash(true, 'Reversed by ' + r.reversalNumber + '. Use "Post again" to post the date again, or Skip it.'))).catch(err => flash(false, err.message));
     } else if (act === 'repost') {
@@ -567,10 +567,10 @@
     }
   }
 
-  function decide(decision) {
+  async function decide(decision) {
     const level = Number($('rj-my-approval-banner').dataset.level);
     let reason = '';
-    if (decision === 'Rejected') { reason = window.prompt('Reason for rejecting:'); if (reason === null) return; }
+    if (decision === 'Rejected') { reason = (await appPrompt('Reason for rejecting:')); if (reason === null) return; }
     call('decideRecurringJournalApproval', { templateId: current.TemplateID, levelNumber: level, decision: decision, reason: reason })
       .then(() => openEntry(current.TemplateID, () => flash(true, decision === 'Approved' ? 'Approved.' : 'Rejected.'))).catch(err => flash(false, err.message));
   }

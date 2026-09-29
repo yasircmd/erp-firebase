@@ -227,9 +227,9 @@
       .saveOrgUnit({ unitData: data });
   }
 
-  function toggleStatus(unit) {
+  async function toggleStatus(unit) {
     const deactivating = unit.Status === 'Active';
-    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + unit.Code + ' — ' + unit.Name + '?')) return;
+    if (!(await appConfirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + unit.Code + ' — ' + unit.Name + '?'))) return;
     const call = deactivating ? 'deactivateOrgUnit' : 'reactivateOrgUnit';
     rpc
       .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update item.'); })

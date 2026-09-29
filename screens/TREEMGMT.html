@@ -135,8 +135,8 @@
       .moveTreeNode({ draggedNodeId: draggedId, targetNodeId: targetId, position: position });
   }
 
-  function deleteNode(nodeId) {
-    if (!confirm('Delete this item? Items with sub-items must be emptied first.')) return;
+  async function deleteNode(nodeId) {
+    if (!(await appConfirm('Delete this item? Items with sub-items must be emptied first.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) fetchAll(); else showError(result.error || 'Unable to delete item.'); })
       .withFailureHandler(err => showError(err.message || 'Unable to delete item.'))

@@ -242,16 +242,16 @@
     note.textContent = balanced ? '' : 'Debit and Credit totals do NOT match — this indicates a data problem and should be investigated.';
   }
 
-  function copyTable() {
+  async function copyTable() {
     if (!lastReport) { alert('Run the report first.'); return; }
     const rows = [['Code', 'Account', 'Type', 'Opening Debit', 'Opening Credit', 'Period Debit', 'Period Credit', 'Closing Debit', 'Closing Credit'].join('\t')];
     lastReport.rows.forEach(r => rows.push([r.AccountCode, r.AccountName, r.AccountType, ...COLS.map(k => (r[k] ? fmt(r[k]) : ''))].join('\t')));
     rows.push(['', '', 'Totals', ...COLS.map(k => fmt(lastReport.totals[k]))].join('\t'));
     const text = rows.join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).catch(() => window.prompt('Copy this text:', text));
+      navigator.clipboard.writeText(text).catch(async () => (await appPrompt('Copy this text:', text)));
     } else {
-      window.prompt('Copy this text:', text);
+      (await appPrompt('Copy this text:', text));
     }
   }
 

@@ -303,9 +303,9 @@
       .savePriceList({ header: collectHeader() });
   }
 
-  function deactivateEntry() {
+  async function deactivateEntry() {
     if (!currentPl) return;
-    if (!confirm('Deactivate this price list? It will stop being auto-applied to customers.')) return;
+    if (!(await appConfirm('Deactivate this price list? It will stop being auto-applied to customers.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to deactivate.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to deactivate.'))
@@ -344,9 +344,9 @@
       tbody.appendChild(tr);
     });
     tbody.querySelectorAll('.pl-deactivate-line').forEach(btn => {
-      btn.addEventListener('click', e => {
+      btn.addEventListener('click', async e => {
         const lineId = e.target.getAttribute('data-id');
-        if (!confirm('Deactivate this price?')) return;
+        if (!(await appConfirm('Deactivate this price?'))) return;
         rpc
           .withSuccessHandler(result => { if (result.success) loadLines(); else alert(result.error || 'Unable to deactivate.'); })
           .withFailureHandler(err => alert(err.message || 'Unable to deactivate.'))

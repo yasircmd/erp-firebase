@@ -862,8 +862,8 @@
     btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
     setTimeout(() => { btn.innerHTML = original; }, 1500);
   }
-  function fallbackCopyPrompt(text) {
-    window.prompt('Copy this text (Ctrl+C / Cmd+C, then Enter):', text);
+  async function fallbackCopyPrompt(text) {
+    (await appPrompt('Copy this text (Ctrl+C / Cmd+C, then Enter):', text));
   }
 
   // Populates the print-only company letterhead — same pattern GRN's

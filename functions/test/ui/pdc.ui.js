@@ -15,6 +15,7 @@ const path = require('path');
 const assert = require('assert/strict');
 const { execFileSync } = require('child_process');
 const { chromium } = require('playwright');
+const { onAppDialog } = require('./_appDialogs');
 
 function tokenFor(uid) {
   const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -44,7 +45,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     page.__errors = [];
     page.__dialogs = [];
     page.on('pageerror', e => page.__errors.push(e.message));
-    page.on('dialog', d => { page.__dialogs.push(d.message()); d.accept(); });
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(); });
     await page.goto('http://127.0.0.1:8128/?module=' + module + '&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForLoadState('networkidle');
@@ -162,7 +163,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
       const page = await browser.newPage();
       page.__errors = [];
       page.on('pageerror', e => page.__errors.push(e.message));
-      page.on('dialog', d => d.accept());
+      await onAppDialog(page, d => d.accept());
       await page.route('**/getModulePermissionsForUser', async route => { await new Promise(r => setTimeout(r, 2500)); await route.continue(); });
       await page.goto('http://127.0.0.1:8128/?module=PDCRECEIVED&uid=u-approver');
       await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });

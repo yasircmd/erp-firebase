@@ -25,6 +25,14 @@ preserved quirks). Read it when touching a ported module.
 - **Tests:** every new or changed function needs tests before it's
   considered done, including at least one verified negative control
   (deliberately break the logic, confirm a test catches it, then restore).
+- **No browser popups** (owner, 2026-09-29). Messages, confirmations
+  and questions use the shell's in-app dialogs: `appAlert(msg)`,
+  `await appConfirm(msg)`, `await appPrompt(msg, default)` (null on
+  Cancel). Never `confirm()` / `prompt()`: the Deploy workflow refuses
+  them (functions/test/unit/noBrowserDialogs.test.js). `alert()` is
+  routed in-app by the shell, but write `appAlert` in new code. UI tests
+  answer dialogs with test/ui/_appDialogs.js. Details:
+  docs/modules/APP_DIALOGS.md.
 - **Shared logic** is in functions/src/{glWriting,stockMovement,
   commitAttempt,approvals,lock,reservations}.js. Check these before
   writing new logic that might already exist there.

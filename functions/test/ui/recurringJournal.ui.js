@@ -13,6 +13,7 @@ const http = require('http');
 const fs = require('fs');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const { onAppDialog } = require('./_appDialogs');
 const S = require('../../src/recurringSchedule');
 
 function tokenFor(uid) {
@@ -50,7 +51,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const page = await browser.newPage();
     page.__errors = []; page.__dialogs = []; page.__answers = [];
     page.on('pageerror', e => page.__errors.push(e.message));
-    page.on('dialog', d => { page.__dialogs.push(d.message()); d.accept(d.type() === 'prompt' ? (page.__answers.shift() ?? d.defaultValue()) : undefined); });
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(d.type() === 'prompt' ? (page.__answers.shift() ?? d.defaultValue()) : undefined); });
     await page.goto('http://127.0.0.1:8128/?module=' + module + '&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForLoadState('networkidle');

@@ -413,7 +413,7 @@
     if (skipped) alert(skipped + ' row(s) were skipped — code not found, not an eligible component category, or matched the parent item itself.');
   }
 
-  function handleCopyButton() {
+  async function handleCopyButton() {
     const rows = components.map(c => {
       const item = itemById(c.ComponentItemID);
       return [item ? item.ItemCode : '', c.Quantity === '' ? '' : c.Quantity, c.ScrapPercent === '' ? '' : c.ScrapPercent].join('\t');
@@ -421,9 +421,9 @@
     const text = rows.join('\n');
     if (!text) { alert('Nothing to copy yet.'); return; }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => flashCopyButton()).catch(() => window.prompt('Copy this text:', text));
+      navigator.clipboard.writeText(text).then(() => flashCopyButton()).catch(async () => (await appPrompt('Copy this text:', text)));
     } else {
-      window.prompt('Copy this text:', text);
+      (await appPrompt('Copy this text:', text));
     }
   }
 

@@ -135,8 +135,8 @@
       .saveRole({ roleData: data });
   }
 
-  function deleteRole(roleId) {
-    if (!confirm('Delete this role? This only works if no user currently has it, and it is not the last role with admin write access.')) return;
+  async function deleteRole(roleId) {
+    if (!(await appConfirm('Delete this role? This only works if no user currently has it, and it is not the last role with admin write access.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) { fetchRoles(); } else alert(result.error || 'Unable to delete role.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to delete role.'))

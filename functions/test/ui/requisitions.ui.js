@@ -9,6 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const { onAppDialog } = require('./_appDialogs');
 const { app, call, reset, baseFixture, val } = require('../emulator/_helpers');
 
 const results = [];
@@ -42,7 +43,7 @@ async function seed() {
 
   async function openRecord(module, rowSelector, id) {
     const page = await browser.newPage();
-    page.on('dialog', d => d.accept());
+    await onAppDialog(page, d => d.accept());
     await page.goto('http://127.0.0.1:8141/?module=' + module + '&uid=u-admin');
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForSelector(rowSelector + '[data-id="' + id + '"]', { timeout: 30000 });
@@ -93,7 +94,7 @@ async function seed() {
   async function openFromTask(module, documentId, uid) {
     const page = await browser.newPage();
     page.__dialogs = [];
-    page.on('dialog', d => { page.__dialogs.push(d.message()); d.accept(); });
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(); });
     await page.goto('http://127.0.0.1:8141/?module=' + module + '&uid=' + (uid || 'u-admin'));
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForLoadState('networkidle');

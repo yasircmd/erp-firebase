@@ -10,6 +10,7 @@ const http = require('http');
 const fs = require('fs');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const { onAppDialog } = require('./_appDialogs');
 const { app, rtdb, call, reset, baseFixture, val } = require('../emulator/_helpers');
 
 const results = [];
@@ -51,7 +52,7 @@ async function seed() {
       await page.route('**/getModulePermissionsForUser', async route => { await new Promise(r => setTimeout(r, 1500)); await route.continue(); });
     }
     page.__dialogs = [];
-    page.on('dialog', d => { page.__dialogs.push(d.message()); d.accept(); });
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(); });
     await page.goto('http://127.0.0.1:8142/?module=JOBORDERREQUEST&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForLoadState('networkidle');
