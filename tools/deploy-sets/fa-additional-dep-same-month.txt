@@ -1,0 +1,8 @@
+# Additional Depreciation in the latest posted run month (owner 2026-09-29;
+# docs/modules/FIXED_ASSETS.md → Additional depreciation). Run with --screens
+# (FAADDDEP: the date hint).
+saveFaPostingDraft               # date in or after the last posted run month; cap counts that month's run
+postFaPosting                    # same checks at posting
+decideFaPostingApproval          # same checks on final approval
+reverseFaDepreciation            # refused while a later posting on its assets is live (reverse that first)
+getModuleFragment                # serves the changed screen

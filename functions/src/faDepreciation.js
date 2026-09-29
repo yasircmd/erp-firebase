@@ -216,11 +216,13 @@ function computeToDate(asset, date) {
 }
 
 // The most additional depreciation an asset can take on `date`:
-// NBV − residual.
+// NBV − residual, on that date and after everything posted so far (a run
+// is dated at month end, so one posted for this month isn't "on" a
+// mid-month date yet, but its charge is already taken).
 function maxAdditional(asset, date) {
-  const bal = balancesAt(asset.txns, date);
   const residual = round2(Number((asset.valuation || {}).ResidualValue) || 0);
-  return Math.max(0, round2(bal.cost - residual - bal.accDep));
+  const room = bal => round2(bal.cost - residual - bal.accDep);
+  return Math.max(0, Math.min(room(balancesAt(asset.txns, date)), room(balancesAt(asset.txns, '9999-12-31'))));
 }
 
 module.exports = {

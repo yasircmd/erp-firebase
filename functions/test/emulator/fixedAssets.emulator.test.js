@@ -259,6 +259,34 @@ test('depreciation run: preview, post, duplicates, order, catch-up, reversal of 
     [['FA-01-000001', 0, 3000, 0, 3000, 117000], ['FA-01-000002', 0, 1500, 0, 1500, 58500]]);
 });
 
+test('additional depreciation in the month of the posted run (owner, 2026-09-29): capped after the run, run reversed last', async () => {
+  await reset(fixture());
+  const { vehClass } = await configure();
+  const a = await newAsset(vehClass, { DepStartDate: '2026-01-01' });
+  const j = await jvPurchase(120000, '2026-01-01');
+  const i = (await items())[0];
+  ok(await capitalize(a.assetId, [{ JVID: j, LineNo: i.LineNo, Amount: 120000 }], '2026-01-01'));
+  ok(await call('u-admin', 'postFaDepreciation', { companyId: 'C1', period: '2026-01' }));
+
+  // Dated in January, after January's run (1,000, dated 31 Jan): the cap counts that run.
+  const draft = (o) => call('u-admin', 'saveFaPostingDraft', Object.assign({ Type: 'AdditionalDepreciation', CompanyID: 'C1', Date: '2026-01-20', Reason: 'Accident damage',
+    Lines: [{ AssetID: a.assetId, Amount: 11900 }] }, o));
+  assert.match(await err(draft({ Lines: [{ AssetID: a.assetId, Amount: 119000.01 }] })), /at most 119000.00 can be charged/);
+  const s = ok(await draft());
+  ok(await call('u-admin', 'postFaPosting', { postingId: s.postingId }));
+  assert.deepEqual([(await book(a.assetId)).AccDep, (await book(a.assetId)).AccDepAdditional], [12900, 11900]);
+  // February spreads the lower remainder: 107,100 over 119 months.
+  assert.equal((await call('u-admin', 'previewFaDepreciation', { companyId: 'C1', period: '2026-02' })).lines[0].Current, 900);
+
+  // January's run can't be reversed from under it: newest first.
+  const pn = (await doc('faPostings', s.postingId)).PostingNumber;
+  assert.match(await err(call('u-admin', 'reverseFaDepreciation', { companyId: 'C1', period: '2026-01', reason: 'redo' })),
+    new RegExp('Posted after this run on its assets: ' + pn + '\\. Reverse that first'));
+  ok(await call('u-admin', 'reverseFaPosting', { postingId: s.postingId, reason: 'Entered in error' }));
+  ok(await call('u-admin', 'reverseFaDepreciation', { companyId: 'C1', period: '2026-01', reason: 'redo' }));
+  assert.deepEqual([(await book(a.assetId)).AccDep, (await book(a.assetId)).AccDepAdditional], [0, 0]);
+});
+
 test('additional depreciation: limits, entry, lower schedule afterwards, reversal order', async () => {
   await reset(fixture());
   const { vehClass } = await configure();
@@ -271,7 +299,7 @@ test('additional depreciation: limits, entry, lower schedule afterwards, reversa
   const draft = (o) => call('u-admin', 'saveFaPostingDraft', Object.assign({ Type: 'AdditionalDepreciation', CompanyID: 'C1', Date: '2026-02-10', Reason: 'Accident damage',
     Lines: [{ AssetID: a.assetId, Amount: 11900 }] }, o));
   assert.match(await err(draft({ Reason: '' })), /A reason is required/);
-  assert.match(await err(draft({ Date: '2026-01-20' })), /after the last posted depreciation period \(2026-01\)/);
+  assert.match(await err(draft({ Date: '2025-12-20' })), /in or after the last posted depreciation period \(2026-01\)/);
   assert.match(await err(draft({ Lines: [{ AssetID: a.assetId, Amount: 119000.01 }] })), /at most 119000.00 can be charged/);
   const s = ok(await draft());
   const p = ok(await call('u-admin', 'postFaPosting', { postingId: s.postingId }));

@@ -223,6 +223,16 @@ exports.reverseFaDepreciation = onCallWithMessages(onCallOptions, async (request
     const pdoc = await C.getDoc(COL.periods, pref.id);
     const run = pdoc && await C.getDoc(COL.runs, pdoc.RunID);
     if (!run || run.Status !== 'Posted') throw new Error('No posted run found for ' + period + '.');
+    // Newest first: a posting on one of the run's assets made after the run
+    // (e.g. additional depreciation in the same month) is reversed first.
+    const runAssets = new Set(run.Lines.map(l => l.AssetID));
+    const later = (await C.listWhere(COL.postings, 'CompanyID', companyId))
+      .filter(p => p.Status === 'Posted' && (p.PostedAt || '') > (run.PostedAt || '') &&
+        ((p.Lines || []).some(l => runAssets.has(l.AssetID)) || runAssets.has(p.SourceAssetID)))
+      .sort((a, b) => (b.PostedAt || '').localeCompare(a.PostedAt || ''));
+    if (later.length) {
+      throw new Error('Posted after this run on its assets: ' + later.map(p => p.PostingNumber || p._id).join(', ') + '. Reverse ' + (later.length > 1 ? 'those' : 'that') + ' first.');
+    }
     const now = C.nowIso();
     const actor = C.actorOf(user);
     const date = E.lastDay(period);

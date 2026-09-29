@@ -144,7 +144,7 @@
     $('fad-lines-body').querySelectorAll('.fad-amount').forEach(el => el.addEventListener('input', () => { lines[Number(el.dataset.i)].Amount = el.value; isDirty = true; renderTotal(); }));
     $('fad-lines-body').querySelectorAll('.fad-rm').forEach(b => b.addEventListener('click', () => { lines.splice(Number(b.dataset.i), 1); isDirty = true; renderLines(); }));
     $('fad-add-line').classList.toggle('hidden', !editable);
-    $('fad-date-hint').textContent = lastPosted && editable ? 'After ' + lastPosted + ' (last posted depreciation).' : '';
+    $('fad-date-hint').textContent = lastPosted && editable ? 'In or after ' + lastPosted + ' (last posted depreciation).' : '';
     renderTotal();
   }
   function renderTotal() { $('fad-total').textContent = formatMoney(lines.reduce((s, l) => s + parseAmount(l.Amount), 0)); }

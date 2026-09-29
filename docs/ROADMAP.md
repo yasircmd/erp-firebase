@@ -142,7 +142,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     controls (dotted again) were caught. Smoke passes for all six.
   - **Live 2026-09-29** (PR #33; Deploy run #23, release
     `20260929T102829Z-833c3b7`).
-- [ ] **Print for Credit and Debit Notes** (owner, 2026-09-29). Sales and
+- [x] **Print for Credit and Debit Notes** (owner, 2026-09-29). Sales and
   Purchase Returns had no print. A posted return now prints as a Credit /
   Debit Note ("Tax …" when it carries tax), in the Sales Invoice's format.
   - Details are in [SALES_RETURN.md](modules/SALES_RETURN.md) and
@@ -151,7 +151,23 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - `salesReturn.ui.js` and `purchaseReturn.ui.js` check the print. Three
     negative controls were caught: the note titled as an invoice, the form
     printed too, and no Print button.
-  - **To go live:** Deploy → "screens only".
+  - **Live 2026-09-29** (PR #34; Deploy run #24, release
+    `20260929T112255Z-11a985f`).
+- [ ] **Fixed Assets: additional depreciation in the latest posted month**
+  (owner, 2026-09-29; [FIXED_ASSETS.md](modules/FIXED_ASSETS.md) →
+  Additional depreciation).
+  - It was refused for any month whose depreciation run was already
+    posted. It may now be dated in the latest posted month (older months
+    stay closed).
+  - **Two safeguards:**
+    - the amount cap counts that month's run, which is dated at month
+      end;
+    - the run can't be reversed while a later posting on its assets is
+      live.
+  - **Tests:** the `fixedAssets` suite has a new test for this (11 pass);
+    the three negative controls were caught; `fixedAssets.ui.js` 9/9.
+  - **To go live:** Deploy → "functions set, then screens", set
+    `fa-additional-dep-same-month`.
   - CBT gets four Approval Configuration entries (Cash / Bank ×
     Receipt / Payment). Today's CBT setup is copied into all four.
   - A Follow-up team per scope for Job Order Request, PR and IPR. Its
