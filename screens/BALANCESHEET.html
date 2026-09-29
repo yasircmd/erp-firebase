@@ -190,7 +190,7 @@
     accounts.forEach(a => {
       const tr = document.createElement('tr');
       const nameCell = a.AccountCode
-        ? `<button class="bs-drill-link underline decoration-dotted hover:text-blue-400">${escapeHtml(a.AccountCode)} — ${escapeHtml(a.AccountName)}</button>`
+        ? `<button class="bs-drill-link text-blue-400 hover:underline underline-offset-2">${escapeHtml(a.AccountCode)} — ${escapeHtml(a.AccountName)}</button>`
         : escapeHtml(a.AccountName);
       tr.innerHTML = `<td class="py-2 px-4 text-slate-300 text-sm">${nameCell}</td><td class="py-2 px-4 text-right text-sm">${formatMoney(a.Amount)}</td>`;
       if (a.AccountCode) tr.querySelector('.bs-drill-link').addEventListener('click', () => drillToGl(a.AccountCode));

@@ -132,6 +132,15 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - It has its own approval entry, copied once from Bank Payment.
   - **Live 2026-09-29** (PR #31; Deploy run #22, release
     `20260929T092926Z-03f421e`).
+- [ ] **Report links restyled** (owner, 2026-09-29). The drill-through
+  links in GL, TB, P&L, Balance Sheet, Cash Flow and Stock Ledger were
+  dotted-underlined. They are now blue, underlined only on hover (GL
+  drafts stay amber).
+  - Balance Sheet, Cash Flow, P&L and Stock Ledger are now hand-maintained
+    screens (`handScreens`), like GL and TB.
+  - `trialBalance.ui.js` checks the TB and GL link styles; both negative
+    controls (dotted again) were caught. Smoke passes for all six.
+  - **To go live:** Deploy → "screens only".
   - CBT gets four Approval Configuration entries (Cash / Bank ×
     Receipt / Payment). Today's CBT setup is copied into all four.
   - A Follow-up team per scope for Job Order Request, PR and IPR. Its

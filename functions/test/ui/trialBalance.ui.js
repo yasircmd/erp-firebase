@@ -89,10 +89,16 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   await check('drill-through to GL Report keeps the period, and Back restores the TB', async () => {
     const page = await open('TRIALBALANCE', 'u-admin');
     await runTb(page, '2026-09-01', '2026-09-30');
+    // Report links are blue, underlined on hover only, never dotted (owner, 2026-09-29).
+    const cls = await page.getAttribute('#tb-table-body tr:first-child .tb-drill-link', 'class');
+    assert.ok(cls.includes('text-blue-400') && cls.includes('hover:underline') && !cls.includes('decoration-dotted'), cls);
     await page.click('#tb-table-body tr:first-child .tb-drill-link');
     // (GL Report's own default From is this month's 1st, so wait on the account.)
     await page.waitForFunction(() => document.getElementById('gl-account-input') && document.getElementById('gl-account-input').value.startsWith('1000'), null, { timeout: 30000 });
     assert.equal(await page.inputValue('#gl-from-date'), '2026-09-01');
+    await page.waitForSelector('.gl-open-entry');
+    const glCls = await page.getAttribute('.gl-open-entry >> nth=0', 'class');
+    assert.ok(/text-(blue|amber)-400/.test(glCls) && glCls.includes('hover:underline') && !glCls.includes('decoration-dotted'), glCls);
     assert.equal(await page.inputValue('#gl-to-date'), '2026-09-30');
     await page.click('#gl-back-btn');
     await page.waitForSelector('#tb-results:not(.hidden)', { timeout: 30000 });

@@ -220,7 +220,7 @@
     result.rows.forEach(r => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="font-mono"><button class="tb-drill-link text-slate-200 underline decoration-dotted hover:text-blue-400">${escapeHtml(r.AccountCode)}</button></td>
+        <td class="font-mono"><button class="tb-drill-link text-blue-400 hover:underline underline-offset-2">${escapeHtml(r.AccountCode)}</button></td>
         <td class="tb-name text-slate-200">${escapeHtml(r.AccountName)}</td>
         <td class="text-slate-400">${escapeHtml(r.AccountType)}</td>
         ${COLS.map((k, i) => `<td class="text-right${i % 2 ? '' : ' border-l border-slate-700/60'}">${money(r[k])}</td>`).join('')}`;

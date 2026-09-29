@@ -235,7 +235,7 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(r.TransactionDate)}</td>
-        <td class="py-2 px-4 font-mono text-xs"><button class="sl-open-entry underline decoration-dotted hover:text-blue-400 text-slate-200">${escapeHtml(r.TransactionNumber)}</button></td>
+        <td class="py-2 px-4 font-mono text-xs"><button class="sl-open-entry text-blue-400 hover:underline underline-offset-2">${escapeHtml(r.TransactionNumber)}</button></td>
         <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(r.TransactionType)}</td>
         <td class="py-2 px-4 text-slate-200">${escapeHtml(r.Description)}</td>
         <td class="py-2 px-4 text-right text-xs">${inQty ? formatMoney(inQty) : ''}</td>
