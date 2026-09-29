@@ -31,6 +31,8 @@ function monthStart(offset) {
   d.setUTCMonth(d.getUTCMonth() + offset);
   return d.toISOString().substring(0, 10);
 }
+// As the page shows a date: dd/mm/yyyy (the shell's DATE FORMAT).
+const shown = iso => iso.substring(8, 10) + '/' + iso.substring(5, 7) + '/' + iso.substring(0, 4);
 const list = async () => (await call('u-admin', 'getRecurringJournals', {})).entries;
 
 const results = [];
@@ -89,7 +91,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(await page.textContent('#rj-balance-note'), /balanced/);
     assert.match(await page.textContent('#rj-lines-body'), /Rent Expense/, 'account name under the code');
     const dates = await page.locator('#rj-plan-body tr td:first-child').allTextContents();
-    assert.deepEqual(dates.map(t => t.substring(0, 10)), [0, 1, 2, 3].map(i => monthStart(i - 2)));
+    assert.deepEqual(dates.map(t => t.substring(0, 10)), [0, 1, 2, 3].map(i => shown(monthStart(i - 2))));
     assert.match(await page.textContent('#rj-schedule-text'), /^Day 1 of every month, from .*, 4 runs$/);
     await page.click('#rj-activate-btn'); // saves, then activates
     await page.waitForSelector('#rj-status-badge:has-text("Pending Approval")', { timeout: 30000 });
@@ -181,14 +183,14 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.locator('#rj-lines-body input[data-f="Credit"]').nth(1).fill('12000');
     await settle(page);
     assert.match(await page.textContent('#rj-lines-hint'), /totals/);
-    await preview(page, /service period 2026-09-16 to 2027-09-15/);
-    assert.match(await page.textContent('#rj-schedule-text'), /service period 2026-09-16 to 2027-09-15 \(12 months\)/);
+    await preview(page, /service period 16\/09\/2026 to 15\/09\/2027/);
+    assert.match(await page.textContent('#rj-schedule-text'), /service period 16\/09\/2026 to 15\/09\/2027 \(12 months\)/);
     const rows = await page.locator('#rj-plan-body tr').allTextContents();
     assert.equal(rows.length, 13);
-    assert.match(rows[0], /2026-09-30.*500\.00.*15 days/s);
-    assert.match(rows[1], /2026-10-31.*1,000\.00.*31 days/s);
-    assert.match(rows[5], /2027-02-28.*1,000\.00.*28 days/s);
-    assert.match(rows[12], /2027-09-30.*500\.00.*15 days/s);
+    assert.match(rows[0], /30\/09\/2026.*500\.00.*15 days/s);
+    assert.match(rows[1], /31\/10\/2026.*1,000\.00.*31 days/s);
+    assert.match(rows[5], /28\/02\/2027.*1,000\.00.*28 days/s);
+    assert.match(rows[12], /30\/09\/2027.*500\.00.*15 days/s);
     assert.match(await page.textContent('#rj-plan-summary'), /13 runs, 0 posted, total 12,000\.00/);
     assert.deepEqual(await rpcFailures(page), []);
     assert.deepEqual(page.__errors, []);

@@ -243,8 +243,11 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     width and wraps.
   - `lineGrids.ui.js` checks it (headers and rows). The negative control
     (Date allowed to wrap) was caught. The JV smoke check passes.
-- [ ] **Dates dd/mm/yyyy everywhere, periods Sep-2026** (owner,
-  2026-09-29; [DATE_FORMAT.md](modules/DATE_FORMAT.md)).
+- [x] **Dates dd/mm/yyyy everywhere, periods Sep-2026** (owner,
+  2026-09-29; [DATE_FORMAT.md](modules/DATE_FORMAT.md)). **Live
+  2026-09-29** (PR #41; Deploy runs #37 hosting and #38 screens, release
+  `20260929T164350Z-1b7c39e`). Four UI checks that expected the old
+  format on screen were updated after it (PR #42).
   - **The owner's decisions:**
     - dd/mm/yyyy;
     - entry fields keep the browser picker;
@@ -257,7 +260,19 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - **In future:** a guard in the Deploy workflow, and a CLAUDE.md rule.
   - **Tests:** `dateFormat` unit (5) and UI (2). Seven negative controls
     were caught.
-  - **To go live:** Deploy → "hosting", then "screens only".
+- [ ] **BOM: the parent item's current name after a rename** (owner,
+  2026-09-29; bug).
+  - A BOM stored its parent's code and name as saved, and the list showed
+    that copy.
+  - `getBoms` now returns the parent's current code and name (patch
+    `bom-current-parent-name`). The stored copy is kept, and used only if
+    the item is gone. Components already showed the current item.
+  - Not changed: Data Reset's record list still labels a BOM with its
+    stored name.
+  - **Test:** a new `bom` emulator test (6 pass); the negative control
+    (fix removed) was caught.
+  - **To go live:** Deploy → "functions set", set
+    `bom-current-parent-name` (getBoms only; no screens).
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any

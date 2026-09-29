@@ -1,6 +1,6 @@
 # Dates: dd/mm/yyyy everywhere, periods Sep-2026
 
-Status: **built** (2026-09-29), not yet live.
+Status: **live** 2026-09-29 (PR #41; Deploy runs #37 and #38).
 
 ## The request (owner, 2026-09-29)
 

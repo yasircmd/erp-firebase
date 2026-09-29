@@ -865,5 +865,26 @@ function linesForBatch_(idToken, batchId) {
   // [PORT CHANGE cbt-fund-transfer-prefix] cash / bank to cash / bank (functions/src/journal.js).
   'Fund Transfer': { ledgerPrefixes: ['10', '11'], ledgerIsDebit: false, voucherPrefix: 'FT', transfer: true }
 };`
+  },
+  {
+    id: 'bom-current-parent-name',
+    why: "BUG FIX (owner, 2026-09-29): a BOM stores its parent item's code and name as they were when it was saved, " +
+      'and getBoms returned that copy, so after an item was renamed the BOM list, the BOM header and Duplicate still ' +
+      "showed the old name (components already showed the item master's). getBoms now returns the parent's current " +
+      'code and name from the item master; the stored copy is kept (it is what the BOM was saved against) and used ' +
+      'only if the item no longer exists.',
+    find: `  const data = firebaseDbRequest_('boms', 'get', null, idToken) || {};
+  return Object.keys(data).map(id => Object.assign({ BOMID: id }, data[id]));
+}`,
+    replace: `  const data = firebaseDbRequest_('boms', 'get', null, idToken) || {};
+  // [PORT FIX bom-current-parent-name] the parent's CURRENT code and name.
+  const itemsData = firebaseDbRequest_('items', 'get', null, idToken) || {};
+  return Object.keys(data).map(id => {
+    const bom = Object.assign({ BOMID: id }, data[id]);
+    const parent = itemsData[bom.ParentItemID];
+    if (parent) { bom.ParentItemCode = parent.ItemCode; bom.ParentItemName = parent.ItemName; }
+    return bom;
+  });
+}`
   }
 ];

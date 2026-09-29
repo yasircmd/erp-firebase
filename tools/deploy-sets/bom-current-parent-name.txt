@@ -1,0 +1,3 @@
+# BOM: the parent item's current code and name after an item is renamed
+# (owner 2026-09-29; patch bom-current-parent-name). No screen change.
+getBoms                          # returns the parent's current code and name from Item Master

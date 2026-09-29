@@ -2733,7 +2733,14 @@ async function getBoms(idToken) {
     throw new Error('You do not have access to Bill of Materials.');
   }
   const data = (await firebaseDbRequest_('boms', 'get', null, idToken)) || {};
-  return Object.keys(data).map(id => Object.assign({ BOMID: id }, data[id]));
+  // [PORT FIX bom-current-parent-name] the parent's CURRENT code and name.
+  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+  return Object.keys(data).map(id => {
+    const bom = Object.assign({ BOMID: id }, data[id]);
+    const parent = itemsData[bom.ParentItemID];
+    if (parent) { bom.ParentItemCode = parent.ItemCode; bom.ParentItemName = parent.ItemName; }
+    return bom;
+  });
 }
 
 // Resolves whichever BOM version was ACTUALLY in effect for a parent

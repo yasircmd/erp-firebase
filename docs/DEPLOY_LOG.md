@@ -642,3 +642,14 @@ from, and how it was verified. The deploy procedure is in the
   [#34](https://github.com/yasircmd/erp-firebase/actions/runs/36596733003),
   16:18–16:19 UTC, success. Release **`20260929T161919Z-859e66f`**, 61/61
   written and verified, active.
+- **2026-09-29, runs #35 and #36 (no change):** from `859e66f` (`main`,
+  still the PR #40 merge), before the date PR existed; they redeployed
+  what was live. The owner then found dates unchanged.
+- **2026-09-29, dates dd/mm/yyyy (PR #41):** from `1b7c39e` (`main`, the
+  PR #41 merge). The new "Check date format" step passed in both runs.
+  - **Hosting:** Deploy task "hosting", run
+    [#37](https://github.com/yasircmd/erp-firebase/actions/runs/36599529091),
+    16:41–16:42 UTC, success.
+  - **Screens:** "screens only", run
+    [#38](https://github.com/yasircmd/erp-firebase/actions/runs/36599727622),
+    16:43–16:44 UTC, success. Release **`20260929T164350Z-1b7c39e`**, active.

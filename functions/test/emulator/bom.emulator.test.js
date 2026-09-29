@@ -3,7 +3,7 @@
 // deactivate/reactivate (the screen's dynamic [fn](...) call), access.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
 
 function fixture() {
   const f = baseFixture();
@@ -38,6 +38,24 @@ test('saves a BOM with normalized components; a new Active version retires the o
   assert.deepEqual(await save({ ParentItemID: 'FG1', BOMVersion: '2.0', EffectiveFrom: '2026-06-01', Components: [{ ComponentItemID: 'I1', Quantity: 3 }] }), { success: true });
   all = await boms();
   assert.deepEqual(all.map(b => [b.BOMVersion, b.Status]), [['1.0', 'Inactive'], ['2.0', 'Active']]);
+});
+
+test('the list shows the parent item\'s CURRENT code and name after the item is renamed (owner, 2026-09-29)', async () => {
+  await reset(fixture());
+  assert.deepEqual(await save({ ParentItemID: 'FG1', BOMVersion: '1.0', EffectiveFrom: '2026-01-01', Components: [{ ComponentItemID: 'I1', Quantity: 2 }] }), { success: true });
+  const [saved] = await boms();
+  assert.deepEqual([saved.ParentItemCode, saved.ParentItemName], ['FG-001', 'Panel']);
+
+  // Renamed (and recoded) in Item Master after the BOM was saved.
+  await rtdb.ref('items/FG1').update({ ItemName: 'Door Panel', ItemCode: 'FG-001A' });
+  const [now] = await boms();
+  assert.deepEqual([now.ParentItemCode, now.ParentItemName], ['FG-001A', 'Door Panel']);
+  assert.equal(await val('boms/' + now.BOMID + '/ParentItemName'), 'Panel', 'the stored copy is kept as saved');
+
+  // An item that no longer exists: the stored copy is shown.
+  await rtdb.ref('items/FG1').remove();
+  const [gone] = await boms();
+  assert.deepEqual([gone.ParentItemCode, gone.ParentItemName], ['FG-001', 'Panel']);
 });
 
 test('rejects a circular recipe, however deep', async () => {
