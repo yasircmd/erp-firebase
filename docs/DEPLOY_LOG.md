@@ -534,3 +534,22 @@ from, and how it was verified. The deploy procedure is in the
   - **Screens:** release **`20260929T042254Z-ae7cbe1`**, 61/61 written and
     verified, active.
   - The owner tested it: all works.
+- **2026-09-29, a run from `main` before PR #29 was merged:** Deploy task
+  "functions set, then screens", set `draft-tasks`, from `ae7cbe1`, run
+  [#14](https://github.com/yasircmd/erp-firebase/actions/runs/36530047797),
+  failed at once (`no tools/deploy-sets/draft-tasks.txt`). Nothing was
+  deployed.
+- **2026-09-29, My Drafts in Home Tasks (PR #29):** from `ff73a34` (`main`,
+  the PR #29 merge), on `ubuntu-24.04`.
+  - **Functions:** Deploy task **"functions set"**, set `draft-tasks`, run
+    [#15](https://github.com/yasircmd/erp-firebase/actions/runs/36530410031),
+    06:18–06:20 UTC, success. `getMyDraftsForUser` was created and
+    `getModuleFragment` updated. The run ended `ALL DONE`.
+  - **No screen release:** the task was "functions set", not "functions
+    set, then screens". The PURCHASEORDER, SALESORDER, JOBORDERREQUEST
+    and GRN changes are **not live yet**: run Deploy → "screens only".
+  - **Hosting:** Deploy task "hosting", run
+    [#16](https://github.com/yasircmd/erp-firebase/actions/runs/36530654883),
+    06:21–06:22 UTC, success ("release complete"). The My Drafts block is
+    live.
+  - The owner tested My Drafts: all works.
