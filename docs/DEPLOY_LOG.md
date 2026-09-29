@@ -587,3 +587,8 @@ from, and how it was verified. The deploy procedure is in the
   - **Functions:** the 15 in the set.
   - **Screens:** release **`20260929T092926Z-03f421e`**, 61/61 written and
     verified, active.
+- **2026-09-29, report links restyled (PR #33):** Deploy task "screens
+  only" from `833c3b7` (`main`, the PR #33 merge), run
+  [#23](https://github.com/yasircmd/erp-firebase/actions/runs/36555695384),
+  10:27–10:28 UTC, success. Release **`20260929T102829Z-833c3b7`**, 61/61
+  written and verified, active.

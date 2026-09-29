@@ -1,3 +1,16 @@
+<style>
+  /* Print: the Sales Invoice's format (owner, 2026-09-29). Only the print
+     document shows on paper. */
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+    #srt-list-view, #srt-entry-view > :not(.print-only) { display: none !important; }
+  }
+  #srt-print-document table { border-collapse: collapse; width: 100%; }
+  #srt-print-document th, #srt-print-document td { border: 1px solid #333; padding: 4px 6px; font-size: 10px; }
+  #srt-print-document thead { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>
+
 <div id="srt-list-view" class="space-y-6">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Accounts Receivable</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-rotate-right text-blue-500"></i> Sales Return / Credit Note</h2></div>
@@ -35,6 +48,12 @@
 </div>
 
 <div id="srt-entry-view" class="hidden space-y-5">
+  <div id="srt-print-header" class="print-only mb-4 pb-4 border-b-2 border-slate-800">
+    <h1 id="srt-print-company-name" class="text-lg font-bold"></h1>
+    <p id="srt-print-company-address" class="text-sm"></p>
+    <p id="srt-print-company-tax" class="text-xs"></p>
+  </div>
+  <div id="srt-print-document" class="print-only"></div>
   <div class="flex items-center justify-between border-b border-slate-800 pb-4">
     <div class="flex items-center gap-3">
       <button id="srt-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
@@ -43,6 +62,7 @@
     </div>
     <div class="flex items-center gap-2">
       <span id="srt-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
+      <button id="srt-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
       <button id="srt-gl-impact-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-scale-balanced"></i> View GL Impact</button>
     </div>
   </div>
@@ -609,6 +629,75 @@
     document.getElementById('srt-delete-btn').classList.toggle('hidden', !current || current.Status !== 'Draft' || !canDraft);
     document.getElementById('srt-reverse-btn').classList.toggle('hidden', !posted || Boolean(current.ReversedByReturnID || current.ReversalOfReturnID) || !canPost);
     document.getElementById('srt-gl-impact-btn').classList.toggle('hidden', !(posted && current.LinkedJVID));
+    // Print: a posted note; a reversal entry is not a note to send.
+    document.getElementById('srt-print-btn').classList.toggle('hidden', !posted || Boolean(current.ReversalOfReturnID));
+  }
+
+  // ---------- PRINT ----------
+  // The Sales Invoice's print format (CUSTOMERINVOICE.html), as a
+  // Credit Note (owner, 2026-09-29): company letterhead, the customer,
+  // the note's number and date, the invoice it's against, one line per
+  // returned item, and value / discount / tax / total.
+  function updatePrintHeader() {
+    const company = companies.find(c => c.CompanyID === (current && current.CompanyID));
+    document.getElementById('srt-print-company-name').textContent = company ? company.LegalName : '';
+    document.getElementById('srt-print-company-address').textContent = company ? [company.AddressLine1, company.AddressLine2].filter(Boolean).join(', ') : '';
+    const taxNumbers = company ? (company.TaxNumbers || []).filter(t => t.Number) : [];
+    document.getElementById('srt-print-company-tax').textContent = taxNumbers.map(t => (t.Type ? t.Type + ': ' : '') + t.Number).join('   |   ');
+  }
+
+  function buildPrintDocument() {
+    if (!current) return;
+    updatePrintHeader();
+    const party = customers.find(x => x.CustomerID === current.CustomerID);
+    const address = party ? [party.AddressLine1, party.AddressLine2, party.Country].filter(Boolean).join(', ') : '';
+    const contact = party ? [party.ContactPerson, party.Phone].filter(Boolean).join(' — ') : '';
+    // A tax document when it carries tax, as the invoice does.
+    const title = (Number(current.TaxAmount) || 0) > 0 ? 'TAX CREDIT NOTE' : 'CREDIT NOTE';
+    const rows = (current.Lines || []).map((l, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(l.ItemName || l.ItemCode || l.Description || '')}</td>
+        <td>${escapeHtml(l.SourceDNNumber || '')}</td>
+        <td style="text-align:right">${formatMoney(l.Quantity)}</td>
+        <td style="text-align:right">${formatMoney(l.UnitPrice)}</td>
+        <td style="text-align:right">${formatMoney(l.ReturnValue)}</td>
+      </tr>`).join('');
+    const pct = Number(current.TaxPercent) || 0;
+    document.getElementById('srt-print-document').innerHTML = `
+      <h2 style="text-align:center; font-size:16px; font-weight:bold; margin-bottom:16px; letter-spacing:1px;">${title}</h2>
+      <div style="display:flex; justify-content:space-between; margin-bottom:16px; font-size:11px;">
+        <div>
+          <div style="margin-bottom:4px;"><strong>Customer:</strong> ${escapeHtml(party ? party.CustomerName : '')}</div>
+          <div style="margin-bottom:4px;">Address: ${escapeHtml(address) || '—'}</div>
+          <div style="margin-bottom:4px;">Contact: ${escapeHtml(contact) || '—'}</div>
+          ${party && party.TaxRegistrationNumber ? `<div>Tax Reg. No.: ${escapeHtml(party.TaxRegistrationNumber)}</div>` : ''}
+        </div>
+        <div style="text-align:right;">
+          <div style="margin-bottom:4px;">Credit Note No: ${escapeHtml(current.TransactionNumber || '')}</div>
+          <div style="margin-bottom:4px;">Date: ${escapeHtml(current.TransactionDate || '')}</div>
+          <div style="margin-bottom:4px;">Against Invoice: ${escapeHtml(current.SourceInvoiceNumber || '') || '—'}</div>
+          ${current.Reference ? `<div style="margin-bottom:4px;">Reference: ${escapeHtml(current.Reference)}</div>` : ''}
+        </div>
+      </div>
+      ${current.Description ? `<div style="margin-bottom:12px; font-size:11px;">Reason: ${escapeHtml(current.Description)}</div>` : ''}
+      <table>
+        <thead><tr>
+          <th>#</th><th>Description</th><th>Delivery Note</th>
+          <th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Amount</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="6" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
+      </table>
+      <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+        <table style="width:260px; font-size:11px;">
+          <tr><td>Subtotal</td><td style="text-align:right">${formatMoney(current.ReturnValue)}</td></tr>
+          ${(Number(current.DiscountAmount) || 0) !== 0 ? `<tr><td>Discount</td><td style="text-align:right">${formatMoney(current.DiscountAmount)}</td></tr>` : ''}
+          ${(Number(current.TaxAmount) || 0) !== 0 ? `<tr><td>Tax${pct ? ' (' + pct + '%)' : ''}</td><td style="text-align:right">${formatMoney(current.TaxAmount)}</td></tr>` : ''}
+          <tr style="font-weight:bold; border-top:1px solid #333;"><td>Total</td><td style="text-align:right">${formatMoney(current.Total)}</td></tr>
+        </table>
+      </div>
+      <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>
+    `;
   }
 
   function openGlImpact() {
@@ -700,6 +789,7 @@
     document.getElementById('srt-approve-btn').addEventListener('click', () => decide('Approved'));
     document.getElementById('srt-reject-btn').addEventListener('click', () => decide('Rejected'));
     document.getElementById('srt-gl-impact-btn').addEventListener('click', openGlImpact);
+    document.getElementById('srt-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });
     document.getElementById('srt-gl-modal-close').addEventListener('click', closeGlImpact);
     document.getElementById('srt-gl-modal').addEventListener('click', e => { if (e.target.id === 'srt-gl-modal') closeGlImpact(); });
 

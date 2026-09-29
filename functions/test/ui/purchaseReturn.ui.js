@@ -108,6 +108,21 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(gl, /Inventory/);
     await page.click('#prt-gl-modal-close');
 
+    // Print: the Sales Invoice's format, as a Debit Note (owner, 2026-09-29).
+    assert.ok(await page.isVisible('#prt-print-btn'), 'Print on a posted return');
+    await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
+    await page.click('#prt-print-btn');
+    assert.equal(await page.evaluate(() => window.__printed), 1);
+    const doc = (await page.textContent('#prt-print-document')).replace(/\s+/g, ' ');
+    assert.match(doc, /^ ?(TAX )?DEBIT NOTE /, doc.slice(0, 60));
+    assert.ok(doc.includes('Debit Note No: ' + posted.TransactionNumber), 'its number');
+    assert.ok(doc.includes('Against Invoice: ' + posted.SourceInvoiceNumber), 'the invoice');
+    assert.match(doc, /Total ?37\.80/, 'the total');
+    assert.ok(doc.includes(posted.Lines[0].ItemName || posted.Lines[0].ItemCode), 'the item');
+    await page.emulateMedia({ media: 'print' });
+    assert.ok(await page.isVisible('#prt-print-document') && await page.isHidden('#prt-entry-title'), 'only the document on paper');
+    await page.emulateMedia({ media: 'screen' });
+
     await page.click('#prt-reverse-btn');
     await page.click('#prt-confirm-ok');
     await page.waitForSelector('#prt-list-view', { state: 'visible', timeout: 30000 });

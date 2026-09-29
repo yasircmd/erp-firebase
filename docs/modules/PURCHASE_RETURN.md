@@ -186,3 +186,16 @@ error still appears. There's no purchase cost center to copy in that case.
 account, invoice without a cost center, two GRNs under CC1/CC2, post and
 reversal). Negative control: the pre-fix `purchaseReturn.js` fails that
 test, then restored. Suite 7/7, UI 4/4.
+
+## Print (owner, 2026-09-29)
+
+A posted return prints as a **Debit Note** ("Tax Debit Note" when it carries tax), in the
+Sales Invoice's format:
+- the company letterhead;
+- the vendor's name, address, contact and tax registration number;
+- the note's number and date, the invoice it's against, and the reference;
+- the reason (the description);
+- one line per returned item: its GRN, quantity, unit price and amount;
+- subtotal, discount, tax (with its rate) and total.
+
+A reversal entry has no Print. `purchaseReturn.ui.js` checks it.
