@@ -196,6 +196,32 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     - five negative controls, each caught.
   - **To go live:** Deploy → "hosting" FIRST, then "screens only"; open
     tabs need a reload.
+- [ ] **"Loading…", not "No … found", while a module opens** (owner,
+  2026-09-29; [MODULE_LOADING.md](modules/MODULE_LOADING.md)).
+  - 34 of 60 screens showed their empty message ("No transactions
+    found.") for a few seconds while their list was still loading. They
+    drew the list before its data had arrived.
+  - **One rule in the shell** now covers every screen, present and
+    future:
+    - while a module's first server calls are pending, an empty-state
+      message reads "Loading…";
+    - once they finish, a list that is really empty shows its message.
+  - **Tests:**
+    - `moduleLoading.ui.js` (4) and `shellLoading` unit tests (2);
+    - a check across every screen: 0 of 60 now (34 before), nothing left
+      showing "Loading…".
+  - **To go live:** Deploy → "hosting".
+- [ ] **Line grids: compact, room for the name, no empty line once
+  posted** (owner, 2026-09-29; [LINE_GRIDS.md](modules/LINE_GRIDS.md)).
+  - One rule in the shell for every entry screen's line grid
+    (`…-grid-body`): less padding in cells, fields and headers; the Item
+    / Account Name column at least 13rem.
+  - Once an entry is read-only, the empty row a grid keeps for typing is
+    hidden.
+  - **Written, not yet tested:** shell commands were unavailable in the
+    session (the permission check failed on every command). Next:
+    `lineGrids.ui.js`, negative controls, then the PR.
+  - **To go live:** Deploy → "hosting".
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any
