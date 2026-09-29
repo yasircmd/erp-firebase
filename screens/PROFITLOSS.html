@@ -178,7 +178,7 @@
       html += `<tr><td class="py-2 px-4 pl-8 text-slate-500 text-sm italic" colspan="2">No activity</td></tr>`;
     }
     accounts.forEach(a => {
-      html += `<tr><td class="py-2 px-4 pl-8 text-slate-300 text-sm"><button class="pl-drill-link underline decoration-dotted hover:text-blue-400" data-code="${escapeHtml(a.AccountCode)}">${escapeHtml(a.AccountCode)} — ${escapeHtml(a.AccountName)}</button></td><td class="py-2 px-4 text-right text-sm">${formatMoney(a.Amount)}</td></tr>`;
+      html += `<tr><td class="py-2 px-4 pl-8 text-slate-300 text-sm"><button class="pl-drill-link text-blue-400 hover:underline underline-offset-2" data-code="${escapeHtml(a.AccountCode)}">${escapeHtml(a.AccountCode)} — ${escapeHtml(a.AccountName)}</button></td><td class="py-2 px-4 text-right text-sm">${formatMoney(a.Amount)}</td></tr>`;
     });
     html += `<tr class="border-t border-slate-700"><td class="py-2 px-4 font-medium text-sm ${colorClass}">Total ${title}</td><td class="py-2 px-4 text-right font-medium text-sm ${colorClass}">${formatMoney(total)}</td></tr>`;
     return html;

@@ -387,7 +387,7 @@
       if (isDraft) tr.className = 'bg-amber-500/5';
       tr.innerHTML = `
         <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(r.JVDate)}</td>
-        <td class="py-2 px-4 font-mono text-xs"><button class="gl-open-entry underline decoration-dotted hover:text-blue-400 ${isDraft ? 'text-amber-400' : 'text-slate-200'}">${isDraft ? 'DRAFT' : escapeHtml(r.JVNumber)}</button></td>
+        <td class="py-2 px-4 font-mono text-xs"><button class="gl-open-entry hover:underline underline-offset-2 ${isDraft ? 'text-amber-400' : 'text-blue-400'}">${isDraft ? 'DRAFT' : escapeHtml(r.JVNumber)}</button></td>
         <td class="py-2 px-4 font-mono text-xs text-slate-500">${escapeHtml(r.TransactionRef || '—')}</td>
         <td class="py-2 px-4 font-mono text-xs text-slate-400">${escapeHtml(r.AccountCode)}</td>
         <td class="gl-desc py-2 px-4 text-slate-200">${escapeHtml(r.Description)}</td>
