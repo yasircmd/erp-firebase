@@ -41,6 +41,21 @@ The changes:
     blank.
   - A draft keeps it for typing.
 
+## Every list and report too (owner, 2026-09-29)
+
+"If possible also make compact for all modules, for the entry and report,
+at row level."
+
+- **All tables in every module screen** (entry lists, reports, statements,
+  registers, modals) now have tighter rows and columns: about 5 px top and
+  bottom, 10 px at the sides (the `COMPACT TABLES` block in the shell).
+- **Unchanged:**
+  - Trial Balance and GL Report keep their own, even tighter grid (their
+    `…-compact` class);
+  - entry line grids keep the rules above;
+  - printed documents keep their own layout (the rule applies on screen
+    only).
+
 Most of these screens are generated from the Apps Script originals
 (tools/legacy-port) and are never edited by hand, which is why this is
 done once, in the shell.
@@ -50,8 +65,16 @@ done once, in the shell.
 - `lineGrids.ui.js`:
   - a posted JV shows its two lines and no empty line, while a new draft
     keeps the empty line;
-  - Production's grid has the compact padding and the item-name width.
-- Negative controls: see ROADMAP.md.
+  - Production's grid has the compact padding and the item-name width;
+  - the JV list's rows and header are compact, and the Trial Balance keeps
+    its own tighter grid.
+- Negative controls, each caught:
+  - the empty line never hidden;
+  - hidden in drafts too;
+  - no item-name width;
+  - no compact tables;
+  - the general table rule winning inside line grids;
+  - the Trial Balance not excluded.
 
 ## To go live
 

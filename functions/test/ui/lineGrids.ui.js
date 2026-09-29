@@ -78,6 +78,20 @@ const ok = r => { assert.equal(r.success, true, r.error); return r; };
     await page.close();
   });
 
+  await check('lists and reports: compact rows in every table; the Trial Balance keeps its own tighter grid', async () => {
+    const pad = (page, sel) => page.$eval(sel, el => [parseFloat(getComputedStyle(el).paddingTop), parseFloat(getComputedStyle(el).paddingLeft)]);
+    let page = await open('JV');
+    await page.waitForSelector('#jv-table-body tr td:nth-child(2)', { timeout: 30000 });
+    assert.deepEqual(await pad(page, '#jv-table-body tr td'), [4.8, 9.6], 'list row: 0.3rem / 0.6rem');
+    assert.deepEqual(await pad(page, 'table:has(#jv-table-body) thead th'), [4.8, 9.6], 'list header');
+    await page.close();
+    page = await open('TRIALBALANCE');
+    const tb = await pad(page, 'table.tb-compact thead th');
+    assert.equal(tb[0], 3.2, 'Trial Balance: its own 0.2rem');
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   results.forEach(r => console.log(r.join('  ')));
   const failed = results.filter(r => r[0] === 'FAIL').length;

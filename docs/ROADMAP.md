@@ -219,9 +219,16 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     / Account Name column at least 13rem.
   - Once an entry is read-only, the empty row a grid keeps for typing is
     hidden.
-  - **Written, not yet tested:** shell commands were unavailable in the
-    session (the permission check failed on every command). Next:
-    `lineGrids.ui.js`, negative controls, then the PR.
+  - **Every list and report too** (owner, same day): all tables in module
+    screens have tighter rows and columns. On screen only; the Trial
+    Balance / GL keep their own tighter grid.
+  - **Tests:** `lineGrids.ui.js` (3). Six negative controls were caught:
+    - the empty line never hidden;
+    - hidden in drafts too;
+    - no name width;
+    - no compact tables;
+    - the table rule winning inside grids;
+    - Trial Balance not excluded.
   - **To go live:** Deploy → "hosting".
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
