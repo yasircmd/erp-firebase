@@ -41,7 +41,7 @@ screen release to 61 (see [docs/DEPLOY_LOG.md](docs/DEPLOY_LOG.md)).
 ```
 firebase.json / .firebaserc     — project config (hosting, functions, emulators)
 firestore.rules, database.rules.json — deny-all
-public/index.html               — the app shell: login, session, menu tree, home tasks, rpc bridge
+public/index.html               — the app shell: login, session, menu tree, home tasks, rpc bridge, in-app dialogs
 functions/
   index.js                      — exports every callable
   src/                          — hand-written server code
@@ -128,7 +128,7 @@ npm i --no-save --prefix functions playwright && (cd functions && npx playwright
 # create-user test would reach production Auth)
 firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
 
-node --test functions/test/unit/*.test.js   # no emulators needed
+node --test functions/test/unit/*.test.js   # no emulators needed; includes the no-browser-popups guard
 node --test --test-concurrency=1 functions/test/emulator/*.test.js
 # while developing, run just the module's suite (seconds, not the full run):
 #   node --test functions/test/emulator/salesReturn.emulator.test.js
@@ -150,6 +150,7 @@ node functions/test/ui/invoiceState.ui.js   # GRN / Delivery Note lists: invoici
 node functions/test/ui/draftTasks.ui.js     # My Drafts: each draft task opens its entry (PO, SO, Job Order batch, GRN, JV); seeds its own data
 node functions/test/ui/approvalRouting.ui.js # Approval Configuration: CBT entries, follow-up teams; tasks open their document; seeds its own data
 node functions/test/ui/cbtFundTransfer.ui.js   # CBT Fund Transfer: From / To cash or bank, one line, saved From Cr / To Dr; seeds its own data
+node functions/test/ui/appDialogs.ui.js     # in-app dialogs: a screen's confirm and question, the dialog itself; seeds its own data
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen
 ```

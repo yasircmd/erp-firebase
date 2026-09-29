@@ -13,6 +13,7 @@ const http = require('http');
 const fs = require('fs');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const { onAppDialog } = require('./_appDialogs');
 const S = require('../../src/recurringSchedule');
 
 function tokenFor(uid) {
@@ -50,7 +51,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const page = await browser.newPage();
     page.__errors = []; page.__dialogs = []; page.__answers = [];
     page.on('pageerror', e => page.__errors.push(e.message));
-    page.on('dialog', d => { page.__dialogs.push(d.message()); d.accept(d.type() === 'prompt' ? (page.__answers.shift() ?? d.defaultValue()) : undefined); });
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(d.type() === 'prompt' ? (page.__answers.shift() ?? d.defaultValue()) : undefined); });
     await page.goto('http://127.0.0.1:8128/?module=' + module + '&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForLoadState('networkidle');
@@ -59,6 +60,10 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   }
   const rpcFailures = page => page.evaluate(() => window.__rpcLog.filter(c => !c.ok).map(c => c.name + ': ' + c.error));
   const settle = async page => { await page.waitForLoadState('networkidle'); await page.waitForTimeout(500); };
+  // The live preview is debounced, then asks the server: wait until the
+  // schedule text it draws matches, not a fixed time (it can take ~1 s).
+  const preview = (page, re) => page.waitForFunction(src => new RegExp(src).test(document.getElementById('rj-schedule-text').textContent),
+    re.source, { timeout: 15000 }).catch(() => {});
 
   let created;
   await check('new entry: form, live preview, save, activate (approval gate)', async () => {
@@ -80,6 +85,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.locator('#rj-lines-body input[data-f="Credit"]').nth(1).fill('500');
     await page.locator('#rj-lines-body input[data-f="Description"]').nth(1).fill('Prepaid');
     await settle(page);
+    await preview(page, /4 runs$/);
     assert.match(await page.textContent('#rj-balance-note'), /balanced/);
     assert.match(await page.textContent('#rj-lines-body'), /Rent Expense/, 'account name under the code');
     const dates = await page.locator('#rj-plan-body tr td:first-child').allTextContents();
@@ -175,6 +181,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.locator('#rj-lines-body input[data-f="Credit"]').nth(1).fill('12000');
     await settle(page);
     assert.match(await page.textContent('#rj-lines-hint'), /totals/);
+    await preview(page, /service period 2026-09-16 to 2027-09-15/);
     assert.match(await page.textContent('#rj-schedule-text'), /service period 2026-09-16 to 2027-09-15 \(12 months\)/);
     const rows = await page.locator('#rj-plan-body tr').allTextContents();
     assert.equal(rows.length, 13);

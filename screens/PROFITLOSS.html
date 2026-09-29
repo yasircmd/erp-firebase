@@ -202,7 +202,7 @@
     });
   }
 
-  function copyTable() {
+  async function copyTable() {
     if (!lastReport) { alert('Run the report first.'); return; }
     const rows = [];
     function section(title, accounts, total) {
@@ -217,9 +217,9 @@
     rows.push(['Net Income', fmt(lastReport.netIncome)].join('\t'));
     const text = rows.join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).catch(() => window.prompt('Copy this text:', text));
+      navigator.clipboard.writeText(text).catch(async () => (await appPrompt('Copy this text:', text)));
     } else {
-      window.prompt('Copy this text:', text);
+      (await appPrompt('Copy this text:', text));
     }
   }
 

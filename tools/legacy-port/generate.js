@@ -307,6 +307,7 @@ for (const e of [...entries].sort()) {
 fs.writeFileSync(path.join(OUT_DIR, 'callables.js'), cal);
 
 // ---- screens ----
+const { toAppDialogs } = require('./appDialogs');
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {
   const outArr = []; let depth = 0, cur = '', quote = null;
@@ -355,6 +356,7 @@ for (const mod of MODULES.filter(m => !HAND_SCREENS.has(m))) {
   });
   s = s.replace(/google\.script\.run/g, 'rpc');
   if (converted !== chains) throw new Error(mod + ': ' + chains + ' google.script.run chains but ' + converted + ' converted — inspect by hand');
+  s = toAppDialogs(s, mod).html; // confirm() / prompt() → the shell's in-app dialogs
   fs.writeFileSync(path.join(MODULES_OUT, mod + '.html'), s);
 }
 

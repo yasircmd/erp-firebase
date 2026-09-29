@@ -218,7 +218,7 @@
       : `Out of balance — Total Assets (${formatMoney(result.totalAssets)}) does not equal Total Liabilities + Equity (${formatMoney(result.totalLiabilities + result.totalEquity)}). This indicates a data problem and should be investigated.`;
   }
 
-  function copyTable() {
+  async function copyTable() {
     if (!lastReport) { alert('Run the report first.'); return; }
     const rows = [];
     function section(title, accounts, total) {
@@ -231,9 +231,9 @@
     section('Equity', lastReport.equity, lastReport.totalEquity);
     const text = rows.join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).catch(() => window.prompt('Copy this text:', text));
+      navigator.clipboard.writeText(text).catch(async () => (await appPrompt('Copy this text:', text)));
     } else {
-      window.prompt('Copy this text:', text);
+      (await appPrompt('Copy this text:', text));
     }
   }
 

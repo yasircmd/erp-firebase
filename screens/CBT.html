@@ -946,8 +946,8 @@
     setTimeout(() => { btn.innerHTML = original; }, 1500);
   }
 
-  function fallbackCopyPrompt(text) {
-    window.prompt('Copy this text (Ctrl+C / Cmd+C, then Enter):', text);
+  async function fallbackCopyPrompt(text) {
+    (await appPrompt('Copy this text (Ctrl+C / Cmd+C, then Enter):', text));
   }
 
   // ---------- ENTRY LOAD / SAVE / POST / REVERSE / DUPLICATE ----------

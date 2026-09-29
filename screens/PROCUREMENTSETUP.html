@@ -195,9 +195,9 @@
       .saveRequisitionCategory({ data: data });
   }
 
-  function toggleCategoryStatus(category) {
+  async function toggleCategoryStatus(category) {
     const deactivating = category.Status === 'Active';
-    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + category.Name + '?')) return;
+    if (!(await appConfirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + category.Name + '?'))) return;
     const call = deactivating ? 'deactivateRequisitionCategory' : 'reactivateRequisitionCategory';
     rpc
       .withSuccessHandler(result => { if (result.success) fetchCategories(); else alert(result.error || 'Unable to update category.'); })

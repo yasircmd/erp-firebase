@@ -9,6 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { onAppDialog } = require('./_appDialogs');
 
 const listed = require('../../../tools/legacy-port/modules.json').modules;
 const MODULES = process.argv.slice(2).length ? process.argv.slice(2)
@@ -45,7 +46,7 @@ async function seedDataResetAdmin() {
       const page = await browser.newPage();
       const errors = [];
       page.on('pageerror', e => errors.push('pageerror: ' + e.message));
-      page.on('dialog', d => { errors.push('dialog: ' + d.message()); d.dismiss(); });
+      await onAppDialog(page, d => { errors.push('dialog: ' + d.message()); d.dismiss(); }, { errors });
       try {
         await page.goto('http://127.0.0.1:8125/?module=' + mod + '&uid=' + uid);
         await page.waitForFunction(() => window.__moduleReady === true || /^LOAD FAILED/.test(document.getElementById('module-container').textContent), null, { timeout: 30000 });

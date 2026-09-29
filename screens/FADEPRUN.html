@@ -140,9 +140,9 @@
     if (!val('fdr-company') || !val('fdr-period')) return flash(false, 'Select the company and the period.');
     rpc.withSuccessHandler(p => renderPreview(p)).withFailureHandler(e => flash(false, e.message)).previewFaDepreciation({ companyId: val('fdr-company'), period: val('fdr-period') });
   }
-  function post() {
+  async function post() {
     const total = (preview.lines || []).reduce((s, l) => s + l.Amount, 0);
-    if (!window.confirm('Post depreciation for ' + val('fdr-period') + ': ' + formatMoney(total) + ' on ' + preview.lines.length + ' assets?')) return;
+    if (!(await appConfirm('Post depreciation for ' + val('fdr-period') + ': ' + formatMoney(total) + ' on ' + preview.lines.length + ' assets?'))) return;
     $('fdr-post-btn').disabled = true;
     rpc.withSuccessHandler(r => {
       $('fdr-post-btn').disabled = false; flash(true, 'Posted ' + r.jvNumber + ': ' + formatMoney(r.total) + ' on ' + r.assets + ' assets.');
@@ -150,8 +150,8 @@
       $('fdr-period').value = nextPeriod(val('fdr-period')); loadRuns();
     }).withFailureHandler(e => { $('fdr-post-btn').disabled = false; flash(false, e.message); }).postFaDepreciation({ companyId: val('fdr-company'), period: val('fdr-period') });
   }
-  function reverse(period) {
-    const reason = window.prompt('Reverse the depreciation of ' + period + '? Reason:');
+  async function reverse(period) {
+    const reason = (await appPrompt('Reverse the depreciation of ' + period + '? Reason:'));
     if (reason == null) return;
     rpc.withSuccessHandler(r => { flash(true, 'Reversed (' + r.reversalNumber + '). ' + period + ' can be posted again.'); $('fdr-period').value = period; loadRuns(); })
       .withFailureHandler(e => flash(false, e.message)).reverseFaDepreciation({ companyId: val('fdr-company'), period: period, reason: reason });

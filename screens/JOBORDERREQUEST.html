@@ -681,9 +681,9 @@
       .saveDraftJobOrderBatch({ header: collectHeader() });
   }
 
-  function deleteBatch() {
+  async function deleteBatch() {
     if (!currentBatch) return;
-    if (!confirm('Delete this draft Job Order? This cannot be undone.')) return;
+    if (!(await appConfirm('Delete this draft Job Order? This cannot be undone.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to delete.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to delete.'))
@@ -792,33 +792,33 @@
     document.getElementById('jo-accept-stop-btn').classList.toggle('hidden', status !== 'Stop Requested' || !canDecide);
   }
 
-  function acceptLine() {
+  async function acceptLine() {
     if (!currentLine) return;
-    if (!confirm('Accept this Job Order line as-is?')) return;
+    if (!(await appConfirm('Accept this Job Order line as-is?'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to accept.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to accept.'))
       .acceptJobOrderLine({ lineId: currentLine.LineID });
   }
-  function withdrawLine() {
+  async function withdrawLine() {
     if (!currentLine) return;
-    if (!confirm('Withdraw this Job Order line? This cannot be undone.')) return;
+    if (!(await appConfirm('Withdraw this Job Order line? This cannot be undone.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to withdraw.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to withdraw.'))
       .withdrawJobOrderLine({ lineId: currentLine.LineID });
   }
-  function acceptStopLine() {
+  async function acceptStopLine() {
     if (!currentLine) return;
-    if (!confirm('Accept this stop request? Only do this once any in-flight batch is genuinely finished.')) return;
+    if (!(await appConfirm('Accept this stop request? Only do this once any in-flight batch is genuinely finished.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to accept stop.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to accept stop.'))
       .acceptJobOrderLineStop({ lineId: currentLine.LineID });
   }
-  function cancelDirectLine() {
+  async function cancelDirectLine() {
     if (!currentLine) return;
-    if (!confirm('Cancel this Job Order line? This cannot be undone.')) return;
+    if (!(await appConfirm('Cancel this Job Order line? This cannot be undone.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to cancel.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to cancel.'))

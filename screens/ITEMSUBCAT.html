@@ -137,9 +137,9 @@
       .saveItemSubCategory({ data: data });
   }
 
-  function toggleStatus(sub) {
+  async function toggleStatus(sub) {
     const deactivating = sub.Status === 'Active';
-    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + sub.Name + '?')) return;
+    if (!(await appConfirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + sub.Name + '?'))) return;
     const call = deactivating ? 'deactivateItemSubCategory' : 'reactivateItemSubCategory';
     rpc
       .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update.'); })

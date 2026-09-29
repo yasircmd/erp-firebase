@@ -16,6 +16,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { onAppDialog } = require('./_appDialogs');
 
 const ALL = ['BALANCESHEET', 'CASHFLOW', 'CBT', 'COA', 'CUSTOMERINVOICE', 'CUSTOMERMASTER', 'CUSTOMERSOA', 'DELIVERYNOTE',
   'FAACQ', 'FAADDDEP', 'FAASSET', 'FAAUC', 'FACONFIG', 'FADEPRUN', 'FAREGISTER', 'FARETIRE', 'GLREPORT', 'GRN', 'INVENTORYPURCHASEREQUISITION', 'INVENTORYVALUATION', 'ITEMMASTER', 'JOBORDERREQUEST', 'JV',
@@ -53,7 +54,7 @@ const companySelects = page => page.$$eval('#module-container select[id*="compan
     const page = await browser.newPage();
     page.__errors = [];
     page.on('pageerror', e => page.__errors.push('pageerror: ' + e.message));
-    page.on('dialog', d => { page.__errors.push('dialog: ' + d.message()); d.dismiss(); });
+    await onAppDialog(page, d => { page.__errors.push('dialog: ' + d.message()); d.dismiss(); });
     await page.goto('http://127.0.0.1:8126/?module=' + mod + '&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true || /^LOAD FAILED/.test(document.getElementById('module-container').textContent), null, { timeout: 30000 });
     await page.waitForLoadState('networkidle');

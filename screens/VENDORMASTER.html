@@ -357,9 +357,9 @@
       .saveVendor({ vendorData: data });
   }
 
-  function toggleStatus(vendor) {
+  async function toggleStatus(vendor) {
     const deactivating = vendor.Status === 'Active';
-    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + vendor.VendorName + '?')) return;
+    if (!(await appConfirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + vendor.VendorName + '?'))) return;
     const call = deactivating ? 'deactivateVendor' : 'reactivateVendor';
     rpc
       .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update vendor.'); })

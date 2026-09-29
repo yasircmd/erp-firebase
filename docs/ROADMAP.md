@@ -168,7 +168,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     the three negative controls were caught; `fixedAssets.ui.js` 9/9.
   - **Live 2026-09-29** (PR #35; Deploy run #25, release
     `20260929T115154Z-d96ab86`).
-- [ ] **TB and Balance Sheet: say nothing when balanced, red when not**
+- [x] **TB and Balance Sheet: say nothing when balanced, red when not**
   (owner, 2026-09-29).
   - The green "Debit and Credit totals match" / "Balanced — …" notes are
     gone. A mismatch shows the note in red; in the TB the totals that
@@ -177,13 +177,25 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - `trialBalance.ui.js` checks both: nothing when matched, and the
     report's answer altered to force a mismatch. Three negative controls
     were caught.
-  - **To go live:** Deploy → "screens only".
-  - CBT gets four Approval Configuration entries (Cash / Bank ×
-    Receipt / Payment). Today's CBT setup is copied into all four.
-  - A Follow-up team per scope for Job Order Request, PR and IPR. Its
-    users get a Home task when a Sales Job Order line is Accepted (until
-    its first production entry or Stopped), or when a PR / IPR is
-    Submitted (until a PO from it is submitted, or it's closed).
+  - **Live 2026-09-29** (PR #36; Deploy run #26, release
+    `20260929T120558Z-9fac02d`).
+- [ ] **No browser popups: messages, confirmations and questions in the
+  app** (owner, 2026-09-29; [APP_DIALOGS.md](modules/APP_DIALOGS.md)).
+  - One themed dialog in the shell. Every `alert()` goes to it, and the
+    110 `confirm()` / `prompt()` calls in 49 screens and the shell now
+    await `appConfirm` / `appPrompt`. `generate.js` converts generated
+    screens itself.
+  - **In future:** a guard test, run by the Deploy workflow before any
+    deploy, refuses a browser `confirm` / `prompt`. CLAUDE.md has the
+    rule.
+  - **Fixed on the way:** Cancel on Cancel PO's reason question no longer
+    cancels the PO.
+  - **Tests:**
+    - `noBrowserDialogs` unit tests (4) and `appDialogs.ui.js` (3);
+    - 16 UI checks now answer the in-app dialog;
+    - five negative controls, each caught.
+  - **To go live:** Deploy → "hosting" FIRST, then "screens only"; open
+    tabs need a reload.
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any

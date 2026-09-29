@@ -185,8 +185,8 @@
       .saveFirebaseUser({ userData: data });
   }
 
-  function deleteUser(userId) {
-    if (!confirm('Remove this user\'s ERP access? Their Firebase Authentication account will remain.')) return;
+  async function deleteUser(userId) {
+    if (!(await appConfirm('Remove this user\'s ERP access? Their Firebase Authentication account will remain.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) fetchAndRenderUsers(); else alert(result.error || 'Unable to remove user.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to remove user.'))

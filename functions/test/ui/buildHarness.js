@@ -12,7 +12,9 @@ const escStart = find(/function escapeHtml\(value\)/);
 const injStart = find(/function injectHtmlWithScripts\(container, html\)/);
 const scStart = find(/---------- SINGLE-COMPANY DEFAULT ----------/);
 const scEnd = find(/---------- END SINGLE-COMPANY DEFAULT ----------/);
-if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd) throw new Error('could not locate shell code');
+const dlgStart = find(/---------- APP DIALOGS ----------/);
+const dlgEnd = find(/---------- END APP DIALOGS ----------/);
+if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd) throw new Error('could not locate shell code');
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
 <script src="https://cdn.tailwindcss.com"></script>
@@ -21,6 +23,9 @@ const html = `<!doctype html><html><head><meta charset="utf-8">
 <body class="bg-slate-900 text-slate-100">
 <div id="global-loading-bar"></div><div id="app-title"></div>
 <div id="module-container"></div>
+<script>
+${slice(dlgStart, dlgEnd)}
+</script>
 <script>
   const UID = new URLSearchParams(location.search).get('uid');
   const b64 = o => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\\+/g, '-').replace(/\\//g, '_');

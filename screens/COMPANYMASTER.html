@@ -330,9 +330,9 @@
       .saveCompany({ companyData: data });
   }
 
-  function toggleStatus(company) {
+  async function toggleStatus(company) {
     const deactivating = company.Status === 'Active';
-    if (!confirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + company.LegalName + '?')) return;
+    if (!(await appConfirm((deactivating ? 'Deactivate' : 'Reactivate') + ' ' + company.LegalName + '?'))) return;
     const call = deactivating ? 'deactivateCompany' : 'reactivateCompany';
     rpc
       .withSuccessHandler(result => { if (result.success) fetchAndRender(); else alert(result.error || 'Unable to update company.'); })

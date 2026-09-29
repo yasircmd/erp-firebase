@@ -11,6 +11,7 @@ const http = require('http');
 const fs = require('fs');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const { onAppDialog } = require('./_appDialogs');
 
 const today = new Date().toISOString().substring(0, 10);
 function tokenFor(uid) {
@@ -44,7 +45,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const page = await browser.newPage();
     page.__errors = [];
     page.on('pageerror', e => page.__errors.push(e.message));
-    page.on('dialog', d => { page.__lastDialog = d.message(); d.accept(); });
+    await onAppDialog(page, d => { page.__lastDialog = d.message(); d.accept(); });
     await page.goto('http://127.0.0.1:8126/?module=' + module + '&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForLoadState('networkidle');

@@ -212,7 +212,7 @@
       : 'Does not reconcile — the categorized total does not match the actual GL cash balance change. This indicates a data problem (e.g. a line missing its account) and should be investigated.';
   }
 
-  function copyTable() {
+  async function copyTable() {
     if (!lastReport) { alert('Run the report first.'); return; }
     const rows = [];
     function section(title, items, total) {
@@ -228,9 +228,9 @@
     rows.push(['Cash at End of Period', fmt(lastReport.closingCash)].join('\t'));
     const text = rows.join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).catch(() => window.prompt('Copy this text:', text));
+      navigator.clipboard.writeText(text).catch(async () => (await appPrompt('Copy this text:', text)));
     } else {
-      window.prompt('Copy this text:', text);
+      (await appPrompt('Copy this text:', text));
     }
   }
 

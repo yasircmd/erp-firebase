@@ -549,40 +549,40 @@
       .saveDraftPurchaseRequisition({ header: collectHeader() });
   }
 
-  function deleteDraft() {
+  async function deleteDraft() {
     if (!currentPr) return;
-    if (!confirm('Delete this draft requisition? This cannot be undone.')) return;
+    if (!(await appConfirm('Delete this draft requisition? This cannot be undone.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to delete draft.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
       .deleteDraftPurchaseRequisition({ prId: currentPr.PRID });
   }
 
-  function cancelEntry() {
+  async function cancelEntry() {
     if (!currentPr) return;
-    if (!confirm('Cancel this requisition? This cannot be undone.')) return;
+    if (!(await appConfirm('Cancel this requisition? This cannot be undone.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to cancel.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to cancel.'))
       .cancelPurchaseRequisition({ prId: currentPr.PRID });
   }
 
-  function closeEntry() {
+  async function closeEntry() {
     if (!currentPr) return;
-    if (!confirm('Mark this requisition as Closed?')) return;
+    if (!(await appConfirm('Mark this requisition as Closed?'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to close.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to close.'))
       .closePurchaseRequisition({ prId: currentPr.PRID });
   }
 
-  function decide(decision) {
+  async function decide(decision) {
     const levelNumber = parseInt(document.getElementById('pr-my-approval-banner').dataset.level, 10);
     const reason = document.getElementById('pr-decision-reason').value.trim();
     const error = document.getElementById('pr-decision-error');
     error.classList.add('hidden');
     if (decision === 'Rejected' && !reason) { error.textContent = 'A reason is required to reject.'; error.classList.remove('hidden'); return; }
-    if (!confirm((decision === 'Approved' ? 'Approve' : 'Reject') + ' this requisition?')) return;
+    if (!(await appConfirm((decision === 'Approved' ? 'Approve' : 'Reject') + ' this requisition?'))) return;
     rpc
       .withSuccessHandler(result => {
         if (result.success) showListView();

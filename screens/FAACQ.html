@@ -155,7 +155,7 @@
     rpc.withSuccessHandler(r => { entries = r || []; renderList(); if (then) then(); }).withFailureHandler(e => console.error(e)).getFaPostings({ moduleId: 'FAACQ' });
   }
   function showList() { $('fap-entry-view').classList.add('hidden'); $('fap-list-view').classList.remove('hidden'); fetchEntries(); }
-  function confirmLeave(then) { if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return; then(); }
+  async function confirmLeave(then) { if (isDirty && !(await appConfirm('You have unsaved changes. Leave without saving?'))) return; then(); }
 
   // ---------- company data: assets and open items ----------
   function loadCompany(companyId, then) {
@@ -322,26 +322,26 @@
       fetchEntries(() => { openEntry(r.postingId); if (typeof then === 'function') then(r.postingId); });
     }).withFailureHandler(e => showError(e.message || String(e))).saveFaPostingDraft(payload());
   }
-  function post() {
-    if (!window.confirm(type === 'TakeOver' ? 'Post this take-over? No GL entry is made.' : 'Post? Dr Asset Cost · Cr Fixed Asset Clearing for ' + $('fap-lines-total').textContent + '.')) return;
+  async function post() {
+    if (!(await appConfirm(type === 'TakeOver' ? 'Post this take-over? No GL entry is made.' : 'Post? Dr Asset Cost · Cr Fixed Asset Clearing for ' + $('fap-lines-total').textContent + '.'))) return;
     saveDraft(id => {
       rpc.withSuccessHandler(r => { fetchEntries(() => openEntry(id)); if (r.status === 'PendingApproval') alert('Sent for approval.'); })
         .withFailureHandler(e => showError(e.message || String(e))).postFaPosting({ postingId: id });
     });
   }
-  function del() {
-    if (!current || !window.confirm('Delete this draft?')) return;
+  async function del() {
+    if (!current || !(await appConfirm('Delete this draft?'))) return;
     rpc.withSuccessHandler(() => { isDirty = false; showList(); }).withFailureHandler(e => showError(e.message)).deleteFaPostingDraft({ postingId: current.PostingID });
   }
-  function reverse() {
-    const reason = window.prompt('Reason for reversing ' + (current.PostingNumber || '') + ':');
+  async function reverse() {
+    const reason = (await appPrompt('Reason for reversing ' + (current.PostingNumber || '') + ':'));
     if (reason == null) return;
     rpc.withSuccessHandler(() => fetchEntries(() => openEntry(current.PostingID)))
       .withFailureHandler(e => showError(e.message || String(e))).reverseFaPosting({ postingId: current.PostingID, reason: reason });
   }
-  function decide(decision) {
+  async function decide(decision) {
     const reason = val('fap-decision-reason');
-    if (!window.confirm((decision === 'Approved' ? 'Approve and post' : 'Reject') + ' this document?')) return;
+    if (!(await appConfirm((decision === 'Approved' ? 'Approve and post' : 'Reject') + ' this document?'))) return;
     rpc.withSuccessHandler(() => fetchEntries(() => openEntry(current.PostingID)))
       .withFailureHandler(e => showError(e.message || String(e)))
       .decideFaPostingApproval({ postingId: current.PostingID, levelNumber: Number($('fap-approval-banner').dataset.level), decision: decision, reason: reason });

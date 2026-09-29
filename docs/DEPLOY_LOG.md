@@ -603,3 +603,16 @@ from, and how it was verified. The deploy procedure is in the
   run [#25](https://github.com/yasircmd/erp-firebase/actions/runs/36564148306),
   11:49–11:52 UTC, success, `ALL DONE`. Release
   **`20260929T115154Z-d96ab86`**, 61/61 written and verified, active.
+- **2026-09-29, TB and Balance Sheet balance notes (PR #36):** Deploy task
+  "screens only" from `9fac02d` (`main`, the PR #36 merge), run
+  [#26](https://github.com/yasircmd/erp-firebase/actions/runs/36565788677),
+  12:04–12:06 UTC, success. Release **`20260929T120558Z-9fac02d`**, 61/61
+  written and verified, active.
+- **2026-09-29, runs #27 and #28 (no change):** Deploy tasks "hosting"
+  ([#27](https://github.com/yasircmd/erp-firebase/actions/runs/36569174110),
+  12:35–12:37 UTC) and "screens only"
+  ([#28](https://github.com/yasircmd/erp-firebase/actions/runs/36569458584),
+  12:38–12:39 UTC, release **`20260929T123924Z-9fac02d`**, 61/61), both
+  success, from `9fac02d` (`main`, still the PR #36 merge). They were meant
+  for the in-app dialogs, but that PR had not been opened yet, so they
+  redeployed what was already live. The in-app dialogs are PR #37.

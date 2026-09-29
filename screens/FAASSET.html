@@ -152,7 +152,7 @@
     rpc.withSuccessHandler(r => { assets = r || []; renderList(); if (then) then(); }).withFailureHandler(e => console.error(e)).getFaAssets({});
   }
   function showList() { $('faa-entry-view').classList.add('hidden'); $('faa-list-view').classList.remove('hidden'); fetchAssets(); }
-  function confirmLeave(then) { if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return; then(); }
+  async function confirmLeave(then) { if (isDirty && !(await appConfirm('You have unsaved changes. Leave without saving?'))) return; then(); }
 
   // ---------- set-up per company ----------
   function loadSetup(companyId, keep, then) {
@@ -295,8 +295,8 @@
     rpc.withSuccessHandler(r => { isDirty = false; openAsset(r.assetId); })
       .withFailureHandler(e => showError(e.message || String(e))).saveFaAsset(collect());
   }
-  function del() {
-    if (!current || !window.confirm('Delete asset ' + current.AssetNumber + '? Its number will not be reused.')) return;
+  async function del() {
+    if (!current || !(await appConfirm('Delete asset ' + current.AssetNumber + '? Its number will not be reused.'))) return;
     rpc.withSuccessHandler(() => { isDirty = false; showList(); }).withFailureHandler(e => showError(e.message)).deleteFaAsset({ assetId: current.AssetID });
   }
 

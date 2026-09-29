@@ -647,18 +647,18 @@
       .saveDraftSalesOrder({ header: collectHeader() });
   }
 
-  function deleteDraft() {
+  async function deleteDraft() {
     if (!currentSo) return;
-    if (!confirm('Delete this draft Sales Order? This cannot be undone.')) return;
+    if (!(await appConfirm('Delete this draft Sales Order? This cannot be undone.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to delete draft.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to delete draft.'))
       .deleteDraftSalesOrder({ soId: currentSo.SOID });
   }
 
-  function cancelEntry() {
+  async function cancelEntry() {
     if (!currentSo) return;
-    if (!confirm('Cancel this Sales Order? Any reserved stock will be released back to available.')) return;
+    if (!(await appConfirm('Cancel this Sales Order? Any reserved stock will be released back to available.'))) return;
     rpc
       .withSuccessHandler(result => { if (result.success) showListView(); else alert(result.error || 'Unable to cancel.'); })
       .withFailureHandler(err => alert(err.message || 'Unable to cancel.'))

@@ -154,7 +154,7 @@
     });
   }
 
-  function copyTable() {
+  async function copyTable() {
     if (!lastReport) { alert('Run the report first.'); return; }
     const rows = [['Component Code', 'Component Name', 'Expected', 'Actual', 'Variance', 'Variance %'].join('\t')];
     lastReport.Rows.forEach(r => {
@@ -162,9 +162,9 @@
     });
     const text = rows.join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).catch(() => window.prompt('Copy this text:', text));
+      navigator.clipboard.writeText(text).catch(async () => (await appPrompt('Copy this text:', text)));
     } else {
-      window.prompt('Copy this text:', text);
+      (await appPrompt('Copy this text:', text));
     }
   }
 

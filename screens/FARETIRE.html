@@ -133,7 +133,7 @@
     rpc.withSuccessHandler(r => { entries = r || []; renderList(); if (then) then(); }).withFailureHandler(e => console.error(e)).getFaPostings({ moduleId: 'FARETIRE' });
   }
   function showList() { $('frt-entry-view').classList.add('hidden'); $('frt-list-view').classList.remove('hidden'); fetchEntries(); }
-  function confirmLeave(then) { if (isDirty && !window.confirm('You have unsaved changes. Leave without saving?')) return; then(); }
+  async function confirmLeave(then) { if (isDirty && !(await appConfirm('You have unsaved changes. Leave without saving?'))) return; then(); }
 
   // ---------- company data ----------
   function loadCompany(companyId, then) {
@@ -274,26 +274,26 @@
     rpc.withSuccessHandler(r => { isDirty = false; fetchEntries(() => { openEntry(r.postingId); if (typeof then === 'function') then(r.postingId); }); })
       .withFailureHandler(e => showError(e.message || String(e))).saveFaPostingDraft(payload());
   }
-  function post() {
+  async function post() {
     const t = calc ? ' Gain/loss ' + formatMoney(calc.GainLossTotal) + '.' : '';
-    if (!window.confirm('Post this ' + (isSale() ? 'sale' : 'scrapping') + '? The assets come off the books.' + t)) return;
+    if (!(await appConfirm('Post this ' + (isSale() ? 'sale' : 'scrapping') + '? The assets come off the books.' + t))) return;
     saveDraft(id => {
       rpc.withSuccessHandler(r => { fetchEntries(() => openEntry(id)); if (r.status === 'PendingApproval') alert('Sent for approval.'); })
         .withFailureHandler(e => showError(e.message || String(e))).postFaPosting({ postingId: id });
     });
   }
-  function del() {
-    if (!current || !window.confirm('Delete this draft?')) return;
+  async function del() {
+    if (!current || !(await appConfirm('Delete this draft?'))) return;
     rpc.withSuccessHandler(() => { isDirty = false; showList(); }).withFailureHandler(e => showError(e.message)).deleteFaPostingDraft({ postingId: current.PostingID });
   }
-  function reverse() {
-    const reason = window.prompt('Reason for reversing ' + (current.PostingNumber || '') + ' (the assets go back on the books):');
+  async function reverse() {
+    const reason = (await appPrompt('Reason for reversing ' + (current.PostingNumber || '') + ' (the assets go back on the books):'));
     if (reason == null) return;
     rpc.withSuccessHandler(() => fetchEntries(() => openEntry(current.PostingID))).withFailureHandler(e => showError(e.message || String(e)))
       .reverseFaPosting({ postingId: current.PostingID, reason: reason });
   }
-  function decide(decision) {
-    if (!window.confirm((decision === 'Approved' ? 'Approve and post' : 'Reject') + ' this retirement?')) return;
+  async function decide(decision) {
+    if (!(await appConfirm((decision === 'Approved' ? 'Approve and post' : 'Reject') + ' this retirement?'))) return;
     rpc.withSuccessHandler(() => fetchEntries(() => openEntry(current.PostingID))).withFailureHandler(e => showError(e.message || String(e)))
       .decideFaPostingApproval({ postingId: current.PostingID, levelNumber: Number($('frt-approval-banner').dataset.level), decision: decision, reason: val('frt-decision-reason') });
   }

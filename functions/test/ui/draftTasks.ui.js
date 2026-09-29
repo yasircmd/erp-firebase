@@ -10,6 +10,7 @@ const http = require('http');
 const fs = require('fs');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const { onAppDialog } = require('./_appDialogs');
 const { app, call, reset, baseFixture } = require('../emulator/_helpers');
 
 const results = [];
@@ -61,7 +62,7 @@ async function seed() {
     const page = await browser.newPage();
     page.__errors = []; page.__dialogs = [];
     page.on('pageerror', e => page.__errors.push(e.message));
-    page.on('dialog', d => { page.__dialogs.push(d.message()); d.accept(); });
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(); });
     await page.goto('http://127.0.0.1:8145/?module=' + module + '&uid=u-admin');
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForLoadState('networkidle');
