@@ -7,9 +7,14 @@ const { CBT_APPROVAL_KEYS } = require('./approvalRegistry');
 // changes until someone edits one. An entry that already has its own setup
 // is left alone. Runs before the first read of any of them, then never again.
 async function ensureCbtSplit() {
+  await ensureCbtSplitFromCbt();
+  await ensureFundTransferFromBankPayment();
+}
+// The four payment / receipt entries, from the single CBT setup.
+async function ensureCbtSplitFromCbt() {
   const marker = rtdb.ref('approvalMigrations/cbtSplit');
   if ((await marker.get()).exists()) return;
-  const keys = Object.values(CBT_APPROVAL_KEYS);
+  const keys = Object.values(CBT_APPROVAL_KEYS).filter(k => k !== CBT_APPROVAL_KEYS['Fund Transfer']);
   const [config, levels, ...existing] = await Promise.all([
     rtdb.ref('approvalConfigurations/CBT').get(), rtdb.ref('approvalLevels/CBT').get(),
     ...keys.map(k => rtdb.ref('approvalConfigurations/' + k).get())
@@ -21,6 +26,23 @@ async function ensureCbtSplit() {
     if (levels.exists()) updates['approvalLevels/' + k] = levels.val();
   });
   updates['approvalMigrations/cbtSplit'] = { DoneAt: new Date().toISOString(), CopiedFromCBT: config.exists() };
+  await rtdb.ref().update(updates);
+}
+// Fund Transfer (added later, owner 2026-09-29) starts as a copy of Bank
+// Payment's setup, once, unless it already has its own.
+async function ensureFundTransferFromBankPayment() {
+  const marker = rtdb.ref('approvalMigrations/cbtFundTransfer');
+  if ((await marker.get()).exists()) return;
+  const key = CBT_APPROVAL_KEYS['Fund Transfer'];
+  const [own, config, levels] = await Promise.all([
+    rtdb.ref('approvalConfigurations/' + key).get(),
+    rtdb.ref('approvalConfigurations/CBT_BANKPAYMENT').get(), rtdb.ref('approvalLevels/CBT_BANKPAYMENT').get()
+  ]);
+  const updates = { 'approvalMigrations/cbtFundTransfer': { DoneAt: new Date().toISOString(), CopiedFromBankPayment: !own.exists() && config.exists() } };
+  if (!own.exists()) {
+    if (config.exists()) updates['approvalConfigurations/' + key] = config.val();
+    if (levels.exists()) updates['approvalLevels/' + key] = levels.val();
+  }
   await rtdb.ref().update(updates);
 }
 const isCbtKey = key => Object.values(CBT_APPROVAL_KEYS).includes(key);

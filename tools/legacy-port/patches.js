@@ -855,5 +855,15 @@ function linesForBatch_(idToken, batchId) {
     why: "NEW DEVELOPMENT (owner, 2026-09-29; docs/modules/APPROVAL_ROUTING.md): the Approval Tracker's module filter lists the Approval Configuration entries, and a CBT approval is filed under its voucher type's entry (ConfigKey). Filtering on one of them finds those approvals; CBT approvals from before the split have no ConfigKey.",
     find: `    .filter(inst => !f.ModuleID || inst.ModuleID === f.ModuleID)`,
     replace: `    .filter(inst => !f.ModuleID || inst.ModuleID === f.ModuleID || inst.ConfigKey === f.ModuleID) // [PORT CHANGE approval-tracker-config-key]`
+  },
+  {
+    id: 'cbt-fund-transfer-prefix',
+    why: "NEW DEVELOPMENT (owner, 2026-09-29; docs/modules/APPROVAL_ROUTING.md, Fund Transfer): a fifth CBT type for moving money between the company's own cash and bank accounts, numbered FT-. voucherPrefixForEntry_ reads its prefix from this table; the type itself is built in functions/src/journal.js.",
+    find: `  'Bank Payment': { ledgerPrefix: '11', ledgerIsDebit: false, voucherPrefix: 'BP' }
+};`,
+    replace: `  'Bank Payment': { ledgerPrefix: '11', ledgerIsDebit: false, voucherPrefix: 'BP' },
+  // [PORT CHANGE cbt-fund-transfer-prefix] cash / bank to cash / bank (functions/src/journal.js).
+  'Fund Transfer': { ledgerPrefixes: ['10', '11'], ledgerIsDebit: false, voucherPrefix: 'FT', transfer: true }
+};`
   }
 ];

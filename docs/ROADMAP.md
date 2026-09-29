@@ -120,12 +120,19 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     7/7; `home.ui.js` gains a My Drafts check.
   - **Live 2026-09-29** (PR #29): functions (run #15), Hosting (run #16)
     and screens (runs #17 and #18). The owner tested it.
-- [ ] **Approval routing: CBT by voucher type, and follow-up teams**
+- [x] **Approval routing: CBT by voucher type, and follow-up teams**
   (owner, 2026-09-29; [APPROVAL_ROUTING.md](modules/APPROVAL_ROUTING.md)).
-  **Built** (2026-09-29): see the doc's As built.
+  **Live 2026-09-29** (PR #30; Deploy runs #20 and #21, release
+  `20260929T080311Z-e114c8b`). The follow-up teams are set in Approval
+  Configuration.
+- [ ] **CBT Fund Transfer** (owner, 2026-09-29;
+  [APPROVAL_ROUTING.md](modules/APPROVAL_ROUTING.md), addendum). A fifth
+  CBT type for moving money between the company's own cash and bank
+  accounts: one From account, one To account, numbered `FT-…`.
+  - It has its own approval entry, copied once from Bank Payment.
+  - **Built** (2026-09-29).
   - **To go live:** Deploy → "functions set, then screens", set
-    `approval-routing`; then Deploy → "hosting". After that, set the
-    follow-up teams in Approval Configuration.
+    `cbt-fund-transfer`. No Hosting deploy needed.
   - CBT gets four Approval Configuration entries (Cash / Bank ×
     Receipt / Payment). Today's CBT setup is copied into all four.
   - A Follow-up team per scope for Job Order Request, PR and IPR. Its
