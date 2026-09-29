@@ -147,6 +147,7 @@ node functions/test/ui/stockModules.ui.js   # after the stockModules suite: the 
 node functions/test/ui/requisitions.ui.js   # PR / IPR: rejected lines editable, Home task opens the entry; seeds its own data
 node functions/test/ui/jobOrderAcceptance.ui.js # Job Order acceptance through approvals; seeds its own data
 node functions/test/ui/invoiceState.ui.js   # GRN / Delivery Note lists: invoicing column, filter, invoice link; seeds its own data
+node functions/test/ui/draftTasks.ui.js     # My Drafts: each draft task opens its entry (PO, SO, Job Order batch, GRN, JV); seeds its own data
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen
 ```
@@ -217,11 +218,17 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
   pending list from `tools/legacy-port/status.js`).
 - **Security rules:** `tools/deploy-rules.sh` deploys `database.rules.json`
   and `firestore.rules`. Both are deny-all.
+- **Hosting (`public/index.html`, the app shell):** `tools/deploy-hosting.sh`
+  (clean-copy check; stops on REPLACE_ME placeholders or anything in
+  `public/` besides the shell). Tested by `bash tools/test-deploy-hosting.sh`
+  (stubs; nothing reaches Google).
 - **From GitHub instead of Cloud Shell:** go to GitHub → Actions →
   **Deploy** → Run workflow, and type `DEPLOY`. Choose one task:
   - a functions set, optionally followed by its screens;
   - screens only;
-  - the runtime move.
+  - the runtime move;
+  - the database rules;
+  - Hosting.
 
   It runs the same scripts on a clean checkout of `main`
   (`.github/workflows/deploy.yml`), with batches of 6 (20 hit API errors in
@@ -231,8 +238,6 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
   Firebase Admin, Cloud Functions Admin, Cloud Run Admin and Service
   Account User. Log each run in the deploy log. All the deploy scripts
   exit non-zero when a step fails, so a failed run shows red.
-- **Hosting (`public/index.html`):** `firebase deploy --project erp1-8f4cd --only hosting`.
-  Check first that `grep REPLACE_ME public/index.html` returns nothing.
 - **Runtime:** functions run on Node 24 (`engines.node`). After a future
   bump, run `tools/deploy-runtime.sh` from a clean worktree.
 - **Verify** with an unauthenticated call. A reply of "Please sign in

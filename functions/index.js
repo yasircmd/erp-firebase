@@ -7,7 +7,7 @@
 const { getModuleFragment } = require('./src/getModuleFragment');
 const { completeLogin, restoreSession, getMyTree } = require('./src/session');
 const { getMyFavorites, toggleFavorite } = require('./src/favorites');
-const { getPendingApprovalsForUser, getMyRejectedSubmissions } = require('./src/homeTasks');
+const { getPendingApprovalsForUser, getMyRejectedSubmissions, getMyDraftsForUser } = require('./src/homeTasks');
 const { getActiveCompanies } = require('./src/companies');
 const {
   saveStockAdjustmentDraft, postStockAdjustment, decideStockAdjustmentApproval,
@@ -68,6 +68,7 @@ exports.getMyFavorites = getMyFavorites;
 exports.toggleFavorite = toggleFavorite;
 exports.getPendingApprovalsForUser = getPendingApprovalsForUser;
 exports.getMyRejectedSubmissions = getMyRejectedSubmissions;
+exports.getMyDraftsForUser = getMyDraftsForUser;
 exports.getActiveCompanies = getActiveCompanies;
 exports.saveStockAdjustmentDraft = saveStockAdjustmentDraft;
 exports.postStockAdjustment = postStockAdjustment;

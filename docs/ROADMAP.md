@@ -79,7 +79,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     point at the Fixed Asset Clearing Account. That account must then be
     Asset-type, since Procurement Setup requires Asset for a Fixed Asset
     category.
-- [ ] **Invoicing state on the GRN and Delivery Note lists** (owner,
+- [x] **Invoicing state on the GRN and Delivery Note lists** (owner,
   2026-09-28). Each posted, unreversed GRN / Delivery Note shows one of:
   - **Invoiced**: the posted Vendor / Customer Invoice's number, which
     opens it;
@@ -100,8 +100,26 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `invoiceState.ui.js` 2/2. Negative controls, each caught: GRN never
     Invoiced; DN draft invoices ignored; GRN filter not applied; the
     invoice link also opening the row.
+  - **Live 2026-09-29** (PR #28; Deploy run #13, release
+    `20260929T042254Z-ae7cbe1`); the owner tested it.
+- [ ] **My Drafts in Home Tasks** (owner, 2026-09-28;
+  [DRAFT_TASKS.md](modules/DRAFT_TASKS.md)). Every draft (all transaction
+  modules and Recurring Journal templates) is a Home task until it's
+  submitted, posted or deleted, shown only to its last updater. Rejected
+  documents stay in the Rejected block.
+  - **Code:** `getMyDraftsForUser` in `homeTasks.js`; a My Drafts block in
+    `public/index.html`. Purchase Order and Sales Order now open an entry
+    from a task (both now hand-maintained); Job Order Request opens a
+    draft batch. GRN now waits for its permissions before opening a
+    task's entry: a draft could open without Save / Post.
+  - **Found, not fixed:** most other task-opened screens have that same
+    race (details in the module doc). Say if they should all be fixed.
+  - **Hosting deploys** now have a Deploy workflow task, "hosting"
+    (`tools/deploy-hosting.sh`, tested by `tools/test-deploy-hosting.sh`).
+  - **Tests:** `draftTasks` emulator suite 3/3; UI `draftTasks.ui.js`
+    7/7; `home.ui.js` gains a My Drafts check.
   - **To go live:** Deploy → "functions set, then screens", set
-    `invoice-state`.
+    `draft-tasks`; then Deploy → "hosting".
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any

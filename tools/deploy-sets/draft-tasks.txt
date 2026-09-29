@@ -1,0 +1,8 @@
+# My Drafts in Home Tasks (owner 2026-09-28; docs/modules/DRAFT_TASKS.md).
+# Run with --screens: PURCHASEORDER and SALESORDER (open an entry from a
+# task; now hand-maintained), JOBORDERREQUEST (opens a draft batch), GRN
+# (waits for its permissions before opening a task's entry).
+# Then the Deploy workflow's "hosting" task: the My Drafts block is in
+# public/index.html.
+getMyDraftsForUser               # new: drafts whose last updater is the caller
+getModuleFragment                # serves the changed screens

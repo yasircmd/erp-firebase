@@ -524,3 +524,13 @@ from, and how it was verified. The deploy procedure is in the
   verified, active. The CWIP Cost list now says "No CWIP yet — create one
   in Fixed Asset Master" when a company has none open. No function
   deploy.
+- **2026-09-29, GRN / Delivery Note invoicing state (PR #28):** Deploy
+  workflow task "functions set, then screens", set `invoice-state`, from
+  `ae7cbe1` (`main`, the PR #28 merge), run
+  [#13](https://github.com/yasircmd/erp-firebase/actions/runs/36521207133),
+  04:20–04:23 UTC, success, on `ubuntu-24.04`.
+  - **Functions:** `getGrnEntries`, `getDeliveryNoteEntries`; the run
+    ended `ALL DONE`.
+  - **Screens:** release **`20260929T042254Z-ae7cbe1`**, 61/61 written and
+    verified, active.
+  - The owner tested it: all works.
