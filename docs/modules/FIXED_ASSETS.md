@@ -336,9 +336,14 @@ use, damage, a policy decision), posted by hand.
 - **Input:** company, date, one or more assets, the amount for each (or
   a % of NBV), and a reason (mandatory).
 - **Limits:** the asset must be Active; the amount can't exceed NBV −
-  residual value; the date must be after the last posted run period
-  (so it can't slip into a closed month) and on or after the
-  depreciation start date.
+  residual value (counting every posted run, including one dated later
+  in the same month); the date must be in or after the last posted run
+  period and on or after the depreciation start date.
+  - **Changed 2026-09-29 (owner):** it had to be *after* the last posted
+    period, so once September's run was posted, extra depreciation for
+    September was refused. It may now fall in the latest posted month;
+    older months stay closed. The next run spreads the lower remainder,
+    as before.
 - **Entry:** Dr Additional depreciation expense (from account
   determination; blank = the depreciation expense account), on the
   asset's cost center and profit center · Cr Accumulated depreciation.
@@ -353,6 +358,9 @@ use, damage, a policy decision), posted by hand.
   show scheduled and additional depreciation in separate columns.
 - **Reversal:** reason mandatory; refused once a later run period has
   been posted for the company (reverse that first).
+- **Run reversal waits for it:** a run can't be reversed while a posting
+  made after it on one of its assets is live (e.g. additional
+  depreciation in the same month). Reverse that first, newest first.
 - Approval gating is optional per company, as for capitalization.
 - Distinct from impairment (reserved): impairment will have its own
   accounts and can be written back; additional depreciation can't.

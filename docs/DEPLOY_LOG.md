@@ -592,3 +592,8 @@ from, and how it was verified. The deploy procedure is in the
   [#23](https://github.com/yasircmd/erp-firebase/actions/runs/36555695384),
   10:27–10:28 UTC, success. Release **`20260929T102829Z-833c3b7`**, 61/61
   written and verified, active.
+- **2026-09-29, Credit / Debit Note print (PR #34):** Deploy task "screens
+  only" from `11a985f` (`main`, the PR #34 merge), run
+  [#24](https://github.com/yasircmd/erp-firebase/actions/runs/36561291054),
+  11:22–11:23 UTC, success. Release **`20260929T112255Z-11a985f`**, 61/61
+  written and verified, active.

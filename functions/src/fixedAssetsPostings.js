@@ -238,8 +238,10 @@ async function prepare(user, data) {
     } else {
       if (a.Status !== 'Active') throw new Error(name + 'only an Active asset can take additional depreciation (this one is ' + a.Status + ').');
       if (!depreciates(cls.Kind)) throw new Error(name + 'a ' + cls.Kind + ' asset is not depreciated.');
-      if (settings.LastPostedPeriod && E.periodOf(date) <= settings.LastPostedPeriod) {
-        throw new HttpsError('invalid-argument', 'The date must be after the last posted depreciation period (' + settings.LastPostedPeriod + ').');
+      // In or after the latest posted run month (owner, 2026-09-29): additional
+      // depreciation may follow that month's run; older months stay closed.
+      if (settings.LastPostedPeriod && E.periodOf(date) < settings.LastPostedPeriod) {
+        throw new HttpsError('invalid-argument', 'The date must be in or after the last posted depreciation period (' + settings.LastPostedPeriod + ').');
       }
       if (date < (area.DepStartDate || '') || date < (a.CapitalizationDate || '')) throw new HttpsError('invalid-argument', name + 'the date is before the asset\'s depreciation start.');
       const amount = amt(raw.Amount);
