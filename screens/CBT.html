@@ -23,6 +23,7 @@
       <option value="Bank Receipt">Bank Receipt</option>
       <option value="Cash Payment">Cash Payment</option>
       <option value="Bank Payment">Bank Payment</option>
+      <option value="Fund Transfer">Fund Transfer</option>
     </select>
     <select id="cbt-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Draft">Draft</option><option value="Posted">Posted</option></select>
     <input type="date" id="cbt-date-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
@@ -76,11 +77,12 @@
 
   <div>
     <label class="block text-xs font-medium text-slate-300 mb-2">Transaction Type</label>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="cbt-type-buttons">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3" id="cbt-type-buttons">
       <button data-type="Cash Receipt" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Cash Receipt</div><div class="text-xs text-slate-500">Money in — cash</div></button>
       <button data-type="Bank Receipt" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Bank Receipt</div><div class="text-xs text-slate-500">Money in — bank</div></button>
       <button data-type="Cash Payment" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Cash Payment</div><div class="text-xs text-slate-500">Money out — cash</div></button>
       <button data-type="Bank Payment" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Bank Payment</div><div class="text-xs text-slate-500">Money out — bank</div></button>
+      <button data-type="Fund Transfer" class="cbt-type-btn relative text-left px-4 py-3 rounded-lg border-2 border-slate-700 bg-slate-900 hover:border-blue-500 text-sm"><i class="cbt-type-check hidden fa-solid fa-circle-check text-blue-400 absolute top-2 right-2"></i><div class="font-medium">Fund Transfer</div><div class="text-xs text-slate-500">Between cash / bank</div></button>
     </div>
   </div>
 
@@ -233,8 +235,21 @@
     'Cash Receipt': { prefix: '10', ledgerLabel: 'Cash Account', linesLabel: 'Received From (Accounts)' },
     'Bank Receipt': { prefix: '11', ledgerLabel: 'Bank Account', linesLabel: 'Received From (Accounts)' },
     'Cash Payment': { prefix: '10', ledgerLabel: 'Cash Account', linesLabel: 'Paid To (Accounts)' },
-    'Bank Payment': { prefix: '11', ledgerLabel: 'Bank Account', linesLabel: 'Paid To (Accounts)' }
+    'Bank Payment': { prefix: '11', ledgerLabel: 'Bank Account', linesLabel: 'Paid To (Accounts)' },
+    // Between the company's own cash / bank accounts (docs/modules/APPROVAL_ROUTING.md):
+    // one From (the ledger, credited) and one To line, itself cash or bank.
+    'Fund Transfer': { prefixes: ['10', '11'], ledgerLabel: 'Transfer From (Cash / Bank)', linesLabel: 'Transfer To (Cash / Bank Account)', transfer: true }
   };
+  const prefixesOf = config => config.prefixes || [config.prefix];
+  const isTransfer = () => Boolean(currentType && TYPE_CONFIG[currentType] && TYPE_CONFIG[currentType].transfer);
+  const isCashOrBank = a => ['10', '11'].includes(String(a.AccountCode).substring(0, 2));
+  // Add Line / Paste: shown while the entry is editable, never for a transfer (one To line).
+  let lineButtonsEditable = true;
+  function syncLineButtons() {
+    const show = lineButtonsEditable && !isTransfer();
+    document.getElementById('cbt-add-line-btn').classList.toggle('hidden', !show);
+    document.getElementById('cbt-paste-btn').classList.toggle('hidden', !show);
+  }
 
   function escapeHtml(value) {
     const div = document.createElement('div');
@@ -420,18 +435,21 @@
     const config = TYPE_CONFIG[type];
     document.getElementById('cbt-ledger-label').textContent = config.ledgerLabel;
     document.getElementById('cbt-lines-label').textContent = config.linesLabel;
-    populateLedgerOptions(config.prefix);
+    populateLedgerOptions(prefixesOf(config));
     rebuildOppositeDatalist();
+    syncLineButtons();
+    // A transfer has one To line: drop any extra rows from another type.
+    if (config.transfer && gridLines.length > 1) { gridLines = gridLines.filter(l => l.AccountCode || l.Amount).slice(0, 1); renderGrid(); }
   }
 
-  function populateLedgerOptions(prefix) {
+  function populateLedgerOptions(prefixes) {
     const companyId = document.getElementById('cbt-form-company').value;
     const select = document.getElementById('cbt-form-ledger');
     const previous = select.value;
     if (!companyId) { select.innerHTML = '<option value="">Select a Company first...</option>'; return; }
     select.innerHTML = '<option value="">Select...</option>';
     accounts
-      .filter(a => a.Status === 'Active' && a.IsPostable === true && String(a.AccountCode).substring(0, 2) === prefix && accountAllowedForCompany(a, companyId))
+      .filter(a => a.Status === 'Active' && a.IsPostable === true && prefixes.includes(String(a.AccountCode).substring(0, 2)) && accountAllowedForCompany(a, companyId))
       .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }))
       .forEach(a => {
         const opt = document.createElement('option');
@@ -450,7 +468,7 @@
     document.getElementById('cbt-company-required-note').classList.toggle('hidden', Boolean(companyId));
     if (!companyId) return;
     accounts
-      .filter(a => a.Status === 'Active' && a.IsPostable === true && a.AccountCode !== selected && accountAllowedForCompany(a, companyId))
+      .filter(a => a.Status === 'Active' && a.IsPostable === true && a.AccountCode !== selected && accountAllowedForCompany(a, companyId) && (!isTransfer() || isCashOrBank(a)))
       .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }))
       .forEach(a => {
         const opt = document.createElement('option');
@@ -464,7 +482,7 @@
   }
 
   function onCompanyChange() {
-    if (currentType) populateLedgerOptions(TYPE_CONFIG[currentType].prefix);
+    if (currentType) populateLedgerOptions(prefixesOf(TYPE_CONFIG[currentType]));
     rebuildOppositeDatalist();
     party.load(document.getElementById('cbt-form-company').value, () => renderGrid());
   }
@@ -732,6 +750,7 @@
   // AccountCode/Amount only, not Description, so a freshly defaulted row
   // isn't mistaken for "already filled in."
   function ensureTrailingBlankRow() {
+    if (isTransfer() && gridLines.length >= 1) return; // one To line
     const last = gridLines[gridLines.length - 1];
     if (!last || last.AccountCode || last.Amount) {
       gridLines.push({ AccountCode: '', Description: currentHeaderDescription(), Amount: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter() });
@@ -1183,8 +1202,8 @@
 
     document.getElementById('cbt-desc-edit-btn').classList.toggle('hidden', !(posted && canPost));
 
-    document.getElementById('cbt-add-line-btn').classList.toggle('hidden', !editableStatus);
-    document.getElementById('cbt-paste-btn').classList.toggle('hidden', !editableStatus);
+    lineButtonsEditable = editableStatus;
+    syncLineButtons();
     document.getElementById('cbt-save-draft-btn').classList.toggle('hidden', !editableStatus || !canDraft);
     document.getElementById('cbt-post-btn').classList.toggle('hidden', !editableStatus || !canPost);
     document.getElementById('cbt-delete-btn').classList.toggle('hidden', (!currentEntry || currentEntry.Status !== 'Draft') || !canDraft);
@@ -1471,6 +1490,7 @@
     document.getElementById('cbt-form-company').addEventListener('change', onCompanyChange);
     document.getElementById('cbt-form-company').addEventListener('change', updatePrintHeader);
     document.getElementById('cbt-add-line-btn').addEventListener('click', () => {
+      if (isTransfer()) return;
       isDirty = true;
       gridLines.push({ AccountCode: '', Description: currentHeaderDescription(), Amount: '', CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter() });
       renderGrid();

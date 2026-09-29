@@ -179,3 +179,81 @@ Requisition**:
   - the Global-scope levels redraw removed;
   - ticks allowed before the saved team loads (the UI test delays it);
   - the new block left out of the Tasks count.
+
+## Addendum: Fund Transfer, a fifth CBT type (owner, 2026-09-29)
+
+The four CBT types are payments or receipts. Moving money between the
+company's own cash and bank accounts is a fifth kind of transaction. Until
+now it could only be entered as a payment or receipt with a cash or bank
+account on the other side, so it went to that type's approvers.
+
+### Owner's decisions
+
+1. **Name: Fund Transfer**, voucher numbers `FT-…`.
+2. **Any cash or bank account to any other:**
+   - cash to bank (a deposit);
+   - bank to cash (a withdrawal);
+   - bank to bank;
+   - cash to cash (e.g. a petty cash top-up).
+3. **One From account, one To account, one amount**, both in the same
+   company.
+4. **Its own Approval Configuration entry**, "Cash & Bank — Fund
+   Transfer". It starts as a copy of the Bank Payment setup, made once
+   when this goes live, so the approvers who see transfers today keep
+   seeing them.
+
+### Design
+
+- In the CBT screen, Fund Transfer is a fifth type button.
+  - **From** is the ledger account: any active cash (`10…`) or bank
+    (`11…`) account. It is credited.
+  - **To** is a single line, limited to the company's other cash and bank
+    accounts. It is debited.
+  - No party tags and no allocations: nothing is owed.
+- Posting, approval, reversal, printing and the list work as for the other
+  four types. Reversal numbers are also `FT-…`.
+- **Reports:** the Cash Flow Statement already leaves out entries that
+  only move money between cash and bank accounts, so a transfer never
+  shows as an inflow or outflow. The GL, Trial Balance and Balance Sheet
+  show both accounts as usual.
+
+### As built (2026-09-29)
+
+- **Server:**
+  - `journal.js`: the `Fund Transfer` type. The From account must be
+    cash or bank. There must be exactly one To line, also cash or bank,
+    not the same account, and not another company's. Party tags are
+    dropped. Numbers are `FT-…`, reversals too.
+  - `masterData.js`: a Fund Transfer belongs to CBT.
+  - `approvalRegistry.js`: `CBT_FUNDTRANSFER`.
+  - Patch `cbt-fund-transfer-prefix`: the generated voucher-prefix table.
+- **The copy:** `approvals.js` copies Bank Payment's settings and levels
+  to Fund Transfer once, unless Fund Transfer already has its own, and
+  records `approvalMigrations/cbtFundTransfer`. On a system that never
+  split CBT, the four-way split runs first, so Fund Transfer gets the CBT
+  setup through Bank Payment.
+- **CBT screen:**
+  - A fifth type button and list filter.
+  - For Fund Transfer, "Transfer From" lists the company's cash and bank
+    accounts, and "Transfer To" offers only its other cash and bank
+    accounts.
+  - One line only: no Add Line, no Paste, no extra row.
+- **Tests:**
+  - The `cbtFundTransfer` emulator suite (5) covers:
+    - the posting, numbering, list and reversal;
+    - every check;
+    - the Cash Flow Statement staying at zero;
+    - the approval entry, the copy from Bank Payment and its task;
+    - a system that never split CBT, and an own setup being kept.
+  - `cbtFundTransfer.ui.js` (1) covers the screen.
+- **Negative controls, each caught:**
+  - a non-cash / bank To account accepted;
+  - two To lines accepted;
+  - another company's To account accepted;
+  - levels not copied from Bank Payment;
+  - an own Fund Transfer setup overwritten;
+  - the FT- prefix patch removed;
+  - Fund Transfer not recognised as CBT;
+  - To list not limited to cash / bank;
+  - a second grid row offered;
+  - From limited to bank only.

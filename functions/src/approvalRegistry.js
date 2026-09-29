@@ -18,6 +18,7 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'CBT_BANKRECEIPT', Label: 'Cash & Bank — Bank Receipt' },
   { ModuleID: 'CBT_CASHPAYMENT', Label: 'Cash & Bank — Cash Payment' },
   { ModuleID: 'CBT_BANKPAYMENT', Label: 'Cash & Bank — Bank Payment' },
+  { ModuleID: 'CBT_FUNDTRANSFER', Label: 'Cash & Bank — Fund Transfer' },
   { ModuleID: 'GRN', Label: 'Goods Receipt Note' },
   { ModuleID: 'MATERIALISSUE', Label: 'Material Issue' },
   { ModuleID: 'PRODUCTION', Label: 'Production Entry' },
@@ -70,7 +71,8 @@ const APPROVAL_MODULE_STORAGE_ = {
 // CBT voucher type -> its Approval Configuration entry.
 const CBT_APPROVAL_KEYS = {
   'Cash Receipt': 'CBT_CASHRECEIPT', 'Bank Receipt': 'CBT_BANKRECEIPT',
-  'Cash Payment': 'CBT_CASHPAYMENT', 'Bank Payment': 'CBT_BANKPAYMENT'
+  'Cash Payment': 'CBT_CASHPAYMENT', 'Bank Payment': 'CBT_BANKPAYMENT',
+  'Fund Transfer': 'CBT_FUNDTRANSFER'
 };
 
 // The label a Home task or list shows for an approval: its Approval

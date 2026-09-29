@@ -1,0 +1,16 @@
+# CBT Fund Transfer (owner 2026-09-29; docs/modules/APPROVAL_ROUTING.md,
+# addendum). Run with --screens (CBT: the fifth type). No Hosting change.
+saveCbtDraft                     # Fund Transfer: From / To cash or bank, one line, one company
+postJournalEntry                 # FT- numbers; its own approval entry
+getCbtEntries                    # lists Fund Transfers with the other four
+reverseJournalEntry              # reversal numbered FT-
+decideJournalEntryApproval       # a Fund Transfer belongs to CBT (moduleIdForEntry)
+updatePostedDescription          # same
+getGlReport                      # drill-through opens CBT for a Fund Transfer
+getMyDraftsForUser               # a Fund Transfer draft is a CBT draft
+getApprovalConfigurations        # "Cash & Bank — Fund Transfer", copied once from Bank Payment
+saveApprovalConfiguration
+saveApprovalLevels
+getPendingApprovalsForUser       # task label "Cash & Bank — Fund Transfer"
+getMyRejectedSubmissions
+getModuleFragment                # serves the changed screen

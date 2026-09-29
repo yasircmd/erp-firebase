@@ -169,7 +169,8 @@ exports.getJournalEntryDetail = onCallWithMessages(onCallOptions, async (request
 // Ported from CBT_VOUCHER_CONFIG's keys and STOCK_VOUCHER_TYPE_TO_MODULE,
 // verbatim — only what moduleIdForEntry_ needs to route a GL entry to
 // the module whose 'post' permission governs editing it.
-const CBT_VOUCHER_TYPES = ['Cash Receipt', 'Bank Receipt', 'Cash Payment', 'Bank Payment'];
+// 'Fund Transfer': new development (docs/modules/APPROVAL_ROUTING.md).
+const CBT_VOUCHER_TYPES = ['Cash Receipt', 'Bank Receipt', 'Cash Payment', 'Bank Payment', 'Fund Transfer'];
 const STOCK_VOUCHER_TYPE_TO_MODULE = {
   GRN: 'GRN',
   MaterialIssue: 'MATERIALISSUE',

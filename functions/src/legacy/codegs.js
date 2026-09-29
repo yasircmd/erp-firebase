@@ -134,7 +134,9 @@ const CBT_VOUCHER_CONFIG = {
   'Cash Receipt': { ledgerPrefix: '10', ledgerIsDebit: true, voucherPrefix: 'CR' },
   'Bank Receipt': { ledgerPrefix: '11', ledgerIsDebit: true, voucherPrefix: 'BR' },
   'Cash Payment': { ledgerPrefix: '10', ledgerIsDebit: false, voucherPrefix: 'CP' },
-  'Bank Payment': { ledgerPrefix: '11', ledgerIsDebit: false, voucherPrefix: 'BP' }
+  'Bank Payment': { ledgerPrefix: '11', ledgerIsDebit: false, voucherPrefix: 'BP' },
+  // [PORT CHANGE cbt-fund-transfer-prefix] cash / bank to cash / bank (functions/src/journal.js).
+  'Fund Transfer': { ledgerPrefixes: ['10', '11'], ledgerIsDebit: false, voucherPrefix: 'FT', transfer: true }
 };
 
 // ---------- Organizational Units ----------

@@ -53,12 +53,13 @@ async function seed() {
   }
   const configure = (page, id) => page.click('.ac-configure-btn[data-id="' + id + '"]');
 
-  await check('Approval Configuration: CBT is four entries, each with today\'s CBT setup', async () => {
+  await check('Approval Configuration: CBT is five entries, each with today\'s CBT setup', async () => {
     const page = await open('APPROVALCONFIG');
     const rows = await page.$$eval('#ac-module-table-body tr', trs => trs.map(tr => [...tr.querySelectorAll('td')].slice(0, 3).map(td => td.textContent.trim())));
     const cbt = rows.filter(r => r[0].startsWith('Cash & Bank'));
     assert.deepEqual(cbt, [['Cash & Bank — Cash Receipt', 'Enabled', 'Global'], ['Cash & Bank — Bank Receipt', 'Enabled', 'Global'],
-      ['Cash & Bank — Cash Payment', 'Enabled', 'Global'], ['Cash & Bank — Bank Payment', 'Enabled', 'Global']]);
+      ['Cash & Bank — Cash Payment', 'Enabled', 'Global'], ['Cash & Bank — Bank Payment', 'Enabled', 'Global'],
+      ['Cash & Bank — Fund Transfer', 'Enabled', 'Global']], 'Fund Transfer: a copy of Bank Payment');
     await configure(page, 'CBT_BANKPAYMENT');
     await page.waitForSelector('#ac-levels-block:not(.hidden)');
     await page.waitForTimeout(500);

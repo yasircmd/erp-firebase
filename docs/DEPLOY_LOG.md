@@ -567,3 +567,15 @@ from, and how it was verified. The deploy procedure is in the
   run [#19](https://github.com/yasircmd/erp-firebase/actions/runs/36538605673),
   failed at once (`no tools/deploy-sets/approval-routing.txt`). Nothing
   was deployed.
+- **2026-09-29, Approval routing (PR #30):** from `e114c8b` (`main`, the
+  PR #30 merge), on `ubuntu-24.04`.
+  - **Functions and screens:** Deploy task "functions set, then screens",
+    set `approval-routing`, run
+    [#20](https://github.com/yasircmd/erp-firebase/actions/runs/36539917920),
+    07:59–08:03 UTC, success, `ALL DONE`. Screens release
+    **`20260929T080311Z-e114c8b`**, 61/61 written and verified, active.
+  - **Hosting:** Deploy task "hosting", run
+    [#21](https://github.com/yasircmd/erp-firebase/actions/runs/36540542185),
+    08:05–08:06 UTC, success.
+  - The owner confirmed the deploy, then asked for a fifth CBT type for
+    transfers between cash and bank accounts (Fund Transfer).

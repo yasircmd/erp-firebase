@@ -89,8 +89,16 @@ const CBT_VOUCHER_CONFIG = {
   'Cash Receipt': { ledgerPrefix: '10', ledgerIsDebit: true, voucherPrefix: 'CR' },
   'Bank Receipt': { ledgerPrefix: '11', ledgerIsDebit: true, voucherPrefix: 'BR' },
   'Cash Payment': { ledgerPrefix: '10', ledgerIsDebit: false, voucherPrefix: 'CP' },
-  'Bank Payment': { ledgerPrefix: '11', ledgerIsDebit: false, voucherPrefix: 'BP' }
+  'Bank Payment': { ledgerPrefix: '11', ledgerIsDebit: false, voucherPrefix: 'BP' },
+  // Between the company's own cash and bank accounts (owner, 2026-09-29;
+  // docs/modules/APPROVAL_ROUTING.md, Fund Transfer): the ledger account is
+  // the From side (credited), and the single line is the To side (debited),
+  // itself a cash or bank account. Either may be cash or bank.
+  'Fund Transfer': { ledgerPrefixes: ['10', '11'], ledgerIsDebit: false, voucherPrefix: 'FT', transfer: true }
 };
+const ledgerPrefixesOf = config => config.ledgerPrefixes || [config.ledgerPrefix];
+const isCashOrBankCode = code => ['10', '11'].includes(String(code || '').substring(0, 2));
+const ledgerKindOf = config => config.transfer ? 'From' : (config.ledgerPrefix === '10' ? 'cash' : 'bank');
 
 async function getJournalEntries(idToken, limit) {
   const user = await requireUser_(idToken);
@@ -492,7 +500,10 @@ function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines,
     const code = String(line.AccountCode || '').trim();
     if (!code) return;
     if (code === selectedAccountCode) {
-      throw new Error('Line ' + (idx + 1) + ': cannot use the same account selected as the ' + (config.ledgerPrefix === '10' ? 'cash' : 'bank') + ' ledger.');
+      throw new Error('Line ' + (idx + 1) + ': cannot use the same account selected as the ' + ledgerKindOf(config) + ' ledger.');
+    }
+    if (config.transfer && !isCashOrBankCode(code)) {
+      throw new Error('A Fund Transfer goes to another cash or bank account; ' + code + ' is neither.');
     }
     const amount = parseAmountServer_(line.Amount);
     if (amount <= 0) throw new Error('Line ' + (idx + 1) + ': enter an amount greater than zero.');
@@ -504,12 +515,15 @@ function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines,
       Credit: config.ledgerIsDebit ? amount : 0,
       CostCenterID: String(line.CostCenterID || ''),
       ProfitCenterID: String(line.ProfitCenterID || ''),
-      // Party tag and allocations, checked by resolvePartyLines.
-      PartyType: line.PartyType, PartyID: line.PartyID, Allocations: line.Allocations
+      // Party tag and allocations, checked by resolvePartyLines. A transfer
+      // between the company's own accounts owes nobody.
+      PartyType: config.transfer ? undefined : line.PartyType, PartyID: config.transfer ? undefined : line.PartyID,
+      Allocations: config.transfer ? undefined : line.Allocations
     });
   });
 
-  if (!rawLines.length) throw new Error('Enter at least one line.');
+  if (!rawLines.length) throw new Error(config.transfer ? 'Select the account to transfer to, and the amount.' : 'Enter at least one line.');
+  if (config.transfer && rawLines.length > 1) throw new Error('A Fund Transfer has one To account.');
 
   const total = rawLines.reduce((sum, l) => sum + l.Debit + l.Credit, 0);
   const dim = headerDimensions || {};
@@ -536,7 +550,7 @@ async function saveCbtDraft(idToken, cbtData) {
     if (!config) throw new Error('Select a transaction type.');
 
     const selectedAccountCode = String(cbtData.SelectedAccountCode || '').trim();
-    if (!selectedAccountCode) throw new Error('Select a cash or bank ledger.');
+    if (!selectedAccountCode) throw new Error(config.transfer ? 'Select the account to transfer from.' : 'Select a cash or bank ledger.');
 
     const companyId = String(cbtData.CompanyID || '').trim();
 
@@ -548,11 +562,20 @@ async function saveCbtDraft(idToken, cbtData) {
     if (!selectedAccount) throw new Error('Selected ledger account not found.');
     if (selectedAccount.Status !== 'Active') throw new Error('Selected ledger account is inactive.');
     if (selectedAccount.IsPostable !== true) throw new Error('Selected ledger account is a header account and cannot be posted to.');
-    if (String(selectedAccount.AccountCode).substring(0, 2) !== config.ledgerPrefix) {
-      throw new Error('Selected account is not a valid ' + (config.ledgerPrefix === '10' ? 'Cash' : 'Bank') + ' ledger account.');
+    if (!ledgerPrefixesOf(config).includes(String(selectedAccount.AccountCode).substring(0, 2))) {
+      throw new Error(config.transfer ? 'Transfer from a cash or bank account.'
+        : 'Selected account is not a valid ' + (config.ledgerPrefix === '10' ? 'Cash' : 'Bank') + ' ledger account.');
     }
     if (selectedAccount.CompanyID && selectedAccount.CompanyID !== companyId) {
       throw new Error('Selected ledger account is restricted to a specific company — select that company for this entry.');
+    }
+    // The To account must also be this company's (same company only).
+    if (config.transfer) {
+      (cbtData.OppositeLines || []).forEach(l => {
+        const code = String(l.AccountCode || '').trim();
+        const to = code && Object.values(coaData).find(a => String(a.AccountCode) === code);
+        if (to && to.CompanyID && to.CompanyID !== companyId) throw new Error('Account ' + code + ' belongs to another company: a Fund Transfer stays within one company.');
+      });
     }
 
     const rawLines = buildLinesFromVoucher_(
