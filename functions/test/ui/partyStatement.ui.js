@@ -76,7 +76,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(rows[2], /Bank Receipt.*200\.00.*300\.00/s);
     assert.match(rows[3], /Credit Note.*100\.00.*200\.00/s);
     assert.equal(await page.textContent('#soa-closing'), '200.00');
-    assert.match(await page.textContent('#soa-open'), /2026-05-16\s*15\s*500\.00\s*200\.00/);
+    assert.match(await page.textContent('#soa-open'), /16\/05\/2026\s*15\s*500\.00\s*200\.00/);
     assert.match(await page.textContent('#soa-aging [data-bucket="d1_30"]'), /200\.00/);
     // The suite's last step gave CU2 the same receivables account.
     assert.match(await page.textContent('#soa-recon'), /GL account 1200 is shared with other parties/);

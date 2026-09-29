@@ -136,9 +136,9 @@ async function seed() {
     await page.click('#fdr-post-btn');
     await page.waitForFunction(() => /Posted FAD-26-01/.test(document.getElementById('fdr-ok').textContent), null, { timeout: 20000 });
     await page.waitForFunction(() => /FAD-26-01/.test(document.getElementById('fdr-runs-body').textContent), null, { timeout: 15000 });
-    assert.match(await page.textContent('#fdr-runs-body'), /2026-01.*Posted.*1,000\.00.*FAD-26-01/s);
+    assert.match(await page.textContent('#fdr-runs-body'), /Jan-2026.*Posted.*1,000\.00.*FAD-26-01/s);
     assert.ok(await page.isVisible('.fdr-reverse'));
-    assert.match(await page.textContent('#fdr-state'), /Last posted period: 2026-01 · next: 2026-02/);
+    assert.match(await page.textContent('#fdr-state'), /Last posted period: Jan-2026 · next: Feb-2026/);
     runJv = (await H.call('u-admin', 'getFaRuns', { companyId: 'C1' })).runs[0].JVID;
     await clean(page); await page.close();
   });
@@ -171,14 +171,14 @@ async function seed() {
     assert.match(await page.textContent('#far-body'), /119,000\.00/, 'as at January: before the additional depreciation');
     await page.click('#far-body tr[data-id]');
     await page.waitForSelector('#far-modal:not(.hidden)');
-    assert.match(await page.textContent('#far-modal-body'), /Capitalization.*Depreciation 2026-01.*Additional Depreciation/s);
+    assert.match(await page.textContent('#far-modal-body'), /Capitalization.*Depreciation Jan-2026.*Additional Depreciation/s);
     await clean(page); await page.close();
   });
 
   await check('GL drill-through opens the run; Viewer sees no post or reverse', async () => {
     const page = await open('FAREGISTER', 'u-admin');
     await page.evaluate(jv => openModule('FADEPRUN', { OpenEntryId: jv }), runJv);
-    await page.waitForFunction(() => /Run 2026-01 \(Posted\)/.test((document.getElementById('fdr-total') || {}).textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /Run Jan-2026 \(Posted\)/.test((document.getElementById('fdr-total') || {}).textContent || ''), null, { timeout: 20000 });
     await page.close();
     const viewer = await open('FADEPRUN', 'u-viewer');
     await viewer.selectOption('#fdr-company', 'C1');
@@ -201,7 +201,7 @@ async function seed() {
     await page.fill('#frt-form-reason', 'Written off after accident');
     await page.selectOption('#frt-lines-body select.frt-asset', { label: 'FA-01-000001 — Delivery van' });
     // January posted, 500 additional in February; the scrap on 1 March charges February as catch-up.
-    await page.waitForFunction(() => /from 2026-02/.test(document.getElementById('frt-lines-body').textContent), null, { timeout: 15000 });
+    await page.waitForFunction(() => /from Feb-2026/.test(document.getElementById('frt-lines-body').textContent), null, { timeout: 15000 });
     const nbv = await page.evaluate(() => document.querySelectorAll('#frt-lines-body td')[4].textContent);
     const gl = await page.evaluate(() => document.querySelectorAll('#frt-lines-body td')[6].textContent);
     assert.equal(gl, '-' + nbv, 'a scrap loses its whole NBV');

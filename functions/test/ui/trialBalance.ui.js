@@ -48,7 +48,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await page.inputValue('#tb-from-date'), today.substring(0, 8) + '01');
     assert.equal(await page.inputValue('#tb-to-date'), today);
     await runTb(page, '2026-09-01', '2026-09-30');
-    assert.equal(await page.textContent('#tb-period-label'), '2026-09-01 to 2026-09-30');
+    assert.equal(await page.textContent('#tb-period-label'), '01/09/2026 to 30/09/2026');
     assert.deepEqual(await tableRows(page), [
       ['1000', 'Cash', 'Asset', '500.00', '', '', '120.00', '380.00', ''],
       ['3000', 'Capital', 'Equity', '', '500.00', '', '', '', '500.00'],
