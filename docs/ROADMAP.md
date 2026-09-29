@@ -179,8 +179,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     were caught.
   - **Live 2026-09-29** (PR #36; Deploy run #26, release
     `20260929T120558Z-9fac02d`).
-- [ ] **No browser popups: messages, confirmations and questions in the
+- [x] **No browser popups: messages, confirmations and questions in the
   app** (owner, 2026-09-29; [APP_DIALOGS.md](modules/APP_DIALOGS.md)).
+  **Live 2026-09-29** (PR #37; Deploy runs #29 hosting and #30 screens,
+  release `20260929T144327Z-b3542c0`).
   - One themed dialog in the shell. Every `alert()` goes to it, and the
     110 `confirm()` / `prompt()` calls in 49 screens and the shell now
     await `appConfirm` / `appPrompt`. `generate.js` converts generated
@@ -194,8 +196,6 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     - `noBrowserDialogs` unit tests (4) and `appDialogs.ui.js` (3);
     - 16 UI checks now answer the in-app dialog;
     - five negative controls, each caught.
-  - **To go live:** Deploy → "hosting" FIRST, then "screens only"; open
-    tabs need a reload.
 - [ ] **PAUSED (owner, 2026-09-29): "Loading…", not "No … found", while
   a module opens** ([MODULE_LOADING.md](modules/MODULE_LOADING.md): how
   to bring it back).
