@@ -15,12 +15,18 @@ async function onAppDialog(page, handler, opts) {
     else throw new Error('browser popup: ' + d.type() + ': ' + d.message());
   });
   await page.exposeBinding('__onAppDialog', (_source, detail) => {
-    const answer = async (ok, text) => {
+    // A failed answer (e.g. the page closed first) is recorded, since it
+    // would otherwise show up only as a later timeout.
+    const failed = e => {
+      const errors = (opts && opts.errors) || page.__errors;
+      if (errors && !page.isClosed()) errors.push('answering the dialog "' + detail.message + '" failed: ' + e.message);
+    };
+    const answer = (ok, text) => (async () => {
       if (ok && detail.type === 'prompt' && text !== undefined) {
         await page.fill('#app-dialog-input:visible, #app-dialog-textarea:visible', String(text));
       }
       await page.click(ok ? '#app-dialog-ok' : '#app-dialog-cancel');
-    };
+    })().catch(failed);
     // Not awaited here: the handler may itself wait on the page.
     Promise.resolve().then(() => handler({
       type: () => detail.type,
@@ -28,7 +34,7 @@ async function onAppDialog(page, handler, opts) {
       defaultValue: () => detail.defaultValue,
       accept: text => answer(true, text),
       dismiss: () => answer(false)
-    })).catch(() => {});
+    })).catch(failed);
   });
   await page.addInitScript(() => {
     window.addEventListener('app-dialog', e => window.__onAppDialog(e.detail));

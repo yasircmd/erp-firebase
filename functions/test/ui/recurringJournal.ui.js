@@ -60,6 +60,10 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   }
   const rpcFailures = page => page.evaluate(() => window.__rpcLog.filter(c => !c.ok).map(c => c.name + ': ' + c.error));
   const settle = async page => { await page.waitForLoadState('networkidle'); await page.waitForTimeout(500); };
+  // The live preview is debounced, then asks the server: wait until the
+  // schedule text it draws matches, not a fixed time (it can take ~1 s).
+  const preview = (page, re) => page.waitForFunction(src => new RegExp(src).test(document.getElementById('rj-schedule-text').textContent),
+    re.source, { timeout: 15000 }).catch(() => {});
 
   let created;
   await check('new entry: form, live preview, save, activate (approval gate)', async () => {
@@ -81,6 +85,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.locator('#rj-lines-body input[data-f="Credit"]').nth(1).fill('500');
     await page.locator('#rj-lines-body input[data-f="Description"]').nth(1).fill('Prepaid');
     await settle(page);
+    await preview(page, /4 runs$/);
     assert.match(await page.textContent('#rj-balance-note'), /balanced/);
     assert.match(await page.textContent('#rj-lines-body'), /Rent Expense/, 'account name under the code');
     const dates = await page.locator('#rj-plan-body tr td:first-child').allTextContents();
@@ -176,6 +181,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.locator('#rj-lines-body input[data-f="Credit"]').nth(1).fill('12000');
     await settle(page);
     assert.match(await page.textContent('#rj-lines-hint'), /totals/);
+    await preview(page, /service period 2026-09-16 to 2027-09-15/);
     assert.match(await page.textContent('#rj-schedule-text'), /service period 2026-09-16 to 2027-09-15 \(12 months\)/);
     const rows = await page.locator('#rj-plan-body tr').allTextContents();
     assert.equal(rows.length, 13);
