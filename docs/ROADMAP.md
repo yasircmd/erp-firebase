@@ -196,8 +196,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     - five negative controls, each caught.
   - **To go live:** Deploy → "hosting" FIRST, then "screens only"; open
     tabs need a reload.
-- [ ] **"Loading…", not "No … found", while a module opens** (owner,
-  2026-09-29; [MODULE_LOADING.md](modules/MODULE_LOADING.md)).
+- [ ] **PAUSED (owner, 2026-09-29): "Loading…", not "No … found", while
+  a module opens** ([MODULE_LOADING.md](modules/MODULE_LOADING.md): how
+  to bring it back).
   - 34 of 60 screens showed their empty message ("No transactions
     found.") for a few seconds while their list was still loading. They
     drew the list before its data had arrived.
@@ -210,7 +211,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     - `moduleLoading.ui.js` (4) and `shellLoading` unit tests (2);
     - a check across every screen: 0 of 60 now (34 before), nothing left
       showing "Loading…".
-  - **To go live:** Deploy → "hosting".
+  - Not live. Its negative controls are still to do.
 - [ ] **Line grids: compact, room for the name, no empty line once
   posted** (owner, 2026-09-29; [LINE_GRIDS.md](modules/LINE_GRIDS.md)).
   - One rule in the shell for every entry screen's line grid

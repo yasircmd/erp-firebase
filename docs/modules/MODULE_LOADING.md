@@ -1,6 +1,11 @@
 # Loading, not "nothing found", while a module opens
 
-Status: **built** (2026-09-29), not yet live.
+Status: **paused** (owner, 2026-09-29), not live. Built and mostly tested
+(see Tests), then paused by the owner before its negative controls were
+done. The code is in commit `854542e` and was taken out by the commit
+"Pause module loading" right after it: reverting that commit
+(`git revert <sha>`) brings it all back (shell block, harness, both tests,
+the README line). Then run the negative controls before shipping.
 
 ## The request (owner, 2026-09-29)
 

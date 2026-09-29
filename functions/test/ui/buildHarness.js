@@ -14,13 +14,11 @@ const scStart = find(/---------- SINGLE-COMPANY DEFAULT ----------/);
 const scEnd = find(/---------- END SINGLE-COMPANY DEFAULT ----------/);
 const dlgStart = find(/---------- APP DIALOGS ----------/);
 const dlgEnd = find(/---------- END APP DIALOGS ----------/);
-const ldStart = find(/---------- MODULE LOADING ----------/);
-const ldEnd = find(/---------- END MODULE LOADING ----------/);
 const lgCssStart = find(/---------- LINE GRIDS CSS ----------/);
 const lgCssEnd = find(/---------- END LINE GRIDS CSS ----------/);
 const lgStart = find(/\/\/ ---------- LINE GRIDS ----------/);
 const lgEnd = find(/\/\/ ---------- END LINE GRIDS ----------/);
-if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd || !ldStart || !ldEnd ||
+if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd ||
     !lgCssStart || !lgCssEnd || !lgStart || !lgEnd) throw new Error('could not locate shell code');
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
@@ -59,7 +57,6 @@ ${slice(escStart, escStart + 4)}
 ${slice(injStart, injStart + 9)}
 ${slice(scStart, scEnd)}
 ${slice(lgStart, lgEnd)}
-${slice(ldStart, ldEnd)}
   // Same drill-through contract as the shell's openModule: the target
   // reads window.__pendingModuleParams / __pendingReturnChain in initModule.
   window.openModule = function (moduleId, drillParams, returnChain) {
@@ -68,7 +65,6 @@ ${slice(ldStart, ldEnd)}
     const container = document.getElementById('module-container');
     rpc.withSuccessHandler(result => {
       injectHtmlWithScripts(container, result.html);
-      watchModuleLoading(container);
       if (typeof window.initModule === 'function') window.initModule(null, result.canWrite);
       window.__moduleReady = true;
     }).withFailureHandler(err => { container.textContent = 'LOAD FAILED: ' + err.message; })

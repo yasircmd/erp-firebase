@@ -151,7 +151,6 @@ node functions/test/ui/draftTasks.ui.js     # My Drafts: each draft task opens i
 node functions/test/ui/approvalRouting.ui.js # Approval Configuration: CBT entries, follow-up teams; tasks open their document; seeds its own data
 node functions/test/ui/cbtFundTransfer.ui.js   # CBT Fund Transfer: From / To cash or bank, one line, saved From Cr / To Dr; seeds its own data
 node functions/test/ui/appDialogs.ui.js     # in-app dialogs: a screen's confirm and question, the dialog itself; seeds its own data
-node functions/test/ui/moduleLoading.ui.js  # "Loading…", not "No … found", while a module's list loads; seeds its own data
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen
 ```
