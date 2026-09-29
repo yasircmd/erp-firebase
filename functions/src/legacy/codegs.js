@@ -4805,6 +4805,20 @@ async function getDeliveryNoteEntries(idToken, limit) {
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
   const useAll = limit === 'all';
   const capped = useAll ? all : all.slice(0, 100);
+  // [PORT CHANGE delivery-note-invoice-state] Invoiced / On draft invoice / Pending, for the list.
+  const invoices = (await firebaseDbRequest_('customerInvoices', 'get', null, idToken)) || {};
+  const unposted = ['Draft', 'PendingApproval', 'Rejected'];
+  capped.forEach(dn => {
+    if (dn.Status !== 'Posted' || dn.ReversedByDeliveryNoteID || dn.ReversalOfDeliveryNoteID) { dn.InvoiceStatus = ''; return; }
+    if (dn.MatchedToInvoiceID) {
+      Object.assign(dn, { InvoiceStatus: 'Invoiced', InvoiceID: dn.MatchedToInvoiceID, InvoiceNumber: (invoices[dn.MatchedToInvoiceID] || {}).TransactionNumber || '' });
+      return;
+    }
+    const draftId = Object.keys(invoices).find(id => unposted.includes(invoices[id].Status) &&
+      (invoices[id].SourceDeliveryNotes || []).some(d => d.DeliveryNoteID === dn.DeliveryNoteID));
+    if (draftId) Object.assign(dn, { InvoiceStatus: 'OnDraftInvoice', InvoiceID: draftId, InvoiceNumber: invoices[draftId].TransactionNumber || '', InvoiceDocStatus: invoices[draftId].Status });
+    else dn.InvoiceStatus = 'Pending';
+  });
   return { entries: capped, total: all.length };
 }
 

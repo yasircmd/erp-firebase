@@ -79,6 +79,29 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     point at the Fixed Asset Clearing Account. That account must then be
     Asset-type, since Procurement Setup requires Asset for a Fixed Asset
     category.
+- [ ] **Invoicing state on the GRN and Delivery Note lists** (owner,
+  2026-09-28). Each posted, unreversed GRN / Delivery Note shows one of:
+  - **Invoiced**: the posted Vendor / Customer Invoice's number, which
+    opens it;
+  - **On draft invoice**: an unposted invoice (draft, awaiting approval
+    or rejected) lists it;
+  - **Pending invoice**.
+
+  Drafts, reversed notes and reversal entries show nothing.
+  - An "Invoice" filter finds each state and shows the count and value of
+    the rows. Choosing it loads all entries, not just the latest 100.
+  - Reversing the invoice makes the note Pending again. The state comes
+    from `MatchedToInvoiceID`, which invoice posting and reversal already
+    maintain.
+  - **Code:** GRN in `grn.js`. Delivery Note is a documented patch
+    (`delivery-note-invoice-state`), and its screen is now hand-maintained
+    (`handScreens`).
+  - **Tests:** `invoiceState` emulator suite 2/2; UI
+    `invoiceState.ui.js` 2/2. Negative controls, each caught: GRN never
+    Invoiced; DN draft invoices ignored; GRN filter not applied; the
+    invoice link also opening the row.
+  - **To go live:** Deploy → "functions set, then screens", set
+    `invoice-state`.
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any

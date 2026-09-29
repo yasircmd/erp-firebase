@@ -146,6 +146,7 @@ node functions/test/ui/fixedAssets.ui.js    # the Fixed Asset screens, incl. Ret
 node functions/test/ui/stockModules.ui.js   # after the stockModules suite: the four stock screens, GRN PO picker and non-stock lines
 node functions/test/ui/requisitions.ui.js   # PR / IPR: rejected lines editable, Home task opens the entry; seeds its own data
 node functions/test/ui/jobOrderAcceptance.ui.js # Job Order acceptance through approvals; seeds its own data
+node functions/test/ui/invoiceState.ui.js   # GRN / Delivery Note lists: invoicing column, filter, invoice link; seeds its own data
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen
 ```

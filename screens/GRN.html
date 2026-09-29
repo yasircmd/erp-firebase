@@ -19,13 +19,15 @@
     <button id="grn-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New GRN</button>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+  <div class="grid grid-cols-1 md:grid-cols-6 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
     <input type="text" id="grn-search-input" placeholder="Search number or description..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
     <select id="grn-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
     <select id="grn-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Draft">Draft</option><option value="Posted">Posted</option></select>
     <input type="date" id="grn-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
     <input type="date" id="grn-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+    <select id="grn-invoice-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All invoicing</option><option value="Pending">Pending invoice</option><option value="OnDraftInvoice">On draft invoice</option><option value="Invoiced">Invoiced</option></select>
   </div>
+  <div id="grn-invoice-summary" class="hidden text-sm font-medium text-slate-300"></div>
 
   <div id="grn-list-notice" class="hidden text-xs text-slate-500 flex items-center gap-2"></div>
 
@@ -39,6 +41,7 @@
             <th class="py-3 px-4">Description</th>
             <th class="py-3 px-4 text-right">Value</th>
             <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4">Invoice</th>
             <th class="py-3 px-4 text-right">Actions</th>
           </tr>
         </thead>
@@ -363,6 +366,32 @@
 
   // ---------- LIST VIEW ----------
 
+  // Invoicing state (owner, 2026-09-28): the server marks each posted,
+  // unreversed document Invoiced (with the Vendor Invoice number), On draft
+  // invoice, or Pending; the invoice number opens the invoice.
+  function invoiceCellHtml(e) {
+    if (e.InvoiceStatus === 'Invoiced') return `<button class="grn-inv-link text-xs font-mono text-emerald-400 hover:text-emerald-300 underline" data-inv="${escapeHtml(e.InvoiceID)}" title="Open the invoice">${escapeHtml(e.InvoiceNumber || 'Invoiced')}</button>`;
+    if (e.InvoiceStatus === 'OnDraftInvoice') return `<button class="grn-inv-link text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20" data-inv="${escapeHtml(e.InvoiceID)}" title="An unposted invoice lists it (${escapeHtml(e.InvoiceDocStatus || '')})">On draft invoice</button>`;
+    if (e.InvoiceStatus === 'Pending') return '<span class="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">Pending invoice</span>';
+    return '<span class="text-xs text-slate-600">—</span>';
+  }
+  function wireInvoiceLinks(root) {
+    root.querySelectorAll('.grn-inv-link').forEach(b => b.addEventListener('click', ev => {
+      ev.stopPropagation();
+      openModule('VENDORINVOICE', { OpenEntryId: b.dataset.inv });
+    }));
+  }
+  // Count and value of the rows shown, when filtering on invoicing.
+  function invoiceSummary(rows, valueOf) {
+    const el = document.getElementById('grn-invoice-summary');
+    const f = document.getElementById('grn-invoice-filter').value;
+    if (!f) { el.classList.add('hidden'); return; }
+    const names = { Pending: 'pending invoice', OnDraftInvoice: 'on a draft invoice', Invoiced: 'invoiced' };
+    const total = rows.reduce((s, e) => s + valueOf(e), 0);
+    el.textContent = rows.length + ' ' + names[f] + ' — value ' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    el.classList.remove('hidden');
+  }
+
   function fetchAndRenderList(limit) {
     currentLimit = limit || currentLimit;
     rpc
@@ -391,6 +420,7 @@
     const status = document.getElementById('grn-status-filter').value;
     const from = document.getElementById('grn-from-filter').value;
     const to = document.getElementById('grn-to-filter').value;
+    const invoiceFilter = document.getElementById('grn-invoice-filter').value;
 
     const notice = document.getElementById('grn-list-notice');
     if (entriesTotal > entries.length) {
@@ -407,11 +437,15 @@
       if (status && e.Status !== status) return false;
       if (from && e.TransactionDate < from) return false;
       if (to && e.TransactionDate > to) return false;
+      if (invoiceFilter && e.InvoiceStatus !== invoiceFilter) return false;
       return true;
     }).sort((a, b) => (b.TransactionDate || '').localeCompare(a.TransactionDate || ''));
 
     tbody.innerHTML = '';
-    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-500">No GRNs found.</td></tr>'; return; }
+    const grnValue = e => (e.Lines || []).reduce((sum, l) => sum + (l.TotalValue || 0), 0)
+      + (e.NonStockLines || []).reduce((sum, l) => sum + (Number(l.Quantity) || 0) * (Number(l.UnitCost) || 0), 0);
+    invoiceSummary(filtered, grnValue);
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">No GRNs found.</td></tr>'; return; }
 
     filtered.forEach(e => {
       const total = (e.Lines || []).reduce((sum, l) => sum + (l.TotalValue || 0), 0)
@@ -431,7 +465,9 @@
         <td class="py-3 px-4 text-slate-200">${escapeHtml(e.Description)}</td>
         <td class="py-3 px-4 text-xs text-right">${formatMoney(total)}</td>
         <td class="py-3 px-4 text-xs">${statusBadge}</td>
+        <td class="py-3 px-4">${invoiceCellHtml(e)}</td>
         <td class="py-3 px-4 text-right">${actions}</td>`;
+      wireInvoiceLinks(row);
       row.querySelector('.grn-open').addEventListener('click', () => openEntry(e.GRNID));
       const dup = row.querySelector('.grn-dup');
       if (dup) dup.addEventListener('click', () => duplicateEntry(e.GRNID));
@@ -1783,6 +1819,10 @@
     document.getElementById('grn-status-filter').addEventListener('change', renderList);
     document.getElementById('grn-from-filter').addEventListener('change', renderList);
     document.getElementById('grn-to-filter').addEventListener('change', renderList);
+    // Finding pending ones must not miss older GRNs: load them all first.
+    document.getElementById('grn-invoice-filter').addEventListener('change', () => {
+      if (document.getElementById('grn-invoice-filter').value && entriesTotal > entries.length) fetchAndRenderList('all'); else renderList();
+    });
 
     document.getElementById('grn-back-btn').addEventListener('click', goBackToList);
     document.getElementById('grn-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });
