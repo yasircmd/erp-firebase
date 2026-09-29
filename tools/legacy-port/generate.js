@@ -308,6 +308,15 @@ fs.writeFileSync(path.join(OUT_DIR, 'callables.js'), cal);
 
 // ---- screens ----
 const { toAppDialogs } = require('./appDialogs');
+// Exact-text edits to generated screens (each fails the run if its text is
+// no longer there). Keep this short: prefer a rule in the shell.
+const SCREEN_EDITS = [
+  { mod: 'APPROVALTRACKER',
+    why: 'Dates show dd/mm/yyyy (owner, 2026-09-29; the shell\'s DATE FORMAT). The tracker wrote its times US-style ' +
+      '("Sep 29, 2026, 02:05 PM"); it now writes yyyy-mm-dd HH:MM in local time, which the shell shows as dd/mm/yyyy HH:MM.',
+    from: "return new Date(iso).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });",
+    to: 'return window.isoLocalDateTime(iso);' }
+];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {
   const outArr = []; let depth = 0, cur = '', quote = null;
@@ -357,6 +366,10 @@ for (const mod of MODULES.filter(m => !HAND_SCREENS.has(m))) {
   s = s.replace(/google\.script\.run/g, 'rpc');
   if (converted !== chains) throw new Error(mod + ': ' + chains + ' google.script.run chains but ' + converted + ' converted — inspect by hand');
   s = toAppDialogs(s, mod).html; // confirm() / prompt() → the shell's in-app dialogs
+  for (const e of SCREEN_EDITS.filter(e => e.mod === mod)) {
+    if (s.split(e.from).length !== 2) throw new Error(mod + ': screen edit not found exactly once: ' + e.from);
+    s = s.replace(e.from, () => e.to);
+  }
   fs.writeFileSync(path.join(MODULES_OUT, mod + '.html'), s);
 }
 
