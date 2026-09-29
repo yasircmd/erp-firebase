@@ -85,6 +85,11 @@ jobs:
       - name: Check no browser popups
         run: node --test functions/test/unit/noBrowserDialogs.test.js
 
+      # Dates show dd/mm/yyyy (owner, 2026-09-29): the shell formats them; a
+      # screen that formats dates its own way doesn't deploy.
+      - name: Check date format
+        run: node --test functions/test/unit/dateFormat.test.js
+
       # tools/screen-release.js records who released (git config user.name);
       # the runner has no git identity, so use the person who started the run.
       # Repo-local config, not a working-copy change: the clean-copy check still passes.

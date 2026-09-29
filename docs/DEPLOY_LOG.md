@@ -637,3 +637,8 @@ from, and how it was verified. The deploy procedure is in the
   Deploy task "hosting" from `3ab374a` (`main`, the PR #39 merge), run
   [#33](https://github.com/yasircmd/erp-firebase/actions/runs/36594734223),
   16:02–16:03 UTC, success, `ALL DONE`.
+- **2026-09-29, JV list columns (PR #40):** Deploy task "screens only" from
+  `859e66f` (`main`, the PR #40 merge), run
+  [#34](https://github.com/yasircmd/erp-firebase/actions/runs/36596733003),
+  16:18–16:19 UTC, success. Release **`20260929T161919Z-859e66f`**, 61/61
+  written and verified, active.

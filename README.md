@@ -128,7 +128,7 @@ npm i --no-save --prefix functions playwright && (cd functions && npx playwright
 # create-user test would reach production Auth)
 firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
 
-node --test functions/test/unit/*.test.js   # no emulators needed; includes the no-browser-popups guard
+node --test functions/test/unit/*.test.js   # no emulators needed; includes the no-browser-popups and date-format guards
 node --test --test-concurrency=1 functions/test/emulator/*.test.js
 # while developing, run just the module's suite (seconds, not the full run):
 #   node --test functions/test/emulator/salesReturn.emulator.test.js
@@ -151,6 +151,8 @@ node functions/test/ui/draftTasks.ui.js     # My Drafts: each draft task opens i
 node functions/test/ui/approvalRouting.ui.js # Approval Configuration: CBT entries, follow-up teams; tasks open their document; seeds its own data
 node functions/test/ui/cbtFundTransfer.ui.js   # CBT Fund Transfer: From / To cash or bank, one line, saved From Cr / To Dr; seeds its own data
 node functions/test/ui/appDialogs.ui.js     # in-app dialogs: a screen's confirm and question, the dialog itself; seeds its own data
+node functions/test/ui/lineGrids.ui.js      # compact line grids and tables, no empty line once posted, JV list columns; seeds its own data
+node functions/test/ui/dateFormat.ui.js     # dates dd/mm/yyyy in lists, messages, Excel copies; entry fields keep yyyy-mm-dd; seeds its own data
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen
 ```

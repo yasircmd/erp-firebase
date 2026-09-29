@@ -33,6 +33,15 @@ preserved quirks). Read it when touching a ported module.
   routed in-app by the shell, but write `appAlert` in new code. UI tests
   answer dialogs with test/ui/_appDialogs.js. Details:
   docs/modules/APP_DIALOGS.md.
+- **Dates show dd/mm/yyyy, periods Sep-2026** (owner, 2026-09-29). Store
+  and send yyyy-mm-dd (yyyy-mm); the shell's DATE FORMAT block formats
+  every date shown, printed, alerted or copied to Excel. So write dates
+  as yyyy-mm-dd in screens and never format them yourself
+  (toLocaleDateString etc.); for a time use `window.isoLocalDateTime(d)`.
+  Date entry fields keep the browser picker. An element that must show
+  the stored form gets class `keep-iso`. The Deploy workflow checks it
+  (functions/test/unit/dateFormat.test.js). Details:
+  docs/modules/DATE_FORMAT.md.
 - **Shared logic** is in functions/src/{glWriting,stockMovement,
   commitAttempt,approvals,lock,reservations}.js. Check these before
   writing new logic that might already exist there.

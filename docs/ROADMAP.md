@@ -236,13 +236,28 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     page; it now hides while a module is open.
   - Test: `home.ui.js` gains a check (Home, inside a module, back, signing
     out). Both negative controls were caught.
-- [ ] **JV list: room for JV Number, Txn Ref and Date** (owner,
-  2026-09-29).
+- [x] **JV list: room for JV Number, Txn Ref and Date** (owner,
+  2026-09-29). **Live 2026-09-29** (PR #40; Deploy run #34, release
+  `20260929T161919Z-859e66f`).
   - The three columns stay on one line; Description takes 2/5 of the
     width and wraps.
   - `lineGrids.ui.js` checks it (headers and rows). The negative control
     (Date allowed to wrap) was caught. The JV smoke check passes.
-  - **To go live:** Deploy → "screens only".
+- [ ] **Dates dd/mm/yyyy everywhere, periods Sep-2026** (owner,
+  2026-09-29; [DATE_FORMAT.md](modules/DATE_FORMAT.md)).
+  - **The owner's decisions:**
+    - dd/mm/yyyy;
+    - entry fields keep the browser picker;
+    - Excel copies are dd/mm/yyyy;
+    - periods show as Sep-2026.
+  - One rule in the shell formats every date shown, printed, alerted or
+    copied. Storage is unchanged.
+  - The Approval Tracker's US-style times were fixed, through a
+    generator screen edit.
+  - **In future:** a guard in the Deploy workflow, and a CLAUDE.md rule.
+  - **Tests:** `dateFormat` unit (5) and UI (2). Seven negative controls
+    were caught.
+  - **To go live:** Deploy → "hosting", then "screens only".
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any

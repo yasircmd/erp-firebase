@@ -1173,7 +1173,7 @@
         const row = document.createElement('div');
         row.className = 'px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-700/30 cursor-pointer text-sm';
         const saved = item.SavedAt ? new Date(item.SavedAt) : null;
-        const savedText = saved && !isNaN(saved) ? 'saved ' + saved.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+        const savedText = saved && !isNaN(saved) ? 'saved ' + isoLocalDateTime(saved) : ''; // shown dd/mm/yyyy HH:MM (DATE FORMAT)
         row.innerHTML = `
           <div class="min-w-0 truncate">
             <span class="text-slate-200 font-medium">${escapeHtml(item.ModuleLabel)}</span>
@@ -1504,6 +1504,64 @@
     new MutationObserver(markEmptyGridTails).observe(document.getElementById('module-container'),
       { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
     // ---------- END LINE GRIDS ----------
+
+    // ---------- DATE FORMAT ----------
+    // Every date the app shows reads dd/mm/yyyy, and a month / period
+    // Sep-2026 (owner, 2026-09-29), everywhere and in future screens too:
+    // lists, reports, prints, messages, Home, and tables copied to Excel.
+    // Dates are still stored and sent as yyyy-mm-dd (and periods yyyy-mm);
+    // only what is shown changes, as it appears on the page. Date entry
+    // fields keep the browser's own picker (owner's choice), and anything
+    // typed into a field is left alone. An element that must show the
+    // stored form can opt out with class "keep-iso".
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    // Not part of a longer code: no letter, digit, "-" or "/" on either side
+    // (so INV-2026-09-001 or an account range stays as it is).
+    const ISO_DATE = /(?<![\w\-\/])((?:19|20)\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])(?:[T ](\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?Z?)?(?![\w\-\/])/g;
+    const ISO_PERIOD = /(?<![\w\-\/])((?:19|20)\d{2})-(0[1-9]|1[0-2])(?![\w\-\/])/g;
+    function formatDatesInText(text) {
+      if (typeof text !== 'string' || text.indexOf('-') < 0) return text;
+      return text
+        .replace(ISO_DATE, (m, y, mo, d, time) => d + '/' + mo + '/' + y + (time ? ' ' + time : ''))
+        .replace(ISO_PERIOD, (m, y, mo) => MONTH_NAMES[Number(mo) - 1] + '-' + y);
+    }
+    // A timestamp in local time as yyyy-mm-dd HH:MM, which then shows as
+    // dd/mm/yyyy HH:MM. For screens that show a time (window.isoLocalDateTime).
+    function isoLocalDateTime(value) {
+      const d = value instanceof Date ? value : new Date(value);
+      if (isNaN(d)) return '';
+      const p = n => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+    window.isoLocalDateTime = isoLocalDateTime;
+    function formatDatesIn(root) {
+      const skip = el => el && el.closest && el.closest('script, style, textarea, .keep-iso');
+      const fix = node => {
+        if (skip(node.parentElement)) return;
+        const shown = formatDatesInText(node.data);
+        if (shown !== node.data) node.data = shown;
+      };
+      if (root.nodeType === Node.TEXT_NODE) return fix(root);
+      if (root.nodeType !== Node.ELEMENT_NODE || skip(root)) return;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) fix(n);
+    }
+    new MutationObserver(mutations => mutations.forEach(m => {
+      if (m.type === 'characterData') formatDatesIn(m.target);
+      else m.addedNodes.forEach(formatDatesIn);
+    })).observe(document.body, { childList: true, subtree: true, characterData: true });
+    formatDatesIn(document.body);
+    // Tables copied to Excel read as they show on screen.
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      const writeText = navigator.clipboard.writeText.bind(navigator.clipboard);
+      navigator.clipboard.writeText = text => writeText(formatDatesInText(text));
+    }
+    // ...and so does the copy box shown when the clipboard is blocked. Other
+    // questions keep their default as it is (e.g. a date to type yyyy-mm-dd).
+    const appPromptAsIs = window.appPrompt;
+    window.appPrompt = (message, defaultValue, opts) => appPromptAsIs(message,
+      /^Copy this text/.test(String(message)) ? formatDatesInText(defaultValue) : defaultValue, opts);
+    // ---------- END DATE FORMAT ----------
 
     function applyTreeTitle() {
       const titleEl = document.getElementById('app-title');
