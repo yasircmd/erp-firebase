@@ -616,3 +616,16 @@ from, and how it was verified. The deploy procedure is in the
   success, from `9fac02d` (`main`, still the PR #36 merge). They were meant
   for the in-app dialogs, but that PR had not been opened yet, so they
   redeployed what was already live. The in-app dialogs are PR #37.
+- **2026-09-29, in-app dialogs (PR #37):** from `b3542c0` (`main`, the
+  PR #37 merge), in the right order. The new "Check no browser popups" step
+  passed in each run.
+  - **Hosting:** Deploy task "hosting", run
+    [#29](https://github.com/yasircmd/erp-firebase/actions/runs/36584381951),
+    14:40–14:41 UTC, success.
+  - **Screens:** "screens only", run
+    [#30](https://github.com/yasircmd/erp-firebase/actions/runs/36584650253),
+    14:42–14:43 UTC, success. Release **`20260929T144327Z-b3542c0`**, 61/61
+    written and verified, active.
+  - **Hosting again:** run
+    [#31](https://github.com/yasircmd/erp-firebase/actions/runs/36587983482),
+    15:09–15:10 UTC, success. Same commit, so no change.

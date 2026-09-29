@@ -140,7 +140,7 @@ node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the S
 node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: the two SOA screens
 node functions/test/ui/pdc.ui.js            # after the pdc suite: the two PDC screens, SOA pending PDCs
 node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed, but it needs
-                                            # cdn.tailwindcss.com: where that's blocked, 6 of its 8 checks fail
+                                            # cdn.tailwindcss.com: where that's blocked, 8 of its 10 checks fail
 node functions/test/ui/singleCompany.ui.js  # one-company user: company preselected on every screen (after vendorMaster)
 node functions/test/ui/fixedAssets.ui.js    # the Fixed Asset screens, incl. Retirement and Capital Work in Progress; seeds its own data
 node functions/test/ui/stockModules.ui.js   # after the stockModules suite: the four stock screens, GRN PO picker and non-stock lines

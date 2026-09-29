@@ -1,6 +1,6 @@
 # In-app dialogs: no browser popups
 
-Status: **built** (2026-09-29), not yet live.
+Status: **live** 2026-09-29 (PR #37; Deploy runs #29 and #30).
 
 ## The request (owner, 2026-09-29)
 

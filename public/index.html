@@ -241,6 +241,34 @@
     #app-container h1.text-xl { font-size: calc(1.25rem * var(--erp-density)); }
     #app-container h2.text-2xl { font-size: calc(1.5rem * var(--erp-density)); }
     #app-container h2.text-xl { font-size: calc(1.25rem * var(--erp-density)); }
+    /* ---------- COMPACT TABLES ---------- */
+    /* Every module's lists and reports (owner, 2026-09-29): tighter rows
+       and columns in all tables of a module screen, present and future.
+       On screen only, so printed documents keep their own layout. The
+       Trial Balance and GL Report tables are tighter still (their own
+       …-compact class, left alone here), and entry screens' line grids
+       have their own rules below (same specificity, so later wins). */
+    @media screen {
+      #module-container table:not([class*="-compact"]) > thead > tr > th,
+      #module-container table:not([class*="-compact"]) > tbody > tr > td,
+      #module-container table:not([class*="-compact"]) > tfoot > tr > td { padding: 0.3rem 0.6rem; }
+    }
+    /* ---------- END COMPACT TABLES ---------- */
+    /* ---------- LINE GRIDS CSS ---------- */
+    /* Entry screens' line grids (the <tbody id="…-grid-body"> where lines
+       of items or accounts are keyed in): compact rows and columns, and
+       room for the item / account name (owner, 2026-09-29). Done here
+       for every screen, present and future: a new line grid gets it by
+       following the same naming. The empty last row that a grid keeps
+       for typing is hidden once the entry is read-only (see LINE GRIDS
+       in the script below). */
+    #module-container table:has(> tbody[id$="-grid-body"]) > thead > tr > th { padding: 0.3rem 0.4rem; }
+    #module-container table > tbody[id$="-grid-body"] > tr > td { padding: 0.1rem 0.2rem; }
+    #module-container table > tbody[id$="-grid-body"] > tr > td :is(input, select, textarea) { padding: 0.2rem 0.35rem; }
+    #module-container table > tbody[id$="-grid-body"] > tr > td[class*="-item-name"],
+    #module-container table > tbody[id$="-grid-body"] > tr > td[class*="-account-name"] { min-width: 13rem; }
+    #module-container tbody[id$="-grid-body"] > tr.line-grid-empty-tail { display: none; }
+    /* ---------- END LINE GRIDS CSS ---------- */
   </style>
   <script>
     // Applied before the body renders (this script runs synchronously
@@ -1450,6 +1478,32 @@
     new MutationObserver(applySingleCompanyDefault).observe(document.getElementById('module-container'),
       { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'disabled'] });
     // ---------- END SINGLE-COMPANY DEFAULT ----------
+
+    // ---------- LINE GRIDS ----------
+    // A line grid always keeps an empty last row to type the next line
+    // into, and screens draw it even once the entry is posted (or waiting
+    // for approval), where it's just an empty line (owner, 2026-09-29).
+    // So when a grid is read-only (none of its fields can be edited), an
+    // empty last row, one whose item / account (its first field) is
+    // blank, is hidden. A draft keeps it. For every screen, present and
+    // future, whose grid is a <tbody id="…-grid-body"> (CSS above).
+    function markEmptyGridTails() {
+      document.querySelectorAll('#module-container tbody[id$="-grid-body"]').forEach(tbody => {
+        const rows = Array.from(tbody.rows);
+        const readOnly = rows.length > 1 && !tbody.querySelector('input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])');
+        rows.forEach((tr, i) => {
+          let empty = false;
+          if (readOnly && i === rows.length - 1) {
+            const first = tr.querySelector('input:not([type="hidden"]), select, textarea');
+            empty = first ? !String(first.value).trim() : !(tr.cells[1] && tr.cells[1].textContent.trim());
+          }
+          if (tr.classList.contains('line-grid-empty-tail') !== empty) tr.classList.toggle('line-grid-empty-tail', empty);
+        });
+      });
+    }
+    new MutationObserver(markEmptyGridTails).observe(document.getElementById('module-container'),
+      { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+    // ---------- END LINE GRIDS ----------
 
     function applyTreeTitle() {
       const titleEl = document.getElementById('app-title');

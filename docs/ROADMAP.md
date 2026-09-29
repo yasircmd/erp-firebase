@@ -179,8 +179,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     were caught.
   - **Live 2026-09-29** (PR #36; Deploy run #26, release
     `20260929T120558Z-9fac02d`).
-- [ ] **No browser popups: messages, confirmations and questions in the
+- [x] **No browser popups: messages, confirmations and questions in the
   app** (owner, 2026-09-29; [APP_DIALOGS.md](modules/APP_DIALOGS.md)).
+  **Live 2026-09-29** (PR #37; Deploy runs #29 hosting and #30 screens,
+  release `20260929T144327Z-b3542c0`).
   - One themed dialog in the shell. Every `alert()` goes to it, and the
     110 `confirm()` / `prompt()` calls in 49 screens and the shell now
     await `appConfirm` / `appPrompt`. `generate.js` converts generated
@@ -194,8 +196,40 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     - `noBrowserDialogs` unit tests (4) and `appDialogs.ui.js` (3);
     - 16 UI checks now answer the in-app dialog;
     - five negative controls, each caught.
-  - **To go live:** Deploy → "hosting" FIRST, then "screens only"; open
-    tabs need a reload.
+- [ ] **PAUSED (owner, 2026-09-29): "Loading…", not "No … found", while
+  a module opens** ([MODULE_LOADING.md](modules/MODULE_LOADING.md): how
+  to bring it back).
+  - 34 of 60 screens showed their empty message ("No transactions
+    found.") for a few seconds while their list was still loading. They
+    drew the list before its data had arrived.
+  - **One rule in the shell** now covers every screen, present and
+    future:
+    - while a module's first server calls are pending, an empty-state
+      message reads "Loading…";
+    - once they finish, a list that is really empty shows its message.
+  - **Tests:**
+    - `moduleLoading.ui.js` (4) and `shellLoading` unit tests (2);
+    - a check across every screen: 0 of 60 now (34 before), nothing left
+      showing "Loading…".
+  - Not live. Its negative controls are still to do.
+- [ ] **Line grids: compact, room for the name, no empty line once
+  posted** (owner, 2026-09-29; [LINE_GRIDS.md](modules/LINE_GRIDS.md)).
+  - One rule in the shell for every entry screen's line grid
+    (`…-grid-body`): less padding in cells, fields and headers; the Item
+    / Account Name column at least 13rem.
+  - Once an entry is read-only, the empty row a grid keeps for typing is
+    hidden.
+  - **Every list and report too** (owner, same day): all tables in module
+    screens have tighter rows and columns. On screen only; the Trial
+    Balance / GL keep their own tighter grid.
+  - **Tests:** `lineGrids.ui.js` (3). Six negative controls were caught:
+    - the empty line never hidden;
+    - hidden in drafts too;
+    - no name width;
+    - no compact tables;
+    - the table rule winning inside grids;
+    - Trial Balance not excluded.
+  - **To go live:** PR #38, then Deploy → "hosting".
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any
