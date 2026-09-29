@@ -260,6 +260,25 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - **In future:** a guard in the Deploy workflow, and a CLAUDE.md rule.
   - **Tests:** `dateFormat` unit (5) and UI (2). Seven negative controls
     were caught.
+- [ ] **Approval delegation from the Approval Tracker** (owner, 2026-09-29;
+  [APPROVAL_DELEGATION.md](modules/APPROVAL_DELEGATION.md)).
+  - An Admin (any pending approval) or an approver (their own) hands an
+    undecided level to another active user with access to the module
+    and company, with a reason: one approval, or all of an absent
+    approver's.
+  - Recorded on the approval; Approval Configuration is unchanged.
+  - **Tests:** the `approvalDelegation` suite (6); eight negative
+    controls were caught:
+    - an approver moving anyone's;
+    - no module check;
+    - no company check;
+    - someone on another level;
+    - no reason;
+    - a decided level;
+    - Job Order company not from the batch;
+    - an approver moving another's all.
+  - **To go live:** Deploy → "functions set", set `approval-delegation`,
+    with screens.
 - [ ] **BOM: the parent item's current name after a rename** (owner,
   2026-09-29; bug).
   - A BOM stored its parent's code and name as saved, and the list showed

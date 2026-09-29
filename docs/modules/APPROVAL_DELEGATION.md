@@ -1,6 +1,7 @@
 # Approval delegation
 
-Status: **design, awaiting the owner's agreement** (2026-09-29).
+Status: **built** (2026-09-29), not yet live. Design agreed by the owner
+("Agree", 2026-09-29), with the proposed rules as written.
 
 ## The request (owner, 2026-09-29)
 
@@ -63,7 +64,7 @@ absent."
   - every pending approval currently waiting on that person moves;
   - a summary shows how many moved, and which (if any) couldn't, and why.
 
-### Rules (proposed — please confirm)
+### Rules (agreed)
 
 1. **Only pending approvals, only undecided levels.** A level that has
    already been approved or rejected can't be delegated.
@@ -112,3 +113,32 @@ absent."
   - a Job Order level, which is decided in order.
 - **UI:** delegating from the Tracker, and the history shown.
 - **Negative controls** for each rule.
+
+## As built (2026-09-29)
+
+- **Server:** `functions/src/approvalDelegation.js` (hand-written), with
+  three callables:
+  - `getDelegationCandidates`: who is asking (Admin or not) and who can
+    receive a level;
+  - `delegateApproval`: one level;
+  - `delegateApprovalsOf`: all of an approver's.
+  - **Checks:** Approval Tracker access for all three; "Admin" is a user
+    whose role is Admin.
+  - **The move:** a transaction re-checks that the level is still
+    undecided and still the caller's to move, so a decision made in the
+    meantime can't be lost.
+  - **The document's company:** read from the document; a Job Order
+    line's comes from its batch.
+- **Approval Tracker** (now hand-maintained):
+  - a Delegate button on each waiting level the viewer may delegate, and
+    "Delegate all pending…" (Admins choose the absent approver);
+  - an in-app form;
+  - under the approver: "delegated from X by Y, date: reason";
+  - Copy to Excel now uses the clipboard, so its dates copy as shown
+    (dd/mm/yyyy).
+- **Tests:**
+  - the `approvalDelegation` emulator suite (6), through the real JV
+    approval: rights, eligibility, undecided levels only, the bulk move,
+    and a Job Order line's company;
+  - `approvalDelegation.ui.js` (2);
+  - negative controls: see ROADMAP.md.

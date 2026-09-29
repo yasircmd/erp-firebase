@@ -153,6 +153,7 @@ node functions/test/ui/cbtFundTransfer.ui.js   # CBT Fund Transfer: From / To ca
 node functions/test/ui/appDialogs.ui.js     # in-app dialogs: a screen's confirm and question, the dialog itself; seeds its own data
 node functions/test/ui/lineGrids.ui.js      # compact line grids and tables, no empty line once posted, JV list columns; seeds its own data
 node functions/test/ui/dateFormat.ui.js     # dates dd/mm/yyyy in lists, messages, Excel copies; entry fields keep yyyy-mm-dd; seeds its own data
+node functions/test/ui/approvalDelegation.ui.js # Approval Tracker: delegate one level, or all of an approver's; seeds its own data
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen
 ```

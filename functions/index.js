@@ -162,3 +162,9 @@ const { getFollowUpTeams, saveFollowUpTeam, getMyFollowUpTasksForUser } = requir
 exports.getFollowUpTeams = getFollowUpTeams;
 exports.saveFollowUpTeam = saveFollowUpTeam;
 exports.getMyFollowUpTasksForUser = getMyFollowUpTasksForUser;
+
+// Approval delegation (docs/modules/APPROVAL_DELEGATION.md).
+const { getDelegationCandidates, delegateApproval, delegateApprovalsOf } = require('./src/approvalDelegation');
+exports.getDelegationCandidates = getDelegationCandidates;
+exports.delegateApproval = delegateApproval;
+exports.delegateApprovalsOf = delegateApprovalsOf;

@@ -311,11 +311,7 @@ const { toAppDialogs } = require('./appDialogs');
 // Exact-text edits to generated screens (each fails the run if its text is
 // no longer there). Keep this short: prefer a rule in the shell.
 const SCREEN_EDITS = [
-  { mod: 'APPROVALTRACKER',
-    why: 'Dates show dd/mm/yyyy (owner, 2026-09-29; the shell\'s DATE FORMAT). The tracker wrote its times US-style ' +
-      '("Sep 29, 2026, 02:05 PM"); it now writes yyyy-mm-dd HH:MM in local time, which the shell shows as dd/mm/yyyy HH:MM.',
-    from: "return new Date(iso).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });",
-    to: 'return window.isoLocalDateTime(iso);' }
+  // (Approval Tracker's time format, 2026-09-29, moved into the screen when it became hand-maintained.)
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {
