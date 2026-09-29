@@ -59,6 +59,7 @@ function stubs() {
       case 'getActiveCompanies': return window.__companies || [];
       case 'getRecurringJournalsDueForUser': return window.__recurringDue || [];
       case 'getMyDraftsForUser': return window.__drafts || [];
+      case 'getMyFollowUpTasksForUser': return window.__followUps || [];
       case 'getModuleFragment': return { html: '<div id="stub-module">Module ' + arg.moduleId + '</div>', canWrite: true };
       default: return [];
     }
@@ -295,6 +296,37 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.waitForSelector('#stub-module');
     assert.match(await page.textContent('#stub-module'), /Module PURCHASEORDER/);
     assert.deepEqual(await page.evaluate(() => window.__opened), ['PURCHASEORDER', 'PO-AB12']);
+    assert.deepEqual(page.__errors, []);
+    await context.close();
+  });
+
+  await check('tasks: ready for you to act on, counted and opened on the document (docs/modules/APPROVAL_ROUTING.md)', async () => {
+    let page = await open();
+    assert.ok(await page.isHidden('#home-followup-block'), 'nothing ready, no block');
+    await page.close();
+    const context = await browser.newContext();
+    page = await context.newPage();
+    page.__errors = [];
+    page.on('pageerror', e => page.__errors.push(e.message));
+    await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
+    await page.addInitScript(stubs);
+    await page.addInitScript(() => {
+      window.__drafts = [{ ModuleID: 'GRN', ModuleLabel: 'Goods Receipt (GRN)', DocumentID: 'G1', Description: 'x', DocumentDate: '', SavedAt: '' }];
+      window.__followUps = [
+        { ModuleID: 'JOBORDERREQUEST', ModuleLabel: 'Job Order Request', DocumentID: 'JOL-1', DocumentNumber: 'JO-26-1-1', Description: 'FG-001 × 5', DocumentDate: '2026-10-01' },
+        { ModuleID: 'PURCHASEREQUISITION', ModuleLabel: 'Purchase Requisition', DocumentID: 'PRQ-1', DocumentNumber: 'PR-26-01', Description: '<i>Paper</i>', DocumentDate: '2026-09-10' }
+      ];
+      document.addEventListener('DOMContentLoaded', () => setTimeout(() => { const o = window.openModule; window.openModule = (m, p) => { window.__opened = [m, p && p.OpenEntryId]; return o(m, p); }; }, 0));
+    });
+    await page.goto('http://127.0.0.1:8131/');
+    await page.waitForSelector('#home-followup-block:not(.hidden)', { state: 'attached', timeout: 30000 });
+    assert.equal((await page.textContent('#home-tasks-count')).trim(), '(3)', 'counted with the other tasks');
+    const rows = await page.$$eval('#home-followup-list > div', ds => ds.map(d => d.textContent.replace(/\s+/g, ' ').trim()));
+    assert.deepEqual(rows, ['JO-26-1-1 Job Order Request · FG-001 × 5 2026-10-01', 'PR-26-01 Purchase Requisition · <i>Paper</i> 2026-09-10']);
+    await page.evaluate(() => toggleHomeTasksSection());
+    await page.click('#home-followup-list > div >> nth=1');
+    await page.waitForSelector('#stub-module');
+    assert.deepEqual(await page.evaluate(() => window.__opened), ['PURCHASEREQUISITION', 'PRQ-1']);
     assert.deepEqual(page.__errors, []);
     await context.close();
   });

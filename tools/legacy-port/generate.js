@@ -82,6 +82,7 @@ const MAPPED = {
   resolveRequiredApprovalLevels_: ['approvals', 'resolveRequiredApprovalLevels', 'dropCtx'],
   resolveApprovalScopeKeyForDocument_: ['approvals', 'resolveApprovalScopeKeyForDocument', 'dropCtx'],
   beginApprovalInstance_: ['approvals', 'beginApprovalInstance', 'dropCtx'],
+  ensureCbtSplit_: ['approvals', 'ensureCbtSplit', 'dropCtx'], // new development: docs/modules/APPROVAL_ROUTING.md
   createStockReservation_: ['reservations', 'createStockReservation', 'actor'],
   getReservationsForSource_: ['reservations', 'getReservationsForSource', 'dropCtx'],
   refreshSalesOrderReservationStatus_: ['reservations', 'refreshSalesOrderReservationStatus', 'dropCtx'],
@@ -165,7 +166,8 @@ while (stack.length) {
   const k = stack.pop();
   if (fnSet.has(k) || constSet.has(k) || SHIMMED.has(k) || DROPPED_CONSTS.has(k)) continue;
   if (MAPPED[k] || IMPORTED_CONSTS[k]) { (MAPPED[k] ? fnSet : constSet).add(k); continue; }
-  if (fnNodes[k]) { fnSet.add(k); identifiersIn(fnNodes[k]).forEach(r => { if (fnNodes[r] || constNodes[r]) stack.push(r); }); }
+  // MAPPED too: a patch may call a shared helper Code.gs never defined.
+  if (fnNodes[k]) { fnSet.add(k); identifiersIn(fnNodes[k]).forEach(r => { if (fnNodes[r] || constNodes[r] || MAPPED[r]) stack.push(r); }); }
   else if (constNodes[k]) { constSet.add(k); identifiersIn(constNodes[k]).forEach(r => { if (fnNodes[r] || constNodes[r]) stack.push(r); }); }
 }
 const emitted = order.filter(k => fnSet.has(k) && !MAPPED[k]);

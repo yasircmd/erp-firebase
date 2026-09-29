@@ -1,0 +1,15 @@
+# Approval routing: CBT by voucher type, and follow-up teams (owner
+# 2026-09-29; docs/modules/APPROVAL_ROUTING.md). Run with --screens
+# (APPROVALCONFIG, now hand-maintained), then the Deploy workflow's
+# "hosting" task (the Ready for You to Act On block is in public/index.html).
+postJournalEntry                 # a CBT voucher uses its voucher type's entry
+getApprovalConfigurations        # CBT's four entries; copies today's CBT setup into them once
+saveApprovalConfiguration        # accepts the four CBT entries
+saveApprovalLevels               # accepts the four CBT entries
+getApprovalHistory               # Tracker filter finds a CBT approval by its voucher type
+getPendingApprovalsForUser       # task label names the CBT voucher type
+getMyRejectedSubmissions         # same
+getFollowUpTeams                 # new
+saveFollowUpTeam                 # new
+getMyFollowUpTasksForUser        # new: Home "Ready for You to Act On"
+getModuleFragment                # serves the changed screen

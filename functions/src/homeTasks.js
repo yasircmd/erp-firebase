@@ -1,7 +1,7 @@
 const { onCall } = require('firebase-functions/v2/https');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
-const { APPROVAL_GATEABLE_MODULES, APPROVAL_MODULE_STORAGE_, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./approvalRegistry');
+const { APPROVAL_MODULE_STORAGE_, FIRESTORE_JOURNAL_ENTRIES_COLLECTION, approvalLabelOf } = require('./approvalRegistry');
 const { MODULE_REGISTRY } = require('./moduleRegistry');
 const { userCanAccessCompany } = require('./glWriting');
 const { moduleIdForEntry } = require('./masterData');
@@ -56,10 +56,7 @@ exports.getPendingApprovalsForUser = onCall(onCallOptions, async (request) => {
 
   return candidates
     .filter((inst, i) => existsFlags[i])
-    .map(inst => {
-      const moduleInfo = APPROVAL_GATEABLE_MODULES.find(m => m.ModuleID === inst.ModuleID);
-      return Object.assign({ ModuleLabel: moduleInfo ? moduleInfo.Label : inst.ModuleID }, inst);
-    })
+    .map(inst => Object.assign({ ModuleLabel: approvalLabelOf(inst) }, inst))
     .sort((a, b) => (a.CreatedAt || '').localeCompare(b.CreatedAt || ''));
 });
 
@@ -92,10 +89,9 @@ exports.getMyRejectedSubmissions = onCall(onCallOptions, async (request) => {
     .filter((inst, i) => stillActiveFlags[i])
     .map(inst => {
       const rejection = (inst.Decisions || []).slice().reverse().find(d => d.Decision === 'Rejected');
-      const moduleInfo = APPROVAL_GATEABLE_MODULES.find(m => m.ModuleID === inst.ModuleID);
       return {
         InstanceID: inst.InstanceID, ModuleID: inst.ModuleID,
-        ModuleLabel: moduleInfo ? moduleInfo.Label : inst.ModuleID,
+        ModuleLabel: approvalLabelOf(inst),
         DocumentID: inst.DocumentID, DocumentNumber: inst.DocumentNumber,
         RejectionReason: rejection ? rejection.Reason : '', RejectedAt: rejection ? rejection.DecidedAt : inst.UpdatedAt
       };

@@ -102,7 +102,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     invoice link also opening the row.
   - **Live 2026-09-29** (PR #28; Deploy run #13, release
     `20260929T042254Z-ae7cbe1`); the owner tested it.
-- [ ] **My Drafts in Home Tasks** (owner, 2026-09-28;
+- [x] **My Drafts in Home Tasks** (owner, 2026-09-28;
   [DRAFT_TASKS.md](modules/DRAFT_TASKS.md)). Every draft (all transaction
   modules and Recurring Journal templates) is a Home task until it's
   submitted, posted or deleted, shown only to its last updater. Rejected
@@ -118,8 +118,20 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (`tools/deploy-hosting.sh`, tested by `tools/test-deploy-hosting.sh`).
   - **Tests:** `draftTasks` emulator suite 3/3; UI `draftTasks.ui.js`
     7/7; `home.ui.js` gains a My Drafts check.
+  - **Live 2026-09-29** (PR #29): functions (run #15), Hosting (run #16)
+    and screens (runs #17 and #18). The owner tested it.
+- [ ] **Approval routing: CBT by voucher type, and follow-up teams**
+  (owner, 2026-09-29; [APPROVAL_ROUTING.md](modules/APPROVAL_ROUTING.md)).
+  **Built** (2026-09-29): see the doc's As built.
   - **To go live:** Deploy → "functions set, then screens", set
-    `draft-tasks`; then Deploy → "hosting".
+    `approval-routing`; then Deploy → "hosting". After that, set the
+    follow-up teams in Approval Configuration.
+  - CBT gets four Approval Configuration entries (Cash / Bank ×
+    Receipt / Payment). Today's CBT setup is copied into all four.
+  - A Follow-up team per scope for Job Order Request, PR and IPR. Its
+    users get a Home task when a Sales Job Order line is Accepted (until
+    its first production entry or Stopped), or when a PR / IPR is
+    Submitted (until a PO from it is submitted, or it's closed).
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any

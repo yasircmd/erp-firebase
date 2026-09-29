@@ -74,6 +74,16 @@
         <div id="ac-levels-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
         <div class="flex justify-end"><button id="ac-levels-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Approval Levels</button></div>
       </div>
+
+      <!-- Follow-up team (docs/modules/APPROVAL_ROUTING.md): who acts next, per scope. -->
+      <div id="ac-followup-block" class="hidden border-t border-slate-700 pt-4 space-y-3">
+        <p class="text-xs font-semibold text-slate-400 uppercase">Follow-up Team — <span id="ac-followup-team"></span></p>
+        <p id="ac-followup-when" class="text-xs text-slate-500"></p>
+        <p class="text-xs text-slate-500">Everyone ticked gets it in their Home tasks; the first one to act clears it for all. Applies whether or not approval is enabled above.</p>
+        <div id="ac-followup-users" class="grid grid-cols-1 md:grid-cols-3 gap-1.5 bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm"></div>
+        <div id="ac-followup-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+        <div class="flex justify-end items-center gap-3"><span id="ac-followup-saved" class="hidden text-xs text-emerald-400">Saved</span><button id="ac-followup-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save Follow-up Team</button></div>
+      </div>
     </div>
   </div>
 </div>
@@ -88,6 +98,9 @@
   let users = [];
   let scopeLevels = []; // saved level records for the currently open module
   let currentLevels = []; // in-memory editor state for the selected scope
+  let followUpModules = []; // modules with a follow-up team, and who that team is
+  let followUpTeams = [];   // saved teams for the currently open module
+  let followUpLoadedFor = ''; // the module those teams belong to, once loaded
 
   function escapeHtml(value) {
     const div = document.createElement('div');
@@ -109,9 +122,66 @@
       .withFailureHandler(err => console.error(err))
       .getActiveCompanies();
     rpc
-      .withSuccessHandler(result => { users = result || []; })
+      .withSuccessHandler(result => { users = result || []; if (currentModuleId) renderFollowUp(); })
       .withFailureHandler(err => console.error(err))
       .getActiveUsersForPicker();
+  }
+
+  function followUpModuleOf(id) { return followUpModules.find(m => m.ModuleID === id); }
+
+  function fetchFollowUpTeams() {
+    followUpTeams = []; followUpLoadedFor = '';
+    if (!followUpModuleOf(currentModuleId)) return;
+    const moduleId = currentModuleId;
+    rpc
+      .withSuccessHandler(result => {
+        if (moduleId !== currentModuleId) return;
+        followUpTeams = (result && result.teams) || []; followUpLoadedFor = moduleId; renderFollowUp();
+      })
+      .withFailureHandler(err => console.error(err))
+      .getFollowUpTeams({ moduleId: moduleId });
+  }
+
+  function renderFollowUp() {
+    const block = document.getElementById('ac-followup-block');
+    const m = followUpModuleOf(currentModuleId);
+    const scopeKey = document.getElementById('ac-scope-picker').value;
+    document.getElementById('ac-followup-saved').classList.add('hidden');
+    if (!m || !scopeKey) { block.classList.add('hidden'); return; }
+    block.classList.remove('hidden');
+    document.getElementById('ac-followup-team').textContent = m.Team;
+    document.getElementById('ac-followup-when').textContent = m.When;
+    // Nothing to tick until the saved team is in: a redraw would lose the ticks.
+    const loaded = followUpLoadedFor === currentModuleId;
+    document.getElementById('ac-followup-save-btn').disabled = !loaded;
+    if (!loaded) { document.getElementById('ac-followup-users').innerHTML = '<span class="text-xs text-slate-500">Loading...</span>'; return; }
+    const team = (followUpTeams.find(t => t.ScopeKey === scopeKey) || {}).UserIDs || [];
+    document.getElementById('ac-followup-users').innerHTML = users.map(u => `
+      <label class="flex items-center gap-2 text-slate-300 cursor-pointer"><input type="checkbox" class="ac-followup-user" value="${escapeHtml(u.UserID)}" ${team.includes(u.UserID) ? 'checked' : ''}> ${escapeHtml(u.FullName || u.Username)}</label>`).join('')
+      || '<span class="text-xs text-slate-500">No active users.</span>';
+    document.getElementById('ac-followup-error').classList.add('hidden');
+  }
+
+  function saveFollowUp() {
+    const scopeKey = document.getElementById('ac-scope-picker').value;
+    if (!scopeKey) return;
+    const error = document.getElementById('ac-followup-error');
+    error.classList.add('hidden');
+    const userIds = [...document.querySelectorAll('.ac-followup-user:checked')].map(c => c.value);
+    const btn = document.getElementById('ac-followup-save-btn');
+    btn.disabled = true; const original = btn.innerHTML; btn.innerHTML = 'Saving...';
+    rpc
+      .withSuccessHandler(() => {
+        btn.disabled = false; btn.innerHTML = original;
+        followUpTeams = followUpTeams.filter(t => t.ScopeKey !== scopeKey);
+        if (userIds.length) followUpTeams.push({ ScopeKey: scopeKey, UserIDs: userIds });
+        document.getElementById('ac-followup-saved').classList.remove('hidden');
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.innerHTML = original;
+        error.textContent = err.message || 'Unable to save the follow-up team.'; error.classList.remove('hidden');
+      })
+      .saveFollowUpTeam({ moduleId: currentModuleId, scopeKey: scopeKey, userIds: userIds });
   }
 
   function fetchModules() {
@@ -152,14 +222,17 @@
     document.getElementById('ac-config-error').classList.add('hidden');
     document.getElementById('ac-editor').classList.remove('hidden');
     updateThresholdHeaderVisibility();
-    populateScopePicker();
     fetchScopeLevels();
+    populateScopePicker();
+    fetchFollowUpTeams();
+    renderFollowUp();
   }
 
   function closeEditor() {
     document.getElementById('ac-editor').classList.add('hidden');
     currentModuleId = '';
     document.getElementById('ac-levels-block').classList.add('hidden');
+    document.getElementById('ac-followup-block').classList.add('hidden');
   }
 
   function updateThresholdHeaderVisibility() {
@@ -202,11 +275,20 @@
         });
     }
     document.getElementById('ac-levels-block').classList.add('hidden');
+    renderFollowUp();
   }
 
   function fetchScopeLevels() {
+    const moduleId = currentModuleId;
+    scopeLevels = [];
     rpc
-      .withSuccessHandler(result => { scopeLevels = result || []; })
+      // A Global module's scope is already chosen when these arrive: draw
+      // its saved levels now (they showed as none before, until reopened).
+      .withSuccessHandler(result => {
+        if (moduleId !== currentModuleId) return;
+        scopeLevels = result || [];
+        if (document.getElementById('ac-scope-picker').value) onScopePickerChange();
+      })
       .withFailureHandler(err => console.error(err))
       .getApprovalLevelsForModule({ moduleId: currentModuleId });
   }
@@ -219,6 +301,7 @@
     const existing = scopeLevels.find(s => s.ScopeKey === scopeKey);
     currentLevels = existing ? existing.Levels.map(l => Object.assign({}, l)) : [];
     renderLevels();
+    renderFollowUp();
   }
 
   function renderLevels() {
@@ -333,10 +416,15 @@
     document.getElementById('ac-scope-picker').addEventListener('change', onScopePickerChange);
     document.getElementById('ac-add-level-btn').addEventListener('click', addLevel);
     document.getElementById('ac-levels-save-btn').addEventListener('click', saveLevels);
+    document.getElementById('ac-followup-save-btn').addEventListener('click', saveFollowUp);
 
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-stamp"></i> Approval Configuration';
     fetchModules();
     loadReferenceData();
+    rpc
+      .withSuccessHandler(result => { followUpModules = (result && result.modules) || []; if (currentModuleId) { fetchFollowUpTeams(); renderFollowUp(); } })
+      .withFailureHandler(err => console.error(err))
+      .getFollowUpTeams({});
   };
 })();
 </script>

@@ -1,8 +1,33 @@
 const { randomUUID } = require('crypto');
 const { rtdb } = require('./firebaseAdmin');
+const { CBT_APPROVAL_KEYS } = require('./approvalRegistry');
+
+// One-time copy of the single CBT approval setup into its four voucher-type
+// entries (owner, 2026-09-29; docs/modules/APPROVAL_ROUTING.md), so nothing
+// changes until someone edits one. An entry that already has its own setup
+// is left alone. Runs before the first read of any of them, then never again.
+async function ensureCbtSplit() {
+  const marker = rtdb.ref('approvalMigrations/cbtSplit');
+  if ((await marker.get()).exists()) return;
+  const keys = Object.values(CBT_APPROVAL_KEYS);
+  const [config, levels, ...existing] = await Promise.all([
+    rtdb.ref('approvalConfigurations/CBT').get(), rtdb.ref('approvalLevels/CBT').get(),
+    ...keys.map(k => rtdb.ref('approvalConfigurations/' + k).get())
+  ]);
+  const updates = {};
+  keys.forEach((k, i) => {
+    if (existing[i].exists()) return;
+    if (config.exists()) updates['approvalConfigurations/' + k] = config.val();
+    if (levels.exists()) updates['approvalLevels/' + k] = levels.val();
+  });
+  updates['approvalMigrations/cbtSplit'] = { DoneAt: new Date().toISOString(), CopiedFromCBT: config.exists() };
+  await rtdb.ref().update(updates);
+}
+const isCbtKey = key => Object.values(CBT_APPROVAL_KEYS).includes(key);
 
 // Ported from resolveRequiredApprovalLevels_.
 async function resolveRequiredApprovalLevels(moduleId, scopeKey, amount) {
+  if (isCbtKey(moduleId)) await ensureCbtSplit();
   const configSnap = await rtdb.ref('approvalConfigurations/' + moduleId).get();
   const config = configSnap.val();
   if (!config || !config.Enabled) return [];
@@ -17,6 +42,7 @@ async function resolveRequiredApprovalLevels(moduleId, scopeKey, amount) {
 
 // Ported from resolveApprovalScopeKeyForDocument_.
 async function resolveApprovalScopeKeyForDocument(moduleId, dimensions) {
+  if (isCbtKey(moduleId)) await ensureCbtSplit();
   const configSnap = await rtdb.ref('approvalConfigurations/' + moduleId).get();
   const config = configSnap.val();
   if (!config) return '';
@@ -34,19 +60,20 @@ async function resolveApprovalScopeKeyForDocument(moduleId, dimensions) {
 // Ported from beginApprovalInstance_. createdBy MUST be the submitting
 // user's own UID (same requirement the original had) — recordApprovalDecision
 // compares an approver's own UID against this exact value to flag
-// SelfApproved.
-async function beginApprovalInstance(moduleId, documentId, documentNumber, scopeKey, amount, createdBy) {
-  const levels = await resolveRequiredApprovalLevels(moduleId, scopeKey, amount);
+// SelfApproved. configKey: the Approval Configuration entry to use when it
+// isn't the module's own (a CBT voucher type); stored as ConfigKey.
+async function beginApprovalInstance(moduleId, documentId, documentNumber, scopeKey, amount, createdBy, configKey) {
+  const levels = await resolveRequiredApprovalLevels(configKey || moduleId, scopeKey, amount);
   if (!levels.length) return { required: false };
 
   const now = new Date().toISOString();
   const newId = 'APR-' + randomUUID().split('-')[0].toUpperCase();
-  await rtdb.ref('approvalInstances/' + newId).set({
+  await rtdb.ref('approvalInstances/' + newId).set(Object.assign({
     ModuleID: moduleId, DocumentID: documentId, DocumentNumber: documentNumber,
     ScopeKey: scopeKey, Amount: Number(amount) || 0, CreatedBy: createdBy,
     RequiredLevels: levels, Decisions: [], Status: 'Pending',
     CreatedAt: now, UpdatedAt: now
-  });
+  }, configKey ? { ConfigKey: configKey } : {}));
   return { required: true, instanceId: newId };
 }
 
@@ -96,4 +123,4 @@ async function recordApprovalDecision(user, instanceId, levelNumber, decision, r
   return { status: newStatus, selfApproved: newDecision.SelfApproved };
 }
 
-module.exports = { resolveRequiredApprovalLevels, resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision };
+module.exports = { resolveRequiredApprovalLevels, resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision, ensureCbtSplit };

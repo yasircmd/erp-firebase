@@ -156,3 +156,9 @@ for (const [name, fn] of Object.entries(Object.assign({}, faConfig, faMaster, fa
 // tools/legacy-port/generate.js): one callable per function a ported
 // screen calls, named exactly as in Code.gs.
 Object.assign(exports, require('./src/legacy/callables'));
+
+// Follow-up teams (docs/modules/APPROVAL_ROUTING.md).
+const { getFollowUpTeams, saveFollowUpTeam, getMyFollowUpTasksForUser } = require('./src/followUps');
+exports.getFollowUpTeams = getFollowUpTeams;
+exports.saveFollowUpTeam = saveFollowUpTeam;
+exports.getMyFollowUpTasksForUser = getMyFollowUpTasksForUser;
