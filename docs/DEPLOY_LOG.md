@@ -553,3 +553,17 @@ from, and how it was verified. The deploy procedure is in the
     06:21–06:22 UTC, success ("release complete"). The My Drafts block is
     live.
   - The owner tested My Drafts: all works.
+- **2026-09-29, screen releases for PR #29:** Deploy task "screens only"
+  from `ff73a34` (`main`), twice, both successful with 61/61 screens
+  written and verified. This released the PO, SO, Job Order and GRN
+  changes that run #15 left out.
+  - Run [#17](https://github.com/yasircmd/erp-firebase/actions/runs/36532532230),
+    06:43–06:44 UTC: release `20260929T064408Z-ff73a34`.
+  - Run [#18](https://github.com/yasircmd/erp-firebase/actions/runs/36538226387),
+    07:42–07:43 UTC: release **`20260929T074308Z-ff73a34`**, active. The
+    same screens again, a harmless re-release.
+- **2026-09-29, `approval-routing` before its PR was merged:** Deploy task
+  "functions set, then screens", set `approval-routing`, from `ff73a34`,
+  run [#19](https://github.com/yasircmd/erp-firebase/actions/runs/36538605673),
+  failed at once (`no tools/deploy-sets/approval-routing.txt`). Nothing
+  was deployed.

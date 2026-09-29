@@ -118,10 +118,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (`tools/deploy-hosting.sh`, tested by `tools/test-deploy-hosting.sh`).
   - **Tests:** `draftTasks` emulator suite 3/3; UI `draftTasks.ui.js`
     7/7; `home.ui.js` gains a My Drafts check.
-  - **Live 2026-09-29** (PR #29): functions (run #15) and Hosting (run
-    #16); the owner tested it. **Still to do:** Deploy → "screens only".
-    Run #15 was "functions set", so the PO, SO, Job Order and GRN screen
-    changes aren't released yet.
+  - **Live 2026-09-29** (PR #29): functions (run #15), Hosting (run #16)
+    and screens (runs #17 and #18). The owner tested it.
 - [ ] **Approval routing: CBT by voucher type, and follow-up teams**
   (owner, 2026-09-29; [APPROVAL_ROUTING.md](modules/APPROVAL_ROUTING.md)).
   **Built** (2026-09-29): see the doc's As built.
