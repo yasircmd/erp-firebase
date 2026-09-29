@@ -55,7 +55,8 @@ preserved quirks). Read it when touching a ported module.
   they stay behind getModuleFragment's access check (owner, 2026-09-26).
 - Firebase config in public/index.html must be the REAL values, not
   REPLACE_ME placeholders. Verify with: grep REPLACE_ME public/index.html
-  (should return nothing).
+  (should return nothing). tools/deploy-hosting.sh (the Deploy workflow's
+  "hosting" task) checks this before deploying Hosting.
 - Watch for duplicate project copies outside ~/erp-firebase/: a prior
   double-unzip caused a wrong-directory deploy. Always confirm `pwd` before
   git or firebase commands if anything behaves unexpectedly.

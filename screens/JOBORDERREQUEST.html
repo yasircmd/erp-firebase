@@ -233,17 +233,27 @@
   let currentBatch = null;   // batch being edited (Draft)
   let currentLine = null;    // line being viewed (Submitted)
   // Home task: open this line once the line list and item names have loaded.
+  // An approval task names a line; a draft task names its batch
+  // (docs/modules/DRAFT_TASKS.md), whose edit form also needs the
+  // companies and org units.
   let pendingOpenLineId = null;
   let flatLoaded = false;
+  let batchesLoaded = false;
   let itemsLoaded = false;
+  let refPending = 2;
+  function refDone() { refPending--; openPendingLine(); }
   function openPendingLine() {
-    if (!pendingOpenLineId || !flatLoaded || !itemsLoaded) return;
+    if (!pendingOpenLineId || !flatLoaded || !batchesLoaded || !itemsLoaded || refPending > 0) return;
     const id = pendingOpenLineId;
     if (flatLines.some(l => l.LineID === id)) { pendingOpenLineId = null; openLineDetail(id); return; }
-    // Older than the first page: load every line once, then try again.
-    if (flatLines.length < flatLinesTotal) { flatLoaded = false; fetchAndRenderList(flatLinesTotal); return; }
+    const batch = batches.find(b => b.BatchID === id);
+    if (batch) { pendingOpenLineId = null; if (batch.Status === 'Draft') openBatchForEdit(id); return; }
+    // Older than the first page: load everything once, then try again.
+    if (flatLines.length < flatLinesTotal || batches.length < batchesTotal) {
+      flatLoaded = false; batchesLoaded = false; fetchAndRenderList(Math.max(flatLinesTotal, batchesTotal)); return;
+    }
     pendingOpenLineId = null;
-    alert('That Job Order line could not be found — it may have been deleted.');
+    alert('That Job Order could not be found — it may have been deleted.');
   }
   let batches = [];
   let flatLines = [];
@@ -300,7 +310,7 @@
   function fetchAndRenderList(limit) {
     currentLimit = limit || currentLimit;
     rpc
-      .withSuccessHandler(result => { batches = result.entries || []; batchesTotal = result.total || 0; renderBatchesView(); renderLoadMoreNotices(); })
+      .withSuccessHandler(result => { batches = result.entries || []; batchesTotal = result.total || 0; renderBatchesView(); renderLoadMoreNotices(); batchesLoaded = true; openPendingLine(); })
       .withFailureHandler(err => alert(err.message || 'Unable to load Job Orders.'))
       .getJobOrderBatches({ limit: currentLimit });
     rpc
@@ -441,8 +451,9 @@
             sel.appendChild(opt);
           });
         });
+        refDone();
       })
-      .withFailureHandler(err => console.error(err))
+      .withFailureHandler(err => { console.error(err); refDone(); })
       .getActiveCompanies();
 
     rpc
@@ -452,8 +463,9 @@
         document.getElementById('jo-form-branch').innerHTML = orgUnitOptionsHtml('Branch', '');
         document.getElementById('jo-form-costcenter').innerHTML = orgUnitOptionsHtml('CostCenter', '');
         document.getElementById('jo-form-profitcenter').innerHTML = orgUnitOptionsHtml('ProfitCenter', '');
+        refDone();
       })
-      .withFailureHandler(err => console.error(err))
+      .withFailureHandler(err => { console.error(err); refDone(); })
       .getActiveOrgUnits();
 
     rpc
@@ -882,6 +894,12 @@
         // A line opened (e.g. from a Home task) before this answer came back was
         // drawn without the "post" buttons: draw it again now.
         if (currentLine && !document.getElementById('jo-line-detail-view').classList.contains('hidden')) openLineDetail(currentLine.LineID);
+        // Likewise a draft batch's Save / Submit / Delete buttons.
+        if (!document.getElementById('jo-batch-edit-view').classList.contains('hidden')) {
+          document.getElementById('jo-save-batch-btn').classList.toggle('hidden', !canDraft);
+          document.getElementById('jo-submit-batch-btn').classList.toggle('hidden', !canPost);
+          document.getElementById('jo-delete-batch-btn').classList.toggle('hidden', !currentBatch || !canDraft);
+        }
       })
       .withFailureHandler(() => {})
       .getModulePermissionsForUser({ moduleId: 'JOBORDERREQUEST' });

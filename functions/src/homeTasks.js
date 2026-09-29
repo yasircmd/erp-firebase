@@ -1,7 +1,10 @@
 const { onCall } = require('firebase-functions/v2/https');
 const { rtdb, firestore } = require('./firebaseAdmin');
-const { requireUser } = require('./auth');
-const { APPROVAL_GATEABLE_MODULES, APPROVAL_MODULE_STORAGE_ } = require('./approvalRegistry');
+const { requireUser, moduleHasCapability } = require('./auth');
+const { APPROVAL_GATEABLE_MODULES, APPROVAL_MODULE_STORAGE_, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./approvalRegistry');
+const { MODULE_REGISTRY } = require('./moduleRegistry');
+const { userCanAccessCompany } = require('./glWriting');
+const { moduleIdForEntry } = require('./masterData');
 
 const onCallOptions = { region: 'us-central1' };
 
@@ -98,4 +101,71 @@ exports.getMyRejectedSubmissions = onCall(onCallOptions, async (request) => {
       };
     })
     .sort((a, b) => (b.RejectedAt || '').localeCompare(a.RejectedAt || ''));
+});
+
+// ---------- My Drafts (docs/modules/DRAFT_TASKS.md, owner 2026-09-28) ----------
+// Every document still in Draft, shown only to its last updater
+// (UpdatedBy, else CreatedBy), until it is submitted, posted or deleted.
+// Rejected documents stay in getMyRejectedSubmissions.
+const STOCK_TYPE_TO_MODULE = {
+  GRN: 'GRN', MaterialIssue: 'MATERIALISSUE', Production: 'PRODUCTION', WarehouseMovement: 'WAREHOUSEMOVEMENT',
+  StockAdjustment: 'STOCKADJUSTMENT', PhysicalCount: 'PHYSICALCOUNT', DeliveryNote: 'DELIVERYNOTE',
+  PurchaseReturn: 'PURCHASERETURN', SalesReturn: 'SALESRETURN'
+};
+const DRAFT_RTDB_SOURCES = [
+  { path: 'stock/transactions', moduleOf: r => STOCK_TYPE_TO_MODULE[r.TransactionType] },
+  { path: 'purchaseRequisitions', moduleOf: () => 'PURCHASEREQUISITION' },
+  { path: 'inventoryPurchaseRequisitions', moduleOf: () => 'INVENTORYPURCHASEREQUISITION' },
+  { path: 'purchaseOrders', moduleOf: () => 'PURCHASEORDER' },
+  { path: 'salesOrders', moduleOf: () => 'SALESORDER' },
+  { path: 'jobOrderBatches', moduleOf: () => 'JOBORDERREQUEST' },
+  { path: 'vendorInvoices', moduleOf: () => 'VENDORINVOICE' },
+  { path: 'customerInvoices', moduleOf: () => 'CUSTOMERINVOICE' },
+  { path: 'pdcCheques', moduleOf: r => (r.Direction === 'Received' ? 'PDCRECEIVED' : r.Direction === 'Issued' ? 'PDCISSUED' : null) },
+  { path: 'recurringJournals', moduleOf: () => 'RECURRINGJV' }
+];
+const DRAFT_FIRESTORE_SOURCES = [
+  { collection: FIRESTORE_JOURNAL_ENTRIES_COLLECTION, moduleOf: r => moduleIdForEntry(r) },
+  { collection: 'faPostings', moduleOf: r => r.ModuleID || null }
+];
+const draftDateOf = r => r.TransactionDate || r.JVDate || r.Date || r.InvoiceDate || r.PRDate || r.IPRDate ||
+  r.PODate || r.SODate || r.JODate || '';
+
+exports.getMyDraftsForUser = onCall(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const actor = user.profile.username || user.uid;
+  const role = user.profile.role;
+
+  const records = [];
+  const rtdbSnaps = await Promise.all(DRAFT_RTDB_SOURCES.map(src => rtdb.ref(src.path).get()));
+  DRAFT_RTDB_SOURCES.forEach((src, i) => {
+    const data = rtdbSnaps[i].val() || {};
+    Object.keys(data).forEach(id => { if (data[id] && data[id].Status === 'Draft') records.push({ id, r: data[id], moduleOf: src.moduleOf }); });
+  });
+  const fsSnaps = await Promise.all(DRAFT_FIRESTORE_SOURCES.map(src => firestore.collection(src.collection).where('Status', '==', 'Draft').get()));
+  DRAFT_FIRESTORE_SOURCES.forEach((src, i) => {
+    fsSnaps[i].docs.forEach(d => records.push({ id: d.id, r: d.data(), moduleOf: src.moduleOf }));
+  });
+
+  const mine = records
+    .filter(x => (x.r.UpdatedBy || x.r.CreatedBy) === actor)
+    .filter(x => userCanAccessCompany(user.profile, x.r.CompanyID))
+    .map(x => Object.assign(x, { moduleId: x.moduleOf(x.r) }))
+    .filter(x => x.moduleId);
+
+  const moduleIds = [...new Set(mine.map(x => x.moduleId))];
+  const accessFlags = await Promise.all(moduleIds.map(m => moduleHasCapability(m, 'access', role)));
+  const canAccess = new Set(moduleIds.filter((m, i) => accessFlags[i]));
+
+  return mine
+    .filter(x => canAccess.has(x.moduleId))
+    .map(x => {
+      const moduleInfo = MODULE_REGISTRY.find(m => m.id === x.moduleId);
+      return {
+        ModuleID: x.moduleId, ModuleLabel: moduleInfo ? moduleInfo.label : x.moduleId,
+        DocumentID: x.id, Description: x.r.Description || '', DocumentDate: draftDateOf(x.r),
+        CompanyID: x.r.CompanyID || '', SavedAt: x.r.UpdatedAt || x.r.CreatedAt || ''
+      };
+    })
+    .sort((a, b) => (b.SavedAt || '').localeCompare(a.SavedAt || ''));
 });

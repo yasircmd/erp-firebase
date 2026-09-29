@@ -319,6 +319,15 @@
   let gridLines = []; // { ItemCode, WarehouseID, Description, EnteredUOMID, EnteredQuantity, UnitCost, BatchNumber, ExpiryDate, CostCenterID, ProfitCenterID }
   let isDirty = false;
   let pendingOpenEntryId = null;
+  // An entry from a Home task opens only once the permissions are in: the
+  // Save / Post buttons are drawn from them (docs/modules/DRAFT_TASKS.md).
+  let permsLoaded = false;
+  let pendingOpenGrnId = null;
+  function openPendingGrn() {
+    if (!pendingOpenGrnId || !permsLoaded) return;
+    const id = pendingOpenGrnId; pendingOpenGrnId = null;
+    openEntry(id);
+  }
   let myReturnChain = [];
 
   function escapeHtml(value) {
@@ -405,7 +414,7 @@
           // Match on LinkedJVID first; fall back to GRNID in case a
           // future caller ever passes the GRN's own ID directly.
           const found = entries.find(e => e.LinkedJVID === id || e.GRNID === id);
-          if (found) openEntry(found.GRNID);
+          if (found) { pendingOpenGrnId = found.GRNID; openPendingGrn(); }
           else alert('That GRN could not be found — it may have been deleted.');
         }
       })
@@ -1808,8 +1817,9 @@
         document.getElementById('grn-new-btn').classList.toggle('hidden', !canDraft);
         if (canDraft) document.getElementById('grn-new-btn').addEventListener('click', newEntry);
         renderList();
+        permsLoaded = true; openPendingGrn();
       })
-      .withFailureHandler(err => console.error(err))
+      .withFailureHandler(err => { console.error(err); permsLoaded = true; openPendingGrn(); })
       .getModulePermissionsForUser({ moduleId: 'GRN' });
 
     loadReferenceData();

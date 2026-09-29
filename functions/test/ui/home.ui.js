@@ -58,6 +58,7 @@ function stubs() {
         return { favorites };
       case 'getActiveCompanies': return window.__companies || [];
       case 'getRecurringJournalsDueForUser': return window.__recurringDue || [];
+      case 'getMyDraftsForUser': return window.__drafts || [];
       case 'getModuleFragment': return { html: '<div id="stub-module">Module ' + arg.moduleId + '</div>', canWrite: true };
       default: return [];
     }
@@ -259,6 +260,41 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.click('#home-recurring-due-list > div');
     await page.waitForSelector('#stub-module');
     assert.match(await page.textContent('#stub-module'), /Module RECURRINGJV/);
+    assert.deepEqual(page.__errors, []);
+    await context.close();
+  });
+
+  await check('tasks: my drafts, counted, with the module, description and date, and opened on the draft (docs/modules/DRAFT_TASKS.md)', async () => {
+    let page = await open();
+    assert.ok(await page.isHidden('#home-drafts-block'), 'no drafts, no block');
+    await page.close();
+    const context = await browser.newContext();
+    page = await context.newPage();
+    page.__errors = [];
+    page.on('pageerror', e => page.__errors.push(e.message));
+    await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
+    await page.addInitScript(stubs);
+    await page.addInitScript(() => {
+      window.__recurringDue = [{ ModuleID: 'RECURRINGJV', ModuleLabel: 'Recurring Journal Entries', DocumentID: 'RJ-1', DocumentNumber: 'RJT-1', Description: 'Rent', DueCount: 1, FailedCount: 0, OldestDueDate: '2026-08-01' }];
+      window.__drafts = [
+        { ModuleID: 'PURCHASEORDER', ModuleLabel: 'Purchase Order', DocumentID: 'PO-AB12', Description: 'Steel <b>for</b> May', DocumentDate: '2026-09-20', SavedAt: '2026-09-28T10:00:00Z' },
+        { ModuleID: 'GRN', ModuleLabel: 'Goods Receipt (GRN)', DocumentID: 'GRN-X', Description: '', DocumentDate: '', SavedAt: '' }
+      ];
+      const open = () => { const o = window.openModule; window.openModule = (m, p) => { window.__opened = [m, p && p.OpenEntryId]; return o(m, p); }; };
+      document.addEventListener('DOMContentLoaded', () => setTimeout(open, 0));
+    });
+    await page.goto('http://127.0.0.1:8131/');
+    await page.waitForSelector('#home-drafts-block:not(.hidden)', { state: 'attached', timeout: 30000 });
+    assert.equal((await page.textContent('#home-tasks-count')).trim(), '(3)', 'drafts counted with the other tasks');
+    const rows = await page.$$eval('#home-drafts-list > div', ds => ds.map(d => d.textContent.replace(/\s+/g, ' ').trim()));
+    assert.equal(rows.length, 2);
+    assert.match(rows[0], /^Purchase Order Steel <b>for<\/b> May · 2026-09-20 saved /, 'escaped, with the date and when it was saved');
+    assert.equal(rows[1], 'Goods Receipt (GRN) (no description)');
+    await page.evaluate(() => toggleHomeTasksSection());
+    await page.click('#home-drafts-list > div >> nth=0');
+    await page.waitForSelector('#stub-module');
+    assert.match(await page.textContent('#stub-module'), /Module PURCHASEORDER/);
+    assert.deepEqual(await page.evaluate(() => window.__opened), ['PURCHASEORDER', 'PO-AB12']);
     assert.deepEqual(page.__errors, []);
     await context.close();
   });

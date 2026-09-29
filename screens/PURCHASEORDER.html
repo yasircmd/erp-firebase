@@ -232,6 +232,24 @@
   let reviseMode = false;
   let isDirty = false;
 
+  // A Home task (draft, approval or rejection) opens its Purchase Order
+  // (docs/modules/DRAFT_TASKS.md). Waits for the list, the permissions
+  // (the Save / Submit buttons depend on them) and the form's dropdowns.
+  let pendingOpenEntryId = null;
+  let listLoaded = false;
+  let refPending = 4;
+  function refDone() { refPending--; openPendingEntry(); }
+  function openPendingEntry() {
+    if (!pendingOpenEntryId || !listLoaded || refPending > 0) return;
+    const id = pendingOpenEntryId;
+    const po = entries.find(p => p.POID === id);
+    if (po) { pendingOpenEntryId = null; if (po.Status === 'Draft') openForEdit(id); else openDetail(id); return; }
+    // Older than the first page: load every entry once, then try again.
+    if (entries.length < entriesTotal) { listLoaded = false; fetchAndRenderList('all'); return; }
+    pendingOpenEntryId = null;
+    alert('That Purchase Order could not be found — it may have been deleted.');
+  }
+
   function escapeHtml(value) {
     const div = document.createElement('div');
     div.textContent = value == null ? '' : String(value);
@@ -274,7 +292,7 @@
   function fetchAndRenderList(limit) {
     currentLimit = limit || currentLimit;
     rpc
-      .withSuccessHandler(result => { entries = result.entries || []; entriesTotal = result.total || 0; renderList(); })
+      .withSuccessHandler(result => { entries = result.entries || []; entriesTotal = result.total || 0; renderList(); listLoaded = true; openPendingEntry(); })
       .withFailureHandler(err => alert(err.message || 'Unable to load Purchase Orders.'))
       .getPurchaseOrderEntries({ limit: currentLimit });
   }
@@ -333,13 +351,14 @@
             select.appendChild(opt);
           });
         });
+        refDone();
       })
-      .withFailureHandler(err => console.error(err))
+      .withFailureHandler(err => { console.error(err); refDone(); })
       .getActiveCompanies();
 
     rpc
-      .withSuccessHandler(result => { orgUnits = result || []; renderList(); })
-      .withFailureHandler(err => console.error(err))
+      .withSuccessHandler(result => { orgUnits = result || []; renderList(); refDone(); })
+      .withFailureHandler(err => { console.error(err); refDone(); })
       .getActiveOrgUnits();
 
     rpc
@@ -353,8 +372,9 @@
           select.appendChild(opt);
         });
         renderList();
+        refDone();
       })
-      .withFailureHandler(err => console.error(err))
+      .withFailureHandler(err => { console.error(err); refDone(); })
       .getActiveVendors();
 
     rpc
@@ -995,8 +1015,9 @@
         canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost);
         document.getElementById('po-new-btn').classList.toggle('hidden', !canDraft);
         if (canDraft) document.getElementById('po-new-btn').addEventListener('click', newEntry);
+        refDone();
       })
-      .withFailureHandler(() => {})
+      .withFailureHandler(() => { refDone(); })
       .getModulePermissionsForUser({ moduleId: 'PURCHASEORDER' });
 
     document.getElementById('po-edit-back-btn').addEventListener('click', goBackToList);
@@ -1053,6 +1074,9 @@
     document.getElementById('po-resubmit-btn').addEventListener('click', resubmit);
 
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-invoice-dollar"></i> Purchase Order';
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    if (pending && pending.OpenEntryId) pendingOpenEntryId = pending.OpenEntryId;
     fetchAndRenderList();
     loadReferenceData();
   };
