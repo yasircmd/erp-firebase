@@ -260,8 +260,31 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - **In future:** a guard in the Deploy workflow, and a CLAUDE.md rule.
   - **Tests:** `dateFormat` unit (5) and UI (2). Seven negative controls
     were caught.
-- [ ] **BOM: the parent item's current name after a rename** (owner,
-  2026-09-29; bug).
+- [ ] **Approval delegation from the Approval Tracker** (owner, 2026-09-29;
+  [APPROVAL_DELEGATION.md](modules/APPROVAL_DELEGATION.md)).
+  - An Admin (any pending approval) or an approver (their own) hands an
+    undecided level to another active user with access to the module
+    and company, with a reason: one approval, or all of an absent
+    approver's.
+  - Recorded on the approval; Approval Configuration is unchanged.
+  - **Tests:** the `approvalDelegation` suite (6); eight negative
+    controls were caught:
+    - an approver moving anyone's;
+    - no module check;
+    - no company check;
+    - someone on another level;
+    - no reason;
+    - a decided level;
+    - Job Order company not from the batch;
+    - an approver moving another's all.
+  - `approvalDelegation.ui.js` (2); its negative control (Delegate shown
+    on others' levels) was caught. The Approval Tracker and Approval
+    Configuration suites, the Tracker smoke check and the Approval
+    Routing UI checks all pass.
+  - **To go live:** Deploy → "functions set", set `approval-delegation`,
+    with screens.
+- [x] **BOM: the parent item's current name after a rename** (owner,
+  2026-09-29; bug). **Live 2026-09-29** (PR #42; Deploy run #39).
   - A BOM stored its parent's code and name as saved, and the list showed
     that copy.
   - `getBoms` now returns the parent's current code and name (patch

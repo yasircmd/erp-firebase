@@ -1,0 +1,7 @@
+# Approval delegation (owner 2026-09-29; docs/modules/APPROVAL_DELEGATION.md).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+# Run with --screens (the Approval Tracker gains Delegate).
+getDelegationCandidates          # who can receive a level; who is asking (Admin or not)
+delegateApproval                 # one undecided level of a pending approval, with a reason
+delegateApprovalsOf              # every pending approval waiting on an absent approver
+getModuleFragment                # serves the changed screen

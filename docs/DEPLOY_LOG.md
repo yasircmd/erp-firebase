@@ -653,3 +653,8 @@ from, and how it was verified. The deploy procedure is in the
   - **Screens:** "screens only", run
     [#38](https://github.com/yasircmd/erp-firebase/actions/runs/36599727622),
     16:43–16:44 UTC, success. Release **`20260929T164350Z-1b7c39e`**, active.
+- **2026-09-29, BOM parent name (PR #42):** Deploy from `1163051` (`main`,
+  the PR #42 merge), run
+  [#39](https://github.com/yasircmd/erp-firebase/actions/runs/36602855604),
+  17:08–17:11 UTC, success (a functions deploy by its length; the set to
+  run was `bom-current-parent-name`).
