@@ -241,6 +241,26 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  await check('copyright: on Home (and the login page), not inside a module', async () => {
+    const page = await open();
+    const hidden = () => page.$eval('#app-copyright', el => el.classList.contains('hidden'));
+    assert.match(await page.textContent('#app-copyright'), /^© \d{4} Yasir AV\. All rights reserved\.$/);
+    assert.equal(await hidden(), false, 'Home');
+    await page.click('#toggle-expand-btn');
+    await page.click('#tree-container li[data-module-id="CUSTOMERINVOICE"]');
+    await page.waitForSelector('#stub-module');
+    assert.equal(await hidden(), true, 'inside a module');
+    await page.click('#back-to-tree-btn');
+    assert.equal(await hidden(), false, 'back on Home');
+    // Signing out from inside a module lands on the login page with it.
+    await page.click('#tree-container li[data-module-id="CUSTOMERINVOICE"]');
+    await page.waitForSelector('#stub-module');
+    await page.evaluate(() => showTreeNav()); // what signing out runs first
+    assert.equal(await hidden(), false, 'login page');
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
   await check('tasks: recurring journal entries due to post, counted and opened (docs/modules/RECURRING_JOURNAL.md)', async () => {
     let page = await open();
     assert.ok(await page.isHidden('#home-recurring-due-block'), 'nothing due, no block');

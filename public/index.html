@@ -1704,6 +1704,9 @@
       document.getElementById('tree-view-container').classList.remove('hidden');
       document.getElementById('tree-controls').classList.remove('hidden');
       document.getElementById('user-menu').classList.remove('hidden');
+      // The copyright line shows on the login page and Home only, not in a
+      // module (owner, 2026-09-29).
+      document.getElementById('app-copyright').classList.remove('hidden');
       applyTreeTitle();
     }
 
@@ -1770,6 +1773,7 @@
       document.getElementById('tree-controls').classList.add('hidden');
       document.getElementById('tree-view-container').classList.add('hidden');
       document.getElementById('user-menu').classList.add('hidden');
+      document.getElementById('app-copyright').classList.add('hidden'); // login and Home only
       closeUserMenu();
 
       // Only ONE loading indicator now, not two — the module container's

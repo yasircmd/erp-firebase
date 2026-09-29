@@ -629,3 +629,7 @@ from, and how it was verified. The deploy procedure is in the
   - **Hosting again:** run
     [#31](https://github.com/yasircmd/erp-firebase/actions/runs/36587983482),
     15:09–15:10 UTC, success. Same commit, so no change.
+- **2026-09-29, compact line grids and tables (PR #38):** Deploy task
+  "hosting" from `ffbb6ea` (`main`, the PR #38 merge), run
+  [#32](https://github.com/yasircmd/erp-firebase/actions/runs/36593101304),
+  15:49–15:50 UTC, success, `ALL DONE`.

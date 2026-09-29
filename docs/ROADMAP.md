@@ -212,8 +212,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     - a check across every screen: 0 of 60 now (34 before), nothing left
       showing "Loading…".
   - Not live. Its negative controls are still to do.
-- [ ] **Line grids: compact, room for the name, no empty line once
+- [x] **Line grids: compact, room for the name, no empty line once
   posted** (owner, 2026-09-29; [LINE_GRIDS.md](modules/LINE_GRIDS.md)).
+  **Live 2026-09-29** (PR #38; Deploy run #32, hosting).
   - One rule in the shell for every entry screen's line grid
     (`…-grid-body`): less padding in cells, fields and headers; the Item
     / Account Name column at least 13rem.
@@ -229,7 +230,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     - no compact tables;
     - the table rule winning inside grids;
     - Trial Balance not excluded.
-  - **To go live:** PR #38, then Deploy → "hosting".
+- [ ] **Copyright line on the login page and Home only** (owner,
+  2026-09-29).
+  - "© Yasir AV. All rights reserved." was a bar at the bottom of every
+    page; it now hides while a module is open.
+  - Test: `home.ui.js` gains a check (Home, inside a module, back, signing
+    out). Both negative controls were caught.
+  - **To go live:** Deploy → "hosting".
 - [ ] **Found while building it, not fixed:**
   - **Approvals elsewhere aren't sequential.** For every module except
     Job Order, all levels see the task at once and may decide in any
