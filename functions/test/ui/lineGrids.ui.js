@@ -84,6 +84,16 @@ const ok = r => { assert.equal(r.success, true, r.error); return r; };
     await page.waitForSelector('#jv-table-body tr td:nth-child(2)', { timeout: 30000 });
     assert.deepEqual(await pad(page, '#jv-table-body tr td'), [4.8, 9.6], 'list row: 0.3rem / 0.6rem');
     assert.deepEqual(await pad(page, 'table:has(#jv-table-body) thead th'), [4.8, 9.6], 'list header');
+    // JV list (owner, 2026-09-29): JV Number, Txn Ref and Date stay on one
+    // line; Description gives up the room (2/5 of the width, wrapping).
+    const cols = await page.$eval('table:has(#jv-table-body)', t => ({
+      head: [...t.tHead.rows[0].cells].slice(0, 4).map(c => c.className),
+      row: [...t.tBodies[0].rows[0].cells].slice(0, 4).map(c => c.className) }));
+    for (const part of ['head', 'row']) {
+      cols[part].slice(0, 3).forEach((c, i) => assert.match(c, /\bwhitespace-nowrap\b/, part + ' column ' + (i + 1)));
+      assert.doesNotMatch(cols[part][3], /whitespace-nowrap/, part + ' Description wraps');
+    }
+    assert.match(cols.head[3], /\bw-2\/5\b/, 'Description width');
     await page.close();
     page = await open('TRIALBALANCE');
     const tb = await pad(page, 'table.tb-compact thead th');

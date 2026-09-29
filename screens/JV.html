@@ -29,10 +29,10 @@
       <table class="w-full text-left">
         <thead>
           <tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
-            <th class="py-3 px-4">JV Number</th>
-            <th class="py-3 px-4">Txn Ref</th>
-            <th class="py-3 px-4">Date</th>
-            <th class="py-3 px-4">Description</th>
+            <th class="py-3 px-4 whitespace-nowrap">JV Number</th>
+            <th class="py-3 px-4 whitespace-nowrap">Txn Ref</th>
+            <th class="py-3 px-4 whitespace-nowrap">Date</th>
+            <th class="py-3 px-4 w-2/5">Description</th>
             <th class="py-3 px-4 text-right">Debit</th>
             <th class="py-3 px-4 text-right">Credit</th>
             <th class="py-3 px-4">Status</th>
@@ -310,10 +310,10 @@
         actions += `<button class="jv-delete text-slate-400 hover:text-red-400 p-1" title="Delete draft"><i class="fa-solid fa-trash"></i></button>`;
       }
       row.innerHTML = `
-        <td class="py-3 px-4 font-mono text-xs text-slate-200">${e.JVNumber ? escapeHtml(e.JVNumber) : '<span class="text-slate-500">DRAFT</span>'}</td>
-        <td class="py-3 px-4 font-mono text-xs text-slate-500">${escapeHtml(e.TransactionRef || '—')}</td>
-        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(e.JVDate)}</td>
-        <td class="py-3 px-4 text-slate-200">${escapeHtml(e.Description)}</td>
+        <td class="py-3 px-4 font-mono text-xs text-slate-200 whitespace-nowrap">${e.JVNumber ? escapeHtml(e.JVNumber) : '<span class="text-slate-500">DRAFT</span>'}</td>
+        <td class="py-3 px-4 font-mono text-xs text-slate-500 whitespace-nowrap">${escapeHtml(e.TransactionRef || '—')}</td>
+        <td class="py-3 px-4 text-xs text-slate-400 whitespace-nowrap">${escapeHtml(e.JVDate)}</td>
+        <td class="py-3 px-4 text-slate-200 break-words">${escapeHtml(e.Description)}</td>
         <td class="py-3 px-4 text-xs text-right">${formatMoney(e.TotalDebit)}</td>
         <td class="py-3 px-4 text-xs text-right">${formatMoney(e.TotalCredit)}</td>
         <td class="py-3 px-4 text-xs">${statusBadge}</td>
