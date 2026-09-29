@@ -54,7 +54,11 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
       ['5100', 'Material Consumption', 'Expense', '', '', '120.00', '', '120.00', '']
     ]);
     assert.deepEqual(await totals(page), ['500.00', '500.00', '120.00', '120.00', '500.00', '500.00']);
-    assert.match(await page.textContent('#tb-balance-note'), /totals match/);
+    // Matched: nothing said, nothing red (owner, 2026-09-29).
+    // (Asserted on the class: this test environment may lack Tailwind's styles.)
+    assert.ok((await page.getAttribute('#tb-balance-note', 'class')).split(' ').includes('hidden'), 'no note when the totals match');
+    assert.equal((await page.textContent('#tb-balance-note')).trim(), '');
+    assert.equal(await page.$$eval('#tb-results tfoot .text-red-400', els => els.length), 0);
     assert.deepEqual(await page.$$eval('#tb-results thead tr:first-child th', ths => ths.map(th => th.textContent.trim())),
       ['Code', 'Account', 'Type', 'Opening', 'Transactions', 'Closing']);
     assert.deepEqual(await rpcFailures(page), []);
@@ -133,6 +137,49 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await runTb(page, '2026-10-01', '2026-10-31');
     assert.deepEqual((await tableRows(page)).map(r => r[0]), ['1000', '1100', '3000', '5100']);
     assert.deepEqual(await rpcFailures(page), []);
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
+  // A mismatch can't be made through the app (every entry balances), so the
+  // report's answer is altered on its way to the screen.
+  const skew = (page, fn, change) => page.route('**/' + fn, async route => {
+    const res = await route.fetch();
+    const body = await res.json();
+    change(body.result);
+    await route.fulfill({ response: res, json: body });
+  });
+
+  await check('TB mismatch: the note and the totals that differ in red', async () => {
+    const page = await open('TRIALBALANCE', 'u-admin');
+    await skew(page, 'getTrialBalancePeriod', r => { r.totals.ClosingCredit += 10; });
+    await runTb(page, '2026-09-01', '2026-09-30');
+    assert.ok(!(await page.getAttribute('#tb-balance-note', 'class')).split(' ').includes('hidden'));
+    assert.match(await page.textContent('#tb-balance-note'), /do NOT match/);
+    assert.match(await page.getAttribute('#tb-balance-note', 'class'), /text-red-400/);
+    assert.deepEqual(await page.$$eval('#tb-results tfoot .text-red-400', els => els.map(e => e.id)), ['tb-total-cd', 'tb-total-cc']);
+    await page.close();
+  });
+
+  await check('Balance Sheet: nothing said when it balances; out of balance in red', async () => {
+    let page = await open('BALANCESHEET', 'u-admin');
+    const run = async p => {
+      await p.waitForFunction(() => document.getElementById('bs-company').options.length > 1, null, { timeout: 30000 });
+      await p.selectOption('#bs-company', 'C1');
+      await p.fill('#bs-asof-date', '2026-09-30');
+      await p.click('#bs-run-btn');
+      await p.waitForSelector('#bs-results:not(.hidden)', { timeout: 30000 });
+    };
+    await run(page);
+    assert.ok((await page.getAttribute('#bs-balance-note', 'class')).split(' ').includes('hidden'), 'no note when it balances');
+    assert.equal((await page.textContent('#bs-balance-note')).trim(), '');
+    await page.close();
+    page = await open('BALANCESHEET', 'u-admin');
+    await skew(page, 'getBalanceSheet', r => { r.balanced = false; r.totalAssets += 10; });
+    await run(page);
+    assert.ok(!(await page.getAttribute('#bs-balance-note', 'class')).split(' ').includes('hidden'));
+    assert.match(await page.textContent('#bs-balance-note'), /^Out of balance/);
+    assert.match(await page.getAttribute('#bs-balance-note', 'class'), /text-red-400/);
     assert.deepEqual(page.__errors, []);
     await page.close();
   });

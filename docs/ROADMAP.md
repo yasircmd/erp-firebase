@@ -153,7 +153,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     printed too, and no Print button.
   - **Live 2026-09-29** (PR #34; Deploy run #24, release
     `20260929T112255Z-11a985f`).
-- [ ] **Fixed Assets: additional depreciation in the latest posted month**
+- [x] **Fixed Assets: additional depreciation in the latest posted month**
   (owner, 2026-09-29; [FIXED_ASSETS.md](modules/FIXED_ASSETS.md) →
   Additional depreciation).
   - It was refused for any month whose depreciation run was already
@@ -166,8 +166,18 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       live.
   - **Tests:** the `fixedAssets` suite has a new test for this (11 pass);
     the three negative controls were caught; `fixedAssets.ui.js` 9/9.
-  - **To go live:** Deploy → "functions set, then screens", set
-    `fa-additional-dep-same-month`.
+  - **Live 2026-09-29** (PR #35; Deploy run #25, release
+    `20260929T115154Z-d96ab86`).
+- [ ] **TB and Balance Sheet: say nothing when balanced, red when not**
+  (owner, 2026-09-29).
+  - The green "Debit and Credit totals match" / "Balanced — …" notes are
+    gone. A mismatch shows the note in red; in the TB the totals that
+    differ turn red too.
+  - The Cash Flow Statement keeps its reconciliation note.
+  - `trialBalance.ui.js` checks both: nothing when matched, and the
+    report's answer altered to force a mismatch. Three negative controls
+    were caught.
+  - **To go live:** Deploy → "screens only".
   - CBT gets four Approval Configuration entries (Cash / Bank ×
     Receipt / Payment). Today's CBT setup is copied into all four.
   - A Follow-up team per scope for Job Order Request, PR and IPR. Its

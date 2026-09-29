@@ -67,7 +67,7 @@
         </table>
       </div>
     </div>
-    <div id="tb-balance-note" class="text-xs px-3 py-1.5 rounded-lg border"></div>
+    <div id="tb-balance-note" class="hidden text-xs px-3 py-1.5 rounded-lg border"></div>
   </div>
 </div>
 
@@ -230,12 +230,16 @@
 
     COLS.forEach((k, i) => { document.getElementById(TOTAL_IDS[i]).textContent = formatMoney(result.totals[k]); });
 
+    // Nothing to say when Debit and Credit match; a mismatch is shown in red,
+    // on the note and on the totals that differ (owner, 2026-09-29).
     const t = result.totals;
     const note = document.getElementById('tb-balance-note');
-    const balanced = [['OpeningDebit', 'OpeningCredit'], ['PeriodDebit', 'PeriodCredit'], ['ClosingDebit', 'ClosingCredit']]
-      .every(([d, c]) => Math.abs(t[d] - t[c]) < 0.01);
-    note.className = 'text-xs px-3 py-1.5 rounded-lg border ' + (balanced ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400');
-    note.textContent = balanced ? 'Debit and Credit totals match (opening, transactions and closing).' : 'Debit and Credit totals do NOT match — this indicates a data problem and should be investigated.';
+    const pairs = [['OpeningDebit', 'OpeningCredit'], ['PeriodDebit', 'PeriodCredit'], ['ClosingDebit', 'ClosingCredit']];
+    const off = pairs.map(([d, c]) => Math.abs(t[d] - t[c]) >= 0.01);
+    COLS.forEach((k, i) => { document.getElementById(TOTAL_IDS[i]).classList.toggle('text-red-400', off[Math.floor(i / 2)]); });
+    const balanced = !off.some(Boolean);
+    note.className = 'text-xs px-3 py-1.5 rounded-lg border bg-red-500/10 border-red-500/20 text-red-400' + (balanced ? ' hidden' : '');
+    note.textContent = balanced ? '' : 'Debit and Credit totals do NOT match — this indicates a data problem and should be investigated.';
   }
 
   function copyTable() {

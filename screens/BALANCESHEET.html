@@ -51,7 +51,7 @@
       </div>
     </div>
 
-    <div id="bs-balance-note" class="text-sm px-4 py-2.5 rounded-lg border"></div>
+    <div id="bs-balance-note" class="hidden text-sm px-4 py-2.5 rounded-lg border"></div>
   </div>
 </div>
 
@@ -210,10 +210,11 @@
     renderSection('bs-liabilities-body', result.liabilities, result.totalLiabilities, 'Liabilities');
     renderSection('bs-equity-body', result.equity, result.totalEquity, 'Equity');
 
+    // Nothing to say when it balances; out of balance is shown in red (owner, 2026-09-29).
     const note = document.getElementById('bs-balance-note');
-    note.className = 'text-sm px-4 py-2.5 rounded-lg border ' + (result.balanced ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400');
+    note.className = 'text-sm px-4 py-2.5 rounded-lg border bg-red-500/10 border-red-500/20 text-red-400' + (result.balanced ? ' hidden' : '');
     note.textContent = result.balanced
-      ? `Balanced — Total Assets (${formatMoney(result.totalAssets)}) = Total Liabilities + Equity (${formatMoney(result.totalLiabilities + result.totalEquity)}).`
+      ? ''
       : `Out of balance — Total Assets (${formatMoney(result.totalAssets)}) does not equal Total Liabilities + Equity (${formatMoney(result.totalLiabilities + result.totalEquity)}). This indicates a data problem and should be investigated.`;
   }
 

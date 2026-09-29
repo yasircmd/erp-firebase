@@ -597,3 +597,9 @@ from, and how it was verified. The deploy procedure is in the
   [#24](https://github.com/yasircmd/erp-firebase/actions/runs/36561291054),
   11:22–11:23 UTC, success. Release **`20260929T112255Z-11a985f`**, 61/61
   written and verified, active.
+- **2026-09-29, Fixed Assets: additional depreciation in the latest posted
+  month (PR #35):** Deploy task "functions set, then screens", set
+  `fa-additional-dep-same-month`, from `d96ab86` (`main`, the PR #35 merge),
+  run [#25](https://github.com/yasircmd/erp-firebase/actions/runs/36564148306),
+  11:49–11:52 UTC, success, `ALL DONE`. Release
+  **`20260929T115154Z-d96ab86`**, 61/61 written and verified, active.
