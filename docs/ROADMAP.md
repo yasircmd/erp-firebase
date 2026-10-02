@@ -311,8 +311,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - **Purchase Order's Home task still opens the list,** not the order
     (`OpenEntryId` gap).
 - [ ] **Master Data Import from Excel** (owner, 2026-10-02;
-  [MASTER_IMPORT.md](modules/MASTER_IMPORT.md)). **Part 1 built**, not
-  yet live.
+  [MASTER_IMPORT.md](modules/MASTER_IMPORT.md)). **Part 1 live
+  2026-10-02** (PR #47; Deploy run #46). Part 2 next.
   - **How it works:** choose a master, copy its headers, fill in Excel,
     paste, check (issues by row and column), import all or nothing.
   - **The rules:**

@@ -1,6 +1,6 @@
 # Master Data Import (from Excel)
 
-Status: **Part 1 built** (2026-10-02), not yet live. Design agreed by the
+Status: **Part 1 live** 2026-10-02 (PR #47; Deploy run #46). Design agreed by the
 owner (2026-10-02). Part 2 to follow.
 
 ## The request (owner, 2026-10-02)

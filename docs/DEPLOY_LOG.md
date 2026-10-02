@@ -692,3 +692,13 @@ from, and how it was verified. The deploy procedure is in the
     time: "the active release matches screens/ (a4742f4)" (release
     `20261002T063030Z-9de393a`). It is right, as this change has no
     screens.
+- **2026-10-02, Master Data Import, Part 1 (PR #47):** Deploy task
+  "functions set, then screens", set `master-import-1`, from `42a2762`
+  (`main`, the PR #47 merge), run
+  [#46](https://github.com/yasircmd/erp-firebase/actions/runs/37003487769),
+  11:53–11:56 UTC, success.
+  - Release **`20261002T115635Z-42a2762`**: 62/62 screens (MASTERIMPORT
+    new) written and verified, active, `ALL DONE`.
+  - The screen check was skipped, correctly: the screens were released
+    in the same run.
+  - **In the app:** link a menu node to Master Data Import.
