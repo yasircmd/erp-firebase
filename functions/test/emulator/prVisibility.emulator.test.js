@@ -51,7 +51,7 @@ test('each user sees exactly their own, the ones they approve, and their team sc
   assert.deepEqual(await sees('u-appr'), ['A: Ann, CC1'], 'the approver waiting on it');
   assert.deepEqual(await sees('u-appr2'), ['C: Ann, CC2']);
   assert.deepEqual(await sees('u-buyer'), ['A: Ann, CC1'], 'Procurement team CC1');
-  assert.deepEqual(await sees('u-buyer2'), ['B: Bob, CC2', 'C: Ann, CC2'], 'Procurement team CC2: all of its scope');
+  assert.deepEqual(await sees('u-buyer2'), ['C: Ann, CC2'], 'Procurement team CC2: its scope, but not Bob\'s draft');
   assert.deepEqual(await sees('u-out'), [], 'nobody else');
   assert.deepEqual(await sees('u-admin'), ['A: Ann, CC1', 'B: Bob, CC2', 'C: Ann, CC2'], 'Admins see all');
 });
@@ -73,6 +73,7 @@ test('a user who may not see a requisition cannot act on it by its id either', a
   assert.deepEqual(await call('u-out', 'cancelPurchaseRequisition', { prId: a }), refused);
   assert.deepEqual(await call('u-out', 'closePurchaseRequisition', { prId: a }), refused);
   assert.deepEqual(await call('u-out', 'deleteDraftPurchaseRequisition', { prId: b }), refused);
+  assert.deepEqual(await call('u-buyer2', 'deleteDraftPurchaseRequisition', { prId: b }), refused, 'nor Procurement, while it is a draft');
   assert.deepEqual(await call('u-ann', 'deleteDraftPurchaseRequisition', { prId: b }), refused, 'not another raiser\'s draft');
   assert.deepEqual(await call('u-out', 'submitPurchaseRequisition', { prId: b }), refused);
   assert.deepEqual(await call('u-out', 'saveDraftPurchaseRequisition', { header: { PRID: b, PRDate: D, CompanyID: 'C1', CostCenterID: 'CC2', Description: 'hijack',
@@ -80,6 +81,9 @@ test('a user who may not see a requisition cannot act on it by its id either', a
   assert.deepEqual(await call('u-out', 'decidePurchaseRequisitionApproval', { prId: c, levelNumber: 1, decision: 'Rejected', reason: 'no' }), refused);
   assert.equal((await val('purchaseRequisitions/' + b)).Description, 'B: Bob, CC2', 'nothing changed');
   assert.equal((await val('purchaseRequisitions/' + a)).Status, 'Submitted');
+  // Once Bob submits it, his CC2 buyer sees it.
+  assert.equal((await call('u-bob', 'submitPurchaseRequisition', { prId: b })).status, 'PendingApproval');
+  assert.ok((await sees('u-buyer2')).includes('B: Bob, CC2'));
   // Those who may see it still can: the CC1 buyer closes A.
   assert.deepEqual(await call('u-buyer', 'closePurchaseRequisition', { prId: a }), { success: true });
 });

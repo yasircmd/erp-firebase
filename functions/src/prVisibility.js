@@ -6,7 +6,8 @@
 //     (a delegated level included, and a level they already decided), on
 //     any of its approval records (a resubmission starts a new one);
 //   - are in the Procurement follow-up team for its scope (Approval
-//     Configuration), as their Home tasks are.
+//     Configuration), as their Home tasks are, once it is no longer a
+//     draft.
 // Admins see all. The list and every requisition action use this, so a
 // requisition can't be opened or acted on by its id either.
 // Inventory Purchase Requisition is not affected (owner: Sales only).
@@ -46,7 +47,9 @@ async function visibilityFor(user) {
     if (!pr || !userCanAccessCompany(profile, pr.CompanyID)) return false;
     if (me.has(String(pr.RequestedBy || '')) || me.has(String(pr.CreatedBy || ''))) return true;
     if ((approversOf[prId || pr.PRID] || new Set()).has(String(user.uid))) return true;
-    return inTeam(pr);
+    // Drafts stay with whoever drafted them (owner, 2026-10-02): the team
+    // sees a requisition once it is submitted.
+    return pr.Status !== 'Draft' && inTeam(pr);
   };
 }
 

@@ -64,7 +64,8 @@ So a requisition can't be opened, or cancelled, by guessing its link.
 - **Inventory Purchase Requisition: not included.** Only Sales use it;
   no one else has access.
 - **Approvers:** from when it waits on them, and afterwards.
-- **Procurement team:** their team's scope only.
+- **Procurement team:** their team's scope only, and not drafts, unless
+  they drafted them (owner, later the same day).
 - **Admins:** see all.
 
 The questions as asked:
@@ -121,8 +122,9 @@ The questions as asked:
     approver" says.
   - **The Procurement team:** the team for the requisition's scope (the
     module's ScopeType in Approval Configuration), as their Home tasks
-    use. The team sees every requisition in its scope, drafts included
-    ("can see all list").
+    use. The team sees every requisition in its scope **except drafts**:
+    a draft stays with whoever drafted it until it is submitted (owner,
+    2026-10-02). A team member who drafts one sees it as its raiser.
   - **Admins:** every requisition in their companies.
 - **Code.gs functions** (patches `pr-visibility-*`):
   - **The list** (`getPurchaseRequisitionEntries`) returns only what the
@@ -146,13 +148,14 @@ The questions as asked:
       decide by id, and nothing changes.
   - **`purchaseRequisition`:** its Viewer now sees none (it used to see
     all), as agreed.
-  - **Negative controls, six caught:**
+  - **Negative controls, seven caught:**
     - no raiser rule;
     - no approver rule;
     - team ignoring scope;
     - no Admin rule;
     - no delegated-from approver;
-    - cancel unchecked.
+    - cancel unchecked;
+    - drafts shown to the team.
   - **Regression:** the existing suites and screen checks for
     requisitions, Purchase Order, drafts, routing, delegation and the
     Tracker pass.

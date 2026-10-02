@@ -316,7 +316,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     - the person who raised it;
     - its approvers, from when it waits on them and afterwards
       (delegated levels included);
-    - the Procurement follow-up team for its scope;
+    - the Procurement follow-up team for its scope, once it is no longer
+      a draft (a draft stays with whoever drafted it);
     - Admins.
     - Everyone else sees none.
   - **Every requisition action** follows the same rule, so nothing can be
@@ -330,9 +331,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       approvalRouting suites pass;
     - UI: requisitions, draft tasks, approval routing, delegation, and
       the smoke check of the four screens.
-  - **Negative controls caught: six.** No raiser rule, no approver rule,
-    team ignoring scope, no Admin rule, no delegated-from approver, and
-    cancel unchecked.
+  - **Negative controls caught: seven.** No raiser rule, no approver
+    rule, team ignoring scope, no Admin rule, no delegated-from approver,
+    cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
 - [x] **Deploy warns when screens weren't released** (owner, 2026-10-02).
