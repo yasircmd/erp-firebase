@@ -407,7 +407,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - **To go live:** Deploy → "screens only".
 - [ ] **Opening balances** (owner, 2026-10-02;
   [OPENING_BALANCES.md](modules/OPENING_BALANCES.md)): GL, stock, open
-  invoices. Design drafted; awaiting the owner's decisions (7 questions).
+  invoices. Design agreed 2026-10-02 (all seven decisions as proposed);
+  being built.
 - [x] **Deploy warns when screens weren't released** (owner, 2026-10-02).
   - **Why:** runs #40 and #43 deployed functions with the screens box
     unticked, and the owner saw no change.

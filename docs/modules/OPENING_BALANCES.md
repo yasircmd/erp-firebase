@@ -1,7 +1,6 @@
 # Opening Balances
 
-Status: **design**, awaiting the owner's decisions (2026-10-02). No code
-until they're agreed.
+Status: **design agreed** by the owner (2026-10-02); being built.
 
 ## The request (owner, 2026-10-02)
 
@@ -103,14 +102,14 @@ Proposed columns:
 - Admin only, like Master Data Import.
 - Per company, against its **opening date**.
 
-## Open questions: the owner's decisions
+## The owner's decisions (2026-10-02)
 
-| # | Question | Proposed |
+| # | Question | Decision |
 |---|---|---|
-| 1 | Opening date: one per company, and entries dated on it or the day before? | Per company; dated the day before go-live (e.g. 31-Dec), so go-live day starts clean |
-| 2 | Control accounts: derived from stock and open-item uploads (Clearing must be zero), or keyed in the GL and checked against them? | Derived, with the Clearing check |
-| 3 | Locking: can opening balances be added or corrected after normal transactions start? | Correct by reversing and re-posting an opening batch; allowed any time, Admin only |
-| 4 | Batch-tracked items: opening stock by batch and expiry? | Yes, a row per batch |
-| 5 | Open invoices: one row per document (needed for ageing and allocation), or one balance per party? | Per document; a party with no detail can use one row |
-| 6 | Approvals: does an opening posting go through approval? | No: Admin-only, posted directly, logged |
-| 7 | Currencies: amounts in the company's base currency only? | Yes (invoices are single-currency today) |
+| 1 | Opening date | **Per company; entries dated the day before go-live** (e.g. go-live 01-Jan → 31-Dec) |
+| 2 | Inventory, Trade Payables, Trade Receivables | **Derived** from the stock and open-invoice uploads through the Opening Balance Clearing account, which must end at zero; not keyed in the GL tab |
+| 3 | Corrections | **Any time, Admin only:** reverse an opening batch and post a corrected one, or add a missed batch; every batch logged |
+| 4 | Batch-tracked items | **A row per batch** (Batch No, Expiry) |
+| 5 | Open invoices | **Per document** (number, date, due date); a party without detail can use one row |
+| 6 | Approval | **None:** Admin-only, posted directly once the check passes, logged |
+| 7 | Currency | **Base currency only** |
