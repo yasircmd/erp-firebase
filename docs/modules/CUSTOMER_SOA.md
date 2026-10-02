@@ -42,3 +42,16 @@ remainder an open credit). Reconciliation against the customer's
 ## As built (2026-09-25)
 
 Built with Vendor SOA on one engine: see [VENDOR_SOA.md](VENDOR_SOA.md) → As built.
+
+## Compact view (owner, 2026-10-02)
+
+"Both SOAs also make compact view, reduce amount font size, no need to
+change print." On screen only (`@media screen` in VENDORSOA.html, built
+into CUSTOMERSOA.html):
+- tighter rows (0.15rem × 0.5rem) and sections;
+- amounts at 0.72rem, other cells at 0.75rem, headers at 0.68rem;
+- every column but the description on one line;
+- smaller ageing tiles and title.
+
+The printout is unchanged. Checked by `partyStatement.ui.js`, also under
+print media.

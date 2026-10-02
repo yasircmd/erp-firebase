@@ -108,3 +108,16 @@ controls, each confirmed caught, then restored:
 1. The open items ignoring the end date.
 2. An invoice reversal booked on the invoice's own side.
 3. Rows dated on the start date folded into the opening balance.
+
+## Compact view (owner, 2026-10-02)
+
+"Both SOAs also make compact view, reduce amount font size, no need to
+change print." On screen only (`@media screen` in VENDORSOA.html, built
+into CUSTOMERSOA.html):
+- tighter rows (0.15rem × 0.5rem) and sections;
+- amounts at 0.72rem, other cells at 0.75rem, headers at 0.68rem;
+- every column but the description on one line;
+- smaller ageing tiles and title.
+
+The printout is unchanged. Checked by `partyStatement.ui.js`, also under
+print media.

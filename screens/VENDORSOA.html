@@ -4,6 +4,23 @@
     body, #app-container { background: white !important; color: black !important; }
     #soa-report, #soa-report * { color: black !important; border-color: #999 !important; background: white !important; }
   }
+  /* COMPACT VIEW (owner, 2026-10-02; docs/modules/VENDOR_SOA.md): on screen
+     only, so the printout is unchanged. Tighter rows and sections, amounts
+     in a smaller font, and every column but the description on one line. */
+  @media screen {
+    #module-container #soa-report > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem; }
+    #module-container #soa-report table > thead > tr > th { padding: 0.25rem 0.5rem; font-size: 0.68rem; white-space: nowrap; }
+    #module-container #soa-report table > :is(tbody, tfoot) > tr > td { padding: 0.15rem 0.5rem; font-size: 0.75rem; line-height: 1.1rem; }
+    #module-container #soa-report table > :is(tbody, tfoot) > tr > td.font-mono { font-size: 0.72rem; }
+    #module-container #soa-report td > button { padding: 0; border: 0; background: none; font: inherit; }
+    #module-container #soa-report td * { line-height: inherit; }
+    #module-container #soa-rows > tr > td:not(:nth-child(4)), #module-container :is(#soa-open, #soa-pdc-rows) > tr > td { white-space: nowrap; }
+    #module-container #soa-aging { gap: 0.4rem; }
+    #module-container #soa-aging > div { padding: 0.35rem 0.6rem; }
+    #module-container #soa-aging > div > p.font-mono { font-size: 0.75rem; }
+    #module-container #soa-report h3 { font-size: 1rem; line-height: 1.4rem; }
+    #module-container #soa-report .space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.3rem; }
+  }
 </style>
 
 <div class="space-y-6">
