@@ -106,7 +106,37 @@ invoices), so a separate design.
 - opening stock (quantity and cost per warehouse);
 - vendors' and customers' open invoices.
 
-## Questions for the owner
+## The owner's decisions (2026-10-02)
+
+1. **Codes:** "Item code, GL code, etc. should be created by the system
+   only; the user provides the same data that is filled in a master."
+   So the sheet has exactly the fields the master's own form asks for:
+   - **system-made codes are never in the sheet:**
+     - account code (from the type and parent);
+     - item code (from its category);
+     - vendor and customer codes;
+     - the company's Ref Code.
+   - **codes the form asks for stay in the sheet:** Org Unit code, UOM
+     code and Currency code, as on their forms.
+   - Each row is a new record; existing records are edited on their own
+     screens, as today.
+2. **All or nothing.** Every row is checked first, and nothing is
+   imported while any row has an issue.
+   - If a save still fails during the import (e.g. someone else just
+     used the same name), the import stops, and the records it created
+     in that run are removed again. The list is never left half-imported.
+3. **Masters:** the ten requested, plus:
+   - UOM and Item Sub-Category;
+   - Fixed Asset Classes and BOM;
+   - Requisition Categories, Customer Classifications and Sales Types,
+     and Currencies.
+   - Opening balances come later, as their own design.
+4. **Users:** one temporary password typed on the import screen for the
+   batch, never in the sheet. Each user changes it after signing in.
+
+### Follow-up questions (2026-10-02)
+
+The questions as asked:
 
 1. **Existing records:** when a row's code already exists (e.g. an item
    code), should the import:
