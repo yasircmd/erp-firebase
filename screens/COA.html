@@ -322,7 +322,7 @@
     rpc
       .withSuccessHandler(result => {
         btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Account';
-        if (result.success) { closeModal(); fetchAndRender(); }
+        if (result.success) { closeModal(); fetchAndRender(); if (result.codeChangedFrom) appAlert('Moved to the new head: code ' + result.codeChangedFrom + ' is now ' + result.accountCode + '.'); }
         else { error.textContent = result.error || 'Unable to save account.'; error.classList.remove('hidden'); }
       })
       .withFailureHandler(err => {

@@ -550,6 +550,45 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
       PdcIssuedClearingAccountID: pdcIssuedClearingAccountId,`
   },
   {
+    id: 'coa-recode-on-move',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/COA_RECODE.md). An account created under the wrong head kept ' +
+      'its code when moved to the right one. Now, when its head changes, it gets the next code under the new head, but ' +
+      'only if it has never been used (posted lines keep a copy of the code; drafts, templates and documents refer to it ' +
+      'by code) and has no child accounts. Otherwise the move is refused (owner decision: "only if never used").',
+    find: `    const record = {
+      AccountCode: current.AccountCode,
+      AccountName: accountName,
+      AccountType: current.AccountType,`,
+    replace: `    // [NEW DEVELOPMENT coa-recode-on-move] docs/modules/COA_RECODE.md
+    let accountCode = current.AccountCode;
+    let codeChangedFrom = '';
+    if (parentAccountId !== String(current.ParentAccountID || '')) {
+      if (hasChildren) {
+        throw new Error("This account has child accounts, so it can't move to another head: its code would no longer match theirs. Move or deactivate the child accounts first.");
+      }
+      const usedIn = findAccountUsage_(idToken, accountId, current.AccountCode, 3);
+      if (usedIn.length) {
+        throw new Error('Account ' + current.AccountCode + ' has already been used (' + usedIn.join(', ') + '), so it can' + "'" + 't move to another head with a new code. ' +
+          'Create a new account under the right head, move the balance to it with a JV, and deactivate this one.');
+      }
+      const others = {};
+      Object.keys(existing).forEach(id => { if (id !== accountId) others[id] = existing[id]; });
+      accountCode = generateAccountCode_(current.AccountType, parentAccountId || null, others, isPostable);
+      codeChangedFrom = current.AccountCode;
+    }
+
+    const record = {
+      AccountCode: accountCode,
+      AccountName: accountName,
+      AccountType: current.AccountType,`
+  },
+  {
+    id: 'coa-recode-on-move (result)',
+    why: 'The new code (and the old one) back to the screen, which tells the user.',
+    find: `    return { success: true, accountId: accountId, accountCode: current.AccountCode };`,
+    replace: `    return { success: true, accountId: accountId, accountCode: accountCode, codeChangedFrom: codeChangedFrom };`
+  },
+  {
     id: 'data-reset-opening-balances (category)',
     why: 'NEW DEVELOPMENT (docs/modules/OPENING_BALANCES.md). The opening batches log lives in its own RTDB path; ' +
       'its entries and stock are in GL Journal Entries and Stock Transactions, so clearing those should clear the log too.',

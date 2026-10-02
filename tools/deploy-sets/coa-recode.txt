@@ -1,0 +1,4 @@
+# COA: an unused account moved to another head gets a new code (owner
+# 2026-10-02; docs/modules/COA_RECODE.md). Run with --screens (COA shows
+# the new code after a move).
+saveAccount                      # recode on move, only if never used

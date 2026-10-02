@@ -1,8 +1,7 @@
 # Compact lists and forms: Item, Vendor and Customer Master
 
 Status: forms **live** 2026-10-02 (PR #50; Deploy runs #50–#52). The
-one-line lists (below) missed PR #50: they go live with a "screens only"
-run after their own PR.
+one-line lists (below) live 2026-10-02 (PR #51; Deploy run #53).
 
 ## The request (owner, 2026-10-02)
 

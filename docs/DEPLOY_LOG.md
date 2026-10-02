@@ -740,3 +740,7 @@ from, and how it was verified. The deploy procedure is in the
     that commit was pushed, so the lists still wrapped (owner's
     screenshot). The fix follows in its own PR.
   - **In the app:** link a menu node to Opening Balances.
+- **2026-10-02, master lists one line per row (PR #51):** Deploy task
+  "screens only", from `f39b072` (`main`, the PR #51 merge), run
+  [#53](https://github.com/yasircmd/erp-firebase/actions/runs/37032350517),
+  16:12–16:13 UTC, success. The list fix is live.

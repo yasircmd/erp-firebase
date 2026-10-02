@@ -9,6 +9,7 @@ const { firebaseDbRequest_, firestoreGet_, firestoreSet_, firestoreUpdate_, fire
 const __approvalRegistry = require('../approvalRegistry');
 const __approvals = require('../approvals');
 const __auth = require('../auth');
+const __coaUsage = require('../coaUsage');
 const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
 const __glWriting = require('../glWriting');
@@ -47,6 +48,7 @@ const ensureRolesSeeded_ = (idToken, ...a) => __roles.ensureRolesSeeded(...a);
 const moduleIdForEntry_ = (...a) => __masterData.moduleIdForEntry(...a);
 const prVisibilityFor_ = (idToken, ...a) => __prVisibility.visibilityFor(...a);
 const canSeePurchaseRequisition_ = (idToken, ...a) => __prVisibility.canSeeRequisition(...a);
+const findAccountUsage_ = (idToken, ...a) => __coaUsage.findAccountUsage(...a);
 
 // ---- constants ----
 const { MODULE_REGISTRY } = __moduleRegistry;
@@ -1098,8 +1100,26 @@ async function saveAccount(idToken, accountData) {
       }
     }
 
+    // [NEW DEVELOPMENT coa-recode-on-move] docs/modules/COA_RECODE.md
+    let accountCode = current.AccountCode;
+    let codeChangedFrom = '';
+    if (parentAccountId !== String(current.ParentAccountID || '')) {
+      if (hasChildren) {
+        throw new Error("This account has child accounts, so it can't move to another head: its code would no longer match theirs. Move or deactivate the child accounts first.");
+      }
+      const usedIn = await findAccountUsage_(idToken, accountId, current.AccountCode, 3);
+      if (usedIn.length) {
+        throw new Error('Account ' + current.AccountCode + ' has already been used (' + usedIn.join(', ') + '), so it can' + "'" + 't move to another head with a new code. ' +
+          'Create a new account under the right head, move the balance to it with a JV, and deactivate this one.');
+      }
+      const others = {};
+      Object.keys(existing).forEach(id => { if (id !== accountId) others[id] = existing[id]; });
+      accountCode = generateAccountCode_(current.AccountType, parentAccountId || null, others, isPostable);
+      codeChangedFrom = current.AccountCode;
+    }
+
     const record = {
-      AccountCode: current.AccountCode,
+      AccountCode: accountCode,
       AccountName: accountName,
       AccountType: current.AccountType,
       AccountSubType: accountSubType,
@@ -1114,7 +1134,7 @@ async function saveAccount(idToken, accountData) {
     };
 
     await firebaseDbRequest_('coa/' + accountId, 'put', record, idToken);
-    return { success: true, accountId: accountId, accountCode: current.AccountCode };
+    return { success: true, accountId: accountId, accountCode: accountCode, codeChangedFrom: codeChangedFrom };
   } catch (err) {
     return { success: false, error: err.message };
   } finally {
