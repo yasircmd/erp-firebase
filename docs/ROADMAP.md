@@ -310,6 +310,32 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     withdraw now closes it.
   - **Purchase Order's Home task still opens the list,** not the order
     (`OpenEntryId` gap).
+- [ ] **Purchase Requisition: who sees which** (owner, 2026-10-02;
+  [PR_VISIBILITY.md](modules/PR_VISIBILITY.md)). Built, not yet live.
+  - **Who sees a requisition:**
+    - the person who raised it;
+    - its approvers, from when it waits on them and afterwards
+      (delegated levels included);
+    - the Procurement follow-up team for its scope, once it is no longer
+      a draft (a draft stays with whoever drafted it);
+    - Admins.
+    - Everyone else sees none.
+  - **Every requisition action** follows the same rule, so nothing can be
+    opened or acted on by its id. Delete gains the company check it
+    lacked.
+  - **Not included:** Inventory Purchase Requisition (owner: Sales only).
+  - **Tests:**
+    - the `prVisibility` suite (3); `purchaseRequisition` updated (its
+      Viewer now sees none);
+    - purchaseOrder, draftTasks, approvalDelegation, approvalTracker and
+      approvalRouting suites pass;
+    - UI: requisitions, draft tasks, approval routing, delegation, and
+      the smoke check of the four screens.
+  - **Negative controls caught: seven.** No raiser rule, no approver
+    rule, team ignoring scope, no Admin rule, no delegated-from approver,
+    cancel unchecked, and drafts shown to the team.
+  - **To go live:** Deploy → "functions set", set `pr-visibility`. No
+    screens.
 - [x] **Deploy warns when screens weren't released** (owner, 2026-10-02).
   - **Why:** runs #40 and #43 deployed functions with the screens box
     unticked, and the owner saw no change.

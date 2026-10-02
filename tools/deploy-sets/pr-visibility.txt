@@ -1,0 +1,10 @@
+# Purchase Requisition visibility (owner 2026-10-02; docs/modules/PR_VISIBILITY.md):
+# the raiser, its approvers, the Procurement team for its scope, Admins.
+# No screens.
+getPurchaseRequisitionEntries        # the list: only what the user may see
+saveDraftPurchaseRequisition         # editing an existing one: same check
+submitPurchaseRequisition            # same check
+decidePurchaseRequisitionApproval    # same check
+closePurchaseRequisition             # same check
+cancelPurchaseRequisition            # same check
+deleteDraftPurchaseRequisition       # same check (and its company)

@@ -985,5 +985,125 @@ function linesForBatch_(idToken, batchId) {
       text: e => \`\${e.TransactionNumber} \${e.Description}\` });
   }
 `
+  },
+  {
+    id: 'pr-visibility-list',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/PR_VISIBILITY.md): a Purchase Requisition is seen only by who raised it, its approvers (any level, delegated or decided, from then on), the Procurement follow-up team for its scope, and Admins. The list and every requisition action use functions/src/prVisibility.js, so a requisition can't be opened or acted on by id either.",
+    find: `  const data = firebaseDbRequest_('purchaseRequisitions', 'get', null, idToken) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ PRID: id }, data[id]))
+    .filter(pr => userCanAccessCompany_(user.profile, pr.CompanyID))
+`,
+    replace: `  const data = firebaseDbRequest_('purchaseRequisitions', 'get', null, idToken) || {};
+  // [PORT CHANGE pr-visibility-list] raiser, approvers, Procurement team, Admins.
+  const canSeePr = prVisibilityFor_(idToken, user);
+  const all = Object.keys(data)
+    .map(id => Object.assign({ PRID: id }, data[id]))
+    .filter(pr => userCanAccessCompany_(user.profile, pr.CompanyID))
+    .filter(pr => canSeePr(pr, pr.PRID))
+`
+  },
+  {
+    id: 'pr-visibility-save',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/PR_VISIBILITY.md): a Purchase Requisition is seen only by who raised it, its approvers (any level, delegated or decided, from then on), the Procurement follow-up team for its scope, and Admins. The list and every requisition action use functions/src/prVisibility.js, so a requisition can't be opened or acted on by id either.",
+    find: `      const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+      if (!existing) throw new Error('Requisition not found.');
+      // Rejected is editable too now`,
+    replace: `      const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+      // [PORT CHANGE pr-visibility-save] only a requisition the user may see.
+      if (!existing || !canSeePurchaseRequisition_(idToken, user, prId, existing)) throw new Error('Requisition not found.');
+      // Rejected is editable too now`
+  },
+  {
+    id: 'pr-visibility-submit',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/PR_VISIBILITY.md): a Purchase Requisition is seen only by who raised it, its approvers (any level, delegated or decided, from then on), the Procurement follow-up team for its scope, and Admins. The list and every requisition action use functions/src/prVisibility.js, so a requisition can't be opened or acted on by id either.",
+    find: `function submitPurchaseRequisition(idToken, prId) {
+  try {
+    const user = requireUser_(idToken);
+    requirePostAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+`,
+    replace: `function submitPurchaseRequisition(idToken, prId) {
+  try {
+    const user = requireUser_(idToken);
+    requirePostAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // [PORT CHANGE pr-visibility-submit] only a requisition the user may see.
+    if (!canSeePurchaseRequisition_(idToken, user, prId, existing)) throw new Error('Requisition not found.');
+`
+  },
+  {
+    id: 'pr-visibility-close',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/PR_VISIBILITY.md): a Purchase Requisition is seen only by who raised it, its approvers (any level, delegated or decided, from then on), the Procurement follow-up team for its scope, and Admins. The list and every requisition action use functions/src/prVisibility.js, so a requisition can't be opened or acted on by id either.",
+    find: `function closePurchaseRequisition(idToken, prId) {
+  try {
+    const user = requireUser_(idToken);
+    requirePostAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+`,
+    replace: `function closePurchaseRequisition(idToken, prId) {
+  try {
+    const user = requireUser_(idToken);
+    requirePostAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // [PORT CHANGE pr-visibility-close] only a requisition the user may see.
+    if (!canSeePurchaseRequisition_(idToken, user, prId, existing)) throw new Error('Requisition not found.');
+`
+  },
+  {
+    id: 'pr-visibility-cancel',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/PR_VISIBILITY.md): a Purchase Requisition is seen only by who raised it, its approvers (any level, delegated or decided, from then on), the Procurement follow-up team for its scope, and Admins. The list and every requisition action use functions/src/prVisibility.js, so a requisition can't be opened or acted on by id either.",
+    find: `function cancelPurchaseRequisition(idToken, prId) {
+  try {
+    const user = requireUser_(idToken);
+    requirePostAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+`,
+    replace: `function cancelPurchaseRequisition(idToken, prId) {
+  try {
+    const user = requireUser_(idToken);
+    requirePostAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // [PORT CHANGE pr-visibility-cancel] only a requisition the user may see.
+    if (!canSeePurchaseRequisition_(idToken, user, prId, existing)) throw new Error('Requisition not found.');
+`
+  },
+  {
+    id: 'pr-visibility-delete',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/PR_VISIBILITY.md): a Purchase Requisition is seen only by who raised it, its approvers (any level, delegated or decided, from then on), the Procurement follow-up team for its scope, and Admins. The list and every requisition action use functions/src/prVisibility.js, so a requisition can't be opened or acted on by id either.",
+    find: `    requireDraftAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (!existing) throw new Error('Requisition not found.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft requisition can be deleted.');`,
+    replace: `    requireDraftAccess_(idToken, user, 'PURCHASEREQUISITION');
+    const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    // [PORT CHANGE pr-visibility-delete] only a requisition the user may see
+    // (which also checks its company: delete had no company check).
+    if (!existing || !canSeePurchaseRequisition_(idToken, user, prId, existing)) throw new Error('Requisition not found.');
+    if (existing.Status !== 'Draft') throw new Error('Only a Draft requisition can be deleted.');`
+  },
+  {
+    id: 'pr-visibility-decide',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/PR_VISIBILITY.md): a Purchase Requisition is seen only by who raised it, its approvers (any level, delegated or decided, from then on), the Procurement follow-up team for its scope, and Admins. The list and every requisition action use functions/src/prVisibility.js, so a requisition can't be opened or acted on by id either.",
+    find: `    const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (existing && !userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    const result = decideApprovalForDocument_(idToken, 'purchaseRequisitions'`,
+    replace: `    const existing = firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
+    if (existing && !userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // [PORT CHANGE pr-visibility-decide] only a requisition the user may see.
+    if (existing && !canSeePurchaseRequisition_(idToken, user, prId, existing)) throw new Error('Requisition not found.');
+    const result = decideApprovalForDocument_(idToken, 'purchaseRequisitions'`
   }
 ];
