@@ -15,6 +15,7 @@ const __glWriting = require('../glWriting');
 const __listPaging = require('../listPaging');
 const __masterData = require('../masterData');
 const __moduleRegistry = require('../moduleRegistry');
+const __prVisibility = require('../prVisibility');
 const __reservations = require('../reservations');
 const __roles = require('../roles');
 const __stockMovement = require('../stockMovement');
@@ -44,6 +45,8 @@ const refreshSalesOrderReservationStatus_ = (idToken, ...a) => __reservations.re
 const ensureTreeSeeded_ = (idToken, ...a) => __tree.ensureTreeSeeded(...a);
 const ensureRolesSeeded_ = (idToken, ...a) => __roles.ensureRolesSeeded(...a);
 const moduleIdForEntry_ = (...a) => __masterData.moduleIdForEntry(...a);
+const prVisibilityFor_ = (idToken, ...a) => __prVisibility.visibilityFor(...a);
+const canSeePurchaseRequisition_ = (idToken, ...a) => __prVisibility.canSeeRequisition(...a);
 
 // ---- constants ----
 const { MODULE_REGISTRY } = __moduleRegistry;
@@ -7484,9 +7487,12 @@ async function getPurchaseRequisitionEntries(idToken, limit) {
     throw new Error('You do not have access to Purchase Requisition.');
   }
   const data = (await firebaseDbRequest_('purchaseRequisitions', 'get', null, idToken)) || {};
+  // [PORT CHANGE pr-visibility-list] raiser, approvers, Procurement team, Admins.
+  const canSeePr = await prVisibilityFor_(idToken, user);
   const all = Object.keys(data)
     .map(id => Object.assign({ PRID: id }, data[id]))
     .filter(pr => userCanAccessCompany_(user.profile, pr.CompanyID))
+    .filter(pr => canSeePr(pr, pr.PRID))
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
   const capped = limit ? all.slice(0, limit) : all;
   return { entries: capped, total: all.length };
@@ -7543,7 +7549,8 @@ async function saveDraftPurchaseRequisition(idToken, header) {
     const prId = String(header.PRID || '').trim();
     if (prId) {
       const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
-      if (!existing) throw new Error('Requisition not found.');
+      // [PORT CHANGE pr-visibility-save] only a requisition the user may see.
+      if (!existing || !(await canSeePurchaseRequisition_(idToken, user, prId, existing))) throw new Error('Requisition not found.');
       // Rejected is editable too now — a resubmission after revision
       // reuses this exact save path, same as first drafting.
       if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only a Draft or Rejected requisition can be edited.');
@@ -7568,6 +7575,8 @@ async function submitPurchaseRequisition(idToken, prId) {
     const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
     if (!existing) throw new Error('Requisition not found.');
     if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // [PORT CHANGE pr-visibility-submit] only a requisition the user may see.
+    if (!(await canSeePurchaseRequisition_(idToken, user, prId, existing))) throw new Error('Requisition not found.');
     // Draft (first submission) or Rejected (resubmitting after a
     // revision) — both go through identical logic below, since a
     // resubmission is structurally the same action as a first
@@ -7616,6 +7625,8 @@ async function decidePurchaseRequisitionApproval(idToken, prId, levelNumber, dec
     await requirePostAccess_(idToken, user, 'PURCHASEREQUISITION');
     const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
     if (existing && !userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // [PORT CHANGE pr-visibility-decide] only a requisition the user may see.
+    if (existing && !(await canSeePurchaseRequisition_(idToken, user, prId, existing))) throw new Error('Requisition not found.');
     const result = await decideApprovalForDocument_(idToken, 'purchaseRequisitions', prId, levelNumber, decision, reason, 'Submitted');
     return Object.assign({ success: true }, result);
   } catch (err) {
@@ -7630,6 +7641,8 @@ async function closePurchaseRequisition(idToken, prId) {
     const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
     if (!existing) throw new Error('Requisition not found.');
     if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // [PORT CHANGE pr-visibility-close] only a requisition the user may see.
+    if (!(await canSeePurchaseRequisition_(idToken, user, prId, existing))) throw new Error('Requisition not found.');
     if (existing.Status !== 'Submitted') throw new Error('Only a Submitted requisition can be closed.');
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
@@ -7649,6 +7662,8 @@ async function cancelPurchaseRequisition(idToken, prId) {
     const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
     if (!existing) throw new Error('Requisition not found.');
     if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // [PORT CHANGE pr-visibility-cancel] only a requisition the user may see.
+    if (!(await canSeePurchaseRequisition_(idToken, user, prId, existing))) throw new Error('Requisition not found.');
     // PendingApproval and Rejected are now real, reachable statuses —
     // a requisition sitting in either should still be abandonable,
     // not stuck waiting on an approval or a resubmission nobody wants
@@ -7672,7 +7687,9 @@ async function deleteDraftPurchaseRequisition(idToken, prId) {
     const user = await requireUser_(idToken);
     await requireDraftAccess_(idToken, user, 'PURCHASEREQUISITION');
     const existing = await firebaseDbRequest_('purchaseRequisitions/' + prId, 'get', null, idToken);
-    if (!existing) throw new Error('Requisition not found.');
+    // [PORT CHANGE pr-visibility-delete] only a requisition the user may see
+    // (which also checks its company: delete had no company check).
+    if (!existing || !(await canSeePurchaseRequisition_(idToken, user, prId, existing))) throw new Error('Requisition not found.');
     if (existing.Status !== 'Draft') throw new Error('Only a Draft requisition can be deleted.');
     await firebaseDbRequest_('purchaseRequisitions/' + prId, 'delete', null, idToken);
     return { success: true };

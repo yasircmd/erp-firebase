@@ -146,6 +146,17 @@ The questions as asked:
       decide by id, and nothing changes.
   - **`purchaseRequisition`:** its Viewer now sees none (it used to see
     all), as agreed.
-  - **Negative controls:** see ROADMAP.md.
+  - **Negative controls, six caught:**
+    - no raiser rule;
+    - no approver rule;
+    - team ignoring scope;
+    - no Admin rule;
+    - no delegated-from approver;
+    - cancel unchecked.
+  - **Regression:** the existing suites and screen checks for
+    requisitions, Purchase Order, drafts, routing, delegation and the
+    Tracker pass.
+  - **No UI test of its own:** the screen is unchanged, and it lists
+    what the server returns.
 - **Deploy:** "functions set", set `pr-visibility`. No screens, no
   Hosting.
