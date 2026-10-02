@@ -1,7 +1,8 @@
 # Compact lists and forms: Item, Vendor and Customer Master
 
-Status: **built** 2026-10-02, not yet live (goes live with a "screens
-only" run).
+Status: forms **live** 2026-10-02 (PR #50; Deploy runs #50–#52). The
+one-line lists (below) missed PR #50: they go live with a "screens only"
+run after their own PR.
 
 ## The request (owner, 2026-10-02)
 

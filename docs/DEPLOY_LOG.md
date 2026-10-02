@@ -724,3 +724,19 @@ from, and how it was verified. The deploy procedure is in the
     `master-import-item-accounts` (getMasterImportSpecs, checkMasterImport,
     runMasterImport), `ALL DONE`. "Check screens are released": "the active
     release matches screens/ (9b2336b)".
+- **2026-10-02, Compact master forms and Opening Balances (PR #50):** from
+  `767fd3b` (`main`, the PR #50 merge), three runs, all successful.
+  - Run [#50](https://github.com/yasircmd/erp-firebase/actions/runs/37024530073),
+    15:05–15:15 UTC: "functions set, then screens", set `opening-balances`
+    (the last function updated was clearSelectedRecords), `ALL DONE`.
+    Release **`20261002T151543Z-767fd3b`**: 63/63 screens (OPENINGBALANCES
+    new) written and verified, active.
+  - Run [#51](https://github.com/yasircmd/erp-firebase/actions/runs/37029458873),
+    15:47–15:56 UTC: the same task again, `ALL DONE`. Release
+    `20261002T155643Z-767fd3b`.
+  - Run [#52](https://github.com/yasircmd/erp-firebase/actions/runs/37031757900),
+    16:07–16:08 UTC: "screens only". Release `20261002T160827Z-767fd3b`.
+  - **The one-line list fix was not in it.** PR #50 was merged before
+    that commit was pushed, so the lists still wrapped (owner's
+    screenshot). The fix follows in its own PR.
+  - **In the app:** link a menu node to Opening Balances.
