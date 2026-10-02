@@ -1,6 +1,7 @@
 # Master Data Import (from Excel)
 
-Status: **design**, awaiting the owner's decisions (2026-10-02).
+Status: **Part 1 built** (2026-10-02), not yet live. Design agreed by the
+owner (2026-10-02). Part 2 to follow.
 
 ## The request (owner, 2026-10-02)
 
@@ -134,9 +135,20 @@ invoices), so a separate design.
 4. **Users:** one temporary password typed on the import screen for the
    batch, never in the sheet. Each user changes it after signing in.
 
-### Follow-up questions (2026-10-02)
+5. **References:** by code, or by exact name. A record created earlier
+   in the same paste can be referred to by its name. A name that matches
+   two records is an issue: use its code.
+6. **The same name twice is an issue:** in the paste, or already
+   existing (same kind, same company). So a list pasted twice can't
+   create everything twice.
+7. **Two parts:**
+   - **Part 1:** Company, Organizational Units, Chart of Accounts, UOM,
+     Item Sub-Category, Items, Vendors, Customers, Currencies.
+   - **Part 2:** Fixed Asset Classes and Master, BOM, Inventory Valuation
+     List, Price Lists, Users, Requisition Categories, Customer
+     Classifications and Sales Types.
 
-The questions as asked:
+The first questions as asked:
 
 1. **Existing records:** when a row's code already exists (e.g. an item
    code), should the import:
@@ -181,3 +193,89 @@ The questions as asked:
   - copy headers;
   - paste, check, issues shown, fix and import.
 - **Negative controls** per rule.
+
+## As built, Part 1 (2026-10-02)
+
+- **Server:** `functions/src/masterImport.js` (hand-written).
+  - **Callables:**
+    - `getMasterImportSpecs`: the list in import order, with each
+      one's columns, what each takes, and a sample row;
+    - `checkMasterImport`: checks a paste, writes nothing;
+    - `runMasterImport`: checks again, then imports.
+  - **One definition per master:** its columns, and how a row becomes
+    what the master's own save function takes. Each row is saved through
+    that Code.gs save (`saveCompany`, `saveOrgUnit`, `saveAccount`,
+    `saveUOM`, `saveItemSubCategory`, `saveItem`, `saveVendor`,
+    `saveCustomer`, `saveCurrency`). So its permission check, company
+    check and every rule apply as by hand.
+  - **The paste:** text copied from Excel, tab-separated, with quoted
+    cells (a tab, a line break or a quote inside a cell) handled. Up to
+    2,000 rows. Headers in any order; matching ignores case and spacing,
+    and a trailing `*`.
+  - **Values:**
+    - Yes/No takes Yes, No, Y, N, True, False, 1, 0;
+    - numbers may have thousand separators;
+    - lists take the stored value or its label ("Raw Material" or
+      "RawMaterial").
+  - **The check, before any write:**
+    - the right to change that master;
+    - unknown, repeated or missing required columns;
+    - required values, lists, Yes/No, numbers, emails;
+    - references, by code or exact name (an account by its code or name
+      among the row's company's and all-company accounts);
+    - access to the row's company;
+    - the same name in the paste or already existing;
+    - each master's own rules that can be checked up front: a Rack's
+      parent is a Warehouse; a parent account is a header of the same
+      type and company; account kinds for items, vendors and customers;
+      a Foreign vendor's or export customer's country; unique Org Unit,
+      UOM and Currency codes; a 3-letter currency code; decimal places
+      0–6.
+  - **All or nothing:** with any issue, nothing is imported. If a save
+    still fails during the import (a rule only the save knows, or a
+    change made meanwhile):
+    - the records created in that run are removed again;
+    - the code counters (item, vendor, customer) are put back, unless
+      someone else used them in the meantime;
+    - the row and its reason are reported. "Nothing was imported."
+  - **A log:** each run is recorded in `masterImports`: who, when, which
+    master, how many rows, what was created, Imported or Undone.
+  - **Not offered in Part 1:**
+    - a company's accounts (set on Company Master once the Chart of
+      Accounts exists);
+    - the default currency (set on Currency Configuration);
+    - a Status column: everything imports as Active.
+- **Screen:** `screens/MASTERIMPORT.html` (hand-written).
+  - Choose from the numbered list. The columns table shows what each
+    takes.
+  - "Copy headers", or "Copy headers with a sample row".
+  - Paste, then Check: the rows are shown with their row numbers; rows
+    with issues are highlighted, and the issues are listed below by row
+    and column.
+  - Import is only enabled for the exact paste that checked clean.
+    Editing it turns Import off again.
+  - An in-app confirmation, then a summary with the codes given (e.g.
+    "RM-000001 to RM-000040").
+- **Module:** `MASTERIMPORT` in the registry (Admin access by default),
+  and a menu entry under SYSTEM ADMIN → Configuration & Data Management
+  for new installs. Existing installs link a node in Module Tree &
+  Navigation.
+- **Tests:**
+  - **The `masterImport` emulator suite (9):**
+    - the list and its access;
+    - Chart of Accounts with a header and children in one paste;
+    - issues by row and column, with nothing written;
+    - items by code or name, with system-made codes;
+    - org units with a rack under a warehouse above it;
+    - vendors and customers, including a name matching two accounts;
+    - company with a parent above, UOM and Currency;
+    - the right to change the master;
+    - a failed save undoes the run, with the counter put back.
+  - **`masterImport.ui.js` (4):**
+    - the order and the columns, and copying the headers;
+    - a paste with issues;
+    - fix, check, import;
+    - a stale check holds Import back.
+  - **Negative controls:** see ROADMAP.md.
+- **Deploy:** "functions set", set `master-import-1`, with screens. Then
+  link a menu node to Master Data Import.
