@@ -276,6 +276,14 @@ The first questions as asked:
     - a paste with issues;
     - fix, check, import;
     - a stale check holds Import back.
-  - **Negative controls:** see ROADMAP.md.
+  - **Negative controls, eight caught:**
+    - duplicate names allowed;
+    - importing despite issues (caught once a test had an issue the
+      save itself allows);
+    - no same-paste references;
+    - no undo;
+    - no write-right check;
+    - no company check;
+    - in the UI, Import enabled despite issues, and a stale check.
 - **Deploy:** "functions set", set `master-import-1`, with screens. Then
   link a menu node to Master Data Import.

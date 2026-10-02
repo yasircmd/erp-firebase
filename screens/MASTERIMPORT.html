@@ -1,0 +1,211 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-file-import text-blue-500"></i> Master Data Import</h2></div>
+  </div>
+
+  <p class="text-xs text-slate-500 max-w-3xl">Choose what to import, copy its headers into Excel, fill the rows, then copy them (headers included) and paste them below. Every row is checked by the same rules as entering it by hand; nothing is imported while any row has an issue. Codes the system makes (account, item, vendor, customer codes, a company's Ref Code) are not in the sheet. Import in the order listed: each one needs the ones above it.</p>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4">
+    <div class="flex flex-col md:flex-row gap-3 md:items-end">
+      <div class="md:w-80">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Import</label>
+        <select id="mimp-master" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">Select...</option></select>
+      </div>
+      <div class="flex gap-2">
+        <button id="mimp-copy-headers" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy headers</button>
+        <button id="mimp-copy-sample" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy headers with a sample row</button>
+      </div>
+    </div>
+    <p id="mimp-note" class="hidden text-xs text-amber-300/90"></p>
+    <div id="mimp-columns-wrap" class="hidden overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead><tr class="text-slate-400 uppercase border-b border-slate-700"><th class="py-1.5 px-2">Column</th><th class="py-1.5 px-2">Required</th><th class="py-1.5 px-2">What it takes</th></tr></thead>
+        <tbody id="mimp-columns" class="divide-y divide-slate-800"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="space-y-2">
+    <label class="block text-xs font-medium text-slate-300">Paste from Excel (headers in the first row)</label>
+    <textarea id="mimp-paste" rows="6" wrap="off" spellcheck="false" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-xs font-mono focus:outline-none focus:border-blue-500" placeholder="Paste here..."></textarea>
+    <div class="flex gap-2">
+      <button id="mimp-check" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-list-check"></i> Check</button>
+      <button id="mimp-import" disabled class="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-file-import"></i> Import</button>
+      <button id="mimp-clear" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Clear</button>
+    </div>
+    <p id="mimp-status" class="hidden text-xs"></p>
+  </div>
+
+  <div id="mimp-preview-wrap" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto max-h-96">
+      <table class="w-full text-left text-xs">
+        <thead id="mimp-preview-head" class="bg-slate-900 text-slate-400 uppercase sticky top-0"></thead>
+        <tbody id="mimp-preview-body" class="divide-y divide-slate-700"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="mimp-issues-wrap" class="hidden bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+    <div class="text-sm font-semibold text-red-300 mb-2"><i class="fa-solid fa-triangle-exclamation"></i> <span id="mimp-issues-title">Issues</span></div>
+    <ul id="mimp-issues" class="text-xs text-red-200 space-y-1"></ul>
+  </div>
+</div>
+
+<textarea id="mimp-copy-staging" class="sr-only" style="position:absolute; left:-9999px;"></textarea>
+
+<script>
+(function () {
+  // Master Data Import (owner, 2026-10-02; docs/modules/MASTER_IMPORT.md).
+  let specs = [];
+  let checkedText = null; // the paste that last checked clean: only that one imports
+
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const el = id => document.getElementById(id);
+  const current = () => specs.find(s => s.key === el('mimp-master').value) || null;
+
+  function setStatus(text, kind) {
+    const s = el('mimp-status');
+    s.textContent = text || '';
+    s.className = 'text-xs ' + (kind === 'ok' ? 'text-emerald-400' : kind === 'error' ? 'text-red-400' : 'text-slate-400');
+    s.classList.toggle('hidden', !text);
+  }
+
+  function renderSpec() {
+    const spec = current();
+    el('mimp-copy-headers').disabled = el('mimp-copy-sample').disabled = !spec;
+    el('mimp-note').classList.toggle('hidden', !(spec && spec.note));
+    el('mimp-note').textContent = spec ? spec.note : '';
+    el('mimp-columns-wrap').classList.toggle('hidden', !spec);
+    el('mimp-columns').innerHTML = spec ? spec.columns.map(c => `
+      <tr>
+        <td class="py-1.5 px-2 text-slate-200 whitespace-nowrap">${escapeHtml(c.header)}</td>
+        <td class="py-1.5 px-2">${c.required ? '<span class="text-amber-300">Required</span>' : '<span class="text-slate-500">Optional</span>'}</td>
+        <td class="py-1.5 px-2 text-slate-400">${escapeHtml([c.values.length ? 'One of: ' + c.values.join(', ') + '.' : '', c.note].filter(Boolean).join(' '))}</td>
+      </tr>`).join('') : '';
+    resetResult();
+  }
+
+  function resetResult() {
+    checkedText = null;
+    el('mimp-import').disabled = true;
+    el('mimp-preview-wrap').classList.add('hidden');
+    el('mimp-issues-wrap').classList.add('hidden');
+    setStatus('');
+  }
+
+  function copy(text, btn) {
+    const original = btn.innerHTML;
+    const flash = ok => { btn.innerHTML = ok ? '<i class="fa-solid fa-check"></i> Copied — paste it into Excel' : '<i class="fa-solid fa-triangle-exclamation"></i> Copy failed'; setTimeout(() => { btn.innerHTML = original; }, 2500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => flash(true), () => copyViaStaging(text, flash));
+      return;
+    }
+    copyViaStaging(text, flash);
+  }
+  function copyViaStaging(text, flash) {
+    const staging = el('mimp-copy-staging');
+    staging.value = text; staging.style.display = 'block'; staging.focus(); staging.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    staging.style.display = 'none';
+    flash(ok);
+  }
+
+  // The pasted rows as checked by the server, issues marked on their rows.
+  function renderPreview(result) {
+    const issues = result.issues || [];
+    const byRow = {};
+    issues.forEach(i => { (byRow[i.row] = byRow[i.row] || []).push(i); });
+    el('mimp-preview-wrap').classList.toggle('hidden', !(result.headers || []).length);
+    el('mimp-preview-head').innerHTML = '<tr><th class="py-2 px-2">Row</th>' + (result.headers || []).map(h => `<th class="py-2 px-2 whitespace-nowrap">${escapeHtml(h)}</th>`).join('') + '</tr>';
+    el('mimp-preview-body').innerHTML = (result.rows || []).map((cells, i) => {
+      const bad = byRow[i + 1];
+      return `<tr class="${bad ? 'bg-red-500/10' : ''}" data-row="${i + 1}"><td class="py-1.5 px-2 text-slate-500">${i + 1}</td>` +
+        (result.headers || []).map((h, c) => {
+          const flagged = bad && bad.some(x => x.column && x.column.toLowerCase() === String(h).replace(/\*$/, '').trim().toLowerCase());
+          return `<td class="py-1.5 px-2 whitespace-nowrap ${flagged ? 'text-red-300 font-semibold' : 'text-slate-300'}">${escapeHtml(cells[c] || '')}</td>`;
+        }).join('') + '</tr>';
+    }).join('');
+    renderIssues(issues);
+  }
+  function renderIssues(issues) {
+    el('mimp-issues-wrap').classList.toggle('hidden', !issues.length);
+    el('mimp-issues-title').textContent = issues.length === 1 ? '1 issue — fix it in Excel and paste again' : issues.length + ' issues — fix them in Excel and paste again';
+    el('mimp-issues').innerHTML = issues.map(i =>
+      `<li>${i.row ? 'Row ' + i.row : 'Headers'}${i.column ? ' · ' + escapeHtml(i.column) : ''}: ${escapeHtml(i.message)}</li>`).join('');
+  }
+
+  function check() {
+    const spec = current();
+    if (!spec) { appAlert('Choose what to import.'); return; }
+    const text = el('mimp-paste').value;
+    if (!text.trim()) { appAlert('Paste the rows from Excel first (headers in the first row).'); return; }
+    resetResult();
+    setStatus('Checking...');
+    el('mimp-check').disabled = true;
+    rpc
+      .withSuccessHandler(result => {
+        el('mimp-check').disabled = false;
+        renderPreview(result);
+        const n = (result.rows || []).length;
+        if ((result.issues || []).length) { setStatus('Not ready to import.', 'error'); return; }
+        checkedText = text;
+        el('mimp-import').disabled = false;
+        setStatus(n + (n === 1 ? ' row' : ' rows') + ' checked, no issues. Ready to import.', 'ok');
+      })
+      .withFailureHandler(err => { el('mimp-check').disabled = false; setStatus(''); appAlert(err.message || 'Unable to check.'); })
+      .checkMasterImport({ master: spec.key, text: text });
+  }
+
+  async function doImport() {
+    const spec = current();
+    const text = el('mimp-paste').value;
+    if (!spec || checkedText === null || text !== checkedText) { appAlert('Check the paste again before importing.'); el('mimp-import').disabled = true; return; }
+    const n = el('mimp-preview-body').rows.length;
+    if (!(await appConfirm('Import ' + n + (n === 1 ? ' row' : ' rows') + ' into ' + spec.label + '?'))) return;
+    el('mimp-import').disabled = true; el('mimp-check').disabled = true;
+    setStatus('Importing...');
+    rpc
+      .withSuccessHandler(result => {
+        el('mimp-check').disabled = false;
+        if (!result.success) {
+          renderIssues(result.issues || []);
+          setStatus('Nothing was imported.', 'error');
+          checkedText = null;
+          return;
+        }
+        checkedText = null;
+        el('mimp-paste').value = '';
+        el('mimp-preview-wrap').classList.add('hidden');
+        el('mimp-issues-wrap').classList.add('hidden');
+        const codes = result.codes && result.codes.length ? ' Codes given: ' + result.codes[0] + (result.codes.length > 1 ? ' to ' + result.codes[result.codes.length - 1] : '') + '.' : '';
+        setStatus(result.created + ' ' + spec.label + (result.created === 1 ? ' record' : ' records') + ' imported.' + codes, 'ok');
+      })
+      .withFailureHandler(err => { el('mimp-check').disabled = false; setStatus(''); appAlert(err.message || 'Unable to import.'); })
+      .runMasterImport({ master: spec.key, text: text });
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-import"></i> Master Data Import';
+    el('mimp-master').addEventListener('change', renderSpec);
+    el('mimp-copy-headers').addEventListener('click', e => { const s = current(); if (s) copy(s.columns.map(c => c.header).join('\t'), e.currentTarget); });
+    el('mimp-copy-sample').addEventListener('click', e => { const s = current(); if (s) copy(s.columns.map(c => c.header).join('\t') + '\n' + s.sample.join('\t'), e.currentTarget); });
+    el('mimp-paste').addEventListener('input', () => { if (checkedText !== null && el('mimp-paste').value !== checkedText) resetResult(); });
+    el('mimp-check').addEventListener('click', check);
+    el('mimp-import').addEventListener('click', doImport);
+    el('mimp-clear').addEventListener('click', () => { el('mimp-paste').value = ''; resetResult(); });
+    rpc
+      .withSuccessHandler(list => {
+        specs = list || [];
+        const select = el('mimp-master');
+        specs.forEach((s, i) => { const o = document.createElement('option'); o.value = s.key; o.textContent = (i + 1) + '. ' + s.label; select.appendChild(o); });
+      })
+      .withFailureHandler(err => appAlert(err.message || 'Unable to load the import list.'))
+      .getMasterImportSpecs();
+  };
+})();
+</script>

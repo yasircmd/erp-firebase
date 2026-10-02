@@ -89,6 +89,13 @@ test('issues are listed by row and column, and nothing is written', async () => 
   assert.equal(r.success, false);
   assert.equal(r.created, 0);
   assert.equal((await list('coa')).length, before, 'nothing written');
+
+  // An issue the master's own save would let through (a duplicate name):
+  // the check alone must stop the import.
+  const dup = await run('ACCOUNT', [['Account Name', 'Account Type', 'Postable'], ['Cash', 'Asset', 'Yes']]);
+  assert.equal(dup.success, false);
+  assert.deepEqual(msgs(dup), ['R1 Account Name: "Cash" already exists.']);
+  assert.equal((await list('coa')).length, before, 'still nothing written');
 });
 
 test('Items: references by code or name; item codes made by the system; a company the user lacks is an issue', async () => {
