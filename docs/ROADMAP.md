@@ -312,8 +312,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (`OpenEntryId` gap).
 - [ ] **Master Data Import from Excel** (owner, 2026-10-02;
   [MASTER_IMPORT.md](modules/MASTER_IMPORT.md)). **Part 1 live
-  2026-10-02** (PR #47; Deploy run #46). **Part 2 built**, not yet
-  live.
+  2026-10-02** (PR #47; Deploy run #46). **Part 2's functions live**
+  (PR #48; Deploy run #47). Its screen still needs a "screens only" run:
+  run #47 warned it wasn't released.
+  - **Fix, 2026-10-02:** the item account rules now match Item Master's
+    save. Consumption is any postable account; Write-off is Expense or
+    COGS. Two negative controls caught. To go live: "functions set", set
+    `master-import-item-accounts`.
   - **Part 2:** Customer Classifications, Sales Types, Requisition
     Categories, Fixed Asset Classes and Master, BOM (a row per
     component), Inventory Valuation, Price Lists (a row per line; an

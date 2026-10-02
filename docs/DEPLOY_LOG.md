@@ -702,3 +702,14 @@ from, and how it was verified. The deploy procedure is in the
   - The screen check was skipped, correctly: the screens were released
     in the same run.
   - **In the app:** link a menu node to Master Data Import.
+- **2026-10-02, Master Data Import, Part 2 (PR #48):** Deploy task
+  "functions set", set `master-import-2`, from `6beeafe` (`main`, the PR
+  #48 merge), run
+  [#47](https://github.com/yasircmd/erp-firebase/actions/runs/37010517136),
+  13:03–13:07 UTC, success.
+  - **The screens were not included.** The step "Check screens are
+    released" (PR #45) warned: "Screens NOT released: 1 differ from the
+    active release. changed: MASTERIMPORT" (active release still
+    `20261002T115635Z-42a2762`).
+  - **Still to run:** "screens only", so the Part 2 screen (the Users
+    temporary-password box) goes live.

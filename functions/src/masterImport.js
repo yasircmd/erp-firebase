@@ -197,9 +197,9 @@ const MASTERS = {
       companyCol,
       C('Default Warehouse', 'DefaultWarehouseID', { type: 'ref', ref: 'warehouse', note: 'Warehouse code or name.' }),
       C('Inventory Account', 'InventoryAccountID', { req: true, type: 'ref', ref: 'account', note: 'Code or name; postable Asset.' }),
-      C('Consumption Account', 'ConsumptionAccountID', { req: true, type: 'ref', ref: 'account', note: 'Postable Expense or COGS.' }),
+      C('Consumption Account', 'ConsumptionAccountID', { req: true, type: 'ref', ref: 'account', note: 'Postable; any type (debited on a Material Issue, credited back on a Production Entry).' }),
       C('Sales COGS Account', 'SalesCogsAccountID', { type: 'ref', ref: 'account', note: 'Postable Expense or COGS.' }),
-      C('Write-off Account', 'WriteOffAccountID', { type: 'ref', ref: 'account', note: 'Postable.' }),
+      C('Write-off Account', 'WriteOffAccountID', { type: 'ref', ref: 'account', note: 'Postable Expense or COGS.' }),
       C('Batch Tracked', 'BatchTracked', { type: 'yesno' }),
       C('Reorder Level', 'ReorderLevel', { type: 'number' })
     ],
@@ -722,9 +722,13 @@ function masterRules(k, r, ex, resolvedAbove, issue) {
         if (!(r.ConversionFactor > 0)) issue('Conversion Factor', 'Enter a conversion factor greater than zero for the alternate UOM.');
       }
       postable(r.InventoryAccountID, 'Inventory Account', ['Asset']);
-      postable(r.ConsumptionAccountID, 'Consumption Account', ['Expense', 'COGS']);
+      // As Item Master's own save: Consumption is debited on a Material
+      // Issue and credited back on a Production Entry, so any postable
+      // account will do (an Asset or Liability clearing account is as valid
+      // as an Expense); Sales COGS and Write-off are expenses.
+      postable(r.ConsumptionAccountID, 'Consumption Account');
       postable(r.SalesCogsAccountID, 'Sales COGS Account', ['Expense', 'COGS']);
-      postable(r.WriteOffAccountID, 'Write-off Account');
+      postable(r.WriteOffAccountID, 'Write-off Account', ['Expense', 'COGS']);
       break;
     }
     case 'VENDOR': {

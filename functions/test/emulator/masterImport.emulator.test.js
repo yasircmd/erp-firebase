@@ -124,8 +124,19 @@ test('Items: references by code or name; item codes made by the system; a compan
   assert.ok(m.includes('R1 Sub-Category: "Pipes" not found.'), m.join('\n'));
   assert.ok(m.includes('R1 UOM: "BOX" not found.'));
   assert.ok(m.includes('R1 Company: You do not have access to that company.'));
-  assert.ok(m.includes('R1 Consumption Account: Consumption Account must be Expense or COGS.'), m.join('\n'));
+  // Consumption takes any postable account, as Item Master does (here an Asset).
+  assert.ok(!m.some(x => /Consumption Account/.test(x)), m.join('\n'));
   assert.ok(m.includes('R2 Item Name: "Steel Sheet 2mm" already exists.'));
+
+  // As Item Master's own save: Consumption may be a Liability (a production
+  // clearing account); Write-off must be Expense or COGS.
+  const acc = await check('ITEM', [['Item Name', 'Category', 'UOM', 'Company', 'Inventory Account', 'Consumption Account', 'Write-off Account'],
+    ['Clamp', 'Raw Material', 'PCS', '01', '1300', 'Trade Payables', '1000']]);
+  assert.deepEqual(msgs(acc), ['R1 Write-off Account: Write-off Account must be Expense or COGS.']);
+  const ok = await run('ITEM', [['Item Name', 'Category', 'UOM', 'Company', 'Inventory Account', 'Consumption Account'],
+    ['Clamp', 'Raw Material', 'PCS', '01', '1300', 'Trade Payables']]);
+  assert.equal(ok.success, true, JSON.stringify(ok));
+  assert.equal((await list('items')).find(i => i.ItemName === 'Clamp').ConsumptionAccountID, 'A-AP');
 });
 
 test('Organizational Units: a warehouse and its rack in one paste; codes and rack parents checked', async () => {
