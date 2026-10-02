@@ -1,7 +1,8 @@
 # Master Data Import (from Excel)
 
-Status: **Part 1 live** 2026-10-02 (PR #47; Deploy run #46). Design agreed by the
-owner (2026-10-02). Part 2 to follow.
+Status: **Part 1 live** 2026-10-02 (PR #47; Deploy run #46). **Part 2
+built** (2026-10-02), not yet live. Design agreed by the
+owner (2026-10-02).
 
 ## The request (owner, 2026-10-02)
 
@@ -287,3 +288,104 @@ The first questions as asked:
     - in the UI, Import enabled despite issues, and a stale check.
 - **Deploy:** "functions set", set `master-import-1`, with screens. Then
   link a menu node to Master Data Import.
+
+## As built, Part 2 (2026-10-02)
+
+- **The list is now 18, in import order:**
+  1. Company
+  2. Organizational Units
+  3. Chart of Accounts
+  4. Currencies
+  5. UOM
+  6. Item Sub-Category
+  7. Items
+  8. Vendors
+  9. Customer Classifications
+  10. Customers
+  11. Sales Types
+  12. Requisition Categories
+  13. Fixed Asset Classes
+  14. Fixed Asset Master
+  15. Bill of Materials
+  16. Inventory Valuation List
+  17. Price Lists
+  18. Users
+  - Currencies moved up (price lists and vendors may use them), and
+    classifications come before customers.
+- **New kinds of values:**
+  - **dates:** dd/mm/yyyy (also d/m/yyyy, dd-mm-yyyy, dd.mm.yyyy, or
+    yyyy-mm-dd); an impossible date such as 31/02/2026 is an issue.
+  - **several references in one cell,** separated by commas: a user's
+    companies.
+- **The masters, as their own save functions take them:**
+  - **Customer Classifications** (`saveCustomerClassification`): name,
+    export yes/no, company.
+  - **Sales Types** (`saveSalesType`): revenue and returns accounts
+    (postable Revenue); restricted to a classification by name, which may
+    be one just imported.
+  - **Requisition Categories** (`saveRequisitionCategory`): the GL
+    account must be Asset for Fixed Asset and Expense for Direct Expense.
+  - **Fixed Asset Classes** (`saveFaClassFor`, the class save moved out
+    of its callable unchanged):
+    - code (unique), name, kind, defaults, account determination by code
+      or name;
+    - a depreciating kind needs a method and useful life (the same check
+      as the save).
+  - **Fixed Asset Master** (`saveFaAssetFor`, likewise):
+    - creates the asset cards (Planned); the asset number is given by the
+      system (FA-01-000001…);
+    - class by code or name; a depreciating class needs a Cost Center;
+    - empty method or life take the class's defaults; valuation is
+      checked as on the screen.
+    - **The duplicate check here is the serial and tag numbers,** not
+      the description, since two assets can share a description.
+  - **Bill of Materials** (`saveBom`): a row per component, grouped by
+    parent item.
+    - The parent's columns (version, effective from, notes) must agree
+      on each row of its BOM.
+    - A parent that already has an active BOM is an issue (saving would
+      switch that BOM off); it is changed on the BOM screen.
+    - The component rules are the save's.
+  - **Inventory Valuation List** (`saveInventoryValuationLine`): only an
+    active Finished or Semi-Finished Good of that company with an active
+    BOM. One line per item and date.
+  - **Price Lists** (`savePriceList`, then `savePriceListLine`): a row
+    per line, grouped by company and list name.
+    - **A new list** needs a currency; its classification mapping is
+      checked against other active lists, and against other new lists in
+      the paste.
+    - **An existing list gets the lines added;** its currency and mapping
+      are left as they are.
+    - The same item and date twice in a list is an issue.
+  - **Users** (`saveFirebaseUser`):
+    - username, full name, email, role (by name), companies (by Ref Code
+      or name, separated by commas);
+    - a **temporary password typed on the screen** (at least 6
+      characters), sent with the import and never stored in the sheet or
+      the log;
+    - username and email must be unique;
+    - each user gets a sign-in and changes the password from the user
+      menu (Change Password).
+- **Patches** `import-bom-id` and `import-user-id`: `saveBom` and
+  `saveFirebaseUser` also return the new record's id, which the undo
+  needs. Nothing else in them changes.
+- **Undo** now also covers:
+  - Firestore records (asset classes, assets);
+  - a user's sign-in account as well as their record;
+  - the asset-number counter (given back unless used meanwhile);
+  - a price list's lines and the list itself (if this run created it).
+- **Screen:** a temporary-password box appears for Users. The summary
+  now counts rows ("12 rows imported into Price Lists").
+- **Tests:**
+  - **The `masterImport2` emulator suite (7):**
+    - classifications, sales types and requisition categories;
+    - FA classes and assets;
+    - BOM grouping and its rules;
+    - inventory valuation eligibility;
+    - price lists, new and existing;
+    - users, with sign-ins, uniqueness and the password not logged;
+    - undo of users, their sign-ins, assets and the asset counter.
+  - **The Part 1 suite (9) still passes,** with the new order.
+  - **`masterImport.ui.js` (5):** adds the Users password box.
+  - **Negative controls:** see ROADMAP.md.
+- **Deploy:** "functions set", set `master-import-2`, with screens.
