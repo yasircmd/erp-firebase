@@ -886,5 +886,104 @@ function linesForBatch_(idToken, batchId) {
     return bom;
   });
 }`
+  },
+  {
+    id: 'list-paging-purchase-order',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/LIST_PAGING.md): Gmail-style paging. With a `page` argument the list returns 100 at a time after a marker (`next`), and search and filters run here over every entry the user can see. Without it the list behaves as before.",
+    find: `function getPurchaseOrderEntries(idToken, limit) {
+  const user = requireUser_(idToken);
+  if (!moduleHasCapability_(idToken, 'PURCHASEORDER', 'access', user.profile.role)) {
+    throw new Error('You do not have access to Purchase Order.');
+  }
+  const data = firebaseDbRequest_('purchaseOrders', 'get', null, idToken) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ POID: id }, data[id]))
+    .filter(po => userCanAccessCompany_(user.profile, po.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+`,
+    replace: `function getPurchaseOrderEntries(idToken, limit, page) {
+  const user = requireUser_(idToken);
+  if (!moduleHasCapability_(idToken, 'PURCHASEORDER', 'access', user.profile.role)) {
+    throw new Error('You do not have access to Purchase Order.');
+  }
+  const data = firebaseDbRequest_('purchaseOrders', 'get', null, idToken) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ POID: id }, data[id]))
+    .filter(po => userCanAccessCompany_(user.profile, po.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  // [PORT CHANGE list-paging-purchase-order] Gmail-style paging; search
+  // matches the PO number and the vendor's name, as the screen's did.
+  if (page) {
+    const vendorsData = firebaseDbRequest_('vendors', 'get', null, idToken) || {};
+    return __listPaging.pageOf(all, page, { idField: 'POID', dateField: 'PODate', equals: ['CompanyID', 'Status'],
+      text: po => (po.PONumber || '') + ' ' + ((vendorsData[po.VendorID] || {}).VendorName || '') });
+  }
+`
+  },
+  {
+    id: 'list-paging-production',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/LIST_PAGING.md): Gmail-style paging. With a `page` argument the list returns 100 at a time after a marker (`next`), and search and filters run here over every entry the user can see. Without it the list behaves as before.",
+    find: `function getProductionEntries(idToken, limit) {
+  const user = requireUser_(idToken);
+  if (!moduleHasCapability_(idToken, 'PRODUCTION', 'access', user.profile.role)) {
+    throw new Error('You do not have access to Production Entry.');
+  }
+  const data = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ ProductionID: id }, data[id]))
+    .filter(e => e.TransactionType === 'Production')
+    .filter(e => userCanAccessCompany_(user.profile, e.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+`,
+    replace: `function getProductionEntries(idToken, limit, page) {
+  const user = requireUser_(idToken);
+  if (!moduleHasCapability_(idToken, 'PRODUCTION', 'access', user.profile.role)) {
+    throw new Error('You do not have access to Production Entry.');
+  }
+  const data = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ ProductionID: id }, data[id]))
+    .filter(e => e.TransactionType === 'Production')
+    .filter(e => userCanAccessCompany_(user.profile, e.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  // [PORT CHANGE list-paging-production] Gmail-style paging and server-side search.
+  if (page) {
+    return __listPaging.pageOf(all, page, { idField: 'ProductionID', idAlso: ['LinkedJVID'], dateField: 'TransactionDate', equals: ['CompanyID', 'Status'],
+      text: e => \`\${e.TransactionNumber} \${e.Description}\` });
+  }
+`
+  },
+  {
+    id: 'list-paging-physical-count',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/LIST_PAGING.md): Gmail-style paging. With a `page` argument the list returns 100 at a time after a marker (`next`), and search and filters run here over every entry the user can see. Without it the list behaves as before.",
+    find: `function getPhysicalCountEntries(idToken, limit) {
+  const user = requireUser_(idToken);
+  if (!moduleHasCapability_(idToken, 'PHYSICALCOUNT', 'access', user.profile.role)) {
+    throw new Error('You do not have access to Physical / Cycle Count.');
+  }
+  const data = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ CountID: id }, data[id]))
+    .filter(e => e.TransactionType === 'PhysicalCount')
+    .filter(e => userCanAccessCompany_(user.profile, e.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+`,
+    replace: `function getPhysicalCountEntries(idToken, limit, page) {
+  const user = requireUser_(idToken);
+  if (!moduleHasCapability_(idToken, 'PHYSICALCOUNT', 'access', user.profile.role)) {
+    throw new Error('You do not have access to Physical / Cycle Count.');
+  }
+  const data = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ CountID: id }, data[id]))
+    .filter(e => e.TransactionType === 'PhysicalCount')
+    .filter(e => userCanAccessCompany_(user.profile, e.CompanyID))
+    .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  // [PORT CHANGE list-paging-physical-count] Gmail-style paging and server-side search.
+  if (page) {
+    return __listPaging.pageOf(all, page, { idField: 'CountID', idAlso: ['LinkedJVID'], dateField: 'TransactionDate', equals: ['CompanyID', 'Status'],
+      text: e => \`\${e.TransactionNumber} \${e.Description}\` });
+  }
+`
   }
 ];

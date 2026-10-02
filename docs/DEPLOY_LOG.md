@@ -658,3 +658,13 @@ from, and how it was verified. The deploy procedure is in the
   [#39](https://github.com/yasircmd/erp-firebase/actions/runs/36602855604),
   17:08–17:11 UTC, success (a functions deploy by its length; the set to
   run was `bom-current-parent-name`).
+- **2026-09-29, approval delegation (PR #43):** from `607ba19` (`main`,
+  the PR #43 merge).
+  - **Functions:** Deploy task "functions set", set `approval-delegation`,
+    run [#40](https://github.com/yasircmd/erp-firebase/actions/runs/36606712998),
+    17:41–17:43 UTC, success. The screens box was not ticked, so the
+    Approval Tracker didn't change yet.
+  - **Screens:** "screens only", run
+    [#41](https://github.com/yasircmd/erp-firebase/actions/runs/36609576600),
+    18:05–18:06 UTC, success. Release **`20260929T180641Z-607ba19`**, 61/61
+    written and verified, active.

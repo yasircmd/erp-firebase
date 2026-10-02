@@ -12,6 +12,7 @@ const __auth = require('../auth');
 const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
 const __glWriting = require('../glWriting');
+const __listPaging = require('../listPaging');
 const __masterData = require('../masterData');
 const __moduleRegistry = require('../moduleRegistry');
 const __reservations = require('../reservations');
@@ -3293,7 +3294,7 @@ async function deleteProductionDraft(idToken, prodId) {
   }
 }
 
-async function getProductionEntries(idToken, limit) {
+async function getProductionEntries(idToken, limit, page) {
   const user = await requireUser_(idToken);
   if (!(await moduleHasCapability_(idToken, 'PRODUCTION', 'access', user.profile.role))) {
     throw new Error('You do not have access to Production Entry.');
@@ -3304,6 +3305,11 @@ async function getProductionEntries(idToken, limit) {
     .filter(e => e.TransactionType === 'Production')
     .filter(e => userCanAccessCompany_(user.profile, e.CompanyID))
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  // [PORT CHANGE list-paging-production] Gmail-style paging and server-side search.
+  if (page) {
+    return __listPaging.pageOf(all, page, { idField: 'ProductionID', idAlso: ['LinkedJVID'], dateField: 'TransactionDate', equals: ['CompanyID', 'Status'],
+      text: e => `${e.TransactionNumber} ${e.Description}` });
+  }
 
   const useAll = limit === 'all';
   const capped = useAll ? all : all.slice(0, 100);
@@ -6002,7 +6008,7 @@ async function deletePhysicalCountDraft(idToken, pcId) {
   }
 }
 
-async function getPhysicalCountEntries(idToken, limit) {
+async function getPhysicalCountEntries(idToken, limit, page) {
   const user = await requireUser_(idToken);
   if (!(await moduleHasCapability_(idToken, 'PHYSICALCOUNT', 'access', user.profile.role))) {
     throw new Error('You do not have access to Physical / Cycle Count.');
@@ -6013,6 +6019,11 @@ async function getPhysicalCountEntries(idToken, limit) {
     .filter(e => e.TransactionType === 'PhysicalCount')
     .filter(e => userCanAccessCompany_(user.profile, e.CompanyID))
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  // [PORT CHANGE list-paging-physical-count] Gmail-style paging and server-side search.
+  if (page) {
+    return __listPaging.pageOf(all, page, { idField: 'CountID', idAlso: ['LinkedJVID'], dateField: 'TransactionDate', equals: ['CompanyID', 'Status'],
+      text: e => `${e.TransactionNumber} ${e.Description}` });
+  }
 
   const useAll = limit === 'all';
   const capped = useAll ? all : all.slice(0, 100);
@@ -9781,7 +9792,7 @@ async function getEligibleRequisitionsForPO(idToken, companyId) {
   return { pr: pr, ipr: ipr };
 }
 
-async function getPurchaseOrderEntries(idToken, limit) {
+async function getPurchaseOrderEntries(idToken, limit, page) {
   const user = await requireUser_(idToken);
   if (!(await moduleHasCapability_(idToken, 'PURCHASEORDER', 'access', user.profile.role))) {
     throw new Error('You do not have access to Purchase Order.');
@@ -9791,6 +9802,13 @@ async function getPurchaseOrderEntries(idToken, limit) {
     .map(id => Object.assign({ POID: id }, data[id]))
     .filter(po => userCanAccessCompany_(user.profile, po.CompanyID))
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  // [PORT CHANGE list-paging-purchase-order] Gmail-style paging; search
+  // matches the PO number and the vendor's name, as the screen's did.
+  if (page) {
+    const vendorsData = (await firebaseDbRequest_('vendors', 'get', null, idToken)) || {};
+    return __listPaging.pageOf(all, page, { idField: 'POID', dateField: 'PODate', equals: ['CompanyID', 'Status'],
+      text: po => (po.PONumber || '') + ' ' + ((vendorsData[po.VendorID] || {}).VendorName || '') });
+  }
   const useAll = limit === 'all';
   const capped = useAll ? all : all.slice(0, 100);
   return { entries: capped, total: all.length };

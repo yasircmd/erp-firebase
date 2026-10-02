@@ -10,6 +10,10 @@ const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprova
 const { withGlobalLock } = require('./lock');
 
 const onCallOptions = { region: 'us-central1' };
+const { pageOf } = require('./listPaging');
+// Gmail-style list paging (owner, 2026-10-02; docs/modules/LIST_PAGING.md).
+const GRN_LIST_SPEC = { idField: 'GRNID', idAlso: ['LinkedJVID'], dateField: 'TransactionDate', equals: ['CompanyID', 'Status', 'InvoiceStatus'], text: e => `${e.TransactionNumber} ${e.Description}` };
+
 // Successful save/post/decide/reverse results carry success: true, same as
 // the original's return contract — the module's own screen checks
 // result.success on every one of these and would otherwise report a
@@ -502,6 +506,14 @@ exports.getGrnEntries = onCallWithMessages(onCallOptions, async (request) => {
     .filter(e => e.TransactionType === 'GRN')
     .filter(e => userCanAccessCompany(user.profile, e.CompanyID))
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+
+  // Gmail-style paging and server-side search (docs/modules/LIST_PAGING.md).
+  // The invoice state is worked out first, so the invoice filter sees it.
+  if (request.data && request.data.page) {
+    const invoices = (await rtdb.ref('vendorInvoices').get()).val() || {};
+    all.forEach(e => Object.assign(e, invoiceStateOf(e, invoices)));
+    return pageOf(all, request.data.page, GRN_LIST_SPEC);
+  }
 
   const limit = request.data && request.data.limit;
   const useAll = limit === 'all';

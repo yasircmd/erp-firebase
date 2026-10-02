@@ -240,7 +240,6 @@
   let canPost = false;
   let entries = [];
   let entriesTotal = 0;
-  let currentLimit = 100;
   let items = [];
   let uoms = [];
   let companies = [];
@@ -301,10 +300,19 @@
 
   // ---------- LIST VIEW ----------
 
-  function fetchAndRenderList(limit) {
-    currentLimit = limit || currentLimit;
-    rpc
-      .withSuccessHandler(result => {
+  // Gmail-style paging; search and filters run on the server over every
+  // entry (docs/modules/LIST_PAGING.md).
+  const listPager = createListPager({
+    notice: 'adj-list-notice', noun: 'Stock Adjustments',
+    fetch: (page, ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail).getStockAdjustmentEntries({ page: page }),
+    filters: () => ({
+      search: document.getElementById('adj-search-input').value,
+      CompanyID: document.getElementById('adj-company-filter').value,
+      Status: document.getElementById('adj-status-filter').value,
+      from: document.getElementById('adj-from-filter').value,
+      to: document.getElementById('adj-to-filter').value
+    }),
+    onLoad: result => {
         entries = result.entries || []; entriesTotal = result.total || 0; renderList();
         if (pendingOpenEntryId) {
           const id = pendingOpenEntryId; pendingOpenEntryId = null;
@@ -317,9 +325,13 @@
           if (found) openEntry(found.AdjustmentID);
           else alert('That Stock Adjustment could not be found — it may have been deleted.');
         }
-      })
-      .withFailureHandler(err => alert(err.message || 'Unable to load GRNs.'))
-      .getStockAdjustmentEntries({ limit: currentLimit });
+    }
+  });
+  // A report's drill-down opens one entry directly ('all' was the old "load
+  // everything, then find it").
+  function fetchAndRenderList(limit) {
+    if (limit === 'all' && pendingOpenEntryId) listPager.open(pendingOpenEntryId);
+    else listPager.reload();
   }
 
   function renderList() {
@@ -329,15 +341,6 @@
     const status = document.getElementById('adj-status-filter').value;
     const from = document.getElementById('adj-from-filter').value;
     const to = document.getElementById('adj-to-filter').value;
-
-    const notice = document.getElementById('adj-list-notice');
-    if (entriesTotal > entries.length) {
-      notice.classList.remove('hidden');
-      notice.innerHTML = `Showing most recent ${entries.length} of ${entriesTotal} Stock Adjustments. <button id="adj-load-all-btn" class="text-blue-400 hover:text-blue-300 underline">Load all</button>`;
-      document.getElementById('adj-load-all-btn').addEventListener('click', () => fetchAndRenderList('all'));
-    } else {
-      notice.classList.add('hidden');
-    }
 
     const filtered = entries.filter(e => {
       if (search && !`${e.TransactionNumber} ${e.Description}`.toLowerCase().includes(search)) return false;
@@ -1482,11 +1485,11 @@
 
     loadReferenceData();
 
-    document.getElementById('adj-search-input').addEventListener('input', renderList);
-    document.getElementById('adj-company-filter').addEventListener('change', renderList);
-    document.getElementById('adj-status-filter').addEventListener('change', renderList);
-    document.getElementById('adj-from-filter').addEventListener('change', renderList);
-    document.getElementById('adj-to-filter').addEventListener('change', renderList);
+    document.getElementById('adj-search-input').addEventListener('input', () => { renderList(); listPager.reloadSoon(); });
+    document.getElementById('adj-company-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('adj-status-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('adj-from-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('adj-to-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
 
     document.getElementById('adj-back-btn').addEventListener('click', goBackToList);
     document.getElementById('adj-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });

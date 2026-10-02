@@ -214,7 +214,6 @@
   let canPost = false;
   let entries = [];
   let entriesTotal = 0;
-  let currentLimit = 100;
   let accounts = [];
   let currentEntry = null;
   let currentType = '';
@@ -303,10 +302,20 @@
 
   // ---------- LIST VIEW ----------
 
-  function fetchAndRenderList(limit) {
-    currentLimit = limit || currentLimit;
-    rpc
-      .withSuccessHandler(result => {
+  // Gmail-style paging; search and filters run on the server over every
+  // entry (docs/modules/LIST_PAGING.md).
+  const listPager = createListPager({
+    notice: 'cbt-list-notice', noun: 'transactions',
+    fetch: (page, ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail).getCbtEntries({ page: page }),
+    filters: () => ({
+      search: document.getElementById('cbt-search-input').value,
+      CompanyID: document.getElementById('cbt-company-filter').value,
+      VoucherType: document.getElementById('cbt-type-filter').value,
+      Status: document.getElementById('cbt-status-filter').value,
+      from: document.getElementById('cbt-date-filter').value,
+      to: document.getElementById('cbt-date-filter').value
+    }),
+    onLoad: result => {
         entries = result.entries || []; entriesTotal = result.total || 0; renderList();
         if (pendingOpenEntryId) {
           const id = pendingOpenEntryId; pendingOpenEntryId = null;
@@ -314,9 +323,13 @@
           if (found) openEntry(id);
           else alert('That transaction could not be found — it may have been deleted.');
         }
-      })
-      .withFailureHandler(err => alert(err.message || 'Unable to load transactions.'))
-      .getCbtEntries({ limit: currentLimit });
+    }
+  });
+  // A report's drill-down opens one entry directly ('all' was the old "load
+  // everything, then find it").
+  function fetchAndRenderList(limit) {
+    if (limit === 'all' && pendingOpenEntryId) listPager.open(pendingOpenEntryId);
+    else listPager.reload();
   }
 
   function renderList() {
@@ -326,15 +339,6 @@
     const type = document.getElementById('cbt-type-filter').value;
     const status = document.getElementById('cbt-status-filter').value;
     const date = document.getElementById('cbt-date-filter').value;
-
-    const notice = document.getElementById('cbt-list-notice');
-    if (entriesTotal > entries.length) {
-      notice.classList.remove('hidden');
-      notice.innerHTML = `Showing most recent ${entries.length} of ${entriesTotal} transactions. <button id="cbt-load-all-btn" class="text-blue-400 hover:text-blue-300 underline">Load all</button>`;
-      document.getElementById('cbt-load-all-btn').addEventListener('click', () => fetchAndRenderList('all'));
-    } else {
-      notice.classList.add('hidden');
-    }
 
     const filtered = entries.filter(e => {
       if (search && !`${e.JVNumber} ${e.Description}`.toLowerCase().includes(search)) return false;
@@ -1475,11 +1479,11 @@
     loadAccounts();
     loadDimensionReferenceData();
 
-    document.getElementById('cbt-search-input').addEventListener('input', renderList);
-    document.getElementById('cbt-company-filter').addEventListener('change', renderList);
-    document.getElementById('cbt-type-filter').addEventListener('change', renderList);
-    document.getElementById('cbt-status-filter').addEventListener('change', renderList);
-    document.getElementById('cbt-date-filter').addEventListener('change', renderList);
+    document.getElementById('cbt-search-input').addEventListener('input', () => { renderList(); listPager.reloadSoon(); });
+    document.getElementById('cbt-company-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('cbt-type-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('cbt-status-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('cbt-date-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
 
     document.getElementById('cbt-back-btn').addEventListener('click', goBackToList);
     document.getElementById('cbt-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });

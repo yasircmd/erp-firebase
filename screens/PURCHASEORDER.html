@@ -217,7 +217,6 @@
   let token = '';
   let canDraft = false;
   let canPost = false;
-  let currentLimit = 100;
   let entriesTotal = 0;
   let entries = [];
   let currentPO = null;
@@ -244,8 +243,8 @@
     const id = pendingOpenEntryId;
     const po = entries.find(p => p.POID === id);
     if (po) { pendingOpenEntryId = null; if (po.Status === 'Draft') openForEdit(id); else openDetail(id); return; }
-    // Older than the first page: load every entry once, then try again.
-    if (entries.length < entriesTotal) { listLoaded = false; fetchAndRenderList('all'); return; }
+    // Not on the first page: fetch that one entry, then try again.
+    if (!listPager.single) { listLoaded = false; listPager.open(id); return; }
     pendingOpenEntryId = null;
     alert('That Purchase Order could not be found — it may have been deleted.');
   }
@@ -289,13 +288,19 @@
   }
 
   // ---------- LIST VIEW ----------
-  function fetchAndRenderList(limit) {
-    currentLimit = limit || currentLimit;
-    rpc
-      .withSuccessHandler(result => { entries = result.entries || []; entriesTotal = result.total || 0; renderList(); listLoaded = true; openPendingEntry(); })
-      .withFailureHandler(err => alert(err.message || 'Unable to load Purchase Orders.'))
-      .getPurchaseOrderEntries({ limit: currentLimit });
-  }
+  // Gmail-style paging; search and filters run on the server over every
+  // entry (docs/modules/LIST_PAGING.md).
+  const listPager = createListPager({
+    notice: 'po-list-notice', noun: 'Purchase Orders',
+    fetch: (page, ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail).getPurchaseOrderEntries({ page: page }),
+    filters: () => ({
+      search: document.getElementById('po-search-input').value,
+      CompanyID: document.getElementById('po-company-filter').value,
+      Status: document.getElementById('po-status-filter').value
+    }),
+    onLoad: result => { entries = result.entries || []; entriesTotal = result.total || 0; renderList(); listLoaded = true; openPendingEntry(); }
+  });
+  function fetchAndRenderList() { listPager.reload(); }
 
   function renderList() {
     const query = document.getElementById('po-search-input').value.trim().toLowerCase();
@@ -326,15 +331,6 @@
       row.addEventListener('click', () => { if (po.Status === 'Draft') openForEdit(po.POID); else openDetail(po.POID); });
       tbody.appendChild(row);
     });
-
-    const notice = document.getElementById('po-list-notice');
-    if (entriesTotal > entries.length) {
-      notice.classList.remove('hidden');
-      notice.innerHTML = `Showing most recent ${entries.length} of ${entriesTotal}. <button id="po-load-all-btn" class="text-blue-400 hover:text-blue-300 underline">Load all</button>`;
-      document.getElementById('po-load-all-btn').addEventListener('click', () => fetchAndRenderList('all'));
-    } else {
-      notice.classList.add('hidden');
-    }
   }
 
   function loadReferenceData() {
@@ -1031,9 +1027,9 @@
     // so an input event there could only come from the revise-mode
     // price inputs anyway.
     document.getElementById('po-detail-view').addEventListener('input', () => { if (reviseMode) isDirty = true; });
-    document.getElementById('po-search-input').addEventListener('input', renderList);
-    document.getElementById('po-company-filter').addEventListener('change', renderList);
-    document.getElementById('po-status-filter').addEventListener('change', renderList);
+    document.getElementById('po-search-input').addEventListener('input', () => { renderList(); listPager.reloadSoon(); });
+    document.getElementById('po-company-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('po-status-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
 
     document.getElementById('po-form-company').addEventListener('change', onCompanyChange);
     document.getElementById('po-form-vendor').addEventListener('change', () => {

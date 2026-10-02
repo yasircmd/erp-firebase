@@ -1563,6 +1563,72 @@
       /^Copy this text/.test(String(message)) ? formatDatesInText(defaultValue) : defaultValue, opts);
     // ---------- END DATE FORMAT ----------
 
+    // ---------- LIST PAGING ----------
+    // Gmail-style document lists (owner, 2026-10-02; docs/modules/
+    // LIST_PAGING.md): the newest 100, then "Load next 100" adds the next
+    // 100 below. Search and filters run on the server over every entry,
+    // 100 matches at a time. A screen creates one pager:
+    //   const pager = createListPager({
+    //     notice: 'xx-list-notice', noun: 'entries',
+    //     fetch: (page, ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail).getXxEntries({ page }),
+    //     filters: () => ({ search, CompanyID, Status, from, to }),
+    //     onLoad: p => { entries = p.entries; renderList(); } });
+    // then pager.reload() (first page, current filters), pager.reloadSoon()
+    // (the same, after typing pauses), pager.more() and pager.open(id)
+    // (that one entry, e.g. a report's drill-down).
+    window.createListPager = function (opts) {
+      const p = { entries: [], total: 0, next: '', filtered: false, loaded: false, loading: false, opening: false, seq: 0 };
+      const notice = () => document.getElementById(opts.notice);
+      const n = v => Number(v || 0).toLocaleString('en-US');
+      function load(mode, id) {
+        const seq = ++p.seq;
+        const page = mode === 'open' ? { id: id } : Object.assign({}, opts.filters ? opts.filters() : {});
+        if (mode === 'more') page.after = p.next;
+        p.loading = true; p.opening = mode === 'open'; p.renderNotice();
+        opts.fetch(page, result => {
+          if (seq !== p.seq) return; // a newer request (e.g. more typing) replaced this one
+          const r = result || {};
+          p.entries = mode === 'more' ? p.entries.concat(r.entries || []) : (r.entries || []);
+          p.total = Number(r.total || 0); p.next = mode === 'open' ? '' : (r.next || '');
+          p.filtered = Boolean(r.filtered); p.single = mode === 'open'; p.loaded = true; p.loading = false; p.opening = false;
+          opts.onLoad(p, mode);
+          p.renderNotice();
+        }, err => {
+          if (seq !== p.seq) return;
+          p.loading = false; p.opening = false; p.renderNotice();
+          appAlert((err && err.message) || 'Unable to load the list.');
+        });
+      }
+      // While a drill-down is fetching its entry, a reload (e.g. the
+      // single-company default setting the company filter as the screen
+      // opens) must not replace it; going back to the list reloads anyway.
+      let timer = null;
+      p.reload = () => { clearTimeout(timer); if (!p.opening) load('reload'); };
+      p.reloadSoon = () => { clearTimeout(timer); timer = setTimeout(() => { if (!p.opening) load('reload'); }, 300); };
+      p.more = () => { if (p.next && !p.loading) load('more'); };
+      p.open = id => { clearTimeout(timer); load('open', id); };
+      p.renderNotice = () => {
+        const el = notice();
+        if (!el) return;
+        const shown = p.entries.length;
+        let html = '';
+        if (p.loaded && !p.single && p.next) {
+          const left = Math.min(100, Math.max(p.total - shown, 1));
+          html = 'Showing 1–' + n(shown) + ' of ' + n(p.total) + ' ' + (p.filtered ? 'matches' : (opts.noun || 'entries')) +
+            '. <button type="button" class="list-load-more text-blue-400 hover:text-blue-300 underline"' + (p.loading ? ' disabled' : '') +
+            '>Load next ' + n(left) + '</button>';
+        } else if (p.loaded && !p.single && p.filtered && p.total) {
+          html = n(p.total) + (p.total === 1 ? ' match' : ' matches');
+        }
+        el.innerHTML = html;
+        el.classList.toggle('hidden', !html);
+        const btn = el.querySelector('.list-load-more');
+        if (btn) btn.addEventListener('click', p.more);
+      };
+      return p;
+    };
+    // ---------- END LIST PAGING ----------
+
     function applyTreeTitle() {
       const titleEl = document.getElementById('app-title');
       // Only touch the title when the tree nav itself is showing — a
