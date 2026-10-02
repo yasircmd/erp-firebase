@@ -1,0 +1,12 @@
+# Master Data Import, Part 1 (owner 2026-10-02; docs/modules/MASTER_IMPORT.md).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+# Run with --screens: MASTERIMPORT (new). Then, in the app, link a menu
+# node to "Master Data Import" (Module Tree & Navigation).
+getMasterImportSpecs             # what can be imported, its columns
+checkMasterImport                # check a paste (no writes)
+runMasterImport                  # import, all or nothing
+getModuleRegistry                # MODULE_REGISTRY: MASTERIMPORT
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode                     # a menu node can link MASTERIMPORT
+getModuleFragment                # serves the MASTERIMPORT screen

@@ -155,6 +155,7 @@ node functions/test/ui/lineGrids.ui.js      # compact line grids and tables, no 
 node functions/test/ui/dateFormat.ui.js     # dates dd/mm/yyyy in lists, messages, Excel copies; entry fields keep yyyy-mm-dd; seeds its own data
 node functions/test/ui/approvalDelegation.ui.js # Approval Tracker: delegate one level, or all of an approver's; seeds its own data
 node functions/test/ui/listPaging.ui.js       # JV / Production / PO lists: "Load next", server search, drill-down; seeds its own data
+node functions/test/ui/masterImport.ui.js     # Master Data Import: copy headers, paste, issues by row, fix, import; seeds its own data
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen
 ```

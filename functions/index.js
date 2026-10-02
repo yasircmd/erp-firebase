@@ -168,3 +168,9 @@ const { getDelegationCandidates, delegateApproval, delegateApprovalsOf } = requi
 exports.getDelegationCandidates = getDelegationCandidates;
 exports.delegateApproval = delegateApproval;
 exports.delegateApprovalsOf = delegateApprovalsOf;
+
+// Master Data Import from Excel (docs/modules/MASTER_IMPORT.md).
+const { getMasterImportSpecs, checkMasterImport, runMasterImport } = require('./src/masterImport');
+exports.getMasterImportSpecs = getMasterImportSpecs;
+exports.checkMasterImport = checkMasterImport;
+exports.runMasterImport = runMasterImport;

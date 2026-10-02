@@ -73,7 +73,10 @@ const MODULE_REGISTRY = [
   { id: 'FAAUC', label: 'Capital Work in Progress', capabilities: ['access', 'draft', 'post'] },
   // New development (not in Code.gs): docs/modules/RECURRING_JOURNAL.md.
   { id: 'RECURRINGJV', label: 'Recurring Journal Entries', capabilities: ['access', 'draft', 'post'] },
-  { id: 'DATARESET', label: 'Data Reset (Admin)', capabilities: ['access', 'write'] }
+  { id: 'DATARESET', label: 'Data Reset (Admin)', capabilities: ['access', 'write'] },
+  // New development: docs/modules/MASTER_IMPORT.md. Importing also needs
+  // write on the master being imported.
+  { id: 'MASTERIMPORT', label: 'Master Data Import', capabilities: ['access'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -175,7 +178,8 @@ const DEFAULT_PERMISSIONS = {
   PHYSICALCOUNT:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   BOM:                { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
   MATERIALVARIANCE:   { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
-  DATARESET:          { access: ['ADMIN'], write: ['ADMIN'] }
+  DATARESET:          { access: ['ADMIN'], write: ['ADMIN'] },
+  MASTERIMPORT:       { access: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

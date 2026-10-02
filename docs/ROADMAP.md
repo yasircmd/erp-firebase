@@ -310,8 +310,40 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     withdraw now closes it.
   - **Purchase Order's Home task still opens the list,** not the order
     (`OpenEntryId` gap).
-- [ ] **Purchase Requisition: who sees which** (owner, 2026-10-02;
-  [PR_VISIBILITY.md](modules/PR_VISIBILITY.md)). Built, not yet live.
+- [ ] **Master Data Import from Excel** (owner, 2026-10-02;
+  [MASTER_IMPORT.md](modules/MASTER_IMPORT.md)). **Part 1 built**, not
+  yet live.
+  - **How it works:** choose a master, copy its headers, fill in Excel,
+    paste, check (issues by row and column), import all or nothing.
+  - **The rules:**
+    - each row goes through the master's own save, so the rules are the
+      same as by hand;
+    - codes the system makes are never in the sheet;
+    - references by code or exact name, also to a row above;
+    - the same name twice is an issue;
+    - a failed import is undone, counters included.
+  - **Part 1:** Company, Org Units, COA, UOM, Item Sub-Category, Items,
+    Vendors, Customers, Currencies.
+  - **Part 2 next:** Fixed Asset Classes and Master, BOM, Inventory
+    Valuation, Price Lists, Users (one temporary password on screen),
+    Requisition Categories, Classifications and Sales Types.
+  - **Later, its own design:** opening balances (GL, stock, open
+    invoices).
+  - **Tests:** the `masterImport` suite (9) and `masterImport.ui.js` (4).
+  - **Negative controls caught: eight.**
+    - duplicate names allowed;
+    - importing despite issues (first missed: the undo hid it, so a
+      test was added where only the check objects);
+    - no same-paste references;
+    - no undo;
+    - no write-right check;
+    - no company check;
+    - in the UI, Import enabled despite issues, and a stale check.
+  - **To go live:** Deploy → "functions set", set `master-import-1`,
+    with screens. Then link a menu node to Master Data Import.
+- [x] **Purchase Requisition: who sees which** (owner, 2026-10-02;
+  [PR_VISIBILITY.md](modules/PR_VISIBILITY.md)). **Live 2026-10-02** (PR
+  #46; Deploy run #45).
   - **Who sees a requisition:**
     - the person who raised it;
     - its approvers, from when it waits on them and afterwards
