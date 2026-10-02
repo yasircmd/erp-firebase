@@ -394,9 +394,21 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [x] **Vendor and Customer SOA: compact view** (owner, 2026-10-02). Built,
+  not yet live.
+  - **What:** on screen only, the printout unchanged: tighter rows and
+    sections, amounts in a smaller font, every column but the
+    description on one line, smaller ageing tiles. Rows go from 2.5 to
+    about 1.4 rem.
+  - **How:** an `@media screen` block in VENDORSOA.html (CUSTOMERSOA.html
+    is built from it by `tools/build-soa-screens.js`).
+  - **Tests:** `partyStatement.ui.js` (5): amount font 0.72rem, tight
+    padding, one line, row ≤ 24 px; in print media none of it applies.
+    Negative control (the block removed) caught.
+  - **To go live:** Deploy → "screens only".
 - [x] **COA: a new code when an account moves to another head** (owner,
-  2026-10-02; [COA_RECODE.md](modules/COA_RECODE.md)). Built, not yet
-  live.
+  2026-10-02; [COA_RECODE.md](modules/COA_RECODE.md)). **Live
+  2026-10-02** (PRs #52 and #53; Deploy runs #54 and #55).
   - **What:** an account moved to the right head gets the next code
     there, only if it has never been used (owner: "only if never used").
     Used: refused, with where it was used and the fix (new account, JV
@@ -406,8 +418,6 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     the shared ones.
   - **Tests:** `coaRecode` suite (5), `coaRecode.ui.js` (4); five negative
     controls caught.
-  - **To go live:** Deploy → "functions set, then screens", set
-    `coa-recode`.
 - [x] **Compact lists and forms: Item, Vendor and Customer Master** (owner,
   2026-10-02; [COMPACT_FORMS.md](modules/COMPACT_FORMS.md)). Forms **live
   2026-10-02** (PR #50; Deploy runs #50–#52). The list fix (one line per

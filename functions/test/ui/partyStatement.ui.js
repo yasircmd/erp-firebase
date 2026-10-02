@@ -93,6 +93,31 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  // Compact view (owner, 2026-10-02): on screen, tight rows, a smaller font for
+  // amounts, one line per row; the printout is left as it was.
+  await check('compact on screen (small amounts, tight rows, one line); print unchanged', async () => {
+    const page = await open('CUSTOMERSOA', 'u-admin');
+    await page.setViewportSize({ width: 900, height: 900 });
+    await runStatement(page, 'CU1', '2026-05-01', '2026-05-31');
+    const look = () => page.evaluate(() => {
+      const row = document.querySelectorAll('#soa-rows tr')[1];
+      const cs = el => getComputedStyle(el);
+      const amount = row.cells[4], date = row.cells[0];
+      return { amountFont: cs(amount).fontSize, padTop: cs(amount).paddingTop, dateWrap: cs(date).whiteSpace,
+        rowHeight: Math.round(row.getBoundingClientRect().height), tile: cs(document.querySelector('#soa-aging > div')).paddingTop };
+    });
+    const screen = await look();
+    assert.deepEqual([screen.amountFont, screen.padTop, screen.dateWrap, screen.tile], ['11.52px', '2.4px', 'nowrap', '5.6px']);
+    assert.ok(screen.rowHeight <= 24, 'row height ' + screen.rowHeight);
+    await page.emulateMedia({ media: 'print' });
+    const printed = await look();
+    assert.notEqual(printed.amountFont, '11.52px', 'print keeps its own size');
+    assert.notEqual(printed.padTop, '2.4px', 'print keeps its own spacing');
+    await page.emulateMedia({ media: 'screen' });
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
   await check('vendor statement: drill through to the invoice and back', async () => {
     const page = await open('VENDORSOA', 'u-admin');
     await runStatement(page, 'V1', '2026-05-01', '2026-05-31');

@@ -137,7 +137,7 @@ node functions/test/ui/dynamicToggle.ui.js  # a real deactivate/reactivate click
 node functions/test/ui/partyPayments.ui.js  # right after the partyPayments suite, every time: JV/CBT allocation screens
 node functions/test/ui/purchaseReturn.ui.js # after the purchaseReturn suite: the Purchase Return screen
 node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the Sales Return screen
-node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: the two SOA screens
+node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: the two SOA screens, compact on screen, print unchanged
 node functions/test/ui/pdc.ui.js            # after the pdc suite: the two PDC screens, SOA pending PDCs
 node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed, but it needs
                                             # cdn.tailwindcss.com: where that's blocked, 8 of its 10 checks fail

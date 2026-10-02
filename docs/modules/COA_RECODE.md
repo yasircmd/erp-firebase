@@ -1,6 +1,6 @@
 # Chart of Accounts: a new code when an account moves to another head
 
-Status: **built** 2026-10-02, not yet live.
+Status: **live** 2026-10-02 (PRs #52 and #53; Deploy runs #54 and #55).
 
 ## The request (owner, 2026-10-02)
 

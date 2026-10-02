@@ -744,3 +744,12 @@ from, and how it was verified. The deploy procedure is in the
   "screens only", from `f39b072` (`main`, the PR #51 merge), run
   [#53](https://github.com/yasircmd/erp-firebase/actions/runs/37032350517),
   16:12–16:13 UTC, success. The list fix is live.
+- **2026-10-02, COA recode on move (PR #52) and shared accounts under
+  each company (PR #53):** two runs, both successful. Each released
+  screens in the same run (its "Check screens are released" step was
+  skipped).
+  - Run [#54](https://github.com/yasircmd/erp-firebase/actions/runs/37038635143),
+    17:08–17:10 UTC, from `0279e49` (the PR #52 merge): with functions
+    (deploy step 1 min 19 s; set `coa-recode`).
+  - Run [#55](https://github.com/yasircmd/erp-firebase/actions/runs/37039499387),
+    17:15–17:18 UTC, from `416bc71` (the PR #53 merge).
