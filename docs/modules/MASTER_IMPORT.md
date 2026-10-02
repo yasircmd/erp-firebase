@@ -1,7 +1,8 @@
 # Master Data Import (from Excel)
 
 Status: **Part 1 live** 2026-10-02 (PR #47; Deploy run #46). **Part 2
-built** (2026-10-02), not yet live. Design agreed by the
+live** 2026-10-02 (PR #48; Deploy runs #47 and #48). Item account fix
+live (PR #49; Deploy run #49). Design agreed by the
 owner (2026-10-02).
 
 ## The request (owner, 2026-10-02)

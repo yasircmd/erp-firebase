@@ -1,3 +1,19 @@
+<style>
+  /* COMPACT FORM (tools/legacy-port/compactForms.js) */
+  #im-modal > div { padding: 0.9rem 1rem; }
+  #im-modal > div > :not([hidden]) ~ :not([hidden]) { margin-top: 0.6rem; }
+  #im-modal > div > div:first-child { padding-bottom: 0.4rem; }
+  #im-form > :not([hidden]) ~ :not([hidden]) { margin-top: 0.5rem; }
+  #im-form .gap-4 { gap: 0.4rem 0.75rem; }
+  #im-form label.block { margin-bottom: 0.1rem; }
+  #im-form :is(input:not([type="checkbox"]), select, textarea) { padding: 0.25rem 0.5rem; }
+  #im-form div.py-2.px-3 { padding: 0.25rem 0.5rem; }
+  #im-form .rounded-xl.p-4 { padding: 0.5rem 0.75rem; }
+  #im-form .rounded-xl.space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.35rem; }
+  #im-form p.form-note { margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help; outline: none; }
+  #im-form p.form-note:focus { white-space: normal; overflow: visible; }
+  #im-form > div:last-child { padding-top: 0.5rem; }
+</style>
 <div class="space-y-6">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Stock Management</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-boxes-stacked text-blue-500"></i> Item Master</h2></div>
@@ -75,7 +91,7 @@
             <input type="number" id="im-form-conversion" min="0" step="any" disabled placeholder="e.g. 200" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm disabled:opacity-40">
           </div>
         </div>
-        <p class="text-xs text-slate-500">Conversion factor = how many Base UOM in 1 Alternate UOM. Example: Base = KG, Alternate = BOX, factor = 200 means 1 BOX = 200 KG.</p>
+        <p class="form-note text-xs text-slate-500" tabindex="0" title="Conversion factor = how many Base UOM in 1 Alternate UOM. Example: Base = KG, Alternate = BOX, factor = 200 means 1 BOX = 200 KG.">Conversion factor = how many Base UOM in 1 Alternate UOM. Example: Base = KG, Alternate = BOX, factor = 200 means 1 BOX = 200 KG.</p>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -99,20 +115,20 @@
           <div>
             <label class="block text-xs font-medium text-slate-300 mb-1">Consumption Account</label>
             <select id="im-form-consumption-account" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
-            <p class="text-xs text-slate-500 mt-1">Debited when this item is issued to production (Material Issue), credited back when this item is produced (Production Entry). Not restricted to Expense-type accounts — a Liability or Asset account is equally valid here.</p>
+            <p class="form-note text-xs text-slate-500" tabindex="0" title="Debited when this item is issued to production (Material Issue), credited back when this item is produced (Production Entry). Not restricted to Expense-type accounts — a Liability or Asset account is equally valid here.">Debited when this item is issued to production (Material Issue), credited back when this item is produced (Production Entry). Not restricted to Expense-type accounts — a Liability or Asset account is equally valid here.</p>
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-300 mb-1">Sales COGS Account <span class="text-slate-500">(optional)</span></label>
             <select id="im-form-salescogs-account" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Same as Consumption</option></select>
-            <p class="text-xs text-slate-500 mt-1">Used when sold directly — e.g. "COGS – Raw Materials", distinct from production consumption.</p>
+            <p class="form-note text-xs text-slate-500" tabindex="0" title="Used when sold directly — e.g. &quot;COGS – Raw Materials&quot;, distinct from production consumption.">Used when sold directly — e.g. "COGS – Raw Materials", distinct from production consumption.</p>
           </div>
           <div>
             <label class="block text-xs font-medium text-slate-300 mb-1">Write-off Account <span class="text-slate-500">(optional)</span></label>
             <select id="im-form-writeoff-account" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Same as Consumption</option></select>
-            <p class="text-xs text-slate-500 mt-1">Used for stock adjustments, scrap, or expiry write-offs.</p>
+            <p class="form-note text-xs text-slate-500" tabindex="0" title="Used for stock adjustments, scrap, or expiry write-offs.">Used for stock adjustments, scrap, or expiry write-offs.</p>
           </div>
         </div>
-        <p class="text-xs text-slate-500">Every stock transaction posts to the GL automatically using these accounts, picked by transaction type — never chosen per-transaction.</p>
+        <p class="form-note text-xs text-slate-500" tabindex="0" title="Every stock transaction posts to the GL automatically using these accounts, picked by transaction type — never chosen per-transaction.">Every stock transaction posts to the GL automatically using these accounts, picked by transaction type — never chosen per-transaction.</p>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

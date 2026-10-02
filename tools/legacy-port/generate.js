@@ -315,6 +315,7 @@ fs.writeFileSync(path.join(OUT_DIR, 'callables.js'), cal);
 // ---- screens ----
 const { toAppDialogs } = require('./appDialogs');
 const { toListPaging } = require('./listPaging');
+const { toCompactForms } = require('./compactForms');
 // Exact-text edits to generated screens (each fails the run if its text is
 // no longer there). Keep this short: prefer a rule in the shell.
 const SCREEN_EDITS = [
@@ -370,6 +371,7 @@ for (const mod of MODULES.filter(m => !HAND_SCREENS.has(m))) {
   if (converted !== chains) throw new Error(mod + ': ' + chains + ' google.script.run chains but ' + converted + ' converted — inspect by hand');
   s = toAppDialogs(s, mod).html; // confirm() / prompt() → the shell's in-app dialogs
   s = toListPaging(s, mod); // Gmail-style list paging (docs/modules/LIST_PAGING.md)
+  s = toCompactForms(s, mod); // compact Add / Edit forms on the master screens (docs/modules/COMPACT_FORMS.md)
   for (const e of SCREEN_EDITS.filter(e => e.mod === mod)) {
     if (s.split(e.from).length !== 2) throw new Error(mod + ': screen edit not found exactly once: ' + e.from);
     s = s.replace(e.from, () => e.to);

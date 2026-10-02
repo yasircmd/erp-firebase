@@ -312,13 +312,11 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (`OpenEntryId` gap).
 - [ ] **Master Data Import from Excel** (owner, 2026-10-02;
   [MASTER_IMPORT.md](modules/MASTER_IMPORT.md)). **Part 1 live
-  2026-10-02** (PR #47; Deploy run #46). **Part 2's functions live**
-  (PR #48; Deploy run #47). Its screen still needs a "screens only" run:
-  run #47 warned it wasn't released.
+  2026-10-02** (PR #47; Deploy run #46). **Part 2 live**
+  (PR #48; functions in Deploy run #47, the screen in run #48).
   - **Fix, 2026-10-02:** the item account rules now match Item Master's
     save. Consumption is any postable account; Write-off is Expense or
-    COGS. Two negative controls caught. To go live: "functions set", set
-    `master-import-item-accounts`.
+    COGS. Two negative controls caught. Live (PR #49; Deploy run #49).
   - **Part 2:** Customer Classifications, Sales Types, Requisition
     Categories, Fixed Asset Classes and Master, BOM (a row per
     component), Inventory Valuation, Price Lists (a row per line; an
@@ -396,6 +394,19 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [x] **Compact forms: Item, Vendor and Customer Master** (owner,
+  2026-10-02; [COMPACT_FORMS.md](modules/COMPACT_FORMS.md)). Built, not
+  yet live.
+  - **What:** the Add / Edit form, "reducing space like CBT": tighter
+    fields, gaps and sections; long help notes on one line (full text on
+    hover or click). Item form 31 % shorter, Vendor / Customer 25 %.
+  - **How:** a generator transform, `tools/legacy-port/compactForms.js`
+    (a style block scoped to each screen's form). Screens only.
+  - **Tests:** `compactForms.ui.js` (10); two negative controls caught;
+    smoke and single-company UI checks pass.
+  - **To go live:** Deploy → "screens only".
+- [ ] **Opening balances** (owner, 2026-10-02): GL, stock, open invoices.
+  Next: its design doc and the owner's decisions.
 - [x] **Deploy warns when screens weren't released** (owner, 2026-10-02).
   - **Why:** runs #40 and #43 deployed functions with the screens box
     unticked, and the owner saw no change.

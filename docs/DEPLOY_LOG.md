@@ -713,3 +713,14 @@ from, and how it was verified. The deploy procedure is in the
     `20261002T115635Z-42a2762`).
   - **Still to run:** "screens only", so the Part 2 screen (the Users
     temporary-password box) goes live.
+- **2026-10-02, Master Data Import Part 2 screen (PR #48) and item account
+  rules (PR #49):** two runs from `9b2336b` (`main`, the PR #49 merge).
+  - Run [#48](https://github.com/yasircmd/erp-firebase/actions/runs/37011989049),
+    13:17–13:18 UTC, success: "screens only". Release
+    **`20261002T131810Z-9b2336b`**: 62/62 screens written and verified,
+    active. The Part 2 screen (the Users temporary-password box) is live.
+  - Run [#49](https://github.com/yasircmd/erp-firebase/actions/runs/37012290963),
+    13:20–13:22 UTC, success: "functions set", set
+    `master-import-item-accounts` (getMasterImportSpecs, checkMasterImport,
+    runMasterImport), `ALL DONE`. "Check screens are released": "the active
+    release matches screens/ (9b2336b)".
