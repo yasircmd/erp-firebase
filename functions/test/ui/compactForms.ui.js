@@ -1,5 +1,7 @@
-// Compact Add / Edit forms on Item, Vendor and Customer Master (owner,
-// 2026-10-02; docs/modules/COMPACT_FORMS.md): tight fields, gaps and
+// Compact lists and Add / Edit forms on Item, Vendor and Customer Master
+// (owner, 2026-10-02; docs/modules/COMPACT_FORMS.md): a list row is one
+// line even on a narrow screen (800 px) (code, company and actions don't wrap); in the
+// form, tight fields, gaps and
 // sections, and each long help note on one line, full text on hover and
 // when clicked. Measured against the same form with the compact style
 // switched off. Seeds its own data (it WIPES the emulator database):
@@ -39,7 +41,15 @@ const TAILWIND_STANDIN = `
   .border { border-width: 1px; border-style: solid; }`;
 
 (async () => {
-  await reset(baseFixture());
+  // A long company name and an item code like the owner's (CONS-000001),
+  // which wrapped onto two lines.
+  const f = baseFixture();
+  f.companies.C1.LegalName = 'NEXUS PRODUCTION LLC';
+  f.items.I1.ItemCode = 'CONS-000001'; f.items.I1.ItemName = 'Eva Primer'; f.items.I1.Category = 'Consumable';
+  Object.assign(f.vendors.V1, { Category: 'RawMaterialSupplier', Classification: 'Local', PaymentTermsDays: 30, ContactPerson: 'Rashid Khan', Phone: '+971 50 111 1111' });
+  f.coa['A-AR'].Status = 'Active';
+  f.customers = { CU1: { CustomerCode: 'CL-000001', CustomerName: 'Beta Trading', Category: 'Retailer', Classification: 'Local', Status: 'Active', CompanyID: 'C1', TradeReceivablesAccountID: 'A-AR', PaymentTermsDays: 45, ContactPerson: 'Sara Ahmed', Phone: '+971 50 000 0000' } };
+  await reset(f);
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
   const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(harness); }).listen(8157);
   const browser = await chromium.launch();
@@ -55,6 +65,39 @@ const TAILWIND_STANDIN = `
       await page.evaluate(css => { const st = document.createElement('style'); st.textContent = css; document.head.prepend(st); }, TAILWIND_STANDIN);
     }
     await page.waitForSelector(s.add + ':not(.hidden)', { timeout: 30000 });
+
+    await check(s.mod + ': a list row is one line on a narrow screen (code, company, contact, actions)', async () => {
+      await page.setViewportSize({ width: 800, height: 900 });
+      await page.waitForSelector('#' + s.p + '-table-body tr td:nth-child(3)', { timeout: 20000 });
+      const m = await page.evaluate(p => {
+        // Lines of text (and icons) in a cell: their boxes, grouped by top,
+        // apart from the few pixels a button's own box sits above its text.
+        const lines = el => {
+          const tops = [];
+          const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+          for (let n = w.nextNode(); n; n = w.nextNode()) {
+            if (!n.data.trim()) continue;
+            const r = document.createRange(); r.selectNodeContents(n);
+            [...r.getClientRects()].forEach(x => tops.push(x.top));
+          }
+          el.querySelectorAll('i').forEach(i => tops.push(i.getBoundingClientRect().top));
+          return tops.sort((a, b) => a - b).reduce((n, t, k, all) => n + (k === 0 || t - all[k - 1] > 8 ? 1 : 0), 0);
+        };
+        const tr = document.querySelector('#' + p + '-table-body tr');
+        const cells = [...tr.cells];
+        const heads = [...tr.closest('table').tHead.rows[0].cells];
+        return {
+          wrapped: cells.map((td, i) => i !== 1 && lines(td) > 1 ? heads[i].textContent : null).filter(Boolean),
+          headsWrapped: heads.filter(th => lines(th) > 1).map(th => th.textContent),
+          height: tr.getBoundingClientRect().height
+        };
+      }, s.p);
+      assert.deepEqual(m.wrapped, [], 'cells on more than one line');
+      assert.deepEqual(m.headsWrapped, [], 'headers on more than one line');
+      assert.ok(m.height < 36, 'row height ' + m.height);
+      await page.setViewportSize({ width: 1400, height: 900 });
+    });
+
     await page.click(s.add);
     await page.waitForSelector('#' + s.p + '-modal:not(.hidden)');
 

@@ -1,7 +1,8 @@
-# Compact forms: Item, Vendor and Customer Master
+# Compact lists and forms: Item, Vendor and Customer Master
 
-Status: **built** 2026-10-02, not yet live (goes live with a "screens
-only" run).
+Status: forms **live** 2026-10-02 (PR #50; Deploy runs #50–#52). The
+one-line lists (below) missed PR #50: they go live with a "screens only"
+run after their own PR.
 
 ## The request (owner, 2026-10-02)
 
@@ -75,3 +76,28 @@ Negative controls, both caught: no style block (9 of 10 checks fail);
 notes without `tabindex` (the three "opens when clicked" checks fail).
 The smoke (123) and single-company (54) UI checks, which open these
 screens, still pass.
+
+## The lists too (owner, 2026-10-02, follow-up)
+
+The owner then showed the **Item Master list**: each row was two or three
+lines tall, because the code broke at its hyphen ("CONS-" / "000001"),
+the company name wrapped ("NEXUS PRODUCTION LLC" / "(03)") and the three
+action icons wrapped onto a second line. "Fix this issue, nothing roll
+back what already done": the compact forms stay, and the lists of the
+three screens now get, from the same scoped style block:
+
+- every cell but the name on **one line** (code, category, company,
+  contact, status, actions), and the column headers on one line
+  ("Sub-Category");
+- the name column keeps at least 14rem, so a normal name stays on one
+  line too; only a very long one wraps;
+- on a narrow screen the list scrolls sideways (its existing scroll
+  box) instead of rows growing tall;
+- smaller padding on the action icons, and a tighter filter bar.
+
+Test: `compactForms.ui.js` now also checks, at an 800 px window (the
+width where the old layout wrapped exactly as in the owner's
+screenshot), that no cell or header of the first row is on more than one
+line and the row is under 36 px (13 checks). Negative control: without
+the one-line rule, all three screens fail with Code, Company / Category,
+Contact and Actions wrapped.

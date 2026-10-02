@@ -394,20 +394,24 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
-- [x] **Compact forms: Item, Vendor and Customer Master** (owner,
-  2026-10-02; [COMPACT_FORMS.md](modules/COMPACT_FORMS.md)). Built, not
-  yet live.
+- [x] **Compact lists and forms: Item, Vendor and Customer Master** (owner,
+  2026-10-02; [COMPACT_FORMS.md](modules/COMPACT_FORMS.md)). Forms **live
+  2026-10-02** (PR #50; Deploy runs #50–#52). The list fix (one line per
+  row) missed PR #50 and goes in its own PR: "screens only".
   - **What:** the Add / Edit form, "reducing space like CBT": tighter
     fields, gaps and sections; long help notes on one line (full text on
     hover or click). Item form 31 % shorter, Vendor / Customer 25 %.
   - **How:** a generator transform, `tools/legacy-port/compactForms.js`
     (a style block scoped to each screen's form). Screens only.
-  - **Tests:** `compactForms.ui.js` (10); two negative controls caught;
+  - **Lists too** (owner's follow-up): a list row is one line (code,
+    company, actions no longer wrap; headers on one line); narrow screens
+    scroll sideways.
+  - **Tests:** `compactForms.ui.js` (13); three negative controls caught;
     smoke and single-company UI checks pass.
-  - **To go live:** Deploy → "screens only".
+  - **To go live (lists):** Deploy → "screens only".
 - [x] **Opening balances** (owner, 2026-10-02;
-  [OPENING_BALANCES.md](modules/OPENING_BALANCES.md)). Built, not yet
-  live. Design agreed 2026-10-02 (all seven decisions as proposed).
+  [OPENING_BALANCES.md](modules/OPENING_BALANCES.md)). **Live
+  2026-10-02** (PR #50; Deploy runs #50–#52). Design agreed 2026-10-02 (all seven decisions as proposed).
   - **What:** a new Admin screen. Per company: opening date and clearing
     account; then GL, Stock and Open Invoices pasted from Excel, checked
     and posted against the clearing account, which is zero once all
@@ -417,8 +421,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     its own cost.
   - **Tests:** the `openingBalances` suite (8) and `openingBalances.ui.js`
     (4); four negative controls caught.
-  - **To go live:** Deploy → "functions set, then screens", set
-    `opening-balances`. Then link a menu node to Opening Balances.
+  - **In the app:** link a menu node to Opening Balances.
 - [x] **Deploy warns when screens weren't released** (owner, 2026-10-02).
   - **Why:** runs #40 and #43 deployed functions with the screens box
     unticked, and the owner saw no change.

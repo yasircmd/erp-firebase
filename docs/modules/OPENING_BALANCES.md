@@ -1,6 +1,6 @@
 # Opening Balances
 
-Status: **built** 2026-10-02, not yet live. Design agreed by the owner
+Status: **live** 2026-10-02 (PR #50; Deploy runs #50–#52). Design agreed by the owner
 (2026-10-02). As built: see the end.
 
 ## The request (owner, 2026-10-02)
