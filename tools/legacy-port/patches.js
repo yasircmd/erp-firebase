@@ -1105,5 +1105,115 @@ function linesForBatch_(idToken, batchId) {
     // [PORT CHANGE pr-visibility-decide] only a requisition the user may see.
     if (existing && !canSeePurchaseRequisition_(idToken, user, prId, existing)) throw new Error('Requisition not found.');
     const result = decideApprovalForDocument_(idToken, 'purchaseRequisitions'`
+  },
+  {
+    id: 'import-user-id',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/MASTER_IMPORT.md, Part 2): the save also returns the new record's id, so Master Data Import can remove it again if a later row of the same import fails. Nothing else changes.",
+    find: `    if (!id) {
+      if (!email) throw new Error('Email is required for a new Firebase account.');
+      if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+
+      const authUser = firebaseAuthRequest_('accounts:signUp', {
+        email: email,
+        password: password,
+        returnSecureToken: true
+      });
+
+      firebaseDbRequest_(
+        \`users/\${authUser.localId}\`,
+        'put',
+        {
+          username: username,
+          email: email,
+          fullName: fullName,
+          role: role,
+          status: status,
+          lastLogin: 'Never',
+          createdAt: new Date().toISOString(),
+          AssignedCompanies: assignedCompanies
+        },
+        idToken
+      );
+    } else {
+      firebaseDbRequest_(
+        \`users/\${id}\`,
+        'patch',
+        {
+          fullName: fullName,
+          role: role,
+          status: status,
+          updatedAt: new Date().toISOString(),
+          AssignedCompanies: assignedCompanies
+        },
+        idToken
+      );
+    }
+
+    return { success: true };
+`,
+    replace: `    // [PORT CHANGE import-user-id] the user's id is returned, for Master Data Import's undo.
+    let savedUserId = id;
+    if (!id) {
+      if (!email) throw new Error('Email is required for a new Firebase account.');
+      if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+
+      const authUser = firebaseAuthRequest_('accounts:signUp', {
+        email: email,
+        password: password,
+        returnSecureToken: true
+      });
+      savedUserId = authUser.localId;
+
+      firebaseDbRequest_(
+        \`users/\${authUser.localId}\`,
+        'put',
+        {
+          username: username,
+          email: email,
+          fullName: fullName,
+          role: role,
+          status: status,
+          lastLogin: 'Never',
+          createdAt: new Date().toISOString(),
+          AssignedCompanies: assignedCompanies
+        },
+        idToken
+      );
+    } else {
+      firebaseDbRequest_(
+        \`users/\${id}\`,
+        'patch',
+        {
+          fullName: fullName,
+          role: role,
+          status: status,
+          updatedAt: new Date().toISOString(),
+          AssignedCompanies: assignedCompanies
+        },
+        idToken
+      );
+    }
+
+    return { success: true, userId: savedUserId };
+`
+  },
+  {
+    id: 'import-bom-id',
+    why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/MASTER_IMPORT.md, Part 2): the save also returns the new record's id, so Master Data Import can remove it again if a later row of the same import fails. Nothing else changes.",
+    find: `      const newId = 'BOM-' + Utilities.getUuid().split('-')[0].toUpperCase();
+      updates[newId] = Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor });
+    }
+
+    firebaseDbRequest_('boms', 'patch', updates, idToken);
+    return { success: true };
+`,
+    replace: `      const newId = 'BOM-' + Utilities.getUuid().split('-')[0].toUpperCase();
+      updates[newId] = Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor });
+    }
+
+    firebaseDbRequest_('boms', 'patch', updates, idToken);
+    // [PORT CHANGE import-bom-id] the BOM's id is returned, for Master Data Import's undo.
+    return { success: true, bomId: bomId || Object.keys(updates).find(k => updates[k].CreatedAt === now && updates[k].ParentItemID === parentItemId) };
+`
   }
 ];

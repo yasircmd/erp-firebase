@@ -9,14 +9,23 @@
 // paste (by name). If a save still fails during the import, the records
 // created in that run are removed again and the code counters put back.
 // Part 1: Company, Organizational Units, Chart of Accounts, UOM, Item
-// Sub-Category, Items, Vendors, Customers, Currencies.
+// Sub-Category, Items, Vendors, Customers, Currencies. Part 2: Customer
+// Classifications, Sales Types, Requisition Categories, Fixed Asset Classes
+// and Master, Bill of Materials, Inventory Valuation List, Price Lists and
+// Users. A BOM (its components) and a price list (its lines) take several
+// rows, one per component or line, with the BOM's or list's own columns
+// repeated.
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
+const { firestore, admin } = require('./firebaseAdmin');
 const L = require('./legacy/codegs');
 const { run } = require('./legacy/runtime');
+const { saveFaClassFor } = require('./fixedAssetsConfig');
+const { saveFaAssetFor } = require('./fixedAssetsMaster');
+const { validateValuation } = require('./faDepreciation');
 
 const onCallOptions = { region: 'us-central1', timeoutSeconds: 540, memory: '512MiB' };
 const MAX_ROWS = 2000;
@@ -62,6 +71,23 @@ function number(v) {
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
+// A date as shown everywhere (dd/mm/yyyy; also d/m/yyyy, dd-mm-yyyy,
+// dd.mm.yyyy) or as stored (yyyy-mm-dd). Returns yyyy-mm-dd, '' or null.
+function dateValue(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+  let y, m, d;
+  let x = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (x) { y = +x[1]; m = +x[2]; d = +x[3]; } else {
+    x = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+    if (!x) return null;
+    d = +x[1]; m = +x[2]; y = +x[3];
+  }
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+  return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+
 // An allowed value by its stored form or its label, ignoring case and
 // spacing ("Raw Material" = "RawMaterial").
 function enumValue(v, values) {
@@ -79,6 +105,11 @@ const CASH_FLOW = labelled(['Operating', 'Investing', 'Financing']);
 const VENDOR_CATEGORIES = labelled(['RawMaterialSupplier', 'ServiceProvider', 'Contractor', 'Utility', 'Other']);
 const CUSTOMER_CATEGORIES = labelled(['Retailer', 'Wholesaler', 'Distributor', 'Government', 'Individual', 'Other']);
 const VENDOR_CLASSES = labelled(['Local', 'Foreign']);
+const FA_KINDS = [{ value: 'Tangible', label: 'Tangible' }, { value: 'Land', label: 'Land' }, { value: 'Intangible', label: 'Intangible' },
+  { value: 'AuC', label: 'Capital Work in Progress' }];
+const FA_METHODS = [{ value: 'SL', label: 'Straight Line' }, { value: 'WDV', label: 'Written Down Value' }, { value: 'None', label: 'None' }];
+const REQ_TYPES = [{ value: 'FixedAsset', label: 'Fixed Asset' }, { value: 'DirectExpense', label: 'Direct Expense' }];
+const PRICE_MAPPINGS = labelled(['Local', 'Export']);
 
 // ---------- the masters (Part 1) ----------
 // columns: { h: header, key, req, type: text|yesno|number|enum|ref|email,
@@ -228,28 +259,191 @@ const MASTERS = {
     ],
     sample: ['USD', 'US Dollar', '$'],
     toData: r => ({ Code: r.Code, Name: r.Name, Symbol: r.Symbol })
+  },
+
+  // ---------- Part 2 ----------
+  CLASSIFICATION: {
+    label: 'Customer Classifications', module: 'SALESINVOICESETUP', save: 'saveCustomerClassification', idKey: 'classificationId',
+    path: 'customerClassifications', nameKey: 'Name',
+    columns: [
+      C('Name', 'Name', { req: true }),
+      C('Export', 'IsExport', { type: 'yesno', note: 'Yes for export customers (their country is then required).' }),
+      companyCol
+    ],
+    sample: ['GCC', 'Yes', ''],
+    toData: r => ({ Name: r.Name, IsExport: r.IsExport, CompanyID: r.CompanyID })
+  },
+  SALESTYPE: {
+    label: 'Sales Types', module: 'SALESINVOICESETUP', save: 'saveSalesType', idKey: 'salesTypeId', path: 'salesTypes', nameKey: 'Name',
+    columns: [
+      C('Name', 'Name', { req: true }),
+      companyCol,
+      C('Sales Revenue Account', 'GLAccountID', { req: true, type: 'ref', ref: 'account', note: 'Code or name; postable Revenue.' }),
+      C('Sales Returns Account', 'SalesReturnsAccountID', { req: true, type: 'ref', ref: 'account', note: 'Code or name; postable Revenue.' }),
+      C('Restricted to Classification', 'RestrictedToClassificationID', { type: 'ref', ref: 'classification', note: 'Empty: any customer.' })
+    ],
+    sample: ['Trading Sales', '01', '410100', '410900', ''],
+    toData: r => ({ Name: r.Name, CompanyID: r.CompanyID, GLAccountID: r.GLAccountID, SalesReturnsAccountID: r.SalesReturnsAccountID,
+      RestrictedToClassificationID: r.RestrictedToClassificationID })
+  },
+  REQCATEGORY: {
+    label: 'Requisition Categories', module: 'PROCUREMENTSETUP', save: 'saveRequisitionCategory', idKey: 'categoryId',
+    path: 'requisitionCategories', nameKey: 'Name',
+    columns: [
+      C('Name', 'Name', { req: true }),
+      C('Type', 'Type', { req: true, type: 'enum', values: REQ_TYPES }),
+      companyCol,
+      C('GL Account', 'GLAccountID', { req: true, type: 'ref', ref: 'account', note: 'Postable Asset for Fixed Asset, Expense for Direct Expense.' })
+    ],
+    sample: ['Printing & Stationery', 'Direct Expense', '01', '620100'],
+    toData: r => ({ Name: r.Name, Type: r.Type, CompanyID: r.CompanyID, GLAccountID: r.GLAccountID })
+  },
+  FACLASS: {
+    label: 'Fixed Asset Classes', module: 'FACONFIG', nameKey: 'Name', store: { firestore: 'faClasses' },
+    saveFn: async (ctx, user, data) => { const res = await saveFaClassFor(user, data); return { id: res.classId }; },
+    note: 'Depreciating kinds (Tangible, Intangible) need a method and useful life; Land and Capital Work in Progress are not depreciated.',
+    columns: [
+      C('Code', 'Code', { req: true, note: 'As on the form; must be unique.' }),
+      C('Name', 'Name', { req: true }),
+      C('Kind', 'Kind', { req: true, type: 'enum', values: FA_KINDS }),
+      companyCol,
+      C('Default Method', 'DefaultMethod', { type: 'enum', values: FA_METHODS }),
+      C('Default Useful Life (months)', 'DefaultUsefulLifeMonths', { type: 'number' }),
+      C('Default WDV Rate %', 'DefaultWdvRate', { type: 'number', note: 'With Written Down Value.' }),
+      C('Default Residual %', 'DefaultResidualPercent', { type: 'number' }),
+      C('Account Determination', 'AccountDeterminationID', { req: true, type: 'ref', ref: 'faDetermination', note: 'Code or name, from Fixed Asset Configuration.' })
+    ],
+    sample: ['VEH', 'Vehicles', 'Tangible', '', 'Straight Line', '60', '', '10', 'VEHICLES'],
+    toData: r => ({ Code: r.Code, Name: r.Name, Kind: r.Kind, CompanyID: r.CompanyID, DefaultMethod: r.DefaultMethod,
+      DefaultUsefulLifeMonths: r.DefaultUsefulLifeMonths, DefaultWdvRate: r.DefaultWdvRate, DefaultResidualPercent: r.DefaultResidualPercent,
+      AccountDeterminationID: r.AccountDeterminationID })
+  },
+  FAASSET: {
+    label: 'Fixed Asset Master', module: 'FAASSET', capability: 'draft', nameKey: 'Description', noNameDup: true, store: { firestore: 'faAssets' },
+    saveFn: async (ctx, user, data) => { const res = await saveFaAssetFor(user, data); return { id: res.assetId, code: res.assetNumber }; },
+    note: 'Creates the asset cards (Planned). Cost and depreciation start with Fixed Asset Capitalization. The asset number is given by the system. Empty method or life: the class\'s default.',
+    columns: [
+      Object.assign({}, companyCol, { req: true, note: 'Ref Code or legal name.' }),
+      C('Class', 'ClassID', { req: true, type: 'ref', ref: 'faClass', note: 'Class code or name.' }),
+      C('Description', 'Description', { req: true }),
+      C('Serial Number', 'SerialNumber'), C('Tag Number', 'TagNumber'),
+      C('Quantity', 'Quantity', { type: 'number', note: 'Empty: 1.' }),
+      C('Purchase Date', 'PurchaseDate', { type: 'date' }),
+      C('Purchase Invoice Ref', 'PurchaseInvoiceRef'),
+      C('Supplier', 'SupplierID', { type: 'ref', ref: 'vendor', note: 'Vendor code or name.' }),
+      C('Division', 'DivisionID', { type: 'ref', ref: 'division' }),
+      C('Branch', 'BranchID', { type: 'ref', ref: 'branch' }),
+      C('Cost Center', 'CostCenterID', { type: 'ref', ref: 'costCenter', note: 'Required for a depreciating class.' }),
+      C('Profit Center', 'ProfitCenterID', { type: 'ref', ref: 'profitCenter' }),
+      C('Method', 'Method', { type: 'enum', values: FA_METHODS }),
+      C('Useful Life (months)', 'UsefulLifeMonths', { type: 'number' }),
+      C('WDV Rate %', 'WdvRate', { type: 'number' }),
+      C('Residual Value', 'ResidualValue', { type: 'number' }),
+      C('Depreciation Start Date', 'DepStartDate', { type: 'date' }),
+      C('Notes', 'Notes')
+    ],
+    sample: ['01', 'VEH', 'Toyota Hilux', 'SN-1234', 'TAG-0001', '1', '15/01/2026', 'INV-889', '', '', '', 'CC1', '', '', '', '', '0', '', ''],
+    toData: r => Object.assign({}, r, { Quantity: r.Quantity === '' ? 1 : r.Quantity })
+  },
+  BOM: {
+    label: 'Bill of Materials', module: 'BOM', save: 'saveBom', idKey: 'bomId', path: 'boms', nameKey: null,
+    note: 'One row per component; the parent item\'s columns repeat on each row of its BOM. A parent that already has an active BOM is edited on the BOM screen.',
+    group: { key: r => (typeof r.ParentItemID === 'string' ? r.ParentItemID : ''), header: ['ParentItemID', 'BOMVersion', 'EffectiveFrom', 'Notes'] },
+    columns: [
+      C('Parent Item', 'ParentItemID', { req: true, type: 'ref', ref: 'item', note: 'Item code or name; a Finished or Semi-Finished Good.' }),
+      C('BOM Version', 'BOMVersion', { note: 'Empty: 1.0.' }),
+      C('Effective From', 'EffectiveFrom', { type: 'date', note: 'Empty: today.' }),
+      C('Notes', 'Notes'),
+      C('Component Item', 'ComponentItemID', { req: true, type: 'ref', ref: 'item', note: 'Raw Material, Semi-Finished Good or Consumable.' }),
+      C('Quantity', 'Quantity', { req: true, type: 'number' }),
+      C('Scrap %', 'ScrapPercent', { type: 'number' })
+    ],
+    sample: ['FG-000001', '1.0', '', '', 'RM-000001', '2', '0'],
+    toGroupData: rows => ({ ParentItemID: rows[0].ParentItemID, BOMVersion: rows[0].BOMVersion, EffectiveFrom: rows[0].EffectiveFrom,
+      Notes: rows[0].Notes, Status: 'Active',
+      Components: rows.map(r => ({ ComponentItemID: r.ComponentItemID, Quantity: r.Quantity, ScrapPercent: r.ScrapPercent === '' ? 0 : r.ScrapPercent })) })
+  },
+  VALUATION: {
+    label: 'Inventory Valuation List', module: 'INVENTORYVALUATION', save: 'saveInventoryValuationLine', idKey: 'lineId',
+    path: 'inventoryValuationLines', nameKey: null,
+    note: 'Only items that can be produced: Finished or Semi-Finished Goods with an active BOM, in that company.',
+    columns: [
+      Object.assign({}, companyCol, { req: true, note: 'Ref Code or legal name.' }),
+      C('Item', 'ItemID', { req: true, type: 'ref', ref: 'item', note: 'Item code or name.' }),
+      C('Unit Cost', 'UnitCost', { req: true, type: 'number' }),
+      C('Effective From', 'EffectiveFrom', { req: true, type: 'date' })
+    ],
+    sample: ['01', 'FG-000001', '125.50', '01/01/2026'],
+    toData: (r, ex) => ({ CompanyID: r.CompanyID, ItemCode: (ex.raw.items[r.ItemID] || {}).ItemCode, UnitCost: r.UnitCost, EffectiveFrom: r.EffectiveFrom })
+  },
+  PRICELIST: {
+    label: 'Price Lists', module: 'PRICELISTING', nameKey: null,
+    note: 'One row per item; the price list\'s columns repeat on each row. A list that already exists gets the lines added (its currency and mapping stay as they are).',
+    group: { key: r => (typeof r.CompanyID === 'string' ? r.CompanyID : '') + '|' + norm(r.Name), header: ['CompanyID', 'Name', 'CurrencyID', 'CustomerClassificationMapping'] },
+    columns: [
+      Object.assign({}, companyCol, { req: true, note: 'Ref Code or legal name.' }),
+      C('Price List', 'Name', { req: true, note: 'An existing list\'s name, or a new one.' }),
+      C('Currency', 'CurrencyID', { type: 'ref', ref: 'currency', note: 'Currency code; required for a new list.' }),
+      C('Classification Mapping', 'CustomerClassificationMapping', { type: 'enum', values: PRICE_MAPPINGS, note: 'Local or Export, to apply automatically; or empty.' }),
+      C('Item', 'ItemID', { req: true, type: 'ref', ref: 'item', note: 'Item code or name.' }),
+      C('Unit Price', 'UnitPrice', { req: true, type: 'number' }),
+      C('Effective From', 'EffectiveFrom', { req: true, type: 'date' })
+    ],
+    sample: ['01', 'Retail 2026', 'AED', 'Local', 'FG-000001', '199.00', '01/01/2026'],
+    // Saved by saveUnit below: the list (unless it exists), then its lines.
+  },
+  USER: {
+    label: 'Users', module: 'USERMGMT', save: 'saveFirebaseUser', idKey: 'userId', path: 'users', nameKey: 'username', authUser: true,
+    note: 'Each user signs in with their email and the temporary password typed on this screen, then changes it (user menu → Change Password).',
+    columns: [
+      C('Username', 'username', { req: true }),
+      C('Full Name', 'fullName', { req: true }),
+      C('Email', 'email', { req: true, type: 'email' }),
+      C('Role', 'role', { req: true, type: 'ref', ref: 'role', note: 'Role name, as in Roles & Permissions.' }),
+      C('Companies', 'assignedCompanies', { type: 'refs', ref: 'company', note: 'Ref Codes or names, separated by commas.' })
+    ],
+    sample: ['ali.hassan', 'Ali Hassan', 'ali.hassan@example.com', 'Accountant', '01'],
+    toData: (r, ex, opts) => ({ username: r.username, fullName: r.fullName, email: r.email.toLowerCase(), role: r.role, status: 'Active',
+      password: opts.tempPassword, assignedCompanies: r.assignedCompanies })
   }
 };
-const ORDER = ['COMPANY', 'ORGUNIT', 'ACCOUNT', 'UOM', 'SUBCATEGORY', 'ITEM', 'VENDOR', 'CUSTOMER', 'CURRENCY'];
+const ORDER = ['COMPANY', 'ORGUNIT', 'ACCOUNT', 'CURRENCY', 'UOM', 'SUBCATEGORY', 'ITEM', 'VENDOR', 'CLASSIFICATION', 'CUSTOMER',
+  'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER'];
 
 // ---------- references ----------
 
 // Existing records each reference kind can point to: { id, code, name, rec }.
 async function loadExisting() {
-  const paths = ['companies', 'orgUnits', 'coa', 'uoms', 'itemSubCategories', 'customerClassifications', 'items', 'vendors', 'customers', 'currencies'];
+  const paths = ['companies', 'orgUnits', 'coa', 'uoms', 'itemSubCategories', 'customerClassifications', 'items', 'vendors', 'customers',
+    'currencies', 'salesTypes', 'requisitionCategories', 'boms', 'inventoryValuationLines', 'priceLists', 'priceListLines', 'users', 'roles'];
   const vals = (await Promise.all(paths.map(p => rtdb.ref(p).get()))).map(s => s.val() || {});
   const data = {};
   paths.forEach((p, i) => { data[p] = vals[i]; });
-  const list = (obj, code, name) => Object.keys(obj).map(id => ({ id, code: obj[id][code] || '', name: obj[id][name] || '', rec: obj[id] }));
+  const fsDocs = async col => { const o = {}; (await firestore.collection(col).get()).docs.forEach(d => { o[d.id] = d.data(); }); return o; };
+  data.faClasses = await fsDocs('faClasses');
+  data.faAccountDetermination = await fsDocs('faAccountDetermination');
+  data.faAssets = await fsDocs('faAssets');
+  const list = (obj, code, name) => Object.keys(obj).map(id => ({ id, code: code === '#id' ? id : (obj[id][code] || ''), name: obj[id][name] || '', rec: obj[id] }));
+  const units = list(data.orgUnits, 'Code', 'Name');
   return {
     raw: data,
     company: list(data.companies, 'CompanyRefCode', 'LegalName'),
-    orgUnit: list(data.orgUnits, 'Code', 'Name'),
-    warehouse: list(data.orgUnits, 'Code', 'Name').filter(x => x.rec.Type === 'Warehouse'),
+    orgUnit: units,
+    warehouse: units.filter(x => x.rec.Type === 'Warehouse'),
+    division: units.filter(x => x.rec.Type === 'Division'),
+    branch: units.filter(x => x.rec.Type === 'Branch'),
+    costCenter: units.filter(x => x.rec.Type === 'CostCenter'),
+    profitCenter: units.filter(x => x.rec.Type === 'ProfitCenter'),
     account: list(data.coa, 'AccountCode', 'AccountName'),
     uom: list(data.uoms, 'Code', 'Name'),
     subCategory: list(data.itemSubCategories, '', 'Name'),
-    classification: list(data.customerClassifications, '', 'Name').filter(x => x.rec.Status !== 'Inactive')
+    classification: list(data.customerClassifications, '', 'Name').filter(x => x.rec.Status !== 'Inactive'),
+    item: list(data.items, 'ItemCode', 'ItemName'),
+    vendor: list(data.vendors, 'VendorCode', 'VendorName'),
+    currency: list(data.currencies, 'Code', 'Name'),
+    role: list(data.roles, '#id', 'Name'),
+    faClass: list(data.faClasses, 'Code', 'Name'),
+    faDetermination: list(data.faAccountDetermination, 'Code', 'Name')
   };
 }
 
@@ -262,13 +456,17 @@ const SELF_KIND = { COMPANY: 'company', ORGUNIT: 'orgUnit', ACCOUNT: 'account' }
 // resolved rows (references as ids, or { row } for one created earlier in
 // this paste) and the issues, each { row, column, message } (row 0 = the
 // header row).
-async function checkPaste(user, masterKey, text) {
+async function checkPaste(user, masterKey, text, opts) {
+  opts = opts || {};
   const m = MASTERS[masterKey];
   if (!m) throw new HttpsError('invalid-argument', 'Choose what to import.');
   const issues = [];
   const add = (row, column, message) => issues.push({ row, column: column || '', message });
-  if (!(await moduleHasCapability(m.module, 'write', user.profile.role))) {
+  if (!(await moduleHasCapability(m.module, m.capability || 'write', user.profile.role))) {
     add(0, '', 'You do not have permission to change ' + m.label + ' (the import needs the same right as entering it by hand).');
+  }
+  if (m.authUser && String(opts.tempPassword || '').length < 6) {
+    add(0, 'Temporary password', 'Type a temporary password of at least 6 characters for these users.');
   }
   const table = parseSheet(text);
   if (!table.length) return { headers: [], rows: [], resolved: [], issues: [{ row: 0, column: '', message: 'Paste the header row and at least one row.' }] };
@@ -308,7 +506,9 @@ async function checkPaste(user, masterKey, text) {
       } else if (col.type === 'email') {
         if (raw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) issue(col, 'Enter a valid email address.');
         r[col.key] = raw;
-      } else if (col.type === 'ref') {
+      } else if (col.type === 'date') {
+        const v = dateValue(raw); if (v === null) issue(col, '"' + raw + '" is not a date (dd/mm/yyyy).'); r[col.key] = v || '';
+      } else if (col.type === 'ref' || col.type === 'refs') {
         r[col.key] = raw; // resolved below, once the row's own values are known
       } else {
         r[col.key] = raw;
@@ -318,27 +518,43 @@ async function checkPaste(user, masterKey, text) {
     // point to a row above in this paste (by name).
     // The company first: an account named in the row is looked for among
     // that company's accounts (and those for all companies).
-    const refCols = m.columns.filter(c => c.type === 'ref').sort((a, b) => (b.ref === 'company') - (a.ref === 'company'));
-    const refs = r; // resolved in place, so later references see the company's id
-    for (const col of refCols) {
-      const raw = r[col.key];
-      if (!raw) { refs[col.key] = ''; continue; }
+    const refCols = m.columns.filter(c => c.type === 'ref' || c.type === 'refs').sort((a, b) => (b.ref === 'company') - (a.ref === 'company'));
+    const resolveOne = (col, raw) => {
       let pool = ex[col.ref];
+      const co = typeof r.CompanyID === 'string' ? r.CompanyID : '';
       if (col.ref === 'subCategory') pool = pool.filter(x => x.rec.ParentCategory === r.Category);
-      if (col.ref === 'account' && masterKey !== 'ACCOUNT' && typeof r.CompanyID === 'string' && r.CompanyID) {
-        pool = pool.filter(x => !x.rec.CompanyID || x.rec.CompanyID === r.CompanyID);
+      if (['account', 'faClass', 'division', 'branch', 'costCenter', 'profitCenter'].includes(col.ref) && masterKey !== 'ACCOUNT' && co) {
+        pool = pool.filter(x => !x.rec.CompanyID || x.rec.CompanyID === co);
       }
       const byCode = pool.filter(x => x.code && norm(x.code) === norm(raw));
-      let hits = byCode.length ? byCode : pool.filter(x => norm(x.name) === norm(raw));
+      const hits = byCode.length ? byCode : pool.filter(x => norm(x.name) === norm(raw));
       let above = [];
       if (col.self && !byCode.length) {
         above = resolved.map((o, i) => ({ o, i })).filter(({ o }) => o && norm(o.values[m.nameKey]) === norm(raw)).map(({ i }) => i + 1);
       }
-      if (hits.length + above.length > 1) { issue(col, '"' + raw + '" matches more than one record; use its code.'); refs[col.key] = ''; continue; }
-      if (hits.length) { refs[col.key] = hits[0].id; continue; }
-      if (above.length) { refs[col.key] = { row: above[0] }; continue; }
-      issue(col, '"' + raw + '" not found' + (col.self ? ' (nor in a row above)' : '') + '.');
-      refs[col.key] = '';
+      if (hits.length + above.length > 1) return { error: '"' + raw + '" matches more than one record; use its code.' };
+      if (hits.length) return { id: hits[0].id };
+      if (above.length) return { id: { row: above[0] } };
+      return { error: '"' + raw + '" not found' + (col.self ? ' (nor in a row above)' : '') + '.' };
+    };
+    for (const col of refCols) {
+      const raw = r[col.key];
+      if (col.type === 'refs') {
+        const ids = [];
+        String(raw || '').split(',').map(x => x.trim()).filter(Boolean).forEach(one => {
+          const res = resolveOne(col, one);
+          if (res.error) issue(col, res.error); else if (!ids.includes(res.id)) ids.push(res.id);
+        });
+        r[col.key] = ids;
+        continue;
+      }
+      if (!raw) { r[col.key] = ''; continue; }
+      const res = resolveOne(col, raw);
+      if (res.error) issue(col, res.error);
+      r[col.key] = res.error ? '' : res.id;
+    }
+    if (Array.isArray(r.assignedCompanies)) {
+      r.assignedCompanies.forEach(c => { if (!userCanAccessCompany(user.profile, c)) add(rowNo, 'Companies', 'You do not have access to company ' + ((ex.raw.companies[c] || {}).LegalName || c) + '.'); });
     }
     const values = Object.assign({}, r);
 
@@ -350,7 +566,7 @@ async function checkPaste(user, masterKey, text) {
 
     // The same name twice (in the paste, or already existing) is an issue,
     // so a list pasted twice can't create everything twice.
-    const name = norm(r[m.nameKey]);
+    const name = m.nameKey && !m.noNameDup ? norm(r[m.nameKey]) : '';
     if (name) {
       const scope = dupScope(masterKey, r);
       const key = scope + '|' + name;
@@ -360,7 +576,72 @@ async function checkPaste(user, masterKey, text) {
     }
     resolved.push({ values, data: r });
   });
+  if (m.group) groupRules(masterKey, resolved, ex, add);
   return { headers, rows: body, resolved, issues };
+}
+
+// The rows of one BOM / price list: in first-appearance order, each
+// { key, rows: [index] }. Rows whose key couldn't be worked out are left
+// out (they already have an issue).
+function groupsOf(m, resolved) {
+  const groups = [];
+  const at = {};
+  resolved.forEach((o, i) => {
+    const key = m.group.key(o.data);
+    if (!key || key === '|') return;
+    if (!(key in at)) { at[key] = groups.length; groups.push({ key, rows: [] }); }
+    groups[at[key]].rows.push(i);
+  });
+  return groups;
+}
+
+// A BOM's or price list's own columns must be the same on each of its rows
+// (or empty after the first); then the rules for the whole BOM / list.
+function groupRules(k, resolved, ex, add) {
+  const m = MASTERS[k];
+  const groups = groupsOf(m, resolved);
+  const what = k === 'BOM' ? 'this BOM' : 'this price list';
+  groups.forEach(g => {
+    const first = resolved[g.rows[0]].data;
+    g.rows.slice(1).forEach(i => {
+      const r = resolved[i].data;
+      m.group.header.forEach(key => {
+        const v = r[key];
+        if (v !== '' && v != null && String(v) !== String(first[key] == null ? '' : first[key])) {
+          add(i + 1, headerOf(m, key), 'Differs from row ' + (g.rows[0] + 1) + ', the first row of ' + what + '.');
+        }
+      });
+    });
+    const row1 = g.rows[0] + 1;
+    if (k === 'BOM') {
+      const active = Object.values(ex.raw.boms).some(b => b.ParentItemID === first.ParentItemID && b.Status === 'Active');
+      if (active) add(row1, 'Parent Item', 'This item already has an active BOM; change it on the Bill of Materials screen.');
+    }
+    if (k === 'PRICELIST') {
+      const existing = Object.values(ex.raw.priceLists).some(l => l.CompanyID === first.CompanyID && norm(l.Name) === norm(first.Name));
+      if (!existing) {
+        const cur = typeof first.CurrencyID === 'string' && first.CurrencyID ? ex.raw.currencies[first.CurrencyID] : null;
+        if (!first.CurrencyID) add(row1, 'Currency', 'A new price list needs its currency.');
+        else if (cur && cur.Status !== 'Active') add(row1, 'Currency', 'That currency is not active.');
+        const mp = first.CustomerClassificationMapping;
+        if (mp) {
+          const taken = Object.values(ex.raw.priceLists).find(l => l.CompanyID === first.CompanyID && l.Status !== 'Inactive' && l.CustomerClassificationMapping === mp);
+          if (taken) add(row1, 'Classification Mapping', '"' + taken.Name + '" is already mapped to ' + mp + ' for this company.');
+          const twin = groups.find(o => o !== g && o.rows[0] < g.rows[0] && resolved[o.rows[0]].data.CompanyID === first.CompanyID &&
+            resolved[o.rows[0]].data.CustomerClassificationMapping === mp);
+          if (twin) add(row1, 'Classification Mapping', 'Row ' + (twin.rows[0] + 1) + ' already maps a new list to ' + mp + ' for this company.');
+        }
+      }
+      // The same item and date twice in one list.
+      const seen = {};
+      g.rows.forEach(i => {
+        const r = resolved[i].data;
+        const key = r.ItemID + '|' + r.EffectiveFrom;
+        if (r.ItemID && seen[key]) add(i + 1, 'Item', 'Same item and date as row ' + seen[key] + '.');
+        else seen[key] = i + 1;
+      });
+    }
+  });
 }
 
 const headerOf = (m, key) => (m.columns.find(c => c.key === key) || {}).h || key;
@@ -368,7 +649,7 @@ const companyOf = v => (typeof v === 'string' ? v : '');
 function dupScope(k, r) {
   if (k === 'ORGUNIT') return r.Type + '|' + companyOf(r.CompanyID);
   if (k === 'SUBCATEGORY') return r.ParentCategory;
-  if (['ACCOUNT', 'ITEM', 'VENDOR', 'CUSTOMER'].includes(k)) return companyOf(r.CompanyID);
+  if (['ACCOUNT', 'ITEM', 'VENDOR', 'CUSTOMER', 'CLASSIFICATION', 'SALESTYPE', 'REQCATEGORY'].includes(k)) return companyOf(r.CompanyID);
   return '';
 }
 function existingSameName(k, r, ex) {
@@ -385,6 +666,11 @@ function existingSameName(k, r, ex) {
     case 'VENDOR': return same(ex.raw.vendors, 'VendorName', x => (x.CompanyID || '') === co);
     case 'CUSTOMER': return same(ex.raw.customers, 'CustomerName', x => (x.CompanyID || '') === co);
     case 'CURRENCY': return same(ex.raw.currencies, 'Name');
+    case 'CLASSIFICATION': return same(ex.raw.customerClassifications, 'Name', x => (x.CompanyID || '') === co);
+    case 'SALESTYPE': return same(ex.raw.salesTypes, 'Name', x => (x.CompanyID || '') === co);
+    case 'REQCATEGORY': return same(ex.raw.requisitionCategories, 'Name', x => (x.CompanyID || '') === co);
+    case 'FACLASS': return same(ex.raw.faClasses, 'Name');
+    case 'USER': return same(ex.raw.users, 'username');
     default: return false;
   }
 }
@@ -459,15 +745,113 @@ function masterRules(k, r, ex, resolvedAbove, issue) {
       else if (r.Code && (codeTaken(ex.raw.currencies, r.Code) || codeAbove(r.Code))) issue('Code', 'Currency code "' + norm(r.Code) + '" is already in use.');
       break;
     }
+    case 'SALESTYPE': {
+      postable(r.GLAccountID, 'Sales Revenue Account', ['Revenue']);
+      postable(r.SalesReturnsAccountID, 'Sales Returns Account', ['Revenue']);
+      break;
+    }
+    case 'REQCATEGORY': {
+      if (r.Type) postable(r.GLAccountID, 'GL Account', [r.Type === 'FixedAsset' ? 'Asset' : 'Expense']);
+      break;
+    }
+    case 'FACLASS': {
+      if (r.Code && (codeTaken(ex.raw.faClasses, r.Code) || codeAbove(r.Code))) issue('Code', 'Class code "' + norm(r.Code) + '" is already in use.');
+      if (r.Kind) {
+        const dep = r.Kind === 'Tangible' || r.Kind === 'Intangible';
+        const method = dep ? r.DefaultMethod : 'None';
+        const err = validateValuation({ Method: method, UsefulLifeMonths: dep ? r.DefaultUsefulLifeMonths : 0,
+          WdvRate: method === 'WDV' ? r.DefaultWdvRate : 0, ResidualValue: 0 }, r.Kind);
+        if (err) issue(dep && !method ? 'Default Method' : 'Default Useful Life (months)', 'Default: ' + err);
+      }
+      if (r.DefaultResidualPercent !== '' && (r.DefaultResidualPercent < 0 || r.DefaultResidualPercent >= 100)) {
+        issue('Default Residual %', 'Default residual must be from 0% to less than 100%.');
+      }
+      break;
+    }
+    case 'FAASSET': {
+      const cls = typeof r.ClassID === 'string' && r.ClassID ? ex.raw.faClasses[r.ClassID] : null;
+      if (cls) {
+        if (cls.Status !== 'Active') issue('Class', 'That asset class is inactive.');
+        if (cls.CompanyID && cls.CompanyID !== r.CompanyID) issue('Class', 'That asset class belongs to a different company.');
+        const dep = cls.Kind === 'Tangible' || cls.Kind === 'Intangible';
+        if (dep && !r.CostCenterID) issue('Cost Center', 'Select a Cost Center: depreciation expense is posted to it.');
+        const method = dep ? (r.Method || cls.DefaultMethod) : 'None';
+        const err = validateValuation({ Method: method, UsefulLifeMonths: dep ? Number(r.UsefulLifeMonths || cls.DefaultUsefulLifeMonths) : 0,
+          WdvRate: method === 'WDV' ? Number(r.WdvRate || cls.DefaultWdvRate) : 0, ResidualValue: dep ? Number(r.ResidualValue) || 0 : 0,
+          DepStartDate: dep ? r.DepStartDate : '' }, cls.Kind);
+        if (err) issue('Method', err);
+      }
+      if (r.Quantity !== '' && !(r.Quantity > 0)) issue('Quantity', 'Quantity must be more than zero.');
+      // A serial or tag number names one asset: twice is an issue.
+      for (const [key, label] of [['SerialNumber', 'Serial Number'], ['TagNumber', 'Tag Number']]) {
+        if (!r[key]) continue;
+        const taken = Object.values(ex.raw.faAssets).some(a => a.CompanyID === r.CompanyID && norm(a[key]) === norm(r[key]));
+        const above = resolvedAbove.findIndex(o => o && o.data.CompanyID === r.CompanyID && norm(o.data[key]) === norm(r[key]));
+        if (taken) issue(label, label + ' "' + r[key] + '" is already used by another asset.');
+        else if (above >= 0) issue(label, 'Same ' + label.toLowerCase() + ' as row ' + (above + 1) + '.');
+      }
+      break;
+    }
+    case 'BOM': {
+      const item = id => (typeof id === 'string' && id ? ex.raw.items[id] : null);
+      const parent = item(r.ParentItemID);
+      const comp = item(r.ComponentItemID);
+      if (parent && !['FinishedGood', 'SemiFinishedGood'].includes(parent.Category)) issue('Parent Item', 'The parent must be a Finished Good or Semi-Finished Good.');
+      if (comp && !['RawMaterial', 'SemiFinishedGood', 'Consumable'].includes(comp.Category)) issue('Component Item', 'A component must be a Raw Material, Semi-Finished Good or Consumable.');
+      if (comp && r.ComponentItemID === r.ParentItemID) issue('Component Item', 'An item cannot be a component of its own BOM.');
+      if (parent && comp && parent.CompanyID && comp.CompanyID && parent.CompanyID !== comp.CompanyID) issue('Component Item', 'The component belongs to a different company than the parent item.');
+      if (r.Quantity !== '' && !(r.Quantity > 0)) issue('Quantity', 'Enter a quantity greater than zero.');
+      if (r.ScrapPercent !== '' && (r.ScrapPercent < 0 || r.ScrapPercent >= 100)) issue('Scrap %', 'Scrap % must be from 0 to less than 100.');
+      break;
+    }
+    case 'VALUATION': {
+      const it = typeof r.ItemID === 'string' && r.ItemID ? ex.raw.items[r.ItemID] : null;
+      if (it) {
+        const hasBom = Object.values(ex.raw.boms).some(b => b.ParentItemID === r.ItemID && b.Status === 'Active');
+        if (it.Status !== 'Active' || !['FinishedGood', 'SemiFinishedGood'].includes(it.Category) || !hasBom || (it.CompanyID || '') !== companyOf(r.CompanyID)) {
+          issue('Item', 'Only an active Finished or Semi-Finished Good of this company with an active BOM can have a valuation line.');
+        }
+        const dup = Object.values(ex.raw.inventoryValuationLines).some(l => l.CompanyID === r.CompanyID && l.ItemCode === it.ItemCode && l.EffectiveFrom === r.EffectiveFrom);
+        const above = resolvedAbove.findIndex(o => o && o.data.CompanyID === r.CompanyID && o.data.ItemID === r.ItemID && o.data.EffectiveFrom === r.EffectiveFrom);
+        if (dup) issue('Item', 'This item already has a valuation line from ' + r.EffectiveFrom + '.');
+        else if (above >= 0) issue('Item', 'Same item and date as row ' + (above + 1) + '.');
+      }
+      if (r.UnitCost !== '' && !(r.UnitCost > 0)) issue('Unit Cost', 'Unit cost must be greater than zero.');
+      break;
+    }
+    case 'PRICELIST': {
+      const it = typeof r.ItemID === 'string' && r.ItemID ? ex.raw.items[r.ItemID] : null;
+      if (it && it.Status !== 'Active') issue('Item', 'That item is inactive.');
+      if (r.UnitPrice !== '' && !(r.UnitPrice > 0)) issue('Unit Price', 'Unit price must be greater than zero.');
+      const listId = Object.keys(ex.raw.priceLists).find(id => ex.raw.priceLists[id].CompanyID === r.CompanyID && norm(ex.raw.priceLists[id].Name) === norm(r.Name));
+      if (it && listId && Object.values(ex.raw.priceListLines).some(l => l.PriceListID === listId && l.ItemCode === it.ItemCode && l.EffectiveFrom === r.EffectiveFrom)) {
+        issue('Item', 'This list already has this item from ' + r.EffectiveFrom + '.');
+      }
+      break;
+    }
+    case 'USER': {
+      const email = norm(r.email);
+      if (email) {
+        if (Object.values(ex.raw.users).some(u => norm(u.email) === email)) issue('Email', '"' + r.email + '" already has a user.');
+        else {
+          const above = resolvedAbove.findIndex(o => o && norm(o.data.email) === email);
+          if (above >= 0) issue('Email', 'Same email as row ' + (above + 1) + '.');
+        }
+      }
+      break;
+    }
     default:
   }
 }
 
 // ---------- importing ----------
 
-const COUNTERS = ['itemCounters', 'vendorCounters', 'customerCounters'];
+// Counters a save may advance (item, vendor, customer codes; asset numbers).
+const COUNTER_ROOTS = ['itemCounters', 'vendorCounters', 'customerCounters', 'fa/counters/asset'];
 const codeOfResult = res => res.itemCode || res.vendorCode || res.customerCode || '';
 const counterOfCode = code => {
+  const fa = String(code).match(/^FA-(\w+)-\d+$/);
+  if (fa) return 'fa/counters/asset/' + fa[1];
   const prefix = String(code).split('-')[0];
   if (!prefix) return '';
   if (prefix === 'VEN') return 'vendorCounters/VEN';
@@ -475,35 +859,96 @@ const counterOfCode = code => {
   return 'itemCounters/' + prefix;
 };
 
-// Saves every row through the master's own save function, in order.
+// What to save, unit by unit: a row, or the rows of one BOM / price list.
+function unitsOf(m, resolved) {
+  return m.group ? groupsOf(m, resolved).map(g => g.rows) : resolved.map((o, i) => [i]);
+}
+
+// Puts the ids of records created earlier in this run into a row ({ row }).
+function withIds(data, idOfRow) {
+  const out = Object.assign({}, data);
+  Object.keys(out).forEach(k => { if (out[k] && typeof out[k] === 'object' && !Array.isArray(out[k]) && out[k].row) out[k] = idOfRow[out[k].row]; });
+  return out;
+}
+
+// Saves one unit through the master's own save; returns what it created,
+// each { row, id, code, undo }.
+async function saveUnit(m, ctx, user, rows, ex, opts) {
+  const legacy = async (name, data, idKey) => {
+    const res = await L[name](ctx, data);
+    if (!res || !res.success) throw new Error((res && res.error) || 'The record could not be saved.');
+    if (!res[idKey]) throw new Error('The record was saved without an id.');
+    return res;
+  };
+  const row1 = rows[0].row;
+  if (m === MASTERS.PRICELIST) {
+    const first = rows[0].data;
+    const out = [];
+    let listId = Object.keys(ex.raw.priceLists).find(id => ex.raw.priceLists[id].CompanyID === first.CompanyID && norm(ex.raw.priceLists[id].Name) === norm(first.Name));
+    if (!listId) {
+      const res = await legacy('savePriceList', { CompanyID: first.CompanyID, Name: first.Name, CurrencyID: first.CurrencyID,
+        CustomerClassificationMapping: first.CustomerClassificationMapping }, 'priceListId');
+      listId = res.priceListId;
+      out.push({ row: row1, id: listId, code: '', undo: { rtdb: 'priceLists/' + listId } });
+    }
+    for (const r of rows) {
+      try {
+        const res = await legacy('savePriceListLine', { PriceListID: listId, ItemCode: (ex.raw.items[r.data.ItemID] || {}).ItemCode,
+          UnitPrice: r.data.UnitPrice, EffectiveFrom: r.data.EffectiveFrom }, 'lineId');
+        out.push({ row: r.row, id: res.lineId, code: '', undo: { rtdb: 'priceListLines/' + res.lineId } });
+      } catch (e) { e.created = out; e.row = r.row; throw e; }
+    }
+    return out;
+  }
+  const data = m.group ? m.toGroupData(rows.map(r => r.data)) : m.toData(rows[0].data, ex, opts);
+  let id, code;
+  if (m.saveFn) ({ id, code } = await m.saveFn(ctx, user, data));
+  else { const res = await legacy(m.save, data, m.idKey); id = res[m.idKey]; code = codeOfResult(res); }
+  const undo = m.store && m.store.firestore ? { firestore: m.store.firestore, id } : { rtdb: m.path + '/' + id };
+  if (m.authUser) undo.authUid = id;
+  return [{ row: row1, id, code: code || '', undo }];
+}
+
+async function undoOne(u) {
+  if (u.rtdb) await rtdb.ref(u.rtdb).remove();
+  if (u.firestore) await firestore.collection(u.firestore).doc(u.id).delete();
+  if (u.authUid) { try { await admin.auth().deleteUser(u.authUid); } catch (e) { /* already gone */ } }
+}
+
+// Saves every unit through the master's own save function, in order.
 // On a failure, removes what this run created and puts the code counters
 // back (unless someone else used them meanwhile), then reports the row.
-async function importRows(request, user, masterKey, resolved) {
+async function importRows(request, user, masterKey, resolved, opts) {
+  opts = opts || {};
   const m = MASTERS[masterKey];
+  const ex = await loadExisting();
   const snapshot = {};
-  for (const c of COUNTERS) snapshot[c] = (await rtdb.ref(c).get()).val() || {};
-  const created = []; // { row, id, code }
+  for (const c of COUNTER_ROOTS) snapshot[c] = (await rtdb.ref(c).get()).val() || {};
+  const created = [];
+  const idOfRow = {};
   let failure = null;
   await run(request, async (ctx) => {
-    for (let i = 0; i < resolved.length; i++) {
-      const data = m.toData(Object.assign({}, resolved[i].data));
-      for (const k of Object.keys(data)) {
-        if (data[k] && typeof data[k] === 'object' && !Array.isArray(data[k]) && data[k].row) data[k] = created[data[k].row - 1].id;
+    for (const idxs of unitsOf(m, resolved)) {
+      const rows = idxs.map(i => ({ row: i + 1, data: withIds(resolved[i].data, idOfRow) }));
+      try {
+        const made = await saveUnit(m, ctx, user, rows, ex, opts);
+        made.forEach(c => { created.push(c); });
+        rows.forEach(r => { idOfRow[r.row] = made[0].id; });
+      } catch (e) {
+        (e.created || []).forEach(c => created.push(c));
+        failure = { row: e.row || rows[0].row, message: e.message || 'The record could not be saved.' };
+        break;
       }
-      let res;
-      try { res = await L[m.save](ctx, data); } catch (e) { res = { success: false, error: e.message }; }
-      if (!res || !res.success || !res[m.idKey]) { failure = { row: i + 1, message: (res && res.error) || 'The record could not be saved.' }; break; }
-      created.push({ row: i + 1, id: res[m.idKey], code: codeOfResult(res) });
     }
   });
   if (!failure) return { created };
 
-  for (const c of created.slice().reverse()) await rtdb.ref(m.path + '/' + c.id).remove();
+  for (const c of created.slice().reverse()) await undoOne(c.undo);
   const used = {};
   created.forEach(c => { const p = c.code && counterOfCode(c.code); if (p) used[p] = (used[p] || 0) + 1; });
   for (const p of Object.keys(used)) {
-    const [root, key] = p.split('/');
-    const before = Number(snapshot[root][key]) || 0;
+    const root = COUNTER_ROOTS.find(r => p.startsWith(r + '/'));
+    const before = root ? Number(snapshot[root][p.slice(root.length + 1)]) || 0 : 0;
     // A transaction's first try sees the local cache (null): answering null
     // makes it retry with the server's value instead of giving up.
     await rtdb.ref(p).transaction(cur => (cur === null ? null : (Number(cur) === before + used[p] ? before : undefined)));
@@ -526,7 +971,7 @@ exports.getMasterImportSpecs = onCallWithMessages({ region: 'us-central1' }, asy
   return ORDER.map(k => {
     const m = MASTERS[k];
     return {
-      key: k, label: m.label, note: m.note || '', sample: m.sample || [],
+      key: k, label: m.label, note: m.note || '', sample: m.sample || [], needsPassword: Boolean(m.authUser),
       columns: m.columns.map(c => ({ header: c.h, required: Boolean(c.req), note: c.note || '',
         values: c.values ? c.values.map(v => v.label) : (c.type === 'yesno' ? ['Yes', 'No'] : []) }))
     };
@@ -538,7 +983,7 @@ exports.checkMasterImport = onCallWithMessages(onCallOptions, async (request) =>
   const user = await requireUser(request);
   await requireImportAccess(user);
   const d = request.data || {};
-  const c = await checkPaste(user, String(d.master || ''), d.text);
+  const c = await checkPaste(user, String(d.master || ''), d.text, { tempPassword: d.tempPassword });
   return { headers: c.headers, rows: c.rows, issues: c.issues };
 });
 
@@ -548,9 +993,10 @@ exports.runMasterImport = onCallWithMessages(onCallOptions, async (request) => {
   await requireImportAccess(user);
   const d = request.data || {};
   const masterKey = String(d.master || '');
-  const c = await checkPaste(user, masterKey, d.text);
+  const opts = { tempPassword: String(d.tempPassword || '') };
+  const c = await checkPaste(user, masterKey, d.text, opts);
   if (c.issues.length) return { success: false, issues: c.issues, created: 0 };
-  const result = await importRows(request, user, masterKey, c.resolved);
+  const result = await importRows(request, user, masterKey, c.resolved, opts);
   const log = {
     Master: masterKey, Rows: c.resolved.length, By: user.uid, ByName: user.profile.fullName || user.profile.username || user.uid,
     At: new Date().toISOString(), Status: result.failure ? 'Undone' : 'Imported',
@@ -560,7 +1006,7 @@ exports.runMasterImport = onCallWithMessages(onCallOptions, async (request) => {
   if (result.failure) {
     return { success: false, created: 0, issues: [{ row: result.failure.row, column: '', message: result.failure.message + ' Nothing was imported.' }] };
   }
-  return { success: true, created: result.created.length, codes: result.created.map(x => x.code).filter(Boolean) };
+  return { success: true, rows: c.resolved.length, created: result.created.length, codes: result.created.map(x => x.code).filter(Boolean) };
 });
 
 module.exports.parseSheet = parseSheet;

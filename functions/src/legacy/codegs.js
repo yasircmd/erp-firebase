@@ -620,6 +620,8 @@ async function saveFirebaseUser(idToken, userData) {
     const roles = await ensureRolesSeeded_(idToken);
     if (!roles[role]) throw new Error('Unknown role: ' + role);
 
+    // [PORT CHANGE import-user-id] the user's id is returned, for Master Data Import's undo.
+    let savedUserId = id;
     if (!id) {
       if (!email) throw new Error('Email is required for a new Firebase account.');
       if (password.length < 6) throw new Error('Password must be at least 6 characters.');
@@ -629,6 +631,7 @@ async function saveFirebaseUser(idToken, userData) {
         password: password,
         returnSecureToken: true
       });
+      savedUserId = authUser.localId;
 
       await firebaseDbRequest_(
         `users/${authUser.localId}`,
@@ -660,7 +663,7 @@ async function saveFirebaseUser(idToken, userData) {
       );
     }
 
-    return { success: true };
+    return { success: true, userId: savedUserId };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -2924,7 +2927,8 @@ async function saveBom(idToken, bomData) {
     }
 
     await firebaseDbRequest_('boms', 'patch', updates, idToken);
-    return { success: true };
+    // [PORT CHANGE import-bom-id] the BOM's id is returned, for Master Data Import's undo.
+    return { success: true, bomId: bomId || Object.keys(updates).find(k => updates[k].CreatedAt === now && updates[k].ParentItemID === parentItemId) };
   } catch (err) {
     return { success: false, error: err.message };
   }
