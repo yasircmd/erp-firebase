@@ -310,8 +310,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     withdraw now closes it.
   - **Purchase Order's Home task still opens the list,** not the order
     (`OpenEntryId` gap).
-- [ ] **Purchase Requisition: who sees which** (owner, 2026-10-02;
-  [PR_VISIBILITY.md](modules/PR_VISIBILITY.md)). Built, not yet live.
+- [x] **Purchase Requisition: who sees which** (owner, 2026-10-02;
+  [PR_VISIBILITY.md](modules/PR_VISIBILITY.md)). **Live 2026-10-02** (PR
+  #46; Deploy run #45).
   - **Who sees a requisition:**
     - the person who raised it;
     - its approvers, from when it waits on them and afterwards

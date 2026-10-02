@@ -683,3 +683,12 @@ from, and how it was verified. The deploy procedure is in the
     [#44](https://github.com/yasircmd/erp-firebase/actions/runs/36973806188),
     06:29–06:30 UTC, success. Release **`20261002T063030Z-9de393a`**,
     61/61 written and verified, active.
+- **2026-10-02, Purchase Requisition visibility (PR #46):** Deploy task
+  "functions set", set `pr-visibility`, from `a4742f4` (`main`, the PR #46
+  merge), run
+  [#45](https://github.com/yasircmd/erp-firebase/actions/runs/36993042721),
+  10:00–10:04 UTC, success.
+  - The new step "Check screens are released" (PR #45) ran for the first
+    time: "the active release matches screens/ (a4742f4)" (release
+    `20261002T063030Z-9de393a`). It is right, as this change has no
+    screens.

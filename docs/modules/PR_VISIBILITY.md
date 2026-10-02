@@ -1,6 +1,6 @@
 # Purchase Requisition: who sees which requisitions
 
-Status: **built** (2026-10-02), not yet live. Design agreed by the owner
+Status: **live** 2026-10-02 (PR #46; Deploy run #45). Design agreed by the owner
 (2026-10-02).
 
 ## The request (owner, 2026-10-02)
