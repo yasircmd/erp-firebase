@@ -395,16 +395,16 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
 - [x] **Copy / Paste with column headings on every entry grid** (owner,
-  2026-10-02; [LINE_GRIDS.md](modules/LINE_GRIDS.md)). Built, not yet live.
+  2026-10-02; [LINE_GRIDS.md](modules/LINE_GRIDS.md)). **Live 2026-10-02**
+  (PR #55; Deploy run #57).
   - **What:** Copy Table always puts the headings on top (an empty grid
     copies just the headings instead of "Nothing to copy yet."); Paste
     skips a headings row. JV, CBT, GRN, Material Issue, Warehouse
     Movement, Stock Adjustment, Physical Count, Production, BOM, Delivery
     Note (copy only).
   - **Tests:** `gridClipboard.ui.js` (11); two negative controls caught.
-  - **To go live:** Deploy → "screens only".
 - [x] **Vendor and Customer SOA: compact view** (owner, 2026-10-02). **Live
-  2026-10-02** (PR #54).
+  2026-10-02** (PR #54; Deploy run #56).
   - **What:** on screen only, the printout unchanged: tighter rows and
     sections, amounts in a smaller font, every column but the
     description on one line, smaller ageing tiles. Rows go from 2.5 to
