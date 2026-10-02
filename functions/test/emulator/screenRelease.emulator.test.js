@@ -135,3 +135,31 @@ test('the command line refuses to run without --project', async () => {
   assert.match(r.stderr, /usage: .* --project PROJECT_ID/);
   assert.deepEqual(await releaseIds(), []);
 });
+
+// The Deploy workflow's warning after a functions deploy without screens
+// (owner, 2026-10-02): compare screens/ with the active release.
+test('compare: no release yet, a match, then changed / new / removed screens', async () => {
+  const none = await sr.compareWithActive(firestore, SCREENS);
+  assert.equal(none.active, null);
+  assert.equal(none.added.length, Object.keys(SCREENS).length, 'with no release, every screen is new');
+  await release();
+  assert.deepEqual(await sr.compareWithActive(firestore, SCREENS), { active: await pointer(), changed: [], added: [], removed: [] });
+  const local = { ...SCREENS, JV: SCREENS.JV + '<!-- edited -->', NEWMOD: '<div></div>' };
+  delete local.COA;
+  const d = await sr.compareWithActive(firestore, local);
+  assert.deepEqual([d.changed, d.added, d.removed], [['JV'], ['NEWMOD'], ['COA']]);
+});
+
+test('compare on the command line: exit 0 when the active release matches screens/, 3 (and the list) when not', async () => {
+  const cli = () => spawnSync('node', [path.join(__dirname, '../../../tools/screen-release.js'), 'compare', '--project', PROJECT],
+    { env: { ...process.env, FIRESTORE_EMULATOR_HOST: process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080' }, encoding: 'utf8' });
+  await release();
+  const same = cli();
+  assert.equal(same.status, 0, same.stderr);
+  assert.match(same.stdout, /Screens: the active release matches screens\//);
+  // A release made from older screens: the live JV and CBT differ from screens/.
+  await release({ screens: { ...SCREENS, JV: SCREENS.JV + '<!-- old -->', CBT: SCREENS.CBT + '<!-- old -->' } });
+  const diff = cli();
+  assert.equal(diff.status, 3, diff.stderr);
+  assert.match(diff.stdout, /Screens NOT released: 2 differ from the active release\.\n {2}changed: CBT, JV\n/);
+});

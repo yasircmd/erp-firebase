@@ -83,7 +83,7 @@ tools/
   (.github/workflows/deploy.yml — runs the deploy scripts from GitHub Actions, manual only)
   build-soa-screens.js          — writes CUSTOMERSOA.html from VENDORSOA.html (edit only the vendor one)
   build-pdc-screens.js          — writes PDCISSUED.html from PDCRECEIVED.html (edit only the received one)
-  release-screens.sh            — releases screens/ to production (list, rollback)
+  release-screens.sh            — releases screens/ to production (list, rollback, compare)
   screen-release.js             — the release logic (verify, activate, keep the last 10)
 screens/*.html                  — the module screens, released to Firestore (screens/README.md)
 legacy-gas/                     — read-only snapshot of the old Apps Script project
@@ -220,7 +220,9 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
   check, then write, verify and activate a release in production
   Firestore). Users get it on their next screen open. No function deploy.
   `tools/release-screens.sh list` and `rollback <ID>` undo a release. The
-  last 10 are kept. Record releases in the deploy log.
+  last 10 are kept. `tools/release-screens.sh compare` says whether the
+  active release matches `screens/` (exit 3 if not). Record releases in
+  the deploy log.
 - **Generated-port functions:** `tools/deploy-migration.sh` (reads the
   pending list from `tools/legacy-port/status.js`).
 - **Security rules:** `tools/deploy-rules.sh` deploys `database.rules.json`
@@ -231,7 +233,10 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
   (stubs; nothing reaches Google).
 - **From GitHub instead of Cloud Shell:** go to GitHub → Actions →
   **Deploy** → Run workflow, and type `DEPLOY`. Choose one task:
-  - a functions set, optionally followed by its screens;
+  - a functions set, optionally followed by its screens. Without the
+    screens, the run ends by comparing `screens/` with the live release.
+    If they differ, the run shows a **"Screens not released"** warning
+    listing them (owner, 2026-10-02); run "screens only" next;
   - screens only;
   - the runtime move;
   - the database rules;

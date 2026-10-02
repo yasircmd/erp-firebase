@@ -310,6 +310,23 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     withdraw now closes it.
   - **Purchase Order's Home task still opens the list,** not the order
     (`OpenEntryId` gap).
+- [x] **Deploy warns when screens weren't released** (owner, 2026-10-02).
+  - **Why:** runs #40 and #43 deployed functions with the screens box
+    unticked, and the owner saw no change.
+  - **What it does:** a "functions set" run now ends by comparing
+    `screens/` on main with the live release
+    (`tools/release-screens.sh compare`, new). If they differ, the run
+    shows a **"Screens not released"** warning on its page and summary,
+    listing the screens, with the fix: a "screens only" run.
+  - Nothing is stopped or undone.
+  - **Tests:** two new `screenRelease` tests (12 pass); two negative
+    controls caught. The workflow step's shell was dry-run for all three
+    outcomes (differs, matches, check failed).
+  - **Goes live with the merge;** the workflow needs no deploy.
+- [x] **PDC advance (New Ref), checked** (owner question, 2026-10-02).
+  Already supported in both PDC Received and PDC Issued: whatever isn't
+  allocated against invoices is kept as one New Ref, and so is the whole
+  cheque when nothing is allocated. Nothing to change.
 - [x] **Gmail-style list paging and server-side search** (owner,
   2026-10-02; [LIST_PAGING.md](modules/LIST_PAGING.md)). **Live
   2026-10-02** (PR #44; Deploy runs #42 hosting, #43 functions, #44

@@ -119,3 +119,31 @@ jobs:
             "database rules")              bash tools/deploy-rules.sh ;;
             "hosting")                     bash tools/deploy-hosting.sh ;;
           esac
+
+      # A functions deploy without screens (owner, 2026-10-02: runs #40 and
+      # #43 left changed screens unreleased): warn, on the run's summary,
+      # when screens/ on main differs from the active release. Nothing is
+      # undone; the fix is a "screens only" run.
+      - name: Check screens are released
+        if: inputs.task == 'functions set'
+        run: |
+          set +e
+          out=$(bash tools/release-screens.sh compare 2>&1); code=$?
+          set -e
+          echo "$out"
+          if [ $code -eq 3 ]; then
+            list=$(echo "$out" | grep -E '^  (changed|new|no longer)' | sed 's/^  //' | paste -sd ';' - | sed 's/;/; /g')
+            echo "::warning title=Screens not released::The functions are deployed, but screens changed on main are not live ($list). Run Deploy again with \"screens only\"."
+            {
+              echo "## ⚠️ Screens not released"
+              echo "The functions are deployed, but these screens on main differ from the live release:"
+              echo
+              echo "$out" | grep -E '^  ' | sed 's/^  /- /'
+              echo
+              echo "Users still see the old screens until you run **Deploy → \"screens only\"**."
+            } >> "$GITHUB_STEP_SUMMARY"
+          elif [ $code -ne 0 ]; then
+            echo "::warning title=Screen check failed::Could not compare screens with the active release (see this step's log). The functions deploy itself succeeded."
+          else
+            echo "## ✅ Screens: the live release matches main" >> "$GITHUB_STEP_SUMMARY"
+          fi
