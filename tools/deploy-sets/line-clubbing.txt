@@ -1,0 +1,55 @@
+# One GL line per identical posting; Stock Ledger report rows clubbed the same
+# way (owner 2026-10-02; docs/modules/LINE_CLUBBING.md). The rule lives in the
+# shared GL builder (glWriting.buildStockGlEntry), so every function that posts
+# a stock / invoice / PDC / FA / opening / recurring entry is redeployed.
+# No screens.
+getStockLedgerReport             # report rows clubbed
+bouncePdc
+cancelPdc
+clearPdcs
+decideCustomerInvoiceApproval
+decideCustomerInvoiceReversalApproval
+decideDeliveryNoteApproval
+decideFaPostingApproval
+decideGrnApproval
+decideMaterialIssueApproval
+decidePdcApproval
+decidePhysicalCountApproval
+decideProductionApproval
+decidePurchaseReturnApproval
+decideRecurringJournalApproval
+decideSalesReturnApproval
+decideStockAdjustmentApproval
+decideVendorInvoiceApproval
+decideVendorInvoiceReversalApproval
+postCustomerInvoice
+postDeliveryNote
+postFaDepreciation
+postFaPosting
+postGrn
+postMaterialIssue
+postOpeningBalances
+postPdc
+postPhysicalCount
+postProduction
+postPurchaseReturn
+postRecurringJournalRuns
+postSalesReturn
+postStockAdjustment
+postVendorInvoice
+repostRecurringJournalRun
+requestReverseCustomerInvoice
+requestReverseVendorInvoice
+reverseDeliveryNote
+reverseFaDepreciation
+reverseFaPosting
+reverseGrn
+reverseMaterialIssue
+reverseOpeningBalanceBatch
+reversePhysicalCount
+reverseProduction
+reversePurchaseReturn
+reverseRecurringJournalRun
+reverseSalesReturn
+reverseStockAdjustment
+undoPdcClearing
