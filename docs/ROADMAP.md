@@ -310,9 +310,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     withdraw now closes it.
   - **Purchase Order's Home task still opens the list,** not the order
     (`OpenEntryId` gap).
-- [ ] **Gmail-style list paging and server-side search** (owner,
-  2026-10-02; [LIST_PAGING.md](modules/LIST_PAGING.md)). Built, not yet
-  live.
+- [x] **Gmail-style list paging and server-side search** (owner,
+  2026-10-02; [LIST_PAGING.md](modules/LIST_PAGING.md)). **Live
+  2026-10-02** (PR #44; Deploy runs #42 hosting, #43 functions, #44
+  screens).
   - **The owner's decisions:** "Load next 100" adds below; all nine
     document lists (JV, CBT, GRN, Material Issue, Warehouse Movement,
     Stock Adjustment, Production, Physical Count, Purchase Order); "Load
@@ -339,6 +340,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - **To go live, in this order:**
     1. Deploy → "hosting" (the shell's pager);
     2. "functions set", set `list-paging`, with screens.
+    Done: run #43 deployed the functions without the screens; run #44
+    ("screens only") released them.
 - [x] **Purchase Requisition and Inventory Purchase Requisition fixes**
   (owner, 2026-09-28). Live 2026-09-28 in screen release
   `20260928T122017Z-5adca41` ([DEPLOY_LOG.md](DEPLOY_LOG.md)); no function
