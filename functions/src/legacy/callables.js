@@ -485,7 +485,7 @@ exports.getOrgUnits = onCallWithMessages(opts, (request) => {
 });
 exports.getPhysicalCountEntries = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit, d.page];
   return run(request, (ctx) => L.getPhysicalCountEntries(ctx, ...a));
 });
 exports.getPriceListForCustomer = onCallWithMessages(opts, (request) => {
@@ -510,7 +510,7 @@ exports.getProductionConsumptionReport = onCallWithMessages(opts, (request) => {
 });
 exports.getProductionEntries = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit, d.page];
   return run(request, (ctx) => L.getProductionEntries(ctx, ...a));
 });
 exports.getProfitAndLoss = onCallWithMessages(opts, (request) => {
@@ -520,7 +520,7 @@ exports.getProfitAndLoss = onCallWithMessages(opts, (request) => {
 });
 exports.getPurchaseOrderEntries = onCallWithMessages(opts, (request) => {
   const d = request.data || {};
-  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit];
+  const a = Array.isArray(d.__positional) ? d.__positional : [d.limit, d.page];
   return run(request, (ctx) => L.getPurchaseOrderEntries(ctx, ...a));
 });
 exports.getPurchaseRequisitionEntries = onCallWithMessages(opts, (request) => {

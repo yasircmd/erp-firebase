@@ -247,7 +247,6 @@
   let canPost = false;
   let entries = [];
   let entriesTotal = 0;
-  let currentLimit = 100;
   let items = [];
   let uoms = [];
   let companies = [];
@@ -309,10 +308,19 @@
 
   // ---------- LIST VIEW ----------
 
-  function fetchAndRenderList(limit) {
-    currentLimit = limit || currentLimit;
-    rpc
-      .withSuccessHandler(result => {
+  // Gmail-style paging; search and filters run on the server over every
+  // entry (docs/modules/LIST_PAGING.md).
+  const listPager = createListPager({
+    notice: 'prd-list-notice', noun: 'Production Entries',
+    fetch: (page, ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail).getProductionEntries({ page: page }),
+    filters: () => ({
+      search: document.getElementById('prd-search-input').value,
+      CompanyID: document.getElementById('prd-company-filter').value,
+      Status: document.getElementById('prd-status-filter').value,
+      from: document.getElementById('prd-from-filter').value,
+      to: document.getElementById('prd-to-filter').value
+    }),
+    onLoad: result => {
         entries = result.entries || []; entriesTotal = result.total || 0; renderList();
         if (pendingOpenEntryId) {
           const id = pendingOpenEntryId; pendingOpenEntryId = null;
@@ -325,9 +333,13 @@
           if (found) openEntry(found.ProductionID);
           else alert('That Production Entry could not be found — it may have been deleted.');
         }
-      })
-      .withFailureHandler(err => alert(err.message || 'Unable to load GRNs.'))
-      .getProductionEntries({ limit: currentLimit });
+    }
+  });
+  // A report's drill-down opens one entry directly ('all' was the old "load
+  // everything, then find it").
+  function fetchAndRenderList(limit) {
+    if (limit === 'all' && pendingOpenEntryId) listPager.open(pendingOpenEntryId);
+    else listPager.reload();
   }
 
   function renderList() {
@@ -337,15 +349,6 @@
     const status = document.getElementById('prd-status-filter').value;
     const from = document.getElementById('prd-from-filter').value;
     const to = document.getElementById('prd-to-filter').value;
-
-    const notice = document.getElementById('prd-list-notice');
-    if (entriesTotal > entries.length) {
-      notice.classList.remove('hidden');
-      notice.innerHTML = `Showing most recent ${entries.length} of ${entriesTotal} Production Entries. <button id="prd-load-all-btn" class="text-blue-400 hover:text-blue-300 underline">Load all</button>`;
-      document.getElementById('prd-load-all-btn').addEventListener('click', () => fetchAndRenderList('all'));
-    } else {
-      notice.classList.add('hidden');
-    }
 
     const filtered = entries.filter(e => {
       if (search && !`${e.TransactionNumber} ${e.Description}`.toLowerCase().includes(search)) return false;
@@ -1553,11 +1556,11 @@
 
     loadReferenceData();
 
-    document.getElementById('prd-search-input').addEventListener('input', renderList);
-    document.getElementById('prd-company-filter').addEventListener('change', renderList);
-    document.getElementById('prd-status-filter').addEventListener('change', renderList);
-    document.getElementById('prd-from-filter').addEventListener('change', renderList);
-    document.getElementById('prd-to-filter').addEventListener('change', renderList);
+    document.getElementById('prd-search-input').addEventListener('input', () => { renderList(); listPager.reloadSoon(); });
+    document.getElementById('prd-company-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('prd-status-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('prd-from-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('prd-to-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
 
     document.getElementById('prd-back-btn').addEventListener('click', goBackToList);
     document.getElementById('prd-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });

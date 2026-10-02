@@ -20,8 +20,10 @@ const lgStart = find(/\/\/ ---------- LINE GRIDS ----------/);
 const lgEnd = find(/\/\/ ---------- END LINE GRIDS ----------/);
 const dfStart = find(/---------- DATE FORMAT ----------/);
 const dfEnd = find(/---------- END DATE FORMAT ----------/);
+const lpStart = find(/---------- LIST PAGING ----------/);
+const lpEnd = find(/---------- END LIST PAGING ----------/);
 if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd ||
-    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd) throw new Error('could not locate shell code');
+    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !lpStart || !lpEnd) throw new Error('could not locate shell code');
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
 <script src="https://cdn.tailwindcss.com"></script>
@@ -60,6 +62,7 @@ ${slice(injStart, injStart + 9)}
 ${slice(scStart, scEnd)}
 ${slice(lgStart, lgEnd)}
 ${slice(dfStart, dfEnd)}
+${slice(lpStart, lpEnd)}
   // Same drill-through contract as the shell's openModule: the target
   // reads window.__pendingModuleParams / __pendingReturnChain in initModule.
   window.openModule = function (moduleId, drillParams, returnChain) {

@@ -300,7 +300,6 @@
   let canPost = false;
   let entries = [];
   let entriesTotal = 0;
-  let currentLimit = 100;
   let items = [];
   let uoms = [];
   let companies = [];
@@ -401,10 +400,20 @@
     el.classList.remove('hidden');
   }
 
-  function fetchAndRenderList(limit) {
-    currentLimit = limit || currentLimit;
-    rpc
-      .withSuccessHandler(result => {
+  // Gmail-style paging; search and filters run on the server over every
+  // entry (docs/modules/LIST_PAGING.md).
+  const listPager = createListPager({
+    notice: 'grn-list-notice', noun: 'GRNs',
+    fetch: (page, ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail).getGrnEntries({ page: page }),
+    filters: () => ({
+      search: document.getElementById('grn-search-input').value,
+      CompanyID: document.getElementById('grn-company-filter').value,
+      Status: document.getElementById('grn-status-filter').value,
+      from: document.getElementById('grn-from-filter').value,
+      to: document.getElementById('grn-to-filter').value,
+      InvoiceStatus: document.getElementById('grn-invoice-filter').value
+    }),
+    onLoad: result => {
         entries = result.entries || []; entriesTotal = result.total || 0; renderList();
         if (pendingOpenEntryId) {
           const id = pendingOpenEntryId; pendingOpenEntryId = null;
@@ -417,9 +426,13 @@
           if (found) { pendingOpenGrnId = found.GRNID; openPendingGrn(); }
           else alert('That GRN could not be found — it may have been deleted.');
         }
-      })
-      .withFailureHandler(err => alert(err.message || 'Unable to load GRNs.'))
-      .getGrnEntries({ limit: currentLimit });
+    }
+  });
+  // A report's drill-down opens one entry directly ('all' was the old "load
+  // everything, then find it").
+  function fetchAndRenderList(limit) {
+    if (limit === 'all' && pendingOpenEntryId) listPager.open(pendingOpenEntryId);
+    else listPager.reload();
   }
 
   function renderList() {
@@ -430,15 +443,6 @@
     const from = document.getElementById('grn-from-filter').value;
     const to = document.getElementById('grn-to-filter').value;
     const invoiceFilter = document.getElementById('grn-invoice-filter').value;
-
-    const notice = document.getElementById('grn-list-notice');
-    if (entriesTotal > entries.length) {
-      notice.classList.remove('hidden');
-      notice.innerHTML = `Showing most recent ${entries.length} of ${entriesTotal} GRNs. <button id="grn-load-all-btn" class="text-blue-400 hover:text-blue-300 underline">Load all</button>`;
-      document.getElementById('grn-load-all-btn').addEventListener('click', () => fetchAndRenderList('all'));
-    } else {
-      notice.classList.add('hidden');
-    }
 
     const filtered = entries.filter(e => {
       if (search && !`${e.TransactionNumber} ${e.Description}`.toLowerCase().includes(search)) return false;
@@ -1824,15 +1828,13 @@
 
     loadReferenceData();
 
-    document.getElementById('grn-search-input').addEventListener('input', renderList);
-    document.getElementById('grn-company-filter').addEventListener('change', renderList);
-    document.getElementById('grn-status-filter').addEventListener('change', renderList);
-    document.getElementById('grn-from-filter').addEventListener('change', renderList);
-    document.getElementById('grn-to-filter').addEventListener('change', renderList);
-    // Finding pending ones must not miss older GRNs: load them all first.
-    document.getElementById('grn-invoice-filter').addEventListener('change', () => {
-      if (document.getElementById('grn-invoice-filter').value && entriesTotal > entries.length) fetchAndRenderList('all'); else renderList();
-    });
+    document.getElementById('grn-search-input').addEventListener('input', () => { renderList(); listPager.reloadSoon(); });
+    document.getElementById('grn-company-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('grn-status-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('grn-from-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('grn-to-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    // The server finds pending ones among all GRNs, not just those loaded.
+    document.getElementById('grn-invoice-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
 
     document.getElementById('grn-back-btn').addEventListener('click', goBackToList);
     document.getElementById('grn-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });

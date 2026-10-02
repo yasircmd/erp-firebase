@@ -260,8 +260,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - **In future:** a guard in the Deploy workflow, and a CLAUDE.md rule.
   - **Tests:** `dateFormat` unit (5) and UI (2). Seven negative controls
     were caught.
-- [ ] **Approval delegation from the Approval Tracker** (owner, 2026-09-29;
-  [APPROVAL_DELEGATION.md](modules/APPROVAL_DELEGATION.md)).
+- [x] **Approval delegation from the Approval Tracker** (owner, 2026-09-29;
+  [APPROVAL_DELEGATION.md](modules/APPROVAL_DELEGATION.md)). **Live
+  2026-09-29** (PR #43; Deploy runs #40 functions, #41 screens).
   - An Admin (any pending approval) or an approver (their own) hands an
     undecided level to another active user with access to the module
     and company, with a reason: one approval, or all of an absent
@@ -282,7 +283,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     Configuration suites, the Tracker smoke check and the Approval
     Routing UI checks all pass.
   - **To go live:** Deploy → "functions set", set `approval-delegation`,
-    with screens.
+    with screens. Done: run #40 deployed the functions without the
+    screens; run #41 ("screens only") released them.
 - [x] **BOM: the parent item's current name after a rename** (owner,
   2026-09-29; bug). **Live 2026-09-29** (PR #42; Deploy run #39).
   - A BOM stored its parent's code and name as saved, and the list showed
@@ -308,6 +310,35 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     withdraw now closes it.
   - **Purchase Order's Home task still opens the list,** not the order
     (`OpenEntryId` gap).
+- [ ] **Gmail-style list paging and server-side search** (owner,
+  2026-10-02; [LIST_PAGING.md](modules/LIST_PAGING.md)). Built, not yet
+  live.
+  - **The owner's decisions:** "Load next 100" adds below; all nine
+    document lists (JV, CBT, GRN, Material Issue, Warehouse Movement,
+    Stock Adjustment, Production, Physical Count, Purchase Order); "Load
+    all" removed.
+  - **Search and filters run on the server** over every entry the user
+    can see, 100 matches at a time. A report's drill-down fetches its one
+    entry instead of the whole list.
+  - **Fixed on the way:**
+    - JV / CBT "Load all" stopped at 1,000 entries without saying so;
+    - a search found nothing older than the loaded 100.
+  - **One shared piece of code:** `functions/src/listPaging.js` (server)
+    and the shell's LIST PAGING block (`createListPager`). Production and
+    Physical Count are generated, so the generator converts them
+    (`tools/legacy-port/listPaging.js`, patches `list-paging-*`).
+  - **Tests:** the `listPaging` suite (11) and `listPaging.ui.js` (5).
+    - Negative controls caught: nine. Six on the server (cursor
+      off-by-one, search over the first 100 only, no id tie-break, GRN
+      invoice state after the filter, PO search without the vendor, JV
+      by id from any company). Three in the UI ("next" replacing
+      instead of adding, a reload overtaking a drill-down, search
+      local-only).
+    - Not catchable by a test: the shortcut for a single-company user
+      (it saves reads but returns the same page).
+  - **To go live, in this order:**
+    1. Deploy → "hosting" (the shell's pager);
+    2. "functions set", set `list-paging`, with screens.
 - [x] **Purchase Requisition and Inventory Purchase Requisition fixes**
   (owner, 2026-09-28). Live 2026-09-28 in screen release
   `20260928T122017Z-5adca41` ([DEPLOY_LOG.md](DEPLOY_LOG.md)); no function

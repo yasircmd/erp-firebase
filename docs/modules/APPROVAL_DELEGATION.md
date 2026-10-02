@@ -1,6 +1,7 @@
 # Approval delegation
 
-Status: **built** (2026-09-29), not yet live. Design agreed by the owner
+Status: **live** 2026-09-29 (PR #43; Deploy runs #40 and #41,
+[DEPLOY_LOG.md](../DEPLOY_LOG.md)). Design agreed by the owner
 ("Agree", 2026-09-29), with the proposed rules as written.
 
 ## The request (owner, 2026-09-29)

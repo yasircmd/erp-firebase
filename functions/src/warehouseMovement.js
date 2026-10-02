@@ -10,6 +10,10 @@ const { allocateAvailableStockToShortfalls } = require('./reservations');
 const { withGlobalLock } = require('./lock');
 
 const onCallOptions = { region: 'us-central1' };
+const { pageOf } = require('./listPaging');
+// Gmail-style list paging (owner, 2026-10-02; docs/modules/LIST_PAGING.md).
+const LIST_SPEC = { idField: 'MoveID', idAlso: ['LinkedJVID'], dateField: 'TransactionDate', equals: ['CompanyID', 'Status'], text: e => `${e.TransactionNumber} ${e.Description}` };
+
 // Successful save/post/decide/reverse results carry success: true, same as
 // the original's return contract — the module's own screen checks
 // result.success on every one of these and would otherwise report a
@@ -304,6 +308,9 @@ exports.getWarehouseMovementEntries = onCallWithMessages(onCallOptions, async (r
     .filter(e => e.TransactionType === 'WarehouseMovement')
     .filter(e => userCanAccessCompany(user.profile, e.CompanyID))
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+
+  // Gmail-style paging and server-side search (docs/modules/LIST_PAGING.md).
+  if (request.data && request.data.page) return pageOf(all, request.data.page, LIST_SPEC);
 
   const limit = request.data && request.data.limit;
   const useAll = limit === 'all';

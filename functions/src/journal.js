@@ -20,6 +20,9 @@ const {
 } = require('./legacy/runtime');
 const L = require('./legacy/codegs');
 const { moduleHasCapability } = require('./auth');
+const listPaging = require('./listPaging');
+const { firestore } = require('./firebaseAdmin');
+const { FieldPath } = require('firebase-admin/firestore');
 const { getUserAssignedCompanies } = require('./companies');
 const { userCanAccessCompany, validateAndNormalizeLines, parseAmountServer, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance } = require('./approvals');
@@ -100,7 +103,7 @@ const ledgerPrefixesOf = config => config.ledgerPrefixes || [config.ledgerPrefix
 const isCashOrBankCode = code => ['10', '11'].includes(String(code || '').substring(0, 2));
 const ledgerKindOf = config => config.transfer ? 'From' : (config.ledgerPrefix === '10' ? 'cash' : 'bank');
 
-async function getJournalEntries(idToken, limit) {
+async function getJournalEntries(idToken, limit, page) {
   const user = await requireUser_(idToken);
 
   if (!(await moduleHasCapability_(idToken, 'JV', 'access', user.profile.role))) {
@@ -116,6 +119,7 @@ async function getJournalEntries(idToken, limit) {
   if (!assignedCompanies.length) return { entries: [], total: 0 };
 
   const where = [['VoucherType', 'EQUAL', 'JV'], ['CompanyID', 'IN', assignedCompanies]];
+  if (page) return journalListPage_(where, assignedCompanies, page, JV_LIST_SPEC, ['JV']);
   const cap = (limit === 'all' || limit === 0) ? 1000 : (Number(limit) || 100);
 
   const rows = await firestoreQuery_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, where, [['CreatedAt', 'DESCENDING']], cap);
@@ -124,7 +128,7 @@ async function getJournalEntries(idToken, limit) {
   return { entries: entries, total: total };
 }
 
-async function getCbtEntries(idToken, limit) {
+async function getCbtEntries(idToken, limit, page) {
   const user = await requireUser_(idToken);
 
   if (!(await moduleHasCapability_(idToken, 'CBT', 'access', user.profile.role))) {
@@ -136,12 +140,72 @@ async function getCbtEntries(idToken, limit) {
 
   const cbtTypes = Object.keys(CBT_VOUCHER_CONFIG);
   const where = [['VoucherType', 'IN', cbtTypes], ['CompanyID', 'IN', assignedCompanies]];
+  if (page) return journalListPage_(where, assignedCompanies, page, CBT_LIST_SPEC, cbtTypes);
   const cap = (limit === 'all' || limit === 0) ? 1000 : (Number(limit) || 100);
 
   const rows = await firestoreQuery_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, where, [['CreatedAt', 'DESCENDING']], cap);
   const total = await firestoreCount_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, where);
   const entries = rows.map(e => Object.assign({ JVID: e._id }, e));
   return { entries: entries, total: total };
+}
+
+// Gmail-style paging (owner, 2026-10-02; docs/modules/LIST_PAGING.md).
+// What each list's search box matches is unchanged from the screens'.
+const JV_LIST_SPEC = { idField: 'JVID', dateField: 'JVDate', equals: ['CompanyID', 'Status'], text: e => `${e.JVNumber} ${e.Description}` };
+const CBT_LIST_SPEC = { idField: 'JVID', dateField: 'JVDate', equals: ['CompanyID', 'Status', 'VoucherType'], text: e => `${e.JVNumber} ${e.Description}` };
+const asListEntry = e => Object.assign({ JVID: e._id }, e);
+
+// The plain list reads only the page it returns. A search or filter has to
+// read every entry of the user's companies (Firestore has no "contains"
+// search) and match them here; the company and voucher type filters
+// narrow that read.
+async function journalListPage_(where, assignedCompanies, page, spec, voucherTypes) {
+  const req = listPaging.normalize(page, spec);
+  const none = { entries: [], total: 0, next: '', filtered: true };
+  if (req.id) {
+    const e = await firestoreGet_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, req.id);
+    if (!e || !voucherTypes.includes(e.VoucherType) || !assignedCompanies.includes(e.CompanyID)) return none;
+    return listPaging.pageOf([asListEntry(e)], page, spec);
+  }
+  // The single-company default fills in the user's only company: that
+  // narrows nothing, so the plain list (one page read) still applies.
+  if (req.equals.CompanyID && assignedCompanies.length === 1 && assignedCompanies[0] === req.equals.CompanyID) delete req.equals.CompanyID;
+  if (listPaging.isFiltered(req)) {
+    const narrowed = where.slice();
+    if (req.equals.CompanyID) {
+      if (!assignedCompanies.includes(req.equals.CompanyID)) return none;
+      narrowed[1] = ['CompanyID', 'EQUAL', req.equals.CompanyID];
+    }
+    if (req.equals.VoucherType) {
+      if (!voucherTypes.includes(req.equals.VoucherType)) return none;
+      narrowed[0] = ['VoucherType', 'EQUAL', req.equals.VoucherType];
+    }
+    const rows = await firestoreQuery_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, narrowed, [['CreatedAt', 'DESCENDING']], 0);
+    return listPaging.pageOf(rows.map(asListEntry), page, spec);
+  }
+  // Unfiltered: only the next page is read, ordered as listPaging orders
+  // (CreatedAt, then the document id, both descending: the composite
+  // index the list already uses), starting after the marker.
+  const cursor = req.after ? listPaging.parseCursor(req.after) : null;
+  let q = firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION);
+  where.forEach(([field, op, value]) => { q = q.where(field, op === 'IN' ? 'in' : '==', value); });
+  q = q.orderBy('CreatedAt', 'desc').orderBy(FieldPath.documentId(), 'desc');
+  if (cursor) q = q.startAfter(cursor[0], cursor[1]);
+  let snap;
+  try {
+    snap = await q.limit(listPaging.PAGE_SIZE + 1).get();
+  } catch (err) {
+    // A missing composite index (FAILED_PRECONDITION) must not break the
+    // list: read it the way a search does instead, and say so in the logs.
+    if (err && err.code !== 9) throw err;
+    console.warn('journalListPage_: falling back to a full read (' + err.message + ')');
+    const all = await firestoreQuery_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, where, [['CreatedAt', 'DESCENDING']], 0);
+    return listPaging.pageOf(all.map(asListEntry), page, spec);
+  }
+  const rows = snap.docs.map(d => asListEntry(Object.assign({}, d.data(), { _id: d.id })));
+  const entries = rows.slice(0, listPaging.PAGE_SIZE);
+  const total = await firestoreCount_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, where);
+  return { entries, total, next: rows.length > listPaging.PAGE_SIZE ? listPaging.cursorOf(entries[entries.length - 1], spec) : '', filtered: false };
 }
 
 // Shared core used by both saveJournalDraft() (plain manual JV) and
@@ -645,8 +709,8 @@ function callable(fn, names) {
   });
 }
 
-exports.getJournalEntries = callable(getJournalEntries, ['limit']);
-exports.getCbtEntries = callable(getCbtEntries, ['limit']);
+exports.getJournalEntries = callable(getJournalEntries, ['limit', 'page']);
+exports.getCbtEntries = callable(getCbtEntries, ['limit', 'page']);
 exports.saveJournalDraft = callable(saveJournalDraft, ['jvData']);
 exports.saveCbtDraft = callable(saveCbtDraft, ['cbtData']);
 exports.deleteJournalDraft = callable(deleteJournalDraft, ['jvId']);

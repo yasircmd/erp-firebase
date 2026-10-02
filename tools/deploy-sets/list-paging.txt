@@ -1,0 +1,12 @@
+# Gmail-style list paging and server-side search (owner 2026-10-02;
+# docs/modules/LIST_PAGING.md). Deploy Hosting FIRST (the shell's
+# createListPager), then this set with --screens (the nine list screens).
+getJournalEntries                # JV list: page / search on the server
+getCbtEntries                    # CBT list
+getGrnEntries                    # GRN list (invoice filter on the server)
+getMaterialIssueEntries          # Material Issue list
+getWarehouseMovementEntries      # Warehouse Movement list
+getStockAdjustmentEntries        # Stock Adjustment list
+getPurchaseOrderEntries          # Purchase Order list (vendor-name search)
+getProductionEntries             # Production list
+getPhysicalCountEntries          # Physical Count list

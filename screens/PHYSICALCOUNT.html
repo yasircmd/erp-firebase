@@ -242,7 +242,6 @@
   let canPost = false;
   let entries = [];
   let entriesTotal = 0;
-  let currentLimit = 100;
   let items = [];
   let uoms = [];
   let companies = [];
@@ -303,10 +302,19 @@
 
   // ---------- LIST VIEW ----------
 
-  function fetchAndRenderList(limit) {
-    currentLimit = limit || currentLimit;
-    rpc
-      .withSuccessHandler(result => {
+  // Gmail-style paging; search and filters run on the server over every
+  // entry (docs/modules/LIST_PAGING.md).
+  const listPager = createListPager({
+    notice: 'pc-list-notice', noun: 'Counts',
+    fetch: (page, ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail).getPhysicalCountEntries({ page: page }),
+    filters: () => ({
+      search: document.getElementById('pc-search-input').value,
+      CompanyID: document.getElementById('pc-company-filter').value,
+      Status: document.getElementById('pc-status-filter').value,
+      from: document.getElementById('pc-from-filter').value,
+      to: document.getElementById('pc-to-filter').value
+    }),
+    onLoad: result => {
         entries = result.entries || []; entriesTotal = result.total || 0; renderList();
         if (pendingOpenEntryId) {
           const id = pendingOpenEntryId; pendingOpenEntryId = null;
@@ -319,9 +327,13 @@
           if (found) openEntry(found.CountID);
           else alert('That Count could not be found — it may have been deleted.');
         }
-      })
-      .withFailureHandler(err => alert(err.message || 'Unable to load GRNs.'))
-      .getPhysicalCountEntries({ limit: currentLimit });
+    }
+  });
+  // A report's drill-down opens one entry directly ('all' was the old "load
+  // everything, then find it").
+  function fetchAndRenderList(limit) {
+    if (limit === 'all' && pendingOpenEntryId) listPager.open(pendingOpenEntryId);
+    else listPager.reload();
   }
 
   function renderList() {
@@ -331,15 +343,6 @@
     const status = document.getElementById('pc-status-filter').value;
     const from = document.getElementById('pc-from-filter').value;
     const to = document.getElementById('pc-to-filter').value;
-
-    const notice = document.getElementById('pc-list-notice');
-    if (entriesTotal > entries.length) {
-      notice.classList.remove('hidden');
-      notice.innerHTML = `Showing most recent ${entries.length} of ${entriesTotal} Counts. <button id="pc-load-all-btn" class="text-blue-400 hover:text-blue-300 underline">Load all</button>`;
-      document.getElementById('pc-load-all-btn').addEventListener('click', () => fetchAndRenderList('all'));
-    } else {
-      notice.classList.add('hidden');
-    }
 
     const filtered = entries.filter(e => {
       if (search && !`${e.TransactionNumber} ${e.Description}`.toLowerCase().includes(search)) return false;
@@ -1540,11 +1543,11 @@
 
     loadReferenceData();
 
-    document.getElementById('pc-search-input').addEventListener('input', renderList);
-    document.getElementById('pc-company-filter').addEventListener('change', renderList);
-    document.getElementById('pc-status-filter').addEventListener('change', renderList);
-    document.getElementById('pc-from-filter').addEventListener('change', renderList);
-    document.getElementById('pc-to-filter').addEventListener('change', renderList);
+    document.getElementById('pc-search-input').addEventListener('input', () => { renderList(); listPager.reloadSoon(); });
+    document.getElementById('pc-company-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('pc-status-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('pc-from-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
+    document.getElementById('pc-to-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
 
     document.getElementById('pc-back-btn').addEventListener('click', goBackToList);
     document.getElementById('pc-print-btn').addEventListener('click', () => { buildPrintDocument(); window.print(); });
