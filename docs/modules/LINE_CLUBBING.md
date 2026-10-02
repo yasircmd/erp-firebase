@@ -63,4 +63,7 @@ report showed one row per line.
   - no GL clubbing;
   - description left out of the key;
   - no report clubbing.
-- Full regression: see the roadmap entry.
+- Full regression: 334 emulator tests. One expectation was updated: the
+  opening stock test, whose four lines share account and description, now
+  expects one Inventory line. Smoke and UI checks are green, apart from the
+  known environment-only home failures.
