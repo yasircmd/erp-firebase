@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { getUserAssignedCompanies } = require('./companies');
+const { clubGlLines } = require('./lineClubbing');
 
 // Extracted verbatim from Code.gs.
 const FIRESTORE_JOURNAL_ENTRIES_COLLECTION = 'journalEntries';
@@ -171,8 +172,11 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
 
   const coaSnap = await rtdb.ref('coa').get();
   const coaData = coaSnap.val() || {};
-  const normalized = validateAndNormalizeLines(rawGlLines, coaData, dim.CompanyID);
-  normalized.lines = carryPartyFields(rawGlLines, normalized.lines);
+  // One GL line per identical account / side / cost center / profit center /
+  // description (owner, 2026-10-02; docs/modules/LINE_CLUBBING.md).
+  const glLines = clubGlLines(rawGlLines);
+  const normalized = validateAndNormalizeLines(glLines, coaData, dim.CompanyID);
+  normalized.lines = carryPartyFields(glLines, normalized.lines);
   const totalDebit = normalized.totalDebit;
   const totalCredit = normalized.totalCredit;
   if (Math.round((totalDebit - totalCredit) * 100) !== 0) {

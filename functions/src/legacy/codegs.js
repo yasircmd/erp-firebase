@@ -13,6 +13,7 @@ const __coaUsage = require('../coaUsage');
 const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
 const __glWriting = require('../glWriting');
+const __lineClubbing = require('../lineClubbing');
 const __listPaging = require('../listPaging');
 const __masterData = require('../masterData');
 const __moduleRegistry = require('../moduleRegistry');
@@ -49,6 +50,7 @@ const moduleIdForEntry_ = (...a) => __masterData.moduleIdForEntry(...a);
 const prVisibilityFor_ = (idToken, ...a) => __prVisibility.visibilityFor(...a);
 const canSeePurchaseRequisition_ = (idToken, ...a) => __prVisibility.canSeeRequisition(...a);
 const findAccountUsage_ = (idToken, ...a) => __coaUsage.findAccountUsage(...a);
+const clubStockLines_ = (...a) => __lineClubbing.clubStockLines(...a);
 
 // ---- constants ----
 const { MODULE_REGISTRY } = __moduleRegistry;
@@ -6311,7 +6313,8 @@ async function getStockLedgerReport(idToken, params) {
   let openingQty = 0, openingValue = 0;
   const rows = [];
 
-  relevant.forEach(tx => linesHere(tx).forEach(line => {
+  // [NEW DEVELOPMENT stock-ledger-report-club-lines] docs/modules/LINE_CLUBBING.md
+  relevant.forEach(tx => clubStockLines_(linesHere(tx)).forEach(line => {
 
     const qty = line.Quantity || 0;
     const isIn = line.Direction === 'In';

@@ -394,6 +394,18 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [x] **One GL line per identical posting; Stock Ledger rows the same** (owner,
+  2026-10-02; [LINE_CLUBBING.md](modules/LINE_CLUBBING.md)). Built, not yet
+  live.
+  - **What:** system-posted entries club lines with the same account, side,
+    cost center, profit center and description; anything different stays
+    separate (owner's rule). The Stock Ledger report clubs a document's
+    rows of an item the same way. Manual JV / CBT unchanged.
+  - **Tests:** `lineClubbing` suite (3); three negative controls caught.
+    Full regression: emulator 334, one expectation updated (opening stock
+    lines now one GL line), smoke and UI green apart from the known
+    environment-only home failures.
+  - **To go live:** Deploy → "functions set", set `line-clubbing`.
 - [x] **Copy / Paste with column headings on every entry grid** (owner,
   2026-10-02; [LINE_GRIDS.md](modules/LINE_GRIDS.md)). **Live 2026-10-02**
   (PR #55; Deploy run #57).

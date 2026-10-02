@@ -154,7 +154,9 @@ test('Stock: issues (company, batch, repeats); posts the ledger at the given cos
   assert.deepEqual([tx.TransactionType, tx.Status, tx.TransactionDate, tx.TransactionNumber], ['OpeningStock', 'Posted', OD, r.numbers[0]]);
   assert.deepEqual(tx.Lines.map(l => [l.ItemCode, l.BatchNumber, l.ExpiryDate, l.Direction]), [['RM-001', '', '', 'In'], ['RM-002', 'B-1', '2026-06-30', 'In'], ['RM-002', 'B-2', '', 'In'], ['RM-001', '', '', 'In']]);
   const e = await doc(tx.LinkedJVID);
-  assert.deepEqual(linesOf(e), [['1300', 155, 0], ['1300', 20, 0], ['1300', 18, 0], ['1300', 40, 0], ['3900', 0, 233]]);
+  // Same account and description ("Opening stock"): one Inventory line
+  // (docs/modules/LINE_CLUBBING.md).
+  assert.deepEqual(linesOf(e), [['1300', 233, 0], ['3900', 0, 233]]);
   assert.equal((await setup()).clearing.STOCK, -233);
 });
 

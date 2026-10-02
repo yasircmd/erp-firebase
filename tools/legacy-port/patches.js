@@ -550,6 +550,15 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
       PdcIssuedClearingAccountID: pdcIssuedClearingAccountId,`
   },
   {
+    id: 'stock-ledger-report-club-lines',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/LINE_CLUBBING.md). A document with several lines of the same ' +
+      'item at the same warehouse showed one Stock Ledger row per line; lines with the same direction, cost center, ' +
+      'profit center and description are now one row (quantities and values summed), like the GL lines.',
+    find: `  relevant.forEach(tx => linesHere(tx).forEach(line => {`,
+    replace: `  // [NEW DEVELOPMENT stock-ledger-report-club-lines] docs/modules/LINE_CLUBBING.md
+  relevant.forEach(tx => clubStockLines_(linesHere(tx)).forEach(line => {`
+  },
+  {
     id: 'coa-recode-on-move',
     why: 'NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/COA_RECODE.md). An account created under the wrong head kept ' +
       'its code when moved to the right one. Now, when its head changes, it gets the next code under the new head, but ' +
