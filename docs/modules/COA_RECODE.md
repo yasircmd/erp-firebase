@@ -78,3 +78,24 @@ deactivate the old one.
   - no screen message (UI 2 fail).
 - The `coa`, `masterImport`, `masters1`, `jv` and `dataReset` suites
   still pass.
+
+## Also: shared accounts under each company (owner, 2026-10-02)
+
+Found while testing: a user assigned to one company opens Chart of
+Accounts with the company filter set to that company (the shell's
+single-company default), and the list showed only that company's own
+accounts, so every shared (all-company) account was hidden and the list
+could look empty. Owner's decision: **choosing a company shows its own
+accounts and the shared ones** (they apply to it too). "Shared (All
+Companies)" still shows only shared ones; "All Companies" shows all. It
+applies to everyone who picks a company. Done as a screen edit in
+`tools/legacy-port/generate.js` (SCREEN_EDITS, COA).
+
+Test: `coaRecode.ui.js` now has 4 checks:
+- a one-company user sees their company's and the shared accounts;
+- "Shared" shows only shared ones;
+- a two-company user choosing one company sees its own and the shared
+  accounts, not the other company's.
+
+Negative control (the old filter): all 4 fail. `singleCompany.ui.js`
+still passes (54).

@@ -175,7 +175,7 @@
       if (postable === 'true' && a.IsPostable !== true) return false;
       if (postable === 'false' && a.IsPostable === true) return false;
       if (companyFilter === '__shared__' && a.CompanyID) return false;
-      if (companyFilter && companyFilter !== '__shared__' && a.CompanyID !== companyFilter) return false;
+      if (companyFilter && companyFilter !== '__shared__' && a.CompanyID && a.CompanyID !== companyFilter) return false; // shared accounts show under every company
       return true;
     }).sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
 
