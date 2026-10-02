@@ -753,3 +753,11 @@ from, and how it was verified. The deploy procedure is in the
     (deploy step 1 min 19 s; set `coa-recode`).
   - Run [#55](https://github.com/yasircmd/erp-firebase/actions/runs/37039499387),
     17:15–17:18 UTC, from `416bc71` (the PR #53 merge).
+- **2026-10-02, SOA compact view (PR #54):** run
+  [#56](https://github.com/yasircmd/erp-firebase/actions/runs/37040649860),
+  17:25–17:27 UTC, from `3f949ff` (the PR #54 merge), success
+  ("screens only").
+- **2026-10-02, Copy / Paste with headings on every entry grid (PR #55):**
+  run [#57](https://github.com/yasircmd/erp-firebase/actions/runs/37044352746),
+  17:58–17:59 UTC, from `5503b74` (the PR #55 merge), success
+  ("screens only").
