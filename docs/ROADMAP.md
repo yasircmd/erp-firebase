@@ -401,7 +401,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     there, only if it has never been used (owner: "only if never used").
     Used: refused, with where it was used and the fix (new account, JV
     the balance, deactivate the old).
-  - **Tests:** `coaRecode` suite (5), `coaRecode.ui.js` (2); four negative
+  - **Also:** choosing a company in the COA list shows its own and the
+    shared accounts (owner); a one-company user's list no longer hides
+    the shared ones.
+  - **Tests:** `coaRecode` suite (5), `coaRecode.ui.js` (4); five negative
     controls caught.
   - **To go live:** Deploy → "functions set, then screens", set
     `coa-recode`.

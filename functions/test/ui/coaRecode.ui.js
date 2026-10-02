@@ -18,8 +18,11 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const acc = (code, name, parent, postable) => ({ AccountCode: code, AccountName: name, AccountType: 'Asset', Status: 'Active', IsPostable: postable !== false, ParentAccountID: parent || '', NormalBalance: 'Debit' });
   Object.assign(f.coa, {
     H1: acc('110000', 'Bank Accounts', '', false), H2: acc('120000', 'Cash in Hand', '', false),
-    L1: acc('110001', 'Petty Cash', 'H1'), L2: acc('110002', 'Bank Main', 'H1')
+    L1: acc('110001', 'Petty Cash', 'H1'), L2: acc('110002', 'Bank Main', 'H1'),
+    C1A: Object.assign(acc('110003', 'Bank Co One Only', 'H1'), { CompanyID: 'C1' }),
+    C2A: Object.assign(acc('110004', 'Bank Co Two Only', 'H1'), { CompanyID: 'C2' })
   });
+  f.users['u-multi'] = { status: 'Active', role: 'Admin', username: 'multi', fullName: 'Two Companies', AssignedCompanies: ['C1', 'C2'] };
   await reset(f);
   await rtdb.ref('recurringJournals/RJ1').set({ Name: 'Monthly bank charge', Lines: [{ AccountCode: '110002', Debit: 10 }] });
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
@@ -31,11 +34,17 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(); });
   await page.goto('http://127.0.0.1:8160/?module=COA&uid=u-admin');
   await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
-  // These accounts are shared; a one-company user's list opens on their company.
-  await page.waitForFunction(() => document.querySelectorAll('#coa-company-filter option').length > 2, null, { timeout: 30000 });
-  await page.selectOption('#coa-company-filter', '__shared__');
   const row = name => page.locator('#coa-table-body tr', { hasText: name });
-  await row('110001').waitFor({ timeout: 30000 });
+  const codes = () => page.$$eval('#coa-table-body tr td:first-child', tds => tds.map(t => t.textContent.trim()).filter(c => /^11000[0-4]$/.test(c)));
+
+  await check('one-company user: the list opens on their company and shows its accounts and the shared ones', async () => {
+    await page.waitForFunction(() => document.getElementById('coa-company-filter').value === 'C1', null, { timeout: 30000 });
+    await row('110001').waitFor({ timeout: 30000 });
+    assert.deepEqual(await codes(), ['110000', '110001', '110002', '110003']);
+    await page.selectOption('#coa-company-filter', '__shared__');
+    assert.deepEqual(await codes(), ['110000', '110001', '110002'], 'Shared shows only shared');
+    await page.selectOption('#coa-company-filter', 'C1');
+  });
 
   await check('an unused account moved to another head: new code, and the user is told', async () => {
     await row('110001').locator('.coa-edit').click();
@@ -58,6 +67,16 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal((await val('coa/L2')).AccountCode, '110002');
     assert.equal(page.__dialogs.length, 1, 'no second message');
     assert.deepEqual(page.__errors, []);
+  });
+
+  await check('two companies: choosing one shows its own and the shared accounts, not the other company\'s', async () => {
+    await page.goto('http://127.0.0.1:8160/?module=COA&uid=u-multi');
+    await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
+    await row('110004').waitFor({ timeout: 30000 });
+    // (110001 moved to 120001 above.)
+    assert.deepEqual(await codes(), ['110000', '110002', '110003', '110004'], 'All Companies');
+    await page.selectOption('#coa-company-filter', 'C2');
+    assert.deepEqual(await codes(), ['110000', '110002', '110004']);
   });
 
   await browser.close(); server.close(); await app.delete();

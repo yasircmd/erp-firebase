@@ -321,6 +321,11 @@ const { toCompactForms } = require('./compactForms');
 // Exact-text edits to generated screens (each fails the run if its text is
 // no longer there). Keep this short: prefer a rule in the shell.
 const SCREEN_EDITS = [
+  // COA: a company's list includes the shared accounts (owner, 2026-10-02):
+  // they apply to it too, and a one-company user's list opens on their
+  // company (the shell's single-company default), which hid them all.
+  { mod: 'COA', from: "if (companyFilter && companyFilter !== '__shared__' && a.CompanyID !== companyFilter) return false;",
+    to: "if (companyFilter && companyFilter !== '__shared__' && a.CompanyID && a.CompanyID !== companyFilter) return false; // shared accounts show under every company" },
   // COA: tell the user when moving an account to another head gave it a new
   // code (docs/modules/COA_RECODE.md).
   { mod: 'COA', from: "if (result.success) { closeModal(); fetchAndRender(); }",
