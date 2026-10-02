@@ -79,3 +79,44 @@ done once, in the shell.
 ## To go live
 
 Deploy → **"hosting"** (the shell only).
+
+## Copy / Paste with column headings (owner, 2026-10-02)
+
+"If JV and CBT copy table without data it shows 'Nothing to copy yet.', it
+should copy the heads, and if user paste with the heads then ignore the
+head while pasting. Also check any other module can apply the same."
+
+Owner's choices: headings **always** (also when the grid has lines), on
+**all ten** entry screens with Copy / Paste:
+- JV, CBT;
+- GRN, Material Issue, Warehouse Movement, Stock Adjustment;
+- Physical Count, Production, BOM;
+- Delivery Note.
+
+- **Copy Table** puts the column headings on top: an empty grid copies
+  just the headings (no more "Nothing to copy yet."), so it can be filled
+  in Excel; with lines it is a labelled table.
+- **Paste** (the button or Ctrl+V in a cell) skips a first row that is
+  the headings. It is recognised by its first cell being the first heading,
+  or by two or more cells being headings (case, spaces and dots ignored).
+- Delivery Note already copied its headings; it no longer refuses an
+  empty grid. It has no grid paste (its lines come from the Sales Order).
+
+The headings follow each grid's columns, in the order Copy writes them
+(e.g. JV: Account Code, Description, Debit, Credit, Cost Ctr, Profit Ctr;
+BOM: Component Item Code, Quantity, Scrap %).
+
+Built as `tools/legacy-port/gridClipboard.js`: generate.js runs it on
+the generated screens (Physical Count, Production, BOM); the hand screens
+were converted with it once (recorded in it). Every pattern must match
+exactly once.
+
+Test: `gridClipboard.ui.js` (11 checks): for each screen, an empty copy
+gives the headings, a paste with them gives one line (not a headings
+line), and a copy with a line gives headings plus that line.
+
+Negative controls, both caught:
+- copy without headings (JV and Physical Count fail);
+- paste keeping the headings (JV fails).
+
+`lineGrids.ui.js` (3) and `stockModules.ui.js` (14) still pass.

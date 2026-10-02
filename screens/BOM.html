@@ -388,6 +388,7 @@
   function applyPastedText(text) {
     if (!text) return;
     const rows = text.replace(/\r/g, '').split('\n').filter(r => r.trim() !== '');
+    if (rows.length && isHeadingRow(rows[0])) rows.shift(); // the copied headings row
     let skipped = 0;
     rows.forEach(rowText => {
       const cells = rowText.split('\t');
@@ -413,13 +414,22 @@
     if (skipped) alert(skipped + ' row(s) were skipped — code not found, not an eligible component category, or matched the parent item itself.');
   }
 
+  // Copy puts the column headings on top; a paste starting with them skips
+  // that row (owner, 2026-10-02; docs/modules/LINE_GRIDS.md).
+  const COPY_HEADINGS = ["Component Item Code","Quantity","Scrap %"];
+  function isHeadingRow(rowText) {
+    const key = v => String(v || '').trim().toLowerCase().replace(/[^a-z0-9%]/g, '');
+    const heads = COPY_HEADINGS.map(key);
+    const cells = String(rowText || '').split('\t').map(key).filter(Boolean);
+    return cells.length > 0 && (cells[0] === heads[0] || cells.filter(v => heads.includes(v)).length >= 2);
+  }
+
   async function handleCopyButton() {
     const rows = components.map(c => {
       const item = itemById(c.ComponentItemID);
       return [item ? item.ItemCode : '', c.Quantity === '' ? '' : c.Quantity, c.ScrapPercent === '' ? '' : c.ScrapPercent].join('\t');
     });
-    const text = rows.join('\n');
-    if (!text) { alert('Nothing to copy yet.'); return; }
+    const text = [COPY_HEADINGS.join('\t')].concat(rows).join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => flashCopyButton()).catch(async () => (await appPrompt('Copy this text:', text)));
     } else {
