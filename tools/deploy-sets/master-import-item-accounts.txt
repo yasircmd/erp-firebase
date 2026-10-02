@@ -1,0 +1,5 @@
+# Master Data Import: item account rules as Item Master's own save (owner
+# 2026-10-02; docs/modules/MASTER_IMPORT.md → Fix). No screens.
+getMasterImportSpecs             # column notes for Consumption and Write-off
+checkMasterImport                # Consumption: any postable; Write-off: Expense or COGS
+runMasterImport                  # the same check before importing

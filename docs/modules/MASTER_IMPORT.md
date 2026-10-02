@@ -401,3 +401,27 @@ The first questions as asked:
     - duplicate serial;
     - bad dates accepted.
 - **Deploy:** "functions set", set `master-import-2`, with screens.
+
+## Fix (2026-10-02): item account rules as Item Master's
+
+The owner pointed out the Consumption account note on Item Master:
+"Debited when this item is issued to production (Material Issue),
+credited back when this item is produced (Production Entry). Not
+restricted to Expense-type accounts — a Liability or Asset account is
+equally valid here."
+
+- **Item Master's own save does that already:** Consumption only has to
+  be postable (and in the item's company). Sales COGS and Write-off must
+  be Expense or COGS.
+- **The import's check got two of these wrong:**
+  - it demanded Expense or COGS for Consumption, which is stricter than
+    the screen;
+  - it took any postable account for Write-off, which is looser; that
+    row would then have failed at the save and been undone.
+- **Now the check matches the save,** and the column notes say so.
+- **Test:** the Items test adds a Liability Consumption account (now
+  imported) and an Asset Write-off account (an issue).
+- **Negative controls caught: two.** Consumption limited to Expense
+  again, and Write-off of any type.
+- **Deploy:** "functions set", set `master-import-item-accounts`. No
+  screens.
