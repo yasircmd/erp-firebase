@@ -668,3 +668,18 @@ from, and how it was verified. The deploy procedure is in the
     [#41](https://github.com/yasircmd/erp-firebase/actions/runs/36609576600),
     18:05–18:06 UTC, success. Release **`20260929T180641Z-607ba19`**, 61/61
     written and verified, active.
+- **2026-10-02, list paging (PR #44):** from `9de393a` (`main`, the PR #44
+  merge). The workflow's checks (generated code, no browser popups, date
+  format) passed in all three runs.
+  - **Hosting:** Deploy task "hosting", run
+    [#42](https://github.com/yasircmd/erp-firebase/actions/runs/36972089359),
+    06:07–06:08 UTC, success, `ALL DONE`.
+  - **Functions:** "functions set", set `list-paging`, run
+    [#43](https://github.com/yasircmd/erp-firebase/actions/runs/36972519345),
+    06:13–06:17 UTC, success: all nine list functions in two batches,
+    `ALL DONE`. The screens box was not ticked, so JV still showed "Load
+    all".
+  - **Screens:** "screens only", run
+    [#44](https://github.com/yasircmd/erp-firebase/actions/runs/36973806188),
+    06:29–06:30 UTC, success. Release **`20261002T063030Z-9de393a`**,
+    61/61 written and verified, active.

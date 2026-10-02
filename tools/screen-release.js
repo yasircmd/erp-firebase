@@ -132,6 +132,27 @@ async function rollback(db, releaseId) {
   await db.doc(POINTER).set({ activeRelease: releaseId });
 }
 
+// How screens/ differs from the active release, by each screen's hash
+// (owner, 2026-10-02): after a functions deploy without screens, the
+// Deploy workflow warns when screens changed but weren't released.
+// { active, changed, added, removed }, each list sorted; all empty when
+// they match. Hashes only, so the read stays small.
+async function compareWithActive(db, screens) {
+  const active = await activeRelease(db);
+  const live = {};
+  if (active) {
+    const snap = await db.collection('screenReleases').doc(active).collection('screens').select('sha256').get();
+    snap.docs.forEach(d => { live[d.id] = d.get('sha256'); });
+  }
+  const ids = Object.keys(screens);
+  return {
+    active,
+    changed: ids.filter(id => id in live && live[id] !== sha256(screens[id])).sort(),
+    added: ids.filter(id => !(id in live)).sort(),
+    removed: Object.keys(live).filter(id => !(id in screens)).sort()
+  };
+}
+
 // Keeps the newest `keep` releases, and always the active one.
 async function prune(db, keep = KEEP) {
   const rows = await listReleases(db);
@@ -141,7 +162,7 @@ async function prune(db, keep = KEEP) {
   }
 }
 
-module.exports = { withRetry, loadScreens, checkScreens, releaseScreens, listReleases, rollback, prune, activeRelease, releaseIdFor, KEEP, POINTER, SCREENS_DIR };
+module.exports = { withRetry, loadScreens, checkScreens, releaseScreens, listReleases, rollback, prune, activeRelease, compareWithActive, releaseIdFor, KEEP, POINTER, SCREENS_DIR };
 
 // ---- command line ----
 if (require.main === module) {
@@ -151,7 +172,7 @@ if (require.main === module) {
   const emulator = process.env.FIRESTORE_EMULATOR_HOST;
   // Never guess the target: production and the emulator both need --project.
   if (!project) {
-    console.error('usage: node tools/screen-release.js <release|list|rollback ID> --project PROJECT_ID');
+    console.error('usage: node tools/screen-release.js <release|list|rollback ID|compare> --project PROJECT_ID');
     process.exit(1);
   }
   const fromFunctions = m => require(require.resolve(m, { paths: [path.join(__dirname, '..', 'functions')] }));
@@ -174,6 +195,17 @@ if (require.main === module) {
       for (const r of await listReleases(db)) {
         console.log((r.active ? '* ' : '  ') + r.id + (r.complete ? '  ' + r.count + ' screens, ' + r.createdBy : '  INCOMPLETE'));
       }
+    } else if (cmd === 'compare') {
+      // Exit code 3 when screens/ differs from the active release.
+      const d = await compareWithActive(db, loadScreens());
+      const n = d.changed.length + d.added.length + d.removed.length;
+      console.log('Active release: ' + (d.active || '(none)'));
+      if (!n) { console.log('Screens: the active release matches screens/ (' + git('rev-parse --short HEAD') + ').'); return; }
+      console.log('Screens NOT released: ' + n + ' differ from the active release.');
+      if (d.changed.length) console.log('  changed: ' + d.changed.join(', '));
+      if (d.added.length) console.log('  new: ' + d.added.join(', '));
+      if (d.removed.length) console.log('  no longer in screens/: ' + d.removed.join(', '));
+      process.exitCode = 3;
     } else if (cmd === 'rollback' && arg) {
       await rollback(db, arg);
       console.log('Active release is now ' + arg);

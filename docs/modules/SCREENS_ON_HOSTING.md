@@ -93,6 +93,14 @@ browsers):
    one.
 - `--list` shows the releases (active marked). `--rollback <releaseId>`
   points back to an earlier one, which is a single write.
+- `compare` (2026-10-02) checks each screen's stored hash against
+  `screens/`. It lists screens that changed, are new, or were removed,
+  and exits 3 if any differ.
+  - The Deploy workflow runs it after a "functions set" without screens,
+    and shows a "Screens not released" warning on the run when they
+    differ.
+  - It was added because runs #40 and #43 deployed functions whose
+    screens then stayed old until a separate "screens only" run.
 
 **`getModuleFragment`** (behavior change, recorded here and in the
 roadmap): the same checks in the same order with the same error

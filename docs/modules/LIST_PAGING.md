@@ -1,6 +1,7 @@
 # List paging, Gmail-style
 
-Status: **built** (2026-10-02), not yet live. Design agreed by the owner
+Status: **live** 2026-10-02 (PR #44; Deploy runs #42, #43, #44,
+[DEPLOY_LOG.md](../DEPLOY_LOG.md)). Design agreed by the owner
 (2026-10-02), with the recommended answers.
 
 ## The request (owner, 2026-10-02)
