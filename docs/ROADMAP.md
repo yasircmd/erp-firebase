@@ -394,7 +394,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
-- [x] **Compact forms: Item, Vendor and Customer Master** (owner,
+- [x] **Compact lists and forms: Item, Vendor and Customer Master** (owner,
   2026-10-02; [COMPACT_FORMS.md](modules/COMPACT_FORMS.md)). Built, not
   yet live.
   - **What:** the Add / Edit form, "reducing space like CBT": tighter
@@ -402,7 +402,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     hover or click). Item form 31 % shorter, Vendor / Customer 25 %.
   - **How:** a generator transform, `tools/legacy-port/compactForms.js`
     (a style block scoped to each screen's form). Screens only.
-  - **Tests:** `compactForms.ui.js` (10); two negative controls caught;
+  - **Lists too** (owner's follow-up): a list row is one line (code,
+    company, actions no longer wrap; headers on one line); narrow screens
+    scroll sideways.
+  - **Tests:** `compactForms.ui.js` (13); three negative controls caught;
     smoke and single-company UI checks pass.
   - **To go live:** Deploy → "screens only".
 - [x] **Opening balances** (owner, 2026-10-02;
