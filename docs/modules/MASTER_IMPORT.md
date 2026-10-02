@@ -387,5 +387,15 @@ The first questions as asked:
     - undo of users, their sign-ins, assets and the asset counter.
   - **The Part 1 suite (9) still passes,** with the new order.
   - **`masterImport.ui.js` (5):** adds the Users password box.
-  - **Negative controls:** see ROADMAP.md.
+  - **Negative controls, ten caught:**
+    - one BOM's columns not compared;
+    - an active BOM overwritten;
+    - always a new price list;
+    - no temporary password check;
+    - duplicate email;
+    - no sign-in undo;
+    - no asset-number counter;
+    - no valuation eligibility;
+    - duplicate serial;
+    - bad dates accepted.
 - **Deploy:** "functions set", set `master-import-2`, with screens.

@@ -312,7 +312,30 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (`OpenEntryId` gap).
 - [ ] **Master Data Import from Excel** (owner, 2026-10-02;
   [MASTER_IMPORT.md](modules/MASTER_IMPORT.md)). **Part 1 live
-  2026-10-02** (PR #47; Deploy run #46). Part 2 next.
+  2026-10-02** (PR #47; Deploy run #46). **Part 2 built**, not yet
+  live.
+  - **Part 2:** Customer Classifications, Sales Types, Requisition
+    Categories, Fixed Asset Classes and Master, BOM (a row per
+    component), Inventory Valuation, Price Lists (a row per line; an
+    existing list gets lines added), Users (a temporary password typed on
+    the screen).
+  - **Code changes:** the Fixed Asset class and asset saves are shared
+    functions now; patches `import-bom-id` and `import-user-id`.
+  - **Tests:** the `masterImport2` suite (7), and `masterImport.ui.js`
+    (5).
+  - **Negative controls caught: ten.**
+    - one BOM's columns not compared;
+    - an active BOM overwritten;
+    - always a new price list;
+    - no temporary password check;
+    - duplicate email;
+    - no sign-in undo;
+    - no asset-number counter;
+    - no valuation eligibility;
+    - duplicate serial;
+    - bad dates accepted.
+  - **To go live:** Deploy → "functions set", set `master-import-2`,
+    with screens.
   - **How it works:** choose a master, copy its headers, fill in Excel,
     paste, check (issues by row and column), import all or nothing.
   - **The rules:**
