@@ -147,8 +147,13 @@ exports.saveFaAccountDetermination = onCallWithMessages(onCallOptions, async (re
 
 exports.saveFaClass = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
+  return saveFaClassFor(user, request.data || {});
+});
+
+// The class save itself, also used by Master Data Import
+// (docs/modules/MASTER_IMPORT.md), so an imported class follows the same rules.
+async function saveFaClassFor(user, d) {
   await C.requireCap('FACONFIG', 'write', user.profile.role);
-  const d = request.data || {};
   const id = str(d.ClassID);
   const code = str(d.Code).toUpperCase();
   const name = str(d.Name);
@@ -193,4 +198,5 @@ exports.saveFaClass = onCallWithMessages(onCallOptions, async (request) => {
     await firestore.collection(COL.classes).doc(docId).set(existing ? fields : Object.assign(fields, { CreatedAt: now, CreatedBy: C.actorOf(user) }), { merge: true });
     return { success: true, classId: docId };
   });
-});
+}
+exports.saveFaClassFor = saveFaClassFor;

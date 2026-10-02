@@ -1,0 +1,11 @@
+# Master Data Import, Part 2 (owner 2026-10-02; docs/modules/MASTER_IMPORT.md).
+# Run with --screens: MASTERIMPORT (the Part 2 masters, the temporary
+# password box for Users).
+getMasterImportSpecs             # the 18 masters, in import order
+checkMasterImport                # Part 2 checks (dates, groups, users...)
+runMasterImport                  # Part 2 saves and undo
+saveFaClass                      # its save now a shared function (same behavior)
+saveFaAsset                      # its save now a shared function (same behavior)
+saveBom                          # also returns the new BOM's id (patch import-bom-id)
+saveFirebaseUser                 # also returns the new user's id (patch import-user-id)
+getModuleFragment                # serves the screen

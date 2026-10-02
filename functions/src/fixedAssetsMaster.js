@@ -134,8 +134,13 @@ function areaWith(existingArea, v) {
 
 exports.saveFaAsset = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
+  return saveFaAssetFor(user, request.data || {});
+});
+
+// The asset save itself, also used by Master Data Import
+// (docs/modules/MASTER_IMPORT.md), so an imported asset follows the same rules.
+async function saveFaAssetFor(user, d) {
   await C.requireCap('FAASSET', 'draft', user.profile.role);
-  const d = request.data || {};
   const assetId = str(d.AssetID);
 
   return withGlobalLock(user.uid, async () => {
@@ -209,7 +214,8 @@ exports.saveFaAsset = onCallWithMessages(onCallOptions, async (request) => {
     await batch.commit();
     return { success: true, assetId: assetId, assetNumber: existing.AssetNumber, changes: changes.length };
   });
-});
+}
+exports.saveFaAssetFor = saveFaAssetFor;
 
 async function defaultCurrencyCode() {
   const data = (await rtdb.ref('currencies').get()).val() || {};

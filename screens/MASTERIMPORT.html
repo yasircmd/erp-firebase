@@ -17,6 +17,11 @@
       </div>
     </div>
     <p id="mimp-note" class="hidden text-xs text-amber-300/90"></p>
+    <div id="mimp-password-wrap" class="hidden md:w-80">
+      <label class="block text-xs font-medium text-slate-300 mb-1">Temporary password for these users</label>
+      <input id="mimp-password" type="password" autocomplete="new-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500" placeholder="At least 6 characters">
+      <p class="text-xs text-slate-500 mt-1">Not stored in the sheet. Give it to each user; they change it after signing in.</p>
+    </div>
     <div id="mimp-columns-wrap" class="hidden overflow-x-auto">
       <table class="w-full text-left text-xs">
         <thead><tr class="text-slate-400 uppercase border-b border-slate-700"><th class="py-1.5 px-2">Column</th><th class="py-1.5 px-2">Required</th><th class="py-1.5 px-2">What it takes</th></tr></thead>
@@ -79,6 +84,7 @@
     el('mimp-copy-headers').disabled = el('mimp-copy-sample').disabled = !spec;
     el('mimp-note').classList.toggle('hidden', !(spec && spec.note));
     el('mimp-note').textContent = spec ? spec.note : '';
+    el('mimp-password-wrap').classList.toggle('hidden', !(spec && spec.needsPassword));
     el('mimp-columns-wrap').classList.toggle('hidden', !spec);
     el('mimp-columns').innerHTML = spec ? spec.columns.map(c => `
       <tr>
@@ -158,7 +164,7 @@
         setStatus(n + (n === 1 ? ' row' : ' rows') + ' checked, no issues. Ready to import.', 'ok');
       })
       .withFailureHandler(err => { el('mimp-check').disabled = false; setStatus(''); appAlert(err.message || 'Unable to check.'); })
-      .checkMasterImport({ master: spec.key, text: text });
+      .checkMasterImport({ master: spec.key, text: text, tempPassword: el('mimp-password').value });
   }
 
   async function doImport() {
@@ -183,10 +189,11 @@
         el('mimp-preview-wrap').classList.add('hidden');
         el('mimp-issues-wrap').classList.add('hidden');
         const codes = result.codes && result.codes.length ? ' Codes given: ' + result.codes[0] + (result.codes.length > 1 ? ' to ' + result.codes[result.codes.length - 1] : '') + '.' : '';
-        setStatus(result.created + ' ' + spec.label + (result.created === 1 ? ' record' : ' records') + ' imported.' + codes, 'ok');
+        el('mimp-password').value = '';
+        setStatus(result.rows + (result.rows === 1 ? ' row' : ' rows') + ' imported into ' + spec.label + '.' + codes, 'ok');
       })
       .withFailureHandler(err => { el('mimp-check').disabled = false; setStatus(''); appAlert(err.message || 'Unable to import.'); })
-      .runMasterImport({ master: spec.key, text: text });
+      .runMasterImport({ master: spec.key, text: text, tempPassword: el('mimp-password').value });
   }
 
   window.initModule = function () {
@@ -195,6 +202,7 @@
     el('mimp-copy-headers').addEventListener('click', e => { const s = current(); if (s) copy(s.columns.map(c => c.header).join('\t'), e.currentTarget); });
     el('mimp-copy-sample').addEventListener('click', e => { const s = current(); if (s) copy(s.columns.map(c => c.header).join('\t') + '\n' + s.sample.join('\t'), e.currentTarget); });
     el('mimp-paste').addEventListener('input', () => { if (checkedText !== null && el('mimp-paste').value !== checkedText) resetResult(); });
+    el('mimp-password').addEventListener('input', () => { if (checkedText !== null) resetResult(); });
     el('mimp-check').addEventListener('click', check);
     el('mimp-import').addEventListener('click', doImport);
     el('mimp-clear').addEventListener('click', () => { el('mimp-paste').value = ''; resetResult(); });

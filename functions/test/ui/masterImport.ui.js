@@ -25,12 +25,14 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(); });
   await page.goto('http://127.0.0.1:8156/?module=MASTERIMPORT&uid=u-admin');
   await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
-  await page.waitForFunction(() => document.querySelectorAll('#mimp-master option').length > 9, null, { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelectorAll('#mimp-master option').length > 18, null, { timeout: 30000 });
 
   await check('the list is in import order; choosing one shows its columns and copies its headers', async () => {
     const options = await page.$$eval('#mimp-master option', os => os.map(o => o.textContent).filter(t => t !== 'Select...'));
-    assert.deepEqual(options, ['1. Company', '2. Organizational Units', '3. Chart of Accounts', '4. Unit of Measure', '5. Item Sub-Category',
-      '6. Items', '7. Vendors', '8. Customers', '9. Currencies']);
+    assert.deepEqual(options, ['1. Company', '2. Organizational Units', '3. Chart of Accounts', '4. Currencies', '5. Unit of Measure',
+      '6. Item Sub-Category', '7. Items', '8. Vendors', '9. Customer Classifications', '10. Customers', '11. Sales Types',
+      '12. Requisition Categories', '13. Fixed Asset Classes', '14. Fixed Asset Master', '15. Bill of Materials',
+      '16. Inventory Valuation List', '17. Price Lists', '18. Users']);
     await page.selectOption('#mimp-master', 'UOM');
     assert.deepEqual(await page.$$eval('#mimp-columns tr td:first-child', tds => tds.map(t => t.textContent)), ['Code', 'Name', 'Allow Decimals', 'Decimal Places']);
     await page.click('#mimp-copy-headers');
@@ -55,7 +57,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(await page.textContent('#mimp-status'), /2 rows checked, no issues/);
     await page.click('#mimp-import');
     await page.waitForFunction(() => /imported/.test(document.getElementById('mimp-status').textContent), null, { timeout: 20000 });
-    assert.equal(await page.textContent('#mimp-status'), '2 Unit of Measure records imported.');
+    assert.equal(await page.textContent('#mimp-status'), '2 rows imported into Unit of Measure.');
     assert.deepEqual(page.__dialogs, ['Import 2 rows into Unit of Measure?']);
     const codes = Object.values(await val('uoms')).map(u => u.Code).sort();
     assert.deepEqual(codes, ['BOX', 'KG', 'PCS']);
@@ -68,6 +70,18 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.waitForFunction(() => !document.getElementById('mimp-import').disabled, null, { timeout: 20000 });
     await page.fill('#mimp-paste', 'Code\tName\nDZ\tDozens');
     assert.ok(await page.$eval('#mimp-import', b => b.disabled));
+  });
+
+  await check('Users: the temporary password box shows, and the check asks for it', async () => {
+    await page.selectOption('#mimp-master', 'USER');
+    assert.ok(!(await page.$eval('#mimp-password-wrap', e => e.classList.contains('hidden'))), 'shown for Users');
+    await page.fill('#mimp-paste', 'Username\tFull Name\tEmail\tRole\nali\tAli Hassan\tali@example.com\tAdmin');
+    await page.click('#mimp-check');
+    await page.waitForSelector('#mimp-issues-wrap:not(.hidden)', { timeout: 20000 });
+    assert.deepEqual(await page.$$eval('#mimp-issues li', lis => lis.map(l => l.textContent)),
+      ['Headers · Temporary password: Type a temporary password of at least 6 characters for these users.']);
+    await page.selectOption('#mimp-master', 'UOM');
+    assert.ok(await page.$eval('#mimp-password-wrap', e => e.classList.contains('hidden')), 'hidden for other masters');
   });
 
   await browser.close(); server.close(); await app.delete();
