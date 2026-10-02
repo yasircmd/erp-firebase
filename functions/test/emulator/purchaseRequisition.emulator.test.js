@@ -117,7 +117,9 @@ test('cancel, delete, list, categories and access', async () => {
   assert.equal(list.total, 2);
   assert.equal(list.entries.length, 1);
   assert.equal((await call('u-other', 'getPurchaseRequisitionEntries', {})).total, 0, 'other company sees nothing');
-  assert.equal((await call('u-viewer', 'getPurchaseRequisitionEntries', {})).total, 2, 'viewer can read');
+  // Owner 2026-10-02 (docs/modules/PR_VISIBILITY.md): a Viewer who neither raised,
+  // approves nor handles them as Procurement sees none (it used to see all).
+  assert.equal((await call('u-viewer', 'getPurchaseRequisitionEntries', {})).total, 0, 'only raisers, approvers, Procurement and Admins see them');
 
   const cats = await call('u-admin', 'getActiveRequisitionCategories', {});
   assert.deepEqual(cats.map(c => c.CategoryID).sort(), ['RC1', 'RC2'], 'active and own-company only');

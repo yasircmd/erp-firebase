@@ -89,7 +89,10 @@ const MAPPED = {
   allocateAvailableStockToShortfalls_: ['reservations', 'allocateAvailableStockToShortfalls', 'actor'],
   ensureTreeSeeded_: ['tree', 'ensureTreeSeeded', 'dropCtx'],
   ensureRolesSeeded_: ['roles', 'ensureRolesSeeded', 'dropCtx'],
-  moduleIdForEntry_: ['masterData', 'moduleIdForEntry', 'pure']
+  moduleIdForEntry_: ['masterData', 'moduleIdForEntry', 'pure'],
+  // new development: docs/modules/PR_VISIBILITY.md (called only from patches)
+  prVisibilityFor_: ['prVisibility', 'visibilityFor', 'dropCtx'],
+  canSeePurchaseRequisition_: ['prVisibility', 'canSeeRequisition', 'dropCtx']
 };
 // Constants taken from the already-extracted shared modules (verbatim copies there).
 const IMPORTED_CONSTS = {
@@ -104,7 +107,8 @@ const SHARED_PATHS = {
   commitAttempt: '../commitAttempt', approvals: '../approvals', reservations: '../reservations',
   tree: '../tree', roles: '../roles', masterData: '../masterData', moduleRegistry: '../moduleRegistry',
   treeSeedNodes: '../treeSeedNodes', approvalRegistry: '../approvalRegistry',
-  listPaging: '../listPaging' // used by name (__listPaging.) in patches
+  listPaging: '../listPaging', // used by name (__listPaging.) in patches
+  prVisibility: '../prVisibility'
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);

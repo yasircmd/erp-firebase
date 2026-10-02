@@ -131,3 +131,4 @@ exports.getMyFollowUpTasksForUser = onCallWithMessages(onCallOptions, async (req
 });
 
 module.exports.FOLLOW_UP_MODULES = FOLLOW_UP_MODULES;
+module.exports.scopeKeyFor = scopeKeyFor;

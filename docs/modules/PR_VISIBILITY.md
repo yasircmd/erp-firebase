@@ -1,6 +1,7 @@
 # Purchase Requisition: who sees which requisitions
 
-Status: **design**, awaiting the owner's decisions (2026-10-02).
+Status: **built** (2026-10-02), not yet live. Design agreed by the owner
+(2026-10-02).
 
 ## The request (owner, 2026-10-02)
 
@@ -58,7 +59,15 @@ So a requisition can't be opened, or cancelled, by guessing its link.
 - **Approval Tracker:** unchanged; it's its own module with its own
   access.
 
-## Questions for the owner
+## The owner's decisions (2026-10-02)
+
+- **Inventory Purchase Requisition: not included.** Only Sales use it;
+  no one else has access.
+- **Approvers:** from when it waits on them, and afterwards.
+- **Procurement team:** their team's scope only.
+- **Admins:** see all.
+
+The questions as asked:
 
 1. **Inventory Purchase Requisition too?** It has the same Procurement
    follow-up team. Recommended: yes, the same rule.
@@ -96,3 +105,47 @@ So a requisition can't be opened, or cancelled, by guessing its link.
   - search and paging only return visible ones.
 - **UI:** the list for an unrelated user and for a team member.
 - **Negative controls** for each rule.
+
+## As built (2026-10-02)
+
+- **`functions/src/prVisibility.js`** (hand-written): `visibilityFor(user)`
+  reads once what the rule needs and returns `canSee(requisition)`.
+  `canSeeRequisition(user, id, requisition)` checks one. The company
+  restriction is part of it.
+  - **The raiser:** `RequestedBy` or `CreatedBy`, which hold the username
+    (or the uid).
+  - **Approvers:** every approver on any of the requisition's approval
+    records, in its levels or its decisions. A resubmission starts a new
+    record, and the earlier one's approvers keep sight of it. So does an
+    approver whose level was delegated away (`Delegations`), as "were the
+    approver" says.
+  - **The Procurement team:** the team for the requisition's scope (the
+    module's ScopeType in Approval Configuration), as their Home tasks
+    use. The team sees every requisition in its scope, drafts included
+    ("can see all list").
+  - **Admins:** every requisition in their companies.
+- **Code.gs functions** (patches `pr-visibility-*`):
+  - **The list** (`getPurchaseRequisitionEntries`) returns only what the
+    user may see.
+  - **Every action** answers "Requisition not found." for a requisition
+    the user may not see: save (editing), submit, approve/reject, close,
+    cancel and delete.
+  - Delete had no company check before; it has one now, through this.
+  - The checks reach `prVisibility.js` through the generator's MAPPED
+    table (`prVisibilityFor_`, `canSeePurchaseRequisition_`), so they are
+    awaited.
+- **Unchanged:** Purchase Order's choice of approved requisitions, the
+  Approval Tracker, Inventory Purchase Requisition, and the screen.
+- **Tests:**
+  - **The `prVisibility` suite (3):**
+    - who sees what: raiser, another raiser's draft, the approvers, the
+      team per cost center, an unrelated user, and an Admin;
+    - an approver keeps sight after deciding, and after delegation both
+      approvers do;
+    - an unrelated user can't cancel, close, delete, submit, edit or
+      decide by id, and nothing changes.
+  - **`purchaseRequisition`:** its Viewer now sees none (it used to see
+    all), as agreed.
+  - **Negative controls:** see ROADMAP.md.
+- **Deploy:** "functions set", set `pr-visibility`. No screens, no
+  Hosting.
