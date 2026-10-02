@@ -92,7 +92,8 @@ const MAPPED = {
   moduleIdForEntry_: ['masterData', 'moduleIdForEntry', 'pure'],
   // new development: docs/modules/PR_VISIBILITY.md (called only from patches)
   prVisibilityFor_: ['prVisibility', 'visibilityFor', 'dropCtx'],
-  canSeePurchaseRequisition_: ['prVisibility', 'canSeeRequisition', 'dropCtx']
+  canSeePurchaseRequisition_: ['prVisibility', 'canSeeRequisition', 'dropCtx'],
+  findAccountUsage_: ['coaUsage', 'findAccountUsage', 'dropCtx'] // docs/modules/COA_RECODE.md
 };
 // Constants taken from the already-extracted shared modules (verbatim copies there).
 const IMPORTED_CONSTS = {
@@ -108,7 +109,8 @@ const SHARED_PATHS = {
   tree: '../tree', roles: '../roles', masterData: '../masterData', moduleRegistry: '../moduleRegistry',
   treeSeedNodes: '../treeSeedNodes', approvalRegistry: '../approvalRegistry',
   listPaging: '../listPaging', // used by name (__listPaging.) in patches
-  prVisibility: '../prVisibility'
+  prVisibility: '../prVisibility',
+  coaUsage: '../coaUsage'
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);
@@ -319,6 +321,10 @@ const { toCompactForms } = require('./compactForms');
 // Exact-text edits to generated screens (each fails the run if its text is
 // no longer there). Keep this short: prefer a rule in the shell.
 const SCREEN_EDITS = [
+  // COA: tell the user when moving an account to another head gave it a new
+  // code (docs/modules/COA_RECODE.md).
+  { mod: 'COA', from: "if (result.success) { closeModal(); fetchAndRender(); }",
+    to: "if (result.success) { closeModal(); fetchAndRender(); if (result.codeChangedFrom) appAlert('Moved to the new head: code ' + result.codeChangedFrom + ' is now ' + result.accountCode + '.'); }" },
   // (Approval Tracker's time format, 2026-09-29, moved into the screen when it became hand-maintained.)
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call

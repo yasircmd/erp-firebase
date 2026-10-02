@@ -154,6 +154,7 @@ node functions/test/ui/appDialogs.ui.js     # in-app dialogs: a screen's confirm
 node functions/test/ui/lineGrids.ui.js      # compact line grids and tables, no empty line once posted, JV list columns; seeds its own data
 node functions/test/ui/dateFormat.ui.js     # dates dd/mm/yyyy in lists, messages, Excel copies; entry fields keep yyyy-mm-dd; seeds its own data
 node functions/test/ui/approvalDelegation.ui.js # Approval Tracker: delegate one level, or all of an approver's; seeds its own data
+node functions/test/ui/coaRecode.ui.js        # COA: moving an unused account to another head gives a new code; a used one is refused; seeds its own data
 node functions/test/ui/compactForms.ui.js     # Item / Vendor / Customer Master: one-line list rows, compact Add form, one-line help notes; seeds its own data
 node functions/test/ui/listPaging.ui.js       # JV / Production / PO lists: "Load next", server search, drill-down; seeds its own data
 node functions/test/ui/openingBalances.ui.js  # Opening Balances: setup, paste with issues, post, clearing, reverse; seeds its own data

@@ -394,10 +394,21 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [x] **COA: a new code when an account moves to another head** (owner,
+  2026-10-02; [COA_RECODE.md](modules/COA_RECODE.md)). Built, not yet
+  live.
+  - **What:** an account moved to the right head gets the next code
+    there, only if it has never been used (owner: "only if never used").
+    Used: refused, with where it was used and the fix (new account, JV
+    the balance, deactivate the old).
+  - **Tests:** `coaRecode` suite (5), `coaRecode.ui.js` (2); four negative
+    controls caught.
+  - **To go live:** Deploy → "functions set, then screens", set
+    `coa-recode`.
 - [x] **Compact lists and forms: Item, Vendor and Customer Master** (owner,
   2026-10-02; [COMPACT_FORMS.md](modules/COMPACT_FORMS.md)). Forms **live
   2026-10-02** (PR #50; Deploy runs #50–#52). The list fix (one line per
-  row) missed PR #50 and goes in its own PR: "screens only".
+  row) is **live** too (PR #51; Deploy run #53).
   - **What:** the Add / Edit form, "reducing space like CBT": tighter
     fields, gaps and sections; long help notes on one line (full text on
     hover or click). Item form 31 % shorter, Vendor / Customer 25 %.
@@ -408,7 +419,6 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     scroll sideways.
   - **Tests:** `compactForms.ui.js` (13); three negative controls caught;
     smoke and single-company UI checks pass.
-  - **To go live (lists):** Deploy → "screens only".
 - [x] **Opening balances** (owner, 2026-10-02;
   [OPENING_BALANCES.md](modules/OPENING_BALANCES.md)). **Live
   2026-10-02** (PR #50; Deploy runs #50–#52). Design agreed 2026-10-02 (all seven decisions as proposed).
