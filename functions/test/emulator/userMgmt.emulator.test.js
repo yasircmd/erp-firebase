@@ -26,9 +26,10 @@ async function emulatorAccounts() {
 
 test('create user: Auth account (in the emulator) + ERP profile', async () => {
   const r = await call('u-admin', 'saveFirebaseUser', { userData: { username: 'jdoe', email: 'JDoe@Example.test', fullName: 'Jane Doe', role: 'Viewer', password: 'secret123', assignedCompanies: ['C1'] } });
-  assert.deepEqual(r, { success: true });
   const acct = (await emulatorAccounts()).find(a => a.email === 'jdoe@example.test');
   assert.ok(acct, 'account created in the Auth EMULATOR');
+  // The new user's id comes back too (patch import-user-id, for Master Data Import).
+  assert.deepEqual(r, { success: true, userId: acct.uid });
   const profile = await val('users/' + acct.uid);
   assert.equal(profile.fullName, 'Jane Doe');
   assert.equal(profile.role, 'Viewer');
@@ -44,7 +45,7 @@ test('validation: short password, unknown role, duplicate email', async () => {
 });
 
 test('edit + delete (profile only); cannot delete yourself; Viewer refused', async () => {
-  assert.deepEqual(await call('u-admin', 'saveFirebaseUser', { userData: { id: 'u-viewer', username: 'viewer', fullName: 'Viewer Renamed', role: 'Viewer', status: 'Active', assignedCompanies: ['C1'] } }), { success: true });
+  assert.deepEqual(await call('u-admin', 'saveFirebaseUser', { userData: { id: 'u-viewer', username: 'viewer', fullName: 'Viewer Renamed', role: 'Viewer', status: 'Active', assignedCompanies: ['C1'] } }), { success: true, userId: 'u-viewer' });
   assert.equal((await val('users/u-viewer')).fullName, 'Viewer Renamed');
   assert.equal((await call('u-admin', 'deleteFirebaseUser', { userId: 'u-admin' })).error, 'You cannot delete your own administrator profile.');
   assert.equal((await call('u-viewer', 'getAllFirebaseUsers').catch(e => e.message)), 'You do not have permission to manage users.');
