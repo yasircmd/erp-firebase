@@ -1,6 +1,7 @@
 # Opening Balances
 
-Status: **design agreed** by the owner (2026-10-02); being built.
+Status: **built** 2026-10-02, not yet live. Design agreed by the owner
+(2026-10-02). As built: see the end.
 
 ## The request (owner, 2026-10-02)
 
@@ -113,3 +114,95 @@ Proposed columns:
 | 5 | Open invoices | **Per document** (number, date, due date); a party without detail can use one row |
 | 6 | Approval | **None:** Admin-only, posted directly once the check passes, logged |
 | 7 | Currency | **Base currency only** |
+
+## As built (2026-10-02)
+
+**Server:** `functions/src/openingBalances.js`. **Screen:**
+`screens/OPENINGBALANCES.html` (hand screen). Menu: System Admin →
+Configuration & Data Management → Opening Balances. Admin only
+(`OPENINGBALANCES` access, default ADMIN).
+
+### Setup, per company
+
+`openingBalances/settings/<companyId>`: **OpeningDate** (the day before
+go-live) and **ClearingAccountID** (an active, postable Equity account of
+that company or for all companies). Both are fixed while any batch of the
+company is posted: reverse the batches to change them.
+
+### The three tabs (copy headers, paste, check, post)
+
+| Tab | Columns (* required) | Checks |
+|---|---|---|
+| GL | Account*, Debit, Credit, Description, Cost Center, Profit Center | Account by code or exact name, postable and active; **not** a control account (any vendor's payables, customer's receivables, item's inventory) and not the clearing account; a debit or a credit, not both; Cost Center for Expense, Revenue and COGS accounts; one row per account |
+| Stock | Item*, Warehouse*, Quantity*, Unit Cost*, Batch No, Expiry Date | Item and warehouse/rack of this company; quantity and cost above zero; batch number for batch-tracked items; one row per item, warehouse and batch |
+| Open Invoices | Party Type*, Party*, Document Type* (Invoice / Advance), Document No*, Document Date*, Due Date, Amount*, Description | Party of this company with a valid control account; document date on or before the opening date; due date not before it (blank: date + the party's payment terms); the same document twice, in the paste or in a live batch, is an issue |
+
+References are by code or exact name (the company's own first). Dates
+are dd/mm/yyyy (or yyyy-mm-dd). At most 2,000 rows. Posting checks again
+under the global lock: all or nothing.
+
+### What a batch posts (all dated on the opening date)
+
+- **GL:** one entry, voucher type `OpeningBalance` (numbers
+  `OB-yy-cc-nnnnnn`): the rows, and the difference to Clearing.
+- **Stock:** a stock transaction `OpeningStock` (`OS-…`), lines In at the
+  given cost (moving average, as a GRN), with its entry: Dr each item's
+  Inventory, Cr Clearing. Batch number and expiry are kept on the lines,
+  as GRN does. Sales Order shortfalls are allocated as for any receipt.
+- **Open Invoices:** one entry per party (`OB-…`), a line per document on
+  the party's control account (vendor invoice Cr, vendor advance Dr;
+  customer the other way), each a **New Ref** carrying DocumentType,
+  DocumentNo, DocumentDate and DueDate; the net to Clearing.
+
+Every opening entry carries `OpeningBatchID`, `OpeningCompanyID` and
+`OpeningKind`. The batch log is `openingBalances/batches/<id>`.
+
+**Opening documents behave as invoices** (partyLedger): open items,
+the JV/CBT/PDC allocation picker, an allocation's RefNumber and the
+statement's open items and ageing show the document's own number, date
+and due date ("Opening invoice" / "Opening advance"). Payments allocate
+Against them like any New Ref.
+
+**The Clearing balance** shown on the screen is the net of the opening
+entries' Clearing lines, split by tab. GL, Stock and Open Invoices agree
+when it is zero.
+
+### Reversal (any time, Admin; decision 3)
+
+A batch reverses as a whole, dated on the opening date:
+
+- GL and Open Invoices: each entry mirrored (party tags kept, nothing
+  allocated, like a JV reversal). An open document already settled
+  refuses it ("…has been settled by …, reverse that first").
+- Stock: the stock is taken out **at the batch's own cost**, not the
+  average (a new opt-in `AtCost` on stockMovement's Out lines; the last
+  of the stock takes the whole remaining value). So a corrected batch
+  leaves the cost, and Clearing, as if it had never been posted, and the
+  stock ledger rebuild (Data Reset) replays it identically. Refused when
+  the stock has since been used ("…cannot be taken back: insufficient
+  stock…").
+
+Opening entries can't be reversed from JV ("reverse it from that
+module"). Data Reset has an **Opening Balance Batches** category (clear
+it with GL Journal Entries and Stock Transactions); the setup is kept.
+
+### Not in this step
+
+- Fixed assets: the existing take-over (FIXED_ASSETS.md decision 7) adds
+  assets without a GL entry; their cost and accumulated depreciation
+  accounts are rows in the GL tab. Nothing checks the two agree.
+- Quantities are in the item's base unit only.
+
+### Tests
+
+- `openingBalances` emulator suite (8): setup and access, each tab's
+  issues, posting each tab, open documents paid by CBT and shown in the
+  SOA ageing, reversal of each (and refusals), the cost after a reversed
+  stock batch and the ledger rebuild, another company's user.
+- `openingBalances.ui.js` (4).
+- `dataReset` updated for the new category.
+- Negative controls, all caught:
+  - control accounts allowed in GL;
+  - stock reversed at the average;
+  - documents shown by the entry's number;
+  - Post enabled despite issues (UI).

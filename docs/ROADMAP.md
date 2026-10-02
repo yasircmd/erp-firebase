@@ -405,10 +405,20 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - **Tests:** `compactForms.ui.js` (10); two negative controls caught;
     smoke and single-company UI checks pass.
   - **To go live:** Deploy → "screens only".
-- [ ] **Opening balances** (owner, 2026-10-02;
-  [OPENING_BALANCES.md](modules/OPENING_BALANCES.md)): GL, stock, open
-  invoices. Design agreed 2026-10-02 (all seven decisions as proposed);
-  being built.
+- [x] **Opening balances** (owner, 2026-10-02;
+  [OPENING_BALANCES.md](modules/OPENING_BALANCES.md)). Built, not yet
+  live. Design agreed 2026-10-02 (all seven decisions as proposed).
+  - **What:** a new Admin screen. Per company: opening date and clearing
+    account; then GL, Stock and Open Invoices pasted from Excel, checked
+    and posted against the clearing account, which is zero once all
+    three agree. Control accounts come only from Stock and Open
+    Invoices. Opening documents behave as invoices (allocation, SOA,
+    ageing). A batch reverses any time unless used; stock reverses at
+    its own cost.
+  - **Tests:** the `openingBalances` suite (8) and `openingBalances.ui.js`
+    (4); four negative controls caught.
+  - **To go live:** Deploy → "functions set, then screens", set
+    `opening-balances`. Then link a menu node to Opening Balances.
 - [x] **Deploy warns when screens weren't released** (owner, 2026-10-02).
   - **Why:** runs #40 and #43 deployed functions with the screens box
     unticked, and the owner saw no change.

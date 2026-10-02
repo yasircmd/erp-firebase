@@ -1,0 +1,41 @@
+# Opening Balances (owner 2026-10-02; docs/modules/OPENING_BALANCES.md).
+# Run with --screens: OPENINGBALANCES (new). Then, in the app, link a menu
+# node to "Opening Balances" (Module Tree & Navigation), set each company's
+# opening date and clearing account, and paste GL, Stock, Open Invoices.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getOpeningBalanceSetup           # setup, clearing balance, batches, columns
+saveOpeningBalanceSettings       # opening date and clearing account per company
+checkOpeningBalances             # check a paste (no writes)
+postOpeningBalances              # post a batch, all or nothing
+reverseOpeningBalanceBatch       # reverse a batch (stock at its own cost)
+# Registries: the module, its permissions, its menu node, its screen.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment
+# Opening documents show their own number, date and due date in open
+# items, allocations (RefNumber) and statements (partyLedger, partyStatement).
+getPartyOpenItems
+getPartyStatement
+saveJournalDraft
+saveCbtDraft
+postJournalEntry
+decideJournalEntryApproval
+reverseJournalEntry              # also: opening entries are reversed from Opening Balances only
+getPdcOpenItems
+savePdcDraft
+postPdc
+decidePdcApproval
+saveRecurringJournalDraft
+activateRecurringJournal
+decideRecurringJournalApproval
+postRecurringJournalRuns
+repostRecurringJournalRun
+# The stock ledger rebuild replays an opening stock reversal at its own cost
+# (stockMovement AtCost); Data Reset has an Opening Balance Batches category.
+recalculateStockLedger
+getDataResetCounts
+getCategoryRecords
+clearDataCategories
+clearSelectedRecords

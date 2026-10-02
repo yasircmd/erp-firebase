@@ -1,0 +1,280 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-scale-balanced text-blue-500"></i> Opening Balances</h2></div>
+  </div>
+
+  <p class="text-xs text-slate-500 max-w-3xl">A company's position on its go-live date. Set the opening date (the day before go-live) and the clearing account, then paste the GL trial balance, the stock on hand and the open invoices from Excel. Every posting goes against the clearing account; once all three are in, it should be zero. A batch posted wrongly is reversed below and posted again.</p>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 md:items-end">
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+        <select id="ob-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">Select...</option></select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Opening date <span class="text-slate-500">(the day before go-live)</span></label>
+        <input id="ob-date" type="date" disabled class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm disabled:opacity-40">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Opening Balance Clearing account <span class="text-slate-500">(Equity)</span></label>
+        <select id="ob-clearing" disabled class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300 disabled:opacity-40"><option value="">Select...</option></select>
+      </div>
+      <div>
+        <button id="ob-save-setup" disabled class="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save setup</button>
+      </div>
+    </div>
+    <p id="ob-setup-note" class="hidden text-xs text-slate-500">The opening date and clearing account are fixed while any batch is posted: reverse the batches to change them.</p>
+    <div id="ob-clearing-status" class="hidden text-sm"></div>
+  </div>
+
+  <div id="ob-work" class="hidden space-y-4">
+    <div class="flex gap-1 border-b border-slate-700" id="ob-tabs"></div>
+    <p id="ob-kind-note" class="text-xs text-slate-400 max-w-4xl"></p>
+    <div class="flex gap-2">
+      <button id="ob-copy-headers" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy headers</button>
+      <button id="ob-copy-sample" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy headers with a sample row</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead><tr class="text-slate-400 uppercase border-b border-slate-700"><th class="py-1.5 px-2">Column</th><th class="py-1.5 px-2">Required</th><th class="py-1.5 px-2">What it takes</th></tr></thead>
+        <tbody id="ob-columns" class="divide-y divide-slate-800"></tbody>
+      </table>
+    </div>
+    <div class="space-y-2">
+      <label class="block text-xs font-medium text-slate-300">Paste from Excel (headers in the first row)</label>
+      <textarea id="ob-paste" rows="6" wrap="off" spellcheck="false" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-xs font-mono focus:outline-none focus:border-blue-500" placeholder="Paste here..."></textarea>
+      <div class="flex gap-2">
+        <button id="ob-check" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-list-check"></i> Check</button>
+        <button id="ob-post" disabled class="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-check"></i> Post</button>
+        <button id="ob-clear" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Clear</button>
+      </div>
+      <p id="ob-status" class="hidden text-xs"></p>
+    </div>
+    <div id="ob-issues-wrap" class="hidden bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+      <div class="text-sm font-semibold text-red-300 mb-2"><i class="fa-solid fa-triangle-exclamation"></i> <span id="ob-issues-title">Issues</span></div>
+      <ul id="ob-issues" class="text-xs text-red-200 space-y-1"></ul>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="px-4 py-2 text-xs font-semibold text-slate-400 uppercase border-b border-slate-700">Posted batches</div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-900 text-slate-400 uppercase"><tr><th>Posted</th><th>Kind</th><th>Number</th><th class="text-right">Rows</th><th class="text-right">Total</th><th>Status</th><th></th></tr></thead>
+          <tbody id="ob-batches" class="divide-y divide-slate-700"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<textarea id="ob-copy-staging" class="sr-only" style="position:absolute; left:-9999px;"></textarea>
+
+<script>
+(function () {
+  // Opening Balances (owner, 2026-10-02; docs/modules/OPENING_BALANCES.md).
+  let setup = null; // getOpeningBalanceSetup for the chosen company
+  let kind = 'GL';
+  let checkedText = null; // the paste that last checked clean: only that one posts
+
+  const el = id => document.getElementById(id);
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const fmt = n => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const KIND_LABEL = { GL: 'GL', STOCK: 'Stock', INVOICES: 'Open Invoices' };
+  const currentKind = () => setup && setup.kinds.find(k => k.key === kind);
+
+  function setStatus(text, tone) {
+    const s = el('ob-status');
+    s.textContent = text || '';
+    s.className = 'text-xs ' + (tone === 'ok' ? 'text-emerald-400' : tone === 'error' ? 'text-red-400' : 'text-slate-400');
+    s.classList.toggle('hidden', !text);
+  }
+  function resetResult() {
+    checkedText = null;
+    el('ob-post').disabled = true;
+    el('ob-issues-wrap').classList.add('hidden');
+    setStatus('');
+  }
+
+  function load() {
+    const companyId = el('ob-company').value;
+    setup = null;
+    el('ob-work').classList.add('hidden');
+    el('ob-clearing-status').classList.add('hidden');
+    ['ob-date', 'ob-clearing', 'ob-save-setup'].forEach(id => { el(id).disabled = !companyId; });
+    if (!companyId) return;
+    rpc
+      .withSuccessHandler(result => { setup = result; render(); })
+      .withFailureHandler(err => appAlert(err.message || 'Unable to load the opening balances.'))
+      .getOpeningBalanceSetup({ companyId: companyId });
+  }
+
+  function render() {
+    const s = setup.settings;
+    el('ob-clearing').innerHTML = '<option value="">Select...</option>' + setup.clearingAccounts.map(a => `<option value="${escapeHtml(a.AccountID)}">${escapeHtml(a.Label)}</option>`).join('');
+    el('ob-date').value = s ? s.OpeningDate : '';
+    el('ob-clearing').value = s ? s.ClearingAccountID : '';
+    const locked = setup.liveBatches > 0;
+    el('ob-date').disabled = el('ob-clearing').disabled = el('ob-save-setup').disabled = locked;
+    el('ob-setup-note').classList.toggle('hidden', !locked);
+
+    const status = el('ob-clearing-status');
+    status.classList.toggle('hidden', !s);
+    if (s) {
+      const c = setup.clearing;
+      const side = n => fmt(Math.abs(n)) + (n > 0 ? ' Dr' : n < 0 ? ' Cr' : '');
+      const parts = ['GL', 'STOCK', 'INVOICES'].filter(k => Math.abs(c[k]) >= 0.005).map(k => KIND_LABEL[k] + ' ' + side(c[k]));
+      const balanced = Math.abs(c.balance) < 0.005;
+      status.className = 'text-sm ' + (balanced ? 'text-emerald-400' : 'text-amber-300');
+      status.innerHTML = '<i class="fa-solid ' + (balanced ? 'fa-circle-check' : 'fa-circle-exclamation') + '"></i> Clearing ' + escapeHtml(s.ClearingAccountLabel) + ': ' +
+        (balanced ? (setup.liveBatches ? '0.00 — the opening balances agree.' : '0.00 — no batch posted.') : '<b>' + side(c.balance) + '</b> — ' + escapeHtml(parts.join(', ')) + '. It is zero once GL, Stock and Open Invoices are all in and agree.');
+    }
+    el('ob-work').classList.toggle('hidden', !s);
+    renderTabs();
+    renderBatches();
+  }
+
+  function renderTabs() {
+    el('ob-tabs').innerHTML = setup.kinds.map(k =>
+      `<button data-kind="${k.key}" class="ob-tab px-4 py-2 text-xs border-b-2 ${k.key === kind ? 'border-blue-500 text-blue-300' : 'border-transparent text-slate-400 hover:text-slate-200'}">${escapeHtml(k.title)}</button>`).join('');
+    const k = currentKind();
+    el('ob-kind-note').textContent = k.note;
+    el('ob-columns').innerHTML = k.columns.map(c => `
+      <tr>
+        <td class="py-1.5 px-2 text-slate-200 whitespace-nowrap">${escapeHtml(c.header)}</td>
+        <td class="py-1.5 px-2">${c.required ? '<span class="text-amber-300">Required</span>' : '<span class="text-slate-500">Optional</span>'}</td>
+        <td class="py-1.5 px-2 text-slate-400">${escapeHtml([c.values.length ? 'One of: ' + c.values.join(', ') + '.' : '', c.note].filter(Boolean).join(' '))}</td>
+      </tr>`).join('');
+  }
+
+  function renderBatches() {
+    const rows = setup.batches;
+    el('ob-batches').innerHTML = rows.length ? rows.map(b => `
+      <tr data-batch="${escapeHtml(b.BatchID)}">
+        <td class="whitespace-nowrap">${escapeHtml(String(b.CreatedAt || '').substring(0, 10))}</td>
+        <td>${escapeHtml(KIND_LABEL[b.Kind] || b.Kind)}</td>
+        <td class="font-mono">${escapeHtml((b.JVNumbers || [])[0] || '')}${(b.JVNumbers || []).length > 1 ? ' <span class="text-slate-500">+' + (b.JVNumbers.length - 1) + ' more</span>' : ''}</td>
+        <td class="text-right">${escapeHtml(b.Rows)}</td>
+        <td class="text-right">${fmt(b.Total)}</td>
+        <td>${b.Status === 'Posted' ? '<span class="text-emerald-400">Posted</span>' : '<span class="text-slate-500">Reversed ' + escapeHtml(String(b.ReversedAt || '').substring(0, 10)) + '</span>'}</td>
+        <td class="text-right">${b.Status === 'Posted' ? '<button class="ob-reverse text-red-400 hover:text-red-300">Reverse</button>' : ''}</td>
+      </tr>`).join('') : '<tr><td colspan="7" class="text-center text-slate-500 py-4">No batches posted yet.</td></tr>';
+  }
+
+  function saveSetup() {
+    const companyId = el('ob-company').value;
+    el('ob-save-setup').disabled = true;
+    rpc
+      .withSuccessHandler(() => { appAlert('Setup saved.'); load(); })
+      .withFailureHandler(err => { el('ob-save-setup').disabled = false; appAlert(err.message || 'Unable to save the setup.'); })
+      .saveOpeningBalanceSettings({ companyId: companyId, openingDate: el('ob-date').value, clearingAccountId: el('ob-clearing').value });
+  }
+
+  function renderIssues(issues) {
+    el('ob-issues-wrap').classList.toggle('hidden', !issues.length);
+    el('ob-issues-title').textContent = issues.length === 1 ? '1 issue — fix it in Excel and paste again' : issues.length + ' issues — fix them in Excel and paste again';
+    el('ob-issues').innerHTML = issues.map(i => `<li>${i.row ? 'Row ' + i.row : 'Headers'}${i.column ? ' · ' + escapeHtml(i.column) : ''}: ${escapeHtml(i.message)}</li>`).join('');
+  }
+
+  function check() {
+    const text = el('ob-paste').value;
+    if (!text.trim()) { appAlert('Paste the rows from Excel first (headers in the first row).'); return; }
+    resetResult();
+    setStatus('Checking...');
+    el('ob-check').disabled = true;
+    rpc
+      .withSuccessHandler(result => {
+        el('ob-check').disabled = false;
+        renderIssues(result.issues || []);
+        if ((result.issues || []).length) { setStatus('Not ready to post.', 'error'); return; }
+        checkedText = text;
+        el('ob-post').disabled = false;
+        setStatus(result.rows + (result.rows === 1 ? ' row' : ' rows') + ' checked, no issues. ' + (result.summary || '') + ' Ready to post.', 'ok');
+      })
+      .withFailureHandler(err => { el('ob-check').disabled = false; setStatus(''); appAlert(err.message || 'Unable to check.'); })
+      .checkOpeningBalances({ kind: kind, companyId: el('ob-company').value, text: text });
+  }
+
+  async function post() {
+    const text = el('ob-paste').value;
+    if (checkedText === null || text !== checkedText) { appAlert('Check the paste again before posting.'); el('ob-post').disabled = true; return; }
+    const k = currentKind();
+    if (!(await appConfirm('Post ' + k.title + ', dated ' + setup.settings.OpeningDate + '?'))) return;
+    el('ob-post').disabled = true; el('ob-check').disabled = true;
+    setStatus('Posting...');
+    rpc
+      .withSuccessHandler(result => {
+        el('ob-check').disabled = false;
+        checkedText = null;
+        if (!result.success) { renderIssues(result.issues || []); setStatus('Nothing was posted.', 'error'); return; }
+        el('ob-paste').value = '';
+        el('ob-issues-wrap').classList.add('hidden');
+        const n = result.numbers || [];
+        setStatus(result.rows + (result.rows === 1 ? ' row' : ' rows') + ' posted: ' + n[0] + (n.length > 1 ? ' to ' + n[n.length - 1] : '') + '.', 'ok');
+        const companyId = el('ob-company').value;
+        rpc.withSuccessHandler(r => { setup = r; render(); }).withFailureHandler(() => {}).getOpeningBalanceSetup({ companyId: companyId });
+      })
+      .withFailureHandler(err => { el('ob-check').disabled = false; setStatus(''); appAlert(err.message || 'Unable to post.'); })
+      .postOpeningBalances({ kind: kind, companyId: el('ob-company').value, text: text });
+  }
+
+  async function reverse(batchId) {
+    const b = setup.batches.find(x => x.BatchID === batchId);
+    if (!b) return;
+    if (!(await appConfirm('Reverse the ' + (KIND_LABEL[b.Kind] || b.Kind) + ' batch ' + ((b.JVNumbers || [])[0] || '') + ' (' + b.Rows + ' rows)? Its entries are reversed on the opening date' + (b.Kind === 'STOCK' ? ' and its stock taken out at its own cost' : '') + '.'))) return;
+    rpc
+      .withSuccessHandler(result => { appAlert('Reversed: ' + (result.reversalNumbers || []).join(', ') + '.'); load(); })
+      .withFailureHandler(err => appAlert(err.message || 'Unable to reverse.'))
+      .reverseOpeningBalanceBatch({ batchId: batchId });
+  }
+
+  function copy(text, btn) {
+    const original = btn.innerHTML;
+    const flash = ok => { btn.innerHTML = ok ? '<i class="fa-solid fa-check"></i> Copied — paste it into Excel' : '<i class="fa-solid fa-triangle-exclamation"></i> Copy failed'; setTimeout(() => { btn.innerHTML = original; }, 2500); };
+    const viaStaging = () => {
+      const staging = el('ob-copy-staging');
+      staging.value = text; staging.style.display = 'block'; staging.focus(); staging.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      staging.style.display = 'none';
+      flash(ok);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(() => flash(true), viaStaging); return; }
+    viaStaging();
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-scale-balanced"></i> Opening Balances';
+    el('ob-company').addEventListener('change', load);
+    el('ob-save-setup').addEventListener('click', saveSetup);
+    el('ob-tabs').addEventListener('click', e => {
+      const b = e.target.closest('.ob-tab');
+      if (!b || b.dataset.kind === kind) return;
+      kind = b.dataset.kind;
+      el('ob-paste').value = '';
+      resetResult();
+      renderTabs();
+    });
+    el('ob-copy-headers').addEventListener('click', e => { const k = currentKind(); if (k) copy(k.columns.map(c => c.header).join('\t'), e.currentTarget); });
+    el('ob-copy-sample').addEventListener('click', e => { const k = currentKind(); if (k) copy(k.columns.map(c => c.header).join('\t') + '\n' + k.sample.map(r => r.join('\t')).join('\n'), e.currentTarget); });
+    el('ob-paste').addEventListener('input', () => { if (checkedText !== null && el('ob-paste').value !== checkedText) resetResult(); });
+    el('ob-check').addEventListener('click', check);
+    el('ob-post').addEventListener('click', post);
+    el('ob-clear').addEventListener('click', () => { el('ob-paste').value = ''; resetResult(); });
+    el('ob-batches').addEventListener('click', e => {
+      const b = e.target.closest('.ob-reverse');
+      if (b) reverse(b.closest('tr').dataset.batch);
+    });
+    rpc
+      .withSuccessHandler(list => {
+        const select = el('ob-company');
+        (list || []).forEach(c => { const o = document.createElement('option'); o.value = c.CompanyID; o.textContent = c.LegalName || c.CompanyID; select.appendChild(o); });
+      })
+      .withFailureHandler(err => appAlert(err.message || 'Unable to load the companies.'))
+      .getActiveCompanies();
+  };
+})();
+</script>
