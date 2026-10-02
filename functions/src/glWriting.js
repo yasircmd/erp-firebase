@@ -18,7 +18,9 @@ const STOCK_TRANSACTION_PREFIXES = {
   FACapitalization: 'FAA', FADepreciation: 'FAD', FAAdditionalDepreciation: 'FAU', FATakeOver: 'FAO',
   FARetirement: 'FAR', // phase 2: sale / scrapping
   FAAuCCost: 'FAA', FAAuCSettlement: 'FAS', // Capital Work in Progress: cost in, settlement out
-  RecurringJV: 'RJV' // hand-written module, docs/modules/RECURRING_JOURNAL.md: a run and its reversal
+  RecurringJV: 'RJV', // hand-written module, docs/modules/RECURRING_JOURNAL.md: a run and its reversal
+  // hand-written module, docs/modules/OPENING_BALANCES.md: GL and open invoices; opening stock
+  OpeningBalance: 'OB', OpeningStock: 'OS'
 };
 
 function userCanAccessCompany(profile, companyId) {

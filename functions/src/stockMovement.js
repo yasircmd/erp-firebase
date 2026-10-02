@@ -51,9 +51,17 @@ async function computeStockMovement(itemsData, coaData, lines, readLedger) {
       throw new Error('Line ' + (idx + 1) + ': insufficient stock for ' + item.ItemCode + ' at this warehouse — available ' + ledger.Quantity + ', requested ' + qty + '.');
     }
 
-    const unitCost = ledger.AvgCost;
-    const lineValue = Math.round(qty * unitCost * 100) / 100;
+    // AtCost (new development, docs/modules/OPENING_BALANCES.md): taking
+    // back an opening stock batch removes it at its own cost, not at the
+    // average, so a corrected batch leaves the cost as if it had never been
+    // posted. The last of the stock takes the whole remaining value with it.
+    // Every other Out line goes at the average, as before.
+    const unitCost = line.AtCost ? Number(line.UnitCost) : ledger.AvgCost;
     const newQty = Math.round((ledger.Quantity - qty) * 1e6) / 1e6;
+    const lineValue = line.AtCost && newQty <= 0.000001 ? Math.round(ledger.TotalValue * 100) / 100 : Math.round(qty * unitCost * 100) / 100;
+    if (line.AtCost && lineValue > ledger.TotalValue + 0.005) {
+      throw new Error('Line ' + (idx + 1) + ': ' + item.ItemCode + ' at this warehouse is now worth ' + ledger.TotalValue + ', less than the ' + lineValue + ' to take out at its original cost.');
+    }
     const newTotalValue = Math.round((ledger.TotalValue - lineValue) * 100) / 100;
     const newAvgCost = newQty > 0.000001 ? Math.round((newTotalValue / newQty) * 10000) / 10000 : 0;
     ledgerUpdates[key] = { Quantity: newQty, AvgCost: newAvgCost, TotalValue: newQty > 0.000001 ? newTotalValue : 0 };

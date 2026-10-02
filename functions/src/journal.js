@@ -69,7 +69,9 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   FACapitalization: 'FAACQ', FADepreciation: 'FADEPRUN', FAAdditionalDepreciation: 'FAADDDEP',
   FARetirement: 'FARETIRE', FAAuCCost: 'FAAUC', FAAuCSettlement: 'FAAUC',
   // new development, not in Code.gs: docs/modules/RECURRING_JOURNAL.md
-  RecurringJV: 'RECURRINGJV'
+  RecurringJV: 'RECURRINGJV',
+  // new development, not in Code.gs: docs/modules/OPENING_BALANCES.md
+  OpeningBalance: 'OPENINGBALANCES', OpeningStock: 'OPENINGBALANCES'
 };
 
 // ============================================================

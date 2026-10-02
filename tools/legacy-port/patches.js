@@ -550,6 +550,25 @@ function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
       PdcIssuedClearingAccountID: pdcIssuedClearingAccountId,`
   },
   {
+    id: 'data-reset-opening-balances (category)',
+    why: 'NEW DEVELOPMENT (docs/modules/OPENING_BALANCES.md). The opening batches log lives in its own RTDB path; ' +
+      'its entries and stock are in GL Journal Entries and Stock Transactions, so clearing those should clear the log too.',
+    find: `  boms: { paths: ['boms'], recordsPath: 'boms', label: 'Bill of Materials',`,
+    replace: `  // [NEW DEVELOPMENT data-reset-opening-balances] docs/modules/OPENING_BALANCES.md
+  openingBalanceBatches: { paths: ['openingBalances/batches'], recordsPath: 'openingBalances/batches', label: 'Opening Balance Batches', detail: 'The log of posted opening batches (GL, Stock, Open Invoices) and their reversals. Their entries are in GL Journal Entries and Stock Transactions: clear all three together. The opening date and clearing account set-up is kept.', group: 'transactional' },
+  boms: { paths: ['boms'], recordsPath: 'boms', label: 'Bill of Materials',`
+  },
+  {
+    id: 'data-reset-opening-balances (summary)',
+    why: 'How an opening batch is listed when browsing the category.',
+    find: `    case 'customerClassifications':
+      return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');`,
+    replace: `    case 'customerClassifications':
+      return (r.Name || '') + (r.IsExport ? ' [Export]' : ' [Local]');
+    case 'openingBalanceBatches':
+      return 'Opening ' + (r.Kind || '') + ' ' + ((r.JVNumbers || [])[0] || '') + ' — ' + (r.Rows || 0) + ' rows dated ' + (r.OpeningDate || '') + ' [' + (r.Status || '') + ']';`
+  },
+  {
     id: 'data-reset-pdc-cheques (category)',
     why: 'NEW DEVELOPMENT. PDC documents live in their own RTDB path (pdcCheques), so Data Reset needs a category ' +
       'for them, as it has for Vendor and Customer Invoices.',
