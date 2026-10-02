@@ -76,7 +76,10 @@ const MODULE_REGISTRY = [
   { id: 'DATARESET', label: 'Data Reset (Admin)', capabilities: ['access', 'write'] },
   // New development: docs/modules/MASTER_IMPORT.md. Importing also needs
   // write on the master being imported.
-  { id: 'MASTERIMPORT', label: 'Master Data Import', capabilities: ['access'] }
+  { id: 'MASTERIMPORT', label: 'Master Data Import', capabilities: ['access'] },
+  // New development: docs/modules/OPENING_BALANCES.md (Admin only, owner
+  // decision 6: no approval).
+  { id: 'OPENINGBALANCES', label: 'Opening Balances', capabilities: ['access'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -179,7 +182,8 @@ const DEFAULT_PERMISSIONS = {
   BOM:                { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
   MATERIALVARIANCE:   { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   DATARESET:          { access: ['ADMIN'], write: ['ADMIN'] },
-  MASTERIMPORT:       { access: ['ADMIN'] }
+  MASTERIMPORT:       { access: ['ADMIN'] },
+  OPENINGBALANCES:    { access: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

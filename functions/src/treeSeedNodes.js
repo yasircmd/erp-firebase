@@ -237,7 +237,8 @@ const TREE_SEED_NODES = [
   { text: 'Roles & Permissions Management', depth: 1, moduleId: 'ROLES' },
   { text: 'System Health & Maintenance', depth: 1 },
   { text: 'Configuration & Data Management', depth: 1 },
-  { text: 'Master Data Import', depth: 2, moduleId: 'MASTERIMPORT' }
+  { text: 'Master Data Import', depth: 2, moduleId: 'MASTERIMPORT' },
+  { text: 'Opening Balances', depth: 2, moduleId: 'OPENINGBALANCES' }
 ];
 
 module.exports = { TREE_SEED_NODES };

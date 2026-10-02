@@ -112,8 +112,11 @@ async function getOpenItemsForParty(partyType, partyId, party, asOf) {
     (l.Allocations || []).forEach(a => {
       if (a.RefType === 'New') {
         const refId = 'NewRef:' + e._id + ':' + l.LineNo;
+        // An opening document (docs/modules/OPENING_BALANCES.md) carries its
+        // own number, date and due date.
         items.set(refId, {
-          RefID: refId, ItemType: 'NewRef', Number: e.JVNumber || '', Date: e.JVDate || '', DueDate: e.JVDate || '',
+          RefID: refId, ItemType: 'NewRef', Number: a.DocumentNo || e.JVNumber || '', Date: a.DocumentDate || e.JVDate || '',
+          DueDate: a.DueDate || a.DocumentDate || e.JVDate || '', DocumentType: a.DocumentType || '',
           CompanyID: e.CompanyID || '', Side: lineSide(l), Amount: round2(Number(a.Amount) || 0),
           Description: l.Description || e.Description || '', Allocated: 0
         });

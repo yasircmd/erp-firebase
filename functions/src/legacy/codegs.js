@@ -262,6 +262,8 @@ const DATA_RESET_CATEGORIES = {
   stockData: { paths: ['stock/transactions', 'stock/ledger', 'stock/counters'], recordsPath: 'stock/transactions', label: 'Stock Transactions & Ledger', detail: 'GRN, Material Issue, Production, Warehouse Movement, Stock Adjustment, Physical Count, and Delivery Note records, current stock-on-hand balances, stock voucher numbering, and the lifetime STK- audit reference (nested under stock/counters, cleared along with it).', group: 'transactional' },
   vendorInvoices: { paths: ['vendorInvoices'], recordsPath: 'vendorInvoices', label: 'Vendor Invoice Processing', detail: 'Every Vendor Invoice record (its own collection, separate from GL Journal Entries and Stock Transactions) — Draft, Posted, and reversal entries alike.', group: 'transactional' },
   customerInvoices: { paths: ['customerInvoices'], recordsPath: 'customerInvoices', label: 'Customer Invoice Processing', detail: 'Every Customer Invoice record (its own collection, separate from GL Journal Entries and Stock Transactions) — Draft, Posted, and reversal entries alike.', group: 'transactional' },
+  // [NEW DEVELOPMENT data-reset-opening-balances] docs/modules/OPENING_BALANCES.md
+  openingBalanceBatches: { paths: ['openingBalances/batches'], recordsPath: 'openingBalances/batches', label: 'Opening Balance Batches', detail: 'The log of posted opening batches (GL, Stock, Open Invoices) and their reversals. Their entries are in GL Journal Entries and Stock Transactions: clear all three together. The opening date and clearing account set-up is kept.', group: 'transactional' },
   boms: { paths: ['boms'], recordsPath: 'boms', label: 'Bill of Materials', detail: 'All BOM records.', group: 'transactional' },
   items: { paths: ['items', 'itemCounters'], recordsPath: 'items', label: 'Item Master', detail: 'Every item and the item-code numbering sequence.', group: 'master' },
   itemSubCategories: { paths: ['itemSubCategories'], recordsPath: 'itemSubCategories', label: 'Item Sub-Categories', detail: 'Sub-category master list.', group: 'master' },
@@ -5335,6 +5337,8 @@ function summarizeDataResetRecord_(categoryKey, id, r) {
       return (r.Code || '') + ' — ' + (r.Name || '') + ' [' + (r.Kind || '') + ', ' + (r.Status || '') + ']';
     case 'pdcCheques':
       return (r.TransactionNumber || 'DRAFT') + ' — ' + (r.Direction || '') + ' cheque ' + (r.ChequeNumber || '') + ' dated ' + (r.ChequeDate || '') + ' [' + (r.Status || '') + ']';
+    case 'openingBalanceBatches':
+      return 'Opening ' + (r.Kind || '') + ' ' + ((r.JVNumbers || [])[0] || '') + ' — ' + (r.Rows || 0) + ' rows dated ' + (r.OpeningDate || '') + ' [' + (r.Status || '') + ']';
     default:
       return id;
   }

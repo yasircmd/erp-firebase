@@ -97,7 +97,9 @@ test('Physical Counts posted without adjustment details are refused by name, not
 
 test('getDataResetCounts counts every path of every category', async () => {
   const c = await call('u-root', 'getDataResetCounts');
-  assert.equal(Object.keys(c).length, 17);
+  assert.equal(Object.keys(c).length, 18);
+  // New development: Opening Balances (docs/modules/OPENING_BALANCES.md).
+  assert.deepEqual([c.openingBalanceBatches.label, c.openingBalanceBatches.group, c.openingBalanceBatches.count], ['Opening Balance Batches', 'transactional', 0]);
   // New development: Recurring Journal Entries (docs/modules/RECURRING_JOURNAL.md).
   assert.deepEqual([c.recurringJournals.label, c.recurringJournals.group, c.recurringJournals.count], ['Recurring Journal Entries', 'transactional', 0]);
   // New development: PDC cheques (docs/modules/PDC.md).

@@ -23,7 +23,7 @@ const MODULES = { Vendor: 'VENDORSOA', Customer: 'CUSTOMERSOA' };
 // Which side increases the balance, in the party's natural sense.
 const GROWS = { Vendor: 'Cr', Customer: 'Dr' };
 const DOC_TYPES = {
-  JV: 'Journal', PurchaseReturn: 'Debit Note', SalesReturn: 'Credit Note', PDCReceived: 'PDC Received', PDCIssued: 'PDC Issued', FARetirement: 'Asset Sale', RecurringJV: 'Recurring Journal',
+  JV: 'Journal', PurchaseReturn: 'Debit Note', SalesReturn: 'Credit Note', PDCReceived: 'PDC Received', PDCIssued: 'PDC Issued', FARetirement: 'Asset Sale', RecurringJV: 'Recurring Journal', OpeningBalance: 'Opening Balance',
   'Cash Receipt': 'Cash Receipt', 'Bank Receipt': 'Bank Receipt', 'Cash Payment': 'Cash Payment', 'Bank Payment': 'Bank Payment'
 };
 const AGING = [
@@ -138,11 +138,11 @@ async function buildStatement(partyType, partyId, companyId, fromDate, toDate) {
   const open = [...items.values()]
     .filter(i => i.Outstanding > 0.005 && (!i.CompanyID || i.CompanyID === companyId))
     .map(i => {
-      const dueDate = i.ItemType === 'NewRef' ? i.Date : (i.DueDate || addDays(i.Date, party.PaymentTermsDays));
+      const dueDate = i.ItemType === 'NewRef' ? (i.DueDate || i.Date) : (i.DueDate || addDays(i.Date, party.PaymentTermsDays));
       const overdue = Math.max(0, daysBetween(dueDate, toDate));
       const sign = i.Side === grows ? 1 : -1;
       return {
-        RefID: i.RefID, Number: i.Number, Type: i.ItemType === 'NewRef' ? 'Open ' + (sign > 0 ? 'balance' : 'credit') : 'Invoice',
+        RefID: i.RefID, Number: i.Number, Type: i.DocumentType ? 'Opening ' + i.DocumentType.toLowerCase() : (i.ItemType === 'NewRef' ? 'Open ' + (sign > 0 ? 'balance' : 'credit') : 'Invoice'),
         Date: i.Date, DueDate: dueDate, DaysOverdue: overdue, Description: i.Description,
         Amount: round2(sign * i.Amount), Outstanding: round2(sign * i.Outstanding)
       };
