@@ -368,7 +368,9 @@ The first questions as asked:
       menu (Change Password).
 - **Patches** `import-bom-id` and `import-user-id`: `saveBom` and
   `saveFirebaseUser` also return the new record's id, which the undo
-  needs. Nothing else in them changes.
+  needs. Nothing else in them changes. (`reactivateBom` returns what
+  `saveBom` returns, so it carries the id too.) The `bom` and `userMgmt`
+  suites' exact-result checks were updated to expect the id.
 - **Undo** now also covers:
   - Firestore records (asset classes, assets);
   - a user's sign-in account as well as their record;

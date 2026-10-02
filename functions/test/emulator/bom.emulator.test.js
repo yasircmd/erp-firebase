@@ -93,7 +93,8 @@ test('deactivate / reactivate via the screen\'s positional call; reactivation re
   await save({ ParentItemID: 'FG1', BOMVersion: '2.0', EffectiveFrom: '2026-06-01', Components: [{ ComponentItemID: 'I1', Quantity: 3 }] });
   const [v1, v2] = await boms();
 
-  assert.deepEqual(await call('u-admin', 'reactivateBom', { __positional: [v1.BOMID] }), { success: true });
+  // Reactivation goes through saveBom, so it also returns the BOM's id (patch import-bom-id).
+  assert.deepEqual(await call('u-admin', 'reactivateBom', { __positional: [v1.BOMID] }), { success: true, bomId: v1.BOMID });
   assert.deepEqual((await boms()).map(b => [b.BOMVersion, b.Status]), [['1.0', 'Active'], ['2.0', 'Inactive']]);
   assert.equal((await boms())[0].EffectiveFrom, '2026-01-01', 'effective date kept');
 
