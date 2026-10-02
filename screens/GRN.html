@@ -1115,6 +1115,7 @@
   function distributePastedText(text, startRow, startCol) {
     isDirty = true;
     const rows = text.replace(/\r/g, '').split('\n').filter((r, idx, arr) => !(idx === arr.length - 1 && r === ''));
+    if (rows.length && isHeadingRow(rows[0])) rows.shift(); // the copied headings row
 
     rows.forEach((rowText, r) => {
       const cells = rowText.split('\t');
@@ -1206,6 +1207,16 @@
     });
   }
 
+  // Copy puts the column headings on top; a paste starting with them skips
+  // that row (owner, 2026-10-02; docs/modules/LINE_GRIDS.md).
+  const COPY_HEADINGS = ["Item Code","Warehouse","Description","UOM","Quantity","Unit Cost","Batch No.","Expiry Date","Cost Ctr","Profit Ctr"];
+  function isHeadingRow(rowText) {
+    const key = v => String(v || '').trim().toLowerCase().replace(/[^a-z0-9%]/g, '');
+    const heads = COPY_HEADINGS.map(key);
+    const cells = String(rowText || '').split('\t').map(key).filter(Boolean);
+    return cells.length > 0 && (cells[0] === heads[0] || cells.filter(v => heads.includes(v)).length >= 2);
+  }
+
   function handleCopyButton() {
     const rows = gridLines
       .filter(l => l.ItemCode || l.EnteredQuantity || l.UnitCost)
@@ -1222,8 +1233,7 @@
           cc ? cc.Code : '', pc ? pc.Code : ''
         ].join('\t');
       });
-    const text = rows.join('\n');
-    if (!text) { alert('Nothing to copy yet.'); return; }
+    const text = [COPY_HEADINGS.join('\t')].concat(rows).join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => flashCopyButton()).catch(() => fallbackCopyPrompt(text));
     } else {

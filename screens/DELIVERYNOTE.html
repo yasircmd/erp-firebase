@@ -849,7 +849,6 @@
       });
     const header = ['Item Code', 'Item Name', 'Warehouse', 'Quantity', 'Unit Price', 'Description', 'SO No.', 'Cost Center', 'Profit Center'].join('\t');
     const text = [header].concat(rows).join('\n');
-    if (!rows.length) { alert('Nothing to copy yet.'); return; }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => flashCopyButton()).catch(() => fallbackCopyPrompt(text));
     } else {
