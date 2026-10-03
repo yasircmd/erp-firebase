@@ -144,35 +144,58 @@ once, plus the screens.
 
 | # | Question | Decision |
 |---|---|---|
-| 1 | Storage | **Google Drive**, a Shared Drive (Google Workspace) with a service account |
+| 1 | Storage | **Google Drive.** For now, the owner's own Google Drive, connected once by Admin (owner, 2026-10-03, follow-up); later a Workspace Shared Drive |
 | 2 | Who sees and adds | **Anyone who can open the entry** (module + company access), approvers included |
 | 3 | Removing | **Before posting: the uploader or Admin; after posting: Admin only.** A removed file moves to a "Removed" folder, never deleted |
 | 4 | Modules | **All 27 entry modules at once** (one shared component) |
 | 5 | Year folder | The document's own date (as proposed; not asked) |
 | 6 | Master data | Not now (as proposed; not asked) |
 
+## Storage for now: the owner's own Google Drive (owner, 2026-10-03)
+
+The owner has no Google Workspace yet and offered a folder shared with
+"anyone with the link". That can't work, and isn't safe:
+- Google refuses files from a service account in a personal Drive (it has
+  no storage of its own there), so uploads would fail.
+- Anyone who obtains the link would see every company's documents.
+
+Agreed instead: **"Connect Google Drive"**.
+- Admin signs in once with their Google account and allows the ERP the
+  narrow `drive.file` permission: only the files and folders the ERP
+  itself creates.
+- The ERP creates a **private** "ERP Documents" folder in that Drive (with
+  the company / year / voucher-type layout) and uploads as that account,
+  into its storage (15 GB free, or Google One).
+- Users only get files through the ERP; the folder link is shown to
+  Admin only.
+- Later, a one-time "Move to Shared Drive" step moves everything to
+  Workspace. The screens don't change.
+
 ## Set-up needed from the owner (once, before go-live)
 
-1. **Google Workspace:** create a Shared Drive, e.g. "ERP Documents".
-2. **Google Cloud console** (project `erp1-8f4cd`):
+1. Google Cloud console, project `erp1-8f4cd`:
    - enable the **Google Drive API**;
-   - create a service account, e.g. `erp-documents`, and a **JSON key**
-     for it.
-3. In the Shared Drive, **add the service account's email** as a
-   *Content manager*.
-4. **Store the key** as the secret `ERP_DRIVE_KEY` in Secret Manager.
-   A Deploy workflow task will be added for this; the key never goes in
-   the repository.
-5. In the ERP, Admin → **Document Storage**:
-   - paste the Shared Drive (or a folder in it) link;
-   - press **Test connection**.
+   - **OAuth consent screen**: External, app name "ERP", your email;
+     scope `.../auth/drive.file`; then **Publish app** ("In
+     production"). With only this scope Google does no review; left in
+     "Testing", the connection would expire every 7 days.
+   - **Credentials → Create OAuth client ID**, type "Web application",
+     with the authorized redirect URI
+     `https://us-central1-erp1-8f4cd.cloudfunctions.net/driveOAuthCallback`.
+2. In the ERP, Admin → **Document Storage**:
+   - paste the client ID and client secret;
+   - click **Connect Google Drive** and sign in with the account that
+     will hold the documents;
+   - click **Test connection**.
+
+The client secret and the connection are kept server-side only (never in
+the repository, never sent to a browser).
 
 ## Build plan
 
 1. **Server** (`functions/src/attachments.js`, hand-written):
-   - the storage adapter: Google Drive over its REST API, signed in with
-     the service account; nothing to install, the Google auth library
-     comes with firebase-admin;
+   - the storage adapter: Google Drive over its REST API, signed in as
+     the connected account (OAuth, `drive.file`); nothing to install;
    - the folder logic (company / year / voucher type / number; drafts
      renamed on posting);
    - the access check per module, reusing each module's own rules;

@@ -396,10 +396,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     screens.
 - [ ] **Supporting documents on entries** (owner, 2026-10-03;
   [ATTACHMENTS.md](modules/ATTACHMENTS.md)). Design agreed 2026-10-03:
-  Google Drive (Shared Drive + service account), anyone who can open the
-  entry, removal by uploader before posting / Admin after, all 27 entry
-  modules. Owner set-up needed: Shared Drive, service account key
-  (ATTACHMENTS.md, "Set-up").
+  Google Drive (for now the owner's own Drive, connected once by Admin;
+  Workspace later), anyone who can open the entry, removal by uploader
+  before posting / Admin after, all 27 entry modules. Owner set-up: an
+  OAuth client in Google Cloud (ATTACHMENTS.md, "Set-up").
 - [x] **Stock Ledger: Back from an entry keeps the report's filters** (owner,
   2026-10-03). **Live 2026-10-03** (PR #58; Deploy run #59).
   - **Bug:** opening an entry from a Stock Ledger row and coming Back reset
