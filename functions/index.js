@@ -181,3 +181,8 @@ exports.saveOpeningBalanceSettings = saveOpeningBalanceSettings;
 exports.checkOpeningBalances = checkOpeningBalances;
 exports.postOpeningBalances = postOpeningBalances;
 exports.reverseOpeningBalanceBatch = reverseOpeningBalanceBatch;
+// Supporting documents on entries (docs/modules/ATTACHMENTS.md).
+const attachments = require('./src/attachments');
+['getAttachments', 'uploadAttachment', 'openAttachment', 'removeAttachment', 'getAttachmentCounts',
+  'getDocumentStorage', 'saveDocumentStorageClient', 'startDriveConnect', 'driveOAuthCallback',
+  'testDocumentStorage', 'disconnectDocumentStorage', 'useTestDocumentStorage'].forEach(n => { exports[n] = attachments[n]; });
