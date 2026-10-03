@@ -837,7 +837,7 @@
   // ---------- INIT ----------
   window.initModule = function () {
     // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
-    supportingDocs.mount({ module: 'PDCRECEIVED', view: 'pdc-entry-view', id: () => current && current.PdcID, list: 'pdc-table-body' });
+    supportingDocs.mount({ module: CONFIG.moduleId, view: 'pdc-entry-view', id: () => current && current.PdcID, list: 'pdc-table-body' });
     document.getElementById('pdc-kicker').textContent = CONFIG.kicker;
     document.getElementById('pdc-heading').textContent = CONFIG.heading;
     document.getElementById('pdc-col-party').textContent = CONFIG.partyLabel;
