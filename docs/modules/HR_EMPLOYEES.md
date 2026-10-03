@@ -1,6 +1,6 @@
 # HR: Employee Records
 
-Status: **steps 1–5 built and tested** (2026-10-03; see the As built sections). Payroll is a
+Status: **live** (steps 1–5 built, tested and deployed 2026-10-03; see the As built sections). Payroll is a
 separate module, designed after this one (docs/modules/HR_PAYROLL.md, to
 come).
 

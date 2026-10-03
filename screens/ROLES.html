@@ -36,7 +36,7 @@
       <div class="overflow-x-auto">
         <table class="w-full text-left">
           <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
-            <th class="py-3 px-4">Module</th><th class="py-3 px-4">Capability</th><th id="perm-role-headers" class="py-3 px-4"></th>
+            <th class="py-3 px-4">Module</th><th class="py-3 px-4">Capability</th><th id="perm-role-headers" class="hidden"></th>
           </tr></thead>
           <tbody id="perm-table-body" class="divide-y divide-slate-700 text-sm"></tbody>
         </table>
@@ -156,7 +156,8 @@
     if (!modules.length || !roles.length) return;
 
     const headerRow = document.getElementById('perm-role-headers');
-    headerRow.innerHTML = roles.sort((a, b) => a.Name.localeCompare(b.Name)).map(r => `<span class="inline-block w-20 text-center">${escapeHtml(r.Name)}</span>`).join('');
+    headerRow.parentNode.querySelectorAll('.perm-role-th').forEach(n => n.remove()); // one column per role
+    headerRow.insertAdjacentHTML('afterend', roles.sort((a, b) => a.Name.localeCompare(b.Name)).map(r => `<th class="perm-role-th py-3 px-2 text-center align-bottom" style="min-width:5.5rem;max-width:8rem;overflow-wrap:anywhere">${escapeHtml(r.Name)}</th>`).join(''));
 
     const tbody = document.getElementById('perm-table-body');
     tbody.innerHTML = '';
@@ -167,9 +168,9 @@
         const modCell = i === 0 ? `<td class="py-2 px-4 font-medium text-slate-200 align-top" rowspan="${mod.capabilities.length}">${escapeHtml(mod.label)}</td>` : '';
         const checks = roles.map(r => {
           const checked = ((permissions[mod.id] && permissions[mod.id][cap]) || []).includes(r.RoleID);
-          return `<span class="inline-block w-20 text-center"><input type="checkbox" data-module="${mod.id}" data-cap="${cap}" data-role="${r.RoleID}" ${checked ? 'checked' : ''} class="w-4 h-4"></span>`;
+          return `<td class="py-2 px-2 text-center"><input type="checkbox" data-module="${mod.id}" data-cap="${cap}" data-role="${r.RoleID}" ${checked ? 'checked' : ''} class="w-4 h-4" title="${escapeHtml(r.Name)}"></td>`;
         }).join('');
-        row.innerHTML = `${modCell}<td class="py-2 px-4 text-xs text-slate-400 capitalize">${escapeHtml(cap)}</td><td class="py-2 px-4">${checks}</td>`;
+        row.innerHTML = `${modCell}<td class="py-2 px-4 text-xs text-slate-400 capitalize">${escapeHtml(cap)}</td>${checks}`;
         tbody.appendChild(row);
       });
     });

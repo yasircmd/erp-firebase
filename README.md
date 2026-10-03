@@ -163,6 +163,7 @@ node functions/test/ui/openingBalances.ui.js  # Opening Balances: setup, paste w
 node functions/test/ui/supportingDocs.ui.js   # Supporting documents: add / open / remove on an entry, paperclip, all 27 screens, Document Storage; seeds its own data
 node functions/test/ui/companyDocs.ui.js      # Company Documents: add with files, vendor's document, renew, remove, categories, view-only, Documents (n) from the masters; seeds its own data
 node functions/test/ui/hrEmployees.ui.js      # HR Setup (grade + pay band, designation, extra field) and Employees (new, Correct, manager, Replace manager, org chart, documents, pay, view-only); seeds its own data
+node functions/test/ui/rolesMatrix.ui.js       # Roles & Permissions with 12 roles: one column per role, checkboxes under their role, save; seeds its own data
 node functions/test/ui/hrChanges.ui.js        # Employee Changes: from the record, a promotion with a % raise, submit, approve; seeds its own data
 node functions/test/ui/masterImport.ui.js     # Master Data Import: copy headers, paste, issues by row, fix, import; seeds its own data (Part 2: Users password box)
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
