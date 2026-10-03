@@ -186,3 +186,7 @@ const attachments = require('./src/attachments');
 ['getAttachments', 'uploadAttachment', 'openAttachment', 'removeAttachment', 'getAttachmentCounts',
   'getDocumentStorage', 'saveDocumentStorageClient', 'startDriveConnect', 'driveOAuthCallback',
   'testDocumentStorage', 'disconnectDocumentStorage', 'useTestDocumentStorage'].forEach(n => { exports[n] = attachments[n]; });
+// Company Documents: legal documents, contracts, licences (docs/modules/COMPANY_DOCUMENTS.md).
+const companyDocuments = require('./src/companyDocuments');
+['getCompanyDocuments', 'getCompanyDocument', 'saveCompanyDocument', 'renewCompanyDocument', 'removeCompanyDocument',
+  'saveCompanyDocumentCategory', 'getPartyDocumentCounts', 'getDocumentsExpiringForUser'].forEach(n => { exports[n] = companyDocuments[n]; });

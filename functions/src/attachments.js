@@ -56,7 +56,13 @@ const SOURCES = {
   CUSTOMERINVOICE: { rtdb: 'customerInvoices', number: 'TransactionNumber', date: 'InvoiceDate' },
   FAASSET: { fs: 'faAssets', number: 'AssetNumber', date: 'CapitalizationDate' },
   FAACQ: posting('FAACQ'), FAAUC: posting('FAAUC'), FAADDDEP: posting('FAADDDEP'), FARETIRE: posting('FARETIRE'),
-  FADEPRUN: { fs: 'faRuns', number: 'JVNumber', date: 'Period' }
+  FADEPRUN: { fs: 'faRuns', number: 'JVNumber', date: 'Period' },
+  // Company Documents (docs/modules/COMPANY_DOCUMENTS.md): a register
+  // record, not a voucher. Its folder is <company>/Legal Documents/
+  // <category>/<title - reference>; only users who can change the register
+  // add or remove its files (owner decisions 1 and 4).
+  COMPANYDOCS: { fs: 'companyDocuments', numberOf: r => [r.Title, r.ReferenceNo].filter(Boolean).join(' - '), date: 'IssueDate',
+    legal: true, addCap: 'write', removeCap: 'write', closed: r => r.Status === 'Removed' }
 };
 const MODULE_LABELS = Object.fromEntries(MODULE_REGISTRY.map(m => [m.id, m.label]));
 // Folder names: the voucher type, readable and safe for any storage.
@@ -76,7 +82,7 @@ async function loadEntry(module, docId) {
     rec = (await rtdb.ref(src.rtdb + '/' + docId).get()).val();
   }
   if (!rec || (src.is && !src.is(rec))) throw new HttpsError('not-found', 'Entry not found.');
-  const number = String(rec[src.number] || '').trim();
+  const number = String((src.numberOf ? src.numberOf(rec) : rec[src.number]) || '').trim();
   const date = String(rec[src.date] || rec.Date || rec.TransactionDate || rec.CreatedAt || '').trim();
   return { src, rec, number, year: (date.match(/^(\d{4})/) || [])[1] || String(new Date().getFullYear()), companyId: rec.CompanyID || '' };
 }
@@ -120,6 +126,16 @@ async function companyFolderName(companyId) {
 async function documentFolder(api, s, module, docId, e) {
   const docKey = 'doc_' + module + '_' + docId;
   const known = (await FOLDERS().doc(docKey).get()).data();
+  if (e.src.legal) {
+    if (known && known.RootFolderID === s.RootFolderID) return known.FolderID;
+    const co = e.companyId || 'all';
+    const companyId = await folderFor(api, s, s.RootFolderID, await companyFolderName(e.companyId), 'co_' + co);
+    const legalId = await folderFor(api, s, companyId, 'Legal Documents', 'legal_' + co);
+    const catId = await folderFor(api, s, legalId, safeName(e.rec.CategoryName || 'Other'), 'legal_' + co + '_' + (e.rec.CategoryID || 'other'));
+    const id = await api.createFolder(s, catId, safeName(e.number || docId));
+    await FOLDERS().doc(docKey).set({ FolderID: id, RootFolderID: s.RootFolderID, Parent: catId, Numbered: true, Name: e.number || docId });
+    return id;
+  }
   if (e.number) {
     const companyId = await folderFor(api, s, s.RootFolderID, await companyFolderName(e.companyId), 'co_' + (e.companyId || 'all'));
     const yearId = await folderFor(api, s, companyId, e.year, 'yr_' + (e.companyId || 'all') + '_' + e.year);
@@ -180,8 +196,14 @@ function publicFile(id, a) {
 }
 
 // Owner decision 3: uploader or Admin before posting; Admin only after.
-function canRemove(a, user, posted, admin) {
+// A source with its own rule (Company Documents): whoever has removeCap.
+function canRemove(a, user, posted, admin, ruled) {
+  if (ruled !== undefined) return ruled;
   return admin || (!posted && a.UploadedBy === user.uid);
+}
+// A source's own capability rule for adding / removing, or undefined.
+async function sourceRule(src, module, cap, user) {
+  return src[cap] ? moduleHasCapability(module, src[cap], user.profile.role) : undefined;
 }
 
 async function listFiles(module, docId) {
@@ -200,6 +222,8 @@ exports.getAttachments = onCallWithMessages(onCallOptions, async (request) => {
   const admin = await isStorageAdmin(user);
   const posted = Boolean(e.number);
   const files = await listFiles(module, docId);
+  const removeRule = await sourceRule(e.src, module, 'removeCap', user);
+  const addRule = await sourceRule(e.src, module, 'addCap', user);
   // Numbered since its files were added: move its folder from Drafts.
   if (posted && files.length) {
     const known = (await FOLDERS().doc('doc_' + module + '_' + docId).get()).data();
@@ -209,8 +233,8 @@ exports.getAttachments = onCallWithMessages(onCallOptions, async (request) => {
     }
   }
   return {
-    posted, files: files.map(f => Object.assign(publicFile(f.id, f.a), { CanRemove: canRemove(f.a, user, posted, admin) })),
-    maxBytes: MAX_BYTES, allowed: ALLOWED
+    posted, files: files.map(f => Object.assign(publicFile(f.id, f.a), { CanRemove: !(e.src.closed && e.src.closed(e.rec)) && canRemove(f.a, user, posted, admin, removeRule) })),
+    canAdd: addRule !== false && !(e.src.closed && e.src.closed(e.rec)), maxBytes: MAX_BYTES, allowed: ALLOWED
   };
 });
 
@@ -219,6 +243,8 @@ exports.uploadAttachment = onCallWithMessages(onCallOptions, async (request) => 
   const d = request.data || {};
   const module = String(d.module || ''), docId = String(d.docId || '');
   const e = await requireEntryAccess(user, module, docId);
+  if ((await sourceRule(e.src, module, 'addCap', user)) === false) throw new HttpsError('permission-denied', 'You can view these documents but not add to them.');
+  if (e.src.closed && e.src.closed(e.rec)) throw new HttpsError('failed-precondition', 'This record was removed: no more files can be added.');
   const file = checkFile(d.fileName, d.data);
   const { s, api } = await store.connected();
   const folderId = await documentFolder(api, s, module, docId, e);
@@ -255,18 +281,38 @@ exports.removeAttachment = onCallWithMessages(onCallOptions, async (request) => 
   const user = await requireUser(request);
   const { a, e, ref } = await attachmentFor(user, (request.data || {}).attachmentId);
   const admin = await isStorageAdmin(user);
-  if (!canRemove(a, user, Boolean(e.number), admin)) {
+  const removeRule = await sourceRule(e.src, a.Module, 'removeCap', user);
+  if (removeRule === false) throw new HttpsError('permission-denied', 'Only users who can change ' + (MODULE_LABELS[a.Module] || a.Module) + ' can remove its files.');
+  if (!canRemove(a, user, Boolean(e.number), admin, removeRule)) {
     throw new HttpsError('permission-denied', e.number
       ? 'This entry is posted: only Admin can remove its documents.'
       : 'Only the person who added this document, or Admin, can remove it.');
   }
-  const { s, api } = await store.connected();
-  const removedId = await folderFor(api, s, s.RootFolderID, 'Removed', 'removed');
-  await api.move(s, a.StorageFileID, removedId, a.FolderID, safeName((e.number || a.DocNumber || a.DocID) + ' - ' + a.FileName));
-  await ref.update({ Removed: true, RemovedBy: user.uid, RemovedByName: actorName(user), RemovedAt: new Date().toISOString() });
-  await log('Remove', Object.assign({ id: ref.id }, a), user);
+  await moveToRemoved(ref, a, e.number, user);
   return { success: true };
 });
+
+// A file to the Removed folder (never deleted), marked removed and logged.
+async function moveToRemoved(ref, a, number, user) {
+  const { s, api } = await store.connected();
+  const removedId = await folderFor(api, s, s.RootFolderID, 'Removed', 'removed');
+  await api.move(s, a.StorageFileID, removedId, a.FolderID, safeName((number || a.DocNumber || a.DocID) + ' - ' + a.FileName));
+  await ref.update({ Removed: true, RemovedBy: user.uid, RemovedByName: actorName(user), RemovedAt: new Date().toISOString() });
+  await log('Remove', Object.assign({ id: ref.id }, a), user);
+}
+// Every file of one record to Removed (a whole register record removed).
+async function removeAllFiles(module, docId, number, user) {
+  const files = await listFiles(module, docId);
+  for (const f of files) await moveToRemoved(ATTACH().doc(f.id), f.a, number, user);
+  return files.length;
+}
+// How many files each record has (no access check: the caller has done it).
+async function fileCounts(module) {
+  const snap = await ATTACH().where('Module', '==', module).get();
+  const out = {};
+  snap.docs.forEach(d => { const a = d.data(); if (!a.Removed) out[a.DocID] = (out[a.DocID] || 0) + 1; });
+  return out;
+}
 
 // How many documents each entry has (the paperclip in the lists).
 exports.getAttachmentCounts = onCallWithMessages(onCallOptions, async (request) => {
@@ -406,5 +452,8 @@ exports.useTestDocumentStorage = onCallWithMessages({ region: 'us-central1' }, a
 });
 
 module.exports.SOURCES = SOURCES;
+module.exports.removeAllFiles = removeAllFiles;
+module.exports.fileCounts = fileCounts;
+module.exports.isStorageAdmin = isStorageAdmin;
 module.exports._finishConnect = finishConnect; // for the tests
 module.exports._checkFile = checkFile;
