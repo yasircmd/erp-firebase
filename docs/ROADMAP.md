@@ -434,7 +434,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     Tests: `hrChanges` suite (5), `hrChanges.ui.js` (2); six negative
     controls caught. To go live: "functions set" `hr-employees-4` with the
     screens; link the menu node; set up its approvals.
-  - **Next:** step 5, org chart.
+  - **Step 5 built and tested 2026-10-03**, not yet live: the Org chart
+    on the Employees list (who reports to whom, company filter, expand /
+    collapse, opens the record and back). Screen only, built from the
+    existing list. Tests: `hrEmployees.ui.js` (8); five negative controls
+    caught. To go live: a "screens only" run.
+  - **Employee Records complete.** **Next:** Payroll design
+    (docs/modules/HR_PAYROLL.md), the owner's questions first.
 - [x] **Company Documents: legal documents, contracts, licences** (owner,
   2026-10-03; [COMPANY_DOCUMENTS.md](modules/COMPANY_DOCUMENTS.md)).
   **Design agreed 2026-10-03:** a register of documents per company

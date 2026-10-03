@@ -1,7 +1,7 @@
 // HR: Employee Records, step 1 (owner, 2026-10-03; docs/modules/HR_EMPLOYEES.md):
 // HR Setup (grade with a company pay band, designation, a compulsory extra
 // field), a new employee, Correct with a reason, line manager, direct
-// reports, Replace manager, and the view-only user.
+// reports, Replace manager, the org chart (step 5), and the view-only user.
 // Seeds its own data (it WIPES the emulator database, like the suites):
 //   node functions/test/ui/hrEmployees.ui.js
 const http = require('http');
@@ -19,6 +19,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const f = baseFixture();
   f.orgUnits.CC2 = { Type: 'CostCenter', Code: 'CC2', Name: 'Finance', Status: 'Active', CompanyID: 'C1' };
   f.permissions.DOCUMENTSTORAGE.access = ['Admin'];
+  f.users['u-other'].AssignedCompanies = ['C1', 'C2']; // the org chart across companies
   await reset(f);
   await call('u-admin', 'useTestDocumentStorage', {});
   const g3 = (await call('u-admin', 'saveHrGrade', { grade: { Code: 'G3', Name: 'Officer', Level: 3 } })).gradeId;
@@ -134,6 +135,75 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(page.__errors, []);
   });
 
+  await check('org chart (step 5): who reports to whom, collapse and expand, open a record and back, the company filter', async () => {
+    await page.click('#emp-org-btn');
+    await page.waitForSelector('#emp-org-view:not(.hidden)', { timeout: 15000 });
+    assert.equal(await page.isVisible('#emp-list-view'), false);
+    const tree = () => page.evaluate(() => {
+      const walk = ul => [...ul.children].map(li => {
+        const sub = li.querySelector(':scope > ul');
+        return [li.querySelector('.emp-org-open').textContent].concat(sub ? [walk(sub)] : []);
+      });
+      const top = document.querySelector('#emp-org-tree > ul');
+      return top ? walk(top) : [];
+    });
+    // After Replace manager: Omar has no one left; Rana (no manager now) has Rami.
+    assert.deepEqual(await tree(), [['Omar Boss'], ['Rana', [['Rami']]]]);
+    assert.match(await page.textContent('.emp-org-node[data-id] .emp-org-count'), /1 direct, 1 in all/);
+    assert.match(await page.textContent('#emp-org-tree'), /Rami\s*EMP-0002\s*Accountant/);
+    await page.click('#emp-org-collapse');
+    assert.equal(await page.isVisible('.emp-org-node:has-text("Rana") .emp-org-children'), false);
+    await page.click('#emp-org-expand');
+    assert.equal(await page.isVisible('.emp-org-children .emp-org-open'), true);
+    await page.click('.emp-org-node:has-text("Rana") .emp-org-toggle');
+    assert.equal(await page.isVisible('.emp-org-children .emp-org-open'), false);
+    await page.click('.emp-org-node:has-text("Rana") .emp-org-toggle');
+    // A name opens the record; Back returns to the chart.
+    await page.click('.emp-org-children .emp-org-open:has-text("Rami")');
+    await page.waitForFunction(() => document.getElementById('emp-heading').textContent === 'EMP-0002 — Rami', null, { timeout: 15000 });
+    assert.equal(await page.isVisible('#emp-org-view'), false);
+    assert.match(await page.textContent('#emp-back-btn'), /Back to Org chart/);
+    await page.click('#emp-back-btn');
+    await page.waitForSelector('#emp-org-view:not(.hidden)', { timeout: 15000 });
+    assert.deepEqual(await tree(), [['Omar Boss'], ['Rana', [['Rami']]]]);
+    await page.click('#emp-org-back');
+    assert.equal(await page.isVisible('#emp-list-view'), true);
+    await page.click('#emp-table-body tr:has-text("Rami")');
+    await page.waitForSelector('#emp-entry-view:not(.hidden)', { timeout: 15000 });
+    assert.match(await page.textContent('#emp-back-btn'), /Back to List/);
+    await page.click('#emp-back-btn');
+    await page.waitForSelector('#emp-list-view:not(.hidden)', { timeout: 15000 });
+    assert.deepEqual(page.__errors, []);
+    // Across companies: Sara (C2) reports to Rana (C1). Seen by a user of both
+    // companies; with only C2 chosen, Sara is at the top with her manager named.
+    const setup = await call('u-other', 'getHrSetup', {});
+    const all = (await call('u-other', 'getEmployees', {})).employees;
+    await call('u-other', 'saveEmployee', { employee: { FullName: 'Sara', CompanyID: 'C2', JoinDate: '2025-01-01', DesignationID: setup.designations[0].DesignationID,
+      GradeID: setup.grades[0].GradeID, ManagerID: all.find(e => e.FullName === 'Rana').EmployeeID,
+      Custom: { [setup.fields.find(x => x.Required).FieldID]: '784-9' } } });
+    const o = await open('EMPLOYEES', 'u-other');
+    await o.waitForSelector('#emp-table-body tr[data-doc-id]', { timeout: 30000 });
+    await o.click('#emp-org-btn');
+    await o.waitForSelector('#emp-org-tree .emp-org-open', { timeout: 15000 });
+    const treeOf = () => o.evaluate(() => {
+      const walk = ul => [...ul.children].map(li => {
+        const sub = li.querySelector(':scope > ul');
+        return [li.querySelector('.emp-org-open').textContent].concat(sub ? [walk(sub)] : []);
+      });
+      const top = document.querySelector('#emp-org-tree > ul');
+      return top ? walk(top) : [];
+    });
+    assert.deepEqual(await treeOf(), [['Omar Boss'], ['Rana', [['Rami'], ['Sara']]]]);
+    assert.doesNotMatch(await o.textContent('#emp-org-tree'), /reports to/);
+    await o.selectOption('#emp-org-company', 'C2');
+    assert.deepEqual(await treeOf(), [['Sara']]);
+    assert.match(await o.textContent('#emp-org-tree'), /Sara[\s\S]*\(reports to Rana\)/);
+    await o.selectOption('#emp-org-company', 'C1');
+    assert.deepEqual(await treeOf(), [['Omar Boss'], ['Rana', [['Rami']]]]);
+    assert.deepEqual(o.__errors, []);
+    await o.close();
+  });
+
   await check('documents (step 2): a passport with its scan, expiring soon; renew; remove with a reason', async () => {
     await page.click('#emp-table-body tr:has-text("Rami")');
     await page.waitForSelector('#emp-docs-wrap:not(.hidden) #emp-doc-new:not(.hidden)', { timeout: 15000 });
@@ -196,6 +266,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await v.waitForSelector('#emp-table-body tr[data-doc-id]', { timeout: 30000 });
     assert.equal(await v.isVisible('#emp-new-btn'), false);
     assert.equal(await v.isVisible('#emp-replace-btn'), false);
+    assert.equal(await v.isVisible('#emp-org-btn'), true, 'the org chart is for everyone who sees employees');
     await v.click('#emp-table-body tr:has-text("Rami")');
     await v.waitForFunction(() => !document.getElementById('emp-entry-view').classList.contains('hidden'), null, { timeout: 15000 });
     assert.equal(await v.isVisible('#emp-sec-pay'), false);
