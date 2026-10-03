@@ -59,6 +59,13 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.waitForFunction(() => /Emirates ID no\./.test(document.getElementById('hs-fields-body').textContent), null, { timeout: 15000 });
     await p.click('.hs-tab[data-tab="doctypes"]');
     assert.match(await p.textContent('#hs-dt-body'), /Passport[\s\S]*Emirates ID[\s\S]*Labour Card/);
+    // Pay Elements (step 3): six to start; a new one.
+    await p.click('.hs-tab[data-tab="elements"]');
+    assert.match(await p.textContent('#hs-el-body'), /BASIC\s*Basic Salary[\s\S]*Basic[\s\S]*COMM\s*Commission/);
+    await p.click('#hs-el-new');
+    await p.fill('#hs-el-code', 'SHIFT'); await p.fill('#hs-el-name', 'Shift Allowance');
+    await p.click('#hs-el-save');
+    await p.waitForFunction(() => /SHIFT\s*Shift Allowance/.test(document.getElementById('hs-el-body').textContent), null, { timeout: 15000 });
     assert.deepEqual(p.__errors, []);
     await p.close();
   });
@@ -156,6 +163,34 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(page.__errors, []);
   });
 
+  await check('pay (step 3): set with monthly amounts and a commission term; below the band warns; Correct keeps the old version', async () => {
+    await page.click('#emp-table-body tr:has-text("Rami")');
+    await page.waitForSelector('#emp-pay-wrap:not(.hidden) #emp-pay-set:not(.hidden)', { timeout: 15000 });
+    assert.match(await page.textContent('#emp-pay-current'), /No pay set yet/);
+    await page.click('#emp-pay-set');
+    await page.fill('.emp-pay-amount[data-el="pe-basic"]', '7000');
+    await page.fill('.emp-pay-amount[data-el="pe-hra"]', '2500');
+    const comm = '.emp-pay-term[data-el="pe-comm"]';
+    await page.selectOption(comm + ' .t-basis', 'Percent'); await page.fill(comm + ' .t-value', '3'); await page.fill(comm + ' .t-of', 'of sales'); await page.selectOption(comm + ' .t-freq', 'Monthly');
+    page.__dialogs.length = 0;
+    await page.click('#emp-pay-save');
+    await page.waitForFunction(() => /Monthly earnings\s*9,500\.00/.test(document.getElementById('emp-pay-current').textContent), null, { timeout: 15000 });
+    assert.deepEqual(page.__dialogs, ['The basic 7,000.00 is below the G5 band (minimum 8,000.00).']);
+    assert.match(await page.textContent('#emp-pay-current'), /Commission: 3% of sales, monthly/);
+    assert.match(await page.textContent('#emp-pay-warning'), /below the G5 band/);
+    assert.equal(await page.isVisible('#emp-pay-set'), false);
+    await page.click('#emp-pay-correct');
+    assert.equal(await page.inputValue('.emp-pay-amount[data-el="pe-basic"]'), '7000');
+    await page.fill('.emp-pay-amount[data-el="pe-basic"]', '8500');
+    page.__answer = 'Basic typed wrongly';
+    await page.click('#emp-pay-save');
+    await page.waitForFunction(() => /Monthly earnings\s*11,000\.00/.test(document.getElementById('emp-pay-current').textContent), null, { timeout: 15000 });
+    assert.equal(await page.isVisible('#emp-pay-warning'), false);
+    assert.match(await page.textContent('#emp-pay-versions'), /Correction — Basic typed wrongly[\s\S]*Initial · Replaced/);
+    await page.click('#emp-back-btn');
+    assert.deepEqual(page.__errors, []);
+  });
+
   await check('a view-only user: no New, no changes, no pay-out section', async () => {
     const v = await open('EMPLOYEES', 'u-viewer');
     await v.waitForSelector('#emp-table-body tr[data-doc-id]', { timeout: 30000 });
@@ -168,6 +203,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await v.isDisabled('[data-k="Mobile"]'), true);
     assert.equal(await v.$$eval('.emp-cf', x => x.length), 0, 'the sensitive extra field is not shown');
     assert.equal(await v.isVisible('#emp-docs-wrap'), false, 'no documents without the sensitive right');
+    assert.equal(await v.isVisible('#emp-pay-wrap'), false, 'no pay without the sensitive right');
     assert.deepEqual(v.__errors, []);
     await v.close();
   });

@@ -7,6 +7,7 @@
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="designations">Designations</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="fields">Employee Fields</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="doctypes">Document Types</button>
+    <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="elements">Pay Elements</button>
   </div>
   <p id="hs-readonly" class="hidden text-xs text-slate-400">You can view HR Setup but not change it.</p>
 
@@ -81,6 +82,31 @@
     <button id="hs-field-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New field</button>
   </div>
 
+  <!-- PAY ELEMENTS -->
+  <div id="hs-pane-elements" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">The parts of an employee's pay (the first piece of Payroll). Fixed elements are monthly amounts on the employee (basic, allowances, fixed deductions); variable ones are agreed terms (bonus, commission), paid per payroll run. One fixed earning is the Basic: the grade's pay band is checked against it.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Code</th><th class="py-2 px-3">Element</th><th class="py-2 px-3">Kind</th><th class="py-2 px-3">Nature</th><th class="py-2 px-3">Basic</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="hs-el-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div id="hs-el-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Code *</label><input id="hs-el-code" maxlength="20" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase"></div>
+        <div class="md:col-span-3"><label class="block text-xs font-medium text-slate-300 mb-1">Name *</label><input id="hs-el-name" maxlength="80" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Kind</label><select id="hs-el-kind" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Earning</option><option>Deduction</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Nature</label><select id="hs-el-nature" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Fixed">Fixed (monthly amount)</option><option value="Variable">Variable (agreed terms)</option></select></div>
+        <div class="flex items-end gap-4 md:col-span-2">
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-el-basic" type="checkbox"> This is the Basic</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-el-active" type="checkbox" checked> In use</label>
+        </div>
+      </div>
+      <div class="flex gap-2"><button id="hs-el-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="hs-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+    <button id="hs-el-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New pay element</button>
+  </div>
+
   <!-- DOCUMENT TYPES -->
   <div id="hs-pane-doctypes" class="hidden space-y-4">
     <p class="text-xs text-slate-500 max-w-3xl">The kinds of employee documents (step 2 of Employee Records): whether each has a number and an expiry date (reminded 60 days ahead).</p>
@@ -120,15 +146,15 @@
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const fmt = n => n == null || n === '' ? '' : Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const statusHtml = active => active === false ? '<span class="text-slate-500">Not in use</span>' : '<span class="text-emerald-400">In use</span>';
-  let setup = null, companies = [], canWrite = false, editing = null;
+  let setup = null, companies = [], canWrite = false, editing = null, payElements = [];
 
   function showTab(tab) {
     document.querySelectorAll('.hs-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
-    ['grades', 'designations', 'fields', 'doctypes'].forEach(t => $('hs-pane-' + t).classList.toggle('hidden', t !== tab));
+    ['grades', 'designations', 'fields', 'doctypes', 'elements'].forEach(t => $('hs-pane-' + t).classList.toggle('hidden', t !== tab));
   }
   function load() {
-    return call('getHrSetup', {}).then(s => {
-      setup = s; canWrite = Boolean(s.canWrite);
+    return Promise.all([call('getHrSetup', {}), call('getPayElements', {})]).then(([s, pe]) => {
+      setup = s; canWrite = Boolean(s.canWrite); payElements = pe.elements || [];
       document.querySelectorAll('.hs-write').forEach(b => b.classList.toggle('hidden', !canWrite));
       $('hs-readonly').classList.toggle('hidden', canWrite);
       render();
@@ -161,8 +187,20 @@
       '<td class="py-2 px-3">' + escapeHtml(t.Name) + '</td><td class="py-2 px-3 text-xs">' + (t.HasNumber ? 'Yes' : '') + '</td><td class="py-2 px-3 text-xs">' + (t.HasExpiry ? 'Yes' : '') +
       '</td><td class="py-2 px-3 text-xs">' + statusHtml(t.Active) + '</td></tr>').join('');
     rowClick($('hs-dt-body'), editDocType);
+    $('hs-el-body').innerHTML = payElements.map(e => '<tr data-id="' + escapeHtml(e.ElementID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '">' +
+      '<td class="py-2 px-3 font-mono text-xs">' + escapeHtml(e.Code) + '</td><td class="py-2 px-3">' + escapeHtml(e.Name) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(e.Kind) +
+      '</td><td class="py-2 px-3 text-xs">' + escapeHtml(e.Nature) + '</td><td class="py-2 px-3 text-xs">' + (e.IsBasic ? 'Basic' : '') + '</td><td class="py-2 px-3 text-xs">' + statusHtml(e.Active) + '</td></tr>').join('');
+    rowClick($('hs-el-body'), editElement);
   }
-  function closeForms() { ['hs-grade-form', 'hs-des-form', 'hs-field-form', 'hs-dt-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
+  function editElement(id) {
+    closeForms();
+    const e = payElements.find(x => x.ElementID === id) || { Kind: 'Earning', Nature: 'Fixed', Active: true };
+    editing = id || null;
+    $('hs-el-code').value = e.Code || ''; $('hs-el-name').value = e.Name || ''; $('hs-el-kind').value = e.Kind; $('hs-el-nature').value = e.Nature;
+    $('hs-el-basic').checked = Boolean(e.IsBasic); $('hs-el-active').checked = e.Active !== false;
+    $('hs-el-form').classList.remove('hidden');
+  }
+  function closeForms() { ['hs-grade-form', 'hs-des-form', 'hs-field-form', 'hs-dt-form', 'hs-el-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
   function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
 
   function editGrade(id) {
@@ -218,6 +256,9 @@
     $('hs-field-save').addEventListener('click', () => saved(call('saveHrField', { field: { FieldID: editing || '', Label: val('hs-field-label'), Type: val('hs-field-type'), Section: val('hs-field-section'),
       Sort: Number(val('hs-field-sort')) || 0, Required: $('hs-field-required').checked, Sensitive: $('hs-field-sensitive').checked, Active: $('hs-field-active').checked } })));
     $('hs-dt-new').addEventListener('click', () => editDocType(''));
+    $('hs-el-new').addEventListener('click', () => editElement(''));
+    $('hs-el-save').addEventListener('click', () => saved(call('savePayElement', { element: { ElementID: editing || '', Code: val('hs-el-code'), Name: val('hs-el-name'),
+      Kind: val('hs-el-kind'), Nature: val('hs-el-nature'), IsBasic: $('hs-el-basic').checked, Active: $('hs-el-active').checked } })));
     $('hs-dt-save').addEventListener('click', () => saved(call('saveHrDocumentType', { documentType: { DocumentTypeID: editing || '', Name: val('hs-dt-name'), HasNumber: $('hs-dt-number').checked, HasExpiry: $('hs-dt-expiry').checked, Active: $('hs-dt-active').checked } })));
     showTab('grades');
     call('getActiveCompanies', {}).then(r => { companies = r || []; return load(); }, err => appAlert(err.message || 'Unable to load the companies.'));

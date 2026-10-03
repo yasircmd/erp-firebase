@@ -110,6 +110,28 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-3" id="emp-flexi-other"></div>
   </div>
 
+  <div id="emp-pay-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="flex items-center justify-between">
+      <div class="text-xs font-semibold text-slate-400 uppercase">Compensation <span class="normal-case font-normal text-slate-500">(monthly)</span></div>
+      <div class="flex gap-2">
+        <button id="emp-pay-set" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Set pay</button>
+        <button id="emp-pay-correct" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-amber-400 px-3 py-1.5 rounded border border-slate-700" title="Fix a mistake in the current pay"><i class="fa-solid fa-pen"></i> Correct pay</button>
+      </div>
+    </div>
+    <div id="emp-pay-current" class="text-sm"></div>
+    <p id="emp-pay-warning" class="hidden text-xs text-amber-400"></p>
+    <div id="emp-pay-form" class="hidden bg-slate-900 p-3 rounded-lg border border-slate-700 space-y-3">
+      <div class="text-sm font-semibold text-slate-200" id="emp-pay-form-heading"></div>
+      <div id="emp-pay-from-wrap" class="w-48"><label class="block text-xs font-medium text-slate-300 mb-1">Effective from</label><input id="emp-pay-from" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-4">Monthly</th><th class="py-1 pr-4">Amount</th></tr></thead><tbody id="emp-pay-lines"></tbody></table>
+      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-3">Agreed terms</th><th class="py-1 pr-3">Basis</th><th class="py-1 pr-3">Value</th><th class="py-1 pr-3">Of</th><th class="py-1 pr-3">Frequency</th><th class="py-1 pr-3">Notes</th></tr></thead><tbody id="emp-pay-terms"></tbody></table>
+      <div id="emp-pay-error" class="hidden text-xs text-red-400"></div>
+      <div class="flex gap-2"><button id="emp-pay-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button id="emp-pay-cancel" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+    <details id="emp-pay-versions-wrap" class="hidden text-xs text-slate-400"><summary class="cursor-pointer">All versions</summary><ul id="emp-pay-versions" class="mt-2 space-y-1"></ul></details>
+  </div>
+
   <div id="emp-docs-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
     <div class="flex items-center justify-between">
       <div class="text-xs font-semibold text-slate-400 uppercase">Documents</div>
@@ -172,6 +194,10 @@
   // Employee documents (step 2): the list, the one open below it (null: a
   // new one), and whether it is being renewed.
   let docs = null, curDoc = null, docRenewing = false, docCanWrite = false, docFiles = null;
+  // Compensation (step 3).
+  let pay = null, payCorrecting = false;
+  const money = n => n == null ? '' : Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const termText = t => (t.Basis === 'Percent' ? t.Value + '%' : money(t.Value)) + (t.Of ? ' ' + t.Of : '') + ', ' + t.Frequency.toLowerCase() + (t.Notes ? ' (' + t.Notes + ')' : '');
   const DOC_STATUS = { Active: 'text-emerald-400', Expiring: 'text-amber-400', Expired: 'text-red-400', Superseded: 'text-slate-500', Removed: 'text-red-400 line-through' };
   const docStatusText = d => d.DisplayStatus === 'Superseded' ? 'Renewed' : d.DisplayStatus === 'Expiring' ? 'Expiring (' + d.DaysLeft + (d.DaysLeft === 1 ? ' day)' : ' days)') : d.DisplayStatus;
 
@@ -285,7 +311,7 @@
     $('emp-heading').textContent = 'New employee';
     $('emp-status-badge').innerHTML = '';
     $('emp-note').classList.add('hidden');
-    ['emp-reports-wrap', 'emp-history-wrap', 'emp-docs-wrap'].forEach(id => $(id).classList.add('hidden'));
+    ['emp-reports-wrap', 'emp-history-wrap', 'emp-docs-wrap', 'emp-pay-wrap'].forEach(id => $(id).classList.add('hidden'));
     setEditable();
     showForm();
   }
@@ -309,9 +335,82 @@
       $('emp-history-wrap').classList.toggle('hidden', !r.history.length);
       setEditable();
       showForm();
+      loadPay();
       loadDocs();
     }, err => appAlert(err.message || 'Unable to open the employee.'));
   }
+  // ---------- compensation (step 3) ----------
+  function versionHtml(v) {
+    return '<table class="text-sm"><tbody>' + v.Lines.map(l => '<tr><td class="pr-6 py-0.5">' + escapeHtml(l.Name) + (l.Kind === 'Deduction' ? ' <span class="text-xs text-slate-500">(deduction)</span>' : '') +
+      '</td><td class="text-right font-mono">' + money(l.Amount) + '</td></tr>').join('') +
+      '<tr class="border-t border-slate-700"><td class="pr-6 py-0.5 font-semibold">Monthly earnings</td><td class="text-right font-mono font-semibold">' + money(v.MonthlyEarnings) + '</td></tr>' +
+      (v.MonthlyDeductions ? '<tr><td class="pr-6 py-0.5">Net of deductions</td><td class="text-right font-mono">' + money(v.MonthlyNet) + '</td></tr>' : '') + '</tbody></table>' +
+      (v.Terms.length ? '<div class="text-xs text-slate-400 mt-1">' + v.Terms.map(t => escapeHtml(t.Name + ': ' + termText(t))).join('<br>') + '</div>' : '');
+  }
+  function loadPay() {
+    $('emp-pay-form').classList.add('hidden');
+    $('emp-pay-wrap').classList.toggle('hidden', !(current && rights.canSeeSensitive));
+    if (!current || !rights.canSeeSensitive) return Promise.resolve();
+    return call('getCompensation', { employeeId: current.EmployeeID }).then(r => {
+      pay = r;
+      const c = r.current;
+      const b = r.band && r.band.Min != null ? ' <span class="text-xs text-slate-500">· ' + escapeHtml(r.band.GradeCode) + ' band ' + money(r.band.Min) + ' / ' + money(r.band.Mid) + ' / ' + money(r.band.Max) + '</span>' : '';
+      $('emp-pay-current').innerHTML = c ? '<div class="text-xs text-slate-400 mb-1">From ' + escapeHtml(c.EffectiveFrom) + (c.Source === 'Correction' ? ' (corrected)' : '') + b + '</div>' + versionHtml(c)
+        : (r.upcoming.length ? '' : '<span class="text-xs text-slate-500">No pay set yet.</span>');
+      if (r.upcoming.length) $('emp-pay-current').innerHTML += '<div class="text-xs text-blue-400 mt-2">Upcoming: ' + r.upcoming.map(v => 'from ' + escapeHtml(v.EffectiveFrom) + ', ' + money(v.MonthlyEarnings)).join('; ') + '</div>';
+      $('emp-pay-warning').textContent = r.warning || '';
+      $('emp-pay-warning').classList.toggle('hidden', !r.warning);
+      $('emp-pay-set').classList.toggle('hidden', !r.canSet);
+      $('emp-pay-correct').classList.toggle('hidden', !r.canCorrect);
+      $('emp-pay-versions').innerHTML = r.versions.map(v => '<li>From ' + escapeHtml(v.EffectiveFrom) + ': ' + money(v.MonthlyEarnings) + ' · ' + escapeHtml(v.Source) +
+        (v.Status !== 'Active' ? ' · ' + escapeHtml(v.Status) : '') + (v.Reason ? ' — ' + escapeHtml(v.Reason) : '') + ' · ' + escapeHtml(v.CreatedByName) + ', ' + escapeHtml(isoLocalDateTime(v.CreatedAt)) + '</li>').join('');
+      $('emp-pay-versions-wrap').classList.toggle('hidden', !r.versions.length);
+    }, err => appAlert(err.message || 'Unable to load the pay.'));
+  }
+  function openPayForm(correcting) {
+    payCorrecting = correcting;
+    const base = correcting ? (pay.versions.find(v => v.Status === 'Active') || pay.current) : null;
+    $('emp-pay-form-heading').textContent = correcting ? 'Correct the pay from ' + base.EffectiveFrom : 'Set the pay';
+    $('emp-pay-from-wrap').classList.toggle('hidden', correcting);
+    $('emp-pay-from').value = current.JoinDate || '';
+    const fixed = pay.elements.filter(e => e.Nature === 'Fixed' && (e.Active || (base && base.Lines.some(l => l.ElementID === e.ElementID))));
+    const variable = pay.elements.filter(e => e.Nature === 'Variable' && (e.Active || (base && base.Terms.some(t => t.ElementID === e.ElementID))));
+    $('emp-pay-lines').innerHTML = fixed.map(e => {
+      const l = base && base.Lines.find(x => x.ElementID === e.ElementID);
+      return '<tr><td class="py-1 pr-4">' + escapeHtml(e.Name) + (e.Kind === 'Deduction' ? ' <span class="text-xs text-slate-500">(deduction)</span>' : '') + '</td>' +
+        '<td class="py-1 pr-4"><input type="number" step="0.01" min="0" data-el="' + escapeHtml(e.ElementID) + '" value="' + (l ? l.Amount : '') + '" class="emp-pay-amount w-36 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-right"></td></tr>';
+    }).join('');
+    const opts = (list, sel) => list.map(x => '<option' + (x === sel ? ' selected' : '') + '>' + x + '</option>').join('');
+    $('emp-pay-terms').innerHTML = variable.map(e => {
+      const t = (base && base.Terms.find(x => x.ElementID === e.ElementID)) || {};
+      return '<tr data-el="' + escapeHtml(e.ElementID) + '" class="emp-pay-term"><td class="py-1 pr-3">' + escapeHtml(e.Name) + '</td>' +
+        '<td class="py-1 pr-3"><select class="t-basis bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"><option value="Amount"' + (t.Basis !== 'Percent' ? ' selected' : '') + '>Amount</option><option value="Percent"' + (t.Basis === 'Percent' ? ' selected' : '') + '>%</option></select></td>' +
+        '<td class="py-1 pr-3"><input type="number" step="0.01" min="0" class="t-value w-28 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-right" value="' + (t.Value == null ? '' : t.Value) + '"></td>' +
+        '<td class="py-1 pr-3"><input class="t-of w-32 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm" placeholder="e.g. of sales" value="' + escapeHtml(t.Of || '') + '"></td>' +
+        '<td class="py-1 pr-3"><select class="t-freq bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300">' + opts(pay.frequencies, t.Frequency || 'Annual') + '</select></td>' +
+        '<td class="py-1 pr-3"><input class="t-notes w-48 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm" value="' + escapeHtml(t.Notes || '') + '"></td></tr>';
+    }).join('');
+    $('emp-pay-error').classList.add('hidden');
+    $('emp-pay-form').classList.remove('hidden');
+  }
+  async function savePay() {
+    let reason;
+    if (payCorrecting) {
+      reason = await appPrompt('Correct the pay: what was wrong?', '');
+      if (reason == null) return;
+    }
+    const comp = {
+      EffectiveFrom: val('emp-pay-from'),
+      Lines: [...document.querySelectorAll('.emp-pay-amount')].map(i => ({ ElementID: i.dataset.el, Amount: i.value })),
+      Terms: [...document.querySelectorAll('.emp-pay-term')].map(tr => ({ ElementID: tr.dataset.el, Basis: tr.querySelector('.t-basis').value, Value: tr.querySelector('.t-value').value,
+        Of: tr.querySelector('.t-of').value, Frequency: tr.querySelector('.t-freq').value, Notes: tr.querySelector('.t-notes').value }))
+    };
+    call('saveCompensation', { employeeId: current.EmployeeID, compensation: comp, correction: reason }).then(r => {
+      if (r.warning) appAlert(r.warning);
+      loadPay();
+    }, err => { $('emp-pay-error').textContent = err.message || 'Unable to save.'; $('emp-pay-error').classList.remove('hidden'); });
+  }
+
   // ---------- documents (step 2) ----------
   function loadDocs(openId) {
     closeDoc();
@@ -433,7 +532,11 @@
     $('emp-correct-btn').addEventListener('click', () => { correcting = true; setEditable(); });
     $('emp-form-company').addEventListener('change', () => fillUnits(val('emp-form-company')));
     $('emp-reports').addEventListener('click', e => { const b = e.target.closest('.emp-goto'); if (b) confirmLeave(() => openEmployee(b.dataset.id)); });
-    ['input', 'change'].forEach(t => $('emp-entry-view').addEventListener(t, e => { if (!e.target.closest('#emp-docs-wrap')) isDirty = true; }));
+    ['input', 'change'].forEach(t => $('emp-entry-view').addEventListener(t, e => { if (!e.target.closest('#emp-docs-wrap, #emp-pay-wrap')) isDirty = true; }));
+    $('emp-pay-set').addEventListener('click', () => openPayForm(false));
+    $('emp-pay-correct').addEventListener('click', () => openPayForm(true));
+    $('emp-pay-cancel').addEventListener('click', () => $('emp-pay-form').classList.add('hidden'));
+    $('emp-pay-save').addEventListener('click', savePay);
     // A document's files, below it (docs/modules/ATTACHMENTS.md).
     docFiles = supportingDocs.mount({ module: 'EMPDOCS', view: 'emp-doc-view', id: () => (curDoc && !docRenewing ? curDoc.DocumentID : ''),
       emptyNote: 'Save the document to attach its scan.' });
