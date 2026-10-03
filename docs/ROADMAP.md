@@ -394,6 +394,12 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [ ] **Company Documents: legal documents, contracts, licences** (owner,
+  2026-10-03; [COMPANY_DOCUMENTS.md](modules/COMPANY_DOCUMENTS.md)).
+  **Design agreed 2026-10-03:** a register of documents per company
+  (category, reference, party, dates, files in Drive), its own
+  permission, a 30-day expiry Home task, vendor / customer documents
+  in the same register and shown on their masters. Building.
 - [x] **Supporting documents on entries** (owner, 2026-10-03;
   [ATTACHMENTS.md](modules/ATTACHMENTS.md)). **Live 2026-10-03** (PR #60;
   Deploy runs #60–#62; menu node linked). **In use 2026-10-03:** the
