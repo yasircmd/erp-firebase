@@ -1679,7 +1679,7 @@
         const view = document.getElementById(opts.view);
         if (!view) return null;
         const sec = document.createElement('section');
-        sec.className = 'supdocs hidden mt-4 bg-slate-800/50 border border-slate-700 rounded-lg p-4';
+        sec.className = 'supdocs hidden mt-4 bg-slate-800/60 border border-slate-700 rounded-lg p-4';
         sec.dataset.module = opts.module;
         sec.innerHTML =
           '<div class="flex items-center justify-between gap-3 flex-wrap">' +
@@ -1688,7 +1688,7 @@
           '<button type="button" class="supdocs-add bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add files</button>' +
           '<input type="file" class="supdocs-input hidden" multiple accept="' + EXTS.map(e => '.' + e).join(',') + '"></div></div>' +
           '<p class="supdocs-note text-xs text-slate-500 mt-2"></p>' +
-          '<ul class="supdocs-list mt-2 divide-y divide-slate-700/60"></ul>';
+          '<ul class="supdocs-list mt-2 divide-y divide-slate-700"></ul>';
         view.insertAdjacentElement('afterend', sec);
         const $ = s => sec.querySelector(s);
         // Its own fields must not mark the entry as changed.

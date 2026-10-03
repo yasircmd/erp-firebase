@@ -769,3 +769,15 @@ from, and how it was verified. The deploy procedure is in the
   [#59](https://github.com/yasircmd/erp-firebase/actions/runs/37099166098),
   05:14–05:15 UTC, from `c1c8b95` (the PR #58 merge), success
   ("screens only").
+- **2026-10-03, supporting documents on entries (PR #60):** three runs
+  from `43274e3` (the PR #60 merge), all successful, in the order the PR
+  gives:
+  - Run [#60](https://github.com/yasircmd/erp-firebase/actions/runs/37106703397),
+    07:32–07:37 UTC: functions, set `supporting-documents` (its "Check
+    screens are released" step ran).
+  - Run [#61](https://github.com/yasircmd/erp-firebase/actions/runs/37107176393),
+    07:41–07:42 UTC, and run
+    [#62](https://github.com/yasircmd/erp-firebase/actions/runs/37107304020),
+    07:43–07:44 UTC: Hosting and the screens.
+  - In the app (owner): the Document Storage menu node is linked. The
+    Google set-up and Connect Google Drive are still to do.
