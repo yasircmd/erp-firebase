@@ -1,7 +1,14 @@
 # Supporting Documents (attachments on entries)
 
-Status: **live** 2026-10-03 (PR #60; see [As built](#as-built-2026-10-03)).
-The Google set-up (below) is needed before it can be used.
+Status: **live and in use** 2026-10-03 (PRs #60, #61; see
+[As built](#as-built-2026-10-03)). Google Drive connected by the owner.
+
+**Moving the root folder:** "ERP Documents" can be moved anywhere in the
+connected Drive (the owner keeps it in a project folder): the ERP works
+by folder id, and keeps access to what it created. Don't put it in a
+folder shared with people who shouldn't see every company's documents
+(it takes that folder's sharing), and don't delete it or rearrange the
+folders inside it.
 
 ## The request (owner, 2026-10-03)
 

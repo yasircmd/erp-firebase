@@ -781,3 +781,10 @@ from, and how it was verified. The deploy procedure is in the
     07:43–07:44 UTC: Hosting and the screens.
   - In the app (owner): the Document Storage menu node is linked. The
     Google set-up and Connect Google Drive are still to do.
+- **2026-10-03, supporting documents in light mode (PR #61):** run
+  [#63](https://github.com/yasircmd/erp-firebase/actions/runs/37108586107),
+  from `ad0d2ff` (the PR #61 merge), success ("hosting").
+- **2026-10-03, Document Storage connected (owner, in the app):** Google
+  Cloud set-up done (Drive API, consent screen in production with
+  `drive.file`, Web OAuth client), Google Drive connected and the test
+  passed. The owner moved "ERP Documents" into a project folder in Drive.
