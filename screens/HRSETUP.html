@@ -8,6 +8,8 @@
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="fields">Employee Fields</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="doctypes">Document Types</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="elements">Pay Elements</button>
+    <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="leavetypes">Leave Types</button>
+    <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="calendar">Working Calendar</button>
   </div>
   <p id="hs-readonly" class="hidden text-xs text-slate-400">You can view HR Setup but not change it.</p>
 
@@ -107,6 +109,85 @@
     <button id="hs-el-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New pay element</button>
   </div>
 
+  <!-- LEAVE TYPES (docs/modules/HR_LEAVE.md, step 1) -->
+  <div id="hs-pane-leavetypes" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">The kinds of leave, with their rules. Leave that uses a balance earns days by grade level and years of service, accrued monthly over the calendar year; unused days carry forward up to a cap and the rest lapses. Leave pay rules say how each day is paid, by grade level and by the days of that leave already taken in the year (e.g. sick leave: 15 days full, 30 at half pay, then unpaid). One set for the group. Duty (e.g. business travel) is paid as working.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Code</th><th class="py-2 px-3">Leave type</th><th class="py-2 px-3">Counts</th><th class="py-2 px-3">Entitlement</th><th class="py-2 px-3">Pay</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="hs-lt-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div id="hs-lt-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4">
+      <div class="text-sm font-semibold text-slate-200" id="hs-lt-heading">New leave type</div>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Code *</label><input id="hs-lt-code" maxlength="20" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase"></div>
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Name *</label><input id="hs-lt-name" maxlength="80" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Kind</label><select id="hs-lt-kind" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Leave">Leave (an absence)</option><option value="Duty">Duty (paid as working)</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Counts</label><select id="hs-lt-counts" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Working">Working days</option><option value="Calendar">Calendar days</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">For</label><select id="hs-lt-gender" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Any">Everyone</option><option value="Female">Women</option><option value="Male">Men</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Most days a year</label><input id="hs-lt-maxyear" type="number" min="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Most days at a time</label><input id="hs-lt-maxinst" type="number" min="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Document needed after (days)</label><input id="hs-lt-docafter" type="number" min="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="flex flex-wrap items-end gap-4 md:col-span-3">
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-lt-balance" type="checkbox"> Uses a balance</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-lt-half" type="checkbox"> Half days</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-lt-probation" type="checkbox"> After probation only</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-lt-return" type="checkbox"> HR confirms the return</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-lt-active" type="checkbox" checked> In use</label>
+        </div>
+      </div>
+      <div class="flex gap-2"><button id="hs-lt-save" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save settings</button>
+        <button class="hs-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Close</button></div>
+
+      <div id="hs-ent-wrap" class="hidden space-y-2 border-t border-slate-700 pt-3">
+        <div class="text-xs font-semibold text-slate-400 uppercase">Entitlement (days a year)</div>
+        <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-2">Grade levels</th><th class="py-1 pr-2">Years of service</th><th class="py-1 pr-2">Days a year</th><th></th></tr></thead>
+          <tbody id="hs-ent-body"></tbody></table>
+        <div class="flex flex-wrap items-end gap-3">
+          <button id="hs-ent-add" class="hs-write bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Row</button>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Most days carried into the next year</label><input id="hs-ent-cap" type="number" min="0" class="w-32 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+          <button id="hs-ent-save" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save entitlement</button>
+        </div>
+        <ul id="hs-ent-warn" class="text-xs text-amber-400 list-disc ml-5"></ul>
+      </div>
+
+      <div id="hs-pr-wrap" class="hidden space-y-2 border-t border-slate-700 pt-3">
+        <div class="text-xs font-semibold text-slate-400 uppercase">Leave pay rules</div>
+        <p class="text-xs text-slate-500">Days are counted in the leave year for this type: "days 16–45" is the 16th to the 45th day taken. Leave "to" blank for no end. Full salary is every fixed earning; selected elements are the ones ticked.</p>
+        <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-2">Grade levels</th><th class="py-1 pr-2">Days</th><th class="py-1 pr-2">Paid as</th><th class="py-1 pr-2">%</th><th></th></tr></thead>
+          <tbody id="hs-pr-body"></tbody></table>
+        <div class="flex gap-2">
+          <button id="hs-pr-add" class="hs-write bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Row</button>
+          <button id="hs-pr-save" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save pay rules</button>
+        </div>
+        <ul id="hs-pr-warn" class="text-xs text-amber-400 list-disc ml-5"></ul>
+      </div>
+    </div>
+    <button id="hs-lt-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New leave type</button>
+  </div>
+
+  <!-- WORKING CALENDAR (docs/modules/HR_LEAVE.md, step 1) -->
+  <div id="hs-pane-calendar" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">Each company's weekend days and public holidays, by year. Leave that counts working days skips them. A holiday of several days (e.g. Eid) is one row with its first and last day.</p>
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="hs-cal-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Year</label><select id="hs-cal-year" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div id="hs-cal-days" class="text-sm text-slate-300 pb-2"></div>
+    </div>
+    <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="text-xs font-semibold text-slate-400 uppercase">Weekend</div>
+      <div id="hs-cal-weekend" class="flex flex-wrap gap-4"></div>
+      <div class="text-xs font-semibold text-slate-400 uppercase pt-2">Public holidays</div>
+      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-2">From</th><th class="py-1 pr-2">To</th><th class="py-1 pr-2">Holiday</th><th></th></tr></thead>
+        <tbody id="hs-cal-body"></tbody></table>
+      <div class="flex flex-wrap gap-2">
+        <button id="hs-cal-add" class="hs-write bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Holiday</button>
+        <button id="hs-cal-copy" class="hs-write bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700" title="Adds last year's holidays on the same dates, to adjust (e.g. Eid moves)"><i class="fa-solid fa-copy"></i> Copy last year's</button>
+        <button id="hs-cal-save" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save calendar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- DOCUMENT TYPES -->
   <div id="hs-pane-doctypes" class="hidden space-y-4">
     <p class="text-xs text-slate-500 max-w-3xl">The kinds of employee documents (step 2 of Employee Records): whether each has a number and an expiry date (reminded 60 days ahead).</p>
@@ -147,14 +228,17 @@
   const fmt = n => n == null || n === '' ? '' : Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const statusHtml = active => active === false ? '<span class="text-slate-500">Not in use</span>' : '<span class="text-emerald-400">In use</span>';
   let setup = null, companies = [], canWrite = false, editing = null, payElements = [];
+  // Leave Types and the Working Calendar (docs/modules/HR_LEAVE.md, step 1).
+  let leaveTypes = [], payOptions = [], calLoaded = false, lastYearHolidays = [];
 
   function showTab(tab) {
     document.querySelectorAll('.hs-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
-    ['grades', 'designations', 'fields', 'doctypes', 'elements'].forEach(t => $('hs-pane-' + t).classList.toggle('hidden', t !== tab));
+    ['grades', 'designations', 'fields', 'doctypes', 'elements', 'leavetypes', 'calendar'].forEach(t => $('hs-pane-' + t).classList.toggle('hidden', t !== tab));
   }
   function load() {
-    return Promise.all([call('getHrSetup', {}), call('getPayElements', {})]).then(([s, pe]) => {
+    return Promise.all([call('getHrSetup', {}), call('getPayElements', {}), call('getLeaveSetup', {})]).then(([s, pe, ls]) => {
       setup = s; canWrite = Boolean(s.canWrite); payElements = pe.elements || [];
+      leaveTypes = ls.leaveTypes || []; payOptions = ls.pay || [];
       document.querySelectorAll('.hs-write').forEach(b => b.classList.toggle('hidden', !canWrite));
       $('hs-readonly').classList.toggle('hidden', canWrite);
       render();
@@ -191,6 +275,134 @@
       '<td class="py-2 px-3 font-mono text-xs">' + escapeHtml(e.Code) + '</td><td class="py-2 px-3">' + escapeHtml(e.Name) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(e.Kind) +
       '</td><td class="py-2 px-3 text-xs">' + escapeHtml(e.Nature) + '</td><td class="py-2 px-3 text-xs">' + (e.IsBasic ? 'Basic' : '') + '</td><td class="py-2 px-3 text-xs">' + statusHtml(e.Active) + '</td></tr>').join('');
     rowClick($('hs-el-body'), editElement);
+    renderLeaveTypes();
+  }
+
+  // ---------- leave types ----------
+  const range = (f, t, unit) => t == null ? unit + ' ' + f + '+' : f === t ? unit + ' ' + f : unit + ' ' + f + '–' + t;
+  const fixedEarnings = () => payElements.filter(e => e.Kind === 'Earning' && e.Nature === 'Fixed');
+  const elName = id => (payElements.find(e => e.ElementID === id) || {}).Name || id;
+  function payText(r) {
+    if (r.Pay === 'Unpaid') return 'Unpaid';
+    const what = r.Pay === 'Full' ? 'Full salary' : r.Pay === 'Basic' ? 'Basic only' : r.Elements.map(elName).join(' + ');
+    return what + (r.Percent === 100 ? '' : ' at ' + r.Percent + '%');
+  }
+  const levels = r => r.LevelFrom === 1 && r.LevelTo === 99 ? 'All grades' : range(r.LevelFrom, r.LevelTo, 'Levels');
+  function ruleText(r) { return levels(r) + (r.DayFrom === 1 && r.DayTo == null ? '' : ', ' + range(r.DayFrom, r.DayTo, 'days')) + ': ' + payText(r); }
+  function entText(t) {
+    if (t.Kind === 'Duty') return 'Duty: paid as working';
+    if (!t.UsesBalance) return 'No balance' + (t.MaxPerYear ? ' (up to ' + t.MaxPerYear + ' a year)' : '');
+    return (t.Entitlements || []).map(r => levels(r) + (r.ServiceFrom === 0 && r.ServiceTo == null ? '' : ', ' + range(r.ServiceFrom, r.ServiceTo, 'years')) + ': ' + r.DaysPerYear + ' days').join('<br>') +
+      (t.CarryForwardCap == null ? '' : '<br>Carry up to ' + t.CarryForwardCap);
+  }
+  const warnCount = t => Object.values(t.Warnings || {}).reduce((n, l) => n + l.length, 0);
+  function renderLeaveTypes() {
+    $('hs-lt-body').innerHTML = leaveTypes.map(t => '<tr data-id="' + escapeHtml(t.LeaveTypeID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '">' +
+      '<td class="py-2 px-3 font-mono text-xs">' + escapeHtml(t.Code) + '</td><td class="py-2 px-3">' + escapeHtml(t.Name) +
+      (warnCount(t) ? ' <span class="text-xs text-amber-400" title="Grades without a rule">(' + warnCount(t) + ' to check)</span>' : '') + '</td>' +
+      '<td class="py-2 px-3 text-xs">' + (t.Counts === 'Working' ? 'Working days' : 'Calendar days') + '</td>' +
+      '<td class="py-2 px-3 text-xs text-slate-400">' + entText(t) + '</td>' +
+      '<td class="py-2 px-3 text-xs text-slate-400">' + (t.Kind === 'Duty' ? '' : (t.PayRules || []).map(r => escapeHtml(ruleText(r))).join('<br>')) + '</td>' +
+      '<td class="py-2 px-3 text-xs">' + statusHtml(t.Active) + '</td></tr>').join('');
+    rowClick($('hs-lt-body'), editLeaveType);
+  }
+  const num = v => v == null ? '' : v;
+  const numInput = (cls, v, w) => '<input type="number" min="0" class="' + cls + ' ' + (w || 'w-16') + ' bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm" value="' + num(v) + '">';
+  function entRow(r) {
+    return '<tr class="hs-ent-row"><td class="py-1 pr-2 whitespace-nowrap">' + numInput('hs-ent-lf', r.LevelFrom) + ' – ' + numInput('hs-ent-lt', r.LevelTo) + '</td>' +
+      '<td class="py-1 pr-2 whitespace-nowrap">' + numInput('hs-ent-sf', r.ServiceFrom) + ' – ' + numInput('hs-ent-st', r.ServiceTo) + '</td>' +
+      '<td class="py-1 pr-2">' + numInput('hs-ent-d', r.DaysPerYear, 'w-20') + '</td>' +
+      '<td class="py-1"><button type="button" class="hs-row-del hs-write text-slate-400 hover:text-red-400" title="Remove"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  }
+  function prRow(r) {
+    const els = fixedEarnings().map(e => '<label class="text-xs text-slate-300 flex items-center gap-1"><input type="checkbox" class="hs-pr-el" value="' + escapeHtml(e.ElementID) + '"' +
+      ((r.Elements || []).includes(e.ElementID) ? ' checked' : '') + '> ' + escapeHtml(e.Name) + '</label>').join('');
+    return '<tr class="hs-pr-row align-top"><td class="py-1 pr-2 whitespace-nowrap">' + numInput('hs-pr-lf', r.LevelFrom) + ' – ' + numInput('hs-pr-lt', r.LevelTo) + '</td>' +
+      '<td class="py-1 pr-2 whitespace-nowrap">' + numInput('hs-pr-df', r.DayFrom) + ' – ' + numInput('hs-pr-dt', r.DayTo) + '</td>' +
+      '<td class="py-1 pr-2"><select class="hs-pr-pay bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300">' + payOptions.map(o => '<option value="' + o.value + '"' + (o.value === r.Pay ? ' selected' : '') + '>' + escapeHtml(o.label) + '</option>').join('') + '</select>' +
+      '<div class="hs-pr-els flex flex-wrap gap-2 mt-1' + (r.Pay === 'Elements' ? '' : ' hidden') + '">' + els + '</div></td>' +
+      '<td class="py-1 pr-2">' + numInput('hs-pr-pct', r.Pay === 'Unpaid' ? '' : r.Percent, 'w-20') + '</td>' +
+      '<td class="py-1"><button type="button" class="hs-row-del hs-write text-slate-400 hover:text-red-400" title="Remove"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  }
+  const warnHtml = list => (list || []).map(w => '<li>' + escapeHtml(w) + '</li>').join('');
+  function editLeaveType(id) {
+    closeForms();
+    const t = leaveTypes.find(x => x.LeaveTypeID === id) || { Kind: 'Leave', Counts: 'Working', Gender: 'Any', Active: true };
+    editing = id || null;
+    $('hs-lt-heading').textContent = id ? t.Name : 'New leave type';
+    $('hs-lt-code').value = t.Code || ''; $('hs-lt-name').value = t.Name || ''; $('hs-lt-kind').value = t.Kind; $('hs-lt-counts').value = t.Counts; $('hs-lt-gender').value = t.Gender;
+    $('hs-lt-maxyear').value = num(t.MaxPerYear); $('hs-lt-maxinst').value = num(t.MaxPerInstance); $('hs-lt-docafter').value = num(t.DocumentAfterDays);
+    $('hs-lt-balance').checked = Boolean(t.UsesBalance); $('hs-lt-half').checked = Boolean(t.HalfDays); $('hs-lt-probation').checked = Boolean(t.AfterProbation);
+    $('hs-lt-return').checked = Boolean(t.ConfirmReturn); $('hs-lt-active').checked = t.Active !== false;
+    // The rules belong to a saved type: entitlement when it uses a balance,
+    // pay rules for any leave (duty is paid as working).
+    const showEnt = Boolean(id) && t.Kind === 'Leave' && t.UsesBalance, showPay = Boolean(id) && t.Kind === 'Leave';
+    $('hs-ent-wrap').classList.toggle('hidden', !showEnt);
+    $('hs-pr-wrap').classList.toggle('hidden', !showPay);
+    $('hs-ent-body').innerHTML = (t.Entitlements || []).map(entRow).join('');
+    $('hs-ent-cap').value = num(t.CarryForwardCap);
+    $('hs-pr-body').innerHTML = (t.PayRules || []).map(prRow).join('');
+    $('hs-ent-warn').innerHTML = warnHtml((t.Warnings || {}).entitlements);
+    $('hs-pr-warn').innerHTML = warnHtml((t.Warnings || {}).payRules);
+    $('hs-lt-form').classList.remove('hidden');
+  }
+  // Save, reload, and keep the type open (a new one then shows its rules).
+  function savedLeave(p) {
+    return p.then(r => load().then(() => { editLeaveType(r.leaveTypeId || editing); }), err => appAlert(err.message || 'Unable to save.'));
+  }
+  const n = el => el.value;
+  function saveLeaveType() {
+    const id = editing;
+    savedLeave(call('saveLeaveType', { leaveType: { LeaveTypeID: id || '', Code: val('hs-lt-code'), Name: val('hs-lt-name'), Kind: val('hs-lt-kind'), Counts: val('hs-lt-counts'),
+      Gender: val('hs-lt-gender'), MaxPerYear: val('hs-lt-maxyear'), MaxPerInstance: val('hs-lt-maxinst'), DocumentAfterDays: val('hs-lt-docafter'),
+      UsesBalance: $('hs-lt-balance').checked, HalfDays: $('hs-lt-half').checked, AfterProbation: $('hs-lt-probation').checked,
+      ConfirmReturn: $('hs-lt-return').checked, Active: $('hs-lt-active').checked } }));
+  }
+  function saveEntitlements() {
+    const rows = [...document.querySelectorAll('.hs-ent-row')].map(tr => ({ LevelFrom: n(tr.querySelector('.hs-ent-lf')), LevelTo: n(tr.querySelector('.hs-ent-lt')),
+      ServiceFrom: n(tr.querySelector('.hs-ent-sf')), ServiceTo: n(tr.querySelector('.hs-ent-st')), DaysPerYear: n(tr.querySelector('.hs-ent-d')) }));
+    savedLeave(call('saveLeaveEntitlements', { leaveTypeId: editing, rows, carryForwardCap: val('hs-ent-cap') }));
+  }
+  function savePayRules() {
+    const rows = [...document.querySelectorAll('.hs-pr-row')].map(tr => ({ LevelFrom: n(tr.querySelector('.hs-pr-lf')), LevelTo: n(tr.querySelector('.hs-pr-lt')),
+      DayFrom: n(tr.querySelector('.hs-pr-df')), DayTo: n(tr.querySelector('.hs-pr-dt')), Pay: n(tr.querySelector('.hs-pr-pay')), Percent: n(tr.querySelector('.hs-pr-pct')),
+      Elements: [...tr.querySelectorAll('.hs-pr-el:checked')].map(c => c.value) }));
+    savedLeave(call('saveLeavePayRules', { leaveTypeId: editing, rows }));
+  }
+
+  // ---------- working calendar ----------
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function holidayRow(h) {
+    const ro = canWrite ? '' : ' disabled';
+    return '<tr class="hs-cal-row"><td class="py-1 pr-2"><input type="date" class="hs-cal-from bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm" value="' + escapeHtml(h.From || '') + '"' + ro + '></td>' +
+      '<td class="py-1 pr-2"><input type="date" class="hs-cal-to bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm" value="' + escapeHtml(h.To && h.To !== h.From ? h.To : '') + '"' + ro + '></td>' +
+      '<td class="py-1 pr-2"><input maxlength="80" class="hs-cal-name w-64 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm" value="' + escapeHtml(h.Name || '') + '"' + ro + '></td>' +
+      '<td class="py-1"><button type="button" class="hs-row-del hs-write text-slate-400 hover:text-red-400" title="Remove"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  }
+  function loadCalendar() {
+    if (!val('hs-cal-company')) return Promise.resolve();
+    calLoaded = true;
+    return call('getWorkCalendar', { companyId: val('hs-cal-company'), year: Number(val('hs-cal-year')) }).then(r => {
+      $('hs-cal-weekend').innerHTML = DAYS.map((d, i) => '<label class="text-xs text-slate-300 flex items-center gap-2"><input type="checkbox" class="hs-cal-wd" value="' + i + '"' +
+        (r.weekend.includes(i) ? ' checked' : '') + (canWrite ? '' : ' disabled') + '> ' + d + '</label>').join('');
+      $('hs-cal-body').innerHTML = r.holidays.map(holidayRow).join('');
+      lastYearHolidays = r.lastYearHolidays || [];
+      $('hs-cal-days').textContent = 'Working days in ' + r.year + ': ' + r.workingDays;
+      document.querySelectorAll('#hs-pane-calendar .hs-write').forEach(b => b.classList.toggle('hidden', !canWrite));
+    }, err => appAlert(err.message || 'Unable to load the calendar.'));
+  }
+  // Last year's holidays on the same dates of this year, to adjust.
+  function copyLastYear() {
+    const y = val('hs-cal-year');
+    const shift = d => { const m = y + d.slice(4); return m.slice(5) === '02-29' ? y + '-02-28' : m; };
+    lastYearHolidays.forEach(h => $('hs-cal-body').insertAdjacentHTML('beforeend', holidayRow({ From: shift(h.From), To: shift(h.To), Name: h.Name })));
+    if (!lastYearHolidays.length) appAlert('No holidays saved for ' + (Number(y) - 1) + '.');
+  }
+  function saveCalendar() {
+    const holidays = [...document.querySelectorAll('.hs-cal-row')].map(tr => ({ From: tr.querySelector('.hs-cal-from').value, To: tr.querySelector('.hs-cal-to').value, Name: tr.querySelector('.hs-cal-name').value }))
+      .filter(h => h.From || h.To || h.Name);
+    call('saveWorkCalendar', { companyId: val('hs-cal-company'), year: Number(val('hs-cal-year')), weekend: [...document.querySelectorAll('.hs-cal-wd:checked')].map(c => Number(c.value)), holidays })
+      .then(() => loadCalendar(), err => appAlert(err.message || 'Unable to save the calendar.'));
   }
   function editElement(id) {
     closeForms();
@@ -200,7 +412,7 @@
     $('hs-el-basic').checked = Boolean(e.IsBasic); $('hs-el-active').checked = e.Active !== false;
     $('hs-el-form').classList.remove('hidden');
   }
-  function closeForms() { ['hs-grade-form', 'hs-des-form', 'hs-field-form', 'hs-dt-form', 'hs-el-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
+  function closeForms() { ['hs-grade-form', 'hs-des-form', 'hs-field-form', 'hs-dt-form', 'hs-el-form', 'hs-lt-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
   function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
 
   function editGrade(id) {
@@ -246,7 +458,28 @@
 
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> HR Setup';
-    $('hs-tabs').addEventListener('click', e => { const b = e.target.closest('.hs-tab'); if (b) { closeForms(); showTab(b.dataset.tab); } });
+    $('hs-tabs').addEventListener('click', e => { const b = e.target.closest('.hs-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'calendar' && !calLoaded) loadCalendar(); } });
+    $('hs-lt-new').addEventListener('click', () => editLeaveType(''));
+    $('hs-lt-save').addEventListener('click', saveLeaveType);
+    $('hs-ent-add').addEventListener('click', () => $('hs-ent-body').insertAdjacentHTML('beforeend', entRow({ LevelFrom: 1, LevelTo: 99, ServiceFrom: 0 })));
+    $('hs-ent-save').addEventListener('click', saveEntitlements);
+    $('hs-pr-add').addEventListener('click', () => $('hs-pr-body').insertAdjacentHTML('beforeend', prRow({ LevelFrom: 1, LevelTo: 99, DayFrom: 1, Pay: 'Full', Percent: 100 })));
+    $('hs-pr-save').addEventListener('click', savePayRules);
+    $('hs-pr-body').addEventListener('change', e => {
+      const sel = e.target.closest('.hs-pr-pay'); if (!sel) return;
+      const tr = sel.closest('tr');
+      tr.querySelector('.hs-pr-els').classList.toggle('hidden', sel.value !== 'Elements');
+      if (sel.value === 'Unpaid') tr.querySelector('.hs-pr-pct').value = '';
+      else if (!tr.querySelector('.hs-pr-pct').value) tr.querySelector('.hs-pr-pct').value = 100;
+    });
+    // Remove a row (entitlement, pay rule or holiday).
+    ['hs-ent-body', 'hs-pr-body', 'hs-cal-body'].forEach(id => $(id).addEventListener('click', e => { const b = e.target.closest('.hs-row-del'); if (b) b.closest('tr').remove(); }));
+    ['hs-cal-company', 'hs-cal-year'].forEach(id => $(id).addEventListener('change', loadCalendar));
+    $('hs-cal-add').addEventListener('click', () => $('hs-cal-body').insertAdjacentHTML('beforeend', holidayRow({})));
+    $('hs-cal-copy').addEventListener('click', copyLastYear);
+    $('hs-cal-save').addEventListener('click', saveCalendar);
+    const thisYear = new Date().getFullYear();
+    $('hs-cal-year').innerHTML = [thisYear - 1, thisYear, thisYear + 1, thisYear + 2].map(y => '<option' + (y === thisYear ? ' selected' : '') + '>' + y + '</option>').join('');
     document.querySelectorAll('.hs-cancel').forEach(b => b.addEventListener('click', closeForms));
     $('hs-grade-new').addEventListener('click', () => editGrade(''));
     $('hs-grade-save').addEventListener('click', saveGrade);
@@ -261,7 +494,11 @@
       Kind: val('hs-el-kind'), Nature: val('hs-el-nature'), IsBasic: $('hs-el-basic').checked, Active: $('hs-el-active').checked } })));
     $('hs-dt-save').addEventListener('click', () => saved(call('saveHrDocumentType', { documentType: { DocumentTypeID: editing || '', Name: val('hs-dt-name'), HasNumber: $('hs-dt-number').checked, HasExpiry: $('hs-dt-expiry').checked, Active: $('hs-dt-active').checked } })));
     showTab('grades');
-    call('getActiveCompanies', {}).then(r => { companies = r || []; return load(); }, err => appAlert(err.message || 'Unable to load the companies.'));
+    call('getActiveCompanies', {}).then(r => {
+      companies = r || [];
+      $('hs-cal-company').innerHTML = companies.map(c => '<option value="' + escapeHtml(c.CompanyID) + '">' + escapeHtml((c.CompanyRefCode ? c.CompanyRefCode + ' - ' : '') + c.LegalName) + '</option>').join('');
+      return load();
+    }, err => appAlert(err.message || 'Unable to load the companies.'));
   };
 })();
 </script>

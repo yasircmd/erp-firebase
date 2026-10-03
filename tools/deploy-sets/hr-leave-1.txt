@@ -1,0 +1,15 @@
+# HR: Attendance and Leave Register, step 1: the setup (owner 2026-10-03;
+# docs/modules/HR_LEAVE.md). Run with --screens (or a "screens only" run
+# after): HRSETUP (new tabs Leave Types and Working Calendar). No Hosting
+# change, no new menu node (the tabs are in HR Setup). Then, in the app:
+# HR Setup → Leave Types: check the nine to start and set the pay rules by
+# grade level (e.g. Annual: levels 1–4 Basic only, 5+ Full salary) and the
+# entitlements; Working Calendar: each company's weekend and this year's
+# public holidays.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getLeaveSetup
+saveLeaveType
+saveLeaveEntitlements
+saveLeavePayRules
+getWorkCalendar
+saveWorkCalendar

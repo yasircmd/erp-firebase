@@ -1,6 +1,6 @@
 # HR: Attendance and Leave Register
 
-Status: **design agreed** (owner's decisions 2026-10-03, below); step 1 next. Comes
+Status: **design agreed** (owner's decisions 2026-10-03, below); **step 1 built and tested** (see As built); step 2 next. Comes
 before Payroll (docs/modules/HR_PAYROLL.md, to come), which reads its
 results.
 
@@ -309,4 +309,97 @@ amounts, and air tickets.
      today, returning, overdue returns), and the who-is-away calendar.
 
   Then Payroll, with its own design.
+
+## As built: step 1, the setup (2026-10-03)
+
+HR Setup has two new tabs. The rights are HR Setup's: read with HR Setup
+or Employees access, changed with HR Setup write.
+
+**Leave Types:**
+- **The nine to start**, a start only, all editable:
+
+  | Type | Settings | Entitlement | Pay |
+  |---|---|---|---|
+  | Annual | balance, working days, half days, after probation, HR confirms the return | 30 days a year, carry up to 30 | Full salary |
+  | Sick | calendar days, up to 90 a year, document after 1 day | — | days 1–15 full; 16–45 at 50%; 46+ unpaid |
+  | Unpaid | calendar days | — | unpaid |
+  | Maternity | women, calendar days, up to 60 at a time, HR confirms the return | — | days 1–45 full; 46+ at 50% |
+  | Paternity | men, working days, 5 a year | — | full |
+  | Business Travel | **Duty**, paid as working | — | no rules |
+  | Hajj | after probation, up to 30 at a time | — | unpaid |
+  | Compassionate | up to 5 at a time | — | full |
+  | Study | working days, 10 a year | — | full |
+
+- **Settings per type:**
+  - Leave or Duty, uses a balance;
+  - working or calendar days, half days;
+  - who it is for (everyone, women, men), after probation only;
+  - most days a year, most days at a time, a document needed after N days;
+  - HR confirms the return;
+  - in use.
+
+  Duty never uses a balance.
+
+- **Entitlement** (types that use a balance):
+  - rows of grade levels × completed years of service → days a year, in
+    half days;
+  - the most days carried into the next year (required; 0 is none).
+
+- **Leave pay rules** (every Leave type):
+  - rows of grade levels × day band (the 1st, 2nd, … day of that type in
+    the leave year; "to" blank for no end);
+  - paid as Full salary (every fixed earning), Basic only, Selected
+    elements (fixed earnings only), or Unpaid, at a %. Unpaid is always 0%.
+
+- **The checks:**
+  - **overlapping rows are refused**, so a grade level and a day (or
+    service year) match one row only;
+  - **gaps are warned against the real grades** (for example "G5 (level
+    5): no rule for days 16–20"), on the type and as "(n to check)" in
+    the list. A gap is allowed, but leave in it can't be paid until
+    fixed.
+
+- **The list** shows each type's entitlement and pay in words, for
+  example "Levels 1–4: Basic only" and "All grades, days 16–45: Full
+  salary at 50%".
+
+**Working Calendar,** per company and year:
+- the weekend days, Saturday and Sunday to start;
+- the public holidays, as rows with a first day, an optional last day
+  (up to 15 days) and a name. Overlaps are refused, other years are kept,
+  and "Copy last year's" adds last year's holidays on the same dates to
+  adjust;
+- "Working days in <year>: n".
+
+Changed only for the user's own companies.
+
+**Behind it:**
+- `functions/src/hrLeaveSetup.js` (6 callables):
+  - Firestore `hrLeaveTypes` (with the entitlement and pay rules on each
+    type) and `hrWorkCalendars` (one per company);
+  - `loadLeaveSetup`, `calendar` and `workingDays` for step 2.
+- `functions/src/workCalendar.js`: the day count (working or calendar
+  days, skipping weekends and holidays), free of Firebase so the Leave
+  Register and the tests share it.
+
+**Tests:**
+- The `hrLeaveSetup` suite (4) and `hrLeaveSetup.ui.js` (5).
+- Nine negative controls caught:
+  - overlapping entitlement rows saved;
+  - gaps not warned;
+  - Duty with a balance;
+  - holidays counted as working days;
+  - another company's calendar;
+  - a variable element paid during leave;
+  - Unpaid at a %;
+  - the screen copying last year's holidays without moving the year;
+  - the screen dropping the ticked elements.
+
+**To go live:**
+1. Deploy "functions set" `hr-leave-1`, with the screens.
+2. In HR Setup, set:
+   - the pay rules and entitlements by grade level;
+   - each company's weekend and this year's holidays.
+
+**Next:** step 2, the Leave Register.
 

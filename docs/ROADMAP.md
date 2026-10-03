@@ -414,7 +414,15 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   over the balance split off as Unpaid; one set of rules for the group;
   return confirmed for marked types; day count per leave type;
   back-dated entries into a locked month carried as adjustments. Four
-  build steps. **Next:** step 1, setup.
+  build steps.
+  - **Step 1 built and tested 2026-10-03**, not yet live: HR Setup →
+    Leave Types (nine to start; settings; entitlement by grade level and
+    service with a carry-forward cap; leave pay rules by grade level and
+    day band, overlaps refused, gaps warned) and Working Calendar
+    (weekend and holidays per company). Tests: `hrLeaveSetup` suite (4),
+    `hrLeaveSetup.ui.js` (5); nine negative controls caught. To go live:
+    "functions set" `hr-leave-1` with the screens.
+  - **Next:** step 2, the Leave Register.
 - [x] **HR: Employee Records** (owner, 2026-10-03;
   [HR_EMPLOYEES.md](modules/HR_EMPLOYEES.md)). **Design agreed
   2026-10-03:** group employee numbers, group grades with company pay
