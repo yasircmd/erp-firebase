@@ -10,6 +10,7 @@ const assert = require('assert/strict');
 const { chromium } = require('playwright');
 const { onAppDialog } = require('./_appDialogs');
 const { app, call, reset, baseFixture } = require('../emulator/_helpers');
+const { todayIn, addDays } = require('../../src/recurringSchedule');
 
 const results = [];
 function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, e.message.replace(/\s+/g, ' ').slice(0, 300)]); }); }
@@ -17,7 +18,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 (async () => {
   const f = baseFixture();
   f.orgUnits.CC2 = { Type: 'CostCenter', Code: 'CC2', Name: 'Finance', Status: 'Active', CompanyID: 'C1' };
+  f.permissions.DOCUMENTSTORAGE.access = ['Admin'];
   await reset(f);
+  await call('u-admin', 'useTestDocumentStorage', {});
   const g3 = (await call('u-admin', 'saveHrGrade', { grade: { Code: 'G3', Name: 'Officer', Level: 3 } })).gradeId;
 
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
@@ -124,6 +127,35 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(page.__errors, []);
   });
 
+  await check('documents (step 2): a passport with its scan, expiring soon; renew; remove with a reason', async () => {
+    await page.click('#emp-table-body tr:has-text("Rami")');
+    await page.waitForSelector('#emp-docs-wrap:not(.hidden) #emp-doc-new:not(.hidden)', { timeout: 15000 });
+    await page.click('#emp-doc-new');
+    await page.selectOption('#emp-doc-type', { label: 'Passport' });
+    await page.click('#emp-doc-save');
+    await page.waitForFunction(() => /Enter the Passport number/.test(document.getElementById('emp-doc-error').textContent), null, { timeout: 10000 });
+    const T = todayIn('Asia/Dubai');
+    await page.fill('#emp-doc-number', 'P123');
+    await page.fill('#emp-doc-expiry', addDays(T, 45));
+    await page.click('#emp-doc-save');
+    await page.waitForFunction(() => /Passport\s*P123[\s\S]*Expiring \(45 days\)/.test(document.getElementById('emp-docs-body').textContent), null, { timeout: 15000 });
+    const files = '.supdocs[data-module="EMPDOCS"]';
+    await page.waitForSelector(files + ' .supdocs-add:not(.hidden):not([disabled])', { timeout: 15000 });
+    await page.setInputFiles(files + ' .supdocs-input', [{ name: 'passport.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n% scan\n') }]);
+    await page.waitForFunction(s => document.querySelectorAll(s + ' .supdocs-list li').length === 1, files, { timeout: 15000 });
+    assert.equal(await page.isVisible('#emp-save-btn'), true);
+    await page.click('#emp-doc-renew');
+    await page.fill('#emp-doc-number', 'P999');
+    await page.fill('#emp-doc-expiry', addDays(T, 3650));
+    await page.click('#emp-doc-save');
+    await page.waitForFunction(() => /P999[\s\S]*Active/.test(document.getElementById('emp-docs-body').textContent) && /P123[\s\S]*Renewed/.test(document.getElementById('emp-docs-body').textContent), null, { timeout: 15000 });
+    page.__answer = 'Lost; replaced';
+    await page.click('#emp-doc-remove');
+    await page.waitForFunction(() => /Removed by .*: Lost; replaced/.test(document.getElementById('emp-doc-note').textContent), null, { timeout: 15000 });
+    await page.click('#emp-back-btn');
+    assert.deepEqual(page.__errors, []);
+  });
+
   await check('a view-only user: no New, no changes, no pay-out section', async () => {
     const v = await open('EMPLOYEES', 'u-viewer');
     await v.waitForSelector('#emp-table-body tr[data-doc-id]', { timeout: 30000 });
@@ -135,6 +167,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await v.isVisible('#emp-save-btn'), false);
     assert.equal(await v.isDisabled('[data-k="Mobile"]'), true);
     assert.equal(await v.$$eval('.emp-cf', x => x.length), 0, 'the sensitive extra field is not shown');
+    assert.equal(await v.isVisible('#emp-docs-wrap'), false, 'no documents without the sensitive right');
     assert.deepEqual(v.__errors, []);
     await v.close();
   });
