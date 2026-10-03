@@ -413,6 +413,8 @@
   }
 
   window.initModule = function () {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'FAAUC', view: 'fcw-entry-view', id: () => current && current.PostingID, list: 'fcw-body', rowAttr: 'id' });
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-helmet-safety"></i> Capital Work in Progress';
     $('fcw-category').innerHTML = '<option value="">Category...</option>' + CATEGORIES.map(c => '<option>' + c + '</option>').join('');
     rpc.withSuccessHandler(r => {

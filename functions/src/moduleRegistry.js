@@ -79,7 +79,10 @@ const MODULE_REGISTRY = [
   { id: 'MASTERIMPORT', label: 'Master Data Import', capabilities: ['access'] },
   // New development: docs/modules/OPENING_BALANCES.md (Admin only, owner
   // decision 6: no approval).
-  { id: 'OPENINGBALANCES', label: 'Opening Balances', capabilities: ['access'] }
+  { id: 'OPENINGBALANCES', label: 'Opening Balances', capabilities: ['access'] },
+  // New development: docs/modules/ATTACHMENTS.md. Access = Admin of the
+  // document storage: sees its link, removes posted entries' documents.
+  { id: 'DOCUMENTSTORAGE', label: 'Document Storage', capabilities: ['access'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -183,7 +186,8 @@ const DEFAULT_PERMISSIONS = {
   MATERIALVARIANCE:   { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   DATARESET:          { access: ['ADMIN'], write: ['ADMIN'] },
   MASTERIMPORT:       { access: ['ADMIN'] },
-  OPENINGBALANCES:    { access: ['ADMIN'] }
+  OPENINGBALANCES:    { access: ['ADMIN'] },
+  DOCUMENTSTORAGE:    { access: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

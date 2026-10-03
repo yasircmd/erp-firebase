@@ -689,7 +689,10 @@
           return function (arg) {
             const timer = __rpcStart();
             const sdk = window.__firebaseSdk;
-            sdk.httpsCallable(sdk.functionsInstance, prop)(arg)
+            // A document of up to 10 MB going up or coming back can take
+            // longer than the SDK's 70 s default on a slow line.
+            const long = prop === 'uploadAttachment' || prop === 'openAttachment';
+            sdk.httpsCallable(sdk.functionsInstance, prop, long ? { timeout: 300000 } : undefined)(arg)
               .then(result => { __rpcFinish(timer); if (ctx.successFn) ctx.successFn(result.data); })
               .catch(err => { __rpcFinish(timer); if (ctx.failureFn) ctx.failureFn({ message: err.message || 'Something went wrong.' }); });
           };
@@ -1628,6 +1631,225 @@
       return p;
     };
     // ---------- END LIST PAGING ----------
+
+    // ---------- SUPPORTING DOCUMENTS ----------
+    // Files attached to an entry (owner, 2026-10-03; docs/modules/
+    // ATTACHMENTS.md): a "Supporting documents" section at the bottom of
+    // every entry screen, and a paperclip with the count in its list. The
+    // files are kept in the document storage Admin connected; users only
+    // ever get them through the ERP. A screen mounts it once:
+    //   supportingDocs.mount({ module: 'GRN', view: 'grn-entry-view',
+    //     id: () => currentGrn && currentGrn.GRNID, list: 'grn-table-body' });
+    // The section sits just below the entry view and shows while it does;
+    // it reloads when the entry (its id) changes, e.g. a new draft is
+    // saved. For the paperclip, each list row carries its entry's id in
+    // data-doc-id (or the data- attribute named by rowAttr, e.g. 'id').
+    window.supportingDocs = (function () {
+      const MAX_BYTES = 10 * 1024 * 1024;
+      const EXTS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'jpg', 'jpeg', 'png', 'webp', 'heic'];
+      const VIEWABLE = /^(application\/pdf|image\/(jpeg|png|webp))$/;
+      const ALLOWED = 'PDF, Word (.doc, .docx), Excel (.xls, .xlsx, .csv) and images (.jpg, .png, .webp, .heic)';
+      const call = (name, arg) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](arg));
+      const esc = v => escapeHtml(v);
+      const size = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+      const ext = name => (String(name).match(/\.([a-z0-9]+)$/i) || [])[1] || '';
+      if (!document.getElementById('supdocs-style')) {
+        const st = document.createElement('style');
+        st.id = 'supdocs-style';
+        st.textContent = '.supdocs.supdocs-drop{outline:2px dashed #60a5fa;outline-offset:2px}' +
+          '@media print{.supdocs{display:none!important}}';
+        document.head.appendChild(st);
+      }
+      function readBase64(file) {
+        return new Promise((ok, fail) => {
+          const r = new FileReader();
+          r.onload = () => ok(String(r.result).replace(/^data:[^,]*,/, ''));
+          r.onerror = () => fail(new Error('Could not read "' + file.name + '".'));
+          r.readAsDataURL(file);
+        });
+      }
+      function base64Blob(data, type) {
+        const bin = atob(data);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new Blob([bytes], { type: type || 'application/octet-stream' });
+      }
+
+      function mount(opts) {
+        const view = document.getElementById(opts.view);
+        if (!view) return null;
+        const sec = document.createElement('section');
+        sec.className = 'supdocs hidden mt-4 bg-slate-800/50 border border-slate-700 rounded-lg p-4';
+        sec.dataset.module = opts.module;
+        sec.innerHTML =
+          '<div class="flex items-center justify-between gap-3 flex-wrap">' +
+          '<h3 class="text-sm font-semibold text-slate-200"><i class="fa-solid fa-paperclip text-slate-400"></i> Supporting documents <span class="supdocs-count text-slate-400"></span></h3>' +
+          '<div class="flex items-center gap-3"><span class="supdocs-status text-xs text-slate-400"></span>' +
+          '<button type="button" class="supdocs-add bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add files</button>' +
+          '<input type="file" class="supdocs-input hidden" multiple accept="' + EXTS.map(e => '.' + e).join(',') + '"></div></div>' +
+          '<p class="supdocs-note text-xs text-slate-500 mt-2"></p>' +
+          '<ul class="supdocs-list mt-2 divide-y divide-slate-700/60"></ul>';
+        view.insertAdjacentElement('afterend', sec);
+        const $ = s => sec.querySelector(s);
+        // Its own fields must not mark the entry as changed.
+        ['input', 'change'].forEach(t => sec.addEventListener(t, e => e.stopPropagation()));
+
+        const state = { id: undefined, files: [], posted: false, busy: false, seq: 0 };
+        const currentId = () => { try { return opts.id() || ''; } catch (e) { return ''; } };
+        function render() {
+          const hasId = Boolean(state.id);
+          $('.supdocs-count').textContent = hasId && state.files.length ? '(' + state.files.length + ')' : '';
+          $('.supdocs-add').disabled = !hasId || state.busy;
+          $('.supdocs-note').textContent = !hasId ? (opts.emptyNote || 'Save the draft to attach documents.')
+            : state.loaded && !state.files.length ? 'None yet. Add files or drop them here: ' + ALLOWED + ', up to 10 MB each.' : '';
+          $('.supdocs-list').innerHTML = (hasId ? state.files : []).map(f =>
+            '<li class="flex items-center gap-3 py-1.5 text-xs" data-id="' + esc(f.AttachmentID) + '">' +
+            '<button type="button" class="supdocs-open text-blue-400 hover:text-blue-300 underline text-left break-all" title="Open">' + esc(f.FileName) + '</button>' +
+            '<span class="text-slate-500 whitespace-nowrap">' + size(f.Size) + '</span>' +
+            '<span class="text-slate-400 whitespace-nowrap ml-auto">' + esc(f.UploadedByName || '') + ', ' + esc(isoLocalDateTime(f.UploadedAt)) + '</span>' +
+            (f.CanRemove ? '<button type="button" class="supdocs-remove text-slate-400 hover:text-red-400 p-1" title="Remove"><i class="fa-solid fa-trash"></i></button>' : '') +
+            '</li>').join('');
+        }
+        function load() {
+          const seq = ++state.seq;
+          state.files = []; state.loaded = false; render();
+          if (!state.id) return;
+          $('.supdocs-status').textContent = 'Loading…';
+          call('getAttachments', { module: opts.module, docId: state.id }).then(r => {
+            if (seq !== state.seq) return;
+            state.files = r.files || []; state.posted = Boolean(r.posted); state.loaded = true;
+            $('.supdocs-status').textContent = '';
+            render();
+          }, err => {
+            if (seq !== state.seq) return;
+            $('.supdocs-status').textContent = '';
+            $('.supdocs-note').textContent = err.message || 'Unable to load the documents.';
+          });
+        }
+        async function add(fileList) {
+          const files = Array.from(fileList || []);
+          if (!files.length || !state.id || state.busy) return;
+          const refused = [];
+          const ok = files.filter(f => {
+            if (EXTS.indexOf(ext(f.name).toLowerCase()) < 0) { refused.push('"' + f.name + '": only ' + ALLOWED + ' can be attached.'); return false; }
+            if (f.size > MAX_BYTES) { refused.push('"' + f.name + '" is ' + (f.size / 1048576).toFixed(1) + ' MB; the limit is 10 MB per file.'); return false; }
+            if (!f.size) { refused.push('"' + f.name + '" is empty.'); return false; }
+            return true;
+          });
+          state.busy = true; render();
+          const docId = state.id;
+          let added = 0;
+          for (let i = 0; i < ok.length; i++) {
+            $('.supdocs-status').textContent = 'Uploading ' + ok[i].name + (ok.length > 1 ? ' (' + (i + 1) + ' of ' + ok.length + ')' : '') + '…';
+            try {
+              await call('uploadAttachment', { module: opts.module, docId: docId, fileName: ok[i].name, data: await readBase64(ok[i]) });
+              added++;
+            } catch (err) { refused.push(err.message || ('"' + ok[i].name + '" could not be added.')); }
+          }
+          state.busy = false;
+          $('.supdocs-status').textContent = '';
+          if (docId === state.id) load();
+          refreshCounts();
+          if (refused.length) appAlert((added ? 'Some files were not added:' : 'Not added:') + '\n\n' + refused.join('\n'));
+        }
+        function open(id) {
+          const f = state.files.find(x => x.AttachmentID === id);
+          if (!f) return;
+          // A PDF or picture opens in a new tab (opened now, while the
+          // click still counts, so it isn't blocked); anything else downloads.
+          const tab = VIEWABLE.test(f.MimeType) ? window.open('', '_blank') : null;
+          if (tab) tab.document.title = f.FileName;
+          $('.supdocs-status').textContent = 'Opening ' + f.FileName + '…';
+          call('openAttachment', { attachmentId: id }).then(r => {
+            $('.supdocs-status').textContent = '';
+            const url = URL.createObjectURL(base64Blob(r.data, r.mimeType));
+            if (tab) tab.location.href = url;
+            else {
+              const a = document.createElement('a');
+              a.href = url; a.download = r.fileName || f.FileName;
+              document.body.appendChild(a); a.click(); a.remove();
+            }
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+          }, err => {
+            $('.supdocs-status').textContent = '';
+            if (tab) tab.close();
+            appAlert(err.message || 'Unable to open the document.');
+          });
+        }
+        async function remove(id) {
+          const f = state.files.find(x => x.AttachmentID === id);
+          if (!f || !(await appConfirm('Remove "' + f.FileName + '" from this entry?'))) return;
+          call('removeAttachment', { attachmentId: id }).then(() => { load(); refreshCounts(); },
+            err => appAlert(err.message || 'Unable to remove the document.'));
+        }
+        $('.supdocs-add').addEventListener('click', () => $('.supdocs-input').click());
+        $('.supdocs-input').addEventListener('change', e => { const fl = Array.from(e.target.files); e.target.value = ''; add(fl); });
+        $('.supdocs-list').addEventListener('click', e => {
+          const li = e.target.closest('li[data-id]');
+          if (!li) return;
+          if (e.target.closest('.supdocs-open')) open(li.dataset.id);
+          if (e.target.closest('.supdocs-remove')) remove(li.dataset.id);
+        });
+        sec.addEventListener('dragover', e => { if (state.id && !state.busy) { e.preventDefault(); sec.classList.add('supdocs-drop'); } });
+        sec.addEventListener('dragleave', e => { if (!sec.contains(e.relatedTarget)) sec.classList.remove('supdocs-drop'); });
+        sec.addEventListener('drop', e => { e.preventDefault(); sec.classList.remove('supdocs-drop'); add(e.dataTransfer && e.dataTransfer.files); });
+
+        // Shown with the entry view; reloaded when the entry changes.
+        function sync() {
+          if (!view.isConnected) { clearInterval(timer); observer.disconnect(); if (listObserver) listObserver.disconnect(); return; }
+          const shown = !view.classList.contains('hidden');
+          sec.classList.toggle('hidden', !shown);
+          if (!shown) { state.id = undefined; return; }
+          const id = currentId();
+          if (id !== state.id) { state.id = id; load(); }
+        }
+        const observer = new MutationObserver(sync);
+        observer.observe(view, { attributes: true, attributeFilter: ['class'] });
+        const timer = setInterval(sync, 700);
+
+        // The paperclip in the list.
+        let listObserver = null, countTimer = null, countSeq = 0;
+        function refreshCounts() {
+          const body = opts.list && document.getElementById(opts.list);
+          if (!body) return;
+          clearTimeout(countTimer);
+          countTimer = setTimeout(() => {
+            const attr = opts.rowAttr || 'docId';
+            const rows = Array.from(body.querySelectorAll('tr')).filter(r => r.dataset[attr]);
+            const ids = [...new Set(rows.map(r => r.dataset[attr]))];
+            if (!ids.length) return;
+            const seq = ++countSeq;
+            call('getAttachmentCounts', { module: opts.module, docIds: ids }).then(counts => {
+              if (seq !== countSeq) return;
+              rows.forEach(r => {
+                const old = r.querySelector('.supdocs-clip');
+                if (old) old.remove();
+                const n = (counts || {})[r.dataset[attr]];
+                const cell = r.querySelector('td');
+                if (!n || !cell) return;
+                const clip = document.createElement('span');
+                clip.className = 'supdocs-clip ml-1 text-slate-400 whitespace-nowrap';
+                clip.title = n + (n === 1 ? ' supporting document' : ' supporting documents');
+                clip.innerHTML = '<i class="fa-solid fa-paperclip"></i> ' + n;
+                cell.appendChild(clip);
+              });
+            }, () => {});
+          }, 250);
+        }
+        if (opts.list) {
+          const body = document.getElementById(opts.list);
+          if (body) {
+            listObserver = new MutationObserver(ms => { if (ms.some(m => Array.from(m.addedNodes).some(n => n.nodeType === 1 && !n.classList.contains('supdocs-clip')))) refreshCounts(); });
+            listObserver.observe(body, { childList: true, subtree: true });
+            refreshCounts();
+          }
+        }
+        sync();
+        return { reload: load, refreshCounts: refreshCounts };
+      }
+      return { mount: mount };
+    })();
+    // ---------- END SUPPORTING DOCUMENTS ----------
 
     function applyTreeTitle() {
       const titleEl = document.getElementById('app-title');

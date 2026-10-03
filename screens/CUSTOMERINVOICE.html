@@ -393,7 +393,7 @@
     filtered.forEach(e => {
       const customer = customerById(e.CustomerID);
       const statusDisplay = invoiceStatusDisplay(e);
-      const tr = document.createElement('tr');
+      const tr = document.createElement('tr'); tr.dataset.docId = e.CustomerInvoiceID;
       tr.className = 'hover:bg-slate-700/30 cursor-pointer';
       tr.innerHTML = `
         <td class="py-2.5 px-4 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}</td>
@@ -1053,6 +1053,8 @@
 
   // ---------- INIT ----------
   window.initModule = function (idToken) {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'CUSTOMERINVOICE', view: 'cinv-entry-view', id: () => currentInvoice && currentInvoice.CustomerInvoiceID, list: 'cinv-table-body' });
     token = idToken;
 
     rpc

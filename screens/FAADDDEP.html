@@ -237,6 +237,8 @@
   }
 
   window.initModule = function () {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'FAADDDEP', view: 'fad-entry-view', id: () => current && current.PostingID, list: 'fad-body', rowAttr: 'id' });
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-arrow-trend-down"></i> Additional Depreciation';
     rpc.withSuccessHandler(r => {
       rights = r.FAADDDEP || {};

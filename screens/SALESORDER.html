@@ -254,7 +254,7 @@
     if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500">No Sales Orders found.</td></tr>'; }
     filtered.forEach(so => {
       const customer = customerById(so.CustomerID);
-      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer';
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer'; row.dataset.docId = so.SOID;
       row.innerHTML = `
         <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(so.SONumber || 'DRAFT')}</td>
         <td class="py-2 px-4 text-slate-200">${customer ? escapeHtml(customer.CustomerName) : '—'}</td>
@@ -721,6 +721,8 @@
 
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken) {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'SALESORDER', view: 'so-entry-view', id: () => currentSo && currentSo.SOID, list: 'so-table-body' });
     token = idToken;
 
     rpc

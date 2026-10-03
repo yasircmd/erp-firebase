@@ -364,7 +364,7 @@
       if (e.Status === 'Draft' && canDraft) {
         actions += `<button class="adj-delete text-slate-400 hover:text-red-400 p-1" title="Delete draft"><i class="fa-solid fa-trash"></i></button>`;
       }
-      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40'; row.dataset.docId = e.AdjustmentID;
       row.innerHTML = `
         <td class="py-3 px-4 font-mono text-xs text-slate-200">${e.TransactionNumber ? escapeHtml(e.TransactionNumber) : '<span class="text-slate-500">DRAFT</span>'}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(e.TransactionDate)}</td>
@@ -1480,6 +1480,8 @@
 
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken) {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'STOCKADJUSTMENT', view: 'adj-entry-view', id: () => currentAdj && currentAdj.AdjustmentID, list: 'adj-table-body' });
     token = idToken;
 
     rpc

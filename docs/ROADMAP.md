@@ -394,6 +394,24 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [ ] **Supporting documents on entries** (owner, 2026-10-03;
+  [ATTACHMENTS.md](modules/ATTACHMENTS.md)). **Built and tested
+  2026-10-03**, not yet live.
+  - **Decided:** Google Drive (for now the owner's own Drive, connected
+    once by Admin; Workspace later); anyone who can open the entry;
+    removal by the uploader before posting, Admin after (to a Removed
+    folder, never deleted); all 27 entry modules.
+  - **What:** a Supporting documents section below every entry (add
+    several files or drop them, open, remove), a paperclip with the count
+    in the lists, and an Admin screen, **Document Storage** (connect
+    Google Drive, test, the folder link). Folders: company / year /
+    voucher type / number.
+  - **Tests:** `attachments` suite (5), `supportingDocs.ui.js` (9); four
+    negative controls caught.
+  - **To go live:** Deploy "functions set" `supporting-documents`, then
+    "hosting", then the screens; link a menu node to Document Storage;
+    then the owner's Google set-up (ATTACHMENTS.md, "Set-up") and Connect
+    Google Drive.
 - [x] **Stock Ledger: Back from an entry keeps the report's filters** (owner,
   2026-10-03). **Live 2026-10-03** (PR #58; Deploy run #59).
   - **Bug:** opening an entry from a Stock Ledger row and coming Back reset
