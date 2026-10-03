@@ -399,7 +399,17 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   **Design agreed 2026-10-03:** a register of documents per company
   (category, reference, party, dates, files in Drive), its own
   permission, a 30-day expiry Home task, vendor / customer documents
-  in the same register and shown on their masters. Building.
+  in the same register and shown on their masters. **Built and tested
+  2026-10-03**, not yet live.
+  - **What:** the Company Documents screen (records with their files,
+    renew, remove, categories), Documents (n) on Company / Vendor /
+    Customer Master, and the Home task "Company Documents Expiring or
+    Expired".
+  - **Tests:** `companyDocuments` suite (6), `companyDocs.ui.js` (8);
+    four negative controls caught.
+  - **To go live:** Deploy "functions set" `company-documents`, then
+    "hosting", then the screens; link a menu node; check its row in
+    Roles & Permissions.
 - [x] **Supporting documents on entries** (owner, 2026-10-03;
   [ATTACHMENTS.md](modules/ATTACHMENTS.md)). **Live 2026-10-03** (PR #60;
   Deploy runs #60–#62; menu node linked). **In use 2026-10-03:** the

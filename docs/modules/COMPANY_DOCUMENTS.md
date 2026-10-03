@@ -1,6 +1,6 @@
 # Company Documents (legal documents, contracts, licences)
 
-Status: **design agreed** by the owner (2026-10-03; decisions below).
+Status: **built and tested** (2026-10-03; see [As built](#as-built-2026-10-03)).
 
 ## The request (owner, 2026-10-03)
 
@@ -109,3 +109,69 @@ Terminated). Each item opens the document. Who sees it: question 3.
 | 5 | Vendor / customer documents | **In the register** (Party = the vendor or customer), and Vendor / Customer Master shows "Documents (n)" for that party |
 
 "Admin" for categories means the Admin users (as for Document Storage).
+
+## As built (2026-10-03)
+
+**Company Documents** (new screen, `screens/COMPANYDOCS.html`):
+- **List:** search (title, reference, party, notes), company, category and
+  status filters. The status filter defaults to "Current" (not renewed or
+  removed); the others are "Expiring or expired", Expiring, Expired,
+  Active, Terminated, Renewed and Removed. Status shows in colour:
+  Expiring (n days) in amber, Expired in red. A paperclip shows the file
+  count.
+- **A record:** company, category, title, reference, party (none, a
+  vendor, a customer, or other by name), issue and expiry dates, notes.
+  Status is Active or Terminated. Its files sit below in the same
+  Supporting documents section as on entries. Under that: the other
+  versions and the history (who did what, and which fields changed).
+- **Renew** fills the form for the new version (new reference and dates)
+  and saves a new record. The old one becomes "Renewed" (Superseded),
+  keeps its files and links both ways.
+- **Remove** asks for the reason. The files move to Removed in the
+  storage, and the record stays, read-only, as Removed.
+- **Categories** (Admin): add, rename, or stop using one.
+- **View-only users** see everything and open files, but have no New,
+  no changes and no Add files.
+- **Folders:**
+  `ERP Documents/<company>/Legal Documents/<category>/<title - reference>/`.
+
+**Documents (n)** on every row of Company, Vendor and Customer Master,
+for users who can open Company Documents. It opens the register filtered
+to that company or party, with "Back to ..." and, for a party, "Add one
+for this vendor / customer". The count is current documents only.
+
+**Home:** "Company Documents Expiring or Expired" lists Active documents
+expiring within 30 days (Asia/Dubai date) or already expired. It is shown
+to users who can change the register, in their companies. Each item
+opens the document.
+
+**Behind it:**
+- `functions/src/companyDocuments.js`: 8 callables.
+- Firestore: `companyDocuments`, `companyDocumentCategories` (the nine
+  are seeded on first use), `companyDocumentLog`.
+- `attachments.js` gained the COMPANYDOCS source: folders under Legal
+  Documents; adding and removing files needs **write**; nothing can be
+  added to a removed record.
+- The shell's Supporting documents section hides Add files for view-only
+  users, and gained `supportingDocs.partyDocs(...)` for the master lists.
+  Vendor and Customer Master are generated screens, so their edits are
+  SCREEN_EDITS in `tools/legacy-port/generate.js`.
+- Module `COMPANYDOCS`: access is Admin and Finance Manager, write is
+  Admin.
+
+**Tests:**
+- The `companyDocuments` emulator suite (6) and `companyDocs.ui.js` (8).
+  The light-mode guard (`supportingDocsTheme.test.js`) now also checks
+  this screen; it caught a hover colour light mode didn't recolour.
+- Four negative controls caught:
+  - the Home task shown to view-only users;
+  - view-only users adding files;
+  - the Add button not following the server;
+  - the Documents link shown without access.
+
+**To go live** (in this order):
+1. Deploy "functions set" `company-documents`.
+2. Deploy "hosting".
+3. Deploy "screens only".
+4. In the app: link a menu node to **Company Documents**, and check its
+   row in Roles & Permissions.
