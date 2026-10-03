@@ -394,6 +394,15 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [ ] **HR: Employee Records** (owner, 2026-10-03;
+  [HR_EMPLOYEES.md](modules/HR_EMPLOYEES.md)). **Design agreed
+  2026-10-03:** group employee numbers, group grades with company pay
+  bands, cost center as department, flexi fields, employee documents with
+  a 60-day expiry reminder, Pay Elements built now (first piece of
+  Payroll), effective-dated compensation, line manager with Replace
+  manager, Employee Changes (promotion, increment, transfer) through
+  Approval Configuration with full history, and an Employees import. Five
+  build steps; Payroll designed afterwards.
 - [x] **Company Documents: legal documents, contracts, licences** (owner,
   2026-10-03; [COMPANY_DOCUMENTS.md](modules/COMPANY_DOCUMENTS.md)).
   **Design agreed 2026-10-03:** a register of documents per company
