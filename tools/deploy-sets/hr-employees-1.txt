@@ -1,0 +1,28 @@
+# HR: Employee Records, step 1 (owner 2026-10-03; docs/modules/HR_EMPLOYEES.md).
+# Run with --screens (or a "screens only" run after): HRSETUP and EMPLOYEES
+# (new). No Hosting change. Then, in the app: link menu nodes to "HR Setup"
+# and "Employees" (Module Tree & Navigation), check their rows in Roles &
+# Permissions (Employees "sensitive" = sees pay, bank details, sensitive
+# extra fields and documents), set up grades, designations and extra
+# fields, then add or import the employees (Master Data Import →
+# Employees).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getHrSetup                       # grades, designations, extra fields, document types
+saveHrGrade                      # grade + each company's pay band
+saveHrDesignation
+saveHrField                      # extra employee fields
+saveHrDocumentType
+getEmployees
+getEmployee                      # record, direct reports, history
+saveEmployee                     # add / edit / Correct
+replaceManager
+# Master Data Import: the Employees sheet.
+getMasterImportSpecs
+checkMasterImport
+runMasterImport
+# Registries: the modules, their permissions, menu nodes, screens.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment

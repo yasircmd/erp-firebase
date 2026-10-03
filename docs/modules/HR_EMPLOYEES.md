@@ -1,6 +1,6 @@
 # HR: Employee Records
 
-Status: **design agreed** by the owner (2026-10-03; [decisions](#the-owners-decisions-2026-10-03) below). Payroll is a
+Status: **step 1 built and tested** (2026-10-03; see [As built: step 1](#as-built-step-1-2026-10-03)); steps 2–5 to come. Payroll is a
 separate module, designed after this one (docs/modules/HR_PAYROLL.md, to
 come).
 
@@ -239,3 +239,97 @@ Then Payroll, with its own design.
 4. Employee Changes (promotion, increment, transfer, manager change) with
    approvals and the History tab.
 5. Org chart.
+
+## As built: step 1 (2026-10-03)
+
+**HR Setup** (new screen, `screens/HRSETUP.html`):
+- **Grades:** code, name, level 1–99 (higher is more senior), in use or
+  not. Each company has its own pay band (minimum ≤ midpoint ≤ maximum
+  monthly basic); a user edits the bands of their own companies only, and
+  other companies' bands are kept.
+- **Designations:** the grade range they normally carry.
+- **Employee fields** (the flexi columns): date, text or amount; compulsory
+  or optional; a section (Personal, Employment or Other); an order;
+  **sensitive** or not (seen only with the sensitive right). A field's
+  type can't change once employees have values in it (add a new field
+  instead).
+- **Document types** for step 2. The first eight are added on first use:
+  Passport, Emirates ID, Visa / Residence, Labour Card (each with a number
+  and an expiry), Education and Experience Certificates, Employment
+  Contract (expiry), Other.
+
+**Employees** (new screen, `screens/EMPLOYEES.html`):
+- **List:** search (no., name, mobile, email) and filters (company,
+  department, designation, status; "Current" hides those who left).
+  Missing compulsory fields and the number of direct reports show on the
+  row.
+- **The record:**
+  - Personal, Employment, Organization and job, Pay out (bank, IBAN: only
+    with the sensitive right), the extra fields in their sections;
+  - then the direct reports (each opens) and the history: who, when, what
+    changed from → to, with names. Sensitive values show as ••• without
+    the right.
+- **Numbers:** EMP-0001, EMP-0002, ... for the whole group.
+- **Checks:**
+  - required fields; real dates; emails;
+  - units of the right type in that company;
+  - designation and grade in use;
+  - a compulsory extra field must be filled; an amount must be a number.
+- **Grade outside the designation's range:** saved, with a warning.
+- **After creation**, company, designation, grade, division, branch and
+  cost center are locked: they change through an Employee Change (step
+  4). **Correct** (HR Setup admins) fixes a mistake in them. It asks what
+  was wrong, and the history shows it as a Correction with that reason.
+- **Line manager:** optional. It can't be the employee themselves, someone
+  below them, or someone who has left. An employee with direct reports
+  can't be set to Left until they are moved.
+- **Replace manager** moves every direct report of one manager to another
+  (each history notes it, with the reason). If the new manager was one of
+  those reports, they report to the outgoing manager's own manager
+  instead. A move that would put someone under their own report is
+  refused.
+- **The sensitive right:** without it, a user doesn't see bank details or
+  sensitive extra fields. If they can change records, saving keeps those
+  values as they were.
+
+**Master Data Import → Employees:**
+- **Columns:** the standard columns plus one per active extra field
+  (compulsory ones required).
+- **References:**
+  - designation and grade as in HR Setup;
+  - departments by cost center code or name;
+  - the line manager by employee no. or name, including a row above in
+    the same paste.
+- **Checks:** the same person twice (same name and date of joining) is an
+  issue. Bank columns need the sensitive right.
+- **Failure:** a failed import is undone, numbers included.
+
+**Behind it:**
+- `functions/src/hrSetup.js` and `functions/src/hrEmployees.js`.
+- Firestore: `hrGrades`, `hrDesignations`, `hrFields`, `hrDocumentTypes`,
+  `employees`, `employeeHistory`; the RTDB counter `hrCounters/EMP`.
+- Modules:
+  - `HRSETUP` (access, write): Admin;
+  - `EMPLOYEES` (access, write, **sensitive**): access is Admin and
+    Finance Manager; write and sensitive are Admin.
+
+**Tests:**
+- The `hrEmployees` emulator suite (6) and `hrEmployees.ui.js` (5). The
+  light-mode guard now also covers both screens.
+- Five negative controls caught:
+  - no manager-loop check;
+  - job fields saved without a Correction;
+  - bank details wiped by a user without the sensitive right;
+  - the import accepting bank columns without the right;
+  - the screen leaving job fields editable.
+
+**To go live:**
+1. Deploy "functions set" `hr-employees-1`, with the screens (or a
+   "screens only" run after).
+2. In the app:
+   - link menu nodes to **HR Setup** and **Employees**;
+   - check their rows in Roles & Permissions;
+   - set up grades, designations and fields;
+   - then add or import the employees.
+
+**Next:** step 2, employee documents with the 60-day reminder.
