@@ -1,6 +1,6 @@
 # One GL line per identical posting (and the Stock Ledger report)
 
-Status: **built** 2026-10-02, not yet live.
+Status: **live** 2026-10-02 (PR #57; Deploy run #58).
 
 ## The request (owner, 2026-10-02)
 
