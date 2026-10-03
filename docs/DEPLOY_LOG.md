@@ -761,3 +761,7 @@ from, and how it was verified. The deploy procedure is in the
   run [#57](https://github.com/yasircmd/erp-firebase/actions/runs/37044352746),
   17:58–17:59 UTC, from `5503b74` (the PR #55 merge), success
   ("screens only").
+- **2026-10-02, one GL line per identical posting (PR #57):** run
+  [#58](https://github.com/yasircmd/erp-firebase/actions/runs/37061530012),
+  20:35–20:48 UTC, from `195f026` (the PR #57 merge), success (13 min:
+  the `line-clubbing` functions set, 50 functions).

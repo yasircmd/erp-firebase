@@ -82,6 +82,7 @@
   let items = [];
   let companies = [];
   let orgUnits = [];
+  let lastParams = null; // the filters of the last run (for Back from a drill-through)
   let lastReport = null;
   let myReturnChain = [];
 
@@ -144,6 +145,25 @@
     });
   }
 
+  // Back from an entry opened from this report: put its filters back and
+  // run it again, once the company, location and item lists have loaded
+  // (their values only stick then). Same as GL Report's drill-back.
+  const loaded = { companies: false, orgUnits: false, items: false };
+  let pendingParams = null;
+  function applyPendingParams() {
+    if (!pendingParams || !loaded.companies || !loaded.orgUnits || !loaded.items) return;
+    const p = pendingParams;
+    pendingParams = null;
+    document.getElementById('sl-company').value = p.CompanyID || '';
+    populateItemDatalist();
+    const item = items.find(i => i.ItemCode === p.ItemCode);
+    if (item) document.getElementById('sl-item-input').value = item.ItemCode + ' — ' + item.ItemName;
+    document.getElementById('sl-location').value = p.WarehouseID || '';
+    if (p.FromDate) document.getElementById('sl-from-date').value = p.FromDate;
+    if (p.ToDate) document.getElementById('sl-to-date').value = p.ToDate;
+    if (item && p.WarehouseID) runReport();
+  }
+
   function loadReferenceData() {
     rpc
       .withSuccessHandler(result => {
@@ -156,17 +176,18 @@
           select.appendChild(opt);
         });
         populateItemDatalist();
+        loaded.companies = true; applyPendingParams();
       })
       .withFailureHandler(err => console.error(err))
       .getActiveCompanies();
 
     rpc
-      .withSuccessHandler(result => { orgUnits = result || []; populateLocationSelect(); })
+      .withSuccessHandler(result => { orgUnits = result || []; populateLocationSelect(); loaded.orgUnits = true; applyPendingParams(); })
       .withFailureHandler(err => console.error(err))
       .getActiveOrgUnits();
 
     rpc
-      .withSuccessHandler(result => { items = result || []; populateItemDatalist(); })
+      .withSuccessHandler(result => { items = result || []; populateItemDatalist(); loaded.items = true; applyPendingParams(); })
       .withFailureHandler(err => console.error(err))
       .getActiveItems();
   }
@@ -185,6 +206,7 @@
     if (!fromDate || !toDate) { error.textContent = 'Select a date range.'; error.classList.remove('hidden'); return; }
 
     const params = { ItemID: item.ItemID, WarehouseID: warehouseId, FromDate: fromDate, ToDate: toDate };
+    lastParams = { CompanyID: document.getElementById('sl-company').value, ItemCode: item.ItemCode, WarehouseID: warehouseId, FromDate: fromDate, ToDate: toDate };
 
     const btn = document.getElementById('sl-run-btn');
     btn.disabled = true; const original = btn.textContent; btn.textContent = 'Running...';
@@ -206,7 +228,9 @@
   // GL Report uses for its own drill-through.
   function openSourceEntry(jvId, sourceModule) {
     if (!sourceModule) return; // shouldn't happen for a stock-originated row, but guard anyway
-    const chainEntry = { moduleId: 'STOCKLEDGER', label: 'Stock Ledger Report', params: null };
+    // The report's own filters ride along, so Back reopens it as it was
+    // (owner, 2026-10-03; same as GL Report).
+    const chainEntry = { moduleId: 'STOCKLEDGER', label: 'Stock Ledger Report', params: lastParams };
     openModule(sourceModule, { OpenEntryId: jvId }, [...myReturnChain, chainEntry]);
   }
 
@@ -283,6 +307,8 @@
 
     myReturnChain = window.__pendingReturnChain || [];
     window.__pendingReturnChain = [];
+    pendingParams = window.__pendingModuleParams || null;
+    window.__pendingModuleParams = null; // consume once
     if (myReturnChain.length) {
       const target = myReturnChain[myReturnChain.length - 1];
       document.getElementById('sl-back-label').textContent = 'Back to ' + (target.label || target.moduleId);

@@ -394,9 +394,21 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [x] **Stock Ledger: Back from an entry keeps the report's filters** (owner,
+  2026-10-03). Built, not yet live.
+  - **Bug:** opening an entry from a Stock Ledger row and coming Back reset
+    the report (no company, item, location or dates): the screen saved no
+    filters in its return chain (`params: null`). GL Report did; Stock
+    Ledger was the only drill-through with the gap.
+  - **Fix:** the filters of the last run go in the return chain; on Back they
+    are put back once the lists load, and the report runs again.
+  - **Tests:** `stockLedgerBack.ui.js` (1): run, open the GRN, Back: same
+    filters, report shown. Negative control (`params: null`) caught. Smoke
+    123/123.
+  - **To go live:** Deploy → "screens only".
 - [x] **One GL line per identical posting; Stock Ledger rows the same** (owner,
-  2026-10-02; [LINE_CLUBBING.md](modules/LINE_CLUBBING.md)). Built, not yet
-  live.
+  2026-10-02; [LINE_CLUBBING.md](modules/LINE_CLUBBING.md)). **Live
+  2026-10-02** (PR #57; Deploy run #58).
   - **What:** system-posted entries club lines with the same account, side,
     cost center, profit center and description; anything different stays
     separate (owner's rule). The Stock Ledger report clubs a document's
@@ -405,7 +417,6 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     Full regression: emulator 334, one expectation updated (opening stock
     lines now one GL line), smoke and UI green apart from the known
     environment-only home failures.
-  - **To go live:** Deploy → "functions set", set `line-clubbing`.
 - [x] **Copy / Paste with column headings on every entry grid** (owner,
   2026-10-02; [LINE_GRIDS.md](modules/LINE_GRIDS.md)). **Live 2026-10-02**
   (PR #55; Deploy run #57).
