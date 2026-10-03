@@ -2,6 +2,7 @@
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-id-badge text-blue-500"></i> Employees</h2></div>
     <div class="flex gap-2">
+      <button id="emp-org-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-sitemap"></i> Org chart</button>
       <button id="emp-replace-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-people-arrows"></i> Replace manager</button>
       <button id="emp-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Employee</button>
     </div>
@@ -33,6 +34,22 @@
       <th class="py-3 px-3">Line manager</th><th class="py-3 px-3">Joined</th><th class="py-3 px-3">Status</th></tr></thead>
     <tbody id="emp-table-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
   </div></div>
+</div>
+
+<div id="emp-org-view" class="hidden space-y-5">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+    <div class="flex items-center gap-3">
+      <button id="emp-org-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h3 class="text-lg font-bold text-slate-100"><i class="fa-solid fa-sitemap text-blue-500"></i> Org chart</h3>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <select id="emp-org-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+      <button id="emp-org-expand" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700">Expand all</button>
+      <button id="emp-org-collapse" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700">Collapse all</button>
+    </div>
+  </div>
+  <p class="text-xs text-slate-500 max-w-3xl">Who reports to whom, for current employees (not left). People without a line manager, or whose manager is in another company or not visible to you, are at the top. Click a name to open the record.</p>
+  <div id="emp-org-tree" class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 text-sm overflow-x-auto"></div>
 </div>
 
 <div id="emp-entry-view" class="hidden space-y-5">
@@ -244,6 +261,62 @@
     });
   }
 
+  // ---------- org chart (step 5) ----------
+  // Built from the list: current employees of the chosen company, each under
+  // their line manager. Someone whose manager isn't shown (none, another
+  // company, left or not visible) is at the top, with the manager named.
+  // The server refuses reporting loops; anything left over after the walk
+  // (a loop in old data) is still shown at the top, once.
+  let orgOpen = {}, fromOrg = false;
+  function orgTree() {
+    const co = val('emp-org-company');
+    const shown = employees.filter(e => e.Status !== 'Left' && (!co || e.CompanyID === co));
+    const byId = {}; shown.forEach(e => { byId[e.EmployeeID] = e; });
+    const kids = {};
+    shown.forEach(e => { if (e.ManagerID && byId[e.ManagerID] && e.ManagerID !== e.EmployeeID) (kids[e.ManagerID] = kids[e.ManagerID] || []).push(e); });
+    const byName = (a, b) => a.FullName.localeCompare(b.FullName);
+    Object.keys(kids).forEach(k => kids[k].sort(byName));
+    const roots = shown.filter(e => !(e.ManagerID && byId[e.ManagerID] && e.ManagerID !== e.EmployeeID)).sort(byName);
+    const placed = new Set();
+    function node(e) {
+      placed.add(e.EmployeeID);
+      const under = [];
+      (kids[e.EmployeeID] || []).forEach(k => { if (!placed.has(k.EmployeeID)) under.push(node(k)); });
+      return { e, under };
+    }
+    const tree = roots.map(node);
+    shown.filter(e => !placed.has(e.EmployeeID)).sort(byName).forEach(e => { if (!placed.has(e.EmployeeID)) tree.push(node(e)); });
+    return tree;
+  }
+  function countUnder(n) { return n.under.reduce((t, c) => t + 1 + countUnder(c), 0); }
+  function orgHtml(n, top) {
+    const e = n.e, has = n.under.length > 0, open = orgOpen[e.EmployeeID] !== false;
+    const outside = top && e.ManagerID && e.ManagerName ? ' <span class="text-xs text-slate-500">(reports to ' + escapeHtml(e.ManagerName) + ')</span>' : '';
+    return '<li class="emp-org-node" data-id="' + escapeHtml(e.EmployeeID) + '"><div class="flex items-center gap-2 py-1">' +
+      (has ? '<button type="button" class="emp-org-toggle w-5 text-slate-400 hover:text-slate-200" title="' + (open ? 'Collapse' : 'Expand') + '"><i class="fa-solid fa-' + (open ? 'minus' : 'plus') + '-square"></i></button>' : '<span class="w-5"></span>') +
+      '<button type="button" class="emp-org-open text-blue-400 hover:text-blue-300 underline">' + escapeHtml(e.FullName) + '</button>' +
+      '<span class="font-mono text-xs text-slate-500">' + escapeHtml(e.EmployeeNo) + '</span>' +
+      '<span class="text-xs text-slate-400">' + escapeHtml(e.DesignationTitle) + '</span>' +
+      (has ? '<span class="emp-org-count text-xs text-slate-500">' + n.under.length + ' direct, ' + countUnder(n) + ' in all</span>' : '') + outside + '</div>' +
+      (has ? '<ul class="emp-org-children ml-6 pl-3 border-l border-slate-700' + (open ? '' : ' hidden') + '">' + n.under.map(c => orgHtml(c, false)).join('') + '</ul>' : '') + '</li>';
+  }
+  function renderOrg() {
+    const tree = orgTree();
+    $('emp-org-tree').innerHTML = tree.length ? '<ul>' + tree.map(n => orgHtml(n, true)).join('') + '</ul>' : '<p class="text-slate-500 text-center py-4">No current employees.</p>';
+  }
+  function showOrg() {
+    fromOrg = true;
+    $('emp-org-company').value = val('emp-company-filter');
+    $('emp-list-view').classList.add('hidden'); $('emp-org-view').classList.remove('hidden');
+    renderOrg();
+    window.scrollTo(0, 0);
+  }
+  function setAllOrg(open) {
+    orgOpen = {};
+    if (!open) employees.forEach(e => { orgOpen[e.EmployeeID] = false; });
+    renderOrg();
+  }
+
   // ---------- the record ----------
   function fillUnits(companyId) {
     document.querySelectorAll('.emp-unit').forEach(sel => {
@@ -295,11 +368,14 @@
     $('emp-sec-pay').classList.toggle('hidden', !rights.canSeeSensitive);
   }
   function setError(msg) { $('emp-error').textContent = msg || ''; $('emp-error').classList.toggle('hidden', !msg); }
-  function showForm() { $('emp-list-view').classList.add('hidden'); $('emp-entry-view').classList.remove('hidden'); window.scrollTo(0, 0); }
+  function showForm() {
+    $('emp-back-btn').innerHTML = '<i class="fa-solid fa-arrow-left"></i> ' + (fromOrg ? 'Back to Org chart' : 'Back to List');
+    $('emp-list-view').classList.add('hidden'); $('emp-org-view').classList.add('hidden'); $('emp-entry-view').classList.remove('hidden'); window.scrollTo(0, 0); }
   function showList() {
-    $('emp-entry-view').classList.add('hidden'); $('emp-list-view').classList.remove('hidden');
+    $('emp-entry-view').classList.add('hidden');
+    $(fromOrg ? 'emp-org-view' : 'emp-list-view').classList.remove('hidden');
     current = null; correcting = false; isDirty = false;
-    loadList();
+    loadList(fromOrg ? renderOrg : null);
   }
   function confirmLeave(go) {
     if (!isDirty) return go();
@@ -307,6 +383,7 @@
   }
 
   function newEmployee() {
+    fromOrg = false;
     current = null; correcting = false; isDirty = false; setError('');
     renderFlexi();
     fillForm({ CompanyID: val('emp-company-filter') || (companies.length === 1 ? companies[0].CompanyID : ''), Status: 'Active', EmploymentType: 'Permanent' });
@@ -552,6 +629,17 @@
     $('emp-doc-remove').addEventListener('click', removeDoc);
     $('emp-docs-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openDoc(tr.dataset.id); });
     $('emp-replace-btn').addEventListener('click', openReplace);
+    $('emp-org-btn').addEventListener('click', showOrg);
+    $('emp-org-back').addEventListener('click', () => { fromOrg = false; $('emp-org-view').classList.add('hidden'); $('emp-list-view').classList.remove('hidden'); });
+    $('emp-org-company').addEventListener('change', renderOrg);
+    $('emp-org-expand').addEventListener('click', () => setAllOrg(true));
+    $('emp-org-collapse').addEventListener('click', () => setAllOrg(false));
+    $('emp-org-tree').addEventListener('click', e => {
+      const li = e.target.closest('.emp-org-node');
+      if (!li) return;
+      if (e.target.closest('.emp-org-toggle')) { orgOpen[li.dataset.id] = orgOpen[li.dataset.id] === false; renderOrg(); }
+      else if (e.target.closest('.emp-org-open')) { fromOrg = true; openEmployee(li.dataset.id); }
+    });
     $('emp-replace-cancel').addEventListener('click', () => $('emp-replace').classList.add('hidden'));
     $('emp-replace-go').addEventListener('click', doReplace);
     const pending = window.__pendingModuleParams;
@@ -564,6 +652,7 @@
     ]).then(() => {
       const coList = companies.map(c => ({ value: c.CompanyID, label: (c.CompanyRefCode ? c.CompanyRefCode + ' - ' : '') + c.LegalName }));
       options($('emp-company-filter'), coList, 'All Companies');
+      options($('emp-org-company'), coList, 'All Companies');
       options($('emp-form-company'), coList, 'Select...');
       options($('emp-cc-filter'), units.filter(u => u.Type === 'CostCenter').map(u => ({ value: u.UnitID, label: u.Code + ' — ' + u.Name })), 'All Departments');
       options($('emp-des-filter'), setup.designations.map(d => ({ value: d.DesignationID, label: d.Title })), 'All Designations');

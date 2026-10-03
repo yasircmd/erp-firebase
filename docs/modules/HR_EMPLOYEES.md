@@ -1,6 +1,6 @@
 # HR: Employee Records
 
-Status: **steps 1–4 built and tested** (2026-10-03; see the As built sections); step 5 to come. Payroll is a
+Status: **steps 1–5 built and tested** (2026-10-03; see the As built sections). Payroll is a
 separate module, designed after this one (docs/modules/HR_PAYROLL.md, to
 come).
 
@@ -513,3 +513,34 @@ the **Employee Change** button on an employee's record, with Back):
    - set up its approvals in Approval Configuration.
 
 **Next:** step 5, the org chart.
+
+## As built: step 5, the org chart (2026-10-03)
+
+**Org chart** button on the Employees list (everyone who sees employees,
+view-only users too). It opens a tree of who reports to whom:
+- current employees only (not Left), each under their line manager,
+  sorted by name; each line shows the name, number and designation, and
+  for a manager "n direct, m in all";
+- people without a line manager, or whose manager isn't shown (another
+  company under the filter, or not visible to the user), are at the top;
+  when the manager is elsewhere, "(reports to ...)" names them;
+- a company filter (starts from the list's), Expand all / Collapse all,
+  and +/− per manager;
+- a name opens the record, and Back returns to the chart.
+
+It is built in the screen from the list the user already gets
+(`getEmployees`), so it follows the same company access and needs no new
+server call. A reporting loop can't be saved (the server refuses it); the
+chart still shows each person once if old data had one.
+
+**Tests:** `hrEmployees.ui.js` (8): the tree after Replace manager,
+collapse / expand, open and back, and a C2 employee reporting to a C1
+manager (all companies, then C2 alone with "(reports to Rana)", then C1).
+Five negative controls caught: a flat list, the company filter ignored,
+the outside-manager note missing, Back going to the list, collapse
+ignored.
+
+**To go live:** a "screens only" run (no function changes).
+
+**Employee Records is complete.** Next: Payroll, with its own design
+(docs/modules/HR_PAYROLL.md).
