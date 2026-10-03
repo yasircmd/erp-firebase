@@ -62,8 +62,22 @@ const SOURCES = {
   // <category>/<title - reference>; only users who can change the register
   // add or remove its files (owner decisions 1 and 4).
   COMPANYDOCS: { fs: 'companyDocuments', numberOf: r => [r.Title, r.ReferenceNo].filter(Boolean).join(' - '), date: 'IssueDate',
-    legal: true, addCap: 'write', removeCap: 'write', closed: r => r.Status === 'Removed' }
+    legal: true, addCap: 'write', removeCap: 'write', closed: r => r.Status === 'Removed' },
+  // Employee documents (docs/modules/HR_EMPLOYEES.md, step 2): Employees'
+  // own rights; seeing them needs "sensitive" (owner decision 7), adding or
+  // removing files "write" too. Folder <company>/Employees/<no. - name>/
+  // <type>/<number or expiry>.
+  EMPDOCS: { fs: 'employeeDocuments', label: 'Employee Documents', accessModule: 'EMPLOYEES', viewCap: 'sensitive',
+    numberOf: r => r.DocNumber || (r.ExpiryDate ? 'Expires ' + r.ExpiryDate : ''), date: 'IssueDate',
+    addCap: 'write', removeCap: 'write', closed: r => r.Status === 'Removed',
+    folders: async e => {
+      const emp = (await firestore.collection('employees').doc(e.rec.EmployeeID || '-').get()).data() || {};
+      const co = e.companyId || 'all';
+      return [['Employees', 'empdocs_' + co], [safeName((emp.EmployeeNo || '') + ' - ' + (emp.FullName || '')), 'empdocs_' + co + '_' + e.rec.EmployeeID],
+        [safeName(e.rec.DocTypeName || 'Other'), 'empdocs_' + co + '_' + e.rec.EmployeeID + '_' + (e.rec.DocumentTypeID || 'other')]];
+    } }
 };
+const labelOf = module => (SOURCES[module] && SOURCES[module].label) || MODULE_LABELS[module] || module;
 const MODULE_LABELS = Object.fromEntries(MODULE_REGISTRY.map(m => [m.id, m.label]));
 // Folder names: the voucher type, readable and safe for any storage.
 const typeFolder = module => (MODULE_LABELS[module] || module).replace(/[\\/:*?"<>|]/g, '-');
@@ -95,8 +109,13 @@ async function isStorageAdmin(user) {
 // module's own visibility rule.
 async function requireEntryAccess(user, module, docId) {
   if (!SOURCES[module]) throw new HttpsError('invalid-argument', 'Documents can\'t be attached to this kind of entry.');
-  if (!(await moduleHasCapability(module, 'access', user.profile.role))) {
-    throw new HttpsError('permission-denied', 'You do not have access to ' + (MODULE_LABELS[module] || module) + '.');
+  const src = SOURCES[module];
+  const accessModule = src.accessModule || module;
+  if (!(await moduleHasCapability(accessModule, 'access', user.profile.role))) {
+    throw new HttpsError('permission-denied', 'You do not have access to ' + labelOf(accessModule) + '.');
+  }
+  if (src.viewCap && !(await moduleHasCapability(accessModule, src.viewCap, user.profile.role))) {
+    throw new HttpsError('permission-denied', 'You do not have the right to see ' + labelOf(module) + '.');
   }
   const e = await loadEntry(module, docId);
   if (e.companyId && !userCanAccessCompany(user.profile, e.companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -126,6 +145,15 @@ async function companyFolderName(companyId) {
 async function documentFolder(api, s, module, docId, e) {
   const docKey = 'doc_' + module + '_' + docId;
   const known = (await FOLDERS().doc(docKey).get()).data();
+  if (e.src.folders) {
+    if (known && known.RootFolderID === s.RootFolderID) return known.FolderID;
+    const co = e.companyId || 'all';
+    let parent = await folderFor(api, s, s.RootFolderID, await companyFolderName(e.companyId), 'co_' + co);
+    for (const [name, key] of await e.src.folders(e)) parent = await folderFor(api, s, parent, name, key);
+    const id = await api.createFolder(s, parent, safeName(e.number || docId));
+    await FOLDERS().doc(docKey).set({ FolderID: id, RootFolderID: s.RootFolderID, Parent: parent, Numbered: true, Name: e.number || docId });
+    return id;
+  }
   if (e.src.legal) {
     if (known && known.RootFolderID === s.RootFolderID) return known.FolderID;
     const co = e.companyId || 'all';
@@ -203,7 +231,7 @@ function canRemove(a, user, posted, admin, ruled) {
 }
 // A source's own capability rule for adding / removing, or undefined.
 async function sourceRule(src, module, cap, user) {
-  return src[cap] ? moduleHasCapability(module, src[cap], user.profile.role) : undefined;
+  return src[cap] ? moduleHasCapability(src.accessModule || module, src[cap], user.profile.role) : undefined;
 }
 
 async function listFiles(module, docId) {
@@ -282,7 +310,7 @@ exports.removeAttachment = onCallWithMessages(onCallOptions, async (request) => 
   const { a, e, ref } = await attachmentFor(user, (request.data || {}).attachmentId);
   const admin = await isStorageAdmin(user);
   const removeRule = await sourceRule(e.src, a.Module, 'removeCap', user);
-  if (removeRule === false) throw new HttpsError('permission-denied', 'Only users who can change ' + (MODULE_LABELS[a.Module] || a.Module) + ' can remove its files.');
+  if (removeRule === false) throw new HttpsError('permission-denied', 'Only users who can change ' + labelOf(a.Module) + ' can remove its files.');
   if (!canRemove(a, user, Boolean(e.number), admin, removeRule)) {
     throw new HttpsError('permission-denied', e.number
       ? 'This entry is posted: only Admin can remove its documents.'
