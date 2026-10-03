@@ -1,6 +1,6 @@
 # Supporting Documents (attachments on entries)
 
-Status: **built and tested** (2026-10-03; see [As built](#as-built-2026-10-03)).
+Status: **live** 2026-10-03 (PR #60; see [As built](#as-built-2026-10-03)).
 The Google set-up (below) is needed before it can be used.
 
 ## The request (owner, 2026-10-03)
@@ -272,6 +272,13 @@ section in all 27 screens, a GRN, the Document Storage screen and that it
 is Admin only). Four negative controls caught: no client-side type check,
 no reload when the entry's id changes, one screen's section removed, and
 a new client keeping the old connection.
+
+**Light mode** (fix 2026-10-03, owner): the shell's light theme recolours
+a fixed set of slate classes; the section had used two others
+(`bg-slate-800/50`, `divide-slate-700/60`) and stayed dark. It now uses
+mapped ones, and `functions/test/unit/supportingDocsTheme.test.js` checks
+that the section and the Document Storage screen use only slate classes
+light mode recolours.
 
 **To go live** (in this order):
 1. Deploy, "functions set", set `supporting-documents`.

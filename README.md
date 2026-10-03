@@ -128,7 +128,7 @@ npm i --no-save --prefix functions playwright && (cd functions && npx playwright
 # create-user test would reach production Auth)
 firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
 
-node --test functions/test/unit/*.test.js   # no emulators needed; includes the no-browser-popups and date-format guards
+node --test functions/test/unit/*.test.js   # no emulators needed; includes the no-browser-popups, date-format and supporting-documents light-mode guards
 node --test --test-concurrency=1 functions/test/emulator/*.test.js
 # while developing, run just the module's suite (seconds, not the full run):
 #   node --test functions/test/emulator/salesReturn.emulator.test.js
