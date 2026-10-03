@@ -55,6 +55,12 @@ test('not connected: a clear message; the storage set-up is Admin only', async (
   assert.deepEqual(['client_id', 'scope', 'access_type', 'redirect_uri'].map(k => url.searchParams.get(k)),
     ['123-x.apps.googleusercontent.com', 'https://www.googleapis.com/auth/drive.file', 'offline', s.redirectUri]);
   assert.ok(url.searchParams.get('state'));
+  // A different OAuth client drops the old connection (its token belongs to the old client).
+  await firestore.collection('settings').doc('documentStorage').set({ RefreshToken: 'rt', RootFolderID: 'root' }, { merge: true });
+  await call('u-admin', 'saveDocumentStorageClient', { clientId: '123-x.apps.googleusercontent.com', clientSecret: '' });
+  assert.equal((await call('u-admin', 'getDocumentStorage', {})).connected, true, 'the same client keeps it');
+  await call('u-admin', 'saveDocumentStorageClient', { clientId: '456-y.apps.googleusercontent.com', clientSecret: '' });
+  assert.equal((await call('u-admin', 'getDocumentStorage', {})).connected, false, 'a new client must connect again');
 });
 
 test('anyone who can open the entry adds, lists and opens documents; the files are checked', async () => {

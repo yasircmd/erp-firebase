@@ -307,6 +307,8 @@
   }
 
   window.initModule = function () {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'FARETIRE', view: 'frt-entry-view', id: () => current && current.PostingID, list: 'frt-body', rowAttr: 'id' });
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-right-from-bracket"></i> Fixed Asset Retirement';
     rpc.withSuccessHandler(r => {
       rights = r.FARETIRE || {};

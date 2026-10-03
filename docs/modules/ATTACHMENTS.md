@@ -1,7 +1,7 @@
 # Supporting Documents (attachments on entries)
 
-Status: **design agreed** by the owner (2026-10-03); the Google set-up (below)
-is needed before it can go live.
+Status: **built and tested** (2026-10-03; see [As built](#as-built-2026-10-03)).
+The Google set-up (below) is needed before it can be used.
 
 ## The request (owner, 2026-10-03)
 
@@ -35,6 +35,9 @@ JV, CBT, PO, GRN, Vendor invoice, etc.
   checks.
 
 ## Proposed design
+
+(As proposed. The storage set-up and some details changed: see the
+owner's decisions, "Storage for now" and [As built](#as-built-2026-10-03).)
 
 ### 1. Where files are kept: one storage, connected once by Admin
 
@@ -215,3 +218,65 @@ the repository, never sent to a browser).
    renamed.
 6. Tests, negative controls, regression, docs, deploy sets (functions +
    hosting + screens), PR.
+
+## As built (2026-10-03)
+
+**Where it shows.** Every one of the 27 entry screens has a **Supporting
+documents** section just below the entry (Purchase Order: both the draft
+form and the detail view; Job Order: the batch form and a line's detail,
+which show its batch's documents; Depreciation Run: below a run opened
+with "Lines"). It shows:
+- the files (name, size, who added it and when); click a name to open it:
+  a PDF or picture opens in a new tab, Word and Excel files download;
+- **Add files** (several at once) or drag them onto the section;
+- a bin next to a file the user may remove, which asks first.
+
+A new entry shows "Save the draft to attach documents". Lists show a
+paperclip with the count next to the document number. Printing is
+unchanged. The section is not part of the entry form: adding a file
+doesn't count as an unsaved change.
+
+**Checks before anything is sent:** the type (by extension) and 10 MB;
+refused files are listed in one message, the rest are added. The server
+checks again, also by content.
+
+**Behind it.**
+- Shell: the SUPPORTING DOCUMENTS block in `public/index.html`
+  (`supportingDocs.mount({ module, view, id, list })`; one line per
+  screen plus `data-doc-id` on list rows). Physical Count and Production
+  are generated screens: their two edits are SCREEN_EDITS in
+  `tools/legacy-port/generate.js`.
+- Server: `functions/src/attachments.js` (callables, access, folders,
+  file checks) and `functions/src/documentStorage.js` (Google Drive over
+  its REST API with the connected account's refresh token; an in-memory
+  stand-in on the emulators).
+- Firestore: `attachments` (one record per file), `attachmentFolders`
+  (folder ids), `attachmentLog` (every upload and removal),
+  `settings/documentStorage` (client, token, root folder; server only).
+- Access: the module's access, the entry's company, and the module's own
+  rule (Purchase Requisition visibility). Removal: the uploader before
+  the entry has a number, Admin (Document Storage access) any time.
+- A draft's files are in `Drafts/<type> - <id>/`; once the entry has its
+  number, the folder moves to `<company>/<year>/<type>/<number>/` the next
+  time its documents are listed or added.
+- **Document Storage** (Admin): status and account, the folder link,
+  the OAuth client (the secret is never shown back), the redirect URI to
+  copy, Connect / Reconnect, Test connection, Disconnect. Saving a
+  different client ID ends the connection (the old sign-in belongs to the
+  old client): connect again.
+
+**Tests:** the `attachments` emulator suite (5) and
+`supportingDocs.ui.js` (9: new entry, add with refused files, paperclip,
+open and download, remove, an entry getting its id while open, the
+section in all 27 screens, a GRN, the Document Storage screen and that it
+is Admin only). Four negative controls caught: no client-side type check,
+no reload when the entry's id changes, one screen's section removed, and
+a new client keeping the old connection.
+
+**To go live** (in this order):
+1. Deploy, "functions set", set `supporting-documents`.
+2. Deploy, "hosting".
+3. Deploy, "screens only" (or tick screens in step 1).
+4. In the app: link a menu node to **Document Storage** (System Admin).
+5. The owner's set-up above: Google Cloud OAuth client, then Connect
+   Google Drive, then Test connection.

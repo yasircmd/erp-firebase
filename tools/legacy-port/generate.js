@@ -334,6 +334,16 @@ const SCREEN_EDITS = [
   { mod: 'COA', from: "if (result.success) { closeModal(); fetchAndRender(); }",
     to: "if (result.success) { closeModal(); fetchAndRender(); if (result.codeChangedFrom) appAlert('Moved to the new head: code ' + result.codeChangedFrom + ' is now ' + result.accountCode + '.'); }" },
   // (Approval Tracker's time format, 2026-09-29, moved into the screen when it became hand-maintained.)
+  // Supporting documents at the bottom of the entry, and the paperclip in
+  // the list (owner, 2026-10-03; docs/modules/ATTACHMENTS.md).
+  { mod: 'PHYSICALCOUNT', from: "window.initModule = function (idToken) {\n",
+    to: "window.initModule = function (idToken) {\n    supportingDocs.mount({ module: 'PHYSICALCOUNT', view: 'pc-entry-view', id: () => currentCount && currentCount.CountID, list: 'pc-table-body' }); // supporting documents (docs/modules/ATTACHMENTS.md)\n" },
+  { mod: 'PHYSICALCOUNT', from: "const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';",
+    to: "const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40'; row.dataset.docId = e.CountID;" },
+  { mod: 'PRODUCTION', from: "window.initModule = function (idToken) {\n",
+    to: "window.initModule = function (idToken) {\n    supportingDocs.mount({ module: 'PRODUCTION', view: 'prd-entry-view', id: () => currentProd && currentProd.ProductionID, list: 'prd-table-body' }); // supporting documents (docs/modules/ATTACHMENTS.md)\n" },
+  { mod: 'PRODUCTION', from: "const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';",
+    to: "const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40'; row.dataset.docId = e.ProductionID;" },
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {

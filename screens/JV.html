@@ -301,7 +301,7 @@
     if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-slate-500">No journal entries found.</td></tr>'; return; }
 
     filtered.forEach(e => {
-      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40'; row.dataset.docId = e.JVID;
       const statusBadge = e.Status === 'Posted'
         ? (e.ReversedByJV ? '<span class="text-amber-400">Posted (Reversed)</span>' : '<span class="text-emerald-400">Posted</span>')
         : '<span class="text-red-400">Draft</span>';
@@ -1409,6 +1409,8 @@
 
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken) {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'JV', view: 'jv-entry-view', id: () => currentJv && currentJv.JVID, list: 'jv-table-body' });
     token = idToken;
 
     rpc

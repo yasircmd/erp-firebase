@@ -419,7 +419,7 @@
     });
     if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">No Job Order lines found.</td></tr>'; return; }
     filtered.forEach(l => {
-      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer';
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer'; row.dataset.docId = l.ParentBatchID;
       row.innerHTML = `
         <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(l.SubJONumber || '(unsubmitted)')}</td>
         <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(l.Origin || '')}</td>
@@ -884,6 +884,9 @@
 
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken) {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'JOBORDERREQUEST', view: 'jo-batch-edit-view', id: () => currentBatch && currentBatch.BatchID, list: 'jo-flat-table-body' });
+    supportingDocs.mount({ module: 'JOBORDERREQUEST', view: 'jo-line-detail-view', id: () => currentLine && currentLine.ParentBatchID });
     token = idToken;
 
     rpc

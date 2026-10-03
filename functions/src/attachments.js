@@ -28,7 +28,7 @@ const { canSeeRequisition } = require('./prVisibility');
 const { MODULE_REGISTRY } = require('./moduleRegistry');
 const store = require('./documentStorage');
 
-const onCallOptions = { region: 'us-central1', timeoutSeconds: 120, memory: '512MiB' };
+const onCallOptions = { region: 'us-central1', timeoutSeconds: 300, memory: '512MiB' }; // 300 s: a 10 MB file on a slow line (the screens wait as long)
 const MAX_BYTES = 10 * 1024 * 1024;
 const ATTACH = () => firestore.collection('attachments');
 const FOLDERS = () => firestore.collection('attachmentFolders');
@@ -47,7 +47,7 @@ const SOURCES = {
   PURCHASEREQUISITION: { rtdb: 'purchaseRequisitions', number: 'PRNumber', date: 'PRDate', visible: canSeeRequisition },
   INVENTORYPURCHASEREQUISITION: { rtdb: 'inventoryPurchaseRequisitions', number: 'IPRNumber', date: 'PRDate' },
   PURCHASEORDER: { rtdb: 'purchaseOrders', number: 'PONumber', date: 'PODate' },
-  JOBORDERREQUEST: { rtdb: 'jobOrderBatches', number: 'BatchNumber', date: 'RequestDate' },
+  JOBORDERREQUEST: { rtdb: 'jobOrderBatches', number: 'BatchNumber', date: 'JODate' },
   SALESORDER: { rtdb: 'salesOrders', number: 'SONumber', date: 'SODate' },
   GRN: stock('GRN'), MATERIALISSUE: stock('MaterialIssue'), PRODUCTION: stock('Production'),
   WAREHOUSEMOVEMENT: stock('WarehouseMovement'), STOCKADJUSTMENT: stock('StockAdjustment'), PHYSICALCOUNT: stock('PhysicalCount'),
@@ -311,8 +311,11 @@ exports.saveDocumentStorageClient = onCallWithMessages({ region: 'us-central1' }
   if (!/\.apps\.googleusercontent\.com$/.test(clientId)) throw new HttpsError('invalid-argument', 'Paste the OAuth client ID from Google Cloud (it ends with .apps.googleusercontent.com).');
   const s = await store.getSettings();
   if (!clientSecret && !s.ClientSecret) throw new HttpsError('invalid-argument', 'Paste the client secret too.');
-  await store.saveSettings(Object.assign({ Provider: 'GoogleDrive', ClientID: clientId, UpdatedAt: new Date().toISOString(), UpdatedBy: actorName(user) },
-    clientSecret ? { ClientSecret: clientSecret } : {}));
+  // A different client can't use the old connection (its refresh token
+  // belongs to the old client): connect again.
+  const changed = Boolean(s.ClientID && s.ClientID !== clientId);
+  await store.saveSettings(Object.assign({ ClientID: clientId, UpdatedAt: new Date().toISOString(), UpdatedBy: actorName(user) },
+    clientSecret ? { ClientSecret: clientSecret } : {}, changed ? { RefreshToken: '', ConnectedAt: '' } : {}));
   return { success: true };
 });
 

@@ -101,7 +101,7 @@
   function renderRuns() {
     $('fdr-runs-body').innerHTML = runs.map(r => {
       const latest = r.Status === 'Posted' && r.Period === state.lastPostedPeriod;
-      return '<tr><td class="py-2 px-3 font-mono text-xs">' + escapeHtml(r.Period) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(r.Status) +
+      return '<tr data-doc-id="' + escapeHtml(r.RunID) + '"><td class="py-2 px-3 font-mono text-xs">' + escapeHtml(r.Period) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(r.Status) +
         '</td><td class="py-2 px-3 text-right text-xs">' + (r.Lines || []).length + '</td><td class="py-2 px-3 text-right font-mono">' + formatMoney(r.Total) +
         '</td><td class="py-2 px-3 font-mono text-xs">' + escapeHtml(r.JVNumber || '') + '</td><td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml((r.PostedBy || '') + ' ' + (r.PostedAt || '').replace('T', ' ').substring(0, 16)) +
         '</td><td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(r.ReversalJVNumber ? r.ReversalJVNumber + ' — ' + (r.ReversalReason || '') : '') +
@@ -158,7 +158,7 @@
   }
   function showRun(r) {
     if (!r) return;
-    renderPreview({ lines: r.Lines || [], blockers: [], errors: [] }, 'Run ' + r.Period + ' (' + r.Status + ')');
+    renderPreview({ RunID: r.RunID, lines: r.Lines || [], blockers: [], errors: [] }, 'Run ' + r.Period + ' (' + r.Status + ')');
   }
   function showTab(tab) {
     document.querySelectorAll('.fdr-tab').forEach(x => { const on = x.dataset.tab === tab; x.classList.toggle('border-blue-500', on); x.classList.toggle('text-blue-400', on); x.classList.toggle('border-transparent', !on); x.classList.toggle('text-slate-400', !on); });
@@ -178,6 +178,8 @@
   }
 
   window.initModule = function () {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'FADEPRUN', view: 'fdr-preview', id: () => preview && preview.RunID, list: 'fdr-runs-body', emptyNote: 'Documents are attached to a posted run: open it with Lines below.' });
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-calculator"></i> Depreciation Run';
     const y = new Date().getFullYear();
     $('fdr-reg-from').value = y + '-01'; $('fdr-reg-to').value = new Date().toISOString().substring(0, 7);

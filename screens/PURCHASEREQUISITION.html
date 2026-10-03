@@ -226,7 +226,7 @@
     filtered.forEach(pr => {
       const cc = orgUnitById(pr.CostCenterID);
       const statusColors = { Draft: 'bg-slate-700 text-slate-300', Submitted: 'bg-blue-500/10 text-blue-400', Closed: 'bg-emerald-500/10 text-emerald-400', Cancelled: 'bg-red-500/10 text-red-400' };
-      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer';
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer'; row.dataset.docId = pr.PRID;
       row.innerHTML = `
         <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(pr.PRNumber || 'DRAFT')}</td>
         <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(pr.PRDate || '')}</td>
@@ -594,6 +594,8 @@
 
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken) {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'PURCHASEREQUISITION', view: 'pr-entry-view', id: () => currentPr && currentPr.PRID, list: 'pr-table-body' });
     token = idToken;
 
     rpc

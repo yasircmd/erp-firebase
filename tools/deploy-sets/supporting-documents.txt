@@ -1,0 +1,27 @@
+# Supporting documents on entries (owner 2026-10-03; docs/modules/ATTACHMENTS.md).
+# Order: this functions set, then the "hosting" task (the SUPPORTING
+# DOCUMENTS block is in public/index.html), then release the screens
+# (--screens, or a "screens only" run): DOCUMENTSTORAGE (new) and the 27
+# entry screens. Then, in the app: link a menu node to "Document Storage",
+# and follow ATTACHMENTS.md "Set-up" (Google Cloud OAuth client, then
+# Connect Google Drive, then Test connection).
+# New functions (the invoker binding is granted by deploy-functions.sh;
+# driveOAuthCallback is where Google returns after the sign-in).
+getAttachments                   # the documents of one entry
+uploadAttachment                 # one file, checked, into the entry's folder
+openAttachment                   # the file, through the ERP
+removeAttachment                 # moved to Removed, never deleted
+getAttachmentCounts              # the paperclip in the lists
+getDocumentStorage               # Admin: the connection's status
+saveDocumentStorageClient        # Admin: the OAuth client ID and secret
+startDriveConnect                # Admin: the Google sign-in link
+driveOAuthCallback               # Google returns here (HTTP, not callable)
+testDocumentStorage              # Admin: write, read back, remove a test file
+disconnectDocumentStorage        # Admin
+useTestDocumentStorage           # emulator only (refuses on the live project)
+# Registries: the module, its permissions, its menu node, its screen.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment

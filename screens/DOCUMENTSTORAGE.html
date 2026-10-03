@@ -1,0 +1,152 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-folder-tree text-blue-500"></i> Document Storage</h2></div>
+  </div>
+
+  <p class="text-xs text-slate-500 max-w-3xl">Where the supporting documents attached to entries are kept. The ERP signs in to Google Drive as the account connected here, with permission only for the files and folders it creates itself, and keeps them in a private "ERP Documents" folder: company / year / voucher type / document number. Users never get the folder: they open the documents through the ERP, on the entry. Only Admin sees this screen.</p>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-sm font-semibold text-slate-200">Status</div>
+    <div id="ds-status" class="text-sm text-slate-400">Loading…</div>
+    <div class="flex flex-wrap gap-2">
+      <button id="ds-connect" disabled class="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-brands fa-google-drive"></i> <span>Connect Google Drive</span></button>
+      <button id="ds-test" disabled class="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plug-circle-check"></i> Test connection</button>
+      <button id="ds-refresh" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-rotate"></i> Refresh</button>
+      <button id="ds-disconnect" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs text-red-300 px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-link-slash"></i> Disconnect</button>
+      <button id="ds-use-test" class="hidden bg-amber-700 hover:bg-amber-600 text-xs text-white px-4 py-2 rounded-lg">Use the test storage (emulator)</button>
+    </div>
+    <p id="ds-message" class="hidden text-xs"></p>
+  </div>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-sm font-semibold text-slate-200">Google OAuth client</div>
+    <p class="text-xs text-slate-500 max-w-3xl">From Google Cloud console → APIs &amp; Services → Credentials → OAuth client ID (type "Web application"). Add this as its authorized redirect URI:</p>
+    <div class="flex items-center gap-2"><code id="ds-redirect" class="keep-iso text-xs bg-slate-900 border border-slate-700 rounded px-2 py-1 break-all"></code>
+      <button id="ds-copy-redirect" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy</button></div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:items-end">
+      <div class="md:col-span-2">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Client ID</label>
+        <input id="ds-client-id" type="text" autocomplete="off" spellcheck="false" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" placeholder="….apps.googleusercontent.com">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Client secret</label>
+        <input id="ds-client-secret" type="password" autocomplete="new-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="ds-save" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+      <span id="ds-secret-note" class="text-xs text-slate-500"></span>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-sm font-semibold text-slate-200">Folder layout</div>
+<pre class="keep-iso text-xs text-slate-400 leading-5">ERP Documents/
+  01 - Company name/            (company code - name)
+    2026/                       (year of the document date)
+      Goods Receipt (GRN)/      (voucher type)
+        GRN-26-01-000045/       (one folder per document)
+          delivery note.pdf
+  Drafts/                       (entries not numbered yet; moved once numbered)
+  Removed/                      (removed documents: moved here, never deleted)</pre>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Document Storage (owner, 2026-10-03; docs/modules/ATTACHMENTS.md):
+  // Admin connects the Google Drive that keeps the supporting documents.
+  // The client secret and the connection stay on the server.
+  const el = id => document.getElementById(id);
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, arg) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](arg));
+  let info = null;
+
+  function message(text, tone) {
+    const m = el('ds-message');
+    m.textContent = text || '';
+    m.className = 'text-xs ' + (tone === 'ok' ? 'text-emerald-400' : tone === 'error' ? 'text-red-400' : 'text-slate-400');
+    m.classList.toggle('hidden', !text);
+  }
+
+  function render() {
+    const s = info;
+    const st = el('ds-status');
+    if (s.connected) {
+      st.innerHTML = '<span class="text-emerald-400"><i class="fa-solid fa-circle-check"></i> Connected</span> to <span class="text-slate-200">' + escapeHtml(s.account || 'Google Drive') + '</span>' +
+        (s.connectedAt ? ' since ' + escapeHtml(isoLocalDateTime(s.connectedAt)) : '') + (s.connectedBy ? ' (by ' + escapeHtml(s.connectedBy) + ')' : '') + '.' +
+        (s.rootFolderLink ? ' <a id="ds-root-link" href="' + escapeHtml(s.rootFolderLink) + '" target="_blank" rel="noopener" class="text-blue-400 hover:text-blue-300 underline">Open the "ERP Documents" folder</a>' : '');
+    } else {
+      st.innerHTML = '<span class="text-amber-400"><i class="fa-solid fa-circle-exclamation"></i> Not connected.</span> ' +
+        (s.clientId && s.hasClientSecret ? 'Click Connect Google Drive and sign in with the account that will keep the documents.' : 'Save the OAuth client ID and secret below, then connect.');
+    }
+    el('ds-connect').disabled = !(s.clientId && s.hasClientSecret);
+    el('ds-connect').querySelector('span').textContent = s.connected ? 'Reconnect Google Drive' : 'Connect Google Drive';
+    el('ds-test').disabled = !s.connected;
+    el('ds-disconnect').disabled = !s.connected;
+    el('ds-use-test').classList.toggle('hidden', !s.onEmulator);
+    el('ds-redirect').textContent = s.redirectUri;
+    if (document.activeElement !== el('ds-client-id')) el('ds-client-id').value = s.clientId;
+    el('ds-client-secret').value = '';
+    el('ds-client-secret').placeholder = s.hasClientSecret ? 'saved (leave blank to keep)' : '';
+    el('ds-secret-note').textContent = s.hasClientSecret ? 'A client secret is saved. It is never shown again.' : '';
+  }
+
+  function load() {
+    return call('getDocumentStorage', {}).then(r => { info = r; render(); },
+      err => { el('ds-status').textContent = err.message || 'Unable to load the document storage.'; });
+  }
+
+  function save() {
+    message('Saving…');
+    call('saveDocumentStorageClient', { clientId: el('ds-client-id').value, clientSecret: el('ds-client-secret').value })
+      .then(() => { message('Saved.', 'ok'); return load(); }, err => message(err.message || 'Unable to save.', 'error'));
+  }
+
+  function connect() {
+    // Opened now, while the click still counts, so it isn't blocked.
+    const tab = window.open('', '_blank');
+    message('Opening the Google sign-in…');
+    call('startDriveConnect', {}).then(r => {
+      if (tab) tab.location.href = r.url; else location.href = r.url;
+      message('Sign in in the new tab and allow access. Then come back here: this screen refreshes itself.');
+    }, err => { if (tab) tab.close(); message(err.message || 'Unable to start the connection.', 'error'); });
+  }
+
+  function test() {
+    message('Testing: writing, reading back and removing a small file…');
+    call('testDocumentStorage', {}).then(r => message('The connection works (' + (r.account || 'Google Drive') + ').', 'ok'),
+      err => message(err.message || 'The test failed.', 'error'));
+  }
+
+  async function disconnect() {
+    if (!(await appConfirm('Disconnect Google Drive? Nobody can add or open documents until it is connected again. The files stay in the Drive.'))) return;
+    call('disconnectDocumentStorage', {}).then(() => { message('Disconnected.', 'ok'); return load(); },
+      err => message(err.message || 'Unable to disconnect.', 'error'));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-folder-tree"></i> Document Storage';
+    el('ds-save').addEventListener('click', save);
+    el('ds-connect').addEventListener('click', connect);
+    el('ds-test').addEventListener('click', test);
+    el('ds-refresh').addEventListener('click', () => { message(''); load(); });
+    el('ds-disconnect').addEventListener('click', disconnect);
+    el('ds-use-test').addEventListener('click', () => call('useTestDocumentStorage', {}).then(() => { message('Using the test storage.', 'ok'); return load(); },
+      err => message(err.message, 'error')));
+    el('ds-copy-redirect').addEventListener('click', () => {
+      const text = el('ds-redirect').textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => message('Copied.', 'ok'), () => appPrompt('Copy this text:', text));
+      else appPrompt('Copy this text:', text);
+    });
+    // Back from the Google sign-in tab: show the new state.
+    const onFocus = () => { if (!el('ds-status')) { window.removeEventListener('focus', onFocus); return; } load(); };
+    window.addEventListener('focus', onFocus);
+    load();
+  };
+})();
+</script>

@@ -301,6 +301,8 @@
   }
 
   window.initModule = function () {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'FAASSET', view: 'faa-entry-view', id: () => current && current.AssetID, list: 'faa-body', rowAttr: 'id' });
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-truck-front"></i> Fixed Asset Master';
     rpc.withSuccessHandler(r => { canDraft = Boolean(r.FAASSET && r.FAASSET.draft); $('faa-new-btn').classList.toggle('hidden', !canDraft); if (!$('faa-entry-view').classList.contains('hidden')) refreshUi(); })
       .withFailureHandler(e => console.error(e)).getFaRights();

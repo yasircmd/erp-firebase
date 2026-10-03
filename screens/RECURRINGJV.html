@@ -216,7 +216,7 @@
     const tbody = $('rj-table-body');
     tbody.innerHTML = '';
     rows.forEach(e => {
-      const tr = document.createElement('tr');
+      const tr = document.createElement('tr'); tr.dataset.docId = e.TemplateID;
       tr.className = 'hover:bg-slate-700/30 cursor-pointer';
       tr.innerHTML = `
         <td class="py-2.5 px-3 font-mono text-xs">${escapeHtml(e.TemplateNumber || '(draft)')}<div class="text-slate-500">${escapeHtml(companyLabel(e.CompanyID))}</div></td>
@@ -593,6 +593,8 @@
 
   // ---------- INIT ----------
   window.initModule = function () {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'RECURRINGJV', view: 'rj-entry-view', id: () => current && current.TemplateID, list: 'rj-table-body' });
     $('app-title').innerHTML = '<i class="fa-solid fa-repeat"></i> Recurring Journal Entries';
     rpc.withSuccessHandler(perms => {
       canDraft = Boolean(perms.canDraft); canPost = Boolean(perms.canPost);

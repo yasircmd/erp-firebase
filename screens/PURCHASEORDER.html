@@ -321,7 +321,7 @@
     filtered.forEach(po => {
       const vendor = vendorById(po.VendorID);
       const cc = orgUnits.find(u => u.UnitID === po.CostCenterID);
-      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer';
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40 cursor-pointer'; row.dataset.docId = po.POID;
       row.innerHTML = `
         <td class="py-2 px-4 font-mono text-xs text-slate-300">${escapeHtml(po.PONumber || '(unsubmitted)')}</td>
         <td class="py-2 px-4 text-slate-200">${escapeHtml(vendor ? vendor.VendorName : '')}</td>
@@ -1006,6 +1006,9 @@
 
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken) {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'PURCHASEORDER', view: 'po-edit-view', id: () => currentPO && currentPO.POID, list: 'po-table-body' });
+    supportingDocs.mount({ module: 'PURCHASEORDER', view: 'po-detail-view', id: () => currentPO && currentPO.POID });
     token = idToken;
 
     rpc

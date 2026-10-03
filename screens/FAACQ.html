@@ -357,6 +357,8 @@
   }
 
   window.initModule = function () {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'FAACQ', view: 'fap-entry-view', id: () => current && current.PostingID, list: 'fap-body', rowAttr: 'id' });
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-invoice-dollar"></i> Fixed Asset Capitalization';
     rpc.withSuccessHandler(r => {
       rights = r.FAACQ || {};

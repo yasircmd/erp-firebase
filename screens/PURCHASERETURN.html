@@ -265,7 +265,7 @@
     tbody.innerHTML = '';
     filtered.forEach(e => {
       const st = statusDisplay(e);
-      const tr = document.createElement('tr');
+      const tr = document.createElement('tr'); tr.dataset.docId = e.ReturnID;
       tr.className = 'hover:bg-slate-700/30 cursor-pointer';
       tr.innerHTML = `
         <td class="py-2.5 px-4 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}</td>
@@ -715,6 +715,8 @@
 
   // ---------- INIT ----------
   window.initModule = function (idToken) {
+    // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
+    supportingDocs.mount({ module: 'PURCHASERETURN', view: 'prt-entry-view', id: () => current && current.ReturnID, list: 'prt-table-body' });
     token = idToken;
 
     rpc
