@@ -537,6 +537,13 @@
           </div>
           <div id="home-recurring-due-list" class="divide-y divide-slate-800"></div>
         </div>
+        <div id="home-docs-expiring-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
+            <i class="fa-solid fa-file-contract text-amber-400 text-xs"></i>
+            <p class="text-xs font-semibold text-slate-300 uppercase">Company Documents Expiring or Expired</p>
+          </div>
+          <div id="home-docs-expiring-list" class="divide-y divide-slate-800"></div>
+        </div>
       </div>
       <div id="fav-config-banner" class="hidden mb-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2"><i class="fa-solid fa-star"></i> Click a star to add or remove a favourite (up to 5). Click Done when finished.</div>
       <div id="module-search-empty" class="hidden mb-3 p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 text-sm">No modules match your search.</div>
@@ -1051,6 +1058,7 @@
     let homeRecurringDueCount = 0;
     let homeDraftsCount = 0;
     let homeFollowUpCount = 0;
+    let homeDocsExpiringCount = 0;
 
     function loadHomeTasks() {
       rpc
@@ -1092,6 +1100,37 @@
         .withSuccessHandler(result => { renderRecurringDue(result || []); })
         .withFailureHandler(() => { renderRecurringDue([]); })
         .getRecurringJournalsDueForUser();
+
+      // Company documents expiring within 30 days, or expired, for users who
+      // can change them (docs/modules/COMPANY_DOCUMENTS.md).
+      rpc
+        .withSuccessHandler(result => { renderDocsExpiring(result || []); })
+        .withFailureHandler(() => { renderDocsExpiring([]); })
+        .getDocumentsExpiringForUser();
+    }
+
+    function renderDocsExpiring(items) {
+      homeDocsExpiringCount = items.length;
+      const list = document.getElementById('home-docs-expiring-list');
+      document.getElementById('home-docs-expiring-block').classList.toggle('hidden', items.length === 0);
+      updateHomeTasksToggleButton();
+      list.innerHTML = '';
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-700/30 cursor-pointer text-sm';
+        const when = item.DaysLeft < 0 ? 'expired ' + item.ExpiryDate : item.DaysLeft === 0 ? 'expires today' : 'expires ' + item.ExpiryDate + ' (' + item.DaysLeft + (item.DaysLeft === 1 ? ' day)' : ' days)');
+        row.innerHTML = `
+          <div class="min-w-0">
+            <span class="text-slate-200 font-medium">${escapeHtml(item.Title)}</span>
+            <span class="text-slate-500 text-xs ml-2">${escapeHtml([item.CategoryName, item.ReferenceNo, item.PartyName].filter(Boolean).join(' · '))}</span>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-xs ${item.DaysLeft < 0 ? 'text-red-400' : 'text-amber-400'}">${escapeHtml(when)}</span>
+            <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+          </div>`;
+        row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
+        list.appendChild(row);
+      });
     }
 
     function renderRecurringDue(items) {
@@ -1256,7 +1295,7 @@
     // and renderRejectedSubmissions call this after updating their own
     // count, since either one changing can change the combined total.
     function updateHomeTasksToggleButton() {
-      const total = homePendingCount + homeRejectedCount + homePdcDueCount + homeRecurringDueCount + homeDraftsCount + homeFollowUpCount;
+      const total = homePendingCount + homeRejectedCount + homePdcDueCount + homeRecurringDueCount + homeDraftsCount + homeFollowUpCount + homeDocsExpiringCount;
       const countSpan = document.getElementById('home-tasks-count');
       // Button itself is always visible now — only the red count badge
       // shows or hides based on whether there's actually anything
@@ -1694,14 +1733,15 @@
         // Its own fields must not mark the entry as changed.
         ['input', 'change'].forEach(t => sec.addEventListener(t, e => e.stopPropagation()));
 
-        const state = { id: undefined, files: [], posted: false, busy: false, seq: 0 };
+        const state = { id: undefined, files: [], posted: false, busy: false, seq: 0, canAdd: true };
         const currentId = () => { try { return opts.id() || ''; } catch (e) { return ''; } };
         function render() {
           const hasId = Boolean(state.id);
           $('.supdocs-count').textContent = hasId && state.files.length ? '(' + state.files.length + ')' : '';
           $('.supdocs-add').disabled = !hasId || state.busy;
+          $('.supdocs-add').classList.toggle('hidden', !state.canAdd); // view-only (e.g. Company Documents without change rights)
           $('.supdocs-note').textContent = !hasId ? (opts.emptyNote || 'Save the draft to attach documents.')
-            : state.loaded && !state.files.length ? 'None yet. Add files or drop them here: ' + ALLOWED + ', up to 10 MB each.' : '';
+            : state.loaded && !state.files.length ? (state.canAdd ? 'None yet. Add files or drop them here: ' + ALLOWED + ', up to 10 MB each.' : 'No files.') : '';
           $('.supdocs-list').innerHTML = (hasId ? state.files : []).map(f =>
             '<li class="flex items-center gap-3 py-1.5 text-xs" data-id="' + esc(f.AttachmentID) + '">' +
             '<button type="button" class="supdocs-open text-blue-400 hover:text-blue-300 underline text-left break-all" title="Open">' + esc(f.FileName) + '</button>' +
@@ -1717,7 +1757,7 @@
           $('.supdocs-status').textContent = 'Loading…';
           call('getAttachments', { module: opts.module, docId: state.id }).then(r => {
             if (seq !== state.seq) return;
-            state.files = r.files || []; state.posted = Boolean(r.posted); state.loaded = true;
+            state.files = r.files || []; state.posted = Boolean(r.posted); state.loaded = true; state.canAdd = r.canAdd !== false;
             $('.supdocs-status').textContent = '';
             render();
           }, err => {
@@ -1728,7 +1768,7 @@
         }
         async function add(fileList) {
           const files = Array.from(fileList || []);
-          if (!files.length || !state.id || state.busy) return;
+          if (!files.length || !state.id || state.busy || !state.canAdd) return;
           const refused = [];
           const ok = files.filter(f => {
             if (EXTS.indexOf(ext(f.name).toLowerCase()) < 0) { refused.push('"' + f.name + '": only ' + ALLOWED + ' can be attached.'); return false; }
@@ -1790,7 +1830,7 @@
           if (e.target.closest('.supdocs-open')) open(li.dataset.id);
           if (e.target.closest('.supdocs-remove')) remove(li.dataset.id);
         });
-        sec.addEventListener('dragover', e => { if (state.id && !state.busy) { e.preventDefault(); sec.classList.add('supdocs-drop'); } });
+        sec.addEventListener('dragover', e => { if (state.id && !state.busy && state.canAdd) { e.preventDefault(); sec.classList.add('supdocs-drop'); } });
         sec.addEventListener('dragleave', e => { if (!sec.contains(e.relatedTarget)) sec.classList.remove('supdocs-drop'); });
         sec.addEventListener('drop', e => { e.preventDefault(); sec.classList.remove('supdocs-drop'); add(e.dataTransfer && e.dataTransfer.files); });
 
@@ -1845,9 +1885,57 @@
           }
         }
         sync();
-        return { reload: load, refreshCounts: refreshCounts };
+        // reload(): the entry again (same id, new state, e.g. just removed).
+        const reload = () => { if (view.classList.contains('hidden')) return; state.id = currentId(); load(); };
+        return { reload: reload, refreshCounts: refreshCounts };
       }
-      return { mount: mount };
+      // "Documents (n)" on a master list (Company, Vendor, Customer Master;
+      // docs/modules/COMPANY_DOCUMENTS.md): each row carrying data-party-id
+      // (and data-party-name) gets a link to Company Documents, filtered to
+      // it, for users who can open Company Documents.
+      //   supportingDocs.partyDocs({ list: 'ven-table-body', partyType: 'Vendor',
+      //     from: { moduleId: 'VENDORMASTER', label: 'Vendor Master' } });
+      function partyDocs(opts) {
+        const body = document.getElementById(opts.list);
+        if (!body) return;
+        let timer = null, seq = 0;
+        function refresh() {
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            const rows = Array.from(body.querySelectorAll('tr')).filter(r => r.dataset.partyId);
+            if (!rows.length) return;
+            const mine = ++seq;
+            call('getPartyDocumentCounts', { partyType: opts.partyType }).then(r => {
+              if (mine !== seq || !r || !r.access) return;
+              rows.forEach(row => {
+                const old = row.querySelector('.party-docs');
+                if (old) old.remove();
+                const cell = row.querySelector('td:last-child');
+                if (!cell) return;
+                const n = (r.counts || {})[row.dataset.partyId] || 0;
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'party-docs text-xs text-blue-400 hover:text-blue-300 ml-3 whitespace-nowrap';
+                b.title = 'Company Documents for this ' + opts.partyType.toLowerCase();
+                b.innerHTML = '<i class="fa-solid fa-file-contract"></i> Documents (' + n + ')';
+                b.addEventListener('click', e => {
+                  e.stopPropagation();
+                  const params = opts.partyType === 'Company' ? { CompanyID: row.dataset.partyId }
+                    : { PartyType: opts.partyType, PartyID: row.dataset.partyId, PartyName: row.dataset.partyName || '' };
+                  openModule('COMPANYDOCS', params, [{ moduleId: opts.from.moduleId, label: opts.from.label, params: null }]);
+                });
+                cell.appendChild(b);
+              });
+            }, () => {});
+          }, 250);
+        }
+        new MutationObserver(ms => {
+          if (!body.isConnected) return;
+          if (ms.some(m => Array.from(m.addedNodes).some(n => n.nodeType === 1 && !n.classList.contains('party-docs')))) refresh();
+        }).observe(body, { childList: true, subtree: true });
+        refresh();
+      }
+      return { mount: mount, partyDocs: partyDocs };
     })();
     // ---------- END SUPPORTING DOCUMENTS ----------
 

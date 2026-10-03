@@ -161,6 +161,7 @@ node functions/test/ui/compactForms.ui.js     # Item / Vendor / Customer Master:
 node functions/test/ui/listPaging.ui.js       # JV / Production / PO lists: "Load next", server search, drill-down; seeds its own data
 node functions/test/ui/openingBalances.ui.js  # Opening Balances: setup, paste with issues, post, clearing, reverse; seeds its own data
 node functions/test/ui/supportingDocs.ui.js   # Supporting documents: add / open / remove on an entry, paperclip, all 27 screens, Document Storage; seeds its own data
+node functions/test/ui/companyDocs.ui.js      # Company Documents: add with files, vendor's document, renew, remove, categories, view-only, Documents (n) from the masters; seeds its own data
 node functions/test/ui/masterImport.ui.js     # Master Data Import: copy headers, paste, issues by row, fix, import; seeds its own data (Part 2: Users password box)
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen

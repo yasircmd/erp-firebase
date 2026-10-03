@@ -334,6 +334,16 @@ const SCREEN_EDITS = [
   { mod: 'COA', from: "if (result.success) { closeModal(); fetchAndRender(); }",
     to: "if (result.success) { closeModal(); fetchAndRender(); if (result.codeChangedFrom) appAlert('Moved to the new head: code ' + result.codeChangedFrom + ' is now ' + result.accountCode + '.'); }" },
   // (Approval Tracker's time format, 2026-09-29, moved into the screen when it became hand-maintained.)
+  // "Documents (n)" on each row: that party's Company Documents (owner,
+  // 2026-10-03; docs/modules/COMPANY_DOCUMENTS.md, decision 5).
+  { mod: 'VENDORMASTER', from: "window.initModule = function (idToken, writeAllowed) {\n",
+    to: "window.initModule = function (idToken, writeAllowed) {\n    supportingDocs.partyDocs({ list: 'ven-table-body', partyType: 'Vendor', from: { moduleId: 'VENDORMASTER', label: 'Vendor Master' } }); // its Company Documents\n" },
+  { mod: 'VENDORMASTER', from: "const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';",
+    to: "const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40'; row.dataset.partyId = v.VendorID; row.dataset.partyName = v.VendorName;" },
+  { mod: 'CUSTOMERMASTER', from: "window.initModule = function (idToken, writeAllowed) {\n",
+    to: "window.initModule = function (idToken, writeAllowed) {\n    supportingDocs.partyDocs({ list: 'cus-table-body', partyType: 'Customer', from: { moduleId: 'CUSTOMERMASTER', label: 'Customer Master' } }); // its Company Documents\n" },
+  { mod: 'CUSTOMERMASTER', from: "const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';",
+    to: "const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40'; row.dataset.partyId = v.CustomerID; row.dataset.partyName = v.CustomerName;" },
   // Supporting documents at the bottom of the entry, and the paperclip in
   // the list (owner, 2026-10-03; docs/modules/ATTACHMENTS.md).
   { mod: 'PHYSICALCOUNT', from: "window.initModule = function (idToken) {\n",

@@ -1,0 +1,30 @@
+# Company Documents: legal documents, contracts, licences (owner 2026-10-03;
+# docs/modules/COMPANY_DOCUMENTS.md). Order: this functions set, then the
+# "hosting" task (public/index.html: the Home block "Company Documents
+# Expiring or Expired", Documents (n) links, view-only file sections), then
+# the screens (--screens or "screens only"): COMPANYDOCS (new), Company /
+# Vendor / Customer Master. Then, in the app: link a menu node to
+# "Company Documents" and check its permissions in Roles & Permissions
+# (default: Admin and Finance Manager view, Admin changes).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getCompanyDocuments              # the register, categories, rights
+getCompanyDocument               # one record, its versions and history
+saveCompanyDocument              # add / edit / terminate
+renewCompanyDocument             # new record; the old one Superseded
+removeCompanyDocument            # files to Removed; record kept as Removed
+saveCompanyDocumentCategory      # Admin: add, rename, deactivate
+getPartyDocumentCounts           # Documents (n) on Company / Vendor / Customer Master
+getDocumentsExpiringForUser      # the Home task
+# Supporting documents: the COMPANYDOCS source (Legal Documents folders;
+# only users who can change the register add or remove its files).
+getAttachments
+uploadAttachment
+openAttachment
+removeAttachment
+getAttachmentCounts
+# Registries: the module, its permissions, its menu node, its screen.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment

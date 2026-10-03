@@ -59,6 +59,9 @@ async function seed() {
   ]) {
     await check(mod + ': Invoice column, invoicing filter with count and value, invoice number opens the invoice', async () => {
       const page = await open(mod);
+      // The list itself, not just a quiet network: a slow emulator can still
+      // be showing "No ... found." (one cell) after networkidle.
+      await page.waitForFunction(([b, n]) => [...document.querySelectorAll('#' + b + ' tr td:first-child')].some(td => td.textContent.trim() === n), [body, nums[2]], { timeout: 30000 });
       const all = await rows(page, body);
       assert.match(all[nums[0]], invoiceRe, 'invoiced shows the invoice number');
       assert.equal(all[nums[1]], 'On draft invoice');

@@ -82,7 +82,10 @@ const MODULE_REGISTRY = [
   { id: 'OPENINGBALANCES', label: 'Opening Balances', capabilities: ['access'] },
   // New development: docs/modules/ATTACHMENTS.md. Access = Admin of the
   // document storage: sees its link, removes posted entries' documents.
-  { id: 'DOCUMENTSTORAGE', label: 'Document Storage', capabilities: ['access'] }
+  { id: 'DOCUMENTSTORAGE', label: 'Document Storage', capabilities: ['access'] },
+  // New development: docs/modules/COMPANY_DOCUMENTS.md (owner decision 1:
+  // its own permission; access views, write adds, changes and removes).
+  { id: 'COMPANYDOCS', label: 'Company Documents', capabilities: ['access', 'write'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -187,7 +190,8 @@ const DEFAULT_PERMISSIONS = {
   DATARESET:          { access: ['ADMIN'], write: ['ADMIN'] },
   MASTERIMPORT:       { access: ['ADMIN'] },
   OPENINGBALANCES:    { access: ['ADMIN'] },
-  DOCUMENTSTORAGE:    { access: ['ADMIN'] }
+  DOCUMENTSTORAGE:    { access: ['ADMIN'] },
+  COMPANYDOCS:        { access: ['ADMIN', 'FINANCE_MGR'], write: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };
