@@ -223,7 +223,7 @@ Then Payroll, with its own design.
 | 4b | Bonus / commission | **Agreed terms on the record** (amount or %, with history); actual amounts per payroll run |
 | 5 | Pay band | **Warn**, and an Employee Change shows "outside band" to its approvers |
 | 6 | Document expiry | **60 days ahead** (and once expired), Home task for users who can change employee records |
-| 7 | Privacy | **Everyone with Employee Records** sees salaries, bank details and documents (no separate permission); changes are logged |
+| 7 | Privacy | **A separate right, "view pay, bank & documents"** (owner, 2026-10-03, revising the first answer): without it a user sees the employee (name, job, manager, contact) but not salary, bank details, sensitive flexi fields or document files |
 | 8 | Approvers | **Approval Configuration** levels (named people per company / division / ..., thresholds on the monthly increase) |
 | 9–10 | Changes after hiring | **All through an approved Employee Change**: grade, designation, pay and transfers (division, branch, cost center); set directly only when the employee is first created |
 | 11 | UAE details | **Flexi fields** (Emirates ID, visa, labour card, WPS routing); **bank name and IBAN stay standard** (follow-up) |

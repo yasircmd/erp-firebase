@@ -172,6 +172,8 @@ const TREE_SEED_NODES = [
 
   { text: 'HUMAN CAPITAL MANAGEMENT (HCM)', depth: 0 },
   { text: 'Core Human Resources', depth: 1 },
+  { text: 'HR Setup', depth: 2, moduleId: 'HRSETUP' },
+  { text: 'Employees', depth: 2, moduleId: 'EMPLOYEES' },
   { text: 'Personnel Administration (PA - Organizational Assignment, Personal Data)', depth: 2 },
   { text: 'Organizational Management (OM - Organizational Units, Jobs, Positions)', depth: 2 },
   { text: 'Time & Attendance Management (Work Schedules, Time Recording, Absence Tracking)', depth: 2 },
