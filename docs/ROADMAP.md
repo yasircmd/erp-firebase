@@ -394,14 +394,16 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
-- [ ] **Supporting documents on entries** (owner, 2026-10-03;
+- [x] **Supporting documents on entries** (owner, 2026-10-03;
   [ATTACHMENTS.md](modules/ATTACHMENTS.md)). **Live 2026-10-03** (PR #60;
-  Deploy runs #60–#62; menu node linked). **Left:** the owner's Google
-  set-up, then Connect Google Drive and Test connection. **Fix
+  Deploy runs #60–#62; menu node linked). **In use 2026-10-03:** the
+  owner set up Google Cloud, connected Google Drive and tested; the
+  "ERP Documents" folder was moved into a project folder (safe: the ERP
+  works by folder id). **Fix
   2026-10-03** (owner: the section stayed dark in light mode): it used two
   slate classes the light theme doesn't recolour; now mapped ones, and
   `supportingDocsTheme.test.js` checks the section and Document Storage.
-  Hosting only.
+  Hosting only; live 2026-10-03 (PR #61; Deploy run #63).
   - **Decided:** Google Drive (for now the owner's own Drive, connected
     once by Admin; Workspace later); anyone who can open the entry;
     removal by the uploader before posting, Admin after (to a Removed
@@ -413,8 +415,6 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     voucher type / number.
   - **Tests:** `attachments` suite (5), `supportingDocs.ui.js` (9); four
     negative controls caught.
-  - **Still to do (owner):** the Google set-up (ATTACHMENTS.md,
-    "Set-up"), then Connect Google Drive and Test connection.
 - [x] **Stock Ledger: Back from an entry keeps the report's filters** (owner,
   2026-10-03). **Live 2026-10-03** (PR #58; Deploy run #59).
   - **Bug:** opening an entry from a Stock Ledger row and coming Back reset
