@@ -1,0 +1,36 @@
+# HR: Employee Records, step 4: Employee Changes with approvals (owner
+# 2026-10-03; docs/modules/HR_EMPLOYEES.md). Run with --screens (or a
+# "screens only" run after): EMPCHANGE (new) and EMPLOYEES. No Hosting
+# change. Then, in the app: link a menu node to "Employee Changes"; check
+# its row in Roles & Permissions (approvers need its access); set up
+# its approvals in Approval Configuration → "Employee Change (promotion,
+# increment, transfer)" (the amount is the monthly increase).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getEmployeeChanges
+getEmployeeChange
+saveEmployeeChange
+deleteEmployeeChange
+submitEmployeeChange
+decideEmployeeChangeApproval
+getEmployeeChangeStart
+# Employees apply future-dated changes when their date comes.
+getEmployees
+getEmployee
+# Approvals and Home tasks: the new document in their registries
+# (approvalRegistry.js: Approval Configuration, Approval Tracker, delegation).
+getApprovalConfigurations
+saveApprovalConfiguration
+saveApprovalLevels
+getApprovalHistory
+getDelegationCandidates
+delegateApproval
+delegateApprovalsOf
+getPendingApprovalsForUser
+getMyRejectedSubmissions
+getMyDraftsForUser
+# Registries: the module, its permissions, menu node, screen.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment

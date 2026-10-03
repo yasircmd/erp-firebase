@@ -1,6 +1,6 @@
 # HR: Employee Records
 
-Status: **steps 1–3 built and tested** (2026-10-03; see the As built sections); steps 4–5 to come. Payroll is a
+Status: **steps 1–4 built and tested** (2026-10-03; see the As built sections); step 5 to come. Payroll is a
 separate module, designed after this one (docs/modules/HR_PAYROLL.md, to
 come).
 
@@ -439,3 +439,77 @@ then the screens.
 
 **Next:** step 4, Employee Changes (promotion, increment, transfer)
 with approvals.
+
+## As built: step 4, Employee Changes (2026-10-03)
+
+**Employee Changes** (new screen, `screens/EMPCHANGE.html`; also from
+the **Employee Change** button on an employee's record, with Back):
+- **The document:** employee, type, effective date, reason. The form
+  shows each value now against the new one:
+  - Promotion: job and pay;
+  - Increment: pay;
+  - Transfer: organization and pay.
+- **Pay:** the new monthly amounts, with "Raise the basic by n %". The
+  monthly increase shows as an amount and a %. Agreed terms carry over.
+- **Lifecycle:** Draft → Submit → approval → applied. A rejected change
+  is corrected and submitted again, keeping its number (EC-2026-0001,
+  per year).
+- **Approval** (decision 8): Approval Configuration → "Employee Change
+  (promotion, increment, transfer)". The scope comes from the employee's
+  company, division, branch or cost center, and the amount is the
+  monthly increase, so thresholds bring in higher levels for bigger
+  raises. Without an approval set up, a submitted change applies at once.
+- **Approvers** decide on the document (the Approve / Reject buttons
+  show for their level). Home tasks, Rejected-to-resubmit, My Drafts,
+  the Approval Tracker and delegation all include it.
+- **Applied:**
+  - the pay becomes a new compensation version from the effective date
+    (shown as Upcoming until then);
+  - the job and organization change on the employee. If the date is in
+    the future, they change on that date: the first opening of Employees
+    or Employee Changes from then applies them;
+  - each change is written to the employee's history with the change
+    number;
+  - before applying, the change is checked again against the employee
+    as they are then. If that fails, the decision is undone and the
+    approver is told why.
+- **Warnings for the approvers:** a basic outside the new grade's band,
+  and a grade outside the designation's usual range.
+- **Rules** (not asked):
+  - a Promotion needs a higher grade or a new designation;
+  - an Increment changes only pay;
+  - a Transfer changes only organization (with optional pay);
+  - one open change per employee;
+  - pay can't change before its latest version starts;
+  - pay in a change is seen with the sensitive right, or by that
+    change's own approvers;
+  - a line manager still changes directly on the record and with Replace
+    manager, not here.
+- **Rights:** module `EMPCHANGE` (access, draft, post): access is Admin
+  and Finance Manager; draft and post are Admin. Approvers need its
+  access.
+
+**Behind it:**
+- `functions/src/hrChanges.js` (7 callables, `applyDueChanges`).
+- Firestore `employeeChanges`; counter `hrCounters/EC-<year>`.
+- Registered in approvalRegistry (gateable, storage) and homeTasks (My
+  Drafts).
+
+**Tests:**
+- The `hrChanges` suite (5) and `hrChanges.ui.js` (2).
+- Six negative controls caught:
+  - a promotion to a lower grade;
+  - applying before the last level;
+  - a future job change applied at once;
+  - pay shown to non-approvers;
+  - two open changes for one employee;
+  - Approve shown to someone who isn't the approver.
+
+**To go live:**
+1. Deploy "functions set" `hr-employees-4`, with the screens.
+2. In the app:
+   - link a menu node to **Employee Changes**;
+   - check its row in Roles & Permissions;
+   - set up its approvals in Approval Configuration.
+
+**Next:** step 5, the org chart.

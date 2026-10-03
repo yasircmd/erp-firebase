@@ -427,7 +427,14 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     Tests: `hrPay` suite (4), `hrEmployees.ui.js` (7); four negative
     controls caught. To go live: "functions set" `hr-employees-3` with the
     screens.
-  - **Next:** step 4, Employee Changes with approvals.
+  - **Step 4 built and tested 2026-10-03**, not yet live: Employee Changes
+    (promotion, increment, transfer) with approvals through Approval
+    Configuration (amount = monthly increase), applied from the effective
+    date (future job changes on their date), history on the employee.
+    Tests: `hrChanges` suite (5), `hrChanges.ui.js` (2); six negative
+    controls caught. To go live: "functions set" `hr-employees-4` with the
+    screens; link the menu node; set up its approvals.
+  - **Next:** step 5, org chart.
 - [x] **Company Documents: legal documents, contracts, licences** (owner,
   2026-10-03; [COMPANY_DOCUMENTS.md](modules/COMPANY_DOCUMENTS.md)).
   **Design agreed 2026-10-03:** a register of documents per company
