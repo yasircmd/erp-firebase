@@ -1,6 +1,6 @@
 # Company Documents (legal documents, contracts, licences)
 
-Status: **built and tested** (2026-10-03; see [As built](#as-built-2026-10-03)).
+Status: **live** 2026-10-03 (PR #63; Deploy runs #64–#66; see [As built](#as-built-2026-10-03)).
 
 ## The request (owner, 2026-10-03)
 

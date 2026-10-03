@@ -788,3 +788,12 @@ from, and how it was verified. The deploy procedure is in the
   Cloud set-up done (Drive API, consent screen in production with
   `drive.file`, Web OAuth client), Google Drive connected and the test
   passed. The owner moved "ERP Documents" into a project folder in Drive.
+- **2026-10-03, Company Documents (PR #63):** three runs from `4c484b2`
+  (the PR #63 merge), all successful, in the order the PR gives:
+  - Run [#64](https://github.com/yasircmd/erp-firebase/actions/runs/37123937093),
+    12:46–12:51 UTC: functions, set `company-documents`.
+  - Run [#65](https://github.com/yasircmd/erp-firebase/actions/runs/37124259667),
+    12:51–12:52 UTC, and run
+    [#66](https://github.com/yasircmd/erp-firebase/actions/runs/37124352644),
+    12:53–12:54 UTC: Hosting and the screens.
+  - The owner linked the menu node and tested it in the app.
