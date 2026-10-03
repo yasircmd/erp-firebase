@@ -1,0 +1,351 @@
+<div id="emp-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-id-badge text-blue-500"></i> Employees</h2></div>
+    <div class="flex gap-2">
+      <button id="emp-replace-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-people-arrows"></i> Replace manager</button>
+      <button id="emp-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Employee</button>
+    </div>
+  </div>
+
+  <div id="emp-replace" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-sm font-semibold text-slate-200">Replace manager</div>
+    <p class="text-xs text-slate-500 max-w-3xl">Moves every direct report of one manager to another in one step; each employee's history notes it. If the new manager was one of those reports, they report to the outgoing manager's own manager instead.</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Manager being replaced</label><select id="emp-replace-from" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">New manager</label><select id="emp-replace-to" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Reason</label><input id="emp-replace-reason" maxlength="300" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+    <div class="flex gap-2"><button id="emp-replace-go" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Move the reports</button>
+      <button id="emp-replace-cancel" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-6 gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="emp-search" placeholder="Search no., name, mobile, email..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    <select id="emp-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="emp-cc-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Departments</option></select>
+    <select id="emp-des-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Designations</option></select>
+    <select id="emp-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="current">Current (not left)</option><option value="Active">Active</option><option value="On notice">On notice</option><option value="Left">Left</option><option value="">All</option></select>
+  </div>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-3 px-3">No.</th><th class="py-3 px-3">Name</th><th class="py-3 px-3">Designation</th><th class="py-3 px-3">Grade</th><th class="py-3 px-3">Department</th>
+      <th class="py-3 px-3">Line manager</th><th class="py-3 px-3">Joined</th><th class="py-3 px-3">Status</th></tr></thead>
+    <tbody id="emp-table-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+</div>
+
+<div id="emp-entry-view" class="hidden space-y-5">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+    <div class="flex items-center gap-3">
+      <button id="emp-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h3 id="emp-heading" class="text-lg font-bold text-slate-100"></h3>
+      <span id="emp-status-badge"></span>
+    </div>
+    <div class="flex gap-2">
+      <button id="emp-correct-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-amber-400 px-3 py-1.5 rounded border border-slate-700" title="Fix a mistake in the company, designation, grade or organization"><i class="fa-solid fa-pen"></i> Correct</button>
+      <button id="emp-save-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+    </div>
+  </div>
+  <p id="emp-note" class="hidden text-xs text-amber-400"></p>
+  <div id="emp-error" class="hidden text-xs text-red-400"></div>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Personal</div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3" id="emp-sec-personal">
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Full name *</label><input data-k="FullName" maxlength="150" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Name as in passport</label><input data-k="PassportName" maxlength="150" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Gender</label><select data-k="Gender" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">—</option><option>Male</option><option>Female</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Date of birth</label><input data-k="DateOfBirth" type="date" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Nationality</label><input data-k="Nationality" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Marital status</label><select data-k="MaritalStatus" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">—</option><option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Mobile</label><input data-k="Mobile" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Personal email</label><input data-k="PersonalEmail" type="email" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Work email</label><input data-k="WorkEmail" type="email" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Address</label><input data-k="Address" maxlength="300" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Emergency contact</label><input data-k="EmergencyName" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Relation</label><input data-k="EmergencyRelation" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Emergency phone</label><input data-k="EmergencyPhone" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Employment</div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3" id="emp-sec-employment">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company *</label><select data-k="CompanyID" data-job="1" id="emp-form-company" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">Select...</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Date of joining *</label><input data-k="JoinDate" type="date" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Probation end</label><input data-k="ProbationEndDate" type="date" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Employment type</label><select data-k="EmploymentType" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Permanent</option><option>Contract</option><option>Part-time</option><option>Temporary</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select data-k="Status" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Active</option><option>On notice</option><option>Left</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Leaving date</label><input data-k="LeavingDate" type="date" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Leaving reason</label><input data-k="LeavingReason" maxlength="300" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Organization and job</div>
+    <p id="emp-job-note" class="hidden text-xs text-slate-500">Company, designation, grade and organization change through an Employee Change (coming next), or Correct to fix a mistake.</p>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Designation *</label><select data-k="DesignationID" data-job="1" id="emp-form-designation" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Grade *</label><select data-k="GradeID" data-job="1" id="emp-form-grade" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Line manager</label><select data-k="ManagerID" id="emp-form-manager" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">ERP user</label><select data-k="UserUID" id="emp-form-user" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Division</label><select data-k="DivisionID" data-job="1" data-unit="Division" class="emp-f emp-unit w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select data-k="BranchID" data-job="1" data-unit="Branch" class="emp-f emp-unit w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost center (department)</label><select data-k="CostCenterID" data-job="1" data-unit="CostCenter" class="emp-f emp-unit w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Work location</label><input data-k="WorkLocation" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+  </div>
+
+  <div id="emp-sec-pay" class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Pay out</div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Bank</label><input data-k="BankName" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Account no. / IBAN</label><input data-k="IBAN" class="emp-f keep-iso w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono"></div>
+    </div>
+  </div>
+
+  <div id="emp-sec-other" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Other</div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3" id="emp-flexi-other"></div>
+  </div>
+
+  <div id="emp-reports-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div class="text-xs font-semibold text-slate-400 uppercase mb-2">Direct reports</div>
+    <ul id="emp-reports" class="text-sm space-y-1"></ul>
+  </div>
+  <div id="emp-history-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div class="text-xs font-semibold text-slate-400 uppercase mb-2">History</div>
+    <ul id="emp-history" class="text-xs text-slate-400 space-y-1"></ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Employees (owner, 2026-10-03; docs/modules/HR_EMPLOYEES.md, step 1): the
+  // list, the employee record with its extra fields, line manager, direct
+  // reports and history, Replace manager, and Correct for mistakes in the
+  // job / organization fields (HR Setup admins, with a reason).
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const STATUS_CLASS = { Active: 'text-emerald-400', 'On notice': 'text-amber-400', Left: 'text-slate-500' };
+  let employees = [], setup = null, companies = [], units = [], users = [];
+  let rights = { canWrite: false, canSeeSensitive: false, canCorrect: false };
+  let current = null, correcting = false, isDirty = false;
+
+  function options(sel, list, first) {
+    sel.innerHTML = (first != null ? '<option value="">' + escapeHtml(first) + '</option>' : '') + list.map(o => '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>').join('');
+  }
+  const empLabel = e => e.EmployeeNo + ' — ' + e.FullName;
+
+  // ---------- list ----------
+  function loadList(then) {
+    return call('getEmployees', {}).then(r => {
+      employees = r.employees || [];
+      rights = { canWrite: r.canWrite, canSeeSensitive: r.canSeeSensitive, canCorrect: r.canCorrect };
+      $('emp-new-btn').classList.toggle('hidden', !rights.canWrite);
+      $('emp-replace-btn').classList.toggle('hidden', !rights.canWrite);
+      renderList();
+      if (then) then();
+    }, err => appAlert(err.message || 'Unable to load the employees.'));
+  }
+  function renderList() {
+    const q = val('emp-search').trim().toLowerCase();
+    const co = val('emp-company-filter'), cc = val('emp-cc-filter'), des = val('emp-des-filter'), st = val('emp-status-filter');
+    const rows = employees.filter(e => (!co || e.CompanyID === co) && (!cc || e.CostCenterID === cc) && (!des || e.DesignationID === des) &&
+      (st === 'current' ? e.Status !== 'Left' : !st || e.Status === st) &&
+      (!q || [e.EmployeeNo, e.FullName, e.Mobile, e.WorkEmail].join(' ').toLowerCase().indexOf(q) !== -1));
+    const body = $('emp-table-body');
+    body.innerHTML = '';
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-slate-500">No employees found.</td></tr>'; return; }
+    rows.forEach(e => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-800/40 cursor-pointer';
+      tr.dataset.docId = e.EmployeeID;
+      tr.innerHTML = '<td class="py-2.5 px-3 font-mono text-xs">' + escapeHtml(e.EmployeeNo) + '</td>' +
+        '<td class="py-2.5 px-3"><span class="text-slate-200">' + escapeHtml(e.FullName) + '</span>' +
+        (e.Missing ? ' <span class="text-xs text-amber-400" title="Compulsory fields not filled">(' + e.Missing + ' missing)</span>' : '') +
+        (e.Reports ? '<div class="text-xs text-slate-500">' + e.Reports + (e.Reports === 1 ? ' direct report' : ' direct reports') + '</div>' : '') + '</td>' +
+        '<td class="py-2.5 px-3 text-xs">' + escapeHtml(e.DesignationTitle) + '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(e.GradeCode) + '</td>' +
+        '<td class="py-2.5 px-3 text-xs">' + escapeHtml(e.CostCenterName) + '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(e.ManagerName) + '</td>' +
+        '<td class="py-2.5 px-3 text-xs whitespace-nowrap">' + escapeHtml(e.JoinDate) + '</td>' +
+        '<td class="py-2.5 px-3 text-xs ' + (STATUS_CLASS[e.Status] || '') + '">' + escapeHtml(e.Status) + '</td>';
+      tr.addEventListener('click', () => openEmployee(e.EmployeeID));
+      body.appendChild(tr);
+    });
+  }
+
+  // ---------- the record ----------
+  function fillUnits(companyId) {
+    document.querySelectorAll('.emp-unit').forEach(sel => {
+      const keep = sel.value;
+      options(sel, units.filter(u => u.Type === sel.dataset.unit && (!u.CompanyID || u.CompanyID === companyId)).map(u => ({ value: u.UnitID, label: u.Code + ' — ' + u.Name })), '—');
+      if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
+    });
+  }
+  function fillPickers(e) {
+    const active = x => x.Active !== false;
+    options($('emp-form-designation'), setup.designations.filter(d => active(d) || d.DesignationID === e.DesignationID).map(d => ({ value: d.DesignationID, label: d.Title })), 'Select...');
+    options($('emp-form-grade'), setup.grades.filter(g => active(g) || g.GradeID === e.GradeID).map(g => ({ value: g.GradeID, label: g.Code + (g.Name ? ' — ' + g.Name : '') })), 'Select...');
+    options($('emp-form-manager'), employees.filter(x => x.EmployeeID !== e.EmployeeID && (x.Status !== 'Left' || x.EmployeeID === e.ManagerID)).map(x => ({ value: x.EmployeeID, label: empLabel(x) })), 'None yet');
+    options($('emp-form-user'), users.map(u => ({ value: u.UserID, label: u.FullName || u.Username })), '—');
+  }
+  function flexiInput(f) {
+    const type = f.Type === 'date' ? 'date' : f.Type === 'amount' ? 'number' : 'text';
+    return '<div><label class="block text-xs font-medium text-slate-300 mb-1">' + escapeHtml(f.Label) + (f.Required ? ' *' : '') + '</label>' +
+      '<input data-cf="' + escapeHtml(f.FieldID) + '" type="' + type + '"' + (type === 'number' ? ' step="0.01"' : '') + ' class="emp-cf w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>';
+  }
+  function renderFlexi() {
+    document.querySelectorAll('.emp-cf-wrap').forEach(n => n.remove());
+    const fields = setup.fields.filter(f => f.Active && (!f.Sensitive || rights.canSeeSensitive));
+    ['Personal', 'Employment'].forEach(sec => {
+      const host = $(sec === 'Personal' ? 'emp-sec-personal' : 'emp-sec-employment');
+      fields.filter(f => f.Section === sec).forEach(f => { const w = document.createElement('div'); w.className = 'emp-cf-wrap contents'; w.innerHTML = flexiInput(f); host.appendChild(w); });
+    });
+    const other = fields.filter(f => f.Section !== 'Personal' && f.Section !== 'Employment');
+    $('emp-flexi-other').innerHTML = other.map(flexiInput).join('');
+    $('emp-sec-other').classList.toggle('hidden', !other.length);
+  }
+  function fillForm(e) {
+    fillPickers(e);
+    $('emp-form-company').value = e.CompanyID || '';
+    fillUnits(e.CompanyID || '');
+    document.querySelectorAll('.emp-f').forEach(el => { el.value = e[el.dataset.k] == null ? (el.tagName === 'SELECT' && el.options.length ? el.options[0].value : '') : e[el.dataset.k]; });
+    document.querySelectorAll('.emp-cf').forEach(el => { const v = (e.Custom || {})[el.dataset.cf]; el.value = v == null ? '' : v; });
+  }
+  function setEditable() {
+    const existing = Boolean(current);
+    document.querySelectorAll('.emp-f, .emp-cf').forEach(el => {
+      el.disabled = !rights.canWrite || (existing && el.dataset.job === '1' && !correcting);
+    });
+    $('emp-save-btn').classList.toggle('hidden', !rights.canWrite);
+    $('emp-save-btn').innerHTML = correcting ? '<i class="fa-solid fa-floppy-disk"></i> Save correction' : '<i class="fa-solid fa-floppy-disk"></i> Save';
+    $('emp-correct-btn').classList.toggle('hidden', !(existing && rights.canCorrect && !correcting));
+    $('emp-job-note').classList.toggle('hidden', !existing);
+    $('emp-sec-pay').classList.toggle('hidden', !rights.canSeeSensitive);
+  }
+  function setError(msg) { $('emp-error').textContent = msg || ''; $('emp-error').classList.toggle('hidden', !msg); }
+  function showForm() { $('emp-list-view').classList.add('hidden'); $('emp-entry-view').classList.remove('hidden'); window.scrollTo(0, 0); }
+  function showList() {
+    $('emp-entry-view').classList.add('hidden'); $('emp-list-view').classList.remove('hidden');
+    current = null; correcting = false; isDirty = false;
+    loadList();
+  }
+  function confirmLeave(go) {
+    if (!isDirty) return go();
+    appConfirm('Leave without saving your changes?').then(ok => { if (ok) go(); });
+  }
+
+  function newEmployee() {
+    current = null; correcting = false; isDirty = false; setError('');
+    renderFlexi();
+    fillForm({ CompanyID: val('emp-company-filter') || (companies.length === 1 ? companies[0].CompanyID : ''), Status: 'Active', EmploymentType: 'Permanent' });
+    $('emp-heading').textContent = 'New employee';
+    $('emp-status-badge').innerHTML = '';
+    $('emp-note').classList.add('hidden');
+    ['emp-reports-wrap', 'emp-history-wrap'].forEach(id => $(id).classList.add('hidden'));
+    setEditable();
+    showForm();
+  }
+  function openEmployee(id) {
+    return call('getEmployee', { employeeId: id }).then(r => {
+      const e = r.employee;
+      current = e; correcting = false; isDirty = false; setError('');
+      rights = { canWrite: r.canWrite, canSeeSensitive: r.canSeeSensitive, canCorrect: r.canCorrect };
+      renderFlexi();
+      fillForm(e);
+      $('emp-heading').textContent = e.EmployeeNo + ' — ' + e.FullName;
+      $('emp-status-badge').innerHTML = '<span class="text-xs ' + (STATUS_CLASS[e.Status] || '') + '">' + escapeHtml(e.Status) + '</span>';
+      $('emp-note').textContent = r.missing.length ? 'Compulsory fields not filled: ' + r.missing.join(', ') + '.' : '';
+      $('emp-note').classList.toggle('hidden', !r.missing.length);
+      $('emp-reports').innerHTML = r.reports.map(x => '<li><button type="button" class="emp-goto text-blue-400 hover:text-blue-300 underline" data-id="' + escapeHtml(x.EmployeeID) + '">' +
+        escapeHtml(x.EmployeeNo + ' — ' + x.FullName) + '</button> <span class="text-xs text-slate-500">' + escapeHtml(x.DesignationTitle) + '</span></li>').join('');
+      $('emp-reports-wrap').classList.toggle('hidden', !r.reports.length);
+      $('emp-history').innerHTML = r.history.map(h => '<li><span class="text-slate-300">' + escapeHtml(isoLocalDateTime(h.At)) + ' · ' + escapeHtml(h.ByName) + ' · ' + escapeHtml(h.Action) + '</span>' +
+        (h.Reason ? ' — ' + escapeHtml(h.Reason) : '') +
+        (h.Changes.length ? '<ul class="ml-4">' + h.Changes.map(c => '<li>' + escapeHtml(c.Label) + ': ' + escapeHtml(c.From === '' ? '—' : c.From) + ' → ' + escapeHtml(c.To === '' ? '—' : c.To) + '</li>').join('') + '</ul>' : '') + '</li>').join('');
+      $('emp-history-wrap').classList.toggle('hidden', !r.history.length);
+      setEditable();
+      showForm();
+    }, err => appAlert(err.message || 'Unable to open the employee.'));
+  }
+  function collect() {
+    const out = { EmployeeID: current ? current.EmployeeID : '', Custom: {} };
+    document.querySelectorAll('.emp-f').forEach(el => { out[el.dataset.k] = el.value; });
+    document.querySelectorAll('.emp-cf').forEach(el => { out.Custom[el.dataset.cf] = el.value; });
+    return out;
+  }
+  async function save() {
+    setError('');
+    let reason;
+    if (correcting) {
+      reason = await appPrompt('Correct the company, designation, grade or organization: what was wrong?', '');
+      if (reason == null) return;
+    }
+    const btn = $('emp-save-btn');
+    btn.disabled = true;
+    call('saveEmployee', { employee: collect(), correction: reason }).then(r => {
+      btn.disabled = false; isDirty = false;
+      if (r.warnings && r.warnings.length) appAlert(r.warnings.join('\n'));
+      loadList(() => openEmployee(r.employeeId));
+    }, err => { btn.disabled = false; setError(err.message || 'Unable to save.'); });
+  }
+
+  // ---------- Replace manager ----------
+  function openReplace() {
+    const managers = employees.filter(e => e.Reports > 0);
+    options($('emp-replace-from'), managers.map(e => ({ value: e.EmployeeID, label: empLabel(e) + ' (' + e.Reports + ')' })), 'Select...');
+    options($('emp-replace-to'), employees.filter(e => e.Status !== 'Left').map(e => ({ value: e.EmployeeID, label: empLabel(e) })), 'Select...');
+    $('emp-replace-reason').value = '';
+    $('emp-replace').classList.remove('hidden');
+  }
+  async function doReplace() {
+    const from = employees.find(e => e.EmployeeID === val('emp-replace-from'));
+    const to = employees.find(e => e.EmployeeID === val('emp-replace-to'));
+    if (!from || !to) return appAlert('Choose both managers.');
+    if (!(await appConfirm('Move all ' + from.Reports + ' direct reports of ' + from.FullName + ' to ' + to.FullName + '?'))) return;
+    call('replaceManager', { fromEmployeeId: from.EmployeeID, toEmployeeId: to.EmployeeID, reason: val('emp-replace-reason') }).then(r => {
+      $('emp-replace').classList.add('hidden');
+      appAlert(r.moved + (r.moved === 1 ? ' employee now reports' : ' employees now report') + ' to ' + to.FullName + '.');
+      loadList();
+    }, err => appAlert(err.message || 'Unable to replace the manager.'));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-id-badge"></i> Employees';
+    $('emp-search').addEventListener('input', renderList);
+    ['emp-company-filter', 'emp-cc-filter', 'emp-des-filter', 'emp-status-filter'].forEach(id => $(id).addEventListener('change', renderList));
+    $('emp-new-btn').addEventListener('click', newEmployee);
+    $('emp-back-btn').addEventListener('click', () => confirmLeave(showList));
+    $('emp-save-btn').addEventListener('click', save);
+    $('emp-correct-btn').addEventListener('click', () => { correcting = true; setEditable(); });
+    $('emp-form-company').addEventListener('change', () => fillUnits(val('emp-form-company')));
+    $('emp-reports').addEventListener('click', e => { const b = e.target.closest('.emp-goto'); if (b) confirmLeave(() => openEmployee(b.dataset.id)); });
+    ['input', 'change'].forEach(t => $('emp-entry-view').addEventListener(t, () => { isDirty = true; }));
+    $('emp-replace-btn').addEventListener('click', openReplace);
+    $('emp-replace-cancel').addEventListener('click', () => $('emp-replace').classList.add('hidden'));
+    $('emp-replace-go').addEventListener('click', doReplace);
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    Promise.all([
+      call('getActiveCompanies', {}).then(r => { companies = r || []; }),
+      call('getHrSetup', {}).then(r => { setup = r; }),
+      call('getActiveOrgUnits', {}).then(r => { units = r || []; }),
+      call('getActiveUsersForPicker', {}).then(r => { users = r || []; }, () => { users = []; })
+    ]).then(() => {
+      const coList = companies.map(c => ({ value: c.CompanyID, label: (c.CompanyRefCode ? c.CompanyRefCode + ' - ' : '') + c.LegalName }));
+      options($('emp-company-filter'), coList, 'All Companies');
+      options($('emp-form-company'), coList, 'Select...');
+      options($('emp-cc-filter'), units.filter(u => u.Type === 'CostCenter').map(u => ({ value: u.UnitID, label: u.Code + ' — ' + u.Name })), 'All Departments');
+      options($('emp-des-filter'), setup.designations.map(d => ({ value: d.DesignationID, label: d.Title })), 'All Designations');
+      return loadList(() => { if (pending && pending.OpenEntryId) openEmployee(pending.OpenEntryId); });
+    }, err => appAlert(err.message || 'Unable to load the employees.'));
+  };
+})();
+</script>

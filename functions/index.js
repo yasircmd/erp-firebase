@@ -190,3 +190,8 @@ const attachments = require('./src/attachments');
 const companyDocuments = require('./src/companyDocuments');
 ['getCompanyDocuments', 'getCompanyDocument', 'saveCompanyDocument', 'renewCompanyDocument', 'removeCompanyDocument',
   'saveCompanyDocumentCategory', 'getPartyDocumentCounts', 'getDocumentsExpiringForUser'].forEach(n => { exports[n] = companyDocuments[n]; });
+// HR: Employee Records (docs/modules/HR_EMPLOYEES.md).
+const hrSetup = require('./src/hrSetup');
+['getHrSetup', 'saveHrGrade', 'saveHrDesignation', 'saveHrField', 'saveHrDocumentType'].forEach(n => { exports[n] = hrSetup[n]; });
+const hrEmployees = require('./src/hrEmployees');
+['getEmployees', 'getEmployee', 'saveEmployee', 'replaceManager'].forEach(n => { exports[n] = hrEmployees[n]; });

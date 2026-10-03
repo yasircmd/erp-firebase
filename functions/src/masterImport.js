@@ -12,7 +12,8 @@
 // Sub-Category, Items, Vendors, Customers, Currencies. Part 2: Customer
 // Classifications, Sales Types, Requisition Categories, Fixed Asset Classes
 // and Master, Bill of Materials, Inventory Valuation List, Price Lists and
-// Users. A BOM (its components) and a price list (its lines) take several
+// Users. Employees (docs/modules/HR_EMPLOYEES.md): its columns include the
+// extra fields HR Setup defines. A BOM (its components) and a price list (its lines) take several
 // rows, one per component or line, with the BOM's or list's own columns
 // repeated.
 const { HttpsError } = require('firebase-functions/v2/https');
@@ -26,6 +27,8 @@ const { run } = require('./legacy/runtime');
 const { saveFaClassFor } = require('./fixedAssetsConfig');
 const { saveFaAssetFor } = require('./fixedAssetsMaster');
 const { validateValuation } = require('./faDepreciation');
+const { saveEmployeeFor } = require('./hrEmployees');
+const { loadSetup: loadHrSetup } = require('./hrSetup');
 
 const onCallOptions = { region: 'us-central1', timeoutSeconds: 540, memory: '512MiB' };
 const MAX_ROWS = 2000;
@@ -392,6 +395,43 @@ const MASTERS = {
     sample: ['01', 'Retail 2026', 'AED', 'Local', 'FG-000001', '199.00', '01/01/2026'],
     // Saved by saveUnit below: the list (unless it exists), then its lines.
   },
+  EMPLOYEE: {
+    label: 'Employees', module: 'EMPLOYEES', nameKey: 'FullName', noNameDup: true, store: { firestore: 'employees', history: 'employeeHistory' },
+    flexi: true, // + a column per active extra field from HR Setup
+    saveFn: async (ctx, user, data) => { const res = await saveEmployeeFor(user, data, { source: 'Import' }); return { id: res.employeeId, code: res.employeeNo }; },
+    note: 'The employee number is given by the system (EMP-0001, ...). List managers above the people who report to them (or leave Line Manager empty and set it later). Bank columns need the Employees "sensitive" right.',
+    columns: [
+      C('Full Name', 'FullName', { req: true }),
+      Object.assign({}, companyCol, { req: true, note: 'Ref Code or legal name.' }),
+      C('Date of Joining', 'JoinDate', { req: true, type: 'date' }),
+      C('Designation', 'DesignationID', { req: true, type: 'ref', ref: 'designation', note: 'As in HR Setup.' }),
+      C('Grade', 'GradeID', { req: true, type: 'ref', ref: 'grade', note: 'Grade code, as in HR Setup.' }),
+      C('Line Manager', 'ManagerID', { type: 'ref', ref: 'employee', self: true, note: 'Employee no. or full name of an existing employee, or of one above in this paste.' }),
+      C('Division', 'DivisionID', { type: 'ref', ref: 'division' }),
+      C('Branch', 'BranchID', { type: 'ref', ref: 'branch' }),
+      C('Cost Center (Department)', 'CostCenterID', { type: 'ref', ref: 'costCenter' }),
+      C('Work Location', 'WorkLocation'),
+      C('Employment Type', 'EmploymentType', { type: 'enum', values: labelled(['Permanent', 'Contract', 'Part-time', 'Temporary']), note: 'Empty: Permanent.' }),
+      C('Probation End', 'ProbationEndDate', { type: 'date' }),
+      C('Name as in Passport', 'PassportName'),
+      C('Gender', 'Gender', { type: 'enum', values: labelled(['Male', 'Female']) }),
+      C('Date of Birth', 'DateOfBirth', { type: 'date' }),
+      C('Nationality', 'Nationality'),
+      C('Marital Status', 'MaritalStatus', { type: 'enum', values: labelled(['Single', 'Married', 'Divorced', 'Widowed']) }),
+      C('Mobile', 'Mobile'), C('Personal Email', 'PersonalEmail', { type: 'email' }), C('Work Email', 'WorkEmail', { type: 'email' }),
+      C('Address', 'Address'),
+      C('Emergency Contact', 'EmergencyName'), C('Emergency Relation', 'EmergencyRelation'), C('Emergency Phone', 'EmergencyPhone'),
+      C('Bank', 'BankName', { sensitive: true }), C('Account No. / IBAN', 'IBAN', { sensitive: true })
+    ],
+    sample: ['Ali Hassan', '01', '01/03/2024', 'Accountant', 'G5', '', '', '', 'CC1', 'Dubai office', 'Permanent', '31/08/2024', 'ALI HASSAN', 'Male',
+      '15/06/1990', 'India', 'Married', '+971 50 000 0000', '', 'ali.hassan@example.com', '', '', '', '', '', ''],
+    toData: r => {
+      const out = { Custom: {} };
+      Object.keys(r).forEach(k => { if (k.startsWith('cf_')) { if (r[k] !== '') out.Custom[k.slice(3)] = r[k]; } else out[k] = r[k]; });
+      out.Status = 'Active';
+      return out;
+    }
+  },
   USER: {
     label: 'Users', module: 'USERMGMT', save: 'saveFirebaseUser', idKey: 'userId', path: 'users', nameKey: 'username', authUser: true,
     note: 'Each user signs in with their email and the temporary password typed on this screen, then changes it (user menu → Change Password).',
@@ -408,7 +448,21 @@ const MASTERS = {
   }
 };
 const ORDER = ['COMPANY', 'ORGUNIT', 'ACCOUNT', 'CURRENCY', 'UOM', 'SUBCATEGORY', 'ITEM', 'VENDOR', 'CLASSIFICATION', 'CUSTOMER',
-  'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER'];
+  'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER', 'EMPLOYEE'];
+
+// A master with its columns for now: Employees adds a column per active
+// extra field from HR Setup (key cf_<field id>), compulsory ones required.
+async function masterFor(k) {
+  const m = MASTERS[k];
+  if (!m || !m.flexi) return m;
+  const fields = (await loadHrSetup()).fields.filter(f => f.Active);
+  const type = f => (f.Type === 'date' ? 'date' : f.Type === 'amount' ? 'number' : 'text');
+  return Object.assign({}, m, {
+    columns: m.columns.concat(fields.map(f => C(f.Label, 'cf_' + f.FieldID, { req: f.Required, type: type(f), sensitive: f.Sensitive,
+      note: 'Extra field (' + f.Type + (f.Required ? ', compulsory' : '') + ').' }))),
+    sample: (m.sample || []).concat(fields.map(() => ''))
+  });
+}
 
 // ---------- references ----------
 
@@ -423,6 +477,9 @@ async function loadExisting() {
   data.faClasses = await fsDocs('faClasses');
   data.faAccountDetermination = await fsDocs('faAccountDetermination');
   data.faAssets = await fsDocs('faAssets');
+  data.hrGrades = await fsDocs('hrGrades');
+  data.hrDesignations = await fsDocs('hrDesignations');
+  data.employees = await fsDocs('employees');
   const list = (obj, code, name) => Object.keys(obj).map(id => ({ id, code: code === '#id' ? id : (obj[id][code] || ''), name: obj[id][name] || '', rec: obj[id] }));
   const units = list(data.orgUnits, 'Code', 'Name');
   return {
@@ -443,7 +500,10 @@ async function loadExisting() {
     currency: list(data.currencies, 'Code', 'Name'),
     role: list(data.roles, '#id', 'Name'),
     faClass: list(data.faClasses, 'Code', 'Name'),
-    faDetermination: list(data.faAccountDetermination, 'Code', 'Name')
+    faDetermination: list(data.faAccountDetermination, 'Code', 'Name'),
+    grade: list(data.hrGrades, 'Code', 'Name').filter(x => x.rec.Active !== false),
+    designation: list(data.hrDesignations, '', 'Title').filter(x => x.rec.Active !== false),
+    employee: list(data.employees, 'EmployeeNo', 'FullName')
   };
 }
 
@@ -458,13 +518,14 @@ const SELF_KIND = { COMPANY: 'company', ORGUNIT: 'orgUnit', ACCOUNT: 'account' }
 // header row).
 async function checkPaste(user, masterKey, text, opts) {
   opts = opts || {};
-  const m = MASTERS[masterKey];
+  const m = await masterFor(masterKey);
   if (!m) throw new HttpsError('invalid-argument', 'Choose what to import.');
   const issues = [];
   const add = (row, column, message) => issues.push({ row, column: column || '', message });
   if (!(await moduleHasCapability(m.module, m.capability || 'write', user.profile.role))) {
     add(0, '', 'You do not have permission to change ' + m.label + ' (the import needs the same right as entering it by hand).');
   }
+  const seesSensitive = !m.columns.some(c => c.sensitive) || await moduleHasCapability(m.module, 'sensitive', user.profile.role);
   if (m.authUser && String(opts.tempPassword || '').length < 6) {
     add(0, 'Temporary password', 'Type a temporary password of at least 6 characters for these users.');
   }
@@ -563,6 +624,7 @@ async function checkPaste(user, masterKey, text, opts) {
       add(rowNo, 'Company', 'You do not have access to that company.');
     }
     masterRules(masterKey, r, ex, resolved, (h, msg) => add(rowNo, h, msg));
+    if (!seesSensitive) m.columns.filter(c => c.sensitive && r[c.key] !== '' && r[c.key] != null).forEach(c => add(rowNo, c.h, 'You do not have the right to enter ' + c.h + ' (Employees: sensitive).'));
 
     // The same name twice (in the paste, or already existing) is an issue,
     // so a list pasted twice can't create everything twice.
@@ -833,6 +895,18 @@ function masterRules(k, r, ex, resolvedAbove, issue) {
       }
       break;
     }
+    case 'EMPLOYEE': {
+      // The same person twice: same name and date of joining.
+      if (r.FullName && r.JoinDate) {
+        const twin = Object.values(ex.raw.employees).find(e => norm(e.FullName) === norm(r.FullName) && e.JoinDate === r.JoinDate);
+        const above = resolvedAbove.findIndex(o => o && norm(o.data.FullName) === norm(r.FullName) && o.data.JoinDate === r.JoinDate);
+        if (twin) issue('Full Name', '"' + r.FullName + '" joining ' + r.JoinDate + ' already exists (' + twin.EmployeeNo + ').');
+        else if (above >= 0) issue('Full Name', 'Same name and date of joining as row ' + (above + 1) + '.');
+      }
+      const mgr = typeof r.ManagerID === 'string' && r.ManagerID ? ex.raw.employees[r.ManagerID] : null;
+      if (mgr && mgr.Status === 'Left') issue('Line Manager', mgr.FullName + ' has left.');
+      break;
+    }
     case 'USER': {
       const email = norm(r.email);
       if (email) {
@@ -851,7 +925,7 @@ function masterRules(k, r, ex, resolvedAbove, issue) {
 // ---------- importing ----------
 
 // Counters a save may advance (item, vendor, customer codes; asset numbers).
-const COUNTER_ROOTS = ['itemCounters', 'vendorCounters', 'customerCounters', 'fa/counters/asset'];
+const COUNTER_ROOTS = ['itemCounters', 'vendorCounters', 'customerCounters', 'fa/counters/asset', 'hrCounters'];
 const codeOfResult = res => res.itemCode || res.vendorCode || res.customerCode || '';
 const counterOfCode = code => {
   const fa = String(code).match(/^FA-(\w+)-\d+$/);
@@ -859,6 +933,7 @@ const counterOfCode = code => {
   const prefix = String(code).split('-')[0];
   if (!prefix) return '';
   if (prefix === 'VEN') return 'vendorCounters/VEN';
+  if (prefix === 'EMP') return 'hrCounters/EMP';
   if (prefix === 'CL' || prefix === 'CE') return 'customerCounters/' + prefix;
   return 'itemCounters/' + prefix;
 };
@@ -908,7 +983,7 @@ async function saveUnit(m, ctx, user, rows, ex, opts) {
   let id, code;
   if (m.saveFn) ({ id, code } = await m.saveFn(ctx, user, data));
   else { const res = await legacy(m.save, data, m.idKey); id = res[m.idKey]; code = codeOfResult(res); }
-  const undo = m.store && m.store.firestore ? { firestore: m.store.firestore, id } : { rtdb: m.path + '/' + id };
+  const undo = m.store && m.store.firestore ? { firestore: m.store.firestore, id, history: m.store.history } : { rtdb: m.path + '/' + id };
   if (m.authUser) undo.authUid = id;
   return [{ row: row1, id, code: code || '', undo }];
 }
@@ -916,6 +991,7 @@ async function saveUnit(m, ctx, user, rows, ex, opts) {
 async function undoOne(u) {
   if (u.rtdb) await rtdb.ref(u.rtdb).remove();
   if (u.firestore) await firestore.collection(u.firestore).doc(u.id).delete();
+  if (u.history) for (const d of (await firestore.collection(u.history).where('EmployeeID', '==', u.id).get()).docs) await d.ref.delete();
   if (u.authUid) { try { await admin.auth().deleteUser(u.authUid); } catch (e) { /* already gone */ } }
 }
 
@@ -924,7 +1000,7 @@ async function undoOne(u) {
 // back (unless someone else used them meanwhile), then reports the row.
 async function importRows(request, user, masterKey, resolved, opts) {
   opts = opts || {};
-  const m = MASTERS[masterKey];
+  const m = await masterFor(masterKey);
   const ex = await loadExisting();
   const snapshot = {};
   for (const c of COUNTER_ROOTS) snapshot[c] = (await rtdb.ref(c).get()).val() || {};
@@ -972,8 +1048,9 @@ async function requireImportAccess(user) {
 exports.getMasterImportSpecs = onCallWithMessages({ region: 'us-central1' }, async (request) => {
   const user = await requireUser(request);
   await requireImportAccess(user);
-  return ORDER.map(k => {
-    const m = MASTERS[k];
+  const masters = await Promise.all(ORDER.map(masterFor));
+  return ORDER.map((k, i) => {
+    const m = masters[i];
     return {
       key: k, label: m.label, note: m.note || '', sample: m.sample || [], needsPassword: Boolean(m.authUser),
       columns: m.columns.map(c => ({ header: c.h, required: Boolean(c.req), note: c.note || '',

@@ -85,7 +85,12 @@ const MODULE_REGISTRY = [
   { id: 'DOCUMENTSTORAGE', label: 'Document Storage', capabilities: ['access'] },
   // New development: docs/modules/COMPANY_DOCUMENTS.md (owner decision 1:
   // its own permission; access views, write adds, changes and removes).
-  { id: 'COMPANYDOCS', label: 'Company Documents', capabilities: ['access', 'write'] }
+  { id: 'COMPANYDOCS', label: 'Company Documents', capabilities: ['access', 'write'] },
+  // New development: docs/modules/HR_EMPLOYEES.md. EMPLOYEES "sensitive" =
+  // sees pay, bank details, sensitive extra fields and documents (owner
+  // decision 7, revised).
+  { id: 'HRSETUP', label: 'HR Setup', capabilities: ['access', 'write'] },
+  { id: 'EMPLOYEES', label: 'Employees', capabilities: ['access', 'write', 'sensitive'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -191,7 +196,9 @@ const DEFAULT_PERMISSIONS = {
   MASTERIMPORT:       { access: ['ADMIN'] },
   OPENINGBALANCES:    { access: ['ADMIN'] },
   DOCUMENTSTORAGE:    { access: ['ADMIN'] },
-  COMPANYDOCS:        { access: ['ADMIN', 'FINANCE_MGR'], write: ['ADMIN'] }
+  COMPANYDOCS:        { access: ['ADMIN', 'FINANCE_MGR'], write: ['ADMIN'] },
+  HRSETUP:            { access: ['ADMIN'], write: ['ADMIN'] },
+  EMPLOYEES:          { access: ['ADMIN', 'FINANCE_MGR'], write: ['ADMIN'], sensitive: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

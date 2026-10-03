@@ -394,6 +394,28 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [ ] **HR: Employee Records** (owner, 2026-10-03;
+  [HR_EMPLOYEES.md](modules/HR_EMPLOYEES.md)). **Design agreed
+  2026-10-03:** group employee numbers, group grades with company pay
+  bands, cost center as department, flexi fields, employee documents with
+  a 60-day expiry reminder, Pay Elements built now (first piece of
+  Payroll), effective-dated compensation, line manager with Replace
+  manager, Employee Changes (promotion, increment, transfer) through
+  Approval Configuration with full history, and an Employees import. Five
+  build steps; Payroll designed afterwards.
+  - **Owner, revised:** a separate Employees "sensitive" right for pay,
+    bank details and documents.
+  - **Step 1 built and tested 2026-10-03**, not yet live:
+    - HR Setup (grades with company pay bands, designations, extra fields,
+      document types);
+    - Employees (record, extra fields, line manager, Replace manager,
+      Correct, history);
+    - an Employees sheet in Master Data Import.
+
+    Tests: `hrEmployees` suite (6), `hrEmployees.ui.js` (5); five negative
+    controls caught. To go live: Deploy "functions set" `hr-employees-1`
+    with the screens; link the two menu nodes.
+  - **Next:** step 2, employee documents.
 - [x] **Company Documents: legal documents, contracts, licences** (owner,
   2026-10-03; [COMPANY_DOCUMENTS.md](modules/COMPANY_DOCUMENTS.md)).
   **Design agreed 2026-10-03:** a register of documents per company

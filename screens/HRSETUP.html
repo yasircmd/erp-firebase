@@ -1,0 +1,226 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-sliders text-blue-500"></i> HR Setup</h2></div>
+  </div>
+  <div class="flex gap-1 border-b border-slate-700" id="hs-tabs">
+    <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="grades">Grades</button>
+    <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="designations">Designations</button>
+    <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="fields">Employee Fields</button>
+    <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="doctypes">Document Types</button>
+  </div>
+  <p id="hs-readonly" class="hidden text-xs text-slate-400">You can view HR Setup but not change it.</p>
+
+  <!-- GRADES -->
+  <div id="hs-pane-grades" class="space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">One grade ladder for the group; the level orders them (higher is more senior). Each company sets its own pay band for a grade: the minimum, midpoint and maximum monthly basic. A basic outside the band is allowed with a warning.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Code</th><th class="py-2 px-3">Name</th><th class="py-2 px-3 text-right">Level</th><th class="py-2 px-3">Pay bands (min / mid / max)</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="hs-grades-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div id="hs-grade-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="text-sm font-semibold text-slate-200" id="hs-grade-heading">New grade</div>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Code *</label><input id="hs-grade-code" maxlength="20" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Name</label><input id="hs-grade-name" maxlength="80" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Level * <span class="text-slate-500">(1–99)</span></label><input id="hs-grade-level" type="number" min="1" max="99" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="flex items-end"><label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-grade-active" type="checkbox" checked> In use</label></div>
+      </div>
+      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-3">Company</th><th class="py-1 pr-3">Minimum</th><th class="py-1 pr-3">Midpoint</th><th class="py-1 pr-3">Maximum</th></tr></thead>
+        <tbody id="hs-band-body"></tbody></table>
+      <div class="flex gap-2"><button id="hs-grade-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="hs-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+    <button id="hs-grade-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New grade</button>
+  </div>
+
+  <!-- DESIGNATIONS -->
+  <div id="hs-pane-designations" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">Job titles, with the grades they normally carry. An employee outside that range is allowed with a warning.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Designation</th><th class="py-2 px-3">Grades</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="hs-des-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div id="hs-des-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Designation *</label><input id="hs-des-title" maxlength="100" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">From grade</label><select id="hs-des-from" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">To grade</label><select id="hs-des-to" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-des-active" type="checkbox" checked> In use</label></div>
+      </div>
+      <div class="flex gap-2"><button id="hs-des-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="hs-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+    <button id="hs-des-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New designation</button>
+  </div>
+
+  <!-- FIELDS -->
+  <div id="hs-pane-fields" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">Extra columns on the employee record: a date, text or amount, compulsory or optional, in a section of the form. A compulsory field added later shows as missing on existing employees until filled. Sensitive fields are seen only with the Employees "sensitive" right (like pay and bank details).</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Field</th><th class="py-2 px-3">Type</th><th class="py-2 px-3">Section</th><th class="py-2 px-3">Compulsory</th><th class="py-2 px-3">Sensitive</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="hs-fields-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div id="hs-field-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Field name *</label><input id="hs-field-label" maxlength="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Type *</label><select id="hs-field-type" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="text">Text</option><option value="date">Date</option><option value="amount">Amount</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Section</label><select id="hs-field-section" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Personal</option><option>Employment</option><option>Other</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Order</label><input id="hs-field-sort" type="number" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="flex items-end gap-4 md:col-span-3">
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-field-required" type="checkbox"> Compulsory</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-field-sensitive" type="checkbox"> Sensitive</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-field-active" type="checkbox" checked> In use</label>
+        </div>
+      </div>
+      <div class="flex gap-2"><button id="hs-field-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="hs-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+    <button id="hs-field-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New field</button>
+  </div>
+
+  <!-- DOCUMENT TYPES -->
+  <div id="hs-pane-doctypes" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">The kinds of employee documents (step 2 of Employee Records): whether each has a number and an expiry date (reminded 60 days ahead).</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Document type</th><th class="py-2 px-3">Number</th><th class="py-2 px-3">Expiry</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="hs-dt-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div id="hs-dt-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Document type *</label><input id="hs-dt-name" maxlength="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="flex items-end gap-4 md:col-span-2">
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-dt-number" type="checkbox"> Has a number</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-dt-expiry" type="checkbox"> Has an expiry</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-dt-active" type="checkbox" checked> In use</label>
+        </div>
+      </div>
+      <div class="flex gap-2"><button id="hs-dt-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="hs-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+    <button id="hs-dt-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New document type</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  // HR Setup (owner, 2026-10-03; docs/modules/HR_EMPLOYEES.md): grades
+  // with each company's pay band, designations, the extra employee fields
+  // and the employee document types.
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const fmt = n => n == null || n === '' ? '' : Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const statusHtml = active => active === false ? '<span class="text-slate-500">Not in use</span>' : '<span class="text-emerald-400">In use</span>';
+  let setup = null, companies = [], canWrite = false, editing = null;
+
+  function showTab(tab) {
+    document.querySelectorAll('.hs-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
+    ['grades', 'designations', 'fields', 'doctypes'].forEach(t => $('hs-pane-' + t).classList.toggle('hidden', t !== tab));
+  }
+  function load() {
+    return call('getHrSetup', {}).then(s => {
+      setup = s; canWrite = Boolean(s.canWrite);
+      document.querySelectorAll('.hs-write').forEach(b => b.classList.toggle('hidden', !canWrite));
+      $('hs-readonly').classList.toggle('hidden', canWrite);
+      render();
+    }, err => appAlert(err.message || 'Unable to load HR Setup.'));
+  }
+  const gradeCode = id => (setup.grades.find(g => g.GradeID === id) || {}).Code || '';
+  const coLabel = id => { const c = companies.find(x => x.CompanyID === id); return c ? (c.CompanyRefCode || c.LegalName) : id; };
+  function rowClick(body, onClick) {
+    body.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => { if (canWrite) onClick(tr.dataset.id); }));
+  }
+  function render() {
+    $('hs-grades-body').innerHTML = setup.grades.map(g => '<tr data-id="' + escapeHtml(g.GradeID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '">' +
+      '<td class="py-2 px-3 font-mono text-xs">' + escapeHtml(g.Code) + '</td><td class="py-2 px-3">' + escapeHtml(g.Name || '') + '</td>' +
+      '<td class="py-2 px-3 text-right text-xs">' + g.Level + '</td><td class="py-2 px-3 text-xs text-slate-400">' +
+      Object.entries(g.Bands || {}).map(([co, b]) => escapeHtml(coLabel(co)) + ': ' + fmt(b.Min) + ' / ' + fmt(b.Mid) + ' / ' + fmt(b.Max)).join('<br>') +
+      '</td><td class="py-2 px-3 text-xs">' + statusHtml(g.Active) + '</td></tr>').join('') || '<tr><td colspan="5" class="py-4 px-3 text-xs text-slate-500">No grades yet.</td></tr>';
+    rowClick($('hs-grades-body'), editGrade);
+    const gradeOpts = '<option value="">—</option>' + setup.grades.map(g => '<option value="' + escapeHtml(g.GradeID) + '">' + escapeHtml(g.Code + (g.Name ? ' — ' + g.Name : '')) + '</option>').join('');
+    $('hs-des-from').innerHTML = gradeOpts; $('hs-des-to').innerHTML = gradeOpts;
+    $('hs-des-body').innerHTML = setup.designations.map(d => '<tr data-id="' + escapeHtml(d.DesignationID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '">' +
+      '<td class="py-2 px-3">' + escapeHtml(d.Title) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml([gradeCode(d.GradeFromID), gradeCode(d.GradeToID)].filter(Boolean).join(' – ')) +
+      '</td><td class="py-2 px-3 text-xs">' + statusHtml(d.Active) + '</td></tr>').join('') || '<tr><td colspan="3" class="py-4 px-3 text-xs text-slate-500">No designations yet.</td></tr>';
+    rowClick($('hs-des-body'), editDesignation);
+    $('hs-fields-body').innerHTML = setup.fields.map(f => '<tr data-id="' + escapeHtml(f.FieldID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '">' +
+      '<td class="py-2 px-3">' + escapeHtml(f.Label) + '</td><td class="py-2 px-3 text-xs capitalize">' + escapeHtml(f.Type) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(f.Section) +
+      '</td><td class="py-2 px-3 text-xs">' + (f.Required ? 'Yes' : '') + '</td><td class="py-2 px-3 text-xs">' + (f.Sensitive ? 'Yes' : '') + '</td><td class="py-2 px-3 text-xs">' + statusHtml(f.Active) + '</td></tr>').join('') ||
+      '<tr><td colspan="6" class="py-4 px-3 text-xs text-slate-500">No extra fields yet.</td></tr>';
+    rowClick($('hs-fields-body'), editField);
+    $('hs-dt-body').innerHTML = setup.documentTypes.map(t => '<tr data-id="' + escapeHtml(t.DocumentTypeID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '">' +
+      '<td class="py-2 px-3">' + escapeHtml(t.Name) + '</td><td class="py-2 px-3 text-xs">' + (t.HasNumber ? 'Yes' : '') + '</td><td class="py-2 px-3 text-xs">' + (t.HasExpiry ? 'Yes' : '') +
+      '</td><td class="py-2 px-3 text-xs">' + statusHtml(t.Active) + '</td></tr>').join('');
+    rowClick($('hs-dt-body'), editDocType);
+  }
+  function closeForms() { ['hs-grade-form', 'hs-des-form', 'hs-field-form', 'hs-dt-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
+  function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
+
+  function editGrade(id) {
+    closeForms();
+    const g = setup.grades.find(x => x.GradeID === id) || { Bands: {}, Active: true };
+    editing = id || null;
+    $('hs-grade-heading').textContent = id ? 'Grade ' + g.Code : 'New grade';
+    $('hs-grade-code').value = g.Code || ''; $('hs-grade-name').value = g.Name || ''; $('hs-grade-level').value = g.Level || ''; $('hs-grade-active').checked = g.Active !== false;
+    $('hs-band-body').innerHTML = companies.map(c => {
+      const b = (g.Bands || {})[c.CompanyID] || {};
+      const input = k => '<input type="number" step="0.01" min="0" data-co="' + escapeHtml(c.CompanyID) + '" data-k="' + k + '" value="' + (b[k] == null ? '' : b[k]) + '" class="hs-band w-32 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm">';
+      return '<tr><td class="py-1 pr-3 text-xs">' + escapeHtml((c.CompanyRefCode ? c.CompanyRefCode + ' - ' : '') + c.LegalName) + '</td><td class="py-1 pr-3">' + input('Min') + '</td><td class="py-1 pr-3">' + input('Mid') + '</td><td class="py-1 pr-3">' + input('Max') + '</td></tr>';
+    }).join('');
+    $('hs-grade-form').classList.remove('hidden');
+  }
+  function saveGrade() {
+    const bands = {};
+    document.querySelectorAll('.hs-band').forEach(i => { bands[i.dataset.co] = bands[i.dataset.co] || {}; bands[i.dataset.co][i.dataset.k] = i.value; });
+    saved(call('saveHrGrade', { grade: { GradeID: editing || '', Code: val('hs-grade-code'), Name: val('hs-grade-name'), Level: Number(val('hs-grade-level')), Active: $('hs-grade-active').checked, Bands: bands } }));
+  }
+  function editDesignation(id) {
+    closeForms();
+    const d = setup.designations.find(x => x.DesignationID === id) || { Active: true };
+    editing = id || null;
+    $('hs-des-title').value = d.Title || ''; $('hs-des-from').value = d.GradeFromID || ''; $('hs-des-to').value = d.GradeToID || ''; $('hs-des-active').checked = d.Active !== false;
+    $('hs-des-form').classList.remove('hidden');
+  }
+  function editField(id) {
+    closeForms();
+    const f = setup.fields.find(x => x.FieldID === id) || { Type: 'text', Section: 'Other', Active: true };
+    editing = id || null;
+    $('hs-field-label').value = f.Label || ''; $('hs-field-type').value = f.Type; $('hs-field-section').value = f.Section; $('hs-field-sort').value = f.Sort || '';
+    $('hs-field-required').checked = Boolean(f.Required); $('hs-field-sensitive').checked = Boolean(f.Sensitive); $('hs-field-active').checked = f.Active !== false;
+    $('hs-field-form').classList.remove('hidden');
+  }
+  function editDocType(id) {
+    closeForms();
+    const t = setup.documentTypes.find(x => x.DocumentTypeID === id) || { Active: true };
+    editing = id || null;
+    $('hs-dt-name').value = t.Name || ''; $('hs-dt-number').checked = Boolean(t.HasNumber); $('hs-dt-expiry').checked = Boolean(t.HasExpiry); $('hs-dt-active').checked = t.Active !== false;
+    $('hs-dt-form').classList.remove('hidden');
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> HR Setup';
+    $('hs-tabs').addEventListener('click', e => { const b = e.target.closest('.hs-tab'); if (b) { closeForms(); showTab(b.dataset.tab); } });
+    document.querySelectorAll('.hs-cancel').forEach(b => b.addEventListener('click', closeForms));
+    $('hs-grade-new').addEventListener('click', () => editGrade(''));
+    $('hs-grade-save').addEventListener('click', saveGrade);
+    $('hs-des-new').addEventListener('click', () => editDesignation(''));
+    $('hs-des-save').addEventListener('click', () => saved(call('saveHrDesignation', { designation: { DesignationID: editing || '', Title: val('hs-des-title'), GradeFromID: val('hs-des-from'), GradeToID: val('hs-des-to'), Active: $('hs-des-active').checked } })));
+    $('hs-field-new').addEventListener('click', () => editField(''));
+    $('hs-field-save').addEventListener('click', () => saved(call('saveHrField', { field: { FieldID: editing || '', Label: val('hs-field-label'), Type: val('hs-field-type'), Section: val('hs-field-section'),
+      Sort: Number(val('hs-field-sort')) || 0, Required: $('hs-field-required').checked, Sensitive: $('hs-field-sensitive').checked, Active: $('hs-field-active').checked } })));
+    $('hs-dt-new').addEventListener('click', () => editDocType(''));
+    $('hs-dt-save').addEventListener('click', () => saved(call('saveHrDocumentType', { documentType: { DocumentTypeID: editing || '', Name: val('hs-dt-name'), HasNumber: $('hs-dt-number').checked, HasExpiry: $('hs-dt-expiry').checked, Active: $('hs-dt-active').checked } })));
+    showTab('grades');
+    call('getActiveCompanies', {}).then(r => { companies = r || []; return load(); }, err => appAlert(err.message || 'Unable to load the companies.'));
+  };
+})();
+</script>
