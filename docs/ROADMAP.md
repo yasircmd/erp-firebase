@@ -408,8 +408,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type
   and grade (basic only, full, %, unpaid, with day bands for sick leave).
-  **Design written 2026-10-03**, waiting for the owner's answers to its
-  open questions.
+  **Design agreed 2026-10-03:** leave plus absences (no time
+  attendance); approval through Approval Configuration; calendar year,
+  monthly accrual; carry forward to a cap, the rest lapses; the excess
+  over the balance split off as Unpaid; one set of rules for the group;
+  return confirmed for marked types; day count per leave type;
+  back-dated entries into a locked month carried as adjustments. Four
+  build steps. **Next:** step 1, setup.
 - [x] **HR: Employee Records** (owner, 2026-10-03;
   [HR_EMPLOYEES.md](modules/HR_EMPLOYEES.md)). **Design agreed
   2026-10-03:** group employee numbers, group grades with company pay

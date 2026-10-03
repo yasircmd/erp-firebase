@@ -1,6 +1,6 @@
 # HR: Attendance and Leave Register
 
-Status: **design, waiting for the owner's decisions** (2026-10-03). Comes
+Status: **design agreed** (owner's decisions 2026-10-03, below); step 1 next. Comes
 before Payroll (docs/modules/HR_PAYROLL.md, to come), which reads its
 results.
 
@@ -268,3 +268,45 @@ Then Payroll, with its own design.
 Left to the Payroll design: the daily rate for unpaid days (/30,
 /calendar days, /working days), leave salary in advance, encashment
 amounts, and air tickets.
+
+## The owner's decisions (2026-10-03)
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Attendance depth | **Leave plus unauthorised absences only.** Everyone else is assumed present. There is no daily time or monthly sheet for now. |
+| 2 | Approval | **Through Approval Configuration**, like Employee Change: levels per company and so on, or switched off. HR saves and submits, and approvers act from Home. |
+| 3 | Leave year and accrual | **Calendar year (Jan–Dec), accrued monthly**, for example 30 days a year = 2.5 days a month, pro-rata for joiners. |
+| 4 | Carry forward | **Up to a cap per leave type; the excess lapses.** The lapse is logged. |
+| 5 | Over the balance | **The excess is split off as Unpaid automatically.** The screen shows it before saving. There are no negative balances. |
+| 6 | Scope of rules | **One set for the group**, for entitlements and leave pay rules (by grade level). There are no company overrides. |
+| 7 | Resumption | **Confirmed for marked types.** Each leave type has "confirm return" (seeded on Annual and Maternity). A late return becomes unpaid absence once HR confirms it, and overdue returns are a Home task. |
+| 8 | Weekends and holidays inside a leave | **Set per leave type.** Seeded: Annual counts working days; Sick, Maternity and Unpaid count calendar days. |
+| 9 | Back-dated into a locked month | **Carried to the next open month as an adjustment.** A payroll already run never changes. |
+
+**What changes in the design:**
+- **Attendance (section 3) is Absences only.** There is no `ATTENDANCE`
+  module. Absences are part of the Leave Register, under `LEAVE` rights.
+- **Entitlements and pay rules have no company column.** The working
+  calendar stays per company, because weekends and holidays really
+  differ.
+- **Build order, as decided:**
+  1. Setup:
+     - leave types;
+     - working calendar per company;
+     - entitlement policies (accrued monthly, carry-forward cap);
+     - leave pay rules (grade-level and day bands, validated).
+  2. Leave Register:
+     - entry, day count, balance with the automatic Unpaid split, and the
+       pay split;
+     - approval through Approval Configuration, cancel, and the
+       confirmed return;
+     - opening balances (import sheet);
+     - the balance card on the employee.
+  3. Absences, and the month summary and lock: back-dated entries go to
+     the next open month as adjustments, and the year-end carry forward
+     and lapse.
+  4. Reports (balances, register, absences), the Home blocks (on leave
+     today, returning, overdue returns), and the who-is-away calendar.
+
+  Then Payroll, with its own design.
+
