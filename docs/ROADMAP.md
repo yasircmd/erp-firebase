@@ -55,7 +55,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   sideways when wide; a checkbox's tooltip names its role. A change to a
   ported screen, made in tools/legacy-port/generate.js (SCREEN_EDITS,
   `ROLES`). Test: `rolesMatrix.ui.js` (12 roles); negative control (the
-  checkboxes back in one cell) caught. To go live: "screens only".
+  checkboxes back in one cell) caught. Live 2026-10-03 (PR #70, Deploy
+  run #78).
 
 - [x] **Job Order acceptance through Approval Configuration** (owner,
   2026-09-28; [JOB_ORDER_ACCEPTANCE.md](modules/JOB_ORDER_ACCEPTANCE.md)).
@@ -403,6 +404,12 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
+  [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
+  now (self-service later); leave types configurable; leave pay by type
+  and grade (basic only, full, %, unpaid, with day bands for sick leave).
+  **Design written 2026-10-03**, waiting for the owner's answers to its
+  open questions.
 - [x] **HR: Employee Records** (owner, 2026-10-03;
   [HR_EMPLOYEES.md](modules/HR_EMPLOYEES.md)). **Design agreed
   2026-10-03:** group employee numbers, group grades with company pay
