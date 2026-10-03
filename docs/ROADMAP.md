@@ -395,7 +395,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
 - [x] **Stock Ledger: Back from an entry keeps the report's filters** (owner,
-  2026-10-03). Built, not yet live.
+  2026-10-03). **Live 2026-10-03** (PR #58; Deploy run #59).
   - **Bug:** opening an entry from a Stock Ledger row and coming Back reset
     the report (no company, item, location or dates): the screen saved no
     filters in its return chain (`params: null`). GL Report did; Stock
@@ -405,7 +405,6 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - **Tests:** `stockLedgerBack.ui.js` (1): run, open the GRN, Back: same
     filters, report shown. Negative control (`params: null`) caught. Smoke
     123/123.
-  - **To go live:** Deploy → "screens only".
 - [x] **One GL line per identical posting; Stock Ledger rows the same** (owner,
   2026-10-02; [LINE_CLUBBING.md](modules/LINE_CLUBBING.md)). **Live
   2026-10-02** (PR #57; Deploy run #58).

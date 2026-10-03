@@ -765,3 +765,7 @@ from, and how it was verified. The deploy procedure is in the
   [#58](https://github.com/yasircmd/erp-firebase/actions/runs/37061530012),
   20:35–20:48 UTC, from `195f026` (the PR #57 merge), success (13 min:
   the `line-clubbing` functions set, 50 functions).
+- **2026-10-03, Stock Ledger Back keeps its filters (PR #58):** run
+  [#59](https://github.com/yasircmd/erp-firebase/actions/runs/37099166098),
+  05:14–05:15 UTC, from `c1c8b95` (the PR #58 merge), success
+  ("screens only").
