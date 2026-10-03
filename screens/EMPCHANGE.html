@@ -1,0 +1,359 @@
+<div id="ec-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-arrow-trend-up text-blue-500"></i> Employee Changes</h2></div>
+    <div class="flex gap-2">
+      <button id="ec-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="ec-back-chain-label">Back</span></button>
+      <button id="ec-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Change</button>
+    </div>
+  </div>
+  <p class="text-xs text-slate-500 max-w-3xl">Promotions, increments and transfers. Each one is approved as set up in Approval Configuration (the amount is the monthly increase), then applied from its effective date: the job and organization on the employee, the pay as a new version. Nothing is overwritten.</p>
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="ec-search" placeholder="Search no., employee..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    <select id="ec-type-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All types</option><option>Promotion</option><option>Increment</option><option>Transfer</option></select>
+    <select id="ec-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="open">Open (draft, pending, rejected)</option><option value="PendingApproval">Pending approval</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option><option value="Draft">Draft</option><option value="">All</option></select>
+  </div>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-3 px-3">No.</th><th class="py-3 px-3">Type</th><th class="py-3 px-3">Employee</th><th class="py-3 px-3">Effective</th><th class="py-3 px-3">Change</th><th class="py-3 px-3 text-right ec-pay-col">Increase</th><th class="py-3 px-3">Status</th></tr></thead>
+    <tbody id="ec-table-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+</div>
+
+<div id="ec-entry-view" class="hidden space-y-5">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+    <div class="flex items-center gap-3">
+      <button id="ec-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h3 id="ec-heading" class="text-lg font-bold text-slate-100"></h3>
+      <span id="ec-status-badge"></span>
+    </div>
+    <div class="flex gap-2" id="ec-actions">
+      <button id="ec-delete-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Delete draft</button>
+      <button id="ec-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save draft</button>
+      <button id="ec-submit-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+    </div>
+  </div>
+  <p id="ec-note" class="hidden text-xs"></p>
+  <div id="ec-error" class="hidden text-xs text-red-400"></div>
+  <ul id="ec-warnings" class="hidden text-xs text-amber-400 space-y-1"></ul>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Employee *</label><select id="ec-employee" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Type *</label><select id="ec-type" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Promotion</option><option>Increment</option><option>Transfer</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Effective date *</label><input id="ec-effective" type="date" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="md:col-span-4"><label class="block text-xs font-medium text-slate-300 mb-1">Reason</label><textarea id="ec-reason" rows="2" maxlength="1000" class="ec-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+    </div>
+  </div>
+
+  <div id="ec-sec-job" class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Job</div>
+    <table class="text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-6 text-left"></th><th class="py-1 pr-6 text-left">Now</th><th class="py-1 text-left">New</th></tr></thead><tbody>
+      <tr><td class="py-1 pr-6 text-xs text-slate-400">Designation</td><td class="py-1 pr-6" data-now="DesignationID"></td><td class="py-1"><select data-k="DesignationID" class="ec-f ec-after bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
+      <tr><td class="py-1 pr-6 text-xs text-slate-400">Grade</td><td class="py-1 pr-6" data-now="GradeID"></td><td class="py-1"><select data-k="GradeID" class="ec-f ec-after bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
+    </tbody></table>
+  </div>
+
+  <div id="ec-sec-org" class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Organization</div>
+    <table class="text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-6 text-left"></th><th class="py-1 pr-6 text-left">Now</th><th class="py-1 text-left">New</th></tr></thead><tbody>
+      <tr><td class="py-1 pr-6 text-xs text-slate-400">Company</td><td class="py-1 pr-6" data-now="CompanyID"></td><td class="py-1"><select data-k="CompanyID" id="ec-after-company" class="ec-f ec-after bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
+      <tr><td class="py-1 pr-6 text-xs text-slate-400">Division</td><td class="py-1 pr-6" data-now="DivisionID"></td><td class="py-1"><select data-k="DivisionID" data-unit="Division" class="ec-f ec-after ec-unit bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
+      <tr><td class="py-1 pr-6 text-xs text-slate-400">Branch</td><td class="py-1 pr-6" data-now="BranchID"></td><td class="py-1"><select data-k="BranchID" data-unit="Branch" class="ec-f ec-after ec-unit bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
+      <tr><td class="py-1 pr-6 text-xs text-slate-400">Cost center (department)</td><td class="py-1 pr-6" data-now="CostCenterID"></td><td class="py-1"><select data-k="CostCenterID" data-unit="CostCenter" class="ec-f ec-after ec-unit bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
+    </tbody></table>
+  </div>
+
+  <div id="ec-sec-pay" class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="text-xs font-semibold text-slate-400 uppercase">Pay <span class="normal-case font-normal text-slate-500">(monthly; leave empty to keep it as it is)</span></div>
+      <div id="ec-pct-wrap" class="flex items-center gap-2 text-xs"><span class="text-slate-400">Raise the basic by</span><input id="ec-pct" type="number" step="0.1" class="w-20 bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-sm text-right"><span class="text-slate-400">%</span>
+        <button id="ec-pct-apply" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1 rounded">Apply</button></div>
+    </div>
+    <p id="ec-pay-hidden" class="hidden text-xs text-slate-500">The pay in this change is seen only with the Employees "sensitive" right, or by its approvers.</p>
+    <table id="ec-pay-table" class="text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-6 text-left">Element</th><th class="py-1 pr-6 text-right">Now</th><th class="py-1 text-left">New</th></tr></thead><tbody id="ec-pay-lines"></tbody>
+      <tfoot><tr class="border-t border-slate-700 font-semibold"><td class="py-1 pr-6">Monthly earnings</td><td class="py-1 pr-6 text-right font-mono" id="ec-pay-now-total"></td><td class="py-1 font-mono" id="ec-pay-new-total"></td></tr></tfoot></table>
+    <p id="ec-increase" class="text-xs text-slate-300"></p>
+  </div>
+
+  <div id="ec-approval-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Approval</div>
+    <ul id="ec-levels" class="text-sm space-y-1"></ul>
+    <div id="ec-decide" class="hidden flex gap-2">
+      <button id="ec-approve-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-check"></i> Approve</button>
+      <button id="ec-reject-btn" class="bg-slate-800 hover:bg-slate-700 text-sm text-red-400 px-4 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-xmark"></i> Reject</button>
+    </div>
+  </div>
+  <div id="ec-history-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div class="text-xs font-semibold text-slate-400 uppercase mb-2">History</div>
+    <ul id="ec-history" class="text-xs text-slate-400 space-y-1"></ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Employee Changes (owner, 2026-10-03; docs/modules/HR_EMPLOYEES.md, step 4):
+  // promotion, increment and transfer documents, approved through Approval
+  // Configuration and applied from their effective date.
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const money = n => n == null || n === '' ? '' : Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const STATUS = { Draft: ['Draft', 'text-slate-400'], PendingApproval: ['Pending approval', 'text-amber-400'], Approved: ['Approved', 'text-emerald-400'], Rejected: ['Rejected', 'text-red-400'] };
+  const statusHtml = c => { const s = STATUS[c.Status] || [c.Status, '']; return '<span class="' + s[1] + '">' + escapeHtml(s[0]) + (c.Scheduled ? ' · applies ' + escapeHtml(c.EffectiveDate) : '') + '</span>'; };
+  const SECTIONS = { Promotion: ['job', 'pay'], Increment: ['pay'], Transfer: ['org', 'pay'] };
+
+  let list = null, setup = null, companies = [], units = [], employees = [];
+  let current = null, start = null, editable = false, myLevels = [], isDirty = false, myReturnChain = [];
+
+  function options(sel, items, first) {
+    const keep = sel.value;
+    sel.innerHTML = (first != null ? '<option value="">' + escapeHtml(first) + '</option>' : '') + items.map(o => '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>').join('');
+    if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
+  }
+  const nameOf = (k, v) => {
+    if (!v) return '—';
+    if (k === 'CompanyID') { const c = companies.find(x => x.CompanyID === v); return c ? c.LegalName : v; }
+    if (k === 'DesignationID') return (setup.designations.find(x => x.DesignationID === v) || {}).Title || v;
+    if (k === 'GradeID') return (setup.grades.find(x => x.GradeID === v) || {}).Code || v;
+    const u = units.find(x => x.UnitID === v); return u ? u.Name : v;
+  };
+
+  // ---------- list ----------
+  function loadList(then) {
+    return call('getEmployeeChanges', {}).then(r => {
+      list = r;
+      $('ec-new-btn').classList.toggle('hidden', !r.canDraft);
+      document.querySelectorAll('.ec-pay-col').forEach(x => x.classList.toggle('hidden', !r.canSeePay));
+      renderList();
+      if (then) then();
+    }, err => appAlert(err.message || 'Unable to load the changes.'));
+  }
+  function renderList() {
+    const q = val('ec-search').trim().toLowerCase(), type = val('ec-type-filter'), st = val('ec-status-filter');
+    const rows = list.changes.filter(c => (!type || c.Type === type) && (st === 'open' ? ['Draft', 'PendingApproval', 'Rejected'].includes(c.Status) : !st || c.Status === st) &&
+      (!q || [c.ChangeNumber, c.EmployeeNo, c.EmployeeName].join(' ').toLowerCase().indexOf(q) !== -1));
+    const body = $('ec-table-body');
+    body.innerHTML = rows.map(c => '<tr data-id="' + escapeHtml(c.ChangeID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
+      '<td class="py-2.5 px-3 font-mono text-xs">' + escapeHtml(c.ChangeNumber || 'DRAFT') + '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(c.Type) + '</td>' +
+      '<td class="py-2.5 px-3"><span class="text-slate-200">' + escapeHtml(c.EmployeeName) + '</span> <span class="text-xs text-slate-500 font-mono">' + escapeHtml(c.EmployeeNo) + '</span></td>' +
+      '<td class="py-2.5 px-3 text-xs whitespace-nowrap">' + escapeHtml(c.EffectiveDate) + '</td><td class="py-2.5 px-3 text-xs text-slate-400">' + escapeHtml(c.Summary) + '</td>' +
+      (list.canSeePay ? '<td class="py-2.5 px-3 text-xs text-right font-mono">' + (c.Increase ? money(c.Increase) : '') + '</td>' : '') +
+      '<td class="py-2.5 px-3 text-xs">' + statusHtml(c) + '</td></tr>').join('') || '<tr><td colspan="7" class="py-6 text-center text-slate-500">No changes found.</td></tr>';
+    body.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openChange(tr.dataset.id)));
+  }
+
+  // ---------- the form ----------
+  function showForm() { $('ec-list-view').classList.add('hidden'); $('ec-entry-view').classList.remove('hidden'); window.scrollTo(0, 0); }
+  function showList() { $('ec-entry-view').classList.add('hidden'); $('ec-list-view').classList.remove('hidden'); current = null; start = null; isDirty = false; loadList(); }
+  function confirmLeave(go) { if (!isDirty) return go(); appConfirm('Leave without saving your changes?').then(ok => { if (ok) go(); }); }
+  function setError(m) { $('ec-error').textContent = m || ''; $('ec-error').classList.toggle('hidden', !m); }
+  function showSections() {
+    const on = SECTIONS[val('ec-type')] || [];
+    $('ec-sec-job').classList.toggle('hidden', !on.includes('job'));
+    $('ec-sec-org').classList.toggle('hidden', !on.includes('org'));
+  }
+  function fillAfterSelects(companyId) {
+    options(document.querySelector('[data-k="DesignationID"]'), setup.designations.filter(d => d.Active !== false).map(d => ({ value: d.DesignationID, label: d.Title })));
+    options(document.querySelector('[data-k="GradeID"]'), setup.grades.filter(g => g.Active !== false).map(g => ({ value: g.GradeID, label: g.Code + (g.Name ? ' — ' + g.Name : '') })));
+    options($('ec-after-company'), companies.map(c => ({ value: c.CompanyID, label: c.LegalName })));
+    document.querySelectorAll('.ec-unit').forEach(sel => options(sel, units.filter(u => u.Type === sel.dataset.unit && (!u.CompanyID || u.CompanyID === companyId))
+      .map(u => ({ value: u.UnitID, label: u.Code + ' — ' + u.Name })), '—'));
+  }
+  function fillNow(before, names) {
+    document.querySelectorAll('[data-now]').forEach(td => { const k = td.dataset.now; td.textContent = names ? (names[k] ? names[k].Before || '—' : '—') : nameOf(k, before[k]); });
+  }
+  function fillAfter(afterVals) {
+    fillAfterSelects(afterVals.CompanyID);
+    document.querySelectorAll('.ec-after').forEach(sel => { sel.value = afterVals[sel.dataset.k] || ''; });
+  }
+  // Pay: each fixed element, now and new.
+  function renderPay(elements, now, proposed, visible) {
+    $('ec-pay-hidden').classList.toggle('hidden', visible);
+    $('ec-pay-table').classList.toggle('hidden', !visible);
+    $('ec-pct-wrap').classList.toggle('hidden', !visible || !editable);
+    if (!visible) { $('ec-increase').textContent = ''; return; }
+    const fixed = elements.filter(e => e.Nature === 'Fixed' && (e.Active || (now && now.Lines.some(l => l.ElementID === e.ElementID)) || (proposed && proposed.Lines.some(l => l.ElementID === e.ElementID))));
+    const amountOf = (v, id) => { const l = v && v.Lines.find(x => x.ElementID === id); return l ? l.Amount : ''; };
+    $('ec-pay-lines').innerHTML = fixed.map(e => '<tr><td class="py-1 pr-6">' + escapeHtml(e.Name) + (e.IsBasic ? ' <span class="text-xs text-slate-500">(basic)</span>' : '') + '</td>' +
+      '<td class="py-1 pr-6 text-right font-mono">' + money(amountOf(now, e.ElementID)) + '</td>' +
+      '<td class="py-1"><input type="number" step="0.01" min="0" data-el="' + escapeHtml(e.ElementID) + '" data-basic="' + (e.IsBasic ? '1' : '') + '" value="' + amountOf(proposed, e.ElementID) + '" class="ec-f ec-pay-amount w-36 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-right"></td></tr>').join('');
+    $('ec-pay-now-total').textContent = now ? money(now.MonthlyEarnings) : '—';
+    payTotals(now);
+    document.querySelectorAll('.ec-pay-amount').forEach(i => i.addEventListener('input', () => payTotals(now)));
+  }
+  function proposedLines() {
+    return [...document.querySelectorAll('.ec-pay-amount')].map(i => ({ ElementID: i.dataset.el, Amount: i.value }));
+  }
+  function payTotals(now) {
+    const lines = proposedLines();
+    if (!lines.some(l => l.Amount !== '')) { $('ec-pay-new-total').textContent = 'unchanged'; $('ec-increase').textContent = ''; return; }
+    const els = (start && start.elements) || [];
+    const earning = id => { const e = els.find(x => x.ElementID === id); return !e || e.Kind === 'Earning'; };
+    const total = lines.filter(l => l.Amount !== '' && earning(l.ElementID)).reduce((s, l) => s + Number(l.Amount), 0);
+    $('ec-pay-new-total').textContent = money(total);
+    const was = now ? now.MonthlyEarnings : 0;
+    $('ec-increase').textContent = 'Monthly increase: ' + money(total - was) + (was ? ' (' + ((total - was) / was * 100).toFixed(2) + '%)' : '');
+  }
+
+  async function startFor(employeeId, keep) {
+    if (!employeeId) return;
+    start = await call('getEmployeeChangeStart', { employeeId: employeeId }).catch(err => { setError(err.message); return null; });
+    if (!start) return;
+    const e = start.employee;
+    fillNow(e);
+    if (!keep) fillAfter(e);
+    renderPay(start.elements, start.pay, keep || null, start.canSeePay);
+  }
+  function newChange(employeeId) {
+    current = null; isDirty = false; editable = true; myLevels = []; setError('');
+    $('ec-heading').textContent = 'New change';
+    $('ec-status-badge').innerHTML = '';
+    $('ec-note').classList.add('hidden'); $('ec-warnings').classList.add('hidden');
+    ['ec-approval-wrap', 'ec-history-wrap'].forEach(id => $(id).classList.add('hidden'));
+    $('ec-employee').disabled = false;
+    $('ec-employee').value = employeeId || '';
+    $('ec-type').value = 'Promotion'; $('ec-effective').value = ''; $('ec-reason').value = '';
+    document.querySelectorAll('.ec-f').forEach(el => { el.disabled = false; });
+    setButtons();
+    showSections();
+    $('ec-pay-lines').innerHTML = '';
+    if (employeeId) startFor(employeeId);
+    showForm();
+  }
+  function setButtons() {
+    const st = current ? current.Status : 'Draft';
+    const open = st === 'Draft' || st === 'Rejected';
+    $('ec-save-btn').classList.toggle('hidden', !(editable && list.canDraft && open));
+    $('ec-submit-btn').classList.toggle('hidden', !(current && editable && list.canPost && open));
+    $('ec-delete-btn').classList.toggle('hidden', !(current && st === 'Draft' && list.canDraft));
+    $('ec-decide').classList.toggle('hidden', !myLevels.length);
+  }
+  function openChange(id) {
+    return call('getEmployeeChange', { changeId: id }).then(async r => {
+      const c = r.change;
+      current = c; myLevels = r.myLevels || []; isDirty = false; setError('');
+      editable = (c.Status === 'Draft' || c.Status === 'Rejected') && r.canDraft;
+      $('ec-heading').textContent = (c.ChangeNumber || 'Draft') + ' — ' + c.Type + ': ' + c.EmployeeName;
+      $('ec-status-badge').innerHTML = '<span class="text-xs">' + statusHtml(c) + '</span>';
+      $('ec-employee').value = c.EmployeeID; $('ec-employee').disabled = true;
+      $('ec-type').value = c.Type; $('ec-effective').value = c.EffectiveDate; $('ec-reason').value = c.Reason || '';
+      showSections();
+      fillNow(c.Before, r.names);
+      fillAfter(c.After);
+      const note = c.Status === 'Rejected' ? 'Rejected: ' + (c.RejectionReason || '') + '. Correct it and submit again.' : c.Scheduled ? 'Approved: the pay applies from ' + c.EffectiveDate + '; the job and organization change on that date.' : '';
+      $('ec-note').textContent = note; $('ec-note').className = 'text-xs ' + (c.Status === 'Rejected' ? 'text-red-400' : 'text-blue-400'); $('ec-note').classList.toggle('hidden', !note);
+      $('ec-warnings').innerHTML = (c.Warnings || []).map(w => '<li><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(w) + '</li>').join('');
+      $('ec-warnings').classList.toggle('hidden', !(c.Warnings || []).length);
+      if (editable) {
+        start = await call('getEmployeeChangeStart', { employeeId: c.EmployeeID }).catch(() => null);
+        renderPay(start ? start.elements : [], c.PayBefore && !c.PayBefore.Hidden ? c.PayBefore : (start && start.pay), c.NewPay && !c.NewPay.Hidden ? c.NewPay : null, r.canSeePay && Boolean(start));
+      } else {
+        start = { elements: (c.NewPay && c.NewPay.Lines ? c.NewPay.Lines : []).concat(c.PayBefore && c.PayBefore.Lines ? c.PayBefore.Lines : [])
+          .reduce((a, l) => a.some(x => x.ElementID === l.ElementID) ? a : a.concat([{ ElementID: l.ElementID, Name: l.Name, Kind: l.Kind, IsBasic: l.IsBasic, Nature: 'Fixed', Active: true }]), []) };
+        renderPay(start.elements, c.PayBefore, c.NewPay, r.canSeePay);
+      }
+      document.querySelectorAll('.ec-f').forEach(el => { el.disabled = !editable; });
+      $('ec-employee').disabled = true;
+      const a = r.approval;
+      $('ec-levels').innerHTML = a ? a.Levels.map(l => {
+        const dec = a.Decisions.find(x => x.LevelNumber === l.LevelNumber);
+        return '<li>Level ' + l.LevelNumber + ': ' + (dec ? '<span class="' + (dec.Decision === 'Approved' ? 'text-emerald-400' : 'text-red-400') + '">' + escapeHtml(dec.Decision) + '</span> by ' + escapeHtml(dec.ApproverName) +
+          ' · ' + escapeHtml(isoLocalDateTime(dec.DecidedAt)) + (dec.Reason ? ' — ' + escapeHtml(dec.Reason) : '') : '<span class="text-amber-400">waiting</span>') + '</li>';
+      }).join('') : '';
+      $('ec-approval-wrap').classList.toggle('hidden', !a);
+      $('ec-history').innerHTML = (c.History || []).slice().reverse().map(h => '<li>' + escapeHtml(isoLocalDateTime(h.At)) + ' · ' + escapeHtml(h.By) + ' · ' + escapeHtml(h.Event) + (h.Note ? ' — ' + escapeHtml(h.Note) : '') + '</li>').join('');
+      $('ec-history-wrap').classList.toggle('hidden', !(c.History || []).length);
+      setButtons();
+      showForm();
+    }, err => appAlert(err.message || 'Unable to open the change.'));
+  }
+  function collect() {
+    const after = {};
+    document.querySelectorAll('.ec-after').forEach(sel => { after[sel.dataset.k] = sel.value; });
+    const lines = proposedLines();
+    return { ChangeID: current ? current.ChangeID : '', EmployeeID: val('ec-employee'), Type: val('ec-type'), EffectiveDate: val('ec-effective'), Reason: val('ec-reason'), After: after,
+      NewPay: lines.some(l => l.Amount !== '') ? { Lines: lines, Terms: (start && start.pay && start.pay.Terms) || (current && current.NewPay && current.NewPay.Terms) || [] } : null };
+  }
+  function save(then) {
+    setError('');
+    return call('saveEmployeeChange', { change: collect() }).then(r => {
+      isDirty = false;
+      if (r.warnings && r.warnings.length && !then) appAlert(r.warnings.join('\n'));
+      return loadList(() => (then ? then(r.changeId) : openChange(r.changeId)));
+    }, err => setError(err.message || 'Unable to save.'));
+  }
+  async function submit() {
+    save(async id => {
+      if (!(await appConfirm('Submit this change? It goes for approval (or applies now when no approval is set up).'))) return openChange(id);
+      call('submitEmployeeChange', { changeId: id }).then(r => {
+        appAlert(r.status === 'Approved' ? r.changeNumber + ' is approved and applied.' : r.changeNumber + ' is waiting for approval.');
+        loadList(() => openChange(id));
+      }, err => { openChange(id).then(() => setError(err.message || 'Unable to submit.')); });
+    });
+  }
+  async function decide(decision) {
+    let reason = '';
+    if (decision === 'Rejected') { reason = await appPrompt('Reject this change: the reason?', ''); if (reason == null) return; }
+    call('decideEmployeeChangeApproval', { changeId: current.ChangeID, levelNumber: myLevels[0], decision: decision, reason: reason })
+      .then(() => loadList(() => openChange(current.ChangeID)), err => appAlert(err.message || 'Unable to record the decision.'));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-arrow-trend-up"></i> Employee Changes';
+    $('ec-search').addEventListener('input', renderList);
+    ['ec-type-filter', 'ec-status-filter'].forEach(id => $(id).addEventListener('change', renderList));
+    $('ec-new-btn').addEventListener('click', () => newChange(''));
+    $('ec-back-btn').addEventListener('click', () => confirmLeave(showList));
+    $('ec-type').addEventListener('change', showSections);
+    $('ec-employee').addEventListener('change', () => startFor(val('ec-employee')));
+    $('ec-after-company').addEventListener('change', () => fillAfterSelects(val('ec-after-company')));
+    $('ec-pct-apply').addEventListener('click', () => {
+      const basic = document.querySelector('.ec-pay-amount[data-basic="1"]');
+      const now = start && start.pay && start.pay.Lines.find(l => l.IsBasic);
+      const p = Number(val('ec-pct'));
+      if (!basic || !now || !isFinite(p)) return;
+      basic.value = (Math.round(now.Amount * (1 + p / 100) * 100) / 100).toFixed(2);
+      document.querySelectorAll('.ec-pay-amount').forEach(i => { if (i !== basic && i.value === '') { const l = start.pay.Lines.find(x => x.ElementID === i.dataset.el); if (l) i.value = l.Amount; } });
+      payTotals(start.pay); isDirty = true;
+    });
+    $('ec-save-btn').addEventListener('click', () => save());
+    $('ec-submit-btn').addEventListener('click', submit);
+    $('ec-delete-btn').addEventListener('click', async () => {
+      if (!(await appConfirm('Delete this draft?'))) return;
+      call('deleteEmployeeChange', { changeId: current.ChangeID }).then(showList, err => appAlert(err.message));
+    });
+    $('ec-approve-btn').addEventListener('click', () => decide('Approved'));
+    $('ec-reject-btn').addEventListener('click', () => decide('Rejected'));
+    ['input', 'change'].forEach(t => $('ec-entry-view').addEventListener(t, () => { isDirty = true; }));
+    myReturnChain = window.__pendingReturnChain || [];
+    window.__pendingReturnChain = null;
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      $('ec-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      $('ec-back-chain-btn').classList.remove('hidden');
+      $('ec-back-chain-btn').addEventListener('click', () => confirmLeave(() => { const chain = myReturnChain.slice(); const t = chain.pop(); if (t) openModule(t.moduleId, t.params, chain); }));
+    }
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    Promise.all([
+      // Approvers may have no HR Setup / Employees access: names then come from the change itself.
+      call('getHrSetup', {}).then(r => { setup = r; }, () => { setup = { designations: [], grades: [] }; }),
+      call('getActiveCompanies', {}).then(r => { companies = r || []; }),
+      call('getActiveOrgUnits', {}).then(r => { units = r || []; }),
+      call('getEmployees', {}).then(r => { employees = r.employees || []; }, () => { employees = []; })
+    ]).then(() => {
+      options($('ec-employee'), employees.filter(e => e.Status !== 'Left').map(e => ({ value: e.EmployeeID, label: e.EmployeeNo + ' — ' + e.FullName })), 'Select...');
+      return loadList(() => {
+        if (pending && pending.OpenEntryId) openChange(pending.OpenEntryId);
+        else if (pending && pending.NewForEmployee) newChange(pending.NewForEmployee);
+      });
+    }, err => appAlert(err.message || 'Unable to load Employee Changes.'));
+  };
+})();
+</script>
