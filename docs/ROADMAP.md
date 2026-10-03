@@ -394,6 +394,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [ ] **Supporting documents on entries** (owner, 2026-10-03;
+  [ATTACHMENTS.md](modules/ATTACHMENTS.md)). Design drafted; awaiting the
+  owner's decisions (storage provider, who sees and removes, which modules
+  first).
 - [x] **Stock Ledger: Back from an entry keeps the report's filters** (owner,
   2026-10-03). **Live 2026-10-03** (PR #58; Deploy run #59).
   - **Bug:** opening an entry from a Stock Ledger row and coming Back reset
