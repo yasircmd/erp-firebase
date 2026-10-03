@@ -1,0 +1,11 @@
+# HR: Employee Records, step 3: Pay Elements and compensation (owner
+# 2026-10-03; docs/modules/HR_EMPLOYEES.md). Run with --screens (or a
+# "screens only" run after): HRSETUP and EMPLOYEES. No Hosting change.
+# In the app: check HR Setup → Pay Elements (six start: Basic, Housing,
+# Transport, Other Allowance, Bonus, Commission), then set each
+# employee's pay on their record (Compensation).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getPayElements
+savePayElement
+getCompensation
+saveCompensation

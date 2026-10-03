@@ -421,7 +421,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (60 days). Tests: `hrDocuments` suite (3), `hrEmployees.ui.js` (6); four
     negative controls caught. To go live: "functions set"
     `hr-employees-2`, then "hosting", then the screens.
-  - **Next:** step 3, Pay Elements and compensation.
+  - **Step 3 built and tested 2026-10-03**, not yet live: Pay Elements in
+    HR Setup; Compensation on the employee record (monthly amounts, agreed
+    bonus / commission terms, band warning, versions, Set and Correct).
+    Tests: `hrPay` suite (4), `hrEmployees.ui.js` (7); four negative
+    controls caught. To go live: "functions set" `hr-employees-3` with the
+    screens.
+  - **Next:** step 4, Employee Changes with approvals.
 - [x] **Company Documents: legal documents, contracts, licences** (owner,
   2026-10-03; [COMPANY_DOCUMENTS.md](modules/COMPANY_DOCUMENTS.md)).
   **Design agreed 2026-10-03:** a register of documents per company

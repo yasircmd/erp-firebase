@@ -198,3 +198,5 @@ const hrEmployees = require('./src/hrEmployees');
 const hrDocuments = require('./src/hrDocuments');
 ['getEmployeeDocuments', 'saveEmployeeDocument', 'renewEmployeeDocument', 'removeEmployeeDocument',
   'getEmployeeDocumentsExpiringForUser'].forEach(n => { exports[n] = hrDocuments[n]; });
+const hrPay = require('./src/hrPay');
+['getPayElements', 'savePayElement', 'getCompensation', 'saveCompensation'].forEach(n => { exports[n] = hrPay[n]; });

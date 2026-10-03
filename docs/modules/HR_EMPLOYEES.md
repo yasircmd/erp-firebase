@@ -1,6 +1,6 @@
 # HR: Employee Records
 
-Status: **steps 1–2 built and tested** (2026-10-03; see the As built sections); steps 3–5 to come. Payroll is a
+Status: **steps 1–3 built and tested** (2026-10-03; see the As built sections); steps 4–5 to come. Payroll is a
 separate module, designed after this one (docs/modules/HR_PAYROLL.md, to
 come).
 
@@ -385,3 +385,57 @@ Then Payroll, with its own design.
 then the screens.
 
 **Next:** step 3, Pay Elements and compensation.
+
+## As built: step 3, Pay Elements and compensation (2026-10-03)
+
+- **HR Setup → Pay Elements** (decision 4, the first piece of Payroll):
+  - each element: code, name, Earning or Deduction, and **Fixed** (a
+    monthly amount on the employee) or **Variable** (agreed terms: bonus,
+    commission);
+  - one fixed earning is the **Basic**: marking another moves the mark;
+  - six to start: Basic Salary, Housing, Transport and Other Allowance,
+    Bonus, Commission;
+  - once employees' pay uses an element, its kind and nature can't
+    change.
+- **Compensation on the employee record** (only with the sensitive right;
+  setting it needs write too):
+  - monthly amounts for the fixed elements;
+  - agreed terms for the variable ones (decision 4b): an amount or a %,
+    "of" what (e.g. of sales), frequency (monthly, quarterly, half-yearly,
+    annual, one-time), notes;
+  - totals: monthly earnings and, with deductions, net;
+  - the grade's company band (min / mid / max), with a warning when the
+    Basic is outside it (decision 5);
+  - every version kept ("All versions").
+- **Changes:**
+  - **Set pay** only when the employee has none (from the date of joining
+    or later);
+  - after that, pay changes through an Employee Change (step 4,
+    decisions 9–10);
+  - **Correct pay** (HR Setup admins, with a reason; as decision 13)
+    replaces the latest version but keeps it, marked Replaced.
+  - Each is noted in the employee's history. Amounts show only with the
+    sensitive right.
+- **Assumed** (not asked):
+  - amounts are monthly, in the base currency (AED): companies have no
+    currency of their own;
+  - Correct (decision 13) also covers pay mistakes.
+
+**Behind it:**
+- `functions/src/hrPay.js` (4 callables, plus helpers for step 4).
+- Firestore: `hrPayElements`, `employeeCompensation` (one document per
+  version: EffectiveFrom, Lines, Terms, totals, Source
+  Initial / Correction, Status Active / Replaced).
+
+**Tests:**
+- The `hrPay` suite (4); `hrEmployees.ui.js` now 7.
+- Four negative controls caught:
+  - a second Set pay without a Correction;
+  - no below-band warning;
+  - two Basics;
+  - pay shown without the sensitive right.
+
+**To go live:** Deploy "functions set" `hr-employees-3` with the screens.
+
+**Next:** step 4, Employee Changes (promotion, increment, transfer)
+with approvals.
