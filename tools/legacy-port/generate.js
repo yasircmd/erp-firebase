@@ -354,6 +354,17 @@ const SCREEN_EDITS = [
     to: "window.initModule = function (idToken) {\n    supportingDocs.mount({ module: 'PRODUCTION', view: 'prd-entry-view', id: () => currentProd && currentProd.ProductionID, list: 'prd-table-body' }); // supporting documents (docs/modules/ATTACHMENTS.md)\n" },
   { mod: 'PRODUCTION', from: "const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';",
     to: "const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40'; row.dataset.docId = e.ProductionID;" },
+  // Roles & Permissions: one column per role (owner, 2026-10-03: with 12
+  // roles the names and checkboxes, all in one cell, wrapped onto a second
+  // line under the wrong roles). The table scrolls sideways when wide.
+  { mod: 'ROLES', from: '<th id="perm-role-headers" class="py-3 px-4"></th>',
+    to: '<th id="perm-role-headers" class="hidden"></th>' },
+  { mod: 'ROLES', from: "headerRow.innerHTML = roles.sort((a, b) => a.Name.localeCompare(b.Name)).map(r => `<span class=\"inline-block w-20 text-center\">${escapeHtml(r.Name)}</span>`).join('');",
+    to: "headerRow.parentNode.querySelectorAll('.perm-role-th').forEach(n => n.remove()); // one column per role\n    headerRow.insertAdjacentHTML('afterend', roles.sort((a, b) => a.Name.localeCompare(b.Name)).map(r => `<th class=\"perm-role-th py-3 px-2 text-center align-bottom\" style=\"min-width:5.5rem;max-width:8rem;overflow-wrap:anywhere\">${escapeHtml(r.Name)}</th>`).join(''));" },
+  { mod: 'ROLES', from: "return `<span class=\"inline-block w-20 text-center\"><input type=\"checkbox\" data-module=\"${mod.id}\" data-cap=\"${cap}\" data-role=\"${r.RoleID}\" ${checked ? 'checked' : ''} class=\"w-4 h-4\"></span>`;",
+    to: "return `<td class=\"py-2 px-2 text-center\"><input type=\"checkbox\" data-module=\"${mod.id}\" data-cap=\"${cap}\" data-role=\"${r.RoleID}\" ${checked ? 'checked' : ''} class=\"w-4 h-4\" title=\"${escapeHtml(r.Name)}\"></td>`;" },
+  { mod: 'ROLES', from: '<td class="py-2 px-4 text-xs text-slate-400 capitalize">${escapeHtml(cap)}</td><td class="py-2 px-4">${checks}</td>',
+    to: '<td class="py-2 px-4 text-xs text-slate-400 capitalize">${escapeHtml(cap)}</td>${checks}' },
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {

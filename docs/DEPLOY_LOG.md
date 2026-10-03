@@ -797,3 +797,23 @@ from, and how it was verified. The deploy procedure is in the
     [#66](https://github.com/yasircmd/erp-firebase/actions/runs/37124352644),
     12:53–12:54 UTC: Hosting and the screens.
   - The owner linked the menu node and tested it in the app.
+- **2026-10-03, HR Employee Records step 1 (PR #65):** two runs from
+  `c8d6d4d` (the PR #65 merge), both successful:
+  - Run [#67](https://github.com/yasircmd/erp-firebase/actions/runs/37131981656), 15:05–15:10 UTC: functions, set
+    `hr-employees-1` (its "Check screens are released" step ran).
+  - Run [#68](https://github.com/yasircmd/erp-firebase/actions/runs/37132477834), 15:13–15:14 UTC: the follow-up release
+    (screens; a one-minute run).
+- **2026-10-03, HR Employee Records steps 2–5 (PRs #66–#69):** five runs
+  from `d82f4c7` (the PR #69 merge), all successful, in the order agreed
+  (functions sets first without screens, so no screen went live before
+  its functions):
+  - Run [#73](https://github.com/yasircmd/erp-firebase/actions/runs/37152225851), 20:37–20:41 UTC: functions, set
+    `hr-employees-2`.
+  - Run [#74](https://github.com/yasircmd/erp-firebase/actions/runs/37152510859), 20:42–20:45 UTC: functions, set
+    `hr-employees-3`.
+  - Run [#75](https://github.com/yasircmd/erp-firebase/actions/runs/37152719698), 20:46–20:52 UTC: functions, set
+    `hr-employees-4`.
+  - Run [#76](https://github.com/yasircmd/erp-firebase/actions/runs/37153243474), 20:55–20:56 UTC: Hosting.
+  - Run [#77](https://github.com/yasircmd/erp-firebase/actions/runs/37153420830), 20:58–20:59 UTC: screens only.
+  - In the app (owner): the HR roles were added in Roles & Permissions,
+    which showed the grid wrapping with 12 roles (fixed in the next PR).

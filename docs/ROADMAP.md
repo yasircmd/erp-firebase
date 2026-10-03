@@ -48,6 +48,15 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [x] **Roles & Permissions with many roles** (owner, 2026-10-03): with 12
+  roles the permission grid wrapped (all role names in one header cell,
+  all checkboxes in one cell per row), so columns 10–12 dropped onto a
+  second line under the wrong roles. Now one column per role, scrolling
+  sideways when wide; a checkbox's tooltip names its role. A change to a
+  ported screen, made in tools/legacy-port/generate.js (SCREEN_EDITS,
+  `ROLES`). Test: `rolesMatrix.ui.js` (12 roles); negative control (the
+  checkboxes back in one cell) caught. To go live: "screens only".
+
 - [x] **Job Order acceptance through Approval Configuration** (owner,
   2026-09-28; [JOB_ORDER_ACCEPTANCE.md](modules/JOB_ORDER_ACCEPTANCE.md)).
   Pending Acceptance and Stop Requested lines now go to the Job Order
@@ -394,7 +403,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
-- [ ] **HR: Employee Records** (owner, 2026-10-03;
+- [x] **HR: Employee Records** (owner, 2026-10-03;
   [HR_EMPLOYEES.md](modules/HR_EMPLOYEES.md)). **Design agreed
   2026-10-03:** group employee numbers, group grades with company pay
   bands, cost center as department, flexi fields, employee documents with
@@ -405,7 +414,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   build steps; Payroll designed afterwards.
   - **Owner, revised:** a separate Employees "sensitive" right for pay,
     bank details and documents.
-  - **Step 1 built and tested 2026-10-03**, not yet live:
+  - **Step 1 built and tested 2026-10-03**, live 2026-10-03:
     - HR Setup (grades with company pay bands, designations, extra fields,
       document types);
     - Employees (record, extra fields, line manager, Replace manager,
@@ -415,30 +424,32 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     Tests: `hrEmployees` suite (6), `hrEmployees.ui.js` (5); five negative
     controls caught. To go live: Deploy "functions set" `hr-employees-1`
     with the screens; link the two menu nodes.
-  - **Step 2 built and tested 2026-10-03**, not yet live: employee
+  - **Step 2 built and tested 2026-10-03**, live 2026-10-03: employee
     documents on the record (sensitive right), files in Drive, renew,
     remove, and the Home task "Employee Documents Expiring or Expired"
     (60 days). Tests: `hrDocuments` suite (3), `hrEmployees.ui.js` (6); four
     negative controls caught. To go live: "functions set"
     `hr-employees-2`, then "hosting", then the screens.
-  - **Step 3 built and tested 2026-10-03**, not yet live: Pay Elements in
+  - **Step 3 built and tested 2026-10-03**, live 2026-10-03: Pay Elements in
     HR Setup; Compensation on the employee record (monthly amounts, agreed
     bonus / commission terms, band warning, versions, Set and Correct).
     Tests: `hrPay` suite (4), `hrEmployees.ui.js` (7); four negative
     controls caught. To go live: "functions set" `hr-employees-3` with the
     screens.
-  - **Step 4 built and tested 2026-10-03**, not yet live: Employee Changes
+  - **Step 4 built and tested 2026-10-03**, live 2026-10-03: Employee Changes
     (promotion, increment, transfer) with approvals through Approval
     Configuration (amount = monthly increase), applied from the effective
     date (future job changes on their date), history on the employee.
     Tests: `hrChanges` suite (5), `hrChanges.ui.js` (2); six negative
     controls caught. To go live: "functions set" `hr-employees-4` with the
     screens; link the menu node; set up its approvals.
-  - **Step 5 built and tested 2026-10-03**, not yet live: the Org chart
+  - **Step 5 built and tested 2026-10-03**, live 2026-10-03: the Org chart
     on the Employees list (who reports to whom, company filter, expand /
     collapse, opens the record and back). Screen only, built from the
     existing list. Tests: `hrEmployees.ui.js` (8); five negative controls
     caught. To go live: a "screens only" run.
+  - **Live 2026-10-03:** step 1 in Deploy runs #67–#68, steps 2–5 in
+    runs #73–#77 (docs/DEPLOY_LOG.md).
   - **Employee Records complete.** **Next:** Payroll design
     (docs/modules/HR_PAYROLL.md), the owner's questions first.
 - [x] **Company Documents: legal documents, contracts, licences** (owner,
