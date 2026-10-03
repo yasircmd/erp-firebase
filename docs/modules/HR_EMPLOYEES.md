@@ -1,6 +1,6 @@
 # HR: Employee Records
 
-Status: **step 1 built and tested** (2026-10-03; see [As built: step 1](#as-built-step-1-2026-10-03)); steps 2–5 to come. Payroll is a
+Status: **steps 1–2 built and tested** (2026-10-03; see the As built sections); steps 3–5 to come. Payroll is a
 separate module, designed after this one (docs/modules/HR_PAYROLL.md, to
 come).
 
@@ -334,3 +334,54 @@ Then Payroll, with its own design.
    - then add or import the employees.
 
 **Next:** step 2, employee documents with the 60-day reminder.
+
+## As built: step 2, employee documents (2026-10-03)
+
+- **On the employee record**, a **Documents** section (only with the
+  Employees **sensitive** right; owner decision 7):
+  - the list: type, number, issue and expiry dates, status, file count.
+    Status is Active, Expiring (n days) within 60 days, Expired, Renewed or
+    Removed;
+  - **Add document**: the type from HR Setup. Number and expiry are
+    required when the type has them; the expiry is not before the issue
+    date;
+  - opening one shows its details and its **files**, in the same
+    Supporting documents section as on entries (scans: PDF, images,
+    Word, Excel, 10 MB). They are kept in Drive under
+    `ERP Documents/<company>/Employees/<EMP-0001 - name>/<type>/<number>/`.
+- **Renew** (a new passport, visa, ...) makes a new record with the new
+  number and dates. The old one is kept as Renewed, with its files.
+- **Remove** asks for the reason. The files move to Removed (never
+  deleted) and the record stays as Removed.
+- **Who:** viewing needs the sensitive right; adding, renewing, removing
+  and adding or removing files need write too. Each change is noted in
+  the employee's history.
+- **Home: "Employee Documents Expiring or Expired"** lists active
+  documents of employees who haven't left, expiring within 60 days (Asia/
+  Dubai date) or already expired (owner decision 6). It is shown to users
+  with Employees access, write and sensitive, for their companies. Each
+  item opens the employee.
+- **Assumed** (not asked; the same as Company Documents): renew and remove
+  work this way; the reminder needs the sensitive right too, as the
+  documents do.
+
+**Behind it:**
+- `functions/src/hrDocuments.js` (5 callables); Firestore
+  `employeeDocuments`.
+- `attachments.js` has the EMPDOCS source. Two hooks were added there: a
+  source may use another module's rights (`accessModule`, `viewCap`), and
+  its own folder path (`folders`).
+
+**Tests:**
+- The `hrDocuments` suite (3), and `hrEmployees.ui.js` now 6 (documents
+  added).
+- Four negative controls caught:
+  - files seen without the sensitive right;
+  - the Home task for users without write or sensitive;
+  - reminders for leavers;
+  - the Documents section shown without the right.
+
+**To go live:** Deploy "functions set" `hr-employees-2`, then "hosting",
+then the screens.
+
+**Next:** step 3, Pay Elements and compensation.

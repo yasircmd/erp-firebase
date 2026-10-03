@@ -415,7 +415,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     Tests: `hrEmployees` suite (6), `hrEmployees.ui.js` (5); five negative
     controls caught. To go live: Deploy "functions set" `hr-employees-1`
     with the screens; link the two menu nodes.
-  - **Next:** step 2, employee documents.
+  - **Step 2 built and tested 2026-10-03**, not yet live: employee
+    documents on the record (sensitive right), files in Drive, renew,
+    remove, and the Home task "Employee Documents Expiring or Expired"
+    (60 days). Tests: `hrDocuments` suite (3), `hrEmployees.ui.js` (6); four
+    negative controls caught. To go live: "functions set"
+    `hr-employees-2`, then "hosting", then the screens.
+  - **Next:** step 3, Pay Elements and compensation.
 - [x] **Company Documents: legal documents, contracts, licences** (owner,
   2026-10-03; [COMPANY_DOCUMENTS.md](modules/COMPANY_DOCUMENTS.md)).
   **Design agreed 2026-10-03:** a register of documents per company

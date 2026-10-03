@@ -110,6 +110,37 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-3" id="emp-flexi-other"></div>
   </div>
 
+  <div id="emp-docs-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="flex items-center justify-between">
+      <div class="text-xs font-semibold text-slate-400 uppercase">Documents</div>
+      <button id="emp-doc-new" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add document</button>
+    </div>
+    <p class="text-xs text-slate-500">Passport, Emirates ID, visa, certificates, contract... with their files. Expiring ones show on Home 60 days ahead.</p>
+    <div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-2 px-2">Type</th><th class="py-2 px-2">Number</th><th class="py-2 px-2">Issued</th><th class="py-2 px-2">Expires</th><th class="py-2 px-2">Status</th><th class="py-2 px-2 text-right">Files</th></tr></thead>
+      <tbody id="emp-docs-body" class="divide-y divide-slate-700 text-sm"></tbody></table></div>
+    <div id="emp-doc-view" class="hidden bg-slate-900 p-3 rounded-lg border border-slate-700 space-y-3">
+      <div class="flex items-center justify-between gap-2">
+        <div class="text-sm font-semibold text-slate-200" id="emp-doc-heading"></div>
+        <div class="flex gap-2">
+          <button id="emp-doc-renew" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-rotate"></i> Renew</button>
+          <button id="emp-doc-remove" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Remove</button>
+          <button id="emp-doc-close" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700">Close</button>
+        </div>
+      </div>
+      <p id="emp-doc-note" class="hidden text-xs text-slate-400"></p>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Type *</label><select id="emp-doc-type" class="emp-doc-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Number</label><input id="emp-doc-number" maxlength="60" class="emp-doc-f keep-iso w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Issue date</label><input id="emp-doc-issue" type="date" class="emp-doc-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Expiry date</label><input id="emp-doc-expiry" type="date" class="emp-doc-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="md:col-span-4"><label class="block text-xs font-medium text-slate-300 mb-1">Notes</label><input id="emp-doc-notes" maxlength="1000" class="emp-doc-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      </div>
+      <div id="emp-doc-error" class="hidden text-xs text-red-400"></div>
+      <button id="emp-doc-save" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+    </div>
+  </div>
+
   <div id="emp-reports-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
     <div class="text-xs font-semibold text-slate-400 uppercase mb-2">Direct reports</div>
     <ul id="emp-reports" class="text-sm space-y-1"></ul>
@@ -138,6 +169,11 @@
   let employees = [], setup = null, companies = [], units = [], users = [];
   let rights = { canWrite: false, canSeeSensitive: false, canCorrect: false };
   let current = null, correcting = false, isDirty = false;
+  // Employee documents (step 2): the list, the one open below it (null: a
+  // new one), and whether it is being renewed.
+  let docs = null, curDoc = null, docRenewing = false, docCanWrite = false, docFiles = null;
+  const DOC_STATUS = { Active: 'text-emerald-400', Expiring: 'text-amber-400', Expired: 'text-red-400', Superseded: 'text-slate-500', Removed: 'text-red-400 line-through' };
+  const docStatusText = d => d.DisplayStatus === 'Superseded' ? 'Renewed' : d.DisplayStatus === 'Expiring' ? 'Expiring (' + d.DaysLeft + (d.DaysLeft === 1 ? ' day)' : ' days)') : d.DisplayStatus;
 
   function options(sel, list, first) {
     sel.innerHTML = (first != null ? '<option value="">' + escapeHtml(first) + '</option>' : '') + list.map(o => '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>').join('');
@@ -249,7 +285,7 @@
     $('emp-heading').textContent = 'New employee';
     $('emp-status-badge').innerHTML = '';
     $('emp-note').classList.add('hidden');
-    ['emp-reports-wrap', 'emp-history-wrap'].forEach(id => $(id).classList.add('hidden'));
+    ['emp-reports-wrap', 'emp-history-wrap', 'emp-docs-wrap'].forEach(id => $(id).classList.add('hidden'));
     setEditable();
     showForm();
   }
@@ -273,8 +309,78 @@
       $('emp-history-wrap').classList.toggle('hidden', !r.history.length);
       setEditable();
       showForm();
+      loadDocs();
     }, err => appAlert(err.message || 'Unable to open the employee.'));
   }
+  // ---------- documents (step 2) ----------
+  function loadDocs(openId) {
+    closeDoc();
+    $('emp-docs-wrap').classList.toggle('hidden', !(current && rights.canSeeSensitive));
+    if (!current || !rights.canSeeSensitive) return Promise.resolve();
+    return call('getEmployeeDocuments', { employeeId: current.EmployeeID }).then(r => {
+      docs = r; docCanWrite = Boolean(r.canWrite);
+      $('emp-doc-new').classList.toggle('hidden', !docCanWrite);
+      const rows = r.documents.filter(d => d.Status !== 'Removed' || openId === d.DocumentID);
+      $('emp-docs-body').innerHTML = rows.map(d => '<tr data-id="' + escapeHtml(d.DocumentID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
+        '<td class="py-2 px-2">' + escapeHtml(d.DocTypeName) + '</td><td class="py-2 px-2 text-xs font-mono">' + escapeHtml(d.DocNumber || '') + '</td>' +
+        '<td class="py-2 px-2 text-xs">' + escapeHtml(d.IssueDate || '') + '</td><td class="py-2 px-2 text-xs">' + escapeHtml(d.ExpiryDate || '') + '</td>' +
+        '<td class="py-2 px-2 text-xs ' + (DOC_STATUS[d.DisplayStatus] || '') + '">' + escapeHtml(docStatusText(d)) + '</td>' +
+        '<td class="py-2 px-2 text-xs text-right">' + (d.FileCount ? '<i class="fa-solid fa-paperclip"></i> ' + d.FileCount : '') + '</td></tr>').join('') ||
+        '<tr><td colspan="6" class="py-3 px-2 text-xs text-slate-500">No documents yet.</td></tr>';
+      if (openId) openDoc(openId);
+    }, err => appAlert(err.message || 'Unable to load the documents.'));
+  }
+  function closeDoc() { curDoc = null; docRenewing = false; $('emp-doc-view').classList.add('hidden'); }
+  function docEditable(on) {
+    document.querySelectorAll('.emp-doc-f').forEach(el => { el.disabled = !on; });
+    $('emp-doc-save').classList.toggle('hidden', !on);
+  }
+  function fillDocTypes(selected) {
+    const types = docs.documentTypes.filter(t => t.Active !== false || t.DocumentTypeID === selected);
+    options($('emp-doc-type'), types.map(t => ({ value: t.DocumentTypeID, label: t.Name })), 'Select...');
+    $('emp-doc-type').value = selected || '';
+  }
+  function showDoc(d) {
+    curDoc = d; docRenewing = false;
+    $('emp-doc-error').classList.add('hidden');
+    fillDocTypes(d ? d.DocumentTypeID : '');
+    $('emp-doc-number').value = d ? d.DocNumber || '' : ''; $('emp-doc-issue').value = d ? d.IssueDate || '' : '';
+    $('emp-doc-expiry').value = d ? d.ExpiryDate || '' : ''; $('emp-doc-notes').value = d ? d.Notes || '' : '';
+    const open = !d || d.Status === 'Active';
+    $('emp-doc-heading').textContent = d ? d.DocTypeName + (d.DocNumber ? ' ' + d.DocNumber : '') : 'New document';
+    const note = !d ? '' : d.Status === 'Superseded' ? 'Renewed: an earlier version, kept for history.'
+      : d.Status === 'Removed' ? 'Removed by ' + (d.RemovedByName || '') + ': ' + (d.RemoveReason || '') : '';
+    $('emp-doc-note').textContent = note; $('emp-doc-note').classList.toggle('hidden', !note);
+    docEditable(docCanWrite && open);
+    $('emp-doc-type').disabled = !(docCanWrite && !d);
+    $('emp-doc-renew').classList.toggle('hidden', !(docCanWrite && d && d.Status === 'Active'));
+    $('emp-doc-remove').classList.toggle('hidden', !(docCanWrite && d && d.Status !== 'Removed'));
+    $('emp-doc-view').classList.remove('hidden');
+    if (docFiles && d) docFiles.reload();
+  }
+  function openDoc(id) { const d = docs && docs.documents.find(x => x.DocumentID === id); if (d) showDoc(d); }
+  function saveDoc() {
+    const doc = { DocumentID: curDoc && !docRenewing ? curDoc.DocumentID : '', EmployeeID: current.EmployeeID, DocumentTypeID: val('emp-doc-type'),
+      DocNumber: val('emp-doc-number'), IssueDate: val('emp-doc-issue'), ExpiryDate: val('emp-doc-expiry'), Notes: val('emp-doc-notes') };
+    const p = docRenewing ? call('renewEmployeeDocument', { documentId: curDoc.DocumentID, document: doc }) : call('saveEmployeeDocument', { document: doc });
+    p.then(r => loadDocs(r.documentId), err => { $('emp-doc-error').textContent = err.message || 'Unable to save.'; $('emp-doc-error').classList.remove('hidden'); });
+  }
+  function renewDoc() {
+    docRenewing = true;
+    $('emp-doc-heading').textContent = 'Renew: ' + curDoc.DocTypeName;
+    $('emp-doc-note').textContent = 'Enter the new number and dates. Save makes a new record; this one is kept as an earlier version. Add the new scan to the new record.';
+    $('emp-doc-note').classList.remove('hidden');
+    $('emp-doc-number').value = ''; $('emp-doc-issue').value = ''; $('emp-doc-expiry').value = '';
+    $('emp-doc-renew').classList.add('hidden'); $('emp-doc-remove').classList.add('hidden');
+    if (docFiles) docFiles.reload();
+  }
+  async function removeDoc() {
+    const reason = await appPrompt('Remove this ' + curDoc.DocTypeName + '? Its files move to the Removed folder (never deleted) and the record stays, as Removed. Reason:', '');
+    if (reason == null) return;
+    const id = curDoc.DocumentID;
+    call('removeEmployeeDocument', { documentId: id, reason: reason }).then(() => loadDocs(id), err => appAlert(err.message || 'Unable to remove the document.'));
+  }
+
   function collect() {
     const out = { EmployeeID: current ? current.EmployeeID : '', Custom: {} };
     document.querySelectorAll('.emp-f').forEach(el => { out[el.dataset.k] = el.value; });
@@ -327,7 +433,16 @@
     $('emp-correct-btn').addEventListener('click', () => { correcting = true; setEditable(); });
     $('emp-form-company').addEventListener('change', () => fillUnits(val('emp-form-company')));
     $('emp-reports').addEventListener('click', e => { const b = e.target.closest('.emp-goto'); if (b) confirmLeave(() => openEmployee(b.dataset.id)); });
-    ['input', 'change'].forEach(t => $('emp-entry-view').addEventListener(t, () => { isDirty = true; }));
+    ['input', 'change'].forEach(t => $('emp-entry-view').addEventListener(t, e => { if (!e.target.closest('#emp-docs-wrap')) isDirty = true; }));
+    // A document's files, below it (docs/modules/ATTACHMENTS.md).
+    docFiles = supportingDocs.mount({ module: 'EMPDOCS', view: 'emp-doc-view', id: () => (curDoc && !docRenewing ? curDoc.DocumentID : ''),
+      emptyNote: 'Save the document to attach its scan.' });
+    $('emp-doc-new').addEventListener('click', () => showDoc(null));
+    $('emp-doc-close').addEventListener('click', closeDoc);
+    $('emp-doc-save').addEventListener('click', saveDoc);
+    $('emp-doc-renew').addEventListener('click', renewDoc);
+    $('emp-doc-remove').addEventListener('click', removeDoc);
+    $('emp-docs-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openDoc(tr.dataset.id); });
     $('emp-replace-btn').addEventListener('click', openReplace);
     $('emp-replace-cancel').addEventListener('click', () => $('emp-replace').classList.add('hidden'));
     $('emp-replace-go').addEventListener('click', doReplace);

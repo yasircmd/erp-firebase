@@ -1,0 +1,18 @@
+# HR: Employee Records, step 2: employee documents (owner 2026-10-03;
+# docs/modules/HR_EMPLOYEES.md). Order: this functions set, then the
+# "hosting" task (public/index.html: the Home block "Employee Documents
+# Expiring or Expired"), then the screens (--screens or "screens only"):
+# EMPLOYEES. Nothing to set up in the app: the document types are in HR
+# Setup already.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getEmployeeDocuments
+saveEmployeeDocument
+renewEmployeeDocument
+removeEmployeeDocument
+getEmployeeDocumentsExpiringForUser   # the Home task
+# Supporting documents: the EMPDOCS source (Employees rights, folders).
+getAttachments
+uploadAttachment
+openAttachment
+removeAttachment
+getAttachmentCounts
