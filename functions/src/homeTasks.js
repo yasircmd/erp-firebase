@@ -122,10 +122,11 @@ const DRAFT_RTDB_SOURCES = [
 ];
 const DRAFT_FIRESTORE_SOURCES = [
   { collection: FIRESTORE_JOURNAL_ENTRIES_COLLECTION, moduleOf: r => moduleIdForEntry(r) },
-  { collection: 'faPostings', moduleOf: r => r.ModuleID || null }
+  { collection: 'faPostings', moduleOf: r => r.ModuleID || null },
+  { collection: 'employeeChanges', moduleOf: () => 'EMPCHANGE' }
 ];
 const draftDateOf = r => r.TransactionDate || r.JVDate || r.Date || r.InvoiceDate || r.PRDate || r.IPRDate ||
-  r.PODate || r.SODate || r.JODate || '';
+  r.PODate || r.SODate || r.JODate || r.EffectiveDate || '';
 
 exports.getMyDraftsForUser = onCall(onCallOptions, async (request) => {
   const user = await requireUser(request);

@@ -300,6 +300,7 @@ async function context() {
 exports.getEmployees = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const r = await requireAccess(user);
+  await require('./hrChanges').applyDueChanges(); // future-dated Employee Changes whose date has come
   const ctx = await context();
   const employees = ctx.all.filter(e => userCanAccessCompany(user.profile, e.CompanyID)).map(e => Object.assign({
     EmployeeID: e.EmployeeID, EmployeeNo: e.EmployeeNo, FullName: e.FullName, CompanyID: e.CompanyID, Status: e.Status, JoinDate: e.JoinDate,
@@ -314,6 +315,7 @@ exports.getEmployees = onCallWithMessages(onCallOptions, async (request) => {
 exports.getEmployee = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const r = await requireAccess(user);
+  await require('./hrChanges').applyDueChanges();
   const ctx = await context();
   const e = ctx.byId[String((request.data || {}).employeeId || '')];
   if (!e) throw new HttpsError('not-found', 'Employee not found.');
