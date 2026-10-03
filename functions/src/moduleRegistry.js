@@ -90,7 +90,10 @@ const MODULE_REGISTRY = [
   // sees pay, bank details, sensitive extra fields and documents (owner
   // decision 7, revised).
   { id: 'HRSETUP', label: 'HR Setup', capabilities: ['access', 'write'] },
-  { id: 'EMPLOYEES', label: 'Employees', capabilities: ['access', 'write', 'sensitive'] }
+  { id: 'EMPLOYEES', label: 'Employees', capabilities: ['access', 'write', 'sensitive'] },
+  // Promotion / increment / transfer documents, approved through Approval
+  // Configuration (docs/modules/HR_EMPLOYEES.md, step 4).
+  { id: 'EMPCHANGE', label: 'Employee Changes', capabilities: ['access', 'draft', 'post'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -198,7 +201,8 @@ const DEFAULT_PERMISSIONS = {
   DOCUMENTSTORAGE:    { access: ['ADMIN'] },
   COMPANYDOCS:        { access: ['ADMIN', 'FINANCE_MGR'], write: ['ADMIN'] },
   HRSETUP:            { access: ['ADMIN'], write: ['ADMIN'] },
-  EMPLOYEES:          { access: ['ADMIN', 'FINANCE_MGR'], write: ['ADMIN'], sensitive: ['ADMIN'] }
+  EMPLOYEES:          { access: ['ADMIN', 'FINANCE_MGR'], write: ['ADMIN'], sensitive: ['ADMIN'] },
+  EMPCHANGE:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

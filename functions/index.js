@@ -200,3 +200,6 @@ const hrDocuments = require('./src/hrDocuments');
   'getEmployeeDocumentsExpiringForUser'].forEach(n => { exports[n] = hrDocuments[n]; });
 const hrPay = require('./src/hrPay');
 ['getPayElements', 'savePayElement', 'getCompensation', 'saveCompensation'].forEach(n => { exports[n] = hrPay[n]; });
+const hrChanges = require('./src/hrChanges');
+['getEmployeeChanges', 'getEmployeeChange', 'saveEmployeeChange', 'deleteEmployeeChange', 'submitEmployeeChange',
+  'decideEmployeeChangeApproval', 'getEmployeeChangeStart'].forEach(n => { exports[n] = hrChanges[n]; });

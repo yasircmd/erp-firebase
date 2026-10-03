@@ -38,6 +38,7 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'FARETIRE', Label: 'Fixed Asset Retirement' },
   { ModuleID: 'FAAUC', Label: 'Capital Work in Progress' },
   { ModuleID: 'RECURRINGJV', Label: 'Recurring Journal Entries' },
+  { ModuleID: 'EMPCHANGE', Label: 'Employee Change (promotion, increment, transfer)' },
 ];
 
 const APPROVAL_MODULE_STORAGE_ = {
@@ -65,7 +66,8 @@ const APPROVAL_MODULE_STORAGE_ = {
   PURCHASEREQUISITION: { type: 'rtdb', path: 'purchaseRequisitions' },
   INVENTORYPURCHASEREQUISITION: { type: 'rtdb', path: 'inventoryPurchaseRequisitions' },
   // One approval per Job Order LINE (acceptance / stop, docs/modules/JOB_ORDER_ACCEPTANCE.md).
-  JOBORDERREQUEST: { type: 'rtdb', path: 'jobOrderLines' }
+  JOBORDERREQUEST: { type: 'rtdb', path: 'jobOrderLines' },
+  EMPCHANGE: { type: 'firestore', collection: 'employeeChanges' }
 };
 
 // CBT voucher type -> its Approval Configuration entry.
