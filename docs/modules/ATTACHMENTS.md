@@ -1,7 +1,7 @@
 # Supporting Documents (attachments on entries)
 
-Status: **design**, awaiting the owner's decisions (2026-10-03). No code
-until they are agreed.
+Status: **design agreed** by the owner (2026-10-03); the Google set-up (below)
+is needed before it can go live.
 
 ## The request (owner, 2026-10-03)
 
@@ -140,13 +140,55 @@ once, plus the screens.
 - A 10 MB file fits in one function call (limit 32 MB); no change to
   the database rules.
 
-## Open questions: the owner's decisions
+## The owner's decisions (2026-10-03)
 
-| # | Question | Proposed |
+| # | Question | Decision |
 |---|---|---|
-| 1 | Which storage? | Google Drive, in a Shared Drive (Google Workspace) |
-| 2 | Who can see an entry's documents? | Everyone who can open the entry (module + company access), approvers included |
-| 3 | Removing a file | Before posting: the person who uploaded it, or Admin. After posting: Admin only. A removed file is moved to a "Removed" folder, not deleted |
-| 4 | Which modules first? | All 27 entry modules in one go (one shared component); or a first set (JV, CBT, PO, GRN, Vendor Invoice, Customer Invoice, PR) then the rest |
-| 5 | Year folder | The document's own date (not the upload date) |
-| 6 | Master data too? | Not now (vendor trade licences, asset photos): later, same component |
+| 1 | Storage | **Google Drive**, a Shared Drive (Google Workspace) with a service account |
+| 2 | Who sees and adds | **Anyone who can open the entry** (module + company access), approvers included |
+| 3 | Removing | **Before posting: the uploader or Admin; after posting: Admin only.** A removed file moves to a "Removed" folder, never deleted |
+| 4 | Modules | **All 27 entry modules at once** (one shared component) |
+| 5 | Year folder | The document's own date (as proposed; not asked) |
+| 6 | Master data | Not now (as proposed; not asked) |
+
+## Set-up needed from the owner (once, before go-live)
+
+1. **Google Workspace:** create a Shared Drive, e.g. "ERP Documents".
+2. **Google Cloud console** (project `erp1-8f4cd`):
+   - enable the **Google Drive API**;
+   - create a service account, e.g. `erp-documents`, and a **JSON key**
+     for it.
+3. In the Shared Drive, **add the service account's email** as a
+   *Content manager*.
+4. **Store the key** as the secret `ERP_DRIVE_KEY` in Secret Manager.
+   A Deploy workflow task will be added for this; the key never goes in
+   the repository.
+5. In the ERP, Admin → **Document Storage**:
+   - paste the Shared Drive (or a folder in it) link;
+   - press **Test connection**.
+
+## Build plan
+
+1. **Server** (`functions/src/attachments.js`, hand-written):
+   - the storage adapter: Google Drive over its REST API, signed in with
+     the service account; nothing to install, the Google auth library
+     comes with firebase-admin;
+   - the folder logic (company / year / voucher type / number; drafts
+     renamed on posting);
+   - the access check per module, reusing each module's own rules;
+   - the callables and the audit log.
+
+   Tests run against an in-memory stand-in for Drive, so they need no
+   Google account. The real Drive is checked by Test connection after the
+   deploy.
+2. **Document Storage screen** (Admin): link, test, folder layout.
+3. **Shell component** (`public/index.html`, a SUPPORTING DOCUMENTS
+   block): the bottom section, upload, open, remove, and the paperclip
+   count. Hosting deploy.
+4. **The 27 screens**: each mounts the section in its entry form and adds
+   the paperclip to its list (hand screens edited; generated ones through
+   a generator transform, as for copy / paste).
+5. **Posting hook:** when an entry gets its number, the draft folder is
+   renamed.
+6. Tests, negative controls, regression, docs, deploy sets (functions +
+   hosting + screens), PR.
