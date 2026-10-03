@@ -140,8 +140,11 @@ test('vendor and customer documents: linked, checked, counted for their masters'
   await call('u-admin', 'removeCompanyDocument', { documentId: gone, reason: 'Wrong vendor' });
   const d = (await list()).find(x => x.DocumentID === v);
   assert.deepEqual([d.PartyName, d.PartyCode], ['Acme Metals', 'V001']);
-  assert.deepEqual(await call('u-viewer', 'getPartyDocumentCounts', { partyType: 'Vendor', partyIds: ['V1'] }), { V1: 1 }, 'the removed one is not counted');
-  assert.deepEqual(await call('u-viewer', 'getPartyDocumentCounts', { partyType: 'Customer' }), { CU1: 1 });
+  assert.deepEqual(await call('u-viewer', 'getPartyDocumentCounts', { partyType: 'Vendor' }), { access: true, counts: { V1: 1 } }, 'the removed one is not counted');
+  assert.deepEqual(await call('u-viewer', 'getPartyDocumentCounts', { partyType: 'Customer' }), { access: true, counts: { CU1: 1 } });
+  assert.deepEqual(await call('u-viewer', 'getPartyDocumentCounts', { partyType: 'Company' }), { access: true, counts: { C1: 2 } });
+  await rtdb.ref('permissions/COMPANYDOCS/access').set(['Admin']);
+  assert.deepEqual(await call('u-viewer', 'getPartyDocumentCounts', { partyType: 'Vendor' }), { access: false, counts: {} }, 'no access: no link');
   await rtdb.ref('vendors/V2').set({ VendorCode: 'V002', VendorName: 'Other Co Vendor', Status: 'Active', CompanyID: 'C2' });
   await assert.rejects(create({ PartyType: 'Vendor', PartyID: 'V2' }), /That vendor belongs to another company/);
 });

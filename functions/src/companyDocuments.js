@@ -181,7 +181,7 @@ exports.getCompanyDocument = onCallWithMessages(onCallOptions, async (request) =
   }
   const logSnap = await LOG().where('DocumentID', '==', ref.id).get();
   const history = logSnap.docs.map(x => x.data()).sort((a, b) => String(b.At).localeCompare(String(a.At)));
-  return { document: Object.assign({ DocumentID: ref.id }, d, { DisplayStatus: displayStatus(d, asOf) }), versions, history, canWrite: await can(user, 'write') };
+  return { document: Object.assign({ DocumentID: ref.id }, d, { DisplayStatus: displayStatus(d, asOf), DaysLeft: d.ExpiryDate ? daysLeft(d.ExpiryDate, asOf) : null }), versions, history, canWrite: await can(user, 'write') };
 });
 
 exports.saveCompanyDocument = onCallWithMessages(onCallOptions, async (request) => {
@@ -249,21 +249,23 @@ exports.removeCompanyDocument = onCallWithMessages(onCallOptions, async (request
   return { success: true, filesRemoved: files };
 });
 
-// "Documents (n)" on the Vendor / Customer Master.
+// "Documents (n)" on the Company, Vendor and Customer Master: current
+// documents (not renewed or removed) per company or per party. access:false
+// for users who can't open Company Documents (no link shown).
 exports.getPartyDocumentCounts = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
-  if (!(await can(user, 'access'))) return {};
-  const d = request.data || {};
-  const type = text(d.partyType, 20);
-  if (type !== 'Vendor' && type !== 'Customer') return {};
-  const snap = await DOCS().where('PartyType', '==', type).get();
-  const out = {};
+  if (!(await can(user, 'access'))) return { access: false, counts: {} };
+  const type = text((request.data || {}).partyType, 20);
+  if (type !== 'Vendor' && type !== 'Customer' && type !== 'Company') return { access: true, counts: {} };
+  const snap = type === 'Company' ? await DOCS().get() : await DOCS().where('PartyType', '==', type).get();
+  const counts = {};
   snap.docs.forEach(doc => {
     const x = doc.data();
     if (x.Status === 'Removed' || x.Status === 'Superseded' || !userCanAccessCompany(user.profile, x.CompanyID)) return;
-    out[x.PartyID] = (out[x.PartyID] || 0) + 1;
+    const key = type === 'Company' ? x.CompanyID : x.PartyID;
+    counts[key] = (counts[key] || 0) + 1;
   });
-  return out;
+  return { access: true, counts };
 });
 
 // The Home task: expiring within 30 days, or expired, for the users who can

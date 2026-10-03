@@ -279,7 +279,7 @@
 
     filtered.forEach(v => {
       const contact = [v.ContactPerson, v.Phone].filter(Boolean).join(' — ') || '—';
-      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40'; row.dataset.partyId = v.VendorID; row.dataset.partyName = v.VendorName;
       const actions = canWrite
         ? `<button data-id="${v.VendorID}" class="ven-edit-btn text-blue-400 hover:text-blue-300 text-xs mr-3">Edit</button><button data-id="${v.VendorID}" class="ven-toggle-btn text-xs ${v.Status === 'Active' ? 'text-red-400 hover:text-red-300' : 'text-emerald-400 hover:text-emerald-300'}">${v.Status === 'Active' ? 'Deactivate' : 'Reactivate'}</button>`
         : '';
@@ -396,6 +396,7 @@
 
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken, writeAllowed) {
+    supportingDocs.partyDocs({ list: 'ven-table-body', partyType: 'Vendor', from: { moduleId: 'VENDORMASTER', label: 'Vendor Master' } }); // its Company Documents
     token = idToken;
     canWrite = Boolean(writeAllowed);
 

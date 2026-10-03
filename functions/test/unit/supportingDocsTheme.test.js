@@ -2,7 +2,7 @@
 // stayed dark in light mode). The shell's light theme recolours a fixed set
 // of slate classes (public/index.html, [data-theme="light"] rules); a slate
 // background, border, divider or text class outside that set stays dark.
-// Checks the SUPPORTING DOCUMENTS block and the Document Storage screen.
+// Checks the SUPPORTING DOCUMENTS block, Document Storage and Company Documents.
 //   node --test functions/test/unit/supportingDocsTheme.test.js
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -13,6 +13,7 @@ const REPO = path.join(__dirname, '../../..');
 const shell = fs.readFileSync(path.join(REPO, 'public/index.html'), 'utf8');
 const block = shell.slice(shell.indexOf('// ---------- SUPPORTING DOCUMENTS ----------'), shell.indexOf('// ---------- END SUPPORTING DOCUMENTS ----------'));
 const screen = fs.readFileSync(path.join(REPO, 'screens/DOCUMENTSTORAGE.html'), 'utf8');
+const companyDocs = fs.readFileSync(path.join(REPO, 'screens/COMPANYDOCS.html'), 'utf8');
 
 // Every class the light theme recolours, e.g. "bg-slate-800/60", "hover:bg-slate-700".
 const mapped = new Set();
@@ -25,7 +26,7 @@ test('the light theme recolours the classes it is checked against', () => {
   for (const c of ['bg-slate-800', 'bg-slate-800/60', 'divide-slate-700', 'text-slate-400', 'border-slate-700']) assert.ok(mapped.has(c), c);
 });
 
-for (const [name, src] of [['the Supporting documents section', block], ['the Document Storage screen', screen]]) {
+for (const [name, src] of [['the Supporting documents section', block], ['the Document Storage screen', screen], ['the Company Documents screen', companyDocs]]) {
   test(name + ' uses only slate classes that light mode recolours', () => {
     assert.ok(src.length > 1000, 'found it');
     assert.deepEqual(used(src).filter(c => !mapped.has(c)), []);

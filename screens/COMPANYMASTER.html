@@ -179,7 +179,7 @@
       const parent = c.ParentCompanyID ? companyById(c.ParentCompanyID) : null;
       const taxSummary = (c.TaxNumbers || []).map(t => t.Type + ': ' + t.Number).join(', ') || '—';
       const location = [c.City, c.Country].filter(Boolean).join(', ') || '—';
-      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
+      const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40'; row.dataset.partyId = c.CompanyID;
       const actions = canWrite
         ? `<button class="co-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
            <button class="co-toggle text-slate-400 ${c.Status === 'Active' ? 'hover:text-red-400' : 'hover:text-emerald-400'} p-1" title="${c.Status === 'Active' ? 'Deactivate' : 'Reactivate'}"><i class="fa-solid ${c.Status === 'Active' ? 'fa-ban' : 'fa-rotate-left'}"></i></button>`
@@ -342,6 +342,8 @@
 
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken, writeAllowed) {
+    // "Documents (n)" on each company: its Company Documents (docs/modules/COMPANY_DOCUMENTS.md).
+    supportingDocs.partyDocs({ list: 'co-table-body', partyType: 'Company', from: { moduleId: 'COMPANYMASTER', label: 'Company Master' } });
     token = idToken;
     canWrite = Boolean(writeAllowed);
 

@@ -1,0 +1,409 @@
+<div id="cd-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Company</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-file-contract text-blue-500"></i> Company Documents</h2></div>
+    <div class="flex gap-2">
+      <button id="cd-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="cd-back-chain-label">Back</span></button>
+      <button id="cd-categories-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-tags"></i> Categories</button>
+      <button id="cd-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Document</button>
+    </div>
+  </div>
+
+  <div id="cd-categories" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-sm font-semibold text-slate-200">Categories</div>
+    <p class="text-xs text-slate-500">Rename a category or stop using it. One that isn't in use any more stays on the documents that have it.</p>
+    <div id="cd-categories-list" class="space-y-2"></div>
+    <div class="flex gap-2 items-center">
+      <input id="cd-new-category" type="text" placeholder="New category" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm">
+      <button id="cd-add-category" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg"><i class="fa-solid fa-plus"></i> Add</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="cd-search" placeholder="Search title, reference, party..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    <select id="cd-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
+    <select id="cd-category-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Categories</option></select>
+    <select id="cd-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="current">Current (not renewed or removed)</option>
+      <option value="attention">Expiring or expired</option>
+      <option value="Expiring">Expiring within 30 days</option>
+      <option value="Expired">Expired</option>
+      <option value="Active">Active</option>
+      <option value="Terminated">Terminated</option>
+      <option value="Superseded">Renewed (earlier versions)</option>
+      <option value="Removed">Removed</option>
+      <option value="">All</option>
+    </select>
+  </div>
+  <div id="cd-party-chip" class="hidden text-xs text-slate-300"></div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-3 px-3">Title</th><th class="py-3 px-3">Category</th><th class="py-3 px-3">Company</th><th class="py-3 px-3">Party</th>
+      <th class="py-3 px-3">Issued</th><th class="py-3 px-3">Expires</th><th class="py-3 px-3">Status</th></tr></thead>
+    <tbody id="cd-table-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+</div>
+
+<div id="cd-entry-view" class="hidden space-y-5">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+    <div class="flex items-center gap-3">
+      <button id="cd-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h3 id="cd-form-heading" class="text-lg font-bold text-slate-100"></h3>
+      <span id="cd-form-status"></span>
+    </div>
+    <div class="flex gap-2">
+      <button id="cd-renew-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-rotate"></i> Renew</button>
+      <button id="cd-remove-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Remove</button>
+    </div>
+  </div>
+  <p id="cd-form-note" class="hidden text-xs text-slate-400"></p>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Company *</label>
+        <select id="cd-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">Select...</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Category *</label>
+        <select id="cd-form-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">Select...</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label>
+        <select id="cd-form-state" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Active">Active</option><option value="Terminated">Terminated</option></select></div>
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Title *</label>
+        <input id="cd-form-title" type="text" maxlength="150" placeholder="e.g. Warehouse lease – Al Quoz" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference no.</label>
+        <input id="cd-form-reference" type="text" maxlength="80" placeholder="Licence / policy / contract no." class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Party</label>
+        <select id="cd-form-party-type" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+          <option value="">None (the company's own)</option><option value="Vendor">Vendor</option><option value="Customer">Customer</option><option value="Other">Other (authority, landlord, bank...)</option></select></div>
+      <div class="md:col-span-2">
+        <label id="cd-form-party-label" class="block text-xs font-medium text-slate-300 mb-1">&nbsp;</label>
+        <select id="cd-form-party" class="hidden w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select>
+        <input id="cd-form-party-name" type="text" maxlength="150" class="hidden w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+      </div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Issue / start date</label>
+        <input id="cd-form-issue" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Expiry date <span class="text-slate-500">(reminder 30 days ahead)</span></label>
+        <input id="cd-form-expiry" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="md:col-span-3"><label class="block text-xs font-medium text-slate-300 mb-1">Notes</label>
+        <textarea id="cd-form-notes" rows="2" maxlength="2000" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+    </div>
+    <div id="cd-form-error" class="hidden text-xs text-red-400"></div>
+    <div class="flex gap-2">
+      <button id="cd-save-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> <span>Save</span></button>
+      <button id="cd-cancel-renew-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700">Cancel renewal</button>
+    </div>
+  </div>
+
+  <div id="cd-versions-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div class="text-xs font-semibold text-slate-400 uppercase mb-2">Other versions</div>
+    <ul id="cd-versions" class="text-sm space-y-1"></ul>
+  </div>
+</div>
+
+<div id="cd-history-wrap" class="hidden mt-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+  <div class="text-xs font-semibold text-slate-400 uppercase mb-2">History</div>
+  <ul id="cd-history" class="text-xs text-slate-400 space-y-1"></ul>
+</div>
+
+<script>
+(function () {
+  // Company Documents (owner, 2026-10-03; docs/modules/COMPANY_DOCUMENTS.md):
+  // legal documents, contracts and licences per company, with their files
+  // in the document storage (the Supporting documents section below the
+  // form), expiry reminders, renewals and vendor / customer documents.
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+
+  let documents = [], categories = [], companies = [], vendors = [], customers = [];
+  let canWrite = false, canEditCategories = false;
+  let current = null;       // the record open in the form (null: a new one)
+  let renewing = false;     // the form is a renewal of `current`
+  let partyFilter = null;   // { PartyType, PartyID, PartyName } from a Vendor / Customer Master
+  let myReturnChain = [];
+  let isDirty = false;
+  let filesSection = null; // the Supporting documents section below the form
+
+  const STATUS_CLASS = { Active: 'text-emerald-400', Expiring: 'text-amber-400', Expired: 'text-red-400', Terminated: 'text-slate-400', Superseded: 'text-slate-500', Removed: 'text-red-400 line-through' };
+  const STATUS_LABEL = { Superseded: 'Renewed', Expiring: 'Expiring' };
+  function statusHtml(d) {
+    const s = d.DisplayStatus || d.Status;
+    let label = STATUS_LABEL[s] || s;
+    if (s === 'Expiring') label += ' (' + d.DaysLeft + (d.DaysLeft === 1 ? ' day)' : ' days)');
+    return '<span class="' + (STATUS_CLASS[s] || 'text-slate-400') + '">' + escapeHtml(label) + '</span>';
+  }
+  const companyLabel = id => { const c = companies.find(x => x.CompanyID === id); return c ? (c.CompanyRefCode ? c.CompanyRefCode + ' - ' : '') + c.LegalName : id; };
+  const partyLabel = d => d.PartyType ? (d.PartyCode ? d.PartyCode + ' — ' : '') + (d.PartyName || '') : '';
+  function options(sel, list, first) {
+    const keep = sel.value;
+    sel.innerHTML = (first ? '<option value="">' + first + '</option>' : '') + list.map(o => '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>').join('');
+    if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
+  }
+
+  // ---------- list ----------
+  function load(then) {
+    return call('getCompanyDocuments', {}).then(r => {
+      documents = r.documents || []; categories = r.categories || [];
+      canWrite = Boolean(r.canWrite); canEditCategories = Boolean(r.canEditCategories);
+      $('cd-new-btn').classList.toggle('hidden', !canWrite);
+      $('cd-categories-btn').classList.toggle('hidden', !canEditCategories);
+      options($('cd-category-filter'), categories.map(c => ({ value: c.CategoryID, label: c.Name + (c.Active ? '' : ' (not in use)') })), 'All Categories');
+      renderCategories();
+      renderList();
+      if (then) then();
+    }, err => appAlert(err.message || 'Unable to load the documents.'));
+  }
+  function matchesStatus(d, f) {
+    const s = d.DisplayStatus;
+    if (f === 'current') return s !== 'Superseded' && s !== 'Removed';
+    if (f === 'attention') return s === 'Expiring' || s === 'Expired';
+    return !f || s === f;
+  }
+  function renderList() {
+    const search = val('cd-search').trim().toLowerCase();
+    const company = val('cd-company-filter'), category = val('cd-category-filter'), status = val('cd-status-filter');
+    const rows = documents.filter(d => (!company || d.CompanyID === company) && (!category || d.CategoryID === category) && matchesStatus(d, status) &&
+      (!partyFilter || (d.PartyType === partyFilter.PartyType && d.PartyID === partyFilter.PartyID)) &&
+      (!search || [d.Title, d.ReferenceNo, d.PartyName, d.PartyCode, d.CategoryName, d.Notes].join(' ').toLowerCase().indexOf(search) !== -1));
+    const body = $('cd-table-body');
+    body.innerHTML = '';
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">No documents found.</td></tr>'; return; }
+    rows.forEach(d => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-800/40 cursor-pointer';
+      tr.dataset.docId = d.DocumentID;
+      tr.innerHTML = '<td class="py-2.5 px-3"><span class="text-slate-200">' + escapeHtml(d.Title) + '</span>' +
+        (d.ReferenceNo ? '<div class="text-xs text-slate-500 font-mono">' + escapeHtml(d.ReferenceNo) + '</div>' : '') + '</td>' +
+        '<td class="py-2.5 px-3 text-xs">' + escapeHtml(d.CategoryName) + '</td>' +
+        '<td class="py-2.5 px-3 text-xs text-slate-400">' + escapeHtml(companyLabel(d.CompanyID)) + '</td>' +
+        '<td class="py-2.5 px-3 text-xs">' + escapeHtml(partyLabel(d)) + '</td>' +
+        '<td class="py-2.5 px-3 text-xs text-slate-400 whitespace-nowrap">' + escapeHtml(d.IssueDate || '') + '</td>' +
+        '<td class="py-2.5 px-3 text-xs whitespace-nowrap">' + escapeHtml(d.ExpiryDate || '') + '</td>' +
+        '<td class="py-2.5 px-3 text-xs whitespace-nowrap">' + statusHtml(d) + '</td>';
+      tr.addEventListener('click', () => openDoc(d.DocumentID));
+      body.appendChild(tr);
+    });
+  }
+
+  // ---------- categories (Admin) ----------
+  function renderCategories() {
+    $('cd-categories-list').innerHTML = categories.map(c =>
+      '<div class="flex gap-2 items-center" data-id="' + escapeHtml(c.CategoryID) + '">' +
+      '<input type="text" value="' + escapeHtml(c.Name) + '" class="cd-cat-name bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm">' +
+      '<label class="text-xs text-slate-400 flex items-center gap-1"><input type="checkbox" class="cd-cat-active"' + (c.Active ? ' checked' : '') + '> In use</label>' +
+      '<button class="cd-cat-save bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg">Save</button></div>').join('');
+  }
+  function saveCategory(data) {
+    return call('saveCompanyDocumentCategory', data).then(() => load(), err => appAlert(err.message || 'Unable to save the category.'));
+  }
+
+  // ---------- the form ----------
+  function showList() {
+    $('cd-entry-view').classList.add('hidden');
+    $('cd-history-wrap').classList.add('hidden');
+    $('cd-list-view').classList.remove('hidden');
+    current = null; renewing = false; isDirty = false;
+    load();
+  }
+  function showForm() {
+    $('cd-list-view').classList.add('hidden');
+    $('cd-entry-view').classList.remove('hidden');
+    window.scrollTo(0, 0);
+  }
+  function confirmLeave(go) {
+    if (!isDirty) return go();
+    appConfirm('Leave without saving your changes?').then(ok => { if (ok) go(); });
+  }
+  function setError(msg) { $('cd-form-error').textContent = msg || ''; $('cd-form-error').classList.toggle('hidden', !msg); }
+
+  function fillCategories(selected) {
+    options($('cd-form-category'), categories.filter(c => c.Active || c.CategoryID === selected).map(c => ({ value: c.CategoryID, label: c.Name })), 'Select...');
+    $('cd-form-category').value = selected || '';
+  }
+  function fillParty(type, id, name) {
+    $('cd-form-party-type').value = type || '';
+    const co = val('cd-form-company');
+    const list = type === 'Vendor' ? vendors.filter(v => !v.CompanyID || v.CompanyID === co).map(v => ({ value: v.VendorID, label: (v.VendorCode ? v.VendorCode + ' — ' : '') + v.VendorName }))
+      : type === 'Customer' ? customers.filter(c => !c.CompanyID || c.CompanyID === co).map(c => ({ value: c.CustomerID, label: (c.CustomerCode ? c.CustomerCode + ' — ' : '') + c.CustomerName })) : [];
+    if (id && !list.some(o => o.value === id)) list.unshift({ value: id, label: name || id });
+    options($('cd-form-party'), list, 'Select...');
+    $('cd-form-party').value = id || '';
+    $('cd-form-party-name').value = type === 'Other' ? (name || '') : '';
+    $('cd-form-party').classList.toggle('hidden', type !== 'Vendor' && type !== 'Customer');
+    $('cd-form-party-name').classList.toggle('hidden', type !== 'Other');
+    $('cd-form-party-label').innerHTML = type === 'Vendor' ? 'Vendor *' : type === 'Customer' ? 'Customer *' : type === 'Other' ? 'Party name *' : '&nbsp;';
+  }
+  function setEditable(on) {
+    ['cd-form-company', 'cd-form-category', 'cd-form-state', 'cd-form-title', 'cd-form-reference', 'cd-form-party-type', 'cd-form-party', 'cd-form-party-name',
+      'cd-form-issue', 'cd-form-expiry', 'cd-form-notes'].forEach(id => { $(id).disabled = !on; });
+    $('cd-save-btn').classList.toggle('hidden', !on);
+  }
+  function fillForm(d) {
+    $('cd-form-company').value = d.CompanyID || '';
+    fillCategories(d.CategoryID);
+    $('cd-form-state').value = d.Status === 'Terminated' ? 'Terminated' : 'Active';
+    $('cd-form-title').value = d.Title || '';
+    $('cd-form-reference').value = d.ReferenceNo || '';
+    fillParty(d.PartyType, d.PartyID, d.PartyName);
+    $('cd-form-issue').value = d.IssueDate || '';
+    $('cd-form-expiry').value = d.ExpiryDate || '';
+    $('cd-form-notes').value = d.Notes || '';
+  }
+  function collect() {
+    const type = val('cd-form-party-type');
+    return {
+      DocumentID: current && !renewing ? current.DocumentID : '', CompanyID: val('cd-form-company'), CategoryID: val('cd-form-category'),
+      Status: val('cd-form-state'), Title: val('cd-form-title'), ReferenceNo: val('cd-form-reference'), PartyType: type,
+      PartyID: type === 'Vendor' || type === 'Customer' ? val('cd-form-party') : '', PartyName: type === 'Other' ? val('cd-form-party-name') : '',
+      IssueDate: val('cd-form-issue'), ExpiryDate: val('cd-form-expiry'), Notes: val('cd-form-notes')
+    };
+  }
+
+  function newDoc(preset) {
+    current = null; renewing = false; isDirty = false; setError('');
+    fillForm(Object.assign({ CompanyID: val('cd-company-filter') || (companies.length === 1 ? companies[0].CompanyID : '') }, preset || {}));
+    $('cd-form-heading').textContent = 'New document';
+    $('cd-form-status').innerHTML = '';
+    $('cd-form-note').classList.add('hidden');
+    $('cd-form-company').disabled = false;
+    setEditable(true);
+    $('cd-form-company').disabled = false;
+    $('cd-form-state').disabled = true;
+    $('cd-save-btn').querySelector('span').textContent = 'Save';
+    ['cd-renew-btn', 'cd-remove-btn', 'cd-cancel-renew-btn', 'cd-versions-wrap', 'cd-history-wrap'].forEach(id => $(id).classList.add('hidden'));
+    showForm();
+  }
+
+  function openDoc(id) {
+    return call('getCompanyDocument', { documentId: id }).then(r => {
+      const d = r.document;
+      current = d; renewing = false; isDirty = false; setError('');
+      fillForm(d);
+      const open = d.Status === 'Active' || d.Status === 'Terminated';
+      $('cd-form-heading').textContent = d.Title + (d.ReferenceNo ? ' — ' + d.ReferenceNo : '');
+      $('cd-form-status').innerHTML = statusHtml(d);
+      const note = d.Status === 'Superseded' ? 'Renewed: this is an earlier version, kept for history.'
+        : d.Status === 'Removed' ? 'Removed by ' + (d.RemovedByName || '') + ' on ' + isoLocalDateTime(d.RemovedAt) + ': ' + (d.RemoveReason || '')
+        : !r.canWrite ? 'You can view this document but not change it.' : '';
+      $('cd-form-note').textContent = note;
+      $('cd-form-note').classList.toggle('hidden', !note);
+      setEditable(r.canWrite && open);
+      $('cd-form-company').disabled = true; // a saved document keeps its company
+      $('cd-save-btn').querySelector('span').textContent = 'Save';
+      $('cd-renew-btn').classList.toggle('hidden', !(r.canWrite && open));
+      $('cd-remove-btn').classList.toggle('hidden', !(r.canWrite && d.Status !== 'Removed'));
+      $('cd-cancel-renew-btn').classList.add('hidden');
+      $('cd-versions').innerHTML = (r.versions || []).map(v => '<li><button type="button" class="cd-version text-blue-400 hover:text-blue-300 underline" data-id="' + escapeHtml(v.DocumentID) + '">' +
+        escapeHtml((v.Earlier ? 'Earlier: ' : 'Later: ') + v.Title + (v.ReferenceNo ? ' — ' + v.ReferenceNo : '')) + '</button> <span class="text-xs text-slate-500">' +
+        escapeHtml([v.IssueDate, v.ExpiryDate].filter(Boolean).join(' to ')) + ' · ' + escapeHtml(STATUS_LABEL[v.Status] || v.Status) + '</span></li>').join('');
+      $('cd-versions-wrap').classList.toggle('hidden', !(r.versions || []).length);
+      $('cd-history').innerHTML = (r.history || []).map(h => '<li>' + escapeHtml(isoLocalDateTime(h.At)) + ' · ' + escapeHtml(h.ByName) + ' · ' + escapeHtml(h.Action) +
+        (h.Detail ? ': ' + escapeHtml(h.Detail) : '') + '</li>').join('');
+      $('cd-history-wrap').classList.toggle('hidden', !(r.history || []).length);
+      showForm();
+      // The same record again (e.g. just removed): its files section reloads
+      // too, so Add and Remove follow its new state.
+      if (filesSection && current.DocumentID) filesSection.reload();
+    }, err => appAlert(err.message || 'Unable to open the document.'));
+  }
+
+  function startRenewal() {
+    renewing = true; isDirty = true; setError('');
+    $('cd-form-heading').textContent = 'Renew: ' + current.Title;
+    $('cd-form-note').textContent = 'Enter the new reference and dates. Save makes a new record; this one is kept as an earlier version. Add the new files to the new record.';
+    $('cd-form-note').classList.remove('hidden');
+    $('cd-form-issue').value = ''; $('cd-form-expiry').value = '';
+    $('cd-form-state').value = 'Active'; $('cd-form-state').disabled = true;
+    $('cd-save-btn').querySelector('span').textContent = 'Save renewal';
+    ['cd-renew-btn', 'cd-remove-btn'].forEach(id => $(id).classList.add('hidden'));
+    $('cd-cancel-renew-btn').classList.remove('hidden');
+  }
+
+  function save() {
+    setError('');
+    const doc = collect();
+    const btn = $('cd-save-btn');
+    btn.disabled = true;
+    const p = renewing ? call('renewCompanyDocument', { documentId: current.DocumentID, document: doc }) : call('saveCompanyDocument', { document: doc });
+    p.then(r => {
+      btn.disabled = false; isDirty = false;
+      load(() => openDoc(r.documentId));
+    }, err => { btn.disabled = false; setError(err.message || 'Unable to save.'); });
+  }
+
+  async function remove() {
+    const reason = await appPrompt('Remove "' + current.Title + '"? Its files move to the Removed folder (never deleted) and the record stays, as Removed. Reason:', '');
+    if (reason == null) return;
+    call('removeCompanyDocument', { documentId: current.DocumentID, reason: reason }).then(() => load(() => openDoc(current.DocumentID)),
+      err => appAlert(err.message || 'Unable to remove the document.'));
+  }
+
+  function applyParams(p) {
+    if (!p) return;
+    if (p.CompanyID) $('cd-company-filter').value = p.CompanyID;
+    if (p.PartyType && p.PartyID) {
+      partyFilter = { PartyType: p.PartyType, PartyID: p.PartyID, PartyName: p.PartyName || p.PartyID };
+      $('cd-status-filter').value = 'current';
+      $('cd-party-chip').innerHTML = 'Documents of ' + escapeHtml(p.PartyType.toLowerCase()) + ' <span class="text-slate-100 font-semibold">' + escapeHtml(partyFilter.PartyName) +
+        '</span> <button type="button" id="cd-party-clear" class="ml-2 text-blue-400 hover:text-blue-300 underline">Show all</button>' +
+        (canWrite ? ' <button type="button" id="cd-party-new" class="ml-2 text-blue-400 hover:text-blue-300 underline">Add one for this ' + escapeHtml(p.PartyType.toLowerCase()) + '</button>' : '');
+      $('cd-party-chip').classList.remove('hidden');
+      $('cd-party-clear').addEventListener('click', () => { partyFilter = null; $('cd-party-chip').classList.add('hidden'); renderList(); });
+      const add = $('cd-party-new');
+      if (add) add.addEventListener('click', () => newDoc({ PartyType: p.PartyType, PartyID: p.PartyID, PartyName: p.PartyName, CompanyID: p.CompanyID || '' }));
+    }
+    renderList();
+    if (p.OpenEntryId) openDoc(p.OpenEntryId);
+  }
+
+  window.initModule = function () {
+    // Its files, below the form (docs/modules/ATTACHMENTS.md), and the paperclip in the list.
+    filesSection = supportingDocs.mount({ module: 'COMPANYDOCS', view: 'cd-entry-view', id: () => current && !renewing ? current.DocumentID : '', list: 'cd-table-body',
+      emptyNote: 'Save the document to attach its files.' });
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-contract"></i> Company Documents';
+    ['cd-search'].forEach(id => $(id).addEventListener('input', renderList));
+    ['cd-company-filter', 'cd-category-filter', 'cd-status-filter'].forEach(id => $(id).addEventListener('change', renderList));
+    $('cd-new-btn').addEventListener('click', () => newDoc());
+    $('cd-back-btn').addEventListener('click', () => confirmLeave(showList));
+    $('cd-save-btn').addEventListener('click', save);
+    $('cd-renew-btn').addEventListener('click', startRenewal);
+    $('cd-cancel-renew-btn').addEventListener('click', () => { isDirty = false; openDoc(current.DocumentID); });
+    $('cd-remove-btn').addEventListener('click', remove);
+    $('cd-versions').addEventListener('click', e => { const b = e.target.closest('.cd-version'); if (b) confirmLeave(() => openDoc(b.dataset.id)); });
+    $('cd-form-party-type').addEventListener('change', () => fillParty(val('cd-form-party-type'), '', ''));
+    $('cd-form-company').addEventListener('change', () => fillParty(val('cd-form-party-type'), '', ''));
+    ['input', 'change'].forEach(t => $('cd-entry-view').addEventListener(t, e => { if (!e.target.closest('.supdocs')) isDirty = true; }));
+    $('cd-categories-btn').addEventListener('click', () => $('cd-categories').classList.toggle('hidden'));
+    $('cd-add-category').addEventListener('click', () => saveCategory({ Name: val('cd-new-category') }).then(() => { $('cd-new-category').value = ''; }));
+    $('cd-categories-list').addEventListener('click', e => {
+      const b = e.target.closest('.cd-cat-save');
+      if (!b) return;
+      const row = b.closest('[data-id]');
+      saveCategory({ CategoryID: row.dataset.id, Name: row.querySelector('.cd-cat-name').value, Active: row.querySelector('.cd-cat-active').checked });
+    });
+    myReturnChain = window.__pendingReturnChain || [];
+    window.__pendingReturnChain = null;
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      $('cd-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      $('cd-back-chain-btn').classList.remove('hidden');
+      $('cd-back-chain-btn').addEventListener('click', () => confirmLeave(() => { const chain = myReturnChain.slice(); const t = chain.pop(); if (t) openModule(t.moduleId, t.params, chain); }));
+    }
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    Promise.all([
+      call('getActiveCompanies', {}).then(r => { companies = r || []; }),
+      call('getActiveVendors', {}).then(r => { vendors = r || []; }, () => { vendors = []; }),
+      call('getActiveCustomers', {}).then(r => { customers = r || []; }, () => { customers = []; })
+    ]).then(() => {
+      const list = companies.map(c => ({ value: c.CompanyID, label: (c.CompanyRefCode ? c.CompanyRefCode + ' - ' : '') + c.LegalName }));
+      options($('cd-company-filter'), list, 'All Companies');
+      options($('cd-form-company'), list, 'Select...');
+      return load(() => applyParams(pending));
+    }, err => appAlert(err.message || 'Unable to load the companies.'));
+  };
+})();
+</script>
