@@ -228,6 +228,7 @@ Then Payroll, with its own design.
 | 9–10 | Changes after hiring | **All through an approved Employee Change**: grade, designation, pay and transfers (division, branch, cost center); set directly only when the employee is first created |
 | 11 | UAE details | **Flexi fields** (Emirates ID, visa, labour card, WPS routing); **bank name and IBAN stay standard** (follow-up) |
 | 12 | Import | **An "Employees" sheet in Master Data Import, with step 1** |
+| 13 | Mistakes in job / organization fields | **Keep Correct** (owner, 2026-10-03): HR Setup admins fix a data-entry mistake with a reason, shown in the history as a Correction; real changes go through an Employee Change |
 
 **Build order, as decided:**
 1. HR Setup (grades with company pay bands, designations, employee fields,
