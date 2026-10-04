@@ -430,8 +430,17 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     suite (7), `hrLeave.ui.js` (5); eleven negative controls caught. To
     go live: "functions set" `hr-leave-2` with the screens; link the menu
     node; set up its approvals; import the opening balances.
-  - **Next:** step 3, absences, the month summary and lock, the year-end
-    carry forward and lapse.
+  - **Step 3 built and tested 2026-10-04**, not yet live (decisions
+    10-13): absences (their own approval entry, always unpaid); unpaid
+    days stop accrual; Month close (lock in order after the month ends,
+    the summary for payroll, accrual posted at the grade then, reopen the
+    latest with a reason; back-dated leave paid in the next open month,
+    reversals after a lock); the year close (carry to the cap, the rest
+    lapses). Tests: `hrLeaveClose` suite (5), `hrLeaveClose.ui.js` (4);
+    twelve negative controls caught. To go live: "functions set"
+    `hr-leave-3` with the screens; tick "lock" and "reopen" in Roles &
+    Permissions.
+  - **Next:** step 4, reports, Home blocks and the who-is-away calendar.
 - [x] **HR: Employee Records** (owner, 2026-10-03;
   [HR_EMPLOYEES.md](modules/HR_EMPLOYEES.md)). **Design agreed
   2026-10-03:** group employee numbers, group grades with company pay

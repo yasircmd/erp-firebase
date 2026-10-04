@@ -1,6 +1,6 @@
 # HR: Attendance and Leave Register
 
-Status: **design agreed** (owner's decisions 2026-10-03, below); **steps 1–2 built and tested** (see As built); step 3 next. Comes
+Status: **design agreed** (owner's decisions 2026-10-03, below); **steps 1–3 built and tested** (see As built); step 4 next. Comes
 before Payroll (docs/modules/HR_PAYROLL.md, to come), which reads its
 results.
 
@@ -310,7 +310,15 @@ amounts, and air tickets.
 
   Then Payroll, with its own design.
 
-## As built: step 1, the setup (2026-10-03)
+## The owner's decisions for step 3 (2026-10-04)
+
+| # | Question | Decision |
+|---|---|---|
+| 10 | Unauthorised absences | **HR records them, approval optional:** an Absence entry in the Leave Register, through its own Approval Configuration entry ("Absence"), else final at once. Always unpaid. |
+| 11 | Accrual on unpaid days | **Unpaid days don't accrue:** each unpaid day (unpaid leave, the part over the balance, unpaid tiers, absences) reduces that month's accrual pro-rata. |
+| 12 | Month lock | **HR locks; Admin can reopen:** per company and month, after the month ends, in order. Refused while leave in that month is a draft or pending. Locking posts that month's accrual at each employee's grade then. Only the latest locked month can be reopened, with a reason, and it is logged. |
+| 13 | Year end | **HR runs "Close leave year"** per company after December is locked. It shows each balance, what carries (up to the cap) and what lapses. HR confirms, each lapse is logged, and it runs once a year. |
+ (2026-10-03)
 
 HR Setup has two new tabs. The rights are HR Setup's: read with HR Setup
 or Employees access, changed with HR Setup write.
@@ -557,4 +565,115 @@ Approvers need its access.
 
 **Next:** step 3: absences, the month summary and lock, the year-end carry
 forward and lapse.
+
+## As built: step 3, absences, the month close and the year close (2026-10-04)
+
+**Absences (decision 10):**
+- A system leave type, **"Absence (unauthorised)"** (code `ABSENT`).
+  - It is added once to an existing setup.
+  - Its kind is fixed, and no other type can be an absence.
+- Entered in the Leave Register like leave: working days, half days.
+  - Always unpaid, with no balance and no pay rules.
+  - It shows as "Absent, unpaid".
+  - A late return's absence reads "Absent (late return), unpaid".
+- It is approved through its own Approval Configuration entry, **"Absence,
+  unauthorised (the amount is the days)"**, and is final at once when
+  that is not set up.
+- An absence can be cancelled at any time (recorded in error); leave
+  only before it starts.
+
+**Accrual (decision 11):**
+- Each month earns its rate less its unpaid days, pro-rata. Unpaid days
+  are:
+  - unpaid leave;
+  - the part over the balance;
+  - unpaid tiers (e.g. sick day 46+);
+  - absences.
+- An unpaid day counts in the month it is paid in, so a back-dated one
+  reduces the next open month.
+
+**Pay months (decision 9):**
+- When a leave is approved, each line gets the month it is paid in:
+  - its own month;
+  - or, if that month is locked, the next open month.
+- A line taken away after its month was locked (an early return, a
+  cancelled absence) is **reversed** in the next open month, as a negative
+  line.
+- Reversals are pay adjustments only, never days taken.
+
+**The month close (decision 12):** Leave Register → **Month close**, per
+company.
+- **Lock:**
+  - after the month ends, in order: the first lock can be any ended
+    month, then only the next one;
+  - refused while leave dated up to the month's end is a draft or
+    pending ("decide or delete it first");
+  - right: "lock".
+- **Locking:**
+  - takes the **summary for payroll**, per employee:
+    - paid leave by type and how it is paid (full, basic, selected
+      elements, %);
+    - unpaid, absent and duty days;
+    - adjustments (days dated in an earlier month or reversed);
+    - the accrual;
+  - **posts each employee's accrual** for the month at their grade then,
+    in Firestore `leaveAccruals`. Balances use the posted figure for a
+    locked month, so a later promotion doesn't re-rate it.
+- **Reopen:**
+  - the latest locked month only, with a reason, logged;
+  - its accrual is taken back and posted again when it is re-locked;
+  - December stays locked once its year is closed;
+  - right: "reopen".
+- The summary of an open month shows as it stands.
+
+**The year close (decision 13):** in Month close, per company and year.
+- It shows each employee's balance at 31 December (what was earned and
+  adjusted, less what was taken), what carries (up to the type's cap) and
+  what lapses.
+- Once December is locked, "Close the year" records each lapse as an
+  adjustment on 31 December (kind Lapse, with the reason).
+- Once per company and year (`leaveYearCloses`). Left employees are not
+  included.
+
+**Rights:** `LEAVE` gets two more:
+- **lock:** lock months, close the year;
+- **reopen:** reopen a month.
+
+Both default to Admin.
+
+**Behind it:**
+- `functions/src/hrLeaveClose.js` (5 callables).
+- Firestore `leaveMonths` (status, history, the locked summary),
+  `leaveAccruals`, `leaveYearCloses`.
+- `hrLeave.js`: pay months, reversals, absences, and accrual less unpaid
+  days or as posted.
+
+**Tests:**
+- The `hrLeaveClose` suite (5) and `hrLeaveClose.ui.js` (4).
+- The step 1–2 suites and UI tests still pass, updated for the absence
+  type.
+- Twelve negative controls caught:
+  - locking a month not ended;
+  - locking out of order;
+  - locking over undecided leave;
+  - accrual ignoring unpaid days;
+  - posted accrual ignored;
+  - no reversal after a lock;
+  - back-dated lines paid in a locked month;
+  - no carry cap;
+  - reopening an older month;
+  - absences on the leave approval entry;
+  - the screen offering Lock on any month;
+  - the year close offered before December is locked.
+
+**To go live:**
+1. Deploy "functions set" `hr-leave-3`, with the screens.
+2. In Roles & Permissions → Leave Register, tick "lock" (HR) and "reopen"
+   (Admin).
+3. If absences need approval, set up Approval Configuration → "Absence,
+   unauthorised".
+
+**Next:** step 4: reports (balances, the register, absences), the Home
+blocks (on leave today, returning, overdue returns) and the who-is-away
+calendar.
 

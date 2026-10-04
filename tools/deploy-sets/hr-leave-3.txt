@@ -1,0 +1,48 @@
+# HR: Attendance and Leave Register, step 3: absences, the month close and
+# the year close (owner 2026-10-04; docs/modules/HR_LEAVE.md, decisions
+# 9-13). Run with --screens (or a "screens only" run after): LEAVE (Month
+# close). No Hosting change. Then, in the app: Roles & Permissions → Leave
+# Register: tick "lock" for HR and "reopen" for Admin; Approval
+# Configuration → "Absence, unauthorised" if absences need approval.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getLeaveMonths
+getLeaveMonthSummary
+lockLeaveMonth
+reopenLeaveMonth
+closeLeaveYear
+# Changed: the Leave Register (absences, pay months, accrual less unpaid
+# days and as posted) and the leave types (the absence type).
+getLeaves
+getLeaveForm
+getLeave
+previewLeave
+saveLeave
+deleteLeave
+submitLeave
+decideLeaveApproval
+cancelLeave
+recordLeaveReturn
+getLeaveBalances
+adjustLeaveBalance
+getLeaveSetup
+saveLeaveType
+saveLeaveEntitlements
+saveLeavePayRules
+# Master Data Import reads the leave types.
+getMasterImportSpecs
+checkMasterImport
+runMasterImport
+# Approvals: the "Absence" entry (approvalRegistry.js).
+getApprovalConfigurations
+saveApprovalConfiguration
+saveApprovalLevels
+getApprovalHistory
+getDelegationCandidates
+delegateApproval
+delegateApprovalsOf
+getPendingApprovalsForUser
+getMyRejectedSubmissions
+# Registries: the module's new rights (lock, reopen).
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions

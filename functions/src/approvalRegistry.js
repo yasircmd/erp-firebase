@@ -40,6 +40,7 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'RECURRINGJV', Label: 'Recurring Journal Entries' },
   { ModuleID: 'EMPCHANGE', Label: 'Employee Change (promotion, increment, transfer)' },
   { ModuleID: 'LEAVE', Label: 'Leave (the amount is the days)' },
+  { ModuleID: 'LEAVE_ABSENCE', Label: 'Absence, unauthorised (the amount is the days)' },
 ];
 
 const APPROVAL_MODULE_STORAGE_ = {
