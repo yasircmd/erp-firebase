@@ -1,6 +1,6 @@
 # HR: Payroll
 
-Status: **design agreed** (the owner's decisions 2026-10-04, below); **steps 0 to 3 built and tested** (see As built); step 4 next.
+Status: **design agreed** (the owner's decisions 2026-10-04, below); **steps 0 to 4 built and tested** (see As built); step 4b (advances and loans) next.
 
 It builds on Employee Records (docs/modules/HR_EMPLOYEES.md) and the
 Attendance and Leave Register (docs/modules/HR_LEAVE.md), and is the last
@@ -841,3 +841,95 @@ Proposed as step 4b, after payment (see question 23):
 | 22 | Employees without a bank account | **In the same payment, by cash or cheque:** listed apart and credited to a cash/cheque account chosen when paying, in the same journal. |
 | 23 | Advances and loans | **Their own step, 4b, right after payment.** |
 
+## As built: step 4, Payroll Setup, payment files, payment (2026-10-04)
+
+**Payroll Setup** (new module and screen `PAYROLLSETUP`: access, write),
+at the owner's request:
+- **Pay Elements** and **Payroll** moved here from HR Setup, unchanged.
+  Earlier sections that say "HR Setup → Payroll" now mean Payroll Setup →
+  Payroll;
+- changing them needs Payroll Setup's "write"; HR Setup's no longer
+  does;
+- HR Setup and Employees still read the elements (leave pay rules,
+  compensation);
+- correcting an employee's pay stays an HR Setup admin right.
+
+**Payment Files** (Payroll Setup tab), each company's bank files, since
+the WPS SIF differs by bank and company:
+- a format has:
+  - a company, name and bank;
+  - delimited (comma, semicolon, pipe or tab) or fixed width;
+  - an extension, a file name pattern (`{EMPLOYER}{CREATED:yyMMddHHmmss}`)
+    and line endings;
+  - its own values: employer ID, bank code, currency, reference;
+  - a header, an employee record and a trailer;
+- each record is an ordered list of fields, added, moved up or removed.
+  A field holds:
+  - a fixed text;
+  - an employee's no., name, WPS person ID, bank routing code, IBAN or
+    bank;
+  - the net pay, its fixed part and its variable part (the inputs and
+    arrears, never above the net);
+  - the days in the period, or the unpaid and absent days;
+  - the month, period start and end, payment date, or the file's
+    creation date and time (UAE time);
+  - the count or the total;
+  - the format's own values;
+- each field has a date pattern, decimals, width and padding (fixed
+  width), and upper case;
+- **New from the UAE WPS SIF:** the EDR employee record and the SCR
+  trailer, filled in, to match to the bank's specification;
+- **Preview** on any run of the company, before saving. The file shows
+  exactly as it will be written, dates included;
+- one name per company.
+
+**The employee record** gains **WPS person ID** and **Bank routing
+code** (decision 20):
+- sensitive, letters and digits;
+- also in the Employees import.
+
+**Payment** (Payroll, new "pay" right), on a posted run:
+- **the payees:** each with net pay above 0, paid by bank if they have
+  an IBAN, else by cash or cheque (decision 22). Anyone paid by bank who
+  lacks a WPS person ID or routing code is flagged;
+- **Download the file** in one of the company's formats, for those paid
+  by bank. It's saved by the browser and noted in the run's history;
+- **Copy the bank list** to Excel;
+- **Mark paid** (decision 21), for the whole run:
+  - one journal, voucher PayrollPayment (prefix PAYP), on the payment
+    date (not before the payroll month);
+  - Dr Salaries Payable;
+  - Cr the bank account (codes 11…) for those paid by bank;
+  - Cr the chosen cash or bank account (codes 10… or 11…) for the others;
+- **Reverse the payment**, with a reason: a mirror journal, and the run
+  is unpaid again;
+- a paid run can't be reversed until its payment is.
+
+**Behind it:**
+- `payrollFiles.js` (no Firebase): `buildFile`, `cleanFormat`,
+  `employeeValues`, `WPS_SIF`;
+- `payrollPayment.js`: `getPaymentFormats`, `savePaymentFormat`,
+  `deletePaymentFormat`, `previewPaymentFile`, `getPayrollPayment`,
+  `downloadPaymentFile`, `markPayrollPaid`, `reversePayrollPayment`;
+- `computeEmployee` keeps each slip's `UnpaidDays`;
+- `hrPay`'s rights are now Payroll Setup's.
+
+**Tests:**
+- `payrollFiles.test.js` (5) and `payrollCalc.test.js` (10);
+- the `payrollPayment` suite (4), and `payrollSetup` (6, with the rights
+  move);
+- `payrollPayment.ui.js` (3);
+- the payroll, HR and Employees UI tests moved to Payroll Setup;
+- negative controls (see the PR).
+
+**To go live:**
+1. Deploy "functions set" `payroll-4`, with the screens.
+2. Link a menu node to "Payroll Setup".
+3. In Roles & Permissions:
+   - Payroll Setup's access and write, to those who set up payroll;
+   - Payroll "pay", to those who pay runs.
+4. In Payroll Setup → Payment Files, each company's bank file.
+5. On the employees, the WPS person ID and bank routing code.
+
+**Next:** step 4b, advances and loans (decision 7); then step 5,
+provisions and final settlement.

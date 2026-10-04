@@ -1,0 +1,48 @@
+# HR Payroll, step 4: Payroll Setup, payment files, payment (owner
+# 2026-10-04; docs/modules/HR_PAYROLL.md, the owner's request and decisions
+# 20-23). Run with --screens (PAYROLLSETUP, new: Pay Elements, Payroll and
+# Payment Files; HRSETUP: those two tabs removed; PAYROLL: the payment;
+# EMPLOYEES: the WPS person ID and bank routing code). No Hosting change.
+# Then, in the app:
+#   - link a menu node to "Payroll Setup"; in Roles & Permissions give its
+#     access and write to those who set up payroll (HR Setup's write no
+#     longer changes pay elements or payroll settings), and Payroll "pay"
+#     to those who pay runs;
+#   - in Payroll Setup → Payment Files, each company's bank file (start
+#     from the UAE WPS SIF and match the bank's specification);
+#   - on the employees, the WPS person ID and the bank routing code (or
+#     by the Employees import).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getPaymentFormats
+savePaymentFormat
+deletePaymentFormat
+previewPaymentFile
+getPayrollPayment
+downloadPaymentFile
+markPayrollPaid
+reversePayrollPayment
+# Changed: the pay elements and payroll settings under Payroll Setup's
+# rights.
+getPayElements
+savePayElement
+getPayrollSetup
+savePayrollCompany
+savePayElementPayroll
+previewPayrollFormula
+# Changed: the run keeps each employee's unpaid days (for the bank file).
+createPayrollRun
+savePayrollInputs
+recalculatePayrollRun
+# Changed: the employee's WPS fields, and the Employees import's columns.
+getEmployees
+getEmployee
+saveEmployee
+getMasterImportSpecs
+checkMasterImport
+runMasterImport
+# Registries: the new module and the Payroll "pay" right, menu node, screens.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment

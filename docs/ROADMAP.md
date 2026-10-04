@@ -461,8 +461,19 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (10), `payrollPost` suite (5), `payrollPost.ui.js` (4). To go live:
     "functions set" `payroll-3` with the screens; set Recoverable from
     employees; the approval if wanted; the "post" right.
-  - **Next:** step 4, payment (WPS SIF and bank list, mark paid,
-    advances and loans). Needs the owner's WPS details.
+  - **Step 4 built and tested 2026-10-04**, not yet live, with the owner's
+    request: a new **Payroll Setup** module (Pay Elements and Payroll
+    moved from HR Setup, plus **Payment Files**, each company's bank file
+    built field by field, delimited or fixed width, from a UAE WPS SIF
+    starter, with a preview); the employee's WPS person ID and bank
+    routing code; paying a posted run: the file, the bank list, Mark paid
+    in one journal (bank, and cash or cheque for those without an IBAN)
+    on the payment date, reversing the payment. Decisions 20–23 agreed.
+    Tests: `payrollFiles.test.js` (5), `payrollPayment` suite (4),
+    `payrollPayment.ui.js` (3). To go live: "functions set" `payroll-4`
+    with the screens; the menu node; the rights; each company's bank
+    file.
+  - **Next:** step 4b, advances and loans.
 - [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type
