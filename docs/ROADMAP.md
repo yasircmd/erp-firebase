@@ -437,7 +437,20 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     a worked example). Tests: `payrollSetup` suite (5),
     `payrollSetup.ui.js` (4). To go live: "functions set" `payroll-1`
     with the screens, then fill the tab in the app.
-  - **Next:** step 2, the payroll run.
+  - **Step 2 built and tested 2026-10-04**, not yet live: the payroll run
+    (new Payroll screen and module; one run per company and month after
+    the leave is locked; part months by deducting the days not employed;
+    leave on its own deduction lines, Unpaid leave, Absence and
+    Reduced-pay leave, which are system elements with a GL account;
+    earlier months' leave adjusted at their rate; overtime hours at the
+    schedule's hours; inputs typed or pasted from Excel; the register,
+    payslips and warnings; recalculate, delete). Decisions 12–15 agreed.
+    Tests: `payrollCalc.test.js` (8), `payrollRun` suite (6),
+    `payrollRun.ui.js` (4). To go live: "functions set" `payroll-2` with
+    the screens; link the menu node; give the system deductions their
+    GL account.
+  - **Next:** step 3, approval, GL posting, PDF payslip, reversal, back
+    pay and the negative net carried forward.
 - [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type

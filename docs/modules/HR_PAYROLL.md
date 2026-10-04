@@ -1,6 +1,6 @@
 # HR: Payroll
 
-Status: **design agreed** (the owner's decisions 2026-10-04, below); **steps 0 and 1 built and tested** (see As built); step 2 next.
+Status: **design agreed** (the owner's decisions 2026-10-04, below); **steps 0 to 2 built and tested** (see As built); step 3 next.
 
 It builds on Employee Records (docs/modules/HR_EMPLOYEES.md) and the
 Attendance and Leave Register (docs/modules/HR_LEAVE.md), and is the last
@@ -459,3 +459,101 @@ Part months and a pay change during the month still change the element
 itself (a "not employed" deduction would read oddly): only leave and
 absence are separate lines.
 
+## As built: step 2, the payroll run (2026-10-04)
+
+**Payroll** (new screen and module `PAYROLL`: access, draft). Payroll
+access shows the runs and their amounts (decision 14); draft makes and
+changes them; for the user's own companies.
+
+**A run** is one per company and month (`payrollRuns/{company}_{month}`,
+each employee's payslip in `slips`):
+- it can be made only once the month's leave is locked;
+- it takes every employee of the company on payroll in the month (joined
+  by its end, not left before its start);
+- in this step it stays a draft: inputs, recalculate, review, delete.
+
+**Each employee's pay** (`payrollCalc.computeEmployee`), at the
+company's daily rate (step 1):
+- **fixed elements** at the amounts in force on the last day employed in
+  the month;
+- **part months** (decision 12): the days before joining or after
+  leaving are deducted (e.g. 6,000 − 14 days × 200 = 3,200 for someone
+  joining on 15 July at ÷ 30). Someone in post all month always gets the
+  monthly amount;
+- **a pay change during the month:** the days at the earlier amounts are
+  adjusted from the new (e.g. "15 days at 5,000.00: − 500.00");
+- elements not prorated (step 1) are paid in full;
+- **leave** (decision 13), on three system deduction lines, each worked
+  out from the prorated earnings in force on the day:
+  - "Unpaid leave": unpaid days (and the unpaid part of a leave over its
+    balance);
+  - "Absence": absent days (absences and late returns);
+  - "Reduced-pay leave": what a day's pay rule doesn't pay. "Full salary"
+    pays the "in gross" elements, "Basic only" the basic, and "Selected
+    elements" those elements, each at the rule's %;
+  - duty days are paid as working days;
+  - **adjustments from earlier months** (leave entered or cancelled after
+    its month was locked) are worked out at that month's daily rate and
+    the pay in force that day. A cancelled day is given back as a
+    negative deduction;
+  - this month's leave never takes more than the month's prorated pay;
+- **inputs for the run** (decision 15), each against a variable pay
+  element, typed or pasted from Excel (employee no., element code, hours
+  or amount, note):
+  - overtime by the hour at the element's rate. The basic and gross are
+    those in force at the month's end, and the hours a day those of the
+    employee's schedule. The rate is shown to the cent and the hours
+    multiply that;
+  - bonus, commission and one-offs as amounts;
+- **net** = earnings − deductions.
+
+**Warnings:**
+- no pay in force;
+- a negative net (carrying it forward, decision 9, comes with posting in
+  step 3);
+- no bank account / IBAN;
+- the basic outside the grade's band;
+- the leave reopened, or locked again, since the run was worked out. A
+  run can't be recalculated while its month's leave is open.
+
+**The screen:**
+- the runs;
+- a new run (company and month);
+- the register: one row per employee, a column per element, totals, and
+  Copy to Excel;
+- each payslip, with how each line was worked out ("1 day × 300.00",
+  "6,000.00 a month − 14 days before joining × 200.00");
+- the agreed bonus and commission terms;
+- the inputs grid, with Paste from Excel. Lines not on the run are
+  reported.
+
+**System deductions:**
+- "Unpaid leave", "Absence" and "Reduced-pay leave" are pay elements
+  marked System (codes UNPAIDLV, ABSENCE, REDUCEDLV);
+- they're created on first use, and their codes are reserved;
+- they show only in HR Setup → Payroll, to set their GL account;
+- they're not in Pay Elements, compensation or the run's inputs.
+
+**Behind it:**
+- `payrollCalc.js`: `computeEmployee` (no Firebase).
+- `payrollRun.js`: `getPayrollRuns`, `createPayrollRun`, `getPayrollRun`,
+  `savePayrollInputs`, `recalculatePayrollRun`, `deletePayrollRun`.
+- `hrPay.allElements` (with the system ones) and `elements` (without).
+- `workCalendar.hoursOn`.
+
+**Tests:**
+- `payrollCalc.test.js`, unit (8);
+- the `payrollRun` suite (6);
+- `payrollRun.ui.js` (4);
+- 19 negative controls (see the PR).
+
+**To go live:**
+1. Deploy "functions set" `payroll-2`, with the screens.
+2. Link a menu node to "Payroll", and check its row in Roles &
+   Permissions (Admin: access and draft; Finance Manager: access).
+3. In HR Setup → Payroll, give the three system deductions their GL
+   account.
+
+**Next:** step 3, approval, posting to the GL (clubbed, by cost center),
+the PDF payslip, reversal; with it, back pay (decision 10) and a negative
+net carried forward (decision 9).

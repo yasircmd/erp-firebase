@@ -1,0 +1,31 @@
+# HR Payroll, step 2: the payroll run (owner 2026-10-04;
+# docs/modules/HR_PAYROLL.md, "Step 2 design", decisions 12-15). Run with
+# --screens (PAYROLL, new; HRSETUP: the system deductions labelled). No
+# Hosting change. Then, in the app: link a menu node to "Payroll"; check
+# its row in Roles & Permissions; in HR Setup → Payroll give the three new
+# system deductions (Unpaid leave, Absence, Reduced-pay leave) their GL
+# account.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getPayrollRuns
+createPayrollRun
+getPayrollRun
+savePayrollInputs
+recalculatePayrollRun
+deletePayrollRun
+# Changed: the pay elements now include the system deductions, which only
+# HR Setup → Payroll and the run see. Everything reading the elements is
+# redeployed, so none shows them in Pay Elements or compensation.
+getPayElements
+savePayElement
+getCompensation
+saveCompensation
+getEmployeeChangeStart
+saveEmployeeChange
+getPayrollSetup
+savePayElementPayroll
+# Registries: the new module, its permissions, menu node, screen.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment
