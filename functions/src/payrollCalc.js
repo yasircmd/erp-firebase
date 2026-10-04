@@ -113,6 +113,7 @@ function computeEmployee(x) {
 
   // Leave (decision 13): what each day's pay rule doesn't pay, on its own line.
   const groups = {};
+  let unpaidDays = 0; // this month's unpaid and absent days (the bank file, step 4)
   (x.leave || []).filter(l => l.Pay !== 'Duty').forEach(l => {
     const v = versionOn(x.versions || [], l.Date);
     if (!v) { warnings.push('No pay in force on ' + l.Date + ' for leave paid this month.'); return; }
@@ -130,6 +131,7 @@ function computeEmployee(x) {
     const code = l.Absence ? 'ABSENCE' : l.Pay === 'Unpaid' ? 'UNPAIDLV' : 'REDUCEDLV';
     const thisMonth = dmonth === x.month && !l.Reversal;
     const key = [code, dmonth, perDay, thisMonth ? '' : 'adj'].join('|');
+    if (code !== 'REDUCEDLV' && thisMonth) unpaidDays += l.Fraction;
     const g = groups[key] || (groups[key] = { code, dmonth, perDay, thisMonth, days: 0 });
     g.days = round2(g.days + l.Fraction);
   });
@@ -176,7 +178,7 @@ function computeEmployee(x) {
   const deductions = round2(lines.filter(l => l.Kind === 'Deduction').reduce((s, l) => s + l.Amount, 0));
   const net = round2(earnings - deductions);
   if (net < 0) warnings.push('Negative net: the deductions are ' + money(-net) + ' more than the earnings. It is paid as 0 and the shortfall is recovered in the next run.');
-  return { Lines: lines, Earnings: earnings, Deductions: deductions, Net: net, Basic: basic, Gross: gross, Terms: ref ? ref.Terms || [] : [], Warnings: warnings };
+  return { Lines: lines, Earnings: earnings, Deductions: deductions, Net: net, Basic: basic, Gross: gross, UnpaidDays: round2(unpaidDays), Terms: ref ? ref.Terms || [] : [], Warnings: warnings };
 }
 
 // Back pay (decision 10): a posted month worked out again with the pay now

@@ -51,7 +51,9 @@ const FIELDS = {
   // Empty: the company's own weekend and hours (docs/modules/HR_PAYROLL.md, step 0).
   ScheduleID: { label: 'Work schedule', job: true },
   ManagerID: { label: 'Line manager' }, UserUID: { label: 'ERP user' },
-  BankName: { label: 'Bank', sensitive: true }, IBAN: { label: 'Account no. / IBAN', sensitive: true }
+  BankName: { label: 'Bank', sensitive: true }, IBAN: { label: 'Account no. / IBAN', sensitive: true },
+  // For the bank's payment file (WPS), docs/modules/HR_PAYROLL.md decision 20.
+  WpsPersonID: { label: 'WPS person ID', sensitive: true, max: 20 }, BankRoutingCode: { label: 'Bank routing code', sensitive: true, max: 20 }
 };
 const JOB_FIELDS = Object.keys(FIELDS).filter(k => FIELDS[k].job);
 const MASK = '•••';
@@ -146,6 +148,9 @@ async function saveEmployeeFor(user, input, opts) {
     if (out[k] && f.values && !f.values.includes(out[k])) bad('Unknown ' + f.label.toLowerCase() + ' "' + out[k] + '".');
     if (out[k] && f.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(out[k])) bad('Enter a valid ' + f.label.toLowerCase() + '.');
   }
+  ['WpsPersonID', 'BankRoutingCode'].forEach(k => {
+    if (out[k]) { out[k] = out[k].replace(/\s+/g, '').toUpperCase(); if (!/^[A-Z0-9]{1,20}$/.test(out[k])) bad('The ' + FIELDS[k].label + ' has letters and digits only (up to 20).'); }
+  });
   if (out.IBAN) {
     out.IBAN = out.IBAN.replace(/\s+/g, '').toUpperCase();
     if (!/^[A-Z0-9]{6,34}$/.test(out.IBAN)) bad('The account no. / IBAN has letters and digits only (6 to 34).');
