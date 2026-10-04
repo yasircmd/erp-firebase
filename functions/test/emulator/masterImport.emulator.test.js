@@ -34,7 +34,7 @@ test.beforeEach(async () => { await reset(fixture()); });
 test('the list, in import order, with each one\'s columns; a Viewer has no access', async () => {
   const specs = await call('u-admin', 'getMasterImportSpecs', {});
   assert.deepEqual(specs.map(s => s.key), ['COMPANY', 'ORGUNIT', 'ACCOUNT', 'CURRENCY', 'UOM', 'SUBCATEGORY', 'ITEM', 'VENDOR', 'CLASSIFICATION', 'CUSTOMER',
-    'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER', 'EMPLOYEE']);
+    'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER', 'EMPLOYEE', 'LEAVEBAL']);
   const item = specs.find(s => s.key === 'ITEM');
   assert.ok(!item.columns.some(c => /code/i.test(c.header) && c.header !== 'Item Code' && /^Item Code$/.test(c.header)), 'no item code column');
   assert.equal(item.columns.find(c => c.header === 'Category').values.join(), 'Raw Material,Semi Finished Good,Finished Good,Consumable,Scrap');

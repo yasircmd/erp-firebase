@@ -1,0 +1,49 @@
+# HR: Attendance and Leave Register, step 2: the Leave Register (owner
+# 2026-10-03; docs/modules/HR_LEAVE.md). Run with --screens (or a "screens
+# only" run after): LEAVE (new) and EMPLOYEES (the Leave card). No Hosting
+# change. Then, in the app: link a menu node to "Leave Register"; check
+# its row in Roles & Permissions (approvers need its access); set up its
+# approvals in Approval Configuration → "Leave (the amount is the days)";
+# import the opening balances (Master Data Import → Leave Opening
+# Balances).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getLeaves
+getLeaveForm
+getLeave
+previewLeave
+saveLeave
+deleteLeave
+submitLeave
+decideLeaveApproval
+cancelLeave
+recordLeaveReturn
+getLeaveBalances
+adjustLeaveBalance
+# Supporting documents: the LEAVE source (a medical certificate on a leave).
+getAttachments
+uploadAttachment
+openAttachment
+removeAttachment
+getAttachmentCounts
+# Master Data Import: the Leave Opening Balances sheet.
+getMasterImportSpecs
+checkMasterImport
+runMasterImport
+# Approvals and Home tasks: the new document in their registries
+# (approvalRegistry.js: Approval Configuration, Approval Tracker, delegation).
+getApprovalConfigurations
+saveApprovalConfiguration
+saveApprovalLevels
+getApprovalHistory
+getDelegationCandidates
+delegateApproval
+delegateApprovalsOf
+getPendingApprovalsForUser
+getMyRejectedSubmissions
+getMyDraftsForUser
+# Registries: the module, its permissions, menu node, screen.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment
