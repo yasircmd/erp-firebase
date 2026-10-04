@@ -409,8 +409,20 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   ×12÷365/366); each element linked to GL with the employee's cost
   center, lines clubbed as inventory; overtime fixed or by hours
   (base ÷ days ÷ hours × weightage); work schedules (any weekend, six-day
-  weeks) per employee. **Design written 2026-10-04**, waiting for the
-  owner's answers to its open questions.
+  weeks) per employee. **Design agreed 2026-10-04:**
+  - schedules effective-dated;
+  - one daily-rate method per company (overtime may override);
+  - GL mapping for the group with company overrides;
+  - no profit center;
+  - overtime entered or pasted per run;
+  - a WPS SIF file and a bank list;
+  - advances and loans now;
+  - monthly gratuity and leave-salary provisions;
+  - a negative net carried to the next month;
+  - automatic back pay;
+  - approval through Approval Configuration.
+
+  Six build steps. **Next:** step 0, work schedules.
 - [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type

@@ -1,6 +1,6 @@
 # HR: Payroll
 
-Status: **design, waiting for the owner's decisions** (2026-10-04).
+Status: **design agreed** (the owner's decisions 2026-10-04, below); step 0 next.
 
 It builds on Employee Records (docs/modules/HR_EMPLOYEES.md) and the
 Attendance and Leave Register (docs/modules/HR_LEAVE.md), and is the last
@@ -214,3 +214,25 @@ HR module planned.
     hand as a one-off?
 11. **Payroll approval:** through Approval Configuration (the amount is
     the net total), as other documents?
+
+## The owner's decisions (2026-10-04)
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Work schedules | **Effective-dated:** a schedule change has a from-date (through an Employee Change). Past leave and payroll keep the old weekend; later ones use the new. |
+| 2 | Daily rate | **One method per company; overtime may override:** the company's method (÷30, ÷ month days, ×12÷365/366) is used for unpaid days, joiners and leavers, and leave pay. An overtime element may use a fixed divisor instead. |
+| 3 | GL mapping | **One mapping for the group; a company may override:** each element maps once (e.g. to a shared account), and a company with its own accounts sets those that differ. |
+| 4 | Profit center | **None:** payroll lines carry the employee's cost center only. |
+| 5 | Overtime input | **HR enters it per run, or pastes it from Excel** (employee no., overtime type, hours or amount). There is no daily timesheet. |
+| 6 | Payment | **The WPS SIF file and a bank list;** then "mark paid" posts the payment. |
+| 7 | Advances and loans | **In Payroll now (step 4):** amount, instalment, start month, GL account. Each run deducts the instalment until it is repaid, and the balance shows on the employee. |
+| 8 | Provisions | **Monthly:** each posted run also posts the month's gratuity and leave-salary provisions (by cost center), and settlement uses them. |
+| 9 | Negative net | **The excess carries to the next month:** net is paid as 0, the uncovered deduction carries to the next run, and a warning is shown. |
+| 10 | Back pay | **Automatic in the next run:** the difference for months already paid, by element, is paid as "Arrears", shown separately on the payslip. |
+| 11 | Approval | **Through Approval Configuration:** the amount is the run's net total, and approvers see the register. |
+
+**What changes in the design:** the build order stays as proposed. Step 5
+(provisions and final settlement) posts provisions with each run from the
+start, so step 3's posting is built to add them in step 5 without
+changing the run.
+
