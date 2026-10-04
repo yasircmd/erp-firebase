@@ -422,7 +422,16 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (weekend and holidays per company). Tests: `hrLeaveSetup` suite (4),
     `hrLeaveSetup.ui.js` (5); nine negative controls caught. To go live:
     "functions set" `hr-leave-1` with the screens.
-  - **Next:** step 2, the Leave Register.
+  - **Step 2 built and tested 2026-10-04**, not yet live: the Leave
+    Register (entry with days, pay split and balance as typed; the
+    excess over the balance split off as unpaid; approval; cancel; the
+    return, early or late), the Leave card on the employee (balances,
+    adjustments), and the Leave Opening Balances import. Tests: `hrLeave`
+    suite (7), `hrLeave.ui.js` (5); eleven negative controls caught. To
+    go live: "functions set" `hr-leave-2` with the screens; link the menu
+    node; set up its approvals; import the opening balances.
+  - **Next:** step 3, absences, the month summary and lock, the year-end
+    carry forward and lapse.
 - [x] **HR: Employee Records** (owner, 2026-10-03;
   [HR_EMPLOYEES.md](modules/HR_EMPLOYEES.md)). **Design agreed
   2026-10-03:** group employee numbers, group grades with company pay

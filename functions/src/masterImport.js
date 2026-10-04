@@ -29,6 +29,8 @@ const { saveFaAssetFor } = require('./fixedAssetsMaster');
 const { validateValuation } = require('./faDepreciation');
 const { saveEmployeeFor } = require('./hrEmployees');
 const { loadSetup: loadHrSetup } = require('./hrSetup');
+const { saveOpening: saveLeaveOpening } = require('./hrLeave');
+const { leaveTypes: loadLeaveTypes } = require('./hrLeaveSetup');
 
 const onCallOptions = { region: 'us-central1', timeoutSeconds: 540, memory: '512MiB' };
 const MAX_ROWS = 2000;
@@ -432,6 +434,21 @@ const MASTERS = {
       return out;
     }
   },
+  // Leave balances at go-live (docs/modules/HR_LEAVE.md, step 2): accrual
+  // continues from the day after the balance date.
+  LEAVEBAL: {
+    label: 'Leave Opening Balances', module: 'LEAVE', capability: 'post', nameKey: null, store: { firestore: 'leaveOpenings' },
+    saveFn: async (ctx, user, data) => saveLeaveOpening(user, data),
+    note: 'One row per employee and leave type that uses a balance (e.g. Annual): the days left on the balance date. From the next day the entitlement accrues monthly. A balance already entered is corrected with an adjustment on the employee\'s leave card.',
+    columns: [
+      C('Employee', 'EmployeeID', { req: true, type: 'ref', ref: 'employee', note: 'Employee no. or full name.' }),
+      C('Leave Type', 'LeaveTypeID', { req: true, type: 'ref', ref: 'leaveType', note: 'Code or name, of a type that uses a balance.' }),
+      C('Days', 'Days', { req: true, type: 'number', note: '0 or more, in half days.' }),
+      C('Balance Date', 'AsOf', { req: true, type: 'date' })
+    ],
+    sample: ['EMP-0001', 'ANNUAL', '12.5', '30/09/2026'],
+    toData: r => ({ EmployeeID: r.EmployeeID, LeaveTypeID: r.LeaveTypeID, Days: r.Days, AsOf: r.AsOf })
+  },
   USER: {
     label: 'Users', module: 'USERMGMT', save: 'saveFirebaseUser', idKey: 'userId', path: 'users', nameKey: 'username', authUser: true,
     note: 'Each user signs in with their email and the temporary password typed on this screen, then changes it (user menu → Change Password).',
@@ -448,7 +465,7 @@ const MASTERS = {
   }
 };
 const ORDER = ['COMPANY', 'ORGUNIT', 'ACCOUNT', 'CURRENCY', 'UOM', 'SUBCATEGORY', 'ITEM', 'VENDOR', 'CLASSIFICATION', 'CUSTOMER',
-  'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER', 'EMPLOYEE'];
+  'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER', 'EMPLOYEE', 'LEAVEBAL'];
 
 // A master with its columns for now: Employees adds a column per active
 // extra field from HR Setup (key cf_<field id>), compulsory ones required.
@@ -480,6 +497,8 @@ async function loadExisting() {
   data.hrGrades = await fsDocs('hrGrades');
   data.hrDesignations = await fsDocs('hrDesignations');
   data.employees = await fsDocs('employees');
+  data.leaveTypes = Object.fromEntries((await loadLeaveTypes()).map(t => [t.LeaveTypeID, t]));
+  data.leaveOpenings = await fsDocs('leaveOpenings');
   const list = (obj, code, name) => Object.keys(obj).map(id => ({ id, code: code === '#id' ? id : (obj[id][code] || ''), name: obj[id][name] || '', rec: obj[id] }));
   const units = list(data.orgUnits, 'Code', 'Name');
   return {
@@ -503,7 +522,8 @@ async function loadExisting() {
     faDetermination: list(data.faAccountDetermination, 'Code', 'Name'),
     grade: list(data.hrGrades, 'Code', 'Name').filter(x => x.rec.Active !== false),
     designation: list(data.hrDesignations, '', 'Title').filter(x => x.rec.Active !== false),
-    employee: list(data.employees, 'EmployeeNo', 'FullName')
+    employee: list(data.employees, 'EmployeeNo', 'FullName'),
+    leaveType: list(data.leaveTypes, 'Code', 'Name').filter(x => x.rec.UsesBalance && x.rec.Kind === 'Leave')
   };
 }
 
@@ -622,6 +642,10 @@ async function checkPaste(user, masterKey, text, opts) {
     // The company, where a row names one: the user must have access to it.
     if (typeof r.CompanyID === 'string' && r.CompanyID && !userCanAccessCompany(user.profile, r.CompanyID)) {
       add(rowNo, 'Company', 'You do not have access to that company.');
+    }
+    // An employee's row (leave balances): the employee's company.
+    if (masterKey === 'LEAVEBAL' && typeof r.EmployeeID === 'string' && ex.raw.employees[r.EmployeeID] && !userCanAccessCompany(user.profile, ex.raw.employees[r.EmployeeID].CompanyID)) {
+      add(rowNo, 'Employee', 'You do not have access to that employee\'s company.');
     }
     masterRules(masterKey, r, ex, resolved, (h, msg) => add(rowNo, h, msg));
     if (!seesSensitive) m.columns.filter(c => c.sensitive && r[c.key] !== '' && r[c.key] != null).forEach(c => add(rowNo, c.h, 'You do not have the right to enter ' + c.h + ' (Employees: sensitive).'));
@@ -905,6 +929,22 @@ function masterRules(k, r, ex, resolvedAbove, issue) {
       }
       const mgr = typeof r.ManagerID === 'string' && r.ManagerID ? ex.raw.employees[r.ManagerID] : null;
       if (mgr && mgr.Status === 'Left') issue('Line Manager', mgr.FullName + ' has left.');
+      break;
+    }
+    case 'LEAVEBAL': {
+      const emp = typeof r.EmployeeID === 'string' && r.EmployeeID ? ex.raw.employees[r.EmployeeID] : null;
+      const type = typeof r.LeaveTypeID === 'string' && r.LeaveTypeID ? ex.raw.leaveTypes[r.LeaveTypeID] : null;
+      if (emp && emp.Status === 'Left') issue('Employee', emp.FullName + ' has left.');
+      if (emp && r.AsOf && r.AsOf < emp.JoinDate) issue('Balance Date', 'Before the date of joining (' + emp.JoinDate + ').');
+      if (r.Days !== '' && (!(r.Days >= 0) || Math.round(r.Days * 2) !== r.Days * 2)) issue('Days', 'Days are 0 or more, in half days.');
+      if (emp && type) {
+        if (Object.values(ex.raw.leaveOpenings).some(o => o.EmployeeID === r.EmployeeID && o.LeaveTypeID === r.LeaveTypeID)) {
+          issue('Leave Type', emp.FullName + ' already has an opening ' + type.Name + ' balance: correct it with an adjustment.');
+        } else {
+          const above = resolvedAbove.findIndex(o => o && o.data.EmployeeID === r.EmployeeID && o.data.LeaveTypeID === r.LeaveTypeID);
+          if (above >= 0) issue('Leave Type', 'Same employee and leave type as row ' + (above + 1) + '.');
+        }
+      }
       break;
     }
     case 'USER': {

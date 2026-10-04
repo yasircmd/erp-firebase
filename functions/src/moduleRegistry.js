@@ -93,7 +93,8 @@ const MODULE_REGISTRY = [
   { id: 'EMPLOYEES', label: 'Employees', capabilities: ['access', 'write', 'sensitive'] },
   // Promotion / increment / transfer documents, approved through Approval
   // Configuration (docs/modules/HR_EMPLOYEES.md, step 4).
-  { id: 'EMPCHANGE', label: 'Employee Changes', capabilities: ['access', 'draft', 'post'] }
+  { id: 'EMPCHANGE', label: 'Employee Changes', capabilities: ['access', 'draft', 'post'] },
+  { id: 'LEAVE', label: 'Leave Register', capabilities: ['access', 'draft', 'post'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -202,7 +203,8 @@ const DEFAULT_PERMISSIONS = {
   COMPANYDOCS:        { access: ['ADMIN', 'FINANCE_MGR'], write: ['ADMIN'] },
   HRSETUP:            { access: ['ADMIN'], write: ['ADMIN'] },
   EMPLOYEES:          { access: ['ADMIN', 'FINANCE_MGR'], write: ['ADMIN'], sensitive: ['ADMIN'] },
-  EMPCHANGE:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'] }
+  EMPCHANGE:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'] },
+  LEAVE:              { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

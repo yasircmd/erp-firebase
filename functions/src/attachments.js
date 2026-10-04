@@ -67,6 +67,8 @@ const SOURCES = {
   // own rights; seeing them needs "sensitive" (owner decision 7), adding or
   // removing files "write" too. Folder <company>/Employees/<no. - name>/
   // <type>/<number or expiry>.
+  // A leave's supporting documents (e.g. a medical certificate; docs/modules/HR_LEAVE.md).
+  LEAVE: { fs: 'leaveRequests', number: 'LeaveNumber', date: 'FromDate' },
   EMPDOCS: { fs: 'employeeDocuments', label: 'Employee Documents', accessModule: 'EMPLOYEES', viewCap: 'sensitive',
     numberOf: r => r.DocNumber || (r.ExpiryDate ? 'Expires ' + r.ExpiryDate : ''), date: 'IssueDate',
     addCap: 'write', removeCap: 'write', closed: r => r.Status === 'Removed',

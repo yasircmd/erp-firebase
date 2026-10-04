@@ -1,6 +1,6 @@
 # HR: Attendance and Leave Register
 
-Status: **design agreed** (owner's decisions 2026-10-03, below); **step 1 built and tested** (see As built); step 2 next. Comes
+Status: **design agreed** (owner's decisions 2026-10-03, below); **steps 1–2 built and tested** (see As built); step 3 next. Comes
 before Payroll (docs/modules/HR_PAYROLL.md, to come), which reads its
 results.
 
@@ -402,4 +402,159 @@ Changed only for the user's own companies.
    - each company's weekend and this year's holidays.
 
 **Next:** step 2, the Leave Register.
+
+## As built: step 2, the Leave Register (2026-10-04)
+
+**Leave Register** (new screen `LEAVE`, menu node "Leave Register"):
+- **The list:**
+  - number, employee, type, dates, days ("4 unpaid", "2 late"), status;
+  - filters: search, type, a month, and status: all, open, **on leave
+    today**, **return to record**, and each status.
+- **A leave:**
+  - employee, type, first and last day, half days (types that allow
+    them), reason;
+  - as it is typed, the server shows:
+    - the days;
+    - the pay split (e.g. "6 Annual Leave — Basic only; 4 Unpaid (over
+      the balance)");
+    - the balance on the first day and after;
+    - any warnings, including that a document is needed;
+    - any rule it breaks.
+- **Lifecycle:**
+  - Draft → Submit → approval through Approval Configuration ("Leave";
+    the amount is the leave's days; scope by the employee's company,
+    division, branch, cost center), or approved at once when none is set
+    up → Approved;
+  - rejected leave is corrected and submitted again;
+  - numbers LV-<year>-0001 by the first day's year;
+  - Home approval tasks and My Drafts as for other documents;
+  - supporting documents below the leave, filed under the company → year
+    → Leave Register in Drive.
+- **Cancel:** approved leave that hasn't started, with a reason. Its days
+  return.
+- **The return** (approved leave, once it has started; "HR confirms the
+  return" types show as "return to record" after their last day):
+  - HR enters the day the employee was back, sees what it will do, and
+    confirms;
+  - **early:** the days from the return on are dropped and go back to the
+    balance;
+  - **late:** the working days between the expected return (the next
+    working day after the leave) and the actual one are added as **unpaid
+    absence** lines.
+
+**The rules each leave is checked against** (when typed, saved, submitted
+and approved):
+- the dates: after joining, not for someone who has left, at most a
+  year;
+- a working-days type must start and end on working days;
+- the type: in use, for the employee's gender, after probation, whole
+  days unless it allows half days, at most N at a time, at most N a year
+  (approved and pending leave of that calendar year);
+- **no overlap** with another live leave (draft, pending, approved);
+- **a pay rule for every day:** else "No leave pay rule for … at grade …,
+  day …: set it in HR Setup";
+- **a document** (e.g. a medical certificate) attached before submitting,
+  when the leave is longer than the type's "document after N days".
+
+**Days and pay:**
+- Each leave stores one **line per day it counts**: the date, the
+  fraction (half days), the code (the type's, `UNPAID` for days over the
+  balance, `ABSENT` for a late return) and the pay.
+- **The pay** is the type's leave pay rule for the employee's grade level
+  and the day's number in the calendar year for that type, counting
+  approved and pending leave before it. So sick leave goes from full to
+  half pay across several leaves.
+- Duty (business travel) is "paid as working".
+- Step 3's month summary and Payroll read these lines.
+
+**The balance** (types that use one), on a date:
+- **opening:** imported, on its balance date;
+- **plus accrued:** from the day after the opening date (or from joining
+  when there is none);
+  - each month earns a twelfth of the entitlement row for the employee's
+    grade level and completed years of service, pro-rata by the days of
+    the month;
+- **plus adjustments:** each with a reason;
+- **less taken:** approved leave up to the date;
+- **less booked:** approved leave after the date, and pending leave.
+
+Leave and adjustments dated on or before the opening date are already in
+it.
+
+- **Over the balance (decision 5):** a leave takes what is available on
+  its first day, in half days. The rest becomes Unpaid automatically,
+  shown before saving and re-checked at submit and at approval.
+- **Known simplifications,** for step 3 and Payroll:
+  - accrual uses the employee's **current** grade for every month, so a
+    promotion re-rates the months before it until step 3 posts the
+    months;
+  - unpaid leave still accrues;
+  - the year-end carry forward and lapse come in step 3;
+  - a leave shortened by an early return doesn't renumber the pay days
+    of leave approved after it.
+
+**On the employee record:** a **Leave** card (with Leave Register access):
+- each balance (opening, accrued, adjusted, taken, booked, available)
+  today;
+- each other type's days this year (and its yearly limit);
+- the employee's leave, each opening in the Leave Register with "Back to
+  Employees";
+- **New leave**;
+- **Adjust a balance** (type, ± days in half days, date, reason; "post"
+  right). This is also how a wrong opening balance is corrected.
+
+**Opening balances:** Master Data Import → **Leave Opening Balances**:
+- columns: employee, leave type (code or name, a type that uses a
+  balance), days (0 or more, half days), balance date;
+- one per employee and type; a second is refused ("correct it with an
+  adjustment");
+- needs the Leave Register "post" right and the employee's company.
+
+**Rights:** module `LEAVE`:
+- access: Admin and Finance Manager;
+- draft (enter): Admin;
+- post (submit, cancel, the return, adjustments, opening balances): Admin.
+
+Approvers need its access.
+
+**Behind it:**
+- `functions/src/hrLeave.js` (12 callables).
+- Firestore:
+  - `leaveRequests` (the leaves, with their lines);
+  - `leaveOpenings`;
+  - `leaveAdjustments`.
+- Counter `hrCounters/LV-<year>`.
+- Registered in:
+  - approvalRegistry (gateable, storage);
+  - homeTasks (My Drafts);
+  - attachments (source `LEAVE`);
+  - moduleRegistry, treeSeedNodes;
+  - masterImport (`LEAVEBAL`).
+
+**Tests:**
+- The `hrLeave` suite (7) and `hrLeave.ui.js` (5).
+- Eleven negative controls caught:
+  - no split over the balance;
+  - whole months accrued;
+  - day numbers restarting with each leave;
+  - pending leave not counted;
+  - overlaps allowed;
+  - no document needed;
+  - no absence for a late return;
+  - an early return not giving days back;
+  - a started leave cancelled;
+  - the screen not showing the days as typed;
+  - "return to record" listing returned leave.
+
+**To go live:**
+1. Deploy "functions set" `hr-leave-2`, with the screens.
+2. In the app:
+   - link a menu node to **Leave Register**;
+   - check its row in Roles & Permissions;
+   - set up its approvals (Approval Configuration → "Leave (the amount
+     is the days)");
+   - import the opening balances.
+
+**Next:** step 3: absences, the month summary and lock, the year-end carry
+forward and lapse.
 
