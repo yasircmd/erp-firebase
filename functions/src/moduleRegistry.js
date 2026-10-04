@@ -97,7 +97,9 @@ const MODULE_REGISTRY = [
   { id: 'LEAVE', label: 'Leave Register', capabilities: ['access', 'draft', 'post', 'lock', 'reopen'] },
   { id: 'LEAVEREPORTS', label: 'Leave Reports', capabilities: ['access'] },
   // HR Payroll (docs/modules/HR_PAYROLL.md, step 2): the monthly run.
-  { id: 'PAYROLL', label: 'Payroll', capabilities: ['access', 'draft', 'post'] }
+  { id: 'PAYROLL', label: 'Payroll', capabilities: ['access', 'draft', 'post', 'pay'] },
+  // Payroll Setup (step 4): pay elements, payroll settings, payment file formats.
+  { id: 'PAYROLLSETUP', label: 'Payroll Setup', capabilities: ['access', 'write'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -209,7 +211,8 @@ const DEFAULT_PERMISSIONS = {
   EMPCHANGE:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'] },
   LEAVE:              { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'], lock: ['ADMIN'], reopen: ['ADMIN'] },
   LEAVEREPORTS:       { access: ['ADMIN', 'FINANCE_MGR'] },
-  PAYROLL:            { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'] }
+  PAYROLL:            { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'], pay: ['ADMIN'] },
+  PAYROLLSETUP:       { access: ['ADMIN'], write: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

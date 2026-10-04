@@ -37,7 +37,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     return page;
   }
 
-  await check('HR Setup: a grade with a company pay band, a designation, a compulsory extra field', async () => {
+  await check('HR Setup: a grade with a company pay band, a designation, a compulsory extra field; Payroll Setup: a pay element', async () => {
     const p = await open('HRSETUP', 'u-admin');
     await p.waitForSelector('#hs-grades-body tr[data-id]', { timeout: 30000 });
     await p.click('#hs-grade-new');
@@ -60,15 +60,19 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.waitForFunction(() => /Emirates ID no\./.test(document.getElementById('hs-fields-body').textContent), null, { timeout: 15000 });
     await p.click('.hs-tab[data-tab="doctypes"]');
     assert.match(await p.textContent('#hs-dt-body'), /Passport[\s\S]*Emirates ID[\s\S]*Labour Card/);
-    // Pay Elements (step 3): six to start; a new one.
-    await p.click('.hs-tab[data-tab="elements"]');
-    assert.match(await p.textContent('#hs-el-body'), /BASIC\s*Basic Salary[\s\S]*Basic[\s\S]*COMM\s*Commission/);
-    await p.click('#hs-el-new');
-    await p.fill('#hs-el-code', 'SHIFT'); await p.fill('#hs-el-name', 'Shift Allowance');
-    await p.click('#hs-el-save');
-    await p.waitForFunction(() => /SHIFT\s*Shift Allowance/.test(document.getElementById('hs-el-body').textContent), null, { timeout: 15000 });
+    assert.equal(await p.locator('.hs-tab[data-tab="elements"]').count(), 0, 'Pay Elements moved to Payroll Setup');
     assert.deepEqual(p.__errors, []);
     await p.close();
+    // Pay Elements (step 3; in Payroll Setup since Payroll step 4): six to start; a new one.
+    const ps = await open('PAYROLLSETUP', 'u-admin');
+    await ps.waitForSelector('#ps-el-body tr', { timeout: 30000 });
+    assert.match(await ps.textContent('#ps-el-body'), /BASIC\s*Basic Salary[\s\S]*Basic[\s\S]*COMM\s*Commission/);
+    await ps.click('#ps-el-new');
+    await ps.fill('#ps-el-code', 'SHIFT'); await ps.fill('#ps-el-name', 'Shift Allowance');
+    await ps.click('#ps-el-save');
+    await ps.waitForFunction(() => /SHIFT\s*Shift Allowance/.test(document.getElementById('ps-el-body').textContent), null, { timeout: 15000 });
+    assert.deepEqual(ps.__errors, []);
+    await ps.close();
   });
 
   const page = await open('EMPLOYEES', 'u-admin');

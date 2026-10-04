@@ -9,7 +9,8 @@
 //     hours × (the basic or the gross ÷ the days ÷ the hours a day × the
 //     weightage); the days by the company's method or fixed (decision 2),
 //     the hours by the employee's schedule or fixed.
-// Changed with the HR Setup "write" right, for the user's own companies.
+// Changed with the Payroll Setup "write" right (step 4; HR Setup's before), for the
+// user's own companies.
 'use strict';
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
@@ -27,13 +28,13 @@ const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 150);
 const bad = msg => { throw new HttpsError('invalid-argument', msg); };
 const OT_BASES = ['Basic', 'Gross'];
 
-async function canSetup(user, cap) { return moduleHasCapability('HRSETUP', cap, user.profile.role); }
+async function canSetup(user, cap) { return moduleHasCapability('PAYROLLSETUP', cap, user.profile.role); }
 async function requireWrite(user) {
-  if (!(await canSetup(user, 'write'))) throw new HttpsError('permission-denied', 'You do not have permission to change HR Setup.');
+  if (!(await canSetup(user, 'write'))) throw new HttpsError('permission-denied', 'You do not have permission to change Payroll Setup.');
 }
 async function requireRead(user) {
   if (await canSetup(user, 'access')) return;
-  throw new HttpsError('permission-denied', 'You do not have access to HR Setup.');
+  throw new HttpsError('permission-denied', 'You do not have access to Payroll Setup.');
 }
 
 // An element's payroll settings, with their defaults: fixed elements are

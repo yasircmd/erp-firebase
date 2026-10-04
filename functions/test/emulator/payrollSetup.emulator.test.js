@@ -48,7 +48,7 @@ test('per company: the daily-rate method and Salaries Payable (a liability, shar
   assert.deepEqual(s.settings, [{ CompanyID: 'C1', DailyRateMethod: 'DIV30', PayableAccountID: '', ReceivableAccountID: '' }]);
   assert.deepEqual(Object.keys(s.methods), ['DIV30', 'MONTHDAYS', 'YEARDAYS']);
   assert.ok(s.accounts.some(a => a.AccountID === 'A-SALC1') && !s.accounts.some(a => a.AccountID === 'A-SAL2') && !s.accounts.some(a => a.AccountID === 'A-HDR'));
-  await assert.rejects(call('u-viewer', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'MONTHDAYS' }), /permission to change HR Setup/);
+  await assert.rejects(call('u-viewer', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'MONTHDAYS' }), /permission to change Payroll Setup/);
   await assert.rejects(call('u-admin', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'DIV31' }), /how the daily rate is worked out/);
   await assert.rejects(call('u-admin', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'MONTHDAYS', payableAccountId: 'A-SAL' }), /must be Liability/);
   await assert.rejects(call('u-admin', 'savePayrollCompany', { companyId: 'C2', dailyRateMethod: 'MONTHDAYS' }), /access to that company/);

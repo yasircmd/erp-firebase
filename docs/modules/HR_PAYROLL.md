@@ -831,3 +831,13 @@ Proposed as step 4b, after payment (see question 23):
     separately?
 23. **Advances and loans:** build them now with payment, or as their own
     step (4b) right after?
+
+### The owner's decisions for step 4 (2026-10-04)
+
+| # | Question | Decision |
+|---|---|---|
+| 20 | The employee's WPS data | **Two new sensitive fields on the employee record**, beside Bank and IBAN: "WPS person ID" and "Bank routing code" (also in the Employees import). |
+| 21 | Paying a run | **The whole run at once:** one payment date, one journal. |
+| 22 | Employees without a bank account | **In the same payment, by cash or cheque:** listed apart and credited to a cash/cheque account chosen when paying, in the same journal. |
+| 23 | Advances and loans | **Their own step, 4b, right after payment.** |
+

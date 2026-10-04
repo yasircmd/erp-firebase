@@ -7,11 +7,9 @@
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="designations">Designations</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="fields">Employee Fields</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="doctypes">Document Types</button>
-    <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="elements">Pay Elements</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="leavetypes">Leave Types</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="calendar">Working Calendar</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="schedules">Work Schedules</button>
-    <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="payroll">Payroll</button>
   </div>
   <p id="hs-readonly" class="hidden text-xs text-slate-400">You can view HR Setup but not change it.</p>
 
@@ -84,31 +82,6 @@
         <button class="hs-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
     </div>
     <button id="hs-field-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New field</button>
-  </div>
-
-  <!-- PAY ELEMENTS -->
-  <div id="hs-pane-elements" class="hidden space-y-4">
-    <p class="text-xs text-slate-500 max-w-3xl">The parts of an employee's pay (the first piece of Payroll). Fixed elements are monthly amounts on the employee (basic, allowances, fixed deductions); variable ones are agreed terms (bonus, commission), paid per payroll run. One fixed earning is the Basic: the grade's pay band is checked against it.</p>
-    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
-      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
-        <th class="py-2 px-3">Code</th><th class="py-2 px-3">Element</th><th class="py-2 px-3">Kind</th><th class="py-2 px-3">Nature</th><th class="py-2 px-3">Basic</th><th class="py-2 px-3">Status</th></tr></thead>
-      <tbody id="hs-el-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
-    </div></div>
-    <div id="hs-el-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div><label class="block text-xs font-medium text-slate-300 mb-1">Code *</label><input id="hs-el-code" maxlength="20" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase"></div>
-        <div class="md:col-span-3"><label class="block text-xs font-medium text-slate-300 mb-1">Name *</label><input id="hs-el-name" maxlength="80" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-        <div><label class="block text-xs font-medium text-slate-300 mb-1">Kind</label><select id="hs-el-kind" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Earning</option><option>Deduction</option></select></div>
-        <div><label class="block text-xs font-medium text-slate-300 mb-1">Nature</label><select id="hs-el-nature" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Fixed">Fixed (monthly amount)</option><option value="Variable">Variable (agreed terms)</option></select></div>
-        <div class="flex items-end gap-4 md:col-span-2">
-          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-el-basic" type="checkbox"> This is the Basic</label>
-          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-el-active" type="checkbox" checked> In use</label>
-        </div>
-      </div>
-      <div class="flex gap-2"><button id="hs-el-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
-        <button class="hs-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
-    </div>
-    <button id="hs-el-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New pay element</button>
   </div>
 
   <!-- LEAVE TYPES (docs/modules/HR_LEAVE.md, step 1) -->
@@ -213,49 +186,6 @@
     <button id="hs-ws-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New work schedule</button>
   </div>
 
-  <!-- PAYROLL SETUP (docs/modules/HR_PAYROLL.md, step 1) -->
-  <div id="hs-pane-payroll" class="hidden space-y-4">
-    <p class="text-xs text-slate-500 max-w-3xl">How each company's payroll works it out, and where each pay element posts. The daily rate prorates pay for joiners, leavers and unpaid days, and pays leave at basic or a %. Each element posts to its GL account by the employee's cost center (a company may use its own account); the lines are clubbed as for inventory.</p>
-    <div class="text-xs font-semibold text-slate-400 uppercase">Companies</div>
-    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
-      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
-        <th class="py-2 px-3">Company</th><th class="py-2 px-3">Daily rate</th><th class="py-2 px-3">Salaries Payable</th><th class="py-2 px-3" title="A net shortfall carried to the next run waits here">Recoverable from employees</th><th class="py-2 px-3">Example (5,000 a month, this month)</th><th class="py-2 px-3"></th></tr></thead>
-      <tbody id="hs-pc-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
-    </div></div>
-    <div class="text-xs font-semibold text-slate-400 uppercase pt-2">Pay elements</div>
-    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
-      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
-        <th class="py-2 px-3">Element</th><th class="py-2 px-3">GL account</th><th class="py-2 px-3">Prorated</th><th class="py-2 px-3">In gross</th><th class="py-2 px-3">Overtime</th></tr></thead>
-      <tbody id="hs-pe-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
-    </div></div>
-    <div id="hs-pe-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
-      <div class="text-sm font-semibold text-slate-200" id="hs-pe-heading"></div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">GL account (the group's)</label><select id="hs-pe-gl" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
-        <div class="flex items-end gap-4">
-          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-pe-prorated" type="checkbox"> Prorated</label>
-          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-pe-gross" type="checkbox"> In gross</label>
-        </div>
-      </div>
-      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-3">Company</th><th class="py-1">Its own account (else the group's)</th></tr></thead><tbody id="hs-pe-cos"></tbody></table>
-      <div id="hs-pe-ot-wrap" class="hidden space-y-2 border-t border-slate-700 pt-3">
-        <label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-pe-isot" type="checkbox"> This is an overtime element</label>
-        <div id="hs-pe-ot" class="hidden grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div><label class="block text-xs font-medium text-slate-300 mb-1">Paid as</label><select id="hs-ot-mode" class="hs-ot w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Hours">Hours × rate</option><option value="Amount">An amount per run</option></select></div>
-          <div class="hs-ot-hours"><label class="block text-xs font-medium text-slate-300 mb-1">Base</label><select id="hs-ot-base" class="hs-ot w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Basic">Basic</option><option value="Gross">Gross</option></select></div>
-          <div class="hs-ot-hours"><label class="block text-xs font-medium text-slate-300 mb-1">÷ days</label><select id="hs-ot-daysmode" class="hs-ot w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Company">The company's daily rate</option><option value="Fixed">Fixed</option></select>
-            <input id="hs-ot-days" type="number" min="1" max="31" placeholder="days" class="hs-ot hidden mt-1 w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-          <div class="hs-ot-hours"><label class="block text-xs font-medium text-slate-300 mb-1">÷ hours a day</label><select id="hs-ot-hoursmode" class="hs-ot w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Schedule">The employee's schedule</option><option value="Fixed">Fixed</option></select>
-            <input id="hs-ot-hours" type="number" min="1" max="24" step="0.25" placeholder="hours" class="hs-ot hidden mt-1 w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-          <div class="hs-ot-hours"><label class="block text-xs font-medium text-slate-300 mb-1">× weightage</label><input id="hs-ot-weight" type="number" step="0.05" min="0" class="hs-ot w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-          <div class="hs-ot-hours md:col-span-3 text-xs text-slate-300 self-end" id="hs-ot-example"></div>
-        </div>
-      </div>
-      <div class="flex gap-2"><button id="hs-pe-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
-        <button class="hs-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
-    </div>
-  </div>
-
   <!-- DOCUMENT TYPES -->
   <div id="hs-pane-doctypes" class="hidden space-y-4">
     <p class="text-xs text-slate-500 max-w-3xl">The kinds of employee documents (step 2 of Employee Records): whether each has a number and an expiry date (reminded 60 days ahead).</p>
@@ -301,7 +231,7 @@
 
   function showTab(tab) {
     document.querySelectorAll('.hs-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
-    ['grades', 'designations', 'fields', 'doctypes', 'elements', 'leavetypes', 'calendar', 'schedules', 'payroll'].forEach(t => $('hs-pane-' + t).classList.toggle('hidden', t !== tab));
+    ['grades', 'designations', 'fields', 'doctypes', 'leavetypes', 'calendar', 'schedules'].forEach(t => $('hs-pane-' + t).classList.toggle('hidden', t !== tab));
   }
   function load() {
     return Promise.all([call('getHrSetup', {}), call('getPayElements', {}), call('getLeaveSetup', {})]).then(([s, pe, ls]) => {
@@ -339,10 +269,6 @@
       '<td class="py-2 px-3">' + escapeHtml(t.Name) + '</td><td class="py-2 px-3 text-xs">' + (t.HasNumber ? 'Yes' : '') + '</td><td class="py-2 px-3 text-xs">' + (t.HasExpiry ? 'Yes' : '') +
       '</td><td class="py-2 px-3 text-xs">' + statusHtml(t.Active) + '</td></tr>').join('');
     rowClick($('hs-dt-body'), editDocType);
-    $('hs-el-body').innerHTML = payElements.map(e => '<tr data-id="' + escapeHtml(e.ElementID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '">' +
-      '<td class="py-2 px-3 font-mono text-xs">' + escapeHtml(e.Code) + '</td><td class="py-2 px-3">' + escapeHtml(e.Name) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(e.Kind) +
-      '</td><td class="py-2 px-3 text-xs">' + escapeHtml(e.Nature) + '</td><td class="py-2 px-3 text-xs">' + (e.IsBasic ? 'Basic' : '') + '</td><td class="py-2 px-3 text-xs">' + statusHtml(e.Active) + '</td></tr>').join('');
-    rowClick($('hs-el-body'), editElement);
     renderLeaveTypes();
     renderSchedules();
   }
@@ -474,14 +400,6 @@
     call('saveWorkCalendar', { companyId: val('hs-cal-company'), year: Number(val('hs-cal-year')), weekend: [...document.querySelectorAll('.hs-cal-wd:checked')].map(c => Number(c.value)), hoursPerDay: val('hs-cal-hours'), holidays })
       .then(() => loadCalendar(), err => appAlert(err.message || 'Unable to save the calendar.'));
   }
-  function editElement(id) {
-    closeForms();
-    const e = payElements.find(x => x.ElementID === id) || { Kind: 'Earning', Nature: 'Fixed', Active: true };
-    editing = id || null;
-    $('hs-el-code').value = e.Code || ''; $('hs-el-name').value = e.Name || ''; $('hs-el-kind').value = e.Kind; $('hs-el-nature').value = e.Nature;
-    $('hs-el-basic').checked = Boolean(e.IsBasic); $('hs-el-active').checked = e.Active !== false;
-    $('hs-el-form').classList.remove('hidden');
-  }
   // ---------- work schedules (Payroll step 0) ----------
   const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   function renderSchedules() {
@@ -500,90 +418,7 @@
     $('hs-ws-form').classList.remove('hidden');
   }
 
-  // ---------- payroll setup (Payroll step 1) ----------
-  let prSetup = null;
-  const acctLabel = a => a.AccountCode + ' — ' + a.AccountName;
-  const acctById = id => (prSetup.accounts.find(a => a.AccountID === id) || null);
-  const thisMonth = () => window.isoLocalDateTime(new Date()).slice(0, 7);
-  function loadPayroll() {
-    return call('getPayrollSetup', {}).then(r => { prSetup = r; renderPayroll(); }, err => appAlert(err.message || 'Unable to load the payroll setup.'));
-  }
-  function acctOptions(list, sel, first) {
-    return '<option value="">' + escapeHtml(first) + '</option>' + list.map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === sel ? ' selected' : '') + '>' + escapeHtml(acctLabel(a)) + '</option>').join('');
-  }
-  function renderPayroll() {
-    const ro = canWrite ? '' : ' disabled';
-    $('hs-pc-body').innerHTML = prSetup.settings.map(st => {
-      const liab = prSetup.accounts.filter(a => a.AccountType === 'Liability' && (!a.CompanyID || a.CompanyID === st.CompanyID));
-      const assets = prSetup.accounts.filter(a => a.AccountType === 'Asset' && (!a.CompanyID || a.CompanyID === st.CompanyID));
-      return '<tr data-co="' + escapeHtml(st.CompanyID) + '"><td class="py-2 px-3 text-xs">' + escapeHtml(coLabel(st.CompanyID)) + '</td>' +
-        '<td class="py-2 px-3"><select class="hs-pc-method bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"' + ro + '>' + Object.entries(prSetup.methods).map(([k, v]) => '<option value="' + k + '"' + (k === st.DailyRateMethod ? ' selected' : '') + '>' + escapeHtml(v) + '</option>').join('') + '</select></td>' +
-        '<td class="py-2 px-3"><select class="hs-pc-payable bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"' + ro + '>' + acctOptions(liab, st.PayableAccountID, '—') + '</select></td>' +
-        '<td class="py-2 px-3"><select class="hs-pc-receivable bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"' + ro + '>' + acctOptions(assets, st.ReceivableAccountID, '—') + '</select></td>' +
-        '<td class="py-2 px-3 text-xs text-slate-400 hs-pc-example"></td>' +
-        '<td class="py-2 px-3">' + (canWrite ? '<button type="button" class="hs-pc-save bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save</button>' : '') + '</td></tr>';
-    }).join('');
-    document.querySelectorAll('#hs-pc-body tr').forEach(companyExample);
-    $('hs-pe-body').innerHTML = prSetup.elements.filter(e => e.Active !== false).map(e => {
-      const a = acctById(e.GLAccountID), over = Object.keys(e.GLByCompany || {}).length;
-      const ot = e.Category === 'Overtime' ? (e.Overtime && e.Overtime.Mode === 'Hours' ? '× ' + e.Overtime.Weightage + ' on ' + e.Overtime.Base.toLowerCase() : 'Amount') : '';
-      return '<tr data-id="' + escapeHtml(e.ElementID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '"><td class="py-2 px-3">' + escapeHtml(e.Name) +
-        ' <span class="text-xs text-slate-500">' + escapeHtml(e.System ? 'Deduction, made by the payroll run from leave' : e.Kind + ', ' + e.Nature) + '</span></td>' +
-        '<td class="py-2 px-3 text-xs">' + (a ? escapeHtml(acctLabel(a)) : '<span class="text-amber-400">not set</span>') + (over ? ' <span class="text-slate-500">(+' + over + ' company)</span>' : '') + '</td>' +
-        '<td class="py-2 px-3 text-xs">' + (e.Prorated ? 'Yes' : '') + '</td><td class="py-2 px-3 text-xs">' + (e.InGross ? 'Yes' : '') + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(ot) + '</td></tr>';
-    }).join('');
-    rowClick($('hs-pe-body'), editPayrollElement);
-  }
-  function companyExample(tr) {
-    const seq = tr.__seq = (tr.__seq || 0) + 1;
-    call('previewPayrollFormula', { method: tr.querySelector('.hs-pc-method').value, month: thisMonth(), basic: 5000 }).then(r => { if (seq === tr.__seq) tr.querySelector('.hs-pc-example').textContent = r.daily; }, () => {});
-  }
-  let peEditing = null;
-  function editPayrollElement(id) {
-    closeForms();
-    const e = prSetup.elements.find(x => x.ElementID === id);
-    peEditing = e;
-    $('hs-pe-heading').textContent = e.Name + ' (' + e.Kind + ', ' + e.Nature + ')';
-    const glList = prSetup.accounts.filter(a => !a.CompanyID && (e.Kind !== 'Earning' || a.AccountType === 'Expense'));
-    $('hs-pe-gl').innerHTML = acctOptions(glList, e.GLAccountID, '—');
-    $('hs-pe-cos').innerHTML = prSetup.settings.map(st => '<tr><td class="py-1 pr-3 text-xs">' + escapeHtml(coLabel(st.CompanyID)) + '</td><td class="py-1"><select class="hs-pe-co bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300" data-co="' + escapeHtml(st.CompanyID) + '">' +
-      acctOptions(prSetup.accounts.filter(a => (!a.CompanyID || a.CompanyID === st.CompanyID) && (e.Kind !== 'Earning' || a.AccountType === 'Expense')), (e.GLByCompany || {})[st.CompanyID] || '', 'The group\'s') + '</select></td></tr>').join('');
-    $('hs-pe-prorated').checked = Boolean(e.Prorated); $('hs-pe-prorated').disabled = e.Nature !== 'Fixed';
-    $('hs-pe-gross').checked = Boolean(e.InGross); $('hs-pe-gross').disabled = e.Kind !== 'Earning';
-    const canOt = e.Kind === 'Earning' && e.Nature === 'Variable';
-    $('hs-pe-ot-wrap').classList.toggle('hidden', !canOt);
-    $('hs-pe-isot').checked = e.Category === 'Overtime';
-    const o = e.Overtime || { Mode: 'Hours', Base: 'Basic', DaysMode: 'Company', HoursMode: 'Schedule', Weightage: 1.25 };
-    $('hs-ot-mode').value = o.Mode; $('hs-ot-base').value = o.Base || 'Basic'; $('hs-ot-daysmode').value = o.DaysMode || 'Company'; $('hs-ot-hoursmode').value = o.HoursMode || 'Schedule';
-    $('hs-ot-days').value = o.FixedDays || ''; $('hs-ot-hours').value = o.FixedHours || ''; $('hs-ot-weight').value = o.Weightage || '';
-    otFields();
-    $('hs-pe-form').classList.remove('hidden');
-  }
-  const otConfig = () => ({ Mode: val('hs-ot-mode'), Base: val('hs-ot-base'), DaysMode: val('hs-ot-daysmode'), FixedDays: val('hs-ot-days'), HoursMode: val('hs-ot-hoursmode'), FixedHours: val('hs-ot-hours'), Weightage: val('hs-ot-weight') });
-  let otSeq = 0;
-  // The overtime fields as chosen, and the worked example (the company's method, this month).
-  function otFields() {
-    const on = $('hs-pe-isot').checked;
-    $('hs-pe-ot').classList.toggle('hidden', !on);
-    document.querySelectorAll('.hs-ot-hours').forEach(x => x.classList.toggle('hidden', val('hs-ot-mode') !== 'Hours'));
-    $('hs-ot-days').classList.toggle('hidden', val('hs-ot-daysmode') !== 'Fixed');
-    $('hs-ot-hours').classList.toggle('hidden', val('hs-ot-hoursmode') !== 'Fixed');
-    if (!on || val('hs-ot-mode') !== 'Hours') { $('hs-ot-example').textContent = ''; return; }
-    const st = prSetup.settings[0] || { DailyRateMethod: 'DIV30' };
-    const seq = ++otSeq; // only the latest answer is shown
-    call('previewPayrollFormula', { method: st.DailyRateMethod, month: thisMonth(), basic: 5000, gross: 8000, hoursPerDay: 8, overtime: otConfig() })
-      .then(r => { if (seq === otSeq) $('hs-ot-example').textContent = 'Example (basic 5,000, gross 8,000, ' + (st.CompanyID ? coLabel(st.CompanyID) + ', ' : '') + 'an 8-hour day): ' + r.overtime; },
-        err => { if (seq === otSeq) $('hs-ot-example').textContent = err.message || ''; });
-  }
-  function savePayrollElement() {
-    const glByCompany = {};
-    document.querySelectorAll('.hs-pe-co').forEach(sel => { glByCompany[sel.dataset.co] = sel.value; });
-    call('savePayElementPayroll', { elementId: peEditing.ElementID, glAccountId: val('hs-pe-gl'), glByCompany, prorated: $('hs-pe-prorated').checked, inGross: $('hs-pe-gross').checked,
-      category: $('hs-pe-isot').checked ? 'Overtime' : 'Normal', overtime: $('hs-pe-isot').checked ? otConfig() : null })
-      .then(() => { closeForms(); return loadPayroll(); }, err => appAlert(err.message || 'Unable to save.'));
-  }
-
-  function closeForms() { ['hs-grade-form', 'hs-des-form', 'hs-field-form', 'hs-dt-form', 'hs-el-form', 'hs-lt-form', 'hs-ws-form', 'hs-pe-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
+  function closeForms() { ['hs-grade-form', 'hs-des-form', 'hs-field-form', 'hs-dt-form', 'hs-lt-form', 'hs-ws-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
   function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
 
   function editGrade(id) {
@@ -629,17 +464,7 @@
 
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> HR Setup';
-    $('hs-tabs').addEventListener('click', e => { const b = e.target.closest('.hs-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'calendar' && !calLoaded) loadCalendar(); if (b.dataset.tab === 'payroll') loadPayroll(); } });
-    $('hs-pc-body').addEventListener('change', e => { const tr = e.target.closest('tr[data-co]'); if (tr && e.target.closest('.hs-pc-method')) companyExample(tr); });
-    $('hs-pc-body').addEventListener('click', e => {
-      const b = e.target.closest('.hs-pc-save'); if (!b) return;
-      const tr = b.closest('tr[data-co]');
-      call('savePayrollCompany', { companyId: tr.dataset.co, dailyRateMethod: tr.querySelector('.hs-pc-method').value, payableAccountId: tr.querySelector('.hs-pc-payable').value, receivableAccountId: tr.querySelector('.hs-pc-receivable').value })
-        .then(() => loadPayroll(), err => appAlert(err.message || 'Unable to save.'));
-    });
-    $('hs-pe-save').addEventListener('click', savePayrollElement);
-    ['hs-pe-isot', 'hs-ot-mode', 'hs-ot-base', 'hs-ot-daysmode', 'hs-ot-hoursmode'].forEach(id => $(id).addEventListener('change', otFields));
-    ['hs-ot-days', 'hs-ot-hours', 'hs-ot-weight'].forEach(id => $(id).addEventListener('input', otFields));
+    $('hs-tabs').addEventListener('click', e => { const b = e.target.closest('.hs-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'calendar' && !calLoaded) loadCalendar(); } });
     $('hs-lt-new').addEventListener('click', () => editLeaveType(''));
     $('hs-ws-new').addEventListener('click', () => editSchedule(''));
     $('hs-ws-save').addEventListener('click', () => saved(call('saveHrWorkSchedule', { schedule: { ScheduleID: editing || '', Name: val('hs-ws-name'), HoursPerDay: val('hs-ws-hours'),
@@ -673,9 +498,6 @@
     $('hs-field-save').addEventListener('click', () => saved(call('saveHrField', { field: { FieldID: editing || '', Label: val('hs-field-label'), Type: val('hs-field-type'), Section: val('hs-field-section'),
       Sort: Number(val('hs-field-sort')) || 0, Required: $('hs-field-required').checked, Sensitive: $('hs-field-sensitive').checked, Active: $('hs-field-active').checked } })));
     $('hs-dt-new').addEventListener('click', () => editDocType(''));
-    $('hs-el-new').addEventListener('click', () => editElement(''));
-    $('hs-el-save').addEventListener('click', () => saved(call('savePayElement', { element: { ElementID: editing || '', Code: val('hs-el-code'), Name: val('hs-el-name'),
-      Kind: val('hs-el-kind'), Nature: val('hs-el-nature'), IsBasic: $('hs-el-basic').checked, Active: $('hs-el-active').checked } })));
     $('hs-dt-save').addEventListener('click', () => saved(call('saveHrDocumentType', { documentType: { DocumentTypeID: editing || '', Name: val('hs-dt-name'), HasNumber: $('hs-dt-number').checked, HasExpiry: $('hs-dt-expiry').checked, Active: $('hs-dt-active').checked } })));
     showTab('grades');
     call('getActiveCompanies', {}).then(r => {

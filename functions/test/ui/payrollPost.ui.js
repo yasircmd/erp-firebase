@@ -1,6 +1,6 @@
 // HR Payroll, step 3: the Payroll screen's submit, approval, posting,
 // payslips and reversal (owner, 2026-10-04; docs/modules/HR_PAYROLL.md,
-// decisions 16-19); HR Setup → Payroll's Recoverable from employees.
+// decisions 16-19); Payroll Setup → Payroll's Recoverable from employees.
 // Seeds its own data (it WIPES the emulator database, like the suites):
 //   node functions/test/ui/payrollPost.ui.js
 const http = require('http');
@@ -54,15 +54,15 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   }
   const status = async () => (await call('u-admin', 'getPayrollRun', { runId })).run;
 
-  await check('HR Setup → Payroll: a company\'s Recoverable from employees (asset accounts only)', async () => {
-    const p = await open('HRSETUP', 'u-admin');
-    await p.waitForSelector('#hs-grades-body tr', { timeout: 30000 });
-    await p.click('.hs-tab[data-tab="payroll"]');
-    await p.waitForSelector('#hs-pc-body tr[data-co="C1"]', { timeout: 30000 });
-    const offered = await p.$$eval('#hs-pc-body tr[data-co="C1"] .hs-pc-receivable option', o => o.map(x => x.value).filter(Boolean));
+  await check('Payroll Setup → Payroll: a company\'s Recoverable from employees (asset accounts only)', async () => {
+    const p = await open('PAYROLLSETUP', 'u-admin');
+    await p.waitForSelector('#ps-el-body tr', { timeout: 30000 });
+    await p.click('.ps-tab[data-tab="payroll"]');
+    await p.waitForSelector('#ps-pc-body tr[data-co="C1"]', { timeout: 30000 });
+    const offered = await p.$$eval('#ps-pc-body tr[data-co="C1"] .ps-pc-receivable option', o => o.map(x => x.value).filter(Boolean));
     assert.deepEqual([offered.includes('A-REC'), offered.includes('A-SALPAY')], [true, false]);
-    await p.selectOption('#hs-pc-body tr[data-co="C1"] .hs-pc-receivable', 'A-REC');
-    await p.click('#hs-pc-body tr[data-co="C1"] .hs-pc-save');
+    await p.selectOption('#ps-pc-body tr[data-co="C1"] .ps-pc-receivable', 'A-REC');
+    await p.click('#ps-pc-body tr[data-co="C1"] .ps-pc-save');
     for (let i = 0; i < 40 && (await call('u-admin', 'getPayrollSetup', {})).settings[0].ReceivableAccountID !== 'A-REC'; i++) await new Promise(ok => setTimeout(ok, 300));
     assert.deepEqual((await call('u-admin', 'getPayrollSetup', {})).settings[0], { CompanyID: 'C1', DailyRateMethod: 'DIV30', PayableAccountID: 'A-SALPAY', ReceivableAccountID: 'A-REC' });
     assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
