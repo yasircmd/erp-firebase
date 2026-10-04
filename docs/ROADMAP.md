@@ -55,7 +55,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   sideways when wide; a checkbox's tooltip names its role. A change to a
   ported screen, made in tools/legacy-port/generate.js (SCREEN_EDITS,
   `ROLES`). Test: `rolesMatrix.ui.js` (12 roles); negative control (the
-  checkboxes back in one cell) caught. To go live: "screens only".
+  checkboxes back in one cell) caught. Live 2026-10-03 (PR #70, Deploy
+  run #78).
 
 - [x] **Job Order acceptance through Approval Configuration** (owner,
   2026-09-28; [JOB_ORDER_ACCEPTANCE.md](modules/JOB_ORDER_ACCEPTANCE.md)).
@@ -403,6 +404,25 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
+  [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
+  now (self-service later); leave types configurable; leave pay by type
+  and grade (basic only, full, %, unpaid, with day bands for sick leave).
+  **Design agreed 2026-10-03:** leave plus absences (no time
+  attendance); approval through Approval Configuration; calendar year,
+  monthly accrual; carry forward to a cap, the rest lapses; the excess
+  over the balance split off as Unpaid; one set of rules for the group;
+  return confirmed for marked types; day count per leave type;
+  back-dated entries into a locked month carried as adjustments. Four
+  build steps.
+  - **Step 1 built and tested 2026-10-03**, not yet live: HR Setup →
+    Leave Types (nine to start; settings; entitlement by grade level and
+    service with a carry-forward cap; leave pay rules by grade level and
+    day band, overlaps refused, gaps warned) and Working Calendar
+    (weekend and holidays per company). Tests: `hrLeaveSetup` suite (4),
+    `hrLeaveSetup.ui.js` (5); nine negative controls caught. To go live:
+    "functions set" `hr-leave-1` with the screens.
+  - **Next:** step 2, the Leave Register.
 - [x] **HR: Employee Records** (owner, 2026-10-03;
   [HR_EMPLOYEES.md](modules/HR_EMPLOYEES.md)). **Design agreed
   2026-10-03:** group employee numbers, group grades with company pay

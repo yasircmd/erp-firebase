@@ -165,6 +165,7 @@ node functions/test/ui/companyDocs.ui.js      # Company Documents: add with file
 node functions/test/ui/hrEmployees.ui.js      # HR Setup (grade + pay band, designation, extra field) and Employees (new, Correct, manager, Replace manager, org chart, documents, pay, view-only); seeds its own data
 node functions/test/ui/rolesMatrix.ui.js       # Roles & Permissions with 12 roles: one column per role, checkboxes under their role, save; seeds its own data
 node functions/test/ui/hrChanges.ui.js        # Employee Changes: from the record, a promotion with a % raise, submit, approve; seeds its own data
+node functions/test/ui/hrLeaveSetup.ui.js     # HR Setup: Leave Types (pay by grade, gaps shown, a new type) and Working Calendar (holiday, copy last year, weekend); seeds its own data
 node functions/test/ui/masterImport.ui.js     # Master Data Import: copy headers, paste, issues by row, fix, import; seeds its own data (Part 2: Users password box)
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen

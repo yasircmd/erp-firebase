@@ -203,3 +203,6 @@ const hrPay = require('./src/hrPay');
 const hrChanges = require('./src/hrChanges');
 ['getEmployeeChanges', 'getEmployeeChange', 'saveEmployeeChange', 'deleteEmployeeChange', 'submitEmployeeChange',
   'decideEmployeeChangeApproval', 'getEmployeeChangeStart'].forEach(n => { exports[n] = hrChanges[n]; });
+// HR: Attendance and Leave Register (docs/modules/HR_LEAVE.md).
+const hrLeaveSetup = require('./src/hrLeaveSetup');
+['getLeaveSetup', 'saveLeaveType', 'saveLeaveEntitlements', 'saveLeavePayRules', 'getWorkCalendar', 'saveWorkCalendar'].forEach(n => { exports[n] = hrLeaveSetup[n]; });

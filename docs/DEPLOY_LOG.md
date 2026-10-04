@@ -817,3 +817,7 @@ from, and how it was verified. The deploy procedure is in the
   - Run [#77](https://github.com/yasircmd/erp-firebase/actions/runs/37153420830), 20:58–20:59 UTC: screens only.
   - In the app (owner): the HR roles were added in Roles & Permissions,
     which showed the grid wrapping with 12 roles (fixed in the next PR).
+- **2026-10-03, Roles & Permissions with many roles (PR #70):** run
+  [#78](https://github.com/yasircmd/erp-firebase/actions/runs/37154333286),
+  21:13–21:14 UTC, from `8d56d84` (the PR #70 merge), success ("screens
+  only").
