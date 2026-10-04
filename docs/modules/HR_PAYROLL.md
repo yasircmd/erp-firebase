@@ -375,3 +375,73 @@ Salaries Payable, and give each element its GL account. Nothing is
 calculated or posted yet: the run is step 2.
 
 **Next:** step 2, the payroll run.
+
+## Step 2 design: the payroll run (proposed 2026-10-04)
+
+**A run** is one per company and month (`payrollRuns`), started by a user
+with the Payroll "draft" right (module `PAYROLL`: access, draft; post and
+pay come in steps 3–4):
+- only for a month whose leave is **locked** (Leave Register → Month
+  close), and the run's leave is read from the lines paid in that month,
+  so it matches the locked summary;
+- it takes each employee of the company on payroll that month (joined by
+  its end, not left before its start);
+- it is a **draft** in step 2: calculate, enter inputs, recalculate,
+  review, delete. Submitting, approval and posting are step 3.
+
+**Each employee's pay**, by element, using the company's daily rate
+(÷ 30, ÷ the month's days, or × 12 ÷ 365/366):
+- **fixed elements** from the compensation in force; a pay change during
+  the month counts each part of the month at its own amounts;
+- **part months** (joining or leaving in the month): see question 12;
+- **unpaid and absent days:** each prorated element less its daily rate
+  × the days;
+- **paid leave days**, by the leave pay rule on each day:
+  - "Full salary" pays the "in gross" elements; the other prorated
+    elements are taken out for those days;
+  - "Basic only" pays the basic; the other prorated elements are taken
+    out;
+  - "Selected elements" pays those elements; the others are taken out;
+  - "at x%" pays x% of what is covered;
+  - duty days (business travel) are paid as working days;
+- **adjustments from earlier months** (leave entered or changed after its
+  month was locked): at the rate of the day's own month, with the
+  compensation in force on that day;
+- no element goes below zero.
+- **Inputs for the run**, each against a variable element (question 15),
+  entered on screen or pasted from Excel (employee no., element code,
+  hours or amount, note):
+  - overtime: hours × the element's hourly rate (step 1's formula, with
+    the basic and gross in force at the month's end and the hours of the
+    employee's schedule then), or an amount;
+  - bonus and commission: amounts (the agreed terms are shown alongside);
+  - other one-off additions and deductions.
+- **Net** = earnings − deductions.
+
+**Review:**
+- the register: one row per employee, the elements as columns, totals;
+- each employee's payslip on screen, each line with how it was worked
+  out (e.g. "Housing 3,000.00 − 2 unpaid days × 100.00");
+- warnings: no compensation, a negative net, no IBAN, the basic outside
+  the grade's band, leave reopened since the run was calculated.
+
+**Later steps, by design:** back pay (decision 10) and a negative net
+carried forward (decision 9) compare with runs already posted, so they
+come with posting in step 3; the PDF payslip is step 3 too.
+
+### Open questions for step 2
+
+12. **Part months (joiners and leavers):** with ÷ 30 or × 12 ÷ 365, a
+    part month can be worked out two ways, which differ:
+    - **deduct the days not employed** from the monthly amount (someone
+      in post all month always gets exactly the monthly amount); or
+    - **pay the days employed** × the daily rate.
+13. **Leave and unpaid days on the payslip:** shown as a reduction of
+    each element ("Housing 3,000.00 − 2 days = 2,800.00", and the GL
+    expense is the reduced amount), or as separate deduction lines
+    ("Unpaid leave −200.00")?
+14. **Who sees the run's amounts:** anyone with Payroll access, or only
+    those who also have the Employees "sensitive" right?
+15. **One-off additions and deductions:** always against a pay element
+    (so each has its GL account; e.g. add "Other earning" and "Other
+    deduction" elements), or free text with one default account?
