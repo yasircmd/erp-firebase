@@ -14,8 +14,8 @@ const { firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { todayIn } = require('./recurringSchedule');
-const { leaveTypes, calendar } = require('./hrLeaveSetup');
-const { addDay } = require('./workCalendar');
+const { leaveTypes, calendar, calendarFor } = require('./hrLeaveSetup');
+const { addDay, countedDays } = require('./workCalendar');
 const lv = require('./hrLeave');
 
 const onCallOptions = { region: 'us-central1' };
@@ -115,7 +115,11 @@ exports.getLeaveCalendar = onCallWithMessages(onCallOptions, async (request) => 
   const cal = await calendar(co);
   const leaves = (await leavesFor(ok)).filter(l => l.Status === 'Approved' || l.Status === 'PendingApproval');
   const emps = (await employeesFor(ok)).filter(e => e.JoinDate <= end && !(e.Status === 'Left' && e.LeavingDate && e.LeavingDate < start)).sort(byNo);
-  const rows = emps.map(e => {
+  const rows = [];
+  for (const e of emps) {
+    // The employee's days off: their schedule's weekend and the holidays.
+    const ecal = await calendarFor(e);
+    const working = new Set(countedDays(ecal, start, end, 'Working'));
     const cells = {};
     leaves.filter(l => l.EmployeeID === e.EmployeeID).forEach(l => (l.Lines || []).filter(x => lv.live(x) && x.Date >= start && x.Date <= end).forEach(x => {
       const c = cells[x.Date] || { Codes: [], Fraction: 0 };
@@ -127,8 +131,9 @@ exports.getLeaveCalendar = onCallWithMessages(onCallOptions, async (request) => 
       c.LeaveID = l.LeaveID;
       cells[x.Date] = c;
     }));
-    return { EmployeeID: e.EmployeeID, EmployeeNo: e.EmployeeNo, EmployeeName: e.FullName, Cells: cells, Away: round2(Object.values(cells).reduce((s, c) => s + c.Fraction, 0)) };
-  });
+    rows.push({ EmployeeID: e.EmployeeID, EmployeeNo: e.EmployeeNo, EmployeeName: e.FullName, Cells: cells, Off: days.filter(x => !working.has(x)),
+      Away: round2(Object.values(cells).reduce((s, c) => s + c.Fraction, 0)) });
+  }
   return { month, days, weekend: cal.Weekend, holidays: cal.Holidays.filter(h => h.To >= start && h.From <= end), rows };
 });
 

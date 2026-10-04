@@ -34,10 +34,10 @@ const CHANGES = () => firestore.collection('employeeChanges');
 const EMPLOYEES = () => firestore.collection('employees');
 const HISTORY = () => firestore.collection('employeeHistory');
 const TYPES = ['Promotion', 'Increment', 'Transfer'];
-const ORG = ['CompanyID', 'DivisionID', 'BranchID', 'CostCenterID'];
+const ORG = ['CompanyID', 'DivisionID', 'BranchID', 'CostCenterID', 'ScheduleID'];
 const JOB = ['DesignationID', 'GradeID'];
 const UNIT_TYPE = { DivisionID: 'Division', BranchID: 'Branch', CostCenterID: 'CostCenter' };
-const LABEL = { CompanyID: 'Company', DivisionID: 'Division', BranchID: 'Branch', CostCenterID: 'Cost center (department)', DesignationID: 'Designation', GradeID: 'Grade' };
+const LABEL = { CompanyID: 'Company', DivisionID: 'Division', BranchID: 'Branch', CostCenterID: 'Cost center (department)', DesignationID: 'Designation', GradeID: 'Grade', ScheduleID: 'Work schedule' };
 const OPEN = ['Draft', 'PendingApproval', 'Rejected'];
 
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 150);
@@ -76,6 +76,7 @@ async function namer() {
     if (k === 'CompanyID') return c[v] ? c[v].LegalName : v;
     if (k === 'DesignationID') return (setup.designations.find(x => x.DesignationID === v) || {}).Title || v;
     if (k === 'GradeID') return (setup.grades.find(x => x.GradeID === v) || {}).Code || v;
+    if (k === 'ScheduleID') return (setup.workSchedules.find(x => x.ScheduleID === v) || {}).Name || v;
     if (UNIT_TYPE[k]) return u[v] ? u[v].Name : v;
     if (k === 'EmployeeID') { const e = emps.docs.find(d => d.id === v); return e ? e.data().FullName : v; }
     return v;
@@ -97,6 +98,9 @@ async function evaluate(user, input, emp) {
   const units = unitsSnap.val() || {};
   const after = {};
   for (const k of JOB.concat(ORG)) after[k] = text((d.After || {})[k], 80) || (k === 'CompanyID' || JOB.includes(k) ? emp[k] || '' : '');
+  // The work schedule (docs/modules/HR_PAYROLL.md, step 0): kept as it is
+  // when not given (an empty one is the company's own).
+  if ((d.After || {}).ScheduleID === undefined) after.ScheduleID = emp.ScheduleID || '';
   // Organization: units of the right type, of the (new) company.
   if (!userCanAccessCompany(user.profile, after.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   if (!(await rtdb.ref('companies/' + after.CompanyID).get()).exists()) throw new HttpsError('invalid-argument', 'Company not found.');
@@ -105,6 +109,10 @@ async function evaluate(user, input, emp) {
     const un = units[after[k]];
     if (!un || un.Type !== t) throw new HttpsError('invalid-argument', LABEL[k] + ' not found.');
     if (un.CompanyID && un.CompanyID !== after.CompanyID) throw new HttpsError('invalid-argument', 'That ' + LABEL[k].toLowerCase() + ' belongs to another company.');
+  }
+  if (after.ScheduleID && after.ScheduleID !== (emp.ScheduleID || '')) {
+    const sc = setup.workSchedules.find(x => x.ScheduleID === after.ScheduleID);
+    if (!sc || sc.Active === false) throw new HttpsError('invalid-argument', 'Work schedule not found or no longer in use.');
   }
   const des = setup.designations.find(x => x.DesignationID === after.DesignationID);
   const grade = setup.grades.find(x => x.GradeID === after.GradeID);
@@ -138,7 +146,7 @@ async function evaluate(user, input, emp) {
     if (jobChanged.length || orgChanged.length) throw new HttpsError('invalid-argument', 'An increment keeps the job and organization: use a Promotion or a Transfer for those.');
   }
   if (type === 'Transfer') {
-    if (!orgChanged.length) throw new HttpsError('invalid-argument', 'A transfer changes the company, division, branch or cost center.');
+    if (!orgChanged.length) throw new HttpsError('invalid-argument', 'A transfer changes the company, division, branch, cost center or work schedule.');
     if (jobChanged.length) throw new HttpsError('invalid-argument', 'A transfer keeps the grade and designation: use a Promotion for those.');
   }
   // Warnings the approvers see (decision 5).
@@ -185,6 +193,14 @@ async function apply(c, user) {
     await HISTORY().add({ EmployeeID: c.EmployeeID, Action: c.Type, Changes: [{ Field: 'Compensation', Label: 'Pay', From: c.PayBefore ? money(c.PayBefore.MonthlyEarnings) : '', To: 'From ' + c.EffectiveDate + ': ' + money(c.NewPay.MonthlyEarnings) + ' a month', Sensitive: true }],
       Reason: c.ChangeNumber, By: user.uid, ByName: actorName(user), At: new Date().toISOString() });
     await CHANGES().doc(c.ChangeID).update({ PayVersionID: ref.id });
+  }
+  // A new work schedule counts from the effective date at once, so leave
+  // booked ahead is counted by it; the record shows it from that date.
+  if (String(c.Before.ScheduleID || '') !== String(c.After.ScheduleID || '')) {
+    const emp = await loadEmployee(c.EmployeeID);
+    const list = (emp.Schedules && emp.Schedules.length ? emp.Schedules : [{ From: emp.JoinDate, ScheduleID: emp.ScheduleID || '' }])
+      .filter(x => x.From < c.EffectiveDate).concat([{ From: c.EffectiveDate, ScheduleID: c.After.ScheduleID || '' }]);
+    await EMPLOYEES().doc(c.EmployeeID).update({ Schedules: list.sort((a, b) => a.From.localeCompare(b.From)) });
   }
   const hasJob = JOB.concat(ORG).some(k => String(c.Before[k] || '') !== String(c.After[k] || ''));
   if (!hasJob) return CHANGES().doc(c.ChangeID).update({ JobApplied: true, Scheduled: false });

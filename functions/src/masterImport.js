@@ -413,6 +413,7 @@ const MASTERS = {
       C('Branch', 'BranchID', { type: 'ref', ref: 'branch' }),
       C('Cost Center (Department)', 'CostCenterID', { type: 'ref', ref: 'costCenter' }),
       C('Work Location', 'WorkLocation'),
+      C('Work Schedule', 'ScheduleID', { type: 'ref', ref: 'workSchedule', note: 'As in HR Setup; empty: the company\'s weekend and hours.' }),
       C('Employment Type', 'EmploymentType', { type: 'enum', values: labelled(['Permanent', 'Contract', 'Part-time', 'Temporary']), note: 'Empty: Permanent.' }),
       C('Probation End', 'ProbationEndDate', { type: 'date' }),
       C('Name as in Passport', 'PassportName'),
@@ -425,7 +426,7 @@ const MASTERS = {
       C('Emergency Contact', 'EmergencyName'), C('Emergency Relation', 'EmergencyRelation'), C('Emergency Phone', 'EmergencyPhone'),
       C('Bank', 'BankName', { sensitive: true }), C('Account No. / IBAN', 'IBAN', { sensitive: true })
     ],
-    sample: ['Ali Hassan', '01', '01/03/2024', 'Accountant', 'G5', '', '', '', 'CC1', 'Dubai office', 'Permanent', '31/08/2024', 'ALI HASSAN', 'Male',
+    sample: ['Ali Hassan', '01', '01/03/2024', 'Accountant', 'G5', '', '', '', 'CC1', 'Dubai office', '', 'Permanent', '31/08/2024', 'ALI HASSAN', 'Male',
       '15/06/1990', 'India', 'Married', '+971 50 000 0000', '', 'ali.hassan@example.com', '', '', '', '', '', ''],
     toData: r => {
       const out = { Custom: {} };
@@ -496,6 +497,7 @@ async function loadExisting() {
   data.faAssets = await fsDocs('faAssets');
   data.hrGrades = await fsDocs('hrGrades');
   data.hrDesignations = await fsDocs('hrDesignations');
+  data.hrWorkSchedules = await fsDocs('hrWorkSchedules');
   data.employees = await fsDocs('employees');
   data.leaveTypes = Object.fromEntries((await loadLeaveTypes()).map(t => [t.LeaveTypeID, t]));
   data.leaveOpenings = await fsDocs('leaveOpenings');
@@ -522,6 +524,7 @@ async function loadExisting() {
     faDetermination: list(data.faAccountDetermination, 'Code', 'Name'),
     grade: list(data.hrGrades, 'Code', 'Name').filter(x => x.rec.Active !== false),
     designation: list(data.hrDesignations, '', 'Title').filter(x => x.rec.Active !== false),
+    workSchedule: list(data.hrWorkSchedules, '', 'Name').filter(x => x.rec.Active !== false),
     employee: list(data.employees, 'EmployeeNo', 'FullName'),
     leaveType: list(data.leaveTypes, 'Code', 'Name').filter(x => x.rec.UsesBalance && x.rec.Kind === 'Leave')
   };

@@ -61,6 +61,7 @@
       <tr><td class="py-1 pr-6 text-xs text-slate-400">Division</td><td class="py-1 pr-6" data-now="DivisionID"></td><td class="py-1"><select data-k="DivisionID" data-unit="Division" class="ec-f ec-after ec-unit bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
       <tr><td class="py-1 pr-6 text-xs text-slate-400">Branch</td><td class="py-1 pr-6" data-now="BranchID"></td><td class="py-1"><select data-k="BranchID" data-unit="Branch" class="ec-f ec-after ec-unit bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
       <tr><td class="py-1 pr-6 text-xs text-slate-400">Cost center (department)</td><td class="py-1 pr-6" data-now="CostCenterID"></td><td class="py-1"><select data-k="CostCenterID" data-unit="CostCenter" class="ec-f ec-after ec-unit bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
+      <tr><td class="py-1 pr-6 text-xs text-slate-400">Work schedule</td><td class="py-1 pr-6" data-now="ScheduleID"></td><td class="py-1"><select data-k="ScheduleID" id="ec-after-schedule" class="ec-f ec-after bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
     </tbody></table>
   </div>
 
@@ -117,10 +118,11 @@
     if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
   }
   const nameOf = (k, v) => {
-    if (!v) return '—';
+    if (!v) return k === 'ScheduleID' ? 'Company working calendar' : '—';
     if (k === 'CompanyID') { const c = companies.find(x => x.CompanyID === v); return c ? c.LegalName : v; }
     if (k === 'DesignationID') return (setup.designations.find(x => x.DesignationID === v) || {}).Title || v;
     if (k === 'GradeID') return (setup.grades.find(x => x.GradeID === v) || {}).Code || v;
+    if (k === 'ScheduleID') return ((setup.workSchedules || []).find(x => x.ScheduleID === v) || {}).Name || v;
     const u = units.find(x => x.UnitID === v); return u ? u.Name : v;
   };
 
@@ -162,11 +164,13 @@
     options(document.querySelector('[data-k="DesignationID"]'), setup.designations.filter(d => d.Active !== false).map(d => ({ value: d.DesignationID, label: d.Title })));
     options(document.querySelector('[data-k="GradeID"]'), setup.grades.filter(g => g.Active !== false).map(g => ({ value: g.GradeID, label: g.Code + (g.Name ? ' — ' + g.Name : '') })));
     options($('ec-after-company'), companies.map(c => ({ value: c.CompanyID, label: c.LegalName })));
+    // Work schedule (Payroll step 0): none is the company's working calendar.
+    options($('ec-after-schedule'), (setup.workSchedules || []).filter(w => w.Active !== false).map(w => ({ value: w.ScheduleID, label: w.Name })), 'Company working calendar');
     document.querySelectorAll('.ec-unit').forEach(sel => options(sel, units.filter(u => u.Type === sel.dataset.unit && (!u.CompanyID || u.CompanyID === companyId))
       .map(u => ({ value: u.UnitID, label: u.Code + ' — ' + u.Name })), '—'));
   }
   function fillNow(before, names) {
-    document.querySelectorAll('[data-now]').forEach(td => { const k = td.dataset.now; td.textContent = names ? (names[k] ? names[k].Before || '—' : '—') : nameOf(k, before[k]); });
+    document.querySelectorAll('[data-now]').forEach(td => { const k = td.dataset.now; td.textContent = names ? (names[k] && names[k].Before) || nameOf(k, '') : nameOf(k, before[k]); });
   }
   function fillAfter(afterVals) {
     fillAfterSelects(afterVals.CompanyID);

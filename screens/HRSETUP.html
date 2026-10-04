@@ -10,6 +10,7 @@
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="elements">Pay Elements</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="leavetypes">Leave Types</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="calendar">Working Calendar</button>
+    <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="schedules">Work Schedules</button>
   </div>
   <p id="hs-readonly" class="hidden text-xs text-slate-400">You can view HR Setup but not change it.</p>
 
@@ -175,8 +176,9 @@
       <div id="hs-cal-days" class="text-sm text-slate-300 pb-2"></div>
     </div>
     <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
-      <div class="text-xs font-semibold text-slate-400 uppercase">Weekend</div>
+      <div class="text-xs font-semibold text-slate-400 uppercase">Weekend <span class="normal-case font-normal text-slate-500">(the company's own; employees on a work schedule follow theirs)</span></div>
       <div id="hs-cal-weekend" class="flex flex-wrap gap-4"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Hours in a working day</label><input id="hs-cal-hours" type="number" min="1" max="24" step="0.25" class="w-28 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
       <div class="text-xs font-semibold text-slate-400 uppercase pt-2">Public holidays</div>
       <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-2">From</th><th class="py-1 pr-2">To</th><th class="py-1 pr-2">Holiday</th><th></th></tr></thead>
         <tbody id="hs-cal-body"></tbody></table>
@@ -186,6 +188,28 @@
         <button id="hs-cal-save" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save calendar</button>
       </div>
     </div>
+  </div>
+
+  <!-- WORK SCHEDULES (docs/modules/HR_PAYROLL.md, step 0) -->
+  <div id="hs-pane-schedules" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">For employees whose weekend or working hours differ from their company's (e.g. a six-day week with Friday off). An employee is given a schedule on their record, or from a date through an Employee Change (Transfer); without one they follow the company's Working Calendar. Leave counts working days by the schedule in force on each day; the public holidays are the company's.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Schedule</th><th class="py-2 px-3">Weekend</th><th class="py-2 px-3 text-right">Hours a day</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="hs-ws-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div id="hs-ws-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Name *</label><input id="hs-ws-name" maxlength="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Hours in a working day *</label><input id="hs-ws-hours" type="number" min="1" max="24" step="0.25" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="flex items-end"><label class="text-xs text-slate-300 flex items-center gap-2"><input id="hs-ws-active" type="checkbox" checked> In use</label></div>
+      </div>
+      <div class="text-xs font-semibold text-slate-400 uppercase">Weekend</div>
+      <div id="hs-ws-weekend" class="flex flex-wrap gap-4"></div>
+      <div class="flex gap-2"><button id="hs-ws-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="hs-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+    <button id="hs-ws-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New work schedule</button>
   </div>
 
   <!-- DOCUMENT TYPES -->
@@ -233,7 +257,7 @@
 
   function showTab(tab) {
     document.querySelectorAll('.hs-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
-    ['grades', 'designations', 'fields', 'doctypes', 'elements', 'leavetypes', 'calendar'].forEach(t => $('hs-pane-' + t).classList.toggle('hidden', t !== tab));
+    ['grades', 'designations', 'fields', 'doctypes', 'elements', 'leavetypes', 'calendar', 'schedules'].forEach(t => $('hs-pane-' + t).classList.toggle('hidden', t !== tab));
   }
   function load() {
     return Promise.all([call('getHrSetup', {}), call('getPayElements', {}), call('getLeaveSetup', {})]).then(([s, pe, ls]) => {
@@ -276,6 +300,7 @@
       '</td><td class="py-2 px-3 text-xs">' + escapeHtml(e.Nature) + '</td><td class="py-2 px-3 text-xs">' + (e.IsBasic ? 'Basic' : '') + '</td><td class="py-2 px-3 text-xs">' + statusHtml(e.Active) + '</td></tr>').join('');
     rowClick($('hs-el-body'), editElement);
     renderLeaveTypes();
+    renderSchedules();
   }
 
   // ---------- leave types ----------
@@ -388,6 +413,7 @@
       $('hs-cal-body').innerHTML = r.holidays.map(holidayRow).join('');
       lastYearHolidays = r.lastYearHolidays || [];
       $('hs-cal-days').textContent = 'Working days in ' + r.year + ': ' + r.workingDays;
+      $('hs-cal-hours').value = r.hoursPerDay; $('hs-cal-hours').disabled = !canWrite;
       document.querySelectorAll('#hs-pane-calendar .hs-write').forEach(b => b.classList.toggle('hidden', !canWrite));
     }, err => appAlert(err.message || 'Unable to load the calendar.'));
   }
@@ -401,7 +427,7 @@
   function saveCalendar() {
     const holidays = [...document.querySelectorAll('.hs-cal-row')].map(tr => ({ From: tr.querySelector('.hs-cal-from').value, To: tr.querySelector('.hs-cal-to').value, Name: tr.querySelector('.hs-cal-name').value }))
       .filter(h => h.From || h.To || h.Name);
-    call('saveWorkCalendar', { companyId: val('hs-cal-company'), year: Number(val('hs-cal-year')), weekend: [...document.querySelectorAll('.hs-cal-wd:checked')].map(c => Number(c.value)), holidays })
+    call('saveWorkCalendar', { companyId: val('hs-cal-company'), year: Number(val('hs-cal-year')), weekend: [...document.querySelectorAll('.hs-cal-wd:checked')].map(c => Number(c.value)), hoursPerDay: val('hs-cal-hours'), holidays })
       .then(() => loadCalendar(), err => appAlert(err.message || 'Unable to save the calendar.'));
   }
   function editElement(id) {
@@ -412,7 +438,25 @@
     $('hs-el-basic').checked = Boolean(e.IsBasic); $('hs-el-active').checked = e.Active !== false;
     $('hs-el-form').classList.remove('hidden');
   }
-  function closeForms() { ['hs-grade-form', 'hs-des-form', 'hs-field-form', 'hs-dt-form', 'hs-el-form', 'hs-lt-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
+  // ---------- work schedules (Payroll step 0) ----------
+  const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function renderSchedules() {
+    $('hs-ws-body').innerHTML = (setup.workSchedules || []).map(w => '<tr data-id="' + escapeHtml(w.ScheduleID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '">' +
+      '<td class="py-2 px-3">' + escapeHtml(w.Name) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(w.Weekend.length ? w.Weekend.map(n => DAY_NAMES[n]).join(', ') : 'None') + '</td>' +
+      '<td class="py-2 px-3 text-xs text-right">' + w.HoursPerDay + '</td><td class="py-2 px-3 text-xs">' + statusHtml(w.Active) + '</td></tr>').join('') ||
+      '<tr><td colspan="4" class="py-4 px-3 text-xs text-slate-500">No work schedules: everyone follows their company\'s Working Calendar.</td></tr>';
+    rowClick($('hs-ws-body'), editSchedule);
+  }
+  function editSchedule(id) {
+    closeForms();
+    const w = (setup.workSchedules || []).find(x => x.ScheduleID === id) || { Weekend: [0, 6], HoursPerDay: 8, Active: true };
+    editing = id || null;
+    $('hs-ws-name').value = w.Name || ''; $('hs-ws-hours').value = w.HoursPerDay; $('hs-ws-active').checked = w.Active !== false;
+    $('hs-ws-weekend').innerHTML = DAY_NAMES.map((d, i) => '<label class="text-xs text-slate-300 flex items-center gap-2"><input type="checkbox" class="hs-ws-wd" value="' + i + '"' + (w.Weekend.includes(i) ? ' checked' : '') + '> ' + d + '</label>').join('');
+    $('hs-ws-form').classList.remove('hidden');
+  }
+
+  function closeForms() { ['hs-grade-form', 'hs-des-form', 'hs-field-form', 'hs-dt-form', 'hs-el-form', 'hs-lt-form', 'hs-ws-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
   function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
 
   function editGrade(id) {
@@ -460,6 +504,9 @@
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> HR Setup';
     $('hs-tabs').addEventListener('click', e => { const b = e.target.closest('.hs-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'calendar' && !calLoaded) loadCalendar(); } });
     $('hs-lt-new').addEventListener('click', () => editLeaveType(''));
+    $('hs-ws-new').addEventListener('click', () => editSchedule(''));
+    $('hs-ws-save').addEventListener('click', () => saved(call('saveHrWorkSchedule', { schedule: { ScheduleID: editing || '', Name: val('hs-ws-name'), HoursPerDay: val('hs-ws-hours'),
+      Weekend: [...document.querySelectorAll('.hs-ws-wd:checked')].map(c => Number(c.value)), Active: $('hs-ws-active').checked } })));
     $('hs-lt-save').addEventListener('click', saveLeaveType);
     $('hs-ent-add').addEventListener('click', () => $('hs-ent-body').insertAdjacentHTML('beforeend', entRow({ LevelFrom: 1, LevelTo: 99, ServiceFrom: 0 })));
     $('hs-ent-save').addEventListener('click', saveEntitlements);

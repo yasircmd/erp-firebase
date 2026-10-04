@@ -404,6 +404,32 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [ ] **HR: Payroll** (owner, 2026-10-04; [HR_PAYROLL.md](modules/HR_PAYROLL.md)).
+  The owner's points: a daily-rate method per company (÷30, ÷ month days,
+  ×12÷365/366); each element linked to GL with the employee's cost
+  center, lines clubbed as inventory; overtime fixed or by hours
+  (base ÷ days ÷ hours × weightage); work schedules (any weekend, six-day
+  weeks) per employee. **Design agreed 2026-10-04:**
+  - schedules effective-dated;
+  - one daily-rate method per company (overtime may override);
+  - GL mapping for the group with company overrides;
+  - no profit center;
+  - overtime entered or pasted per run;
+  - a WPS SIF file and a bank list;
+  - advances and loans now;
+  - monthly gratuity and leave-salary provisions;
+  - a negative net carried to the next month;
+  - automatic back pay;
+  - approval through Approval Configuration.
+
+  Six build steps.
+  - **Step 0 built and tested 2026-10-04**, not yet live: work schedules
+    (HR Setup tab; the company's hours a day; an employee's schedule by
+    date, set on the record or import, changed by a Transfer, fixed by
+    Correct; leave counted by the schedule in force each day). Tests:
+    `hrSchedules` suite (4), `hrSchedules.ui.js` (3). To go live:
+    "functions set" `payroll-0` with the screens.
+  - **Next:** step 1, payroll setup.
 - [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type

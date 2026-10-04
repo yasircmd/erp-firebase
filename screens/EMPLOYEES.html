@@ -112,6 +112,8 @@
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select data-k="BranchID" data-job="1" data-unit="Branch" class="emp-f emp-unit w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost center (department)</label><select data-k="CostCenterID" data-job="1" data-unit="CostCenter" class="emp-f emp-unit w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Work location</label><input data-k="WorkLocation" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Work schedule</label><select data-k="ScheduleID" data-job="1" id="emp-form-schedule" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select>
+        <div id="emp-schedule-history" class="text-xs text-slate-500 mt-1"></div></div>
     </div>
   </div>
 
@@ -355,6 +357,10 @@
     options($('emp-form-grade'), setup.grades.filter(g => active(g) || g.GradeID === e.GradeID).map(g => ({ value: g.GradeID, label: g.Code + (g.Name ? ' — ' + g.Name : '') })), 'Select...');
     options($('emp-form-manager'), employees.filter(x => x.EmployeeID !== e.EmployeeID && (x.Status !== 'Left' || x.EmployeeID === e.ManagerID)).map(x => ({ value: x.EmployeeID, label: empLabel(x) })), 'None yet');
     options($('emp-form-user'), users.map(u => ({ value: u.UserID, label: u.FullName || u.Username })), '—');
+    // Work schedules (Payroll step 0): none is the company's own weekend and hours.
+    options($('emp-form-schedule'), (setup.workSchedules || []).filter(w => w.Active !== false || w.ScheduleID === e.ScheduleID).map(w => ({ value: w.ScheduleID, label: w.Name })), 'Company working calendar');
+    const sname = id => id ? ((setup.workSchedules || []).find(w => w.ScheduleID === id) || {}).Name || id : 'Company working calendar';
+    $('emp-schedule-history').textContent = (e.Schedules || []).length > 1 ? e.Schedules.slice().sort((a, b) => a.From.localeCompare(b.From)).map(x => 'from ' + x.From + ': ' + sname(x.ScheduleID)).join(' · ') : '';
   }
   function flexiInput(f) {
     const type = f.Type === 'date' ? 'date' : f.Type === 'amount' ? 'number' : 'text';
@@ -456,6 +462,7 @@
     $('emp-pay-wrap').classList.toggle('hidden', !(current && rights.canSeeSensitive));
     if (!current || !rights.canSeeSensitive) return Promise.resolve();
     return call('getCompensation', { employeeId: current.EmployeeID }).then(r => {
+      if (!$('emp-pay-wrap')) return; // answered after leaving the screen
       pay = r;
       const c = r.current;
       const b = r.band && r.band.Min != null ? ' <span class="text-xs text-slate-500">· ' + escapeHtml(r.band.GradeCode) + ' band ' + money(r.band.Min) + ' / ' + money(r.band.Mid) + ' / ' + money(r.band.Max) + '</span>' : '';
@@ -524,7 +531,8 @@
     $('emp-leave-wrap').classList.add('hidden');
     if (!id) return;
     call('getLeaveBalances', { employeeId: id }).then(r => {
-      if (!current || current.EmployeeID !== id) return;
+      // Answered after another employee was opened, or after leaving the screen.
+      if (!current || current.EmployeeID !== id || !$('emp-leave-wrap')) return;
       leaveCard = r;
       $('emp-leave-asof').textContent = '(on ' + r.asOf + ')';
       const bal = r.balances.filter(b => b.UsesBalance);
@@ -553,6 +561,7 @@
     $('emp-docs-wrap').classList.toggle('hidden', !(current && rights.canSeeSensitive));
     if (!current || !rights.canSeeSensitive) return Promise.resolve();
     return call('getEmployeeDocuments', { employeeId: current.EmployeeID }).then(r => {
+      if (!$('emp-docs-wrap')) return; // answered after leaving the screen
       docs = r; docCanWrite = Boolean(r.canWrite);
       $('emp-doc-new').classList.toggle('hidden', !docCanWrite);
       const rows = r.documents.filter(d => d.Status !== 'Removed' || openId === d.DocumentID);

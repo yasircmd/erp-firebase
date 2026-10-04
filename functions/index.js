@@ -192,7 +192,7 @@ const companyDocuments = require('./src/companyDocuments');
   'saveCompanyDocumentCategory', 'getPartyDocumentCounts', 'getDocumentsExpiringForUser'].forEach(n => { exports[n] = companyDocuments[n]; });
 // HR: Employee Records (docs/modules/HR_EMPLOYEES.md).
 const hrSetup = require('./src/hrSetup');
-['getHrSetup', 'saveHrGrade', 'saveHrDesignation', 'saveHrField', 'saveHrDocumentType'].forEach(n => { exports[n] = hrSetup[n]; });
+['getHrSetup', 'saveHrGrade', 'saveHrDesignation', 'saveHrField', 'saveHrDocumentType', 'saveHrWorkSchedule'].forEach(n => { exports[n] = hrSetup[n]; });
 const hrEmployees = require('./src/hrEmployees');
 ['getEmployees', 'getEmployee', 'saveEmployee', 'replaceManager'].forEach(n => { exports[n] = hrEmployees[n]; });
 const hrDocuments = require('./src/hrDocuments');

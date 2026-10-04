@@ -19,6 +19,9 @@ const GRADES = () => firestore.collection('hrGrades');
 const DESIGNATIONS = () => firestore.collection('hrDesignations');
 const FIELDS = () => firestore.collection('hrFields');
 const DOC_TYPES = () => firestore.collection('hrDocumentTypes');
+// Work schedules (docs/modules/HR_PAYROLL.md, step 0): employees whose
+// weekend or hours differ from their company's.
+const SCHEDULES = () => firestore.collection('hrWorkSchedules');
 const FIELD_TYPES = ['date', 'text', 'amount'];
 const SECTIONS = ['Personal', 'Employment', 'Other'];
 const START_DOC_TYPES = [
@@ -61,8 +64,9 @@ async function docTypes() {
 
 // Everything the screens need, in one call.
 async function loadSetup() {
-  const [grades, designations, fields, types] = await Promise.all([all(GRADES), all(DESIGNATIONS), all(FIELDS), docTypes()]);
+  const [grades, designations, fields, types, schedules] = await Promise.all([all(GRADES), all(DESIGNATIONS), all(FIELDS), docTypes(), all(SCHEDULES)]);
   return {
+    workSchedules: schedules.map(x => Object.assign({ ScheduleID: x._id }, x)).sort((a, b) => a.Name.localeCompare(b.Name)),
     grades: grades.map(g => Object.assign({ GradeID: g._id }, g, { Bands: g.Bands || {} })).sort((a, b) => (a.Level - b.Level) || a.Code.localeCompare(b.Code)),
     designations: designations.map(d => Object.assign({ DesignationID: d._id }, d)).sort((a, b) => a.Title.localeCompare(b.Title)),
     fields: fields.map(f => Object.assign({ FieldID: f._id }, f)).sort((a, b) => SECTIONS.indexOf(a.Section) - SECTIONS.indexOf(b.Section) || (a.Sort || 0) - (b.Sort || 0) || a.Label.localeCompare(b.Label)),
@@ -184,5 +188,39 @@ exports.saveHrDocumentType = onCallWithMessages(onCallOptions, async (request) =
   return { success: true, documentTypeId: ref.id };
 });
 
+// ---------- work schedules ----------
+
+const DAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+exports.saveHrWorkSchedule = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireSetupWrite(user);
+  const w = (request.data || {}).schedule || {};
+  const weekend = [...new Set((Array.isArray(w.Weekend) ? w.Weekend : []).map(Number))].sort();
+  const out = { Name: text(w.Name, 60), Weekend: weekend, HoursPerDay: Number(w.HoursPerDay), Active: w.Active !== false };
+  if (!out.Name) throw new HttpsError('invalid-argument', 'Enter the schedule\'s name.');
+  if (weekend.some(n => !Number.isInteger(n) || n < 0 || n > 6)) throw new HttpsError('invalid-argument', 'Unknown weekend day.');
+  if (weekend.length > 3) throw new HttpsError('invalid-argument', 'At most three weekend days.');
+  if (!(out.HoursPerDay >= 1 && out.HoursPerDay <= 24) || Math.round(out.HoursPerDay * 4) !== out.HoursPerDay * 4) {
+    throw new HttpsError('invalid-argument', 'Hours in a working day: 1 to 24, in quarter hours.');
+  }
+  const list = await all(SCHEDULES);
+  if (list.some(x => x._id !== w.ScheduleID && norm(x.Name) === norm(out.Name))) throw new HttpsError('already-exists', 'There is already a schedule "' + out.Name + '".');
+  if (w.ScheduleID) {
+    const cur = list.find(x => x._id === w.ScheduleID);
+    if (!cur) throw new HttpsError('not-found', 'Work schedule not found.');
+    // Days already counted by it would change: a new schedule, from a date, instead.
+    if (JSON.stringify(cur.Weekend || []) !== JSON.stringify(weekend)) {
+      const used = (await firestore.collection('employees').get()).docs.some(d => (d.data().Schedules || []).some(x => x.ScheduleID === w.ScheduleID));
+      if (used) throw new HttpsError('failed-precondition', 'Employees work "' + cur.Name + '": its weekend can\'t change (leave already counted by it). Add a new schedule and move them to it from a date.');
+    }
+    await SCHEDULES().doc(w.ScheduleID).set(out);
+    return { success: true, scheduleId: w.ScheduleID };
+  }
+  const ref = await SCHEDULES().add(out);
+  return { success: true, scheduleId: ref.id };
+});
+const scheduleText = sc => (sc.Weekend.length ? sc.Weekend.map(n => DAY[n]).join(', ') + ' off' : 'No weekend') + ', ' + sc.HoursPerDay + ' hours a day';
+
 module.exports.loadSetup = loadSetup;
+module.exports.scheduleText = scheduleText;
 module.exports.FIELD_TYPES = FIELD_TYPES;

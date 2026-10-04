@@ -169,6 +169,7 @@ node functions/test/ui/hrLeaveSetup.ui.js     # HR Setup: Leave Types (pay by gr
 node functions/test/ui/hrLeave.ui.js          # Leave Register: from the employee card, days/pay/balance as typed, approve, early return, over-balance split, certificate, filters, adjustment; seeds its own data
 node functions/test/ui/hrLeaveClose.ui.js     # Leave Register: an absence, Month close (lock, summary, reopen), the year close (carry, lapse); seeds its own data
 node functions/test/ui/hrLeaveReports.ui.js   # Leave Reports: balances (copy to Excel), register, absences, who is away; seeds its own data
+node functions/test/ui/hrSchedules.ui.js      # Work schedules: HR Setup tab, company hours, an employee on a schedule, a Transfer from a date; seeds its own data
 node functions/test/ui/masterImport.ui.js     # Master Data Import: copy headers, paste, issues by row, fix, import; seeds its own data (Part 2: Users password box)
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen
