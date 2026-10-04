@@ -557,3 +557,67 @@ company's daily rate (step 1):
 **Next:** step 3, approval, posting to the GL (clubbed, by cost center),
 the PDF payslip, reversal; with it, back pay (decision 10) and a negative
 net carried forward (decision 9).
+
+## Step 3 design: approval, posting, payslips, reversal (proposed 2026-10-04)
+
+**Approval** (decision 11):
+- a draft run is submitted by a user with the Payroll "draft" right;
+- it then goes through Approval Configuration (entry "Payroll"; the
+  amount is the run's net total). Approvers open the run from Home and
+  see the register;
+- with no approval set up, a submitted run is approved at once;
+- a rejected run goes back to draft, with the reason.
+
+**Posting**, one journal per run, voucher type "Payroll" (prefix PAY),
+through the same path as every module, so lines are **clubbed**:
+- Dr each earning's account (the element's, or the company's
+  override), **by the employee's cost center**;
+- Cr each deduction's account. Fixed deductions, the leave deductions
+  and the one-off deductions are credited by cost center when the
+  account needs one, else as one line;
+- Cr Salaries Payable: the run's net;
+- an element with no GL account (or a company with no Salaries Payable)
+  stops the posting, with the list to set in HR Setup → Payroll.
+
+**Back pay** (decision 10): a pay change (or a Correction) effective in a
+month already posted is paid automatically in the next run. Each posted
+month from the change is worked out again with the pay now in force,
+fixed elements and the leave deductions alike. The difference by element
+is an "Arrears" line ("Basic: Jun-2026 +500.00"), shown apart on the
+payslip, posted to the element's own account. Inputs (overtime, bonus)
+are not reworked.
+
+**A negative net** (decision 9): paid as 0. The shortfall is a
+"Brought forward" deduction in the employee's next run. In the GL it sits
+in a new company setting, "Recoverable from employees" (an asset
+account), until recovered.
+
+**The leave month** of a submitted or posted run can't be reopened.
+Leave entered later is paid in the next open month as an adjustment, as
+today.
+
+**Payslips:** printed from the run, one employee or all, one per page,
+through the browser's print (Save as PDF). They show the company, the
+employee (no., name, designation, cost center, bank and IBAN with the
+middle masked), the month, earnings, deductions, arrears, net and the
+payment date. Dates are dd/mm/yyyy.
+
+**Reversal** (the "post" right): a posted run that isn't paid can be
+reversed. A mirror journal is posted, and any amounts carried forward are
+taken back.
+
+**Rights:** module PAYROLL gains "post": reverse a run (approval is by
+Approval Configuration).
+
+### Open questions for step 3
+
+16. **When is an approved run posted to the GL?** Automatically on its
+    final approval, or by a separate "Post" by a user with the post
+    right?
+17. **The journal's date:** the last day of the payroll month, or the
+    day it is posted?
+18. **After a reversal:** the run goes back to draft (correct it and
+    submit again), or it stays "Reversed" and a new run is made for the
+    month?
+19. **Payslip content:** the month only, or also each employee's leave
+    balances and the year-to-date totals?
