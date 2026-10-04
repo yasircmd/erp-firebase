@@ -445,3 +445,17 @@ come with posting in step 3; the PDF payslip is step 3 too.
 15. **One-off additions and deductions:** always against a pay element
     (so each has its GL account; e.g. add "Other earning" and "Other
     deduction" elements), or free text with one default account?
+
+### The owner's decisions for step 2 (2026-10-04)
+
+| # | Question | Decision |
+|---|---|---|
+| 12 | Part months | **Deduct the days not employed** from the monthly amount: someone in post all month always gets exactly the monthly amount. (A pay change during the month works the same way: the days at the old amounts are adjusted from the new.) |
+| 13 | Leave on the payslip | **Separate deduction lines:** the elements show their monthly amounts, and the days are deducted on their own lines: "Unpaid leave", "Absence" and "Reduced-pay leave" (basic-only, selected-elements or part-% days). Each line is a system deduction element with its own GL account, set in HR Setup → Payroll. Adjustments from earlier months appear on the same lines (a refund is a negative deduction). |
+| 14 | Who sees amounts | **Payroll access is enough.** |
+| 15 | One-off additions and deductions | **Always against a pay element** (with a note), so each has its GL account. |
+
+Part months and a pay change during the month still change the element
+itself (a "not employed" deduction would read oddly): only leave and
+absence are separate lines.
+

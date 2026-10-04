@@ -25,4 +25,10 @@ function countedDays(cal, from, to, counts) {
   }
   return out;
 }
-module.exports = { addDay, countedDays, weekendOn };
+// The hours in a working day on a date: the schedule's, else the company's.
+function hoursOn(cal, d) {
+  let h = null;
+  (cal.Schedules || []).forEach(s => { if (s.From <= d) h = s.HoursPerDay; });
+  return h || cal.HoursPerDay || 8;
+}
+module.exports = { addDay, countedDays, weekendOn, hoursOn };
