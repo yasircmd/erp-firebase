@@ -95,7 +95,9 @@ const MODULE_REGISTRY = [
   // Configuration (docs/modules/HR_EMPLOYEES.md, step 4).
   { id: 'EMPCHANGE', label: 'Employee Changes', capabilities: ['access', 'draft', 'post'] },
   { id: 'LEAVE', label: 'Leave Register', capabilities: ['access', 'draft', 'post', 'lock', 'reopen'] },
-  { id: 'LEAVEREPORTS', label: 'Leave Reports', capabilities: ['access'] }
+  { id: 'LEAVEREPORTS', label: 'Leave Reports', capabilities: ['access'] },
+  // HR Payroll (docs/modules/HR_PAYROLL.md, step 2): the monthly run.
+  { id: 'PAYROLL', label: 'Payroll', capabilities: ['access', 'draft'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -206,7 +208,8 @@ const DEFAULT_PERMISSIONS = {
   EMPLOYEES:          { access: ['ADMIN', 'FINANCE_MGR'], write: ['ADMIN'], sensitive: ['ADMIN'] },
   EMPCHANGE:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'] },
   LEAVE:              { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'], lock: ['ADMIN'], reopen: ['ADMIN'] },
-  LEAVEREPORTS:       { access: ['ADMIN', 'FINANCE_MGR'] }
+  LEAVEREPORTS:       { access: ['ADMIN', 'FINANCE_MGR'] },
+  PAYROLL:            { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

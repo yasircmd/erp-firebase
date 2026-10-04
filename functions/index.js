@@ -203,6 +203,8 @@ const hrPay = require('./src/hrPay');
 // HR Payroll (docs/modules/HR_PAYROLL.md).
 const payrollSetup = require('./src/payrollSetup');
 ['getPayrollSetup', 'savePayrollCompany', 'savePayElementPayroll', 'previewPayrollFormula'].forEach(n => { exports[n] = payrollSetup[n]; });
+const payrollRun = require('./src/payrollRun');
+['getPayrollRuns', 'createPayrollRun', 'getPayrollRun', 'savePayrollInputs', 'recalculatePayrollRun', 'deletePayrollRun'].forEach(n => { exports[n] = payrollRun[n]; });
 const hrChanges = require('./src/hrChanges');
 ['getEmployeeChanges', 'getEmployeeChange', 'saveEmployeeChange', 'deleteEmployeeChange', 'submitEmployeeChange',
   'decideEmployeeChangeApproval', 'getEmployeeChangeStart'].forEach(n => { exports[n] = hrChanges[n]; });

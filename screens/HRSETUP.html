@@ -526,7 +526,7 @@
       const a = acctById(e.GLAccountID), over = Object.keys(e.GLByCompany || {}).length;
       const ot = e.Category === 'Overtime' ? (e.Overtime && e.Overtime.Mode === 'Hours' ? '× ' + e.Overtime.Weightage + ' on ' + e.Overtime.Base.toLowerCase() : 'Amount') : '';
       return '<tr data-id="' + escapeHtml(e.ElementID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '"><td class="py-2 px-3">' + escapeHtml(e.Name) +
-        ' <span class="text-xs text-slate-500">' + escapeHtml(e.Kind + ', ' + e.Nature) + '</span></td>' +
+        ' <span class="text-xs text-slate-500">' + escapeHtml(e.System ? 'Deduction, made by the payroll run from leave' : e.Kind + ', ' + e.Nature) + '</span></td>' +
         '<td class="py-2 px-3 text-xs">' + (a ? escapeHtml(acctLabel(a)) : '<span class="text-amber-400">not set</span>') + (over ? ' <span class="text-slate-500">(+' + over + ' company)</span>' : '') + '</td>' +
         '<td class="py-2 px-3 text-xs">' + (e.Prorated ? 'Yes' : '') + '</td><td class="py-2 px-3 text-xs">' + (e.InGross ? 'Yes' : '') + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(ot) + '</td></tr>';
     }).join('');
