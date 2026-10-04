@@ -933,3 +933,50 @@ code** (decision 20):
 
 **Next:** step 4b, advances and loans (decision 7); then step 5,
 provisions and final settlement.
+
+## Step 4b design: advances and loans (proposed 2026-10-04)
+
+Decision 7: in Payroll; amount, instalment, the month recovery starts, the
+GL account; each run deducts the instalment until it is repaid; the
+balance shows on the employee.
+
+**Loan types** (Payroll Setup → Loans, a new tab): e.g. Salary advance,
+Personal loan, Car loan. Each has:
+- a name;
+- a receivable account (an asset), the group's with a company override,
+  like the pay elements;
+- whether it's an advance (recovered in one month) or a loan (in
+  instalments).
+
+**A loan or advance** (Payroll → Loans, module PAYROLL; numbered LN-0001):
+- the employee, the type, the amount, the instalment, the first month of
+  recovery, and a note;
+- an advance is recovered whole in its first month;
+- its status: Draft → (approval) → Active (once paid out) → Repaid;
+- its balance is the amount less the recoveries in posted runs, and any
+  repayment received.
+
+**Recovery in the run:**
+- each active loan whose recovery has started adds a system deduction
+  line, "Loan recovery: <type> LN-0001", for the instalment or the
+  balance if less;
+- it is credited to the loan's receivable account;
+- reversing a run gives the recovery back, since the balance counts
+  posted runs only;
+- the payslip shows each loan's balance after the month.
+
+**Final settlement** (step 5) deducts what's left.
+
+### Open questions for step 4b
+
+24. **Paying out a loan or advance:** posted from Payroll (Dr the loan's
+    receivable / Cr a bank or cash account, on a date)? Or added to the
+    employee's next salary? Or paid through Cash & Bank, with Payroll
+    only tracking it?
+25. **Approval:** through Approval Configuration ("Loan / advance", the
+    amount is the loan), or none?
+26. **When the month's salary can't cover the instalment:** deduct only
+    what the net allows and recover the rest later (the term extends)?
+    Or deduct it in full, with the shortfall carried as today?
+27. **Changes after it starts:** may HR skip a month, change the
+    instalment, or record an early repayment (cash or bank received)?
