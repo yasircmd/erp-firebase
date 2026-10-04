@@ -287,6 +287,11 @@ Holidays stay per company.
 - The `hrSchedules` suite (4) and `hrSchedules.ui.js` (3).
 - Nine negative controls (see the PR).
 - The browser-dialog guard also caught a quote in Leave Reports' note.
+- The regression found a race on the Employees record, from Employee
+  Records step 2 onwards: the Leave card, pay and documents wrote to the
+  screen after the user had already moved on (e.g. to Employee Change),
+  which raised an error in the browser. Each now checks that the screen is
+  still open.
 
 **To go live:**
 1. Deploy "functions set" `payroll-0`, with the screens.

@@ -462,6 +462,7 @@
     $('emp-pay-wrap').classList.toggle('hidden', !(current && rights.canSeeSensitive));
     if (!current || !rights.canSeeSensitive) return Promise.resolve();
     return call('getCompensation', { employeeId: current.EmployeeID }).then(r => {
+      if (!$('emp-pay-wrap')) return; // answered after leaving the screen
       pay = r;
       const c = r.current;
       const b = r.band && r.band.Min != null ? ' <span class="text-xs text-slate-500">· ' + escapeHtml(r.band.GradeCode) + ' band ' + money(r.band.Min) + ' / ' + money(r.band.Mid) + ' / ' + money(r.band.Max) + '</span>' : '';
@@ -530,7 +531,8 @@
     $('emp-leave-wrap').classList.add('hidden');
     if (!id) return;
     call('getLeaveBalances', { employeeId: id }).then(r => {
-      if (!current || current.EmployeeID !== id) return;
+      // Answered after another employee was opened, or after leaving the screen.
+      if (!current || current.EmployeeID !== id || !$('emp-leave-wrap')) return;
       leaveCard = r;
       $('emp-leave-asof').textContent = '(on ' + r.asOf + ')';
       const bal = r.balances.filter(b => b.UsesBalance);
@@ -559,6 +561,7 @@
     $('emp-docs-wrap').classList.toggle('hidden', !(current && rights.canSeeSensitive));
     if (!current || !rights.canSeeSensitive) return Promise.resolve();
     return call('getEmployeeDocuments', { employeeId: current.EmployeeID }).then(r => {
+      if (!$('emp-docs-wrap')) return; // answered after leaving the screen
       docs = r; docCanWrite = Boolean(r.canWrite);
       $('emp-doc-new').classList.toggle('hidden', !docCanWrite);
       const rows = r.documents.filter(d => d.Status !== 'Removed' || openId === d.DocumentID);
