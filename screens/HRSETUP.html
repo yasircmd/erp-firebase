@@ -533,7 +533,8 @@
     rowClick($('hs-pe-body'), editPayrollElement);
   }
   function companyExample(tr) {
-    call('previewPayrollFormula', { method: tr.querySelector('.hs-pc-method').value, month: thisMonth(), basic: 5000 }).then(r => { tr.querySelector('.hs-pc-example').textContent = r.daily; }, () => {});
+    const seq = tr.__seq = (tr.__seq || 0) + 1;
+    call('previewPayrollFormula', { method: tr.querySelector('.hs-pc-method').value, month: thisMonth(), basic: 5000 }).then(r => { if (seq === tr.__seq) tr.querySelector('.hs-pc-example').textContent = r.daily; }, () => {});
   }
   let peEditing = null;
   function editPayrollElement(id) {
@@ -557,6 +558,7 @@
     $('hs-pe-form').classList.remove('hidden');
   }
   const otConfig = () => ({ Mode: val('hs-ot-mode'), Base: val('hs-ot-base'), DaysMode: val('hs-ot-daysmode'), FixedDays: val('hs-ot-days'), HoursMode: val('hs-ot-hoursmode'), FixedHours: val('hs-ot-hours'), Weightage: val('hs-ot-weight') });
+  let otSeq = 0;
   // The overtime fields as chosen, and the worked example (the company's method, this month).
   function otFields() {
     const on = $('hs-pe-isot').checked;
@@ -566,9 +568,10 @@
     $('hs-ot-hours').classList.toggle('hidden', val('hs-ot-hoursmode') !== 'Fixed');
     if (!on || val('hs-ot-mode') !== 'Hours') { $('hs-ot-example').textContent = ''; return; }
     const st = prSetup.settings[0] || { DailyRateMethod: 'DIV30' };
+    const seq = ++otSeq; // only the latest answer is shown
     call('previewPayrollFormula', { method: st.DailyRateMethod, month: thisMonth(), basic: 5000, gross: 8000, hoursPerDay: 8, overtime: otConfig() })
-      .then(r => { $('hs-ot-example').textContent = 'Example (basic 5,000, gross 8,000, ' + (st.CompanyID ? coLabel(st.CompanyID) + ', ' : '') + 'an 8-hour day): ' + r.overtime; },
-        err => { $('hs-ot-example').textContent = err.message || ''; });
+      .then(r => { if (seq === otSeq) $('hs-ot-example').textContent = 'Example (basic 5,000, gross 8,000, ' + (st.CompanyID ? coLabel(st.CompanyID) + ', ' : '') + 'an 8-hour day): ' + r.overtime; },
+        err => { if (seq === otSeq) $('hs-ot-example').textContent = err.message || ''; });
   }
   function savePayrollElement() {
     const glByCompany = {};
