@@ -90,7 +90,8 @@ exports.savePayElement = onCallWithMessages(onCallOptions, async (request) => {
   // One Basic only: marking this one unmarks the other.
   if (out.IsBasic) list.filter(x => x.IsBasic && x.ElementID !== e.ElementID).forEach(x => batch.update(ELEMENTS().doc(x.ElementID), { IsBasic: false }));
   const ref = cur ? ELEMENTS().doc(cur.ElementID) : ELEMENTS().doc();
-  batch.set(ref, Object.assign(out, { Sort: cur ? cur.Sort || 0 : list.length + 1 }));
+  // Merged: the payroll settings (GL account, prorating, overtime; payrollSetup.js) stay.
+  batch.set(ref, Object.assign(out, { Sort: cur ? cur.Sort || 0 : list.length + 1 }), { merge: true });
   await batch.commit();
   return { success: true, elementId: ref.id };
 });
