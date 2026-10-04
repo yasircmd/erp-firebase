@@ -464,7 +464,8 @@
     $('emp-pay-form').classList.add('hidden');
     $('emp-pay-wrap').classList.toggle('hidden', !(current && rights.canSeeSensitive));
     if (!current || !rights.canSeeSensitive) return Promise.resolve();
-    return call('getCompensation', { employeeId: current.EmployeeID }).then(r => {
+    const empId = current.EmployeeID;
+    return call('getCompensation', { employeeId: empId }).then(r => {
       if (!$('emp-pay-wrap')) return; // answered after leaving the screen
       pay = r;
       const c = r.current;
@@ -480,7 +481,6 @@
         (v.Status !== 'Active' ? ' · ' + escapeHtml(v.Status) : '') + (v.Reason ? ' — ' + escapeHtml(v.Reason) : '') + ' · ' + escapeHtml(v.CreatedByName) + ', ' + escapeHtml(isoLocalDateTime(v.CreatedAt)) + '</li>').join('');
       $('emp-pay-versions-wrap').classList.toggle('hidden', !r.versions.length);
       // Loans & Advances (Payroll step 4b): the running ones and their balance.
-      const empId = current.EmployeeID;
       return call('getLoans', { employeeId: empId }).then(lr => {
         if (!$('emp-pay-loans') || !current || current.EmployeeID !== empId) return;
         const running = lr.loans.filter(l => l.Shown === 'Active' || l.Shown === 'Approved' || l.Shown === 'PendingApproval');

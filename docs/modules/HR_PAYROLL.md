@@ -1044,6 +1044,10 @@ pay):
 - Home's My Drafts matches drafts by username, but payroll runs stored the
   user ID, so draft runs never showed there (since step 3);
 - the run now records its last updater by username, with a description.
+- the regression caught a race in the new loans line on the Employees pay
+  card: it read the open employee after the pay had loaded, so a record
+  left meanwhile (a new employee form) raised an error. It now uses the
+  employee the pay was asked for.
 
 **Behind it:**
 - `payrollLoans.js`: the loan types and loans callables, `loansDue`,
