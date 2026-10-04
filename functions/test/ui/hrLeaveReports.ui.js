@@ -92,6 +92,7 @@ const tsv = rows => rows.map(r => r.join('\t')).join('\n');
     assert.match(await p.textContent('#lr-out tr[data-emp="' + sara + '"]'), /5$/);
     // A third employee with no leave shows only with "everyone".
     await call('u-admin', 'saveEmployee', { employee: { FullName: 'Omar Said', CompanyID: 'C1', JoinDate: '2024-01-01', DesignationID: des, GradeID: g3, Gender: 'Male' } });
+    await p.evaluate(() => { document.getElementById('lr-out').innerHTML = ''; }); // wait for the new table, not the old one
     await p.click('#lr-run');
     await p.waitForSelector('#lr-out tr[data-emp]', { timeout: 15000 });
     assert.equal(await p.$$eval('#lr-out tr[data-emp]', r => r.length), 2);
