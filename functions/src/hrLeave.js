@@ -37,6 +37,15 @@ const EMPLOYEES = () => firestore.collection('employees');
 const ELEMENTS = () => firestore.collection('hrPayElements');
 const LIVE = ['Draft', 'PendingApproval', 'Approved']; // hold their days
 const COUNTING = ['PendingApproval', 'Approved']; // count against balances and limits
+const ACCRUALS = () => firestore.collection('leaveAccruals');
+const MONTHS = () => firestore.collection('leaveMonths');
+// Step 3 (decision 9): each line is paid in a month (PayMonth): its own, or
+// the next open one when its month is locked. A line taken away after its
+// month was locked is reversed (Reversal, a negative fraction) in the next
+// open month. Reversals are pay adjustments only: never days taken.
+const live = x => !x.Reversal;
+const payMonthOf = x => x.PayMonth || x.Date.slice(0, 7);
+const nextMonth = m => { const [y, mo] = m.split('-').map(Number); return mo === 12 ? (y + 1) + '-01' : y + '-' + String(mo + 1).padStart(2, '0'); };
 
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 150);
 const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
@@ -89,31 +98,47 @@ const yearsBetween = (from, to) => {
 const monthEnd = d => { const [y, m] = d.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };
 const daysIn = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1;
 // Days accrued from..to (inclusive): each month's rate (a twelfth of the
-// row's days a year), pro-rata by the days of that month in the range.
-function accrued(type, emp, level, from, to) {
+// row's days a year), pro-rata by the days of that month in the range, less
+// its unpaid days (decision 11). A locked month's posted accrual is used as
+// it is (posted: { 'yyyy-mm': days }); unpaid: [{ Month, Date, Fraction }].
+function accrued(type, emp, level, from, to, ctx) {
+  const posted = (ctx && ctx.posted) || {}, unpaid = (ctx && ctx.unpaid) || [];
   let total = 0;
   for (let start = from; start <= to; start = addDay(monthEnd(start), 1)) {
     const end = monthEnd(start) < to ? monthEnd(start) : to;
+    const m = start.slice(0, 7);
+    if (posted[m] != null && end === monthEnd(start)) { total += posted[m]; continue; }
     const years = yearsBetween(emp.JoinDate, start);
     const row = level == null ? null : (type.Entitlements || []).find(r => r.LevelFrom <= level && level <= r.LevelTo && r.ServiceFrom <= years && (r.ServiceTo == null || years <= r.ServiceTo));
-    if (row) total += row.DaysPerYear / 12 * daysIn(start, end) / daysIn(start.slice(0, 8) + '01', monthEnd(start));
+    if (!row) continue;
+    const off = unpaid.filter(u => u.Month === m && u.Date <= end).reduce((a, u) => a + u.Fraction, 0);
+    total += row.DaysPerYear / 12 * Math.max(0, daysIn(start, end) - off) / daysIn(m + '-01', monthEnd(start));
   }
   return total;
+}
+// The unpaid days of approved (and reversed) leave, by the month they're paid in.
+function unpaidLines(leaves) {
+  const out = [];
+  leaves.filter(l => l.Status === 'Approved' || l.Status === 'Cancelled').forEach(l => (l.Lines || []).forEach(x => {
+    if (x.Pay === 'Unpaid') out.push({ Month: payMonthOf(x), Date: x.Date, Fraction: x.Fraction });
+  }));
+  return out;
 }
 // The balance of one type on a date. Leave and adjustments from before the
 // opening balance's date are already in it.
 async function balanceOf(emp, type, asOf, excludeId, cache) {
   const c = cache || {};
-  const [openSnap, adjSnap, leaves, grade] = await Promise.all([
+  const [openSnap, adjSnap, leaves, grade, accSnap] = await Promise.all([
     OPENINGS().where('EmployeeID', '==', emp.EmployeeID).get(), ADJUSTMENTS().where('EmployeeID', '==', emp.EmployeeID).get(),
-    c.leaves || leavesOf(emp.EmployeeID), c.grade !== undefined ? c.grade : gradeLevel(emp)]);
+    c.leaves || leavesOf(emp.EmployeeID), c.grade !== undefined ? c.grade : gradeLevel(emp), ACCRUALS().where('EmployeeID', '==', emp.EmployeeID).get()]);
+  const posted = Object.fromEntries(docs(accSnap).filter(a => a.LeaveTypeID === type.LeaveTypeID).map(a => [a.Month, a.Days]));
   const opening = docs(openSnap).find(o => o.LeaveTypeID === type.LeaveTypeID) || null;
   const after = opening ? opening.AsOf : '';
   const start = opening ? addDay(opening.AsOf, 1) : emp.JoinDate;
-  const acc = asOf >= start ? accrued(type, emp, grade ? grade.Level : null, start, asOf) : 0;
+  const acc = asOf >= start ? accrued(type, emp, grade ? grade.Level : null, start, asOf, { posted, unpaid: unpaidLines(leaves) }) : 0;
   const adj = docs(adjSnap).filter(a => a.LeaveTypeID === type.LeaveTypeID && a.Date > after && a.Date <= asOf).reduce((s, a) => s + a.Days, 0);
   let taken = 0, booked = 0;
-  leaves.filter(l => l.LeaveID !== excludeId && COUNTING.includes(l.Status)).forEach(l => (l.Lines || []).forEach(x => {
+  leaves.filter(l => l.LeaveID !== excludeId && COUNTING.includes(l.Status)).forEach(l => (l.Lines || []).filter(live).forEach(x => {
     if (x.Code !== type.Code || x.Date <= after) return;
     if (l.Status === 'Approved' && x.Date <= asOf) taken += x.Fraction; else booked += x.Fraction;
   }));
@@ -138,7 +163,7 @@ function payText(line, names) {
 function summarize(lines, typeName, names) {
   const out = [];
   lines.forEach(l => {
-    const label = l.Absence ? 'Absent (late return), unpaid' : l.Split ? 'Unpaid (over the balance)' : typeName + ' — ' + payText(l, names);
+    const label = l.Absence ? (l.Late ? 'Absent (late return), unpaid' : 'Absent, unpaid') : l.Split ? 'Unpaid (over the balance)' : typeName + ' — ' + payText(l, names);
     const last = out[out.length - 1];
     if (last && last.Label === label) last.Days = round2(last.Days + l.Fraction); else out.push({ Label: label, Days: l.Fraction });
   });
@@ -182,7 +207,7 @@ async function evaluate(input, emp, excludeId) {
   const others = (await leavesOf(emp.EmployeeID)).filter(l => l.LeaveID !== excludeId);
   const clash = others.find(l => LIVE.includes(l.Status) && l.FromDate <= to && from <= (l.EffectiveTo || l.ToDate));
   if (clash) bad(emp.FullName + ' already has leave ' + (clash.LeaveNumber || '(draft)') + ' from ' + clash.FromDate + ' to ' + (clash.EffectiveTo || clash.ToDate) + '.');
-  const usedIn = (year, beforeDate) => others.filter(l => COUNTING.includes(l.Status)).reduce((s, l) => s + (l.Lines || [])
+  const usedIn = (year, beforeDate) => others.filter(l => COUNTING.includes(l.Status)).reduce((s, l) => s + (l.Lines || []).filter(live)
     .filter(x => x.Code === type.Code && x.Date.slice(0, 4) === year && (!beforeDate || x.Date < beforeDate)).reduce((a, x) => a + x.Fraction, 0), 0);
   if (type.MaxPerYear != null) {
     for (const year of [...new Set(dates.map(x => x.slice(0, 4)))]) {
@@ -215,6 +240,8 @@ async function evaluate(input, emp, excludeId) {
       if (running[year] == null) running[year] = usedIn(year, from);
       running[year] = round2(running[year] + mine);
       if (type.Kind === 'Duty') lines.push({ Date: dt, Fraction: mine, Code: type.Code, Pay: 'Duty', Percent: 100, Elements: [] });
+      // An unauthorised absence (decision 10): always unpaid, no balance.
+      else if (type.Kind === 'Absence') lines.push({ Date: dt, Fraction: mine, Code: type.Code, Pay: 'Unpaid', Percent: 0, Elements: [], Absence: true });
       else {
         const dayNo = Math.ceil(running[year]);
         if (!grade) bad(emp.FullName + ' has no grade: set it before entering leave.');
@@ -318,6 +345,29 @@ exports.deleteLeave = onCallWithMessages(onCallOptions, async (request) => {
   return { success: true };
 });
 
+// The months locked for payroll in a company (docs/modules/HR_LEAVE.md, step 3).
+async function lockedMonths(companyId) {
+  return new Set(docs(await MONTHS().where('CompanyID', '==', companyId).get()).filter(m => m.Status === 'Locked').map(m => m.Month));
+}
+function openFrom(locked, m) { let x = m; while (locked.has(x)) x = nextMonth(x); return x; }
+const lineKey = x => [x.Date, x.Code, x.Pay, x.Percent, x.Fraction, x.Split ? 1 : 0, x.Absence ? 1 : 0].join('|');
+// newLines replace oldLines: unchanged lines keep their pay month; new
+// ones are paid in their month, or the next open one if it is locked; a
+// line taken away after its pay month was locked is reversed in the next
+// open month (decision 9). Earlier reversals stay.
+function withPayMonths(newLines, oldLines, locked) {
+  const pool = (oldLines || []).filter(live).slice();
+  const out = newLines.filter(live).map(x => {
+    const i = pool.findIndex(o => lineKey(o) === lineKey(x));
+    if (i >= 0) { const o = pool.splice(i, 1)[0]; return Object.assign({}, x, { PayMonth: payMonthOf(o) }); }
+    return Object.assign({}, x, { PayMonth: openFrom(locked, x.Date.slice(0, 7)) });
+  });
+  pool.forEach(o => { if (locked.has(payMonthOf(o))) out.push(Object.assign({}, o, { Fraction: -o.Fraction, Reversal: true, PayMonth: openFrom(locked, payMonthOf(o)) })); });
+  return out.concat((oldLines || []).filter(x => x.Reversal));
+}
+// Absences go through their own Approval Configuration entry (decision 10).
+const approvalKeyOf = v => (v.Kind === 'Absence' ? 'LEAVE_ABSENCE' : MODULE_ID);
+
 async function nextNumber(from) {
   const year = from.slice(0, 4);
   const res = await rtdb.ref('hrCounters/LV-' + year).transaction(cur => (Number(cur) || 0) + 1);
@@ -336,13 +386,15 @@ exports.submitLeave = onCallWithMessages(onCallOptions, async (request) => {
   await requireDocument(v, l.LeaveID);
   const number = l.LeaveNumber || await nextNumber(v.FromDate);
   const now = new Date().toISOString();
-  const scopeKey = await resolveApprovalScopeKeyForDocument(MODULE_ID, { CompanyID: emp.CompanyID, DivisionID: emp.DivisionID, BranchID: emp.BranchID, CostCenterID: emp.CostCenterID });
-  const approval = await beginApprovalInstance(MODULE_ID, l.LeaveID, number, scopeKey, v.Days, user.uid);
+  const key = approvalKeyOf(v);
+  const scopeKey = await resolveApprovalScopeKeyForDocument(key, { CompanyID: emp.CompanyID, DivisionID: emp.DivisionID, BranchID: emp.BranchID, CostCenterID: emp.CostCenterID });
+  const approval = await beginApprovalInstance(MODULE_ID, l.LeaveID, number, scopeKey, v.Days, user.uid, key === MODULE_ID ? undefined : key);
   const base = Object.assign(v, { LeaveNumber: number, SubmittedAt: now, SubmittedBy: actorOf(user), UpdatedAt: now, UpdatedBy: actorOf(user), RejectionReason: '' });
   if (approval.required) {
     await LEAVES().doc(l.LeaveID).update(Object.assign(base, { Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId, History: (l.History || []).concat([histEntry('Submitted for approval', user)]) }));
     return { success: true, status: 'PendingApproval', leaveNumber: number };
   }
+  base.Lines = withPayMonths(v.Lines, [], await lockedMonths(l.CompanyID));
   await LEAVES().doc(l.LeaveID).update(Object.assign(base, { Status: 'Approved', ApprovedAt: now, History: (l.History || []).concat([histEntry('Submitted (no approval needed)', user)]) }));
   return { success: true, status: 'Approved', leaveNumber: number };
 });
@@ -360,6 +412,7 @@ exports.decideLeaveApproval = onCallWithMessages(onCallOptions, async (request) 
       // Checked once more: the split over the balance is as of now.
       const emp = (await EMPLOYEES().doc(l.EmployeeID).get()).data();
       const v = await evaluate(l, Object.assign({ EmployeeID: l.EmployeeID }, emp), l.LeaveID);
+      v.Lines = withPayMonths(v.Lines, [], await lockedMonths(l.CompanyID));
       await LEAVES().doc(l.LeaveID).update(Object.assign(v, { Status: 'Approved', ApprovedAt: now, UpdatedAt: now, History: (l.History || []).concat([histEntry('Approved', user)]) }));
     } catch (err) {
       // As other modules: undo the decision and hand it back for correcting.
@@ -375,17 +428,19 @@ exports.decideLeaveApproval = onCallWithMessages(onCallOptions, async (request) 
   return { success: true, status: result.status, selfApproved: result.selfApproved };
 });
 
-// Cancel approved leave that hasn't started: its days return.
+// Cancel approved leave that hasn't started: its days return. An absence
+// can be cancelled at any time (recorded in error); what was already paid
+// in a locked month is reversed in the next open one.
 exports.cancelLeave = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'post');
   const d = request.data || {};
   const l = await loadLeave(user, d.leaveId);
   if (l.Status !== 'Approved') throw new HttpsError('failed-precondition', 'Only approved leave can be cancelled (a pending one is rejected by its approver).');
-  if (l.FromDate <= today()) throw new HttpsError('failed-precondition', 'The leave has started: record the return date instead.');
+  if (l.Kind !== 'Absence' && l.FromDate <= today()) throw new HttpsError('failed-precondition', 'The leave has started: record the return date instead.');
   const reason = text(d.reason, 500);
   if (!reason) bad('Give the reason for cancelling.');
-  await LEAVES().doc(l.LeaveID).update({ Status: 'Cancelled', CancelReason: reason, CancelledAt: new Date().toISOString(), UpdatedAt: new Date().toISOString(),
+  await LEAVES().doc(l.LeaveID).update({ Status: 'Cancelled', CancelReason: reason, Lines: withPayMonths([], l.Lines, await lockedMonths(l.CompanyID)), CancelledAt: new Date().toISOString(), UpdatedAt: new Date().toISOString(),
     History: (l.History || []).concat([histEntry('Cancelled', user, reason)]) });
   return { success: true };
 });
@@ -406,20 +461,22 @@ exports.recordLeaveReturn = onCallWithMessages(onCallOptions, async (request) =>
   if (ret > today()) bad('The return date can\'t be in the future.');
   const cal = await calendar(l.CompanyID);
   const expected = l.ExpectedReturn || nextWorkingDay(cal, l.ToDate);
-  let lines = (l.Lines || []).filter(x => !x.Absence), late = [];
+  let lines = (l.Lines || []).filter(x => live(x) && !x.Absence), late = [];
   if (ret <= l.ToDate) lines = lines.filter(x => x.Date < ret);
   else if (ret > expected) late = countedDays(cal, expected, addDay(ret, -1), 'Working');
-  const returned = round2((l.Lines || []).filter(x => !x.Absence).reduce((s, x) => s + x.Fraction, 0) - lines.reduce((s, x) => s + x.Fraction, 0));
+  const returned = round2((l.Lines || []).filter(x => live(x) && !x.Absence).reduce((s, x) => s + x.Fraction, 0) - lines.reduce((s, x) => s + x.Fraction, 0));
   const out = { returnDate: ret, expected, early: returned > 0, daysReturned: returned, lateDays: late.length, lateDates: late };
   if (d.confirm !== true) return Object.assign({ success: true, preview: true }, out);
-  const all = lines.concat(late.map(dt => ({ Date: dt, Fraction: 1, Code: 'ABSENT', Pay: 'Unpaid', Percent: 0, Elements: [], Absence: true })));
+  const all = withPayMonths(lines.concat(late.map(dt => ({ Date: dt, Fraction: 1, Code: 'ABSENT', Pay: 'Unpaid', Percent: 0, Elements: [], Absence: true, Late: true }))),
+    l.Lines, await lockedMonths(l.CompanyID));
+  const kept = all.filter(live);
   const names = await elementNames();
   const now = new Date().toISOString();
   const note = returned > 0 ? 'early: ' + dayWord(returned) + ' returned' : late.length ? 'late: ' + dayWord(late.length) + ' unpaid absence' : 'on time';
   await LEAVES().doc(l.LeaveID).update({
-    ReturnDate: ret, EffectiveTo: addDay(ret, -1), Lines: all, Days: round2(all.filter(x => !x.Absence).reduce((s, x) => s + x.Fraction, 0)),
-    TypeDays: round2(all.filter(x => !x.Absence && !x.Split).reduce((s, x) => s + x.Fraction, 0)), UnpaidDays: round2(all.filter(x => x.Split).reduce((s, x) => s + x.Fraction, 0)),
-    LateDays: late.length, Summary: summarize(all, l.LeaveTypeName, names), UpdatedAt: now,
+    ReturnDate: ret, EffectiveTo: addDay(ret, -1), Lines: all, Days: round2(kept.filter(x => !x.Absence).reduce((s, x) => s + x.Fraction, 0)),
+    TypeDays: round2(kept.filter(x => !x.Absence && !x.Split).reduce((s, x) => s + x.Fraction, 0)), UnpaidDays: round2(kept.filter(x => x.Split).reduce((s, x) => s + x.Fraction, 0)),
+    LateDays: late.length, Summary: summarize(kept, l.LeaveTypeName, names), UpdatedAt: now,
     History: (l.History || []).concat([histEntry('Returned ' + ret, user, note)])
   });
   return Object.assign({ success: true }, out);
@@ -436,7 +493,7 @@ async function balancesFor(emp, asOf) {
   for (const t of types) {
     if (t.UsesBalance) out.push(Object.assign({ LeaveTypeID: t.LeaveTypeID, Code: t.Code, Name: t.Name, UsesBalance: true }, await balanceOf(emp, t, asOf, null, { leaves, grade })));
     else {
-      const used = leaves.filter(l => COUNTING.includes(l.Status)).reduce((s, l) => s + (l.Lines || []).filter(x => x.Code === t.Code && x.Date.slice(0, 4) === year).reduce((a, x) => a + x.Fraction, 0), 0);
+      const used = leaves.filter(l => COUNTING.includes(l.Status)).reduce((s, l) => s + (l.Lines || []).filter(x => live(x) && x.Code === t.Code && x.Date.slice(0, 4) === year).reduce((a, x) => a + x.Fraction, 0), 0);
       if (used || t.MaxPerYear != null) out.push({ LeaveTypeID: t.LeaveTypeID, Code: t.Code, Name: t.Name, UsesBalance: false, UsedThisYear: round2(used), MaxPerYear: t.MaxPerYear });
     }
   }
@@ -501,3 +558,12 @@ module.exports.evaluate = evaluate;
 module.exports.balanceOf = balanceOf;
 module.exports.saveOpening = saveOpening;
 module.exports.accrued = accrued;
+module.exports.unpaidLines = unpaidLines;
+module.exports.leavesOf = leavesOf;
+module.exports.gradeLevel = gradeLevel;
+module.exports.withPayMonths = withPayMonths;
+module.exports.payMonthOf = payMonthOf;
+module.exports.live = live;
+module.exports.nextMonth = nextMonth;
+module.exports.monthEnd = monthEnd;
+module.exports.nextDay = d => addDay(d, 1);

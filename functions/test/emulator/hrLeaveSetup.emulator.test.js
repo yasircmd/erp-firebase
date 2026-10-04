@@ -1,5 +1,5 @@
 // HR: Attendance and Leave Register, step 1: the setup (owner, 2026-10-03;
-// docs/modules/HR_LEAVE.md): leave types (nine to start, more added),
+// docs/modules/HR_LEAVE.md): leave types (nine to start and the absence type, more added),
 // entitlements by grade level and service (one set for the group), leave
 // pay rules by grade level and day band, with overlaps refused and gaps
 // warned against the real grades; the working calendar per company.
@@ -22,7 +22,9 @@ const byCode = async code => (await types()).find(t => t.Code === code);
 test('leave types: nine to start with their settings; read by Employees users, changed by HR Setup writers; a new one', async () => {
   const s = await call('u-viewer', 'getLeaveSetup', {});
   assert.equal(s.canWrite, false);
-  assert.deepEqual(s.leaveTypes.map(t => t.Code), ['ANNUAL', 'SICK', 'UNPAID', 'MATERNITY', 'PATERNITY', 'TRAVEL', 'HAJJ', 'COMPASSIONATE', 'STUDY']);
+  assert.deepEqual(s.leaveTypes.map(t => t.Code), ['ANNUAL', 'SICK', 'UNPAID', 'MATERNITY', 'PATERNITY', 'TRAVEL', 'HAJJ', 'COMPASSIONATE', 'STUDY', 'ABSENT']);
+  // Absences (step 3): a system type, always unpaid, no rules to check.
+  assert.deepEqual([s.leaveTypes[9].Kind, s.leaveTypes[9].UsesBalance, s.leaveTypes[9].Warnings], ['Absence', false, {}]);
   const t = Object.fromEntries(s.leaveTypes.map(x => [x.Code, x]));
   assert.deepEqual([t.ANNUAL.UsesBalance, t.ANNUAL.Counts, t.ANNUAL.ConfirmReturn, t.ANNUAL.CarryForwardCap], [true, 'Working', true, 30]);
   assert.deepEqual([t.SICK.UsesBalance, t.SICK.Counts, t.SICK.MaxPerYear], [false, 'Calendar', 90]);
@@ -44,10 +46,16 @@ test('leave types: nine to start with their settings; read by Employees users, c
   const after = await types();
   assert.equal(after.find(x => x.LeaveTypeID === tr).UsesBalance, false);
   const m = after.find(x => x.LeaveTypeID === id);
-  assert.deepEqual([m.Code, m.Sort, m.PayRules], ['MARRIAGE', 11, []]);
+  assert.deepEqual([m.Code, m.Sort, m.PayRules], ['MARRIAGE', 12, []]);
   assert.deepEqual(m.Warnings.payRules, ['G3 (level 3): no rule.', 'G7 (level 7): no rule.']);
   // Editing the settings keeps the rules.
   await call('u-admin', 'saveLeaveType', { leaveType: Object.assign({}, t.SICK, { MaxPerYear: 60 }) });
+  // The absence type keeps its kind; no other type can be an absence.
+  const abs = await byCode('ABSENT');
+  await call('u-admin', 'saveLeaveType', { leaveType: Object.assign({}, abs, { Kind: 'Leave', UsesBalance: true, Name: 'Absent' }) });
+  const abs2 = await byCode('ABSENT');
+  assert.deepEqual([abs2.Kind, abs2.UsesBalance, abs2.Name], ['Absence', false, 'Absent']);
+  await assert.rejects(call('u-admin', 'saveLeaveType', { leaveType: { Code: 'AWOL', Name: 'AWOL', Kind: 'Absence', Counts: 'Working' } }), /absences have their own type/);
   const sick = await byCode('SICK');
   assert.equal(sick.MaxPerYear, 60);
   assert.equal(sick.PayRules.length, 3);

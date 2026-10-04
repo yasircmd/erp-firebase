@@ -83,13 +83,23 @@ async function requireRead(user) {
   throw new HttpsError('permission-denied', 'You do not have access to HR Setup.');
 }
 
+// Absences (step 3, decision 10) are recorded in the Leave Register as a
+// system type: always unpaid, no balance, its kind fixed. Added once to a
+// setup made before step 3.
+const ABSENCE = { Code: 'ABSENT', Name: 'Absence (unauthorised)', Kind: 'Absence', UsesBalance: false, Counts: 'Working', HalfDays: true, Gender: 'Any', AfterProbation: false,
+  MaxPerYear: null, MaxPerInstance: null, DocumentAfterDays: null, ConfirmReturn: false, Active: true, Sort: 100, Entitlements: [], CarryForwardCap: null, PayRules: [] };
 async function leaveTypes() {
   let snap = await TYPES().get();
+  if (!snap.empty && !snap.docs.some(d => d.data().Kind === 'Absence')) {
+    await TYPES().doc('lt-absent').set(ABSENCE);
+    snap = await TYPES().get();
+  }
   if (snap.empty) {
     const batch = firestore.batch();
     START.forEach(([code, name, s, ent, cap, rules], i) => batch.set(TYPES().doc('lt-' + code.toLowerCase()), Object.assign(defaults(s), {
       Code: code, Name: name, Active: true, Sort: i + 1, Entitlements: ent || [], CarryForwardCap: cap == null ? null : cap, PayRules: rules || []
     })));
+    batch.set(TYPES().doc('lt-absent'), ABSENCE);
     await batch.commit();
     snap = await TYPES().get();
   }
@@ -217,7 +227,7 @@ exports.saveLeaveType = onCallWithMessages(onCallOptions, async (request) => {
   };
   if (!/^[A-Z0-9_-]{1,20}$/.test(out.Code)) bad('The code is letters, digits, - or _ (up to 20).');
   if (!out.Name) bad('Enter the leave type\'s name.');
-  if (!KINDS.includes(out.Kind)) bad('A type is Leave or Duty (e.g. business travel, paid as working).');
+  if (!KINDS.includes(out.Kind) && out.Kind !== 'Absence') bad('A type is Leave or Duty (e.g. business travel, paid as working).');
   if (!COUNTS.includes(out.Counts)) bad('Choose whether it counts working days or calendar days.');
   if (!GENDERS.includes(out.Gender)) bad('Unknown gender.');
   if (out.Kind === 'Duty') out.UsesBalance = false;
@@ -227,6 +237,9 @@ exports.saveLeaveType = onCallWithMessages(onCallOptions, async (request) => {
   if (list.some(x => x.LeaveTypeID !== t.LeaveTypeID && norm(x.Name) === norm(out.Name))) throw new HttpsError('already-exists', 'There is already a leave type "' + out.Name + '".');
   const cur = t.LeaveTypeID ? list.find(x => x.LeaveTypeID === t.LeaveTypeID) : null;
   if (t.LeaveTypeID && !cur) throw new HttpsError('not-found', 'Leave type not found.');
+  // The absence type keeps its kind, and stays unpaid without a balance.
+  if (cur && cur.Kind === 'Absence') Object.assign(out, { Kind: 'Absence', UsesBalance: false, ConfirmReturn: false });
+  else if (out.Kind === 'Absence') bad('A type is Leave or Duty (absences have their own type).');
   const ref = cur ? TYPES().doc(cur.LeaveTypeID) : TYPES().doc();
   // Entitlements and pay rules are saved on their own; a new type starts
   // without them (its warnings say so).

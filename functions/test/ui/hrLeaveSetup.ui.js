@@ -39,9 +39,9 @@ const WED = countedDays({ Weekend: [], Holidays: [] }, Y + '-06-01', Y + '-06-07
   const row = (p, code) => p.textContent('#hs-lt-body tr:has-text("' + code + '")');
   const p = await open('u-admin');
 
-  await check('Leave Types: nine to start, with their entitlement and pay shown', async () => {
+  await check('Leave Types: nine to start and the absence type, with their entitlement and pay shown', async () => {
     await p.click('.hs-tab[data-tab="leavetypes"]');
-    assert.equal(await p.$$eval('#hs-lt-body tr', r => r.length), 9);
+    assert.equal(await p.$$eval('#hs-lt-body tr', r => r.length), 10);
     assert.match(await row(p, 'ANNUAL'), /Annual Leave\s*Working days\s*All grades: 30 days\s*Carry up to 30\s*All grades: Full salary\s*In use/);
     assert.match(await row(p, 'SICK'), /No balance \(up to 90 a year\)[\s\S]*All grades, days 1–15: Full salary\s*All grades, days 16–45: Full salary at 50%\s*All grades, days 46\+: Unpaid/);
     assert.match(await row(p, 'TRAVEL'), /Duty: paid as working/);

@@ -3,6 +3,7 @@
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-plane-departure text-blue-500"></i> Leave Register</h2></div>
     <div class="flex gap-2">
       <button id="lv-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="lv-back-chain-label">Back</span></button>
+      <button id="lv-months-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-calendar-check"></i> Month close</button>
       <button id="lv-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Leave</button>
     </div>
   </div>
@@ -20,6 +21,41 @@
       <th class="py-3 px-3">No.</th><th class="py-3 px-3">Employee</th><th class="py-3 px-3">Type</th><th class="py-3 px-3">From</th><th class="py-3 px-3">To</th><th class="py-3 px-3 text-right">Days</th><th class="py-3 px-3">Status</th></tr></thead>
     <tbody id="lv-table-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
   </div></div>
+</div>
+
+<!-- Month close and year close (docs/modules/HR_LEAVE.md, step 3). -->
+<div id="lv-months-view" class="hidden space-y-5">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+    <div class="flex items-center gap-3">
+      <button id="lv-months-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h3 class="text-lg font-bold text-slate-100"><i class="fa-solid fa-calendar-check text-blue-500"></i> Month close</h3>
+    </div>
+    <select id="lv-mc-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm text-slate-300"></select>
+  </div>
+  <p class="text-xs text-slate-500 max-w-3xl">Lock each month for payroll after it ends, in order. Locking takes the month's summary (each employee's days by how they are paid) and posts the leave accrued in the month at each employee's grade then. Leave entered later for a locked month is paid in the next open month, as an adjustment. Only the latest locked month can be reopened.</p>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-2 px-3">Month</th><th class="py-2 px-3">Status</th><th class="py-2 px-3">Locked</th><th class="py-2 px-3"></th></tr></thead>
+    <tbody id="lv-mc-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+  <div id="lv-mc-summary-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Summary for payroll: <span id="lv-mc-summary-month" class="normal-case"></span> <span id="lv-mc-summary-status" class="normal-case font-normal text-slate-500"></span></div>
+    <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase">
+      <th class="py-1 pr-4">Employee</th><th class="py-1 pr-4">Paid leave</th><th class="py-1 pr-4 text-right">Unpaid</th><th class="py-1 pr-4 text-right">Absent</th><th class="py-1 pr-4 text-right">Duty</th>
+      <th class="py-1 pr-4 text-right">Adjustments</th><th class="py-1">Accrued</th></tr></thead><tbody id="lv-mc-summary" class="divide-y divide-slate-700"></tbody></table></div>
+  </div>
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Close the leave year</div>
+    <p class="text-xs text-slate-500 max-w-3xl">After December is locked: each balance at 31 December carries into the next year up to the leave type's cap; the rest lapses (an adjustment on 31 December, in each employee's history). Once a year.</p>
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Year</label><select id="lv-yc-year" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <button id="lv-yc-show" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Show</button>
+      <button id="lv-yc-close" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Close the year</button>
+    </div>
+    <p id="lv-yc-note" class="text-xs text-slate-400"></p>
+    <table class="text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-4 text-left">Employee</th><th class="py-1 pr-4 text-left">Type</th>
+      <th class="py-1 pr-4 text-right">Balance 31 Dec</th><th class="py-1 pr-4 text-right">Carries</th><th class="py-1 text-right">Lapses</th></tr></thead><tbody id="lv-yc-body"></tbody></table>
+  </div>
 </div>
 
 <div id="lv-entry-view" class="hidden space-y-5">
@@ -115,6 +151,61 @@
       (list && returnDue(l) ? ' <span class="text-xs text-amber-400">· return to record</span>' : '');
   }
 
+  // ---------- month close and year close (step 3) ----------
+  let months = null;
+  function showMonths() {
+    $('lv-list-view').classList.add('hidden'); $('lv-months-view').classList.remove('hidden');
+    $('lv-mc-summary-wrap').classList.add('hidden');
+    $('lv-yc-body').innerHTML = ''; $('lv-yc-note').textContent = ''; $('lv-yc-close').classList.add('hidden');
+    loadMonths();
+  }
+  function loadMonths() {
+    return call('getLeaveMonths', { companyId: val('lv-mc-company') }).then(r => {
+      months = r;
+      $('lv-mc-body').innerHTML = r.months.map(m => {
+        const lockable = r.canLock && m.Status !== 'Locked' && m.Ended && (!r.latestLocked || m.Month === r.nextLockable);
+        const reopenable = r.canReopen && m.Status === 'Locked' && m.Month === r.latestLocked;
+        return '<tr data-month="' + m.Month + '"><td class="py-2 px-3">' + m.Month + '</td>' +
+          '<td class="py-2 px-3 text-xs ' + (m.Status === 'Locked' ? 'text-emerald-400' : 'text-slate-400') + '">' + (m.Status === 'Locked' ? 'Locked' : m.Ended ? 'Open' : 'Open (not ended)') + '</td>' +
+          '<td class="py-2 px-3 text-xs text-slate-400">' + (m.Status === 'Locked' ? escapeHtml(isoLocalDateTime(m.LockedAt)) + ' · ' + escapeHtml(m.LockedByName) : '') + '</td>' +
+          '<td class="py-2 px-3 text-xs whitespace-nowrap"><button type="button" class="lv-mc-view text-blue-400 hover:text-blue-300 underline">Summary</button>' +
+          (lockable ? ' <button type="button" class="lv-mc-lock ml-3 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded">Lock</button>' : '') +
+          (reopenable ? ' <button type="button" class="lv-mc-reopen ml-3 bg-slate-800 hover:bg-slate-700 text-red-400 px-3 py-1 rounded border border-slate-700">Reopen</button>' : '') + '</td></tr>';
+      }).join('');
+    }, err => appAlert(err.message || 'Unable to load the months.'));
+  }
+  function showSummary(month) {
+    call('getLeaveMonthSummary', { companyId: val('lv-mc-company'), month: month }).then(r => {
+      $('lv-mc-summary-month').textContent = month;
+      $('lv-mc-summary-status').textContent = r.status === 'Locked' ? '(locked)' : '(as it stands; not locked)';
+      $('lv-mc-summary').innerHTML = r.rows.map(x => '<tr><td class="py-1 pr-4"><span class="text-slate-200">' + escapeHtml(x.EmployeeName) + '</span> <span class="text-xs text-slate-500 font-mono">' + escapeHtml(x.EmployeeNo) + '</span></td>' +
+        '<td class="py-1 pr-4 text-xs">' + x.PaidLeave.map(g => escapeHtml(g.Name + ' — ' + g.PayLabel + (g.Percent === 100 ? '' : ' ' + g.Percent + '%') + ': ' + g.Days)).join('<br>') + '</td>' +
+        [x.UnpaidDays, x.AbsentDays, x.DutyDays, x.AdjustmentDays].map(n => '<td class="py-1 pr-4 text-right font-mono text-xs">' + (n || '') + '</td>').join('') +
+        '<td class="py-1 text-xs">' + x.Accrued.map(a => escapeHtml(a.Code + ' ' + a.Days)).join(', ') + '</td></tr>').join('') ||
+        '<tr><td colspan="7" class="py-3 text-xs text-slate-500">No leave or accrual in this month.</td></tr>';
+      $('lv-mc-summary-wrap').classList.remove('hidden');
+    }, err => appAlert(err.message || 'Unable to load the summary.'));
+  }
+  async function lockMonth(month) {
+    if (!(await appConfirm('Lock ' + month + '? Its summary is taken for payroll and its accrual posted.'))) return;
+    call('lockLeaveMonth', { companyId: val('lv-mc-company'), month: month }).then(() => loadMonths().then(() => showSummary(month)), err => appAlert(err.message || 'Unable to lock the month.'));
+  }
+  async function reopenMonth(month) {
+    const reason = await appPrompt('Reopen ' + month + ': the reason?', '');
+    if (reason == null) return;
+    call('reopenLeaveMonth', { companyId: val('lv-mc-company'), month: month, reason: reason }).then(() => loadMonths(), err => appAlert(err.message || 'Unable to reopen the month.'));
+  }
+  function showYear(confirm) {
+    const year = Number(val('lv-yc-year'));
+    return call('closeLeaveYear', { companyId: val('lv-mc-company'), year: year, confirm: Boolean(confirm) }).then(r => {
+      $('lv-yc-body').innerHTML = r.rows.map(x => '<tr><td class="py-0.5 pr-4">' + escapeHtml(x.EmployeeName) + '</td><td class="py-0.5 pr-4 text-xs">' + escapeHtml(x.Name) + '</td>' +
+        [x.Balance, x.Carry, x.Lapse].map(n => '<td class="py-0.5 pr-4 text-right font-mono">' + n + '</td>').join('') + '</tr>').join('') ||
+        '<tr><td colspan="5" class="py-2 text-xs text-slate-500">No balances.</td></tr>';
+      $('lv-yc-note').textContent = r.closed ? 'Closed' + (r.closedAt ? ' on ' + isoLocalDateTime(r.closedAt) + ' by ' + r.closedByName : '') + '.' : r.decemberLocked ? 'Not closed yet.' : 'Lock December ' + year + ' first.';
+      $('lv-yc-close').classList.toggle('hidden', r.closed || !r.decemberLocked || !(months && months.canLock));
+    }, err => appAlert(err.message || 'Unable to close the year.'));
+  }
+
   // ---------- list ----------
   function loadList(then) {
     return call('getLeaves', {}).then(r => {
@@ -161,7 +252,7 @@
   function renderPreview(v) {
     $('lv-preview').classList.toggle('hidden', !v);
     if (!v) return;
-    $('lv-days').textContent = days(v.Days) + (v.Kind === 'Duty' ? ' of duty' : ' of leave') + (v.LateDays ? ', and ' + days(v.LateDays) + ' absent after it' : '');
+    $('lv-days').textContent = days(v.Days) + (v.Kind === 'Duty' ? ' of duty' : v.Kind === 'Absence' ? ' absent' : ' of leave') + (v.LateDays ? ', and ' + days(v.LateDays) + ' absent after it' : '');
     $('lv-summary').innerHTML = v.Summary.map(s => '<tr><td class="pr-6 py-0.5 text-right font-mono">' + s.Days + '</td><td class="py-0.5">' + escapeHtml(s.Label) + '</td></tr>').join('');
     $('lv-balance').textContent = v.Balance ? 'Balance on the first day: ' + v.Balance.Before + ' → after this leave: ' + v.Balance.After : '';
     const warn = (v.Warnings || []).slice();
@@ -183,7 +274,7 @@
     $('lv-save-btn').classList.toggle('hidden', !(editable && list.canDraft && open));
     $('lv-submit-btn').classList.toggle('hidden', !(current && editable && list.canPost && open));
     $('lv-delete-btn').classList.toggle('hidden', !(current && st === 'Draft' && list.canDraft));
-    $('lv-cancel-btn').classList.toggle('hidden', !(current && st === 'Approved' && list.canPost && current.FromDate > list.today));
+    $('lv-cancel-btn').classList.toggle('hidden', !(current && st === 'Approved' && list.canPost && (current.FromDate > list.today || current.Kind === 'Absence')));
     $('lv-decide').classList.toggle('hidden', !myLevels.length);
   }
   function newLeave(employeeId) {
@@ -283,6 +374,20 @@
     $('lv-search').addEventListener('input', renderList);
     ['lv-type-filter', 'lv-status-filter', 'lv-month-filter'].forEach(id => $(id).addEventListener('change', renderList));
     $('lv-new-btn').addEventListener('click', () => newLeave(''));
+    $('lv-months-btn').addEventListener('click', showMonths);
+    $('lv-months-back').addEventListener('click', () => { $('lv-months-view').classList.add('hidden'); $('lv-list-view').classList.remove('hidden'); });
+    $('lv-mc-company').addEventListener('change', showMonths);
+    $('lv-mc-body').addEventListener('click', e => {
+      const tr = e.target.closest('tr[data-month]'); if (!tr) return;
+      if (e.target.closest('.lv-mc-lock')) lockMonth(tr.dataset.month);
+      else if (e.target.closest('.lv-mc-reopen')) reopenMonth(tr.dataset.month);
+      else if (e.target.closest('.lv-mc-view')) showSummary(tr.dataset.month);
+    });
+    $('lv-yc-show').addEventListener('click', () => showYear(false));
+    $('lv-yc-close').addEventListener('click', async () => {
+      if (!(await appConfirm('Close the leave year ' + val('lv-yc-year') + '? The balances over each cap lapse. This is done once.'))) return;
+      showYear(true);
+    });
     $('lv-back-btn').addEventListener('click', () => confirmLeave(showList));
     $('lv-type').addEventListener('change', showHalf);
     ['input', 'change'].forEach(t => $('lv-entry-view').addEventListener(t, e => { if (e.target.closest('.lv-f')) { isDirty = true; previewSoon(); } }));
@@ -309,6 +414,9 @@
     }
     const pending = window.__pendingModuleParams;
     window.__pendingModuleParams = null;
+    const y = Number(new Date().toISOString().slice(0, 4));
+    $('lv-yc-year').innerHTML = [y - 1, y].map(x => '<option' + (x === y - 1 ? ' selected' : '') + '>' + x + '</option>').join('');
+    call('getActiveCompanies', {}).then(r => { options($('lv-mc-company'), (r || []).map(c => ({ value: c.CompanyID, label: (c.CompanyRefCode ? c.CompanyRefCode + ' - ' : '') + c.LegalName }))); });
     call('getLeaveForm', {}).then(r => {
       form = r;
       options($('lv-employee'), r.employees.map(e => ({ value: e.EmployeeID, label: e.EmployeeNo + ' — ' + e.FullName })), 'Select...');
