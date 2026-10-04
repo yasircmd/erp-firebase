@@ -97,3 +97,22 @@ test('overtime elements: variable earnings, by amount or hours with their formul
   const p = await call('u-admin', 'previewPayrollFormula', { method: 'MONTHDAYS', month: '2026-02', basic: 5600, overtime: e.Overtime });
   assert.deepEqual([p.daily, p.overtime], ['5,600.00 ÷ 28 = 200.00', '5,600.00 (basic) ÷ 28 days ÷ 8 hours × 1.25 = 31.25 an hour']);
 });
+
+test('an element whose kind or nature changes loses the payroll settings that no longer fit', async () => {
+  const id = (await call('u-admin', 'savePayElement', { element: { Code: 'OTX', Name: 'Overtime (holiday)', Kind: 'Earning', Nature: 'Variable' } })).elementId;
+  await call('u-admin', 'savePayElementPayroll', { elementId: id, glAccountId: 'A-OT', category: 'Overtime', overtime: { Mode: 'Amount' } });
+  const get = async () => (await call('u-admin', 'getPayrollSetup', {})).elements.find(x => x.ElementID === id);
+  // Now fixed: no longer overtime; prorated by default again; the account stays (still an earning).
+  await call('u-admin', 'savePayElement', { element: { ElementID: id, Code: 'OTX', Name: 'Overtime (holiday)', Kind: 'Earning', Nature: 'Fixed' } });
+  let e = await get();
+  assert.deepEqual([e.Category, e.Overtime, e.Prorated, e.InGross, e.GLAccountID], ['Normal', null, true, true, 'A-OT']);
+  await call('u-admin', 'savePayElementPayroll', { elementId: id, glAccountId: 'A-OT', prorated: false, inGross: false });
+  // A name change keeps them.
+  await call('u-admin', 'savePayElement', { element: { ElementID: id, Code: 'OTX', Name: 'Holiday pay', Kind: 'Earning', Nature: 'Fixed' } });
+  e = await get();
+  assert.deepEqual([e.Prorated, e.InGross, e.GLAccountID], [false, false, 'A-OT']);
+  // Now a deduction: the expense account and "in gross" go.
+  await call('u-admin', 'savePayElement', { element: { ElementID: id, Code: 'OTX', Name: 'Holiday pay', Kind: 'Deduction', Nature: 'Fixed' } });
+  e = await get();
+  assert.deepEqual([e.GLAccountID, e.GLByCompany, e.InGross, e.Prorated], ['', {}, false, false]);
+});

@@ -334,9 +334,10 @@ the "write" right changes it, for their own companies.
   earnings only. Fixed earnings default to Yes.
 - Editing the element itself (Pay Elements tab) keeps these settings. If
   its kind or nature changes (only while no employee's pay holds it),
-  the settings that no longer fit are cleared: overtime when it is no
-  longer a variable earning, "prorated" when no longer fixed, "in gross"
-  when no longer an earning, and the GL accounts when the kind changes.
+  the settings that may no longer fit go back to their defaults: overtime
+  when it is no longer a variable earning, "prorated" when the nature
+  changes, "in gross" on either change, and the GL accounts when the kind
+  changes.
 
 **Overtime elements** (owner point 3, decision 2): any variable earning
 can be marked as overtime (Normal OT, Rest-day OT, Holiday OT, ...),

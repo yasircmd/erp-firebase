@@ -16,6 +16,7 @@
 'use strict';
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
+const { FieldValue } = require('firebase-admin/firestore');
 const { firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
@@ -90,8 +91,16 @@ exports.savePayElement = onCallWithMessages(onCallOptions, async (request) => {
   // One Basic only: marking this one unmarks the other.
   if (out.IsBasic) list.filter(x => x.IsBasic && x.ElementID !== e.ElementID).forEach(x => batch.update(ELEMENTS().doc(x.ElementID), { IsBasic: false }));
   const ref = cur ? ELEMENTS().doc(cur.ElementID) : ELEMENTS().doc();
-  // Merged: the payroll settings (GL account, prorating, overtime; payrollSetup.js) stay.
-  batch.set(ref, Object.assign(out, { Sort: cur ? cur.Sort || 0 : list.length + 1 }), { merge: true });
+  // Merged: the payroll settings (GL account, prorating, overtime; payrollSetup.js)
+  // stay, less those that no longer fit a new kind or nature (back to their defaults).
+  const drop = {};
+  if (cur && (cur.Kind !== out.Kind || cur.Nature !== out.Nature)) {
+    if (out.Kind !== 'Earning' || out.Nature !== 'Variable') Object.assign(drop, { Category: FieldValue.delete(), Overtime: FieldValue.delete() });
+    drop.InGross = FieldValue.delete(); // its default follows both
+    if (cur.Nature !== out.Nature) drop.Prorated = FieldValue.delete();
+    if (cur.Kind !== out.Kind) Object.assign(drop, { GLAccountID: FieldValue.delete(), GLByCompany: FieldValue.delete() });
+  }
+  batch.set(ref, Object.assign(out, { Sort: cur ? cur.Sort || 0 : list.length + 1 }, drop), { merge: true });
   await batch.commit();
   return { success: true, elementId: ref.id };
 });
