@@ -1,0 +1,33 @@
+# HR Payroll, step 0: work schedules (owner 2026-10-04;
+# docs/modules/HR_PAYROLL.md, point 4 and decision 1). Run with --screens
+# (HRSETUP: Work Schedules tab and the company's hours; EMPLOYEES and
+# EMPCHANGE: the work schedule; LEAVEREPORTS: each employee's days off). No
+# Hosting change. Then, in the app: HR Setup → Work Schedules for anyone
+# whose weekend or hours differ, and give it to them (new staff on their
+# record; existing staff by an Employee Change, Transfer, from a date).
+# New function (the invoker binding is granted by deploy-functions.sh).
+saveHrWorkSchedule
+# Changed: the setup carries the schedules; the employee record, Employee
+# Changes and the import take a schedule; the working calendar takes the
+# company's hours; leave counts by the employee's schedule.
+getHrSetup
+getEmployees
+getEmployee
+saveEmployee
+getEmployeeChanges
+getEmployeeChange
+saveEmployeeChange
+submitEmployeeChange
+decideEmployeeChangeApproval
+getEmployeeChangeStart
+getWorkCalendar
+saveWorkCalendar
+previewLeave
+saveLeave
+submitLeave
+decideLeaveApproval
+recordLeaveReturn
+getLeaveCalendar
+getMasterImportSpecs
+checkMasterImport
+runMasterImport
