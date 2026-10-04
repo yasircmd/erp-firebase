@@ -551,6 +551,20 @@
           </div>
           <div id="home-empdocs-expiring-list" class="divide-y divide-slate-800"></div>
         </div>
+        <div id="home-leave-today-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
+            <i class="fa-solid fa-plane-departure text-blue-400 text-xs"></i>
+            <p class="text-xs font-semibold text-slate-300 uppercase">On Leave Today</p>
+          </div>
+          <div id="home-leave-today-list" class="divide-y divide-slate-800"></div>
+        </div>
+        <div id="home-leave-returns-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
+            <i class="fa-solid fa-plane-arrival text-amber-400 text-xs"></i>
+            <p class="text-xs font-semibold text-slate-300 uppercase">Leave Returns to Record</p>
+          </div>
+          <div id="home-leave-returns-list" class="divide-y divide-slate-800"></div>
+        </div>
       </div>
       <div id="fav-config-banner" class="hidden mb-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2"><i class="fa-solid fa-star"></i> Click a star to add or remove a favourite (up to 5). Click Done when finished.</div>
       <div id="module-search-empty" class="hidden mb-3 p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 text-sm">No modules match your search.</div>
@@ -1067,6 +1081,7 @@
     let homeFollowUpCount = 0;
     let homeDocsExpiringCount = 0;
     let homeEmpDocsExpiringCount = 0;
+    let homeLeaveTodayCount = 0, homeLeaveReturnsCount = 0;
 
     function loadHomeTasks() {
       rpc
@@ -1122,6 +1137,40 @@
         .withSuccessHandler(result => { renderEmpDocsExpiring(result || []); })
         .withFailureHandler(() => { renderEmpDocsExpiring([]); })
         .getEmployeeDocumentsExpiringForUser();
+
+      // Who is on leave today, and the returns still to record
+      // (docs/modules/HR_LEAVE.md, step 4).
+      rpc
+        .withSuccessHandler(result => { renderLeaveTasks(result || {}); })
+        .withFailureHandler(() => { renderLeaveTasks({}); })
+        .getLeaveTasksForUser();
+    }
+
+    function renderLeaveTasks(r) {
+      const today = r.onLeaveToday || [], returns = r.returnsToRecord || [];
+      homeLeaveTodayCount = today.length; homeLeaveReturnsCount = returns.length;
+      document.getElementById('home-leave-today-block').classList.toggle('hidden', !today.length);
+      document.getElementById('home-leave-returns-block').classList.toggle('hidden', !returns.length);
+      updateHomeTasksToggleButton();
+      const fill = (listId, items, right) => {
+        const list = document.getElementById(listId);
+        list.innerHTML = '';
+        items.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-700/30 cursor-pointer text-sm';
+          row.innerHTML = `
+            <div class="min-w-0">
+              <span class="text-slate-200 font-medium">${escapeHtml(item.EmployeeName)}</span>
+              <span class="text-slate-500 text-xs ml-2">${escapeHtml(item.EmployeeNo + ' · ' + item.LeaveTypeName)}</span>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">${right(item)}<i class="fa-solid fa-chevron-right text-xs text-slate-600"></i></div>`;
+          row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
+          list.appendChild(row);
+        });
+      };
+      fill('home-leave-today-list', today, item => '<span class="text-xs text-slate-400">' + escapeHtml(item.Kind === 'Duty' ? 'on duty, back ' + item.ExpectedReturn : 'back ' + item.ExpectedReturn) + '</span>');
+      fill('home-leave-returns-list', returns, item => '<span class="text-xs ' + (item.DaysOverdue > 0 ? 'text-red-400' : 'text-amber-400') + '">' +
+        escapeHtml('due back ' + item.ExpectedReturn + (item.DaysOverdue > 0 ? ' (' + item.DaysOverdue + (item.DaysOverdue === 1 ? ' day ago)' : ' days ago)') : '')) + '</span>');
     }
 
     function renderEmpDocsExpiring(items) {
@@ -1334,7 +1383,8 @@
     // and renderRejectedSubmissions call this after updating their own
     // count, since either one changing can change the combined total.
     function updateHomeTasksToggleButton() {
-      const total = homePendingCount + homeRejectedCount + homePdcDueCount + homeRecurringDueCount + homeDraftsCount + homeFollowUpCount + homeDocsExpiringCount + homeEmpDocsExpiringCount;
+      const total = homePendingCount + homeRejectedCount + homePdcDueCount + homeRecurringDueCount + homeDraftsCount + homeFollowUpCount + homeDocsExpiringCount + homeEmpDocsExpiringCount +
+        homeLeaveTodayCount + homeLeaveReturnsCount;
       const countSpan = document.getElementById('home-tasks-count');
       // Button itself is always visible now — only the red count badge
       // shows or hides based on whether there's actually anything

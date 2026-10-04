@@ -1,0 +1,144 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-chart-column text-blue-500"></i> Leave Reports</h2></div>
+    <button id="lr-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy to Excel</button>
+  </div>
+  <div class="flex gap-1 border-b border-slate-700" id="lr-tabs">
+    <button class="lr-tab px-4 py-2 text-sm border-b-2" data-tab="balances">Balances</button>
+    <button class="lr-tab px-4 py-2 text-sm border-b-2" data-tab="register">Leave register</button>
+    <button class="lr-tab px-4 py-2 text-sm border-b-2" data-tab="absences">Absences</button>
+    <button class="lr-tab px-4 py-2 text-sm border-b-2" data-tab="calendar">Who is away</button>
+  </div>
+  <div class="flex flex-wrap items-end gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="lr-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+    <div class="lr-f lr-f-balances"><label class="block text-xs font-medium text-slate-300 mb-1">Balances on</label><input id="lr-asof" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div class="lr-f lr-f-register lr-f-absences"><label class="block text-xs font-medium text-slate-300 mb-1">From</label><input id="lr-from" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div class="lr-f lr-f-register lr-f-absences"><label class="block text-xs font-medium text-slate-300 mb-1">To</label><input id="lr-to" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div class="lr-f lr-f-register"><label class="block text-xs font-medium text-slate-300 mb-1">Leave type</label><select id="lr-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All types</option></select></div>
+    <div class="lr-f lr-f-calendar"><label class="block text-xs font-medium text-slate-300 mb-1">Month</label><input id="lr-month" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <label class="lr-f lr-f-calendar text-xs text-slate-300 flex items-center gap-2 pb-2"><input id="lr-away-only" type="checkbox" checked> Only people away</label>
+    <button id="lr-run" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Show</button>
+  </div>
+  <p id="lr-note" class="text-xs text-slate-500"></p>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto" id="lr-out"></div></div>
+  <textarea id="lr-copy-staging" class="hidden"></textarea>
+</div>
+
+<script>
+(function () {
+  // Leave Reports (owner, 2026-10-03; docs/modules/HR_LEAVE.md, step 4):
+  // balances on a date, the leave register for a period, absences, and who
+  // is away in a month. Each copies to Excel (tab-separated).
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const th = (t, right) => '<th class="py-2 px-3' + (right ? ' text-right' : '') + '">' + escapeHtml(t) + '</th>';
+  const td = (v, cls) => '<td class="py-2 px-3 ' + (cls || '') + '">' + escapeHtml(v == null ? '' : v) + '</td>';
+  const num = v => td(v || v === 0 ? v : '', 'text-right font-mono text-xs');
+  let tab = 'balances', table = { headers: [], rows: [] }, companies = [];
+
+  function showTab(t) {
+    tab = t;
+    document.querySelectorAll('.lr-tab').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
+    document.querySelectorAll('.lr-f').forEach(el => el.classList.toggle('hidden', !el.classList.contains('lr-f-' + t)));
+    // "All companies" for the lists; the calendar is one company's.
+    $('lr-company').querySelector('option[value=""]').disabled = t === 'calendar';
+    if (t === 'calendar' && !val('lr-company') && companies.length) $('lr-company').value = companies[0].CompanyID;
+    $('lr-out').innerHTML = ''; $('lr-note').textContent = ''; table = { headers: [], rows: [] };
+  }
+  // The table on screen, and the same rows for Excel.
+  function render(headers, rows, cells, note) {
+    table = { headers, rows: rows.map(r => cells(r).map(c => c.v)) };
+    $('lr-out').innerHTML = '<table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">' +
+      headers.map((h, i) => th(h, cells.right && cells.right.includes(i))).join('') + '</tr></thead><tbody class="divide-y divide-slate-700 text-sm">' +
+      (rows.map(r => '<tr>' + cells(r).map(c => c.html).join('') + '</tr>').join('') || '<tr><td colspan="' + headers.length + '" class="py-6 text-center text-slate-500">Nothing to show.</td></tr>') + '</tbody></table>';
+    $('lr-note').textContent = note || '';
+  }
+  const c = (v, html) => ({ v: v == null ? '' : v, html: html || td(v) });
+  const n = v => ({ v: v == null ? '' : v, html: num(v) });
+
+  function run() {
+    const companyId = val('lr-company');
+    if (tab === 'balances') {
+      return call('getLeaveBalanceReport', { companyId, asOf: val('lr-asof') }).then(r => {
+        const cells = x => [c(x.EmployeeNo, td(x.EmployeeNo, 'font-mono text-xs')), c(x.EmployeeName), c(x.Grade), c(x.Name), n(x.Opening), n(x.Accrued), n(x.Adjustments), n(x.Taken), n(x.Booked), n(x.Available)];
+        cells.right = [4, 5, 6, 7, 8, 9];
+        render(['No.', 'Employee', 'Grade', 'Leave type', 'Opening', 'Accrued', 'Adjusted', 'Taken', 'Booked', 'Available'], r.rows, cells, 'Balances on ' + r.asOf + '.');
+      }, err => appAlert(err.message || 'Unable to run the report.'));
+    }
+    if (tab === 'register' || tab === 'absences') {
+      return call('getLeaveRegisterReport', { companyId, from: val('lr-from'), to: val('lr-to'), leaveTypeId: tab === 'register' ? val('lr-type') : '', absencesOnly: tab === 'absences' }).then(r => {
+        if (tab === 'register') {
+          const cells = x => [c(x.LeaveNumber, td(x.LeaveNumber, 'font-mono text-xs')), c(x.EmployeeNo), c(x.EmployeeName), c(x.LeaveTypeName), c(x.FromDate), c(x.ToDate), c(x.ReturnDate), n(x.Days), n(x.UnpaidDays), n(x.AbsentDays)];
+          cells.right = [7, 8, 9];
+          render(['No.', 'Emp. no.', 'Employee', 'Type', 'From', 'To', 'Back', 'Days in period', 'Unpaid', 'Absent'], r.rows, cells, 'Approved leave with days from ' + r.from + ' to ' + r.to + '.');
+        } else {
+          const cells = x => [c(x.LeaveNumber, td(x.LeaveNumber, 'font-mono text-xs')), c(x.EmployeeNo), c(x.EmployeeName), c(x.Kind === 'Absence' ? 'Absence' : x.LeaveTypeName), c(x.FromDate), c(x.ToDate), n(x.AbsentDays), c(x.Reason)];
+          cells.right = [6];
+          render(['No.', 'Emp. no.', 'Employee', 'Entered as', 'From', 'To', 'Days absent', 'Reason'], r.rows, cells, 'Absences and late returns from ' + r.from + ' to ' + r.to + ' (unpaid).');
+        }
+      }, err => appAlert(err.message || 'Unable to run the report.'));
+    }
+    return call('getLeaveCalendar', { companyId, month: val('lr-month') }).then(renderCalendar, err => appAlert(err.message || 'Unable to show the calendar.'));
+  }
+
+  // Who is away: a row per employee, a column per day.
+  function renderCalendar(r) {
+    const rows = r.rows.filter(x => !$('lr-away-only').checked || x.Away);
+    const off = d => r.weekend.includes(new Date(d + 'T00:00:00Z').getUTCDay()) || r.holidays.some(h => h.From <= d && d <= h.To);
+    const holiday = d => (r.holidays.find(h => h.From <= d && d <= h.To) || {}).Name || '';
+    const cellCls = x => x.Absence ? 'bg-red-500/40 text-red-100' : x.Pending ? 'border border-amber-400 text-amber-300' : 'bg-blue-600/50 text-blue-100';
+    $('lr-out').innerHTML = '<table class="text-xs"><thead><tr class="bg-slate-900 border-b border-slate-700 text-slate-400">' + th('Employee') +
+      r.days.map(d => '<th class="px-1 py-2 text-center w-7 ' + (off(d) ? 'bg-slate-800' : '') + '" title="' + escapeHtml(holiday(d)) + '">' + Number(d.slice(8)) + '</th>').join('') + th('Days', true) + '</tr></thead><tbody class="divide-y divide-slate-700">' +
+      (rows.map(x => '<tr data-emp="' + escapeHtml(x.EmployeeID) + '"><td class="py-1.5 px-3 whitespace-nowrap"><span class="text-slate-200">' + escapeHtml(x.EmployeeName) + '</span> <span class="text-slate-500 font-mono">' + escapeHtml(x.EmployeeNo) + '</span></td>' +
+        r.days.map(d => {
+          const cell = x.Cells[d];
+          if (!cell) return '<td class="' + (off(d) ? 'bg-slate-800' : '') + '"></td>';
+          return '<td class="px-0.5 py-1"><div class="lr-day rounded text-center py-0.5 ' + cellCls(cell) + '" data-date="' + d + '" title="' + escapeHtml(cell.Name + (cell.Pending ? ' (pending)' : '') + (cell.Fraction < 1 ? ' (half day)' : '')) + '">' +
+            escapeHtml(cell.Absence ? 'X' : cell.Codes[0].charAt(0)) + (cell.Fraction < 1 ? '½' : '') + '</div></td>';
+        }).join('') + '<td class="py-1.5 px-3 text-right font-mono">' + (x.Away || '') + '</td></tr>').join('') ||
+        '<tr><td colspan="' + (r.days.length + 2) + '" class="py-6 text-center text-slate-500">No one is away in this month.</td></tr>') + '</tbody></table>';
+    $('lr-note').textContent = 'Blue: approved leave (first letter of its type; ½ a half day). Outlined: pending approval. Red X: absent. Shaded: weekend and public holidays.';
+    table = { headers: ['No.', 'Employee'].concat(r.days.map(d => d.slice(8))).concat(['Days']),
+      rows: rows.map(x => [x.EmployeeNo, x.EmployeeName].concat(r.days.map(d => { const cell = x.Cells[d]; return cell ? (cell.Absence ? 'Absent' : cell.Codes.join('/')) + (cell.Pending ? ' (pending)' : '') + (cell.Fraction < 1 ? ' ½' : '') : ''; })).concat([x.Away])) };
+  }
+
+  // Tab-separated, so a paste into Excel lands each field in its own cell.
+  function copyToExcel() {
+    if (!table.headers.length) return appAlert('Show a report first.');
+    const tsv = [table.headers].concat(table.rows).map(r => r.map(v => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+    const btn = $('lr-copy-btn'), original = btn.innerHTML;
+    const flash = ok => { btn.innerHTML = ok ? '<i class="fa-solid fa-check"></i> Copied!' : '<i class="fa-solid fa-triangle-exclamation"></i> Copy failed'; setTimeout(() => { btn.innerHTML = original; }, 2000); };
+    const staging = () => {
+      const s = $('lr-copy-staging'); s.value = tsv; s.classList.remove('hidden'); s.select();
+      let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      s.classList.add('hidden'); flash(ok);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(() => flash(true), staging);
+    else staging();
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-chart-column"></i> Leave Reports';
+    $('lr-tabs').addEventListener('click', e => { const b = e.target.closest('.lr-tab'); if (b) showTab(b.dataset.tab); });
+    $('lr-run').addEventListener('click', run);
+    $('lr-copy-btn').addEventListener('click', copyToExcel);
+    $('lr-away-only').addEventListener('change', () => { if (tab === 'calendar' && table.headers.length) run(); });
+    const t = window.isoLocalDateTime(new Date()).slice(0, 10);
+    $('lr-asof').value = t; $('lr-from').value = t.slice(0, 8) + '01'; $('lr-to').value = t; $('lr-month').value = t.slice(0, 7);
+    Promise.all([
+      call('getActiveCompanies', {}).then(r => { companies = r || []; }),
+      call('getLeaveReportTypes', {}).then(r => r.types)
+    ]).then(([, types]) => {
+      $('lr-company').innerHTML = '<option value="">All companies</option>' + companies.map(co => '<option value="' + escapeHtml(co.CompanyID) + '">' + escapeHtml((co.CompanyRefCode ? co.CompanyRefCode + ' - ' : '') + co.LegalName) + '</option>').join('');
+      $('lr-type').innerHTML = '<option value="">All types</option>' + (types || []).map(x => '<option value="' + escapeHtml(x.LeaveTypeID) + '">' + escapeHtml(x.Name) + '</option>').join('');
+      showTab('balances');
+    }, err => appAlert(err.message || 'Unable to load Leave Reports.'));
+  };
+})();
+</script>
