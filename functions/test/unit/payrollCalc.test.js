@@ -139,3 +139,21 @@ test('extra lines (arrears, a shortfall brought forward) count in the totals', (
     { ElementID: 'sys-bfwd', Code: 'BFWD', Name: 'Brought forward', Kind: 'Deduction', Source: 'CarryForward', Amount: 400, Text: '' }] });
   assert.deepEqual([r.Earnings, r.Deductions, r.Net], [10000, 400, 9600]);
 });
+
+test('loans (step 4b): the balance, what a month asks (start, skips, instalment changes, an advance at once), recovered never past the net', () => {
+  const loan = { Status: 'Active', PayoutJVID: 'J1', Kind: 'Loan', Amount: 3000, Instalment: 500, StartMonth: '2026-07', Skips: ['2026-09'], Changes: [{ FromMonth: '2026-11', Instalment: 1000 }],
+    Repayments: [{ Amount: 200 }, { Amount: 100, ReversedAt: 'x' }] };
+  const recs = [{ RunID: 'R7', Month: '2026-07', Amount: 500 }, { RunID: 'R8', Month: '2026-08', Amount: 500 }];
+  assert.equal(calc.loanBalance(loan, recs), 1800); // 3,000 − 1,000 recovered − 200 repaid (a reversed repayment doesn't count)
+  assert.equal(calc.loanBalance(loan, recs, 'R8'), 2300, 'the run being worked out again');
+  assert.deepEqual(['2026-06', '2026-08', '2026-09', '2026-10', '2026-11'].map(m => calc.loanDue(loan, m, 1800)), [0, 500, 0, 500, 1000]);
+  assert.equal(calc.loanDue(loan, '2026-12', 700), 700, 'at most the balance');
+  assert.equal(calc.loanDue(Object.assign({}, loan, { Kind: 'Advance' }), '2026-08', 1800), 1800);
+  assert.equal(calc.loanDue(Object.assign({}, loan, { PayoutJVID: '' }), '2026-08', 1800), 0, 'not paid out yet');
+  // In the run: oldest first, never past the net (decision 26).
+  let r = run({ loans: [{ LoanID: 'L1', LoanNumber: 'LN-0001', TypeName: 'Personal loan', Due: 500, Balance: 1800 }] });
+  assert.deepEqual([amt(r, 'LOAN'), r.Net, r.Lines.find(l => l.Code === 'LOAN').Text, r.Lines.find(l => l.Code === 'LOAN').Name], [500, 8500, '500.00; balance after 1,300.00', 'Loan recovery: Personal loan LN-0001']);
+  r = run({ inputs: [{ ElementID: 'fine', Amount: 8600 }], loans: [{ LoanID: 'L1', LoanNumber: 'LN-0001', TypeName: 'Personal loan', Due: 500, Balance: 1800 }, { LoanID: 'L2', LoanNumber: 'LN-0002', TypeName: 'Advance', Due: 300, Balance: 300 }] });
+  assert.deepEqual([amt(r, 'LOAN'), r.Net, r.Lines.filter(l => l.Source === 'Loan').length], [400, 0, 1]);
+  assert.match(r.Warnings.join(' '), /LN-0001: 400\.00 of the 500\.00 instalment recovered[\s\S]*LN-0002: 0\.00 of the 300\.00/);
+});

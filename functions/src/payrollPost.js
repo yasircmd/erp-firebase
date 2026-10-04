@@ -29,6 +29,7 @@ const lv = require('./hrLeave');
 const setup = require('./payrollSetup');
 const calc = require('./payrollCalc');
 const R = require('./payrollRun');
+const loans = require('./payrollLoans');
 
 const onCallOptions = { region: 'us-central1' };
 const VOUCHER_TYPE = 'Payroll';
@@ -40,7 +41,7 @@ const failed = msg => new HttpsError('failed-precondition', msg);
 // The journal's lines: each payslip line to its element's account (the
 // company's override, else the group's), the net to Salaries Payable, a
 // shortfall to Recoverable from employees.
-function glLinesFor(run, slips, elements, coa, settings) {
+function glLinesFor(run, slips, elements, coa, settings, loanAccounts) {
   const co = run.CompanyID, label = ' — payroll ' + run.Month;
   const missing = new Set(), noCostCenter = new Set(), lines = [];
   const add = (accountId, what, amount, debit, slip) => {
@@ -55,6 +56,7 @@ function glLinesFor(run, slips, elements, coa, settings) {
       if (!l.Amount) return;
       const debit = (l.Kind === 'Earning') === (l.Amount > 0);
       if (l.Source === 'CarryForward') return add(settings.ReceivableAccountID, 'Recoverable from employees', Math.abs(l.Amount), debit, s);
+      if (l.Source === 'Loan') return add((loanAccounts || {})[l.LoanID] || '', l.Name.replace(/ LN-\d+$/, ''), Math.abs(l.Amount), debit, s); // to the loan type's receivable (step 4b)
       const el = elements[l.ElementID];
       add(el ? calc.accountFor(el, co) : '', (el ? el.Name : l.Name) + (l.Source === 'Arrears' ? ' arrears' : ''), Math.abs(l.Amount), debit, s);
     });
@@ -67,7 +69,12 @@ function glLinesFor(run, slips, elements, coa, settings) {
 }
 async function postingContext(run) {
   const [slips, els, coaSnap, settings] = await Promise.all([R.docs(await R.SLIPS(run.RunID).get()), setup.payrollElements(), rtdb.ref('coa').get(), setup.companySettings(run.CompanyID)]);
-  return { slips, elements: Object.fromEntries(els.map(e => [e.ElementID, e])), coa: coaSnap.val() || {}, settings };
+  // Each recovered loan's receivable: its type's, for the company.
+  const loanIds = [...new Set(slips.reduce((a, s) => a.concat(s.Lines.filter(l => l.Source === 'Loan').map(l => l.LoanID)), []))];
+  const types = Object.fromEntries((await loans.loanTypes()).map(t => [t.LoanTypeID, t]));
+  const loanAccounts = {};
+  for (const id of loanIds) { const l = (await firestore.collection('payrollLoans').doc(id).get()).data(); if (l && types[l.LoanTypeID]) loanAccounts[id] = loans.accountFor(types[l.LoanTypeID], run.CompanyID); }
+  return { slips, elements: Object.fromEntries(els.map(e => [e.ElementID, e])), coa: coaSnap.val() || {}, settings, loanAccounts };
 }
 
 // The journal is posted as the approver; one without access to the
@@ -85,7 +92,7 @@ async function postRun(runId, user) {
     const run = Object.assign({ RunID: snap.id }, snap.data());
     if (run.Status !== 'Approved') throw failed('Only an approved run is posted.');
     const ctx = await postingContext(run);
-    const lines = glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings);
+    const lines = glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings, ctx.loanAccounts);
     const gl = await writeStockGlEntry(await posterFor(user, run), VOUCHER_TYPE, calc.monthEnd(run.Month), 'Payroll ' + run.Month, run.RunNumber || '', lines,
       { CompanyID: run.CompanyID }, { PayrollRunID: run.RunID, SourceTransactionID: run.RunID, ReversalOfJV: '' });
     const now = new Date().toISOString();
@@ -117,7 +124,7 @@ exports.submitPayrollRun = onCallWithMessages(onCallOptions, async (request) => 
   if (!rec || rec.Status !== 'Locked' || (rec.LockedAt || '') !== (run.LeaveLockedAt || '')) throw failed('The month\'s leave changed since the run was calculated: recalculate it first.');
   const ctx = await postingContext(run);
   if (!ctx.slips.length) throw failed('No employees are on the run.');
-  glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings); // the accounts are checked before approval starts
+  glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings, ctx.loanAccounts); // the accounts are checked before approval starts
   const amount = round2(ctx.slips.reduce((t, s) => t + Math.max(0, s.Net), 0));
   const number = run.RunNumber || 'Payroll ' + (await getCompanyRefCode(run.CompanyID) || run.CompanyID) + ' ' + run.Month;
   const scope = await resolveApprovalScopeKeyForDocument('PAYROLL', { CompanyID: run.CompanyID });
@@ -219,6 +226,9 @@ exports.getPayrollPayslips = onCallWithMessages(onCallOptions, async (request) =
   const ytd = {};
   for (const r of earlier) R.docs(await R.SLIPS(r._id).get()).forEach(s => { const t = ytd[s.EmployeeID] = ytd[s.EmployeeID] || { Earnings: 0, Deductions: 0, Net: 0 }; t.Earnings += s.Earnings; t.Deductions += s.Deductions; t.Net += s.Net; });
   const balanceTypes = types.filter(t => t.Kind === 'Leave' && t.UsesBalance && t.Active !== false);
+  // Each running loan's balance after this month (step 4b).
+  const empLoans = R.docs(await firestore.collection('payrollLoans').where('CompanyID', '==', run.CompanyID).get()).filter(l => l.Status === 'Active');
+  const recs = empLoans.length ? await loans.recoveriesOf(run.CompanyID) : {};
   const out = [];
   for (const s of slips) {
     const snap = await firestore.collection('employees').doc(s.EmployeeID).get();
@@ -230,6 +240,10 @@ exports.getPayrollPayslips = onCallWithMessages(onCallOptions, async (request) =
     const y = ytd[s.EmployeeID] || { Earnings: 0, Deductions: 0, Net: 0 };
     out.push(Object.assign({}, s, { Designation: des ? des.Title : '', CostCenterName: (units[e.CostCenterID] || {}).Name || '', JoinDate: e.JoinDate || '',
       BankName: e.BankName || '', IBAN: maskIban(e.IBAN), Leave: leave,
+      Loans: empLoans.filter(l => l.EmployeeID === s.EmployeeID).map(l => {
+        const here = run.Status === 'Posted' ? 0 : s.Lines.filter(x => x.Source === 'Loan' && x.LoanID === l._id).reduce((t, x) => t + x.Amount, 0);
+        return { LoanNumber: l.LoanNumber, TypeName: l.TypeName, Balance: round2(loans.balanceOf(l, recs[l._id]) - here) };
+      }),
       YTD: { Earnings: round2(y.Earnings + s.Earnings), Deductions: round2(y.Deductions + s.Deductions), Net: round2(y.Net + s.Net) } }));
   }
   return { company: { Name: co.LegalName || run.CompanyID, RefCode: co.CompanyRefCode || '', Address: co.Address || co.RegisteredAddress || '' },

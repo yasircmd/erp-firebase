@@ -24,6 +24,7 @@ const lv = require('./hrLeave');
 const pay = require('./hrPay');
 const setup = require('./payrollSetup');
 const calc = require('./payrollCalc');
+const loans = require('./payrollLoans');
 
 const onCallOptions = { region: 'us-central1' };
 const RUNS = () => firestore.collection('payrollRuns');
@@ -112,13 +113,14 @@ async function calculate(run, user, inputsByEmp) {
     });
     return extra;
   };
+  const loansBy = await loans.loansDue(co, month, run.RunID);
   const bands = {};
   const slips = [];
   for (const e of emps) {
     const cal = await calendarFor(e);
     const r = calc.computeEmployee({ month, method: settings.DailyRateMethod, emp: e, versions: versions[e.EmployeeID] || [], elements,
       leave: leave[e.EmployeeID] || [], inputs: inputs[e.EmployeeID] || [], hoursPerDay: hoursOn(cal, e.LeavingDate && e.LeavingDate < end ? e.LeavingDate : end), system,
-      extra: extraFor(e) });
+      extra: extraFor(e), loans: loansBy[e.EmployeeID] || [] });
     if (!e.IBAN) r.Warnings.push('No bank account / IBAN on the employee record.');
     const key = (e.GradeID || '') + '|' + co;
     if (!(key in bands)) bands[key] = await pay.band(e);
@@ -141,7 +143,8 @@ async function calculate(run, user, inputsByEmp) {
     .concat(existing.filter(s => !keep.has(s.EmployeeID)).map(s => b => b.delete(SLIPS(run.RunID).doc(s._id))));
   for (let i = 0; i < writes.length; i += 400) { const b = firestore.batch(); writes.slice(i, i + 400).forEach(w => w(b)); await b.commit(); }
   const out = { Method: settings.DailyRateMethod, Employees: slips.length, Earnings: round2(totals.Earnings), Deductions: round2(totals.Deductions), Net: round2(totals.Net),
-    Warnings: slips.filter(s => s.Warnings.length).length, Columns: columns, CalculatedAt: now, CalculatedBy: user.uid, CalculatedByName: actorName(user), LeaveLockedAt: locked.LockedAt || '' };
+    Warnings: slips.filter(s => s.Warnings.length).length, Columns: columns, CalculatedAt: now, CalculatedBy: user.uid, CalculatedByName: actorName(user), LeaveLockedAt: locked.LockedAt || '',
+    UpdatedAt: now, UpdatedBy: user.profile.username || user.uid }; // My Drafts matches the username
   await RUNS().doc(run.RunID).update(out);
   return out;
 }
@@ -168,7 +171,7 @@ exports.createPayrollRun = onCallWithMessages(onCallOptions, async (request) => 
   if (!isMonth(month)) bad('Choose the month.');
   await requireLocked(co, month);
   const ref = RUNS().doc(co + '_' + month);
-  const run = { CompanyID: co, Month: month, Status: 'Draft', CreatedAt: new Date().toISOString(), CreatedBy: user.uid, CreatedByName: actorName(user) };
+  const run = { CompanyID: co, Month: month, Status: 'Draft', Description: 'Payroll ' + co + ' ' + month, CreatedAt: new Date().toISOString(), CreatedBy: user.uid, CreatedByName: actorName(user) };
   try { await ref.create(run); } catch (e) {
     if (e.code === 6 || /already exists/i.test(e.message)) throw new HttpsError('already-exists', 'There is already a payroll run for ' + co + ', ' + month + '.');
     throw e;

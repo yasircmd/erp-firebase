@@ -23,7 +23,8 @@ const STOCK_TRANSACTION_PREFIXES = {
   // hand-written module, docs/modules/OPENING_BALANCES.md: GL and open invoices; opening stock
   OpeningBalance: 'OB', OpeningStock: 'OS',
   Payroll: 'PAY', // hand-written module, docs/modules/HR_PAYROLL.md: a run and its reversal
-  PayrollPayment: 'PAYP' // its payment (step 4) and that payment's reversal
+  PayrollPayment: 'PAYP', // its payment (step 4) and that payment's reversal
+  PayrollLoan: 'PLN' // a loan's payout and repayments (step 4b)
 };
 
 function userCanAccessCompany(profile, companyId) {

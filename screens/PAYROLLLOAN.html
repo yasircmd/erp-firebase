@@ -1,0 +1,222 @@
+<div id="ln-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-hand-holding-dollar text-blue-500"></i> Loans &amp; Advances</h2></div>
+    <button id="ln-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New loan or advance</button>
+  </div>
+  <p class="text-xs text-slate-500 max-w-3xl">Each loan or advance is approved as set up in Approval Configuration, paid out from here, then recovered by the payroll runs from its first month: an advance at once, a loan in instalments, never more than the month's net pay (the rest later). Skip a month, change the instalment or record an early repayment on the loan.</p>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-3 px-3">No.</th><th class="py-3 px-3">Employee</th><th class="py-3 px-3">Type</th><th class="py-3 px-3 text-right">Amount</th><th class="py-3 px-3 text-right">Instalment</th>
+      <th class="py-3 px-3">From</th><th class="py-3 px-3 text-right">Balance</th><th class="py-3 px-3">Status</th></tr></thead>
+    <tbody id="ln-table-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+</div>
+
+<div id="ln-entry-view" class="hidden space-y-5">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+    <div class="flex items-center gap-3">
+      <button id="ln-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h3 id="ln-heading" class="text-lg font-bold text-slate-100"></h3>
+      <span id="ln-status" class="text-xs text-slate-400"></span>
+    </div>
+    <div class="flex gap-2">
+      <button id="ln-delete-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Delete draft</button>
+      <button id="ln-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save draft</button>
+      <button id="ln-submit-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+    </div>
+  </div>
+  <p id="ln-note" class="hidden text-xs"></p>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Employee *</label><select id="ln-employee" class="ln-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Type *</label><select id="ln-type" class="ln-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Amount *</label><input id="ln-amount" class="ln-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div id="ln-inst-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">Monthly instalment *</label><input id="ln-instalment" class="ln-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Recovery starts *</label><input id="ln-start" type="month" class="ln-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="md:col-span-4"><label class="block text-xs font-medium text-slate-300 mb-1">Note</label><input id="ln-note-in" maxlength="300" class="ln-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+  </div>
+
+  <div id="ln-approval" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Approval</div>
+    <ul id="ln-levels" class="text-sm space-y-1"></ul>
+    <div id="ln-decide" class="hidden flex gap-2">
+      <button id="ln-approve" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-check"></i> Approve</button>
+      <button id="ln-reject" class="bg-slate-800 hover:bg-slate-700 text-sm text-red-400 px-4 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-xmark"></i> Reject</button>
+    </div>
+  </div>
+
+  <div id="ln-payout" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Pay out</div>
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input id="ln-pay-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Paid from (cash or bank)</label><select id="ln-pay-account" class="ln-acct bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <button id="ln-pay-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg"><i class="fa-solid fa-money-bill-wave"></i> Pay out</button>
+    </div>
+  </div>
+
+  <div id="ln-running" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="text-sm text-slate-200" id="ln-balance"></div>
+      <button id="ln-reverse-payout" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-rotate-left"></i> Reverse the payout</button>
+    </div>
+    <div>
+      <div class="text-xs font-semibold text-slate-400 uppercase mb-1">Recovered</div>
+      <table class="text-sm"><tbody id="ln-recs"></tbody></table>
+    </div>
+    <div id="ln-sched-wrap" class="space-y-2">
+      <div class="text-xs font-semibold text-slate-400 uppercase">Schedule</div>
+      <div class="flex flex-wrap items-end gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Skip the months</label><input id="ln-skips" placeholder="2026-08, 2026-12" class="ln-sched keep-iso bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono"></div>
+        <div id="ln-change-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">New instalment from (month: amount, …)</label><input id="ln-changes" placeholder="2026-09: 1000" class="ln-sched keep-iso bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono"></div>
+        <button id="ln-sched-save" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg">Save the schedule</button>
+      </div>
+    </div>
+    <div id="ln-repay-wrap" class="space-y-2">
+      <div class="text-xs font-semibold text-slate-400 uppercase">Early repayment received</div>
+      <div class="flex flex-wrap items-end gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Date</label><input id="ln-rep-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Amount</label><input id="ln-rep-amount" class="w-28 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Into (cash or bank)</label><select id="ln-rep-account" class="ln-acct bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Note</label><input id="ln-rep-note" maxlength="200" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <button id="ln-rep-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2 rounded-lg">Record the repayment</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="ln-history-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div class="text-xs font-semibold text-slate-400 uppercase mb-2">History</div>
+    <ul id="ln-history" class="text-xs text-slate-400 space-y-1"></ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Loans & Advances (owner, 2026-10-04; docs/modules/HR_PAYROLL.md, step
+  // 4b): a loan or advance from its draft to its approval, payout and
+  // recovery by the payroll runs; its schedule and early repayments.
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const STATUS = { Draft: ['Draft', 'text-slate-400'], PendingApproval: ['Pending approval', 'text-amber-400'], Approved: ['Approved, to pay out', 'text-blue-400'], Active: ['Running', 'text-emerald-400'], Repaid: ['Repaid', 'text-slate-500'] };
+  let form = null, list = null, current = null, seq = 0;
+  const statusHtml = s => '<span class="' + (STATUS[s] || ['', 'text-slate-400'])[1] + '">' + escapeHtml((STATUS[s] || [s])[0]) + '</span>';
+
+  function loadList() {
+    return call('getLoans', {}).then(r => {
+      list = r;
+      $('ln-new-btn').classList.toggle('hidden', !r.canDraft);
+      $('ln-table-body').innerHTML = r.loans.map(l => '<tr data-id="' + escapeHtml(l.LoanID) + '" class="hover:bg-slate-800/40 cursor-pointer"><td class="py-2 px-3 text-xs">' + escapeHtml(l.LoanNumber || '(draft)') + '</td>' +
+        '<td class="py-2 px-3">' + escapeHtml(l.EmployeeNo + ' · ' + l.EmployeeName) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(l.TypeName) + '</td><td class="py-2 px-3 text-right">' + money(l.Amount) + '</td>' +
+        '<td class="py-2 px-3 text-right">' + money(l.Instalment) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(l.StartMonth) + '</td><td class="py-2 px-3 text-right">' + money(l.Balance) + '</td><td class="py-2 px-3 text-xs">' + statusHtml(l.Shown) + '</td></tr>').join('') ||
+        '<tr><td colspan="8" class="py-6 px-3 text-center text-xs text-slate-500">No loans or advances yet.</td></tr>';
+      $('ln-table-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openLoan(tr.dataset.id)));
+    }, err => appAlert(err.message || 'Unable to load the loans.'));
+  }
+  function showEntry() { $('ln-list-view').classList.add('hidden'); $('ln-entry-view').classList.remove('hidden'); window.scrollTo(0, 0); }
+  function showList() { $('ln-entry-view').classList.add('hidden'); $('ln-list-view').classList.remove('hidden'); current = null; loadList(); }
+  const typeOf = id => form.types.find(t => t.LoanTypeID === id) || {};
+  function instFields() { $('ln-inst-wrap').classList.toggle('hidden', typeOf(val('ln-type')).Kind === 'Advance'); }
+
+  function fill(l) {
+    $('ln-employee').innerHTML = '<option value="">Select...</option>' + form.employees.map(e => '<option value="' + escapeHtml(e.EmployeeID) + '"' + (e.EmployeeID === l.EmployeeID ? ' selected' : '') + '>' + escapeHtml(e.EmployeeNo + ' — ' + e.FullName) + '</option>').join('');
+    $('ln-type').innerHTML = '<option value="">Select...</option>' + form.types.map(t => '<option value="' + escapeHtml(t.LoanTypeID) + '"' + (t.LoanTypeID === l.LoanTypeID ? ' selected' : '') + '>' + escapeHtml(t.Name) + '</option>').join('');
+    $('ln-amount').value = l.Amount || ''; $('ln-instalment').value = l.Instalment || ''; $('ln-start').value = l.StartMonth || ''; $('ln-note-in').value = l.Note || '';
+    instFields();
+  }
+  function newLoan() {
+    current = null;
+    fill({});
+    $('ln-heading').textContent = 'New loan or advance'; $('ln-status').innerHTML = '';
+    document.querySelectorAll('.ln-f').forEach(x => { x.disabled = false; });
+    ['ln-save-btn', 'ln-submit-btn'].forEach(id => $(id).classList.remove('hidden'));
+    ['ln-delete-btn', 'ln-approval', 'ln-payout', 'ln-running', 'ln-history-wrap', 'ln-note'].forEach(id => $(id).classList.add('hidden'));
+    showEntry();
+  }
+  function openLoan(id) {
+    const my = ++seq;
+    return call('getLoan', { loanId: id }).then(r => { if (my !== seq || !$('ln-entry-view')) return; current = r; render(); showEntry(); }, err => appAlert(err.message || 'Unable to open the loan.'));
+  }
+  function render() {
+    const r = current, l = r.loan, draft = l.Status === 'Draft' && r.canDraft;
+    fill(l);
+    $('ln-heading').textContent = (l.LoanNumber || 'Draft') + ' — ' + l.TypeName + ', ' + l.EmployeeName;
+    $('ln-status').innerHTML = statusHtml(l.Shown);
+    document.querySelectorAll('.ln-f').forEach(x => { x.disabled = !draft; });
+    ['ln-save-btn', 'ln-submit-btn', 'ln-delete-btn'].forEach(id => $(id).classList.toggle('hidden', !draft));
+    $('ln-note').classList.toggle('hidden', !l.RejectedReason);
+    $('ln-note').className = 'text-xs text-red-400' + (l.RejectedReason ? '' : ' hidden');
+    $('ln-note').textContent = l.RejectedReason ? 'Rejected: ' + l.RejectedReason + '. Correct it and submit again.' : '';
+    const a = r.approval;
+    $('ln-approval').classList.toggle('hidden', !(a && l.Status === 'PendingApproval'));
+    if (a) {
+      $('ln-levels').innerHTML = a.Levels.map(x => { const d = a.Decisions.find(y => y.LevelNumber === x.LevelNumber); return '<li>Level ' + x.LevelNumber + ': ' + (d ? escapeHtml(d.Decision + ' by ' + d.ApproverName) : '<span class="text-amber-400">waiting</span>') + '</li>'; }).join('');
+      $('ln-decide').classList.toggle('hidden', !a.MyLevels.length);
+    }
+    const accts = form.accounts.filter(x => !x.CompanyID || x.CompanyID === l.CompanyID);
+    document.querySelectorAll('.ln-acct').forEach(sel => { sel.innerHTML = accts.map(x => '<option value="' + escapeHtml(x.AccountID) + '">' + escapeHtml(x.AccountCode + ' — ' + x.AccountName) + '</option>').join(''); });
+    const today = window.isoLocalDateTime(new Date()).slice(0, 10);
+    $('ln-payout').classList.toggle('hidden', !(l.Status === 'Approved' && r.canPay));
+    if (!$('ln-pay-date').value) $('ln-pay-date').value = today;
+    if (!$('ln-rep-date').value) $('ln-rep-date').value = today;
+    $('ln-running').classList.toggle('hidden', l.Status !== 'Active');
+    if (l.Status === 'Active') {
+      $('ln-balance').textContent = 'Paid out on ' + l.PayoutDate + ' (journal ' + l.PayoutJVNumber + '). Balance: ' + money(l.Balance) + '.';
+      const rows = l.Recoveries.map(x => [x.Month, 'Payroll', x.Amount]).concat((l.Repayments || []).filter(x => !x.ReversedAt).map(x => [x.Date, 'Repayment ' + x.JVNumber + (x.Note ? ' — ' + x.Note : ''), x.Amount]))
+        .sort((p, q) => String(p[0]).localeCompare(String(q[0])));
+      $('ln-recs').innerHTML = rows.map(x => '<tr><td class="pr-4">' + escapeHtml(x[0]) + '</td><td class="pr-4 text-xs text-slate-400">' + escapeHtml(x[1]) + '</td><td class="text-right">' + money(x[2]) + '</td></tr>').join('') || '<tr><td class="text-xs text-slate-500">Nothing yet.</td></tr>';
+      $('ln-reverse-payout').classList.toggle('hidden', !(r.canPay && !rows.length));
+      $('ln-sched-wrap').classList.toggle('hidden', !r.canDraft);
+      $('ln-change-wrap').classList.toggle('hidden', l.Kind === 'Advance');
+      $('ln-skips').value = (l.Skips || []).join(', ');
+      $('ln-changes').value = (l.Changes || []).map(c => c.FromMonth + ': ' + c.Instalment).join(', ');
+      $('ln-repay-wrap').classList.toggle('hidden', !(r.canPay && l.Balance > 0));
+    }
+    $('ln-history-wrap').classList.toggle('hidden', !(l.History || []).length);
+    $('ln-history').innerHTML = (l.History || []).slice().reverse().map(h => '<li>' + escapeHtml(h.At + ' — ' + h.Event + ' by ' + h.By + (h.JVNumber ? ' (' + h.JVNumber + (h.ReversalJVNumber ? ', reversed by ' + h.ReversalJVNumber : '') + ')' : '') + (h.Note ? ': ' + h.Note : '')) + '</li>').join('');
+  }
+
+  function collect() {
+    return { LoanID: current ? current.loan.LoanID : '', EmployeeID: val('ln-employee'), LoanTypeID: val('ln-type'), Amount: val('ln-amount'), Instalment: val('ln-instalment'), StartMonth: val('ln-start'), Note: val('ln-note-in') };
+  }
+  const reopen = id => openLoan(id);
+  function save(then) {
+    return call('saveLoan', { loan: collect() }).then(r => (then ? then(r.loanId) : reopen(r.loanId)), err => appAlert(err.message || 'Unable to save.'));
+  }
+  function submit() {
+    save(id => call('submitLoan', { loanId: id }).then(() => reopen(id), err => { appAlert(err.message || 'Unable to submit.'); return reopen(id); }));
+  }
+  const act = (name, data, what) => call(name, Object.assign({ loanId: current.loan.LoanID }, data)).then(() => reopen(current.loan.LoanID), err => appAlert(err.message || 'Unable to ' + what + '.'));
+  function parseChanges(text) {
+    return String(text || '').split(',').map(x => x.trim()).filter(Boolean).map(x => { const m = x.split(':'); return { FromMonth: (m[0] || '').trim(), Instalment: (m[1] || '').trim() }; });
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-hand-holding-dollar"></i> Loans &amp; Advances';
+    $('ln-new-btn').addEventListener('click', newLoan);
+    $('ln-back-btn').addEventListener('click', showList);
+    $('ln-type').addEventListener('change', instFields);
+    $('ln-save-btn').addEventListener('click', () => save());
+    $('ln-submit-btn').addEventListener('click', submit);
+    $('ln-delete-btn').addEventListener('click', () => appConfirm('Delete this draft?').then(ok => { if (ok) call('deleteLoan', { loanId: current.loan.LoanID }).then(showList, err => appAlert(err.message || 'Unable to delete.')); }));
+    $('ln-approve').addEventListener('click', () => act('decideLoanApproval', { levelNumber: current.approval.MyLevels[0], decision: 'Approved' }, 'approve'));
+    $('ln-reject').addEventListener('click', () => appPrompt('Reason for rejecting:', '').then(reason => { if (reason !== null) act('decideLoanApproval', { levelNumber: current.approval.MyLevels[0], decision: 'Rejected', reason }, 'reject'); }));
+    $('ln-pay-btn').addEventListener('click', () => appConfirm('Pay out ' + money(current.loan.Amount) + ' to ' + current.loan.EmployeeName + ' on ' + val('ln-pay-date') + '?').then(ok => {
+      if (ok) act('payOutLoan', { date: val('ln-pay-date'), accountId: val('ln-pay-account') }, 'pay out'); }));
+    $('ln-reverse-payout').addEventListener('click', () => appPrompt('Reverse the payout ' + current.loan.PayoutJVNumber + '. Reason:', '').then(reason => { if (reason !== null) act('reverseLoanPayout', { reason }, 'reverse the payout'); }));
+    $('ln-sched-save').addEventListener('click', () => act('saveLoanSchedule', { skips: val('ln-skips').split(',').map(x => x.trim()).filter(Boolean), changes: parseChanges(val('ln-changes')) }, 'save the schedule'));
+    $('ln-rep-btn').addEventListener('click', () => act('recordLoanRepayment', { date: val('ln-rep-date'), amount: val('ln-rep-amount'), accountId: val('ln-rep-account'), note: val('ln-rep-note') }, 'record the repayment'));
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    call('getLoanForm', {}).then(r => { form = r; return loadList(); }, err => appAlert(err.message || 'Unable to load.'))
+      .then(() => { const id = pending && (pending.OpenEntryId || pending.LoanID); if (id) return openLoan(id); });
+  };
+})();
+</script>

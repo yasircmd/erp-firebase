@@ -375,6 +375,7 @@
       '<table><tbody><tr><th>Net pay</th><th class="r">' + money(Math.max(0, s.Net)) + '</th></tr>' + (s.Net < 0 ? '<tr><td>Shortfall recovered next month</td><td class="r">' + money(-s.Net) + '</td></tr>' : '') + '</tbody></table>' +
       '<table><thead><tr><th>Year to date</th><th class="r">Earnings</th><th class="r">Deductions</th><th class="r">Net</th></tr></thead><tbody><tr><td>' + escapeHtml(p.month.slice(0, 4)) + '</td><td class="r">' + money(s.YTD.Earnings) +
       '</td><td class="r">' + money(s.YTD.Deductions) + '</td><td class="r">' + money(s.YTD.Net) + '</td></tr></tbody></table>' +
+      ((s.Loans || []).length ? '<table><thead><tr><th>Loan balance after this month</th><th class="r">Amount</th></tr></thead><tbody>' + s.Loans.map(l => '<tr><td>' + escapeHtml(l.TypeName + ' ' + l.LoanNumber) + '</td><td class="r">' + money(l.Balance) + '</td></tr>').join('') + '</tbody></table>' : '') +
       (s.Leave.length ? '<table><thead><tr><th>Leave balance at ' + escapeHtml(p.monthEnd) + '</th><th class="r">Days</th></tr></thead><tbody>' + s.Leave.map(l => '<tr><td>' + escapeHtml(l.Name) + '</td><td class="r">' + l.Balance + '</td></tr>').join('') + '</tbody></table>' : '') +
       '</div>';
   }

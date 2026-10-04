@@ -141,6 +141,7 @@
       </div>
     </div>
     <div id="emp-pay-current" class="text-sm"></div>
+      <div id="emp-pay-loans" class="hidden text-xs text-slate-300 mt-2"></div>
     <p id="emp-pay-warning" class="hidden text-xs text-amber-400"></p>
     <div id="emp-pay-form" class="hidden bg-slate-900 p-3 rounded-lg border border-slate-700 space-y-3">
       <div class="text-sm font-semibold text-slate-200" id="emp-pay-form-heading"></div>
@@ -478,6 +479,14 @@
       $('emp-pay-versions').innerHTML = r.versions.map(v => '<li>From ' + escapeHtml(v.EffectiveFrom) + ': ' + money(v.MonthlyEarnings) + ' · ' + escapeHtml(v.Source) +
         (v.Status !== 'Active' ? ' · ' + escapeHtml(v.Status) : '') + (v.Reason ? ' — ' + escapeHtml(v.Reason) : '') + ' · ' + escapeHtml(v.CreatedByName) + ', ' + escapeHtml(isoLocalDateTime(v.CreatedAt)) + '</li>').join('');
       $('emp-pay-versions-wrap').classList.toggle('hidden', !r.versions.length);
+      // Loans & Advances (Payroll step 4b): the running ones and their balance.
+      const empId = current.EmployeeID;
+      return call('getLoans', { employeeId: empId }).then(lr => {
+        if (!$('emp-pay-loans') || !current || current.EmployeeID !== empId) return;
+        const running = lr.loans.filter(l => l.Shown === 'Active' || l.Shown === 'Approved' || l.Shown === 'PendingApproval');
+        $('emp-pay-loans').innerHTML = running.length ? 'Loans: ' + running.map(l => escapeHtml((l.LoanNumber || 'draft') + ' ' + l.TypeName + ' — ' + (l.Shown === 'Active' ? money(l.Balance) + ' left' : 'not paid out yet'))).join(' · ') : '';
+        $('emp-pay-loans').classList.toggle('hidden', !running.length);
+      }, () => {});
     }, err => appAlert(err.message || 'Unable to load the pay.'));
   }
   function openPayForm(correcting) {

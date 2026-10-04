@@ -6,6 +6,7 @@
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="elements">Pay Elements</button>
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="payroll">Payroll</button>
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="files">Payment Files</button>
+    <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="loans">Loans</button>
   </div>
   <p id="ps-readonly" class="hidden text-xs text-slate-400">You can view Payroll Setup but not change it.</p>
 
@@ -77,6 +78,28 @@
     </div>
   </div>
 
+  <!-- LOAN TYPES (docs/modules/HR_PAYROLL.md, step 4b) -->
+  <div id="ps-pane-loans" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">The kinds of loans and advances given to employees (Loans &amp; Advances). An advance is recovered whole in its first month; a loan in instalments. Each posts to its receivable account (the group's, or a company's own).</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Type</th><th class="py-2 px-3">Recovered</th><th class="py-2 px-3">Receivable</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="ps-lt-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <button id="ps-lt-new" class="ps-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New loan type</button>
+    <div id="ps-lt-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Name *</label><input id="ps-lt-name" maxlength="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Recovered</label><select id="ps-lt-kind" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Loan">In instalments (a loan)</option><option value="Advance">At once (an advance)</option></select></div>
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Receivable (the group's) *</label><select id="ps-lt-gl" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      </div>
+      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-3">Company</th><th class="py-1">Its own receivable (else the group's)</th></tr></thead><tbody id="ps-lt-cos"></tbody></table>
+      <label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-lt-active" type="checkbox" checked> In use</label>
+      <div class="flex gap-2"><button id="ps-lt-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="ps-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+  </div>
+
   <!-- PAYMENT FILES (docs/modules/HR_PAYROLL.md, step 4) -->
   <div id="ps-pane-files" class="hidden space-y-4">
     <p class="text-xs text-slate-500 max-w-3xl">The bank file each company sends to pay salaries. Each bank (and each company) has its own layout, so build it here: a header, one record per employee paid by bank and a trailer, each an ordered list of fields. Start from the UAE WPS SIF and adjust it to your bank's specification, then preview it on a run.</p>
@@ -135,7 +158,7 @@
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const statusHtml = active => active === false ? '<span class="text-slate-500">Not in use</span>' : '<span class="text-emerald-400">In use</span>';
   let companies = [], canWrite = false, editing = null, payElements = [];
-  const TABS = ['elements', 'payroll', 'files'];
+  const TABS = ['elements', 'payroll', 'files', 'loans'];
 
   function showTab(tab) {
     document.querySelectorAll('.ps-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
@@ -327,12 +350,44 @@
     });
   }
 
-  function closeForms() { ['ps-el-form', 'ps-pe-form', 'ps-pf-form'].forEach(id => $(id).classList.add('hidden')); editing = null; pfEditing = null; }
+  // ---------- loan types (step 4b) ----------
+  let lt = null, ltAccounts = [];
+  function loadLoanTypes() {
+    return Promise.all([call('getLoanTypes', {}), call('getPayrollSetup', {})]).then(([r, ps]) => {
+      lt = r; ltAccounts = ps.accounts.filter(a => a.AccountType === 'Asset');
+      const acct = id => { const a = ps.accounts.find(x => x.AccountID === id); return a ? a.AccountCode + ' — ' + a.AccountName : ''; };
+      $('ps-lt-body').innerHTML = lt.types.map(t => '<tr data-id="' + escapeHtml(t.LoanTypeID) + '" class="' + (lt.canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '"><td class="py-2 px-3">' + escapeHtml(t.Name) + '</td>' +
+        '<td class="py-2 px-3 text-xs">' + (t.Kind === 'Advance' ? 'At once' : 'In instalments') + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(acct(t.GLAccountID)) +
+        (Object.keys(t.GLByCompany || {}).length ? ' <span class="text-slate-500">(+' + Object.keys(t.GLByCompany).length + ' company)</span>' : '') + '</td><td class="py-2 px-3 text-xs">' + statusHtml(t.Active) + '</td></tr>').join('') ||
+        '<tr><td colspan="4" class="py-4 px-3 text-xs text-slate-500">No loan types yet.</td></tr>';
+      $('ps-lt-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => { if (lt.canWrite) editLoanType(tr.dataset.id); }));
+      $('ps-lt-new').classList.toggle('hidden', !lt.canWrite);
+    }, err => appAlert(err.message || 'Unable to load the loan types.'));
+  }
+  function editLoanType(id) {
+    closeForms();
+    const t = lt.types.find(x => x.LoanTypeID === id) || { Kind: 'Loan', Active: true, GLByCompany: {} };
+    editing = id || null;
+    const opts = (list, sel, first) => '<option value="">' + escapeHtml(first) + '</option>' + list.map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === sel ? ' selected' : '') + '>' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
+    $('ps-lt-name').value = t.Name || ''; $('ps-lt-kind').value = t.Kind; $('ps-lt-active').checked = t.Active !== false;
+    $('ps-lt-gl').innerHTML = opts(ltAccounts.filter(a => !a.CompanyID), t.GLAccountID, '—');
+    $('ps-lt-cos').innerHTML = companies.map(c => '<tr><td class="py-1 pr-3 text-xs">' + escapeHtml(coLabel(c.CompanyID)) + '</td><td class="py-1"><select class="ps-lt-co bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300" data-co="' + escapeHtml(c.CompanyID) + '">' +
+      opts(ltAccounts.filter(a => !a.CompanyID || a.CompanyID === c.CompanyID), (t.GLByCompany || {})[c.CompanyID] || '', 'The group\'s') + '</select></td></tr>').join('');
+    $('ps-lt-form').classList.remove('hidden');
+  }
+  function saveLoanType() {
+    const by = {};
+    document.querySelectorAll('.ps-lt-co').forEach(sel => { by[sel.dataset.co] = sel.value; });
+    call('saveLoanType', { loanType: { LoanTypeID: editing || '', Name: val('ps-lt-name'), Kind: val('ps-lt-kind'), GLAccountID: val('ps-lt-gl'), GLByCompany: by, Active: $('ps-lt-active').checked } })
+      .then(() => { closeForms(); return loadLoanTypes(); }, err => appAlert(err.message || 'Unable to save.'));
+  }
+
+  function closeForms() { ['ps-el-form', 'ps-pe-form', 'ps-pf-form', 'ps-lt-form'].forEach(id => $(id).classList.add('hidden')); editing = null; pfEditing = null; }
   function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
 
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> Payroll Setup';
-    $('ps-tabs').addEventListener('click', e => { const b = e.target.closest('.ps-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'payroll') loadPayroll(); if (b.dataset.tab === 'files') loadFormats(); } });
+    $('ps-tabs').addEventListener('click', e => { const b = e.target.closest('.ps-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'payroll') loadPayroll(); if (b.dataset.tab === 'files') loadFormats(); if (b.dataset.tab === 'loans') loadLoanTypes(); } });
     $('ps-pc-body').addEventListener('change', e => { const tr = e.target.closest('tr[data-co]'); if (tr && e.target.closest('.ps-pc-method')) companyExample(tr); });
     $('ps-pc-body').addEventListener('click', e => {
       const b = e.target.closest('.ps-pc-save'); if (!b) return;
@@ -349,6 +404,8 @@
     document.querySelectorAll('.ps-cancel').forEach(b => b.addEventListener('click', closeForms));
     $('ps-pf-starter').addEventListener('click', () => editFormat(Object.assign({}, JSON.parse(JSON.stringify(pf.starter)), { CompanyID: (companies[0] || {}).CompanyID })));
     $('ps-pf-new').addEventListener('click', () => editFormat(null));
+    $('ps-lt-new').addEventListener('click', () => editLoanType(''));
+    $('ps-lt-save').addEventListener('click', saveLoanType);
     $('ps-pf-type').addEventListener('change', pfTypeFields);
     $('ps-pf-preview').addEventListener('click', previewFormat);
     $('ps-pf-save').addEventListener('click', saveFormat);

@@ -980,3 +980,17 @@ Personal loan, Car loan. Each has:
     Or deduct it in full, with the shortfall carried as today?
 27. **Changes after it starts:** may HR skip a month, change the
     instalment, or record an early repayment (cash or bank received)?
+
+### The owner's decisions for step 4b (2026-10-04)
+
+| # | Question | Decision |
+|---|---|---|
+| 24 | Paying out | **Posted from Payroll:** "Pay out" on the loan posts Dr the loan type's receivable / Cr a bank or cash account, on a date. |
+| 25 | Approval | **Through Approval Configuration:** "Loan / advance", the amount is the loan; with none set up, it's approved on submit. |
+| 26 | Salary short of the instalment | **Deduct what the net allows:** the net never goes below 0 because of a loan; the rest is recovered later (the term extends). |
+| 27 | Changes once running | **All three:** skip a month; change the instalment from a month; record an early repayment received (Dr bank or cash / Cr the loan). |
+
+The loans have their own screen and module, **Loans & Advances**
+(`PAYROLLLOAN`: access, draft, pay), so their rights are set apart from
+the payroll runs'.
+
