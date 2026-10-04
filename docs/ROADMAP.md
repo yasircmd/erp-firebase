@@ -449,8 +449,20 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `payrollRun.ui.js` (4). To go live: "functions set" `payroll-2` with
     the screens; link the menu node; give the system deductions their
     GL account.
-  - **Next:** step 3, approval, GL posting, PDF payslip, reversal, back
-    pay and the negative net carried forward.
+  - **Step 3 built and tested 2026-10-04**, not yet live: submit through
+    Approval Configuration; the final approval posts at once (one journal
+    a run, dated the month's end, clubbed by cost center, net to Salaries
+    Payable); a negative net paid as 0, carried to Recoverable from
+    employees and brought forward next month; automatic back pay
+    ("arrears" lines) for posted months after a later pay change;
+    printed payslips with leave balances and the year to date; reversal
+    of the latest posted run back to draft; the leave of a submitted run
+    stays locked. Decisions 16–19 agreed. Tests: `payrollCalc.test.js`
+    (10), `payrollPost` suite (5), `payrollPost.ui.js` (4). To go live:
+    "functions set" `payroll-3` with the screens; set Recoverable from
+    employees; the approval if wanted; the "post" right.
+  - **Next:** step 4, payment (WPS SIF and bank list, mark paid,
+    advances and loans). Needs the owner's WPS details.
 - [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type

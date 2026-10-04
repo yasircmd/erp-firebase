@@ -115,3 +115,25 @@ test('warnings: no pay in force; a negative net', () => {
   assert.equal(r.Net, -1000);
   assert.match(r.Warnings.join(' '), /Negative net: the deductions are 1,000\.00 more/);
 });
+
+test('back pay (decision 10): a posted month worked out again, less what was paid for it, by element', () => {
+  // June was paid at 5,000 basic with one unpaid day; a raise to 6,000 from 1 June is approved later.
+  const june = { month: '2026-06', leave: [leave('2026-06-10', 'Unpaid')] };
+  const paid = run(Object.assign({ versions: [v('2025-01-01', { b: 5000, h: 3000 })] }, june)).Lines;
+  const now = run(Object.assign({ versions: [v('2025-01-01', { b: 5000, h: 3000 }), v('2026-06-01', { b: 6000, h: 3000 })] }, june));
+  const a = calc.arrearsFor('2026-06', now, paid, EL);
+  // Basic +1,000; the unpaid day is now (6,000 + 3,000) / 30 = 300 instead of 266.67: +33.33 more deducted.
+  assert.deepEqual(a.map(l => [l.Code, l.Kind, l.Amount, l.Source, l.ForMonth]), [['BASIC', 'Earning', 1000, 'Arrears', '2026-06'], ['UNPAIDLV', 'Deduction', 33.33, 'Arrears', '2026-06']]);
+  assert.equal(a[0].Text, '2026-06: paid 5,000.00, now 6,000.00');
+  assert.equal(a[0].Name, 'Basic Salary arrears');
+  // Once paid, nothing more is due; a later cut gives negative arrears.
+  assert.deepEqual(calc.arrearsFor('2026-06', now, paid.concat(a), EL), []);
+  const cut = run(Object.assign({ versions: [v('2025-01-01', { b: 5000, h: 3000 }), v('2026-06-01', { b: 5500, h: 3000 })] }, june));
+  assert.deepEqual(calc.arrearsFor('2026-06', cut, paid.concat(a), EL).map(l => [l.Code, l.Amount]), [['BASIC', -500], ['UNPAIDLV', -16.67]]);
+});
+
+test('extra lines (arrears, a shortfall brought forward) count in the totals', () => {
+  const r = run({ extra: [{ ElementID: 'b', Code: 'BASIC', Name: 'Basic Salary arrears', Kind: 'Earning', Source: 'Arrears', Amount: 1000, Text: '' },
+    { ElementID: 'sys-bfwd', Code: 'BFWD', Name: 'Brought forward', Kind: 'Deduction', Source: 'CarryForward', Amount: 400, Text: '' }] });
+  assert.deepEqual([r.Earnings, r.Deductions, r.Net], [10000, 400, 9600]);
+});

@@ -1,4 +1,20 @@
-<div id="pr-list-view" class="space-y-6">
+<style>
+  #pr-print-document { display: none; } /* shown only when printing (as the shell's .print-only) */
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+    #pr-print-document { display: block !important; }
+  }
+  #pr-print-document .pr-ps { page-break-after: always; color: #000; font-size: 11px; }
+  #pr-print-document .pr-ps:last-child { page-break-after: auto; }
+  #pr-print-document table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  #pr-print-document th, #pr-print-document td { border: 1px solid #333; padding: 3px 6px; text-align: left; }
+  #pr-print-document td.r, #pr-print-document th.r { text-align: right; }
+  #pr-print-document thead { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>
+<div id="pr-print-document" class="print-only"></div>
+
+<div id="pr-list-view" class="no-print space-y-6">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-money-check-dollar text-blue-500"></i> Payroll</h2></div>
     <button id="pr-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New payroll run</button>
@@ -18,7 +34,7 @@
   </div></div>
 </div>
 
-<div id="pr-run-view" class="hidden space-y-5">
+<div id="pr-run-view" class="no-print hidden space-y-5">
   <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
     <div class="flex items-center gap-3">
       <button id="pr-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
@@ -27,12 +43,25 @@
     </div>
     <div class="flex gap-2">
       <button id="pr-copy" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy to Excel</button>
+      <button id="pr-print-all" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print payslips</button>
+      <button id="pr-reverse" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-rotate-left"></i> Reverse</button>
+      <button id="pr-post" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-book"></i> Post</button>
       <button id="pr-delete" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Delete run</button>
-      <button id="pr-recalc" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-rotate"></i> Recalculate</button>
+      <button id="pr-recalc" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-rotate"></i> Recalculate</button>
+      <button id="pr-submit" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-paper-plane"></i> Submit</button>
     </div>
   </div>
   <p id="pr-info" class="text-xs text-slate-400"></p>
   <p id="pr-leave-note" class="hidden text-xs text-amber-400"></p>
+  <p id="pr-state-note" class="hidden text-xs"></p>
+  <div id="pr-approval" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Approval</div>
+    <ul id="pr-levels" class="text-sm space-y-1"></ul>
+    <div id="pr-decide" class="hidden flex gap-2">
+      <button id="pr-approve" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-check"></i> Approve</button>
+      <button id="pr-reject" class="bg-slate-800 hover:bg-slate-700 text-sm text-red-400 px-4 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-xmark"></i> Reject</button>
+    </div>
+  </div>
   <div id="pr-totals" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
 
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
@@ -41,7 +70,8 @@
 
   <div id="pr-slip" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
     <div class="flex items-center justify-between"><div class="text-sm font-semibold text-slate-200" id="pr-slip-heading"></div>
-      <button id="pr-slip-close" class="text-xs text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i> Close</button></div>
+      <div class="flex gap-3"><button id="pr-slip-print" class="text-xs text-slate-400 hover:text-slate-200"><i class="fa-solid fa-print"></i> Print this payslip</button>
+      <button id="pr-slip-close" class="text-xs text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i> Close</button></div></div>
     <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase">
       <th class="py-1 pr-4">Element</th><th class="py-1 pr-4">How</th><th class="py-1 pr-4 text-right">Earnings</th><th class="py-1 text-right">Deductions</th></tr></thead>
       <tbody id="pr-slip-body" class="divide-y divide-slate-700"></tbody><tfoot id="pr-slip-foot"></tfoot></table></div>
@@ -65,6 +95,10 @@
       <button id="pr-in-paste-apply" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-1.5 rounded">Add these rows</button>
     </div>
   </div>
+  <div id="pr-history-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div class="text-xs font-semibold text-slate-400 uppercase mb-2">History</div>
+    <ul id="pr-history" class="text-xs text-slate-400 space-y-1"></ul>
+  </div>
   <textarea id="pr-copy-staging" class="hidden"></textarea>
 </div>
 
@@ -83,6 +117,7 @@
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   let companies = [], list = null, current = null, isDirty = false, loadSeq = 0;
+  const STATUS = { Draft: 'Draft', PendingApproval: 'Pending approval', Approved: 'Approved, waiting to post', Posted: 'Posted' };
   const coLabel = id => { const c = companies.find(x => x.CompanyID === id); return c ? (c.CompanyRefCode || c.LegalName) : id; };
 
   // ---------- the list ----------
@@ -95,7 +130,7 @@
         '<td class="py-2 px-3">' + escapeHtml(x.Month) + '</td><td class="py-2 px-3">' + escapeHtml(coLabel(x.CompanyID)) + '</td><td class="py-2 px-3 text-right">' + x.Employees + '</td>' +
         '<td class="py-2 px-3 text-right">' + money(x.Earnings) + '</td><td class="py-2 px-3 text-right">' + money(x.Deductions) + '</td><td class="py-2 px-3 text-right font-semibold">' + money(x.Net) + '</td>' +
         '<td class="py-2 px-3 text-xs ' + (x.Warnings ? 'text-amber-400' : 'text-slate-500') + '">' + (x.Warnings ? x.Warnings + ' employee' + (x.Warnings === 1 ? '' : 's') : '—') + '</td>' +
-        '<td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(x.Status) + '</td></tr>').join('')
+        '<td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(STATUS[x.Status] || x.Status) + '</td></tr>').join('')
         : '<tr><td colspan="8" class="py-6 px-3 text-center text-xs text-slate-500">No payroll runs yet.</td></tr>';
       $('pr-runs-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openRun(tr.dataset.id)));
     }, err => appAlert(err.message || 'Unable to load the payroll runs.'));
@@ -122,12 +157,29 @@
   function renderRun() {
     const r = current, run = r.run, draft = r.canDraft;
     $('pr-heading').textContent = 'Payroll — ' + coLabel(run.CompanyID) + ' · ' + run.Month;
-    $('pr-status').textContent = run.Status;
+    $('pr-status').textContent = STATUS[run.Status] || run.Status;
     $('pr-info').textContent = 'Daily rate: ' + r.methodLabel + '. Calculated ' + (run.CalculatedAt || '') + (run.CalculatedByName ? ' by ' + run.CalculatedByName : '') + '.';
     $('pr-leave-note').classList.toggle('hidden', !r.leaveChanged);
     $('pr-leave-note').textContent = r.leaveLocked ? 'The month\'s leave was reopened and locked again since this run was calculated: recalculate to take in the changes.'
       : 'The month\'s leave has been reopened: lock it again (Leave Register → Month close), then recalculate.';
-    $('pr-recalc').classList.toggle('hidden', !draft); $('pr-delete').classList.toggle('hidden', !draft);
+    $('pr-recalc').classList.toggle('hidden', !draft); $('pr-delete').classList.toggle('hidden', !draft); $('pr-submit').classList.toggle('hidden', !draft);
+    $('pr-post').classList.toggle('hidden', !(run.Status === 'Approved' && r.canPost));
+    $('pr-reverse').classList.toggle('hidden', !(run.Status === 'Posted' && r.canPost));
+    // Where the run stands: posted (its journal), a rejection, a failed posting.
+    const note = run.Status === 'Posted' ? ['text-emerald-400', 'Posted: journal ' + run.JVNumber + ', dated the month\'s last day.']
+      : run.Status === 'Approved' && run.PostError ? ['text-red-400', 'Approved, but not posted: ' + run.PostError + (r.canPost ? ' Fix it, then Post.' : '')]
+      : run.Status === 'Draft' && run.RejectedReason ? ['text-red-400', 'Rejected: ' + run.RejectedReason + '. Correct the run and submit it again.'] : null;
+    $('pr-state-note').className = 'text-xs ' + (note ? note[0] : 'hidden');
+    $('pr-state-note').textContent = note ? note[1] : '';
+    const a = r.approval;
+    $('pr-approval').classList.toggle('hidden', !(a && run.Status === 'PendingApproval'));
+    if (a) {
+      $('pr-levels').innerHTML = a.Levels.map(l => { const d = a.Decisions.find(x => x.LevelNumber === l.LevelNumber);
+        return '<li>Level ' + l.LevelNumber + ': ' + (d ? escapeHtml(d.Decision + ' by ' + d.ApproverName + ' ' + d.DecidedAt) : '<span class="text-amber-400">waiting</span>') + '</li>'; }).join('');
+      $('pr-decide').classList.toggle('hidden', !a.MyLevels.length);
+    }
+    $('pr-history-wrap').classList.toggle('hidden', !(run.History || []).length);
+    $('pr-history').innerHTML = (run.History || []).slice().reverse().map(h => '<li>' + escapeHtml(h.At + ' — ' + h.Event + ' by ' + h.By + (h.JVNumber ? ' (' + h.JVNumber + (h.ReversalJVNumber ? ', reversed by ' + h.ReversalJVNumber : '') + ')' : '') + (h.Note ? ': ' + h.Note : '')) + '</li>').join('');
     const tile = (label, v, cls) => '<div class="bg-slate-800 border border-slate-700 rounded-xl p-3"><div class="text-xs text-slate-400">' + label + '</div><div class="text-lg font-semibold ' + (cls || 'text-slate-100') + '">' + v + '</div></div>';
     $('pr-totals').innerHTML = tile('Employees', run.Employees) + tile('Earnings', money(run.Earnings)) + tile('Deductions', money(run.Deductions)) + tile('Net pay', money(run.Net), 'text-emerald-400');
     const cols = run.Columns || [];
@@ -157,6 +209,7 @@
       '<tr class="font-semibold"><td class="py-1 pr-4" colspan="3">Net pay</td><td class="py-1 text-right ' + (s.Net < 0 ? 'text-red-400' : 'text-emerald-400') + '">' + money(s.Net) + '</td></tr>';
     $('pr-slip-terms').textContent = (s.Terms || []).length ? 'Agreed terms: ' + s.Terms.map(t => t.Name + ' ' + (t.Basis === 'Percent' ? t.Value + '%' : money(t.Value)) + (t.Of ? ' of ' + t.Of : '') + ', ' + String(t.Frequency).toLowerCase()).join('; ') : '';
     $('pr-slip-warnings').innerHTML = s.Warnings.map(w => '<li><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(w) + '</li>').join('');
+    $('pr-slip').dataset.emp = empId;
     $('pr-slip').classList.remove('hidden');
   }
 
@@ -209,6 +262,49 @@
       .then(() => { b.disabled = false; });
   }
 
+  // ---------- submit, approve, post, reverse ----------
+  function after(p, what) {
+    return p.then(r => { if (r && r.postError) appAlert('Approved, but not posted: ' + r.postError); return openRun(current.run.RunID); }, err => appAlert(err.message || 'Unable to ' + what + '.'));
+  }
+  function submitRun() {
+    const go = () => after(call('submitPayrollRun', { runId: current.run.RunID }), 'submit the run');
+    if (!isDirty) return go();
+    appConfirm('Submit without saving the inputs you changed?').then(ok => { if (ok) go(); });
+  }
+  function decide(decision) {
+    const level = current.approval.MyLevels[0];
+    if (decision === 'Approved') return after(call('decidePayrollApproval', { runId: current.run.RunID, levelNumber: level, decision }), 'approve');
+    appPrompt('Reason for rejecting:', '').then(reason => { if (reason !== null) after(call('decidePayrollApproval', { runId: current.run.RunID, levelNumber: level, decision, reason }), 'reject'); });
+  }
+  function reverseRun() {
+    appPrompt('Reverse ' + current.run.JVNumber + ' and take the run back to draft. Reason:', '').then(reason => {
+      if (reason !== null) after(call('reversePayrollRun', { runId: current.run.RunID, reason }), 'reverse the run');
+    });
+  }
+
+  // ---------- payslips (decision 19): one per page, through the browser's print ----------
+  function payslipHtml(p, s) {
+    const rows = kind => s.Lines.filter(l => l.Kind === kind).map(l => '<tr><td>' + escapeHtml(l.Name) + '</td><td>' + escapeHtml(l.Text) + '</td><td class="r">' + money(l.Amount) + '</td></tr>').join('') || '<tr><td colspan="3">—</td></tr>';
+    const info = (k, v) => '<tr><th>' + k + '</th><td>' + escapeHtml(v || '') + '</td></tr>';
+    return '<div class="pr-ps"><h1 style="font-size:16px;font-weight:bold">' + escapeHtml(p.company.Name) + '</h1>' + (p.company.Address ? '<div>' + escapeHtml(p.company.Address) + '</div>' : '') +
+      '<h2 style="font-size:13px;font-weight:bold;margin-top:6px">Payslip — ' + escapeHtml(p.month) + (p.status !== 'Posted' ? ' (' + escapeHtml(STATUS[p.status] || p.status) + ', not final)' : '') + '</h2>' +
+      '<table><tbody>' + info('Employee', s.EmployeeNo + ' · ' + s.EmployeeName) + info('Designation', s.Designation) + info('Cost center', s.CostCenterName) + info('Joined', s.JoinDate) +
+      info('Bank', [s.BankName, s.IBAN].filter(Boolean).join(' · ')) + '</tbody></table>' +
+      '<table><thead><tr><th>Earnings</th><th>How</th><th class="r">Amount</th></tr></thead><tbody>' + rows('Earning') + '<tr><th colspan="2">Total earnings</th><th class="r">' + money(s.Earnings) + '</th></tr></tbody></table>' +
+      '<table><thead><tr><th>Deductions</th><th>How</th><th class="r">Amount</th></tr></thead><tbody>' + rows('Deduction') + '<tr><th colspan="2">Total deductions</th><th class="r">' + money(s.Deductions) + '</th></tr></tbody></table>' +
+      '<table><tbody><tr><th>Net pay</th><th class="r">' + money(Math.max(0, s.Net)) + '</th></tr>' + (s.Net < 0 ? '<tr><td>Shortfall recovered next month</td><td class="r">' + money(-s.Net) + '</td></tr>' : '') + '</tbody></table>' +
+      '<table><thead><tr><th>Year to date</th><th class="r">Earnings</th><th class="r">Deductions</th><th class="r">Net</th></tr></thead><tbody><tr><td>' + escapeHtml(p.month.slice(0, 4)) + '</td><td class="r">' + money(s.YTD.Earnings) +
+      '</td><td class="r">' + money(s.YTD.Deductions) + '</td><td class="r">' + money(s.YTD.Net) + '</td></tr></tbody></table>' +
+      (s.Leave.length ? '<table><thead><tr><th>Leave balance at ' + escapeHtml(p.monthEnd) + '</th><th class="r">Days</th></tr></thead><tbody>' + s.Leave.map(l => '<tr><td>' + escapeHtml(l.Name) + '</td><td class="r">' + l.Balance + '</td></tr>').join('') + '</tbody></table>' : '') +
+      '</div>';
+  }
+  function printPayslips(employeeId) {
+    call('getPayrollPayslips', { runId: current.run.RunID, employeeId: employeeId || '' }).then(p => {
+      $('pr-print-document').innerHTML = p.slips.map(s => payslipHtml(p, s)).join('');
+      window.print();
+    }, err => appAlert(err.message || 'Unable to load the payslips.'));
+  }
+
   // Tab-separated, so a paste into Excel lands each field in its own cell.
   function copyToExcel() {
     const r = current, cols = r.run.Columns || [];
@@ -234,6 +330,13 @@
     $('pr-new-create').addEventListener('click', createRun);
     $('pr-back').addEventListener('click', () => { if (!isDirty) return showList(); appConfirm('Leave without saving the inputs?').then(ok => { if (ok) showList(); }); });
     $('pr-slip-close').addEventListener('click', () => $('pr-slip').classList.add('hidden'));
+    $('pr-slip-print').addEventListener('click', () => printPayslips($('pr-slip').dataset.emp));
+    $('pr-print-all').addEventListener('click', () => printPayslips(''));
+    $('pr-submit').addEventListener('click', submitRun);
+    $('pr-approve').addEventListener('click', () => decide('Approved'));
+    $('pr-reject').addEventListener('click', () => decide('Rejected'));
+    $('pr-post').addEventListener('click', () => after(call('postPayrollRun', { runId: current.run.RunID }), 'post the run'));
+    $('pr-reverse').addEventListener('click', reverseRun);
     $('pr-copy').addEventListener('click', copyToExcel);
     $('pr-recalc').addEventListener('click', () => {
       const go = () => call('recalculatePayrollRun', { runId: current.run.RunID }).then(() => openRun(current.run.RunID), err => appAlert(err.message || 'Unable to recalculate.'));
@@ -260,7 +363,7 @@
     const pending = window.__pendingModuleParams;
     window.__pendingModuleParams = null;
     call('getActiveCompanies', {}).then(r => { companies = r || []; return loadList(); }, err => appAlert(err.message || 'Unable to load the companies.'))
-      .then(() => { if (pending && pending.RunID) return openRun(pending.RunID); });
+      .then(() => { const id = pending && (pending.OpenEntryId || pending.RunID); if (id) return openRun(id); });
   };
 })();
 </script>

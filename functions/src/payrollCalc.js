@@ -169,11 +169,37 @@ function computeEmployee(x) {
     lines.push({ ElementID: el.ElementID, Code: el.Code, Name: el.Name, Kind: el.Kind, Source: 'Input', Amount: amount, Text: textOut + (i.Note ? ' — ' + i.Note : '') });
   });
 
+  // Back pay and a shortfall brought forward (step 3), worked out by the run.
+  (x.extra || []).forEach(l => lines.push(l));
+
   const earnings = round2(lines.filter(l => l.Kind === 'Earning').reduce((s, l) => s + l.Amount, 0));
   const deductions = round2(lines.filter(l => l.Kind === 'Deduction').reduce((s, l) => s + l.Amount, 0));
   const net = round2(earnings - deductions);
-  if (net < 0) warnings.push('Negative net: the deductions are ' + money(-net) + ' more than the earnings.');
+  if (net < 0) warnings.push('Negative net: the deductions are ' + money(-net) + ' more than the earnings. It is paid as 0 and the shortfall is recovered in the next run.');
   return { Lines: lines, Earnings: earnings, Deductions: deductions, Net: net, Basic: basic, Gross: gross, Terms: ref ? ref.Terms || [] : [], Warnings: warnings };
 }
 
-module.exports = { accountFor, METHODS, divisor, dailyRate, dailyText, overtimeRate, daysInMonth, daysInYear, SYSTEM, versionOn, computeEmployee, monthEnd };
+// Back pay (decision 10): a posted month worked out again with the pay now
+// in force (fixed elements and leave), less what was paid for it (its own
+// lines and arrears already paid). One line per element that differs.
+// recomputed: computeEmployee's result for that month; paid: the lines
+// already paid for it.
+function arrearsFor(month, recomputed, paid, elements) {
+  const sum = (list, id) => list.filter(l => l.ElementID === id).reduce((t, l) => t + l.Amount, 0);
+  const now = recomputed.Lines.filter(l => l.Source === 'Fixed' || l.Source === 'Leave');
+  const was = paid.filter(l => l.Source === 'Fixed' || l.Source === 'Leave' || l.Source === 'Arrears');
+  const ids = [...new Set(now.concat(was).map(l => l.ElementID))];
+  const out = [];
+  ids.forEach(id => {
+    const a = round2(sum(now, id)), b = round2(sum(was, id));
+    const d = round2(a - b);
+    if (!d) return;
+    const l = now.concat(was).find(y => y.ElementID === id);
+    const el = (elements || {})[id] || l;
+    out.push({ ElementID: id, Code: el.Code || l.Code, Name: (el.Name || l.Name) + ' arrears', Kind: l.Kind, Source: 'Arrears', ForMonth: month, Amount: d,
+      Text: month + ': paid ' + money(b) + ', now ' + money(a) });
+  });
+  return out;
+}
+
+module.exports = { accountFor, METHODS, divisor, dailyRate, dailyText, overtimeRate, daysInMonth, daysInYear, SYSTEM, versionOn, computeEmployee, monthEnd, arrearsFor };

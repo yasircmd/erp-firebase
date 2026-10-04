@@ -21,7 +21,8 @@ const STOCK_TRANSACTION_PREFIXES = {
   FAAuCCost: 'FAA', FAAuCSettlement: 'FAS', // Capital Work in Progress: cost in, settlement out
   RecurringJV: 'RJV', // hand-written module, docs/modules/RECURRING_JOURNAL.md: a run and its reversal
   // hand-written module, docs/modules/OPENING_BALANCES.md: GL and open invoices; opening stock
-  OpeningBalance: 'OB', OpeningStock: 'OS'
+  OpeningBalance: 'OB', OpeningStock: 'OS',
+  Payroll: 'PAY' // hand-written module, docs/modules/HR_PAYROLL.md: a run and its reversal
 };
 
 function userCanAccessCompany(profile, companyId) {

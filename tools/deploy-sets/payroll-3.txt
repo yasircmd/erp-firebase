@@ -1,0 +1,42 @@
+# HR Payroll, step 3: approval, posting, payslips, reversal (owner
+# 2026-10-04; docs/modules/HR_PAYROLL.md, decisions 9-11 and 16-19). Run
+# with --screens (PAYROLL: submit, approve, post, reverse, print payslips;
+# HRSETUP: Recoverable from employees). No Hosting change. Then, in the
+# app: HR Setup → Payroll, each company's Recoverable from employees (an
+# asset account); Approval Configuration → "Payroll run (the amount is the
+# net pay)" if runs need approval; Roles & Permissions → Payroll "post"
+# (to reverse runs).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+submitPayrollRun
+decidePayrollApproval
+postPayrollRun
+reversePayrollRun
+getPayrollPayslips
+# Changed: the run brings forward a shortfall and pays back pay; it shows
+# its approval and history; the setup takes Recoverable from employees.
+getPayrollRuns
+createPayrollRun
+getPayrollRun
+savePayrollInputs
+recalculatePayrollRun
+deletePayrollRun
+getPayrollSetup
+savePayrollCompany
+# The leave of a submitted or posted run stays locked.
+reopenLeaveMonth
+# Approvals and Home tasks: the new document in their registries.
+getApprovalConfigurations
+saveApprovalConfiguration
+saveApprovalLevels
+getApprovalHistory
+getDelegationCandidates
+delegateApproval
+delegateApprovalsOf
+getPendingApprovalsForUser
+getMyRejectedSubmissions
+getMyDraftsForUser
+# Registries: the module's new "post" right; the screen.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+getModuleFragment
