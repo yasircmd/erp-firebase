@@ -1,6 +1,6 @@
 # HR: Payroll
 
-Status: **design agreed** (the owner's decisions 2026-10-04, below); **steps 0 to 2 built and tested** (see As built); step 3 next.
+Status: **design agreed** (the owner's decisions 2026-10-04, below); **steps 0 to 3 built and tested** (see As built); step 4 next.
 
 It builds on Employee Records (docs/modules/HR_EMPLOYEES.md) and the
 Attendance and Leave Register (docs/modules/HR_LEAVE.md), and is the last
@@ -635,3 +635,112 @@ So "post" (the new Payroll right) is needed only to reverse. Only the
 company's latest posted run can be reversed, since a later run may have
 recovered amounts this one carried forward.
 
+## As built: step 3, approval, posting, payslips, reversal (2026-10-04)
+
+**Submit** (Payroll "draft"):
+- the run's leave must still be as calculated; recalculate first if it
+  changed;
+- every GL account is checked first. A missing one (an element, a
+  system deduction, Salaries Payable, or Recoverable from employees when
+  needed) is listed, to set in HR Setup → Payroll;
+- the run then goes through Approval Configuration → "Payroll run (the
+  amount is the net pay)" (decision 11). It shows on the approvers' Home
+  and opens the run;
+- an approver can reject it, with a reason. It goes back to draft and
+  shows the reason;
+- **the final approval posts it at once** (decision 16). With no approval
+  set up, submitting does. The approver posts on behalf of the
+  submitter, if the approver doesn't have the company;
+- if posting fails at that point (e.g. an account was removed after the
+  submit), the run stays "Approved, waiting to post" with the error. A
+  user with the "post" right posts it once the problem is fixed.
+
+**The journal**, voucher type Payroll (prefix PAY):
+- one per run, dated **the payroll month's last day** (decision 17);
+- it goes through the common path, so lines are clubbed by account,
+  side, cost center and description:
+  - Dr each earning's account (the element's, or the company's
+    override), **by the employee's cost center**;
+  - Cr each deduction's account (the fixed deductions, the leave
+    deductions, the one-offs). It's split by cost center when the account
+    needs one (expense), else one line;
+  - arrears go to the element's own account;
+  - Cr Salaries Payable: the net pay;
+  - Dr Recoverable from employees: a net shortfall (decision 9). Next
+    month's "Brought forward" line credits it back.
+
+**A negative net** (decision 9):
+- it is paid as 0, and the slip keeps the shortfall (CarryForward);
+- the employee's next run deducts it as "Brought forward" ("Net
+  shortfall from Jul-2026"). If that one is short too, it carries again.
+
+**Back pay** (decision 10). Each posted month of the company is worked
+out again for an employee whose pay changed after it was posted (a
+version created later and effective in or before that month). This
+covers an approved Employee Change or a Correction:
+- the fixed elements and the leave deductions are recomputed, with the
+  pay now in force;
+- the difference from what was paid for that month (its slip, and
+  arrears already paid for it) is one "arrears" line per element. For
+  example, "Basic Salary arrears: Jul-2026: paid 6,000.00, now 6,600.00",
+  and "Unpaid leave arrears" when a day's rate changed;
+- inputs (overtime, bonus) aren't recomputed;
+- arrears may be negative (a cut).
+
+**The leave month** of a submitted, approved or posted run can't be
+reopened. Leave entered later is paid in the next month, as before.
+
+**Reversal** (Payroll "post", new right):
+- with a reason, the company's latest posted run only. A later run may
+  have recovered a shortfall this one carried;
+- a mirror journal on the same date;
+- the run goes back to draft with its inputs (decision 18): correct,
+  recalculate, submit again;
+- a run marked paid (step 4) can't be reversed.
+
+**Payslips** (decision 19), printed from the run (all, or one), one per
+page, through the browser's print (Save as PDF). Each shows:
+- the company and the month ("not final" until posted);
+- the employee: no., name, designation, cost center, joining date, bank
+  and IBAN with the middle masked;
+- the earnings and deductions with how each was worked out, including
+  arrears and brought forward, and the net pay;
+- the year to date: this run plus the year's earlier posted runs;
+- each leave balance at the month's end.
+
+**The screen** also shows:
+- the status and the state ("Posted: journal PAY-…", "Rejected: …",
+  "Approved, but not posted: …");
+- the approval levels, with Approve and Reject for the approver;
+- Post and Reverse, for the post right;
+- the run's history.
+
+**HR Setup → Payroll** gains each company's **Recoverable from
+employees**, an asset account.
+
+**Behind it:**
+- `payrollPost.js`: `submitPayrollRun`, `decidePayrollApproval`,
+  `postPayrollRun`, `reversePayrollRun`, `getPayrollPayslips`, and
+  `glLinesFor`;
+- `payrollCalc.arrearsFor`, and the run's `extra` lines;
+- `payrollRun.calculate`: brought forward and back pay;
+- `hrLeaveClose.reopenLeaveMonth`: the payroll check;
+- approval registry entry `PAYROLL` (storage `payrollRuns`); Home
+  drafts; voucher prefix `Payroll: PAY`.
+
+**Tests:**
+- `payrollCalc.test.js` (10);
+- the `payrollPost` suite (5);
+- `payrollPost.ui.js` (4);
+- negative controls (see the PR).
+
+**To go live:**
+1. Deploy "functions set" `payroll-3`, with the screens.
+2. In HR Setup → Payroll, set each company's Recoverable from employees.
+3. If runs need approval: Approval Configuration → "Payroll run".
+4. Roles & Permissions: Payroll "post", for those who may reverse runs.
+
+**Next:** step 4, payment: the WPS SIF file and the bank list, marking
+the run paid (Dr Salaries Payable / Cr bank), advances and loans. The
+owner's WPS details are needed: employer ID, bank routing code, and
+ideally a sample SIF.
