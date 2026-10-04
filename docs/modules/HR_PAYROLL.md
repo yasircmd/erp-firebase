@@ -1,6 +1,6 @@
 # HR: Payroll
 
-Status: **design agreed** (the owner's decisions 2026-10-04, below); step 0 next.
+Status: **design agreed** (the owner's decisions 2026-10-04, below); **step 0 built and tested** (see As built); step 1 next.
 
 It builds on Employee Records (docs/modules/HR_EMPLOYEES.md) and the
 Attendance and Leave Register (docs/modules/HR_LEAVE.md), and is the last
@@ -235,4 +235,64 @@ HR module planned.
 (provisions and final settlement) posts provisions with each run from the
 start, so step 3's posting is built to add them in step 5 without
 changing the run.
+
+## As built: step 0, work schedules (2026-10-04)
+
+**HR Setup → Work Schedules** (new tab), for employees whose weekend or
+hours differ from their company's:
+- each schedule has a name, the weekend days (up to three, any days) and
+  the hours in a working day (1–24, in quarter hours);
+- names are unique;
+- once employees work a schedule its weekend can't change (leave already
+  counted by it). Add a new schedule and move them to it from a date. Its
+  hours can change.
+
+**The company's own schedule** is its Working Calendar:
+- the weekend, as before;
+- **hours in a working day**, new, 8 to start.
+
+Holidays stay per company.
+
+**An employee's schedule** (`ScheduleID`; empty means the company's):
+- **set on the record** when the employee is created, or in the
+  Employees import ("Work Schedule" column, by name);
+- after creation, like the grade, it changes only through:
+  - **an Employee Change (Transfer):** a Transfer may now change only
+    the work schedule, from its effective date;
+  - **Correct** (HR Setup admins, with a reason): this fixes the schedule
+    in force now.
+- **kept by date** on the record (`Schedules`: from-date and schedule).
+  - The record shows them ("from 01/01/2025: Six-day · from 01/04/2026:
+    Company working calendar").
+  - A Transfer's new schedule counts from its effective date as soon as
+    it is approved, so leave booked ahead is counted by it.
+
+**Leave counts by it** (decision 1):
+- working days in a leave, its first and last day, and a late return's
+  absent days all use the weekend of the schedule **in force on each
+  day**, with the company's holidays;
+- a leave across a schedule change counts each side by its own weekend;
+- leave already saved keeps its days.
+
+**Who is away** (Leave Reports) shades each employee's own days off.
+
+**Behind it:**
+- `hrSetup.js`: `saveHrWorkSchedule`, and the schedules in the setup.
+- `hrEmployees.js`: the field and its dated list.
+- `hrChanges.js`: Transfer.
+- `hrLeaveSetup.calendarFor(employee)`, and `workCalendar.weekendOn`.
+- `masterImport.js`: the column.
+
+**Tests:**
+- The `hrSchedules` suite (4) and `hrSchedules.ui.js` (3).
+- Nine negative controls (see the PR).
+- The browser-dialog guard also caught a quote in Leave Reports' note.
+
+**To go live:**
+1. Deploy "functions set" `payroll-0`, with the screens.
+2. In HR Setup → Work Schedules, add schedules for those who differ, and
+   give them to the staff concerned (Employee Change, Transfer, from a
+   date).
+
+**Next:** step 1, payroll setup.
 

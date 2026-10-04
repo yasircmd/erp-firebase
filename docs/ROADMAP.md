@@ -422,7 +422,14 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - automatic back pay;
   - approval through Approval Configuration.
 
-  Six build steps. **Next:** step 0, work schedules.
+  Six build steps.
+  - **Step 0 built and tested 2026-10-04**, not yet live: work schedules
+    (HR Setup tab; the company's hours a day; an employee's schedule by
+    date, set on the record or import, changed by a Transfer, fixed by
+    Correct; leave counted by the schedule in force each day). Tests:
+    `hrSchedules` suite (4), `hrSchedules.ui.js` (3). To go live:
+    "functions set" `payroll-0` with the screens.
+  - **Next:** step 1, payroll setup.
 - [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type
