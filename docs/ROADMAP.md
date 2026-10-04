@@ -404,6 +404,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
+- [ ] **HR: Payroll** (owner, 2026-10-04; [HR_PAYROLL.md](modules/HR_PAYROLL.md)).
+  The owner's points: a daily-rate method per company (÷30, ÷ month days,
+  ×12÷365/366); each element linked to GL with the employee's cost
+  center, lines clubbed as inventory; overtime fixed or by hours
+  (base ÷ days ÷ hours × weightage); work schedules (any weekend, six-day
+  weeks) per employee. **Design written 2026-10-04**, waiting for the
+  owner's answers to its open questions.
 - [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type
