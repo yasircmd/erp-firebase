@@ -1,6 +1,6 @@
 # HR: Attendance and Leave Register
 
-Status: **design agreed** (owner's decisions 2026-10-03, below); **steps 1–3 built and tested** (see As built); step 4 next. Comes
+Status: **design agreed** (owner's decisions 2026-10-03, below); **steps 1–4 built and tested** (see As built): the module is complete. Comes
 before Payroll (docs/modules/HR_PAYROLL.md, to come), which reads its
 results.
 
@@ -676,4 +676,70 @@ Both default to Admin.
 **Next:** step 4: reports (balances, the register, absences), the Home
 blocks (on leave today, returning, overdue returns) and the who-is-away
 calendar.
+
+## As built: step 4, reports and Home (2026-10-04)
+
+**Leave Reports** (new screen and module `LEAVEREPORTS`, menu node "Leave
+Reports"; right: access, Admin and Finance Manager to start). Four tabs,
+for one company or all the user's companies, each with **Copy to Excel**
+(tab-separated, with dates as dd/mm/yyyy):
+- **Balances** on a date: each employee and leave type that uses a balance
+  (opening, accrued, adjusted, taken, booked, available), with the grade.
+  It covers employees who had joined and not left by that date.
+- **Leave register** for a period:
+  - each approved leave with days in it: its dates, the return date, and
+    the days, unpaid days and absent days within the period;
+  - a type filter.
+- **Absences:** the absence entries and late returns with absent days in
+  the period, with their reason. Pending ones are not included.
+- **Who is away** in a month, one company:
+  - a row per employee, a column per day;
+  - approved leave in blue (the type's first letter; ½ for a half day);
+  - pending leave outlined;
+  - absences as a red X;
+  - weekends and public holidays shaded, with the holiday's name on the
+    day;
+  - each employee's days away;
+  - "Only people away" (on to start) or everyone.
+
+**Home** (the shell, hence a Hosting deploy):
+- **On Leave Today:** approved leave or duty with a day today, each with
+  the day they're back. Seen by users with Leave Register or Leave Reports
+  access.
+- **Leave Returns to Record:** approved leave of a "HR confirms the
+  return" type whose expected return (the next working day after it) has
+  come, with no return recorded, and how many days ago. Seen by Leave
+  Register users, who record it.
+- Both are counted in the Home tasks, and each row opens the leave.
+
+**Behind it:**
+- `functions/src/hrLeaveReports.js` (5 callables).
+- The Home blocks in `public/index.html`.
+- A unit test guards their wiring (the Home view's UI checks don't run in
+  the test container).
+
+**Tests:**
+- The `hrLeaveReports` suite (4), `hrLeaveReports.ui.js` (4) and
+  `leaveHomeBlocks.test.js` (3).
+- Ten negative controls caught:
+  - another company's employees in a report;
+  - absent days counted as leave days;
+  - pending leave in the register;
+  - pending not marked in the calendar;
+  - recorded returns still listed;
+  - returns shown to reports-only users;
+  - every past day counted as "on leave today";
+  - Excel copy without rows;
+  - "Only people away" ignored;
+  - the Home blocks not counted.
+
+**To go live:**
+1. Deploy "functions set" `hr-leave-4`, with the screens.
+2. Then the "hosting" task.
+3. Link a menu node to **Leave Reports**, and check its row in Roles &
+   Permissions.
+
+**The Attendance and Leave Register is complete.** Next: Payroll, with its
+own design (docs/modules/HR_PAYROLL.md), reading the locked month
+summaries.
 

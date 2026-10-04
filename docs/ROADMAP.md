@@ -440,7 +440,15 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     twelve negative controls caught. To go live: "functions set"
     `hr-leave-3` with the screens; tick "lock" and "reopen" in Roles &
     Permissions.
-  - **Next:** step 4, reports, Home blocks and the who-is-away calendar.
+  - **Step 4 built and tested 2026-10-04**, not yet live: Leave Reports
+    (balances on a date, the register for a period, absences, who is away
+    in a month; Copy to Excel) and the Home blocks On Leave Today and Leave
+    Returns to Record. Tests: `hrLeaveReports` suite (4),
+    `hrLeaveReports.ui.js` (4), `leaveHomeBlocks.test.js` (3); ten
+    negative controls caught. To go live: "functions set" `hr-leave-4`
+    with the screens, then "hosting"; link the menu node.
+  - **The Attendance and Leave Register is complete.** **Next:** Payroll
+    design (docs/modules/HR_PAYROLL.md), the owner's questions first.
 - [x] **HR: Employee Records** (owner, 2026-10-03;
   [HR_EMPLOYEES.md](modules/HR_EMPLOYEES.md)). **Design agreed
   2026-10-03:** group employee numbers, group grades with company pay

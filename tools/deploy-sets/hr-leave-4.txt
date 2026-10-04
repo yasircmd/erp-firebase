@@ -1,0 +1,18 @@
+# HR: Attendance and Leave Register, step 4: Leave Reports and the Home
+# leave blocks (owner 2026-10-03; docs/modules/HR_LEAVE.md). Order: this
+# functions set with --screens (LEAVEREPORTS, new), then the "hosting" task
+# (public/index.html: the Home blocks "On Leave Today" and "Leave Returns to
+# Record"). Then, in the app: link a menu node to "Leave Reports"; check its
+# row in Roles & Permissions.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getLeaveReportTypes
+getLeaveBalanceReport
+getLeaveRegisterReport
+getLeaveCalendar
+getLeaveTasksForUser
+# Registries: the new module, its permissions, menu node, screen.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment
