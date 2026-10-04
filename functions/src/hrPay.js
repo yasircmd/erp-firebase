@@ -37,6 +37,7 @@ const START = [
   ['BONUS', 'Bonus', 'Earning', 'Variable', false], ['COMM', 'Commission', 'Earning', 'Variable', false]
 ];
 
+const SYSTEM_ELEMENTS = require('./payrollCalc').SYSTEM;
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 150);
 const norm = v => text(v).toLowerCase();
 const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
@@ -46,17 +47,28 @@ const money = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2,
 
 // ---------- Pay Elements ----------
 
-async function elements() {
+// Every element, the system ones included: the deductions for leave and
+// absence a payroll run makes (docs/modules/HR_PAYROLL.md, decision 13),
+// which have a GL account but aren't entered or edited.
+async function allElements() {
   let snap = await ELEMENTS().get();
-  if (snap.empty) {
-    const batch = firestore.batch();
-    START.forEach(([code, name, kind, nature, basic], i) => batch.set(ELEMENTS().doc('pe-' + code.toLowerCase()),
-      { Code: code, Name: name, Kind: kind, Nature: nature, IsBasic: basic, Active: true, Sort: i + 1 }));
-    await batch.commit();
-    snap = await ELEMENTS().get();
+  const have = snap.docs.map(d => d.data());
+  const batch = firestore.batch();
+  let n = 0;
+  if (!have.some(e => !e.System)) {
+    START.forEach(([code, name, kind, nature, basic], i) => { n++; batch.set(ELEMENTS().doc('pe-' + code.toLowerCase()),
+      { Code: code, Name: name, Kind: kind, Nature: nature, IsBasic: basic, Active: true, Sort: i + 1 }); });
   }
+  Object.entries(SYSTEM_ELEMENTS).forEach(([code, x], i) => {
+    if (have.some(e => e.System && e.Code === code)) return;
+    n++;
+    batch.set(ELEMENTS().doc('sys-' + code.toLowerCase()), { Code: code, Name: x.Name, Kind: 'Deduction', Nature: 'Variable', IsBasic: false, Active: true, System: true, Sort: 900 + i });
+  });
+  if (n) { await batch.commit(); snap = await ELEMENTS().get(); }
   return snap.docs.map(d => Object.assign({ ElementID: d.id }, d.data())).sort((a, b) => (a.Sort || 999) - (b.Sort || 999) || a.Code.localeCompare(b.Code));
 }
+// The elements people set up and use (not the system ones).
+async function elements() { return (await allElements()).filter(e => !e.System); }
 
 async function canSetup(user, cap) { return moduleHasCapability('HRSETUP', cap, user.profile.role); }
 
@@ -78,6 +90,7 @@ exports.savePayElement = onCallWithMessages(onCallOptions, async (request) => {
   if (!NATURES.includes(out.Nature)) throw new HttpsError('invalid-argument', 'An element is Fixed (a monthly amount) or Variable (bonus, commission).');
   if (out.IsBasic && (out.Kind !== 'Earning' || out.Nature !== 'Fixed')) throw new HttpsError('invalid-argument', 'The Basic is a fixed earning.');
   const list = await elements();
+  if (SYSTEM_ELEMENTS[out.Code]) throw new HttpsError('already-exists', 'Code "' + out.Code + '" is kept for the payroll\'s own deductions.');
   if (list.some(x => x.ElementID !== e.ElementID && x.Code === out.Code)) throw new HttpsError('already-exists', 'Code "' + out.Code + '" is already in use.');
   if (list.some(x => x.ElementID !== e.ElementID && norm(x.Name) === norm(out.Name))) throw new HttpsError('already-exists', 'There is already an element "' + out.Name + '".');
   const cur = e.ElementID ? list.find(x => x.ElementID === e.ElementID) : null;
@@ -239,6 +252,7 @@ exports.saveCompensation = onCallWithMessages(onCallOptions, async (request) => 
 });
 
 module.exports.elements = elements;
+module.exports.allElements = allElements;
 module.exports.cleanCompensation = clean; // Employee Changes (step 4) use them
 module.exports.versions = versions;
 module.exports.inForce = inForce;

@@ -47,7 +47,7 @@ function payrollOf(e) {
     Category: e.Category || 'Normal', Overtime: e.Overtime || null
   };
 }
-async function payrollElements() { return (await pay.elements()).map(e => Object.assign({}, e, payrollOf(e))); }
+async function payrollElements() { return (await pay.allElements()).map(e => Object.assign({}, e, payrollOf(e))); }
 
 // A postable, active account of the right type(s), shared or the company's.
 function checkAccount(coa, id, label, types, companyId) {

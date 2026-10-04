@@ -1,0 +1,228 @@
+// HR Payroll, step 2: the payroll run (owner, 2026-10-04;
+// docs/modules/HR_PAYROLL.md, "Step 2 design", decisions 12-15).
+//   - One run per company and month, for a month whose leave is locked.
+//     It takes every employee of the company on payroll in the month.
+//   - Each employee's pay by element (payrollCalc.computeEmployee): fixed
+//     elements from the compensation in force (part months by deducting the
+//     days not employed, decision 12), leave and absence on their own
+//     deduction lines (decision 13), and the run's inputs: overtime hours or
+//     amounts, bonus, commission and one-off additions and deductions, each
+//     against a pay element (decision 15).
+//   - A draft in this step: inputs, recalculation, review, delete.
+//     Submitting, approval and posting come in step 3.
+// Module PAYROLL: access to see runs and their amounts (decision 14), draft
+// to make and change them; for the user's own companies.
+'use strict';
+const { HttpsError } = require('firebase-functions/v2/https');
+const { onCallWithMessages } = require('./callable');
+const { rtdb, firestore } = require('./firebaseAdmin');
+const { requireUser, moduleHasCapability } = require('./auth');
+const { userCanAccessCompany } = require('./glWriting');
+const { calendarFor } = require('./hrLeaveSetup');
+const { hoursOn } = require('./workCalendar');
+const lv = require('./hrLeave');
+const pay = require('./hrPay');
+const setup = require('./payrollSetup');
+const calc = require('./payrollCalc');
+
+const onCallOptions = { region: 'us-central1' };
+const RUNS = () => firestore.collection('payrollRuns');
+const SLIPS = runId => RUNS().doc(runId).collection('slips');
+const EMPLOYEES = () => firestore.collection('employees');
+const COMP = () => firestore.collection('employeeCompensation');
+const LEAVES = () => firestore.collection('leaveRequests');
+const MONTHS = () => firestore.collection('leaveMonths');
+
+const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 150);
+const bad = msg => { throw new HttpsError('invalid-argument', msg); };
+const isMonth = v => /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
+const round2 = n => Math.round(n * 100) / 100;
+const actorName = user => user.profile.fullName || user.profile.username || user.uid;
+const docs = snap => snap.docs.map(d => Object.assign({ _id: d.id }, d.data()));
+const byNo = (a, b) => String(a.EmployeeNo).localeCompare(String(b.EmployeeNo));
+
+const can = (user, cap) => moduleHasCapability('PAYROLL', cap, user.profile.role);
+async function requireCap(user, cap) {
+  if (!(await can(user, 'access'))) throw new HttpsError('permission-denied', 'You do not have access to Payroll.');
+  if (cap && !(await can(user, cap))) throw new HttpsError('permission-denied', 'You do not have permission to prepare payroll runs.');
+}
+async function companyFor(user, id) {
+  const co = text(id, 80);
+  if (!co || !userCanAccessCompany(user.profile, co)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  if (!(await rtdb.ref('companies/' + co).get()).exists()) throw new HttpsError('not-found', 'Company not found.');
+  return co;
+}
+async function loadRun(user, id) {
+  const snap = await RUNS().doc(text(id, 120) || '-').get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Payroll run not found.');
+  const run = Object.assign({ RunID: snap.id }, snap.data());
+  if (!userCanAccessCompany(user.profile, run.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  return run;
+}
+const requireDraft = run => { if (run.Status !== 'Draft') throw new HttpsError('failed-precondition', 'The run is ' + run.Status + ': it can no longer change.'); };
+async function leaveMonth(co, month) { return (await MONTHS().doc(co + '_' + month).get()).data() || null; }
+async function requireLocked(co, month) {
+  const rec = await leaveMonth(co, month);
+  if (!rec || rec.Status !== 'Locked') throw new HttpsError('failed-precondition', 'Lock the leave for ' + month + ' first (Leave Register → Month close): the run pays the month\'s locked leave.');
+  return rec;
+}
+// The elements a run's inputs go against: variable, in use, not the system ones.
+const inputElements = els => els.filter(e => e.Nature === 'Variable' && e.Active !== false && !e.System);
+const byHours = e => e.Category === 'Overtime' && e.Overtime && e.Overtime.Mode === 'Hours';
+
+async function companyEmployees(co, month) {
+  const start = month + '-01', end = calc.monthEnd(month);
+  return docs(await EMPLOYEES().where('CompanyID', '==', co).get()).map(e => Object.assign(e, { EmployeeID: e._id }))
+    .filter(e => e.JoinDate && e.JoinDate <= end && !(e.LeavingDate && e.LeavingDate < start)).sort(byNo);
+}
+
+// Works out every employee's pay and writes the run; the inputs entered so
+// far are kept (those of employees no longer on it are dropped).
+async function calculate(run, user, inputsByEmp) {
+  const co = run.CompanyID, month = run.Month, end = calc.monthEnd(month);
+  const locked = await requireLocked(co, month);
+  const [settings, els, emps, existing] = await Promise.all([setup.companySettings(co), setup.payrollElements(), companyEmployees(co, month), docs(await SLIPS(run.RunID).get())]);
+  const elements = Object.fromEntries(els.map(e => [e.ElementID, e]));
+  const system = Object.fromEntries(els.filter(e => e.System).map(e => [e.Code, e]));
+  const inputs = inputsByEmp || Object.fromEntries(existing.map(s => [s.EmployeeID, s.Inputs || []]));
+  const ids = new Set(emps.map(e => e.EmployeeID));
+  const versions = {};
+  docs(await COMP().get()).forEach(v => { if (ids.has(v.EmployeeID)) (versions[v.EmployeeID] = versions[v.EmployeeID] || []).push(v); });
+  const leave = {};
+  docs(await LEAVES().where('CompanyID', '==', co).get()).filter(l => l.Status === 'Approved' || l.Status === 'Cancelled')
+    .forEach(l => (l.Lines || []).filter(x => lv.payMonthOf(x) === month).forEach(x => (leave[l.EmployeeID] = leave[l.EmployeeID] || []).push(x)));
+  const bands = {};
+  const slips = [];
+  for (const e of emps) {
+    const cal = await calendarFor(e);
+    const r = calc.computeEmployee({ month, method: settings.DailyRateMethod, emp: e, versions: versions[e.EmployeeID] || [], elements,
+      leave: leave[e.EmployeeID] || [], inputs: inputs[e.EmployeeID] || [], hoursPerDay: hoursOn(cal, e.LeavingDate && e.LeavingDate < end ? e.LeavingDate : end), system });
+    if (!e.IBAN) r.Warnings.push('No bank account / IBAN on the employee record.');
+    const key = (e.GradeID || '') + '|' + co;
+    if (!(key in bands)) bands[key] = await pay.band(e);
+    const bw = pay.bandWarning(r.Basic || null, bands[key]);
+    if (bw) r.Warnings.push(bw);
+    slips.push(Object.assign({ EmployeeID: e.EmployeeID, EmployeeNo: e.EmployeeNo || '', EmployeeName: e.FullName || '', CostCenterID: e.CostCenterID || '',
+      JoinDate: e.JoinDate, LeavingDate: e.LeavingDate || '', Inputs: inputs[e.EmployeeID] || [] }, r));
+  }
+  // The register's columns: earnings, then deductions, in the elements' order.
+  const used = new Set();
+  slips.forEach(s => s.Lines.forEach(l => used.add(l.ElementID)));
+  const order = els.map(e => e.ElementID);
+  const columns = [...used]
+    .map(id => { const l = slips.reduce((f, s) => f || s.Lines.find(x => x.ElementID === id), null); return { ElementID: id, Code: l.Code, Name: l.Name, Kind: l.Kind, Order: l.Kind === 'Deduction' ? 1 : 0, Sort: order.indexOf(id) }; })
+    .sort((a, b) => a.Order - b.Order || a.Sort - b.Sort).map(c => { delete c.Order; delete c.Sort; return c; });
+  const totals = slips.reduce((t, s) => ({ Earnings: t.Earnings + s.Earnings, Deductions: t.Deductions + s.Deductions, Net: t.Net + s.Net }), { Earnings: 0, Deductions: 0, Net: 0 });
+  const now = new Date().toISOString();
+  const keep = new Set(slips.map(s => s.EmployeeID));
+  const writes = slips.map(s => b => b.set(SLIPS(run.RunID).doc(s.EmployeeID), s))
+    .concat(existing.filter(s => !keep.has(s.EmployeeID)).map(s => b => b.delete(SLIPS(run.RunID).doc(s._id))));
+  for (let i = 0; i < writes.length; i += 400) { const b = firestore.batch(); writes.slice(i, i + 400).forEach(w => w(b)); await b.commit(); }
+  const out = { Method: settings.DailyRateMethod, Employees: slips.length, Earnings: round2(totals.Earnings), Deductions: round2(totals.Deductions), Net: round2(totals.Net),
+    Warnings: slips.filter(s => s.Warnings.length).length, Columns: columns, CalculatedAt: now, CalculatedBy: user.uid, CalculatedByName: actorName(user), LeaveLockedAt: locked.LockedAt || '' };
+  await RUNS().doc(run.RunID).update(out);
+  return out;
+}
+
+// ---------- callables ----------
+
+exports.getPayrollRuns = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user);
+  const companies = Object.entries((await rtdb.ref('companies').get()).val() || {}).filter(([id, c]) => c.Status === 'Active' && userCanAccessCompany(user.profile, id)).map(([id]) => id);
+  const runs = docs(await RUNS().get()).filter(r => userCanAccessCompany(user.profile, r.CompanyID))
+    .map(r => ({ RunID: r._id, CompanyID: r.CompanyID, Month: r.Month, Status: r.Status, Employees: r.Employees || 0, Earnings: r.Earnings || 0, Deductions: r.Deductions || 0,
+      Net: r.Net || 0, Warnings: r.Warnings || 0, CalculatedAt: r.CalculatedAt || '' }))
+    .sort((a, b) => b.Month.localeCompare(a.Month) || a.CompanyID.localeCompare(b.CompanyID));
+  return { runs, companies, canDraft: await can(user, 'draft') };
+});
+
+exports.createPayrollRun = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'draft');
+  const d = request.data || {};
+  const co = await companyFor(user, d.companyId);
+  const month = text(d.month, 7);
+  if (!isMonth(month)) bad('Choose the month.');
+  await requireLocked(co, month);
+  const ref = RUNS().doc(co + '_' + month);
+  const run = { CompanyID: co, Month: month, Status: 'Draft', CreatedAt: new Date().toISOString(), CreatedBy: user.uid, CreatedByName: actorName(user) };
+  try { await ref.create(run); } catch (e) {
+    if (e.code === 6 || /already exists/i.test(e.message)) throw new HttpsError('already-exists', 'There is already a payroll run for ' + co + ', ' + month + '.');
+    throw e;
+  }
+  await calculate(Object.assign({ RunID: ref.id }, run), user);
+  return { success: true, runId: ref.id };
+});
+
+exports.getPayrollRun = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user);
+  const run = await loadRun(user, (request.data || {}).runId);
+  const [slips, els, rec] = await Promise.all([docs(await SLIPS(run.RunID).get()), setup.payrollElements(), leaveMonth(run.CompanyID, run.Month)]);
+  // The leave changed since the run was worked out: reopened, or locked again.
+  const leaveChanged = run.Status === 'Draft' && (!rec || rec.Status !== 'Locked' || (rec.LockedAt || '') !== (run.LeaveLockedAt || ''));
+  return {
+    run, slips: slips.map(s => { delete s._id; return s; }).sort(byNo), leaveChanged, leaveLocked: Boolean(rec && rec.Status === 'Locked'),
+    inputElements: inputElements(els).map(e => ({ ElementID: e.ElementID, Code: e.Code, Name: e.Name, Kind: e.Kind, Hours: byHours(e) })),
+    methodLabel: calc.METHODS[run.Method] || '', canDraft: run.Status === 'Draft' && await can(user, 'draft')
+  };
+});
+
+// Replaces the run's inputs with rows typed or pasted from Excel: employee
+// (id or no.), element (id or code), hours (overtime by hours) or amount,
+// and a note. Then works the run out again.
+exports.savePayrollInputs = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'draft');
+  const d = request.data || {};
+  const run = await loadRun(user, d.runId);
+  requireDraft(run);
+  const rows = Array.isArray(d.rows) ? d.rows : [];
+  if (rows.length > 5000) bad('At most 5,000 inputs.');
+  const [slips, els] = await Promise.all([docs(await SLIPS(run.RunID).get()), setup.payrollElements()]);
+  const allowed = inputElements(els);
+  const out = Object.fromEntries(slips.map(s => [s.EmployeeID, []]));
+  rows.forEach((r, n) => {
+    const i = n + 1;
+    const empKey = text(r.EmployeeID, 80) || text(r.EmployeeNo, 40), elKey = text(r.ElementID, 80) || text(r.Code, 20).toUpperCase();
+    const hasValue = [r.Hours, r.Amount].some(v => v !== '' && v != null);
+    if (!empKey && !elKey && !hasValue && !text(r.Note)) return; // a blank row
+    const s = slips.find(x => x.EmployeeID === empKey || (x.EmployeeNo && x.EmployeeNo === empKey));
+    if (!s) bad('Row ' + i + ': employee "' + empKey + '" is not on this run.');
+    const el = els.find(x => x.ElementID === elKey || x.Code === elKey);
+    if (!el) bad('Row ' + i + ': pay element "' + elKey + '" not found.');
+    if (!allowed.includes(el)) bad('Row ' + i + ': ' + el.Name + ' is not entered per run (only variable elements are: overtime, bonus, commission, one-offs).');
+    const num = v => Number(String(v == null ? '' : v).replace(/,/g, ''));
+    const row = { ElementID: el.ElementID, Note: text(r.Note, 150) };
+    if (byHours(el)) {
+      row.Hours = num(r.Hours);
+      if (!(row.Hours > 0 && row.Hours <= 744)) bad('Row ' + i + ': ' + el.Name + ' is paid by the hour: enter the hours (more than 0).');
+    } else {
+      row.Amount = round2(num(r.Amount));
+      if (!(row.Amount > 0)) bad('Row ' + i + ': enter the ' + el.Name + ' amount (more than 0).');
+    }
+    out[s.EmployeeID].push(row);
+  });
+  const totals = await calculate(run, user, out);
+  return { success: true, run: totals };
+});
+
+exports.recalculatePayrollRun = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'draft');
+  const run = await loadRun(user, (request.data || {}).runId);
+  requireDraft(run);
+  return { success: true, run: await calculate(run, user) };
+});
+
+exports.deletePayrollRun = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'draft');
+  const run = await loadRun(user, (request.data || {}).runId);
+  requireDraft(run);
+  const slips = await SLIPS(run.RunID).get();
+  for (let i = 0; i < slips.docs.length; i += 400) { const b = firestore.batch(); slips.docs.slice(i, i + 400).forEach(x => b.delete(x.ref)); await b.commit(); }
+  await RUNS().doc(run.RunID).delete();
+  return { success: true };
+});
