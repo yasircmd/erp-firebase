@@ -1,6 +1,6 @@
 # HR: Payroll
 
-Status: **design agreed** (the owner's decisions 2026-10-04, below); **steps 0 to 4 built and tested** (see As built); step 4b (advances and loans) next.
+Status: **design agreed** (the owner's decisions 2026-10-04, below); **steps 0 to 4b built and tested** (see As built); step 5 (provisions and final settlement) next.
 
 It builds on Employee Records (docs/modules/HR_EMPLOYEES.md) and the
 Attendance and Leave Register (docs/modules/HR_LEAVE.md), and is the last
@@ -994,3 +994,78 @@ The loans have their own screen and module, **Loans & Advances**
 (`PAYROLLLOAN`: access, draft, pay), so their rights are set apart from
 the payroll runs'.
 
+## As built: step 4b, advances and loans (2026-10-04)
+
+**Loan types** (Payroll Setup → Loans):
+- a name;
+- recovered at once (an advance) or in instalments (a loan);
+- a receivable: an asset account, the group's shared one with a company
+  override, like the pay elements;
+- names are unique.
+
+**Loans & Advances** (new module and screen `PAYROLLLOAN`: access, draft,
+pay):
+- **a draft:** employee, type, amount, instalment (an advance's is the
+  amount), the month recovery starts, note. It shows in My Drafts;
+- **submit:** numbered LN-0001…, then through Approval Configuration →
+  "Loan / advance (the amount is the loan)" (decision 25). With none set
+  up, it's approved at once. A rejection returns it to draft with the
+  reason;
+- **pay out** (the "pay" right, decision 24): a date and a cash or bank
+  account; journal PayrollLoan (prefix PLN), Dr the type's receivable /
+  Cr the account. Then it's "Running";
+- **the balance:** the amount less its recoveries in posted runs and its
+  repayments. At 0 it shows "Repaid";
+- **the schedule** (decision 27):
+  - months skipped;
+  - a new instalment from a month (loans only);
+  - a month a posted run already recovered can't change;
+- **an early repayment** (the "pay" right): a date, an amount up to the
+  balance, a cash or bank account; Dr the account / Cr the receivable;
+- **reversing the payout:** only before anything is recovered or repaid.
+  It goes back to "Approved".
+
+**In the payroll run:**
+- each running loan whose recovery has started, and isn't skipped that
+  month, is recovered;
+- the amount is the instalment in force (an advance: its balance), at
+  most the balance;
+- loans are taken oldest first, and **never past the net pay**
+  (decision 26). Any shortfall is warned and recovered later;
+- the line reads "Loan recovery: Personal loan LN-0001", with "500.00;
+  balance after 2,500.00";
+- posting credits the loan type's receivable for the company;
+- reversing a run gives the recovery back;
+- the payslip shows each running loan's balance after the month;
+- the employee record's pay card lists the running loans and their
+  balances.
+
+**Fixed on the way:**
+- Home's My Drafts matches drafts by username, but payroll runs stored the
+  user ID, so draft runs never showed there (since step 3);
+- the run now records its last updater by username, with a description.
+
+**Behind it:**
+- `payrollLoans.js`: the loan types and loans callables, `loansDue`,
+  `recoveriesOf`;
+- `payrollCalc.loanBalance` and `loanDue`, and `computeEmployee`'s loan
+  lines;
+- `payrollPost`: the loan receivable, and the payslip balances;
+- approval entry `PAYROLLLOAN` (storage `payrollLoans`) and Home drafts.
+
+**Tests:**
+- `payrollCalc.test.js` (11);
+- the `payrollLoans` suite (5);
+- `payrollLoans.ui.js` (3);
+- negative controls (see the PR).
+
+**To go live:**
+1. Deploy "functions set" `payroll-4b`, after `payroll-4`, with the
+   screens.
+2. Link a menu node to "Loans & Advances".
+3. Set its rights in Roles & Permissions.
+4. Add the loan types in Payroll Setup → Loans.
+5. If loans need approval: Approval Configuration → "Loan / advance".
+
+**Next:** step 5, gratuity and leave-salary provisions, and the final
+settlement.

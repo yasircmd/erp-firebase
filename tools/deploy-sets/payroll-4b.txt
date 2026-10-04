@@ -1,0 +1,53 @@
+# HR Payroll, step 4b: advances and loans (owner 2026-10-04;
+# docs/modules/HR_PAYROLL.md, decisions 7 and 24-27). Deploy after
+# payroll-4. Run with --screens (PAYROLLLOAN, new: Loans & Advances;
+# PAYROLLSETUP: the Loans tab; PAYROLL: loan balances on the payslip;
+# EMPLOYEES: the employee's running loans). No Hosting change. Then, in the
+# app: link a menu node to "Loans & Advances"; its rights in Roles &
+# Permissions (draft to enter, pay to pay out and receive repayments); in
+# Payroll Setup → Loans the loan types and their receivable; if wanted,
+# Approval Configuration → "Loan / advance".
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getLoanTypes
+saveLoanType
+getLoans
+getLoanForm
+getLoan
+saveLoan
+deleteLoan
+submitLoan
+decideLoanApproval
+payOutLoan
+reverseLoanPayout
+saveLoanSchedule
+recordLoanRepayment
+# Changed: the run recovers the loans; draft runs show in My Drafts.
+getPayrollRuns
+createPayrollRun
+getPayrollRun
+savePayrollInputs
+recalculatePayrollRun
+deletePayrollRun
+# Changed: posting credits each loan's receivable; payslips show the balances.
+submitPayrollRun
+decidePayrollApproval
+postPayrollRun
+reversePayrollRun
+getPayrollPayslips
+# Approvals and Home tasks: the new document in their registries.
+getApprovalConfigurations
+saveApprovalConfiguration
+saveApprovalLevels
+getApprovalHistory
+getDelegationCandidates
+delegateApproval
+delegateApprovalsOf
+getPendingApprovalsForUser
+getMyRejectedSubmissions
+getMyDraftsForUser
+# Registries: the new module, its permissions, menu node, screens.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment
