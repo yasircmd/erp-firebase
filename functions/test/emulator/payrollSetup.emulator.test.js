@@ -116,3 +116,16 @@ test('an element whose kind or nature changes loses the payroll settings that no
   e = await get();
   assert.deepEqual([e.GLAccountID, e.GLByCompany, e.InGross, e.Prorated], ['', {}, false, false]);
 });
+
+test('the rights moved to Payroll Setup (step 4): HR Setup\'s write right no longer changes pay elements or payroll settings', async () => {
+  const { rtdb } = require('./_helpers');
+  await rtdb.ref('permissions/HRSETUP/write').set(['Admin', 'Viewer']);
+  await assert.rejects(call('u-viewer', 'savePayElement', { element: { Code: 'X1', Name: 'X1', Kind: 'Earning', Nature: 'Fixed' } }), /permission to change Payroll Setup/);
+  await assert.rejects(call('u-viewer', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'DIV30' }), /permission to change Payroll Setup/);
+  assert.equal((await call('u-viewer', 'getPayElements', {})).canWrite, false);
+  await rtdb.ref('permissions/PAYROLLSETUP/write').set(['Admin', 'Viewer']);
+  await call('u-viewer', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'DIV30', payableAccountId: 'A-SALPAY' });
+  assert.equal((await call('u-viewer', 'getPayElements', {})).canWrite, true);
+  await rtdb.ref('permissions/PAYROLLSETUP/write').set(['Admin']);
+  await rtdb.ref('permissions/HRSETUP/write').set(['Admin']);
+});
