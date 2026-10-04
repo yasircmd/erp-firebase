@@ -284,7 +284,18 @@ exports.saveLeavePayRules = onCallWithMessages(onCallOptions, async (request) =>
 async function calendar(companyId) {
   const snap = await CALENDARS().doc(companyId).get();
   const c = snap.exists ? snap.data() : {};
-  return { Weekend: Array.isArray(c.Weekend) ? c.Weekend : DEFAULT_WEEKEND.slice(), Holidays: Array.isArray(c.Holidays) ? c.Holidays : [] };
+  return { Weekend: Array.isArray(c.Weekend) ? c.Weekend : DEFAULT_WEEKEND.slice(), Holidays: Array.isArray(c.Holidays) ? c.Holidays : [], HoursPerDay: c.HoursPerDay || 8 };
+}
+// An employee's calendar: the company's holidays, and the weekend of the
+// work schedule in force on each date (docs/modules/HR_PAYROLL.md, step 0).
+async function calendarFor(emp) {
+  const [cal, setup] = await Promise.all([calendar(emp.CompanyID), loadSetup()]);
+  const list = emp.Schedules && emp.Schedules.length ? emp.Schedules : [{ From: emp.JoinDate || '0000-00-00', ScheduleID: emp.ScheduleID || '' }];
+  cal.Schedules = list.slice().sort((a, b) => a.From.localeCompare(b.From)).map(x => {
+    const sc = x.ScheduleID ? setup.workSchedules.find(w => w.ScheduleID === x.ScheduleID) : null;
+    return { From: x.From, ScheduleID: x.ScheduleID || '', Weekend: sc ? sc.Weekend : null, HoursPerDay: sc ? sc.HoursPerDay : null };
+  });
+  return cal;
 }
 async function workingDays(companyId, from, to, counts) { return countedDays(await calendar(companyId), from, to, counts || 'Working'); }
 
@@ -310,7 +321,7 @@ exports.getWorkCalendar = onCallWithMessages(onCallOptions, async (request) => {
   const inYear = h => h.From.slice(0, 4) === String(year) || h.To.slice(0, 4) === String(year);
   return {
     companyId: co, year, weekend: cal.Weekend,
-    holidays: cal.Holidays.filter(inYear).sort((a, b) => a.From.localeCompare(b.From)),
+    holidays: cal.Holidays.filter(inYear).sort((a, b) => a.From.localeCompare(b.From)), hoursPerDay: cal.HoursPerDay,
     lastYearHolidays: cal.Holidays.filter(h => h.From.slice(0, 4) === String(year - 1)).sort((a, b) => a.From.localeCompare(b.From)),
     workingDays: countedDays(cal, year + '-01-01', year + '-12-31', 'Working').length,
     canWrite: await canSetup(user, 'write')
@@ -338,16 +349,19 @@ exports.saveWorkCalendar = onCallWithMessages(onCallOptions, async (request) => 
     return { From, To, Name };
   }).sort((a, b) => a.From.localeCompare(b.From));
   const cal = await calendar(co);
+  const hours = d.hoursPerDay == null || d.hoursPerDay === '' ? cal.HoursPerDay : Number(d.hoursPerDay);
+  if (!(hours >= 1 && hours <= 24) || Math.round(hours * 4) !== hours * 4) bad('Hours in a working day: 1 to 24, in quarter hours.');
   // This year's holidays replace the ones saved for it; other years stay.
   const all = cal.Holidays.filter(h => h.From.slice(0, 4) !== String(year)).concat(holidays).sort((a, b) => a.From.localeCompare(b.From));
   all.forEach((h, x) => { if (x && all[x - 1].To >= h.From) bad('"' + all[x - 1].Name + '" (' + all[x - 1].From + ') and "' + h.Name + '" (' + h.From + ') overlap.'); });
-  await CALENDARS().doc(co).set({ Weekend: weekend, Holidays: all, UpdatedAt: new Date().toISOString(), UpdatedBy: user.uid });
+  await CALENDARS().doc(co).set({ Weekend: weekend, HoursPerDay: hours, Holidays: all, UpdatedAt: new Date().toISOString(), UpdatedBy: user.uid });
   return { success: true, workingDays: countedDays({ Weekend: weekend, Holidays: all }, year + '-01-01', year + '-12-31', 'Working').length };
 });
 
 module.exports.leaveTypes = leaveTypes;
 module.exports.loadLeaveSetup = loadLeaveSetup;
 module.exports.calendar = calendar;
+module.exports.calendarFor = calendarFor;
 module.exports.countedDays = countedDays;
 module.exports.workingDays = workingDays;
 module.exports.coverage = coverage;

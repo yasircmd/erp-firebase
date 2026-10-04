@@ -48,6 +48,8 @@ const FIELDS = {
   DivisionID: { label: 'Division', job: true, unit: 'Division' }, BranchID: { label: 'Branch', job: true, unit: 'Branch' },
   CostCenterID: { label: 'Cost center (department)', job: true, unit: 'CostCenter' }, WorkLocation: { label: 'Work location' },
   DesignationID: { label: 'Designation', req: true, job: true }, GradeID: { label: 'Grade', req: true, job: true },
+  // Empty: the company's own weekend and hours (docs/modules/HR_PAYROLL.md, step 0).
+  ScheduleID: { label: 'Work schedule', job: true },
   ManagerID: { label: 'Line manager' }, UserUID: { label: 'ERP user' },
   BankName: { label: 'Bank', sensitive: true }, IBAN: { label: 'Account no. / IBAN', sensitive: true }
 };
@@ -172,6 +174,11 @@ async function saveEmployeeFor(user, input, opts) {
   const unchanged = k => existing && existing[k] === out[k];
   if (!des.Active && !unchanged('DesignationID')) bad('The designation "' + des.Title + '" is no longer in use.');
   if (!grade.Active && !unchanged('GradeID')) bad('The grade "' + grade.Code + '" is no longer in use.');
+  if (out.ScheduleID) {
+    const sc = setup.workSchedules.find(x => x.ScheduleID === out.ScheduleID);
+    if (!sc) bad('Work schedule not found.');
+    if (sc.Active === false && !unchanged('ScheduleID')) bad('The work schedule "' + sc.Name + '" is no longer in use.');
+  }
   const warnings = [];
   const level = id => (setup.grades.find(x => x.GradeID === id) || {}).Level;
   if ((des.GradeFromID && grade.Level < level(des.GradeFromID)) || (des.GradeToID && grade.Level > level(des.GradeToID))) {
@@ -242,6 +249,7 @@ async function saveEmployeeFor(user, input, opts) {
     if (k === 'GradeID') return (setup.grades.find(x => x.GradeID === v) || {}).Code || v;
     if (FIELDS[k] && FIELDS[k].unit) return units[v] ? units[v].Name : v;
     if (k === 'ManagerID') return byId[v] ? byId[v].FullName : v;
+    if (k === 'ScheduleID') return (setup.workSchedules.find(x => x.ScheduleID === v) || {}).Name || v;
     return v;
   };
   const now = new Date().toISOString();
@@ -259,6 +267,13 @@ async function saveEmployeeFor(user, input, opts) {
   if (existing) {
     const changes = diff();
     if (!changes.length) return { success: true, employeeId: existing.EmployeeID, employeeNo: existing.EmployeeNo, warnings, unchanged: true };
+    // The schedules by date: a correction fixes the one in force now.
+    if (String(existing.ScheduleID || '') !== String(out.ScheduleID || '')) {
+      const list = (existing.Schedules && existing.Schedules.length ? existing.Schedules : [{ From: existing.JoinDate, ScheduleID: existing.ScheduleID || '' }])
+        .slice().sort((a, b) => a.From.localeCompare(b.From));
+      list[list.length - 1] = Object.assign({}, list[list.length - 1], { ScheduleID: out.ScheduleID || '' });
+      out.Schedules = list;
+    }
     await EMPLOYEES().doc(existing.EmployeeID).update(Object.assign(out, { UpdatedAt: now, UpdatedBy: user.uid, UpdatedByName: actorName(user) }));
     const correction = text(opts.correction, 300);
     await log(existing.EmployeeID, correction ? 'Correction' : 'Edit', changes, user, correction);
@@ -266,7 +281,7 @@ async function saveEmployeeFor(user, input, opts) {
   }
   const employeeNo = await nextEmployeeNo();
   const ref = EMPLOYEES().doc();
-  await ref.set(Object.assign(out, { EmployeeNo: employeeNo, CreatedAt: now, CreatedBy: user.uid, CreatedByName: actorName(user) }));
+  await ref.set(Object.assign(out, { Schedules: [{ From: out.JoinDate, ScheduleID: out.ScheduleID || '' }], EmployeeNo: employeeNo, CreatedAt: now, CreatedBy: user.uid, CreatedByName: actorName(user) }));
   await log(ref.id, 'Create', [], user, opts.source || '');
   return { success: true, employeeId: ref.id, employeeNo, warnings };
 }
@@ -289,7 +304,8 @@ function names(e, ctx) {
     CompanyName: co ? (co.CompanyRefCode ? co.CompanyRefCode + ' - ' : '') + co.LegalName : '',
     DesignationTitle: des ? des.Title : '', GradeCode: grade ? grade.Code : '',
     DivisionName: unit(e.DivisionID), BranchName: unit(e.BranchID), CostCenterName: unit(e.CostCenterID),
-    ManagerName: m ? m.FullName : '', ManagerNo: m ? m.EmployeeNo : ''
+    ManagerName: m ? m.FullName : '', ManagerNo: m ? m.EmployeeNo : '',
+    ScheduleName: e.ScheduleID ? ((ctx.setup.workSchedules || []).find(x => x.ScheduleID === e.ScheduleID) || {}).Name || '' : ''
   };
 }
 async function context() {

@@ -98,12 +98,13 @@
       (rows.map(x => '<tr data-emp="' + escapeHtml(x.EmployeeID) + '"><td class="py-1.5 px-3 whitespace-nowrap"><span class="text-slate-200">' + escapeHtml(x.EmployeeName) + '</span> <span class="text-slate-500 font-mono">' + escapeHtml(x.EmployeeNo) + '</span></td>' +
         r.days.map(d => {
           const cell = x.Cells[d];
-          if (!cell) return '<td class="' + (off(d) ? 'bg-slate-800' : '') + '"></td>';
+          // Shaded: this employee's days off (their work schedule and the holidays).
+          if (!cell) return '<td class="' + ((x.Off || []).includes(d) ? 'bg-slate-800' : '') + '"></td>';
           return '<td class="px-0.5 py-1"><div class="lr-day rounded text-center py-0.5 ' + cellCls(cell) + '" data-date="' + d + '" title="' + escapeHtml(cell.Name + (cell.Pending ? ' (pending)' : '') + (cell.Fraction < 1 ? ' (half day)' : '')) + '">' +
             escapeHtml(cell.Absence ? 'X' : cell.Codes[0].charAt(0)) + (cell.Fraction < 1 ? '½' : '') + '</div></td>';
         }).join('') + '<td class="py-1.5 px-3 text-right font-mono">' + (x.Away || '') + '</td></tr>').join('') ||
         '<tr><td colspan="' + (r.days.length + 2) + '" class="py-6 text-center text-slate-500">No one is away in this month.</td></tr>') + '</tbody></table>';
-    $('lr-note').textContent = 'Blue: approved leave (first letter of its type; ½ a half day). Outlined: pending approval. Red X: absent. Shaded: weekend and public holidays.';
+    $('lr-note').textContent = 'Blue: approved leave (first letter of its type; ½ a half day). Outlined: pending approval. Red X: absent. Shaded: each employee\'s days off (their work schedule\'s weekend and the public holidays).';
     table = { headers: ['No.', 'Employee'].concat(r.days.map(d => d.slice(8))).concat(['Days']),
       rows: rows.map(x => [x.EmployeeNo, x.EmployeeName].concat(r.days.map(d => { const cell = x.Cells[d]; return cell ? (cell.Absence ? 'Absent' : cell.Codes.join('/')) + (cell.Pending ? ' (pending)' : '') + (cell.Fraction < 1 ? ' ½' : '') : ''; })).concat([x.Away])) };
   }

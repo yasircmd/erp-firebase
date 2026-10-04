@@ -25,7 +25,7 @@ const { userCanAccessCompany } = require('./glWriting');
 const { todayIn } = require('./recurringSchedule');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { loadSetup } = require('./hrSetup');
-const { leaveTypes, calendar, PAY_LABEL } = require('./hrLeaveSetup');
+const { leaveTypes, calendarFor, PAY_LABEL } = require('./hrLeaveSetup');
 const { addDay, countedDays } = require('./workCalendar');
 
 const onCallOptions = { region: 'us-central1' };
@@ -193,7 +193,7 @@ async function evaluate(input, emp, excludeId) {
   const halfStart = d.HalfStart === true, halfEnd = d.HalfEnd === true;
   if ((halfStart || halfEnd) && !type.HalfDays) bad(type.Name + ' is taken in whole days.');
   if (from === to && halfStart && halfEnd) bad('A single half day: tick only one half.');
-  const cal = await calendar(emp.CompanyID);
+  const cal = await calendarFor(emp); // the employee's work schedule (Payroll step 0)
   const dates = countedDays(cal, from, to, type.Counts);
   if (type.Counts === 'Working') {
     if (!dates.length) bad('There are no working days in those dates.');
@@ -459,7 +459,7 @@ exports.recordLeaveReturn = onCallWithMessages(onCallOptions, async (request) =>
   if (!isDate(ret)) bad('Enter the day the employee was back at work.');
   if (ret <= l.FromDate) bad('The return is after the first day of leave (to undo the whole leave before it starts, cancel it).');
   if (ret > today()) bad('The return date can\'t be in the future.');
-  const cal = await calendar(l.CompanyID);
+  const cal = await calendarFor(Object.assign({ CompanyID: l.CompanyID }, (await EMPLOYEES().doc(l.EmployeeID).get()).data()));
   const expected = l.ExpectedReturn || nextWorkingDay(cal, l.ToDate);
   let lines = (l.Lines || []).filter(x => live(x) && !x.Absence), late = [];
   if (ret <= l.ToDate) lines = lines.filter(x => x.Date < ret);
