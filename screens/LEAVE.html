@@ -1,0 +1,324 @@
+<div id="lv-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-plane-departure text-blue-500"></i> Leave Register</h2></div>
+    <div class="flex gap-2">
+      <button id="lv-back-chain-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-arrow-left"></i> <span id="lv-back-chain-label">Back</span></button>
+      <button id="lv-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Leave</button>
+    </div>
+  </div>
+  <p class="text-xs text-slate-500 max-w-3xl">Each employee's leave, approved as set up in Approval Configuration (the amount is the days). Days over the balance become unpaid; each day is paid by the leave pay rules in HR Setup. After the leave, record the return: early gives the unused days back, late adds unpaid absence.</p>
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <input type="text" id="lv-search" placeholder="Search no., employee..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+    <select id="lv-type-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All types</option></select>
+    <select id="lv-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+      <option value="">All</option><option value="open">Open (draft, pending, rejected)</option><option value="today">On leave today</option><option value="return">Return to record</option>
+      <option value="PendingApproval">Pending approval</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option><option value="Cancelled">Cancelled</option><option value="Draft">Draft</option></select>
+    <input type="month" id="lv-month-filter" title="Leave in this month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+  </div>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-3 px-3">No.</th><th class="py-3 px-3">Employee</th><th class="py-3 px-3">Type</th><th class="py-3 px-3">From</th><th class="py-3 px-3">To</th><th class="py-3 px-3 text-right">Days</th><th class="py-3 px-3">Status</th></tr></thead>
+    <tbody id="lv-table-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+</div>
+
+<div id="lv-entry-view" class="hidden space-y-5">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+    <div class="flex items-center gap-3">
+      <button id="lv-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h3 id="lv-heading" class="text-lg font-bold text-slate-100"></h3>
+      <span id="lv-status-badge"></span>
+    </div>
+    <div class="flex gap-2">
+      <button id="lv-delete-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Delete draft</button>
+      <button id="lv-cancel-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-ban"></i> Cancel leave</button>
+      <button id="lv-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save draft</button>
+      <button id="lv-submit-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+    </div>
+  </div>
+  <p id="lv-note" class="hidden text-xs"></p>
+  <div id="lv-error" class="hidden text-xs text-red-400"></div>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Employee *</label><select id="lv-employee" class="lv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Leave type *</label><select id="lv-type" class="lv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">First day *</label><input id="lv-from" type="date" class="lv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Last day *</label><input id="lv-to" type="date" class="lv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div id="lv-half-wrap" class="flex items-end gap-4 md:col-span-2 pb-2">
+        <label class="text-xs text-slate-300 flex items-center gap-2"><input id="lv-half-start" type="checkbox" class="lv-f"> First day is a half day</label>
+        <label class="text-xs text-slate-300 flex items-center gap-2"><input id="lv-half-end" type="checkbox" class="lv-f"> Last day is a half day</label>
+      </div>
+      <div class="md:col-span-4"><label class="block text-xs font-medium text-slate-300 mb-1">Reason</label><textarea id="lv-reason" rows="2" maxlength="1000" class="lv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+    </div>
+  </div>
+
+  <div id="lv-preview" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Days and pay</div>
+    <p id="lv-days" class="text-sm text-slate-200"></p>
+    <table class="text-sm"><tbody id="lv-summary"></tbody></table>
+    <p id="lv-balance" class="text-xs text-slate-400"></p>
+    <ul id="lv-warnings" class="text-xs text-amber-400 space-y-1"></ul>
+  </div>
+
+  <div id="lv-return-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Return to work</div>
+    <p id="lv-return-info" class="text-sm text-slate-300"></p>
+    <div id="lv-return-form" class="hidden flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Back at work on</label><input id="lv-return-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <button id="lv-return-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Record the return</button>
+    </div>
+  </div>
+
+  <div id="lv-approval-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Approval</div>
+    <ul id="lv-levels" class="text-sm space-y-1"></ul>
+    <div id="lv-decide" class="hidden flex gap-2">
+      <button id="lv-approve-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-check"></i> Approve</button>
+      <button id="lv-reject-btn" class="bg-slate-800 hover:bg-slate-700 text-sm text-red-400 px-4 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-xmark"></i> Reject</button>
+    </div>
+  </div>
+  <div id="lv-history-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div class="text-xs font-semibold text-slate-400 uppercase mb-2">History</div>
+    <ul id="lv-history" class="text-xs text-slate-400 space-y-1"></ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Leave Register (owner, 2026-10-03; docs/modules/HR_LEAVE.md, step 2):
+  // HR enters each employee's leave; the server counts the days, splits
+  // what goes over the balance into unpaid, pays each day by the leave pay
+  // rules, and takes it through approval; then cancel or the return.
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const STATUS = { Draft: ['Draft', 'text-slate-400'], PendingApproval: ['Pending approval', 'text-amber-400'], Approved: ['Approved', 'text-emerald-400'],
+    Rejected: ['Rejected', 'text-red-400'], Cancelled: ['Cancelled', 'text-slate-500'] };
+  const days = n => n + (n === 1 ? ' day' : ' days');
+  let list = null, form = { employees: [], types: [] }, current = null, editable = false, myLevels = [], isDirty = false, myReturnChain = [], previewTimer = null, files = null;
+
+  function options(sel, items, first) {
+    sel.innerHTML = (first != null ? '<option value="">' + escapeHtml(first) + '</option>' : '') + items.map(o => '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>').join('');
+  }
+  // A leave still to come back from: approved leave of a type whose return
+  // HR confirms, ended, and no return recorded.
+  const returnDue = l => l.Status === 'Approved' && l.ConfirmReturn && !l.ReturnDate && l.ToDate < list.today;
+  function statusHtml(l) {
+    const s = STATUS[l.Status] || [l.Status, ''];
+    return '<span class="' + s[1] + '">' + escapeHtml(s[0]) + '</span>' + (l.ReturnDate ? ' <span class="text-xs text-slate-400">· back ' + escapeHtml(l.ReturnDate) + '</span>' : '') +
+      (list && returnDue(l) ? ' <span class="text-xs text-amber-400">· return to record</span>' : '');
+  }
+
+  // ---------- list ----------
+  function loadList(then) {
+    return call('getLeaves', {}).then(r => {
+      list = r;
+      $('lv-new-btn').classList.toggle('hidden', !r.canDraft);
+      renderList();
+      if (then) then();
+    }, err => appAlert(err.message || 'Unable to load the leave register.'));
+  }
+  function renderList() {
+    const q = val('lv-search').trim().toLowerCase(), type = val('lv-type-filter'), st = val('lv-status-filter'), month = val('lv-month-filter');
+    const end = l => l.EffectiveTo || l.ToDate;
+    const rows = list.leaves.filter(l => (!type || l.LeaveTypeID === type) &&
+      (st === 'open' ? ['Draft', 'PendingApproval', 'Rejected'].includes(l.Status) : st === 'today' ? l.Status === 'Approved' && l.FromDate <= list.today && list.today <= end(l)
+        : st === 'return' ? returnDue(l) : !st || l.Status === st) &&
+      (!month || (l.FromDate.slice(0, 7) <= month && month <= end(l).slice(0, 7))) &&
+      (!q || [l.LeaveNumber, l.EmployeeNo, l.EmployeeName].join(' ').toLowerCase().indexOf(q) !== -1));
+    const body = $('lv-table-body');
+    body.innerHTML = rows.map(l => '<tr data-id="' + escapeHtml(l.LeaveID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
+      '<td class="py-2.5 px-3 font-mono text-xs">' + escapeHtml(l.LeaveNumber || 'DRAFT') + '</td>' +
+      '<td class="py-2.5 px-3"><span class="text-slate-200">' + escapeHtml(l.EmployeeName) + '</span> <span class="text-xs text-slate-500 font-mono">' + escapeHtml(l.EmployeeNo) + '</span></td>' +
+      '<td class="py-2.5 px-3 text-xs">' + escapeHtml(l.LeaveTypeName) + '</td><td class="py-2.5 px-3 text-xs whitespace-nowrap">' + escapeHtml(l.FromDate) + '</td>' +
+      '<td class="py-2.5 px-3 text-xs whitespace-nowrap">' + escapeHtml(end(l)) + '</td>' +
+      '<td class="py-2.5 px-3 text-xs text-right">' + l.Days + (l.UnpaidDays ? '<div class="text-amber-400">' + l.UnpaidDays + ' unpaid</div>' : '') + (l.LateDays ? '<div class="text-red-400">' + l.LateDays + ' late</div>' : '') + '</td>' +
+      '<td class="py-2.5 px-3 text-xs">' + statusHtml(l) + '</td></tr>').join('') || '<tr><td colspan="7" class="py-6 text-center text-slate-500">No leave found.</td></tr>';
+    body.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openLeave(tr.dataset.id)));
+  }
+
+  // ---------- the form ----------
+  function showForm() { $('lv-list-view').classList.add('hidden'); $('lv-entry-view').classList.remove('hidden'); window.scrollTo(0, 0); }
+  function showList() { $('lv-entry-view').classList.add('hidden'); $('lv-list-view').classList.remove('hidden'); current = null; isDirty = false; loadList(); }
+  function confirmLeave(go) { if (!isDirty) return go(); appConfirm('Leave without saving your changes?').then(ok => { if (ok) go(); }); }
+  function setError(m) { $('lv-error').textContent = m || ''; $('lv-error').classList.toggle('hidden', !m); }
+  const typeOf = id => form.types.find(t => t.LeaveTypeID === id);
+  function showHalf() {
+    const t = typeOf(val('lv-type'));
+    $('lv-half-wrap').classList.toggle('hidden', !(t && t.HalfDays));
+    if (!(t && t.HalfDays)) { $('lv-half-start').checked = false; $('lv-half-end').checked = false; }
+  }
+  function collect() {
+    return { LeaveID: current ? current.LeaveID : '', EmployeeID: val('lv-employee'), LeaveTypeID: val('lv-type'), FromDate: val('lv-from'), ToDate: val('lv-to'),
+      HalfStart: $('lv-half-start').checked, HalfEnd: $('lv-half-end').checked, Reason: val('lv-reason') };
+  }
+  function renderPreview(v) {
+    $('lv-preview').classList.toggle('hidden', !v);
+    if (!v) return;
+    $('lv-days').textContent = days(v.Days) + (v.Kind === 'Duty' ? ' of duty' : ' of leave') + (v.LateDays ? ', and ' + days(v.LateDays) + ' absent after it' : '');
+    $('lv-summary').innerHTML = v.Summary.map(s => '<tr><td class="pr-6 py-0.5 text-right font-mono">' + s.Days + '</td><td class="py-0.5">' + escapeHtml(s.Label) + '</td></tr>').join('');
+    $('lv-balance').textContent = v.Balance ? 'Balance on the first day: ' + v.Balance.Before + ' → after this leave: ' + v.Balance.After : '';
+    const warn = (v.Warnings || []).slice();
+    if (v.DocumentNeeded) warn.push('A supporting document (e.g. a medical certificate) must be attached below before it is submitted.');
+    $('lv-warnings').innerHTML = warn.map(w => '<li><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(w) + '</li>').join('');
+  }
+  // What the leave would be, as the fields change (the server counts).
+  function previewSoon() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => {
+      const d = collect();
+      if (!editable || !d.EmployeeID || !d.LeaveTypeID || !d.FromDate || !d.ToDate) return;
+      call('previewLeave', { leave: d }).then(r => { setError(''); renderPreview(r.preview); }, err => { renderPreview(null); setError(err.message || 'Unable to check the leave.'); });
+    }, 250);
+  }
+  function setButtons() {
+    const st = current ? current.Status : 'Draft';
+    const open = st === 'Draft' || st === 'Rejected';
+    $('lv-save-btn').classList.toggle('hidden', !(editable && list.canDraft && open));
+    $('lv-submit-btn').classList.toggle('hidden', !(current && editable && list.canPost && open));
+    $('lv-delete-btn').classList.toggle('hidden', !(current && st === 'Draft' && list.canDraft));
+    $('lv-cancel-btn').classList.toggle('hidden', !(current && st === 'Approved' && list.canPost && current.FromDate > list.today));
+    $('lv-decide').classList.toggle('hidden', !myLevels.length);
+  }
+  function newLeave(employeeId) {
+    current = null; isDirty = false; editable = true; myLevels = []; setError('');
+    $('lv-heading').textContent = 'New leave';
+    $('lv-status-badge').innerHTML = '';
+    $('lv-note').classList.add('hidden');
+    ['lv-approval-wrap', 'lv-history-wrap', 'lv-return-wrap'].forEach(id => $(id).classList.add('hidden'));
+    $('lv-employee').value = employeeId || ''; $('lv-type').value = '';
+    ['lv-from', 'lv-to', 'lv-reason'].forEach(id => { $(id).value = ''; });
+    $('lv-half-start').checked = false; $('lv-half-end').checked = false;
+    document.querySelectorAll('.lv-f').forEach(el => { el.disabled = false; });
+    renderPreview(null); showHalf(); setButtons();
+    if (files) files.reload();
+    showForm();
+  }
+  function openLeave(id) {
+    return call('getLeave', { leaveId: id }).then(r => {
+      const l = r.leave;
+      current = l; myLevels = r.myLevels || []; isDirty = false; setError('');
+      editable = (l.Status === 'Draft' || l.Status === 'Rejected') && r.canDraft;
+      $('lv-heading').textContent = (l.LeaveNumber || 'Draft') + ' — ' + l.LeaveTypeName + ': ' + l.EmployeeName;
+      $('lv-status-badge').innerHTML = '<span class="text-xs">' + statusHtml(l) + '</span>';
+      if (![...$('lv-employee').options].some(o => o.value === l.EmployeeID)) $('lv-employee').insertAdjacentHTML('beforeend', '<option value="' + escapeHtml(l.EmployeeID) + '">' + escapeHtml(l.EmployeeNo + ' — ' + l.EmployeeName) + '</option>');
+      if (![...$('lv-type').options].some(o => o.value === l.LeaveTypeID)) $('lv-type').insertAdjacentHTML('beforeend', '<option value="' + escapeHtml(l.LeaveTypeID) + '">' + escapeHtml(l.LeaveTypeName) + '</option>');
+      $('lv-employee').value = l.EmployeeID; $('lv-type').value = l.LeaveTypeID; $('lv-from').value = l.FromDate; $('lv-to').value = l.ToDate;
+      $('lv-half-start').checked = Boolean(l.HalfStart); $('lv-half-end').checked = Boolean(l.HalfEnd); $('lv-reason').value = l.Reason || '';
+      showHalf();
+      if (l.HalfStart || l.HalfEnd) $('lv-half-wrap').classList.remove('hidden');
+      document.querySelectorAll('.lv-f').forEach(el => { el.disabled = !editable; });
+      const note = l.Status === 'Rejected' ? 'Rejected: ' + (l.RejectionReason || '') + '. Correct it and submit again.' : l.Status === 'Cancelled' ? 'Cancelled: ' + (l.CancelReason || '') : '';
+      $('lv-note').textContent = note; $('lv-note').className = 'text-xs ' + (l.Status === 'Rejected' ? 'text-red-400' : 'text-slate-400'); $('lv-note').classList.toggle('hidden', !note);
+      renderPreview(l);
+      // The return (approved leave): recorded, due, or not yet.
+      const showReturn = l.Status === 'Approved' && l.Kind === 'Leave';
+      $('lv-return-wrap').classList.toggle('hidden', !showReturn);
+      if (showReturn) {
+        $('lv-return-info').textContent = l.ReturnDate ? 'Back at work on ' + l.ReturnDate + (l.LateDays ? ': ' + days(l.LateDays) + ' late, recorded as unpaid absence.' : l.EffectiveTo && l.EffectiveTo < l.ToDate ? ': early, the unused days returned to the balance.' : ': on time.')
+          : 'Due back on ' + l.ExpectedReturn + '.' + (l.ConfirmReturn ? ' HR confirms the return for this type of leave.' : '');
+        $('lv-return-form').classList.toggle('hidden', Boolean(l.ReturnDate) || !r.canPost || l.FromDate >= r.today);
+        $('lv-return-date').value = l.ReturnDate ? '' : (l.ExpectedReturn <= r.today ? l.ExpectedReturn : r.today);
+      }
+      const a = r.approval;
+      $('lv-levels').innerHTML = a ? a.Levels.map(x => {
+        const dec = a.Decisions.find(y => y.LevelNumber === x.LevelNumber);
+        return '<li>Level ' + x.LevelNumber + ': ' + (dec ? '<span class="' + (dec.Decision === 'Approved' ? 'text-emerald-400' : 'text-red-400') + '">' + escapeHtml(dec.Decision) + '</span> by ' + escapeHtml(dec.ApproverName) +
+          ' · ' + escapeHtml(isoLocalDateTime(dec.DecidedAt)) + (dec.Reason ? ' — ' + escapeHtml(dec.Reason) : '') : '<span class="text-amber-400">waiting</span>') + '</li>';
+      }).join('') : '';
+      $('lv-approval-wrap').classList.toggle('hidden', !a);
+      $('lv-history').innerHTML = (l.History || []).slice().reverse().map(h => '<li>' + escapeHtml(isoLocalDateTime(h.At)) + ' · ' + escapeHtml(h.By) + ' · ' + escapeHtml(h.Event) + (h.Note ? ' — ' + escapeHtml(h.Note) : '') + '</li>').join('');
+      $('lv-history-wrap').classList.toggle('hidden', !(l.History || []).length);
+      setButtons();
+      if (files) files.reload();
+      showForm();
+    }, err => appAlert(err.message || 'Unable to open the leave.'));
+  }
+  function save(then) {
+    setError('');
+    return call('saveLeave', { leave: collect() }).then(r => {
+      isDirty = false;
+      return loadList(() => (then ? then(r.leaveId) : openLeave(r.leaveId)));
+    }, err => setError(err.message || 'Unable to save.'));
+  }
+  function submit() {
+    save(async id => {
+      if (!(await appConfirm('Submit this leave? It goes for approval (or is approved now when no approval is set up).'))) return openLeave(id);
+      call('submitLeave', { leaveId: id }).then(r => {
+        appAlert(r.status === 'Approved' ? r.leaveNumber + ' is approved.' : r.leaveNumber + ' is waiting for approval.');
+        loadList(() => openLeave(id));
+      }, err => { openLeave(id).then(() => setError(err.message || 'Unable to submit.')); });
+    });
+  }
+  async function decide(decision) {
+    let reason = '';
+    if (decision === 'Rejected') { reason = await appPrompt('Reject this leave: the reason?', ''); if (reason == null) return; }
+    call('decideLeaveApproval', { leaveId: current.LeaveID, levelNumber: myLevels[0], decision: decision, reason: reason })
+      .then(() => loadList(() => openLeave(current.LeaveID)), err => appAlert(err.message || 'Unable to record the decision.'));
+  }
+  async function cancelLeave() {
+    const reason = await appPrompt('Cancel this leave: the reason?', '');
+    if (reason == null) return;
+    call('cancelLeave', { leaveId: current.LeaveID, reason: reason }).then(() => loadList(() => openLeave(current.LeaveID)), err => appAlert(err.message || 'Unable to cancel.'));
+  }
+  // The return: first what it would do, then confirmed.
+  function recordReturn() {
+    const id = current.LeaveID, date = val('lv-return-date');
+    call('recordLeaveReturn', { leaveId: id, returnDate: date }).then(async p => {
+      const msg = p.early ? 'Back early on ' + p.returnDate + ': ' + days(p.daysReturned) + ' go back to the balance.'
+        : p.lateDays ? 'Back late on ' + p.returnDate + ' (due ' + p.expected + '): ' + days(p.lateDays) + ' will be recorded as unpaid absence.' : 'Back on time on ' + p.returnDate + '.';
+      if (!(await appConfirm(msg + ' Record it?'))) return;
+      call('recordLeaveReturn', { leaveId: id, returnDate: date, confirm: true }).then(() => loadList(() => openLeave(id)), err => appAlert(err.message || 'Unable to record the return.'));
+    }, err => appAlert(err.message || 'Unable to record the return.'));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-plane-departure"></i> Leave Register';
+    $('lv-search').addEventListener('input', renderList);
+    ['lv-type-filter', 'lv-status-filter', 'lv-month-filter'].forEach(id => $(id).addEventListener('change', renderList));
+    $('lv-new-btn').addEventListener('click', () => newLeave(''));
+    $('lv-back-btn').addEventListener('click', () => confirmLeave(showList));
+    $('lv-type').addEventListener('change', showHalf);
+    ['input', 'change'].forEach(t => $('lv-entry-view').addEventListener(t, e => { if (e.target.closest('.lv-f')) { isDirty = true; previewSoon(); } }));
+    $('lv-save-btn').addEventListener('click', () => save());
+    $('lv-submit-btn').addEventListener('click', submit);
+    $('lv-delete-btn').addEventListener('click', async () => {
+      if (!(await appConfirm('Delete this draft?'))) return;
+      call('deleteLeave', { leaveId: current.LeaveID }).then(showList, err => appAlert(err.message));
+    });
+    $('lv-cancel-btn').addEventListener('click', cancelLeave);
+    $('lv-return-btn').addEventListener('click', recordReturn);
+    $('lv-approve-btn').addEventListener('click', () => decide('Approved'));
+    $('lv-reject-btn').addEventListener('click', () => decide('Rejected'));
+    // A medical certificate or other document, below the leave (docs/modules/ATTACHMENTS.md).
+    files = supportingDocs.mount({ module: 'LEAVE', view: 'lv-entry-view', id: () => current && current.LeaveID, list: 'lv-table-body', rowAttr: 'id',
+      emptyNote: 'Save the leave to attach a medical certificate or other document.' });
+    myReturnChain = window.__pendingReturnChain || [];
+    window.__pendingReturnChain = null;
+    if (myReturnChain.length) {
+      const target = myReturnChain[myReturnChain.length - 1];
+      $('lv-back-chain-label').textContent = 'Back to ' + (target.label || target.moduleId);
+      $('lv-back-chain-btn').classList.remove('hidden');
+      $('lv-back-chain-btn').addEventListener('click', () => confirmLeave(() => { const chain = myReturnChain.slice(); const t = chain.pop(); if (t) openModule(t.moduleId, t.params, chain); }));
+    }
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    call('getLeaveForm', {}).then(r => {
+      form = r;
+      options($('lv-employee'), r.employees.map(e => ({ value: e.EmployeeID, label: e.EmployeeNo + ' — ' + e.FullName })), 'Select...');
+      options($('lv-type'), r.types.map(t => ({ value: t.LeaveTypeID, label: t.Name })), 'Select...');
+      options($('lv-type-filter'), r.types.map(t => ({ value: t.LeaveTypeID, label: t.Name })), 'All types');
+      return loadList(() => {
+        if (pending && pending.OpenEntryId) openLeave(pending.OpenEntryId);
+        else if (pending && pending.NewForEmployee) newLeave(pending.NewForEmployee);
+      });
+    }, err => appAlert(err.message || 'Unable to load the leave register.'));
+  };
+})();
+</script>
