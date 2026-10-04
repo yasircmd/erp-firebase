@@ -48,7 +48,7 @@ test('per company: the daily-rate method and Salaries Payable (a liability, shar
   assert.deepEqual(s.settings, [{ CompanyID: 'C1', DailyRateMethod: 'DIV30', PayableAccountID: '', ReceivableAccountID: '' }]);
   assert.deepEqual(Object.keys(s.methods), ['DIV30', 'MONTHDAYS', 'YEARDAYS']);
   assert.ok(s.accounts.some(a => a.AccountID === 'A-SALC1') && !s.accounts.some(a => a.AccountID === 'A-SAL2') && !s.accounts.some(a => a.AccountID === 'A-HDR'));
-  await assert.rejects(call('u-viewer', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'MONTHDAYS' }), /permission to change HR Setup/);
+  await assert.rejects(call('u-viewer', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'MONTHDAYS' }), /permission to change Payroll Setup/);
   await assert.rejects(call('u-admin', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'DIV31' }), /how the daily rate is worked out/);
   await assert.rejects(call('u-admin', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'MONTHDAYS', payableAccountId: 'A-SAL' }), /must be Liability/);
   await assert.rejects(call('u-admin', 'savePayrollCompany', { companyId: 'C2', dailyRateMethod: 'MONTHDAYS' }), /access to that company/);
@@ -115,4 +115,17 @@ test('an element whose kind or nature changes loses the payroll settings that no
   await call('u-admin', 'savePayElement', { element: { ElementID: id, Code: 'OTX', Name: 'Holiday pay', Kind: 'Deduction', Nature: 'Fixed' } });
   e = await get();
   assert.deepEqual([e.GLAccountID, e.GLByCompany, e.InGross, e.Prorated], ['', {}, false, false]);
+});
+
+test('the rights moved to Payroll Setup (step 4): HR Setup\'s write right no longer changes pay elements or payroll settings', async () => {
+  const { rtdb } = require('./_helpers');
+  await rtdb.ref('permissions/HRSETUP/write').set(['Admin', 'Viewer']);
+  await assert.rejects(call('u-viewer', 'savePayElement', { element: { Code: 'X1', Name: 'X1', Kind: 'Earning', Nature: 'Fixed' } }), /permission to change Payroll Setup/);
+  await assert.rejects(call('u-viewer', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'DIV30' }), /permission to change Payroll Setup/);
+  assert.equal((await call('u-viewer', 'getPayElements', {})).canWrite, false);
+  await rtdb.ref('permissions/PAYROLLSETUP/write').set(['Admin', 'Viewer']);
+  await call('u-viewer', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'DIV30', payableAccountId: 'A-SALPAY' });
+  assert.equal((await call('u-viewer', 'getPayElements', {})).canWrite, true);
+  await rtdb.ref('permissions/PAYROLLSETUP/write').set(['Admin']);
+  await rtdb.ref('permissions/HRSETUP/write').set(['Admin']);
 });

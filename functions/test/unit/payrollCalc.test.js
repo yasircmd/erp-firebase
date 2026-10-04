@@ -58,9 +58,11 @@ test('leave (decision 13): unpaid, absent and reduced-pay days on their own dedu
   let r = run({ versions, leave: [leave('2026-07-06', 'Unpaid'), leave('2026-07-07', 'Unpaid')] });
   assert.deepEqual([amt(r, 'UNPAIDLV'), amt(r, 'BASIC'), r.Net], [640, 6000, 9700 - 640]);
   assert.equal(r.Lines.find(l => l.Code === 'UNPAIDLV').Text, '2 days × 320.00 = 640.00');
+  assert.equal(r.UnpaidDays, 2, 'for the bank file (step 4)');
   // Absence, its own line.
   r = run({ versions, leave: [leave('2026-07-08', 'Unpaid', { Absence: true })] });
   assert.deepEqual([amt(r, 'ABSENCE'), amt(r, 'UNPAIDLV')], [320, undefined]);
+  assert.equal(r.UnpaidDays, 1);
   // Full salary pays the "in gross" elements: transport (not in gross) is taken out.
   r = run({ versions, leave: [leave('2026-07-10', 'Full')] });
   assert.equal(amt(r, 'REDUCEDLV'), 20);

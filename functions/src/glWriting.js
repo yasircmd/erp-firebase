@@ -22,7 +22,8 @@ const STOCK_TRANSACTION_PREFIXES = {
   RecurringJV: 'RJV', // hand-written module, docs/modules/RECURRING_JOURNAL.md: a run and its reversal
   // hand-written module, docs/modules/OPENING_BALANCES.md: GL and open invoices; opening stock
   OpeningBalance: 'OB', OpeningStock: 'OS',
-  Payroll: 'PAY' // hand-written module, docs/modules/HR_PAYROLL.md: a run and its reversal
+  Payroll: 'PAY', // hand-written module, docs/modules/HR_PAYROLL.md: a run and its reversal
+  PayrollPayment: 'PAYP' // its payment (step 4) and that payment's reversal
 };
 
 function userCanAccessCompany(profile, companyId) {

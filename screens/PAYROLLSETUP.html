@@ -1,0 +1,375 @@
+<div class="space-y-5">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-sliders text-blue-500"></i> Payroll Setup</h2></div>
+  </div>
+  <div id="ps-tabs" class="flex flex-wrap gap-1 border-b border-slate-800">
+    <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="elements">Pay Elements</button>
+    <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="payroll">Payroll</button>
+    <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="files">Payment Files</button>
+  </div>
+  <p id="ps-readonly" class="hidden text-xs text-slate-400">You can view Payroll Setup but not change it.</p>
+
+  <!-- PAY ELEMENTS -->
+  <div id="ps-pane-elements" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">The parts of an employee's pay (the first piece of Payroll). Fixed elements are monthly amounts on the employee (basic, allowances, fixed deductions); variable ones are agreed terms (bonus, commission), paid per payroll run. One fixed earning is the Basic: the grade's pay band is checked against it.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Code</th><th class="py-2 px-3">Element</th><th class="py-2 px-3">Kind</th><th class="py-2 px-3">Nature</th><th class="py-2 px-3">Basic</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="ps-el-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div id="ps-el-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Code *</label><input id="ps-el-code" maxlength="20" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase"></div>
+        <div class="md:col-span-3"><label class="block text-xs font-medium text-slate-300 mb-1">Name *</label><input id="ps-el-name" maxlength="80" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Kind</label><select id="ps-el-kind" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Earning</option><option>Deduction</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Nature</label><select id="ps-el-nature" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Fixed">Fixed (monthly amount)</option><option value="Variable">Variable (agreed terms)</option></select></div>
+        <div class="flex items-end gap-4 md:col-span-2">
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-el-basic" type="checkbox"> This is the Basic</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-el-active" type="checkbox" checked> In use</label>
+        </div>
+      </div>
+      <div class="flex gap-2"><button id="ps-el-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="ps-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+    <button id="ps-el-new" class="ps-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New pay element</button>
+  </div>
+
+  <!-- PAYROLL SETUP (docs/modules/HR_PAYROLL.md, step 1) -->
+  <div id="ps-pane-payroll" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">How each company's payroll works it out, and where each pay element posts. The daily rate prorates pay for joiners, leavers and unpaid days, and pays leave at basic or a %. Each element posts to its GL account by the employee's cost center (a company may use its own account); the lines are clubbed as for inventory.</p>
+    <div class="text-xs font-semibold text-slate-400 uppercase">Companies</div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Company</th><th class="py-2 px-3">Daily rate</th><th class="py-2 px-3">Salaries Payable</th><th class="py-2 px-3" title="A net shortfall carried to the next run waits here">Recoverable from employees</th><th class="py-2 px-3">Example (5,000 a month, this month)</th><th class="py-2 px-3"></th></tr></thead>
+      <tbody id="ps-pc-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div class="text-xs font-semibold text-slate-400 uppercase pt-2">Pay elements</div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Element</th><th class="py-2 px-3">GL account</th><th class="py-2 px-3">Prorated</th><th class="py-2 px-3">In gross</th><th class="py-2 px-3">Overtime</th></tr></thead>
+      <tbody id="ps-pe-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div id="ps-pe-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="text-sm font-semibold text-slate-200" id="ps-pe-heading"></div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">GL account (the group's)</label><select id="ps-pe-gl" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div class="flex items-end gap-4">
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-pe-prorated" type="checkbox"> Prorated</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-pe-gross" type="checkbox"> In gross</label>
+        </div>
+      </div>
+      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-3">Company</th><th class="py-1">Its own account (else the group's)</th></tr></thead><tbody id="ps-pe-cos"></tbody></table>
+      <div id="ps-pe-ot-wrap" class="hidden space-y-2 border-t border-slate-700 pt-3">
+        <label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-pe-isot" type="checkbox"> This is an overtime element</label>
+        <div id="ps-pe-ot" class="hidden grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Paid as</label><select id="ps-ot-mode" class="ps-ot w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Hours">Hours × rate</option><option value="Amount">An amount per run</option></select></div>
+          <div class="ps-ot-hours"><label class="block text-xs font-medium text-slate-300 mb-1">Base</label><select id="ps-ot-base" class="ps-ot w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Basic">Basic</option><option value="Gross">Gross</option></select></div>
+          <div class="ps-ot-hours"><label class="block text-xs font-medium text-slate-300 mb-1">÷ days</label><select id="ps-ot-daysmode" class="ps-ot w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Company">The company's daily rate</option><option value="Fixed">Fixed</option></select>
+            <input id="ps-ot-days" type="number" min="1" max="31" placeholder="days" class="ps-ot hidden mt-1 w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+          <div class="ps-ot-hours"><label class="block text-xs font-medium text-slate-300 mb-1">÷ hours a day</label><select id="ps-ot-hoursmode" class="ps-ot w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Schedule">The employee's schedule</option><option value="Fixed">Fixed</option></select>
+            <input id="ps-ot-hours" type="number" min="1" max="24" step="0.25" placeholder="hours" class="ps-ot hidden mt-1 w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+          <div class="ps-ot-hours"><label class="block text-xs font-medium text-slate-300 mb-1">× weightage</label><input id="ps-ot-weight" type="number" step="0.05" min="0" class="ps-ot w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+          <div class="ps-ot-hours md:col-span-3 text-xs text-slate-300 self-end" id="ps-ot-example"></div>
+        </div>
+      </div>
+      <div class="flex gap-2"><button id="ps-pe-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="ps-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+  </div>
+
+  <!-- PAYMENT FILES (docs/modules/HR_PAYROLL.md, step 4) -->
+  <div id="ps-pane-files" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">The bank file each company sends to pay salaries. Each bank (and each company) has its own layout, so build it here: a header, one record per employee paid by bank and a trailer, each an ordered list of fields. Start from the UAE WPS SIF and adjust it to your bank's specification, then preview it on a run.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Company</th><th class="py-2 px-3">Format</th><th class="py-2 px-3">Bank</th><th class="py-2 px-3">File</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="ps-pf-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div class="flex gap-2">
+      <button id="ps-pf-starter" class="ps-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New from the UAE WPS SIF</button>
+      <button id="ps-pf-new" class="ps-write bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-plus"></i> New blank format</button>
+    </div>
+    <div id="ps-pf-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Company *</label><select id="ps-pf-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Name *</label><input id="ps-pf-name" maxlength="80" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Bank</label><input id="ps-pf-bank" maxlength="80" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="flex items-end pb-2"><label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-pf-active" type="checkbox" checked> In use</label></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">File type</label><select id="ps-pf-type" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Delimited">Delimited</option><option value="Fixed">Fixed width</option></select></div>
+        <div id="ps-pf-delim-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">Delimiter</label><select id="ps-pf-delim" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value=",">Comma ,</option><option value=";">Semicolon ;</option><option value="|">Pipe |</option><option value="TAB">Tab</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Extension</label><input id="ps-pf-ext" maxlength="5" placeholder="SIF" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm keep-iso"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Line ending</label><select id="ps-pf-eol" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="CRLF">Windows (CR LF)</option><option value="LF">Unix (LF)</option></select></div>
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">File name</label><input id="ps-pf-filename" maxlength="120" placeholder="{EMPLOYER}{CREATED:yyMMddHHmmss}" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono keep-iso"></div>
+        <div class="md:col-span-2 text-xs text-slate-500 self-end pb-2">Values in braces: {EMPLOYER}, {BANK_CODE}, {MONTH:MMyyyy}, {CREATED:yyMMddHHmmss}, {PAY_DATE:ddMMyyyy}…</div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Employer ID</label><input id="ps-pf-employer" maxlength="40" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono keep-iso"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Bank code</label><input id="ps-pf-bankcode" maxlength="40" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono keep-iso"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Currency</label><input id="ps-pf-currency" maxlength="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference</label><input id="ps-pf-ref" maxlength="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      </div>
+      <div id="ps-pf-records" class="space-y-3"></div>
+      <div class="flex flex-wrap items-end gap-3 border-t border-slate-700 pt-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Preview on the run</label><select id="ps-pf-run" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment date</label><input id="ps-pf-paydate" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <button id="ps-pf-preview" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-eye"></i> Preview</button>
+      </div>
+      <pre id="ps-pf-out" class="hidden keep-iso bg-slate-900 border border-slate-700 rounded-lg p-3 text-xs overflow-x-auto"></pre>
+      <div class="flex gap-2"><button id="ps-pf-save" class="ps-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button id="ps-pf-delete" class="ps-write hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-4 py-2 rounded-lg border border-slate-700">Delete</button>
+        <button class="ps-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Payroll Setup (owner, 2026-10-04; docs/modules/HR_PAYROLL.md, step 4):
+  // the pay elements, each company's payroll settings and each element's
+  // GL account (moved from HR Setup), and the payment file formats.
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const statusHtml = active => active === false ? '<span class="text-slate-500">Not in use</span>' : '<span class="text-emerald-400">In use</span>';
+  let companies = [], canWrite = false, editing = null, payElements = [];
+  const TABS = ['elements', 'payroll', 'files'];
+
+  function showTab(tab) {
+    document.querySelectorAll('.ps-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
+    TABS.forEach(t => $('ps-pane-' + t).classList.toggle('hidden', t !== tab));
+  }
+  function load() {
+    return call('getPayElements', {}).then(pe => {
+      payElements = pe.elements || []; canWrite = Boolean(pe.canWrite);
+      document.querySelectorAll('.ps-write').forEach(b => b.classList.toggle('hidden', !canWrite));
+      $('ps-readonly').classList.toggle('hidden', canWrite);
+      renderElements();
+    }, err => appAlert(err.message || 'Unable to load the pay elements.'));
+  }
+  const coLabel = id => { const c = companies.find(x => x.CompanyID === id); return c ? (c.CompanyRefCode || c.LegalName) : id; };
+  function rowClick(body, onClick) {
+    body.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => { if (canWrite) onClick(tr.dataset.id); }));
+  }
+  function renderElements() {
+    $('ps-el-body').innerHTML = payElements.map(e => '<tr data-id="' + escapeHtml(e.ElementID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '">' +
+      '<td class="py-2 px-3 font-mono text-xs">' + escapeHtml(e.Code) + '</td><td class="py-2 px-3">' + escapeHtml(e.Name) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(e.Kind) +
+      '</td><td class="py-2 px-3 text-xs">' + escapeHtml(e.Nature) + '</td><td class="py-2 px-3 text-xs">' + (e.IsBasic ? 'Basic' : '') + '</td><td class="py-2 px-3 text-xs">' + statusHtml(e.Active) + '</td></tr>').join('');
+    rowClick($('ps-el-body'), editElement);
+  }
+  function editElement(id) {
+    closeForms();
+    const e = payElements.find(x => x.ElementID === id) || { Kind: 'Earning', Nature: 'Fixed', Active: true };
+    editing = id || null;
+    $('ps-el-code').value = e.Code || ''; $('ps-el-name').value = e.Name || ''; $('ps-el-kind').value = e.Kind; $('ps-el-nature').value = e.Nature;
+    $('ps-el-basic').checked = Boolean(e.IsBasic); $('ps-el-active').checked = e.Active !== false;
+    $('ps-el-form').classList.remove('hidden');
+  }
+  // ---------- payroll setup (Payroll step 1) ----------
+  let prSetup = null;
+  const acctLabel = a => a.AccountCode + ' — ' + a.AccountName;
+  const acctById = id => (prSetup.accounts.find(a => a.AccountID === id) || null);
+  const thisMonth = () => window.isoLocalDateTime(new Date()).slice(0, 7);
+  function loadPayroll() {
+    return call('getPayrollSetup', {}).then(r => { prSetup = r; renderPayroll(); }, err => appAlert(err.message || 'Unable to load the payroll setup.'));
+  }
+  function acctOptions(list, sel, first) {
+    return '<option value="">' + escapeHtml(first) + '</option>' + list.map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === sel ? ' selected' : '') + '>' + escapeHtml(acctLabel(a)) + '</option>').join('');
+  }
+  function renderPayroll() {
+    const ro = canWrite ? '' : ' disabled';
+    $('ps-pc-body').innerHTML = prSetup.settings.map(st => {
+      const liab = prSetup.accounts.filter(a => a.AccountType === 'Liability' && (!a.CompanyID || a.CompanyID === st.CompanyID));
+      const assets = prSetup.accounts.filter(a => a.AccountType === 'Asset' && (!a.CompanyID || a.CompanyID === st.CompanyID));
+      return '<tr data-co="' + escapeHtml(st.CompanyID) + '"><td class="py-2 px-3 text-xs">' + escapeHtml(coLabel(st.CompanyID)) + '</td>' +
+        '<td class="py-2 px-3"><select class="ps-pc-method bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"' + ro + '>' + Object.entries(prSetup.methods).map(([k, v]) => '<option value="' + k + '"' + (k === st.DailyRateMethod ? ' selected' : '') + '>' + escapeHtml(v) + '</option>').join('') + '</select></td>' +
+        '<td class="py-2 px-3"><select class="ps-pc-payable bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"' + ro + '>' + acctOptions(liab, st.PayableAccountID, '—') + '</select></td>' +
+        '<td class="py-2 px-3"><select class="ps-pc-receivable bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"' + ro + '>' + acctOptions(assets, st.ReceivableAccountID, '—') + '</select></td>' +
+        '<td class="py-2 px-3 text-xs text-slate-400 ps-pc-example"></td>' +
+        '<td class="py-2 px-3">' + (canWrite ? '<button type="button" class="ps-pc-save bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save</button>' : '') + '</td></tr>';
+    }).join('');
+    document.querySelectorAll('#ps-pc-body tr').forEach(companyExample);
+    $('ps-pe-body').innerHTML = prSetup.elements.filter(e => e.Active !== false).map(e => {
+      const a = acctById(e.GLAccountID), over = Object.keys(e.GLByCompany || {}).length;
+      const ot = e.Category === 'Overtime' ? (e.Overtime && e.Overtime.Mode === 'Hours' ? '× ' + e.Overtime.Weightage + ' on ' + e.Overtime.Base.toLowerCase() : 'Amount') : '';
+      return '<tr data-id="' + escapeHtml(e.ElementID) + '" class="' + (canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '"><td class="py-2 px-3">' + escapeHtml(e.Name) +
+        ' <span class="text-xs text-slate-500">' + escapeHtml(e.System ? 'Deduction, made by the payroll run from leave' : e.Kind + ', ' + e.Nature) + '</span></td>' +
+        '<td class="py-2 px-3 text-xs">' + (a ? escapeHtml(acctLabel(a)) : '<span class="text-amber-400">not set</span>') + (over ? ' <span class="text-slate-500">(+' + over + ' company)</span>' : '') + '</td>' +
+        '<td class="py-2 px-3 text-xs">' + (e.Prorated ? 'Yes' : '') + '</td><td class="py-2 px-3 text-xs">' + (e.InGross ? 'Yes' : '') + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(ot) + '</td></tr>';
+    }).join('');
+    rowClick($('ps-pe-body'), editPayrollElement);
+  }
+  function companyExample(tr) {
+    const seq = tr.__seq = (tr.__seq || 0) + 1;
+    call('previewPayrollFormula', { method: tr.querySelector('.ps-pc-method').value, month: thisMonth(), basic: 5000 }).then(r => { if (seq === tr.__seq) tr.querySelector('.ps-pc-example').textContent = r.daily; }, () => {});
+  }
+  let peEditing = null;
+  function editPayrollElement(id) {
+    closeForms();
+    const e = prSetup.elements.find(x => x.ElementID === id);
+    peEditing = e;
+    $('ps-pe-heading').textContent = e.Name + ' (' + e.Kind + ', ' + e.Nature + ')';
+    const glList = prSetup.accounts.filter(a => !a.CompanyID && (e.Kind !== 'Earning' || a.AccountType === 'Expense'));
+    $('ps-pe-gl').innerHTML = acctOptions(glList, e.GLAccountID, '—');
+    $('ps-pe-cos').innerHTML = prSetup.settings.map(st => '<tr><td class="py-1 pr-3 text-xs">' + escapeHtml(coLabel(st.CompanyID)) + '</td><td class="py-1"><select class="ps-pe-co bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300" data-co="' + escapeHtml(st.CompanyID) + '">' +
+      acctOptions(prSetup.accounts.filter(a => (!a.CompanyID || a.CompanyID === st.CompanyID) && (e.Kind !== 'Earning' || a.AccountType === 'Expense')), (e.GLByCompany || {})[st.CompanyID] || '', 'The group\'s') + '</select></td></tr>').join('');
+    $('ps-pe-prorated').checked = Boolean(e.Prorated); $('ps-pe-prorated').disabled = e.Nature !== 'Fixed';
+    $('ps-pe-gross').checked = Boolean(e.InGross); $('ps-pe-gross').disabled = e.Kind !== 'Earning';
+    const canOt = e.Kind === 'Earning' && e.Nature === 'Variable';
+    $('ps-pe-ot-wrap').classList.toggle('hidden', !canOt);
+    $('ps-pe-isot').checked = e.Category === 'Overtime';
+    const o = e.Overtime || { Mode: 'Hours', Base: 'Basic', DaysMode: 'Company', HoursMode: 'Schedule', Weightage: 1.25 };
+    $('ps-ot-mode').value = o.Mode; $('ps-ot-base').value = o.Base || 'Basic'; $('ps-ot-daysmode').value = o.DaysMode || 'Company'; $('ps-ot-hoursmode').value = o.HoursMode || 'Schedule';
+    $('ps-ot-days').value = o.FixedDays || ''; $('ps-ot-hours').value = o.FixedHours || ''; $('ps-ot-weight').value = o.Weightage || '';
+    otFields();
+    $('ps-pe-form').classList.remove('hidden');
+  }
+  const otConfig = () => ({ Mode: val('ps-ot-mode'), Base: val('ps-ot-base'), DaysMode: val('ps-ot-daysmode'), FixedDays: val('ps-ot-days'), HoursMode: val('ps-ot-hoursmode'), FixedHours: val('ps-ot-hours'), Weightage: val('ps-ot-weight') });
+  let otSeq = 0;
+  // The overtime fields as chosen, and the worked example (the company's method, this month).
+  function otFields() {
+    const on = $('ps-pe-isot').checked;
+    $('ps-pe-ot').classList.toggle('hidden', !on);
+    document.querySelectorAll('.ps-ot-hours').forEach(x => x.classList.toggle('hidden', val('ps-ot-mode') !== 'Hours'));
+    $('ps-ot-days').classList.toggle('hidden', val('ps-ot-daysmode') !== 'Fixed');
+    $('ps-ot-hours').classList.toggle('hidden', val('ps-ot-hoursmode') !== 'Fixed');
+    if (!on || val('ps-ot-mode') !== 'Hours') { $('ps-ot-example').textContent = ''; return; }
+    const st = prSetup.settings[0] || { DailyRateMethod: 'DIV30' };
+    const seq = ++otSeq; // only the latest answer is shown
+    call('previewPayrollFormula', { method: st.DailyRateMethod, month: thisMonth(), basic: 5000, gross: 8000, hoursPerDay: 8, overtime: otConfig() })
+      .then(r => { if (seq === otSeq) $('ps-ot-example').textContent = 'Example (basic 5,000, gross 8,000, ' + (st.CompanyID ? coLabel(st.CompanyID) + ', ' : '') + 'an 8-hour day): ' + r.overtime; },
+        err => { if (seq === otSeq) $('ps-ot-example').textContent = err.message || ''; });
+  }
+  function savePayrollElement() {
+    const glByCompany = {};
+    document.querySelectorAll('.ps-pe-co').forEach(sel => { glByCompany[sel.dataset.co] = sel.value; });
+    call('savePayElementPayroll', { elementId: peEditing.ElementID, glAccountId: val('ps-pe-gl'), glByCompany, prorated: $('ps-pe-prorated').checked, inGross: $('ps-pe-gross').checked,
+      category: $('ps-pe-isot').checked ? 'Overtime' : 'Normal', overtime: $('ps-pe-isot').checked ? otConfig() : null })
+      .then(() => { closeForms(); return loadPayroll(); }, err => appAlert(err.message || 'Unable to save.'));
+  }
+
+  // ---------- payment files (step 4) ----------
+  let pf = null, pfEditing = null;
+  const RECORD_NOTE = { Header: 'Header (once, at the start; leave empty if the bank has none)', Employee: 'Employee record (one per employee paid by bank)', Trailer: 'Trailer (once, at the end)' };
+  function loadFormats() {
+    return call('getPaymentFormats', {}).then(r => { pf = r; renderFormats(); }, err => appAlert(err.message || 'Unable to load the payment files.'));
+  }
+  function renderFormats() {
+    $('ps-pf-body').innerHTML = pf.formats.map(f => '<tr data-id="' + escapeHtml(f.FormatID) + '" class="hover:bg-slate-800/40 cursor-pointer"><td class="py-2 px-3 text-xs">' + escapeHtml(coLabel(f.CompanyID)) + '</td>' +
+      '<td class="py-2 px-3">' + escapeHtml(f.Name) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(f.Bank || '') + '</td><td class="py-2 px-3 text-xs keep-iso">' + escapeHtml((f.Type === 'Fixed' ? 'Fixed width' : 'Delimited') + (f.Extension ? ', .' + f.Extension : '')) + '</td>' +
+      '<td class="py-2 px-3 text-xs">' + statusHtml(f.Active) + '</td></tr>').join('') || '<tr><td colspan="5" class="py-4 px-3 text-xs text-slate-500">No payment file formats yet.</td></tr>';
+    $('ps-pf-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => editFormat(pf.formats.find(f => f.FormatID === tr.dataset.id))));
+    document.querySelectorAll('#ps-pane-files .ps-write').forEach(b => b.classList.toggle('hidden', !pf.canWrite || (b.id === 'ps-pf-delete' && !pfEditing)));
+  }
+  function fieldRow(f) {
+    const src = pf.sources.find(x => x.Source === f.Source) || { Kind: 'text' };
+    return '<tr class="ps-pf-row"><td class="py-1 pr-2"><select class="ps-pf-src bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs text-slate-300">' +
+      pf.sources.map(x => '<option value="' + x.Source + '"' + (x.Source === f.Source ? ' selected' : '') + '>' + escapeHtml(x.Label) + '</option>').join('') + '</select></td>' +
+      '<td class="py-1 pr-2"><input class="ps-pf-text w-28 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs keep-iso" value="' + escapeHtml(f.Text || '') + '"' + (f.Source === 'TEXT' ? '' : ' disabled') + '></td>' +
+      '<td class="py-1 pr-2"><input class="ps-pf-fmt w-28 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs font-mono keep-iso" placeholder="yyyy-MM-dd" value="' + escapeHtml(f.Format || '') + '"' + (src.Kind === 'date' ? '' : ' disabled') + '></td>' +
+      '<td class="py-1 pr-2"><input class="ps-pf-dec w-14 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs" type="number" min="0" max="4" value="' + (f.Decimals == null ? '' : f.Decimals) + '"' + (src.Kind === 'amount' ? '' : ' disabled') + '></td>' +
+      '<td class="py-1 pr-2"><input class="ps-pf-w w-14 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs" type="number" min="1" max="200" value="' + (f.Width == null ? '' : f.Width) + '"></td>' +
+      '<td class="py-1 pr-2"><select class="ps-pf-pad bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs text-slate-300"><option value="Right"' + (f.Pad !== 'Left' ? ' selected' : '') + '>Text left</option><option value="Left"' + (f.Pad === 'Left' ? ' selected' : '') + '>Text right</option></select>' +
+      ' <select class="ps-pf-padch bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs text-slate-300"><option value=" ">spaces</option><option value="0"' + (f.PadChar === '0' ? ' selected' : '') + '>zeros</option></select></td>' +
+      '<td class="py-1 pr-2 text-center"><input class="ps-pf-upper" type="checkbox"' + (f.Upper ? ' checked' : '') + '></td>' +
+      '<td class="py-1 whitespace-nowrap"><button class="ps-pf-moveup text-xs text-slate-400" title="Move up"><i class="fa-solid fa-arrow-up"></i></button> <button class="ps-pf-del text-xs text-red-400" title="Remove"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  }
+  function renderRecords(recs) {
+    $('ps-pf-records').innerHTML = pf.records.map(rec => '<div class="space-y-1"><div class="text-xs font-semibold text-slate-400 uppercase">' + escapeHtml(RECORD_NOTE[rec]) + '</div>' +
+      '<div class="overflow-x-auto"><table class="text-left"><thead><tr class="text-xs text-slate-500"><th class="pr-2">Holds</th><th class="pr-2">Text</th><th class="pr-2">Date pattern</th><th class="pr-2">Decimals</th><th class="pr-2">Width</th><th class="pr-2">Padding</th><th class="pr-2">Upper</th><th></th></tr></thead>' +
+      '<tbody class="ps-pf-rec" data-rec="' + rec + '">' + (recs[rec] || []).map(fieldRow).join('') + '</tbody></table></div>' +
+      '<button class="ps-pf-add text-xs text-blue-400" data-rec="' + rec + '"><i class="fa-solid fa-plus"></i> Add a field</button></div>').join('');
+  }
+  function pfTypeFields() { $('ps-pf-delim-wrap').classList.toggle('hidden', val('ps-pf-type') !== 'Delimited'); }
+  function editFormat(f) {
+    closeForms();
+    pfEditing = f && f.FormatID ? f.FormatID : null;
+    const x = f || { Type: 'Delimited', Delimiter: ',', LineEnd: 'CRLF', Values: {}, Records: { Header: [], Employee: [], Trailer: [] }, Active: true };
+    $('ps-pf-company').innerHTML = companies.map(c => '<option value="' + escapeHtml(c.CompanyID) + '"' + (c.CompanyID === x.CompanyID ? ' selected' : '') + '>' + escapeHtml(coLabel(c.CompanyID)) + '</option>').join('');
+    $('ps-pf-name').value = x.Name || ''; $('ps-pf-bank').value = x.Bank || ''; $('ps-pf-active').checked = x.Active !== false;
+    $('ps-pf-type').value = x.Type || 'Delimited'; $('ps-pf-delim').value = x.Delimiter || ','; $('ps-pf-ext').value = x.Extension || ''; $('ps-pf-eol').value = x.LineEnd || 'CRLF';
+    $('ps-pf-filename').value = x.FileName || '';
+    const v = x.Values || {};
+    $('ps-pf-employer').value = v.EmployerID || ''; $('ps-pf-bankcode').value = v.BankCode || ''; $('ps-pf-currency').value = v.Currency || ''; $('ps-pf-ref').value = v.Reference || '';
+    renderRecords(x.Records || {});
+    $('ps-pf-run').innerHTML = pf.runs.map(r => '<option value="' + escapeHtml(r.RunID) + '" data-co="' + escapeHtml(r.CompanyID) + '">' + escapeHtml(coLabel(r.CompanyID) + ' · ' + r.Month + ' (' + r.Status + ')') + '</option>').join('') || '<option value="">No runs yet</option>';
+    $('ps-pf-out').classList.add('hidden');
+    pfTypeFields();
+    renderFormats();
+    $('ps-pf-form').classList.remove('hidden');
+  }
+  function collectFormat() {
+    const records = {};
+    document.querySelectorAll('.ps-pf-rec').forEach(tb => {
+      records[tb.dataset.rec] = [...tb.querySelectorAll('.ps-pf-row')].map(tr => ({ Source: tr.querySelector('.ps-pf-src').value, Text: tr.querySelector('.ps-pf-text').value, Format: tr.querySelector('.ps-pf-fmt').value,
+        Decimals: tr.querySelector('.ps-pf-dec').value, Width: tr.querySelector('.ps-pf-w').value, Pad: tr.querySelector('.ps-pf-pad').value, PadChar: tr.querySelector('.ps-pf-padch').value, Upper: tr.querySelector('.ps-pf-upper').checked }));
+    });
+    return { FormatID: pfEditing || '', CompanyID: val('ps-pf-company'), Name: val('ps-pf-name'), Bank: val('ps-pf-bank'), Active: $('ps-pf-active').checked, Type: val('ps-pf-type'), Delimiter: val('ps-pf-delim'),
+      Extension: val('ps-pf-ext'), LineEnd: val('ps-pf-eol'), FileName: val('ps-pf-filename'),
+      Values: { EmployerID: val('ps-pf-employer'), BankCode: val('ps-pf-bankcode'), Currency: val('ps-pf-currency'), Reference: val('ps-pf-ref') }, Records: records };
+  }
+  function previewFormat() {
+    if (!val('ps-pf-run')) return appAlert('Make a payroll run first, to preview the file on it.');
+    call('previewPaymentFile', { format: collectFormat(), runId: val('ps-pf-run'), paymentDate: val('ps-pf-paydate') }).then(r => {
+      $('ps-pf-out').textContent = r.fileName + '  (' + r.count + ' employees, ' + r.total.toFixed(2) + ')\n\n' + r.lines.join('\n');
+      $('ps-pf-out').classList.remove('hidden');
+    }, err => appAlert(err.message || 'Unable to preview.'));
+  }
+  function saveFormat() {
+    call('savePaymentFormat', { format: collectFormat() }).then(r => { pfEditing = r.formatId; return loadFormats().then(() => editFormat(pf.formats.find(f => f.FormatID === r.formatId))); },
+      err => appAlert(err.message || 'Unable to save.'));
+  }
+  function deleteFormat() {
+    appConfirm('Delete the payment file format "' + val('ps-pf-name') + '"?').then(ok => {
+      if (ok) call('deletePaymentFormat', { formatId: pfEditing }).then(() => { closeForms(); return loadFormats(); }, err => appAlert(err.message || 'Unable to delete.'));
+    });
+  }
+
+  function closeForms() { ['ps-el-form', 'ps-pe-form', 'ps-pf-form'].forEach(id => $(id).classList.add('hidden')); editing = null; pfEditing = null; }
+  function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> Payroll Setup';
+    $('ps-tabs').addEventListener('click', e => { const b = e.target.closest('.ps-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'payroll') loadPayroll(); if (b.dataset.tab === 'files') loadFormats(); } });
+    $('ps-pc-body').addEventListener('change', e => { const tr = e.target.closest('tr[data-co]'); if (tr && e.target.closest('.ps-pc-method')) companyExample(tr); });
+    $('ps-pc-body').addEventListener('click', e => {
+      const b = e.target.closest('.ps-pc-save'); if (!b) return;
+      const tr = b.closest('tr[data-co]');
+      call('savePayrollCompany', { companyId: tr.dataset.co, dailyRateMethod: tr.querySelector('.ps-pc-method').value, payableAccountId: tr.querySelector('.ps-pc-payable').value, receivableAccountId: tr.querySelector('.ps-pc-receivable').value })
+        .then(() => loadPayroll(), err => appAlert(err.message || 'Unable to save.'));
+    });
+    $('ps-pe-save').addEventListener('click', savePayrollElement);
+    ['ps-pe-isot', 'ps-ot-mode', 'ps-ot-base', 'ps-ot-daysmode', 'ps-ot-hoursmode'].forEach(id => $(id).addEventListener('change', otFields));
+    ['ps-ot-days', 'ps-ot-hours', 'ps-ot-weight'].forEach(id => $(id).addEventListener('input', otFields));
+    $('ps-el-new').addEventListener('click', () => editElement(''));
+    $('ps-el-save').addEventListener('click', () => saved(call('savePayElement', { element: { ElementID: editing || '', Code: val('ps-el-code'), Name: val('ps-el-name'),
+      Kind: val('ps-el-kind'), Nature: val('ps-el-nature'), IsBasic: $('ps-el-basic').checked, Active: $('ps-el-active').checked } })));
+    document.querySelectorAll('.ps-cancel').forEach(b => b.addEventListener('click', closeForms));
+    $('ps-pf-starter').addEventListener('click', () => editFormat(Object.assign({}, JSON.parse(JSON.stringify(pf.starter)), { CompanyID: (companies[0] || {}).CompanyID })));
+    $('ps-pf-new').addEventListener('click', () => editFormat(null));
+    $('ps-pf-type').addEventListener('change', pfTypeFields);
+    $('ps-pf-preview').addEventListener('click', previewFormat);
+    $('ps-pf-save').addEventListener('click', saveFormat);
+    $('ps-pf-delete').addEventListener('click', deleteFormat);
+    $('ps-pf-records').addEventListener('click', e => {
+      const add = e.target.closest('.ps-pf-add');
+      if (add) return document.querySelector('.ps-pf-rec[data-rec="' + add.dataset.rec + '"]').insertAdjacentHTML('beforeend', fieldRow({ Source: 'TEXT' }));
+      const tr = e.target.closest('.ps-pf-row'); if (!tr) return;
+      if (e.target.closest('.ps-pf-del')) tr.remove();
+      else if (e.target.closest('.ps-pf-moveup') && tr.previousElementSibling) tr.parentNode.insertBefore(tr, tr.previousElementSibling);
+    });
+    // What a field holds decides which of its settings apply.
+    $('ps-pf-records').addEventListener('change', e => {
+      const sel = e.target.closest('.ps-pf-src'); if (!sel) return;
+      const tr = sel.closest('tr'), kind = (pf.sources.find(x => x.Source === sel.value) || {}).Kind;
+      tr.querySelector('.ps-pf-text').disabled = sel.value !== 'TEXT';
+      tr.querySelector('.ps-pf-fmt').disabled = kind !== 'date';
+      tr.querySelector('.ps-pf-dec').disabled = kind !== 'amount';
+    });
+    showTab('elements');
+    call('getActiveCompanies', {}).then(r => { companies = r || []; return load(); }, err => appAlert(err.message || 'Unable to load the companies.'));
+  };
+})();
+</script>

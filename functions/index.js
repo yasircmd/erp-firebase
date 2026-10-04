@@ -207,6 +207,8 @@ const payrollRun = require('./src/payrollRun');
 ['getPayrollRuns', 'createPayrollRun', 'getPayrollRun', 'savePayrollInputs', 'recalculatePayrollRun', 'deletePayrollRun'].forEach(n => { exports[n] = payrollRun[n]; });
 const payrollPost = require('./src/payrollPost');
 ['submitPayrollRun', 'decidePayrollApproval', 'postPayrollRun', 'reversePayrollRun', 'getPayrollPayslips'].forEach(n => { exports[n] = payrollPost[n]; });
+const payrollPayment = require('./src/payrollPayment');
+['getPaymentFormats', 'savePaymentFormat', 'deletePaymentFormat', 'previewPaymentFile', 'getPayrollPayment', 'downloadPaymentFile', 'markPayrollPaid', 'reversePayrollPayment'].forEach(n => { exports[n] = payrollPayment[n]; });
 const hrChanges = require('./src/hrChanges');
 ['getEmployeeChanges', 'getEmployeeChange', 'saveEmployeeChange', 'deleteEmployeeChange', 'submitEmployeeChange',
   'decideEmployeeChangeApproval', 'getEmployeeChangeStart'].forEach(n => { exports[n] = hrChanges[n]; });

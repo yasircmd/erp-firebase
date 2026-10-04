@@ -71,17 +71,21 @@ async function allElements() {
 async function elements() { return (await allElements()).filter(e => !e.System); }
 
 async function canSetup(user, cap) { return moduleHasCapability('HRSETUP', cap, user.profile.role); }
+// The pay elements are set up in Payroll Setup (owner, 2026-10-04;
+// docs/modules/HR_PAYROLL.md, step 4); HR Setup (leave pay rules) and
+// Employees (compensation) read them.
+async function canPayrollSetup(user, cap) { return moduleHasCapability('PAYROLLSETUP', cap, user.profile.role); }
 
 exports.getPayElements = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
-  const ok = (await canSetup(user, 'access')) || (await moduleHasCapability('EMPLOYEES', 'access', user.profile.role));
-  if (!ok) throw new HttpsError('permission-denied', 'You do not have access to HR Setup.');
-  return { elements: await elements(), canWrite: await canSetup(user, 'write'), kinds: KINDS, natures: NATURES, frequencies: FREQUENCIES };
+  const ok = (await canPayrollSetup(user, 'access')) || (await canSetup(user, 'access')) || (await moduleHasCapability('EMPLOYEES', 'access', user.profile.role));
+  if (!ok) throw new HttpsError('permission-denied', 'You do not have access to Payroll Setup.');
+  return { elements: await elements(), canWrite: await canPayrollSetup(user, 'write'), kinds: KINDS, natures: NATURES, frequencies: FREQUENCIES };
 });
 
 exports.savePayElement = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
-  if (!(await canSetup(user, 'write'))) throw new HttpsError('permission-denied', 'You do not have permission to change HR Setup.');
+  if (!(await canPayrollSetup(user, 'write'))) throw new HttpsError('permission-denied', 'You do not have permission to change Payroll Setup.');
   const e = (request.data || {}).element || {};
   const out = { Code: text(e.Code, 20).toUpperCase(), Name: text(e.Name, 80), Kind: text(e.Kind, 20), Nature: text(e.Nature, 20), IsBasic: e.IsBasic === true, Active: e.Active !== false };
   if (!/^[A-Z0-9_-]{1,20}$/.test(out.Code)) throw new HttpsError('invalid-argument', 'The code is letters, digits, - or _ (up to 20).');

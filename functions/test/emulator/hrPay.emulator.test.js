@@ -28,7 +28,7 @@ test('Pay Elements: six to start, one Basic, checked; a used element keeps its k
   assert.deepEqual(s.elements.map(e => [e.Code, e.Kind, e.Nature, e.IsBasic]), [['BASIC', 'Earning', 'Fixed', true], ['HRA', 'Earning', 'Fixed', false],
     ['TRANS', 'Earning', 'Fixed', false], ['OTHER', 'Earning', 'Fixed', false], ['BONUS', 'Earning', 'Variable', false], ['COMM', 'Earning', 'Variable', false]]);
   assert.equal(s.canWrite, false);
-  await assert.rejects(call('u-viewer', 'savePayElement', { element: { Code: 'X', Name: 'X', Kind: 'Earning', Nature: 'Fixed' } }), /permission to change HR Setup/);
+  await assert.rejects(call('u-viewer', 'savePayElement', { element: { Code: 'X', Name: 'X', Kind: 'Earning', Nature: 'Fixed' } }), /permission to change Payroll Setup/);
   await assert.rejects(call('u-admin', 'savePayElement', { element: { Code: 'hra', Name: 'Housing 2', Kind: 'Earning', Nature: 'Fixed' } }), /Code "HRA" is already in use/);
   await assert.rejects(call('u-admin', 'savePayElement', { element: { Code: 'LOAN', Name: 'Loan', Kind: 'Deduction', Nature: 'Fixed', IsBasic: true } }), /The Basic is a fixed earning/);
   const loan = (await call('u-admin', 'savePayElement', { element: { Code: 'LOAN', Name: 'Loan recovery', Kind: 'Deduction', Nature: 'Fixed' } })).elementId;

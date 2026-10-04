@@ -424,10 +424,11 @@ const MASTERS = {
       C('Mobile', 'Mobile'), C('Personal Email', 'PersonalEmail', { type: 'email' }), C('Work Email', 'WorkEmail', { type: 'email' }),
       C('Address', 'Address'),
       C('Emergency Contact', 'EmergencyName'), C('Emergency Relation', 'EmergencyRelation'), C('Emergency Phone', 'EmergencyPhone'),
-      C('Bank', 'BankName', { sensitive: true }), C('Account No. / IBAN', 'IBAN', { sensitive: true })
+      C('Bank', 'BankName', { sensitive: true }), C('Account No. / IBAN', 'IBAN', { sensitive: true }),
+      C('Bank Routing Code', 'BankRoutingCode', { sensitive: true }), C('WPS Person ID', 'WpsPersonID', { sensitive: true })
     ],
     sample: ['Ali Hassan', '01', '01/03/2024', 'Accountant', 'G5', '', '', '', 'CC1', 'Dubai office', '', 'Permanent', '31/08/2024', 'ALI HASSAN', 'Male',
-      '15/06/1990', 'India', 'Married', '+971 50 000 0000', '', 'ali.hassan@example.com', '', '', '', '', '', ''],
+      '15/06/1990', 'India', 'Married', '+971 50 000 0000', '', 'ali.hassan@example.com', '', '', '', '', '', '', '', ''],
     toData: r => {
       const out = { Custom: {} };
       Object.keys(r).forEach(k => { if (k.startsWith('cf_')) { if (r[k] !== '') out.Custom[k.slice(3)] = r[k]; } else out[k] = r[k]; });
