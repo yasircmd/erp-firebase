@@ -744,3 +744,90 @@ employees**, an asset account.
 the run paid (Dr Salaries Payable / Cr bank), advances and loans. The
 owner's WPS details are needed: employer ID, bank routing code, and
 ideally a sample SIF.
+
+## Step 4 design: Payroll Setup, payment files, payment (proposed 2026-10-04)
+
+### The owner's request (2026-10-04)
+
+"WPS SIF can not fix a standard one, bank and each company might vary.
+So, better make a new module only for payroll setup including this WPS
+config, and also move the existing two — "Pay Elements" and "Payroll" —
+to the new module."
+
+### A new module: Payroll Setup (`PAYROLLSETUP`: access, write)
+
+- **Moved from HR Setup:**
+  - the **Pay Elements** tab;
+  - the **Payroll** tab: the daily rate and accounts per company, and
+    each element's GL account, prorating, gross and overtime.
+- **New: Payment Files**, each company's bank file formats (below).
+- Changing them needs the new module's "write" right instead of HR
+  Setup's. HR Setup keeps grades, designations, employee fields,
+  document types, leave types, the working calendar and the work
+  schedules. Correcting an employee's pay stays an HR Setup admin right.
+
+### Payment file formats: built per company and bank, not fixed
+
+A format describes one file the bank takes:
+- name, company and bank;
+- the file type: delimited (comma, tab, `|`, …) or fixed width; the file
+  extension (`.SIF`, `.csv`, `.txt`) and the name pattern (e.g.
+  `{EmployerID}{yyMMdd}{HHmmss}.SIF`);
+- up to three records, each an ordered list of fields:
+  - a **header** (once, at the start), optional;
+  - the **employee** record (one per employee paid by bank);
+  - a **trailer** (once, at the end), optional;
+- each field is either a fixed text, or a value from the payroll,
+  formatted:
+  - **employee:** no., name, WPS person ID, bank routing code,
+    IBAN / account no.;
+  - **pay:** net pay; the fixed part; the variable part (overtime, bonus,
+    commission, one-offs and arrears); days in the period; unpaid days;
+  - **the run:** month, period start and end, payment date, file
+    creation date and time;
+  - **totals:** the number of employees, the total paid;
+  - **the format's own values:** employer ID, bank code, currency,
+    reference;
+  - **formatting:** a date pattern (`yyyy-MM-dd`, `ddMMyyyy`, `MMyyyy`,
+    …), decimals, width with left/right padding (fixed width), upper
+    case;
+- a **UAE WPS SIF** starter (the EDR employee record and the SCR
+  trailer, as the Central Bank's layout), which each company copies and
+  adjusts to its bank's version;
+- a **preview** from a posted run before saving.
+
+### Payment (Payroll, the "pay" right)
+
+From a posted run:
+- the **payment date** and the **bank account** paid from (a bank or
+  cash account in the GL);
+- **the file** in the chosen format, for the employees paid by bank (with
+  an IBAN). The others are listed to be paid by cash or cheque;
+- **the bank list** (no., name, bank, IBAN, amount), printed or copied
+  to Excel;
+- **Mark paid** posts Dr Salaries Payable / Cr the bank account, dated
+  the payment date. The run shows "Paid", can't be reversed while paid,
+  and the payment can be reversed (with a reason).
+
+### Advances and loans (decision 7)
+
+Proposed as step 4b, after payment (see question 23):
+- a loan or advance per employee: amount, instalment, the month
+  recovery starts, the receivable account;
+- each run deducts the instalment ("Loan recovery", credited to the
+  loan's account) until it's repaid;
+- the balance shows on the employee and the payslip.
+
+### Open questions for step 4
+
+20. **The employee's WPS data:** add "WPS person ID" (the labour card's
+    personal number) and "bank routing code" to the employee record, as
+    sensitive fields beside the IBAN? Or keep them as HR Setup custom
+    fields?
+21. **Paying a run:** mark the whole run paid at once, or each employee
+    separately (some later)?
+22. **Employees without a bank account:** paid in the same payment, by
+    cash or cheque from another account, or left out to be paid
+    separately?
+23. **Advances and loans:** build them now with payment, or as their own
+    step (4b) right after?
