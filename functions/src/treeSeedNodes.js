@@ -176,6 +176,7 @@ const TREE_SEED_NODES = [
   { text: 'Employees', depth: 2, moduleId: 'EMPLOYEES' },
   { text: 'Employee Changes', depth: 2, moduleId: 'EMPCHANGE' },
   { text: 'Leave Register', depth: 2, moduleId: 'LEAVE' },
+  { text: 'Leave Reports', depth: 2, moduleId: 'LEAVEREPORTS' },
   { text: 'Personnel Administration (PA - Organizational Assignment, Personal Data)', depth: 2 },
   { text: 'Organizational Management (OM - Organizational Units, Jobs, Positions)', depth: 2 },
   { text: 'Time & Attendance Management (Work Schedules, Time Recording, Absence Tracking)', depth: 2 },

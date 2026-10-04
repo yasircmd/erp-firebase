@@ -211,3 +211,5 @@ const hrLeave = require('./src/hrLeave');
   'recordLeaveReturn', 'getLeaveBalances', 'adjustLeaveBalance'].forEach(n => { exports[n] = hrLeave[n]; });
 const hrLeaveClose = require('./src/hrLeaveClose');
 ['getLeaveMonths', 'getLeaveMonthSummary', 'lockLeaveMonth', 'reopenLeaveMonth', 'closeLeaveYear'].forEach(n => { exports[n] = hrLeaveClose[n]; });
+const hrLeaveReports = require('./src/hrLeaveReports');
+['getLeaveReportTypes', 'getLeaveBalanceReport', 'getLeaveRegisterReport', 'getLeaveCalendar', 'getLeaveTasksForUser'].forEach(n => { exports[n] = hrLeaveReports[n]; });
