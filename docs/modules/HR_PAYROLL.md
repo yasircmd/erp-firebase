@@ -621,3 +621,17 @@ Approval Configuration).
     month?
 19. **Payslip content:** the month only, or also each employee's leave
     balances and the year-to-date totals?
+
+### The owner's decisions for step 3 (2026-10-04)
+
+| # | Question | Decision |
+|---|---|---|
+| 16 | When an approved run posts | **Automatically on its final approval** (or on submitting, when no approval is set up). |
+| 17 | The journal's date | **The last day of the payroll month.** |
+| 18 | After a reversal | **The run goes back to draft**, with its inputs: correct, recalculate, submit again. |
+| 19 | Payslip content | **The month, plus each leave balance at the month's end and the year-to-date totals** from the posted runs. |
+
+So "post" (the new Payroll right) is needed only to reverse. Only the
+company's latest posted run can be reversed, since a later run may have
+recovered amounts this one carried forward.
+

@@ -41,6 +41,7 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'EMPCHANGE', Label: 'Employee Change (promotion, increment, transfer)' },
   { ModuleID: 'LEAVE', Label: 'Leave (the amount is the days)' },
   { ModuleID: 'LEAVE_ABSENCE', Label: 'Absence, unauthorised (the amount is the days)' },
+  { ModuleID: 'PAYROLL', Label: 'Payroll run (the amount is the net pay)' },
 ];
 
 const APPROVAL_MODULE_STORAGE_ = {
@@ -70,7 +71,8 @@ const APPROVAL_MODULE_STORAGE_ = {
   // One approval per Job Order LINE (acceptance / stop, docs/modules/JOB_ORDER_ACCEPTANCE.md).
   JOBORDERREQUEST: { type: 'rtdb', path: 'jobOrderLines' },
   EMPCHANGE: { type: 'firestore', collection: 'employeeChanges' },
-  LEAVE: { type: 'firestore', collection: 'leaveRequests' }
+  LEAVE: { type: 'firestore', collection: 'leaveRequests' },
+  PAYROLL: { type: 'firestore', collection: 'payrollRuns' }
 };
 
 // CBT voucher type -> its Approval Configuration entry.

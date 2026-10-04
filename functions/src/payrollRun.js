@@ -44,7 +44,7 @@ const byNo = (a, b) => String(a.EmployeeNo).localeCompare(String(b.EmployeeNo));
 const can = (user, cap) => moduleHasCapability('PAYROLL', cap, user.profile.role);
 async function requireCap(user, cap) {
   if (!(await can(user, 'access'))) throw new HttpsError('permission-denied', 'You do not have access to Payroll.');
-  if (cap && !(await can(user, cap))) throw new HttpsError('permission-denied', 'You do not have permission to prepare payroll runs.');
+  if (cap && !(await can(user, cap))) throw new HttpsError('permission-denied', cap === 'post' ? 'You do not have permission to reverse payroll runs.' : 'You do not have permission to prepare payroll runs.');
 }
 async function companyFor(user, id) {
   const co = text(id, 80);
@@ -88,15 +88,37 @@ async function calculate(run, user, inputsByEmp) {
   const ids = new Set(emps.map(e => e.EmployeeID));
   const versions = {};
   docs(await COMP().get()).forEach(v => { if (ids.has(v.EmployeeID)) (versions[v.EmployeeID] = versions[v.EmployeeID] || []).push(v); });
-  const leave = {};
+  // The leave lines by the month they're paid in, and employee.
+  const leaveBy = {};
   docs(await LEAVES().where('CompanyID', '==', co).get()).filter(l => l.Status === 'Approved' || l.Status === 'Cancelled')
-    .forEach(l => (l.Lines || []).filter(x => lv.payMonthOf(x) === month).forEach(x => (leave[l.EmployeeID] = leave[l.EmployeeID] || []).push(x)));
+    .forEach(l => (l.Lines || []).forEach(x => { const m = lv.payMonthOf(x); const b = leaveBy[m] = leaveBy[m] || {}; (b[l.EmployeeID] = b[l.EmployeeID] || []).push(x); }));
+  const leave = leaveBy[month] || {};
+  // The company's earlier posted runs: their shortfalls carried forward
+  // (decision 9) and the months a later pay change reaches back to (10).
+  const posted = docs(await RUNS().where('CompanyID', '==', co).get()).filter(r => r.Status === 'Posted' && r.Month < month).sort((a, b) => a.Month.localeCompare(b.Month));
+  const postedSlips = {};
+  for (const r of posted) postedSlips[r._id] = Object.fromEntries(docs(await SLIPS(r._id).get()).map(x => [x.EmployeeID, x]));
+  const extraFor = e => {
+    const extra = [], mine = versions[e.EmployeeID] || [];
+    const last = posted.filter(r => postedSlips[r._id][e.EmployeeID]).pop();
+    const carry = last ? postedSlips[last._id][e.EmployeeID].CarryForward || 0 : 0;
+    if (carry > 0) extra.push({ ElementID: 'sys-bfwd', Code: 'BFWD', Name: 'Brought forward', Kind: 'Deduction', Source: 'CarryForward', Amount: carry, Text: 'Net shortfall from ' + last.Month });
+    posted.forEach(r => {
+      const was = postedSlips[r._id][e.EmployeeID];
+      if (!was || !mine.some(v => String(v.CreatedAt || '') > String(r.PostedAt || '') && v.EffectiveFrom <= calc.monthEnd(r.Month))) return;
+      const again = calc.computeEmployee({ month: r.Month, method: r.Method, emp: e, versions: mine, elements, leave: (leaveBy[r.Month] || {})[e.EmployeeID] || [], inputs: [], system });
+      const paid = was.Lines.concat(...posted.filter(q => q.Month > r.Month).map(q => ((postedSlips[q._id][e.EmployeeID] || {}).Lines || []).filter(l => l.Source === 'Arrears' && l.ForMonth === r.Month)));
+      calc.arrearsFor(r.Month, again, paid, elements).forEach(l => extra.push(l));
+    });
+    return extra;
+  };
   const bands = {};
   const slips = [];
   for (const e of emps) {
     const cal = await calendarFor(e);
     const r = calc.computeEmployee({ month, method: settings.DailyRateMethod, emp: e, versions: versions[e.EmployeeID] || [], elements,
-      leave: leave[e.EmployeeID] || [], inputs: inputs[e.EmployeeID] || [], hoursPerDay: hoursOn(cal, e.LeavingDate && e.LeavingDate < end ? e.LeavingDate : end), system });
+      leave: leave[e.EmployeeID] || [], inputs: inputs[e.EmployeeID] || [], hoursPerDay: hoursOn(cal, e.LeavingDate && e.LeavingDate < end ? e.LeavingDate : end), system,
+      extra: extraFor(e) });
     if (!e.IBAN) r.Warnings.push('No bank account / IBAN on the employee record.');
     const key = (e.GradeID || '') + '|' + co;
     if (!(key in bands)) bands[key] = await pay.band(e);
@@ -155,6 +177,17 @@ exports.createPayrollRun = onCallWithMessages(onCallOptions, async (request) => 
   return { success: true, runId: ref.id };
 });
 
+// The run's approval (step 3): its levels and decisions, and the levels
+// the user may decide now.
+async function approvalOf(run, user) {
+  if (!run.ApprovalInstanceID) return null;
+  const inst = (await rtdb.ref('approvalInstances/' + run.ApprovalInstanceID).get()).val();
+  if (!inst) return null;
+  const decided = new Set((inst.Decisions || []).map(x => x.LevelNumber));
+  return { Status: inst.Status, Levels: (inst.RequiredLevels || []).map(l => ({ LevelNumber: l.LevelNumber, ApproverUserID: l.ApproverUserID })), Decisions: inst.Decisions || [],
+    MyLevels: run.Status === 'PendingApproval' && inst.Status === 'Pending' ? (inst.RequiredLevels || []).filter(l => l.ApproverUserID === user.uid && !decided.has(l.LevelNumber)).map(l => l.LevelNumber) : [] };
+}
+
 exports.getPayrollRun = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user);
@@ -165,7 +198,8 @@ exports.getPayrollRun = onCallWithMessages(onCallOptions, async (request) => {
   return {
     run, slips: slips.map(s => { delete s._id; return s; }).sort(byNo), leaveChanged, leaveLocked: Boolean(rec && rec.Status === 'Locked'),
     inputElements: inputElements(els).map(e => ({ ElementID: e.ElementID, Code: e.Code, Name: e.Name, Kind: e.Kind, Hours: byHours(e) })),
-    methodLabel: calc.METHODS[run.Method] || '', canDraft: run.Status === 'Draft' && await can(user, 'draft')
+    methodLabel: calc.METHODS[run.Method] || '', canDraft: run.Status === 'Draft' && await can(user, 'draft'), canPost: await can(user, 'post'),
+    approval: await approvalOf(run, user)
   };
 });
 
@@ -226,3 +260,6 @@ exports.deletePayrollRun = onCallWithMessages(onCallOptions, async (request) => 
   await RUNS().doc(run.RunID).delete();
   return { success: true };
 });
+
+// Shared with payrollPost.js (step 3).
+Object.assign(module.exports, { RUNS, SLIPS, docs, text, bad, actorName, can, requireCap, loadRun, requireDraft, leaveMonth, requireLocked });

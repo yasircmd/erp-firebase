@@ -61,7 +61,7 @@ function checkAccount(coa, id, label, types, companyId) {
 
 async function companySettings(companyId) {
   const s = (await SETTINGS().doc(companyId).get()).data() || {};
-  return { CompanyID: companyId, DailyRateMethod: s.DailyRateMethod || 'DIV30', PayableAccountID: s.PayableAccountID || '' };
+  return { CompanyID: companyId, DailyRateMethod: s.DailyRateMethod || 'DIV30', PayableAccountID: s.PayableAccountID || '', ReceivableAccountID: s.ReceivableAccountID || '' };
 }
 
 exports.getPayrollSetup = onCallWithMessages(onCallOptions, async (request) => {
@@ -87,8 +87,12 @@ exports.savePayrollCompany = onCallWithMessages(onCallOptions, async (request) =
   const method = text(d.dailyRateMethod, 20);
   if (!calc.METHODS[method]) bad('Choose how the daily rate is worked out.');
   const payable = text(d.payableAccountId, 80);
-  if (payable) checkAccount((await rtdb.ref('coa').get()).val() || {}, payable, 'Salaries Payable', ['Liability'], co);
-  await SETTINGS().doc(co).set({ DailyRateMethod: method, PayableAccountID: payable, UpdatedAt: new Date().toISOString(), UpdatedBy: user.uid });
+  const receivable = text(d.receivableAccountId, 80);
+  const coa = (await rtdb.ref('coa').get()).val() || {};
+  if (payable) checkAccount(coa, payable, 'Salaries Payable', ['Liability'], co);
+  // A net shortfall carried to the next run (decision 9) waits here.
+  if (receivable) checkAccount(coa, receivable, 'Recoverable from employees', ['Asset'], co);
+  await SETTINGS().doc(co).set({ DailyRateMethod: method, PayableAccountID: payable, ReceivableAccountID: receivable, UpdatedAt: new Date().toISOString(), UpdatedBy: user.uid });
   return { success: true };
 });
 

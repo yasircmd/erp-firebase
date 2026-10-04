@@ -184,6 +184,10 @@ exports.reopenLeaveMonth = onCallWithMessages(onCallOptions, async (request) => 
   const list = await monthsOf(co);
   const latest = latestLocked(list);
   if (!latest || month !== latest) throw new HttpsError('failed-precondition', latest ? 'Only the latest locked month (' + latest + ') can be reopened.' : 'No month is locked.');
+  // Payroll (docs/modules/HR_PAYROLL.md, step 3): the leave a submitted or
+  // posted run paid stays as it was; later leave is paid in the next month.
+  const run = (await firestore.collection('payrollRuns').doc(co + '_' + month).get()).data();
+  if (run && run.Status !== 'Draft') throw new HttpsError('failed-precondition', 'The payroll run for ' + month + ' is ' + (run.Status === 'Posted' ? 'posted' : 'submitted') + ': the month\'s leave stays locked. Leave entered now is paid in the next open month.');
   const reason = text(d.reason, 500);
   if (!reason) bad('Give the reason for reopening.');
   const closed = (await YEARS().doc(co + '_' + month.slice(0, 4)).get()).exists;
