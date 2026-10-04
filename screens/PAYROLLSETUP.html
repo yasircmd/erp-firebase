@@ -5,6 +5,7 @@
   <div id="ps-tabs" class="flex flex-wrap gap-1 border-b border-slate-800">
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="elements">Pay Elements</button>
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="payroll">Payroll</button>
+    <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="files">Payment Files</button>
   </div>
   <p id="ps-readonly" class="hidden text-xs text-slate-400">You can view Payroll Setup but not change it.</p>
 
@@ -76,6 +77,47 @@
     </div>
   </div>
 
+  <!-- PAYMENT FILES (docs/modules/HR_PAYROLL.md, step 4) -->
+  <div id="ps-pane-files" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">The bank file each company sends to pay salaries. Each bank (and each company) has its own layout, so build it here: a header, one record per employee paid by bank and a trailer, each an ordered list of fields. Start from the UAE WPS SIF and adjust it to your bank's specification, then preview it on a run.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Company</th><th class="py-2 px-3">Format</th><th class="py-2 px-3">Bank</th><th class="py-2 px-3">File</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="ps-pf-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <div class="flex gap-2">
+      <button id="ps-pf-starter" class="ps-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New from the UAE WPS SIF</button>
+      <button id="ps-pf-new" class="ps-write bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-plus"></i> New blank format</button>
+    </div>
+    <div id="ps-pf-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Company *</label><select id="ps-pf-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Name *</label><input id="ps-pf-name" maxlength="80" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Bank</label><input id="ps-pf-bank" maxlength="80" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="flex items-end pb-2"><label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-pf-active" type="checkbox" checked> In use</label></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">File type</label><select id="ps-pf-type" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Delimited">Delimited</option><option value="Fixed">Fixed width</option></select></div>
+        <div id="ps-pf-delim-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">Delimiter</label><select id="ps-pf-delim" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value=",">Comma ,</option><option value=";">Semicolon ;</option><option value="|">Pipe |</option><option value="TAB">Tab</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Extension</label><input id="ps-pf-ext" maxlength="5" placeholder="SIF" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm keep-iso"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Line ending</label><select id="ps-pf-eol" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="CRLF">Windows (CR LF)</option><option value="LF">Unix (LF)</option></select></div>
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">File name</label><input id="ps-pf-filename" maxlength="120" placeholder="{EMPLOYER}{CREATED:yyMMddHHmmss}" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono keep-iso"></div>
+        <div class="md:col-span-2 text-xs text-slate-500 self-end pb-2">Values in braces: {EMPLOYER}, {BANK_CODE}, {MONTH:MMyyyy}, {CREATED:yyMMddHHmmss}, {PAY_DATE:ddMMyyyy}…</div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Employer ID</label><input id="ps-pf-employer" maxlength="40" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono keep-iso"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Bank code</label><input id="ps-pf-bankcode" maxlength="40" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono keep-iso"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Currency</label><input id="ps-pf-currency" maxlength="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference</label><input id="ps-pf-ref" maxlength="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      </div>
+      <div id="ps-pf-records" class="space-y-3"></div>
+      <div class="flex flex-wrap items-end gap-3 border-t border-slate-700 pt-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Preview on the run</label><select id="ps-pf-run" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment date</label><input id="ps-pf-paydate" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <button id="ps-pf-preview" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-eye"></i> Preview</button>
+      </div>
+      <pre id="ps-pf-out" class="hidden keep-iso bg-slate-900 border border-slate-700 rounded-lg p-3 text-xs overflow-x-auto"></pre>
+      <div class="flex gap-2"><button id="ps-pf-save" class="ps-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button id="ps-pf-delete" class="ps-write hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-4 py-2 rounded-lg border border-slate-700">Delete</button>
+        <button class="ps-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -93,7 +135,7 @@
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const statusHtml = active => active === false ? '<span class="text-slate-500">Not in use</span>' : '<span class="text-emerald-400">In use</span>';
   let companies = [], canWrite = false, editing = null, payElements = [];
-  const TABS = ['elements', 'payroll'];
+  const TABS = ['elements', 'payroll', 'files'];
 
   function showTab(tab) {
     document.querySelectorAll('.ps-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
@@ -208,12 +250,89 @@
       .then(() => { closeForms(); return loadPayroll(); }, err => appAlert(err.message || 'Unable to save.'));
   }
 
-  function closeForms() { ['ps-el-form', 'ps-pe-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
+  // ---------- payment files (step 4) ----------
+  let pf = null, pfEditing = null;
+  const RECORD_NOTE = { Header: 'Header (once, at the start; leave empty if the bank has none)', Employee: 'Employee record (one per employee paid by bank)', Trailer: 'Trailer (once, at the end)' };
+  function loadFormats() {
+    return call('getPaymentFormats', {}).then(r => { pf = r; renderFormats(); }, err => appAlert(err.message || 'Unable to load the payment files.'));
+  }
+  function renderFormats() {
+    $('ps-pf-body').innerHTML = pf.formats.map(f => '<tr data-id="' + escapeHtml(f.FormatID) + '" class="hover:bg-slate-800/40 cursor-pointer"><td class="py-2 px-3 text-xs">' + escapeHtml(coLabel(f.CompanyID)) + '</td>' +
+      '<td class="py-2 px-3">' + escapeHtml(f.Name) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(f.Bank || '') + '</td><td class="py-2 px-3 text-xs keep-iso">' + escapeHtml((f.Type === 'Fixed' ? 'Fixed width' : 'Delimited') + (f.Extension ? ', .' + f.Extension : '')) + '</td>' +
+      '<td class="py-2 px-3 text-xs">' + statusHtml(f.Active) + '</td></tr>').join('') || '<tr><td colspan="5" class="py-4 px-3 text-xs text-slate-500">No payment file formats yet.</td></tr>';
+    $('ps-pf-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => editFormat(pf.formats.find(f => f.FormatID === tr.dataset.id))));
+    document.querySelectorAll('#ps-pane-files .ps-write').forEach(b => b.classList.toggle('hidden', !pf.canWrite || (b.id === 'ps-pf-delete' && !pfEditing)));
+  }
+  function fieldRow(f) {
+    const src = pf.sources.find(x => x.Source === f.Source) || { Kind: 'text' };
+    return '<tr class="ps-pf-row"><td class="py-1 pr-2"><select class="ps-pf-src bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs text-slate-300">' +
+      pf.sources.map(x => '<option value="' + x.Source + '"' + (x.Source === f.Source ? ' selected' : '') + '>' + escapeHtml(x.Label) + '</option>').join('') + '</select></td>' +
+      '<td class="py-1 pr-2"><input class="ps-pf-text w-28 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs keep-iso" value="' + escapeHtml(f.Text || '') + '"' + (f.Source === 'TEXT' ? '' : ' disabled') + '></td>' +
+      '<td class="py-1 pr-2"><input class="ps-pf-fmt w-28 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs font-mono keep-iso" placeholder="yyyy-MM-dd" value="' + escapeHtml(f.Format || '') + '"' + (src.Kind === 'date' ? '' : ' disabled') + '></td>' +
+      '<td class="py-1 pr-2"><input class="ps-pf-dec w-14 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs" type="number" min="0" max="4" value="' + (f.Decimals == null ? '' : f.Decimals) + '"' + (src.Kind === 'amount' ? '' : ' disabled') + '></td>' +
+      '<td class="py-1 pr-2"><input class="ps-pf-w w-14 bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs" type="number" min="1" max="200" value="' + (f.Width == null ? '' : f.Width) + '"></td>' +
+      '<td class="py-1 pr-2"><select class="ps-pf-pad bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs text-slate-300"><option value="Right"' + (f.Pad !== 'Left' ? ' selected' : '') + '>Text left</option><option value="Left"' + (f.Pad === 'Left' ? ' selected' : '') + '>Text right</option></select>' +
+      ' <select class="ps-pf-padch bg-slate-900 border border-slate-700 rounded py-1 px-1 text-xs text-slate-300"><option value=" ">spaces</option><option value="0"' + (f.PadChar === '0' ? ' selected' : '') + '>zeros</option></select></td>' +
+      '<td class="py-1 pr-2 text-center"><input class="ps-pf-upper" type="checkbox"' + (f.Upper ? ' checked' : '') + '></td>' +
+      '<td class="py-1 whitespace-nowrap"><button class="ps-pf-moveup text-xs text-slate-400" title="Move up"><i class="fa-solid fa-arrow-up"></i></button> <button class="ps-pf-del text-xs text-red-400" title="Remove"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  }
+  function renderRecords(recs) {
+    $('ps-pf-records').innerHTML = pf.records.map(rec => '<div class="space-y-1"><div class="text-xs font-semibold text-slate-400 uppercase">' + escapeHtml(RECORD_NOTE[rec]) + '</div>' +
+      '<div class="overflow-x-auto"><table class="text-left"><thead><tr class="text-xs text-slate-500"><th class="pr-2">Holds</th><th class="pr-2">Text</th><th class="pr-2">Date pattern</th><th class="pr-2">Decimals</th><th class="pr-2">Width</th><th class="pr-2">Padding</th><th class="pr-2">Upper</th><th></th></tr></thead>' +
+      '<tbody class="ps-pf-rec" data-rec="' + rec + '">' + (recs[rec] || []).map(fieldRow).join('') + '</tbody></table></div>' +
+      '<button class="ps-pf-add text-xs text-blue-400" data-rec="' + rec + '"><i class="fa-solid fa-plus"></i> Add a field</button></div>').join('');
+  }
+  function pfTypeFields() { $('ps-pf-delim-wrap').classList.toggle('hidden', val('ps-pf-type') !== 'Delimited'); }
+  function editFormat(f) {
+    closeForms();
+    pfEditing = f && f.FormatID ? f.FormatID : null;
+    const x = f || { Type: 'Delimited', Delimiter: ',', LineEnd: 'CRLF', Values: {}, Records: { Header: [], Employee: [], Trailer: [] }, Active: true };
+    $('ps-pf-company').innerHTML = companies.map(c => '<option value="' + escapeHtml(c.CompanyID) + '"' + (c.CompanyID === x.CompanyID ? ' selected' : '') + '>' + escapeHtml(coLabel(c.CompanyID)) + '</option>').join('');
+    $('ps-pf-name').value = x.Name || ''; $('ps-pf-bank').value = x.Bank || ''; $('ps-pf-active').checked = x.Active !== false;
+    $('ps-pf-type').value = x.Type || 'Delimited'; $('ps-pf-delim').value = x.Delimiter || ','; $('ps-pf-ext').value = x.Extension || ''; $('ps-pf-eol').value = x.LineEnd || 'CRLF';
+    $('ps-pf-filename').value = x.FileName || '';
+    const v = x.Values || {};
+    $('ps-pf-employer').value = v.EmployerID || ''; $('ps-pf-bankcode').value = v.BankCode || ''; $('ps-pf-currency').value = v.Currency || ''; $('ps-pf-ref').value = v.Reference || '';
+    renderRecords(x.Records || {});
+    $('ps-pf-run').innerHTML = pf.runs.map(r => '<option value="' + escapeHtml(r.RunID) + '" data-co="' + escapeHtml(r.CompanyID) + '">' + escapeHtml(coLabel(r.CompanyID) + ' · ' + r.Month + ' (' + r.Status + ')') + '</option>').join('') || '<option value="">No runs yet</option>';
+    $('ps-pf-out').classList.add('hidden');
+    pfTypeFields();
+    renderFormats();
+    $('ps-pf-form').classList.remove('hidden');
+  }
+  function collectFormat() {
+    const records = {};
+    document.querySelectorAll('.ps-pf-rec').forEach(tb => {
+      records[tb.dataset.rec] = [...tb.querySelectorAll('.ps-pf-row')].map(tr => ({ Source: tr.querySelector('.ps-pf-src').value, Text: tr.querySelector('.ps-pf-text').value, Format: tr.querySelector('.ps-pf-fmt').value,
+        Decimals: tr.querySelector('.ps-pf-dec').value, Width: tr.querySelector('.ps-pf-w').value, Pad: tr.querySelector('.ps-pf-pad').value, PadChar: tr.querySelector('.ps-pf-padch').value, Upper: tr.querySelector('.ps-pf-upper').checked }));
+    });
+    return { FormatID: pfEditing || '', CompanyID: val('ps-pf-company'), Name: val('ps-pf-name'), Bank: val('ps-pf-bank'), Active: $('ps-pf-active').checked, Type: val('ps-pf-type'), Delimiter: val('ps-pf-delim'),
+      Extension: val('ps-pf-ext'), LineEnd: val('ps-pf-eol'), FileName: val('ps-pf-filename'),
+      Values: { EmployerID: val('ps-pf-employer'), BankCode: val('ps-pf-bankcode'), Currency: val('ps-pf-currency'), Reference: val('ps-pf-ref') }, Records: records };
+  }
+  function previewFormat() {
+    if (!val('ps-pf-run')) return appAlert('Make a payroll run first, to preview the file on it.');
+    call('previewPaymentFile', { format: collectFormat(), runId: val('ps-pf-run'), paymentDate: val('ps-pf-paydate') }).then(r => {
+      $('ps-pf-out').textContent = r.fileName + '  (' + r.count + ' employees, ' + r.total.toFixed(2) + ')\n\n' + r.lines.join('\n');
+      $('ps-pf-out').classList.remove('hidden');
+    }, err => appAlert(err.message || 'Unable to preview.'));
+  }
+  function saveFormat() {
+    call('savePaymentFormat', { format: collectFormat() }).then(r => { pfEditing = r.formatId; return loadFormats().then(() => editFormat(pf.formats.find(f => f.FormatID === r.formatId))); },
+      err => appAlert(err.message || 'Unable to save.'));
+  }
+  function deleteFormat() {
+    appConfirm('Delete the payment file format "' + val('ps-pf-name') + '"?').then(ok => {
+      if (ok) call('deletePaymentFormat', { formatId: pfEditing }).then(() => { closeForms(); return loadFormats(); }, err => appAlert(err.message || 'Unable to delete.'));
+    });
+  }
+
+  function closeForms() { ['ps-el-form', 'ps-pe-form', 'ps-pf-form'].forEach(id => $(id).classList.add('hidden')); editing = null; pfEditing = null; }
   function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
 
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> Payroll Setup';
-    $('ps-tabs').addEventListener('click', e => { const b = e.target.closest('.ps-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'payroll') loadPayroll(); } });
+    $('ps-tabs').addEventListener('click', e => { const b = e.target.closest('.ps-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'payroll') loadPayroll(); if (b.dataset.tab === 'files') loadFormats(); } });
     $('ps-pc-body').addEventListener('change', e => { const tr = e.target.closest('tr[data-co]'); if (tr && e.target.closest('.ps-pc-method')) companyExample(tr); });
     $('ps-pc-body').addEventListener('click', e => {
       const b = e.target.closest('.ps-pc-save'); if (!b) return;
@@ -228,6 +347,27 @@
     $('ps-el-save').addEventListener('click', () => saved(call('savePayElement', { element: { ElementID: editing || '', Code: val('ps-el-code'), Name: val('ps-el-name'),
       Kind: val('ps-el-kind'), Nature: val('ps-el-nature'), IsBasic: $('ps-el-basic').checked, Active: $('ps-el-active').checked } })));
     document.querySelectorAll('.ps-cancel').forEach(b => b.addEventListener('click', closeForms));
+    $('ps-pf-starter').addEventListener('click', () => editFormat(Object.assign({}, JSON.parse(JSON.stringify(pf.starter)), { CompanyID: (companies[0] || {}).CompanyID })));
+    $('ps-pf-new').addEventListener('click', () => editFormat(null));
+    $('ps-pf-type').addEventListener('change', pfTypeFields);
+    $('ps-pf-preview').addEventListener('click', previewFormat);
+    $('ps-pf-save').addEventListener('click', saveFormat);
+    $('ps-pf-delete').addEventListener('click', deleteFormat);
+    $('ps-pf-records').addEventListener('click', e => {
+      const add = e.target.closest('.ps-pf-add');
+      if (add) return document.querySelector('.ps-pf-rec[data-rec="' + add.dataset.rec + '"]').insertAdjacentHTML('beforeend', fieldRow({ Source: 'TEXT' }));
+      const tr = e.target.closest('.ps-pf-row'); if (!tr) return;
+      if (e.target.closest('.ps-pf-del')) tr.remove();
+      else if (e.target.closest('.ps-pf-moveup') && tr.previousElementSibling) tr.parentNode.insertBefore(tr, tr.previousElementSibling);
+    });
+    // What a field holds decides which of its settings apply.
+    $('ps-pf-records').addEventListener('change', e => {
+      const sel = e.target.closest('.ps-pf-src'); if (!sel) return;
+      const tr = sel.closest('tr'), kind = (pf.sources.find(x => x.Source === sel.value) || {}).Kind;
+      tr.querySelector('.ps-pf-text').disabled = sel.value !== 'TEXT';
+      tr.querySelector('.ps-pf-fmt').disabled = kind !== 'date';
+      tr.querySelector('.ps-pf-dec').disabled = kind !== 'amount';
+    });
     showTab('elements');
     call('getActiveCompanies', {}).then(r => { companies = r || []; return load(); }, err => appAlert(err.message || 'Unable to load the companies.'));
   };
