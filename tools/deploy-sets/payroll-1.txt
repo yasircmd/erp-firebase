@@ -1,0 +1,13 @@
+# HR Payroll, step 1: payroll setup (owner 2026-10-04;
+# docs/modules/HR_PAYROLL.md, points 1-3 and decisions 2-3). Run with
+# --screens (HRSETUP: the Payroll tab). No Hosting change. Then, in the
+# app: HR Setup → Payroll, each company's daily rate and Salaries Payable,
+# and each pay element's GL account.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getPayrollSetup
+savePayrollCompany
+savePayElementPayroll
+previewPayrollFormula
+# Changed: editing a pay element keeps its payroll settings, and clears
+# those that no longer fit when its kind or nature changes.
+savePayElement
