@@ -219,7 +219,7 @@
     <div class="text-xs font-semibold text-slate-400 uppercase">Companies</div>
     <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
       <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
-        <th class="py-2 px-3">Company</th><th class="py-2 px-3">Daily rate</th><th class="py-2 px-3">Salaries Payable</th><th class="py-2 px-3">Example (5,000 a month, this month)</th><th class="py-2 px-3"></th></tr></thead>
+        <th class="py-2 px-3">Company</th><th class="py-2 px-3">Daily rate</th><th class="py-2 px-3">Salaries Payable</th><th class="py-2 px-3" title="A net shortfall carried to the next run waits here">Recoverable from employees</th><th class="py-2 px-3">Example (5,000 a month, this month)</th><th class="py-2 px-3"></th></tr></thead>
       <tbody id="hs-pc-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
     </div></div>
     <div class="text-xs font-semibold text-slate-400 uppercase pt-2">Pay elements</div>
@@ -515,9 +515,11 @@
     const ro = canWrite ? '' : ' disabled';
     $('hs-pc-body').innerHTML = prSetup.settings.map(st => {
       const liab = prSetup.accounts.filter(a => a.AccountType === 'Liability' && (!a.CompanyID || a.CompanyID === st.CompanyID));
+      const assets = prSetup.accounts.filter(a => a.AccountType === 'Asset' && (!a.CompanyID || a.CompanyID === st.CompanyID));
       return '<tr data-co="' + escapeHtml(st.CompanyID) + '"><td class="py-2 px-3 text-xs">' + escapeHtml(coLabel(st.CompanyID)) + '</td>' +
         '<td class="py-2 px-3"><select class="hs-pc-method bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"' + ro + '>' + Object.entries(prSetup.methods).map(([k, v]) => '<option value="' + k + '"' + (k === st.DailyRateMethod ? ' selected' : '') + '>' + escapeHtml(v) + '</option>').join('') + '</select></td>' +
         '<td class="py-2 px-3"><select class="hs-pc-payable bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"' + ro + '>' + acctOptions(liab, st.PayableAccountID, '—') + '</select></td>' +
+        '<td class="py-2 px-3"><select class="hs-pc-receivable bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"' + ro + '>' + acctOptions(assets, st.ReceivableAccountID, '—') + '</select></td>' +
         '<td class="py-2 px-3 text-xs text-slate-400 hs-pc-example"></td>' +
         '<td class="py-2 px-3">' + (canWrite ? '<button type="button" class="hs-pc-save bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save</button>' : '') + '</td></tr>';
     }).join('');
@@ -632,7 +634,7 @@
     $('hs-pc-body').addEventListener('click', e => {
       const b = e.target.closest('.hs-pc-save'); if (!b) return;
       const tr = b.closest('tr[data-co]');
-      call('savePayrollCompany', { companyId: tr.dataset.co, dailyRateMethod: tr.querySelector('.hs-pc-method').value, payableAccountId: tr.querySelector('.hs-pc-payable').value })
+      call('savePayrollCompany', { companyId: tr.dataset.co, dailyRateMethod: tr.querySelector('.hs-pc-method').value, payableAccountId: tr.querySelector('.hs-pc-payable').value, receivableAccountId: tr.querySelector('.hs-pc-receivable').value })
         .then(() => loadPayroll(), err => appAlert(err.message || 'Unable to save.'));
     });
     $('hs-pe-save').addEventListener('click', savePayrollElement);
