@@ -429,7 +429,15 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     Correct; leave counted by the schedule in force each day). Tests:
     `hrSchedules` suite (4), `hrSchedules.ui.js` (3). To go live:
     "functions set" `payroll-0` with the screens.
-  - **Next:** step 1, payroll setup.
+  - **Step 1 built and tested 2026-10-04**, not yet live: payroll setup
+    (HR Setup → Payroll: each company's daily-rate method with a worked
+    example, and its Salaries Payable; each element's GL account, the
+    group's with company overrides, prorated and in gross; overtime
+    elements by amount or by hours, base ÷ days ÷ hours × weightage, with
+    a worked example). Tests: `payrollSetup` suite (5),
+    `payrollSetup.ui.js` (4). To go live: "functions set" `payroll-1`
+    with the screens, then fill the tab in the app.
+  - **Next:** step 2, the payroll run.
 - [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type

@@ -1,6 +1,6 @@
 # HR: Payroll
 
-Status: **design agreed** (the owner's decisions 2026-10-04, below); **step 0 built and tested** (see As built); step 1 next.
+Status: **design agreed** (the owner's decisions 2026-10-04, below); **steps 0 and 1 built and tested** (see As built); step 2 next.
 
 It builds on Employee Records (docs/modules/HR_EMPLOYEES.md) and the
 Attendance and Leave Register (docs/modules/HR_LEAVE.md), and is the last
@@ -299,5 +299,79 @@ Holidays stay per company.
    give them to the staff concerned (Employee Change, Transfer, from a
    date).
 
-**Next:** step 1, payroll setup.
+**Next:** step 1, payroll setup (built, below).
 
+## As built: step 1, payroll setup (2026-10-04)
+
+**HR Setup → Payroll** (new tab). Users with HR Setup access see it;
+the "write" right changes it, for their own companies.
+
+**Per company** (`payrollSettings/{companyId}`):
+- **the daily rate** (owner point 1), one of:
+  - monthly ÷ 30 (the default);
+  - monthly ÷ the month's days (28–31);
+  - monthly × 12 ÷ the year's days (365, or 366 in a leap year).
+
+  The row shows a worked example for 5,000 this month (e.g.
+  "5,000.00 ÷ 28 = 178.57").
+- **Salaries Payable:** an active, postable liability, shared or the
+  company's own.
+- The payroll approval is set in Approval Configuration when the run is
+  built (step 3).
+
+**Per pay element** (stored on the element, `hrPayElements`):
+- **its GL account** (owner point 2, decision 3):
+  - the group's account: a shared one (no company);
+  - a company may use its own account instead (shared or its own);
+  - earnings post to expense accounts; a deduction to any postable
+    account (a liability, a receivable, ...);
+  - the run posts by the employee's cost center, clubbed as inventory
+    is (step 3).
+- **prorated** (for joiners, leavers and unpaid days): fixed elements
+  only. Fixed elements default to Yes; a fixed phone allowance, say, can
+  be set to No.
+- **in gross** (for leave pay at full salary and overtime on gross):
+  earnings only. Fixed earnings default to Yes.
+- Editing the element itself (Pay Elements tab) keeps these settings. If
+  its kind or nature changes (only while no employee's pay holds it),
+  the settings that may no longer fit go back to their defaults: overtime
+  when it is no longer a variable earning, "prorated" when the nature
+  changes, "in gross" on either change, and the GL accounts when the kind
+  changes.
+
+**Overtime elements** (owner point 3, decision 2): any variable earning
+can be marked as overtime (Normal OT, Rest-day OT, Holiday OT, ...),
+paid either:
+- **as an amount**, entered per run; or
+- **by hours**, at an hourly rate of:
+  - the base: the basic, or the gross (the "in gross" elements);
+  - ÷ the days: the company's daily-rate days, or a fixed number (1–31);
+  - ÷ the hours a day: the employee's schedule (step 0), or fixed (1–24);
+  - × the weightage (above 0, at most 10: 1.25, 1.5, 2, ...).
+
+  The form shows a worked example as the fields change, e.g.
+  "8,000.00 (gross) ÷ 30 days ÷ 8 hours × 2 = 66.67 an hour". The
+  owner's example (basic ÷ month days ÷ 8 hours × 1.5) is: base Basic,
+  days by the company (set to ÷ the month's days), hours fixed at 8,
+  weightage 1.5.
+
+Overtime isn't prorated and isn't in the gross.
+
+**Behind it:**
+- `payrollCalc.js` (no Firebase, shared with the run to come): the
+  divisor, the daily rate, the overtime rate, the account for a company,
+  and the example texts.
+- `payrollSetup.js`: `getPayrollSetup`, `savePayrollCompany`,
+  `savePayElementPayroll`, `previewPayrollFormula`.
+- `hrPay.savePayElement` merges, so the payroll settings stay.
+
+**Tests:**
+- The `payrollSetup` suite (5) and `payrollSetup.ui.js` (4).
+- Negative controls (see the PR).
+
+**To go live:** deploy "functions set" `payroll-1`, with the screens.
+Then, in HR Setup → Payroll, choose each company's daily rate and
+Salaries Payable, and give each element its GL account. Nothing is
+calculated or posted yet: the run is step 2.
+
+**Next:** step 2, the payroll run.
