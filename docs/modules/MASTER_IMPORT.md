@@ -531,3 +531,59 @@ that master.
 | 9 | The key | **The record's code only** (Employee No., Item Code, ...). |
 | 10 | Copy current records | **Yes:** the existing records as a sheet, to edit and paste back. |
 | 11 | Scope and order | **Employees first** (step 3a), then the other masters (step 3b). |
+
+## As built, Part 3a: updating Employees (2026-10-05)
+
+**Master Data Import → Employees → Rows: "Update existing"** (the choice
+shows only for masters that can be updated; Employees in this step):
+- **The columns:** the key, **Employee No.**, first; then every Employees
+  column except company, division, branch, cost center, designation,
+  grade and work schedule. Those change through an Employee Change (dated
+  and approved), so a pasted column of them is refused with that reason.
+- **Copy current records:** the user's employees (their companies) as a
+  sheet, the key then those columns, values in the form they paste back
+  (dates dd/mm/yyyy, the line manager by Employee No., grade and units by
+  code). Bank columns are left out without the Employees "sensitive"
+  right. Pasted back unchanged, it changes nothing.
+- **The paste:** the key column and any of those columns, in any order.
+  - **the key:** the Employee No. only (decision 9); an unknown one, or
+    the same one twice, is an issue on that row;
+  - **a blank cell keeps the value; `-` clears it** (decision 8); a
+    compulsory column can't be cleared;
+  - references as when adding: by code or exact name;
+  - bank columns need the sensitive right.
+- **Line managers are checked after the whole paste:** not the employee
+  themselves, not someone who has left, and no loop (Sara under Ali,
+  Ali under Sara, in one paste or with the existing ones).
+- **Check** lists each row's changes ("Line Manager: (empty) → EMP-0001
+  Sara Khan"), counts the rows with no change, and holds Import back while
+  any row has an issue.
+- **Update** saves each changed row through the Employees save, with the
+  record's id, so every rule of the employee screen applies. Each change
+  is written to the employee's history as an Edit, reason "Import
+  (update)".
+- **All or nothing:** if a save still fails, the rows already saved in
+  that run are put back as they were, and their history entries removed.
+- **The log** (`masterImports`): Mode Update, Status Updated or Undone,
+  the number updated.
+
+**Behind it:**
+- `masterImport.js`: `UPDATES` (one definition per master that can be
+  updated: key, locked columns, how to read and save a record),
+  `checkUpdate`, `employeeUpdateRules`, `updateRows`, and the callable
+  `getMasterImportRecords`; `checkMasterImport` and `runMasterImport` take
+  `mode: 'update'`;
+- `hrEmployees.saveEmployeeFor`: an edit's history carries the import's
+  reason.
+
+**Tests:**
+- the `masterImportUpdate` suite (5);
+- `masterImportUpdate.ui.js` (4);
+- negative controls (see the PR).
+
+**To go live:** "functions set" `master-import-3a`, with the screens.
+
+**Next:** step 3b, the other masters (Company, Org Units, Chart of
+Accounts, UOM, Item Sub-Category, Items, Vendors, Customers, Currencies,
+Customer Classifications, Sales Types, Requisition Categories, Fixed
+Asset Classes and Master, Inventory Valuation, Price Lists, Users).

@@ -1,0 +1,13 @@
+# Master Data Import, Part 3a: update existing Employees (owner
+# 2026-10-05; docs/modules/MASTER_IMPORT.md, decisions 8-11). Run with
+# --screens (MASTERIMPORT: Rows "Update existing", Copy current records,
+# the changes in the check). No Hosting change; nothing to set up in the
+# app.
+# New function (the invoker binding is granted by deploy-functions.sh).
+getMasterImportRecords
+# Changed: update mode.
+getMasterImportSpecs
+checkMasterImport
+runMasterImport
+# Screens.
+getModuleFragment
