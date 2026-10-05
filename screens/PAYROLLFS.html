@@ -1,0 +1,281 @@
+<div id="fs-list-view" class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-person-walking-arrow-right text-blue-500"></i> Final Settlements</h2></div>
+    <button id="fs-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New final settlement</button>
+  </div>
+  <p class="text-xs text-slate-500 max-w-3xl">For an employee on notice or who has left (a leaving date on their record). It is worked out on the leaving date: gratuity, the annual leave balance, the accruals paid at leaving, notice pay, other additions and deductions, and every loan still owed. The last month's salary stays in the payroll run: submit the settlement once that run is posted. It is approved as set up in Approval Configuration, posted, then paid as a run is.</p>
+  <div id="fs-new-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex flex-wrap items-end gap-3">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Employee</label><select id="fs-new-emp" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+    <button id="fs-new-go" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Work it out</button>
+    <button id="fs-new-cancel" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button>
+    <p id="fs-new-none" class="hidden w-full text-xs text-slate-500">No one is on notice or has left without a settlement. Set the status and leaving date on the employee record first.</p>
+  </div>
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-3 px-3">No.</th><th class="py-3 px-3">Employee</th><th class="py-3 px-3">Leaving date</th><th class="py-3 px-3 text-right">Net</th><th class="py-3 px-3">Status</th></tr></thead>
+    <tbody id="fs-table-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+</div>
+
+<div id="fs-entry-view" class="hidden space-y-5">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+    <div class="flex items-center gap-3">
+      <button id="fs-back-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h3 id="fs-heading" class="text-lg font-bold text-slate-100"></h3>
+      <span id="fs-status" class="text-xs text-slate-400"></span>
+    </div>
+    <div class="flex gap-2">
+      <button id="fs-delete-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-trash"></i> Delete draft</button>
+      <button id="fs-reverse-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-rotate-left"></i> Reverse</button>
+      <button id="fs-post-btn" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-book"></i> Post</button>
+      <button id="fs-save-btn" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-floppy-disk"></i> Save and recalculate</button>
+      <button id="fs-submit-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-paper-plane"></i> Submit</button>
+    </div>
+  </div>
+  <p id="fs-info" class="text-xs text-slate-400"></p>
+  <p id="fs-run-note" class="hidden text-xs text-amber-400"></p>
+  <p id="fs-state-note" class="hidden text-xs"></p>
+
+  <div id="fs-approval" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Approval</div>
+    <ul id="fs-levels" class="text-sm space-y-1"></ul>
+    <div id="fs-decide" class="hidden flex gap-2">
+      <button id="fs-approve" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-1.5 rounded"><i class="fa-solid fa-check"></i> Approve</button>
+      <button id="fs-reject" class="bg-slate-800 hover:bg-slate-700 text-sm text-red-400 px-4 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-xmark"></i> Reject</button>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">The settlement</div>
+    <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+      <th class="py-1 pr-4">Line</th><th class="py-1 pr-4">How</th><th class="py-1 pr-4 text-right">Provided</th><th class="py-1 pr-4 text-right">Earnings</th><th class="py-1 pr-4 text-right">Deductions</th><th id="fs-own-head" class="py-1">Own amount (reason)</th></tr></thead>
+      <tbody id="fs-lines" class="divide-y divide-slate-700"></tbody><tfoot id="fs-foot"></tfoot></table></div>
+    <ul id="fs-lapses" class="text-xs text-slate-400 space-y-1"></ul>
+    <ul id="fs-warnings" class="text-xs text-amber-400 space-y-1"></ul>
+  </div>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Notice pay</div>
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Days</label><input id="fs-notice-days" type="number" min="0" step="0.5" class="fs-f w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">The days are</label><select id="fs-notice-mode" class="fs-f bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Pay">Paid (notice not worked)</option><option value="Deduct">Deducted (short notice)</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Posted as (pay element)</label><select id="fs-notice-el" class="fs-f bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <p class="text-xs text-slate-500">At the company's daily rate on the gross.</p>
+    </div>
+    <div class="text-xs font-semibold text-slate-400 uppercase pt-2">Other additions and deductions</div>
+    <table class="text-left text-sm"><thead><tr class="text-xs text-slate-500"><th class="pr-2">Pay element</th><th class="pr-2">Amount</th><th class="pr-2">Note</th><th></th></tr></thead><tbody id="fs-others"></tbody></table>
+    <button id="fs-other-add" class="fs-f text-xs text-blue-400"><i class="fa-solid fa-plus"></i> Add a line</button>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Note</label><input id="fs-note" maxlength="500" class="fs-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+  </div>
+
+  <div id="fs-pay" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Payment</div>
+    <p id="fs-pay-done" class="hidden text-sm text-emerald-400"></p>
+    <div id="fs-pay-form" class="hidden flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment date</label><input id="fs-pay-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Paid from (cash or bank)</label><select id="fs-pay-account" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference</label><input id="fs-pay-ref" maxlength="100" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div id="fs-file-wrap" class="flex items-end gap-2"><div><label class="block text-xs font-medium text-slate-300 mb-1">Bank file</label><select id="fs-pay-format" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <button id="fs-pay-file" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-file-arrow-down"></i> Download the file</button></div>
+      <button id="fs-pay-mark" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg"><i class="fa-solid fa-check-double"></i> Mark paid</button>
+    </div>
+    <p id="fs-pay-payee" class="text-xs text-slate-400"></p>
+    <button id="fs-pay-reverse" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-rotate-left"></i> Reverse the payment</button>
+  </div>
+
+  <div id="fs-history-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div class="text-xs font-semibold text-slate-400 uppercase mb-2">History</div>
+    <ul id="fs-history" class="text-xs text-slate-400 space-y-1"></ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Final Settlements (owner, 2026-10-05; docs/modules/HR_PAYROLL.md, step
+  // 5b): an employee's settlement on leaving, from its draft to its
+  // approval, posting and payment.
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const STATUS = { New: ['Not saved yet', 'text-slate-400'], Draft: ['Draft', 'text-slate-400'], PendingApproval: ['Pending approval', 'text-amber-400'],
+    Approved: ['Approved, waiting to post', 'text-blue-400'], Posted: ['Posted', 'text-emerald-400'], Paid: ['Paid', 'text-slate-500'] };
+  const statusHtml = s => '<span class="' + (STATUS[s] || ['', 'text-slate-400'])[1] + '">' + escapeHtml((STATUS[s] || [s])[0]) + '</span>';
+  const isProvision = k => k === 'Gratuity' || k === 'LeaveSalary' || k.indexOf('Accrual:') === 0;
+  let list = null, current = null, payment = null, seq = 0;
+
+  // ---------- the list ----------
+  function loadList() {
+    return call('getSettlements', {}).then(r => {
+      list = r;
+      $('fs-new-btn').classList.toggle('hidden', !r.canDraft);
+      $('fs-new-emp').innerHTML = r.leavers.map(e => '<option value="' + escapeHtml(e.EmployeeID) + '">' + escapeHtml(e.EmployeeNo + ' · ' + e.FullName + ' (' + e.Status.toLowerCase() + ')') + '</option>').join('');
+      $('fs-new-none').classList.toggle('hidden', r.leavers.length > 0);
+      $('fs-new-go').classList.toggle('hidden', !r.leavers.length);
+      $('fs-table-body').innerHTML = r.settlements.map(s => '<tr data-id="' + escapeHtml(s.SettlementID) + '" class="hover:bg-slate-800/40 cursor-pointer"><td class="py-2 px-3 text-xs">' + escapeHtml(s.Number || '(draft)') + '</td>' +
+        '<td class="py-2 px-3">' + escapeHtml(s.EmployeeNo + ' · ' + s.EmployeeName) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(s.LeavingDate) + '</td>' +
+        '<td class="py-2 px-3 text-right' + (s.Net < 0 ? ' text-red-400' : '') + '">' + money(s.Net) + '</td><td class="py-2 px-3 text-xs">' + statusHtml(s.PaidAt ? 'Paid' : s.Status) + '</td></tr>').join('') ||
+        '<tr><td colspan="5" class="py-6 px-3 text-center text-xs text-slate-500">No final settlements yet.</td></tr>';
+      $('fs-table-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openSettlement({ settlementId: tr.dataset.id })));
+    }, err => appAlert(err.message || 'Unable to load the settlements.'));
+  }
+  function showEntry() { $('fs-list-view').classList.add('hidden'); $('fs-entry-view').classList.remove('hidden'); window.scrollTo(0, 0); }
+  function showList() { $('fs-entry-view').classList.add('hidden'); $('fs-list-view').classList.remove('hidden'); current = null; loadList(); }
+
+  // ---------- a settlement ----------
+  function openSettlement(q) {
+    const my = ++seq;
+    return call('getSettlement', q).then(r => {
+      if (my !== seq || !$('fs-entry-view')) return;
+      current = r; render(); showEntry();
+      if (r.settlement.Status === 'Posted') loadPayment();
+    }, err => appAlert(err.message || 'Unable to open the settlement.'));
+  }
+  const elOptions = (kind, sel) => '<option value="">Select...</option>' + current.elements.filter(e => !kind || e.Kind === kind)
+    .map(e => '<option value="' + escapeHtml(e.ElementID) + '"' + (e.ElementID === sel ? ' selected' : '') + '>' + escapeHtml(e.Code + ' — ' + e.Name + (kind ? '' : ' (' + e.Kind.toLowerCase() + ')')) + '</option>').join('');
+  const otherRow = o => '<tr class="fs-other"><td class="pr-2 py-1"><select class="fs-f fs-o-el bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm text-slate-300">' + elOptions('', o.ElementID) + '</select></td>' +
+    '<td class="pr-2"><input class="fs-f fs-o-amt w-28 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" value="' + escapeHtml(o.Amount == null ? '' : o.Amount) + '"></td>' +
+    '<td class="pr-2"><input class="fs-f fs-o-note w-64 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" maxlength="200" value="' + escapeHtml(o.Note || '') + '"></td>' +
+    '<td><button class="fs-f fs-o-del text-xs text-red-400"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  function noticeElements() { $('fs-notice-el').innerHTML = elOptions(val('fs-notice-mode') === 'Deduct' ? 'Deduction' : 'Earning', (current.settlement.Notice || {}).ElementID); }
+
+  function render() {
+    const r = current, s = r.settlement, draft = (s.Status === 'Draft' || s.Status === 'New') && r.canDraft;
+    $('fs-heading').textContent = (s.Number || 'Final settlement') + ' — ' + s.EmployeeName;
+    $('fs-status').innerHTML = statusHtml(s.PaidAt ? 'Paid' : s.Status);
+    $('fs-info').textContent = s.EmployeeNo + ' · joined ' + s.JoinDate + ', leaving ' + s.LeavingDate + (s.LeavingReason ? ' (' + s.LeavingReason + ')' : '') +
+      '. On the leaving date: basic ' + money(s.Basic) + ', gross ' + money(s.Gross) + '.';
+    const run = r.leavingRun;
+    const waiting = (s.Status === 'Draft' || s.Status === 'New') && !(run && run.Status === 'Posted');
+    $('fs-run-note').classList.toggle('hidden', !waiting);
+    $('fs-run-note').textContent = 'The payroll run for ' + s.LeavingDate.slice(0, 7) + ' is ' + (run ? 'not posted yet' : 'not made yet') + ': it pays the last days and brings the provisions to the leaving date. Submit once it is posted.';
+    const note = s.Status === 'Posted' ? ['text-emerald-400', 'Posted: journal ' + s.JVNumber + ', dated the leaving date.']
+      : s.Status === 'Approved' && s.PostError ? ['text-red-400', 'Approved, but not posted: ' + s.PostError + (r.canPost ? ' Fix it, then Post.' : '')]
+      : s.Status === 'Draft' && s.RejectedReason ? ['text-red-400', 'Rejected: ' + s.RejectedReason + '. Correct it and submit again.'] : null;
+    $('fs-state-note').className = 'text-xs ' + (note ? note[0] : 'hidden');
+    $('fs-state-note').textContent = note ? note[1] : '';
+    $('fs-save-btn').classList.toggle('hidden', !draft);
+    $('fs-submit-btn').classList.toggle('hidden', !(draft && s.Status === 'Draft'));
+    $('fs-delete-btn').classList.toggle('hidden', !(draft && s.Status === 'Draft'));
+    $('fs-post-btn').classList.toggle('hidden', !(s.Status === 'Approved' && r.canPost));
+    $('fs-reverse-btn').classList.toggle('hidden', !(s.Status === 'Posted' && r.canPost && !s.PaidAt));
+    const a = r.approval;
+    $('fs-approval').classList.toggle('hidden', !(a && s.Status === 'PendingApproval'));
+    if (a) {
+      $('fs-levels').innerHTML = a.Levels.map(x => { const d = a.Decisions.find(y => y.LevelNumber === x.LevelNumber); return '<li>Level ' + x.LevelNumber + ': ' + (d ? escapeHtml(d.Decision + ' by ' + d.ApproverName) : '<span class="text-amber-400">waiting</span>') + '</li>'; }).join('');
+      $('fs-decide').classList.toggle('hidden', !a.MyLevels.length);
+    }
+    // The lines: a provision's own amount (with a reason) while it's a draft.
+    const shown = s.Lines.filter(l => l.Kind !== 'Lapse');
+    $('fs-own-head').classList.toggle('hidden', !draft);
+    $('fs-lines').innerHTML = shown.map(l => {
+      const own = (s.Overrides || {})[l.Key];
+      const how = l.Text + (l.Reason ? ' — changed by hand from ' + money(l.Worked) + ': ' + l.Reason : '');
+      return '<tr data-key="' + escapeHtml(l.Key) + '"><td class="py-1 pr-4">' + escapeHtml(l.Name) + '</td><td class="py-1 pr-4 text-xs text-slate-400">' + escapeHtml(how) + '</td>' +
+        '<td class="py-1 pr-4 text-right text-xs text-slate-400">' + (isProvision(l.Key) ? money(l.Provided) : '') + '</td>' +
+        '<td class="py-1 pr-4 text-right">' + (l.Kind === 'Earning' ? money(l.Amount) : '') + '</td><td class="py-1 pr-4 text-right">' + (l.Kind === 'Deduction' ? money(l.Amount) : '') + '</td>' +
+        '<td class="py-1' + (draft ? '' : ' hidden') + '">' + (isProvision(l.Key) ? '<input class="fs-f fs-own w-24 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" placeholder="as worked" value="' + escapeHtml(own ? own.Amount : '') + '"> ' +
+          '<input class="fs-f fs-own-reason w-48 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" placeholder="reason" maxlength="300" value="' + escapeHtml(own ? own.Reason : '') + '">' : '') + '</td></tr>';
+    }).join('');
+    $('fs-foot').innerHTML = '<tr class="border-t border-slate-700 font-semibold"><td class="py-1 pr-4" colspan="3">Totals</td><td class="py-1 pr-4 text-right">' + money(s.Earnings) + '</td><td class="py-1 pr-4 text-right">' + money(s.Deductions) + '</td><td></td></tr>' +
+      '<tr class="font-semibold"><td class="py-1 pr-4" colspan="4">' + (s.Net < 0 ? 'Owed by the employee' : 'Net to pay') + '</td><td class="py-1 pr-4 text-right ' + (s.Net < 0 ? 'text-red-400' : 'text-emerald-400') + '">' + money(Math.abs(s.Net)) + '</td><td></td></tr>';
+    $('fs-lapses').innerHTML = s.Lines.filter(l => l.Kind === 'Lapse').map(l => '<li>' + escapeHtml(l.Name + ': ' + l.Text + '.') + '</li>').join('');
+    $('fs-warnings').innerHTML = (s.Warnings || []).map(w => '<li><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(w) + '</li>').join('');
+    const n = s.Notice || {};
+    $('fs-notice-days').value = n.Days || ''; $('fs-notice-mode').value = n.Mode || 'Pay';
+    noticeElements();
+    $('fs-others').innerHTML = (s.Others || []).map(otherRow).join('');
+    $('fs-note').value = s.Note || '';
+    document.querySelectorAll('.fs-f').forEach(x => { x.disabled = !draft; });
+    $('fs-other-add').classList.toggle('hidden', !draft);
+    $('fs-pay').classList.add('hidden');
+    $('fs-history-wrap').classList.toggle('hidden', !(s.History || []).length);
+    $('fs-history').innerHTML = (s.History || []).slice().reverse().map(h => '<li>' + escapeHtml(h.At + ' — ' + h.Event + ' by ' + h.By + (h.JVNumber ? ' (' + h.JVNumber + (h.ReversalJVNumber ? ', reversed by ' + h.ReversalJVNumber : '') + ')' : '') + (h.Note ? ': ' + h.Note : '')) + '</li>').join('');
+  }
+
+  function collect() {
+    const overrides = {};
+    document.querySelectorAll('#fs-lines tr[data-key]').forEach(tr => {
+      const own = tr.querySelector('.fs-own');
+      if (own && own.value.trim() !== '') overrides[tr.dataset.key] = { Amount: own.value.trim(), Reason: tr.querySelector('.fs-own-reason').value };
+    });
+    return { employeeId: current.settlement.EmployeeID, overrides, note: val('fs-note'),
+      notice: { Days: val('fs-notice-days'), Mode: val('fs-notice-mode'), ElementID: val('fs-notice-el') },
+      others: [...document.querySelectorAll('#fs-others .fs-other')].map(tr => ({ ElementID: tr.querySelector('.fs-o-el').value, Amount: tr.querySelector('.fs-o-amt').value, Note: tr.querySelector('.fs-o-note').value })) };
+  }
+  function save(then) {
+    return call('saveSettlement', collect()).then(r => (then ? then(r.settlementId) : openSettlement({ settlementId: r.settlementId })), err => appAlert(err.message || 'Unable to save.'));
+  }
+  function submit() {
+    save(id => call('submitSettlement', { settlementId: id }).then(r => {
+      if (r.postError) appAlert('Approved, but not posted: ' + r.postError);
+      return openSettlement({ settlementId: id });
+    }, err => { appAlert(err.message || 'Unable to submit.'); return openSettlement({ settlementId: id }); }));
+  }
+  const act = (name, data, what) => call(name, Object.assign({ settlementId: current.settlement.SettlementID }, data))
+    .then(() => openSettlement({ settlementId: current.settlement.SettlementID }), err => appAlert(err.message || 'Unable to ' + what + '.'));
+
+  // ---------- payment ----------
+  function loadPayment() {
+    const id = current.settlement.SettlementID;
+    return call('getSettlementPayment', { settlementId: id }).then(p => {
+      if (!current || current.settlement.SettlementID !== id) return;
+      payment = p;
+      const s = current.settlement;
+      if (!(s.Net > 0)) return;
+      $('fs-pay').classList.remove('hidden');
+      $('fs-pay-done').classList.toggle('hidden', !s.PaidAt);
+      $('fs-pay-done').textContent = s.PaidAt ? 'Paid on ' + s.PaymentDate + ': journal ' + s.PaymentJVNumber + '.' : '';
+      $('fs-pay-form').classList.toggle('hidden', Boolean(s.PaidAt) || !p.canPay);
+      $('fs-pay-reverse').classList.toggle('hidden', !(s.PaidAt && p.canPay));
+      const accts = p.accounts.filter(a => (p.payee && p.payee.ByBank) ? a.Bank : true);
+      $('fs-pay-account').innerHTML = accts.map(a => '<option value="' + escapeHtml(a.AccountID) + '">' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
+      $('fs-pay-format').innerHTML = p.formats.map(f => '<option value="' + escapeHtml(f.FormatID) + '">' + escapeHtml(f.Name) + '</option>').join('');
+      $('fs-file-wrap').classList.toggle('hidden', !(p.payee && p.payee.ByBank));
+      if (!$('fs-pay-date').value) $('fs-pay-date').value = window.isoLocalDateTime(new Date()).slice(0, 10);
+      $('fs-pay-payee').textContent = p.payee ? (p.payee.ByBank ? 'By bank: ' + (p.payee.BankName || '') + ' ' + p.payee.IBAN : 'No bank account (IBAN): pay by cash or cheque.') +
+        (p.payee.Missing.length && p.payee.ByBank ? ' Missing for the bank file: ' + p.payee.Missing.join(', ') + '.' : '') : '';
+    }, err => appAlert(err.message || 'Unable to load the payment.'));
+  }
+  function downloadFile() {
+    if (!val('fs-pay-format')) return appAlert('Set up the company\'s bank file first (Payroll Setup → Payment Files).');
+    call('downloadSettlementFile', { settlementId: current.settlement.SettlementID, formatId: val('fs-pay-format'), paymentDate: val('fs-pay-date') }).then(f => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([f.content], { type: 'text/plain' }));
+      a.download = f.fileName;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.__lastPaymentFile = f;
+    }, err => appAlert(err.message || 'Unable to make the file.'));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-person-walking-arrow-right"></i> Final Settlements';
+    $('fs-new-btn').addEventListener('click', () => $('fs-new-form').classList.remove('hidden'));
+    $('fs-new-cancel').addEventListener('click', () => $('fs-new-form').classList.add('hidden'));
+    $('fs-new-go').addEventListener('click', () => { if (val('fs-new-emp')) openSettlement({ employeeId: val('fs-new-emp') }).then(() => $('fs-new-form').classList.add('hidden')); });
+    $('fs-back-btn').addEventListener('click', showList);
+    $('fs-notice-mode').addEventListener('change', noticeElements);
+    $('fs-other-add').addEventListener('click', () => $('fs-others').insertAdjacentHTML('beforeend', otherRow({})));
+    $('fs-others').addEventListener('click', e => { const b = e.target.closest('.fs-o-del'); if (b) b.closest('tr').remove(); });
+    $('fs-save-btn').addEventListener('click', () => save());
+    $('fs-submit-btn').addEventListener('click', submit);
+    $('fs-delete-btn').addEventListener('click', () => appConfirm('Delete this draft?').then(ok => { if (ok) call('deleteSettlement', { settlementId: current.settlement.SettlementID }).then(showList, err => appAlert(err.message || 'Unable to delete.')); }));
+    $('fs-post-btn').addEventListener('click', () => act('postSettlement', {}, 'post the settlement'));
+    $('fs-reverse-btn').addEventListener('click', () => appPrompt('Reverse ' + current.settlement.Number + ' (journal ' + current.settlement.JVNumber + '). Reason:', '').then(reason => { if (reason !== null) act('reverseSettlement', { reason }, 'reverse the settlement'); }));
+    $('fs-approve').addEventListener('click', () => act('decideSettlementApproval', { levelNumber: current.approval.MyLevels[0], decision: 'Approved' }, 'approve'));
+    $('fs-reject').addEventListener('click', () => appPrompt('Reason for rejecting:', '').then(reason => { if (reason !== null) act('decideSettlementApproval', { levelNumber: current.approval.MyLevels[0], decision: 'Rejected', reason }, 'reject'); }));
+    $('fs-pay-file').addEventListener('click', downloadFile);
+    $('fs-pay-mark').addEventListener('click', () => appConfirm('Mark ' + current.settlement.Number + ' paid (' + money(current.settlement.Net) + ') on ' + val('fs-pay-date') + '? This posts the payment journal.').then(ok => {
+      if (ok) act('markSettlementPaid', { paymentDate: val('fs-pay-date'), accountId: val('fs-pay-account'), reference: val('fs-pay-ref') }, 'mark it paid'); }));
+    $('fs-pay-reverse').addEventListener('click', () => appPrompt('Reverse the payment ' + current.settlement.PaymentJVNumber + '. Reason:', '').then(reason => { if (reason !== null) act('reverseSettlementPayment', { reason }, 'reverse the payment'); }));
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    loadList().then(() => { const id = pending && (pending.OpenEntryId || pending.SettlementID); if (id) return openSettlement({ settlementId: id }); });
+  };
+})();
+</script>
