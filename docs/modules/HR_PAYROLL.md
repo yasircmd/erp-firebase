@@ -1073,3 +1073,104 @@ pay):
 
 **Next:** step 5, gratuity and leave-salary provisions, and the final
 settlement.
+
+## Step 5 design: provisions and final settlement (proposed 2026-10-05)
+
+### The owner's points (2026-10-05)
+
+1. "Option for the equation to add gratuity, by default current UAE rule:
+   up to 364 days no gratuity, 1 year to 5 years 21 days basic salary per
+   year, 5–24 years 30 days basic salary per year. Also, company have
+   option to start provision from day one or once completed 1 year."
+2. "Leave salary by default on basic, but flexible to update the equation
+   on total salary. Also annual leave may vary by company or employee,
+   like fixed 30 days (or any) including holidays, or a working days
+   basis."
+3. "Also need option to add more liabilities and accruals like flight,
+   children education, accommodation, etc., and the logic fixed or based
+   on salary."
+
+### Payroll Setup → Provisions (new tab)
+
+**End-of-service gratuity** (a formula per company, the UAE rule to
+start):
+- the base: the basic (default), or the gross ("in gross" elements);
+- **slabs** by completed years of service: from year, to year, days of
+  pay per year. The UAE start: under 1 year, none; years 1–5, 21 days a
+  year; after 5, 30 days a year. Rows can be added and changed;
+- a day's pay: base × 12 ÷ 365 (as the Labour Ministry) or the company's
+  daily rate (question 28);
+- an optional cap: the total at most N years' base (UAE: 2);
+- service: from the joining date, less unpaid and absent days;
+- **when the provision starts** (owner point 1): from day one, or once
+  the first year is complete (then it catches up on that year at once);
+- the accounts: expense (by cost center) and provision (a liability).
+
+**Leave salary** (per company):
+- the base: the basic (default) or the gross (owner point 2);
+- a leave day's value: the company's daily rate, or a working-day rate
+  (question 30);
+- the days come from the employee's annual leave balance (the Leave
+  Register's accruals), so the entitlement (30 calendar days, 22 working
+  days, …) is set where leave is: by grade and service, with a per-
+  employee override (question 31);
+- the accounts: expense and provision.
+
+**Other accruals** (owner point 3), as many as needed, e.g. flight
+ticket, children's education, accommodation. Each has:
+- a name, and who is eligible (question 32);
+- the amount: a fixed amount a year, or a % of the basic or the gross;
+- the expense and provision (liability) accounts;
+- whether an unused balance is paid at leaving or lapses.
+
+### Each month, with the posted run (decision 8)
+
+- each employee's liability at the month's end is worked out again:
+  - gratuity: service to date by the slabs, at the current base;
+  - leave salary: the leave balance × the day's value;
+  - each accrual: its share for the month added;
+- the change from what is already provided is posted with the run's
+  journal: Dr the expense by cost center / Cr the provision (a decrease
+  reverses);
+- the run shows each employee's provisions; a reversed run takes them
+  back.
+
+### Final settlement (an employee leaving)
+
+When an employee leaves (Status Left and a leaving date), the
+settlement shows:
+- the last month's pay (the run, as today);
+- gratuity at the leaving date;
+- unused annual leave paid out (the balance × the day's value);
+- unpaid accruals marked "paid at leaving";
+- notice pay: in lieu either way;
+- other additions or deductions (with a note);
+- the loans still owed;
+- the net.
+
+Posting: Dr each provision (what is provided), the expense for any
+difference / Cr the loans' receivables and Salaries Payable; then paid
+as runs are (question 34).
+
+### Open questions for step 5
+
+28. **Gratuity details:** a day's pay as basic × 12 ÷ 365 with the total
+    capped at 2 years' basic, as UAE law? Or the company's daily rate
+    with no cap? (Both stay changeable per company.)
+29. **Leaving reasons:** no reduction for resigning, as the 2022 UAE law?
+    Or a configurable reduction by reason and years (the old rule:
+    resignation under 3 years ⅓, 3–5 years ⅔)?
+30. **A leave day's value:** the company's daily rate (÷ 30, ÷ the
+    month's days, × 12 ÷ 365)? Or a working-day rate (÷ the month's
+    working days)?
+31. **Annual leave per employee:** add a per-employee override of the
+    yearly days (and calendar or working days), on top of the grade and
+    service rules? Or keep the rules only?
+32. **Who gets an accrual (flight, education…):** by grade level, with a
+    per-employee override? Or each employee assigned individually?
+33. **Using an accrual:** paid by a claim from Payroll (Dr the provision
+    / Cr bank or cash)? Or paid with the salary as a run input? Or both?
+34. **The final settlement:** its own document (approval, posting,
+    payment), apart from the last payroll run? Or added to the last run?
+35. **Build order:** provisions first (5a) and the final settlement next
+    (5b)? Or both in one step?
