@@ -1358,3 +1358,12 @@ Reversal (the "post" right) undoes the journal while it is unpaid.
 39. **Payment:** as a payroll run's payment (the bank file from Payroll
     Setup's formats, or a cash or bank account; mark paid; reverse)? Or a
     simpler one-step payment from a cash or bank account?
+
+### The owner's decisions for step 5b (2026-10-05)
+
+| # | Question | Decision |
+|---|---|---|
+| 36 | Notice pay | **Days typed by HR × the company's daily rate on the gross**, paid to the employee (notice not worked) or deducted (short notice). |
+| 37 | Unused leave, a negative balance | **Pay the unused days** on the leave-salary base, and **deduct a negative balance** at the same daily rate. |
+| 38 | Loans, a negative net | **Deduct every loan's balance.** If the net goes negative, the settlement shows what the employee owes, left on "Recoverable from employees". |
+| 39 | Payment | **As a payroll run's payment:** the bank file from Payroll Setup's formats, or a cash or bank account; mark paid; reverse the payment. |
