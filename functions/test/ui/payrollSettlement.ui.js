@@ -76,6 +76,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.click('#fs-new-go');
     await p.waitForFunction(() => /Ali Hassan/.test(document.getElementById('fs-heading').textContent), null, { timeout: 30000 });
     assert.deepEqual(await p.$$eval('#fs-lines tr', t => t.map(r => r.cells[0].textContent)), ['Gratuity', 'Leave salary (unused leave)']);
+    assert.ok(await p.isVisible('#fs-run-note'), 'the note shows');
     assert.match(await p.textContent('#fs-run-note'), /not posted yet/);
     assert.match(await p.textContent('#fs-info'), /basic 6,000\.00, gross 9,000\.00/);
     await p.fill('#fs-notice-days', '10');
