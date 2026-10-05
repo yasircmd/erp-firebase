@@ -847,3 +847,22 @@ from, and how it was verified. The deploy procedure is in the
     15:40–15:49 UTC, from `b139201` (PR #78): `payroll-3`.
   - Still to deploy: `payroll-4`, `payroll-4b`, `payroll-5a`, `payroll-5b`
     (ROADMAP → "Waiting to go live").
+- **2026-10-05, Payroll steps 4–5b (PRs #79–#82):** five runs, all
+  successful. The owner reports deploying the functions sets
+  `payroll-4` to `payroll-5b` in order, then the screens; the run list
+  doesn't record each run's set, so the order below follows that report.
+  No Hosting deploy was needed: nothing in `public/` or `firebase.json`
+  changed since run #84.
+  - Run [#89](https://github.com/yasircmd/erp-firebase/actions/runs/37273431837),
+    06:38–06:45 UTC, from `68f136d` (the PR #82 merge): `payroll-4`.
+  - Run [#90](https://github.com/yasircmd/erp-firebase/actions/runs/37274075637),
+    06:45–06:55 UTC, from `a3b6ae7` (the PR #83 merge, docs only on top):
+    `payroll-4b`.
+  - Run [#91](https://github.com/yasircmd/erp-firebase/actions/runs/37275123844),
+    06:58–07:12 UTC, from `a3b6ae7`: `payroll-5a`.
+  - Run [#92](https://github.com/yasircmd/erp-firebase/actions/runs/37276559839),
+    07:13–07:23 UTC, from `a3b6ae7`: `payroll-5b`.
+  - Run [#93](https://github.com/yasircmd/erp-firebase/actions/runs/37277711203),
+    07:26–07:27 UTC, from `a3b6ae7`: the screens release.
+  - In the app (owner, still to do): the payroll set-up listed in
+    ROADMAP → "Waiting to go live".
