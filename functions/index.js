@@ -219,7 +219,7 @@ const hrLeaveSetup = require('./src/hrLeaveSetup');
 ['getLeaveSetup', 'saveLeaveType', 'saveLeaveEntitlements', 'saveLeavePayRules', 'getWorkCalendar', 'saveWorkCalendar'].forEach(n => { exports[n] = hrLeaveSetup[n]; });
 const hrLeave = require('./src/hrLeave');
 ['getLeaves', 'getLeaveForm', 'getLeave', 'previewLeave', 'saveLeave', 'deleteLeave', 'submitLeave', 'decideLeaveApproval', 'cancelLeave',
-  'recordLeaveReturn', 'getLeaveBalances', 'adjustLeaveBalance'].forEach(n => { exports[n] = hrLeave[n]; });
+  'recordLeaveReturn', 'getLeaveBalances', 'adjustLeaveBalance', 'setLeaveEntitlement'].forEach(n => { exports[n] = hrLeave[n]; });
 const hrLeaveClose = require('./src/hrLeaveClose');
 ['getLeaveMonths', 'getLeaveMonthSummary', 'lockLeaveMonth', 'reopenLeaveMonth', 'closeLeaveYear'].forEach(n => { exports[n] = hrLeaveClose[n]; });
 const hrLeaveReports = require('./src/hrLeaveReports');

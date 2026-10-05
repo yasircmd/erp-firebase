@@ -1174,3 +1174,23 @@ as runs are (question 34).
     payment), apart from the last payroll run? Or added to the last run?
 35. **Build order:** provisions first (5a) and the final settlement next
     (5b)? Or both in one step?
+
+### The owner's decisions for step 5 (2026-10-05)
+
+| # | Question | Decision |
+|---|---|---|
+| 28 | Gratuity details | **UAE:** a day's pay is the base × 12 ÷ 365, and the total is capped at 2 years' base. Both stay changeable per company. |
+| 29 | Leaving reasons | **No reduction** (2022 UAE law). Dismissal for cause is set to 0 by hand in the settlement. |
+| 30 | A leave day's value | **The company's daily rate** (÷ 30, ÷ the month's days, × 12 ÷ 365), on the basic or the gross. |
+| 31 | Annual leave per employee | **A per-employee override** of the yearly days (and calendar or working days), on top of the grade and service rules. |
+| 32 | Who gets an accrual | **By grade level, with a per-employee override** (exclude, or their own amount). |
+| 33 | Using an accrual | **Both:** a claim from Payroll (Dr the provision / Cr bank or cash), or paid with the salary as a run line. HR chooses each time. |
+| 34 | The final settlement | **Its own document:** approval, posting and payment. The last month's salary stays in the normal run. |
+| 35 | Build order | **5a provisions, then 5b final settlement**, each with its own PR. |
+
+**Added in 5a (not asked, needed at go-live):** each employee's
+**opening provisions** (gratuity, leave salary, each accrual), as at a
+month, through the Master Data Import. The amounts are already in the GL
+from the opening balances, so they post nothing; the first run provides
+only the change from them.
+
