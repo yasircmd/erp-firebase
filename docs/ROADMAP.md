@@ -9,6 +9,39 @@ fresh session can continue from GitHub.
 `tested` (emulator suite, negative control, smoke) → `deployed` (logged in
 [DEPLOY_LOG.md](DEPLOY_LOG.md)).
 
+## Waiting to go live (the owner's deploys and setup)
+
+The owner asked (2026-10-04) to be reminded: these are merged but not yet
+recorded in [DEPLOY_LOG.md](DEPLOY_LOG.md) (the last entry is PR #70).
+Deploy in this order, each "functions set" first (the Deploy workflow),
+then the screens (and Hosting where noted). Each set file's header lists
+its in-app steps. Remove an item once deployed and logged.
+
+1. `hr-leave-1` … `hr-leave-4`: the Attendance and Leave Register
+   (HR_LEAVE.md). `hr-leave-4` also needs the "hosting" task (the Home
+   leave blocks). If these were already deployed, log them and strike
+   them here.
+2. `payroll-0`: work schedules.
+3. `payroll-1`: payroll setup.
+4. `payroll-2`: the payroll run.
+5. `payroll-3`: approval, posting, payslips, reversal.
+6. `payroll-4`: Payroll Setup, payment files, payment.
+7. After them, in the app:
+   - link menu nodes to Leave Register, Leave Reports, Payroll, Payroll
+     Setup and (after 4b) Loans & Advances;
+   - set the rights in Roles & Permissions: Payroll Setup's access and
+     write, and Payroll's draft, post and pay;
+   - in Payroll Setup → Payroll, each company's daily rate, Salaries
+     Payable and Recoverable from employees, and each element's GL
+     account, including the three system deductions;
+   - in Payroll Setup → Payment Files, each company's bank file (from the
+     UAE WPS SIF);
+   - on employees, the WPS person ID and bank routing code;
+   - the approvals wanted (Leave, Absence, Payroll run).
+8. `payroll-4b`: advances and loans (after `payroll-4`); then link
+   "Loans & Advances", set its rights, and add the loan types in Payroll
+   Setup → Loans.
+
 ## Modules in development
 
 | # | Module | Design doc | Status | Notes |
@@ -473,7 +506,18 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `payrollPayment.ui.js` (3). To go live: "functions set" `payroll-4`
     with the screens; the menu node; the rights; each company's bank
     file.
-  - **Next:** step 4b, advances and loans.
+  - **Step 4b built and tested 2026-10-04**, not yet live: advances and
+    loans (loan types with their receivable in Payroll Setup; a new
+    Loans & Advances module: draft, approval, payout from Payroll, the
+    schedule with skipped months and instalment changes, early
+    repayments; recovered by each run, oldest first, never past the net;
+    balances on the payslip and the employee record). Decisions 24–27
+    agreed. Also fixed: draft payroll runs now show in My Drafts. Tests:
+    `payrollCalc.test.js` (11), `payrollLoans` suite (5),
+    `payrollLoans.ui.js` (3). To go live: "functions set" `payroll-4b`
+    with the screens (after `payroll-4`).
+  - **Next:** step 5, gratuity and leave-salary provisions, final
+    settlement.
 - [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type

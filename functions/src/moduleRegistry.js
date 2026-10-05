@@ -99,7 +99,9 @@ const MODULE_REGISTRY = [
   // HR Payroll (docs/modules/HR_PAYROLL.md, step 2): the monthly run.
   { id: 'PAYROLL', label: 'Payroll', capabilities: ['access', 'draft', 'post', 'pay'] },
   // Payroll Setup (step 4): pay elements, payroll settings, payment file formats.
-  { id: 'PAYROLLSETUP', label: 'Payroll Setup', capabilities: ['access', 'write'] }
+  { id: 'PAYROLLSETUP', label: 'Payroll Setup', capabilities: ['access', 'write'] },
+  // Loans & Advances (step 4b): entered, approved, paid out, recovered by the runs.
+  { id: 'PAYROLLLOAN', label: 'Loans & Advances', capabilities: ['access', 'draft', 'pay'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -212,7 +214,8 @@ const DEFAULT_PERMISSIONS = {
   LEAVE:              { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'], lock: ['ADMIN'], reopen: ['ADMIN'] },
   LEAVEREPORTS:       { access: ['ADMIN', 'FINANCE_MGR'] },
   PAYROLL:            { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'], pay: ['ADMIN'] },
-  PAYROLLSETUP:       { access: ['ADMIN'], write: ['ADMIN'] }
+  PAYROLLSETUP:       { access: ['ADMIN'], write: ['ADMIN'] },
+  PAYROLLLOAN:        { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], pay: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

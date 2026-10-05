@@ -125,7 +125,8 @@ const DRAFT_FIRESTORE_SOURCES = [
   { collection: 'faPostings', moduleOf: r => r.ModuleID || null },
   { collection: 'employeeChanges', moduleOf: () => 'EMPCHANGE' },
   { collection: 'leaveRequests', moduleOf: () => 'LEAVE' },
-  { collection: 'payrollRuns', moduleOf: () => 'PAYROLL' }
+  { collection: 'payrollRuns', moduleOf: () => 'PAYROLL' },
+  { collection: 'payrollLoans', moduleOf: () => 'PAYROLLLOAN' }
 ];
 const draftDateOf = r => r.TransactionDate || r.JVDate || r.Date || r.InvoiceDate || r.PRDate || r.IPRDate ||
   r.PODate || r.SODate || r.JODate || r.EffectiveDate || r.FromDate || '';

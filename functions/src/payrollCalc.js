@@ -173,6 +173,17 @@ function computeEmployee(x) {
 
   // Back pay and a shortfall brought forward (step 3), worked out by the run.
   (x.extra || []).forEach(l => lines.push(l));
+  // Loan recovery (step 4b), oldest loan first, never past the net
+  // (decision 26): what the net can't cover is recovered later.
+  let room = lines.reduce((t, l) => t + (l.Kind === 'Earning' ? l.Amount : -l.Amount), 0);
+  (x.loans || []).forEach(ln => {
+    const amt = round2(Math.max(0, Math.min(ln.Due, room)));
+    room -= amt;
+    if (amt < ln.Due) warnings.push(ln.LoanNumber + ': ' + money(amt) + ' of the ' + money(ln.Due) + ' instalment recovered (the net pay didn\'t cover it); the rest is recovered later.');
+    if (!amt) return;
+    lines.push({ ElementID: 'sys-loan', Code: 'LOAN', Name: 'Loan recovery: ' + ln.TypeName + ' ' + ln.LoanNumber, Kind: 'Deduction', Source: 'Loan', LoanID: ln.LoanID, Amount: amt,
+      Text: (amt < ln.Due ? money(ln.Due) + ' due, ' + money(amt) + ' recovered' : money(amt)) + '; balance after ' + money(round2(ln.Balance - amt)) });
+  });
 
   const earnings = round2(lines.filter(l => l.Kind === 'Earning').reduce((s, l) => s + l.Amount, 0));
   const deductions = round2(lines.filter(l => l.Kind === 'Deduction').reduce((s, l) => s + l.Amount, 0));
@@ -204,4 +215,21 @@ function arrearsFor(month, recomputed, paid, elements) {
   return out;
 }
 
-module.exports = { accountFor, METHODS, divisor, dailyRate, dailyText, overtimeRate, daysInMonth, daysInYear, SYSTEM, versionOn, computeEmployee, monthEnd, arrearsFor };
+// ---------- loans (step 4b) ----------
+// A loan's balance: the amount less its recoveries in posted runs (but
+// exceptRunId's) and its repayments.
+function loanBalance(loan, recs, exceptRunId) {
+  const recovered = (recs || []).filter(x => x.RunID !== exceptRunId).reduce((t, x) => t + x.Amount, 0);
+  const repaid = (loan.Repayments || []).filter(x => !x.ReversedAt).reduce((t, x) => t + x.Amount, 0);
+  return round2(loan.Amount - recovered - repaid);
+}
+// What a loan asks of a month's run (decisions 26-27): nothing before its
+// start, in a skipped month, or once repaid; else the instalment in force
+// (an advance: the whole balance), at most the balance.
+function loanDue(loan, month, balance) {
+  if (loan.Status !== 'Active' || !loan.PayoutJVID || balance <= 0 || month < loan.StartMonth || (loan.Skips || []).includes(month)) return 0;
+  if (loan.Kind === 'Advance') return balance;
+  const change = (loan.Changes || []).filter(c => c.FromMonth <= month).sort((a, b) => a.FromMonth.localeCompare(b.FromMonth)).pop();
+  return round2(Math.min(change ? change.Instalment : loan.Instalment, balance));
+}
+module.exports = { accountFor, METHODS, divisor, dailyRate, dailyText, overtimeRate, daysInMonth, daysInYear, SYSTEM, versionOn, computeEmployee, monthEnd, arrearsFor, loanBalance, loanDue };
