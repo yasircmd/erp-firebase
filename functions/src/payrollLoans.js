@@ -27,6 +27,7 @@ const VOUCHER_TYPE = 'PayrollLoan';
 const TYPES = () => firestore.collection('payrollLoanTypes');
 const LOANS = () => firestore.collection('payrollLoans');
 const RUNS = () => firestore.collection('payrollRuns');
+const SETTLEMENTS = () => firestore.collection('payrollSettlements');
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 150);
 const bad = msg => { throw new HttpsError('invalid-argument', msg); };
 const failed = msg => new HttpsError('failed-precondition', msg);
@@ -126,6 +127,12 @@ async function loansDue(companyId, month, runId) {
 async function requireCap(user, cap) {
   if (!(await can(user, 'access'))) throw new HttpsError('permission-denied', 'You do not have access to Loans & Advances.');
   if (cap && !(await can(user, cap))) throw new HttpsError('permission-denied', cap === 'pay' ? 'You do not have permission to pay out or receive loans.' : 'You do not have permission to enter loans.');
+}
+// An employee whose final settlement is past its draft (step 5b) has the
+// loans recovered there: payouts and repayments wait for it.
+async function requireNoSettlement(l) {
+  const s = (await SETTLEMENTS().doc('fs_' + l.EmployeeID).get()).data();
+  if (s && s.Status !== 'Draft') throw failed(l.EmployeeName + ' has a final settlement (' + s.Number + '): the loans are recovered there.');
 }
 async function loadLoan(user, id) {
   const snap = await LOANS().doc(text(id, 80) || '-').get();
@@ -275,6 +282,7 @@ exports.payOutLoan = onCallWithMessages(onCallOptions, async (request) => {
   await requireCap(user, 'pay');
   const d = request.data || {};
   const l = await loadLoan(user, d.loanId);
+  await requireNoSettlement(l);
   if (l.Status !== 'Approved') throw failed('Only an approved loan is paid out.');
   const date = text(d.date, 10);
   if (!isDate(date)) bad('Enter the date it is paid out.');
@@ -295,6 +303,7 @@ exports.reverseLoanPayout = onCallWithMessages(onCallOptions, async (request) =>
   const reason = text(d.reason, 300);
   if (!reason) bad('Give the reason for reversing the payout.');
   const l = await loadLoan(user, d.loanId);
+  await requireNoSettlement(l);
   if (l.Status !== 'Active' || !l.PayoutJVID) throw failed('The loan is not paid out.');
   const recs = (await recoveriesOf(l.CompanyID))[l.LoanID] || [];
   if (recs.length || (l.Repayments || []).some(x => !x.ReversedAt)) throw failed('Part of it is already recovered or repaid: it can no longer be reversed.');
@@ -344,6 +353,7 @@ exports.recordLoanRepayment = onCallWithMessages(onCallOptions, async (request) 
   await requireCap(user, 'pay');
   const d = request.data || {};
   const l = await loadLoan(user, d.loanId);
+  await requireNoSettlement(l);
   if (l.Status !== 'Active') throw failed('Only a running loan is repaid.');
   const date = text(d.date, 10);
   if (!isDate(date)) bad('Enter the date it was received.');

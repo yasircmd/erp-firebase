@@ -101,7 +101,9 @@ const MODULE_REGISTRY = [
   // Payroll Setup (step 4): pay elements, payroll settings, payment file formats.
   { id: 'PAYROLLSETUP', label: 'Payroll Setup', capabilities: ['access', 'write'] },
   // Loans & Advances (step 4b): entered, approved, paid out, recovered by the runs.
-  { id: 'PAYROLLLOAN', label: 'Loans & Advances', capabilities: ['access', 'draft', 'pay'] }
+  { id: 'PAYROLLLOAN', label: 'Loans & Advances', capabilities: ['access', 'draft', 'pay'] },
+  // Final Settlements (step 5b): an employee leaving: gratuity, leave, notice, loans.
+  { id: 'PAYROLLFS', label: 'Final Settlements', capabilities: ['access', 'draft', 'post', 'pay'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -215,7 +217,8 @@ const DEFAULT_PERMISSIONS = {
   LEAVEREPORTS:       { access: ['ADMIN', 'FINANCE_MGR'] },
   PAYROLL:            { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'], pay: ['ADMIN'] },
   PAYROLLSETUP:       { access: ['ADMIN'], write: ['ADMIN'] },
-  PAYROLLLOAN:        { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], pay: ['ADMIN'] }
+  PAYROLLLOAN:        { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], pay: ['ADMIN'] },
+  PAYROLLFS:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'], pay: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };
