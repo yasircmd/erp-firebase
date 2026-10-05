@@ -1296,3 +1296,65 @@ totals, "Copy to Excel", and the claims list.
 5. Set any employee's own annual leave on their leave card.
 
 **Next:** step 5b, the final settlement (its own document, decision 34).
+
+## Step 5b design: the final settlement (proposed 2026-10-05)
+
+Decided already: its own document, with approval, posting and payment;
+the last month's salary stays in the normal run (decision 34); no
+reduction of gratuity for the leaving reason, and dismissal for cause is
+set to 0 by hand (decision 29).
+
+### When
+
+- An employee "On notice" or "Left" with a leaving date can have a
+  settlement drafted (Payroll → Final settlements, the "draft" right);
+  one per employee (a reversed one can be redone).
+- It is **submitted only once the run for the leaving month is posted**:
+  that run pays the last days and brings the provisions up to the
+  leaving date, so what is provided is final.
+
+### What it shows (worked out on the leaving date, each line explained)
+
+| Line | Worked out | Editable |
+|---|---|---|
+| Gratuity | Payroll Setup's rule for the company, at the base on the leaving date; service less unpaid days; a settlement never counts the first year early ("from day one" only affects the provision) | yes, with a reason (e.g. 0 for dismissal) |
+| Leave salary | the annual leave balance on the leaving date × a day at the company's daily rate, on the leave-salary base (basic or gross) | yes, with a reason |
+| Accruals "paid at leaving" | each one's balance provided (openings + runs − claims − payouts) | yes, with a reason |
+| Notice pay | question 36 | — |
+| Other additions / deductions | typed lines with a note (e.g. a bonus due, a damaged asset) | — |
+| Loans and advances | each running loan's balance, deducted | — |
+| **Net** | additions − deductions | — |
+
+### Posting (the "post" right, after approval)
+
+One journal, voucher FinalSettlement (prefix FS), dated the leaving date:
+- each provision: Dr what was provided; the difference between that and
+  what is paid goes to its expense (a shortfall Dr, an excess Cr back);
+- accruals that lapse: their balance is taken back (Dr provision / Cr
+  expense);
+- notice pay and other additions: Dr their expense (cost center);
+  deductions: Cr their account;
+- loans: Cr each loan type's receivable (the loan becomes "Repaid");
+- the net: Cr Salaries Payable (or, if the employee owes money, question
+  38).
+
+Reversal (the "post" right) undoes the journal while it is unpaid.
+
+### Payment (the "pay" right): question 39
+
+### Open questions for step 5b
+
+36. **Notice pay:** days typed by HR × the company's daily rate on the
+    gross, either paid to the employee (notice not worked) or deducted
+    (short notice)? Or a notice period on the employee record, worked
+    out automatically? Or just an amount typed?
+37. **Unused leave and a negative balance:** pay the unused annual leave
+    on the leave-salary base (as the provision), and **deduct** a
+    negative balance (leave taken in advance)? Or never deduct?
+38. **Loans and a negative net:** deduct every loan's balance; if the net
+    goes negative, the settlement shows what the employee owes (left on
+    "Recoverable from employees")? Or deduct loans only up to the net,
+    leaving the rest on the loan?
+39. **Payment:** as a payroll run's payment (the bank file from Payroll
+    Setup's formats, or a cash or bank account; mark paid; reverse)? Or a
+    simpler one-step payment from a cash or bank account?
