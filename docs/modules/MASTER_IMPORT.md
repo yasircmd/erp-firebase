@@ -522,3 +522,12 @@ that master.
     also works as an export of each master.
 11. **Scope and order:** *Employees first*, in its own small step (your
     line managers now), then the other masters? Or *all masters at once*?
+
+### The owner's decisions for Part 3 (2026-10-05)
+
+| # | Question | Decision |
+|---|---|---|
+| 8 | Blank cells | **Keep the current value.** To clear a value, type `-`. |
+| 9 | The key | **The record's code only** (Employee No., Item Code, ...). |
+| 10 | Copy current records | **Yes:** the existing records as a sheet, to edit and paste back. |
+| 11 | Scope and order | **Employees first** (step 3a), then the other masters (step 3b). |
