@@ -11,8 +11,9 @@ fresh session can continue from GitHub.
 
 ## Waiting to go live (the owner's deploys and setup)
 
-Waiting to deploy: `master-import-3a` (Master Data Import, update
-existing Employees), "functions set" with the screens; no Hosting.
+Waiting to deploy: `master-import-3b` (Master Data Import, update
+existing for the other masters), "functions set"; no screens, no Hosting.
+`master-import-3a` went live on 2026-10-05 (run #94).
 
 Payroll steps 4–5b went live on 2026-10-05 (runs #89–#93,
 [DEPLOY_LOG.md](DEPLOY_LOG.md)), after the Leave Register and steps 0–3
@@ -352,7 +353,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   [MASTER_IMPORT.md](modules/MASTER_IMPORT.md)). **Part 1 live
   2026-10-02** (PR #47; Deploy run #46). **Part 2 live**
   (PR #48; functions in Deploy run #47, the screen in run #48).
-  - **Part 3a built and tested 2026-10-05**, not yet live: **update
+  - **Part 3a live 2026-10-05** (PR #85; Deploy run #94): **update
     existing Employees** (owner's request: set 40 line managers at once;
     decisions 8-11 agreed). Rows "Update existing": the key is the
     Employee No.; only the pasted columns change; a blank keeps, `-`
@@ -361,7 +362,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     nothing. **Copy current records** gives the sheet to edit and paste
     back. Tests: `masterImportUpdate` suite (5), `masterImportUpdate.ui.js`
     (4). To go live: "functions set" `master-import-3a` with the screens.
-    **Next:** Part 3b, the other masters.
+  - **Part 3b built and tested 2026-10-05**, not yet live: Update existing
+    for every master with a code (Company, Org Units, COA, Currencies, UOM,
+    Items, Vendors, Customers, Fixed Asset Classes and Master, Users), each
+    through its own save; locked columns as agreed (decisions 12-14).
+    Masters without a code and the versioned ones (BOM, Valuation, Price
+    Lists) have no update option. Tests: `masterImportUpdate2` suite (6).
+    To go live: "functions set" `master-import-3b` (after `-3a`).
   - **Fix, 2026-10-02:** the item account rules now match Item Master's
     save. Consumption is any postable account; Write-off is Expense or
     COGS. Two negative controls caught. Live (PR #49; Deploy run #49).

@@ -587,3 +587,102 @@ shows only for masters that can be updated; Employees in this step):
 Accounts, UOM, Item Sub-Category, Items, Vendors, Customers, Currencies,
 Customer Classifications, Sales Types, Requisition Categories, Fixed
 Asset Classes and Master, Inventory Valuation, Price Lists, Users).
+
+## Part 3b design: updating the other masters (proposed 2026-10-05)
+
+The same Update mode as Employees (decisions 8–10): the key is the
+record's code, only pasted columns change, a blank keeps and `-` clears,
+Copy current records gives the sheet. Each row is saved through the
+master's own save with the record's id, so its rules (account types,
+parents, company, duplicates) apply as on its screen. A rule only the
+save knows about (e.g. an account with children can't become postable)
+stops the update at that row and puts back the rows before it (all or
+nothing).
+
+**Proposed, by master** (locked = refused in the sheet, with the reason):
+
+| Master | Key | Locked (and why) |
+| --- | --- | --- |
+| Company | Ref Code | Tax Type / Tax Number (a company can hold several; edit on Company Master) |
+| Organizational Units | Code | Type, Company (units are referenced by type and company) |
+| Chart of Accounts | Account Code | Account Type, Parent Account, Postable, Company (the code is built from type and parent; postings depend on them) |
+| Currencies | Code | — |
+| Unit of Measure | Code | — |
+| Items | Item Code | Category (the code is built from it), Company |
+| Vendors | Vendor Code | Company |
+| Customers | Customer Code | Company |
+| Fixed Asset Classes | Code | Kind (the assets of a class follow it) |
+| Fixed Asset Master | Asset Code | Class, Company; the save keeps its own rules after capitalization |
+| Users | Username | Email (it is the sign-in), password (not in the sheet) |
+
+**Open questions:**
+
+12. **Masters without a code** (Item Sub-Categories, Customer
+    Classifications, Sales Types, Requisition Categories): leave them to
+    their screens (decision 9: code only; they are few)? Or key them by
+    exact name?
+13. **BOM, Inventory Valuation, Price Lists:** leave them to their screens
+    (they hold versions and lines by date)? Or include them?
+14. **Users:** include (full name, role, companies; email locked)? Or
+    leave users to User Management?
+
+### The owner's decisions for Part 3b (2026-10-05)
+
+| # | Question | Decision |
+|---|---|---|
+| 12 | Masters without a code | **No update option** (Item Sub-Categories, Customer Classifications, Sales Types, Requisition Categories). |
+| 13 | BOM, Inventory Valuation, Price Lists | **No update option.** |
+| 14 | Users | **Included:** full name, role, companies; email locked. |
+| — | The locked columns | **As proposed** in the table above. |
+
+## As built, Part 3b: updating the other masters (2026-10-05)
+
+**Update existing** now covers every master with a code (decisions
+12–14), with the same rules as Employees (key = the code, only the pasted
+columns, blank keeps, `-` clears, Copy current records, all or nothing):
+
+| Master | Key | Locked |
+| --- | --- | --- |
+| Company | Ref Code | Tax Type, Tax Number (its tax numbers are kept as stored) |
+| Organizational Units | Code | Type, Company |
+| Chart of Accounts | Account Code | Account Type, Parent Account, Postable, Company |
+| Currencies | Code | — |
+| Unit of Measure | Code | — |
+| Items | Item Code | Category, Company |
+| Vendors | Vendor Code | Company |
+| Customers | Customer Code | Company |
+| Fixed Asset Classes | Code | Kind |
+| Fixed Asset Master | Asset No. | Company, Class |
+| Users | Username | Email; the status is kept as stored |
+| Employees (3a) | Employee No. | Company, division, branch, cost center, designation, grade, work schedule |
+
+- **No update option** (decisions 12–13): Item Sub-Categories, Customer
+  Classifications, Sales Types, Requisition Categories (no code), BOM,
+  Inventory Valuation, Price Lists (versions and lines by date), and the
+  openings (leave balances, provisions).
+- **Each row** is the record as stored with the pasted columns laid over
+  it, made into the form's data by the master's own import definition and
+  saved through **the master's own save, with the record's id**. So every
+  rule of its screen applies (accounts of the right type and company,
+  unique names, a vendor's Local/Foreign, a capitalized asset's rules). A
+  rule only the save knows stops the update at that row: nothing is
+  changed (the rows before it are put back).
+- **References** work as when adding, by code or exact name, among the
+  record's own company (accounts, classes, units) and, for an item's
+  sub-category, its category's.
+- **Users:** companies a user already has may stay even if the importer
+  can't see them; a company being added needs the importer's access.
+
+**Behind it:** `masterImport.js` `legacyUpdate` (one definition per
+master: key, id field, locked columns, what to keep) and `updateRows`
+(snapshot and put back, Realtime Database or Firestore).
+
+**Tests:**
+- the `masterImportUpdate2` suite (6): the specs; **Copy current records
+  pastes back unchanged for every master**; each locked column refused;
+  an update per master through its own save; rights and company access;
+  the undo;
+- `masterImportUpdate` (5) and `masterImportUpdate.ui.js` (4) updated;
+- negative controls (see the PR).
+
+**To go live:** "functions set" `master-import-3b` (no screen change).

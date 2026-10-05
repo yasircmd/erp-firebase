@@ -1,6 +1,6 @@
 // Master Data Import, Part 3 (owner, 2026-10-05; docs/modules/MASTER_IMPORT.md,
-// decisions 8-11): Update existing, on screen. Employees offer the mode
-// (Units of Measure don't yet); its columns start with the key; Copy
+// decisions 8-14): Update existing, on screen. Masters with a code offer
+// the mode (Item Sub-Category doesn't); its columns start with the key; Copy
 // current records gives the sheet; a paste of line managers shows each
 // change before it is applied, then updates only what changed.
 // Seeds its own data (it WIPES the emulator database, like the suites):
@@ -35,9 +35,14 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
   await page.waitForFunction(() => document.querySelectorAll('#mimp-master option').length > 18, null, { timeout: 30000 });
 
-  await check('Update existing is offered for Employees (not yet for others); its columns start with the key, without the job ones', async () => {
-    await page.selectOption('#mimp-master', 'UOM');
+  await check('Update existing is offered for masters with a code (not Item Sub-Category); its columns start with the key, without the locked ones', async () => {
+    await page.selectOption('#mimp-master', 'SUBCATEGORY');
     assert.ok(await page.isHidden('#mimp-mode-wrap'));
+    await page.selectOption('#mimp-master', 'ITEM');
+    await page.check('#mimp-mode-update');
+    const itemCols = await page.$$eval('#mimp-columns tr td:first-child', tds => tds.map(t => t.textContent));
+    assert.deepEqual([itemCols[0], itemCols.includes('Reorder Level'), itemCols.includes('Category'), itemCols.includes('Company')], ['Item Code', true, false, false]);
+    await page.check('#mimp-mode-add');
     await page.selectOption('#mimp-master', 'EMPLOYEE');
     assert.ok(await page.isVisible('#mimp-mode-wrap'));
     assert.ok(await page.isHidden('#mimp-copy-records'));
