@@ -450,8 +450,8 @@ On Master Data Import, after choosing the master:
 - **Only the columns you paste are changed.** A sheet of two columns,
   `Employee No.` and `Line Manager`, changes the line manager of those
   employees and nothing else. Headers are matched as today.
-- **Blank cells:** question 40.
-- **Copy current records** (question 42): the screen gives the master's
+- **Blank cells:** question 8.
+- **Copy current records** (question 10): the screen gives the master's
   existing records as a sheet, with the key and the current values,
   ready to edit in Excel and paste back.
 
@@ -492,7 +492,7 @@ here, and the column is refused in Update mode with the reason:
 - Openings (leave balances, opening provisions) aren't updated by import:
   they are corrected with an adjustment, as today.
 
-### Which masters (question 43)
+### Which masters (question 11)
 
 All the masters that have an edit screen today:
 - **Part 1:** Company, Org Units, Chart of Accounts, UOM, Item
@@ -512,13 +512,13 @@ that master.
 
 ### Open questions for the owner
 
-40. **Blank cells in Update mode:** *keep the current value* (a blank
+8. **Blank cells in Update mode:** *keep the current value* (a blank
     means "no change"; to clear a value, type `-`)? Or *clear it* (the
     sheet is the full truth for its columns)?
-41. **The key:** the record's *code only* (Employee No., Item Code, ...)?
+9. **The key:** the record's *code only* (Employee No., Item Code, ...)?
     Or also *an exact name* when it is unique?
-42. **Copy current records:** add a button that gives the existing
+10. **Copy current records:** add a button that gives the existing
     records (key + current values) as a sheet to edit and paste back? It
     also works as an export of each master.
-43. **Scope and order:** *Employees first*, in its own small step (your
+11. **Scope and order:** *Employees first*, in its own small step (your
     line managers now), then the other masters? Or *all masters at once*?
