@@ -25,6 +25,7 @@ const TYPES = () => firestore.collection('payrollAccrualTypes');
 const OPENINGS = () => firestore.collection('payrollProvisionOpenings');
 const CLAIMS = () => firestore.collection('payrollAccrualClaims');
 const RUNS = () => firestore.collection('payrollRuns');
+const SETTLEMENTS = () => firestore.collection('payrollSettlements');
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 150);
 const bad = msg => { throw new HttpsError('invalid-argument', msg); };
 const failed = msg => new HttpsError('failed-precondition', msg);
@@ -216,10 +217,20 @@ async function providedBefore(companyId, month, exceptRunId) {
   }
   docs(await CLAIMS().where('CompanyID', '==', companyId).get(), 'ClaimID').filter(c => !c.ReversedAt && c.Date.slice(0, 7) < month)
     .forEach(c => add(c.EmployeeID, keyOf('Accrual', c.AccrualTypeID), -c.Amount));
+  // A posted final settlement (step 5b) uses up what was provided.
+  docs(await SETTLEMENTS().where('CompanyID', '==', companyId).get(), 'SettlementID').filter(s => s.Status === 'Posted' && s.LeavingDate.slice(0, 7) < month)
+    .forEach(s => (s.Lines || []).filter(l => l.Provided).forEach(l => add(s.EmployeeID, l.Key, -l.Provided)));
   return out;
 }
 
 // ---------- balances and claims (Payroll; decision 33) ----------
+
+// An employee whose final settlement is past its draft (step 5b): it holds
+// the provisions, so claims wait for it.
+async function requireNoSettlement(employeeId, name) {
+  const s = (await SETTLEMENTS().doc('fs_' + employeeId).get()).data();
+  if (s && s.Status !== 'Draft') throw failed(name + ' has a final settlement (' + s.Number + '): the provisions are settled there.');
+}
 
 const canRun = (user, cap) => moduleHasCapability('PAYROLL', cap, user.profile.role);
 async function requirePayroll(user, cap) {
@@ -264,6 +275,7 @@ exports.recordAccrualClaim = onCallWithMessages(onCallOptions, async (request) =
   if (!empSnap.exists) bad('Choose the employee.');
   const emp = empSnap.data();
   if (!userCanAccessCompany(user.profile, emp.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  await requireNoSettlement(empSnap.id, emp.FullName);
   const t = (await accrualTypes()).find(x => x.AccrualTypeID === text(d.accrualTypeId, 80));
   if (!t) bad('Choose the accrual.');
   const date = text(d.date, 10);
@@ -295,6 +307,7 @@ exports.reverseAccrualClaim = onCallWithMessages(onCallOptions, async (request) 
   const c = snap.data();
   if (!userCanAccessCompany(user.profile, c.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   if (c.ReversedAt) throw failed('The claim is already reversed.');
+  await requireNoSettlement(c.EmployeeID, c.EmployeeName);
   const glRef = firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(c.JVID);
   const e = (await glRef.get()).data();
   const gl = await postClaim(user, c.CompanyID, e.JVDate, 'Reversal of ' + e.JVNumber + ' — ' + reason, e.JVNumber,

@@ -126,10 +126,11 @@ const DRAFT_FIRESTORE_SOURCES = [
   { collection: 'employeeChanges', moduleOf: () => 'EMPCHANGE' },
   { collection: 'leaveRequests', moduleOf: () => 'LEAVE' },
   { collection: 'payrollRuns', moduleOf: () => 'PAYROLL' },
-  { collection: 'payrollLoans', moduleOf: () => 'PAYROLLLOAN' }
+  { collection: 'payrollLoans', moduleOf: () => 'PAYROLLLOAN' },
+  { collection: 'payrollSettlements', moduleOf: () => 'PAYROLLFS' }
 ];
 const draftDateOf = r => r.TransactionDate || r.JVDate || r.Date || r.InvoiceDate || r.PRDate || r.IPRDate ||
-  r.PODate || r.SODate || r.JODate || r.EffectiveDate || r.FromDate || '';
+  r.PODate || r.SODate || r.JODate || r.EffectiveDate || r.FromDate || r.LeavingDate || '';
 
 exports.getMyDraftsForUser = onCall(onCallOptions, async (request) => {
   const user = await requireUser(request);

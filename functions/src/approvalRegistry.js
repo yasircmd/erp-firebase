@@ -43,6 +43,7 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'LEAVE_ABSENCE', Label: 'Absence, unauthorised (the amount is the days)' },
   { ModuleID: 'PAYROLL', Label: 'Payroll run (the amount is the net pay)' },
   { ModuleID: 'PAYROLLLOAN', Label: 'Loan / advance (the amount is the loan)' },
+  { ModuleID: 'PAYROLLFS', Label: 'Final settlement (the amount is the net)' },
 ];
 
 const APPROVAL_MODULE_STORAGE_ = {
@@ -74,7 +75,8 @@ const APPROVAL_MODULE_STORAGE_ = {
   EMPCHANGE: { type: 'firestore', collection: 'employeeChanges' },
   LEAVE: { type: 'firestore', collection: 'leaveRequests' },
   PAYROLL: { type: 'firestore', collection: 'payrollRuns' },
-  PAYROLLLOAN: { type: 'firestore', collection: 'payrollLoans' }
+  PAYROLLLOAN: { type: 'firestore', collection: 'payrollLoans' },
+  PAYROLLFS: { type: 'firestore', collection: 'payrollSettlements' }
 };
 
 // CBT voucher type -> its Approval Configuration entry.

@@ -306,4 +306,4 @@ exports.deletePayrollRun = onCallWithMessages(onCallOptions, async (request) => 
 });
 
 // Shared with payrollPost.js (step 3).
-Object.assign(module.exports, { RUNS, SLIPS, docs, text, bad, actorName, can, requireCap, loadRun, requireDraft, leaveMonth, requireLocked });
+Object.assign(module.exports, { RUNS, SLIPS, docs, text, bad, actorName, can, requireCap, loadRun, requireDraft, leaveMonth, requireLocked, approvalOf });

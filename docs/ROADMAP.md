@@ -45,6 +45,9 @@ its in-app steps. Remove an item once deployed and logged.
    GL accounts, set each company's gratuity and leave salary and the
    accruals in Payroll Setup → Provisions, and import the opening
    provisions (Master Data Import → Opening provisions).
+10. `payroll-5b`: final settlements (after `payroll-5a`); then link
+    "Final Settlements", set its rights, the approval if wanted, and the
+    notice-pay elements with their GL accounts.
 
 ## Modules in development
 
@@ -535,8 +538,20 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `payrollProvisions` suite (5), `hrLeave` suite (8),
     `payrollProvisions.ui.js` (4). To go live: "functions set"
     `payroll-5a` with the screens (after `payroll-4b`).
-  - **Next:** step 5b, the final settlement (its own document, decision
-    34).
+  - **Step 5b built and tested 2026-10-05**, not yet live: the final
+    settlement (decisions 36-39 agreed). A new Final Settlements module:
+    for an employee on notice or who has left, worked out on the leaving
+    date (gratuity, the leave balance paid or a negative one deducted,
+    accruals paid at leaving or lapsed, notice pay on the gross, other
+    lines, every loan); amounts changed by hand with a reason; submitted
+    once the leaving month's run is posted; approved and posted (each
+    provision used, the difference to expense; the net payable, or owed
+    on Recoverable from employees); paid as a run is (bank file, Mark
+    paid); reversed. Claims, loan payouts and repayments, and the run's
+    reversal wait for it. Tests: `payrollSettlement` suite (4),
+    `payrollSettlement.ui.js` (4). To go live: "functions set"
+    `payroll-5b` with the screens (after `payroll-5a`).
+  - **Payroll is complete** (steps 0-5).
 - [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type

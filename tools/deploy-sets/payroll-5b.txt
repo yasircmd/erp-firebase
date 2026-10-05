@@ -1,0 +1,51 @@
+# HR Payroll, step 5b: the final settlement (owner 2026-10-05;
+# docs/modules/HR_PAYROLL.md, decisions 29, 34, 36-39). Deploy after
+# payroll-5a. Run with --screens (PAYROLLFS, new: Final Settlements). No
+# Hosting change. Then, in the app: link a menu node to "Final
+# Settlements"; its rights in Roles & Permissions (draft to prepare, post
+# to reverse, pay to pay); if wanted, Approval Configuration → "Final
+# settlement"; pay elements for notice pay (an earning, and a deduction
+# for short notice) with their GL accounts.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getSettlements
+getSettlement
+saveSettlement
+deleteSettlement
+submitSettlement
+decideSettlementApproval
+postSettlement
+reverseSettlement
+getSettlementPayment
+downloadSettlementFile
+markSettlementPaid
+reverseSettlementPayment
+# Changed: a posted settlement uses up the provisions; claims wait for it.
+getProvisionBalances
+recordAccrualClaim
+reverseAccrualClaim
+createPayrollRun
+savePayrollInputs
+recalculatePayrollRun
+# Changed: loan payouts and repayments wait for a settlement.
+payOutLoan
+reverseLoanPayout
+recordLoanRepayment
+# Changed: a run a settlement relies on is not reversed.
+reversePayrollRun
+# Approvals and Home tasks: the new document in their registries.
+getApprovalConfigurations
+saveApprovalConfiguration
+saveApprovalLevels
+getApprovalHistory
+getDelegationCandidates
+delegateApproval
+delegateApprovalsOf
+getPendingApprovalsForUser
+getMyRejectedSubmissions
+getMyDraftsForUser
+# Registries: the new module, its permissions, menu node, screens.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment

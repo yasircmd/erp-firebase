@@ -198,6 +198,9 @@ exports.reversePayrollRun = onCallWithMessages(onCallOptions, async (request) =>
   if (run.PaidAt) throw failed('The run is paid: reverse the payment first.');
   const later = R.docs(await R.RUNS().where('CompanyID', '==', run.CompanyID).get()).filter(x => x.Status !== 'Draft' && x.Month > run.Month).map(x => x.Month).sort();
   if (later.length) throw failed('Reverse the later run first (' + later.join(', ') + '): it may have recovered amounts this one carried forward.');
+  // A final settlement (step 5b) relies on the leaving month's run.
+  const fs = R.docs(await firestore.collection('payrollSettlements').where('CompanyID', '==', run.CompanyID).get()).filter(x => x.Status !== 'Draft' && String(x.LeavingDate).slice(0, 7) >= run.Month);
+  if (fs.length) throw failed('Reverse the final settlement first (' + fs.map(x => x.Number + ' ' + x.EmployeeName).join(', ') + '): it relies on this run.');
   return withGlobalLock(user.uid, async () => {
     const glRef = firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(run.JVID);
     const entry = (await glRef.get()).data();
