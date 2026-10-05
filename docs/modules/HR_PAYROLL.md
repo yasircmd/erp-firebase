@@ -1194,3 +1194,105 @@ month, through the Master Data Import. The amounts are already in the GL
 from the opening balances, so they post nothing; the first run provides
 only the change from them.
 
+
+## As built: step 5a, provisions (2026-10-05)
+
+**An employee's own annual leave** (decision 31; Employees → the leave
+card → "Own entitlement", the Leave "post" right):
+- per leave type that uses a balance: the days a year (empty: back to the
+  grade and service rules) and how its days count (calendar, holidays
+  included, or working days; empty: as the leave type), with a reason;
+- it replaces the grade rules from the start of the accrual, and is
+  recorded in the employee's history; the leave card shows it.
+
+**Payroll Setup → Provisions** (the "write" right):
+- **per company, gratuity** (owner point 1, decisions 28-29):
+  - on the basic (default) or the gross;
+  - slabs of days a year by completed years; the UAE start: none under 1
+    year, 21 days for years 0-5, 30 days after 5 (rows can be changed
+    and added; overlaps are refused);
+  - a day's pay: base × 12 ÷ 365 (default) or the company's daily rate;
+  - a cap in years' base (default 2; empty: none);
+  - **the provision starts** once the first year is done (it catches up
+    on that year then; default) or from day one;
+  - service: from joining, less unpaid leave days;
+  - the expense and provision (liability) accounts;
+- **per company, leave salary** (owner point 2, decision 30): on the
+  basic (default) or the gross; the accounts;
+- **accruals** (owner point 3, decision 32), as many as needed (air
+  ticket, children's education, accommodation…):
+  - a name and a code (unique, not a pay element's);
+  - a fixed amount a year, or a % of the basic or the gross;
+  - **by grade level** (rows without overlap);
+  - **employee exceptions:** excluded, or their own amount (or %);
+  - the group's expense and provision accounts, with a company override;
+  - whether an unused balance is paid at leaving (for 5b) or lapses;
+  - in use or not.
+
+**Opening provisions** (Master Data Import → "Opening provisions",
+Payroll Setup "write"): Employee, Provision (Gratuity, Leave salary, or
+an accrual's code or name), Amount, Provided To (a date). They post
+nothing: the amounts are already in the GL from the opening balances.
+
+**In the run** (decision 8), each employee's provisions are worked out
+on the month's last day (or the leaving date):
+- **gratuity:** the liability by the slabs at the current base, less what
+  is provided (openings and posted runs). The first run after an opening
+  provides only the change;
+- **leave salary:** the annual leave days due (available + booked) × the
+  company's daily rate, less what is provided;
+- **each accrual:** its yearly amount ÷ 12, pro rata by the days employed
+  in the month;
+- a decrease is negative (e.g. leave taken, or an over-provided opening);
+- the payslip panel shows them ("the company's cost, not paid now"),
+  with how each was worked out, the liability and what was provided
+  before.
+
+**Posting** (with the run's journal): each provision's change, Dr the
+expense by cost center / Cr the provision; a decrease the other way.
+Reversing the run takes them back. A run that has provisions but no
+accounts set is refused ("Set the GL accounts in Payroll Setup first").
+
+**Using an accrual** (decision 33), both ways:
+- **with the salary:** a run input with the accrual's code (e.g. FLIGHT,
+  300) adds an earning "Air ticket (from the provision)", paid with the
+  salary and in the bank file, posted Dr the provision (not an expense);
+- **a claim** (Payroll → Provisions → "Record a claim", the Payroll "pay"
+  right): employee, accrual, date, amount, a cash or bank account, a
+  note. Journal PayrollProvision (prefix PPR), Dr the provision / Cr the
+  account. A claim can be reversed with a reason.
+
+**Payroll → Provisions** (Payroll access): per company, each employee's
+balance by provision (openings + posted runs − claims − payouts), with
+totals, "Copy to Excel", and the claims list.
+
+**Behind it:**
+- `payrollCalc`: `GRATUITY_DEFAULT`, `LEAVE_SALARY_DEFAULT`,
+  `gratuityFor`, `leaveSalaryFor`, `accrualShareFor`; the
+  `AccrualPayout` line source;
+- `payrollProvisions.js` (new): the settings, accrual types, openings,
+  `providedBefore`, balances and claims;
+- `payrollRun` (the provisions on each slip), `payrollPost` (their
+  journal lines and the payout's), `payrollFiles` (the payout is paid);
+- `hrLeave`: `setLeaveEntitlement`, and the override in the accrual and
+  the day count;
+- `masterImport`: the `PROVOPEN` sheet.
+
+**Tests:**
+- `payrollCalc.test.js` (13);
+- the `payrollProvisions` suite (5), and `hrLeave` (8: the override);
+- `payrollProvisions.ui.js` (4);
+- negative controls (see the PR).
+
+**To go live:**
+1. Deploy "functions set" `payroll-5a`, after `payroll-4b`, with the
+   screens.
+2. Add the GL accounts (gratuity, leave salary and each accrual: expense
+   and provision) if not there.
+3. Payroll Setup → Provisions: per company, turn on gratuity and leave
+   salary, check the formula, choose the accounts; add the accruals.
+4. Import the opening provisions (Master Data Import), as at the month
+   before the first run.
+5. Set any employee's own annual leave on their leave card.
+
+**Next:** step 5b, the final settlement (its own document, decision 34).

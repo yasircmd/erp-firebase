@@ -41,6 +41,10 @@ its in-app steps. Remove an item once deployed and logged.
 8. `payroll-4b`: advances and loans (after `payroll-4`); then link
    "Loans & Advances", set its rights, and add the loan types in Payroll
    Setup → Loans.
+9. `payroll-5a`: provisions (after `payroll-4b`); then add the provision
+   GL accounts, set each company's gratuity and leave salary and the
+   accruals in Payroll Setup → Provisions, and import the opening
+   provisions (Master Data Import → Opening provisions).
 
 ## Modules in development
 
@@ -516,8 +520,23 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `payrollCalc.test.js` (11), `payrollLoans` suite (5),
     `payrollLoans.ui.js` (3). To go live: "functions set" `payroll-4b`
     with the screens (after `payroll-4`).
-  - **Next:** step 5, gratuity and leave-salary provisions, final
-    settlement.
+  - **Step 5a built and tested 2026-10-05**, not yet live: provisions
+    (the owner's points 1-3; decisions 28-35 agreed). Payroll Setup →
+    Provisions: per company, gratuity by slabs (the UAE rule to start:
+    none under 1 year, 21 then 30 days a year, × 12 ÷ 365, capped at 2
+    years; from day one or after the first year) and leave salary (basic
+    or gross); accruals (air ticket, education…) fixed or a % of pay, by
+    grade with employee exceptions. Each run provides the change in each
+    employee's liability, posted with its journal; an accrual is used by
+    a run input (paid with the salary) or a claim (PPR journal); Payroll →
+    Provisions shows the balances. An employee's own annual leave (days a
+    year, calendar or working days) on the leave card. Opening provisions
+    through the Master Data Import. Tests: `payrollCalc.test.js` (13),
+    `payrollProvisions` suite (5), `hrLeave` suite (8),
+    `payrollProvisions.ui.js` (4). To go live: "functions set"
+    `payroll-5a` with the screens (after `payroll-4b`).
+  - **Next:** step 5b, the final settlement (its own document, decision
+    34).
 - [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type
