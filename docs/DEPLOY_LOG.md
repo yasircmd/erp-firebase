@@ -821,3 +821,29 @@ from, and how it was verified. The deploy procedure is in the
   [#78](https://github.com/yasircmd/erp-firebase/actions/runs/37154333286),
   21:13–21:14 UTC, from `8d56d84` (the PR #70 merge), success ("screens
   only").
+- **2026-10-04, the Leave Register and Payroll steps 0–3 (PRs #71–#78):**
+  ten runs of the Deploy workflow, all successful, logged on 2026-10-05
+  from the workflow's run list. The run list doesn't record each run's
+  task or set, so the sets below are taken from the PR each run was made
+  from (the owner, 2026-10-05: deployed up to `payroll-3`):
+  - Runs [#79](https://github.com/yasircmd/erp-firebase/actions/runs/37184022395),
+    06:51–06:54 UTC, and [#80](https://github.com/yasircmd/erp-firebase/actions/runs/37184332675),
+    06:57–06:58 UTC, from `fc92d8e` (PR #71): `hr-leave-1`.
+  - Run [#81](https://github.com/yasircmd/erp-firebase/actions/runs/37188200781),
+    08:13–08:22 UTC, from `aed396f` (PR #72): `hr-leave-2`.
+  - Run [#82](https://github.com/yasircmd/erp-firebase/actions/runs/37191661515),
+    09:17–09:26 UTC, from `c54faaf` (PR #73): `hr-leave-3`.
+  - Runs [#83](https://github.com/yasircmd/erp-firebase/actions/runs/37195104831),
+    10:21–10:31 UTC, and [#84](https://github.com/yasircmd/erp-firebase/actions/runs/37195921371),
+    10:36–10:37 UTC, from `ebd6d66` (PR #74): `hr-leave-4`, then a
+    one-minute run (Hosting, for the Home leave blocks).
+  - Run [#85](https://github.com/yasircmd/erp-firebase/actions/runs/37199245711),
+    11:35–11:42 UTC, from `6c7aaa7` (PR #75): `payroll-0`.
+  - Run [#86](https://github.com/yasircmd/erp-firebase/actions/runs/37205339438),
+    13:21–13:24 UTC, from `274bf9d` (PR #76): `payroll-1`.
+  - Run [#87](https://github.com/yasircmd/erp-firebase/actions/runs/37208515766),
+    14:14–14:20 UTC, from `61ce4fd` (PR #77): `payroll-2`.
+  - Run [#88](https://github.com/yasircmd/erp-firebase/actions/runs/37213898904),
+    15:40–15:49 UTC, from `b139201` (PR #78): `payroll-3`.
+  - Still to deploy: `payroll-4`, `payroll-4b`, `payroll-5a`, `payroll-5b`
+    (ROADMAP → "Waiting to go live").

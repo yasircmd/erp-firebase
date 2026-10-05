@@ -11,43 +11,36 @@ fresh session can continue from GitHub.
 
 ## Waiting to go live (the owner's deploys and setup)
 
-The owner asked (2026-10-04) to be reminded: these are merged but not yet
-recorded in [DEPLOY_LOG.md](DEPLOY_LOG.md) (the last entry is PR #70).
+Merged but not yet deployed (the owner, 2026-10-05: "deployment is
+pending payroll-4 onwards"). The Leave Register (`hr-leave-1`…`-4`) and
+payroll steps 0–3 went live on 2026-10-04 ([DEPLOY_LOG.md](DEPLOY_LOG.md)).
 Deploy in this order, each "functions set" first (the Deploy workflow),
-then the screens (and Hosting where noted). Each set file's header lists
-its in-app steps. Remove an item once deployed and logged.
+then the screens. Each set file's header lists its in-app steps. Remove
+an item once deployed and logged.
 
-1. `hr-leave-1` … `hr-leave-4`: the Attendance and Leave Register
-   (HR_LEAVE.md). `hr-leave-4` also needs the "hosting" task (the Home
-   leave blocks). If these were already deployed, log them and strike
-   them here.
-2. `payroll-0`: work schedules.
-3. `payroll-1`: payroll setup.
-4. `payroll-2`: the payroll run.
-5. `payroll-3`: approval, posting, payslips, reversal.
-6. `payroll-4`: Payroll Setup, payment files, payment.
-7. After them, in the app:
+1. `payroll-4`: Payroll Setup, payment files, payment.
+2. `payroll-4b`: advances and loans.
+3. `payroll-5a`: provisions.
+4. `payroll-5b`: final settlements.
+5. Then, in the app:
    - link menu nodes to Leave Register, Leave Reports, Payroll, Payroll
-     Setup and (after 4b) Loans & Advances;
-   - set the rights in Roles & Permissions: Payroll Setup's access and
-     write, and Payroll's draft, post and pay;
+     Setup, Loans & Advances and Final Settlements (any not linked yet);
+   - set the rights in Roles & Permissions: Payroll Setup (access,
+     write), Payroll (draft, post, pay), Loans & Advances (draft, pay),
+     Final Settlements (draft, post, pay);
    - in Payroll Setup → Payroll, each company's daily rate, Salaries
      Payable and Recoverable from employees, and each element's GL
      account, including the three system deductions;
    - in Payroll Setup → Payment Files, each company's bank file (from the
-     UAE WPS SIF);
-   - on employees, the WPS person ID and bank routing code;
-   - the approvals wanted (Leave, Absence, Payroll run).
-8. `payroll-4b`: advances and loans (after `payroll-4`); then link
-   "Loans & Advances", set its rights, and add the loan types in Payroll
-   Setup → Loans.
-9. `payroll-5a`: provisions (after `payroll-4b`); then add the provision
-   GL accounts, set each company's gratuity and leave salary and the
-   accruals in Payroll Setup → Provisions, and import the opening
-   provisions (Master Data Import → Opening provisions).
-10. `payroll-5b`: final settlements (after `payroll-5a`); then link
-    "Final Settlements", set its rights, the approval if wanted, and the
-    notice-pay elements with their GL accounts.
+     UAE WPS SIF); on employees, the WPS person ID and bank routing code;
+   - in Payroll Setup → Loans, the loan types and their receivable;
+   - the provision GL accounts; in Payroll Setup → Provisions, each
+     company's gratuity and leave salary, and the accruals; then import
+     the opening provisions (Master Data Import → Opening provisions);
+   - pay elements for notice pay (an earning, and a deduction for short
+     notice) with their GL accounts;
+   - the approvals wanted (Leave, Absence, Payroll run, Loan / advance,
+     Final settlement).
 
 ## Modules in development
 
@@ -463,13 +456,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - approval through Approval Configuration.
 
   Six build steps.
-  - **Step 0 built and tested 2026-10-04**, not yet live: work schedules
+  - **Step 0 built and tested 2026-10-04**, live 2026-10-04: work schedules
     (HR Setup tab; the company's hours a day; an employee's schedule by
     date, set on the record or import, changed by a Transfer, fixed by
     Correct; leave counted by the schedule in force each day). Tests:
     `hrSchedules` suite (4), `hrSchedules.ui.js` (3). To go live:
     "functions set" `payroll-0` with the screens.
-  - **Step 1 built and tested 2026-10-04**, not yet live: payroll setup
+  - **Step 1 built and tested 2026-10-04**, live 2026-10-04: payroll setup
     (HR Setup → Payroll: each company's daily-rate method with a worked
     example, and its Salaries Payable; each element's GL account, the
     group's with company overrides, prorated and in gross; overtime
@@ -477,7 +470,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     a worked example). Tests: `payrollSetup` suite (5),
     `payrollSetup.ui.js` (4). To go live: "functions set" `payroll-1`
     with the screens, then fill the tab in the app.
-  - **Step 2 built and tested 2026-10-04**, not yet live: the payroll run
+  - **Step 2 built and tested 2026-10-04**, live 2026-10-04: the payroll run
     (new Payroll screen and module; one run per company and month after
     the leave is locked; part months by deducting the days not employed;
     leave on its own deduction lines, Unpaid leave, Absence and
@@ -489,7 +482,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `payrollRun.ui.js` (4). To go live: "functions set" `payroll-2` with
     the screens; link the menu node; give the system deductions their
     GL account.
-  - **Step 3 built and tested 2026-10-04**, not yet live: submit through
+  - **Step 3 built and tested 2026-10-04**, live 2026-10-04: submit through
     Approval Configuration; the final approval posts at once (one journal
     a run, dated the month's end, clubbed by cost center, net to Salaries
     Payable); a negative net paid as 0, carried to Recoverable from
@@ -552,7 +545,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `payrollSettlement.ui.js` (4). To go live: "functions set"
     `payroll-5b` with the screens (after `payroll-5a`).
   - **Payroll is complete** (steps 0-5).
-- [ ] **HR: Attendance and Leave Register** (owner, 2026-10-03;
+- [x] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type
   and grade (basic only, full, %, unpaid, with day bands for sick leave).
@@ -563,14 +556,14 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   return confirmed for marked types; day count per leave type;
   back-dated entries into a locked month carried as adjustments. Four
   build steps.
-  - **Step 1 built and tested 2026-10-03**, not yet live: HR Setup →
+  - **Step 1 built and tested 2026-10-03**, live 2026-10-04: HR Setup →
     Leave Types (nine to start; settings; entitlement by grade level and
     service with a carry-forward cap; leave pay rules by grade level and
     day band, overlaps refused, gaps warned) and Working Calendar
     (weekend and holidays per company). Tests: `hrLeaveSetup` suite (4),
     `hrLeaveSetup.ui.js` (5); nine negative controls caught. To go live:
     "functions set" `hr-leave-1` with the screens.
-  - **Step 2 built and tested 2026-10-04**, not yet live: the Leave
+  - **Step 2 built and tested 2026-10-04**, live 2026-10-04: the Leave
     Register (entry with days, pay split and balance as typed; the
     excess over the balance split off as unpaid; approval; cancel; the
     return, early or late), the Leave card on the employee (balances,
@@ -578,7 +571,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     suite (7), `hrLeave.ui.js` (5); eleven negative controls caught. To
     go live: "functions set" `hr-leave-2` with the screens; link the menu
     node; set up its approvals; import the opening balances.
-  - **Step 3 built and tested 2026-10-04**, not yet live (decisions
+  - **Step 3 built and tested 2026-10-04**, live 2026-10-04 (decisions
     10-13): absences (their own approval entry, always unpaid); unpaid
     days stop accrual; Month close (lock in order after the month ends,
     the summary for payroll, accrual posted at the grade then, reopen the
@@ -588,7 +581,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     twelve negative controls caught. To go live: "functions set"
     `hr-leave-3` with the screens; tick "lock" and "reopen" in Roles &
     Permissions.
-  - **Step 4 built and tested 2026-10-04**, not yet live: Leave Reports
+  - **Step 4 built and tested 2026-10-04**, live 2026-10-04: Leave Reports
     (balances on a date, the register for a period, absences, who is away
     in a month; Copy to Excel) and the Home blocks On Leave Today and Leave
     Returns to Record. Tests: `hrLeaveReports` suite (4),
