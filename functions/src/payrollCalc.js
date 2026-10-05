@@ -168,7 +168,9 @@ function computeEmployee(x) {
       amount = round2(Number(i.Hours) * rate);
       textOut = i.Hours + ' hours × ' + money(rate) + ' (' + ot.text + ')';
     } else { amount = round2(Number(i.Amount)); textOut = money(amount); }
-    lines.push({ ElementID: el.ElementID, Code: el.Code, Name: el.Name, Kind: el.Kind, Source: 'Input', Amount: amount, Text: textOut + (i.Note ? ' — ' + i.Note : '') });
+    const payout = el.Category === 'AccrualPayout'; // an accrual paid with the salary (step 5a)
+    lines.push(Object.assign({ ElementID: el.ElementID, Code: el.Code, Name: el.Name, Kind: el.Kind, Source: payout ? 'AccrualPayout' : 'Input', Amount: amount, Text: textOut + (i.Note ? ' — ' + i.Note : '') },
+      payout ? { AccrualTypeID: el.AccrualTypeID } : {}));
   });
 
   // Back pay and a shortfall brought forward (step 3), worked out by the run.

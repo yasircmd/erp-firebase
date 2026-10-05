@@ -30,6 +30,7 @@ const setup = require('./payrollSetup');
 const calc = require('./payrollCalc');
 const R = require('./payrollRun');
 const loans = require('./payrollLoans');
+const P = require('./payrollProvisions');
 
 const onCallOptions = { region: 'us-central1' };
 const VOUCHER_TYPE = 'Payroll';
@@ -41,7 +42,7 @@ const failed = msg => new HttpsError('failed-precondition', msg);
 // The journal's lines: each payslip line to its element's account (the
 // company's override, else the group's), the net to Salaries Payable, a
 // shortfall to Recoverable from employees.
-function glLinesFor(run, slips, elements, coa, settings, loanAccounts) {
+function glLinesFor(run, slips, elements, coa, settings, loanAccounts, provAccount) {
   const co = run.CompanyID, label = ' — payroll ' + run.Month;
   const missing = new Set(), noCostCenter = new Set(), lines = [];
   const add = (accountId, what, amount, debit, slip) => {
@@ -57,13 +58,21 @@ function glLinesFor(run, slips, elements, coa, settings, loanAccounts) {
       const debit = (l.Kind === 'Earning') === (l.Amount > 0);
       if (l.Source === 'CarryForward') return add(settings.ReceivableAccountID, 'Recoverable from employees', Math.abs(l.Amount), debit, s);
       if (l.Source === 'Loan') return add((loanAccounts || {})[l.LoanID] || '', l.Name.replace(/ LN-\d+$/, ''), Math.abs(l.Amount), debit, s); // to the loan type's receivable (step 4b)
+      if (l.Source === 'AccrualPayout') return add(provAccount ? provAccount('Accrual', l.AccrualTypeID, 'Provision') : '', l.Name, Math.abs(l.Amount), debit, s); // from its provision (step 5a)
       const el = elements[l.ElementID];
       add(el ? calc.accountFor(el, co) : '', (el ? el.Name : l.Name) + (l.Source === 'Arrears' ? ' arrears' : ''), Math.abs(l.Amount), debit, s);
+    });
+    // The month's provisions (step 5a): Dr the expense by cost center / Cr the provision (a decrease the other way).
+    (s.Provisions || []).forEach(p => {
+      if (!p.Amount || !provAccount) return;
+      const name = p.Kind === 'Gratuity' ? 'Gratuity' : p.Kind === 'LeaveSalary' ? 'Leave salary' : p.Name;
+      add(provAccount(p.Kind, p.AccrualTypeID, 'Expense'), name + ' expense', Math.abs(p.Amount), p.Amount > 0, s);
+      add(provAccount(p.Kind, p.AccrualTypeID, 'Provision'), name + ' provision', Math.abs(p.Amount), p.Amount < 0, s);
     });
     if (s.Net > 0) add(settings.PayableAccountID, 'Salaries Payable', s.Net, false, s);
     if (s.Net < 0) add(settings.ReceivableAccountID, 'Recoverable from employees', -s.Net, true, s);
   });
-  if (missing.size) throw failed('Set the GL accounts in HR Setup → Payroll first: ' + [...missing].join(', ') + '.');
+  if (missing.size) throw failed('Set the GL accounts in Payroll Setup first: ' + [...missing].join(', ') + '.');
   if (noCostCenter.size) throw failed('These employees have no cost center for their expense: ' + [...noCostCenter].join(', ') + '.');
   return lines;
 }
@@ -74,7 +83,12 @@ async function postingContext(run) {
   const types = Object.fromEntries((await loans.loanTypes()).map(t => [t.LoanTypeID, t]));
   const loanAccounts = {};
   for (const id of loanIds) { const l = (await firestore.collection('payrollLoans').doc(id).get()).data(); if (l && types[l.LoanTypeID]) loanAccounts[id] = loans.accountFor(types[l.LoanTypeID], run.CompanyID); }
-  return { slips, elements: Object.fromEntries(els.map(e => [e.ElementID, e])), coa: coaSnap.val() || {}, settings, loanAccounts };
+  // The provisions' accounts (step 5a): the company's gratuity and leave salary; each accrual's (its company override, else the group's).
+  const [prov, accTypes] = await Promise.all([P.provisionSettings(run.CompanyID), P.accrualTypes()]);
+  const byType = Object.fromEntries(accTypes.map(t => [t.AccrualTypeID, t]));
+  const provAccount = (kind, typeId, side) => kind === 'Gratuity' ? prov.Gratuity[side + 'AccountID'] : kind === 'LeaveSalary' ? prov.LeaveSalary[side + 'AccountID']
+    : byType[typeId] ? P.accrualAccount(byType[typeId], side, run.CompanyID) : '';
+  return { slips, elements: Object.fromEntries(els.map(e => [e.ElementID, e])), coa: coaSnap.val() || {}, settings, loanAccounts, provAccount };
 }
 
 // The journal is posted as the approver; one without access to the
@@ -92,7 +106,7 @@ async function postRun(runId, user) {
     const run = Object.assign({ RunID: snap.id }, snap.data());
     if (run.Status !== 'Approved') throw failed('Only an approved run is posted.');
     const ctx = await postingContext(run);
-    const lines = glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings, ctx.loanAccounts);
+    const lines = glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings, ctx.loanAccounts, ctx.provAccount);
     const gl = await writeStockGlEntry(await posterFor(user, run), VOUCHER_TYPE, calc.monthEnd(run.Month), 'Payroll ' + run.Month, run.RunNumber || '', lines,
       { CompanyID: run.CompanyID }, { PayrollRunID: run.RunID, SourceTransactionID: run.RunID, ReversalOfJV: '' });
     const now = new Date().toISOString();
@@ -124,7 +138,7 @@ exports.submitPayrollRun = onCallWithMessages(onCallOptions, async (request) => 
   if (!rec || rec.Status !== 'Locked' || (rec.LockedAt || '') !== (run.LeaveLockedAt || '')) throw failed('The month\'s leave changed since the run was calculated: recalculate it first.');
   const ctx = await postingContext(run);
   if (!ctx.slips.length) throw failed('No employees are on the run.');
-  glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings, ctx.loanAccounts); // the accounts are checked before approval starts
+  glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings, ctx.loanAccounts, ctx.provAccount); // the accounts are checked before approval starts
   const amount = round2(ctx.slips.reduce((t, s) => t + Math.max(0, s.Net), 0));
   const number = run.RunNumber || 'Payroll ' + (await getCompanyRefCode(run.CompanyID) || run.CompanyID) + ' ' + run.Month;
   const scope = await resolveApprovalScopeKeyForDocument('PAYROLL', { CompanyID: run.CompanyID });

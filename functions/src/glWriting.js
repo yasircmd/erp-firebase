@@ -24,7 +24,8 @@ const STOCK_TRANSACTION_PREFIXES = {
   OpeningBalance: 'OB', OpeningStock: 'OS',
   Payroll: 'PAY', // hand-written module, docs/modules/HR_PAYROLL.md: a run and its reversal
   PayrollPayment: 'PAYP', // its payment (step 4) and that payment's reversal
-  PayrollLoan: 'PLN' // a loan's payout and repayments (step 4b)
+  PayrollLoan: 'PLN', // a loan's payout and repayments (step 4b)
+  PayrollProvision: 'PPR' // an accrual's claim (step 5a)
 };
 
 function userCanAccessCompany(profile, companyId) {

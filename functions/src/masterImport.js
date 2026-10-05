@@ -30,6 +30,7 @@ const { validateValuation } = require('./faDepreciation');
 const { saveEmployeeFor } = require('./hrEmployees');
 const { loadSetup: loadHrSetup } = require('./hrSetup');
 const { saveOpening: saveLeaveOpening } = require('./hrLeave');
+const { saveProvisionOpening } = require('./payrollProvisions');
 const { leaveTypes: loadLeaveTypes } = require('./hrLeaveSetup');
 
 const onCallOptions = { region: 'us-central1', timeoutSeconds: 540, memory: '512MiB' };
@@ -451,6 +452,22 @@ const MASTERS = {
     sample: ['EMP-0001', 'ANNUAL', '12.5', '30/09/2026'],
     toData: r => ({ EmployeeID: r.EmployeeID, LeaveTypeID: r.LeaveTypeID, Days: r.Days, AsOf: r.AsOf })
   },
+  // Provisions at go-live (docs/modules/HR_PAYROLL.md, step 5a): already in
+  // the GL from the opening balances, so nothing is posted; the first run
+  // provides only the change from them.
+  PROVOPEN: {
+    label: 'Payroll Provision Opening Balances', module: 'PAYROLLSETUP', capability: 'write', nameKey: null, store: { firestore: 'payrollProvisionOpenings' },
+    saveFn: async (ctx, user, data) => saveProvisionOpening(user, data),
+    note: 'One row per employee and provision: Gratuity, Leave salary, or an accrual (its code or name, as in Payroll Setup → Provisions), with the amount provided up to the date. The runs after that month provide only the change.',
+    columns: [
+      C('Employee', 'EmployeeID', { req: true, type: 'ref', ref: 'employee', note: 'Employee no. or full name.' }),
+      C('Provision', 'Provision', { req: true, note: 'Gratuity, Leave salary, or an accrual\'s code or name.' }),
+      C('Amount', 'Amount', { req: true, type: 'number', note: '0 or more.' }),
+      C('Provided To', 'AsOf', { req: true, type: 'date', note: 'The last day it was provided to, e.g. the go-live month\'s end.' })
+    ],
+    sample: ['EMP-0001', 'Gratuity', '24500', '30/09/2026'],
+    toData: r => ({ EmployeeID: r.EmployeeID, Provision: r.Provision, Amount: r.Amount, AsOf: r.AsOf })
+  },
   USER: {
     label: 'Users', module: 'USERMGMT', save: 'saveFirebaseUser', idKey: 'userId', path: 'users', nameKey: 'username', authUser: true,
     note: 'Each user signs in with their email and the temporary password typed on this screen, then changes it (user menu → Change Password).',
@@ -467,7 +484,7 @@ const MASTERS = {
   }
 };
 const ORDER = ['COMPANY', 'ORGUNIT', 'ACCOUNT', 'CURRENCY', 'UOM', 'SUBCATEGORY', 'ITEM', 'VENDOR', 'CLASSIFICATION', 'CUSTOMER',
-  'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER', 'EMPLOYEE', 'LEAVEBAL'];
+  'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER', 'EMPLOYEE', 'LEAVEBAL', 'PROVOPEN'];
 
 // A master with its columns for now: Employees adds a column per active
 // extra field from HR Setup (key cf_<field id>), compulsory ones required.
