@@ -63,6 +63,7 @@ test('checked: the key, locked columns, clearing a required one, managers across
   // A loop only this paste makes: Sara under Ali, Ali under Sara.
   const r4 = await check([['Employee No.', 'Line Manager'], ['EMP-0001', 'EMP-0002'], ['EMP-0002', 'EMP-0001']]);
   assert.equal(r4.issues.filter(i => /would be a loop/.test(i.message)).length, 2);
+  assert.match(msgs(await check([['Employee No.', 'Mobile'], ['Sara Khan', '1']])).join(), /R1 Employee No.: "Sara Khan" not found/, 'the key is the code only (decision 9)');
   assert.match(msgs(await check([['Employee No.', 'Mobile'], ['EMP-0001', '1']], 'u-viewer')).join(), /permission to change Employees/);
   assert.match(msgs(await check([['Employee No.', 'Account No. / IBAN'], ['EMP-0001', 'AE000']], 'u-hr')).join(), /right to change Account No. \/ IBAN \(Employees: sensitive\)/);
 });
