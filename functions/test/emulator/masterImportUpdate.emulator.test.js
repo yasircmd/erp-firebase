@@ -36,15 +36,15 @@ test.before(async () => {
   E.sara = await add('Sara Khan'); E.ali = await add('Ali Hassan'); E.ben = await add('Ben Okafor'); E.omar = await add('Omar Said', { Status: 'Left', LeavingDate: '2026-06-30' });
 });
 
-test('the specs: Employees can be updated, by Employee No., without the job and organization columns; other masters not yet', async () => {
+test('the specs: Employees can be updated, by Employee No., without the job and organization columns; a master without a code can\'t', async () => {
   const specs = await call('u-admin', 'getMasterImportSpecs', {});
   const e = specs.find(s => s.key === 'EMPLOYEE');
   assert.equal(e.update.key, 'Employee No.');
   const cols = e.update.columns.map(c => c.header);
   assert.ok(cols.includes('Line Manager') && cols.includes('Mobile'));
   assert.ok(!cols.includes('Grade') && !cols.includes('Company') && !cols.includes('Designation'));
-  assert.equal(specs.find(s => s.key === 'ITEM').update, null);
-  assert.match(msgs(await call('u-admin', 'checkMasterImport', { master: 'ITEM', mode: 'update', text: 'Item Code\tItem Name\nRM-0001\tX' })).join(), /can't be updated by import yet/);
+  assert.equal(specs.find(s => s.key === 'SUBCATEGORY').update, null);
+  assert.match(msgs(await call('u-admin', 'checkMasterImport', { master: 'SUBCATEGORY', mode: 'update', text: 'Name\nX' })).join(), /can't be updated by import yet/);
 });
 
 test('checked: the key, locked columns, clearing a required one, managers across the paste (self, left, a loop), rights', async () => {
@@ -116,5 +116,5 @@ test('Copy current records: the key and the columns that can change, in pasteabl
   const hr = await call('u-hr', 'getMasterImportRecords', { master: 'EMPLOYEE' });
   assert.equal(hr.sensitiveLeftOut, true);
   assert.ok(!hr.text.split('\n')[0].includes('IBAN'));
-  await assert.rejects(call('u-admin', 'getMasterImportRecords', { master: 'ITEM' }), /can't be updated by import yet/);
+  await assert.rejects(call('u-admin', 'getMasterImportRecords', { master: 'SUBCATEGORY' }), /can't be updated by import yet/);
 });

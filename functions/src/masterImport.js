@@ -544,6 +544,9 @@ async function loadExisting() {
     designation: list(data.hrDesignations, '', 'Title').filter(x => x.rec.Active !== false),
     workSchedule: list(data.hrWorkSchedules, '', 'Name').filter(x => x.rec.Active !== false),
     employee: list(data.employees, 'EmployeeNo', 'FullName'),
+    customer: list(data.customers, 'CustomerCode', 'CustomerName'),
+    user: list(data.users, 'username', 'fullName'),
+    faAsset: list(data.faAssets, 'AssetNumber', 'Description'),
     leaveType: list(data.leaveTypes, 'Code', 'Name').filter(x => x.rec.UsesBalance && x.rec.Kind === 'Leave')
   };
 }
@@ -1106,7 +1109,60 @@ async function importRows(request, user, masterKey, resolved, opts) {
 // saved in that run. Step 3a: Employees; the other masters follow (3b).
 
 const CLEAR = '-';
+// A master saved through its own save with the record's id (Part 3b): the
+// row's values are the record's, the pasted ones laid over them, made into
+// the form's data by the master's toData; fields the sheet doesn't hold
+// (and `keep`) stay as stored.
+function legacyUpdate(masterKey, x) {
+  return Object.assign({
+    companyOf: rec => rec.CompanyID || '',
+    valueOf: (rec, key) => rec[key],
+    save: async (ctx, user, id, rec, set, u) => {
+      const m = await masterFor(masterKey);
+      const r = {};
+      m.columns.forEach(c => { r[c.key] = u.valueOf(rec, c.key); });
+      Object.assign(r, set);
+      const data = Object.assign({}, rec, m.toData(r, null, {}), { [x.idField]: id });
+      (x.keep || []).forEach(k => { data[k] = rec[k]; });
+      if (m.saveFn) { await m.saveFn(ctx, user, data); return; }
+      const res = await L[m.save](ctx, data);
+      if (!res || !res.success) throw new Error((res && res.error) || 'The record could not be saved.');
+    },
+    store: m0 => (m0.store && m0.store.firestore ? { firestore: m0.store.firestore } : { rtdb: m0.path })
+  }, x);
+}
+const NOTE = what => 'Only the columns you paste change. A blank cell keeps the value; type - to clear it.' + (what ? ' ' + what : '');
 const UPDATES = {
+  COMPANY: legacyUpdate('COMPANY', { key: { h: 'Ref Code', kind: 'company' }, idField: 'CompanyID', records: ex => ex.raw.companies, companyOf: (rec, id) => id,
+    locked: ['TaxType', 'TaxNumber'], keep: ['TaxNumbers'], lockedWhy: 'a company can hold several tax numbers: change them on Company Master',
+    note: NOTE('Tax numbers change on Company Master.') }),
+  ORGUNIT: legacyUpdate('ORGUNIT', { key: { h: 'Code', kind: 'orgUnit' }, idField: 'UnitID', records: ex => ex.raw.orgUnits,
+    locked: ['Code', 'Type', 'CompanyID'], lockedWhy: 'units are referenced by their code, type and company: change them on Organizational Units',
+    note: NOTE('The code, type and company stay as they are.') }),
+  ACCOUNT: legacyUpdate('ACCOUNT', { key: { h: 'Account Code', kind: 'account' }, idField: 'AccountID', records: ex => ex.raw.coa,
+    locked: ['AccountType', 'ParentAccountID', 'IsPostable', 'CompanyID'], lockedWhy: 'the code is built from the type and parent, and postings depend on them: change it on COA Master',
+    note: NOTE('Account type, parent, postable and company stay as they are.') }),
+  CURRENCY: legacyUpdate('CURRENCY', { key: { h: 'Code', kind: 'currency' }, idField: 'CurrencyID', records: ex => ex.raw.currencies,
+    locked: ['Code'], lockedWhy: 'it is the key', note: NOTE('') }),
+  UOM: legacyUpdate('UOM', { key: { h: 'Code', kind: 'uom' }, idField: 'UOMID', records: ex => ex.raw.uoms,
+    locked: ['Code'], lockedWhy: 'it is the key', note: NOTE('') }),
+  ITEM: legacyUpdate('ITEM', { key: { h: 'Item Code', kind: 'item' }, idField: 'ItemID', records: ex => ex.raw.items,
+    locked: ['Category', 'CompanyID'], lockedWhy: 'the item code is built from the category, and the item belongs to its company: change it on Item Master',
+    note: NOTE('Category and company stay as they are.') }),
+  VENDOR: legacyUpdate('VENDOR', { key: { h: 'Vendor Code', kind: 'vendor' }, idField: 'VendorID', records: ex => ex.raw.vendors,
+    locked: ['CompanyID'], lockedWhy: 'a vendor belongs to its company: change it on Vendor Master', note: NOTE('The company stays as it is.') }),
+  CUSTOMER: legacyUpdate('CUSTOMER', { key: { h: 'Customer Code', kind: 'customer' }, idField: 'CustomerID', records: ex => ex.raw.customers,
+    locked: ['CompanyID'], lockedWhy: 'a customer belongs to its company: change it on Customer Master', note: NOTE('The company stays as it is.') }),
+  FACLASS: legacyUpdate('FACLASS', { key: { h: 'Code', kind: 'faClass' }, idField: 'ClassID', records: ex => ex.raw.faClasses,
+    locked: ['Code', 'Kind'], lockedWhy: 'the assets of a class follow its kind: change it on Fixed Asset Configuration', note: NOTE('The code and kind stay as they are.') }),
+  FAASSET: legacyUpdate('FAASSET', { key: { h: 'Asset No.', kind: 'faAsset' }, idField: 'AssetID', records: ex => ex.raw.faAssets,
+    locked: ['CompanyID', 'ClassID'], lockedWhy: 'an asset keeps its company and class: change it on Fixed Asset Master',
+    note: NOTE('Company and class stay as they are; a capitalized asset keeps the rules of Fixed Asset Master.') }),
+  USER: legacyUpdate('USER', { key: { h: 'Username', kind: 'user' }, idField: 'id', records: ex => ex.raw.users, companyOf: () => '',
+    valueOf: (rec, key) => (key === 'assignedCompanies' ? rec.AssignedCompanies || [] : key === 'email' ? rec.email || '' : rec[key]),
+    keep: ['status'], // a disabled user stays disabled
+    locked: ['username', 'email'], lockedWhy: 'the username is the key and the email is the sign-in: change them on User Management',
+    note: NOTE('The username and email stay as they are; passwords are not in the sheet.') }),
   EMPLOYEE: {
     key: { h: 'Employee No.', kind: 'employee' },
     // As the record's own screen: job and organization change through an
@@ -1117,12 +1173,12 @@ const UPDATES = {
     records: ex => ex.raw.employees,
     companyOf: rec => rec.CompanyID,
     valueOf: (rec, key) => (key.startsWith('cf_') ? (rec.Custom || {})[key.slice(3)] : rec[key]),
-    save: async (user, id, rec, set) => {
+    save: async (ctx, user, id, rec, set) => {
       const data = Object.assign({}, rec, { EmployeeID: id, Custom: Object.assign({}, rec.Custom || {}) });
       Object.keys(set).forEach(k => { if (k.startsWith('cf_')) data.Custom[k.slice(3)] = set[k]; else data[k] = set[k]; });
       await saveEmployeeFor(user, data, { source: 'Import (update)' });
     },
-    store: { firestore: 'employees', history: 'employeeHistory', reason: 'Import (update)' }
+    store: () => ({ firestore: 'employees', history: 'employeeHistory', reason: 'Import (update)' })
   }
 };
 const updateColumns = (m, u) => m.columns.filter(c => !u.locked.includes(c.key));
@@ -1133,6 +1189,7 @@ function shownValue(col, v, ex, forExport) {
   if (col.type === 'date') { const x = String(v).match(/^(\d{4})-(\d{2})-(\d{2})$/); return x ? x[3] + '/' + x[2] + '/' + x[1] : String(v); }
   if (col.type === 'yesno') return v ? 'Yes' : 'No';
   if (col.type === 'enum') { const hit = col.values.find(x => x.value === v); return hit ? hit.label : String(v); }
+  if (col.type === 'refs') return (Array.isArray(v) ? v : [v]).map(id => shownValue(Object.assign({}, col, { type: 'ref' }), id, ex, forExport)).join(', ');
   if (col.type === 'ref') {
     const hit = (ex[col.ref] || []).find(x => x.id === v);
     if (!hit) return String(v);
@@ -1190,23 +1247,44 @@ async function checkUpdate(user, masterKey, text) {
     if (hit && seen[hit.id]) add(rowNo, u.key.h, 'Same ' + u.key.h + ' as row ' + seen[hit.id] + '.');
     if (hit) seen[hit.id] = seen[hit.id] || rowNo;
     const rec = hit ? recs[hit.id] : null;
-    if (rec && !userCanAccessCompany(user.profile, u.companyOf(rec))) add(rowNo, u.key.h, 'You do not have access to that record\'s company.');
+    if (rec && !userCanAccessCompany(user.profile, u.companyOf(rec, hit.id))) add(rowNo, u.key.h, 'You do not have access to that record\'s company.');
+    const co = rec ? u.companyOf(rec, hit.id) : '';
     const set = {};
     const issue = (col, msg) => add(rowNo, col.h, msg);
     for (const col of cols) {
       if (!(col.key in colAt)) continue;
       const raw = String(cells[colAt[col.key]] == null ? '' : cells[colAt[col.key]]).trim();
       if (raw === '') continue; // blank keeps the value (decision 8)
-      if (raw === CLEAR) { if (col.req) issue(col, col.h + ' can\'t be cleared.'); else set[col.key] = ''; continue; }
+      if (raw === CLEAR) { if (col.req) issue(col, col.h + ' can\'t be cleared.'); else set[col.key] = col.type === 'refs' ? [] : (col.type === 'yesno' ? false : ''); continue; }
       if (col.sensitive && !seesSensitive) { issue(col, 'You do not have the right to change ' + col.h + ' (' + m.label + ': sensitive).'); continue; }
       let v = raw;
-      if (col.type === 'yesno') { v = yesNo(raw); if (v === null) { issue(col, 'Enter Yes or No.'); continue; } } else if (col.type === 'number') { v = number(raw); if (v === null) { issue(col, '"' + raw + '" is not a number.'); continue; } } else if (col.type === 'enum') { v = enumValue(raw, col.values); if (v === null) { issue(col, '"' + raw + '" is not one of: ' + col.values.map(x => x.label).join(', ') + '.'); continue; } } else if (col.type === 'email') { if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) { issue(col, 'Enter a valid email address.'); continue; } } else if (col.type === 'date') { v = dateValue(raw); if (v === null) { issue(col, '"' + raw + '" is not a date (dd/mm/yyyy).'); continue; } } else if (col.type === 'ref') {
-        const pool = ex[col.ref] || [];
-        const byCode = pool.filter(x => x.code && norm(x.code) === norm(raw));
-        const hits = byCode.length ? byCode : pool.filter(x => norm(x.name) === norm(raw));
-        if (hits.length > 1) { issue(col, '"' + raw + '" matches more than one record; use its code.'); continue; }
-        if (!hits.length) { issue(col, '"' + raw + '" not found.'); continue; }
-        v = hits[0].id;
+      if (col.type === 'yesno') { v = yesNo(raw); if (v === null) { issue(col, 'Enter Yes or No.'); continue; } } else if (col.type === 'number') { v = number(raw); if (v === null) { issue(col, '"' + raw + '" is not a number.'); continue; } } else if (col.type === 'enum') { v = enumValue(raw, col.values); if (v === null) { issue(col, '"' + raw + '" is not one of: ' + col.values.map(x => x.label).join(', ') + '.'); continue; } } else if (col.type === 'email') { if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) { issue(col, 'Enter a valid email address.'); continue; } } else if (col.type === 'date') { v = dateValue(raw); if (v === null) { issue(col, '"' + raw + '" is not a date (dd/mm/yyyy).'); continue; } } else if (col.type === 'ref' || col.type === 'refs') {
+        // As when adding: by code or exact name; accounts, classes and units
+        // of the record's company (or for all); sub-categories of its category.
+        let pool = ex[col.ref] || [];
+        if (['account', 'faClass', 'division', 'branch', 'costCenter', 'profitCenter', 'warehouse'].includes(col.ref) && co && masterKey !== 'COMPANY') pool = pool.filter(x => !x.rec.CompanyID || x.rec.CompanyID === co);
+        if (col.ref === 'subCategory' && rec) pool = pool.filter(x => x.rec.ParentCategory === rec.Category);
+        const one = txt => {
+          const byCode = pool.filter(x => x.code && norm(x.code) === norm(txt));
+          const hits = byCode.length ? byCode : pool.filter(x => norm(x.name) === norm(txt));
+          if (hits.length > 1) return { error: '"' + txt + '" matches more than one record; use its code.' };
+          if (!hits.length) return { error: '"' + txt + '" not found.' };
+          return { id: hits[0].id };
+        };
+        if (col.type === 'refs') {
+          const ids = [];
+          let bad = false;
+          raw.split(',').map(x => x.trim()).filter(Boolean).forEach(t => { const res = one(t); if (res.error) { issue(col, res.error); bad = true; } else if (!ids.includes(res.id)) ids.push(res.id); });
+          if (bad) continue;
+          // Companies being added need the importer's access; ones the record already has may stay.
+          const had = rec ? (u.valueOf(rec, col.key) || []) : [];
+          if (col.ref === 'company') { const no = ids.find(c => !had.includes(c) && !userCanAccessCompany(user.profile, c)); if (no) { issue(col, 'You do not have access to company ' + ((ex.raw.companies[no] || {}).LegalName || no) + '.'); continue; } }
+          v = ids;
+        } else {
+          const res = one(raw);
+          if (res.error) { issue(col, res.error); continue; }
+          v = res.id;
+        }
       }
       set[col.key] = v;
     }
@@ -1215,7 +1293,9 @@ async function checkUpdate(user, masterKey, text) {
       Object.keys(set).forEach(k => {
         const col = cols.find(c => c.key === k);
         const from = u.valueOf(rec, k);
-        if (String(from == null ? '' : from) === String(set[k] == null ? '' : set[k])) { delete set[k]; return; }
+        const same = Array.isArray(set[k]) ? JSON.stringify((from || []).slice().sort()) === JSON.stringify(set[k].slice().sort())
+          : col.type === 'yesno' ? Boolean(from) === Boolean(set[k]) : String(from == null ? '' : from) === String(set[k] == null ? '' : set[k]);
+        if (same) { delete set[k]; return; }
         changes.push({ column: col.h, from: shownValue(col, from, ex), to: shownValue(col, set[k], ex) });
       });
     }
@@ -1249,26 +1329,30 @@ function employeeUpdateRules(resolved, ex, add) {
 // puts back the records saved in this run and removes their history.
 async function updateRows(request, user, masterKey, resolved) {
   const u = UPDATES[masterKey];
+  const m = await masterFor(masterKey);
+  const store = u.store(m);
   const ex = await loadExisting();
   const recs = u.records(ex);
+  const read = async id => (store.firestore ? (await firestore.collection(store.firestore).doc(id).get()).data() : (await rtdb.ref(store.rtdb + '/' + id).get()).val());
   const started = new Date().toISOString();
   const done = [];
   let failure = null;
-  await run(request, async () => {
+  await run(request, async (ctx) => {
     for (const o of resolved.filter(x => Object.keys(x.set).length)) {
       try {
-        const before = (await firestore.collection(u.store.firestore).doc(o.id).get()).data();
-        await u.save(user, o.id, recs[o.id], o.set);
+        const before = await read(o.id);
+        await u.save(ctx, user, o.id, recs[o.id], o.set, u);
         done.push({ id: o.id, before });
       } catch (e) { failure = { row: o.row, message: e.message || 'The record could not be saved.' }; break; }
     }
   });
   if (!failure) return { updated: done.length };
   for (const d of done.slice().reverse()) {
-    await firestore.collection(u.store.firestore).doc(d.id).set(d.before);
-    if (u.store.history) {
-      const h = await firestore.collection(u.store.history).where('EmployeeID', '==', d.id).get();
-      for (const x of h.docs) { const v = x.data(); if (v.Reason === u.store.reason && v.At >= started) await x.ref.delete(); }
+    if (store.firestore) await firestore.collection(store.firestore).doc(d.id).set(d.before);
+    else await rtdb.ref(store.rtdb + '/' + d.id).set(d.before);
+    if (store.history) {
+      const h = await firestore.collection(store.history).where('EmployeeID', '==', d.id).get();
+      for (const x of h.docs) { const v = x.data(); if (v.Reason === store.reason && v.At >= started) await x.ref.delete(); }
     }
   }
   return { updated: 0, failure };
@@ -1355,12 +1439,14 @@ exports.getMasterImportRecords = onCallWithMessages(onCallOptions, async (reques
   const m = await masterFor(masterKey);
   const u = UPDATES[masterKey];
   if (!m || !u) throw new HttpsError('invalid-argument', 'Those records can\'t be updated by import yet.');
-  if (!(await moduleHasCapability(m.module, 'access', user.profile.role))) throw new HttpsError('permission-denied', 'You do not have access to ' + m.label + '.');
+  if (!(await moduleHasCapability(m.module, 'access', user.profile.role)) && !(await moduleHasCapability(m.module, m.capability || 'write', user.profile.role))) {
+    throw new HttpsError('permission-denied', 'You do not have access to ' + m.label + '.');
+  }
   const seesSensitive = await moduleHasCapability(m.module, 'sensitive', user.profile.role);
   const cols = updateColumns(m, u).filter(c => !c.sensitive || seesSensitive);
   const ex = await loadExisting();
   const recs = u.records(ex);
-  const keys = (ex[u.key.kind] || []).filter(x => recs[x.id] && userCanAccessCompany(user.profile, u.companyOf(recs[x.id])))
+  const keys = (ex[u.key.kind] || []).filter(x => recs[x.id] && userCanAccessCompany(user.profile, u.companyOf(recs[x.id], x.id)))
     .sort((a, b) => String(a.code).localeCompare(String(b.code)));
   const cell = v => String(v).replace(/[\t\n\r]+/g, ' ');
   const lines = [[u.key.h].concat(cols.map(c => c.h)).join('\t')]
