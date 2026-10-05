@@ -1367,3 +1367,91 @@ Reversal (the "post" right) undoes the journal while it is unpaid.
 | 37 | Unused leave, a negative balance | **Pay the unused days** on the leave-salary base, and **deduct a negative balance** at the same daily rate. |
 | 38 | Loans, a negative net | **Deduct every loan's balance.** If the net goes negative, the settlement shows what the employee owes, left on "Recoverable from employees". |
 | 39 | Payment | **As a payroll run's payment:** the bank file from Payroll Setup's formats, or a cash or bank account; mark paid; reverse the payment. |
+
+## As built: step 5b, the final settlement (2026-10-05)
+
+**Final Settlements** (new module and screen `PAYROLLFS`: access, draft,
+post, pay; like Loans & Advances, so its approvals and drafts open it):
+- **one per employee** on notice or who has left, with a leaving date on
+  their record ("New final settlement" lists them);
+- **worked out on the leaving date** (and again each time a draft is
+  opened or saved, until it is submitted):
+  - **gratuity:** the company's rule (Payroll Setup → Provisions), on the
+    basic or gross in force that day; service less unpaid days; never
+    reduced for the reason (decision 29); a settlement never counts the
+    first year early;
+  - **leave salary:** the annual leave balance that day × the company's
+    daily rate, on the leave-salary base; a **negative balance is
+    deducted** (decision 37);
+  - **accruals paid at leaving:** their balance provided; the others
+    **lapse** (shown, and their provision taken back);
+  - **notice pay:** days × the gross daily rate, paid (notice not worked)
+    or deducted (short notice), posted to a pay element HR chooses
+    (decision 36);
+  - **other additions and deductions:** a pay element, an amount, a note;
+  - **every running loan's balance**, deducted (decision 38);
+  - **the net**; if negative, the employee owes it;
+- **an amount changed by hand** (gratuity, leave salary, an accrual):
+  with a reason, e.g. 0 for dismissal; the line shows what was worked out;
+- **submit** (the "draft" right): only once the leaving month's payroll
+  run is posted (the screen says so until then). It is numbered FS-0001…
+  and goes through Approval Configuration → "Final settlement (the amount
+  is the net)"; with none set up it is approved at once. A rejection
+  returns it to draft;
+- **posted** on the final approval: journal FinalSettlement (prefix FS),
+  dated the leaving date:
+  - each provision: Dr what was provided; the difference between that and
+    what is paid to its expense (cost center), a shortfall Dr, an excess Cr;
+  - a lapsed accrual: Dr its provision / Cr its expense;
+  - notice pay and other lines: their elements' accounts;
+  - loans: Cr each loan type's receivable; the loan shows the recovery
+    and becomes "Repaid";
+  - the net: Cr Salaries Payable, or Dr Recoverable from employees when
+    the employee owes it;
+- **paid** (the "pay" right, decision 39): the bank file from Payroll
+  Setup's formats (when the employee has an IBAN), then Mark paid from a
+  cash or bank account (journal PayrollPayment, PAYP: Dr Salaries Payable
+  / Cr the account), with a reversal. Nothing is paid when the employee
+  owes the company;
+- **reversed** (the "post" right): only once its payment is reversed. A
+  mirror journal; the loans' recoveries undone; back to a draft (to
+  correct or delete).
+
+**What waits for a settlement** (once submitted, until it is reversed):
+- claims against the employee's accruals, and their reversal;
+- the employee's loan payouts and repayments;
+- reversing a payroll run of the leaving month or later;
+- a posted settlement uses up what was provided: the employee's
+  provisions balance (Payroll → Provisions) is then 0, and a leaver with
+  nothing left drops off it.
+
+**Behind it:**
+- `payrollSettlement.js` (new): the calculation (`compute`), the journal
+  (`glLinesFor`), the callables;
+- `payrollProvisions.providedBefore` takes posted settlements off; the
+  claim guard;
+- `payrollLoans`: the guard;
+- `payrollPost.reversePayrollRun`: the guard;
+- registries:
+  - module `PAYROLLFS`;
+  - its menu node;
+  - approval entry `PAYROLLFS` (storage `payrollSettlements`);
+  - Home drafts;
+  - voucher `FinalSettlement` (FS).
+
+**Tests:**
+- the `payrollSettlement` suite (4);
+- `payrollSettlement.ui.js` (4);
+- negative controls (see the PR).
+
+**To go live:**
+1. Deploy "functions set" `payroll-5b`, after `payroll-5a`, with the
+   screens.
+2. Link a menu node to "Final Settlements".
+3. Set its rights in Roles & Permissions.
+4. If settlements need approval: Approval Configuration → "Final
+   settlement".
+5. Add pay elements for notice pay (an earning, and a deduction for short
+   notice) with their GL accounts, if not there.
+
+**Payroll (steps 0–5) is complete.**
