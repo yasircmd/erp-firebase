@@ -1097,6 +1097,183 @@ async function importRows(request, user, masterKey, resolved, opts) {
   return { created: [], failure };
 }
 
+// ---------- updating existing records (Part 3; owner 2026-10-05) ----------
+// "Update existing" mode (docs/modules/MASTER_IMPORT.md, decisions 8-11):
+// the key column (the record's code) finds the record; only the columns
+// pasted change; a blank cell keeps the value and "-" clears it. Each row
+// is saved through the master's own save, with its id, so the screen's
+// rules apply. All or nothing: a failed save puts back the rows already
+// saved in that run. Step 3a: Employees; the other masters follow (3b).
+
+const CLEAR = '-';
+const UPDATES = {
+  EMPLOYEE: {
+    key: { h: 'Employee No.', kind: 'employee' },
+    // As the record's own screen: job and organization change through an
+    // Employee Change (dated, approved), never by an edit.
+    locked: ['CompanyID', 'DivisionID', 'BranchID', 'CostCenterID', 'DesignationID', 'GradeID', 'ScheduleID'],
+    lockedWhy: 'changes through an Employee Change (it carries the date and the approval)',
+    note: 'Only the columns you paste change. A blank cell keeps the value; type - to clear it. Company, division, branch, cost center, designation, grade and work schedule change through an Employee Change.',
+    records: ex => ex.raw.employees,
+    companyOf: rec => rec.CompanyID,
+    valueOf: (rec, key) => (key.startsWith('cf_') ? (rec.Custom || {})[key.slice(3)] : rec[key]),
+    save: async (user, id, rec, set) => {
+      const data = Object.assign({}, rec, { EmployeeID: id, Custom: Object.assign({}, rec.Custom || {}) });
+      Object.keys(set).forEach(k => { if (k.startsWith('cf_')) data.Custom[k.slice(3)] = set[k]; else data[k] = set[k]; });
+      await saveEmployeeFor(user, data, { source: 'Import (update)' });
+    },
+    store: { firestore: 'employees', history: 'employeeHistory', reason: 'Import (update)' }
+  }
+};
+const updateColumns = (m, u) => m.columns.filter(c => !u.locked.includes(c.key));
+
+// A stored value as the sheet shows it (and as it is pasted back).
+function shownValue(col, v, ex, forExport) {
+  if (v == null || v === '') return '';
+  if (col.type === 'date') { const x = String(v).match(/^(\d{4})-(\d{2})-(\d{2})$/); return x ? x[3] + '/' + x[2] + '/' + x[1] : String(v); }
+  if (col.type === 'yesno') return v ? 'Yes' : 'No';
+  if (col.type === 'enum') { const hit = col.values.find(x => x.value === v); return hit ? hit.label : String(v); }
+  if (col.type === 'ref') {
+    const hit = (ex[col.ref] || []).find(x => x.id === v);
+    if (!hit) return String(v);
+    if (forExport) return hit.code || hit.name;
+    return [hit.code, hit.name].filter(Boolean).join(' ');
+  }
+  return String(v);
+}
+
+// Checks an update paste (nothing is written). Each resolved row is
+// { id, set, changes: [{ column, from, to }] }.
+async function checkUpdate(user, masterKey, text) {
+  const m = await masterFor(masterKey);
+  const u = UPDATES[masterKey];
+  if (!m) throw new HttpsError('invalid-argument', 'Choose what to import.');
+  const issues = [];
+  const add = (row, column, message) => issues.push({ row, column: column || '', message });
+  if (!u) return { headers: [], rows: [], resolved: [], issues: [{ row: 0, column: '', message: m.label + ' can\'t be updated by import yet: edit them on their own screen.' }] };
+  if (!(await moduleHasCapability(m.module, m.capability || 'write', user.profile.role))) {
+    add(0, '', 'You do not have permission to change ' + m.label + ' (the import needs the same right as editing it by hand).');
+  }
+  const seesSensitive = !m.columns.some(c => c.sensitive) || await moduleHasCapability(m.module, 'sensitive', user.profile.role);
+  const table = parseSheet(text);
+  if (!table.length) return { headers: [], rows: [], resolved: [], issues: [{ row: 0, column: '', message: 'Paste the header row and at least one row.' }] };
+  if (table.length - 1 > MAX_ROWS) add(0, '', 'At most ' + MAX_ROWS + ' rows in one paste.');
+  const headers = table[0];
+  const cols = updateColumns(m, u);
+  let keyAt = -1;
+  const colAt = {};
+  headers.forEach((h, i) => {
+    const name = squash(h.replace(/\*$/, ''));
+    if (name === squash(u.key.h)) { if (keyAt >= 0) add(0, h, 'Column "' + h + '" appears twice.'); keyAt = i; return; }
+    const col = cols.find(c => squash(c.h) === name);
+    const locked = m.columns.find(c => u.locked.includes(c.key) && squash(c.h) === name);
+    if (locked) add(0, h, locked.h + ' can\'t be changed here: it ' + u.lockedWhy + '.');
+    else if (!col) add(0, h, 'Unknown column "' + h + '". Copy the headers again from this screen.');
+    else if (col.key in colAt) add(0, h, 'Column "' + h + '" appears twice.');
+    else colAt[col.key] = i;
+  });
+  if (keyAt < 0) add(0, u.key.h, 'The key column "' + u.key.h + '" is missing: it says which record each row changes.');
+  if (!Object.keys(colAt).length) add(0, '', 'Paste at least one column to change besides ' + u.key.h + '.');
+  const body = table.slice(1);
+  if (!body.length) add(0, '', 'There are no rows under the headers.');
+
+  const ex = await loadExisting();
+  const recs = u.records(ex);
+  const seen = {};
+  const resolved = [];
+  body.forEach((cells, idx) => {
+    const rowNo = idx + 1;
+    const keyRaw = keyAt >= 0 ? String(cells[keyAt] || '').trim() : '';
+    const hit = keyRaw ? (ex[u.key.kind] || []).find(x => x.code && norm(x.code) === norm(keyRaw)) : null;
+    if (keyAt >= 0 && !keyRaw) add(rowNo, u.key.h, u.key.h + ' is required.');
+    else if (keyAt >= 0 && !hit) add(rowNo, u.key.h, '"' + keyRaw + '" not found.');
+    if (hit && seen[hit.id]) add(rowNo, u.key.h, 'Same ' + u.key.h + ' as row ' + seen[hit.id] + '.');
+    if (hit) seen[hit.id] = seen[hit.id] || rowNo;
+    const rec = hit ? recs[hit.id] : null;
+    if (rec && !userCanAccessCompany(user.profile, u.companyOf(rec))) add(rowNo, u.key.h, 'You do not have access to that record\'s company.');
+    const set = {};
+    const issue = (col, msg) => add(rowNo, col.h, msg);
+    for (const col of cols) {
+      if (!(col.key in colAt)) continue;
+      const raw = String(cells[colAt[col.key]] == null ? '' : cells[colAt[col.key]]).trim();
+      if (raw === '') continue; // blank keeps the value (decision 8)
+      if (raw === CLEAR) { if (col.req) issue(col, col.h + ' can\'t be cleared.'); else set[col.key] = ''; continue; }
+      if (col.sensitive && !seesSensitive) { issue(col, 'You do not have the right to change ' + col.h + ' (' + m.label + ': sensitive).'); continue; }
+      let v = raw;
+      if (col.type === 'yesno') { v = yesNo(raw); if (v === null) { issue(col, 'Enter Yes or No.'); continue; } } else if (col.type === 'number') { v = number(raw); if (v === null) { issue(col, '"' + raw + '" is not a number.'); continue; } } else if (col.type === 'enum') { v = enumValue(raw, col.values); if (v === null) { issue(col, '"' + raw + '" is not one of: ' + col.values.map(x => x.label).join(', ') + '.'); continue; } } else if (col.type === 'email') { if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) { issue(col, 'Enter a valid email address.'); continue; } } else if (col.type === 'date') { v = dateValue(raw); if (v === null) { issue(col, '"' + raw + '" is not a date (dd/mm/yyyy).'); continue; } } else if (col.type === 'ref') {
+        const pool = ex[col.ref] || [];
+        const byCode = pool.filter(x => x.code && norm(x.code) === norm(raw));
+        const hits = byCode.length ? byCode : pool.filter(x => norm(x.name) === norm(raw));
+        if (hits.length > 1) { issue(col, '"' + raw + '" matches more than one record; use its code.'); continue; }
+        if (!hits.length) { issue(col, '"' + raw + '" not found.'); continue; }
+        v = hits[0].id;
+      }
+      set[col.key] = v;
+    }
+    const changes = [];
+    if (rec) {
+      Object.keys(set).forEach(k => {
+        const col = cols.find(c => c.key === k);
+        const from = u.valueOf(rec, k);
+        if (String(from == null ? '' : from) === String(set[k] == null ? '' : set[k])) { delete set[k]; return; }
+        changes.push({ column: col.h, from: shownValue(col, from, ex), to: shownValue(col, set[k], ex) });
+      });
+    }
+    resolved.push({ id: hit ? hit.id : '', set, changes, row: rowNo });
+  });
+  if (masterKey === 'EMPLOYEE') employeeUpdateRules(resolved, ex, add);
+  return { headers, rows: body, resolved, issues };
+}
+
+// Line managers after the whole paste: not themselves, not someone who
+// has left, and no loop (A reports to B who reports to A).
+function employeeUpdateRules(resolved, ex, add) {
+  const emps = ex.raw.employees;
+  const mgr = {};
+  Object.keys(emps).forEach(id => { mgr[id] = emps[id].ManagerID || ''; });
+  resolved.forEach(o => { if (o.id && 'ManagerID' in o.set) mgr[o.id] = o.set.ManagerID; });
+  resolved.forEach(o => {
+    if (!o.id || !('ManagerID' in o.set) || !o.set.ManagerID) return;
+    const m = o.set.ManagerID;
+    if (m === o.id) { add(o.row, 'Line Manager', 'An employee can\'t be their own line manager.'); return; }
+    if (emps[m] && emps[m].Status === 'Left') add(o.row, 'Line Manager', emps[m].FullName + ' has left.');
+    const seen = new Set([o.id]);
+    for (let at = m; at; at = mgr[at]) {
+      if (seen.has(at)) { add(o.row, 'Line Manager', (emps[m] || {}).FullName + ' reports to ' + (emps[o.id] || {}).FullName + ' (directly or further down) after this paste: that would be a loop.'); break; }
+      seen.add(at);
+    }
+  });
+}
+
+// Saves each changed row through the master's own save; on a failure,
+// puts back the records saved in this run and removes their history.
+async function updateRows(request, user, masterKey, resolved) {
+  const u = UPDATES[masterKey];
+  const ex = await loadExisting();
+  const recs = u.records(ex);
+  const started = new Date().toISOString();
+  const done = [];
+  let failure = null;
+  await run(request, async () => {
+    for (const o of resolved.filter(x => Object.keys(x.set).length)) {
+      try {
+        const before = (await firestore.collection(u.store.firestore).doc(o.id).get()).data();
+        await u.save(user, o.id, recs[o.id], o.set);
+        done.push({ id: o.id, before });
+      } catch (e) { failure = { row: o.row, message: e.message || 'The record could not be saved.' }; break; }
+    }
+  });
+  if (!failure) return { updated: done.length };
+  for (const d of done.slice().reverse()) {
+    await firestore.collection(u.store.firestore).doc(d.id).set(d.before);
+    if (u.store.history) {
+      const h = await firestore.collection(u.store.history).where('EmployeeID', '==', d.id).get();
+      for (const x of h.docs) { const v = x.data(); if (v.Reason === u.store.reason && v.At >= started) await x.ref.delete(); }
+    }
+  }
+  return { updated: 0, failure };
+}
+
 // ---------- callables ----------
 
 async function requireImportAccess(user) {
@@ -1115,7 +1292,10 @@ exports.getMasterImportSpecs = onCallWithMessages({ region: 'us-central1' }, asy
     return {
       key: k, label: m.label, note: m.note || '', sample: m.sample || [], needsPassword: Boolean(m.authUser),
       columns: m.columns.map(c => ({ header: c.h, required: Boolean(c.req), note: c.note || '',
-        values: c.values ? c.values.map(v => v.label) : (c.type === 'yesno' ? ['Yes', 'No'] : []) }))
+        values: c.values ? c.values.map(v => v.label) : (c.type === 'yesno' ? ['Yes', 'No'] : []) })),
+      // Update existing (Part 3): the key column, then the columns that can change.
+      update: UPDATES[k] ? { key: UPDATES[k].key.h, note: UPDATES[k].note,
+        columns: updateColumns(m, UPDATES[k]).map(c => ({ header: c.h, note: c.note || '', values: c.values ? c.values.map(v => v.label) : (c.type === 'yesno' ? ['Yes', 'No'] : []) })) } : null
     };
   });
 });
@@ -1125,6 +1305,10 @@ exports.checkMasterImport = onCallWithMessages(onCallOptions, async (request) =>
   const user = await requireUser(request);
   await requireImportAccess(user);
   const d = request.data || {};
+  if (d.mode === 'update') {
+    const c = await checkUpdate(user, String(d.master || ''), d.text);
+    return { headers: c.headers, rows: c.rows, issues: c.issues, changes: c.resolved.map(o => o.changes) };
+  }
   const c = await checkPaste(user, String(d.master || ''), d.text, { tempPassword: d.tempPassword });
   return { headers: c.headers, rows: c.rows, issues: c.issues };
 });
@@ -1135,6 +1319,16 @@ exports.runMasterImport = onCallWithMessages(onCallOptions, async (request) => {
   await requireImportAccess(user);
   const d = request.data || {};
   const masterKey = String(d.master || '');
+  if (d.mode === 'update') {
+    const c = await checkUpdate(user, masterKey, d.text);
+    if (c.issues.length) return { success: false, issues: c.issues, updated: 0 };
+    const result = await updateRows(request, user, masterKey, c.resolved);
+    await rtdb.ref('masterImports').push({ Master: masterKey, Mode: 'Update', Rows: c.resolved.length, By: user.uid,
+      ByName: user.profile.fullName || user.profile.username || user.uid, At: new Date().toISOString(), Status: result.failure ? 'Undone' : 'Updated',
+      Updated: result.updated, Error: result.failure ? 'Row ' + result.failure.row + ': ' + result.failure.message : '' });
+    if (result.failure) return { success: false, updated: 0, issues: [{ row: result.failure.row, column: '', message: result.failure.message + ' Nothing was changed.' }] };
+    return { success: true, rows: c.resolved.length, updated: result.updated };
+  }
   const opts = { tempPassword: String(d.tempPassword || '') };
   const c = await checkPaste(user, masterKey, d.text, opts);
   if (c.issues.length) return { success: false, issues: c.issues, created: 0 };
@@ -1151,6 +1345,30 @@ exports.runMasterImport = onCallWithMessages(onCallOptions, async (request) => {
   return { success: true, rows: c.resolved.length, created: result.created.length, codes: result.created.map(x => x.code).filter(Boolean) };
 });
 
+// Copy current records (decision 10): the master's records in the user's
+// companies as a sheet (the key, then the columns that can change), to
+// edit in Excel and paste back in Update mode.
+exports.getMasterImportRecords = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireImportAccess(user);
+  const masterKey = String((request.data || {}).master || '');
+  const m = await masterFor(masterKey);
+  const u = UPDATES[masterKey];
+  if (!m || !u) throw new HttpsError('invalid-argument', 'Those records can\'t be updated by import yet.');
+  if (!(await moduleHasCapability(m.module, 'access', user.profile.role))) throw new HttpsError('permission-denied', 'You do not have access to ' + m.label + '.');
+  const seesSensitive = await moduleHasCapability(m.module, 'sensitive', user.profile.role);
+  const cols = updateColumns(m, u).filter(c => !c.sensitive || seesSensitive);
+  const ex = await loadExisting();
+  const recs = u.records(ex);
+  const keys = (ex[u.key.kind] || []).filter(x => recs[x.id] && userCanAccessCompany(user.profile, u.companyOf(recs[x.id])))
+    .sort((a, b) => String(a.code).localeCompare(String(b.code)));
+  const cell = v => String(v).replace(/[\t\n\r]+/g, ' ');
+  const lines = [[u.key.h].concat(cols.map(c => c.h)).join('\t')]
+    .concat(keys.map(k => [k.code].concat(cols.map(c => shownValue(c, u.valueOf(recs[k.id], c.key), ex, true))).map(cell).join('\t')));
+  return { text: lines.join('\n'), count: keys.length, sensitiveLeftOut: !seesSensitive && m.columns.some(c => c.sensitive) };
+});
+
 module.exports.parseSheet = parseSheet;
 module.exports.MASTERS = MASTERS;
 module.exports._importRows = importRows; // for the tests: the undo path, without a failing row having to pass the check
+module.exports._updateRows = updateRows; // the same for an update

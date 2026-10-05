@@ -281,7 +281,7 @@ async function saveEmployeeFor(user, input, opts) {
     }
     await EMPLOYEES().doc(existing.EmployeeID).update(Object.assign(out, { UpdatedAt: now, UpdatedBy: user.uid, UpdatedByName: actorName(user) }));
     const correction = text(opts.correction, 300);
-    await log(existing.EmployeeID, correction ? 'Correction' : 'Edit', changes, user, correction);
+    await log(existing.EmployeeID, correction ? 'Correction' : 'Edit', changes, user, correction || opts.source || '');
     return { success: true, employeeId: existing.EmployeeID, employeeNo: existing.EmployeeNo, warnings };
   }
   const employeeNo = await nextEmployeeNo();
