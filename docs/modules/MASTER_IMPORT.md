@@ -587,3 +587,41 @@ shows only for masters that can be updated; Employees in this step):
 Accounts, UOM, Item Sub-Category, Items, Vendors, Customers, Currencies,
 Customer Classifications, Sales Types, Requisition Categories, Fixed
 Asset Classes and Master, Inventory Valuation, Price Lists, Users).
+
+## Part 3b design: updating the other masters (proposed 2026-10-05)
+
+The same Update mode as Employees (decisions 8–10): the key is the
+record's code, only pasted columns change, a blank keeps and `-` clears,
+Copy current records gives the sheet. Each row is saved through the
+master's own save with the record's id, so its rules (account types,
+parents, company, duplicates) apply as on its screen. A rule only the
+save knows about (e.g. an account with children can't become postable)
+stops the update at that row and puts back the rows before it (all or
+nothing).
+
+**Proposed, by master** (locked = refused in the sheet, with the reason):
+
+| Master | Key | Locked (and why) |
+| --- | --- | --- |
+| Company | Ref Code | Tax Type / Tax Number (a company can hold several; edit on Company Master) |
+| Organizational Units | Code | Type, Company (units are referenced by type and company) |
+| Chart of Accounts | Account Code | Account Type, Parent Account, Postable, Company (the code is built from type and parent; postings depend on them) |
+| Currencies | Code | — |
+| Unit of Measure | Code | — |
+| Items | Item Code | Category (the code is built from it), Company |
+| Vendors | Vendor Code | Company |
+| Customers | Customer Code | Company |
+| Fixed Asset Classes | Code | Kind (the assets of a class follow it) |
+| Fixed Asset Master | Asset Code | Class, Company; the save keeps its own rules after capitalization |
+| Users | Username | Email (it is the sign-in), password (not in the sheet) |
+
+**Open questions:**
+
+12. **Masters without a code** (Item Sub-Categories, Customer
+    Classifications, Sales Types, Requisition Categories): leave them to
+    their screens (decision 9: code only; they are few)? Or key them by
+    exact name?
+13. **BOM, Inventory Valuation, Price Lists:** leave them to their screens
+    (they hold versions and lines by date)? Or include them?
+14. **Users:** include (full name, role, companies; email locked)? Or
+    leave users to User Management?
