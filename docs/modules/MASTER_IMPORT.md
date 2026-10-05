@@ -625,3 +625,12 @@ nothing).
     (they hold versions and lines by date)? Or include them?
 14. **Users:** include (full name, role, companies; email locked)? Or
     leave users to User Management?
+
+### The owner's decisions for Part 3b (2026-10-05)
+
+| # | Question | Decision |
+|---|---|---|
+| 12 | Masters without a code | **No update option** (Item Sub-Categories, Customer Classifications, Sales Types, Requisition Categories). |
+| 13 | BOM, Inventory Valuation, Price Lists | **No update option.** |
+| 14 | Users | **Included:** full name, role, companies; email locked. |
+| — | The locked columns | **As proposed** in the table above. |
