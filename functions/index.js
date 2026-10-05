@@ -209,6 +209,8 @@ const payrollPost = require('./src/payrollPost');
 ['submitPayrollRun', 'decidePayrollApproval', 'postPayrollRun', 'reversePayrollRun', 'getPayrollPayslips'].forEach(n => { exports[n] = payrollPost[n]; });
 const payrollPayment = require('./src/payrollPayment');
 ['getPaymentFormats', 'savePaymentFormat', 'deletePaymentFormat', 'previewPaymentFile', 'getPayrollPayment', 'downloadPaymentFile', 'markPayrollPaid', 'reversePayrollPayment'].forEach(n => { exports[n] = payrollPayment[n]; });
+const payrollProvisions = require('./src/payrollProvisions');
+['getProvisionSetup', 'saveProvisionSettings', 'saveAccrualType', 'getProvisionBalances', 'recordAccrualClaim', 'reverseAccrualClaim'].forEach(n => { exports[n] = payrollProvisions[n]; });
 const payrollLoans = require('./src/payrollLoans');
 ['getLoanTypes', 'saveLoanType', 'getLoans', 'getLoanForm', 'getLoan', 'saveLoan', 'deleteLoan', 'submitLoan', 'decideLoanApproval', 'payOutLoan', 'reverseLoanPayout', 'saveLoanSchedule', 'recordLoanRepayment'].forEach(n => { exports[n] = payrollLoans[n]; });
 const hrChanges = require('./src/hrChanges');
@@ -219,7 +221,7 @@ const hrLeaveSetup = require('./src/hrLeaveSetup');
 ['getLeaveSetup', 'saveLeaveType', 'saveLeaveEntitlements', 'saveLeavePayRules', 'getWorkCalendar', 'saveWorkCalendar'].forEach(n => { exports[n] = hrLeaveSetup[n]; });
 const hrLeave = require('./src/hrLeave');
 ['getLeaves', 'getLeaveForm', 'getLeave', 'previewLeave', 'saveLeave', 'deleteLeave', 'submitLeave', 'decideLeaveApproval', 'cancelLeave',
-  'recordLeaveReturn', 'getLeaveBalances', 'adjustLeaveBalance'].forEach(n => { exports[n] = hrLeave[n]; });
+  'recordLeaveReturn', 'getLeaveBalances', 'adjustLeaveBalance', 'setLeaveEntitlement'].forEach(n => { exports[n] = hrLeave[n]; });
 const hrLeaveClose = require('./src/hrLeaveClose');
 ['getLeaveMonths', 'getLeaveMonthSummary', 'lockLeaveMonth', 'reopenLeaveMonth', 'closeLeaveYear'].forEach(n => { exports[n] = hrLeaveClose[n]; });
 const hrLeaveReports = require('./src/hrLeaveReports');

@@ -1,0 +1,66 @@
+# HR Payroll, step 5a: provisions (owner 2026-10-05; docs/modules/HR_PAYROLL.md,
+# the owner's points 1-3, decisions 28-35). Deploy after payroll-4b. Run
+# with --screens (PAYROLLSETUP: the Provisions tab; PAYROLL: Provisions
+# (balances and claims) and the payslip's provisions; EMPLOYEES: an
+# employee's own annual leave). No Hosting change. Then, in the app: add
+# the provision GL accounts (gratuity, leave salary, each accrual: expense
+# and provision); in Payroll Setup → Provisions, each company's gratuity and
+# leave salary, and the accruals; import the opening provisions (Master
+# Data Import → Opening provisions); set any employee's own annual leave on
+# their leave card.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getProvisionSetup
+saveProvisionSettings
+saveAccrualType
+getProvisionBalances
+recordAccrualClaim
+reverseAccrualClaim
+setLeaveEntitlement
+# Changed: the employee's own entitlement in the leave accrual and day count.
+getLeaves
+getLeaveForm
+getLeave
+previewLeave
+saveLeave
+deleteLeave
+submitLeave
+decideLeaveApproval
+cancelLeave
+recordLeaveReturn
+getLeaveBalances
+adjustLeaveBalance
+getLeaveMonths
+getLeaveMonthSummary
+lockLeaveMonth
+reopenLeaveMonth
+closeLeaveYear
+getLeaveReportTypes
+getLeaveBalanceReport
+getLeaveRegisterReport
+getLeaveCalendar
+getLeaveTasksForUser
+# Changed: the run works out the provisions; an accrual paid with the salary.
+getPayrollRuns
+createPayrollRun
+getPayrollRun
+savePayrollInputs
+recalculatePayrollRun
+deletePayrollRun
+# Changed: posting the provisions and the payouts.
+submitPayrollRun
+decidePayrollApproval
+postPayrollRun
+reversePayrollRun
+getPayrollPayslips
+# Changed: the payout is in the bank file.
+previewPaymentFile
+getPayrollPayment
+downloadPaymentFile
+markPayrollPaid
+reversePayrollPayment
+# Changed: the Opening provisions sheet.
+getMasterImportSpecs
+checkMasterImport
+runMasterImport
+# Screens.
+getModuleFragment

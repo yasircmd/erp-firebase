@@ -191,6 +191,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div class="text-xs font-semibold text-slate-400 uppercase">Leave <span id="emp-leave-asof" class="normal-case font-normal text-slate-500"></span></div>
       <div class="flex gap-2">
+        <button id="emp-leave-own" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-user-pen"></i> Own entitlement</button>
         <button id="emp-leave-adjust" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-scale-balanced"></i> Adjust a balance</button>
         <button id="emp-leave-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> New leave</button>
       </div>
@@ -206,6 +207,15 @@
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Reason *</label><input id="emp-adj-reason" maxlength="500" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
       <div class="md:col-span-4 flex gap-2"><button id="emp-adj-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save adjustment</button>
         <button id="emp-adj-cancel" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+    <p id="emp-leave-own-text" class="hidden text-xs text-blue-300"></p>
+    <div id="emp-leave-own-form" class="hidden grid grid-cols-1 md:grid-cols-4 gap-3 border-t border-slate-700 pt-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Leave type</label><select id="emp-own-type" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Days a year (empty: the grade rules)</label><input id="emp-own-days" type="number" step="0.5" min="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Its days count</label><select id="emp-own-counts" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">As the leave type</option><option value="Calendar">Calendar days (holidays included)</option><option value="Working">Working days</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Reason</label><input id="emp-own-reason" maxlength="300" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="md:col-span-4 flex gap-2"><button id="emp-own-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button id="emp-own-cancel" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
     </div>
     <ul id="emp-leave-list" class="text-sm space-y-1"></ul>
   </div>
@@ -558,8 +568,23 @@
       $('emp-leave-adjust').classList.toggle('hidden', !r.canPost || !bal.length);
       options($('emp-adj-type'), bal.map(b => ({ value: b.LeaveTypeID, label: b.Name })));
       $('emp-leave-adj-form').classList.add('hidden');
+      // The employee's own entitlement (Payroll step 5, decision 31).
+      const own = bal.filter(b => r.own && r.own[b.LeaveTypeID]).map(b => { const o = r.own[b.LeaveTypeID]; return b.Name + ': ' + o.DaysPerYear + ' days a year' + (o.Counts ? ' (' + o.Counts.toLowerCase() + ' days)' : ''); });
+      $('emp-leave-own-text').textContent = own.length ? 'Own entitlement — ' + own.join(' · ') : '';
+      $('emp-leave-own-text').classList.toggle('hidden', !own.length);
+      $('emp-leave-own').classList.toggle('hidden', !r.canPost || !bal.length);
+      options($('emp-own-type'), bal.map(b => ({ value: b.LeaveTypeID, label: b.Name })));
+      $('emp-leave-own-form').classList.add('hidden');
       $('emp-leave-wrap').classList.remove('hidden');
     }, () => { $('emp-leave-wrap').classList.add('hidden'); });
+  }
+  function ownFields() {
+    const o = ((leaveCard && leaveCard.own) || {})[val('emp-own-type')] || {};
+    $('emp-own-days').value = o.DaysPerYear == null ? '' : o.DaysPerYear; $('emp-own-counts').value = o.Counts || '';
+  }
+  function saveOwn() {
+    call('setLeaveEntitlement', { employeeId: current.EmployeeID, leaveTypeId: val('emp-own-type'), daysPerYear: val('emp-own-days'), counts: val('emp-own-counts'), reason: val('emp-own-reason') })
+      .then(() => loadLeave(), err => appAlert(err.message || 'Unable to save the entitlement.'));
   }
   function saveAdjustment() {
     call('adjustLeaveBalance', { employeeId: current.EmployeeID, leaveTypeId: val('emp-adj-type'), days: val('emp-adj-days'), date: val('emp-adj-date'), reason: val('emp-adj-reason') })
@@ -701,6 +726,10 @@
     });
     $('emp-adj-cancel').addEventListener('click', () => $('emp-leave-adj-form').classList.add('hidden'));
     $('emp-adj-save').addEventListener('click', saveAdjustment);
+    $('emp-leave-own').addEventListener('click', () => { $('emp-leave-adj-form').classList.add('hidden'); ownFields(); $('emp-leave-own-form').classList.remove('hidden'); });
+    $('emp-own-type').addEventListener('change', ownFields);
+    $('emp-own-save').addEventListener('click', saveOwn);
+    $('emp-own-cancel').addEventListener('click', () => $('emp-leave-own-form').classList.add('hidden'));
     $('emp-pay-set').addEventListener('click', () => openPayForm(false));
     $('emp-pay-correct').addEventListener('click', () => openPayForm(true));
     $('emp-pay-cancel').addEventListener('click', () => $('emp-pay-form').classList.add('hidden'));

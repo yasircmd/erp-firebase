@@ -63,7 +63,7 @@ function recordText(fields, ctx, fmt) {
 // Each employee's file values from their payslip.
 function employeeValues(slip, emp, days) {
   const net = Math.max(0, slip.Net);
-  const variable = slip.Lines.filter(l => l.Kind === 'Earning' && (l.Source === 'Input' || l.Source === 'Arrears')).reduce((t, l) => t + l.Amount, 0);
+  const variable = slip.Lines.filter(l => l.Kind === 'Earning' && (l.Source === 'Input' || l.Source === 'Arrears' || l.Source === 'AccrualPayout')).reduce((t, l) => t + l.Amount, 0);
   const v = Math.round(Math.min(Math.max(0, variable), net) * 100) / 100;
   return { EMP_NO: slip.EmployeeNo, EMP_NAME: slip.EmployeeName, WPS_ID: emp.WpsPersonID || '', ROUTING: emp.BankRoutingCode || '', IBAN: emp.IBAN || '', BANK: emp.BankName || '',
     NET: net, VARIABLE: v, FIXED: Math.round((net - v) * 100) / 100, DAYS: days, UNPAID_DAYS: slip.UnpaidDays || 0 };

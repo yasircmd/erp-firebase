@@ -18,13 +18,14 @@ const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
-const { calendarFor } = require('./hrLeaveSetup');
+const { calendarFor, leaveTypes } = require('./hrLeaveSetup');
 const { hoursOn } = require('./workCalendar');
 const lv = require('./hrLeave');
 const pay = require('./hrPay');
 const setup = require('./payrollSetup');
 const calc = require('./payrollCalc');
 const loans = require('./payrollLoans');
+const P = require('./payrollProvisions');
 
 const onCallOptions = { region: 'us-central1' };
 const RUNS = () => firestore.collection('payrollRuns');
@@ -69,6 +70,10 @@ async function requireLocked(co, month) {
 }
 // The elements a run's inputs go against: variable, in use, not the system ones.
 const inputElements = els => els.filter(e => e.Nature === 'Variable' && e.Active !== false && !e.System);
+// An accrual paid with the salary (step 5a, decision 33): a run input, paid
+// from its provision rather than the expense.
+const withAccruals = async els => els.concat((await P.accrualTypes()).filter(t => t.Active !== false).map(t => ({ ElementID: 'acc-' + t.AccrualTypeID, Code: t.Code,
+  Name: t.Name + ' (from the provision)', Kind: 'Earning', Nature: 'Variable', Active: true, Category: 'AccrualPayout', AccrualTypeID: t.AccrualTypeID })));
 const byHours = e => e.Category === 'Overtime' && e.Overtime && e.Overtime.Mode === 'Hours';
 
 async function companyEmployees(co, month) {
@@ -82,7 +87,7 @@ async function companyEmployees(co, month) {
 async function calculate(run, user, inputsByEmp) {
   const co = run.CompanyID, month = run.Month, end = calc.monthEnd(month);
   const locked = await requireLocked(co, month);
-  const [settings, els, emps, existing] = await Promise.all([setup.companySettings(co), setup.payrollElements(), companyEmployees(co, month), docs(await SLIPS(run.RunID).get())]);
+  const [settings, els, emps, existing] = await Promise.all([setup.companySettings(co), setup.payrollElements().then(withAccruals), companyEmployees(co, month), docs(await SLIPS(run.RunID).get())]);
   const elements = Object.fromEntries(els.map(e => [e.ElementID, e]));
   const system = Object.fromEntries(els.filter(e => e.System).map(e => [e.Code, e]));
   const inputs = inputsByEmp || Object.fromEntries(existing.map(s => [s.EmployeeID, s.Inputs || []]));
@@ -115,6 +120,41 @@ async function calculate(run, user, inputsByEmp) {
   };
   const loansBy = await loans.loansDue(co, month, run.RunID);
   const bands = {};
+  // Provisions (step 5a): what each employee has provided so far, the
+  // company's gratuity and leave-salary rules, the accruals, the grades.
+  const prov = await P.provisionSettings(co);
+  const accruals = (await P.accrualTypes()).filter(t => t.Active !== false);
+  const anyProvision = prov.Gratuity.Enabled || prov.LeaveSalary.Enabled || accruals.length;
+  const provided = anyProvision ? await P.providedBefore(co, month, run.RunID) : {};
+  const levels = anyProvision ? Object.fromEntries((await firestore.collection('hrGrades').get()).docs.map(d => [d.id, d.data().Level])) : {};
+  const balanceTypes = prov.LeaveSalary.Enabled ? (await leaveTypes()).filter(t => t.Kind === 'Leave' && t.UsesBalance && t.Active !== false) : [];
+  async function provisionsFor(e, r) {
+    if (!anyProvision) return [];
+    const last = e.LeavingDate && e.LeavingDate < end ? e.LeavingDate : end;
+    const mine = provided[e.EmployeeID] || {};
+    const out = [];
+    const push = (kind, typeId, name, liability, amount, textOut) => { if (liability || amount) out.push({ Kind: kind, AccrualTypeID: typeId || '', Name: name, Liability: round2(liability), Provided: round2(mine[P.keyOf(kind, typeId)] || 0), Amount: round2(amount), Text: textOut }); };
+    if (prov.Gratuity.Enabled) {
+      const unpaid = Object.values(leaveBy).reduce((t, byEmp) => t + (byEmp[e.EmployeeID] || []).filter(x => x.Pay === 'Unpaid' && x.Date <= last).reduce((a, x) => a + x.Fraction, 0), 0);
+      const g = calc.gratuityFor(prov.Gratuity, { base: prov.Gratuity.Base === 'Gross' ? r.Gross : r.Basic, joinDate: e.JoinDate, asOf: last, unpaidDays: unpaid, method: settings.DailyRateMethod, month, provision: true });
+      push('Gratuity', '', 'Gratuity', g.amount, g.amount - (mine.Gratuity || 0), g.text);
+    }
+    if (prov.LeaveSalary.Enabled) {
+      const cache = { leaves: await lv.leavesOf(e.EmployeeID), grade: await lv.gradeLevel(e) };
+      let days = 0;
+      for (const t of balanceTypes) { const b = await lv.balanceOf(e, t, last, null, cache); days += b.Available + b.Booked; }
+      const l = calc.leaveSalaryFor({ days: Math.max(0, days), base: prov.LeaveSalary.Base === 'Gross' ? r.Gross : r.Basic, method: settings.DailyRateMethod, month });
+      push('LeaveSalary', '', 'Leave salary', l.amount, l.amount - (mine.LeaveSalary || 0), l.text);
+    }
+    const first = e.JoinDate > month + '-01' ? e.JoinDate : month + '-01';
+    const employed = Math.max(0, Math.round((Date.parse(last) - Date.parse(first)) / 86400000) + 1);
+    accruals.forEach(t => {
+      const a = calc.accrualShareFor(t, { employeeId: e.EmployeeID, level: e.GradeID ? levels[e.GradeID] : null, basic: r.Basic, gross: r.Gross, employedDays: employed, monthDays: calc.daysInMonth(month) });
+      const before = mine[P.keyOf('Accrual', t.AccrualTypeID)] || 0;
+      push('Accrual', t.AccrualTypeID, t.Name, before + a.amount, a.amount, a.text);
+    });
+    return out;
+  }
   const slips = [];
   for (const e of emps) {
     const cal = await calendarFor(e);
@@ -127,7 +167,7 @@ async function calculate(run, user, inputsByEmp) {
     const bw = pay.bandWarning(r.Basic || null, bands[key]);
     if (bw) r.Warnings.push(bw);
     slips.push(Object.assign({ EmployeeID: e.EmployeeID, EmployeeNo: e.EmployeeNo || '', EmployeeName: e.FullName || '', CostCenterID: e.CostCenterID || '',
-      JoinDate: e.JoinDate, LeavingDate: e.LeavingDate || '', Inputs: inputs[e.EmployeeID] || [] }, r));
+      JoinDate: e.JoinDate, LeavingDate: e.LeavingDate || '', Inputs: inputs[e.EmployeeID] || [], Provisions: await provisionsFor(e, r) }, r));
   }
   // The register's columns: earnings, then deductions, in the elements' order.
   const used = new Set();
@@ -143,7 +183,8 @@ async function calculate(run, user, inputsByEmp) {
     .concat(existing.filter(s => !keep.has(s.EmployeeID)).map(s => b => b.delete(SLIPS(run.RunID).doc(s._id))));
   for (let i = 0; i < writes.length; i += 400) { const b = firestore.batch(); writes.slice(i, i + 400).forEach(w => w(b)); await b.commit(); }
   const out = { Method: settings.DailyRateMethod, Employees: slips.length, Earnings: round2(totals.Earnings), Deductions: round2(totals.Deductions), Net: round2(totals.Net),
-    Warnings: slips.filter(s => s.Warnings.length).length, Columns: columns, CalculatedAt: now, CalculatedBy: user.uid, CalculatedByName: actorName(user), LeaveLockedAt: locked.LockedAt || '',
+    Warnings: slips.filter(s => s.Warnings.length).length, Columns: columns,
+    Provisions: round2(slips.reduce((t, s) => t + (s.Provisions || []).reduce((a, x) => a + x.Amount, 0), 0)), CalculatedAt: now, CalculatedBy: user.uid, CalculatedByName: actorName(user), LeaveLockedAt: locked.LockedAt || '',
     UpdatedAt: now, UpdatedBy: user.profile.username || user.uid }; // My Drafts matches the username
   await RUNS().doc(run.RunID).update(out);
   return out;
@@ -195,7 +236,7 @@ exports.getPayrollRun = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user);
   const run = await loadRun(user, (request.data || {}).runId);
-  const [slips, els, rec] = await Promise.all([docs(await SLIPS(run.RunID).get()), setup.payrollElements(), leaveMonth(run.CompanyID, run.Month)]);
+  const [slips, els, rec] = await Promise.all([docs(await SLIPS(run.RunID).get()), setup.payrollElements().then(withAccruals), leaveMonth(run.CompanyID, run.Month)]);
   // The leave changed since the run was worked out: reopened, or locked again.
   const leaveChanged = run.Status === 'Draft' && (!rec || rec.Status !== 'Locked' || (rec.LockedAt || '') !== (run.LeaveLockedAt || ''));
   return {
@@ -217,7 +258,7 @@ exports.savePayrollInputs = onCallWithMessages(onCallOptions, async (request) =>
   requireDraft(run);
   const rows = Array.isArray(d.rows) ? d.rows : [];
   if (rows.length > 5000) bad('At most 5,000 inputs.');
-  const [slips, els] = await Promise.all([docs(await SLIPS(run.RunID).get()), setup.payrollElements()]);
+  const [slips, els] = await Promise.all([docs(await SLIPS(run.RunID).get()), setup.payrollElements().then(withAccruals)]);
   const allowed = inputElements(els);
   const out = Object.fromEntries(slips.map(s => [s.EmployeeID, []]));
   rows.forEach((r, n) => {

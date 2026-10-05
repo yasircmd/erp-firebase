@@ -168,7 +168,9 @@ function computeEmployee(x) {
       amount = round2(Number(i.Hours) * rate);
       textOut = i.Hours + ' hours × ' + money(rate) + ' (' + ot.text + ')';
     } else { amount = round2(Number(i.Amount)); textOut = money(amount); }
-    lines.push({ ElementID: el.ElementID, Code: el.Code, Name: el.Name, Kind: el.Kind, Source: 'Input', Amount: amount, Text: textOut + (i.Note ? ' — ' + i.Note : '') });
+    const payout = el.Category === 'AccrualPayout'; // an accrual paid with the salary (step 5a)
+    lines.push(Object.assign({ ElementID: el.ElementID, Code: el.Code, Name: el.Name, Kind: el.Kind, Source: payout ? 'AccrualPayout' : 'Input', Amount: amount, Text: textOut + (i.Note ? ' — ' + i.Note : '') },
+      payout ? { AccrualTypeID: el.AccrualTypeID } : {}));
   });
 
   // Back pay and a shortfall brought forward (step 3), worked out by the run.
@@ -232,4 +234,60 @@ function loanDue(loan, month, balance) {
   const change = (loan.Changes || []).filter(c => c.FromMonth <= month).sort((a, b) => a.FromMonth.localeCompare(b.FromMonth)).pop();
   return round2(Math.min(change ? change.Instalment : loan.Instalment, balance));
 }
-module.exports = { accountFor, METHODS, divisor, dailyRate, dailyText, overtimeRate, daysInMonth, daysInYear, SYSTEM, versionOn, computeEmployee, monthEnd, arrearsFor, loanBalance, loanDue };
+// ---------- provisions (step 5; owner's points 1-3, decisions 28-32) ----------
+// The UAE rule to start (owner point 1): none under a year; 21 days' basic a
+// year for the first five, 30 after; a day is basic × 12 ÷ 365; at most two
+// years' basic (decision 28). The provision starts once the year is done,
+// or from day one.
+const GRATUITY_DEFAULT = { Enabled: false, Base: 'Basic', MinYears: 1, Slabs: [{ FromYear: 0, ToYear: 5, Days: 21 }, { FromYear: 5, ToYear: null, Days: 30 }],
+  DayRule: 'UAE365', CapYears: 2, StartsFrom: 'AfterYear', ExpenseAccountID: '', ProvisionAccountID: '' };
+const LEAVE_SALARY_DEFAULT = { Enabled: false, Base: 'Basic', ExpenseAccountID: '', ProvisionAccountID: '' };
+const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000) + 1;
+
+// x: { base, joinDate, asOf, unpaidDays, method, month, provision }. For the
+// provision, "from day one" counts the first year too; a settlement never does.
+function gratuityFor(cfg, x) {
+  const c = Object.assign({}, GRATUITY_DEFAULT, cfg || {});
+  const days = Math.max(0, daysBetween(x.joinDate, x.asOf) - (x.unpaidDays || 0));
+  const years = days / 365;
+  if (years < (Number(c.MinYears) || 0) && !(x.provision && c.StartsFrom === 'DayOne')) {
+    return { amount: 0, years, serviceDays: days, text: years.toFixed(2) + ' years of service: none under ' + c.MinYears + (Number(c.MinYears) === 1 ? ' year' : ' years') };
+  }
+  const daily = c.DayRule === 'Company' ? x.base / divisor(x.method, x.month) : x.base * 12 / 365;
+  let dayCount = 0;
+  const parts = [];
+  (c.Slabs || []).slice().sort((a, b) => a.FromYear - b.FromYear).forEach(sl => {
+    const inSlab = Math.max(0, Math.min(years, sl.ToYear == null ? Infinity : Number(sl.ToYear)) - Number(sl.FromYear));
+    if (!inSlab) return;
+    dayCount += inSlab * Number(sl.Days);
+    parts.push(trim(Math.round(inSlab * 1000) / 1000) + ' × ' + sl.Days);
+  });
+  let amount = round2(dayCount * daily);
+  const cap = c.CapYears ? round2(Number(c.CapYears) * 12 * x.base) : null;
+  const capped = cap != null && amount > cap;
+  if (capped) amount = cap;
+  return { amount, years, serviceDays: days,
+    text: years.toFixed(2) + ' years: ' + (parts.join(' + ') || '0') + ' = ' + trim(round2(dayCount)) + ' days × ' + money(daily) + (capped ? ', capped at ' + c.CapYears + ' years\' pay' : '') + ' = ' + money(amount) };
+}
+// Leave salary (owner point 2, decision 30): the leave days due × a day at
+// the company's daily rate.
+function leaveSalaryFor(x) {
+  const daily = x.base / divisor(x.method, x.month);
+  const amount = round2(x.days * daily);
+  return { amount, text: trim(round2(x.days)) + ' days × ' + money(daily) + ' = ' + money(amount) };
+}
+// An accrual's share of a month (owner point 3, decision 32): its yearly
+// amount by grade level (or the employee's own), fixed or a % of the basic
+// or gross, pro-rata by the days employed. 0 when not eligible.
+function accrualShareFor(type, x) {
+  const ex = ((type.Exceptions || {})[x.employeeId]) || null;
+  if (ex && ex.Excluded) return { amount: 0, text: '' };
+  const rule = ex && ex.Value != null && ex.Value !== '' ? { Value: Number(ex.Value) } : (type.Rules || []).find(r => x.level != null && r.LevelFrom <= x.level && x.level <= r.LevelTo);
+  if (!rule) return { amount: 0, text: '' };
+  const yearly = type.Basis === 'Percent' ? (type.Of === 'Gross' ? x.gross : x.basic) * 12 * rule.Value / 100 : rule.Value;
+  const share = round2(yearly / 12 * x.employedDays / x.monthDays);
+  return { amount: share, text: money(yearly) + ' a year' + (type.Basis === 'Percent' ? ' (' + rule.Value + '% of the ' + (type.Of === 'Gross' ? 'gross' : 'basic') + ')' : '') +
+    ' ÷ 12' + (x.employedDays < x.monthDays ? ' × ' + x.employedDays + '/' + x.monthDays + ' days' : '') + ' = ' + money(share) };
+}
+
+module.exports = { accountFor, METHODS, divisor, dailyRate, dailyText, overtimeRate, daysInMonth, daysInYear, SYSTEM, versionOn, computeEmployee, monthEnd, arrearsFor, loanBalance, loanDue, GRATUITY_DEFAULT, LEAVE_SALARY_DEFAULT, gratuityFor, leaveSalaryFor, accrualShareFor };

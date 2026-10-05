@@ -175,6 +175,7 @@ node functions/test/ui/payrollRun.ui.js       # Payroll run: a new run, the regi
 node functions/test/ui/payrollPost.ui.js      # Payroll approval, posting, printed payslips, reversal; Payroll Setup's Recoverable from employees; seeds its own data
 node functions/test/ui/payrollPayment.ui.js   # Payroll Setup → Payment Files (a WPS SIF format, previewed), the employee's WPS fields, paying a run; seeds its own data
 node functions/test/ui/payrollLoans.ui.js     # Loans & Advances: a loan type, a loan submitted, paid out, its schedule and a repayment, recovered by the run, its balance on the employee; seeds its own data
+node functions/test/ui/payrollProvisions.ui.js # Provisions: an employee's own annual leave, Payroll Setup → Provisions (gratuity, leave salary, an accrual by grade with an exception), a payslip's provisions, the balances and a claim recorded and reversed; seeds its own data
 node functions/test/ui/masterImport.ui.js     # Master Data Import: copy headers, paste, issues by row, fix, import; seeds its own data (Part 2: Users password box)
 node functions/test/ui/trialBalance.ui.js   # after the trialBalance suite: Trial Balance (opening/transactions/closing)
 node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite: the Recurring Journal Entries screen

@@ -109,7 +109,9 @@ function accrued(type, emp, level, from, to, ctx) {
     const m = start.slice(0, 7);
     if (posted[m] != null && end === monthEnd(start)) { total += posted[m]; continue; }
     const years = yearsBetween(emp.JoinDate, start);
-    const row = level == null ? null : (type.Entitlements || []).find(r => r.LevelFrom <= level && level <= r.LevelTo && r.ServiceFrom <= years && (r.ServiceTo == null || years <= r.ServiceTo));
+    // The employee's own entitlement, if HR set one (Payroll step 5, decision 31).
+    const own = ((emp.LeaveOverrides || {})[type.LeaveTypeID] || {}).DaysPerYear;
+    const row = own != null ? { DaysPerYear: own } : level == null ? null : (type.Entitlements || []).find(r => r.LevelFrom <= level && level <= r.LevelTo && r.ServiceFrom <= years && (r.ServiceTo == null || years <= r.ServiceTo));
     if (!row) continue;
     const off = unpaid.filter(u => u.Month === m && u.Date <= end).reduce((a, u) => a + u.Fraction, 0);
     total += row.DaysPerYear / 12 * Math.max(0, daysIn(start, end) - off) / daysIn(m + '-01', monthEnd(start));
@@ -194,8 +196,9 @@ async function evaluate(input, emp, excludeId) {
   if ((halfStart || halfEnd) && !type.HalfDays) bad(type.Name + ' is taken in whole days.');
   if (from === to && halfStart && halfEnd) bad('A single half day: tick only one half.');
   const cal = await calendarFor(emp); // the employee's work schedule (Payroll step 0)
-  const dates = countedDays(cal, from, to, type.Counts);
-  if (type.Counts === 'Working') {
+  const counts = ((emp.LeaveOverrides || {})[type.LeaveTypeID] || {}).Counts || type.Counts; // the employee's own (decision 31)
+  const dates = countedDays(cal, from, to, counts);
+  if (counts === 'Working') {
     if (!dates.length) bad('There are no working days in those dates.');
     if (dates[0] !== from) bad('The leave starts on a day off (weekend or holiday): start it on the first working day.');
     if (dates[dates.length - 1] !== to) bad('The leave ends on a day off (weekend or holiday): end it on the last working day.');
@@ -511,11 +514,39 @@ exports.getLeaveBalances = onCallWithMessages(onCallOptions, async (request) => 
   const adjustments = docs(await ADJUSTMENTS().where('EmployeeID', '==', emp.EmployeeID).get()).sort((a, b) => String(b.Date).localeCompare(String(a.Date)))
     .map(a => ({ Date: a.Date, LeaveTypeID: a.LeaveTypeID, Days: a.Days, Reason: a.Reason, ByName: a.ByName }));
   return {
-    asOf, balances, adjustments, grade: grade ? grade.Code : '',
+    asOf, balances, adjustments, grade: grade ? grade.Code : '', own: emp.LeaveOverrides || {},
     leaves: leaves.slice().sort((a, b) => String(b.FromDate).localeCompare(String(a.FromDate)))
       .map(l => ({ LeaveID: l.LeaveID, LeaveNumber: l.LeaveNumber || '', LeaveTypeName: l.LeaveTypeName, FromDate: l.FromDate, ToDate: l.EffectiveTo || l.ToDate, Days: l.Days, UnpaidDays: l.UnpaidDays || 0, Status: l.Status })),
     canDraft: await can(user, 'draft'), canPost: await can(user, 'post')
   };
+});
+
+// An employee's own entitlement for a type that uses a balance (Payroll
+// step 5, decision 31): the days a year and whether its days count
+// calendar or working days, instead of the grade and service rules.
+// Months already locked keep their accrual.
+exports.setLeaveEntitlement = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'post');
+  const d = request.data || {};
+  const emp = await loadEmployee(user, d.employeeId);
+  const type = await typeById(d.leaveTypeId);
+  if (!type.UsesBalance) bad(type.Name + ' doesn\'t use a balance.');
+  const own = Object.assign({}, emp.LeaveOverrides || {});
+  const clear = d.daysPerYear === '' || d.daysPerYear == null;
+  if (clear) delete own[type.LeaveTypeID];
+  else {
+    const days = Number(d.daysPerYear);
+    if (!(days >= 0 && days <= 365)) bad('The days a year are 0 to 365.');
+    const counts = text(d.counts, 10);
+    if (counts && !['Calendar', 'Working'].includes(counts)) bad('Days count as calendar or working days.');
+    own[type.LeaveTypeID] = { DaysPerYear: round2(days), Counts: counts || '' };
+  }
+  await EMPLOYEES().doc(emp.EmployeeID).update({ LeaveOverrides: own });
+  await firestore.collection('employeeHistory').add({ EmployeeID: emp.EmployeeID, Action: 'Leave entitlement', Changes: [{ Field: 'LeaveOverrides', Label: type.Name + ' entitlement',
+    From: '', To: clear ? 'the grade rules' : own[type.LeaveTypeID].DaysPerYear + ' days a year' + (own[type.LeaveTypeID].Counts ? ' (' + own[type.LeaveTypeID].Counts.toLowerCase() + ' days)' : '') }],
+    Reason: text(d.reason, 300), By: user.uid, ByName: user.profile.fullName || user.profile.username || user.uid, At: new Date().toISOString() });
+  return { success: true };
 });
 
 // A correction to a balance, with its reason (also how a wrong opening

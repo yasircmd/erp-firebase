@@ -54,7 +54,7 @@ test('submit: the accounts are checked first; with no approval set up, the run p
   await assert.rejects(call('u-admin', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'DIV30', receivableAccountId: 'A-SALPAY' }), /Recoverable from employees: .* must be Asset/);
   JULY = (await call('u-admin', 'createPayrollRun', { companyId: 'C1', month: '2026-07' })).runId;
   await call('u-admin', 'savePayrollInputs', { runId: JULY, rows: [{ EmployeeID: BEN, Code: 'FINE', Amount: 2500, Note: 'Damage' }] });
-  await assert.rejects(call('u-admin', 'submitPayrollRun', { runId: JULY }), /Set the GL accounts in HR Setup → Payroll first: Unpaid leave\./);
+  await assert.rejects(call('u-admin', 'submitPayrollRun', { runId: JULY }), /Set the GL accounts in Payroll Setup first: Unpaid leave\./);
   const sys = (await call('u-admin', 'getPayrollSetup', {})).elements.find(e => e.Code === 'UNPAIDLV');
   await call('u-admin', 'savePayElementPayroll', { elementId: sys.ElementID, glAccountId: 'A-SAL' });
   await assert.rejects(call('u-viewer', 'submitPayrollRun', { runId: JULY }), /permission to prepare/);

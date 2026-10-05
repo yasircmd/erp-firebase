@@ -192,3 +192,21 @@ test('opening balances import and adjustments; rights; My Drafts', async () => {
   await call('u-admin', 'deleteLeave', { leaveId: id });
   assert.equal((await call('u-admin', 'getLeaves', {})).leaves.length, 0);
 });
+
+test('an employee\'s own entitlement (Payroll step 5, decision 31): the days a year and calendar or working days, instead of the grade rules', async () => {
+  await seed();
+  const bal = async asOf => (await call('u-admin', 'getLeaveBalances', { employeeId: ALI, asOf })).balances.find(b => b.Code === 'ANNUAL');
+  assert.equal((await bal('2026-02-28')).Accrued, 2, 'the grade rule: 24 a year');
+  const days = async () => (await preview(leave(ALI, 'ANNUAL', '2026-04-03', '2026-04-06'))).Days; // Friday to Monday
+  assert.equal(await days(), 2, 'working days');
+  const own = (d, uid) => call(uid || 'u-admin', 'setLeaveEntitlement', Object.assign({ employeeId: ALI, leaveTypeId: TYPE.ANNUAL }, d));
+  await assert.rejects(own({ daysPerYear: 36 }, 'u-viewer'), /permission/);
+  await assert.rejects(own({ daysPerYear: 400 }), /0 to 365/);
+  await assert.rejects(call('u-admin', 'setLeaveEntitlement', { employeeId: ALI, leaveTypeId: TYPE.SICK, daysPerYear: 10 }), /doesn't use a balance/);
+  await own({ daysPerYear: 36, counts: 'Calendar', reason: 'Contract' });
+  assert.equal((await bal('2026-02-28')).Accrued, 3, '36 a year');
+  assert.equal(await days(), 4, 'calendar days, the weekend included');
+  assert.deepEqual((await call('u-admin', 'getLeaveBalances', { employeeId: ALI })).own[TYPE.ANNUAL], { DaysPerYear: 36, Counts: 'Calendar' });
+  await own({ daysPerYear: '' });
+  assert.deepEqual([(await bal('2026-02-28')).Accrued, await days()], [2, 2], 'back to the grade rules');
+});

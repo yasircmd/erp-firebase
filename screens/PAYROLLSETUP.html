@@ -7,6 +7,7 @@
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="payroll">Payroll</button>
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="files">Payment Files</button>
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="loans">Loans</button>
+    <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="provisions">Provisions</button>
   </div>
   <p id="ps-readonly" class="hidden text-xs text-slate-400">You can view Payroll Setup but not change it.</p>
 
@@ -74,6 +75,71 @@
         </div>
       </div>
       <div class="flex gap-2"><button id="ps-pe-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="ps-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+  </div>
+
+  <!-- PROVISIONS (docs/modules/HR_PAYROLL.md, step 5a) -->
+  <div id="ps-pane-provisions" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">What each posted run provides for each employee: end-of-service gratuity and leave salary (worked out again each month at the current pay, the change posted), and the other accruals (flight, education, accommodation…, a share each month). Expense by cost center, provision as a liability.</p>
+    <div class="flex items-end gap-3"><div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="ps-pv-company" class="I text-slate-300"></select></div></div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+        <label class="text-sm font-semibold text-slate-200 flex items-center gap-2"><input id="ps-gr-on" type="checkbox" class="ps-pv-f"> End-of-service gratuity</label>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">On</label><select id="ps-gr-base" class="ps-pv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Basic">The basic</option><option value="Gross">The gross</option></select></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">A day's pay</label><select id="ps-gr-day" class="ps-pv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="UAE365">× 12 ÷ 365 (UAE)</option><option value="Company">The company's daily rate</option></select></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">None under (years)</label><input id="ps-gr-min" type="number" step="0.5" min="0" class="ps-pv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">At most (years' pay; empty: no cap)</label><input id="ps-gr-cap" type="number" step="0.5" min="0" class="ps-pv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+          <div class="col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">The provision starts</label><select id="ps-gr-starts" class="ps-pv-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="AfterYear">Once the first year is done (it catches up then)</option><option value="DayOne">From day one</option></select></div>
+        </div>
+        <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="pr-2">From year</th><th class="pr-2">To year</th><th class="pr-2">Days a year</th><th></th></tr></thead><tbody id="ps-gr-slabs"></tbody></table>
+        <button id="ps-gr-add" class="ps-pv-f text-xs text-blue-400"><i class="fa-solid fa-plus"></i> Add a row</button>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Expense</label><select id="ps-gr-exp" class="ps-pv-f ps-acc-exp w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Provision</label><select id="ps-gr-pro" class="ps-pv-f ps-acc-pro w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        </div>
+      </div>
+      <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+        <label class="text-sm font-semibold text-slate-200 flex items-center gap-2"><input id="ps-ls-on" type="checkbox" class="ps-pv-f"> Leave salary</label>
+        <p class="text-xs text-slate-500">Each employee's leave balance (types that use one, e.g. Annual) × a day at the company's daily rate. The days a year are set where leave is: by grade and service in HR Setup, or the employee's own on their record.</p>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">On</label><select id="ps-ls-base" class="ps-pv-f bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Basic">The basic</option><option value="Gross">The gross (total salary)</option></select></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Expense</label><select id="ps-ls-exp" class="ps-pv-f ps-acc-exp w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Provision</label><select id="ps-ls-pro" class="ps-pv-f ps-acc-pro w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        </div>
+      </div>
+    </div>
+    <button id="ps-pv-save" class="ps-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save the company's provisions</button>
+
+    <div class="text-xs font-semibold text-slate-400 uppercase pt-2">Other accruals</div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Accrual</th><th class="py-2 px-3">Code</th><th class="py-2 px-3">Amount</th><th class="py-2 px-3">At leaving</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="ps-at-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <button id="ps-at-new" class="ps-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New accrual</button>
+    <div id="ps-at-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Name *</label><input id="ps-at-name" maxlength="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Code *</label><input id="ps-at-code" maxlength="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Amount</label><select id="ps-at-basis" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Fixed">A fixed amount a year</option><option value="Percent">A % of the pay</option></select></div>
+        <div id="ps-at-of-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">% of</label><select id="ps-at-of" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Basic">The basic</option><option value="Gross">The gross</option></select></div>
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Expense (the group's) *</label><select id="ps-at-exp" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Provision (the group's) *</label><select id="ps-at-pro" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      </div>
+      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-3">Company</th><th class="py-1 pr-3">Its own expense</th><th class="py-1">Its own provision</th></tr></thead><tbody id="ps-at-cos"></tbody></table>
+      <div class="text-xs font-semibold text-slate-400 uppercase">By grade level</div>
+      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-500"><th class="pr-2">Level from</th><th class="pr-2">to</th><th class="pr-2" id="ps-at-val-head">Amount a year</th><th></th></tr></thead><tbody id="ps-at-rules"></tbody></table>
+      <button id="ps-at-rule-add" class="text-xs text-blue-400"><i class="fa-solid fa-plus"></i> Add a row</button>
+      <div class="text-xs font-semibold text-slate-400 uppercase">Employee exceptions</div>
+      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-500"><th class="pr-2">Employee</th><th class="pr-2">Excluded</th><th class="pr-2">Their own amount (or %)</th><th></th></tr></thead><tbody id="ps-at-exc"></tbody></table>
+      <button id="ps-at-exc-add" class="text-xs text-blue-400"><i class="fa-solid fa-plus"></i> Add an exception</button>
+      <div class="flex gap-4">
+        <label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-at-leaving" type="checkbox"> An unused balance is paid at leaving (else it lapses)</label>
+        <label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-at-active" type="checkbox" checked> In use</label>
+      </div>
+      <div class="flex gap-2"><button id="ps-at-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
         <button class="ps-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
     </div>
   </div>
@@ -158,7 +224,7 @@
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const statusHtml = active => active === false ? '<span class="text-slate-500">Not in use</span>' : '<span class="text-emerald-400">In use</span>';
   let companies = [], canWrite = false, editing = null, payElements = [];
-  const TABS = ['elements', 'payroll', 'files', 'loans'];
+  const TABS = ['elements', 'payroll', 'files', 'loans', 'provisions'];
 
   function showTab(tab) {
     document.querySelectorAll('.ps-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
@@ -382,12 +448,97 @@
       .then(() => { closeForms(); return loadLoanTypes(); }, err => appAlert(err.message || 'Unable to save.'));
   }
 
-  function closeForms() { ['ps-el-form', 'ps-pe-form', 'ps-pf-form', 'ps-lt-form'].forEach(id => $(id).classList.add('hidden')); editing = null; pfEditing = null; }
+  // ---------- provisions (step 5a) ----------
+  let pv = null;
+  const accOpts = (list, sel) => '<option value="">—</option>' + list.map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === sel ? ' selected' : '') + '>' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
+  function loadProvisions() {
+    return call('getProvisionSetup', {}).then(r => {
+      pv = r;
+      const keep = val('ps-pv-company');
+      $('ps-pv-company').innerHTML = r.settings.map(x => '<option value="' + escapeHtml(x.CompanyID) + '">' + escapeHtml(coLabel(x.CompanyID)) + '</option>').join('');
+      if (keep && r.settings.some(x => x.CompanyID === keep)) $('ps-pv-company').value = keep;
+      renderCompanyProvisions();
+      $('ps-at-body').innerHTML = r.types.map(t => '<tr data-id="' + escapeHtml(t.AccrualTypeID) + '" class="' + (r.canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '"><td class="py-2 px-3">' + escapeHtml(t.Name) + '</td>' +
+        '<td class="py-2 px-3 font-mono text-xs">' + escapeHtml(t.Code) + '</td><td class="py-2 px-3 text-xs">' + escapeHtml(t.Rules.map(x => 'levels ' + x.LevelFrom + '–' + x.LevelTo + ': ' + (t.Basis === 'Percent' ? x.Value + '% of the ' + t.Of.toLowerCase() : x.Value.toLocaleString('en-US') + ' a year')).join('; ')) +
+        (Object.keys(t.Exceptions || {}).length ? ' <span class="text-slate-500">(+' + Object.keys(t.Exceptions).length + ' exception)</span>' : '') + '</td><td class="py-2 px-3 text-xs">' + (t.PaidAtLeaving ? 'Paid' : 'Lapses') + '</td><td class="py-2 px-3 text-xs">' + statusHtml(t.Active) + '</td></tr>').join('') ||
+        '<tr><td colspan="5" class="py-4 px-3 text-xs text-slate-500">No accruals yet.</td></tr>';
+      $('ps-at-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => { if (pv.canWrite) editAccrual(tr.dataset.id); }));
+      document.querySelectorAll('#ps-pane-provisions .ps-write').forEach(b => b.classList.toggle('hidden', !r.canWrite));
+      document.querySelectorAll('.ps-pv-f').forEach(x => { x.disabled = !r.canWrite; });
+    }, err => appAlert(err.message || 'Unable to load the provisions.'));
+  }
+  const slabRow = x => '<tr class="ps-gr-row"><td class="pr-2"><input class="ps-pv-f ps-gr-from w-20 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" type="number" step="0.5" value="' + (x.FromYear == null ? '' : x.FromYear) + '"></td>' +
+    '<td class="pr-2"><input class="ps-pv-f ps-gr-to w-20 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" type="number" step="0.5" placeholder="no end" value="' + (x.ToYear == null ? '' : x.ToYear) + '"></td>' +
+    '<td class="pr-2"><input class="ps-pv-f ps-gr-days w-20 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" type="number" step="0.5" value="' + (x.Days == null ? '' : x.Days) + '"></td>' +
+    '<td><button class="ps-pv-f ps-row-del text-xs text-red-400"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  function renderCompanyProvisions() {
+    const st = pv.settings.find(x => x.CompanyID === val('ps-pv-company')) || pv.settings[0];
+    if (!st) return;
+    const co = st.CompanyID, g = st.Gratuity, l = st.LeaveSalary;
+    const mine = type => pv.accounts.filter(a => a.AccountType === type && (!a.CompanyID || a.CompanyID === co));
+    $('ps-gr-on').checked = g.Enabled; $('ps-gr-base').value = g.Base; $('ps-gr-day').value = g.DayRule; $('ps-gr-min').value = g.MinYears; $('ps-gr-cap').value = g.CapYears == null ? '' : g.CapYears; $('ps-gr-starts').value = g.StartsFrom;
+    $('ps-gr-slabs').innerHTML = (g.Slabs || []).map(slabRow).join('');
+    $('ps-gr-exp').innerHTML = accOpts(mine('Expense'), g.ExpenseAccountID); $('ps-gr-pro').innerHTML = accOpts(mine('Liability'), g.ProvisionAccountID);
+    $('ps-ls-on').checked = l.Enabled; $('ps-ls-base').value = l.Base;
+    $('ps-ls-exp').innerHTML = accOpts(mine('Expense'), l.ExpenseAccountID); $('ps-ls-pro').innerHTML = accOpts(mine('Liability'), l.ProvisionAccountID);
+    document.querySelectorAll('.ps-pv-f').forEach(x => { x.disabled = !pv.canWrite; });
+  }
+  function saveCompanyProvisions() {
+    const slabs = [...document.querySelectorAll('#ps-gr-slabs .ps-gr-row')].map(tr => ({ FromYear: tr.querySelector('.ps-gr-from').value, ToYear: tr.querySelector('.ps-gr-to').value, Days: tr.querySelector('.ps-gr-days').value }));
+    call('saveProvisionSettings', { companyId: val('ps-pv-company'),
+      gratuity: { Enabled: $('ps-gr-on').checked, Base: val('ps-gr-base'), DayRule: val('ps-gr-day'), MinYears: val('ps-gr-min'), CapYears: val('ps-gr-cap'), StartsFrom: val('ps-gr-starts'), Slabs: slabs,
+        ExpenseAccountID: val('ps-gr-exp'), ProvisionAccountID: val('ps-gr-pro') },
+      leaveSalary: { Enabled: $('ps-ls-on').checked, Base: val('ps-ls-base'), ExpenseAccountID: val('ps-ls-exp'), ProvisionAccountID: val('ps-ls-pro') } })
+      .then(() => loadProvisions(), err => appAlert(err.message || 'Unable to save.'));
+  }
+  const ruleRow = x => '<tr class="ps-at-rule"><td class="pr-2"><input class="ps-at-lf w-16 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" type="number" value="' + (x.LevelFrom == null ? '' : x.LevelFrom) + '"></td>' +
+    '<td class="pr-2"><input class="ps-at-lt w-16 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" type="number" value="' + (x.LevelTo == null ? '' : x.LevelTo) + '"></td>' +
+    '<td class="pr-2"><input class="ps-at-v w-28 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" type="number" step="0.01" value="' + (x.Value == null ? '' : x.Value) + '"></td>' +
+    '<td><button class="ps-row-del text-xs text-red-400"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  const excRow = (emp, x) => '<tr class="ps-at-ex"><td class="pr-2"><select class="ps-at-emp bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm text-slate-300"><option value=""></option>' +
+    pv.employees.map(e => '<option value="' + escapeHtml(e.EmployeeID) + '"' + (e.EmployeeID === emp ? ' selected' : '') + '>' + escapeHtml(e.EmployeeNo + ' · ' + e.FullName) + '</option>').join('') + '</select></td>' +
+    '<td class="pr-2 text-center"><input class="ps-at-excl" type="checkbox"' + (x.Excluded ? ' checked' : '') + '></td>' +
+    '<td class="pr-2"><input class="ps-at-own w-28 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" type="number" step="0.01" value="' + (x.Value == null ? '' : x.Value) + '"></td>' +
+    '<td><button class="ps-row-del text-xs text-red-400"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  function atFields() {
+    $('ps-at-of-wrap').classList.toggle('hidden', val('ps-at-basis') !== 'Percent');
+    $('ps-at-val-head').textContent = val('ps-at-basis') === 'Percent' ? '% of the pay' : 'Amount a year';
+  }
+  function editAccrual(id) {
+    closeForms();
+    const t = pv.types.find(x => x.AccrualTypeID === id) || { Basis: 'Fixed', Of: 'Basic', Active: true, Rules: [{ LevelFrom: 1, LevelTo: 99 }], Exceptions: {} };
+    editing = id || null;
+    $('ps-at-name').value = t.Name || ''; $('ps-at-code').value = t.Code || ''; $('ps-at-basis').value = t.Basis; $('ps-at-of').value = t.Of || 'Basic';
+    $('ps-at-leaving').checked = Boolean(t.PaidAtLeaving); $('ps-at-active').checked = t.Active !== false;
+    const shared = type => pv.accounts.filter(a => a.AccountType === type && !a.CompanyID);
+    $('ps-at-exp').innerHTML = accOpts(shared('Expense'), t.ExpenseAccountID); $('ps-at-pro').innerHTML = accOpts(shared('Liability'), t.ProvisionAccountID);
+    $('ps-at-cos').innerHTML = companies.map(c => {
+      const mine = type => pv.accounts.filter(a => a.AccountType === type && (!a.CompanyID || a.CompanyID === c.CompanyID));
+      return '<tr><td class="py-1 pr-3 text-xs">' + escapeHtml(coLabel(c.CompanyID)) + '</td><td class="py-1 pr-3"><select class="ps-at-coexp bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm text-slate-300" data-co="' + escapeHtml(c.CompanyID) + '">' +
+        accOpts(mine('Expense'), (t.ExpenseByCompany || {})[c.CompanyID] || '') + '</select></td><td class="py-1"><select class="ps-at-copro bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm text-slate-300" data-co="' + escapeHtml(c.CompanyID) + '">' +
+        accOpts(mine('Liability'), (t.ProvisionByCompany || {})[c.CompanyID] || '') + '</select></td></tr>';
+    }).join('');
+    $('ps-at-rules').innerHTML = (t.Rules || []).map(ruleRow).join('');
+    $('ps-at-exc').innerHTML = Object.entries(t.Exceptions || {}).map(([emp, x]) => excRow(emp, x)).join('');
+    atFields();
+    $('ps-at-form').classList.remove('hidden');
+  }
+  function saveAccrual() {
+    const by = cls => { const o = {}; document.querySelectorAll('.' + cls).forEach(sel => { o[sel.dataset.co] = sel.value; }); return o; };
+    const exceptions = {};
+    document.querySelectorAll('#ps-at-exc .ps-at-ex').forEach(tr => { const emp = tr.querySelector('.ps-at-emp').value; if (emp) exceptions[emp] = { Excluded: tr.querySelector('.ps-at-excl').checked, Value: tr.querySelector('.ps-at-own').value }; });
+    call('saveAccrualType', { accrualType: { AccrualTypeID: editing || '', Name: val('ps-at-name'), Code: val('ps-at-code'), Basis: val('ps-at-basis'), Of: val('ps-at-of'), PaidAtLeaving: $('ps-at-leaving').checked,
+      Active: $('ps-at-active').checked, ExpenseAccountID: val('ps-at-exp'), ProvisionAccountID: val('ps-at-pro'), ExpenseByCompany: by('ps-at-coexp'), ProvisionByCompany: by('ps-at-copro'),
+      Rules: [...document.querySelectorAll('#ps-at-rules .ps-at-rule')].map(tr => ({ LevelFrom: tr.querySelector('.ps-at-lf').value, LevelTo: tr.querySelector('.ps-at-lt').value, Value: tr.querySelector('.ps-at-v').value })),
+      Exceptions: exceptions } }).then(() => { closeForms(); return loadProvisions(); }, err => appAlert(err.message || 'Unable to save.'));
+  }
+
+  function closeForms() { ['ps-el-form', 'ps-pe-form', 'ps-pf-form', 'ps-lt-form', 'ps-at-form'].forEach(id => $(id).classList.add('hidden')); editing = null; pfEditing = null; }
   function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
 
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> Payroll Setup';
-    $('ps-tabs').addEventListener('click', e => { const b = e.target.closest('.ps-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'payroll') loadPayroll(); if (b.dataset.tab === 'files') loadFormats(); if (b.dataset.tab === 'loans') loadLoanTypes(); } });
+    $('ps-tabs').addEventListener('click', e => { const b = e.target.closest('.ps-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'payroll') loadPayroll(); if (b.dataset.tab === 'files') loadFormats(); if (b.dataset.tab === 'loans') loadLoanTypes(); if (b.dataset.tab === 'provisions') loadProvisions(); } });
     $('ps-pc-body').addEventListener('change', e => { const tr = e.target.closest('tr[data-co]'); if (tr && e.target.closest('.ps-pc-method')) companyExample(tr); });
     $('ps-pc-body').addEventListener('click', e => {
       const b = e.target.closest('.ps-pc-save'); if (!b) return;
@@ -406,6 +557,15 @@
     $('ps-pf-new').addEventListener('click', () => editFormat(null));
     $('ps-lt-new').addEventListener('click', () => editLoanType(''));
     $('ps-lt-save').addEventListener('click', saveLoanType);
+    $('ps-pv-company').addEventListener('change', renderCompanyProvisions);
+    $('ps-pv-save').addEventListener('click', saveCompanyProvisions);
+    $('ps-gr-add').addEventListener('click', () => $('ps-gr-slabs').insertAdjacentHTML('beforeend', slabRow({})));
+    $('ps-at-new').addEventListener('click', () => editAccrual(''));
+    $('ps-at-save').addEventListener('click', saveAccrual);
+    $('ps-at-basis').addEventListener('change', atFields);
+    $('ps-at-rule-add').addEventListener('click', () => $('ps-at-rules').insertAdjacentHTML('beforeend', ruleRow({})));
+    $('ps-at-exc-add').addEventListener('click', () => $('ps-at-exc').insertAdjacentHTML('beforeend', excRow('', {})));
+    ['ps-gr-slabs', 'ps-at-rules', 'ps-at-exc'].forEach(id => $(id).addEventListener('click', e => { const b = e.target.closest('.ps-row-del'); if (b) b.closest('tr').remove(); }));
     $('ps-pf-type').addEventListener('change', pfTypeFields);
     $('ps-pf-preview').addEventListener('click', previewFormat);
     $('ps-pf-save').addEventListener('click', saveFormat);
