@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const calc = require('../../src/payrollCalc');
+const round2 = n => Math.round(n * 100) / 100;
 
 const EL = {
   b: { ElementID: 'b', Code: 'BASIC', Name: 'Basic Salary', Kind: 'Earning', Nature: 'Fixed', IsBasic: true, Prorated: true, InGross: true },
@@ -156,4 +157,39 @@ test('loans (step 4b): the balance, what a month asks (start, skips, instalment 
   r = run({ inputs: [{ ElementID: 'fine', Amount: 8600 }], loans: [{ LoanID: 'L1', LoanNumber: 'LN-0001', TypeName: 'Personal loan', Due: 500, Balance: 1800 }, { LoanID: 'L2', LoanNumber: 'LN-0002', TypeName: 'Advance', Due: 300, Balance: 300 }] });
   assert.deepEqual([amt(r, 'LOAN'), r.Net, r.Lines.filter(l => l.Source === 'Loan').length], [400, 0, 1]);
   assert.match(r.Warnings.join(' '), /LN-0001: 400\.00 of the 500\.00 instalment recovered[\s\S]*LN-0002: 0\.00 of the 300\.00/);
+});
+
+test('gratuity (step 5, owner point 1, decision 28): the UAE slabs, a day as basic × 12 ÷ 365, the 2-year cap; from day one or after the first year', () => {
+  // 1,826 days (2021-01-01 to 2025-12-31, a leap year in it) = 5.0027 years: 5 × 21 + 0.0027 × 30 days.
+  let g = calc.gratuityFor({}, { base: 10000, joinDate: '2021-01-01', asOf: '2025-12-31', provision: true });
+  assert.deepEqual([g.serviceDays, g.amount], [1826, 34547.57]);
+  assert.equal(g.text, '5.00 years: 5 × 21 + 0.003 × 30 = 105.08 days × 328.77 = 34,547.57');
+  // Unpaid days don't count as service.
+  assert.equal(calc.gratuityFor({}, { base: 10000, joinDate: '2021-01-01', asOf: '2025-12-31', unpaidDays: 1, provision: true }).serviceDays, 1825);
+  // Under a year: none, unless the provision starts from day one (never in a settlement).
+  const young = { base: 10000, joinDate: '2025-06-01', asOf: '2025-12-31' };
+  assert.equal(calc.gratuityFor({}, Object.assign({ provision: true }, young)).amount, 0);
+  assert.equal(calc.gratuityFor({ StartsFrom: 'DayOne' }, Object.assign({ provision: true }, young)).amount, round2(214 / 365 * 21 * 10000 * 12 / 365));
+  assert.equal(calc.gratuityFor({ StartsFrom: 'DayOne' }, young).amount, 0, 'a settlement under a year');
+  // Long service: capped at 2 years' basic.
+  g = calc.gratuityFor({}, { base: 10000, joinDate: '1995-01-01', asOf: '2025-12-31', provision: true });
+  assert.deepEqual([g.amount, /capped at 2 years' pay/.test(g.text)], [240000, true]);
+  // The company's own: ÷ 30, no cap, different slabs.
+  g = calc.gratuityFor({ DayRule: 'Company', CapYears: null, MinYears: 0, Slabs: [{ FromYear: 0, ToYear: null, Days: 30 }] }, { base: 9000, joinDate: '2024-01-01', asOf: '2024-12-30', method: 'DIV30', month: '2024-12', provision: true });
+  assert.equal(g.amount, round2(365 / 365 * 30 * 300));
+});
+
+test('leave salary (owner point 2, decision 30) and accruals (owner point 3, decision 32)', () => {
+  assert.deepEqual(calc.leaveSalaryFor({ days: 12.5, base: 6000, method: 'DIV30', month: '2026-07' }), { amount: 2500, text: '12.5 days × 200.00 = 2,500.00' });
+  assert.equal(calc.leaveSalaryFor({ days: 10, base: 6200, method: 'MONTHDAYS', month: '2026-07' }).amount, 2000);
+  const flight = { Basis: 'Fixed', Rules: [{ LevelFrom: 1, LevelTo: 5, Value: 2400 }, { LevelFrom: 6, LevelTo: 99, Value: 6000 }], Exceptions: { E9: { Excluded: true }, E8: { Value: 1200 } } };
+  const x = { level: 3, basic: 6000, gross: 9000, employedDays: 31, monthDays: 31, employeeId: 'E1' };
+  assert.deepEqual(calc.accrualShareFor(flight, x), { amount: 200, text: '2,400.00 a year ÷ 12 = 200.00' });
+  assert.equal(calc.accrualShareFor(flight, Object.assign({}, x, { level: 7 })).amount, 500);
+  assert.equal(calc.accrualShareFor(flight, Object.assign({}, x, { employedDays: 15 })).amount, round2(200 * 15 / 31));
+  assert.equal(calc.accrualShareFor(flight, Object.assign({}, x, { employeeId: 'E9' })).amount, 0, 'excluded');
+  assert.equal(calc.accrualShareFor(flight, Object.assign({}, x, { employeeId: 'E8' })).amount, 100, 'their own amount');
+  assert.equal(calc.accrualShareFor(flight, Object.assign({}, x, { level: null })).amount, 0, 'no grade, no rule');
+  const edu = { Basis: 'Percent', Of: 'Basic', Rules: [{ LevelFrom: 1, LevelTo: 99, Value: 5 }] };
+  assert.deepEqual(calc.accrualShareFor(edu, x), { amount: 300, text: '3,600.00 a year (5% of the basic) ÷ 12 = 300.00' });
 });
