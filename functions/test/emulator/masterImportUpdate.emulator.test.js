@@ -69,7 +69,8 @@ test('checked: the key, locked columns, clearing a required one, managers across
 });
 
 test('updated: only the pasted columns; a blank keeps, "-" clears; unchanged rows skipped; each change in the history', async () => {
-  const rows = [['Employee No.', 'Line Manager', 'Mobile', 'Work Email'], ['EMP-0002', 'EMP-0001', '', '-'], ['EMP-0003', 'Sara Khan', '055 222', ''], ['EMP-0001', '', '', '']];
+  // Sara's row pastes her mobile as it already is: not a change, not saved.
+  const rows = [['Employee No.', 'Line Manager', 'Mobile', 'Work Email'], ['EMP-0002', 'EMP-0001', '', '-'], ['EMP-0003', 'Sara Khan', '055 222', ''], ['EMP-0001', '', '050 111', '']];
   const c = await check(rows);
   assert.deepEqual(c.issues, []);
   assert.deepEqual(c.changes, [
@@ -81,6 +82,8 @@ test('updated: only the pasted columns; a blank keeps, "-" clears; unchanged row
   assert.deepEqual([ali.ManagerID, ali.Mobile, ali.WorkEmail, ali.IBAN], [E.sara, '050 111', '', 'AE070331234567890123456']);
   assert.deepEqual([ben.ManagerID, ben.Mobile, ben.WorkEmail], [E.sara, '055 222', 'ben@x.test']);
   assert.equal(sara.ManagerID || '', '');
+  const saraEdits = (await firestore.collection('employeeHistory').where('EmployeeID', '==', E.sara).get()).docs.filter(d => d.data().Action === 'Edit');
+  assert.equal(saraEdits.length, 0, 'an unchanged row is not saved');
   const h = (await firestore.collection('employeeHistory').where('EmployeeID', '==', E.ali).get()).docs.map(d => d.data()).filter(x => x.Action === 'Edit');
   assert.deepEqual(h.map(x => [x.Reason, x.Changes.map(c => c.Label + ': ' + c.To)]), [['Import (update)', ['Work email: ', 'Line manager: Sara Khan']]]);
   const log = Object.values(await val('masterImports')).pop();
