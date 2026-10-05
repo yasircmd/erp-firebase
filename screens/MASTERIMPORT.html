@@ -11,7 +11,15 @@
         <label class="block text-xs font-medium text-slate-300 mb-1">Import</label>
         <select id="mimp-master" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">Select...</option></select>
       </div>
-      <div class="flex gap-2">
+      <div id="mimp-mode-wrap" class="hidden">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Rows</label>
+        <div class="flex gap-3 text-xs text-slate-300 py-2">
+          <label class="flex items-center gap-1.5"><input type="radio" name="mimp-mode" id="mimp-mode-add" value="add" checked> Add new</label>
+          <label class="flex items-center gap-1.5"><input type="radio" name="mimp-mode" id="mimp-mode-update" value="update"> Update existing</label>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button id="mimp-copy-records" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-table-list"></i> Copy current records</button>
         <button id="mimp-copy-headers" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy headers</button>
         <button id="mimp-copy-sample" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy headers with a sample row</button>
       </div>
@@ -62,6 +70,8 @@
 (function () {
   // Master Data Import (owner, 2026-10-02; docs/modules/MASTER_IMPORT.md).
   let specs = [];
+  // Update existing (Part 3, owner 2026-10-05): a key column finds each
+  // record; only the pasted columns change.
   let checkedText = null; // the paste that last checked clean: only that one imports
 
   function escapeHtml(value) {
@@ -71,6 +81,10 @@
   }
   const el = id => document.getElementById(id);
   const current = () => specs.find(s => s.key === el('mimp-master').value) || null;
+  const updating = () => { const s = current(); return Boolean(s && s.update && el('mimp-mode-update').checked); };
+  // The columns for the mode: Update has the key first, then what can change.
+  const columnsOf = spec => (updating() ? [{ header: spec.update.key, required: true, note: 'Which record the row changes.', values: [] }]
+    .concat(spec.update.columns.map(c => Object.assign({}, c, { required: false }))) : spec.columns);
 
   function setStatus(text, kind) {
     const s = el('mimp-status');
@@ -82,11 +96,17 @@
   function renderSpec() {
     const spec = current();
     el('mimp-copy-headers').disabled = el('mimp-copy-sample').disabled = !spec;
-    el('mimp-note').classList.toggle('hidden', !(spec && spec.note));
-    el('mimp-note').textContent = spec ? spec.note : '';
-    el('mimp-password-wrap').classList.toggle('hidden', !(spec && spec.needsPassword));
+    if (!(spec && spec.update)) el('mimp-mode-add').checked = true;
+    el('mimp-mode-wrap').classList.toggle('hidden', !(spec && spec.update));
+    const upd = updating();
+    el('mimp-copy-records').classList.toggle('hidden', !upd);
+    el('mimp-copy-sample').classList.toggle('hidden', upd);
+    const note = spec ? (upd ? spec.update.note : spec.note) : '';
+    el('mimp-note').classList.toggle('hidden', !note);
+    el('mimp-note').textContent = note;
+    el('mimp-password-wrap').classList.toggle('hidden', !(spec && spec.needsPassword) || upd);
     el('mimp-columns-wrap').classList.toggle('hidden', !spec);
-    el('mimp-columns').innerHTML = spec ? spec.columns.map(c => `
+    el('mimp-columns').innerHTML = spec ? columnsOf(spec).map(c => `
       <tr>
         <td class="py-1.5 px-2 text-slate-200 whitespace-nowrap">${escapeHtml(c.header)}</td>
         <td class="py-1.5 px-2">${c.required ? '<span class="text-amber-300">Required</span>' : '<span class="text-slate-500">Optional</span>'}</td>
@@ -127,10 +147,14 @@
     const byRow = {};
     issues.forEach(i => { (byRow[i.row] = byRow[i.row] || []).push(i); });
     el('mimp-preview-wrap').classList.toggle('hidden', !(result.headers || []).length);
-    el('mimp-preview-head').innerHTML = '<tr><th class="py-2 px-2">Row</th>' + (result.headers || []).map(h => `<th class="py-2 px-2 whitespace-nowrap">${escapeHtml(h)}</th>`).join('') + '</tr>';
+    const changes = result.changes || null;
+    el('mimp-preview-head').innerHTML = '<tr><th class="py-2 px-2">Row</th>' + (changes ? '<th class="py-2 px-2">Changes</th>' : '') +
+      (result.headers || []).map(h => `<th class="py-2 px-2 whitespace-nowrap">${escapeHtml(h)}</th>`).join('') + '</tr>';
     el('mimp-preview-body').innerHTML = (result.rows || []).map((cells, i) => {
       const bad = byRow[i + 1];
-      return `<tr class="${bad ? 'bg-red-500/10' : ''}" data-row="${i + 1}"><td class="py-1.5 px-2 text-slate-500">${i + 1}</td>` +
+      const ch = changes ? (changes[i] || []) : null;
+      const chCell = ch ? `<td class="py-1.5 px-2 whitespace-nowrap ${ch.length ? 'text-emerald-300' : 'text-slate-500'}">${ch.length ? ch.map(x => escapeHtml(x.column + ': ' + (x.from || '(empty)') + ' → ' + (x.to || '(empty)'))).join('<br>') : 'No change'}</td>` : '';
+      return `<tr class="${bad ? 'bg-red-500/10' : ''}" data-row="${i + 1}"><td class="py-1.5 px-2 text-slate-500">${i + 1}</td>` + chCell +
         (result.headers || []).map((h, c) => {
           const flagged = bad && bad.some(x => x.column && x.column.toLowerCase() === String(h).replace(/\*$/, '').trim().toLowerCase());
           return `<td class="py-1.5 px-2 whitespace-nowrap ${flagged ? 'text-red-300 font-semibold' : 'text-slate-300'}">${escapeHtml(cells[c] || '')}</td>`;
@@ -159,12 +183,20 @@
         renderPreview(result);
         const n = (result.rows || []).length;
         if ((result.issues || []).length) { setStatus('Not ready to import.', 'error'); return; }
+        if (result.changes) {
+          const k = result.changes.filter(c => c.length).length;
+          if (!k) { setStatus(n + (n === 1 ? ' row' : ' rows') + ' checked: nothing to change.', 'ok'); return; }
+          checkedText = text;
+          el('mimp-import').disabled = false;
+          setStatus(n + (n === 1 ? ' row' : ' rows') + ' checked, no issues: ' + k + (k === 1 ? ' record changes' : ' records change') + (n - k ? ', ' + (n - k) + ' unchanged' : '') + '. Ready to update.', 'ok');
+          return;
+        }
         checkedText = text;
         el('mimp-import').disabled = false;
         setStatus(n + (n === 1 ? ' row' : ' rows') + ' checked, no issues. Ready to import.', 'ok');
       })
       .withFailureHandler(err => { el('mimp-check').disabled = false; setStatus(''); appAlert(err.message || 'Unable to check.'); })
-      .checkMasterImport({ master: spec.key, text: text, tempPassword: el('mimp-password').value });
+      .checkMasterImport({ master: spec.key, text: text, tempPassword: el('mimp-password').value, mode: updating() ? 'update' : 'add' });
   }
 
   async function doImport() {
@@ -172,7 +204,8 @@
     const text = el('mimp-paste').value;
     if (!spec || checkedText === null || text !== checkedText) { appAlert('Check the paste again before importing.'); el('mimp-import').disabled = true; return; }
     const n = el('mimp-preview-body').rows.length;
-    if (!(await appConfirm('Import ' + n + (n === 1 ? ' row' : ' rows') + ' into ' + spec.label + '?'))) return;
+    const upd = updating();
+    if (!(await appConfirm(upd ? 'Update ' + spec.label + ' from ' + n + (n === 1 ? ' row' : ' rows') + '?' : 'Import ' + n + (n === 1 ? ' row' : ' rows') + ' into ' + spec.label + '?'))) return;
     el('mimp-import').disabled = true; el('mimp-check').disabled = true;
     setStatus('Importing...');
     rpc
@@ -180,7 +213,7 @@
         el('mimp-check').disabled = false;
         if (!result.success) {
           renderIssues(result.issues || []);
-          setStatus('Nothing was imported.', 'error');
+          setStatus(upd ? 'Nothing was changed.' : 'Nothing was imported.', 'error');
           checkedText = null;
           return;
         }
@@ -188,18 +221,31 @@
         el('mimp-paste').value = '';
         el('mimp-preview-wrap').classList.add('hidden');
         el('mimp-issues-wrap').classList.add('hidden');
+        if (upd) { setStatus(result.updated + (result.updated === 1 ? ' record' : ' records') + ' updated in ' + spec.label + '.', 'ok'); return; }
         const codes = result.codes && result.codes.length ? ' Codes given: ' + result.codes[0] + (result.codes.length > 1 ? ' to ' + result.codes[result.codes.length - 1] : '') + '.' : '';
         el('mimp-password').value = '';
         setStatus(result.rows + (result.rows === 1 ? ' row' : ' rows') + ' imported into ' + spec.label + '.' + codes, 'ok');
       })
       .withFailureHandler(err => { el('mimp-check').disabled = false; setStatus(''); appAlert(err.message || 'Unable to import.'); })
-      .runMasterImport({ master: spec.key, text: text, tempPassword: el('mimp-password').value });
+      .runMasterImport({ master: spec.key, text: text, tempPassword: el('mimp-password').value, mode: upd ? 'update' : 'add' });
   }
 
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-import"></i> Master Data Import';
     el('mimp-master').addEventListener('change', renderSpec);
-    el('mimp-copy-headers').addEventListener('click', e => { const s = current(); if (s) copy(s.columns.map(c => c.header).join('\t'), e.currentTarget); });
+    el('mimp-copy-headers').addEventListener('click', e => { const s = current(); if (s) copy(columnsOf(s).map(c => c.header).join('\t'), e.currentTarget); });
+    ['mimp-mode-add', 'mimp-mode-update'].forEach(id => el(id).addEventListener('change', renderSpec));
+    el('mimp-copy-records').addEventListener('click', e => {
+      const s = current(), btn = e.currentTarget;
+      if (!s) return;
+      btn.disabled = true;
+      rpc.withSuccessHandler(r => {
+        btn.disabled = false;
+        copy(r.text, btn);
+        setStatus(r.count + (r.count === 1 ? ' record' : ' records') + ' copied: paste them into Excel, change what you need, then paste the rows back here.' +
+          (r.sensitiveLeftOut ? ' Bank columns are left out (they need the sensitive right).' : ''), 'ok');
+      }).withFailureHandler(err => { btn.disabled = false; appAlert(err.message || 'Unable to copy the records.'); }).getMasterImportRecords({ master: s.key });
+    });
     el('mimp-copy-sample').addEventListener('click', e => { const s = current(); if (s) copy(s.columns.map(c => c.header).join('\t') + '\n' + s.sample.join('\t'), e.currentTarget); });
     el('mimp-paste').addEventListener('input', () => { if (checkedText !== null && el('mimp-paste').value !== checkedText) resetResult(); });
     el('mimp-password').addEventListener('input', () => { if (checkedText !== null) resetResult(); });

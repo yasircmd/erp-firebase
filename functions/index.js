@@ -170,7 +170,8 @@ exports.delegateApproval = delegateApproval;
 exports.delegateApprovalsOf = delegateApprovalsOf;
 
 // Master Data Import from Excel (docs/modules/MASTER_IMPORT.md).
-const { getMasterImportSpecs, checkMasterImport, runMasterImport } = require('./src/masterImport');
+const { getMasterImportSpecs, checkMasterImport, runMasterImport, getMasterImportRecords } = require('./src/masterImport');
+exports.getMasterImportRecords = getMasterImportRecords;
 exports.getMasterImportSpecs = getMasterImportSpecs;
 exports.checkMasterImport = checkMasterImport;
 exports.runMasterImport = runMasterImport;
