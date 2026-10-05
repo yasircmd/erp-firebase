@@ -426,3 +426,99 @@ equally valid here."
   again, and Write-off of any type.
 - **Deploy:** "functions set", set `master-import-item-accounts`. No
   screens.
+
+## Part 3 design: updating existing records (proposed 2026-10-05)
+
+### The request (owner, 2026-10-05)
+
+"One suggestion in Master Data Import to update existing record: I
+created 40 employees, now I need to update their line manager. Plan how
+to make it possible, not only for Employees but other modules too."
+
+Today each row creates a new record (decision 1: "existing records are
+edited on their own screens"), so 40 line managers mean 40 records
+opened by hand.
+
+### The idea: a second mode, "Update existing"
+
+On Master Data Import, after choosing the master:
+- **Add new** (as today), or **Update existing** (new).
+- In Update mode the sheet's **first column is the key**: the record's
+  own code (Employee No. EMP-0001, Item Code, Vendor Code, Account Code,
+  Org Unit code, UOM code, ...). A name is not accepted as the key: names
+  change and can repeat.
+- **Only the columns you paste are changed.** A sheet of two columns,
+  `Employee No.` and `Line Manager`, changes the line manager of those
+  employees and nothing else. Headers are matched as today.
+- **Blank cells:** question 40.
+- **Copy current records** (question 42): the screen gives the master's
+  existing records as a sheet, with the key and the current values,
+  ready to edit in Excel and paste back.
+
+### How a row is updated (same rules as the screen)
+
+- The record is found by its key (in the user's companies); an unknown
+  key is an issue on that row.
+- Its current values are read, the pasted columns laid over them, and the
+  result is saved **through the master's own save, with its id**: the
+  same function the edit screen calls. Every rule (references, types,
+  unique names, accounts, rights) applies exactly as on the screen.
+- References in the sheet work as today: by code or exact name, including
+  another record in the same paste (e.g. a line manager who is updated in
+  an earlier row).
+- **All or nothing** (decision 2): every row is checked first; if a save
+  still fails, the rows already saved in that run are put back to their
+  values from before the run.
+- The preview lists, per row, what changes: "EMP-0007 · Line Manager:
+  (none) → EMP-0002 Sara Khan". Rows with no change are skipped and
+  counted.
+- **History:** where the master keeps one (Employees, Fixed Asset Master),
+  each change is written to it as "Import (update)".
+
+### What can't be changed by an update
+
+Fields a record locks after it is created, on its own screen, stay locked
+here, and the column is refused in Update mode with the reason:
+- **Employees:** company, designation, grade, division, branch, cost
+  center (through Employee Changes, which carry dates and approvals); the
+  employee number; pay (not in the sheet); bank columns only with the
+  "sensitive" right, as today.
+- **System codes** (item, account, vendor, customer codes, the company's
+  Ref Code): they are the key, never changed.
+- **Accounts:** type and parent once entries are posted, as COA Master.
+- **Items:** category (it makes the code), as Item Master.
+- **Users:** password (not in the sheet); role and companies change as on
+  User Management.
+- Openings (leave balances, opening provisions) aren't updated by import:
+  they are corrected with an adjustment, as today.
+
+### Which masters (question 43)
+
+All the masters that have an edit screen today:
+- **Part 1:** Company, Org Units, Chart of Accounts, UOM, Item
+  Sub-Category, Items, Vendors, Customers, Currencies;
+- **Part 2:** Customer Classifications, Sales Types, Requisition
+  Categories, Fixed Asset Classes and Master, Inventory Valuation List,
+  Price Lists, Users, Employees.
+
+BOM and price lists have several rows per record: an update would replace
+the whole BOM / list from its rows (as their screens save them whole).
+
+### Rights
+
+The same right as editing the record on its own screen (e.g. Employees
+"write"; Item Master "write"). Without it, Update mode isn't offered for
+that master.
+
+### Open questions for the owner
+
+40. **Blank cells in Update mode:** *keep the current value* (a blank
+    means "no change"; to clear a value, type `-`)? Or *clear it* (the
+    sheet is the full truth for its columns)?
+41. **The key:** the record's *code only* (Employee No., Item Code, ...)?
+    Or also *an exact name* when it is unique?
+42. **Copy current records:** add a button that gives the existing
+    records (key + current values) as a sheet to edit and paste back? It
+    also works as an export of each master.
+43. **Scope and order:** *Employees first*, in its own small step (your
+    line managers now), then the other masters? Or *all masters at once*?
