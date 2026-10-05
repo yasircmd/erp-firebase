@@ -866,3 +866,8 @@ from, and how it was verified. The deploy procedure is in the
     07:26–07:27 UTC, from `a3b6ae7`: the screens release.
   - In the app (owner, still to do): the payroll set-up listed in
     ROADMAP → "Waiting to go live".
+- **2026-10-05, Master Data Import 3a, update existing Employees (PR #85):**
+  run [#94](https://github.com/yasircmd/erp-firebase/actions/runs/37302114785),
+  11:18–11:20 UTC, from `6d41244` (the PR #85 merge), success: functions
+  set `master-import-3a` with the screens. The owner tested it (line
+  managers updated; the org chart shows them).

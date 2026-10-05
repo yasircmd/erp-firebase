@@ -634,3 +634,55 @@ nothing).
 | 13 | BOM, Inventory Valuation, Price Lists | **No update option.** |
 | 14 | Users | **Included:** full name, role, companies; email locked. |
 | — | The locked columns | **As proposed** in the table above. |
+
+## As built, Part 3b: updating the other masters (2026-10-05)
+
+**Update existing** now covers every master with a code (decisions
+12–14), with the same rules as Employees (key = the code, only the pasted
+columns, blank keeps, `-` clears, Copy current records, all or nothing):
+
+| Master | Key | Locked |
+| --- | --- | --- |
+| Company | Ref Code | Tax Type, Tax Number (its tax numbers are kept as stored) |
+| Organizational Units | Code | Type, Company |
+| Chart of Accounts | Account Code | Account Type, Parent Account, Postable, Company |
+| Currencies | Code | — |
+| Unit of Measure | Code | — |
+| Items | Item Code | Category, Company |
+| Vendors | Vendor Code | Company |
+| Customers | Customer Code | Company |
+| Fixed Asset Classes | Code | Kind |
+| Fixed Asset Master | Asset No. | Company, Class |
+| Users | Username | Email; the status is kept as stored |
+| Employees (3a) | Employee No. | Company, division, branch, cost center, designation, grade, work schedule |
+
+- **No update option** (decisions 12–13): Item Sub-Categories, Customer
+  Classifications, Sales Types, Requisition Categories (no code), BOM,
+  Inventory Valuation, Price Lists (versions and lines by date), and the
+  openings (leave balances, provisions).
+- **Each row** is the record as stored with the pasted columns laid over
+  it, made into the form's data by the master's own import definition and
+  saved through **the master's own save, with the record's id**. So every
+  rule of its screen applies (accounts of the right type and company,
+  unique names, a vendor's Local/Foreign, a capitalized asset's rules). A
+  rule only the save knows stops the update at that row: nothing is
+  changed (the rows before it are put back).
+- **References** work as when adding, by code or exact name, among the
+  record's own company (accounts, classes, units) and, for an item's
+  sub-category, its category's.
+- **Users:** companies a user already has may stay even if the importer
+  can't see them; a company being added needs the importer's access.
+
+**Behind it:** `masterImport.js` `legacyUpdate` (one definition per
+master: key, id field, locked columns, what to keep) and `updateRows`
+(snapshot and put back, Realtime Database or Firestore).
+
+**Tests:**
+- the `masterImportUpdate2` suite (6): the specs; **Copy current records
+  pastes back unchanged for every master**; each locked column refused;
+  an update per master through its own save; rights and company access;
+  the undo;
+- `masterImportUpdate` (5) and `masterImportUpdate.ui.js` (4) updated;
+- negative controls (see the PR).
+
+**To go live:** "functions set" `master-import-3b` (no screen change).
