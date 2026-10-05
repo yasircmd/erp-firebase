@@ -11,36 +11,29 @@ fresh session can continue from GitHub.
 
 ## Waiting to go live (the owner's deploys and setup)
 
-Merged but not yet deployed (the owner, 2026-10-05: "deployment is
-pending payroll-4 onwards"). The Leave Register (`hr-leave-1`…`-4`) and
-payroll steps 0–3 went live on 2026-10-04 ([DEPLOY_LOG.md](DEPLOY_LOG.md)).
-Deploy in this order, each "functions set" first (the Deploy workflow),
-then the screens. Each set file's header lists its in-app steps. Remove
-an item once deployed and logged.
+Nothing is waiting to deploy: Payroll steps 4–5b went live on 2026-10-05
+(runs #89–#93, [DEPLOY_LOG.md](DEPLOY_LOG.md)), after the Leave Register
+and steps 0–3 on 2026-10-04. No Hosting deploy was needed (nothing in
+`public/` changed since run #84). Still to do before the first payroll:
 
-1. `payroll-4`: Payroll Setup, payment files, payment.
-2. `payroll-4b`: advances and loans.
-3. `payroll-5a`: provisions.
-4. `payroll-5b`: final settlements.
-5. Then, in the app:
-   - link menu nodes to Leave Register, Leave Reports, Payroll, Payroll
-     Setup, Loans & Advances and Final Settlements (any not linked yet);
-   - set the rights in Roles & Permissions: Payroll Setup (access,
-     write), Payroll (draft, post, pay), Loans & Advances (draft, pay),
-     Final Settlements (draft, post, pay);
-   - in Payroll Setup → Payroll, each company's daily rate, Salaries
-     Payable and Recoverable from employees, and each element's GL
-     account, including the three system deductions;
-   - in Payroll Setup → Payment Files, each company's bank file (from the
-     UAE WPS SIF); on employees, the WPS person ID and bank routing code;
-   - in Payroll Setup → Loans, the loan types and their receivable;
-   - the provision GL accounts; in Payroll Setup → Provisions, each
-     company's gratuity and leave salary, and the accruals; then import
-     the opening provisions (Master Data Import → Opening provisions);
-   - pay elements for notice pay (an earning, and a deduction for short
-     notice) with their GL accounts;
-   - the approvals wanted (Leave, Absence, Payroll run, Loan / advance,
-     Final settlement).
+- link menu nodes to Leave Register, Leave Reports, Payroll, Payroll
+  Setup, Loans & Advances and Final Settlements (any not linked yet);
+- set the rights in Roles & Permissions: Payroll Setup (access,
+  write), Payroll (draft, post, pay), Loans & Advances (draft, pay),
+  Final Settlements (draft, post, pay);
+- in Payroll Setup → Payroll, each company's daily rate, Salaries
+  Payable and Recoverable from employees, and each element's GL
+  account, including the three system deductions;
+- in Payroll Setup → Payment Files, each company's bank file (from the
+  UAE WPS SIF); on employees, the WPS person ID and bank routing code;
+- in Payroll Setup → Loans, the loan types and their receivable;
+- the provision GL accounts; in Payroll Setup → Provisions, each
+  company's gratuity and leave salary, and the accruals; then import
+  the opening provisions (Master Data Import → Opening provisions);
+- pay elements for notice pay (an earning, and a deduction for short
+  notice) with their GL accounts;
+- the approvals wanted (Leave, Absence, Payroll run, Loan / advance,
+  Final settlement).
 
 ## Modules in development
 
@@ -437,7 +430,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     cancel unchecked, and drafts shown to the team.
   - **To go live:** Deploy → "functions set", set `pr-visibility`. No
     screens.
-- [ ] **HR: Payroll** (owner, 2026-10-04; [HR_PAYROLL.md](modules/HR_PAYROLL.md)).
+- [x] **HR: Payroll** (owner, 2026-10-04; [HR_PAYROLL.md](modules/HR_PAYROLL.md)).
   The owner's points: a daily-rate method per company (÷30, ÷ month days,
   ×12÷365/366); each element linked to GL with the employee's cost
   center, lines clubbed as inventory; overtime fixed or by hours
@@ -494,7 +487,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     (10), `payrollPost` suite (5), `payrollPost.ui.js` (4). To go live:
     "functions set" `payroll-3` with the screens; set Recoverable from
     employees; the approval if wanted; the "post" right.
-  - **Step 4 built and tested 2026-10-04**, not yet live, with the owner's
+  - **Step 4 built and tested 2026-10-04**, live 2026-10-05, with the owner's
     request: a new **Payroll Setup** module (Pay Elements and Payroll
     moved from HR Setup, plus **Payment Files**, each company's bank file
     built field by field, delimited or fixed width, from a UAE WPS SIF
@@ -506,7 +499,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `payrollPayment.ui.js` (3). To go live: "functions set" `payroll-4`
     with the screens; the menu node; the rights; each company's bank
     file.
-  - **Step 4b built and tested 2026-10-04**, not yet live: advances and
+  - **Step 4b built and tested 2026-10-04**, live 2026-10-05: advances and
     loans (loan types with their receivable in Payroll Setup; a new
     Loans & Advances module: draft, approval, payout from Payroll, the
     schedule with skipped months and instalment changes, early
@@ -516,7 +509,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `payrollCalc.test.js` (11), `payrollLoans` suite (5),
     `payrollLoans.ui.js` (3). To go live: "functions set" `payroll-4b`
     with the screens (after `payroll-4`).
-  - **Step 5a built and tested 2026-10-05**, not yet live: provisions
+  - **Step 5a built and tested 2026-10-05**, live 2026-10-05: provisions
     (the owner's points 1-3; decisions 28-35 agreed). Payroll Setup →
     Provisions: per company, gratuity by slabs (the UAE rule to start:
     none under 1 year, 21 then 30 days a year, × 12 ÷ 365, capped at 2
@@ -531,7 +524,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `payrollProvisions` suite (5), `hrLeave` suite (8),
     `payrollProvisions.ui.js` (4). To go live: "functions set"
     `payroll-5a` with the screens (after `payroll-4b`).
-  - **Step 5b built and tested 2026-10-05**, not yet live: the final
+  - **Step 5b built and tested 2026-10-05**, live 2026-10-05: the final
     settlement (decisions 36-39 agreed). A new Final Settlements module:
     for an employee on notice or who has left, worked out on the leaving
     date (gratuity, the leave balance paid or a negative one deducted,
