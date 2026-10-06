@@ -136,28 +136,27 @@
       <button id="pr-in-paste-apply" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-1.5 rounded">Add these rows</button>
     </div>
   </div>
-  <!-- Payment (docs/modules/HR_PAYROLL.md, step 4) -->
+  <!-- Payment (docs/modules/HR_PAYROLL.md, step 4; the plan, step 6) -->
   <div id="pr-pay" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
     <div class="text-xs font-semibold text-slate-400 uppercase">Payment</div>
+    <p class="text-xs text-slate-500">Each employee is paid one way, from one account: by bank file, cash or cheque / transfer. They are grouped by account; each group is paid, with its own date and journal, and reversed, on its own.</p>
     <p id="pr-pay-done" class="hidden text-sm text-emerald-400"></p>
-    <div id="pr-pay-form" class="hidden space-y-3">
-      <div class="flex flex-wrap items-end gap-3">
-        <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment date</label><input id="pr-pay-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-        <div><label class="block text-xs font-medium text-slate-300 mb-1">Paid from (bank)</label><select id="pr-pay-bank" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
-        <div id="pr-pay-cash-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">Those without a bank account (cash / cheque)</label><select id="pr-pay-cash" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
-        <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference</label><input id="pr-pay-ref" maxlength="100" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-      </div>
-      <div class="flex flex-wrap items-end gap-3">
-        <div><label class="block text-xs font-medium text-slate-300 mb-1">Bank file</label><select id="pr-pay-format" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
-        <button id="pr-pay-file" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-file-arrow-down"></i> Download the file</button>
-        <button id="pr-pay-copy" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy the bank list</button>
-        <button id="pr-pay-mark" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg"><i class="fa-solid fa-check-double"></i> Mark paid</button>
-      </div>
+    <div id="pr-pay-form" class="hidden flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment date</label><input id="pr-pay-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference</label><input id="pr-pay-ref" maxlength="100" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Bank file</label><select id="pr-pay-format" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <button id="pr-pay-copy" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy the bank list</button>
     </div>
     <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase">
-      <th class="py-1 pr-4">No.</th><th class="py-1 pr-4">Employee</th><th class="py-1 pr-4">Paid by</th><th class="py-1 pr-4">Bank</th><th class="py-1 pr-4">Account no. / IBAN</th><th class="py-1 pr-4 text-right">Amount</th><th class="py-1">For the bank file</th></tr></thead>
+      <th class="py-1 pr-4">Paid by</th><th class="py-1 pr-4">From</th><th class="py-1 pr-4 text-right">Employees</th><th class="py-1 pr-4 text-right">Total</th><th class="py-1 pr-4">State</th><th class="py-1"></th></tr></thead>
+      <tbody id="pr-pay-groups" class="divide-y divide-slate-700"></tbody></table></div>
+    <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase">
+      <th class="py-1 pr-4">No.</th><th class="py-1 pr-4">Employee</th><th class="py-1 pr-4">Paid by</th><th class="py-1 pr-4">From</th><th class="py-1 pr-4">Bank</th><th class="py-1 pr-4">Account no. / IBAN</th><th class="py-1 pr-4 text-right">Amount</th><th class="py-1">State</th></tr></thead>
       <tbody id="pr-pay-list" class="divide-y divide-slate-700"></tbody><tfoot id="pr-pay-foot"></tfoot></table></div>
-    <button id="pr-pay-reverse" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-rotate-left"></i> Reverse the payment</button>
+    <div id="pr-pay-made-wrap" class="hidden">
+      <div class="text-xs font-semibold text-slate-400 uppercase pt-2">Payments</div>
+      <ul id="pr-pay-made" class="text-xs text-slate-300 space-y-1"></ul>
+    </div>
   </div>
   <div id="pr-history-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
     <div class="text-xs font-semibold text-slate-400 uppercase mb-2">History</div>
@@ -286,6 +285,15 @@
     $('pr-slip-warnings').innerHTML = s.Warnings.map(w => '<li><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(w) + '</li>').join('');
     $('pr-slip').dataset.emp = empId;
     $('pr-slip').classList.remove('hidden');
+  }
+
+
+  // From the GL report (step 6): a journal's id, opened as the document behind it.
+  function openFromJournal(jvId) {
+    return call('getPayrollJournalSource', { jvId: jvId }).then(src => {
+      if (src.ModuleID !== 'PAYROLL') return openModule(src.ModuleID, { OpenEntryId: src.ID });
+      return src.View === 'Provisions' ? openProvisions().then(() => { $('pr-prov-company').value = src.CompanyID; return loadProvisions(); }) : openRun(src.ID);
+    }, err => appAlert(err.message || 'Unable to open the journal\'s document.'));
   }
 
   // ---------- provisions (step 5a): balances and claims ----------
@@ -428,37 +436,52 @@
     });
   }
 
-  // ---------- payment (step 4; decisions 21-22) ----------
+  // ---------- payment (step 4; the plan, step 6, decision 47) ----------
   let payment = null;
   function loadPayment() {
     const id = current.run.RunID;
     return call('getPayrollPayment', { runId: id }).then(p => { if (!current || current.run.RunID !== id || !$('pr-pay')) return; payment = p; renderPayment(); },
       err => appAlert(err.message || 'Unable to load the payment.'));
   }
+  const acctName = id => { const a = payment.accounts.find(x => x.AccountID === id); return a ? a.AccountCode + ' — ' + a.AccountName : '(choose)'; };
+  // The accounts a way is paid from: cash from cash accounts, the others from banks.
+  const acctOptions = (way, sel) => payment.accounts.filter(a => (way === 'Cash' ? a.Kind === 'Cash' : a.Kind === 'Bank'))
+    .map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === sel ? ' selected' : '') + '>' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
   function renderPayment() {
     const p = payment, paid = Boolean(p.run.PaidAt), can = p.canPay && !paid;
-    const others = p.payees.filter(x => !x.ByBank);
     $('pr-pay').classList.remove('hidden');
     $('pr-pay-done').classList.toggle('hidden', !paid);
-    $('pr-pay-done').textContent = paid ? 'Paid on ' + p.run.PaymentDate + ': journal ' + p.run.PaymentJVNumber + '.' : '';
-    $('pr-pay-reverse').classList.toggle('hidden', !(paid && p.canPay));
+    $('pr-pay-done').textContent = paid ? 'Paid in full (the last on ' + p.run.PaymentDate + ').' : '';
     $('pr-pay-form').classList.toggle('hidden', !can);
-    const opts = list => list.map(a => '<option value="' + escapeHtml(a.AccountID) + '">' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
-    $('pr-pay-bank').innerHTML = opts(p.accounts.filter(a => a.Bank));
-    $('pr-pay-cash').innerHTML = opts(p.accounts);
-    $('pr-pay-cash-wrap').classList.toggle('hidden', !others.length);
     $('pr-pay-format').innerHTML = p.formats.map(f => '<option value="' + escapeHtml(f.FormatID) + '">' + escapeHtml(f.Name + (f.Bank ? ' (' + f.Bank + ')' : '')) + '</option>').join('') || '<option value="">None set up (Payroll Setup → Payment Files)</option>';
     if (!$('pr-pay-date').value) $('pr-pay-date').value = window.isoLocalDateTime(new Date()).slice(0, 10);
-    $('pr-pay-list').innerHTML = p.payees.map(x => '<tr><td class="py-1 pr-4 text-xs">' + escapeHtml(x.EmployeeNo) + '</td><td class="py-1 pr-4">' + escapeHtml(x.EmployeeName) + '</td>' +
-      '<td class="py-1 pr-4 text-xs">' + (x.ByBank ? 'Bank' : 'Cash / cheque') + '</td><td class="py-1 pr-4 text-xs">' + escapeHtml(x.BankName) + '</td><td class="py-1 pr-4 text-xs font-mono keep-iso">' + escapeHtml(x.IBAN) + '</td>' +
-      '<td class="py-1 pr-4 text-right">' + money(x.Net) + '</td><td class="py-1 text-xs text-amber-400">' + (x.ByBank && x.Missing.length ? 'no ' + escapeHtml(x.Missing.join(', ')) : '') + '</td></tr>').join('');
-    const sum = list => money(list.reduce((t, x) => t + x.Net, 0));
-    $('pr-pay-foot').innerHTML = '<tr class="border-t border-slate-700 font-semibold"><td class="py-1 pr-4" colspan="5">By bank ' + sum(p.payees.filter(x => x.ByBank)) + (others.length ? ' · cash / cheque ' + sum(others) : '') + '</td><td class="py-1 pr-4 text-right">' + sum(p.payees) + '</td><td></td></tr>';
+    $('pr-pay-groups').innerHTML = p.groups.map(g => '<tr data-way="' + escapeHtml(g.Way) + '" data-acct="' + escapeHtml(g.AccountID) + '"><td class="py-1 pr-4">' + escapeHtml(g.WayName) + '</td>' +
+      '<td class="py-1 pr-4 text-xs">' + escapeHtml(g.Account) + '</td><td class="py-1 pr-4 text-right">' + g.Count + '</td><td class="py-1 pr-4 text-right">' + money(g.Total) + '</td>' +
+      '<td class="py-1 pr-4 text-xs ' + (g.Unpaid ? 'text-amber-400' : 'text-emerald-400') + '">' + (g.Unpaid ? g.Unpaid + ' to pay (' + money(g.UnpaidTotal) + ')' : 'paid') + '</td>' +
+      '<td class="py-1 whitespace-nowrap">' + (p.canPay && g.Unpaid ? (g.Way === 'BankFile' ? '<button class="pr-g-file bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1 rounded border border-slate-700 mr-2"><i class="fa-solid fa-file-arrow-down"></i> Bank file</button>' : '') +
+        '<button class="pr-g-pay bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1 rounded"><i class="fa-solid fa-check-double"></i> Mark paid</button>' : '') + '</td></tr>').join('');
+    const editable = x => p.canPay && !x.Paid;
+    $('pr-pay-list').innerHTML = p.payees.map(x => '<tr data-emp="' + escapeHtml(x.EmployeeID) + '"><td class="py-1 pr-4 text-xs">' + escapeHtml(x.EmployeeNo) + '</td><td class="py-1 pr-4">' + escapeHtml(x.EmployeeName) + '</td>' +
+      '<td class="py-1 pr-4">' + (editable(x) ? '<select class="pr-w-way bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-slate-300">' +
+        Object.entries(p.ways).filter(([k]) => k !== 'BankFile' || x.ByBank).map(([k, v]) => '<option value="' + k + '"' + (k === x.Way ? ' selected' : '') + '>' + escapeHtml(v) + '</option>').join('') + '</select>' : escapeHtml(p.ways[x.Way] || x.Way)) + '</td>' +
+      '<td class="py-1 pr-4">' + (editable(x) ? '<select class="pr-w-acct bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-slate-300">' + acctOptions(x.Way, x.AccountID) + '</select>' : '<span class="text-xs">' + escapeHtml(acctName(x.AccountID)) + '</span>') + '</td>' +
+      '<td class="py-1 pr-4 text-xs">' + escapeHtml(x.BankName) + '</td><td class="py-1 pr-4 text-xs font-mono keep-iso">' + escapeHtml(x.IBAN) + '</td>' +
+      '<td class="py-1 pr-4 text-right">' + money(x.Net) + '</td><td class="py-1 text-xs">' + (x.Paid ? '<span class="text-emerald-400">paid (' + escapeHtml(x.Paid) + ')</span>' : x.Way === 'BankFile' && x.Missing.length ? '<span class="text-amber-400">no ' + escapeHtml(x.Missing.join(', ')) + '</span>' : '') + '</td></tr>').join('');
+    $('pr-pay-foot').innerHTML = '<tr class="border-t border-slate-700 font-semibold"><td class="py-1 pr-4" colspan="6">Total</td><td class="py-1 pr-4 text-right">' + money(p.payees.reduce((t, x) => t + x.Net, 0)) + '</td><td></td></tr>';
+    const made = p.payments.filter(x => !x.ReversedAt);
+    $('pr-pay-made-wrap').classList.toggle('hidden', !p.payments.length);
+    $('pr-pay-made').innerHTML = p.payments.map(x => '<li data-pay="' + escapeHtml(x.PaymentID) + '">' + escapeHtml(x.PaymentID + ': ' + x.PaymentDate + ' — ' + (p.ways[x.Way] || 'everyone') + (x.AccountID ? ' from ' + acctName(x.AccountID) : '') + ', ' + money(x.Amount) + ', journal ' + x.JVNumber + (x.Reference ? ', ' + x.Reference : '')) +
+      (x.ReversedAt ? ' <span class="text-red-400">reversed: ' + escapeHtml(x.ReversalReason || '') + '</span>' : p.canPay ? ' <button class="pr-p-rev text-red-400 ml-2"><i class="fa-solid fa-rotate-left"></i> Reverse</button>' : '') + '</li>').join('');
+    $('pr-pay-made-wrap').dataset.live = made.length;
   }
-  // The bank's file, saved by the browser (no popup).
-  function downloadFile() {
+  function planRows() {
+    return [...document.querySelectorAll('#pr-pay-list tr[data-emp]')].filter(tr => tr.querySelector('.pr-w-way')).map(tr => ({ EmployeeID: tr.dataset.emp, Way: tr.querySelector('.pr-w-way').value, AccountID: tr.querySelector('.pr-w-acct').value }));
+  }
+  const savePlan = () => call('savePaymentPlan', { runId: current.run.RunID, rows: planRows() });
+  // The bank's file for one bank account's group, saved by the browser (no popup).
+  function downloadFile(accountId) {
     if (!val('pr-pay-format')) return appAlert('Set up the company\'s bank file first (Payroll Setup → Payment Files).');
-    call('downloadPaymentFile', { runId: current.run.RunID, formatId: val('pr-pay-format'), paymentDate: val('pr-pay-date') }).then(f => {
+    call('downloadPaymentFile', { runId: current.run.RunID, formatId: val('pr-pay-format'), paymentDate: val('pr-pay-date'), accountId }).then(f => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([f.content], { type: 'text/plain' }));
       a.download = f.fileName;
@@ -467,19 +490,20 @@
     }, err => appAlert(err.message || 'Unable to make the file.'));
   }
   function copyBankList() {
-    const rows = [['No.', 'Employee', 'Paid by', 'Bank', 'Account no. / IBAN', 'Amount']].concat(payment.payees.map(x => [x.EmployeeNo, x.EmployeeName, x.ByBank ? 'Bank' : 'Cash / cheque', x.BankName, x.IBAN, x.Net]));
+    const rows = [['No.', 'Employee', 'Paid by', 'From', 'Bank', 'Account no. / IBAN', 'Amount']].concat(payment.payees.map(x => [x.EmployeeNo, x.EmployeeName, payment.ways[x.Way] || x.Way, acctName(x.AccountID), x.BankName, x.IBAN, x.Net]));
     copyRows(rows, $('pr-pay-copy'));
   }
-  function markPaid() {
-    const n = payment.payees.length;
-    appConfirm('Mark the run paid on ' + val('pr-pay-date') + ' (' + n + ' employee' + (n === 1 ? '' : 's') + ')? This posts the payment journal.').then(ok => {
-      if (ok) call('markPayrollPaid', { runId: current.run.RunID, paymentDate: val('pr-pay-date'), bankAccountId: val('pr-pay-bank'), cashAccountId: val('pr-pay-cash'), reference: val('pr-pay-ref') })
-        .then(() => openRun(current.run.RunID), err => appAlert(err.message || 'Unable to mark the run paid.'));
+  function markPaid(way, accountId) {
+    const g = payment.groups.find(x => x.Way === way && x.AccountID === accountId);
+    appConfirm('Mark ' + g.Unpaid + ' paid by ' + g.WayName.toLowerCase() + ' from ' + g.Account + ' (' + money(g.UnpaidTotal) + ') on ' + val('pr-pay-date') + '? This posts the payment journal.').then(ok => {
+      if (ok) call('markPayrollPaid', { runId: current.run.RunID, paymentDate: val('pr-pay-date'), way, accountId, reference: val('pr-pay-ref') })
+        .then(() => openRun(current.run.RunID), err => appAlert(err.message || 'Unable to mark it paid.'));
     });
   }
-  function reversePayment() {
-    appPrompt('Reverse the payment ' + payment.run.PaymentJVNumber + '. Reason:', '').then(reason => {
-      if (reason !== null) call('reversePayrollPayment', { runId: current.run.RunID, reason }).then(() => openRun(current.run.RunID), err => appAlert(err.message || 'Unable to reverse the payment.'));
+  function reversePayment(paymentId) {
+    const x = payment.payments.find(y => y.PaymentID === paymentId);
+    appPrompt('Reverse the payment ' + x.JVNumber + '. Reason:', '').then(reason => {
+      if (reason !== null) call('reversePayrollPayment', { runId: current.run.RunID, paymentId, reason }).then(() => openRun(current.run.RunID), err => appAlert(err.message || 'Unable to reverse the payment.'));
     });
   }
 
@@ -552,10 +576,20 @@
     $('pr-reject').addEventListener('click', () => decide('Rejected'));
     $('pr-post').addEventListener('click', () => after(call('postPayrollRun', { runId: current.run.RunID }), 'post the run'));
     $('pr-reverse').addEventListener('click', reverseRun);
-    $('pr-pay-file').addEventListener('click', downloadFile);
     $('pr-pay-copy').addEventListener('click', copyBankList);
-    $('pr-pay-mark').addEventListener('click', markPaid);
-    $('pr-pay-reverse').addEventListener('click', reversePayment);
+    // The plan (step 6): a way's accounts follow it; saving, then each group's file and payment.
+    // A change is saved at once, and the groups worked out again.
+    $('pr-pay-list').addEventListener('change', e => {
+      if (e.target.classList.contains('pr-w-way')) e.target.closest('tr').querySelector('.pr-w-acct').innerHTML = acctOptions(e.target.value, '');
+      if (e.target.classList.contains('pr-w-way') || e.target.classList.contains('pr-w-acct')) savePlan().then(loadPayment, err => { appAlert(err.message || 'Unable to save the plan.'); loadPayment(); });
+    });
+    $('pr-pay-groups').addEventListener('click', e => {
+      const tr = e.target.closest('tr[data-way]');
+      if (!tr) return;
+      if (e.target.closest('.pr-g-file')) downloadFile(tr.dataset.acct);
+      if (e.target.closest('.pr-g-pay')) markPaid(tr.dataset.way, tr.dataset.acct);
+    });
+    $('pr-pay-made').addEventListener('click', e => { const b = e.target.closest('.pr-p-rev'); if (b) reversePayment(b.closest('li').dataset.pay); });
     $('pr-copy').addEventListener('click', copyToExcel);
     $('pr-recalc').addEventListener('click', () => {
       const go = () => call('recalculatePayrollRun', { runId: current.run.RunID }).then(() => openRun(current.run.RunID), err => appAlert(err.message || 'Unable to recalculate.'));
@@ -582,7 +616,7 @@
     const pending = window.__pendingModuleParams;
     window.__pendingModuleParams = null;
     call('getActiveCompanies', {}).then(r => { companies = r || []; return loadList(); }, err => appAlert(err.message || 'Unable to load the companies.'))
-      .then(() => { const id = pending && (pending.OpenEntryId || pending.RunID); if (id) return openRun(id); });
+      .then(() => { const id = pending && (pending.OpenEntryId || pending.RunID); if (id) return /^STKJV-/.test(id) ? openFromJournal(id) : openRun(id); });
   };
 })();
 </script>

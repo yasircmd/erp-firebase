@@ -18,6 +18,7 @@ const setup = require('./payrollSetup');
 const calc = require('./payrollCalc');
 const files = require('./payrollFiles');
 const R = require('./payrollRun');
+const plan = require('./payrollPlan');
 
 const onCallOptions = { region: 'us-central1' };
 const FORMATS = () => firestore.collection('payrollPaymentFormats');
@@ -110,6 +111,11 @@ exports.previewPaymentFile = onCallWithMessages(onCallOptions, async (request) =
 });
 
 // ---------- paying a run (Payroll "pay") ----------
+// Step 6 (decision 47): a payment plan. Each employee is paid one way from
+// one account (payrollPlan.js); the groups are paid, each with its own
+// date and journal (Dr Salaries Payable / Cr the account), and reversed,
+// on their own. The run is paid once every group is. A run paid before
+// this in one go has that one payment.
 
 async function requirePay(user) {
   await R.requireCap(user);
@@ -117,22 +123,73 @@ async function requirePay(user) {
 }
 const requirePosted = run => { if (run.Status !== 'Posted') throw failed('Only a posted run is paid.'); };
 
+// The run's payments, the live ones first counted (a payment paid in one go, before the plan, pays everyone).
+function paymentsOf(run) {
+  if (run.Payments) return run.Payments;
+  return run.PaymentJVID ? [{ PaymentID: 'P1', Way: 'All', AccountID: '', EmployeeIDs: null, Amount: round2((run.PaidByBank || 0) + (run.PaidOther || 0)), PaymentDate: run.PaymentDate,
+    JVID: run.PaymentJVID, JVNumber: run.PaymentJVNumber, Reference: run.PaymentReference || '', PaidAt: run.PaidAt, PaidByName: run.PaidByName || '' }] : [];
+}
+const live = list => list.filter(p => !p.ReversedAt);
+function paidBy(run) {
+  const out = {};
+  live(paymentsOf(run)).forEach(p => { if (!p.EmployeeIDs) out['*'] = p.PaymentID; else p.EmployeeIDs.forEach(id => { out[id] = p.PaymentID; }); });
+  return out;
+}
+// Each payee with the way it is paid (the plan, else the default) and whether it is paid.
+async function planned(run, coa) {
+  const rows = await payees(run);
+  const accounts = plan.accountsOf(coa, run.CompanyID);
+  const chosen = run.PaymentPlan || {}, paid = paidBy(run);
+  return { accounts, rows: rows.map(r => Object.assign(r, chosen[r.EmployeeID] || plan.defaultWay(r.ByBank, accounts), { Amount: r.NET, Paid: paid[r.EmployeeID] || paid['*'] || '' })) };
+}
+async function coaOf() { return (await rtdb.ref('coa').get()).val() || {}; }
+
 exports.getPayrollPayment = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await R.requireCap(user);
   const run = await R.loadRun(user, (request.data || {}).runId);
-  const coa = (await rtdb.ref('coa').get()).val() || {};
-  const accounts = Object.entries(coa).filter(([, a]) => a.Status === 'Active' && a.IsPostable && isCashOrBank(a) && (!a.CompanyID || a.CompanyID === run.CompanyID))
-    .map(([id, a]) => ({ AccountID: id, AccountCode: a.AccountCode, AccountName: a.AccountName, Bank: String(a.AccountCode).startsWith('11') }))
-    .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode)));
+  const coa = await coaOf();
   const formats = docs(await FORMATS().where('CompanyID', '==', run.CompanyID).get()).filter(f => f.Active !== false).map(f => ({ FormatID: f.FormatID, Name: f.Name, Bank: f.Bank }));
-  const rows = run.Status === 'Posted' ? await payees(run) : [];
+  const { accounts, rows } = run.Status === 'Posted' ? await planned(run, coa) : { accounts: plan.accountsOf(coa, run.CompanyID), rows: [] };
   return {
     run: { RunID: run.RunID, Month: run.Month, Status: run.Status, PaidAt: run.PaidAt || '', PaymentDate: run.PaymentDate || '', PaymentJVNumber: run.PaymentJVNumber || '' },
-    payees: rows.map(r => ({ EmployeeID: r.EmployeeID, EmployeeNo: r.EMP_NO, EmployeeName: r.EMP_NAME, BankName: r.BANK, IBAN: r.IBAN, Net: r.NET, ByBank: r.ByBank, Missing: r.Missing })),
+    payees: rows.map(r => ({ EmployeeID: r.EmployeeID, EmployeeNo: r.EMP_NO, EmployeeName: r.EMP_NAME, BankName: r.BANK, IBAN: r.IBAN, Net: r.NET, ByBank: r.ByBank, Missing: r.Missing,
+      Way: r.Way, AccountID: r.AccountID, Paid: r.Paid })),
+    groups: plan.groupsOf(rows, accounts), payments: paymentsOf(run), ways: plan.WAYS,
     accounts, formats, canPay: await R.can(user, 'pay')
   };
 });
+
+// The plan: rows [{ EmployeeID, Way, AccountID }] for those not paid yet.
+exports.savePaymentPlan = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requirePay(user);
+  const d = request.data || {};
+  const run = await R.loadRun(user, d.runId);
+  requirePosted(run);
+  const coa = await coaOf();
+  const { rows } = await planned(run, coa);
+  const byId = Object.fromEntries(rows.map(r => [r.EmployeeID, r]));
+  const out = Object.assign({}, run.PaymentPlan || {});
+  (Array.isArray(d.rows) ? d.rows : []).slice(0, 5000).forEach(x => {
+    const r = byId[R.text(x.EmployeeID, 80)];
+    if (!r) R.bad('An employee in the plan is not paid on this run.');
+    const way = R.text(x.Way, 20), acc = R.text(x.AccountID, 80);
+    if (r.Paid) { if (way !== r.Way || acc !== r.AccountID) R.bad(r.EMP_NAME + ' is already paid: reverse that payment first.'); return; }
+    const problem = plan.wayProblem(way, acc, coa, run.CompanyID, r.ByBank, r.EMP_NAME);
+    if (problem) R.bad(problem);
+    out[r.EmployeeID] = { Way: way, AccountID: acc };
+  });
+  await R.RUNS().doc(run.RunID).update({ PaymentPlan: out });
+  return { success: true };
+});
+
+// A group's rows, as planned now: those paid by that way from that account.
+async function groupRows(run, way, accountId) {
+  const coa = await coaOf();
+  const { rows } = await planned(run, coa);
+  return { coa, rows: rows.filter(r => r.Way === way && r.AccountID === accountId) };
+}
 
 exports.downloadPaymentFile = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
@@ -144,13 +201,14 @@ exports.downloadPaymentFile = onCallWithMessages(onCallOptions, async (request) 
   if (!snap.exists || snap.data().CompanyID !== run.CompanyID) throw new HttpsError('not-found', 'Choose one of the company\'s payment file formats.');
   const payDate = R.text(d.paymentDate, 10);
   if (!isDate(payDate)) R.bad('Enter the payment date.');
-  const rows = await payees(run);
-  if (!rows.some(r => r.ByBank)) throw failed('No one on the run is paid by bank.');
+  const { rows } = await groupRows(run, 'BankFile', R.text(d.accountId, 80));
+  if (!rows.length) throw failed('No one on the run is paid by bank file from that account.');
   const f = fileFor(run, snap.data(), rows, payDate);
   await R.RUNS().doc(run.RunID).update({ History: history(run, 'Payment file', user, { Note: f.fileName + ', ' + f.count + ' employees, ' + f.total.toFixed(2) }) });
   return { fileName: f.fileName, content: f.content, count: f.count, total: f.total };
 });
 
+// A group paid: those in it not paid yet; Dr Salaries Payable / Cr its account.
 exports.markPayrollPaid = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requirePay(user);
@@ -161,35 +219,40 @@ exports.markPayrollPaid = onCallWithMessages(onCallOptions, async (request) => {
   const payDate = R.text(d.paymentDate, 10);
   if (!isDate(payDate)) R.bad('Enter the payment date.');
   if (payDate < run.Month + '-01') R.bad('The payment date is before the payroll month.');
-  const [coa, settings, rows] = await Promise.all([rtdb.ref('coa').get().then(s => s.val() || {}), setup.companySettings(run.CompanyID), payees(run)]);
-  const bankTotal = round2(rows.filter(r => r.ByBank).reduce((t, r) => t + r.NET, 0));
-  const otherTotal = round2(rows.filter(r => !r.ByBank).reduce((t, r) => t + r.NET, 0));
-  if (!(bankTotal + otherTotal > 0)) throw failed('There is nothing to pay on this run.');
-  const account = (id, label) => {
-    const a = coa[R.text(id, 80)];
-    if (!isCashOrBank(a) || a.Status !== 'Active' || !a.IsPostable || (a.CompanyID && a.CompanyID !== run.CompanyID)) R.bad('Choose the ' + label + ' (a cash or bank account of the company).');
-    return a;
-  };
+  const way = R.text(d.way, 20), accountId = R.text(d.accountId, 80);
+  const [{ coa, rows }, settings] = await Promise.all([groupRows(run, way, accountId), setup.companySettings(run.CompanyID)]);
+  const due = rows.filter(r => !r.Paid);
+  if (!due.length) throw failed('No one in that group is waiting to be paid.');
+  const problem = due.map(r => plan.wayProblem(way, accountId, coa, run.CompanyID, r.ByBank, r.EMP_NAME)).find(Boolean);
+  if (problem) R.bad(problem);
   const payable = coa[settings.PayableAccountID];
-  if (!payable) throw failed('Set the company\'s Salaries Payable in Payroll Setup → Payroll.');
-  const lines = [{ AccountCode: payable.AccountCode, Debit: round2(bankTotal + otherTotal), Credit: 0, Description: 'Salaries paid — payroll ' + run.Month }];
-  if (bankTotal) lines.push({ AccountCode: account(d.bankAccountId, 'bank account').AccountCode, Debit: 0, Credit: bankTotal, Description: 'Salaries paid by bank — payroll ' + run.Month });
-  if (otherTotal) lines.push({ AccountCode: account(d.cashAccountId, 'account for those without a bank account').AccountCode, Debit: 0, Credit: otherTotal, Description: 'Salaries paid by cash or cheque — payroll ' + run.Month });
+  if (!payable) throw failed('Set the company\'s Salaries Payable in Payroll Setup → Payroll Accounting.');
+  const total = round2(due.reduce((t, r) => t + r.NET, 0));
+  const label = 'Salaries paid (' + plan.WAYS[way].toLowerCase() + ') — payroll ' + run.Month;
+  const lines = [{ AccountCode: payable.AccountCode, Debit: total, Credit: 0, Description: label }, { AccountCode: coa[accountId].AccountCode, Debit: 0, Credit: total, Description: label }];
   return withGlobalLock(user.uid, async () => {
-    const fresh = (await R.RUNS().doc(run.RunID).get()).data();
-    if (fresh.PaidAt || fresh.Status !== 'Posted') throw failed('The run changed: open it again.');
+    const fresh = Object.assign({ RunID: run.RunID }, (await R.RUNS().doc(run.RunID).get()).data());
+    const paidNow = paidBy(fresh);
+    if (fresh.Status !== 'Posted' || due.some(r => paidNow[r.EmployeeID] || paidNow['*'])) throw failed('The run changed: open it again.');
     let gl;
     try {
-      gl = await writeStockGlEntry(user, VOUCHER_TYPE, payDate, 'Salaries paid — payroll ' + run.Month, run.RunNumber || '', lines, { CompanyID: run.CompanyID },
+      gl = await writeStockGlEntry(user, VOUCHER_TYPE, payDate, label, run.RunNumber || '', lines, { CompanyID: run.CompanyID },
         { PayrollRunID: run.RunID, SourceTransactionID: run.RunID, ReversalOfJV: '' });
     } catch (e) { throw failed(e.message); }
     const now = new Date().toISOString();
-    await R.RUNS().doc(run.RunID).update({ PaidAt: now, PaidBy: user.uid, PaidByName: R.actorName(user), PaymentDate: payDate, PaymentJVID: gl.jvId, PaymentJVNumber: gl.jvNumber,
-      PaymentReference: R.text(d.reference, 100), PaidByBank: bankTotal, PaidOther: otherTotal, History: history(Object.assign({}, run, { History: fresh.History }), 'Paid', user, { JVNumber: gl.jvNumber }) });
-    return { success: true, jvNumber: gl.jvNumber, bank: bankTotal, other: otherTotal };
+    const payments = paymentsOf(fresh).concat([{ PaymentID: 'P' + (paymentsOf(fresh).length + 1), Way: way, AccountID: accountId, EmployeeIDs: due.map(r => r.EmployeeID), Amount: total,
+      PaymentDate: payDate, JVID: gl.jvId, JVNumber: gl.jvNumber, Reference: R.text(d.reference, 100), PaidAt: now, PaidByName: R.actorName(user) }]);
+    // Paid in full once no one is left.
+    const all = await payees(fresh);
+    const covered = new Set(live(payments).reduce((a, p) => a.concat(p.EmployeeIDs || all.map(r => r.EmployeeID)), []));
+    const full = all.every(r => covered.has(r.EmployeeID));
+    await R.RUNS().doc(run.RunID).update(Object.assign({ Payments: payments, History: history(fresh, 'Paid ' + due.length + ' (' + plan.WAYS[way].toLowerCase() + ')', user, { JVNumber: gl.jvNumber }) },
+      full ? { PaidAt: now, PaidBy: user.uid, PaidByName: R.actorName(user), PaymentDate: payDate, PaymentJVID: '', PaymentJVNumber: gl.jvNumber } : {}));
+    return { success: true, jvNumber: gl.jvNumber, total, count: due.length, paid: full };
   });
 });
 
+// One payment reversed (paymentId; a run paid in one go has just one).
 exports.reversePayrollPayment = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requirePay(user);
@@ -197,9 +260,11 @@ exports.reversePayrollPayment = onCallWithMessages(onCallOptions, async (request
   const reason = R.text(d.reason, 500);
   if (!reason) R.bad('Give the reason for reversing the payment.');
   const run = await R.loadRun(user, d.runId);
-  if (!run.PaidAt || !run.PaymentJVID) throw failed('The run is not paid.');
+  const payments = paymentsOf(run);
+  const p = live(payments).find(x => x.PaymentID === (R.text(d.paymentId, 20) || (live(payments).length === 1 ? live(payments)[0].PaymentID : '')));
+  if (!p) throw failed(live(payments).length ? 'Choose the payment to reverse.' : 'The run is not paid.');
   return withGlobalLock(user.uid, async () => {
-    const glRef = firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(run.PaymentJVID);
+    const glRef = firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(p.JVID);
     const entry = (await glRef.get()).data();
     if (!entry) throw failed('The payment\'s GL entry was not found.');
     if (entry.ReversedByJV) throw failed('That GL entry has already been reversed.');
@@ -207,11 +272,15 @@ exports.reversePayrollPayment = onCallWithMessages(onCallOptions, async (request
     const lines = (entry.Lines || []).map(l => ({ AccountCode: l.AccountCode, Debit: l.Credit || 0, Credit: l.Debit || 0, Description: l.Description || description, CostCenterID: l.CostCenterID || '' }));
     let gl;
     try {
-      gl = await writeStockGlEntry(user, VOUCHER_TYPE, entry.JVDate, description, entry.JVNumber, lines, { CompanyID: run.CompanyID }, { PayrollRunID: run.RunID, SourceTransactionID: run.RunID, ReversalOfJV: run.PaymentJVID });
+      gl = await writeStockGlEntry(user, VOUCHER_TYPE, entry.JVDate, description, entry.JVNumber, lines, { CompanyID: run.CompanyID }, { PayrollRunID: run.RunID, SourceTransactionID: run.RunID, ReversalOfJV: p.JVID });
     } catch (e) { throw failed(e.message); }
     await glRef.update({ ReversedByJV: gl.jvId, UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid });
-    await R.RUNS().doc(run.RunID).update({ PaidAt: '', PaymentDate: '', PaymentJVID: '', PaymentJVNumber: '', PaidByBank: 0, PaidOther: 0,
+    const now = new Date().toISOString();
+    await R.RUNS().doc(run.RunID).update({ Payments: payments.map(x => (x.PaymentID === p.PaymentID ? Object.assign({}, x, { ReversedAt: now, ReversalJVNumber: gl.jvNumber, ReversalReason: reason }) : x)),
+      PaidAt: '', PaymentDate: '', PaymentJVID: '', PaymentJVNumber: '', PaidByBank: 0, PaidOther: 0,
       History: history(run, 'Payment reversed', user, { JVNumber: entry.JVNumber, ReversalJVNumber: gl.jvNumber, Note: reason }) });
     return { success: true, reversalNumber: gl.jvNumber };
   });
 });
+
+Object.assign(module.exports, { paymentsOf });

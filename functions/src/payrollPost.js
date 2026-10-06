@@ -59,6 +59,10 @@ function glLinesFor(run, slips, elements, coa, settings, loanAccounts, provAccou
       if (l.Source === 'CarryForward') return add(settings.ReceivableAccountID, 'Recoverable from employees', Math.abs(l.Amount), debit, s);
       if (l.Source === 'Loan') return add((loanAccounts || {})[l.LoanID] || '', l.Name.replace(/ LN-\d+$/, ''), Math.abs(l.Amount), debit, s); // to the loan type's receivable (step 4b)
       if (l.Source === 'AccrualPayout') return add(provAccount ? provAccount('Accrual', l.AccrualTypeID, 'Provision') : '', l.Name, Math.abs(l.Amount), debit, s); // from its provision (step 5a)
+      // A leave deduction pro rata (step 6, decision 46): back off each earning it came from.
+      if (settings.LeaveDeductionGL === 'ProRata' && (l.Split || []).length) {
+        return l.Split.forEach(p => { const el = elements[p.ElementID]; if (p.Amount) add(el ? calc.accountFor(el, co) : '', (el ? el.Name : p.ElementID) + ' (' + l.Name.toLowerCase() + ')', Math.abs(p.Amount), (l.Kind === 'Earning') === (p.Amount > 0), s); });
+      }
       const el = elements[l.ElementID];
       add(el ? calc.accountFor(el, co) : '', (el ? el.Name : l.Name) + (l.Source === 'Arrears' ? ' arrears' : ''), Math.abs(l.Amount), debit, s);
     });
@@ -199,7 +203,7 @@ exports.reversePayrollRun = onCallWithMessages(onCallOptions, async (request) =>
   if (!reason) R.bad('Give the reason for reversing the run.');
   const run = await R.loadRun(user, d.runId);
   if (run.Status !== 'Posted' || !run.JVID) throw failed('Only a posted run can be reversed.');
-  if (run.PaidAt) throw failed('The run is paid: reverse the payment first.');
+  if (run.PaidAt || (run.Payments || []).some(p => !p.ReversedAt)) throw failed('The run is paid' + (run.PaidAt ? '' : ' in part') + ': reverse its payments first.');
   const later = R.docs(await R.RUNS().where('CompanyID', '==', run.CompanyID).get()).filter(x => x.Status !== 'Draft' && x.Month > run.Month).map(x => x.Month).sort();
   if (later.length) throw failed('Reverse the later run first (' + later.join(', ') + '): it may have recovered amounts this one carried forward.');
   // A final settlement (step 5b) relies on the leaving month's run.

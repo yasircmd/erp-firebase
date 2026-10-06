@@ -62,7 +62,9 @@ function checkAccount(coa, id, label, types, companyId) {
 
 async function companySettings(companyId) {
   const s = (await SETTINGS().doc(companyId).get()).data() || {};
-  return { CompanyID: companyId, DailyRateMethod: s.DailyRateMethod || 'DIV30', PayableAccountID: s.PayableAccountID || '', ReceivableAccountID: s.ReceivableAccountID || '' };
+  return { CompanyID: companyId, DailyRateMethod: s.DailyRateMethod || 'DIV30', PayableAccountID: s.PayableAccountID || '', ReceivableAccountID: s.ReceivableAccountID || '',
+    // Leave deductions in the GL (step 6, decision 46): their own ledger, or pro rata on the earnings.
+    LeaveDeductionGL: s.LeaveDeductionGL === 'ProRata' ? 'ProRata' : 'Ledger' };
 }
 
 exports.getPayrollSetup = onCallWithMessages(onCallOptions, async (request) => {
@@ -93,7 +95,8 @@ exports.savePayrollCompany = onCallWithMessages(onCallOptions, async (request) =
   if (payable) checkAccount(coa, payable, 'Salaries Payable', ['Liability'], co);
   // A net shortfall carried to the next run (decision 9) waits here.
   if (receivable) checkAccount(coa, receivable, 'Recoverable from employees', ['Asset'], co);
-  await SETTINGS().doc(co).set({ DailyRateMethod: method, PayableAccountID: payable, ReceivableAccountID: receivable, UpdatedAt: new Date().toISOString(), UpdatedBy: user.uid });
+  const leaveGL = d.leaveDeductionGL === 'ProRata' ? 'ProRata' : 'Ledger';
+  await SETTINGS().doc(co).set({ DailyRateMethod: method, PayableAccountID: payable, ReceivableAccountID: receivable, LeaveDeductionGL: leaveGL, UpdatedAt: new Date().toISOString(), UpdatedBy: user.uid });
   return { success: true };
 });
 

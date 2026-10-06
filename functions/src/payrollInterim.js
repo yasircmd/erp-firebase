@@ -27,6 +27,7 @@ const files = require('./payrollFiles');
 const loans = require('./payrollLoans');
 const FS = require('./payrollSettlement');
 const R = require('./payrollRun');
+const plan = require('./payrollPlan');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'PAYROLLIP';
@@ -123,14 +124,12 @@ exports.getInterimBatch = onCallWithMessages(onCallOptions, async (request) => {
   const d = request.data || {};
   const b = d.interimId ? await loadBatch(user, d.interimId) : { InterimID: '', Status: 'New', CompanyID: await companyFor(user, d.companyId), Items: [] };
   const co = b.CompanyID;
-  const coa = (await rtdb.ref('coa').get()).val() || {};
-  const accounts = Object.entries(coa).filter(([, a]) => a.Status === 'Active' && a.IsPostable && FS.isCashOrBank(a) && (!a.CompanyID || a.CompanyID === co))
-    .map(([id, a]) => ({ AccountID: id, AccountCode: a.AccountCode, AccountName: a.AccountName }))
-    .sort((a, b2) => String(a.AccountCode).localeCompare(String(b2.AccountCode)));
+  const coa = await coaOf();
   const formats = docs(await FORMATS().where('CompanyID', '==', co).get(), 'FormatID').filter(f => f.Active !== false).map(f => ({ FormatID: f.FormatID, Name: f.Name, Bank: f.Bank }));
-  const rows = (b.Items || []).length ? await payees(b) : [];
+  const { accounts, rows } = await planned(b, coa);
   return { batch: b, candidates: b.Status === 'New' || b.Status === 'Draft' ? await candidates(co, b.InterimID) : [],
-    payees: rows.map(r => ({ Kind: r.Kind, ID: r.ID, EmployeeName: r.EMP_NAME, IBAN: r.IBAN, Net: r.NET, ByBank: r.ByBank, Missing: r.Missing })),
+    payees: rows.map(r => ({ Kind: r.Kind, ID: r.ID, Key: r.Key, EmployeeName: r.EMP_NAME, IBAN: r.IBAN, Net: r.NET, ByBank: r.ByBank, Missing: r.Missing, Way: r.Way, AccountID: r.AccountID, Paid: r.Paid })),
+    groups: plan.groupsOf(rows, accounts), payments: b.Payments || [], ways: plan.WAYS,
     accounts, formats, approval: await R.approvalOf(b, user), canDraft: await can(user, 'draft'), canPay: await can(user, 'pay') };
 });
 
@@ -223,20 +222,57 @@ exports.decideInterimApproval = onCallWithMessages(onCallOptions, async (request
   return { success: true, status: fields.Status || 'PendingApproval' };
 });
 
-// ---------- the bank file and the payment ----------
+// ---------- the payment plan, the bank file and the payment ----------
+// Step 6 (decision 47): each item is paid one way from one account
+// (payrollPlan.js); the groups are paid, each item its own journal, and
+// reversed, on their own. The batch is paid once every item is; with no
+// payment left after a reversal it goes back to a draft.
 
-// Each item's row in the bank file: the employee's bank details, the amount.
-async function payees(b) {
+const itemKey = it => it.Kind + ':' + it.ID;
+const liveOf = b => (b.Payments || []).filter(p => !p.ReversedAt);
+async function employeesOf(b) {
   const emps = {};
   for (const id of [...new Set((b.Items || []).map(i => i.EmployeeID))]) emps[id] = (await EMPLOYEES().doc(id).get()).data() || {};
+  return emps;
+}
+// Each item with its bank details, the way it is paid (the plan, else the default) and whether it is paid.
+async function planned(b, coa) {
+  const accounts = plan.accountsOf(coa, b.CompanyID), emps = await employeesOf(b), chosen = b.PaymentPlan || {};
   const days = calc.daysInMonth(String(b.PaymentDate || new Date().toISOString()).slice(0, 7));
-  return (b.Items || []).map(i => {
+  const rows = (b.Items || []).map(i => {
     const e = emps[i.EmployeeID];
     const slip = { EmployeeNo: i.EmployeeNo, EmployeeName: i.EmployeeName, Net: i.Amount, UnpaidDays: 0, Lines: [{ Kind: 'Earning', Source: 'Input', Amount: i.Amount }] };
-    return Object.assign(files.employeeValues(slip, e, days), { Kind: i.Kind, ID: i.ID, ByBank: Boolean(e.IBAN),
-      Missing: [e.IBAN ? '' : 'IBAN', e.WpsPersonID ? '' : 'WPS person ID', e.BankRoutingCode ? '' : 'bank routing code'].filter(Boolean) });
+    return Object.assign(files.employeeValues(slip, e, days), { Kind: i.Kind, ID: i.ID, Key: itemKey(i), ByBank: Boolean(e.IBAN), Amount: i.Amount, Paid: i.JVID ? i.PaymentID || 'P' : '',
+      Missing: [e.IBAN ? '' : 'IBAN', e.WpsPersonID ? '' : 'WPS person ID', e.BankRoutingCode ? '' : 'bank routing code'].filter(Boolean) },
+    chosen[itemKey(i)] || plan.defaultWay(Boolean(e.IBAN), accounts));
   });
+  return { accounts, rows };
 }
+const coaOf = async () => (await rtdb.ref('coa').get()).val() || {};
+
+// The plan: rows [{ Kind, ID, Way, AccountID }] for items not paid yet.
+exports.saveInterimPlan = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'pay');
+  const d = request.data || {};
+  const b = await loadBatch(user, d.interimId);
+  if (!['Draft', 'PendingApproval', 'Approved'].includes(b.Status)) throw failed('The batch is ' + b.Status.toLowerCase() + ': its plan can no longer change.');
+  const coa = await coaOf();
+  const { rows } = await planned(b, coa);
+  const byKey = Object.fromEntries(rows.map(r => [r.Key, r]));
+  const out = Object.assign({}, b.PaymentPlan || {});
+  (Array.isArray(d.rows) ? d.rows : []).slice(0, 500).forEach(x => {
+    const r = byKey[text(x.Kind, 20) + ':' + text(x.ID, 80)];
+    if (!r) bad('An item in the plan is not in this batch.');
+    const way = text(x.Way, 20), acc = text(x.AccountID, 80);
+    if (r.Paid) { if (way !== r.Way || acc !== r.AccountID) bad(r.EMP_NAME + ' is already paid: reverse that payment first.'); return; }
+    const problem = plan.wayProblem(way, acc, coa, b.CompanyID, r.ByBank, r.EMP_NAME);
+    if (problem) bad(problem);
+    out[r.Key] = { Way: way, AccountID: acc };
+  });
+  await BATCHES().doc(b.InterimID).update({ PaymentPlan: out });
+  return { success: true };
+});
 
 exports.downloadInterimFile = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
@@ -246,53 +282,76 @@ exports.downloadInterimFile = onCallWithMessages(onCallOptions, async (request) 
   if (b.Status !== 'Approved' && b.Status !== 'Paid') throw failed('The bank file is made once the batch is approved.');
   const snap = await FORMATS().doc(text(d.formatId, 80) || '-').get();
   if (!snap.exists || snap.data().CompanyID !== b.CompanyID) throw new HttpsError('not-found', 'Choose one of the company\'s payment file formats.');
-  const rows = (await payees(b)).filter(r => r.ByBank);
-  if (!rows.length) throw failed('No one in the batch is paid by bank.');
-  const f = files.buildFile({ format: snap.data(), month: b.PaymentDate.slice(0, 7), payDate: b.PaymentDate, created: companyNow(), rows });
+  const payDate = text(d.paymentDate, 10) || b.PaymentDate;
+  if (!isDate(payDate)) bad('Enter the payment date.');
+  const accountId = text(d.accountId, 80);
+  const rows = (await planned(b, await coaOf())).rows.filter(r => r.Way === 'BankFile' && r.AccountID === accountId);
+  if (!rows.length) throw failed('No one in the batch is paid by bank file from that account.');
+  const f = files.buildFile({ format: snap.data(), month: payDate.slice(0, 7), payDate, created: companyNow(), rows });
   await BATCHES().doc(b.InterimID).update({ History: history(b, 'Payment file', user, { Note: f.fileName + ', ' + f.count + ' payments, ' + f.total.toFixed(2) }) });
   return { fileName: f.fileName, content: f.content, count: f.count, total: f.total };
 });
 
-// Undoes one item's payment (a failed batch, or the batch's reversal).
+// Undoes one item's payment (a failed group, or a payment's reversal).
 async function undo(user, it, reason) {
   const snap = await refOf(it).get();
   if (it.Kind === 'Settlement') return FS.unpay(user, Object.assign({ SettlementID: it.ID }, snap.data()), reason);
   return loans.reversePayout(user, Object.assign({ LoanID: it.ID }, snap.data()), reason);
 }
 
+// A group paid: its items not paid yet, each its own journal; all or nothing.
 exports.markInterimPaid = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'pay');
   const d = request.data || {};
-  const b = await loadBatch(user, d.interimId);
-  const accountId = text(d.accountId, 80);
+  const b0 = await loadBatch(user, d.interimId);
+  const way = text(d.way, 20), accountId = text(d.accountId, 80);
+  const payDate = text(d.paymentDate, 10) || b0.PaymentDate;
+  if (!isDate(payDate)) bad('Enter the payment date.');
   // Claimed for paying, so two people can't pay it at once.
   await firestore.runTransaction(async t => {
-    const cur = (await t.get(BATCHES().doc(b.InterimID))).data();
+    const cur = (await t.get(BATCHES().doc(b0.InterimID))).data();
     if (cur.Status !== 'Approved') throw failed(cur.Status === 'Paid' ? 'The batch is already paid.' : cur.Status === 'Paying' ? 'The batch is being paid.' : 'Only an approved batch is paid.');
-    t.update(BATCHES().doc(b.InterimID), { Status: 'Paying' });
+    t.update(BATCHES().doc(b0.InterimID), { Status: 'Paying' });
   });
-  const done = [];
+  const b = await loadBatch(user, b0.InterimID);
+  const free = () => BATCHES().doc(b.InterimID).update({ Status: 'Approved' });
+  let due;
   try {
-    for (const it of b.Items) {
-      const snap = await refOf(it).get();
-      const gl = it.Kind === 'Settlement'
-        ? await FS.pay(user, Object.assign({ SettlementID: it.ID }, snap.data()), b.PaymentDate, accountId, text(d.reference, 100), b)
-        : await loans.payOut(user, Object.assign({ LoanID: it.ID }, snap.data()), b.PaymentDate, accountId, b);
-      done.push(Object.assign({}, it, { JVID: gl.jvId, JVNumber: gl.jvNumber }));
+    const coa = await coaOf();
+    due = (await planned(b, coa)).rows.filter(r => r.Way === way && r.AccountID === accountId && !r.Paid);
+    if (!due.length) throw failed('No one in that group is waiting to be paid.');
+    const problem = due.map(r => plan.wayProblem(way, accountId, coa, b.CompanyID, r.ByBank, r.EMP_NAME)).find(Boolean);
+    if (problem) bad(problem);
+  } catch (e) { await free(); throw e; }
+  const paymentId = 'P' + ((b.Payments || []).length + 1);
+  const done = {};
+  try {
+    for (const r of due) {
+      const snap = await refOf(r).get();
+      const gl = r.Kind === 'Settlement'
+        ? await FS.pay(user, Object.assign({ SettlementID: r.ID }, snap.data()), payDate, accountId, text(d.reference, 100), b)
+        : await loans.payOut(user, Object.assign({ LoanID: r.ID }, snap.data()), payDate, accountId, b);
+      done[r.Key] = { JVID: gl.jvId, JVNumber: gl.jvNumber, PaymentID: paymentId };
     }
   } catch (e) {
-    // Put back what was paid before the failure; nothing is paid.
-    for (const it of done.reverse()) { try { await undo(user, it, 'Interim payroll ' + b.Number + ' not paid: ' + e.message); } catch (x) { /* reported below */ } }
-    await BATCHES().doc(b.InterimID).update({ Status: 'Approved' });
+    // Put back what this group paid before the failure; nothing of it is paid.
+    for (const k of Object.keys(done).reverse()) { const it = b.Items.find(i => itemKey(i) === k); try { await undo(user, it, 'Interim payroll ' + b.Number + ' not paid: ' + e.message); } catch (x) { /* reported below */ } }
+    await free();
     throw failed('Nothing was paid: ' + e.message);
   }
   const now = new Date().toISOString();
-  await BATCHES().doc(b.InterimID).update({ Status: 'Paid', Items: done, PaidAt: now, PaidByName: actorName(user), PaymentAccountID: accountId, PaymentReference: text(d.reference, 100),
-    History: history(b, 'Paid', user, { Note: done.map(i => i.JVNumber).join(', ') }) });
-  return { success: true, journals: done.map(i => i.JVNumber) };
+  const items = b.Items.map(i => Object.assign({}, i, done[itemKey(i)] || {}));
+  const all = items.every(i => i.JVID);
+  const total = round2(due.reduce((t, r) => t + r.Amount, 0));
+  await BATCHES().doc(b.InterimID).update(Object.assign({ Status: all ? 'Paid' : 'Approved', Items: items,
+    Payments: (b.Payments || []).concat([{ PaymentID: paymentId, Way: way, AccountID: accountId, Keys: Object.keys(done), Amount: total, PaymentDate: payDate, Reference: text(d.reference, 100), PaidAt: now, PaidByName: actorName(user) }]),
+    History: history(b, 'Paid ' + due.length + ' (' + plan.WAYS[way].toLowerCase() + ')', user, { Note: Object.values(done).map(x => x.JVNumber).join(', ') }) },
+  all ? { PaidAt: now, PaidByName: actorName(user) } : {}));
+  return { success: true, journals: Object.values(done).map(x => x.JVNumber), total, paid: all };
 });
 
+// One payment reversed: each of its items' journals. With none left the batch is a draft again.
 exports.reverseInterimPayment = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'pay');
@@ -300,18 +359,25 @@ exports.reverseInterimPayment = onCallWithMessages(onCallOptions, async (request
   const reason = text(d.reason, 300);
   if (!reason) bad('Give the reason for reversing the payment.');
   const b = await loadBatch(user, d.interimId);
-  if (b.Status !== 'Paid') throw failed('The batch is not paid.');
+  const live = liveOf(b);
+  const p = live.find(x => x.PaymentID === (text(d.paymentId, 20) || (live.length === 1 ? live[0].PaymentID : '')));
+  if (!p) throw failed(live.length ? 'Choose the payment to reverse.' : 'The batch is not paid.');
+  const its = b.Items.filter(i => p.Keys.includes(itemKey(i)));
   // A loan already recovered from can't be undone: checked for all first.
   const recovered = [];
-  for (const it of b.Items.filter(i => i.Kind === 'Loan')) {
+  for (const it of its.filter(i => i.Kind === 'Loan')) {
     const l = (await loanRef(it.ID).get()).data();
     const recs = (await loans.recoveriesOf(l.CompanyID))[it.ID] || [];
     if (recs.length || (l.Repayments || []).some(x => !x.ReversedAt)) recovered.push(it.Number);
   }
   if (recovered.length) throw failed('Part of ' + recovered.join(', ') + ' is already recovered or repaid: the payment can no longer be reversed.');
   const out = [];
-  for (const it of b.Items) out.push((await undo(user, it, reason + ' (' + b.Number + ')')).jvNumber);
-  await BATCHES().doc(b.InterimID).update({ Status: 'Draft', ApprovalInstanceID: '', PaidAt: '', PaidByName: '', Items: b.Items.map(i => { const x = Object.assign({}, i); delete x.JVID; delete x.JVNumber; return x; }),
-    History: history(b, 'Payment reversed', user, { Note: reason + ' — ' + out.join(', ') }) });
+  for (const it of its) out.push((await undo(user, it, reason + ' (' + b.Number + ')')).jvNumber);
+  const now = new Date().toISOString();
+  const left = live.length - 1;
+  await BATCHES().doc(b.InterimID).update(Object.assign({ Status: left ? 'Approved' : 'Draft', PaidAt: '', PaidByName: '',
+    Items: b.Items.map(i => { if (!p.Keys.includes(itemKey(i))) return i; const x = Object.assign({}, i); delete x.JVID; delete x.JVNumber; delete x.PaymentID; return x; }),
+    Payments: (b.Payments || []).map(x => (x.PaymentID === p.PaymentID ? Object.assign({}, x, { ReversedAt: now, ReversalReason: reason }) : x)),
+    History: history(b, 'Payment reversed', user, { Note: reason + ' — ' + out.join(', ') }) }, left ? {} : { ApprovalInstanceID: '' }));
   return { success: true, reversals: out };
 });

@@ -143,6 +143,14 @@
   function showList() { $('fs-entry-view').classList.add('hidden'); $('fs-list-view').classList.remove('hidden'); current = null; loadList(); }
 
   // ---------- a settlement ----------
+  // From the GL report (step 6): a journal's id, opened as the document behind it.
+  function openFromJournal(jvId) {
+    return call('getPayrollJournalSource', { jvId: jvId }).then(src => {
+      if (src.ModuleID !== 'PAYROLLFS') return openModule(src.ModuleID, { OpenEntryId: src.ID });
+      return openSettlement({ settlementId: src.ID });
+    }, err => appAlert(err.message || 'Unable to open the journal\'s document.'));
+  }
+
   function openSettlement(q) {
     const my = ++seq;
     return call('getSettlement', q).then(r => {
@@ -331,7 +339,7 @@
     $('fs-pay-reverse').addEventListener('click', () => appPrompt('Reverse the payment ' + current.settlement.PaymentJVNumber + '. Reason:', '').then(reason => { if (reason !== null) act('reverseSettlementPayment', { reason }, 'reverse the payment'); }));
     const pending = window.__pendingModuleParams;
     window.__pendingModuleParams = null;
-    loadList().then(() => { const id = pending && (pending.OpenEntryId || pending.SettlementID); if (id) return openSettlement({ settlementId: id }); });
+    loadList().then(() => { const id = pending && (pending.OpenEntryId || pending.SettlementID); if (id) return /^STKJV-/.test(id) ? openFromJournal(id) : openSettlement({ settlementId: id }); });
   };
 })();
 </script>

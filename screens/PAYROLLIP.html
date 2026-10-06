@@ -48,24 +48,26 @@
     <div class="text-xs font-semibold text-slate-400 uppercase">What it pays</div>
     <p id="ip-none" class="hidden text-xs text-slate-500">Nothing is waiting to be paid: a final settlement is paid once posted (with a net to pay), a loan or advance once approved.</p>
     <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
-      <th id="ip-pick-head" class="py-1 pr-2"></th><th class="py-1 pr-4">No.</th><th class="py-1 pr-4">Employee</th><th class="py-1 pr-4">What</th><th class="py-1 pr-4">Bank</th><th class="py-1 pr-4">Journal</th><th class="py-1 pr-4 text-right">Amount</th></tr></thead>
+      <th id="ip-pick-head" class="py-1 pr-2"></th><th class="py-1 pr-4">No.</th><th class="py-1 pr-4">Employee</th><th class="py-1 pr-4">What</th><th class="py-1 pr-4">Bank</th><th class="py-1 pr-4">Paid by</th><th class="py-1 pr-4">From</th><th class="py-1 pr-4">Journal</th><th class="py-1 pr-4 text-right">Amount</th></tr></thead>
       <tbody id="ip-items" class="divide-y divide-slate-700"></tbody><tfoot id="ip-foot"></tfoot></table></div>
   </div>
 
   <div id="ip-pay" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
     <div class="text-xs font-semibold text-slate-400 uppercase">Payment</div>
+    <p class="text-xs text-slate-500">Each payment is made one way, from one account (set above, per line). They are grouped by account; each group is paid, with its own date and a journal per payment, and reversed, on its own.</p>
     <p id="ip-pay-done" class="hidden text-sm text-emerald-400"></p>
-    <div id="ip-file-wrap" class="flex flex-wrap items-end gap-2">
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Bank file</label><select id="ip-format" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
-      <button id="ip-file-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-file-arrow-down"></i> Download the file</button>
-    </div>
     <div id="ip-pay-form" class="flex flex-wrap items-end gap-3">
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Paid from (cash or bank)</label><select id="ip-account" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment date</label><input id="ip-pay-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference</label><input id="ip-ref" maxlength="100" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-      <button id="ip-mark-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg"><i class="fa-solid fa-check-double"></i> Mark paid</button>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Bank file</label><select id="ip-format" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
     </div>
-    <p id="ip-nobank" class="hidden text-xs text-amber-400"></p>
-    <button id="ip-reverse-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-rotate-left"></i> Reverse the payment</button>
+    <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase">
+      <th class="py-1 pr-4">Paid by</th><th class="py-1 pr-4">From</th><th class="py-1 pr-4 text-right">Payments</th><th class="py-1 pr-4 text-right">Total</th><th class="py-1 pr-4">State</th><th class="py-1"></th></tr></thead>
+      <tbody id="ip-groups" class="divide-y divide-slate-700"></tbody></table></div>
+    <div id="ip-made-wrap" class="hidden">
+      <div class="text-xs font-semibold text-slate-400 uppercase pt-2">Payments</div>
+      <ul id="ip-made" class="text-xs text-slate-300 space-y-1"></ul>
+    </div>
   </div>
 
   <div id="ip-history-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
@@ -112,6 +114,14 @@
   function showList() { $('ip-entry-view').classList.add('hidden'); $('ip-list-view').classList.remove('hidden'); current = null; loadList(); }
 
   // ---------- a batch ----------
+  // From the GL report (step 6): a journal's id, opened as the document behind it.
+  function openFromJournal(jvId) {
+    return call('getPayrollJournalSource', { jvId: jvId }).then(src => {
+      if (src.ModuleID !== 'PAYROLLIP') return openModule(src.ModuleID, { OpenEntryId: src.ID });
+      return openBatch({ interimId: src.ID });
+    }, err => appAlert(err.message || 'Unable to open the journal\'s document.'));
+  }
+
   function openBatch(q) {
     const my = ++seq;
     return call('getInterimBatch', q).then(r => {
@@ -143,29 +153,45 @@
     const mine = new Set((b.Items || []).map(key));
     const rows = draft ? r.candidates : (b.Items || []);
     const bank = Object.fromEntries((r.payees || []).map(p => [p.Kind + ':' + p.ID, p]));
+    // The plan (step 6): each payment's way and account, while it can change.
+    const planOpen = r.canPay && ['Draft', 'PendingApproval', 'Approved'].includes(b.Status);
+    const acctOptions = (way, sel) => r.accounts.filter(a => (way === 'Cash' ? a.Kind === 'Cash' : a.Kind === 'Bank'))
+      .map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === sel ? ' selected' : '') + '>' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
+    current.acctOptions = acctOptions;
+    const acctName = id => { const a = r.accounts.find(x => x.AccountID === id); return a ? a.AccountCode + ' — ' + a.AccountName : ''; };
+    const wayCells = p => !p ? '<td class="py-1 pr-4"></td><td class="py-1 pr-4"></td>' : planOpen && !p.Paid
+      ? '<td class="py-1 pr-4"><select class="ip-w-way bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-slate-300">' + Object.entries(r.ways).filter(([k]) => k !== 'BankFile' || p.ByBank)
+          .map(([k, v]) => '<option value="' + k + '"' + (k === p.Way ? ' selected' : '') + '>' + escapeHtml(v) + '</option>').join('') + '</select></td>' +
+        '<td class="py-1 pr-4"><select class="ip-w-acct bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-slate-300">' + acctOptions(p.Way, p.AccountID) + '</select></td>'
+      : '<td class="py-1 pr-4 text-xs">' + escapeHtml(r.ways[p.Way] || '') + '</td><td class="py-1 pr-4 text-xs">' + escapeHtml(acctName(p.AccountID)) + '</td>';
     $('ip-pick-head').classList.toggle('hidden', !draft);
     $('ip-none').classList.toggle('hidden', rows.length > 0);
     $('ip-items').innerHTML = rows.map(i => {
       const p = bank[key(i)];
       return '<tr data-key="' + escapeHtml(key(i)) + '" data-amount="' + i.Amount + '">' + (draft ? '<td class="py-1 pr-2"><input type="checkbox" class="ip-pick"' + (mine.has(key(i)) ? ' checked' : '') + '></td>' : '') +
         '<td class="py-1 pr-4 text-xs">' + escapeHtml(i.Number) + '</td><td class="py-1 pr-4">' + escapeHtml((i.EmployeeNo ? i.EmployeeNo + ' · ' : '') + i.EmployeeName) + '</td>' +
-        '<td class="py-1 pr-4 text-xs text-slate-400">' + escapeHtml(i.What) + '</td><td class="py-1 pr-4 text-xs text-slate-400">' + escapeHtml(p ? (p.ByBank ? p.IBAN : 'no IBAN') : '') + '</td>' +
+        '<td class="py-1 pr-4 text-xs text-slate-400">' + escapeHtml(i.What) + '</td><td class="py-1 pr-4 text-xs text-slate-400">' + escapeHtml(p ? (p.ByBank ? p.IBAN : 'no IBAN') : '') + '</td>' + wayCells(p) +
         '<td class="py-1 pr-4 text-xs">' + escapeHtml(i.JVNumber || '') + '</td><td class="py-1 pr-4 text-right">' + money(i.Amount) + '</td></tr>';
     }).join('');
     $('ip-items').querySelectorAll('.ip-pick').forEach(c => c.addEventListener('change', total));
     total();
-    // Payment: approved, the file and Mark paid; paid, its reversal.
+    // Payment: approved, each group's file and Mark paid; each payment's reversal.
     const payable = b.Status === 'Approved' || b.Status === 'Paid';
     $('ip-pay').classList.toggle('hidden', !payable || !r.canPay);
     $('ip-pay-done').classList.toggle('hidden', b.Status !== 'Paid');
-    $('ip-pay-done').textContent = b.Status === 'Paid' ? 'Paid on ' + b.PaymentDate + ': ' + (b.Items || []).map(i => i.JVNumber).join(', ') + '.' : '';
+    $('ip-pay-done').textContent = b.Status === 'Paid' ? 'Paid in full: ' + (b.Items || []).map(i => i.JVNumber).join(', ') + '.' : '';
     $('ip-pay-form').classList.toggle('hidden', b.Status !== 'Approved');
-    $('ip-reverse-btn').classList.toggle('hidden', b.Status !== 'Paid');
+    if (!$('ip-pay-date').value) $('ip-pay-date').value = b.PaymentDate || '';
     $('ip-format').innerHTML = r.formats.map(f => '<option value="' + escapeHtml(f.FormatID) + '">' + escapeHtml(f.Name) + '</option>').join('');
-    $('ip-account').innerHTML = r.accounts.map(x => '<option value="' + escapeHtml(x.AccountID) + '">' + escapeHtml(x.AccountCode + ' — ' + x.AccountName) + '</option>').join('');
-    const noBank = (r.payees || []).filter(p => !p.ByBank);
-    $('ip-nobank').classList.toggle('hidden', !noBank.length);
-    $('ip-nobank').textContent = noBank.length ? 'Not in the bank file (no IBAN): ' + noBank.map(p => p.EmployeeName + ' ' + money(p.Net)).join(', ') + '. Pay them by cash or cheque.' : '';
+    $('ip-groups').innerHTML = (r.groups || []).map(g => '<tr data-way="' + escapeHtml(g.Way) + '" data-acct="' + escapeHtml(g.AccountID) + '"><td class="py-1 pr-4">' + escapeHtml(g.WayName) + '</td>' +
+      '<td class="py-1 pr-4 text-xs">' + escapeHtml(g.Account) + '</td><td class="py-1 pr-4 text-right">' + g.Count + '</td><td class="py-1 pr-4 text-right">' + money(g.Total) + '</td>' +
+      '<td class="py-1 pr-4 text-xs ' + (g.Unpaid ? 'text-amber-400' : 'text-emerald-400') + '">' + (g.Unpaid ? g.Unpaid + ' to pay (' + money(g.UnpaidTotal) + ')' : 'paid') + '</td>' +
+      '<td class="py-1 whitespace-nowrap">' + (b.Status === 'Approved' && g.Unpaid ? (g.Way === 'BankFile' ? '<button class="ip-g-file bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1 rounded border border-slate-700 mr-2"><i class="fa-solid fa-file-arrow-down"></i> Bank file</button>' : '') +
+        '<button class="ip-g-pay bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1 rounded"><i class="fa-solid fa-check-double"></i> Mark paid</button>' : '') + '</td></tr>').join('');
+    const pays = r.payments || [];
+    $('ip-made-wrap').classList.toggle('hidden', !pays.length);
+    $('ip-made').innerHTML = pays.map(x => '<li data-pay="' + escapeHtml(x.PaymentID) + '">' + escapeHtml(x.PaymentID + ': ' + x.PaymentDate + ' — ' + (r.ways[x.Way] || x.Way) + ' from ' + acctName(x.AccountID) + ', ' + money(x.Amount) + (x.Reference ? ', ' + x.Reference : '')) +
+      (x.ReversedAt ? ' <span class="text-red-400">reversed: ' + escapeHtml(x.ReversalReason || '') + '</span>' : ' <button class="ip-p-rev text-red-400 ml-2"><i class="fa-solid fa-rotate-left"></i> Reverse</button>') + '</li>').join('');
     $('ip-history-wrap').classList.toggle('hidden', !(b.History || []).length);
     $('ip-history').innerHTML = (b.History || []).slice().reverse().map(h => '<li>' + escapeHtml(h.At + ' — ' + h.Event + ' by ' + h.By + (h.Note ? ': ' + h.Note : '')) + '</li>').join('');
   }
@@ -173,7 +199,7 @@
   function total() {
     const rows = picked();
     const sum = rows.reduce((t, tr) => t + Number(tr.dataset.amount), 0);
-    $('ip-foot').innerHTML = '<tr class="border-t border-slate-700 font-semibold"><td class="py-1 pr-4" colspan="' + (current.batch.Status === 'Draft' || current.batch.Status === 'New' ? 6 : 5) + '">' + rows.length + ' payments</td><td class="py-1 pr-4 text-right">' + money(sum) + '</td></tr>';
+    $('ip-foot').innerHTML = '<tr class="border-t border-slate-700 font-semibold"><td class="py-1 pr-4" colspan="' + (current.batch.Status === 'Draft' || current.batch.Status === 'New' ? 8 : 7) + '">' + rows.length + ' payments</td><td class="py-1 pr-4 text-right">' + money(sum) + '</td></tr>';
   }
   function save(then) {
     const b = current.batch;
@@ -183,9 +209,9 @@
   }
   const act = (name, data, what) => call(name, Object.assign({ interimId: current.batch.InterimID }, data))
     .then(() => openBatch({ interimId: current.batch.InterimID }), err => appAlert(err.message || 'Unable to ' + what + '.'));
-  function downloadFile() {
+  function downloadFile(accountId) {
     if (!val('ip-format')) return appAlert('Set up the company\'s bank file first (Payroll Setup → Payment Files).');
-    call('downloadInterimFile', { interimId: current.batch.InterimID, formatId: val('ip-format') }).then(f => {
+    call('downloadInterimFile', { interimId: current.batch.InterimID, formatId: val('ip-format'), accountId, paymentDate: val('ip-pay-date') }).then(f => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([f.content], { type: 'text/plain' }));
       a.download = f.fileName;
@@ -204,12 +230,32 @@
     $('ip-delete-btn').addEventListener('click', () => appConfirm('Delete this draft? What it pays is free for another batch.').then(ok => { if (ok) call('deleteInterimBatch', { interimId: current.batch.InterimID }).then(showList, err => appAlert(err.message || 'Unable to delete.')); }));
     $('ip-approve').addEventListener('click', () => act('decideInterimApproval', { levelNumber: current.approval.MyLevels[0], decision: 'Approved' }, 'approve'));
     $('ip-reject').addEventListener('click', () => appPrompt('Reason for rejecting:', '').then(reason => { if (reason !== null) act('decideInterimApproval', { levelNumber: current.approval.MyLevels[0], decision: 'Rejected', reason }, 'reject'); }));
-    $('ip-file-btn').addEventListener('click', downloadFile);
-    $('ip-mark-btn').addEventListener('click', () => appConfirm('Mark ' + current.batch.Number + ' paid (' + money(current.batch.Total) + ') on ' + current.batch.PaymentDate + '? Each payment gets its journal.').then(ok => {
-      if (ok) act('markInterimPaid', { accountId: val('ip-account'), reference: val('ip-ref') }, 'mark it paid'); }));
-    $('ip-reverse-btn').addEventListener('click', () => appPrompt('Reverse the payment of ' + current.batch.Number + ' (every journal). Reason:', '').then(reason => { if (reason !== null) act('reverseInterimPayment', { reason }, 'reverse the payment'); }));
+    // The plan (step 6): a change is saved at once; each group paid, each payment reversed, on its own.
+    $('ip-items').addEventListener('change', e => {
+      const tr = e.target.closest('tr[data-key]');
+      if (!tr || !(e.target.classList.contains('ip-w-way') || e.target.classList.contains('ip-w-acct'))) return;
+      if (e.target.classList.contains('ip-w-way')) tr.querySelector('.ip-w-acct').innerHTML = current.acctOptions(e.target.value, '');
+      const [Kind, ID] = tr.dataset.key.split(':');
+      call('saveInterimPlan', { interimId: current.batch.InterimID, rows: [{ Kind, ID, Way: tr.querySelector('.ip-w-way').value, AccountID: tr.querySelector('.ip-w-acct').value }] })
+        .then(() => openBatch({ interimId: current.batch.InterimID }), err => { appAlert(err.message || 'Unable to save the plan.'); openBatch({ interimId: current.batch.InterimID }); });
+    });
+    $('ip-groups').addEventListener('click', e => {
+      const tr = e.target.closest('tr[data-way]');
+      if (!tr) return;
+      if (e.target.closest('.ip-g-file')) downloadFile(tr.dataset.acct);
+      if (e.target.closest('.ip-g-pay')) {
+        const g = current.groups.find(x => x.Way === tr.dataset.way && x.AccountID === tr.dataset.acct);
+        appConfirm('Mark ' + g.Unpaid + ' paid by ' + g.WayName.toLowerCase() + ' from ' + g.Account + ' (' + money(g.UnpaidTotal) + ') on ' + val('ip-pay-date') + '? Each payment gets its journal.').then(ok => {
+          if (ok) act('markInterimPaid', { way: g.Way, accountId: g.AccountID, paymentDate: val('ip-pay-date'), reference: val('ip-ref') }, 'mark it paid'); });
+      }
+    });
+    $('ip-made').addEventListener('click', e => {
+      const b = e.target.closest('.ip-p-rev');
+      if (b) appPrompt('Reverse payment ' + b.closest('li').dataset.pay + ' of ' + current.batch.Number + ' (each of its journals). Reason:', '').then(reason => { if (reason !== null) act('reverseInterimPayment', { paymentId: b.closest('li').dataset.pay, reason }, 'reverse the payment'); });
+    });
     const pending = window.__pendingModuleParams;
     window.__pendingModuleParams = null;
-    loadList().then(() => { const id = pending && (pending.OpenEntryId || pending.InterimID); if (id) return openBatch({ interimId: id }); });
+    loadList().then(() => { const id = pending && (pending.OpenEntryId || pending.InterimID); if (id) return /^STKJV-/.test(id) ? openFromJournal(id) : openBatch({ interimId: id }); });
   };
 })();
+</script>

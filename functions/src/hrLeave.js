@@ -275,10 +275,19 @@ async function evaluate(input, emp, excludeId) {
 async function fileCount(leaveId) {
   return (await firestore.collection('attachments').where('DocKey', '==', MODULE_ID + ':' + leaveId).get()).docs.filter(d => !d.data().Removed).length;
 }
-async function requireDocument(v, leaveId) {
-  if (v.DocumentNeeded && !(await fileCount(leaveId))) {
-    bad('Attach the supporting document (e.g. a medical certificate) below the leave: ' + v.LeaveTypeName + ' over ' + dayWord(v.DocumentAfterDays) + ' needs one.');
-  }
+// A supporting document (e.g. a medical certificate) no longer blocks
+// (payroll step 6, decision 44): whoever approves (or, with no approval,
+// submits) confirms accepting the leave without it; the leave is flagged
+// "Accepted without document" until a file is attached.
+async function documentMissing(v, leaveId) { return Boolean(v.DocumentNeeded) && !(await fileCount(leaveId)); }
+const NO_DOCUMENT = 'No supporting document is attached';
+function requireAccepted(v, accepted) {
+  if (!accepted) throw new HttpsError('failed-precondition', NO_DOCUMENT + ' (e.g. a medical certificate): ' + v.LeaveTypeName + ' over ' + dayWord(v.DocumentAfterDays) + ' expects one. Accept the leave without it, or attach it first.');
+}
+const acceptedBy = user => ({ By: actorName(user), At: new Date().toISOString() });
+// Attachments of every leave, for the register's "No document" flags.
+async function leavesWithFiles() {
+  return new Set((await firestore.collection('attachments').where('Module', '==', MODULE_ID).get()).docs.map(d => d.data()).filter(a => !a.Removed).map(a => a.DocID));
 }
 
 // ---------- callables: the register ----------
@@ -286,8 +295,9 @@ async function requireDocument(v, leaveId) {
 exports.getLeaves = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user);
+  const withFiles = await leavesWithFiles();
   const leaves = docs(await LEAVES().get()).filter(l => userCanAccessCompany(user.profile, l.CompanyID))
-    .map(l => ({ LeaveID: l._id, LeaveNumber: l.LeaveNumber || '', Status: l.Status, EmployeeID: l.EmployeeID, EmployeeNo: l.EmployeeNo, EmployeeName: l.EmployeeName,
+    .map(l => ({ LeaveID: l._id, NoDocument: Boolean(l.DocumentNeeded) && !withFiles.has(l._id), AcceptedWithoutDocument: l.AcceptedWithoutDocument || null, LeaveNumber: l.LeaveNumber || '', Status: l.Status, EmployeeID: l.EmployeeID, EmployeeNo: l.EmployeeNo, EmployeeName: l.EmployeeName,
       CompanyID: l.CompanyID, LeaveTypeID: l.LeaveTypeID, LeaveTypeName: l.LeaveTypeName, FromDate: l.FromDate, ToDate: l.ToDate, EffectiveTo: l.EffectiveTo || '',
       Days: l.Days, UnpaidDays: l.UnpaidDays || 0, LateDays: l.LateDays || 0, ReturnDate: l.ReturnDate || '', ConfirmReturn: Boolean(l.ConfirmReturn), UpdatedAt: l.UpdatedAt || l.CreatedAt }))
     .sort((a, b) => String(b.FromDate).localeCompare(String(a.FromDate)) || String(b.UpdatedAt).localeCompare(String(a.UpdatedAt)));
@@ -312,6 +322,7 @@ exports.getLeave = onCallWithMessages(onCallOptions, async (request) => {
   const inst = l.ApprovalInstanceID ? (await rtdb.ref('approvalInstances/' + l.ApprovalInstanceID).get()).val() : null;
   const decided = new Set(((inst && inst.Decisions) || []).map(x => x.LevelNumber));
   const myLevels = inst && inst.Status === 'Pending' ? (inst.RequiredLevels || []).filter(x => x.ApproverUserID === user.uid && !decided.has(x.LevelNumber)).map(x => x.LevelNumber) : [];
+  l.DocumentMissing = await documentMissing(l, l.LeaveID);
   return { leave: l, approval: inst ? { Status: inst.Status, Levels: inst.RequiredLevels || [], Decisions: inst.Decisions || [] } : null,
     myLevels, canDraft: await can(user, 'draft'), canPost: await can(user, 'post'), today: today() };
 });
@@ -394,7 +405,7 @@ exports.submitLeave = onCallWithMessages(onCallOptions, async (request) => {
   if (l.Status !== 'Draft' && l.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only a draft or rejected leave can be submitted.');
   const emp = await loadEmployee(user, l.EmployeeID);
   const v = await evaluate(l, emp, l.LeaveID);
-  await requireDocument(v, l.LeaveID);
+  const missing = await documentMissing(v, l.LeaveID);
   const number = l.LeaveNumber || await nextNumber(v.FromDate);
   const now = new Date().toISOString();
   const key = approvalKeyOf(v);
@@ -405,8 +416,11 @@ exports.submitLeave = onCallWithMessages(onCallOptions, async (request) => {
     await LEAVES().doc(l.LeaveID).update(Object.assign(base, { Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId, History: (l.History || []).concat([histEntry('Submitted for approval', user)]) }));
     return { success: true, status: 'PendingApproval', leaveNumber: number };
   }
+  // No approval: the person submitting decides on a missing document.
+  if (missing) requireAccepted(v, (request.data || {}).acceptWithoutDocument === true);
   base.Lines = withPayMonths(v.Lines, [], await lockedMonths(l.CompanyID));
-  await LEAVES().doc(l.LeaveID).update(Object.assign(base, { Status: 'Approved', ApprovedAt: now, History: (l.History || []).concat([histEntry('Submitted (no approval needed)', user)]) }));
+  await LEAVES().doc(l.LeaveID).update(Object.assign(base, { Status: 'Approved', ApprovedAt: now, AcceptedWithoutDocument: missing ? acceptedBy(user) : null,
+    History: (l.History || []).concat([histEntry('Submitted (no approval needed)', user)], missing ? [histEntry('Accepted without the supporting document', user)] : []) }));
   return { success: true, status: 'Approved', leaveNumber: number };
 });
 
@@ -416,6 +430,9 @@ exports.decideLeaveApproval = onCallWithMessages(onCallOptions, async (request) 
   const d = request.data || {};
   const l = await loadLeave(user, d.leaveId);
   if (l.Status !== 'PendingApproval' || !l.ApprovalInstanceID) throw new HttpsError('failed-precondition', 'This leave is not awaiting approval.');
+  // The approver decides on a missing document (decision 44).
+  const missing = d.decision === 'Approved' && await documentMissing(l, l.LeaveID);
+  if (missing) requireAccepted(l, d.acceptWithoutDocument === true);
   const result = await recordApprovalDecision(user, l.ApprovalInstanceID, Number(d.levelNumber), d.decision, d.reason);
   const now = new Date().toISOString();
   if (result.status === 'Approved') {
@@ -424,7 +441,8 @@ exports.decideLeaveApproval = onCallWithMessages(onCallOptions, async (request) 
       const emp = (await EMPLOYEES().doc(l.EmployeeID).get()).data();
       const v = await evaluate(l, Object.assign({ EmployeeID: l.EmployeeID }, emp), l.LeaveID);
       v.Lines = withPayMonths(v.Lines, [], await lockedMonths(l.CompanyID));
-      await LEAVES().doc(l.LeaveID).update(Object.assign(v, { Status: 'Approved', ApprovedAt: now, UpdatedAt: now, History: (l.History || []).concat([histEntry('Approved', user)]) }));
+      await LEAVES().doc(l.LeaveID).update(Object.assign(v, { Status: 'Approved', ApprovedAt: now, UpdatedAt: now, AcceptedWithoutDocument: missing ? acceptedBy(user) : null,
+        History: (l.History || []).concat(missing ? [histEntry('Approved, accepted without the supporting document', user)] : [histEntry('Approved', user)]) }));
     } catch (err) {
       // As other modules: undo the decision and hand it back for correcting.
       const inst = (await rtdb.ref('approvalInstances/' + l.ApprovalInstanceID).get()).val();
@@ -434,7 +452,7 @@ exports.decideLeaveApproval = onCallWithMessages(onCallOptions, async (request) 
   } else if (result.status === 'Rejected') {
     await LEAVES().doc(l.LeaveID).update({ Status: 'Rejected', RejectionReason: text(d.reason, 500), UpdatedAt: now, History: (l.History || []).concat([histEntry('Rejected', user, text(d.reason, 500))]) });
   } else {
-    await LEAVES().doc(l.LeaveID).update({ UpdatedAt: now, History: (l.History || []).concat([histEntry('Approved level ' + d.levelNumber, user)]) });
+    await LEAVES().doc(l.LeaveID).update({ UpdatedAt: now, History: (l.History || []).concat([histEntry('Approved level ' + d.levelNumber + (missing ? ', accepted without the supporting document' : ''), user)]) });
   }
   return { success: true, status: result.status, selfApproved: result.selfApproved };
 });
@@ -604,6 +622,7 @@ module.exports.leavesOf = leavesOf;
 module.exports.gradeLevel = gradeLevel;
 module.exports.withPayMonths = withPayMonths;
 module.exports.payMonthOf = payMonthOf;
+module.exports.leavesWithFiles = leavesWithFiles;
 module.exports.live = live;
 module.exports.nextMonth = nextMonth;
 module.exports.monthEnd = monthEnd;

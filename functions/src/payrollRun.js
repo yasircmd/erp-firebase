@@ -17,7 +17,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
-const { userCanAccessCompany } = require('./glWriting');
+const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { calendarFor, leaveTypes } = require('./hrLeaveSetup');
 const { hoursOn } = require('./workCalendar');
 const lv = require('./hrLeave');
@@ -373,6 +373,23 @@ exports.deletePayrollRun = onCallWithMessages(onCallOptions, async (request) => 
   for (let i = 0; i < slips.docs.length; i += 400) { const b = firestore.batch(); slips.docs.slice(i, i + 400).forEach(x => b.delete(x.ref)); await b.commit(); }
   await RUNS().doc(run.RunID).delete();
   return { success: true };
+});
+
+// The document behind a payroll journal (step 6, docs/modules/HR_PAYROLL.md):
+// the GL report opens a payroll journal in its module, which asks here for
+// the run, settlement, loan, interim batch or claim it belongs to.
+exports.getPayrollJournalSource = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const snap = await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(text((request.data || {}).jvId, 80) || '-').get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Journal entry not found.');
+  const e = snap.data();
+  if (!userCanAccessCompany(user.profile, e.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  if (e.PayrollInterimID) return { ModuleID: 'PAYROLLIP', ID: e.PayrollInterimID, JVNumber: e.JVNumber };
+  if (e.PayrollSettlementID) return { ModuleID: 'PAYROLLFS', ID: e.PayrollSettlementID, JVNumber: e.JVNumber };
+  if (e.PayrollLoanID) return { ModuleID: 'PAYROLLLOAN', ID: e.PayrollLoanID, JVNumber: e.JVNumber };
+  if (e.PayrollRunID) return { ModuleID: 'PAYROLL', ID: e.PayrollRunID, JVNumber: e.JVNumber };
+  if (e.PayrollClaimID) return { ModuleID: 'PAYROLL', View: 'Provisions', CompanyID: e.CompanyID, JVNumber: e.JVNumber };
+  throw new HttpsError('failed-precondition', e.JVNumber + ' is not a payroll journal.');
 });
 
 // Shared with payrollPost.js (step 3).

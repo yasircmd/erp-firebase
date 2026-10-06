@@ -45,7 +45,7 @@ test('the arithmetic: the three daily-rate methods (leap years too) and the over
 
 test('per company: the daily-rate method and Salaries Payable (a liability, shared or the company\'s); own companies only', async () => {
   let s = await call('u-admin', 'getPayrollSetup', {});
-  assert.deepEqual(s.settings, [{ CompanyID: 'C1', DailyRateMethod: 'DIV30', PayableAccountID: '', ReceivableAccountID: '' }]);
+  assert.deepEqual(s.settings, [{ CompanyID: 'C1', DailyRateMethod: 'DIV30', PayableAccountID: '', ReceivableAccountID: '', LeaveDeductionGL: 'Ledger' }]);
   assert.deepEqual(Object.keys(s.methods), ['DIV30', 'MONTHDAYS', 'YEARDAYS']);
   assert.ok(s.accounts.some(a => a.AccountID === 'A-SALC1') && !s.accounts.some(a => a.AccountID === 'A-SAL2') && !s.accounts.some(a => a.AccountID === 'A-HDR'));
   await assert.rejects(call('u-viewer', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'MONTHDAYS' }), /permission to change Payroll Setup/);
@@ -54,7 +54,7 @@ test('per company: the daily-rate method and Salaries Payable (a liability, shar
   await assert.rejects(call('u-admin', 'savePayrollCompany', { companyId: 'C2', dailyRateMethod: 'MONTHDAYS' }), /access to that company/);
   await call('u-admin', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'MONTHDAYS', payableAccountId: 'A-SALPAY' });
   s = await call('u-admin', 'getPayrollSetup', {});
-  assert.deepEqual(s.settings, [{ CompanyID: 'C1', DailyRateMethod: 'MONTHDAYS', PayableAccountID: 'A-SALPAY', ReceivableAccountID: '' }]);
+  assert.deepEqual(s.settings, [{ CompanyID: 'C1', DailyRateMethod: 'MONTHDAYS', PayableAccountID: 'A-SALPAY', ReceivableAccountID: '', LeaveDeductionGL: 'Ledger' }]);
 });
 
 test('element GL accounts: the group\'s (shared, expense for earnings), a company\'s override; prorated and in gross', async () => {

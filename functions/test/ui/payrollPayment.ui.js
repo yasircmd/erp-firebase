@@ -88,31 +88,39 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.close();
   });
 
-  await check('paying the run: the payees, the file downloaded, Mark paid; the run can\'t be reversed until the payment is', async () => {
-    const p = await open('PAYROLL', 'u-admin', [undefined, 'Bank rejected the file']); // the Mark paid confirm, then the reason
+  await check('paying the run (step 6, the plan): Ben moved to cheque, saved at once; the bank file and Mark paid per group; a payment reversed on its own; the run then reversible', async () => {
+    const p = await open('PAYROLL', 'u-admin', [undefined, undefined, 'Cheque bounced', 'Redo']); // two Mark paid confirms, then two reasons
     await p.waitForSelector('#pr-runs-body tr[data-id]', { timeout: 30000 });
     await p.click('#pr-runs-body tr[data-id]');
     await p.waitForSelector('#pr-pay-form:not(.hidden)', { timeout: 30000 });
-    assert.match(await p.textContent('#pr-pay-list'), /Ali Hassan\s*Bank\s*ENBD\s*AE070331234567890123456\s*6,000\.00[\s\S]*Ben Okafor\s*Cash \/ cheque/);
-    assert.equal(await p.isVisible('#pr-pay-cash-wrap'), true, 'Ben has no bank account');
+    assert.match(await p.textContent('#pr-pay-list'), /Ali Hassan\s*Bank file[\s\S]*ENBD\s*AE070331234567890123456\s*6,000\.00[\s\S]*Ben Okafor\s*Cash/);
+    assert.deepEqual(await p.$$eval('#pr-pay-groups tr', t => t.map(r => r.cells[0].textContent + ' ' + r.cells[2].textContent)), ['Bank file 1', 'Cash 1']);
+    // Ben has no IBAN: no bank file for him; by cheque from the bank.
+    assert.deepEqual(await p.$$eval('#pr-pay-list tr[data-emp="' + ben + '"] .pr-w-way option', o => o.map(x => x.value)), ['Cash', 'Cheque']);
+    await p.selectOption('#pr-pay-list tr[data-emp="' + ben + '"] .pr-w-way', 'Cheque');
+    await p.waitForFunction(() => [...document.querySelectorAll('#pr-pay-groups tr')].map(r => r.cells[0].textContent).join() === 'Bank file,Cheque / transfer', null, { timeout: 30000 });
     await p.fill('#pr-pay-date', '2026-08-03');
     const download = p.waitForEvent('download');
-    await p.click('#pr-pay-file');
+    await p.click('#pr-pay-groups tr[data-way="BankFile"] .pr-g-file');
     const d = await download;
     assert.match(d.suggestedFilename(), /^0000123456789\d{12}\.SIF$/);
     assert.match(fs.readFileSync(await d.path(), 'utf8'), /^EDR,10012345678901,[\s\S]*\r\nSCR,0000123456789,803320101,.*,072026,1,6000\.00,AED,\r\n$/);
-    await p.selectOption('#pr-pay-bank', 'A-BANK');
-    await p.selectOption('#pr-pay-cash', 'A-CASH');
-    await p.click('#pr-pay-mark');
+    await p.click('#pr-pay-groups tr[data-way="BankFile"] .pr-g-pay');
+    await p.waitForFunction(() => /P1: 03\/08\/2026 — Bank file from 1100/.test(document.getElementById('pr-pay-made').textContent), null, { timeout: 30000 });
+    assert.match(p.__dialogs[0], /^Mark 1 paid by bank file from 1100 — .* \(6,000\.00\) on 2026-08-03\?/);
+    assert.ok(await p.isHidden('#pr-pay-done'), 'paid in part');
+    assert.match(await p.textContent('#pr-pay-list tr[data-emp="' + ali + '"]'), /paid \(P1\)/);
+    await p.click('#pr-pay-groups tr[data-way="Cheque"] .pr-g-pay');
     await p.waitForSelector('#pr-pay-done:not(.hidden)', { timeout: 30000 });
-    const r = await run();
-    assert.match(await p.textContent('#pr-pay-done'), new RegExp('Paid on 03/08/2026: journal ' + r.PaymentJVNumber));
-    assert.match(p.__dialogs[0], /^Mark the run paid on 2026-08-03 \(2 employees\)\?/);
+    assert.match(await p.textContent('#pr-pay-done'), /Paid in full \(the last on 03\/08\/2026\)/);
     assert.equal(await p.isHidden('#pr-reverse'), true);
-    await p.click('#pr-pay-reverse');
-    await p.waitForSelector('#pr-pay-form:not(.hidden)', { timeout: 30000 });
+    await p.click('#pr-pay-made li[data-pay="P2"] .pr-p-rev');
+    await p.waitForSelector('#pr-pay-done.hidden', { state: 'attached', timeout: 30000 });
+    await p.waitForFunction(() => /reversed: Cheque bounced/.test(document.getElementById('pr-pay-made').textContent), null, { timeout: 30000 });
     assert.equal((await run()).PaidAt, '');
-    assert.equal(await p.isVisible('#pr-reverse'), true);
+    await p.click('#pr-pay-made li[data-pay="P1"] .pr-p-rev');
+    await p.waitForFunction(() => (document.getElementById('pr-pay-made').textContent.match(/reversed/g) || []).length === 2, null, { timeout: 30000 });
+    await p.waitForSelector('#pr-reverse:not(.hidden)', { timeout: 30000 });
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

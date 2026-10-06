@@ -203,6 +203,14 @@
     return String(text || '').split(',').map(x => x.trim()).filter(Boolean).map(x => { const m = x.split(':'); return { FromMonth: (m[0] || '').trim(), Instalment: (m[1] || '').trim() }; });
   }
 
+  // From the GL report (step 6): a journal's id, opened as the document behind it.
+  function openFromJournal(jvId) {
+    return call('getPayrollJournalSource', { jvId: jvId }).then(src => {
+      if (src.ModuleID !== 'PAYROLLLOAN') return openModule(src.ModuleID, { OpenEntryId: src.ID });
+      return openLoan(src.ID);
+    }, err => appAlert(err.message || 'Unable to open the journal\'s document.'));
+  }
+
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-hand-holding-dollar"></i> Loans &amp; Advances';
     $('ln-new-btn').addEventListener('click', newLoan);
@@ -221,7 +229,7 @@
     const pending = window.__pendingModuleParams;
     window.__pendingModuleParams = null;
     call('getLoanForm', {}).then(r => { form = r; return loadList(); }, err => appAlert(err.message || 'Unable to load.'))
-      .then(() => { const id = pending && (pending.OpenEntryId || pending.LoanID); if (id) return openLoan(id); });
+      .then(() => { const id = pending && (pending.OpenEntryId || pending.LoanID); if (id) return /^STKJV-/.test(id) ? openFromJournal(id) : openLoan(id); });
   };
 })();
 </script>
