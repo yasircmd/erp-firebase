@@ -105,7 +105,7 @@ const PDF = Buffer.from('%PDF-1.4\n% certificate\n').toString('base64');
     await h.close();
   });
 
-  await check('over the balance: the excess shown as unpaid before saving; sick leave needs its certificate to submit', async () => {
+  await check('over the balance: the excess shown as unpaid before saving; sick leave expects its certificate (step 6: submitted without it, the approver decides)', async () => {
     const p = await open('LEAVE', 'u-admin');
     await p.click('#lv-new-btn');
     await p.selectOption('#lv-employee', ali);
@@ -118,16 +118,17 @@ const PDF = Buffer.from('%PDF-1.4\n% certificate\n').toString('base64');
     await p.selectOption('#lv-employee', sara);
     await p.selectOption('#lv-type', { label: 'Sick Leave' });
     await typeIn(p, '2026-02-01', '2026-02-20');
-    await previewIs(p, /20 days of leave\s*15\s*Sick Leave — Full salary\s*5\s*Sick Leave — Full salary at 50%[\s\S]*supporting document \(e\.g\. a medical certificate\) must be attached/);
+    await previewIs(p, /20 days of leave\s*15\s*Sick Leave — Full salary\s*5\s*Sick Leave — Full salary at 50%[\s\S]*supporting document \(e\.g\. a medical certificate\) is expected: attach it below\. Without it, whoever approves decides whether to accept the leave\./);
     await p.click('#lv-save-btn');
     await p.waitForFunction(() => /^Draft — Sick Leave: Sara Khan/.test(document.getElementById('lv-heading').textContent), null, { timeout: 15000 });
     await p.click('#lv-submit-btn');
-    await p.waitForFunction(() => /Attach the supporting document/.test(document.getElementById('lv-error').textContent), null, { timeout: 15000 });
+    await p.waitForFunction(() => /Pending approval/.test(document.getElementById('lv-status-badge').textContent), null, { timeout: 15000 });
+    await p.waitForSelector('#lv-doc-note:not(.hidden)', { timeout: 15000 });
+    assert.match(await p.textContent('#lv-doc-note'), /No supporting document attached: the approver decides whether to accept the leave without it\./);
+    // Attached afterwards: the note goes.
     const sick = (await call('u-admin', 'getLeaves', {})).leaves.find(l => l.EmployeeID === sara).LeaveID;
     await call('u-admin', 'uploadAttachment', { module: 'LEAVE', docId: sick, fileName: 'certificate.pdf', data: PDF });
-    p.__dialogs.length = 0;
-    await p.click('#lv-submit-btn');
-    await p.waitForFunction(() => /Pending approval/.test(document.getElementById('lv-status-badge').textContent), null, { timeout: 15000 });
+    assert.equal((await call('u-admin', 'getLeave', { leaveId: sick })).leave.DocumentMissing, false);
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

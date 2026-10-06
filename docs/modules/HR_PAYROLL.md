@@ -1881,3 +1881,127 @@ Proposed: **a payment plan** before paying (question 47):
 | 46 | Pro rata covers | **Every leave deduction:** unpaid leave, absence, reduced-pay leave. |
 | 47 | The payment plan | **One way per employee**; grouped by account, each group paid and reversed on its own. |
 | 48 | The reference (point 4) | **Not TXN: a payroll sequence of its own, PRL-**, so payroll entries are easy to identify. |
+
+## As built: step 6, the owner's points of 2026-10-06
+
+**1. The supporting document** (Leave Register; decision 44):
+- a leave type's "document required after N days" (e.g. Sick Leave)
+  **no longer blocks submitting**. The form says the document is
+  expected and whoever approves decides;
+- **approving** a leave with no file attached asks the approver to
+  confirm: "No supporting document … Approve, accepting the leave
+  without it?" Without that confirmation the server refuses. Each level's
+  history says so;
+- **with no approval set up**, the person submitting is asked the same
+  question;
+- the leave records **"Accepted without document"** (who, when). The
+  entry shows "No supporting document attached: accepted without it by
+  … on …", or "the approver decides…" while it is pending;
+- **highlighted until a file is attached:**
+  - an amber "No document" badge in the register, with "(accepted)"
+    once accepted;
+  - the filter "Accepted without document";
+  - Leave Reports → Register's new "Document" column (Attached /
+    Missing, accepted by …);
+- **attaching the file later** clears the badge. Who accepted it stays
+  on the leave and in its history.
+
+**2. Payroll Setup → "Payroll Accounting"** (decision 45): the tab
+formerly named "Payroll", and the messages that point to it.
+
+**3. Leave deductions in the GL** (decision 46): a new company setting on
+Payroll Accounting, "Leave deductions in the GL":
+- **Own ledger** (as before): credited to the deduction's own system
+  element account;
+- **Pro rata on the earnings:**
+  - unpaid leave, absence and reduced-pay leave each credit the earnings
+    their day rate came from (e.g. 200 basic + 100 housing a day: an
+    unpaid day credits basic 200 and housing 100);
+  - salary expense shows what was earned;
+  - the payslip still shows the deduction on its own line;
+- **behind it:**
+  - each leave deduction line carries its `Split` by earning, rounded to
+    the cent with the difference on the largest part;
+  - arrears on a leave deduction keep the split when both sides have one;
+  - lines from runs posted before step 6 have no split and post to the
+    deduction's own account;
+  - final settlements follow the same setting.
+
+**4. Payroll journals** (a fix; decision 48):
+- **references:** run, payment, loan payout and repayment, accrual
+  claim, final settlement and their reversals now take a payroll
+  sequence of their own, **PRL-00000001…**, instead of the stock
+  sequence (STK-). Entries already posted keep their reference;
+- **the link from the GL:**
+  - the voucher types Payroll, PayrollPayment, PayrollProvision,
+    PayrollLoan and FinalSettlement are in the voucher-type maps
+    (`masterData.js`, `journal.js`), so the GL report opens them in
+    Payroll, Loans & Advances or Final Settlements;
+  - that screen asks `getPayrollJournalSource` for the document behind
+    the journal: the run, the settlement, the loan, the interim batch,
+    or the Provisions view for an accrual claim;
+  - when the document belongs to another payroll module, it opens there;
+- **also fixed:** a payroll journal could be reversed from Journal
+  Vouchers, which left the run, loan or settlement unaware of it. It is
+  now refused there: "reverse it from that module";
+- **still open, noted for later:** Fixed Assets, PDC, Recurring Journal
+  and Opening Balance journals have the same STK reference. Opening
+  Balance journals are also missing from the GL report's map, so the
+  report sends them to Journal Vouchers.
+
+**5. The payment plan** (runs and interim batches; decision 47):
+- **each employee** (each item, in a batch) is paid **one way, from one
+  account**:
+  - bank file (a bank account; needs an IBAN);
+  - cash (a cash account);
+  - cheque / transfer (a bank account);
+- **the default:** by bank file with an IBAN, else cash, from the
+  company's first account of that kind;
+- **changing it:** a change in the Paid by / From columns is saved at
+  once. It is refused for someone already paid;
+- **the groups:** people are grouped by way and account. Each group
+  shows its count, total and what is left to pay, and:
+  - a bank file group has its own **bank file** (the file covers only
+    that group);
+  - each group has its own **Mark paid**, with the payment date and
+    reference above it: one journal, Dr Salaries Payable / Cr that
+    account, for a run; a journal per item, all or nothing, for a batch;
+- **the run is paid** once every group is. The batch is "Paid" once
+  every item is; until then it stays approved;
+- **each payment is listed** (date, way, account, amount, journal) and
+  **reversed on its own**:
+  - a run paid in part can't be reversed until its payments are;
+  - a batch with no payment left goes back to a draft;
+- a run paid in one go before step 6 shows that one payment, reversible
+  as before.
+
+**Behind it:**
+- `payrollPlan.js` (new);
+- `payrollPayment.js`: `savePaymentPlan`; the file, Mark paid and
+  reversal per group or payment;
+- `payrollInterim.js`: `saveInterimPlan`; the same per group;
+- `payrollCalc.js`: the leave split;
+- `payrollPost.js` and `payrollSettlement.js`: pro rata posting;
+- `payrollSetup.js`: the setting;
+- `glWriting.js`: the PRL sequence;
+- `masterData.js` and `journal.js`: the maps;
+- `payrollRun.js`: `getPayrollJournalSource`;
+- `hrLeave.js` and `hrLeaveReports.js`: the document;
+- screens: LEAVE, LEAVEREPORTS, PAYROLLSETUP, PAYROLL, PAYROLLIP,
+  PAYROLLFS and PAYROLLLOAN (the last two open a journal's document).
+
+**Tests:**
+- the `payrollStep6` suite (3);
+- `payrollPayment` (4, rewritten for the plan);
+- `payrollInterim` (4, with the plan);
+- `hrLeave` (updated message);
+- `payrollSetup` (the new setting);
+- UI checks: `payrollStep6.ui.js` (3), `payrollPayment.ui.js` and
+  `payrollInterim.ui.js` (rewritten for the plan), `payrollPost.ui.js`;
+- negative controls (see the PR).
+
+**To go live:**
+1. Deploy "functions set" `payroll-6` with the screens. No Hosting
+   change.
+2. In Payroll Setup → Payroll Accounting, choose each company's "Leave
+   deductions in the GL". It stays "Own ledger" until changed.

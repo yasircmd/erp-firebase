@@ -743,3 +743,16 @@ for one company or all the user's companies, each with **Copy to Excel**
 own design (docs/modules/HR_PAYROLL.md), reading the locked month
 summaries.
 
+
+## Change: the supporting document no longer blocks (payroll step 6, 2026-10-06)
+
+The owner's decision 44 (docs/modules/HR_PAYROLL.md):
+- a leave type's "document required after N days" no longer blocks
+  submitting;
+- the approver, or the person submitting when no approval is set up,
+  confirms accepting the leave without the document. The leave records
+  who did;
+- it is highlighted in the register, its filter and Leave Reports →
+  Register until a file is attached.
+
+As built: docs/modules/HR_PAYROLL.md, "As built: step 6".
