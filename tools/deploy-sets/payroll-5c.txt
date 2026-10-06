@@ -1,0 +1,68 @@
+# HR Payroll, step 5c: interim payroll (owner 2026-10-06;
+# docs/modules/HR_PAYROLL.md, decisions 40-43). Deploy after payroll-5b.
+# Run with --screens (PAYROLLIP, new: Interim Payroll; PAYROLLFS,
+# PAYROLLLOAN and PAYROLL changed). No Hosting change. Then, in the app:
+# link a menu node to "Interim Payroll"; its rights in Roles & Permissions
+# (draft to prepare and submit, pay to pay); if wanted, Approval
+# Configuration → "Interim payroll".
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getInterimBatches
+getInterimBatch
+saveInterimBatch
+deleteInterimBatch
+submitInterimBatch
+decideInterimApproval
+downloadInterimFile
+markInterimPaid
+reverseInterimPayment
+# Changed: the settlement pays the months no run paid (salary, inputs,
+# the accruals' share); submitted from the leaving date; paid in a batch.
+getSettlements
+getSettlement
+saveSettlement
+deleteSettlement
+submitSettlement
+decideSettlementApproval
+postSettlement
+reverseSettlement
+getSettlementPayment
+downloadSettlementFile
+markSettlementPaid
+reverseSettlementPayment
+# Changed: the run leaves out those a settlement pays; its submit checks.
+createPayrollRun
+savePayrollInputs
+recalculatePayrollRun
+getPayrollRun
+submitPayrollRun
+decidePayrollApproval
+postPayrollRun
+reversePayrollRun
+# Changed: a loan in a batch is paid out there.
+payOutLoan
+reverseLoanPayout
+recordLoanRepayment
+# Changed: a leaver's leave is frozen once their settlement is submitted.
+saveLeave
+previewLeave
+submitLeave
+decideLeaveApproval
+cancelLeave
+recordLeaveReturn
+# Approvals and Home tasks: the new document in their registries.
+getApprovalConfigurations
+saveApprovalConfiguration
+saveApprovalLevels
+getApprovalHistory
+getDelegationCandidates
+delegateApproval
+delegateApprovalsOf
+getPendingApprovalsForUser
+getMyRejectedSubmissions
+getMyDraftsForUser
+# Registries: the new module, its permissions, menu node, screens.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment

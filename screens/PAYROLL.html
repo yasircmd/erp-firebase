@@ -89,6 +89,7 @@
   </div>
   <p id="pr-info" class="text-xs text-slate-400"></p>
   <p id="pr-leave-note" class="hidden text-xs text-amber-400"></p>
+  <p id="pr-settled-note" class="hidden text-xs text-slate-400"></p>
   <p id="pr-state-note" class="hidden text-xs"></p>
   <div id="pr-approval" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
     <div class="text-xs font-semibold text-slate-400 uppercase">Approval</div>
@@ -222,6 +223,10 @@
     $('pr-heading').textContent = 'Payroll — ' + coLabel(run.CompanyID) + ' · ' + run.Month;
     $('pr-status').textContent = STATUS[run.Status] || run.Status;
     $('pr-info').textContent = 'Daily rate: ' + r.methodLabel + '. Calculated ' + (run.CalculatedAt || '') + (run.CalculatedByName ? ' by ' + run.CalculatedByName : '') + '.';
+    // Left off: those whose final settlement pays the month (step 5c).
+    const settled = run.Settled || [];
+    $('pr-settled-note').classList.toggle('hidden', !settled.length);
+    $('pr-settled-note').textContent = settled.length ? 'Paid by final settlement, not on this run: ' + settled.map(p => p.EmployeeName + ' (' + p.Number + ')').join(', ') + '.' : '';
     $('pr-leave-note').classList.toggle('hidden', !r.leaveChanged);
     $('pr-leave-note').textContent = r.leaveLocked ? 'The month\'s leave was reopened and locked again since this run was calculated: recalculate to take in the changes.'
       : 'The month\'s leave has been reopened: lock it again (Leave Register → Month close), then recalculate.';

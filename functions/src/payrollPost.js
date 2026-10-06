@@ -137,6 +137,10 @@ exports.submitPayrollRun = onCallWithMessages(onCallOptions, async (request) => 
   const rec = await R.leaveMonth(run.CompanyID, run.Month);
   if (!rec || rec.Status !== 'Locked' || (rec.LockedAt || '') !== (run.LeaveLockedAt || '')) throw failed('The month\'s leave changed since the run was calculated: recalculate it first.');
   const ctx = await postingContext(run);
+  // A final settlement submitted since (step 5c) pays some of them.
+  const settled = await R.settledIn(run.CompanyID, run.Month);
+  const paidBy = ctx.slips.filter(x => settled[x.EmployeeID]).map(x => x.EmployeeName + ' (' + settled[x.EmployeeID].Number + ')');
+  if (paidBy.length) throw failed('Recalculate the run first: a final settlement pays ' + run.Month + ' for ' + paidBy.join(', ') + '.');
   if (!ctx.slips.length) throw failed('No employees are on the run.');
   glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings, ctx.loanAccounts, ctx.provAccount); // the accounts are checked before approval starts
   const amount = round2(ctx.slips.reduce((t, s) => t + Math.max(0, s.Net), 0));

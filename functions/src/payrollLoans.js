@@ -276,37 +276,41 @@ const post = (user, date, desc, ref, lines, l, extra) => withGlobalLock(user.uid
   try { return await writeStockGlEntry(user, VOUCHER_TYPE, date, desc, ref, lines, { CompanyID: l.CompanyID }, Object.assign({ PayrollLoanID: l.LoanID, SourceTransactionID: l.LoanID, ReversalOfJV: '' }, extra || {})); } catch (e) { throw failed(e.message); }
 });
 
+// An approved loan in an interim payroll batch (step 5c) is paid out, and
+// reversed, only through the batch.
+const requireNotInBatch = l => { if (l.InterimID) throw failed(l.LoanNumber + ' is in interim payroll ' + (l.InterimNumber || '') + ': it is paid out there.'); };
+
 // Paying it out (decision 24): Dr the receivable / Cr the cash or bank.
+// batch: the interim payroll paying it (step 5c), for the journal's reference.
+async function payOut(user, l, date, accountId, batch) {
+  await requireNoSettlement(l);
+  if (l.Status !== 'Approved') throw failed('Only an approved loan is paid out.');
+  if (!isDate(date)) bad('Enter the date it is paid out.');
+  const { rec, cash } = await glAccounts(l, accountId);
+  const label = l.TypeName + ' ' + l.LoanNumber + ' — ' + l.EmployeeName;
+  const gl = await post(user, date, 'Paid out: ' + label + (batch ? ' (' + batch.Number + ')' : ''), batch ? batch.Number : l.LoanNumber, [
+    { AccountCode: rec.AccountCode, Debit: l.Amount, Credit: 0, Description: label }, { AccountCode: cash.AccountCode, Debit: 0, Credit: l.Amount, Description: label }], l,
+    batch ? { PayrollInterimID: batch.InterimID } : {});
+  await LOANS().doc(l.LoanID).update({ Status: 'Active', PayoutDate: date, PayoutJVID: gl.jvId, PayoutJVNumber: gl.jvNumber, PaidOutBy: actorName(user),
+    UpdatedAt: new Date().toISOString(), UpdatedBy: actorOf(user), History: history(l, 'Paid out', user, { JVNumber: gl.jvNumber, Note: batch ? batch.Number : '' }) });
+  return gl;
+}
 exports.payOutLoan = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'pay');
   const d = request.data || {};
   const l = await loadLoan(user, d.loanId);
-  await requireNoSettlement(l);
-  if (l.Status !== 'Approved') throw failed('Only an approved loan is paid out.');
-  const date = text(d.date, 10);
-  if (!isDate(date)) bad('Enter the date it is paid out.');
-  const { rec, cash } = await glAccounts(l, d.accountId);
-  const label = l.TypeName + ' ' + l.LoanNumber + ' — ' + l.EmployeeName;
-  const gl = await post(user, date, 'Paid out: ' + label, l.LoanNumber, [
-    { AccountCode: rec.AccountCode, Debit: l.Amount, Credit: 0, Description: label }, { AccountCode: cash.AccountCode, Debit: 0, Credit: l.Amount, Description: label }], l);
-  await LOANS().doc(l.LoanID).update({ Status: 'Active', PayoutDate: date, PayoutJVID: gl.jvId, PayoutJVNumber: gl.jvNumber, PaidOutBy: actorName(user),
-    UpdatedAt: new Date().toISOString(), UpdatedBy: actorOf(user), History: history(l, 'Paid out', user, { JVNumber: gl.jvNumber }) });
+  requireNotInBatch(l);
+  const gl = await payOut(user, l, text(d.date, 10), d.accountId);
   return { success: true, jvNumber: gl.jvNumber };
 });
 
 // Undoing the payout, before anything is recovered or repaid.
-exports.reverseLoanPayout = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
-  await requireCap(user, 'pay');
-  const d = request.data || {};
-  const reason = text(d.reason, 300);
-  if (!reason) bad('Give the reason for reversing the payout.');
-  const l = await loadLoan(user, d.loanId);
+async function reversePayout(user, l, reason) {
   await requireNoSettlement(l);
   if (l.Status !== 'Active' || !l.PayoutJVID) throw failed('The loan is not paid out.');
   const recs = (await recoveriesOf(l.CompanyID))[l.LoanID] || [];
-  if (recs.length || (l.Repayments || []).some(x => !x.ReversedAt)) throw failed('Part of it is already recovered or repaid: it can no longer be reversed.');
+  if (recs.length || (l.Repayments || []).some(x => !x.ReversedAt)) throw failed(l.LoanNumber + ': part of it is already recovered or repaid: it can no longer be reversed.');
   const ref = firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(l.PayoutJVID);
   const e = (await ref.get()).data();
   const gl = await post(user, e.JVDate, 'Reversal of ' + e.JVNumber + ' — ' + reason, e.JVNumber,
@@ -314,6 +318,17 @@ exports.reverseLoanPayout = onCallWithMessages(onCallOptions, async (request) =>
   await ref.update({ ReversedByJV: gl.jvId, UpdatedAt: new Date().toISOString(), UpdatedBy: actorOf(user) });
   await LOANS().doc(l.LoanID).update({ Status: 'Approved', PayoutDate: '', PayoutJVID: '', PayoutJVNumber: '', UpdatedAt: new Date().toISOString(), UpdatedBy: actorOf(user),
     History: history(l, 'Payout reversed', user, { JVNumber: e.JVNumber, ReversalJVNumber: gl.jvNumber, Note: reason }) });
+  return gl;
+}
+exports.reverseLoanPayout = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'pay');
+  const d = request.data || {};
+  const reason = text(d.reason, 300);
+  if (!reason) bad('Give the reason for reversing the payout.');
+  const l = await loadLoan(user, d.loanId);
+  requireNotInBatch(l);
+  const gl = await reversePayout(user, l, reason);
   return { success: true, reversalNumber: gl.jvNumber };
 });
 
@@ -369,4 +384,4 @@ exports.recordLoanRepayment = onCallWithMessages(onCallOptions, async (request) 
   return { success: true, jvNumber: gl.jvNumber, balance: round2(balance - amount) };
 });
 
-Object.assign(module.exports, { loansDue, recoveriesOf, balanceOf, dueFor, accountFor, loanTypes });
+Object.assign(module.exports, { loansDue, recoveriesOf, balanceOf, dueFor, accountFor, loanTypes, payOut, reversePayout, LOANS });

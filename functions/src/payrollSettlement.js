@@ -26,6 +26,7 @@ const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { withGlobalLock } = require('./lock');
+const { todayIn } = require('./recurringSchedule');
 const { leaveTypes } = require('./hrLeaveSetup');
 const lv = require('./hrLeave');
 const setup = require('./payrollSetup');
@@ -97,8 +98,27 @@ function payOn(versions, date, elements) {
     gross: round2(ref.Lines.filter(l => el(l).Kind === 'Earning' && el(l).InGross).reduce((t, l) => t + l.Amount, 0)) };
 }
 
+const byHours = e => e.Category === 'Overtime' && e.Overtime && e.Overtime.Mode === 'Hours';
+
+// The salary months (step 5c, decisions 40-41): each month not yet paid by
+// a posted run, the leaving month always paid here, an earlier one paid
+// here unless HR leaves it to its run (only the earliest months can be).
+async function salaryMonths(emp, leaveToRun) {
+  const { lastPaid, months } = await R.unpaidMonths(emp);
+  const leaving = emp.LeavingDate.slice(0, 7);
+  let paying = false;
+  const out = months.map(m => {
+    const pay = m.Month === leaving || !(leaveToRun || []).includes(m.Month);
+    if (paying && !pay) bad(m.Month + ' can\'t be left to its run: a month before it is paid in the settlement. Pay ' + m.Month + ' here too.');
+    paying = paying || pay;
+    return Object.assign({}, m, { Pay: pay });
+  });
+  return { lastPaid, months: out };
+}
+
 // The settlement's lines. d: { Notice: { Days, Mode, ElementID },
-// Overrides: { key: { Amount, Reason } }, Others: [{ ElementID, Amount, Note }] }.
+// Overrides: { key: { Amount, Reason } }, Others: [{ ElementID, Amount, Note }],
+// LeaveToRun: [month], Inputs: [{ Month, ElementID, Hours, Amount, Note }] }.
 async function compute(emp, d) {
   const co = emp.CompanyID, date = emp.LeavingDate, month = date.slice(0, 7);
   const [settings, els, prov, types, versionsSnap, provided, leaves, grade, lvTypes, loanSnap] = await Promise.all([
@@ -111,6 +131,31 @@ async function compute(emp, d) {
   const mine = provided[emp.EmployeeID] || {};
   const over = d.Overrides || {};
   const lines = [], warnings = [];
+  // The salary (step 5c): the months not yet paid, as the run works them out.
+  const sm = await salaryMonths(emp, d.LeaveToRun);
+  const payMonths = sm.months.filter(m => m.Pay).map(m => m.Month);
+  const inputEls = R.inputElements(els);
+  const inputsByMonth = {};
+  (d.Inputs || []).forEach((x, i) => {
+    const el = inputEls.find(e => e.ElementID === x.ElementID);
+    if (!el) bad('Salary input ' + (i + 1) + ': choose a variable pay element (overtime, bonus, a one-off).');
+    if (!payMonths.includes(x.Month)) bad('Salary input ' + (i + 1) + ': ' + (x.Month || 'the month') + ' is not paid in this settlement.');
+    const row = { ElementID: el.ElementID, Note: text(x.Note, 150) };
+    if (byHours(el)) { row.Hours = num(x.Hours); if (!(row.Hours > 0 && row.Hours <= 744)) bad('Salary input ' + (i + 1) + ': ' + el.Name + ' is paid by the hour: enter the hours (more than 0).'); }
+    else { row.Amount = round2(num(x.Amount)); if (!(row.Amount > 0)) bad('Salary input ' + (i + 1) + ': enter the ' + el.Name + ' amount (more than 0).'); }
+    (inputsByMonth[x.Month] = inputsByMonth[x.Month] || []).push(row);
+  });
+  const salary = await R.salaryFor(emp, payMonths, inputsByMonth);
+  salary.forEach(r => {
+    r.Lines.forEach((l, i) => lines.push(Object.assign({}, l, { Key: 'Salary:' + r.Month + ':' + i, Month: r.Month, Salary: true })));
+    r.Warnings.forEach(w => warnings.push(r.Month + ': ' + w));
+  });
+  const shareOf = t => salary.reduce((sum, r) => {
+    const last = date < calc.monthEnd(r.Month) ? date : calc.monthEnd(r.Month);
+    const first = emp.JoinDate > r.Month + '-01' ? emp.JoinDate : r.Month + '-01';
+    const employed = Math.max(0, Math.round((Date.parse(last) - Date.parse(first)) / 86400000) + 1);
+    return sum + calc.accrualShareFor(t, { employeeId: emp.EmployeeID, level: grade ? grade.Level : null, basic: r.Basic, gross: r.Gross, employedDays: employed, monthDays: calc.daysInMonth(r.Month) }).amount;
+  }, 0);
   // A provision's line: worked out, or HR's own amount with a reason.
   const provisionLine = (key, name, worked, workedText, extra) => {
     const o = over[key];
@@ -131,9 +176,11 @@ async function compute(emp, d) {
   const ls = calc.leaveSalaryFor({ days: round2(days), base: prov.LeaveSalary.Base === 'Gross' ? gross : basic, method, month });
   provisionLine('LeaveSalary', days < 0 ? 'Leave taken in advance' : 'Leave salary (unused leave)', ls.amount, ls.text);
   // Accruals: paid at leaving, or lapsed (the provision taken back).
+  // Paid at leaving: the balance provided, and the share of the months paid here (no run provides it).
   types.forEach(t => {
     const key = P.keyOf('Accrual', t.AccrualTypeID), balance = round2(mine[key] || 0);
-    if (t.PaidAtLeaving && balance > 0) provisionLine(key, t.Name, balance, 'the balance provided', { AccrualTypeID: t.AccrualTypeID });
+    const share = t.PaidAtLeaving && t.Active !== false ? round2(shareOf(t)) : 0;
+    if (t.PaidAtLeaving && balance + share > 0) provisionLine(key, t.Name, round2(balance + share), share ? money(balance) + ' provided + ' + money(share) + ' for ' + payMonths.join(', ') : 'the balance provided', { AccrualTypeID: t.AccrualTypeID });
     else if (balance) lines.push({ Key: key, Kind: 'Lapse', Name: t.Name + ' (lapses)', Amount: 0, Signed: 0, Worked: 0, Text: money(balance) + ' provided is taken back', Provided: balance, AccrualTypeID: t.AccrualTypeID });
   });
   // Notice pay: days × the gross daily rate, paid or deducted.
@@ -170,7 +217,12 @@ async function compute(emp, d) {
   const net = round2(earnings - deductions);
   if (net < 0) warnings.push('The employee owes ' + money(-net) + ': it stays on Recoverable from employees.');
   if (!basic) warnings.push('No pay in force on the leaving date.');
-  return { Lines: lines, Earnings: earnings, Deductions: deductions, Net: net, Basic: basic, Gross: gross, Method: method, LeaveDays: round2(days), UnpaidDays: round2(unpaid), Warnings: warnings };
+  const Salary = sm.months.map(m => {
+    const r = salary.find(x => x.Month === m.Month);
+    return { Month: m.Month, Pay: m.Pay, Run: m.Run, Earnings: r ? r.Earnings : 0, Deductions: r ? r.Deductions : 0, Net: r ? r.Net : 0, UnpaidDays: r ? r.UnpaidDays : 0 };
+  });
+  return { Lines: lines, Earnings: earnings, Deductions: deductions, Net: net, Basic: basic, Gross: gross, Method: method, LeaveDays: round2(days), UnpaidDays: round2(unpaid), Warnings: warnings,
+    Salary, SalaryMonths: payMonths, LastPaidMonth: sm.lastPaid, LeaveToRun: sm.months.filter(m => !m.Pay).map(m => m.Month), Inputs: d.Inputs || [] };
 }
 
 // The journal's lines (posting, and the accounts checked at submit).
@@ -206,7 +258,8 @@ async function glLinesFor(s) {
       const name = l.Key === 'Gratuity' ? 'Gratuity' : l.Key === 'LeaveSalary' ? 'Leave salary' : l.Name.replace(/ \(lapses\)$/, '');
       add(provAccount(l.Key, 'Provision'), name + ' provision', l.Provided);
       add(provAccount(l.Key, 'Expense'), name + ' expense', l.Signed - l.Provided);
-    } else if (l.LoanID) add(loanAcc[l.LoanID], l.Name.replace(/ LN-\d+$/, ''), -l.Amount);
+    } else if (l.Salary && l.Source === 'CarryForward') add(settings.ReceivableAccountID, 'Recoverable from employees', l.Kind === 'Earning' ? l.Amount : -l.Amount);
+    else if (l.LoanID) add(loanAcc[l.LoanID], l.Name.replace(/ LN-\d+$/, ''), -l.Amount);
     else { const el = elements[l.ElementID]; add(el ? calc.accountFor(el, co) : '', l.Name, l.Kind === 'Earning' ? l.Amount : -l.Amount); }
   });
   if (s.Net > 0) add(settings.PayableAccountID, 'Salaries Payable', -s.Net);
@@ -241,10 +294,18 @@ async function employeeFor(user, id) {
   if (!userCanAccessCompany(user.profile, e.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   return e;
 }
-// The leaving month's run, posted? (submit waits for it)
-async function leavingRun(co, date) {
-  const runs = R.docs(await R.RUNS().where('CompanyID', '==', co).get()).filter(r => r.Month === date.slice(0, 7));
-  return runs[0] || null;
+// Before a settlement is submitted (step 5c): on or after the leaving date
+// (decision 40); the employee's leave up to it decided; a month left to its
+// run (decision 41) posted with the employee on it; a month paid here on no
+// run past its draft.
+async function readyToSubmit(emp, s) {
+  if (todayIn('Asia/Dubai') < emp.LeavingDate) throw failed('A final settlement is submitted from the leaving date (' + emp.LeavingDate + ').');
+  const open = (await lv.leavesOf(emp.EmployeeID)).filter(l => (l.Status === 'Draft' || l.Status === 'PendingApproval') && l.FromDate <= emp.LeavingDate);
+  if (open.length) throw failed('Decide or delete ' + emp.FullName + '\'s leave up to the leaving date first: ' + open.map(l => l.LeaveNumber || 'draft').join(', ') + '.');
+  for (const m of s.Salary || []) {
+    if (!m.Pay) throw failed('Post the payroll run for ' + m.Month + ' with ' + emp.FullName + ' on it first, or pay ' + m.Month + ' in this settlement.');
+    if (m.Run && m.Run.OnRun && m.Run.Status !== 'Draft') throw failed('The payroll run for ' + m.Month + ' is ' + (m.Run.Status === 'PendingApproval' ? 'waiting for approval' : m.Run.Status.toLowerCase()) + ' with ' + emp.FullName + ' on it: post it (the settlement then leaves ' + m.Month + ' out), or reject it and recalculate it without them.');
+  }
 }
 // A draft's fields from the employee and the calculation.
 async function draftFields(emp, d) {
@@ -252,6 +313,7 @@ async function draftFields(emp, d) {
   const c = await compute(emp, d);
   return Object.assign({ EmployeeID: emp.EmployeeID, EmployeeNo: emp.EmployeeNo || '', EmployeeName: emp.FullName || '', CompanyID: emp.CompanyID, CostCenterID: emp.CostCenterID || '',
     JoinDate: emp.JoinDate, LeavingDate: emp.LeavingDate, LeavingReason: emp.LeavingReason || '', Notice: d.Notice || {}, Overrides: d.Overrides || {}, Others: d.Others || [], Note: text(d.Note, 500),
+
     CalculatedAt: new Date().toISOString() }, c);
 }
 function cleanInput(d) {
@@ -267,7 +329,10 @@ function cleanInput(d) {
   const days = num(n.Days);
   if (n.Days !== '' && n.Days != null && !(days >= 0)) bad('Notice days are 0 or more.');
   return { Notice: { Days: days > 0 ? round2(days) : 0, Mode: n.Mode === 'Deduct' ? 'Deduct' : 'Pay', ElementID: text(n.ElementID, 80) },
-    Overrides: overrides, Others: (d.others || []).filter(o => o && (o.ElementID || o.Amount)).map(o => ({ ElementID: text(o.ElementID, 80), Amount: o.Amount, Note: text(o.Note, 200) })), Note: d.note };
+    Overrides: overrides, Others: (d.others || []).filter(o => o && (o.ElementID || o.Amount)).map(o => ({ ElementID: text(o.ElementID, 80), Amount: o.Amount, Note: text(o.Note, 200) })), Note: d.note,
+    LeaveToRun: (Array.isArray(d.leaveToRun) ? d.leaveToRun : []).map(m => text(m, 7)).filter(m => /^\d{4}-\d{2}$/.test(m)).slice(0, 24),
+    Inputs: (Array.isArray(d.inputs) ? d.inputs : []).filter(x => x && (x.ElementID || x.Amount || x.Hours)).slice(0, 200)
+      .map(x => ({ Month: text(x.Month, 7), ElementID: text(x.ElementID, 80), Hours: x.Hours == null ? '' : String(x.Hours).slice(0, 12), Amount: x.Amount == null ? '' : String(x.Amount).slice(0, 20), Note: text(x.Note, 150) })) };
 }
 
 // A leaver's settlement: the saved one, else worked out afresh to start one.
@@ -289,9 +354,10 @@ exports.getSettlement = onCallWithMessages(onCallOptions, async (request) => {
     if (existing.exists) throw new HttpsError('already-exists', emp.FullName + ' already has a final settlement.');
     s = Object.assign({ SettlementID: '', Status: 'New' }, await draftFields(emp, {}));
   }
-  const run = s.LeavingDate ? await leavingRun(s.CompanyID, s.LeavingDate) : null;
-  const els = (await setup.payrollElements()).filter(e => !e.System && e.Active !== false).map(e => ({ ElementID: e.ElementID, Code: e.Code, Name: e.Name, Kind: e.Kind }));
-  return { settlement: s, elements: els, leavingRun: run ? { RunID: run._id, Month: run.Month, Status: run.Status } : null, approval: await R.approvalOf(s, user),
+  const all = await setup.payrollElements();
+  const els = all.filter(e => !e.System && e.Active !== false).map(e => ({ ElementID: e.ElementID, Code: e.Code, Name: e.Name, Kind: e.Kind }));
+  const inputElements = R.inputElements(all).map(e => ({ ElementID: e.ElementID, Code: e.Code, Name: e.Name, Kind: e.Kind, Hours: byHours(e) }));
+  return { settlement: s, elements: els, inputElements, today: todayIn('Asia/Dubai'), approval: await R.approvalOf(s, user),
     canDraft: await can(user, 'draft'), canPost: await can(user, 'post'), canPay: await can(user, 'pay') };
 });
 
@@ -368,10 +434,9 @@ exports.submitSettlement = onCallWithMessages(onCallOptions, async (request) => 
   const s0 = await loadSettlement(user, (request.data || {}).settlementId);
   if (s0.Status !== 'Draft') throw failed('Only a draft is submitted.');
   const emp = await employeeFor(user, s0.EmployeeID);
-  const run = await leavingRun(emp.CompanyID, emp.LeavingDate || '');
-  if (!run || run.Status !== 'Posted') throw failed('Post the payroll run for ' + (emp.LeavingDate || '').slice(0, 7) + ' first: it pays the last days and brings the provisions to the leaving date.');
   // Worked out again and frozen from here.
   const s = Object.assign({}, s0, await draftFields(emp, s0));
+  await readyToSubmit(emp, s);
   s.Number = s0.Number || await nextNumber();
   await glLinesFor(s); // the accounts are checked before approval starts
   const scope = await resolveApprovalScopeKeyForDocument(MODULE_ID, { CompanyID: s.CompanyID });
@@ -441,6 +506,7 @@ exports.reverseSettlement = onCallWithMessages(onCallOptions, async (request) =>
   if (!reason) bad('Give the reason for reversing the settlement.');
   const s = await loadSettlement(user, d.settlementId);
   if (s.Status !== 'Posted' || !s.JVID) throw failed('Only a posted settlement can be reversed.');
+  if (s.InterimID) throw failed(s.Number + ' is in interim payroll ' + (s.InterimNumber || '') + ': take it out of the batch first.');
   if (s.PaidAt) throw failed('The settlement is paid: reverse the payment first.');
   return withGlobalLock(user.uid, async () => {
     const { entry, gl } = await reverseEntry(user, s.JVID, VOUCHER_TYPE, reason, s.CompanyID, { PayrollSettlementID: s.SettlementID, SourceTransactionID: s.SettlementID });
@@ -468,6 +534,9 @@ const requirePayable = s => {
   if (s.Status !== 'Posted') throw failed('Only a posted settlement is paid.');
   if (!(s.Net > 0)) throw failed('There is nothing to pay: the employee owes the company.');
 };
+// A settlement in an interim payroll batch (step 5c) is paid, and its
+// payment reversed, only through the batch.
+const requireNotInBatch = s => { if (s.InterimID) throw failed(s.Number + ' is in interim payroll ' + (s.InterimNumber || '') + ': it is paid there.'); };
 
 exports.getSettlementPayment = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
@@ -488,6 +557,7 @@ exports.downloadSettlementFile = onCallWithMessages(onCallOptions, async (reques
   const d = request.data || {};
   const s = await loadSettlement(user, d.settlementId);
   requirePayable(s);
+  requireNotInBatch(s);
   const snap = await FORMATS().doc(text(d.formatId, 80) || '-').get();
   if (!snap.exists || snap.data().CompanyID !== s.CompanyID) throw new HttpsError('not-found', 'Choose one of the company\'s payment file formats.');
   const payDate = text(d.paymentDate, 10);
@@ -499,34 +569,41 @@ exports.downloadSettlementFile = onCallWithMessages(onCallOptions, async (reques
   return { fileName: f.fileName, content: f.content, count: f.count, total: f.total };
 });
 
-exports.markSettlementPaid = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
-  await requireCap(user, 'pay');
-  const d = request.data || {};
-  const s = await loadSettlement(user, d.settlementId);
+// Paid (decision 39): Dr Salaries Payable / Cr the cash or bank account.
+// batch: the interim payroll paying it (step 5c), for the journal's reference.
+async function pay(user, s, payDate, accountId, reference, batch) {
   requirePayable(s);
-  if (s.PaidAt) throw failed('The settlement is already paid.');
-  const payDate = text(d.paymentDate, 10);
+  if (s.PaidAt) throw failed(s.Number + ' is already paid.');
   if (!isDate(payDate)) bad('Enter the payment date.');
-  if (payDate < s.LeavingDate) bad('The payment date is before the leaving date.');
+  if (payDate < s.LeavingDate) bad('The payment date is before ' + s.EmployeeName + '\'s leaving date.');
   const [coa, settings] = await Promise.all([rtdb.ref('coa').get().then(x => x.val() || {}), setup.companySettings(s.CompanyID)]);
-  const a = coa[text(d.accountId, 80)];
+  const a = coa[text(accountId, 80)];
   if (!isCashOrBank(a) || a.Status !== 'Active' || !a.IsPostable || (a.CompanyID && a.CompanyID !== s.CompanyID)) bad('Choose the cash or bank account (of the company) it is paid from.');
   const payable = coa[settings.PayableAccountID];
   if (!payable) throw failed('Set the company\'s Salaries Payable in Payroll Setup → Payroll.');
-  const label = 'Final settlement paid — ' + s.Number + ' ' + s.EmployeeName;
+  const label = 'Final settlement paid — ' + s.Number + ' ' + s.EmployeeName + (batch ? ' (' + batch.Number + ')' : '');
   return withGlobalLock(user.uid, async () => {
     const fresh = (await SETTLEMENTS().doc(s.SettlementID).get()).data();
     if (fresh.PaidAt || fresh.Status !== 'Posted') throw failed('The settlement changed: open it again.');
     let gl;
     try {
-      gl = await writeStockGlEntry(user, PAYMENT_TYPE, payDate, label, s.Number, [{ AccountCode: payable.AccountCode, Debit: s.Net, Credit: 0, Description: label },
-        { AccountCode: a.AccountCode, Debit: 0, Credit: s.Net, Description: label }], { CompanyID: s.CompanyID }, { PayrollSettlementID: s.SettlementID, SourceTransactionID: s.SettlementID, ReversalOfJV: '' });
+      gl = await writeStockGlEntry(user, PAYMENT_TYPE, payDate, label, batch ? batch.Number : s.Number, [{ AccountCode: payable.AccountCode, Debit: s.Net, Credit: 0, Description: label },
+        { AccountCode: a.AccountCode, Debit: 0, Credit: s.Net, Description: label }], { CompanyID: s.CompanyID },
+        Object.assign({ PayrollSettlementID: s.SettlementID, SourceTransactionID: s.SettlementID, ReversalOfJV: '' }, batch ? { PayrollInterimID: batch.InterimID } : {}));
     } catch (e) { throw failed(e.message); }
     await SETTLEMENTS().doc(s.SettlementID).update({ PaidAt: new Date().toISOString(), PaidByName: actorName(user), PaymentDate: payDate, PaymentJVID: gl.jvId, PaymentJVNumber: gl.jvNumber,
-      PaymentReference: text(d.reference, 100), PaymentAccountID: text(d.accountId, 80), History: history(Object.assign({}, s, { History: fresh.History }), 'Paid', user, { JVNumber: gl.jvNumber }) });
-    return { success: true, jvNumber: gl.jvNumber };
+      PaymentReference: text(reference, 100), PaymentAccountID: text(accountId, 80), History: history(Object.assign({}, s, { History: fresh.History }), 'Paid', user, { JVNumber: gl.jvNumber, Note: batch ? batch.Number : '' }) });
+    return gl;
   });
+}
+exports.markSettlementPaid = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'pay');
+  const d = request.data || {};
+  const s = await loadSettlement(user, d.settlementId);
+  requireNotInBatch(s);
+  const gl = await pay(user, s, text(d.paymentDate, 10), d.accountId, d.reference);
+  return { success: true, jvNumber: gl.jvNumber };
 });
 
 exports.reverseSettlementPayment = onCallWithMessages(onCallOptions, async (request) => {
@@ -536,13 +613,18 @@ exports.reverseSettlementPayment = onCallWithMessages(onCallOptions, async (requ
   const reason = text(d.reason, 500);
   if (!reason) bad('Give the reason for reversing the payment.');
   const s = await loadSettlement(user, d.settlementId);
-  if (!s.PaidAt || !s.PaymentJVID) throw failed('The settlement is not paid.');
+  requireNotInBatch(s);
+  const gl = await unpay(user, s, reason);
+  return { success: true, reversalNumber: gl.jvNumber };
+});
+async function unpay(user, s, reason) {
+  if (!s.PaidAt || !s.PaymentJVID) throw failed(s.Number + ' is not paid.');
   return withGlobalLock(user.uid, async () => {
     const { entry, gl } = await reverseEntry(user, s.PaymentJVID, PAYMENT_TYPE, reason, s.CompanyID, { PayrollSettlementID: s.SettlementID, SourceTransactionID: s.SettlementID });
     await SETTLEMENTS().doc(s.SettlementID).update({ PaidAt: '', PaymentDate: '', PaymentJVID: '', PaymentJVNumber: '',
       History: history(s, 'Payment reversed', user, { JVNumber: entry.JVNumber, ReversalJVNumber: gl.jvNumber, Note: reason }) });
-    return { success: true, reversalNumber: gl.jvNumber };
+    return gl;
   });
-});
+}
 
-Object.assign(module.exports, { compute, glLinesFor, activeFor, SETTLEMENTS });
+Object.assign(module.exports, { compute, glLinesFor, activeFor, SETTLEMENTS, payee, pay, unpay, isCashOrBank });

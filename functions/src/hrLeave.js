@@ -177,9 +177,17 @@ function nextWorkingDay(cal, d) {
   return addDay(d, 1);
 }
 
+// Once an employee's final settlement is submitted (payroll step 5c), it
+// has paid their leave up to the leaving date: their leave stays as it is.
+async function requireNoSettlement(employeeId, name) {
+  const s = (await firestore.collection('payrollSettlements').doc('fs_' + employeeId).get()).data();
+  if (s && s.Status !== 'Draft') throw new HttpsError('failed-precondition', (name || 'The employee') + ' has a final settlement (' + s.Number + '): their leave can no longer change.');
+}
+
 // The leave as asked, checked; returns what to store.
 async function evaluate(input, emp, excludeId) {
   const d = input || {};
+  await requireNoSettlement(emp.EmployeeID, emp.FullName);
   const type = await typeById(d.LeaveTypeID);
   const from = text(d.FromDate, 10), to = text(d.ToDate, 10);
   if (!isDate(from) || !isDate(to)) bad('Enter the first and last day of the leave.');
@@ -440,6 +448,7 @@ exports.cancelLeave = onCallWithMessages(onCallOptions, async (request) => {
   const d = request.data || {};
   const l = await loadLeave(user, d.leaveId);
   if (l.Status !== 'Approved') throw new HttpsError('failed-precondition', 'Only approved leave can be cancelled (a pending one is rejected by its approver).');
+  await requireNoSettlement(l.EmployeeID, l.EmployeeName);
   if (l.Kind !== 'Absence' && l.FromDate <= today()) throw new HttpsError('failed-precondition', 'The leave has started: record the return date instead.');
   const reason = text(d.reason, 500);
   if (!reason) bad('Give the reason for cancelling.');
@@ -458,6 +467,7 @@ exports.recordLeaveReturn = onCallWithMessages(onCallOptions, async (request) =>
   const l = await loadLeave(user, d.leaveId);
   if (l.Status !== 'Approved' || l.Kind !== 'Leave') throw new HttpsError('failed-precondition', 'The return is recorded on approved leave.');
   if (l.ReturnDate) throw new HttpsError('failed-precondition', 'The return was recorded on ' + l.ReturnDate + '.');
+  await requireNoSettlement(l.EmployeeID, l.EmployeeName);
   const ret = text(d.returnDate, 10);
   if (!isDate(ret)) bad('Enter the day the employee was back at work.');
   if (ret <= l.FromDate) bad('The return is after the first day of leave (to undo the whole leave before it starts, cancel it).');

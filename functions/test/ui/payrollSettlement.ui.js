@@ -1,8 +1,9 @@
 // HR Payroll, step 5b: the final settlement on screen (owner, 2026-10-05;
 // docs/modules/HR_PAYROLL.md, decisions 29, 34, 36-39): a leaver's
 // settlement worked out, notice pay and another line added, an amount
-// changed by hand with a reason; waiting for the leaving month's run;
-// submitted and posted; the bank file; paid.
+// changed by hand with a reason; the leaving month's salary in it until
+// that month's run is posted (step 5c); submitted and posted; the bank
+// file; paid.
 // Seeds its own data (it WIPES the emulator database, like the suites):
 //   node functions/test/ui/payrollSettlement.ui.js
 const http = require('http');
@@ -68,16 +69,16 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const rowText = (p, key) => p.textContent('#fs-lines tr[data-key="' + key + '"]');
   let p;
 
-  await check('a leaver\'s settlement worked out; notice pay and a deduction added; waiting for the leaving month\'s run', async () => {
+  await check('a leaver\'s settlement worked out, with July\'s salary (its run a draft); notice pay and a deduction added', async () => {
     p = await open('PAYROLLFS', 'u-admin');
     await p.waitForFunction(() => /No final settlements yet/.test(document.getElementById('fs-table-body').textContent), null, { timeout: 30000 });
     await p.click('#fs-new-btn');
     await p.selectOption('#fs-new-emp', ali);
     await p.click('#fs-new-go');
     await p.waitForFunction(() => /Ali Hassan/.test(document.getElementById('fs-heading').textContent), null, { timeout: 30000 });
-    assert.deepEqual(await p.$$eval('#fs-lines tr', t => t.map(r => r.cells[0].textContent)), ['Gratuity', 'Leave salary (unused leave)']);
-    assert.ok(await p.isVisible('#fs-run-note'), 'the note shows');
-    assert.match(await p.textContent('#fs-run-note'), /not posted yet/);
+    assert.deepEqual(await p.$$eval('#fs-lines tr', t => t.map(r => r.cells[0].textContent).filter(x => !x.includes('·'))), ['Gratuity', 'Leave salary (unused leave)', 'Air ticket']);
+    assert.match(await p.textContent('#fs-months'), /^Jul-2026 here \(the leaving month\)draft4,200\.000\.004,200\.00$/);
+    assert.ok(await p.isHidden('#fs-salary-none'));
     assert.match(await p.textContent('#fs-info'), /basic 6,000\.00, gross 9,000\.00/);
     await p.fill('#fs-notice-days', '10');
     await p.selectOption('#fs-notice-el', notice);
@@ -112,8 +113,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.click('#fs-back-btn');
     await p.waitForSelector('#fs-table-body tr[data-id]', { timeout: 30000 });
     await p.click('#fs-table-body tr[data-id]');
-    await p.waitForFunction(() => document.querySelector('#fs-lines tr[data-key^="Accrual:"]'), null, { timeout: 30000 });
-    assert.ok(await p.isHidden('#fs-run-note'));
+    await p.waitForSelector('#fs-salary-none:not(.hidden)', { timeout: 30000 });
+    assert.match(await p.textContent('#fs-salary-none'), /the payroll runs paid every month to the leaving date \(the last, Jul-2026\)/);
+    assert.ok(await p.isHidden('#fs-salary-wrap'));
     await p.click('#fs-submit-btn');
     await p.waitForFunction(() => /Posted: journal FS-/.test(document.getElementById('fs-state-note').textContent), null, { timeout: 30000 });
     assert.match(await p.textContent('#fs-heading'), /^FS-0001 — Ali Hassan$/);

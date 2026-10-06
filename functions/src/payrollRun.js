@@ -76,6 +76,87 @@ const withAccruals = async els => els.concat((await P.accrualTypes()).filter(t =
   Name: t.Name + ' (from the provision)', Kind: 'Earning', Nature: 'Variable', Active: true, Category: 'AccrualPayout', AccrualTypeID: t.AccrualTypeID })));
 const byHours = e => e.Category === 'Overtime' && e.Overtime && e.Overtime.Mode === 'Hours';
 
+// Back pay and a shortfall brought forward (step 3), from the company's
+// earlier posted runs: posted (by month), postedSlips (run id → employee →
+// slip), versions (the employee's compensation), leaveBy (pay month →
+// employee → leave lines).
+function extrasFor(e, x) {
+  const extra = [], mine = x.versions, posted = x.posted, postedSlips = x.postedSlips;
+  const last = posted.filter(r => postedSlips[r._id][e.EmployeeID]).pop();
+  const carry = last ? postedSlips[last._id][e.EmployeeID].CarryForward || 0 : 0;
+  if (carry > 0) extra.push({ ElementID: 'sys-bfwd', Code: 'BFWD', Name: 'Brought forward', Kind: 'Deduction', Source: 'CarryForward', Amount: carry, Text: 'Net shortfall from ' + last.Month });
+  posted.forEach(r => {
+    const was = postedSlips[r._id][e.EmployeeID];
+    if (!was || !mine.some(v => String(v.CreatedAt || '') > String(r.PostedAt || '') && v.EffectiveFrom <= calc.monthEnd(r.Month))) return;
+    const again = calc.computeEmployee({ month: r.Month, method: r.Method, emp: e, versions: mine, elements: x.elements, leave: (x.leaveBy[r.Month] || {})[e.EmployeeID] || [], inputs: [], system: x.system });
+    const paid = was.Lines.concat(...posted.filter(q => q.Month > r.Month).map(q => ((postedSlips[q._id][e.EmployeeID] || {}).Lines || []).filter(l => l.Source === 'Arrears' && l.ForMonth === r.Month)));
+    calc.arrearsFor(r.Month, again, paid, x.elements).forEach(l => extra.push(l));
+  });
+  return extra;
+}
+
+// The employees whose final settlement, past its draft, pays the month
+// (step 5c): left off the month's run.
+async function settledIn(co, month) {
+  const out = {};
+  docs(await firestore.collection('payrollSettlements').where('CompanyID', '==', co).get())
+    .filter(s => s.Status !== 'Draft' && (s.SalaryMonths || []).includes(month))
+    .forEach(s => { out[s.EmployeeID] = { EmployeeID: s.EmployeeID, EmployeeNo: s.EmployeeNo || '', EmployeeName: s.EmployeeName || '', Number: s.Number || '' }; });
+  return out;
+}
+
+// The months a leaver's final settlement can pay (step 5c): from the month
+// after the last posted run with the employee on it to the leaving month;
+// with none, from the company's first run (before it, pay was outside this
+// system), else just the leaving month; never before joining. Each with the
+// company's run for it, if any, and whether the employee is on it.
+async function unpaidMonths(emp) {
+  const co = emp.CompanyID, leaving = emp.LeavingDate.slice(0, 7), joined = String(emp.JoinDate).slice(0, 7);
+  const all = docs(await RUNS().where('CompanyID', '==', co).get()).sort((a, b) => a.Month.localeCompare(b.Month));
+  const runs = all.filter(r => r.Month <= leaving);
+  const onRun = {};
+  for (const r of runs) onRun[r._id] = (await SLIPS(r._id).doc(emp.EmployeeID).get()).exists;
+  const lastPaid = runs.filter(r => r.Status === 'Posted' && onRun[r._id]).map(r => r.Month).pop() || '';
+  let m = lastPaid ? lv.nextMonth(lastPaid) : all.length && all[0].Month < leaving ? all[0].Month : leaving;
+  if (m < joined) m = joined;
+  const out = [];
+  for (; m <= leaving; m = lv.nextMonth(m)) {
+    const r = runs.find(x => x.Month === m);
+    out.push({ Month: m, Run: r ? { RunID: r._id, Status: r.Status, OnRun: onRun[r._id], RunNumber: r.RunNumber || '' } : null });
+  }
+  return { lastPaid, months: out };
+}
+
+// A final settlement's salary (step 5c): each month it pays, worked out as
+// the run does: the pay in force to the leaving date, the leave not yet paid
+// by a posted run, the month's inputs; the first month also takes what the
+// posted runs carried forward and their arrears. No loan instalment: the
+// settlement deducts each loan's whole balance.
+async function salaryFor(emp, months, inputsByMonth) {
+  if (!months.length) return [];
+  const co = emp.CompanyID, leaving = months[months.length - 1];
+  const [settings, els, versionsSnap, leaves, cal] = await Promise.all([setup.companySettings(co), setup.payrollElements(), COMP().where('EmployeeID', '==', emp.EmployeeID).get(),
+    LEAVES().where('EmployeeID', '==', emp.EmployeeID).get(), calendarFor(emp)]);
+  const elements = Object.fromEntries(els.map(e => [e.ElementID, e]));
+  const system = Object.fromEntries(els.filter(e => e.System).map(e => [e.Code, e]));
+  const versions = docs(versionsSnap);
+  const leaveBy = {};
+  docs(leaves).filter(l => l.Status === 'Approved' || l.Status === 'Cancelled')
+    .forEach(l => (l.Lines || []).forEach(x => { const m = lv.payMonthOf(x); const b = leaveBy[m] = leaveBy[m] || {}; (b[emp.EmployeeID] = b[emp.EmployeeID] || []).push(x); }));
+  const posted = docs(await RUNS().where('CompanyID', '==', co).get()).filter(r => r.Status === 'Posted' && r.Month < months[0]).sort((a, b) => a.Month.localeCompare(b.Month));
+  const postedSlips = {};
+  for (const r of posted) { const x = await SLIPS(r._id).doc(emp.EmployeeID).get(); postedSlips[r._id] = x.exists ? { [emp.EmployeeID]: x.data() } : {}; }
+  return months.map((month, i) => {
+    // The leaving month also takes leave whose pay month is later (entered after its lock).
+    const leave = Object.entries(leaveBy).filter(([m]) => m === month || (month === leaving && m > leaving)).reduce((a, [, b]) => a.concat(b[emp.EmployeeID] || []), []);
+    const end = calc.monthEnd(month);
+    const r = calc.computeEmployee({ month, method: settings.DailyRateMethod, emp, versions, elements, leave, inputs: inputsByMonth[month] || [],
+      hoursPerDay: hoursOn(cal, emp.LeavingDate < end ? emp.LeavingDate : end), system,
+      extra: i === 0 ? extrasFor(emp, { posted, postedSlips, versions, leaveBy, elements, system }) : [] });
+    return Object.assign({ Month: month }, r);
+  });
+}
+
 async function companyEmployees(co, month) {
   const start = month + '-01', end = calc.monthEnd(month);
   return docs(await EMPLOYEES().where('CompanyID', '==', co).get()).map(e => Object.assign(e, { EmployeeID: e._id }))
@@ -104,21 +185,10 @@ async function calculate(run, user, inputsByEmp) {
   const posted = docs(await RUNS().where('CompanyID', '==', co).get()).filter(r => r.Status === 'Posted' && r.Month < month).sort((a, b) => a.Month.localeCompare(b.Month));
   const postedSlips = {};
   for (const r of posted) postedSlips[r._id] = Object.fromEntries(docs(await SLIPS(r._id).get()).map(x => [x.EmployeeID, x]));
-  const extraFor = e => {
-    const extra = [], mine = versions[e.EmployeeID] || [];
-    const last = posted.filter(r => postedSlips[r._id][e.EmployeeID]).pop();
-    const carry = last ? postedSlips[last._id][e.EmployeeID].CarryForward || 0 : 0;
-    if (carry > 0) extra.push({ ElementID: 'sys-bfwd', Code: 'BFWD', Name: 'Brought forward', Kind: 'Deduction', Source: 'CarryForward', Amount: carry, Text: 'Net shortfall from ' + last.Month });
-    posted.forEach(r => {
-      const was = postedSlips[r._id][e.EmployeeID];
-      if (!was || !mine.some(v => String(v.CreatedAt || '') > String(r.PostedAt || '') && v.EffectiveFrom <= calc.monthEnd(r.Month))) return;
-      const again = calc.computeEmployee({ month: r.Month, method: r.Method, emp: e, versions: mine, elements, leave: (leaveBy[r.Month] || {})[e.EmployeeID] || [], inputs: [], system });
-      const paid = was.Lines.concat(...posted.filter(q => q.Month > r.Month).map(q => ((postedSlips[q._id][e.EmployeeID] || {}).Lines || []).filter(l => l.Source === 'Arrears' && l.ForMonth === r.Month)));
-      calc.arrearsFor(r.Month, again, paid, elements).forEach(l => extra.push(l));
-    });
-    return extra;
-  };
+  const extraFor = e => extrasFor(e, { posted, postedSlips, versions: versions[e.EmployeeID] || [], leaveBy, elements, system });
   const loansBy = await loans.loansDue(co, month, run.RunID);
+  // An employee whose final settlement pays this month (step 5c) is left off.
+  const settled = await settledIn(co, month);
   const bands = {};
   // Provisions (step 5a): what each employee has provided so far, the
   // company's gratuity and leave-salary rules, the accruals, the grades.
@@ -156,7 +226,7 @@ async function calculate(run, user, inputsByEmp) {
     return out;
   }
   const slips = [];
-  for (const e of emps) {
+  for (const e of emps.filter(x => !settled[x.EmployeeID])) {
     const cal = await calendarFor(e);
     const r = calc.computeEmployee({ month, method: settings.DailyRateMethod, emp: e, versions: versions[e.EmployeeID] || [], elements,
       leave: leave[e.EmployeeID] || [], inputs: inputs[e.EmployeeID] || [], hoursPerDay: hoursOn(cal, e.LeavingDate && e.LeavingDate < end ? e.LeavingDate : end), system,
@@ -183,7 +253,7 @@ async function calculate(run, user, inputsByEmp) {
     .concat(existing.filter(s => !keep.has(s.EmployeeID)).map(s => b => b.delete(SLIPS(run.RunID).doc(s._id))));
   for (let i = 0; i < writes.length; i += 400) { const b = firestore.batch(); writes.slice(i, i + 400).forEach(w => w(b)); await b.commit(); }
   const out = { Method: settings.DailyRateMethod, Employees: slips.length, Earnings: round2(totals.Earnings), Deductions: round2(totals.Deductions), Net: round2(totals.Net),
-    Warnings: slips.filter(s => s.Warnings.length).length, Columns: columns,
+    Warnings: slips.filter(s => s.Warnings.length).length, Columns: columns, Settled: Object.values(settled),
     Provisions: round2(slips.reduce((t, s) => t + (s.Provisions || []).reduce((a, x) => a + x.Amount, 0), 0)), CalculatedAt: now, CalculatedBy: user.uid, CalculatedByName: actorName(user), LeaveLockedAt: locked.LockedAt || '',
     UpdatedAt: now, UpdatedBy: user.profile.username || user.uid }; // My Drafts matches the username
   await RUNS().doc(run.RunID).update(out);
@@ -306,4 +376,5 @@ exports.deletePayrollRun = onCallWithMessages(onCallOptions, async (request) => 
 });
 
 // Shared with payrollPost.js (step 3).
-Object.assign(module.exports, { RUNS, SLIPS, docs, text, bad, actorName, can, requireCap, loadRun, requireDraft, leaveMonth, requireLocked, approvalOf });
+Object.assign(module.exports, { RUNS, SLIPS, docs, text, bad, actorName, can, requireCap, loadRun, requireDraft, leaveMonth, requireLocked, approvalOf,
+  inputElements, settledIn, unpaidMonths, salaryFor });
