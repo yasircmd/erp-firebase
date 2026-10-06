@@ -85,13 +85,17 @@ exports.getLeaveRegisterReport = onCallWithMessages(onCallOptions, async (reques
   if (to < from) bad('The end of the period is before its start.');
   const ok = companyFilter(user, d.companyId);
   const typeId = text(d.leaveTypeId, 80);
+  const withFiles = await lv.leavesWithFiles();
+  // The supporting document (payroll step 6, decision 44): attached, or missing and who accepted it.
+  const documentOf = l => !l.DocumentNeeded ? '' : withFiles.has(l.LeaveID) ? 'Attached'
+    : 'Missing' + (l.AcceptedWithoutDocument ? ', accepted by ' + l.AcceptedWithoutDocument.By : '');
   const rows = (await leavesFor(ok)).filter(l => l.Status === 'Approved' && (!typeId || l.LeaveTypeID === typeId)).map(l => {
     const lines = (l.Lines || []).filter(x => lv.live(x) && x.Date >= from && x.Date <= to);
     const absent = lines.filter(x => x.Absence);
     return { LeaveID: l.LeaveID, LeaveNumber: l.LeaveNumber, EmployeeID: l.EmployeeID, EmployeeNo: l.EmployeeNo, EmployeeName: l.EmployeeName, CompanyID: l.CompanyID,
       LeaveTypeName: l.LeaveTypeName, Kind: l.Kind, FromDate: l.FromDate, ToDate: l.EffectiveTo || l.ToDate, ReturnDate: l.ReturnDate || '',
       Days: sum(lines.filter(x => !x.Absence)), UnpaidDays: sum(lines.filter(x => x.Pay === 'Unpaid' && !x.Absence)), AbsentDays: sum(absent),
-      Reason: l.Kind === 'Absence' ? (l.Reason || '') : absent.length ? 'Late return (due ' + l.ExpectedReturn + ')' : '', _n: lines.length };
+      Reason: l.Kind === 'Absence' ? (l.Reason || '') : absent.length ? 'Late return (due ' + l.ExpectedReturn + ')' : '', Document: documentOf(l), _n: lines.length };
   }).filter(r => r._n && (!d.absencesOnly || r.AbsentDays))
     .map(r => { delete r._n; return r; })
     .sort((a, b) => a.FromDate.localeCompare(b.FromDate) || byNo(a, b));

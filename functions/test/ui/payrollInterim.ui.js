@@ -119,17 +119,23 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.waitForFunction(() => /Approved, waiting to pay/.test(document.getElementById('ip-status').textContent), null, { timeout: 30000 });
     assert.ok(await p.isHidden('#ip-save-btn'));
     assert.match(await p.textContent('#ip-items'), /AE070331234567890123456/);
-    await p.click('#ip-file-btn');
+    // The plan (step 6): Eve's advance in cash; saved at once, two groups.
+    await p.selectOption('#ip-items tr[data-key^="Loan:"] .ip-w-way', 'Cash');
+    await p.waitForFunction(() => [...document.querySelectorAll('#ip-groups tr')].map(r => r.cells[0].textContent).join() === 'Bank file,Cash', null, { timeout: 30000 });
+    await p.click('#ip-groups tr[data-way="BankFile"] .ip-g-file');
     await p.waitForFunction(() => window.__lastPaymentFile, null, { timeout: 30000 });
-    assert.equal(await p.evaluate(() => window.__lastPaymentFile.count), 2);
+    assert.equal(await p.evaluate(() => window.__lastPaymentFile.count), 1);
     assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
   });
 
-  await check('marked paid: each its own journal; the loan screen says it is paid out there; the payment reversed, back to a draft; deleted', async () => {
-    await p.selectOption('#ip-account', 'A-BANK');
-    await p.click('#ip-mark-btn');
-    await p.waitForFunction(() => /Paid on .*: PAYP-\S+, PLN-\S+\./.test(document.getElementById('ip-pay-done').textContent), null, { timeout: 30000 });
-    assert.match(p.__dialogs.shift(), /^Mark IP-0001 paid/);
+  await check('each group marked paid, each payment its own journal; the loan screen says it is paid out there; the payments reversed, back to a draft; deleted', async () => {
+    await p.click('#ip-groups tr[data-way="BankFile"] .ip-g-pay');
+    await p.waitForFunction(() => /P1: .* Bank file from 1100/.test(document.getElementById('ip-made').textContent), null, { timeout: 30000 });
+    assert.match(p.__dialogs.shift(), /^Mark 1 paid by bank file from 1100/);
+    assert.ok(await p.isHidden('#ip-pay-done'), 'paid in part');
+    await p.click('#ip-groups tr[data-way="Cash"] .ip-g-pay');
+    await p.waitForFunction(() => /Paid in full: PAYP-\S+, PLN-\S+\./.test(document.getElementById('ip-pay-done').textContent), null, { timeout: 30000 });
+    assert.match(p.__dialogs.shift(), /^Mark 1 paid by cash from 1000/);
     assert.match(await p.textContent('#ip-items'), /PAYP-/);
     const ln = await open('PAYROLLLOAN', 'u-admin');
     await ln.waitForSelector('#ln-table-body tr[data-id]', { timeout: 30000 });
@@ -140,9 +146,13 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(ln.__errors, []);
     await ln.close();
     p.__answer = 'Wrong account';
-    await p.click('#ip-reverse-btn');
+    await p.click('#ip-made li[data-pay="P2"] .ip-p-rev');
+    await p.waitForFunction(() => /reversed: Wrong account/.test(document.getElementById('ip-made').textContent), null, { timeout: 30000 });
+    assert.match(p.__dialogs.shift(), /Reverse payment P2 of IP-0001/);
+    assert.match(await p.textContent('#ip-status'), /Approved/);
+    await p.click('#ip-made li[data-pay="P1"] .ip-p-rev');
     await p.waitForFunction(() => /^Draft/.test(document.getElementById('ip-status').textContent), null, { timeout: 30000 });
-    assert.match(p.__dialogs.shift(), /Reverse the payment of IP-0001/);
+    p.__dialogs.shift();
     p.__answer = undefined;
     await p.click('#ip-delete-btn');
     await p.waitForFunction(() => /No interim payroll yet/.test(document.getElementById('ip-table-body').textContent), null, { timeout: 30000 });

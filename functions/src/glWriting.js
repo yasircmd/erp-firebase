@@ -132,6 +132,15 @@ async function generateStockVoucherNumber(prefix, year, companyId) {
   return prefix + '-' + yy + '-' + companyRefCode + '-' + String(next).padStart(6, '0');
 }
 
+// Payroll's journals (docs/modules/HR_PAYROLL.md, decision 48) take their
+// own lifetime audit sequence, PRL-, so they're easy to tell apart from
+// stock (STK-) and finance (TXN-) entries.
+const PAYROLL_VOUCHER_TYPES = ['Payroll', 'PayrollPayment', 'PayrollLoan', 'PayrollProvision', 'FinalSettlement'];
+async function generatePayrollTransactionRef() {
+  const res = await rtdb.ref('payroll/counters/transactionRef').transaction(cur => (Number(cur) || 0) + 1);
+  return 'PRL-' + String(res.snapshot.val()).padStart(8, '0');
+}
+
 async function generateStockTransactionRef() {
   const counterPath = 'stock/counters/transactionRef';
   const snap = await rtdb.ref(counterPath).get();
@@ -195,7 +204,7 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
   if (!prefix) throw new Error('Unknown stock transaction type: ' + stockTransactionType);
 
   const jvNumber = await generateStockVoucherNumber(prefix, year, dim.CompanyID);
-  const transactionRef = await generateStockTransactionRef();
+  const transactionRef = PAYROLL_VOUCHER_TYPES.includes(stockTransactionType) ? await generatePayrollTransactionRef() : await generateStockTransactionRef();
   const newId = 'STKJV-' + randomUUID().split('-')[0].toUpperCase();
 
   const record = Object.assign({

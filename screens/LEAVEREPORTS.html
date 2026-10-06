@@ -74,9 +74,10 @@
     if (tab === 'register' || tab === 'absences') {
       return call('getLeaveRegisterReport', { companyId, from: val('lr-from'), to: val('lr-to'), leaveTypeId: tab === 'register' ? val('lr-type') : '', absencesOnly: tab === 'absences' }).then(r => {
         if (tab === 'register') {
-          const cells = x => [c(x.LeaveNumber, td(x.LeaveNumber, 'font-mono text-xs')), c(x.EmployeeNo), c(x.EmployeeName), c(x.LeaveTypeName), c(x.FromDate), c(x.ToDate), c(x.ReturnDate), n(x.Days), n(x.UnpaidDays), n(x.AbsentDays)];
+          const cells = x => [c(x.LeaveNumber, td(x.LeaveNumber, 'font-mono text-xs')), c(x.EmployeeNo), c(x.EmployeeName), c(x.LeaveTypeName), c(x.FromDate), c(x.ToDate), c(x.ReturnDate), n(x.Days), n(x.UnpaidDays), n(x.AbsentDays),
+            c(x.Document, td(x.Document, x.Document.indexOf('Missing') === 0 ? 'text-xs text-amber-400' : 'text-xs'))];
           cells.right = [7, 8, 9];
-          render(['No.', 'Emp. no.', 'Employee', 'Type', 'From', 'To', 'Back', 'Days in period', 'Unpaid', 'Absent'], r.rows, cells, 'Approved leave with days from ' + r.from + ' to ' + r.to + '.');
+          render(['No.', 'Emp. no.', 'Employee', 'Type', 'From', 'To', 'Back', 'Days in period', 'Unpaid', 'Absent', 'Document'], r.rows, cells, 'Approved leave with days from ' + r.from + ' to ' + r.to + '.');
         } else {
           const cells = x => [c(x.LeaveNumber, td(x.LeaveNumber, 'font-mono text-xs')), c(x.EmployeeNo), c(x.EmployeeName), c(x.Kind === 'Absence' ? 'Absence' : x.LeaveTypeName), c(x.FromDate), c(x.ToDate), n(x.AbsentDays), c(x.Reason)];
           cells.right = [6];

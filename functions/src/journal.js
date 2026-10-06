@@ -71,7 +71,10 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   // new development, not in Code.gs: docs/modules/RECURRING_JOURNAL.md
   RecurringJV: 'RECURRINGJV',
   // new development, not in Code.gs: docs/modules/OPENING_BALANCES.md
-  OpeningBalance: 'OPENINGBALANCES', OpeningStock: 'OPENINGBALANCES'
+  OpeningBalance: 'OPENINGBALANCES', OpeningStock: 'OPENINGBALANCES',
+  // new development, not in Code.gs: docs/modules/HR_PAYROLL.md (step 6:
+  // the GL report opens a payroll journal's run, settlement, loan or batch)
+  Payroll: 'PAYROLL', PayrollPayment: 'PAYROLL', PayrollProvision: 'PAYROLL', PayrollLoan: 'PAYROLLLOAN', FinalSettlement: 'PAYROLLFS'
 };
 
 // ============================================================

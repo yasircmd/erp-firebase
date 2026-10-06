@@ -189,7 +189,10 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   FACapitalization: 'FAACQ', FADepreciation: 'FADEPRUN', FAAdditionalDepreciation: 'FAADDDEP',
   FARetirement: 'FARETIRE', FAAuCCost: 'FAAUC', FAAuCSettlement: 'FAAUC',
   // new development, not in Code.gs: docs/modules/RECURRING_JOURNAL.md
-  RecurringJV: 'RECURRINGJV'
+  RecurringJV: 'RECURRINGJV',
+  // new development, not in Code.gs: docs/modules/HR_PAYROLL.md (step 6:
+  // the GL report opens a payroll journal's run, settlement, loan or batch)
+  Payroll: 'PAYROLL', PayrollPayment: 'PAYROLL', PayrollProvision: 'PAYROLL', PayrollLoan: 'PAYROLLLOAN', FinalSettlement: 'PAYROLLFS'
 };
 
 // Ported from moduleIdForEntry_.

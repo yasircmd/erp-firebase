@@ -86,14 +86,14 @@ test('annual leave: working days skip the weekend and Eid; half days; paid by gr
   assert.deepEqual(summary(await preview(leave(SARA, 'ANNUAL', '2026-03-02', '2026-03-03'))), [['Annual Leave — Full salary', 2]]);
 });
 
-test('sick leave: calendar days paid in tiers through the year; the certificate needed to submit; at most 90 days a year', async () => {
+test('sick leave: calendar days paid in tiers through the year; the certificate expected (step 6: accepted without it only on confirmation); at most 90 days a year', async () => {
   await seed();
   await call('u-admin', 'useTestDocumentStorage', {});
   const v = await preview(leave(SARA, 'SICK', '2026-02-01', '2026-02-20'));
   assert.deepEqual(summary(v), [['Sick Leave — Full salary', 15], ['Sick Leave — Full salary at 50%', 5]]);
   assert.equal(v.DocumentNeeded, true);
   const id = (await save(leave(SARA, 'SICK', '2026-02-01', '2026-02-20'))).leaveId;
-  await assert.rejects(submit(id), /Attach the supporting document \(e\.g\. a medical certificate\)/);
+  await assert.rejects(submit(id), /No supporting document is attached \(e\.g\. a medical certificate\): Sick Leave over 1 day expects one\. Accept the leave without it, or attach it first/);
   await call('u-admin', 'uploadAttachment', { module: 'LEAVE', docId: id, fileName: 'certificate.pdf', data: PDF });
   assert.equal((await submit(id)).status, 'Approved');
   // Days 21-50 of the year: 25 at half pay, then 5 unpaid.

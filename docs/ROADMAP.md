@@ -18,7 +18,13 @@ Waiting to deploy:
   salary; batches of settlements and loans paid between runs), "functions
   set" with the screens; no Hosting. Then link a menu node to "Interim
   Payroll", set its rights (draft, pay), and if wanted Approval
-  Configuration → "Interim payroll".
+  Configuration → "Interim payroll";
+- `payroll-6` (the owner's points of 2026-10-06: certificate accepted by
+  the approver, Payroll Accounting, leave deductions pro rata, PRL
+  references and the GL link, the payment plan), "functions set" with
+  the screens, after `payroll-5c`; no Hosting. Then choose each
+  company's "Leave deductions in the GL" (Payroll Setup → Payroll
+  Accounting).
 `master-import-3a` went live on 2026-10-05 (run #94).
 
 Payroll steps 4–5b went live on 2026-10-05 (runs #89–#93,
@@ -577,7 +583,27 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     `payrollSettlement` suite (4, updated), `payrollInterim.ui.js` (3),
     `payrollSettlement.ui.js` (4, updated). To go live: "functions set"
     `payroll-5c` with the screens (after `payroll-5b`).
-  - **Payroll is complete** (steps 0-5c).
+  - **Step 6 built and tested 2026-10-06** (the owner's points of
+    2026-10-06; decisions 44-48 agreed):
+    - a missing supporting document (e.g. a sick leave certificate) no
+      longer blocks: the approver confirms accepting the leave without
+      it, and it is highlighted until a file is attached;
+    - Payroll Setup's "Payroll" tab is now "Payroll Accounting";
+    - leave deductions can post pro rata on the earnings, per company;
+    - payroll journals are referenced PRL- and open from the GL in their
+      own module. Also fixed: Journal Vouchers could reverse them;
+    - the payment plan: each employee or item is paid one way from one
+      account, and the groups are paid and reversed on their own.
+
+    Tests:
+    - `payrollStep6` suite (3);
+    - `payrollPayment` (4) and `payrollInterim` (4), rewritten for the
+      plan;
+    - `payrollStep6.ui.js` (3); `payrollPayment.ui.js` and
+      `payrollInterim.ui.js` rewritten.
+
+    To go live: "functions set" `payroll-6` with the screens.
+  - **Payroll is complete** (steps 0-6).
 - [x] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type

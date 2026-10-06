@@ -260,7 +260,10 @@ async function glLinesFor(s) {
       add(provAccount(l.Key, 'Expense'), name + ' expense', l.Signed - l.Provided);
     } else if (l.Salary && l.Source === 'CarryForward') add(settings.ReceivableAccountID, 'Recoverable from employees', l.Kind === 'Earning' ? l.Amount : -l.Amount);
     else if (l.LoanID) add(loanAcc[l.LoanID], l.Name.replace(/ LN-\d+$/, ''), -l.Amount);
-    else { const el = elements[l.ElementID]; add(el ? calc.accountFor(el, co) : '', l.Name, l.Kind === 'Earning' ? l.Amount : -l.Amount); }
+    // A leave deduction pro rata (step 6, decision 46): back off each earning it came from.
+    else if (l.Salary && settings.LeaveDeductionGL === 'ProRata' && (l.Split || []).length) {
+      l.Split.forEach(p => { const el = elements[p.ElementID]; add(el ? calc.accountFor(el, co) : '', (el ? el.Name : p.ElementID) + ' (' + l.Name.toLowerCase() + ')', l.Kind === 'Earning' ? p.Amount : -p.Amount); });
+    } else { const el = elements[l.ElementID]; add(el ? calc.accountFor(el, co) : '', l.Name, l.Kind === 'Earning' ? l.Amount : -l.Amount); }
   });
   if (s.Net > 0) add(settings.PayableAccountID, 'Salaries Payable', -s.Net);
   if (s.Net < 0) add(settings.ReceivableAccountID, 'Recoverable from employees', -s.Net);
@@ -580,7 +583,7 @@ async function pay(user, s, payDate, accountId, reference, batch) {
   const a = coa[text(accountId, 80)];
   if (!isCashOrBank(a) || a.Status !== 'Active' || !a.IsPostable || (a.CompanyID && a.CompanyID !== s.CompanyID)) bad('Choose the cash or bank account (of the company) it is paid from.');
   const payable = coa[settings.PayableAccountID];
-  if (!payable) throw failed('Set the company\'s Salaries Payable in Payroll Setup → Payroll.');
+  if (!payable) throw failed('Set the company\'s Salaries Payable in Payroll Setup → Payroll Accounting.');
   const label = 'Final settlement paid — ' + s.Number + ' ' + s.EmployeeName + (batch ? ' (' + batch.Number + ')' : '');
   return withGlobalLock(user.uid, async () => {
     const fresh = (await SETTLEMENTS().doc(s.SettlementID).get()).data();

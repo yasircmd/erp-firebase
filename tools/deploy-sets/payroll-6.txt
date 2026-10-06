@@ -1,0 +1,63 @@
+# HR Payroll, step 6: the owner's points of 2026-10-06 (docs/modules/
+# HR_PAYROLL.md, decisions 44-48). Deploy after payroll-5c. Run with
+# --screens (LEAVE, LEAVEREPORTS, PAYROLLSETUP, PAYROLL, PAYROLLIP,
+# PAYROLLFS, PAYROLLLOAN changed). No Hosting change. Then, in the app:
+# Payroll Setup → Payroll Accounting, each company's "Leave deductions in
+# the GL" (stays "Own ledger" until changed).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getPayrollJournalSource
+savePaymentPlan
+saveInterimPlan
+# Changed: the supporting document accepted by the approver (decision 44).
+getLeaves
+getLeave
+previewLeave
+saveLeave
+submitLeave
+decideLeaveApproval
+cancelLeave
+recordLeaveReturn
+getLeaveRegisterReport
+# Changed: leave deductions pro rata, per company (decision 46).
+getPayrollSetup
+savePayrollCompany
+createPayrollRun
+savePayrollInputs
+recalculatePayrollRun
+getPayrollRun
+submitPayrollRun
+decidePayrollApproval
+postPayrollRun
+reversePayrollRun
+getSettlement
+saveSettlement
+submitSettlement
+decideSettlementApproval
+postSettlement
+reverseSettlement
+# Changed: the payment plan (decision 47).
+getPayrollPayment
+downloadPaymentFile
+markPayrollPaid
+reversePayrollPayment
+getInterimBatch
+downloadInterimFile
+markInterimPaid
+reverseInterimPayment
+markSettlementPaid
+reverseSettlementPayment
+getSettlementPayment
+downloadSettlementFile
+# Changed: PRL- references for every payroll journal (decision 48).
+payOutLoan
+reverseLoanPayout
+recordLoanRepayment
+recordAccrualClaim
+reverseAccrualClaim
+# Changed: the GL report opens payroll journals in their module; Journal
+# Vouchers no longer reverses them.
+getGlReport
+getJournalEntryDetail
+updatePostedDescription
+reverseJournalEntry
+getMyDraftsForUser

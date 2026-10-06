@@ -13,7 +13,7 @@
     <select id="lv-type-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All types</option></select>
     <select id="lv-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
       <option value="">All</option><option value="open">Open (draft, pending, rejected)</option><option value="today">On leave today</option><option value="return">Return to record</option>
-      <option value="PendingApproval">Pending approval</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option><option value="Cancelled">Cancelled</option><option value="Draft">Draft</option></select>
+      <option value="PendingApproval">Pending approval</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option><option value="Cancelled">Cancelled</option><option value="Draft">Draft</option><option value="nodoc">Accepted without document</option></select>
     <input type="month" id="lv-month-filter" title="Leave in this month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
   </div>
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
@@ -73,6 +73,7 @@
     </div>
   </div>
   <p id="lv-note" class="hidden text-xs"></p>
+  <p id="lv-doc-note" class="hidden text-xs text-amber-400"></p>
   <div id="lv-error" class="hidden text-xs text-red-400"></div>
 
   <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
@@ -148,7 +149,9 @@
   function statusHtml(l) {
     const s = STATUS[l.Status] || [l.Status, ''];
     return '<span class="' + s[1] + '">' + escapeHtml(s[0]) + '</span>' + (l.ReturnDate ? ' <span class="text-xs text-slate-400">· back ' + escapeHtml(l.ReturnDate) + '</span>' : '') +
-      (list && returnDue(l) ? ' <span class="text-xs text-amber-400">· return to record</span>' : '');
+      (list && returnDue(l) ? ' <span class="text-xs text-amber-400">· return to record</span>' : '') +
+      // No supporting document (payroll step 6, decision 44): highlighted until a file is attached.
+      (l.NoDocument && l.Status !== 'Cancelled' ? ' <span class="lv-nodoc text-xs bg-amber-500/20 text-amber-300 px-1.5 rounded">No document' + (l.AcceptedWithoutDocument ? ' (accepted)' : '') + '</span>' : '');
   }
 
   // ---------- month close and year close (step 3) ----------
@@ -220,7 +223,7 @@
     const end = l => l.EffectiveTo || l.ToDate;
     const rows = list.leaves.filter(l => (!type || l.LeaveTypeID === type) &&
       (st === 'open' ? ['Draft', 'PendingApproval', 'Rejected'].includes(l.Status) : st === 'today' ? l.Status === 'Approved' && l.FromDate <= list.today && list.today <= end(l)
-        : st === 'return' ? returnDue(l) : !st || l.Status === st) &&
+        : st === 'return' ? returnDue(l) : st === 'nodoc' ? Boolean(l.NoDocument && l.AcceptedWithoutDocument) : !st || l.Status === st) &&
       (!month || (l.FromDate.slice(0, 7) <= month && month <= end(l).slice(0, 7))) &&
       (!q || [l.LeaveNumber, l.EmployeeNo, l.EmployeeName].join(' ').toLowerCase().indexOf(q) !== -1));
     const body = $('lv-table-body');
@@ -256,7 +259,7 @@
     $('lv-summary').innerHTML = v.Summary.map(s => '<tr><td class="pr-6 py-0.5 text-right font-mono">' + s.Days + '</td><td class="py-0.5">' + escapeHtml(s.Label) + '</td></tr>').join('');
     $('lv-balance').textContent = v.Balance ? 'Balance on the first day: ' + v.Balance.Before + ' → after this leave: ' + v.Balance.After : '';
     const warn = (v.Warnings || []).slice();
-    if (v.DocumentNeeded) warn.push('A supporting document (e.g. a medical certificate) must be attached below before it is submitted.');
+    if (v.DocumentNeeded) warn.push('A supporting document (e.g. a medical certificate) is expected: attach it below. Without it, whoever approves decides whether to accept the leave.');
     $('lv-warnings').innerHTML = warn.map(w => '<li><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(w) + '</li>').join('');
   }
   // What the leave would be, as the fields change (the server counts).
@@ -282,7 +285,7 @@
     $('lv-heading').textContent = 'New leave';
     $('lv-status-badge').innerHTML = '';
     $('lv-note').classList.add('hidden');
-    ['lv-approval-wrap', 'lv-history-wrap', 'lv-return-wrap'].forEach(id => $(id).classList.add('hidden'));
+    ['lv-approval-wrap', 'lv-history-wrap', 'lv-return-wrap', 'lv-doc-note'].forEach(id => $(id).classList.add('hidden'));
     $('lv-employee').value = employeeId || ''; $('lv-type').value = '';
     ['lv-from', 'lv-to', 'lv-reason'].forEach(id => { $(id).value = ''; });
     $('lv-half-start').checked = false; $('lv-half-end').checked = false;
@@ -307,6 +310,9 @@
       document.querySelectorAll('.lv-f').forEach(el => { el.disabled = !editable; });
       const note = l.Status === 'Rejected' ? 'Rejected: ' + (l.RejectionReason || '') + '. Correct it and submit again.' : l.Status === 'Cancelled' ? 'Cancelled: ' + (l.CancelReason || '') : '';
       $('lv-note').textContent = note; $('lv-note').className = 'text-xs ' + (l.Status === 'Rejected' ? 'text-red-400' : 'text-slate-400'); $('lv-note').classList.toggle('hidden', !note);
+      const accepted = l.AcceptedWithoutDocument;
+      $('lv-doc-note').classList.toggle('hidden', !l.DocumentMissing);
+      $('lv-doc-note').textContent = !l.DocumentMissing ? '' : 'No supporting document attached' + (accepted ? ': accepted without it by ' + accepted.By + ' on ' + accepted.At.slice(0, 10) + '.' : l.Status === 'PendingApproval' ? ': the approver decides whether to accept the leave without it.' : '.');
       renderPreview(l);
       // The return (approved leave): recorded, due, or not yet.
       const showReturn = l.Status === 'Approved' && l.Kind === 'Leave';
@@ -341,16 +347,24 @@
   function submit() {
     save(async id => {
       if (!(await appConfirm('Submit this leave? It goes for approval (or is approved now when no approval is set up).'))) return openLeave(id);
-      call('submitLeave', { leaveId: id }).then(r => {
+      const go = accept => call('submitLeave', { leaveId: id, acceptWithoutDocument: accept }).then(r => {
         appAlert(r.status === 'Approved' ? r.leaveNumber + ' is approved.' : r.leaveNumber + ' is waiting for approval.');
         loadList(() => openLeave(id));
-      }, err => { openLeave(id).then(() => setError(err.message || 'Unable to submit.')); });
+      }, async err => {
+        // No approval set up and no document: the person submitting decides.
+        if (!accept && /^No supporting document is attached/.test(err.message || '') && await appConfirm(err.message + ' Accept it without the document?')) return go(true);
+        openLeave(id).then(() => setError(err.message || 'Unable to submit.'));
+      });
+      go(false);
     });
   }
   async function decide(decision) {
     let reason = '';
     if (decision === 'Rejected') { reason = await appPrompt('Reject this leave: the reason?', ''); if (reason == null) return; }
-    call('decideLeaveApproval', { leaveId: current.LeaveID, levelNumber: myLevels[0], decision: decision, reason: reason })
+    // A missing supporting document: the approver accepts the leave without it, or doesn't approve.
+    const accept = decision === 'Approved' && Boolean(current.DocumentMissing);
+    if (accept && !(await appConfirm('No supporting document (e.g. a medical certificate) is attached. Approve, accepting the leave without it?'))) return;
+    call('decideLeaveApproval', { leaveId: current.LeaveID, levelNumber: myLevels[0], decision: decision, reason: reason, acceptWithoutDocument: accept })
       .then(() => loadList(() => openLeave(current.LeaveID)), err => appAlert(err.message || 'Unable to record the decision.'));
   }
   async function cancelLeave() {

@@ -120,26 +120,33 @@ function computeEmployee(x) {
     const dmonth = l.Date.slice(0, 7), ddiv = divisor(x.method, dmonth);
     const pct = l.Pay === 'Unpaid' ? 0 : (Number(l.Percent) || 0) / 100;
     let perDay = 0;
+    const parts = {}; // the day's rate by the earning it comes from (step 6: the GL pro rata)
     v.Lines.forEach(c => {
       const el = elOf(c.ElementID, c);
       if (el.Kind !== 'Earning' || el.Prorated === false) return;
       const covered = l.Pay === 'Full' ? Boolean(el.InGross) : l.Pay === 'Basic' ? Boolean(el.IsBasic) : l.Pay === 'Elements' ? (l.Elements || []).includes(c.ElementID) : false;
-      perDay += c.Amount / ddiv * (1 - (covered ? pct : 0));
+      const r = c.Amount / ddiv * (1 - (covered ? pct : 0));
+      perDay += r;
+      if (r) parts[c.ElementID] = (parts[c.ElementID] || 0) + r;
     });
+    const raw = perDay;
     perDay = round2(perDay);
     if (!perDay) return;
     const code = l.Absence ? 'ABSENCE' : l.Pay === 'Unpaid' ? 'UNPAIDLV' : 'REDUCEDLV';
     const thisMonth = dmonth === x.month && !l.Reversal;
     const key = [code, dmonth, perDay, thisMonth ? '' : 'adj'].join('|');
     if (code !== 'REDUCEDLV' && thisMonth) unpaidDays += l.Fraction;
-    const g = groups[key] || (groups[key] = { code, dmonth, perDay, thisMonth, days: 0 });
+    const g = groups[key] || (groups[key] = { code, dmonth, perDay, thisMonth, days: 0, split: {} });
     g.days = round2(g.days + l.Fraction);
+    Object.keys(parts).forEach(id => { g.split[id] = (g.split[id] || 0) + l.Fraction * parts[id] / raw * perDay; });
   });
   const byCode = {};
   Object.values(groups).forEach(g => {
-    const b = byCode[g.code] || (byCode[g.code] = { now: 0, adj: 0, parts: [] });
+    const b = byCode[g.code] || (byCode[g.code] = { now: 0, adj: 0, parts: [], sNow: {}, sAdj: {} });
     const amt = g.days * g.perDay;
     if (g.thisMonth) b.now += amt; else b.adj += amt;
+    const into = g.thisMonth ? b.sNow : b.sAdj;
+    Object.keys(g.split).forEach(id => { into[id] = (into[id] || 0) + g.split[id]; });
     b.parts.push(dayWord(g.days) + (g.thisMonth ? '' : ' in ' + g.dmonth + (g.days < 0 ? ' (taken back)' : ' (adjustment)')) + ' × ' + money(g.perDay));
   });
   // This month's leave can't take more than the month's prorated pay.
@@ -152,7 +159,8 @@ function computeEmployee(x) {
     if (!amount) return;
     const el = (x.system || {})[code] || { ElementID: 'sys-' + code.toLowerCase(), Code: code, Name: SYSTEM[code].Name };
     lines.push({ ElementID: el.ElementID, Code: el.Code, Name: el.Name, Kind: 'Deduction', Source: 'Leave', Amount: amount,
-      Text: b.parts.join(' + ') + (factor < 1 && b.now ? ' (limited to the month\'s pay)' : '') + ' = ' + money(amount) });
+      Text: b.parts.join(' + ') + (factor < 1 && b.now ? ' (limited to the month\'s pay)' : '') + ' = ' + money(amount),
+      Split: splitOf(Object.fromEntries([...new Set(Object.keys(b.sNow).concat(Object.keys(b.sAdj)))].map(id => [id, (b.sNow[id] || 0) * factor + (b.sAdj[id] || 0)])), amount) });
   });
 
   // Inputs for the run: overtime hours at the element's rate, or amounts.
@@ -194,6 +202,17 @@ function computeEmployee(x) {
   return { Lines: lines, Earnings: earnings, Deductions: deductions, Net: net, Basic: basic, Gross: gross, UnpaidDays: round2(unpaidDays), Terms: ref ? ref.Terms || [] : [], Warnings: warnings };
 }
 
+// A leave deduction's split by the earnings its day rate came from (step 6:
+// a company may post it pro rata on their accounts), rounded to the cent
+// with the difference on the largest part, so the parts add up to amount.
+function splitOf(raw, amount) {
+  const out = Object.entries(raw).map(([ElementID, a]) => ({ ElementID, Amount: round2(a) })).filter(x => x.Amount);
+  if (!out.length) return [];
+  const diff = round2(amount - out.reduce((t, x) => t + x.Amount, 0));
+  if (diff) { const big = out.reduce((m, x) => (Math.abs(x.Amount) > Math.abs(m.Amount) ? x : m)); big.Amount = round2(big.Amount + diff); }
+  return out;
+}
+
 // Back pay (decision 10): a posted month worked out again with the pay now
 // in force (fixed elements and leave), less what was paid for it (its own
 // lines and arrears already paid). One line per element that differs.
@@ -211,8 +230,13 @@ function arrearsFor(month, recomputed, paid, elements) {
     if (!d) return;
     const l = now.concat(was).find(y => y.ElementID === id);
     const el = (elements || {})[id] || l;
-    out.push({ ElementID: id, Code: el.Code || l.Code, Name: (el.Name || l.Name) + ' arrears', Kind: l.Kind, Source: 'Arrears', ForMonth: month, Amount: d,
-      Text: month + ': paid ' + money(b) + ', now ' + money(a) });
+    // A leave deduction's arrears keep the split (step 6), when both sides have one.
+    const parts = (list, sign, acc) => list.filter(y => y.ElementID === id).forEach(y => (y.Split || []).forEach(p => { acc[p.ElementID] = (acc[p.ElementID] || 0) + sign * p.Amount; }));
+    const split = {};
+    const all = now.concat(was).filter(y => y.ElementID === id);
+    if (l.Source !== 'Fixed' && all.every(y => (y.Split || []).length)) { parts(now, 1, split); parts(was, -1, split); }
+    out.push(Object.assign({ ElementID: id, Code: el.Code || l.Code, Name: (el.Name || l.Name) + ' arrears', Kind: l.Kind, Source: 'Arrears', ForMonth: month, Amount: d,
+      Text: month + ': paid ' + money(b) + ', now ' + money(a) }, Object.keys(split).length ? { Split: splitOf(split, d) } : {}));
   });
   return out;
 }

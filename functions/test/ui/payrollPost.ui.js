@@ -54,7 +54,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   }
   const status = async () => (await call('u-admin', 'getPayrollRun', { runId })).run;
 
-  await check('Payroll Setup → Payroll: a company\'s Recoverable from employees (asset accounts only)', async () => {
+  await check('Payroll Setup → Payroll Accounting: a company\'s Recoverable from employees (asset accounts only)', async () => {
     const p = await open('PAYROLLSETUP', 'u-admin');
     await p.waitForSelector('#ps-el-body tr', { timeout: 30000 });
     await p.click('.ps-tab[data-tab="payroll"]');
@@ -64,7 +64,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.selectOption('#ps-pc-body tr[data-co="C1"] .ps-pc-receivable', 'A-REC');
     await p.click('#ps-pc-body tr[data-co="C1"] .ps-pc-save');
     for (let i = 0; i < 40 && (await call('u-admin', 'getPayrollSetup', {})).settings[0].ReceivableAccountID !== 'A-REC'; i++) await new Promise(ok => setTimeout(ok, 300));
-    assert.deepEqual((await call('u-admin', 'getPayrollSetup', {})).settings[0], { CompanyID: 'C1', DailyRateMethod: 'DIV30', PayableAccountID: 'A-SALPAY', ReceivableAccountID: 'A-REC' });
+    assert.deepEqual((await call('u-admin', 'getPayrollSetup', {})).settings[0], { CompanyID: 'C1', DailyRateMethod: 'DIV30', PayableAccountID: 'A-SALPAY', ReceivableAccountID: 'A-REC', LeaveDeductionGL: 'Ledger' });
     assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
     await p.close();
   });
