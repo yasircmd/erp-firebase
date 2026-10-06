@@ -3,7 +3,7 @@
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-person-walking-arrow-right text-blue-500"></i> Final Settlements</h2></div>
     <button id="fs-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New final settlement</button>
   </div>
-  <p class="text-xs text-slate-500 max-w-3xl">For an employee on notice or who has left (a leaving date on their record). It is worked out on the leaving date: gratuity, the annual leave balance, the accruals paid at leaving, notice pay, other additions and deductions, and every loan still owed. The last month's salary stays in the payroll run: submit the settlement once that run is posted. It is approved as set up in Approval Configuration, posted, then paid as a run is.</p>
+  <p class="text-xs text-slate-500 max-w-3xl">For an employee on notice or who has left (a leaving date on their record). It pays everything at once: the salary of the months no posted payroll run has paid (to the leaving date, with that month's leave and inputs; the payroll run then leaves the employee out), gratuity, the annual leave balance, the accruals paid at leaving, notice pay, other additions and deductions, less every loan still owed. Submit it from the leaving date. It is approved as set up in Approval Configuration, posted, then paid on its own or in an interim payroll batch.</p>
   <div id="fs-new-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex flex-wrap items-end gap-3">
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Employee</label><select id="fs-new-emp" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
     <button id="fs-new-go" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Work it out</button>
@@ -33,7 +33,7 @@
     </div>
   </div>
   <p id="fs-info" class="text-xs text-slate-400"></p>
-  <p id="fs-run-note" class="hidden text-xs text-amber-400"></p>
+  <p id="fs-submit-note" class="hidden text-xs text-amber-400"></p>
   <p id="fs-state-note" class="hidden text-xs"></p>
 
   <div id="fs-approval" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
@@ -54,6 +54,20 @@
     <ul id="fs-warnings" class="text-xs text-amber-400 space-y-1"></ul>
   </div>
 
+  <div id="fs-salary" class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Salary</div>
+    <p id="fs-salary-none" class="hidden text-xs text-slate-400"></p>
+    <div id="fs-salary-wrap" class="overflow-x-auto"><table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+      <th class="py-1 pr-4">Month</th><th class="py-1 pr-4">Paid</th><th class="py-1 pr-4">Payroll run</th><th class="py-1 pr-4 text-right">Earnings</th><th class="py-1 pr-4 text-right">Deductions</th><th class="py-1 pr-4 text-right">Net</th></tr></thead>
+      <tbody id="fs-months" class="divide-y divide-slate-700"></tbody></table></div>
+    <p class="text-xs text-slate-500">The leaving month is always paid here. An earlier month can be left to its payroll run instead (the settlement is then submitted once that run is posted); paying it here keeps one payment and can stop the net going negative.</p>
+    <div id="fs-inputs-wrap" class="space-y-2">
+      <div class="text-xs font-semibold text-slate-400 uppercase pt-2">Salary inputs (overtime, bonus, one-offs)</div>
+      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-500"><th class="pr-2">Month</th><th class="pr-2">Pay element</th><th class="pr-2">Hours or amount</th><th class="pr-2">Note</th><th></th></tr></thead><tbody id="fs-inputs"></tbody></table>
+      <button id="fs-input-add" class="fs-f text-xs text-blue-400"><i class="fa-solid fa-plus"></i> Add an input</button>
+    </div>
+  </div>
+
   <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
     <div class="text-xs font-semibold text-slate-400 uppercase">Notice pay</div>
     <div class="flex flex-wrap items-end gap-3">
@@ -71,6 +85,7 @@
   <div id="fs-pay" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
     <div class="text-xs font-semibold text-slate-400 uppercase">Payment</div>
     <p id="fs-pay-done" class="hidden text-sm text-emerald-400"></p>
+    <p id="fs-pay-batch" class="hidden text-sm text-blue-400"></p>
     <div id="fs-pay-form" class="hidden flex flex-wrap items-end gap-3">
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Payment date</label><input id="fs-pay-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Paid from (cash or bank)</label><select id="fs-pay-account" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
@@ -91,9 +106,9 @@
 
 <script>
 (function () {
-  // Final Settlements (owner, 2026-10-05; docs/modules/HR_PAYROLL.md, step
-  // 5b): an employee's settlement on leaving, from its draft to its
-  // approval, posting and payment.
+  // Final Settlements (owner, 2026-10-05; docs/modules/HR_PAYROLL.md, steps
+  // 5b-5c): an employee's settlement on leaving, from its draft to its
+  // approval, posting and payment; the salary of the months no run paid.
   const $ = id => document.getElementById(id);
   const val = id => $(id).value;
   function escapeHtml(value) {
@@ -150,10 +165,10 @@
     $('fs-status').innerHTML = statusHtml(s.PaidAt ? 'Paid' : s.Status);
     $('fs-info').textContent = s.EmployeeNo + ' · joined ' + s.JoinDate + ', leaving ' + s.LeavingDate + (s.LeavingReason ? ' (' + s.LeavingReason + ')' : '') +
       '. On the leaving date: basic ' + money(s.Basic) + ', gross ' + money(s.Gross) + '.';
-    const run = r.leavingRun;
-    const waiting = (s.Status === 'Draft' || s.Status === 'New') && !(run && run.Status === 'Posted');
-    $('fs-run-note').classList.toggle('hidden', !waiting);
-    $('fs-run-note').textContent = 'The payroll run for ' + s.LeavingDate.slice(0, 7) + ' is ' + (run ? 'not posted yet' : 'not made yet') + ': it pays the last days and brings the provisions to the leaving date. Submit once it is posted.';
+    const early = (s.Status === 'Draft' || s.Status === 'New') && r.today < s.LeavingDate;
+    $('fs-submit-note').classList.toggle('hidden', !early);
+    $('fs-submit-note').textContent = early ? 'It can be drafted now and is submitted from the leaving date (' + s.LeavingDate + ').' : '';
+    renderSalary(draft);
     const note = s.Status === 'Posted' ? ['text-emerald-400', 'Posted: journal ' + s.JVNumber + ', dated the leaving date.']
       : s.Status === 'Approved' && s.PostError ? ['text-red-400', 'Approved, but not posted: ' + s.PostError + (r.canPost ? ' Fix it, then Post.' : '')]
       : s.Status === 'Draft' && s.RejectedReason ? ['text-red-400', 'Rejected: ' + s.RejectedReason + '. Correct it and submit again.'] : null;
@@ -163,7 +178,7 @@
     $('fs-submit-btn').classList.toggle('hidden', !(draft && s.Status === 'Draft'));
     $('fs-delete-btn').classList.toggle('hidden', !(draft && s.Status === 'Draft'));
     $('fs-post-btn').classList.toggle('hidden', !(s.Status === 'Approved' && r.canPost));
-    $('fs-reverse-btn').classList.toggle('hidden', !(s.Status === 'Posted' && r.canPost && !s.PaidAt));
+    $('fs-reverse-btn').classList.toggle('hidden', !(s.Status === 'Posted' && r.canPost && !s.PaidAt && !s.InterimID));
     const a = r.approval;
     $('fs-approval').classList.toggle('hidden', !(a && s.Status === 'PendingApproval'));
     if (a) {
@@ -176,7 +191,7 @@
     $('fs-lines').innerHTML = shown.map(l => {
       const own = (s.Overrides || {})[l.Key];
       const how = l.Text + (l.Reason ? ' — changed by hand from ' + money(l.Worked) + ': ' + l.Reason : '');
-      return '<tr data-key="' + escapeHtml(l.Key) + '"><td class="py-1 pr-4">' + escapeHtml(l.Name) + '</td><td class="py-1 pr-4 text-xs text-slate-400">' + escapeHtml(how) + '</td>' +
+      return '<tr data-key="' + escapeHtml(l.Key) + '"><td class="py-1 pr-4">' + escapeHtml(l.Salary ? l.Month + ' · ' + l.Name : l.Name) + '</td><td class="py-1 pr-4 text-xs text-slate-400">' + escapeHtml(how) + '</td>' +
         '<td class="py-1 pr-4 text-right text-xs text-slate-400">' + (isProvision(l.Key) ? money(l.Provided) : '') + '</td>' +
         '<td class="py-1 pr-4 text-right">' + (l.Kind === 'Earning' ? money(l.Amount) : '') + '</td><td class="py-1 pr-4 text-right">' + (l.Kind === 'Deduction' ? money(l.Amount) : '') + '</td>' +
         '<td class="py-1' + (draft ? '' : ' hidden') + '">' + (isProvision(l.Key) ? '<input class="fs-f fs-own w-24 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" placeholder="as worked" value="' + escapeHtml(own ? own.Amount : '') + '"> ' +
@@ -198,6 +213,35 @@
     $('fs-history').innerHTML = (s.History || []).slice().reverse().map(h => '<li>' + escapeHtml(h.At + ' — ' + h.Event + ' by ' + h.By + (h.JVNumber ? ' (' + h.JVNumber + (h.ReversalJVNumber ? ', reversed by ' + h.ReversalJVNumber : '') + ')' : '') + (h.Note ? ': ' + h.Note : '')) + '</li>').join('');
   }
 
+  // The salary months (step 5c): each month no posted run has paid, and its inputs.
+  const runText = m => !m.Run ? 'not made' : (m.Run.OnRun ? '' : 'without them, ') + ({ Draft: 'draft', PendingApproval: 'waiting for approval', Approved: 'approved', Posted: 'posted' }[m.Run.Status] || m.Run.Status);
+  function renderSalary(draft) {
+    const s = current.settlement, months = s.Salary || [];
+    $('fs-salary-none').classList.toggle('hidden', months.length > 0);
+    $('fs-salary-none').textContent = 'No salary here: the payroll runs paid every month to the leaving date' + (s.LastPaidMonth ? ' (the last, ' + s.LastPaidMonth + ')' : '') + '.';
+    $('fs-salary-wrap').classList.toggle('hidden', !months.length);
+    $('fs-inputs-wrap').classList.toggle('hidden', !months.length);
+    const leaving = s.LeavingDate.slice(0, 7);
+    $('fs-months').innerHTML = months.map(m => '<tr data-month="' + escapeHtml(m.Month) + '"><td class="py-1 pr-4">' + escapeHtml(m.Month) + '</td>' +
+      '<td class="py-1 pr-4"><label class="text-xs"><input type="checkbox" class="fs-f fs-m-pay"' + (m.Pay ? ' checked' : '') + (m.Month === leaving ? ' data-fixed="1"' : '') + '> ' +
+      (m.Month === leaving ? 'here (the leaving month)' : m.Pay ? 'in this settlement' : 'by its payroll run') + '</label></td>' +
+      '<td class="py-1 pr-4 text-xs text-slate-400">' + escapeHtml(runText(m)) + '</td>' +
+      '<td class="py-1 pr-4 text-right">' + (m.Pay ? money(m.Earnings) : '') + '</td><td class="py-1 pr-4 text-right">' + (m.Pay ? money(m.Deductions) : '') + '</td><td class="py-1 pr-4 text-right">' + (m.Pay ? money(m.Net) : '') + '</td></tr>').join('');
+    $('fs-inputs').innerHTML = (s.Inputs || []).map(inputRow).join('');
+    $('fs-input-add').classList.toggle('hidden', !draft);
+  }
+  function inputRow(x) {
+    const months = (current.settlement.Salary || []).filter(m => m.Pay).map(m => m.Month);
+    const el = current.inputElements.find(e => e.ElementID === x.ElementID);
+    return '<tr class="fs-input"><td class="pr-2 py-1"><select class="fs-f fs-i-month bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm text-slate-300">' +
+      months.map(m => '<option value="' + escapeHtml(m) + '"' + (m === (x.Month || months[months.length - 1]) ? ' selected' : '') + '>' + escapeHtml(m) + '</option>').join('') + '</select></td>' +
+      '<td class="pr-2"><select class="fs-f fs-i-el bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm text-slate-300"><option value="">Select...</option>' +
+      current.inputElements.map(e => '<option value="' + escapeHtml(e.ElementID) + '"' + (e.ElementID === x.ElementID ? ' selected' : '') + '>' + escapeHtml(e.Code + ' — ' + e.Name + (e.Hours ? ' (hours)' : '')) + '</option>').join('') + '</select></td>' +
+      '<td class="pr-2"><input class="fs-f fs-i-val w-28 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" value="' + escapeHtml((el && el.Hours ? x.Hours : x.Amount) || '') + '"></td>' +
+      '<td class="pr-2"><input class="fs-f fs-i-note w-56 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm" maxlength="150" value="' + escapeHtml(x.Note || '') + '"></td>' +
+      '<td><button class="fs-f fs-i-del text-xs text-red-400"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+  }
+
   function collect() {
     const overrides = {};
     document.querySelectorAll('#fs-lines tr[data-key]').forEach(tr => {
@@ -206,7 +250,12 @@
     });
     return { employeeId: current.settlement.EmployeeID, overrides, note: val('fs-note'),
       notice: { Days: val('fs-notice-days'), Mode: val('fs-notice-mode'), ElementID: val('fs-notice-el') },
-      others: [...document.querySelectorAll('#fs-others .fs-other')].map(tr => ({ ElementID: tr.querySelector('.fs-o-el').value, Amount: tr.querySelector('.fs-o-amt').value, Note: tr.querySelector('.fs-o-note').value })) };
+      others: [...document.querySelectorAll('#fs-others .fs-other')].map(tr => ({ ElementID: tr.querySelector('.fs-o-el').value, Amount: tr.querySelector('.fs-o-amt').value, Note: tr.querySelector('.fs-o-note').value })),
+      leaveToRun: [...document.querySelectorAll('#fs-months tr[data-month]')].filter(tr => !tr.querySelector('.fs-m-pay').checked).map(tr => tr.dataset.month),
+      inputs: [...document.querySelectorAll('#fs-inputs .fs-input')].map(tr => {
+        const id = tr.querySelector('.fs-i-el').value, el = current.inputElements.find(e => e.ElementID === id), v = tr.querySelector('.fs-i-val').value;
+        return { Month: tr.querySelector('.fs-i-month').value, ElementID: id, Hours: el && el.Hours ? v : '', Amount: el && el.Hours ? '' : v, Note: tr.querySelector('.fs-i-note').value };
+      }) };
   }
   function save(then) {
     return call('saveSettlement', collect()).then(r => (then ? then(r.settlementId) : openSettlement({ settlementId: r.settlementId })), err => appAlert(err.message || 'Unable to save.'));
@@ -231,8 +280,11 @@
       $('fs-pay').classList.remove('hidden');
       $('fs-pay-done').classList.toggle('hidden', !s.PaidAt);
       $('fs-pay-done').textContent = s.PaidAt ? 'Paid on ' + s.PaymentDate + ': journal ' + s.PaymentJVNumber + '.' : '';
-      $('fs-pay-form').classList.toggle('hidden', Boolean(s.PaidAt) || !p.canPay);
-      $('fs-pay-reverse').classList.toggle('hidden', !(s.PaidAt && p.canPay));
+      // In an interim payroll batch (step 5c): paid, and reversed, there.
+      $('fs-pay-batch').classList.toggle('hidden', !s.InterimID);
+      $('fs-pay-batch').textContent = s.InterimID ? 'In interim payroll ' + s.InterimNumber + ': it is paid' + (s.PaidAt ? ', and its payment reversed,' : '') + ' there.' : '';
+      $('fs-pay-form').classList.toggle('hidden', Boolean(s.PaidAt) || !p.canPay || Boolean(s.InterimID));
+      $('fs-pay-reverse').classList.toggle('hidden', !(s.PaidAt && p.canPay && !s.InterimID));
       const accts = p.accounts.filter(a => (p.payee && p.payee.ByBank) ? a.Bank : true);
       $('fs-pay-account').innerHTML = accts.map(a => '<option value="' + escapeHtml(a.AccountID) + '">' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
       $('fs-pay-format').innerHTML = p.formats.map(f => '<option value="' + escapeHtml(f.FormatID) + '">' + escapeHtml(f.Name) + '</option>').join('');
@@ -262,6 +314,10 @@
     $('fs-notice-mode').addEventListener('change', noticeElements);
     $('fs-other-add').addEventListener('click', () => $('fs-others').insertAdjacentHTML('beforeend', otherRow({})));
     $('fs-others').addEventListener('click', e => { const b = e.target.closest('.fs-o-del'); if (b) b.closest('tr').remove(); });
+    $('fs-input-add').addEventListener('click', () => $('fs-inputs').insertAdjacentHTML('beforeend', inputRow({})));
+    $('fs-inputs').addEventListener('click', e => { const b = e.target.closest('.fs-i-del'); if (b) b.closest('tr').remove(); });
+    // The leaving month stays paid here; another month's choice is worked out again on saving.
+    $('fs-months').addEventListener('change', e => { const c = e.target.closest('.fs-m-pay'); if (c && c.dataset.fixed) c.checked = true; else if (c) save(); });
     $('fs-save-btn').addEventListener('click', () => save());
     $('fs-submit-btn').addEventListener('click', submit);
     $('fs-delete-btn').addEventListener('click', () => appConfirm('Delete this draft?').then(ok => { if (ok) call('deleteSettlement', { settlementId: current.settlement.SettlementID }).then(showList, err => appAlert(err.message || 'Unable to delete.')); }));

@@ -1,8 +1,9 @@
 // HR Payroll, step 5b: the final settlement (owner, 2026-10-05;
 // docs/modules/HR_PAYROLL.md, decisions 29, 34, 36-39): drafted for a
 // leaver, worked out on the leaving date (gratuity, the leave balance, the
-// accruals paid at leaving, notice pay, other lines, the loans); submitted
-// once the leaving month's run is posted; approved and posted (provisions
+// accruals paid at leaving, notice pay, other lines, the loans); with the
+// leaving month's run posted, no salary (step 5c: payrollInterim suite for
+// the salary it pays otherwise); approved and posted (provisions
 // used, the difference to expense, lapsed accruals taken back, the net
 // payable or owed); paid as a run is; reversed.
 const test = require('node:test');
@@ -80,14 +81,16 @@ test.before(async () => {
   FMT = (await call('u-admin', 'savePaymentFormat', { format: Object.assign({}, fmt, { CompanyID: 'C1', Bank: 'ENBD', Values: { EmployerID: '0000123456789', BankCode: '803320101', Currency: 'AED', Reference: '' } }) })).formatId;
 });
 
-test('a draft: the leavers; worked out on the leaving date; notice pay and other lines; an amount changed needs a reason; rights; submitted only after the leaving month\'s run', async () => {
+test('a draft: the leavers; worked out on the leaving date; notice pay and other lines; an amount changed needs a reason; rights', async () => {
   const list = await call('u-admin', 'getSettlements', {});
   assert.deepEqual([list.settlements, list.leavers.map(e => e.FullName), list.canDraft], [[], ['Ali Hassan', 'Ben Okafor'], true]);
   const s = await get({ employeeId: ALI });
   const gratuity = calc.gratuityFor({}, { base: 6000, joinDate: '2021-01-01', asOf: '2026-07-15', provision: false });
   assert.deepEqual([line(s, 'Gratuity').Amount, line(s, 'Gratuity').Kind, line(s, 'Gratuity').Provided, s.Basic, s.Gross], [gratuity.amount, 'Earning', 20000, 6000, 9000]);
   assert.ok(line(s, 'LeaveSalary').Amount > 0 && line(s, 'LeaveSalary').Text.endsWith('× 200.00 = ' + line(s, 'LeaveSalary').Amount.toLocaleString('en-US', { minimumFractionDigits: 2 })));
-  assert.deepEqual([line(s, 'Accrual:' + ACC.FLIGHT), line(s, 'Accrual:' + ACC.EDU)], [undefined, undefined], 'no run yet: nothing provided');
+  // No run yet (step 5c): it pays July's salary to the 15th, and the air ticket's July share (nothing provided).
+  assert.deepEqual(s.Salary.map(m => [m.Month, m.Pay, m.Net]), [['2026-07', true, 4200]]);
+  assert.deepEqual([line(s, 'Accrual:' + ACC.FLIGHT).Amount, line(s, 'Accrual:' + ACC.FLIGHT).Provided, line(s, 'Accrual:' + ACC.EDU)], [96.77, 0, undefined]);
   const save = (d, uid) => call(uid || 'u-admin', 'saveSettlement', Object.assign({ employeeId: ALI }, d));
   await assert.rejects(save({}, 'u-viewer'), /permission to prepare final settlements/);
   await assert.rejects(save({ overrides: { Gratuity: { Amount: 0 } } }), /reason for changing an amount/);
@@ -102,17 +105,17 @@ test('a draft: the leavers; worked out on the leaving date; notice pay and other
   const d1 = await get({ settlementId: FS_ALI });
   assert.deepEqual([line(d1, 'Gratuity').Amount, line(d1, 'Notice').Amount, line(d1, 'Notice').Text, line(d1, 'Other1').Kind, line(d1, 'Other1').Amount],
     [gratuity.amount, 3000, '10 days × 9,000.00 ÷ 30 = 300.00 (gross)', 'Deduction', 500]);
-  assert.equal(d1.Net, r2(gratuity.amount + line(d1, 'LeaveSalary').Amount + 3000 - 500));
+  assert.equal(d1.Net, r2(gratuity.amount + line(d1, 'LeaveSalary').Amount + 3000 - 500 + 96.77 + 4200));
   // In My Drafts.
   const drafts = await call('u-admin', 'getMyDraftsForUser', {});
   assert.ok(JSON.stringify(drafts).includes('Final settlement — Ali Hassan'));
   await assert.rejects(call('u-admin', 'getSettlement', { employeeId: ALI }), /already has a final settlement/);
-  await assert.rejects(call('u-admin', 'submitSettlement', { settlementId: FS_ALI }), /Post the payroll run for 2026-07 first/);
 });
 
 test('after the leaving month\'s run: approved, then posted (the provisions used, the difference to expense, a lapsed accrual taken back, notice and deductions, the net payable); provisions settled, claims and the run\'s reversal wait for it', async () => {
   JULY = (await call('u-admin', 'createPayrollRun', { companyId: 'C1', month: '2026-07' })).runId;
   assert.equal((await call('u-admin', 'submitPayrollRun', { runId: JULY })).status, 'Posted');
+  assert.deepEqual((await get({ settlementId: FS_ALI })).Salary, [], 'the run paid July');
   await rtdb.ref('approvalConfigurations/PAYROLLFS').set({ Enabled: true, ScopeType: 'Company' });
   await rtdb.ref('approvalLevels/PAYROLLFS/C1').set({ Levels: [{ LevelNumber: 1, ApproverUserID: 'u-approver', ThresholdAmount: 0 }] });
   const sub = await call('u-admin', 'submitSettlement', { settlementId: FS_ALI });
@@ -171,7 +174,7 @@ test('paid as a run is: the bank file, Mark paid (Dr Salaries Payable / Cr the b
   const f = await call('u-admin', 'downloadSettlementFile', { settlementId: FS_ALI, formatId: FMT, paymentDate: '2026-07-20' });
   assert.equal(f.count, 1);
   assert.ok(f.content.includes('AE070331234567890123456') && f.content.includes(s.Net.toFixed(2)), f.content);
-  await assert.rejects(call('u-admin', 'markSettlementPaid', { settlementId: FS_ALI, paymentDate: '2026-07-10', accountId: 'A-BANK' }), /before the leaving date/);
+  await assert.rejects(call('u-admin', 'markSettlementPaid', { settlementId: FS_ALI, paymentDate: '2026-07-10', accountId: 'A-BANK' }), /before Ali Hassan's leaving date/);
   const paid = await call('u-admin', 'markSettlementPaid', { settlementId: FS_ALI, paymentDate: '2026-07-20', accountId: 'A-BANK' });
   assert.match(paid.jvNumber, /^PAYP-/);
   const after = await get({ settlementId: FS_ALI });

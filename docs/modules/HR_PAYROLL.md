@@ -1616,3 +1616,135 @@ approvals and drafts open it: "draft" makes, changes and submits a batch;
 | 41 | Earlier months not yet paid | **An option on the settlement, month by month: pay it in the settlement or not**, "to avoid any negative net salary in the final settlement". A month not paid there waits for its own run to be posted. |
 | 42 | Paying one item on its own | **Keep both:** each settlement's Pay and each loan's Pay out stay, besides the batch. An item in a batch is paid only through the batch. |
 | 43 | Approving a batch | **A batch approval**, through Approval Configuration, before the batch is paid. |
+
+## As built: step 5c, interim payroll (2026-10-06)
+
+**The final settlement pays the salary** (Final Settlements):
+- **its months:** each month no posted run has paid the employee, from
+  the month after the last posted run with them on it to the leaving
+  month. If they are on no posted run, the months start at the company's
+  first run (before it, pay was outside this system), or at the leaving
+  month when the company has no runs; never before joining;
+- **the Salary section** shows each month, the company's run for it (not
+  made, draft, waiting for approval, approved, posted; "without them" if
+  they are not on it) and what the settlement pays for it;
+- **the leaving month is always paid here.** An earlier month is paid here
+  too unless HR unticks it, which leaves it to its run (decision 41). Only
+  the earliest months can be left to their runs: once a month is paid
+  here, every later one is too;
+- **each month is worked out by the run's own calculation:**
+  - the pay in force, prorated to the leaving date;
+  - the leave not yet paid by a posted run. The leaving month also takes
+    leave entered after its lock, paid in a later month;
+  - the month's inputs: overtime hours or amounts, a bonus, one-offs.
+    These are entered on the settlement ("Salary inputs"), against the
+    run's variable elements;
+  - the first month takes a shortfall carried forward by the last posted
+    run, and arrears for a pay change back-dated into a posted month;
+  - no loan instalment: every loan's whole balance is deducted, as before;
+- **an accrual paid at leaving** (e.g. an air ticket) adds its share of
+  the months paid here (the run would have provided it);
+- **gratuity and leave salary need nothing new:** they are worked out on
+  the leaving date, and the difference to what the runs provided goes to
+  the expense, as before;
+- **posting:** each salary line goes to its element's account (by the
+  employee's cost center), a shortfall brought forward to Recoverable from
+  employees, and the net to Salaries Payable, as before;
+- **when the leaving month's run is posted with the employee on it**
+  (e.g. leaving on the 31st after payroll), there is no salary section,
+  as in 5b.
+
+**Submitting a settlement** (checked again on submit):
+- from the leaving date (decision 40); a draft can be made earlier, and
+  the screen says when it can be submitted;
+- none of the employee's leave up to the leaving date is Draft or
+  Pending;
+- every month left to its run is posted with the employee on it;
+- no run past its draft has the employee on it for a month the
+  settlement pays. Once that run is posted the settlement no longer pays
+  the month; or it is rejected and recalculated without them.
+
+**Once a settlement is submitted** (until it is reversed):
+- **the run of a month it pays** leaves the employee out at its next
+  calculation. It shows them under "Paid by final settlement, not on
+  this run". A draft run calculated before must be recalculated: its
+  submit is refused while it has a slip for them;
+- **the employee's leave stays as it is:** no new leave, edits,
+  submits, approvals, cancellations or returns.
+
+**Interim Payroll** (new module and screen `PAYROLLIP`: access, draft,
+pay):
+- **a batch** has one company, a payment date (not before a leaver's
+  leaving date), a note, and its items, ticked from what is waiting:
+  - posted final settlements with a net to pay, not yet paid;
+  - approved loans and advances, not yet paid out.
+
+  It is numbered IP-0001… on its first save;
+- **an item is in one batch at a time.** It shows on its settlement or
+  loan ("In interim payroll IP-…: it is paid there"). Its own Pay / Pay
+  out, its payment's reversal, and a settlement's reversal are refused
+  while it is in a batch (decision 42: both ways stay). Deleting a draft
+  frees its items;
+- **submitted** (the "draft" right) through Approval Configuration →
+  "Interim payroll (the amount is the batch total)" (decision 43). With
+  none set up it is approved at once; a rejection returns it to a draft.
+  The items are checked again: still payable, the amounts as they are
+  now;
+- **approved, then paid** (the "pay" right):
+  - **the bank file:** one file for the batch, from Payroll Setup's
+    formats. Each row is the employee's net or the loan amount. Those
+    without an IBAN are listed to pay by cash or cheque;
+  - **Mark paid** from a cash or bank account, on the payment date. Each
+    item gets its own journal, with the batch number as the reference
+    and `PayrollInterimID`:
+    - a settlement: PayrollPayment (PAYP), Dr Salaries Payable / Cr the
+      account;
+    - a loan: PayrollLoan (PLN), Dr its receivable / Cr the account. The
+      loan becomes Active and is recovered by the runs, as before;
+  - **all or nothing:** if one journal fails, those written before it are
+    reversed, the batch stays approved, and the message says why;
+- **reversing the payment** (with a reason) reverses every journal. It is
+  refused if a loan has been recovered or repaid since. Settlements go
+  back to unpaid, loans to Approved, and the batch to a draft, to change,
+  submit again or delete.
+
+**Behind it:**
+- `payrollInterim.js` (new);
+- `payrollRun.js`:
+  - `extrasFor` (the carry forward and arrears, shared with the run);
+  - `settledIn` (who a settlement pays in a month);
+  - `unpaidMonths`;
+  - `salaryFor` (a settlement's months, by `computeEmployee`);
+- `payrollSettlement.js`:
+  - the salary months, inputs and accrual share in `compute`;
+  - the checks before submitting;
+  - `pay` / `unpay`, shared with the batch;
+- `payrollLoans.js`: `payOut` / `reversePayout`, shared with the batch;
+- `payrollPost.js`: the run's submit check;
+- `hrLeave.js`: leave frozen after a settlement;
+- registries:
+  - module `PAYROLLIP`;
+  - its menu node;
+  - approval entry `PAYROLLIP` (storage `payrollInterim`);
+  - Home drafts (dated by the payment date);
+- screens:
+  - `PAYROLLFS`: the Salary section and inputs; the batch note;
+  - `PAYROLLIP` (new);
+  - `PAYROLLLOAN`: the batch note;
+  - `PAYROLL`: "Paid by final settlement".
+
+**Tests:**
+- the `payrollInterim` suite (4);
+- the `payrollSettlement` suite (4), updated: a draft with no run pays
+  the leaving month's salary;
+- `payrollInterim.ui.js` (3);
+- `payrollSettlement.ui.js` (4), updated;
+- negative controls (see the PR).
+
+**To go live:**
+1. Deploy "functions set" `payroll-5c` with the screens (after
+   `payroll-5b`). No Hosting change.
+2. Link a menu node to "Interim Payroll".
+3. Set its rights in Roles & Permissions (draft to prepare and submit,
+   pay to pay and reverse).
+4. If batches need approval: Approval Configuration → "Interim payroll".

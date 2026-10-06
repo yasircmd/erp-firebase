@@ -11,8 +11,14 @@ fresh session can continue from GitHub.
 
 ## Waiting to go live (the owner's deploys and setup)
 
-Waiting to deploy: `master-import-3b` (Master Data Import, update
-existing for the other masters), "functions set"; no screens, no Hosting.
+Waiting to deploy:
+- `master-import-3b` (Master Data Import, update existing for the other
+  masters), "functions set"; no screens, no Hosting;
+- `payroll-5c` (interim payroll: the final settlement pays the last
+  salary; batches of settlements and loans paid between runs), "functions
+  set" with the screens; no Hosting. Then link a menu node to "Interim
+  Payroll", set its rights (draft, pay), and if wanted Approval
+  Configuration → "Interim payroll".
 `master-import-3a` went live on 2026-10-05 (run #94).
 
 Payroll steps 4–5b went live on 2026-10-05 (runs #89–#93,
@@ -556,7 +562,22 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     reversal wait for it. Tests: `payrollSettlement` suite (4),
     `payrollSettlement.ui.js` (4). To go live: "functions set"
     `payroll-5b` with the screens (after `payroll-5a`).
-  - **Payroll is complete** (steps 0-5).
+  - **Step 5c built and tested 2026-10-06** (decisions 40-43 agreed):
+    interim payroll. The final settlement now pays everything at once:
+    the salary of the months no posted run paid (the leaving month
+    always; an earlier month unless left to its run), worked out by the
+    run's own calculation with that month's leave and inputs, and the
+    accruals' share; the run leaves the employee out. Submitted from the
+    leaving date, with the employee's leave decided; their leave is then
+    frozen. A new Interim Payroll module: batches of posted settlements
+    and approved loans and advances, approved through Approval
+    Configuration, one bank file, Mark paid (each item its own journal,
+    all or nothing), the payment reversed whole; an item in a batch is
+    paid only there. Tests: `payrollInterim` suite (4),
+    `payrollSettlement` suite (4, updated), `payrollInterim.ui.js` (3),
+    `payrollSettlement.ui.js` (4, updated). To go live: "functions set"
+    `payroll-5c` with the screens (after `payroll-5b`).
+  - **Payroll is complete** (steps 0-5c).
 - [x] **HR: Attendance and Leave Register** (owner, 2026-10-03;
   [HR_LEAVE.md](modules/HR_LEAVE.md)), before Payroll. HR records leave
   now (self-service later); leave types configurable; leave pay by type
