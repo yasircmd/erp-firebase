@@ -1815,8 +1815,9 @@ account and cost center, as now.
 **The reference:** payroll journals (run, payment, loan payout and
 repayment, accrual claim, final settlement and their reversals) get their
 reference from the stock sequence (STK-…), since they are written through
-the shared stock posting path. They will take the finance sequence
-(TXN-…, the same lifetime counter as JV and CBT). Entries already posted
+the shared stock posting path. They will take a payroll sequence of their
+own, **PRL-00000001…** (decision 48: "easy to identify payroll
+entries"), one lifetime counter like TXN and STK. Entries already posted
 keep their STK reference: an audit reference is never rewritten.
 
 **The link:** the GL report opens an entry in the module its voucher type
@@ -1870,3 +1871,13 @@ Proposed: **a payment plan** before paying (question 47):
 47. **The payment plan:** each employee paid one way, groups paid
     separately (recommended)? Or also splitting one employee's net
     between two ways (e.g. part cash, part bank)?
+
+### The owner's decisions for step 6 (2026-10-06)
+
+| # | Question | Decision |
+|---|---|---|
+| 44 | The document | **Never block.** The approver (or, with no approval, the person submitting) confirms accepting it without the document; highlighted "Accepted without document" until a file is attached. |
+| 45 | The tab's name | **Payroll Accounting.** |
+| 46 | Pro rata covers | **Every leave deduction:** unpaid leave, absence, reduced-pay leave. |
+| 47 | The payment plan | **One way per employee**; grouped by account, each group paid and reversed on its own. |
+| 48 | The reference (point 4) | **Not TXN: a payroll sequence of its own, PRL-**, so payroll entries are easy to identify. |
