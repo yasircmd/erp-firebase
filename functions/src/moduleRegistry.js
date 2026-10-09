@@ -113,7 +113,7 @@ const MODULE_REGISTRY = [
   { id: 'PROVISIONS', label: 'Provisions', capabilities: ['access'] },
   // Direct Retail Sales (docs/modules/RETAIL_SALES.md): post = sell and reverse, write = setup,
   // report = every user's sales (without it, a user sees only the sales they billed).
-  { id: 'RETAILSALES', label: 'Retail Sales', capabilities: ['access', 'post', 'write', 'report'] }
+  { id: 'RETAILSALES', label: 'Retail Sales', capabilities: ['access', 'post', 'write', 'report', 'return'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -232,7 +232,7 @@ const DEFAULT_PERMISSIONS = {
   PAYROLLIP:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], pay: ['ADMIN'] },
   PAYROLLED:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'] },
   PROVISIONS:         { access: ['ADMIN', 'FINANCE_MGR'] },
-  RETAILSALES:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], post: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], write: ['ADMIN'], report: ['ADMIN', 'FINANCE_MGR'] }
+  RETAILSALES:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], post: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], write: ['ADMIN'], report: ['ADMIN', 'FINANCE_MGR'], return: ['ADMIN', 'FINANCE_MGR'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

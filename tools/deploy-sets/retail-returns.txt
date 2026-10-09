@@ -1,0 +1,29 @@
+# Retail Sales partial returns (owner, 2026-10-09; docs/modules/RETAIL_SALES.md,
+# decisions 76-79). Run with --screens (RETAILSALES). No Hosting change.
+# Then, in the app: Roles & Permissions → Retail Sales, tick "return" for
+# the roles that take returns (a new right: a live system starts with no
+# one holding it, not even Admin); Retail Sales → Setup, per company, the
+# return period in days (0 = no limit). Each Sales Type used at the counter
+# needs its Sales Returns account (Sales Invoice Configuration).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+findRetailSaleForReturn
+confirmRetailReturn
+reverseRetailReturn
+# Changed: the setup (return period, canReturn), the register and cash-up
+# (returns netted), a sale's view (its returns, the number's barcode), the
+# whole-sale reversal (refused once part is returned).
+getRetailSalesSetup
+saveRetailSalesSettings
+getRetailSales
+getRetailSale
+reverseRetailSale
+# Changed: the GL report opens a return's journal in Retail Sales; Journal
+# Vouchers refuses to reverse it; the SOA labels it "Retail Return".
+getGlReport
+reverseJournalEntry
+getPartyStatement
+# Registries: the module's new right.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+getModuleFragment
