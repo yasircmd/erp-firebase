@@ -4,7 +4,7 @@
 // returns to record), company access and rights.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, call, reset, baseFixture, rtdb } = require('./_helpers');
+const { app, call, reset, baseFixture, rtdb, firestore } = require('./_helpers');
 const { todayIn, addDays } = require('../../src/recurringSchedule');
 
 test.after(async () => { await app.delete(); });
@@ -79,21 +79,28 @@ test('who is away in a month: each day, absences and pending marked; one company
   await assert.rejects(call('u-admin', 'getLeaveCalendar', { companyId: 'C1', month: '2026-13' }), /Choose a month/);
 });
 
-test('Home: on leave today (back on), returns to record; the user\'s companies; nothing without access', async () => {
+test('Home: on leave today and returns to record go only to the employee and their line manager (step 7, decision 59)', async () => {
   const today = (await call('u-admin', 'saveLeave', { leave: { EmployeeID: ALI, LeaveTypeID: TYPE.UNPAID, FromDate: addDays(T, -1), ToDate: addDays(T, 1) } })).leaveId;
   await call('u-admin', 'submitLeave', { leaveId: today });
-  const r = await call('u-admin', 'getLeaveTasksForUser', {});
-  assert.deepEqual(r.onLeaveToday.map(x => [x.DocumentID, x.EmployeeName, x.ModuleID]), [[today, 'Ali Hassan', 'LEAVE']]);
+  // Ali is u-viewer's employee record; Sara (u-approver) reports to Ali.
+  await firestore.collection('employees').doc(ALI).update({ UserUID: 'u-viewer' });
+  await firestore.collection('employees').doc(SARA).update({ UserUID: 'u-approver', ManagerID: ALI });
+  const ago = d => Math.round((Date.parse(T) - Date.parse(d)) / 86400000);
+  // The manager: their own leave, and their report's.
+  const r = await call('u-viewer', 'getLeaveTasksForUser', {});
+  assert.deepEqual(r.onLeaveToday.map(x => [x.DocumentID, x.EmployeeName, x.ModuleID, x.As]), [[today, 'Ali Hassan', 'LEAVE', 'Employee']]);
   assert.ok(r.onLeaveToday[0].ExpectedReturn > addDays(T, 1));
   // Annual leave (HR confirms the return) with none recorded: Ali's in March, Sara's in May; Sara's March one was recorded.
-  const ago = d => Math.round((Date.parse(T) - Date.parse(d)) / 86400000);
-  assert.deepEqual(r.returnsToRecord.map(x => [x.DocumentID, x.ExpectedReturn, x.DaysOverdue]), [[IDS.aliAnnual, '2026-03-23', ago('2026-03-23')], [IDS.saraMay, '2026-05-11', ago('2026-05-11')]]);
-  assert.deepEqual((await call('u-other', 'getLeaveTasksForUser', {})).onLeaveToday, [], 'another company sees its own');
-  // Reports access only: who is away, but returns are for Leave Register users.
-  await rtdb.ref('permissions/LEAVE/access').set(['Admin']);
-  const v = await call('u-viewer', 'getLeaveTasksForUser', {});
-  assert.deepEqual([v.onLeaveToday.length, v.returnsToRecord.length], [1, 0]);
+  assert.deepEqual(r.returnsToRecord.map(x => [x.DocumentID, x.ExpectedReturn, x.DaysOverdue, x.As]),
+    [[IDS.aliAnnual, '2026-03-23', ago('2026-03-23'), 'Employee'], [IDS.saraMay, '2026-05-11', ago('2026-05-11'), 'Line manager']]);
+  // The employee: only their own, not their manager's.
+  const s2 = await call('u-approver', 'getLeaveTasksForUser', {});
+  assert.deepEqual([s2.onLeaveToday, s2.returnsToRecord.map(x => [x.DocumentID, x.As])], [[], [[IDS.saraMay, 'Employee']]]);
+  // Anyone else, Leave Register users (HR) included: nothing.
+  for (const uid of ['u-admin', 'u-other']) {
+    const x = await call(uid, 'getLeaveTasksForUser', {});
+    assert.deepEqual([x.onLeaveToday, x.returnsToRecord], [[], []], uid);
+  }
   await rtdb.ref('permissions/LEAVEREPORTS/access').set(['Admin']);
-  assert.deepEqual(await call('u-viewer', 'getLeaveTasksForUser', {}), { onLeaveToday: [], returnsToRecord: [] });
   await assert.rejects(call('u-viewer', 'getLeaveBalanceReport', {}), /access to Leave Reports/);
 });

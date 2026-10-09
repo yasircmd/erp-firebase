@@ -182,6 +182,8 @@ exports.deleteInterimBatch = onCallWithMessages(onCallOptions, async (request) =
   await requireCap(user, 'draft');
   const b = await loadBatch(user, (request.data || {}).interimId);
   if (b.Status !== 'Draft') throw failed('Only a draft is deleted.');
+  // A batch that was ever paid stays, for its history (step 7, point 6).
+  if ((b.Payments || []).length) throw failed('This batch was paid before: it is kept for its history, not deleted.');
   await reserve(b, [], b.Items);
   await BATCHES().doc(b.InterimID).delete();
   return { success: true };
@@ -351,7 +353,10 @@ exports.markInterimPaid = onCallWithMessages(onCallOptions, async (request) => {
   return { success: true, journals: Object.values(done).map(x => x.JVNumber), total, paid: all };
 });
 
-// One payment reversed: each of its items' journals. With none left the batch is a draft again.
+// One payment reversed: each of its items' journals. With none left the
+// batch is Reversed (step 7, point 6): kept read-only with its payments and
+// their reversals in its history, never deleted; its items are free again
+// for a new batch.
 exports.reverseInterimPayment = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'pay');
@@ -375,9 +380,10 @@ exports.reverseInterimPayment = onCallWithMessages(onCallOptions, async (request
   for (const it of its) out.push((await undo(user, it, reason + ' (' + b.Number + ')')).jvNumber);
   const now = new Date().toISOString();
   const left = live.length - 1;
-  await BATCHES().doc(b.InterimID).update(Object.assign({ Status: left ? 'Approved' : 'Draft', PaidAt: '', PaidByName: '',
+  if (!left) await reserve(b, [], b.Items);
+  await BATCHES().doc(b.InterimID).update(Object.assign({ Status: left ? 'Approved' : 'Reversed', PaidAt: '', PaidByName: '',
     Items: b.Items.map(i => { if (!p.Keys.includes(itemKey(i))) return i; const x = Object.assign({}, i); delete x.JVID; delete x.JVNumber; delete x.PaymentID; return x; }),
     Payments: (b.Payments || []).map(x => (x.PaymentID === p.PaymentID ? Object.assign({}, x, { ReversedAt: now, ReversalReason: reason }) : x)),
-    History: history(b, 'Payment reversed', user, { Note: reason + ' — ' + out.join(', ') }) }, left ? {} : { ApprovalInstanceID: '' }));
+    History: history(b, 'Payment reversed', user, { Note: reason + ' — ' + out.join(', ') }) }, left ? {} : { ReversedAt: now, ReversedByName: actorName(user), ReversalReason: reason }));
   return { success: true, reversals: out };
 });

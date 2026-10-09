@@ -173,24 +173,33 @@ test('an interim payroll batch: the settlement and an advance; approved; one ban
   await assert.rejects(call('u-admin', 'reverseSettlementPayment', { settlementId: FS_DAN, reason: 'x' }), /in interim payroll IP-0001/);
 });
 
-test('reversed whole, back to a draft; a journal that fails puts back the ones before it; a deleted batch frees its items', async () => {
+test('reversed whole: the batch is Reversed, kept with its history, never deleted; its items free for a new batch (step 7, point 6); a journal that fails puts back the ones before it', async () => {
   await assert.rejects(call('u-admin', 'reverseInterimPayment', { interimId: IP }), /reason for reversing/);
   const rev = await call('u-admin', 'reverseInterimPayment', { interimId: IP, reason: 'Wrong bank account' });
   assert.equal(rev.reversals.length, 2);
-  assert.equal((await batch(IP)).batch.Status, 'Draft');
+  const kept = (await batch(IP)).batch;
+  assert.deepEqual([kept.Status, kept.ReversalReason, kept.Items.length, kept.Payments.length, kept.Payments.every(x => x.ReversedAt)], ['Reversed', 'Wrong bank account', 2, 1, true]);
+  assert.deepEqual(kept.History.map(h => h.Event.replace(/^Paid .*/, 'Paid')).slice(-2), ['Paid', 'Payment reversed']);
+  await assert.rejects(call('u-admin', 'deleteInterimBatch', { interimId: IP }), /Only a draft is deleted/);
+  await assert.rejects(call('u-admin', 'submitInterimBatch', { interimId: IP }), /Only a draft is submitted/);
+  await assert.rejects(call('u-admin', 'saveInterimBatch', { interimId: IP, paymentDate: '2026-09-16', items: [] }), /Only a draft is changed/);
   assert.equal((await get({ settlementId: FS_DAN })).PaidAt, '');
   assert.equal((await call('u-admin', 'getLoan', { loanId: ADV })).loan.Status, 'Approved');
-  // Approved again (none set up now): the loan type's account gone, so the second journal fails.
+  // Its items are free: a new batch takes them (none set up now: approved at once).
+  const fresh = await call('u-admin', 'getInterimBatch', { companyId: 'C1' });
+  assert.deepEqual(fresh.candidates.map(i => i.Number), ['FS-0001', 'LN-0002']);
+  const items = fresh.candidates.map(i => ({ Kind: i.Kind, ID: i.ID }));
+  const second = await call('u-admin', 'saveInterimBatch', { companyId: 'C1', paymentDate: '2026-09-15', items });
+  assert.equal(second.number, 'IP-0002');
+  IP = second.interimId;
   assert.equal((await call('u-admin', 'submitInterimBatch', { interimId: IP })).status, 'Approved');
+  // The loan type's account gone, so the second journal fails.
   await firestore.collection('payrollLoanTypes').doc(LOANTYPE).update({ GLAccountID: 'NO-SUCH' });
   await assert.rejects(call('u-admin', 'markInterimPaid', { interimId: IP, way: 'BankFile', accountId: 'A-BANK' }), /Nothing was paid: Set the loan type's receivable account/);
   assert.equal((await batch(IP)).batch.Status, 'Approved');
   assert.equal((await get({ settlementId: FS_DAN })).PaidAt, '', 'the settlement\'s payment put back');
   await firestore.collection('payrollLoanTypes').doc(LOANTYPE).update({ GLAccountID: 'A-LOAN' });
-  assert.equal((await call('u-admin', 'markInterimPaid', { interimId: IP, way: 'BankFile', accountId: 'A-BANK' })).journals.length, 2);
-  await call('u-admin', 'reverseInterimPayment', { interimId: IP, reason: 'Paid by cheque instead' });
   // The plan (step 6, decision 47): Eve's advance in cash, Dan by bank file; two groups, paid and reversed on their own.
-  assert.equal((await call('u-admin', 'submitInterimBatch', { interimId: IP })).status, 'Approved');
   await assert.rejects(call('u-admin', 'saveInterimPlan', { interimId: IP, rows: [{ Kind: 'Loan', ID: ADV, Way: 'Cash', AccountID: 'A-BANK' }] }), /Eve Stays: cash is paid from a cash account/);
   await call('u-admin', 'saveInterimPlan', { interimId: IP, rows: [{ Kind: 'Loan', ID: ADV, Way: 'Cash', AccountID: 'A-CASH' }] });
   const g = await batch(IP);
@@ -203,11 +212,13 @@ test('reversed whole, back to a draft; a journal that fails puts back the ones b
   await assert.rejects(call('u-admin', 'reverseInterimPayment', { interimId: IP, reason: 'x' }), /Choose the payment to reverse/);
   const pays = (await batch(IP)).batch.Payments;
   await call('u-admin', 'reverseInterimPayment', { interimId: IP, paymentId: pays[pays.length - 2].PaymentID, reason: 'Cash not collected' });
+  // One group reversed, the other still paid: not Reversed yet.
   assert.deepEqual([(await batch(IP)).batch.Status, (await call('u-admin', 'getLoan', { loanId: ADV })).loan.Status], ['Approved', 'Approved']);
   await call('u-admin', 'reverseInterimPayment', { interimId: IP, reason: 'Redo' });
-  assert.equal((await batch(IP)).batch.Status, 'Draft');
-  // Deleted: the items are free again, and each can be paid on its own.
-  await call('u-admin', 'deleteInterimBatch', { interimId: IP });
+  assert.equal((await batch(IP)).batch.Status, 'Reversed');
+  await assert.rejects(call('u-admin', 'deleteInterimBatch', { interimId: IP }), /Only a draft is deleted/);
+  // Both batches stay in the list; the items are free, each paid on its own.
+  assert.deepEqual((await call('u-admin', 'getInterimBatches', {})).batches.map(x => [x.Number, x.Status]).sort(), [['IP-0001', 'Reversed'], ['IP-0002', 'Reversed']]);
   assert.deepEqual((await call('u-admin', 'getInterimBatch', { companyId: 'C1' })).candidates.map(i => i.Number), ['FS-0001', 'LN-0002']);
   await call('u-admin', 'markSettlementPaid', { settlementId: FS_DAN, paymentDate: '2026-09-15', accountId: 'A-BANK' });
 });

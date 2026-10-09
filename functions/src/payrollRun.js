@@ -268,7 +268,9 @@ exports.getPayrollRuns = onCallWithMessages(onCallOptions, async (request) => {
   const companies = Object.entries((await rtdb.ref('companies').get()).val() || {}).filter(([id, c]) => c.Status === 'Active' && userCanAccessCompany(user.profile, id)).map(([id]) => id);
   const runs = docs(await RUNS().get()).filter(r => userCanAccessCompany(user.profile, r.CompanyID))
     .map(r => ({ RunID: r._id, CompanyID: r.CompanyID, Month: r.Month, Status: r.Status, Employees: r.Employees || 0, Earnings: r.Earnings || 0, Deductions: r.Deductions || 0,
-      Net: r.Net || 0, Warnings: r.Warnings || 0, CalculatedAt: r.CalculatedAt || '' }))
+      Net: r.Net || 0, Warnings: r.Warnings || 0, CalculatedAt: r.CalculatedAt || '',
+      // The Payment tab (step 7): paid in full, in part (a live payment), or not yet.
+      Payment: r.PaidAt ? 'Paid' : (r.Payments || []).some(x => !x.ReversedAt) ? 'Part paid' : 'Unpaid', PaymentDate: r.PaymentDate || '' }))
     .sort((a, b) => b.Month.localeCompare(a.Month) || a.CompanyID.localeCompare(b.CompanyID));
   return { runs, companies, canDraft: await can(user, 'draft') };
 });

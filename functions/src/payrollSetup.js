@@ -64,7 +64,10 @@ async function companySettings(companyId) {
   const s = (await SETTINGS().doc(companyId).get()).data() || {};
   return { CompanyID: companyId, DailyRateMethod: s.DailyRateMethod || 'DIV30', PayableAccountID: s.PayableAccountID || '', ReceivableAccountID: s.ReceivableAccountID || '',
     // Leave deductions in the GL (step 6, decision 46): their own ledger, or pro rata on the earnings.
-    LeaveDeductionGL: s.LeaveDeductionGL === 'ProRata' ? 'ProRata' : 'Ledger' };
+    LeaveDeductionGL: s.LeaveDeductionGL === 'ProRata' ? 'ProRata' : 'Ledger',
+    // The cut-off day (step 7, decision 56): the leave month locks, and the
+    // month is paid, from this day; 0 = after the month ends.
+    CutOffDay: Number(s.CutOffDay) || 0 };
 }
 
 exports.getPayrollSetup = onCallWithMessages(onCallOptions, async (request) => {
@@ -96,7 +99,9 @@ exports.savePayrollCompany = onCallWithMessages(onCallOptions, async (request) =
   // A net shortfall carried to the next run (decision 9) waits here.
   if (receivable) checkAccount(coa, receivable, 'Recoverable from employees', ['Asset'], co);
   const leaveGL = d.leaveDeductionGL === 'ProRata' ? 'ProRata' : 'Ledger';
-  await SETTINGS().doc(co).set({ DailyRateMethod: method, PayableAccountID: payable, ReceivableAccountID: receivable, LeaveDeductionGL: leaveGL, UpdatedAt: new Date().toISOString(), UpdatedBy: user.uid });
+  const cutOff = d.cutOffDay === undefined || d.cutOffDay === '' || d.cutOffDay === null ? 0 : Number(d.cutOffDay);
+  if (!(Number.isInteger(cutOff) && cutOff >= 0 && cutOff <= 28)) bad('The cut-off day is a day from 1 to 28, or blank for the month\'s end.');
+  await SETTINGS().doc(co).set({ DailyRateMethod: method, PayableAccountID: payable, ReceivableAccountID: receivable, LeaveDeductionGL: leaveGL, CutOffDay: cutOff, UpdatedAt: new Date().toISOString(), UpdatedBy: user.uid });
   return { success: true };
 });
 

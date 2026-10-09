@@ -87,8 +87,12 @@ test('paying (step 6, decision 47): the plan, each employee one way from one acc
   await assert.rejects(paid({ paymentDate: '' }), /Enter the payment date/);
   await assert.rejects(paid({ paymentDate: '2026-06-30' }), /before the payroll month/);
   await assert.rejects(paid({ way: 'Cash', accountId: 'A-BANK' }), /No one in that group is waiting to be paid/);
+  const payState = async () => (await call('u-admin', 'getPayrollRuns', {})).runs.find(x => x.RunID === RUN);
+  assert.equal((await payState()).Payment, 'Unpaid');
   const out = await paid({ reference: 'TRF-0803' });
   assert.deepEqual([out.total, out.count, out.paid], [6000, 1, false]);
+  // The Payment tab's status (step 7): in part, then in full.
+  assert.equal((await payState()).Payment, 'Part paid');
   assert.match(out.jvNumber, /^PAYP-/);
   const e = await jv((await runOf()).Payments[0].JVID);
   assert.deepEqual([e.VoucherType, e.JVDate, e.TransactionRef.slice(0, 4)], ['PayrollPayment', '2026-08-03', 'PRL-']);
@@ -100,6 +104,7 @@ test('paying (step 6, decision 47): the plan, each employee one way from one acc
   assert.equal((await paid({ way: 'Cash', accountId: 'A-CASH', paymentDate: '2026-08-04' })).paid, false);
   assert.equal((await paid({ way: 'Cheque', accountId: 'A-BANK', paymentDate: '2026-08-05', reference: 'CHQ 1001' })).paid, true);
   const run = await runOf();
+  assert.deepEqual([(await payState()).Payment, (await payState()).PaymentDate], ['Paid', '2026-08-05']);
   assert.deepEqual([Boolean(run.PaidAt), run.PaymentDate, run.Payments.map(x => [x.Way, x.Amount, x.PaymentDate])],
     [true, '2026-08-05', [['BankFile', 6000, '2026-08-03'], ['Cash', 2000, '2026-08-04'], ['Cheque', 3000, '2026-08-05']]]);
   assert.deepEqual((await call('u-admin', 'getPayrollPayment', { runId: RUN })).payees.map(x => x.Paid), ['P1', 'P2', 'P3']);

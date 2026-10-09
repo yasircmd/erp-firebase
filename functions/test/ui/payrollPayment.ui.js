@@ -90,9 +90,15 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 
   await check('paying the run (step 6, the plan): Ben moved to cheque, saved at once; the bank file and Mark paid per group; a payment reversed on its own; the run then reversible', async () => {
     const p = await open('PAYROLL', 'u-admin', [undefined, undefined, 'Cheque bounced', 'Redo']); // two Mark paid confirms, then two reasons
+    // Step 7: the Payment tab lists the posted runs still to pay; a run opens on its Payment view.
     await p.waitForSelector('#pr-runs-body tr[data-id]', { timeout: 30000 });
-    await p.click('#pr-runs-body tr[data-id]');
+    await p.click('.pr-tab[data-tab="payment"]');
+    await p.waitForSelector('#pr-pay-runs-body tr[data-id]', { timeout: 30000 });
+    assert.match(await p.textContent('#pr-pay-runs-body'), /Unpaid/);
+    await p.click('#pr-pay-runs-body tr[data-id]');
     await p.waitForSelector('#pr-pay-form:not(.hidden)', { timeout: 30000 });
+    assert.ok(await p.isHidden('#pr-inputs-wrap'), 'the payment view: no inputs');
+    assert.ok(await p.isHidden('#pr-reg-wrap'), 'nor the register');
     assert.match(await p.textContent('#pr-pay-list'), /Ali Hassan\s*Bank file[\s\S]*ENBD\s*AE070331234567890123456\s*6,000\.00[\s\S]*Ben Okafor\s*Cash/);
     assert.deepEqual(await p.$$eval('#pr-pay-groups tr', t => t.map(r => r.cells[0].textContent + ' ' + r.cells[2].textContent)), ['Bank file 1', 'Cash 1']);
     // Ben has no IBAN: no bank file for him; by cheque from the bank.

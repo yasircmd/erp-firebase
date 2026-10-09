@@ -106,6 +106,18 @@ async function monthAccruals(month, emps, leaves) {
   }
   return out;
 }
+// When a month can be locked (payroll step 7, decision 56): from the
+// company's cut-off day (Payroll Setup → Payroll Accounting, e.g. 25), so
+// the month is paid before it ends; with none, after it ends. Leave dated
+// after the lock for the rest of the month is paid in the next month, as
+// an adjustment (its pay month is set when it is approved).
+async function lockFrom(co, month) {
+  const day = Number(((await firestore.collection('payrollSettings').doc(co).get()).data() || {}).CutOffDay) || 0;
+  const end = lv.monthEnd(month + '-01');
+  return day ? { date: month + '-' + String(day).padStart(2, '0'), day } : { date: lv.nextDay(end), day: 0 };
+}
+const ordinal = n => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+
 const byEmp = list => list.reduce((a, x) => { (a[x.EmployeeID] = a[x.EmployeeID] || []).push(x); return a; }, {});
 
 // ---------- callables: months ----------
@@ -120,10 +132,13 @@ exports.getLeaveMonths = onCallWithMessages(onCallOptions, async (request) => {
   // The last twelve months to this one, and any locked before them.
   const shown = new Set(list.map(m => m.Month));
   for (let m = thisMonth, i = 0; i < 13; m = prevMonth(m), i++) shown.add(m);
+  const from = {};
+  for (const m of shown) from[m] = await lockFrom(co, m);
   const months = [...shown].sort().reverse().map(m => {
     const rec = list.find(x => x.Month === m);
+    // Ended: lockable by date (from the cut-off day, else after the month).
     return { Month: m, Status: rec ? rec.Status : 'Open', LockedAt: rec && rec.LockedAt || '', LockedByName: rec && rec.LockedByName || '',
-      History: rec ? rec.History || [] : [], Ended: lv.monthEnd(m + '-01') < today() };
+      History: rec ? rec.History || [] : [], Ended: from[m].date <= today(), LockFrom: from[m].date, CutOffDay: from[m].day };
   });
   const nextLockable = latest ? lv.nextMonth(latest) : '';
   return { companyId: co, months, latestLocked: latest, nextLockable, canLock: await can(user, 'lock'), canReopen: await can(user, 'reopen') };
@@ -152,15 +167,21 @@ exports.lockLeaveMonth = onCallWithMessages(onCallOptions, async (request) => {
   const month = text(d.month, 7);
   if (!isMonth(month)) bad('Choose a month.');
   const end = lv.monthEnd(month + '-01');
-  if (end >= today()) throw new HttpsError('failed-precondition', 'A month is locked after it ends.');
+  const from = await lockFrom(co, month);
+  if (from.date > today()) {
+    throw new HttpsError('failed-precondition', from.day ? 'A month is locked from its cut-off day, the ' + ordinal(from.day) + ' (Payroll Setup → Payroll Accounting): ' + month + ' from ' + from.date + '.'
+      : 'A month is locked after it ends.');
+  }
+  // Before the month ends, only the leave dated up to today must be decided.
+  const upTo = end < today() ? end : today();
   const list = await monthsOf(co);
   const latest = latestLocked(list);
   if (list.some(m => m.Month === month && m.Status === 'Locked')) throw new HttpsError('failed-precondition', month + ' is already locked.');
   if (latest && month !== lv.nextMonth(latest)) throw new HttpsError('failed-precondition', 'Months are locked in order: the next to lock is ' + lv.nextMonth(latest) + '.');
   const [emps, leaves] = await Promise.all([employeesOf(co), companyLeaves(co)]);
-  const open = leaves.filter(l => (l.Status === 'Draft' || l.Status === 'PendingApproval') && l.FromDate <= end);
+  const open = leaves.filter(l => (l.Status === 'Draft' || l.Status === 'PendingApproval') && l.FromDate <= upTo);
   if (open.length) {
-    throw new HttpsError('failed-precondition', 'Decide or delete the leave dated up to the month\'s end first: ' +
+    throw new HttpsError('failed-precondition', 'Decide or delete the leave dated up to ' + (upTo === end ? 'the month\'s end' : 'today') + ' first: ' +
       open.slice(0, 5).map(l => (l.LeaveNumber || 'draft') + ' (' + l.EmployeeName + ')').join(', ') + (open.length > 5 ? ' and ' + (open.length - 5) + ' more' : '') + '.');
   }
   const acc = await monthAccruals(month, emps, leaves);

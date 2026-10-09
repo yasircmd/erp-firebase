@@ -37,6 +37,14 @@ Waiting to deploy:
   creates the Retail Customer) and the payment methods with their
   ledgers. The company needs its Discount Given and Output Tax accounts
   (Company Master), the items their Sales COGS accounts.
+- `payroll-7a` (the owner's payroll points of 2026-10-09, step 7a:
+  costing report, run layout and search, Payment tab, interim Reversed,
+  the cut-off day, leave tasks to the employee and line manager),
+  "functions set" with the screens; no Hosting. Then, if wanted, each
+  company's cut-off day (Payroll Setup → Payroll Accounting), and
+  employees linked to their ERP user and line manager for the leave
+  tasks. Steps 7b (Earnings & Deductions, interim other earnings) and 7c
+  (the Provisions module) follow.
 `master-import-3a` went live on 2026-10-05 (run #94).
 
 Payroll steps 4–5b went live on 2026-10-05 (runs #89–#93,
