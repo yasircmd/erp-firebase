@@ -2008,7 +2008,7 @@ Payroll Accounting, "Leave deductions in the GL":
 2. In Payroll Setup → Payroll Accounting, choose each company's "Leave
    deductions in the GL". It stays "Own ledger" until changed.
 
-## Step 7 design: the owner's points of 2026-10-09 (proposed)
+## Step 7 design: the owner's points of 2026-10-09 (agreed)
 
 ### The owner's points
 
@@ -2140,3 +2140,16 @@ users.
       to record"; the Leave Register's users (HR) keep "returns to
       record", since they record the returns — recommended;
     - or only the employee and line manager, nothing to HR.
+
+### The owner's decisions for step 7 (2026-10-09)
+
+| # | Question | Decision |
+|---|---|---|
+| 56 | Payroll before the month ends | **A cut-off day per company** (e.g. 25): the month can be locked and paid from that day; leave or absence recorded later for the rest of the month is adjusted in the next month's pay. |
+| 57 | Earnings & Deductions approval | **None of its own**: the run's approval covers the entries; they lock once the run is posted. |
+| 58 | The Provisions module | **Employee provisions** (gratuity, leave salary, accrual types) in their own module: opening, accruals, utilisation, closing for a period. |
+| 59 | Leave tasks | **Only the employee and their line manager** (their linked ERP users); nothing to the Leave Register's users. |
+
+Built in three steps, each its own PR: **7a** points 1, 2, 3, 6, 7, 8 and
+the Payment tab; **7b** Earnings & Deductions and the interim Payment
+item (points 4, 5); **7c** the Provisions module (point 9).
