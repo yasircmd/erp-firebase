@@ -11,7 +11,11 @@ fresh session can continue from GitHub.
 
 ## Waiting to go live (the owner's deploys and setup)
 
-Waiting to deploy: nothing (2026-10-09). Everything merged is live.
+Waiting to deploy:
+- `item-barcodes-2` (scanning the products' barcodes in GRN, Material
+  Issue, Stock Adjustment, Warehouse Movement and Physical Count: a Scan
+  box, and the item cell takes a barcode; [ITEM_BARCODES.md](modules/ITEM_BARCODES.md)
+  step 2), "functions set, then screens"; no Hosting, nothing to set up.
 
 Went live 2026-10-05 – 2026-10-09 (runs #95–#110, [DEPLOY_LOG.md](DEPLOY_LOG.md)):
 `master-import-3b`, `payroll-5c`, `payroll-6`, `gl-references`,

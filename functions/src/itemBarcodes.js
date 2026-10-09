@@ -60,6 +60,16 @@ exports.getItemBarcodes = onCallWithMessages(onCallOptions, async (request) => {
   return { barcodes: byItem(await all()) };
 });
 
+// The barcode index for the stock screens (step 2, decision 68): barcode →
+// item and units, nothing else, for any signed-in user (they scan without
+// Item Master's access); changing barcodes stays Item Master's "write".
+exports.getBarcodeIndex = onCallWithMessages(onCallOptions, async (request) => {
+  await requireUser(request);
+  const index = {};
+  Object.entries(await all()).forEach(([code, b]) => { index[code] = { ItemID: b.ItemID, PackQty: b.PackQty || 1 }; });
+  return { index };
+});
+
 // An item's barcodes, replaced by the list given (Item Master's form).
 exports.saveItemBarcodes = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
