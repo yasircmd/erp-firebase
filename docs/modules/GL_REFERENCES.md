@@ -1,4 +1,4 @@
-# GL references: the audit sequence of each journal (proposed 2026-10-06)
+# GL references: the audit sequence of each journal (agreed 2026-10-06, built 2026-10-09)
 
 ## The owner's request (2026-10-06)
 
@@ -74,3 +74,40 @@ be found.
 | 49 | The finance documents' sequence | **TXN-**, the same as Journal Vouchers and Cash & Bank. |
 | 50 | Vendor and Customer Invoices | **The finance sequence too.** |
 | 51 | Entries already posted | **Kept as they are**; only new postings change. |
+
+## As built (2026-10-09)
+
+- **functions/src/glWriting.js:** `transactionRefFor(voucherType)` picks
+  the sequence for every entry written through the shared path:
+  - payroll types → PRL- (`payroll/counters/transactionRef`);
+  - `FINANCE_VOUCHER_TYPES` → TXN- (`gl/transactionRefCounter`, the
+    counter Journal Vouchers and Cash & Bank already use, so the numbers
+    run on from theirs): FACapitalization, FADepreciation,
+    FAAdditionalDepreciation, FARetirement, FAAuCCost, FAAuCSettlement,
+    PDCReceived, PDCReceivedClear, PDCIssued, PDCIssuedClear,
+    RecurringJV, OpeningBalance, VendorInvoice, CustomerInvoice;
+  - everything else → STK- (`stock/counters/transactionRef`).
+  Their reversals use the same voucher type, so they follow their own
+  sequence. Opening balance reversals (openingBalances.js, which builds
+  its reversal itself) use `transactionRefFor` too.
+- **Not changed:** entries already posted (decision 51); reversals made
+  with the generic "Reverse" of Journal Vouchers (journal.js), which
+  already took TXN-; Physical Count's clean count, which takes STK-
+  (stock).
+- **The GL report's link:** masterData maps OpeningBalance and
+  OpeningStock to `OPENINGBALANCES`. New callable `findOpeningBatch
+  ({ jvId })` returns the batch (and its company) that posted or
+  reversed the journal; not found → "That journal was not posted by an
+  opening balance batch."; the caller needs Opening Balances access and
+  the company. The screen, opened with `OpenEntryId`, selects that
+  company and highlights the batch row (scrolled into view); changing
+  the company clears it.
+- **Tests:** `glReferences.emulator.test.js` (4: each type's sequence;
+  opening GL / invoices TXN- after JV's, opening stock STK-, reversals;
+  a posted reference kept; the GL link, `findOpeningBatch` and its
+  refusals) and `glReferences.ui.js` (2). Negative controls caught: a
+  finance type dropped from the list; the OpeningBalance mapping
+  removed; opening reversals forced to STK-; the company check removed
+  from `findOpeningBatch`; the screen's highlight removed.
+- **Deploy:** `tools/deploy-sets/gl-references.txt`, with `--screens`
+  (OPENINGBALANCES).

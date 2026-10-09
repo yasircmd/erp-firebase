@@ -1,0 +1,36 @@
+# GL references (owner, 2026-10-06; docs/modules/GL_REFERENCES.md,
+# decisions 49-51): finance documents written through the shared posting
+# path take the finance sequence TXN- (as Journal Vouchers and Cash &
+# Bank); stock keeps STK-, payroll PRL-. Entries already posted keep their
+# reference. Opening balance journals open in Opening Balances from the GL
+# report. Run with --screens (OPENINGBALANCES changed). No Hosting change,
+# nothing to set up in the app.
+# New function (the invoker binding is granted by deploy-functions.sh).
+findOpeningBatch                 # the batch that posted an opening balance journal
+# Changed: the reference their journals take (TXN- instead of STK-).
+postFaPosting                    # capitalization, additional depreciation, retirement, CWIP cost and settlement
+decideFaPostingApproval          # posts on the last approval
+reverseFaPosting
+postFaDepreciation
+reverseFaDepreciation
+postPdc                          # PDC received / issued
+decidePdcApproval
+clearPdcs                        # PDC clearing
+bouncePdc
+cancelPdc
+undoPdcClearing
+postRecurringJournalRuns
+repostRecurringJournalRun
+reverseRecurringJournalRun
+postOpeningBalances              # GL and open invoices TXN-, opening stock STK-
+reverseOpeningBalanceBatch
+postVendorInvoice                # Vendor and Customer Invoices (decision 50)
+decideVendorInvoiceApproval
+requestReverseVendorInvoice
+decideVendorInvoiceReversalApproval
+postCustomerInvoice
+decideCustomerInvoiceApproval
+requestReverseCustomerInvoice
+decideCustomerInvoiceReversalApproval
+# Changed: the GL report's link for opening balance journals.
+getGlReport

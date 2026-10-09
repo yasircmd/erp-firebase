@@ -75,6 +75,7 @@
   let setup = null; // getOpeningBalanceSetup for the chosen company
   let kind = 'GL';
   let checkedText = null; // the paste that last checked clean: only that one posts
+  let opened = null; // { CompanyID, BatchID } when opened from the GL report
 
   const el = id => document.getElementById(id);
   function escapeHtml(value) {
@@ -153,7 +154,7 @@
   function renderBatches() {
     const rows = setup.batches;
     el('ob-batches').innerHTML = rows.length ? rows.map(b => `
-      <tr data-batch="${escapeHtml(b.BatchID)}">
+      <tr data-batch="${escapeHtml(b.BatchID)}"${opened && opened.BatchID === b.BatchID ? ' class="ob-opened bg-blue-900/40"' : ''}>
         <td class="whitespace-nowrap">${escapeHtml(String(b.CreatedAt || '').substring(0, 10))}</td>
         <td>${escapeHtml(KIND_LABEL[b.Kind] || b.Kind)}</td>
         <td class="font-mono">${escapeHtml((b.JVNumbers || [])[0] || '')}${(b.JVNumbers || []).length > 1 ? ' <span class="text-slate-500">+' + (b.JVNumbers.length - 1) + ' more</span>' : ''}</td>
@@ -162,6 +163,9 @@
         <td>${b.Status === 'Posted' ? '<span class="text-emerald-400">Posted</span>' : '<span class="text-slate-500">Reversed ' + escapeHtml(String(b.ReversedAt || '').substring(0, 10)) + '</span>'}</td>
         <td class="text-right">${b.Status === 'Posted' ? '<button class="ob-reverse text-red-400 hover:text-red-300">Reverse</button>' : ''}</td>
       </tr>`).join('') : '<tr><td colspan="7" class="text-center text-slate-500 py-4">No batches posted yet.</td></tr>';
+    // Opened from the GL report: the batch that posted the journal.
+    const row = opened && el('ob-batches').querySelector('tr.ob-opened');
+    if (row) row.scrollIntoView({ block: 'center' });
   }
 
   function saveSetup() {
@@ -248,7 +252,7 @@
 
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-scale-balanced"></i> Opening Balances';
-    el('ob-company').addEventListener('change', load);
+    el('ob-company').addEventListener('change', () => { opened = null; load(); });
     el('ob-save-setup').addEventListener('click', saveSetup);
     el('ob-tabs').addEventListener('click', e => {
       const b = e.target.closest('.ob-tab');
@@ -268,13 +272,28 @@
       const b = e.target.closest('.ob-reverse');
       if (b) reverse(b.closest('tr').dataset.batch);
     });
-    rpc
+    // Opened from the GL report (OpenEntryId: an opening balance journal):
+    // its company is selected and the batch that posted it highlighted.
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    const jvId = pending && pending.OpenEntryId;
+    const companies = new Promise((ok, fail) => rpc
       .withSuccessHandler(list => {
         const select = el('ob-company');
         (list || []).forEach(c => { const o = document.createElement('option'); o.value = c.CompanyID; o.textContent = c.LegalName || c.CompanyID; select.appendChild(o); });
+        ok();
       })
-      .withFailureHandler(err => appAlert(err.message || 'Unable to load the companies.'))
-      .getActiveCompanies();
+      .withFailureHandler(err => { appAlert(err.message || 'Unable to load the companies.'); fail(null); })
+      .getActiveCompanies());
+    companies.catch(() => {});
+    if (jvId) {
+      const found = new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail).findOpeningBatch({ jvId: jvId }));
+      Promise.all([found, companies]).then(([hit]) => {
+        opened = hit;
+        el('ob-company').value = hit.CompanyID;
+        load();
+      }, err => { if (err && err.message) appAlert(err.message); });
+    }
   };
 })();
 </script>

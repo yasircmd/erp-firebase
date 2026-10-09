@@ -25,6 +25,10 @@ Waiting to deploy:
   the screens, after `payroll-5c`; no Hosting. Then choose each
   company's "Leave deductions in the GL" (Payroll Setup → Payroll
   Accounting).
+- `gl-references` (the owner's "STK references" point: finance
+  documents take TXN-, opening balance journals open in Opening
+  Balances from the GL report), "functions set" with the screens; no
+  Hosting, nothing to set up.
 `master-import-3a` went live on 2026-10-05 (run #94).
 
 Payroll steps 4–5b went live on 2026-10-05 (runs #89–#93,
@@ -88,6 +92,19 @@ invoice. Each vendor and customer does have its own
 Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged with the vendor or customer, as a New Ref (for example an advance) or Against Ref (offsetting posted bills). Design: [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md).
 
 ## Follow-ups from new development
+
+- [x] **GL references: STK- on finance journals** (owner, 2026-10-06;
+  [GL_REFERENCES.md](modules/GL_REFERENCES.md), decisions 49–51).
+  Fixed Assets, PDC, Recurring Journal, Opening balances (GL and open
+  invoices) and Vendor / Customer Invoices took the stock audit
+  sequence STK- because they post through the shared stock path. They
+  now take TXN-, shared with Journal Vouchers and Cash & Bank; stock
+  keeps STK-, payroll PRL-; entries already posted keep their
+  reference. The GL report's link for opening balance journals went to
+  Journal Vouchers ("not found"); it now opens Opening Balances on the
+  batch. Built and tested 2026-10-09: `glReferences` suite (4) and UI
+  check (2), negative controls caught. To go live: "functions set"
+  `gl-references` with the screens.
 
 - [x] **Roles & Permissions with many roles** (owner, 2026-10-03): with 12
   roles the permission grid wrapped (all role names in one header cell,

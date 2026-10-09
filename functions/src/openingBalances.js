@@ -677,4 +677,17 @@ exports.reverseOpeningBalanceBatch = onCallWithMessages(onCallOptions, async (re
   return withGlobalLock(user.uid, () => reverseBatch(user, batchId));
 });
 
+// The batch behind an opening journal or its reversal (docs/modules/
+// GL_REFERENCES.md): the GL report opens it here.
+exports.findOpeningBatch = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireAccess(user);
+  const jvId = String((request.data || {}).jvId || '').trim();
+  const hit = Object.entries((await rtdb.ref(BATCHES).get()).val() || {})
+    .find(([, b]) => (b.JVIDs || []).includes(jvId) || (b.ReversalJVIDs || []).includes(jvId));
+  if (!hit) throw new HttpsError('not-found', 'That journal was not posted by an opening balance batch.');
+  if (!userCanAccessCompany(user.profile, hit[1].CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  return { CompanyID: hit[1].CompanyID, BatchID: hit[0] };
+});
+
 module.exports.KINDS = KINDS;
