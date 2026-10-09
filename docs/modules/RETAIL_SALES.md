@@ -245,3 +245,13 @@ Admin and Finance Manager). Tests: the emulator suite's 6th test, the UI
 check's 6th; negative controls caught: the list not filtered by user,
 another's sale opened without the right, Copy to Excel ignoring the
 payment-wise view. Released with `retail-sales` (not yet deployed).
+
+## Change 2026-10-09 (owner): Clear asks first
+
+The counter's **Clear** asks "Clear this sale? N lines and the payments
+entered will be removed." once anything is entered (an item line, a
+payment amount or reference); Cancel keeps the sale as it is. An empty
+sale clears without asking. Screen only (RETAILSALES.html, `clearSale`).
+Tests: the UI check's 5th; negative controls caught: Clear without
+asking, Cancel ignored. Released with `retail-sales` (not yet deployed);
+if that is already live, `tools/release-screens.sh` is enough.

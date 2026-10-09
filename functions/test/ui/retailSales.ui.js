@@ -162,6 +162,33 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.close();
   });
 
+  await check('Clear asks first once something is entered: Cancel keeps the sale, OK clears it; an empty sale clears without asking', async () => {
+    const p = await browser.newPage();
+    p.__errors = []; p.__dialogs = []; p.__answer = false;
+    p.on('pageerror', e => p.__errors.push(e.message));
+    await onAppDialog(p, d => { p.__dialogs.push(d.message()); return p.__answer ? d.accept() : d.dismiss(); });
+    await p.goto('http://127.0.0.1:8178/?module=RETAILSALES&uid=u-admin');
+    await p.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
+    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    await p.fill('#rs-item', 'RM-001');
+    await p.press('#rs-item', 'Enter');
+    await p.fill('#rs-payments [data-i="0"] [data-f="Amount"]', '60');
+    await p.click('#rs-clear');
+    for (let i = 0; i < 150 && !p.__dialogs.length; i++) await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 500)); // the Cancel answered
+    assert.equal(await p.locator('#rs-lines tr[data-i]').count(), 1, 'Cancel: the sale is kept');
+    assert.equal(await p.inputValue('#rs-payments [data-i="0"] [data-f="Amount"]'), '60');
+    p.__answer = true;
+    await p.click('#rs-clear');
+    await until(p, () => !document.querySelector('#rs-lines tr[data-i]'));
+    assert.equal(await p.inputValue('#rs-payments [data-i="0"] [data-f="Amount"]'), '');
+    await p.click('#rs-clear');
+    await new Promise(r => setTimeout(r, 300));
+    assert.deepEqual(p.__dialogs, ['Clear this sale? 1 line and the payments entered will be removed.', 'Clear this sale? 1 line and the payments entered will be removed.'], 'nothing asked for an empty sale');
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await check('counter staff: only the sales they billed, no "Billed by" filter; the manager: everyone\'s, filtered; payment-wise report and Copy to Excel', async () => {
     // A sale by the cashier, so there are two people's sales.
     const methods = await val('retailSales/paymentMethods');
