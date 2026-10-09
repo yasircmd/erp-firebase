@@ -18,6 +18,18 @@
 // account is an expense, so the promotion is a cost, not cash.
 // A sale is reversed whole (decision 55): the stock comes back at the cost
 // it left at and every GL line is mirrored.
+// Partial returns (decisions 76-79): part of a sale comes back (TransactionType
+// 'RetailReturn', prefix RR), found by its invoice number. One GL entry:
+//   Dr Sales Returns (the Sales Type's)  the goods, net of tax
+//   Cr Discount Given                    the returned share of the discount
+//   Dr Output Tax                        the returned share of the tax
+//   Cr Trade Receivables                 the sale's open on-account balance,
+//                                        reduced first; any rest an open credit
+//   Cr each payment method's account     the refund, the original way pro rata
+//                                        (a promotion's share is reversed, not
+//                                        paid out; card or QR may go to cash)
+//   Dr Inventory / Cr Sales COGS         at the cost each line left at
+// A return is reversed whole; the stock leaves again at that cost.
 //
 // Setup per company: retailSales/settings/{companyId}; payment methods:
 // retailSales/paymentMethods/{id}.
@@ -30,12 +42,14 @@ const { userCanAccessCompany, writeStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLE
 const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
 const { beginCommitAttempt, abandonCommitAttempt, finalizeCommitAttempt } = require('./commitAttempt');
 const { withGlobalLock } = require('./lock');
-const { assertEntryReversible } = require('./partyLedger');
+const { assertEntryReversible, getOpenItemsForParty } = require('./partyLedger');
 const Barcodes = require('./itemBarcodes');
+const BarcodeSvg = require('./barcodeSvg');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'RETAILSALES';
 const TYPE = 'RetailSale';
+const RTYPE = 'RetailReturn';
 const TX = 'stock/transactions/';
 const SETTINGS = 'retailSales/settings/';
 const METHODS = 'retailSales/paymentMethods';
@@ -161,10 +175,10 @@ exports.getRetailSalesSetup = onCallWithMessages(onCallOptions, async (request) 
   await requireCap(user, 'access');
   const companyId = String((request.data || {}).companyId || '').trim();
   requireCompany(user, companyId);
-  const [settings, methods, coa, units, salesTypes, priceLists, customers, canSell, canSetup, canReport] = await Promise.all([
+  const [settings, methods, coa, units, salesTypes, priceLists, customers, canSell, canSetup, canReport, canReturn] = await Promise.all([
     loadSettings(companyId), methodsOf(companyId), val('coa'), val('orgUnits'), val('salesTypes'), val('priceLists'), val('customers'),
     moduleHasCapability(MODULE_ID, 'post', user.profile.role), moduleHasCapability(MODULE_ID, 'write', user.profile.role),
-    moduleHasCapability(MODULE_ID, 'report', user.profile.role)
+    moduleHasCapability(MODULE_ID, 'report', user.profile.role), moduleHasCapability(MODULE_ID, 'return', user.profile.role)
   ]);
   const list = (obj, keep, map) => Object.entries(obj || {}).filter(([, r]) => keep(r)).map(([id, r]) => map(id, r));
   const unit = type => list(units, u => u.Type === type && u.Status === 'Active' && ofCompany(u, companyId), (id, u) => ({ ID: id, Label: (u.Code ? u.Code + ' — ' : '') + (u.Name || '') }));
@@ -180,7 +194,7 @@ exports.getRetailSalesSetup = onCallWithMessages(onCallOptions, async (request) 
     priceLists: list(priceLists, p => p.Status === 'Active' && ofCompany(p, companyId), (id, p) => ({ PriceListID: id, Name: p.Name })),
     retailCustomer: settings && settings.RetailCustomerID && customers && customers[settings.RetailCustomerID]
       ? { CustomerID: settings.RetailCustomerID, CustomerCode: customers[settings.RetailCustomerID].CustomerCode, CustomerName: customers[settings.RetailCustomerID].CustomerName } : null,
-    canSell, canSetup, canReport
+    canSell, canSetup, canReport, canReturn
   };
 });
 
@@ -216,6 +230,9 @@ exports.saveRetailSalesSettings = onCallWithMessages(onCallOptions, async (reque
   }
   const taxPercent = Number(d.taxPercent);
   if (!(taxPercent >= 0 && taxPercent <= 100)) throw new HttpsError('invalid-argument', 'Enter the tax % (0 to 100).');
+  // The return period (decision 78): days after the sale a return is taken; 0 = no limit.
+  const returnDays = d.returnDays === undefined || d.returnDays === '' || d.returnDays === null ? 0 : Number(d.returnDays);
+  if (!(Number.isInteger(returnDays) && returnDays >= 0 && returnDays <= 3650)) throw new HttpsError('invalid-argument', 'Enter the return period in whole days (0 = no limit).');
 
   const now = new Date().toISOString();
   const actor = actorOf(user);
@@ -240,7 +257,7 @@ exports.saveRetailSalesSettings = onCallWithMessages(onCallOptions, async (reque
   await rtdb.ref(SETTINGS + companyId).set({
     RetailCustomerID: retailCustomerId, SalesTypeID: salesTypeId, WarehouseID: warehouseId, CostCenterID: costCenterId,
     ReceivablesAccountID: receivablesId, PriceListID: priceListId, TaxPercent: taxPercent,
-    AllowPriceChange: d.allowPriceChange === true,
+    AllowPriceChange: d.allowPriceChange === true, ReturnDays: returnDays,
     CreatedAt: (existing && existing.CreatedAt) || now, UpdatedAt: now, UpdatedBy: actor
   });
   return { success: true, retailCustomerId };
@@ -512,23 +529,32 @@ exports.getRetailSales = onCallWithMessages(onCallOptions, async (request) => {
   const billedBy = all ? String(d.billedBy || '').trim() : '';
   const txs = (await val('stock/transactions')) || {};
   const inRange = Object.entries(txs)
-    .filter(([, t]) => t.TransactionType === TYPE && t.CompanyID === companyId && t.Status === 'Posted' &&
+    .filter(([, t]) => (t.TransactionType === TYPE || t.TransactionType === RTYPE) && t.CompanyID === companyId && t.Status === 'Posted' &&
       (!from || t.TransactionDate >= from) && (!to || t.TransactionDate <= to) && (all || isOwn(user, t)));
   const billers = [...new Set(inRange.map(([, t]) => t.CreatedBy || ''))].filter(Boolean).sort();
+  // A return (decisions 76-79) shows as negative: its refunds by the method
+  // paid out, and what it took off the customer's account.
   const sales = inRange.filter(([, t]) => !billedBy || t.CreatedBy === billedBy)
-    .map(([id, t]) => ({
-      SaleID: id, TransactionNumber: t.TransactionNumber || '', TransactionDate: t.TransactionDate, CreatedBy: t.CreatedBy || '',
-      CustomerName: t.BillToName || (t.RetailCustomer ? RETAIL_CUSTOMER : t.Description.replace(/^Retail sale — /, '')),
-      Total: t.Total, Paid: t.Paid, Change: t.Change, OnAccount: t.OnAccount || 0,
-      Payments: (t.Payments || []).map(p => ({ Name: p.Name, Kind: p.Kind, Reference: p.Reference || '', Posted: p.Posted })),
-      Reversal: !!t.ReversalOfSaleID, ReversedBy: t.ReversedBySaleID || '', ReversalOf: t.ReversalOfSaleID || ''
-    }))
+    .map(([id, t]) => {
+      const ret = t.TransactionType === RTYPE;
+      return {
+        SaleID: id, TransactionNumber: t.TransactionNumber || '', TransactionDate: t.TransactionDate, CreatedBy: t.CreatedBy || '',
+        CustomerName: t.BillToName || (t.RetailCustomer ? RETAIL_CUSTOMER : ret ? '' : t.Description.replace(/^Retail sale — /, '')),
+        Total: ret ? -t.Total : t.Total, Paid: ret ? 0 : t.Paid, Change: ret ? 0 : t.Change,
+        OnAccount: ret ? -round2((t.OnAccountReduced || 0) + (t.CreditOnAccount || 0)) : (t.OnAccount || 0),
+        Payments: ret ? (t.Refunds || []).map(f => ({ Name: f.Name, Kind: f.Kind, Reference: f.Reference || '', Posted: -f.Amount }))
+          : (t.Payments || []).map(p => ({ Name: p.Name, Kind: p.Kind, Reference: p.Reference || '', Posted: p.Posted })),
+        Return: ret, ReturnOf: ret ? t.ReturnOfSaleNumber || '' : '',
+        Reversal: !!(t.ReversalOfSaleID || t.ReversalOfReturnID), ReversedBy: t.ReversedBySaleID || t.ReversedByReturnID || '',
+        ReversalOf: t.ReversalOfSaleID || t.ReversalOfReturnID || ''
+      };
+    })
     .sort((a, b) => (b.TransactionDate + b.TransactionNumber).localeCompare(a.TransactionDate + a.TransactionNumber));
   const live = sales.filter(x => !x.Reversal && !x.ReversedBy);
   const payments = [];
-  live.forEach(x => x.Payments.filter(p => p.Posted > 0.005).forEach(p => payments.push({
+  live.forEach(x => x.Payments.filter(p => Math.abs(p.Posted) > 0.005).forEach(p => payments.push({
     Method: p.Name, TransactionDate: x.TransactionDate, TransactionNumber: x.TransactionNumber, SaleID: x.SaleID,
-    CustomerName: x.CustomerName, Reference: p.Reference, Amount: p.Posted, CreatedBy: x.CreatedBy
+    CustomerName: x.CustomerName, Reference: p.Reference, Amount: p.Posted, CreatedBy: x.CreatedBy, Return: x.Return
   })));
   payments.sort((a, b) => a.Method.localeCompare(b.Method) || (a.TransactionDate + a.TransactionNumber).localeCompare(b.TransactionDate + b.TransactionNumber));
   const byMethod = {};
@@ -540,13 +566,14 @@ exports.getRetailSales = onCallWithMessages(onCallOptions, async (request) => {
     sales, payments, byMethod: Object.values(byMethod).sort((a, b) => a.Name.localeCompare(b.Name)),
     onAccount: round2(live.reduce((t, x) => t + (x.OnAccount || 0), 0)),
     total: round2(live.reduce((t, x) => t + x.Total, 0)),
+    returns: round2(-live.filter(x => x.Return).reduce((t, x) => t + x.Total, 0)),
     all, billers: all ? billers : [], billedBy
   };
 });
 
 async function loadSale(user, saleId) {
   const t = saleId && (await val(TX + saleId));
-  if (!t || t.TransactionType !== TYPE) throw new HttpsError('not-found', 'Retail sale not found.');
+  if (!t || (t.TransactionType !== TYPE && t.TransactionType !== RTYPE)) throw new HttpsError('not-found', 'Retail sale not found.');
   if (!userCanAccessCompany(user.profile, t.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   if (!isOwn(user, t) && !(await canSeeAll(user))) throw new HttpsError('permission-denied', 'You can open only the sales you billed yourself.');
   return t;
@@ -560,13 +587,19 @@ exports.getRetailSale = onCallWithMessages(onCallOptions, async (request) => {
   // Opened from the GL report: the journal's sale.
   if (!saleId && d.jvId) {
     const e = (await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(String(d.jvId)).get()).data();
-    if (!e || e.VoucherType !== TYPE) throw new HttpsError('not-found', 'That journal was not posted by Retail Sales.');
+    if (!e || (e.VoucherType !== TYPE && e.VoucherType !== RTYPE)) throw new HttpsError('not-found', 'That journal was not posted by Retail Sales.');
     saleId = e.SourceTransactionID;
   }
   const t = await loadSale(user, saleId);
   const company = (await val('companies/' + t.CompanyID)) || {};
+  // A sale's returns, and the barcode of its number for the receipt (a
+  // return scans it, decision 76).
+  const returns = t.TransactionType === TYPE ? returnsOf(await val('stock/transactions'), saleId)
+    .map(r => ({ ReturnID: r.ReturnID, TransactionNumber: r.TransactionNumber, TransactionDate: r.TransactionDate, Total: r.Total })) : [];
   return {
     sale: Object.assign({ SaleID: saleId }, t),
+    returns,
+    numberBarcode: t.TransactionType === TYPE && t.TransactionNumber && !t.ReversalOfSaleID ? BarcodeSvg.svg(t.TransactionNumber) : '',
     company: { LegalName: company.LegalName || '', Address: [company.AddressLine1, company.AddressLine2, company.City].filter(Boolean).join(', '), TaxNumbers: (company.TaxNumbers || []).filter(x => x.Number) }
   };
 });
@@ -587,6 +620,11 @@ exports.reverseRetailSale = onCallWithMessages(onCallOptions, async (request) =>
     if (t.Status !== 'Posted') throw new HttpsError('failed-precondition', 'Only a confirmed sale can be reversed.');
     if (t.ReversedBySaleID) throw new HttpsError('failed-precondition', 'This sale has already been reversed.');
     if (t.ReversalOfSaleID) throw new HttpsError('failed-precondition', 'A reversal cannot itself be reversed.');
+    if (t.TransactionType !== TYPE) throw new HttpsError('failed-precondition', 'A return is reversed from the return itself.');
+    // Partial returns (decisions 76-79): once part of it has come back, what
+    // is left is returned instead.
+    const returned = returnsOf(await val('stock/transactions'), saleId);
+    if (returned.length) throw new HttpsError('failed-precondition', 'Part of this sale has been returned (' + returned.map(r => r.TransactionNumber).join(', ') + '); return the rest instead of reversing it.');
     const glRef = firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(t.LinkedJVID);
     const glDoc = await glRef.get();
     if (!glDoc.exists) throw new Error('The GL entry of this sale was not found.');
@@ -635,6 +673,380 @@ exports.reverseRetailSale = onCallWithMessages(onCallOptions, async (request) =>
   });
 });
 
-exports._test = { computeTotals, settlePayments };
+// ---------- partial returns (decisions 76-79) ----------
+
+const liveTx = t => t.Status === 'Posted' && !t.ReversedBySaleID && !t.ReversalOfSaleID && !t.ReversedByReturnID && !t.ReversalOfReturnID;
+// A sale's live returns (neither reversed nor a reversal).
+const returnsOf = (txs, saleId) => Object.entries(txs || {})
+  .filter(([, t]) => t.TransactionType === RTYPE && t.ReturnOfSaleID === saleId && liveTx(t))
+  .map(([id, t]) => Object.assign({ ReturnID: id }, t));
+
+// What the live returns have taken so far: per sale line (quantity, list,
+// discount), per original payment row (refund), and the totals.
+function returnedSoFar(returns) {
+  const lines = {}, refunds = {};
+  let tax = 0, discountNet = 0, total = 0, onAccount = 0;
+  returns.forEach(r => {
+    (r.Lines || []).forEach(l => {
+      const x = lines[l.SaleLineNo] || (lines[l.SaleLineNo] = { Quantity: 0, ListAmount: 0, Discount: 0 });
+      x.Quantity = round6(x.Quantity + l.Quantity); x.ListAmount = round2(x.ListAmount + l.ListAmount); x.Discount = round2(x.Discount + l.Discount);
+    });
+    (r.Refunds || []).forEach(f => { refunds[f.FromRow] = round2((refunds[f.FromRow] || 0) + f.Amount); });
+    tax = round2(tax + (r.TaxAmount || 0)); discountNet = round2(discountNet + (r.DiscountNet || 0));
+    total = round2(total + (r.Total || 0)); onAccount = round2(onAccount + (r.OnAccountReduced || 0));
+  });
+  return { lines, refunds, tax, discountNet, total, onAccount };
+}
+
+// The returned lines' values: what the customer paid for each unit (its
+// price less its share of the line's discount, pro rata by quantity); the
+// last unit of a line takes the exact remainder, and a return that
+// completes the sale takes what is left of its tax and discount, so the
+// returns add up to the sale to the cent.
+function computeReturn(sale, prior, wanted, uoms) {
+  const lines = [];
+  const seen = new Set();
+  (wanted || []).forEach(w => {
+    const qty = round6(Number(w.Quantity) || 0);
+    if (!qty) return;
+    if (seen.has(Number(w.SaleLineNo))) throw new Error('Each line of the sale can be given once.');
+    seen.add(Number(w.SaleLineNo));
+    const l = (sale.Lines || []).find(x => x.LineNo === Number(w.SaleLineNo));
+    if (!l) throw new Error('That line is not on the sale.');
+    const n = l.ItemCode + ': ';
+    if (qty < 0) throw new Error(n + 'the quantity to return must be greater than zero.');
+    const done = prior.lines[l.LineNo] || { Quantity: 0, ListAmount: 0, Discount: 0 };
+    const left = round6(l.Quantity - done.Quantity);
+    if (qty > left + 0.000001) throw new Error(n + (left > 0 ? 'only ' + left + ' left to return (sold ' + l.Quantity + ', returned ' + done.Quantity + ').' : 'everything sold has been returned.'));
+    const uom = uoms && uoms[l.UOMID];
+    if (uom && !uom.AllowDecimals && Math.abs(qty - Math.round(qty)) > 0.0001) throw new Error(n + (uom.Code || 'this unit') + ' does not allow decimal quantities.');
+    const last = Math.abs(qty - left) < 0.000001;
+    const listAmount = last ? round2(l.ListAmount - done.ListAmount) : round2(l.ListAmount * qty / l.Quantity);
+    const discount = last ? round2(l.Discount - done.Discount) : round2(l.Discount * qty / l.Quantity);
+    if (!(Number(l.UnitCost) > 0)) throw new Error(n + 'it left the store at no recorded cost, so it cannot be returned into stock.');
+    lines.push({
+      LineNo: lines.length + 1, SaleLineNo: l.LineNo, Direction: 'In', ItemID: l.ItemID, ItemCode: l.ItemCode, ItemName: l.ItemName,
+      WarehouseID: l.WarehouseID, Quantity: qty, UnitPrice: l.UnitPrice, ListAmount: listAmount, Discount: discount,
+      Amount: round2(listAmount - discount), UnitCost: Number(l.UnitCost), CostCenterID: l.CostCenterID || '', ProfitCenterID: '',
+      Description: l.Description
+    });
+  });
+  if (!lines.length) throw new Error('Enter the quantity to return on at least one line.');
+  const rate = Number(sale.TaxPercent) || 0;
+  const completes = (sale.Lines || []).every(l => {
+    const done = (prior.lines[l.LineNo] || {}).Quantity || 0;
+    const now = lines.filter(x => x.SaleLineNo === l.LineNo).reduce((t, x) => t + x.Quantity, 0);
+    return Math.abs(l.Quantity - done - now) < 0.000001;
+  });
+  const listAmount = round2(lines.reduce((t, l) => t + l.ListAmount, 0));
+  const discount = round2(lines.reduce((t, l) => t + l.Discount, 0));
+  const total = round2(listAmount - discount);
+  const taxAmount = completes ? round2((sale.TaxAmount || 0) - prior.tax) : round2(total * rate / (100 + rate));
+  const discountNet = completes ? round2((sale.DiscountNet || 0) - prior.discountNet) : round2(discount * 100 / (100 + rate));
+  return {
+    lines, completes,
+    totals: { TaxPercent: rate, ListAmount: listAmount, Discount: discount, Total: total, TaxAmount: taxAmount, DiscountNet: discountNet, Revenue: round2(total - taxAmount + discountNet) }
+  };
+}
+
+// The refund (decision 77): an open on-account balance of the sale is
+// reduced first; the rest goes back the way it was paid, pro rata over
+// what each payment row still has to give back (a row's last refund takes
+// its exact remainder). More than the payments can give (the balance was
+// settled meanwhile) is left as a credit on the customer's account.
+function splitRefund(sale, prior, total, openOnAccount) {
+  const reduce = round2(Math.max(0, Math.min(total, openOnAccount)));
+  const rest = round2(total - reduce);
+  const rows = (sale.Payments || []).map((p, i) => ({ row: i, p, avail: round2((p.Posted || 0) - (prior.refunds[i] || 0)) })).filter(x => x.avail > 0.005);
+  const sumAvail = round2(rows.reduce((t, x) => t + x.avail, 0));
+  const toMethods = round2(Math.min(rest, sumAvail));
+  const shares = rows.map(x => ({ row: x.row, p: x.p, amount: toMethods >= sumAvail - 0.005 ? x.avail : round2(toMethods * x.avail / sumAvail) }));
+  const diff = round2(toMethods - shares.reduce((t, x) => t + x.amount, 0));
+  if (Math.abs(diff) > 0.001 && shares.length) {
+    const big = shares.reduce((a, b) => (b.amount > a.amount ? b : a));
+    big.amount = round2(big.amount + diff);
+  }
+  return { reduce, credit: round2(rest - toMethods), shares: shares.filter(x => x.amount > 0.005) };
+}
+
+const today = () => new Date().toISOString().substring(0, 10);
+const addDays = (date, n) => { const d = new Date(date + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().substring(0, 10); };
+
+async function requireReturnRight(user) {
+  if (!(await moduleHasCapability(MODULE_ID, 'return', user.profile.role))) {
+    throw new HttpsError('permission-denied', 'You do not have the right to take returns in Retail Sales.');
+  }
+}
+
+// The sale by its invoice number (decision 76): typed, or scanned from the
+// barcode on the receipt. Any cashier with the return right finds it by
+// its exact number, whoever billed it.
+async function saleByNumber(user, companyId, number) {
+  requireCompany(user, companyId);
+  const key = String(number || '').trim().toUpperCase();
+  if (!key) throw new HttpsError('invalid-argument', 'Enter or scan the invoice number.');
+  const txs = (await val('stock/transactions')) || {};
+  const hit = Object.entries(txs).find(([, t]) => t.TransactionType === TYPE && t.CompanyID === companyId && t.Status === 'Posted' &&
+    (String(t.TransactionNumber || '').toUpperCase() === key || String(t.TransactionRef || '').toUpperCase() === key));
+  if (!hit) throw new HttpsError('not-found', 'No retail sale ' + key + ' in this company.');
+  const [saleId, t] = hit;
+  if (t.ReversalOfSaleID) throw new HttpsError('failed-precondition', key + ' is the reversal of a sale, not a sale.');
+  if (t.ReversedBySaleID) throw new HttpsError('failed-precondition', 'Sale ' + key + ' has been reversed; there is nothing to return.');
+  return { saleId, sale: t, txs };
+}
+
+// The sale's open on-account balance, from its receivables line.
+async function openOnAccountOf(sale, customer) {
+  if (!(sale.OnAccount > 0.005) || !sale.LinkedJVID) return { open: 0, refId: '' };
+  const e = (await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(sale.LinkedJVID).get()).data() || {};
+  const line = (e.Lines || []).find(l => l.PartyType === 'Customer' && (l.Allocations || []).some(a => a.RefType === 'New'));
+  if (!line) return { open: 0, refId: '' };
+  const refId = 'NewRef:' + sale.LinkedJVID + ':' + line.LineNo;
+  const item = (await getOpenItemsForParty('Customer', sale.CustomerID, customer)).get(refId);
+  return { open: round2(Math.max(0, item ? item.Outstanding : 0)), refId };
+}
+
+function returnView(saleId, t, prior, settings) {
+  return {
+    SaleID: saleId, TransactionNumber: t.TransactionNumber, TransactionDate: t.TransactionDate, CompanyID: t.CompanyID,
+    CustomerName: t.BillToName || (t.RetailCustomer ? RETAIL_CUSTOMER : t.Description.replace(/^Retail sale — /, '')),
+    Total: t.Total, OnAccount: t.OnAccount || 0, CreatedBy: t.CreatedBy || '',
+    Payments: (t.Payments || []).map((p, i) => ({ Row: i, MethodID: p.MethodID, Name: p.Name, Kind: p.Kind, Posted: p.Posted, Refunded: prior.refunds[i] || 0 })),
+    Lines: (t.Lines || []).map(l => {
+      const done = (prior.lines[l.LineNo] || {}).Quantity || 0;
+      return { SaleLineNo: l.LineNo, ItemID: l.ItemID, ItemCode: l.ItemCode, ItemName: l.ItemName, Quantity: l.Quantity, UnitPrice: l.UnitPrice, Amount: l.Amount, Returned: done, Left: round6(l.Quantity - done) };
+    }),
+    ReturnBy: settings && settings.ReturnDays ? addDays(t.TransactionDate, settings.ReturnDays) : ''
+  };
+}
+
+exports.findRetailSaleForReturn = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireReturnRight(user);
+  const d = request.data || {};
+  const companyId = String(d.companyId || '').trim();
+  const { saleId, sale, txs } = await saleByNumber(user, companyId, d.number);
+  const returns = returnsOf(txs, saleId);
+  const settings = await loadSettings(companyId);
+  return {
+    sale: returnView(saleId, sale, returnedSoFar(returns), settings),
+    returns: returns.map(r => ({ ReturnID: r.ReturnID, TransactionNumber: r.TransactionNumber, TransactionDate: r.TransactionDate, Total: r.Total, CreatedBy: r.CreatedBy || '' }))
+  };
+});
+
+// Builds the return from live data: the lines, totals, the refund rows (and
+// the cashier's moves of a card or QR share to cash), the GL lines. Used by
+// the preview and by Confirm alike.
+async function buildReturn(user, d) {
+  const saleId = String(d.saleId || '').trim();
+  const sale = saleId && (await val(TX + saleId));
+  if (!sale || sale.TransactionType !== TYPE) throw new HttpsError('not-found', 'Retail sale not found.');
+  requireCompany(user, sale.CompanyID);
+  if (sale.Status !== 'Posted' || sale.ReversalOfSaleID) throw new HttpsError('failed-precondition', 'Only a confirmed sale can be returned.');
+  if (sale.ReversedBySaleID) throw new HttpsError('failed-precondition', 'This sale has been reversed; there is nothing to return.');
+  const settings = (await loadSettings(sale.CompanyID)) || {};
+  const date = today();
+  if (settings.ReturnDays && date > addDays(sale.TransactionDate, settings.ReturnDays)) {
+    throw new HttpsError('failed-precondition', 'Sale ' + sale.TransactionNumber + ' of ' + sale.TransactionDate + ' is past the return period of ' + settings.ReturnDays + ' days (until ' + addDays(sale.TransactionDate, settings.ReturnDays) + ').');
+  }
+  const reason = String(d.reason || '').trim();
+  const [txs, items, uoms, coa, customers, salesTypes, methods] = await Promise.all([
+    val('stock/transactions'), val('items'), val('uoms'), val('coa'), val('customers'), val('salesTypes'), methodsOf(sale.CompanyID)
+  ]);
+  const prior = returnedSoFar(returnsOf(txs, saleId));
+  const itemUoms = {};
+  Object.values(sale.Lines || {}).forEach(l => { const it = (items || {})[l.ItemID]; if (it) itemUoms[l.ItemID] = it.UOMID; });
+  const ret = computeReturn(Object.assign({}, sale, { Lines: (sale.Lines || []).map(l => Object.assign({ UOMID: itemUoms[l.ItemID] }, l)) }), prior, d.Lines, uoms);
+  const customer = (customers || {})[sale.CustomerID] || {};
+  const { open, refId } = await openOnAccountOf(sale, customer);
+  const split = splitRefund(sale, prior, ret.totals.Total, open);
+  if (split.credit > 0.005 && (sale.RetailCustomer || !customer.TradeReceivablesAccountID)) {
+    throw new Error('The refund ' + ret.totals.Total.toFixed(2) + ' is more than the payments can give back.');
+  }
+
+  // Decision 77: a card, QR or other share may be paid out as cash; a
+  // promotion is always reversed to its own account.
+  const payAs = d.PayAs || {};
+  const refs = d.References || {};
+  const refunds = split.shares.map(x => {
+    const from = x.p;
+    const wantId = String(payAs[x.row] || '').trim() || from.MethodID;
+    let m = methods.find(z => z.MethodID === wantId);
+    if (wantId !== from.MethodID) {
+      if (from.Kind === 'Promotion') throw new Error(from.Name + ': a promotion is reversed, not paid out.');
+      if (!m || m.Status !== 'Active' || m.Kind !== 'Cash') throw new Error(from.Name + ': its refund can be paid back the same way or in cash only.');
+    }
+    if (!m) m = { MethodID: from.MethodID, Name: from.Name, Kind: from.Kind, AccountID: from.AccountID };
+    if (!postable(coa[m.AccountID], sale.CompanyID)) throw new Error(m.Name + ': its ledger account is no longer valid — check the Retail Sales setup.');
+    return { FromRow: x.row, FromName: from.Name, FromKind: from.Kind, MethodID: m.MethodID, Name: m.Name, Kind: m.Kind, AccountID: m.AccountID, Amount: x.amount, Reference: String(refs[x.row] || '').trim() };
+  });
+
+  const st = (salesTypes || {})[sale.SalesTypeID] || {};
+  const returnsAcc = st.SalesReturnsAccountID && coa[st.SalesReturnsAccountID];
+  if (!postable(returnsAcc, sale.CompanyID)) throw new Error('Sales Type "' + (st.Name || sale.SalesTypeName || '') + '" has no valid Sales Returns account — set it in Sales Invoice Configuration.');
+  return { saleId, sale, settings, reason, date, ret, split, refunds, refId, customer, coa, items: items || {}, returnsAcc };
+}
+
+async function returnGlLines(b) {
+  const { sale, ret, split, refunds, coa, items, returnsAcc } = b;
+  const dims = { CostCenterID: sale.CostCenterID || '', ProfitCenterID: '' };
+  const label = 'Return of ' + sale.TransactionNumber;
+  const gl = [Object.assign({ AccountCode: returnsAcc.AccountCode, Debit: ret.totals.Revenue, Credit: 0, Description: label }, dims)];
+  if (ret.totals.DiscountNet > 0) {
+    const acc = await companyAccount(sale.CompanyID, 'DiscountGivenAccountID', 'Discount Given Account', coa);
+    gl.push(Object.assign({ AccountCode: acc.AccountCode, Debit: 0, Credit: ret.totals.DiscountNet, Description: 'Discount given reversed — ' + label }, dims));
+  }
+  if (ret.totals.TaxAmount > 0) {
+    const acc = await companyAccount(sale.CompanyID, 'OutputTaxAccountID', 'Output Tax Account', coa);
+    gl.push(Object.assign({ AccountCode: acc.AccountCode, Debit: ret.totals.TaxAmount, Credit: 0, Description: 'Output tax reversed — ' + label }, dims));
+  }
+  refunds.forEach(f => gl.push(Object.assign({
+    AccountCode: coa[f.AccountID].AccountCode, Debit: 0, Credit: f.Amount,
+    Description: (f.FromKind === 'Promotion' ? 'Promotion reversed' : 'Refund') + ' — ' + f.Name + (f.Reference ? ' ' + f.Reference : '') + ' — ' + label
+  }, dims)));
+  if (split.reduce > 0.005 || split.credit > 0.005) {
+    const ar = coa[b.customer.TradeReceivablesAccountID];
+    if (!ar || !ar.IsPostable) throw new Error((b.customer.CustomerName || 'The customer') + '\'s Trade Receivables account is no longer valid.');
+    const allocations = [];
+    if (split.reduce > 0.005) allocations.push({ RefType: 'Against', RefID: b.refId, Amount: split.reduce, RefNumber: sale.TransactionNumber || '' });
+    if (split.credit > 0.005) allocations.push({ RefType: 'New', RefID: '', Amount: split.credit });
+    gl.push(Object.assign({
+      AccountCode: ar.AccountCode, Debit: 0, Credit: round2(split.reduce + split.credit), Description: 'On account — ' + label,
+      PartyType: 'Customer', PartyID: sale.CustomerID, PartyName: b.customer.CustomerName || b.customer.CustomerCode || '', Allocations: allocations
+    }, dims));
+  }
+  return gl;
+}
+
+// Preview (preview: true) shows the values and the refund without writing;
+// otherwise the return is confirmed under the global lock.
+exports.confirmRetailReturn = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireReturnRight(user);
+  const d = request.data || {};
+  const summary = b => ({
+    total: b.ret.totals.Total, tax: b.ret.totals.TaxAmount, onAccountReduced: b.split.reduce, creditOnAccount: b.split.credit,
+    refunds: b.refunds.map(f => ({ FromRow: f.FromRow, FromName: f.FromName, FromKind: f.FromKind, MethodID: f.MethodID, Name: f.Name, Amount: f.Amount }))
+  });
+  if (d.preview === true) return Object.assign({ success: true, preview: true }, summary(await buildReturn(user, d)));
+  if (!String(d.reason || '').trim()) throw new HttpsError('invalid-argument', 'Enter the reason for the return.');
+
+  return withGlobalLock(user.uid, async () => {
+    const b = await buildReturn(user, d);
+    const { sale } = b;
+    const movement = await computeStockMovement(b.items, b.coa, b.ret.lines);
+    const cogs = b.ret.lines.map((l, idx) => {
+      const item = b.items[l.ItemID];
+      const acc = b.coa[item.SalesCogsAccountID || item.ConsumptionAccountID];
+      if (!acc || !acc.IsPostable) throw new Error('Line ' + (idx + 1) + ': Sales COGS account for ' + item.ItemCode + ' is not valid — check Item Master.');
+      return { AccountCode: acc.AccountCode, Debit: 0, Credit: l.TotalValue, Description: l.Description, CostCenterID: l.CostCenterID, ProfitCenterID: '' };
+    });
+    const glLines = (await returnGlLines(b)).concat(movement.inventoryGlLines, cogs);
+
+    const now = new Date().toISOString();
+    const actor = actorOf(user);
+    const returnId = 'RR-' + randomUUID().split('-')[0].toUpperCase();
+    const description = 'Return of ' + sale.TransactionNumber + ' — ' + b.reason;
+    const record = Object.assign({
+      TransactionType: RTYPE, TransactionDate: b.date, CompanyID: sale.CompanyID, DivisionID: '', BranchID: '',
+      CostCenterID: sale.CostCenterID || '', ProfitCenterID: '', CustomerID: sale.CustomerID, RetailCustomer: !!sale.RetailCustomer,
+      BillToName: sale.BillToName || '', BillToAddress: sale.BillToAddress || '', BillToTaxNumber: sale.BillToTaxNumber || '',
+      SalesTypeID: sale.SalesTypeID, SalesTypeName: sale.SalesTypeName || '', WarehouseID: sale.WarehouseID,
+      Description: description, Reason: b.reason, Reference: sale.TransactionNumber,
+      ReturnOfSaleID: b.saleId, ReturnOfSaleNumber: sale.TransactionNumber
+    }, b.ret.totals, {
+      Lines: b.ret.lines, Refunds: b.refunds, OnAccountReduced: b.split.reduce, CreditOnAccount: b.split.credit,
+      CostValue: round2(b.ret.lines.reduce((t, l) => t + l.TotalValue, 0)),
+      Status: 'Draft', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    });
+    await rtdb.ref(TX + returnId).set(record);
+    const attemptId = await beginCommitAttempt(returnId, actor);
+    const party = b.split.reduce > 0.005 || b.split.credit > 0.005;
+    let glResult;
+    try {
+      glResult = await writeStockGlEntry(user, RTYPE, b.date, description, sale.TransactionNumber, glLines,
+        { CompanyID: sale.CompanyID, DivisionID: '', BranchID: '', CostCenterID: sale.CostCenterID || '', ProfitCenterID: '' },
+        {
+          CommitAttemptID: attemptId, SourceTransactionID: returnId, ReversalOfJV: '',
+          PartyKeys: party ? ['Customer:' + sale.CustomerID] : [],
+          AllocatedRefs: b.split.reduce > 0.005 ? [b.refId] : [], AllocatedRefTypes: b.split.reduce > 0.005 ? ['NewRef'] : []
+        });
+    } catch (err) {
+      await rtdb.ref(TX + returnId).set(null);
+      throw err;
+    }
+    // A GL entry genuinely exists from here on — no more reverting.
+    await commitStockLedgerUpdates(movement.ledgerUpdates);
+    await finalizeCommitAttempt(returnId, glResult, { Lines: b.ret.lines, CostValue: record.CostValue }, actor);
+    return Object.assign({ success: true, returnId, returnNumber: glResult.jvNumber }, summary(b));
+  });
+});
+
+// A mistaken return, reversed whole: the stock leaves again at the cost it
+// came back at (refused when short), every GL line mirrored.
+exports.reverseRetailReturn = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireReturnRight(user);
+  const d = request.data || {};
+  const returnId = String(d.returnId || '').trim();
+  const reason = String(d.reason || '').trim();
+  if (!reason) throw new HttpsError('invalid-argument', 'Enter the reason for reversing the return.');
+
+  return withGlobalLock(user.uid, async () => {
+    const t = returnId && (await val(TX + returnId));
+    if (!t || t.TransactionType !== RTYPE) throw new HttpsError('not-found', 'Return not found.');
+    if (!userCanAccessCompany(user.profile, t.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+    if (!isOwn(user, t) && !(await canSeeAll(user))) throw new HttpsError('permission-denied', 'You can reverse only the returns you took yourself.');
+    if (t.Status !== 'Posted') throw new HttpsError('failed-precondition', 'Only a confirmed return can be reversed.');
+    if (t.ReversedByReturnID) throw new HttpsError('failed-precondition', 'This return has already been reversed.');
+    if (t.ReversalOfReturnID) throw new HttpsError('failed-precondition', 'A reversal cannot itself be reversed.');
+    const glRef = firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(t.LinkedJVID);
+    const glDoc = await glRef.get();
+    if (!glDoc.exists) throw new Error('The GL entry of this return was not found.');
+    const glEntry = glDoc.data();
+    await assertEntryReversible(t.LinkedJVID, Object.assign({}, glEntry, { ReversalOfJV: '' }));
+
+    const date = today() < t.TransactionDate ? t.TransactionDate : today();
+    const [items, coa] = await Promise.all([val('items'), val('coa')]);
+    const movementLines = (t.Lines || []).map(l => Object.assign({}, l, { Direction: 'Out', AtCost: true }));
+    const movement = await computeStockMovement(items || {}, coa || {}, movementLines);
+    const glLines = (glEntry.Lines || []).map(l => {
+      const out = {
+        AccountCode: l.AccountCode, Debit: l.Credit || 0, Credit: l.Debit || 0, Description: 'Reversal — ' + (l.Description || ''),
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+      };
+      if (l.PartyType) Object.assign(out, { PartyType: l.PartyType, PartyID: l.PartyID, PartyName: l.PartyName || '', Allocations: [] });
+      return out;
+    });
+
+    const now = new Date().toISOString();
+    const actor = actorOf(user);
+    const newId = 'RR-' + randomUUID().split('-')[0].toUpperCase();
+    const attemptId = randomUUID();
+    const description = 'Reversal of ' + t.TransactionNumber + ' — ' + reason;
+    await rtdb.ref(TX + newId).set(Object.assign({}, t, {
+      Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now, TransactionDate: date, Description: description,
+      Reference: t.TransactionNumber, Lines: movementLines, ReversalOfReturnID: returnId, ReversedByReturnID: '', ReversalReason: reason,
+      TransactionNumber: '', TransactionRef: '', LinkedJVID: '', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    }));
+    let glResult;
+    try {
+      glResult = await writeStockGlEntry(user, RTYPE, date, description, t.TransactionNumber, glLines,
+        { CompanyID: t.CompanyID, DivisionID: '', BranchID: '', CostCenterID: t.CostCenterID || '', ProfitCenterID: '' },
+        { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfJV: t.LinkedJVID, PartyKeys: glEntry.PartyKeys || [], AllocatedRefs: [], AllocatedRefTypes: [] });
+    } catch (err) {
+      await rtdb.ref(TX + newId).set(null);
+      throw err;
+    }
+    // A GL entry genuinely exists from here on — no more reverting.
+    await commitStockLedgerUpdates(movement.ledgerUpdates);
+    await glRef.update({ ReversedByJV: glResult.jvId, UpdatedAt: now, UpdatedBy: actor });
+    await rtdb.ref(TX + returnId).update({ ReversedByReturnID: newId, ReversalReason: reason, UpdatedAt: now, UpdatedBy: actor });
+    await finalizeCommitAttempt(newId, glResult, { Lines: movementLines }, actor);
+    return { success: true, returnId: newId, returnNumber: glResult.jvNumber };
+  });
+});
+
+exports._test = { computeTotals, settlePayments, computeReturn, splitRefund, returnedSoFar };
 // For label prices (docs/modules/ITEM_BARCODES.md, step 3).
 Object.assign(module.exports, { pricesOn, loadSettings });
