@@ -102,6 +102,11 @@ be found.
   the company. The screen, opened with `OpenEntryId`, selects that
   company and highlights the batch row (scrolled into view); changing
   the company clears it.
+- **Journal Vouchers' Reverse** (journal.js `reverseJournalEntry`): the
+  "posted by … — reverse it from that module" refusal now comes before
+  the post-right check. With the new mapping the right was looked up on
+  Opening Balances, which has none, so the refusal had become "You do
+  not have permission to post or reverse entries in OPENINGBALANCES".
 - **Tests:** `glReferences.emulator.test.js` (4: each type's sequence;
   opening GL / invoices TXN- after JV's, opening stock STK-, reversals;
   a posted reference kept; the GL link, `findOpeningBatch` and its

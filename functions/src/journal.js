@@ -497,14 +497,15 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
     const existing = await firestoreGet_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, jvId);
     if (!existing) throw new Error('Journal entry not found.');
     if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
-    await requirePostAccess_(idToken, user, moduleIdForEntry_(existing));
-    if (existing.Status !== 'Posted') throw new Error('Only posted entries can be reversed.');
-    if (existing.ReversedByJV) throw new Error('This entry has already been reversed.');
     // [PORT FIX jv-reverse-only-journal-and-cbt] a stock/invoice entry must be reversed by its own module, which
-    // also undoes the stock and the source document.
+    // also undoes the stock and the source document. Checked before the post right: that module (e.g. Opening
+    // Balances, which has none) is not where the reversal happens (docs/modules/GL_REFERENCES.md).
     if (existing.VoucherType && STOCK_VOUCHER_TYPE_TO_MODULE[existing.VoucherType]) {
       throw new Error('This entry was posted by ' + existing.VoucherType + ' — reverse it from that module, not here.');
     }
+    await requirePostAccess_(idToken, user, moduleIdForEntry_(existing));
+    if (existing.Status !== 'Posted') throw new Error('Only posted entries can be reversed.');
+    if (existing.ReversedByJV) throw new Error('This entry has already been reversed.');
     // Reversing releases this entry's allocations (it stops being live);
     // refused while something else has settled one of its New Refs.
     await assertEntryReversible(jvId, existing);

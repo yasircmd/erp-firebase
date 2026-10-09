@@ -34,3 +34,6 @@ requestReverseCustomerInvoice
 decideCustomerInvoiceReversalApproval
 # Changed: the GL report's link for opening balance journals.
 getGlReport
+# Changed: an opening balance journal is still refused with "reverse it from
+# that module" (checked before the post right, now that it maps to Opening Balances).
+reverseJournalEntry

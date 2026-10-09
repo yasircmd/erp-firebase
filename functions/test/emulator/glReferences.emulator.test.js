@@ -92,6 +92,9 @@ test('the GL report sends opening balance journals to Opening Balances, which fi
   const report = await call('u-admin', 'getGlReport', { params: { AccountID: 'A-CASH', FromDate: OD, ToDate: OD } });
   assert.equal(report.rows.find(r => r.JVID === jvId).SourceModule, 'OPENINGBALANCES');
   assert.deepEqual(await call('u-admin', 'findOpeningBatch', { jvId }), { CompanyID: 'C1', BatchID: gl.batchId });
+  // Journal Vouchers still refuses it with the module's message, not a missing post right on Opening Balances.
+  const jr = await call('u-admin', 'reverseJournalEntry', { jvId, reversalDate: OD });
+  assert.match(jr.error, /posted by OpeningBalance — reverse it from that module/);
   const stJv = (await val('openingBalances/batches/' + st.batchId)).JVIDs[0];
   assert.deepEqual(await call('u-admin', 'findOpeningBatch', { jvId: stJv }), { CompanyID: 'C1', BatchID: st.batchId });
   ok(await call('u-admin', 'reverseOpeningBalanceBatch', { batchId: gl.batchId }));
