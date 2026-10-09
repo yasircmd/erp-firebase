@@ -135,6 +135,8 @@ test('checks: the right, the parts, and no two types giving the same numbers (no
   // A shape another type had before, even after it changed again.
   await save('doc:CP', fmt({ Prefix: 'OUT2', Company: false }));
   await assert.rejects(save('doc:BP', fmt({ Prefix: 'OUT', Company: false })), /same numbers as Cash Payment/);
+  // Cash Payment's own default shape, though it has moved away from it: its CP- numbers exist.
+  await assert.rejects(save('doc:BP', fmt({ Prefix: 'CP' })), /same numbers as Cash Payment/);
   // Saving the same again changes nothing and logs nothing.
   const before = (await call('u-admin', 'getNumbering', {})).log.length;
   assert.equal((await save('doc:CP', fmt({ Prefix: 'OUT2', Company: false }))).unchanged, true);
