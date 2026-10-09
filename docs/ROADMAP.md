@@ -48,6 +48,13 @@ Waiting to deploy:
   after `payroll-7a`, "functions set" with the screens; no Hosting. Then
   link a menu node to "Earnings & Deductions" and set its rights; a
   draft run calculated before shows "changed": recalculate it.
+- `payroll-7c` (the Provisions module: the statement with opening,
+  accrued, released, utilised and closing, movements, the GL check;
+  claims and openings moved there), after `payroll-7b`, "functions set"
+  with the screens; no Hosting. Then link a menu node to "Provisions"
+  (its access right; inside, Payroll's rights apply). Payroll →
+  Provisions now opens it. This completes the owner's points of
+  2026-10-09.
 `master-import-3a` went live on 2026-10-05 (run #94).
 
 Payroll steps 4–5b went live on 2026-10-05 (runs #89–#93,

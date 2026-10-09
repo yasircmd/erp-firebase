@@ -2,7 +2,8 @@
 // docs/modules/HR_PAYROLL.md, decisions 28-33): an employee's own annual
 // leave entitlement; Payroll Setup → Provisions (gratuity and leave salary
 // per company, an accrual type by grade with an exception); a payslip's
-// provisions; Payroll → Provisions (balances, a claim recorded and reversed).
+// provisions; Payroll → Provisions, now its own module (step 7c: balances,
+// a claim recorded and reversed).
 // Seeds its own data (it WIPES the emulator database, like the suites):
 //   node functions/test/ui/payrollProvisions.ui.js
 const http = require('http');
@@ -116,28 +117,29 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.close();
   });
 
-  await check('Payroll → Provisions: the balances after posting; a claim recorded, then reversed', async () => {
+  await check('Payroll → Provisions opens the Provisions module (step 7c): the balances after posting; a claim recorded, then reversed', async () => {
     assert.equal((await call('u-admin', 'submitPayrollRun', { runId })).status, 'Posted');
     const p = await open('PAYROLL', 'u-admin', 'Wrong employee');
     await p.waitForSelector('#pr-runs-body tr[data-id]', { timeout: 30000 });
     await p.click('#pr-prov-btn');
-    await p.waitForFunction(() => /Ali Hassan/.test(document.getElementById('pr-prov-body').textContent), null, { timeout: 30000 });
-    assert.deepEqual(await p.$$eval('#pr-prov-head th', t => t.map(x => x.textContent)), ['No.', 'Employee', 'Gratuity', 'Leave salary', 'Air ticket', 'Total']);
-    assert.match(await p.textContent('#pr-prov-body'), /Ben Okafor[\s\S]*100\.00/);
-    await p.click('#pr-claim-new');
-    await p.selectOption('#pr-claim-emp', ali); await p.selectOption('#pr-claim-type', { label: 'Air ticket' });
-    assert.equal(await p.textContent('#pr-claim-balance'), 'Provided so far: 200.00.');
-    await p.fill('#pr-claim-date', '2026-08-10'); await p.fill('#pr-claim-amount', '150'); await p.selectOption('#pr-claim-account', 'A-BANK'); await p.fill('#pr-claim-note', 'Ticket home');
-    await p.click('#pr-claim-save');
-    await p.waitForFunction(() => /10\/08\/2026\s*EMP-0001 · Ali Hassan\s*Air ticket\s*150\.00\s*PPR-/.test(document.getElementById('pr-claims-body').textContent), null, { timeout: 30000 });
+    await p.waitForFunction(() => document.getElementById('pv-body') && /Ali Hassan/.test(document.getElementById('pv-body').textContent), null, { timeout: 30000 });
+    assert.deepEqual(await p.$$eval('#pv-body tr.bg-slate-900\\/60', t => t.map(x => x.textContent)), ['Gratuity', 'Leave salary', 'Air ticket']);
+    assert.match(await p.textContent('#pv-body'), /Air ticket[\s\S]*Ben Okafor[\s\S]*100\.00/);
+    await p.click('.pv-tab[data-tab="claims"]');
+    await p.click('#pv-claim-new');
+    await p.selectOption('#pv-claim-emp', ali); await p.selectOption('#pv-claim-type', { label: 'Air ticket' });
+    assert.equal(await p.textContent('#pv-claim-balance'), 'Provided so far: 200.00.');
+    await p.fill('#pv-claim-date', '2026-08-10'); await p.fill('#pv-claim-amount', '150'); await p.selectOption('#pv-claim-account', 'A-BANK'); await p.fill('#pv-claim-note', 'Ticket home');
+    await p.click('#pv-claim-save');
+    await p.waitForFunction(() => /10\/08\/2026\s*EMP-0001 · Ali Hassan\s*Air ticket\s*150\.00\s*PPR-/.test(document.getElementById('pv-claims-body').textContent), null, { timeout: 30000 });
     assert.match(p.__dialogs[0], /^Claim recorded: journal PPR-/);
     const air = async () => (await call('u-admin', 'getProvisionBalances', { companyId: 'C1' })).employees.find(e => e.EmployeeID === ali).Balances;
     const key = Object.keys(await air()).find(k => k.startsWith('Accrual:'));
     assert.equal((await air())[key], 50);
-    await p.click('.pr-claim-rev');
-    await p.waitForFunction(() => /reversed by PPR-[\s\S]*Wrong employee/.test(document.getElementById('pr-claims-body').textContent), null, { timeout: 30000 });
+    await p.click('.pv-claim-rev');
+    await p.waitForFunction(() => /reversed by PPR-[\s\S]*Wrong employee/.test(document.getElementById('pv-claims-body').textContent), null, { timeout: 30000 });
     assert.equal((await air())[key], 200);
-    assert.equal(await p.locator('.pr-claim-rev').count(), 0);
+    assert.equal(await p.locator('.pv-claim-rev').count(), 0);
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

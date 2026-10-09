@@ -1,0 +1,306 @@
+<div class="space-y-5">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-piggy-bank text-blue-500"></i> Provisions</h2></div>
+    <div class="flex gap-1 text-sm" id="pv-tabs">
+      <button data-tab="statement" class="pv-tab px-4 py-2 rounded-lg bg-blue-600 text-white">Statement</button>
+      <button data-tab="claims" class="pv-tab px-4 py-2 rounded-lg bg-slate-800 border border-slate-700">Claims</button>
+      <button data-tab="openings" class="pv-tab px-4 py-2 rounded-lg bg-slate-800 border border-slate-700">Openings</button>
+    </div>
+  </div>
+  <p class="text-xs text-slate-500 max-w-3xl">Each employee's gratuity, leave salary and accruals: the opening, what the posted runs accrued (or released when it went down), what was used (claims, accruals paid with the salary, final settlements) and the closing. The settings (formulas, accounts, accrual types) are in Payroll Setup.</p>
+
+  <div class="flex flex-wrap items-end gap-3">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="pv-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+    <div class="pv-st"><label class="block text-xs font-medium text-slate-300 mb-1">From</label><input id="pv-from" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div class="pv-st"><label class="block text-xs font-medium text-slate-300 mb-1">To</label><input id="pv-to" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <div class="pv-st"><label class="block text-xs font-medium text-slate-300 mb-1">Provision</label><select id="pv-f-prov" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All</option></select></div>
+    <div class="pv-st"><label class="block text-xs font-medium text-slate-300 mb-1">Employee</label><input id="pv-f-emp" placeholder="Name or number" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <button id="pv-copy" class="pv-st bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy to Excel</button>
+  </div>
+
+  <!-- The statement (decisions 58, 61, 63) -->
+  <div id="pv-statement" class="space-y-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left text-sm" style="white-space:nowrap"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">No.</th><th class="py-2 px-3">Employee</th><th class="py-2 px-3 text-right">Opening</th><th class="py-2 px-3 text-right">Accrued</th><th class="py-2 px-3 text-right">Released</th><th class="py-2 px-3 text-right">Utilised</th><th class="py-2 px-3 text-right">Closing</th></tr></thead>
+        <tbody id="pv-body"></tbody></table>
+    </div></div>
+    <div id="pv-mv" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="text-sm font-semibold text-slate-200" id="pv-mv-heading"></div>
+        <div class="flex gap-2">
+          <button id="pv-mv-copy" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy to Excel</button>
+          <button id="pv-mv-close" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700">Close</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto"><table class="w-full text-left text-sm" style="white-space:nowrap"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <th class="py-2 pr-4">Date</th><th class="py-2 pr-4">Movement</th><th class="py-2 pr-4">Document</th><th class="py-2 pr-4">Journal</th><th class="py-2 pr-4 text-right">Amount</th><th class="py-2 text-right">Balance</th></tr></thead>
+        <tbody id="pv-mv-body" class="divide-y divide-slate-700"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- Claims (moved from Payroll; Payroll's "pay" right) -->
+  <div id="pv-claims" class="hidden space-y-4">
+    <button id="pv-claim-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> Record a claim</button>
+    <div id="pv-claim-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Employee</label><select id="pv-claim-emp" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Accrual</label><select id="pv-claim-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Date paid</label><input id="pv-claim-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Amount</label><input id="pv-claim-amount" type="number" min="0" step="0.01" class="w-32 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Paid from</label><select id="pv-claim-account" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Note</label><input id="pv-claim-note" maxlength="200" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <button id="pv-claim-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Record and post</button>
+      <button id="pv-claim-cancel" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button>
+      <p id="pv-claim-balance" class="w-full text-xs text-slate-400"></p>
+    </div>
+    <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+      <th class="py-2 pr-4">Date</th><th class="py-2 pr-4">Employee</th><th class="py-2 pr-4">Accrual</th><th class="py-2 pr-4 text-right">Amount</th><th class="py-2 pr-4">Journal</th><th class="py-2 pr-4">Note</th><th class="py-2"></th></tr></thead>
+      <tbody id="pv-claims-body" class="divide-y divide-slate-700"></tbody></table></div>
+  </div>
+
+  <!-- Openings (decision 62; Payroll Setup's "write" right) -->
+  <div id="pv-openings" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">What was provided before the first run, to a date: already in the GL from the opening balances, so nothing is posted. The runs before an employee's opening are replaced by it. Many at once: Master Data Import → Opening provisions.</p>
+    <div id="pv-op-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Employee</label><select id="pv-op-emp" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Provision</label><select id="pv-op-prov" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Amount</label><input id="pv-op-amount" type="number" min="0" step="0.01" class="w-32 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Provided to</label><input id="pv-op-asof" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <button id="pv-op-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+    </div>
+    <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
+      <th class="py-2 pr-4">No.</th><th class="py-2 pr-4">Employee</th><th class="py-2 pr-4">Provision</th><th class="py-2 pr-4 text-right">Amount</th><th class="py-2 pr-4">Provided to</th><th class="py-2"></th></tr></thead>
+      <tbody id="pv-op-body" class="divide-y divide-slate-700"></tbody></table></div>
+  </div>
+  <textarea id="pv-copy-staging" class="hidden"></textarea>
+</div>
+
+<script>
+(function () {
+  // HR Payroll step 7c: the Provisions module (docs/modules/HR_PAYROLL.md, step 7, point 9).
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const cell = (v, extra) => '<td class="py-2 px-3 text-right' + (v < 0 ? ' text-red-400' : '') + (extra || '') + '">' + (v ? money(v) : '') + '</td>';
+  const opt = (v, label) => '<option value="' + escapeHtml(v) + '">' + escapeHtml(label) + '</option>';
+  const COLS = ['Opening', 'Accrued', 'Released', 'Utilised', 'Closing'];
+  let data = null, seq = 0, tab = 'statement', mv = null, focusClaim = '';
+
+  function load() {
+    const s = ++seq, companyId = val('pv-company');
+    if (!companyId) return Promise.resolve();
+    $('pv-mv').classList.add('hidden'); $('pv-claim-form').classList.add('hidden');
+    return call('getProvisionStatement', { companyId, from: val('pv-from'), to: val('pv-to') }).then(r => {
+      if (s !== seq || !$('pv-body')) return; // a later choice, or the screen was left
+      data = r; render();
+    }, err => appAlert(err.message || 'Unable to load the provisions.'));
+  }
+  function shown() {
+    const k = val('pv-f-prov'), q = val('pv-f-emp').trim().toLowerCase();
+    return data.rows.filter(r => (!k || r.Key === k) && (!q || (r.EmployeeNo + ' ' + r.FullName).toLowerCase().includes(q)));
+  }
+  const sum = (rows, c) => rows.reduce((t, r) => t + r[c], 0);
+  function render() {
+    const r = data, keep = val('pv-f-prov');
+    $('pv-f-prov').innerHTML = opt('', 'All') + r.columns.map(c => opt(c.Key, c.Name)).join('');
+    $('pv-f-prov').value = r.columns.some(c => c.Key === keep) ? keep : '';
+    renderStatement(); renderClaims(); renderOpenings();
+  }
+  function renderStatement() {
+    const r = data, rows = shown(), byEmp = Boolean(val('pv-f-emp').trim());
+    // The GL check (decision 63) goes after the last provision shown on its
+    // account (an account can hold more than one); not when one employee is searched.
+    const groups = r.columns.filter(c => rows.some(x => x.Key === c.Key));
+    const after = g => { const mine = groups.filter(c => g.Keys.includes(c.Key)); return mine.length ? mine[mine.length - 1].Key : ''; };
+    const glRow = g => {
+      const names = g.Keys.map(k => (r.columns.find(o => o.Key === k) || {}).Name).filter(Boolean);
+      return '<tr class="pv-gl text-xs text-slate-400"><td colspan="7" class="py-1 px-3">GL ' + escapeHtml(g.AccountCode + ' ' + g.AccountName) + ' at ' + escapeHtml(r.to) +
+        (names.length > 1 ? ' (' + escapeHtml(names.join(', ')) + ')' : '') + ': ' + money(g.GL) +
+        (g.Difference ? ' — <span class="text-red-400">differs from the statement by ' + money(g.Difference) + '</span>' : ' — agrees') + '</td></tr>';
+    };
+    let html = '';
+    groups.forEach(c => {
+      const mine = rows.filter(x => x.Key === c.Key);
+      html += '<tr class="bg-slate-900/60"><td colspan="7" class="py-2 px-3 text-xs font-semibold text-amber-300 uppercase">' + escapeHtml(c.Name) + '</td></tr>' +
+        mine.map(x => '<tr class="pv-row hover:bg-slate-800/40 cursor-pointer" data-emp="' + escapeHtml(x.EmployeeID) + '" data-key="' + escapeHtml(x.Key) + '"><td class="py-2 px-3 text-xs">' + escapeHtml(x.EmployeeNo) + '</td>' +
+          '<td class="py-2 px-3">' + escapeHtml(x.FullName) + (x.Status === 'Left' ? ' <span class="text-xs text-slate-500">(left)</span>' : '') + '</td>' + COLS.map(k => cell(x[k], k === 'Closing' ? ' font-semibold' : '')).join('') + '</tr>').join('') +
+        '<tr class="pv-sub border-t border-slate-700 font-semibold"><td colspan="2" class="py-2 px-3">' + escapeHtml(c.Name) + ' total</td>' + COLS.map(k => cell(sum(mine, k))).join('') + '</tr>';
+      if (!byEmp) r.glChecks.filter(g => after(g) === c.Key).forEach(g => { html += glRow(g); });
+    });
+    if (html) html += '<tr class="border-t-2 border-slate-600 font-semibold"><td colspan="2" class="py-2 px-3">Total</td>' + COLS.map(k => cell(sum(rows, k))).join('') + '</tr>';
+    // An account with a GL balance but nothing in the statement still shows.
+    if (!byEmp && !val('pv-f-prov')) r.glChecks.filter(g => !after(g) && g.GL).forEach(g => { html += glRow(g); });
+    $('pv-body').innerHTML = html || '<tr><td colspan="7" class="py-6 px-3 text-center text-xs text-slate-500">No provisions for this period.</td></tr>';
+  }
+  function copyStatement(btn) {
+    if (!data) return;
+    const rows = shown(), name = k => (data.columns.find(c => c.Key === k) || {}).Name || k;
+    copyRows([['Provision', 'No.', 'Employee'].concat(COLS)].concat(rows.map(x => [name(x.Key), x.EmployeeNo, x.FullName].concat(COLS.map(k => x[k].toFixed(2))))), btn);
+  }
+
+  // ---------- a row's movements ----------
+  function openMovements(emp, key) {
+    const row = data.rows.find(x => x.EmployeeID === emp && x.Key === key);
+    const c = data.columns.find(x => x.Key === key) || {};
+    return call('getProvisionMovements', { companyId: val('pv-company'), from: data.from, to: data.to, employeeId: emp, key }).then(r => {
+      mv = Object.assign(r, { title: row.EmployeeNo + ' · ' + row.FullName + ' — ' + c.Name });
+      $('pv-mv-heading').textContent = mv.title;
+      const line = (label, v) => '<tr class="font-semibold"><td class="py-1 pr-4"></td><td class="py-1 pr-4">' + label + '</td><td></td><td></td><td></td><td class="py-1 text-right">' + money(v) + '</td></tr>';
+      $('pv-mv-body').innerHTML = line('Opening', r.opening) + r.movements.map((m, i) => '<tr><td class="py-1 pr-4">' + escapeHtml(m.Date) + '</td><td class="py-1 pr-4">' + escapeHtml(m.Column + ': ' + m.What) + '</td>' +
+        '<td class="py-1 pr-4"><button class="pv-doc text-blue-400 hover:text-blue-300 text-xs" data-i="' + i + '">' + escapeHtml(m.Doc.Number) + '</button></td><td class="py-1 pr-4 text-xs">' + escapeHtml(m.JVNumber) + '</td>' +
+        '<td class="py-1 pr-4 text-right' + (m.Amount < 0 ? ' text-red-400' : '') + '">' + money(m.Amount) + '</td><td class="py-1 text-right">' + money(m.Balance) + '</td></tr>').join('') + line('Closing', r.closing);
+      $('pv-mv').classList.remove('hidden');
+    }, err => appAlert(err.message || 'Unable to load the movements.'));
+  }
+  function openDoc(m) {
+    if (m.Doc.ModuleID !== 'PROVISIONS') return openModule(m.Doc.ModuleID, { OpenEntryId: m.Doc.ID });
+    if (m.Doc.Number === 'Opening') return showTab('openings');
+    focusClaim = m.Doc.ID; showTab('claims'); renderClaims();
+  }
+  function copyMovements(btn) {
+    if (!mv) return;
+    copyRows([[mv.title], ['Date', 'Movement', 'Document', 'Journal', 'Amount', 'Balance'], ['', 'Opening', '', '', '', mv.opening.toFixed(2)]]
+      .concat(mv.movements.map(m => [m.Date, m.Column + ': ' + m.What, m.Doc.Number, m.JVNumber, m.Amount.toFixed(2), m.Balance.toFixed(2)]), [['', 'Closing', '', '', '', mv.closing.toFixed(2)]]), btn);
+  }
+
+  // ---------- claims (moved from Payroll, step 5a) ----------
+  function renderClaims() {
+    const r = data;
+    $('pv-claim-new').classList.toggle('hidden', !(r.canPay && r.types.length));
+    $('pv-claims-body').innerHTML = r.claims.length ? r.claims.map(c => '<tr data-claim-row="' + escapeHtml(c.ClaimID) + '" class="' + (c.ReversedAt ? 'text-slate-500' : '') + (c.ClaimID === focusClaim ? ' bg-blue-900/30' : '') + '"><td class="py-1 pr-4">' + escapeHtml(c.Date) + '</td>' +
+      '<td class="py-1 pr-4">' + escapeHtml(c.EmployeeNo + ' · ' + c.EmployeeName) + '</td><td class="py-1 pr-4">' + escapeHtml(c.TypeName) + '</td><td class="py-1 pr-4 text-right">' + money(c.Amount) + '</td>' +
+      '<td class="py-1 pr-4 text-xs">' + escapeHtml(c.JVNumber) + (c.ReversedAt ? ' (reversed by ' + escapeHtml(c.ReversalJVNumber) + ')' : '') + '</td><td class="py-1 pr-4 text-xs text-slate-400">' + escapeHtml(c.ReversedAt ? c.ReversalReason : c.Note) + '</td>' +
+      '<td class="py-1 text-right">' + (r.canPay && !c.ReversedAt ? '<button data-claim="' + escapeHtml(c.ClaimID) + '" class="pv-claim-rev text-xs text-red-400 hover:text-red-300">Reverse</button>' : '') + '</td></tr>').join('')
+      : '<tr><td colspan="7" class="py-3 text-center text-xs text-slate-500">No claims.</td></tr>';
+  }
+  function claimBalance() {
+    const v = data.balances[val('pv-claim-emp') + '|Accrual:' + val('pv-claim-type')] || 0;
+    $('pv-claim-balance').textContent = val('pv-claim-emp') ? 'Provided so far: ' + money(v) + '.' : '';
+  }
+  function newClaim() {
+    const r = data;
+    $('pv-claim-emp').innerHTML = r.employees.map(e => opt(e.EmployeeID, e.EmployeeNo + ' · ' + e.FullName)).join('');
+    $('pv-claim-type').innerHTML = r.types.map(t => opt(t.AccrualTypeID, t.Name)).join('');
+    $('pv-claim-account').innerHTML = r.accounts.map(a => opt(a.AccountID, a.AccountCode + ' — ' + a.AccountName)).join('');
+    $('pv-claim-date').value = ''; $('pv-claim-amount').value = ''; $('pv-claim-note').value = '';
+    $('pv-claim-form').classList.remove('hidden');
+    claimBalance();
+  }
+  function saveClaim() {
+    const b = $('pv-claim-save'); b.disabled = true;
+    call('recordAccrualClaim', { employeeId: val('pv-claim-emp'), accrualTypeId: val('pv-claim-type'), date: val('pv-claim-date'), amount: Number(val('pv-claim-amount')),
+      accountId: val('pv-claim-account'), note: val('pv-claim-note') })
+      .then(r => { appAlert('Claim recorded: journal ' + r.jvNumber + '.'); return load(); }, err => appAlert(err.message || 'Unable to record the claim.'))
+      .then(() => { b.disabled = false; });
+  }
+  function reverseClaim(id) {
+    appPrompt('Reason for reversing the claim:', '').then(reason => {
+      if (reason == null) return;
+      return call('reverseAccrualClaim', { claimId: id, reason }).then(r => { appAlert('Claim reversed: journal ' + r.reversalNumber + '.'); return load(); },
+        err => appAlert(err.message || 'Unable to reverse the claim.'));
+    });
+  }
+
+  // ---------- openings (decision 62) ----------
+  // The provision as the import names it: Gratuity, Leave salary, or the accrual's code.
+  const provName = key => { const p = data.provisions.find(x => x.Key === key); return !p ? '' : p.Key === 'Gratuity' ? 'Gratuity' : p.Key === 'LeaveSalary' ? 'Leave salary' : p.Code; };
+  function renderOpenings() {
+    const r = data;
+    $('pv-op-form').classList.toggle('hidden', !r.canWriteOpenings);
+    if (r.canWriteOpenings) {
+      $('pv-op-emp').innerHTML = r.employees.map(e => opt(e.EmployeeID, e.EmployeeNo + ' · ' + e.FullName)).join('');
+      $('pv-op-prov').innerHTML = r.provisions.map(p => opt(p.Key, p.Name)).join('');
+    }
+    $('pv-op-body').innerHTML = r.openings.length ? r.openings.map(o => '<tr><td class="py-1 pr-4 text-xs">' + escapeHtml(o.EmployeeNo) + '</td><td class="py-1 pr-4">' + escapeHtml(o.FullName) + '</td>' +
+      '<td class="py-1 pr-4">' + escapeHtml(o.Provision) + '</td><td class="py-1 pr-4 text-right">' + money(o.Amount) + '</td><td class="py-1 pr-4">' + escapeHtml(o.AsOf) + '</td><td class="py-1 text-right">' +
+      (r.canWriteOpenings ? '<button data-op="' + escapeHtml(o.OpeningID) + '" class="pv-op-edit text-xs text-blue-400 hover:text-blue-300 mr-3">Edit</button><button data-op="' + escapeHtml(o.OpeningID) + '" class="pv-op-del text-xs text-red-400 hover:text-red-300">Remove</button>' : '') + '</td></tr>').join('')
+      : '<tr><td colspan="6" class="py-3 text-center text-xs text-slate-500">No openings.</td></tr>';
+  }
+  function editOpening(id) {
+    const o = data.openings.find(x => x.OpeningID === id);
+    $('pv-op-emp').value = o.EmployeeID; $('pv-op-prov').value = o.Key; $('pv-op-amount').value = o.Amount; $('pv-op-asof').value = o.AsOf;
+  }
+  function saveOpening() {
+    const b = $('pv-op-save'); b.disabled = true;
+    call('saveProvisionOpeningEntry', { employeeId: val('pv-op-emp'), provision: provName(val('pv-op-prov')), amount: val('pv-op-amount'), asOf: val('pv-op-asof') })
+      .then(() => { $('pv-op-amount').value = ''; $('pv-op-asof').value = ''; return load(); }, err => appAlert(err.message || 'Unable to save the opening.'))
+      .then(() => { b.disabled = false; });
+  }
+  function removeOpening(id) {
+    const o = data.openings.find(x => x.OpeningID === id);
+    appConfirm('Remove ' + o.FullName + '\'s ' + o.Provision + ' opening (' + money(o.Amount) + ')?').then(ok => {
+      if (!ok) return;
+      return call('deleteProvisionOpening', { openingId: id }).then(load, err => appAlert(err.message || 'Unable to remove the opening.'));
+    });
+  }
+
+  function showTab(t) {
+    tab = t;
+    document.querySelectorAll('.pv-tab').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('bg-blue-600', on); b.classList.toggle('text-white', on); b.classList.toggle('bg-slate-800', !on); b.classList.toggle('border', !on); });
+    $('pv-statement').classList.toggle('hidden', t !== 'statement'); $('pv-claims').classList.toggle('hidden', t !== 'claims'); $('pv-openings').classList.toggle('hidden', t !== 'openings');
+    document.querySelectorAll('.pv-st').forEach(x => x.classList.toggle('hidden', t !== 'statement'));
+  }
+  function copyRows(rows, btn) {
+    const tsv = rows.map(x => x.map(v => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+    const original = btn.innerHTML;
+    const flash = ok => { btn.innerHTML = ok ? '<i class="fa-solid fa-check"></i> Copied!' : '<i class="fa-solid fa-triangle-exclamation"></i> Copy failed'; setTimeout(() => { btn.innerHTML = original; }, 2000); };
+    const staging = () => {
+      const s = $('pv-copy-staging'); s.value = tsv; s.classList.remove('hidden'); s.select();
+      let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      s.classList.add('hidden'); flash(ok);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(() => flash(true), staging);
+    else staging();
+  }
+  // From the GL report: a claim's journal opens the claim here.
+  function openFromJournal(jvId) {
+    return call('getPayrollJournalSource', { jvId }).then(src => {
+      if (src.ModuleID !== 'PROVISIONS') return openModule(src.ModuleID, { OpenEntryId: src.ID });
+      $('pv-company').value = src.CompanyID; focusClaim = src.ID; showTab('claims');
+      return load();
+    }, err => appAlert(err.message || 'Unable to open the journal\'s document.'));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-piggy-bank"></i> Provisions';
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    const now = (window.isoLocalDateTime ? window.isoLocalDateTime(new Date()) : new Date().toISOString()).slice(0, 7);
+    $('pv-from').value = now.slice(0, 4) + '-01'; $('pv-to').value = now;
+    document.querySelectorAll('.pv-tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    ['pv-company', 'pv-from', 'pv-to'].forEach(id => $(id).addEventListener('change', load));
+    $('pv-f-prov').addEventListener('change', () => { if (data) renderStatement(); });
+    $('pv-f-emp').addEventListener('input', () => { if (data) renderStatement(); });
+    $('pv-copy').addEventListener('click', () => copyStatement($('pv-copy')));
+    $('pv-body').addEventListener('click', e => { const tr = e.target.closest('tr.pv-row'); if (tr) openMovements(tr.dataset.emp, tr.dataset.key); });
+    $('pv-mv-body').addEventListener('click', e => { const b = e.target.closest('.pv-doc'); if (b) openDoc(mv.movements[Number(b.dataset.i)]); });
+    $('pv-mv-close').addEventListener('click', () => $('pv-mv').classList.add('hidden'));
+    $('pv-mv-copy').addEventListener('click', () => copyMovements($('pv-mv-copy')));
+    $('pv-claim-new').addEventListener('click', newClaim);
+    $('pv-claim-cancel').addEventListener('click', () => $('pv-claim-form').classList.add('hidden'));
+    $('pv-claim-save').addEventListener('click', saveClaim);
+    $('pv-claim-emp').addEventListener('change', claimBalance);
+    $('pv-claim-type').addEventListener('change', claimBalance);
+    $('pv-claims-body').addEventListener('click', e => { const b = e.target.closest('.pv-claim-rev'); if (b) reverseClaim(b.dataset.claim); });
+    $('pv-op-save').addEventListener('click', saveOpening);
+    $('pv-op-body').addEventListener('click', e => {
+      const ed = e.target.closest('.pv-op-edit'), del = e.target.closest('.pv-op-del');
+      if (ed) editOpening(ed.dataset.op); if (del) removeOpening(del.dataset.op);
+    });
+    call('getActiveCompanies', {}).then(cos => {
+      $('pv-company').innerHTML = (cos || []).map(c => opt(c.CompanyID, c.CompanyRefCode || c.LegalName)).join('');
+      if (pending && pending.CompanyID) $('pv-company').value = pending.CompanyID;
+      const id = pending && pending.OpenEntryId;
+      if (id && /^STKJV-/.test(id)) return openFromJournal(id);
+      if (id) { focusClaim = id; showTab('claims'); } // a claim, from Payroll's journal link
+      return load();
+    }, err => appAlert(err.message || 'Unable to load the companies.'));
+  };
+})();
+</script>

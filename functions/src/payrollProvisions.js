@@ -176,6 +176,7 @@ async function saveProvisionOpening(user, d) {
   if (!empSnap.exists) bad('Employee not found.');
   const emp = empSnap.data();
   if (!userCanAccessCompany(user.profile, emp.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  await requireNoSettlement(empSnap.id, emp.FullName); // step 7c: the settlement holds the provisions
   const what = text(d.Provision, 60).toLowerCase();
   let kind, typeId = '';
   if (what === 'gratuity') kind = 'Gratuity';
@@ -317,4 +318,4 @@ exports.reverseAccrualClaim = onCallWithMessages(onCallOptions, async (request) 
   return { success: true, reversalNumber: gl.jvNumber };
 });
 
-Object.assign(module.exports, { provisionSettings, accrualTypes, accrualAccount, saveProvisionOpening, providedBefore, keyOf, isCashOrBank, CLAIMS, round2, failed, isMonth, docs, withGlobalLock, writeStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION, actorName, text, bad, num, isDate });
+Object.assign(module.exports, { OPENINGS, requireNoSettlement, provisionSettings, accrualTypes, accrualAccount, saveProvisionOpening, providedBefore, keyOf, isCashOrBank, CLAIMS, round2, failed, isMonth, docs, withGlobalLock, writeStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION, actorName, text, bad, num, isDate });
