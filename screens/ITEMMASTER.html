@@ -150,6 +150,13 @@
         <div><label class="block text-xs font-medium text-slate-300 mb-1">Reorder Level <span class="text-slate-500">(optional)</span></label><input type="number" id="im-form-reorder" min="0" step="any" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
       </div>
 
+      <!-- The product's own barcodes (docs/modules/ITEM_BARCODES.md): several, each for one unit or a pack. -->
+      <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-3 space-y-2">
+        <div class="flex items-center justify-between"><label class="text-xs font-medium text-slate-300">Barcodes <span class="text-slate-500">(as printed on the product; a pack's with its units)</span></label>
+          <button type="button" id="im-bc-add" class="text-xs text-blue-400 hover:text-blue-300"><i class="fa-solid fa-plus"></i> Add barcode</button></div>
+        <div id="im-bc-body" class="space-y-2"></div>
+      </div>
+
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="im-form-status" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
 
       <div id="im-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
@@ -171,6 +178,7 @@
   let warehouses = [];
   let accounts = [];
   let subCategories = [];
+  let barcodes = {}; // { [itemId]: [{ Barcode, PackQty }] }
 
   const CATEGORY_LABELS = {
     RawMaterial: 'Raw Material', SemiFinishedGood: 'Semi-Finished Good', FinishedGood: 'Finished Good',
@@ -193,7 +201,34 @@
       .withSuccessHandler(result => { items = result || []; renderTable(); })
       .withFailureHandler(err => alert(err.message || 'Unable to load items.'))
       .getItems();
+    rpc
+      .withSuccessHandler(result => { barcodes = (result && result.barcodes) || {}; renderTable(); })
+      .withFailureHandler(err => appAlert(err.message || 'Unable to load the barcodes.'))
+      .getItemBarcodes({});
   }
+
+  // ---------- barcodes (docs/modules/ITEM_BARCODES.md) ----------
+  function barcodeRow(b) {
+    const div = document.createElement('div');
+    div.className = 'im-bc-row flex items-center gap-2';
+    div.innerHTML = '<input class="im-bc-code flex-1 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm font-mono" maxlength="30" placeholder="Scan or type the barcode">' +
+      '<input class="im-bc-pack w-24 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm" type="number" min="0" step="any" placeholder="Units: 1" title="Units the barcode stands for (a pack); empty for 1">' +
+      '<button type="button" class="im-bc-del text-slate-400 hover:text-red-400 p-1" title="Remove"><i class="fa-solid fa-trash"></i></button>';
+    div.querySelector('.im-bc-code').value = b.Barcode || '';
+    div.querySelector('.im-bc-pack').value = b.PackQty && b.PackQty !== 1 ? b.PackQty : '';
+    div.querySelector('.im-bc-del').addEventListener('click', () => div.remove());
+    // A scanner ends with Enter: keep it from submitting the form.
+    div.querySelector('.im-bc-code').addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+    document.getElementById('im-bc-body').appendChild(div);
+    return div;
+  }
+  function setBarcodes(list) {
+    document.getElementById('im-bc-body').innerHTML = '';
+    (list || []).forEach(barcodeRow);
+  }
+  const formBarcodes = () => [...document.querySelectorAll('#im-bc-body .im-bc-row')]
+    .map(r => ({ Barcode: r.querySelector('.im-bc-code').value.trim(), PackQty: r.querySelector('.im-bc-pack').value }))
+    .filter(b => b.Barcode);
 
   function loadReferenceData() {
     rpc
@@ -330,7 +365,7 @@
     const status = document.getElementById('im-status-filter').value;
 
     const filtered = items.filter(i => {
-      if (search && !`${i.ItemCode} ${i.ItemName}`.toLowerCase().includes(search)) return false;
+      if (search && !`${i.ItemCode} ${i.ItemName} ${(barcodes[i.ItemID] || []).map(b => b.Barcode).join(' ')}`.toLowerCase().includes(search)) return false;
       if (category && i.Category !== category) return false;
       if (companyFilter && i.CompanyID !== companyFilter) return false;
       if (status && i.Status !== status) return false;
@@ -352,7 +387,7 @@
       }
       row.innerHTML = `
         <td class="py-3 px-4 font-mono text-xs text-slate-200">${escapeHtml(i.ItemCode)}</td>
-        <td class="py-3 px-4 text-slate-200">${escapeHtml(i.ItemName)}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(i.ItemName)}${(barcodes[i.ItemID] || []).length ? '<div class="im-bc-list text-xs text-slate-500 font-mono"><i class="fa-solid fa-barcode"></i> ' + (barcodes[i.ItemID] || []).map(b => escapeHtml(b.Barcode + (b.PackQty !== 1 ? ' ×' + b.PackQty : ''))).join(', ') + '</div>' : ''}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(CATEGORY_LABELS[i.Category] || i.Category)}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${subCat ? escapeHtml(subCat.Name) : '—'}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${uom ? escapeHtml(uom.Code) : '—'}</td>
@@ -378,6 +413,7 @@
     document.getElementById('im-form-category').disabled = false;
     updateSubCategoryOptions('');
     updateConversionEnabled();
+    setBarcodes([]);
   }
 
   function openModal(itemId) {
@@ -408,6 +444,7 @@
       document.getElementById('im-form-status').value = i.Status;
       document.getElementById('im-code-value').textContent = i.ItemCode;
       document.getElementById('im-code-preview').classList.remove('hidden');
+      setBarcodes(barcodes[i.ItemID]);
     } else {
       document.getElementById('im-modal-title').textContent = 'Add Item';
       document.getElementById('im-form-id').value = '';
@@ -478,8 +515,20 @@
     rpc
       .withSuccessHandler(result => {
         btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Item';
-        if (result.success) { closeModal(); fetchAndRender(); }
-        else { error.textContent = result.error || 'Unable to save item.'; error.classList.remove('hidden'); }
+        if (!result.success) { error.textContent = result.error || 'Unable to save item.'; error.classList.remove('hidden'); return; }
+        // Then its barcodes. The item is saved either way: on a barcode
+        // problem the form stays open on it (no second item on retry).
+        document.getElementById('im-form-id').value = result.itemId;
+        const list = formBarcodes();
+        if (!list.length && !(barcodes[result.itemId] || []).length) { closeModal(); fetchAndRender(); return; }
+        btn.disabled = true;
+        rpc
+          .withSuccessHandler(() => { btn.disabled = false; closeModal(); fetchAndRender(); })
+          .withFailureHandler(err => {
+            btn.disabled = false; fetchAndRender();
+            error.textContent = 'The item is saved (' + (result.itemCode || '') + '), but not its barcodes: ' + (err.message || 'unable to save them.'); error.classList.remove('hidden');
+          })
+          .saveItemBarcodes({ itemId: result.itemId, barcodes: list });
       })
       .withFailureHandler(err => {
         btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Item';
@@ -508,6 +557,7 @@
     document.getElementById('im-modal-close').addEventListener('click', closeModal);
     document.getElementById('im-modal-cancel').addEventListener('click', closeModal);
     document.getElementById('im-form').addEventListener('submit', saveItem);
+    document.getElementById('im-bc-add').addEventListener('click', () => barcodeRow({}).querySelector('.im-bc-code').focus());
     document.getElementById('im-form-category').addEventListener('change', () => updateSubCategoryOptions(document.getElementById('im-form-category').value));
     document.getElementById('im-form-altuom').addEventListener('change', updateConversionEnabled);
     document.getElementById('im-search-input').addEventListener('input', renderTable);

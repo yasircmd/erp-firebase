@@ -31,6 +31,7 @@ const { saveEmployeeFor } = require('./hrEmployees');
 const { loadSetup: loadHrSetup } = require('./hrSetup');
 const { saveOpening: saveLeaveOpening } = require('./hrLeave');
 const { saveProvisionOpening } = require('./payrollProvisions');
+const { saveImportedBarcode, checkBarcode, checkPack } = require('./itemBarcodes');
 const { leaveTypes: loadLeaveTypes } = require('./hrLeaveSetup');
 
 const onCallOptions = { region: 'us-central1', timeoutSeconds: 540, memory: '512MiB' };
@@ -468,6 +469,20 @@ const MASTERS = {
     sample: ['EMP-0001', 'Gratuity', '24500', '30/09/2026'],
     toData: r => ({ EmployeeID: r.EmployeeID, Provision: r.Provision, Amount: r.Amount, AsOf: r.AsOf })
   },
+  // Item barcodes (docs/modules/ITEM_BARCODES.md): the barcodes already on
+  // products, added to their items; changed or removed in Item Master.
+  BARCODE: {
+    label: 'Item Barcodes', module: 'ITEMMASTER', capability: 'write', nameKey: null, path: 'itemBarcodes',
+    saveFn: async (ctx, user, data) => saveImportedBarcode(user, data),
+    note: 'One row per barcode: the item it is on and, for a pack (e.g. a carton of 12), how many units it holds. An item can have several. A barcode already on an item is changed or removed in Item Master.',
+    columns: [
+      C('Item', 'ItemID', { req: true, type: 'ref', ref: 'item', note: 'Item code or name.' }),
+      C('Barcode', 'Barcode', { req: true, note: 'As printed: letters and digits, 4 to 30; an EAN/UPC\'s check digit is verified.' }),
+      C('Pack Qty', 'PackQty', { type: 'number', note: 'Units the barcode stands for; empty for 1.' })
+    ],
+    sample: ['FG-000001', '6291041500213', ''],
+    toData: r => ({ ItemID: r.ItemID, Barcode: r.Barcode, PackQty: r.PackQty })
+  },
   USER: {
     label: 'Users', module: 'USERMGMT', save: 'saveFirebaseUser', idKey: 'userId', path: 'users', nameKey: 'username', authUser: true,
     note: 'Each user signs in with their email and the temporary password typed on this screen, then changes it (user menu → Change Password).',
@@ -484,7 +499,7 @@ const MASTERS = {
   }
 };
 const ORDER = ['COMPANY', 'ORGUNIT', 'ACCOUNT', 'CURRENCY', 'UOM', 'SUBCATEGORY', 'ITEM', 'VENDOR', 'CLASSIFICATION', 'CUSTOMER',
-  'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER', 'EMPLOYEE', 'LEAVEBAL', 'PROVOPEN'];
+  'SALESTYPE', 'REQCATEGORY', 'FACLASS', 'FAASSET', 'BOM', 'VALUATION', 'PRICELIST', 'USER', 'EMPLOYEE', 'LEAVEBAL', 'PROVOPEN', 'BARCODE'];
 
 // A master with its columns for now: Employees adds a column per active
 // extra field from HR Setup (key cf_<field id>), compulsory ones required.
@@ -505,7 +520,7 @@ async function masterFor(k) {
 // Existing records each reference kind can point to: { id, code, name, rec }.
 async function loadExisting() {
   const paths = ['companies', 'orgUnits', 'coa', 'uoms', 'itemSubCategories', 'customerClassifications', 'items', 'vendors', 'customers',
-    'currencies', 'salesTypes', 'requisitionCategories', 'boms', 'inventoryValuationLines', 'priceLists', 'priceListLines', 'users', 'roles'];
+    'currencies', 'salesTypes', 'requisitionCategories', 'boms', 'inventoryValuationLines', 'priceLists', 'priceListLines', 'users', 'roles', 'itemBarcodes'];
   const vals = (await Promise.all(paths.map(p => rtdb.ref(p).get()))).map(s => s.val() || {});
   const data = {};
   paths.forEach((p, i) => { data[p] = vals[i]; });
@@ -953,6 +968,18 @@ function masterRules(k, r, ex, resolvedAbove, issue) {
       }
       const mgr = typeof r.ManagerID === 'string' && r.ManagerID ? ex.raw.employees[r.ManagerID] : null;
       if (mgr && mgr.Status === 'Left') issue('Line Manager', mgr.FullName + ' has left.');
+      break;
+    }
+    case 'BARCODE': {
+      const c = checkBarcode(r.Barcode);
+      if (r.Barcode && c.error) issue('Barcode', c.error.replace(/^Barcode [^:]*: /, ''));
+      else if (c.code) {
+        const on = ex.raw.itemBarcodes[c.code];
+        const above = resolvedAbove.findIndex(o => o && checkBarcode(o.data.Barcode).code === c.code);
+        if (on) issue('Barcode', 'Already on item ' + ((ex.raw.items[on.ItemID] || {}).ItemCode || on.ItemID) + ': change it in Item Master.');
+        else if (above >= 0) issue('Barcode', 'Same barcode as row ' + (above + 1) + '.');
+      }
+      if (r.PackQty !== '' && r.PackQty != null && checkPack(r.PackQty) == null) issue('Pack Qty', 'More than 0, or empty for 1.');
       break;
     }
     case 'LEAVEBAL': {

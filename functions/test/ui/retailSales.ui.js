@@ -189,6 +189,25 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.close();
   });
 
+  await check('scanning the product\'s own barcode adds the item; a carton\'s adds its units; an unknown barcode is named', async () => {
+    const item = (await call('u-admin', 'getRetailCounter', { companyId: 'C1' })).items[0];
+    await call('u-admin', 'saveItemBarcodes', { itemId: item.ItemID, barcodes: [{ Barcode: '6291041500213' }, { Barcode: '16291041500210', PackQty: 12 }] });
+    const p = await open('RETAILSALES', 'u-admin');
+    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    const scan = async code => { await p.fill('#rs-item', code); await p.press('#rs-item', 'Enter'); };
+    await scan('6291041500213');
+    assert.equal(await p.inputValue('#rs-lines tr[data-i="0"] [data-f="Quantity"]'), '1');
+    assert.match(await p.textContent('#rs-lines tr[data-i="0"]'), new RegExp(item.ItemCode));
+    await scan('16291041500210');
+    assert.equal(await p.inputValue('#rs-lines tr[data-i="0"] [data-f="Quantity"]'), '13', 'the carton adds 12');
+    await scan('4006381333931');
+    for (let i = 0; i < 50 && p.__dialogs.length < 1; i++) await new Promise(r => setTimeout(r, 100));
+    assert.deepEqual(p.__dialogs, ['No item with barcode 4006381333931 for this company.']);
+    assert.equal(await p.locator('#rs-lines tr[data-i]').count(), 1);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await check('counter staff: only the sales they billed, no "Billed by" filter; the manager: everyone\'s, filtered; payment-wise report and Copy to Excel', async () => {
     // A sale by the cashier, so there are two people's sales.
     const methods = await val('retailSales/paymentMethods');

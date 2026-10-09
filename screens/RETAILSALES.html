@@ -236,13 +236,17 @@
     const text = $('rs-item').value.trim();
     if (!text) return;
     const code = text.split(' — ')[0].trim().toLowerCase();
-    const item = counter.items.find(i => i.ItemCode.toLowerCase() === code) ||
+    // A scan is the product's own barcode first (a pack's adds its quantity;
+    // docs/modules/ITEM_BARCODES.md), then the item code, then the name.
+    let units = 1;
+    const scanned = counter.items.find(i => (i.Barcodes || []).some(b => { if (b.Barcode !== text.toUpperCase()) return false; units = b.PackQty || 1; return true; }));
+    const item = scanned || counter.items.find(i => i.ItemCode.toLowerCase() === code) ||
       counter.items.find(i => (i.ItemCode + ' ' + i.ItemName).toLowerCase().includes(text.toLowerCase()));
-    if (!item) { appAlert('No item "' + text + '" for this company.'); return; }
+    if (!item) { appAlert(/^\d{8,}$/.test(text) ? 'No item with barcode ' + text + ' for this company.' : 'No item "' + text + '" for this company.'); return; }
     if (item.Price === null && !counter.settings.AllowPriceChange) { appAlert(item.ItemCode + ' has no price on the retail price list.'); return; }
     const existing = lines.find(l => l.ItemID === item.ItemID);
-    if (existing) existing.Quantity = r2(Number(existing.Quantity) + 1);
-    else lines.push({ ItemID: item.ItemID, ItemCode: item.ItemCode, ItemName: item.ItemName, UOM: item.UOM, InStock: item.InStock, Quantity: 1, UnitPrice: item.Price === null ? 0 : item.Price, Discount: 0 });
+    if (existing) existing.Quantity = r2(Number(existing.Quantity) + units);
+    else lines.push({ ItemID: item.ItemID, ItemCode: item.ItemCode, ItemName: item.ItemName, UOM: item.UOM, InStock: item.InStock, Quantity: units, UnitPrice: item.Price === null ? 0 : item.Price, Discount: 0 });
     $('rs-item').value = '';
     renderLines();
   }

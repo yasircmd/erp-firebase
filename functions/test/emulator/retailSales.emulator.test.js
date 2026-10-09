@@ -222,3 +222,9 @@ test('counter staff see only the sales they billed; the "report" right sees ever
   const after = await reg('u-cash1');
   assert.deepEqual([after.sales.map(x => x.SaleID), after.byMethod, after.payments], [[a.saleId], [], []]);
 });
+
+test('the counter gets each item\'s own barcodes, with a pack\'s units (docs/modules/ITEM_BARCODES.md)', async () => {
+  await call('u-admin', 'saveItemBarcodes', { itemId: 'I1', barcodes: [{ Barcode: '6291041500213' }, { Barcode: '16291041500210', PackQty: 12 }] });
+  const counter = await call('u-admin', 'getRetailCounter', { companyId: 'C1', date: DAY });
+  assert.deepEqual(counter.items.map(i => [i.ItemCode, i.Barcodes]), [['FG-002', []], ['RM-001', [{ Barcode: '16291041500210', PackQty: 12 }, { Barcode: '6291041500213', PackQty: 1 }]]]);
+});

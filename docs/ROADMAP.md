@@ -55,6 +55,12 @@ Waiting to deploy:
   (its access right; inside, Payroll's rights apply). Payroll →
   Provisions now opens it. This completes the owner's points of
   2026-10-09.
+- `item-barcodes` (the products' own barcodes, [ITEM_BARCODES.md](modules/ITEM_BARCODES.md):
+  several an item, a pack's units, EAN/UPC check digit; Item Master,
+  Master Data Import → Item Barcodes, scanned at the Retail Sales
+  counter), after `retail-sales`, "functions set" with the screens; no
+  Hosting, nothing to set up. Next, later (decision 67): barcode labels
+  for items without one.
 `master-import-3a` went live on 2026-10-05 (run #94).
 
 Payroll steps 4–5b went live on 2026-10-05 (runs #89–#93,

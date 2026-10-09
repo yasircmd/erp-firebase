@@ -1,0 +1,15 @@
+# Item barcodes (docs/modules/ITEM_BARCODES.md, decisions 64-67): the
+# products' own barcodes on items (Item Master), imported (Master Data
+# Import → Item Barcodes), scanned at the Retail Sales counter. Run with
+# --screens (ITEMMASTER, RETAILSALES changed). No Hosting change. Deploy
+# after retail-sales (or with it). Nothing to set up: Item Master's
+# rights apply.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getItemBarcodes
+saveItemBarcodes
+# Changed: the counter gets each item's barcodes.
+getRetailCounter
+# Changed: the Item Barcodes import sheet.
+getMasterImportSpecs
+checkMasterImport
+runMasterImport
