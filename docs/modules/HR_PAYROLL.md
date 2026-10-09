@@ -2205,3 +2205,53 @@ payrollPayment.ui.js (the Payment tab), payrollInterim.ui.js (Reversed).
 Negative controls caught: the cut-off ignored; tasks to everyone; a
 reversed batch back to a draft; the costing without provisions; the
 status filter ignored. Deploy: `payroll-7a` with `--screens`.
+
+## As built: step 7b (2026-10-09)
+
+Points 4 (second half) and 5.
+
+- **Earnings & Deductions** (module `PAYROLLED`, "Earnings & Deductions";
+  rights access, draft; default Admin and Finance Manager / Admin):
+  functions/src/payrollInputs.js, screens/PAYROLLED.html; Firestore
+  `payrollInputs`.
+  - An entry: company, month, employee (on payroll in the month), a
+    variable element (as the run's inputs, accruals paid with the salary
+    included), hours (overtime by the hour) or amount, note, **paid by**
+    the run or Interim Payroll; entered one at a time or pasted from Excel
+    (employee no., code, hours or amount, note, "Interim").
+  - **Supporting documents** on each entry (the shared component; folder
+    by company, `PAYROLLED`).
+  - **Locked by the run** (decision 57: no approval of its own): the run's
+    entries change only while the month's run is absent or a draft; once
+    submitted they can't (reject or reverse the run first). Where each
+    stands is shown: For the run, In the draft run, In the run (pending
+    approval / approved), Posted with the run.
+  - **No GL from the entries**: the run posts them, as before.
+- **The run** (payrollRun.js): its inputs are the month's entries paid by
+  the run. It keeps a key of the entries it used (`InputsKey`); changed
+  since, `getPayrollRun` says `inputsChanged` (the screen: "recalculate")
+  and **Submit refuses** until it is recalculated. A run's inputs from
+  before this step (on its slips) are moved to entries the first time it
+  is worked out ("Moved from the run"). `savePayrollInputs` is kept for
+  its callers: it replaces the month's run entries. The run screen shows
+  the entries read-only, with **Open Earnings & Deductions** (on the run's
+  company and month); adding, pasting and saving inputs there are gone.
+- **Paid by Interim Payroll (point 5):** an entry for an earning by amount
+  (a bonus, a commission; not overtime by the hour, not an accrual) can be
+  marked so. The run leaves it out; Interim Payroll offers it as a
+  **Payment** item (employee, element and note, amount) with the
+  settlements and loans. Paid: its own journal (PayrollPayment, PRL-),
+  Dr the element's account (the company's) at the employee's cost center
+  / Cr the cash or bank account, the batch number as the reference. While
+  in a batch the entry can't change; reversed, it is unpaid and free again
+  (the batch Reversed, step 7a). This replaces the proposal's separate
+  "Payment" item kind with its own fields: the entry is the record, with
+  its documents.
+- Also fixed (7a): the register's row hover used a shade light mode
+  doesn't recolour; the light-mode guard now covers PAYROLLED too.
+
+Tests: earningsDeductions suite (4) and UI check (3); payrollRun suite
+and UI check updated (the inputs now entered in Earnings & Deductions);
+smoke. Negative controls caught: interim entries paid by the run too; the
+submit not checking for changes; old run inputs not moved; Interim
+offered for overtime. Deploy: `payroll-7b` with `--screens`.
