@@ -117,3 +117,10 @@ a retry after refused barcodes making a second item. Deploy:
 
 **Next (decision 67, later):** labels with a barcode of the item's code
 for items without one.
+
+**Fix 2026-10-09:** Item Master's screen was still generated from Code.gs:
+the Deploy workflow's generated-code check rewrote it (dropping the
+Barcodes section) and the deploy stopped on the unclean checkout (run
+#108, nothing deployed). It is now hand-maintained (`handScreens` in
+tools/legacy-port/modules.json), like JV, CBT and the other screens
+changed since the port; the generator leaves it as committed.

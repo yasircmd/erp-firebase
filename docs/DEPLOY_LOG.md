@@ -871,3 +871,13 @@ from, and how it was verified. The deploy procedure is in the
   11:18–11:20 UTC, from `6d41244` (the PR #85 merge), success: functions
   set `master-import-3a` with the screens. The owner tested it (line
   managers updated; the org chart shows them).
+- **2026-10-09, Retail Sales (`retail-sales`):** run
+  [#108](https://github.com/yasircmd/erp-firebase/actions/runs/37947839223),
+  14:55–14:56 UTC, from `3307499` (the PR #97 merge), **failed before
+  deploying anything**: "working copy not clean … M screens/ITEMMASTER.html".
+  The workflow's generated-code check reruns tools/legacy-port/generate.js,
+  which rewrote Item Master's screen (still a generated one) and dropped
+  its new Barcodes section (PR #97). Fixed by making that screen
+  hand-maintained (`handScreens` in tools/legacy-port/modules.json); rerun
+  `retail-sales` once the fix is merged. Runs #95–#107 (including the
+  payroll 7a–7c deploys) are not recorded here yet.
