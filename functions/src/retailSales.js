@@ -160,9 +160,10 @@ exports.getRetailSalesSetup = onCallWithMessages(onCallOptions, async (request) 
   await requireCap(user, 'access');
   const companyId = String((request.data || {}).companyId || '').trim();
   requireCompany(user, companyId);
-  const [settings, methods, coa, units, salesTypes, priceLists, customers, canSell, canSetup] = await Promise.all([
+  const [settings, methods, coa, units, salesTypes, priceLists, customers, canSell, canSetup, canReport] = await Promise.all([
     loadSettings(companyId), methodsOf(companyId), val('coa'), val('orgUnits'), val('salesTypes'), val('priceLists'), val('customers'),
-    moduleHasCapability(MODULE_ID, 'post', user.profile.role), moduleHasCapability(MODULE_ID, 'write', user.profile.role)
+    moduleHasCapability(MODULE_ID, 'post', user.profile.role), moduleHasCapability(MODULE_ID, 'write', user.profile.role),
+    moduleHasCapability(MODULE_ID, 'report', user.profile.role)
   ]);
   const list = (obj, keep, map) => Object.entries(obj || {}).filter(([, r]) => keep(r)).map(([id, r]) => map(id, r));
   const unit = type => list(units, u => u.Type === type && u.Status === 'Active' && ofCompany(u, companyId), (id, u) => ({ ID: id, Label: (u.Code ? u.Code + ' — ' : '') + (u.Name || '') }));
@@ -178,7 +179,7 @@ exports.getRetailSalesSetup = onCallWithMessages(onCallOptions, async (request) 
     priceLists: list(priceLists, p => p.Status === 'Active' && ofCompany(p, companyId), (id, p) => ({ PriceListID: id, Name: p.Name })),
     retailCustomer: settings && settings.RetailCustomerID && customers && customers[settings.RetailCustomerID]
       ? { CustomerID: settings.RetailCustomerID, CustomerCode: customers[settings.RetailCustomerID].CustomerCode, CustomerName: customers[settings.RetailCustomerID].CustomerName } : null,
-    canSell, canSetup
+    canSell, canSetup, canReport
   };
 });
 
@@ -486,6 +487,16 @@ exports.confirmRetailSale = onCallWithMessages(onCallOptions, async (request) =>
 
 // The register: a company's sales (newest first), with totals per payment
 // method for the day's cash-up.
+// Who sees which sales (owner, 2026-10-09): the "report" right shows every
+// user's sales (with a filter by who billed them); without it, a user sees
+// only the sales they billed themselves, in the list, the invoice and the
+// reversal alike.
+const canSeeAll = user => moduleHasCapability(MODULE_ID, 'report', user.profile.role);
+const isOwn = (user, t) => (t.CreatedBy || '') === actorOf(user);
+
+// The register: a company's sales (newest first), with totals per payment
+// method for the day's cash-up, and the payment-wise report: each payment
+// of the live sales (neither reversed nor a reversal).
 exports.getRetailSales = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'access');
@@ -494,28 +505,47 @@ exports.getRetailSales = onCallWithMessages(onCallOptions, async (request) => {
   requireCompany(user, companyId);
   const from = String(d.from || '').trim();
   const to = String(d.to || '').trim();
+  const all = await canSeeAll(user);
+  const billedBy = all ? String(d.billedBy || '').trim() : '';
   const txs = (await val('stock/transactions')) || {};
-  const sales = Object.entries(txs)
+  const inRange = Object.entries(txs)
     .filter(([, t]) => t.TransactionType === TYPE && t.CompanyID === companyId && t.Status === 'Posted' &&
-      (!from || t.TransactionDate >= from) && (!to || t.TransactionDate <= to))
+      (!from || t.TransactionDate >= from) && (!to || t.TransactionDate <= to) && (all || isOwn(user, t)));
+  const billers = [...new Set(inRange.map(([, t]) => t.CreatedBy || ''))].filter(Boolean).sort();
+  const sales = inRange.filter(([, t]) => !billedBy || t.CreatedBy === billedBy)
     .map(([id, t]) => ({
       SaleID: id, TransactionNumber: t.TransactionNumber || '', TransactionDate: t.TransactionDate, CreatedBy: t.CreatedBy || '',
       CustomerName: t.BillToName || (t.RetailCustomer ? RETAIL_CUSTOMER : t.Description.replace(/^Retail sale — /, '')),
       Total: t.Total, Paid: t.Paid, Change: t.Change, OnAccount: t.OnAccount || 0,
-      Payments: (t.Payments || []).map(p => ({ Name: p.Name, Posted: p.Posted })),
+      Payments: (t.Payments || []).map(p => ({ Name: p.Name, Kind: p.Kind, Reference: p.Reference || '', Posted: p.Posted })),
       Reversal: !!t.ReversalOfSaleID, ReversedBy: t.ReversedBySaleID || '', ReversalOf: t.ReversalOfSaleID || ''
     }))
     .sort((a, b) => (b.TransactionDate + b.TransactionNumber).localeCompare(a.TransactionDate + a.TransactionNumber));
-  // The cash-up: what each method took on the live sales.
+  const live = sales.filter(x => !x.Reversal && !x.ReversedBy);
+  const payments = [];
+  live.forEach(x => x.Payments.filter(p => p.Posted > 0.005).forEach(p => payments.push({
+    Method: p.Name, TransactionDate: x.TransactionDate, TransactionNumber: x.TransactionNumber, SaleID: x.SaleID,
+    CustomerName: x.CustomerName, Reference: p.Reference, Amount: p.Posted, CreatedBy: x.CreatedBy
+  })));
+  payments.sort((a, b) => a.Method.localeCompare(b.Method) || (a.TransactionDate + a.TransactionNumber).localeCompare(b.TransactionDate + b.TransactionNumber));
   const byMethod = {};
-  sales.filter(x => !x.Reversal && !x.ReversedBy).forEach(x => x.Payments.forEach(p => { byMethod[p.Name] = round2((byMethod[p.Name] || 0) + p.Posted); }));
-  return { sales, byMethod: Object.entries(byMethod).map(([Name, Amount]) => ({ Name, Amount })).sort((a, b) => a.Name.localeCompare(b.Name)) };
+  payments.forEach(p => {
+    const m = byMethod[p.Method] || (byMethod[p.Method] = { Name: p.Method, Count: 0, Amount: 0 });
+    m.Count += 1; m.Amount = round2(m.Amount + p.Amount);
+  });
+  return {
+    sales, payments, byMethod: Object.values(byMethod).sort((a, b) => a.Name.localeCompare(b.Name)),
+    onAccount: round2(live.reduce((t, x) => t + (x.OnAccount || 0), 0)),
+    total: round2(live.reduce((t, x) => t + x.Total, 0)),
+    all, billers: all ? billers : [], billedBy
+  };
 });
 
 async function loadSale(user, saleId) {
   const t = saleId && (await val(TX + saleId));
   if (!t || t.TransactionType !== TYPE) throw new HttpsError('not-found', 'Retail sale not found.');
   if (!userCanAccessCompany(user.profile, t.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  if (!isOwn(user, t) && !(await canSeeAll(user))) throw new HttpsError('permission-denied', 'You can open only the sales you billed yourself.');
   return t;
 }
 

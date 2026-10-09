@@ -2,7 +2,8 @@
 # decisions 52-55). Run with --screens (RETAILSALES, new). No Hosting
 # change. Then, in the app: link a menu node to "Retail Sales" (Module
 # Tree & Navigation), set its rights (access, post = sell and reverse,
-# write = setup), and in Retail Sales → Setup, per company: the defaults
+# write = setup, report = every user's sales; without it a user sees only
+# the sales they billed), and in Retail Sales → Setup, per company: the defaults
 # (creates the Retail Customer) and the payment methods with their ledgers.
 # New functions (the invoker binding is granted by deploy-functions.sh).
 getRetailSalesSetup

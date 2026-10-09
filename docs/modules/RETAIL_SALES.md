@@ -210,3 +210,38 @@ some line has a discount; otherwise it is Item, Qty, Price, Amount. A
 screen change only, released with `retail-sales` (`--screens`). Test:
 `retailSales.ui.js` (both cases); negative control (the column always
 shown) caught.
+
+## Change 2026-10-09 (owner): who sees which sales; Excel; payment-wise report
+
+> Limit normal counter users to see their billing reports only in the
+> sales tab; add an option in the role for who can access the full sales
+> report. The sales tab: copy to Excel, and a payment-wise report.
+
+- **A new right, `report`** ("Report" in Roles & Permissions, Retail
+  Sales): every user's sales. Default roles: Admin and Finance Manager.
+  Without it a user sees **only the sales they billed** (the user who
+  confirmed them):
+  - in the Sales tab ("Showing the sales you billed."); a filter by
+    another user is ignored;
+  - opening a sale (or its journal from the GL report) and reversing it:
+    another's sale is refused, "You can open only the sales you billed
+    yourself."
+  A reversal is billed by whoever reversed it; the original stays in its
+  cashier's list, marked Reversed, and leaves their takings.
+- **With the right:** a "Billed by" filter (everyone, or one user).
+- **Report: By payment method:** each payment of the live sales (neither
+  reversed nor a reversal) grouped by method: date, number, customer,
+  reference, billed by, amount (cash net of change), a subtotal per
+  method and the total taken. The summary line adds what was left on
+  account and the total sales.
+- **Copy to Excel** copies the report on show (Sales or By payment
+  method, with its subtotals), tab-separated, dates as dd/mm/yyyy.
+
+Server: `getRetailSales` (filter by the right; `billedBy`; `payments`,
+`byMethod` with counts, `onAccount`, `total`, `billers`), `getRetailSale`
+and `reverseRetailSale` (own sales only without the right),
+`getRetailSalesSetup` (`canReport`); module registry (`report`, default
+Admin and Finance Manager). Tests: the emulator suite's 6th test, the UI
+check's 6th; negative controls caught: the list not filtered by user,
+another's sale opened without the right, Copy to Excel ignoring the
+payment-wise view. Released with `retail-sales` (not yet deployed).

@@ -31,6 +31,11 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   f.customerCounters = { CL: 1 };
   f.priceLists = { PL1: { Name: 'Retail', CompanyID: 'C1', Status: 'Active' } };
   f.priceListLines = { P1: { PriceListID: 'PL1', ItemCode: 'RM-001', UnitPrice: 52.5, EffectiveFrom: '2026-01-01', Status: 'Active' } };
+  // Counter staff: sell, but no "report" right (owner, 2026-10-09).
+  f.roles.Cashier = { Name: 'Cashier', Status: 'Active' };
+  f.users['u-cash1'] = { status: 'Active', role: 'Cashier', username: 'cash1', fullName: 'Cashier One', AssignedCompanies: ['C1'] };
+  f.permissions.RETAILSALES.access.push('Cashier');
+  f.permissions.RETAILSALES.post.push('Cashier');
   await reset(f);
   await call('u-admin', 'saveRetailPaymentMethod', { companyId: 'C1', method: { Name: 'Card', Kind: 'Card', AccountID: 'A-CARD', NeedsReference: true } });
 
@@ -155,6 +160,69 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.ok(await p.isDisabled('#rs-s-save'));
     assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
     await p.close();
+  });
+
+  await check('counter staff: only the sales they billed, no "Billed by" filter; the manager: everyone\'s, filtered; payment-wise report and Copy to Excel', async () => {
+    // A sale by the cashier, so there are two people's sales.
+    const methods = await val('retailSales/paymentMethods');
+    const cashId = Object.keys(methods).find(id => methods[id].Name === 'Cash');
+    const today = new Date().toISOString().substring(0, 10);
+    const own = await call('u-cash1', 'confirmRetailSale', { CompanyID: 'C1', SaleDate: today, Lines: [{ ItemID: 'I1', Quantity: 1 }], Payments: [{ MethodID: cashId, Amount: 60 }] });
+    const c = await open('RETAILSALES', 'u-cash1');
+    await until(c, () => document.getElementById('rs-items').options.length === 1);
+    await c.click('.rs-tab[data-tab="sales"]');
+    await c.fill('#rs-from', today); await c.fill('#rs-to', today); await c.click('#rs-run');
+    await until(c, () => document.querySelectorAll('#rs-sales-body tr[data-id]').length === 1);
+    assert.equal(await c.getAttribute('#rs-sales-body tr[data-id]', 'data-id'), own.saleId);
+    assert.ok(await c.isVisible('#rs-own-note'));
+    assert.ok(!(await c.isVisible('#rs-billedby')));
+    assert.deepEqual([c.__errors, c.__dialogs], [[], []]);
+    await c.close();
+
+    const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
+    const p = await context.newPage();
+    p.__errors = []; p.__dialogs = [];
+    p.on('pageerror', e => p.__errors.push(e.message));
+    await onAppDialog(p, d => { p.__dialogs.push(d.message()); d.accept(); });
+    await p.goto('http://127.0.0.1:8178/?module=RETAILSALES&uid=u-admin');
+    await until(p, () => window.__moduleReady === true);
+    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    await p.click('.rs-tab[data-tab="sales"]');
+    await p.fill('#rs-from', today); await p.fill('#rs-to', today); await p.click('#rs-run');
+    await until(p, () => document.querySelectorAll('#rs-sales-body tr[data-id]').length === 4);
+    assert.ok(!(await p.isVisible('#rs-own-note')));
+    assert.deepEqual(await p.locator('#rs-billedby option').allTextContents(), ['Everyone', 'admin', 'cash1']);
+    await p.selectOption('#rs-billedby', 'cash1');
+    await p.click('#rs-run');
+    await until(p, () => document.querySelectorAll('#rs-sales-body tr[data-id]').length === 1);
+    await p.selectOption('#rs-billedby', '');
+    await p.click('#rs-run');
+    await until(p, () => document.querySelectorAll('#rs-sales-body tr[data-id]').length === 4);
+    // Payment-wise: the live sales' payments by method, a subtotal each, the total taken.
+    await p.selectOption('#rs-view', 'payments');
+    assert.ok(await p.isVisible('#rs-payments-wrap'));
+    assert.ok(!(await p.isVisible('#rs-sales-wrap')));
+    const subtotals = await p.locator('#rs-payments-body tr.rs-pay-subtotal').allTextContents();
+    // The first sale was reversed above: its card and cash are out.
+    assert.deepEqual(subtotals, ['Cash — 2 payments92.50']);
+    await p.click('#rs-copy');
+    await until(p, () => /Copied!/.test(document.getElementById('rs-copy').textContent));
+    const clip = await p.evaluate(() => navigator.clipboard.readText());
+    const lines = clip.split('\n');
+    assert.equal(lines[0], 'Method\tDate\tNumber\tCustomer\tReference\tBilled by\tAmount');
+    assert.match(lines[1], /^Cash\t\d{2}\/\d{2}\/\d{4}\tRS-\d{2}-01-\d{6}\tBeta Trading\t\tadmin\t40\.00$/);
+    assert.equal(lines[2].split('\t').slice(-2).join('|'), 'cash1|52.50');
+    assert.equal(lines[3], 'Cash total\t\t\t\t\t\t92.50');
+    // The sales view copies its own columns.
+    await p.selectOption('#rs-view', 'sales');
+    await p.click('#rs-copy');
+    // Wait for the new copy itself: the first copy's "Copied!" may still show.
+    await until(p, () => navigator.clipboard.readText().then(t => t.startsWith('Date\t')));
+    const sales = (await p.evaluate(() => navigator.clipboard.readText())).split('\n');
+    assert.equal(sales[0], 'Date\tNumber\tCustomer\tPayments\tTotal\tOn account\tBilled by\tStatus');
+    assert.equal(sales.length, 5);
+    assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
+    await context.close();
   });
 
   await browser.close(); server.close(); await app.delete();

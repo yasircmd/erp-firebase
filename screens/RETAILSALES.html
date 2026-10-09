@@ -96,10 +96,21 @@
     <div class="flex gap-3 items-end">
       <div><label class="block text-xs font-medium text-slate-300 mb-1">From</label><input id="rs-from" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">To</label><input id="rs-to" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></div>
+      <div id="rs-billedby-wrap" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Billed by</label><select id="rs-billedby" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm text-slate-300"><option value="">Everyone</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Report</label><select id="rs-view" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm text-slate-300"><option value="sales">Sales</option><option value="payments">By payment method</option></select></div>
       <button id="rs-run" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-magnifying-glass"></i> Show</button>
+      <button id="rs-copy" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy to Excel</button>
     </div>
+    <p id="rs-own-note" class="hidden text-xs text-slate-500">Showing the sales you billed.</p>
     <div id="rs-cashup" class="text-xs text-slate-300"></div>
-    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
+    <div id="rs-payments-wrap" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-slate-900 text-slate-400 uppercase"><tr><th class="py-1.5 px-2">Method</th><th class="py-1.5 px-2">Date</th><th class="py-1.5 px-2">Number</th><th class="py-1.5 px-2">Customer</th><th class="py-1.5 px-2">Reference</th><th class="py-1.5 px-2">By</th><th class="py-1.5 px-2 text-right">Amount</th></tr></thead>
+        <tbody id="rs-payments-body" class="divide-y divide-slate-700"></tbody>
+      </table>
+    </div>
+    <textarea id="rs-copy-staging" class="hidden" style="position:absolute; left:-9999px;"></textarea>
+    <div id="rs-sales-wrap" class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
       <table class="w-full text-left text-xs">
         <thead class="bg-slate-900 text-slate-400 uppercase"><tr><th class="py-1.5 px-2">Date</th><th class="py-1.5 px-2">Number</th><th class="py-1.5 px-2">Customer</th><th class="py-1.5 px-2">Payments</th><th class="py-1.5 px-2 text-right">Total</th><th class="py-1.5 px-2 text-right">On account</th><th class="py-1.5 px-2">By</th><th class="py-1.5 px-2">Status</th></tr></thead>
         <tbody id="rs-sales-body" class="divide-y divide-slate-700"></tbody>
@@ -295,19 +306,74 @@
   }
 
   // ---------- sales ----------
+  // The Sales tab: the sales, or the payment-wise report. A user without the
+  // "report" right sees only the sales they billed (owner, 2026-10-09).
+  let report = null;
+  const statusOf = x => (x.Reversal ? 'Reversal' : x.ReversedBy ? 'Reversed' : 'Sold');
   function loadSales() {
     if (!$('rs-from').value) $('rs-from').value = today();
     if (!$('rs-to').value) $('rs-to').value = today();
-    return call('getRetailSales', { companyId: $('rs-company').value, from: $('rs-from').value, to: $('rs-to').value }).then(r => {
-      $('rs-cashup').innerHTML = r.byMethod.length ? 'Taken: ' + r.byMethod.map(m => '<b>' + escapeHtml(m.Name) + '</b> ' + money(m.Amount)).join(' · ') : '';
-      $('rs-sales-body').innerHTML = r.sales.length ? r.sales.map(x => '<tr data-id="' + escapeHtml(x.SaleID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
-        '<td class="py-1.5 px-2">' + escapeHtml(x.TransactionDate) + '</td><td class="py-1.5 px-2 font-mono">' + escapeHtml(x.TransactionNumber) + '</td>' +
-        '<td class="py-1.5 px-2">' + escapeHtml(x.CustomerName) + '</td><td class="py-1.5 px-2 text-slate-400">' + escapeHtml(x.Payments.map(p => p.Name + ' ' + money(p.Posted)).join(', ')) + '</td>' +
-        '<td class="py-1.5 px-2 text-right">' + money(x.Total) + '</td><td class="py-1.5 px-2 text-right">' + (x.OnAccount ? money(x.OnAccount) : '') + '</td>' +
-        '<td class="py-1.5 px-2 text-slate-400">' + escapeHtml(x.CreatedBy) + '</td>' +
-        '<td class="py-1.5 px-2">' + (x.Reversal ? '<span class="text-slate-500">Reversal</span>' : x.ReversedBy ? '<span class="text-slate-500">Reversed</span>' : '<span class="text-emerald-400">Sold</span>') + '</td></tr>').join('')
-        : '<tr><td colspan="8" class="py-4 text-center text-slate-500">No sales in these dates.</td></tr>';
+    return call('getRetailSales', { companyId: $('rs-company').value, from: $('rs-from').value, to: $('rs-to').value, billedBy: $('rs-billedby').value }).then(r => {
+      report = r;
+      $('rs-billedby-wrap').classList.toggle('hidden', !r.all);
+      $('rs-own-note').classList.toggle('hidden', r.all);
+      $('rs-billedby').innerHTML = '<option value="">Everyone</option>' + r.billers.map(b => opt(b, b, b === r.billedBy)).join('');
+      renderReport();
     }, err => appAlert(err.message || 'Unable to load the sales.'));
+  }
+  function renderReport() {
+    const r = report;
+    if (!r) return;
+    const byPayment = $('rs-view').value === 'payments';
+    $('rs-sales-wrap').classList.toggle('hidden', byPayment);
+    $('rs-payments-wrap').classList.toggle('hidden', !byPayment);
+    $('rs-cashup').innerHTML = r.byMethod.length ? 'Taken: ' + r.byMethod.map(m => '<b>' + escapeHtml(m.Name) + '</b> ' + money(m.Amount)).join(' · ') +
+      (r.onAccount ? ' · <b>On account</b> ' + money(r.onAccount) : '') + ' · <b>Total sales</b> ' + money(r.total) : '';
+    $('rs-sales-body').innerHTML = r.sales.length ? r.sales.map(x => '<tr data-id="' + escapeHtml(x.SaleID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
+      '<td class="py-1.5 px-2">' + escapeHtml(x.TransactionDate) + '</td><td class="py-1.5 px-2 font-mono">' + escapeHtml(x.TransactionNumber) + '</td>' +
+      '<td class="py-1.5 px-2">' + escapeHtml(x.CustomerName) + '</td><td class="py-1.5 px-2 text-slate-400">' + escapeHtml(x.Payments.map(p => p.Name + ' ' + money(p.Posted)).join(', ')) + '</td>' +
+      '<td class="py-1.5 px-2 text-right">' + money(x.Total) + '</td><td class="py-1.5 px-2 text-right">' + (x.OnAccount ? money(x.OnAccount) : '') + '</td>' +
+      '<td class="py-1.5 px-2 text-slate-400">' + escapeHtml(x.CreatedBy) + '</td>' +
+      '<td class="py-1.5 px-2">' + (statusOf(x) === 'Sold' ? '<span class="text-emerald-400">Sold</span>' : '<span class="text-slate-500">' + statusOf(x) + '</span>') + '</td></tr>').join('')
+      : '<tr><td colspan="8" class="py-4 text-center text-slate-500">No sales in these dates.</td></tr>';
+    // Payment-wise: each method's payments, then its subtotal.
+    const rows = [];
+    r.byMethod.forEach(m => {
+      r.payments.filter(p => p.Method === m.Name).forEach(p => rows.push('<tr data-id="' + escapeHtml(p.SaleID) + '" class="hover:bg-slate-800/40 cursor-pointer"><td class="py-1.5 px-2">' + escapeHtml(p.Method) + '</td>' +
+        '<td class="py-1.5 px-2">' + escapeHtml(p.TransactionDate) + '</td><td class="py-1.5 px-2 font-mono">' + escapeHtml(p.TransactionNumber) + '</td><td class="py-1.5 px-2">' + escapeHtml(p.CustomerName) + '</td>' +
+        '<td class="py-1.5 px-2">' + escapeHtml(p.Reference) + '</td><td class="py-1.5 px-2 text-slate-400">' + escapeHtml(p.CreatedBy) + '</td><td class="py-1.5 px-2 text-right">' + money(p.Amount) + '</td></tr>'));
+      rows.push('<tr class="rs-pay-subtotal bg-slate-900/60 font-semibold"><td class="py-1.5 px-2" colspan="6">' + escapeHtml(m.Name) + ' — ' + m.Count + ' payment' + (m.Count === 1 ? '' : 's') + '</td><td class="py-1.5 px-2 text-right">' + money(m.Amount) + '</td></tr>');
+    });
+    if (rows.length) rows.push('<tr class="bg-slate-900 font-semibold"><td class="py-1.5 px-2" colspan="6">Total taken</td><td class="py-1.5 px-2 text-right">' + money(r.byMethod.reduce((t, m) => t + m.Amount, 0)) + '</td></tr>');
+    $('rs-payments-body').innerHTML = rows.join('') || '<tr><td colspan="7" class="py-4 text-center text-slate-500">No payments in these dates.</td></tr>';
+  }
+  // Tab-separated, so a paste into Excel lands each field in its own cell
+  // (the shell turns the dates into dd/mm/yyyy on the way).
+  function copyToExcel() {
+    const r = report;
+    if (!r) return appAlert('Show a report first.');
+    const n = v => (Math.round((Number(v) || 0) * 100) / 100).toFixed(2);
+    let table;
+    if ($('rs-view').value === 'payments') {
+      table = [['Method', 'Date', 'Number', 'Customer', 'Reference', 'Billed by', 'Amount']];
+      r.byMethod.forEach(m => {
+        r.payments.filter(p => p.Method === m.Name).forEach(p => table.push([p.Method, p.TransactionDate, p.TransactionNumber, p.CustomerName, p.Reference, p.CreatedBy, n(p.Amount)]));
+        table.push([m.Name + ' total', '', '', '', '', '', n(m.Amount)]);
+      });
+    } else {
+      table = [['Date', 'Number', 'Customer', 'Payments', 'Total', 'On account', 'Billed by', 'Status']]
+        .concat(r.sales.map(x => [x.TransactionDate, x.TransactionNumber, x.CustomerName, x.Payments.map(p => p.Name + ' ' + n(p.Posted)).join(', '), n(x.Total), x.OnAccount ? n(x.OnAccount) : '', x.CreatedBy, statusOf(x)]));
+    }
+    const tsv = table.map(row => row.map(v => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+    const btn = $('rs-copy'), original = btn.innerHTML;
+    const flash = ok => { btn.innerHTML = ok ? '<i class="fa-solid fa-check"></i> Copied!' : '<i class="fa-solid fa-triangle-exclamation"></i> Copy failed'; setTimeout(() => { btn.innerHTML = original; }, 2000); };
+    const staging = () => {
+      const st = $('rs-copy-staging'); st.value = tsv; st.classList.remove('hidden'); st.select();
+      let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      st.classList.add('hidden'); flash(ok);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(() => flash(true), staging);
+    else staging();
   }
   function openSale(saleId, print, jvId) {
     return call('getRetailSale', saleId ? { saleId } : { jvId }).then(r => {
@@ -446,6 +512,9 @@
     $('rs-confirm').addEventListener('click', confirmSale);
     $('rs-clear').addEventListener('click', () => { lines = []; payments = defaultPayments(); renderLines(); });
     $('rs-run').addEventListener('click', loadSales);
+    $('rs-view').addEventListener('change', renderReport);
+    $('rs-copy').addEventListener('click', copyToExcel);
+    $('rs-payments-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openSale(tr.dataset.id); });
     $('rs-sales-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openSale(tr.dataset.id); });
     $('rs-print').addEventListener('click', () => { if (current) { renderPrint(current); window.print(); } });
     $('rs-reverse').addEventListener('click', reverseSale);

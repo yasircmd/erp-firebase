@@ -44,6 +44,12 @@ function fixture() {
     P2: { PriceListID: 'PL1', ItemCode: 'RM-001', UnitPrice: 52.5, EffectiveFrom: '2026-10-01', Status: 'Active' },
     P3: { PriceListID: 'PL1', ItemCode: 'FG-002', UnitPrice: 21, EffectiveFrom: '2026-01-01', Status: 'Active' }
   };
+  // Counter staff: sell, but no "report" right (owner, 2026-10-09).
+  f.roles.Cashier = { Name: 'Cashier', Status: 'Active' };
+  f.users['u-cash1'] = { status: 'Active', role: 'Cashier', username: 'cash1', fullName: 'Cashier One', AssignedCompanies: ['C1'] };
+  f.users['u-cash2'] = { status: 'Active', role: 'Cashier', username: 'cash2', fullName: 'Cashier Two', AssignedCompanies: ['C1'] };
+  f.permissions.RETAILSALES.access.push('Cashier');
+  f.permissions.RETAILSALES.post.push('Cashier');
   return f;
 }
 const settings = (extra) => call('u-admin', 'saveRetailSalesSettings', Object.assign({
@@ -180,7 +186,39 @@ test('a whole sale reversed (decision 55): stock back at its cost, every line mi
   await assert.rejects(call('u-admin', 'reverseRetailSale', { saleId: rev.saleId, reason: 'again' }), /cannot itself be reversed/);
   const reg = await call('u-admin', 'getRetailSales', { companyId: 'C1', from: DAY, to: DAY });
   assert.equal(reg.sales.length, 3);
-  assert.deepEqual(reg.byMethod, [{ Name: 'Cash', Amount: 21 }]);
+  assert.deepEqual(reg.byMethod, [{ Name: 'Cash', Count: 1, Amount: 21 }]);
   assert.ok(reg.sales.some(x => x.SaleID === keep.saleId));
   await assert.rejects(call('u-other', 'getRetailSale', { saleId: r.saleId }), /do not have access to that company/);
+});
+
+test('counter staff see only the sales they billed; the "report" right sees everyone\'s, filtered by who billed; the payment-wise report', async () => {
+  await ready();
+  const a = await sell({ Lines: [{ ItemID: 'I2', Quantity: 1 }], Payments: [{ MethodID: M.cash, Amount: 21 }] }, 'u-cash1');
+  const b = await sell({ Lines: [{ ItemID: 'I1', Quantity: 1 }], Payments: [{ MethodID: M.card, Amount: 30, Reference: 'C-7' }, { MethodID: M.cash, Amount: 30 }] }, 'u-cash2');
+  const c = await sell({ CustomerID: 'CU1', Lines: [{ ItemID: 'I2', Quantity: 1 }], Payments: [{ MethodID: M.promo, Amount: 5, Reference: 'P5' }] }, 'u-cash2');
+  const reg = (uid, extra) => call(uid, 'getRetailSales', Object.assign({ companyId: 'C1', from: DAY, to: DAY }, extra || {}));
+  const mine = await reg('u-cash1');
+  assert.deepEqual([mine.all, mine.billers, mine.sales.map(x => x.SaleID)], [false, [], [a.saleId]]);
+  assert.deepEqual(mine.byMethod, [{ Name: 'Cash', Count: 1, Amount: 21 }]);
+  // A filter by someone else is ignored without the right.
+  assert.deepEqual((await reg('u-cash1', { billedBy: 'cash2' })).sales.map(x => x.SaleID), [a.saleId]);
+  const everyone = await reg('u-admin');
+  assert.deepEqual([everyone.all, everyone.billers, everyone.sales.length], [true, ['cash1', 'cash2'], 3]);
+  const two = await reg('u-admin', { billedBy: 'cash2' });
+  assert.deepEqual(two.sales.map(x => x.SaleID).sort(), [b.saleId, c.saleId].sort());
+  // Payment-wise: each payment by method; the change comes off the cash.
+  assert.deepEqual(two.payments.map(p => [p.Method, p.Reference, p.Amount, p.CreatedBy]),
+    [['Card', 'C-7', 30, 'cash2'], ['Cash', '', 22.5, 'cash2'], ['Promotion Code', 'P5', 5, 'cash2']]);
+  assert.deepEqual(two.byMethod, [{ Name: 'Card', Count: 1, Amount: 30 }, { Name: 'Cash', Count: 1, Amount: 22.5 }, { Name: 'Promotion Code', Count: 1, Amount: 5 }]);
+  assert.deepEqual([two.total, two.onAccount], [73.5, 16]);
+  // Another's sale can't be opened or reversed without the right.
+  await assert.rejects(call('u-cash1', 'getRetailSale', { saleId: b.saleId }), /only the sales you billed yourself/);
+  await assert.rejects(call('u-cash1', 'reverseRetailSale', { saleId: b.saleId, reason: 'x' }), /only the sales you billed yourself/);
+  assert.equal((await call('u-cash1', 'getRetailSale', { saleId: a.saleId })).sale.SaleID, a.saleId);
+  const setup = await call('u-cash1', 'getRetailSalesSetup', { companyId: 'C1' });
+  assert.deepEqual([setup.canSell, setup.canSetup, setup.canReport], [true, false, false]);
+  // A reversal by the manager drops the sale from the cashier's takings.
+  await call('u-admin', 'reverseRetailSale', { saleId: a.saleId, reason: 'Wrong item', reversalDate: DAY });
+  const after = await reg('u-cash1');
+  assert.deepEqual([after.sales.map(x => x.SaleID), after.byMethod, after.payments], [[a.saleId], [], []]);
 });
