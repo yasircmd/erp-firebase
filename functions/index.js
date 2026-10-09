@@ -241,3 +241,6 @@ const retailSales = require('./src/retailSales');
 // HR Payroll step 7b: Earnings & Deductions (docs/modules/HR_PAYROLL.md, step 7).
 const payrollInputs = require('./src/payrollInputs');
 ['getEarningsDeductions', 'saveEarningsDeductions', 'deleteEarningsDeduction'].forEach(n => { exports[n] = payrollInputs[n]; });
+// HR Payroll step 7c: the Provisions module (docs/modules/HR_PAYROLL.md, step 7).
+const provisions = require('./src/provisions');
+['getProvisionStatement', 'getProvisionMovements', 'saveProvisionOpeningEntry', 'deleteProvisionOpening'].forEach(n => { exports[n] = provisions[n]; });

@@ -1,0 +1,22 @@
+# HR Payroll, step 7c: the Provisions module (docs/modules/HR_PAYROLL.md,
+# step 7, point 9, decisions 58, 60-63). Deploy after payroll-7b. Run with
+# --screens (PROVISIONS new; PAYROLL changed: its Provisions view replaced
+# by a button opening the module). No Hosting change. Then, in the app:
+# link a menu node to "Provisions" (Module Tree & Navigation) and give it
+# access in Roles & Permissions; inside, Payroll's rights apply.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getProvisionStatement
+getProvisionMovements
+saveProvisionOpeningEntry
+deleteProvisionOpening
+# Changed: an opening is refused once the employee's final settlement is
+# past its draft (the import too); a claim's journal, opened from the GL
+# in Payroll, goes on to Provisions.
+runMasterImport
+getPayrollJournalSource
+# Registries: the module, its permissions, its menu node.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment

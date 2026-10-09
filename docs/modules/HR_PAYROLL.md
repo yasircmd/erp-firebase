@@ -2255,3 +2255,139 @@ and UI check updated (the inputs now entered in Earnings & Deductions);
 smoke. Negative controls caught: interim entries paid by the run too; the
 submit not checking for changes; old run inputs not moved; Interim
 offered for overtime. Deploy: `payroll-7b` with `--screens`.
+
+## Step 7c design: the Provisions module (agreed 2026-10-09)
+
+Point 9 and decision 58: the employee provisions (gratuity, leave salary,
+each accrual type) get their own module, **Provisions** (`PROVISIONS`,
+its own menu node under HR). It replaces Payroll → Provisions; the
+settings (formulas, accounts, accrual types) stay in Payroll Setup.
+
+### The statement (the module's main view)
+
+Choose a company and a period (from month – to month; default the year to
+date). One row per employee and provision (gratuity, leave salary, each
+accrual), grouped by provision with a subtotal, and a grand total:
+
+| Column | What it is |
+|---|---|
+| **Opening** | everything before the first month: the imported openings, the posted runs, less the uses |
+| **Accrued** | the posted runs' provisions in the period (an opening imported in the period counts here, as "Opening imported") |
+| **Released** | see question 61 |
+| **Utilised** | claims (by their date), accruals paid with the salary (by the run's month), final settlements (by the leaving date) |
+| **Closing** | opening + accrued − released − utilised |
+
+- Filters: the provision and the employee (a name or number); employees
+  who left show while they have a balance or a movement in the period.
+- **A row opens its movements**: each one dated, with its document (the
+  run, the claim, the settlement, the opening) and its journal, linked.
+- **Copy to Excel** for the statement and for a row's movements.
+- The figures come from the same place as the run's own "provided before"
+  (one list of movements), so the statement's closing is exactly what
+  the next run and a final settlement will use.
+
+### Openings and claims (moved from Payroll and Master Data Import)
+
+- **Claims** (an accrual used: a ticket bought, a school fee paid): the
+  same form and journal as today (PayrollProvision, PPR-), with its
+  reversal; recorded and reversed here. The GL's link on a claim's
+  journal opens it here.
+- **Openings:** see question 62. The Master Data Import sheet stays.
+- Payroll's **Provisions** button opens this module on the company.
+
+### Rights and checks
+
+Decision 60. A claim or opening still refuses an employee whose final
+settlement is past its draft (the settlement holds the provisions).
+
+### Open questions for step 7c
+
+60. **Rights:**
+    - the module's own rights — access (see the statement), write
+      (openings), pay (claims); default Admin and Finance Manager / Admin /
+      Admin and Finance Manager — recommended;
+    - or Payroll's: access to Payroll sees it, Payroll's "pay" right
+      records claims, Payroll Setup's "write" the openings (as today).
+61. **A provision that goes down with the run** (leave salary after leave
+    is taken, an over-provided opening, a gratuity slab change):
+    - its own column, **Released** (credited back to the expense), so
+      Accrued shows only what was charged — recommended;
+    - or netted in Accrued (as the run posts it).
+62. **Openings on screen:**
+    - entered and corrected on screen here too (employee, provision,
+      amount, the date provided to), with the import kept for many at
+      once — recommended;
+    - or the import only (as today).
+63. **A check against the GL:**
+    - under each provision's subtotal, the provision account's GL balance
+      at the period's end (for the company), and the difference if any
+      (a manual journal, an opening not imported) — recommended;
+    - or no GL check.
+
+### The owner's decisions for step 7c (2026-10-09)
+
+| # | Question | Decision |
+|---|---|---|
+| 60 | Rights | **Payroll's rights**: Payroll access sees the statement, Payroll's "pay" records and reverses claims, Payroll Setup's "write" enters openings (as today). The module has only an "access" right, so it has a menu entry (default as Payroll's access). |
+| 61 | A provision that goes down | **Its own column, Released**; Accrued shows only what was charged. |
+| 62 | Openings | **On screen too** (enter, correct, remove), the import kept. |
+| 63 | GL check | **Yes**: under each provision, the provision account's GL balance at the period's end and any difference. |
+
+## As built: step 7c, the Provisions module (2026-10-09)
+
+Point 9 (decisions 58, 60-63). This completes the owner's points of
+2026-10-09.
+
+- **The module** `PROVISIONS` ("Provisions", menu node under HR):
+  functions/src/provisions.js, screens/PROVISIONS.html. Only an "access"
+  right (default Admin and Finance Manager) for its menu entry; inside,
+  **Payroll's rights** (decision 60): Payroll access for the statement,
+  Payroll's "pay" for claims, Payroll Setup's "write" for openings.
+  Payroll → Provisions now opens it on the chosen company (the old view
+  in Payroll is gone); the settings stay in Payroll Setup.
+- **Statement** (company, from month – to month, default the year to
+  date): by provision (gratuity, leave salary, each accrual), one row an
+  employee, with a subtotal each and a total:
+  - **Opening:** every movement before the first month;
+  - **Accrued:** a posted run's increase, and an opening imported in the
+    period;
+  - **Released** (decision 61): a run's decrease (credited back to the
+    expense), and an accrual that lapses at leaving;
+  - **Utilised:** a claim (by its date), an accrual paid with the salary
+    (the run's month), a final settlement (the leaving date);
+  - **Closing.**
+  Filters by provision and employee (name or number); employees who left
+  show while they have a balance or a movement. **Copy to Excel.**
+- **One list of movements** behind it, with the run's own rules
+  (`providedBefore`): an opening replaces that employee's runs for that
+  provision up to its month; a reversed claim, or a run or settlement not
+  posted, is no movement. So the closing is what the next run and a
+  final settlement use (the suite checks every row against
+  `getProvisionBalances`).
+- **A row opens its movements:** date, what, the document (the run, the
+  claim, the settlement; it opens there), the journal, the amount, the
+  running balance; Copy to Excel.
+- **The GL check** (decision 63): under the last provision on each
+  provision account, the account's GL balance (credit less debit) for the
+  company at the period's end, "agrees" or "differs from the statement
+  by …". Not shown while one employee is searched. What makes it differ:
+  an opening not in the GL, a manual journal, a run that an opening
+  imported later replaced.
+- **Claims** (moved): the same form, journal (PayrollProvision, PPR-) and
+  reversal. A claim's journal opened from the GL goes to Payroll as
+  before (the post right to edit its description stays Payroll's), which
+  passes it on to Provisions → Claims with the claim highlighted.
+- **Openings on screen** (decision 62): employee, provision, amount, the
+  date provided to; entered, corrected (one per employee and provision)
+  and removed. Nothing posted, as the import. **Behavior change:** an
+  opening (on screen or imported) and its removal are refused once the
+  employee's final settlement is past its draft, as claims already were.
+
+Tests: provisions suite (7) and UI check (4); payrollProvisions UI check
+(the claim now recorded in the module); the light-mode guard covers
+PROVISIONS. Negative controls caught: an opening not replacing earlier
+runs; a decrease shown as accrued; a reversed claim counted; the GL
+balance not cut at the period's end; the module's own access enough to
+see it; on screen: the GL check rows missing, Edit not filling the
+opening form, the journal link not opening the claim. Deploy:
+`payroll-7c` with `--screens`.

@@ -375,7 +375,7 @@ exports.getPayrollJournalSource = onCallWithMessages(onCallOptions, async (reque
   if (e.PayrollSettlementID) return { ModuleID: 'PAYROLLFS', ID: e.PayrollSettlementID, JVNumber: e.JVNumber };
   if (e.PayrollLoanID) return { ModuleID: 'PAYROLLLOAN', ID: e.PayrollLoanID, JVNumber: e.JVNumber };
   if (e.PayrollRunID) return { ModuleID: 'PAYROLL', ID: e.PayrollRunID, JVNumber: e.JVNumber };
-  if (e.PayrollClaimID) return { ModuleID: 'PAYROLL', View: 'Provisions', CompanyID: e.CompanyID, JVNumber: e.JVNumber };
+  if (e.PayrollClaimID) return { ModuleID: 'PROVISIONS', ID: e.PayrollClaimID, CompanyID: e.CompanyID, JVNumber: e.JVNumber }; // step 7c
   throw new HttpsError('failed-precondition', e.JVNumber + ' is not a payroll journal.');
 });
 

@@ -53,41 +53,6 @@
   </div></div>
 </div>
 
-<div id="pr-prov-view" class="no-print hidden space-y-5">
-  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
-    <div class="flex items-center gap-3">
-      <button id="pr-prov-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
-      <h3 class="text-lg font-bold text-slate-100">Provisions</h3>
-      <select id="pr-prov-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm text-slate-300"></select>
-    </div>
-    <div class="flex gap-2">
-      <button id="pr-prov-copy" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy to Excel</button>
-      <button id="pr-claim-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Record a claim</button>
-    </div>
-  </div>
-  <p class="text-xs text-slate-500 max-w-3xl">What each employee has provided so far: the opening amounts, then each posted run, less the claims paid and the accruals paid with the salary. A claim (a ticket bought, a school fee paid) is paid from a cash or bank account against the accrual's provision.</p>
-  <div id="pr-claim-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex flex-wrap items-end gap-3">
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Employee</label><select id="pr-claim-emp" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Accrual</label><select id="pr-claim-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Date paid</label><input id="pr-claim-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Amount</label><input id="pr-claim-amount" type="number" min="0" step="0.01" class="w-32 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Paid from</label><select id="pr-claim-account" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Note</label><input id="pr-claim-note" maxlength="200" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-    <button id="pr-claim-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Record and post</button>
-    <button id="pr-claim-cancel" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button>
-    <p id="pr-claim-balance" class="w-full text-xs text-slate-400"></p>
-  </div>
-  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
-    <table class="w-full text-left"><thead id="pr-prov-head"></thead><tbody id="pr-prov-body" class="divide-y divide-slate-700 text-sm"></tbody><tfoot id="pr-prov-foot"></tfoot></table>
-  </div></div>
-  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
-    <div class="text-sm font-semibold text-slate-200">Claims</div>
-    <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">
-      <th class="py-2 pr-4">Date</th><th class="py-2 pr-4">Employee</th><th class="py-2 pr-4">Accrual</th><th class="py-2 pr-4 text-right">Amount</th><th class="py-2 pr-4">Journal</th><th class="py-2 pr-4">Note</th><th class="py-2"></th></tr></thead>
-      <tbody id="pr-claims-body" class="divide-y divide-slate-700"></tbody></table></div>
-  </div>
-</div>
-
 <div id="pr-run-view" class="no-print hidden space-y-5">
   <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
     <div class="flex items-center gap-3">
@@ -272,7 +237,7 @@
   }
 
   // ---------- a run ----------
-  function showList() { $('pr-run-view').classList.add('hidden'); $('pr-prov-view').classList.add('hidden'); $('pr-list-view').classList.remove('hidden'); current = null; isDirty = false; loadList(); }
+  function showList() { $('pr-run-view').classList.add('hidden'); $('pr-list-view').classList.remove('hidden'); current = null; isDirty = false; loadList(); }
   function openRun(id, startView) {
     view = startView || 'register';
     const seq = ++loadSeq;
@@ -407,80 +372,9 @@
   // From the GL report (step 6): a journal's id, opened as the document behind it.
   function openFromJournal(jvId) {
     return call('getPayrollJournalSource', { jvId: jvId }).then(src => {
-      if (src.ModuleID !== 'PAYROLL') return openModule(src.ModuleID, { OpenEntryId: src.ID });
-      return src.View === 'Provisions' ? openProvisions().then(() => { $('pr-prov-company').value = src.CompanyID; return loadProvisions(); }) : openRun(src.ID);
+      if (src.ModuleID !== 'PAYROLL') return openModule(src.ModuleID, { OpenEntryId: src.ID, CompanyID: src.CompanyID });
+      return openRun(src.ID);
     }, err => appAlert(err.message || 'Unable to open the journal\'s document.'));
-  }
-
-  // ---------- provisions (step 5a): balances and claims ----------
-  let provData = null, provSeq = 0;
-  function openProvisions() {
-    $('pr-list-view').classList.add('hidden'); $('pr-prov-view').classList.remove('hidden');
-    const cos = (list && list.companies) || [];
-    if (!$('pr-prov-company').options.length) $('pr-prov-company').innerHTML = cos.map(c => '<option value="' + escapeHtml(c) + '">' + escapeHtml(coLabel(c)) + '</option>').join('');
-    return loadProvisions();
-  }
-  function loadProvisions() {
-    const seq = ++provSeq, co = val('pr-prov-company');
-    $('pr-claim-form').classList.add('hidden');
-    if (!co) { $('pr-prov-body').innerHTML = '<tr><td class="py-6 px-3 text-center text-xs text-slate-500">No company.</td></tr>'; return Promise.resolve(); }
-    return call('getProvisionBalances', { companyId: co }).then(r => {
-      if (seq !== provSeq || !$('pr-prov-view')) return; // a later company, or the screen was left
-      provData = r; renderProvisions();
-    }, err => appAlert(err.message || 'Unable to load the provisions.'));
-  }
-  function renderProvisions() {
-    const r = provData, cols = r.columns;
-    $('pr-claim-new').classList.toggle('hidden', !(r.canPay && r.types.length));
-    $('pr-prov-head').innerHTML = '<tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase"><th class="py-2 px-3">No.</th><th class="py-2 px-3">Employee</th>' +
-      cols.map(c => '<th class="py-2 px-3 text-right">' + escapeHtml(c.Name) + '</th>').join('') + '<th class="py-2 px-3 text-right">Total</th></tr>';
-    const total = e => cols.reduce((t, c) => t + (e.Balances[c.Key] || 0), 0);
-    $('pr-prov-body').innerHTML = r.employees.length ? r.employees.map(e => '<tr><td class="py-2 px-3 text-xs">' + escapeHtml(e.EmployeeNo) + '</td><td class="py-2 px-3">' + escapeHtml(e.FullName) +
-      (e.Status === 'Left' ? ' <span class="text-xs text-slate-500">(left)</span>' : '') + '</td>' +
-      cols.map(c => { const v = e.Balances[c.Key] || 0; return '<td class="py-2 px-3 text-right' + (v < 0 ? ' text-red-400' : '') + '">' + (v ? money(v) : '') + '</td>'; }).join('') +
-      '<td class="py-2 px-3 text-right font-semibold">' + money(total(e)) + '</td></tr>').join('')
-      : '<tr><td colspan="' + (cols.length + 3) + '" class="py-6 px-3 text-center text-xs text-slate-500">No employees.</td></tr>';
-    $('pr-prov-foot').innerHTML = '<tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3" colspan="2">Total</td>' +
-      cols.map(c => '<td class="py-2 px-3 text-right">' + money(r.employees.reduce((t, e) => t + (e.Balances[c.Key] || 0), 0)) + '</td>').join('') +
-      '<td class="py-2 px-3 text-right">' + money(r.employees.reduce((t, e) => t + total(e), 0)) + '</td></tr>';
-    $('pr-claims-body').innerHTML = r.claims.length ? r.claims.map(c => '<tr' + (c.ReversedAt ? ' class="text-slate-500"' : '') + '><td class="py-1 pr-4">' + escapeHtml(c.Date) + '</td>' +
-      '<td class="py-1 pr-4">' + escapeHtml(c.EmployeeNo + ' · ' + c.EmployeeName) + '</td><td class="py-1 pr-4">' + escapeHtml(c.TypeName) + '</td><td class="py-1 pr-4 text-right">' + money(c.Amount) + '</td>' +
-      '<td class="py-1 pr-4 text-xs">' + escapeHtml(c.JVNumber) + (c.ReversedAt ? ' (reversed by ' + escapeHtml(c.ReversalJVNumber) + ')' : '') + '</td><td class="py-1 pr-4 text-xs text-slate-400">' + escapeHtml(c.ReversedAt ? c.ReversalReason : c.Note) + '</td>' +
-      '<td class="py-1 text-right">' + (r.canPay && !c.ReversedAt ? '<button data-claim="' + escapeHtml(c.ClaimID) + '" class="pr-claim-rev text-xs text-red-400 hover:text-red-300">Reverse</button>' : '') + '</td></tr>').join('')
-      : '<tr><td colspan="7" class="py-3 text-center text-xs text-slate-500">No claims.</td></tr>';
-  }
-  function claimBalance() {
-    const e = provData.employees.find(x => x.EmployeeID === val('pr-claim-emp'));
-    const v = e ? (e.Balances['Accrual:' + val('pr-claim-type')] || 0) : 0;
-    $('pr-claim-balance').textContent = e ? 'Provided so far: ' + money(v) + '.' : '';
-  }
-  function newClaim() {
-    const r = provData;
-    $('pr-claim-emp').innerHTML = r.employees.map(e => '<option value="' + escapeHtml(e.EmployeeID) + '">' + escapeHtml(e.EmployeeNo + ' · ' + e.FullName) + '</option>').join('');
-    $('pr-claim-type').innerHTML = r.types.map(t => '<option value="' + escapeHtml(t.AccrualTypeID) + '">' + escapeHtml(t.Name) + '</option>').join('');
-    $('pr-claim-account').innerHTML = r.accounts.map(a => '<option value="' + escapeHtml(a.AccountID) + '">' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
-    $('pr-claim-date').value = ''; $('pr-claim-amount').value = ''; $('pr-claim-note').value = '';
-    $('pr-claim-form').classList.remove('hidden');
-    claimBalance();
-  }
-  function saveClaim() {
-    const b = $('pr-claim-save'); b.disabled = true;
-    call('recordAccrualClaim', { employeeId: val('pr-claim-emp'), accrualTypeId: val('pr-claim-type'), date: val('pr-claim-date'), amount: Number(val('pr-claim-amount')),
-      accountId: val('pr-claim-account'), note: val('pr-claim-note') })
-      .then(r => { appAlert('Claim recorded: journal ' + r.jvNumber + '.'); return loadProvisions(); }, err => appAlert(err.message || 'Unable to record the claim.'))
-      .then(() => { b.disabled = false; });
-  }
-  function reverseClaim(id) {
-    appPrompt('Reason for reversing the claim:', '').then(reason => {
-      if (reason == null) return;
-      return call('reverseAccrualClaim', { claimId: id, reason }).then(r => { appAlert('Claim reversed: journal ' + r.reversalNumber + '.'); return loadProvisions(); },
-        err => appAlert(err.message || 'Unable to reverse the claim.'));
-    });
-  }
-  function copyProvisions(btn) {
-    const r = provData; if (!r) return;
-    const rows = [['No.', 'Employee'].concat(r.columns.map(c => c.Name))].concat(r.employees.map(e => [e.EmployeeNo, e.FullName].concat(r.columns.map(c => (e.Balances[c.Key] || 0).toFixed(2)))));
-    copyRows(rows, btn);
   }
 
   // ---------- inputs ----------
@@ -681,16 +575,8 @@
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-money-check-dollar"></i> Payroll';
     $('pr-new-btn').addEventListener('click', () => $('pr-new-form').classList.remove('hidden'));
-    $('pr-prov-btn').addEventListener('click', openProvisions);
-    $('pr-prov-back').addEventListener('click', showList);
-    $('pr-prov-company').addEventListener('change', loadProvisions);
-    $('pr-prov-copy').addEventListener('click', () => copyProvisions($('pr-prov-copy')));
-    $('pr-claim-new').addEventListener('click', newClaim);
-    $('pr-claim-cancel').addEventListener('click', () => $('pr-claim-form').classList.add('hidden'));
-    $('pr-claim-save').addEventListener('click', saveClaim);
-    $('pr-claim-emp').addEventListener('change', claimBalance);
-    $('pr-claim-type').addEventListener('change', claimBalance);
-    $('pr-claims-body').addEventListener('click', e => { const b = e.target.closest('.pr-claim-rev'); if (b) reverseClaim(b.dataset.claim); });
+    // Step 7c: the provisions are their own module, opened on the company chosen here.
+    $('pr-prov-btn').addEventListener('click', () => openModule('PROVISIONS', { CompanyID: val('pr-f-company') || '' }));
     $('pr-new-cancel').addEventListener('click', () => $('pr-new-form').classList.add('hidden'));
     $('pr-new-create').addEventListener('click', createRun);
     $('pr-back').addEventListener('click', () => { if (!isDirty) return showList(); appConfirm('Leave without saving the inputs?').then(ok => { if (ok) showList(); }); });
