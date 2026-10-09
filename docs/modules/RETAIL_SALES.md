@@ -255,3 +255,112 @@ sale clears without asking. Screen only (RETAILSALES.html, `clearSale`).
 Tests: the UI check's 5th; negative controls caught: Clear without
 asking, Cancel ignored. Released with `retail-sales` (not yet deployed);
 if that is already live, `tools/release-screens.sh` is enough.
+
+## Partial returns (proposed 2026-10-09, owner's request)
+
+> Now complete the partial return of a retail sales invoice. What is the
+> best way — searching with the invoice number?
+
+Decision 55 left this for later: today a sale can only be reversed whole.
+
+### Finding the sale
+
+The invoice number is the right key: it is unique, printed on every
+receipt, and the customer has it in hand. Two additions make it quick
+and safe:
+- **A barcode of the invoice number on the printed receipt** (Code 128,
+  drawn by barcodeSvg.js from the labels step), so the cashier scans the
+  receipt into the Return box instead of typing it. Typing still works.
+- **No receipt:** a holder of the "report" right can find the sale in
+  the Sales tab by date and customer, and start the return from there.
+
+A cashier finds a sale **by its exact number** even when another cashier
+billed it, because returns are taken at any counter. Browsing other
+people's sales still needs the "report" right.
+
+### The return
+
+- A new **Return** tab (or a Return button on an opened sale) shows the
+  sale's lines with the quantity sold, the quantity already returned
+  and a **Return qty** column, which starts at 0.
+- A line can be returned up to what is left on it. Several returns
+  against one sale are allowed until everything has been returned.
+- **The value of each returned unit is what the customer actually paid
+  for it:** the line's price less its discount share, pro rata by
+  quantity. The tax share is worked out the same tax-inclusive way.
+  When the last unit of a line is returned, it takes the exact
+  remainder, so the returns add up to the sale to the cent.
+- **The goods come back** into the sale's warehouse at the cost they
+  left at (the line's UnitCost), the same rule Sales Return uses.
+- **A sale with any partial return can no longer be reversed whole.**
+  What is left of it is returned instead. The whole-sale reversal stays
+  for a sale with no returns.
+
+### The refund
+
+- If the sale left a balance on account that is still open, the return
+  **reduces that balance first** (Cr Trade Receivables against the sale).
+  Only what remains is refunded.
+- The refund is split by method; see question 77.
+- A Promotion method's share is **reversed, not paid out**: the
+  customer doesn't get cash for a promotion.
+
+### The posting (one GL entry, voucher type `RetailReturn`, prefix `RR`, reference TXN-)
+
+| Dr / Cr | Account | Amount |
+|---|---|---|
+| Dr | Sales Returns (the Sales Type's, as Sales Return uses) | the goods, net of tax |
+| Cr | Discount Given | the returned share of the discount, net of tax |
+| Dr | Output Tax | the returned share of the tax |
+| Cr | each refund method's account | what it refunds |
+| Cr | Promotional Discounts | the promotion share reversed |
+| Cr | Trade Receivables | the open on-account balance reduced |
+| Dr | Inventory (item's) | at the cost it left at |
+| Cr | Sales COGS (item's) | at the cost it left at |
+
+The return prints like the sale, as a **Return Receipt**, with the
+original invoice number, the lines and the refund by method. It appears
+in the register (marked Return, linked to its sale), and the cash-up and
+payment-wise report show it as negative takings for the refund methods.
+
+### Reversing a return
+
+A mistaken return is reversed whole, with a reason. The goods leave
+again at the cost they came back at, and the entry is mirrored. The
+reversal is refused when stock is short.
+
+## Open questions (partial returns)
+
+76. **Finding the sale:**
+    - The invoice number, typed or scanned from a barcode printed on the
+      receipt; without a receipt, a "report" right holder finds it by
+      date and customer — recommended;
+    - or the invoice number only, typed.
+77. **Refund by method:**
+    - The original way by default: each method gets back its share pro
+      rata; the promotion share is
+      reversed, not paid out. The cashier may move a card or QR share to
+      cash (e.g. the card terminal is down) — recommended;
+    - or strictly the original methods, no changes;
+    - or the cashier chooses any methods freely.
+78. **Who can take a return, and a time limit:**
+    - A new right **"return"** in Roles & Permissions (default Admin and
+      Finance Manager; given to counter staff as the business decides),
+      and a **return period in days** per company in Setup (0 = no
+      limit) — recommended;
+    - or anyone with the "post" (sell) right, no time limit.
+79. **Returned goods' condition:**
+    - All back into the store's stock at the cost it left at; damaged
+      goods are then written off with Stock Adjustment, as today —
+      recommended for now;
+    - or the cashier marks each line "resaleable" or "damaged", and
+      damaged goods go to a damaged-goods warehouse set in Setup.
+
+## The owner's decisions (partial returns, 2026-10-09)
+
+| # | Question | Decision |
+|---|---|---|
+| 76 | Finding the sale | **The invoice number, typed or scanned** from a barcode printed on the receipt; without a receipt, a "report" right holder finds it by date and customer. |
+| 77 | Refund by method | **The original way by default**, pro rata; the promotion share reversed, not paid out; the cashier may move a card or QR share to cash; an open on-account balance reduced first. |
+| 78 | Rights and time limit | **A new "return" right** (default Admin, Finance Manager) and **a return period in days** per company in Setup (0 = no limit). |
+| 79 | Returned goods | **All back into the store's stock** at the cost they left at; damaged goods written off with Stock Adjustment. |
