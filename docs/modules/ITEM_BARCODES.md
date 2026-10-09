@@ -107,7 +107,7 @@ on their own.
   "No item with barcode … for this company." A barcode of an item not
   sold by the company (another company's, inactive) is unknown there.
 
-Tests: itemBarcodes suite (3), the retailSales suite's 7th; UI checks
+Tests: itemBarcodes suite (3), the retailSales suite's 7th, the masterImport suite and UI check (the sheet list); UI checks
 itemBarcodes (4) and retailSales' 7th. Negative controls caught: no
 check digit; a barcode on two items; an item's old barcodes kept; the
 import not catching a barcode twice; the counter ignoring a pack's units;

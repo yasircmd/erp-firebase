@@ -32,7 +32,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(options, ['1. Company', '2. Organizational Units', '3. Chart of Accounts', '4. Currencies', '5. Unit of Measure',
       '6. Item Sub-Category', '7. Items', '8. Vendors', '9. Customer Classifications', '10. Customers', '11. Sales Types',
       '12. Requisition Categories', '13. Fixed Asset Classes', '14. Fixed Asset Master', '15. Bill of Materials',
-      '16. Inventory Valuation List', '17. Price Lists', '18. Users', '19. Employees', '20. Leave Opening Balances', '21. Payroll Provision Opening Balances']);
+      '16. Inventory Valuation List', '17. Price Lists', '18. Users', '19. Employees', '20. Leave Opening Balances', '21. Payroll Provision Opening Balances', '22. Item Barcodes']);
     await page.selectOption('#mimp-master', 'UOM');
     assert.deepEqual(await page.$$eval('#mimp-columns tr td:first-child', tds => tds.map(t => t.textContent)), ['Code', 'Name', 'Allow Decimals', 'Decimal Places']);
     await page.click('#mimp-copy-headers');
