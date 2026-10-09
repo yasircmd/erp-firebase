@@ -2389,5 +2389,5 @@ PROVISIONS. Negative controls caught: an opening not replacing earlier
 runs; a decrease shown as accrued; a reversed claim counted; the GL
 balance not cut at the period's end; the module's own access enough to
 see it; on screen: the GL check rows missing, Edit not filling the
-opening form, the journal link not opening the claim. Deploy:
+opening form, the claim passed on from Payroll not opened. Deploy:
 `payroll-7c` with `--screens`.

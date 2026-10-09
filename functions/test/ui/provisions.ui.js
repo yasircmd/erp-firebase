@@ -159,7 +159,7 @@ const tsv = rows => rows.map(r => r.join('\t')).join('\n');
     const p = await open('PAYROLL', 'u-admin');
     await p.waitForSelector('#pr-runs-body tr[data-id]', { timeout: 30000 });
     await p.evaluate(id => openModule('PAYROLL', { OpenEntryId: id }), jvId);
-    await p.waitForFunction(() => !document.getElementById('pv-claims').classList.contains('hidden') && document.querySelectorAll('#pv-claims-body tr.bg-blue-900\\/30').length === 1, null, { timeout: 30000 });
+    await p.waitForFunction(() => document.getElementById('pv-claims') && !document.getElementById('pv-claims').classList.contains('hidden') && document.querySelectorAll('#pv-claims-body tr.bg-blue-900\\/30').length === 1, null, { timeout: 30000 });
     assert.match(await p.textContent('#pv-claims-body tr.bg-blue-900\\/30'), new RegExp(claim.jvNumber));
     assert.deepEqual(p.__errors, []);
     await p.close();
