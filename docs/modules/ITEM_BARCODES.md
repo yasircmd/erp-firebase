@@ -220,3 +220,127 @@ repeated scan making a new line; a carton counting 1; the item cell
 ignoring barcodes; an unknown barcode passing silently; the index
 needing Item Master's access. Deploy: `item-barcodes-2` with the
 screens.
+
+## Step 3 design: barcodes for own products, and label printing (agreed 2026-10-09)
+
+The owner (2026-10-09): "set barcode for manufactured product, and
+printing" (decision 67's "labels later").
+
+### Today
+
+- Barcodes are entered or imported (step 1); nothing creates one. An own
+  product (made in Production) has none unless typed in.
+- Every scan already falls back to the item code (`FG-000001`): a label
+  showing the item code as a Code 128 barcode would scan everywhere
+  today, with no new data.
+- Nothing prints barcodes; the app has no barcode-drawing library.
+
+### Proposed
+
+**1. Barcodes for own products** (Item Master, its "write" right):
+- **Generate barcode** on an item without one, and **Generate for all
+  items without a barcode** (filtered by category, e.g. Finished Goods),
+  with a preview before saving.
+- The number (question 72): an **EAN-13**, the retail standard any
+  scanner and checkout reads:
+  - with the company's **GS1 company prefix** if it has one (GS1
+    membership: needed to sell own products through other retailers);
+    the system adds the item reference and the check digit;
+  - else an **in-store number** (EAN-13 starting 2x, reserved for use
+    inside one business): fine for own shops and warehouses, not for
+    selling through other retailers.
+- Each number generated is unique (the same check as step 1) and saved
+  as the item's barcode, so scanning works at once in Retail Sales and
+  the stock screens.
+
+**2. Printing labels** (question 73):
+- **Item Master:** choose items and how many labels each.
+- **Production** (a posted one): labels for what was produced, one per
+  unit (changeable), with the batch and expiry when the item tracks
+  them.
+- **GRN** (a posted one): labels for what was received, for products
+  that arrive without a barcode.
+
+**3. The label** (questions 74, 75):
+- The barcode, drawn in the browser (our own small drawing code, no
+  outside library): EAN-13 for numeric barcodes, Code 128 otherwise
+  (the item code when the item has no barcode);
+- the item name and code; optionally the price (the company's retail
+  price list) and the batch and expiry;
+- printed with the browser's Print: a **label printer** roll (size set
+  once, e.g. 50 × 25 mm) or **A4 sheets** of labels (columns × rows set
+  once, e.g. 3 × 8). Saved per company as label settings.
+
+### Open questions for step 3
+
+72. **Numbers for own products:**
+    - EAN-13 from the company's GS1 prefix when entered, else in-store
+      numbers (2x) — recommended;
+    - in-store numbers only;
+    - no new numbers: print the item code as a Code 128 barcode.
+73. **Where labels are printed from:**
+    - Item Master, Production and GRN — recommended;
+    - Item Master only.
+74. **Label stock:**
+    - both: a label printer roll and A4 label sheets, set per company —
+      recommended;
+    - label printer only;
+    - A4 sheets only.
+75. **On the label:**
+    - name, code, barcode; the price and the batch/expiry chosen when
+      printing — recommended;
+    - name, code and barcode only.
+
+### The owner's decisions for step 3 (2026-10-09)
+
+| # | Question | Decision |
+|---|---|---|
+| 72 | Numbers for own products | **EAN-13 from the company's GS1 prefix when entered, else in-store numbers (2x).** |
+| 73 | Printed from | **Item Master, Production and GRN.** |
+| 74 | Label stock | **Both**: label printer roll and A4 sheets, set per company. |
+| 75 | On the label | **Name, code, barcode; the price and batch/expiry chosen when printing.** |
+
+## As built: step 3, barcodes for own products and labels (2026-10-09)
+
+- **Drawing** (functions/src/barcodeSvg.js, no outside library): EAN-13
+  for a 13-digit number with a right check digit, else Code 128 (set C,
+  two digits a symbol, for an even run of digits; else set B). Checked
+  with an independent reader (ZXing) on every EAN-13 first digit, every
+  printable Code 128 set B character and every set C pair; the unit test
+  pins those bit patterns. Note: an EAN-13 starting with 0 is the same
+  symbol as a 12-digit UPC-A, and some scanners send it as 12 digits; our
+  generated numbers never start with 0.
+- **Settings per company** (`getBarcodeSettings` for any user of the
+  company, `saveBarcodeSettings` with Item Master's "write"; RTDB
+  `barcodeSettings/{company}`): the GS1 company prefix (6–11 digits, or
+  empty), the roll label size (default 50 × 25 mm), the A4 sheet's labels
+  across × down and margin (default 3 × 8, 10 mm).
+- **Numbers for own products** (`generateItemBarcodes`, Item Master's
+  "write"; decision 72): for items of the company (or shared) without a
+  barcode; previewed (nothing kept), then saved under the lock. With a
+  GS1 prefix: prefix + item reference + check digit (counter per prefix,
+  `barcodeCounters/gs1/{prefix}`); without: in-store `200` + 9 digits +
+  check (`barcodeCounters/instore`). A number already used (e.g. typed in)
+  is skipped. Each becomes the item's one-unit barcode.
+- **The label sheet** (`getLabelSheet`, any user of the company;
+  decisions 74–75): per line the item's one-unit barcode (never a
+  carton's), else its item code as Code 128; name and code; the price
+  from the company's retail price list when asked; batch and expiry
+  (dd/mm/yyyy) when asked. A roll page per label, or A4 sheets in the
+  company's grid. Up to 1,000 a line, 3,000 at a time. The page is
+  printed in a hidden frame, so it keeps its own label size.
+- **Item Master → Barcodes & Labels** (decision 73): the company; its
+  settings and the numbers (preview by category, then save) for Item
+  Master's "write"; for everyone with access, labels for chosen items
+  (search, labels each), roll or A4, the price option.
+- **Production and GRN** (posted): **Labels**: one a unit (the base
+  quantity, changeable), batch and expiry on by default, price, roll or
+  A4. Production's screen is now hand-maintained (`handScreens`).
+
+Tests: barcodeSvg unit test (3); itemBarcodes suite's 5th–7th; UI check
+labelPrinting (4). Negative controls caught: a preview saving; used
+numbers not skipped; a carton's barcode on a unit label; A4 paging
+wrong; settings without the write right; GRN labels not following the
+quantity; settings shown to a Viewer; Production's batch dropped; and
+three encoding breaks (ZXing). Deploy: `item-barcodes-3` with the
+screens.

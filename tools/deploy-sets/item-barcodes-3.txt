@@ -1,0 +1,10 @@
+# Item barcodes, step 3: numbers for own products and label printing
+# (docs/modules/ITEM_BARCODES.md, decisions 72-75). Run with --screens
+# (ITEMMASTER, GRN, PRODUCTION changed). No Hosting change. Deploy after
+# item-barcodes-2. Then, per company (Item Master → Barcodes & Labels):
+# the GS1 prefix if the company has one, and the label sizes.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getBarcodeSettings
+saveBarcodeSettings
+generateItemBarcodes
+getLabelSheet

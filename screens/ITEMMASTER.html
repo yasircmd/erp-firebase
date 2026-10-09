@@ -28,7 +28,10 @@
 <div class="space-y-6">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Stock Management</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-boxes-stacked text-blue-500"></i> Item Master</h2></div>
-    <button id="im-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Item</button>
+    <div class="flex gap-2">
+      <button id="im-lbl-btn" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-barcode"></i> Barcodes &amp; Labels</button>
+      <button id="im-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Item</button>
+    </div>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
@@ -168,6 +171,47 @@
   </div>
 </div>
 
+<!-- Barcodes & Labels (docs/modules/ITEM_BARCODES.md, step 3): numbers for own products, labels. -->
+<div id="im-lbl" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 w-full max-w-4xl max-h-[92vh] overflow-y-auto space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+      <h3 class="text-lg font-bold"><i class="fa-solid fa-barcode"></i> Barcodes &amp; Labels</h3>
+      <div class="flex items-center gap-3"><select id="im-lbl-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></select><button id="im-lbl-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    </div>
+    <div id="im-lbl-settings" class="hidden bg-slate-900/60 border border-slate-700 rounded-lg p-3 space-y-2">
+      <div class="text-sm font-semibold">Settings for this company</div>
+      <div class="flex flex-wrap items-end gap-3 text-xs">
+        <div><label class="block text-slate-300 mb-1">GS1 company prefix <span class="text-slate-500">(empty: in-store numbers 200…)</span></label><input id="im-lbl-gs1" maxlength="11" inputmode="numeric" class="w-40 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 font-mono"></div>
+        <div><label class="block text-slate-300 mb-1">Roll label (mm)</label><input id="im-lbl-rw" type="number" class="w-16 bg-slate-900 border border-slate-700 rounded py-1.5 px-2"> × <input id="im-lbl-rh" type="number" class="w-16 bg-slate-900 border border-slate-700 rounded py-1.5 px-2"></div>
+        <div><label class="block text-slate-300 mb-1">A4 sheet: across × down, margin (mm)</label><input id="im-lbl-sc" type="number" class="w-14 bg-slate-900 border border-slate-700 rounded py-1.5 px-2"> × <input id="im-lbl-sr" type="number" class="w-14 bg-slate-900 border border-slate-700 rounded py-1.5 px-2"> <input id="im-lbl-sm" type="number" class="w-14 bg-slate-900 border border-slate-700 rounded py-1.5 px-2"></div>
+        <button id="im-lbl-save" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg">Save settings</button>
+      </div>
+    </div>
+    <div id="im-lbl-gen" class="hidden bg-slate-900/60 border border-slate-700 rounded-lg p-3 space-y-2">
+      <div class="text-sm font-semibold">Barcodes for own products</div>
+      <p class="text-xs text-slate-400">Gives each item without a barcode an EAN-13 number (from the GS1 prefix above, else an in-store number). It becomes the item's barcode, so it scans everywhere at once.</p>
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <select id="im-lbl-gen-cat" class="bg-slate-900 border border-slate-700 rounded py-1.5 px-2"><option value="FinishedGood">Finished Goods</option><option value="SemiFinishedGood">Semi-Finished Goods</option><option value="RawMaterial">Raw Materials</option><option value="Consumable">Consumables</option><option value="Scrap">Scrap</option><option value="">All categories</option></select>
+        <button id="im-lbl-preview" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded">Preview numbers for items without a barcode</button>
+        <button id="im-lbl-gen-save" class="hidden bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded">Save these numbers</button>
+      </div>
+      <table class="w-full text-left text-xs"><tbody id="im-lbl-gen-body" class="divide-y divide-slate-700"></tbody></table>
+    </div>
+    <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-3 space-y-2">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="text-sm font-semibold">Print labels</div>
+        <input id="im-lbl-search" placeholder="Search code, name or barcode" class="bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs w-64">
+      </div>
+      <div class="max-h-72 overflow-y-auto"><table class="w-full text-left text-xs"><thead><tr class="text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-3">Code</th><th class="py-1 pr-3">Name</th><th class="py-1 pr-3">Barcode</th><th class="py-1 text-right">Labels</th></tr></thead><tbody id="im-lbl-items" class="divide-y divide-slate-700"></tbody></table></div>
+      <div class="flex flex-wrap items-center gap-4 text-xs text-slate-300">
+        <label>Print on <select id="im-lbl-stock" class="bg-slate-900 border border-slate-700 rounded py-1 px-2"><option value="Roll">Label printer roll</option><option value="Sheet">A4 label sheets</option></select></label>
+        <label class="flex items-center gap-1"><input type="checkbox" id="im-lbl-price"> Price (the retail price list)</label>
+        <button id="im-lbl-print" class="ml-auto bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-print"></i> Print labels</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   let token = '';
@@ -202,7 +246,7 @@
       .withFailureHandler(err => alert(err.message || 'Unable to load items.'))
       .getItems();
     rpc
-      .withSuccessHandler(result => { barcodes = (result && result.barcodes) || {}; renderTable(); })
+      .withSuccessHandler(result => { barcodes = (result && result.barcodes) || {}; renderTable(); if (!document.getElementById('im-lbl').classList.contains('hidden')) renderLblItems(); })
       .withFailureHandler(err => appAlert(err.message || 'Unable to load the barcodes.'))
       .getItemBarcodes({});
   }
@@ -547,6 +591,79 @@
       [call]({ __positional: [item.ItemID] });
   }
 
+  // ---------- Barcodes & Labels (docs/modules/ITEM_BARCODES.md, step 3) ----------
+  const lblCall = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const lblVal = id => document.getElementById(id).value;
+  let lblPreview = [], lblCopies = {};
+  // The page is laid out on the server and printed in a hidden frame, so it
+  // keeps its own label size. Tests set window.__labelPrintHook.
+  function printLabelHtml(html) {
+    if (typeof window.__labelPrintHook === 'function') return window.__labelPrintHook(html);
+    const f = document.createElement('iframe');
+    f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+    f.onload = () => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 60000); };
+    f.srcdoc = html;
+    document.body.appendChild(f);
+  }
+  const lblItems = () => {
+    const co = lblVal('im-lbl-company'), q = lblVal('im-lbl-search').trim().toLowerCase();
+    return items.filter(i => i.Status === 'Active' && (!i.CompanyID || i.CompanyID === co))
+      .filter(i => !q || (i.ItemCode + ' ' + i.ItemName + ' ' + (barcodes[i.ItemID] || []).map(b => b.Barcode).join(' ')).toLowerCase().includes(q))
+      .sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }));
+  };
+  function renderLblItems() {
+    const list = lblItems();
+    document.getElementById('im-lbl-items').innerHTML = list.length ? list.map(i => '<tr><td class="py-1 pr-3 font-mono">' + escapeHtml(i.ItemCode) + '</td><td class="py-1 pr-3">' + escapeHtml(i.ItemName) + '</td>' +
+      '<td class="py-1 pr-3 font-mono text-slate-400">' + escapeHtml(((barcodes[i.ItemID] || []).find(b => b.PackQty === 1) || {}).Barcode || '(item code)') + '</td>' +
+      '<td class="py-1 text-right"><input data-id="' + escapeHtml(i.ItemID) + '" type="number" min="0" step="1" value="' + escapeHtml(lblCopies[i.ItemID] || '') + '" class="im-lbl-n w-20 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-right"></td></tr>').join('')
+      : '<tr><td colspan="4" class="py-3 text-center text-slate-500">No items.</td></tr>';
+  }
+  function loadLblSettings() {
+    const co = lblVal('im-lbl-company');
+    lblPreview = []; renderLblPreview(); renderLblItems();
+    return lblCall('getBarcodeSettings', { companyId: co }).then(r => {
+      const s = r.settings;
+      document.getElementById('im-lbl-gs1').value = s.GS1Prefix || '';
+      [['im-lbl-rw', 'RollWidthMm'], ['im-lbl-rh', 'RollHeightMm'], ['im-lbl-sc', 'SheetCols'], ['im-lbl-sr', 'SheetRows'], ['im-lbl-sm', 'SheetMarginMm']].forEach(([id, k]) => { document.getElementById(id).value = s[k]; });
+      document.getElementById('im-lbl-settings').classList.toggle('hidden', !r.canWrite);
+      document.getElementById('im-lbl-gen').classList.toggle('hidden', !r.canWrite);
+    }, err => appAlert(err.message || 'Unable to load the barcode settings.'));
+  }
+  function openLbl() {
+    const sel = document.getElementById('im-lbl-company');
+    if (!sel.options.length) sel.innerHTML = companies.map(c => '<option value="' + escapeHtml(c.CompanyID) + '">' + escapeHtml(c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '')) + '</option>').join('');
+    document.getElementById('im-lbl').classList.remove('hidden');
+    return loadLblSettings();
+  }
+  function saveLblSettings() {
+    const d = { companyId: lblVal('im-lbl-company'), GS1Prefix: lblVal('im-lbl-gs1'), RollWidthMm: lblVal('im-lbl-rw'), RollHeightMm: lblVal('im-lbl-rh'),
+      SheetCols: lblVal('im-lbl-sc'), SheetRows: lblVal('im-lbl-sr'), SheetMarginMm: lblVal('im-lbl-sm') };
+    lblCall('saveBarcodeSettings', d).then(() => appAlert('Settings saved.'), err => appAlert(err.message || 'Unable to save the settings.'));
+  }
+  function renderLblPreview() {
+    document.getElementById('im-lbl-gen-body').innerHTML = lblPreview.map(g => '<tr><td class="py-1 pr-3 font-mono">' + escapeHtml(g.ItemCode) + '</td><td class="py-1 pr-3">' + escapeHtml(g.ItemName) + '</td><td class="py-1 font-mono text-emerald-400">' + escapeHtml(g.Barcode) + '</td></tr>').join('');
+    document.getElementById('im-lbl-gen-save').classList.toggle('hidden', !lblPreview.length);
+  }
+  function lblGenerate(save) {
+    const co = lblVal('im-lbl-company'), cat = lblVal('im-lbl-gen-cat');
+    const ids = save ? lblPreview.map(g => g.ItemID)
+      : items.filter(i => i.Status === 'Active' && (!i.CompanyID || i.CompanyID === co) && (!cat || i.Category === cat) && !(barcodes[i.ItemID] || []).length).map(i => i.ItemID);
+    if (!ids.length) { appAlert('Every item here already has a barcode.'); return; }
+    lblCall('generateItemBarcodes', { companyId: co, itemIds: ids, save }).then(r => {
+      if (!save) { lblPreview = r.generated; renderLblPreview(); return; }
+      lblPreview = []; renderLblPreview();
+      appAlert(r.generated.length + ' barcode' + (r.generated.length === 1 ? '' : 's') + ' saved (' + r.scheme + ').');
+      fetchAndRender();
+    }, err => appAlert(err.message || 'Unable to create the barcodes.'));
+  }
+  function printItemLabels() {
+    const lines = Object.entries(lblCopies).filter(([, n]) => Number(n) > 0).map(([id, n]) => ({ ItemID: id, Copies: Number(n) }));
+    if (!lines.length) { appAlert('Enter how many labels for at least one item.'); return; }
+    const btn = document.getElementById('im-lbl-print'); btn.disabled = true;
+    lblCall('getLabelSheet', { companyId: lblVal('im-lbl-company'), stock: lblVal('im-lbl-stock'), withPrice: document.getElementById('im-lbl-price').checked, lines })
+      .then(r => { btn.disabled = false; printLabelHtml(r.html); }, err => { btn.disabled = false; appAlert(err.message || 'Unable to print the labels.'); });
+  }
+
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken, writeAllowed) {
     token = idToken;
@@ -557,6 +674,15 @@
     document.getElementById('im-modal-close').addEventListener('click', closeModal);
     document.getElementById('im-modal-cancel').addEventListener('click', closeModal);
     document.getElementById('im-form').addEventListener('submit', saveItem);
+    document.getElementById('im-lbl-btn').addEventListener('click', openLbl);
+    document.getElementById('im-lbl-close').addEventListener('click', () => document.getElementById('im-lbl').classList.add('hidden'));
+    document.getElementById('im-lbl-company').addEventListener('change', () => { lblCopies = {}; loadLblSettings(); });
+    document.getElementById('im-lbl-search').addEventListener('input', renderLblItems);
+    document.getElementById('im-lbl-items').addEventListener('input', e => { if (e.target.dataset.id) lblCopies[e.target.dataset.id] = e.target.value; });
+    document.getElementById('im-lbl-save').addEventListener('click', saveLblSettings);
+    document.getElementById('im-lbl-preview').addEventListener('click', () => lblGenerate(false));
+    document.getElementById('im-lbl-gen-save').addEventListener('click', () => lblGenerate(true));
+    document.getElementById('im-lbl-print').addEventListener('click', printItemLabels);
     document.getElementById('im-bc-add').addEventListener('click', () => barcodeRow({}).querySelector('.im-bc-code').focus());
     document.getElementById('im-form-category').addEventListener('change', () => updateSubCategoryOptions(document.getElementById('im-form-category').value));
     document.getElementById('im-form-altuom').addEventListener('change', updateConversionEnabled);

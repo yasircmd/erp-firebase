@@ -16,6 +16,12 @@ Waiting to deploy:
   Issue, Stock Adjustment, Warehouse Movement and Physical Count: a Scan
   box, and the item cell takes a barcode; [ITEM_BARCODES.md](modules/ITEM_BARCODES.md)
   step 2), "functions set, then screens"; no Hosting, nothing to set up.
+- `item-barcodes-3` (numbers for own products — GS1 prefix or in-store
+  EAN-13 — and label printing from Item Master, Production and GRN, on a
+  label roll or A4 sheets; ITEM_BARCODES.md step 3), after
+  `item-barcodes-2`, "functions set, then screens"; no Hosting. Then per
+  company in Item Master → Barcodes & Labels: the GS1 prefix (if any) and
+  the label sizes.
 
 Went live 2026-10-05 – 2026-10-09 (runs #95–#110, [DEPLOY_LOG.md](DEPLOY_LOG.md)):
 `master-import-3b`, `payroll-5c`, `payroll-6`, `gl-references`,

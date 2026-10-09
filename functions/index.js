@@ -243,7 +243,7 @@ const payrollInputs = require('./src/payrollInputs');
 ['getEarningsDeductions', 'saveEarningsDeductions', 'deleteEarningsDeduction'].forEach(n => { exports[n] = payrollInputs[n]; });
 // Item barcodes (docs/modules/ITEM_BARCODES.md).
 const itemBarcodes = require('./src/itemBarcodes');
-['getItemBarcodes', 'saveItemBarcodes', 'getBarcodeIndex'].forEach(n => { exports[n] = itemBarcodes[n]; });
+['getItemBarcodes', 'saveItemBarcodes', 'getBarcodeIndex', 'getBarcodeSettings', 'saveBarcodeSettings', 'generateItemBarcodes', 'getLabelSheet'].forEach(n => { exports[n] = itemBarcodes[n]; });
 // HR Payroll step 7c: the Provisions module (docs/modules/HR_PAYROLL.md, step 7).
 const provisions = require('./src/provisions');
 ['getProvisionStatement', 'getProvisionMovements', 'saveProvisionOpeningEntry', 'deleteProvisionOpening'].forEach(n => { exports[n] = provisions[n]; });
