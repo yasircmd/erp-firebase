@@ -26,7 +26,8 @@ const STOCK_TRANSACTION_PREFIXES = {
   PayrollPayment: 'PAYP', // its payment (step 4) and that payment's reversal
   PayrollLoan: 'PLN', // a loan's payout and repayments (step 4b)
   PayrollProvision: 'PPR', // an accrual's claim (step 5a)
-  FinalSettlement: 'FS' // an employee's final settlement (step 5b)
+  FinalSettlement: 'FS', // an employee's final settlement (step 5b)
+  RetailSale: 'RS' // hand-written module, docs/modules/RETAIL_SALES.md: a sale and its reversal
 };
 
 function userCanAccessCompany(profile, companyId) {
@@ -147,7 +148,7 @@ async function generatePayrollTransactionRef() {
 const FINANCE_VOUCHER_TYPES = [
   'FACapitalization', 'FADepreciation', 'FAAdditionalDepreciation', 'FARetirement', 'FAAuCCost', 'FAAuCSettlement',
   'PDCReceived', 'PDCReceivedClear', 'PDCIssued', 'PDCIssuedClear', 'RecurringJV', 'OpeningBalance',
-  'VendorInvoice', 'CustomerInvoice'];
+  'VendorInvoice', 'CustomerInvoice', 'RetailSale'];
 async function generateFinanceTransactionRef() {
   const res = await rtdb.ref('gl/transactionRefCounter').transaction(cur => (Number(cur) || 0) + 1);
   return 'TXN-' + String(res.snapshot.val()).padStart(8, '0');
