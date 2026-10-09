@@ -756,3 +756,15 @@ The owner's decision 44 (docs/modules/HR_PAYROLL.md):
   Register until a file is attached.
 
 As built: docs/modules/HR_PAYROLL.md, "As built: step 6".
+
+## Change 2026-10-09 (owner; docs/modules/HR_PAYROLL.md, step 7)
+
+- **Decision 12 relaxed:** a month can be locked from the company's
+  cut-off day (Payroll Setup → Payroll Accounting, e.g. the 25th), not
+  only after it ends, so payroll can run before the month is over. Only
+  leave dated up to today must be decided then; leave approved later for
+  the rest of the month is paid in the next month. Without a cut-off day,
+  as before.
+- **Leave tasks** (Home: on leave today, returns to record) go only to
+  the employee and their line manager (their linked ERP users), no longer
+  to every Leave Register / Leave Reports user.

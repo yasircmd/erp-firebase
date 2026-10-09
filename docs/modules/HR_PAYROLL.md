@@ -2153,3 +2153,55 @@ users.
 Built in three steps, each its own PR: **7a** points 1, 2, 3, 6, 7, 8 and
 the Payment tab; **7b** Earnings & Deductions and the interim Payment
 item (points 4, 5); **7c** the Provisions module (point 9).
+
+## As built: step 7a (2026-10-09)
+
+Points 1, 2, 3, 6, 7, 8 and the Payment tab (points 4 and 5, and 9, are
+steps 7b and 7c).
+
+- **Costing (point 1):** a run approved or posted has a **Costing** view
+  next to its Register: per employee, the earnings by element, Earnings,
+  the deductions by element, Deductions, Net, then the employer's cost:
+  each provision accrued with the run (gratuity, leave salary, each accrual
+  type), Provisions and **Total cost** (earnings + provisions); a totals
+  row. "Approved, not posted yet" when it isn't posted. Copy to Excel
+  copies the view on show (Register or Costing). Built from the run's
+  slips in the screen (no new callable).
+- **Layout (point 2):** the register and costing are one line per employee
+  (no wrapping); No. and Employee stay put while the elements scroll
+  (position sticky, set inline so it doesn't depend on the CSS framework).
+- **Search (point 3):** the runs list filters by company, month from–to
+  and status (kept while the screen is open; Clear resets).
+- **Payment tab (point 4, first half):** Payroll has **Runs** and
+  **Payment** tabs. Payment lists the posted runs with their payment
+  status (Unpaid, Part paid, Paid; by default those still to pay); a run
+  opens on its **Payment** view (the plan, file and Mark paid, moved there
+  from under the register). `getPayrollRuns` returns `Payment` and
+  `PaymentDate`.
+- **Interim reversal (point 6):** reversing the last live payment of a
+  batch sets it to **Reversed** (with who, when and why), kept read-only
+  with its payments, their reversals and history; its items are released
+  for a new batch. A batch that was ever paid can't be deleted (also one
+  reversed before this change, now a draft). Reversing one payment group
+  of several leaves it Approved, as before.
+- **Cut-off day (point 7, decision 56):** Payroll Setup → Payroll
+  Accounting, per company, a day from 1 to 28 (blank: the month's end).
+  The leave month can be locked from that day (Leave Register → Month
+  close shows it lockable); only leave dated up to today must be decided
+  then. Leave approved later for the rest of the month is paid in the next
+  month (its pay month is set at approval, as for any locked month). The
+  month's leave accrual is posted at the lock, so unpaid days recorded
+  after it don't reduce that month's accrual.
+- **Leave tasks (point 8, decision 59):** "On leave today" and "Leave
+  returns to record" go only to the employee (the ERP user linked on their
+  record) and their line manager (the manager's linked user); each task
+  says which ("Employee" / "Line manager"). Nobody else, Leave Register
+  users included.
+
+Tests: hrLeaveClose (cut-off), hrLeaveReports (tasks), payrollInterim
+(Reversed), payrollPayment (payment status) suites; payrollStep7.ui.js
+(search, sticky layout, costing and its Excel copy, the cut-off field);
+payrollPayment.ui.js (the Payment tab), payrollInterim.ui.js (Reversed).
+Negative controls caught: the cut-off ignored; tasks to everyone; a
+reversed batch back to a draft; the costing without provisions; the
+status filter ignored. Deploy: `payroll-7a` with `--screens`.

@@ -1,0 +1,19 @@
+# HR Payroll, step 7a: the owner's points of 2026-10-09 (docs/modules/
+# HR_PAYROLL.md, step 7; decisions 56 and 59). Run with --screens
+# (PAYROLL, PAYROLLSETUP, PAYROLLIP, LEAVE changed). No Hosting change.
+# Then, in the app, if wanted: Payroll Setup → Payroll Accounting, each
+# company's cut-off day (e.g. 25; blank keeps "after the month ends"); and
+# link each employee to their ERP user and line manager (Employees) so the
+# leave tasks reach them.
+# Changed: the cut-off day (decision 56).
+savePayrollCompany
+getPayrollSetup
+lockLeaveMonth
+getLeaveMonths
+# Changed: leave tasks only to the employee and their line manager (decision 59).
+getLeaveTasksForUser
+# Changed: a paid interim batch, once reversed, is kept as Reversed (point 6).
+reverseInterimPayment
+deleteInterimBatch
+# Changed: the runs list carries the payment status (the Payment tab).
+getPayrollRuns
