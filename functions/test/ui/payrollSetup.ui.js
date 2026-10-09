@@ -55,7 +55,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(offered.includes('A-SAL'), false);
     await p.click('#ps-pc-body tr[data-co="C1"] .ps-pc-save');
     await until(async () => (await settings()).settings[0].DailyRateMethod === 'MONTHDAYS', 'the method was not saved');
-    assert.deepEqual((await settings()).settings, [{ CompanyID: 'C1', DailyRateMethod: 'MONTHDAYS', PayableAccountID: 'A-SALPAY', ReceivableAccountID: '', LeaveDeductionGL: 'Ledger' }]);
+    assert.deepEqual((await settings()).settings, [{ CompanyID: 'C1', DailyRateMethod: 'MONTHDAYS', PayableAccountID: 'A-SALPAY', ReceivableAccountID: '', LeaveDeductionGL: 'Ledger', CutOffDay: 0 }]);
     assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
     await p.close();
   });

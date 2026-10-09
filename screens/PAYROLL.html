@@ -27,7 +27,25 @@
     <button id="pr-new-create" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Create and calculate</button>
     <button id="pr-new-cancel" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button>
   </div>
-  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+  <!-- Step 7 (points 3, 4): Runs and Payment tabs; search by company, month and status. -->
+  <div class="flex gap-1 border-b border-slate-700">
+    <button data-tab="runs" class="pr-tab px-4 py-2 text-xs border-b-2 border-blue-500 text-blue-300">Runs</button>
+    <button data-tab="payment" class="pr-tab px-4 py-2 text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-200">Payment</button>
+  </div>
+  <div class="flex flex-wrap items-end gap-3">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="pr-f-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm text-slate-300"><option value="">All</option></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Month from</label><input id="pr-f-from" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">to</label><input id="pr-f-to" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></div>
+    <div id="pr-f-status-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="pr-f-status" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm text-slate-300"><option value="">All</option><option value="Draft">Draft</option><option value="PendingApproval">Pending approval</option><option value="Approved">Approved, waiting to post</option><option value="Posted">Posted</option></select></div>
+    <div id="pr-f-pay-wrap" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Payment</label><select id="pr-f-pay" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm text-slate-300"><option value="open">To pay (unpaid or part paid)</option><option value="">All</option><option value="Paid">Paid</option></select></div>
+    <button id="pr-f-clear" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700">Clear</button>
+  </div>
+  <div id="pr-pay-list-wrap" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-3 px-3">Month</th><th class="py-3 px-3">Company</th><th class="py-3 px-3 text-right">Employees</th><th class="py-3 px-3 text-right">Net to pay</th><th class="py-3 px-3">Payment</th><th class="py-3 px-3">Paid on</th></tr></thead>
+    <tbody id="pr-pay-runs-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+  </div></div>
+  <div id="pr-runs-wrap" class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
     <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
       <th class="py-3 px-3">Month</th><th class="py-3 px-3">Company</th><th class="py-3 px-3 text-right">Employees</th><th class="py-3 px-3 text-right">Earnings</th>
       <th class="py-3 px-3 text-right">Deductions</th><th class="py-3 px-3 text-right">Net</th><th class="py-3 px-3">Warnings</th><th class="py-3 px-3">Status</th></tr></thead>
@@ -101,8 +119,16 @@
   </div>
   <div id="pr-totals" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
 
-  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
-    <table class="w-full text-left"><thead id="pr-reg-head"></thead><tbody id="pr-reg-body" class="divide-y divide-slate-700 text-sm"></tbody><tfoot id="pr-reg-foot"></tfoot></table>
+  <!-- Step 7 (points 1, 4): the register, the costing (once approved), the payment (once posted). -->
+  <div class="flex gap-1 border-b border-slate-700" id="pr-views">
+    <button data-view="register" class="pr-view px-4 py-2 text-xs border-b-2 border-blue-500 text-blue-300">Register</button>
+    <button data-view="costing" class="pr-view hidden px-4 py-2 text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-200">Costing</button>
+    <button data-view="payment" class="pr-view hidden px-4 py-2 text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-200">Payment</button>
+  </div>
+  <p id="pr-costing-note" class="hidden text-xs text-slate-400"></p>
+  <!-- Step 7 (point 2): one line per employee, the employee column fixed while the elements scroll. -->
+  <div id="pr-reg-wrap" class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left whitespace-nowrap" style="white-space:nowrap"><thead id="pr-reg-head"></thead><tbody id="pr-reg-body" class="divide-y divide-slate-700 text-sm"></tbody><tfoot id="pr-reg-foot"></tfoot></table>
   </div></div>
 
   <div id="pr-slip" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
@@ -180,23 +206,58 @@
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   let companies = [], list = null, current = null, isDirty = false, loadSeq = 0;
+  // Step 7 (point 2): the employee columns stay put while the elements scroll.
+  const STICKY_TH = '<th class="py-2 px-3 sticky z-10 bg-slate-900" style="position:sticky;left:0;min-width:5.5rem">No.</th><th class="py-2 px-3 sticky z-10 bg-slate-900" style="position:sticky;left:5.5rem">Employee</th>';
+  const stickyTd = s => '<td class="py-2 px-3 text-xs sticky bg-slate-800" style="position:sticky;left:0;min-width:5.5rem">' + escapeHtml(s.EmployeeNo) + '</td><td class="py-2 px-3 sticky bg-slate-800" style="position:sticky;left:5.5rem">' + escapeHtml(s.EmployeeName) + '</td>';
   const STATUS = { Draft: 'Draft', PendingApproval: 'Pending approval', Approved: 'Approved, waiting to post', Posted: 'Posted' };
   const coLabel = id => { const c = companies.find(x => x.CompanyID === id); return c ? (c.CompanyRefCode || c.LegalName) : id; };
 
   // ---------- the list ----------
+  // Step 7: Runs and Payment tabs, filtered by company, month and status
+  // (or payment); the filters stay while the screen is open.
+  let listTab = 'runs', view = 'register';
+  const PAYSTATE = { Paid: 'text-emerald-400', 'Part paid': 'text-amber-400', Unpaid: 'text-slate-400' };
   function loadList() {
     return call('getPayrollRuns', {}).then(r => {
       list = r;
       $('pr-new-btn').classList.toggle('hidden', !r.canDraft);
       $('pr-new-company').innerHTML = r.companies.map(c => '<option value="' + escapeHtml(c) + '">' + escapeHtml(coLabel(c)) + '</option>').join('');
-      $('pr-runs-body').innerHTML = r.runs.length ? r.runs.map(x => '<tr data-id="' + escapeHtml(x.RunID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
-        '<td class="py-2 px-3">' + escapeHtml(x.Month) + '</td><td class="py-2 px-3">' + escapeHtml(coLabel(x.CompanyID)) + '</td><td class="py-2 px-3 text-right">' + x.Employees + '</td>' +
-        '<td class="py-2 px-3 text-right">' + money(x.Earnings) + '</td><td class="py-2 px-3 text-right">' + money(x.Deductions) + '</td><td class="py-2 px-3 text-right font-semibold">' + money(x.Net) + '</td>' +
-        '<td class="py-2 px-3 text-xs ' + (x.Warnings ? 'text-amber-400' : 'text-slate-500') + '">' + (x.Warnings ? x.Warnings + ' employee' + (x.Warnings === 1 ? '' : 's') : '—') + '</td>' +
-        '<td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(STATUS[x.Status] || x.Status) + '</td></tr>').join('')
-        : '<tr><td colspan="8" class="py-6 px-3 text-center text-xs text-slate-500">No payroll runs yet.</td></tr>';
-      $('pr-runs-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openRun(tr.dataset.id)));
+      const keep = val('pr-f-company');
+      $('pr-f-company').innerHTML = '<option value="">All</option>' + r.companies.map(c => '<option value="' + escapeHtml(c) + '"' + (c === keep ? ' selected' : '') + '>' + escapeHtml(coLabel(c)) + '</option>').join('');
+      renderList();
     }, err => appAlert(err.message || 'Unable to load the payroll runs.'));
+  }
+  function filtered() {
+    const co = val('pr-f-company'), from = val('pr-f-from'), to = val('pr-f-to');
+    return (list ? list.runs : []).filter(x => (!co || x.CompanyID === co) && (!from || x.Month >= from) && (!to || x.Month <= to));
+  }
+  function showListTab(tab) {
+    listTab = tab;
+    document.querySelectorAll('.pr-tab').forEach(b => { const on = b.dataset.tab === tab; b.className = 'pr-tab px-4 py-2 text-xs border-b-2 ' + (on ? 'border-blue-500 text-blue-300' : 'border-transparent text-slate-400 hover:text-slate-200'); });
+    $('pr-runs-wrap').classList.toggle('hidden', tab !== 'runs');
+    $('pr-f-status-wrap').classList.toggle('hidden', tab !== 'runs');
+    $('pr-pay-list-wrap').classList.toggle('hidden', tab !== 'payment');
+    $('pr-f-pay-wrap').classList.toggle('hidden', tab !== 'payment');
+    renderList();
+  }
+  function renderList() {
+    if (!list) return;
+    const st = val('pr-f-status');
+    const runs = filtered().filter(x => !st || x.Status === st);
+    $('pr-runs-body').innerHTML = runs.length ? runs.map(x => '<tr data-id="' + escapeHtml(x.RunID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
+      '<td class="py-2 px-3">' + escapeHtml(x.Month) + '</td><td class="py-2 px-3">' + escapeHtml(coLabel(x.CompanyID)) + '</td><td class="py-2 px-3 text-right">' + x.Employees + '</td>' +
+      '<td class="py-2 px-3 text-right">' + money(x.Earnings) + '</td><td class="py-2 px-3 text-right">' + money(x.Deductions) + '</td><td class="py-2 px-3 text-right font-semibold">' + money(x.Net) + '</td>' +
+      '<td class="py-2 px-3 text-xs ' + (x.Warnings ? 'text-amber-400' : 'text-slate-500') + '">' + (x.Warnings ? x.Warnings + ' employee' + (x.Warnings === 1 ? '' : 's') : '—') + '</td>' +
+      '<td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(STATUS[x.Status] || x.Status) + '</td></tr>').join('')
+      : '<tr><td colspan="8" class="py-6 px-3 text-center text-xs text-slate-500">' + (list.runs.length ? 'No payroll run matches the filters.' : 'No payroll runs yet.') + '</td></tr>';
+    // Payment: the posted runs, by default those still to pay.
+    const pf = val('pr-f-pay');
+    const toPay = filtered().filter(x => x.Status === 'Posted' && (!pf || (pf === 'open' ? x.Payment !== 'Paid' : x.Payment === pf)));
+    $('pr-pay-runs-body').innerHTML = toPay.length ? toPay.map(x => '<tr data-id="' + escapeHtml(x.RunID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
+      '<td class="py-2 px-3">' + escapeHtml(x.Month) + '</td><td class="py-2 px-3">' + escapeHtml(coLabel(x.CompanyID)) + '</td><td class="py-2 px-3 text-right">' + x.Employees + '</td>' +
+      '<td class="py-2 px-3 text-right font-semibold">' + money(x.Net) + '</td><td class="py-2 px-3 text-xs ' + PAYSTATE[x.Payment] + '">' + escapeHtml(x.Payment) + '</td>' +
+      '<td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(x.PaymentDate) + '</td></tr>').join('')
+      : '<tr><td colspan="6" class="py-6 px-3 text-center text-xs text-slate-500">No posted run ' + (pf === 'open' ? 'is waiting to be paid.' : 'matches the filters.') + '</td></tr>';
   }
   function createRun() {
     if (!val('pr-new-month')) return appAlert('Choose the month.');
@@ -208,7 +269,8 @@
 
   // ---------- a run ----------
   function showList() { $('pr-run-view').classList.add('hidden'); $('pr-prov-view').classList.add('hidden'); $('pr-list-view').classList.remove('hidden'); current = null; isDirty = false; loadList(); }
-  function openRun(id) {
+  function openRun(id, startView) {
+    view = startView || 'register';
     const seq = ++loadSeq;
     return call('getPayrollRun', { runId: id }).then(r => {
       if (seq !== loadSeq || !$('pr-run-view')) return; // a later open, or the screen was left
@@ -250,15 +312,15 @@
     const tile = (label, v, cls) => '<div class="bg-slate-800 border border-slate-700 rounded-xl p-3"><div class="text-xs text-slate-400">' + label + '</div><div class="text-lg font-semibold ' + (cls || 'text-slate-100') + '">' + v + '</div></div>';
     $('pr-totals').innerHTML = tile('Employees', run.Employees) + tile('Earnings', money(run.Earnings)) + tile('Deductions', money(run.Deductions)) + tile('Net pay', money(run.Net), 'text-emerald-400');
     const cols = run.Columns || [];
-    $('pr-reg-head').innerHTML = '<tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase"><th class="py-2 px-3">No.</th><th class="py-2 px-3">Employee</th>' +
+    $('pr-reg-head').innerHTML = '<tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">' + STICKY_TH +
       cols.map(c => '<th class="py-2 px-3 text-right' + (c.Kind === 'Deduction' ? ' text-red-300' : '') + '" title="' + escapeHtml(c.Name) + '">' + escapeHtml(c.Code) + '</th>').join('') +
       '<th class="py-2 px-3 text-right">Earnings</th><th class="py-2 px-3 text-right">Deductions</th><th class="py-2 px-3 text-right">Net</th><th class="py-2 px-3"></th></tr>';
     const cell = (s, id) => s.Lines.filter(l => l.ElementID === id).reduce((t, l) => t + l.Amount, 0);
-    $('pr-reg-body').innerHTML = r.slips.map(s => '<tr data-emp="' + escapeHtml(s.EmployeeID) + '" class="hover:bg-slate-800/40 cursor-pointer"><td class="py-2 px-3 text-xs">' + escapeHtml(s.EmployeeNo) + '</td><td class="py-2 px-3">' + escapeHtml(s.EmployeeName) + '</td>' +
+    $('pr-reg-body').innerHTML = r.slips.map(s => '<tr data-emp="' + escapeHtml(s.EmployeeID) + '" class="hover:bg-slate-700/40 cursor-pointer">' + stickyTd(s) +
       cols.map(c => { const v = cell(s, c.ElementID); return '<td class="py-2 px-3 text-right">' + (v ? money(v) : '') + '</td>'; }).join('') +
       '<td class="py-2 px-3 text-right">' + money(s.Earnings) + '</td><td class="py-2 px-3 text-right">' + money(s.Deductions) + '</td><td class="py-2 px-3 text-right font-semibold' + (s.Net < 0 ? ' text-red-400' : '') + '">' + money(s.Net) + '</td>' +
       '<td class="py-2 px-3 text-amber-400" title="' + escapeHtml(s.Warnings.join(' ')) + '">' + (s.Warnings.length ? '<i class="fa-solid fa-triangle-exclamation"></i>' : '') + '</td></tr>').join('');
-    $('pr-reg-foot').innerHTML = '<tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3" colspan="2">Total</td>' +
+    $('pr-reg-foot').innerHTML = '<tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3 sticky bg-slate-800" style="position:sticky;left:0" colspan="2">Total</td>' +
       cols.map(c => '<td class="py-2 px-3 text-right">' + money(r.slips.reduce((t, s) => t + cell(s, c.ElementID), 0)) + '</td>').join('') +
       '<td class="py-2 px-3 text-right">' + money(run.Earnings) + '</td><td class="py-2 px-3 text-right">' + money(run.Deductions) + '</td><td class="py-2 px-3 text-right">' + money(run.Net) + '</td><td></td></tr>';
     $('pr-reg-body').querySelectorAll('tr[data-emp]').forEach(tr => tr.addEventListener('click', () => showSlip(tr.dataset.emp)));
@@ -266,7 +328,57 @@
     renderInputs();
     $('pr-pay').classList.add('hidden');
     if (run.Status === 'Posted') loadPayment();
+    showView(view);
   }
+  // Step 7: Register (and the inputs), Costing once the run is approved,
+  // Payment once it is posted.
+  const costable = run => run.Status === 'Approved' || run.Status === 'Posted';
+  function showView(v) {
+    const run = current.run;
+    if (v === 'costing' && !costable(run)) v = 'register';
+    if (v === 'payment' && run.Status !== 'Posted') v = 'register';
+    view = v;
+    document.querySelectorAll('.pr-view').forEach(b => {
+      const on = b.dataset.view === v;
+      b.className = 'pr-view px-4 py-2 text-xs border-b-2 ' + (on ? 'border-blue-500 text-blue-300' : 'border-transparent text-slate-400 hover:text-slate-200') +
+        ((b.dataset.view === 'costing' && !costable(run)) || (b.dataset.view === 'payment' && run.Status !== 'Posted') ? ' hidden' : '');
+    });
+    $('pr-reg-wrap').classList.toggle('hidden', v === 'payment');
+    $('pr-inputs-wrap').classList.toggle('hidden', v !== 'register');
+    $('pr-costing-note').classList.toggle('hidden', v !== 'costing');
+    $('pr-pay').classList.toggle('hidden', v !== 'payment' || !payment || payment.run.RunID !== run.RunID);
+    if (v !== 'register') $('pr-slip').classList.add('hidden');
+    if (v === 'costing') renderCosting(); else if (v === 'register') renderRegisterOnly();
+  }
+  // The costing (step 7, point 1): each employee's elements, then the
+  // employer's cost: the provisions accrued with the run, and the total.
+  function costingColumns() {
+    const keys = [];
+    current.slips.forEach(s => (s.Provisions || []).forEach(p => { const k = p.Kind + ':' + (p.AccrualTypeID || ''); if (!keys.some(x => x.Key === k)) keys.push({ Key: k, Name: p.Name }); }));
+    return keys;
+  }
+  const provOf = (s, key) => (s.Provisions || []).filter(p => p.Kind + ':' + (p.AccrualTypeID || '') === key).reduce((t, p) => t + p.Amount, 0);
+  const provTotal = s => (s.Provisions || []).reduce((t, p) => t + p.Amount, 0);
+  function renderCosting() {
+    const r = current, run = r.run, cols = run.Columns || [], provs = costingColumns();
+    const earn = cols.filter(c => c.Kind !== 'Deduction'), ded = cols.filter(c => c.Kind === 'Deduction');
+    $('pr-costing-note').textContent = 'The employer\'s cost: what each employee earned, by element, and the provisions accrued with the run (not paid now).' + (run.Status === 'Posted' ? '' : ' Approved, not posted yet.');
+    const cell = (s, id) => s.Lines.filter(l => l.ElementID === id).reduce((t, l) => t + l.Amount, 0);
+    const th = (t, title, cls) => '<th class="py-2 px-3 text-right' + (cls || '') + '"' + (title ? ' title="' + escapeHtml(title) + '"' : '') + '>' + escapeHtml(t) + '</th>';
+    $('pr-reg-head').innerHTML = '<tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">' + STICKY_TH +
+      earn.map(c => th(c.Code, c.Name)).join('') + th('Earnings') + ded.map(c => th(c.Code, c.Name, ' text-red-300')).join('') + th('Deductions') + th('Net') +
+      provs.map(p => th(p.Name, 'Provision', ' text-amber-300')).join('') + th('Provisions') + th('Total cost', 'Earnings + provisions', ' text-emerald-300') + '</tr>';
+    const td = (v, cls) => '<td class="py-2 px-3 text-right' + (cls || '') + '">' + (v ? money(v) : '') + '</td>';
+    $('pr-reg-body').innerHTML = r.slips.map(s => '<tr data-emp="' + escapeHtml(s.EmployeeID) + '">' + stickyTd(s) +
+      earn.map(c => td(cell(s, c.ElementID))).join('') + td(s.Earnings, ' font-semibold') + ded.map(c => td(cell(s, c.ElementID))).join('') + td(s.Deductions, ' font-semibold') + td(s.Net) +
+      provs.map(p => td(provOf(s, p.Key))).join('') + td(provTotal(s), ' font-semibold') + td(s.Earnings + provTotal(s), ' font-semibold text-emerald-300') + '</tr>').join('');
+    const sum = f => r.slips.reduce((t, s) => t + f(s), 0);
+    $('pr-reg-foot').innerHTML = '<tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3 sticky bg-slate-800" style="position:sticky;left:0" colspan="2">Total</td>' +
+      earn.map(c => td(sum(s => cell(s, c.ElementID)))).join('') + td(run.Earnings) + ded.map(c => td(sum(s => cell(s, c.ElementID)))).join('') + td(run.Deductions) + td(run.Net) +
+      provs.map(p => td(sum(s => provOf(s, p.Key)))).join('') + td(sum(provTotal)) + td(run.Earnings + sum(provTotal), ' text-emerald-300') + '</tr>';
+  }
+  // The register again after the costing (renderRun drew it first).
+  function renderRegisterOnly() { if ($('pr-reg-head').textContent.includes('Total cost')) renderRun(); }
   function showSlip(empId) {
     const s = current.slips.find(x => x.EmployeeID === empId);
     if (!s) return;
@@ -412,13 +524,13 @@
   function saveInputs() {
     const b = $('pr-in-save'); b.disabled = true;
     call('savePayrollInputs', { runId: current.run.RunID, rows: collectInputs() })
-      .then(() => openRun(current.run.RunID), err => appAlert(err.message || 'Unable to save the inputs.'))
+      .then(() => openRun(current.run.RunID, view), err => appAlert(err.message || 'Unable to save the inputs.'))
       .then(() => { b.disabled = false; });
   }
 
   // ---------- submit, approve, post, reverse ----------
   function after(p, what) {
-    return p.then(r => { if (r && r.postError) appAlert('Approved, but not posted: ' + r.postError); return openRun(current.run.RunID); }, err => appAlert(err.message || 'Unable to ' + what + '.'));
+    return p.then(r => { if (r && r.postError) appAlert('Approved, but not posted: ' + r.postError); return openRun(current.run.RunID, view); }, err => appAlert(err.message || 'Unable to ' + what + '.'));
   }
   function submitRun() {
     const go = () => after(call('submitPayrollRun', { runId: current.run.RunID }), 'submit the run');
@@ -449,7 +561,7 @@
     .map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === sel ? ' selected' : '') + '>' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
   function renderPayment() {
     const p = payment, paid = Boolean(p.run.PaidAt), can = p.canPay && !paid;
-    $('pr-pay').classList.remove('hidden');
+    $('pr-pay').classList.toggle('hidden', view !== 'payment'); // its own tab (step 7)
     $('pr-pay-done').classList.toggle('hidden', !paid);
     $('pr-pay-done').textContent = paid ? 'Paid in full (the last on ' + p.run.PaymentDate + ').' : '';
     $('pr-pay-form').classList.toggle('hidden', !can);
@@ -497,13 +609,13 @@
     const g = payment.groups.find(x => x.Way === way && x.AccountID === accountId);
     appConfirm('Mark ' + g.Unpaid + ' paid by ' + g.WayName.toLowerCase() + ' from ' + g.Account + ' (' + money(g.UnpaidTotal) + ') on ' + val('pr-pay-date') + '? This posts the payment journal.').then(ok => {
       if (ok) call('markPayrollPaid', { runId: current.run.RunID, paymentDate: val('pr-pay-date'), way, accountId, reference: val('pr-pay-ref') })
-        .then(() => openRun(current.run.RunID), err => appAlert(err.message || 'Unable to mark it paid.'));
+        .then(() => openRun(current.run.RunID, view), err => appAlert(err.message || 'Unable to mark it paid.'));
     });
   }
   function reversePayment(paymentId) {
     const x = payment.payments.find(y => y.PaymentID === paymentId);
     appPrompt('Reverse the payment ' + x.JVNumber + '. Reason:', '').then(reason => {
-      if (reason !== null) call('reversePayrollPayment', { runId: current.run.RunID, paymentId, reason }).then(() => openRun(current.run.RunID), err => appAlert(err.message || 'Unable to reverse the payment.'));
+      if (reason !== null) call('reversePayrollPayment', { runId: current.run.RunID, paymentId, reason }).then(() => openRun(current.run.RunID, view), err => appAlert(err.message || 'Unable to reverse the payment.'));
     });
   }
 
@@ -535,6 +647,15 @@
   function copyToExcel() {
     const r = current, cols = r.run.Columns || [];
     const cell = (s, id) => s.Lines.filter(l => l.ElementID === id).reduce((t, l) => t + l.Amount, 0);
+    if (view === 'costing') {
+      const provs = costingColumns(), earn = cols.filter(c => c.Kind !== 'Deduction'), ded = cols.filter(c => c.Kind === 'Deduction');
+      const n = v => Math.round(v * 100) / 100;
+      const head = ['No.', 'Employee'].concat(earn.map(c => c.Name), ['Earnings'], ded.map(c => c.Name), ['Deductions', 'Net'], provs.map(p => p.Name), ['Provisions', 'Total cost']);
+      const line = s => [s.EmployeeNo, s.EmployeeName].concat(earn.map(c => n(cell(s, c.ElementID))), [n(s.Earnings)], ded.map(c => n(cell(s, c.ElementID))), [n(s.Deductions), n(s.Net)],
+        provs.map(p => n(provOf(s, p.Key))), [n(provTotal(s)), n(s.Earnings + provTotal(s))]);
+      const tot = line({ EmployeeNo: '', EmployeeName: 'Total', Lines: [].concat(...r.slips.map(s => s.Lines)), Earnings: r.run.Earnings, Deductions: r.run.Deductions, Net: r.run.Net, Provisions: [].concat(...r.slips.map(s => s.Provisions || [])) });
+      return copyRows([head].concat(r.slips.map(line), [tot]), $('pr-copy'));
+    }
     const rows = [['No.', 'Employee'].concat(cols.map(c => c.Name)).concat(['Earnings', 'Deductions', 'Net'])]
       .concat(r.slips.map(s => [s.EmployeeNo, s.EmployeeName].concat(cols.map(c => cell(s, c.ElementID))).concat([s.Earnings, s.Deductions, s.Net])));
     copyRows(rows, $('pr-copy'));
@@ -591,8 +712,14 @@
     });
     $('pr-pay-made').addEventListener('click', e => { const b = e.target.closest('.pr-p-rev'); if (b) reversePayment(b.closest('li').dataset.pay); });
     $('pr-copy').addEventListener('click', copyToExcel);
+    document.querySelectorAll('.pr-tab').forEach(b => b.addEventListener('click', () => showListTab(b.dataset.tab)));
+    document.querySelectorAll('.pr-view').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+    ['pr-f-company', 'pr-f-from', 'pr-f-to', 'pr-f-status', 'pr-f-pay'].forEach(id => $(id).addEventListener('change', renderList));
+    $('pr-f-clear').addEventListener('click', () => { ['pr-f-company', 'pr-f-from', 'pr-f-to', 'pr-f-status'].forEach(id => { $(id).value = ''; }); $('pr-f-pay').value = 'open'; renderList(); });
+    $('pr-runs-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openRun(tr.dataset.id); });
+    $('pr-pay-runs-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openRun(tr.dataset.id, 'payment'); });
     $('pr-recalc').addEventListener('click', () => {
-      const go = () => call('recalculatePayrollRun', { runId: current.run.RunID }).then(() => openRun(current.run.RunID), err => appAlert(err.message || 'Unable to recalculate.'));
+      const go = () => call('recalculatePayrollRun', { runId: current.run.RunID }).then(() => openRun(current.run.RunID, view), err => appAlert(err.message || 'Unable to recalculate.'));
       if (!isDirty) return go();
       appConfirm('Recalculate without saving the inputs you changed?').then(ok => { if (ok) go(); });
     });

@@ -64,7 +64,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.selectOption('#ps-pc-body tr[data-co="C1"] .ps-pc-receivable', 'A-REC');
     await p.click('#ps-pc-body tr[data-co="C1"] .ps-pc-save');
     for (let i = 0; i < 40 && (await call('u-admin', 'getPayrollSetup', {})).settings[0].ReceivableAccountID !== 'A-REC'; i++) await new Promise(ok => setTimeout(ok, 300));
-    assert.deepEqual((await call('u-admin', 'getPayrollSetup', {})).settings[0], { CompanyID: 'C1', DailyRateMethod: 'DIV30', PayableAccountID: 'A-SALPAY', ReceivableAccountID: 'A-REC', LeaveDeductionGL: 'Ledger' });
+    assert.deepEqual((await call('u-admin', 'getPayrollSetup', {})).settings[0], { CompanyID: 'C1', DailyRateMethod: 'DIV30', PayableAccountID: 'A-SALPAY', ReceivableAccountID: 'A-REC', LeaveDeductionGL: 'Ledger', CutOffDay: 0 });
     assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
     await p.close();
   });
