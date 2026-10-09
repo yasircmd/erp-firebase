@@ -11,51 +11,33 @@ fresh session can continue from GitHub.
 
 ## Waiting to go live (the owner's deploys and setup)
 
-Waiting to deploy:
-- `master-import-3b` (Master Data Import, update existing for the other
-  masters), "functions set"; no screens, no Hosting;
-- `payroll-5c` (interim payroll: the final settlement pays the last
-  salary; batches of settlements and loans paid between runs), "functions
-  set" with the screens; no Hosting. Then link a menu node to "Interim
-  Payroll", set its rights (draft, pay), and if wanted Approval
-  Configuration → "Interim payroll";
-- `payroll-6` (the owner's points of 2026-10-06: certificate accepted by
-  the approver, Payroll Accounting, leave deductions pro rata, PRL
-  references and the GL link, the payment plan), "functions set" with
-  the screens, after `payroll-5c`; no Hosting. Then choose each
-  company's "Leave deductions in the GL" (Payroll Setup → Payroll
-  Accounting).
-- `gl-references` (the owner's "STK references" point: finance
-  documents take TXN-, opening balance journals open in Opening
-  Balances from the GL report), "functions set" with the screens; no
-  Hosting, nothing to set up.
-- `payroll-7a` (the owner's payroll points of 2026-10-09, step 7a:
-  costing report, run layout and search, Payment tab, interim Reversed,
-  the cut-off day, leave tasks to the employee and line manager),
-  "functions set" with the screens; no Hosting. Then, if wanted, each
-  company's cut-off day (Payroll Setup → Payroll Accounting), and
-  employees linked to their ERP user and line manager for the leave
-  tasks. Steps 7b and 7c follow.
-- `payroll-7b` (Earnings & Deductions, earnings paid by Interim Payroll),
-  after `payroll-7a`, "functions set" with the screens; no Hosting. Then
-  link a menu node to "Earnings & Deductions" and set its rights; a
-  draft run calculated before shows "changed": recalculate it.
-- `payroll-7c` (the Provisions module: the statement with opening,
-  accrued, released, utilised and closing, movements, the GL check;
-  claims and openings moved there), after `payroll-7b`, "functions set"
-  with the screens; no Hosting. Then link a menu node to "Provisions"
-  (its access right; inside, Payroll's rights apply). Payroll →
-  Provisions now opens it. This completes the owner's points of
-  2026-10-09.
-`retail-sales` and `item-barcodes` went live on 2026-10-09 (runs #109,
-#110; [DEPLOY_LOG.md](DEPLOY_LOG.md)): in the app, link a menu node to
-"Retail Sales", set its rights (access, post, write, report) and each
-company's Retail Sales → Setup (the defaults, which create the Retail
-Customer, and the payment methods with their ledgers). The company needs
-its Discount Given and Output Tax accounts (Company Master), the items
-their Sales COGS accounts. Add the products' barcodes in Item Master or
-Master Data Import → Item Barcodes. Next (later): barcode labels for
-items without one (ITEM_BARCODES.md, decision 67).
+Waiting to deploy: nothing (2026-10-09). Everything merged is live.
+
+Went live 2026-10-05 – 2026-10-09 (runs #95–#110, [DEPLOY_LOG.md](DEPLOY_LOG.md)):
+`master-import-3b`, `payroll-5c`, `payroll-6`, `gl-references`,
+`retail-sales`, `payroll-7a`, `payroll-7b`, `payroll-7c`,
+`item-barcodes`. Still to do in the app, if not done yet:
+- Interim Payroll (5c): link a menu node, set its rights (draft, pay),
+  and if wanted Approval Configuration → "Interim payroll";
+- Payroll step 6: each company's "Leave deductions in the GL" (Payroll
+  Setup → Payroll Accounting);
+- Payroll step 7a: if wanted, each company's cut-off day (Payroll Setup
+  → Payroll Accounting); employees linked to their ERP user and line
+  manager for the leave tasks;
+- Earnings & Deductions (7b): link a menu node and set its rights; a
+  draft run calculated before 7b shows "changed": recalculate it;
+- Provisions (7c): link a menu node and give it access (inside,
+  Payroll's rights apply);
+- Retail Sales (runs #99–#109): link a menu node to "Retail Sales",
+  set its rights (access, post, write, report) and each company's Retail
+  Sales → Setup (the defaults, which create the Retail Customer, and the
+  payment methods with their ledgers). The company needs its Discount
+  Given and Output Tax accounts (Company Master), the items their Sales
+  COGS accounts;
+- item barcodes: add the products' barcodes in Item Master or Master
+  Data Import → Item Barcodes. Next (later): barcode labels for items
+  without one (ITEM_BARCODES.md, decision 67).
+
 `master-import-3a` went live on 2026-10-05 (run #94).
 
 Payroll steps 4–5b went live on 2026-10-05 (runs #89–#93,

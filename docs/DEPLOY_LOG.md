@@ -871,6 +871,47 @@ from, and how it was verified. The deploy procedure is in the
   11:18–11:20 UTC, from `6d41244` (the PR #85 merge), success: functions
   set `master-import-3a` with the screens. The owner tested it (line
   managers updated; the org chart shows them).
+- **2026-10-05 – 2026-10-09, runs #95–#107** (recorded 2026-10-09 from
+  the runs' logs. Where a log's tail no longer showed the set's name,
+  the set was matched by the functions deployed: their number, the
+  batches of 6 and the last batch match exactly one set file):
+  - Run [#95](https://github.com/yasircmd/erp-firebase/actions/runs/37309546690), 2026-10-05
+    12:26–12:29 UTC, from `0fa861d` (PR #86): `master-import-3b`,
+    functions only (4); the screens already matched the live release.
+  - Run [#96](https://github.com/yasircmd/erp-firebase/actions/runs/37454730865), 2026-10-06
+    11:11–11:25 UTC, from `b940395` (PR #87): `payroll-5c` with the
+    screens (53 functions, 9 batches); release `20261006T112447Z-b940395`.
+  - Run [#97](https://github.com/yasircmd/erp-firebase/actions/runs/37480955912), 2026-10-06
+    14:40–14:54 UTC, from `3e5a963` (PR #88): `payroll-6` with the
+    screens (50 functions, 9 batches); release `20261006T145404Z-3e5a963`.
+  - Run [#98](https://github.com/yasircmd/erp-firebase/actions/runs/37887395391), 2026-10-09
+    05:11–05:19 UTC, from `e12df4a` (PR #89): `gl-references` with the
+    screens (27 functions); release `20261009T051849Z-e12df4a`.
+  - Run [#99](https://github.com/yasircmd/erp-firebase/actions/runs/37892066600), 2026-10-09
+    06:09–06:15 UTC, from `e1d36fb` (PR #90): `retail-sales` with the
+    screens (16 functions); release `20261009T061428Z-e1d36fb`.
+  - Run [#100](https://github.com/yasircmd/erp-firebase/actions/runs/37896704826), 07:01–07:08
+    UTC, from `bf1aeb9` (PR #91): `retail-sales`, functions only; the
+    run warned that RETAILSALES was not released.
+  - Run [#101](https://github.com/yasircmd/erp-firebase/actions/runs/37898143969), 07:17–07:18
+    UTC, from `bf1aeb9`: "screens only"; release `20261009T071800Z-bf1aeb9`.
+  - Run [#102](https://github.com/yasircmd/erp-firebase/actions/runs/37902176643), 07:59–08:05
+    UTC, from `2e0f9d3` (PR #92): `retail-sales` with the screens;
+    release `20261009T080507Z-2e0f9d3`.
+  - Run [#103](https://github.com/yasircmd/erp-firebase/actions/runs/37915009559), 10:01–10:06
+    UTC, from `8ca198a` (PR #93): `payroll-7a` with the screens (8
+    functions); release `20261009T100550Z-8ca198a`.
+  - Run #104: not in the repository's run list (deleted); nothing known.
+  - Run [#105](https://github.com/yasircmd/erp-firebase/actions/runs/37924034652), 11:29–11:38
+    UTC, from `9670c09` (PR #94): `payroll-7b` with the screens (25
+    functions); release `20261009T113728Z-9670c09`.
+  - Run [#106](https://github.com/yasircmd/erp-firebase/actions/runs/37934666070), 13:07–13:12
+    UTC, from `1989fb6` (PR #95): `payroll-7c` with the screens (11
+    functions); release `20261009T131128Z-1989fb6`.
+  - Run [#107](https://github.com/yasircmd/erp-firebase/actions/runs/37946265484), 14:43–14:49
+    UTC, from `e3daafa` (PR #96): `retail-sales`, functions only; the
+    run warned that RETAILSALES (Clear asks first) was not released. Run
+    #109 below released it.
 - **2026-10-09, Retail Sales (`retail-sales`):** run
   [#108](https://github.com/yasircmd/erp-firebase/actions/runs/37947839223),
   14:55–14:56 UTC, from `3307499` (the PR #97 merge), **failed before
@@ -879,8 +920,7 @@ from, and how it was verified. The deploy procedure is in the
   which rewrote Item Master's screen (still a generated one) and dropped
   its new Barcodes section (PR #97). Fixed by making that screen
   hand-maintained (`handScreens` in tools/legacy-port/modules.json); rerun
-  `retail-sales` once the fix is merged. Runs #95–#107 (including the
-  payroll 7a–7c deploys) are not recorded here yet.
+  `retail-sales` once the fix is merged.
 - **2026-10-09, Retail Sales and item barcodes (PRs #90–#92, #96–#98):**
   both from `3c58cc3` (the PR #98 merge), "functions set, then screens":
   - Run [#109](https://github.com/yasircmd/erp-firebase/actions/runs/37948665820),
