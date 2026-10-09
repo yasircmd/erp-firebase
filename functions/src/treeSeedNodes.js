@@ -184,6 +184,7 @@ const TREE_SEED_NODES = [
   { text: 'Loans & Advances', depth: 2, moduleId: 'PAYROLLLOAN' },
   { text: 'Final Settlements', depth: 2, moduleId: 'PAYROLLFS' },
   { text: 'Interim Payroll', depth: 2, moduleId: 'PAYROLLIP' },
+  { text: 'Earnings & Deductions', depth: 2, moduleId: 'PAYROLLED' },
   { text: 'Personnel Administration (PA - Organizational Assignment, Personal Data)', depth: 2 },
   { text: 'Organizational Management (OM - Organizational Units, Jobs, Positions)', depth: 2 },
   { text: 'Time & Attendance Management (Work Schedules, Time Recording, Absence Tracking)', depth: 2 },

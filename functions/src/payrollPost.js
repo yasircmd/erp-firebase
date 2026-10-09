@@ -29,6 +29,7 @@ const lv = require('./hrLeave');
 const setup = require('./payrollSetup');
 const calc = require('./payrollCalc');
 const R = require('./payrollRun');
+const ED = require('./payrollInputs');
 const loans = require('./payrollLoans');
 const P = require('./payrollProvisions');
 
@@ -140,6 +141,8 @@ exports.submitPayrollRun = onCallWithMessages(onCallOptions, async (request) => 
   R.requireDraft(run);
   const rec = await R.leaveMonth(run.CompanyID, run.Month);
   if (!rec || rec.Status !== 'Locked' || (rec.LockedAt || '') !== (run.LeaveLockedAt || '')) throw failed('The month\'s leave changed since the run was calculated: recalculate it first.');
+  // Step 7b: the month's Earnings & Deductions as the run used them.
+  if ((await ED.runInputs(run.CompanyID, run.Month)).key !== (run.InputsKey || '')) throw failed('The month\'s earnings and deductions changed since the run was calculated: recalculate it first.');
   const ctx = await postingContext(run);
   // A final settlement submitted since (step 5c) pays some of them.
   const settled = await R.settledIn(run.CompanyID, run.Month);

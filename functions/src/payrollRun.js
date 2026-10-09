@@ -26,6 +26,7 @@ const setup = require('./payrollSetup');
 const calc = require('./payrollCalc');
 const loans = require('./payrollLoans');
 const P = require('./payrollProvisions');
+const ED = require('./payrollInputs');
 
 const onCallOptions = { region: 'us-central1' };
 const RUNS = () => firestore.collection('payrollRuns');
@@ -163,15 +164,18 @@ async function companyEmployees(co, month) {
     .filter(e => e.JoinDate && e.JoinDate <= end && !(e.LeavingDate && e.LeavingDate < start)).sort(byNo);
 }
 
-// Works out every employee's pay and writes the run; the inputs entered so
-// far are kept (those of employees no longer on it are dropped).
-async function calculate(run, user, inputsByEmp) {
+// Works out every employee's pay and writes the run. Its inputs are the
+// month's Earnings & Deductions entries paid by the run (step 7b); a run's
+// own inputs from before are moved to entries the first time.
+async function calculate(run, user) {
   const co = run.CompanyID, month = run.Month, end = calc.monthEnd(month);
   const locked = await requireLocked(co, month);
   const [settings, els, emps, existing] = await Promise.all([setup.companySettings(co), setup.payrollElements().then(withAccruals), companyEmployees(co, month), docs(await SLIPS(run.RunID).get())]);
   const elements = Object.fromEntries(els.map(e => [e.ElementID, e]));
   const system = Object.fromEntries(els.filter(e => e.System).map(e => [e.Code, e]));
-  const inputs = inputsByEmp || Object.fromEntries(existing.map(s => [s.EmployeeID, s.Inputs || []]));
+  if (existing.some(s => (s.Inputs || []).length)) await ED.adoptRunInputs(run, existing, user);
+  const ed = await ED.runInputs(co, month);
+  const inputs = ed.byEmp;
   const ids = new Set(emps.map(e => e.EmployeeID));
   const versions = {};
   docs(await COMP().get()).forEach(v => { if (ids.has(v.EmployeeID)) (versions[v.EmployeeID] = versions[v.EmployeeID] || []).push(v); });
@@ -255,6 +259,7 @@ async function calculate(run, user, inputsByEmp) {
   const out = { Method: settings.DailyRateMethod, Employees: slips.length, Earnings: round2(totals.Earnings), Deductions: round2(totals.Deductions), Net: round2(totals.Net),
     Warnings: slips.filter(s => s.Warnings.length).length, Columns: columns, Settled: Object.values(settled),
     Provisions: round2(slips.reduce((t, s) => t + (s.Provisions || []).reduce((a, x) => a + x.Amount, 0), 0)), CalculatedAt: now, CalculatedBy: user.uid, CalculatedByName: actorName(user), LeaveLockedAt: locked.LockedAt || '',
+    InputsKey: ed.key, // the entries it used: changed since, it must be recalculated (step 7b)
     UpdatedAt: now, UpdatedBy: user.profile.username || user.uid }; // My Drafts matches the username
   await RUNS().doc(run.RunID).update(out);
   return out;
@@ -311,8 +316,10 @@ exports.getPayrollRun = onCallWithMessages(onCallOptions, async (request) => {
   const [slips, els, rec] = await Promise.all([docs(await SLIPS(run.RunID).get()), setup.payrollElements().then(withAccruals), leaveMonth(run.CompanyID, run.Month)]);
   // The leave changed since the run was worked out: reopened, or locked again.
   const leaveChanged = run.Status === 'Draft' && (!rec || rec.Status !== 'Locked' || (rec.LockedAt || '') !== (run.LeaveLockedAt || ''));
+  // Earnings & Deductions changed since it was worked out (step 7b).
+  const inputsChanged = run.Status === 'Draft' && (await ED.runInputs(run.CompanyID, run.Month)).key !== (run.InputsKey || '');
   return {
-    run, slips: slips.map(s => { delete s._id; return s; }).sort(byNo), leaveChanged, leaveLocked: Boolean(rec && rec.Status === 'Locked'),
+    run, slips: slips.map(s => { delete s._id; return s; }).sort(byNo), leaveChanged, inputsChanged, leaveLocked: Boolean(rec && rec.Status === 'Locked'),
     inputElements: inputElements(els).map(e => ({ ElementID: e.ElementID, Code: e.Code, Name: e.Name, Kind: e.Kind, Hours: byHours(e) })),
     methodLabel: calc.METHODS[run.Method] || '', canDraft: run.Status === 'Draft' && await can(user, 'draft'), canPost: await can(user, 'post'),
     approval: await approvalOf(run, user)
@@ -321,7 +328,8 @@ exports.getPayrollRun = onCallWithMessages(onCallOptions, async (request) => {
 
 // Replaces the run's inputs with rows typed or pasted from Excel: employee
 // (id or no.), element (id or code), hours (overtime by hours) or amount,
-// and a note. Then works the run out again.
+// and a note. Since step 7b they are the month's Earnings & Deductions
+// entries paid by the run (replaced here); then the run is worked out again.
 exports.savePayrollInputs = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'draft');
@@ -330,31 +338,8 @@ exports.savePayrollInputs = onCallWithMessages(onCallOptions, async (request) =>
   requireDraft(run);
   const rows = Array.isArray(d.rows) ? d.rows : [];
   if (rows.length > 5000) bad('At most 5,000 inputs.');
-  const [slips, els] = await Promise.all([docs(await SLIPS(run.RunID).get()), setup.payrollElements().then(withAccruals)]);
-  const allowed = inputElements(els);
-  const out = Object.fromEntries(slips.map(s => [s.EmployeeID, []]));
-  rows.forEach((r, n) => {
-    const i = n + 1;
-    const empKey = text(r.EmployeeID, 80) || text(r.EmployeeNo, 40), elKey = text(r.ElementID, 80) || text(r.Code, 20).toUpperCase();
-    const hasValue = [r.Hours, r.Amount].some(v => v !== '' && v != null);
-    if (!empKey && !elKey && !hasValue && !text(r.Note)) return; // a blank row
-    const s = slips.find(x => x.EmployeeID === empKey || (x.EmployeeNo && x.EmployeeNo === empKey));
-    if (!s) bad('Row ' + i + ': employee "' + empKey + '" is not on this run.');
-    const el = els.find(x => x.ElementID === elKey || x.Code === elKey);
-    if (!el) bad('Row ' + i + ': pay element "' + elKey + '" not found.');
-    if (!allowed.includes(el)) bad('Row ' + i + ': ' + el.Name + ' is not entered per run (only variable elements are: overtime, bonus, commission, one-offs).');
-    const num = v => Number(String(v == null ? '' : v).replace(/,/g, ''));
-    const row = { ElementID: el.ElementID, Note: text(r.Note, 150) };
-    if (byHours(el)) {
-      row.Hours = num(r.Hours);
-      if (!(row.Hours > 0 && row.Hours <= 744)) bad('Row ' + i + ': ' + el.Name + ' is paid by the hour: enter the hours (more than 0).');
-    } else {
-      row.Amount = round2(num(r.Amount));
-      if (!(row.Amount > 0)) bad('Row ' + i + ': enter the ' + el.Name + ' amount (more than 0).');
-    }
-    out[s.EmployeeID].push(row);
-  });
-  const totals = await calculate(run, user, out);
+  await ED.replaceRunInputs(run, rows, user);
+  const totals = await calculate(run, user);
   return { success: true, run: totals };
 });
 

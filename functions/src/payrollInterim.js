@@ -28,6 +28,7 @@ const loans = require('./payrollLoans');
 const FS = require('./payrollSettlement');
 const R = require('./payrollRun');
 const plan = require('./payrollPlan');
+const ED = require('./payrollInputs');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'PAYROLLIP';
@@ -69,7 +70,11 @@ async function loadBatch(user, id) {
 
 const settlementRef = id => FS.SETTLEMENTS().doc(id);
 const loanRef = id => loans.LOANS().doc(id);
-const refOf = it => (it.Kind === 'Settlement' ? settlementRef(it.ID) : loanRef(it.ID));
+const entryRef = id => ED.ENTRIES().doc(id);
+const refOf = it => (it.Kind === 'Settlement' ? settlementRef(it.ID) : it.Kind === 'Payment' ? entryRef(it.ID) : loanRef(it.ID));
+// Step 7b (point 5): an earning from Earnings & Deductions to pay here (a bonus, a commission...).
+const itemOfEntry = x => ({ Kind: 'Payment', ID: x.EntryID, Number: x.Code + ' ' + x.Month, EmployeeID: x.EmployeeID, EmployeeNo: x.EmployeeNo || '', EmployeeName: x.EmployeeName,
+  What: x.ElementName + (x.Note ? ' — ' + x.Note : ''), Amount: round2(x.Amount) });
 // An item as the batch shows it, from its settlement or loan.
 const itemOfSettlement = s => ({ Kind: 'Settlement', ID: s.SettlementID, Number: s.Number, EmployeeID: s.EmployeeID, EmployeeNo: s.EmployeeNo || '', EmployeeName: s.EmployeeName,
   What: 'Final settlement (left ' + s.LeavingDate + ')', Amount: round2(s.Net), LeavingDate: s.LeavingDate });
@@ -82,17 +87,27 @@ const payableLoan = (l, id) => l.Status === 'Approved' && !l.PayoutJVID && (!l.I
 
 async function candidates(co, batchId) {
   const [fs, ln] = await Promise.all([FS.SETTLEMENTS().where('CompanyID', '==', co).get(), loans.LOANS().where('CompanyID', '==', co).get()]);
+  const ed = docs(await ED.ENTRIES().where('CompanyID', '==', co).get(), 'EntryID');
   return docs(fs, 'SettlementID').filter(s => payableSettlement(s, batchId)).map(itemOfSettlement)
     .concat(docs(ln, 'LoanID').filter(l => payableLoan(l, batchId)).map(itemOfLoan))
+    .concat(ed.filter(x => ED.interimDue(x, batchId)).map(itemOfEntry))
     .sort((a, b) => String(a.EmployeeNo).localeCompare(String(b.EmployeeNo)) || a.Kind.localeCompare(b.Kind));
 }
 // The items asked for, each still waiting to be paid, of the company.
 async function currentItems(co, asked, batchId) {
   const out = [], seen = new Set();
   for (const a of asked) {
-    const kind = a.Kind === 'Loan' ? 'Loan' : 'Settlement', id = text(a.ID, 80);
+    const kind = a.Kind === 'Loan' ? 'Loan' : a.Kind === 'Payment' ? 'Payment' : 'Settlement', id = text(a.ID, 80);
     if (!id || seen.has(kind + id)) continue;
     seen.add(kind + id);
+    if (kind === 'Payment') {
+      const snap = await entryRef(id).get();
+      const x = snap.exists ? Object.assign({ EntryID: id }, snap.data()) : null;
+      if (!x || x.CompanyID !== co || x.PayBy !== 'Interim') throw failed('That earning is not one of the company\'s entries for interim payroll.');
+      if (!ED.interimDue(x, batchId)) throw failed(x.EmployeeName + ' ' + x.ElementName + ' is ' + (x.InterimPaid ? 'already paid' : 'in interim payroll ' + x.InterimNumber) + '.');
+      out.push(itemOfEntry(x));
+      continue;
+    }
     const snap = await (kind === 'Settlement' ? settlementRef(id) : loanRef(id)).get();
     const x = snap.exists ? Object.assign(kind === 'Settlement' ? { SettlementID: id } : { LoanID: id }, snap.data()) : null;
     const name = (x && (x.Number || x.LoanNumber)) || id;
@@ -298,6 +313,7 @@ exports.downloadInterimFile = onCallWithMessages(onCallOptions, async (request) 
 async function undo(user, it, reason) {
   const snap = await refOf(it).get();
   if (it.Kind === 'Settlement') return FS.unpay(user, Object.assign({ SettlementID: it.ID }, snap.data()), reason);
+  if (it.Kind === 'Payment') return ED.unpayEntry(user, Object.assign({ EntryID: it.ID }, snap.data()), reason);
   return loans.reversePayout(user, Object.assign({ LoanID: it.ID }, snap.data()), reason);
 }
 
@@ -333,6 +349,7 @@ exports.markInterimPaid = onCallWithMessages(onCallOptions, async (request) => {
       const snap = await refOf(r).get();
       const gl = r.Kind === 'Settlement'
         ? await FS.pay(user, Object.assign({ SettlementID: r.ID }, snap.data()), payDate, accountId, text(d.reference, 100), b)
+        : r.Kind === 'Payment' ? await ED.payEntry(user, Object.assign({ EntryID: r.ID }, snap.data()), payDate, accountId, b)
         : await loans.payOut(user, Object.assign({ LoanID: r.ID }, snap.data()), payDate, accountId, b);
       done[r.Key] = { JVID: gl.jvId, JVNumber: gl.jvNumber, PaymentID: paymentId };
     }
