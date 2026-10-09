@@ -141,6 +141,20 @@ async function generatePayrollTransactionRef() {
   return 'PRL-' + String(res.snapshot.val()).padStart(8, '0');
 }
 
+// Finance documents written through this path (docs/modules/GL_REFERENCES.md,
+// decisions 49-50) take the finance sequence, TXN- (the same lifetime
+// counter as Journal Vouchers and Cash & Bank); stock documents keep STK-.
+const FINANCE_VOUCHER_TYPES = [
+  'FACapitalization', 'FADepreciation', 'FAAdditionalDepreciation', 'FARetirement', 'FAAuCCost', 'FAAuCSettlement',
+  'PDCReceived', 'PDCReceivedClear', 'PDCIssued', 'PDCIssuedClear', 'RecurringJV', 'OpeningBalance',
+  'VendorInvoice', 'CustomerInvoice'];
+async function generateFinanceTransactionRef() {
+  const res = await rtdb.ref('gl/transactionRefCounter').transaction(cur => (Number(cur) || 0) + 1);
+  return 'TXN-' + String(res.snapshot.val()).padStart(8, '0');
+}
+const transactionRefFor = type => (PAYROLL_VOUCHER_TYPES.includes(type) ? generatePayrollTransactionRef()
+  : FINANCE_VOUCHER_TYPES.includes(type) ? generateFinanceTransactionRef() : generateStockTransactionRef());
+
 async function generateStockTransactionRef() {
   const counterPath = 'stock/counters/transactionRef';
   const snap = await rtdb.ref(counterPath).get();
@@ -204,7 +218,7 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
   if (!prefix) throw new Error('Unknown stock transaction type: ' + stockTransactionType);
 
   const jvNumber = await generateStockVoucherNumber(prefix, year, dim.CompanyID);
-  const transactionRef = PAYROLL_VOUCHER_TYPES.includes(stockTransactionType) ? await generatePayrollTransactionRef() : await generateStockTransactionRef();
+  const transactionRef = await transactionRefFor(stockTransactionType);
   const newId = 'STKJV-' + randomUUID().split('-')[0].toUpperCase();
 
   const record = Object.assign({
@@ -239,5 +253,5 @@ async function assignStockVoucherNumbering(stockTransactionType, transactionDate
 module.exports = {
   FIRESTORE_JOURNAL_ENTRIES_COLLECTION, STOCK_TRANSACTION_PREFIXES, COST_CENTER_REQUIRED_TYPES,
   userCanAccessCompany, parseAmountServer, validateAndNormalizeLines,
-  getCompanyRefCode, generateStockVoucherNumber, generateStockTransactionRef, assignStockVoucherNumbering, writeStockGlEntry, buildStockGlEntry
+  getCompanyRefCode, generateStockVoucherNumber, generateStockTransactionRef, transactionRefFor, assignStockVoucherNumbering, writeStockGlEntry, buildStockGlEntry
 };

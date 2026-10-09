@@ -25,7 +25,7 @@ const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const {
-  userCanAccessCompany, buildStockGlEntry, generateStockVoucherNumber, generateStockTransactionRef,
+  userCanAccessCompany, buildStockGlEntry, generateStockVoucherNumber, transactionRefFor,
   COST_CENTER_REQUIRED_TYPES, FIRESTORE_JOURNAL_ENTRIES_COLLECTION
 } = require('./glWriting');
 const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
@@ -449,7 +449,7 @@ async function reverseEntry(user, jvId, entry, extra) {
   const year = (new Date(entry.JVDate)).getFullYear() || new Date().getFullYear();
   const prefix = entry.VoucherType === STOCK_TYPE ? 'OS' : 'OB';
   const jvNumber = await generateStockVoucherNumber(prefix, year, entry.CompanyID);
-  const transactionRef = await generateStockTransactionRef();
+  const transactionRef = await transactionRefFor(entry.VoucherType); // GL: TXN-, stock: STK- (docs/modules/GL_REFERENCES.md)
   const newId = 'STKJV-' + randomUUID().split('-')[0].toUpperCase();
   const lines = (entry.Lines || []).map(line => {
     const l = Object.assign({}, line, { Debit: line.Credit, Credit: line.Debit });
