@@ -59,6 +59,7 @@
     <div class="flex items-center gap-2">
       <span id="prd-status-badge" class="hidden text-xs px-2.5 py-1 rounded-full font-medium"></span>
       <button id="prd-gl-impact-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-scale-balanced"></i> View GL Impact</button>
+      <button id="prd-labels-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-barcode"></i> Labels</button>
       <button id="prd-print-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
     </div>
   </div>
@@ -239,6 +240,20 @@
 </div>
 
 <datalist id="prd-item-datalist"></datalist>
+
+<div id="prd-lbl" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 w-full max-w-2xl space-y-3">
+    <div class="flex items-center justify-between"><h3 class="text-lg font-bold">Barcode labels</h3><button id="prd-lbl-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <p class="text-xs text-slate-400">One label a unit produced; change the numbers as needed. Items without a barcode get their item code as the barcode.</p>
+    <div class="max-h-64 overflow-y-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-3">Item</th><th class="py-1 pr-3">Batch</th><th class="py-1 text-right">Labels</th></tr></thead><tbody id="prd-lbl-body" class="divide-y divide-slate-700"></tbody></table></div>
+    <div class="flex flex-wrap items-center gap-4 text-xs text-slate-300">
+      <label>Print on <select id="prd-lbl-stock" class="bg-slate-900 border border-slate-700 rounded py-1 px-2"><option value="Roll">Label printer roll</option><option value="Sheet">A4 label sheets</option></select></label>
+      <label class="flex items-center gap-1"><input type="checkbox" id="prd-lbl-price"> Price</label>
+      <label class="flex items-center gap-1"><input type="checkbox" id="prd-lbl-batch" checked> Batch and expiry</label>
+    </div>
+    <div class="flex justify-end gap-2"><button id="prd-lbl-print" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-print"></i> Print labels</button></div>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -624,6 +639,43 @@
   function currentHeaderCostCenter() { return document.getElementById('prd-form-costcenter').value; }
   function currentHeaderProfitCenter() { return document.getElementById('prd-form-profitcenter').value; }
   function currentHeaderDescription() { return document.getElementById('prd-form-description').value; }
+
+  // ---------- barcode labels (docs/modules/ITEM_BARCODES.md, step 3) ----------
+  // The server lays the labels out (getLabelSheet); the page is printed in
+  // a hidden frame so it keeps its own label size. Tests set
+  // window.__labelPrintHook to see the page instead of printing it.
+  function printLabelHtml(html) {
+    if (typeof window.__labelPrintHook === 'function') return window.__labelPrintHook(html);
+    const f = document.createElement('iframe');
+    f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+    f.onload = () => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 60000); };
+    f.srcdoc = html;
+    document.body.appendChild(f);
+  }
+  function openLabels() {
+    const doc = currentProd;
+    if (!doc) return;
+    document.getElementById('prd-lbl-body').innerHTML = (doc.Lines || []).map((l, i) => {
+      const item = itemById(l.ItemID);
+      const n = Math.max(1, Math.ceil(Number(l.Quantity != null ? l.Quantity : l.EnteredQuantity) || 1));
+      return '<tr><td class="py-1 pr-3 text-xs">' + escapeHtml(item ? item.ItemCode + ' — ' + item.ItemName : l.ItemID) + '</td><td class="py-1 pr-3 text-xs">' + escapeHtml(l.BatchNumber || '') + '</td>' +
+        '<td class="py-1 text-right"><input data-i="' + i + '" type="number" min="0" step="1" value="' + n + '" class="prd-lbl-n w-20 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right"></td></tr>';
+    }).join('');
+    document.getElementById('prd-lbl').classList.remove('hidden');
+  }
+  function printLabels() {
+    const doc = currentProd;
+    const btn = document.getElementById('prd-lbl-print');
+    const lines = [...document.querySelectorAll('.prd-lbl-n')].map(el => {
+      const l = doc.Lines[Number(el.dataset.i)];
+      return { ItemID: l.ItemID, Copies: Number(el.value) || 0, BatchNumber: l.BatchNumber || '', ExpiryDate: l.ExpiryDate || '' };
+    });
+    btn.disabled = true;
+    rpc.withSuccessHandler(r => { btn.disabled = false; printLabelHtml(r.html); })
+      .withFailureHandler(err => { btn.disabled = false; appAlert(err.message || 'Unable to print the labels.'); })
+      .getLabelSheet({ companyId: doc.CompanyID, stock: document.getElementById('prd-lbl-stock').value, withPrice: document.getElementById('prd-lbl-price').checked,
+        withBatch: document.getElementById('prd-lbl-batch').checked, lines });
+  }
 
   function blankLine() {
     return {
@@ -1293,6 +1345,7 @@
     }
 
     document.getElementById('prd-print-btn').classList.toggle('hidden', !posted);
+    document.getElementById('prd-labels-btn').classList.toggle('hidden', !posted);
     document.getElementById('prd-gl-impact-btn').classList.toggle('hidden', !(posted && currentProd && currentProd.LinkedJVID));
     ['prd-form-company', 'prd-form-date', 'prd-form-reference', 'prd-form-division', 'prd-form-branch', 'prd-form-costcenter', 'prd-form-profitcenter', 'prd-form-joborder'].forEach(id => {
       document.getElementById(id).disabled = readOnly;
@@ -1551,6 +1604,9 @@
 
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken) {
+    document.getElementById('prd-labels-btn').addEventListener('click', openLabels);
+    document.getElementById('prd-lbl-close').addEventListener('click', () => document.getElementById('prd-lbl').classList.add('hidden'));
+    document.getElementById('prd-lbl-print').addEventListener('click', printLabels);
     supportingDocs.mount({ module: 'PRODUCTION', view: 'prd-entry-view', id: () => currentProd && currentProd.ProductionID, list: 'prd-table-body' }); // supporting documents (docs/modules/ATTACHMENTS.md)
     token = idToken;
 

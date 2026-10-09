@@ -636,3 +636,5 @@ exports.reverseRetailSale = onCallWithMessages(onCallOptions, async (request) =>
 });
 
 exports._test = { computeTotals, settlePayments };
+// For label prices (docs/modules/ITEM_BARCODES.md, step 3).
+Object.assign(module.exports, { pricesOn, loadSettings });
