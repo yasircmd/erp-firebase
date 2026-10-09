@@ -32,6 +32,8 @@ const TREE_SEED_NODES = [
   { text: 'Sales Return / Credit Note', depth: 3, moduleId: 'SALESRETURN' },
   // New development (not in Code.gs): docs/modules/CUSTOMER_SOA.md.
   { text: 'Customer Statement of Account (SOA)', depth: 3, moduleId: 'CUSTOMERSOA' },
+  // New development (not in Code.gs): docs/modules/RETAIL_SALES.md.
+  { text: 'Retail Sales', depth: 3, moduleId: 'RETAILSALES' },
   // New development (not in Code.gs): docs/modules/PDC.md.
   { text: 'PDC Received', depth: 3, moduleId: 'PDCRECEIVED' },
   { text: 'Customer Invoicing & Billing Integration', depth: 3 },

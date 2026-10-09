@@ -105,7 +105,9 @@ const MODULE_REGISTRY = [
   // Final Settlements (step 5b): an employee leaving: gratuity, leave, notice, loans.
   { id: 'PAYROLLFS', label: 'Final Settlements', capabilities: ['access', 'draft', 'post', 'pay'] },
   // HR Payroll step 5c: interim payroll (settlements and loans paid between runs).
-  { id: 'PAYROLLIP', label: 'Interim Payroll', capabilities: ['access', 'draft', 'pay'] }
+  { id: 'PAYROLLIP', label: 'Interim Payroll', capabilities: ['access', 'draft', 'pay'] },
+  // Direct Retail Sales (docs/modules/RETAIL_SALES.md): post = sell and reverse, write = setup.
+  { id: 'RETAILSALES', label: 'Retail Sales', capabilities: ['access', 'post', 'write'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -221,7 +223,8 @@ const DEFAULT_PERMISSIONS = {
   PAYROLLSETUP:       { access: ['ADMIN'], write: ['ADMIN'] },
   PAYROLLLOAN:        { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], pay: ['ADMIN'] },
   PAYROLLFS:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], post: ['ADMIN'], pay: ['ADMIN'] },
-  PAYROLLIP:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], pay: ['ADMIN'] }
+  PAYROLLIP:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], pay: ['ADMIN'] },
+  RETAILSALES:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], post: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], write: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

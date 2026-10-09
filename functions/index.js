@@ -233,3 +233,7 @@ const hrLeaveClose = require('./src/hrLeaveClose');
 ['getLeaveMonths', 'getLeaveMonthSummary', 'lockLeaveMonth', 'reopenLeaveMonth', 'closeLeaveYear'].forEach(n => { exports[n] = hrLeaveClose[n]; });
 const hrLeaveReports = require('./src/hrLeaveReports');
 ['getLeaveReportTypes', 'getLeaveBalanceReport', 'getLeaveRegisterReport', 'getLeaveCalendar', 'getLeaveTasksForUser'].forEach(n => { exports[n] = hrLeaveReports[n]; });
+
+// Direct Retail Sales (docs/modules/RETAIL_SALES.md).
+const retailSales = require('./src/retailSales');
+['getRetailSalesSetup', 'saveRetailSalesSettings', 'saveRetailPaymentMethod', 'getRetailCounter', 'confirmRetailSale', 'getRetailSales', 'getRetailSale', 'reverseRetailSale'].forEach(n => { exports[n] = retailSales[n]; });

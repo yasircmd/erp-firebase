@@ -74,7 +74,9 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   OpeningBalance: 'OPENINGBALANCES', OpeningStock: 'OPENINGBALANCES',
   // new development, not in Code.gs: docs/modules/HR_PAYROLL.md (step 6:
   // the GL report opens a payroll journal's run, settlement, loan or batch)
-  Payroll: 'PAYROLL', PayrollPayment: 'PAYROLL', PayrollProvision: 'PAYROLL', PayrollLoan: 'PAYROLLLOAN', FinalSettlement: 'PAYROLLFS'
+  Payroll: 'PAYROLL', PayrollPayment: 'PAYROLL', PayrollProvision: 'PAYROLL', PayrollLoan: 'PAYROLLLOAN', FinalSettlement: 'PAYROLLFS',
+  // new development, not in Code.gs: docs/modules/RETAIL_SALES.md
+  RetailSale: 'RETAILSALES'
 };
 
 // ============================================================

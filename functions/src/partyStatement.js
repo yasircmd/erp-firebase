@@ -23,7 +23,7 @@ const MODULES = { Vendor: 'VENDORSOA', Customer: 'CUSTOMERSOA' };
 // Which side increases the balance, in the party's natural sense.
 const GROWS = { Vendor: 'Cr', Customer: 'Dr' };
 const DOC_TYPES = {
-  JV: 'Journal', PurchaseReturn: 'Debit Note', SalesReturn: 'Credit Note', PDCReceived: 'PDC Received', PDCIssued: 'PDC Issued', FARetirement: 'Asset Sale', RecurringJV: 'Recurring Journal', OpeningBalance: 'Opening Balance',
+  JV: 'Journal', PurchaseReturn: 'Debit Note', SalesReturn: 'Credit Note', PDCReceived: 'PDC Received', PDCIssued: 'PDC Issued', FARetirement: 'Asset Sale', RecurringJV: 'Recurring Journal', OpeningBalance: 'Opening Balance', RetailSale: 'Retail Sale',
   'Cash Receipt': 'Cash Receipt', 'Bank Receipt': 'Bank Receipt', 'Cash Payment': 'Cash Payment', 'Bank Payment': 'Bank Payment'
 };
 const AGING = [
