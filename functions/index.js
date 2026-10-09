@@ -176,7 +176,8 @@ exports.getMasterImportSpecs = getMasterImportSpecs;
 exports.checkMasterImport = checkMasterImport;
 exports.runMasterImport = runMasterImport;
 // Opening Balances (docs/modules/OPENING_BALANCES.md).
-const { getOpeningBalanceSetup, saveOpeningBalanceSettings, checkOpeningBalances, postOpeningBalances, reverseOpeningBalanceBatch } = require('./src/openingBalances');
+const { getOpeningBalanceSetup, saveOpeningBalanceSettings, checkOpeningBalances, postOpeningBalances, reverseOpeningBalanceBatch, findOpeningBatch } = require('./src/openingBalances');
+exports.findOpeningBatch = findOpeningBatch;
 exports.getOpeningBalanceSetup = getOpeningBalanceSetup;
 exports.saveOpeningBalanceSettings = saveOpeningBalanceSettings;
 exports.checkOpeningBalances = checkOpeningBalances;

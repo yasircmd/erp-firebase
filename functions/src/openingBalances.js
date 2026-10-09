@@ -25,7 +25,7 @@ const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const {
-  userCanAccessCompany, buildStockGlEntry, generateStockVoucherNumber, generateStockTransactionRef,
+  userCanAccessCompany, buildStockGlEntry, generateStockVoucherNumber, transactionRefFor,
   COST_CENTER_REQUIRED_TYPES, FIRESTORE_JOURNAL_ENTRIES_COLLECTION
 } = require('./glWriting');
 const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
@@ -449,7 +449,7 @@ async function reverseEntry(user, jvId, entry, extra) {
   const year = (new Date(entry.JVDate)).getFullYear() || new Date().getFullYear();
   const prefix = entry.VoucherType === STOCK_TYPE ? 'OS' : 'OB';
   const jvNumber = await generateStockVoucherNumber(prefix, year, entry.CompanyID);
-  const transactionRef = await generateStockTransactionRef();
+  const transactionRef = await transactionRefFor(entry.VoucherType); // GL: TXN-, stock: STK- (docs/modules/GL_REFERENCES.md)
   const newId = 'STKJV-' + randomUUID().split('-')[0].toUpperCase();
   const lines = (entry.Lines || []).map(line => {
     const l = Object.assign({}, line, { Debit: line.Credit, Credit: line.Debit });
@@ -675,6 +675,19 @@ exports.reverseOpeningBalanceBatch = onCallWithMessages(onCallOptions, async (re
   await requireAccess(user);
   const batchId = String((request.data || {}).batchId || '').trim();
   return withGlobalLock(user.uid, () => reverseBatch(user, batchId));
+});
+
+// The batch behind an opening journal or its reversal (docs/modules/
+// GL_REFERENCES.md): the GL report opens it here.
+exports.findOpeningBatch = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireAccess(user);
+  const jvId = String((request.data || {}).jvId || '').trim();
+  const hit = Object.entries((await rtdb.ref(BATCHES).get()).val() || {})
+    .find(([, b]) => (b.JVIDs || []).includes(jvId) || (b.ReversalJVIDs || []).includes(jvId));
+  if (!hit) throw new HttpsError('not-found', 'That journal was not posted by an opening balance batch.');
+  if (!userCanAccessCompany(user.profile, hit[1].CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  return { CompanyID: hit[1].CompanyID, BatchID: hit[0] };
 });
 
 module.exports.KINDS = KINDS;

@@ -1947,7 +1947,9 @@ Payroll Accounting, "Leave deductions in the GL":
 - **still open, noted for later:** Fixed Assets, PDC, Recurring Journal
   and Opening Balance journals have the same STK reference. Opening
   Balance journals are also missing from the GL report's map, so the
-  report sends them to Journal Vouchers.
+  report sends them to Journal Vouchers. Fixed 2026-10-09: see
+  [GL_REFERENCES.md](GL_REFERENCES.md) (TXN- for finance journals; the
+  link opens Opening Balances).
 
 **5. The payment plan** (runs and interim batches; decision 47):
 - **each employee** (each item, in a batch) is paid **one way, from one
