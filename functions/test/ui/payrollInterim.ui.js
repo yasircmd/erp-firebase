@@ -2,7 +2,7 @@
 // docs/modules/HR_PAYROLL.md, decisions 40-43): a leaver's settlement with
 // the months no run paid (one left to its run, then paid here again), an
 // input; submitted and posted. A batch of the settlement and an advance:
-// saved, approved, the bank file, marked paid, the payment reversed, deleted.
+// saved, approved, the bank file, marked paid, the payment reversed: kept as Reversed.
 // Seeds its own data (it WIPES the emulator database, like the suites):
 //   node functions/test/ui/payrollInterim.ui.js
 const http = require('http');
@@ -128,7 +128,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
   });
 
-  await check('each group marked paid, each payment its own journal; the loan screen says it is paid out there; the payments reversed, back to a draft; deleted', async () => {
+  await check('each group marked paid, each payment its own journal; the loan screen says it is paid out there; the payments reversed: the batch Reversed, kept with its note, no Delete (step 7, point 6)', async () => {
     await p.click('#ip-groups tr[data-way="BankFile"] .ip-g-pay');
     await p.waitForFunction(() => /P1: .* Bank file from 1100/.test(document.getElementById('ip-made').textContent), null, { timeout: 30000 });
     assert.match(p.__dialogs.shift(), /^Mark 1 paid by bank file from 1100/);
@@ -151,11 +151,12 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(p.__dialogs.shift(), /Reverse payment P2 of IP-0001/);
     assert.match(await p.textContent('#ip-status'), /Approved/);
     await p.click('#ip-made li[data-pay="P1"] .ip-p-rev');
-    await p.waitForFunction(() => /^Draft/.test(document.getElementById('ip-status').textContent), null, { timeout: 30000 });
+    await p.waitForFunction(() => /^Reversed/.test(document.getElementById('ip-status').textContent), null, { timeout: 30000 });
     p.__dialogs.shift();
     p.__answer = undefined;
-    await p.click('#ip-delete-btn');
-    await p.waitForFunction(() => /No interim payroll yet/.test(document.getElementById('ip-table-body').textContent), null, { timeout: 30000 });
+    assert.match(await p.textContent('#ip-state-note'), /Reversed by .* Wrong account|Reversed by .*: .*Kept for its history/);
+    assert.ok(await p.isHidden('#ip-delete-btn'));
+    assert.ok(await p.isHidden('#ip-submit-btn'));
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

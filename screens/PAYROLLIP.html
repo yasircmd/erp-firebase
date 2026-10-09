@@ -91,7 +91,7 @@
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const STATUS = { New: ['Not saved yet', 'text-slate-400'], Draft: ['Draft', 'text-slate-400'], PendingApproval: ['Pending approval', 'text-amber-400'],
-    Approved: ['Approved, waiting to pay', 'text-blue-400'], Paying: ['Being paid', 'text-blue-400'], Paid: ['Paid', 'text-emerald-400'] };
+    Approved: ['Approved, waiting to pay', 'text-blue-400'], Paying: ['Being paid', 'text-blue-400'], Paid: ['Paid', 'text-emerald-400'], Reversed: ['Reversed', 'text-slate-500'] };
   const statusHtml = s => '<span class="' + (STATUS[s] || ['', 'text-slate-400'])[1] + '">' + escapeHtml((STATUS[s] || [s])[0]) + '</span>';
   const key = i => i.Kind + ':' + i.ID;
   let list = null, current = null, seq = 0;
@@ -140,7 +140,9 @@
     $('ip-save-btn').classList.toggle('hidden', !draft);
     $('ip-submit-btn').classList.toggle('hidden', !(draft && b.Status === 'Draft'));
     $('ip-delete-btn').classList.toggle('hidden', !(draft && b.Status === 'Draft'));
-    const note = b.Status === 'Draft' && b.RejectedReason ? ['text-red-400', 'Rejected: ' + b.RejectedReason + '. Change it and submit again.'] : null;
+    // A reversed batch is kept for its history (step 7, point 6); its items are free for a new batch.
+    const note = b.Status === 'Reversed' ? ['text-slate-400', 'Reversed by ' + (b.ReversedByName || '') + ' on ' + String(b.ReversedAt || '').slice(0, 10) + ': ' + (b.ReversalReason || '') + '. Kept for its history; what it paid can go in a new batch.']
+      : b.Status === 'Draft' && b.RejectedReason ? ['text-red-400', 'Rejected: ' + b.RejectedReason + '. Change it and submit again.'] : null;
     $('ip-state-note').className = 'text-xs ' + (note ? note[0] : 'hidden');
     $('ip-state-note').textContent = note ? note[1] : '';
     const a = r.approval;
