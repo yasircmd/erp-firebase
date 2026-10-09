@@ -170,3 +170,78 @@ that will be given.
   reset to the default.
 - **Rights:** Numbering, `access` to see it, `write` to change it (Admin by
   default).
+
+## As built (2026-10-09)
+
+Where it differs from the design above, the build is the record:
+
+- **Counters.** A default-format number uses exactly the counter it
+  always used (`gl/counters/P/YYYY/CO`, `stock/counters/voucher/...`,
+  `itemCounters/RM`, `vendorCounters/VEN`, `customerCounters/CL|CE`,
+  `hrCounters/EMP`, `hrCounters/LV-YYYY`, `fa/counters/asset/CO`, …). It
+  never goes below the other document tree's counter for the same prefix.
+  A customized format counts under the same root, at
+  `<root>/_fmt/<scope>`, so **Data Reset** of that data still restarts it.
+  This is the same as before.
+- **Never twice.** Each number a customized format gives is recorded at
+  `<root>/_issued/<number>` and skipped if already given. A format is
+  refused when it has the same shape as another type's current format,
+  default format, or any format that type had before. The shape is
+  everything but the digits; the message names the type.
+- **Master Import** gives a code back after a failed run, the customized
+  code too, which is then free again.
+- **58 types**, each with a default:
+  - **Documents** (46 prefixes, from the GL writer's map plus JV, CR, BR,
+    CP, BP, FT, PR, IPR, PO, SO, JOB, RJT). Prefixes shared by two
+    document types stay one type, e.g. `FAA`: Asset Capitalization / CWIP
+    cost.
+  - **Master codes:** items by category, vendor, customer local and
+    export, employee, fixed asset.
+  - **HR documents:** LV, EC, IP, LN, FS.
+- **The company code** can be included only for documents and fixed
+  assets. Items, vendors, customers and employees belong to no single
+  company.
+- **Not changed (decision 80):** the audit references TXN-, STK- and PRL-,
+  and account codes (decision 83: codes are always automatic).
+
+**Server:** functions/src/numbering.js.
+- `next(kind, { companyId, year })`, plus the old generators by their
+  signatures: `voucherNumber`, `itemCode`, `vendorCode`, `customerCode`,
+  `employeeCode`, `assetNumber`, `hrNumber`.
+- `counterPathOfCode` / `issuedPathOfCode`, for Master Import.
+- Callables `getNumbering` (access) and `saveNumberingFormat` (write;
+  `reset: true` returns to the default).
+- Routed through it:
+  - the legacy `generateVoucherNumber_`, `generateItemCode_`,
+    `generateVendorCode_`, `generateCustomerCode_`, through the port's
+    helper table (tools/legacy-port/generate.js `MAPPED`; the ported code
+    is regenerated, not edited);
+  - `glWriting.generateStockVoucherNumber`; journal.js;
+  - hrEmployees, hrLeave, hrChanges, payrollInterim, payrollLoans,
+    payrollSettlement, fixedAssetsCommon, Retail Sales' Retail Customer
+    and Master Import.
+- Module `NUMBERING` (access, write: Admin), with a menu seed under System
+  Admin → Configuration & Data Management.
+
+**Screen:** screens/NUMBERING.html.
+- The types by group, each with its sample and default or customized,
+  and Find.
+- The builder: prefix, digits, year (none / 2 / 4 digits), separator,
+  company code where allowed, and order when both are included, with a
+  live sample and the default.
+- Save, and Reset to default (asked first). The change log. A Viewer sees
+  it read-only.
+
+**Tests:**
+- `numbering.emulator.test.js` (5): the defaults on today's counters; the
+  owner's `BP-01-26-00001`, restarting by year, per company or shared,
+  without a separator, reset carrying on; codes; the checks; never twice,
+  Data Reset and Master Import.
+- `numbering.ui.js` (4).
+- Negative controls are in the PR.
+
+**Deploy:** `tools/deploy-sets/numbering.txt` is **every function**, 497,
+with `--screens`. Almost every posting numbers its journal through the
+shared GL writer, and a function left on its old code would keep the old
+default shape. Customize a format only after the whole set is live.
+Then link a menu node to "Numbering" and set its rights.
