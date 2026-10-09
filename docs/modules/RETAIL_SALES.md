@@ -134,3 +134,71 @@ cash-up.
 | 53 | Prices and tax | **Tax-inclusive**: the price is what the customer pays; tax is worked out of it at the company's tax %. |
 | 54 | Promotion Code | **A payment method**: the code as its reference, posted to Promotional Discounts. Managed codes later. |
 | 55 | Returns | **Reverse a whole sale now**; a partial retail return later. |
+
+## As built (2026-10-09)
+
+Where it differs from the proposal above, the build is the record:
+
+- **No batch on the way out.** The stock ledger has no batch dimension
+  (item and warehouse only); Delivery Note doesn't take one either, so a
+  sale doesn't ask for it.
+- **One retail price list per company** (Setup), for every customer at
+  the counter, with tax-inclusive prices. "Prices can be changed at the
+  counter" is a setup choice; when it is off, the server always takes the
+  list's price, whatever the screen sends.
+- **No round off**, and **no seeded payment methods**: each company adds
+  its own (Cash, Card, QR, Promotion, Other).
+- **Stock** is checked against the ledger only, like Delivery Note and
+  Material Issue (reservations of Sales Orders don't hold it back).
+- **The cost center** of the revenue, COGS, discount and promotion lines
+  is the one set in Setup.
+- **An existing customer's SOA** shows only the balance left on account
+  (a "Retail Sale" row, an open item settled later by a receipt); a sale
+  paid in full doesn't touch receivables.
+
+**Server:** functions/src/retailSales.js.
+- `getRetailSalesSetup`, `saveRetailSalesSettings` (makes the Retail
+  Customer, code CL-…, Local, once per company), `saveRetailPaymentMethod`
+  (Cash, Card, QR, Other post to an asset account; Promotion to an expense
+  account and always needs its code).
+- `getRetailCounter` (customers, items with price and stock),
+  `confirmRetailSale` (under the global lock: stock Out at average cost,
+  one GL entry `RetailSale`, prefix RS, reference TXN-), `getRetailSales`
+  (the register and the cash-up by method), `getRetailSale` (by sale, or
+  by journal for the GL report), `reverseRetailSale` (whole sale, with a
+  reason; refused while its on-account balance has been settled).
+- Rights (module `RETAILSALES`): access; post = sell and reverse; write =
+  setup.
+- Registries: module, permissions, menu seed ("Retail Sales" under
+  Accounts Receivable), voucher prefix RS, finance sequence, GL report and
+  Journal Vouchers maps (Journal Vouchers refuses to reverse it), SOA
+  label "Retail Sale".
+
+**The posting** for 2 × 52.50 + 1 × 21.00 less 5.00 discount, tax 5%
+included, paid card 60, promotion 10, cash 100 (change 49):
+
+| Account | Dr | Cr |
+|---|---|---|
+| Cash | 51.00 | |
+| Card Clearing | 60.00 | |
+| Promotional Discounts | 10.00 | |
+| Discount Given | 4.76 | |
+| Sales (Sales Type) | | 120.00 |
+| Output Tax | | 5.76 |
+| Cost of Sales | 47.50 | |
+| Inventory | | 47.50 |
+
+**Screen:** screens/RETAILSALES.html: Counter (items by code or name,
+Enter adds; payments with "Rest"; change and amount due shown; Confirm),
+Sales (register by dates, cash-up, the invoice, Print, Reverse), Setup.
+The printed invoice leaves the customer block off when no details were
+entered.
+
+**Tests:** `retailSales.emulator.test.js` (5) and `retailSales.ui.js` (5),
+plus the smoke check. Negative controls caught: tax worked out
+exclusive; the Retail Customer's full payment not enforced; a promotion
+on an asset account; a reversal not returning the stock; the customer
+block always printed; the counter's Confirm open to a Viewer.
+
+**Deploy:** `tools/deploy-sets/retail-sales.txt` with `--screens`
+(RETAILSALES).

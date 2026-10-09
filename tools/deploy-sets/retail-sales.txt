@@ -1,0 +1,26 @@
+# Direct Retail Sales (owner, 2026-10-09; docs/modules/RETAIL_SALES.md,
+# decisions 52-55). Run with --screens (RETAILSALES, new). No Hosting
+# change. Then, in the app: link a menu node to "Retail Sales" (Module
+# Tree & Navigation), set its rights (access, post = sell and reverse,
+# write = setup), and in Retail Sales → Setup, per company: the defaults
+# (creates the Retail Customer) and the payment methods with their ledgers.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getRetailSalesSetup
+saveRetailSalesSettings
+saveRetailPaymentMethod
+getRetailCounter
+confirmRetailSale
+getRetailSales
+getRetailSale
+reverseRetailSale
+# Changed: the GL report opens a retail sale's journal in Retail Sales;
+# Journal Vouchers refuses to reverse it; the SOA labels it.
+getGlReport
+reverseJournalEntry
+getPartyStatement
+# Registries: the module, its permissions, its menu node.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment
