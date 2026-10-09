@@ -74,30 +74,25 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.close();
   });
 
-  await check('inputs: pasted from Excel (an unknown line reported) and typed; saved, the run recalculates', async () => {
+  await check('inputs (step 7b): entered in Earnings & Deductions, shown read-only in the run; changed, the run asks to recalculate; recalculated, it pays them', async () => {
     const p = await open('u-admin');
     await p.click('#pr-runs-body tr[data-id]');
     await p.waitForSelector('#pr-run-view:not(.hidden)', { timeout: 30000 });
+    assert.ok(await p.isHidden('#pr-in-actions'), 'no adding or pasting in the run');
+    assert.ok(await p.isVisible('#pr-ed-none'));
     const aliNo = (await slip(ali)).EmployeeNo;
-    await p.click('#pr-in-paste-btn');
-    await p.fill('#pr-in-paste', 'Employee No\tElement\tValue\tNote\n' + aliNo + '\tot\t10\tJuly weekends\nEMP-9999\tBONUS\t5\t');
-    await p.click('#pr-in-paste-apply');
-    await p.waitForFunction(() => document.querySelectorAll('#pr-in-body .pr-in-row').length === 1, null, { timeout: 5000 });
-    assert.deepEqual(p.__dialogs, ['Not added (not on this run, or not an element entered per run): line 3: employee "EMP-9999".']);
-    assert.equal(await p.inputValue('#pr-in-body .pr-in-hours'), '10');
-    assert.equal(await p.isDisabled('#pr-in-body .pr-in-amount'), true, 'overtime by the hour: no amount');
-    await p.click('#pr-in-add');
-    const row = p.locator('#pr-in-body .pr-in-row').nth(1);
-    await row.locator('.pr-in-emp').selectOption(sara);
-    await row.locator('.pr-in-el').selectOption(els.BONUS);
-    assert.equal(await row.locator('.pr-in-hours').isDisabled(), true);
-    await row.locator('.pr-in-amount').fill('500');
-    await p.click('#pr-in-save');
+    await call('u-admin', 'saveEarningsDeductions', { companyId: 'C1', month: '2026-07', rows: [{ EmployeeNo: aliNo, Code: 'OT', Hours: 10, Note: 'July weekends' }, { EmployeeID: sara, ElementID: els.BONUS, Amount: 500 }] });
+    await p.click('#pr-back');
+    await p.click('#pr-runs-body tr[data-id]');
+    await p.waitForFunction(() => !document.getElementById('pr-ed-changed').classList.contains('hidden'), null, { timeout: 30000 });
+    await p.click('#pr-recalc');
     await p.waitForFunction(() => /OT/.test(document.getElementById('pr-reg-head').textContent), null, { timeout: 30000 });
     // 6,000 ÷ 30 ÷ 8 hours × 1.25 = 31.25 an hour.
     assert.deepEqual([amt(await slip(ali), 'OT'), amt(await slip(sara), 'BONUS')], [312.5, 500]);
     assert.match(await p.textContent('#pr-totals'), /Net pay\s*12,712\.50/);
-    assert.equal(await p.locator('#pr-in-body .pr-in-row').count(), 2, 'the inputs show again after saving');
+    assert.equal(await p.locator('#pr-in-body .pr-in-row').count(), 2, 'the run\'s inputs, read-only');
+    assert.ok(await p.$$eval('#pr-in-body input, #pr-in-body select', x => x.every(i => i.disabled)));
+    assert.ok(await p.isHidden('#pr-ed-changed'));
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

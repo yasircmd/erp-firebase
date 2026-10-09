@@ -1,0 +1,179 @@
+<div class="space-y-5">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-list-check text-blue-500"></i> Earnings &amp; Deductions</h2></div>
+  </div>
+  <p class="text-xs text-slate-500 max-w-3xl">Overtime (hours for elements paid by the hour, else an amount), bonus, commission and one-off additions or deductions for a month, each against a variable pay element, with their supporting documents. Enter them before the run: the month's run takes them when it is calculated and posts them. They can change until the run is submitted. An earning by amount can instead be paid by Interim Payroll.</p>
+
+  <div class="flex flex-wrap items-end gap-3">
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="ed-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+    <div><label class="block text-xs font-medium text-slate-300 mb-1">Month</label><input id="ed-month" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    <button id="ed-add" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> Add entry</button>
+    <button id="ed-paste-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
+  </div>
+  <p id="ed-run-note" class="text-xs text-slate-400"></p>
+
+  <div id="ed-paste-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <p class="text-xs text-slate-400">One row a line: employee no., element code, hours or amount, note (and "Interim" in a fifth column to pay it by Interim Payroll).</p>
+    <textarea id="ed-paste" rows="5" placeholder="EMP-0001&#9;OT&#9;10&#9;July weekends" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono"></textarea>
+    <button id="ed-paste-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-1.5 rounded">Add these rows</button>
+  </div>
+
+  <div id="ed-entry-view" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-sm font-semibold text-slate-200" id="ed-entry-heading">New entry</div>
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Employee</label><select id="ed-emp" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Element</label><select id="ed-el" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div id="ed-hours-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">Hours</label><input id="ed-hours" type="number" min="0" step="0.25" class="w-24 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div id="ed-amount-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">Amount</label><input id="ed-amount" type="number" min="0" step="0.01" class="w-32 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Paid by</label><select id="ed-payby" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Run">The month's run</option><option value="Interim">Interim Payroll</option></select></div>
+      <div class="flex-1 min-w-[12rem]"><label class="block text-xs font-medium text-slate-300 mb-1">Note</label><input id="ed-note" maxlength="150" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+    </div>
+    <div class="flex gap-2">
+      <button id="ed-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+      <button id="ed-delete" class="hidden bg-slate-800 hover:bg-slate-700 text-xs text-red-400 px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-trash"></i> Delete</button>
+      <button id="ed-close" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Close</button>
+    </div>
+    <p id="ed-entry-state" class="text-xs text-slate-400"></p>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+    <table class="w-full text-left text-sm"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+      <th class="py-2 px-3">No.</th><th class="py-2 px-3">Employee</th><th class="py-2 px-3">Element</th><th class="py-2 px-3 text-right">Hours</th><th class="py-2 px-3 text-right">Amount</th><th class="py-2 px-3">Note</th><th class="py-2 px-3">Paid by</th><th class="py-2 px-3">Where it stands</th></tr></thead>
+    <tbody id="ed-body" class="divide-y divide-slate-700"></tbody></table>
+  </div></div>
+</div>
+
+<script>
+(function () {
+  // HR Payroll step 7b: Earnings & Deductions (docs/modules/HR_PAYROLL.md, step 7).
+  const $ = id => document.getElementById(id);
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const opt = (v, label, sel) => '<option value="' + escapeHtml(v) + '"' + (sel ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+  let data = null, current = null, files = null;
+
+  function load() {
+    const companyId = $('ed-company').value, month = $('ed-month').value;
+    if (!companyId || !month) return Promise.resolve();
+    return call('getEarningsDeductions', { companyId, month }).then(r => { data = r; render(); }, err => appAlert(err.message || 'Unable to load the earnings and deductions.'));
+  }
+  function render() {
+    const r = data;
+    const run = r.run;
+    $('ed-run-note').textContent = !run ? 'No run for this month yet: the run will take these when it is made.'
+      : run.Status === 'Draft' ? 'The month\'s run is a draft: recalculate it after a change.'
+      : 'The month\'s run is ' + (run.Status === 'Posted' ? 'posted' : run.Status === 'PendingApproval' ? 'pending approval' : 'approved') + ': its entries can no longer change (those for Interim Payroll still can).';
+    $('ed-add').classList.toggle('hidden', !r.canDraft);
+    $('ed-paste-btn').classList.toggle('hidden', !(r.canDraft && r.runOpen));
+    if (!(r.canDraft && r.runOpen)) $('ed-paste-wrap').classList.add('hidden');
+    $('ed-body').innerHTML = r.entries.length ? r.entries.map(x => '<tr data-id="' + escapeHtml(x.EntryID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
+      '<td class="py-2 px-3 text-xs">' + escapeHtml(x.EmployeeNo) + '</td><td class="py-2 px-3">' + escapeHtml(x.EmployeeName) + '</td>' +
+      '<td class="py-2 px-3">' + escapeHtml(x.Code + ' · ' + x.ElementName) + '</td><td class="py-2 px-3 text-right">' + (x.Hours == null ? '' : escapeHtml(x.Hours)) + '</td>' +
+      '<td class="py-2 px-3 text-right">' + (x.Amount == null ? '' : money(x.Amount)) + '</td><td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(x.Note || '') + '</td>' +
+      '<td class="py-2 px-3 text-xs">' + (x.PayBy === 'Interim' ? 'Interim Payroll' : 'The run') + '</td><td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(x.State) + '</td></tr>').join('')
+      : '<tr><td colspan="8" class="py-6 px-3 text-center text-xs text-slate-500">None for this month yet.</td></tr>';
+    if (current && current.EntryID) { const again = r.entries.find(x => x.EntryID === current.EntryID); if (again) openEntry(again); else closeEntry(); }
+  }
+  function fillForm(x) {
+    $('ed-emp').innerHTML = opt('', 'Select...') + data.employees.map(e => opt(e.EmployeeID, e.EmployeeNo + ' · ' + e.Name, e.EmployeeID === x.EmployeeID)).join('');
+    $('ed-el').innerHTML = opt('', 'Select...') + data.elements.map(e => opt(e.ElementID, e.Code + ' · ' + e.Name, e.ElementID === x.ElementID)).join('');
+    $('ed-hours').value = x.Hours == null ? '' : x.Hours;
+    $('ed-amount').value = x.Amount == null ? '' : x.Amount;
+    $('ed-note').value = x.Note || '';
+    $('ed-payby').value = x.PayBy || 'Run';
+    elementChanged();
+  }
+  function elementChanged() {
+    const el = data.elements.find(e => e.ElementID === $('ed-el').value);
+    $('ed-hours-wrap').classList.toggle('hidden', !(el && el.Hours));
+    $('ed-amount-wrap').classList.toggle('hidden', Boolean(el && el.Hours));
+    const interim = Boolean(el && el.Interim);
+    $('ed-payby').querySelector('option[value="Interim"]').disabled = !interim;
+    if (!interim) $('ed-payby').value = 'Run';
+  }
+  function openEntry(x) {
+    current = x;
+    $('ed-entry-heading').textContent = x.EntryID ? x.EmployeeName + ' — ' + x.ElementName : 'New entry';
+    fillForm(x);
+    const editable = data.canDraft && (x.EntryID ? x.Editable : true);
+    ['ed-emp', 'ed-el', 'ed-hours', 'ed-amount', 'ed-note', 'ed-payby'].forEach(id => { $(id).disabled = !editable; });
+    if (editable) elementChanged();
+    $('ed-save').classList.toggle('hidden', !editable);
+    $('ed-delete').classList.toggle('hidden', !(editable && x.EntryID));
+    $('ed-entry-state').textContent = x.EntryID ? x.State + (x.CreatedByName ? ' · entered by ' + x.CreatedByName : '') : '';
+    $('ed-entry-view').classList.remove('hidden');
+    if (files) files.reload();
+  }
+  function closeEntry() { current = null; $('ed-entry-view').classList.add('hidden'); if (files) files.reload(); }
+  function save() {
+    const el = data.elements.find(e => e.ElementID === $('ed-el').value);
+    const entry = { EntryID: current && current.EntryID || '', EmployeeID: $('ed-emp').value, ElementID: $('ed-el').value, Note: $('ed-note').value, PayBy: $('ed-payby').value };
+    if (el && el.Hours) entry.Hours = $('ed-hours').value; else entry.Amount = $('ed-amount').value;
+    $('ed-save').disabled = true;
+    call('saveEarningsDeductions', { companyId: data.companyId, month: data.month, entry }).then(() => {
+      const wasNew = !entry.EntryID;
+      return load().then(() => {
+        if (wasNew) {
+          // The new entry, open for its supporting documents.
+          const made = data.entries.filter(x => x.EmployeeID === entry.EmployeeID && x.ElementID === entry.ElementID).sort((a, b) => String(b.CreatedAt).localeCompare(String(a.CreatedAt)))[0];
+          if (made) openEntry(made);
+        }
+      });
+    }, err => appAlert(err.message || 'Unable to save the entry.')).then(() => { $('ed-save').disabled = false; });
+  }
+  function remove() {
+    if (!current || !current.EntryID) return;
+    appConfirm('Delete this entry (' + current.EmployeeName + ', ' + current.ElementName + ')?').then(ok => {
+      if (!ok) return;
+      call('deleteEarningsDeduction', { entryId: current.EntryID }).then(() => { closeEntry(); return load(); }, err => appAlert(err.message || 'Unable to delete the entry.'));
+    });
+  }
+  // Excel rows: employee no., element code, hours or amount, note, ("Interim").
+  function pasteRows() {
+    const rows = [];
+    $('ed-paste').value.split(/\r?\n/).forEach((line, n) => {
+      if (!line.trim()) return;
+      const c = line.split('\t').map(x => x.trim());
+      if (!n && /employee/i.test(c[0] || '')) return; // a heading row
+      const el = data.elements.find(e => e.Code.toUpperCase() === (c[1] || '').toUpperCase());
+      rows.push({ EmployeeNo: c[0], Code: (c[1] || '').toUpperCase(), Hours: el && el.Hours ? c[2] : '', Amount: el && el.Hours ? '' : c[2], Note: c[3] || '', PayBy: /^interim$/i.test(c[4] || '') ? 'Interim' : 'Run' });
+    });
+    if (!rows.length) return appAlert('Paste the rows first.');
+    call('saveEarningsDeductions', { companyId: data.companyId, month: data.month, rows }).then(r => {
+      $('ed-paste').value = ''; $('ed-paste-wrap').classList.add('hidden');
+      appAlert(r.saved + ' entr' + (r.saved === 1 ? 'y' : 'ies') + ' added.');
+      return load();
+    }, err => appAlert(err.message || 'Unable to add the rows.'));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-list-check"></i> Earnings &amp; Deductions';
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    const now = window.isoLocalDateTime ? window.isoLocalDateTime(new Date()).slice(0, 7) : new Date().toISOString().slice(0, 7);
+    $('ed-month').value = (pending && pending.Month) || now;
+    $('ed-company').addEventListener('change', () => { closeEntry(); load(); });
+    $('ed-month').addEventListener('change', () => { closeEntry(); load(); });
+    $('ed-add').addEventListener('click', () => openEntry({}));
+    $('ed-paste-btn').addEventListener('click', () => $('ed-paste-wrap').classList.toggle('hidden'));
+    $('ed-paste-save').addEventListener('click', pasteRows);
+    $('ed-el').addEventListener('change', elementChanged);
+    $('ed-save').addEventListener('click', save);
+    $('ed-delete').addEventListener('click', remove);
+    $('ed-close').addEventListener('click', closeEntry);
+    $('ed-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openEntry(data.entries.find(x => x.EntryID === tr.dataset.id)); });
+    // Supporting documents of the entry open (docs/modules/ATTACHMENTS.md).
+    files = supportingDocs.mount({ module: 'PAYROLLED', view: 'ed-entry-view', id: () => current && current.EntryID, list: 'ed-body', rowAttr: 'id',
+      emptyNote: 'Save the entry to attach its supporting documents.' });
+    call('getEarningsDeductions', {}).then(r => {
+      $('ed-company').innerHTML = r.companies.map(c => opt(c.CompanyID, c.Name, pending && pending.CompanyID === c.CompanyID)).join('');
+      return load();
+    }, err => appAlert(err.message || 'Unable to load the companies.'));
+  };
+})();
+</script>
