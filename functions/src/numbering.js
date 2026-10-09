@@ -226,6 +226,13 @@ async function counterPathOfCode(code) {
   return '';
 }
 
+// Where a customized code is recorded as given (none for a default one).
+async function issuedPathOfCode(code) {
+  const counter = await counterPathOfCode(code);
+  const m = counter.match(/^(.*)\/_fmt\//);
+  return m ? m[1] + '/_issued/' + keyOf(String(code)) : '';
+}
+
 // ---------- the screen ----------
 
 async function requireCap(user, cap) {
@@ -278,6 +285,6 @@ exports.saveNumberingFormat = onCallWithMessages(onCallOptions, async (request) 
 });
 
 module.exports = Object.assign(exports, {
-  next, voucherNumber, itemCode, vendorCode, customerCode, employeeCode, assetNumber, hrNumber, counterPathOfCode,
+  next, voucherNumber, itemCode, vendorCode, customerCode, employeeCode, assetNumber, hrNumber, counterPathOfCode, issuedPathOfCode,
   _test: { render, validate, kinds, keyOf }
 });

@@ -1115,7 +1115,16 @@ async function importRows(request, user, masterKey, resolved, opts) {
     const before = root ? Number(p.slice(root.length + 1).split('/').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), snapshot[root])) || 0 : 0;
     // A transaction's first try sees the local cache (null): answering null
     // makes it retry with the server's value instead of giving up.
-    await rtdb.ref(p).transaction(cur => (cur === null ? null : (Number(cur) === before + used[p] ? before : undefined)));
+    const back = await rtdb.ref(p).transaction(cur => (cur === null ? null : (Number(cur) === before + used[p] ? before : undefined)));
+    // A customized code given back is free again (docs/modules/NUMBERING.md).
+    if (back.committed) {
+      for (const c of created) {
+        if (c.code && (await counterOfCode(c.code)) === p) {
+          const issued = await require('./numbering').issuedPathOfCode(c.code);
+          if (issued) await rtdb.ref(issued).remove();
+        }
+      }
+    }
   }
   return { created: [], failure };
 }
