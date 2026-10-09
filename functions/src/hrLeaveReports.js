@@ -143,22 +143,30 @@ exports.getLeaveCalendar = onCallWithMessages(onCallOptions, async (request) => 
 
 // ---------- Home ----------
 
+// Leave tasks (payroll step 7, decision 59): "on leave today" and "returns
+// to record" go only to the employee (their linked ERP user) and their line
+// manager (the manager's linked user), when assigned; no one else.
 exports.getLeaveTasksForUser = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
-  const role = user.profile.role;
-  const [register, reports] = await Promise.all([moduleHasCapability('LEAVE', 'access', role), moduleHasCapability('LEAVEREPORTS', 'access', role)]);
-  if (!register && !reports) return { onLeaveToday: [], returnsToRecord: [] };
   const t = today();
-  const leaves = (await leavesFor(c => userCanAccessCompany(user.profile, c))).filter(l => l.Status === 'Approved');
+  const emps = docs(await EMPLOYEES().get()).map(e => Object.assign(e, { EmployeeID: e._id }));
+  const mine = emps.filter(e => e.UserUID && e.UserUID === user.uid).map(e => e.EmployeeID);
+  if (!mine.length) return { today: t, onLeaveToday: [], returnsToRecord: [] };
+  // Whose leave this user hears about: their own, and their direct reports'.
+  const role = {};
+  emps.forEach(e => {
+    if (mine.includes(e.EmployeeID)) role[e.EmployeeID] = 'Own';
+    else if (e.ManagerID && mine.includes(e.ManagerID)) role[e.EmployeeID] = 'Report';
+  });
+  const leaves = docs(await LEAVES().where('Status', '==', 'Approved').get()).map(l => Object.assign(l, { LeaveID: l._id })).filter(l => role[l.EmployeeID]);
   const item = l => ({ ModuleID: 'LEAVE', DocumentID: l.LeaveID, LeaveNumber: l.LeaveNumber, EmployeeID: l.EmployeeID, EmployeeNo: l.EmployeeNo, EmployeeName: l.EmployeeName,
-    LeaveTypeName: l.LeaveTypeName, Kind: l.Kind, FromDate: l.FromDate, ToDate: l.EffectiveTo || l.ToDate, ExpectedReturn: l.ExpectedReturn || '' });
+    LeaveTypeName: l.LeaveTypeName, Kind: l.Kind, FromDate: l.FromDate, ToDate: l.EffectiveTo || l.ToDate, ExpectedReturn: l.ExpectedReturn || '', As: role[l.EmployeeID] === 'Own' ? 'Employee' : 'Line manager' });
   const onLeaveToday = leaves.filter(l => l.Kind !== 'Absence' && (l.Lines || []).some(x => lv.live(x) && !x.Absence && x.Date === t))
     .map(item).sort((a, b) => a.ExpectedReturn.localeCompare(b.ExpectedReturn) || byNo(a, b));
-  // Returns are recorded in the Leave Register: shown to its users.
   // Due once the expected return (the next working day after the leave) has come.
   const due = l => l.ExpectedReturn || addDay(l.ToDate, 1);
-  const returnsToRecord = register ? leaves.filter(l => l.Kind === 'Leave' && l.ConfirmReturn && !l.ReturnDate && due(l) <= t)
+  const returnsToRecord = leaves.filter(l => l.Kind === 'Leave' && l.ConfirmReturn && !l.ReturnDate && due(l) <= t)
     .map(l => Object.assign(item(l), { DaysOverdue: Math.round((Date.parse(t) - Date.parse(due(l))) / 86400000) }))
-    .sort((a, b) => a.ExpectedReturn.localeCompare(b.ExpectedReturn)) : [];
+    .sort((a, b) => a.ExpectedReturn.localeCompare(b.ExpectedReturn));
   return { today: t, onLeaveToday, returnsToRecord };
 });

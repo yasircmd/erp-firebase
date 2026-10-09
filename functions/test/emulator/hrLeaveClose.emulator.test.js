@@ -134,3 +134,39 @@ test('the year close: after December is locked, carry to the cap, the rest lapse
   assert.equal((await call('u-admin', 'closeLeaveYear', { companyId: 'C1', year: 2025 })).closed, true);
   await assert.rejects(call('u-admin', 'reopenLeaveMonth', { companyId: 'C1', month: '2025-12', reason: 'x' }), /2025 is closed: December stays locked/);
 });
+
+test('the cut-off day (payroll step 7, decision 56): the month locks from it, before it ends; only leave up to today must be decided; later leave is paid next month', async () => {
+  await seed();
+  const t = todayIn('Asia/Dubai');
+  const thisMonth = t.slice(0, 7), day = Number(t.slice(8, 10));
+  const cutOff = d => call('u-admin', 'savePayrollCompany', { companyId: 'C1', dailyRateMethod: 'DIV30', cutOffDay: d });
+  await assert.rejects(cutOff(29), /cut-off day is a day from 1 to 28/);
+  if (day < 28) {
+    await cutOff(day + 1);
+    await assert.rejects(lock(thisMonth), new RegExp('locked from its cut-off day, the ' + (day + 1) + '(st|nd|rd|th) .*' + thisMonth + ' from ' + thisMonth + '-' + String(day + 1).padStart(2, '0')));
+  }
+  await cutOff(1);
+  assert.equal((await call('u-admin', 'getPayrollSetup', {})).settings.find(s => s.CompanyID === 'C1').CutOffDay, 1);
+  const months = (await call('u-admin', 'getLeaveMonths', { companyId: 'C1' })).months;
+  assert.deepEqual(months.find(m => m.Month === thisMonth).Ended, true);
+  // A draft dated today blocks; one dated after today doesn't.
+  const now = (await call('u-admin', 'saveLeave', { leave: leave(ALI, 'UNPAID', t, t) })).leaveId;
+  await assert.rejects(lock(thisMonth), /Decide or delete the leave dated up to today first: draft \(Ali Hassan\)/);
+  await call('u-admin', 'deleteLeave', { leaveId: now });
+  const end = new Date(Date.UTC(Number(t.slice(0, 4)), Number(t.slice(5, 7)), 0)).toISOString().slice(0, 10);
+  let later = null;
+  if (end > t) later = (await call('u-admin', 'saveLeave', { leave: leave(SARA, 'UNPAID', end, end) })).leaveId;
+  assert.equal((await lock(thisMonth)).employees, 2);
+  // Approved after the lock, the rest of the month's leave is paid next month.
+  if (later) {
+    await call('u-admin', 'submitLeave', { leaveId: later });
+    const l = (await call('u-admin', 'getLeave', { leaveId: later })).leave;
+    const [y, m] = thisMonth.split('-').map(Number);
+    const next = m === 12 ? (y + 1) + '-01' : y + '-' + String(m + 1).padStart(2, '0');
+    assert.deepEqual(l.Lines.map(x => x.PayMonth), [next]);
+  }
+  // Without a cut-off, back to after the month ends.
+  await call('u-admin', 'reopenLeaveMonth', { companyId: 'C1', month: thisMonth, reason: 'test' });
+  await cutOff(0);
+  await assert.rejects(lock(thisMonth), /locked after it ends/);
+});
