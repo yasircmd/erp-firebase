@@ -1,0 +1,472 @@
+<style>
+  #rs-print-document { display: none; } /* shown only when printing */
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+    #rs-print-document { display: block !important; color: #000; font-size: 11px; }
+  }
+  #rs-print-document table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  #rs-print-document th, #rs-print-document td { border: 1px solid #333; padding: 3px 6px; text-align: left; }
+  #rs-print-document td.r, #rs-print-document th.r { text-align: right; }
+</style>
+<div id="rs-print-document" class="print-only"></div>
+
+<div class="no-print space-y-5">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Sales</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-cash-register text-blue-500"></i> Retail Sales</h2></div>
+    <div class="flex items-end gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+        <select id="rs-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex gap-1 border-b border-slate-700">
+    <button data-tab="counter" class="rs-tab px-4 py-2 text-xs border-b-2 border-blue-500 text-blue-300">Counter</button>
+    <button data-tab="sales" class="rs-tab px-4 py-2 text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-200">Sales</button>
+    <button data-tab="setup" class="rs-tab px-4 py-2 text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-200">Setup</button>
+  </div>
+
+  <!-- ===== Counter ===== -->
+  <div id="rs-counter" class="rs-pane space-y-4">
+    <p id="rs-no-setup" class="hidden text-sm text-amber-300"><i class="fa-solid fa-circle-exclamation"></i> Retail Sales is not set up for this company yet: see the Setup tab.</p>
+    <div id="rs-counter-body" class="hidden space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Date</label>
+          <input id="rs-date" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Customer</label>
+          <select id="rs-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Sales Type</label>
+          <select id="rs-salestype" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Warehouse</label>
+          <select id="rs-warehouse" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select>
+        </div>
+      </div>
+      <details id="rs-billto-box" class="bg-slate-800/40 border border-slate-700 rounded-lg px-3 py-2">
+        <summary class="text-xs text-slate-300 cursor-pointer">Customer details on the invoice <span class="text-slate-500">(optional; left off when blank)</span></summary>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+          <input id="rs-billto-name" placeholder="Name" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm">
+          <input id="rs-billto-address" placeholder="Address" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm">
+          <input id="rs-billto-tax" placeholder="Tax registration number" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm">
+        </div>
+      </details>
+
+      <div class="flex gap-2 items-end">
+        <div class="flex-1">
+          <label class="block text-xs font-medium text-slate-300 mb-1">Item <span class="text-slate-500">(code or name; Enter adds it)</span></label>
+          <input id="rs-item" list="rs-items" autocomplete="off" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" placeholder="Scan or type an item...">
+          <datalist id="rs-items"></datalist>
+        </div>
+        <button id="rs-add" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> Add</button>
+      </div>
+      <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-900 text-slate-400 uppercase"><tr><th class="py-1.5 px-2">Item</th><th class="py-1.5 px-2 text-right">In stock</th><th class="py-1.5 px-2 text-right">Qty</th><th class="py-1.5 px-2 text-right">Price</th><th class="py-1.5 px-2 text-right">Discount</th><th class="py-1.5 px-2 text-right">Amount</th><th></th></tr></thead>
+          <tbody id="rs-lines" class="divide-y divide-slate-700"></tbody>
+        </table>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 space-y-2">
+          <div class="flex justify-between items-center">
+            <div class="text-xs font-semibold text-slate-400 uppercase">Payments</div>
+            <button id="rs-add-pay" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1 rounded"><i class="fa-solid fa-plus"></i> Add payment</button>
+          </div>
+          <div id="rs-payments" class="space-y-2"></div>
+        </div>
+        <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3 text-sm space-y-1" id="rs-totals"></div>
+      </div>
+      <div class="flex gap-2">
+        <button id="rs-confirm" class="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-sm text-white px-5 py-2 rounded-lg"><i class="fa-solid fa-check"></i> Confirm sale</button>
+        <button id="rs-clear" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Sales ===== -->
+  <div id="rs-sales" class="rs-pane hidden space-y-4">
+    <div class="flex gap-3 items-end">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">From</label><input id="rs-from" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">To</label><input id="rs-to" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></div>
+      <button id="rs-run" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-magnifying-glass"></i> Show</button>
+    </div>
+    <div id="rs-cashup" class="text-xs text-slate-300"></div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-slate-900 text-slate-400 uppercase"><tr><th class="py-1.5 px-2">Date</th><th class="py-1.5 px-2">Number</th><th class="py-1.5 px-2">Customer</th><th class="py-1.5 px-2">Payments</th><th class="py-1.5 px-2 text-right">Total</th><th class="py-1.5 px-2 text-right">On account</th><th class="py-1.5 px-2">By</th><th class="py-1.5 px-2">Status</th></tr></thead>
+        <tbody id="rs-sales-body" class="divide-y divide-slate-700"></tbody>
+      </table>
+    </div>
+    <div id="rs-sale-view" class="hidden bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+      <div class="flex justify-between items-center">
+        <div id="rs-sale-heading" class="text-sm font-semibold"></div>
+        <div class="flex gap-2">
+          <button id="rs-print" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print invoice</button>
+          <button id="rs-reverse" class="hidden text-red-400 hover:text-red-300 text-xs px-3 py-1.5 rounded border border-red-500/30"><i class="fa-solid fa-rotate-left"></i> Reverse sale</button>
+        </div>
+      </div>
+      <div id="rs-sale-detail" class="text-xs"></div>
+    </div>
+  </div>
+
+  <!-- ===== Setup ===== -->
+  <div id="rs-setup" class="rs-pane hidden space-y-5">
+    <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="text-xs font-semibold text-slate-400 uppercase">Defaults for this company</div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div><label class="block text-xs text-slate-300 mb-1">Default Sales Type</label><select id="rs-s-salestype" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Default warehouse (the store)</label><select id="rs-s-warehouse" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Cost center of the sales</label><select id="rs-s-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Retail price list <span class="text-slate-500">(prices include tax)</span></label><select id="rs-s-pricelist" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Tax % included in the prices</label><input id="rs-s-tax" type="number" min="0" max="100" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Retail Customer's receivables account</label><select id="rs-s-receivables" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      </div>
+      <label class="flex items-center gap-2 text-xs text-slate-300"><input id="rs-s-pricechange" type="checkbox"> Prices can be changed at the counter</label>
+      <div class="flex items-center gap-3">
+        <button id="rs-s-save" class="bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save setup</button>
+        <span id="rs-s-customer" class="text-xs text-slate-400"></span>
+      </div>
+    </div>
+    <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="text-xs font-semibold text-slate-400 uppercase">Payment methods and their ledgers</div>
+      <table class="w-full text-left text-xs">
+        <thead class="text-slate-400 uppercase"><tr><th class="py-1 px-2">Name</th><th class="py-1 px-2">Kind</th><th class="py-1 px-2">Ledger account</th><th class="py-1 px-2">Reference</th><th class="py-1 px-2">Status</th><th></th></tr></thead>
+        <tbody id="rs-methods" class="divide-y divide-slate-700"></tbody>
+      </table>
+      <button id="rs-m-add" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add payment method</button>
+      <p class="text-xs text-slate-500">Cash, card, QR and other methods post to an asset account (cash, bank, card clearing); a promotion posts to an expense account such as Promotional Discounts and always asks for its code.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Direct Retail Sales (owner, 2026-10-09; docs/modules/RETAIL_SALES.md).
+  const $ = id => document.getElementById(id);
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const money = n => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+  const today = () => window.isoLocalDateTime ? window.isoLocalDateTime(new Date()).substring(0, 10) : new Date().toISOString().substring(0, 10);
+  const opt = (v, label, sel) => '<option value="' + escapeHtml(v) + '"' + (sel ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+
+  let setup = null, counter = null, lines = [], payments = [], current = null, opened = null;
+
+  // ---------- tabs ----------
+  function showTab(tab) {
+    document.querySelectorAll('.rs-tab').forEach(b => {
+      const on = b.dataset.tab === tab;
+      b.className = 'rs-tab px-4 py-2 text-xs border-b-2 ' + (on ? 'border-blue-500 text-blue-300' : 'border-transparent text-slate-400 hover:text-slate-200');
+    });
+    document.querySelectorAll('.rs-pane').forEach(p => p.classList.toggle('hidden', p.id !== 'rs-' + tab));
+    if (tab === 'sales') loadSales();
+  }
+
+  // ---------- loading ----------
+  function loadCompany() {
+    const companyId = $('rs-company').value;
+    if (!companyId) return Promise.resolve();
+    return call('getRetailSalesSetup', { companyId }).then(s => {
+      setup = s;
+      renderSetup();
+      return loadCounter();
+    }, err => appAlert(err.message || 'Unable to load Retail Sales.'));
+  }
+  function loadCounter(keepLines) {
+    const companyId = $('rs-company').value;
+    $('rs-no-setup').classList.toggle('hidden', !!setup.settings);
+    $('rs-counter-body').classList.toggle('hidden', !setup.settings);
+    if (!setup.settings) return Promise.resolve();
+    return call('getRetailCounter', { companyId, warehouseId: $('rs-warehouse').value || '', date: $('rs-date').value || today() }).then(c => {
+      counter = c;
+      if (!$('rs-date').value) $('rs-date').value = c.date;
+      $('rs-customer').innerHTML = c.customers.map(x => opt(x.CustomerID, x.CustomerName + (x.CustomerCode ? ' (' + x.CustomerCode + ')' : ''), x.CustomerID === ($('rs-customer').value || c.settings.RetailCustomerID))).join('');
+      $('rs-salestype').innerHTML = setup.salesTypes.map(x => opt(x.SalesTypeID, x.Name, x.SalesTypeID === ($('rs-salestype').value || c.settings.SalesTypeID))).join('');
+      $('rs-warehouse').innerHTML = setup.warehouses.map(x => opt(x.ID, x.Label, x.ID === c.warehouseId)).join('');
+      $('rs-items').innerHTML = c.items.map(i => '<option value="' + escapeHtml(i.ItemCode + ' — ' + i.ItemName) + '"></option>').join('');
+      if (keepLines) {
+        lines.forEach(l => {
+          const i = c.items.find(x => x.ItemID === l.ItemID);
+          l.InStock = i ? i.InStock : 0;
+          if (!c.settings.AllowPriceChange && i && i.Price !== null) l.UnitPrice = i.Price;
+        });
+      } else {
+        lines = [];
+        payments = defaultPayments();
+      }
+      renderLines();
+    }, err => appAlert(err.message || 'Unable to load the counter.'));
+  }
+  const defaultPayments = () => (counter && counter.methods.length ? [{ MethodID: (counter.methods.find(m => m.Kind === 'Cash') || counter.methods[0]).MethodID, Amount: '', Reference: '' }] : []);
+
+  // ---------- the counter ----------
+  function addItem() {
+    const text = $('rs-item').value.trim();
+    if (!text) return;
+    const code = text.split(' — ')[0].trim().toLowerCase();
+    const item = counter.items.find(i => i.ItemCode.toLowerCase() === code) ||
+      counter.items.find(i => (i.ItemCode + ' ' + i.ItemName).toLowerCase().includes(text.toLowerCase()));
+    if (!item) { appAlert('No item "' + text + '" for this company.'); return; }
+    if (item.Price === null && !counter.settings.AllowPriceChange) { appAlert(item.ItemCode + ' has no price on the retail price list.'); return; }
+    const existing = lines.find(l => l.ItemID === item.ItemID);
+    if (existing) existing.Quantity = r2(Number(existing.Quantity) + 1);
+    else lines.push({ ItemID: item.ItemID, ItemCode: item.ItemCode, ItemName: item.ItemName, UOM: item.UOM, InStock: item.InStock, Quantity: 1, UnitPrice: item.Price === null ? 0 : item.Price, Discount: 0 });
+    $('rs-item').value = '';
+    renderLines();
+  }
+  const lineAmount = l => r2((Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0) - (Number(l.Discount) || 0));
+  function totals() {
+    const rate = Number(counter.settings.TaxPercent) || 0;
+    const list = r2(lines.reduce((s, l) => s + (Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0), 0));
+    const discount = r2(lines.reduce((s, l) => s + (Number(l.Discount) || 0), 0));
+    const total = r2(list - discount);
+    const paid = r2(payments.reduce((s, p) => s + (Number(p.Amount) || 0), 0));
+    return { rate, list, discount, total, tax: r2(total * rate / (100 + rate)), paid, change: r2(Math.max(0, paid - total)), due: r2(Math.max(0, total - paid)) };
+  }
+  function renderLines() {
+    const canPrice = counter.settings.AllowPriceChange;
+    $('rs-lines').innerHTML = lines.length ? lines.map((l, i) => '<tr data-i="' + i + '">' +
+      '<td class="py-1 px-2">' + escapeHtml(l.ItemCode) + ' <span class="text-slate-500">' + escapeHtml(l.ItemName) + '</span></td>' +
+      '<td class="py-1 px-2 text-right ' + (l.InStock < l.Quantity ? 'text-red-400' : 'text-slate-400') + '">' + escapeHtml(l.InStock) + ' ' + escapeHtml(l.UOM) + '</td>' +
+      '<td class="py-1 px-2 text-right"><input data-f="Quantity" type="number" min="0" step="any" value="' + escapeHtml(l.Quantity) + '" class="rs-line-in w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-right"></td>' +
+      '<td class="py-1 px-2 text-right">' + (canPrice ? '<input data-f="UnitPrice" type="number" min="0" step="any" value="' + escapeHtml(l.UnitPrice) + '" class="rs-line-in w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-right">' : money(l.UnitPrice)) + '</td>' +
+      '<td class="py-1 px-2 text-right"><input data-f="Discount" type="number" min="0" step="any" value="' + escapeHtml(l.Discount) + '" class="rs-line-in w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-right"></td>' +
+      '<td class="py-1 px-2 text-right font-semibold rs-line-amount">' + money(lineAmount(l)) + '</td>' +
+      '<td class="py-1 px-2 text-right"><button class="rs-line-del text-red-400 hover:text-red-300"><i class="fa-solid fa-xmark"></i></button></td></tr>').join('')
+      : '<tr><td colspan="7" class="py-4 text-center text-slate-500">Add items above.</td></tr>';
+    renderPayments();
+  }
+  function renderPayments() {
+    $('rs-payments').innerHTML = payments.map((p, i) => {
+      const m = counter.methods.find(x => x.MethodID === p.MethodID) || {};
+      return '<div class="flex gap-2 items-center" data-i="' + i + '">' +
+        '<select data-f="MethodID" class="rs-pay-in bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300">' + counter.methods.map(x => opt(x.MethodID, x.Name, x.MethodID === p.MethodID)).join('') + '</select>' +
+        '<input data-f="Amount" type="number" min="0" step="any" placeholder="Amount" value="' + escapeHtml(p.Amount) + '" class="rs-pay-in w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-right">' +
+        '<input data-f="Reference" placeholder="' + (m.Kind === 'Promotion' ? 'Promotion code' : 'Reference') + (m.NeedsReference ? ' (required)' : '') + '" value="' + escapeHtml(p.Reference) + '" class="rs-pay-in flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">' +
+        '<button class="rs-pay-fill text-xs text-blue-300 hover:text-blue-200" title="The amount still due">Rest</button>' +
+        '<button class="rs-pay-del text-red-400 hover:text-red-300"><i class="fa-solid fa-xmark"></i></button></div>';
+    }).join('') || '<p class="text-xs text-slate-500">No payment yet.</p>';
+    renderTotals();
+  }
+  function renderTotals() {
+    const t = totals();
+    const retail = $('rs-customer').value === counter.settings.RetailCustomerID;
+    const row = (label, v, cls) => '<div class="flex justify-between ' + (cls || '') + '"><span>' + label + '</span><span>' + v + '</span></div>';
+    $('rs-totals').innerHTML = row('Items', money(t.list), 'text-slate-400') + (t.discount ? row('Discount', '−' + money(t.discount), 'text-slate-400') : '') +
+      row('Total', '<span id="rs-total">' + money(t.total) + '</span>', 'text-lg font-semibold') +
+      row('of which tax (' + t.rate + '%)', money(t.tax), 'text-xs text-slate-500') + row('Paid', money(t.paid), 'text-slate-300') +
+      (t.change ? row('Change', '<span id="rs-change">' + money(t.change) + '</span>', 'text-emerald-400 font-semibold') : '') +
+      (t.due ? row(retail ? 'Still to pay' : 'Left on account', '<span id="rs-due">' + money(t.due) + '</span>', retail ? 'text-amber-300 font-semibold' : 'text-amber-200') : '');
+    $('rs-confirm').disabled = !lines.length || !setup.canSell || (retail && t.due > 0.005);
+  }
+  function fillBillTo() {
+    const c = counter.customers.find(x => x.CustomerID === $('rs-customer').value);
+    const retail = !c || c.Retail;
+    $('rs-billto-name').value = retail ? '' : c.CustomerName;
+    $('rs-billto-address').value = retail ? '' : c.Address;
+    $('rs-billto-tax').value = retail ? '' : c.TaxRegistrationNumber;
+    renderTotals();
+  }
+  function confirmSale() {
+    $('rs-confirm').disabled = true;
+    call('confirmRetailSale', {
+      CompanyID: $('rs-company').value, SaleDate: $('rs-date').value, CustomerID: $('rs-customer').value, SalesTypeID: $('rs-salestype').value,
+      WarehouseID: $('rs-warehouse').value, BillToName: $('rs-billto-name').value, BillToAddress: $('rs-billto-address').value, BillToTaxNumber: $('rs-billto-tax').value,
+      Lines: lines.map(l => ({ ItemID: l.ItemID, Quantity: Number(l.Quantity), UnitPrice: Number(l.UnitPrice), Discount: Number(l.Discount) || 0 })),
+      Payments: payments.map(p => ({ MethodID: p.MethodID, Amount: Number(p.Amount) || 0, Reference: p.Reference }))
+    }).then(r => {
+      appAlert('Sale ' + r.saleNumber + ' confirmed: ' + money(r.total) + (r.change ? '. Change ' + money(r.change) : '') + (r.onAccount ? '. Left on account ' + money(r.onAccount) : '') + '.');
+      $('rs-billto-name').value = $('rs-billto-address').value = $('rs-billto-tax').value = '';
+      $('rs-customer').value = counter.settings.RetailCustomerID;
+      return loadCounter().then(() => openSale(r.saleId, true));
+    }, err => { appAlert(err.message || 'Unable to confirm the sale.'); renderTotals(); });
+  }
+
+  // ---------- sales ----------
+  function loadSales() {
+    if (!$('rs-from').value) $('rs-from').value = today();
+    if (!$('rs-to').value) $('rs-to').value = today();
+    return call('getRetailSales', { companyId: $('rs-company').value, from: $('rs-from').value, to: $('rs-to').value }).then(r => {
+      $('rs-cashup').innerHTML = r.byMethod.length ? 'Taken: ' + r.byMethod.map(m => '<b>' + escapeHtml(m.Name) + '</b> ' + money(m.Amount)).join(' · ') : '';
+      $('rs-sales-body').innerHTML = r.sales.length ? r.sales.map(x => '<tr data-id="' + escapeHtml(x.SaleID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
+        '<td class="py-1.5 px-2">' + escapeHtml(x.TransactionDate) + '</td><td class="py-1.5 px-2 font-mono">' + escapeHtml(x.TransactionNumber) + '</td>' +
+        '<td class="py-1.5 px-2">' + escapeHtml(x.CustomerName) + '</td><td class="py-1.5 px-2 text-slate-400">' + escapeHtml(x.Payments.map(p => p.Name + ' ' + money(p.Posted)).join(', ')) + '</td>' +
+        '<td class="py-1.5 px-2 text-right">' + money(x.Total) + '</td><td class="py-1.5 px-2 text-right">' + (x.OnAccount ? money(x.OnAccount) : '') + '</td>' +
+        '<td class="py-1.5 px-2 text-slate-400">' + escapeHtml(x.CreatedBy) + '</td>' +
+        '<td class="py-1.5 px-2">' + (x.Reversal ? '<span class="text-slate-500">Reversal</span>' : x.ReversedBy ? '<span class="text-slate-500">Reversed</span>' : '<span class="text-emerald-400">Sold</span>') + '</td></tr>').join('')
+        : '<tr><td colspan="8" class="py-4 text-center text-slate-500">No sales in these dates.</td></tr>';
+    }, err => appAlert(err.message || 'Unable to load the sales.'));
+  }
+  function openSale(saleId, print, jvId) {
+    return call('getRetailSale', saleId ? { saleId } : { jvId }).then(r => {
+      current = r;
+      const s = r.sale;
+      showTab('sales');
+      $('rs-sale-view').classList.remove('hidden');
+      $('rs-sale-heading').innerHTML = escapeHtml(s.TransactionNumber) + ' · ' + escapeHtml(s.TransactionDate) + (s.ReversalOfSaleID ? ' <span class="text-slate-500">(reversal)</span>' : s.ReversedBySaleID ? ' <span class="text-slate-500">(reversed: ' + escapeHtml(s.ReversalReason || '') + ')</span>' : '');
+      $('rs-reverse').classList.toggle('hidden', !setup.canSell || !!s.ReversedBySaleID || !!s.ReversalOfSaleID);
+      $('rs-sale-detail').innerHTML = invoiceHtml(r, false);
+      renderPrint(r);
+      if (print) $('rs-sale-view').scrollIntoView({ block: 'nearest' });
+    }, err => appAlert(err.message || 'Unable to open the sale.'));
+  }
+  // The invoice: the customer block only when its details were entered.
+  function invoiceHtml(r, forPrint) {
+    const s = r.sale;
+    const cust = [s.BillToName, s.BillToAddress, s.BillToTaxNumber ? 'TRN ' + s.BillToTaxNumber : ''].filter(Boolean);
+    const td = (v, right) => '<td class="' + (right ? 'r text-right ' : '') + 'py-1 px-2">' + v + '</td>';
+    return (forPrint ? '<div style="text-align:center"><b style="font-size:14px">' + escapeHtml(r.company.LegalName) + '</b><br>' + escapeHtml(r.company.Address) +
+        (r.company.TaxNumbers.length ? '<br>' + r.company.TaxNumbers.map(x => escapeHtml((x.Type ? x.Type + ' ' : '') + x.Number)).join(' · ') : '') +
+        '<br><b>' + (Number(s.TaxAmount) ? 'Tax Invoice' : 'Invoice') + '</b></div>' : '') +
+      '<div>Invoice ' + escapeHtml(s.TransactionNumber) + ' · ' + escapeHtml(s.TransactionDate) + '</div>' +
+      (cust.length ? '<div class="rs-billto mt-1">Customer: ' + cust.map(escapeHtml).join('<br>') + '</div>' : '') +
+      '<table class="w-full mt-2"><thead><tr><th class="py-1 px-2">Item</th><th class="r text-right py-1 px-2">Qty</th><th class="r text-right py-1 px-2">Price</th><th class="r text-right py-1 px-2">Discount</th><th class="r text-right py-1 px-2">Amount</th></tr></thead><tbody>' +
+      (s.Lines || []).map(l => '<tr>' + td(escapeHtml(l.ItemCode + ' ' + l.ItemName)) + td(escapeHtml(l.Quantity), 1) + td(money(l.UnitPrice), 1) + td(l.Discount ? money(l.Discount) : '', 1) + td(money(l.Amount), 1) + '</tr>').join('') +
+      '</tbody></table>' +
+      '<div class="mt-2" style="text-align:right">Total <b>' + money(s.Total) + '</b><br>Includes tax ' + escapeHtml(s.TaxPercent) + '%: ' + money(s.TaxAmount) + '<br>' +
+      (s.Payments || []).map(p => escapeHtml(p.Name) + (p.Reference ? ' (' + escapeHtml(p.Reference) + ')' : '') + ': ' + money(p.Amount)).join('<br>') +
+      (Number(s.Change) ? '<br>Change: ' + money(s.Change) : '') + (Number(s.OnAccount) ? '<br>On account: ' + money(s.OnAccount) : '') + '</div>';
+  }
+  function renderPrint(r) { $('rs-print-document').innerHTML = invoiceHtml(r, true); }
+  function reverseSale() {
+    const s = current && current.sale;
+    if (!s) return;
+    appPrompt('Reverse sale ' + s.TransactionNumber + ' (' + money(s.Total) + ')? The stock comes back and the entry is reversed. Reason:', '').then(reason => {
+      if (reason === null) return;
+      call('reverseRetailSale', { saleId: s.SaleID, reason, reversalDate: today() < s.TransactionDate ? s.TransactionDate : today() }).then(r => {
+        appAlert('Sale reversed: ' + r.saleNumber + '.');
+        loadSales();
+        openSale(s.SaleID);
+        loadCounter(true);
+      }, err => appAlert(err.message || 'Unable to reverse the sale.'));
+    });
+  }
+
+  // ---------- setup ----------
+  function renderSetup() {
+    const st = setup.settings || {};
+    const accounts = setup.accounts;
+    $('rs-s-salestype').innerHTML = opt('', 'Select...') + setup.salesTypes.map(x => opt(x.SalesTypeID, x.Name, x.SalesTypeID === st.SalesTypeID)).join('');
+    $('rs-s-warehouse').innerHTML = opt('', 'Select...') + setup.warehouses.map(x => opt(x.ID, x.Label, x.ID === st.WarehouseID)).join('');
+    $('rs-s-costcenter').innerHTML = opt('', 'Select...') + setup.costCenters.map(x => opt(x.ID, x.Label, x.ID === st.CostCenterID)).join('');
+    $('rs-s-pricelist').innerHTML = opt('', 'None (prices entered at the counter)') + setup.priceLists.map(x => opt(x.PriceListID, x.Name, x.PriceListID === st.PriceListID)).join('');
+    $('rs-s-receivables').innerHTML = opt('', 'Select...') + accounts.filter(a => a.AccountType === 'Asset').map(a => opt(a.AccountID, a.Label, a.AccountID === st.ReceivablesAccountID)).join('');
+    $('rs-s-tax').value = st.TaxPercent === undefined ? '' : st.TaxPercent;
+    $('rs-s-pricechange').checked = !!st.AllowPriceChange;
+    $('rs-s-customer').textContent = setup.retailCustomer ? 'Default customer: ' + setup.retailCustomer.CustomerName + ' (' + setup.retailCustomer.CustomerCode + ')' : 'Saving creates the "Retail Customer" in Customer Master.';
+    document.querySelectorAll('#rs-setup input, #rs-setup select, #rs-setup button').forEach(x => { x.disabled = !setup.canSetup; });
+    const kinds = setup.kinds;
+    $('rs-methods').innerHTML = setup.methods.map(m => methodRow(m, kinds, accounts)).join('') || '<tr><td colspan="6" class="py-3 text-center text-slate-500">No payment methods yet.</td></tr>';
+    $('rs-methods').querySelectorAll('input, select, button').forEach(x => { x.disabled = !setup.canSetup; });
+  }
+  function methodRow(m, kinds, accounts) {
+    return '<tr data-id="' + escapeHtml(m.MethodID || '') + '">' +
+      '<td class="py-1 px-2"><input data-f="Name" value="' + escapeHtml(m.Name || '') + '" class="w-36 bg-slate-900 border border-slate-700 rounded px-2 py-1"></td>' +
+      '<td class="py-1 px-2"><select data-f="Kind" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300">' + kinds.map(k => opt(k.key, k.label, k.key === m.Kind)).join('') + '</select></td>' +
+      '<td class="py-1 px-2"><select data-f="AccountID" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300">' + opt('', 'Select...') + accounts.filter(a => a.AccountType === 'Asset' || a.AccountType === 'Expense').map(a => opt(a.AccountID, a.Label, a.AccountID === m.AccountID)).join('') + '</select></td>' +
+      '<td class="py-1 px-2"><label class="flex items-center gap-1"><input data-f="NeedsReference" type="checkbox"' + (m.NeedsReference ? ' checked' : '') + '> required</label></td>' +
+      '<td class="py-1 px-2"><select data-f="Status" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300">' + opt('Active', 'Active', m.Status !== 'Inactive') + opt('Inactive', 'Inactive', m.Status === 'Inactive') + '</select></td>' +
+      '<td class="py-1 px-2"><button class="rs-m-save bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded">Save</button></td></tr>';
+  }
+  function saveSettings() {
+    call('saveRetailSalesSettings', {
+      companyId: $('rs-company').value, salesTypeId: $('rs-s-salestype').value, warehouseId: $('rs-s-warehouse').value, costCenterId: $('rs-s-costcenter').value,
+      priceListId: $('rs-s-pricelist').value, receivablesAccountId: $('rs-s-receivables').value, taxPercent: $('rs-s-tax').value === '' ? NaN : Number($('rs-s-tax').value),
+      allowPriceChange: $('rs-s-pricechange').checked
+    }).then(() => { appAlert('Setup saved.'); loadCompany(); }, err => appAlert(err.message || 'Unable to save the setup.'));
+  }
+  function saveMethod(tr) {
+    const f = k => tr.querySelector('[data-f="' + k + '"]');
+    call('saveRetailPaymentMethod', {
+      companyId: $('rs-company').value,
+      method: { MethodID: tr.dataset.id, Name: f('Name').value, Kind: f('Kind').value, AccountID: f('AccountID').value, NeedsReference: f('NeedsReference').checked, Status: f('Status').value }
+    }).then(() => { appAlert('Payment method saved.'); loadCompany(); }, err => appAlert(err.message || 'Unable to save the payment method.'));
+  }
+
+  // ---------- wiring ----------
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-cash-register"></i> Retail Sales';
+    document.querySelectorAll('.rs-tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    $('rs-company').addEventListener('change', () => { lines = []; loadCompany(); });
+    $('rs-warehouse').addEventListener('change', () => loadCounter(true));
+    $('rs-date').addEventListener('change', () => loadCounter(true));
+    $('rs-customer').addEventListener('change', fillBillTo);
+    $('rs-add').addEventListener('click', addItem);
+    $('rs-item').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } });
+    $('rs-lines').addEventListener('input', e => {
+      const inp = e.target.closest('.rs-line-in');
+      if (!inp) return;
+      const tr = inp.closest('tr');
+      lines[Number(tr.dataset.i)][inp.dataset.f] = inp.value;
+      tr.querySelector('.rs-line-amount').textContent = money(lineAmount(lines[Number(tr.dataset.i)]));
+      renderTotals();
+    });
+    $('rs-lines').addEventListener('click', e => {
+      if (!e.target.closest('.rs-line-del')) return;
+      lines.splice(Number(e.target.closest('tr').dataset.i), 1);
+      renderLines();
+    });
+    $('rs-add-pay').addEventListener('click', () => {
+      if (!counter.methods.length) { appAlert('No payment methods are set up for this company (Setup tab).'); return; }
+      payments.push({ MethodID: counter.methods[0].MethodID, Amount: '', Reference: '' });
+      renderPayments();
+    });
+    $('rs-payments').addEventListener('input', e => {
+      const inp = e.target.closest('.rs-pay-in');
+      if (!inp) return;
+      payments[Number(inp.closest('[data-i]').dataset.i)][inp.dataset.f] = inp.value;
+      if (inp.dataset.f === 'MethodID') renderPayments(); else renderTotals();
+    });
+    $('rs-payments').addEventListener('change', e => { if (e.target.dataset.f === 'MethodID') renderPayments(); });
+    $('rs-payments').addEventListener('click', e => {
+      const row = e.target.closest('[data-i]');
+      if (!row) return;
+      const i = Number(row.dataset.i);
+      if (e.target.closest('.rs-pay-del')) { payments.splice(i, 1); renderPayments(); }
+      if (e.target.closest('.rs-pay-fill')) {
+        const others = r2(payments.reduce((s, p, j) => s + (j === i ? 0 : Number(p.Amount) || 0), 0));
+        payments[i].Amount = Math.max(0, r2(totals().total - others));
+        renderPayments();
+      }
+    });
+    $('rs-confirm').addEventListener('click', confirmSale);
+    $('rs-clear').addEventListener('click', () => { lines = []; payments = defaultPayments(); renderLines(); });
+    $('rs-run').addEventListener('click', loadSales);
+    $('rs-sales-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openSale(tr.dataset.id); });
+    $('rs-print').addEventListener('click', () => { if (current) { renderPrint(current); window.print(); } });
+    $('rs-reverse').addEventListener('click', reverseSale);
+    $('rs-s-save').addEventListener('click', saveSettings);
+    $('rs-m-add').addEventListener('click', () => {
+      $('rs-methods').insertAdjacentHTML('beforeend', methodRow({ Kind: 'Cash', Status: 'Active' }, setup.kinds, setup.accounts));
+      const empty = $('rs-methods').querySelector('td[colspan]');
+      if (empty) empty.closest('tr').remove();
+    });
+    $('rs-methods').addEventListener('click', e => { if (e.target.closest('.rs-m-save')) saveMethod(e.target.closest('tr')); });
+
+    // Opened from the GL report (OpenEntryId: a retail sale's journal).
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    opened = pending && pending.OpenEntryId;
+    call('getActiveCompanies', {}).then(list => {
+      $('rs-company').innerHTML = (list || []).map(c => opt(c.CompanyID, c.LegalName || c.CompanyID)).join('');
+      if (!opened) return loadCompany();
+      return call('getRetailSale', { jvId: opened }).then(r => {
+        $('rs-company').value = r.sale.CompanyID;
+        return loadCompany().then(() => openSale(r.sale.SaleID));
+      }, err => { appAlert(err.message || 'Unable to open that sale.'); return loadCompany(); });
+    }, err => appAlert(err.message || 'Unable to load the companies.'));
+  };
+})();
+</script>
