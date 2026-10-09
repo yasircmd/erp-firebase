@@ -31,6 +31,7 @@ const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovem
 const { beginCommitAttempt, abandonCommitAttempt, finalizeCommitAttempt } = require('./commitAttempt');
 const { withGlobalLock } = require('./lock');
 const { assertEntryReversible } = require('./partyLedger');
+const Barcodes = require('./itemBarcodes');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'RETAILSALES';
@@ -293,9 +294,10 @@ exports.getRetailCounter = onCallWithMessages(onCallOptions, async (request) => 
   if (!settings) return { settings: null };
   const warehouseId = String(d.warehouseId || '').trim() || settings.WarehouseID;
   const date = String(d.date || '').trim() || new Date().toISOString().substring(0, 10);
-  const [methods, customers, items, uoms, ledger, prices] = await Promise.all([
-    methodsOf(companyId), val('customers'), val('items'), val('uoms'), val('stock/ledger'), pricesOn(settings.PriceListID, date)
+  const [methods, customers, items, uoms, ledger, prices, barcodes] = await Promise.all([
+    methodsOf(companyId), val('customers'), val('items'), val('uoms'), val('stock/ledger'), pricesOn(settings.PriceListID, date), Barcodes.all()
   ]);
+  const codesOf = Barcodes.byItem(barcodes); // the products' own barcodes (docs/modules/ITEM_BARCODES.md)
   return {
     settings, warehouseId, date,
     methods: methods.filter(m => m.Status === 'Active'),
@@ -311,7 +313,8 @@ exports.getRetailCounter = onCallWithMessages(onCallOptions, async (request) => 
         const u = (uoms || {})[i.UOMID] || {};
         return {
           ItemID: id, ItemCode: i.ItemCode, ItemName: i.ItemName || '', UOM: u.Code || '', AllowDecimals: !!u.AllowDecimals,
-          Price: prices[i.ItemCode] === undefined ? null : prices[i.ItemCode], InStock: Number(l.Quantity) || 0
+          Price: prices[i.ItemCode] === undefined ? null : prices[i.ItemCode], InStock: Number(l.Quantity) || 0,
+          Barcodes: codesOf[id] || []
         };
       }).sort((a, b) => a.ItemCode.localeCompare(b.ItemCode))
   };
