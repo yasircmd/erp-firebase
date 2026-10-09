@@ -881,3 +881,16 @@ from, and how it was verified. The deploy procedure is in the
   hand-maintained (`handScreens` in tools/legacy-port/modules.json); rerun
   `retail-sales` once the fix is merged. Runs #95–#107 (including the
   payroll 7a–7c deploys) are not recorded here yet.
+- **2026-10-09, Retail Sales and item barcodes (PRs #90–#92, #96–#98):**
+  both from `3c58cc3` (the PR #98 merge), "functions set, then screens":
+  - Run [#109](https://github.com/yasircmd/erp-firebase/actions/runs/37948665820),
+    15:02–15:07 UTC, success: `retail-sales` (as the owner reported; its
+    log was not read).
+  - Run [#110](https://github.com/yasircmd/erp-firebase/actions/runs/37949426206),
+    15:08–15:10 UTC, success: `item-barcodes` (getItemBarcodes and
+    saveItemBarcodes created; getRetailCounter, getMasterImportSpecs,
+    checkMasterImport, runMasterImport updated); screens release
+    `20261009T151026Z-3c58cc3`.
+  - In the app (owner): link a menu node to "Retail Sales", set its rights
+    and each company's setup (ROADMAP); add the products' barcodes in Item
+    Master or Master Data Import → Item Barcodes.
