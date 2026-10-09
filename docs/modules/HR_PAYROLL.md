@@ -2007,3 +2007,136 @@ Payroll Accounting, "Leave deductions in the GL":
    change.
 2. In Payroll Setup → Payroll Accounting, choose each company's "Leave
    deductions in the GL". It stays "Own ledger" until changed.
+
+## Step 7 design: the owner's points of 2026-10-09 (proposed)
+
+### The owner's points
+
+> Payroll Module – Required Enhancements
+> 1. Payroll Costing Report: once the run is completed, an employee-wise
+>    costing report showing each payroll element, exportable to Excel.
+> 2. Payroll Run Screen Layout: no excessive wrapping with many elements.
+> 3. Payroll Run Search: filters by company, payroll month and status.
+> 4. Payment and Earnings & Deductions: a separate tab for Payment; payroll
+>    inputs moved to a separate module named Earnings & Deductions, entered
+>    before the run; GL entries posted only by the run; supporting
+>    documents attached to the inputs.
+> 5. Interim Payroll: bonuses, commissions and other earnings too.
+> 6. Interim Payroll Reversal: a paid batch, once reversed, is not deleted:
+>    its status becomes Reversed, keeping its history.
+> 7. Payroll Period Locking: allow payroll before the month ends (e.g. on
+>    the 25th) without waiting for the calendar month to complete.
+> 8. Leave Notifications (Tasks): only to the employee and their line
+>    manager, when one is assigned.
+>
+> Provisions Module – New Module
+> 9. Provisions Management: opening balance, monthly accruals, payments or
+>    utilisation, closing balance.
+
+### What happens today
+
+- **Costing:** a run shows each employee's slip; no report lays the
+  elements out as columns, and none shows the employer's cost (the
+  provisions accrued with the run).
+- **The run screen** lists the employees with their elements as they
+  come, wrapping when there are many.
+- **The runs list** shows every run of the user's companies, newest
+  first, with no filter.
+- **Payment** is a section inside a run; **inputs** (overtime, bonus,
+  commission, one-off additions and deductions) are entered inside a
+  draft run, so the run must exist first.
+- **Interim Payroll** pays posted final settlements and approved loans.
+- **Reversing an interim payment** returns the batch to a draft, which can
+  then be deleted: its paid history goes with it.
+- **The leave month** is locked only after it ends (decision 12 of the
+  Leave Register), and a run needs its month locked.
+- **Leave tasks** ("on leave today", "returns to record") go to every user
+  with access to the Leave Register or Leave Reports, for their companies.
+- **Provisions** (gratuity, leave salary, the accrual types) are a balances
+  view inside Payroll: what each employee has provided to date, and the
+  claims.
+
+### Proposed
+
+**1. Costing report** (Payroll → a posted run → Costing, and Copy to
+Excel): one row per employee; a column per element (earnings, then
+deductions), net pay, then the employer's cost: each provision accrued
+with the run (gratuity, leave salary, each accrual type) and the total
+cost (gross + provisions). Totals row. For runs Posted (and Approved,
+marked "not posted yet").
+
+**2. Layout:** the run's employee table scrolls sideways with the
+employee column fixed; element headers don't wrap; numbers right-aligned
+on one line.
+
+**3. Search:** the runs list gets filters for company, month (from–to)
+and status, remembered while the screen is open.
+
+**4. Earnings & Deductions** (new module `PAYROLLED`, its own menu node
+and rights: access, draft):
+- An entry: company, month, employee, the element (the variable elements,
+  as today's inputs), hours (an overtime-by-hours element) or amount, a
+  note, and **supporting documents** (the shared attachments component).
+- Entered any time **before the month's run is posted**; the run takes the
+  month's entries when it is made and on every recalculation; once the
+  run is posted they are locked (shown with the run's number).
+- **No GL from the entries**: the run posts them, as today.
+- Inputs already entered inside a draft run move to entries the first
+  time that run is recalculated.
+- **Payroll** gets tabs: **Runs**, **Payment** (the runs approved or
+  posted with something left to pay, and the payment plan, file and Mark
+  paid moved there from inside the run), **Provisions** (until point 9
+  moves it).
+
+**5. Interim Payroll: other earnings.** A new item kind, **Payment**: an
+employee, an earnings element (bonus, commission or any variable
+earning), amount, note. Paid in the batch: Dr the element's account /
+Cr the bank or cash account (its own journal, PRL- reference, as the
+other items). It is paid in full outside the run and shows on the
+employee's next payslip as "paid in interim batch …" for the record, not
+paid again.
+
+**6. Interim reversal:** reversing a paid batch's payment (all of it)
+sets the batch to **Reversed**: kept, read-only, with its payments and
+their reversals in its history; it can't be deleted or edited. Its items
+are free again for a new batch. Only a never-paid draft can be deleted.
+
+**7. Payroll before the month ends:** see question 56.
+
+**8. Leave tasks:** "on leave today" and "returns to record" go to the
+employee (their linked ERP user) and their line manager (the manager's
+linked user), when they exist. See question 59 for the Leave Register's
+users.
+
+**9. Provisions:** see question 58.
+
+### Open questions for step 7
+
+56. **Payroll before the month ends:**
+    - a **cut-off day** per company (e.g. 25): the month can be locked
+      and paid from that day; leave or absence recorded later for the
+      rest of the month is adjusted in the next month's pay (the way a
+      late leave in a locked month already is) — recommended;
+    - or a **shifted payroll period** (e.g. 26th to 25th) for the pay
+      and the leave month alike.
+57. **Earnings & Deductions approval:**
+    - none of its own: entries are part of the run, which goes through
+      the payroll approval — recommended;
+    - or each entry approved (Approval Configuration) before the run
+      takes it.
+58. **The Provisions module:**
+    - **employee provisions** (gratuity, leave salary, the accrual types)
+      moved out of Payroll into their own module: for a period, each
+      employee and type — opening, monthly accruals (from the runs),
+      payments or utilisation (claims, settlements, payouts with the
+      salary), closing; with openings, claims and Copy to Excel —
+      recommended;
+    - or a **general provisions register** for finance (audit fee,
+      bonus, doubtful debts...): each provision's opening, monthly
+      accrual journals, utilisation and closing, posting its own GL;
+    - or both.
+59. **Leave tasks for the Leave Register's users:**
+    - the employee and line manager get "on leave today" and "returns
+      to record"; the Leave Register's users (HR) keep "returns to
+      record", since they record the returns — recommended;
+    - or only the employee and line manager, nothing to HR.
