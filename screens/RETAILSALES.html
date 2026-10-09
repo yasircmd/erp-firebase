@@ -223,6 +223,15 @@
   const defaultPayments = () => (counter && counter.methods.length ? [{ MethodID: (counter.methods.find(m => m.Kind === 'Cash') || counter.methods[0]).MethodID, Amount: '', Reference: '' }] : []);
 
   // ---------- the counter ----------
+  // Clear asks first once anything is entered (owner, 2026-10-09): a slip
+  // of the hand would otherwise lose the whole sale.
+  function clearSale() {
+    const go = () => { lines = []; payments = defaultPayments(); renderLines(); };
+    const paid = payments.some(x => String(x.Amount == null ? '' : x.Amount).trim() || String(x.Reference || '').trim());
+    if (!lines.length && !paid) return go();
+    const what = lines.length ? lines.length + (lines.length === 1 ? ' line' : ' lines') + (paid ? ' and the payments' : '') : 'the payments';
+    appConfirm('Clear this sale? ' + what.charAt(0).toUpperCase() + what.slice(1) + ' entered will be removed.').then(ok => { if (ok) go(); });
+  }
   function addItem() {
     const text = $('rs-item').value.trim();
     if (!text) return;
@@ -510,7 +519,7 @@
       }
     });
     $('rs-confirm').addEventListener('click', confirmSale);
-    $('rs-clear').addEventListener('click', () => { lines = []; payments = defaultPayments(); renderLines(); });
+    $('rs-clear').addEventListener('click', clearSale);
     $('rs-run').addEventListener('click', loadSales);
     $('rs-view').addEventListener('change', renderReport);
     $('rs-copy').addEventListener('click', copyToExcel);
