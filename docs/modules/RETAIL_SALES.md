@@ -364,3 +364,92 @@ reversal is refused when stock is short.
 | 77 | Refund by method | **The original way by default**, pro rata; the promotion share reversed, not paid out; the cashier may move a card or QR share to cash; an open on-account balance reduced first. |
 | 78 | Rights and time limit | **A new "return" right** (default Admin, Finance Manager) and **a return period in days** per company in Setup (0 = no limit). |
 | 79 | Returned goods | **All back into the store's stock** at the cost they left at; damaged goods written off with Stock Adjustment. |
+
+## As built: partial returns (2026-10-09)
+
+Where it differs from the proposal above, the build is the record:
+
+- **A return is dated today** (the server's date): no back-dating, so the
+  return period can't be got round. The period runs from the sale date;
+  `0` = no limit.
+- **A reason is required** for every return, as for a reversal. It is
+  printed on the return receipt.
+- **The refund rows** are one per payment row of the sale (two cash rows
+  stay two). Each row gives back its share of what it still has to give;
+  on the last return each row takes its exact remainder. A card, QR or
+  "Other" share may be paid as **any active Cash method**; a cash share
+  stays cash; a promotion share is always reversed to its own account.
+  A reference (e.g. a card refund slip) may be entered for each row.
+- **Credit on account** happens only for an existing customer whose
+  on-account balance was settled before the goods came back. The Retail
+  Customer can't leave a balance, so it never arises there.
+- **A cashier finds any sale by its exact number** (with the "return"
+  right), but still opens or browses only their own sales without the
+  "report" right.
+- **Reversing a return** needs the "return" right and is limited to one's
+  own returns without the "report" right. The goods leave again at the
+  cost they came back at (`AtCost`). The reversal is refused when the
+  stock has been sold meanwhile, and refused when its credit on account
+  has since been used (the shared reversal guard).
+
+**Server:** functions/src/retailSales.js.
+- `findRetailSaleForReturn({ companyId, number })`: by `TransactionNumber`
+  or the `TXN-` reference. Returns the lines (sold, returned, left), the
+  payments (posted, refunded), the earlier returns and the last return
+  date.
+- `confirmRetailReturn({ saleId, Lines: [{ SaleLineNo, Quantity }], PayAs,
+  References, reason, preview })`:
+  - with `preview: true`, works out the values and the refund and writes
+    nothing;
+  - otherwise posts under the global lock: `TransactionType`/voucher type
+    `RetailReturn`, prefix `RR`, the finance sequence `TXN-`, one stock
+    movement In at each line's `UnitCost`.
+- `reverseRetailReturn({ returnId, reason })`.
+- `reverseRetailSale` is refused once a live return exists. `getRetailSale`
+  also opens a return (and its journal from the GL report), and returns
+  the sale's live returns and `numberBarcode` (Code 128 SVG of the number,
+  barcodeSvg.js).
+- `getRetailSales`: a return shows with a negative total and negative
+  refund rows under the method paid out. The payment-wise report and the
+  cash-up net them; `returns` is their total, and `total` is net sales.
+- Setup: `ReturnDays` (`saveRetailSalesSettings`' `returnDays`);
+  `getRetailSalesSetup` gives `canReturn`.
+- Registries: the right `return` (module RETAILSALES; default Admin and
+  Finance Manager); voucher prefix `RR` and the finance sequence; the GL
+  report and Journal Vouchers maps; SOA label "Retail Return".
+
+**The posting** for a return of 1 of 3 × 52.50 (line discount 3.00) from a
+196.50 sale paid card 100, promotion 10, cash 86.50 (after change), tax 5%
+included, the card's share paid in cash:
+
+| Account | Dr | Cr |
+|---|---|---|
+| Sales Returns | 50.00 | |
+| Discount Given | | 0.95 |
+| Output Tax | 2.45 | |
+| Cash (the card's share) | | 26.21 |
+| Promotional Discounts | | 2.62 |
+| Cash | | 22.67 |
+| Inventory | 20.00 | |
+| Cost of Sales | | 20.00 |
+
+**Screen:** RETAILSALES.html.
+- **Returns tab** (with the right):
+  - an invoice number box: scan or type, Enter finds it;
+  - the lines with Sold, Returned and a Return qty;
+  - the refund, previewed as the quantities change: a "pay back as"
+    choice per card or QR row, the promotion shown as reversed;
+  - Reason, Confirm return and Clear;
+  - after Confirm, the return opens in the Sales tab with its Return
+    Receipt.
+- An opened sale has **Return items** (opens the Returns tab on it) and
+  hides **Reverse sale** once it has returns. An opened return has
+  **Reverse return**.
+- The printed invoice carries the number as a barcode.
+- The cash-up shows Returns and Net sales.
+- Setup has "Return period, days".
+
+**To go live:** deploy, then in Roles & Permissions → Retail Sales tick
+**return** for the roles that take returns (the right is new, so a live
+system starts with no one holding it), and set each company's return
+period in Retail Sales → Setup.
