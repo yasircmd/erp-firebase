@@ -74,7 +74,7 @@ test('each employee\'s pay: part months, leave on its own lines, warnings; the r
 
 test('inputs: overtime hours at the schedule\'s hours, amounts; checked; kept on recalculation', async () => {
   const save = rows => call('u-admin', 'savePayrollInputs', { runId: RUN, rows });
-  await assert.rejects(save([{ EmployeeNo: 'EMP-9999', Code: 'BONUS', Amount: 1 }]), /Row 1: employee "EMP-9999" is not on this run/);
+  await assert.rejects(save([{ EmployeeNo: 'EMP-9999', Code: 'BONUS', Amount: 1 }]), /Row 1: employee "EMP-9999" is not on payroll in the month/);
   await assert.rejects(save([{ EmployeeID: ALI, Code: 'BASIC', Amount: 1 }]), /Row 1: Basic Salary is not entered per run/);
   await assert.rejects(save([{ EmployeeID: ALI, Code: 'UNPAIDLV', Amount: 1 }]), /not entered per run/);
   await assert.rejects(save([{}, { EmployeeID: ALI, Code: 'OT', Amount: 100 }]), /Row 2: Overtime is paid by the hour/);

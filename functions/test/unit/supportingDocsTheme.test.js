@@ -15,7 +15,7 @@ const shell = fs.readFileSync(path.join(REPO, 'public/index.html'), 'utf8');
 const block = shell.slice(shell.indexOf('// ---------- SUPPORTING DOCUMENTS ----------'), shell.indexOf('// ---------- END SUPPORTING DOCUMENTS ----------'));
 const screen = fs.readFileSync(path.join(REPO, 'screens/DOCUMENTSTORAGE.html'), 'utf8');
 const companyDocs = fs.readFileSync(path.join(REPO, 'screens/COMPANYDOCS.html'), 'utf8');
-const hrScreens = ['HRSETUP', 'EMPLOYEES', 'EMPCHANGE', 'LEAVE', 'LEAVEREPORTS', 'PAYROLL', 'PAYROLLSETUP', 'PAYROLLLOAN'].map(n => ['the ' + n + ' screen', fs.readFileSync(path.join(REPO, 'screens/' + n + '.html'), 'utf8')]);
+const hrScreens = ['HRSETUP', 'EMPLOYEES', 'EMPCHANGE', 'LEAVE', 'LEAVEREPORTS', 'PAYROLL', 'PAYROLLSETUP', 'PAYROLLLOAN', 'PAYROLLED'].map(n => ['the ' + n + ' screen', fs.readFileSync(path.join(REPO, 'screens/' + n + '.html'), 'utf8')]);
 
 // Every class the light theme recolours, e.g. "bg-slate-800/60", "hover:bg-slate-700".
 const mapped = new Set();

@@ -43,8 +43,11 @@ Waiting to deploy:
   "functions set" with the screens; no Hosting. Then, if wanted, each
   company's cut-off day (Payroll Setup → Payroll Accounting), and
   employees linked to their ERP user and line manager for the leave
-  tasks. Steps 7b (Earnings & Deductions, interim other earnings) and 7c
-  (the Provisions module) follow.
+  tasks. Steps 7b and 7c follow.
+- `payroll-7b` (Earnings & Deductions, earnings paid by Interim Payroll),
+  after `payroll-7a`, "functions set" with the screens; no Hosting. Then
+  link a menu node to "Earnings & Deductions" and set its rights; a
+  draft run calculated before shows "changed": recalculate it.
 `master-import-3a` went live on 2026-10-05 (run #94).
 
 Payroll steps 4–5b went live on 2026-10-05 (runs #89–#93,

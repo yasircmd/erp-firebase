@@ -147,12 +147,16 @@
   </div>
 
   <div id="pr-inputs-wrap" class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
-    <div class="text-xs font-semibold text-slate-400 uppercase">Inputs for this run</div>
-    <p class="text-xs text-slate-500 max-w-3xl">Overtime (hours for elements paid by the hour, else an amount), bonus, commission and one-off additions or deductions, each against a variable pay element. Paste from Excel: employee no., element code, hours or amount, note.</p>
+    <!-- Step 7b: the inputs are entered in Earnings & Deductions; shown here as the run used them. -->
+    <div class="flex items-center justify-between gap-3"><div class="text-xs font-semibold text-slate-400 uppercase">Earnings &amp; Deductions in this run</div>
+      <button id="pr-ed-open" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open Earnings &amp; Deductions</button></div>
+    <p class="text-xs text-slate-500 max-w-3xl">Overtime, bonus, commission and one-off additions or deductions are entered in Earnings &amp; Deductions (with their supporting documents), before or while the run is a draft; the run takes them when it is calculated.</p>
+    <p id="pr-ed-changed" class="hidden text-xs text-amber-400">Earnings &amp; Deductions changed since the run was calculated: recalculate it.</p>
+    <p id="pr-ed-none" class="hidden text-xs text-slate-500">None for this month.</p>
     <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase">
       <th class="py-1 pr-2">Employee</th><th class="py-1 pr-2">Element</th><th class="py-1 pr-2">Hours</th><th class="py-1 pr-2">Amount</th><th class="py-1 pr-2">Note</th><th></th></tr></thead>
       <tbody id="pr-in-body"></tbody></table></div>
-    <div id="pr-in-actions" class="flex flex-wrap gap-2">
+    <div id="pr-in-actions" class="hidden flex flex-wrap gap-2">
       <button id="pr-in-add" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add row</button>
       <button id="pr-in-paste-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
       <button id="pr-in-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-1.5 rounded">Save inputs and recalculate</button>
@@ -316,7 +320,7 @@
       cols.map(c => '<th class="py-2 px-3 text-right' + (c.Kind === 'Deduction' ? ' text-red-300' : '') + '" title="' + escapeHtml(c.Name) + '">' + escapeHtml(c.Code) + '</th>').join('') +
       '<th class="py-2 px-3 text-right">Earnings</th><th class="py-2 px-3 text-right">Deductions</th><th class="py-2 px-3 text-right">Net</th><th class="py-2 px-3"></th></tr>';
     const cell = (s, id) => s.Lines.filter(l => l.ElementID === id).reduce((t, l) => t + l.Amount, 0);
-    $('pr-reg-body').innerHTML = r.slips.map(s => '<tr data-emp="' + escapeHtml(s.EmployeeID) + '" class="hover:bg-slate-700/40 cursor-pointer">' + stickyTd(s) +
+    $('pr-reg-body').innerHTML = r.slips.map(s => '<tr data-emp="' + escapeHtml(s.EmployeeID) + '" class="hover:bg-slate-800/40 cursor-pointer">' + stickyTd(s) +
       cols.map(c => { const v = cell(s, c.ElementID); return '<td class="py-2 px-3 text-right">' + (v ? money(v) : '') + '</td>'; }).join('') +
       '<td class="py-2 px-3 text-right">' + money(s.Earnings) + '</td><td class="py-2 px-3 text-right">' + money(s.Deductions) + '</td><td class="py-2 px-3 text-right font-semibold' + (s.Net < 0 ? ' text-red-400' : '') + '">' + money(s.Net) + '</td>' +
       '<td class="py-2 px-3 text-amber-400" title="' + escapeHtml(s.Warnings.join(' ')) + '">' + (s.Warnings.length ? '<i class="fa-solid fa-triangle-exclamation"></i>' : '') + '</td></tr>').join('');
@@ -481,7 +485,7 @@
 
   // ---------- inputs ----------
   function inputRow(x) {
-    const r = current, ro = r.canDraft ? '' : ' disabled';
+    const r = current, ro = ' disabled'; // read-only: entered in Earnings & Deductions (step 7b)
     const el = r.inputElements.find(e => e.ElementID === x.ElementID);
     const hours = el ? el.Hours : false;
     return '<tr class="pr-in-row"><td class="py-1 pr-2"><select class="pr-in-emp bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"' + ro + '><option value=""></option>' +
@@ -491,15 +495,16 @@
       '<td class="py-1 pr-2"><input class="pr-in-hours w-20 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm" type="number" step="0.25" min="0" value="' + escapeHtml(x.Hours == null ? '' : x.Hours) + '"' + (hours ? ro : ' disabled') + '></td>' +
       '<td class="py-1 pr-2"><input class="pr-in-amount w-28 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm" value="' + escapeHtml(x.Amount == null ? '' : x.Amount) + '"' + (hours ? ' disabled' : ro) + '></td>' +
       '<td class="py-1 pr-2"><input class="pr-in-note w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm" maxlength="150" value="' + escapeHtml(x.Note || '') + '"' + ro + '></td>' +
-      '<td class="py-1">' + (r.canDraft ? '<button class="pr-in-del text-xs text-red-400" title="Remove"><i class="fa-solid fa-xmark"></i></button>' : '') + '</td></tr>';
+      '<td class="py-1">' + '' + '</td></tr>';
   }
   function renderInputs(extra) {
     const r = current;
     const rows = extra || r.slips.reduce((a, s) => a.concat((s.Inputs || []).map(i => Object.assign({ EmployeeID: s.EmployeeID }, i))), []);
     $('pr-in-body').innerHTML = rows.length ? rows.map(inputRow).join('') : '';
-    $('pr-in-actions').classList.toggle('hidden', !r.canDraft);
+    $('pr-in-actions').classList.add('hidden');
     $('pr-in-paste-wrap').classList.add('hidden');
-    $('pr-inputs-wrap').classList.toggle('hidden', !r.canDraft && !rows.length);
+    $('pr-ed-none').classList.toggle('hidden', rows.length > 0);
+    $('pr-ed-changed').classList.toggle('hidden', !r.inputsChanged);
   }
   function collectInputs() {
     return [...document.querySelectorAll('#pr-in-body .pr-in-row')].map(tr => ({ EmployeeID: tr.querySelector('.pr-in-emp').value, ElementID: tr.querySelector('.pr-in-el').value,
@@ -726,6 +731,7 @@
     $('pr-delete').addEventListener('click', () => appConfirm('Delete this payroll run and its inputs?').then(ok => {
       if (ok) call('deletePayrollRun', { runId: current.run.RunID }).then(showList, err => appAlert(err.message || 'Unable to delete the run.'));
     }));
+    $('pr-ed-open').addEventListener('click', () => { if (current) openModule('PAYROLLED', { CompanyID: current.run.CompanyID, Month: current.run.Month }); });
     $('pr-in-add').addEventListener('click', () => { $('pr-in-body').insertAdjacentHTML('beforeend', inputRow({})); isDirty = true; });
     $('pr-in-paste-btn').addEventListener('click', () => $('pr-in-paste-wrap').classList.toggle('hidden'));
     $('pr-in-paste-apply').addEventListener('click', applyPaste);

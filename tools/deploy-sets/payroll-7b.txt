@@ -1,0 +1,37 @@
+# HR Payroll, step 7b: Earnings & Deductions and the earnings paid by
+# Interim Payroll (docs/modules/HR_PAYROLL.md, step 7, points 4-5, decision
+# 57). Deploy after payroll-7a. Run with --screens (PAYROLLED new; PAYROLL,
+# PAYROLLIP changed). No Hosting change. Then, in the app: link a menu node
+# to "Earnings & Deductions" (Module Tree & Navigation) and set its rights
+# (access, draft). A draft run calculated before this deploy shows
+# "changed since calculated": recalculate it (its inputs move to entries).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getEarningsDeductions
+saveEarningsDeductions
+deleteEarningsDeduction
+# Changed: the run takes the month's entries; submit checks they didn't change.
+createPayrollRun
+recalculatePayrollRun
+savePayrollInputs
+getPayrollRun
+submitPayrollRun
+decidePayrollApproval
+# Changed: Interim Payroll offers and pays the entries marked for it.
+getInterimBatch
+saveInterimBatch
+submitInterimBatch
+markInterimPaid
+reverseInterimPayment
+deleteInterimBatch
+# Changed: an entry's supporting documents.
+getAttachments
+uploadAttachment
+removeAttachment
+openAttachment
+getAttachmentCounts
+# Registries: the module, its permissions, its menu node.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment
