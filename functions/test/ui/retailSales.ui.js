@@ -72,7 +72,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   });
 
   let saleId = '';
-  await check('the counter: items by code, cash over-tendered with a card, the change shown; confirmed; the invoice prints with no customer block', async () => {
+  await check('the counter: items by code, cash over-tendered with a card, the change shown; confirmed; the invoice prints with no customer block and no Discount column', async () => {
     const p = await open('RETAILSALES', 'u-admin');
     await until(p, () => !document.getElementById('rs-counter-body').classList.contains('hidden') && document.getElementById('rs-items').options.length === 1);
     assert.equal(await p.inputValue('#rs-customer'), (await val('retailSales/settings/C1')).RetailCustomerID);
@@ -98,23 +98,32 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     saleId = sales[0][0];
     assert.deepEqual(sales[0][1].Payments.map(x => [x.Name, x.Posted]), [['Cash', 100], ['Card', 5]]);
     assert.equal(await p.locator('#rs-print-document .rs-billto').count(), 0);
+    // No line has a discount: no Discount column (owner, 2026-10-09).
+    assert.equal(await p.locator('#rs-print-document .rs-col-discount').count(), 0);
+    assert.deepEqual(await p.locator('#rs-print-document thead th').allTextContents(), ['Item', 'Qty', 'Price', 'Amount']);
+    assert.equal(await p.locator('#rs-print-document tbody tr:first-child td').count(), 4);
     assert.match(await p.textContent('#rs-print-document'), /Tax Invoice/);
     assert.deepEqual(p.__errors, []);
     await p.close();
   });
 
-  await check('an existing customer: their details on the invoice; a balance left on account', async () => {
+  await check('an existing customer: their details on the invoice; a line discount, so the Discount column prints; a balance left on account', async () => {
     const p = await open('RETAILSALES', 'u-admin');
     await until(p, () => document.getElementById('rs-items').options.length === 1);
     await p.selectOption('#rs-customer', 'CU1');
     assert.equal(await p.inputValue('#rs-billto-name'), 'Beta Trading');
     await p.fill('#rs-item', 'RM-001');
     await p.press('#rs-item', 'Enter');
-    await p.fill('#rs-payments [data-i="0"] [data-f="Amount"]', '50');
-    await until(p, () => document.getElementById('rs-due') && document.getElementById('rs-due').textContent === '2.50');
+    await p.fill('#rs-lines [data-f="Discount"]', '2.5');
+    await until(p, () => document.getElementById('rs-total').textContent === '50.00');
+    await p.fill('#rs-payments [data-i="0"] [data-f="Amount"]', '40');
+    await until(p, () => document.getElementById('rs-due') && document.getElementById('rs-due').textContent === '10.00');
     await p.click('#rs-confirm');
     await until(p, () => !document.getElementById('rs-sale-view').classList.contains('hidden'));
-    assert.match(p.__dialogs[0], /Left on account 2\.50/);
+    assert.match(p.__dialogs[0], /Left on account 10\.00/);
+    // A line with a discount: the Discount column is printed.
+    assert.deepEqual(await p.locator('#rs-print-document thead th').allTextContents(), ['Item', 'Qty', 'Price', 'Discount', 'Amount']);
+    assert.equal(await p.textContent('#rs-print-document tbody tr:first-child td:nth-child(4)'), '2.50');
     assert.match(await p.textContent('#rs-print-document .rs-billto'), /Beta Trading.*Dubai.*TRN 100200300/);
     assert.deepEqual(p.__errors, []);
     await p.close();
