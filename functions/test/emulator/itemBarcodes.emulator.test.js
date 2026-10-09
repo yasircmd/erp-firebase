@@ -65,3 +65,15 @@ test('Master Data Import → Item Barcodes: rows checked (format, check digit, a
   assert.deepEqual(b.I1, [{ Barcode: '14006381333938', PackQty: 10 }, { Barcode: '4006381333931', PackQty: 1 }]);
   assert.deepEqual(b.I2.map(x => x.Barcode), ['16291041500210', '6291041500213', 'OILLOOSE']);
 });
+
+test('step 2: the barcode index for the stock screens, readable without Item Master\'s access (barcode → item and units only)', async () => {
+  const { rtdb } = require('./_helpers');
+  await rtdb.ref('permissions/ITEMMASTER/access').set(['Admin']);
+  await assert.rejects(call('u-viewer', 'getItemBarcodes', {}), /access to Item Master/);
+  const { index } = await call('u-viewer', 'getBarcodeIndex', {});
+  assert.deepEqual(index['14006381333938'], { ItemID: 'I1', PackQty: 10 });
+  assert.deepEqual(index['6291041500213'], { ItemID: 'I2', PackQty: 1 });
+  assert.deepEqual(Object.keys(index).sort(), ['14006381333938', '16291041500210', '4006381333931', '6291041500213', 'OILLOOSE']);
+  await assert.rejects(call('u-viewer', 'saveItemBarcodes', { itemId: 'I1', barcodes: [] }), /access to Item Master/);
+  await rtdb.ref('permissions/ITEMMASTER/access').set(['Admin', 'Viewer']);
+});

@@ -124,3 +124,99 @@ Barcodes section) and the deploy stopped on the unclean checkout (run
 #108, nothing deployed). It is now hand-maintained (`handScreens` in
 tools/legacy-port/modules.json), like JV, CBT and the other screens
 changed since the port; the generator leaves it as committed.
+
+## Step 2 design: scanning in the stock screens (agreed 2026-10-09)
+
+The owner (2026-10-09): GRN, and the other screens too.
+
+### Where items are entered today
+
+| Screen | Lines | Item entry |
+|---|---|---|
+| GRN, Material Issue, Stock Adjustment, Warehouse Movement | typed per line | the item code cell (type-ahead) or the search button |
+| Physical Count | typed per line | the same; the screen is still generated from Code.gs (it would become hand-maintained, like Item Master) |
+| Sales Order, Inventory Purchase Requisition, Production | typed per line | the same |
+| Delivery Note, Purchase Return, Sales Return | taken from the source document (sales order, GRN, invoice) | no free item entry: a scan doesn't fit; not included |
+
+### Proposed
+
+- **The item cell accepts a barcode** on every screen above: typed or
+  scanned, it is looked up as a barcode first, then as the item code (as
+  today). The line gets the item; a pack's barcode sets the quantity to
+  its units (question 70).
+- **A Scan box above the lines** (question 71): the cursor stays there,
+  each scan adds the item; scanning an item already on the document adds
+  to that line's quantity instead of a new line (question 69). Made for
+  receiving a delivery and counting stock with a scanner.
+- An unknown barcode: "No item with barcode … for this company" (the
+  line or box is left as it was).
+- **Who can look barcodes up:** today only Item Master's access reads
+  them. These screens' users may not have it, so a new read
+  (`getBarcodeIndex`: barcode → item and units, nothing else) for any
+  signed-in user; changing barcodes stays Item Master's "write".
+- Shared code: one small helper
+  (`window.itemBarcodes.lookup(text)`) used by every screen.
+
+### Open questions for step 2
+
+68. **Which screens:**
+    - the stock screens: GRN, Material Issue, Stock Adjustment,
+      Warehouse Movement, Physical Count — recommended;
+    - and also Sales Order, Inventory Purchase Requisition, Production.
+69. **Scanning an item already on the document:**
+    - adds to that line's quantity (scan the same box 5 times = 5) —
+      recommended;
+    - or a new line each time.
+70. **A pack's barcode** (a carton of 12) where the screen has units:
+    - the quantity goes up by its units in the item's base unit (12
+      pieces) — recommended;
+    - or in the item's alternate unit when the pack matches it (1
+      carton).
+71. **How to scan:**
+    - a Scan box above the lines, and the item cell also takes a
+      barcode — recommended;
+    - only the item cell (no Scan box).
+
+### The owner's decisions for step 2 (2026-10-09)
+
+| # | Question | Decision |
+|---|---|---|
+| 68 | Screens | **The stock screens**: GRN, Material Issue, Stock Adjustment, Warehouse Movement, Physical Count. |
+| 69 | An item scanned again | **Adds to its line's quantity.** |
+| 70 | A pack's barcode | **In the base unit** (12 pieces). |
+| 71 | How to scan | **A Scan box above the lines, and the item cell also takes a barcode.** |
+
+## As built: step 2, scanning in the stock screens (2026-10-09)
+
+- **Screens** (decision 68): GRN, Material Issue, Stock Adjustment,
+  Warehouse Movement, Physical Count. Physical Count's screen is now
+  hand-maintained (`handScreens`), like Item Master, so the Deploy
+  workflow's generator leaves it as committed.
+- **Scan box** (decision 71) beside "Add Line", shown while the document
+  can be edited: a barcode (or an item code) and Enter. An item already
+  on the document gets its line's quantity raised (decision 69); else the
+  first empty line, or a new one, gets the item and the units. A carton's
+  barcode adds its units in the base unit (decision 70). The box clears
+  and keeps the cursor for the next scan. Physical Count raises the
+  counted quantity.
+- **The item cell** also takes a barcode, on Enter or leaving the cell
+  (not on every key: a scanner types the digits one by one, and a part
+  of a long barcode could match a short one). A carton's units fill the
+  quantity when none is entered. A typed item code works as before.
+- **Unknown:** "No item with barcode … ." (an all-digit entry of 8 or
+  more), else "No item "…"."; nothing changes.
+- **`getBarcodeIndex`** (new): barcode → item and units, for any
+  signed-in user (these screens' users may not have Item Master's
+  access); changing barcodes stays Item Master's "write". Each screen
+  reads it once when it opens.
+- Each screen has its own few lines (`barcodeItem`, `scanItem`,
+  `itemCellBarcode`) rather than a shared shell helper, so no Hosting
+  deploy is needed.
+
+Tests: itemBarcodes suite's 4th (the index without Item Master's
+access); UI check stockScanning (7: each screen's Scan box, GRN's item
+cell, a Viewer without Item Master's access). Negative controls caught: a
+repeated scan making a new line; a carton counting 1; the item cell
+ignoring barcodes; an unknown barcode passing silently; the index
+needing Item Master's access. Deploy: `item-barcodes-2` with the
+screens.

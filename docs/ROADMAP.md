@@ -12,55 +12,36 @@ fresh session can continue from GitHub.
 ## Waiting to go live (the owner's deploys and setup)
 
 Waiting to deploy:
-- `master-import-3b` (Master Data Import, update existing for the other
-  masters), "functions set"; no screens, no Hosting;
-- `payroll-5c` (interim payroll: the final settlement pays the last
-  salary; batches of settlements and loans paid between runs), "functions
-  set" with the screens; no Hosting. Then link a menu node to "Interim
-  Payroll", set its rights (draft, pay), and if wanted Approval
-  Configuration → "Interim payroll";
-- `payroll-6` (the owner's points of 2026-10-06: certificate accepted by
-  the approver, Payroll Accounting, leave deductions pro rata, PRL
-  references and the GL link, the payment plan), "functions set" with
-  the screens, after `payroll-5c`; no Hosting. Then choose each
-  company's "Leave deductions in the GL" (Payroll Setup → Payroll
-  Accounting).
-- `gl-references` (the owner's "STK references" point: finance
-  documents take TXN-, opening balance journals open in Opening
-  Balances from the GL report), "functions set" with the screens; no
-  Hosting, nothing to set up.
-- `retail-sales` (Direct Retail Sales, [RETAIL_SALES.md](modules/RETAIL_SALES.md)),
-  "functions set" with the screens; no Hosting. Then link a menu node to
-  "Retail Sales", set its rights (access, post = sell and reverse, write
-  = setup, report = everyone's sales; without it a user sees only the
-  sales they billed), and per company in Retail Sales → Setup: the defaults (this
-  creates the Retail Customer) and the payment methods with their
-  ledgers. The company needs its Discount Given and Output Tax accounts
-  (Company Master), the items their Sales COGS accounts.
-- `payroll-7a` (the owner's payroll points of 2026-10-09, step 7a:
-  costing report, run layout and search, Payment tab, interim Reversed,
-  the cut-off day, leave tasks to the employee and line manager),
-  "functions set" with the screens; no Hosting. Then, if wanted, each
-  company's cut-off day (Payroll Setup → Payroll Accounting), and
-  employees linked to their ERP user and line manager for the leave
-  tasks. Steps 7b and 7c follow.
-- `payroll-7b` (Earnings & Deductions, earnings paid by Interim Payroll),
-  after `payroll-7a`, "functions set" with the screens; no Hosting. Then
-  link a menu node to "Earnings & Deductions" and set its rights; a
-  draft run calculated before shows "changed": recalculate it.
-- `payroll-7c` (the Provisions module: the statement with opening,
-  accrued, released, utilised and closing, movements, the GL check;
-  claims and openings moved there), after `payroll-7b`, "functions set"
-  with the screens; no Hosting. Then link a menu node to "Provisions"
-  (its access right; inside, Payroll's rights apply). Payroll →
-  Provisions now opens it. This completes the owner's points of
-  2026-10-09.
-- `item-barcodes` (the products' own barcodes, [ITEM_BARCODES.md](modules/ITEM_BARCODES.md):
-  several an item, a pack's units, EAN/UPC check digit; Item Master,
-  Master Data Import → Item Barcodes, scanned at the Retail Sales
-  counter), after `retail-sales`, "functions set" with the screens; no
-  Hosting, nothing to set up. Next, later (decision 67): barcode labels
-  for items without one.
+- `item-barcodes-2` (scanning the products' barcodes in GRN, Material
+  Issue, Stock Adjustment, Warehouse Movement and Physical Count: a Scan
+  box, and the item cell takes a barcode; [ITEM_BARCODES.md](modules/ITEM_BARCODES.md)
+  step 2), "functions set, then screens"; no Hosting, nothing to set up.
+
+Went live 2026-10-05 – 2026-10-09 (runs #95–#110, [DEPLOY_LOG.md](DEPLOY_LOG.md)):
+`master-import-3b`, `payroll-5c`, `payroll-6`, `gl-references`,
+`retail-sales`, `payroll-7a`, `payroll-7b`, `payroll-7c`,
+`item-barcodes`. Still to do in the app, if not done yet:
+- Interim Payroll (5c): link a menu node, set its rights (draft, pay),
+  and if wanted Approval Configuration → "Interim payroll";
+- Payroll step 6: each company's "Leave deductions in the GL" (Payroll
+  Setup → Payroll Accounting);
+- Payroll step 7a: if wanted, each company's cut-off day (Payroll Setup
+  → Payroll Accounting); employees linked to their ERP user and line
+  manager for the leave tasks;
+- Earnings & Deductions (7b): link a menu node and set its rights; a
+  draft run calculated before 7b shows "changed": recalculate it;
+- Provisions (7c): link a menu node and give it access (inside,
+  Payroll's rights apply);
+- Retail Sales (runs #99–#109): link a menu node to "Retail Sales",
+  set its rights (access, post, write, report) and each company's Retail
+  Sales → Setup (the defaults, which create the Retail Customer, and the
+  payment methods with their ledgers). The company needs its Discount
+  Given and Output Tax accounts (Company Master), the items their Sales
+  COGS accounts;
+- item barcodes: add the products' barcodes in Item Master or Master
+  Data Import → Item Barcodes. Next (later): barcode labels for items
+  without one (ITEM_BARCODES.md, decision 67).
+
 `master-import-3a` went live on 2026-10-05 (run #94).
 
 Payroll steps 4–5b went live on 2026-10-05 (runs #89–#93,
@@ -98,7 +79,7 @@ on 2026-10-04. Still to do in the app before the first payroll:
 | 5 | PDC Received and PDC Issued | [PDC.md](modules/PDC.md) | deployed | Live 2026-09-26: functions, screens and Hosting ([DEPLOY_LOG.md](DEPLOY_LOG.md)), plus the follow-up fixes (approving from Home Tasks; no "if they bounce" lines in the SOA). To do in the app: set both PDC clearing accounts in Company Master, and link the "PDC Received" / "PDC Issued" tree nodes to `PDCRECEIVED` / `PDCISSUED`. Merged into `main` 2026-09-26 (PR #9). |
 | 7 | Recurring Journal Entries | [RECURRING_JOURNAL.md](modules/RECURRING_JOURNAL.md) | deployed | Design agreed 2026-09-27 (owner: runs posted by hand with "Post Due Runs" and a Home task, no scheduler; "today" in Asia/Dubai; fixed and spread-a-total amounts; the other proposals as written). Built and tested 2026-09-27 on branch `worktree-recurring-journal-entries` (unit 13, emulator 5, UI 5, Home, smoke, negative control). Live 2026-09-27 ([DEPLOY_LOG.md](DEPLOY_LOG.md), two passes). To do in the app: link the existing tree node under FI to `RECURRINGJV` in Tree Management. Change 2026-09-27 (owner): "Spread by service period" (partial first/last month by days in that month: 12,000 for 16 Sep – 15 Sep → 500, 1,000 × 11, 500), live 2026-09-27 (release `20260927T101610Z-477bf33`). Merged into `main` 2026-09-27 (PR #14). |
 | 6 | Fixed Assets (Asset Accounting, FI-AA) | [FIXED_ASSETS.md](modules/FIXED_ASSETS.md) | phase 1 + retirement deployed | Design agreed 2026-09-26 (owner: purchases through the existing Fixed Asset Clearing Account; separate configuration; period lock, department, location and employee reserved; additional depreciation). Phase 1 live 2026-09-26 ([DEPLOY_LOG.md](DEPLOY_LOG.md)): Fixed Asset Configuration, Asset Master, Asset Capitalization (incl. take-over), Depreciation Run, Additional Depreciation, Asset Register ([As built](modules/FIXED_ASSETS.md#as-built--phase-1-2026-09-26)). Menu entries renamed by the owner 2026-09-26: Fixed Asset Configuration, Fixed Asset Master, Fixed Asset Capitalization, Depreciation Run, Additional Depreciation, Fixed Asset Register; the labels in the system now match. To do in the app: set up the clearing account, account determination and classes. Phase 2: **Fixed Asset Retirement** (sale, scrap) live 2026-09-26 with the renamed labels ([As built](modules/FIXED_ASSETS.md#as-built--phase-2-retirement-2026-09-26), [DEPLOY_LOG.md](DEPLOY_LOG.md)); to do in the app: a *Fixed Asset Retirement* node (FARETIRE), Gain/Loss on Disposal in the account determinations. **Capital Work in Progress** (FAAUC, the design's Assets under Construction; owner 2026-09-28, [decisions and As built](modules/FIXED_ASSETS.md#as-built--capital-work-in-progress-2026-09-28)): **live 2026-09-28** (PR #25, Deploy run #11); in the app: link a *Capital Work in Progress* menu node (FAAUC) and set up an AuC class with an AuC account in account determination. Next: Asset Transfer, then Reconciliation and Dashboard. |
-| 8 | Direct Retail Sales | [RETAIL_SALES.md](modules/RETAIL_SALES.md) | built, waiting to deploy | Requested and agreed 2026-10-09 (decisions 52–55: the Retail Customer pays in full, an existing customer may leave a balance on account; tax-inclusive prices; Promotion Code as a payment method; a whole sale reversed, partial returns later). Built and tested 2026-10-09: counter with split payments mapped to ledgers, one GL entry with the stock (prefix RS, TXN-), register and cash-up, printed invoice (its Discount column only when a line has a discount, owner 2026-10-09), reversal. Owner 2026-10-09: counter users see only the sales they billed, a role right "report" for everyone's (Admin, Finance Manager by default); Copy to Excel; a payment-wise report. Owner 2026-10-09: Clear asks first once anything is entered. To go live: `retail-sales` with the screens. Next: a partial retail return with refund by method; managed promotion codes. |
+| 8 | Direct Retail Sales | [RETAIL_SALES.md](modules/RETAIL_SALES.md) | deployed | Requested and agreed 2026-10-09 (decisions 52–55: the Retail Customer pays in full, an existing customer may leave a balance on account; tax-inclusive prices; Promotion Code as a payment method; a whole sale reversed, partial returns later). Built and tested 2026-10-09: counter with split payments mapped to ledgers, one GL entry with the stock (prefix RS, TXN-), register and cash-up, printed invoice (its Discount column only when a line has a discount, owner 2026-10-09), reversal. Owner 2026-10-09: counter users see only the sales they billed, a role right "report" for everyone's (Admin, Finance Manager by default); Copy to Excel; a payment-wise report. Owner 2026-10-09: Clear asks first once anything is entered; the products' own barcodes scanned (ITEM_BARCODES.md). Live 2026-10-09 (runs #109, #110). Next: a partial retail return with refund by method; managed promotion codes. |
 
 **Order:** #0 first (the owner's priority, and the SOAs need it). Then the returns, which the SOAs report on, and
 the SOAs last because they only read.

@@ -100,6 +100,7 @@
   <div id="adj-company-required-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Select a Company above before adding lines — no items can be chosen until then.</div>
 
   <div class="flex flex-wrap items-center gap-2 no-print">
+    <input id="adj-scan" autocomplete="off" placeholder="Scan a barcode" title="Scan or type a barcode (or an item code) and Enter: the item is added, or its line's quantity goes up" class="w-48 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs font-mono focus:outline-none focus:border-blue-500">
     <button id="adj-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
     <button id="adj-paste-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
     <button id="adj-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy Table</button>
@@ -547,6 +548,50 @@
   function currentHeaderProfitCenter() { return document.getElementById('adj-form-profitcenter').value; }
   function currentHeaderDescription() { return document.getElementById('adj-form-description').value; }
 
+  // ---------- barcodes (docs/modules/ITEM_BARCODES.md, step 2) ----------
+  // The products' own barcodes: barcode → item and units (a pack's), read
+  // once. A scan is a barcode first, then an item code (decisions 68-71).
+  let barcodeIndex = {};
+  function barcodeItem(text) {
+    const b = barcodeIndex[String(text || '').trim().toUpperCase()];
+    const item = b && items.find(i => i.ItemID === b.ItemID);
+    return item ? { code: item.ItemCode, units: b.PackQty || 1 } : null;
+  }
+  const noBarcode = text => (/^\d{8,}$/.test(text) ? 'No item with barcode ' + text + '.' : 'No item "' + text + '".');
+  const addQty = (a, b) => Math.round(((Number(a) || 0) + b) * 1000) / 1000;
+  // The Scan box: the item's line gets the units (decision 69: an item
+  // already on the document adds to its line), else the first empty line.
+  function scanItem(text) {
+    text = String(text || '').trim();
+    if (!text) return;
+    const hit = barcodeItem(text) || (itemByCode(text) ? { code: itemByCode(text).ItemCode, units: 1 } : null);
+    if (!hit) { appAlert(noBarcode(text)); return; }
+    let row = gridLines.findIndex(l => l.ItemCode === hit.code);
+    if (row >= 0) gridLines[row].EnteredQuantity = addQty(gridLines[row].EnteredQuantity, hit.units);
+    else {
+      row = gridLines.findIndex(l => !l.ItemCode && !l.EnteredQuantity);
+      if (row < 0) { gridLines.push(blankLine()); row = gridLines.length - 1; }
+      applyItemToRow(row, hit.code);
+      gridLines[row].EnteredQuantity = hit.units;
+    }
+    isDirty = true;
+    renderGrid();
+    updateTotal();
+  }
+  // A barcode in a line's item cell (on Enter or leaving it, not on every
+  // key: a scanner types the digits one by one): the item, and a pack's
+  // units as the quantity when none is entered.
+  function itemCellBarcode(el) {
+    const row = parseInt(el.getAttribute('data-row'), 10);
+    const hit = gridLines[row] && barcodeItem(el.value);
+    if (!hit) return;
+    applyItemToRow(row, hit.code);
+    if (!gridLines[row].EnteredQuantity) gridLines[row].EnteredQuantity = hit.units;
+    isDirty = true;
+    renderGrid();
+    updateTotal();
+  }
+
   function blankLine() {
     return {
       ItemCode: '', WarehouseID: '', AdjustmentDirection: '', Description: currentHeaderDescription(),
@@ -673,6 +718,8 @@
     });
     tr.querySelectorAll('input[data-field="item"]').forEach(el => {
       el.addEventListener('input', onCellInput);
+      el.addEventListener('keydown', e => { if (e.key === 'Enter' && barcodeItem(el.value)) { e.preventDefault(); itemCellBarcode(el); } });
+      el.addEventListener('change', () => itemCellBarcode(el));
     });
     tr.querySelectorAll('select[data-field="direction"], select[data-field="warehouse"], select[data-field="uom"]').forEach(el => {
       el.addEventListener('change', onCellInput);
@@ -1245,6 +1292,7 @@
     document.getElementById('adj-desc-edit-btn').classList.toggle('hidden', !(posted && canPost));
 
     document.getElementById('adj-add-line-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('adj-scan').classList.toggle('hidden', !editableStatus);
     document.getElementById('adj-paste-btn').classList.toggle('hidden', !editableStatus);
     document.getElementById('adj-save-draft-btn').classList.toggle('hidden', !editableStatus || !canDraft);
     document.getElementById('adj-post-btn').classList.toggle('hidden', !editableStatus || !canPost);
@@ -1480,6 +1528,13 @@
 
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken) {
+    document.getElementById('adj-scan').addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      scanItem(e.target.value);
+      e.target.value = '';
+    });
+    rpc.withSuccessHandler(r => { barcodeIndex = (r && r.index) || {}; }).withFailureHandler(() => {}).getBarcodeIndex({});
     // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
     supportingDocs.mount({ module: 'STOCKADJUSTMENT', view: 'adj-entry-view', id: () => currentAdj && currentAdj.AdjustmentID, list: 'adj-table-body' });
     token = idToken;

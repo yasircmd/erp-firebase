@@ -1,0 +1,7 @@
+# Item barcodes, step 2: scanning in the stock screens
+# (docs/modules/ITEM_BARCODES.md, decisions 68-71). Run with --screens
+# (GRN, MATERIALISSUE, STOCKADJUSTMENT, WAREHOUSEMOVEMENT, PHYSICALCOUNT
+# changed). No Hosting change, nothing to set up. Deploy after
+# item-barcodes.
+# New function (the invoker binding is granted by deploy-functions.sh).
+getBarcodeIndex
