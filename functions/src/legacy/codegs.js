@@ -17,6 +17,7 @@ const __lineClubbing = require('../lineClubbing');
 const __listPaging = require('../listPaging');
 const __masterData = require('../masterData');
 const __moduleRegistry = require('../moduleRegistry');
+const __numbering = require('../numbering');
 const __prVisibility = require('../prVisibility');
 const __reservations = require('../reservations');
 const __roles = require('../roles');
@@ -32,8 +33,11 @@ const computeStockMovement_ = (idToken, ...a) => __stockMovement.computeStockMov
 const getStockLedgerEntry_ = (idToken, ...a) => __stockMovement.getStockLedgerEntry(...a);
 const commitStockLedgerUpdates_ = (idToken, ...a) => __stockMovement.commitStockLedgerUpdates(...a);
 const writeStockGlEntry_ = (idToken, ...a) => __glWriting.writeStockGlEntry(...a);
-const getCompanyRefCode_ = (idToken, ...a) => __glWriting.getCompanyRefCode(...a);
 const generateStockVoucherNumber_ = (idToken, ...a) => __glWriting.generateStockVoucherNumber(...a);
+const generateVoucherNumber_ = (idToken, ...a) => __numbering.voucherNumber(...a);
+const generateItemCode_ = (idToken, ...a) => __numbering.itemCode(...a);
+const generateVendorCode_ = (idToken, ...a) => __numbering.vendorCode(...a);
+const generateCustomerCode_ = (idToken, ...a) => __numbering.customerCode(...a);
 const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
 const beginCommitAttempt_ = (idToken, ...a) => __commitAttempt.beginCommitAttempt(...a);
 const abandonCommitAttempt_ = (idToken, ...a) => __commitAttempt.abandonCommitAttempt(...a);
@@ -1218,28 +1222,6 @@ async function requirePostAccess_(idToken, user, moduleId) {
   }
 }
 
-// Must be called while the caller already holds LockService.getScriptLock() —
-// no internal locking here, to avoid nested lock acquisition in the same call.
-// Counter is scoped per prefix, year, AND company:
-// /gl/counters/{prefix}/{year}/{companyRefCode} — so each company's
-// sequence starts independently at 000001, e.g. a company's first JV of
-// the year is JV-26-01-000001 regardless of how many entries OTHER
-// companies have already posted that year. The company reference code
-// exists ONLY for this display string — it is not used as an identifier
-// anywhere else (CompanyID remains the real key everywhere else in the
-// system). The counter path itself still keys on the full 4-digit year
-// (avoids any ambiguity at a century rollover); only the DISPLAYED
-// voucher number is shortened to 2 digits.
-async function generateVoucherNumber_(idToken, prefix, year, companyId) {
-  const companyRefCode = await getCompanyRefCode_(idToken, companyId);
-  const yy = String(year).slice(-2);
-  const counterPath = 'gl/counters/' + prefix + '/' + year + '/' + companyRefCode;
-  const current = (await firebaseDbRequest_(counterPath, 'get', null, idToken)) || 0;
-  const next = current + 1;
-  await firebaseDbRequest_(counterPath, 'put', next, idToken);
-  return prefix + '-' + yy + '-' + companyRefCode + '-' + String(next).padStart(6, '0');
-}
-
 // The separate, type-agnostic GL transaction reference. One lifetime
 // sequence, never resets by year, increments across every entry that
 // hits the GL regardless of whether it's a JV, CP, CR, BP, or BR — this
@@ -1943,16 +1925,6 @@ async function reactivateItemSubCategory(idToken, subCategoryId) {
   } catch (err) {
     return { success: false, error: err.message };
   }
-}
-
-async function generateItemCode_(idToken, category) {
-  const prefix = ITEM_CATEGORY_PREFIXES[category];
-  if (!prefix) throw new Error('Unknown item category: ' + category);
-  const counterPath = 'itemCounters/' + prefix;
-  const current = (await firebaseDbRequest_(counterPath, 'get', null, idToken)) || 0;
-  const next = current + 1;
-  await firebaseDbRequest_(counterPath, 'put', next, idToken);
-  return prefix + '-' + String(next).padStart(6, '0');
 }
 
 async function getItems(idToken) {
@@ -6578,14 +6550,6 @@ async function getProductionConsumptionReport(idToken, params) {
   return { ReportType: reportType, Rows: rows, GrandTotalValue: grandTotalValue };
 }
 
-async function generateVendorCode_(idToken) {
-  const counterPath = 'vendorCounters/VEN';
-  const current = (await firebaseDbRequest_(counterPath, 'get', null, idToken)) || 0;
-  const next = current + 1;
-  await firebaseDbRequest_(counterPath, 'put', next, idToken);
-  return 'VEN-' + String(next).padStart(6, '0');
-}
-
 async function getVendors(idToken) {
   const user = await requireUser_(idToken);
   if (!(await moduleHasCapability_(idToken, 'VENDORMASTER', 'access', user.profile.role))) {
@@ -6973,15 +6937,6 @@ async function reactivateCustomerClassification(idToken, classificationId) {
   } catch (err) {
     return { success: false, error: err.message };
   }
-}
-
-async function generateCustomerCode_(idToken, isExport) {
-  const prefix = isExport ? 'CE' : 'CL';
-  const counterPath = 'customerCounters/' + prefix;
-  const current = (await firebaseDbRequest_(counterPath, 'get', null, idToken)) || 0;
-  const next = current + 1;
-  await firebaseDbRequest_(counterPath, 'put', next, idToken);
-  return prefix + '-' + String(next).padStart(6, '0');
 }
 
 async function getCustomers(idToken) {
@@ -10356,7 +10311,6 @@ module.exports = {
   voucherPrefixForEntry_,
   requireDraftAccess_,
   requirePostAccess_,
-  generateVoucherNumber_,
   generateGlTransactionRef_,
   applyCompanyAccessRestriction_,
   getDefaultCurrency,
@@ -10383,7 +10337,6 @@ module.exports = {
   saveItemSubCategory,
   deactivateItemSubCategory,
   reactivateItemSubCategory,
-  generateItemCode_,
   getItems,
   resolveItemExpenseAccount_,
   saveItem,
@@ -10468,7 +10421,6 @@ module.exports = {
   getStockLedgerReport,
   getMaterialVarianceReport,
   getProductionConsumptionReport,
-  generateVendorCode_,
   getVendors,
   saveVendor,
   deactivateVendor,
@@ -10484,7 +10436,6 @@ module.exports = {
   saveCustomerClassification,
   deactivateCustomerClassification,
   reactivateCustomerClassification,
-  generateCustomerCode_,
   getCustomers,
   getActiveCustomers,
   saveCustomer,

@@ -1015,19 +1015,12 @@ function masterRules(k, r, ex, resolvedAbove, issue) {
 
 // ---------- importing ----------
 
-// Counters a save may advance (item, vendor, customer codes; asset numbers).
-const COUNTER_ROOTS = ['itemCounters', 'vendorCounters', 'customerCounters', 'fa/counters/asset', 'hrCounters'];
+// Counters a save may advance (item, vendor, customer, employee codes;
+// asset numbers): all made by the Numbering module now
+// (docs/modules/NUMBERING.md), which finds a code's counter from its format.
+const COUNTER_ROOTS = ['itemCounters', 'vendorCounters', 'customerCounters', 'fa/counters', 'hrCounters'];
 const codeOfResult = res => res.itemCode || res.vendorCode || res.customerCode || '';
-const counterOfCode = code => {
-  const fa = String(code).match(/^FA-(\w+)-\d+$/);
-  if (fa) return 'fa/counters/asset/' + fa[1];
-  const prefix = String(code).split('-')[0];
-  if (!prefix) return '';
-  if (prefix === 'VEN') return 'vendorCounters/VEN';
-  if (prefix === 'EMP') return 'hrCounters/EMP';
-  if (prefix === 'CL' || prefix === 'CE') return 'customerCounters/' + prefix;
-  return 'itemCounters/' + prefix;
-};
+const counterOfCode = code => require('./numbering').counterPathOfCode(code);
 
 // What to save, unit by unit: a row, or the rows of one BOM / price list.
 function unitsOf(m, resolved) {
@@ -1116,10 +1109,10 @@ async function importRows(request, user, masterKey, resolved, opts) {
 
   for (const c of created.slice().reverse()) await undoOne(c.undo);
   const used = {};
-  created.forEach(c => { const p = c.code && counterOfCode(c.code); if (p) used[p] = (used[p] || 0) + 1; });
+  for (const c of created) { const p = c.code && (await counterOfCode(c.code)); if (p) used[p] = (used[p] || 0) + 1; }
   for (const p of Object.keys(used)) {
     const root = COUNTER_ROOTS.find(r => p.startsWith(r + '/'));
-    const before = root ? Number(snapshot[root][p.slice(root.length + 1)]) || 0 : 0;
+    const before = root ? Number(p.slice(root.length + 1).split('/').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), snapshot[root])) || 0 : 0;
     // A transaction's first try sees the local cache (null): answering null
     // makes it retry with the server's value instead of giving up.
     await rtdb.ref(p).transaction(cur => (cur === null ? null : (Number(cur) === before + used[p] ? before : undefined)));

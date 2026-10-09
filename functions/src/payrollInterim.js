@@ -149,8 +149,8 @@ exports.getInterimBatch = onCallWithMessages(onCallOptions, async (request) => {
 });
 
 async function nextNumber() {
-  const res = await rtdb.ref('hrCounters/IP').transaction(cur => (Number(cur) || 0) + 1);
-  return 'IP-' + String(res.snapshot.val()).padStart(4, '0');
+  // The format is the Numbering module's (docs/modules/NUMBERING.md).
+  return require('./numbering').hrNumber('IP');
 }
 // Marks the items as in the batch (and frees those taken out).
 async function reserve(batch, items, before) {

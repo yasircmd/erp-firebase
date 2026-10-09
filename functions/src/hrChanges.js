@@ -293,9 +293,8 @@ exports.deleteEmployeeChange = onCallWithMessages(onCallOptions, async (request)
 });
 
 async function nextNumber(effective) {
-  const year = effective.slice(0, 4);
-  const res = await rtdb.ref('hrCounters/EC-' + year).transaction(cur => (Number(cur) || 0) + 1);
-  return 'EC-' + year + '-' + String(res.snapshot.val()).padStart(4, '0');
+  // The format is the Numbering module's (docs/modules/NUMBERING.md).
+  return require('./numbering').hrNumber('EC', Number(effective.slice(0, 4)));
 }
 
 // Submit: checked again against the employee as they are now; approval if

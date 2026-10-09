@@ -241,10 +241,10 @@ exports.saveRetailSalesSettings = onCallWithMessages(onCallOptions, async (reque
   if (retailCustomerId && !(await val('customers/' + retailCustomerId))) retailCustomerId = '';
   if (!retailCustomerId) {
     await classifications();
-    const counter = await rtdb.ref('customerCounters/CL').transaction(c => (Number(c) || 0) + 1);
+    const customerCode = await require('./numbering').customerCode(false);
     retailCustomerId = 'CST-' + randomUUID().split('-')[0].toUpperCase();
     await rtdb.ref('customers/' + retailCustomerId).set({
-      CustomerName: RETAIL_CUSTOMER, CustomerCode: 'CL-' + String(counter.snapshot.val()).padStart(6, '0'), Category: '',
+      CustomerName: RETAIL_CUSTOMER, CustomerCode: customerCode, Category: '',
       Classification: 'Local', Country: '', TradeReceivablesAccountID: receivablesId, CompanyID: companyId,
       ContactPerson: '', Phone: '', Email: '', AddressLine1: '', AddressLine2: '', TaxRegistrationNumber: '', PaymentTermsDays: 0,
       DefaultCurrency: '', BankName: '', BankAccountNumber: '', BankIBAN: '', BankSwift: '',
