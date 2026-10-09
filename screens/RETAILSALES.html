@@ -538,6 +538,7 @@
   function previewReturn() {
     const lines = retLines();
     if (!ret || !lines.length) return Promise.resolve();
+    $('rs-ret-confirm').disabled = true; // until the refund is worked out again
     return call('confirmRetailReturn', { preview: true, saleId: ret.SaleID, Lines: lines, PayAs: retPayAs }).then(r => {
       if (JSON.stringify(lines) !== JSON.stringify(retLines())) return; // changed meanwhile
       retPreview = r; renderRefund();

@@ -53,7 +53,10 @@ const TODAY = new Date().toISOString().substring(0, 10);
   // The emulator starts each function on its first call: start the slow ones before the browser times them.
   await call('u-admin', 'findRetailSaleForReturn', { companyId: 'C1', number });
   await call('u-admin', 'confirmRetailReturn', { preview: true, saleId: sale.saleId, Lines: [{ SaleLineNo: 1, Quantity: 1 }] });
-  await call('u-admin', 'reverseRetailReturn', { returnId: 'none', reason: 'x' }).catch(() => {});
+  const warm = await call('u-admin', 'confirmRetailSale', { CompanyID: 'C1', SaleDate: TODAY, Lines: [{ ItemID: 'I1', Quantity: 1 }], Payments: [{ MethodID: M.cash, Amount: 50 }] });
+  const warmRet = await call('u-admin', 'confirmRetailReturn', { saleId: warm.saleId, Lines: [{ SaleLineNo: 1, Quantity: 1 }], reason: 'warm-up' });
+  await call('u-admin', 'reverseRetailReturn', { returnId: warmRet.returnId, reason: 'warm-up' });
+  await call('u-admin', 'reverseRetailSale', { saleId: warm.saleId, reason: 'warm-up', reversalDate: TODAY });
 
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
   const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(harness); }).listen(8185);
@@ -69,7 +72,7 @@ const TODAY = new Date().toISOString().substring(0, 10);
     return page;
   }
   const until = async (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: 30000 });
-  const dialogs = async (p, n) => { for (let i = 0; i < 150 && p.__dialogs.length < n; i++) await new Promise(r => setTimeout(r, 100)); };
+  const dialogs = async (p, n, secs) => { for (let i = 0; i < (secs || 15) * 10 && p.__dialogs.length < n; i++) await new Promise(r => setTimeout(r, 100)); };
 
   await check('the printed invoice carries its number as a barcode', async () => {
     const p = await open('RETAILSALES', 'u-admin');
@@ -107,11 +110,14 @@ const TODAY = new Date().toISOString().substring(0, 10);
     await p.click('#rs-ret-confirm');
     await dialogs(p, 1);
     assert.deepEqual(p.__dialogs.splice(0), ['Enter the reason for the return.']);
+    // One dialog at a time: let that one close before the next can show.
+    await until(p, () => document.getElementById('app-dialog').classList.contains('hidden'));
     await p.fill('#rs-ret-reason', 'Wrong size');
     await p.click('#rs-ret-confirm');
-    await dialogs(p, 1);
+    await dialogs(p, 1, 60);
+    assert.equal(p.__dialogs.length, 1, 'the return was confirmed');
     assert.match(p.__dialogs[0], /^Return RR-\S+ confirmed: 50\.00 returned\. Pay back Cash 30\.00, Cash 15\.00\.$/);
-    const t = Object.entries(await val('stock/transactions')).find(([, x]) => x.TransactionType === 'RetailReturn');
+    const t = Object.entries(await val('stock/transactions')).find(([, x]) => x.TransactionType === 'RetailReturn' && x.ReturnOfSaleID === sale.saleId && !x.ReversalOfReturnID);
     returnId = t[0];
     assert.deepEqual(t[1].Refunds.map(r => [r.FromName, r.Name, r.Amount]), [['Card', 'Cash', 30], ['Promotion Code', 'Promotion Code', 5], ['Cash', 'Cash', 15]]);
     // The return opens in the Sales tab with its receipt.
