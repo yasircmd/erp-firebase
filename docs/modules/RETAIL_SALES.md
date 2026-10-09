@@ -202,3 +202,11 @@ block always printed; the counter's Confirm open to a Viewer.
 
 **Deploy:** `tools/deploy-sets/retail-sales.txt` with `--screens`
 (RETAILSALES).
+
+## Change 2026-10-09 (owner): no empty Discount column
+
+The invoice (on screen and printed) shows the Discount column only when
+some line has a discount; otherwise it is Item, Qty, Price, Amount. A
+screen change only, released with `retail-sales` (`--screens`). Test:
+`retailSales.ui.js` (both cases); negative control (the column always
+shown) caught.

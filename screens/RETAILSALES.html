@@ -326,14 +326,16 @@
   function invoiceHtml(r, forPrint) {
     const s = r.sale;
     const cust = [s.BillToName, s.BillToAddress, s.BillToTaxNumber ? 'TRN ' + s.BillToTaxNumber : ''].filter(Boolean);
+    // The Discount column only when some line has one (owner, 2026-10-09).
+    const hasDiscount = (s.Lines || []).some(l => Number(l.Discount));
     const td = (v, right) => '<td class="' + (right ? 'r text-right ' : '') + 'py-1 px-2">' + v + '</td>';
     return (forPrint ? '<div style="text-align:center"><b style="font-size:14px">' + escapeHtml(r.company.LegalName) + '</b><br>' + escapeHtml(r.company.Address) +
         (r.company.TaxNumbers.length ? '<br>' + r.company.TaxNumbers.map(x => escapeHtml((x.Type ? x.Type + ' ' : '') + x.Number)).join(' · ') : '') +
         '<br><b>' + (Number(s.TaxAmount) ? 'Tax Invoice' : 'Invoice') + '</b></div>' : '') +
       '<div>Invoice ' + escapeHtml(s.TransactionNumber) + ' · ' + escapeHtml(s.TransactionDate) + '</div>' +
       (cust.length ? '<div class="rs-billto mt-1">Customer: ' + cust.map(escapeHtml).join('<br>') + '</div>' : '') +
-      '<table class="w-full mt-2"><thead><tr><th class="py-1 px-2">Item</th><th class="r text-right py-1 px-2">Qty</th><th class="r text-right py-1 px-2">Price</th><th class="r text-right py-1 px-2">Discount</th><th class="r text-right py-1 px-2">Amount</th></tr></thead><tbody>' +
-      (s.Lines || []).map(l => '<tr>' + td(escapeHtml(l.ItemCode + ' ' + l.ItemName)) + td(escapeHtml(l.Quantity), 1) + td(money(l.UnitPrice), 1) + td(l.Discount ? money(l.Discount) : '', 1) + td(money(l.Amount), 1) + '</tr>').join('') +
+      '<table class="w-full mt-2"><thead><tr><th class="py-1 px-2">Item</th><th class="r text-right py-1 px-2">Qty</th><th class="r text-right py-1 px-2">Price</th>' + (hasDiscount ? '<th class="rs-col-discount r text-right py-1 px-2">Discount</th>' : '') + '<th class="r text-right py-1 px-2">Amount</th></tr></thead><tbody>' +
+      (s.Lines || []).map(l => '<tr>' + td(escapeHtml(l.ItemCode + ' ' + l.ItemName)) + td(escapeHtml(l.Quantity), 1) + td(money(l.UnitPrice), 1) + (hasDiscount ? td(Number(l.Discount) ? money(l.Discount) : '', 1) : '') + td(money(l.Amount), 1) + '</tr>').join('') +
       '</tbody></table>' +
       '<div class="mt-2" style="text-align:right">Total <b>' + money(s.Total) + '</b><br>Includes tax ' + escapeHtml(s.TaxPercent) + '%: ' + money(s.TaxAmount) + '<br>' +
       (s.Payments || []).map(p => escapeHtml(p.Name) + (p.Reference ? ' (' + escapeHtml(p.Reference) + ')' : '') + ': ' + money(p.Amount)).join('<br>') +
