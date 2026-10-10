@@ -70,7 +70,7 @@
       </div>
       <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
         <table class="w-full text-left text-xs">
-          <thead class="bg-slate-900 text-slate-400 uppercase"><tr><th class="py-1.5 px-2">Item</th><th class="py-1.5 px-2 text-right">In stock</th><th class="py-1.5 px-2 text-right">Qty</th><th class="py-1.5 px-2 text-right">Price</th><th class="py-1.5 px-2 text-right">Discount</th><th class="py-1.5 px-2 text-right">Amount</th><th></th></tr></thead>
+          <thead class="bg-slate-900 text-slate-400 uppercase"><tr><th class="py-1.5 px-2">Item</th><th class="py-1.5 px-2 text-right">In stock</th><th class="py-1.5 px-2 text-right">Qty</th><th class="py-1.5 px-2 text-right">Price</th><th id="rs-col-discount" class="py-1.5 px-2 text-right">Discount</th><th class="py-1.5 px-2 text-right">Amount</th><th></th></tr></thead>
           <tbody id="rs-lines" class="divide-y divide-slate-700"></tbody>
         </table>
       </div>
@@ -177,6 +177,14 @@
         <div><label class="block text-xs text-slate-300 mb-1">Return period, days <span class="text-slate-500">(0 = no limit)</span></label><input id="rs-s-returndays" type="number" min="0" step="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
       </div>
       <label class="flex items-center gap-2 text-xs text-slate-300"><input id="rs-s-pricechange" type="checkbox"> Prices can be changed at the counter</label>
+      <label class="flex items-center gap-2 text-xs text-slate-300"><input id="rs-s-discount" type="checkbox"> Discounts can be given at the counter</label>
+      <!-- The receipt (owner, 2026-10-10; docs/modules/RETAIL_SALES.md, decisions 114-115). -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div><label class="block text-xs text-slate-300 mb-1">Receipt paper</label><select id="rs-s-paper" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+          <option value="80">80 mm roll</option><option value="58">58 mm roll</option><option value="A4">A4 (office printer)</option></select></div>
+        <div class="md:col-span-2"><label class="block text-xs text-slate-300 mb-1">Receipt footer message <span class="text-slate-500">(optional, e.g. "Thank you")</span></label><input id="rs-s-footer" maxlength="200" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      </div>
+      <label class="flex items-center gap-2 text-xs text-slate-300"><input id="rs-s-printconfirm" type="checkbox"> Print the receipt when the sale is confirmed</label>
       <div class="flex items-center gap-3">
         <button id="rs-s-save" class="bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save setup</button>
         <span id="rs-s-customer" class="text-xs text-slate-400"></span>
@@ -297,17 +305,22 @@
     const paid = r2(payments.reduce((s, p) => s + (Number(p.Amount) || 0), 0));
     return { rate, list, discount, total, tax: r2(total * rate / (100 + rate)), paid, change: r2(Math.max(0, paid - total)), due: r2(Math.max(0, total - paid)) };
   }
+  // Discounts at the counter unless Setup switched them off (decision 116).
+  const canDiscount = () => !!counter && counter.settings.AllowDiscount !== false;
   function renderLines() {
     const canPrice = counter.settings.AllowPriceChange;
+    const canDisc = canDiscount();
+    $('rs-col-discount').classList.toggle('hidden', !canDisc);
+    if (!canDisc) lines.forEach(l => { l.Discount = 0; });
     $('rs-lines').innerHTML = lines.length ? lines.map((l, i) => '<tr data-i="' + i + '">' +
       '<td class="py-1 px-2">' + escapeHtml(l.ItemCode) + ' <span class="text-slate-500">' + escapeHtml(l.ItemName) + '</span></td>' +
       '<td class="py-1 px-2 text-right ' + (l.InStock < l.Quantity ? 'text-red-400' : 'text-slate-400') + '">' + escapeHtml(l.InStock) + ' ' + escapeHtml(l.UOM) + '</td>' +
       '<td class="py-1 px-2 text-right"><input data-f="Quantity" type="number" min="0" step="any" value="' + escapeHtml(l.Quantity) + '" class="rs-line-in w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-right"></td>' +
       '<td class="py-1 px-2 text-right">' + (canPrice ? '<input data-f="UnitPrice" type="number" min="0" step="any" value="' + escapeHtml(l.UnitPrice) + '" class="rs-line-in w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-right">' : money(l.UnitPrice)) + '</td>' +
-      '<td class="py-1 px-2 text-right"><input data-f="Discount" type="number" min="0" step="any" value="' + escapeHtml(l.Discount) + '" class="rs-line-in w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-right"></td>' +
+      (canDisc ? '<td class="py-1 px-2 text-right"><input data-f="Discount" type="number" min="0" step="any" value="' + escapeHtml(l.Discount) + '" class="rs-line-in w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-right"></td>' : '') +
       '<td class="py-1 px-2 text-right font-semibold rs-line-amount">' + money(lineAmount(l)) + '</td>' +
       '<td class="py-1 px-2 text-right"><button class="rs-line-del text-red-400 hover:text-red-300"><i class="fa-solid fa-xmark"></i></button></td></tr>').join('')
-      : '<tr><td colspan="7" class="py-4 text-center text-slate-500">Add items above.</td></tr>';
+      : '<tr><td colspan="' + (canDisc ? 7 : 6) + '" class="py-4 text-center text-slate-500">Add items above.</td></tr>';
     renderPayments();
   }
   function renderPayments() {
@@ -361,14 +374,22 @@
   // "report" right sees only the sales they billed (owner, 2026-10-09).
   let report = null;
   const statusOf = x => (x.Reversal ? 'Reversal' : x.ReversedBy ? 'Reversed' : x.Return ? 'Return of ' + x.ReturnOf : 'Sold');
+  // Only the latest request draws: an older one answering late would put
+  // back its filters and rows (e.g. "Billed by" reset to Everyone).
+  let salesSeq = 0;
   function loadSales() {
     if (!$('rs-from').value) $('rs-from').value = today();
     if (!$('rs-to').value) $('rs-to').value = today();
+    const seq = ++salesSeq;
     return call('getRetailSales', { companyId: $('rs-company').value, from: $('rs-from').value, to: $('rs-to').value, billedBy: $('rs-billedby').value }).then(r => {
+      if (seq !== salesSeq) return;
       report = r;
       $('rs-billedby-wrap').classList.toggle('hidden', !r.all);
       $('rs-own-note').classList.toggle('hidden', r.all);
-      $('rs-billedby').innerHTML = '<option value="">Everyone</option>' + r.billers.map(b => opt(b, b, b === r.billedBy)).join('');
+      // Refilled with the people who billed; a choice made meanwhile is kept.
+      const keep = $('rs-billedby').value;
+      const pick = r.billers.includes(keep) ? keep : r.billedBy;
+      $('rs-billedby').innerHTML = '<option value="">Everyone</option>' + r.billers.map(b => opt(b, b, b === pick)).join('');
       renderReport();
     }, err => appAlert(err.message || 'Unable to load the sales.'));
   }
@@ -443,7 +464,11 @@
       $('rs-return-items').classList.toggle('hidden', isReturn || !setup.canReturn || !!reversed || !!reversal);
       $('rs-sale-detail').innerHTML = invoiceHtml(r, false);
       renderPrint(r);
-      if (print) $('rs-sale-view').scrollIntoView({ block: 'nearest' });
+      if (print) {
+        $('rs-sale-view').scrollIntoView({ block: 'nearest' });
+        // Printed by itself after Confirm when Setup says so (decision 115).
+        if (r.receipt && r.receipt.PrintOnConfirm) window.print();
+      }
     }, err => appAlert(err.message || 'Unable to open the sale.'));
   }
   // The invoice: the customer block only when its details were entered.
@@ -482,7 +507,43 @@
       (s.Refunds || []).map(f => (f.FromKind === 'Promotion' ? escapeHtml(f.Name) + ' reversed' : 'Refunded ' + escapeHtml(f.Name) + (f.Name !== f.FromName ? ' (paid by ' + escapeHtml(f.FromName) + ')' : '')) + (f.Reference ? ' (' + escapeHtml(f.Reference) + ')' : '') + ': ' + money(f.Amount)).join('<br>') +
       (Number(s.OnAccountReduced) ? '<br>Taken off the account: ' + money(s.OnAccountReduced) : '') + (Number(s.CreditOnAccount) ? '<br>Credit on account: ' + money(s.CreditOnAccount) : '') + '</div>';
   }
-  function renderPrint(r) { $('rs-print-document').innerHTML = invoiceHtml(r, true); }
+  // The printed receipt: A4 (the original layout) or a roll (decision 114).
+  function renderPrint(r) {
+    const paper = (r.receipt && r.receipt.Paper) || 'A4';
+    $('rs-print-document').innerHTML = paper === 'A4' ? invoiceHtml(r, true) : rollHtml(r, paper);
+  }
+  // A roll receipt: the printable width of 80 mm (72 mm) or 58 mm (48 mm)
+  // paper, no page margins, no borders; each item on its own line with
+  // "qty × price" under it; dashed rules between the parts. The printer
+  // driver's paper is the roll (it feeds to the end of the bill).
+  function rollHtml(r, paper) {
+    const s = r.sale, isReturn = s.TransactionType === 'RetailReturn';
+    const width = paper === '58' ? 48 : 72;
+    const row = (a, b, cls) => '<div class="rs-roll-row' + (cls ? ' ' + cls : '') + '"><span>' + a + '</span><span>' + b + '</span></div>';
+    const hr = '<div class="rs-roll-hr"></div>';
+    const items = (s.Lines || []).map(l => '<div class="rs-roll-item"><div>' + escapeHtml(l.ItemCode + ' ' + l.ItemName) + '</div>' +
+      row(escapeHtml(l.Quantity) + (isReturn ? '' : ' × ' + money(l.UnitPrice)) + (!isReturn && Number(l.Discount) ? ' − ' + money(l.Discount) : ''), money(l.Amount)) + '</div>').join('');
+    const cust = isReturn ? [] : [s.BillToName, s.BillToAddress, s.BillToTaxNumber ? 'TRN ' + s.BillToTaxNumber : ''].filter(Boolean);
+    const foot = r.receipt && r.receipt.Footer ? hr + '<div class="rs-roll-c">' + escapeHtml(r.receipt.Footer) + '</div>' : '';
+    const pays = isReturn
+      ? (s.Refunds || []).map(f => row(f.FromKind === 'Promotion' ? escapeHtml(f.Name) + ' reversed' : 'Refunded ' + escapeHtml(f.Name), money(f.Amount))).join('') +
+        (Number(s.OnAccountReduced) ? row('Taken off the account', money(s.OnAccountReduced)) : '') + (Number(s.CreditOnAccount) ? row('Credit on account', money(s.CreditOnAccount)) : '')
+      : (s.Payments || []).map(p => row(escapeHtml(p.Name) + (p.Reference ? ' (' + escapeHtml(p.Reference) + ')' : ''), money(p.Amount))).join('') +
+        (Number(s.Change) ? row('Change', money(s.Change)) : '') + (Number(s.OnAccount) ? row('On account', money(s.OnAccount)) : '');
+    return '<style>@page { margin: 0; } @media print { body, #app-container { margin: 0 !important; padding: 0 !important; } }' +
+      '#rs-print-document .rs-roll { width: ' + width + 'mm; padding: 2mm 0; font-family: Arial, Helvetica, sans-serif; font-size: ' + (paper === '58' ? 10 : 11) + 'px; line-height: 1.3; color: #000; }' +
+      '#rs-print-document .rs-roll-c { text-align: center; } #rs-print-document .rs-roll-hr { border-top: 1px dashed #000; margin: 1.5mm 0; }' +
+      '#rs-print-document .rs-roll-row { display: flex; justify-content: space-between; gap: 2mm; } #rs-print-document .rs-roll-row span:last-child { white-space: nowrap; }' +
+      '#rs-print-document .rs-roll-item { break-inside: avoid; margin-bottom: 1mm; } #rs-print-document .rs-roll-total { font-weight: bold; font-size: 1.2em; }</style>' +
+      '<div class="rs-roll rs-roll-' + paper + '"><div class="rs-roll-c"><b style="font-size:1.25em">' + escapeHtml(r.company.LegalName) + '</b>' + (r.company.Address ? '<br>' + escapeHtml(r.company.Address) : '') +
+      (r.company.TaxNumbers.length ? '<br>' + r.company.TaxNumbers.map(x => escapeHtml((x.Type ? x.Type + ' ' : '') + x.Number)).join(' · ') : '') +
+      '<br><b>' + (isReturn ? 'Return Receipt' : Number(s.TaxAmount) ? 'Tax Invoice' : 'Invoice') + '</b></div>' + hr +
+      '<div>' + (isReturn ? 'Return ' : 'Invoice ') + escapeHtml(s.TransactionNumber) + ' · ' + escapeHtml(s.TransactionDate) + '</div>' +
+      (isReturn ? '<div>Of invoice ' + escapeHtml(s.ReturnOfSaleNumber) + '</div>' + (s.Reason ? '<div>Reason: ' + escapeHtml(s.Reason) + '</div>' : '') : '') +
+      (!isReturn && r.numberBarcode ? '<div class="rs-number-barcode rs-roll-c" style="width:' + Math.min(48, width) + 'mm;height:12mm;margin:1mm auto">' + r.numberBarcode.replace('<svg ', '<svg width="100%" height="100%" ') + '</div>' : '') +
+      (cust.length ? '<div>Customer: ' + cust.map(escapeHtml).join('<br>') + '</div>' : '') + hr + items + hr +
+      row(isReturn ? 'Returned' : 'Total', money(s.Total), 'rs-roll-total') + row('Includes tax ' + escapeHtml(s.TaxPercent) + '%', money(s.TaxAmount)) + pays + foot + '</div>';
+  }
   function reverseSale() {
     const s = current && current.sale;
     if (!s) return;
@@ -606,6 +667,10 @@
     $('rs-s-receivables').innerHTML = opt('', 'Select...') + accounts.filter(a => a.AccountType === 'Asset').map(a => opt(a.AccountID, a.Label, a.AccountID === st.ReceivablesAccountID)).join('');
     $('rs-s-tax').value = st.TaxPercent === undefined ? '' : st.TaxPercent;
     $('rs-s-pricechange').checked = !!st.AllowPriceChange;
+    $('rs-s-discount').checked = st.AllowDiscount !== false;
+    $('rs-s-paper').value = ['80', '58', 'A4'].includes(st.ReceiptPaper) ? st.ReceiptPaper : (setup.settings ? 'A4' : '80');
+    $('rs-s-footer').value = st.ReceiptFooter || '';
+    $('rs-s-printconfirm').checked = !!st.PrintOnConfirm;
     $('rs-s-returndays').value = st.ReturnDays || 0;
     $('rs-s-customer').textContent = setup.retailCustomer ? 'Default customer: ' + setup.retailCustomer.CustomerName + ' (' + setup.retailCustomer.CustomerCode + ')' : 'Saving creates the "Retail Customer" in Customer Master.';
     document.querySelectorAll('#rs-setup input, #rs-setup select, #rs-setup button').forEach(x => { x.disabled = !setup.canSetup; });
@@ -626,7 +691,8 @@
     call('saveRetailSalesSettings', {
       companyId: $('rs-company').value, salesTypeId: $('rs-s-salestype').value, warehouseId: $('rs-s-warehouse').value, costCenterId: $('rs-s-costcenter').value,
       priceListId: $('rs-s-pricelist').value, receivablesAccountId: $('rs-s-receivables').value, taxPercent: $('rs-s-tax').value === '' ? NaN : Number($('rs-s-tax').value),
-      allowPriceChange: $('rs-s-pricechange').checked, returnDays: Number($('rs-s-returndays').value) || 0
+      allowPriceChange: $('rs-s-pricechange').checked, returnDays: Number($('rs-s-returndays').value) || 0,
+      allowDiscount: $('rs-s-discount').checked, receiptPaper: $('rs-s-paper').value, receiptFooter: $('rs-s-footer').value, printOnConfirm: $('rs-s-printconfirm').checked
     }).then(() => { appAlert('Setup saved.'); loadCompany(); }, err => appAlert(err.message || 'Unable to save the setup.'));
   }
   function saveMethod(tr) {

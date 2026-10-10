@@ -563,9 +563,15 @@ roll (e.g. "80 mm × receipt"); for printing without the browser's print
 window, start Chrome with `--kiosk-printing`; the cutter and the cash
 drawer are the driver's options.
 
+**Fixed in passing (a real bug, found by an intermittent UI check):** in
+the Sales tab, an older "Run" answering after a newer one put back its rows
+and reset "Billed by" to Everyone, and a fresh answer reset a Billed-by
+choice made while it was loading. Now only the latest request draws, and
+a choice made meanwhile is kept.
+
 **Tests:** `retailSales.emulator.test.js` (8: the switch, the defaults for
 a company already selling, the receipt settings and their checks),
-`retailSales.ui.js` (9: Setup's new defaults; discounts off, no Discount
+`retailSales.ui.js` (10: the Sales tab race above; Setup's new defaults; discounts off, no Discount
 column; an 80 mm receipt printed on Confirm, with its footer and no
 table; 58 mm narrower; opening a sale doesn't print).
 

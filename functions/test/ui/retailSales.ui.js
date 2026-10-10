@@ -274,6 +274,38 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await context.close();
   });
 
+  await check('the sales list: an older request answering late never puts back its rows or resets "Billed by"', async () => {
+    const p = await open('RETAILSALES', 'u-admin');
+    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    const today = new Date().toISOString().substring(0, 10);
+    await p.click('.rs-tab[data-tab="sales"]');
+    await p.fill('#rs-from', today); await p.fill('#rs-to', today); await p.click('#rs-run');
+    await until(p, () => document.querySelectorAll('#rs-billedby option').length === 3);
+    // Everyone's list is slow to answer; cash1's, asked for after it, comes first.
+    let slow = true;
+    await p.route('**/getRetailSales', async route => {
+      if (slow) { slow = false; await new Promise(r => setTimeout(r, 2500)); }
+      await route.continue();
+    });
+    await p.click('#rs-run');
+    await p.selectOption('#rs-billedby', 'cash1');
+    // The slow answer comes while cash1 is chosen: the choice stays.
+    await p.waitForTimeout(3500);
+    assert.equal(await p.inputValue('#rs-billedby'), 'cash1');
+    // Everyone's again, slow; then cash1's, which answers first.
+    await p.selectOption('#rs-billedby', '');
+    slow = true;
+    await p.click('#rs-run');
+    await p.selectOption('#rs-billedby', 'cash1');
+    await p.click('#rs-run');
+    await until(p, () => document.querySelectorAll('#rs-sales-body tr[data-id]').length === 1);
+    await p.waitForTimeout(3500); // the slow, older answer has come by now
+    assert.equal(await p.locator('#rs-sales-body tr[data-id]').count(), 1);
+    assert.equal(await p.inputValue('#rs-billedby'), 'cash1');
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await check('Setup: discounts off, an 80 mm roll with a footer, printed on Confirm: no Discount column at the counter; the receipt prints by itself, on the roll; 58 mm narrower (owner, 2026-10-10)', async () => {
     const p = await open('RETAILSALES', 'u-admin');
     await until(p, () => document.getElementById('rs-items').options.length === 1);
