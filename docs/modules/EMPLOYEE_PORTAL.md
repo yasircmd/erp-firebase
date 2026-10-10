@@ -380,3 +380,96 @@ the Tailwind CDN is unreachable, the UI check takes the styles from
 portal). In the app: tick Employees → "portal" for the HR roles, link
 employees to their line managers (and ERP users), switch the portal on and
 hand out the slips.
+
+## Step 2 design: payroll queries (proposed, 2026-10-10)
+
+Decision 91 settled the main shape: queries are handled in a new ERP
+screen, **Employee Requests**, by those with its "handle" right. Replies
+and the status show in the portal; the employee can answer and reopen a
+query within 14 days. The details below are proposed; the open questions
+(96–99) are the owner's.
+
+### In the portal: Pay → "Raise a query"
+
+- **Raise** from a payslip ("Something wrong?" on the payslip view) or from
+  a new **Requests** tab:
+  - the **month**, picked from their payslips;
+  - a **category**: Deduction, Missing earning, Overtime, Leave pay, Loan,
+    Other;
+  - the **lines concerned** (optional): ticked from that payslip's
+    earnings and deductions, with their amounts;
+  - a **description** (required) and, if wanted, the amount they expected;
+  - **attachments** (question 98).
+- Each query gets a number, **PQ-2026-0001** (a new type in Numbering, so
+  its format can be changed like the others).
+- **Track:** a list of their queries with the status: **New** → **In
+  progress** → **Resolved** or **Rejected** (the reason shown). Opening
+  one shows the conversation: their messages and HR's replies, with dates,
+  plus the status changes.
+- **Reply** while it is open. **Withdraw** while it is still New.
+- **Reopen** a resolved or rejected query within **14 days** (decision
+  91), with a message; it goes back to In progress. After 14 days, they
+  raise a new query that refers to the old one.
+- **Unread replies** show a badge on Requests and a card on Home.
+
+### In the ERP: Employee Requests (new screen)
+
+- The list: number, employee, company, month, category, status, last
+  activity, and who is handling it. Filters for status, category, company
+  and employee, plus a search. Copy to Excel.
+- Open a query to see:
+  - the employee, their payslip for that month (opens the ERP payslip),
+    and the lines they flagged;
+  - the conversation, with **Reply** (seen by the employee);
+  - **Internal note** (question 97);
+  - **Take it** (it becomes "In progress", handled by me);
+  - **Resolve** (an outcome message is required, e.g. "Corrected: 150
+    refunded in the October payroll") or **Reject** (a reason is
+    required).
+- The fix itself stays in Payroll as today (an E&D entry, a correction).
+  The query only records the outcome. A link from the query opens Earnings
+  & Deductions for the employee and month, to save typing.
+- **Rights:** a new module **Employee Requests**, with `access` (see
+  them) and `handle` (reply, take, resolve, reject). Defaults: Admin and
+  Finance Manager. Company access applies, as everywhere. The screen also
+  hosts reimbursement claims in step 3.
+- **Home task** for handlers: "N employee queries waiting" (New, or with
+  an unanswered employee reply).
+
+### Records
+
+- `employeeRequests/{id}`: Type `Query` (step 3 adds `Claim`), Number,
+  EmployeeID / No / Name, CompanyID, Month, RunID, Category, Lines (code,
+  name, amount), Expected, Description, Status, HandlerUid / Name,
+  Messages [{ From: Employee | HR, By, At, Text, Internal }], History,
+  CreatedAt, ResolvedAt, Outcome, ReadByEmployeeAt, ReadByHrAt.
+- Attachments, if agreed: through the Document Storage adapter, module
+  `EMPREQUESTS`. The portal uploads through `essPortal`, which checks that
+  the request is the employee's own. The same channel then serves step 3's
+  bills and leave documents.
+
+### Open questions (round 3)
+
+96. **Who handles a query.**
+    - Anyone with the "handle" right, for the companies they can access.
+      One takes it and is shown as its handler; others can still step in
+      — recommended (simple, no setup);
+    - or a handler set per company (or per category) in a small setup,
+      who alone receives the Home task.
+97. **Internal notes.**
+    - HR can add notes the employee never sees (e.g. "checked with
+      Finance, refund in October") beside the replies — recommended;
+    - or everything written on a query is visible to the employee.
+98. **Attachments on queries.**
+    - Yes, now: photos or PDFs (e.g. a bank statement), up to 5 files of
+      10 MB each, through Document Storage. The same upload then serves
+      reimbursement bills and leave documents in step 3 — recommended;
+    - or no attachments on queries; uploads come with step 3.
+99. **Telling people something changed** (the system sends no email
+    today).
+    - In-app only: a badge and Home card in the portal for HR's replies,
+      and a Home task in the ERP for new queries and employee replies —
+      recommended for now (email or WhatsApp needs a mail or messaging
+      service set up; it can follow);
+    - or set up email now (a sending service and its account are needed
+      first).
