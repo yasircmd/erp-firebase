@@ -958,3 +958,14 @@ from, and how it was verified. The deploy procedure is in the
     released**. The NUMBERING screen is not live yet.
   - **No full re-run is needed:** release the screens with the
     workflow's "screens only" task.
+- **2026-10-10, Numbering's screen and GL views:** both success:
+  - Run [#115](https://github.com/yasircmd/erp-firebase/actions/runs/38031637212),
+    06:38–06:39 UTC, from `47822ce` (PR #102): **screens only**, which
+    released NUMBERING, the screen run #114 had left unreleased.
+  - **`getActiveRequisitionCategories` checked by the owner:** Purchase
+    Requisition's categories load, so its invoker binding is intact (the
+    one that failed in run #114).
+  - Run [#116](https://github.com/yasircmd/erp-firebase/actions/runs/38032088539),
+    06:46–06:49 UTC, from `5e92869` (PR #103): `gl-views`, functions then
+    screens.
+  - **Verified:** the owner reports everything tested and working.
