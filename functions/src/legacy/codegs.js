@@ -2350,7 +2350,9 @@ async function getGlReport(idToken, params) {
       // those also set VoucherType to a non-empty value.
       SourceModule: moduleIdForEntry_({ VoucherType: l.VoucherType }),
       AccountCode: l.AccountCode, AccountName: l.AccountName,
-      Description: l.Description || l.EntryDescription, Debit: l.Debit, Credit: l.Credit, Balance: running
+      Description: l.Description || l.EntryDescription, Debit: l.Debit, Credit: l.Credit, Balance: running,
+      // [PORT CHANGE gl-report-cost-center] the line's cost center, for the Cost Center column.
+      CostCenterID: l.CostCenterID || ''
     };
   });
 

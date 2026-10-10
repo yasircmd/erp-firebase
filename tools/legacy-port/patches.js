@@ -1282,5 +1282,13 @@ function linesForBatch_(idToken, batchId) {
     // [PORT CHANGE import-bom-id] the BOM's id is returned, for Master Data Import's undo.
     return { success: true, bomId: bomId || Object.keys(updates).find(k => updates[k].CreatedAt === now && updates[k].ParentItemID === parentItemId) };
 `
+  },
+  {
+    id: 'gl-report-cost-center',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-10; docs/modules/GL_VIEWS.md): each GL Report line carries its cost center, for the new Cost Center column. Nothing else changes.',
+    find: `      Description: l.Description || l.EntryDescription, Debit: l.Debit, Credit: l.Credit, Balance: running`,
+    replace: `      Description: l.Description || l.EntryDescription, Debit: l.Debit, Credit: l.Credit, Balance: running,
+      // [PORT CHANGE gl-report-cost-center] the line's cost center, for the Cost Center column.
+      CostCenterID: l.CostCenterID || ''`
   }
 ];

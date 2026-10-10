@@ -150,16 +150,21 @@ exports.getJournalEntryDetail = onCallWithMessages(onCallOptions, async (request
   const accountsByCode = {};
   Object.keys(coaData).forEach(id => { accountsByCode[coaData[id].AccountCode] = coaData[id]; });
 
+  // Each line's cost center (docs/modules/GL_VIEWS.md), "code — name".
+  const units = (await rtdb.ref('orgUnits').get()).val() || {};
+  const ccName = id => (id && units[id] ? [units[id].Code, units[id].Name].filter(Boolean).join(' — ') : '');
   const lines = (entry.Lines || []).map(l => {
     const account = accountsByCode[l.AccountCode];
     return {
       AccountCode: l.AccountCode, AccountName: account ? account.AccountName : '(account not found)',
-      Debit: l.Debit || 0, Credit: l.Credit || 0, Description: l.Description || ''
+      Debit: l.Debit || 0, Credit: l.Credit || 0, Description: l.Description || '',
+      CostCenterID: l.CostCenterID || '', CostCenter: ccName(l.CostCenterID)
     };
   });
 
   return {
-    JVID: jvId, JVNumber: entry.JVNumber, JVDate: entry.JVDate,
+    JVID: jvId, JVNumber: entry.JVNumber, JVDate: entry.JVDate, TransactionRef: entry.TransactionRef || '',
+    Status: entry.Status || '', SourceModule: moduleIdForEntry({ VoucherType: entry.VoucherType || '' }),
     Description: entry.Description, Reference: entry.Reference,
     TotalDebit: entry.TotalDebit, TotalCredit: entry.TotalCredit,
     Lines: lines

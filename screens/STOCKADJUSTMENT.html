@@ -1038,15 +1038,16 @@
       <tr class="border-b border-slate-700">
         <td class="py-2 px-3 font-mono text-xs text-slate-300">${escapeHtml(l.AccountCode)}</td>
         <td class="py-2 px-3 text-sm text-slate-200">${escapeHtml(l.AccountName)}</td>
+        <td class="py-2 px-3 text-xs text-slate-400">${escapeHtml(l.CostCenter || '')}</td>
         <td class="py-2 px-3 text-sm text-right font-mono ${l.Debit ? 'text-slate-200' : 'text-slate-600'}">${l.Debit ? formatMoney(l.Debit) : '—'}</td>
         <td class="py-2 px-3 text-sm text-right font-mono ${l.Credit ? 'text-slate-200' : 'text-slate-600'}">${l.Credit ? formatMoney(l.Credit) : '—'}</td>
       </tr>`).join('');
     document.getElementById('adj-gl-modal-body').innerHTML = `
       <p class="text-sm text-slate-300 mb-3">${escapeHtml(entry.Description)}</p>
       <table class="w-full text-left">
-        <thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Account</th><th class="py-2 px-3">Name</th><th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th></tr></thead>
+        <thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-2 px-3">Account</th><th class="py-2 px-3">Name</th><th class="py-2 px-3">Cost Center</th><th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th></tr></thead>
         <tbody>${rows}</tbody>
-        <tfoot><tr class="font-medium border-t border-slate-600"><td class="py-2 px-3" colspan="2">Total</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalDebit)}</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalCredit)}</td></tr></tfoot>
+        <tfoot><tr class="font-medium border-t border-slate-600"><td class="py-2 px-3" colspan="3">Total</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalDebit)}</td><td class="py-2 px-3 text-right font-mono">${formatMoney(entry.TotalCredit)}</td></tr></tfoot>
       </table>`;
   }
 

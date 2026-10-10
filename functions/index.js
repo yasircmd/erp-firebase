@@ -208,7 +208,7 @@ const payrollSetup = require('./src/payrollSetup');
 const payrollRun = require('./src/payrollRun');
 ['getPayrollRuns', 'createPayrollRun', 'getPayrollRun', 'savePayrollInputs', 'recalculatePayrollRun', 'deletePayrollRun', 'getPayrollJournalSource'].forEach(n => { exports[n] = payrollRun[n]; });
 const payrollPost = require('./src/payrollPost');
-['submitPayrollRun', 'decidePayrollApproval', 'postPayrollRun', 'reversePayrollRun', 'getPayrollPayslips'].forEach(n => { exports[n] = payrollPost[n]; });
+['submitPayrollRun', 'decidePayrollApproval', 'postPayrollRun', 'reversePayrollRun', 'getPayrollPayslips', 'getPayrollGlImpact'].forEach(n => { exports[n] = payrollPost[n]; });
 const payrollPayment = require('./src/payrollPayment');
 ['getPaymentFormats', 'savePaymentFormat', 'deletePaymentFormat', 'previewPaymentFile', 'getPayrollPayment', 'savePaymentPlan', 'downloadPaymentFile', 'markPayrollPaid', 'reversePayrollPayment'].forEach(n => { exports[n] = payrollPayment[n]; });
 const payrollProvisions = require('./src/payrollProvisions');
@@ -251,3 +251,6 @@ const provisions = require('./src/provisions');
 // Numbering (docs/modules/NUMBERING.md): the formats of document numbers and codes.
 const numbering = require('./src/numbering');
 ['getNumbering', 'saveNumberingFormat'].forEach(n => { exports[n] = numbering[n]; });
+
+// GL views (docs/modules/GL_VIEWS.md): GL Listing, several ledgers without balances.
+exports.getGlListing = require('./src/glViews').getGlListing;
