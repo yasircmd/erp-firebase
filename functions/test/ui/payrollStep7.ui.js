@@ -81,6 +81,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(css, { pos: 'sticky', ws: 'nowrap' });
     assert.ok(await p.isHidden('.pr-view[data-view="costing"]'));
     assert.ok(await p.isHidden('.pr-view[data-view="payment"]'));
+    assert.ok(await p.isHidden('.pr-view[data-view="glimpact"]'), 'no GL Impact before approval');
     assert.deepEqual(p.__errors, []);
     await p.close();
   });
@@ -108,6 +109,29 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     // Back to the register: its own columns again.
     await p.click('.pr-view[data-view="register"]');
     await p.waitForFunction(() => !/Total cost/i.test(document.getElementById('pr-reg-head').textContent), null, { timeout: 30000 });
+    assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
+    await p.close();
+  });
+
+  await check('the GL Impact of a posted run (docs/modules/GL_VIEWS.md): the journal by account and cost center, balanced; copied to Excel; the register back after it', async () => {
+    const p = await open('PAYROLL', 'u-admin');
+    await p.waitForSelector('#pr-runs-body tr[data-id]', { timeout: 30000 });
+    await p.click('#pr-runs-body tr:has-text("Jun-2026")');
+    await p.waitForSelector('#pr-run-view:not(.hidden)', { timeout: 30000 });
+    await p.click('.pr-view[data-view="glimpact"]');
+    await p.waitForSelector('#pr-reg-body tr.pr-gl-line', { timeout: 30000 });
+    assert.deepEqual(await p.$$eval('#pr-reg-head th', t => t.map(x => x.textContent)), ['Account', 'Name', 'Cost Center', 'Description', 'Debit', 'Credit']);
+    assert.match(await p.textContent('#pr-costing-note'), new RegExp('The posted journal ' + run.JVNumber));
+    assert.equal(await p.textContent('#pr-gl-debit'), await p.textContent('#pr-gl-credit'));
+    const ccs = await p.$$eval('#pr-reg-body tr.pr-gl-line', t => t.map(r => r.cells[2].textContent).filter(Boolean));
+    assert.ok(ccs.length && ccs.every(c => / — /.test(c)), 'the salary lines carry their cost center, code and name');
+    await p.click('#pr-copy');
+    await p.waitForFunction(() => navigator.clipboard.readText().then(t => t.startsWith('Account\tName\tCost Center')), null, { timeout: 30000 });
+    const lines = (await p.evaluate(() => navigator.clipboard.readText())).split('\n');
+    const tot = lines[lines.length - 1].split('\t');
+    assert.deepEqual([tot[3], tot[4] === tot[5]], ['Total', true]);
+    await p.click('.pr-view[data-view="register"]');
+    await p.waitForFunction(() => !/Cost Center/.test(document.getElementById('pr-reg-head').textContent) && document.querySelector('#pr-reg-head th'), null, { timeout: 30000 });
     assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
     await p.close();
   });
