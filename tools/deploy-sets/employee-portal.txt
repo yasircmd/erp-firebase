@@ -1,0 +1,43 @@
+# Employee Self-Service Portal, step 1 (owner, 2026-10-10;
+# docs/modules/EMPLOYEE_PORTAL.md, decisions 88-95): sign-in by Employee
+# Code, leave (apply, track, cancel, balances, the line manager's Team
+# requests), payslips; portal access in Employees; My Portal in the ERP.
+# Run with --screens (EMPLOYEES: portal access; LEAVE: "With manager",
+# "Withdrawn"), then the Hosting task (public/index.html: My Portal;
+# public/ess.html: the portal itself). In the app: tick Employees →
+# "portal" in Roles & Permissions for the HR roles; set line managers.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+essPortal
+manageEssAccounts
+# Changed: the Leave Register's statuses (With manager, Withdrawn) count
+# and block as pending leave; submit and cancel shared with the portal.
+getLeaves
+getLeaveForm
+getLeave
+previewLeave
+saveLeave
+deleteLeave
+submitLeave
+decideLeaveApproval
+cancelLeave
+recordLeaveReturn
+getLeaveBalances
+adjustLeaveBalance
+setLeaveEntitlement
+# The month lock and year close: leave with the manager is undecided.
+getLeaveMonths
+getLeaveMonthSummary
+lockLeaveMonth
+reopenLeaveMonth
+closeLeaveYear
+# Reports: balances and the calendar count it as pending.
+getLeaveBalanceReport
+getLeaveCalendar
+# A final settlement waits for leave with the manager to be decided.
+submitSettlement
+# The payslip builder shared with the portal.
+getPayrollPayslips
+# Registries: the Employees "portal" right in Roles & Permissions.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions

@@ -3,6 +3,7 @@
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-id-badge text-blue-500"></i> Employees</h2></div>
     <div class="flex gap-2">
       <button id="emp-org-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-sitemap"></i> Org chart</button>
+      <button id="emp-portal-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-mobile-screen"></i> Portal access</button>
       <button id="emp-replace-btn" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-people-arrows"></i> Replace manager</button>
       <button id="emp-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Employee</button>
     </div>
@@ -20,6 +21,18 @@
       <button id="emp-replace-cancel" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
   </div>
 
+  <!-- The Employee Portal (docs/modules/EMPLOYEE_PORTAL.md, decision 95): HR switches it on. -->
+  <div id="emp-portal-bulk" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-sm font-semibold text-slate-200">Employee Portal access</div>
+    <p class="text-xs text-slate-500 max-w-3xl">Acts on the employees listed below (use the search and filters to choose). Each gets a sign-in with their Employee Code and a default password: the first 4 letters of their name and the last 4 digits of their code (Ali Hassan, EMP-0007: alih0007), which they must change at the first sign-in. Hand each a welcome slip.</p>
+    <p id="emp-portal-counts" class="text-xs text-slate-300"></p>
+    <div class="flex flex-wrap gap-2">
+      <button id="emp-portal-enable-all" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-toggle-on"></i> Switch on</button>
+      <button id="emp-portal-slips-all" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-print"></i> Print welcome slips</button>
+      <button id="emp-portal-bulk-close" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Close</button>
+    </div>
+  </div>
+
   <div class="grid grid-cols-1 md:grid-cols-6 gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
     <input type="text" id="emp-search" placeholder="Search no., name, mobile, email..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
     <select id="emp-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option></select>
@@ -31,7 +44,7 @@
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
     <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
       <th class="py-3 px-3">No.</th><th class="py-3 px-3">Name</th><th class="py-3 px-3">Designation</th><th class="py-3 px-3">Grade</th><th class="py-3 px-3">Department</th>
-      <th class="py-3 px-3">Line manager</th><th class="py-3 px-3">Joined</th><th class="py-3 px-3">Status</th></tr></thead>
+      <th class="py-3 px-3">Line manager</th><th class="py-3 px-3">Joined</th><th class="py-3 px-3">Status</th><th class="py-3 px-3">Portal</th></tr></thead>
     <tbody id="emp-table-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
   </div></div>
 </div>
@@ -220,6 +233,20 @@
     <ul id="emp-leave-list" class="text-sm space-y-1"></ul>
   </div>
 
+  <!-- Employee Portal access (docs/modules/EMPLOYEE_PORTAL.md). -->
+  <div id="emp-portal-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="text-xs font-semibold text-slate-400 uppercase">Employee Portal</div>
+      <div class="flex flex-wrap gap-2">
+        <button id="emp-portal-on" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-toggle-on"></i> Switch on</button>
+        <button id="emp-portal-slip" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Welcome slip</button>
+        <button id="emp-portal-reset" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-key"></i> Reset password</button>
+        <button id="emp-portal-off" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700 text-red-300"><i class="fa-solid fa-toggle-off"></i> Switch off</button>
+      </div>
+    </div>
+    <p id="emp-portal-status" class="text-sm text-slate-300"></p>
+  </div>
+
   <div id="emp-reports-wrap" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700">
     <div class="text-xs font-semibold text-slate-400 uppercase mb-2">Direct reports</div>
     <ul id="emp-reports" class="text-sm space-y-1"></ul>
@@ -229,6 +256,23 @@
     <ul id="emp-history" class="text-xs text-slate-400 space-y-1"></ul>
   </div>
 </div>
+
+<!-- Welcome slips for the Employee Portal: printed alone, three to an A4 page. -->
+<div id="emp-print-document"></div>
+<style>
+  #emp-print-document { display: none; }
+  @media print {
+    body.emp-printing-slips #emp-list-view, body.emp-printing-slips #emp-entry-view, body.emp-printing-slips #emp-org-view,
+    body.emp-printing-slips #back-to-tree-btn, body.emp-printing-slips #tree-controls, body.emp-printing-slips #user-menu, body.emp-printing-slips .no-print { display: none !important; }
+    body.emp-printing-slips, body.emp-printing-slips #app-container { background: white !important; color: black !important; }
+    body.emp-printing-slips #emp-print-document { display: block !important; }
+  }
+  #emp-print-document .emp-slip { border: 1px dashed #555; padding: 14px 18px; margin-bottom: 14px; page-break-inside: avoid; color: #000; font-family: Arial, sans-serif; font-size: 12px; }
+  #emp-print-document .emp-slip:nth-child(3n) { page-break-after: always; }
+  #emp-print-document .emp-slip h4 { font-size: 15px; font-weight: bold; margin-bottom: 6px; }
+  #emp-print-document .emp-slip table td { padding: 2px 12px 2px 0; }
+  #emp-print-document .emp-slip .big { font-family: monospace; font-size: 16px; font-weight: bold; }
+</style>
 
 <script>
 (function () {
@@ -264,8 +308,75 @@
   const empLabel = e => e.EmployeeNo + ' — ' + e.FullName;
 
   // ---------- list ----------
+  // ---------- the Employee Portal (docs/modules/EMPLOYEE_PORTAL.md, decision 95) ----------
+  let portal = { canManage: false, accounts: {} };
+  function loadPortal() {
+    return call('manageEssAccounts', { action: 'list' }).then(r => { portal = r; }, () => { portal = { canManage: false, accounts: {} }; });
+  }
+  const accountOf = e => portal.accounts[e.EmployeeID] || null;
+  function portalCell(e) {
+    const a = accountOf(e);
+    if (!a) return '<span class="text-slate-600">—</span>';
+    if (!a.Enabled) return '<span class="text-slate-500">Off</span>';
+    return a.MustChange ? '<span class="text-amber-300" title="Not signed in with their own password yet">On · not started</span>' : '<span class="text-emerald-400">On</span>';
+  }
+  function renderPortalBulk() {
+    $('emp-portal-btn').classList.toggle('hidden', !portal.canManage);
+    if ($('emp-portal-bulk').classList.contains('hidden')) return;
+    const rows = filteredRows().filter(e => e.Status !== 'Left');
+    const toEnable = rows.filter(e => !(accountOf(e) || {}).Enabled), waiting = rows.filter(e => (accountOf(e) || {}).Enabled && accountOf(e).MustChange);
+    $('emp-portal-counts').textContent = rows.length + ' employees listed: ' + toEnable.length + ' without access, ' + waiting.length + ' switched on but not yet signed in with their own password.';
+    $('emp-portal-enable-all').disabled = !toEnable.length;
+    $('emp-portal-enable-all').innerHTML = '<i class="fa-solid fa-toggle-on"></i> Switch on for ' + toEnable.length;
+    $('emp-portal-slips-all').disabled = !waiting.length;
+  }
+  // The slips: the portal's address, the code, the default password, the steps.
+  function printSlips(list) {
+    if (!list.length) return;
+    const url = location.origin + '/ess.html';
+    const coName = id => { const c = companies.find(x => x.CompanyID === id); return c ? c.LegalName : ''; };
+    $('emp-print-document').innerHTML = list.map(x => '<div class="emp-slip"><h4>Employee Portal — welcome, ' + escapeHtml(x.FullName) + '</h4>' +
+      '<div>' + escapeHtml(coName(x.CompanyID)) + '</div>' +
+      '<table><tbody><tr><td>Open</td><td class="big">' + escapeHtml(url) + '</td></tr><tr><td>Employee Code</td><td class="big">' + escapeHtml(x.EmployeeNo) + '</td></tr>' +
+      '<tr><td>Password</td><td class="big">' + escapeHtml(x.DefaultPassword) + '</td></tr></tbody></table>' +
+      '<div style="margin-top:6px">Sign in with your Employee Code and this password; you will then choose your own (at least 8 characters). There you can apply for leave, see your leave balance and your payslips. Keep this slip private.</div></div>').join('');
+    document.body.classList.add('emp-printing-slips');
+    const done = () => { document.body.classList.remove('emp-printing-slips'); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    window.print();
+    setTimeout(done, 1500);
+  }
+  const portalErrors = r => r.results.filter(x => x.error).map(x => x.error);
+  async function enablePortal(list) {
+    if (!list.length) return;
+    if (list.length > 1 && !(await appConfirm('Switch the Employee Portal on for ' + list.length + ' employees?'))) return;
+    let r;
+    try { r = await call('manageEssAccounts', { action: 'enable', employeeIds: list.map(e => e.EmployeeID) }); } catch (err) { appAlert(err.message || 'Unable to switch the portal on.'); return; }
+    await loadPortal();
+    renderList();
+    if (current) renderPortal();
+    const ok = r.results.filter(x => !x.error), slips = ok.filter(x => x.DefaultPassword), errors = portalErrors(r);
+    const msg = (ok.length ? 'The portal is on for ' + ok.length + (ok.length === 1 ? ' employee.' : ' employees.') : '') + (errors.length ? '\n\nNot switched on:\n' + errors.join('\n') : '');
+    if (slips.length && await appConfirm(msg + '\n\nPrint ' + (slips.length === 1 ? 'the welcome slip' : slips.length + ' welcome slips') + ' now?')) printSlips(slips);
+    else if (!slips.length) appAlert(msg + (ok.length ? ' Their own passwords are kept.' : ''));
+  }
+  function renderPortal() {
+    const e = current, a = e && e.EmployeeID ? accountOf(e) : null;
+    $('emp-portal-wrap').classList.toggle('hidden', !e || !e.EmployeeID);
+    if (!e || !e.EmployeeID) return;
+    const on = a && a.Enabled;
+    $('emp-portal-status').innerHTML = !a ? 'No portal access yet.' : !a.Enabled ? '<span class="text-slate-400">Switched off.</span>'
+      : (a.MustChange ? '<span class="text-amber-300">On: waiting for the first sign-in with the given password.</span>' : '<span class="text-emerald-400">On.</span>') +
+        (a.LastSignIn ? ' Last signed in ' + escapeHtml(isoLocalDateTime(a.LastSignIn)) + '.' : '') + (a.PasswordChangedAt ? ' Password changed ' + escapeHtml(isoLocalDateTime(a.PasswordChangedAt)) + '.' : '');
+    const m = portal.canManage;
+    $('emp-portal-on').classList.toggle('hidden', !m || on || e.Status === 'Left');
+    $('emp-portal-off').classList.toggle('hidden', !m || !on);
+    $('emp-portal-reset').classList.toggle('hidden', !m || !a);
+    $('emp-portal-slip').classList.toggle('hidden', !m || !on || !a.MustChange);
+  }
+
   function loadList(then) {
-    return call('getEmployees', {}).then(r => {
+    return Promise.all([call('getEmployees', {}), loadPortal()]).then(([r]) => {
       employees = r.employees || [];
       rights = { canWrite: r.canWrite, canSeeSensitive: r.canSeeSensitive, canCorrect: r.canCorrect };
       $('emp-new-btn').classList.toggle('hidden', !rights.canWrite);
@@ -274,15 +385,19 @@
       if (then) then();
     }, err => appAlert(err.message || 'Unable to load the employees.'));
   }
-  function renderList() {
+  function filteredRows() {
     const q = val('emp-search').trim().toLowerCase();
     const co = val('emp-company-filter'), cc = val('emp-cc-filter'), des = val('emp-des-filter'), st = val('emp-status-filter');
-    const rows = employees.filter(e => (!co || e.CompanyID === co) && (!cc || e.CostCenterID === cc) && (!des || e.DesignationID === des) &&
+    return employees.filter(e => (!co || e.CompanyID === co) && (!cc || e.CostCenterID === cc) && (!des || e.DesignationID === des) &&
       (st === 'current' ? e.Status !== 'Left' : !st || e.Status === st) &&
       (!q || [e.EmployeeNo, e.FullName, e.Mobile, e.WorkEmail].join(' ').toLowerCase().indexOf(q) !== -1));
+  }
+  function renderList() {
+    const rows = filteredRows();
+    renderPortalBulk();
     const body = $('emp-table-body');
     body.innerHTML = '';
-    if (!rows.length) { body.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-slate-500">No employees found.</td></tr>'; return; }
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="9" class="py-6 text-center text-slate-500">No employees found.</td></tr>'; return; }
     rows.forEach(e => {
       const tr = document.createElement('tr');
       tr.className = 'hover:bg-slate-800/40 cursor-pointer';
@@ -294,7 +409,8 @@
         '<td class="py-2.5 px-3 text-xs">' + escapeHtml(e.DesignationTitle) + '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(e.GradeCode) + '</td>' +
         '<td class="py-2.5 px-3 text-xs">' + escapeHtml(e.CostCenterName) + '</td><td class="py-2.5 px-3 text-xs">' + escapeHtml(e.ManagerName) + '</td>' +
         '<td class="py-2.5 px-3 text-xs whitespace-nowrap">' + escapeHtml(e.JoinDate) + '</td>' +
-        '<td class="py-2.5 px-3 text-xs ' + (STATUS_CLASS[e.Status] || '') + '">' + escapeHtml(e.Status) + '</td>';
+        '<td class="py-2.5 px-3 text-xs ' + (STATUS_CLASS[e.Status] || '') + '">' + escapeHtml(e.Status) + '</td>' +
+        '<td class="py-2.5 px-3 text-xs emp-portal-cell">' + portalCell(e) + '</td>';
       tr.addEventListener('click', () => openEmployee(e.EmployeeID));
       body.appendChild(tr);
     });
@@ -433,7 +549,7 @@
     $('emp-heading').textContent = 'New employee';
     $('emp-status-badge').innerHTML = '';
     $('emp-note').classList.add('hidden');
-    ['emp-reports-wrap', 'emp-history-wrap', 'emp-docs-wrap', 'emp-pay-wrap', 'emp-leave-wrap'].forEach(id => $(id).classList.add('hidden'));
+    ['emp-reports-wrap', 'emp-history-wrap', 'emp-docs-wrap', 'emp-pay-wrap', 'emp-leave-wrap', 'emp-portal-wrap'].forEach(id => $(id).classList.add('hidden'));
     setEditable();
     showForm();
   }
@@ -460,6 +576,7 @@
       loadPay();
       loadDocs();
       loadLeave();
+      renderPortal();
     }, err => appAlert(err.message || 'Unable to open the employee.'));
   }
   // ---------- compensation (step 3) ----------
@@ -754,6 +871,29 @@
       if (!li) return;
       if (e.target.closest('.emp-org-toggle')) { orgOpen[li.dataset.id] = orgOpen[li.dataset.id] === false; renderOrg(); }
       else if (e.target.closest('.emp-org-open')) { fromOrg = true; openEmployee(li.dataset.id); }
+    });
+    $('emp-portal-btn').addEventListener('click', () => { $('emp-portal-bulk').classList.remove('hidden'); renderPortalBulk(); });
+    $('emp-portal-bulk-close').addEventListener('click', () => $('emp-portal-bulk').classList.add('hidden'));
+    $('emp-portal-enable-all').addEventListener('click', () => enablePortal(filteredRows().filter(e => e.Status !== 'Left' && !(accountOf(e) || {}).Enabled)));
+    $('emp-portal-slips-all').addEventListener('click', () => {
+      const ids = filteredRows().filter(e => e.Status !== 'Left' && (accountOf(e) || {}).Enabled && accountOf(e).MustChange).map(e => e.EmployeeID);
+      if (ids.length) call('manageEssAccounts', { action: 'slips', employeeIds: ids }).then(r => printSlips(r.results), err => appAlert(err.message || 'Unable to print the slips.'));
+    });
+    $('emp-portal-on').addEventListener('click', () => enablePortal([current]));
+    $('emp-portal-slip').addEventListener('click', () => call('manageEssAccounts', { action: 'slips', employeeIds: [current.EmployeeID] }).then(r => printSlips(r.results), err => appAlert(err.message || 'Unable to print the slip.')));
+    $('emp-portal-off').addEventListener('click', async () => {
+      if (!(await appConfirm('Switch off ' + current.FullName + '\'s Employee Portal access? They are signed out and can no longer sign in.'))) return;
+      call('manageEssAccounts', { action: 'disable', employeeIds: [current.EmployeeID] }).then(() => loadPortal()).then(() => { renderPortal(); renderList(); }, err => appAlert(err.message || 'Unable to switch it off.'));
+    });
+    $('emp-portal-reset').addEventListener('click', async () => {
+      if (!(await appConfirm('Reset ' + current.FullName + '\'s portal password to the default? They choose a new one at the next sign-in.'))) return;
+      try {
+        const r = await call('manageEssAccounts', { action: 'reset', employeeIds: [current.EmployeeID] });
+        await loadPortal(); renderPortal(); renderList();
+        const x = r.results[0];
+        if (x.error) { appAlert(x.error); return; }
+        if (await appConfirm('The password is back to the default: ' + x.DefaultPassword + '.' + (x.Enabled ? '' : ' (Access is switched off: switch it on too.)') + '\n\nPrint the welcome slip?')) printSlips([x]);
+      } catch (err) { appAlert(err.message || 'Unable to reset the password.'); }
     });
     $('emp-replace-cancel').addEventListener('click', () => $('emp-replace').classList.add('hidden'));
     $('emp-replace-go').addEventListener('click', doReplace);

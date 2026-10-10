@@ -303,7 +303,7 @@ async function employeeFor(user, id) {
 // run past its draft.
 async function readyToSubmit(emp, s) {
   if (todayIn('Asia/Dubai') < emp.LeavingDate) throw failed('A final settlement is submitted from the leaving date (' + emp.LeavingDate + ').');
-  const open = (await lv.leavesOf(emp.EmployeeID)).filter(l => (l.Status === 'Draft' || l.Status === 'PendingApproval') && l.FromDate <= emp.LeavingDate);
+  const open = (await lv.leavesOf(emp.EmployeeID)).filter(l => ['Draft', 'PendingManager', 'PendingApproval'].includes(l.Status) && l.FromDate <= emp.LeavingDate);
   if (open.length) throw failed('Decide or delete ' + emp.FullName + '\'s leave up to the leaving date first: ' + open.map(l => l.LeaveNumber || 'draft').join(', ') + '.');
   for (const m of s.Salary || []) {
     if (!m.Pay) throw failed('Post the payroll run for ' + m.Month + ' with ' + emp.FullName + ' on it first, or pay ' + m.Month + ' in this settlement.');

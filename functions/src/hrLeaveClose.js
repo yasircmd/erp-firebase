@@ -179,10 +179,10 @@ exports.lockLeaveMonth = onCallWithMessages(onCallOptions, async (request) => {
   if (list.some(m => m.Month === month && m.Status === 'Locked')) throw new HttpsError('failed-precondition', month + ' is already locked.');
   if (latest && month !== lv.nextMonth(latest)) throw new HttpsError('failed-precondition', 'Months are locked in order: the next to lock is ' + lv.nextMonth(latest) + '.');
   const [emps, leaves] = await Promise.all([employeesOf(co), companyLeaves(co)]);
-  const open = leaves.filter(l => (l.Status === 'Draft' || l.Status === 'PendingApproval') && l.FromDate <= upTo);
+  const open = leaves.filter(l => ['Draft', 'PendingManager', 'PendingApproval'].includes(l.Status) && l.FromDate <= upTo);
   if (open.length) {
     throw new HttpsError('failed-precondition', 'Decide or delete the leave dated up to ' + (upTo === end ? 'the month\'s end' : 'today') + ' first: ' +
-      open.slice(0, 5).map(l => (l.LeaveNumber || 'draft') + ' (' + l.EmployeeName + ')').join(', ') + (open.length > 5 ? ' and ' + (open.length - 5) + ' more' : '') + '.');
+      open.slice(0, 5).map(l => (l.LeaveNumber || 'draft') + ' (' + l.EmployeeName + (l.Status === 'PendingManager' ? ', with the line manager' : '') + ')').join(', ') + (open.length > 5 ? ' and ' + (open.length - 5) + ' more' : '') + '.');
   }
   const acc = await monthAccruals(month, emps, leaves);
   const now = new Date().toISOString();

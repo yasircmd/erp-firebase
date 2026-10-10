@@ -473,6 +473,8 @@
           <button id="toggle-expand-btn" onclick="toggleExpandCollapse()" title="Expand all" aria-label="Expand all" class="bg-slate-800 hover:bg-slate-700 text-xs w-8 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-angles-down"></i></button>
           <button id="fav-config-done-btn" onclick="setFavoriteConfigMode(false)" class="hidden bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-check"></i> Done</button>
           <button id="home-tasks-toggle-btn" onclick="toggleHomeTasksSection()" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-bell"></i> Tasks <span id="home-tasks-count" class="hidden text-red-400 font-semibold"></span></button>
+          <!-- The Employee Portal for an ERP user linked to an employee record (docs/modules/EMPLOYEE_PORTAL.md, decision 89). -->
+          <a id="my-portal-btn" href="/ess.html" target="_blank" rel="noopener" title="Your leave, payslips and team requests" class="hidden bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-id-badge"></i> My Portal</a>
         </div>
         <div id="user-menu" class="relative hidden">
           <button id="user-menu-btn" onclick="toggleUserMenu()" class="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700">
@@ -486,6 +488,7 @@
             <button id="theme-toggle-btn" onclick="toggleTheme()" class="no-print w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i id="theme-toggle-icon" class="fa-solid fa-sun"></i> <span id="theme-toggle-label">Light mode</span></button>
             <button id="fav-config-btn" onclick="setFavoriteConfigMode(true)" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-star text-amber-400"></i> Configure Favourites</button>
             <button id="refresh-btn" onclick="refreshTree()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-rotate"></i> Refresh</button>
+            <a id="my-portal-menu" href="/ess.html" target="_blank" rel="noopener" class="hidden w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-id-badge"></i> My Portal</a>
             <button onclick="openChangePasswordModal()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-key"></i> Change Password</button>
             <button onclick="handleLogout()" class="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
           </div>
@@ -1084,6 +1087,12 @@
     let homeLeaveTodayCount = 0, homeLeaveReturnsCount = 0;
 
     function loadHomeTasks() {
+      // My Portal: shown only to an ERP user linked to an employee record.
+      rpc
+        .withSuccessHandler(result => { ['my-portal-btn', 'my-portal-menu'].forEach(id => document.getElementById(id).classList.toggle('hidden', !(result && result.linked))); })
+        .withFailureHandler(() => { ['my-portal-btn', 'my-portal-menu'].forEach(id => document.getElementById(id).classList.add('hidden')); })
+        .essPortal({ action: 'link' });
+
       rpc
         .withSuccessHandler(result => { renderPendingApprovals(result || []); })
         .withFailureHandler(() => { renderPendingApprovals([]); })

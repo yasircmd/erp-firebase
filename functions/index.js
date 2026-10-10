@@ -251,6 +251,9 @@ const provisions = require('./src/provisions');
 // Numbering (docs/modules/NUMBERING.md): the formats of document numbers and codes.
 const numbering = require('./src/numbering');
 ['getNumbering', 'saveNumberingFormat'].forEach(n => { exports[n] = numbering[n]; });
+// Employee Self-Service Portal (docs/modules/EMPLOYEE_PORTAL.md).
+const essPortal = require('./src/essPortal');
+['essPortal', 'manageEssAccounts'].forEach(n => { exports[n] = essPortal[n]; });
 
 // GL views (docs/modules/GL_VIEWS.md): GL Listing, several ledgers without balances.
 exports.getGlListing = require('./src/glViews').getGlListing;
