@@ -299,7 +299,8 @@ exports.getLeaves = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user);
   const withFiles = await leavesWithFiles();
-  const leaves = docs(await LEAVES().get()).filter(l => userCanAccessCompany(user.profile, l.CompanyID))
+  // A portal draft (its document not yet added, docs/modules/EMPLOYEE_PORTAL.md step 3) is the employee's own until sent.
+  const leaves = docs(await LEAVES().get()).filter(l => userCanAccessCompany(user.profile, l.CompanyID) && !(l.Status === 'Draft' && l.Source === 'Portal'))
     .map(l => ({ LeaveID: l._id, NoDocument: Boolean(l.DocumentNeeded) && !withFiles.has(l._id), AcceptedWithoutDocument: l.AcceptedWithoutDocument || null, LeaveNumber: l.LeaveNumber || '', Status: l.Status, EmployeeID: l.EmployeeID, EmployeeNo: l.EmployeeNo, EmployeeName: l.EmployeeName,
       CompanyID: l.CompanyID, LeaveTypeID: l.LeaveTypeID, LeaveTypeName: l.LeaveTypeName, FromDate: l.FromDate, ToDate: l.ToDate, EffectiveTo: l.EffectiveTo || '',
       Days: l.Days, UnpaidDays: l.UnpaidDays || 0, LateDays: l.LateDays || 0, ReturnDate: l.ReturnDate || '', ConfirmReturn: Boolean(l.ConfirmReturn), UpdatedAt: l.UpdatedAt || l.CreatedAt }))

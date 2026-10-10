@@ -8,6 +8,7 @@
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="files">Payment Files</button>
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="loans">Loans</button>
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="provisions">Provisions</button>
+    <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="reimburse">Reimbursements</button>
   </div>
   <p id="ps-readonly" class="hidden text-xs text-slate-400">You can view Payroll Setup but not change it.</p>
 
@@ -179,6 +180,30 @@
     </div>
   </div>
 
+  <!-- REIMBURSEMENTS (docs/modules/EMPLOYEE_PORTAL.md, step 3) -->
+  <div id="ps-pane-reimburse" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">The kinds of expenses employees claim in the Employee Portal. An approved claim is paid with the next payroll as an earning, "Reimbursement — &lt;category&gt;" (a pay element each category keeps for itself), posted to the category's expense account (the group's, or a company's own). A claim over the monthly limit is flagged to the approvers, who decide.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Category</th><th class="py-2 px-3">Expense account</th><th class="py-2 px-3">Monthly limit</th><th class="py-2 px-3">Receipt</th><th class="py-2 px-3">Bills up to</th><th class="py-2 px-3">Pay element</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="ps-rb-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <button id="ps-rb-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New category</button>
+    <div id="ps-rb-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Name *</label><input id="ps-rb-name" maxlength="40" placeholder="e.g. Travel" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Expense account (the group's) *</label><select id="ps-rb-gl" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Monthly limit per employee</label><input id="ps-rb-limit" type="number" min="0" step="0.01" placeholder="no limit" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Bills claimed within (days)</label><input id="ps-rb-age" type="number" min="1" max="366" step="1" value="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <label class="text-xs text-slate-300 flex items-center gap-2 md:pt-6"><input id="ps-rb-receipt" type="checkbox" checked> Receipt required</label>
+        <label class="text-xs text-slate-300 flex items-center gap-2 md:pt-6"><input id="ps-rb-active" type="checkbox" checked> In use</label>
+      </div>
+      <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-3">Company</th><th class="py-1">Its own expense account (else the group's)</th></tr></thead><tbody id="ps-rb-cos"></tbody></table>
+      <div class="flex gap-2"><button id="ps-rb-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="ps-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+  </div>
+
   <!-- PAYMENT FILES (docs/modules/HR_PAYROLL.md, step 4) -->
   <div id="ps-pane-files" class="hidden space-y-4">
     <p class="text-xs text-slate-500 max-w-3xl">The bank file each company sends to pay salaries. Each bank (and each company) has its own layout, so build it here: a header, one record per employee paid by bank and a trailer, each an ordered list of fields. Start from the UAE WPS SIF and adjust it to your bank's specification, then preview it on a run.</p>
@@ -237,7 +262,7 @@
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const statusHtml = active => active === false ? '<span class="text-slate-500">Not in use</span>' : '<span class="text-emerald-400">In use</span>';
   let companies = [], canWrite = false, editing = null, payElements = [];
-  const TABS = ['elements', 'payroll', 'files', 'loans', 'provisions'];
+  const TABS = ['elements', 'payroll', 'files', 'loans', 'provisions', 'reimburse'];
 
   function showTab(tab) {
     document.querySelectorAll('.ps-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
@@ -472,6 +497,42 @@
       .then(() => { closeForms(); return loadLoanTypes(); }, err => appAlert(err.message || 'Unable to save.'));
   }
 
+  // ---------- reimbursement categories (docs/modules/EMPLOYEE_PORTAL.md, step 3) ----------
+  let rb = null, rbAccounts = [];
+  function loadReimburse() {
+    return Promise.all([call('reimbursementSetup', { action: 'list' }), call('getPayrollSetup', {})]).then(([r, ps]) => {
+      rb = r; rbAccounts = ps.accounts.filter(a => a.AccountType === 'Expense');
+      const acct = id => { const a = ps.accounts.find(x => x.AccountID === id); return a ? a.AccountCode + ' — ' + a.AccountName : ''; };
+      const amt = n => n == null ? '<span class="text-slate-500">none</span>' : Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      $('ps-rb-body').innerHTML = rb.categories.map(c => '<tr data-id="' + escapeHtml(c.CategoryID) + '" class="' + (rb.canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '"><td class="py-2 px-3">' + escapeHtml(c.Name) + '</td>' +
+        '<td class="py-2 px-3 text-xs">' + escapeHtml(acct(c.GLAccountID)) + (Object.keys(c.GLByCompany || {}).length ? ' <span class="text-slate-500">(+' + Object.keys(c.GLByCompany).length + ' company)</span>' : '') + '</td>' +
+        '<td class="py-2 px-3 text-xs">' + amt(c.MonthlyLimit) + '</td><td class="py-2 px-3 text-xs">' + (c.ReceiptRequired !== false ? 'Required' : 'Optional') + '</td><td class="py-2 px-3 text-xs">' + (c.MaxAgeDays || 60) + ' days</td>' +
+        '<td class="py-2 px-3 text-xs font-mono">' + escapeHtml(c.ElementCode || '') + '</td><td class="py-2 px-3 text-xs">' + statusHtml(c.Active) + '</td></tr>').join('') ||
+        '<tr><td colspan="7" class="py-4 px-3 text-xs text-slate-500">No categories yet: employees can\'t claim expenses until one is set up.</td></tr>';
+      $('ps-rb-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => { if (rb.canWrite) editReimburse(tr.dataset.id); }));
+      $('ps-rb-new').classList.toggle('hidden', !rb.canWrite);
+    }, err => appAlert(err.message || 'Unable to load the categories.'));
+  }
+  function editReimburse(id) {
+    closeForms();
+    const c = rb.categories.find(x => x.CategoryID === id) || { Active: true, ReceiptRequired: true, MaxAgeDays: 60, GLByCompany: {} };
+    editing = id || null;
+    const opts = (list, sel, first) => '<option value="">' + escapeHtml(first) + '</option>' + list.map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === sel ? ' selected' : '') + '>' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
+    $('ps-rb-name').value = c.Name || ''; $('ps-rb-limit').value = c.MonthlyLimit == null ? '' : c.MonthlyLimit; $('ps-rb-age').value = c.MaxAgeDays || 60;
+    $('ps-rb-receipt').checked = c.ReceiptRequired !== false; $('ps-rb-active').checked = c.Active !== false;
+    $('ps-rb-gl').innerHTML = opts(rbAccounts.filter(a => !a.CompanyID), c.GLAccountID, '—');
+    $('ps-rb-cos').innerHTML = companies.map(co => '<tr><td class="py-1 pr-3 text-xs">' + escapeHtml(coLabel(co.CompanyID)) + '</td><td class="py-1"><select class="ps-rb-co bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300" data-co="' + escapeHtml(co.CompanyID) + '">' +
+      opts(rbAccounts.filter(a => !a.CompanyID || a.CompanyID === co.CompanyID), (c.GLByCompany || {})[co.CompanyID] || '', 'The group\'s') + '</select></td></tr>').join('');
+    $('ps-rb-form').classList.remove('hidden');
+  }
+  function saveReimburse() {
+    const by = {};
+    document.querySelectorAll('.ps-rb-co').forEach(sel => { by[sel.dataset.co] = sel.value; });
+    call('reimbursementSetup', { action: 'save', category: { CategoryID: editing || '', Name: val('ps-rb-name'), GLAccountID: val('ps-rb-gl'), GLByCompany: by, MonthlyLimit: val('ps-rb-limit'),
+      MaxAgeDays: val('ps-rb-age'), ReceiptRequired: $('ps-rb-receipt').checked, Active: $('ps-rb-active').checked } })
+      .then(() => { closeForms(); return loadReimburse(); }, err => appAlert(err.message || 'Unable to save.'));
+  }
+
   // ---------- provisions (step 5a) ----------
   let pv = null;
   const accOpts = (list, sel) => '<option value="">—</option>' + list.map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === sel ? ' selected' : '') + '>' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
@@ -557,12 +618,14 @@
       Exceptions: exceptions } }).then(() => { closeForms(); return loadProvisions(); }, err => appAlert(err.message || 'Unable to save.'));
   }
 
-  function closeForms() { ['ps-el-form', 'ps-pe-form', 'ps-pf-form', 'ps-lt-form', 'ps-at-form'].forEach(id => $(id).classList.add('hidden')); editing = null; pfEditing = null; }
+  function closeForms() { ['ps-el-form', 'ps-pe-form', 'ps-pf-form', 'ps-lt-form', 'ps-at-form', 'ps-rb-form'].forEach(id => $(id).classList.add('hidden')); editing = null; pfEditing = null; }
   function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
 
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> Payroll Setup';
-    $('ps-tabs').addEventListener('click', e => { const b = e.target.closest('.ps-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'payroll') loadPayroll(); if (b.dataset.tab === 'files') loadFormats(); if (b.dataset.tab === 'loans') loadLoanTypes(); if (b.dataset.tab === 'provisions') loadProvisions(); } });
+    $('ps-tabs').addEventListener('click', e => { const b = e.target.closest('.ps-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'payroll') loadPayroll(); if (b.dataset.tab === 'files') loadFormats(); if (b.dataset.tab === 'loans') loadLoanTypes(); if (b.dataset.tab === 'provisions') loadProvisions(); if (b.dataset.tab === 'reimburse') loadReimburse(); } });
+    $('ps-rb-new').addEventListener('click', () => editReimburse(''));
+    $('ps-rb-save').addEventListener('click', saveReimburse);
     $('ps-pc-body').addEventListener('change', e => { const tr = e.target.closest('tr[data-co]'); if (tr && e.target.closest('.ps-pc-method')) companyExample(tr); });
     $('ps-pc-body').addEventListener('click', e => {
       const b = e.target.closest('.ps-pc-save'); if (!b) return;
