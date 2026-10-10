@@ -15,54 +15,10 @@ const assert = require('assert/strict');
 const { chromium } = require('playwright');
 const { onAppDialog } = require('./_appDialogs');
 const { app, call, reset, baseFixture, firestore, PROJECT } = require('../emulator/_helpers');
+const { portalPage, portalContext, AUTH } = require('./_essPage');
 
 const results = [];
 function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, e.message.replace(/\s+/g, ' ').slice(0, 300) + (e.stack ? ' @ ' + e.stack.split('\n').filter(l => l.includes('essPortal.ui.js')).map(l => l.trim().replace(/^.*essPortal\.ui\.js:/, '')).join(' < ') : '')]); }); }
-const AUTH = 'http://127.0.0.1:9099';
-
-// public/ess.html with its Firebase SDK block swapped for one that signs in
-// through the Auth emulator and calls the functions emulator directly.
-function portalPage() {
-  const page = fs.readFileSync(path.join(__dirname, '../../../public/ess.html'), 'utf8');
-  const a = page.indexOf('<!-- ---------- ESS SDK ---------- -->'), b = page.indexOf('<!-- ---------- END ESS SDK ---------- -->');
-  if (a < 0 || b < 0) throw new Error('could not locate the SDK block');
-  const stub = `<script>
-  (function () {
-    const KEY = 'ess-test-user';
-    let user = null;
-    try { user = JSON.parse(sessionStorage.getItem(KEY)); } catch (e) { user = null; }
-    const preset = new URLSearchParams(location.search).get('uid');
-    if (preset) user = { uid: preset };
-    const subs = [];
-    const save = () => { try { sessionStorage.setItem(KEY, JSON.stringify(user)); } catch (e) {} };
-    const emit = () => subs.forEach(cb => cb(user));
-    const b64 = o => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\\+/g, '-').replace(/\\//g, '_');
-    const token = uid => { const now = Math.floor(Date.now() / 1000); return b64({ alg: 'none', typ: 'JWT' }) + '.' + b64({ iss: 'https://securetoken.google.com/${PROJECT}', aud: '${PROJECT}', sub: uid, user_id: uid, auth_time: now, iat: now, exp: now + 3600 }) + '.'; };
-    const CODES = { INVALID_LOGIN_CREDENTIALS: 'auth/invalid-credential', INVALID_PASSWORD: 'auth/wrong-password', EMAIL_NOT_FOUND: 'auth/user-not-found', USER_DISABLED: 'auth/user-disabled' };
-    window.__essLog = [];
-    window.__ess = {
-      signIn: async (email, password) => {
-        const res = await fetch('${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true }) });
-        const body = await res.json();
-        if (body.error) { const e = new Error(body.error.message); e.code = CODES[String(body.error.message).split(' ')[0]] || 'auth/unknown'; throw e; }
-        user = { uid: body.localId }; save(); setTimeout(emit, 0);
-        return { uid: user.uid };
-      },
-      signOut: async () => { user = null; save(); setTimeout(emit, 0); },
-      onUser: cb => { subs.push(cb); setTimeout(() => cb(user), 0); },
-      call: async (name, data) => {
-        const res = await fetch('http://127.0.0.1:5001/${PROJECT}/us-central1/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token(user.uid) }, body: JSON.stringify({ data }) });
-        const body = await res.json();
-        window.__essLog.push({ name, action: data && data.action, ok: !body.error });
-        if (body.error) throw new Error(body.error.message);
-        return body.result;
-      }
-    };
-    window.dispatchEvent(new Event('ess-sdk-ready'));
-  })();
-  </script>`;
-  return page.slice(0, a) + stub + page.slice(b);
-}
 
 let ALI, SARA, TYPE, AUG;
 (async () => {
@@ -108,19 +64,8 @@ let ALI, SARA, TYPE, AUG;
     res.end(req.url.startsWith('/ess.html') ? ess : harness);
   }).listen(8188);
   const browser = await chromium.launch();
-  const PHONE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
-  // The page's styles come from the Tailwind CDN. Where it can't be reached
-  // (a locked-down test machine), ESS_TAILWIND_CSS names the same styles
-  // built locally (tailwindcss -c with darkMode 'class' over public/ess.html).
-  const twCss = process.env.ESS_TAILWIND_CSS ? fs.readFileSync(process.env.ESS_TAILWIND_CSS, 'utf8') : null;
   async function portal(opts, query) {
-    const ctx = await browser.newContext(Object.assign({}, PHONE, opts || {}));
-    await ctx.route('https://cdn.tailwindcss.com/**', async route => {
-      try { await route.fulfill({ response: await route.fetch() }); } catch (e) {
-        if (!twCss) throw new Error('the Tailwind CDN is unreachable: set ESS_TAILWIND_CSS');
-        await route.fulfill({ contentType: 'application/javascript', body: 'window.tailwind = {}; (function () { const s = document.createElement("style"); s.textContent = ' + JSON.stringify(twCss) + '; document.head.appendChild(s); })();' });
-      }
-    });
+    const ctx = await portalContext(browser, opts);
     const page = await ctx.newPage();
     page.__errors = [];
     page.on('pageerror', e => page.__errors.push(e.message));
@@ -191,7 +136,7 @@ let ALI, SARA, TYPE, AUG;
     ALI_LEAVE_DAYS = Number(await p.textContent('#home-leave-left'));
     assert.ok(ALI_LEAVE_DAYS > 0);
     assert.ok(await p.isVisible('#bottom-nav') && !(await p.isVisible('aside')), 'the bottom bar on a phone');
-    assert.deepEqual(await p.$$eval('#bottom-nav a', a => a.map(x => x.textContent.trim())), ['Home', 'Leave', 'Pay', 'Me'], 'no Team: Ali manages no one');
+    assert.deepEqual(await p.$$eval('#bottom-nav a', a => a.map(x => x.textContent.trim())), ['Home', 'Leave', 'Pay', 'Requests', 'Me'], 'no Team: Ali manages no one');
     assert.ok(await fits(p), 'no sideways scrolling');
     // The old password no longer works; the new one does.
     await p.click('#bottom-nav a[data-nav="me"]');
@@ -310,7 +255,7 @@ let ALI, SARA, TYPE, AUG;
     await visible(p, '#home-leave-left');
     assert.equal(await p.textContent('#page-title'), 'Hello, Sara');
     assert.ok(await p.isVisible('aside') && !(await p.isVisible('#bottom-nav')), 'the side menu on a desktop');
-    assert.deepEqual(await p.$$eval('#side-nav a', a => a.map(x => x.textContent.trim())), ['Home', 'Leave', 'Pay', 'Team', 'Me']);
+    assert.deepEqual(await p.$$eval('#side-nav a', a => a.map(x => x.textContent.trim())), ['Home', 'Leave', 'Pay', 'Requests', 'Team', 'Me']);
     await p.click('#side-nav a[data-nav="me"]');
     await visible(p, '#me-theme');
     assert.ok(await p.isVisible('a[href="/"]') && !(await p.$('#me-pw')) && !(await p.$('#me-signout')));

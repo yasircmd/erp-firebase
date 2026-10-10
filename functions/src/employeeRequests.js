@@ -381,7 +381,7 @@ const ERP = {
     const list = docs(await REQUESTS().get()).filter(r => userCanAccessCompany(user.profile, r.CompanyID));
     const out = [];
     for (const r of list) { const st = await stageOf(r); out.push(Object.assign(summary(r, st), { Waiting: waiting(r, st.Loan) })); }
-    return { requests: out.sort((a, b) => String(b.LastAt).localeCompare(String(a.LastAt))), categories: CATEGORIES, canHandle: await can(user, 'handle'), canSetup: await can(user, 'setup') };
+    return { requests: out.sort((a, b) => String(b.LastAt).localeCompare(String(a.LastAt))), categories: CATEGORIES, canHandle: await can(user, 'handle'), canSetup: await can(user, 'setup'), me: user.uid };
   },
   async get(user, d) {
     await requireCap(user);
