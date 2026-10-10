@@ -140,10 +140,19 @@ async function balances(emp) {
       Accrued: b.Accrued, Adjustments: b.Adjustments, Taken: b.Taken, Booked: round2(b.Booked - pending), Pending: pending, Available: b.Available };
   });
 }
+// The employee's leave, with its documents; a portal draft (its document
+// not yet added) shows as not sent.
 async function myLeaves(emp) {
-  return (await lv.leavesOf(emp.EmployeeID)).filter(l => l.Status !== 'Draft')
-    .sort((a, b) => String(b.FromDate).localeCompare(String(a.FromDate)) || String(b.CreatedAt).localeCompare(String(a.CreatedAt)))
-    .map(l => Object.assign(leaveRow(l), { CanCancel: canCancel(l) }));
+  const F = require('./attachments');
+  const list = (await lv.leavesOf(emp.EmployeeID)).filter(l => l.Status !== 'Draft' || l.Source === 'Portal')
+    .sort((a, b) => String(b.FromDate).localeCompare(String(a.FromDate)) || String(b.CreatedAt).localeCompare(String(a.CreatedAt)));
+  const out = [];
+  for (const l of list) {
+    out.push(Object.assign(leaveRow(l), { CanCancel: canCancel(l) || l.Status === 'Draft', CanSend: l.Status === 'Draft', StatusText: l.Status === 'Draft' ? 'Not sent yet' : STATUS_TEXT[l.Status] || l.Status,
+      DocumentNeeded: Boolean(l.DocumentNeeded), CanAddDocument: ['Draft', 'PendingManager', 'PendingApproval', 'Approved'].includes(l.Status),
+      Files: (await F.portalFiles('LEAVE', l.LeaveID)).map(f => ({ AttachmentID: f.AttachmentID, FileName: f.FileName, MimeType: f.MimeType })) }));
+  }
+  return out;
 }
 async function loadOwnLeave(me, id) {
   const s = await LEAVES().doc(text(id, 80) || '-').get();
@@ -153,43 +162,81 @@ async function loadOwnLeave(me, id) {
   return l;
 }
 
+// Applied: with a document to attach (step 3), kept as a draft until its
+// file is added and it is sent; else sent at once.
 async function applyLeave(me, d) {
   const emp = me.emp;
   const type = (await typesFor(emp)).find(t => t.LeaveTypeID === text(d.LeaveTypeID, 80));
   if (!type) bad('Choose the leave type.');
   const v = await lv.evaluate({ LeaveTypeID: type.LeaveTypeID, FromDate: d.FromDate, ToDate: d.ToDate, HalfStart: d.HalfStart === true, HalfEnd: d.HalfEnd === true, Reason: d.Reason }, emp, null);
-  const mgr = await lineManager(emp);
   const now = new Date().toISOString();
-  const base = Object.assign(v, {
+  const ref = await LEAVES().add(Object.assign(v, {
     EmployeeID: emp.EmployeeID, EmployeeNo: emp.EmployeeNo, EmployeeName: emp.FullName, CompanyID: emp.CompanyID, Description: v.LeaveTypeName + ' — ' + emp.FullName,
-    Source: 'Portal', AppliedByUid: me.uid, CreatedAt: now, CreatedBy: lv.actorOf(me.actor), UpdatedAt: now, UpdatedBy: lv.actorOf(me.actor)
-  });
-  if (mgr) {
-    // Decision 90: the line manager first, in the portal's Team requests.
-    const number = await lv.nextNumber(v.FromDate);
-    const ref = await LEAVES().add(Object.assign(base, { Status: 'PendingManager', LeaveNumber: number, ManagerID: mgr.EmployeeID, ManagerName: mgr.FullName, SubmittedAt: now,
-      SubmittedBy: lv.actorOf(me.actor), History: [lv.histEntry('Applied in the portal', me.actor)] }));
-    return { success: true, leaveId: ref.id, leaveNumber: number, status: 'PendingManager', warnings: v.Warnings };
-  }
-  // No line manager: submitted at once (Approval Configuration, else
-  // approved). A leave expecting a document nobody would then see is
-  // refused here: HR enters it in the Leave Register.
-  if (v.DocumentNeeded && !(await lv.approvalNeeded(v, emp))) {
-    throw failed(v.LeaveTypeName + ' over ' + v.DocumentAfterDays + (v.DocumentAfterDays === 1 ? ' day' : ' days') + ' needs a supporting document (e.g. a medical certificate): hand it to HR, who enter this leave for you.');
-  }
-  const ref = await LEAVES().add(Object.assign(base, { Status: 'Draft', LeaveNumber: '', History: [lv.histEntry('Applied in the portal', me.actor)] }));
+    Source: 'Portal', AppliedByUid: me.uid, CreatedAt: now, CreatedBy: lv.actorOf(me.actor), UpdatedAt: now, UpdatedBy: lv.actorOf(me.actor),
+    Status: 'Draft', LeaveNumber: '', History: [lv.histEntry('Applied in the portal', me.actor)]
+  }));
+  if (d.withDocument === true) return { success: true, leaveId: ref.id, status: 'Draft', warnings: v.Warnings };
   try {
-    const r = await lv.submitCore(Object.assign({ LeaveID: ref.id }, (await ref.get()).data()), emp, me.actor, { createdBy: me.uid });
-    return { success: true, leaveId: ref.id, leaveNumber: r.leaveNumber, status: r.status, warnings: v.Warnings };
+    return Object.assign(await sendLeave(me, ref.id), { warnings: v.Warnings });
   } catch (err) {
     await ref.delete();
     throw err;
   }
 }
+// Sent: with a line manager, to them (decision 90); without, submitted at
+// once (Approval Configuration, else approved). A leave expecting a
+// document with nobody to decide on it needs the document attached.
+async function sendLeave(me, leaveId) {
+  const l = await loadOwnLeave(me, leaveId);
+  if (l.Status !== 'Draft' || l.Source !== 'Portal') throw failed('This leave has already been sent.');
+  const emp = me.emp;
+  const mgr = await lineManager(emp);
+  const now = new Date().toISOString();
+  if (mgr) {
+    const v = await lv.evaluate(l, emp, l.LeaveID);
+    const number = await lv.nextNumber(v.FromDate);
+    await LEAVES().doc(l.LeaveID).update(Object.assign(v, { Status: 'PendingManager', LeaveNumber: number, ManagerID: mgr.EmployeeID, ManagerName: mgr.FullName, SubmittedAt: now,
+      SubmittedBy: lv.actorOf(me.actor), UpdatedAt: now }));
+    return { success: true, leaveId: l.LeaveID, leaveNumber: number, status: 'PendingManager' };
+  }
+  if (l.DocumentNeeded && !(await leaveFileCount(l.LeaveID)) && !(await lv.approvalNeeded(l, emp))) {
+    throw failed(l.LeaveTypeName + ' over ' + l.DocumentAfterDays + (l.DocumentAfterDays === 1 ? ' day' : ' days') + ' needs a supporting document (e.g. a medical certificate): attach it, or hand it to HR.');
+  }
+  const r = await lv.submitCore(l, emp, me.actor, { createdBy: me.uid });
+  return { success: true, leaveId: l.LeaveID, leaveNumber: r.leaveNumber, status: r.status };
+}
+const leaveFileCount = async id => (await require('./attachments').portalFiles('LEAVE', id)).length;
+// A leave's documents (step 3): the employee's own leave, at most 5 files
+// of theirs, while it is a draft, pending or approved.
+async function uploadLeaveFile(me, d) {
+  const l = await loadOwnLeave(me, d.leaveId);
+  if (!['Draft', 'PendingManager', 'PendingApproval', 'Approved'].includes(l.Status)) throw failed('Documents are added to leave not yet decided, or approved.');
+  const F = require('./attachments');
+  if ((await F.portalFiles('LEAVE', l.LeaveID)).filter(f => f.UploadedBy === me.uid).length >= 5) throw failed('At most 5 files on one leave.');
+  const f = await F.portalUpload(me.actor, 'LEAVE', l.LeaveID, d.fileName, d.data);
+  if (l.Status !== 'Draft') await LEAVES().doc(l.LeaveID).update({ History: (l.History || []).concat([lv.histEntry('Document added: ' + f.FileName, me.actor)]), UpdatedAt: new Date().toISOString() });
+  return { success: true, file: f };
+}
+// Opened by the employee, or by their line manager (Team).
+async function openLeaveFile(me, d) {
+  const s = await LEAVES().doc(text(d.leaveId, 80) || '-').get();
+  if (!s.exists) throw new HttpsError('not-found', 'Leave not found.');
+  const l = s.data();
+  if (l.EmployeeID !== me.emp.EmployeeID) {
+    const emp = (await EMPLOYEES().doc(l.EmployeeID).get()).data() || {};
+    if (emp.ManagerID !== me.emp.EmployeeID) throw new HttpsError('permission-denied', 'That is not your leave.');
+  }
+  return require('./attachments').portalOpen(me.actor, 'LEAVE', s.id, d.attachmentId);
+}
 
 async function cancelLeave(me, d) {
   const l = await loadOwnLeave(me, d.leaveId);
   const reason = text(d.reason, 500);
+  if (l.Status === 'Draft' && l.Source === 'Portal') {
+    await require('./attachments').removeAllFiles('LEAVE', l.LeaveID, '', me.actor); // to Removed, never deleted
+    await LEAVES().doc(l.LeaveID).delete();
+    return { success: true, status: 'Deleted' };
+  }
   if (l.Status === 'PendingManager' || l.Status === 'PendingApproval') {
     const now = new Date().toISOString();
     if (l.Status === 'PendingApproval' && l.ApprovalInstanceID) await rtdb.ref('approvalInstances/' + l.ApprovalInstanceID).update({ Status: 'Withdrawn', UpdatedAt: now });
@@ -213,7 +260,7 @@ async function reportsOf(emp) {
 async function team(me) {
   const reports = await reportsOf(me.emp);
   const ids = new Set(reports.map(e => e.EmployeeID));
-  if (!ids.size) return { isManager: false, pending: [], decided: [], loanRequests: [] };
+  if (!ids.size) return { isManager: false, pending: [], decided: [], loanRequests: [], claims: [] };
   const pending = docs(await LEAVES().where('Status', '==', 'PendingManager').get()).filter(l => ids.has(l.EmployeeID)).map(l => Object.assign(l, { LeaveID: l._id }));
   const out = [];
   for (const l of pending.sort((a, b) => String(a.FromDate).localeCompare(String(b.FromDate)))) {
@@ -223,7 +270,8 @@ async function team(me) {
     if (type && type.UsesBalance) { const b = await lv.balanceOf(emp, type, l.FromDate, l.LeaveID); bal = { Before: b.Available, After: round2(b.Available - (l.TypeDays || 0)) }; }
     const noDoc = Boolean(l.DocumentNeeded) && !(await firestore.collection('attachments').where('DocKey', '==', 'LEAVE:' + l.LeaveID).get()).docs.some(x => !x.data().Removed);
     const configured = await lv.approvalNeeded(l, emp);
-    out.push(Object.assign(leaveRow(l), { EmployeeNo: l.EmployeeNo, EmployeeName: l.EmployeeName, Balance: bal, Warnings: l.Warnings || [],
+    const docsOf = (await require('./attachments').portalFiles('LEAVE', l.LeaveID)).map(f => ({ AttachmentID: f.AttachmentID, FileName: f.FileName, MimeType: f.MimeType }));
+    out.push(Object.assign(leaveRow(l), { EmployeeNo: l.EmployeeNo, EmployeeName: l.EmployeeName, Balance: bal, Warnings: l.Warnings || [], Files: docsOf,
       NoDocument: noDoc, NextStep: configured ? 'Then to HR\'s approval' : 'Approved when you approve' }));
   }
   const decided = docs(await LEAVES().where('ManagerDecidedBy', '==', me.emp.EmployeeID).get())
@@ -231,7 +279,8 @@ async function team(me) {
     .map(l => Object.assign(leaveRow(Object.assign(l, { LeaveID: l._id })), { EmployeeNo: l.EmployeeNo, EmployeeName: l.EmployeeName, ManagerDecision: l.ManagerDecision, ManagerDecidedAt: l.ManagerDecidedAt }));
   // Advance and loan requests (step 2, decision 102).
   const loanRequests = await ER().teamLoanRequests(ids);
-  return { isManager: true, pending: out, decided, loanRequests };
+  const claims = await require('./reimbursements').teamClaims(ids);
+  return { isManager: true, pending: out, decided, loanRequests, claims };
 }
 
 async function decideLeave(me, d) {
@@ -316,7 +365,7 @@ const ACTIONS = {
   home: { run: async (me) => {
     const [bal, leaves, slips, t] = await Promise.all([balances(me.emp), myLeaves(me.emp), payslipList(me.emp), team(me)]);
     return { balances: bal, open: leaves.filter(l => ['PendingManager', 'PendingApproval'].includes(l.Status) || (l.Status === 'Approved' && l.ToDate >= today())).slice(0, 5),
-      lastPayslip: slips[0] || null, teamPending: t.pending.length + (t.loanRequests || []).length, requests: await ER().portalCounts(me), today: today() };
+      lastPayslip: slips[0] || null, teamPending: t.pending.length + (t.loanRequests || []).length + (t.claims || []).length, requests: await ER().portalCounts(me), today: today() };
   } },
   leaveForm: { run: async (me) => ({ types: await typesFor(me.emp), manager: ((await lineManager(me.emp)) || {}).FullName || '', today: today() }) },
   previewLeave: { run: async (me, d) => {
@@ -326,7 +375,10 @@ const ACTIONS = {
     const v = await lv.evaluate({ LeaveTypeID: type.LeaveTypeID, FromDate: l.FromDate, ToDate: l.ToDate, HalfStart: l.HalfStart === true, HalfEnd: l.HalfEnd === true }, me.emp, null);
     return { preview: { Days: v.Days, TypeDays: v.TypeDays, UnpaidDays: v.UnpaidDays, Balance: v.Balance, Warnings: v.Warnings, Summary: v.Summary, DocumentNeeded: v.DocumentNeeded, ExpectedReturn: v.ExpectedReturn } };
   } },
-  applyLeave: { run: (me, d) => applyLeave(me, d.leave || {}) },
+  applyLeave: { run: (me, d) => applyLeave(me, Object.assign({}, d.leave || {}, { withDocument: d.withDocument === true })) },
+  sendLeave: { run: (me, d) => sendLeave(me, d.leaveId) },
+  uploadLeaveFile: { run: uploadLeaveFile },
+  openLeaveFile: { run: openLeaveFile },
   leaves: { run: async (me) => ({ leaves: await myLeaves(me.emp), today: today() }) },
   cancelLeave: { run: cancelLeave },
   balances: { run: async (me) => ({ balances: await balances(me.emp), today: today() }) },
@@ -347,7 +399,12 @@ const ACTIONS = {
   loanForm: { run: async (me) => Object.assign(await ER().loanForm(me), { manager: ((await lineManager(me.emp)) || {}).FullName || '' }) },
   requestLoan: { run: async (me, d) => ER().requestLoan(me, d, await lineManager(me.emp)) },
   loans: { run: async (me) => ({ loans: await ER().myLoans(me) }) },
-  decideLoanRequest: { run: (me, d) => ER().decideLoanRequest(me, d) }
+  decideLoanRequest: { run: (me, d) => ER().decideLoanRequest(me, d) },
+  // Step 3: reimbursement claims (reimbursements.js).
+  claimForm: { run: async (me) => Object.assign(await require('./reimbursements').claimForm(me), { manager: ((await lineManager(me.emp)) || {}).FullName || '' }) },
+  raiseClaim: { run: (me, d) => ER().raiseClaim(me, d) },
+  submitClaim: { run: async (me, d) => ER().submitClaim(me, d, await lineManager(me.emp)) },
+  decideClaim: { run: (me, d) => ER().decideClaimByManager(me, d) }
 };
 
 exports.essPortal = onCallWithMessages(onCallOptions, async (request) => {

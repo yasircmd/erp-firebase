@@ -30,7 +30,9 @@ const LOANS = () => firestore.collection('payrollLoans');
 
 const QUERY_CATEGORIES = ['Deduction', 'Missing earning', 'Overtime', 'Leave pay', 'Loan', 'Other'];
 const LOAN_CATEGORY = 'Loan / advance';
-const CATEGORIES = QUERY_CATEGORIES.concat([LOAN_CATEGORY]);
+const CLAIM_CATEGORY = 'Reimbursement'; // step 3 (reimbursements.js)
+const CATEGORIES = QUERY_CATEGORIES.concat([LOAN_CATEGORY, CLAIM_CATEGORY]);
+const RB = () => require('./reimbursements');
 const ALL = 'All categories';
 const REOPEN_DAYS = 14; // decision 91
 const MAX_EMPLOYEE_FILES = 5; // decision 98
@@ -91,6 +93,7 @@ async function loanOf(r) {
   return l;
 }
 async function stageOf(r) {
+  if (r.Type === 'Claim') return Object.assign(await RB().stage(r), { Loan: null });
   if (r.Type === 'Query') return { Stage: r.Status, StatusText: QUERY_STATUS[r.Status] || r.Status, Loan: null };
   const loan = await loanOf(r);
   const [stage, label] = loanStage(r, loan);
@@ -99,16 +102,20 @@ async function stageOf(r) {
 // Waiting for HR: a new query, one whose last word is the employee's, a
 // loan request with HR and not yet submitted.
 function waiting(r, loan) {
+  // A claim goes to its approvers (Home → Approvals); HR is waited for only
+  // when the employee has written.
+  if (r.Type === 'Claim') return isOpen(r) && r.LastFrom === 'Employee' && (r.Messages || []).some(m => m.From === 'Employee');
   if (r.Type === 'Query') return r.Status === 'New' || (r.Status === 'InProgress' && r.LastFrom === 'Employee');
   return r.Status === 'WithHR' && (!loan || loan.Status === 'Draft');
 }
-const isOpen = r => (r.Type === 'Query' ? ['New', 'InProgress'].includes(r.Status) : ['WithManager', 'WithHR'].includes(r.Status));
+const OPEN = { Query: ['New', 'InProgress'], Loan: ['WithManager', 'WithHR'], Claim: ['Draft', 'WithManager', 'InApproval'] };
+const isOpen = r => (OPEN[r.Type] || []).includes(r.Status);
 async function nextNumber(prefix) { return require('./numbering').hrNumber(prefix, Number(today().slice(0, 4))); }
 
 function summary(r, st) {
   return {
     RequestID: r.RequestID, Type: r.Type, Number: r.Number, Category: r.Category, EmployeeID: r.EmployeeID, EmployeeNo: r.EmployeeNo, EmployeeName: r.EmployeeName, CompanyID: r.CompanyID,
-    Month: r.Month || '', Title: r.Type === 'Query' ? r.Category + (r.Month ? ' · ' + r.Month : '') : r.TypeName + ' · ' + money(r.Amount),
+    Month: r.Month || '', Title: r.Type === 'Query' ? r.Category + (r.Month ? ' · ' + r.Month : '') : r.Type === 'Claim' ? 'Reimbursement · ' + money(r.Total) : r.TypeName + ' · ' + money(r.Amount),
     Stage: st.Stage, StatusText: st.StatusText, AssignedName: r.AssignedName || '', AssignedUid: r.AssignedUid || '', CreatedAt: r.CreatedAt, LastAt: r.LastAt || r.CreatedAt, LastFrom: r.LastFrom || ''
   };
 }
@@ -164,19 +171,23 @@ async function requestDetail(me, d) {
   const done = r.ResolvedAt || r.RejectedAt;
   const canReopen = r.Type === 'Query' && ['Resolved', 'Rejected'].includes(r.Status) && done && (Date.now() - Date.parse(done)) <= REOPEN_DAYS * 86400000;
   const mine = (await files.portalFiles(MODULE_ID, r.RequestID));
+  const claim = r.Type === 'Claim' ? await RB().claimView(r) : {};
   return {
-    request: Object.assign(summary(r, st), {
+    request: Object.assign(summary(r, st), claim, {
       Description: r.Description || '', Lines: r.Lines || [], Expected: r.Expected == null ? null : r.Expected, Outcome: r.Outcome || '', RejectionReason: r.RejectionReason || '',
       TypeName: r.TypeName || '', Kind: r.Kind || '', Amount: r.Amount || 0, Instalment: r.Instalment || 0, Months: r.Months || 0, StartMonth: r.StartMonth || '', Reason: r.Reason || '',
       ManagerName: r.ManagerName || '', LoanNumber: st.Loan ? st.Loan.LoanNumber || '' : '', Balance: st.Loan && st.Loan.Balance != null ? round2(st.Loan.Balance) : null,
       Messages: (r.Messages || []).filter(m => !m.Internal).map(m => ({ From: m.From, By: m.By, At: m.At, Text: m.Text })),
       History: (r.History || []).map(h => ({ Event: h.Event, By: h.By, At: h.At, Note: h.Note || '' }))
     }),
-    files: mine, canReply: isOpen(r), canWithdraw: await canWithdraw(r, st), canReopen, canUpload: r.Status !== 'Withdrawn' && mine.filter(f => f.UploadedBy === me.uid).length < MAX_EMPLOYEE_FILES,
+    files: mine, canReply: isOpen(r) && r.Status !== 'Draft', canWithdraw: await canWithdraw(r, st), canReopen,
+    canUpload: r.Type === 'Claim' ? false : r.Status !== 'Withdrawn' && mine.filter(f => f.UploadedBy === me.uid).length < MAX_EMPLOYEE_FILES,
+    canSubmit: r.Type === 'Claim' && r.Status === 'Draft', filesPerBill: RB().FILES_PER_BILL,
     reopenDays: REOPEN_DAYS, maxFiles: MAX_EMPLOYEE_FILES
   };
 }
 async function canWithdraw(r, st) {
+  if (r.Type === 'Claim') return isOpen(r);
   if (r.Type === 'Query') return r.Status === 'New';
   return r.Status === 'WithManager' || (r.Status === 'WithHR' && (!st.Loan || st.Loan.Status === 'Draft'));
 }
@@ -197,6 +208,7 @@ async function withdraw(me, d) {
   const st = await stageOf(r);
   if (!(await canWithdraw(r, st))) throw failed(r.Type === 'Query' ? 'Only a query nobody has answered yet can be withdrawn.' : 'It is already with the approvers: ask HR.');
   if (st.Loan && st.Loan.Status === 'Draft') await LOANS().doc(st.Loan.LoanID).delete();
+  if (r.Type === 'Claim') await RB().closeApproval(r);
   const now = new Date().toISOString();
   await REQUESTS().doc(r.RequestID).update({ Status: 'Withdrawn', WithdrawnAt: now, UpdatedAt: now, LoanID: '', History: (r.History || []).concat([entry('Withdrawn', employeeName(me), text(d.reason, 500))]) });
   return { success: true };
@@ -218,6 +230,14 @@ async function reopen(me, d) {
 async function uploadFile(me, d) {
   const r = await loadOwn(me, d.id);
   if (r.Status === 'Withdrawn') throw failed('This request was withdrawn.');
+  // A claim's files are its bills' receipts, added before it is sent.
+  if (r.Type === 'Claim') {
+    if (r.Status !== 'Draft') throw failed('The claim has been sent: its bills can no longer change.');
+    if (!r.Bills[Number(d.billIndex)]) bad('Choose the bill.');
+    const f = await files.portalUpload(me.actor, MODULE_ID, r.RequestID, d.fileName, d.data);
+    await RB().addBillFile(r, d.billIndex, f);
+    return { success: true, file: f };
+  }
   const mine = (await files.portalFiles(MODULE_ID, r.RequestID)).filter(f => f.UploadedBy === me.uid);
   if (mine.length >= MAX_EMPLOYEE_FILES) throw failed('At most ' + MAX_EMPLOYEE_FILES + ' files on one request.');
   const f = await files.portalUpload(me.actor, MODULE_ID, r.RequestID, d.fileName, d.data);
@@ -322,7 +342,7 @@ async function myLoans(me) {
 // The line manager's loan requests (decision 102).
 async function teamLoanRequests(reportIds) {
   if (!reportIds.size) return [];
-  const list = docs(await REQUESTS().where('Status', '==', 'WithManager').get()).filter(r => reportIds.has(r.EmployeeID));
+  const list = docs(await REQUESTS().where('Status', '==', 'WithManager').get()).filter(r => r.Type === 'Loan' && reportIds.has(r.EmployeeID));
   const out = [];
   for (const r of list.sort((a, b) => String(a.CreatedAt).localeCompare(String(b.CreatedAt)))) {
     const emp = Object.assign({ EmployeeID: r.EmployeeID }, (await EMPLOYEES().doc(r.EmployeeID).get()).data());
@@ -365,10 +385,17 @@ async function requireCap(user, cap) {
   if (!(await can(user, 'access'))) throw new HttpsError('permission-denied', 'You do not have access to Employee Requests.');
   if (cap && !(await can(user, cap))) throw new HttpsError('permission-denied', cap === 'setup' ? 'You do not have permission to set up the handlers.' : 'You do not have permission to handle employee requests.');
 }
-async function loadForUser(user, id) {
+// Those with access (and the company); or, for a claim, its approvers
+// (Approval Configuration "Reimbursement"), who open it from Home.
+async function loadForUser(user, id, approverMayOpen) {
   const s = await REQUESTS().doc(text(id, 80) || '-').get();
   if (!s.exists) throw new HttpsError('not-found', 'Request not found.');
   const r = Object.assign({ RequestID: s.id }, s.data());
+  if (approverMayOpen && r.Type === 'Claim' && r.ApprovalInstanceID) {
+    const inst = (await rtdb.ref('approvalInstances/' + r.ApprovalInstanceID).get()).val();
+    if (inst && (inst.RequiredLevels || []).some(l => l.ApproverUserID === user.uid)) return r;
+  }
+  await requireCap(user);
   if (!userCanAccessCompany(user.profile, r.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   return r;
 }
@@ -384,12 +411,12 @@ const ERP = {
     return { requests: out.sort((a, b) => String(b.LastAt).localeCompare(String(a.LastAt))), categories: CATEGORIES, canHandle: await can(user, 'handle'), canSetup: await can(user, 'setup'), me: user.uid };
   },
   async get(user, d) {
-    await requireCap(user);
-    const r = await loadForUser(user, d.id);
+    const r = await loadForUser(user, d.id, true);
     const st = await stageOf(r);
+    const claim = r.Type === 'Claim' ? Object.assign(await RB().claimView(r), { Approval: await RB().approvalOf(r, user.uid) }) : {};
     const emp = (await EMPLOYEES().doc(r.EmployeeID).get()).data() || {};
     return {
-      request: Object.assign(summary(r, st), {
+      request: Object.assign(summary(r, st), claim, {
         Description: r.Description || '', Lines: r.Lines || [], Expected: r.Expected == null ? null : r.Expected, RunID: r.RunID || '', Outcome: r.Outcome || '', RejectionReason: r.RejectionReason || '',
         TypeName: r.TypeName || '', Kind: r.Kind || '', Amount: r.Amount || 0, Instalment: r.Instalment || 0, Months: r.Months || 0, StartMonth: r.StartMonth || '', Reason: r.Reason || '',
         ManagerName: r.ManagerName || '', LoanID: st.Loan ? st.Loan.LoanID : '', LoanNumber: st.Loan ? st.Loan.LoanNumber || '' : '', LoanRejectedReason: st.Loan ? st.Loan.RejectedReason || '' : '',
@@ -442,10 +469,17 @@ const ERP = {
     const st = await stageOf(r);
     if (st.Loan && st.Loan.Status !== 'Draft') throw failed('Its loan ' + (st.Loan.LoanNumber || '') + ' is already with the approvers: reject it there.');
     if (st.Loan) await LOANS().doc(st.Loan.LoanID).delete();
+    if (r.Type === 'Claim') await RB().closeApproval(r);
     const now = new Date().toISOString();
     await REQUESTS().doc(r.RequestID).update({ Status: 'Rejected', RejectionReason: reason, RejectedAt: now, ResolvedAt: '', LoanID: '', UpdatedAt: now, LastFrom: 'HR', LastAt: now,
       Messages: (r.Messages || []).concat([{ From: 'HR', By: nameOf(user), ByUid: user.uid, At: now, Text: reason, Internal: false }]), History: (r.History || []).concat([entry('Rejected', nameOf(user), reason)]) });
     return { success: true };
+  },
+  // A claim's approver (Approval Configuration "Reimbursement", decision 94).
+  async decideClaim(user, d) {
+    const r = await loadForUser(user, d.id, true);
+    if (r.Type !== 'Claim') bad('Not a claim.');
+    return RB().decideByApprover(user, r, d);
   },
   // Decision 102: HR reviews the request as a Loans & Advances draft and
   // submits it there as today.
@@ -520,7 +554,20 @@ exports.employeeRequests = onCallWithMessages(onCallOptions, async (request) => 
   return a(user, d);
 });
 
+// ---------- reimbursement claims from the portal (step 3) ----------
+async function raiseClaim(me, d) { return RB().raiseClaim(me, d, await base(me, 'Claim', CLAIM_CATEGORY), nextNumber); }
+async function submitClaim(me, d, manager) { return RB().submitClaim(me, await loadOwn(me, d.id), manager); }
+async function decideClaimByManager(me, d) {
+  const s = await REQUESTS().doc(text(d.id, 80) || '-').get();
+  if (!s.exists) throw new HttpsError('not-found', 'Request not found.');
+  const r = Object.assign({ RequestID: s.id }, s.data());
+  const emp = (await EMPLOYEES().doc(r.EmployeeID).get()).data() || {};
+  if (r.Type !== 'Claim' || emp.ManagerID !== me.emp.EmployeeID) throw new HttpsError('permission-denied', 'Only the employee\'s line manager decides this claim.');
+  return RB().decideByManager(me, r, d);
+}
+
 Object.assign(module.exports, {
+  raiseClaim, submitClaim, decideClaimByManager,
   raiseQuery, myRequests, requestDetail, employeeReply, withdraw, reopen, uploadFile, openFile,
   loanForm, requestLoan, myLoans, teamLoanRequests, decideLoanRequest, portalCounts,
   QUERY_CATEGORIES, LOAN_CATEGORY, MODULE_ID

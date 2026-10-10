@@ -45,6 +45,8 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'PAYROLLLOAN', Label: 'Loan / advance (the amount is the loan)' },
   { ModuleID: 'PAYROLLFS', Label: 'Final settlement (the amount is the net)' },
   { ModuleID: 'PAYROLLIP', Label: 'Interim payroll (the amount is the batch total)' },
+  // Employee Portal claims (docs/modules/EMPLOYEE_PORTAL.md, step 3); the approval belongs to Employee Requests.
+  { ModuleID: 'REIMBURSEMENT', Label: 'Reimbursement claim (the amount is the claim total)' },
 ];
 
 const APPROVAL_MODULE_STORAGE_ = {
@@ -78,7 +80,8 @@ const APPROVAL_MODULE_STORAGE_ = {
   PAYROLL: { type: 'firestore', collection: 'payrollRuns' },
   PAYROLLLOAN: { type: 'firestore', collection: 'payrollLoans' },
   PAYROLLFS: { type: 'firestore', collection: 'payrollSettlements' },
-  PAYROLLIP: { type: 'firestore', collection: 'payrollInterim' }
+  PAYROLLIP: { type: 'firestore', collection: 'payrollInterim' },
+  EMPREQUESTS: { type: 'firestore', collection: 'employeeRequests' }
 };
 
 // CBT voucher type -> its Approval Configuration entry.

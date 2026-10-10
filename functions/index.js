@@ -256,6 +256,7 @@ const essPortal = require('./src/essPortal');
 ['essPortal', 'manageEssAccounts'].forEach(n => { exports[n] = essPortal[n]; });
 const employeeRequests = require('./src/employeeRequests');
 exports.employeeRequests = employeeRequests.employeeRequests;
+exports.reimbursementSetup = require('./src/reimbursements').reimbursementSetup;
 
 // GL views (docs/modules/GL_VIEWS.md): GL Listing, several ledgers without balances.
 exports.getGlListing = require('./src/glViews').getGlListing;
