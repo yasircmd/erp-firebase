@@ -545,7 +545,7 @@ in front of this. Nothing changes after approval.
   request) and as a Home task for the handler (decision 100's handlers;
   category "Loan / advance"). **Review in Loans & Advances** opens a draft
   filled from the request (the type, amount, instalment, start month, and
-  the note "Requested in the Employee Portal, PQ…/LR-…"). HR adjusts it if
+  the note "Requested in the Employee Portal, LR-…"). HR adjusts it if
   needed and submits it as today; the request follows the loan's status
   from there. Rejecting at HR closes the request with the reason.
 - **Number:** **LR-2026-0001** (a new type in Numbering). The loan keeps
