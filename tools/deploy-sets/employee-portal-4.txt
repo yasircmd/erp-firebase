@@ -1,0 +1,14 @@
+# Employee Portal follow-ups (owner, 2026-10-10; docs/modules/EMPLOYEE_PORTAL.md,
+# "Changes after go-live", decisions 110-113): company names in full in
+# Employee Requests and the payroll screens; My Portal first in the user
+# menu; "On Leave Today" and "Leave Returns to Record" moved from ERP Home
+# to the portal; one payslip layout for Payroll and the portal. Run with
+# --screens (EMPREQUESTS, PAYROLL, PAYROLLSETUP, PAYROLLIP, PROVISIONS,
+# HRSETUP), then the Hosting task (public/index.html: the user menu and
+# Home; public/ess.html: Team and Home, the payslip). Nothing to set up.
+# Changed: the portal's Home and Team (away today, returns due); its payslip.
+essPortal
+# Changed: the payslip comes with its printed layout (payslipDocument.js).
+getPayrollPayslips
+# Changed: shares its logic with the portal (same results).
+getLeaveTasksForUser

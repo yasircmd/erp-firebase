@@ -808,3 +808,54 @@ the entries made from a claim carry its number as the note.
 (Payroll Setup → Reimbursements); Approval Configuration → "Reimbursement
 claim"; give the claim approvers **Employee Requests access** (to open the
 claim); a handler for the category "Reimbursement" if wanted.
+
+## Changes after go-live (owner, 2026-10-10)
+
+The owner's four suggestions, after steps 1–3 went live; the open points
+decided in one round:
+
+| # | Suggestion | Decision |
+|---|---|---|
+| 110 | Company names | Employee Requests and the payroll screens show a company as **"Legal Name (01)"**, as most of the ERP does, not its code alone. |
+| 111 | My Portal | **First in the user menu, in blue**; the button in the top bar and the plain menu entry go. |
+| 112 | Leave on ERP Home | "On Leave Today" and "Leave Returns to Record" **leave ERP Home for everyone** and move to the portal. The line manager **sees** the returns due; HR still records a return in the Leave Register. HR sees neither on Home (decision 59 already showed them only to the employee and line manager). |
+| 113 | The portal's payslip | **The Payroll screen's own payslip**: one layout, so a future change shows in both. |
+
+**As built:**
+- **Company names (110):** Employee Requests: a Company column in the list
+  (and in Copy), the request's facts, the handlers' list and company
+  choice. Payroll, Payroll Setup, Interim Payroll, Provisions and HR Setup
+  (its salary bands): "Test Co One (01)" where they showed "01". The other
+  HR screens already showed the full name ("01 - Test Co One") and are
+  unchanged; Earnings & Deductions shows the name alone.
+- **My Portal (111):** public/index.html: one link, the user menu's first
+  item, blue; shown only to an ERP user linked to an employee record.
+- **Leave (112):** ERP Home's two blocks, their call and their count are
+  gone. The portal: **Team** lists "Away today" (each report on leave or
+  duty today, and the day they're back) and "Returns from leave not yet
+  recorded" (due back when, how many days ago, with "HR records the return
+  in the Leave Register"); **Home** has a card for the manager ("1 of your
+  team away today · 1 return from leave not yet recorded", opening Team)
+  and, for the employee, "Your return from Annual Leave is not recorded
+  yet … let HR know you are back". Server: `hrLeaveReports.leaveTasksFor`,
+  shared by the portal (`essPortal` home and team) and the old
+  `getLeaveTasksForUser`, kept for a shell still open in a browser.
+- **Payslip (113):** functions/src/payslipDocument.js builds the payslip
+  (markup and its print styles) from `payslipsOf`; `getPayrollPayslips`
+  and the portal's `payslip` both return it, so Payroll prints and the
+  portal shows and downloads the same document (the "How" column, the
+  status note on an unposted run, year to date, loans, leave balances).
+  The portal's own layout is gone; it shows "Paid / Not yet paid" on the
+  month's card as before.
+
+**Tests:** `essPortal.emulator.test.js` (8: the portal's payslip is
+byte-for-byte Payroll's; away today and returns due for the manager, the
+employee and no one else), `essPortal.ui.js` (Team's "Away today", the
+Home card, the payslip's layout), `essRequests.ui.js` and
+`payrollRun.ui.js` (the company names), `payrollPost.ui.js` (the print),
+unit `shellMyPortal.test.js` and `leaveHomeBlocks.test.js` (rewritten: the
+blocks are gone from the shell and wired in the portal).
+
+**Deploy:** `tools/deploy-sets/employee-portal-4.txt` with `--screens`
+(EMPREQUESTS, PAYROLL, PAYROLLSETUP, PAYROLLIP, PROVISIONS, HRSETUP), then
+**Hosting**. Nothing to set up.

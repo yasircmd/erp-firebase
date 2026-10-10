@@ -294,7 +294,7 @@
       if (ed) editOpening(ed.dataset.op); if (del) removeOpening(del.dataset.op);
     });
     call('getActiveCompanies', {}).then(cos => {
-      $('pv-company').innerHTML = (cos || []).map(c => opt(c.CompanyID, c.CompanyRefCode || c.LegalName)).join('');
+      $('pv-company').innerHTML = (cos || []).map(c => opt(c.CompanyID, c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : ''))).join('');
       if (pending && pending.CompanyID) $('pv-company').value = pending.CompanyID;
       const id = pending && pending.OpenEntryId;
       if (id && /^STKJV-/.test(id)) return openFromJournal(id);

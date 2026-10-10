@@ -15,6 +15,7 @@
 //   - Payslips (decision 19): the month, each leave balance at its end and
 //     the year to date from the posted runs.
 'use strict';
+const doc = require('./payslipDocument');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { FieldValue } = require('firebase-admin/firestore');
 const { onCallWithMessages } = require('./callable');
@@ -312,8 +313,12 @@ async function payslipsOf(run, only) {
       }),
       YTD: { Earnings: round2(y.Earnings + s.Earnings), Deductions: round2(y.Deductions + s.Deductions), Net: round2(y.Net + s.Net) } }));
   }
-  return { company: { Name: co.LegalName || run.CompanyID, RefCode: co.CompanyRefCode || '', Address: co.Address || co.RegisteredAddress || '' },
+  const res = { company: { Name: co.LegalName || run.CompanyID, RefCode: co.CompanyRefCode || '', Address: co.Address || co.RegisteredAddress || '' },
     month: run.Month, monthEnd: end, status: run.Status, runNumber: run.RunNumber || '', jvNumber: run.JVNumber || '', slips: out };
+  // The printed payslip, one layout for Payroll and the Employee Portal (payslipDocument.js).
+  out.forEach(s => { s.Html = doc.payslipHtml(res, s); });
+  res.css = doc.PAYSLIP_CSS;
+  return res;
 }
 
 module.exports.glLinesFor = glLinesFor;

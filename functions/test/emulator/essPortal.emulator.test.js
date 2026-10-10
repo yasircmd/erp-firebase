@@ -231,9 +231,42 @@ test('payslips: the posted runs with the employee\'s slip, the latest first; the
   const ps = await ess(UID.ALI, 'payslip', { runId: aug });
   assert.deepEqual([ps.month, ps.company.Name, ps.slip.EmployeeID, ps.slip.Net, ps.slip.YTD.Net], ['2026-08', 'Test Co One', ALI, 6000, 12000]);
   assert.ok(ps.slip.Leave.some(x => x.Code === 'ANNUAL'), 'the leave balances, as the ERP\'s payslip');
+  // One layout (owner, 2026-10-10): the portal's payslip is exactly the one Payroll prints.
+  const erp = await call('u-admin', 'getPayrollPayslips', { runId: aug, employeeId: ALI });
+  assert.equal(ps.slip.Html, erp.slips[0].Html);
+  assert.equal(ps.css, erp.css);
+  assert.match(ps.slip.Html, /^<div class="payslip-doc"><h1>Test Co One<\/h1>[\s\S]*Payslip — 2026-08<\/h2>[\s\S]*<th>Earnings<\/th><th>How<\/th>/);
+  assert.match(ps.slip.Html, /Net pay<\/th><th class="r">6,000\.00<\/th>/);
   assert.equal((await ess(UID.ALI, 'home')).lastPayslip.Month, '2026-08');
   // Sara sees only her own slip of the same run.
   assert.equal((await ess(UID.SARA, 'payslip', { runId: aug })).slip.EmployeeID, SARA);
   await call('u-admin', 'reversePayrollRun', { runId: aug, reason: 'Recalculate' });
   await assert.rejects(ess(UID.ALI, 'payslip', { runId: aug }), /Payslip not found/);
+});
+
+test('who is away today and the returns due: in the portal, the line manager\'s Team and the employee\'s own Home; never another team\'s (owner, 2026-10-10)', async () => {
+  const { todayIn } = require('../../src/recurringSchedule');
+  const T = todayIn('Asia/Dubai');
+  const day = n => { const d = new Date(T + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const leave = (emp, no, name, from, to, back, extra) => firestore.collection('leaveRequests').add(Object.assign({ Status: 'Approved', Kind: 'Leave', EmployeeID: emp, EmployeeNo: no, EmployeeName: name,
+    LeaveTypeName: 'Annual Leave', LeaveNumber: 'LV-T-' + no, FromDate: from, ToDate: to, ExpectedReturn: back, CompanyID: 'C1', Lines: [] }, extra || {})).then(r => r.id);
+  // Ali (Sara's report) is away today; Ali's earlier leave is back 3 days ago, its return not recorded; Ben's (no manager) too.
+  const away = await leave(ALI, 'EMP-0001', 'Ali Hassan', day(-1), day(1), day(2), { Lines: [{ Date: T, Fraction: 1, Code: 'AL' }] });
+  const due = await leave(ALI, 'EMP-0001', 'Ali Hassan', day(-10), day(-4), day(-3), { ConfirmReturn: true });
+  await leave(BEN, 'EMP-0003', 'Ben O\'Neil', day(-10), day(-4), day(-3), { ConfirmReturn: true });
+  // A recorded return is no longer due.
+  await leave(ALI, 'EMP-0001', 'Ali Hassan', day(-20), day(-15), day(-14), { ConfirmReturn: true, ReturnDate: day(-14) });
+  const t = await ess(UID.SARA, 'team');
+  assert.deepEqual(t.onLeaveToday.map(x => [x.DocumentID, x.EmployeeName, x.ExpectedReturn]), [[away, 'Ali Hassan', day(2)]]);
+  assert.deepEqual(t.returnsDue.map(x => [x.DocumentID, x.DaysOverdue]), [[due, 3]]);
+  const sh = await ess(UID.SARA, 'home');
+  assert.deepEqual([sh.teamAway, sh.teamReturnsDue, sh.myReturnDue], [1, 1, null]);
+  // Ali: his own return due on Home; he manages nobody.
+  const ah = await ess(UID.ALI, 'home');
+  assert.deepEqual([ah.myReturnDue && ah.myReturnDue.DocumentID, ah.teamAway, ah.teamReturnsDue], [due, 0, 0]);
+  const at = await ess(UID.ALI, 'team');
+  assert.deepEqual([at.isManager, at.onLeaveToday, at.returnsDue], [false, [], []]);
+  // Ben sees only his own; not Ali's.
+  const bh = await ess(UID.BEN, 'home');
+  assert.equal(bh.myReturnDue.EmployeeName, 'Ben O\'Neil');
 });
