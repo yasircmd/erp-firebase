@@ -88,6 +88,18 @@ exports.saveLoanType = onCallWithMessages(onCallOptions, async (request) => {
     by[co] = a;
   }
   out.GLByCompany = by;
+  // Limits on requests from the Employee Portal, all optional
+  // (docs/modules/EMPLOYEE_PORTAL.md, decision 103).
+  const opt = v => (v === '' || v == null ? null : num(v));
+  out.MaxMonths = opt(d.MaxMonths);
+  if (out.MaxMonths != null && !(out.MaxMonths > 0 && out.MaxMonths <= 60)) bad('The most an employee may ask for is 0.5 to 60 months of salary (or leave it empty).');
+  if (out.MaxMonths != null) out.MaxMonths = round2(out.MaxMonths);
+  out.MaxBasis = text(d.MaxBasis, 10) || 'Basic';
+  if (!['Basic', 'Gross'].includes(out.MaxBasis)) bad('The months are of the basic or the gross salary.');
+  out.MaxInstalments = out.Kind === 'Advance' ? null : opt(d.MaxInstalments);
+  if (out.MaxInstalments != null && !(Number.isInteger(out.MaxInstalments) && out.MaxInstalments >= 1 && out.MaxInstalments <= 120)) bad('The most instalments is a whole number from 1 to 120 (or leave it empty).');
+  out.AfterProbation = d.AfterProbation === true;
+  out.OneOpen = d.OneOpen === true;
   const ref = cur ? TYPES().doc(cur.LoanTypeID) : TYPES().doc();
   await ref.set(out);
   return { success: true, loanTypeId: ref.id };

@@ -71,6 +71,15 @@ const SOURCES = {
   LEAVE: { fs: 'leaveRequests', number: 'LeaveNumber', date: 'FromDate' },
   // An Earnings & Deductions entry's supporting documents (payroll step 7b).
   PAYROLLED: { fs: 'payrollInputs', numberOf: r => [r.EmployeeNo, r.Code, r.Month].filter(Boolean).join(' '), date: 'Month' },
+  // Employee Requests (docs/modules/EMPLOYEE_PORTAL.md, step 2): a payroll
+  // query's or a loan request's files, added by the employee in the portal
+  // (essPortal checks the request is theirs) or by HR with the "handle"
+  // right. Folder <company>/Employee Requests/<no. - name>/<number>.
+  EMPREQUESTS: { fs: 'employeeRequests', label: 'Employee Requests', number: 'Number', date: 'CreatedAt', addCap: 'handle', removeCap: 'handle',
+    folders: async e => {
+      const co = e.companyId || 'all';
+      return [['Employee Requests', 'empreq_' + co], [safeName((e.rec.EmployeeNo || '') + ' - ' + (e.rec.EmployeeName || '')), 'empreq_' + co + '_' + e.rec.EmployeeID]];
+    } },
   EMPDOCS: { fs: 'employeeDocuments', label: 'Employee Documents', accessModule: 'EMPLOYEES', viewCap: 'sensitive',
     numberOf: r => r.DocNumber || (r.ExpiryDate ? 'Expires ' + r.ExpiryDate : ''), date: 'IssueDate',
     addCap: 'write', removeCap: 'write', closed: r => r.Status === 'Removed',
@@ -277,7 +286,10 @@ exports.uploadAttachment = onCallWithMessages(onCallOptions, async (request) => 
   const e = await requireEntryAccess(user, module, docId);
   if ((await sourceRule(e.src, module, 'addCap', user)) === false) throw new HttpsError('permission-denied', 'You can view these documents but not add to them.');
   if (e.src.closed && e.src.closed(e.rec)) throw new HttpsError('failed-precondition', 'This record was removed: no more files can be added.');
-  const file = checkFile(d.fileName, d.data);
+  return { success: true, file: await storeFile(user, module, docId, e, checkFile(d.fileName, d.data)) };
+});
+// Stores a checked file in the entry's folder; user is { uid, profile }.
+async function storeFile(user, module, docId, e, file) {
   const { s, api } = await store.connected();
   const folderId = await documentFolder(api, s, module, docId, e);
   const fileId = await api.upload(s, folderId, file.name, file.mime, file.data);
@@ -289,8 +301,26 @@ exports.uploadAttachment = onCallWithMessages(onCallOptions, async (request) => 
   };
   const ref = await ATTACH().add(rec);
   await log('Upload', Object.assign({ id: ref.id }, rec), user);
-  return { success: true, file: publicFile(ref.id, rec) };
-});
+  return publicFile(ref.id, rec);
+}
+
+// ---------- for the Employee Portal (its callers check the entry is the employee's) ----------
+
+async function portalFiles(module, docId) {
+  return (await listFiles(module, docId)).map(f => publicFile(f.id, f.a));
+}
+async function portalUpload(actor, module, docId, fileName, base64) {
+  return storeFile(actor, module, docId, await loadEntry(module, docId), checkFile(fileName, base64));
+}
+async function portalOpen(actor, module, docId, attachmentId) {
+  const snap = await ATTACH().doc(String(attachmentId || '-')).get();
+  const a = snap.exists ? snap.data() : null;
+  if (!a || a.Removed || a.DocKey !== module + ':' + docId) throw new HttpsError('not-found', 'Document not found.');
+  const { s, api } = await store.connected();
+  const data = await api.download(s, a.StorageFileID);
+  await log('Open', Object.assign({ id: snap.id }, a), actor);
+  return { fileName: a.FileName, mimeType: a.MimeType, data: data.toString('base64') };
+}
 
 async function attachmentFor(user, attachmentId) {
   const snap = await ATTACH().doc(String(attachmentId || '')).get();
@@ -489,3 +519,6 @@ module.exports.fileCounts = fileCounts;
 module.exports.isStorageAdmin = isStorageAdmin;
 module.exports._finishConnect = finishConnect; // for the tests
 module.exports._checkFile = checkFile;
+module.exports.portalFiles = portalFiles;
+module.exports.portalUpload = portalUpload;
+module.exports.portalOpen = portalOpen;

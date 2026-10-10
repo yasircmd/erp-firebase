@@ -117,7 +117,11 @@ const MODULE_REGISTRY = [
   // report = every user's sales (without it, a user sees only the sales they billed).
   { id: 'RETAILSALES', label: 'Retail Sales', capabilities: ['access', 'post', 'write', 'report', 'return'] },
   // Numbering (docs/modules/NUMBERING.md): the formats of document numbers and codes.
-  { id: 'NUMBERING', label: 'Numbering', capabilities: ['access', 'write'] }
+  { id: 'NUMBERING', label: 'Numbering', capabilities: ['access', 'write'] },
+  // Employee Requests (docs/modules/EMPLOYEE_PORTAL.md, step 2): payroll
+  // queries and loan requests from the Employee Portal. access sees them,
+  // handle replies and decides, setup names the handlers.
+  { id: 'EMPREQUESTS', label: 'Employee Requests', capabilities: ['access', 'handle', 'setup'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -237,7 +241,8 @@ const DEFAULT_PERMISSIONS = {
   PAYROLLED:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'] },
   PROVISIONS:         { access: ['ADMIN', 'FINANCE_MGR'] },
   RETAILSALES:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], post: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], write: ['ADMIN'], report: ['ADMIN', 'FINANCE_MGR'], return: ['ADMIN', 'FINANCE_MGR'] },
-  NUMBERING:          { access: ['ADMIN'], write: ['ADMIN'] }
+  NUMBERING:          { access: ['ADMIN'], write: ['ADMIN'] },
+  EMPREQUESTS:        { access: ['ADMIN', 'FINANCE_MGR'], handle: ['ADMIN', 'FINANCE_MGR'], setup: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };
