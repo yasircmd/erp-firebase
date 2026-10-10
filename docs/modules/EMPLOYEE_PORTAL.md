@@ -505,3 +505,57 @@ Resulting design changes:
 - **Home task:** for the assigned handler and backup, or for everyone
   with the right on unassigned queries. It counts new queries and queries
   whose last message is the employee's.
+
+## Step 2 addition: advance and loan requests (owner, 2026-10-10)
+
+> Advance salary / Loan request also need to add.
+
+**Today:** Loans & Advances (payroll step 4b) has the loan types (Payroll
+Setup → Loans: an advance recovered at once, or a loan in instalments),
+drafts entered by HR, Approval Configuration ("Loan / advance"), payout,
+and recovery in each payroll run. The portal adds the employee's request
+in front of this. Nothing changes after approval.
+
+### The owner's decisions, round 4 (2026-10-10)
+
+| # | Question | Decision |
+|---|---|---|
+| 102 | Approval route | **The line manager, then HR, then Approval Configuration.** The manager approves in Team. HR reviews the request in Loans & Advances (it may adjust the instalment or start month, or reject it) and submits it to Approval Configuration ("Loan / advance") as today. Payout and recovery stay as they are. |
+| 103 | Limits | **Per loan type, all optional** (Payroll Setup → Loans): a maximum amount as months of basic or of gross salary; the most instalments; after probation only; one open loan or advance of that type at a time. A request outside them is refused with the reason. |
+| 104 | What the employee sees | **Their requests and their running loans:** each request's status and timeline; each loan or advance with its amount, balance, instalment and the recoveries month by month. |
+| 105 | Which step | **Step 2, with payroll queries:** one Requests area in the portal, one Employee Requests screen in the ERP. |
+
+### Design
+
+- **Portal → Requests → "Advance or loan":**
+  - the type (the active loan types, with their limits shown);
+  - the amount;
+  - for a loan, the instalment or the number of months (each worked out
+    from the other) and the first month of recovery (default: the next
+    payroll month);
+  - the reason.
+  - The limits are checked as typed, e.g. "Up to 2 months' basic: 12,000".
+- **Statuses:** With manager → With HR → In approval → Approved → Paid
+  out (then Running, and Repaid). Also Rejected (the reason shown, by
+  whoever rejected) and Withdrawn (by the employee, before HR has
+  submitted it).
+- **Manager:** in the portal's Team, beside leave: the amount, the
+  instalment, and any loans already running.
+- **HR:** the request shows in **Employee Requests** (filter: type Loan
+  request) and as a Home task for the handler (decision 100's handlers;
+  category "Loan / advance"). **Review in Loans & Advances** opens a draft
+  filled from the request (the type, amount, instalment, start month, and
+  the note "Requested in the Employee Portal, PQ…/LR-…"). HR adjusts it if
+  needed and submits it as today; the request follows the loan's status
+  from there. Rejecting at HR closes the request with the reason.
+- **Number:** **LR-2026-0001** (a new type in Numbering). The loan keeps
+  its own number once it is drafted; the request links to it.
+- **Employee view (decision 104):** Pay → **Loans**: each running or
+  repaid loan or advance: amount, paid out on, instalment, balance, and
+  the recoveries (month, amount, from the payroll), skips and early
+  repayments.
+- **Records:** in `employeeRequests` with Type `Loan`, holding the
+  requested Type / Amount / Instalment / StartMonth / Reason, and LoanID
+  once HR drafts it. The loan types gain optional `MaxMonths` and
+  `MaxBasis` (`Basic` | `Gross`), `MaxInstalments`, `AfterProbation` and
+  `OneOpen`.
