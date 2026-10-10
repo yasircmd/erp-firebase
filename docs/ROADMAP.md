@@ -11,29 +11,16 @@ fresh session can continue from GitHub.
 
 ## Waiting to go live (the owner's deploys and setup)
 
-Waiting to deploy: **`employee-portal`** (Employee Portal step 1,
-[EMPLOYEE_PORTAL.md](modules/EMPLOYEE_PORTAL.md#as-built--step-1-2026-10-10)):
-`tools/deploy-sets/employee-portal.txt` with `--screens` (EMPLOYEES, LEAVE),
-then the **hosting** task (public/index.html and the new public/ess.html).
-Then in the app: Roles & Permissions → Employees → tick **portal** for the
-HR roles; line managers set on the employees (and ERP users linked for My
-Portal); Employees → Portal access → switch on and print the welcome slips.
-
-Then **`employee-portal-2`** (step 2, [As built](modules/EMPLOYEE_PORTAL.md#as-built--step-2-2026-10-10)):
-`tools/deploy-sets/employee-portal-2.txt` with `--screens` (EMPREQUESTS,
-PAYROLLSETUP), then the **hosting** task again. In the app: link a menu node
-to "Employee Requests", set its rights (access, handle, setup), name the
-handlers (Employee Requests → Handlers), set the loan types' request limits
-(Payroll Setup → Loans).
-
-Then **`employee-portal-3`** (step 3, [As built](modules/EMPLOYEE_PORTAL.md#as-built--step-3-2026-10-10)):
-`tools/deploy-sets/employee-portal-3.txt` with `--screens` (EMPREQUESTS,
-PAYROLLSETUP), then the **hosting** task again. In the app: the
-reimbursement categories (Payroll Setup → Reimbursements), Approval
-Configuration → "Reimbursement claim", Employee Requests access for the claim
-approvers, and a handler for the category "Reimbursement" if wanted. All
-three steps can go in one session: the three sets in order, then one Hosting
-deploy.
+Went live 2026-10-10 (runs #117–#126, [DEPLOY_LOG.md](DEPLOY_LOG.md)):
+**Employee Portal steps 1–3** (`employee-portal`, `-2`, `-3`, screens,
+Hosting). Still to do in the app, if not done yet:
+- Roles & Permissions → Employees → tick **portal** for the HR roles;
+  Employee Requests: a menu node, its rights (access, handle, setup), the
+  handlers; claim approvers need Employee Requests access;
+- line managers set on the employees (ERP users linked for My Portal);
+- Payroll Setup → Loans (request limits) and → Reimbursements (categories);
+  Approval Configuration → "Reimbursement claim";
+- Employees → Portal access → switch on and print the welcome slips.
 
 Went live 2026-10-05 – 2026-10-10 (runs #95–#116, [DEPLOY_LOG.md](DEPLOY_LOG.md)):
 `master-import-3b`, `payroll-5c`, `payroll-6`, `gl-references`,
@@ -101,7 +88,7 @@ on 2026-10-04. Still to do in the app before the first payroll:
 | 8 | Direct Retail Sales | [RETAIL_SALES.md](modules/RETAIL_SALES.md) | deployed | Requested and agreed 2026-10-09 (decisions 52–55: the Retail Customer pays in full, an existing customer may leave a balance on account; tax-inclusive prices; Promotion Code as a payment method; a whole sale reversed, partial returns later). Built and tested 2026-10-09: counter with split payments mapped to ledgers, one GL entry with the stock (prefix RS, TXN-), register and cash-up, printed invoice (its Discount column only when a line has a discount, owner 2026-10-09), reversal. Owner 2026-10-09: counter users see only the sales they billed, a role right "report" for everyone's (Admin, Finance Manager by default); Copy to Excel; a payment-wise report. Owner 2026-10-09: Clear asks first once anything is entered; the products' own barcodes scanned (ITEM_BARCODES.md). Live 2026-10-09 (runs #109, #110). Owner 2026-10-09 (decisions 76-79): partial returns found by the invoice number (a barcode on the receipt), refund the original way (promotion reversed, card or QR as cash), an open on-account balance reduced first, a "return" right and a return period; built and tested 2026-10-09; live 2026-10-09 (run #113). Next: managed promotion codes. |
 | 9 | Numbering (document numbers and codes) | [NUMBERING.md](modules/NUMBERING.md) | deployed | Requested and agreed 2026-10-09 (decisions 80-83: documents, master codes and HR documents customizable, not the audit references; one format for all companies; a format built of prefix, company code, year and digits, the restart following from the year; codes always automatic, account codes unchanged). Built and tested 2026-10-09; defaults are today's numbers on today's counters. Live 2026-10-10 (runs #114, #115). In the app: link a menu node to "Numbering" and set its rights; customize formats as wanted. |
 | 10 | GL views (Listing, cost centers, GL impact, payroll GL) | [GL_VIEWS.md](modules/GL_VIEWS.md) | deployed | Requested and agreed 2026-10-10 (decisions 84-87: pick several accounts, a header bringing in its children; one list by date with account and cost center, no balances; payroll GL impact from approval; GL Report's right). Built and tested 2026-10-10; live 2026-10-10 (run #116). |
-| 11 | Employee Self-Service Portal | [EMPLOYEE_PORTAL.md](modules/EMPLOYEE_PORTAL.md) | steps 1–3 tested | Requested 2026-10-10; agreed (decisions 88-95: one default-password rule, the owner's: name's first 4 letters + the code's last 4 digits; ERP users through My Portal; leave to the line manager, then Approval Configuration; queries in a new Employee Requests screen; reimbursements paid with the next payroll, approved by the manager then Approval Configuration; HR switches access on). Step 1 built and tested 2026-10-10 ([As built](modules/EMPLOYEE_PORTAL.md#as-built--step-1-2026-10-10)): sign-in by code with the forced change, Home, leave (apply, track, withdraw / cancel, balances), the manager's Team requests, payslips (view, PDF), portal access in Employees with welcome slips, My Portal in the ERP. Deploy set `employee-portal` with `--screens`, then Hosting. Step 2 built and tested 2026-10-10 ([As built](modules/EMPLOYEE_PORTAL.md#as-built--step-2-2026-10-10)): payroll queries and advance / loan requests in the portal, the ERP's Employee Requests screen with handlers per company and category, internal notes, files, loan type limits, Home tasks (decisions 96–105). Deploy set `employee-portal-2`. Step 3 built and tested 2026-10-10 ([As built](modules/EMPLOYEE_PORTAL.md#as-built--step-3-2026-10-10)): reimbursement categories (each with its own pay element), expense claims with receipts, the manager then Approval Configuration "Reimbursement claim" with part approval and the monthly-limit flag, Earnings & Deductions entries for the payroll month, Paid once the run is posted; leave documents uploaded from the portal (decisions 93, 94, 106–109). Deploy set `employee-portal-3`. The portal's agreed scope is complete. |
+| 11 | Employee Self-Service Portal | [EMPLOYEE_PORTAL.md](modules/EMPLOYEE_PORTAL.md) | deployed | Requested 2026-10-10; agreed (decisions 88-95: one default-password rule, the owner's: name's first 4 letters + the code's last 4 digits; ERP users through My Portal; leave to the line manager, then Approval Configuration; queries in a new Employee Requests screen; reimbursements paid with the next payroll, approved by the manager then Approval Configuration; HR switches access on). Step 1 built and tested 2026-10-10 ([As built](modules/EMPLOYEE_PORTAL.md#as-built--step-1-2026-10-10)): sign-in by code with the forced change, Home, leave (apply, track, withdraw / cancel, balances), the manager's Team requests, payslips (view, PDF), portal access in Employees with welcome slips, My Portal in the ERP. Deploy set `employee-portal` with `--screens`, then Hosting. Step 2 built and tested 2026-10-10 ([As built](modules/EMPLOYEE_PORTAL.md#as-built--step-2-2026-10-10)): payroll queries and advance / loan requests in the portal, the ERP's Employee Requests screen with handlers per company and category, internal notes, files, loan type limits, Home tasks (decisions 96–105). Deploy set `employee-portal-2`. Step 3 built and tested 2026-10-10 ([As built](modules/EMPLOYEE_PORTAL.md#as-built--step-3-2026-10-10)): reimbursement categories (each with its own pay element), expense claims with receipts, the manager then Approval Configuration "Reimbursement claim" with part approval and the monthly-limit flag, Earnings & Deductions entries for the payroll month, Paid once the run is posted; leave documents uploaded from the portal (decisions 93, 94, 106–109). Deploy set `employee-portal-3`. The portal's agreed scope is complete; live 2026-10-10 (runs #117–#126). Owner: the reimbursement elements stay in Earnings & Deductions. |
 
 **Order:** #0 first (the owner's priority, and the SOAs need it). Then the returns, which the SOAs report on, and
 the SOAs last because they only read.

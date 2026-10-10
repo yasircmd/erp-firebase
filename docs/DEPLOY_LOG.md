@@ -969,3 +969,29 @@ from, and how it was verified. The deploy procedure is in the
     06:46–06:49 UTC, from `5e92869` (PR #103): `gl-views`, functions then
     screens.
   - **Verified:** the owner reports everything tested and working.
+- **2026-10-10, Employee Self-Service Portal steps 1–3** (`employee-portal`,
+  `employee-portal-2`, `employee-portal-3`; screens; Hosting). Logged
+  afterwards from the Actions history: the runs' tasks are not visible
+  there, so they are taken from the owner's reports.
+  - From `8d52227` (PR #105, step 1): run
+    [#117](https://github.com/yasircmd/erp-firebase/actions/runs/38040337768)
+    09:08–09:16 UTC success; runs
+    [#118](https://github.com/yasircmd/erp-firebase/actions/runs/38040945461)
+    and [#119](https://github.com/yasircmd/erp-firebase/actions/runs/38041054558)
+    failed; run [#120](https://github.com/yasircmd/erp-firebase/actions/runs/38041143409)
+    09:22–09:34 success; run
+    [#121](https://github.com/yasircmd/erp-firebase/actions/runs/38041960565)
+    (**hosting**) failed: the REPLACE_ME guard matched a word in a comment
+    in public/ess.html (fixed in PR #106, with `hostingGuards.test.js`).
+  - From `fff1947` (PR #106, step 2 and the hosting fix): runs
+    [#122](https://github.com/yasircmd/erp-firebase/actions/runs/38046511038),
+    [#123](https://github.com/yasircmd/erp-firebase/actions/runs/38046772346)
+    and [#124](https://github.com/yasircmd/erp-firebase/actions/runs/38047991056),
+    10:53–11:20, all success.
+  - From `e586d72` (PR #107, step 3): run
+    [#125](https://github.com/yasircmd/erp-firebase/actions/runs/38053052470)
+    12:44–12:48 and run
+    [#126](https://github.com/yasircmd/erp-firebase/actions/runs/38053895983)
+    12:57–12:59, both success.
+  - **Owner's decision after step 3:** the reimbursement pay elements stay
+    in Earnings & Deductions (HR still enters other entries there).
