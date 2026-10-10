@@ -720,3 +720,12 @@ whether a receipt is required (section 6).
        isn't a tax invoice for the company anyway);
      - or the VAT is entered per bill and posted to Input VAT when the bill
        is a tax invoice in the company's name.
+
+## The owner's decisions, round 5 (2026-10-10)
+
+| # | Question | Decision |
+|---|---|---|
+| 106 | Over the monthly limit | **Allowed, flagged to the approvers** ("over the monthly limit by 150"), who decide; they can approve part. |
+| 107 | A bill's age | **At most 60 days** old when claimed, a setting per category. |
+| 108 | Which payroll pays it | **The month of the final approval**, if before the company's cut-off day and that month's run is still a draft (or not created); otherwise the next month. |
+| 109 | VAT | **The total paid, VAT included; no VAT recovered.** |
