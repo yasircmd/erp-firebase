@@ -559,3 +559,81 @@ in front of this. Nothing changes after approval.
   once HR drafts it. The loan types gain optional `MaxMonths` and
   `MaxBasis` (`Basic` | `Gross`), `MaxInstalments`, `AfterProbation` and
   `OneOpen`.
+
+## As built — step 2 (2026-10-10)
+
+**The portal** (`/ess.html`):
+- A **Requests** tab (with a badge for requests with an unread reply):
+  - *My requests*: every payroll query and advance / loan request, with
+    its stage and last activity.
+  - *Pay query*: the month (from the payslips), what it is about
+    (Deduction, Missing earning, Overtime, Leave pay, Loan, Other), the
+    payslip's lines to tick, the amount expected, the description, and
+    photos or PDFs. The payslip view's **Something wrong?** opens it with
+    the month already chosen.
+  - *Advance / loan*: the type, the amount, for a loan the instalment or
+    the months, when recovery starts, and the reason. The type's limit
+    shows as typed ("Up to 1 month's basic salary: 6,000.00"); one that
+    blocks (probation, one already open) disables sending. It shows who
+    it goes to and any loans running.
+  - Opening a request: its facts, the **messages** (the employee's and
+    HR's replies, never the internal notes) with a reply box while it is
+    open, the **files** (open or add, at most 5 of the employee's own),
+    **Withdraw** (a query nobody answered yet; a loan request before HR
+    submits it), **Reopen** (a resolved or rejected query, within 14
+    days, with a message), and the history.
+- **Home:** "Ask about my pay" and "Advance or loan" tiles, and a card
+  when a request has a new reply from HR.
+- **Pay → Loans:** each loan or advance past its draft: amount, payout
+  date, instalment, from when, the balance, and the recoveries month by
+  month (and repayments).
+- **Team:** the reports' advance and loan requests (with any loans
+  already running), **Approve** (on to HR) or **Reject** (with the
+  reason).
+
+**The ERP: Employee Requests** (new module `EMPREQUESTS`, rights
+`access`, `handle`, `setup`; default Admin and Finance Manager, setup Admin):
+- The list, with filters (waiting for HR, open, all, closed; type;
+  category; mine), a search and **Copy** (to Excel).
+- A request: the facts (a query's payslip lines and the amount expected;
+  a loan request's amount, instalments, line manager and loan), the
+  conversation, **Reply to the employee** or **Internal note** (the first
+  word moves a new query to In progress), **Resolve** (an outcome
+  required) or **Reject** (a reason required), **Reassign** to anyone who
+  handles the company, the files (the shell's supporting documents), the
+  history. Links: the payroll run, Earnings & Deductions; for a loan
+  request **Review in Loans & Advances**, which drafts the loan from the
+  request (its note "Requested in the Employee Portal, LR-…") and opens
+  it. HR submits it there as today. Rejecting a request deletes a loan
+  draft made from it; once the loan is with the approvers, it is rejected
+  there instead.
+- **Handlers** tab (the `setup` right): a handler and optional backup per
+  company and category, "All categories" being the company default. Only
+  ERP users with `handle` for that company can be chosen.
+- **Home:** "Employee Requests Waiting for You" for the handler and
+  backup (or everyone who handles the company, with no handler set): a
+  new query, an employee's reply, a loan request with HR not yet
+  submitted.
+
+**Payroll Setup → Loans:** each type's optional request limits: the most
+in months of basic or gross salary, the most instalments (loans), after
+probation only, one open at a time.
+
+**Numbering:** two new HR documents, **PQ** (Payroll Query) and **LR**
+(Loan / Advance Request), PQ-2026-0001 by default.
+
+**Server:** functions/src/employeeRequests.js: the portal's side (called
+through `essPortal`'s new actions) and one ERP callable,
+`employeeRequests` (`action`: list, get, reply, assign, resolve, reject,
+draftLoan, handlers, saveHandler, deleteHandler, tasks). Records:
+`employeeRequests`, `employeeRequestHandlers`. Files: attachments source
+`EMPREQUESTS` (folder `<company>/Employee Requests/<no. - name>/<number>`);
+the portal uploads through `essPortal` after checking that the request is
+the employee's own.
+
+**Tests:** `essRequests.emulator.test.js` (6), `test/ui/essRequests.ui.js`
+(6); the step 1 checks updated for the new tab.
+
+**Deploy:** `tools/deploy-sets/employee-portal-2.txt` with `--screens`
+(EMPREQUESTS, PAYROLLSETUP), then **Hosting**. In the app: a menu node for
+"Employee Requests", its rights, the handlers, and the loan types' limits.
