@@ -83,3 +83,56 @@ All of it is read-only; nothing posts differently.
 | 85 | Layout | **One list by date**, with Account and Cost Center columns, debit and credit totals at the end. |
 | 86 | Payroll GL Impact | **From approval**: what the run will post, then the posted journal once posted. |
 | 87 | Who sees GL Listing | **The same as GL Report** (its access right). So GL Listing is a second view of the GL Report screen ("Ledger" / "Listing"), with no menu node or right of its own. |
+
+## As built (2026-10-10)
+
+- **GL Report** (screens/GLREPORT.html):
+  - **Ledger | Listing** switch at the top of the filters.
+  - **Ledger** is the report as before, plus a **Cost Center** column (code
+    — name, blank when none) in the table, the print and Copy Table.
+  - **Listing**: pick an account and **Add** (or press Enter), as many as
+    wanted; each shows as a removable chip. A header is marked "(all
+    beneath)". **Run** lists the lines: date, voucher no., Txn Ref,
+    account (code and name), cost center, description, debit, credit,
+    sorted by date then Txn Ref then account. **No opening, running or
+    closing balance**; the debit and credit totals and the line count are
+    at the end. The same filters and Include Draft. Copy Table and Print
+    follow the view.
+  - Lines of other companies' accounts are refused as in GL Report.
+  - At most 20,000 lines at once; above that it asks to narrow the dates
+    or the accounts.
+- **Txn Ref → GL Impact**, in both views: a popup with every line of that
+  journal (account, name, cost center, description, debit, credit,
+  totals), with **Copy to Excel** and **Open source document**.
+- **View GL Impact** on GRN, Delivery Note, Customer Invoice, Vendor
+  Invoice, Material Issue, Production, Stock Adjustment, Physical Count,
+  Purchase Return, Sales Return and PDC Received / Issued: a **Cost
+  Center** column.
+- **Payroll → GL Impact** (after Costing; shown once the run is approved):
+  - **Posted:** the posted journal, "The posted journal PAY-…, dated …".
+  - **Approved, not posted** (a posting that failed at approval): what it
+    will post, from the same lines as the posting, clubbed the same way.
+  - Columns: account, name, cost center, description, debit, credit,
+    totals. Copy to Excel copies it.
+
+**Server:**
+- `getGlListing` (functions/src/glViews.js): GL Report's right; the line
+  reader, filters and company restriction of the ported reports.
+- `getPayrollGlImpact` (functions/src/payrollPost.js): Payroll access.
+- `getJournalEntryDetail` returns each line's `CostCenterID` and
+  `CostCenter` (code — name), and the entry's `TransactionRef`, `Status`
+  and `SourceModule`.
+- `getGlReport`'s rows carry `CostCenterID`, through the port patch
+  `gl-report-cost-center` (tools/legacy-port/patches.js; the ported code is
+  regenerated).
+
+**Tests:**
+- `glViews.emulator.test.js` (2): the listing, filters, drafts and
+  checks; the cost centers in GL Report and the GL impact.
+- `payrollPost.emulator.test.js`: a GL impact test (approved preview
+  equals the posted journal; cost centers; not before approval).
+- `glViews.ui.js` (2) and `payrollStep7.ui.js` (GL Impact).
+- Negative controls are in the PR.
+
+**Deploy:** `tools/deploy-sets/gl-views.txt` with `--screens`. Nothing to
+set up.
