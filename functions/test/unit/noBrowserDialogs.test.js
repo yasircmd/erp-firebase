@@ -10,7 +10,7 @@ const path = require('path');
 const { findNativeDialogs, toAppDialogs } = require('../../../tools/legacy-port/appDialogs');
 
 const REPO = path.join(__dirname, '../../..');
-const pages = [...fs.readdirSync(path.join(REPO, 'screens')).filter(f => f.endsWith('.html')).map(f => 'screens/' + f), 'public/index.html'];
+const pages = [...fs.readdirSync(path.join(REPO, 'screens')).filter(f => f.endsWith('.html')).map(f => 'screens/' + f), 'public/index.html', 'public/ess.html'];
 const read = f => fs.readFileSync(path.join(REPO, f), 'utf8');
 
 test('no screen, and not the shell, uses a browser confirm / prompt', () => {

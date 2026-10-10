@@ -12,8 +12,8 @@
     <input type="text" id="lv-search" placeholder="Search no., employee..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
     <select id="lv-type-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All types</option></select>
     <select id="lv-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
-      <option value="">All</option><option value="open">Open (draft, pending, rejected)</option><option value="today">On leave today</option><option value="return">Return to record</option>
-      <option value="PendingApproval">Pending approval</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option><option value="Cancelled">Cancelled</option><option value="Draft">Draft</option><option value="nodoc">Accepted without document</option></select>
+      <option value="">All</option><option value="open">Open (draft, with manager, pending, rejected)</option><option value="today">On leave today</option><option value="return">Return to record</option>
+      <option value="PendingManager">With manager (Employee Portal)</option><option value="PendingApproval">Pending approval</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option><option value="Cancelled">Cancelled</option><option value="Withdrawn">Withdrawn</option><option value="Draft">Draft</option><option value="nodoc">Accepted without document</option></select>
     <input type="month" id="lv-month-filter" title="Leave in this month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
   </div>
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
@@ -135,8 +135,10 @@
     return div.innerHTML;
   }
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
-  const STATUS = { Draft: ['Draft', 'text-slate-400'], PendingApproval: ['Pending approval', 'text-amber-400'], Approved: ['Approved', 'text-emerald-400'],
-    Rejected: ['Rejected', 'text-red-400'], Cancelled: ['Cancelled', 'text-slate-500'] };
+  // PendingManager and Withdrawn: leave applied in the Employee Portal, with
+  // the line manager, or taken back by the employee (docs/modules/EMPLOYEE_PORTAL.md).
+  const STATUS = { Draft: ['Draft', 'text-slate-400'], PendingManager: ['With manager', 'text-amber-300'], PendingApproval: ['Pending approval', 'text-amber-400'], Approved: ['Approved', 'text-emerald-400'],
+    Rejected: ['Rejected', 'text-red-400'], Cancelled: ['Cancelled', 'text-slate-500'], Withdrawn: ['Withdrawn', 'text-slate-500'] };
   const days = n => n + (n === 1 ? ' day' : ' days');
   let list = null, form = { employees: [], types: [] }, current = null, editable = false, myLevels = [], isDirty = false, myReturnChain = [], previewTimer = null, files = null;
 
@@ -222,7 +224,7 @@
     const q = val('lv-search').trim().toLowerCase(), type = val('lv-type-filter'), st = val('lv-status-filter'), month = val('lv-month-filter');
     const end = l => l.EffectiveTo || l.ToDate;
     const rows = list.leaves.filter(l => (!type || l.LeaveTypeID === type) &&
-      (st === 'open' ? ['Draft', 'PendingApproval', 'Rejected'].includes(l.Status) : st === 'today' ? l.Status === 'Approved' && l.FromDate <= list.today && list.today <= end(l)
+      (st === 'open' ? ['Draft', 'PendingManager', 'PendingApproval', 'Rejected'].includes(l.Status) : st === 'today' ? l.Status === 'Approved' && l.FromDate <= list.today && list.today <= end(l)
         : st === 'return' ? returnDue(l) : st === 'nodoc' ? Boolean(l.NoDocument && l.AcceptedWithoutDocument) : !st || l.Status === st) &&
       (!month || (l.FromDate.slice(0, 7) <= month && month <= end(l).slice(0, 7))) &&
       (!q || [l.LeaveNumber, l.EmployeeNo, l.EmployeeName].join(' ').toLowerCase().indexOf(q) !== -1));
@@ -308,7 +310,9 @@
       showHalf();
       if (l.HalfStart || l.HalfEnd) $('lv-half-wrap').classList.remove('hidden');
       document.querySelectorAll('.lv-f').forEach(el => { el.disabled = !editable; });
-      const note = l.Status === 'Rejected' ? 'Rejected: ' + (l.RejectionReason || '') + '. Correct it and submit again.' : l.Status === 'Cancelled' ? 'Cancelled: ' + (l.CancelReason || '') : '';
+      const note = l.Status === 'Rejected' ? 'Rejected: ' + (l.RejectionReason || '') + '. Correct it and submit again.' : l.Status === 'Cancelled' ? 'Cancelled: ' + (l.CancelReason || '')
+        : l.Status === 'PendingManager' ? 'Applied in the Employee Portal: with the line manager' + (l.ManagerName ? ', ' + l.ManagerName : '') + '. Once approved there, it continues as a submitted leave.'
+        : l.Status === 'Withdrawn' ? 'Withdrawn by the employee in the Employee Portal' + (l.CancelReason ? ': ' + l.CancelReason : '.') : '';
       $('lv-note').textContent = note; $('lv-note').className = 'text-xs ' + (l.Status === 'Rejected' ? 'text-red-400' : 'text-slate-400'); $('lv-note').classList.toggle('hidden', !note);
       const accepted = l.AcceptedWithoutDocument;
       $('lv-doc-note').classList.toggle('hidden', !l.DocumentMissing);

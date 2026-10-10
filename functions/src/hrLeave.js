@@ -23,7 +23,7 @@ const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { todayIn } = require('./recurringSchedule');
-const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
+const { resolveApprovalScopeKeyForDocument, resolveRequiredApprovalLevels, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { loadSetup } = require('./hrSetup');
 const { leaveTypes, calendarFor, PAY_LABEL } = require('./hrLeaveSetup');
 const { addDay, countedDays } = require('./workCalendar');
@@ -35,8 +35,11 @@ const OPENINGS = () => firestore.collection('leaveOpenings');
 const ADJUSTMENTS = () => firestore.collection('leaveAdjustments');
 const EMPLOYEES = () => firestore.collection('employees');
 const ELEMENTS = () => firestore.collection('hrPayElements');
-const LIVE = ['Draft', 'PendingApproval', 'Approved']; // hold their days
-const COUNTING = ['PendingApproval', 'Approved']; // count against balances and limits
+// PendingManager: applied in the Employee Portal, with the line manager
+// (docs/modules/EMPLOYEE_PORTAL.md, decision 90). Withdrawn: taken back by
+// the employee before approval; it holds nothing.
+const LIVE = ['Draft', 'PendingManager', 'PendingApproval', 'Approved']; // hold their days
+const COUNTING = ['PendingManager', 'PendingApproval', 'Approved']; // count against balances and limits
 const ACCRUALS = () => firestore.collection('leaveAccruals');
 const MONTHS = () => firestore.collection('leaveMonths');
 // Step 3 (decision 9): each line is paid in a month (PayMonth): its own, or
@@ -396,31 +399,48 @@ async function nextNumber(from) {
 }
 
 // Submit: checked again (the balance may have moved); approval if
-// configured (decision 2), else approved at once.
-exports.submitLeave = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
-  await requireCap(user, 'post');
-  const l = await loadLeave(user, (request.data || {}).leaveId);
-  if (l.Status !== 'Draft' && l.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only a draft or rejected leave can be submitted.');
-  const emp = await loadEmployee(user, l.EmployeeID);
+// configured (decision 2), else approved at once. Shared with the Employee
+// Portal (an employee with no line manager, or the manager's approval):
+// actor is { uid, profile: { username, fullName } }; opts.createdBy is who
+// asked (for the approvers' self-approval flag), opts.before history
+// entries to add first, opts.acceptWithoutDocument the actor's answer.
+async function submitCore(l, emp, actor, opts) {
+  const o = opts || {};
   const v = await evaluate(l, emp, l.LeaveID);
   const missing = await documentMissing(v, l.LeaveID);
   const number = l.LeaveNumber || await nextNumber(v.FromDate);
   const now = new Date().toISOString();
   const key = approvalKeyOf(v);
   const scopeKey = await resolveApprovalScopeKeyForDocument(key, { CompanyID: emp.CompanyID, DivisionID: emp.DivisionID, BranchID: emp.BranchID, CostCenterID: emp.CostCenterID });
-  const approval = await beginApprovalInstance(MODULE_ID, l.LeaveID, number, scopeKey, v.Days, user.uid, key === MODULE_ID ? undefined : key);
-  const base = Object.assign(v, { LeaveNumber: number, SubmittedAt: now, SubmittedBy: actorOf(user), UpdatedAt: now, UpdatedBy: actorOf(user), RejectionReason: '' });
+  const approval = await beginApprovalInstance(MODULE_ID, l.LeaveID, number, scopeKey, v.Days, o.createdBy || actor.uid, key === MODULE_ID ? undefined : key);
+  const base = Object.assign(v, { LeaveNumber: number, SubmittedAt: now, SubmittedBy: actorOf(actor), UpdatedAt: now, UpdatedBy: actorOf(actor), RejectionReason: '' });
+  const hist = (l.History || []).concat(o.before || []);
   if (approval.required) {
-    await LEAVES().doc(l.LeaveID).update(Object.assign(base, { Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId, History: (l.History || []).concat([histEntry('Submitted for approval', user)]) }));
+    await LEAVES().doc(l.LeaveID).update(Object.assign(base, { Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId, History: hist.concat([histEntry('Submitted for approval', actor)]) }));
     return { success: true, status: 'PendingApproval', leaveNumber: number };
   }
   // No approval: the person submitting decides on a missing document.
-  if (missing) requireAccepted(v, (request.data || {}).acceptWithoutDocument === true);
+  if (missing) requireAccepted(v, o.acceptWithoutDocument === true);
   base.Lines = withPayMonths(v.Lines, [], await lockedMonths(l.CompanyID));
-  await LEAVES().doc(l.LeaveID).update(Object.assign(base, { Status: 'Approved', ApprovedAt: now, AcceptedWithoutDocument: missing ? acceptedBy(user) : null,
-    History: (l.History || []).concat([histEntry('Submitted (no approval needed)', user)], missing ? [histEntry('Accepted without the supporting document', user)] : []) }));
+  await LEAVES().doc(l.LeaveID).update(Object.assign(base, { Status: 'Approved', ApprovedAt: now, AcceptedWithoutDocument: missing ? acceptedBy(actor) : null,
+    History: hist.concat([histEntry('Submitted (no approval needed)', actor)], missing ? [histEntry('Accepted without the supporting document', actor)] : []) }));
   return { success: true, status: 'Approved', leaveNumber: number };
+}
+// Whether a leave would go to Approval Configuration (the portal asks
+// before saving one that expects a document nobody could then accept).
+async function approvalNeeded(v, emp) {
+  const key = approvalKeyOf(v);
+  const scopeKey = await resolveApprovalScopeKeyForDocument(key, { CompanyID: emp.CompanyID, DivisionID: emp.DivisionID, BranchID: emp.BranchID, CostCenterID: emp.CostCenterID });
+  return (await resolveRequiredApprovalLevels(key, scopeKey, v.Days)).length > 0;
+}
+
+exports.submitLeave = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'post');
+  const l = await loadLeave(user, (request.data || {}).leaveId);
+  if (l.Status !== 'Draft' && l.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only a draft or rejected leave can be submitted.');
+  const emp = await loadEmployee(user, l.EmployeeID);
+  return submitCore(l, emp, user, { acceptWithoutDocument: (request.data || {}).acceptWithoutDocument === true });
 });
 
 exports.decideLeaveApproval = onCallWithMessages(onCallOptions, async (request) => {
@@ -464,15 +484,19 @@ exports.cancelLeave = onCallWithMessages(onCallOptions, async (request) => {
   await requireCap(user, 'post');
   const d = request.data || {};
   const l = await loadLeave(user, d.leaveId);
+  await cancelCore(l, user, d.reason);
+  return { success: true };
+});
+// Shared with the Employee Portal (the employee's own approved leave).
+async function cancelCore(l, actor, why) {
   if (l.Status !== 'Approved') throw new HttpsError('failed-precondition', 'Only approved leave can be cancelled (a pending one is rejected by its approver).');
   await requireNoSettlement(l.EmployeeID, l.EmployeeName);
   if (l.Kind !== 'Absence' && l.FromDate <= today()) throw new HttpsError('failed-precondition', 'The leave has started: record the return date instead.');
-  const reason = text(d.reason, 500);
+  const reason = text(why, 500);
   if (!reason) bad('Give the reason for cancelling.');
   await LEAVES().doc(l.LeaveID).update({ Status: 'Cancelled', CancelReason: reason, Lines: withPayMonths([], l.Lines, await lockedMonths(l.CompanyID)), CancelledAt: new Date().toISOString(), UpdatedAt: new Date().toISOString(),
-    History: (l.History || []).concat([histEntry('Cancelled', user, reason)]) });
-  return { success: true };
-});
+    History: (l.History || []).concat([histEntry('Cancelled', actor, reason)]) });
+}
 
 // The return to work (decision 7): early gives the unused days back; late
 // adds the working days in between as unpaid absence. confirm: false only
@@ -613,6 +637,14 @@ async function saveOpening(user, data) {
 }
 
 module.exports.evaluate = evaluate;
+module.exports.submitCore = submitCore;
+module.exports.cancelCore = cancelCore;
+module.exports.approvalNeeded = approvalNeeded;
+module.exports.balancesFor = balancesFor;
+module.exports.nextNumber = nextNumber;
+module.exports.histEntry = histEntry;
+module.exports.actorOf = actorOf;
+module.exports.COUNTING = COUNTING;
 module.exports.balanceOf = balanceOf;
 module.exports.saveOpening = saveOpening;
 module.exports.accrued = accrued;

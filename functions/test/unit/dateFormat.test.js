@@ -51,7 +51,7 @@ test('the shell applies it to the whole page, Excel copies and the copy box', ()
 
 test('no screen formats dates its own way (use yyyy-mm-dd, or window.isoLocalDateTime for a time)', () => {
   const own = /new Date\([^)]*\)\.toLocale\w*String|\.toLocaleDateString\(|\.toLocaleTimeString\(|Intl\.DateTimeFormat/;
-  const files = [...fs.readdirSync(path.join(REPO, 'screens')).filter(n => n.endsWith('.html')).map(n => 'screens/' + n), 'public/index.html'];
+  const files = [...fs.readdirSync(path.join(REPO, 'screens')).filter(n => n.endsWith('.html')).map(n => 'screens/' + n), 'public/index.html', 'public/ess.html'];
   const found = [];
   for (const file of files) {
     fs.readFileSync(path.join(REPO, file), 'utf8').split('\n').forEach((line, i) => { if (own.test(line)) found.push(file + ':' + (i + 1)); });

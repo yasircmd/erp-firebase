@@ -277,7 +277,11 @@ exports.getPayrollPayslips = onCallWithMessages(onCallOptions, async (request) =
   await R.requireCap(user);
   const d = request.data || {};
   const run = await R.loadRun(user, d.runId);
-  const only = R.text(d.employeeId, 80);
+  return payslipsOf(run, R.text(d.employeeId, 80));
+});
+// A run's payslips (all, or one employee's): also the Employee Portal's
+// (docs/modules/EMPLOYEE_PORTAL.md).
+async function payslipsOf(run, only) {
   const year = run.Month.slice(0, 4), end = calc.monthEnd(run.Month);
   const [slipDocs, hr, unitsSnap, coSnap, types, runs] = await Promise.all([R.SLIPS(run.RunID).get(), loadSetup(), rtdb.ref('orgUnits').get(), rtdb.ref('companies/' + run.CompanyID).get(),
     leaveTypes(), R.RUNS().where('CompanyID', '==', run.CompanyID).get()]);
@@ -310,6 +314,7 @@ exports.getPayrollPayslips = onCallWithMessages(onCallOptions, async (request) =
   }
   return { company: { Name: co.LegalName || run.CompanyID, RefCode: co.CompanyRefCode || '', Address: co.Address || co.RegisteredAddress || '' },
     month: run.Month, monthEnd: end, status: run.Status, runNumber: run.RunNumber || '', jvNumber: run.JVNumber || '', slips: out };
-});
+}
 
 module.exports.glLinesFor = glLinesFor;
+module.exports.payslipsOf = payslipsOf;

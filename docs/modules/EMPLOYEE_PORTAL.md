@@ -74,7 +74,9 @@
   until it is changed.
 - **Forgot password:** HR resets it in Employees; a new default is given
   and must again be changed at the next sign-in.
-- **Lockout:** 5 wrong passwords lock the account for 15 minutes.
+- **Lockout:** repeated wrong passwords are slowed and then blocked for a
+  while by Firebase Auth itself (its built-in protection; see Step 1
+  design), rather than a lock of our own.
 - **Employees who left** are signed out and refused.
 - **ERP users** (question 89).
 
@@ -263,3 +265,118 @@
   same payslip builder as the ERP's.
 - **Hosting:** `public/ess.html`; tools/deploy-hosting.sh allows it (and
   checks its config for REPLACE_ME too).
+
+## As built — step 1 (2026-10-10)
+
+**HR → Employees** (the new right **Employees → "portal"**, default Admin;
+on the live system tick it in Roles & Permissions for the HR roles):
+- A **Portal** column in the list: On, "On · not started" (still on the
+  given password), Off, or —.
+- **Portal access** (header button): acts on the employees listed (use
+  the search and filters to pick one, several or all): **Switch on** for
+  those without access, **Print welcome slips** for those not yet signed
+  in with their own password.
+- In the record, an **Employee Portal** section: the state, last sign-in
+  and password change; **Switch on**, **Welcome slip**, **Reset password**
+  (back to the default, changed again at the next sign-in), **Switch off**
+  (signed out at once, refused after).
+- **Welcome slips**: the portal's address, the Employee Code and the
+  default password, three to an A4 page, printed alone.
+- Switching on refuses an employee who left, one without a code, a
+  default under 6 characters (Firebase's minimum: a name with no English
+  letters and a code with few digits), and a code whose sign-in clashes
+  with another employee's. Switching an account back on keeps its
+  password.
+
+**The portal**, `/ess.html` (phone first: a bottom tab bar on phones, a
+side menu from tablet width; light and dark; dates dd/mm/yyyy, months
+Sep-2026; in-page dialogs, no browser popups):
+- **Sign in** with the Employee Code and password. Wrong ones: "Wrong
+  Employee Code or password."; repeated tries are slowed by Firebase
+  Auth; switched off: "Your portal access is switched off. Please contact
+  HR."
+- **First sign-in:** nothing opens until the password is changed (8+
+  characters, not the given one, not containing the code; the rules tick
+  as typed).
+- **Home:** greeting, Annual leave left (with pending days), the last net
+  pay, shortcuts, team requests waiting, open requests.
+- **Leave:**
+  - *Apply*: the types of kind Leave for the employee's gender; dates
+    with the browser's calendar; half days where the type allows; the
+    days, balance before → after, the pay summary, warnings (unpaid
+    part) and a document note counted live by the Leave Register's own
+    rules; who it goes to.
+  - *My leave*: every request with its status (With manager, With HR,
+    Approved, Rejected with the reason, Cancelled, Withdrawn) and its
+    timeline. **Withdraw** a request not yet approved (with the manager
+    or with HR: the approval is withdrawn too); **Cancel** approved leave
+    that hasn't started (with a reason; the days come back).
+  - *Balances*: earned so far, brought forward, taken, booked (approved,
+    ahead), pending approval, available; for types without a balance, the
+    days used this year.
+- **Pay:** one card per posted month (net, earnings, deductions, Paid /
+  Not yet paid); **View payslip** shows the ERP's payslip (the same
+  builder); **Download PDF** prints it alone, the file named "Payslip
+  Aug-2026 EMP-0001".
+- **Team** (only for someone with direct reports): the reports' requests
+  waiting, each with the balance before → after, warnings, a missing
+  document and what happens next; **Approve** / **Reject** (the reason is
+  required and shown to the employee); recently decided. A badge counts
+  what is waiting.
+- **Me:** the record's main details, change password (portal accounts),
+  light / dark, sign out — or **Back to the ERP** for an ERP user.
+
+**Leave flow** (decision 90):
+- With a line manager: the leave is numbered at once (LV-…) and is
+  **PendingManager** ("With manager"): it counts against the balance and
+  blocks overlaps like a pending leave. The manager approves → exactly as
+  Submit: Approval Configuration ("With HR") if set up, else approved;
+  the approval's "submitted by" is the employee. The manager is the
+  employee's *current* line manager, so Replace manager moves waiting
+  requests too.
+- Without one: submitted at once.
+- A type expecting a document (e.g. sick leave over 1 day): the approver
+  decides as in the Leave Register (decision 44); with nobody to decide
+  (no manager, no Approval Configuration) the portal refuses it and
+  points to HR, who enter it in the Leave Register. Uploading documents
+  from the portal is step 3.
+- The Leave Register shows "With manager" and "Withdrawn" (new filter
+  options) and leaves those alone; the month lock and a final settlement
+  name leave still with a manager among the undecided.
+
+**ERP users** (decision 89): the ERP shows **My Portal** (beside Tasks and
+in the user menu) to a user linked to an employee (Employees → ERP user);
+it opens the portal with no second sign-in. One who isn't linked is told
+to ask HR.
+
+**Server:** functions/src/essPortal.js, two callables (two functions to
+deploy, rather than one per action):
+- `essPortal` — the portal's calls (`action`: me, changePassword, home,
+  leaveForm, previewLeave, applyLeave, leaves, cancelLeave, balances,
+  team, decideLeave, payslips, payslip; `link` for the shell);
+- `manageEssAccounts` — HR (`action`: list, enable, disable, reset,
+  slips).
+- Records: `essAccounts/{employeeId}` (Uid, Email, Enabled, MustChange,
+  EnabledAt/By, ResetAt, LastSignIn, PasswordChangedAt) and
+  `essUids/{uid}`. A portal account is a Firebase Auth user
+  `<code>@ess.invalid` with no ERP profile, so every ERP function refuses
+  it.
+- Shared with the Leave Register: `submitCore`, `cancelCore` (hrLeave.js),
+  and the payslip builder `payslipsOf` (payrollPost.js).
+
+**Tests:** `essPortal.emulator.test.js` (7: accounts and sign-in through
+the Auth emulator, switch off / on / reset, a leaver; leave with a manager
+then as Submit or to Approval Configuration; without a manager; withdraw
+and cancel; ERP users; the month lock; payslips), `test/unit/essPortal.test.js`
+(4: the password rule, the email shared with the page, the new password,
+dates as the ERP's), `test/ui/essPortal.ui.js` (7, on a 390 px phone and a
+desktop). The page is also in the no-popups and date-format guards. Where
+the Tailwind CDN is unreachable, the UI check takes the styles from
+`ESS_TAILWIND_CSS` (built with `tailwindcss` from public/ess.html,
+`darkMode: 'class'`).
+
+**Deploy:** `tools/deploy-sets/employee-portal.txt` with `--screens`
+(EMPLOYEES, LEAVE), then **Hosting** (index.html: My Portal; ess.html: the
+portal). In the app: tick Employees → "portal" for the HR roles, link
+employees to their line managers (and ERP users), switch the portal on and
+hand out the slips.

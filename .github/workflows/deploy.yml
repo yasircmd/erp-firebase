@@ -20,7 +20,7 @@ on:
           - screens only                  # tools/release-screens.sh
           - runtime                       # tools/deploy-runtime.sh
           - database rules                # tools/deploy-rules.sh (RTDB + Firestore rules)
-          - hosting                       # tools/deploy-hosting.sh (public/index.html, the app shell)
+          - hosting                       # tools/deploy-hosting.sh (public/index.html, the app shell; public/ess.html, the Employee Portal)
         default: functions set
       set:
         description: 'Deploy set name, from tools/deploy-sets/ without .txt (for the "functions set" tasks)'

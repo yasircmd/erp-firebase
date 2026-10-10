@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Employee Portal</title>
+  <!-- Employee Self-Service Portal (owner, 2026-10-10;
+       docs/modules/EMPLOYEE_PORTAL.md). Like the ERP shell it holds no
+       data: everything comes through the essPortal Cloud Function, which
+       checks who is asking. tools/deploy-hosting.sh allows this page. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>if (window.tailwind) tailwind.config = { darkMode: 'class' };</script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <script>
+    // Light or dark: the employee's choice, else the device's.
+    (function () {
+      let t = null;
+      try { t = localStorage.getItem('ess-theme'); } catch (e) { /* private mode */ }
+      if (t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+    })();
+  </script>
+  <style>
+    body { -webkit-tap-highlight-color: transparent; }
+    .ess-card { border-radius: 1rem; }
+    .ess-safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 4.5rem); }
+    @media (min-width: 768px) { .ess-safe-bottom { padding-bottom: 2rem; } }
+    #ess-busy { height: 3px; transform: scaleX(0); transform-origin: left; transition: transform .3s; }
+    #ess-busy.on { transform: scaleX(.8); transition: transform 8s cubic-bezier(.1,.7,.2,1); }
+    .ess-slip table { width: 100%; border-collapse: collapse; margin-top: .75rem; font-size: .8rem; }
+    .ess-slip th, .ess-slip td { padding: .35rem .5rem; border-bottom: 1px solid rgba(148,163,184,.3); text-align: left; vertical-align: top; }
+    .ess-slip .r { text-align: right; white-space: nowrap; }
+    #ess-print { display: none; }
+    @media print {
+      body > *:not(#ess-print) { display: none !important; }
+      #ess-print { display: block !important; color: #000; background: #fff; font-family: Arial, sans-serif; }
+      #ess-print .ess-slip th, #ess-print .ess-slip td { border-bottom: 1px solid #ccc; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen antialiased">
+  <div id="ess-busy" class="fixed top-0 left-0 right-0 z-[60] bg-indigo-500"></div>
+
+  <!-- loading -->
+  <div id="v-loading" class="min-h-screen flex items-center justify-center"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-indigo-500"></i></div>
+
+  <!-- sign in: Employee Code and password -->
+  <div id="v-signin" class="hidden min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600">
+    <form id="si-form" class="w-full max-w-sm bg-white dark:bg-slate-900 ess-card shadow-2xl p-6 space-y-5" autocomplete="on">
+      <div class="text-center space-y-1">
+        <div class="mx-auto w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 flex items-center justify-center text-2xl"><i class="fa-solid fa-id-badge"></i></div>
+        <h1 class="text-xl font-bold">Employee Portal</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Leave, payslips and more, in one place.</p>
+      </div>
+      <div>
+        <label for="si-code" class="block text-sm font-medium mb-1">Employee Code</label>
+        <input id="si-code" name="username" autocomplete="username" autocapitalize="characters" required placeholder="e.g. EMP-0007"
+          class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-base uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      </div>
+      <div>
+        <label for="si-password" class="block text-sm font-medium mb-1">Password</label>
+        <div class="relative">
+          <input id="si-password" name="password" type="password" autocomplete="current-password" required
+            class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 pr-12 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <button type="button" class="ess-eye absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 text-slate-400" data-for="si-password" aria-label="Show password"><i class="fa-solid fa-eye"></i></button>
+        </div>
+      </div>
+      <p id="si-error" class="hidden text-sm text-rose-600 dark:text-rose-400"></p>
+      <button id="si-submit" type="submit" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold py-3 text-base transition">Sign in</button>
+      <p class="text-xs text-center text-slate-500 dark:text-slate-400">First time? Use the password HR gave you; you'll choose your own next.<br>Forgot it? Ask HR to reset it.</p>
+    </form>
+  </div>
+
+  <!-- the forced (or chosen) password change -->
+  <div id="v-change" class="hidden min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600">
+    <form id="cp-form" class="w-full max-w-sm bg-white dark:bg-slate-900 ess-card shadow-2xl p-6 space-y-4">
+      <div class="space-y-1">
+        <h1 class="text-xl font-bold"><i class="fa-solid fa-key text-indigo-500"></i> Choose your password</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Welcome, <b id="cp-name"></b>. Before you start, replace the password you were given with one only you know.</p>
+      </div>
+      <div>
+        <label for="cp-new" class="block text-sm font-medium mb-1">New password</label>
+        <div class="relative">
+          <input id="cp-new" type="password" autocomplete="new-password" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 pr-12 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <button type="button" class="ess-eye absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 text-slate-400" data-for="cp-new" aria-label="Show password"><i class="fa-solid fa-eye"></i></button>
+        </div>
+      </div>
+      <div>
+        <label for="cp-again" class="block text-sm font-medium mb-1">Type it again</label>
+        <input id="cp-again" type="password" autocomplete="new-password" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      </div>
+      <ul id="cp-rules" class="text-sm space-y-1">
+        <li data-rule="len"><i class="fa-regular fa-circle"></i> At least 8 characters</li>
+        <li data-rule="code"><i class="fa-regular fa-circle"></i> Not containing your Employee Code</li>
+        <li data-rule="same"><i class="fa-regular fa-circle"></i> Both entries match</li>
+      </ul>
+      <p id="cp-error" class="hidden text-sm text-rose-600 dark:text-rose-400"></p>
+      <button id="cp-submit" type="submit" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 text-base transition">Save and continue</button>
+      <button id="cp-signout" type="button" class="w-full text-sm text-slate-500 dark:text-slate-400">Sign out</button>
+    </form>
+  </div>
+
+  <!-- the portal -->
+  <div id="v-app" class="hidden min-h-screen md:flex">
+    <aside class="hidden md:flex md:flex-col w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-4 gap-1 sticky top-0 h-screen">
+      <div class="flex items-center gap-3 px-2 py-3 mb-2">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center"><i class="fa-solid fa-id-badge"></i></div>
+        <div><div class="font-bold leading-tight">Employee Portal</div><div id="side-company" class="text-xs text-slate-500 dark:text-slate-400 truncate w-40"></div></div>
+      </div>
+      <nav id="side-nav" class="flex flex-col gap-1"></nav>
+    </aside>
+    <div class="flex-1 min-w-0">
+      <header class="sticky top-0 z-30 bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur border-b border-slate-200/70 dark:border-slate-800/70">
+        <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <h1 id="page-title" class="text-lg font-bold truncate"></h1>
+          <button id="hdr-me" class="w-9 h-9 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center" aria-label="Me"></button>
+        </div>
+      </header>
+      <main id="page" class="max-w-3xl mx-auto px-4 pt-4 ess-safe-bottom"></main>
+    </div>
+    <nav id="bottom-nav" class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 flex justify-around" style="padding-bottom: env(safe-area-inset-bottom)"></nav>
+  </div>
+
+  <!-- the payslip -->
+  <div id="slip-view" class="hidden fixed inset-0 z-50 bg-slate-900/60 flex items-end md:items-center justify-center">
+    <div class="w-full md:max-w-2xl max-h-[92vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-t-2xl md:rounded-2xl shadow-2xl">
+      <div class="sticky top-0 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+        <div class="font-bold" id="slip-title">Payslip</div>
+        <div class="flex gap-2">
+          <button id="slip-pdf" class="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-3 py-2"><i class="fa-solid fa-download"></i> Download PDF</button>
+          <button id="slip-close" class="rounded-lg bg-slate-100 dark:bg-slate-800 text-sm px-3 py-2" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <div id="slip-body" class="ess-slip p-4"></div>
+    </div>
+  </div>
+
+  <!-- in-page dialogs (no browser popups) -->
+  <div id="ess-dialog" class="hidden fixed inset-0 z-[70] bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="w-full sm:max-w-md bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl shadow-2xl p-5 space-y-4">
+      <div id="ess-dialog-title" class="text-base font-bold"></div>
+      <div id="ess-dialog-message" class="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-line"></div>
+      <textarea id="ess-dialog-input" rows="3" class="hidden w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+      <div class="flex gap-2 justify-end">
+        <button id="ess-dialog-cancel" class="rounded-xl px-4 py-2.5 text-sm font-semibold bg-slate-100 dark:bg-slate-800">Cancel</button>
+        <button id="ess-dialog-ok" class="rounded-xl px-4 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500">OK</button>
+      </div>
+    </div>
+  </div>
+  <div id="ess-toast" class="hidden fixed left-1/2 -translate-x-1/2 bottom-24 md:bottom-8 z-[65] max-w-[90vw] rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm px-4 py-3 shadow-xl"></div>
+
+  <div id="ess-print"></div>
+
+  <!-- ---------- ESS SDK ---------- -->
+  <script type="module">
+    // Firebase Auth and Cloud Functions, as the ERP shell (public/index.html):
+    // the same project and the same sign-in storage, so an ERP user already
+    // signed in on this browser is signed in here too (decision 89).
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+    import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js';
+    // Safe to be public: it identifies the project. Access is checked by the
+    // Cloud Functions; tools/deploy-hosting.sh refuses REPLACE_ME here.
+    const firebaseConfig = {
+      apiKey: 'AIzaSyDmCsLCTsWbkztfHlwj5Qgag8cQksIgfbM',
+      authDomain: 'erp1-8f4cd.firebaseapp.com',
+      databaseURL: 'https://erp1-8f4cd-default-rtdb.firebaseio.com',
+      projectId: 'erp1-8f4cd',
+      storageBucket: 'erp1-8f4cd.firebasestorage.app',
+      messagingSenderId: '303168627971',
+      appId: '1:303168627971:web:96c097ce8ce38692d63536'
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const fns = getFunctions(app, 'us-central1');
+    window.__ess = {
+      signIn: (email, password) => signInWithEmailAndPassword(auth, email, password).then(c => ({ uid: c.user.uid })),
+      signOut: () => signOut(auth),
+      onUser: cb => onAuthStateChanged(auth, u => cb(u ? { uid: u.uid } : null)),
+      call: (name, data) => httpsCallable(fns, name, { timeout: 120000 })(data).then(r => r.data)
+    };
+    window.dispatchEvent(new Event('ess-sdk-ready'));
+  </script>
+  <!-- ---------- END ESS SDK ---------- -->
+
+  <script>
+  (function () {
+    'use strict';
+    const $ = id => document.getElementById(id);
+    const esc = v => { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; };
+
+    // ---------- dates: shown dd/mm/yyyy, months Sep-2026 (as the ERP's DATE FORMAT) ----------
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const pad = n => String(n).padStart(2, '0');
+    function showDate(iso) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+      return m ? m[3] + '/' + m[2] + '/' + m[1] : String(iso || '');
+    }
+    function showMonth(ym) {
+      const m = /^(\d{4})-(\d{2})$/.exec(String(ym || ''));
+      return m && Number(m[2]) >= 1 && Number(m[2]) <= 12 ? MONTHS[Number(m[2]) - 1] + '-' + m[1] : String(ym || '');
+    }
+    // A stored time (ISO, UTC) in local time: dd/mm/yyyy HH:MM.
+    function showTime(iso) {
+      const d = new Date(iso);
+      if (!iso || isNaN(d)) return '';
+      return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+    const money = n => (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const days = n => { const x = Math.round((Number(n) || 0) * 100) / 100; return x + (x === 1 ? ' day' : ' days'); };
+    const dateRange = (a, b, l) => (a === b ? showDate(a) : showDate(a) + ' – ' + showDate(b)) + (l && (l.HalfStart || l.HalfEnd) ? ' (half day' + (l.HalfStart && l.HalfEnd && a !== b ? 's' : '') + ')' : '');
+
+    // The hidden sign-in email of an Employee Code (functions/src/essPortal.js, essEmail).
+    function essEmail(code) {
+      const local = String(code || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '_').replace(/^[._]+/, '');
+      return local ? local + '@ess.invalid' : '';
+    }
+
+    // ---------- dialogs and messages ----------
+    let dialogQueue = Promise.resolve();
+    function dialog(opts) {
+      const run = () => new Promise(resolve => {
+        $('ess-dialog-title').textContent = opts.title || '';
+        $('ess-dialog-message').textContent = opts.message || '';
+        const input = $('ess-dialog-input');
+        input.classList.toggle('hidden', !opts.input);
+        input.value = opts.value || '';
+        input.placeholder = opts.placeholder || '';
+        $('ess-dialog-cancel').classList.toggle('hidden', opts.alert === true);
+        $('ess-dialog-ok').textContent = opts.ok || 'OK';
+        $('ess-dialog-ok').className = 'rounded-xl px-4 py-2.5 text-sm font-semibold text-white ' + (opts.danger ? 'bg-rose-600 hover:bg-rose-500' : 'bg-indigo-600 hover:bg-indigo-500');
+        $('ess-dialog').classList.remove('hidden');
+        if (opts.input) setTimeout(() => input.focus(), 50);
+        const done = v => { $('ess-dialog').classList.add('hidden'); $('ess-dialog-ok').onclick = $('ess-dialog-cancel').onclick = null; resolve(v); };
+        $('ess-dialog-ok').onclick = () => {
+          if (opts.input && opts.required && !input.value.trim()) { input.focus(); input.classList.add('ring-2', 'ring-rose-500'); return; }
+          input.classList.remove('ring-2', 'ring-rose-500');
+          done(opts.input ? input.value.trim() : true);
+        };
+        $('ess-dialog-cancel').onclick = () => done(opts.input ? null : false);
+      });
+      const p = dialogQueue.then(run);
+      dialogQueue = p.catch(() => {});
+      return p;
+    }
+    const say = (message, title) => dialog({ alert: true, title: title || '', message });
+    let toastTimer = null;
+    function toast(message) {
+      const t = $('ess-toast');
+      t.textContent = message;
+      t.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.add('hidden'), 3500);
+    }
+
+    // ---------- the server ----------
+    let busyCount = 0;
+    const busy = on => { busyCount = Math.max(0, busyCount + (on ? 1 : -1)); $('ess-busy').classList.toggle('on', busyCount > 0); };
+    function api(action, data) {
+      busy(true);
+      return window.__ess.call('essPortal', Object.assign({ action }, data || {})).then(r => { busy(false); return r; }, err => {
+        busy(false);
+        const msg = (err && err.message) || 'Something went wrong. Please try again.';
+        if (/Change your password first/.test(msg)) { showChange(); }
+        else if (/switched off|ended when you left|Please sign in again|no portal access/.test(msg)) { signOutTo(msg); }
+        throw new Error(msg);
+      });
+    }
+    const fail = err => say(err.message || String(err));
+
+    // ---------- views ----------
+    let me = null, today = '';
+    function show(view) { ['v-loading', 'v-signin', 'v-change', 'v-app'].forEach(v => $(v).classList.toggle('hidden', v !== view)); }
+
+    // Sign in: the code becomes the hidden email; Firebase Auth checks the
+    // password (and slows down repeated wrong ones).
+    function signInError(err) {
+      const c = (err && err.code) || '';
+      if (/invalid-credential|wrong-password|user-not-found|invalid-email|invalid-login/.test(c)) return 'Wrong Employee Code or password.';
+      if (/too-many-requests/.test(c)) return 'Too many tries. Wait a few minutes, then try again.';
+      if (/user-disabled/.test(c)) return 'Your portal access is switched off. Please contact HR.';
+      if (/network/.test(c)) return 'No connection. Check your internet and try again.';
+      return (err && err.message) || 'Unable to sign in.';
+    }
+    $('si-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const code = $('si-code').value.trim(), pw = $('si-password').value;
+      $('si-error').classList.add('hidden');
+      if (!essEmail(code)) return;
+      $('si-submit').disabled = true;
+      $('si-submit').textContent = 'Signing in…';
+      window.__ess.signIn(essEmail(code), pw).then(() => { $('si-password').value = ''; }, err => {
+        $('si-error').textContent = signInError(err);
+        $('si-error').classList.remove('hidden');
+      }).finally(() => { $('si-submit').disabled = false; $('si-submit').textContent = 'Sign in'; });
+    });
+    function signOutTo(message) {
+      me = null;
+      // The next sign-in (perhaps someone else's) starts at Home.
+      history.replaceState(null, '', location.pathname + location.search);
+      window.__ess.signOut();
+      show('v-signin');
+      if (message) { $('si-error').textContent = message; $('si-error').classList.remove('hidden'); }
+    }
+    document.querySelectorAll('.ess-eye').forEach(b => b.addEventListener('click', () => {
+      const i = $(b.dataset.for);
+      i.type = i.type === 'password' ? 'text' : 'password';
+      b.innerHTML = '<i class="fa-solid ' + (i.type === 'password' ? 'fa-eye' : 'fa-eye-slash') + '"></i>';
+    }));
+
+    // The password change: forced while the default is in use.
+    let codeForChange = '';
+    function showChange() {
+      $('cp-name').textContent = me ? me.FirstName || me.FullName : '';
+      codeForChange = me ? me.EmployeeNo : '';
+      $('cp-new').value = $('cp-again').value = '';
+      $('cp-error').classList.add('hidden');
+      rules();
+      show('v-change');
+      setTimeout(() => $('cp-new').focus(), 50);
+    }
+    function rules() {
+      const pw = $('cp-new').value, low = pw.toLowerCase(), code = codeForChange.toLowerCase();
+      const ok = { len: pw.length >= 8, code: !!pw && !(code && (low.includes(code) || low.includes(code.replace(/[^a-z0-9]/g, '')))), same: !!pw && pw === $('cp-again').value };
+      document.querySelectorAll('#cp-rules li').forEach(li => {
+        const good = ok[li.dataset.rule];
+        li.className = good ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400';
+        li.querySelector('i').className = good ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle';
+      });
+      return ok.len && ok.code && ok.same;
+    }
+    ['cp-new', 'cp-again'].forEach(id => $(id).addEventListener('input', rules));
+    $('cp-signout').addEventListener('click', () => signOutTo(''));
+    $('cp-form').addEventListener('submit', e => {
+      e.preventDefault();
+      if (!rules()) return;
+      const pw = $('cp-new').value;
+      $('cp-submit').disabled = true;
+      changePassword(pw).then(() => { toast('Password saved.'); return start(); }, err => {
+        $('cp-error').textContent = err.message;
+        $('cp-error').classList.remove('hidden');
+      }).finally(() => { $('cp-submit').disabled = false; });
+    });
+    // Changed by the server, then signed in again with it (a change ends
+    // the earlier sign-ins).
+    function changePassword(pw) {
+      return api('changePassword', { newPassword: pw }).then(() => window.__ess.signIn(essEmail(me.EmployeeNo), pw));
+    }
+
+    // ---------- the portal ----------
+    const PAGES = [
+      { id: 'home', label: 'Home', icon: 'fa-house' },
+      { id: 'leave', label: 'Leave', icon: 'fa-umbrella-beach' },
+      { id: 'pay', label: 'Pay', icon: 'fa-wallet' },
+      { id: 'team', label: 'Team', icon: 'fa-people-group', manager: true },
+      { id: 'me', label: 'Me', icon: 'fa-user' }
+    ];
+    function navHtml(current, side) {
+      return PAGES.filter(p => !p.manager || me.IsManager).map(p => {
+        const on = p.id === current;
+        if (side) return '<a href="#' + p.id + '" data-nav="' + p.id + '" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium ' +
+          (on ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800') + '"><i class="fa-solid ' + p.icon + ' w-5 text-center"></i>' + p.label +
+          (p.id === 'team' ? '<span class="ess-team-badge ml-auto"></span>' : '') + '</a>';
+        return '<a href="#' + p.id + '" data-nav="' + p.id + '" class="relative flex-1 flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ' + (on ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400') + '">' +
+          '<i class="fa-solid ' + p.icon + ' text-lg"></i>' + p.label + (p.id === 'team' ? '<span class="ess-team-badge absolute top-1 right-1/4"></span>' : '') + '</a>';
+      }).join('');
+    }
+    let teamPending = 0;
+    function badges() {
+      document.querySelectorAll('.ess-team-badge').forEach(b => {
+        b.innerHTML = teamPending ? '<span class="inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold">' + teamPending + '</span>' : '';
+      });
+    }
+    function route() {
+      if (!me) return;
+      const [page, sub] = (location.hash.slice(1) || 'home').split('/');
+      const p = PAGES.find(x => x.id === page && (!x.manager || me.IsManager)) || PAGES[0];
+      $('side-nav').innerHTML = navHtml(p.id, true);
+      $('bottom-nav').innerHTML = navHtml(p.id, false);
+      badges();
+      $('page-title').textContent = p.id === 'home' ? 'Hello, ' + (me.FirstName || me.FullName) : p.label;
+      window.scrollTo(0, 0);
+      const pages = { home: pageHome, leave: pageLeave, pay: pagePay, team: pageTeam, me: pageMe };
+      pages[p.id](sub);
+    }
+    window.addEventListener('hashchange', route);
+    $('hdr-me').addEventListener('click', () => { location.hash = 'me'; });
+
+    const card = (inner, cls) => '<div class="bg-white dark:bg-slate-900 ess-card shadow-sm border border-slate-200/70 dark:border-slate-800 ' + (cls || 'p-4') + '">' + inner + '</div>';
+    const skeleton = () => '<div class="space-y-3 animate-pulse">' + [1, 2, 3].map(() => '<div class="h-24 rounded-2xl bg-slate-200 dark:bg-slate-800"></div>').join('') + '</div>';
+    const empty = (icon, text) => '<div class="text-center py-10 text-slate-500 dark:text-slate-400"><i class="fa-solid ' + icon + ' text-3xl mb-3 opacity-60"></i><p class="text-sm">' + esc(text) + '</p></div>';
+    const STATUS_STYLE = {
+      PendingManager: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300', PendingApproval: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300',
+      Approved: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300', Rejected: 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300'
+    };
+    const chip = (status, text) => '<span class="ess-status inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ' + (STATUS_STYLE[status] || 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300') + '">' + esc(text) + '</span>';
+    const page = html => { $('page').innerHTML = html; };
+
+    // ---------- Home ----------
+    function pageHome() {
+      page(skeleton());
+      api('home').then(h => {
+        teamPending = h.teamPending; badges();
+        const main = h.balances.find(b => b.Code === 'ANNUAL' && b.UsesBalance) || h.balances.find(b => b.UsesBalance);
+        const slip = h.lastPayslip;
+        page('<div class="space-y-4">' +
+          '<div class="ess-card p-5 text-white bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 shadow-lg">' +
+            '<div class="text-sm opacity-90">' + esc([me.Designation, me.Company].filter(Boolean).join(' · ')) + '</div>' +
+            '<div class="mt-3 grid grid-cols-2 gap-3">' +
+              '<div><div class="text-xs uppercase tracking-wide opacity-80">' + esc(main ? main.Name + ' left' : 'Leave') + '</div><div id="home-leave-left" class="text-3xl font-extrabold">' + (main ? esc(main.Available) : '—') + '</div><div class="text-xs opacity-80">' + (main ? 'days' + (main.Pending ? ' · ' + days(main.Pending) + ' pending' : '') : '') + '</div></div>' +
+              '<div><div class="text-xs uppercase tracking-wide opacity-80">Last net pay</div><div id="home-net" class="text-3xl font-extrabold">' + (slip ? money(slip.Net) : '—') + '</div><div class="text-xs opacity-80">' + (slip ? esc(showMonth(slip.Month)) : 'No payslip yet') + '</div></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-3">' +
+            '<a href="#leave/apply" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300 flex items-center justify-center"><i class="fa-solid fa-plane-departure"></i></span><span class="font-semibold text-sm">Apply for leave</span></a>' +
+            '<a href="#pay" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300 flex items-center justify-center"><i class="fa-solid fa-file-invoice-dollar"></i></span><span class="font-semibold text-sm">My payslips</span></a>' +
+          '</div>' +
+          (h.teamPending ? '<a href="#team" id="home-team" class="block">' + card('<div class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300 flex items-center justify-center"><i class="fa-solid fa-people-group"></i></span><div class="flex-1"><div class="font-semibold text-sm">' + h.teamPending + ' team request' + (h.teamPending === 1 ? '' : 's') + ' waiting for you</div><div class="text-xs text-slate-500 dark:text-slate-400">Approve or reject</div></div><i class="fa-solid fa-chevron-right text-slate-400"></i></div>') + '</a>' : '') +
+          '<div><div class="flex items-center justify-between mb-2"><h2 class="font-semibold">Your requests</h2><a href="#leave/history" class="text-sm text-indigo-600 dark:text-indigo-400">See all</a></div>' +
+          (h.open.length ? '<div class="space-y-2">' + h.open.map(l => card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold text-sm">' + esc(l.LeaveTypeName) + '</div><div class="text-xs text-slate-500 dark:text-slate-400">' + esc(dateRange(l.FromDate, l.ToDate, l)) + ' · ' + days(l.Days) + '</div></div>' + chip(l.Status, l.StatusText) + '</div>', 'p-3')).join('') + '</div>'
+            : card(empty('fa-mug-hot', 'Nothing pending. Enjoy your day!'), 'p-2')) +
+          '</div></div>');
+      }, err => { page(card(empty('fa-triangle-exclamation', err.message))); });
+    }
+
+    // ---------- Leave ----------
+    function pageLeave(sub) {
+      const tab = ['apply', 'history', 'balances'].includes(sub) ? sub : 'apply';
+      const tabs = [['apply', 'Apply'], ['history', 'My leave'], ['balances', 'Balances']];
+      page('<div class="space-y-4"><div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-200/70 dark:bg-slate-800">' +
+        tabs.map(([id, label]) => '<a href="#leave/' + id + '" data-tab="' + id + '" class="text-center text-sm font-semibold py-2 rounded-lg ' + (id === tab ? 'bg-white dark:bg-slate-900 shadow text-indigo-700 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-300') + '">' + label + '</a>').join('') +
+        '</div><div id="leave-body">' + skeleton() + '</div></div>');
+      ({ apply: leaveApply, history: leaveHistory, balances: leaveBalances })[tab]();
+    }
+    const body = html => { const b = $('leave-body'); if (b) b.innerHTML = html; };
+    const field = (label, inner, id) => '<div' + (id ? ' id="' + id + '"' : '') + '><label class="block text-sm font-medium mb-1">' + label + '</label>' + inner + '</div>';
+    const inputCls = 'w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500';
+
+    let form = null;
+    function leaveApply() {
+      api('leaveForm').then(f => {
+        form = f;
+        if (!f.types.length) { body(card(empty('fa-umbrella-beach', 'No leave types are set up yet. Please contact HR.'))); return; }
+        body(card('<form id="lv-form" class="space-y-4">' +
+          field('Leave type', '<select id="lv-type" class="' + inputCls + '">' + f.types.map(t => '<option value="' + esc(t.LeaveTypeID) + '">' + esc(t.Name) + '</option>').join('') + '</select>') +
+          '<div class="grid grid-cols-2 gap-3">' +
+            field('First day', '<input id="lv-from" type="date" min="' + esc(f.today.slice(0, 4) - 1 + f.today.slice(4)) + '" class="' + inputCls + '">') +
+            field('Last day', '<input id="lv-to" type="date" class="' + inputCls + '">') +
+          '</div>' +
+          '<div id="lv-halves" class="hidden flex flex-wrap gap-4 text-sm"><label class="flex items-center gap-2"><input id="lv-half-start" type="checkbox" class="w-5 h-5 accent-indigo-600"> First day is a half day</label>' +
+            '<label class="flex items-center gap-2"><input id="lv-half-end" type="checkbox" class="w-5 h-5 accent-indigo-600"> Last day is a half day</label></div>' +
+          field('Reason <span class="text-slate-400 font-normal">(optional)</span>', '<textarea id="lv-reason" rows="2" maxlength="1000" class="' + inputCls + '"></textarea>') +
+          '<div id="lv-preview" class="hidden rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 p-3 text-sm space-y-1"></div>' +
+          '<p class="text-xs text-slate-500 dark:text-slate-400"><i class="fa-solid fa-route"></i> ' + (f.manager ? 'Goes to ' + esc(f.manager) + ', your line manager, then HR if needed.' : 'Goes to HR\'s approval if set up, else it is approved at once.') + '</p>' +
+          '<button id="lv-submit" type="submit" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 disabled:opacity-50">' + (f.manager ? 'Send to ' + esc(f.manager.split(/\s+/)[0]) : 'Submit') + '</button>' +
+          '</form>'));
+        ['lv-type', 'lv-from', 'lv-to', 'lv-half-start', 'lv-half-end'].forEach(id => $(id).addEventListener('change', () => { if (id === 'lv-from' && !$('lv-to').value) $('lv-to').value = $('lv-from').value; typeChanged(); }));
+        $('lv-form').addEventListener('submit', e => { e.preventDefault(); applyLeave(); });
+        typeChanged();
+      }, err => body(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    const currentType = () => form.types.find(t => t.LeaveTypeID === $('lv-type').value);
+    function leaveInput() {
+      const t = currentType();
+      return { LeaveTypeID: t.LeaveTypeID, FromDate: $('lv-from').value, ToDate: $('lv-to').value, HalfStart: t.HalfDays && $('lv-half-start').checked, HalfEnd: t.HalfDays && $('lv-half-end').checked, Reason: $('lv-reason').value };
+    }
+    let previewSeq = 0;
+    function typeChanged() {
+      const t = currentType();
+      $('lv-halves').classList.toggle('hidden', !t.HalfDays);
+      const l = leaveInput(), box = $('lv-preview');
+      if (!l.FromDate || !l.ToDate) { box.classList.add('hidden'); return; }
+      const seq = ++previewSeq;
+      box.classList.remove('hidden');
+      box.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Counting the days…';
+      api('previewLeave', { leave: l }).then(r => {
+        if (seq !== previewSeq) return;
+        const p = r.preview;
+        box.className = 'rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 p-3 text-sm space-y-1';
+        box.innerHTML = '<div class="flex items-baseline justify-between"><span class="font-semibold">' + days(p.Days) + '</span><span class="text-xs text-slate-500 dark:text-slate-400">back on ' + esc(showDate(p.ExpectedReturn)) + '</span></div>' +
+          (p.Balance ? '<div>Balance: ' + esc(p.Balance.Before) + ' → <b>' + esc(p.Balance.After) + '</b> days</div>' : '') +
+          (p.Summary || []).map(s => '<div class="text-xs text-slate-600 dark:text-slate-300">' + esc(days(s.Days)) + ' · ' + esc(s.Label) + '</div>').join('') +
+          (p.Warnings || []).map(w => '<div class="text-amber-700 dark:text-amber-300"><i class="fa-solid fa-triangle-exclamation"></i> ' + esc(w) + '</div>').join('') +
+          (p.DocumentNeeded ? '<div class="text-amber-700 dark:text-amber-300"><i class="fa-solid fa-file-medical"></i> A supporting document is expected: hand it to HR.</div>' : '');
+      }, err => {
+        if (seq !== previewSeq) return;
+        box.className = 'rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 p-3 text-sm text-rose-700 dark:text-rose-300';
+        box.textContent = err.message;
+      });
+    }
+    function applyLeave() {
+      const l = leaveInput();
+      if (!l.FromDate || !l.ToDate) { say('Choose the first and last day.'); return; }
+      $('lv-submit').disabled = true;
+      api('applyLeave', { leave: l }).then(r => {
+        const where = { PendingManager: 'Sent to ' + form.manager + ' for approval.', PendingApproval: 'Sent to HR for approval.', Approved: 'Approved.' }[r.status] || r.status;
+        toast(r.leaveNumber + ': ' + where);
+        location.hash = 'leave/history';
+      }, fail).finally(() => { const b = $('lv-submit'); if (b) b.disabled = false; });
+    }
+
+    function timeline(l) {
+      return '<ol class="relative border-l-2 border-slate-200 dark:border-slate-700 ml-1.5 space-y-3 mt-3">' + l.History.map((h, i) =>
+        '<li class="ml-4"><span class="absolute -left-[7px] mt-1 w-3 h-3 rounded-full ' + (i === l.History.length - 1 ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600') + '"></span>' +
+        '<div class="text-sm font-medium">' + esc(h.Event) + '</div><div class="text-xs text-slate-500 dark:text-slate-400">' + esc(h.By) + ' · ' + esc(showTime(h.At)) + '</div>' +
+        (h.Note ? '<div class="text-xs mt-0.5 italic">“' + esc(h.Note) + '”</div>' : '') + '</li>').join('') + '</ol>';
+    }
+    let myLeaves = [];
+    function leaveHistory() {
+      api('leaves').then(r => {
+        myLeaves = r.leaves;
+        if (!r.leaves.length) { body(card(empty('fa-calendar', 'No leave yet.'))); return; }
+        body('<div class="space-y-2">' + r.leaves.map(l => card(
+          '<button class="lv-row w-full text-left" data-id="' + esc(l.LeaveID) + '"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-sm">' + esc(l.LeaveTypeName) +
+          ' <span class="text-xs font-normal text-slate-400">' + esc(l.LeaveNumber) + '</span></div><div class="text-xs text-slate-500 dark:text-slate-400">' + esc(dateRange(l.FromDate, l.ToDate, l)) + ' · ' + days(l.Days) +
+          (l.UnpaidDays ? ' (' + days(l.UnpaidDays) + ' unpaid)' : '') + '</div></div>' + chip(l.Status, l.StatusText) + '</div></button>' +
+          '<div class="lv-detail hidden">' + (l.RejectionReason ? '<div class="mt-3 text-sm text-rose-700 dark:text-rose-300"><i class="fa-solid fa-circle-xmark"></i> ' + esc(l.RejectionReason) + '</div>' : '') +
+          (l.Reason ? '<div class="mt-2 text-sm text-slate-600 dark:text-slate-300">' + esc(l.Reason) + '</div>' : '') + timeline(l) +
+          (l.CanCancel ? '<button class="lv-cancel mt-4 w-full rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '">' +
+            (l.Status === 'Approved' ? 'Cancel this leave' : 'Withdraw this request') + '</button>' : '') + '</div>', 'p-3')).join('') + '</div>');
+      }, err => body(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    $('page').addEventListener('click', e => {
+      const row = e.target.closest('.lv-row');
+      if (row) { row.parentElement.querySelector('.lv-detail').classList.toggle('hidden'); return; }
+      const c = e.target.closest('.lv-cancel');
+      if (c) { cancelLeave(myLeaves.find(l => l.LeaveID === c.dataset.id)); return; }
+      const o = e.target.closest('.ps-open');
+      if (o) { openPayslip(o.dataset.run); return; }
+      const d = e.target.closest('.tm-decide');
+      if (d) { decide(d.dataset.id, d.dataset.decision); }
+    });
+    function cancelLeave(l) {
+      const approved = l.Status === 'Approved';
+      dialog({ title: approved ? 'Cancel your leave' : 'Withdraw your request', message: l.LeaveTypeName + ', ' + dateRange(l.FromDate, l.ToDate, l) + '. ' + (approved ? 'Why are you cancelling it?' : 'Why? (optional)'),
+        input: true, required: approved, ok: approved ? 'Cancel leave' : 'Withdraw', danger: true }).then(reason => {
+        if (reason === null) return;
+        api('cancelLeave', { leaveId: l.LeaveID, reason }).then(r => { toast(r.status === 'Withdrawn' ? 'Request withdrawn.' : 'Leave cancelled: the days are back.'); leaveHistory(); }, fail);
+      });
+    }
+
+    function leaveBalances() {
+      api('balances').then(r => {
+        if (!r.balances.length) { body(card(empty('fa-scale-balanced', 'No leave balances yet.'))); return; }
+        const row = (k, v) => '<div class="flex justify-between text-sm py-1"><span class="text-slate-500 dark:text-slate-400">' + k + '</span><span class="font-medium">' + v + '</span></div>';
+        body('<p class="text-xs text-slate-500 dark:text-slate-400 mb-2">As of ' + esc(showDate(r.today)) + '</p><div class="grid sm:grid-cols-2 gap-3">' + r.balances.map(b => card(b.UsesBalance
+          ? '<div class="flex items-baseline justify-between"><div class="font-semibold">' + esc(b.Name) + '</div><div class="bal-available text-2xl font-extrabold text-indigo-600 dark:text-indigo-400" data-code="' + esc(b.Code) + '">' + esc(b.Available) + '</div></div>' +
+            '<div class="text-xs text-slate-500 dark:text-slate-400 text-right -mt-1 mb-2">days available</div>' +
+            row('Earned so far', esc(b.Entitlement)) + (b.Opening ? row('incl. brought forward' + (b.OpeningAsOf ? ' (' + esc(showDate(b.OpeningAsOf)) + ')' : ''), esc(b.Opening)) : '') +
+            row('Taken', esc(b.Taken)) + row('Booked (approved, ahead)', esc(b.Booked)) + row('Pending approval', esc(b.Pending))
+          : '<div class="font-semibold">' + esc(b.Name) + '</div>' + row('Used this year', esc(b.UsedThisYear)) + (b.MaxPerYear != null ? row('Allowed a year', esc(b.MaxPerYear)) : ''))).join('') + '</div>');
+      }, err => body(card(empty('fa-triangle-exclamation', err.message))));
+    }
+
+    // ---------- Pay ----------
+    function pagePay() {
+      page(skeleton());
+      api('payslips').then(r => {
+        if (!r.payslips.length) { page(card(empty('fa-file-invoice-dollar', 'No payslips yet.'))); return; }
+        page('<div class="space-y-2">' + r.payslips.map(p => card('<div class="flex items-center gap-3"><span class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300 flex flex-col items-center justify-center text-[10px] font-bold leading-tight">' +
+          esc(showMonth(p.Month).slice(0, 3).toUpperCase()) + '<span>' + esc(p.Month.slice(0, 4)) + '</span></span><div class="flex-1 min-w-0"><div class="font-semibold">' + esc(showMonth(p.Month)) + '</div>' +
+          '<div class="text-xs text-slate-500 dark:text-slate-400">Earnings ' + money(p.Earnings) + ' · Deductions ' + money(p.Deductions) + '</div></div>' +
+          '<div class="text-right"><div class="ps-net font-bold">' + money(Math.max(0, p.Net)) + '</div><div class="text-[11px] ' + (p.Paid ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400') + '">' + (p.Paid ? 'Paid' : 'Not yet paid') + '</div></div></div>' +
+          '<button class="ps-open mt-3 w-full rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 py-2 text-sm font-semibold" data-run="' + esc(p.RunID) + '"><i class="fa-solid fa-eye"></i> View payslip</button>', 'p-3')).join('') + '</div>');
+      }, err => page(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    let slipFile = '';
+    function slipHtml(p) {
+      const s = p.slip;
+      const rows = kind => s.Lines.filter(l => l.Kind === kind && l.Amount).map(l => '<tr><td>' + esc(l.Name) + (l.Text ? '<div style="font-size:.7rem;opacity:.7">' + esc(showText(l.Text)) + '</div>' : '') + '</td><td class="r">' + money(l.Amount) + '</td></tr>').join('') || '<tr><td colspan="2">—</td></tr>';
+      const info = (k, v) => v ? '<tr><th style="width:35%">' + k + '</th><td>' + esc(v) + '</td></tr>' : '';
+      return '<div style="font-size:1rem;font-weight:bold">' + esc(p.company.Name) + '</div>' + (p.company.Address ? '<div style="font-size:.75rem;opacity:.8">' + esc(p.company.Address) + '</div>' : '') +
+        '<div style="margin-top:.4rem;font-weight:bold">Payslip — ' + esc(showMonth(p.month)) + '</div>' +
+        '<table><tbody>' + info('Employee', s.EmployeeNo + ' · ' + s.EmployeeName) + info('Designation', s.Designation) + info('Department', s.CostCenterName) + info('Joined', showDate(s.JoinDate)) +
+        info('Bank', [s.BankName, s.IBAN].filter(Boolean).join(' · ')) + '</tbody></table>' +
+        '<table><thead><tr><th>Earnings</th><th class="r">Amount</th></tr></thead><tbody>' + rows('Earning') + '<tr><th>Total earnings</th><th class="r">' + money(s.Earnings) + '</th></tr></tbody></table>' +
+        '<table><thead><tr><th>Deductions</th><th class="r">Amount</th></tr></thead><tbody>' + rows('Deduction') + '<tr><th>Total deductions</th><th class="r">' + money(s.Deductions) + '</th></tr></tbody></table>' +
+        '<table><tbody><tr><th style="font-size:1rem">Net pay</th><th class="r" style="font-size:1rem">' + money(Math.max(0, s.Net)) + '</th></tr>' + (s.Net < 0 ? '<tr><td>Shortfall recovered next month</td><td class="r">' + money(-s.Net) + '</td></tr>' : '') +
+        '<tr><td>Status</td><td class="r">' + (s.PaidStatus ? 'Paid' : 'Not yet paid') + '</td></tr></tbody></table>' +
+        '<table><thead><tr><th>Year to date ' + esc(p.month.slice(0, 4)) + '</th><th class="r">Amount</th></tr></thead><tbody><tr><td>Earnings</td><td class="r">' + money(s.YTD.Earnings) + '</td></tr><tr><td>Deductions</td><td class="r">' + money(s.YTD.Deductions) +
+        '</td></tr><tr><td>Net</td><td class="r">' + money(s.YTD.Net) + '</td></tr></tbody></table>' +
+        ((s.Loans || []).length ? '<table><thead><tr><th>Loan balance after this month</th><th class="r">Amount</th></tr></thead><tbody>' + s.Loans.map(l => '<tr><td>' + esc(l.TypeName + ' ' + l.LoanNumber) + '</td><td class="r">' + money(l.Balance) + '</td></tr>').join('') + '</tbody></table>' : '') +
+        ((s.Leave || []).length ? '<table><thead><tr><th>Leave balance at ' + esc(showDate(p.monthEnd)) + '</th><th class="r">Days</th></tr></thead><tbody>' + s.Leave.map(l => '<tr><td>' + esc(l.Name) + '</td><td class="r">' + esc(l.Balance) + '</td></tr>').join('') + '</tbody></table>' : '');
+    }
+    // A line's "how" text may carry dates and months (e.g. arrears: "2026-07: paid …").
+    const showText = t => String(t).replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (m) => showDate(m)).replace(/\b(\d{4})-(\d{2})\b(?!-)/g, m => showMonth(m));
+    function openPayslip(runId) {
+      api('payslip', { runId }).then(p => {
+        $('slip-title').textContent = 'Payslip — ' + showMonth(p.month);
+        $('slip-body').innerHTML = slipHtml(p);
+        slipFile = 'Payslip ' + showMonth(p.month) + ' ' + p.slip.EmployeeNo;
+        $('slip-view').classList.remove('hidden');
+      }, fail);
+    }
+    $('slip-close').addEventListener('click', () => $('slip-view').classList.add('hidden'));
+    $('slip-view').addEventListener('click', e => { if (e.target === $('slip-view')) $('slip-view').classList.add('hidden'); });
+    // Download: the browser's print, where "Save as PDF" names the file after the title.
+    $('slip-pdf').addEventListener('click', () => {
+      $('ess-print').innerHTML = '<div class="ess-slip" style="padding:16px">' + $('slip-body').innerHTML + '</div>';
+      const title = document.title;
+      document.title = slipFile;
+      window.print();
+      setTimeout(() => { document.title = title; }, 1000);
+    });
+
+    // ---------- Team (the line manager, decision 90) ----------
+    let teamList = [];
+    function pageTeam() {
+      page(skeleton());
+      api('team').then(t => {
+        teamList = t.pending; teamPending = t.pending.length; badges();
+        const decided = t.decided.length ? '<h2 class="font-semibold mt-6 mb-2">Recently decided</h2><div class="space-y-2">' + t.decided.map(l => card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold text-sm">' + esc(l.EmployeeName) + '</div>' +
+          '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc(l.LeaveTypeName) + ' · ' + esc(dateRange(l.FromDate, l.ToDate, l)) + ' · ' + days(l.Days) + '</div></div>' + chip(l.Status, l.StatusText) + '</div>', 'p-3')).join('') + '</div>' : '';
+        page((t.pending.length ? '<div class="space-y-3">' + t.pending.map(l => card(
+          '<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(l.EmployeeName) + ' <span class="text-xs font-normal text-slate-400">' + esc(l.EmployeeNo) + '</span></div>' +
+          '<div class="text-sm">' + esc(l.LeaveTypeName) + ' · ' + days(l.Days) + '</div><div class="text-xs text-slate-500 dark:text-slate-400">' + esc(dateRange(l.FromDate, l.ToDate, l)) + ' · ' + esc(l.LeaveNumber) + '</div></div>' + chip(l.Status, l.StatusText) + '</div>' +
+          (l.Reason ? '<div class="mt-2 text-sm italic text-slate-600 dark:text-slate-300">“' + esc(l.Reason) + '”</div>' : '') +
+          (l.Balance ? '<div class="mt-2 text-xs">Balance: ' + esc(l.Balance.Before) + ' → <b>' + esc(l.Balance.After) + '</b> days</div>' : '') +
+          (l.Warnings || []).map(w => '<div class="text-xs text-amber-700 dark:text-amber-300"><i class="fa-solid fa-triangle-exclamation"></i> ' + esc(w) + '</div>').join('') +
+          (l.NoDocument ? '<div class="text-xs text-amber-700 dark:text-amber-300"><i class="fa-solid fa-file-medical"></i> No supporting document attached.</div>' : '') +
+          '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1"><i class="fa-solid fa-route"></i> ' + esc(l.NextStep) + '</div>' +
+          '<div class="grid grid-cols-2 gap-2 mt-3"><button class="tm-decide rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '" data-decision="Rejected">Reject</button>' +
+          '<button class="tm-decide rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '" data-decision="Approved">Approve</button></div>')).join('') + '</div>'
+          : card(empty('fa-circle-check', 'No requests waiting for you.'))) + decided);
+      }, err => page(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    async function decide(id, decision) {
+      const l = teamList.find(x => x.LeaveID === id);
+      if (!l) return;
+      let data = { leaveId: id, decision };
+      if (decision === 'Rejected') {
+        const reason = await dialog({ title: 'Reject ' + l.EmployeeName + '\'s request', message: l.LeaveTypeName + ', ' + dateRange(l.FromDate, l.ToDate, l) + '. The reason is shown to ' + l.EmployeeName.split(/\s+/)[0] + '.', input: true, required: true, ok: 'Reject', danger: true });
+        if (reason === null) return;
+        data.reason = reason;
+      } else if (l.NoDocument && /Approved when you approve/.test(l.NextStep)) {
+        // No further approval: the manager decides on the missing document (decision 44).
+        const ok = await dialog({ title: 'No supporting document', message: l.LeaveTypeName + ' over this length expects a document (e.g. a medical certificate) and none is attached. Approve it without the document?', ok: 'Approve without it' });
+        if (!ok) return;
+        data.acceptWithoutDocument = true;
+      }
+      api('decideLeave', data).then(r => {
+        toast(decision === 'Rejected' ? 'Rejected.' : r.status === 'PendingApproval' ? 'Approved: sent on to HR.' : 'Approved.');
+        pageTeam();
+      }, fail);
+    }
+
+    // ---------- Me ----------
+    function pageMe() {
+      const row = (k, v) => v ? '<div class="flex justify-between gap-4 py-2 border-b border-slate-100 dark:border-slate-800 last:border-0 text-sm"><span class="text-slate-500 dark:text-slate-400">' + k + '</span><span class="font-medium text-right">' + esc(v) + '</span></div>' : '';
+      const dark = document.documentElement.classList.contains('dark');
+      page('<div class="space-y-4">' +
+        card('<div class="flex items-center gap-3 mb-3"><div class="w-12 h-12 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center">' + esc(initials(me.FullName)) + '</div><div><div class="font-bold">' + esc(me.FullName) + '</div><div class="text-sm text-slate-500 dark:text-slate-400">' + esc(me.Designation) + '</div></div></div>' +
+          row('Employee Code', me.EmployeeNo) + row('Company', me.Company) + row('Line manager', me.ManagerName) + row('Joined', showDate(me.JoinDate)) + row('Mobile', me.Mobile) + row('Work email', me.WorkEmail)) +
+        (me.Via === 'portal' ? card('<h2 class="font-semibold mb-3"><i class="fa-solid fa-key text-indigo-500"></i> Change password</h2><form id="me-pw" class="space-y-3">' +
+          field('Current password', '<input id="me-current" type="password" autocomplete="current-password" class="' + inputCls + '">') +
+          field('New password <span class="text-slate-400 font-normal">(8+ characters, not your code)</span>', '<input id="me-new" type="password" autocomplete="new-password" class="' + inputCls + '">') +
+          '<button class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5">Change password</button></form>') : '') +
+        card('<button id="me-theme" class="w-full flex items-center justify-between text-sm font-medium"><span><i class="fa-solid ' + (dark ? 'fa-sun' : 'fa-moon') + ' w-5"></i> ' + (dark ? 'Light mode' : 'Dark mode') + '</span><i class="fa-solid fa-chevron-right text-slate-400"></i></button>') +
+        (me.Via === 'erp' ? '<a href="/" class="block text-center rounded-xl bg-slate-200 dark:bg-slate-800 py-3 font-semibold"><i class="fa-solid fa-arrow-left"></i> Back to the ERP</a>'
+          : '<button id="me-signout" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 py-3 font-semibold text-rose-600 dark:text-rose-400"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</button>') +
+        '</div>');
+      $('me-theme').addEventListener('click', () => {
+        const on = !document.documentElement.classList.contains('dark');
+        document.documentElement.classList.toggle('dark', on);
+        try { localStorage.setItem('ess-theme', on ? 'dark' : 'light'); } catch (e) { /* private mode */ }
+        pageMe();
+      });
+      if ($('me-signout')) $('me-signout').addEventListener('click', () => signOutTo(''));
+      if ($('me-pw')) $('me-pw').addEventListener('submit', e => {
+        e.preventDefault();
+        const cur = $('me-current').value, pw = $('me-new').value;
+        if (!cur || !pw) { say('Enter your current and new password.'); return; }
+        // The current password is checked by signing in with it.
+        window.__ess.signIn(essEmail(me.EmployeeNo), cur).then(() => changePassword(pw), err => { throw new Error(/invalid|wrong/.test(err.code || '') ? 'The current password is wrong.' : signInError(err)); })
+          .then(() => { toast('Password changed.'); pageMe(); }, fail);
+      });
+    }
+    const initials = n => String(n || '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+
+    // ---------- start ----------
+    function start() {
+      return api('me').then(r => {
+        me = r.me; today = r.today;
+        if (me.MustChange) { showChange(); return; }
+        $('hdr-me').textContent = initials(me.FullName);
+        $('side-company').textContent = me.Company;
+        show('v-app');
+        route();
+      }, err => { if (!/Change your password first/.test(err.message)) signOutTo(err.message); });
+    }
+    let starting = null;
+    function boot() {
+      window.__ess.onUser(u => {
+        if (!u) { me = null; show('v-signin'); setTimeout(() => $('si-code').focus(), 50); return; }
+        if (me || starting) return; // a sign-in again after a password change, or already loading
+        show('v-loading');
+        starting = start().finally(() => { starting = null; });
+      });
+    }
+    if (window.__ess) boot(); else window.addEventListener('ess-sdk-ready', boot, { once: true });
+  })();
+  </script>
+</body>
+</html>

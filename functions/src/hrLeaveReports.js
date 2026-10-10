@@ -117,7 +117,7 @@ exports.getLeaveCalendar = onCallWithMessages(onCallOptions, async (request) => 
   const days = [];
   for (let x = start; x <= end; x = addDay(x, 1)) days.push(x);
   const cal = await calendar(co);
-  const leaves = (await leavesFor(ok)).filter(l => l.Status === 'Approved' || l.Status === 'PendingApproval');
+  const leaves = (await leavesFor(ok)).filter(l => ['Approved', 'PendingApproval', 'PendingManager'].includes(l.Status));
   const emps = (await employeesFor(ok)).filter(e => e.JoinDate <= end && !(e.Status === 'Left' && e.LeavingDate && e.LeavingDate < start)).sort(byNo);
   const rows = [];
   for (const e of emps) {
@@ -129,7 +129,7 @@ exports.getLeaveCalendar = onCallWithMessages(onCallOptions, async (request) => 
       const c = cells[x.Date] || { Codes: [], Fraction: 0 };
       if (!c.Codes.includes(x.Code)) c.Codes.push(x.Code);
       c.Fraction = round2(c.Fraction + x.Fraction);
-      c.Pending = c.Pending || l.Status === 'PendingApproval';
+      c.Pending = c.Pending || l.Status !== 'Approved';
       c.Absence = c.Absence || Boolean(x.Absence);
       c.Name = x.Absence ? 'Absent' : x.Split ? l.LeaveTypeName + ' (unpaid part)' : l.LeaveTypeName;
       c.LeaveID = l.LeaveID;
