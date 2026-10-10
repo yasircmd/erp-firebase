@@ -1,0 +1,142 @@
+<div class="space-y-5">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Admin</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-hashtag text-blue-500"></i> Numbering</h2></div>
+    <div class="flex items-end gap-3">
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Find</label>
+        <input id="nb-search" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" placeholder="Type or prefix...">
+      </div>
+    </div>
+  </div>
+  <p class="text-xs text-slate-400">Each document number and code is built from its parts: the prefix, the company code, the year and the running number. The defaults are the system's own. A change applies to new numbers only; with the year in the format the number starts again each year, without the company code all companies share one sequence. The samples show company 01 and this year.</p>
+  <p id="nb-readonly" class="hidden text-xs text-amber-300"><i class="fa-solid fa-lock"></i> You can see the numbering but not change it.</p>
+
+  <div id="nb-groups" class="space-y-5"></div>
+
+  <!-- the builder -->
+  <div id="nb-edit" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-5 space-y-4">
+      <div class="flex justify-between items-center"><h3 id="nb-edit-title" class="text-lg font-bold"></h3><button id="nb-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="block text-xs text-slate-300 mb-1">Prefix <span class="text-slate-500">(letters or digits)</span></label><input id="nb-prefix" maxlength="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono"></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Running number, digits</label><input id="nb-digits" type="number" min="3" max="10" step="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Year</label><select id="nb-year" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">None (never starts again)</option><option value="YY">2 digits (starts again each year)</option><option value="YYYY">4 digits (starts again each year)</option></select></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Separator</label><select id="nb-sep" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="-">- (dash)</option><option value="/">/ (slash)</option><option value="">none</option></select></div>
+        <label id="nb-company-wrap" class="flex items-center gap-2 text-xs text-slate-300 col-span-2"><input id="nb-company" type="checkbox"> Company code <span class="text-slate-500">(each company its own sequence; without it all companies share one)</span></label>
+        <div id="nb-order-wrap" class="col-span-2"><label class="block text-xs text-slate-300 mb-1">Order</label><select id="nb-order" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="YC">Year, then company</option><option value="CY">Company, then year</option></select></div>
+      </div>
+      <div class="bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm">Sample: <b id="nb-preview" class="font-mono keep-iso text-emerald-300"></b> <span id="nb-default-note" class="text-xs text-slate-500"></span></div>
+      <div class="flex justify-between gap-2">
+        <button id="nb-reset" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-rotate-left"></i> Reset to default</button>
+        <div class="flex gap-2">
+          <button id="nb-cancel" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button>
+          <button id="nb-save" class="bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-2">
+    <div class="text-xs font-semibold text-slate-400 uppercase">Changes</div>
+    <table class="w-full text-left text-xs">
+      <thead class="text-slate-400 uppercase"><tr><th class="py-1 px-2">When</th><th class="py-1 px-2">By</th><th class="py-1 px-2">Type</th><th class="py-1 px-2">From</th><th class="py-1 px-2">To</th></tr></thead>
+      <tbody id="nb-log" class="divide-y divide-slate-700"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Numbering (owner, 2026-10-09; docs/modules/NUMBERING.md, decisions 80-83).
+  const $ = id => document.getElementById(id);
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  let data = null, editing = null;
+
+  // The same rendering as the server's (functions/src/numbering.js).
+  function render(f) {
+    const y = String(new Date().getFullYear());
+    const year = f.Year === 'YYYY' ? y : f.Year === 'YY' ? y.slice(-2) : '';
+    const co = f.Company ? '01' : '';
+    const mids = f.Order === 'CY' ? [co, year] : [year, co];
+    return [f.Prefix].concat(mids.filter(Boolean)).join(f.Sep) + f.Sep + '1'.padStart(Math.max(1, Number(f.Digits) || 1), '0');
+  }
+
+  function load() {
+    return call('getNumbering', {}).then(r => { data = r; renderList(); }, err => appAlert(err.message || 'Unable to load the numbering.'));
+  }
+  function renderList() {
+    const q = $('nb-search').value.trim().toLowerCase();
+    $('nb-readonly').classList.toggle('hidden', data.canWrite);
+    const groups = [...new Set(data.kinds.map(k => k.group))];
+    $('nb-groups').innerHTML = groups.map(g => {
+      const rows = data.kinds.filter(k => k.group === g && (!q || (k.label + ' ' + k.sample + ' ' + k.format.Prefix).toLowerCase().includes(q)));
+      if (!rows.length) return '';
+      return '<div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto"><div class="px-3 py-2 text-xs font-semibold text-slate-400 uppercase">' + escapeHtml(g) + '</div>' +
+        '<table class="w-full text-left text-xs"><thead class="bg-slate-900 text-slate-400 uppercase"><tr><th class="py-1.5 px-3">Type</th><th class="py-1.5 px-3">Sample</th><th class="py-1.5 px-3"></th><th></th></tr></thead><tbody class="divide-y divide-slate-700">' +
+        rows.map(k => '<tr data-kind="' + escapeHtml(k.key) + '"><td class="py-1.5 px-3">' + escapeHtml(k.label) + '</td>' +
+          '<td class="py-1.5 px-3 font-mono keep-iso nb-sample">' + escapeHtml(k.sample) + '</td>' +
+          '<td class="py-1.5 px-3">' + (k.isDefault ? '<span class="text-slate-500">default</span>' : '<span class="text-amber-300">customized</span>') + '</td>' +
+          '<td class="py-1.5 px-3 text-right">' + (data.canWrite ? '<button class="nb-edit text-blue-300 hover:text-blue-200"><i class="fa-solid fa-pen"></i> Edit</button>' : '') + '</td></tr>').join('') +
+        '</tbody></table></div>';
+    }).join('') || '<p class="text-sm text-slate-500">Nothing matches.</p>';
+    $('nb-log').innerHTML = data.log.length ? data.log.map(x => '<tr><td class="py-1 px-2">' + escapeHtml(window.isoLocalDateTime ? window.isoLocalDateTime(new Date(x.At)) : x.At) + '</td><td class="py-1 px-2">' + escapeHtml(x.By) +
+      '</td><td class="py-1 px-2">' + escapeHtml(x.Label) + '</td><td class="py-1 px-2 font-mono keep-iso">' + escapeHtml(x.From) + '</td><td class="py-1 px-2 font-mono keep-iso">' + escapeHtml(x.To) + '</td></tr>').join('')
+      : '<tr><td colspan="5" class="py-3 text-center text-slate-500">No changes yet: every number is the default.</td></tr>';
+  }
+
+  function current() {
+    return { Prefix: $('nb-prefix').value.trim(), Company: $('nb-company').checked, Year: $('nb-year').value, Order: $('nb-order').value, Sep: $('nb-sep').value, Digits: Number($('nb-digits').value) };
+  }
+  function preview() {
+    const f = current();
+    $('nb-order-wrap').classList.toggle('hidden', !(f.Company && f.Year));
+    $('nb-preview').textContent = render(f);
+    $('nb-default-note').textContent = render(f) === render(editing.default) && f.Digits === editing.default.Digits ? '(the default)' : 'default: ' + render(editing.default);
+  }
+  function openEdit(key) {
+    editing = data.kinds.find(k => k.key === key);
+    const f = editing.format;
+    $('nb-edit-title').textContent = editing.label;
+    $('nb-prefix').value = f.Prefix;
+    $('nb-digits').value = f.Digits;
+    $('nb-year').value = f.Year;
+    $('nb-sep').value = f.Sep;
+    $('nb-order').value = f.Order;
+    $('nb-company').checked = !!f.Company;
+    $('nb-company').disabled = !editing.company;
+    $('nb-company-wrap').classList.toggle('opacity-50', !editing.company);
+    $('nb-edit').classList.remove('hidden');
+    preview();
+    $('nb-prefix').focus();
+  }
+  const closeEdit = () => { editing = null; $('nb-edit').classList.add('hidden'); };
+  function save(reset) {
+    const kind = editing.key, label = editing.label;
+    call('saveNumberingFormat', reset ? { kind, reset: true } : { kind, format: current() }).then(r => {
+      closeEdit();
+      appAlert(r.unchanged ? 'Nothing changed.' : label + ': new numbers will look like ' + (r.sample || '') + '.');
+      load();
+    }, err => appAlert(err.message || 'Unable to save the numbering.'));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-hashtag"></i> Numbering';
+    $('nb-search').addEventListener('input', () => { if (data) renderList(); });
+    $('nb-groups').addEventListener('click', e => { const b = e.target.closest('.nb-edit'); if (b) openEdit(b.closest('tr').dataset.kind); });
+    ['nb-prefix', 'nb-digits', 'nb-year', 'nb-sep', 'nb-order', 'nb-company'].forEach(id => { $(id).addEventListener('input', preview); $(id).addEventListener('change', preview); });
+    $('nb-save').addEventListener('click', () => save(false));
+    $('nb-reset').addEventListener('click', () => {
+      if (!editing) return;
+      appConfirm('Reset ' + editing.label + ' to the default (' + render(editing.default) + ')? New numbers carry on from its own counter.').then(ok => { if (ok) save(true); });
+    });
+    $('nb-cancel').addEventListener('click', closeEdit);
+    $('nb-close').addEventListener('click', closeEdit);
+    load();
+  };
+})();
+</script>

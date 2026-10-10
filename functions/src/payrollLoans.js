@@ -230,8 +230,8 @@ exports.deleteLoan = onCallWithMessages(onCallOptions, async (request) => {
 });
 
 async function nextNumber() {
-  const res = await rtdb.ref('hrCounters/LN').transaction(cur => (Number(cur) || 0) + 1);
-  return 'LN-' + String(res.snapshot.val()).padStart(4, '0');
+  // The format is the Numbering module's (docs/modules/NUMBERING.md).
+  return require('./numbering').hrNumber('LN');
 }
 
 exports.submitLoan = onCallWithMessages(onCallOptions, async (request) => {

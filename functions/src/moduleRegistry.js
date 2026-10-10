@@ -113,7 +113,9 @@ const MODULE_REGISTRY = [
   { id: 'PROVISIONS', label: 'Provisions', capabilities: ['access'] },
   // Direct Retail Sales (docs/modules/RETAIL_SALES.md): post = sell and reverse, write = setup,
   // report = every user's sales (without it, a user sees only the sales they billed).
-  { id: 'RETAILSALES', label: 'Retail Sales', capabilities: ['access', 'post', 'write', 'report', 'return'] }
+  { id: 'RETAILSALES', label: 'Retail Sales', capabilities: ['access', 'post', 'write', 'report', 'return'] },
+  // Numbering (docs/modules/NUMBERING.md): the formats of document numbers and codes.
+  { id: 'NUMBERING', label: 'Numbering', capabilities: ['access', 'write'] }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -232,7 +234,8 @@ const DEFAULT_PERMISSIONS = {
   PAYROLLIP:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'], pay: ['ADMIN'] },
   PAYROLLED:          { access: ['ADMIN', 'FINANCE_MGR'], draft: ['ADMIN'] },
   PROVISIONS:         { access: ['ADMIN', 'FINANCE_MGR'] },
-  RETAILSALES:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], post: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], write: ['ADMIN'], report: ['ADMIN', 'FINANCE_MGR'], return: ['ADMIN', 'FINANCE_MGR'] }
+  RETAILSALES:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], post: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], write: ['ADMIN'], report: ['ADMIN', 'FINANCE_MGR'], return: ['ADMIN', 'FINANCE_MGR'] },
+  NUMBERING:          { access: ['ADMIN'], write: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

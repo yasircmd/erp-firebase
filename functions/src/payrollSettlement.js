@@ -392,8 +392,8 @@ exports.deleteSettlement = onCallWithMessages(onCallOptions, async (request) => 
 // ---------- submit, approval, posting ----------
 
 async function nextNumber() {
-  const res = await rtdb.ref('hrCounters/FS').transaction(cur => (Number(cur) || 0) + 1);
-  return 'FS-' + String(res.snapshot.val()).padStart(4, '0');
+  // The format is the Numbering module's (docs/modules/NUMBERING.md).
+  return require('./numbering').hrNumber('FS');
 }
 async function posterFor(user, s) {
   if (userCanAccessCompany(user.profile, s.CompanyID)) return user;

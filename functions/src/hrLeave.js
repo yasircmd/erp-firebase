@@ -391,9 +391,8 @@ function withPayMonths(newLines, oldLines, locked) {
 const approvalKeyOf = v => (v.Kind === 'Absence' ? 'LEAVE_ABSENCE' : MODULE_ID);
 
 async function nextNumber(from) {
-  const year = from.slice(0, 4);
-  const res = await rtdb.ref('hrCounters/LV-' + year).transaction(cur => (Number(cur) || 0) + 1);
-  return 'LV-' + year + '-' + String(res.snapshot.val()).padStart(4, '0');
+  // The format is the Numbering module's (docs/modules/NUMBERING.md).
+  return require('./numbering').hrNumber('LV', Number(from.slice(0, 4)));
 }
 
 // Submit: checked again (the balance may have moved); approval if

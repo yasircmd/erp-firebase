@@ -75,6 +75,11 @@ const MAPPED = {
   parseAmountServer_: ['glWriting', 'parseAmountServer', 'pure'],
   getCompanyRefCode_: ['glWriting', 'getCompanyRefCode', 'dropCtx'],
   generateStockVoucherNumber_: ['glWriting', 'generateStockVoucherNumber', 'dropCtx'],
+  // new development: docs/modules/NUMBERING.md (every number from its format)
+  generateVoucherNumber_: ['numbering', 'voucherNumber', 'dropCtx'],
+  generateItemCode_: ['numbering', 'itemCode', 'dropCtx'],
+  generateVendorCode_: ['numbering', 'vendorCode', 'dropCtx'],
+  generateCustomerCode_: ['numbering', 'customerCode', 'dropCtx'],
   generateStockTransactionRef_: ['glWriting', 'generateStockTransactionRef', 'dropCtx'],
   beginCommitAttempt_: ['commitAttempt', 'beginCommitAttempt', 'dropCtx'],
   abandonCommitAttempt_: ['commitAttempt', 'abandonCommitAttempt', 'dropCtx'],
@@ -112,7 +117,8 @@ const SHARED_PATHS = {
   listPaging: '../listPaging', // used by name (__listPaging.) in patches
   prVisibility: '../prVisibility',
   coaUsage: '../coaUsage',
-  lineClubbing: '../lineClubbing'
+  lineClubbing: '../lineClubbing',
+  numbering: '../numbering'
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);

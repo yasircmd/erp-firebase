@@ -45,9 +45,11 @@ const parseAmountServer_ = (...a) => parseAmountServer(...a);
 const resolveApprovalScopeKeyForDocument_ = (idToken, ...a) => resolveApprovalScopeKeyForDocument(...a);
 const beginApprovalInstance_ = (idToken, ...a) => beginApprovalInstance(...a);
 const moduleIdForEntry_ = (...a) => moduleIdForEntry(...a);
+// Voucher numbers come from the Numbering module (docs/modules/NUMBERING.md).
+const generateVoucherNumber_ = (idToken, ...a) => require('./numbering').voucherNumber(...a);
 const {
   getCoaData_, decideApprovalForDocument_, requireDraftAccess_, requirePostAccess_,
-  generateVoucherNumber_, generateGlTransactionRef_, voucherPrefixForEntry_
+  generateGlTransactionRef_, voucherPrefixForEntry_
 } = L;
 
 // Verbatim copy of codegs.js's constant (reverseJournalEntry's guard).

@@ -19,7 +19,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { moduleHasCapability } = require('./auth');
-const { userCanAccessCompany, getCompanyRefCode } = require('./glWriting');
+const { userCanAccessCompany } = require('./glWriting');
 
 const AREA = 'BOOK';
 // Key of an account determination's shared row (Firestore map keys can't be empty).
@@ -187,12 +187,10 @@ async function assertEntryNotCapitalized(jvId) {
 
 // The next asset number, FA-<company ref>-<6 digits>. Caller holds the
 // global lock; the counter never goes back.
+// The format is the Numbering module's (docs/modules/NUMBERING.md); its
+// default carries on from fa/counters/asset.
 async function nextAssetNumber(companyId) {
-  const ref = await getCompanyRefCode(companyId);
-  const path = 'fa/counters/asset/' + ref;
-  const current = (await rtdb.ref(path).get()).val() || 0;
-  await rtdb.ref(path).set(current + 1);
-  return 'FA-' + ref + '-' + String(current + 1).padStart(6, '0');
+  return require('./numbering').assetNumber(companyId);
 }
 
 // All transactions of an asset for one area, oldest first.

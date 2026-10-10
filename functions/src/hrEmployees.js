@@ -25,7 +25,6 @@ const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'EMPLOYEES';
 const EMPLOYEES = () => firestore.collection('employees');
 const HISTORY = () => firestore.collection('employeeHistory');
-const COUNTER = 'hrCounters/EMP';
 
 const GENDERS = ['Male', 'Female'];
 const MARITAL = ['Single', 'Married', 'Divorced', 'Widowed'];
@@ -93,11 +92,10 @@ function missingFields(e, setup) {
   }).map(f => f.Label);
 }
 
+// The format is the Numbering module's (docs/modules/NUMBERING.md); its
+// default EMP-0001 carries on from hrCounters/EMP.
 async function nextEmployeeNo() {
-  // A transaction's first try sees the local cache (null): returning 1 for
-  // it is safe, the server value replaces it on the retry.
-  const res = await rtdb.ref(COUNTER).transaction(cur => (Number(cur) || 0) + 1);
-  return 'EMP-' + String(res.snapshot.val()).padStart(4, '0');
+  return require('./numbering').employeeCode();
 }
 
 async function allEmployees() {

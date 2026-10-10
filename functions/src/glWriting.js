@@ -123,15 +123,11 @@ async function getCompanyRefCode(companyId) {
 // lock.js) — no internal locking here, same contract the original had
 // with LockService.getScriptLock(), just backed by a different
 // mechanism now.
+// The number's format is the Numbering module's (docs/modules/NUMBERING.md);
+// its default is the shape above (PREFIX-YY-CO-000001), carrying on from
+// stock/counters/voucher.
 async function generateStockVoucherNumber(prefix, year, companyId) {
-  const companyRefCode = await getCompanyRefCode(companyId);
-  const yy = String(year).slice(-2);
-  const counterPath = 'stock/counters/voucher/' + prefix + '/' + year + '/' + companyRefCode;
-  const snap = await rtdb.ref(counterPath).get();
-  const current = snap.val() || 0;
-  const next = current + 1;
-  await rtdb.ref(counterPath).set(next);
-  return prefix + '-' + yy + '-' + companyRefCode + '-' + String(next).padStart(6, '0');
+  return require('./numbering').voucherNumber(prefix, year, companyId);
 }
 
 // Payroll's journals (docs/modules/HR_PAYROLL.md, decision 48) take their

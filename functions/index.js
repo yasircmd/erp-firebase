@@ -247,3 +247,7 @@ const itemBarcodes = require('./src/itemBarcodes');
 // HR Payroll step 7c: the Provisions module (docs/modules/HR_PAYROLL.md, step 7).
 const provisions = require('./src/provisions');
 ['getProvisionStatement', 'getProvisionMovements', 'saveProvisionOpeningEntry', 'deleteProvisionOpening'].forEach(n => { exports[n] = provisions[n]; });
+
+// Numbering (docs/modules/NUMBERING.md): the formats of document numbers and codes.
+const numbering = require('./src/numbering');
+['getNumbering', 'saveNumberingFormat'].forEach(n => { exports[n] = numbering[n]; });
