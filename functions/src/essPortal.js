@@ -24,6 +24,8 @@ const { loadSetup } = require('./hrSetup');
 const { leaveTypes } = require('./hrLeaveSetup');
 const lv = require('./hrLeave');
 const ER = () => require('./employeeRequests');
+// Who is on leave today and the returns due (owner, 2026-10-10: here, not on ERP Home).
+const leaveTasks = me => require('./hrLeaveReports').leaveTasksFor([me.emp.EmployeeID]);
 
 const onCallOptions = { region: 'us-central1' };
 const ACCOUNTS = () => firestore.collection('essAccounts');
@@ -260,7 +262,7 @@ async function reportsOf(emp) {
 async function team(me) {
   const reports = await reportsOf(me.emp);
   const ids = new Set(reports.map(e => e.EmployeeID));
-  if (!ids.size) return { isManager: false, pending: [], decided: [], loanRequests: [], claims: [] };
+  if (!ids.size) return { isManager: false, pending: [], decided: [], loanRequests: [], claims: [], onLeaveToday: [], returnsDue: [] };
   const pending = docs(await LEAVES().where('Status', '==', 'PendingManager').get()).filter(l => ids.has(l.EmployeeID)).map(l => Object.assign(l, { LeaveID: l._id }));
   const out = [];
   for (const l of pending.sort((a, b) => String(a.FromDate).localeCompare(String(b.FromDate)))) {
@@ -280,7 +282,11 @@ async function team(me) {
   // Advance and loan requests (step 2, decision 102).
   const loanRequests = await ER().teamLoanRequests(ids);
   const claims = await require('./reimbursements').teamClaims(ids);
-  return { isManager: true, pending: out, decided, loanRequests, claims };
+  // The reports away today and their returns due, to see: HR records a
+  // return in the Leave Register (owner, 2026-10-10).
+  const lt = await leaveTasks(me);
+  const theirs = x => x.As === 'Line manager';
+  return { isManager: true, pending: out, decided, loanRequests, claims, onLeaveToday: lt.onLeaveToday.filter(theirs), returnsDue: lt.returnsToRecord.filter(theirs) };
 }
 
 async function decideLeave(me, d) {
@@ -332,7 +338,8 @@ async function payslip(me, d) {
   const out = await require('./payrollPost').payslipsOf(run, me.emp.EmployeeID);
   if (!out.slips.length) throw new HttpsError('not-found', 'Payslip not found.');
   const slip = out.slips[0];
-  return { company: out.company, month: out.month, monthEnd: out.monthEnd, runNumber: out.runNumber, slip: Object.assign(slip, { PaidStatus: paidFor(run, me.emp.EmployeeID) }) };
+  // slip.Html is the Payroll screen's own payslip (payslipDocument.js), with its css.
+  return { company: out.company, month: out.month, monthEnd: out.monthEnd, runNumber: out.runNumber, css: out.css, slip: Object.assign(slip, { PaidStatus: paidFor(run, me.emp.EmployeeID) }) };
 }
 
 // ---------- the portal's callable ----------
@@ -363,9 +370,12 @@ const ACTIONS = {
     return { success: true };
   } },
   home: { run: async (me) => {
-    const [bal, leaves, slips, t] = await Promise.all([balances(me.emp), myLeaves(me.emp), payslipList(me.emp), team(me)]);
+    const [bal, leaves, slips, t, lt] = await Promise.all([balances(me.emp), myLeaves(me.emp), payslipList(me.emp), team(me), leaveTasks(me)]);
+    const own = x => x.As === 'Employee';
     return { balances: bal, open: leaves.filter(l => ['PendingManager', 'PendingApproval'].includes(l.Status) || (l.Status === 'Approved' && l.ToDate >= today())).slice(0, 5),
-      lastPayslip: slips[0] || null, teamPending: t.pending.length + (t.loanRequests || []).length + (t.claims || []).length, requests: await ER().portalCounts(me), today: today() };
+      lastPayslip: slips[0] || null, teamPending: t.pending.length + (t.loanRequests || []).length + (t.claims || []).length, requests: await ER().portalCounts(me), today: today(),
+      // The employee's own: back from leave, still to be recorded by HR.
+      myReturnDue: lt.returnsToRecord.filter(own)[0] || null, teamAway: t.onLeaveToday.length, teamReturnsDue: t.returnsDue.length };
   } },
   leaveForm: { run: async (me) => ({ types: await typesFor(me.emp), manager: ((await lineManager(me.emp)) || {}).FullName || '', today: today() }) },
   previewLeave: { run: async (me, d) => {

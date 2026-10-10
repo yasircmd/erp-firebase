@@ -5,12 +5,7 @@
     body, #app-container { background: white !important; color: black !important; }
     #pr-print-document { display: block !important; }
   }
-  #pr-print-document .pr-ps { page-break-after: always; color: #000; font-size: 11px; }
-  #pr-print-document .pr-ps:last-child { page-break-after: auto; }
-  #pr-print-document table { border-collapse: collapse; width: 100%; margin-top: 6px; }
-  #pr-print-document th, #pr-print-document td { border: 1px solid #333; padding: 3px 6px; text-align: left; }
-  #pr-print-document td.r, #pr-print-document th.r { text-align: right; }
-  #pr-print-document thead { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* The payslip's own look comes with it from the server (functions/src/payslipDocument.js). */
 </style>
 <div id="pr-print-document" class="print-only"></div>
 
@@ -180,7 +175,7 @@
   const STICKY_TH = '<th class="py-2 px-3 sticky z-10 bg-slate-900" style="position:sticky;left:0;min-width:5.5rem">No.</th><th class="py-2 px-3 sticky z-10 bg-slate-900" style="position:sticky;left:5.5rem">Employee</th>';
   const stickyTd = s => '<td class="py-2 px-3 text-xs sticky bg-slate-800" style="position:sticky;left:0;min-width:5.5rem">' + escapeHtml(s.EmployeeNo) + '</td><td class="py-2 px-3 sticky bg-slate-800" style="position:sticky;left:5.5rem">' + escapeHtml(s.EmployeeName) + '</td>';
   const STATUS = { Draft: 'Draft', PendingApproval: 'Pending approval', Approved: 'Approved, waiting to post', Posted: 'Posted' };
-  const coLabel = id => { const c = companies.find(x => x.CompanyID === id); return c ? (c.CompanyRefCode || c.LegalName) : id; };
+  const coLabel = id => { const c = companies.find(x => x.CompanyID === id); return c ? c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '') : id; };
 
   // ---------- the list ----------
   // Step 7: Runs and Payment tabs, filtered by company, month and status
@@ -544,25 +539,11 @@
   }
 
   // ---------- payslips (decision 19): one per page, through the browser's print ----------
-  function payslipHtml(p, s) {
-    const rows = kind => s.Lines.filter(l => l.Kind === kind).map(l => '<tr><td>' + escapeHtml(l.Name) + '</td><td>' + escapeHtml(l.Text) + '</td><td class="r">' + money(l.Amount) + '</td></tr>').join('') || '<tr><td colspan="3">—</td></tr>';
-    const info = (k, v) => '<tr><th>' + k + '</th><td>' + escapeHtml(v || '') + '</td></tr>';
-    return '<div class="pr-ps"><h1 style="font-size:16px;font-weight:bold">' + escapeHtml(p.company.Name) + '</h1>' + (p.company.Address ? '<div>' + escapeHtml(p.company.Address) + '</div>' : '') +
-      '<h2 style="font-size:13px;font-weight:bold;margin-top:6px">Payslip — ' + escapeHtml(p.month) + (p.status !== 'Posted' ? ' (' + escapeHtml(STATUS[p.status] || p.status) + ', not final)' : '') + '</h2>' +
-      '<table><tbody>' + info('Employee', s.EmployeeNo + ' · ' + s.EmployeeName) + info('Designation', s.Designation) + info('Cost center', s.CostCenterName) + info('Joined', s.JoinDate) +
-      info('Bank', [s.BankName, s.IBAN].filter(Boolean).join(' · ')) + '</tbody></table>' +
-      '<table><thead><tr><th>Earnings</th><th>How</th><th class="r">Amount</th></tr></thead><tbody>' + rows('Earning') + '<tr><th colspan="2">Total earnings</th><th class="r">' + money(s.Earnings) + '</th></tr></tbody></table>' +
-      '<table><thead><tr><th>Deductions</th><th>How</th><th class="r">Amount</th></tr></thead><tbody>' + rows('Deduction') + '<tr><th colspan="2">Total deductions</th><th class="r">' + money(s.Deductions) + '</th></tr></tbody></table>' +
-      '<table><tbody><tr><th>Net pay</th><th class="r">' + money(Math.max(0, s.Net)) + '</th></tr>' + (s.Net < 0 ? '<tr><td>Shortfall recovered next month</td><td class="r">' + money(-s.Net) + '</td></tr>' : '') + '</tbody></table>' +
-      '<table><thead><tr><th>Year to date</th><th class="r">Earnings</th><th class="r">Deductions</th><th class="r">Net</th></tr></thead><tbody><tr><td>' + escapeHtml(p.month.slice(0, 4)) + '</td><td class="r">' + money(s.YTD.Earnings) +
-      '</td><td class="r">' + money(s.YTD.Deductions) + '</td><td class="r">' + money(s.YTD.Net) + '</td></tr></tbody></table>' +
-      ((s.Loans || []).length ? '<table><thead><tr><th>Loan balance after this month</th><th class="r">Amount</th></tr></thead><tbody>' + s.Loans.map(l => '<tr><td>' + escapeHtml(l.TypeName + ' ' + l.LoanNumber) + '</td><td class="r">' + money(l.Balance) + '</td></tr>').join('') + '</tbody></table>' : '') +
-      (s.Leave.length ? '<table><thead><tr><th>Leave balance at ' + escapeHtml(p.monthEnd) + '</th><th class="r">Days</th></tr></thead><tbody>' + s.Leave.map(l => '<tr><td>' + escapeHtml(l.Name) + '</td><td class="r">' + l.Balance + '</td></tr>').join('') + '</tbody></table>' : '') +
-      '</div>';
-  }
+  // The layout is the server's (functions/src/payslipDocument.js), the
+  // same one the Employee Portal shows and downloads (owner, 2026-10-10).
   function printPayslips(employeeId) {
     call('getPayrollPayslips', { runId: current.run.RunID, employeeId: employeeId || '' }).then(p => {
-      $('pr-print-document').innerHTML = p.slips.map(s => payslipHtml(p, s)).join('');
+      $('pr-print-document').innerHTML = '<style>' + p.css + '</style>' + p.slips.map(s => s.Html).join('');
       window.print();
     }, err => appAlert(err.message || 'Unable to load the payslips.'));
   }

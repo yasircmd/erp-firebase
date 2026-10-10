@@ -27,14 +27,10 @@
     @media (min-width: 768px) { .ess-safe-bottom { padding-bottom: 2rem; } }
     #ess-busy { height: 3px; transform: scaleX(0); transform-origin: left; transition: transform .3s; }
     #ess-busy.on { transform: scaleX(.8); transition: transform 8s cubic-bezier(.1,.7,.2,1); }
-    .ess-slip table { width: 100%; border-collapse: collapse; margin-top: .75rem; font-size: .8rem; }
-    .ess-slip th, .ess-slip td { padding: .35rem .5rem; border-bottom: 1px solid rgba(148,163,184,.3); text-align: left; vertical-align: top; }
-    .ess-slip .r { text-align: right; white-space: nowrap; }
     #ess-print { display: none; }
     @media print {
       body > *:not(#ess-print) { display: none !important; }
       #ess-print { display: block !important; color: #000; background: #fff; font-family: Arial, sans-serif; }
-      #ess-print .ess-slip th, #ess-print .ess-slip td { border-bottom: 1px solid #ccc; }
     }
   </style>
 </head>
@@ -132,7 +128,7 @@
           <button id="slip-close" class="rounded-lg bg-slate-100 dark:bg-slate-800 text-sm px-3 py-2" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
-      <div id="slip-body" class="ess-slip p-4"></div>
+      <div id="slip-body" class="p-4 bg-white text-black"></div>
     </div>
   </div>
 
@@ -427,6 +423,9 @@
           '</div>' +
           (reqUnread ? '<a href="#requests" id="home-replies" class="block">' + card('<div class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300 flex items-center justify-center"><i class="fa-solid fa-envelope"></i></span><div class="flex-1"><div class="font-semibold text-sm">' + (reqUnread === 1 ? 'A request has' : reqUnread + ' requests have') + ' a new reply from HR</div><div class="text-xs text-slate-500 dark:text-slate-400">Open your requests</div></div><i class="fa-solid fa-chevron-right text-slate-400"></i></div>') + '</a>' : '') +
           (h.teamPending ? '<a href="#team" id="home-team" class="block">' + card('<div class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300 flex items-center justify-center"><i class="fa-solid fa-people-group"></i></span><div class="flex-1"><div class="font-semibold text-sm">' + h.teamPending + ' team request' + (h.teamPending === 1 ? '' : 's') + ' waiting for you</div><div class="text-xs text-slate-500 dark:text-slate-400">Approve or reject</div></div><i class="fa-solid fa-chevron-right text-slate-400"></i></div>') + '</a>' : '') +
+          (h.myReturnDue ? card('<div id="home-my-return" class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300 flex items-center justify-center"><i class="fa-solid fa-plane-arrival"></i></span><div class="flex-1"><div class="font-semibold text-sm">Your return from ' + esc(h.myReturnDue.LeaveTypeName) + ' is not recorded yet</div><div class="text-xs text-slate-500 dark:text-slate-400">Due back ' + esc(showDate(h.myReturnDue.ExpectedReturn)) + ': let HR know you are back.</div></div></div>') : '') +
+          (h.teamAway || h.teamReturnsDue ? '<a href="#team" id="home-team-away" class="block">' + card('<div class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300 flex items-center justify-center"><i class="fa-solid fa-umbrella-beach"></i></span><div class="flex-1"><div class="font-semibold text-sm">' +
+            [h.teamAway ? h.teamAway + ' of your team away today' : '', h.teamReturnsDue ? h.teamReturnsDue + ' return' + (h.teamReturnsDue === 1 ? '' : 's') + ' from leave not yet recorded' : ''].filter(Boolean).join(' · ') + '</div><div class="text-xs text-slate-500 dark:text-slate-400">See who in Team</div></div><i class="fa-solid fa-chevron-right text-slate-400"></i></div>') + '</a>' : '') +
           '<div><div class="flex items-center justify-between mb-2"><h2 class="font-semibold">Your requests</h2><a href="#leave/history" class="text-sm text-indigo-600 dark:text-indigo-400">See all</a></div>' +
           (h.open.length ? '<div class="space-y-2">' + h.open.map(l => card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold text-sm">' + esc(l.LeaveTypeName) + '</div><div class="text-xs text-slate-500 dark:text-slate-400">' + esc(dateRange(l.FromDate, l.ToDate, l)) + ' · ' + days(l.Days) + '</div></div>' + chip(l.Status, l.StatusText) + '</div>', 'p-3')).join('') + '</div>'
             : card(empty('fa-mug-hot', 'Nothing pending. Enjoy your day!'), 'p-2')) +
@@ -633,22 +632,13 @@
       }, err => payBody(card(empty('fa-triangle-exclamation', err.message))));
     }
     let slipFile = '';
-    function slipHtml(p) {
-      const s = p.slip;
-      const rows = kind => s.Lines.filter(l => l.Kind === kind && l.Amount).map(l => '<tr><td>' + esc(l.Name) + (l.Text ? '<div style="font-size:.7rem;opacity:.7">' + esc(showText(l.Text)) + '</div>' : '') + '</td><td class="r">' + money(l.Amount) + '</td></tr>').join('') || '<tr><td colspan="2">—</td></tr>';
-      const info = (k, v) => v ? '<tr><th style="width:35%">' + k + '</th><td>' + esc(v) + '</td></tr>' : '';
-      return '<div style="font-size:1rem;font-weight:bold">' + esc(p.company.Name) + '</div>' + (p.company.Address ? '<div style="font-size:.75rem;opacity:.8">' + esc(p.company.Address) + '</div>' : '') +
-        '<div style="margin-top:.4rem;font-weight:bold">Payslip — ' + esc(showMonth(p.month)) + '</div>' +
-        '<table><tbody>' + info('Employee', s.EmployeeNo + ' · ' + s.EmployeeName) + info('Designation', s.Designation) + info('Department', s.CostCenterName) + info('Joined', showDate(s.JoinDate)) +
-        info('Bank', [s.BankName, s.IBAN].filter(Boolean).join(' · ')) + '</tbody></table>' +
-        '<table><thead><tr><th>Earnings</th><th class="r">Amount</th></tr></thead><tbody>' + rows('Earning') + '<tr><th>Total earnings</th><th class="r">' + money(s.Earnings) + '</th></tr></tbody></table>' +
-        '<table><thead><tr><th>Deductions</th><th class="r">Amount</th></tr></thead><tbody>' + rows('Deduction') + '<tr><th>Total deductions</th><th class="r">' + money(s.Deductions) + '</th></tr></tbody></table>' +
-        '<table><tbody><tr><th style="font-size:1rem">Net pay</th><th class="r" style="font-size:1rem">' + money(Math.max(0, s.Net)) + '</th></tr>' + (s.Net < 0 ? '<tr><td>Shortfall recovered next month</td><td class="r">' + money(-s.Net) + '</td></tr>' : '') +
-        '<tr><td>Status</td><td class="r">' + (s.PaidStatus ? 'Paid' : 'Not yet paid') + '</td></tr></tbody></table>' +
-        '<table><thead><tr><th>Year to date ' + esc(p.month.slice(0, 4)) + '</th><th class="r">Amount</th></tr></thead><tbody><tr><td>Earnings</td><td class="r">' + money(s.YTD.Earnings) + '</td></tr><tr><td>Deductions</td><td class="r">' + money(s.YTD.Deductions) +
-        '</td></tr><tr><td>Net</td><td class="r">' + money(s.YTD.Net) + '</td></tr></tbody></table>' +
-        ((s.Loans || []).length ? '<table><thead><tr><th>Loan balance after this month</th><th class="r">Amount</th></tr></thead><tbody>' + s.Loans.map(l => '<tr><td>' + esc(l.TypeName + ' ' + l.LoanNumber) + '</td><td class="r">' + money(l.Balance) + '</td></tr>').join('') + '</tbody></table>' : '') +
-        ((s.Leave || []).length ? '<table><thead><tr><th>Leave balance at ' + esc(showDate(p.monthEnd)) + '</th><th class="r">Days</th></tr></thead><tbody>' + s.Leave.map(l => '<tr><td>' + esc(l.Name) + '</td><td class="r">' + esc(l.Balance) + '</td></tr>').join('') + '</tbody></table>' : '');
+    // The payslip is the Payroll screen's own (functions/src/payslipDocument.js,
+    // owner 2026-10-10): its markup and css come from the server, so a change
+    // there shows here too. Its dates and months come as yyyy-mm-dd / yyyy-mm.
+    function slipHtml(p) { return '<style>' + p.css + '</style>' + p.slip.Html; }
+    function showDates(el) {
+      const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentNode.nodeName === 'STYLE' ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+      for (let n = w.nextNode(); n; n = w.nextNode()) { const t = showText(n.nodeValue); if (t !== n.nodeValue) n.nodeValue = t; }
     }
     // A line's "how" text may carry dates and months (e.g. arrears: "2026-07: paid …").
     const showText = t => String(t).replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (m) => showDate(m)).replace(/\b(\d{4})-(\d{2})\b(?!-)/g, m => showMonth(m));
@@ -656,6 +646,7 @@
       api('payslip', { runId }).then(p => {
         $('slip-title').textContent = 'Payslip — ' + showMonth(p.month);
         $('slip-body').innerHTML = slipHtml(p);
+        showDates($('slip-body'));
         slipFile = 'Payslip ' + showMonth(p.month) + ' ' + p.slip.EmployeeNo;
         slipRun = runId;
         $('slip-view').classList.remove('hidden');
@@ -667,7 +658,7 @@
     $('slip-view').addEventListener('click', e => { if (e.target === $('slip-view')) $('slip-view').classList.add('hidden'); });
     // Download: the browser's print, where "Save as PDF" names the file after the title.
     $('slip-pdf').addEventListener('click', () => {
-      $('ess-print').innerHTML = '<div class="ess-slip" style="padding:16px">' + $('slip-body').innerHTML + '</div>';
+      $('ess-print').innerHTML = '<div style="padding:16px">' + $('slip-body').innerHTML + '</div>';
       const title = document.title;
       document.title = slipFile;
       window.print();
@@ -968,6 +959,16 @@
           '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1"><i class="fa-solid fa-route"></i> Then to HR, who submit it for approval</div>' +
           '<div class="grid grid-cols-2 gap-2 mt-3"><button class="tm-loan rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(r.RequestID) + '" data-decision="Rejected">Reject</button>' +
           '<button class="tm-loan rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 text-sm font-semibold" data-id="' + esc(r.RequestID) + '" data-decision="Approved">Approve</button></div>')).join('') + '</div>' : '';
+        // Who is away today and the returns due: to see; HR records a return (owner, 2026-10-10).
+        const awayHtml = (t.onLeaveToday || []).length ? '<h2 class="font-semibold mt-6 mb-2">Away today</h2><div id="tm-away" class="space-y-2">' + t.onLeaveToday.map(x => card(
+          '<div class="flex items-start justify-between gap-2"><div><div class="font-semibold text-sm">' + esc(x.EmployeeName) + ' <span class="text-xs font-normal text-slate-400">' + esc(x.EmployeeNo) + '</span></div>' +
+          '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc(x.LeaveTypeName) + ' · ' + esc(dateRange(x.FromDate, x.ToDate, x)) + '</div></div>' +
+          '<div class="text-xs text-right whitespace-nowrap">' + (x.ExpectedReturn ? (x.Kind === 'Duty' ? 'On duty, back ' : 'Back ') + esc(showDate(x.ExpectedReturn)) : '') + '</div></div>', 'p-3')).join('') + '</div>' : '';
+        const returnsHtml = (t.returnsDue || []).length ? '<h2 class="font-semibold mt-6 mb-2">Returns from leave not yet recorded</h2><div id="tm-returns" class="space-y-2">' + t.returnsDue.map(x => card(
+          '<div class="flex items-start justify-between gap-2"><div><div class="font-semibold text-sm">' + esc(x.EmployeeName) + ' <span class="text-xs font-normal text-slate-400">' + esc(x.EmployeeNo) + '</span></div>' +
+          '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc(x.LeaveTypeName) + ' · due back ' + esc(showDate(x.ExpectedReturn)) + '</div></div>' +
+          '<div class="text-xs font-semibold whitespace-nowrap ' + (x.DaysOverdue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-300') + '">' + (x.DaysOverdue > 0 ? x.DaysOverdue + ' day' + (x.DaysOverdue === 1 ? '' : 's') + ' ago' : 'Today') + '</div></div>', 'p-3')).join('') +
+          '<div class="text-xs text-slate-500 dark:text-slate-400 px-1"><i class="fa-solid fa-circle-info"></i> HR records the return in the Leave Register: let them know when each is back.</div></div>' : '';
         const decided = t.decided.length ? '<h2 class="font-semibold mt-6 mb-2">Recently decided</h2><div class="space-y-2">' + t.decided.map(l => card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold text-sm">' + esc(l.EmployeeName) + '</div>' +
           '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc(l.LeaveTypeName) + ' · ' + esc(dateRange(l.FromDate, l.ToDate, l)) + ' · ' + days(l.Days) + '</div></div>' + chip(l.Status, l.StatusText) + '</div>', 'p-3')).join('') + '</div>' : '';
         page((t.pending.length ? '<div class="space-y-3">' + t.pending.map(l => card(
@@ -981,7 +982,7 @@
           '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1"><i class="fa-solid fa-route"></i> ' + esc(l.NextStep) + '</div>' +
           '<div class="grid grid-cols-2 gap-2 mt-3"><button class="tm-decide rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '" data-decision="Rejected">Reject</button>' +
           '<button class="tm-decide rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '" data-decision="Approved">Approve</button></div>')).join('') + '</div>'
-          : (teamLoans.length || teamClaims.length ? '' : card(empty('fa-circle-check', 'No requests waiting for you.')))) + loansHtml + claimsHtml + decided);
+          : (teamLoans.length || teamClaims.length ? '' : card(empty('fa-circle-check', 'No requests waiting for you.')))) + loansHtml + claimsHtml + awayHtml + returnsHtml + decided);
       }, err => page(card(empty('fa-triangle-exclamation', err.message))));
     }
     async function decide(id, decision) {

@@ -473,8 +473,6 @@
           <button id="toggle-expand-btn" onclick="toggleExpandCollapse()" title="Expand all" aria-label="Expand all" class="bg-slate-800 hover:bg-slate-700 text-xs w-8 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-angles-down"></i></button>
           <button id="fav-config-done-btn" onclick="setFavoriteConfigMode(false)" class="hidden bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-check"></i> Done</button>
           <button id="home-tasks-toggle-btn" onclick="toggleHomeTasksSection()" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-bell"></i> Tasks <span id="home-tasks-count" class="hidden text-red-400 font-semibold"></span></button>
-          <!-- The Employee Portal for an ERP user linked to an employee record (docs/modules/EMPLOYEE_PORTAL.md, decision 89). -->
-          <a id="my-portal-btn" href="/ess.html" target="_blank" rel="noopener" title="Your leave, payslips and team requests" class="hidden bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-id-badge"></i> My Portal</a>
         </div>
         <div id="user-menu" class="relative hidden">
           <button id="user-menu-btn" onclick="toggleUserMenu()" class="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700">
@@ -485,10 +483,11 @@
             <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 ml-1"></i>
           </button>
           <div id="user-menu-panel" class="hidden absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden z-50">
+            <!-- The Employee Portal for an ERP user linked to an employee record (docs/modules/EMPLOYEE_PORTAL.md, decision 89): first in the menu, in blue (owner, 2026-10-10). -->
+            <a id="my-portal-menu" href="/ess.html" target="_blank" rel="noopener" title="Your leave, payslips and team requests" class="hidden w-full text-left px-3 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-2"><i class="fa-solid fa-id-badge"></i> My Portal</a>
             <button id="theme-toggle-btn" onclick="toggleTheme()" class="no-print w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i id="theme-toggle-icon" class="fa-solid fa-sun"></i> <span id="theme-toggle-label">Light mode</span></button>
             <button id="fav-config-btn" onclick="setFavoriteConfigMode(true)" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-star text-amber-400"></i> Configure Favourites</button>
             <button id="refresh-btn" onclick="refreshTree()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-rotate"></i> Refresh</button>
-            <a id="my-portal-menu" href="/ess.html" target="_blank" rel="noopener" class="hidden w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-id-badge"></i> My Portal</a>
             <button onclick="openChangePasswordModal()" class="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2"><i class="fa-solid fa-key"></i> Change Password</button>
             <button onclick="handleLogout()" class="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-slate-700 flex items-center gap-2 border-t border-slate-700"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
           </div>
@@ -561,20 +560,6 @@
             <p class="text-xs font-semibold text-slate-300 uppercase">Employee Requests Waiting for You</p>
           </div>
           <div id="home-emp-requests-list" class="divide-y divide-slate-800"></div>
-        </div>
-        <div id="home-leave-today-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-          <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
-            <i class="fa-solid fa-plane-departure text-blue-400 text-xs"></i>
-            <p class="text-xs font-semibold text-slate-300 uppercase">On Leave Today</p>
-          </div>
-          <div id="home-leave-today-list" class="divide-y divide-slate-800"></div>
-        </div>
-        <div id="home-leave-returns-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-          <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
-            <i class="fa-solid fa-plane-arrival text-amber-400 text-xs"></i>
-            <p class="text-xs font-semibold text-slate-300 uppercase">Leave Returns to Record</p>
-          </div>
-          <div id="home-leave-returns-list" class="divide-y divide-slate-800"></div>
         </div>
       </div>
       <div id="fav-config-banner" class="hidden mb-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2"><i class="fa-solid fa-star"></i> Click a star to add or remove a favourite (up to 5). Click Done when finished.</div>
@@ -1092,13 +1077,13 @@
     let homeFollowUpCount = 0;
     let homeDocsExpiringCount = 0;
     let homeEmpDocsExpiringCount = 0;
-    let homeLeaveTodayCount = 0, homeLeaveReturnsCount = 0, homeEmpRequestsCount = 0;
+    let homeEmpRequestsCount = 0;
 
     function loadHomeTasks() {
       // My Portal: shown only to an ERP user linked to an employee record.
       rpc
-        .withSuccessHandler(result => { ['my-portal-btn', 'my-portal-menu'].forEach(id => document.getElementById(id).classList.toggle('hidden', !(result && result.linked))); })
-        .withFailureHandler(() => { ['my-portal-btn', 'my-portal-menu'].forEach(id => document.getElementById(id).classList.add('hidden')); })
+        .withSuccessHandler(result => { document.getElementById('my-portal-menu').classList.toggle('hidden', !(result && result.linked)); })
+        .withFailureHandler(() => { document.getElementById('my-portal-menu').classList.add('hidden'); })
         .essPortal({ action: 'link' });
 
       // Payroll queries and loan requests waiting for this handler.
@@ -1161,39 +1146,8 @@
         .withFailureHandler(() => { renderEmpDocsExpiring([]); })
         .getEmployeeDocumentsExpiringForUser();
 
-      // Who is on leave today, and the returns still to record
-      // (docs/modules/HR_LEAVE.md, step 4).
-      rpc
-        .withSuccessHandler(result => { renderLeaveTasks(result || {}); })
-        .withFailureHandler(() => { renderLeaveTasks({}); })
-        .getLeaveTasksForUser();
-    }
-
-    function renderLeaveTasks(r) {
-      const today = r.onLeaveToday || [], returns = r.returnsToRecord || [];
-      homeLeaveTodayCount = today.length; homeLeaveReturnsCount = returns.length;
-      document.getElementById('home-leave-today-block').classList.toggle('hidden', !today.length);
-      document.getElementById('home-leave-returns-block').classList.toggle('hidden', !returns.length);
-      updateHomeTasksToggleButton();
-      const fill = (listId, items, right) => {
-        const list = document.getElementById(listId);
-        list.innerHTML = '';
-        items.forEach(item => {
-          const row = document.createElement('div');
-          row.className = 'px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-700/30 cursor-pointer text-sm';
-          row.innerHTML = `
-            <div class="min-w-0">
-              <span class="text-slate-200 font-medium">${escapeHtml(item.EmployeeName)}</span>
-              <span class="text-slate-500 text-xs ml-2">${escapeHtml(item.EmployeeNo + ' · ' + item.LeaveTypeName)}</span>
-            </div>
-            <div class="flex items-center gap-3 shrink-0">${right(item)}<i class="fa-solid fa-chevron-right text-xs text-slate-600"></i></div>`;
-          row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
-          list.appendChild(row);
-        });
-      };
-      fill('home-leave-today-list', today, item => '<span class="text-xs text-slate-400">' + escapeHtml(item.Kind === 'Duty' ? 'on duty, back ' + item.ExpectedReturn : 'back ' + item.ExpectedReturn) + '</span>');
-      fill('home-leave-returns-list', returns, item => '<span class="text-xs ' + (item.DaysOverdue > 0 ? 'text-red-400' : 'text-amber-400') + '">' +
-        escapeHtml('due back ' + item.ExpectedReturn + (item.DaysOverdue > 0 ? ' (' + item.DaysOverdue + (item.DaysOverdue === 1 ? ' day ago)' : ' days ago)') : '')) + '</span>');
+      // "On Leave Today" and "Leave Returns to Record" moved to the Employee
+      // Portal's Home and Team (owner, 2026-10-10; docs/modules/EMPLOYEE_PORTAL.md).
     }
 
     function renderEmpDocsExpiring(items) {
@@ -1430,7 +1384,7 @@
     // count, since either one changing can change the combined total.
     function updateHomeTasksToggleButton() {
       const total = homePendingCount + homeRejectedCount + homePdcDueCount + homeRecurringDueCount + homeDraftsCount + homeFollowUpCount + homeDocsExpiringCount + homeEmpDocsExpiringCount +
-        homeLeaveTodayCount + homeLeaveReturnsCount + homeEmpRequestsCount;
+        homeEmpRequestsCount;
       const countSpan = document.getElementById('home-tasks-count');
       // Button itself is always visible now — only the red count badge
       // shows or hides based on whether there's actually anything
