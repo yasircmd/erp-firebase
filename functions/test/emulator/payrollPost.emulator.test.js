@@ -150,3 +150,24 @@ test('reversal: the latest posted run only, with a reason and the post right; a 
   await call('u-admin', 'reversePayrollRun', { runId: JULY, reason: 'Redo' });
   assert.equal((await run(JULY)).run.Status, 'Draft');
 });
+
+test('GL impact (docs/modules/GL_VIEWS.md, decision 86): approved, what it will post; posted, the journal; with cost centers; not before approval', async () => {
+  // Both runs are back to draft after the reversals above.
+  await assert.rejects(call('u-admin', 'getPayrollGlImpact', { runId: JULY }), /shows once the run is approved/);
+  // Approved but not yet posted (a posting that failed at approval leaves it so).
+  await firestore.collection('payrollRuns').doc(AUG).update({ Status: 'Approved' });
+  const before = await call('u-admin', 'getPayrollGlImpact', { runId: AUG });
+  assert.deepEqual([before.posted, before.date, before.totals.Debit === before.totals.Credit], [false, '2026-08-31', true]);
+  const sal = before.lines.filter(l => l.AccountCode === '6000' && l.Debit && l.Description === 'Basic Salary — payroll 2026-08');
+  assert.deepEqual(sal.map(l => [l.CostCenterID, l.CostCenter, l.AccountName]).sort(), [['CC1', 'CC1 — Workshop', 'Salaries'], ['CC2', 'CC2 — Office', 'Salaries']]);
+  assert.ok(before.lines.every(l => l.AccountCode !== '2300' || l.CostCenter === ''), 'Salaries Payable carries no cost center');
+  await assert.rejects(call('u-other', 'getPayrollGlImpact', { runId: AUG }), /access to that company/);
+  // Posted: the journal itself, the same lines as the preview.
+  const posted = await call('u-admin', 'postPayrollRun', { runId: AUG });
+  assert.equal(posted.status, 'Posted');
+  const after = await call('u-admin', 'getPayrollGlImpact', { runId: AUG });
+  assert.deepEqual([after.posted, after.jvNumber], [true, posted.jvNumber]);
+  const key = l => [l.AccountCode, l.CostCenterID, l.Debit, l.Credit, l.Description].join('|');
+  assert.deepEqual(after.lines.map(key).sort(), before.lines.map(key).sort());
+  assert.deepEqual(after.totals, before.totals);
+});

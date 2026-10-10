@@ -1,0 +1,13 @@
+# GL views (owner, 2026-10-10; docs/modules/GL_VIEWS.md, decisions 84-87):
+# GL Report's Listing view and Cost Center column, an entry's GL impact
+# from its Txn Ref, Cost Center in every View GL Impact, Payroll's GL
+# Impact. Run with --screens (GLREPORT, PAYROLL, GRN, DELIVERYNOTE,
+# CUSTOMERINVOICE, VENDORINVOICE, MATERIALISSUE, PRODUCTION,
+# STOCKADJUSTMENT, PHYSICALCOUNT, PURCHASERETURN, SALESRETURN, PDCRECEIVED,
+# PDCISSUED). No Hosting change, nothing to set up.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getGlListing
+getPayrollGlImpact
+# Changed: GL Report's rows carry the cost center; the GL impact's lines too.
+getGlReport
+getJournalEntryDetail

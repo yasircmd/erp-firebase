@@ -88,6 +88,7 @@
   <div class="flex gap-1 border-b border-slate-700" id="pr-views">
     <button data-view="register" class="pr-view px-4 py-2 text-xs border-b-2 border-blue-500 text-blue-300">Register</button>
     <button data-view="costing" class="pr-view hidden px-4 py-2 text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-200">Costing</button>
+    <button data-view="glimpact" class="pr-view hidden px-4 py-2 text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-200">GL Impact</button>
     <button data-view="payment" class="pr-view hidden px-4 py-2 text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-200">Payment</button>
   </div>
   <p id="pr-costing-note" class="hidden text-xs text-slate-400"></p>
@@ -304,20 +305,44 @@
   const costable = run => run.Status === 'Approved' || run.Status === 'Posted';
   function showView(v) {
     const run = current.run;
-    if (v === 'costing' && !costable(run)) v = 'register';
+    if ((v === 'costing' || v === 'glimpact') && !costable(run)) v = 'register';
     if (v === 'payment' && run.Status !== 'Posted') v = 'register';
     view = v;
     document.querySelectorAll('.pr-view').forEach(b => {
       const on = b.dataset.view === v;
       b.className = 'pr-view px-4 py-2 text-xs border-b-2 ' + (on ? 'border-blue-500 text-blue-300' : 'border-transparent text-slate-400 hover:text-slate-200') +
-        ((b.dataset.view === 'costing' && !costable(run)) || (b.dataset.view === 'payment' && run.Status !== 'Posted') ? ' hidden' : '');
+        (((b.dataset.view === 'costing' || b.dataset.view === 'glimpact') && !costable(run)) || (b.dataset.view === 'payment' && run.Status !== 'Posted') ? ' hidden' : '');
     });
     $('pr-reg-wrap').classList.toggle('hidden', v === 'payment');
     $('pr-inputs-wrap').classList.toggle('hidden', v !== 'register');
-    $('pr-costing-note').classList.toggle('hidden', v !== 'costing');
+    $('pr-costing-note').classList.toggle('hidden', v !== 'costing' && v !== 'glimpact');
     $('pr-pay').classList.toggle('hidden', v !== 'payment' || !payment || payment.run.RunID !== run.RunID);
     if (v !== 'register') $('pr-slip').classList.add('hidden');
-    if (v === 'costing') renderCosting(); else if (v === 'register') renderRegisterOnly();
+    if (v === 'costing') renderCosting(); else if (v === 'glimpact') renderGlImpact(); else if (v === 'register') renderRegisterOnly();
+  }
+  // The run's GL impact (owner, 2026-10-10; docs/modules/GL_VIEWS.md, decision
+  // 86): once approved, what it will post; once posted, the posted journal;
+  // by account and cost center.
+  let glImpact = null;
+  function renderGlImpact() {
+    const run = current.run, key = run.RunID + '|' + run.Status;
+    $('pr-reg-head').dataset.view = 'other';
+    const draw = g => {
+      if (view !== 'glimpact' || current.run.RunID !== run.RunID) return;
+      $('pr-costing-note').textContent = g.posted ? 'The posted journal ' + g.jvNumber + ', dated ' + g.date + '.' : 'What the run will post when posted, dated ' + g.date + ' (approved, not posted yet).';
+      const th = (t, r) => '<th class="py-2 px-3' + (r ? ' text-right' : '') + '">' + t + '</th>';
+      $('pr-reg-head').innerHTML = '<tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">' + th('Account') + th('Name') + th('Cost Center') + th('Description') + th('Debit', 1) + th('Credit', 1) + '</tr>';
+      const td = (v, cls) => '<td class="py-2 px-3' + (cls || '') + '">' + v + '</td>';
+      $('pr-reg-body').innerHTML = g.lines.map(l => '<tr class="pr-gl-line">' + td(escapeHtml(l.AccountCode), ' font-mono text-xs') + td(escapeHtml(l.AccountName)) + td(escapeHtml(l.CostCenter), ' text-xs text-slate-400') +
+        td(escapeHtml(l.Description), ' text-xs text-slate-400') + td(l.Debit ? money(l.Debit) : '', ' text-right') + td(l.Credit ? money(l.Credit) : '', ' text-right') + '</tr>').join('');
+      $('pr-reg-foot').innerHTML = '<tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3" colspan="4">Total</td><td class="py-2 px-3 text-right" id="pr-gl-debit">' + money(g.totals.Debit) + '</td><td class="py-2 px-3 text-right" id="pr-gl-credit">' + money(g.totals.Credit) + '</td></tr>';
+    };
+    if (glImpact && glImpact.key === key) return draw(glImpact.data);
+    $('pr-reg-head').innerHTML = '';
+    $('pr-reg-body').innerHTML = '<tr><td class="py-4 px-3 text-center text-slate-500">Loading the GL impact…</td></tr>';
+    $('pr-reg-foot').innerHTML = '';
+    call('getPayrollGlImpact', { runId: run.RunID }).then(g => { glImpact = { key, data: g }; draw(g); },
+      err => { $('pr-reg-body').innerHTML = '<tr><td class="py-4 px-3 text-center text-red-400">' + escapeHtml(err.message || 'Unable to load the GL impact.') + '</td></tr>'; });
   }
   // The costing (step 7, point 1): each employee's elements, then the
   // employer's cost: the provisions accrued with the run, and the total.
@@ -347,7 +372,7 @@
       provs.map(p => td(sum(s => provOf(s, p.Key)))).join('') + td(sum(provTotal)) + td(run.Earnings + sum(provTotal), ' text-emerald-300') + '</tr>';
   }
   // The register again after the costing (renderRun drew it first).
-  function renderRegisterOnly() { if ($('pr-reg-head').textContent.includes('Total cost')) renderRun(); }
+  function renderRegisterOnly() { const h = $('pr-reg-head'); if (h.textContent.includes('Total cost') || h.dataset.view === 'other') { delete h.dataset.view; renderRun(); } }
   function showSlip(empId) {
     const s = current.slips.find(x => x.EmployeeID === empId);
     if (!s) return;
@@ -546,6 +571,13 @@
   function copyToExcel() {
     const r = current, cols = r.run.Columns || [];
     const cell = (s, id) => s.Lines.filter(l => l.ElementID === id).reduce((t, l) => t + l.Amount, 0);
+    if (view === 'glimpact') {
+      if (!glImpact || glImpact.key !== r.run.RunID + '|' + r.run.Status) return;
+      const n = v => (Math.round(v * 100) / 100).toFixed(2), g = glImpact.data;
+      const rows = [['Account', 'Name', 'Cost Center', 'Description', 'Debit', 'Credit']]
+        .concat(g.lines.map(l => [l.AccountCode, l.AccountName, l.CostCenter, l.Description, l.Debit ? n(l.Debit) : '', l.Credit ? n(l.Credit) : '']), [['', '', '', 'Total', n(g.totals.Debit), n(g.totals.Credit)]]);
+      return copyRows(rows, $('pr-copy'));
+    }
     if (view === 'costing') {
       const provs = costingColumns(), earn = cols.filter(c => c.Kind !== 'Deduction'), ded = cols.filter(c => c.Kind === 'Deduction');
       const n = v => Math.round(v * 100) / 100;

@@ -23,6 +23,7 @@ const { requireUser } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry, getCompanyRefCode, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { withGlobalLock } = require('./lock');
+const { clubGlLines } = require('./lineClubbing');
 const { loadSetup } = require('./hrSetup');
 const { leaveTypes } = require('./hrLeaveSetup');
 const lv = require('./hrLeave');
@@ -237,6 +238,39 @@ exports.reversePayrollRun = onCallWithMessages(onCallOptions, async (request) =>
 // ---------- payslips ----------
 
 const maskIban = v => { const s = String(v || ''); return s.length > 8 ? s.slice(0, 4) + ' •••• ' + s.slice(-4) : s; };
+
+// The run's GL impact (owner, 2026-10-10; docs/modules/GL_VIEWS.md, decision
+// 86): once approved, what it will post (worked out and clubbed as the
+// posting does); once posted, the posted journal. Each line with its
+// account, cost center, description, debit and credit.
+exports.getPayrollGlImpact = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await R.requireCap(user);
+  const run = await R.loadRun(user, (request.data || {}).runId);
+  if (run.Status !== 'Approved' && run.Status !== 'Posted') throw failed('The GL impact shows once the run is approved.');
+  const [coaSnap, unitsSnap] = await Promise.all([rtdb.ref('coa').get(), rtdb.ref('orgUnits').get()]);
+  const coa = coaSnap.val() || {}, units = unitsSnap.val() || {};
+  let raw, posted = false, jvNumber = '';
+  if (run.Status === 'Posted' && run.JVID) {
+    const e = (await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(run.JVID).get()).data();
+    if (!e) throw failed('The GL entry of this run was not found.');
+    raw = e.Lines || []; posted = true; jvNumber = e.JVNumber || run.JVNumber || '';
+  } else {
+    const ctx = await postingContext(run);
+    raw = clubGlLines(glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings, ctx.loanAccounts, ctx.provAccount));
+  }
+  const byCode = {};
+  Object.values(coa).forEach(a => { byCode[a.AccountCode] = a; });
+  const ccName = id => (id && units[id] ? [units[id].Code, units[id].Name].filter(Boolean).join(' — ') : '');
+  const lines = raw.map(l => ({
+    AccountCode: l.AccountCode, AccountName: (byCode[l.AccountCode] || {}).AccountName || '', CostCenterID: l.CostCenterID || '', CostCenter: ccName(l.CostCenterID),
+    Description: l.Description || '', Debit: round2(Number(l.Debit) || 0), Credit: round2(Number(l.Credit) || 0)
+  }));
+  return {
+    posted, jvNumber, date: calc.monthEnd(run.Month), lines,
+    totals: { Debit: round2(lines.reduce((t, l) => t + l.Debit, 0)), Credit: round2(lines.reduce((t, l) => t + l.Credit, 0)) }
+  };
+});
 
 exports.getPayrollPayslips = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
