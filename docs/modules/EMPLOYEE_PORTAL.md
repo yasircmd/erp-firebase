@@ -473,3 +473,35 @@ query within 14 days. The details below are proposed; the open questions
       service set up; it can follow);
     - or set up email now (a sending service and its account are needed
       first).
+
+Follow-up questions (asked after the answer to 96):
+
+100. **What the handler is set by:** per company only, or per company and
+     category.
+101. **Others with the "handle" right:** may they act on a query assigned
+     to someone else, or only the named handler?
+
+## The owner's decisions, round 3 (2026-10-10)
+
+| # | Question | Decision |
+|---|---|---|
+| 96 | Who handles a query | **A handler set up in advance** (not first-come), who alone gets the Home task. |
+| 97 | Internal notes | **Yes:** HR adds notes the employee never sees, beside the replies. |
+| 98 | Attachments | **Yes, now:** photos or PDFs, up to 5 files of 10 MB each, through Document Storage. The same upload serves step 3. |
+| 99 | Alerts | **In-app only for now:** a badge and Home card in the portal, a Home task in the ERP. Email can follow once a sending service is set up. |
+| 100 | Handler set by | **Company and category:** a handler (and optional backup) per company and category, with a company default for categories not set. |
+| 101 | Others with the right | **Yes, and they can reassign:** the named handler gets the Home task; others with the right can see the query, step in, or reassign it (e.g. while the handler is on leave). Where a company has no handler set, everyone with the right gets the task. |
+
+Resulting design changes:
+- **Handlers setup:** a "Handlers" tab in Employee Requests (the `handle`
+  right plus a new `setup` right, default Admin). Rows: company, category
+  (or "All categories" as the company default), handler, backup; both
+  must be ERP users with the `handle` right for that company.
+- A new query is **assigned** at once: the row for its company and
+  category, else the company default. If no row applies, it is
+  unassigned and every handler with access gets the task. The query shows
+  "Assigned to". **Take it** becomes **Reassign** (to any user with the
+  right); every change is kept in the history.
+- **Home task:** for the assigned handler and backup, or for everyone
+  with the right on unassigned queries. It counts new queries and queries
+  whose last message is the employee's.
