@@ -14,7 +14,7 @@
       <input id="erq-search" placeholder="Search no., employee..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
       <select id="erq-status" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
         <option value="waiting">Waiting for HR</option><option value="open">Open</option><option value="">All</option><option value="closed">Closed</option></select>
-      <select id="erq-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All types</option><option value="Query">Payroll queries</option><option value="Loan">Advance / loan requests</option></select>
+      <select id="erq-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All types</option><option value="Query">Payroll queries</option><option value="Loan">Advance / loan requests</option><option value="Claim">Expense claims</option></select>
       <select id="erq-cat" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All categories</option></select>
       <div class="flex gap-2"><label class="flex items-center gap-2 text-xs text-slate-300"><input id="erq-mine" type="checkbox"> Mine</label>
         <button id="erq-copy" class="ml-auto bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy</button></div>
@@ -39,6 +39,7 @@
           <div id="erq-facts" class="text-sm space-y-1"></div>
           <div id="erq-links" class="flex flex-wrap gap-2 pt-2"></div>
         </div>
+        <div id="erq-approval" class="hidden bg-slate-800/60 p-4 rounded-xl border border-amber-500/40 space-y-2"></div>
         <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
           <div class="text-xs font-semibold text-slate-400 uppercase">Conversation</div>
           <div id="erq-msgs" class="space-y-2"></div>
@@ -105,7 +106,8 @@
   const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const STAGE_CLASS = { New: 'text-amber-300', WithManager: 'text-amber-300', InProgress: 'text-blue-300', WithHR: 'text-blue-300', InApproval: 'text-blue-300',
     Approved: 'text-emerald-400', Running: 'text-emerald-400', Resolved: 'text-emerald-400', Repaid: 'text-slate-400', Rejected: 'text-red-400', Withdrawn: 'text-slate-500' };
-  const CLOSED = ['Resolved', 'Rejected', 'Withdrawn', 'Repaid', 'Running', 'Approved', 'InApproval'];
+  const CLOSED = ['Resolved', 'Rejected', 'Withdrawn', 'Repaid', 'Running', 'Approved', 'InApproval', 'Paid'];
+  Object.assign(STAGE_CLASS, { Draft: 'text-slate-400', Paid: 'text-emerald-400' });
   let list = null, current = null, handlers = null, files = null, myUid = '';
 
   // ---------- the list ----------
@@ -123,11 +125,12 @@
       (!q || [r.Number, r.EmployeeNo, r.EmployeeName, r.Title].join(' ').toLowerCase().indexOf(q) !== -1));
   }
   function renderList() {
+    if (!list) return; // a filter changed before the list loaded: drawn when it comes
     const rs = rows();
     $('erq-body').innerHTML = rs.map(r => '<tr data-id="' + escapeHtml(r.RequestID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
       '<td class="py-2.5 px-3 font-mono text-xs whitespace-nowrap">' + (r.Waiting ? '<span class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" title="Waiting for HR"></span>' : '') + escapeHtml(r.Number) + '</td>' +
       '<td class="py-2.5 px-3">' + escapeHtml(r.EmployeeName) + ' <span class="text-xs text-slate-500">' + escapeHtml(r.EmployeeNo) + '</span></td>' +
-      '<td class="py-2.5 px-3 text-xs">' + (r.Type === 'Query' ? 'Query: ' : '') + escapeHtml(r.Title) + '</td>' +
+      '<td class="py-2.5 px-3 text-xs">' + (r.Type === 'Query' ? 'Query: ' : r.Type === 'Claim' ? 'Claim: ' : '') + escapeHtml(r.Title) + '</td>' +
       '<td class="py-2.5 px-3 text-xs ' + (STAGE_CLASS[r.Stage] || '') + '">' + escapeHtml(r.StatusText) + '</td>' +
       '<td class="py-2.5 px-3 text-xs">' + escapeHtml(r.AssignedName || '—') + '</td>' +
       '<td class="py-2.5 px-3 text-xs whitespace-nowrap">' + escapeHtml(isoLocalDateTime(new Date(r.LastAt))) + '</td></tr>').join('') ||
@@ -136,7 +139,7 @@
   // Tab-separated, so a paste into Excel lands each field in its own cell.
   function copyList() {
     const tsv = [['No.', 'Employee No.', 'Employee', 'Type', 'Category', 'About', 'Status', 'With', 'Raised', 'Last activity']].concat(rows().map(r =>
-      [r.Number, r.EmployeeNo, r.EmployeeName, r.Type === 'Query' ? 'Payroll query' : 'Advance / loan', r.Category, r.Title, r.StatusText, r.AssignedName, isoLocalDateTime(new Date(r.CreatedAt)), isoLocalDateTime(new Date(r.LastAt))]))
+      [r.Number, r.EmployeeNo, r.EmployeeName, r.Type === 'Query' ? 'Payroll query' : r.Type === 'Claim' ? 'Expense claim' : 'Advance / loan', r.Category, r.Title, r.StatusText, r.AssignedName, isoLocalDateTime(new Date(r.CreatedAt)), isoLocalDateTime(new Date(r.LastAt))]))
       .map(c => c.map(x => String(x == null ? '' : x).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
     const done = () => { $('erq-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { $('erq-copy').innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, () => appAlert('Unable to copy.'));
@@ -153,7 +156,7 @@
       $('erq-status-badge').innerHTML = '<span class="' + (STAGE_CLASS[r.Stage] || '') + '">' + escapeHtml(r.StatusText) + '</span>';
       const row = (k, v) => v === '' || v == null ? '' : '<div class="flex gap-3"><span class="w-40 shrink-0 text-slate-400">' + k + '</span><span class="text-slate-200">' + v + '</span></div>';
       $('erq-facts').innerHTML = row('Employee', escapeHtml(r.EmployeeNo + ' · ' + r.EmployeeName)) + row('Company', escapeHtml(r.CompanyID)) + row('Raised', escapeHtml(isoLocalDateTime(new Date(r.CreatedAt)))) +
-        (r.Type === 'Query'
+        (r.Type === 'Claim' ? claimFacts(r) : r.Type === 'Query'
           ? row('Payslip', escapeHtml(r.Month)) + row('About', escapeHtml(r.Category)) + r.Lines.map(l => row(escapeHtml(l.Name) + ' <span class="text-xs">(' + escapeHtml(l.Kind.toLowerCase()) + ')</span>', money(l.Amount))).join('') +
             (r.Expected != null ? row('Expected', money(r.Expected)) : '') + row('Description', '<span class="whitespace-pre-line">' + escapeHtml(r.Description) + '</span>')
           : row('Type', escapeHtml(r.TypeName)) + row('Amount', money(r.Amount)) + (r.Kind === 'Loan' ? row('Instalments', money(r.Instalment) + ' × ' + r.Months) : '') + row('Recovery from', escapeHtml(r.StartMonth)) +
@@ -171,7 +174,8 @@
         '<div class="text-xs text-slate-400 mb-1">' + escapeHtml(m.From === 'Employee' ? m.By + ' (employee)' : m.By) + ' · ' + escapeHtml(isoLocalDateTime(new Date(m.At))) + (m.Internal ? ' · <span class="text-amber-300"><i class="fa-solid fa-lock"></i> internal note</span>' : '') + '</div>' +
         '<div class="whitespace-pre-line text-slate-200">' + escapeHtml(m.Text) + '</div></div>').join('') || '<p class="text-xs text-slate-500">No messages yet.</p>';
       const canAct = d.canHandle && d.isOpen;
-      $('erq-compose').classList.toggle('hidden', !canAct);
+      $('erq-compose').classList.toggle('hidden', !canAct || r.Stage === 'Draft');
+      renderApproval(r);
       $('erq-resolve').classList.toggle('hidden', r.Type !== 'Query');
       $('erq-text').value = '';
       $('erq-assigned').innerHTML = escapeHtml(r.AssignedName || 'Nobody: everyone who handles ' + r.CompanyID + '\'s requests') + (r.BackupName ? ' <span class="text-xs text-slate-500">(backup ' + escapeHtml(r.BackupName) + ')</span>' : '');
@@ -180,6 +184,43 @@
       $('erq-history').innerHTML = r.History.map(h => '<li><span class="text-slate-300">' + escapeHtml(isoLocalDateTime(new Date(h.At))) + ' · ' + escapeHtml(h.By) + ' · ' + escapeHtml(h.Event) + '</span>' + (h.Note ? ' — ' + escapeHtml(h.Note) : '') + '</li>').join('');
       show('erq-detail');
     }, err => appAlert(err.message || 'Unable to open the request.'));
+  }
+  // A claim's bills (step 3): claimed, approved (in part), receipts.
+  function claimFacts(r) {
+    return '<table class="w-full text-xs mt-1"><thead><tr class="text-slate-400 uppercase"><th class="text-left py-1">Date</th><th class="text-left">Category</th><th class="text-left">What</th><th class="text-right">Claimed</th><th class="text-right">Approved</th><th></th></tr></thead><tbody>' +
+      r.Bills.map((b, i) => '<tr class="border-t border-slate-700"><td class="py-1.5">' + escapeHtml(b.Date) + '</td><td>' + escapeHtml(b.CategoryName) + '</td><td>' + escapeHtml(b.Description) + (b.Note ? '<div class="text-amber-300">' + escapeHtml(b.Note) + '</div>' : '') + '</td>' +
+        '<td class="text-right">' + money(b.Amount) + '</td><td class="text-right">' + money(b.Approved) + '</td><td class="text-right text-slate-400">' + (b.Files.length ? '<i class="fa-solid fa-paperclip"></i> ' + b.Files.length : '') + '</td></tr>').join('') +
+      '<tr class="border-t border-slate-600 font-semibold"><td colspan="3" class="py-1.5">Total</td><td class="text-right">' + money(r.Total) + '</td><td class="text-right">' + money(r.ApprovedTotal) + '</td><td></td></tr></tbody></table>' +
+      (r.Flags || []).map(f => '<div class="text-xs text-amber-300 mt-1"><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(f) + '</div>').join('') +
+      (r.Description ? '<div class="text-xs text-slate-400 mt-1">' + escapeHtml(r.Description) + '</div>' : '') +
+      (r.PayMonth ? '<div class="text-xs text-slate-300 mt-1">In the ' + escapeHtml(r.PayMonth) + ' payroll (Earnings &amp; Deductions entries).</div>' : '');
+  }
+  // The approver's decision (Approval Configuration "Reimbursement"): each
+  // bill's approved amount, lowered with a reason the employee sees.
+  function renderApproval(r) {
+    const box = $('erq-approval');
+    const a = r.Approval, mine = a && a.MyLevels && a.MyLevels.length;
+    box.classList.toggle('hidden', !a);
+    if (!a) return;
+    box.innerHTML = '<div class="text-xs font-semibold text-slate-400 uppercase">Approval</div>' +
+      '<ul class="text-xs text-slate-300 space-y-0.5">' + a.Levels.map(l => { const dec = a.Decisions.find(x => x.LevelNumber === l.LevelNumber); return '<li>Level ' + l.LevelNumber + ': ' + (dec ? escapeHtml(dec.Decision) + ' by ' + escapeHtml(dec.ApproverName) + (dec.Reason ? ' — ' + escapeHtml(dec.Reason) : '') : '<span class="text-amber-300">waiting</span>') + '</li>'; }).join('') + '</ul>' +
+      (mine ? '<div class="space-y-1">' + r.Bills.map((b, i) => '<div class="grid grid-cols-5 gap-2 items-center text-xs"><span class="col-span-2">' + escapeHtml(b.CategoryName + ' · ' + b.Description) + '</span>' +
+        '<input class="erq-ap-amt bg-slate-900 border border-slate-700 rounded py-1 px-2 text-right" data-i="' + i + '" value="' + b.Approved + '" title="Approved amount (claimed ' + money(b.Amount) + ')">' +
+        '<input class="erq-ap-note col-span-2 bg-slate-900 border border-slate-700 rounded py-1 px-2" data-i="' + i + '" placeholder="Reason, if less" value="' + escapeHtml(b.Note || '') + '"></div>').join('') + '</div>' +
+        '<div class="flex gap-2 pt-1"><button id="erq-ap-ok" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-check"></i> Approve</button>' +
+        '<button id="erq-ap-no" class="bg-slate-800 hover:bg-slate-700 text-red-300 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-xmark"></i> Reject</button></div>' : '');
+    if (!mine) return;
+    const level = a.MyLevels[0];
+    $('erq-ap-ok').addEventListener('click', () => {
+      const adjust = r.Bills.map((b, i) => ({ index: i, amount: document.querySelector('.erq-ap-amt[data-i="' + i + '"]').value, note: document.querySelector('.erq-ap-note[data-i="' + i + '"]').value }))
+        .filter(x => Number(String(x.amount).replace(/,/g, '')) !== r.Bills[x.index].Approved || x.note !== (r.Bills[x.index].Note || ''));
+      er('decideClaim', { id: r.RequestID, levelNumber: level, decision: 'Approved', adjust }).then(() => Promise.all([load(), open(r.RequestID)]), err => appAlert(err.message || 'Unable to approve.'));
+    });
+    $('erq-ap-no').addEventListener('click', async () => {
+      const reason = await appPrompt('Reject ' + r.Number + '. Why? (the employee sees it)', '');
+      if (reason === null) return;
+      er('decideClaim', { id: r.RequestID, levelNumber: level, decision: 'Rejected', reason }).then(() => Promise.all([load(), open(r.RequestID)]), err => appAlert(err.message || 'Unable to reject.'));
+    });
   }
   function act(action, data, done) {
     return er(action, Object.assign({ id: current.request.RequestID }, data || {})).then(() => { if (done) appAlert(done); return Promise.all([load(), open(current.request.RequestID)]); }, err => appAlert(err.message || 'Unable to save.'));

@@ -420,9 +420,10 @@
             '<a href="#leave/apply" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300 flex items-center justify-center"><i class="fa-solid fa-plane-departure"></i></span><span class="font-semibold text-sm">Apply for leave</span></a>' +
             '<a href="#pay" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300 flex items-center justify-center"><i class="fa-solid fa-file-invoice-dollar"></i></span><span class="font-semibold text-sm">My payslips</span></a>' +
           '</div>' +
-          '<div class="grid grid-cols-2 gap-3">' +
-            '<a href="#requests/query" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300 flex items-center justify-center"><i class="fa-solid fa-circle-question"></i></span><span class="font-semibold text-sm">Ask about my pay</span></a>' +
-            '<a href="#requests/loan" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300 flex items-center justify-center"><i class="fa-solid fa-hand-holding-dollar"></i></span><span class="font-semibold text-sm">Advance or loan</span></a>' +
+          '<div class="grid grid-cols-3 gap-3">' +
+            '<a href="#requests/claim" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-3 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 flex items-center justify-center"><i class="fa-solid fa-receipt"></i></span><span class="font-semibold text-sm">Claim expenses</span></a>' +
+            '<a href="#requests/query" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-3 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300 flex items-center justify-center"><i class="fa-solid fa-circle-question"></i></span><span class="font-semibold text-sm">Ask about my pay</span></a>' +
+            '<a href="#requests/loan" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-3 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300 flex items-center justify-center"><i class="fa-solid fa-hand-holding-dollar"></i></span><span class="font-semibold text-sm">Advance or loan</span></a>' +
           '</div>' +
           (reqUnread ? '<a href="#requests" id="home-replies" class="block">' + card('<div class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300 flex items-center justify-center"><i class="fa-solid fa-envelope"></i></span><div class="flex-1"><div class="font-semibold text-sm">' + (reqUnread === 1 ? 'A request has' : reqUnread + ' requests have') + ' a new reply from HR</div><div class="text-xs text-slate-500 dark:text-slate-400">Open your requests</div></div><i class="fa-solid fa-chevron-right text-slate-400"></i></div>') + '</a>' : '') +
           (h.teamPending ? '<a href="#team" id="home-team" class="block">' + card('<div class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300 flex items-center justify-center"><i class="fa-solid fa-people-group"></i></span><div class="flex-1"><div class="font-semibold text-sm">' + h.teamPending + ' team request' + (h.teamPending === 1 ? '' : 's') + ' waiting for you</div><div class="text-xs text-slate-500 dark:text-slate-400">Approve or reject</div></div><i class="fa-solid fa-chevron-right text-slate-400"></i></div>') + '</a>' : '') +
@@ -461,9 +462,11 @@
             '<label class="flex items-center gap-2"><input id="lv-half-end" type="checkbox" class="w-5 h-5 accent-indigo-600"> Last day is a half day</label></div>' +
           field('Reason <span class="text-slate-400 font-normal">(optional)</span>', '<textarea id="lv-reason" rows="2" maxlength="1000" class="' + inputCls + '"></textarea>') +
           '<div id="lv-preview" class="hidden rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 p-3 text-sm space-y-1"></div>' +
+          '<div id="lv-doc-wrap" class="hidden">' + fileInput('lv-doc') + '</div>' +
           '<p class="text-xs text-slate-500 dark:text-slate-400"><i class="fa-solid fa-route"></i> ' + (f.manager ? 'Goes to ' + esc(f.manager) + ', your line manager, then HR if needed.' : 'Goes to HR\'s approval if set up, else it is approved at once.') + '</p>' +
           '<button id="lv-submit" type="submit" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 disabled:opacity-50">' + (f.manager ? 'Send to ' + esc(f.manager.split(/\s+/)[0]) : 'Submit') + '</button>' +
           '</form>'));
+        watchFiles('lv-doc');
         ['lv-type', 'lv-from', 'lv-to', 'lv-half-start', 'lv-half-end'].forEach(id => $(id).addEventListener('change', () => { if (id === 'lv-from' && !$('lv-to').value) $('lv-to').value = $('lv-from').value; typeChanged(); }));
         $('lv-form').addEventListener('submit', e => { e.preventDefault(); applyLeave(); });
         typeChanged();
@@ -491,22 +494,34 @@
           (p.Balance ? '<div>Balance: ' + esc(p.Balance.Before) + ' → <b>' + esc(p.Balance.After) + '</b> days</div>' : '') +
           (p.Summary || []).map(s => '<div class="text-xs text-slate-600 dark:text-slate-300">' + esc(days(s.Days)) + ' · ' + esc(s.Label) + '</div>').join('') +
           (p.Warnings || []).map(w => '<div class="text-amber-700 dark:text-amber-300"><i class="fa-solid fa-triangle-exclamation"></i> ' + esc(w) + '</div>').join('') +
-          (p.DocumentNeeded ? '<div class="text-amber-700 dark:text-amber-300"><i class="fa-solid fa-file-medical"></i> A supporting document is expected: hand it to HR.</div>' : '');
+          (p.DocumentNeeded ? '<div class="text-amber-700 dark:text-amber-300"><i class="fa-solid fa-file-medical"></i> A supporting document is expected (e.g. a medical certificate): attach it below.</div>' : '');
+        $('lv-doc-wrap').classList.toggle('hidden', !p.DocumentNeeded);
       }, err => {
         if (seq !== previewSeq) return;
         box.className = 'rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 p-3 text-sm text-rose-700 dark:text-rose-300';
         box.textContent = err.message;
       });
     }
-    function applyLeave() {
+    // With a document (step 3): kept as a draft, the file added, then sent.
+    async function applyLeave() {
       const l = leaveInput();
       if (!l.FromDate || !l.ToDate) { say('Choose the first and last day.'); return; }
+      const doc = !$('lv-doc-wrap').classList.contains('hidden') ? [...$('lv-doc').files] : [];
       $('lv-submit').disabled = true;
-      api('applyLeave', { leave: l }).then(r => {
+      let made = null;
+      try {
+        let r;
+        if (doc.length) {
+          made = await api('applyLeave', { leave: l, withDocument: true });
+          for (const f of doc.slice(0, 5)) await api('uploadLeaveFile', { leaveId: made.leaveId, fileName: f.name, data: await readFile(f) });
+          r = await api('sendLeave', { leaveId: made.leaveId });
+        } else r = await api('applyLeave', { leave: l });
         const where = { PendingManager: 'Sent to ' + form.manager + ' for approval.', PendingApproval: 'Sent to HR for approval.', Approved: 'Approved.' }[r.status] || r.status;
         toast(r.leaveNumber + ': ' + where);
         location.hash = 'leave/history';
-      }, fail).finally(() => { const b = $('lv-submit'); if (b) b.disabled = false; });
+      } catch (err) {
+        if (made) { await say('Your leave was saved but not sent: ' + err.message + ' Finish it in My leave.'); location.hash = 'leave/history'; } else fail(err);
+      } finally { const b = $('lv-submit'); if (b) b.disabled = false; }
     }
 
     function timeline(l) {
@@ -525,9 +540,17 @@
           ' <span class="text-xs font-normal text-slate-400">' + esc(l.LeaveNumber) + '</span></div><div class="text-xs text-slate-500 dark:text-slate-400">' + esc(dateRange(l.FromDate, l.ToDate, l)) + ' · ' + days(l.Days) +
           (l.UnpaidDays ? ' (' + days(l.UnpaidDays) + ' unpaid)' : '') + '</div></div>' + chip(l.Status, l.StatusText) + '</div></button>' +
           '<div class="lv-detail hidden">' + (l.RejectionReason ? '<div class="mt-3 text-sm text-rose-700 dark:text-rose-300"><i class="fa-solid fa-circle-xmark"></i> ' + esc(l.RejectionReason) + '</div>' : '') +
-          (l.Reason ? '<div class="mt-2 text-sm text-slate-600 dark:text-slate-300">' + esc(l.Reason) + '</div>' : '') + timeline(l) +
-          (l.CanCancel ? '<button class="lv-cancel mt-4 w-full rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '">' +
-            (l.Status === 'Approved' ? 'Cancel this leave' : 'Withdraw this request') + '</button>' : '') + '</div>', 'p-3')).join('') + '</div>');
+          (l.Reason ? '<div class="mt-2 text-sm text-slate-600 dark:text-slate-300">' + esc(l.Reason) + '</div>' : '') +
+          ((l.Files || []).length || l.CanAddDocument ? '<div class="flex flex-wrap items-center gap-2 mt-3">' + (l.Files || []).map(f => '<button class="lv-file text-xs rounded-lg bg-slate-100 dark:bg-slate-800 px-2 py-1" data-leave="' + esc(l.LeaveID) + '" data-id="' + esc(f.AttachmentID) + '"><i class="fa-solid fa-paperclip"></i> ' + esc(f.FileName) + '</button>').join('') +
+            (l.CanAddDocument ? '<label class="text-xs rounded-lg border border-dashed border-slate-300 dark:border-slate-600 px-2 py-1 cursor-pointer text-indigo-600 dark:text-indigo-300"><i class="fa-solid fa-paperclip"></i> Add document<input type="file" accept="image/*,application/pdf" class="lv-doc-add sr-only" data-id="' + esc(l.LeaveID) + '"></label>' : '') + '</div>' : '') +
+          (l.Status !== 'Draft' ? timeline(l) : '') +
+          (l.CanSend ? '<button class="lv-send mt-4 w-full rounded-xl bg-indigo-600 text-white py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '">Send</button>' : '') +
+          (l.CanCancel ? '<button class="lv-cancel mt-2 w-full rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '">' +
+            (l.Status === 'Draft' ? 'Delete' : l.Status === 'Approved' ? 'Cancel this leave' : 'Withdraw this request') + '</button>' : '') + '</div>', 'p-3')).join('') + '</div>');
+        document.querySelectorAll('.lv-doc-add').forEach(inp => inp.addEventListener('change', () => {
+          const f = inp.files[0];
+          if (f) readFile(f).then(data => api('uploadLeaveFile', { leaveId: inp.dataset.id, fileName: f.name, data })).then(() => { toast('Document added.'); leaveHistory(); }, fail);
+        }));
       }, err => body(card(empty('fa-triangle-exclamation', err.message))));
     }
     $('page').addEventListener('click', e => {
@@ -541,11 +564,22 @@
       if (d) { decide(d.dataset.id, d.dataset.decision); return; }
       const tl = e.target.closest('.tm-loan');
       if (tl) { decideLoan(tl.dataset.id, tl.dataset.decision); return; }
+      const tc = e.target.closest('.tm-claim');
+      if (tc) { decideClaim(tc.dataset.id, tc.dataset.decision); return; }
+      const lf = e.target.closest('.lv-file');
+      if (lf) { api('openLeaveFile', { leaveId: lf.dataset.leave, attachmentId: lf.dataset.id }).then(downloadFile, fail); return; }
+      const ls = e.target.closest('.lv-send');
+      if (ls) { api('sendLeave', { leaveId: ls.dataset.id }).then(r => { toast(r.leaveNumber + ': ' + ({ PendingManager: 'sent to your line manager.', PendingApproval: 'sent to HR for approval.', Approved: 'approved.' }[r.status] || r.status)); leaveHistory(); }, fail); return; }
       const rr = e.target.closest('.req-row');
       if (rr) { location.hash = 'requests/view/' + rr.dataset.id; }
     });
     function cancelLeave(l) {
       const approved = l.Status === 'Approved';
+      if (l.Status === 'Draft') {
+        dialog({ title: 'Delete this leave?', message: l.LeaveTypeName + ', ' + dateRange(l.FromDate, l.ToDate, l) + ' (not sent).', ok: 'Delete', danger: true })
+          .then(ok => { if (ok) api('cancelLeave', { leaveId: l.LeaveID }).then(() => { toast('Deleted.'); leaveHistory(); }, fail); });
+        return;
+      }
       dialog({ title: approved ? 'Cancel your leave' : 'Withdraw your request', message: l.LeaveTypeName + ', ' + dateRange(l.FromDate, l.ToDate, l) + '. ' + (approved ? 'Why are you cancelling it?' : 'Why? (optional)'),
         input: true, required: approved, ok: approved ? 'Cancel leave' : 'Withdraw', danger: true }).then(reason => {
         if (reason === null) return;
@@ -644,16 +678,17 @@
     const reqBody = html => { const b = $('req-body'); if (b) b.innerHTML = html; };
     function pageRequests() {
       const parts = location.hash.slice(1).split('/');
-      const sub = ['list', 'query', 'loan', 'view'].includes(parts[1]) ? parts[1] : 'list', arg = parts[2] || '';
-      page(tabsHtml('requests', [['list', 'My requests'], ['query', 'Pay query'], ['loan', 'Advance / loan']], sub === 'view' ? 'list' : sub) + '<div id="req-body">' + skeleton() + '</div>');
-      ({ list: reqList, query: () => reqQuery(arg), loan: reqLoan, view: () => reqView(arg) })[sub]();
+      const sub = ['list', 'query', 'loan', 'claim', 'view'].includes(parts[1]) ? parts[1] : 'list', arg = parts[2] || '';
+      page(tabsHtml('requests', [['list', 'Mine'], ['query', 'Pay query'], ['claim', 'Expenses'], ['loan', 'Loan']], sub === 'view' ? 'list' : sub) + '<div id="req-body">' + skeleton() + '</div>');
+      ({ list: reqList, query: () => reqQuery(arg), loan: reqLoan, claim: reqClaim, view: () => reqView(arg) })[sub]();
     }
+    const TYPE_TEXT = { Query: 'Pay query', Loan: 'Advance / loan', Claim: 'Expense claim' };
     function reqList() {
       api('requests').then(r => {
         reqUnread = r.requests.filter(x => x.Unread).length; badges();
         if (!r.requests.length) { reqBody(card(empty('fa-inbox', 'No requests yet. Ask about your pay, or for an advance or loan, with the tabs above.'))); return; }
         reqBody('<div class="space-y-2">' + r.requests.map(x => card('<button class="req-row w-full text-left" data-id="' + esc(x.RequestID) + '"><div class="flex items-start justify-between gap-2"><div class="min-w-0">' +
-          '<div class="font-semibold text-sm">' + (x.Unread ? '<span class="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1 align-middle" title="New reply"></span>' : '') + esc(x.Type === 'Query' ? 'Pay query' : 'Advance / loan') +
+          '<div class="font-semibold text-sm">' + (x.Unread ? '<span class="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1 align-middle" title="New reply"></span>' : '') + esc(TYPE_TEXT[x.Type] || x.Type) +
           ' <span class="text-xs font-normal text-slate-400">' + esc(x.Number) + '</span></div><div class="text-xs text-slate-500 dark:text-slate-400 truncate">' + esc(showText(x.Title)) + ' · ' + esc(showTime(x.LastAt)) + '</div></div>' +
           chip(x.Stage, x.StatusText) + '</div></button>', 'p-3')).join('') + '</div>');
       }, err => reqBody(card(empty('fa-triangle-exclamation', err.message))));
@@ -717,6 +752,65 @@
       } catch (err) { fail(err); } finally { const b = $('pq-submit'); if (b) b.disabled = false; }
     }
 
+    // ---------- expense claims (step 3) ----------
+    let claimData = null, billSeq = 0;
+    function reqClaim() {
+      api('claimForm').then(f => {
+        claimData = f;
+        if (!f.categories.length) { reqBody(card(empty('fa-receipt', 'No expense categories are set up yet. Please contact HR.'))); return; }
+        reqBody(card('<form id="rc-form" class="space-y-3"><div id="rc-bills" class="space-y-3"></div>' +
+          '<button type="button" id="rc-add" class="w-full rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 py-2.5 text-sm font-semibold text-indigo-600 dark:text-indigo-300"><i class="fa-solid fa-plus"></i> Add a bill</button>' +
+          '<div class="flex justify-between text-base"><span class="font-semibold">Total</span><span id="rc-total" class="font-extrabold">0.00</span></div>' +
+          field('About the claim <span class="text-slate-400 font-normal">(optional)</span>', '<input id="rc-desc" maxlength="500" class="' + inputCls + '" placeholder="e.g. Client visit, Dubai">') +
+          '<p class="text-xs text-slate-500 dark:text-slate-400"><i class="fa-solid fa-route"></i> ' + (f.manager ? 'Goes to ' + esc(f.manager) + ', your line manager, then approval if set up.' : 'Goes to approval if set up, else it is approved at once.') + ' Paid with your salary.</p>' +
+          '<button id="rc-submit" type="submit" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 disabled:opacity-50">Send claim</button></form>'));
+        $('rc-add').addEventListener('click', addBill);
+        $('rc-bills').addEventListener('input', claimTotal);
+        $('rc-bills').addEventListener('change', e => { if (e.target.classList.contains('rc-cat')) billHints(e.target.closest('.rc-bill')); if (e.target.classList.contains('rc-file')) { const n = e.target.files.length; e.target.closest('label').querySelector('span').textContent = n ? n + (n === 1 ? ' file' : ' files') : 'Add receipt'; } });
+        $('rc-bills').addEventListener('click', e => { const x = e.target.closest('.rc-remove'); if (x) { x.closest('.rc-bill').remove(); claimTotal(); } });
+        $('rc-form').addEventListener('submit', e => { e.preventDefault(); sendClaim(); });
+        addBill();
+      }, err => reqBody(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    function addBill() {
+      const n = ++billSeq, f = claimData;
+      const div = document.createElement('div');
+      div.className = 'rc-bill rounded-xl border border-slate-200 dark:border-slate-700 p-3 space-y-2';
+      div.innerHTML = '<div class="flex justify-between items-center"><span class="text-sm font-semibold">Bill</span><button type="button" class="rc-remove text-slate-400" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></div>' +
+        '<select class="rc-cat ' + inputCls + '">' + f.categories.map(c => '<option value="' + esc(c.CategoryID) + '">' + esc(c.Name) + '</option>').join('') + '</select>' +
+        '<div class="grid grid-cols-2 gap-2"><input type="date" class="rc-date ' + inputCls + '" max="' + esc(f.today) + '" value="' + esc(f.today) + '"><input inputmode="decimal" placeholder="Amount" class="rc-amount ' + inputCls + '"></div>' +
+        '<input maxlength="200" placeholder="What was it for?" class="rc-what ' + inputCls + '">' +
+        '<label class="flex items-center gap-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 px-3 py-2 text-sm cursor-pointer"><i class="fa-solid fa-camera"></i> <span>Add receipt</span><input type="file" multiple accept="image/*,application/pdf" class="rc-file sr-only"></label>' +
+        '<div class="rc-hint text-xs text-slate-500 dark:text-slate-400"></div>';
+      div.dataset.n = n;
+      $('rc-bills').appendChild(div);
+      billHints(div);
+    }
+    function billHints(div) {
+      const c = claimData.categories.find(x => x.CategoryID === div.querySelector('.rc-cat').value);
+      div.querySelector('.rc-hint').textContent = [c.ReceiptRequired ? 'A receipt is required.' : 'Receipt optional.', c.MonthlyLimit != null ? 'Monthly limit ' + money(c.MonthlyLimit) + '.' : '', 'Bills up to ' + c.MaxAgeDays + ' days old.'].filter(Boolean).join(' ');
+    }
+    function claimTotal() {
+      const t = [...document.querySelectorAll('.rc-amount')].reduce((s, x) => s + (Number(String(x.value).replace(/,/g, '')) || 0), 0);
+      $('rc-total').textContent = money(t);
+    }
+    async function sendClaim() {
+      const rows = [...document.querySelectorAll('.rc-bill')];
+      if (!rows.length) { say('Add a bill.'); return; }
+      const bills = rows.map(div => ({ categoryId: div.querySelector('.rc-cat').value, date: div.querySelector('.rc-date').value, amount: div.querySelector('.rc-amount').value, description: div.querySelector('.rc-what').value }));
+      $('rc-submit').disabled = true;
+      let made = null;
+      try {
+        made = await api('raiseClaim', { bills, description: $('rc-desc').value });
+        for (let i = 0; i < rows.length; i++) for (const f of [...rows[i].querySelector('.rc-file').files].slice(0, claimData.filesPerBill)) await api('uploadFile', { id: made.requestId, billIndex: i, fileName: f.name, data: await readFile(f) });
+        const x = await api('submitClaim', { id: made.requestId });
+        toast(made.number + ': ' + (x.status === 'WithManager' ? 'sent to your line manager.' : x.status === 'Approved' ? 'approved.' : 'sent for approval.'));
+        location.hash = 'requests/view/' + made.requestId;
+      } catch (err) {
+        if (made) { await say(made.number + ' was saved but not sent: ' + err.message + ' Finish it from the claim.'); location.hash = 'requests/view/' + made.requestId; } else fail(err);
+      } finally { const b = $('rc-submit'); if (b) b.disabled = false; }
+    }
+
     let loanData = null;
     function reqLoan() {
       api('loanForm').then(f => {
@@ -767,7 +861,17 @@
         viewing = d;
         const r = d.request;
         const row = (k, v) => v ? '<div class="flex justify-between gap-4 text-sm py-0.5"><span class="text-slate-500 dark:text-slate-400">' + k + '</span><span class="font-medium text-right">' + v + '</span></div>' : '';
-        const facts = r.Type === 'Query'
+        const claimFacts = () => '<div class="space-y-2">' + r.Bills.map((b, i) => '<div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 text-sm"><div class="flex justify-between gap-2"><div class="min-w-0"><div class="font-medium">' +
+            esc(b.CategoryName) + ' · ' + esc(showDate(b.Date)) + '</div><div class="text-xs text-slate-500 dark:text-slate-400">' + esc(b.Description) + '</div></div><div class="text-right whitespace-nowrap"><div class="font-semibold">' + money(b.Amount) + '</div>' +
+            (b.Approved !== b.Amount ? '<div class="text-xs text-amber-700 dark:text-amber-300">approved ' + money(b.Approved) + '</div>' : '') + '</div></div>' +
+            (b.Note ? '<div class="text-xs mt-1 text-amber-700 dark:text-amber-300">' + esc(b.Note) + '</div>' : '') +
+            '<div class="flex flex-wrap items-center gap-2 mt-2">' + b.Files.map(fid => { const f = d.files.find(x => x.AttachmentID === fid); return f ? '<button class="rq-file text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2 py-1" data-id="' + esc(fid) + '"><i class="fa-solid fa-paperclip"></i> ' + esc(f.FileName) + '</button>' : ''; }).join('') +
+            (d.canSubmit && b.Files.length < d.filesPerBill ? '<label class="text-xs rounded-lg border border-dashed border-slate-300 dark:border-slate-600 px-2 py-1 cursor-pointer text-indigo-600 dark:text-indigo-300"><i class="fa-solid fa-camera"></i> Add receipt<input type="file" accept="image/*,application/pdf" class="rq-bill-file sr-only" data-bill="' + i + '"></label>' : '') + '</div></div>').join('') +
+            '<div class="flex justify-between text-base pt-1"><span class="font-semibold">Total</span><span class="font-extrabold">' + money(r.Total) + '</span></div>' +
+            (r.ApprovedTotal !== r.Total && ['Approved', 'Paid'].includes(r.Stage) ? '<div class="flex justify-between text-sm"><span>Approved</span><span class="font-bold">' + money(r.ApprovedTotal) + '</span></div>' : '') +
+            (r.Flags || []).map(f => '<div class="text-xs text-amber-700 dark:text-amber-300"><i class="fa-solid fa-triangle-exclamation"></i> ' + esc(f) + '</div>').join('') +
+            (d.canSubmit ? '<button id="rq-send" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 mt-2">Send claim</button>' : '') + '</div>';
+        const facts = r.Type === 'Claim' ? claimFacts() : r.Type === 'Query'
           ? row('Payslip', esc(showMonth(r.Month))) + row('About', esc(r.Category)) + r.Lines.map(l => row(esc(l.Name), money(l.Amount))).join('') + (r.Expected != null ? row('Expected', money(r.Expected)) : '') +
             '<div class="mt-2 text-sm whitespace-pre-line">' + esc(r.Description) + '</div>'
           : row('Type', esc(r.TypeName)) + row('Amount', money(r.Amount)) + (r.Kind === 'Loan' ? row('Instalments', money(r.Instalment) + ' × ' + r.Months) : '') + row('Recovery from', esc(showMonth(r.StartMonth))) +
@@ -776,15 +880,15 @@
           (m.From === 'Employee' ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-slate-100 dark:bg-slate-800 rounded-bl-sm') + '"><div class="whitespace-pre-line">' + esc(m.Text) + '</div>' +
           '<div class="text-[10px] mt-1 ' + (m.From === 'Employee' ? 'text-indigo-200' : 'text-slate-400') + '">' + esc(m.From === 'Employee' ? 'You' : m.By + ' · HR') + ' · ' + esc(showTime(m.At)) + '</div></div></div>').join('');
         reqBody('<div class="space-y-3">' +
-          card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(r.Type === 'Query' ? 'Pay query' : 'Advance / loan') + ' <span class="text-xs font-normal text-slate-400">' + esc(r.Number) + '</span></div>' +
+          card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(TYPE_TEXT[r.Type] || r.Type) + ' <span class="text-xs font-normal text-slate-400">' + esc(r.Number) + '</span></div>' +
             (r.AssignedName ? '<div class="text-xs text-slate-500 dark:text-slate-400">With ' + esc(r.AssignedName) + '</div>' : '') + '</div>' + chip(r.Stage, r.StatusText) + '</div><div class="mt-3">' + facts + '</div>' +
             (r.Outcome ? '<div class="mt-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-sm"><i class="fa-solid fa-circle-check text-emerald-600"></i> ' + esc(r.Outcome) + '</div>' : '') +
             (r.RejectionReason ? '<div class="mt-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-sm"><i class="fa-solid fa-circle-xmark text-rose-600"></i> ' + esc(r.RejectionReason) + '</div>' : '')) +
           card('<h3 class="font-semibold text-sm mb-2">Messages</h3><div id="rq-msgs" class="space-y-2">' + (msgs || '<p class="text-sm text-slate-500 dark:text-slate-400">No messages yet.</p>') + '</div>' +
             (d.canReply ? '<form id="rq-reply" class="mt-3 flex gap-2"><textarea id="rq-text" rows="1" maxlength="2000" placeholder="Write a message" class="' + inputCls + '"></textarea><button class="rounded-xl bg-indigo-600 text-white px-4" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button></form>' : '')) +
-          card('<h3 class="font-semibold text-sm mb-2">Files</h3><div id="rq-files" class="space-y-1">' + (d.files.map(f => '<button class="rq-file w-full flex items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-2 text-sm" data-id="' + esc(f.AttachmentID) + '"><span class="truncate"><i class="fa-solid ' +
+          (r.Type === 'Claim' ? '' : card('<h3 class="font-semibold text-sm mb-2">Files</h3><div id="rq-files" class="space-y-1">' + (d.files.map(f => '<button class="rq-file w-full flex items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-2 text-sm" data-id="' + esc(f.AttachmentID) + '"><span class="truncate"><i class="fa-solid ' +
             (/pdf/.test(f.MimeType) ? 'fa-file-pdf text-rose-500' : 'fa-file-image text-sky-500') + '"></i> ' + esc(f.FileName) + '</span><i class="fa-solid fa-download text-slate-400"></i></button>').join('') || '<p class="text-sm text-slate-500 dark:text-slate-400">None.</p>') + '</div>' +
-            (d.canUpload ? '<div class="mt-2">' + fileInput('rq-add') + '</div>' : '')) +
+            (d.canUpload ? '<div class="mt-2">' + fileInput('rq-add') + '</div>' : ''))) +
           (d.canReopen ? '<button id="rq-reopen" class="w-full rounded-xl border border-indigo-300 text-indigo-700 dark:text-indigo-300 py-2.5 text-sm font-semibold">Not sorted? Reopen (within ' + d.reopenDays + ' days)</button>' : '') +
           (d.canWithdraw ? '<button id="rq-withdraw" class="w-full rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold">Withdraw this request</button>' : '') +
           card('<h3 class="font-semibold text-sm">History</h3>' + timeline(r), 'p-4') + '</div>');
@@ -800,6 +904,12 @@
         if (d.canWithdraw) $('rq-withdraw').addEventListener('click', () => dialog({ title: 'Withdraw ' + r.Number, message: 'Why? (optional)', input: true, ok: 'Withdraw', danger: true })
           .then(t => { if (t !== null) api('withdrawRequest', { id, reason: t }).then(() => { toast('Withdrawn.'); reqView(id); }, fail); }));
         document.querySelectorAll('.rq-file').forEach(b => b.addEventListener('click', () => api('openFile', { id, attachmentId: b.dataset.id }).then(downloadFile, fail)));
+        // A claim's receipts and sending it (step 3).
+        document.querySelectorAll('.rq-bill-file').forEach(inp => inp.addEventListener('change', () => {
+          const f = inp.files[0];
+          if (f) readFile(f).then(data => api('uploadFile', { id, billIndex: Number(inp.dataset.bill), fileName: f.name, data })).then(() => { toast('Receipt added.'); reqView(id); }, fail);
+        }));
+        if ($('rq-send')) $('rq-send').addEventListener('click', () => api('submitClaim', { id }).then(x => { toast(x.status === 'WithManager' ? 'Sent to your line manager.' : x.status === 'Approved' ? 'Approved.' : 'Sent for approval.'); reqView(id); }, fail));
       }, err => reqBody(card(empty('fa-triangle-exclamation', err.message))));
     }
     // A file from the server (base64), saved or opened by the browser.
@@ -815,7 +925,18 @@
     }
 
     // ---------- Team (the line manager, decision 90) ----------
-    let teamList = [], teamLoans = [];
+    let teamList = [], teamLoans = [], teamClaims = [];
+    async function decideClaim(id, decision) {
+      const r = teamClaims.find(x => x.RequestID === id);
+      if (!r) return;
+      const data = { id, decision };
+      if (decision === 'Rejected') {
+        const reason = await dialog({ title: 'Reject ' + r.EmployeeName + '\'s claim', message: r.Number + ', ' + money(r.Total) + '. The reason is shown to ' + r.EmployeeName.split(/\s+/)[0] + '.', input: true, required: true, ok: 'Reject', danger: true });
+        if (reason === null) return;
+        data.reason = reason;
+      }
+      api('decideClaim', data).then(x => { toast(decision === 'Rejected' ? 'Rejected.' : x.status === 'Approved' ? 'Approved.' : 'Approved: sent on for approval.'); pageTeam(); }, fail);
+    }
     async function decideLoan(id, decision) {
       const r = teamLoans.find(x => x.RequestID === id);
       if (!r) return;
@@ -830,7 +951,14 @@
     function pageTeam() {
       page(skeleton());
       api('team').then(t => {
-        teamList = t.pending; teamLoans = t.loanRequests || []; teamPending = t.pending.length + teamLoans.length; badges();
+        teamList = t.pending; teamLoans = t.loanRequests || []; teamClaims = t.claims || []; teamPending = t.pending.length + teamLoans.length + teamClaims.length; badges();
+        const claimsHtml = teamClaims.length ? '<h2 class="font-semibold mt-6 mb-2">Expense claims</h2><div class="space-y-3">' + teamClaims.map(r => card(
+          '<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(r.EmployeeName) + ' <span class="text-xs font-normal text-slate-400">' + esc(r.EmployeeNo) + '</span></div>' +
+          '<div class="text-sm">' + esc(r.Number) + (r.Description ? ' · ' + esc(r.Description) : '') + '</div></div><div class="font-extrabold">' + money(r.Total) + '</div></div>' +
+          '<div class="mt-2 space-y-1">' + r.Bills.map(b => '<div class="flex justify-between text-xs"><span>' + esc(b.CategoryName) + ' · ' + esc(showDate(b.Date)) + ' · ' + esc(b.Description) + (b.Files ? ' <i class="fa-solid fa-paperclip"></i>' : '') + '</span><span class="font-medium">' + money(b.Amount) + '</span></div>').join('') + '</div>' +
+          r.Flags.map(f => '<div class="text-xs text-amber-700 dark:text-amber-300 mt-1"><i class="fa-solid fa-triangle-exclamation"></i> ' + esc(f) + '</div>').join('') +
+          '<div class="grid grid-cols-2 gap-2 mt-3"><button class="tm-claim rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(r.RequestID) + '" data-decision="Rejected">Reject</button>' +
+          '<button class="tm-claim rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 text-sm font-semibold" data-id="' + esc(r.RequestID) + '" data-decision="Approved">Approve</button></div>')).join('') + '</div>' : '';
         const loansHtml = teamLoans.length ? '<h2 class="font-semibold mt-6 mb-2">Advance and loan requests</h2><div class="space-y-3">' + teamLoans.map(r => card(
           '<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(r.EmployeeName) + ' <span class="text-xs font-normal text-slate-400">' + esc(r.EmployeeNo) + '</span></div>' +
           '<div class="text-sm">' + esc(r.TypeName) + ' · <b>' + money(r.Amount) + '</b></div><div class="text-xs text-slate-500 dark:text-slate-400">' +
@@ -849,10 +977,11 @@
           (l.Balance ? '<div class="mt-2 text-xs">Balance: ' + esc(l.Balance.Before) + ' → <b>' + esc(l.Balance.After) + '</b> days</div>' : '') +
           (l.Warnings || []).map(w => '<div class="text-xs text-amber-700 dark:text-amber-300"><i class="fa-solid fa-triangle-exclamation"></i> ' + esc(w) + '</div>').join('') +
           (l.NoDocument ? '<div class="text-xs text-amber-700 dark:text-amber-300"><i class="fa-solid fa-file-medical"></i> No supporting document attached.</div>' : '') +
+          ((l.Files || []).length ? '<div class="flex flex-wrap gap-2 mt-2">' + l.Files.map(f => '<button class="lv-file text-xs rounded-lg bg-slate-100 dark:bg-slate-800 px-2 py-1" data-leave="' + esc(l.LeaveID) + '" data-id="' + esc(f.AttachmentID) + '"><i class="fa-solid fa-paperclip"></i> ' + esc(f.FileName) + '</button>').join('') + '</div>' : '') +
           '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1"><i class="fa-solid fa-route"></i> ' + esc(l.NextStep) + '</div>' +
           '<div class="grid grid-cols-2 gap-2 mt-3"><button class="tm-decide rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '" data-decision="Rejected">Reject</button>' +
           '<button class="tm-decide rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '" data-decision="Approved">Approve</button></div>')).join('') + '</div>'
-          : (teamLoans.length ? '' : card(empty('fa-circle-check', 'No requests waiting for you.')))) + loansHtml + decided);
+          : (teamLoans.length || teamClaims.length ? '' : card(empty('fa-circle-check', 'No requests waiting for you.')))) + loansHtml + claimsHtml + decided);
       }, err => page(card(empty('fa-triangle-exclamation', err.message))));
     }
     async function decide(id, decision) {
