@@ -995,3 +995,10 @@ from, and how it was verified. The deploy procedure is in the
     12:57–12:59, both success.
   - **Owner's decision after step 3:** the reimbursement pay elements stay
     in Earnings & Deductions (HR still enters other entries there).
+- **2026-10-10, Employee Portal follow-ups (`employee-portal-4`):** run
+  [#127](https://github.com/yasircmd/erp-firebase/actions/runs/38078744782),
+  19:10–19:13 UTC, from `4b7d30b` (PR #108): functions and screens,
+  success. The company names show (screens). **The Hosting task is still
+  to run**: My Portal in the user menu and ERP Home without the leave
+  blocks (public/index.html), and the portal's Team / Home leave sections
+  and Payroll's payslip in the portal (public/ess.html) wait for it.

@@ -11,11 +11,11 @@ fresh session can continue from GitHub.
 
 ## Waiting to go live (the owner's deploys and setup)
 
-Waiting to deploy: **`employee-portal-4`** (the portal follow-ups,
-[EMPLOYEE_PORTAL.md](modules/EMPLOYEE_PORTAL.md#changes-after-go-live-owner-2026-10-10)):
-`tools/deploy-sets/employee-portal-4.txt` with `--screens` (EMPREQUESTS,
-PAYROLL, PAYROLLSETUP, PAYROLLIP, PROVISIONS, HRSETUP), then the **hosting**
-task. Nothing to set up.
+Waiting: the **hosting** task for **`employee-portal-4`** (the portal
+follow-ups, [EMPLOYEE_PORTAL.md](modules/EMPLOYEE_PORTAL.md#changes-after-go-live-owner-2026-10-10)).
+Its functions and screens went live in run #127 (2026-10-10); My Portal in
+the user menu, the leave sections in the portal and the portal's payslip
+need the Hosting deploy. Nothing to set up.
 
 Went live 2026-10-10 (runs #117–#126, [DEPLOY_LOG.md](DEPLOY_LOG.md)):
 **Employee Portal steps 1–3** (`employee-portal`, `-2`, `-3`, screens,
