@@ -702,7 +702,7 @@ for one company or all the user's companies, each with **Copy to Excel**
   - each employee's days away;
   - "Only people away" (on to start) or everyone.
 
-**Home** (the shell, hence a Hosting deploy):
+**Home** (the shell, hence a Hosting deploy). *Moved 2026-10-10 (owner) to the Employee Portal's Team and Home: [EMPLOYEE_PORTAL.md](EMPLOYEE_PORTAL.md#changes-after-go-live-owner-2026-10-10), decision 112.*
 - **On Leave Today:** approved leave or duty with a day today, each with
   the day they're back. Seen by users with Leave Register or Leave Reports
   access.

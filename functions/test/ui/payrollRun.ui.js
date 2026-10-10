@@ -56,7 +56,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.fill('#pr-new-month', '2026-07');
     await p.click('#pr-new-create');
     await p.waitForSelector('#pr-run-view:not(.hidden)', { timeout: 30000 });
-    assert.match(await p.textContent('#pr-heading'), /2026-07|Jul-2026/);
+    assert.match(await p.textContent('#pr-heading'), /Test Co One \(01\) · (2026-07|Jul-2026)/, 'the company by name, not only its code (owner, 2026-10-10)');
+    assert.equal(await p.$eval('#pr-new-company option[value="C1"]', o => o.textContent), 'Test Co One (01)');
     assert.equal(await p.locator('#pr-reg-body tr').count(), 2);
     // Ali: 9,000 less one unpaid day (300); Sara joined on 15 July: 6,000 − 14 × 200.
     assert.match(await p.textContent('#pr-reg-body tr[data-emp="' + ali + '"]'), /6,000\.00\s*3,000\.00\s*300\.00\s*9,000\.00\s*300\.00\s*8,700\.00/);

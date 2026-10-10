@@ -276,7 +276,7 @@
       renderElements();
     }, err => appAlert(err.message || 'Unable to load the pay elements.'));
   }
-  const coLabel = id => { const c = companies.find(x => x.CompanyID === id); return c ? (c.CompanyRefCode || c.LegalName) : id; };
+  const coLabel = id => { const c = companies.find(x => x.CompanyID === id); return c ? c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '') : id; };
   function rowClick(body, onClick) {
     body.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => { if (canWrite) onClick(tr.dataset.id); }));
   }

@@ -188,9 +188,14 @@ let ALI, SARA, TYPE, AUG;
     await visible(a, '#home-leave-left');
     // A second request, to be rejected.
     await a.evaluate(t => window.__ess.call('essPortal', { action: 'applyLeave', leave: { LeaveTypeID: t, FromDate: '2026-12-07', ToDate: '2026-12-07' } }), TYPE.ANNUAL);
+    // Ali is also away today (approved leave): Sara sees it in the portal, not on ERP Home (owner, 2026-10-10).
+    const T = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dubai' });
+    const awayRef = await firestore.collection('leaveRequests').add({ Status: 'Approved', Kind: 'Leave', EmployeeID: ALI, EmployeeNo: 'EMP-0001', EmployeeName: 'Ali Hassan', LeaveTypeName: 'Annual Leave',
+      LeaveNumber: 'LV-UI-AWAY', FromDate: T, ToDate: T, ExpectedReturn: '2099-01-05', CompanyID: 'C1', Lines: [{ Date: T, Fraction: 1, Code: 'AL' }] });
     const s = await portal();
     await signIn(s, 'EMP-0002', 'Garden#2026');
     await visible(s, '#home-team');
+    assert.match(await s.textContent('#home-team-away'), /1 of your team away today/);
     assert.match(await s.textContent('#home-team'), /2 team requests waiting for you/);
     assert.equal(await s.textContent('#bottom-nav a[data-nav="team"] .ess-team-badge'), '2');
     await s.click('#bottom-nav a[data-nav="team"]');
@@ -207,6 +212,8 @@ let ALI, SARA, TYPE, AUG;
     await answer(s, true, 'Year-end closing');
     assert.equal(await toast(s, /^Rejected/), 'Rejected.');
     await until(s, () => !document.querySelector('.tm-decide') && /Recently decided/.test(document.getElementById('page').textContent));
+    assert.match(await s.textContent('#tm-away'), /Ali Hassan\s*EMP-0001[\s\S]*Annual Leave[\s\S]*Back 05\/01\/2099/);
+    await awayRef.delete(); // only for this check
     assert.equal(await s.textContent('#bottom-nav a[data-nav="team"] .ess-team-badge'), '');
     // Ali sees both.
     await a.click('#bottom-nav a[data-nav="leave"]');
@@ -239,6 +246,9 @@ let ALI, SARA, TYPE, AUG;
     const slip = await p.textContent('#slip-body');
     assert.match(slip, /Test Co One[\s\S]*Payslip — Aug-2026[\s\S]*EMP-0001 · Ali Hassan[\s\S]*Basic Salary[\s\S]*6,000\.00[\s\S]*Total earnings7,500\.00[\s\S]*Net pay7,500\.00/);
     assert.match(slip, /Leave balance at 31\/08\/2026[\s\S]*Annual Leave/);
+    // The Payroll screen's own payslip (owner, 2026-10-10): its layout, with the How column.
+    assert.equal(await p.locator('#slip-body .payslip-doc').count(), 1);
+    assert.match(slip, /EarningsHowAmount/);
     await p.click('#slip-pdf');
     await until(p, () => window.__printed);
     assert.match(await p.evaluate(() => window.__printed), /Payslip — Aug-2026/);

@@ -144,14 +144,14 @@ exports.getLeaveCalendar = onCallWithMessages(onCallOptions, async (request) => 
 // ---------- Home ----------
 
 // Leave tasks (payroll step 7, decision 59): "on leave today" and "returns
-// to record" go only to the employee (their linked ERP user) and their line
-// manager (the manager's linked user), when assigned; no one else.
-exports.getLeaveTasksForUser = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await requireUser(request);
+// to record" go only to the employee and their line manager, when
+// assigned; no one else. Since 2026-10-10 (owner) they are shown in the
+// Employee Portal (docs/modules/EMPLOYEE_PORTAL.md), not on ERP Home.
+// `mine` are the employee records of the one asking.
+async function leaveTasksFor(mine) {
   const t = today();
-  const emps = docs(await EMPLOYEES().get()).map(e => Object.assign(e, { EmployeeID: e._id }));
-  const mine = emps.filter(e => e.UserUID && e.UserUID === user.uid).map(e => e.EmployeeID);
   if (!mine.length) return { today: t, onLeaveToday: [], returnsToRecord: [] };
+  const emps = docs(await EMPLOYEES().get()).map(e => Object.assign(e, { EmployeeID: e._id }));
   // Whose leave this user hears about: their own, and their direct reports'.
   const role = {};
   emps.forEach(e => {
@@ -169,4 +169,12 @@ exports.getLeaveTasksForUser = onCallWithMessages(onCallOptions, async (request)
     .map(l => Object.assign(item(l), { DaysOverdue: Math.round((Date.parse(t) - Date.parse(due(l))) / 86400000) }))
     .sort((a, b) => a.ExpectedReturn.localeCompare(b.ExpectedReturn));
   return { today: t, onLeaveToday, returnsToRecord };
+}
+exports.leaveTasksFor = leaveTasksFor;
+// The ERP user's own (their linked employee records). No longer called by
+// ERP Home; kept for an older shell still open in a browser.
+exports.getLeaveTasksForUser = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const mine = docs(await EMPLOYEES().where('UserUID', '==', user.uid).get()).map(e => e._id);
+  return leaveTasksFor(mine);
 });

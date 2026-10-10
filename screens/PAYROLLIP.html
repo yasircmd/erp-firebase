@@ -95,7 +95,7 @@
   const statusHtml = s => '<span class="' + (STATUS[s] || ['', 'text-slate-400'])[1] + '">' + escapeHtml((STATUS[s] || [s])[0]) + '</span>';
   const key = i => i.Kind + ':' + i.ID;
   let list = null, current = null, seq = 0;
-  const companyName = id => { const c = ((list && list.companies) || []).find(x => x.CompanyID === id); return c ? (c.RefCode ? c.RefCode + ' · ' : '') + c.Name : id; };
+  const companyName = id => { const c = ((list && list.companies) || []).find(x => x.CompanyID === id); return c ? c.Name + (c.RefCode ? ' (' + c.RefCode + ')' : '') : id; };
 
   // ---------- the list ----------
   function loadList() {

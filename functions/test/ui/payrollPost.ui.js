@@ -110,7 +110,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(doc, /ENBD · AE07 •••• 3456/);
     assert.match(doc, /Net pay\s*6,000\.00/);
     assert.match(doc, /Year to date.*2026\s*6,000\.00\s*0\.00\s*6,000\.00/);
-    assert.equal(await p.locator('#pr-print-document .pr-ps').count(), 1);
+    assert.equal(await p.locator('#pr-print-document .payslip-doc').count(), 1);
     await p.click('#pr-reg-body tr[data-emp]');
     await p.click('#pr-slip-print');
     await p.waitForFunction(() => window.__printed === 2, null, { timeout: 30000 });
