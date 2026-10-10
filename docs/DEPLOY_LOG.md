@@ -934,3 +934,27 @@ from, and how it was verified. The deploy procedure is in the
   - In the app (owner): link a menu node to "Retail Sales", set its rights
     and each company's setup (ROADMAP); add the products' barcodes in Item
     Master or Master Data Import → Item Barcodes.
+- **2026-10-09, item barcodes 2 and 3, Retail Sales returns:** each
+  "functions set, then screens", success (as the owner reported; their logs
+  were not read):
+  - Run [#111](https://github.com/yasircmd/erp-firebase/actions/runs/37953423952),
+    15:40–15:42 UTC, from `ed38f1b` (PR #99): `item-barcodes-2`.
+  - Run [#112](https://github.com/yasircmd/erp-firebase/actions/runs/37964320809),
+    17:09–17:12 UTC, from `41a57d7` (PR #100): `item-barcodes-3`.
+  - Run [#113](https://github.com/yasircmd/erp-firebase/actions/runs/37985274289),
+    20:11–20:17 UTC, from `dfada15` (PR #101): `retail-returns`. In the
+    app: tick "return" in Roles & Permissions → Retail Sales, and set
+    each company's return period.
+- **2026-10-10, Numbering (`numbering`, every function):** run
+  [#114](https://github.com/yasircmd/erp-firebase/actions/runs/38022856515),
+  04:05–06:22 UTC, from `47822ce` (PR #102), batches of 6.
+  - **All 83 batches deployed** (the last, batch 83/83, finished at
+    06:14).
+  - The invoker bindings then ran, and **one failed**:
+    `getActiveRequisitionCategories`, an existing function. A redeploy
+    keeps an existing function's binding, so it is most likely still
+    public. Check with an unauthenticated call, and grant it once if not.
+  - The run ended red ("SOME STEPS FAILED"), so **the screens were not
+    released**. The NUMBERING screen is not live yet.
+  - **No full re-run is needed:** release the screens with the
+    workflow's "screens only" task.
