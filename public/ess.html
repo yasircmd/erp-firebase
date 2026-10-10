@@ -127,6 +127,7 @@
       <div class="sticky top-0 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-800">
         <div class="font-bold" id="slip-title">Payslip</div>
         <div class="flex gap-2">
+          <button id="slip-query" class="rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-semibold px-3 py-2" title="Raise a payroll query on this payslip"><i class="fa-solid fa-circle-question"></i> <span class="hidden sm:inline">Something wrong?</span></button>
           <button id="slip-pdf" class="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-3 py-2"><i class="fa-solid fa-download"></i> Download PDF</button>
           <button id="slip-close" class="rounded-lg bg-slate-100 dark:bg-slate-800 text-sm px-3 py-2" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -160,7 +161,7 @@
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
     import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js';
     // Safe to be public: it identifies the project. Access is checked by the
-    // Cloud Functions; tools/deploy-hosting.sh refuses REPLACE_ME here.
+    // Cloud Functions; tools/deploy-hosting.sh refuses placeholder values here.
     const firebaseConfig = {
       apiKey: 'AIzaSyDmCsLCTsWbkztfHlwj5Qgag8cQksIgfbM',
       authDomain: 'erp1-8f4cd.firebaseapp.com',
@@ -352,6 +353,7 @@
       { id: 'home', label: 'Home', icon: 'fa-house' },
       { id: 'leave', label: 'Leave', icon: 'fa-umbrella-beach' },
       { id: 'pay', label: 'Pay', icon: 'fa-wallet' },
+      { id: 'requests', label: 'Requests', icon: 'fa-inbox' },
       { id: 'team', label: 'Team', icon: 'fa-people-group', manager: true },
       { id: 'me', label: 'Me', icon: 'fa-user' }
     ];
@@ -360,16 +362,16 @@
         const on = p.id === current;
         if (side) return '<a href="#' + p.id + '" data-nav="' + p.id + '" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium ' +
           (on ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800') + '"><i class="fa-solid ' + p.icon + ' w-5 text-center"></i>' + p.label +
-          (p.id === 'team' ? '<span class="ess-team-badge ml-auto"></span>' : '') + '</a>';
+          (p.id === 'team' ? '<span class="ess-team-badge ml-auto"></span>' : p.id === 'requests' ? '<span class="ess-req-badge ml-auto"></span>' : '') + '</a>';
         return '<a href="#' + p.id + '" data-nav="' + p.id + '" class="relative flex-1 flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ' + (on ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400') + '">' +
-          '<i class="fa-solid ' + p.icon + ' text-lg"></i>' + p.label + (p.id === 'team' ? '<span class="ess-team-badge absolute top-1 right-1/4"></span>' : '') + '</a>';
+          '<i class="fa-solid ' + p.icon + ' text-lg"></i>' + p.label + (p.id === 'team' ? '<span class="ess-team-badge absolute top-1 right-1/4"></span>' : p.id === 'requests' ? '<span class="ess-req-badge absolute top-1 right-1/4"></span>' : '') + '</a>';
       }).join('');
     }
-    let teamPending = 0;
+    let teamPending = 0, reqUnread = 0;
+    const badge = n => n ? '<span class="inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold">' + n + '</span>' : '';
     function badges() {
-      document.querySelectorAll('.ess-team-badge').forEach(b => {
-        b.innerHTML = teamPending ? '<span class="inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold">' + teamPending + '</span>' : '';
-      });
+      document.querySelectorAll('.ess-team-badge').forEach(b => { b.innerHTML = badge(teamPending); });
+      document.querySelectorAll('.ess-req-badge').forEach(b => { b.innerHTML = badge(reqUnread); });
     }
     function route() {
       if (!me) return;
@@ -380,7 +382,7 @@
       badges();
       $('page-title').textContent = p.id === 'home' ? 'Hello, ' + (me.FirstName || me.FullName) : p.label;
       window.scrollTo(0, 0);
-      const pages = { home: pageHome, leave: pageLeave, pay: pagePay, team: pageTeam, me: pageMe };
+      const pages = { home: pageHome, leave: pageLeave, pay: pagePay, requests: pageRequests, team: pageTeam, me: pageMe };
       pages[p.id](sub);
     }
     window.addEventListener('hashchange', route);
@@ -393,6 +395,9 @@
       PendingManager: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300', PendingApproval: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300',
       Approved: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300', Rejected: 'bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300'
     };
+    // Requests (step 2): the same colours by stage.
+    Object.assign(STATUS_STYLE, { New: STATUS_STYLE.PendingManager, WithManager: STATUS_STYLE.PendingManager, InProgress: STATUS_STYLE.PendingApproval, WithHR: STATUS_STYLE.PendingApproval,
+      InApproval: STATUS_STYLE.PendingApproval, Resolved: STATUS_STYLE.Approved, Running: STATUS_STYLE.Approved });
     const chip = (status, text) => '<span class="ess-status inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ' + (STATUS_STYLE[status] || 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300') + '">' + esc(text) + '</span>';
     const page = html => { $('page').innerHTML = html; };
 
@@ -400,7 +405,7 @@
     function pageHome() {
       page(skeleton());
       api('home').then(h => {
-        teamPending = h.teamPending; badges();
+        teamPending = h.teamPending; reqUnread = (h.requests || {}).unread || 0; badges();
         const main = h.balances.find(b => b.Code === 'ANNUAL' && b.UsesBalance) || h.balances.find(b => b.UsesBalance);
         const slip = h.lastPayslip;
         page('<div class="space-y-4">' +
@@ -415,6 +420,11 @@
             '<a href="#leave/apply" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300 flex items-center justify-center"><i class="fa-solid fa-plane-departure"></i></span><span class="font-semibold text-sm">Apply for leave</span></a>' +
             '<a href="#pay" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300 flex items-center justify-center"><i class="fa-solid fa-file-invoice-dollar"></i></span><span class="font-semibold text-sm">My payslips</span></a>' +
           '</div>' +
+          '<div class="grid grid-cols-2 gap-3">' +
+            '<a href="#requests/query" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300 flex items-center justify-center"><i class="fa-solid fa-circle-question"></i></span><span class="font-semibold text-sm">Ask about my pay</span></a>' +
+            '<a href="#requests/loan" class="ess-card bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 flex flex-col gap-2 hover:border-indigo-400"><span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300 flex items-center justify-center"><i class="fa-solid fa-hand-holding-dollar"></i></span><span class="font-semibold text-sm">Advance or loan</span></a>' +
+          '</div>' +
+          (reqUnread ? '<a href="#requests" id="home-replies" class="block">' + card('<div class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300 flex items-center justify-center"><i class="fa-solid fa-envelope"></i></span><div class="flex-1"><div class="font-semibold text-sm">' + (reqUnread === 1 ? 'A request has' : reqUnread + ' requests have') + ' a new reply from HR</div><div class="text-xs text-slate-500 dark:text-slate-400">Open your requests</div></div><i class="fa-solid fa-chevron-right text-slate-400"></i></div>') + '</a>' : '') +
           (h.teamPending ? '<a href="#team" id="home-team" class="block">' + card('<div class="flex items-center gap-3"><span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300 flex items-center justify-center"><i class="fa-solid fa-people-group"></i></span><div class="flex-1"><div class="font-semibold text-sm">' + h.teamPending + ' team request' + (h.teamPending === 1 ? '' : 's') + ' waiting for you</div><div class="text-xs text-slate-500 dark:text-slate-400">Approve or reject</div></div><i class="fa-solid fa-chevron-right text-slate-400"></i></div>') + '</a>' : '') +
           '<div><div class="flex items-center justify-between mb-2"><h2 class="font-semibold">Your requests</h2><a href="#leave/history" class="text-sm text-indigo-600 dark:text-indigo-400">See all</a></div>' +
           (h.open.length ? '<div class="space-y-2">' + h.open.map(l => card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold text-sm">' + esc(l.LeaveTypeName) + '</div><div class="text-xs text-slate-500 dark:text-slate-400">' + esc(dateRange(l.FromDate, l.ToDate, l)) + ' · ' + days(l.Days) + '</div></div>' + chip(l.Status, l.StatusText) + '</div>', 'p-3')).join('') + '</div>'
@@ -528,7 +538,11 @@
       const o = e.target.closest('.ps-open');
       if (o) { openPayslip(o.dataset.run); return; }
       const d = e.target.closest('.tm-decide');
-      if (d) { decide(d.dataset.id, d.dataset.decision); }
+      if (d) { decide(d.dataset.id, d.dataset.decision); return; }
+      const tl = e.target.closest('.tm-loan');
+      if (tl) { decideLoan(tl.dataset.id, tl.dataset.decision); return; }
+      const rr = e.target.closest('.req-row');
+      if (rr) { location.hash = 'requests/view/' + rr.dataset.id; }
     });
     function cancelLeave(l) {
       const approved = l.Status === 'Approved';
@@ -553,16 +567,36 @@
     }
 
     // ---------- Pay ----------
-    function pagePay() {
-      page(skeleton());
+    // Segmented tabs at the top of a page: [[id, label]], links #base/id.
+    const tabsHtml = (base, tabs, active) => '<div class="grid gap-1 p-1 rounded-xl bg-slate-200/70 dark:bg-slate-800 mb-4" style="grid-template-columns:repeat(' + tabs.length + ',minmax(0,1fr))">' +
+      tabs.map(([id, label]) => '<a href="#' + base + '/' + id + '" data-tab="' + id + '" class="text-center text-sm font-semibold py-2 rounded-lg ' + (id === active ? 'bg-white dark:bg-slate-900 shadow text-indigo-700 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-300') + '">' + label + '</a>').join('') + '</div>';
+    function pagePay(sub) {
+      if (sub === 'loans') { page(tabsHtml('pay', [['slips', 'Payslips'], ['loans', 'Loans']], 'loans') + '<div id="pay-body">' + skeleton() + '</div>'); payLoans(); return; }
+      page(tabsHtml('pay', [['slips', 'Payslips'], ['loans', 'Loans']], 'slips') + '<div id="pay-body">' + skeleton() + '</div>');
+      const payBody = html => { const b = $('pay-body'); if (b) b.innerHTML = html; };
       api('payslips').then(r => {
-        if (!r.payslips.length) { page(card(empty('fa-file-invoice-dollar', 'No payslips yet.'))); return; }
-        page('<div class="space-y-2">' + r.payslips.map(p => card('<div class="flex items-center gap-3"><span class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300 flex flex-col items-center justify-center text-[10px] font-bold leading-tight">' +
+        if (!r.payslips.length) { payBody(card(empty('fa-file-invoice-dollar', 'No payslips yet.'))); return; }
+        payBody('<div class="space-y-2">' + r.payslips.map(p => card('<div class="flex items-center gap-3"><span class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300 flex flex-col items-center justify-center text-[10px] font-bold leading-tight">' +
           esc(showMonth(p.Month).slice(0, 3).toUpperCase()) + '<span>' + esc(p.Month.slice(0, 4)) + '</span></span><div class="flex-1 min-w-0"><div class="font-semibold">' + esc(showMonth(p.Month)) + '</div>' +
           '<div class="text-xs text-slate-500 dark:text-slate-400">Earnings ' + money(p.Earnings) + ' · Deductions ' + money(p.Deductions) + '</div></div>' +
           '<div class="text-right"><div class="ps-net font-bold">' + money(Math.max(0, p.Net)) + '</div><div class="text-[11px] ' + (p.Paid ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400') + '">' + (p.Paid ? 'Paid' : 'Not yet paid') + '</div></div></div>' +
           '<button class="ps-open mt-3 w-full rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 py-2 text-sm font-semibold" data-run="' + esc(p.RunID) + '"><i class="fa-solid fa-eye"></i> View payslip</button>', 'p-3')).join('') + '</div>');
-      }, err => page(card(empty('fa-triangle-exclamation', err.message))));
+      }, err => payBody(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    // Pay → Loans (decision 104): each loan or advance, its balance and recoveries.
+    function payLoans() {
+      const payBody = html => { const b = $('pay-body'); if (b) b.innerHTML = html; };
+      api('loans').then(r => {
+        if (!r.loans.length) { payBody(card(empty('fa-hand-holding-dollar', 'No loans or advances.')) + '<a href="#requests/loan" class="block mt-3 text-center rounded-xl bg-indigo-600 text-white font-semibold py-3">Ask for an advance or loan</a>'); return; }
+        const row = (k, v) => '<div class="flex justify-between text-sm py-0.5"><span class="text-slate-500 dark:text-slate-400">' + k + '</span><span class="font-medium">' + v + '</span></div>';
+        payBody('<div class="space-y-3">' + r.loans.map(l => card(
+          '<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(l.TypeName) + ' <span class="text-xs font-normal text-slate-400">' + esc(l.LoanNumber) + '</span></div>' +
+          '<div class="text-xs text-slate-500 dark:text-slate-400">' + (l.PayoutDate ? 'Paid out ' + esc(showDate(l.PayoutDate)) : 'Not paid out yet') + '</div></div>' + chip(l.Status, l.Status) + '</div>' +
+          '<div class="mt-2">' + row('Amount', money(l.Amount)) + row(l.Kind === 'Loan' ? 'Monthly instalment' : 'Recovered', l.Kind === 'Loan' ? money(l.Instalment) : 'at once') + row('From', esc(showMonth(l.StartMonth))) +
+          '<div class="flex justify-between text-base py-1"><span class="font-semibold">Balance</span><span class="loan-balance font-extrabold">' + money(l.Balance) + '</span></div></div>' +
+          (l.Recoveries.length || l.Repayments.length ? '<details class="mt-1"><summary class="text-sm text-indigo-600 dark:text-indigo-400 cursor-pointer">Recoveries</summary><div class="mt-2">' +
+            l.Recoveries.map(x => row(esc(showMonth(x.Month)) + ' payroll', money(x.Amount))).join('') + l.Repayments.map(x => row(esc(showDate(x.Date)) + ' repaid', money(x.Amount))).join('') + '</div></details>' : ''))).join('') + '</div>');
+      }, err => payBody(card(empty('fa-triangle-exclamation', err.message))));
     }
     let slipFile = '';
     function slipHtml(p) {
@@ -589,10 +623,13 @@
         $('slip-title').textContent = 'Payslip — ' + showMonth(p.month);
         $('slip-body').innerHTML = slipHtml(p);
         slipFile = 'Payslip ' + showMonth(p.month) + ' ' + p.slip.EmployeeNo;
+        slipRun = runId;
         $('slip-view').classList.remove('hidden');
       }, fail);
     }
+    let slipRun = '';
     $('slip-close').addEventListener('click', () => $('slip-view').classList.add('hidden'));
+    $('slip-query').addEventListener('click', () => { $('slip-view').classList.add('hidden'); location.hash = 'requests/query/' + slipRun; });
     $('slip-view').addEventListener('click', e => { if (e.target === $('slip-view')) $('slip-view').classList.add('hidden'); });
     // Download: the browser's print, where "Save as PDF" names the file after the title.
     $('slip-pdf').addEventListener('click', () => {
@@ -603,12 +640,206 @@
       setTimeout(() => { document.title = title; }, 1000);
     });
 
+    // ---------- Requests (step 2): payroll queries, advances and loans ----------
+    const reqBody = html => { const b = $('req-body'); if (b) b.innerHTML = html; };
+    function pageRequests() {
+      const parts = location.hash.slice(1).split('/');
+      const sub = ['list', 'query', 'loan', 'view'].includes(parts[1]) ? parts[1] : 'list', arg = parts[2] || '';
+      page(tabsHtml('requests', [['list', 'My requests'], ['query', 'Pay query'], ['loan', 'Advance / loan']], sub === 'view' ? 'list' : sub) + '<div id="req-body">' + skeleton() + '</div>');
+      ({ list: reqList, query: () => reqQuery(arg), loan: reqLoan, view: () => reqView(arg) })[sub]();
+    }
+    function reqList() {
+      api('requests').then(r => {
+        reqUnread = r.requests.filter(x => x.Unread).length; badges();
+        if (!r.requests.length) { reqBody(card(empty('fa-inbox', 'No requests yet. Ask about your pay, or for an advance or loan, with the tabs above.'))); return; }
+        reqBody('<div class="space-y-2">' + r.requests.map(x => card('<button class="req-row w-full text-left" data-id="' + esc(x.RequestID) + '"><div class="flex items-start justify-between gap-2"><div class="min-w-0">' +
+          '<div class="font-semibold text-sm">' + (x.Unread ? '<span class="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1 align-middle" title="New reply"></span>' : '') + esc(x.Type === 'Query' ? 'Pay query' : 'Advance / loan') +
+          ' <span class="text-xs font-normal text-slate-400">' + esc(x.Number) + '</span></div><div class="text-xs text-slate-500 dark:text-slate-400 truncate">' + esc(showText(x.Title)) + ' · ' + esc(showTime(x.LastAt)) + '</div></div>' +
+          chip(x.Stage, x.StatusText) + '</div></button>', 'p-3')).join('') + '</div>');
+      }, err => reqBody(card(empty('fa-triangle-exclamation', err.message))));
+    }
+
+    // Files from the phone: read as base64 (10 MB each, as the server checks).
+    const readFile = f => new Promise((ok, no) => {
+      if (f.size > 10 * 1024 * 1024) { no(new Error('"' + f.name + '" is over 10 MB.')); return; }
+      const r = new FileReader();
+      r.onload = () => ok(String(r.result).split(',')[1] || '');
+      r.onerror = () => no(new Error('Unable to read "' + f.name + '".'));
+      r.readAsDataURL(f);
+    });
+    async function uploadAll(id, list) {
+      for (const f of list) await api('uploadFile', { id, fileName: f.name, data: await readFile(f) });
+    }
+    const fileInput = id => '<label class="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 py-3 text-sm text-slate-600 dark:text-slate-300 cursor-pointer">' +
+      '<i class="fa-solid fa-paperclip"></i> <span id="' + id + '-label">Add photos or PDFs</span><input id="' + id + '" type="file" multiple accept="image/*,application/pdf" class="sr-only"></label>';
+    function watchFiles(id) {
+      $(id).addEventListener('change', () => { const n = $(id).files.length; $(id + '-label').textContent = n ? n + (n === 1 ? ' file chosen' : ' files chosen') : 'Add photos or PDFs'; });
+    }
+
+    let queryData = null;
+    function reqQuery(runId) {
+      Promise.all([api('payslips'), api('requests')]).then(([p, r]) => {
+        if (!p.payslips.length) { reqBody(card(empty('fa-file-invoice-dollar', 'A query is raised on a payslip: none yet.'))); return; }
+        queryData = { slips: p.payslips, categories: r.queryCategories };
+        const run = p.payslips.some(x => x.RunID === runId) ? runId : p.payslips[0].RunID;
+        reqBody(card('<form id="pq-form" class="space-y-4">' +
+          field('Which month', '<select id="pq-run" class="' + inputCls + '">' + p.payslips.map(x => '<option value="' + esc(x.RunID) + '"' + (x.RunID === run ? ' selected' : '') + '>' + esc(showMonth(x.Month)) + ' · net ' + money(x.Net) + '</option>').join('') + '</select>') +
+          field('What is it about', '<select id="pq-cat" class="' + inputCls + '">' + r.queryCategories.map(c => '<option>' + esc(c) + '</option>').join('') + '</select>') +
+          '<div><div class="text-sm font-medium mb-1">Which lines <span class="text-slate-400 font-normal">(optional)</span></div><div id="pq-lines" class="space-y-1 text-sm"></div></div>' +
+          field('The amount you expected <span class="text-slate-400 font-normal">(optional)</span>', '<input id="pq-expected" inputmode="decimal" class="' + inputCls + '">') +
+          field('What looks wrong', '<textarea id="pq-desc" rows="3" maxlength="2000" class="' + inputCls + '" placeholder="e.g. 300 was deducted for a day I was at work"></textarea>') +
+          fileInput('pq-files') +
+          '<button id="pq-submit" type="submit" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 disabled:opacity-50">Send to HR</button></form>'));
+        watchFiles('pq-files');
+        $('pq-run').addEventListener('change', queryLines);
+        $('pq-form').addEventListener('submit', e => { e.preventDefault(); raiseQuery(); });
+        queryLines();
+      }, err => reqBody(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    function queryLines() {
+      const box = $('pq-lines');
+      box.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+      api('payslip', { runId: $('pq-run').value }).then(p => {
+        box.innerHTML = p.slip.Lines.map((l, i) => l.Amount ? '<label class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-2"><span class="flex items-center gap-2"><input type="checkbox" class="pq-line w-5 h-5 accent-indigo-600" value="' + i + '"> ' +
+          esc(l.Name) + ' <span class="text-xs text-slate-400">' + (l.Kind === 'Deduction' ? 'deduction' : 'earning') + '</span></span><span class="font-medium">' + money(l.Amount) + '</span></label>' : '').join('');
+      }, err => { box.textContent = err.message; });
+    }
+    async function raiseQuery() {
+      const files = [...$('pq-files').files];
+      if (files.length > 5) { say('At most 5 files.'); return; }
+      $('pq-submit').disabled = true;
+      try {
+        const r = await api('raiseQuery', { runId: $('pq-run').value, category: $('pq-cat').value, lines: [...document.querySelectorAll('.pq-line:checked')].map(x => Number(x.value)),
+          expected: $('pq-expected').value.trim(), description: $('pq-desc').value });
+        try { await uploadAll(r.requestId, files); } catch (err) { await say('The query was sent, but a file was not: ' + err.message + ' Add it again from the request.'); }
+        toast(r.number + ': sent to HR' + (r.assignedTo ? ' (' + r.assignedTo + ')' : '') + '.');
+        location.hash = 'requests/view/' + r.requestId;
+      } catch (err) { fail(err); } finally { const b = $('pq-submit'); if (b) b.disabled = false; }
+    }
+
+    let loanData = null;
+    function reqLoan() {
+      api('loanForm').then(f => {
+        loanData = f;
+        if (!f.types.length) { reqBody(card(empty('fa-hand-holding-dollar', 'No advance or loan types are set up yet. Please contact HR.'))); return; }
+        reqBody(card('<form id="lr-form" class="space-y-4">' +
+          field('Type', '<select id="lr-type" class="' + inputCls + '">' + f.types.map(t => '<option value="' + esc(t.LoanTypeID) + '">' + esc(t.Name) + '</option>').join('') + '</select>') +
+          '<div id="lr-limit" class="text-sm"></div>' +
+          field('Amount', '<input id="lr-amount" inputmode="decimal" class="' + inputCls + '">') +
+          '<div id="lr-loan" class="grid grid-cols-2 gap-3">' + field('Monthly instalment', '<input id="lr-inst" inputmode="decimal" class="' + inputCls + '">') + field('Or months', '<input id="lr-months" inputmode="numeric" class="' + inputCls + '">') + '</div>' +
+          field('Recovery starts', '<input id="lr-start" type="month" value="' + esc(f.startMonth) + '" class="' + inputCls + '">') +
+          field('Reason', '<textarea id="lr-reason" rows="2" maxlength="1000" class="' + inputCls + '"></textarea>') +
+          (f.running.length ? '<p class="text-xs text-slate-500 dark:text-slate-400"><i class="fa-solid fa-circle-info"></i> Running now: ' + f.running.map(x => esc(x.TypeName + ' ' + x.LoanNumber) + ', balance ' + money(x.Balance)).join('; ') + '</p>' : '') +
+          '<p class="text-xs text-slate-500 dark:text-slate-400"><i class="fa-solid fa-route"></i> ' + (f.manager ? 'Goes to ' + esc(f.manager) + ', your line manager, then HR, then approval.' : 'Goes to HR, then approval.') + '</p>' +
+          '<button id="lr-submit" type="submit" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 disabled:opacity-50">Send request</button></form>'));
+        $('lr-type').addEventListener('change', loanTypeChanged);
+        $('lr-inst').addEventListener('input', () => { $('lr-months').value = ''; loanTypeChanged(); });
+        $('lr-months').addEventListener('input', () => { $('lr-inst').value = ''; loanTypeChanged(); });
+        $('lr-amount').addEventListener('input', loanTypeChanged);
+        $('lr-form').addEventListener('submit', e => { e.preventDefault(); requestLoan(); });
+        loanTypeChanged();
+      }, err => reqBody(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    const amountOf = id => Number(String($(id).value).replace(/,/g, '')) || 0;
+    function loanTypeChanged() {
+      const t = loanData.types.find(x => x.LoanTypeID === $('lr-type').value);
+      $('lr-loan').classList.toggle('hidden', t.Kind !== 'Loan');
+      const amount = amountOf('lr-amount'), months = Math.round(amountOf('lr-months')), inst = amountOf('lr-inst');
+      const each = t.Kind !== 'Loan' ? amount : months ? amount / months : inst, n = t.Kind !== 'Loan' ? 1 : months || (inst ? Math.ceil(Math.round(amount / inst * 100) / 100) : 0);
+      const over = t.MaxAmount != null && amount > t.MaxAmount, tooMany = t.MaxInstalments && n > t.MaxInstalments;
+      $('lr-limit').innerHTML = (t.Blocked ? '<div class="text-rose-700 dark:text-rose-300"><i class="fa-solid fa-ban"></i> ' + esc(t.Blocked) + '</div>' : '') +
+        (t.MaxText ? '<div class="' + (over ? 'text-rose-700 dark:text-rose-300 font-semibold' : 'text-slate-600 dark:text-slate-300') + '"><i class="fa-solid fa-scale-balanced"></i> ' + esc(t.MaxText) + '</div>' : '') +
+        (t.Kind === 'Loan' && t.MaxInstalments ? '<div class="' + (tooMany ? 'text-rose-700 dark:text-rose-300 font-semibold' : 'text-slate-600 dark:text-slate-300') + '">At most ' + t.MaxInstalments + ' instalments</div>' : '') +
+        (t.Kind === 'Loan' && amount && each ? '<div class="text-slate-600 dark:text-slate-300">' + money(each) + ' a month × ' + n + '</div>' : '') +
+        (t.Kind !== 'Loan' ? '<div class="text-slate-500 dark:text-slate-400">An advance is recovered whole in one payroll.</div>' : '');
+      $('lr-submit').disabled = Boolean(t.Blocked);
+    }
+    function requestLoan() {
+      $('lr-submit').disabled = true;
+      api('requestLoan', { loanTypeId: $('lr-type').value, amount: $('lr-amount').value, instalment: $('lr-inst').value, months: $('lr-months').value, startMonth: $('lr-start').value, reason: $('lr-reason').value })
+        .then(r => { toast(r.number + ': ' + (r.status === 'WithManager' ? 'sent to your line manager.' : 'sent to HR.')); location.hash = 'requests/view/' + r.requestId; }, fail)
+        .finally(() => { const b = $('lr-submit'); if (b) b.disabled = false; });
+    }
+
+    let viewing = null;
+    function reqView(id) {
+      api('request', { id }).then(d => {
+        viewing = d;
+        const r = d.request;
+        const row = (k, v) => v ? '<div class="flex justify-between gap-4 text-sm py-0.5"><span class="text-slate-500 dark:text-slate-400">' + k + '</span><span class="font-medium text-right">' + v + '</span></div>' : '';
+        const facts = r.Type === 'Query'
+          ? row('Payslip', esc(showMonth(r.Month))) + row('About', esc(r.Category)) + r.Lines.map(l => row(esc(l.Name), money(l.Amount))).join('') + (r.Expected != null ? row('Expected', money(r.Expected)) : '') +
+            '<div class="mt-2 text-sm whitespace-pre-line">' + esc(r.Description) + '</div>'
+          : row('Type', esc(r.TypeName)) + row('Amount', money(r.Amount)) + (r.Kind === 'Loan' ? row('Instalments', money(r.Instalment) + ' × ' + r.Months) : '') + row('Recovery from', esc(showMonth(r.StartMonth))) +
+            row('Loan', esc(r.LoanNumber)) + (r.Balance != null ? row('Balance', money(r.Balance)) : '') + '<div class="mt-2 text-sm whitespace-pre-line">' + esc(r.Reason) + '</div>';
+        const msgs = r.Messages.map(m => '<div class="flex ' + (m.From === 'Employee' ? 'justify-end' : 'justify-start') + '"><div class="max-w-[85%] rounded-2xl px-3 py-2 text-sm ' +
+          (m.From === 'Employee' ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-slate-100 dark:bg-slate-800 rounded-bl-sm') + '"><div class="whitespace-pre-line">' + esc(m.Text) + '</div>' +
+          '<div class="text-[10px] mt-1 ' + (m.From === 'Employee' ? 'text-indigo-200' : 'text-slate-400') + '">' + esc(m.From === 'Employee' ? 'You' : m.By + ' · HR') + ' · ' + esc(showTime(m.At)) + '</div></div></div>').join('');
+        reqBody('<div class="space-y-3">' +
+          card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(r.Type === 'Query' ? 'Pay query' : 'Advance / loan') + ' <span class="text-xs font-normal text-slate-400">' + esc(r.Number) + '</span></div>' +
+            (r.AssignedName ? '<div class="text-xs text-slate-500 dark:text-slate-400">With ' + esc(r.AssignedName) + '</div>' : '') + '</div>' + chip(r.Stage, r.StatusText) + '</div><div class="mt-3">' + facts + '</div>' +
+            (r.Outcome ? '<div class="mt-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-sm"><i class="fa-solid fa-circle-check text-emerald-600"></i> ' + esc(r.Outcome) + '</div>' : '') +
+            (r.RejectionReason ? '<div class="mt-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-sm"><i class="fa-solid fa-circle-xmark text-rose-600"></i> ' + esc(r.RejectionReason) + '</div>' : '')) +
+          card('<h3 class="font-semibold text-sm mb-2">Messages</h3><div id="rq-msgs" class="space-y-2">' + (msgs || '<p class="text-sm text-slate-500 dark:text-slate-400">No messages yet.</p>') + '</div>' +
+            (d.canReply ? '<form id="rq-reply" class="mt-3 flex gap-2"><textarea id="rq-text" rows="1" maxlength="2000" placeholder="Write a message" class="' + inputCls + '"></textarea><button class="rounded-xl bg-indigo-600 text-white px-4" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button></form>' : '')) +
+          card('<h3 class="font-semibold text-sm mb-2">Files</h3><div id="rq-files" class="space-y-1">' + (d.files.map(f => '<button class="rq-file w-full flex items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-2 text-sm" data-id="' + esc(f.AttachmentID) + '"><span class="truncate"><i class="fa-solid ' +
+            (/pdf/.test(f.MimeType) ? 'fa-file-pdf text-rose-500' : 'fa-file-image text-sky-500') + '"></i> ' + esc(f.FileName) + '</span><i class="fa-solid fa-download text-slate-400"></i></button>').join('') || '<p class="text-sm text-slate-500 dark:text-slate-400">None.</p>') + '</div>' +
+            (d.canUpload ? '<div class="mt-2">' + fileInput('rq-add') + '</div>' : '')) +
+          (d.canReopen ? '<button id="rq-reopen" class="w-full rounded-xl border border-indigo-300 text-indigo-700 dark:text-indigo-300 py-2.5 text-sm font-semibold">Not sorted? Reopen (within ' + d.reopenDays + ' days)</button>' : '') +
+          (d.canWithdraw ? '<button id="rq-withdraw" class="w-full rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold">Withdraw this request</button>' : '') +
+          card('<h3 class="font-semibold text-sm">History</h3>' + timeline(r), 'p-4') + '</div>');
+        if (d.canReply) $('rq-reply').addEventListener('submit', e => {
+          e.preventDefault();
+          const t = $('rq-text').value.trim();
+          if (!t) return;
+          api('replyRequest', { id, text: t }).then(() => reqView(id), fail);
+        });
+        if (d.canUpload) $('rq-add').addEventListener('change', () => { const list = [...$('rq-add').files]; uploadAll(id, list).then(() => { toast(list.length === 1 ? 'File added.' : list.length + ' files added.'); reqView(id); }, err => { fail(err); reqView(id); }); });
+        if (d.canReopen) $('rq-reopen').addEventListener('click', () => dialog({ title: 'Reopen ' + r.Number, message: 'What is still not right?', input: true, required: true, ok: 'Reopen' })
+          .then(t => { if (t !== null) api('reopenQuery', { id, text: t }).then(() => { toast('Reopened.'); reqView(id); }, fail); }));
+        if (d.canWithdraw) $('rq-withdraw').addEventListener('click', () => dialog({ title: 'Withdraw ' + r.Number, message: 'Why? (optional)', input: true, ok: 'Withdraw', danger: true })
+          .then(t => { if (t !== null) api('withdrawRequest', { id, reason: t }).then(() => { toast('Withdrawn.'); reqView(id); }, fail); }));
+        document.querySelectorAll('.rq-file').forEach(b => b.addEventListener('click', () => api('openFile', { id, attachmentId: b.dataset.id }).then(downloadFile, fail)));
+      }, err => reqBody(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    // A file from the server (base64), saved or opened by the browser.
+    function downloadFile(f) {
+      const bin = atob(f.data), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: f.mimeType }));
+      const a = document.createElement('a');
+      a.href = url; a.download = f.fileName; a.target = '_blank';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      window.__lastDownload = f.fileName;
+    }
+
     // ---------- Team (the line manager, decision 90) ----------
-    let teamList = [];
+    let teamList = [], teamLoans = [];
+    async function decideLoan(id, decision) {
+      const r = teamLoans.find(x => x.RequestID === id);
+      if (!r) return;
+      const data = { id, decision };
+      if (decision === 'Rejected') {
+        const reason = await dialog({ title: 'Reject ' + r.EmployeeName + '\'s request', message: r.TypeName + ', ' + money(r.Amount) + '. The reason is shown to ' + r.EmployeeName.split(/\s+/)[0] + '.', input: true, required: true, ok: 'Reject', danger: true });
+        if (reason === null) return;
+        data.reason = reason;
+      }
+      api('decideLoanRequest', data).then(() => { toast(decision === 'Rejected' ? 'Rejected.' : 'Approved: sent on to HR.'); pageTeam(); }, fail);
+    }
     function pageTeam() {
       page(skeleton());
       api('team').then(t => {
-        teamList = t.pending; teamPending = t.pending.length; badges();
+        teamList = t.pending; teamLoans = t.loanRequests || []; teamPending = t.pending.length + teamLoans.length; badges();
+        const loansHtml = teamLoans.length ? '<h2 class="font-semibold mt-6 mb-2">Advance and loan requests</h2><div class="space-y-3">' + teamLoans.map(r => card(
+          '<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(r.EmployeeName) + ' <span class="text-xs font-normal text-slate-400">' + esc(r.EmployeeNo) + '</span></div>' +
+          '<div class="text-sm">' + esc(r.TypeName) + ' · <b>' + money(r.Amount) + '</b></div><div class="text-xs text-slate-500 dark:text-slate-400">' +
+          (r.Kind === 'Loan' ? money(r.Instalment) + ' a month × ' + r.Months + ', from ' + esc(showMonth(r.StartMonth)) : 'Recovered in ' + esc(showMonth(r.StartMonth))) + ' · ' + esc(r.Number) + '</div></div>' + chip('WithManager', 'With manager') + '</div>' +
+          '<div class="mt-2 text-sm italic text-slate-600 dark:text-slate-300">“' + esc(r.Reason) + '”</div>' +
+          (r.Running.length ? '<div class="mt-2 text-xs text-amber-700 dark:text-amber-300"><i class="fa-solid fa-circle-info"></i> Already running: ' + r.Running.map(x => esc(x.TypeName + ' ' + x.LoanNumber) + ', balance ' + money(x.Balance)).join('; ') + '</div>' : '') +
+          '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1"><i class="fa-solid fa-route"></i> Then to HR, who submit it for approval</div>' +
+          '<div class="grid grid-cols-2 gap-2 mt-3"><button class="tm-loan rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(r.RequestID) + '" data-decision="Rejected">Reject</button>' +
+          '<button class="tm-loan rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 text-sm font-semibold" data-id="' + esc(r.RequestID) + '" data-decision="Approved">Approve</button></div>')).join('') + '</div>' : '';
         const decided = t.decided.length ? '<h2 class="font-semibold mt-6 mb-2">Recently decided</h2><div class="space-y-2">' + t.decided.map(l => card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold text-sm">' + esc(l.EmployeeName) + '</div>' +
           '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc(l.LeaveTypeName) + ' · ' + esc(dateRange(l.FromDate, l.ToDate, l)) + ' · ' + days(l.Days) + '</div></div>' + chip(l.Status, l.StatusText) + '</div>', 'p-3')).join('') + '</div>' : '';
         page((t.pending.length ? '<div class="space-y-3">' + t.pending.map(l => card(
@@ -621,7 +852,7 @@
           '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1"><i class="fa-solid fa-route"></i> ' + esc(l.NextStep) + '</div>' +
           '<div class="grid grid-cols-2 gap-2 mt-3"><button class="tm-decide rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '" data-decision="Rejected">Reject</button>' +
           '<button class="tm-decide rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '" data-decision="Approved">Approve</button></div>')).join('') + '</div>'
-          : card(empty('fa-circle-check', 'No requests waiting for you.'))) + decided);
+          : (teamLoans.length ? '' : card(empty('fa-circle-check', 'No requests waiting for you.')))) + loansHtml + decided);
       }, err => page(card(empty('fa-triangle-exclamation', err.message))));
     }
     async function decide(id, decision) {

@@ -1,0 +1,259 @@
+<div class="space-y-5">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-inbox text-blue-500"></i> Employee Requests</h2></div>
+    <div class="flex gap-2">
+      <button id="erq-tab-list" class="erq-tab bg-slate-800 text-xs px-3 py-2 rounded-lg border border-slate-700">Requests</button>
+      <button id="erq-tab-handlers" class="erq-tab bg-slate-800 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-user-gear"></i> Handlers</button>
+    </div>
+  </div>
+
+  <!-- the list -->
+  <div id="erq-list-view" class="space-y-4">
+    <p class="text-xs text-slate-400 max-w-3xl">Payroll queries and advance / loan requests from the Employee Portal. Each goes to the handler set for its company and category (Handlers); anyone who handles requests can step in or reassign. Replies are seen by the employee; internal notes are not.</p>
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+      <input id="erq-search" placeholder="Search no., employee..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+      <select id="erq-status" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
+        <option value="waiting">Waiting for HR</option><option value="open">Open</option><option value="">All</option><option value="closed">Closed</option></select>
+      <select id="erq-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All types</option><option value="Query">Payroll queries</option><option value="Loan">Advance / loan requests</option></select>
+      <select id="erq-cat" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All categories</option></select>
+      <div class="flex gap-2"><label class="flex items-center gap-2 text-xs text-slate-300"><input id="erq-mine" type="checkbox"> Mine</label>
+        <button id="erq-copy" class="ml-auto bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy</button></div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-3 px-3">No.</th><th class="py-3 px-3">Employee</th><th class="py-3 px-3">About</th><th class="py-3 px-3">Status</th><th class="py-3 px-3">With</th><th class="py-3 px-3">Last activity</th></tr></thead>
+        <tbody id="erq-body" class="divide-y divide-slate-700"></tbody></table>
+    </div>
+  </div>
+
+  <!-- one request -->
+  <div id="erq-detail" class="hidden space-y-4">
+    <div class="flex flex-wrap items-center gap-3 border-b border-slate-800 pb-3">
+      <button id="erq-back" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to List</button>
+      <h3 id="erq-heading" class="text-lg font-bold text-slate-100"></h3>
+      <span id="erq-status-badge" class="text-xs"></span>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 space-y-4">
+        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+          <div id="erq-facts" class="text-sm space-y-1"></div>
+          <div id="erq-links" class="flex flex-wrap gap-2 pt-2"></div>
+        </div>
+        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+          <div class="text-xs font-semibold text-slate-400 uppercase">Conversation</div>
+          <div id="erq-msgs" class="space-y-2"></div>
+          <div id="erq-compose" class="space-y-2">
+            <textarea id="erq-text" rows="3" maxlength="2000" placeholder="Write a reply (the employee sees it) or an internal note" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea>
+            <div class="flex flex-wrap gap-2">
+              <button id="erq-reply" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-reply"></i> Reply to the employee</button>
+              <button id="erq-note" class="bg-amber-600/80 hover:bg-amber-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-lock"></i> Internal note</button>
+              <span class="flex-1"></span>
+              <button id="erq-resolve" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-circle-check"></i> Resolve</button>
+              <button id="erq-reject" class="bg-slate-800 hover:bg-slate-700 text-red-300 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-circle-xmark"></i> Reject</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="space-y-4">
+        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-2">
+          <div class="text-xs font-semibold text-slate-400 uppercase">Assigned to</div>
+          <div id="erq-assigned" class="text-sm"></div>
+          <div id="erq-assign-wrap" class="flex gap-2"><select id="erq-assign" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select>
+            <button id="erq-assign-go" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700">Reassign</button></div>
+        </div>
+        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+          <div class="text-xs font-semibold text-slate-400 uppercase mb-2">History</div>
+          <ul id="erq-history" class="text-xs text-slate-400 space-y-1"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- handlers (decisions 96, 100, 101) -->
+  <div id="erq-handlers-view" class="hidden space-y-4">
+    <p class="text-xs text-slate-400 max-w-3xl">Who receives each company's requests, by category; "All categories" is the company's default for the categories without a row of their own. The handler and backup get the Home task. A company with no row: everyone who handles its requests gets it. Handlers are ERP users with "handle" in Employee Requests for that company.</p>
+    <div id="erq-h-form" class="hidden grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+      <div><label class="block text-xs text-slate-300 mb-1">Company</label><select id="erq-h-co" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs text-slate-300 mb-1">Category</label><select id="erq-h-cat" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs text-slate-300 mb-1">Handler</label><select id="erq-h-user" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs text-slate-300 mb-1">Backup (optional)</label><select id="erq-h-backup" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div class="flex items-end"><button id="erq-h-save" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2.5 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button></div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Company</th><th class="py-2 px-3">Category</th><th class="py-2 px-3">Handler</th><th class="py-2 px-3">Backup</th><th></th></tr></thead>
+        <tbody id="erq-h-body" class="divide-y divide-slate-700"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Employee Requests (owner, 2026-10-10; docs/modules/EMPLOYEE_PORTAL.md,
+  // step 2): payroll queries and advance / loan requests from the Employee
+  // Portal; replies, internal notes, reassigning, resolving; a loan request
+  // reviewed as a Loans & Advances draft; the handlers.
+  const $ = id => document.getElementById(id);
+  const val = id => $(id).value;
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const er = (action, data) => call('employeeRequests', Object.assign({ action }, data || {}));
+  const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const STAGE_CLASS = { New: 'text-amber-300', WithManager: 'text-amber-300', InProgress: 'text-blue-300', WithHR: 'text-blue-300', InApproval: 'text-blue-300',
+    Approved: 'text-emerald-400', Running: 'text-emerald-400', Resolved: 'text-emerald-400', Repaid: 'text-slate-400', Rejected: 'text-red-400', Withdrawn: 'text-slate-500' };
+  const CLOSED = ['Resolved', 'Rejected', 'Withdrawn', 'Repaid', 'Running', 'Approved', 'InApproval'];
+  let list = null, current = null, handlers = null, files = null, myUid = '';
+
+  // ---------- the list ----------
+  function load() {
+    return er('list').then(r => {
+      list = r; myUid = r.me;
+      $('erq-cat').innerHTML = '<option value="">All categories</option>' + r.categories.map(c => '<option>' + escapeHtml(c) + '</option>').join('');
+      renderList();
+    }, err => appAlert(err.message || 'Unable to load the requests.'));
+  }
+  function rows() {
+    const q = val('erq-search').trim().toLowerCase(), st = val('erq-status'), type = val('erq-type'), cat = val('erq-cat'), mine = $('erq-mine').checked;
+    return list.requests.filter(r => (!type || r.Type === type) && (!cat || r.Category === cat) && (!mine || r.AssignedUid === myUid) &&
+      (st === 'waiting' ? r.Waiting : st === 'open' ? !CLOSED.includes(r.Stage) : st === 'closed' ? CLOSED.includes(r.Stage) : true) &&
+      (!q || [r.Number, r.EmployeeNo, r.EmployeeName, r.Title].join(' ').toLowerCase().indexOf(q) !== -1));
+  }
+  function renderList() {
+    const rs = rows();
+    $('erq-body').innerHTML = rs.map(r => '<tr data-id="' + escapeHtml(r.RequestID) + '" class="hover:bg-slate-800/40 cursor-pointer">' +
+      '<td class="py-2.5 px-3 font-mono text-xs whitespace-nowrap">' + (r.Waiting ? '<span class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" title="Waiting for HR"></span>' : '') + escapeHtml(r.Number) + '</td>' +
+      '<td class="py-2.5 px-3">' + escapeHtml(r.EmployeeName) + ' <span class="text-xs text-slate-500">' + escapeHtml(r.EmployeeNo) + '</span></td>' +
+      '<td class="py-2.5 px-3 text-xs">' + (r.Type === 'Query' ? 'Query: ' : '') + escapeHtml(r.Title) + '</td>' +
+      '<td class="py-2.5 px-3 text-xs ' + (STAGE_CLASS[r.Stage] || '') + '">' + escapeHtml(r.StatusText) + '</td>' +
+      '<td class="py-2.5 px-3 text-xs">' + escapeHtml(r.AssignedName || '—') + '</td>' +
+      '<td class="py-2.5 px-3 text-xs whitespace-nowrap">' + escapeHtml(isoLocalDateTime(new Date(r.LastAt))) + '</td></tr>').join('') ||
+      '<tr><td colspan="6" class="py-6 text-center text-slate-500">No requests.</td></tr>';
+  }
+  // Tab-separated, so a paste into Excel lands each field in its own cell.
+  function copyList() {
+    const tsv = [['No.', 'Employee No.', 'Employee', 'Type', 'Category', 'About', 'Status', 'With', 'Raised', 'Last activity']].concat(rows().map(r =>
+      [r.Number, r.EmployeeNo, r.EmployeeName, r.Type === 'Query' ? 'Payroll query' : 'Advance / loan', r.Category, r.Title, r.StatusText, r.AssignedName, isoLocalDateTime(new Date(r.CreatedAt)), isoLocalDateTime(new Date(r.LastAt))]))
+      .map(c => c.map(x => String(x == null ? '' : x).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+    const done = () => { $('erq-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { $('erq-copy').innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, () => appAlert('Unable to copy.'));
+    else appAlert('Copying is not available in this browser.');
+  }
+
+  // ---------- one request ----------
+  function show(view) { ['erq-list-view', 'erq-detail', 'erq-handlers-view'].forEach(v => $(v).classList.toggle('hidden', v !== view)); }
+  function open(id) {
+    return er('get', { id }).then(d => {
+      current = d;
+      const r = d.request;
+      $('erq-heading').textContent = r.Number + ' — ' + r.EmployeeName;
+      $('erq-status-badge').innerHTML = '<span class="' + (STAGE_CLASS[r.Stage] || '') + '">' + escapeHtml(r.StatusText) + '</span>';
+      const row = (k, v) => v === '' || v == null ? '' : '<div class="flex gap-3"><span class="w-40 shrink-0 text-slate-400">' + k + '</span><span class="text-slate-200">' + v + '</span></div>';
+      $('erq-facts').innerHTML = row('Employee', escapeHtml(r.EmployeeNo + ' · ' + r.EmployeeName)) + row('Company', escapeHtml(r.CompanyID)) + row('Raised', escapeHtml(isoLocalDateTime(new Date(r.CreatedAt)))) +
+        (r.Type === 'Query'
+          ? row('Payslip', escapeHtml(r.Month)) + row('About', escapeHtml(r.Category)) + r.Lines.map(l => row(escapeHtml(l.Name) + ' <span class="text-xs">(' + escapeHtml(l.Kind.toLowerCase()) + ')</span>', money(l.Amount))).join('') +
+            (r.Expected != null ? row('Expected', money(r.Expected)) : '') + row('Description', '<span class="whitespace-pre-line">' + escapeHtml(r.Description) + '</span>')
+          : row('Type', escapeHtml(r.TypeName)) + row('Amount', money(r.Amount)) + (r.Kind === 'Loan' ? row('Instalments', money(r.Instalment) + ' × ' + r.Months) : '') + row('Recovery from', escapeHtml(r.StartMonth)) +
+            row('Line manager', escapeHtml(r.ManagerName ? r.ManagerName + (r.Stage === 'WithManager' ? ' (deciding)' : ' (approved)') : 'none: straight to HR')) + row('Reason', escapeHtml(r.Reason)) +
+            row('Loan', escapeHtml(r.LoanNumber || (r.LoanID ? 'draft' : ''))) + (r.LoanRejectedReason ? row('Returned by the approver', '<span class="text-red-300">' + escapeHtml(r.LoanRejectedReason) + '</span>') : '')) +
+        (r.Outcome ? row('Outcome', '<span class="text-emerald-300">' + escapeHtml(r.Outcome) + '</span>') : '') + (r.RejectionReason ? row('Rejected', '<span class="text-red-300">' + escapeHtml(r.RejectionReason) + '</span>') : '');
+      const links = [];
+      if (r.Type === 'Query') {
+        if (r.RunID) links.push('<button class="erq-go bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700" data-go="run"><i class="fa-solid fa-file-invoice-dollar"></i> Open the payroll run</button>');
+        links.push('<button class="erq-go bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700" data-go="ed"><i class="fa-solid fa-list-check"></i> Earnings &amp; Deductions</button>');
+      } else if (r.LoanID) links.push('<button class="erq-go bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700" data-go="loan"><i class="fa-solid fa-hand-holding-dollar"></i> Open in Loans &amp; Advances</button>');
+      else if (r.Stage === 'WithHR' && d.canHandle && d.canDraftLoan) links.push('<button class="erq-go bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded" data-go="draft"><i class="fa-solid fa-hand-holding-dollar"></i> Review in Loans &amp; Advances</button>');
+      $('erq-links').innerHTML = links.join('');
+      $('erq-msgs').innerHTML = r.Messages.map(m => '<div class="rounded-lg px-3 py-2 text-sm ' + (m.Internal ? 'bg-amber-500/10 border border-amber-500/30' : m.From === 'Employee' ? 'bg-slate-900 border border-slate-700' : 'bg-blue-500/10 border border-blue-500/30') + '">' +
+        '<div class="text-xs text-slate-400 mb-1">' + escapeHtml(m.From === 'Employee' ? m.By + ' (employee)' : m.By) + ' · ' + escapeHtml(isoLocalDateTime(new Date(m.At))) + (m.Internal ? ' · <span class="text-amber-300"><i class="fa-solid fa-lock"></i> internal note</span>' : '') + '</div>' +
+        '<div class="whitespace-pre-line text-slate-200">' + escapeHtml(m.Text) + '</div></div>').join('') || '<p class="text-xs text-slate-500">No messages yet.</p>';
+      const canAct = d.canHandle && d.isOpen;
+      $('erq-compose').classList.toggle('hidden', !canAct);
+      $('erq-resolve').classList.toggle('hidden', r.Type !== 'Query');
+      $('erq-text').value = '';
+      $('erq-assigned').innerHTML = escapeHtml(r.AssignedName || 'Nobody: everyone who handles ' + r.CompanyID + '\'s requests') + (r.BackupName ? ' <span class="text-xs text-slate-500">(backup ' + escapeHtml(r.BackupName) + ')</span>' : '');
+      $('erq-assign-wrap').classList.toggle('hidden', !canAct);
+      $('erq-assign').innerHTML = d.handlers.map(h => '<option value="' + escapeHtml(h.Uid) + '"' + (h.Uid === r.AssignedUid ? ' selected' : '') + '>' + escapeHtml(h.Name) + '</option>').join('');
+      $('erq-history').innerHTML = r.History.map(h => '<li><span class="text-slate-300">' + escapeHtml(isoLocalDateTime(new Date(h.At))) + ' · ' + escapeHtml(h.By) + ' · ' + escapeHtml(h.Event) + '</span>' + (h.Note ? ' — ' + escapeHtml(h.Note) : '') + '</li>').join('');
+      show('erq-detail');
+    }, err => appAlert(err.message || 'Unable to open the request.'));
+  }
+  function act(action, data, done) {
+    return er(action, Object.assign({ id: current.request.RequestID }, data || {})).then(() => { if (done) appAlert(done); return Promise.all([load(), open(current.request.RequestID)]); }, err => appAlert(err.message || 'Unable to save.'));
+  }
+  function send(internal) {
+    const t = val('erq-text').trim();
+    if (!t) { appAlert('Write the message first.'); return; }
+    act('reply', { text: t, internal });
+  }
+  async function resolve() {
+    const t = await appPrompt('Resolve ' + current.request.Number + '. What was done? (the employee sees it)', '');
+    if (t === null) return;
+    act('resolve', { text: t });
+  }
+  async function reject() {
+    const t = await appPrompt('Reject ' + current.request.Number + '. Why? (the employee sees it)', '');
+    if (t === null) return;
+    act('reject', { text: t });
+  }
+  const back = () => [{ moduleId: 'EMPREQUESTS', label: 'Employee Requests', params: { OpenEntryId: current.request.RequestID } }];
+  function go(kind) {
+    const r = current.request;
+    if (kind === 'run') openModule('PAYROLL', { OpenEntryId: r.RunID }, back());
+    else if (kind === 'ed') openModule('PAYROLLED', { CompanyID: r.CompanyID }, back());
+    else if (kind === 'loan') openModule('PAYROLLLOAN', { OpenEntryId: r.LoanID }, back());
+    else if (kind === 'draft') er('draftLoan', { id: r.RequestID }).then(x => openModule('PAYROLLLOAN', { OpenEntryId: x.loanId }, back()), err => appAlert(err.message || 'Unable to draft the loan.'));
+  }
+
+  // ---------- handlers ----------
+  function loadHandlers() {
+    return er('handlers').then(h => {
+      handlers = h;
+      $('erq-h-form').classList.toggle('hidden', !h.canSetup);
+      $('erq-h-co').innerHTML = Object.keys(h.people).map(c => '<option>' + escapeHtml(c) + '</option>').join('');
+      $('erq-h-cat').innerHTML = h.categories.map(c => '<option>' + escapeHtml(c) + '</option>').join('');
+      people();
+      $('erq-h-body').innerHTML = h.handlers.map(x => '<tr><td class="py-2 px-3">' + escapeHtml(x.CompanyID) + '</td><td class="py-2 px-3">' + escapeHtml(x.Category) + '</td><td class="py-2 px-3">' + escapeHtml(x.HandlerName) +
+        '</td><td class="py-2 px-3">' + escapeHtml(x.BackupName || '—') + '</td><td class="py-2 px-3 text-right">' + (h.canSetup ? '<button class="erq-h-del text-red-300 text-xs" data-key="' + escapeHtml(x.HandlerKey) + '"><i class="fa-solid fa-trash"></i></button>' : '') + '</td></tr>').join('') ||
+        '<tr><td colspan="5" class="py-4 text-center text-slate-500">No handlers yet: every request goes to everyone who handles its company.</td></tr>';
+    }, err => appAlert(err.message || 'Unable to load the handlers.'));
+  }
+  function people() {
+    const ps = (handlers.people[val('erq-h-co')] || []);
+    $('erq-h-user').innerHTML = ps.map(p => '<option value="' + escapeHtml(p.Uid) + '">' + escapeHtml(p.Name) + '</option>').join('');
+    $('erq-h-backup').innerHTML = '<option value="">None</option>' + ps.map(p => '<option value="' + escapeHtml(p.Uid) + '">' + escapeHtml(p.Name) + '</option>').join('');
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-inbox"></i> Employee Requests';
+    ['erq-search'].forEach(id => $(id).addEventListener('input', renderList));
+    ['erq-status', 'erq-type', 'erq-cat', 'erq-mine'].forEach(id => $(id).addEventListener('change', renderList));
+    $('erq-copy').addEventListener('click', copyList);
+    $('erq-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) open(tr.dataset.id); });
+    $('erq-back').addEventListener('click', () => { current = null; show('erq-list-view'); });
+    $('erq-reply').addEventListener('click', () => send(false));
+    $('erq-note').addEventListener('click', () => send(true));
+    $('erq-resolve').addEventListener('click', resolve);
+    $('erq-reject').addEventListener('click', reject);
+    $('erq-assign-go').addEventListener('click', () => act('assign', { uid: val('erq-assign') }));
+    $('erq-links').addEventListener('click', e => { const b = e.target.closest('.erq-go'); if (b) go(b.dataset.go); });
+    $('erq-tab-list').addEventListener('click', () => { current = null; show('erq-list-view'); });
+    $('erq-tab-handlers').addEventListener('click', () => loadHandlers().then(() => show('erq-handlers-view')));
+    $('erq-h-co').addEventListener('change', people);
+    $('erq-h-save').addEventListener('click', () => er('saveHandler', { companyId: val('erq-h-co'), category: val('erq-h-cat'), handlerUid: val('erq-h-user'), backupUid: val('erq-h-backup') })
+      .then(loadHandlers, err => appAlert(err.message || 'Unable to save.')));
+    $('erq-h-body').addEventListener('click', async e => {
+      const b = e.target.closest('.erq-h-del');
+      if (b && await appConfirm('Remove this handler? Its requests then go to the company default, or to everyone who handles the company.')) er('deleteHandler', { key: b.dataset.key }).then(loadHandlers, err => appAlert(err.message || 'Unable to remove.'));
+    });
+    // The request's files (docs/modules/ATTACHMENTS.md): the employee's and HR's.
+    files = supportingDocs.mount({ module: 'EMPREQUESTS', view: 'erq-detail', id: () => (current ? current.request.RequestID : '') });
+    const pending = window.__pendingModuleParams;
+    window.__pendingModuleParams = null;
+    load().then(() => { if (pending && pending.OpenEntryId) open(pending.OpenEntryId); });
+  };
+})();
+</script>

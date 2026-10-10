@@ -559,3 +559,173 @@ in front of this. Nothing changes after approval.
   once HR drafts it. The loan types gain optional `MaxMonths` and
   `MaxBasis` (`Basic` | `Gross`), `MaxInstalments`, `AfterProbation` and
   `OneOpen`.
+
+## As built — step 2 (2026-10-10)
+
+**The portal** (`/ess.html`):
+- A **Requests** tab (with a badge for requests with an unread reply):
+  - *My requests*: every payroll query and advance / loan request, with
+    its stage and last activity.
+  - *Pay query*: the month (from the payslips), what it is about
+    (Deduction, Missing earning, Overtime, Leave pay, Loan, Other), the
+    payslip's lines to tick, the amount expected, the description, and
+    photos or PDFs. The payslip view's **Something wrong?** opens it with
+    the month already chosen.
+  - *Advance / loan*: the type, the amount, for a loan the instalment or
+    the months, when recovery starts, and the reason. The type's limit
+    shows as typed ("Up to 1 month's basic salary: 6,000.00"); one that
+    blocks (probation, one already open) disables sending. It shows who
+    it goes to and any loans running.
+  - Opening a request: its facts, the **messages** (the employee's and
+    HR's replies, never the internal notes) with a reply box while it is
+    open, the **files** (open or add, at most 5 of the employee's own),
+    **Withdraw** (a query nobody answered yet; a loan request before HR
+    submits it), **Reopen** (a resolved or rejected query, within 14
+    days, with a message), and the history.
+- **Home:** "Ask about my pay" and "Advance or loan" tiles, and a card
+  when a request has a new reply from HR.
+- **Pay → Loans:** each loan or advance past its draft: amount, payout
+  date, instalment, from when, the balance, and the recoveries month by
+  month (and repayments).
+- **Team:** the reports' advance and loan requests (with any loans
+  already running), **Approve** (on to HR) or **Reject** (with the
+  reason).
+
+**The ERP: Employee Requests** (new module `EMPREQUESTS`, rights
+`access`, `handle`, `setup`; default Admin and Finance Manager, setup Admin):
+- The list, with filters (waiting for HR, open, all, closed; type;
+  category; mine), a search and **Copy** (to Excel).
+- A request: the facts (a query's payslip lines and the amount expected;
+  a loan request's amount, instalments, line manager and loan), the
+  conversation, **Reply to the employee** or **Internal note** (the first
+  word moves a new query to In progress), **Resolve** (an outcome
+  required) or **Reject** (a reason required), **Reassign** to anyone who
+  handles the company, the files (the shell's supporting documents), the
+  history. Links: the payroll run, Earnings & Deductions; for a loan
+  request **Review in Loans & Advances**, which drafts the loan from the
+  request (its note "Requested in the Employee Portal, LR-…") and opens
+  it. HR submits it there as today. Rejecting a request deletes a loan
+  draft made from it; once the loan is with the approvers, it is rejected
+  there instead.
+- **Handlers** tab (the `setup` right): a handler and optional backup per
+  company and category, "All categories" being the company default. Only
+  ERP users with `handle` for that company can be chosen.
+- **Home:** "Employee Requests Waiting for You" for the handler and
+  backup (or everyone who handles the company, with no handler set): a
+  new query, an employee's reply, a loan request with HR not yet
+  submitted.
+
+**Payroll Setup → Loans:** each type's optional request limits: the most
+in months of basic or gross salary, the most instalments (loans), after
+probation only, one open at a time.
+
+**Numbering:** two new HR documents, **PQ** (Payroll Query) and **LR**
+(Loan / Advance Request), PQ-2026-0001 by default.
+
+**Server:** functions/src/employeeRequests.js: the portal's side (called
+through `essPortal`'s new actions) and one ERP callable,
+`employeeRequests` (`action`: list, get, reply, assign, resolve, reject,
+draftLoan, handlers, saveHandler, deleteHandler, tasks). Records:
+`employeeRequests`, `employeeRequestHandlers`. Files: attachments source
+`EMPREQUESTS` (folder `<company>/Employee Requests/<no. - name>/<number>`);
+the portal uploads through `essPortal` after checking that the request is
+the employee's own.
+
+**Tests:** `essRequests.emulator.test.js` (6), `test/ui/essRequests.ui.js`
+(6); the step 1 checks updated for the new tab.
+
+**Deploy:** `tools/deploy-sets/employee-portal-2.txt` with `--screens`
+(EMPREQUESTS, PAYROLLSETUP), then **Hosting**. In the app: a menu node for
+"Employee Requests", its rights, the handlers, and the loan types' limits.
+
+## Step 3 design: reimbursements and leave documents (proposed, 2026-10-10)
+
+Already agreed: paid **with the next payroll** through an Earnings &
+Deductions entry made on approval (decision 93); approved by **the line
+manager, then Approval Configuration ("Reimbursement", by amount)**
+(decision 94); categories set up by HR (Travel, Fuel, Medical, Phone,
+Other), each with its expense account, an optional monthly limit, and
+whether a receipt is required (section 6).
+
+### Categories (Payroll Setup → a new "Reimbursements" tab)
+
+- Each category: name, its **expense account**, an optional **monthly
+  limit** per employee, **receipt required** (yes / no), in use.
+- **How it reaches the GL (a technical choice, not a question):** an
+  Earnings & Deductions entry posts to its pay element's account, so each
+  category has its own earning element, made and kept in step by the
+  category: "Reimbursement — Travel", variable, outside gross pay and
+  never prorated, posting to the category's account. The payslip then
+  shows "Reimbursement — Travel 350.00". HR doesn't enter these by hand in
+  Earnings & Deductions (they are marked as coming from claims).
+
+### The claim (portal → Requests → "Reimbursement")
+
+- A claim holds one or more **bills**: the date, the category, the
+  amount, a short description and its photo or PDF (the camera on a
+  phone). The claim's total is shown as they go. Numbered **RC-2026-0001**
+  (a new type in Numbering).
+- Checked as typed: the category's receipt rule; the monthly limit
+  (question 106); the bill's age (question 107).
+- **Approval** (decision 94): the line manager in Team (the bills and
+  their photos), then Approval Configuration "Reimbursement" by the
+  claim's total (the ERP's approvers in Home → Approvals, opening the
+  claim in Employee Requests). With no manager: straight to Approval
+  Configuration; with none set up: approved at once.
+- **On final approval:** one Earnings & Deductions entry per category on
+  the claim, for the payroll month (question 108), with the note "RC-…".
+  The claim shows "Approved — paid with the Sep-2026 payroll", then
+  "Paid" once that run is posted. If the run is reversed, it is back to
+  "Approved".
+- **Rejected** (manager or approver, with the reason) and **Withdrawn**
+  (by the employee, before the final approval), as for loans. Approvers
+  may also **approve part**: a bill can be set to a lower amount (or 0)
+  with a note, before approving; the employee sees it.
+- The claim and its bills appear in **Employee Requests** (type
+  Reimbursement), with its handler (category "Reimbursement") for
+  questions; the conversation and internal notes work as for queries.
+
+### Leave documents from the portal (build plan, step 3)
+
+- When applying for a type that expects a document (e.g. sick leave over
+  1 day), the form asks for it (a photo or PDF), uploaded with the
+  application. A document can also be added later to the employee's own
+  leave, pending or approved.
+- This lifts step 1's restriction: an employee without a line manager,
+  where no Approval Configuration is set up, can now apply for such leave
+  once the document is attached. Without one it is still refused ("attach
+  the document, or hand it to HR").
+- The manager sees the document in Team; HR in the Leave Register, as
+  today.
+
+### Open questions (round 5)
+
+106. **Over the category's monthly limit.**
+     - Allowed, but flagged to the approvers ("over the monthly limit by
+       150"), who decide; they can approve part — recommended;
+     - or refused in the portal (the employee claims at most the limit).
+107. **How old a bill can be.**
+     - At most **60 days** old when claimed (a setting per category) —
+       recommended;
+     - or no limit.
+108. **Which payroll pays it.**
+     - The month of the final approval, if approved before the company's
+       cut-off day (Payroll Setup → Payroll Accounting) and that month's
+       run is not yet past its draft; otherwise the next month —
+       recommended;
+     - or always the month after approval.
+109. **VAT on bills.**
+     - The employee claims the total paid, VAT included; no VAT is
+       recovered — recommended (simple; a bill in the employee's name
+       isn't a tax invoice for the company anyway);
+     - or the VAT is entered per bill and posted to Input VAT when the bill
+       is a tax invoice in the company's name.
+
+## The owner's decisions, round 5 (2026-10-10)
+
+| # | Question | Decision |
+|---|---|---|
+| 106 | Over the monthly limit | **Allowed, flagged to the approvers** ("over the monthly limit by 150"), who decide; they can approve part. |
+| 107 | A bill's age | **At most 60 days** old when claimed, a setting per category. |
+| 108 | Which payroll pays it | **The month of the final approval**, if before the company's cut-off day and that month's run is still a draft (or not created); otherwise the next month. |
+| 109 | VAT | **The total paid, VAT included; no VAT recovered.** |

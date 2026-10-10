@@ -160,6 +160,19 @@
         <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Receivable (the group's) *</label><select id="ps-lt-gl" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
       </div>
       <table class="text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase"><th class="py-1 pr-3">Company</th><th class="py-1">Its own receivable (else the group's)</th></tr></thead><tbody id="ps-lt-cos"></tbody></table>
+      <!-- Limits on requests from the Employee Portal (docs/modules/EMPLOYEE_PORTAL.md, decision 103), all optional. -->
+      <div class="border-t border-slate-700 pt-3 space-y-2">
+        <div class="text-xs font-semibold text-slate-400 uppercase">Requests from the Employee Portal <span class="normal-case font-normal text-slate-500">(all optional)</span></div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">At most, months of salary</label><input id="ps-lt-maxmonths" type="number" min="0.5" max="60" step="0.5" placeholder="no limit" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Of the</label><select id="ps-lt-basis" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Basic">Basic salary</option><option value="Gross">Gross salary</option></select></div>
+          <div id="ps-lt-maxinst-wrap"><label class="block text-xs font-medium text-slate-300 mb-1">At most, instalments</label><input id="ps-lt-maxinst" type="number" min="1" max="120" step="1" placeholder="no limit" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        </div>
+        <div class="flex flex-wrap gap-4">
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-lt-probation" type="checkbox"> After probation only</label>
+          <label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-lt-oneopen" type="checkbox"> One open at a time (of this type)</label>
+        </div>
+      </div>
       <label class="text-xs text-slate-300 flex items-center gap-2"><input id="ps-lt-active" type="checkbox" checked> In use</label>
       <div class="flex gap-2"><button id="ps-lt-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
         <button class="ps-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
@@ -441,15 +454,21 @@
     editing = id || null;
     const opts = (list, sel, first) => '<option value="">' + escapeHtml(first) + '</option>' + list.map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === sel ? ' selected' : '') + '>' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
     $('ps-lt-name').value = t.Name || ''; $('ps-lt-kind').value = t.Kind; $('ps-lt-active').checked = t.Active !== false;
+    $('ps-lt-maxmonths').value = t.MaxMonths == null ? '' : t.MaxMonths; $('ps-lt-basis').value = t.MaxBasis || 'Basic';
+    $('ps-lt-maxinst').value = t.MaxInstalments == null ? '' : t.MaxInstalments; $('ps-lt-probation').checked = Boolean(t.AfterProbation); $('ps-lt-oneopen').checked = Boolean(t.OneOpen);
+    $('ps-lt-maxinst-wrap').classList.toggle('hidden', t.Kind === 'Advance');
     $('ps-lt-gl').innerHTML = opts(ltAccounts.filter(a => !a.CompanyID), t.GLAccountID, '—');
     $('ps-lt-cos').innerHTML = companies.map(c => '<tr><td class="py-1 pr-3 text-xs">' + escapeHtml(coLabel(c.CompanyID)) + '</td><td class="py-1"><select class="ps-lt-co bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300" data-co="' + escapeHtml(c.CompanyID) + '">' +
       opts(ltAccounts.filter(a => !a.CompanyID || a.CompanyID === c.CompanyID), (t.GLByCompany || {})[c.CompanyID] || '', 'The group\'s') + '</select></td></tr>').join('');
     $('ps-lt-form').classList.remove('hidden');
   }
+  // An advance is recovered at once: no instalments to limit.
+  document.addEventListener('change', e => { if (e.target && e.target.id === 'ps-lt-kind') $('ps-lt-maxinst-wrap').classList.toggle('hidden', e.target.value === 'Advance'); });
   function saveLoanType() {
     const by = {};
     document.querySelectorAll('.ps-lt-co').forEach(sel => { by[sel.dataset.co] = sel.value; });
-    call('saveLoanType', { loanType: { LoanTypeID: editing || '', Name: val('ps-lt-name'), Kind: val('ps-lt-kind'), GLAccountID: val('ps-lt-gl'), GLByCompany: by, Active: $('ps-lt-active').checked } })
+    call('saveLoanType', { loanType: { LoanTypeID: editing || '', Name: val('ps-lt-name'), Kind: val('ps-lt-kind'), GLAccountID: val('ps-lt-gl'), GLByCompany: by, Active: $('ps-lt-active').checked,
+      MaxMonths: val('ps-lt-maxmonths'), MaxBasis: val('ps-lt-basis'), MaxInstalments: val('ps-lt-kind') === 'Advance' ? '' : val('ps-lt-maxinst'), AfterProbation: $('ps-lt-probation').checked, OneOpen: $('ps-lt-oneopen').checked } })
       .then(() => { closeForms(); return loadLoanTypes(); }, err => appAlert(err.message || 'Unable to save.'));
   }
 

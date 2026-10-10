@@ -23,6 +23,7 @@ const { todayIn } = require('./recurringSchedule');
 const { loadSetup } = require('./hrSetup');
 const { leaveTypes } = require('./hrLeaveSetup');
 const lv = require('./hrLeave');
+const ER = () => require('./employeeRequests');
 
 const onCallOptions = { region: 'us-central1' };
 const ACCOUNTS = () => firestore.collection('essAccounts');
@@ -212,7 +213,7 @@ async function reportsOf(emp) {
 async function team(me) {
   const reports = await reportsOf(me.emp);
   const ids = new Set(reports.map(e => e.EmployeeID));
-  if (!ids.size) return { isManager: false, pending: [], decided: [] };
+  if (!ids.size) return { isManager: false, pending: [], decided: [], loanRequests: [] };
   const pending = docs(await LEAVES().where('Status', '==', 'PendingManager').get()).filter(l => ids.has(l.EmployeeID)).map(l => Object.assign(l, { LeaveID: l._id }));
   const out = [];
   for (const l of pending.sort((a, b) => String(a.FromDate).localeCompare(String(b.FromDate)))) {
@@ -228,7 +229,9 @@ async function team(me) {
   const decided = docs(await LEAVES().where('ManagerDecidedBy', '==', me.emp.EmployeeID).get())
     .sort((a, b) => String(b.ManagerDecidedAt).localeCompare(String(a.ManagerDecidedAt))).slice(0, 20)
     .map(l => Object.assign(leaveRow(Object.assign(l, { LeaveID: l._id })), { EmployeeNo: l.EmployeeNo, EmployeeName: l.EmployeeName, ManagerDecision: l.ManagerDecision, ManagerDecidedAt: l.ManagerDecidedAt }));
-  return { isManager: true, pending: out, decided };
+  // Advance and loan requests (step 2, decision 102).
+  const loanRequests = await ER().teamLoanRequests(ids);
+  return { isManager: true, pending: out, decided, loanRequests };
 }
 
 async function decideLeave(me, d) {
@@ -313,7 +316,7 @@ const ACTIONS = {
   home: { run: async (me) => {
     const [bal, leaves, slips, t] = await Promise.all([balances(me.emp), myLeaves(me.emp), payslipList(me.emp), team(me)]);
     return { balances: bal, open: leaves.filter(l => ['PendingManager', 'PendingApproval'].includes(l.Status) || (l.Status === 'Approved' && l.ToDate >= today())).slice(0, 5),
-      lastPayslip: slips[0] || null, teamPending: t.pending.length, today: today() };
+      lastPayslip: slips[0] || null, teamPending: t.pending.length + (t.loanRequests || []).length, requests: await ER().portalCounts(me), today: today() };
   } },
   leaveForm: { run: async (me) => ({ types: await typesFor(me.emp), manager: ((await lineManager(me.emp)) || {}).FullName || '', today: today() }) },
   previewLeave: { run: async (me, d) => {
@@ -330,7 +333,21 @@ const ACTIONS = {
   team: { run: team },
   decideLeave: { run: decideLeave },
   payslips: { run: async (me) => ({ payslips: await payslipList(me.emp) }) },
-  payslip: { run: payslip }
+  payslip: { run: payslip },
+  // Step 2 (docs/modules/EMPLOYEE_PORTAL.md): payroll queries, advance and
+  // loan requests (employeeRequests.js).
+  requests: { run: async (me) => ({ requests: await ER().myRequests(me), queryCategories: ER().QUERY_CATEGORIES }) },
+  request: { run: (me, d) => ER().requestDetail(me, d) },
+  raiseQuery: { run: (me, d) => ER().raiseQuery(me, d) },
+  replyRequest: { run: (me, d) => ER().employeeReply(me, d) },
+  withdrawRequest: { run: (me, d) => ER().withdraw(me, d) },
+  reopenQuery: { run: (me, d) => ER().reopen(me, d) },
+  uploadFile: { run: (me, d) => ER().uploadFile(me, d) },
+  openFile: { run: (me, d) => ER().openFile(me, d) },
+  loanForm: { run: async (me) => Object.assign(await ER().loanForm(me), { manager: ((await lineManager(me.emp)) || {}).FullName || '' }) },
+  requestLoan: { run: async (me, d) => ER().requestLoan(me, d, await lineManager(me.emp)) },
+  loans: { run: async (me) => ({ loans: await ER().myLoans(me) }) },
+  decideLoanRequest: { run: (me, d) => ER().decideLoanRequest(me, d) }
 };
 
 exports.essPortal = onCallWithMessages(onCallOptions, async (request) => {

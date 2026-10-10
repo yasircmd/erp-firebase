@@ -1,0 +1,29 @@
+# Employee Self-Service Portal, step 2 (owner, 2026-10-10;
+# docs/modules/EMPLOYEE_PORTAL.md, decisions 96-105): payroll queries and
+# advance / loan requests, the ERP's Employee Requests screen, handlers,
+# files from the portal, loan type limits, the Home task. Deploy after
+# employee-portal. Run with --screens (EMPREQUESTS new; PAYROLLSETUP: the
+# loan type limits), then the Hosting task (public/index.html: the Home
+# block; public/ess.html: Requests and Loans). In the app: link a menu node
+# to "Employee Requests", set its rights (access, handle, setup), name the
+# handlers, and set the loan types' limits in Payroll Setup → Loans.
+# New function (the invoker binding is granted by deploy-functions.sh).
+employeeRequests
+# Changed: the portal's new actions; the loan type limits; the two new
+# numbering types; files on employee requests.
+essPortal
+getLoanTypes
+saveLoanType
+getNumbering
+saveNumberingFormat
+getAttachments
+uploadAttachment
+openAttachment
+removeAttachment
+getAttachmentCounts
+# Registries: the module, its permissions, its menu node.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment
