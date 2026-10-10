@@ -1,0 +1,31 @@
+# Employee Self-Service Portal, step 3 (owner, 2026-10-10;
+# docs/modules/EMPLOYEE_PORTAL.md, decisions 93, 94, 106-109): expense
+# claims (reimbursements) paid with the next payroll through Earnings &
+# Deductions, and leave documents uploaded from the portal. Deploy after
+# employee-portal-2. Run with --screens (EMPREQUESTS: claims and the
+# approvers' panel; PAYROLLSETUP: the Reimbursements tab), then the Hosting
+# task (public/ess.html: claims, leave documents). In the app: set up the
+# categories (Payroll Setup → Reimbursements), Approval Configuration →
+# "Reimbursement claim", a handler for the category "Reimbursement" if
+# wanted, and give the claim approvers Employee Requests access.
+# New function (the invoker binding is granted by deploy-functions.sh).
+reimbursementSetup
+# Changed: claims in the portal and in Employee Requests; leave documents.
+essPortal
+employeeRequests
+# Changed: a portal leave draft (document not yet added) is hidden.
+getLeaves
+# Numbering: the new RC type.
+getNumbering
+saveNumberingFormat
+# Approvals and Home tasks: the new entry and its storage in their registries.
+getApprovalConfigurations
+saveApprovalConfiguration
+saveApprovalLevels
+getApprovalHistory
+getDelegationCandidates
+delegateApproval
+delegateApprovalsOf
+getPendingApprovalsForUser
+getMyRejectedSubmissions
+getMyDraftsForUser

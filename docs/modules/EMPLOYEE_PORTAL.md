@@ -638,7 +638,7 @@ the employee's own.
 (EMPREQUESTS, PAYROLLSETUP), then **Hosting**. In the app: a menu node for
 "Employee Requests", its rights, the handlers, and the loan types' limits.
 
-## Step 3 design: reimbursements and leave documents (proposed, 2026-10-10)
+## Step 3 design: reimbursements and leave documents (agreed 2026-10-10)
 
 Already agreed: paid **with the next payroll** through an Earnings &
 Deductions entry made on approval (decision 93); approved by **the line
@@ -729,3 +729,82 @@ whether a receipt is required (section 6).
 | 107 | A bill's age | **At most 60 days** old when claimed, a setting per category. |
 | 108 | Which payroll pays it | **The month of the final approval**, if before the company's cut-off day and that month's run is still a draft (or not created); otherwise the next month. |
 | 109 | VAT | **The total paid, VAT included; no VAT recovered.** |
+
+## As built — step 3 (2026-10-10)
+
+**Payroll Setup → Reimbursements** (new tab; reading needs Payroll Setup
+access, saving its write right): each category's name, **expense account**
+(and per-company overrides), optional **monthly limit** per employee,
+**receipt required**, how old a bill may be (**60 days** by default,
+decision 107), in use. Saving a category makes or updates its own earning
+element in Pay Elements: **RB01, RB02, …** "Reimbursement — Travel",
+variable, outside gross pay, never prorated, posting to the category's
+account.
+
+**The portal** (`/ess.html`):
+- **Requests → Expenses**: the bills (what it is for, the date on the
+  bill, the amount, what it was, up to 3 photos or PDFs each, at most 30
+  bills); the total as typed; who it goes to. Checked when sent: a bill
+  dated ahead of today or older than its category allows, the receipt for
+  a category that requires one ("Add the receipt for bill 2 (Fuel)").
+  A claim is saved as a draft first (numbered **RC-2026-0001**) and sent
+  once its receipts are uploaded; a receipt can also be added to a draft
+  from the claim's view.
+- The claim's view: the bills with what was approved and any note, the
+  stage ("Not sent yet", "With manager", "With approvers", "Approved — paid with
+  the Oct-2026 payroll", **Paid with …** once that month's run is posted,
+  back to Approved if the run is reversed), **Withdraw** until the final
+  approval, the messages with HR.
+- **Home:** a "Claim expenses" tile. **Team:** the reports' claims (the
+  bills and their receipts), **Approve** or **Reject** with the reason.
+- **Leave documents:** for a type that expects one, the leave form asks
+  for the document. The leave is kept as a draft ("Not sent yet") until the
+  file is uploaded, then sent (to the manager, or on as before); a draft
+  can be sent or deleted from My leave. A document can be added later to
+  one's own pending or approved leave. With no manager and no approval,
+  such leave is now approved once the document is attached; without it it
+  is still refused ("attach it, or hand it to HR"). The manager sees the
+  files in Team. Portal drafts don't appear in the Leave Register.
+
+**Approval** (decisions 94, 106): the line manager, then Approval
+Configuration **"Reimbursement claim"** by the approved total (the claim's
+company, and the employee's division, branch and cost centre for the
+scope). No manager: straight to the approvers; none set up: approved at
+once. The approvers see it in Home → Approvals and decide in **Employee
+Requests** (type "Expense claims"): each bill's amount can be lowered (to
+0) with a note, which the employee sees. Bills **over the category's
+monthly limit** (counting the employee's other sent claims for that month,
+not those rejected or withdrawn) are flagged ("over the monthly limit by 150.00")
+but allowed (decision 106). HR's Reject in Employee Requests closes the
+approval too.
+
+**On final approval** (decisions 93, 108, 109): one **Earnings &
+Deductions** entry per category, the approved amount VAT included, note
+"RC-…", for the payroll month: this month if before the company's cut-off
+day and its run is still a draft (or not made), else the next month whose
+run is. A draft run picks the entries up when recalculated, as for any
+entry.
+
+**Server:** functions/src/reimbursements.js (categories and their
+elements, the claim, its approval and payment; callable
+`reimbursementSetup`); claims go through `essPortal` (claimForm,
+raiseClaim, submitClaim, decideClaim) and `employeeRequests` (get,
+decideClaim, reject); leave documents through `essPortal` (applyLeave
+with a document, uploadLeaveFile, sendLeave, openLeaveFile). Records:
+`reimbursementCategories`; claims are `employeeRequests` of Type
+`Claim`, with their approval instance (storage `EMPREQUESTS`). Numbering:
+**RC** (Reimbursement Claim). Fixed in passing: the manager's Team list of
+loan requests counted claims.
+
+**Not done (owner to decide if wanted):** the reimbursement elements are
+not hidden from Earnings & Deductions, so HR could still enter one by hand;
+the entries made from a claim carry its number as the note.
+
+**Tests:** `essClaims.emulator.test.js` (5), `test/ui/essClaims.ui.js`
+(4); the step 1 and 2 checks still pass.
+
+**Deploy:** `tools/deploy-sets/employee-portal-3.txt` with `--screens`
+(EMPREQUESTS, PAYROLLSETUP), then **Hosting**. In the app: the categories
+(Payroll Setup → Reimbursements); Approval Configuration → "Reimbursement
+claim"; give the claim approvers **Employee Requests access** (to open the
+claim); a handler for the category "Reimbursement" if wanted.
