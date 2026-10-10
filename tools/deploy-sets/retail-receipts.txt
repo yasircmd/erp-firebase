@@ -1,0 +1,13 @@
+# Retail Sales: roll receipts and the discount switch (owner, 2026-10-10;
+# docs/modules/RETAIL_SALES.md, decisions 114-117). Run with --screens
+# (RETAILSALES). No Hosting change. In the app, per company (Retail Sales →
+# Setup): the receipt paper (80 mm, 58 mm or A4), an optional footer
+# message, "Print the receipt when the sale is confirmed", and "Discounts
+# can be given at the counter" (on for companies already selling). On each
+# counter PC: the printer driver's paper set to the roll.
+# Changed: the settings saved (receipt, discounts).
+saveRetailSalesSettings
+# Changed: a discount refused when switched off.
+confirmRetailSale
+# Changed: the sale comes with its company's receipt settings.
+getRetailSale

@@ -63,6 +63,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.selectOption('#rs-s-pricelist', 'PL1');
     await p.selectOption('#rs-s-receivables', 'A-AR');
     await p.fill('#rs-s-tax', '5');
+    // A new setup: discounts on, an 80 mm roll, not printed on Confirm (decisions 114-116); A4 here for the invoice checks below.
+    assert.deepEqual([await p.isChecked('#rs-s-discount'), await p.inputValue('#rs-s-paper'), await p.isChecked('#rs-s-printconfirm')], [true, '80', false]);
+    await p.selectOption('#rs-s-paper', 'A4');
     await p.click('#rs-s-save');
     await until(p, () => /Retail Customer \(CL-000002\)/.test(document.getElementById('rs-s-customer').textContent));
     await p.click('#rs-m-add');
@@ -269,6 +272,45 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(sales.length, 5);
     assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
     await context.close();
+  });
+
+  await check('Setup: discounts off, an 80 mm roll with a footer, printed on Confirm: no Discount column at the counter; the receipt prints by itself, on the roll; 58 mm narrower (owner, 2026-10-10)', async () => {
+    const p = await open('RETAILSALES', 'u-admin');
+    await until(p, () => document.getElementById('rs-items').options.length === 1);
+    await p.click('.rs-tab[data-tab="setup"]');
+    await p.uncheck('#rs-s-discount');
+    await p.selectOption('#rs-s-paper', '80');
+    await p.fill('#rs-s-footer', 'Thank you for shopping');
+    await p.check('#rs-s-printconfirm');
+    await p.click('#rs-s-save');
+    await until(p, () => document.querySelectorAll('#rs-col-discount.hidden').length === 1);
+    const st = await val('retailSales/settings/C1');
+    assert.deepEqual([st.AllowDiscount, st.ReceiptPaper, st.ReceiptFooter, st.PrintOnConfirm], [false, '80', 'Thank you for shopping', true]);
+    await p.click('.rs-tab[data-tab="counter"]');
+    await p.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
+    await p.fill('#rs-item', 'RM-001');
+    await p.press('#rs-item', 'Enter');
+    await until(p, () => document.getElementById('rs-total') && document.getElementById('rs-total').textContent === '52.50');
+    assert.equal(await p.locator('#rs-lines [data-f="Discount"]').count(), 0, 'no Discount field at the counter');
+    await p.fill('#rs-payments [data-i="0"] [data-f="Amount"]', '60');
+    await p.click('#rs-confirm');
+    await until(p, () => window.__printed === 1);
+    assert.equal(await p.locator('#rs-print-document .rs-roll-80').count(), 1);
+    assert.equal(await p.locator('#rs-print-document table').count(), 0, 'no bordered table on the roll');
+    const roll = await p.textContent('#rs-print-document .rs-roll');
+    assert.match(roll, /Tax Invoice[\s\S]*Invoice RS-[\s\S]*RM-001[\s\S]*1 × 52\.50\s*52\.50[\s\S]*Total\s*52\.50[\s\S]*Cash\s*60\.00[\s\S]*Change\s*7\.50[\s\S]*Thank you for shopping/);
+    assert.match(await p.innerHTML('#rs-print-document'), /\.rs-roll \{ width: 72mm;/);
+    // 58 mm: the narrower width.
+    await call('u-admin', 'saveRetailSalesSettings', Object.assign({ companyId: 'C1', salesTypeId: 'ST1', warehouseId: 'WH1', costCenterId: 'CC1', receivablesAccountId: 'A-AR', priceListId: 'PL1', taxPercent: 5 }, { receiptPaper: '58', allowDiscount: false, printOnConfirm: true }));
+    const sid = await p.evaluate(() => { const v = document.getElementById('rs-sale-view'); return v && document.querySelector('#rs-sales-body tr[data-id]') ? document.querySelector('#rs-sales-body tr[data-id]').dataset.id : ''; });
+    await p.click('#rs-sales-body tr[data-id="' + sid + '"]');
+    await until(p, () => !!document.querySelector('#rs-print-document .rs-roll-58'));
+    assert.equal(await p.evaluate(() => window.__printed), 1, 'opening a sale never prints by itself');
+    await p.click('#rs-print');
+    await until(p, () => window.__printed === 2);
+    assert.match(await p.innerHTML('#rs-print-document'), /\.rs-roll \{ width: 48mm;/);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
   });
 
   await browser.close(); server.close(); await app.delete();

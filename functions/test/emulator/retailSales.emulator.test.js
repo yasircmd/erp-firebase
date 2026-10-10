@@ -228,3 +228,31 @@ test('the counter gets each item\'s own barcodes, with a pack\'s units (docs/mod
   const counter = await call('u-admin', 'getRetailCounter', { companyId: 'C1', date: DAY });
   assert.deepEqual(counter.items.map(i => [i.ItemCode, i.Barcodes]), [['FG-002', []], ['RM-001', [{ Barcode: '16291041500210', PackQty: 12 }, { Barcode: '6291041500213', PackQty: 1 }]]]);
 });
+
+test('discounts switched off in Setup are refused at the counter; on by default for a company already selling; the receipt settings come with the sale (owner, 2026-10-10, decisions 114-117)', async () => {
+  await ready();
+  // A company set up before the switch existed: discounts stay on.
+  const raw = await val('retailSales/settings/C1');
+  delete raw.AllowDiscount; delete raw.ReceiptPaper; delete raw.PrintOnConfirm; delete raw.ReceiptFooter;
+  await require('./_helpers').rtdb.ref('retailSales/settings/C1').set(raw);
+  const line = { ItemID: 'I2', Quantity: 1, Discount: 1 };
+  const a = await sell({ Lines: [line], Payments: [{ MethodID: M.cash, Amount: 20 }] });
+  assert.equal(a.total, 20);
+  const old = await call('u-admin', 'getRetailSale', { saleId: a.saleId });
+  assert.deepEqual(old.receipt, { Paper: 'A4', Footer: '', PrintOnConfirm: false }, 'the original layout until Setup says otherwise');
+  // Saved again without the new fields (an older screen): still on.
+  await settings();
+  assert.equal((await val('retailSales/settings/C1')).AllowDiscount, true);
+  // Switched off: a discount is refused, the sale without one goes through.
+  await settings({ allowDiscount: false, receiptPaper: '80', receiptFooter: 'Thank you', printOnConfirm: true });
+  await assert.rejects(sell({ Lines: [line], Payments: [{ MethodID: M.cash, Amount: 20 }] }), /discounts are switched off at the counter/);
+  const b = await sell({ Lines: [{ ItemID: 'I2', Quantity: 1 }], Payments: [{ MethodID: M.cash, Amount: 21 }] });
+  const r = await call('u-admin', 'getRetailSale', { saleId: b.saleId });
+  assert.deepEqual(r.receipt, { Paper: '80', Footer: 'Thank you', PrintOnConfirm: true });
+  // The receipt paper is one of 80 mm, 58 mm or A4; the footer at most 200 characters.
+  await assert.rejects(settings({ receiptPaper: '110' }), /receipt paper/);
+  await assert.rejects(settings({ receiptFooter: 'x'.repeat(201) }), /at most 200/);
+  // On again: discounts accepted.
+  await settings({ allowDiscount: true });
+  assert.equal((await sell({ Lines: [line], Payments: [{ MethodID: M.cash, Amount: 20 }] })).total, 20);
+});
