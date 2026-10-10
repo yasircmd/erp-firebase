@@ -201,3 +201,65 @@
       until then the account doesn't exist, so a guessable default can't
       be used before HR switches it on — recommended;
     - or **every active employee** automatically.
+
+## The owner's decisions, round 2 (2026-10-10)
+
+| # | Question | Decision |
+|---|---|---|
+| 92 | Default-password rule | **The owner's own rule:** the first 4 letters of the employee's name, in lowercase, plus the last 4 digits of the Employee Code. E.g. Ali Hassan, EMP-0007 → `alih0007`. Details: spaces and punctuation are skipped (so "Al Ain" gives `alai`); a name of fewer than 4 letters is used whole; letters only, accents removed; a code with fewer than 4 digits gives all its digits. |
+| 93 | Paying a reimbursement | **With the next payroll**: an Earnings & Deductions entry made on approval (the category's expense account), shown on the payslip. |
+| 94 | Approving a reimbursement | **The line manager in the portal, then Approval Configuration** ("Reimbursement", by amount), as for leave. |
+| 95 | Who gets an account | **HR enables it** in Employees (one, several or all active); until then no account exists. |
+
+## Build plan
+
+1. **Step 1, the portal and sign-in:**
+   - accounts (enable, the default password, the forced change, reset,
+     disable);
+   - the portal page;
+   - Home;
+   - leave: apply with the live day count, track, cancel, balances, and
+     the line manager's Team requests;
+   - payslips: view and download as PDF;
+   - My Portal from the ERP.
+2. **Step 2, payroll queries:** raise, reply and track in the portal; the
+   ERP's Employee Requests screen.
+3. **Step 3, reimbursements:**
+   - the categories;
+   - claims with bills (camera or files);
+   - manager, then Approval Configuration;
+   - the E&D entry for the next payroll;
+   - leave documents uploaded from the portal too.
+
+## Step 1 design (agreed parts, technical)
+
+- **Accounts:**
+  - A Firebase Auth user per enabled employee, with a hidden email made
+    from the Employee Code (`emp-0007@ess.invalid`). The portal turns the
+    typed code into that email, so sign-in is Firebase Auth's own,
+    including its built-in throttling of repeated wrong passwords.
+  - The account has **no ERP profile**, so every ERP function refuses it.
+  - Records: `essAccounts/{employeeId}` = { Uid, Enabled, MustChange,
+    EnabledAt/By, ResetAt/By, LastSignIn, PasswordChangedAt }, and
+    `essUids/{uid}` → employeeId.
+- **Who is asking:** every portal function works out the employee from
+  the signed-in user:
+  - a portal account (enabled, the employee not Left), or
+  - an ERP user linked to the employee (`UserUID`, decision 89).
+
+  A portal account whose password is still the default may only change
+  it.
+- **Password change:** at least 8 characters, not the default, not
+  containing the Employee Code. Changed by the server, which clears
+  MustChange.
+- **Leave:** the Leave Register's own rules (`evaluate`).
+  - **With a line manager:** a new status, **PendingManager** ("With
+    manager"). The manager approves or rejects in the portal's Team
+    requests. On approval it continues exactly as Submit does today:
+    Approval Configuration if set up, else approved.
+  - **Without a line manager:** Submit directly.
+  - The Leave Register shows "With manager" and leaves those alone.
+- **Payslips:** the posted runs with a slip for the employee, from the
+  same payslip builder as the ERP's.
+- **Hosting:** `public/ess.html`; tools/deploy-hosting.sh allows it (and
+  checks its config for REPLACE_ME too).
