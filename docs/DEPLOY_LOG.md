@@ -1008,3 +1008,7 @@ from, and how it was verified. The deploy procedure is in the
   [#129](https://github.com/yasircmd/erp-firebase/actions/runs/38119062963),
   06:44–06:48 UTC, from `2dec994` (PR #109): functions and screens,
   success. The owner confirms it is done.
+- **2026-10-11, external prints without the ERP title bar:** run
+  [#130](https://github.com/yasircmd/erp-firebase/actions/runs/38122142181),
+  07:40–07:41 UTC, from `8a288b4` (PR #110): screens only, success. The
+  owner confirms it is done.

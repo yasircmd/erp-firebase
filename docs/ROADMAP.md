@@ -11,9 +11,8 @@ fresh session can continue from GitHub.
 
 ## Waiting to go live (the owner's deploys and setup)
 
-Waiting to deploy: **external prints without the ERP title bar**
-([EXTERNAL_PRINTS.md](modules/EXTERNAL_PRINTS.md)): the Deploy workflow's
-**screens only** task. Nothing to set up.
+Waiting to deploy: **the portal's Team icon** (Hosting task only; nothing
+to set up).
 
 Went live 2026-10-10 (runs #117–#126, [DEPLOY_LOG.md](DEPLOY_LOG.md)):
 **Employee Portal steps 1–3** (`employee-portal`, `-2`, `-3`, screens,
@@ -120,11 +119,25 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [x] **The portal's Team tab had no icon** (owner, 2026-10-11): it used
+  `fa-people-group`, which Font Awesome 6.0.0 (the version loaded) doesn't
+  have; now `fa-users`, also on Home's team card. Guard:
+  `functions/test/unit/iconsExist.test.js` (the shell and the portal use only
+  6.0.0's icons). Deploy: Hosting.
+- [ ] **Nine ERP screens use icons newer than Font Awesome 6.0.0** (found
+  2026-10-11; they show as blank): CBT `fa-money-bill-transfer`,
+  DOCUMENTSTORAGE `fa-plug-circle-check`, EMPLOYEES `fa-mobile-screen`,
+  FAASSET `fa-truck-front`, INVENTORYPURCHASEREQUISITION `fa-boxes-packing`,
+  PAYROLLFS `fa-person-walking-arrow-right`, STOCKVALUATION `fa-sack-dollar`,
+  VENDORMASTER `fa-truck-field`, WAREHOUSEMOVEMENT `fa-truck-arrow-right`.
+  Either swap each for a 6.0.0 icon (screens only) or load a newer Font
+  Awesome in the shell (Hosting). Owner to say.
+
 - [x] **External prints without the ERP title bar** (owner, 2026-10-11;
   [EXTERNAL_PRINTS.md](modules/EXTERNAL_PRINTS.md)): invoices, delivery
   notes, POs, debit and credit notes, the retail receipt, the statements and
   the PDC receipt print without the module name at the top; internal prints
-  keep it. Built and tested 2026-10-11; deploy: screens only.
+  keep it. Built and tested 2026-10-11; live 2026-10-11 (run #130).
 
 - [x] **GL references: STK- on finance journals** (owner, 2026-10-06;
   [GL_REFERENCES.md](modules/GL_REFERENCES.md), decisions 49–51).
