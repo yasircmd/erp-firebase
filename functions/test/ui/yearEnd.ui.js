@@ -44,12 +44,18 @@ const ok = r => { if (r && r.success === false) throw new Error(r.error); return
   const waitDialogs = async (p, n) => { for (let i = 0; i < 100 && p.__dialogs.length < n; i++) await p.waitForTimeout(100); };
 
   await check('Period Closing: the year 2025 closes after asking; its month refuses to reopen; the year reopens with a reason', async () => {
-    const p = await open('PERIODCLOSE', [true, undefined, 'x', undefined, 'Audit adjustment', undefined]);
+    const p = await open('PERIODCLOSE', [false, true, undefined, 'x', undefined, 'Audit adjustment', undefined]);
     await until(p, () => document.querySelectorAll('#pc-grid tr').length === 12);
     await p.click('#pc-prev'); // 2026 → 2025
     await until(p, () => document.getElementById('pc-year').textContent === '2025');
     assert.match(await p.textContent('#pc-year-status'), /Year open/);
     assert.equal(await p.isVisible('#pc-close-year'), true);
+    await p.click('#pc-close-year'); // Cancel: nothing happens
+    await waitDialogs(p, 1);
+    await p.waitForTimeout(800);
+    assert.equal((await call('u-admin', 'getPeriodClosing', { companyId: 'C1', year: '2025-01' })).Year.Closed, false);
+    assert.equal(p.__dialogs.length, 1);
+    p.__dialogs.length = 0;
     await p.click('#pc-close-year');
     await until(p, () => /Year closed/.test(document.getElementById('pc-year-status').textContent));
     assert.match(p.__dialogs[0], /^confirm: Close the financial year 2025\? A Year-End Closing entry dated (2025-12-31|31\/12\/2025) moves every income, cost of sales and expense balance to 310000 — Retained Earnings/);
