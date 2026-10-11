@@ -135,6 +135,10 @@ exports.deleteSalesReturnDraft = deleteSalesReturnDraft;
 exports.getSalesReturnEntries = getSalesReturnEntries;
 exports.reverseSalesReturn = reverseSalesReturn;
 exports.getPartyStatement = getPartyStatement;
+// Aging reports (docs/modules/AGING_REPORTS.md).
+const agingReports = require('./src/agingReports');
+exports.getPartyAging = agingReports.getPartyAging;
+exports.getInventoryAging = agingReports.getInventoryAging;
 exports.getTrialBalancePeriod = getTrialBalancePeriod;
 exports.getPdcSetup = getPdcSetup;
 exports.getPdcOpenItems = getPdcOpenItems;

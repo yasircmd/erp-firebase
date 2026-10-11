@@ -109,6 +109,26 @@ async function controlAccountBalance(partyType, partyId, party, companyId, toDat
   return { status: 'ok', AccountCode: account.AccountCode || '', AccountName: account.AccountName || '', Balance: balance };
 }
 
+// A party's open items as at a date, as rows in its natural sense (an
+// advance or open credit is negative), oldest due first. Shared with the
+// aging reports (docs/modules/AGING_REPORTS.md), so both show the same.
+function openItemRows(partyType, party, items, companyId, toDate) {
+  const grows = GROWS[partyType];
+  return [...items.values()]
+    .filter(i => i.Outstanding > 0.005 && (!i.CompanyID || i.CompanyID === companyId))
+    .map(i => {
+      const dueDate = i.ItemType === 'NewRef' ? (i.DueDate || i.Date) : (i.DueDate || addDays(i.Date, party.PaymentTermsDays));
+      const overdue = Math.max(0, daysBetween(dueDate, toDate));
+      const sign = i.Side === grows ? 1 : -1;
+      return {
+        RefID: i.RefID, Number: i.Number, Type: i.DocumentType ? 'Opening ' + i.DocumentType.toLowerCase() : (i.ItemType === 'NewRef' ? 'Open ' + (sign > 0 ? 'balance' : 'credit') : 'Invoice'),
+        Date: i.Date, DueDate: dueDate, DaysOverdue: overdue, Description: i.Description,
+        Amount: round2(sign * i.Amount), Outstanding: round2(sign * i.Outstanding)
+      };
+    })
+    .sort((a, b) => (a.DueDate + a.Number).localeCompare(b.DueDate + b.Number));
+}
+
 async function buildStatement(partyType, partyId, companyId, fromDate, toDate) {
   const cfg = PARTY_TYPES[partyType];
   const party = (await rtdb.ref(cfg.path + '/' + partyId).get()).val();
@@ -135,19 +155,7 @@ async function buildStatement(partyType, partyId, companyId, fromDate, toDate) {
   // Open items as at the end date, signed in the party's natural sense
   // (an advance or open credit reduces the balance).
   const items = await getOpenItemsForParty(partyType, partyId, party, toDate);
-  const open = [...items.values()]
-    .filter(i => i.Outstanding > 0.005 && (!i.CompanyID || i.CompanyID === companyId))
-    .map(i => {
-      const dueDate = i.ItemType === 'NewRef' ? (i.DueDate || i.Date) : (i.DueDate || addDays(i.Date, party.PaymentTermsDays));
-      const overdue = Math.max(0, daysBetween(dueDate, toDate));
-      const sign = i.Side === grows ? 1 : -1;
-      return {
-        RefID: i.RefID, Number: i.Number, Type: i.DocumentType ? 'Opening ' + i.DocumentType.toLowerCase() : (i.ItemType === 'NewRef' ? 'Open ' + (sign > 0 ? 'balance' : 'credit') : 'Invoice'),
-        Date: i.Date, DueDate: dueDate, DaysOverdue: overdue, Description: i.Description,
-        Amount: round2(sign * i.Amount), Outstanding: round2(sign * i.Outstanding)
-      };
-    })
-    .sort((a, b) => (a.DueDate + a.Number).localeCompare(b.DueDate + b.Number));
+  const open = openItemRows(partyType, party, items, companyId, toDate);
   const aging = AGING.map(b => ({ key: b.key, label: b.label, amount: 0 }));
   open.forEach(i => {
     const idx = AGING.findIndex(b => i.DaysOverdue <= b.max);
@@ -195,3 +203,7 @@ exports.getPartyStatement = onCallWithMessages(onCallOptions, async (request) =>
   if (fromDate > toDate) throw new HttpsError('invalid-argument', 'The start date is after the end date.');
   return buildStatement(partyType, partyId, companyId, fromDate, toDate);
 });
+
+module.exports.openItemRows = openItemRows;
+module.exports.AGING = AGING;
+module.exports.GROWS = GROWS;

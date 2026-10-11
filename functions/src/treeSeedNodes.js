@@ -24,6 +24,8 @@ const TREE_SEED_NODES = [
   { text: 'Purchase Return / Debit Note', depth: 3, moduleId: 'PURCHASERETURN' },
   // New development (not in Code.gs): docs/modules/VENDOR_SOA.md.
   { text: 'Vendor Statement of Account (SOA)', depth: 3, moduleId: 'VENDORSOA' },
+  // New development (not in Code.gs): docs/modules/AGING_REPORTS.md.
+  { text: 'Vendor Aging', depth: 3, moduleId: 'VENDORAGING' },
   // New development (not in Code.gs): docs/modules/PDC.md.
   { text: 'PDC Issued', depth: 3, moduleId: 'PDCISSUED' },
   { text: 'Accounts Receivable (FI-AR)', depth: 2 },
@@ -32,6 +34,8 @@ const TREE_SEED_NODES = [
   { text: 'Sales Return / Credit Note', depth: 3, moduleId: 'SALESRETURN' },
   // New development (not in Code.gs): docs/modules/CUSTOMER_SOA.md.
   { text: 'Customer Statement of Account (SOA)', depth: 3, moduleId: 'CUSTOMERSOA' },
+  // New development (not in Code.gs): docs/modules/AGING_REPORTS.md.
+  { text: 'Customer Aging', depth: 3, moduleId: 'CUSTOMERAGING' },
   // New development (not in Code.gs): docs/modules/RETAIL_SALES.md.
   { text: 'Retail Sales', depth: 3, moduleId: 'RETAILSALES' },
   // New development (not in Code.gs): docs/modules/PDC.md.
@@ -92,6 +96,8 @@ const TREE_SEED_NODES = [
   { text: 'Transfer Postings & Stock Transfers', depth: 3 },
   { text: 'Batch Management & Serial Number Tracking', depth: 3 },
   { text: 'Physical Inventory Counting & Adjustments', depth: 3 },
+  // New development (not in Code.gs): docs/modules/AGING_REPORTS.md.
+  { text: 'Inventory Aging', depth: 3, moduleId: 'INVENTORYAGING' },
   { text: 'Logistics Invoice Verification (MM-LIV)', depth: 2 },
   { text: 'Invoice Verification & Variance Park/Post', depth: 3 },
   { text: 'Evaluated Receipt Settlement (ERS)', depth: 3 },
