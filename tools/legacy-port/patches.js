@@ -1290,5 +1290,37 @@ function linesForBatch_(idToken, batchId) {
     replace: `      Description: l.Description || l.EntryDescription, Debit: l.Debit, Credit: l.Credit, Balance: running,
       // [PORT CHANGE gl-report-cost-center] the line's cost center, for the Cost Center column.
       CostCenterID: l.CostCenterID || ''`
+  },
+  {
+    id: 'period-lock-vendor-reversal',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-11; docs/modules/PERIOD_CLOSING.md, step 1b, decision 130): a vendor invoice reversal, which may go through approval, is refused at once when its date is in a closed month (the entry itself is checked again when written). Nothing else changes.',
+    find: `    const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'VENDORINVOICE', {`,
+    replace: `    const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    // [PORT CHANGE period-lock-vendor-reversal] the reversal's date must be in an open month, before it is sent for approval.
+    assertPeriodOpen_(idToken, existing.CompanyID, date);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'VENDORINVOICE', {`
+  },
+  {
+    id: 'period-lock-customer-reversal',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-11; docs/modules/PERIOD_CLOSING.md, step 1b, decision 130): a customer invoice reversal, which may go through approval, is refused at once when its date is in a closed month (the entry itself is checked again when written). Nothing else changes.',
+    find: `    const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'CUSTOMERINVOICE', {`,
+    replace: `    const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    // [PORT CHANGE period-lock-customer-reversal] the reversal's date must be in an open month, before it is sent for approval.
+    assertPeriodOpen_(idToken, existing.CompanyID, date);
+    const now = new Date().toISOString();
+    const actor = user.profile.username || user.uid;
+
+    const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'CUSTOMERINVOICE', {`
   }
 ];

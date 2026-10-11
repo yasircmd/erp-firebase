@@ -179,8 +179,8 @@ Manager; also changes the Setup), `reopen` (Admin, Finance Manager).
   checklist item Block / Warn / Off (all Warn at first).
 - **Log tab:** every setup change, close and reopen, newest first.
 
-**Not yet:** the lock itself (posting into a closed month is still allowed
-until step 1b), the year-end close (step 2).
+**Not yet:** the year-end close (step 2). The lock came with step 1b
+(below).
 
 **Server:** `functions/src/periodClosing.js`; callables `getPeriodClosing`,
 `savePeriodClosingSettings`, `getPeriodClosingChecklist`, `closePeriod`,
@@ -197,3 +197,121 @@ rights, every checklist item found and cleared, close rules, reopen),
 
 **Deploy:** `tools/deploy-sets/period-closing-1a.txt` with `--screens`. In
 the app: link a menu node to "Period Closing" (Tree Management).
+
+## Step 1b design: the lock (2026-10-11)
+
+**Where it is checked.** One shared check, `periodLock.assertOpen(company,
+date)`, refusing with "Sep-2026 is closed for <company>; a user with the
+reopen right in Period Closing can reopen it":
+- **every GL entry built by `glWriting`** (all modules' postings and
+  reversals, including the Apps Script ports: invoices, delivery notes,
+  production, physical count) — one place;
+- **JV / CBT** posting, final approval and reversal (`journal.js` writes its
+  own entries);
+- **Opening Balances** (its own entries);
+- **stock movements with no GL entry** (Warehouse Movement posting and
+  reversal);
+- a **guard test** lists every place that writes journal entries or posts
+  stock movements and fails if one does not go through the check (a new
+  module that forgets it fails the Deploy workflow's unit tests).
+
+**Decision 130 (reversals):** a reversal is checked on its own date, so a
+document of a closed month is reversed with a date in an open month; the
+original is only marked reversed. Reversals that are forced onto the
+original's date (Opening Balances, Fixed Asset postings and retirements) are
+refused while its month is closed.
+Payroll and depreciation runs: decision 131, step 1c.
+
+**Approvals:** a document waiting for approval whose date falls in a month
+closed meanwhile is refused at the final approval (the message says so);
+the approver rejects it so it can be re-dated. (Setting the checklist's
+"waiting for approval" item to Block keeps that from happening.)
+
+## Open questions (round 9)
+
+132. **Drafts dated in a closed month.**
+     - **Saved and edited freely; only posting (and sending for approval)
+       is refused** — recommended: a draft is not in the books;
+     - or refused already when saved.
+133. **Changes that touch no amount or date on a closed month's entries**
+     (attachments, and the Chart of Accounts recode, which renames an
+     account code on old entries).
+     - **Allowed** — recommended: the books' figures don't change;
+     - or refused while the month is closed.
+134. **Data Reset (Admin)** deleting entries of closed months.
+     - **Allowed** — recommended: it is the Admin's wipe tool for test data;
+     - or refused while any month in its range is closed.
+135. **The date a reversal of a closed month's document proposes.**
+     - **Today** (as now), refused if today's month is closed;
+     - or the first day of the first open month.
+
+## The owner's decisions, round 9 (2026-10-11)
+
+| # | Question | Decision |
+|---|---|---|
+| 132 | Drafts dated in a closed month | **Saved and edited freely; only posting (and sending for approval) is refused.** |
+| 133 | Changes that touch no amount or date (attachments, the Chart of Accounts recode) | **Allowed.** |
+| 134 | Data Reset (Admin) deleting entries of closed months | **Allowed.** |
+| 135 | The date a reversal of a closed month's document proposes | **Today** (as now), refused if today's month is closed; any date in an open month can be entered. |
+
+## As built: step 1b, the lock (2026-10-11)
+
+**Closed means locked.** For a company, nothing dated in a month up to its
+"closed through" month is posted, sent for approval or reversed, from any
+module. The message names the month and the company and says a user with
+the reopen right in Period Closing can reopen it. Another company's months
+are not affected; reopening lifts the lock at once.
+
+- **Drafts** (decision 132): saved and edited freely; posting and sending
+  for approval are refused.
+- **Waiting for approval** when the month closed: the final approval is
+  refused; the approver rejects it so it can be re-dated (or set the
+  checklist's approvals item to Block).
+- **Reversals** (decisions 130, 135): checked on the reversal's own date
+  (today by default), so a closed month's document is reversed into an open
+  month and the original is only marked reversed. The Vendor and Customer
+  Invoice reversal requests, which may wait for approval, check their date
+  first. Reversals dated as the original (Opening Balances, Fixed Asset
+  postings and retirements) are refused while that month is closed.
+  Payroll and depreciation runs: decision 131, step 1c (until then their
+  reversal into a closed month is refused: reopen first).
+- **Allowed** (decisions 133, 134): attachments, the Chart of Accounts
+  recode, Data Reset.
+
+**Where:** `functions/src/periodLock.js` (`assertOpen`,
+`assertDocumentOpen`), called from:
+- `glWriting.buildStockGlEntry`: every module's GL entry, the Apps Script
+  ports included (they write through it);
+- `glWriting.assignStockVoucherNumbering`: Warehouse Movement (stock, no GL);
+- `approvals.beginApprovalInstance`: every posting module calls it before it
+  posts or sends for approval; the document's own date is checked
+  (`periodLock.DOCUMENTS` maps the posting modules to their documents);
+- `journal.js`: JV / CBT posting, final approval and reversal;
+- `openingBalances.js`: its reversal;
+- `fixedAssetsCommon.assertFaPostingOpen`: every Fixed Asset posting;
+- the ported invoice reversal requests, through two legacy-port patches
+  (`period-lock-vendor-reversal`, `period-lock-customer-reversal`).
+
+**Guard:** `functions/test/unit/periodLockGuard.test.js` (run by the Deploy
+workflow): each place above still checks; every file that writes journal
+entries is listed with how it is covered (a new one fails until it checks
+and is listed); every file that posts stock movements goes through a checked
+writer.
+
+**Warehouse Movement:** its posting and reversal moved the stock ledger
+before numbering, where the lock is checked, so a refused movement would
+still have moved stock. Both now number first (a voucher number may be
+skipped if the ledger write then fails, as elsewhere); the guard checks the
+order in every function that moves the ledger.
+
+**Tests:** `periodLock.emulator.test.js` (8: JV drafts, posting, another
+company, reopening; JV reversal into an open month; a final approval after
+the month closed; GRN and Warehouse Movement with stock untouched, GRN
+reversal; Vendor Invoice and its reversal request; Opening Balances'
+reversal; a GRN needing approval not sent; a Warehouse Movement reversal and
+an invoice reversal needing approval); the guard (5). Negative controls, all
+caught (the JV posting's own check is also covered by the approval step's,
+so only the guard sees it removed).
+
+**Deploy:** `tools/deploy-sets/period-closing-1b.txt`: every function (the
+check is in shared code). No screens, no Hosting change.

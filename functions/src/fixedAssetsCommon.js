@@ -107,6 +107,7 @@ async function getSettings(companyId) {
 async function assertFaPostingOpen(user, companyId, date) {
   requireCompany(user, companyId);
   if (!isDate(date)) throw new HttpsError('invalid-argument', 'A valid date is required.');
+  await require('./periodLock').assertOpen(companyId, date); // Period Closing's lock (docs/modules/PERIOD_CLOSING.md)
   const s = await getSettings(companyId);
   if (s.LockedThroughDate && date <= s.LockedThroughDate) {
     throw new Error('Fixed asset postings are locked up to ' + s.LockedThroughDate + ' for this company.');

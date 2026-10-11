@@ -18,6 +18,7 @@ const __listPaging = require('../listPaging');
 const __masterData = require('../masterData');
 const __moduleRegistry = require('../moduleRegistry');
 const __numbering = require('../numbering');
+const __periodLock = require('../periodLock');
 const __prVisibility = require('../prVisibility');
 const __reservations = require('../reservations');
 const __roles = require('../roles');
@@ -55,6 +56,7 @@ const prVisibilityFor_ = (idToken, ...a) => __prVisibility.visibilityFor(...a);
 const canSeePurchaseRequisition_ = (idToken, ...a) => __prVisibility.canSeeRequisition(...a);
 const findAccountUsage_ = (idToken, ...a) => __coaUsage.findAccountUsage(...a);
 const clubStockLines_ = (...a) => __lineClubbing.clubStockLines(...a);
+const assertPeriodOpen_ = (idToken, ...a) => __periodLock.assertOpen(...a);
 
 // ---- constants ----
 const { MODULE_REGISTRY } = __moduleRegistry;
@@ -3958,6 +3960,8 @@ async function requestReverseVendorInvoice(idToken, invoiceId, reversalDate) {
     if (existing.ReversalOfInvoiceID) throw new Error('A reversal entry cannot itself be reversed.');
 
     const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    // [PORT CHANGE period-lock-vendor-reversal] the reversal's date must be in an open month, before it is sent for approval.
+    await assertPeriodOpen_(idToken, existing.CompanyID, date);
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
 
@@ -4704,6 +4708,8 @@ async function requestReverseCustomerInvoice(idToken, invoiceId, reversalDate) {
     if (existing.ReversalOfInvoiceID) throw new Error('A reversal entry cannot itself be reversed.');
 
     const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    // [PORT CHANGE period-lock-customer-reversal] the reversal's date must be in an open month, before it is sent for approval.
+    await assertPeriodOpen_(idToken, existing.CompanyID, date);
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
 

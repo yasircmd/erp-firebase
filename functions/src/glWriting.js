@@ -195,6 +195,8 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
   const dim = dimensions || {};
   if (!dim.CompanyID) throw new Error('Select a Company for this transaction.');
   if (!userCanAccessCompany(user.profile, dim.CompanyID)) throw new Error('You do not have access to that company.');
+  // Nothing is written into a closed month (docs/modules/PERIOD_CLOSING.md, step 1b).
+  await require('./periodLock').assertOpen(dim.CompanyID, transactionDate);
 
   const coaSnap = await rtdb.ref('coa').get();
   const coaData = coaSnap.val() || {};
@@ -240,6 +242,7 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
 // their own (Warehouse Movement) where writeStockGlEntry's own
 // numbering logic never runs.
 async function assignStockVoucherNumbering(stockTransactionType, transactionDate, companyId) {
+  await require('./periodLock').assertOpen(companyId, transactionDate); // a stock movement with no GL entry: the period lock here
   const year = (new Date(transactionDate)).getFullYear() || new Date().getFullYear();
   const prefix = STOCK_TRANSACTION_PREFIXES[stockTransactionType];
   if (!prefix) throw new Error('Unknown stock transaction type: ' + stockTransactionType);

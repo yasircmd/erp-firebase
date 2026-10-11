@@ -35,6 +35,7 @@ const {
 // accumulated depreciation and AuC accounts are the asset module's alone;
 // and an entry whose clearing amount was capitalized can't be reversed.
 const { assertNoFaControlledAccounts, assertEntryNotCapitalized } = require('./fixedAssetsCommon');
+const { assertOpen: assertPeriodOpen } = require('./periodLock');
 
 // Same adapters codegs.js uses for these helpers.
 const moduleHasCapability_ = (idToken, ...a) => moduleHasCapability(...a);
@@ -369,6 +370,7 @@ async function postJournalEntry(idToken, jvId) {
     // Draft/Rejected symmetry already established for Purchase
     // Requisition and Inventory Purchase Requisition.
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new Error('Only draft or rejected entries can be posted.');
+    await assertPeriodOpen(existing.CompanyID, existing.JVDate); // docs/modules/PERIOD_CLOSING.md, step 1b
 
     const coaData = await getCoaData_(idToken);
     const normalized = validateAndNormalizeLines_(existing.Lines, coaData, existing.CompanyID);
@@ -470,6 +472,7 @@ async function decideJournalEntryApproval(idToken, jvId, levelNumber, decision, 
       await requirePostAccess_(idToken, user, moduleIdForEntry_(existing));
       if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
       if (decision === 'Approved' && existing.Status === 'PendingApproval') {
+        await assertPeriodOpen(existing.CompanyID, existing.JVDate); // its month closed meanwhile: the approver rejects it
         await assertNoFaControlledAccounts(existing.Lines);
         await resolvePartyLines(existing.Lines, existing.CompanyID);
       }
@@ -516,6 +519,7 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
     await assertEntryNotCapitalized(jvId);
 
     const date = String(reversalDate || '').trim() || new Date().toISOString().substring(0, 10);
+    await assertPeriodOpen(existing.CompanyID, date); // the reversal's own date (decision 130)
     // The reversal keeps the party tags (for statements) but allocates
     // nothing itself.
     const reversedLines = (existing.Lines || []).map(line => {
