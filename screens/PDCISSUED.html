@@ -1,6 +1,8 @@
 <style>
   @media print {
     #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    /* The cheque receipt goes to the customer: no ERP title bar on it (owner, 2026-10-11). */
+    body.pdc-print-external #app-container > div:first-child { display: none !important; }
     body, #app-container { background: white !important; color: black !important; }
   }
   #pdc-print-document table { border-collapse: collapse; width: 100%; }
@@ -832,6 +834,10 @@
       <p style="font-size:10px; margin-top:12px;">${RECEIVED ? 'Subject to realisation of the cheque on or after its date.' : ''}</p>
       <div style="display:flex; justify-content:space-between; margin-top:60px; font-size:11px;"><div>Prepared By: _________________</div><div>${RECEIVED ? 'Received By' : 'Approved By'}: _________________</div></div>
       <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>`;
+    // A cheque receipt is handed to the customer; an issued cheque's voucher stays internal.
+    document.body.classList.toggle('pdc-print-external', RECEIVED);
+    const done = () => { document.body.classList.remove('pdc-print-external'); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
     window.print();
   }
 

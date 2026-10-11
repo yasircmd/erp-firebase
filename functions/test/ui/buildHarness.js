@@ -34,8 +34,10 @@ const html = `<!doctype html><html><head><meta charset="utf-8">
 ${slice(lgCssStart, lgCssEnd)}
 </style></head>
 <body class="bg-slate-900 text-slate-100">
-<div id="global-loading-bar"></div><div id="app-title"></div>
-<div id="module-container"></div>
+<div id="global-loading-bar"></div>
+<!-- As the shell: the title bar first inside #app-container, then the module. -->
+<div id="app-container"><div class="app-title-bar"><h1 id="app-title"></h1></div>
+<div id="module-container"></div></div>
 <script>
 ${slice(dlgStart, dlgEnd)}
 </script>
