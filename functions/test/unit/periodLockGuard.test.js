@@ -24,7 +24,9 @@ function body(file, name) {
 
 test('the shared places every posting passes through check the lock', () => {
   const checks = [
-    ['glWriting.js', 'buildStockGlEntry', /periodLock'\)\.assertOpen\(dim\.CompanyID, transactionDate\)/],
+    ['glWriting.js', 'buildStockGlEntry', /periodLock\.assertOpen\(dim\.CompanyID, transactionDate\)/],
+    // step 1c: only payroll / depreciation reversals and redos may move to the first open month, and only with consent
+    ['glWriting.js', 'buildStockGlEntry', /periodLock\.ADJUSTABLE_TYPES\.has\(stockTransactionType\) && \(redo \|\| extraFields\.ReversalOfJV\)\)[\s\S]*periodLock\.adjustableDate\(dim\.CompanyID, transactionDate, redo \|\| periodLock\.consentGiven\(\)\)/],
     ['glWriting.js', 'assignStockVoucherNumbering', /periodLock'\)\.assertOpen\(companyId, transactionDate\)/],
     ['approvals.js', 'beginApprovalInstance', /periodLock'\)\.assertDocumentOpen\(moduleId, documentId, documentNumber\)/],
     ['fixedAssetsCommon.js', 'assertFaPostingOpen', /periodLock'\)\.assertOpen\(companyId, date\)/],

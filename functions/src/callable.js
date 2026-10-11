@@ -13,7 +13,9 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 function onCallWithMessages(options, handler) {
   return onCall(options, async (request) => {
     try {
-      return await handler(request);
+      // A closed month's payroll / depreciation adjustment the user agreed to
+      // (docs/modules/PERIOD_CLOSING.md, step 1c): seen by the GL writer.
+      return await require('./periodLock').runWithConsent((request.data || {}).adjustInOpenMonth, () => handler(request));
     } catch (err) {
       if (err instanceof HttpsError) throw err;
       console.error(err);

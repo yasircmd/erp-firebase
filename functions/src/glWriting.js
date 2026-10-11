@@ -184,7 +184,7 @@ function carryPartyFields(rawLines, normalizedLines) {
 async function writeStockGlEntry(user, stockTransactionType, transactionDate, description, reference, rawGlLines, dimensions, extraFields) {
   const built = await buildStockGlEntry(user, stockTransactionType, transactionDate, description, reference, rawGlLines, dimensions, extraFields);
   await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(built.jvId).set(built.record);
-  return { jvId: built.jvId, jvNumber: built.jvNumber, transactionRef: built.transactionRef };
+  return { jvId: built.jvId, jvNumber: built.jvNumber, transactionRef: built.transactionRef, jvDate: built.record.JVDate, adjustedFrom: built.record.AdjustedFromDate || '' };
 }
 
 // writeStockGlEntry's validation, numbering and record, without the
@@ -195,8 +195,19 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
   const dim = dimensions || {};
   if (!dim.CompanyID) throw new Error('Select a Company for this transaction.');
   if (!userCanAccessCompany(user.profile, dim.CompanyID)) throw new Error('You do not have access to that company.');
-  // Nothing is written into a closed month (docs/modules/PERIOD_CLOSING.md, step 1b).
-  await require('./periodLock').assertOpen(dim.CompanyID, transactionDate);
+  // Nothing is written into a closed month (docs/modules/PERIOD_CLOSING.md, step 1b),
+  // except a payroll or depreciation reversal / redo the user agreed to post in
+  // the first open month instead (step 1c, decisions 131, 136-139).
+  const periodLock = require('./periodLock');
+  extraFields = Object.assign({}, extraFields || {});
+  const redo = extraFields.AdjustableRedo === true;
+  delete extraFields.AdjustableRedo;
+  if (periodLock.ADJUSTABLE_TYPES.has(stockTransactionType) && (redo || extraFields.ReversalOfJV)) {
+    const posted = await periodLock.adjustableDate(dim.CompanyID, transactionDate, redo || periodLock.consentGiven());
+    if (posted !== transactionDate) { extraFields.AdjustedFromDate = transactionDate; transactionDate = posted; }
+  } else {
+    await periodLock.assertOpen(dim.CompanyID, transactionDate);
+  }
 
   const coaSnap = await rtdb.ref('coa').get();
   const coaData = coaSnap.val() || {};

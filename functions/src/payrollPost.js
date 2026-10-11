@@ -115,10 +115,12 @@ async function postRun(runId, user) {
     const ctx = await postingContext(run);
     const lines = glLinesFor(run, ctx.slips, ctx.elements, ctx.coa, ctx.settings, ctx.loanAccounts, ctx.provAccount);
     const gl = await writeStockGlEntry(await posterFor(user, run), VOUCHER_TYPE, calc.monthEnd(run.Month), 'Payroll ' + run.Month, run.RunNumber || '', lines,
-      { CompanyID: run.CompanyID }, { PayrollRunID: run.RunID, SourceTransactionID: run.RunID, ReversalOfJV: '' });
+      // A run reversed into the first open month (its month closed) is redone there too
+      // (docs/modules/PERIOD_CLOSING.md, step 1c, decision 136).
+      { CompanyID: run.CompanyID }, { PayrollRunID: run.RunID, SourceTransactionID: run.RunID, ReversalOfJV: '', AdjustableRedo: Boolean(run.AdjustInOpenMonth) });
     const now = new Date().toISOString();
     const writes = [b => b.update(R.RUNS().doc(runId), { Status: 'Posted', JVID: gl.jvId, JVNumber: gl.jvNumber, PostedAt: now, PostedBy: user.uid, PostedByName: R.actorName(user),
-      PostError: '', History: history(run, 'Posted', user, { JVNumber: gl.jvNumber }) })]
+      PostError: '', History: history(run, 'Posted', user, { JVNumber: gl.jvNumber, Note: gl.adjustedFrom ? 'Posted on ' + gl.jvDate + ': ' + run.Month + ' is closed' : '' }) })]
       .concat(ctx.slips.map(s => b => b.update(R.SLIPS(runId).doc(s._id), { Paid: Math.max(0, s.Net), CarryForward: round2(Math.max(0, -s.Net)) })));
     for (let i = 0; i < writes.length; i += 400) { const b = firestore.batch(); writes.slice(i, i + 400).forEach(w => w(b)); await b.commit(); }
     return gl;
@@ -228,8 +230,10 @@ exports.reversePayrollRun = onCallWithMessages(onCallOptions, async (request) =>
     const now = new Date().toISOString();
     await glRef.update({ ReversedByJV: gl.jvId, UpdatedAt: now, UpdatedBy: user.profile.username || user.uid });
     const slips = await R.SLIPS(run.RunID).get();
-    const writes = [b => b.update(R.RUNS().doc(run.RunID), { Status: 'Draft', JVID: '', JVNumber: '', PostedAt: '', ApprovalInstanceID: '',
-      History: history(run, 'Reversed', user, { JVNumber: entry.JVNumber, ReversalJVNumber: gl.jvNumber, Note: reason }) })]
+    // Reversed into the first open month (decision 131): the redone run posts there too.
+    const adjusted = gl.adjustedFrom ? { AdjustInOpenMonth: true } : {};
+    const writes = [b => b.update(R.RUNS().doc(run.RunID), Object.assign({ Status: 'Draft', JVID: '', JVNumber: '', PostedAt: '', ApprovalInstanceID: '',
+      History: history(run, 'Reversed', user, { JVNumber: entry.JVNumber, ReversalJVNumber: gl.jvNumber, Note: reason + (gl.adjustedFrom ? ' (posted on ' + gl.jvDate + ': ' + run.Month + ' is closed)' : '') }) }, adjusted))]
       .concat(slips.docs.map(x => b => b.update(x.ref, { Paid: FieldValue.delete(), CarryForward: FieldValue.delete() })));
     for (let i = 0; i < writes.length; i += 400) { const b = firestore.batch(); writes.slice(i, i + 400).forEach(w => w(b)); await b.commit(); }
     return { success: true, reversalNumber: gl.jvNumber };

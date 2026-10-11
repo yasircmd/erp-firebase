@@ -408,7 +408,8 @@ async function postSettlement(id, user) {
     if (s.Status !== 'Approved') throw failed('Only an approved settlement is posted.');
     const lines = await glLinesFor(s);
     const gl = await writeStockGlEntry(await posterFor(user, s), VOUCHER_TYPE, s.LeavingDate, 'Final settlement ' + s.Number + ' — ' + s.EmployeeName, s.Number, lines,
-      { CompanyID: s.CompanyID }, { PayrollSettlementID: s.SettlementID, SourceTransactionID: s.SettlementID, ReversalOfJV: '' });
+      // reversed into the first open month (its month closed): redone there too (docs/modules/PERIOD_CLOSING.md, step 1c)
+      { CompanyID: s.CompanyID }, { PayrollSettlementID: s.SettlementID, SourceTransactionID: s.SettlementID, ReversalOfJV: '', AdjustableRedo: Boolean(s.AdjustInOpenMonth) });
     // Each loan is recovered by the settlement (a repayment it reverses with it).
     for (const l of s.Lines.filter(x => x.LoanID)) {
       const ref = firestore.collection('payrollLoans').doc(l.LoanID);
@@ -519,8 +520,9 @@ exports.reverseSettlement = onCallWithMessages(onCallOptions, async (request) =>
       const ln = (await ref.get()).data();
       await ref.update({ Repayments: (ln.Repayments || []).map(x => (x.SettlementID === s.SettlementID && !x.ReversedAt ? Object.assign({}, x, { ReversedAt: now, ReversalJVNumber: gl.jvNumber }) : x)), UpdatedAt: now });
     }
-    await SETTLEMENTS().doc(s.SettlementID).update({ Status: 'Draft', JVID: '', JVNumber: '', PostedAt: '', ApprovalInstanceID: '',
-      History: history(s, 'Reversed', user, { JVNumber: entry.JVNumber, ReversalJVNumber: gl.jvNumber, Note: reason }) });
+    await SETTLEMENTS().doc(s.SettlementID).update(Object.assign({ Status: 'Draft', JVID: '', JVNumber: '', PostedAt: '', ApprovalInstanceID: '',
+      History: history(s, 'Reversed', user, { JVNumber: entry.JVNumber, ReversalJVNumber: gl.jvNumber, Note: reason + (gl.adjustedFrom ? ' (posted on ' + gl.jvDate + ': its month is closed)' : '') }) },
+      gl.adjustedFrom ? { AdjustInOpenMonth: true } : {}));
     return { success: true, reversalNumber: gl.jvNumber };
   });
 });

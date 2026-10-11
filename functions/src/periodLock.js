@@ -20,6 +20,7 @@
 // A reversal is checked on its own date (decision 130), so a closed month's
 // document is reversed into an open month; the original is only marked.
 'use strict';
+const { AsyncLocalStorage } = require('async_hooks');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { rtdb, firestore } = require('./firebaseAdmin');
 
@@ -74,4 +75,39 @@ async function assertDocumentOpen(moduleId, documentId, documentNumber) {
   if (doc) await assertOpen(doc.CompanyID, doc.Date);
 }
 
-module.exports = { assertOpen, assertDocumentOpen, closedThrough, DOCUMENTS };
+// ---------- Step 1c: payroll and depreciation (decisions 131, 136-139) ----------
+// Their reversals are dated as the original (the run's month end, the
+// payment's date), and a reversed run is redone for its own month. When
+// that month is closed, the user is warned and, on Continue, the entry is
+// posted on the first day of the first open month instead (the run, its
+// payslips and the asset records keep their own month).
+//
+// The Continue is the request's adjustInOpenMonth: callable.js runs every
+// callable in this context, so a reversal reached several calls deep (an
+// interim batch undoing its payments) sees it without being passed it.
+const consentStore = new AsyncLocalStorage();
+const runWithConsent = (consent, fn) => consentStore.run({ adjust: consent === true }, fn);
+const consentGiven = () => Boolean((consentStore.getStore() || {}).adjust);
+
+const addMonth = m => { const y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7)); return mo === 12 ? (y + 1) + '-01' : y + '-' + String(mo + 1).padStart(2, '0'); };
+// The marker the screens look for before asking (keep in step with them).
+const ADJUST_MARKER = 'It can be adjusted in the first open month';
+
+// The date to post on: `date` when its month is open; when it is closed, the
+// first open day if the user agreed (consent), else a refusal that offers it.
+async function adjustableDate(companyId, date, consent, what) {
+  if (!companyId || !isDate(date)) return date;
+  const through = await closedThrough(companyId);
+  const month = String(date).slice(0, 7);
+  if (!through || month > through) return date;
+  const firstOpen = addMonth(through) + '-01';
+  if (consent) return firstOpen;
+  throw new HttpsError('failed-precondition', (what ? what + ': ' : '') + month + ' is closed for ' + (await companyName(companyId)) + '. ' +
+    ADJUST_MARKER + ': it is posted on ' + firstOpen + ' (the run or document keeps its own month). Continue to adjust it there, or reopen ' + month + ' in Period Closing first.');
+}
+
+// The postings this applies to: payroll's and depreciation's, when they are
+// a reversal (ReversalOfJV) or the redo of a run reversed that way.
+const ADJUSTABLE_TYPES = new Set(['Payroll', 'PayrollPayment', 'PayrollLoan', 'PayrollProvision', 'FinalSettlement', 'FADepreciation']);
+
+module.exports = { assertOpen, assertDocumentOpen, closedThrough, DOCUMENTS, runWithConsent, consentGiven, adjustableDate, ADJUSTABLE_TYPES, ADJUST_MARKER };

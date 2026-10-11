@@ -21,6 +21,7 @@ const { onCallWithMessages } = require('./callable');
 const { firestore } = require('./firebaseAdmin');
 const { requireUser } = require('./auth');
 const { userCanAccessCompany, buildStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
+const periodLock = require('./periodLock');
 const { withGlobalLock } = require('./lock');
 const E = require('./faDepreciation');
 const C = require('./fixedAssetsCommon');
@@ -122,9 +123,12 @@ exports.postFaDepreciation = onCallWithMessages(onCallOptions, async (request) =
   await C.requireCap('FADEPRUN', 'post', user.profile.role);
   const { companyId, period } = periodArgs(user, request.data || {});
   return withGlobalLock(user.uid, async () => {
-    await C.assertFaPostingOpen(user, companyId, E.lastDay(period));
     const pref = firestore.collection(COL.periods).doc(periodId(companyId, period));
     let pdoc = await C.getDoc(COL.periods, pref.id);
+    // A period reversed into the first open month (its month closed) is redone
+    // there too (docs/modules/PERIOD_CLOSING.md, step 1c, decision 136).
+    const postingDate = pdoc && pdoc.AdjustInOpenMonth ? await periodLock.adjustableDate(companyId, E.lastDay(period), true) : E.lastDay(period);
+    await C.assertFaPostingOpen(user, companyId, postingDate);
     if (pdoc && pdoc.Status === 'Posted') throw new Error('Depreciation for ' + period + ' has already been posted.');
     const settings = await C.getSettings(companyId);
     let run;
@@ -140,14 +144,14 @@ exports.postFaDepreciation = onCallWithMessages(onCallOptions, async (request) =
       const now = C.nowIso();
       const runId = C.newId('FAR');
       run = {
-        _id: runId, CompanyID: companyId, Area: AREA, Period: period, Status: 'Posting', Lines: computed.lines,
+        _id: runId, CompanyID: companyId, Area: AREA, Period: period, Status: 'Posting', Lines: computed.lines, PostingDate: postingDate,
         Total: totalsOf(computed.lines, computed.chart).total, ChunksDone: [], PrevLastPostedPeriod: settings.LastPostedPeriod || '',
         CreatedAt: now, CreatedBy: C.actorOf(user)
       };
       const batch = firestore.batch();
       const stored = Object.assign({}, run); delete stored._id;
       batch.set(firestore.collection(COL.runs).doc(runId), stored);
-      batch.set(pref, { CompanyID: companyId, Area: AREA, Period: period, Status: 'Posting', RunID: runId, UpdatedAt: now });
+      batch.set(pref, { CompanyID: companyId, Area: AREA, Period: period, Status: 'Posting', RunID: runId, UpdatedAt: now }, { merge: true });
       batch.set(firestore.collection(COL.runState).doc(companyId), { CompanyID: companyId, RunInProgress: runId }, { merge: true });
       await batch.commit();
     }
@@ -196,8 +200,10 @@ async function finishRun(user, run, pref) {
   const glLines = [];
   Object.keys(dr).forEach(k => { const [acc, cc, pc] = k.split('|'); glLines.push({ AccountCode: chart[acc].AccountCode, Debit: dr[k], Credit: 0, Description: text, CostCenterID: cc, ProfitCenterID: pc }); });
   Object.keys(cr).forEach(k => { const [acc, pc] = k.split('|'); glLines.push({ AccountCode: chart[acc].AccountCode, Debit: 0, Credit: cr[k], Description: text, CostCenterID: '', ProfitCenterID: pc }); });
+  // The GL date: the period's last day, or (the writer moves it) the first open
+  // day for a period redone after being reversed into the first open month (step 1c).
   const built = await buildStockGlEntry(user, 'FADepreciation', date, text, run.Period, glLines, { CompanyID: run.CompanyID },
-    { SourceTransactionID: run._id, ReversalOfJV: '', FixedAssetRunID: run._id });
+    { SourceTransactionID: run._id, ReversalOfJV: '', FixedAssetRunID: run._id, AdjustableRedo: Boolean(run.PostingDate && run.PostingDate !== date) });
 
   const batch = firestore.batch();
   batch.set(firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(built.jvId), built.record);
@@ -216,7 +222,10 @@ exports.reverseFaDepreciation = onCallWithMessages(onCallOptions, async (request
   const reason = str(d.reason);
   if (!reason) throw new HttpsError('invalid-argument', 'A reason is required.');
   return withGlobalLock(user.uid, async () => {
-    const settings = await C.assertFaPostingOpen(user, companyId, E.lastDay(period));
+    // Its month closed: on the user's Continue, posted on the first open day
+    // instead (docs/modules/PERIOD_CLOSING.md, step 1c, decision 131).
+    const glDate = await periodLock.adjustableDate(companyId, E.lastDay(period), periodLock.consentGiven(), 'Depreciation ' + period);
+    const settings = await C.assertFaPostingOpen(user, companyId, glDate);
     if (settings.RunInProgress) throw new Error('A run is still being posted for this company; finish it first.');
     if (settings.LastPostedPeriod !== period) throw new Error('Only the latest posted period (' + (settings.LastPostedPeriod || 'none') + ') can be reversed.');
     const pref = firestore.collection(COL.periods).doc(periodId(companyId, period));
@@ -265,6 +274,7 @@ exports.reverseFaDepreciation = onCallWithMessages(onCallOptions, async (request
       AccountCode: l.AccountCode, Debit: l.Credit || 0, Credit: l.Debit || 0, Description: 'Reversal — ' + (l.Description || ''),
       CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
     }));
+    // Dated the period's last day; the writer moves it to the first open day on the user's Continue.
     const built = await buildStockGlEntry(user, 'FADepreciation', date, 'Reversal of ' + run.JVNumber + ' — ' + reason, run.JVNumber, lines,
       { CompanyID: companyId }, { SourceTransactionID: run._id, ReversalOfJV: run.JVID, FixedAssetRunID: run._id });
     const batch = firestore.batch();
@@ -273,7 +283,7 @@ exports.reverseFaDepreciation = onCallWithMessages(onCallOptions, async (request
     batch.update(firestore.collection(COL.runs).doc(run._id), {
       Status: 'Reversed', ReversalJVID: built.jvId, ReversalJVNumber: built.jvNumber, ReversalReason: reason, ReversedAt: now, ReversedBy: actor
     });
-    batch.set(pref, { Status: 'Reversed', UpdatedAt: now }, { merge: true });
+    batch.set(pref, Object.assign({ Status: 'Reversed', UpdatedAt: now }, glDate !== date ? { AdjustInOpenMonth: true } : {}), { merge: true });
     batch.set(firestore.collection(COL.runState).doc(companyId), { LastPostedPeriod: run.PrevLastPostedPeriod || '' }, { merge: true });
     await batch.commit();
     return { success: true, reversalNumber: built.jvNumber };

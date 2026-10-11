@@ -153,8 +153,13 @@
   async function reverse(period) {
     const reason = (await appPrompt('Reverse the depreciation of ' + period + '? Reason:'));
     if (reason == null) return;
-    rpc.withSuccessHandler(r => { flash(true, 'Reversed (' + r.reversalNumber + '). ' + period + ' can be posted again.'); $('fdr-period').value = period; loadRuns(); })
-      .withFailureHandler(e => flash(false, e.message)).reverseFaDepreciation({ companyId: val('fdr-company'), period: period, reason: reason });
+    const send = adjust => rpc.withSuccessHandler(r => { flash(true, 'Reversed (' + r.reversalNumber + '). ' + period + ' can be posted again.'); $('fdr-period').value = period; loadRuns(); })
+      .withFailureHandler(e => {
+        // Its month closed (docs/modules/PERIOD_CLOSING.md, step 1c): posted in the first open month if the user agrees.
+        if (!adjust && /It can be adjusted in the first open month/.test(e.message || '')) return appConfirm(e.message).then(yes => { if (yes) send(true); });
+        flash(false, e.message);
+      }).reverseFaDepreciation(Object.assign({ companyId: val('fdr-company'), period: period, reason: reason }, adjust ? { adjustInOpenMonth: true } : {}));
+    send(false);
   }
   function showRun(r) {
     if (!r) return;
