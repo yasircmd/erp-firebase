@@ -46,6 +46,8 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     return page;
   }
   const until = async (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: 30000 });
+  // No in-app dialog open, and every call answered.
+  const settled = p => until(p, () => { const ok = document.getElementById('app-dialog-ok'); return (!ok || ok.offsetParent === null) && __rpcPendingCount === 0; });
   const statusOf = (p, month) => p.textContent('#pc-grid tr[data-month="' + month + '"] .pc-st');
   const answers = ['', null, 'Late supplier bill'];
 
@@ -94,6 +96,7 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     await p.click('#pc-save');
     for (let i = 0; i < 100 && !p.__dialogs.includes('alert: Saved.'); i++) await p.waitForTimeout(100);
     assert.ok(p.__dialogs.includes('alert: Saved.'), p.__dialogs.join(' | '));
+    await settled(p); // the reload after saving, too
     await p.click('.pc-tab[data-tab="months"]');
     await p.click('#pc-grid tr[data-month="2026-04"] .pc-checklist');
     await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 10);
@@ -103,11 +106,14 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
   });
 
   await check('reopen: an empty reason refused, Cancel does nothing, a reason reopens it and the later months; the log shows it', async () => {
+    await settled(p);
     await p.click('#pc-grid tr[data-month="2026-02"] .pc-reopen');
     for (let i = 0; i < 50 && !p.__dialogs.some(d => /^alert: Enter the reason/.test(d)); i++) await p.waitForTimeout(100);
     assert.ok(p.__dialogs.some(d => /^alert: Enter the reason/.test(d)), p.__dialogs.join(' | '));
+    await settled(p);
     await p.click('#pc-grid tr[data-month="2026-02"] .pc-reopen'); // Cancel
     await p.waitForTimeout(300);
+    await settled(p);
     assert.equal(await statusOf(p, '2026-02'), 'Closed (before the first close)');
     await p.click('#pc-grid tr[data-month="2026-02"] .pc-reopen');
     await until(p, () => document.querySelector('#pc-grid tr[data-month="2026-02"] .pc-st').textContent === 'Open');
