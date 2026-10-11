@@ -38,7 +38,10 @@ async function trialBalancePeriod(idToken, params) {
   filters.companyId = access.companyId;
   filters.assignedCompanies = access.assignedCompanies;
   const coaData = await L.getCoaData_(idToken);
-  const lines = (await L.getPostedGlLines_(idToken, filters)).filter(l => l.JVDate <= toDate);
+  // "Before year-end closing" (docs/modules/PERIOD_CLOSING.md, step 2, decision 141): the
+  // Year-End Closing entry left out; by default it is in (the real balances).
+  const beforeClose = p.BeforeYearEndClose === true;
+  const lines = (await L.getPostedGlLines_(idToken, filters)).filter(l => l.JVDate <= toDate && !(beforeClose && l.VoucherType === 'YearEndClose'));
 
   const byAccount = {};
   lines.forEach(l => {
@@ -70,7 +73,7 @@ async function trialBalancePeriod(idToken, params) {
   rows.sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }));
   Object.keys(totals).forEach(k => { totals[k] = round2(totals[k]); });
 
-  return { fromDate, toDate, rows, totals };
+  return { fromDate, toDate, rows, totals, beforeYearEndClose: beforeClose };
 }
 
 const getTrialBalancePeriod = onCallWithMessages(onCallOptions, request =>

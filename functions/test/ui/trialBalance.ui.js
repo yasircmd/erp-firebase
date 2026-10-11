@@ -42,10 +42,11 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const tableRows = page => page.$$eval('#tb-table-body tr', trs => trs.map(tr => [...tr.cells].map(td => td.textContent.trim())));
   const totals = page => page.$$eval('#tb-total-od, #tb-total-oc, #tb-total-pd, #tb-total-pc, #tb-total-cd, #tb-total-cc', tds => tds.map(td => td.textContent));
 
-  await check('From/To defaults, then a period run shows opening, transactions and closing', async () => {
+  await check('From/To defaults (the financial year), then a period run shows opening, transactions and closing', async () => {
     const page = await open('TRIALBALANCE', 'u-admin');
     const today = new Date().toISOString().substring(0, 10);
-    assert.equal(await page.inputValue('#tb-from-date'), today.substring(0, 8) + '01');
+    // The company's financial year (January here) as the default From (docs/modules/PERIOD_CLOSING.md, step 2).
+    await page.waitForFunction(y => document.getElementById('tb-from-date').value === y, today.substring(0, 4) + '-01-01', { timeout: 30000 });
     assert.equal(await page.inputValue('#tb-to-date'), today);
     await runTb(page, '2026-09-01', '2026-09-30');
     assert.equal(await page.textContent('#tb-period-label'), '01/09/2026 to 30/09/2026');

@@ -479,3 +479,54 @@ right), once every month of the financial year is closed:
 | 141 | The Trial Balance's default | **With the closing entry**; a switch shows the year before closing. |
 | 142 | The new year's months before the year-end close | **Can be closed.** |
 | 143 | Reopening a month of a closed year | **Refused until the year is reopened.** |
+
+## As built: step 2, the year-end close (2026-10-11)
+
+**Months tab, the year's line:** Year open (and what is missing: its
+months, a later year closed, the year before it) or Year closed (who,
+when, the closing entry).
+- **Close the year** (the `close` right), once its twelve months are closed:
+  the app asks first, naming the date and the Retained Earnings account.
+  The **Year-End Closing** entry (`YearEndClose`, YEC-…) is dated the
+  year's last day: for every income, cost of sales and expense account (any
+  status), cost center and profit center, the opposite of its balance at
+  that date, the total to Retained Earnings by cost center and profit center
+  (125, 140). A first close also carries the years before it. It is the one
+  posting into a closed month (written by the close itself, not the shared
+  writer, so a line with no cost center or an inactive account is closed
+  too).
+- **Years close in order:** not one before a later closed year, and after
+  the first, not with the year before it open. The new year's months close
+  meanwhile (142).
+- **A month of a closed year** is not reopened until the year is (143).
+- **Reopen the year** (the `reopen` right, a reason): the entry reversed on
+  the same date; logged. The financial year is fixed while any year is
+  closed (129).
+- The JV screen refuses to reverse the closing entry ("posted by
+  YearEndClose — reverse it from that module").
+
+**Reports:**
+- **Profit and Loss:** the closing entry left out (legacy-port patch
+  `pl-without-year-end-close`; recorded in docs/MIGRATION.md).
+- **Trial Balance:** "Before year-end closing" leaves it out; by default it
+  is in (141). The period label says so.
+- **Balance Sheet, Cash Flow:** unchanged (Retained Earnings holds the past
+  years; the entry has no cash).
+- **P&L and Trial Balance** propose the company's financial year as the From
+  date (`getFinancialYearStart`; "All" companies: the calendar year), until
+  the user picks a date or arrives from another report with one.
+
+**Server:** `periodClosing.js` (`closeFinancialYear`,
+`reopenFinancialYear`, `getFinancialYearStart`; the year in
+`getPeriodClosing`; `reopenPeriod` refusing within a closed year),
+`trialBalance.js` (the switch), `glWriting` (the YEC prefix, finance
+transaction reference), `masterData` / `journal.js` (the voucher type's
+module), `numbering.js` (its label). The guard lists `periodClosing.js` as a
+journal writer.
+
+**Tests:** `yearEnd.emulator.test.js` (3: the close, its entry and the
+reports; the months, reopening the year; the financial-year default and an
+April year), `test/ui/yearEnd.ui.js` (2), `trialBalance.ui.js` updated (the
+default From). Negative controls, all caught.
+
+**Deploy:** `tools/deploy-sets/period-closing-2.txt` with `--screens`.

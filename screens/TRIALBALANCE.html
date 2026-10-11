@@ -27,7 +27,8 @@
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="tb-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="tb-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
     </div>
-    <div class="flex justify-end gap-2">
+    <div class="flex justify-end items-center gap-2">
+      <label class="mr-auto flex items-center gap-1.5 text-xs text-slate-300" title="Leave out the Year-End Closing entry, to see a closed year's income and expense balances"><input type="checkbox" id="tb-before-close"> Before year-end closing</label>
       <button id="tb-copy-btn" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded-lg"><i class="fa-solid fa-copy"></i> Copy Table</button>
       <button id="tb-run-btn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium">Run Report</button>
     </div>
@@ -118,6 +119,7 @@
     document.getElementById('tb-from-date').value = p.FromDate || monthStart();
     document.getElementById('tb-to-date').value = p.ToDate || p.AsOfDate || today();
     document.getElementById('tb-company').value = p.CompanyID || '';
+    document.getElementById('tb-before-close').checked = p.BeforeYearEndClose === true;
     document.getElementById('tb-division').value = p.DivisionID || '';
     document.getElementById('tb-branch').value = p.BranchID || '';
     document.getElementById('tb-costcenter').value = p.CostCenterID || '';
@@ -167,7 +169,8 @@
       DivisionID: document.getElementById('tb-division').value,
       BranchID: document.getElementById('tb-branch').value,
       CostCenterID: document.getElementById('tb-costcenter').value,
-      ProfitCenterID: document.getElementById('tb-profitcenter').value
+      ProfitCenterID: document.getElementById('tb-profitcenter').value,
+      BeforeYearEndClose: document.getElementById('tb-before-close').checked
     };
     lastParams = params;
 
@@ -210,7 +213,7 @@
 
   function renderReport(result) {
     document.getElementById('tb-results').classList.remove('hidden');
-    document.getElementById('tb-period-label').textContent = result.fromDate + ' to ' + result.toDate;
+    document.getElementById('tb-period-label').textContent = result.fromDate + ' to ' + result.toDate + (result.beforeYearEndClose ? ' · before year-end closing' : '');
 
     const tbody = document.getElementById('tb-table-body');
     tbody.innerHTML = '';
@@ -262,9 +265,22 @@
     openModule(target.moduleId, target.params, chain);
   }
 
+  // The company's financial year as the default period (docs/modules/PERIOD_CLOSING.md,
+  // step 2), until the user picks a From date or arrives with one.
+  let fromChosen = false;
+  function proposeYear() {
+    if (fromChosen) return;
+    rpc.withSuccessHandler(r => { if (!fromChosen) document.getElementById('tb-from-date').value = r.Start; })
+      .withFailureHandler(() => {}).getFinancialYearStart({ companyId: document.getElementById('tb-company').value });
+  }
+
   window.initModule = function (idToken) {
     token = idToken;
     document.getElementById('tb-from-date').value = monthStart();
+    document.getElementById('tb-from-date').addEventListener('input', () => { fromChosen = true; });
+    document.getElementById('tb-company').addEventListener('change', proposeYear);
+    if (window.__pendingModuleParams && window.__pendingModuleParams.FromDate) fromChosen = true;
+    proposeYear();
     document.getElementById('tb-to-date').value = today();
 
     myReturnChain = window.__pendingReturnChain || [];
