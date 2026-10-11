@@ -12,7 +12,8 @@ fresh session can continue from GitHub.
 ## Waiting to go live (the owner's deploys and setup)
 
 Waiting to deploy: **nine screens' icons** (the Deploy workflow's **screens
-only** task; nothing to set up).
+only** task, after PR #113: run #133 failed, see DEPLOY_LOG; nothing to set
+up).
 
 Went live 2026-10-10 (runs #117–#126, [DEPLOY_LOG.md](DEPLOY_LOG.md)):
 **Employee Portal steps 1–3** (`employee-portal`, `-2`, `-3`, screens,
