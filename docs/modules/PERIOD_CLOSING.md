@@ -103,11 +103,22 @@ Manager and Accountant; close and reopen for Admin and Finance Manager.
 | 127 | What follows an April–March year | **Everything:** closing and reports, **and the Fixed Assets depreciation year and the leave year.** |
 | 128 | Warn or block | **Per checklist item**, per company: Block, Warn or Off. |
 | 129 | Changing the financial year | **Free until the company's first year-end close**, then fixed. |
+| 130 | Reversing a document of a closed month | **Allowed**, with the reversal dated in an open month (any date after the locked period); the document itself is not changed, only marked reversed. |
+| 131 | Reversing a payroll run or a depreciation run of a closed month | **A warning** that it will be adjusted in the next month (the reversal posts in the next open month, and the correction comes through the next month's run); otherwise reopen the month first. |
 
 ## Build plan
 
 The closing itself (steps 1–2) is agreed and can be built now. Step 3
 (decision 127) changes two live modules and needs its own short design.
+
+Step 1 is built in three parts, each its own PR:
+- **1a** the module, Setup, the month grid, the checklist, close and reopen;
+- **1b** the hard lock at every writer of journals and stock movements
+  (one shared check, and a guard test that fails if a writer skips it;
+  the Apps Script ports through legacy-port patches), with decision 130:
+  reversals dated in an open month;
+- **1c** decision 131 for the payroll and depreciation runs (how the next
+  month's run carries the adjustment: a short design first).
 
 1. **Period Closing, months:** the module (rights `access`, `close`,
    `reopen`), Setup per company (financial year 122 / 129, Retained
