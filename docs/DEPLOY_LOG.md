@@ -1033,3 +1033,10 @@ from, and how it was verified. The deploy procedure is in the
   [#136](https://github.com/yasircmd/erp-firebase/actions/runs/38128329252),
   09:25–09:29 UTC, from `f7c2565` (PR #114): functions and screens,
   success. The owner confirms it is done.
+- **2026-10-11:** run
+  [#137](https://github.com/yasircmd/erp-firebase/actions/runs/38129078977),
+  09:38 UTC, from `f7c2565` (PR #114, as run #136), success.
+- **2026-10-11, Period Closing step 1a (`period-closing-1a`):** run
+  [#138](https://github.com/yasircmd/erp-firebase/actions/runs/38137957499),
+  12:05 UTC, from `a35c053` (PR #115), success. The owner confirms it is
+  deployed.

@@ -197,3 +197,58 @@ rights, every checklist item found and cleared, close rules, reopen),
 
 **Deploy:** `tools/deploy-sets/period-closing-1a.txt` with `--screens`. In
 the app: link a menu node to "Period Closing" (Tree Management).
+
+## Step 1b design: the lock (2026-10-11)
+
+**Where it is checked.** One shared check, `periodLock.assertOpen(company,
+date)`, refusing with "Sep-2026 is closed for <company>; a user with the
+reopen right in Period Closing can reopen it":
+- **every GL entry built by `glWriting`** (all modules' postings and
+  reversals, including the Apps Script ports: invoices, delivery notes,
+  production, physical count) — one place;
+- **JV / CBT** posting, final approval and reversal (`journal.js` writes its
+  own entries);
+- **Opening Balances** (its own entries);
+- **stock movements with no GL entry** (Warehouse Movement posting and
+  reversal);
+- a **guard test** lists every place that writes journal entries or posts
+  stock movements and fails if one does not go through the check (a new
+  module that forgets it fails the Deploy workflow's unit tests).
+
+**Decision 130 (reversals):** a reversal is checked on its own date, so a
+document of a closed month is reversed with a date in an open month; the
+original is only marked reversed. Reversals that are forced onto the
+original's date (Opening Balances) are refused while its month is closed.
+Payroll and depreciation runs: decision 131, step 1c.
+
+**Approvals:** a document waiting for approval whose date falls in a month
+closed meanwhile is refused at the final approval (the message says so);
+the approver rejects it so it can be re-dated. (Setting the checklist's
+"waiting for approval" item to Block keeps that from happening.)
+
+## Open questions (round 9)
+
+132. **Drafts dated in a closed month.**
+     - **Saved and edited freely; only posting (and sending for approval)
+       is refused** — recommended: a draft is not in the books;
+     - or refused already when saved.
+133. **Changes that touch no amount or date on a closed month's entries**
+     (attachments, and the Chart of Accounts recode, which renames an
+     account code on old entries).
+     - **Allowed** — recommended: the books' figures don't change;
+     - or refused while the month is closed.
+134. **Data Reset (Admin)** deleting entries of closed months.
+     - **Allowed** — recommended: it is the Admin's wipe tool for test data;
+     - or refused while any month in its range is closed.
+135. **The date a reversal of a closed month's document proposes.**
+     - **Today** (as now), refused if today's month is closed;
+     - or the first day of the first open month.
+
+## The owner's decisions, round 9 (2026-10-11)
+
+| # | Question | Decision |
+|---|---|---|
+| 132 | Drafts dated in a closed month | **Saved and edited freely; only posting (and sending for approval) is refused.** |
+| 133 | Changes that touch no amount or date (attachments, the Chart of Accounts recode) | **Allowed.** |
+| 134 | Data Reset (Admin) deleting entries of closed months | **Allowed.** |
+| 135 | The date a reversal of a closed month's document proposes | **Today** (as now), refused if today's month is closed; any date in an open month can be entered. |
