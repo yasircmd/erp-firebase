@@ -86,11 +86,19 @@ async function queryEntries(field, op, value) {
 // entries dated on or before it count — both the items and the Against
 // allocations reducing them. Omitted, everything counts (as before).
 async function getOpenItemsForParty(partyType, partyId, party, asOf) {
+  const cfg = PARTY_TYPES[partyType];
+  const invoices = (await rtdb.ref(cfg.invoicePath).get()).val() || {};
+  const entries = await queryEntries('PartyKeys', 'array-contains', partyType + ':' + partyId);
+  return openItemsFrom(partyType, partyId, party, asOf, invoices, entries);
+}
+// The same from data already read: the invoices of the party type (RTDB)
+// and the journal entries tagged with this party (the aging reports read
+// them once for every party, docs/modules/AGING_REPORTS.md).
+function openItemsFrom(partyType, partyId, party, asOf, invoices, partyEntries) {
   const dated = d => !asOf || String(d || '') <= asOf;
   const cfg = PARTY_TYPES[partyType];
   const items = new Map();
 
-  const invoices = (await rtdb.ref(cfg.invoicePath).get()).val() || {};
   Object.keys(invoices).forEach(id => {
     const inv = invoices[id];
     if (inv[cfg.invoicePartyField] !== partyId) return;
@@ -104,8 +112,7 @@ async function getOpenItemsForParty(partyType, partyId, party, asOf) {
     });
   });
 
-  const key = partyType + ':' + partyId;
-  const entries = (await queryEntries('PartyKeys', 'array-contains', key)).filter(e => isLive(e) && dated(e.JVDate));
+  const entries = partyEntries.filter(e => isLive(e) && dated(e.JVDate));
   const against = [];
   entries.forEach(e => (e.Lines || []).forEach(l => {
     if (l.PartyType !== partyType || l.PartyID !== partyId) return;
@@ -354,6 +361,6 @@ async function listOpenItems(partyType, partyId, companyId) {
 }
 
 module.exports = {
-  PARTY_TYPES, isLive, addDays, queryEntries, attachPartyFields, resolvePartyLines, getOpenItemsForParty,
+  PARTY_TYPES, isLive, addDays, queryEntries, attachPartyFields, resolvePartyLines, getOpenItemsForParty, openItemsFrom,
   assertEntryReversible, assertInvoiceHasNoAllocations, annotateInvoiceOutstanding, listPartyAccounts, listOpenItems
 };

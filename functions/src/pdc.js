@@ -625,7 +625,11 @@ exports.getPdcsDueForUser = onCallWithMessages(onCallOptions, async (request) =>
 // For the party statements: the party's PDCs pending as at a date —
 // posted on or before it and not yet cleared, bounced or cancelled by then.
 async function pendingPdcsForParty(partyType, partyId, companyId, asOf) {
-  const data = (await rtdb.ref(PATH).get()).val() || {};
+  return pendingPdcsFrom((await rtdb.ref(PATH).get()).val() || {}, partyType, partyId, companyId, asOf);
+}
+// The same from the PDCs already read (the aging reports read them once for
+// every party, docs/modules/AGING_REPORTS.md).
+function pendingPdcsFrom(data, partyType, partyId, companyId, asOf) {
   return Object.keys(data)
     .map(id => Object.assign({ PdcID: id }, data[id]))
     .filter(p => {
@@ -643,4 +647,6 @@ async function pendingPdcsForParty(partyType, partyId, companyId, asOf) {
 }
 
 exports.pendingPdcsForParty = pendingPdcsForParty;
+exports.pendingPdcsFrom = pendingPdcsFrom;
+exports.PDC_PATH = PATH;
 exports.DIRECTIONS = DIRECTIONS;

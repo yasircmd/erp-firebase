@@ -57,6 +57,10 @@ const MODULE_REGISTRY = [
   // New development (not in Code.gs): docs/modules/VENDOR_SOA.md, CUSTOMER_SOA.md.
   { id: 'VENDORSOA', label: 'Vendor Statement of Account (SOA)', capabilities: ['access'] },
   { id: 'CUSTOMERSOA', label: 'Customer Statement of Account (SOA)', capabilities: ['access'] },
+  // New development (not in Code.gs): docs/modules/AGING_REPORTS.md.
+  { id: 'CUSTOMERAGING', label: 'Customer Aging', capabilities: ['access'] },
+  { id: 'VENDORAGING', label: 'Vendor Aging', capabilities: ['access'] },
+  { id: 'INVENTORYAGING', label: 'Inventory Aging', capabilities: ['access'] },
   // New development (not in Code.gs): docs/modules/PDC.md.
   { id: 'PDCRECEIVED', label: 'PDC Received', capabilities: ['access', 'draft', 'post'] },
   { id: 'PDCISSUED', label: 'PDC Issued', capabilities: ['access', 'draft', 'post'] },
@@ -204,6 +208,10 @@ const DEFAULT_PERMISSIONS = {
   // Read-only reports, same broad access as the other reports (SOA decision 6).
   VENDORSOA:          { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   CUSTOMERSOA:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  // Read-only reports, as the SOAs (docs/modules/AGING_REPORTS.md).
+  CUSTOMERAGING:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  VENDORAGING:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  INVENTORYAGING:     { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   // Same as CBT (PDC decision 9); 'post' also covers clear, bounce, cancel and undo.
   PDCRECEIVED:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   PDCISSUED:          { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },

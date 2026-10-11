@@ -1,0 +1,17 @@
+# Aging Reports: Customer, Vendor and Inventory (owner, 2026-10-11;
+# docs/modules/AGING_REPORTS.md, decisions 118-121). Run with --screens
+# (CUSTOMERAGING, VENDORAGING, INVENTORYAGING new). No Hosting change. In the
+# app: link menu nodes to "Customer Aging", "Vendor Aging" and "Inventory
+# Aging" (Tree Management), and set their access in Roles & Permissions
+# (default: Admin, Finance Manager, Accountant, Viewer).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getPartyAging
+getInventoryAging
+# Changed (same results): the SOA's open items shared with the aging report.
+getPartyStatement
+# Registries: the three modules, their permissions, their menu nodes.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment
