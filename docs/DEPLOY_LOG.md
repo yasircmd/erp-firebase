@@ -1003,3 +1003,8 @@ from, and how it was verified. The deploy procedure is in the
     19:19–19:20 UTC, same commit: **hosting**, success. My Portal in the
     user menu, ERP Home without the leave blocks, the portal's leave
     sections and Payroll's payslip in the portal. The owner confirms it's done.
+- **2026-10-11, Retail Sales roll receipts and the discount switch
+  (`retail-receipts`):** run
+  [#129](https://github.com/yasircmd/erp-firebase/actions/runs/38119062963),
+  06:44–06:48 UTC, from `2dec994` (PR #109): functions and screens,
+  success. The owner confirms it is done.

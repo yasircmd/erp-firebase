@@ -112,6 +112,28 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  // Sent outside: the received cheque's receipt prints without the ERP title
+  // bar; the issued cheque's voucher (internal) keeps it (owner, 2026-10-11).
+  await check('printing: the cheque receipt has no ERP title bar; the issued voucher keeps it', async () => {
+    const titleBarWhenPrinting = async (module, row) => {
+      const page = await open(module, 'u-admin');
+      await (row ? page.locator('#pdc-table-body tr', { hasText: row }) : page.locator('#pdc-table-body tr').first()).click();
+      await page.waitForSelector('#pdc-print-btn', { state: 'visible', timeout: 15000 });
+      await page.emulateMedia({ media: 'print' });
+      await page.evaluate(() => { window.print = () => { window.__bar = getComputedStyle(document.querySelector('#app-container > div')).display; }; });
+      await page.evaluate(() => document.getElementById('pdc-print-btn').click()); // hidden itself in print media
+      const bar = await page.evaluate(() => window.__bar);
+      await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+      const after = await page.evaluate(() => document.body.classList.contains('pdc-print-external'));
+      assert.deepEqual(page.__errors, []);
+      await page.close();
+      return [bar, after];
+    };
+    assert.deepEqual(await titleBarWhenPrinting('PDCRECEIVED'), ['none', false]);
+    const [issuedBar] = await titleBarWhenPrinting('PDCISSUED', '500001');
+    assert.notEqual(issuedBar, 'none');
+  });
+
   await check('issued: open, bounce with a reason, history with GL entries, drill-through by GL entry', async () => {
     const page = await open('PDCISSUED', 'u-admin');
     assert.equal(await page.textContent('#pdc-heading'), 'PDC Issued');

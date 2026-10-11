@@ -2,6 +2,8 @@
   #rs-print-document { display: none; } /* shown only when printing */
   @media print {
     #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    /* Sent outside the organization: no ERP title bar on the print (owner, 2026-10-11). */
+    #app-container > div:first-child { display: none !important; }
     body, #app-container { background: white !important; color: black !important; }
     #rs-print-document { display: block !important; color: #000; font-size: 11px; }
   }

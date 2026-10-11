@@ -328,6 +328,11 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.click('#rs-confirm');
     await until(p, () => window.__printed === 1);
     assert.equal(await p.locator('#rs-print-document .rs-roll-80').count(), 1);
+    // A customer's receipt: no ERP title bar when printed (owner, 2026-10-11).
+    await p.emulateMedia({ media: 'print' });
+    assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('#app-container > div')).display), 'none');
+    await p.emulateMedia({ media: 'screen' });
+    assert.notEqual(await p.evaluate(() => getComputedStyle(document.querySelector('#app-container > div')).display), 'none');
     assert.equal(await p.locator('#rs-print-document table').count(), 0, 'no bordered table on the roll');
     const roll = await p.textContent('#rs-print-document .rs-roll');
     assert.match(roll, /Tax Invoice[\s\S]*Invoice RS-[\s\S]*RM-001[\s\S]*1 × 52\.50\s*52\.50[\s\S]*Total\s*52\.50[\s\S]*Cash\s*60\.00[\s\S]*Change\s*7\.50[\s\S]*Thank you for shopping/);

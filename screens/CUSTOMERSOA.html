@@ -1,6 +1,8 @@
 <style>
   @media print {
     #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    /* Sent outside the organization: no ERP title bar on the print (owner, 2026-10-11). */
+    #app-container > div:first-child { display: none !important; }
     body, #app-container { background: white !important; color: black !important; }
     #soa-report, #soa-report * { color: black !important; border-color: #999 !important; background: white !important; }
   }
