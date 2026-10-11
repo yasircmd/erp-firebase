@@ -139,6 +139,14 @@ exports.getPartyStatement = getPartyStatement;
 const agingReports = require('./src/agingReports');
 exports.getPartyAging = agingReports.getPartyAging;
 exports.getInventoryAging = agingReports.getInventoryAging;
+
+// Period Closing (docs/modules/PERIOD_CLOSING.md), step 1a.
+const periodClosing = require('./src/periodClosing');
+exports.getPeriodClosing = periodClosing.getPeriodClosing;
+exports.savePeriodClosingSettings = periodClosing.savePeriodClosingSettings;
+exports.getPeriodClosingChecklist = periodClosing.getPeriodClosingChecklist;
+exports.closePeriod = periodClosing.closePeriod;
+exports.reopenPeriod = periodClosing.reopenPeriod;
 exports.getTrialBalancePeriod = getTrialBalancePeriod;
 exports.getPdcSetup = getPdcSetup;
 exports.getPdcOpenItems = getPdcOpenItems;

@@ -61,6 +61,9 @@ const MODULE_REGISTRY = [
   { id: 'CUSTOMERAGING', label: 'Customer Aging', capabilities: ['access'] },
   { id: 'VENDORAGING', label: 'Vendor Aging', capabilities: ['access'] },
   { id: 'INVENTORYAGING', label: 'Inventory Aging', capabilities: ['access'] },
+  // New development (not in Code.gs): docs/modules/PERIOD_CLOSING.md. close
+  // also changes the Setup; reopen needs a reason.
+  { id: 'PERIODCLOSE', label: 'Period Closing', capabilities: ['access', 'close', 'reopen'] },
   // New development (not in Code.gs): docs/modules/PDC.md.
   { id: 'PDCRECEIVED', label: 'PDC Received', capabilities: ['access', 'draft', 'post'] },
   { id: 'PDCISSUED', label: 'PDC Issued', capabilities: ['access', 'draft', 'post'] },
@@ -212,6 +215,8 @@ const DEFAULT_PERMISSIONS = {
   CUSTOMERAGING:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   VENDORAGING:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   INVENTORYAGING:     { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  // docs/modules/PERIOD_CLOSING.md (design → rights).
+  PERIODCLOSE:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], close: ['ADMIN', 'FINANCE_MGR'], reopen: ['ADMIN', 'FINANCE_MGR'] },
   // Same as CBT (PDC decision 9); 'post' also covers clear, bounce, cancel and undo.
   PDCRECEIVED:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   PDCISSUED:          { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },

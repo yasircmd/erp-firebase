@@ -1,0 +1,18 @@
+# Period Closing, step 1a (owner, 2026-10-11; docs/modules/PERIOD_CLOSING.md,
+# decisions 122-131): the module, Setup, the month grid, the checklist,
+# close and reopen. Run with --screens (PERIODCLOSE new). No Hosting change.
+# In the app: link a menu node to "Period Closing" (Tree Management), and
+# check its rights in Roles & Permissions (default: access Admin, Finance
+# Manager, Accountant; close and reopen Admin, Finance Manager).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getPeriodClosing
+savePeriodClosingSettings
+getPeriodClosingChecklist
+closePeriod
+reopenPeriod
+# Registries: the module, its permissions, its menu node.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment

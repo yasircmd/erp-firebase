@@ -138,3 +138,62 @@ Step 1 is built in three parts, each its own PR:
    their reports, the leave year close). A design section with the
    questions it raises (e.g. a company switching while it already has
    leave and assets history) comes before that step's code.
+
+## As built: step 1a (2026-10-11)
+
+**Module `PERIODCLOSE`** (General Ledger → Period Closing). Rights:
+`access` (Admin, Finance Manager, Accountant), `close` (Admin, Finance
+Manager; also changes the Setup), `reopen` (Admin, Finance Manager).
+
+- **Months tab:** the company's financial year, twelve months, each Open
+  or Closed (who, when), year by year with the arrows. A month can be closed
+  once it has ended. The first close may be any ended month (the months
+  before it close with it, shown "Closed (before the first close)"); after
+  that only the next month after the last closed one.
+- **The checklist** (a month's "Checklist and close"): it covers the period
+  since the last closed month (for the first close: everything up to the
+  month's end). Each item shows its mode, OK / Warning / Blocks / Off, and
+  its findings, each with **Open** to the module where it is fixed:
+  - drafts (Draft or Rejected) and documents waiting for approval, dated in
+    the period: journals and CBT, stock documents (GRN, issues, production,
+    movements, adjustments, counts, delivery notes, returns), vendor and
+    customer invoices, PDCs, fixed asset postings;
+  - recurring journal dates due and not posted;
+  - depreciation: an asset in use by the month's end and the last run before
+    the month;
+  - payroll: active employees and no posted run for the month;
+  - PDCs matured by the month's end and still pending;
+  - Customer / Vendor Aging against their control accounts at the month's
+    end (the aging report's own GL check);
+  - stock value (Inventory Aging's) against each inventory account at the
+    month's end;
+  - the Trial Balance: debits equal credits (an unbalanced entry is named).
+- **Close:** asks first (naming the warnings), then logs who and when. An
+  item set to **Block** with findings refuses the close (checked again on
+  the server).
+- **Reopen** (any closed month): the app asks for the reason; the month and
+  the later ones reopen, the earlier ones stay closed. Logged.
+- **Setup tab:** financial year January–December or April–March (fixed once
+  a year-end close exists: step 2), the Retained Earnings account (an
+  Equity account; 310000 by default when the chart has it), and each
+  checklist item Block / Warn / Off (all Warn at first).
+- **Log tab:** every setup change, close and reopen, newest first.
+
+**Not yet:** the lock itself (posting into a closed month is still allowed
+until step 1b), the year-end close (step 2).
+
+**Server:** `functions/src/periodClosing.js`; callables `getPeriodClosing`,
+`savePeriodClosingSettings`, `getPeriodClosingChecklist`, `closePeriod`,
+`reopenPeriod` (close, reopen and setup under the global lock). Storage:
+RTDB `periodClosing/{companyId}` (`Settings`, `ClosedThrough`,
+`FirstClosed`, `Closed`, `Log`; `YearsClosed` comes with step 2). The aging
+reports' engines (`agingReports.partyAging`, `inventoryAging`) and the
+recurring journals' due dates (`recurringJournal.dueDatesBetween`) are
+reused, unchanged.
+
+**Tests:** `periodClosing.emulator.test.js` (5: setup and the year grid,
+rights, every checklist item found and cleared, close rules, reopen),
+`test/ui/periodClosing.ui.js` (5). Ten negative controls, all caught.
+
+**Deploy:** `tools/deploy-sets/period-closing-1a.txt` with `--screens`. In
+the app: link a menu node to "Period Closing" (Tree Management).
