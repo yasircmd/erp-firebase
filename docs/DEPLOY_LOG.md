@@ -1040,3 +1040,9 @@ from, and how it was verified. The deploy procedure is in the
   [#138](https://github.com/yasircmd/erp-firebase/actions/runs/38137957499),
   12:05 UTC, from `a35c053` (PR #115), success. The owner confirms it is
   deployed.
+- **2026-10-11, Period Closing step 1c (`period-closing-1c`, every
+  function, with screens; includes step 1b, whose own set was skipped):**
+  run [#139](https://github.com/yasircmd/erp-firebase/actions/runs/38164619169),
+  18:37–20:51 UTC, from `a05fbfd` (PR #117), success. The owner confirms it
+  is done. From here the period lock is live: a closed month refuses
+  postings, and payroll / depreciation reversals offer the first open month.
