@@ -11,9 +11,10 @@ fresh session can continue from GitHub.
 
 ## Waiting to go live (the owner's deploys and setup)
 
-Waiting to deploy: **nine screens' icons** (the Deploy workflow's **screens
-only** task, after PR #113: run #133 failed, see DEPLOY_LOG; nothing to set
-up).
+Waiting to deploy: **`aging-reports`** (Customer, Vendor and Inventory Aging,
+[AGING_REPORTS.md](modules/AGING_REPORTS.md#as-built-2026-10-11)):
+`tools/deploy-sets/aging-reports.txt` with `--screens`. Then in the app: menu
+nodes for the three reports (Tree Management) and their access.
 
 Went live 2026-10-10 (runs #117–#126, [DEPLOY_LOG.md](DEPLOY_LOG.md)):
 **Employee Portal steps 1–3** (`employee-portal`, `-2`, `-3`, screens,
@@ -93,6 +94,7 @@ on 2026-10-04. Still to do in the app before the first payroll:
 | 9 | Numbering (document numbers and codes) | [NUMBERING.md](modules/NUMBERING.md) | deployed | Requested and agreed 2026-10-09 (decisions 80-83: documents, master codes and HR documents customizable, not the audit references; one format for all companies; a format built of prefix, company code, year and digits, the restart following from the year; codes always automatic, account codes unchanged). Built and tested 2026-10-09; defaults are today's numbers on today's counters. Live 2026-10-10 (runs #114, #115). In the app: link a menu node to "Numbering" and set its rights; customize formats as wanted. |
 | 10 | GL views (Listing, cost centers, GL impact, payroll GL) | [GL_VIEWS.md](modules/GL_VIEWS.md) | deployed | Requested and agreed 2026-10-10 (decisions 84-87: pick several accounts, a header bringing in its children; one list by date with account and cost center, no balances; payroll GL impact from approval; GL Report's right). Built and tested 2026-10-10; live 2026-10-10 (run #116). |
 | 11 | Employee Self-Service Portal | [EMPLOYEE_PORTAL.md](modules/EMPLOYEE_PORTAL.md) | deployed | Requested 2026-10-10; agreed (decisions 88-95: one default-password rule, the owner's: name's first 4 letters + the code's last 4 digits; ERP users through My Portal; leave to the line manager, then Approval Configuration; queries in a new Employee Requests screen; reimbursements paid with the next payroll, approved by the manager then Approval Configuration; HR switches access on). Step 1 built and tested 2026-10-10 ([As built](modules/EMPLOYEE_PORTAL.md#as-built--step-1-2026-10-10)): sign-in by code with the forced change, Home, leave (apply, track, withdraw / cancel, balances), the manager's Team requests, payslips (view, PDF), portal access in Employees with welcome slips, My Portal in the ERP. Deploy set `employee-portal` with `--screens`, then Hosting. Step 2 built and tested 2026-10-10 ([As built](modules/EMPLOYEE_PORTAL.md#as-built--step-2-2026-10-10)): payroll queries and advance / loan requests in the portal, the ERP's Employee Requests screen with handlers per company and category, internal notes, files, loan type limits, Home tasks (decisions 96–105). Deploy set `employee-portal-2`. Step 3 built and tested 2026-10-10 ([As built](modules/EMPLOYEE_PORTAL.md#as-built--step-3-2026-10-10)): reimbursement categories (each with its own pay element), expense claims with receipts, the manager then Approval Configuration "Reimbursement claim" with part approval and the monthly-limit flag, Earnings & Deductions entries for the payroll month, Paid once the run is posted; leave documents uploaded from the portal (decisions 93, 94, 106–109). Deploy set `employee-portal-3`. The portal's agreed scope is complete; live 2026-10-10 (runs #117–#126). Owner: the reimbursement elements stay in Earnings & Deductions. **Changes after go-live** built and tested 2026-10-10 ([EMPLOYEE_PORTAL.md](modules/EMPLOYEE_PORTAL.md#changes-after-go-live-owner-2026-10-10), decisions 110–113): company names in full in Employee Requests and the payroll screens, My Portal first in the user menu, the leave Home blocks moved to the portal, one payslip layout. Deploy set `employee-portal-4`, live 2026-10-10 (runs #127, #128). |
+| 12 | Aging Reports (Customer, Vendor, Inventory) | [AGING_REPORTS.md](modules/AGING_REPORTS.md) | tested | Requested 2026-10-11; agreed (decisions 118–121: customer / vendor aging by days overdue or by invoice age, a switch on the screen; advances and open credits as a separate "Unapplied credits" column; inventory aged first in first out by receipt date, value at average cost; stock buckets 0–30 … over 365). Built and tested 2026-10-11 ([As built](modules/AGING_REPORTS.md#as-built-2026-10-11)). Deploy set `aging-reports`. Next: month-end and year-end closing (owner, 2026-10-11). |
 
 **Order:** #0 first (the owner's priority, and the SOAs need it). Then the returns, which the SOAs report on, and
 the SOAs last because they only read.
@@ -131,7 +133,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   `fa-mobile-screen-button`, FAASSET and VENDORMASTER `fa-truck`,
   INVENTORYPURCHASEREQUISITION `fa-box-open`, PAYROLLFS `fa-door-open`,
   STOCKVALUATION `fa-coins`, WAREHOUSEMOVEMENT `fa-truck-moving`. The icon
-  guard now covers every screen. Deploy: screens only.
+  guard now covers every screen. Live 2026-10-11 (run #135, after #133 failed).
 
 - [x] **External prints without the ERP title bar** (owner, 2026-10-11;
   [EXTERNAL_PRINTS.md](modules/EXTERNAL_PRINTS.md)): invoices, delivery

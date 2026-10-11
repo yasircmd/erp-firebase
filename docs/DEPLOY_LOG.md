@@ -1026,3 +1026,6 @@ from, and how it was verified. The deploy procedure is in the
   PR #112's hand edits to those two; the active release was unchanged.
   Fixed in PR #113 (the edits moved into the generator's SCREEN_EDITS; the
   workflow's check now covers screens/). Then run **screens only** again.
+- **2026-10-11, nine screens' icons (screens only), again:** run
+  [#135](https://github.com/yasircmd/erp-firebase/actions/runs/38124226890),
+  08:16–08:17 UTC, from `c4408e2` (PR #113), success. The owner confirms it.

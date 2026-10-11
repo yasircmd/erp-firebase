@@ -93,3 +93,59 @@ staff can see customer aging only), read-only:
 | 119 | Advances and unapplied credits | **A separate "Unapplied credits" column**, subtracted to give the net balance; the buckets show only what is owed. |
 | 120 | How inventory is aged | **By receipt date, first in first out**; value at the current average cost. |
 | 121 | Inventory buckets | **0–30, 31–60, 61–90, 91–180, 181–365, over 365 days.** |
+
+## As built (2026-10-11)
+
+**Three modules** (rights `access`; default Admin, Finance Manager,
+Accountant, Viewer), read-only:
+
+- **Customer Aging** (`CUSTOMERAGING`) and **Vendor Aging** (`VENDORAGING`):
+  one screen template (`screens/CUSTOMERAGING.html`; Vendor's is built by
+  `node tools/build-aging-screens.js`, its `--check` run in the UI check).
+  - Filters: company, "as at" date (default today), **Age by**: days
+    overdue (Not yet due, 1–30, 31–60, 61–90, 90+) or days since the
+    invoice date (0–30, 31–60, 61–90, 91–120, 120+); search; "only with
+    something overdue".
+  - One row per party with anything open: terms, the buckets, Owed,
+    **Unapplied credits** (advances and open credits, decision 119), Net
+    balance, pending PDCs (information, not deducted); totals. Click a row
+    for its open items (document, type, date, due date, days,
+    outstanding); **SOA** opens that party's statement for the year to
+    the date.
+  - **The GL check:** the control account(s) the company's parties use, at
+    the date, against the report's net total ("agrees" or the difference).
+    Not shown when a control account is shared with the other kind of
+    party.
+  - Copy (to Excel) and Print (an internal report: the title bar stays).
+- **Inventory Aging** (`INVENTORYAGING`): company, warehouse (or all),
+  category, "as at"; one row per item: on hand, value, the six buckets
+  (values, or quantities with "Show quantities"), last receipt and issue;
+  totals; Copy; Print. A ⚠ marks an item issued beyond the receipts on
+  record (that part has no age).
+
+**Server:** `functions/src/agingReports.js` — callables `getPartyAging`
+and `getInventoryAging`.
+- Parties: the invoices, journal entries and PDCs read once for the whole
+  company; each party's open items from the same code as the SOA
+  (`partyLedger.openItemsFrom`, `partyStatement.openItemRows`, both
+  factored out of the SOA for this, which works as before).
+- Inventory: the posted stock movements up to the date, a reversed
+  document dropping out with its reversal (when that is also on or before
+  the date), replayed in date order with first-in-first-out layers per
+  item and warehouse; a warehouse transfer moves the layers it takes,
+  keeping their dates. Value: the movements' own values (moving average),
+  split across the buckets in proportion to the quantities.
+
+**Screens** draw only the latest Run's answer (an older one answering late
+is dropped), as fixed in Retail Sales.
+
+**Tests:** `agingReports.emulator.test.js` (4: vendor buckets both ways,
+unapplied credits, the GL check, each vendor agreeing with its SOA, an
+earlier date; customer advance and a pending PDC; access; inventory first in
+first out, a transfer keeping its age, a reversed receipt, a draft and
+another company left out, the value as the stock ledger, one warehouse,
+category), `test/ui/agingReports.ui.js` (4). Six negative controls, all
+caught.
+
+**Deploy:** `tools/deploy-sets/aging-reports.txt` with `--screens`. In the
+app: menu nodes for the three reports and their access.
