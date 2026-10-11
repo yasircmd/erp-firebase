@@ -27,7 +27,7 @@
 </style>
 <div class="space-y-6">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Accounts Payable (FI-AP)</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-truck-field text-blue-500"></i> Vendor Master Data</h2></div>
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Accounts Payable (FI-AP)</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-truck text-blue-500"></i> Vendor Master Data</h2></div>
     <button id="ven-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Vendor</button>
   </div>
 
@@ -409,7 +409,7 @@
     document.getElementById('ven-form-classification').addEventListener('change', updateCountryVisibility);
 
     populateCountrySelect();
-    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-truck-field"></i> Vendor Master Data';
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-truck"></i> Vendor Master Data';
     fetchAndRender();
     loadReferenceData();
   };

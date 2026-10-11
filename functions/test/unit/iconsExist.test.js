@@ -1,5 +1,5 @@
-// Every Font Awesome icon the shell and the Employee Portal use exists in
-// the version they load (6.0.0, from cdnjs): a newer icon name renders as
+// Every Font Awesome icon the shell, the Employee Portal and the screens
+// (shown inside the shell) use exists in the version loaded (6.0.0, from cdnjs): a newer icon name renders as
 // a blank space (the portal's Team tab, owner 2026-10-11). The list is
 // 6.0.0's own (@fortawesome/fontawesome-free@6.0.0, css/all.css).
 //   node --test functions/test/unit/iconsExist.test.js
@@ -20,3 +20,13 @@ for (const file of ['public/ess.html', 'public/index.html']) {
     assert.deepEqual(missing, []);
   });
 }
+
+test('the screens use only 6.0.0\'s icons (they show inside the shell)', () => {
+  const dir = path.join(root, 'screens');
+  const missing = [];
+  for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.html'))) {
+    const html = fs.readFileSync(path.join(dir, f), 'utf8');
+    for (const n of new Set(html.match(/fa-[a-z0-9-]+/g) || [])) if (!STYLES.has(n) && !known.has(n)) missing.push(f + ': ' + n);
+  }
+  assert.deepEqual(missing, []);
+});

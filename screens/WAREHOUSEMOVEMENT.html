@@ -10,7 +10,7 @@
 
 <div id="wm-list-view" class="space-y-6">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Stock Management</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-truck-arrow-right text-blue-500"></i> Warehouse Movement</h2></div>
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Stock Management</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-truck-moving text-blue-500"></i> Warehouse Movement</h2></div>
     <button id="wm-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Warehouse Movement</button>
   </div>
 
@@ -1583,7 +1583,7 @@
       document.getElementById('wm-back-chain-btn').addEventListener('click', goBackInChain);
     }
 
-    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-truck-arrow-right"></i> Warehouse Movement';
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-truck-moving"></i> Warehouse Movement';
 
     const pending = window.__pendingModuleParams;
     window.__pendingModuleParams = null;

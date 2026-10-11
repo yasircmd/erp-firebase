@@ -1,6 +1,6 @@
 <div id="fs-list-view" class="space-y-6">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-person-walking-arrow-right text-blue-500"></i> Final Settlements</h2></div>
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Human Resources</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-door-open text-blue-500"></i> Final Settlements</h2></div>
     <button id="fs-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New final settlement</button>
   </div>
   <p class="text-xs text-slate-500 max-w-3xl">For an employee on notice or who has left (a leaving date on their record). It pays everything at once: the salary of the months no posted payroll run has paid (to the leaving date, with that month's leave and inputs; the payroll run then leaves the employee out), gratuity, the annual leave balance, the accruals paid at leaving, notice pay, other additions and deductions, less every loan still owed. Submit it from the leaving date. It is approved as set up in Approval Configuration, posted, then paid on its own or in an interim payroll batch.</p>
@@ -314,7 +314,7 @@
   }
 
   window.initModule = function () {
-    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-person-walking-arrow-right"></i> Final Settlements';
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-door-open"></i> Final Settlements';
     $('fs-new-btn').addEventListener('click', () => $('fs-new-form').classList.remove('hidden'));
     $('fs-new-cancel').addEventListener('click', () => $('fs-new-form').classList.add('hidden'));
     $('fs-new-go').addEventListener('click', () => { if (val('fs-new-emp')) openSettlement({ employeeId: val('fs-new-emp') }).then(() => $('fs-new-form').classList.add('hidden')); });

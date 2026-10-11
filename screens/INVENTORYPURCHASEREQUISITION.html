@@ -7,7 +7,7 @@
 
 <div id="ipr-list-view" class="space-y-6">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Procurement</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-boxes-packing text-blue-500"></i> Inventory Purchase Requisition</h2></div>
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Procurement</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-box-open text-blue-500"></i> Inventory Purchase Requisition</h2></div>
     <button id="ipr-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New Requisition</button>
   </div>
 
@@ -684,7 +684,7 @@
     document.getElementById('ipr-approve-btn').addEventListener('click', () => decide('Approved'));
     document.getElementById('ipr-reject-btn').addEventListener('click', () => decide('Rejected'));
 
-    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-boxes-packing"></i> Inventory Purchase Requisition';
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-box-open"></i> Inventory Purchase Requisition';
     const pending = window.__pendingModuleParams;
     window.__pendingModuleParams = null;
     if (pending && pending.OpenEntryId) pendingOpenEntryId = pending.OpenEntryId;
