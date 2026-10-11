@@ -85,6 +85,9 @@ async function resolveApprovalScopeKeyForDocument(moduleId, dimensions) {
 // SelfApproved. configKey: the Approval Configuration entry to use when it
 // isn't the module's own (a CBT voucher type); stored as ConfigKey.
 async function beginApprovalInstance(moduleId, documentId, documentNumber, scopeKey, amount, createdBy, configKey) {
+  // Every posting module calls this before it posts or sends for approval:
+  // a document dated in a closed month stops here (docs/modules/PERIOD_CLOSING.md, decision 132).
+  await require('./periodLock').assertDocumentOpen(moduleId, documentId, documentNumber);
   const levels = await resolveRequiredApprovalLevels(configKey || moduleId, scopeKey, amount);
   if (!levels.length) return { required: false };
 

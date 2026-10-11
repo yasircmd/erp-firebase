@@ -229,9 +229,10 @@ async function commitWarehouseMovementPosting(user, existing, moveId) {
   // that shared ledger key. A genuine edge case, present in the
   // original Code.gs exactly this way.
   const combinedLedgerUpdates = Object.assign({}, outMovement.ledgerUpdates, inMovement.ledgerUpdates);
-  await commitStockLedgerUpdates(combinedLedgerUpdates);
-
+  // Numbered (and the period lock checked) before the ledger moves, so a
+  // movement refused for a closed month moves no stock (docs/modules/PERIOD_CLOSING.md, step 1b).
   const numbering = await assignStockVoucherNumbering('WarehouseMovement', existing.TransactionDate, existing.CompanyID);
+  await commitStockLedgerUpdates(combinedLedgerUpdates);
 
   const now = new Date().toISOString();
   const actor = user.profile.username || user.uid;
@@ -373,9 +374,9 @@ exports.reverseWarehouseMovement = onCallWithMessages(onCallOptions, async (requ
     const inMovement = await computeStockMovement(itemsData, coaData, inLines);
 
     const combinedLedgerUpdates = Object.assign({}, outMovement.ledgerUpdates, inMovement.ledgerUpdates);
-    await commitStockLedgerUpdates(combinedLedgerUpdates);
-
+    // Numbered (and the reversal's date checked against the period lock) before the ledger moves.
     const numbering = await assignStockVoucherNumbering('WarehouseMovement', date, existing.CompanyID);
+    await commitStockLedgerUpdates(combinedLedgerUpdates);
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;

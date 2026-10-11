@@ -99,7 +99,8 @@ const MAPPED = {
   prVisibilityFor_: ['prVisibility', 'visibilityFor', 'dropCtx'],
   canSeePurchaseRequisition_: ['prVisibility', 'canSeeRequisition', 'dropCtx'],
   findAccountUsage_: ['coaUsage', 'findAccountUsage', 'dropCtx'], // docs/modules/COA_RECODE.md
-  clubStockLines_: ['lineClubbing', 'clubStockLines', 'pure'] // docs/modules/LINE_CLUBBING.md
+  clubStockLines_: ['lineClubbing', 'clubStockLines', 'pure'], // docs/modules/LINE_CLUBBING.md
+  assertPeriodOpen_: ['periodLock', 'assertOpen', 'dropCtx'] // docs/modules/PERIOD_CLOSING.md (called only from patches)
 };
 // Constants taken from the already-extracted shared modules (verbatim copies there).
 const IMPORTED_CONSTS = {
@@ -118,7 +119,8 @@ const SHARED_PATHS = {
   prVisibility: '../prVisibility',
   coaUsage: '../coaUsage',
   lineClubbing: '../lineClubbing',
-  numbering: '../numbering'
+  numbering: '../numbering',
+  periodLock: '../periodLock'
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);

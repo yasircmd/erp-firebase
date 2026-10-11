@@ -444,6 +444,8 @@ async function postInvoices(user, companyId, settings, rows, d, batchId) {
 // The mirror image of an opening entry, dated as the original. Party tags
 // stay (for statements); the reversal allocates nothing (as JV reversal).
 async function reverseEntry(user, jvId, entry, extra) {
+  // Dated as the original: refused while its month is closed (docs/modules/PERIOD_CLOSING.md, step 1b).
+  await require('./periodLock').assertOpen(entry.CompanyID, entry.JVDate, 'Opening balances');
   const now = new Date().toISOString();
   const actor = user.profile.username || user.uid;
   const year = (new Date(entry.JVDate)).getFullYear() || new Date().getFullYear();
