@@ -1013,7 +1013,7 @@ from, and how it was verified. The deploy procedure is in the
   07:40–07:41 UTC, from `8a288b4` (PR #110): screens only, success. The
   owner confirms it is done.
 - **2026-10-11, the portal's Team icon:** runs
-  [#131](https://github.com/yasircmd/erp-firebase/actions/runs/38122852660)
+  [#131](https://github.com/yasircmd/erp-firebase/actions/runs/38122835904)
   (07:52–07:53 UTC) and
   [#132](https://github.com/yasircmd/erp-firebase/actions/runs/38123061032)
   (07:56–07:57 UTC), both from `67d91fb` (PR #111), both success (the
