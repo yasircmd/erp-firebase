@@ -315,3 +315,105 @@ so only the guard sees it removed).
 
 **Deploy:** `tools/deploy-sets/period-closing-1b.txt`: every function (the
 check is in shared code). No screens, no Hosting change.
+
+## Step 1c design: payroll and depreciation runs of a closed month (2026-10-11)
+
+**Decision 131:** reversing a payroll or depreciation run of a closed month
+warns that it will be adjusted in the next month; otherwise the month is
+reopened first.
+
+**Today:**
+- A **payroll run's** reversal is dated as the run (the month's last day),
+  and the run goes back to Draft so the **same month** is run and posted
+  again (HR payroll decision 18). Later runs must be reversed first.
+- A **depreciation run's** reversal is dated the period's last day; the
+  periods run in order, so after reversing period M the next run is M again.
+- Since step 1b, both are refused while their month is closed, and so is the
+  re-run.
+
+So "adjusted in the next month" has to cover the re-run too, not only the
+reversal.
+
+**Proposed:** when the run's month is closed, Reverse shows: "Sep-2026 is
+closed. The reversal will be posted on 01/10/2026, in the first open month,
+and the corrected run for Sep-2026 will also post there. Continue? (To keep
+it in Sep-2026, reopen the month in Period Closing first.)" On Continue:
+- the reversal is posted on the **first open day**;
+- the run is redone **for its own month** (the payslips and the asset
+  records stay in that month), and its entry is posted on the first open
+  day too, with the same warning;
+- the run, its history and the GL entries say "adjusted in Oct-2026".
+
+## Open questions (round 10)
+
+136. **After the reversal.**
+     - **The run is redone for its own month and posted in the first open
+       month** (as above) — recommended: payslips and asset records stay
+       in the right month; the GL shows the correction in the open month;
+     - or the closed month's run is not redone: the correction is entered
+       in the next month's own run (payroll: arrears / Earnings & Deductions;
+       depreciation would need a change to its run order).
+137. **The date of the adjustment.**
+     - **The first day of the first open month** — recommended;
+     - or today;
+     - or chosen by the user (any date in an open month).
+138. **Other payroll postings dated as their original** (payroll payments,
+     final settlements, loan payouts, provisions):
+     - **the same treatment** (warning, posted in the first open month) —
+       recommended, one rule for payroll;
+     - or only the runs; the others need the month reopened.
+139. **Who can do it.**
+     - **Whoever can reverse the run today** (Payroll post, Depreciation Run
+       reverse) — recommended;
+     - or also needs Period Closing's reopen right.
+
+## The owner's decisions, round 10 (2026-10-11)
+
+| # | Question | Decision |
+|---|---|---|
+| 136 | After reversing a closed month's run | **The run is redone for its own month and posted in the first open month**, as the reversal. |
+| 137 | The adjustment's date | **The first day of the first open month.** |
+| 138 | Other payroll postings dated as their original (payments, settlements, loan payouts, provisions) | **The same treatment.** |
+| 139 | Who can do it | **Whoever can reverse it today.** |
+
+## As built: step 1c (2026-10-11)
+
+**A payroll or depreciation posting of a closed month** (decisions 131,
+136-139): its reversal is dated as the original, so it would be refused.
+Instead the screen shows the server's offer in the app's own dialog:
+"Jul-2026 is closed for <company>. It can be adjusted in the first open
+month: it is posted on 01/08/2026 (the run or document keeps its own
+month). Continue to adjust it there, or reopen Jul-2026 in Period Closing
+first." Cancel changes nothing; Continue posts it on the first day of the
+first open month.
+- **Payroll run:** reversed there, back to Draft for its own month, marked
+  "adjusted"; its redo (submit, approval, posting) posts there too without a
+  second question. The history notes the date.
+- **Depreciation run:** reversed there (the asset records keep the period
+  and its last day); the period's redo posts there too.
+- **Final settlement:** as a run (reversed, then redone there).
+- **Payroll payments, interim payroll payments, loan payouts, provision
+  claims** (decision 138): their reversals the same way.
+- **Rights** (139): unchanged — whoever can reverse it today.
+- Other reversals are not adjustable: they take a date in an open month
+  (decision 130). A month reopened meanwhile posts on the original date.
+
+**How:** `periodLock.adjustableDate` (the offer, or the first open day);
+the GL writer applies it only to payroll and depreciation voucher types
+(`periodLock.ADJUSTABLE_TYPES`) when the entry is a reversal or the redo of
+a run reversed that way (`AdjustableRedo`), and records `AdjustedFromDate`
+on the entry. The user's Continue is the request's `adjustInOpenMonth`:
+`callable.js` runs every callable in that context, so a reversal reached
+several calls deep (an interim batch undoing its payments) sees it. The
+screens (Payroll, Final Settlements, Interim Payroll, Loans & Advances,
+Provisions, Depreciation Run) ask and send again.
+
+**Tests:** `periodAdjust.emulator.test.js` (3: payroll run reversed and
+redone; payroll payment reversal, a JV reversal not adjustable, a reopened
+month; depreciation run reversed and redone), the settlement in
+`payrollSettlement.emulator.test.js` (1 more), `test/ui/periodAdjust.ui.js`
+(2: the warning, Cancel; Continue). Negative controls, all caught.
+
+**Deploy:** `tools/deploy-sets/period-closing-1c.txt` with `--screens`:
+every function (the callable wrapper and the GL writer are shared). No
+Hosting change.

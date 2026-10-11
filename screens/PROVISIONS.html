@@ -85,7 +85,12 @@
     div.textContent = value == null ? '' : String(value);
     return div.innerHTML;
   }
-  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  // A closed month (docs/modules/PERIOD_CLOSING.md, step 1c): for a payroll reversal or
+  // redo the server offers to post it in the first open month; asked here, then sent again.
+  const rpcSend = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const call = (name, data) => rpcSend(name, data).catch(err => (/It can be adjusted in the first open month/.test(err.message || '')
+    ? appConfirm(err.message).then(yes => (yes ? rpcSend(name, Object.assign({}, data, { adjustInOpenMonth: true })) : new Promise(() => {})))
+    : Promise.reject(err)));
   const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const cell = (v, extra) => '<td class="py-2 px-3 text-right' + (v < 0 ? ' text-red-400' : '') + (extra || '') + '">' + (v ? money(v) : '') + '</td>';
   const opt = (v, label) => '<option value="' + escapeHtml(v) + '">' + escapeHtml(label) + '</option>';

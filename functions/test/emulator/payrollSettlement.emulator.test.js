@@ -188,3 +188,23 @@ test('paid as a run is: the bank file, Mark paid (Dr Salaries Payable / Cr the b
   // The run can be reversed again now.
   await call('u-admin', 'reversePayrollRun', { runId: JULY, reason: 'Check' });
 });
+
+// Period Closing, step 1c (docs/modules/PERIOD_CLOSING.md, decisions 131,
+// 136-138): a settlement of a closed month is reversed, on the user's
+// Continue, on the first open day, and redone there too.
+test('a closed month: the settlement reversed on the first open day, and posted again there', async () => {
+  assert.equal((await call('u-admin', 'submitPayrollRun', { runId: JULY })).status, 'Posted');
+  assert.equal((await call('u-admin', 'submitSettlement', { settlementId: FS_ALI })).status, 'Posted');
+  const posted = await get({ settlementId: FS_ALI });
+  assert.equal((await jv(posted.JVID)).JVDate, '2026-07-15');
+  await rtdb.ref('periodClosing/C1/ClosedThrough').set('2026-07');
+  await assert.rejects(call('u-admin', 'reverseSettlement', { settlementId: FS_ALI, reason: 'Recalculate' }), /2026-07 is closed for Test Co One\. It can be adjusted in the first open month: it is posted on 2026-08-01/);
+  await call('u-admin', 'reverseSettlement', { settlementId: FS_ALI, reason: 'Recalculate', adjustInOpenMonth: true });
+  const back = await get({ settlementId: FS_ALI });
+  const reversal = await jv((await jv(posted.JVID)).ReversedByJV);
+  assert.deepEqual([back.Status, reversal.JVDate, reversal.AdjustedFromDate], ['Draft', '2026-08-01', '2026-07-15']);
+  assert.equal((await call('u-admin', 'submitSettlement', { settlementId: FS_ALI })).status, 'Posted');
+  const again = await jv((await get({ settlementId: FS_ALI })).JVID);
+  assert.deepEqual([again.JVDate, again.AdjustedFromDate], ['2026-08-01', '2026-07-15']);
+  await rtdb.ref('periodClosing').remove();
+});
