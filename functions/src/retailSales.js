@@ -52,6 +52,12 @@ const TYPE = 'RetailSale';
 const RTYPE = 'RetailReturn';
 const TX = 'stock/transactions/';
 const SETTINGS = 'retailSales/settings/';
+// The receipt (owner, 2026-10-10, decisions 114-115): the paper per company,
+// a footer message, printed on Confirm or not. A4 is the original layout.
+const RECEIPT_PAPERS = ['80', '58', 'A4'];
+const receiptOf = st => ({ Paper: (st && RECEIPT_PAPERS.includes(st.ReceiptPaper)) ? st.ReceiptPaper : 'A4', Footer: (st && st.ReceiptFooter) || '', PrintOnConfirm: !!(st && st.PrintOnConfirm) });
+// Discounts at the counter (decision 116): on unless Setup switched them off.
+const allowsDiscount = st => !(st && st.AllowDiscount === false);
 const METHODS = 'retailSales/paymentMethods';
 const KINDS = { Cash: 'Cash', Card: 'Card', QR: 'QR code / scan', Promotion: 'Promotion', Other: 'Other' };
 const RETAIL_CUSTOMER = 'Retail Customer';
@@ -233,6 +239,11 @@ exports.saveRetailSalesSettings = onCallWithMessages(onCallOptions, async (reque
   // The return period (decision 78): days after the sale a return is taken; 0 = no limit.
   const returnDays = d.returnDays === undefined || d.returnDays === '' || d.returnDays === null ? 0 : Number(d.returnDays);
   if (!(Number.isInteger(returnDays) && returnDays >= 0 && returnDays <= 3650)) throw new HttpsError('invalid-argument', 'Enter the return period in whole days (0 = no limit).');
+  // The receipt and the discount switch (decisions 114-117).
+  const receiptPaper = d.receiptPaper === undefined ? ((existing && existing.ReceiptPaper) || 'A4') : String(d.receiptPaper);
+  if (!RECEIPT_PAPERS.includes(receiptPaper)) throw new HttpsError('invalid-argument', 'Choose the receipt paper (80 mm, 58 mm or A4).');
+  const receiptFooter = String(d.receiptFooter === undefined ? ((existing && existing.ReceiptFooter) || '') : d.receiptFooter).trim();
+  if (receiptFooter.length > 200) throw new HttpsError('invalid-argument', 'The receipt\'s footer message is at most 200 characters.');
 
   const now = new Date().toISOString();
   const actor = actorOf(user);
@@ -258,6 +269,10 @@ exports.saveRetailSalesSettings = onCallWithMessages(onCallOptions, async (reque
     RetailCustomerID: retailCustomerId, SalesTypeID: salesTypeId, WarehouseID: warehouseId, CostCenterID: costCenterId,
     ReceivablesAccountID: receivablesId, PriceListID: priceListId, TaxPercent: taxPercent,
     AllowPriceChange: d.allowPriceChange === true, ReturnDays: returnDays,
+    // Discounts at the counter: on unless switched off (decision 116).
+    AllowDiscount: d.allowDiscount === undefined ? allowsDiscount(existing) : d.allowDiscount === true,
+    ReceiptPaper: receiptPaper, ReceiptFooter: receiptFooter,
+    PrintOnConfirm: d.printOnConfirm === undefined ? !!(existing && existing.PrintOnConfirm) : d.printOnConfirm === true,
     CreatedAt: (existing && existing.CreatedAt) || now, UpdatedAt: now, UpdatedBy: actor
   });
   return { success: true, retailCustomerId };
@@ -383,6 +398,7 @@ async function buildSale(user, d) {
     if (!(price >= 0)) throw new Error(n + item.ItemCode + ': enter the price.');
     const listAmount = round2(qty * price);
     const discount = round2(Number(raw.Discount) || 0);
+    if (discount && !allowsDiscount(settings)) throw new Error(n + item.ItemCode + ': discounts are switched off at the counter (Retail Sales → Setup).');
     if (discount < 0 || discount > listAmount) throw new Error(n + item.ItemCode + ': the discount must be between 0 and ' + listAmount.toFixed(2) + '.');
     lines.push({
       LineNo: lines.length + 1, Direction: 'Out', ItemID: raw.ItemID, ItemCode: item.ItemCode, ItemName: item.ItemName || '',
@@ -600,7 +616,8 @@ exports.getRetailSale = onCallWithMessages(onCallOptions, async (request) => {
     sale: Object.assign({ SaleID: saleId }, t),
     returns,
     numberBarcode: t.TransactionType === TYPE && t.TransactionNumber && !t.ReversalOfSaleID ? BarcodeSvg.svg(t.TransactionNumber) : '',
-    company: { LegalName: company.LegalName || '', Address: [company.AddressLine1, company.AddressLine2, company.City].filter(Boolean).join(', '), TaxNumbers: (company.TaxNumbers || []).filter(x => x.Number) }
+    company: { LegalName: company.LegalName || '', Address: [company.AddressLine1, company.AddressLine2, company.City].filter(Boolean).join(', '), TaxNumbers: (company.TaxNumbers || []).filter(x => x.Number) },
+    receipt: receiptOf(await loadSettings(t.CompanyID))
   };
 });
 

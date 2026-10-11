@@ -453,3 +453,127 @@ included, the card's share paid in cash:
 **return** for the roles that take returns (the right is new, so a live
 system starts with no one holding it), and set each company's return
 period in Retail Sales → Setup.
+
+## Roll receipts and a discount switch (proposed 2026-10-10, owner's request)
+
+> "Check if the existing bill printing is sufficient to roll print,
+> otherwise need to develop. Also, for discount there should be an option
+> to enable it in Setup, like 'Prices can be changed at the counter'."
+
+### Is today's print enough for a roll (thermal) printer?
+
+**Not really.** It prints, but it was laid out for an A4 page:
+- No paper size of its own: the browser uses the printer's default page,
+  with its margins. A long bill is cut into "pages" with a gap or a cut
+  between them; a short one may feed a full page length of blank paper.
+- Bordered table cells, 11px text and padding: on 80 mm paper (72 mm
+  printable) the Item / Qty / Price / Discount / Amount columns are
+  cramped, and long item names wrap badly; on 58 mm (48 mm printable)
+  they don't fit.
+- It is printed only with "Print invoice" after the sale; nothing prints
+  by itself when the sale is confirmed.
+- What already fits: the invoice-number barcode (48 mm wide).
+
+### Proposed: a receipt layout made for the roll
+
+- **Setup → "Receipt paper"** per company: **80 mm roll**, **58 mm roll**,
+  or **A4** (today's layout, kept for an office printer).
+- The roll layout: the roll's printable width (72 mm on 80 mm paper,
+  48 mm on 58 mm) with no page margins, so the bill prints as one
+  continuous receipt when the printer driver's paper is the roll (thermal
+  drivers feed to the end of what is printed and cut there); no table
+  borders; each item on its own line, with
+  "qty × price" (and the discount, if any) and the amount under it;
+  dashed lines between the header, the items and the totals; the company
+  name, address and tax number centred at the top; the totals, tax,
+  payments and change; the invoice-number barcode; an optional **footer
+  message** from Setup (e.g. "Thank you, exchange within 14 days"). The
+  return receipt the same way.
+- On each counter PC the printer's own driver sets the paper; for
+  printing without the browser's print window, Chrome can be started
+  with `--kiosk-printing` on the counter PCs (a one-off setting there, no
+  code). Cash-drawer kick and the cutter are the printer driver's
+  options.
+
+### Proposed: discounts switched on or off in Setup
+
+- **Setup → "Discounts can be given at the counter"**, next to "Prices
+  can be changed at the counter". Off: the counter has no Discount
+  column, and the server refuses a line with a discount (so it can't be
+  bypassed). On: as today.
+- Promotion codes are a payment method, not a discount: unaffected.
+- Returns of sales made with a discount keep working (their discount is
+  on the sale).
+
+### Open questions (round 6)
+
+114. **Receipt paper.**
+     - A setting per company: 80 mm, 58 mm or A4 — recommended;
+     - or 80 mm only.
+115. **Printing when the sale is confirmed.**
+     - The receipt prints by itself after Confirm (one click less per
+       customer) — recommended;
+     - or only with "Print invoice", as today.
+116. **The discount switch for companies already selling.**
+     - **On** (nothing changes until someone switches it off) —
+       recommended;
+     - or Off (discounts stop until switched on).
+117. **A limit on the discount.**
+     - None: when on, any discount up to the line amount, as today —
+       recommended for now;
+     - or a maximum % of the line, set in Setup.
+
+## The owner's decisions, round 6 (2026-10-10)
+
+| # | Question | Decision |
+|---|---|---|
+| 114 | Receipt paper | **A Setup choice per company: 80 mm, 58 mm or A4** (A4 keeps today's layout). |
+| 115 | Printing on Confirm | **A Setup option**: "Print the receipt when the sale is confirmed", on or off (Off for companies already selling, so nothing changes until it is switched on). "Print invoice" stays for a reprint. |
+| 116 | The discount switch | **On** for companies already selling. |
+| 117 | A limit on the discount | **None**: when on, any discount up to the line amount, as today. |
+
+## As built: roll receipts and the discount switch (2026-10-10)
+
+**Setup** (per company), under "Prices can be changed at the counter":
+- **Discounts can be given at the counter** (decision 116: on for a
+  company set up before it existed, and for a new setup). Off: the
+  counter has no Discount column, and `confirmRetailSale` refuses a line
+  with a discount ("discounts are switched off at the counter").
+- **Receipt paper**: 80 mm roll, 58 mm roll or A4 (a company set up before
+  keeps A4, the original layout, until changed; a new setup offers 80 mm).
+- **Receipt footer message** (optional, at most 200 characters).
+- **Print the receipt when the sale is confirmed** (decision 115; off
+  until switched on). It prints after a sale's or a return's Confirm;
+  "Print invoice" reprints; opening a sale never prints by itself.
+
+**The roll receipt** (screens/RETAILSALES.html `rollHtml`): 72 mm wide on
+80 mm paper, 48 mm on 58 mm, no page margins; the company, address and tax
+numbers centred; "Tax Invoice" / "Invoice" / "Return Receipt"; the number
+and date, the number's barcode, the customer (when entered); each item on
+its line with "qty × price − discount" and the amount; the total, the tax
+included, the payments, change and on account (a return: the refunds);
+the footer message. No bordered tables. A4 is unchanged.
+
+**Server:** functions/src/retailSales.js: the settings `AllowDiscount`,
+`ReceiptPaper`, `ReceiptFooter`, `PrintOnConfirm`; `getRetailSale`
+returns the sale's company `receipt` (paper, footer, print on confirm).
+
+**On the counter PCs** (no code): set the printer driver's paper to the
+roll (e.g. "80 mm × receipt"); for printing without the browser's print
+window, start Chrome with `--kiosk-printing`; the cutter and the cash
+drawer are the driver's options.
+
+**Fixed in passing (a real bug, found by an intermittent UI check):** in
+the Sales tab, an older "Run" answering after a newer one put back its rows
+and reset "Billed by" to Everyone, and a fresh answer reset a Billed-by
+choice made while it was loading. Now only the latest request draws, and
+a choice made meanwhile is kept.
+
+**Tests:** `retailSales.emulator.test.js` (8: the switch, the defaults for
+a company already selling, the receipt settings and their checks),
+`retailSales.ui.js` (10: the Sales tab race above; Setup's new defaults; discounts off, no Discount
+column; an 80 mm receipt printed on Confirm, with its footer and no
+table; 58 mm narrower; opening a sale doesn't print).
+
+**Deploy:** `tools/deploy-sets/retail-receipts.txt` with `--screens`
+(RETAILSALES). No Hosting change.
