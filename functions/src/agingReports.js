@@ -255,6 +255,9 @@ exports.getInventoryAging = onCallWithMessages(onCallOptions, async (request) =>
   return inventoryAging(companyId, asOf, String(d.warehouseId || '').trim(), String(d.category || '').trim(), d.onlyWithStock !== false);
 });
 
+// Period Closing's checklist uses the reports' own figures (docs/modules/PERIOD_CLOSING.md).
+module.exports.partyAging = partyAging;
+module.exports.inventoryAging = inventoryAging;
 module.exports.BUCKETS = BUCKETS;
 module.exports.STOCK_BUCKETS = STOCK_BUCKETS;
 module.exports.replayLayers = replayLayers;

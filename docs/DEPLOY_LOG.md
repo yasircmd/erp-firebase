@@ -1029,3 +1029,7 @@ from, and how it was verified. The deploy procedure is in the
 - **2026-10-11, nine screens' icons (screens only), again:** run
   [#135](https://github.com/yasircmd/erp-firebase/actions/runs/38124226890),
   08:16–08:17 UTC, from `c4408e2` (PR #113), success. The owner confirms it.
+- **2026-10-11, Aging Reports (`aging-reports`):** run
+  [#136](https://github.com/yasircmd/erp-firebase/actions/runs/38128329252),
+  09:25–09:29 UTC, from `f7c2565` (PR #114): functions and screens,
+  success. The owner confirms it is done.

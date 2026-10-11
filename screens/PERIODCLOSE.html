@@ -1,0 +1,234 @@
+<style>
+  #pc-months table th, #pc-months table td, #pc-log table td { white-space: nowrap; }
+  .pc-tab.active { background: rgb(37 99 235); color: white; border-color: rgb(37 99 235); }
+</style>
+
+<div class="space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">General Ledger</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-calendar-check text-blue-500"></i> Period Closing</h2></div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <div class="flex flex-wrap items-end gap-3">
+      <div class="w-72"><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="pc-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select></div>
+      <div class="flex gap-1 text-xs">
+        <button data-tab="months" class="pc-tab active px-3 py-2 rounded-lg border border-slate-700">Months</button>
+        <button data-tab="setup" class="pc-tab px-3 py-2 rounded-lg border border-slate-700">Setup</button>
+        <button data-tab="log" class="pc-tab px-3 py-2 rounded-lg border border-slate-700">Log</button>
+      </div>
+    </div>
+    <div id="pc-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <!-- Months: the financial year's grid, the checklist, close and reopen. -->
+  <div id="pc-months" class="hidden space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <button id="pc-prev" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-chevron-left"></i></button>
+        <h3 class="text-lg font-bold">Financial year <span id="pc-year"></span></h3>
+        <button id="pc-next" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+      <p id="pc-status" class="text-sm text-slate-300"></p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-slate-400 uppercase"><th class="py-2 px-3">Month</th><th class="py-2 px-3">Status</th><th class="py-2 px-3">Closed by</th><th class="py-2 px-3">Closed at</th><th class="py-2 px-3"></th></tr></thead>
+        <tbody id="pc-grid" class="divide-y divide-slate-700"></tbody>
+      </table>
+    </div>
+
+    <div id="pc-check" class="hidden bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div><h3 class="font-bold">Checklist for closing <span id="pc-check-month"></span></h3><p id="pc-check-range" class="text-xs text-slate-400"></p></div>
+        <div class="flex gap-2">
+          <button id="pc-check-hide" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded">Close the list</button>
+          <button id="pc-close" class="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-lock"></i> Close <span id="pc-close-month"></span></button>
+        </div>
+      </div>
+      <div id="pc-check-items" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- Setup per company (decisions 122, 126, 128, 129). -->
+  <div id="pc-setup" class="hidden space-y-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Financial year</label>
+          <select id="pc-fy" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Jan">January – December</option><option value="Apr">April – March</option></select>
+          <p id="pc-fy-note" class="text-xs text-slate-500 mt-1">Can change until the company's first year-end close; then it is fixed.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Retained Earnings account</label>
+          <select id="pc-re" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select>
+          <p class="text-xs text-slate-500 mt-1">The year-end close moves the year's profit or loss here.</p>
+        </div>
+      </div>
+      <div>
+        <h4 class="text-sm font-semibold mb-1">Checklist before a month closes</h4>
+        <p class="text-xs text-slate-500 mb-2">Block: the month can't close while the item has findings. Warn: listed, and the month can still close after confirming. Off: not checked.</p>
+        <table class="w-full text-left text-xs"><tbody id="pc-setup-items" class="divide-y divide-slate-700"></tbody></table>
+      </div>
+      <div class="flex justify-end"><button id="pc-save" class="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm font-medium px-4 py-2 rounded-lg">Save</button></div>
+    </div>
+  </div>
+
+  <div id="pc-log" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
+    <table class="w-full text-left text-xs">
+      <thead><tr class="bg-slate-900 border-b border-slate-700 text-slate-400 uppercase"><th class="py-2 px-3">When</th><th class="py-2 px-3">Action</th><th class="py-2 px-3">Month</th><th class="py-2 px-3">Closed through after</th><th class="py-2 px-3">By</th><th class="py-2 px-3">Reason / note</th></tr></thead>
+      <tbody id="pc-log-body" class="divide-y divide-slate-700"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Period Closing, step 1a (docs/modules/PERIOD_CLOSING.md).
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const MODES = ['Block', 'Warn', 'Off'];
+  let state = null, tab = 'months', year = '', seq = 0, checkSeq = 0, checkMonth = '';
+
+  function showError(msg) { $('pc-error').textContent = msg || ''; $('pc-error').classList.toggle('hidden', !msg); }
+  const when = at => at ? window.isoLocalDateTime(new Date(at)) : '';
+  const badge = (txt, cls) => '<span class="px-2 py-0.5 rounded-full text-[11px] ' + cls + '">' + escapeHtml(txt) + '</span>';
+
+  function load() {
+    showError('');
+    const companyId = $('pc-company').value;
+    if (!companyId) { state = null; show(); return; }
+    const mine = ++seq;
+    call('getPeriodClosing', { companyId, year }).then(r => {
+      if (mine !== seq) return;
+      state = r; year = r.Year.Start;
+      show();
+    }, err => { if (mine === seq) showError(err.message || 'Unable to load.'); });
+  }
+
+  function show() {
+    document.querySelectorAll('.pc-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    ['months', 'setup', 'log'].forEach(t => $('pc-' + t).classList.toggle('hidden', !state || t !== tab));
+    if (!state) return;
+    renderMonths(); renderSetup(); renderLog();
+  }
+
+  function renderMonths() {
+    const r = state;
+    $('pc-year').textContent = r.Year.Label;
+    $('pc-status').textContent = r.ClosedThrough ? 'Closed through ' + r.ClosedThrough + (r.NextToClose ? '; next to close: ' + r.NextToClose : '') : 'No month closed yet.';
+    $('pc-grid').innerHTML = r.Months.map(m => {
+      const status = m.Status === 'Closed' ? badge(m.WithFirst ? 'Closed (before the first close)' : 'Closed', 'bg-emerald-500/20 text-emerald-300') : (m.Ended ? badge('Open', 'bg-amber-500/20 text-amber-300') : badge('Open (not ended)', 'bg-slate-700 text-slate-300'));
+      const actions = [];
+      if (m.CanClose) actions.push('<button class="pc-checklist bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded" data-month="' + m.Month + '"><i class="fa-solid fa-list-check"></i> Checklist' + (r.Rights.close ? ' and close' : '') + '</button>');
+      if (m.CanReopen && r.Rights.reopen) actions.push('<button class="pc-reopen bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded" data-month="' + m.Month + '"><i class="fa-solid fa-lock-open"></i> Reopen</button>');
+      return '<tr data-month="' + m.Month + '"><td class="py-2 px-3 font-medium">' + m.Month + '</td><td class="py-2 px-3 pc-st">' + status + '</td><td class="py-2 px-3">' + escapeHtml(m.By) + '</td><td class="py-2 px-3">' + when(m.At) + '</td><td class="py-2 px-3 text-right space-x-1">' + actions.join('') + '</td></tr>';
+    }).join('');
+  }
+
+  function renderSetup() {
+    const s = state.Settings, canEdit = state.Rights.close;
+    $('pc-fy').value = s.FiscalYearStart;
+    $('pc-fy').disabled = !canEdit || state.FiscalYearLocked;
+    $('pc-fy-note').textContent = state.FiscalYearLocked ? 'Fixed: the company has closed a financial year.' : 'Can change until the company\'s first year-end close; then it is fixed.';
+    $('pc-re').innerHTML = '<option value="">Select...</option>' + state.EquityAccounts.map(a => '<option value="' + escapeHtml(a.ID) + '">' + escapeHtml(a.Code + ' — ' + a.Name) + '</option>').join('');
+    $('pc-re').value = s.RetainedEarningsAccountID || '';
+    $('pc-re').disabled = !canEdit;
+    $('pc-setup-items').innerHTML = state.Checklist.map(c => '<tr><td class="py-1.5 pr-3">' + escapeHtml(c.label) + '</td><td class="py-1.5 w-32"><select data-key="' + c.key + '" class="pc-mode w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"' + (canEdit ? '' : ' disabled') + '>' +
+      MODES.map(m => '<option' + (s.Checklist[c.key] === m ? ' selected' : '') + '>' + m + '</option>').join('') + '</select></td></tr>').join('');
+    $('pc-save').disabled = !canEdit;
+  }
+
+  function renderLog() {
+    $('pc-log-body').innerHTML = state.Log.map(l => '<tr><td class="py-1.5 px-3">' + when(l.At) + '</td><td class="py-1.5 px-3">' + escapeHtml(l.Action) + '</td><td class="py-1.5 px-3">' + escapeHtml(l.Month || '') + '</td><td class="py-1.5 px-3">' + escapeHtml(l.ClosedThrough || '—') + '</td><td class="py-1.5 px-3">' + escapeHtml(l.ByName || '') + '</td><td class="py-1.5 px-3 whitespace-normal">' + escapeHtml(l.Reason || '') + '</td></tr>').join('') ||
+      '<tr><td colspan="6" class="py-6 text-center text-slate-500">Nothing yet.</td></tr>';
+  }
+
+  function openChecklist(month) {
+    checkMonth = month;
+    const mine = ++checkSeq;
+    $('pc-check').classList.remove('hidden');
+    $('pc-check-month').textContent = $('pc-close-month').textContent = month;
+    $('pc-check-range').textContent = 'Checking…';
+    $('pc-check-items').innerHTML = '';
+    $('pc-close').disabled = true;
+    $('pc-close').classList.toggle('hidden', !state.Rights.close);
+    call('getPeriodClosingChecklist', { companyId: state.CompanyID, month }).then(r => {
+      if (mine !== checkSeq) return;
+      renderChecklist(r);
+    }, err => { if (mine === checkSeq) { $('pc-check-range').textContent = ''; showError(err.message || 'Unable to run the checklist.'); } });
+  }
+
+  function renderChecklist(r) {
+    $('pc-check').dataset.blocking = r.Blocking; $('pc-check').dataset.warnings = r.Warnings;
+    $('pc-check-range').textContent = (r.From ? 'Dated ' + r.From + ' to ' + r.To : 'Dated up to ' + r.To + ' (the first close: the months before it close too)') +
+      ' · ' + (r.Blocking ? r.Blocking + ' blocking' : 'nothing blocking') + ' · ' + r.Warnings + ' warning(s)';
+    const cls = { OK: 'bg-emerald-500/20 text-emerald-300', Warning: 'bg-amber-500/20 text-amber-300', Blocks: 'bg-red-500/20 text-red-300', Off: 'bg-slate-700 text-slate-400' };
+    $('pc-check-items').innerHTML = r.Items.map(i => '<div class="pc-item border border-slate-700 rounded-lg" data-key="' + i.Key + '" data-result="' + i.Result + '">' +
+      '<div class="flex items-center justify-between gap-2 px-3 py-2"><div class="text-sm">' + escapeHtml(i.Label) + (i.Note ? ' <span class="text-xs text-slate-400">— ' + escapeHtml(i.Note) + '</span>' : '') + '</div>' +
+      '<div class="flex items-center gap-2 text-xs"><span class="text-slate-500">' + escapeHtml(i.Mode) + '</span>' + badge(i.Result === 'OK' ? 'OK' : (i.Result === 'Off' ? 'Off' : i.Count + ' found'), cls[i.Result]) + '</div></div>' +
+      (i.Findings.length ? '<table class="w-full text-left text-xs border-t border-slate-700"><tbody class="divide-y divide-slate-700/60">' + i.Findings.map(f =>
+        '<tr><td class="py-1 px-3">' + escapeHtml(f.Kind) + '</td><td class="py-1 px-3">' + escapeHtml(f.Number) + '</td><td class="py-1 px-3">' + escapeHtml(f.Date) + '</td><td class="py-1 px-3">' + escapeHtml(f.Status) + '</td><td class="py-1 px-3 whitespace-normal text-slate-400">' + escapeHtml(f.Text || '') + '</td>' +
+        '<td class="py-1 px-3 text-right"><button class="pc-open text-blue-400 hover:underline" data-module="' + escapeHtml(f.ModuleID) + '">Open</button></td></tr>').join('') + '</tbody></table>' : '') +
+      '</div>').join('');
+    $('pc-close').disabled = !state.Rights.close || r.Blocking > 0;
+  }
+
+  async function closeMonth() {
+    const month = checkMonth, warnings = Number($('pc-check').dataset.warnings) || 0;
+    const ok = await appConfirm(warnings
+      ? 'Close ' + month + ' with ' + warnings + ' warning(s) on the checklist?'
+      : 'Close ' + month + '? It can be reopened later by a user with the right, with a reason.');
+    if (!ok) return;
+    $('pc-close').disabled = true;
+    call('closePeriod', { companyId: state.CompanyID, month }).then(() => {
+      $('pc-check').classList.add('hidden');
+      appAlert(month + ' is closed.');
+      load();
+    }, err => { appAlert(err.message || 'Unable to close.'); openChecklist(month); });
+  }
+
+  async function reopen(month) {
+    const later = state.ClosedThrough > month ? ' The later months, through ' + state.ClosedThrough + ', reopen too.' : '';
+    const reason = await appPrompt('Reopen ' + month + '?' + later + ' Enter the reason:', '');
+    if (reason === null) return;
+    if (!reason.trim()) { appAlert('Enter the reason for reopening.'); return; }
+    call('reopenPeriod', { companyId: state.CompanyID, month, reason }).then(() => { appAlert(month + ' is open again.'); load(); },
+      err => appAlert(err.message || 'Unable to reopen.'));
+  }
+
+  function save() {
+    const Checklist = {};
+    document.querySelectorAll('.pc-mode').forEach(s => { Checklist[s.dataset.key] = s.value; });
+    $('pc-save').disabled = true;
+    call('savePeriodClosingSettings', { companyId: state.CompanyID, settings: { FiscalYearStart: $('pc-fy').value, RetainedEarningsAccountID: $('pc-re').value, Checklist } })
+      .then(() => { appAlert('Saved.'); year = ''; load(); }, err => { appAlert(err.message || 'Unable to save.'); $('pc-save').disabled = false; });
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-calendar-check"></i> Period Closing';
+    call('getActiveCompanies', {}).then(list => {
+      (list || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+        const o = document.createElement('option'); o.value = c.CompanyID; o.textContent = c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '');
+        $('pc-company').appendChild(o);
+      });
+      if ($('pc-company').options.length === 2) { $('pc-company').selectedIndex = 1; load(); }
+    }, err => showError(err.message || 'Unable to load companies.'));
+    $('pc-company').addEventListener('change', () => { year = ''; $('pc-check').classList.add('hidden'); load(); });
+    document.querySelectorAll('.pc-tab').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; show(); }));
+    $('pc-prev').addEventListener('click', () => { year = state.Year.Prev; load(); });
+    $('pc-next').addEventListener('click', () => { year = state.Year.Next; load(); });
+    $('pc-grid').addEventListener('click', e => {
+      const c = e.target.closest('.pc-checklist'), r = e.target.closest('.pc-reopen');
+      if (c) openChecklist(c.dataset.month);
+      if (r) reopen(r.dataset.month);
+    });
+    $('pc-check-hide').addEventListener('click', () => { checkSeq++; $('pc-check').classList.add('hidden'); });
+    $('pc-close').addEventListener('click', closeMonth);
+    $('pc-check-items').addEventListener('click', e => {
+      const b = e.target.closest('.pc-open');
+      if (b) openModule(b.dataset.module, null, [{ moduleId: 'PERIODCLOSE', label: 'Period Closing' }]);
+    });
+    $('pc-save').addEventListener('click', save);
+  };
+})();
+</script>

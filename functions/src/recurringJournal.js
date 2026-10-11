@@ -763,3 +763,7 @@ exports.getRecurringJournalsDueForUser = onCallWithMessages(onCallOptions, async
   });
   return out.sort((a, b) => (a.OldestDueDate + a.DocumentNumber).localeCompare(b.OldestDueDate + b.DocumentNumber));
 });
+
+// Period Closing's checklist (docs/modules/PERIOD_CLOSING.md): a template's
+// dates from `from` ('' = the beginning) to `to` that are due and not posted.
+module.exports.dueDatesBetween = (t, from, to) => planDates(t).filter(d => (!from || d >= from) && d <= to && isDue(t, d, to));
