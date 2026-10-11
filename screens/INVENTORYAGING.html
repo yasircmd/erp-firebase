@@ -55,7 +55,7 @@
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const money = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const qtyText = n => (Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 4 });
-  let report = null, loadedCompany = '';
+  let report = null, loadedCompany = '', seq = 0; // only the latest Run draws (an older one answering late is dropped)
 
   function showError(msg) { $('ia-error').textContent = msg || ''; $('ia-error').classList.toggle('hidden', !msg); }
   function rows() {
@@ -67,8 +67,10 @@
     const companyId = $('ia-company').value;
     if (!companyId) return showError('Select a Company.');
     $('ia-run').disabled = true;
+    const mine = ++seq;
     call('getInventoryAging', { companyId, asOf: $('ia-asof').value, warehouseId: companyId === loadedCompany ? $('ia-warehouse').value : '',
       category: companyId === loadedCompany ? $('ia-category').value : '', onlyWithStock: !$('ia-zero').checked }).then(r => {
+      if (mine !== seq) return;
       report = r;
       if (companyId !== loadedCompany) {
         loadedCompany = companyId;
@@ -76,7 +78,7 @@
         $('ia-category').innerHTML = '<option value="">All</option>' + r.Categories.map(c => '<option>' + escapeHtml(c) + '</option>').join('');
       }
       render();
-    }, err => showError(err.message || 'Unable to run the report.')).then(() => { $('ia-run').disabled = false; });
+    }, err => { if (mine === seq) showError(err.message || 'Unable to run the report.'); }).then(() => { if (mine === seq) $('ia-run').disabled = false; });
   }
   function render() {
     const r = report, byQty = $('ia-qty').checked;

@@ -64,7 +64,7 @@
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const money = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const amt = n => Math.abs(n) < 0.005 ? '<span class="text-slate-600">—</span>' : money(n);
-  let report = null, open = new Set();
+  let report = null, open = new Set(), seq = 0; // only the latest Run draws (an older one answering late is dropped)
 
   function showError(msg) { $('ag-error').textContent = msg || ''; $('ag-error').classList.toggle('hidden', !msg); }
   function rows() {
@@ -78,9 +78,11 @@
     const companyId = $('ag-company').value;
     if (!companyId) return showError('Select a Company.');
     $('ag-run').disabled = true;
+    const mine = ++seq;
     call('getPartyAging', { partyType: CONFIG.partyType, companyId, asOf: $('ag-asof').value, basis: $('ag-basis').value }).then(r => {
+      if (mine !== seq) return;
       report = r; open = new Set(); render();
-    }, err => showError(err.message || 'Unable to run the report.')).then(() => { $('ag-run').disabled = false; });
+    }, err => { if (mine === seq) showError(err.message || 'Unable to run the report.'); }).then(() => { if (mine === seq) $('ag-run').disabled = false; });
   }
   function render() {
     const r = report;
