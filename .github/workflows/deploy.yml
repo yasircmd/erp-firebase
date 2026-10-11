@@ -77,7 +77,11 @@ jobs:
       - name: Check generated code is up to date
         run: |
           node tools/legacy-port/generate.js legacy-gas
-          git diff --exit-code -- functions/src/legacy functions/modules
+          # screens/ too: the generator writes the ported modules' screens, so a
+          # hand edit to one is undone here and the release then stops on a
+          # "working copy not clean" (run #133, 2026-10-11). Change those screens
+          # through SCREEN_EDITS in tools/legacy-port/generate.js.
+          git diff --exit-code -- functions/src/legacy functions/modules screens
 
       # Messages, confirmations and questions are shown in the app, never as
       # browser popups (owner, 2026-09-29): a screen that uses confirm() or

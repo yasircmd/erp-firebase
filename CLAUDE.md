@@ -18,6 +18,10 @@ preserved quirks). Read it when touching a ported module.
 - **New code is hand-written.** It goes in functions/src/<module>.js, with
   grn.js as the model. Never edit functions/src/legacy/ (codegs.js,
   callables.js): it's regenerated from Code.gs by tools/legacy-port/.
+  The ported modules' screens (screens/<ID>.html for the modules in
+  tools/legacy-port/modules.json, e.g. VENDORMASTER, STOCKVALUATION) are
+  generated too: change them through SCREEN_EDITS in
+  tools/legacy-port/generate.js, never by hand (run #133 failed on that).
 - **Changing a ported module:** its existing behavior, including the
   quirks listed in docs/MIGRATION.md, was deliberately kept as in Apps
   Script. Change it only when asked, or for a real bug. Record any

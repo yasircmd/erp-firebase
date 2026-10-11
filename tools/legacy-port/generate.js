@@ -330,6 +330,12 @@ const { toGridClipboard } = require('./gridClipboard');
 // Exact-text edits to generated screens (each fails the run if its text is
 // no longer there). Keep this short: prefer a rule in the shell.
 const SCREEN_EDITS = [
+  // Icons Font Awesome 6.0.0 (the version the shell loads) has; the newer
+  // ones showed blank (owner, 2026-10-11; functions/test/unit/iconsExist.test.js).
+  { mod: 'STOCKVALUATION', from: 'fa-sack-dollar text-blue-500">', to: 'fa-coins text-blue-500">' },
+  { mod: 'STOCKVALUATION', from: 'fa-sack-dollar">', to: 'fa-coins">' },
+  { mod: 'VENDORMASTER', from: 'fa-truck-field text-blue-500">', to: 'fa-truck text-blue-500">' },
+  { mod: 'VENDORMASTER', from: 'fa-truck-field">', to: 'fa-truck">' },
   // COA: a company's list includes the shared accounts (owner, 2026-10-02):
   // they apply to it too, and a one-company user's list opens on their
   // company (the shell's single-company default), which hid them all.

@@ -1018,3 +1018,11 @@ from, and how it was verified. The deploy procedure is in the
   [#132](https://github.com/yasircmd/erp-firebase/actions/runs/38123061032)
   (07:56–07:57 UTC), both from `67d91fb` (PR #111), both success (the
   hosting task). The owner confirms it is done.
+- **2026-10-11, nine screens' icons (screens only): failed.** Run
+  [#133](https://github.com/yasircmd/erp-firebase/actions/runs/38123477453),
+  08:03 UTC, from `a6a8308` (PR #112): "STOP: working copy not clean"
+  (screens/STOCKVALUATION.html, screens/VENDORMASTER.html). The workflow's
+  generated-code step regenerates the ported modules' screens, which undid
+  PR #112's hand edits to those two; the active release was unchanged.
+  Fixed in PR #113 (the edits moved into the generator's SCREEN_EDITS; the
+  workflow's check now covers screens/). Then run **screens only** again.
