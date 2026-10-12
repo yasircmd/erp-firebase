@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Procurement — ERP Help</title>
+<meta name="description" content="Set vendor and buying defaults, raise requisitions and orders, receive stock, match invoices, and post returns.">
+<link rel="canonical" href="https://erp1-8f4cd.web.app/help/procurement.html">
+<link rel="stylesheet" href="help.css">
+</head>
+<body>
+<header><a class="brand" href="index.html">ERP Help</a><input id="q" type="search" placeholder="Search help" aria-label="Search help"></header>
+<div class="wrap">
+<nav><h4>Getting started</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="working-with-screens.html">Working with screens</a></li><li><a href="approvals.html">Approvals</a></li></ul><h4>Finance</h4><ul><li><a href="chart-of-accounts.html">Chart of Accounts</a></li><li><a href="currencies.html">Currency Configuration</a></li><li><a href="opening-balances.html">Opening Balances</a></li><li><a href="journal-entries.html">Journal Entries (JV)</a></li><li><a href="cash-and-bank.html">Cash and Bank Transactions (CBT)</a></li><li><a href="payments-and-allocation.html">Paying and allocating against bills</a></li><li><a href="recurring-journals.html">Recurring Journal Entries</a></li><li><a href="post-dated-cheques.html">Post-dated Cheques (PDC Received and Issued)</a></li><li><a href="statements-of-account.html">Statements of Account (Vendor and Customer)</a></li><li><a href="aging-reports.html">Customer and Vendor Aging</a></li><li><a href="general-ledger.html">General Ledger Report (Ledger and Listing)</a></li><li><a href="trial-balance.html">Trial Balance</a></li><li><a href="financial-statements.html">Profit and Loss, Balance Sheet and Cash Flow</a></li><li><a href="period-closing.html">Period Closing (month-end and year-end)</a></li></ul><h4>Procurement</h4><ul><li><a href="procurement.html" class="here">Procurement</a></li></ul><h4>Inventory</h4><ul><li><a href="inventory.html">Inventory</a></li></ul><p class="soon">More areas are being written.</p></nav>
+<main><div class="crumb"><a href="index.html">Help</a> › Procurement</div><h1>Procurement</h1><p class="lead">Set vendor and buying defaults, raise requisitions and orders, receive stock, match invoices, and post returns.</p><p class="lead">Screens: Procurement Setup, Vendor Master Data, Purchase Requisition, Inventory Purchase Requisition, Purchase Order, Goods Receipt (GRN), Vendor Invoice Processing, Purchase Return / Debit Note</p><h2 id="what-it-is-for">What it is for</h2>
+<p>The Procurement area handles the buying flow from a request to a final supplier payment. It covers a vendor master, the buying rules for a company, requisitions, purchase orders, goods receipt, vendor invoice processing and purchase returns.</p>
+<h2 id="before-you-start">Before you start</h2>
+<ul><li>Make sure each company has its cash, stock and payables accounts in the <a href="chart-of-accounts.html">Chart of Accounts</a>.</li><li>Set up the vendor details in Vendor Master (or the vendor data import if the company uses a bulk load).</li><li>Review the approval setup in <a href="approvals.html">Approvals</a>: requisitions, purchase orders and purchase returns can all need approval before they are posted or released.</li><li>If a company uses stock, its item master and stock accounts must be ready before any purchase is received.</li></ul>
+<h2 id="step-by-step">Step by step</h2>
+<h3 id="1-set-the-company-rules">1. Set the company rules</h3>
+<p>Open <strong>Procurement Setup</strong> and define the defaults for the company:</p>
+<ul><li>which purchasing and receiving steps are in use;</li><li>the supplier categories or rules that should be checked on a purchase;</li><li>any default account or cost settings the system uses when a purchase line is created.</li></ul>
+<p>The company can then operate the same buying process every time without changing the same details manually.</p>
+<h3 id="2-create-and-maintain-vendors">2. Create and maintain vendors</h3>
+<p>Open <strong>Vendor Master</strong> to maintain a supplier's record. Keep the basic information current: company name, tax details, bank and contact details, trade account and terms. The ERP then uses this data on requisitions, orders, receipts and invoices.</p>
+<h3 id="3-raise-a-requisition">3. Raise a requisition</h3>
+<p>Use <strong>Purchase Requisition</strong> or <strong>Inventory Purchase Requisition</strong> when a department or warehouse needs stock or a service. Enter:</p>
+<ol><li>the company and date;</li><li>the item or service detail and quantity;</li><li>the requestor and the approver if the workflow requires it;</li><li>any notes or attachments.</li></ol>
+<p>A requisition remains a draft until it is submitted. Once approved, it can be turned into a purchase order.</p>
+<h3 id="4-create-a-purchase-order">4. Create a purchase order</h3>
+<p>Open <strong>Purchase Order</strong> and choose a requisition or enter the vendor and items directly. Confirm the order totals, delivery date, warehouse and cost center, then submit it for approval.</p>
+<p>Approved orders can be closed or cancelled, and the user can track whether items were received in full or left pending.</p>
+<h3 id="5-receive-the-goods">5. Receive the goods</h3>
+<p>Open <strong>Goods Receipt Note (GRN)</strong>. Choose the approved purchase order, then receive each item to the required warehouse. The system updates the stock ledger and records the GRN against the supplier's purchase.</p>
+<p>A GRN can also record freight or other non-stock lines, as long as the company's GRN clearing account is set.</p>
+<h3 id="6-match-the-vendor-invoice">6. Match the vendor invoice</h3>
+<p>Open <strong>Vendor Invoice</strong> to match the invoice to one or more received GRNs. The system checks quantity, amount and the supplier, then posts the apportionment and the accounting entry. This is the point where the vendor's amount flows into the payables ledger.</p>
+<h3 id="7-return-stock-to-the-supplier">7. Return stock to the supplier</h3>
+<p>Use <strong>Purchase Return / Debit Note</strong> when goods are defective, damaged or not as ordered. Select the original invoice or GRN lines, enter the return quantity and reason, and post the return. The stock is reversed and the supplier's return is tracked as a debit note.</p>
+<h2 id="what-happens-in-the-books">What happens in the books</h2>
+<ul><li>A GRN posts a stock receipt and updates inventory cost; the stock is entered in the stock ledger with the batch and movement details where relevant.</li><li>A Vendor Invoice posts the supplier balance into accounts payable and clears the GRN against the vendor invoice as matched.</li><li>A Purchase Return reverses the receipt and may create a variance entry if the original stock value differs from the return value.</li><li>A closed month or a lock on the period stops further posting or reversal, so the books stay in balance.</li></ul>
+<h2 id="rights">Rights</h2>
+<p>Typical rights are set in Roles &amp; Permissions:</p>
+<ul><li><strong>Access</strong> to view a procurement screen;</li><li><strong>Draft</strong> to create or edit purchase documents;</li><li><strong>Post</strong> to finalise receipts, bills and returns;</li><li><strong>Approval</strong> for requisitions or orders as required by the company.</li></ul>
+<p>The actual rights are configured by your ERP administrator for each user.</p>
+<h2 id="questions-and-mistakes">Questions and mistakes</h2>
+<ul><li>If the system says a document is closed or a period is locked, the month or transaction is no longer open for changes. Open the period or ask an administrator to handle the exception.</li><li>If a GRN does not match an approved PO or vendor, check that the vendor, company and warehouse are the same and that the order was actually approved.</li><li>A return can only be posted against valid source lines. If a line is already fully returned or the invoice has been reversed, the system blocks it.</li></ul>
+<h2 id="related-pages">Related pages</h2>
+<ul><li><a href="inventory.html">Inventory</a></li><li><a href="chart-of-accounts.html">Chart of Accounts</a></li><li><a href="working-with-screens.html">Working with screens</a></li></ul><p class="crumb">Last reviewed 12/10/2026</p></main>
+</div>
+<footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
+<script src="help.js"></script>
+</body>
+</html>

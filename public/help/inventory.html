@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventory — ERP Help</title>
+<meta name="description" content="Maintain items, track stock movement, count inventory, and review what is on hand and what is valued.">
+<link rel="canonical" href="https://erp1-8f4cd.web.app/help/inventory.html">
+<link rel="stylesheet" href="help.css">
+</head>
+<body>
+<header><a class="brand" href="index.html">ERP Help</a><input id="q" type="search" placeholder="Search help" aria-label="Search help"></header>
+<div class="wrap">
+<nav><h4>Getting started</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="working-with-screens.html">Working with screens</a></li><li><a href="approvals.html">Approvals</a></li></ul><h4>Finance</h4><ul><li><a href="chart-of-accounts.html">Chart of Accounts</a></li><li><a href="currencies.html">Currency Configuration</a></li><li><a href="opening-balances.html">Opening Balances</a></li><li><a href="journal-entries.html">Journal Entries (JV)</a></li><li><a href="cash-and-bank.html">Cash and Bank Transactions (CBT)</a></li><li><a href="payments-and-allocation.html">Paying and allocating against bills</a></li><li><a href="recurring-journals.html">Recurring Journal Entries</a></li><li><a href="post-dated-cheques.html">Post-dated Cheques (PDC Received and Issued)</a></li><li><a href="statements-of-account.html">Statements of Account (Vendor and Customer)</a></li><li><a href="aging-reports.html">Customer and Vendor Aging</a></li><li><a href="general-ledger.html">General Ledger Report (Ledger and Listing)</a></li><li><a href="trial-balance.html">Trial Balance</a></li><li><a href="financial-statements.html">Profit and Loss, Balance Sheet and Cash Flow</a></li><li><a href="period-closing.html">Period Closing (month-end and year-end)</a></li></ul><h4>Procurement</h4><ul><li><a href="procurement.html">Procurement</a></li></ul><h4>Inventory</h4><ul><li><a href="inventory.html" class="here">Inventory</a></li></ul><p class="soon">More areas are being written.</p></nav>
+<main><div class="crumb"><a href="index.html">Help</a> › Inventory</div><h1>Inventory</h1><p class="lead">Maintain items, track stock movement, count inventory, and review what is on hand and what is valued.</p><p class="lead">Screens: Item Master, Unit of Measure, Item Sub-Category, Material Issue (MI), Warehouse Movement, Stock Adjustment, Physical / Cycle Count, Stock Availability, Stock Ledger Report, Stock Valuation Report, Inventory Valuation List, Inventory Aging, Expiry / Batch Report, Reorder / Low Stock Report</p><h2 id="what-it-is-for">What it is for</h2>
+<p>Inventory keeps the warehouse record: what items exist, what each item costs, where stock is located, how much is on hand, and what each movement affects. This area covers item setup, stock transactions, adjustments, counts and the standard stock reports.</p>
+<h2 id="before-you-start">Before you start</h2>
+<ul><li>Make sure the company has its inventory accounts and stock control setup in the <a href="chart-of-accounts.html">Chart of Accounts</a>.</li><li>Check the item categories and units of measure in <strong>Item Sub Category</strong> and <strong>UOM</strong> before you create items.</li><li>If your company uses multiple warehouses or locations, confirm which cost and stock rules apply before postings.</li></ul>
+<h2 id="step-by-step">Step by step</h2>
+<h3 id="1-create-the-item-master">1. Create the item master</h3>
+<p>Open <strong>Item Master</strong> and enter the item details:</p>
+<ul><li>the item code and name;</li><li>the category and unit of measure;</li><li>the stock account and item cost details;</li><li>the re-order level and other stock controls when required.</li></ul>
+<p>The item then becomes available to purchase, issue, transfer and report on through the stock module.</p>
+<h3 id="2-set-up-units-and-categories">2. Set up units and categories</h3>
+<p>Use <strong>UOM</strong> to define units such as cartons, boxes or pieces, and how quantities convert between them. Use <strong>Item Sub Category</strong> to group items by type or department for reporting and stock control.</p>
+<h3 id="3-receive-stock-and-build-the-cost-basis">3. Receive stock and build the cost basis</h3>
+<p>Stock normally enters through <strong>Goods Receipt Note (GRN)</strong> from a purchase order. Once a receipt is posted, the item's stock ledger gets the quantity and cost basis, and the warehouse balance changes.</p>
+<h3 id="4-issue-or-move-stock">4. Issue or move stock</h3>
+<p>Use <strong>Material Issue</strong> to issue stock to a department or production process. Use <strong>Warehouse Movement</strong> to transfer stock between warehouses or locations. Both actions create a stock movement, adjust the balances and keep the stock ledger in sync.</p>
+<h3 id="5-adjust-or-count-stock">5. Adjust or count stock</h3>
+<p>Open <strong>Stock Adjustment</strong> if stock must be corrected after a count or a write-off. Open <strong>Physical Count</strong> when a full check is done, and then post the count difference. The system records the difference against the inventory balance and the stock ledger.</p>
+<h3 id="6-review-stock-and-valuation">6. Review stock and valuation</h3>
+<p>Use the stock reports to answer day-to-day questions:</p>
+<ul><li><strong>Stock Availability</strong>: what is available now;</li><li><strong>Stock Ledger</strong>: what moved and when;</li><li><strong>Stock Valuation</strong>: total stock value by item;</li><li><strong>Inventory Valuation</strong>: valuation by warehouse and period;</li><li><strong>Inventory Aging</strong>: older stock and age buckets;</li><li><strong>Batch / Expiry</strong>: goods near expiry;</li><li><strong>Reorder / Low Stock</strong>: items below their target level.</li></ul>
+<h2 id="what-happens-in-the-books">What happens in the books</h2>
+<ul><li>Every stock movement posts to the stock ledger and creates a stock transaction with the item, quantity, warehouse and cost.</li><li>Material issues, adjustments and movements affect on-hand quantity and, in some cases, the value carried in inventory.</li><li>A physical count creates an adjustment when the counted quantity differs from the system balance.</li><li>Cost and value reports rely on the same stock ledger, so they reflect the latest approved movement and valuation.</li></ul>
+<h2 id="rights">Rights</h2>
+<p>Inventory rights are usually managed in Roles &amp; Permissions, with a mix of:</p>
+<ul><li><strong>Access</strong> to open the screen;</li><li><strong>Write</strong> to change item or stock records;</li><li><strong>Post</strong> to post counts, adjustments or warehouse issues;</li><li><strong>Report</strong> access for stock and valuation views.</li></ul>
+<h2 id="questions-and-mistakes">Questions and mistakes</h2>
+<ul><li>If the system refuses a stock issue, check that the item is active, available in the selected warehouse and not reserved beyond the available balance.</li><li>If a count does not match the system total, review the transaction list and the warehouse before posting the adjustment.</li><li>A batch report or expiry report only works for items that carry batch or expiry tracking. Check the item setup first.</li><li>If a period is closed, the stock movement or adjustment cannot be posted in that month without the approved exception process.</li></ul>
+<h2 id="related-pages">Related pages</h2>
+<ul><li><a href="procurement.html">Procurement</a></li><li><a href="chart-of-accounts.html">Chart of Accounts</a></li><li><a href="approvals.html">Approvals</a></li></ul><p class="crumb">Last reviewed 12/10/2026</p></main>
+</div>
+<footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
+<script src="help.js"></script>
+</body>
+</html>
