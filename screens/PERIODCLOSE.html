@@ -30,6 +30,14 @@
       </div>
       <p id="pc-status" class="text-sm text-slate-300"></p>
     </div>
+    <!-- The year-end close (docs/modules/PERIOD_CLOSING.md, step 2). -->
+    <div id="pc-yearbar" class="flex flex-wrap items-center justify-between gap-2 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm">
+      <div id="pc-year-status"></div>
+      <div class="flex gap-2">
+        <button id="pc-close-year" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-lock"></i> Close the year</button>
+        <button id="pc-reopen-year" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-lock-open"></i> Reopen the year</button>
+      </div>
+    </div>
     <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
       <table class="w-full text-left text-xs">
         <thead><tr class="bg-slate-900 border-b border-slate-700 text-slate-400 uppercase"><th class="py-2 px-3">Month</th><th class="py-2 px-3">Status</th><th class="py-2 px-3">Closed by</th><th class="py-2 px-3">Closed at</th><th class="py-2 px-3"></th></tr></thead>
@@ -116,6 +124,12 @@
     const r = state;
     $('pc-year').textContent = r.Year.Label;
     $('pc-status').textContent = r.ClosedThrough ? 'Closed through ' + r.ClosedThrough + (r.NextToClose ? '; next to close: ' + r.NextToClose : '') : 'No month closed yet.';
+    const y = r.Year;
+    $('pc-year-status').innerHTML = y.Closed
+      ? badge('Year closed', 'bg-emerald-500/20 text-emerald-300') + ' <span class="text-slate-300">by ' + escapeHtml(y.ClosedBy) + ', ' + when(y.ClosedAt) + (y.JVNumber ? ' · closing entry ' + escapeHtml(y.JVNumber) : '') + '</span>'
+      : badge('Year open', 'bg-slate-700 text-slate-300') + (y.CloseNote ? ' <span class="text-xs text-slate-400">' + escapeHtml(y.CloseNote) + '</span>' : '');
+    $('pc-close-year').classList.toggle('hidden', !(y.CanClose && r.Rights.close));
+    $('pc-reopen-year').classList.toggle('hidden', !(y.CanReopen && r.Rights.reopen));
     $('pc-grid').innerHTML = r.Months.map(m => {
       const status = m.Status === 'Closed' ? badge(m.WithFirst ? 'Closed (before the first close)' : 'Closed', 'bg-emerald-500/20 text-emerald-300') : (m.Ended ? badge('Open', 'bg-amber-500/20 text-amber-300') : badge('Open (not ended)', 'bg-slate-700 text-slate-300'));
       const actions = [];
@@ -196,6 +210,24 @@
       err => appAlert(err.message || 'Unable to reopen.'));
   }
 
+  async function closeYear() {
+    const y = state.Year;
+    const re = state.EquityAccounts.find(a => a.ID === state.Settings.RetainedEarningsAccountID);
+    const ok = await appConfirm('Close the financial year ' + y.Label + '? A Year-End Closing entry dated ' + y.End + ' moves every income, cost of sales and expense balance to ' +
+      (re ? re.Code + ' — ' + re.Name : 'Retained Earnings') + ', by cost center and profit center. Its months stay closed until the year is reopened.');
+    if (!ok) return;
+    call('closeFinancialYear', { companyId: state.CompanyID, year: y.Start })
+      .then(r => { appAlert('The year ' + y.Label + ' is closed' + (r.jvNumber ? ': closing entry ' + r.jvNumber + '.' : ' (nothing to close).')); load(); }, err => appAlert(err.message || 'Unable to close the year.'));
+  }
+  async function reopenYear() {
+    const y = state.Year;
+    const reason = await appPrompt('Reopen the financial year ' + y.Label + '? Its closing entry is reversed. Enter the reason:', '');
+    if (reason === null) return;
+    if (!reason.trim()) { appAlert('Enter the reason for reopening.'); return; }
+    call('reopenFinancialYear', { companyId: state.CompanyID, year: y.Start, reason })
+      .then(() => { appAlert('The year ' + y.Label + ' is open again.'); load(); }, err => appAlert(err.message || 'Unable to reopen the year.'));
+  }
+
   function save() {
     const Checklist = {};
     document.querySelectorAll('.pc-mode').forEach(s => { Checklist[s.dataset.key] = s.value; });
@@ -229,6 +261,8 @@
       if (b) openModule(b.dataset.module, null, [{ moduleId: 'PERIODCLOSE', label: 'Period Closing' }]);
     });
     $('pc-save').addEventListener('click', save);
+    $('pc-close-year').addEventListener('click', closeYear);
+    $('pc-reopen-year').addEventListener('click', reopenYear);
   };
 })();
 </script>

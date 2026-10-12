@@ -2432,7 +2432,8 @@ async function getProfitAndLoss(idToken, params) {
   filters.companyId = access.companyId;
   filters.assignedCompanies = access.assignedCompanies;
   const coaData = await getCoaData_(idToken);
-  const lines = (await getPostedGlLines_(idToken, filters)).filter(l => l.JVDate >= fromDate && l.JVDate <= toDate);
+  // [PORT CHANGE pl-without-year-end-close] the year-end closing entry left out: a closed year's P&L still shows its figures.
+  const lines = (await getPostedGlLines_(idToken, filters)).filter(l => l.JVDate >= fromDate && l.JVDate <= toDate && l.VoucherType !== 'YearEndClose');
 
   const netByAccount = {};
   lines.forEach(l => { netByAccount[l.AccountID] = (netByAccount[l.AccountID] || 0) + (l.Debit - l.Credit); });

@@ -230,9 +230,22 @@
     openModule(target.moduleId, target.params, chain);
   }
 
+  // The company's financial year as the default period (docs/modules/PERIOD_CLOSING.md,
+  // step 2), until the user picks a From date or arrives with one.
+  let fromChosen = false;
+  function proposeYear() {
+    if (fromChosen) return;
+    rpc.withSuccessHandler(r => { if (!fromChosen) document.getElementById('pl-from-date').value = r.Start; })
+      .withFailureHandler(() => {}).getFinancialYearStart({ companyId: document.getElementById('pl-company').value });
+  }
+
   window.initModule = function (idToken) {
     token = idToken;
     document.getElementById('pl-from-date').value = firstOfYear();
+    document.getElementById('pl-from-date').addEventListener('input', () => { fromChosen = true; });
+    document.getElementById('pl-company').addEventListener('change', proposeYear);
+    if (window.__pendingModuleParams && window.__pendingModuleParams.FromDate) fromChosen = true;
+    proposeYear();
     document.getElementById('pl-to-date').value = today();
 
     myReturnChain = window.__pendingReturnChain || [];

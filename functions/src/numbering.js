@@ -57,7 +57,8 @@ const STOCK_LABELS = {
   FATakeOver: 'Asset Take-over', FARetirement: 'Asset Retirement', FAAuCCost: 'Capital Work in Progress, cost',
   FAAuCSettlement: 'Capital Work in Progress, settlement', RecurringJV: 'Recurring Journal', OpeningBalance: 'Opening Balance',
   OpeningStock: 'Opening Stock', Payroll: 'Payroll', PayrollPayment: 'Payroll Payment', PayrollLoan: 'Payroll Loan',
-  PayrollProvision: 'Provision Claim', FinalSettlement: 'Final Settlement (journal)', RetailSale: 'Retail Sale', RetailReturn: 'Retail Return'
+  PayrollProvision: 'Provision Claim', FinalSettlement: 'Final Settlement (journal)', RetailSale: 'Retail Sale', RetailReturn: 'Retail Return',
+  YearEndClose: 'Year-End Closing'
 };
 const ITEM_CATEGORY_PREFIXES = { RawMaterial: 'RM', SemiFinishedGood: 'SFG', FinishedGood: 'FG', Consumable: 'CONS', Scrap: 'SCRAP' };
 const ITEM_LABELS = { RawMaterial: 'Raw Material', SemiFinishedGood: 'Semi-Finished Good', FinishedGood: 'Finished Good', Consumable: 'Consumable', Scrap: 'Scrap' };

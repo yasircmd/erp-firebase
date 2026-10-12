@@ -20,7 +20,8 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
-const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
+const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION, generateStockVoucherNumber, transactionRefFor } = require('./glWriting');
+const { randomUUID } = require('crypto');
 const { withGlobalLock } = require('./lock');
 const { todayIn, TIME_ZONE } = require('./recurringSchedule');
 const recurring = require('./recurringJournal');
@@ -298,6 +299,165 @@ async function runChecklist(companyId, month, state, settings) {
   return { Month: month, From: from, To: to, Items: items, Blocking: items.filter(i => i.Result === 'Blocks').length, Warnings: items.filter(i => i.Result === 'Warning').length };
 }
 
+// ---------- The year-end close (step 2; decisions 125, 129, 140-143) ----------
+
+const PL_TYPES = ['Revenue', 'COGS', 'Expense'];
+const YEC_TYPE = 'YearEndClose';
+
+function yearStatus(state, start) {
+  const y = (state.YearsClosed || {})[start];
+  const allMonthsClosed = isClosed(state, addMonths(start, 11));
+  const closedYears = Object.keys(state.YearsClosed || {}).sort();
+  const later = closedYears.find(k => k > start);
+  const prev = addMonths(start, -12);
+  const prevOpen = closedYears.length && !closedYears.includes(prev) && closedYears.some(k => k < start);
+  return {
+    Closed: Boolean(y), ClosedBy: y ? y.ByName : '', ClosedAt: y ? y.At : '', JVNumber: y ? y.JVNumber : '', JVID: y ? y.JVID : '',
+    CanClose: !y && allMonthsClosed && !later && !prevOpen,
+    CloseNote: y ? '' : !allMonthsClosed ? 'Close all its months first.' : later ? 'A later year is already closed.' : prevOpen ? 'Close ' + yearLabel(prev) + ' first.' : '',
+    CanReopen: Boolean(y) && !later
+  };
+}
+
+// The closing entry's lines: for each income / cost of sales / expense account,
+// cost center and profit center, the opposite of its balance at the year end;
+// the total to Retained Earnings by cost center and profit center.
+function closingLines(entries, coa, reId, yearEnd) {
+  const bal = {};
+  entries.forEach(e => {
+    if (e.Status !== 'Posted' || !(String(e.JVDate || '') <= yearEnd)) return;
+    (e.Lines || []).forEach(l => {
+      const a = coa[l.AccountID];
+      if (!a || !PL_TYPES.includes(a.AccountType)) return;
+      const k = [l.AccountID, l.CostCenterID || '', l.ProfitCenterID || ''].join('|');
+      bal[k] = (bal[k] || 0) + (Number(l.Debit) || 0) - (Number(l.Credit) || 0);
+    });
+  });
+  const lines = [], toRe = {};
+  Object.keys(bal).sort().forEach(k => {
+    const net = Math.round(bal[k] * 100) / 100;
+    if (Math.abs(net) < 0.005) return;
+    const [acc, cc, pc] = k.split('|');
+    const a = coa[acc];
+    lines.push({ AccountID: acc, AccountCode: a.AccountCode, AccountName: a.AccountName, Description: 'Year-end closing — ' + a.AccountName,
+      Debit: net < 0 ? -net : 0, Credit: net > 0 ? net : 0, CostCenterID: cc, ProfitCenterID: pc });
+    const rk = cc + '|' + pc;
+    toRe[rk] = (toRe[rk] || 0) + net;
+  });
+  const re = coa[reId];
+  Object.keys(toRe).sort().forEach(rk => {
+    const net = Math.round(toRe[rk] * 100) / 100;
+    if (Math.abs(net) < 0.005) return;
+    const [cc, pc] = rk.split('|');
+    lines.push({ AccountID: reId, AccountCode: re.AccountCode, AccountName: re.AccountName, Description: 'Year-end closing — profit / loss to ' + re.AccountName,
+      Debit: net > 0 ? net : 0, Credit: net < 0 ? -net : 0, CostCenterID: cc, ProfitCenterID: pc });
+  });
+  return lines.map((l, i) => Object.assign({ LineNo: i + 1 }, l));
+}
+
+// The system's own entry: written here, not through glWriting (it closes
+// inactive accounts and lines with no cost center too, and it is the one
+// posting allowed into a closed month).
+async function writeClosingEntry(user, companyId, date, lines, description, extra) {
+  const r2 = n => Math.round(n * 100) / 100;
+  const td = r2(lines.reduce((s, l) => s + l.Debit, 0)), tc = r2(lines.reduce((s, l) => s + l.Credit, 0));
+  if (Math.abs(td - tc) >= 0.005) throw new HttpsError('internal', 'The closing entry does not balance.');
+  const jvNumber = await generateStockVoucherNumber('YEC', Number(date.slice(0, 4)), companyId);
+  const transactionRef = await transactionRefFor(YEC_TYPE);
+  const jvId = 'YEC-' + randomUUID().split('-')[0].toUpperCase();
+  const now = new Date().toISOString(), actor = user.profile.username || user.uid;
+  const record = Object.assign({
+    JVNumber: jvNumber, TransactionRef: transactionRef, JVDate: date, Description: description, Reference: '',
+    Status: 'Posted', Lines: lines, TotalDebit: td, TotalCredit: tc,
+    CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor, PostedAt: now, PostedBy: actor, ReversedByJV: '',
+    VoucherType: YEC_TYPE, SelectedAccountCode: '', CurrencyCode: '', CompanyID: companyId,
+    DivisionID: '', BranchID: '', CostCenterID: '', ProfitCenterID: '', SourceTransactionID: ''
+  }, extra || {});
+  await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(jvId).set(record);
+  return { jvId, jvNumber };
+}
+
+// The company's financial year containing a date (default today), for the
+// reports' default period (P&L, Trial Balance): any signed-in user with the
+// company; "All" companies → the calendar year.
+exports.getFinancialYearStart = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const d = request.data || {};
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') ? d.date : today();
+  const co = text(d.companyId, 80);
+  let fy = 'Jan';
+  if (co) {
+    if (!userCanAccessCompany(user.profile, co)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+    const s = ((await rtdb.ref(PATH + '/' + co + '/Settings/FiscalYearStart').get()).val()) || 'Jan';
+    fy = FY_STARTS[s] ? s : 'Jan';
+  }
+  const start = yearStartOf(date.slice(0, 7), fy);
+  return { FiscalYearStart: fy, Start: start + '-01', End: lastDay(addMonths(start, 11)) };
+});
+
+exports.closeFinancialYear = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'close');
+  const d = request.data || {};
+  const companyId = await companyFor(user, d.companyId);
+  const coa = (await rtdb.ref('coa').get()).val() || {};
+  return withGlobalLock(user.uid, async () => {
+    const state = await loadState(companyId);
+    const settings = settingsOf(state, coa, companyId);
+    const start = text(d.year, 7);
+    if (!isMonth(start) || yearStartOf(start, settings.FiscalYearStart) !== start) throw new HttpsError('invalid-argument', 'Choose the financial year.');
+    const st = yearStatus(state, start);
+    if (st.Closed) throw new HttpsError('failed-precondition', 'The financial year ' + yearLabel(start) + ' is already closed.');
+    if (!st.CanClose) throw new HttpsError('failed-precondition', 'The financial year ' + yearLabel(start) + ' can\'t be closed yet: ' + st.CloseNote);
+    const reId = settings.RetainedEarningsAccountID;
+    if (!reId || !equityAccounts(coa, companyId).some(a => a.ID === reId)) throw new HttpsError('failed-precondition', 'Choose the Retained Earnings account in Setup first.');
+    const end = lastDay(addMonths(start, 11));
+    const snap = await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).where('CompanyID', '==', companyId).get();
+    const lines = closingLines(snap.docs.map(x => x.data()), coa, reId, end);
+    let gl = { jvId: '', jvNumber: '' };
+    if (lines.length) gl = await writeClosingEntry(user, companyId, end, lines, 'Year-end closing ' + yearLabel(start), { FinancialYearStart: start });
+    const at = new Date().toISOString();
+    const updates = {};
+    updates['YearsClosed/' + start] = { End: end, JVID: gl.jvId, JVNumber: gl.jvNumber, By: user.uid, ByName: actorName(user), At: at };
+    updates['Log/' + rtdb.ref().push().key] = { Action: 'Close year', Month: start, ClosedThrough: state.ClosedThrough || '', Reason: gl.jvNumber ? 'Closing entry ' + gl.jvNumber : 'Nothing to close', By: user.uid, ByName: actorName(user), At: at };
+    await rtdb.ref(PATH + '/' + companyId).update(updates);
+    return { success: true, jvNumber: gl.jvNumber, lines: lines.length };
+  });
+});
+
+exports.reopenFinancialYear = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'reopen');
+  const d = request.data || {};
+  const companyId = await companyFor(user, d.companyId);
+  const start = text(d.year, 7);
+  const reason = text(d.reason, 500);
+  if (!reason) throw new HttpsError('invalid-argument', 'Enter the reason for reopening.');
+  return withGlobalLock(user.uid, async () => {
+    const state = await loadState(companyId);
+    const y = (state.YearsClosed || {})[start];
+    if (!y) throw new HttpsError('failed-precondition', 'That financial year is not closed.');
+    if (!yearStatus(state, start).CanReopen) throw new HttpsError('failed-precondition', 'Reopen the later financial year first.');
+    let reversal = '';
+    if (y.JVID) {
+      const ref = firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(y.JVID);
+      const e = (await ref.get()).data();
+      if (e && !e.ReversedByJV) {
+        const lines = (e.Lines || []).map(l => Object.assign({}, l, { Debit: l.Credit, Credit: l.Debit, Description: 'Reversal — ' + l.Description }));
+        const gl = await writeClosingEntry(user, companyId, e.JVDate, lines, 'Reversal of ' + e.JVNumber + ' — ' + reason, { ReversalOfJV: y.JVID, Reference: e.JVNumber, FinancialYearStart: start });
+        await ref.update({ ReversedByJV: gl.jvId, UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid });
+        reversal = gl.jvNumber;
+      }
+    }
+    const at = new Date().toISOString();
+    const updates = {};
+    updates['YearsClosed/' + start] = null;
+    updates['Log/' + rtdb.ref().push().key] = { Action: 'Reopen year', Month: start, ClosedThrough: state.ClosedThrough || '', Reason: reason + (reversal ? ' (reversed by ' + reversal + ')' : ''), By: user.uid, ByName: actorName(user), At: at };
+    await rtdb.ref(PATH + '/' + companyId).update(updates);
+    return { success: true, reversalNumber: reversal };
+  });
+});
+
 // ---------- Callables ----------
 
 function view(state, settings, companyId, year, rights, coa) {
@@ -316,7 +476,7 @@ function view(state, settings, companyId, year, rights, coa) {
   const log = Object.values(state.Log || {}).sort((a, b) => String(b.At).localeCompare(String(a.At))).slice(0, 100);
   return {
     CompanyID: companyId, Settings: settings, FiscalYearLocked: Boolean(state.YearsClosed && Object.keys(state.YearsClosed).length),
-    Year: { Start: start, Label: yearLabel(start), Prev: addMonths(start, -12), Next: addMonths(start, 12) },
+    Year: Object.assign({ Start: start, Label: yearLabel(start), Prev: addMonths(start, -12), Next: addMonths(start, 12), End: lastDay(addMonths(start, 11)) }, yearStatus(state, start)),
     Months: months, ClosedThrough: state.ClosedThrough || '', FirstClosed: state.FirstClosed || '', NextToClose: next,
     Checklist: CHECKLIST.map(c => ({ key: c.key, label: c.label })), EquityAccounts: equityAccounts(coa, companyId), Log: log, Rights: rights
   };
@@ -419,6 +579,10 @@ exports.reopenPeriod = onCallWithMessages(onCallOptions, async (request) => {
   return withGlobalLock(user.uid, async () => {
     const state = await loadState(companyId);
     if (!isClosed(state, month)) throw new HttpsError('failed-precondition', monthLabel(month) + ' is not closed.');
+    // Decision 143: a closed year's months stay closed until the year is reopened
+    // (reopening a month reopens the later ones too, so any closed year ending at or after it counts).
+    const blocking = Object.keys(state.YearsClosed || {}).sort().find(y => addMonths(y, 11) >= month);
+    if (blocking) throw new HttpsError('failed-precondition', 'The financial year ' + yearLabel(blocking) + ' is closed: reopen the year first, then the month.');
     const through = addMonths(month, -1);
     const at = new Date().toISOString();
     const updates = { ClosedThrough: through };

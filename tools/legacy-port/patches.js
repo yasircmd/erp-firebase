@@ -1322,5 +1322,12 @@ function linesForBatch_(idToken, batchId) {
     const actor = user.profile.username || user.uid;
 
     const scopeKey = resolveApprovalScopeKeyForDocument_(idToken, 'CUSTOMERINVOICE', {`
+  },
+  {
+    id: 'pl-without-year-end-close',
+    why: "NEW DEVELOPMENT (owner, 2026-10-11; docs/modules/PERIOD_CLOSING.md, step 2): the Profit and Loss leaves the Year-End Closing entry out, so a closed year's P&L still shows its income and expenses (the entry moves them to Retained Earnings). Nothing else changes.",
+    find: `  const lines = getPostedGlLines_(idToken, filters).filter(l => l.JVDate >= fromDate && l.JVDate <= toDate);`,
+    replace: `  // [PORT CHANGE pl-without-year-end-close] the year-end closing entry left out: a closed year's P&L still shows its figures.
+  const lines = getPostedGlLines_(idToken, filters).filter(l => l.JVDate >= fromDate && l.JVDate <= toDate && l.VoucherType !== 'YearEndClose');`
   }
 ];

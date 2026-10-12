@@ -79,7 +79,9 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
   // the GL report opens a payroll journal's run, settlement, loan or batch)
   Payroll: 'PAYROLL', PayrollPayment: 'PAYROLL', PayrollProvision: 'PAYROLL', PayrollLoan: 'PAYROLLLOAN', FinalSettlement: 'PAYROLLFS',
   // new development, not in Code.gs: docs/modules/RETAIL_SALES.md
-  RetailSale: 'RETAILSALES', RetailReturn: 'RETAILSALES'
+  RetailSale: 'RETAILSALES', RetailReturn: 'RETAILSALES',
+  // new development, not in Code.gs: docs/modules/PERIOD_CLOSING.md (step 2)
+  YearEndClose: 'PERIODCLOSE'
 };
 
 // ============================================================

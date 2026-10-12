@@ -57,7 +57,8 @@ const JOURNAL_WRITERS = {
   'fixedAssetsDepreciation.js': 'entries from buildStockGlEntry',
   'fixedAssetsPostings.js': 'entries from buildStockGlEntry',
   'fixedAssetsRetirement.js': 'entries from buildStockGlEntry',
-  'masterData.js': 'the Chart of Accounts recode: account codes only, no amount or date (decision 133)'
+  'masterData.js': 'the Chart of Accounts recode: account codes only, no amount or date (decision 133)',
+  'periodClosing.js': 'the year-end closing entry and its reversal: the close itself, the one posting allowed into a closed month (step 2)'
 };
 const writesJournal = s => /(FIRESTORE_JOURNAL_ENTRIES_COLLECTION|'journalEntries')\)\.doc\([^)]*\)\.(set|update|create)\(|\.(set|create)\((firestore\.collection|col)\(FIRESTORE_JOURNAL_ENTRIES_COLLECTION\)|firestore(Set|Update)_\(FIRESTORE_JOURNAL_ENTRIES_COLLECTION|collection\((FIRESTORE_JOURNAL_ENTRIES_COLLECTION|'journalEntries')\)\.add\(/.test(s);
 
@@ -74,7 +75,9 @@ test('every file that writes journal entries is covered by the lock', () => {
 test('every file that posts stock movements goes through a checked place', () => {
   const files = fs.readdirSync(SRC).filter(f => f.endsWith('.js'));
   const posting = files.filter(f => { const s = read(f); return /stock\/transactions/.test(s) && /Status: 'Posted'|finalizeCommitAttempt\(/.test(s); });
-  const unchecked = posting.filter(f => !/(writeStockGlEntry|buildStockGlEntry|assignStockVoucherNumbering)\(/.test(read(f)) && f !== 'commitAttempt.js');
+  // Files that only read stock movements (their text matches the scan):
+  const READ_ONLY = { 'commitAttempt.js': 'finishes a posting its caller checked', 'periodClosing.js': 'the checklist reads stock; the year-end entry has no stock' };
+  const unchecked = posting.filter(f => !/(writeStockGlEntry|buildStockGlEntry|assignStockVoucherNumbering)\(/.test(read(f)) && !READ_ONLY[f]);
   assert.deepEqual(unchecked, [], 'posts stock movements without writing a checked GL entry or numbering');
   assert.ok(posting.includes('warehouseMovement.js') && posting.includes('grn.js'), 'the scan still finds the stock modules');
 });

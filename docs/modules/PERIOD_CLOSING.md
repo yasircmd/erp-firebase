@@ -417,3 +417,116 @@ month; depreciation run reversed and redone), the settlement in
 **Deploy:** `tools/deploy-sets/period-closing-1c.txt` with `--screens`:
 every function (the callable wrapper and the GL writer are shared). No
 Hosting change.
+
+## Step 2 design: the year-end close (2026-10-11)
+
+Agreed already: the entry by account and cost center (125) to the
+company's Retained Earnings account (126), the financial year January or
+April (122, fixed after the first year-end, 129), reopening the year
+reverses it.
+
+**Close the year** (Period Closing → Months, the year's line; the `close`
+right), once every month of the financial year is closed:
+- a **Year-End Closing** entry (voucher type `YearEndClose`, number
+  YEC-…) dated the year's last day: for each income, cost of sales and
+  expense account (types Revenue, COGS, Expense) and cost center, the
+  opposite of its balance at that date; the total to Retained Earnings by
+  cost center. It zeroes every such balance at the year end, so a first
+  year-end also carries the years before it into Retained Earnings;
+- the year is marked closed (who, when, the entry); its months stay
+  closed. The entry is the one posting allowed into a closed month (it is
+  the system's, made by the close itself).
+- **Reopen the year** (the `reopen` right, with a reason): the entry is
+  reversed on the same date and the year shows open; its months stay
+  closed until reopened one by one. Logged, as months are.
+
+**Reports:**
+- **Profit and Loss** leaves the closing entry out, so a closed year's P&L
+  still shows its figures (a legacy-port patch, recorded in
+  docs/MIGRATION.md).
+- **Trial Balance**: a switch "Before year-end closing" leaves it out
+  (the closing entry is included by default: the real balances).
+- **Balance Sheet**: unchanged; after the close Retained Earnings holds the
+  past years' profit and the "not yet closed" line shows only the new
+  year's.
+- **Cash Flow**: unchanged (the entry has no cash, so it never counts).
+- **GL Report**: shows the entry like any other.
+- The P&L and Trial Balance screens propose the company's financial year
+  as the default period.
+
+## Open questions (round 11)
+
+140. **The closing entry's detail:** by account and cost center (125); also
+     **by profit center** — recommended, so P&L by profit center also starts
+     the new year at zero — or not.
+141. **The Trial Balance's default:** **with the closing entry** (the real
+     balances; a switch to see the year before closing) — recommended — or
+     without it by default.
+142. **The new year's months before the year-end close:**
+     - **can be closed** (the year-end often waits for the audit) —
+       recommended;
+     - or only after the year is closed.
+143. **Reopening a month of a closed year:**
+     - **refused until the year is reopened** — recommended (the closing
+       entry would no longer match);
+     - or reopening the month reopens the year too (its entry reversed).
+
+## The owner's decisions, round 11 (2026-10-11)
+
+| # | Question | Decision |
+|---|---|---|
+| 140 | The closing entry's detail | **By account, cost center and profit center.** |
+| 141 | The Trial Balance's default | **With the closing entry**; a switch shows the year before closing. |
+| 142 | The new year's months before the year-end close | **Can be closed.** |
+| 143 | Reopening a month of a closed year | **Refused until the year is reopened.** |
+
+## As built: step 2, the year-end close (2026-10-11)
+
+**Months tab, the year's line:** Year open (and what is missing: its
+months, a later year closed, the year before it) or Year closed (who,
+when, the closing entry).
+- **Close the year** (the `close` right), once its twelve months are closed:
+  the app asks first, naming the date and the Retained Earnings account.
+  The **Year-End Closing** entry (`YearEndClose`, YEC-…) is dated the
+  year's last day: for every income, cost of sales and expense account (any
+  status), cost center and profit center, the opposite of its balance at
+  that date, the total to Retained Earnings by cost center and profit center
+  (125, 140). A first close also carries the years before it. It is the one
+  posting into a closed month (written by the close itself, not the shared
+  writer, so a line with no cost center or an inactive account is closed
+  too).
+- **Years close in order:** not one before a later closed year, and after
+  the first, not with the year before it open. The new year's months close
+  meanwhile (142).
+- **A month of a closed year** is not reopened until the year is (143).
+- **Reopen the year** (the `reopen` right, a reason): the entry reversed on
+  the same date; logged. The financial year is fixed while any year is
+  closed (129).
+- The JV screen refuses to reverse the closing entry ("posted by
+  YearEndClose — reverse it from that module").
+
+**Reports:**
+- **Profit and Loss:** the closing entry left out (legacy-port patch
+  `pl-without-year-end-close`; recorded in docs/MIGRATION.md).
+- **Trial Balance:** "Before year-end closing" leaves it out; by default it
+  is in (141). The period label says so.
+- **Balance Sheet, Cash Flow:** unchanged (Retained Earnings holds the past
+  years; the entry has no cash).
+- **P&L and Trial Balance** propose the company's financial year as the From
+  date (`getFinancialYearStart`; "All" companies: the calendar year), until
+  the user picks a date or arrives from another report with one.
+
+**Server:** `periodClosing.js` (`closeFinancialYear`,
+`reopenFinancialYear`, `getFinancialYearStart`; the year in
+`getPeriodClosing`; `reopenPeriod` refusing within a closed year),
+`trialBalance.js` (the switch), `glWriting` (the YEC prefix, finance
+transaction reference), `masterData` / `journal.js` (the voucher type's
+module), `numbering.js` (its label). The guard lists `periodClosing.js` as a
+journal writer.
+
+**Tests:** `yearEnd.emulator.test.js` (3: the close, its entry and the
+reports; the months, reopening the year; the financial-year default and an
+April year), `test/ui/yearEnd.ui.js` (2), `trialBalance.ui.js` updated (the
+default From). Negative controls, all caught.
+
+**Deploy:** `tools/deploy-sets/period-closing-2.txt` with `--screens`.

@@ -1,0 +1,25 @@
+# Period Closing, step 2: the year-end close (owner, 2026-10-11;
+# docs/modules/PERIOD_CLOSING.md, decisions 125, 129, 140-143). Run with
+# --screens (PERIODCLOSE: the year's line; TRIALBALANCE: "Before year-end
+# closing" and the financial year as the default period; PROFITLOSS: the
+# financial year as the default period). No Hosting change.
+# New functions (the invoker binding is granted by deploy-functions.sh).
+closeFinancialYear
+reopenFinancialYear
+getFinancialYearStart
+# Changed: the year on the Months tab; a closed year's month not reopened.
+getPeriodClosing
+reopenPeriod
+savePeriodClosingSettings
+# Reports: the P&L leaves the closing entry out; the Trial Balance's switch.
+getProfitAndLoss
+getTrialBalancePeriod
+# The closing entry's voucher type (YEC): its numbering, its source module
+# (Period Closing) in the GL views, and refused by the JV screen's reversal.
+getNumbering
+saveNumberingFormat
+getGlReport
+getGlListing
+reverseJournalEntry
+getAttachments
+uploadAttachment
