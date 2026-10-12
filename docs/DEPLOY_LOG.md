@@ -1050,3 +1050,9 @@ from, and how it was verified. The deploy procedure is in the
   run [#140](https://github.com/yasircmd/erp-firebase/actions/runs/38203036601),
   04:15–04:25 UTC, from `619029e` (PR #118), success. The owner confirms it
   is done.
+- **2026-10-12, Stock reports (`stock-reports`, with screens): Expiry /
+  Batch and Reorder / Low Stock:** run
+  [#141](https://github.com/yasircmd/erp-firebase/actions/runs/38214297983),
+  06:47–06:51 UTC, from `3c7d990` (PR #119), success. Then in the app: link
+  the two menu nodes (Tree Management) and check their access (Roles &
+  Permissions).
