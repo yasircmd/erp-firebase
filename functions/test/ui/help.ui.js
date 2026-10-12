@@ -65,7 +65,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const areas = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../help/areas.json'), 'utf8')).areas;
     assert.deepEqual(await p.$$eval('.card h3', hs => hs.map(h => h.textContent)), areas.map(a => a.title));
     assert.match(await p.textContent('.card'), /Getting started[\s\S]*Working with screens[\s\S]*Approvals/);
-    assert.match(await p.textContent('main'), /Coming: Chart of Accounts/);
+    assert.match(await p.textContent('main'), /Coming: Procurement Setup/);
+    assert.doesNotMatch(await p.textContent('main'), /Coming: Chart of Accounts/, 'Finance is written');
     // Crawl every page reachable from the home page.
     const seen = new Set(), queue = ['/help/'];
     while (queue.length) {
@@ -121,14 +122,12 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.goto(base + '/help/?m=GRN');
     await p.waitForFunction(() => getComputedStyle(document.getElementById('notice')).display === 'block');
     assert.match(await p.textContent('#notice'), /no help page for that screen yet/);
-    // A screen with a page (none is written in step 1: the map is given here).
-    await p.route('**/help/search.json', async route => {
-      const j = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'help/search.json'), 'utf8'));
-      j.modules.GRN = 'approvals';
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(j) });
-    });
-    await p.goto(base + '/help/?m=GRN');
-    await p.waitForURL(/\/help\/approvals\.html$/);
+    // Screens with a page: one page per screen, or one page for two.
+    await p.goto(base + '/help/?m=JV');
+    await p.waitForURL(/\/help\/journal-entries\.html$/);
+    await p.goto(base + '/help/?m=PDCISSUED');
+    await p.waitForURL(/\/help\/post-dated-cheques\.html$/);
+    assert.match(await p.textContent('main .lead + .lead, main p.lead:nth-of-type(2)'), /Screens: PDC Received, PDC Issued/);
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

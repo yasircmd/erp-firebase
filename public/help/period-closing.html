@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Period Closing (month-end and year-end) — ERP Help</title>
+<meta name="description" content="Check and close each month so nothing more can be posted into it, and close the financial year into Retained Earnings.">
+<link rel="canonical" href="https://erp1-8f4cd.web.app/help/period-closing.html">
+<link rel="stylesheet" href="help.css">
+</head>
+<body>
+<header><a class="brand" href="index.html">ERP Help</a><input id="q" type="search" placeholder="Search help" aria-label="Search help"></header>
+<div class="wrap">
+<nav><h4>Getting started</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="working-with-screens.html">Working with screens</a></li><li><a href="approvals.html">Approvals</a></li></ul><h4>Finance</h4><ul><li><a href="chart-of-accounts.html">Chart of Accounts</a></li><li><a href="currencies.html">Currency Configuration</a></li><li><a href="opening-balances.html">Opening Balances</a></li><li><a href="journal-entries.html">Journal Entries (JV)</a></li><li><a href="cash-and-bank.html">Cash and Bank Transactions (CBT)</a></li><li><a href="payments-and-allocation.html">Paying and allocating against bills</a></li><li><a href="recurring-journals.html">Recurring Journal Entries</a></li><li><a href="post-dated-cheques.html">Post-dated Cheques (PDC Received and Issued)</a></li><li><a href="statements-of-account.html">Statements of Account (Vendor and Customer)</a></li><li><a href="aging-reports.html">Customer and Vendor Aging</a></li><li><a href="general-ledger.html">General Ledger Report (Ledger and Listing)</a></li><li><a href="trial-balance.html">Trial Balance</a></li><li><a href="financial-statements.html">Profit and Loss, Balance Sheet and Cash Flow</a></li><li><a href="period-closing.html" class="here">Period Closing (month-end and year-end)</a></li></ul><p class="soon">More areas are being written.</p></nav>
+<main><div class="crumb"><a href="index.html">Help</a> › Finance</div><h1>Period Closing (month-end and year-end)</h1><p class="lead">Check and close each month so nothing more can be posted into it, and close the financial year into Retained Earnings.</p><p class="lead">Screen: Period Closing</p><h2 id="what-it-is-for">What it is for</h2>
+<p>Closing a month locks it: nothing can be posted, reversed or approved with a date in it, so reported figures stay as reported. Closing the year moves its profit or loss into Retained Earnings.</p>
+<h2 id="before-you-start">Before you start</h2>
+<p>On the <strong>Setup</strong> tab, per company:</p>
+<ul><li>the <strong>Financial year</strong>: January – December or April – March (fixed after the first year-end);</li><li>the <strong>Retained Earnings account</strong>;</li><li>the <strong>checklist</strong>: each item set to <strong>Block</strong> (the month can't close while it finds something), <strong>Warn</strong> (listed, but the month can still close) or <strong>Off</strong> (not checked).</li></ul>
+<table><thead><tr><th>Checklist item</th></tr></thead><tbody><tr><td>Drafts dated in the period, not posted</td></tr><tr><td>Documents waiting for approval</td></tr><tr><td>Recurring journals due and not posted</td></tr><tr><td>Depreciation not run for the month</td></tr><tr><td>Payroll for the month not posted</td></tr><tr><td>Post-dated cheques matured and not cleared</td></tr><tr><td>Customer Aging agrees with the receivables accounts</td></tr><tr><td>Vendor Aging agrees with the payables accounts</td></tr><tr><td>Stock value agrees with the inventory accounts</td></tr><tr><td>The Trial Balance balances</td></tr></tbody></table>
+<h2 id="step-by-step">Step by step</h2>
+<h3 id="close-a-month">Close a month</h3>
+<ol><li>Open <strong>Period Closing</strong>, choose the <strong>Company</strong>; the <strong>Months</strong> grid shows the year.</li><li>On the first open month, run the <strong>Checklist</strong>: each item shows what it found, with the documents.</li><li>Fix what blocks, then select <strong>Close</strong>. Months close in order.</li></ol>
+<h3 id="reopen-a-month">Reopen a month</h3>
+<p>Select <strong>Reopen</strong> on it and give the reason. The months after it reopen too; the ones before stay closed. Every close and reopen is in the <strong>Log</strong>.</p>
+<h3 id="close-the-year">Close the year</h3>
+<p>When all twelve months are closed (and the previous year is closed), select <strong>Close the year</strong>. After you confirm, a <strong>Year-End Closing</strong> entry (YEC-…) dated on the last day of the year moves every income, cost of sales and expense balance, by account and cost center, to Retained Earnings. <strong>Reopen the year</strong> (with a reason) reverses that entry; a month of a closed year can't be reopened until its year is.</p>
+<h2 id="what-happens-in-the-books">What happens in the books</h2>
+<p>Closing a month posts nothing. Closing the year posts the Year-End Closing entry. The <a href="financial-statements.html">P&amp;L</a> leaves it out; the <a href="trial-balance.html">Trial Balance</a> can show the year before it.</p>
+<h2 id="payroll-and-depreciation-in-a-closed-month">Payroll and depreciation in a closed month</h2>
+<p>Reversing or redoing a payroll run, a settlement, a loan or depreciation of a closed month offers to date it in <strong>the first open month</strong> instead; the entry records the original date.</p>
+<h2 id="rights">Rights</h2>
+<p>Viewing and the checklist: Period Closing access. Closing and reopening are separate rights (by default Admin and Finance Manager).</p>
+<h2 id="questions-and-mistakes">Questions and mistakes</h2>
+<ul><li><strong>&quot;yyyy-mm is closed for …&quot;</strong> on any screen: the document's date is in a closed month. Use an open month's date, or reopen the month here.</li><li><strong>Can't close</strong>: a blocking checklist item found something; open it to see the documents.</li></ul><p class="crumb">Last reviewed 12/10/2026</p></main>
+</div>
+<footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
+<script src="help.js"></script>
+</body>
+</html>

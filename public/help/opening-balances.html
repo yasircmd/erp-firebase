@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opening Balances — ERP Help</title>
+<meta name="description" content="Bring a company's position on its go-live date into the ERP: the trial balance, opening stock and unpaid invoices.">
+<link rel="canonical" href="https://erp1-8f4cd.web.app/help/opening-balances.html">
+<link rel="stylesheet" href="help.css">
+</head>
+<body>
+<header><a class="brand" href="index.html">ERP Help</a><input id="q" type="search" placeholder="Search help" aria-label="Search help"></header>
+<div class="wrap">
+<nav><h4>Getting started</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="working-with-screens.html">Working with screens</a></li><li><a href="approvals.html">Approvals</a></li></ul><h4>Finance</h4><ul><li><a href="chart-of-accounts.html">Chart of Accounts</a></li><li><a href="currencies.html">Currency Configuration</a></li><li><a href="opening-balances.html" class="here">Opening Balances</a></li><li><a href="journal-entries.html">Journal Entries (JV)</a></li><li><a href="cash-and-bank.html">Cash and Bank Transactions (CBT)</a></li><li><a href="payments-and-allocation.html">Paying and allocating against bills</a></li><li><a href="recurring-journals.html">Recurring Journal Entries</a></li><li><a href="post-dated-cheques.html">Post-dated Cheques (PDC Received and Issued)</a></li><li><a href="statements-of-account.html">Statements of Account (Vendor and Customer)</a></li><li><a href="aging-reports.html">Customer and Vendor Aging</a></li><li><a href="general-ledger.html">General Ledger Report (Ledger and Listing)</a></li><li><a href="trial-balance.html">Trial Balance</a></li><li><a href="financial-statements.html">Profit and Loss, Balance Sheet and Cash Flow</a></li><li><a href="period-closing.html">Period Closing (month-end and year-end)</a></li></ul><p class="soon">More areas are being written.</p></nav>
+<main><div class="crumb"><a href="index.html">Help</a> › Finance</div><h1>Opening Balances</h1><p class="lead">Bring a company's position on its go-live date into the ERP: the trial balance, opening stock and unpaid invoices.</p><p class="lead">Screen: Opening Balances</p><h2 id="what-it-is-for">What it is for</h2>
+<p>When a company starts using the ERP, its balances from the old system are brought in once, dated <strong>the day before go-live</strong> (go-live 1 January → opening date 31 December). Three kinds, each on its own tab:</p>
+<ul><li><strong>GL</strong>: the trial balance (every account except the control accounts);</li><li><strong>Stock</strong>: quantity and unit cost per item and warehouse;</li><li><strong>Open Invoices</strong>: each vendor's and customer's unpaid documents and advances, so statements, aging and payment allocation work from day one.</li></ul>
+<h2 id="before-you-start">Before you start</h2>
+<ul><li>Opening Balances is for Admin users.</li><li>An Equity account for <strong>Opening Balance Clearing</strong> (for example &quot;Opening Balance Clearing&quot;).</li><li>Items, warehouses, vendors and customers already set up (Master Data Import helps).</li></ul>
+<h2 id="step-by-step">Step by step</h2>
+<ol><li>Choose the <strong>Company</strong>, set the <strong>Opening date</strong> and the **Opening Balance Clearing account<strong>, and select </strong>Save setup**.</li><li>On a tab, select <strong>Copy headers</strong> (or **Copy headers with a sample row**), paste into Excel, fill it in, then copy the rows and paste them into the grid.</li><li>Select <strong>Check</strong>. Every problem is listed by row and column (an unknown account, a missing batch number, a document entered twice…). Fix them in Excel and paste again.</li><li>When the check is clean, select <strong>Post</strong>. All rows post together, or none.</li><li>Repeat for the other tabs. When all three are in, the **Clearing balance<strong> shown must be </strong>zero**: then the GL, stock and open invoices agree.</li></ol>
+<h3 id="what-each-tab-takes">What each tab takes</h3>
+<table><thead><tr><th>Tab</th><th>Columns (required ones marked on the screen)</th></tr></thead><tbody><tr><td>GL</td><td>Account, Debit, Credit, Description, Cost Center, Profit Center</td></tr><tr><td>Stock</td><td>Item, Warehouse, Quantity, Unit Cost, Batch No, Expiry Date</td></tr><tr><td>Open Invoices</td><td>Party Type, Party, Document Type (Invoice / Advance), Document No, Document Date, Due Date, Amount, Description</td></tr></tbody></table>
+<h2 id="what-happens-in-the-books">What happens in the books</h2>
+<p>All dated on the opening date:</p>
+<ul><li><strong>GL</strong>: one entry with your rows; the difference goes to Clearing.</li><li><strong>Stock</strong>: the stock comes in at your cost (Dr each item's Inventory account, Cr Clearing).</li><li><strong>Open Invoices</strong>: one entry per party on its control account, each document kept with its own number, date and due date, so payments can be allocated against it like any invoice.</li></ul>
+<p>Inventory, Trade Payables and Trade Receivables are <strong>not</strong> entered on the GL tab: their balances come from the Stock and Open Invoices tabs.</p>
+<h2 id="corrections">Corrections</h2>
+<p>A posted batch can be <strong>Reversed</strong> as a whole (Admin, any time), then a corrected one posted. A reversal is refused when a document in it has already been paid, or the stock has since been used; undo those first.</p>
+<h2 id="good-to-know">Good to know</h2>
+<ul><li>Amounts are in the default currency; quantities in the item's base unit.</li><li>Dates in the paste may be dd/mm/yyyy or yyyy-mm-dd; at most 2,000 rows.</li><li>The opening date and clearing account are fixed while any batch is posted.</li></ul><p class="crumb">Last reviewed 12/10/2026</p></main>
+</div>
+<footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
+<script src="help.js"></script>
+</body>
+</html>

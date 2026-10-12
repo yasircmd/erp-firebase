@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Post-dated Cheques (PDC Received and Issued) — ERP Help</title>
+<meta name="description" content="Cheques dated in the future: received from customers or issued to vendors, then cleared, bounced or cancelled.">
+<link rel="canonical" href="https://erp1-8f4cd.web.app/help/post-dated-cheques.html">
+<link rel="stylesheet" href="help.css">
+</head>
+<body>
+<header><a class="brand" href="index.html">ERP Help</a><input id="q" type="search" placeholder="Search help" aria-label="Search help"></header>
+<div class="wrap">
+<nav><h4>Getting started</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="working-with-screens.html">Working with screens</a></li><li><a href="approvals.html">Approvals</a></li></ul><h4>Finance</h4><ul><li><a href="chart-of-accounts.html">Chart of Accounts</a></li><li><a href="currencies.html">Currency Configuration</a></li><li><a href="opening-balances.html">Opening Balances</a></li><li><a href="journal-entries.html">Journal Entries (JV)</a></li><li><a href="cash-and-bank.html">Cash and Bank Transactions (CBT)</a></li><li><a href="payments-and-allocation.html">Paying and allocating against bills</a></li><li><a href="recurring-journals.html">Recurring Journal Entries</a></li><li><a href="post-dated-cheques.html" class="here">Post-dated Cheques (PDC Received and Issued)</a></li><li><a href="statements-of-account.html">Statements of Account (Vendor and Customer)</a></li><li><a href="aging-reports.html">Customer and Vendor Aging</a></li><li><a href="general-ledger.html">General Ledger Report (Ledger and Listing)</a></li><li><a href="trial-balance.html">Trial Balance</a></li><li><a href="financial-statements.html">Profit and Loss, Balance Sheet and Cash Flow</a></li><li><a href="period-closing.html">Period Closing (month-end and year-end)</a></li></ul><p class="soon">More areas are being written.</p></nav>
+<main><div class="crumb"><a href="index.html">Help</a> › Finance</div><h1>Post-dated Cheques (PDC Received and Issued)</h1><p class="lead">Cheques dated in the future: received from customers or issued to vendors, then cleared, bounced or cancelled.</p><p class="lead">Screens: PDC Received, PDC Issued</p><h2 id="what-it-is-for">What it is for</h2>
+<p>A post-dated cheque (PDC) settles invoices on the day you receive or issue it, but the money only moves on the cheque date. These screens keep the cheque in a clearing account until then.</p>
+<ul><li><strong>PDC Received</strong>: cheques from customers.</li><li><strong>PDC Issued</strong>: cheques you give vendors.</li></ul>
+<h2 id="before-you-start">Before you start</h2>
+<ul><li>In <strong>Company Master</strong>, the company's <strong>PDC Received Clearing</strong> and <strong>PDC Issued Clearing</strong> accounts.</li><li>The customer or vendor set up with its receivables / payables account.</li></ul>
+<h2 id="step-by-step">Step by step</h2>
+<h3 id="record-a-cheque">Record a cheque</h3>
+<ol><li>Select <strong>New PDC</strong>.</li><li>Choose the <strong>Company</strong> and the customer or vendor.</li><li>Enter the date received or issued, the <strong>Cheque Date</strong>, <strong>Cheque No.</strong>, the amount and a description.<ul><li>Received: type the <strong>Drawee Bank</strong> (the customer's bank).</li><li>Issued: choose <strong>your bank account</strong> it is drawn on.</li></ul></li><li><strong>Allocate</strong> the cheque to the invoices it pays (or <strong>Oldest first</strong>). Anything not allocated stays as an advance.</li><li>If it replaces a bounced cheque, choose it in <strong>Replaces</strong>.</li><li><strong>Save Draft</strong>, or <strong>Post</strong> (or submit for approval, where set up).</li></ol>
+<h3 id="clear-it-on-its-date">Clear it on its date</h3>
+<p>When the cheque date comes, the cheque appears in Home tasks under <strong>Post-dated Cheques Due to Clear</strong> and in the <strong>Due to clear</strong> view. Select <strong>Clear to Bank</strong> with the clearing date (not before the cheque date); for a received cheque, choose the bank account it was deposited into. Several cheques can be cleared together with <strong>Clear Selected</strong>.</p>
+<h3 id="if-it-doesn-t-go-through">If it doesn't go through</h3>
+<ul><li><strong>Bounced</strong>: the bank returned it. Enter the date and reason; the invoices it settled are open again.</li><li><strong>Cancel Cheque</strong>: withdrawn before clearing, same effect.</li><li><strong>Undo Clearing</strong>: a clearing entered by mistake goes back to Pending.</li></ul>
+<p>Bank charges for a bounced cheque are entered separately (a JV or CBT).</p>
+<h2 id="what-happens-in-the-books">What happens in the books</h2>
+<table><thead><tr><th>Event</th><th>PDC Received</th><th>PDC Issued</th></tr></thead><tbody><tr><td>Post</td><td>Dr PDC Received Clearing · Cr the customer</td><td>Dr the vendor · Cr PDC Issued Clearing</td></tr><tr><td>Clear</td><td>Dr Bank · Cr PDC Received Clearing</td><td>Dr PDC Issued Clearing · Cr Bank</td></tr><tr><td>Bounce / cancel</td><td>The post entry reversed: the party owes again</td><td>The same</td></tr></tbody></table>
+<p>The invoices show &quot;Paid (PDC pending)&quot; until the cheque clears. Statements of account list pending cheques separately.</p>
+<h2 id="rights">Rights</h2>
+<p>As Cash and Bank Transactions: view, draft, and post (which also covers clear, bounce, cancel and undo).</p>
+<h2 id="questions-and-mistakes">Questions and mistakes</h2>
+<ul><li><strong>Refused as a duplicate</strong>: the same cheque number (and bank, and party) is already recorded and not bounced or cancelled.</li><li><strong>Can't clear before the cheque date.</strong></li><li><strong>Can't bounce</strong>: an advance the cheque created has since been used against an invoice; undo that first.</li></ul><p class="crumb">Last reviewed 12/10/2026</p></main>
+</div>
+<footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
+<script src="help.js"></script>
+</body>
+</html>

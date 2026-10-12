@@ -1056,3 +1056,8 @@ from, and how it was verified. The deploy procedure is in the
   06:47–06:51 UTC, from `3c7d990` (PR #119), success. Then in the app: link
   the two menu nodes (Tree Management) and check their access (Roles &
   Permissions).
+- **2026-10-12, Help step 1 (Hosting: the Help button, `public/help/`,
+  `robots.txt`):** run
+  [#142](https://github.com/yasircmd/erp-firebase/actions/runs/38220337870), 07:53 UTC,
+  from `adab16e` (PR #120), success. The run log is not readable from the
+  build container; the owner to confirm `/help/` opens on the live site.

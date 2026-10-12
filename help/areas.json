@@ -3,7 +3,7 @@
   "areas": [
     { "id": "start", "title": "Getting started", "written": true,
       "intro": "Signing in, finding your way around, and what every screen has in common." },
-    { "id": "finance", "title": "Finance", "written": false,
+    { "id": "finance", "title": "Finance", "written": true,
       "intro": "Accounts, journals, cash and bank, cheques, statements and the financial reports.",
       "modules": ["COA", "CURRENCYCONFIG", "OPENINGBALANCES", "JV", "CBT", "RECURRINGJV", "PDCRECEIVED", "PDCISSUED", "VENDORSOA", "CUSTOMERSOA", "VENDORAGING", "CUSTOMERAGING", "GLREPORT", "TRIALBALANCE", "PROFITLOSS", "BALANCESHEET", "CASHFLOW", "PERIODCLOSE"] },
     { "id": "procurement", "title": "Procurement", "written": false,

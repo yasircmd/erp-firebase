@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journal Entries (JV) — ERP Help</title>
+<meta name="description" content="Record any accounting entry by debits and credits: accruals, corrections, reclassifications, write-offs.">
+<link rel="canonical" href="https://erp1-8f4cd.web.app/help/journal-entries.html">
+<link rel="stylesheet" href="help.css">
+</head>
+<body>
+<header><a class="brand" href="index.html">ERP Help</a><input id="q" type="search" placeholder="Search help" aria-label="Search help"></header>
+<div class="wrap">
+<nav><h4>Getting started</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="working-with-screens.html">Working with screens</a></li><li><a href="approvals.html">Approvals</a></li></ul><h4>Finance</h4><ul><li><a href="chart-of-accounts.html">Chart of Accounts</a></li><li><a href="currencies.html">Currency Configuration</a></li><li><a href="opening-balances.html">Opening Balances</a></li><li><a href="journal-entries.html" class="here">Journal Entries (JV)</a></li><li><a href="cash-and-bank.html">Cash and Bank Transactions (CBT)</a></li><li><a href="payments-and-allocation.html">Paying and allocating against bills</a></li><li><a href="recurring-journals.html">Recurring Journal Entries</a></li><li><a href="post-dated-cheques.html">Post-dated Cheques (PDC Received and Issued)</a></li><li><a href="statements-of-account.html">Statements of Account (Vendor and Customer)</a></li><li><a href="aging-reports.html">Customer and Vendor Aging</a></li><li><a href="general-ledger.html">General Ledger Report (Ledger and Listing)</a></li><li><a href="trial-balance.html">Trial Balance</a></li><li><a href="financial-statements.html">Profit and Loss, Balance Sheet and Cash Flow</a></li><li><a href="period-closing.html">Period Closing (month-end and year-end)</a></li></ul><p class="soon">More areas are being written.</p></nav>
+<main><div class="crumb"><a href="index.html">Help</a> › Finance</div><h1>Journal Entries (JV)</h1><p class="lead">Record any accounting entry by debits and credits: accruals, corrections, reclassifications, write-offs.</p><p class="lead">Screen: Journal Entry Processing (JV)</p><h2 id="what-it-is-for">What it is for</h2>
+<p>A Journal Voucher (JV) records an entry directly in the accounts: debit and credit lines that must balance. Use it for anything no other screen records: accruals and provisions, corrections, reclassifications, discounts and write-offs, settling an advance against a bill.</p>
+<p>For money in or out of a cash or bank account, use <a href="cash-and-bank.html">Cash and Bank Transactions</a> instead.</p>
+<h2 id="before-you-start">Before you start</h2>
+<ul><li>The accounts exist and are postable (see <a href="chart-of-accounts.html">Chart of Accounts</a>).</li><li>Expense, revenue and cost-of-sales lines need a <strong>cost center</strong>.</li></ul>
+<h2 id="step-by-step">Step by step</h2>
+<ol><li>Open <strong>Journal Entry Processing (JV)</strong> and select <strong>New Journal Entry</strong>.</li><li>Fill the header: <strong>Company</strong>, <strong>Entry Date</strong>, <strong>Description</strong>, and if used the <strong>Reference</strong>, <strong>Division</strong>, <strong>Branch</strong>, <strong>Cost Center</strong> and <strong>Profit Center</strong> (the header's cost and profit centers are the lines' defaults).</li><li>Add the lines: <strong>Account Code</strong>, <strong>Debit</strong> or <strong>Credit</strong>, description, and the cost or profit center where needed. You can paste lines from Excel into the grid.</li><li>A line on a vendor's or customer's account needs the **Vendor / Customer<strong>, and its </strong>Allocate** (see <a href="payments-and-allocation.html">Paying and allocating</a>).</li><li>Check that total debits equal total credits.</li><li><strong>Save as Draft</strong> to finish later, or <strong>Post Entry</strong>. Where an approval is set up, the entry goes for approval instead (see <a href="approvals.html">Approvals</a>).</li></ol>
+<h3 id="correcting-a-posted-entry">Correcting a posted entry</h3>
+<p>A posted entry can't be edited. Select <strong>Reverse Entry</strong>, choose the reversal date (in an open month): a mirror entry is posted and the original stays on record. Then enter the right one. The description of a posted entry can still be corrected with the edit button next to it.</p>
+<p>Entries posted by other screens (invoices, cheques, payroll, opening balances…) are reversed from their own screen; the JV screen refuses them and says where.</p>
+<h2 id="what-happens-in-the-books">What happens in the books</h2>
+<p>When posted, each line is recorded on its account and date, and the entry gets its numbers: the <strong>JV number</strong> (per company and year) and the <strong>Txn Ref</strong> (the finance reference, shared with other finance documents). It shows in the <a href="general-ledger.html">General Ledger</a>, <a href="trial-balance.html">Trial Balance</a> and the statements.</p>
+<h2 id="rights">Rights</h2>
+<p>Viewing, drafting and posting are separate rights (Roles &amp; Permissions). Approval, where set up, is by the approvers in Approval Configuration.</p>
+<h2 id="questions-and-mistakes">Questions and mistakes</h2>
+<ul><li><strong>&quot;…is closed for …&quot;</strong>: the entry date is in a closed month. Use a date in an open month, or ask for the month to be reopened (<a href="period-closing.html">Period Closing</a>).</li><li><strong>A cost center is required</strong>: expense, revenue and cost-of-sales lines need one.</li><li><strong>A party is required</strong>: a line on a vendor's payables or customer's receivables account must name that party, and only that party's own account may be used.</li></ul><p class="crumb">Last reviewed 12/10/2026</p></main>
+</div>
+<footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
+<script src="help.js"></script>
+</body>
+</html>
