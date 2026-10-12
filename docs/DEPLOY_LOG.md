@@ -1095,5 +1095,11 @@ from, and how it was verified. The deploy procedure is in the
 - **2026-10-12, Help step 1 (Hosting: the Help button, `public/help/`,
   `robots.txt`):** run
   [#142](https://github.com/yasircmd/erp-firebase/actions/runs/38220337870), 07:53 UTC,
-  from `adab16e` (PR #120), success. The run log is not readable from the
-  build container; the owner to confirm `/help/` opens on the live site.
+  from `adab16e` (PR #120), success. Live `/help/` access was subsequently
+  verified by the Finance and cross-area Help deployments below.
+- **2026-10-12, Help step 2 (Finance area, Hosting):** run
+  [#145](https://github.com/yasircmd/erp-firebase/actions/runs/38228813164),
+  09:16–09:17 UTC, from `24cdcac` (PR #121), success. The workflow's
+  **Check help** and **Deploy** steps passed; **Check screens are released**
+  was skipped. The live Help home and a Finance page were later verified
+  with HTTP 200/content checks during the cross-area audit deployment.
