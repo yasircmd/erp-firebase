@@ -73,3 +73,74 @@
 | 145 | "Expiring" | **Within a number of days chosen on the screen, default 90.** |
 | 146 | The reorder comparison | **Available = on hand − reserved + on order.** |
 | 147 | The suggested quantity | **The shortfall up to the reorder level** (no new fields). |
+
+## As built (2026-10-12)
+
+- **Server:** `functions/src/stockReports.js`, two read-only callables,
+  each behind its own module's access right (default Admin, Finance
+  Manager, Accountant, Viewer, as the aging reports) and the user's
+  companies:
+  - `getBatchExpiryReport({ companyId, asOf, warehouseId, category,
+    withinDays, batchTrackedOnly })`. `asOf` defaults to today,
+    `withinDays` to 90 (a whole number 0–3650), `batchTrackedOnly` to true.
+    The posted movements up to the date (a reversed document and its
+    reversal both left out, as Inventory Aging) are replayed per item and
+    warehouse into batch layers:
+    - a receipt adds a layer (batch, expiry, receipt date, quantity);
+    - an issue takes from the batch it names first, then **first expiry,
+      first out** (no expiry date last; equal expiry by receipt date);
+    - a Warehouse Movement takes the same way and moves those layers, so a
+      batch keeps its expiry and receipt date in the new warehouse;
+    - a receipt of a batch with no expiry date takes the date an earlier
+      receipt recorded for that item and batch (Physical Count, Stock
+      Adjustment and Warehouse Movement receipts carry no expiry date).
+    One row per item, warehouse and batch (layers of the same batch and
+    expiry merged, the earliest receipt shown), sorted by expiry date.
+    Status: **Expired** (expiry before the date), **Expiring** (up to the
+    date + N days), **OK**, **No expiry date**. Value: the quantity at the
+    item-and-warehouse's average value (the replayed value ÷ quantity).
+    Totals by status.
+  - `getReorderReport({ companyId, warehouseId, category, onlyBelow })`.
+    `onlyBelow` defaults to true. For each active item of the company with
+    a Reorder Level above 0:
+    - **On hand:** the stock ledger, in the company's warehouses (or the
+      chosen one);
+    - **Reserved:** Active stock reservations (sales orders);
+    - **On order:** Approved purchase orders of the company, ordered less
+      received per line (the item matched by its code; a line with no
+      warehouse counts only when all warehouses are shown);
+    - **Available** = on hand − reserved + on order; **Shortfall** =
+      level − available (not below 0); **Suggested order** = the
+      shortfall. Low items first, the largest shortfall (as a share of
+      the level) first.
+    - Last receipt and last issue dates from the posted movements (a
+      transfer counts only when one warehouse is shown).
+- **Assumption, PO units:** a purchase order line's quantity is compared
+  with its received quantity as they stand. GRN adds received quantities in
+  the item's base unit, and GRN's own "remaining on the PO" does the same
+  sum, so an order entered in another unit is treated as GRN treats it.
+- **Screens:** `screens/BATCHEXPIRY.html` and `screens/REORDER.html`
+  (Stock Reports, modelled on Inventory Aging):
+  - company (picked alone when the user has one), warehouse, category,
+    Run; only the latest Run draws; search, Copy to Excel (tab-separated),
+    Print.
+  - Expiry / Batch: "as at", "expiring within" days, "batch-tracked items
+    only"; four totals (expired, expiring, OK, no expiry date); a status
+    filter on screen (all, expired, expiring, both, OK, none); a row opens
+    the Stock Ledger for that item and warehouse from its receipt date,
+    with Back.
+  - Reorder: "only items below their reorder level" (re-runs when
+    switched); low rows flagged.
+- **Registries:** modules `BATCHEXPIRY` and `REORDER` (access only), menu
+  nodes under Inventory Management after Inventory Aging.
+- **Tests:** the `stockReports` emulator suite (3): first expiry first out
+  over first receipt, a named batch, a transfer keeping batch and expiry, a
+  later receipt taking the batch's expiry, the window, one warehouse, a
+  reversed receipt, items not batch-tracked; a real GRN with batch and
+  expiry against an approved PO, reserved and on order, a draft PO and a
+  released reservation not counted, inactive and other-company items left
+  out, one warehouse, the category; access and the checks. UI:
+  `stockReports.ui.js` (2). Negative controls: 16, all caught. The Copy button no longer fails when the screen is left within 2 seconds of a copy (the UI check found it; Inventory Aging has the same line).
+- **Not built (not asked):** a reorder quantity or maximum per item, a
+  purchase requisition raised from the report, batches on outbound lines
+  made compulsory.

@@ -61,6 +61,9 @@ const MODULE_REGISTRY = [
   { id: 'CUSTOMERAGING', label: 'Customer Aging', capabilities: ['access'] },
   { id: 'VENDORAGING', label: 'Vendor Aging', capabilities: ['access'] },
   { id: 'INVENTORYAGING', label: 'Inventory Aging', capabilities: ['access'] },
+  // New development (not in Code.gs): docs/modules/STOCK_REPORTS.md.
+  { id: 'BATCHEXPIRY', label: 'Expiry / Batch Report', capabilities: ['access'] },
+  { id: 'REORDER', label: 'Reorder / Low Stock Report', capabilities: ['access'] },
   // New development (not in Code.gs): docs/modules/PERIOD_CLOSING.md. close
   // also changes the Setup; reopen needs a reason.
   { id: 'PERIODCLOSE', label: 'Period Closing', capabilities: ['access', 'close', 'reopen'] },
@@ -215,6 +218,9 @@ const DEFAULT_PERMISSIONS = {
   CUSTOMERAGING:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   VENDORAGING:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   INVENTORYAGING:     { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  // Read-only reports, as the aging reports (docs/modules/STOCK_REPORTS.md).
+  BATCHEXPIRY:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  REORDER:            { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   // docs/modules/PERIOD_CLOSING.md (design → rights).
   PERIODCLOSE:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], close: ['ADMIN', 'FINANCE_MGR'], reopen: ['ADMIN', 'FINANCE_MGR'] },
   // Same as CBT (PDC decision 9); 'post' also covers clear, bounce, cancel and undo.
