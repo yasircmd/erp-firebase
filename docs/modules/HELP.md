@@ -214,3 +214,15 @@ Consequences:
   and pdc.js changed without a review; a broken section link; a page
   losing its screen).
 - Next: Procurement & Inventory.
+
+## HR & Payroll Help expansion (2026-10-12)
+
+- Following owner feedback, expanded all 13 HR & Payroll module pages with
+  implementation-based task flows, setup prerequisites, calculation and
+  approval stages, accounting effects, permissions, and troubleshooting.
+- The guides cover HR Setup, Employees, Employee Changes, Leave, Leave
+  Reports, Payroll Setup, Earnings & Deductions, Payroll Run, Interim
+  Payroll, Loans & Advances, Final Settlement, Provisions, and Employee
+  Requests. Cross-links connect the handoffs between those modules.
+- Updated page fingerprints and rebuilt `public/help/`; verified with
+  `node --test functions/test/unit/help.test.js` (4/4).
