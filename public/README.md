@@ -9,3 +9,8 @@ released to Firestore, and `getModuleFragment` serves them only after its
 access check. See the
 [README](../README.md) for the layout, and [docs/MIGRATION.md](../docs/MIGRATION.md)
 for how the shell was ported.
+
+`help/` and `robots.txt` are the public Help
+([docs/modules/HELP.md](../docs/modules/HELP.md)): built from `help/pages/`
+by `node tools/help/build.js`, never edited here. Help holds no data and
+needs no sign-in.

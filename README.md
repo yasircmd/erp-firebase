@@ -42,6 +42,8 @@ screen release to 61 (see [docs/DEPLOY_LOG.md](docs/DEPLOY_LOG.md)).
 firebase.json / .firebaserc     — project config (hosting, functions, emulators)
 firestore.rules, database.rules.json — deny-all
 public/index.html               — the app shell: login, session, menu tree, home tasks, rpc bridge, in-app dialogs
+public/help/, public/robots.txt — the public Help, BUILT from help/ (never edit here)
+help/                           — the Help: areas.json (every module's area) and pages/*.md (docs/modules/HELP.md)
 functions/
   index.js                      — exports every callable
   src/                          — hand-written server code
@@ -81,6 +83,7 @@ tools/
   deploy-functions.sh           — deploys a named set (tools/deploy-sets/<set>.txt) for new development
   deploy-runtime.sh             — moves every live function onto engines.node's runtime
   (.github/workflows/deploy.yml — runs the deploy scripts from GitHub Actions, manual only)
+  help/                         — build.js (public/help from help/pages), stamp.js (a page reviewed against its code), lib.js (the checks)
   build-soa-screens.js          — writes CUSTOMERSOA.html from VENDORSOA.html (edit only the vendor one)
   build-pdc-screens.js          — writes PDCISSUED.html from PDCRECEIVED.html (edit only the received one)
   release-screens.sh            — releases screens/ to production (list, rollback, compare)
@@ -114,7 +117,12 @@ docs/                           — see Documents above
 5. **Tests:** an emulator suite in `functions/test/emulator/`, including a
    verified negative control (break the logic on purpose, confirm a test
    fails, restore it), plus the module in `functions/test/ui/smoke.ui.js`.
-6. **Record it:** update the module's status in `docs/ROADMAP.md`, commit
+6. **Help:** put the module in an area in `help/areas.json`; when that
+   area is written, its page goes in `help/pages/` (docs/modules/HELP.md).
+   A change to a module updates its page, or confirms it, with
+   `node tools/help/stamp.js <page>`; the Deploy workflow refuses a page
+   behind its code.
+7. **Record it:** update the module's status in `docs/ROADMAP.md`, commit
    and push after every finished step.
 
 ## Testing
@@ -128,7 +136,7 @@ npm i --no-save --prefix functions playwright && (cd functions && npx playwright
 # create-user test would reach production Auth)
 firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
 
-node --test functions/test/unit/*.test.js   # no emulators needed; includes the no-browser-popups, date-format, supporting-documents light-mode and period-lock guards
+node --test functions/test/unit/*.test.js   # no emulators needed; includes the no-browser-popups, date-format, supporting-documents light-mode, period-lock and help-is-current guards
 node --test --test-concurrency=1 functions/test/emulator/*.test.js
 # while developing, run just the module's suite (seconds, not the full run):
 #   node --test functions/test/emulator/salesReturn.emulator.test.js
@@ -196,6 +204,7 @@ node functions/test/ui/periodClosing.ui.js # Period Closing: the year's month gr
 node functions/test/ui/periodAdjust.ui.js  # Period Closing 1c: a closed month's payroll run reversed: the in-app warning naming the first open day, Cancel, Continue; seeds its own data
 node functions/test/ui/yearEnd.ui.js       # Period Closing step 2: the year's line, Close the year asked first, a closed year's month refused, Reopen the year with a reason; the Trial Balance's "Before year-end closing" and financial-year default; seeds its own data
 node functions/test/ui/stockReports.ui.js  # Expiry / Batch (statuses, totals, the window, status filter, search, Copy, not batch-tracked items, a row to the Stock Ledger) and Reorder / Low Stock (on hand, reserved, on order, available, suggested; all items; one warehouse); seeds its own data
+node functions/test/ui/help.ui.js          # the public Help as Hosting serves it (areas, every link and section, search, ?m= to a screen's page, robots and sitemap) and the shell's Help button; no emulators
 node functions/test/ui/stockScanning.ui.js # Item barcodes step 2: the Scan box in GRN, Material Issue, Stock Adjustment, Warehouse Movement and Physical Count (a carton adds 12 to its line, an unknown barcode named), GRN's item cell taking a barcode, a Viewer without Item Master's access; seeds its own data
 node functions/test/ui/itemBarcodes.ui.js # Item barcodes: Item Master's Barcodes section (a pack's units, a scanner's Enter), a wrong check digit or a barcode on another item named with the item kept saved, list and search, read-only; seeds its own data
 node functions/test/ui/masterImport.ui.js     # Master Data Import: copy headers, paste, issues by row, fix, import; seeds its own data (Part 2: Users password box)
@@ -272,9 +281,11 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
   pending list from `tools/legacy-port/status.js`).
 - **Security rules:** `tools/deploy-rules.sh` deploys `database.rules.json`
   and `firestore.rules`. Both are deny-all.
-- **Hosting (`public/index.html`, the app shell):** `tools/deploy-hosting.sh`
-  (clean-copy check; stops on REPLACE_ME placeholders or anything in
-  `public/` besides the shell). Tested by `bash tools/test-deploy-hosting.sh`
+- **Hosting (`public/index.html`, the app shell; `public/ess.html`; the
+  public Help, `public/help/`):** `tools/deploy-hosting.sh` (clean-copy
+  check; stops on REPLACE_ME placeholders or anything in `public/` besides
+  the shell, the portal and the built Help). A Help change goes live with a
+  Hosting deploy. Tested by `bash tools/test-deploy-hosting.sh`
   (stubs; nothing reaches Google).
 - **From GitHub instead of Cloud Shell:** go to GitHub → Actions →
   **Deploy** → Run workflow, and type `DEPLOY`. Choose one task:

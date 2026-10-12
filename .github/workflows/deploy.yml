@@ -20,7 +20,7 @@ on:
           - screens only                  # tools/release-screens.sh
           - runtime                       # tools/deploy-runtime.sh
           - database rules                # tools/deploy-rules.sh (RTDB + Firestore rules)
-          - hosting                       # tools/deploy-hosting.sh (public/index.html, the app shell; public/ess.html, the Employee Portal)
+          - hosting                       # tools/deploy-hosting.sh (public/index.html, the app shell; public/ess.html, the Employee Portal; public/help/, the Help)
         default: functions set
       set:
         description: 'Deploy set name, from tools/deploy-sets/ without .txt (for the "functions set" tasks)'
@@ -93,6 +93,14 @@ jobs:
       # screen that formats dates its own way doesn't deploy.
       - name: Check date format
         run: node --test functions/test/unit/dateFormat.test.js
+
+      # Help follows the ERP (owner, 2026-10-12; docs/modules/HELP.md, decision
+      # 149): a module with no help area, a written area's module with no page,
+      # a page behind its module's code (update it, or confirm it, with
+      # node tools/help/stamp.js <page>) or a public/help/ not built from the
+      # pages stops every deploy.
+      - name: Check help
+        run: node --test functions/test/unit/help.test.js
 
       # tools/screen-release.js records who released (git config user.name);
       # the runner has no git identity, so use the person who started the run.

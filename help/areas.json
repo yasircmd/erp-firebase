@@ -1,0 +1,31 @@
+{
+  "site": "https://erp1-8f4cd.web.app",
+  "areas": [
+    { "id": "start", "title": "Getting started", "written": true,
+      "intro": "Signing in, finding your way around, and what every screen has in common." },
+    { "id": "finance", "title": "Finance", "written": false,
+      "intro": "Accounts, journals, cash and bank, cheques, statements and the financial reports.",
+      "modules": ["COA", "CURRENCYCONFIG", "OPENINGBALANCES", "JV", "CBT", "RECURRINGJV", "PDCRECEIVED", "PDCISSUED", "VENDORSOA", "CUSTOMERSOA", "VENDORAGING", "CUSTOMERAGING", "GLREPORT", "TRIALBALANCE", "PROFITLOSS", "BALANCESHEET", "CASHFLOW", "PERIODCLOSE"] },
+    { "id": "procurement", "title": "Procurement", "written": false,
+      "intro": "From a requisition to the purchase order, the goods receipt, the vendor's invoice and returns.",
+      "modules": ["PROCUREMENTSETUP", "VENDORMASTER", "PURCHASEREQUISITION", "INVENTORYPURCHASEREQUISITION", "PURCHASEORDER", "GRN", "VENDORINVOICE", "PURCHASERETURN"] },
+    { "id": "inventory", "title": "Inventory", "written": false,
+      "intro": "Items, stock movements, counts and the stock reports.",
+      "modules": ["ITEMMASTER", "UOM", "ITEMSUBCAT", "MATERIALISSUE", "WAREHOUSEMOVEMENT", "STOCKADJUSTMENT", "PHYSICALCOUNT", "STOCKAVAILABILITY", "STOCKLEDGER", "STOCKVALUATION", "INVENTORYVALUATION", "INVENTORYAGING", "BATCHEXPIRY", "REORDER"] },
+    { "id": "sales", "title": "Sales and Retail", "written": false,
+      "intro": "Customers, prices, sales orders, delivery, invoicing, returns and the retail counter.",
+      "modules": ["CUSTOMERMASTER", "SALESINVOICESETUP", "PRICELISTING", "SALESORDER", "DELIVERYNOTE", "CUSTOMERINVOICE", "SALESRETURN", "RETAILSALES"] },
+    { "id": "hr", "title": "HR and Payroll", "written": false,
+      "intro": "Employees, leave, payroll, loans, settlements, provisions and employee requests.",
+      "modules": ["HRSETUP", "EMPLOYEES", "EMPCHANGE", "LEAVE", "LEAVEREPORTS", "PAYROLLSETUP", "PAYROLLED", "PAYROLL", "PAYROLLIP", "PAYROLLLOAN", "PAYROLLFS", "PROVISIONS", "EMPREQUESTS"] },
+    { "id": "assets", "title": "Fixed Assets", "written": false,
+      "intro": "Asset setup, capitalization, depreciation, work in progress and retirement.",
+      "modules": ["FACONFIG", "FAASSET", "FAACQ", "FAAUC", "FADEPRUN", "FAADDDEP", "FAREGISTER", "FARETIRE"] },
+    { "id": "production", "title": "Production", "written": false,
+      "intro": "Job orders, bills of materials, production entries and their reports.",
+      "modules": ["JOBORDERREQUEST", "BOM", "PRODUCTION", "PRODCONSUMPTION", "MATERIALVARIANCE"] },
+    { "id": "admin", "title": "Administration", "written": false,
+      "intro": "Companies, users, rights, the menu, approvals, numbering, imports and documents.",
+      "modules": ["COMPANYMASTER", "ORGUNITS", "USERMGMT", "ROLES", "TREEMGMT", "APPROVALCONFIG", "APPROVALTRACKER", "NUMBERING", "MASTERIMPORT", "DOCUMENTSTORAGE", "COMPANYDOCS", "DATARESET"] }
+  ]
+}

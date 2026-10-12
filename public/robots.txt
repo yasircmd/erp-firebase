@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /help/
+Disallow: /
+
+Sitemap: https://erp1-8f4cd.web.app/help/sitemap.xml
