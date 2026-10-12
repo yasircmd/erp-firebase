@@ -8,6 +8,15 @@ every deploy, add an entry: the date, what was deployed, the commit it came
 from, and how it was verified. The deploy procedure is in the
 [README](../README.md#deploying).
 
+- **2026-10-12, Hosting — public Help step 3 (Procurement & Inventory):**
+  `tools/deploy-hosting.sh` ran from clean checkout `a847fa7` (commit
+  `Help: add Procurement and Inventory pages`). It deployed the rebuilt
+  `public/help/` site and the public shell files only (`index.html`,
+  `ess.html`, `public/help/`, `public/robots.txt`), with no function or
+  screen release. Verified by the project help guard (`node --test
+  functions/test/unit/help.test.js` passed with 4/4) and by an HTTP check
+  to `https://erp1-8f4cd.web.app/help/` returning the live page.
+
 ## Migration (2026-09-24 – 2026-09-25)
 
 - **2026-09-24, batch A:** the 50 callables behind the 11 already-live
