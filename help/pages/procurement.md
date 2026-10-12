@@ -10,126 +10,192 @@ fingerprint: 51f1a595f03cc175
 ---
 ## What it is for
 
-The Procurement area handles the buying flow from a request to a final
-supplier payment. It covers a vendor master, the buying rules for a company,
-requisitions, purchase orders, goods receipt, vendor invoice processing and
-purchase returns.
+Procurement is the buying flow from a need to a paid supplier bill. In the
+ERP, it covers the vendor setup, the approval path, the purchase order,
+receiving the goods, matching the supplier invoice and recording a return if
+something is wrong.
+
+The pattern is simple: a request gets checked, a purchase order is raised,
+the warehouse receives the goods, the supplier bill is matched, and the
+accounting and stock records are updated in the same flow.
 
 ## Before you start
 
-- Make sure each company has its cash, stock and payables accounts in the
-  [Chart of Accounts](chart-of-accounts.html).
-- Set up the vendor details in Vendor Master (or the vendor data import if
-  the company uses a bulk load).
+- Make sure each company has the needed accounts in the
+  [Chart of Accounts](chart-of-accounts.html): cash or bank, the stock
+  accounts, and the trade payables account used for vendor balances.
+- Check the vendor master is complete in **Vendor Master** (name, address,
+  tax details, payment terms and any account setup the company uses).
 - Review the approval setup in [Approvals](approvals.html): requisitions,
-  purchase orders and purchase returns can all need approval before they are
-  posted or released.
-- If a company uses stock, its item master and stock accounts must be ready
-  before any purchase is received.
+  purchase orders and returns often need approval before they are posted or
+  released.
+- If the company buys stock, the items must already exist in Item Master and
+  their stock accounts and units must be set correctly.
+- Check the company is not in a closed month; once the month closes, no new
+  purchase movement can be posted with a date in it.
 
 ## Step by step
 
 ### 1. Set the company rules
 
-Open **Procurement Setup** and define the defaults for the company:
+Open **Procurement Setup** and confirm the standard buying rules for that
+company. This is the place for the default settings that the rest of the
+process follows:
 
-- which purchasing and receiving steps are in use;
-- the supplier categories or rules that should be checked on a purchase;
-- any default account or cost settings the system uses when a purchase line
-  is created.
+- which purchase and receiving controls are active;
+- how orders are matched to suppliers and delivery rules;
+- any account defaults or other company-level purchase settings.
 
-The company can then operate the same buying process every time without
-changing the same details manually.
+This keeps the same flow for every PO and GRN, instead of re-entering the
+same setup every time.
 
-### 2. Create and maintain vendors
+### 2. Create or maintain a vendor
 
-Open **Vendor Master** to maintain a supplier's record. Keep the basic
-information current: company name, tax details, bank and contact details,
-trade account and terms. The ERP then uses this data on requisitions,
-orders, receipts and invoices.
+Open **Vendor Master** and keep the supplier record current. The supplier's
+record is reused throughout the process on requisitions, POs, GRNs and
+vendor invoices.
+
+Typical details include:
+
+- vendor name, address and contact information;
+- tax or registration numbers;
+- company and branch assignments;
+- trade account and supplier terms;
+- any supplier-specific setup the ERP expects.
+
+A missing or wrong vendor setup will stop a purchase from matching to the
+supplier correctly later.
 
 ### 3. Raise a requisition
 
 Use **Purchase Requisition** or **Inventory Purchase Requisition** when a
-department or warehouse needs stock or a service. Enter:
+team needs stock or a service.
+
+A requisition usually holds:
 
 1. the company and date;
-2. the item or service detail and quantity;
-3. the requestor and the approver if the workflow requires it;
-4. any notes or attachments.
+2. the requested item or service;
+3. the quantity and any expected delivery date;
+4. the person requesting it and the approver if the workflow requires it;
+5. notes, attachments or remarks.
 
 A requisition remains a draft until it is submitted. Once approved, it can
 be turned into a purchase order.
 
-### 4. Create a purchase order
+### 4. Issue the purchase order
 
-Open **Purchase Order** and choose a requisition or enter the vendor and
-items directly. Confirm the order totals, delivery date, warehouse and cost
-center, then submit it for approval.
+Open **Purchase Order** and either start from a requisition or enter the
+supplier and items directly.
 
-Approved orders can be closed or cancelled, and the user can track whether
-items were received in full or left pending.
+Before submitting:
+
+- confirm the supplier, company and warehouse;
+- check the item quantities and unit prices;
+- confirm the preferred delivery date and any cost center or branch detail;
+- check the total for the order.
+
+Once approved, the order becomes the contract to receive against. Approved
+orders can later be closed, cancelled or partially received depending on the
+actual delivery.
 
 ### 5. Receive the goods
 
-Open **Goods Receipt Note (GRN)**. Choose the approved purchase order,
-then receive each item to the required warehouse. The system updates the
-stock ledger and records the GRN against the supplier's purchase.
+Open **Goods Receipt Note (GRN)** to record what was actually received from
+the supplier.
 
-A GRN can also record freight or other non-stock lines, as long as the
-company's GRN clearing account is set.
+A good GRN usually includes:
 
-### 6. Match the vendor invoice
+- the company and the supplier;
+- the PO it is receiving against;
+- the items and quantities received;
+- the warehouse or storage location;
+- any freight, services or non-stock lines if the company uses them.
 
-Open **Vendor Invoice** to match the invoice to one or more received GRNs.
-The system checks quantity, amount and the supplier, then posts the
-apportionment and the accounting entry. This is the point where the vendor's
-amount flows into the payables ledger.
+When the GRN is posted, the system updates the stock ledger and keeps the
+receipt tied to the purchase. This is the point where the ERP starts to
+track the actual stock and cost basis in the books.
 
-### 7. Return stock to the supplier
+### 6. Match the supplier bill
 
-Use **Purchase Return / Debit Note** when goods are defective, damaged or
-not as ordered. Select the original invoice or GRN lines, enter the return
-quantity and reason, and post the return. The stock is reversed and the
-supplier's return is tracked as a debit note.
+Open **Vendor Invoice** to match the supplier bill to the received GRNs.
+The ERP checks the supplier, the company and the quantities and amounts
+against the verified receipt. It then posts the entries to the supplier's
+payables.
+
+This is the stage where the supplier amount is recognised in the business's
+accounts; without a matching invoice, a GRN is not yet the final financial
+settlement.
+
+### 7. Record a return if needed
+
+Use **Purchase Return / Debit Note** when goods are returned, damaged,
+incorrect or no longer wanted.
+
+A return is usually based on the original invoice or the GRN lines. The user
+enters the return quantity, the reason and the source document, and the ERP
+reverses the stock and the supplier adjustment. The return remains tied to
+its source so the system can tell what was already received, what was
+returned and what remains open.
 
 ## What happens in the books
 
-- A GRN posts a stock receipt and updates inventory cost; the stock is
-  entered in the stock ledger with the batch and movement details where
-  relevant.
-- A Vendor Invoice posts the supplier balance into accounts payable and
-  clears the GRN against the vendor invoice as matched.
-- A Purchase Return reverses the receipt and may create a variance entry if
-  the original stock value differs from the return value.
-- A closed month or a lock on the period stops further posting or reversal,
-  so the books stay in balance.
+- A **requisition** does not post to the books; it is an approval and
+  request document only.
+- A **purchase order** is a commitment to buy; it does not create stock or a
+  journal entry until the goods are received.
+- A **GRN** records the stock receipt and updates the stock ledger and the
+  stock value as the receipt is posted.
+- A **vendor invoice** posts the supplier balance into the payables ledger and
+  clears the matched GRN or purchase value as the bill is recognised.
+- A **purchase return** reverses the stock and supplier impact for the return
+  quantity, and may create a variance if the return value differs from the
+  original cost.
+- A closed month or a period lock stops new posting in that month. The system
+  instructs the user to choose a different date or ask for the period to be
+  reopened.
+
+## Good to know
+
+- A purchase is not complete at the PO stage. The important step is the
+  actual receipt and then the invoice match.
+- The ERP keeps the **source** documents linked: a return points back to its
+  invoice or GRN lines, and a vendor invoice can only be matched to valid,
+  posted receipts from the correct supplier and company.
+- If an approval workflow is set up, a PO or requisition is kept as a draft
+  until it is approved; the approver sees it in Home tasks or the approval
+  queue.
+- The procurement flow is designed to keep the stock value, the supplier
+  balance and the accounting entry all in step. If one piece is missing, the
+  system refuses the next posting step.
 
 ## Rights
 
-Typical rights are set in Roles & Permissions:
+Typical rights are set in Roles & Permissions, and can vary by company and
+role:
 
-- **Access** to view a procurement screen;
-- **Draft** to create or edit purchase documents;
-- **Post** to finalise receipts, bills and returns;
-- **Approval** for requisitions or orders as required by the company.
+- **Access** to open a procurement screen;
+- **Draft** to create or edit a requisition, PO or return;
+- **Post** to finalise a GRN, invoice or return;
+- **Approval** to approve a requisition or purchase order when the workflow
+  requires it.
 
-The actual rights are configured by your ERP administrator for each user.
+The actual setup is configured by your ERP administrator.
 
 ## Questions and mistakes
 
-- If the system says a document is closed or a period is locked, the month
-  or transaction is no longer open for changes. Open the period or ask an
-  administrator to handle the exception.
-- If a GRN does not match an approved PO or vendor, check that the vendor,
-  company and warehouse are the same and that the order was actually
-  approved.
-- A return can only be posted against valid source lines. If a line is
-  already fully returned or the invoice has been reversed, the system blocks
-  it.
+- If the ERP says the month is closed, the transaction date is in a month
+  that can no longer accept journals or stock entries.
+- If a GRN does not match a PO or supplier, check the company, vendor,
+  warehouse and the approved order. The system will not accept a mismatch.
+- If the return is refused, check that the original invoice or GRN lines are
+  valid, not already fully returned, and not reversed.
+- If nothing is showing in the supplier bill list, the goods may not have
+  been received, or the bill may not have been opened for the same company and
+  supplier.
 
 ## Related pages
 
 - [Inventory](inventory.html)
 - [Chart of Accounts](chart-of-accounts.html)
+- [Approvals](approvals.html)
 - [Working with screens](working-with-screens.html)
