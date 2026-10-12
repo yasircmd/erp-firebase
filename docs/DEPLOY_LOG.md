@@ -17,6 +17,15 @@ from, and how it was verified. The deploy procedure is in the
   functions/test/unit/help.test.js` passed with 4/4) and by an HTTP check
   to `https://erp1-8f4cd.web.app/help/` returning the live page.
 
+- **2026-10-12, Hosting — public Help step 4 (Sales, HR, Assets, Production & Administration):**
+  `tools/deploy-hosting.sh` ran from clean checkout `97c3e31` (commit
+  `Help: expand remaining ERP help pages`). It deployed the rebuilt
+  `public/help/` site and the public shell files only (`index.html`,
+  `ess.html`, `public/help/`, `public/robots.txt`), with no function or
+  screen release. Verified by the project help guard (`node --test
+  functions/test/unit/help.test.js` passed with 4/4) and by an HTTP check
+  to `https://erp1-8f4cd.web.app/help/` returning the live page.
+
 ## Migration (2026-09-24 – 2026-09-25)
 
 - **2026-09-24, batch A:** the 50 callables behind the 11 already-live
