@@ -100,6 +100,9 @@ const TREE_SEED_NODES = [
   { text: 'Physical Inventory Counting & Adjustments', depth: 3 },
   // New development (not in Code.gs): docs/modules/AGING_REPORTS.md.
   { text: 'Inventory Aging', depth: 3, moduleId: 'INVENTORYAGING' },
+  // New development (not in Code.gs): docs/modules/STOCK_REPORTS.md.
+  { text: 'Expiry / Batch Report', depth: 3, moduleId: 'BATCHEXPIRY' },
+  { text: 'Reorder / Low Stock Report', depth: 3, moduleId: 'REORDER' },
   { text: 'Logistics Invoice Verification (MM-LIV)', depth: 2 },
   { text: 'Invoice Verification & Variance Park/Post', depth: 3 },
   { text: 'Evaluated Receipt Settlement (ERS)', depth: 3 },

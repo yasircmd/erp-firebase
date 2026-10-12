@@ -1,0 +1,156 @@
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+    #be-report, #be-report * { color: black !important; border-color: #999 !important; background: white !important; }
+  }
+  #be-report table th, #be-report table td { white-space: nowrap; }
+</style>
+
+<div class="space-y-5">
+  <div class="flex items-center justify-between border-b border-slate-800 pb-4 no-print">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Stock Reports</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-calendar-xmark text-blue-500"></i> Expiry / Batch Report</h2></div>
+    <div class="flex gap-2">
+      <button id="be-copy" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy</button>
+      <button id="be-print" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-print"></i> Print</button>
+    </div>
+  </div>
+
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3 no-print">
+    <div class="grid grid-cols-2 md:grid-cols-7 gap-3">
+      <div class="col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="be-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Warehouse</label><select id="be-warehouse" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Category</label><select id="be-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">As at</label><input type="date" id="be-asof" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Expiring within (days)</label><input type="number" id="be-within" min="0" max="3650" step="1" value="90" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="flex items-end"><button id="be-run" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm">Run</button></div>
+    </div>
+    <div class="flex flex-wrap items-center gap-4 text-xs text-slate-300">
+      <input id="be-search" placeholder="Search item or batch" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm w-56">
+      <label class="flex items-center gap-2">Show <select id="be-status" class="bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-xs">
+        <option value="">All</option><option value="Expired">Expired</option><option value="Expiring">Expiring</option><option value="Expired,Expiring">Expired and expiring</option><option value="OK">OK</option><option value="No expiry date">No expiry date</option>
+      </select></label>
+      <label class="flex items-center gap-2"><input id="be-tracked" type="checkbox" checked> Batch-tracked items only</label>
+    </div>
+    <div id="be-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+  </div>
+
+  <div id="be-report" class="hidden space-y-3">
+    <div class="flex flex-col md:flex-row md:justify-between gap-1">
+      <div><p id="be-company-name" class="text-xs text-slate-400 uppercase"></p><h3 class="text-lg font-bold" id="be-title"></h3></div>
+      <p id="be-scope" class="text-sm text-slate-300 md:text-right"></p>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+      <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-3"><div class="text-red-300 uppercase">Expired</div><div id="be-t-expired" class="text-lg font-mono font-semibold"></div></div>
+      <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3"><div class="text-amber-300 uppercase" id="be-t-expiring-label">Expiring</div><div id="be-t-expiring" class="text-lg font-mono font-semibold"></div></div>
+      <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3"><div class="text-emerald-300 uppercase">OK</div><div id="be-t-ok" class="text-lg font-mono font-semibold"></div></div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-3"><div class="text-slate-400 uppercase">No expiry date</div><div id="be-t-none" class="text-lg font-mono font-semibold"></div></div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-slate-400 uppercase">
+          <th class="py-2 px-3">Item</th><th class="py-2 px-3">Warehouse</th><th class="py-2 px-3">Batch</th><th class="py-2 px-3">Received</th><th class="py-2 px-3">Expiry</th>
+          <th class="py-2 px-3 text-right">Days to expiry</th><th class="py-2 px-3 text-right">Quantity</th><th class="py-2 px-3 text-right">Value</th><th class="py-2 px-3">Status</th>
+        </tr></thead>
+        <tbody id="be-body" class="divide-y divide-slate-700"></tbody>
+        <tfoot id="be-foot" class="font-semibold border-t border-slate-600"></tfoot>
+      </table>
+    </div>
+    <p class="text-xs text-slate-500">Click a row to open the Stock Ledger for that item and warehouse. Each batch's stock is worked out from the posted movements up to the date: an issue that names a batch is taken from that batch, otherwise from the batch that expires first (first expiry, first out). A warehouse transfer keeps the batch and its expiry. A receipt of a batch without an expiry date takes the date recorded earlier for that batch. Values are at the moving average cost the books hold, split in proportion to the quantities.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Expiry / Batch Report (docs/modules/STOCK_REPORTS.md, decisions 144-145).
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const money = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const qtyText = n => (Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 4 });
+  const STATUS_CLASS = { 'Expired': 'text-red-300', 'Expiring': 'text-amber-300', 'OK': 'text-emerald-300', 'No expiry date': 'text-slate-400' };
+  let report = null, loadedCompany = '', seq = 0; // only the latest Run draws (an older one answering late is dropped)
+
+  function showError(msg) { $('be-error').textContent = msg || ''; $('be-error').classList.toggle('hidden', !msg); }
+  function rows() {
+    const q = $('be-search').value.trim().toLowerCase(), st = $('be-status').value ? $('be-status').value.split(',') : null;
+    return report.Rows.filter(r => (!q || (r.ItemCode + ' ' + r.ItemName + ' ' + r.Batch).toLowerCase().includes(q)) && (!st || st.includes(r.Status)));
+  }
+  function run() {
+    showError('');
+    const companyId = $('be-company').value;
+    if (!companyId) return showError('Select a Company.');
+    $('be-run').disabled = true;
+    const mine = ++seq;
+    call('getBatchExpiryReport', { companyId, asOf: $('be-asof').value, withinDays: $('be-within').value === '' ? '' : Number($('be-within').value),
+      warehouseId: companyId === loadedCompany ? $('be-warehouse').value : '', category: companyId === loadedCompany ? $('be-category').value : '',
+      batchTrackedOnly: $('be-tracked').checked }).then(r => {
+      if (mine !== seq) return;
+      report = r;
+      if (companyId !== loadedCompany) {
+        loadedCompany = companyId;
+        $('be-warehouse').innerHTML = '<option value="">All</option>' + r.Warehouses.map(w => '<option value="' + escapeHtml(w.ID) + '">' + escapeHtml(w.Label) + '</option>').join('');
+        $('be-category').innerHTML = '<option value="">All</option>' + r.Categories.map(c => '<option>' + escapeHtml(c) + '</option>').join('');
+      }
+      render();
+    }, err => { if (mine === seq) showError(err.message || 'Unable to run the report.'); }).then(() => { if (mine === seq) $('be-run').disabled = false; });
+  }
+  function render() {
+    const r = report;
+    $('be-report').classList.remove('hidden');
+    $('be-copy').disabled = $('be-print').disabled = false;
+    $('be-company-name').textContent = $('be-company').selectedOptions[0].textContent;
+    $('be-title').textContent = 'Expiry / Batch Report as at ' + r.AsOf;
+    $('be-scope').textContent = (r.WarehouseID ? $('be-warehouse').selectedOptions[0].textContent : 'All warehouses') + ' · expiring by ' + r.Until;
+    $('be-t-expired').textContent = money(r.Totals.Expired);
+    $('be-t-expiring-label').textContent = 'Expiring within ' + r.WithinDays + ' days';
+    $('be-t-expiring').textContent = money(r.Totals.Expiring);
+    $('be-t-ok').textContent = money(r.Totals.OK);
+    $('be-t-none').textContent = money(r.Totals.NoExpiry);
+    const list = rows();
+    $('be-body').innerHTML = list.map(x => '<tr class="be-row cursor-pointer hover:bg-slate-700/40" title="Open the Stock Ledger" data-item="' + escapeHtml(x.ItemID) + '" data-batch="' + escapeHtml(x.Batch) + '" data-wh="' + escapeHtml(x.WarehouseID) + '">' +
+      '<td class="py-1.5 px-3">' + escapeHtml(x.ItemCode) + ' <span class="text-slate-500">' + escapeHtml(x.ItemName) + '</span></td>' +
+      '<td class="py-1.5 px-3">' + escapeHtml(x.Warehouse) + '</td><td class="py-1.5 px-3 be-batch">' + (x.Batch ? escapeHtml(x.Batch) : '<span class="text-slate-600">—</span>') + '</td>' +
+      '<td class="py-1.5 px-3">' + escapeHtml(x.Received) + '</td><td class="py-1.5 px-3 be-expiry">' + escapeHtml(x.Expiry) + '</td>' +
+      '<td class="py-1.5 px-3 text-right be-days">' + (x.DaysToExpiry === null ? '' : x.DaysToExpiry) + '</td>' +
+      '<td class="py-1.5 px-3 text-right be-qty">' + qtyText(x.Qty) + ' ' + escapeHtml(x.UOM) + '</td><td class="py-1.5 px-3 text-right font-mono be-value">' + money(x.Value) + '</td>' +
+      '<td class="py-1.5 px-3 be-status ' + (STATUS_CLASS[x.Status] || '') + '">' + escapeHtml(x.Status) + '</td></tr>').join('') ||
+      '<tr><td colspan="9" class="py-6 text-center text-slate-500">No batches.</td></tr>';
+    const shown = list.reduce((s, x) => s + x.Value, 0);
+    $('be-foot').innerHTML = '<tr><td class="py-2 px-3" colspan="7">Total (' + list.length + ' of ' + r.Rows.length + ' batches)</td><td id="be-total" class="py-2 px-3 text-right font-mono">' + money(shown) + '</td><td></td></tr>';
+  }
+  // Tab-separated, so a paste into Excel lands each field in its own cell.
+  function copy() {
+    const lines = [['Item', 'Name', 'Category', 'Warehouse', 'Batch', 'Received', 'Expiry', 'Days to expiry', 'Quantity', 'UOM', 'Value', 'Status']]
+      .concat(rows().map(x => [x.ItemCode, x.ItemName, x.Category, x.Warehouse, x.Batch, x.Received, x.Expiry, x.DaysToExpiry === null ? '' : x.DaysToExpiry, x.Qty, x.UOM, x.Value.toFixed(2), x.Status]));
+    const tsv = lines.map(l => l.map(v => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+    const done = () => { $('be-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { const b = $('be-copy'); if (b) b.innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, () => appAlert('Unable to copy.'));
+    else appAlert('Copying is not available in this browser.');
+  }
+
+  window.initModule = function () {
+    $('app-title').innerHTML = '<i class="fa-solid fa-calendar-xmark"></i> Expiry / Batch Report';
+    $('be-asof').value = new Date().toISOString().substring(0, 10);
+    call('getActiveCompanies', {}).then(list => {
+      (list || []).sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+        const o = document.createElement('option'); o.value = c.CompanyID; o.textContent = c.LegalName + (c.CompanyRefCode ? ' (' + c.CompanyRefCode + ')' : '');
+        $('be-company').appendChild(o);
+      });
+      if ($('be-company').options.length === 2) { $('be-company').selectedIndex = 1; run(); }
+    }, err => showError(err.message || 'Unable to load companies.'));
+    $('be-run').addEventListener('click', run);
+    $('be-search').addEventListener('input', () => { if (report) render(); });
+    $('be-status').addEventListener('change', () => { if (report) render(); });
+    $('be-copy').addEventListener('click', copy);
+    $('be-print').addEventListener('click', () => window.print());
+    // A row opens the Stock Ledger for that item and warehouse, from the batch's receipt to the date (Back returns here).
+    $('be-body').addEventListener('click', e => {
+      const tr = e.target.closest('tr.be-row');
+      if (!tr || !report) return;
+      const x = report.Rows.find(r => r.ItemID === tr.dataset.item && r.WarehouseID === tr.dataset.wh && r.Batch === tr.dataset.batch);
+      if (x) openModule('STOCKLEDGER', { CompanyID: report.CompanyID, ItemCode: x.ItemCode, WarehouseID: x.WarehouseID, FromDate: x.Received, ToDate: report.AsOf },
+        [{ moduleId: 'BATCHEXPIRY', label: 'Expiry / Batch Report' }]);
+    });
+  };
+})();
+</script>

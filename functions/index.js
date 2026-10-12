@@ -139,6 +139,10 @@ exports.getPartyStatement = getPartyStatement;
 const agingReports = require('./src/agingReports');
 exports.getPartyAging = agingReports.getPartyAging;
 exports.getInventoryAging = agingReports.getInventoryAging;
+// Stock reports (docs/modules/STOCK_REPORTS.md).
+const stockReports = require('./src/stockReports');
+exports.getBatchExpiryReport = stockReports.getBatchExpiryReport;
+exports.getReorderReport = stockReports.getReorderReport;
 
 // Period Closing (docs/modules/PERIOD_CLOSING.md), step 1a.
 const periodClosing = require('./src/periodClosing');

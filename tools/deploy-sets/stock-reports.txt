@@ -1,0 +1,15 @@
+# Stock reports: Expiry / Batch and Reorder / Low Stock (owner, 2026-10-12;
+# docs/modules/STOCK_REPORTS.md, decisions 144-147). Run with --screens
+# (BATCHEXPIRY, REORDER new). No Hosting change. In the app: link menu nodes
+# to "Expiry / Batch Report" and "Reorder / Low Stock Report" (Tree
+# Management), and set their access in Roles & Permissions (default: Admin,
+# Finance Manager, Accountant, Viewer).
+# New functions (the invoker binding is granted by deploy-functions.sh).
+getBatchExpiryReport
+getReorderReport
+# Registries: the two modules, their permissions, their menu nodes.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions
+saveTreeNode
+getModuleFragment
