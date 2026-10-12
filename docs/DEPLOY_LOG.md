@@ -8,6 +8,15 @@ every deploy, add an entry: the date, what was deployed, the commit it came
 from, and how it was verified. The deploy procedure is in the
 [README](../README.md#deploying).
 
+- **2026-10-12, Hosting — cross-area Help audit:**
+  `tools/deploy-hosting.sh` ran from clean checkout `da0819e` (commit
+  `Help: audit remaining module guides`). It deployed the rebuilt public
+  Help site and public shell files only, with no function or screen
+  release. Verified by `node --test functions/test/unit/help.test.js`
+  (4/4 passed), the live Help home returning HTTP 200, and the live
+  Inventory Valuation and Production & Consumption pages containing the
+  corrected production-cost-list and read-only-report descriptions.
+
 - **2026-10-12, Hosting — expanded HR & Payroll Help guides:**
   `tools/deploy-hosting.sh` ran from clean checkout `b6b19f7` (commit
   `Help: expand HR and payroll guides`). It deployed the rebuilt public
