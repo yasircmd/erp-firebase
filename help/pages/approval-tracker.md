@@ -3,35 +3,45 @@ title: Approval Tracker
 area: admin
 order: 7
 modules: [APPROVALTRACKER]
-sources: [functions/src/approvals.js]
+sources: [functions/src/approvals.js, functions/src/approvalDelegation.js]
 summary: Track each approval request, see who acted and follow the current status of a document.
 reviewed: 2026-10-12
-fingerprint: c39226bcddaf0c35
+fingerprint: 9796e313ad2a30ea
 ---
 ## What it is for
 
-**Approval Tracker** shows the approval history for documents in the ERP. It lets users and administrators see where the document is, whether it was approved or rejected, and who acted.
+**Approval Tracker** is an audit view of approval instances across gated modules. It shows one row per required approval level, including levels still Pending, the assigned approver, decision/reason, self-approval flag, and time taken from initial submission.
 
 ## Before you start
 
-- A document has already entered an approval flow.
-- The approval configuration is active for that module.
+- An approval instance exists for the document; ungated documents do not appear as approval activity.
+- The user has Approval Tracker access and, if delegating, the relevant delegation right.
+- The document number, module, approver, and date range are known for narrowing the register.
 
 ## Step by step
 
-1. Open **Approval Tracker**.
-2. Filter by document type, status or employee.
-3. Review the current approval step and the history of actions taken.
-4. Use the view to follow up with approvers or request revisions.
+1. Open Approval Tracker. Filter by module, document number, approver, and submitted date range.
+2. Review each level's Decision: Pending, Approved, or Rejected. Pending time is calculated live from the instance creation time; completed time is measured from the original submission, not from the prior level.
+3. Inspect the rejection/approval reason, self-approved indicator, and any current delegation note. Copy the filtered rows to Excel for audit follow-up.
+4. If the user is authorized, select **Delegate** on a pending level to assign that one level to another user with a reason. Admins may also delegate all pending levels of an absent approver; an approver may delegate their own pending levels.
+5. Verify the delegate and reason in the tracker. A delegation changes who can act on the pending level; it does not change the approval threshold or approve the document.
 
 ## What happens in the books
 
-This is a tracking view only. It reads the approval data and does not post entries itself.
+The tracker is read-only apart from delegation. It does not post journals or change the underlying transaction. The originating module posts only when its approval workflow reaches the required final state.
 
 ## Rights
 
-Most roles can view their own workflow status; admin roles often see the full history.
+APPROVALTRACKER access controls viewing. Delegation rights are separate: approvers can delegate their own pending approvals; Admin can delegate another approver's pending work. Access to the underlying document remains controlled by its module and company permissions.
 
 ## Questions and mistakes
 
-- If a document appears stuck, check whether the approver was assigned to the correct approval level.
+- **A document is missing:** check that its module approval was enabled and applicable levels existed when it was submitted; the tracker records approval instances, not all transactions.
+- **The pending approver is unexpected:** compare the document's amount and scope with Approval Configuration and check any delegation shown.
+- **Time Taken looks longer than the previous level:** duration is from initial submission, so each level's clock overlaps.
+- **Cannot delegate:** only pending levels can be delegated; check whether the current user may delegate that approver/level and whether the delegate is active.
+- **A document is approved but not posted:** approval tracking ends at the decision; the source module may still require a separate post or payment action.
+
+## Related pages
+
+[Approval Configuration](approval-configuration.html) · [Approvals](approvals.html) · [User Management](user-management.html)

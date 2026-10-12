@@ -12,6 +12,8 @@ fingerprint: a587ac0f45857e69
 
 Payroll provisions track employee liabilities that accrue over time, including end-of-service gratuity, unused leave salary, and company-defined accruals such as travel or education benefits. Rules are configured in Payroll Setup; monthly provision amounts are calculated with Payroll Run and posted when that run is posted.
 
+The **Provisions** screen has **Statement**, **Claims**, and **Openings** tabs. The setup formulas and accounts are maintained separately in Payroll Setup → Provisions.
+
 ## Before you start
 
 - HR/Finance have agreed the policy for gratuity, leave salary, and each additional accrual.
@@ -30,10 +32,11 @@ Payroll provisions track employee liabilities that accrue over time, including e
 
 ### Review balances and claims
 
-1. Open Payroll's provision balances for the company and review employee balances by provision. Balances combine opening amounts, posted run accruals, salary payouts, claims, and settlements.
-2. Record an accrual claim when the company pays an eligible benefit from an accrual, such as an approved education or travel cost. Select employee, accrual, date, amount, and cash/bank account; retain the supporting evidence.
-3. Review the generated journal and updated balance. If a claim was entered incorrectly, reverse it with a reason rather than editing its posted record.
-4. At termination, review the provision amounts in Final Settlement. The settlement pays configured balances at leaving or takes back balances that lapse.
+1. In **Statement**, select the company and month range. Filter by provision or employee, then select an employee/provision row to inspect dated movements and linked documents/journals. The report also compares closing provision amounts with the GL accounts where available; investigate any difference.
+2. In **Claims**, record an accrual claim when the company pays an eligible benefit, such as an approved education or travel cost. Select employee, accrual type, payment date, amount, cash/bank account, and note; retain supporting evidence.
+3. Review the claim's journal and updated balance. If entered incorrectly, reverse it with a reason rather than editing its posted record.
+4. In **Openings**, maintain an employee's provision amount as of a date when loading an existing balance already represented in the GL. This is a balance brought forward, not a new journal. For many employees, use Master Data Import → Opening Provisions.
+5. At termination, review the provision amounts in Final Settlement. The settlement pays configured balances at leaving or takes back balances that lapse.
 
 ## What happens in the books
 

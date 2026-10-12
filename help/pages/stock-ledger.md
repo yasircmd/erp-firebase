@@ -10,27 +10,37 @@ fingerprint: 04f71a654dc06e93
 ---
 ## What it is for
 
-**Stock Ledger** shows the movement history for each item, item by item, date by date. It is the main trace for stock activity in the ERP.
+**Stock Ledger Report** is the transaction-level history for one item at one warehouse or rack. It shows the opening balance before the selected range, every movement in the range, the running quantity/value, and the closing balance.
 
 ## Before you start
 
-- The item is in stock and has transactions posted.
-- The company and warehouse are known.
+- The item, specific warehouse/rack, and date range are known.
+- The source transactions are posted. Reversed transactions appear according to their reversal history and the report's date range.
+- The user has Stock Ledger access to the selected company.
 
 ## Step by step
 
-1. Open **Stock Ledger** and choose the company.
-2. Select the item, date range and warehouse if required.
-3. Run the report and open any transaction for detail.
+1. Select company, item, Warehouse/Rack, and From/To dates. This report requires one item and one location; use Stock Valuation for a multi-item snapshot.
+2. Run the report. Review the opening quantity/value, movement date, voucher number/type, description, In/Out quantities, running balance, average cost, and value.
+3. Click a voucher number to open the source transaction. Use Back to return to this report with the same filters.
+4. Copy the table or print it for reconciliation. Compare the closing balance with the stock ledger/valuation at the end of the range.
 
 ## What happens in the books
 
-This is a read-only report based on the stock ledger. It does not change stock on its own.
+The report is read-only. It does not change stock or create a journal. Transactions before the From date are folded into the opening balance; transactions after To are excluded. Movement order follows the order that originally determined moving-average cost, rather than sorting solely by the displayed date.
 
 ## Rights
 
-Report access is normally sufficient.
+STOCKLEDGER **access** controls viewing, subject to company access. Opening a source voucher additionally requires rights to that transaction module.
 
 ## Questions and mistakes
 
-- If the movement list is missing a transaction, check the date filter or whether the transaction was posted in another warehouse.
+- **Transaction is missing:** check company, item, selected warehouse/rack, From/To range, and Posted status.
+- **Opening balance is not zero:** it includes all qualifying stock history before the selected start date.
+- **Destination warehouse misses an inbound transfer:** confirm the movement posted and that the destination location, not the source, is selected.
+- **Balance differs from a date-sorted reconstruction:** moving-average cost follows original posting order; later-dated entries posted earlier can affect WAC sequence.
+- **Voucher cannot open:** the report can show movement history while the source module still enforces its own access and company permissions.
+
+## Related pages
+
+[Stock Availability](stock-availability.html) · [Stock Valuation](stock-valuation.html) · [Inventory Aging](inventory-aging.html) · [Warehouse Movement](warehouse-movement.html)

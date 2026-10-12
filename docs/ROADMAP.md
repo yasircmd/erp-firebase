@@ -132,6 +132,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [x] **Cross-area Help accuracy audit** (owner request, 2026-10-12):
+  reviewed non-HR modules against their current screens and workflows;
+  corrected inaccurate Inventory Valuation and Production & Consumption
+  descriptions, documented setup tabs and transaction/report boundaries,
+  and expanded 31 Production, Inventory, Fixed Asset, Admin, and Sales
+  guides. Also clarified Payroll Run, Provisions, and Leave Reports tabs.
+  Rebuilt Help and passed `help.test.js` (4/4).
 - [x] **The portal's Team tab had no icon** (owner, 2026-10-11): it used
   `fa-people-group`, which Font Awesome 6.0.0 (the version loaded) doesn't
   have; now `fa-users`, also on Home's team card. Guard:

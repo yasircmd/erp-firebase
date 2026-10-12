@@ -12,6 +12,8 @@ fingerprint: d87a0983e1a5880d
 
 **Payroll Run** calculates, reviews, approves, posts, and pays one company's payroll for a month. It combines the employee compensation version in force, payroll setup, locked leave, monthly variable inputs, loan recoveries, provisions, and any arrears or carried-forward net shortfall.
 
+The screen's list has **Runs** and **Payment** tabs. Within a run, the available views are **Register**, **Costing**, **GL Impact**, and **Payment**; some views become available only after approval or posting.
+
 ## Before you start
 
 - Employees, effective-dated compensation, bank details, grades, and cost centers are current.
@@ -24,9 +26,9 @@ fingerprint: d87a0983e1a5880d
 
 ### Calculate and review
 
-1. Open Payroll and create/open the run for the company and month. A company has one run for a given month.
+1. In the **Runs** tab, filter by company, month range, and status. Create/open the run for the company and month. A company has one run for a given month.
 2. Calculate the run. Eligible employees are those whose employment overlaps the month. Fixed elements come from the compensation version effective for each date and use the company's daily-rate method for proration.
-3. Review the register totals and each employee's slip. The calculation considers paid leave rules, unpaid and absent days, duty, late leave adjustments, variable inputs, loan instalments, accrual payouts, and provision movements.
+3. In **Register**, review the employee-by-element totals and open each payslip to inspect how earnings and deductions were calculated. The calculation considers paid leave rules, unpaid and absent days, duty, late leave adjustments, variable inputs, loan instalments, accrual payouts, and provision movements.
 4. Investigate warnings before submission: missing compensation or IBAN, basic outside the grade band, negative net, or other employee-specific exceptions. Correct source data and recalculate.
 5. Recalculate whenever variable inputs or the locked leave data changes. The run records the versions it used and prevents submission if its leave lock or input set is stale.
 
@@ -34,11 +36,11 @@ fingerprint: d87a0983e1a5880d
 
 1. Submit the reviewed draft. If Approval Configuration requires approvals, the run becomes Pending Approval; otherwise it is approved and posts immediately.
 2. Approvers review the net-pay amount and employee slips, then approve or reject. Final approval posts the run.
-3. Review the approved GL impact before posting where available, then verify the posted journal and run status. Posting is one payroll journal dated at the month's end, with lines clubbed by account/cost center as appropriate.
+3. Once approved, **Costing** shows employer cost by employee and pay element, including provisions accrued (not paid now). **GL Impact** previews the accounts, cost centers, debits, and credits it will post; after posting it shows the posted journal. Verify the posted journal and run status. Posting is one payroll journal dated at the month's end, with lines clubbed by account/cost center as appropriate.
 
 ### Pay and issue payslips
 
-After posting, review and print employee payslips. Build/preview the configured bank file or payment list, then mark payment from the selected cash/bank account. A run can be paid in parts; track unpaid balances from its payment status. Reverse payments before reversing a paid run.
+After posting, review and print employee payslips. In the run's **Payment** view, group employees by payment method/account, review each amount, payment date/reference, and bank file, then mark groups paid. A run can be paid in parts; track unpaid balances in the list's **Payment** tab, which can filter posted runs still to pay or already paid. Reverse payments before reversing a paid run.
 
 ### Correct a posted run
 

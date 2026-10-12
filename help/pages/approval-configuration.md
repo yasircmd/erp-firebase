@@ -3,35 +3,53 @@ title: Approval Configuration
 area: admin
 order: 6
 modules: [APPROVALCONFIG]
-sources: [functions/src/approvals.js]
+sources: [functions/src/approvals.js, functions/src/followUps.js, functions/src/approvalRegistry.js]
 summary: Set the approval rules by module, level and company so documents flow to the right approvers.
 reviewed: 2026-10-12
-fingerprint: d729186580d6f004
+fingerprint: d8733e332081e8a4
 ---
 ## What it is for
 
-**Approval Configuration** defines who may approve which transaction type and how many approval levels are required before a document becomes active.
+**Approval Configuration** controls transaction approvals by module, scope, and amount. It also configures follow-up teams for selected workflows. Approval is not enabled merely because a module has levels: both the module setting and applicable saved levels determine whether a document is gated.
 
 ## Before you start
 
-- The business approval policy and levels are agreed.
-- The approvers and roles are already configured.
+- The business has agreed which document types need approval, the amount thresholds, approval scopes, and named approvers.
+- Users, company assignments, and organizational units are configured and active.
+- The relevant module is available and its documents identify the scope and amount used by the approval check.
 
 ## Step by step
 
-1. Open **Approval Configuration**.
-2. Select the module and document type.
-3. Set the approval route, required approvers and policy conditions.
-4. Save and test the flow with a sample transaction.
+### Configure approval
+
+1. Open **Approval Configuration** and choose the module/document type from the list.
+2. Set **Enabled**, choose a scope, and choose the gate type:
+	- **Global** uses one rule for the whole system.
+	- **Company**, **Division**, **Branch**, or **Cost Center** stores separate rules at that scope.
+	- **Threshold** applies a level when the document amount is at or above that level's threshold. Every qualifying level is required. Two levels with the same threshold, such as zero, are both required for every amount.
+	- **Flat** is a required approval without amount thresholds.
+3. Select the scope record (skip this picker for Global). Add one or more levels and assign the specific approver user for each. Save the module settings and level records.
+4. Configure the required scope values consistently. A Company-scoped module needs levels saved for each company that should use approval; changing the scope type does not create the levels for you.
+5. For a module with a **Follow-up Team** panel, select the users for that scope and save separately. Follow-up tasks are not approval levels: everyone selected receives the Home task, and the first person to act clears it for the group.
+6. Test with a draft transaction below and above the intended threshold, and confirm the right approver sees the task. Also test the no-approval case if some scopes intentionally have no levels.
 
 ## What happens in the books
 
-The configuration controls approval workflow and does not post accounting entries by itself.
+Configuration changes do not post to the general ledger. When a transaction is submitted, the module resolves its scope and amount, snapshots the required levels into an approval instance, and waits for every applicable approval. The transaction module performs the posting only after its own approval rules are satisfied. A module enabled with no applicable levels is not gated.
 
 ## Rights
 
-Admin and approver setup roles normally manage this screen.
+APPROVALCONFIG access/write rights control viewing and maintaining configuration. The named approvers need the relevant module/document access and company scope to review their tasks. Follow-up team members need access to the relevant task workflow; assigning a person here does not grant module rights.
 
 ## Questions and mistakes
 
-- If tasks do not route correctly, recheck the module mapping and the approver roles configured for the company.
+- **Document bypasses approval:** confirm Enabled is on and levels exist for the document's actual scope key. Enabled without levels does not gate.
+- **More people are required than expected:** each level whose threshold is at or below the document amount applies; repeated thresholds make levels apply together.
+- **No level applies:** check the document amount, threshold values, scope type, and whether levels were saved for the selected company/unit.
+- **Approver cannot act:** confirm the level names that exact active user, and that they can access the document's module and company.
+- **Follow-up users do not see tasks:** confirm the module supports a follow-up team, the correct scope's team was saved, and the selected users can access the workflow. Follow-up is separate from approval.
+- **Approval setting appears to change an in-flight document:** already-submitted documents use the approval instance captured at submission; test configuration with a new draft.
+
+## Related pages
+
+[Approval Tracker](approval-tracker.html) · [Approvals](approvals.html) · [Roles and Permissions](roles.html) · [Organisation Units](org-units.html)

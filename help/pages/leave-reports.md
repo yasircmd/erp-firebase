@@ -12,6 +12,8 @@ fingerprint: 1fbd77e254209c4c
 
 **Leave Reports** provides four different views for operational follow-up: leave balances as of a date, the approved leave register for a period, absence-only records, and a monthly calendar showing who is away.
 
+The screen tabs are **Balances**, **Leave register**, **Absences**, and **Who is away**.
+
 ## Before you start
 
 - Leave Types, employee grades, work schedules, and company calendars are configured.

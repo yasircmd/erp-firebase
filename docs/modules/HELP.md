@@ -226,3 +226,22 @@ Consequences:
   Requests. Cross-links connect the handoffs between those modules.
 - Updated page fingerprints and rebuilt `public/help/`; verified with
   `node --test functions/test/unit/help.test.js` (4/4).
+
+## Cross-area Help audit (2026-10-12)
+
+- Audited the remaining modules against screen tabs and the current
+  implementations, focusing on short operational guides and modules with
+  multiple workflows.
+- Corrected **Inventory Valuation**: the screen is an effective-dated
+  production unit-cost list, not a stock valuation report. Corrected
+  **Production & Consumption**: it is a read-only report, not a posting
+  screen. Expanded BOM versioning, Material Issue/Variance, Physical Count,
+  Stock Adjustment, Stock Availability/Valuation/Aging, Warehouse Movement,
+  UOM, Production, Stock Ledger, Batch/Expiry, Fixed Asset
+  Configuration/Master/Register/Depreciation, Payroll views, Provisions
+  tabs, Retail Sales tabs, Numbering, User Management, Roles & Permissions,
+  Tree Management, Approval Tracker, Document Storage, and Company Documents.
+- Named the tabs and their specific functions in guides where the screen
+  exposes multiple task views. Updated summaries and fingerprints, rebuilt
+  `public/help/`, and passed `node --test functions/test/unit/help.test.js`
+  (4/4).
