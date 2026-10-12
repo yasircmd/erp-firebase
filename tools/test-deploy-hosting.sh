@@ -47,4 +47,18 @@ out=$(run)
 ok "a screen in public/: stops before deploying" "$([ -f "$STUB_LOG" ] && echo deployed || echo none)" "none"
 ok "a screen in public/: names it" "$(echo "$out" | grep -c '^public/GRN.html$')" "1"
 
+git -C "$R" rm -q public/GRN.html; commit "no screen"
+
+# The public Help (docs/modules/HELP.md): its built files deploy; a screen
+# put under public/help/ with another kind of name, or a nested folder, does not.
+mkdir -p "$R/public/help"
+for f in index.html getting-started.html help.css help.js search.json sitemap.xml; do echo x > "$R/public/help/$f"; done
+echo 'User-agent: *' > "$R/public/robots.txt"; commit help
+out=$(run)
+ok "the built Help: deploys" "$(echo "$out" | tail -2 | tr '\n' ' ')" "ALL DONE exit=0 "
+mkdir -p "$R/public/help/screens"; echo '<div>screen</div>' > "$R/public/help/screens/GRN.html"; echo x > "$R/public/help/GRN.HTML.bak"; commit "screen under help"
+out=$(run)
+ok "a screen under public/help/: stops before deploying" "$([ -f "$STUB_LOG" ] && echo deployed || echo none)" "none"
+ok "a screen under public/help/: names both" "$(echo "$out" | grep -cE '^public/help/(screens/GRN.html|GRN.HTML.bak)$')" "2"
+
 echo "$pass/$((pass+failed)) passed"; [ $failed = 0 ]

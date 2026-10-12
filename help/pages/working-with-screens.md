@@ -1,0 +1,80 @@
+---
+title: Working with screens
+area: start
+order: 2
+summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
+sources: [public/index.html]
+reviewed: 2026-10-12
+fingerprint: 13f937257e18a244
+---
+## Company first
+
+The ERP holds several companies. Most screens start with a **Company**
+choice; you see only the companies assigned to you. When you have only one,
+it is chosen for you. Lists, numbers and reports always belong to the
+company chosen.
+
+## Dates and periods
+
+- Dates show as **dd/mm/yyyy** (31/12/2026) and months as **Sep-2026**,
+  everywhere: on screen, in print and in what you copy to Excel.
+- To enter a date, use the date field's calendar.
+
+## Drafts, submitting and posting
+
+Entry screens (journals, invoices, receipts and so on) follow the same
+steps:
+
+1. **New** opens an empty document. Fill the header (company, date,
+   party) and the lines.
+2. **Save Draft** keeps your work without any effect on the books or
+   stock. Drafts appear in Home tasks under **My Drafts**, and you can
+   change or delete them.
+3. **Submit** or **Post**:
+   - where an approval is set up for that document, **Submit** sends it to
+     the approver (see [Approvals](approvals.html));
+   - otherwise **Post** records it: the accounting entry and any stock
+     movement are made, and the document gets its number.
+4. A posted document cannot be edited. To correct it, **Reverse** it (a
+   mirror entry, dated in an open month) and enter it again.
+
+The list on each entry screen shows documents by status; search and open
+any of them.
+
+## Messages and questions
+
+Messages, confirmations ("Post this document?") and questions (for example
+a reason for a reversal) appear in a box inside the ERP. Read them before
+choosing: **Cancel** always leaves things as they were.
+
+## Copy to Excel and printing
+
+- **Copy** (on lists and reports) copies the table; paste it into Excel
+  and each value lands in its own cell.
+- **Print** prints the report or document without the menus and buttons.
+  To keep a PDF, choose "Save as PDF" as the printer.
+
+## Supporting documents
+
+Entry screens have a **Supporting documents** section: **Add files** to
+keep the vendor's bill, a delivery note or a receipt with the document. Files are
+stored in the company's document storage, and anyone who can open the
+document can open its files.
+
+## Closed months
+
+Finance closes each month after its checks (Period Closing). Once a month
+is closed, nothing can be posted, reversed or approved with a date in it;
+the ERP says which month is closed. Use a date in an open month, or ask
+someone with the reopen right to reopen the month.
+
+## Drilling down and going back
+
+Reports link to their detail (a Trial Balance line to its ledger, a ledger
+line to its document). Use **Back to …** on the opened screen to return to
+the report where you left it.
+
+## Saving your place
+
+The ERP signs you out after 10 minutes without activity (with a warning).
+Save drafts as you go on long entries.

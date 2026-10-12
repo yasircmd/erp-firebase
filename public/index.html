@@ -456,6 +456,7 @@
       <div id="pwd-msg" class="hidden text-xs rounded-lg p-2.5 text-center"></div>
       <button type="submit" id="pwd-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg text-sm">Send Reset Link</button>
     </form>
+    <p class="text-center text-xs mt-5"><a id="login-help-link" href="/help/getting-started.html" target="_blank" rel="noopener" class="text-slate-400 hover:text-blue-300"><i class="fa-solid fa-circle-question"></i> How to use the ERP</a></p>
   </div>
 
   <div id="app-container" class="hidden w-full max-w-6xl mx-auto self-start">
@@ -474,6 +475,8 @@
           <button id="fav-config-done-btn" onclick="setFavoriteConfigMode(false)" class="hidden bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-check"></i> Done</button>
           <button id="home-tasks-toggle-btn" onclick="toggleHomeTasksSection()" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-bell"></i> Tasks <span id="home-tasks-count" class="hidden text-red-400 font-semibold"></span></button>
         </div>
+        <!-- Help (docs/modules/HELP.md): public pages on Hosting, opened in a new tab; inside a screen, that screen's page. -->
+        <a id="help-btn" href="/help/" target="_blank" rel="noopener" title="How to use the ERP" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700 text-slate-300 hover:text-white"><i class="fa-solid fa-circle-question"></i> Help</a>
         <div id="user-menu" class="relative hidden">
           <button id="user-menu-btn" onclick="toggleUserMenu()" class="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700">
             <i class="fa-solid fa-circle-user text-slate-500"></i>
@@ -2230,6 +2233,7 @@
       // The copyright line shows on the login page and Home only, not in a
       // module (owner, 2026-09-29).
       document.getElementById('app-copyright').classList.remove('hidden');
+      document.getElementById('help-btn').href = '/help/';
       applyTreeTitle();
     }
 
@@ -2298,6 +2302,7 @@
       document.getElementById('user-menu').classList.add('hidden');
       document.getElementById('app-copyright').classList.add('hidden'); // login and Home only
       closeUserMenu();
+      document.getElementById('help-btn').href = '/help/?m=' + encodeURIComponent(moduleId); // this screen's help page
 
       // Only ONE loading indicator now, not two — the module container's
       // own message below. The new global loading bar (see the wrapper

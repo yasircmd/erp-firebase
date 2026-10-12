@@ -52,6 +52,14 @@ preserved quirks). Read it when touching a ported module.
 - **The global lock** (lock.js) is deliberately whole-system, not
   per-item, matching the original LockService. Don't "improve" this
   without discussing it first.
+- **Help follows every change** (owner, 2026-10-12). The public Help is
+  built from help/pages/*.md into public/help/. A change to a module's
+  screen, or to a file its page names, means updating that page (or
+  confirming nothing in it changes), then `node tools/help/stamp.js
+  <page>`, which also rebuilds. A new module goes into an area in
+  help/areas.json. The Deploy workflow refuses otherwise
+  (functions/test/unit/help.test.js). Help is public: made-up examples,
+  never real names, accounts or figures. Details: docs/modules/HELP.md.
 - **Keep docs/ROADMAP.md current** after every finished step, then commit
   and push, so a fresh session can continue from GitHub. Record every
   deploy in docs/DEPLOY_LOG.md.

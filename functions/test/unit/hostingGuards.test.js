@@ -22,9 +22,13 @@ test('the pages Hosting serves have no REPLACE_ME, and the real project config',
   }
 });
 
-test('the deploy script checks those pages, and public/ holds only them (and its README)', () => {
+// Besides the two pages: the public Help (docs/modules/HELP.md, decision
+// 148), public/help/ and public/robots.txt, whose every file must be one the
+// help build makes (functions/test/unit/help.test.js).
+test('the deploy script checks those pages, and public/ holds only them, its README and the built Help', () => {
   const sh = fs.readFileSync(path.join(REPO, 'tools/deploy-hosting.sh'), 'utf8');
   for (const p of PAGES) assert.ok(sh.includes(p), 'deploy-hosting.sh names ' + p);
   const files = fs.readdirSync(path.join(REPO, 'public')).sort();
-  assert.deepEqual(files, ['README.md', 'ess.html', 'index.html']);
+  assert.deepEqual(files, ['README.md', 'ess.html', 'help', 'index.html', 'robots.txt']);
+  assert.ok(fs.readdirSync(path.join(REPO, 'public/help')).every(n => /^[a-z0-9-]+\.(html|css|js|json|xml)$/.test(n)), 'public/help/ holds only built files, no folders');
 });
