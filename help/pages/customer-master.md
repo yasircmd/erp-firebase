@@ -1,0 +1,39 @@
+---
+title: Customer Master
+area: sales
+order: 1
+modules: [CUSTOMERMASTER]
+sources: [functions/src/partyLedger.js]
+summary: Keep each customer record complete so sales orders, delivery notes and customer invoices can be raised correctly.
+reviewed: 2026-10-12
+fingerprint: 010fdb7dfd061d79
+---
+## What it is for
+
+**Customer Master** stores the customer record used by the sales workflow. It provides the identity, credit and contact details needed for sales orders, invoices and customer statements.
+
+## Before you start
+
+- The company and customer account rules are already configured.
+- The sales type and credit terms are known.
+- The customer has the address, tax and contact details required for billing.
+
+## Step by step
+
+1. Open **Customer Master** and choose the company.
+2. Add or update the customer's basic details.
+3. Complete the sales and credit information needed for invoicing and statements.
+4. Save the record and test it in a sales order or invoice.
+
+## What happens in the books
+
+The customer master is a setup record, not a journal by itself. It provides the identity and account references used in trade receivables and sales processing.
+
+## Rights
+
+Usually a sales or master-data role can maintain customers; full setup rights stay with admin or finance support.
+
+## Questions and mistakes
+
+- If a customer does not appear in sales screens, check that the record is saved for the right company.
+- If the balance or statement does not match expectation, verify the customer account and sales type setup.
