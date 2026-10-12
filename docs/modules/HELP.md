@@ -188,3 +188,29 @@ Consequences:
   Retail, HR & Payroll with the Employee Portal guide (linked from the
   portal), Fixed Assets & Production, Administration; one area per PR,
   marked `written` in `help/areas.json` when done.
+
+## As built: step 2, the Finance area (2026-10-12)
+
+- 14 pages cover the area's 18 screens, written from the screens and their
+  design docs: Chart of Accounts, Currency Configuration, Opening
+  Balances, Journal Entries, Cash and Bank Transactions, Paying and
+  allocating against bills (a general page), Recurring Journal Entries,
+  Post-dated Cheques (PDC Received and Issued on one page), Statements of
+  Account (Vendor and Customer), Customer and Vendor Aging, General Ledger
+  (Ledger and Listing), Trial Balance, Profit and Loss / Balance Sheet /
+  Cash Flow (one page), Period Closing.
+- Each page names its server files as `sources`, so a change to them (or
+  to the screens) stops the deploy until the page is reviewed:
+  journal.js and partyLedger.js (JV, CBT, the allocation page),
+  recurringJournal.js and recurringSchedule.js, pdc.js,
+  partyStatement.js, agingReports.js, glViews.js, trialBalance.js,
+  periodClosing.js and periodLock.js, openingBalances.js, coaUsage.js.
+  The ported reports' shared code (`legacy/codegs.js`) is not a source: it
+  would flag every ported page on any port change.
+- `help/areas.json`: Finance `written: true`. `help.ui.js` now checks
+  `?m=JV` and `?m=PDCISSUED` open their pages, and Procurement is still
+  "coming".
+- Negative controls: 5, all caught (a Finance page removed; the JV screen
+  and pdc.js changed without a review; a broken section link; a page
+  losing its screen).
+- Next: Procurement & Inventory.
