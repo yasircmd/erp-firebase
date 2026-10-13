@@ -455,14 +455,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     managers checked across the paste; each change in the history; all or
     nothing. **Copy current records** gives the sheet to edit and paste
     back. Tests: `masterImportUpdate` suite (5), `masterImportUpdate.ui.js`
-    (4). To go live: "functions set" `master-import-3a` with the screens.
-  - **Part 3b built and tested 2026-10-05**, not yet live: Update existing
+    (4).
+  - **Part 3b live 2026-10-05** (PR #86; Deploy run #95): Update existing
     for every master with a code (Company, Org Units, COA, Currencies, UOM,
     Items, Vendors, Customers, Fixed Asset Classes and Master, Users), each
     through its own save; locked columns as agreed (decisions 12-14).
     Masters without a code and the versioned ones (BOM, Valuation, Price
     Lists) have no update option. Tests: `masterImportUpdate2` suite (6).
-    To go live: "functions set" `master-import-3b` (after `-3a`).
   - **Fix, 2026-10-02:** the item account rules now match Item Master's
     save. Consumption is any postable account; Write-off is Expense or
     COGS. Two negative controls caught. Live (PR #49; Deploy run #49).
