@@ -139,6 +139,38 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     await p.close();
   });
 
+  await check('Inventory Aging: the item code opens the Stock Ledger, from the oldest receipt on hand; with one warehouse it runs, Back returns (owner, 2026-10-14)', async () => {
+    const p = await open('INVENTORYAGING', 'u-admin');
+    await until(p, () => document.getElementById('ia-company').options.length > 1);
+    await p.selectOption('#ia-company', 'C1');
+    await p.fill('#ia-asof', '2026-04-30');
+    await p.click('#ia-run');
+    await until(p, () => document.querySelector('#ia-body tr[data-id="I1"] .ia-ledger'));
+    // All warehouses: the ledger opens on the item and dates and asks for a warehouse.
+    await p.click('#ia-body tr[data-id="I1"] .ia-ledger');
+    await until(p, () => document.getElementById('sl-item-input') && /RM-001/.test(document.getElementById('sl-item-input').value));
+    assert.equal(await p.inputValue('#sl-company'), 'C1');
+    assert.equal(await p.inputValue('#sl-location'), '');
+    assert.equal(await p.inputValue('#sl-from-date'), '2026-03-01', 'the oldest receipt still on hand');
+    assert.equal(await p.inputValue('#sl-to-date'), '2026-04-30');
+    assert.match(await p.textContent('#sl-back-label'), /Back to Inventory Aging/);
+    // One warehouse: the ledger runs.
+    await p.click('#sl-back-btn');
+    await until(p, () => document.getElementById('ia-company') && document.getElementById('ia-company').options.length > 1);
+    await p.selectOption('#ia-company', 'C1');
+    await p.fill('#ia-asof', '2026-04-30');
+    await p.click('#ia-run');
+    await until(p, () => document.getElementById('ia-warehouse').options.length > 1);
+    await p.selectOption('#ia-warehouse', 'WH2');
+    await p.click('#ia-run');
+    await until(p, () => /3 PCS/.test(document.getElementById('ia-body').textContent));
+    await p.click('#ia-body tr[data-id="I1"] .ia-ledger');
+    await until(p, () => document.getElementById('sl-results') && !document.getElementById('sl-results').classList.contains('hidden'));
+    assert.equal(await p.inputValue('#sl-location'), 'WH2');
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   results.forEach(r => console.log(r.join('  ')));
   const failed = results.filter(r => r[0] === 'FAIL').length;

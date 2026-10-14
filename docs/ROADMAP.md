@@ -165,7 +165,12 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       filter. `approvalDelegation.ui.js` (3); negative control caught.
       Its check 2 failed once in five runs (a 15 s wait for the
       Delegate-all message), unrelated to the filter.
-    - [ ] Inventory Aging: the item code opens Stock Ledger for the item.
+    - [x] **Inventory Aging: the item code opens the Stock Ledger**, from
+      the oldest receipt still on hand to the as-at date. The ledger needs
+      one warehouse: with one chosen in Aging it runs; with all, it opens
+      on the item and dates and asks for the warehouse. Back returns (to an
+      empty Aging, as Batch Expiry does). `agingReports.ui.js` (5);
+      negative control caught.
     - [ ] Company Master: the list in code order.
     - [ ] Help: a light / dark switch (it follows the device today).
   - **Tier 2, small, waiting on the owner's answer:** rows per list page
