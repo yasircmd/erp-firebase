@@ -216,7 +216,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       - [x] **Leaving reasons in Payroll Setup** (HR_EMPLOYEES.md): a list
         by type with 12 defaults; required on notice or left.
         `leavingReasons` suite (3), UI checks; negative control caught.
-      - [ ] One print style (rounded, light borders).
+      - [x] **One print style** (EXTERNAL_PRINTS.md): document prints'
+        tables with a light, rounded frame and light lines; payslips keep
+        theirs. `printStyle.ui.js`; negative control caught. Hosting only.
       - [ ] A leaver's login cut-off.
       - [ ] Location as an Organizational Unit.
       - [ ] More item categories.

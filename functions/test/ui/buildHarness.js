@@ -24,14 +24,17 @@ const lpStart = find(/---------- LIST PAGING ----------/);
 const lpEnd = find(/---------- END LIST PAGING ----------/);
 const sdStart = find(/---------- SUPPORTING DOCUMENTS ----------/);
 const sdEnd = find(/---------- END SUPPORTING DOCUMENTS ----------/);
+const psStart = find(/---------- PRINT STYLE ----------/);
+const psEnd = find(/---------- END PRINT STYLE ----------/);
 if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd ||
-    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !lpStart || !lpEnd || !sdStart || !sdEnd) throw new Error('could not locate shell code');
+    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !psStart || !psEnd) throw new Error('could not locate shell code');
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 <style>.hidden{display:none!important}
 ${slice(lgCssStart, lgCssEnd)}
+${slice(psStart, psEnd)}
 </style></head>
 <body class="bg-slate-900 text-slate-100">
 <div id="global-loading-bar"></div>

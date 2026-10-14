@@ -5,7 +5,7 @@ order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html]
 reviewed: 2026-10-14
-fingerprint: 305dd022c85576c3
+fingerprint: cf2d446722308455
 ---
 ## Company first
 
@@ -62,6 +62,9 @@ every list.
   and each value lands in its own cell.
 - **Print** prints the report or document without the menus and buttons.
   To keep a PDF, choose "Save as PDF" as the printer.
+- Printed documents (invoices, vouchers, orders, delivery notes and the
+  like) share one look: their tables have a light, rounded frame and light
+  lines between the cells. Payslips keep their own layout.
 
 ## Supporting documents
 

@@ -20,6 +20,31 @@
       .no-print { display: none !important; }
       .print-only { display: block !important; }
     }
+    /* ---------- PRINT STYLE ----------
+       One look for every document print (owner, 2026-10-14): its tables
+       get a light, rounded frame and light lines between the cells, in
+       place of each screen's dark grid. Document prints are the
+       #<prefix>-print-document blocks; the payslip (its own layout, also
+       the portal's PDF) and Employees' welcome slips keep theirs. */
+    @media print {
+      [id$="-print-document"]:not(#pr-print-document):not(#emp-print-document) table {
+        border-collapse: separate !important; border-spacing: 0 !important;
+        border: 1px solid #cbd5e1 !important; border-radius: 6px;
+      }
+      [id$="-print-document"]:not(#pr-print-document):not(#emp-print-document) table th,
+      [id$="-print-document"]:not(#pr-print-document):not(#emp-print-document) table td {
+        border: 0 !important; border-right: 1px solid #e2e8f0 !important; border-bottom: 1px solid #e2e8f0 !important;
+      }
+      [id$="-print-document"]:not(#pr-print-document):not(#emp-print-document) table tr > :last-child { border-right: 0 !important; }
+      [id$="-print-document"]:not(#pr-print-document):not(#emp-print-document) table > :last-child > tr:last-child > * { border-bottom: 0 !important; }
+      [id$="-print-document"]:not(#pr-print-document):not(#emp-print-document) table thead { background: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      /* The header's corners follow the frame's. */
+      [id$="-print-document"]:not(#pr-print-document):not(#emp-print-document) table > :first-child > tr:first-child > :first-child { border-top-left-radius: 6px; }
+      [id$="-print-document"]:not(#pr-print-document):not(#emp-print-document) table > :first-child > tr:first-child > :last-child { border-top-right-radius: 6px; }
+      [id$="-print-document"]:not(#pr-print-document):not(#emp-print-document) table > :last-child > tr:last-child > :first-child { border-bottom-left-radius: 6px; }
+      [id$="-print-document"]:not(#pr-print-document):not(#emp-print-document) table > :last-child > tr:last-child > :last-child { border-bottom-right-radius: 6px; }
+    }
+    /* ---------- END PRINT STYLE ---------- */
 
     /* Global loading bar — a single, thin indicator for EVERY async
        action across the whole app (posting, refreshing a list,
