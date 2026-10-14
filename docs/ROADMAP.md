@@ -134,8 +134,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 - [ ] **UX testing, 2026-10-14** (owner): 42 issues and suggestions,
   triaged into three tiers (in this session's plan, agreed 2026-10-14).
-  - **Tier 1, fix now** (owner said go, 2026-10-14). One deploy set,
-    `ux-fixes-1` (`--screens`, plus Hosting for Help):
+  - **Tier 1, fix now** (owner said go, 2026-10-14): all nine built and
+    tested 2026-10-14 on branch `tier1-ux-fixes` (smoke 123/123; the
+    related emulator suites 38/38). **To go live**, after merging:
+    `tools/deploy-functions.sh ux-fixes-1 --screens` (completeLogin;
+    USERMGMT, COA, RETAILSALES, APPROVALTRACKER, INVENTORYAGING,
+    COMPANYMASTER), then `tools/deploy-hosting.sh` (the shell's Help
+    button, the Help pages). Log both in DEPLOY_LOG.md.
     - [x] **User Management: Add New User saved over the last edited
       user** (bug). `form.reset()` keeps a hidden input's value, so
       `um-form-id` still held the edited user's id; the save patched that
