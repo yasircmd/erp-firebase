@@ -163,6 +163,7 @@ node functions/test/ui/lineGrids.ui.js      # compact line grids and tables, no 
 node functions/test/ui/dateFormat.ui.js     # dates dd/mm/yyyy in lists, messages, Excel copies; entry fields keep yyyy-mm-dd; seeds its own data
 node functions/test/ui/approvalDelegation.ui.js # Approval Tracker: delegate one level, or all of an approver's; seeds its own data
 node functions/test/ui/coaRecode.ui.js        # COA: company filter includes shared accounts; moving an unused account gives a new code, a used one is refused; seeds its own data
+node functions/test/ui/companyMaster.ui.js   # Company Master: the list in code order; seeds its own data
 node functions/test/ui/userMgmt.ui.js       # User Management: Add New User after an Edit makes a new user; Last Login in local time; needs the Auth emulator; seeds its own data
 node functions/test/ui/stockLedgerBack.ui.js  # Stock Ledger: Back from an opened entry keeps the filters and reruns; seeds its own data
 node functions/test/ui/gridClipboard.ui.js    # every entry grid: Copy gives the headings (also when empty), Paste skips them; seeds its own data

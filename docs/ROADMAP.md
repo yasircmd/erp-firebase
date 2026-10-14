@@ -171,7 +171,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       on the item and dates and asks for the warehouse. Back returns (to an
       empty Aging, as Batch Expiry does). `agingReports.ui.js` (5);
       negative control caught.
-    - [ ] Company Master: the list in code order.
+    - [x] **Company Master: the list in code order** (CompanyRefCode,
+      2 before 10; was by name). The parent dropdown stays by name. New
+      `companyMaster.ui.js` (1), `companyDocs.ui.js` (8); negative
+      control caught.
     - [ ] Help: a light / dark switch (it follows the device today).
   - **Tier 2, small, waiting on the owner's answer:** rows per list page
     (100 today; choice and ceiling); leaving reason for resignation and

@@ -175,7 +175,8 @@
     tbody.innerHTML = '';
     if (!companies.length) { tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-500">No companies added yet.</td></tr>'; return; }
 
-    companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
+    // In company code order (owner, 2026-10-14); 2 before 10.
+    companies.sort((a, b) => String(a.CompanyRefCode || '').localeCompare(String(b.CompanyRefCode || ''), undefined, { numeric: true }) || a.LegalName.localeCompare(b.LegalName)).forEach(c => {
       const parent = c.ParentCompanyID ? companyById(c.ParentCompanyID) : null;
       const taxSummary = (c.TaxNumbers || []).map(t => t.Type + ': ' + t.Number).join(', ') || '—';
       const location = [c.City, c.Country].filter(Boolean).join(', ') || '—';
