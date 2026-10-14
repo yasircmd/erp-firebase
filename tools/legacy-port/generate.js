@@ -379,6 +379,10 @@ const SCREEN_EDITS = [
     to: "return `<td class=\"py-2 px-2 text-center\"><input type=\"checkbox\" data-module=\"${mod.id}\" data-cap=\"${cap}\" data-role=\"${r.RoleID}\" ${checked ? 'checked' : ''} class=\"w-4 h-4\" title=\"${escapeHtml(r.Name)}\"></td>`;" },
   { mod: 'ROLES', from: '<td class="py-2 px-4 text-xs text-slate-400 capitalize">${escapeHtml(cap)}</td><td class="py-2 px-4">${checks}</td>',
     to: '<td class="py-2 px-4 text-xs text-slate-400 capitalize">${escapeHtml(cap)}</td>${checks}' },
+  // COA: the list opens on Active accounts (owner, 2026-10-14); All
+  // Statuses or Inactive is still one choice away.
+  { mod: 'COA', from: '<select id="coa-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Active">Active</option>',
+    to: '<select id="coa-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Active" selected>Active</option>' },
   // User Management: Add New User after an Edit saved over the edited user
   // (bug, 2026-10-14). form.reset() leaves a hidden input's value, so the
   // edited user's id stayed in um-form-id and the save patched that user.

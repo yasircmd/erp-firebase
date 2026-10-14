@@ -156,7 +156,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       media; negative control caught. (That file's checks 1 and 3 fail on
       main too: stale expectations after the 2026-10-12 Help audit, not
       this change.)
-    - [ ] COA: the status filter starts on Active.
+    - [x] **COA opens on Active accounts** (SCREEN_EDITS; a change to a
+      ported module's behavior, asked for). A retired account leaves the
+      list until the filter is changed. `coaRecode.ui.js` (5) and
+      `singleCompany.ui.js` (54); negative control caught.
     - [ ] Approval Tracker: a Status filter.
     - [ ] Inventory Aging: the item code opens Stock Ledger for the item.
     - [ ] Company Master: the list in code order.
