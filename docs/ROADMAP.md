@@ -219,7 +219,12 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       - [x] **One print style** (EXTERNAL_PRINTS.md): document prints'
         tables with a light, rounded frame and light lines; payslips keep
         theirs. `printStyle.ui.js`; negative control caught. Hosting only.
-      - [ ] A leaver's login cut-off.
+      - [x] **A leaver's login cut-off** (HR_EMPLOYEES.md): ERP and portal
+        until the settlement is paid, at most 30 days after the last
+        working day; HR extends / keeps / restores the rule. `leaverAccess`
+        suite (5), UI checks; negative control caught. **After deploying:
+        open Employees once (Admin)**: it fills in the last day for those
+        already leaving, and anyone 30 days past it loses access then.
       - [ ] Location as an Organizational Unit.
       - [ ] More item categories.
     - **Clarified (owner, 2026-10-14):** Employee Requests: only a

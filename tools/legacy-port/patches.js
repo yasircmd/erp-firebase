@@ -1329,5 +1329,13 @@ function linesForBatch_(idToken, batchId) {
     find: `  const lines = getPostedGlLines_(idToken, filters).filter(l => l.JVDate >= fromDate && l.JVDate <= toDate);`,
     replace: `  // [PORT CHANGE pl-without-year-end-close] the year-end closing entry left out: a closed year's P&L still shows its figures.
   const lines = getPostedGlLines_(idToken, filters).filter(l => l.JVDate >= fromDate && l.JVDate <= toDate && l.VoucherType !== 'YearEndClose');`
+  },
+  {
+    id: 'user-access-until',
+    why: "NEW DEVELOPMENT (owner, 2026-10-14; docs/modules/HR_EMPLOYEES.md, \"A leaver's access\"): User Management shows a leaver's last day of access (users/{uid}/AccessUntil, kept by leaverAccess.js). Nothing else changes.",
+    find: `    lastLogin: users[uid].lastLogin || 'Never',`,
+    replace: `    lastLogin: users[uid].lastLogin || 'Never',
+    // [PORT CHANGE user-access-until] a leaver's last day of access.
+    accessUntil: users[uid].AccessUntil || '',`
   }
 ];

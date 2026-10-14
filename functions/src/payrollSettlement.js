@@ -598,6 +598,7 @@ async function pay(user, s, payDate, accountId, reference, batch) {
     } catch (e) { throw failed(e.message); }
     await SETTLEMENTS().doc(s.SettlementID).update({ PaidAt: new Date().toISOString(), PaidByName: actorName(user), PaymentDate: payDate, PaymentJVID: gl.jvId, PaymentJVNumber: gl.jvNumber,
       PaymentReference: text(reference, 100), PaymentAccountID: text(accountId, 80), History: history(Object.assign({}, s, { History: fresh.History }), 'Paid', user, { JVNumber: gl.jvNumber, Note: batch ? batch.Number : '' }) });
+    await require('./leaverAccess').refresh(s.EmployeeID); // paid: the leaver's access ends with it (owner, 2026-10-14)
     return gl;
   });
 }
@@ -628,6 +629,7 @@ async function unpay(user, s, reason) {
     const { entry, gl } = await reverseEntry(user, s.PaymentJVID, PAYMENT_TYPE, reason, s.CompanyID, { PayrollSettlementID: s.SettlementID, SourceTransactionID: s.SettlementID });
     await SETTLEMENTS().doc(s.SettlementID).update({ PaidAt: '', PaymentDate: '', PaymentJVID: '', PaymentJVNumber: '',
       History: history(s, 'Payment reversed', user, { JVNumber: entry.JVNumber, ReversalJVNumber: gl.jvNumber, Note: reason }) });
+    await require('./leaverAccess').refresh(s.EmployeeID);
     return gl;
   });
 }

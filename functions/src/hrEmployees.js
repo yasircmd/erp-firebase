@@ -21,6 +21,7 @@ const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { loadSetup } = require('./hrSetup');
 const { resolveReason } = require('./leavingReasons');
+const leaverAccess = () => require('./leaverAccess');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'EMPLOYEES';
@@ -163,7 +164,7 @@ async function saveEmployeeFor(user, input, opts) {
   if (out.DateOfBirth && out.DateOfBirth >= out.JoinDate) bad('The date of birth must be before the date of joining.');
   if (out.Status === 'Left' && !out.LeavingDate) bad('Enter the leaving date of an employee who has left.');
   if (out.LeavingDate && out.LeavingDate < out.JoinDate) bad('The leaving date is before the date of joining.');
-  if (out.Status === 'Active') Object.assign(out, { LeavingDate: '', LeavingReason: '', LeavingNote: '', LeavingReasonID: '', LeavingType: '' });
+  if (out.Status === 'Active') Object.assign(out, { LeavingDate: '', LeavingReason: '', LeavingNote: '', LeavingReasonID: '', LeavingType: '', AccessOverride: null });
   else {
     // On notice or left: a reason from the list (owner, 2026-10-14), by id
     // (the screen) or by name (an import). A record from before the list
@@ -297,12 +298,15 @@ async function saveEmployeeFor(user, input, opts) {
     await EMPLOYEES().doc(existing.EmployeeID).update(Object.assign(out, { UpdatedAt: now, UpdatedBy: user.uid, UpdatedByName: actorName(user) }));
     const correction = text(opts.correction, 300);
     await log(existing.EmployeeID, correction ? 'Correction' : 'Edit', changes, user, correction || opts.source || '');
+    // A leaver's last day of access follows the status, leaving date and ERP user.
+    if (['Status', 'LeavingDate', 'UserUID'].some(k => String(existing[k] || '') !== String(out[k] || ''))) await leaverAccess().refresh(existing.EmployeeID, existing.UserUID || '');
     return { success: true, employeeId: existing.EmployeeID, employeeNo: existing.EmployeeNo, warnings };
   }
   const employeeNo = await nextEmployeeNo();
   const ref = EMPLOYEES().doc();
   await ref.set(Object.assign(out, { Schedules: [{ From: out.JoinDate, ScheduleID: out.ScheduleID || '' }], EmployeeNo: employeeNo, CreatedAt: now, CreatedBy: user.uid, CreatedByName: actorName(user) }));
   await log(ref.id, 'Create', [], user, opts.source || '');
+  if (out.Status !== 'Active') await leaverAccess().refresh(ref.id);
   return { success: true, employeeId: ref.id, employeeNo, warnings };
 }
 

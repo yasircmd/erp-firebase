@@ -18,6 +18,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { admin, rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
+const leaverAccess = () => require('./leaverAccess');
 const { userCanAccessCompany } = require('./glWriting');
 const { todayIn } = require('./recurringSchedule');
 const { loadSetup } = require('./hrSetup');
@@ -85,12 +86,15 @@ async function whoIsAsking(request, allowMustChange) {
   } else {
     const profile = (await rtdb.ref('users/' + uid).get()).val();
     if (!profile || profile.status !== 'Active') throw new HttpsError('permission-denied', 'This account has no portal access.');
-    const mine = (await EMPLOYEES().where('UserUID', '==', uid).get()).docs.map(empOf).filter(e => e.Status !== 'Left');
+    // The current record first; a leaver's is checked below (leaverAccess.js).
+    const mine = (await EMPLOYEES().where('UserUID', '==', uid).get()).docs.map(empOf).sort((a, b) => (a.Status === 'Left') - (b.Status === 'Left'));
     if (!mine.length) throw new HttpsError('permission-denied', 'Your ERP user is not linked to an employee record: ask HR to link it (Employees → ERP user).');
     emp = mine[0];
     via = 'erp';
   }
-  if (emp.Status === 'Left') throw new HttpsError('permission-denied', 'Your portal access ended when you left.');
+  // A leaver keeps the portal until their last day of access (owner, 2026-10-14).
+  if (emp.Status !== 'Active' && emp.AccessUntil && leaverAccess().ended(emp.AccessUntil)) throw new HttpsError('permission-denied', 'Your portal access ended on ' + emp.AccessUntil + ' (after leaving): ask HR if you still need it.');
+  if (emp.Status === 'Left' && !emp.AccessUntil && !(emp.AccessOverride && emp.AccessOverride.Mode === 'Keep')) throw new HttpsError('permission-denied', 'Your portal access ended when you left.');
   const mustChange = Boolean(account && account.MustChange);
   if (mustChange && !allowMustChange) throw failed('Change your password first.');
   // The actor for history entries: { uid, profile: { username, fullName } }.

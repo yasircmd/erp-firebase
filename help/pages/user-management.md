@@ -6,7 +6,7 @@ modules: [USERMGMT]
 sources: [functions/src/roles.js, functions/src/session.js]
 summary: Set up ERP users, assign roles and control which screens they can access and post.
 reviewed: 2026-10-14
-fingerprint: cd5fc7a22eb490f6
+fingerprint: 6d074263d8827e3f
 ---
 ## What it is for
 
@@ -21,6 +21,7 @@ fingerprint: cd5fc7a22eb490f6
 ## Step by step
 
 1. Open User Management and search/filter by username, email/name, role, or Active/Inactive status.
+   A user linked to an employee who is leaving shows **Leaving: access until** a date under the status, or **Access ended** once it has passed: from then on they can't sign in. The date is set from the employee record (Employees), where HR can extend it.
    **Last Login** shows when each user last signed in, in your local time. **Never** means they have not signed in since the column started being recorded (October 2026). Reopening the ERP in a tab where you are still signed in does not count as a new sign-in.
 2. To add a user, click **Add New User** and enter username, email, full name, role, status, password (minimum six characters), and one or more assigned companies. Review the company list carefully before saving.
 3. To edit a user, update full name, role, status, and company assignments. Username/email are not edited from the existing-user form; coordinate account identity changes through the approved identity process.

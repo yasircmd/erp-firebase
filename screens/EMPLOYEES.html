@@ -111,6 +111,10 @@
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Leaving date</label><input data-k="LeavingDate" type="date" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
       <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Leaving reason</label><select data-k="LeavingReasonID" id="emp-leave-reason" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select><input type="hidden" data-k="LeavingReason" class="emp-f"></div>
       <div class="md:col-span-4"><label class="block text-xs font-medium text-slate-300 mb-1">Leaving note</label><input data-k="LeavingNote" maxlength="300" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div id="emp-access" class="md:col-span-4 hidden flex flex-wrap items-center gap-2 text-xs bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2"><span id="emp-access-text" class="text-slate-300"></span>
+        <button type="button" id="emp-access-extend" class="hidden text-blue-400 hover:text-blue-300 underline">Extend…</button>
+        <button type="button" id="emp-access-keep" class="hidden text-blue-400 hover:text-blue-300 underline">Keep access</button>
+        <button type="button" id="emp-access-rule" class="hidden text-blue-400 hover:text-blue-300 underline">Use the rule</button></div>
     </div>
   </div>
 
@@ -520,6 +524,34 @@
       return of.length ? '<optgroup label="' + t + '">' + of.map(r => '<option value="' + escapeHtml(r.ReasonID) + '">' + escapeHtml(r.Name) + '</option>').join('') + '</optgroup>' : '';
     }).join('');
   }
+  // A leaver's ERP and portal access (owner, 2026-10-14): until the
+  // settlement is paid, at most 30 days after the last working day; HR can
+  // extend it, keep it, or go back to the rule.
+  function renderAccess(e) {
+    const leaving = e.Status !== 'Active' && e.LeavingDate;
+    $('emp-access').classList.toggle('hidden', !leaving);
+    if (!leaving) return;
+    const o = e.AccessOverride || {};
+    const ended = e.AccessUntil && e.AccessUntil < new Date().toISOString().slice(0, 10);
+    $('emp-access-text').textContent = 'ERP and portal access: ' + (o.Mode === 'Keep' ? 'kept, no end (' + o.By + ': ' + o.Reason + ')'
+      : (ended ? 'ended on ' : 'until ') + e.AccessUntil + (o.Mode === 'Extend' ? ' (extended by ' + o.By + ': ' + o.Reason + ')' : ' (the settlement paid, at most 30 days after the last working day)'));
+    $('emp-access-extend').classList.toggle('hidden', !rights.canWrite);
+    $('emp-access-keep').classList.toggle('hidden', !rights.canWrite || o.Mode === 'Keep');
+    $('emp-access-rule').classList.toggle('hidden', !rights.canWrite || !o.Mode);
+  }
+  async function setAccess(mode) {
+    let until = '';
+    if (mode === 'Extend') {
+      until = await appPrompt('Access until which date? (yyyy-mm-dd)', current.AccessUntil || '');
+      if (until === null) return;
+    }
+    const reason = await appPrompt(mode === 'Rule' ? 'Why go back to the rule?' : 'The reason:', '');
+    if (reason === null) return;
+    try {
+      await call('setLeaverAccess', { employeeId: current.EmployeeID, mode, until: until.trim(), reason });
+      await openEmployee(current.EmployeeID);
+    } catch (err) { appAlert(err.message || 'Unable to change the access.'); }
+  }
   function fillForm(e) {
     fillPickers(e);
     fillLeavingReasons(e);
@@ -574,6 +606,7 @@
       rights = { canWrite: r.canWrite, canSeeSensitive: r.canSeeSensitive, canCorrect: r.canCorrect };
       renderFlexi();
       fillForm(e);
+      renderAccess(e);
       $('emp-heading').textContent = e.EmployeeNo + ' — ' + e.FullName;
       $('emp-status-badge').innerHTML = '<span class="text-xs ' + (STATUS_CLASS[e.Status] || '') + '">' + escapeHtml(e.Status) + '</span>';
       $('emp-note').textContent = r.missing.length ? 'Compulsory fields not filled: ' + r.missing.join(', ') + '.' : '';
@@ -911,6 +944,11 @@
     });
     $('emp-replace-cancel').addEventListener('click', () => $('emp-replace').classList.add('hidden'));
     $('emp-replace-go').addEventListener('click', doReplace);
+    $('emp-access-extend').addEventListener('click', () => setAccess('Extend'));
+    $('emp-access-keep').addEventListener('click', () => setAccess('Keep'));
+    $('emp-access-rule').addEventListener('click', () => setAccess('Rule'));
+    // Once, after the leaver rule went live: the last day for those already leaving.
+    call('refreshLeaverAccess', {}).catch(() => {});
     const pending = window.__pendingModuleParams;
     window.__pendingModuleParams = null;
     Promise.all([

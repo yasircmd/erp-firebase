@@ -18,3 +18,18 @@ essPortal
 leavingReasonSetup
 saveEmployee
 runMasterImport
+# A leaver's access (HR_EMPLOYEES.md). New first; requireUser changed, so
+# every ERP function checks the last day only once redeployed: the ones
+# leavers use most are below; a full redeploy covers the rest.
+setLeaverAccess
+refreshLeaverAccess
+getEmployee
+getEmployees
+markSettlementPaid
+reverseSettlementPayment
+getAllFirebaseUsers
+completeLogin
+restoreSession
+getMyTree
+markInterimPaid
+reverseInterimPayment

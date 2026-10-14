@@ -22,6 +22,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   await fetch(AUTH + '/emulator/v1/projects/' + PROJECT + '/accounts', { method: 'DELETE' }); // emulator-only endpoint
   const f = baseFixture();
   f.users['u-other'].lastLogin = '2026-10-14T05:07:00.000Z';
+  // A leaver's last day of access (leaverAccess.js): one ended, one to come.
+  f.users['u-other'].AccessUntil = '2026-01-31';
+  f.users['u-viewer'].AccessUntil = '2099-12-31';
   await reset(f);
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
   const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(harness); }).listen(8161);
@@ -39,6 +42,13 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const lastLogin = name => row(name).first().locator('td').nth(4).textContent();
     assert.equal((await lastLogin('Other Co')).trim(), '14/10/2026 09:07');
     assert.equal((await lastLogin('viewer')).trim(), 'Never');
+  });
+
+  await check('a leaver: the status shows access to come, or ended (owner, 2026-10-14)', async () => {
+    const status = name => row(name).first().locator('td').nth(3).textContent();
+    assert.match((await status('Other Co')).replace(/\s+/g, ' '), /Active ?Access ended 31\/01\/2026/);
+    assert.match((await status('viewer')).replace(/\s+/g, ' '), /Active ?Leaving: access until 31\/12\/2099/);
+    assert.doesNotMatch(await status('Admin'), /access/i);
   });
 
   await check('Add New User after an Edit: a new user is created, the edited one is unchanged', async () => {

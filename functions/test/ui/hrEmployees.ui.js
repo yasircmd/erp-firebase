@@ -31,7 +31,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const page = await browser.newPage();
     page.__errors = []; page.__dialogs = [];
     page.on('pageerror', e => page.__errors.push(e.message));
-    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.type() === 'prompt' ? d.accept(page.__answer || '') : d.accept(); });
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.type() === 'prompt' ? d.accept((Array.isArray(page.__answer) ? page.__answer.shift() : page.__answer) || '') : d.accept(); });
     await page.goto('http://127.0.0.1:8165/?module=' + module + '&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     return page;
@@ -125,10 +125,18 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.fill('[data-k="LeavingNote"]', 'Moving abroad');
     await page.click('#emp-save-btn');
     await page.waitForFunction(() => /Leaving reason[\s\S]*Relocation/.test(document.getElementById('emp-history').textContent), null, { timeout: 15000 });
+    // ERP and portal access: 30 days after the last working day; HR extends it (owner, 2026-10-14).
+    await page.waitForFunction(() => /ERP and portal access: until 30\/01\/2027/.test(document.getElementById('emp-access-text').textContent), null, { timeout: 15000 });
+    page.__answer = ['2027-02-15', 'Handing over the accounts'];
+    await page.click('#emp-access-extend');
+    await page.waitForFunction(() => /until 15\/02\/2027 \(extended by .*: Handing over the accounts\)/.test(document.getElementById('emp-access-text').textContent), null, { timeout: 15000 });
+    assert.match(await page.textContent('#emp-history'), /Access after leaving/);
+    assert.equal(await page.isVisible('#emp-access-rule'), true);
     await page.selectOption('[data-k="Status"]', 'Active');
     await page.click('#emp-save-btn');
     await page.waitForFunction(() => /Relocation → /.test(document.getElementById('emp-history').textContent), null, { timeout: 15000 });
     assert.equal(await page.inputValue('#emp-leave-reason'), '');
+    assert.equal(await page.isVisible('#emp-access'), false, 'active: no end of access');
   });
 
   await check('line manager, direct reports, Replace manager', async () => {

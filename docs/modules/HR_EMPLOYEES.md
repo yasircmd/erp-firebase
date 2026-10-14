@@ -575,3 +575,38 @@ and the option to add more.
   (5), `hrEmployees.ui.js` (9); negative control caught (reason not
   required).
 
+## A leaver's access (owner, 2026-10-14)
+
+From UX testing: "Resigned employees' access should be auto disabled." The
+owner: at most 30 days from the last working day; the final settlement
+being **paid** ends it sooner; Admin or HR can extend or cancel it at any
+time; for ERP and Employee Portal logins alike.
+
+- **The last day** (`leaverAccess.js`, `lastDay`): for someone on notice
+  or who has left, the settlement's payment date (not before the last
+  working day), at most 30 days after the last working day; else none. An
+  override: Extend (a date from today on) or Keep (no end).
+- **Kept** on the employee (`AccessUntil`, `AccessOverride`) and the
+  linked ERP user (`users/{uid}/AccessUntil`), worked out again when the
+  status, leaving date or ERP user change (saveEmployee), the settlement is
+  paid or its payment reversed (payrollSettlement `pay` / `unpay`, also
+  through an interim payroll), or an override is set. Back to Active clears
+  it. An unlinked user loses the date.
+- **Enforced** with no scheduled job, by the date: `requireUser` (every
+  ERP call) and the portal's `whoIsAsking` refuse a sign-in after the last
+  day ("Your access ended on …: ask HR"). The portal used to end at once
+  on Left; a leaver now keeps it to the last day (to see the settlement and
+  payslips). A leaver from before this (no date) keeps the old portal rule
+  until the backfill below.
+- **Overrides:** `setLeaverAccess` (Employees write: HR, Admin), Extend /
+  Keep / Rule with a reason, in the employee history ("Access after
+  leaving"). The Employees screen shows the access line and the buttons.
+- **User Management** (patch `user-access-until` + SCREEN_EDITS): the
+  status shows "Leaving: access until …" or "Access ended …".
+- **Backfill, once:** `refreshLeaverAccess`, called when someone with
+  Employees write opens Employees; a marker (`appState/leaverAccess`)
+  keeps it to once. It fills in the last day for everyone already on
+  notice or gone; those 30 days past it lose access then.
+- Tests: `leaverAccess` suite (5), `hrEmployees.ui.js` (9),
+  `userMgmt.ui.js` (3); negative control caught (no check at sign-in).
+

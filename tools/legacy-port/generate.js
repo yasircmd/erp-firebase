@@ -388,6 +388,10 @@ const SCREEN_EDITS = [
   // edited user's id stayed in um-form-id and the save patched that user.
   { mod: 'USERMGMT', from: "document.getElementById('um-modal-title').textContent = 'Add New User';",
     to: "document.getElementById('um-modal-title').textContent = 'Add New User';\n      document.getElementById('um-form-id').value = ''; // reset() keeps a hidden input's value" },
+  // User Management: a leaver's access (owner, 2026-10-14; leaverAccess.js):
+  // the status shows its last day, or that it has ended.
+  { mod: 'USERMGMT', from: '<td class="py-3 px-4 text-xs">${escapeHtml(u.status)}</td>',
+    to: '<td class="py-3 px-4 text-xs">${escapeHtml(u.status)}${u.accessUntil ? `<div class="um-access text-[11px] ${u.accessUntil < new Date().toISOString().slice(0, 10) ? \'text-red-400\' : \'text-amber-400\'}">${u.accessUntil < new Date().toISOString().slice(0, 10) ? \'Access ended \' : \'Leaving: access until \'}${escapeHtml(u.accessUntil)}</div>` : \'\'}</td>' },
   // User Management: Last Login is now recorded at sign-in (session.js,
   // completeLogin) as a UTC timestamp; shown in local time, dd/mm/yyyy HH:MM.
   { mod: 'USERMGMT', from: '${escapeHtml(u.lastLogin)}',

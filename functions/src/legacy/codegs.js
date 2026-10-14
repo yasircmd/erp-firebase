@@ -606,6 +606,8 @@ async function getAllFirebaseUsers(idToken) {
     role: users[uid].role || 'VIEWER',
     status: users[uid].status || 'Active',
     lastLogin: users[uid].lastLogin || 'Never',
+    // [PORT CHANGE user-access-until] a leaver's last day of access.
+    accessUntil: users[uid].AccessUntil || '',
     assignedCompanies: Array.isArray(users[uid].AssignedCompanies) ? users[uid].AssignedCompanies : []
   }));
 }

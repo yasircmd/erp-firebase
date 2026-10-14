@@ -5,8 +5,8 @@ order: 11
 modules: [PAYROLLFS]
 sources: [functions/src/payrollSettlement.js, functions/src/payrollCalc.js, functions/src/payrollRun.js, functions/src/payrollFiles.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js]
 summary: Finalise the employee’s end-of-service or exit settlement with all remaining balances and payments.
-reviewed: 2026-10-12
-fingerprint: 4fea6b8df1dd6f21
+reviewed: 2026-10-14
+fingerprint: 3232ba4a3f538c7e
 ---
 ## What it is for
 
@@ -33,7 +33,7 @@ fingerprint: 4fea6b8df1dd6f21
 
 ## What happens in the books
 
-Approval posts one settlement journal dated the leaving date. It clears the amounts used from gratuity, leave salary and other provisions, posts the difference to expense, takes back any lapsed accrual provision, reduces loan receivables, and posts net due to Salaries Payable or Recoverable from employees. Payment is separate and clears the payable through cash/bank. A negative net is not paid out; it is recorded as an employee receivable.
+Approval posts one settlement journal dated the leaving date. It clears the amounts used from gratuity, leave salary and other provisions, posts the difference to expense, takes back any lapsed accrual provision, reduces loan receivables, and posts net due to Salaries Payable or Recoverable from employees. Payment is separate and clears the payable through cash/bank. Once it is paid, the leaver's ERP and Employee Portal access ends on the payment date (or the last working day, if later); without a payment it ends 30 days after the last working day. Reversing the payment brings the 30 days back. A negative net is not paid out; it is recorded as an employee receivable.
 
 ## Rights
 
