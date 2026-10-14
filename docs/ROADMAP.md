@@ -207,7 +207,11 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       each module's prints could be customized (Tier 3 print module).
     - Advances: asks how to fix a wrong reference without reversing the
       whole entry (today only a reversal changes allocations).
-    - **Building** (agreed 2026-10-14), deploy set `ux-fixes-2`:
+    - **Building** (agreed 2026-10-14), deploy set `ux-fixes-2`. Six of
+      seven built and tested 2026-10-14 on branch `tier2-ux-fixes`: every
+      emulator suite passes (run in groups of 8 with a restart between:
+      in this container even a third of the suite exhausts the emulator's
+      memory), smoke 123/123, unit guards 101/101:
       - [x] **Rows per page: 25, 50 or 100** (LIST_PAGING.md). `listPaging`
         suite (12), `listPaging.ui.js` (6); negative controls caught.
       - [x] **Queries: withdraw (with a reason) or mark resolved at any
