@@ -134,9 +134,39 @@ test('the company default handler and backup; reassigning; withdrawing a new que
   await er('u-approver', 'reject', { id: o, text: 'No overtime was approved for July.' });
   assert.deepEqual((await ess(UID.ALI, 'request', { id: o })).request.RejectionReason, 'No overtime was approved for July.');
   const w = (await ess(UID.ALI, 'raiseQuery', { runId: JULY, category: 'Other', description: 'Typo in my name.' })).requestId;
-  await ess(UID.ALI, 'withdrawRequest', { id: w });
+  await ess(UID.ALI, 'withdrawRequest', { id: w, reason: 'Raised by mistake.' });
   assert.equal((await reqDoc(w)).Status, 'Withdrawn');
-  await assert.rejects(ess(UID.ALI, 'withdrawRequest', { id: Q }), /Only a query nobody has answered yet/);
+  // A closed (resolved) query can't be withdrawn.
+  await assert.rejects(ess(UID.ALI, 'withdrawRequest', { id: Q, reason: 'x' }), /This query is closed/);
+  // An answered one, still in progress, can, with a reason (owner, 2026-10-14).
+  const a = (await ess(UID.ALI, 'raiseQuery', { runId: JULY, category: 'Other', description: 'Bank name wrong.' })).requestId;
+  await er('u-approver', 'reply', { id: a, text: 'Which bank should it be?' });
+  assert.equal((await reqDoc(a)).Status, 'InProgress');
+  assert.equal((await ess(UID.ALI, 'request', { id: a })).canWithdraw, true);
+  await assert.rejects(ess(UID.ALI, 'withdrawRequest', { id: a }), /Say why you are withdrawing it/);
+  await ess(UID.ALI, 'withdrawRequest', { id: a, reason: 'Sorted with my manager.' });
+  assert.equal((await reqDoc(a)).Status, 'Withdrawn');
+});
+
+test('a query: the employee marks it resolved at any time while open; it can be reopened; never another employee\'s (owner, 2026-10-14)', async () => {
+  const q = (await ess(UID.ALI, 'raiseQuery', { runId: JULY, category: 'Other', description: 'Allowance looks low.' })).requestId;
+  await er('u-approver', 'reply', { id: q, text: 'Checking with payroll.' });
+  assert.equal((await reqDoc(q)).Status, 'InProgress');
+  const d = await ess(UID.ALI, 'request', { id: q });
+  assert.deepEqual([d.canMarkResolved, d.canWithdraw], [true, true]);
+  await assert.rejects(ess(UID.SARA, 'markQueryResolved', { id: q }), /not your request/);
+  await ess(UID.ALI, 'markQueryResolved', { id: q, text: 'Found it: paid in arrears.' });
+  const r = await reqDoc(q);
+  assert.deepEqual([r.Status, r.ResolvedByEmployee, r.Outcome], ['Resolved', true, 'Marked resolved by the employee: Found it: paid in arrears.']);
+  assert.match(r.History.map(h => h.Event).join(' | '), /Marked resolved$/);
+  const after = await ess(UID.ALI, 'request', { id: q });
+  assert.deepEqual([after.canMarkResolved, after.canWithdraw, after.canReopen], [false, false, true]);
+  await assert.rejects(ess(UID.ALI, 'markQueryResolved', { id: q }), /Only an open query/);
+  await ess(UID.ALI, 'reopenQuery', { id: q, text: 'Arrears not in the payslip after all.' });
+  assert.equal((await reqDoc(q)).Status, 'InProgress');
+  // No note needed.
+  await ess(UID.ALI, 'markQueryResolved', { id: q });
+  assert.equal((await reqDoc(q)).Outcome, 'Marked resolved by the employee.');
 });
 
 test('files: the employee adds up to 5 to their own request; HR sees them in Employee Requests; never on another employee\'s', async () => {

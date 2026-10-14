@@ -12,3 +12,5 @@ getStockAdjustmentEntries
 getPurchaseOrderEntries
 getProductionEntries
 getPhysicalCountEntries
+# Queries: withdraw or mark resolved at any time (EMPLOYEE_PORTAL.md):
+essPortal

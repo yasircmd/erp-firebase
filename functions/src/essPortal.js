@@ -403,6 +403,7 @@ const ACTIONS = {
   raiseQuery: { run: (me, d) => ER().raiseQuery(me, d) },
   replyRequest: { run: (me, d) => ER().employeeReply(me, d) },
   withdrawRequest: { run: (me, d) => ER().withdraw(me, d) },
+  markQueryResolved: { run: (me, d) => ER().markResolved(me, d) },
   reopenQuery: { run: (me, d) => ER().reopen(me, d) },
   uploadFile: { run: (me, d) => ER().uploadFile(me, d) },
   openFile: { run: (me, d) => ER().openFile(me, d) },

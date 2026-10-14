@@ -175,6 +175,36 @@ let ALI, SARA, JULY, ADV;
     await p.context().close();
   });
 
+  await check('a query: the employee marks it resolved, or withdraws it giving a reason, at any time while open (owner, 2026-10-14)', async () => {
+    const p = await portal('EMP-0001', 'Sunrise#2026');
+    await p.click('#bottom-nav a[data-nav="requests"]');
+    await visible(p, '.req-row');
+    await p.click('.req-row');
+    await visible(p, '#rq-reopen');
+    assert.equal(await p.$('#rq-resolved'), null, 'closed: nothing to mark');
+    await p.click('#rq-reopen');
+    await answer(p, true, 'Still not in my account.');
+    await toast(p, /Reopened/);
+    await visible(p, '#rq-resolved');
+    await p.click('#rq-resolved');
+    await answer(p, true, 'Received today.');
+    await toast(p, /Marked resolved/);
+    await until(p, () => /Marked resolved by the employee: Received today\./.test(document.getElementById('req-body').textContent));
+    // Reopened again, then withdrawn: the reason is required.
+    await p.click('#rq-reopen');
+    await answer(p, true, 'One more question.');
+    await toast(p, /Reopened/);
+    await visible(p, '#rq-withdraw');
+    await p.click('#rq-withdraw');
+    await visible(p, '#ess-dialog-ok');
+    await p.click('#ess-dialog-ok');
+    assert.equal(await p.$eval('#ess-dialog', d => d.classList.contains('hidden')), false, 'no reason: the box stays open');
+    await answer(p, true, 'Asked my manager instead.');
+    await toast(p, /Withdrawn/);
+    assert.deepEqual(p.__errors, []);
+    await p.context().close();
+  });
+
   let LR;
   await check('an advance: the limit shown live and an amount over it flagged; sent to the line manager, who approves it in Team', async () => {
     const p = await portal('EMP-0001', 'Sunrise#2026');

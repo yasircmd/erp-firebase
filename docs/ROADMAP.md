@@ -210,7 +210,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
     - **Building** (agreed 2026-10-14), deploy set `ux-fixes-2`:
       - [x] **Rows per page: 25, 50 or 100** (LIST_PAGING.md). `listPaging`
         suite (12), `listPaging.ui.js` (6); negative controls caught.
-      - [ ] Queries: the employee may withdraw or mark resolved at any time.
+      - [x] **Queries: withdraw (with a reason) or mark resolved at any
+        time while open** (EMPLOYEE_PORTAL.md). `essRequests` suite (7),
+        `essRequests.ui.js` (7); negative controls caught.
       - [ ] Leaving reasons in Payroll Setup.
       - [ ] One print style (rounded, light borders).
       - [ ] A leaver's login cut-off.

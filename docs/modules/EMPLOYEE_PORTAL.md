@@ -859,3 +859,23 @@ blocks are gone from the shell and wired in the portal).
 **Deploy:** `tools/deploy-sets/employee-portal-4.txt` with `--screens`
 (EMPREQUESTS, PAYROLL, PAYROLLSETUP, PAYROLLIP, PROVISIONS, HRSETUP), then
 **Hosting**. Nothing to set up.
+
+## Queries: withdraw or mark resolved at any time (owner, 2026-10-14)
+
+From UX testing: "In Employee Requests, the employee can also mark resolved
+and withdraw." The owner: only a **query** can be withdrawn or marked
+resolved, at any time while it is open (New or In progress), with a
+reason; other requests are unchanged.
+
+- `withdrawRequest`: a query while open (was: only while New, i.e. before
+  HR answered); the reason is required for a query ("Say why you are
+  withdrawing it."); a closed query is refused ("This query is closed").
+- `markQueryResolved` (new portal action, `employeeRequests.markResolved`):
+  an open query → Resolved, Outcome "Marked resolved by the employee[: note]",
+  `ResolvedByEmployee: true`, a history entry; the note is optional. It can
+  be reopened within REOPEN_DAYS (14), as one HR resolved.
+- Portal: "Sorted? Mark resolved" on an open query; the withdraw box
+  requires a reason for a query.
+- Tests: `essRequests` suite (7), `essRequests.ui.js` (7); negative controls
+  caught (old withdraw rule; reason optional).
+
