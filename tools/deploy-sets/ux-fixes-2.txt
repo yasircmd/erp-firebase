@@ -1,0 +1,14 @@
+# UX testing fixes, batch 2 (owner, 2026-10-14; docs/ROADMAP.md, "UX
+# testing, 2026-10-14", Tier 2). Hosting too (tools/deploy-hosting.sh):
+# the shell and the Help pages. Order doesn't matter: an old function
+# ignores the page size and a page without one gets 100.
+# Rows per page, 25 / 50 / 100 (docs/modules/LIST_PAGING.md):
+getJournalEntries
+getCbtEntries
+getGrnEntries
+getMaterialIssueEntries
+getWarehouseMovementEntries
+getStockAdjustmentEntries
+getPurchaseOrderEntries
+getProductionEntries
+getPhysicalCountEntries

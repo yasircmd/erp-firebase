@@ -207,6 +207,15 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       each module's prints could be customized (Tier 3 print module).
     - Advances: asks how to fix a wrong reference without reversing the
       whole entry (today only a reversal changes allocations).
+    - **Building** (agreed 2026-10-14), deploy set `ux-fixes-2`:
+      - [x] **Rows per page: 25, 50 or 100** (LIST_PAGING.md). `listPaging`
+        suite (12), `listPaging.ui.js` (6); negative controls caught.
+      - [ ] Queries: the employee may withdraw or mark resolved at any time.
+      - [ ] Leaving reasons in Payroll Setup.
+      - [ ] One print style (rounded, light borders).
+      - [ ] A leaver's login cut-off.
+      - [ ] Location as an Organizational Unit.
+      - [ ] More item categories.
     - **Clarified (owner, 2026-10-14):** Employee Requests: only a
       query can be withdrawn or marked resolved by the employee, at any
       time; other requests unchanged. A leaver's login (ERP and Employee

@@ -174,3 +174,20 @@ Answered: **add below**, **all nine lists**, **remove "Load all"**.
   1. Deploy → "hosting" first: the screens need the shell's
      `createListPager`.
   2. Then "functions set", set `list-paging`, with screens.
+
+## Rows per page (owner, 2026-10-14)
+
+"Option to load how many transactions per module, currently 100": the
+owner chose **25, 50 or 100 only, never more**.
+
+- Server (`listPaging.js`): a page may carry `size`; only 25, 50 or 100
+  are accepted, anything else gets the default 100 (`PAGE_SIZES`). The
+  JV / CBT unfiltered path (`journal.js`) reads `size + 1` rows.
+- Shell (`createListPager`): every request sends the size; a **Rows**
+  selector sits beside the "Showing 1–N of M" notice whenever the list
+  has more than 25 entries (so it also stays after everything is
+  loaded). The choice is kept in the browser (`erp-list-size`), for every
+  list, and in memory when storage is blocked.
+- Tests: `listPaging` suite (12) and `listPaging.ui.js` (6); negative
+  controls caught (server ignoring the size; shell always sending 100).
+

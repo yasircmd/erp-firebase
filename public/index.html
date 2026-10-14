@@ -1710,13 +1710,22 @@
     // then pager.reload() (first page, current filters), pager.reloadSoon()
     // (the same, after typing pauses), pager.more() and pager.open(id)
     // (that one entry, e.g. a report's drill-down).
+    // Rows per page (owner, 2026-10-14): 25, 50 or 100, chosen beside the
+    // notice and remembered in this browser for every list (erp-list-size).
+    const LIST_SIZES = [25, 50, 100];
+    let chosenListSize = 0; // this page's choice, if storage is blocked
+    function listSize() {
+      let v = chosenListSize || 100;
+      try { v = Number(localStorage.getItem('erp-list-size')) || v; } catch (e) { /* storage blocked: this page's choice */ }
+      return LIST_SIZES.includes(v) ? v : 100;
+    }
     window.createListPager = function (opts) {
       const p = { entries: [], total: 0, next: '', filtered: false, loaded: false, loading: false, opening: false, seq: 0 };
       const notice = () => document.getElementById(opts.notice);
       const n = v => Number(v || 0).toLocaleString('en-US');
       function load(mode, id) {
         const seq = ++p.seq;
-        const page = mode === 'open' ? { id: id } : Object.assign({}, opts.filters ? opts.filters() : {});
+        const page = mode === 'open' ? { id: id } : Object.assign({}, opts.filters ? opts.filters() : {}, { size: listSize() });
         if (mode === 'more') page.after = p.next;
         p.loading = true; p.opening = mode === 'open'; p.renderNotice();
         opts.fetch(page, result => {
@@ -1747,17 +1756,27 @@
         const shown = p.entries.length;
         let html = '';
         if (p.loaded && !p.single && p.next) {
-          const left = Math.min(100, Math.max(p.total - shown, 1));
+          const left = Math.min(listSize(), Math.max(p.total - shown, 1));
           html = 'Showing 1–' + n(shown) + ' of ' + n(p.total) + ' ' + (p.filtered ? 'matches' : (opts.noun || 'entries')) +
             '. <button type="button" class="list-load-more text-blue-400 hover:text-blue-300 underline"' + (p.loading ? ' disabled' : '') +
             '>Load next ' + n(left) + '</button>';
         } else if (p.loaded && !p.single && p.filtered && p.total) {
           html = n(p.total) + (p.total === 1 ? ' match' : ' matches');
         }
+        if (p.loaded && !p.single && p.total > LIST_SIZES[0]) {
+          html += (html ? ' ' : '') + '<label class="list-size-wrap no-print ml-2 text-slate-400">Rows <select class="list-size bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-xs">' +
+            LIST_SIZES.map(v => '<option value="' + v + '"' + (v === listSize() ? ' selected' : '') + '>' + v + '</option>').join('') + '</select></label>';
+        }
         el.innerHTML = html;
         el.classList.toggle('hidden', !html);
         const btn = el.querySelector('.list-load-more');
         if (btn) btn.addEventListener('click', p.more);
+        const size = el.querySelector('.list-size');
+        if (size) size.addEventListener('change', () => {
+          chosenListSize = Number(size.value);
+          try { localStorage.setItem('erp-list-size', size.value); } catch (e) { /* not remembered after a reload */ }
+          p.reload();
+        });
       };
       return p;
     };

@@ -205,7 +205,7 @@ async function journalListPage_(where, assignedCompanies, page, spec, voucherTyp
   if (cursor) q = q.startAfter(cursor[0], cursor[1]);
   let snap;
   try {
-    snap = await q.limit(listPaging.PAGE_SIZE + 1).get();
+    snap = await q.limit(req.size + 1).get();
   } catch (err) {
     // A missing composite index (FAILED_PRECONDITION) must not break the
     // list: read it the way a search does instead, and say so in the logs.
@@ -215,9 +215,9 @@ async function journalListPage_(where, assignedCompanies, page, spec, voucherTyp
     return listPaging.pageOf(all.map(asListEntry), page, spec);
   }
   const rows = snap.docs.map(d => asListEntry(Object.assign({}, d.data(), { _id: d.id })));
-  const entries = rows.slice(0, listPaging.PAGE_SIZE);
+  const entries = rows.slice(0, req.size);
   const total = await firestoreCount_(FIRESTORE_JOURNAL_ENTRIES_COLLECTION, where);
-  return { entries, total, next: rows.length > listPaging.PAGE_SIZE ? listPaging.cursorOf(entries[entries.length - 1], spec) : '', filtered: false };
+  return { entries, total, next: rows.length > req.size ? listPaging.cursorOf(entries[entries.length - 1], spec) : '', filtered: false };
 }
 
 // Shared core used by both saveJournalDraft() (plain manual JV) and

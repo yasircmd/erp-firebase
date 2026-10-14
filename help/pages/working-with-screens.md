@@ -5,7 +5,7 @@ order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html]
 reviewed: 2026-10-14
-fingerprint: 485012227dd0f040
+fingerprint: 305dd022c85576c3
 ---
 ## Company first
 
@@ -46,6 +46,15 @@ any of them.
 Messages, confirmations ("Post this document?") and questions (for example
 a reason for a reversal) appear in a box inside the ERP. Read them before
 choosing: **Cancel** always leaves things as they were.
+
+## Long lists
+
+Document lists (journal entries, cash and bank, GRNs, purchase orders and
+others) show the newest entries first, a page at a time. **Load next**
+adds the following page below. Searching and filtering look through every
+entry, not only the ones shown. **Rows** beside the count sets how many a
+page holds: 25, 50 or 100. The choice is remembered in this browser for
+every list.
 
 ## Copy to Excel and printing
 

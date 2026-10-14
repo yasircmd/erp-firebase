@@ -10,10 +10,15 @@
 // strictly after it, so entries added meanwhile can't shift a page or
 // repeat one.
 const PAGE_SIZE = 100;
+// Rows per page the user may choose (owner, 2026-10-14): 25, 50 or 100,
+// never more; anything else gets the default.
+const PAGE_SIZES = [25, 50, 100];
+const sizeOf = v => (PAGE_SIZES.includes(Number(v)) ? Number(v) : PAGE_SIZE);
 
 // What a screen sends as `page` (all optional): search, from, to (dates,
 // yyyy-mm-dd, inclusive), the module's equality filters (e.g. CompanyID,
-// Status), `after` (a previous `next`), or `id` (that one entry only).
+// Status), `after` (a previous `next`), `size` (rows per page, 25 / 50 /
+// 100), or `id` (that one entry only).
 function normalize(page, spec) {
   const p = page || {};
   const str = v => String(v == null ? '' : v).trim();
@@ -25,6 +30,7 @@ function normalize(page, spec) {
     to: str(p.to),
     equals,
     after: str(p.after),
+    size: sizeOf(p.size),
     id: str(p.id)
   };
 }
@@ -81,9 +87,9 @@ function pageOf(all, page, spec) {
   const matching = all.filter(matcher(req, spec)).sort(compareNewestFirst(spec));
   const cursor = req.after ? parseCursor(req.after) : null;
   const rest = cursor ? matching.filter(e => isAfter(e, cursor, spec)) : matching;
-  const entries = rest.slice(0, PAGE_SIZE);
-  const next = rest.length > PAGE_SIZE ? cursorOf(entries[entries.length - 1], spec) : '';
+  const entries = rest.slice(0, req.size);
+  const next = rest.length > req.size ? cursorOf(entries[entries.length - 1], spec) : '';
   return { entries, total: matching.length, next, filtered: isFiltered(req) };
 }
 
-module.exports = { PAGE_SIZE, normalize, isFiltered, compareNewestFirst, cursorOf, parseCursor, isAfter, pageOf };
+module.exports = { PAGE_SIZE, PAGE_SIZES, normalize, isFiltered, compareNewestFirst, cursorOf, parseCursor, isAfter, pageOf };
