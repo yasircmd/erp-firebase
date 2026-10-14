@@ -5,8 +5,8 @@ order: 7
 modules: [APPROVALTRACKER]
 sources: [functions/src/approvals.js, functions/src/approvalDelegation.js]
 summary: Track each approval request, see who acted and follow the current status of a document.
-reviewed: 2026-10-12
-fingerprint: 9796e313ad2a30ea
+reviewed: 2026-10-14
+fingerprint: 4c3262ee7661f42a
 ---
 ## What it is for
 
@@ -20,7 +20,7 @@ fingerprint: 9796e313ad2a30ea
 
 ## Step by step
 
-1. Open Approval Tracker. Filter by module, document number, approver, and submitted date range.
+1. Open Approval Tracker. Filter by module, document number, approver, status (Pending, Approved or Rejected), and submitted date range.
 2. Review each level's Decision: Pending, Approved, or Rejected. Pending time is calculated live from the instance creation time; completed time is measured from the original submission, not from the prior level.
 3. Inspect the rejection/approval reason, self-approved indicator, and any current delegation note. Copy the filtered rows to Excel for audit follow-up.
 4. If the user is authorized, select **Delegate** on a pending level to assign that one level to another user with a reason. Admins may also delegate all pending levels of an absent approver; an approver may delegate their own pending levels.

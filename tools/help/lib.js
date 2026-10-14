@@ -102,7 +102,9 @@ function check() {
 
 // ---------- the site ----------
 const CSS = `:root{--bg:#f8fafc;--panel:#fff;--text:#0f172a;--muted:#475569;--line:#e2e8f0;--accent:#2563eb;--note:#eff6ff;--code:#f1f5f9}
-@media (prefers-color-scheme:dark){:root{--bg:#0f172a;--panel:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--line:#334155;--accent:#60a5fa;--note:#172554;--code:#0f172a}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f172a;--panel:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--line:#334155;--accent:#60a5fa;--note:#172554;--code:#0f172a}}
+:root[data-theme=dark]{--bg:#0f172a;--panel:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--line:#334155;--accent:#60a5fa;--note:#172554;--code:#0f172a}
+#theme{margin-left:auto;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font:inherit;font-size:13px;cursor:pointer}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 a{color:var(--accent)}header{background:var(--panel);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 header .brand{font-weight:700;text-decoration:none;color:var(--text);font-size:17px}header input{flex:1;min-width:180px;max-width:360px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font:inherit}
@@ -125,11 +127,20 @@ main.innerHTML='<h1>Search: '+esc(t)+'</h1>'+(hits.length?'<ul id="results">'+hi
 if(q){q.addEventListener('input',function(){search(q.value)});}
 var m=new URLSearchParams(location.search).get('m');if(m){load(function(){var s=idx.modules[m];if(s){location.replace(s+'.html')}else{var n=document.getElementById('notice');if(n){n.style.display='block'}}})}})();`;
 
+// Light / dark (owner, 2026-10-14): the ERP's saved theme (erp-theme, the
+// same site, so one setting for both), else the device's. Set in <head>,
+// before the page paints; the header button switches and saves it.
+const THEME_HEAD = "<script>try{var t=localStorage.getItem('erp-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>";
+const THEME_JS = `(function(){var b=document.getElementById('theme');if(!b)return;var r=document.documentElement;
+function dark(){var t=r.getAttribute('data-theme');return t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches}
+function label(){b.textContent=dark()?'Light mode':'Dark mode'}
+b.addEventListener('click',function(){var t=dark()?'light':'dark';r.setAttribute('data-theme',t);try{localStorage.setItem('erp-theme',t)}catch(e){}label()});label()})();`;
+
 function layout({ title, description, body, nav, canonical, crumb }) {
   return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
     '<title>' + esc(title) + '</title>\n<meta name="description" content="' + esc(description || '') + '">\n' +
-    '<link rel="canonical" href="' + esc(canonical) + '">\n<link rel="stylesheet" href="help.css">\n</head>\n<body>\n' +
-    '<header><a class="brand" href="index.html">ERP Help</a><input id="q" type="search" placeholder="Search help" aria-label="Search help"></header>\n' +
+    '<link rel="canonical" href="' + esc(canonical) + '">\n' + THEME_HEAD + '\n<link rel="stylesheet" href="help.css">\n</head>\n<body>\n' +
+    '<header><a class="brand" href="index.html">ERP Help</a><input id="q" type="search" placeholder="Search help" aria-label="Search help"><button id="theme" type="button" title="Switch between light and dark"></button></header>\n' +
     '<div class="wrap">\n<nav>' + nav + '</nav>\n<main>' + (crumb ? '<div class="crumb">' + crumb + '</div>' : '') + body + '</main>\n</div>\n' +
     '<footer>Free to read and share. © Yasir AV. All rights reserved.</footer>\n<script src="help.js"></script>\n</body>\n</html>\n';
 }
@@ -175,7 +186,7 @@ function build() {
   files[OUT_DIR + '/search.json'] = JSON.stringify({ modules, pages: all.map(p => ({ slug: p.slug, title: p.meta.title, summary: p.meta.summary || '',
     text: (p.modules.map(id => label[id] || '').join(' ') + ' ' + text(p.body)).slice(0, 20000) })) }) + '\n';
   files[OUT_DIR + '/help.css'] = CSS + '\n';
-  files[OUT_DIR + '/help.js'] = JS + '\n';
+  files[OUT_DIR + '/help.js'] = JS + '\n' + THEME_JS + '\n';
   files[OUT_DIR + '/sitemap.xml'] = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
     ['index'].concat(all.map(p => p.slug)).map(s => {
       const p = all.find(x => x.slug === s);

@@ -132,6 +132,33 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.close();
   });
 
+  await check('light / dark: follows the device until switched; the switch is saved with the ERP\'s theme (erp-theme) and kept on reload (owner, 2026-10-14)', async () => {
+    const p = await newPage();
+    const bg = () => p.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    const DARK = 'rgb(15, 23, 42)', LIGHT = 'rgb(248, 250, 252)';
+    await p.emulateMedia({ colorScheme: 'dark' });
+    await p.goto(base + '/help/index.html');
+    await p.evaluate(() => localStorage.removeItem('erp-theme'));
+    await p.reload();
+    assert.equal(await bg(), DARK, 'a dark device, nothing saved: dark');
+    assert.equal((await p.textContent('#theme')).trim(), 'Light mode');
+    await p.click('#theme');
+    assert.equal(await bg(), LIGHT);
+    assert.equal(await p.evaluate(() => localStorage.getItem('erp-theme')), 'light');
+    assert.equal((await p.textContent('#theme')).trim(), 'Dark mode');
+    await p.goto(base + '/help/journal-entries.html');
+    assert.equal(await bg(), LIGHT, 'kept on another page');
+    // The ERP's own choice applies too: dark saved, on a light device.
+    await p.emulateMedia({ colorScheme: 'light' });
+    await p.evaluate(() => localStorage.setItem('erp-theme', 'dark'));
+    await p.reload();
+    assert.equal(await bg(), DARK);
+    await p.emulateMedia({ media: 'print' });
+    assert.equal(await p.isVisible('#theme'), false, 'not printed (the header is hidden)');
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await check('the shell: Help opens the help home; inside a screen, that screen\'s page; back on Home, the home again; a link on the sign-in card', async () => {
     const p = await newPage();
     await p.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
@@ -145,6 +172,11 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.waitForSelector('#stub-module');
     assert.equal(await p.getAttribute('#help-btn', 'href'), '/help/?m=GRN');
     assert.equal(await p.$eval('#help-btn', b => b.closest('.hidden') === null), true, 'not inside a part hidden in a screen');
+    // Not on a print (owner, 2026-10-14): hidden for print media, shown again after.
+    await p.emulateMedia({ media: 'print' });
+    assert.equal(await p.$eval('#help-btn', b => getComputedStyle(b).display), 'none', 'Help is not printed');
+    await p.emulateMedia({ media: 'screen' });
+    assert.notEqual(await p.$eval('#help-btn', b => getComputedStyle(b).display), 'none');
     await p.click('#back-to-tree-btn');
     await p.waitForFunction(() => document.getElementById('help-btn').getAttribute('href') === '/help/');
     // The link works: Hosting serves the help home there.

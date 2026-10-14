@@ -5,8 +5,8 @@ order: 12
 modules: [INVENTORYAGING]
 sources: [functions/src/agingReports.js]
 summary: Age stock on hand by FIFO receipt layers as at a date, with value or quantity buckets by warehouse/category.
-reviewed: 2026-10-12
-fingerprint: a218de64b36388cf
+reviewed: 2026-10-14
+fingerprint: d2865e4845851c2f
 ---
 ## What it is for
 
@@ -23,8 +23,9 @@ fingerprint: a218de64b36388cf
 1. Select company and **As at** date. Optionally narrow to a warehouse and item category.
 2. Choose whether to include items with no stock. Search by item after the report loads.
 3. Run the report and review on-hand quantity/value by age bucket, last receipt, and last issue. Toggle **Show quantities, not values** to switch the bucket columns from value to quantity.
-4. Copy or print the filtered report. Use the as-at date and warehouse/category scope shown in the report when sharing totals.
-5. Investigate any warning that issues exceed receipts on record; that excess has no receipt layer/date to age.
+4. Click an item code to open it in the [Stock Ledger](stock-ledger.html), from its oldest receipt still on hand to the as-at date. If the report is for one warehouse, the ledger runs at once; for all warehouses, choose the warehouse there. **Back to Inventory Aging** returns.
+5. Copy or print the filtered report. Use the as-at date and warehouse/category scope shown in the report when sharing totals.
+6. Investigate any warning that issues exceed receipts on record; that excess has no receipt layer/date to age.
 
 ## What happens in the books
 

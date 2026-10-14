@@ -5,8 +5,8 @@ order: 1
 modules: [COMPANYMASTER]
 sources: [functions/src/companies.js]
 summary: Keep the company profile, chart links and the legal defaults used across the ERP.
-reviewed: 2026-10-12
-fingerprint: f2f52ace7063e5a2
+reviewed: 2026-10-14
+fingerprint: 5b9cd41efc884218
 ---
 ## What it is for
 
@@ -20,7 +20,7 @@ fingerprint: f2f52ace7063e5a2
 
 ## Step by step
 
-1. Open **Company Master** and select the company.
+1. Open **Company Master** and select the company. Companies are listed in code order (01, 02 … 10).
 2. Review the company information and operational defaults.
 3. Set the required account links and the fields that should be shared with all modules.
 4. Save and test a standard transaction against the company setup.

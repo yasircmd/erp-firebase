@@ -116,7 +116,7 @@
       const companyCell = assigned.length
         ? assigned.map(id => escapeHtml((companies.find(c => c.CompanyID === id) || {}).LegalName || id)).join(', ')
         : '<span class="text-red-400">None — no access</span>';
-      row.innerHTML = `<td class="py-3 px-4"><div class="font-medium text-slate-200">${escapeHtml(u.fullName)}</div><div class="text-xs text-slate-400">${escapeHtml(u.email || '@' + u.username)}</div></td><td class="py-3 px-4 text-xs">${escapeHtml(roleName(u.role))}</td><td class="py-3 px-4 text-xs">${companyCell}</td><td class="py-3 px-4 text-xs">${escapeHtml(u.status)}</td><td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(u.lastLogin)}</td><td class="py-3 px-4 text-right"><button class="um-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button><button class="um-delete text-slate-400 hover:text-red-400 p-1" title="Remove ERP access"><i class="fa-solid fa-trash"></i></button></td>`;
+      row.innerHTML = `<td class="py-3 px-4"><div class="font-medium text-slate-200">${escapeHtml(u.fullName)}</div><div class="text-xs text-slate-400">${escapeHtml(u.email || '@' + u.username)}</div></td><td class="py-3 px-4 text-xs">${escapeHtml(roleName(u.role))}</td><td class="py-3 px-4 text-xs">${companyCell}</td><td class="py-3 px-4 text-xs">${escapeHtml(u.status)}</td><td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(u.lastLogin && u.lastLogin !== 'Never' ? (isoLocalDateTime(u.lastLogin) || u.lastLogin) : 'Never')}</td><td class="py-3 px-4 text-right"><button class="um-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button><button class="um-delete text-slate-400 hover:text-red-400 p-1" title="Remove ERP access"><i class="fa-solid fa-trash"></i></button></td>`;
       row.querySelector('.um-edit').addEventListener('click', () => openModal(u.id));
       row.querySelector('.um-delete').addEventListener('click', () => deleteUser(u.id));
       tbody.appendChild(row);
@@ -146,6 +146,7 @@
       renderCompanyCheckboxes(u.assignedCompanies || []);
     } else {
       document.getElementById('um-modal-title').textContent = 'Add New User';
+      document.getElementById('um-form-id').value = ''; // reset() keeps a hidden input's value
       document.getElementById('um-form-username').disabled = false;
       renderCompanyCheckboxes([]);
     }

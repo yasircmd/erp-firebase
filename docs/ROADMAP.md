@@ -132,6 +132,84 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- [ ] **UX testing, 2026-10-14** (owner): 42 issues and suggestions,
+  triaged into three tiers (in this session's plan, agreed 2026-10-14).
+  - **Tier 1, fix now** (owner said go, 2026-10-14): all nine built and
+    tested 2026-10-14 on branch `tier1-ux-fixes` (smoke 123/123; the
+    related emulator suites 38/38). **To go live**, after merging:
+    `tools/deploy-functions.sh ux-fixes-1 --screens` (completeLogin;
+    USERMGMT, COA, RETAILSALES, APPROVALTRACKER, INVENTORYAGING,
+    COMPANYMASTER), then `tools/deploy-hosting.sh` (the shell's Help
+    button, the Help pages). Log both in DEPLOY_LOG.md.
+    - [x] **User Management: Add New User saved over the last edited
+      user** (bug). `form.reset()` keeps a hidden input's value, so
+      `um-form-id` still held the edited user's id; the save patched that
+      user (name, role, status, companies) and made no new account. Fixed
+      by a SCREEN_EDITS entry. `userMgmt.ui.js`; the old screen fails it.
+    - [x] **User Management: Last Login always "Never"** (bug): nothing
+      wrote it. `completeLogin` (session.js) now records it in UTC; a
+      refused Corporate ID or a reload (`restoreSession`) doesn't; the
+      screen shows it in local time, dd/mm/yyyy HH:MM. Earlier logins
+      can't be recovered. `userMgmt` suite (4) and UI (2), negative
+      controls caught (no write; raw value shown).
+    - [x] **Retail Sales: "Items" showed the gross amount.** It now shows
+      the number of units; with a discount, the amount before it shows as
+      "Subtotal" (without one it would repeat the Total). `retailSales.ui.js`
+      (10), negative control caught.
+    - [x] **Print: the Help button was printed** (it lacked `no-print`,
+      unlike the other top-bar buttons). `help.ui.js` checks it under print
+      media; negative control caught. (That file's checks 1 and 3 fail on
+      main too: stale expectations after the 2026-10-12 Help audit, not
+      this change.)
+    - [x] **COA opens on Active accounts** (SCREEN_EDITS; a change to a
+      ported module's behavior, asked for). A retired account leaves the
+      list until the filter is changed. `coaRecode.ui.js` (5) and
+      `singleCompany.ui.js` (54); negative control caught.
+    - [x] **Approval Tracker: a Status filter** (Pending, Approved,
+      Rejected), on the Decision column, in the screen like the Approver
+      filter. `approvalDelegation.ui.js` (3); negative control caught.
+      Its check 2 failed once in five runs (a 15 s wait for the
+      Delegate-all message), unrelated to the filter.
+    - [x] **Inventory Aging: the item code opens the Stock Ledger**, from
+      the oldest receipt still on hand to the as-at date. The ledger needs
+      one warehouse: with one chosen in Aging it runs; with all, it opens
+      on the item and dates and asks for the warehouse. Back returns (to an
+      empty Aging, as Batch Expiry does). `agingReports.ui.js` (5);
+      negative control caught.
+    - [x] **Company Master: the list in code order** (CompanyRefCode,
+      2 before 10; was by name). The parent dropdown stays by name. New
+      `companyMaster.ui.js` (1), `companyDocs.ui.js` (8); negative
+      control caught.
+    - [x] **Help: a light / dark switch.** Help uses the ERP's saved
+      theme (`erp-theme`), else the device's; its header button switches
+      and saves it, for both (docs/modules/HELP.md). `help.ui.js`;
+      negative control caught.
+  - **Tier 2, small, waiting on the owner's answer:** rows per list page
+    (100 today; choice and ceiling); leaving reason for resignation and
+    termination (list or free text); auto-disable a leaver's login (when,
+    and the employee ↔ user link); employee location (list or text);
+    employee can withdraw or resolve a request (up to which stage); new
+    Item Category from Item Master (screen or inline); COA 100000 /
+    200000 as heads only (meaning unclear); month-end check for DOs not
+    invoiced (Warn or Block default); print borders (one style or a
+    setting); matching an invoice to an advance (likely Help only:
+    payment matching already covers New Ref / Against Ref).
+  - **Tier 3, design doc first:** multi-currency and a company base
+    currency (e.g. INR); inter-company transactions; Project dimension;
+    cost centres per company; item categories per company; print
+    customization (which tax number); UAE e-invoicing; sales-rep app;
+    Excel paste in PR / IPR / SO; direct sales invoice and SO to invoice
+    (skip DO); payroll cost-centre split; EOS format with the final
+    settlement; flexible Vendor / Customer columns; shareholders in
+    Company Master; retail customer by code or mobile; PDC-due task
+    recipients; approved DO in Tasks until invoiced; own and
+    clearing-account items in the closing checklist; a searchable
+    ledger / customer / vendor picker on every screen.
+  - **Not planned:** "hide details in view-source" — the page holds the
+    Firebase web config, which is public by design; security is the
+    deny-all rules and the functions' checks. Offered instead: a review
+    that nothing sensitive is in the page source.
+
 - [x] **Cross-area Help accuracy audit** (owner request, 2026-10-12):
   reviewed non-HR modules against their current screens and workflows;
   corrected inaccurate Inventory Valuation and Production & Consumption

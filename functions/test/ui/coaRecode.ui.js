@@ -20,7 +20,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     H1: acc('110000', 'Bank Accounts', '', false), H2: acc('120000', 'Cash in Hand', '', false),
     L1: acc('110001', 'Petty Cash', 'H1'), L2: acc('110002', 'Bank Main', 'H1'),
     C1A: Object.assign(acc('110003', 'Bank Co One Only', 'H1'), { CompanyID: 'C1' }),
-    C2A: Object.assign(acc('110004', 'Bank Co Two Only', 'H1'), { CompanyID: 'C2' })
+    C2A: Object.assign(acc('110004', 'Bank Co Two Only', 'H1'), { CompanyID: 'C2' }),
+    OLD: Object.assign(acc('130001', 'Closed Deposit', ''), { Status: 'Inactive' })
   });
   f.users['u-multi'] = { status: 'Active', role: 'Admin', username: 'multi', fullName: 'Two Companies', AssignedCompanies: ['C1', 'C2'] };
   await reset(f);
@@ -44,6 +45,14 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.selectOption('#coa-company-filter', '__shared__');
     assert.deepEqual(await codes(), ['110000', '110001', '110002'], 'Shared shows only shared');
     await page.selectOption('#coa-company-filter', 'C1');
+  });
+
+  await check('the list opens on Active accounts; All Statuses shows the inactive ones too (owner, 2026-10-14)', async () => {
+    assert.equal(await page.inputValue('#coa-status-filter'), 'Active');
+    assert.equal(await row('130001').count(), 0, 'an inactive account is not shown at first');
+    await page.selectOption('#coa-status-filter', '');
+    await row('130001').waitFor({ timeout: 10000 });
+    await page.selectOption('#coa-status-filter', 'Active');
   });
 
   await check('an unused account moved to another head: new code, and the user is told', async () => {

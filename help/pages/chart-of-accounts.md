@@ -5,8 +5,8 @@ order: 1
 modules: [COA]
 sources: [functions/src/coaUsage.js]
 summary: The list of accounts every entry posts to: heads and postable accounts, types, codes, and shared accounts.
-reviewed: 2026-10-12
-fingerprint: 4d8971f4088de0f2
+reviewed: 2026-10-14
+fingerprint: 4983cae5306941a5
 ---
 ## What it is for
 
@@ -44,7 +44,8 @@ example "Bank — Main Account").
 
 Filter by company, type, status, or "Postable only". Choosing a company
 shows its own accounts **and** the shared ones; "Shared (All Companies)"
-shows only shared ones.
+shows only shared ones. The list opens on **Active** accounts; choose
+**All Statuses** or **Inactive** in the status filter to see retired ones.
 
 ### Move an account to another head
 
@@ -57,7 +58,8 @@ account under the right head, move the balance with a
 ### Retire an account
 
 Set its Status to **Inactive**. It stays in the history and reports but
-can't be used in new entries.
+can't be used in new entries. It then leaves the list, which shows Active
+accounts unless you change the status filter.
 
 ## Good to know
 

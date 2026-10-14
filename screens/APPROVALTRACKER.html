@@ -9,10 +9,11 @@
 
   <p class="text-xs text-slate-500 max-w-3xl">Every approval decision across every gated module, one row each — including levels still waiting on a decision, so an outstanding approval is as visible as a completed one. Time Taken measures from when the approval was first requested, not from a previous level's decision, since every required level can act independently.</p>
 
-  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+  <div class="grid grid-cols-1 md:grid-cols-6 gap-4 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
     <select id="at-module-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Modules</option></select>
     <input type="text" id="at-document-filter" placeholder="Document number..." class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
     <select id="at-approver-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Approvers</option></select>
+    <select id="at-decision-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Pending">Pending</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option></select>
     <input type="date" id="at-from-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
     <input type="date" id="at-to-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
   </div>
@@ -189,9 +190,11 @@
     const rows = [];
     history.forEach(inst => {
       const approverFilter = document.getElementById('at-approver-filter').value;
+      const decisionFilter = document.getElementById('at-decision-filter').value; // the Status (Decision) column (owner, 2026-10-14)
       (inst.RequiredLevels || []).forEach(level => {
         if (approverFilter && level.ApproverUserID !== approverFilter) return;
         const decision = (inst.Decisions || []).find(d => d.LevelNumber === level.LevelNumber);
+        if (decisionFilter && (decision ? decision.Decision : 'Pending') !== decisionFilter) return;
         // A decided level already carries its own ApproverName,
         // recorded at the moment that specific person decided. A still-
         // Pending level has no decision at all yet, so nothing there
@@ -355,6 +358,7 @@
     document.getElementById('at-module-filter').addEventListener('change', fetchHistory);
     document.getElementById('at-document-filter').addEventListener('input', fetchHistory);
     document.getElementById('at-approver-filter').addEventListener('change', renderTable);
+    document.getElementById('at-decision-filter').addEventListener('change', renderTable);
     document.getElementById('at-from-filter').addEventListener('change', fetchHistory);
     document.getElementById('at-to-filter').addEventListener('change', fetchHistory);
     document.getElementById('at-copy-btn').addEventListener('click', copyToExcel);

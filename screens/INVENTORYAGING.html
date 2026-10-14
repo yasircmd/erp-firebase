@@ -92,7 +92,7 @@
     const list = rows();
     const cell = (x, k) => { const v = byQty ? x.QtyBuckets[k] : x.Buckets[k]; return Math.abs(v) < 1e-9 ? '<span class="text-slate-600">—</span>' : (byQty ? qtyText(v) : money(v)); };
     $('ia-body').innerHTML = list.map(x => '<tr data-id="' + escapeHtml(x.ItemID) + '">' +
-      '<td class="py-1.5 px-3">' + escapeHtml(x.ItemCode) + ' <span class="text-slate-500">' + escapeHtml(x.ItemName) + '</span>' + (x.Short > 1e-9 ? ' <span class="text-amber-300" title="More was issued than the receipts on record show; that part has no age">⚠</span>' : '') + '</td>' +
+      '<td class="py-1.5 px-3"><button type="button" class="ia-ledger text-blue-300 hover:underline underline-offset-2" title="Open this item in the Stock Ledger">' + escapeHtml(x.ItemCode) + '</button> <span class="text-slate-500">' + escapeHtml(x.ItemName) + '</span>' + (x.Short > 1e-9 ? ' <span class="text-amber-300" title="More was issued than the receipts on record show; that part has no age">⚠</span>' : '') + '</td>' +
       '<td class="py-1.5 px-3">' + escapeHtml(x.Category) + '</td><td class="py-1.5 px-3 text-right">' + qtyText(x.Qty) + ' ' + escapeHtml(x.UOM) + '</td><td class="py-1.5 px-3 text-right font-mono ia-value">' + money(x.Value) + '</td>' +
       r.Buckets.map(b => '<td class="py-1.5 px-3 text-right font-mono ia-b-' + b.key + '">' + cell(x, b.key) + '</td>').join('') +
       '<td class="py-1.5 px-3">' + escapeHtml(x.LastIn) + '</td><td class="py-1.5 px-3">' + escapeHtml(x.LastOut) + '</td></tr>').join('') ||
@@ -126,6 +126,18 @@
     $('ia-qty').addEventListener('change', () => { if (report) render(); });
     $('ia-copy').addEventListener('click', copy);
     $('ia-print').addEventListener('click', () => window.print());
+    // The item code opens the Stock Ledger for it (owner, 2026-10-14), from
+    // its oldest receipt still on hand to the as-at date; with one warehouse
+    // chosen the ledger runs, otherwise it asks for one (Back returns here).
+    $('ia-body').addEventListener('click', e => {
+      const btn = e.target.closest('.ia-ledger');
+      const x = btn && report && report.Rows.find(r => r.ItemID === btn.closest('tr').dataset.id);
+      if (!x) return;
+      const from = new Date(report.AsOf + 'T00:00:00Z');
+      from.setUTCDate(from.getUTCDate() - (x.OldestDays || 0));
+      openModule('STOCKLEDGER', { CompanyID: report.CompanyID || loadedCompany, ItemCode: x.ItemCode, WarehouseID: report.WarehouseID || '',
+        FromDate: from.toISOString().slice(0, 10), ToDate: report.AsOf }, [{ moduleId: 'INVENTORYAGING', label: 'Inventory Aging' }]);
+    });
   };
 })();
 </script>
