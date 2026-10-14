@@ -175,7 +175,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       2 before 10; was by name). The parent dropdown stays by name. New
       `companyMaster.ui.js` (1), `companyDocs.ui.js` (8); negative
       control caught.
-    - [ ] Help: a light / dark switch (it follows the device today).
+    - [x] **Help: a light / dark switch.** Help uses the ERP's saved
+      theme (`erp-theme`), else the device's; its header button switches
+      and saves it, for both (docs/modules/HELP.md). `help.ui.js`;
+      negative control caught.
   - **Tier 2, small, waiting on the owner's answer:** rows per list page
     (100 today; choice and ceiling); leaving reason for resignation and
     termination (list or free text); auto-disable a leaver's login (when,

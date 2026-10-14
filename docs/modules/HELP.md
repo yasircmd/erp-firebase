@@ -245,3 +245,13 @@ Consequences:
   exposes multiple task views. Updated summaries and fingerprints, rebuilt
   `public/help/`, and passed `node --test functions/test/unit/help.test.js`
   (4/4).
+
+## Light / dark switch (owner, 2026-10-14)
+
+Help followed only the device's setting. It now uses the ERP's saved
+theme (`erp-theme` in the browser's storage: Help is on the same site),
+else the device's. A **Light mode** / **Dark mode** button in the header
+switches it and saves it to the same key, so the ERP and Help stay alike.
+The choice is applied by a small script in `<head>`, before the page
+paints (no flash). Built from `tools/help/lib.js` (THEME_HEAD, THEME_JS);
+checked by `help.ui.js` (negative control caught).

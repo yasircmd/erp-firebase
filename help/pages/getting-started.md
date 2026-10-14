@@ -80,7 +80,8 @@ Select your name (top right) for:
 ## Help
 
 The **Help** button (top bar) opens this help in a new tab. Inside a screen,
-it opens that screen's page directly.
+it opens that screen's page directly. Help uses the ERP's light or dark
+theme; its **Light mode** / **Dark mode** button switches both.
 
 ## Signing out, and the automatic sign-out
 
