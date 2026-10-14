@@ -229,7 +229,16 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
         "Locations"): shared or one company's; on employees and fixed
         assets (changeable any time). Suites and UI checks; negative
         control caught.
-      - [ ] More item categories.
+      - [ ] **More item categories: waiting on the owner.** Today the five
+        categories are not a list but code: each has its item-code prefix
+        and counter (and Numbering's formats), BOM and Production rules
+        name them, and five screens, the import and the legacy code list
+        them. True new categories ("behaves like" one of the five, own
+        prefix) touch all of that: not the light change asked for. The
+        light alternative: Item Sub-Categories already add groups under
+        the five; give them the shared / one-company choice and a "New"
+        from Item Master (optionally shown as Type → Category). Owner to
+        choose.
     - **Clarified (owner, 2026-10-14):** Employee Requests: only a
       query can be withdrawn or marked resolved by the employee, at any
       time; other requests unchanged. A leaver's login (ERP and Employee
