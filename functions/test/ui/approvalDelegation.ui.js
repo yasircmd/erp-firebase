@@ -99,6 +99,24 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  await check('Status filter: Approved, Pending, Rejected or all (owner, 2026-10-14)', async () => {
+    const ok = await call('u-cara', 'decideJournalEntryApproval', { jvId: s.jvId, levelNumber: 1, decision: 'Approved', reason: '' });
+    assert.ok(ok && ok.success !== false, JSON.stringify(ok));
+    const page = await open('u-admin');
+    const shown = () => page.$$eval('#at-table-body tr', trs => trs.map(tr => tr.cells.length > 6 ? Number(tr.cells[4].textContent) + ' ' + tr.cells[6].textContent.trim() : tr.textContent.trim()));
+    assert.deepEqual(await shown(), ['1 Approved', '2 Pending']);
+    await page.selectOption('#at-decision-filter', 'Approved');
+    assert.deepEqual(await shown(), ['1 Approved']);
+    await page.selectOption('#at-decision-filter', 'Pending');
+    assert.deepEqual(await shown(), ['2 Pending']);
+    await page.selectOption('#at-decision-filter', 'Rejected');
+    assert.deepEqual(await shown(), ['No approval activity found.']);
+    await page.selectOption('#at-decision-filter', '');
+    assert.deepEqual(await shown(), ['1 Approved', '2 Pending']);
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   results.forEach(r => console.log(r.join('  ')));
   const failed = results.filter(r => r[0] === 'FAIL').length;

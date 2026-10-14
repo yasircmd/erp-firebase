@@ -160,7 +160,11 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       ported module's behavior, asked for). A retired account leaves the
       list until the filter is changed. `coaRecode.ui.js` (5) and
       `singleCompany.ui.js` (54); negative control caught.
-    - [ ] Approval Tracker: a Status filter.
+    - [x] **Approval Tracker: a Status filter** (Pending, Approved,
+      Rejected), on the Decision column, in the screen like the Approver
+      filter. `approvalDelegation.ui.js` (3); negative control caught.
+      Its check 2 failed once in five runs (a 15 s wait for the
+      Delegate-all message), unrelated to the filter.
     - [ ] Inventory Aging: the item code opens Stock Ledger for the item.
     - [ ] Company Master: the list in code order.
     - [ ] Help: a light / dark switch (it follows the device today).
