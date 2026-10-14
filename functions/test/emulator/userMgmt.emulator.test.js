@@ -52,3 +52,17 @@ test('edit + delete (profile only); cannot delete yourself; Viewer refused', asy
   assert.deepEqual(await call('u-admin', 'deleteFirebaseUser', { userId: 'u-other' }), { success: true });
   assert.equal(await val('users/u-other'), null);
 });
+
+test('Last Login: set by a sign-in (completeLogin), not by a wrong Corporate ID or a restored session', async () => {
+  await assert.rejects(call('u-viewer', 'completeLogin', { corporateId: '999' }), /Invalid Corporate ID/);
+  assert.equal((await val('users/u-viewer')).lastLogin, undefined, 'a refused sign-in records nothing');
+  const before = Date.now();
+  await call('u-viewer', 'completeLogin', { corporateId: '100' });
+  const stamp = (await val('users/u-viewer')).lastLogin;
+  assert.match(stamp, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  assert.ok(Date.parse(stamp) >= before - 1000 && Date.parse(stamp) <= Date.now() + 1000, 'stamped now');
+  await call('u-viewer', 'restoreSession');
+  assert.equal((await val('users/u-viewer')).lastLogin, stamp, 'a reload is not a login');
+  const list = await call('u-admin', 'getAllFirebaseUsers');
+  assert.equal(list.find(u => u.id === 'u-viewer').lastLogin, stamp);
+});

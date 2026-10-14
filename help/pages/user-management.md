@@ -3,10 +3,10 @@ title: User Management
 area: admin
 order: 3
 modules: [USERMGMT]
-sources: [functions/src/roles.js]
+sources: [functions/src/roles.js, functions/src/session.js]
 summary: Set up ERP users, assign roles and control which screens they can access and post.
-reviewed: 2026-10-12
-fingerprint: 209875ef49ff482f
+reviewed: 2026-10-14
+fingerprint: cd5fc7a22eb490f6
 ---
 ## What it is for
 
@@ -21,7 +21,8 @@ fingerprint: 209875ef49ff482f
 ## Step by step
 
 1. Open User Management and search/filter by username, email/name, role, or Active/Inactive status.
-2. To add a user, enter username, email, full name, role, status, password (minimum six characters), and one or more assigned companies. Review the company list carefully before saving.
+   **Last Login** shows when each user last signed in, in your local time. **Never** means they have not signed in since the column started being recorded (October 2026). Reopening the ERP in a tab where you are still signed in does not count as a new sign-in.
+2. To add a user, click **Add New User** and enter username, email, full name, role, status, password (minimum six characters), and one or more assigned companies. Review the company list carefully before saving.
 3. To edit a user, update full name, role, status, and company assignments. Username/email are not edited from the existing-user form; coordinate account identity changes through the approved identity process.
 4. Test access using the assigned role and company. Menu visibility comes from Tree Management, while actual read/draft/post capabilities come from Roles & Permissions.
 5. To remove ERP access, use Remove Access. This removes the ERP profile/access; it does not delete the user's Firebase Authentication account.

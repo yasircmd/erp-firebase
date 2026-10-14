@@ -2,6 +2,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { requireUser } = require('./auth');
 const { ensureRolesSeeded } = require('./roles');
 const { buildTreeForRole } = require('./tree');
+const { rtdb } = require('./firebaseAdmin');
 
 // Same server-only constant, same reasoning as the original Code.gs:
 // a shared, organization-wide code, deliberately not stored anywhere
@@ -45,7 +46,12 @@ exports.completeLogin = onCall(onCallOptions, async (request) => {
   if (corporateId !== CORPORATE_ID) {
     throw new HttpsError('permission-denied', 'Invalid Corporate ID.');
   }
-  return buildSessionResponse(request);
+  const session = await buildSessionResponse(request);
+  // User Management's Last Login (bug, 2026-10-14: nothing ever set it, so
+  // every user showed "Never"). Only a real sign-in counts, not a
+  // restoreSession on reload. UTC here; the screen shows it in local time.
+  await rtdb.ref('users/' + session.uid + '/lastLogin').set(new Date().toISOString());
+  return session;
 });
 
 exports.restoreSession = onCall(onCallOptions, async (request) => {

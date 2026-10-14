@@ -1,0 +1,5 @@
+# UX testing fixes, batch 1 (owner, 2026-10-14; docs/ROADMAP.md, "UX
+# testing, 2026-10-14"). Run with --screens (USERMGMT changed). Hosting
+# too: the Help pages changed (tools/deploy-hosting.sh).
+# Changed: completeLogin records the user's Last Login.
+completeLogin

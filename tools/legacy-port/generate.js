@@ -379,6 +379,15 @@ const SCREEN_EDITS = [
     to: "return `<td class=\"py-2 px-2 text-center\"><input type=\"checkbox\" data-module=\"${mod.id}\" data-cap=\"${cap}\" data-role=\"${r.RoleID}\" ${checked ? 'checked' : ''} class=\"w-4 h-4\" title=\"${escapeHtml(r.Name)}\"></td>`;" },
   { mod: 'ROLES', from: '<td class="py-2 px-4 text-xs text-slate-400 capitalize">${escapeHtml(cap)}</td><td class="py-2 px-4">${checks}</td>',
     to: '<td class="py-2 px-4 text-xs text-slate-400 capitalize">${escapeHtml(cap)}</td>${checks}' },
+  // User Management: Add New User after an Edit saved over the edited user
+  // (bug, 2026-10-14). form.reset() leaves a hidden input's value, so the
+  // edited user's id stayed in um-form-id and the save patched that user.
+  { mod: 'USERMGMT', from: "document.getElementById('um-modal-title').textContent = 'Add New User';",
+    to: "document.getElementById('um-modal-title').textContent = 'Add New User';\n      document.getElementById('um-form-id').value = ''; // reset() keeps a hidden input's value" },
+  // User Management: Last Login is now recorded at sign-in (session.js,
+  // completeLogin) as a UTC timestamp; shown in local time, dd/mm/yyyy HH:MM.
+  { mod: 'USERMGMT', from: '${escapeHtml(u.lastLogin)}',
+    to: "${escapeHtml(u.lastLogin && u.lastLogin !== 'Never' ? (isoLocalDateTime(u.lastLogin) || u.lastLogin) : 'Never')}" },
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {
