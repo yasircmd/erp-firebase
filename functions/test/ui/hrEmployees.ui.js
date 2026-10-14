@@ -18,6 +18,10 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 (async () => {
   const f = baseFixture();
   f.orgUnits.CC2 = { Type: 'CostCenter', Code: 'CC2', Name: 'Finance', Status: 'Active', CompanyID: 'C1' };
+  // Locations (owner, 2026-10-14): one shared, one of each company.
+  f.orgUnits.LOC1 = { Type: 'Location', Code: 'LOC1', Name: 'Dubai office', Status: 'Active' };
+  f.orgUnits.LOC2 = { Type: 'Location', Code: 'LOC2', Name: 'Abu Dhabi yard', Status: 'Active', CompanyID: 'C2' };
+  f.orgUnits.LOC3 = { Type: 'Location', Code: 'LOC3', Name: 'Sharjah store', Status: 'Active', CompanyID: 'C1' };
   f.permissions.DOCUMENTSTORAGE.access = ['Admin'];
   f.users['u-other'].AssignedCompanies = ['C1', 'C2']; // the org chart across companies
   await reset(f);
@@ -113,6 +117,13 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.click('#emp-save-btn');
     await page.waitForFunction(() => /Correction — Entered the wrong grade[\s\S]*Grade: G5 → G3/.test(document.getElementById('emp-history').textContent), null, { timeout: 15000 });
     assert.equal(await page.isDisabled('#emp-form-grade'), true);
+  });
+
+  await check('Location: the company\'s and the shared ones to choose from, saved by an ordinary edit (owner, 2026-10-14)', async () => {
+    assert.deepEqual(await page.$$eval('[data-k="LocationID"] option', os => os.map(o => o.textContent)), ['—', 'LOC1 — Dubai office', 'LOC3 — Sharjah store']);
+    await page.selectOption('[data-k="LocationID"]', 'LOC3');
+    await page.click('#emp-save-btn');
+    await page.waitForFunction(() => /Location[\s\S]*Sharjah store/.test(document.getElementById('emp-history').textContent), null, { timeout: 15000 });
   });
 
   await check('on notice: a leaving reason from Payroll Setup\'s list, by type, with a note; back to Active clears it (owner, 2026-10-14)', async () => {

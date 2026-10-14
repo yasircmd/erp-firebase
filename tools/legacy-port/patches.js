@@ -1337,5 +1337,12 @@ function linesForBatch_(idToken, batchId) {
     replace: `    lastLogin: users[uid].lastLogin || 'Never',
     // [PORT CHANGE user-access-until] a leaver's last day of access.
     accessUntil: users[uid].AccessUntil || '',`
+  },
+  {
+    id: 'org-unit-location',
+    why: "NEW DEVELOPMENT (owner, 2026-10-14; docs/modules/FIXED_ASSETS.md, \"Locations\"): a Location org unit type, for employees and fixed assets, shared by all companies or of one (as every org unit). Nothing else changes.",
+    find: `const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter'];`,
+    replace: `// [PORT CHANGE org-unit-location] Location: where employees work and assets are.
+const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter', 'Location'];`
   }
 ];

@@ -166,7 +166,8 @@ const CBT_VOUCHER_CONFIG = {
 // specified for them. If you want auto-sequenced codes (e.g. CC-1000,
 // PC-2000) the way COA does, say so and it can be added the same way.
 
-const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter'];
+// [PORT CHANGE org-unit-location] Location: where employees work and assets are.
+const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter', 'Location'];
 
 // ---------- Item Master ----------
 // Storage: Firebase RTDB, /items/{itemId}. The Chart-of-Accounts

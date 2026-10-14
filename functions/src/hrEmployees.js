@@ -51,6 +51,8 @@ const FIELDS = {
   LeavingNote: { label: 'Leaving note', max: 300 },
   DivisionID: { label: 'Division', job: true, unit: 'Division' }, BranchID: { label: 'Branch', job: true, unit: 'Branch' },
   CostCenterID: { label: 'Cost center (department)', job: true, unit: 'CostCenter' }, WorkLocation: { label: 'Work location' },
+  // An Organizational Unit of type Location (owner, 2026-10-14), as for fixed assets; not a job field.
+  LocationID: { label: 'Location', unit: 'Location' },
   DesignationID: { label: 'Designation', req: true, job: true }, GradeID: { label: 'Grade', req: true, job: true },
   // Empty: the company's own weekend and hours (docs/modules/HR_PAYROLL.md, step 0).
   ScheduleID: { label: 'Work schedule', job: true },

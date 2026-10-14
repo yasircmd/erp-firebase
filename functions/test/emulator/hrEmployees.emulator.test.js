@@ -183,3 +183,20 @@ test('Master Data Import: an Employees sheet with the extra fields, a manager fr
   const s = await call('u-admin', 'checkMasterImport', { master: 'EMPLOYEE', text: tsv([head, ['Nadia', '01', '01/05/2024', 'Accountant', 'G5', '', '', '784-9', 'AE07']]) });
   assert.deepEqual(s.issues.map(i => i.message), ['You do not have the right to enter Account No. / IBAN (Employees: sensitive).']);
 });
+
+test('Location (owner, 2026-10-14): an org unit of type Location, the company\'s or shared; changed by an ordinary edit', async () => {
+  await rtdb.ref('orgUnits').update({
+    LOC1: { Type: 'Location', Code: 'LOC1', Name: 'Dubai office', Status: 'Active' },
+    LOC2: { Type: 'Location', Code: 'LOC2', Name: 'Abu Dhabi yard', Status: 'Active', CompanyID: 'C2' },
+    LOC3: { Type: 'Location', Code: 'LOC3', Name: 'Sharjah store', Status: 'Active', CompanyID: 'C1' }
+  });
+  await assert.rejects(save(emp({ LocationID: 'LOC2' })), /That location belongs to another company/);
+  await assert.rejects(save(emp({ LocationID: 'CC1' })), /Location not found/);
+  const id = (await save(emp({ LocationID: 'LOC1' }))).employeeId;
+  const e = (await get(id)).employee;
+  assert.equal(e.LocationID, 'LOC1');
+  await save(Object.assign({}, e, { LocationID: 'LOC3' }));
+  const after = await get(id);
+  assert.equal(after.employee.LocationID, 'LOC3');
+  assert.match(JSON.stringify(after.history), /Location.*Dubai office.*Sharjah store/);
+});

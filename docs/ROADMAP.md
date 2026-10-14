@@ -225,7 +225,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
         suite (5), UI checks; negative control caught. **After deploying:
         open Employees once (Admin)**: it fills in the last day for those
         already leaving, and anyone 30 days past it loses access then.
-      - [ ] Location as an Organizational Unit.
+      - [x] **Location as an Organizational Unit** (FIXED_ASSETS.md,
+        "Locations"): shared or one company's; on employees and fixed
+        assets (changeable any time). Suites and UI checks; negative
+        control caught.
       - [ ] More item categories.
     - **Clarified (owner, 2026-10-14):** Employee Requests: only a
       query can be withdrawn or marked resolved by the employee, at any

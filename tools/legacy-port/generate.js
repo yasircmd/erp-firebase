@@ -388,6 +388,14 @@ const SCREEN_EDITS = [
   // edited user's id stayed in um-form-id and the save patched that user.
   { mod: 'USERMGMT', from: "document.getElementById('um-modal-title').textContent = 'Add New User';",
     to: "document.getElementById('um-modal-title').textContent = 'Add New User';\n      document.getElementById('um-form-id').value = ''; // reset() keeps a hidden input's value" },
+  // Organizational Units: the Location type (owner, 2026-10-14; patch
+  // org-unit-location): in the type filter, the form and the labels.
+  { mod: 'ORGUNITS', from: '      <option value="ProfitCenter">Profit Center</option>\n    </select>',
+    to: '      <option value="ProfitCenter">Profit Center</option>\n      <option value="Location">Location</option>\n    </select>' },
+  { mod: 'ORGUNITS', from: '          <option value="ProfitCenter">Profit Center</option>\n        </select>',
+    to: '          <option value="ProfitCenter">Profit Center</option>\n          <option value="Location">Location</option>\n        </select>' },
+  { mod: 'ORGUNITS', from: "CostCenter: 'Cost Center', ProfitCenter: 'Profit Center' };",
+    to: "CostCenter: 'Cost Center', ProfitCenter: 'Profit Center', Location: 'Location' };" },
   // User Management: a leaver's access (owner, 2026-10-14; leaverAccess.js):
   // the status shows its last day, or that it has ended.
   { mod: 'USERMGMT', from: '<td class="py-3 px-4 text-xs">${escapeHtml(u.status)}</td>',

@@ -111,6 +111,15 @@ async function buildAsset(d, user, existing) {
     if (!u || u.Type !== ORG_TYPES[f]) throw new HttpsError('invalid-argument', 'Unknown ' + ORG_TYPES[f].replace('Center', ' Center') + '.');
     if (u.CompanyID && u.CompanyID !== companyId) throw new HttpsError('invalid-argument', 'That ' + ORG_TYPES[f].replace('Center', ' Center') + ' belongs to a different company.');
   }
+  // Where the asset is (owner, 2026-10-14): a Location org unit, of the
+  // company or shared. Not in the books, so it may change at any time.
+  out.LocationID = str(d.LocationID);
+  if (out.LocationID) {
+    const u = units[out.LocationID];
+    if (!u || u.Type !== 'Location') throw new HttpsError('invalid-argument', 'Unknown Location.');
+    if (u.CompanyID && u.CompanyID !== companyId) throw new HttpsError('invalid-argument', 'That Location belongs to a different company.');
+    if (u.Status !== 'Active' && !(existing && existing.LocationID === out.LocationID)) throw new HttpsError('invalid-argument', 'That Location is inactive.');
+  }
   if (depreciates(cls.Kind) && !out.CostCenterID) {
     throw new HttpsError('invalid-argument', 'Select a Cost Center: depreciation expense is posted to it.');
   }
@@ -159,7 +168,7 @@ async function saveFaAssetFor(user, d) {
         AssetNumber: number, SubNumber: 0, ParentAssetID: '', Status: 'Planned', CapitalizationDate: '',
         CurrencyCode: await defaultCurrencyCode(),
         // Reserved (docs → Reserved for later): filled once their masters exist.
-        DepartmentID: '', LocationID: '', EmployeeID: '', EmployeeName: '',
+        DepartmentID: '', EmployeeID: '', EmployeeName: '',
         Areas: { [AREA]: areaWith(null, v) },
         CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
       });
@@ -188,6 +197,7 @@ async function saveFaAssetFor(user, d) {
         changes.push({ Field: f, From: existing[f] == null ? '' : existing[f], To: fields[f] }); update[f] = fields[f];
       }
     });
+    if ((existing.LocationID || '') !== fields.LocationID) { changes.push({ Field: 'LocationID', From: existing.LocationID || '', To: fields.LocationID }); update.LocationID = fields.LocationID; }
     ASSIGN_FIELDS.forEach(f => {
       if ((existing[f] || '') === fields[f]) return;
       if (depPosted) throw new HttpsError('failed-precondition', 'Depreciation has been posted for this asset: change its ' + ORG_TYPES[f].replace('Center', ' center').toLowerCase() + ' with an Asset Transfer.');

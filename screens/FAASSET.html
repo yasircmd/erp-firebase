@@ -57,7 +57,7 @@
         <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="faa-form-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
         <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="faa-form-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
         <div><label class="block text-xs font-medium text-slate-500 mb-1">Department <span class="text-slate-600">(available later)</span></label><select disabled data-reserved class="w-full bg-slate-900/50 border border-slate-800 rounded-lg py-2 px-3 text-sm text-slate-600"><option>—</option></select></div>
-        <div><label class="block text-xs font-medium text-slate-500 mb-1">Location <span class="text-slate-600">(available later)</span></label><select disabled data-reserved class="w-full bg-slate-900/50 border border-slate-800 rounded-lg py-2 px-3 text-sm text-slate-600"><option>—</option></select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Location</label><select id="faa-form-location" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
         <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-500 mb-1">Responsible Employee <span class="text-slate-600">(available later)</span></label><input disabled data-reserved class="w-full bg-slate-900/50 border border-slate-800 rounded-lg py-2 px-3 text-sm text-slate-600"></div>
       </div>
     </div>
@@ -176,7 +176,7 @@
   }
   function populateOrgUnits(keep) {
     const co = val('faa-form-company');
-    [['faa-form-division', 'Division', 'DivisionID'], ['faa-form-branch', 'Branch', 'BranchID'], ['faa-form-costcenter', 'CostCenter', 'CostCenterID'], ['faa-form-profitcenter', 'ProfitCenter', 'ProfitCenterID']].forEach(([id, type, f]) => {
+    [['faa-form-division', 'Division', 'DivisionID'], ['faa-form-branch', 'Branch', 'BranchID'], ['faa-form-costcenter', 'CostCenter', 'CostCenterID'], ['faa-form-profitcenter', 'ProfitCenter', 'ProfitCenterID'], ['faa-form-location', 'Location', 'LocationID']].forEach(([id, type, f]) => {
       const units = orgUnits.filter(u => u.Type === type && (!u.CompanyID || u.CompanyID === co));
       $(id).innerHTML = '<option value="">—</option>' + units.map(u => '<option value="' + escapeHtml(u.UnitID) + '">' + escapeHtml(u.Code + ' — ' + u.Name) + '</option>').join('');
       $(id).value = (keep && keep[f]) || '';
@@ -285,7 +285,7 @@
       AssetID: current ? current.AssetID : '', CompanyID: val('faa-form-company'), ClassID: val('faa-form-class'),
       Description: val('faa-form-description'), SerialNumber: val('faa-form-serial'), TagNumber: val('faa-form-tag'), Quantity: val('faa-form-qty'),
       PurchaseDate: val('faa-form-purchase-date'), SupplierID: val('faa-form-supplier'), PurchaseInvoiceRef: val('faa-form-invoice'), Notes: val('faa-form-notes'),
-      DivisionID: val('faa-form-division'), BranchID: val('faa-form-branch'), CostCenterID: val('faa-form-costcenter'), ProfitCenterID: val('faa-form-profitcenter'),
+      DivisionID: val('faa-form-division'), BranchID: val('faa-form-branch'), CostCenterID: val('faa-form-costcenter'), ProfitCenterID: val('faa-form-profitcenter'), LocationID: val('faa-form-location'),
       Method: val('faa-form-method'), UsefulLifeMonths: months || '', WdvRate: val('faa-form-rate'), ResidualValue: val('faa-form-residual'), DepStartDate: val('faa-form-depstart'),
       ChangeReason: val('faa-form-reason')
     };

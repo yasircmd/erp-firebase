@@ -33,3 +33,8 @@ restoreSession
 getMyTree
 markInterimPaid
 reverseInterimPayment
+# Locations (FIXED_ASSETS.md): the org unit type, assets, employees, import.
+saveOrgUnit
+saveFaAsset
+getMasterImportSpecs
+checkMasterImport

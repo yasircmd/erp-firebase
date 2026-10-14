@@ -890,3 +890,28 @@ where to select it. UI check added; the old screen fails it. Live
 - the CWIP shows Under Construction;
 - the clearing item is used up;
 - the register shows the CWIP's cost.
+
+## Locations (owner, 2026-10-14)
+
+From UX testing: "Add employee location"; the owner: "the same location is
+also needed for fixed assets, so add it in Organizational Units", shared by
+all companies or of one company.
+
+- **Organizational Units:** a new type, **Location** (patch
+  `org-unit-location` adds it to ORG_UNIT_TYPES; SCREEN_EDITS add it to the
+  ORGUNITS screen's type filter, form and labels). Shared (no company) or one
+  company's, as every org unit.
+- **Fixed asset master** (`fixedAssetsMaster.js`, FAASSET): the reserved
+  Location becomes a real choice, `LocationID`, a Location of the asset's
+  company or shared (an inactive one only if the asset already has it). It
+  is not in the books, so unlike the other assignments it may change at any
+  time, even after depreciation, recorded as a change in History.
+  Department and Responsible Employee stay reserved.
+- **Employees** (`hrEmployees.js`): `LocationID` (a unit field, not a job
+  field: an ordinary edit changes it, in the history); the free-text "Work
+  location" stays as a note. Master Data Import's Employees sheet has a
+  Location column (by code or name).
+- Tests: `fixedAssets` suite (12), `hrEmployees` suite (7),
+  `hrEmployees.ui.js` (10), `fixedAssets.ui.js` (9); negative control caught
+  (the asset's Location type unchecked).
+
