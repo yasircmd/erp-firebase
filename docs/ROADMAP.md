@@ -147,8 +147,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       screen shows it in local time, dd/mm/yyyy HH:MM. Earlier logins
       can't be recovered. `userMgmt` suite (4) and UI (2), negative
       controls caught (no write; raw value shown).
-    - [ ] Retail Sales: the "Items" total row shows the gross amount; to
-      show the total quantity (keep the amount as "Subtotal").
+    - [x] **Retail Sales: "Items" showed the gross amount.** It now shows
+      the number of units; with a discount, the amount before it shows as
+      "Subtotal" (without one it would repeat the Total). `retailSales.ui.js`
+      (10), negative control caught.
     - [ ] Print: the Help button prints (no `no-print`).
     - [ ] COA: the status filter starts on Active.
     - [ ] Approval Tracker: a Status filter.

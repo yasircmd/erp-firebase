@@ -5,8 +5,8 @@ order: 8
 modules: [RETAILSALES]
 sources: [functions/src/retailSales.js]
 summary: Process a retail transaction at the counter, settle the sale and print or record the receipt.
-reviewed: 2026-10-12
-fingerprint: 7222f83393b82685
+reviewed: 2026-10-14
+fingerprint: 80e963ed7b6f98e2
 ---
 ## What it is for
 
@@ -25,7 +25,7 @@ fingerprint: 7222f83393b82685
 1. Select company, date, customer, Sales Type, and store warehouse. Enter optional invoice bill-to details when needed.
 2. Scan the item's barcode or enter its code/name. Confirm stock, quantity, price, and any allowed line discount. A barcode configured as a pack can add its pack quantity.
 3. Add one or more payment lines. Cash may be over-tendered and produces change; non-cash methods cannot exceed the sale total. A Retail Customer must pay in full; an existing customer may leave an on-account balance.
-4. Review the tax-inclusive total, tax, discount, paid amount, change, and any balance due. Confirm the sale. The screen assigns a transaction number and can print the configured receipt on confirmation.
+4. Review the totals: **Items** is the number of units on the sale; with a discount, **Subtotal** is the amount before it. Then the tax-inclusive total, tax, discount, paid amount, change, and any balance due. Confirm the sale. The screen assigns a transaction number and can print the configured receipt on confirmation.
 
 ### Sales tab
 

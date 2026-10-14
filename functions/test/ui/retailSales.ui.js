@@ -89,6 +89,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.fill('#rs-item', 'rm-001');
     await p.press('#rs-item', 'Enter');
     await until(p, () => document.getElementById('rs-total').textContent === '105.00');
+    // Items is the quantity, not an amount; no discount, so no Subtotal (owner, 2026-10-14).
+    assert.equal(await p.textContent('#rs-qty'), '2');
+    assert.doesNotMatch(await p.textContent('#rs-totals'), /Subtotal/);
     // Cash (the default row) 100, card 5: no change yet; then cash 120 → change 20.
     await p.fill('#rs-payments [data-i="0"] [data-f="Amount"]', '100');
     assert.ok(await p.isDisabled('#rs-confirm'));
@@ -124,6 +127,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.press('#rs-item', 'Enter');
     await p.fill('#rs-lines [data-f="Discount"]', '2.5');
     await until(p, () => document.getElementById('rs-total').textContent === '50.00');
+    // With a discount: Items 1, the amount before it as Subtotal, then the discount.
+    assert.equal(await p.textContent('#rs-qty'), '1');
+    assert.match(await p.textContent('#rs-totals'), /Items1Subtotal52\.50Discount−2\.50Total50\.00/);
     await p.fill('#rs-payments [data-i="0"] [data-f="Amount"]', '40');
     await until(p, () => document.getElementById('rs-due') && document.getElementById('rs-due').textContent === '10.00');
     await p.click('#rs-confirm');
