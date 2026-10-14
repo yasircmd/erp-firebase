@@ -22,9 +22,9 @@ test.before(async () => {
   const emp = (name, extra) => call('u-admin', 'saveEmployee', { employee: Object.assign({ FullName: name, CompanyID: 'C1', DesignationID: des, GradeID: g3, Gender: 'Male' }, extra) }).then(r => r.employeeId);
   ALI = await emp('Ali Hassan', { JoinDate: '2024-01-01', IBAN: 'AE070331234567890123456' });
   SARA = await emp('Sara Khan', { JoinDate: '2026-07-15', Gender: 'Female', IBAN: 'AE070331234567890123457' });
-  OMAR = await emp('Omar Said', { JoinDate: '2025-01-01', Status: 'Left', LeavingDate: '2026-07-10', LeavingReason: 'Resigned' });
+  OMAR = await emp('Omar Said', { JoinDate: '2025-01-01', Status: 'Left', LeavingDate: '2026-07-10', LeavingReason: 'Personal reasons' });
   await emp('Late Joiner', { JoinDate: '2026-08-01' });
-  await emp('Long Gone', { JoinDate: '2024-01-01', Status: 'Left', LeavingDate: '2026-06-20', LeavingReason: 'Resigned' });
+  await emp('Long Gone', { JoinDate: '2024-01-01', Status: 'Left', LeavingDate: '2026-06-20', LeavingReason: 'Personal reasons' });
   const pay = (id, lines, from) => call('u-admin', 'saveCompensation', { employeeId: id, compensation: { EffectiveFrom: from, Lines: lines } });
   const els = Object.fromEntries((await call('u-admin', 'getPayElements', {})).elements.map(e => [e.Code, e.ElementID]));
   await pay(ALI, [{ ElementID: els.BASIC, Amount: 6000 }, { ElementID: els.HRA, Amount: 3000 }]);

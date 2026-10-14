@@ -109,7 +109,8 @@
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Employment type</label><select data-k="EmploymentType" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Permanent</option><option>Contract</option><option>Part-time</option><option>Temporary</option></select></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select data-k="Status" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Active</option><option>On notice</option><option>Left</option></select></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Leaving date</label><input data-k="LeavingDate" type="date" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Leaving reason</label><input data-k="LeavingReason" maxlength="300" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Leaving reason</label><select data-k="LeavingReasonID" id="emp-leave-reason" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select><input type="hidden" data-k="LeavingReason" class="emp-f"></div>
+      <div class="md:col-span-4"><label class="block text-xs font-medium text-slate-300 mb-1">Leaving note</label><input data-k="LeavingNote" maxlength="300" class="emp-f w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
     </div>
   </div>
 
@@ -289,7 +290,7 @@
   }
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const STATUS_CLASS = { Active: 'text-emerald-400', 'On notice': 'text-amber-400', Left: 'text-slate-500' };
-  let employees = [], setup = null, companies = [], units = [], users = [];
+  let employees = [], setup = null, companies = [], units = [], users = [], leavingReasons = [];
   let rights = { canWrite: false, canSeeSensitive: false, canCorrect: false };
   let current = null, correcting = false, isDirty = false;
   // Employee documents (step 2): the list, the one open below it (null: a
@@ -507,8 +508,21 @@
     $('emp-flexi-other').innerHTML = other.map(flexiInput).join('');
     $('emp-sec-other').classList.toggle('hidden', !other.length);
   }
+  // Leaving reasons from Payroll Setup (owner, 2026-10-14), by type; the
+  // employee's own even if no longer in use; a reason typed before the list
+  // shows as it was, and is kept unless another is chosen.
+  function fillLeavingReasons(e) {
+    const mine = e.LeavingReasonID || '';
+    const list = leavingReasons.filter(r => r.Active !== false || r.ReasonID === mine);
+    const first = !mine && e.LeavingReason ? '(earlier) ' + e.LeavingReason : '—';
+    $('emp-leave-reason').innerHTML = '<option value="">' + escapeHtml(first) + '</option>' + ['Resignation', 'Termination', 'Other'].map(t => {
+      const of = list.filter(r => r.Type === t);
+      return of.length ? '<optgroup label="' + t + '">' + of.map(r => '<option value="' + escapeHtml(r.ReasonID) + '">' + escapeHtml(r.Name) + '</option>').join('') + '</optgroup>' : '';
+    }).join('');
+  }
   function fillForm(e) {
     fillPickers(e);
+    fillLeavingReasons(e);
     $('emp-form-company').value = e.CompanyID || '';
     fillUnits(e.CompanyID || '');
     document.querySelectorAll('.emp-f').forEach(el => { el.value = e[el.dataset.k] == null ? (el.tagName === 'SELECT' && el.options.length ? el.options[0].value : '') : e[el.dataset.k]; });
@@ -902,6 +916,7 @@
     Promise.all([
       call('getActiveCompanies', {}).then(r => { companies = r || []; }),
       call('getHrSetup', {}).then(r => { setup = r; }),
+      call('leavingReasonSetup', { action: 'list' }).then(r => { leavingReasons = r.reasons || []; }, () => { leavingReasons = []; }),
       call('getActiveOrgUnits', {}).then(r => { units = r || []; }),
       call('getActiveUsersForPicker', {}).then(r => { users = r || []; }, () => { users = []; })
     ]).then(() => {

@@ -34,7 +34,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const g3 = (await call('u-admin', 'saveHrGrade', { grade: { Code: 'G3', Level: 3 } })).gradeId;
   const des = (await call('u-admin', 'saveHrDesignation', { designation: { Title: 'Accountant' } })).designationId;
   const ali = (await call('u-admin', 'saveEmployee', { employee: { FullName: 'Ali Hassan', CompanyID: 'C1', DesignationID: des, GradeID: g3, Gender: 'Male', JoinDate: '2021-01-01', CostCenterID: 'CC1',
-    Status: 'Left', LeavingDate: '2026-07-15', LeavingReason: 'Resigned', IBAN: 'AE070331234567890123456', WpsPersonID: '10000000000001', BankRoutingCode: '803320101' } })).employeeId;
+    Status: 'Left', LeavingDate: '2026-07-15', LeavingReason: 'Personal reasons', IBAN: 'AE070331234567890123456', WpsPersonID: '10000000000001', BankRoutingCode: '803320101' } })).employeeId;
   const els = Object.fromEntries((await call('u-admin', 'getPayElements', {})).elements.map(e => [e.Code, e.ElementID]));
   const notice = (await call('u-admin', 'savePayElement', { element: { Code: 'NOTICE', Name: 'Notice pay', Kind: 'Earning', Nature: 'Variable' } })).elementId;
   const damage = (await call('u-admin', 'savePayElement', { element: { Code: 'DAMAGE', Name: 'Damaged equipment', Kind: 'Deduction', Nature: 'Variable' } })).elementId;

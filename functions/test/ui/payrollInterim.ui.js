@@ -31,7 +31,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const des = (await call('u-admin', 'saveHrDesignation', { designation: { Title: 'Accountant' } })).designationId;
   const emp = (name, x) => call('u-admin', 'saveEmployee', { employee: Object.assign({ FullName: name, CompanyID: 'C1', DesignationID: des, GradeID: g3, Gender: 'Male', CostCenterID: 'CC1',
     JoinDate: '2025-01-01', IBAN: 'AE070331234567890123456', WpsPersonID: '10000000000001', BankRoutingCode: '803320101' }, x) }).then(r => r.employeeId);
-  const dan = await emp('Dan Leaver', { Status: 'On notice', LeavingDate: '2026-09-10', LeavingReason: 'Resigned' });
+  const dan = await emp('Dan Leaver', { Status: 'On notice', LeavingDate: '2026-09-10', LeavingReason: 'Personal reasons' });
   const eve = await emp('Eve Stays', { IBAN: 'AE460331234567890000001' });
   const els = Object.fromEntries((await call('u-admin', 'getPayElements', {})).elements.map(e => [e.Code, e.ElementID]));
   await call('u-admin', 'saveCompensation', { employeeId: dan, compensation: { Lines: [{ ElementID: els.BASIC, Amount: 6000 }, { ElementID: els.HRA, Amount: 3000 }] } });

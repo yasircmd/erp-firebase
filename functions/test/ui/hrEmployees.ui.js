@@ -115,6 +115,22 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await page.isDisabled('#emp-form-grade'), true);
   });
 
+  await check('on notice: a leaving reason from Payroll Setup\'s list, by type, with a note; back to Active clears it (owner, 2026-10-14)', async () => {
+    await page.selectOption('[data-k="Status"]', 'On notice');
+    await page.fill('[data-k="LeavingDate"]', '2026-12-31');
+    await page.click('#emp-save-btn');
+    await page.waitForFunction(() => /Choose the leaving reason of an employee who is on notice/.test(document.getElementById('emp-error').textContent), null, { timeout: 10000 });
+    assert.deepEqual(await page.$$eval('#emp-leave-reason optgroup', g => g.map(x => x.label)), ['Resignation', 'Termination', 'Other']);
+    await page.selectOption('#emp-leave-reason', { label: 'Relocation' });
+    await page.fill('[data-k="LeavingNote"]', 'Moving abroad');
+    await page.click('#emp-save-btn');
+    await page.waitForFunction(() => /Leaving reason[\s\S]*Relocation/.test(document.getElementById('emp-history').textContent), null, { timeout: 15000 });
+    await page.selectOption('[data-k="Status"]', 'Active');
+    await page.click('#emp-save-btn');
+    await page.waitForFunction(() => /Relocation → /.test(document.getElementById('emp-history').textContent), null, { timeout: 15000 });
+    assert.equal(await page.inputValue('#emp-leave-reason'), '');
+  });
+
   await check('line manager, direct reports, Replace manager', async () => {
     await page.click('#emp-back-btn');
     await addEmployee('Rami', 'EMP-0001 — Omar Boss');

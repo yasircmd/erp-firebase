@@ -544,3 +544,34 @@ ignored.
 
 **Employee Records is complete.** Next: Payroll, with its own design
 (docs/modules/HR_PAYROLL.md).
+
+## Leaving reasons (owner, 2026-10-14)
+
+From UX testing: "If employment is left, need a reason for both resignation
+and termination." The owner: a list kept in Payroll Setup, with defaults
+and the option to add more.
+
+- **Payroll Setup → Leaving Reasons** (`leavingReasons.js`,
+  `leavingReasonSetup` list / save; Firestore `hrLeavingReasons`): a name
+  (unique) and a type, Resignation, Termination or Other, and In use.
+  Twelve defaults are made the first time the list is read (fixed ids, so
+  two first readers write the same): Better opportunity, Personal reasons,
+  Relocation, Further studies (Resignation); Performance, Misconduct,
+  Redundancy, End of contract, Absconding (Termination); Retirement, Death,
+  Mutual agreement (Other). Read by Payroll Setup or Employees users;
+  changed with Payroll Setup's write right.
+- **Employees:** On notice or Left needs a reason from the list, by id (the
+  screen) or by name (an import), stored as `LeavingReasonID`,
+  `LeavingReason` (its name, as before, so the Final Settlement and history
+  read it unchanged) and `LeavingType`; a new **Leaving note** keeps any
+  detail. A reason no longer in use is refused for a new leaver, kept by
+  those who have it. A record from before the list (free text, no id) keeps
+  its reason on ordinary edits, until its status or reason changes. Active
+  clears all of them.
+- Gratuity does not depend on the type today; the type is there for
+  reports and any later end-of-service rule.
+- Tests: `leavingReasons` suite (3); fixtures of the payroll, documents,
+  import and employee suites moved to list reasons; `payrollSetup.ui.js`
+  (5), `hrEmployees.ui.js` (9); negative control caught (reason not
+  required).
+

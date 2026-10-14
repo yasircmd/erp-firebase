@@ -114,6 +114,20 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.close();
   });
 
+  await check('Leaving Reasons: the defaults by type; a new one added (owner, 2026-10-14)', async () => {
+    const p = await open('u-admin');
+    await p.click('.ps-tab[data-tab="leaving"]');
+    await p.waitForFunction(() => document.querySelectorAll('#ps-lr-body tr[data-id]').length === 12, null, { timeout: 30000 });
+    await p.click('#ps-lr-new');
+    await p.fill('#ps-lr-name', 'Career change');
+    await p.selectOption('#ps-lr-type', 'Resignation');
+    await p.click('#ps-lr-save');
+    await p.waitForFunction(() => /Career change\s*Resignation\s*In use/.test(document.getElementById('ps-lr-body').textContent), null, { timeout: 15000 });
+    assert.ok((await call('u-admin', 'leavingReasonSetup', { action: 'list' })).reasons.some(r => r.Name === 'Career change' && r.Type === 'Resignation'));
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   results.forEach(r => console.log(r.join('  ')));
   const failed = results.filter(r => r[0] === 'FAIL').length;

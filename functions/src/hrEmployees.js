@@ -20,6 +20,7 @@ const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { loadSetup } = require('./hrSetup');
+const { resolveReason } = require('./leavingReasons');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'EMPLOYEES';
@@ -44,6 +45,9 @@ const FIELDS = {
   JoinDate: { label: 'Date of joining', req: true, date: true }, ProbationEndDate: { label: 'Probation end', date: true },
   EmploymentType: { label: 'Employment type', values: EMPLOYMENT_TYPES },
   Status: { label: 'Status', values: STATUSES }, LeavingDate: { label: 'Leaving date', date: true }, LeavingReason: { label: 'Leaving reason', max: 300 },
+  // The reason is one of Payroll Setup → Leaving Reasons (owner, 2026-10-14);
+  // the note keeps any detail.
+  LeavingNote: { label: 'Leaving note', max: 300 },
   DivisionID: { label: 'Division', job: true, unit: 'Division' }, BranchID: { label: 'Branch', job: true, unit: 'Branch' },
   CostCenterID: { label: 'Cost center (department)', job: true, unit: 'CostCenter' }, WorkLocation: { label: 'Work location' },
   DesignationID: { label: 'Designation', req: true, job: true }, GradeID: { label: 'Grade', req: true, job: true },
@@ -159,7 +163,20 @@ async function saveEmployeeFor(user, input, opts) {
   if (out.DateOfBirth && out.DateOfBirth >= out.JoinDate) bad('The date of birth must be before the date of joining.');
   if (out.Status === 'Left' && !out.LeavingDate) bad('Enter the leaving date of an employee who has left.');
   if (out.LeavingDate && out.LeavingDate < out.JoinDate) bad('The leaving date is before the date of joining.');
-  if (out.Status === 'Active') { out.LeavingDate = ''; out.LeavingReason = ''; }
+  if (out.Status === 'Active') Object.assign(out, { LeavingDate: '', LeavingReason: '', LeavingNote: '', LeavingReasonID: '', LeavingType: '' });
+  else {
+    // On notice or left: a reason from the list (owner, 2026-10-14), by id
+    // (the screen) or by name (an import). A record from before the list
+    // keeps its reason until its status or reason changes.
+    const id = text(d.LeavingReasonID, 80);
+    const before = existing && !existing.LeavingReasonID && !id && existing.Status === out.Status && String(existing.LeavingReason || '') === out.LeavingReason;
+    if (before) Object.assign(out, { LeavingReasonID: '', LeavingType: existing.LeavingType || '' });
+    else {
+      const reason = await resolveReason(id, id ? '' : out.LeavingReason, existing && existing.LeavingReasonID);
+      if (!reason) bad('Choose the leaving reason of an employee who ' + (out.Status === 'Left' ? 'has left.' : 'is on notice.'));
+      Object.assign(out, { LeavingReasonID: reason.ReasonID, LeavingReason: reason.Name, LeavingType: reason.Type });
+    }
+  }
 
   // Organization: units of the right type, of this company (or for all).
   for (const [k, f] of Object.entries(FIELDS).filter(([, f]) => f.unit)) {

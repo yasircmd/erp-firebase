@@ -45,8 +45,8 @@ test.before(async () => {
   const des = (await call('u-admin', 'saveHrDesignation', { designation: { Title: 'Accountant' } })).designationId;
   const emp = (name, x) => call('u-admin', 'saveEmployee', { employee: Object.assign({ FullName: name, CompanyID: 'C1', DesignationID: des, GradeID: g3, Gender: 'Male', CostCenterID: 'CC1',
     IBAN: 'AE070331234567890123456', WpsPersonID: '10000000000001', BankRoutingCode: '803320101' }, x) }).then(r => r.employeeId);
-  ALI = await emp('Ali Hassan', { JoinDate: '2021-01-01', Status: 'Left', LeavingDate: '2026-07-15', LeavingReason: 'Resigned' });
-  BEN = await emp('Ben Okafor', { JoinDate: '2026-03-01', Status: 'On notice', LeavingDate: '2026-07-31', LeavingReason: 'Contract end', IBAN: '' });
+  ALI = await emp('Ali Hassan', { JoinDate: '2021-01-01', Status: 'Left', LeavingDate: '2026-07-15', LeavingReason: 'Personal reasons' });
+  BEN = await emp('Ben Okafor', { JoinDate: '2026-03-01', Status: 'On notice', LeavingDate: '2026-07-31', LeavingReason: 'End of contract', IBAN: '' });
   await emp('Cara Stays', { JoinDate: '2025-01-01' });
   const els = Object.fromEntries((await call('u-admin', 'getPayElements', {})).elements.map(e => [e.Code, e.ElementID]));
   EL = els;

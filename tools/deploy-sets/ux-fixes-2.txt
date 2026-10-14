@@ -14,3 +14,7 @@ getProductionEntries
 getPhysicalCountEntries
 # Queries: withdraw or mark resolved at any time (EMPLOYEE_PORTAL.md):
 essPortal
+# Leaving reasons (HR_EMPLOYEES.md): new, then those saving employees.
+leavingReasonSetup
+saveEmployee
+runMasterImport

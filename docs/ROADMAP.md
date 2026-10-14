@@ -213,7 +213,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       - [x] **Queries: withdraw (with a reason) or mark resolved at any
         time while open** (EMPLOYEE_PORTAL.md). `essRequests` suite (7),
         `essRequests.ui.js` (7); negative controls caught.
-      - [ ] Leaving reasons in Payroll Setup.
+      - [x] **Leaving reasons in Payroll Setup** (HR_EMPLOYEES.md): a list
+        by type with 12 defaults; required on notice or left.
+        `leavingReasons` suite (3), UI checks; negative control caught.
       - [ ] One print style (rounded, light borders).
       - [ ] A leaver's login cut-off.
       - [ ] Location as an Organizational Unit.
