@@ -207,6 +207,15 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       each module's prints could be customized (Tier 3 print module).
     - Advances: asks how to fix a wrong reference without reversing the
       whole entry (today only a reversal changes allocations).
+    - **Clarified (owner, 2026-10-14):** Employee Requests: only a
+      query can be withdrawn or marked resolved by the employee, at any
+      time; other requests unchanged. A leaver's login (ERP and Employee
+      Portal): at most 30 days after the last working day; "processed"
+      settlement means Paid; Admin or HR can extend or cancel at any time.
+      Location: shared by all companies or one company (a choice per
+      location). Item categories: only an option to add more, no heavy
+      change. COA: asks whether a used account can be renumbered within
+      its group (110001 → 11xxxx) without duplicating it.
   - **Tier 3, design doc first:** multi-currency and a company base
     currency (e.g. INR); inter-company transactions; Project dimension;
     cost centres per company; item categories per company; print
