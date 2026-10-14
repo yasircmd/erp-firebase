@@ -184,16 +184,29 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       theme (`erp-theme`), else the device's; its header button switches
       and saves it, for both (docs/modules/HELP.md). `help.ui.js`;
       negative control caught.
-  - **Tier 2, small, waiting on the owner's answer:** rows per list page
-    (100 today; choice and ceiling); leaving reason for resignation and
-    termination (list or free text); auto-disable a leaver's login (when,
-    and the employee ↔ user link); employee location (list or text);
-    employee can withdraw or resolve a request (up to which stage); new
-    Item Category from Item Master (screen or inline); COA 100000 /
-    200000 as heads only (meaning unclear); month-end check for DOs not
-    invoiced (Warn or Block default); print borders (one style or a
-    setting); matching an invoice to an advance (likely Help only:
-    payment matching already covers New Ref / Against Ref).
+  - **Tier 2: the owner's answers (2026-10-14)**, and what the code
+    showed (planning in progress, branch `tier2-ux-fixes`):
+    - Rows per list page: 25, 50 or 100 only (never more).
+    - Leaving reason, for resignation and termination: a list kept in
+      Payroll Setup, with defaults and room to add more.
+    - A leaver's login: disabled 30 days after the final settlement is
+      processed; with no settlement, counted from the last working day.
+    - Employee location: one Location for Employees and Fixed Assets, as
+      an Organizational Unit type (Fixed Assets already reserves it).
+    - Employee Requests: the employee may withdraw at any time, with a
+      reason.
+    - Item Master: "new category" opens the category screen; categories
+      and sub-categories become company level. (Today the categories
+      are a fixed list that drives BOM rules: design needed.)
+    - COA: no account like 100001 directly under 100000; it goes under a
+      group, like 110001. (Today's numbering treats 100000 and 110000 as
+      sibling heads, and the seeded Cash accounts are 1000xx: design.)
+    - Month-end checklist: deliveries posted but not invoiced; balances of
+      chosen clearing accounts; asks how to make it flexible.
+    - Prints: one style for all (rounded, light borders); asks whether
+      each module's prints could be customized (Tier 3 print module).
+    - Advances: asks how to fix a wrong reference without reversing the
+      whole entry (today only a reversal changes allocations).
   - **Tier 3, design doc first:** multi-currency and a company base
     currency (e.g. INR); inter-company transactions; Project dimension;
     cost centres per company; item categories per company; print
