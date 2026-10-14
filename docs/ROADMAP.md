@@ -151,7 +151,11 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       the number of units; with a discount, the amount before it shows as
       "Subtotal" (without one it would repeat the Total). `retailSales.ui.js`
       (10), negative control caught.
-    - [ ] Print: the Help button prints (no `no-print`).
+    - [x] **Print: the Help button was printed** (it lacked `no-print`,
+      unlike the other top-bar buttons). `help.ui.js` checks it under print
+      media; negative control caught. (That file's checks 1 and 3 fail on
+      main too: stale expectations after the 2026-10-12 Help audit, not
+      this change.)
     - [ ] COA: the status filter starts on Active.
     - [ ] Approval Tracker: a Status filter.
     - [ ] Inventory Aging: the item code opens Stock Ledger for the item.

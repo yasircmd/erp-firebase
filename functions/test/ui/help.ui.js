@@ -145,6 +145,11 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.waitForSelector('#stub-module');
     assert.equal(await p.getAttribute('#help-btn', 'href'), '/help/?m=GRN');
     assert.equal(await p.$eval('#help-btn', b => b.closest('.hidden') === null), true, 'not inside a part hidden in a screen');
+    // Not on a print (owner, 2026-10-14): hidden for print media, shown again after.
+    await p.emulateMedia({ media: 'print' });
+    assert.equal(await p.$eval('#help-btn', b => getComputedStyle(b).display), 'none', 'Help is not printed');
+    await p.emulateMedia({ media: 'screen' });
+    assert.notEqual(await p.$eval('#help-btn', b => getComputedStyle(b).display), 'none');
     await p.click('#back-to-tree-btn');
     await p.waitForFunction(() => document.getElementById('help-btn').getAttribute('href') === '/help/');
     // The link works: Hosting serves the help home there.
