@@ -186,10 +186,11 @@ const MASTERS = {
     label: 'Item Sub-Category', module: 'ITEMSUBCAT', save: 'saveItemSubCategory', idKey: 'subCategoryId', path: 'itemSubCategories', nameKey: 'Name',
     columns: [
       C('Name', 'Name', { req: true }),
-      C('Parent Category', 'ParentCategory', { req: true, type: 'enum', values: ITEM_CATEGORIES })
+      C('Parent Category', 'ParentCategory', { req: true, type: 'enum', values: ITEM_CATEGORIES }),
+      companyCol // shared or one company's (owner, 2026-10-14)
     ],
-    sample: ['Steel Sheets', 'Raw Material'],
-    toData: r => ({ Name: r.Name, ParentCategory: r.ParentCategory })
+    sample: ['Steel Sheets', 'Raw Material', ''],
+    toData: r => ({ Name: r.Name, ParentCategory: r.ParentCategory, CompanyID: r.CompanyID || '' })
   },
   ITEM: {
     label: 'Items', module: 'ITEMMASTER', save: 'saveItem', idKey: 'itemId', path: 'items', nameKey: 'ItemName',
@@ -644,7 +645,7 @@ async function checkPaste(user, masterKey, text, opts) {
     const resolveOne = (col, raw) => {
       let pool = ex[col.ref];
       const co = typeof r.CompanyID === 'string' ? r.CompanyID : '';
-      if (col.ref === 'subCategory') pool = pool.filter(x => x.rec.ParentCategory === r.Category);
+      if (col.ref === 'subCategory') pool = pool.filter(x => x.rec.ParentCategory === r.Category && (!x.rec.CompanyID || x.rec.CompanyID === co));
       if (['account', 'faClass', 'division', 'branch', 'costCenter', 'profitCenter', 'location'].includes(col.ref) && masterKey !== 'ACCOUNT' && co) {
         pool = pool.filter(x => !x.rec.CompanyID || x.rec.CompanyID === co);
       }
@@ -775,7 +776,7 @@ const headerOf = (m, key) => (m.columns.find(c => c.key === key) || {}).h || key
 const companyOf = v => (typeof v === 'string' ? v : '');
 function dupScope(k, r) {
   if (k === 'ORGUNIT') return r.Type + '|' + companyOf(r.CompanyID);
-  if (k === 'SUBCATEGORY') return r.ParentCategory;
+  if (k === 'SUBCATEGORY') return r.ParentCategory + '|' + companyOf(r.CompanyID);
   if (['ACCOUNT', 'ITEM', 'VENDOR', 'CUSTOMER', 'CLASSIFICATION', 'SALESTYPE', 'REQCATEGORY'].includes(k)) return companyOf(r.CompanyID);
   return '';
 }
@@ -788,7 +789,7 @@ function existingSameName(k, r, ex) {
     case 'ORGUNIT': return same(ex.raw.orgUnits, 'Name', x => x.Type === r.Type && (x.CompanyID || '') === co);
     case 'ACCOUNT': return same(ex.raw.coa, 'AccountName', x => (x.CompanyID || '') === co);
     case 'UOM': return same(ex.raw.uoms, 'Name');
-    case 'SUBCATEGORY': return same(ex.raw.itemSubCategories, 'Name', x => x.ParentCategory === r.ParentCategory);
+    case 'SUBCATEGORY': return same(ex.raw.itemSubCategories, 'Name', x => x.ParentCategory === r.ParentCategory && (x.CompanyID || '') === co);
     case 'ITEM': return same(ex.raw.items, 'ItemName', x => (x.CompanyID || '') === co);
     case 'VENDOR': return same(ex.raw.vendors, 'VendorName', x => (x.CompanyID || '') === co);
     case 'CUSTOMER': return same(ex.raw.customers, 'CustomerName', x => (x.CompanyID || '') === co);
@@ -1294,7 +1295,7 @@ async function checkUpdate(user, masterKey, text) {
         // of the record's company (or for all); sub-categories of its category.
         let pool = ex[col.ref] || [];
         if (['account', 'faClass', 'division', 'branch', 'costCenter', 'profitCenter', 'warehouse', 'location'].includes(col.ref) && co && masterKey !== 'COMPANY') pool = pool.filter(x => !x.rec.CompanyID || x.rec.CompanyID === co);
-        if (col.ref === 'subCategory' && rec) pool = pool.filter(x => x.rec.ParentCategory === rec.Category);
+        if (col.ref === 'subCategory' && rec) pool = pool.filter(x => x.rec.ParentCategory === rec.Category && (!x.rec.CompanyID || x.rec.CompanyID === (co || rec.CompanyID || '')));
         const one = txt => {
           const byCode = pool.filter(x => x.code && norm(x.code) === norm(txt));
           const hits = byCode.length ? byCode : pool.filter(x => norm(x.name) === norm(txt));

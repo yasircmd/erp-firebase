@@ -38,3 +38,7 @@ saveOrgUnit
 saveFaAsset
 getMasterImportSpecs
 checkMasterImport
+# Item Sub-Categories by company (ITEM_SUBCATEGORIES.md):
+saveItemSubCategory
+getActiveItemSubCategories
+saveItem

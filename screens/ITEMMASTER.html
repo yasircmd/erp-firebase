@@ -82,7 +82,7 @@
           <p id="im-category-locked-note" class="hidden text-xs text-amber-400 mt-1">Category can't be changed after an item is created — its code depends on it.</p>
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1">Sub-Category <span class="text-slate-500">(optional)</span></label>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Sub-Category <span class="text-slate-500">(optional)</span> <button type="button" id="im-subcat-new" class="ml-1 text-blue-400 hover:text-blue-300 underline" title="Add a sub-category in Item Sub-Category">New…</button></label>
           <select id="im-form-subcategory" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a Category first...</option></select>
         </div>
       </div>
@@ -381,10 +381,13 @@
       .getChartOfAccounts();
   }
 
-  function updateSubCategoryOptions(selectedCategory, preselectId) {
+  // The category's sub-categories: shared ones and the item's company's
+  // (owner, 2026-10-14; docs/modules/ITEM_SUBCATEGORIES.md).
+  function updateSubCategoryOptions(selectedCategory, preselectId, companyId) {
     const select = document.getElementById('im-form-subcategory');
     select.innerHTML = '';
-    const matching = subCategories.filter(s => s.ParentCategory === selectedCategory);
+    const co = companyId === undefined ? document.getElementById('im-form-company').value : (companyId || '');
+    const matching = subCategories.filter(s => s.ParentCategory === selectedCategory && (!s.CompanyID || s.CompanyID === co));
     if (!selectedCategory) {
       select.innerHTML = '<option value="">Select a Category first...</option>';
       return;
@@ -471,7 +474,7 @@
       document.getElementById('im-form-category').value = i.Category;
       document.getElementById('im-form-category').disabled = true;
       document.getElementById('im-category-locked-note').classList.remove('hidden');
-      updateSubCategoryOptions(i.Category, i.SubCategoryID);
+      updateSubCategoryOptions(i.Category, i.SubCategoryID, i.CompanyID);
       document.getElementById('im-form-name').value = i.ItemName;
       document.getElementById('im-form-uom').value = i.UOMID;
       document.getElementById('im-form-altuom').value = i.AltUOMID || '';
@@ -510,7 +513,7 @@
     document.getElementById('im-modal-title').textContent = 'Add Item';
     document.getElementById('im-form-id').value = '';
     document.getElementById('im-form-category').value = source.Category;
-    updateSubCategoryOptions(source.Category, source.SubCategoryID);
+    updateSubCategoryOptions(source.Category, source.SubCategoryID, source.CompanyID);
     document.getElementById('im-form-name').value = '';
     document.getElementById('im-form-uom').value = source.UOMID;
     document.getElementById('im-form-altuom').value = source.AltUOMID || '';
@@ -685,6 +688,14 @@
     document.getElementById('im-lbl-print').addEventListener('click', printItemLabels);
     document.getElementById('im-bc-add').addEventListener('click', () => barcodeRow({}).querySelector('.im-bc-code').focus());
     document.getElementById('im-form-category').addEventListener('change', () => updateSubCategoryOptions(document.getElementById('im-form-category').value));
+    document.getElementById('im-form-company').addEventListener('change', () => updateSubCategoryOptions(document.getElementById('im-form-category').value, document.getElementById('im-form-subcategory').value));
+    // "New…": Item Sub-Category's Add form for this category and company; Back returns here.
+    document.getElementById('im-subcat-new').addEventListener('click', async () => {
+      const category = document.getElementById('im-form-category').value;
+      if (!category) { appAlert('Choose the Category first.'); return; }
+      if (!(await appConfirm('Open Item Sub-Category to add one? This item is not saved: you will come back to Item Master and open it again.'))) return;
+      openModule('ITEMSUBCAT', { NewFor: category, CompanyID: document.getElementById('im-form-company').value }, [{ moduleId: 'ITEMMASTER', label: 'Item Master' }]);
+    });
     document.getElementById('im-form-altuom').addEventListener('change', updateConversionEnabled);
     document.getElementById('im-search-input').addEventListener('input', renderTable);
     document.getElementById('im-category-filter').addEventListener('change', renderTable);
