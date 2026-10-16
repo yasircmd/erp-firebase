@@ -140,6 +140,18 @@ and the aging follow at once. Kept in the entry's history.
 
 ## Wave 2: medium features (a design doc each)
 
+Design docs written 2026-10-16, each with its questions for the owner:
+
+| Item | Design doc | Questions |
+|---|---|---|
+| H. Direct sales invoice; SO → invoice without a delivery | [DIRECT_SALES_INVOICE.md](DIRECT_SALES_INVOICE.md) | 166–172 |
+| I. Payroll cost centre per run; split by % | [PAYROLL_COST_SPLIT.md](PAYROLL_COST_SPLIT.md) | 173–178 |
+| J. End-of-service statement | [EOS_STATEMENT.md](EOS_STATEMENT.md) | 179–184 |
+| K. Vendor / customer extra fields | [PARTY_CUSTOM_FIELDS.md](PARTY_CUSTOM_FIELDS.md) | 185–190 |
+| L. Searchable picker | [SEARCH_PICKER.md](SEARCH_PICKER.md) | 191–196 |
+| M. COA numbering; renumber a used account | [COA_NUMBERING.md](COA_NUMBERING.md) | 197–202 |
+| N. Item categories beyond the five | [ITEM_CATEGORIES_CUSTOM.md](ITEM_CATEGORIES_CUSTOM.md) | 203–207 |
+
 - **H. Direct sales invoice, and Sales Order → invoice without a delivery.**
   Today stock leaves at the Delivery Note; the invoice would then post the
   stock and its cost too. Questions on returns, partial invoicing and
