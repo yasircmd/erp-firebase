@@ -153,7 +153,7 @@ kept in USD as well as in base. Question 217.
 
 ## As built: phase O1 (2026-10-16)
 
-Built in two steps. **O1** (this one) covers rates, invoices, returns,
+Built in two steps. **O1** covers rates, invoices, returns,
 Cash & Bank and the statements. **O2** covers PDCs, openings, JV party
 lines, bank accounts in a foreign currency, and the print with the VAT in
 AED.
@@ -227,12 +227,68 @@ AED.
   the totals and the control-account check still add up. `FcOwed`,
   `FcUnapplied` and `FcNet` are given beside it.
 
+## As built: phase O2 (2026-10-16)
+
+**PDC** (pdc.js, PDC screens):
+- A foreign party's cheque takes `FcAmount` beside its `Amount` (base,
+  what the bank pays). The allocations and the advance (New Ref) are in
+  FC, and the rate is Amount / FcAmount.
+- The post entry carries the party line's FC fields and the exchange
+  difference lines from `resolvePartyLines`.
+- Bounce and cancel mirror them (`mirrorFc`, `FxAdjustment`).
+- `getPdcSetup` gives each party's `Currency`.
+- The SOA's pending PDCs are in the party's currency.
+
+**JV:**
+- A foreign party's line takes its FC amount beside the debit or credit
+  (`fcFromAmounts_` in saveJournalDraft, rate = base / FC). Without one it
+  is refused.
+- The JV and CBT screens no longer load the `FxAdjustment` lines into the
+  grid. Re-saving a draft used to add them a second time. The server
+  works them out again on every save.
+
+**Opening Balances:**
+- Open Invoices gain an optional **Rate** column. A foreign party's
+  Amount is in its currency, at the given rate, or blank for the rate on
+  the document date.
+- The line is base with the FC fields, and the New Ref is in FC.
+
+**Bank accounts in a foreign currency** (decision 217):
+- A postable cash or bank account may carry `Currency`, through patch
+  `bank-currency` and the COA SCREEN_EDITS. It is fixed once the account
+  has postings (`findAccountUsage`).
+- A CBT voucher on such a ledger stores `LedgerCurrency`, `ExchangeRate`,
+  `RateEffectiveDate` and `ExchangeRateReason`, with the rate on the date
+  or another one with a reason.
+- Its amounts are typed in that currency, and every line is base at the
+  voucher's rate with its FC amount.
+- A party on it must be in the same currency: a base party's line is
+  refused by `resolvePartyLines`.
+- Fund Transfer:
+  - FC to the same FC: both lines keep the FC amount.
+  - FC to base: the To line is base only.
+  - Base to FC: the To line's FC amount is entered, and the rate is base
+    / FC.
+  - Between two different FCs: refused for now.
+- The GL Report ledger of such an account gives `FcDebit`, `FcCredit`,
+  `FcBalance`, `fcOpening` and `fcClosing`. `getPostedGlLines_` keeps the
+  FC fields.
+
+**Print** (decision 218): a foreign-currency Customer Invoice prints its
+total in FC, then the rate, the VAT in base (TaxAmount × rate) and the
+total in base. The CBT voucher prints its currency and rate.
+
 **Not handled yet:**
 - Re-match of an entry with foreign lines.
+- Recurring JV and asset retirement lines for foreign parties are refused
+  (no FC amount on those screens).
 - A draft keeps the rate of its last save until it is saved again.
 - Month-end revaluation (decision 216, later).
+- Orders, GRNs and Delivery Notes in FC (decision 215, later).
 
-**Tests:** `functions/test/emulator/multiCurrency.emulator.test.js`, with
-two verified negative controls:
+**Tests:** `functions/test/emulator/multiCurrency.emulator.test.js` (11
+tests) and `functions/test/ui/multiCurrency.ui.js` (11 checks). Three
+negative controls were verified:
 - the exchange-difference sign flipped: 3 tests fail;
-- the return's conversion skipped: 1 test fails.
+- the return's conversion skipped: 1 test fails;
+- the CBT conversion of a foreign-currency ledger skipped: 1 test fails.

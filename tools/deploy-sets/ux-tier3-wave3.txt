@@ -1,14 +1,16 @@
-# UX testing Tier 3, wave 3, O1: foreign currency for vendors and customers
-# (owner, 2026-10-16; docs/modules/MULTI_CURRENCY.md, decisions 211-218).
-# Run with --screens. Hosting too (tools/deploy-hosting.sh): the Help pages.
+# UX testing Tier 3, wave 3, O: foreign currency for vendors, customers and
+# bank accounts (owner, 2026-10-16; docs/modules/MULTI_CURRENCY.md, decisions
+# 211-218). Run with --screens. Hosting too (tools/deploy-hosting.sh): the Help.
 # NEW: getExchangeRates, saveExchangeRate, getExchangeRateOn, getFxSettings,
 #   saveFxSettings (exchangeRates.js).
 # Then every function whose code reaches the changed party ledger (realized
 # exchange differences, open items and statements in the party's currency),
-# journals and CBT, PDC, returns, openings, asset retirement, statements,
-# aging and the legacy invoice / vendor / customer saves and posts (listed by
-# require closure; glWriting's change only carries the foreign amounts,
-# which only these produce). Roles & Permissions: the new "rates" right.
+# journals and CBT (bank accounts in a foreign currency), PDC, returns,
+# openings, asset retirement, statements, aging, and the legacy invoice /
+# vendor / customer saves and posts, the account save and the GL report and
+# the reports reading posted lines (listed by require closure; glWriting's
+# change only carries the foreign amounts, which only these produce).
+# Roles & Permissions: the new "rates" right.
 # After the deploy: tick Currency Configuration "rates" for the roles that
 # enter rates; set each company's Exchange Gain / Loss account.
 getExchangeRates
@@ -52,8 +54,14 @@ saveCbtDraft
 saveJournalDraft
 decideCustomerInvoiceApproval
 decideVendorInvoiceApproval
+getBalanceSheet
+getCashFlowStatement
+getGlReport
+getProfitAndLoss
+getTrialBalance
 postCustomerInvoice
 postVendorInvoice
+saveAccount
 saveCustomer
 saveCustomerInvoiceDraft
 saveVendor
