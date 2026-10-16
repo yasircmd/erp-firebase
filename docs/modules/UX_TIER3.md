@@ -245,3 +245,19 @@ none, the recommendation is the one written here.
   `customer-mobile-unique`, only when the number is new or changed, so
   customers saved before keep saving. Tests: `retailSales` suite (a new E
   test) and UI (11); negative control (full-digit compare) caught.
+- **F** (2026-10-16): `shareholders.js`, RTDB
+  `companyShareholders/{companyId}` (IssuedShares, Holders, Log), apart
+  from the company record (which `getCompanies` gives every Company Master
+  user). Right (163): Company Master `shareholders` to see; changing also
+  needs Company Master `write`. Default `shareholders: ['ADMIN']` for new
+  installs; on the live system the owner ticks it in Roles & Permissions
+  (an added capability is not seeded, as Retail Sales "return"). % = shares
+  / issued shares; the current holders (from date ≤ today ≤ to date) not
+  holding exactly the issued shares is a warning (162), as is no issued
+  shares entered. History: a to date (logged "Left"); a record entered by
+  mistake removed with a reason (logged with its details). Company Master:
+  a Shareholders button per company, the panel, **Print company profile**
+  (the company's details and its current shareholders; an internal print,
+  so it keeps the ERP title bar like every print not on the owner's
+  external list). Tests: `shareholders` suite (2) and `companyMaster` UI
+  (3); negative control (the right ignored) caught.

@@ -11,7 +11,7 @@ const MODULE_REGISTRY = [
   { id: 'CBT', label: 'Cash and Bank Transactions (CBT)', capabilities: ['access', 'draft', 'post'] },
   { id: 'TREEMGMT', label: 'Module Tree & Navigation', capabilities: ['access', 'write'] },
   { id: 'ROLES', label: 'Roles & Permissions', capabilities: ['access', 'write'] },
-  { id: 'COMPANYMASTER', label: 'Company Master Data', capabilities: ['access', 'write'] },
+  { id: 'COMPANYMASTER', label: 'Company Master Data', capabilities: ['access', 'write', 'shareholders'] }, // shareholders: UX_TIER3.md F
   { id: 'VENDORMASTER', label: 'Vendor Master Data', capabilities: ['access', 'write'] },
   { id: 'CUSTOMERMASTER', label: 'Customer Master Data', capabilities: ['access', 'write'] },
   { id: 'PROCUREMENTSETUP', label: 'Procurement Setup', capabilities: ['access', 'write'] },
@@ -141,7 +141,7 @@ const DEFAULT_PERMISSIONS = {
   CBT:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   TREEMGMT: { access: ['ADMIN'], write: ['ADMIN'] },
   ROLES:    { access: ['ADMIN'], write: ['ADMIN'] },
-  COMPANYMASTER:  { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN'] },
+  COMPANYMASTER:  { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN'], shareholders: ['ADMIN'] },
   VENDORMASTER:   { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
   CUSTOMERMASTER: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
   PROCUREMENTSETUP: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN'] },

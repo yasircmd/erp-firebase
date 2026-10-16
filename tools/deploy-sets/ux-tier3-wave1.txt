@@ -21,3 +21,11 @@ tickPeriodClosingStep
 getRetailCounter
 createRetailCustomer
 saveCustomer
+# F: shareholders in Company Master (all four NEW: add their public-invoker
+#    bindings). Then the owner ticks Company Master "shareholders" for the
+#    roles that may see them in Roles & Permissions (a capability added to an
+#    existing module is not seeded into the live permissions).
+getCompanyShareholders
+saveCompanyIssuedShares
+saveCompanyShareholder
+removeCompanyShareholder

@@ -283,3 +283,10 @@ exports.refreshLeaverAccess = require('./src/leaverAccess').refreshLeaverAccess;
 
 // GL views (docs/modules/GL_VIEWS.md): GL Listing, several ledgers without balances.
 exports.getGlListing = require('./src/glViews').getGlListing;
+
+// Shareholders in Company Master (docs/modules/UX_TIER3.md, F).
+const shareholders = require('./src/shareholders');
+exports.getCompanyShareholders = shareholders.getCompanyShareholders;
+exports.saveCompanyIssuedShares = shareholders.saveCompanyIssuedShares;
+exports.saveCompanyShareholder = shareholders.saveCompanyShareholder;
+exports.removeCompanyShareholder = shareholders.removeCompanyShareholder;
