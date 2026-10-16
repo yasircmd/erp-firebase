@@ -12,6 +12,14 @@ screen.
 
 ## 16/10/2026
 
+- **Chart of Accounts: classes, groups and renumbering.** Codes now have
+  a level each: a class per type (100000 Assets), groups under it (110000
+  Cash) and the accounts under a group (110001). An account can no longer
+  sit straight under a class. Cash and bank accounts are the ones under a
+  group marked **Cash** or **Bank**, not those with a certain code.
+  **Renumber** gives a used account another code in its own group, and
+  every entry and document follows. See
+  [Chart of Accounts](chart-of-accounts.html).
 - **Search any long list.** Choosing an account, item, customer, vendor
   or a line's party now opens a searchable list. Type any part of the code
   or name ("trad" finds *Beta Trading*), choose with the arrow keys and

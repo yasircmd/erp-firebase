@@ -78,6 +78,8 @@ const MAPPED = {
   // new development: docs/modules/NUMBERING.md (every number from its format)
   generateVoucherNumber_: ['numbering', 'voucherNumber', 'dropCtx'],
   generateItemCode_: ['numbering', 'itemCode', 'dropCtx'],
+  generateAccountCode_: ['coaScheme', 'generateCode', 'pure'], // docs/modules/COA_NUMBERING.md
+  isCashOrBankAccount_: ['coaScheme', 'isCashOrBank', 'pure'], // by the Cash / Bank mark, not the code
   generateVendorCode_: ['numbering', 'vendorCode', 'dropCtx'],
   generateCustomerCode_: ['numbering', 'customerCode', 'dropCtx'],
   generateStockTransactionRef_: ['glWriting', 'generateStockTransactionRef', 'dropCtx'],
@@ -123,7 +125,8 @@ const SHARED_PATHS = {
   numbering: '../numbering',
   periodLock: '../periodLock',
   customerPhone: '../customerPhone', // used by name (__customerPhone.) in patches
-  invoiceStock: '../invoiceStock'
+  invoiceStock: '../invoiceStock',
+  coaScheme: '../coaScheme' // used by name (__coaScheme.) in patches
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);
@@ -426,7 +429,87 @@ const SCREEN_EDITS = [
   // User Management: Last Login is now recorded at sign-in (session.js,
   // completeLogin) as a UTC timestamp; shown in local time, dd/mm/yyyy HH:MM.
   { mod: 'USERMGMT', from: '${escapeHtml(u.lastLogin)}',
-    to: "${escapeHtml(u.lastLogin && u.lastLogin !== 'Never' ? (isoLocalDateTime(u.lastLogin) || u.lastLogin) : 'Never')}" },
+    to: "${escapeHtml(u.lastLogin && u.lastLogin !== 'Never' ? (isoLocalDateTime(u.lastLogin) || u.lastLogin) : 'Never')}" },,
+  // COA numbering (owner, 2026-10-16; docs/modules/COA_NUMBERING.md,
+  // decisions 197-210): a class per type, groups under it, accounts under
+  // a group; a group marked Cash or Bank; Renumber within the heading;
+  // the accounts to fix.
+  { mod: 'COA', from: '<option value="">None — creates a new top-level sub-category</option></select>',
+    to: '<option value="">None — the class (one per type, already there)</option></select>' },
+  { mod: 'COA', from: "select.innerHTML = '<option value=\"\">None — creates a new top-level sub-category</option>';",
+    to: "select.innerHTML = '<option value=\"\">None — the class (one per type, already there)</option>';" },
+  { mod: 'COA', from: 'Pick a header to create an account under it, or pick a sub-parent (shown indented) to create one under that instead. Leave blank to create a new top-level sub-category (e.g. "Bank Accounts") under the selected type.',
+    to: 'A class (e.g. 100000 Assets) holds groups; a group (e.g. 110000 Cash) holds accounts and, optionally, sub-groups (shown indented). An account that takes postings always goes under a group or a sub-group, never straight under the class.' },
+  { mod: 'COA', from: 'Leave unchecked for a header, or for a sub-parent grouping (e.g. "Accrued & Clearing Liabilities") under a header — only one level of sub-parent is supported.',
+    to: 'Leave unchecked for a heading: a group under the class, or a sub-group under a group (one level of sub-group).' },
+  { mod: 'COA', from: '      <div id="coa-cashflowcategory-inherited"',
+    to: `      <div id="coa-cashbank-field" class="hidden">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Cash / Bank</label>
+        <select id="coa-form-cashbank" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Neither</option><option value="Cash">Cash: its accounts are cash accounts</option><option value="Bank">Bank: its accounts are bank accounts</option></select>
+        <p class="text-xs text-slate-500 mt-1">The accounts under this group are the cash (or bank) accounts that Cash and Bank Transactions, PDCs, Fixed Assets and payroll offer.</p>
+      </div>
+      <div id="coa-cashflowcategory-inherited"` },
+  { mod: 'COA', from: "      document.getElementById('coa-form-cashflowcategory').value = a.CashFlowCategory || '';\n",
+    to: "      document.getElementById('coa-form-cashflowcategory').value = a.CashFlowCategory || '';\n      document.getElementById('coa-form-cashbank').value = a.OwnCashBank || '';\n" },
+  { mod: 'COA', from: "      CashFlowCategory: document.getElementById('coa-form-cashflowcategory').value,\n",
+    to: "      CashFlowCategory: document.getElementById('coa-form-cashflowcategory').value,\n      CashBank: document.getElementById('coa-cashbank-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-cashbank').value,\n" },
+  { mod: 'COA', from: "    updateCashFlowCategoryVisibility();\n    document.getElementById('coa-modal').classList.remove('hidden');",
+    to: "    updateCashFlowCategoryVisibility();\n    updateCashBankVisibility();\n    document.getElementById('coa-modal').classList.remove('hidden');" },
+  { mod: 'COA', from: "  function closeModal() { document.getElementById('coa-modal').classList.add('hidden'); }",
+    to: `  // Cash / Bank: on an Assets heading that has a parent (a group or sub-group).
+  function updateCashBankVisibility() {
+    const show = !document.getElementById('coa-form-postable').checked && document.getElementById('coa-form-type').value === 'Asset' && Boolean(document.getElementById('coa-form-parent').value);
+    document.getElementById('coa-cashbank-field').classList.toggle('hidden', !show);
+  }
+
+  // Renumber (docs/modules/COA_NUMBERING.md, decision 198): another free code of the account's own heading.
+  async function renumber(a) {
+    rpc.withSuccessHandler(async r => {
+      if (!r.codes.length) { appAlert(r.heading.AccountCode + ' ' + r.heading.AccountName + ' has no free code.'); return; }
+      const to = await appPrompt('Renumber ' + r.accountCode + ' ' + r.accountName + ' within ' + r.heading.AccountCode + ' ' + r.heading.AccountName + '.\\n\\nFree codes: ' + r.codes[0] + ' to ' + r.codes[r.codes.length - 1] +
+        (r.codes.length < 999 ? ' (some taken)' : '') + '. Every posting, draft and document that shows ' + r.accountCode + ' will show the new code. New code:', r.codes[0]);
+      if (to === null) return;
+      const reason = await appPrompt('The reason for renumbering ' + r.accountCode + ' to ' + to.trim() + ':', '');
+      if (reason === null) return;
+      rpc.withSuccessHandler(res => { fetchAndRender(); loadAccountsToFix(); appAlert('Renumbered: ' + res.from + ' is now ' + res.to + '.'); })
+        .withFailureHandler(err => appAlert(err.message || 'Unable to renumber the account.'))
+        .renumberAccount({ accountId: a.AccountID, newCode: to.trim(), reason: reason });
+    }).withFailureHandler(err => appAlert(err.message || 'Unable to renumber the account.')).getAccountRenumberCodes({ accountId: a.AccountID });
+  }
+
+  // Accounts that take postings but are not under a group (decision 201).
+  function loadAccountsToFix() {
+    rpc.withSuccessHandler(r => {
+      const list = (r && r.accounts) || [];
+      document.getElementById('coa-fix').classList.toggle('hidden', !list.length);
+      document.getElementById('coa-fix-list').innerHTML = list.map(x => '<li><span class="font-mono">' + escapeHtml(x.AccountCode) + '</span> ' + escapeHtml(x.AccountName) + ': ' + escapeHtml(x.Problem) + '</li>').join('');
+    }).withFailureHandler(() => {}).getCoaAccountsToFix({});
+  }
+
+  function closeModal() { document.getElementById('coa-modal').classList.add('hidden'); }` },
+  { mod: 'COA', from: "    document.getElementById('coa-form-parent').addEventListener('change', updateCashFlowCategoryVisibility);\n",
+    to: "    document.getElementById('coa-form-parent').addEventListener('change', updateCashFlowCategoryVisibility);\n    ['coa-form-parent', 'coa-form-postable', 'coa-form-type'].forEach(id => document.getElementById(id).addEventListener('change', updateCashBankVisibility));\n    loadAccountsToFix();\n" },
+  { mod: 'COA', from: "        if (result.success) { closeModal(); fetchAndRender(); if (result.codeChangedFrom)",
+    to: "        if (result.success) { closeModal(); fetchAndRender(); loadAccountsToFix(); if (result.codeChangedFrom)" },
+  { mod: 'COA', from: '  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">\n    <div class="overflow-x-auto">',
+    to: `  <div id="coa-fix" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-sm">
+    <div class="font-semibold text-amber-300 mb-1"><i class="fa-solid fa-triangle-exclamation"></i> Accounts to fix</div>
+    <p class="text-xs text-slate-400 mb-2">These take postings but are not under a group. Edit each: choose its group as the parent (a used account can't move: create a new account under the group, move the balance with a JV and deactivate this one).</p>
+    <ul id="coa-fix-list" class="text-xs text-slate-300 space-y-0.5"></ul>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">` },
+  { mod: 'COA', from: '        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}</td>',
+    to: '        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.OwnCashBank ? \' <span class="ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">\' + escapeHtml(a.OwnCashBank) + \'</span>\' : \'\'}${(a.FormerCodes || []).length ? \'<div class="text-[11px] text-slate-500">formerly \' + escapeHtml(a.FormerCodes.map(f => f.Code).join(\', \')) + \'</div>\' : \'\'}</td>' },
+  { mod: 'COA', from: "        ? `<button class=\"coa-edit text-slate-400 hover:text-blue-400 p-1\" title=\"Edit\"><i class=\"fa-solid fa-pen-to-square\"></i></button>",
+    to: "        ? `${a.IsPostable === true ? '<button class=\"coa-renumber text-slate-400 hover:text-blue-400 p-1\" title=\"Renumber within its heading\"><i class=\"fa-solid fa-arrow-down-1-9\"></i></button>' : ''}<button class=\"coa-edit text-slate-400 hover:text-blue-400 p-1\" title=\"Edit\"><i class=\"fa-solid fa-pen-to-square\"></i></button>" },
+  { mod: 'COA', from: "        row.querySelector('.coa-edit').addEventListener('click', () => openModal(a.AccountID));\n",
+    to: "        row.querySelector('.coa-edit').addEventListener('click', () => openModal(a.AccountID));\n        const rn = row.querySelector('.coa-renumber');\n        if (rn) rn.addEventListener('click', () => renumber(a));\n" },
+  { mod: 'COA', from: "/000$/.test(String(a.AccountCode || '')) // header (…0000) OR sub-parent (…1000, …2000, etc.)",
+    to: "/000$/.test(String(a.AccountCode || '')) // class (X00000), group (XN0000) or sub-group (XNM000)" },
+  { mod: 'COA', from: "        const isSubParent = /^\\d{2}[1-9]000$/.test(String(a.AccountCode || ''));\n        opt.textContent = (isSubParent ? '— ' : '') + a.AccountCode + ' — ' + a.AccountName;",
+    to: "        const level = /^\\d00000$/.test(String(a.AccountCode || '')) ? 0 : /^\\d{2}0000$/.test(String(a.AccountCode || '')) ? 1 : 2;\n        opt.textContent = ['', '— ', '—— '][level] + a.AccountCode + ' — ' + a.AccountName;" }
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {

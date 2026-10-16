@@ -29,7 +29,7 @@ const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').
 // The company's time (Asia/Dubai, UTC+4) for a file's creation date and time.
 const companyNow = () => new Date(Date.now() + 4 * 3600000);
 // Cash accounts' codes start 10, banks' 11 (as Cash & Bank Transactions).
-const isCashOrBank = a => a && a.AccountType === 'Asset' && ['10', '11'].includes(String(a.AccountCode).slice(0, 2));
+const isCashOrBank = a => a && a.AccountType === 'Asset' && require('./coaScheme').isCashOrBank(a); // by the Cash / Bank mark (docs/modules/COA_NUMBERING.md)
 const history = (run, event, user, extra) => (run.History || []).concat([Object.assign({ Event: event, By: R.actorName(user), At: new Date().toISOString() }, extra || {})]);
 
 // ---------- Payroll Setup → Payment Files ----------

@@ -12,8 +12,8 @@ const { app, rtdb, firestore, call, reset, baseFixture, val } = require('./_help
 function fixture() {
   const f = baseFixture();
   Object.assign(f.coa, {
-    'A-BANK2': { AccountCode: '1110', AccountName: 'Second Bank', AccountType: 'Asset', Status: 'Active', IsPostable: true },
-    'A-BANKC2': { AccountCode: '1120', AccountName: 'C2 Bank', AccountType: 'Asset', Status: 'Active', IsPostable: true, CompanyID: 'C2' },
+    'A-BANK2': { AccountCode: '1110', AccountName: 'Second Bank', AccountType: 'Asset', CashBank: 'Bank', Status: 'Active', IsPostable: true },
+    'A-BANKC2': { AccountCode: '1120', AccountName: 'C2 Bank', AccountType: 'Asset', CashBank: 'Bank', Status: 'Active', IsPostable: true, CompanyID: 'C2' },
     'A-PDCR': { AccountCode: '1250', AccountName: 'PDC Received Clearing', AccountType: 'Asset', Status: 'Active', IsPostable: true },
     'A-PDCI': { AccountCode: '2150', AccountName: 'PDC Issued Clearing', AccountType: 'Liability', Status: 'Active', IsPostable: true }
   });

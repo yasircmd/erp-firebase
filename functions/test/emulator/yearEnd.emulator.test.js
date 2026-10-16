@@ -20,7 +20,9 @@ function fixture() {
   const f = baseFixture();
   const acc = (code, name, type, extra) => Object.assign({ AccountCode: code, AccountName: name, AccountType: type, Status: 'Active', IsPostable: true }, extra || {});
   Object.assign(f.coa, {
-    'A-RE': acc('310000', 'Retained Earnings', 'Equity'),
+    // The default Retained Earnings: the first account under the 320000 group (docs/modules/COA_NUMBERING.md).
+    'A-REG': acc('320000', 'Retained Earnings', 'Equity', { IsPostable: false }),
+    'A-RE': acc('320001', 'Retained Earnings', 'Equity', { ParentAccountID: 'A-REG' }),
     'A-EXP': acc('6100', 'Freight', 'Expense'),
     'A-OLD': acc('6900', 'Old Expense', 'Expense', { Status: 'Inactive' })
   });
@@ -67,10 +69,10 @@ test('close the year: only when its months are closed; the entry by account, cos
   assert.deepEqual([e.VoucherType, e.JVDate, e.Status, e.TotalDebit, e.TotalCredit], ['YearEndClose', '2025-12-31', 'Posted', 1570, 1570]);
   const lines = e.Lines.map(l => [l.AccountCode, l.CostCenterID, l.ProfitCenterID, l.Debit, l.Credit]).sort((a, b) => String(a).localeCompare(String(b)));
   assert.deepEqual(lines, [
-    ['310000', '', '', 70, 0], // the old year's loss, carried by the first close
-    ['310000', 'CC1', '', 300, 0],
-    ['310000', 'CC1', 'PC1', 0, 1000],
-    ['310000', 'CC2', '', 200, 0],
+    ['320001', '', '', 70, 0], // the old year's loss, carried by the first close
+    ['320001', 'CC1', '', 300, 0],
+    ['320001', 'CC1', 'PC1', 0, 1000],
+    ['320001', 'CC2', '', 200, 0],
     ['4000', 'CC1', 'PC1', 1000, 0],
     ['6100', 'CC1', '', 0, 300],
     ['6100', 'CC2', '', 0, 200],
@@ -83,13 +85,13 @@ test('close the year: only when its months are closed; the entry by account, cos
   assert.deepEqual([(await pl('2026-01-01', '2026-01-31')).totalRevenue], [50]);
   // Trial Balance: the new year opens with nothing on income and expense; "before closing" shows them.
   const t = await tb('2026-01-01', '2026-01-31');
-  assert.deepEqual([row(t, '4000').OpeningCredit || 0, row(t, '4000').PeriodCredit, row(t, '310000').OpeningCredit, row(t, '6900').OpeningDebit || 0], [0, 50, 430, 0]);
+  assert.deepEqual([row(t, '4000').OpeningCredit || 0, row(t, '4000').PeriodCredit, row(t, '320001').OpeningCredit, row(t, '6900').OpeningDebit || 0], [0, 50, 430, 0]);
   const tBefore = await tb('2026-01-01', '2026-01-31', true);
-  assert.deepEqual([row(tBefore, '4000').OpeningCredit, row(tBefore, '310000').OpeningCredit || 0, tBefore.beforeYearEndClose], [1000, 0, true]);
+  assert.deepEqual([row(tBefore, '4000').OpeningCredit, row(tBefore, '320001').OpeningCredit || 0, tBefore.beforeYearEndClose], [1000, 0, true]);
   assert.deepEqual([t.totals.ClosingDebit, tBefore.totals.ClosingDebit], [t.totals.ClosingCredit, tBefore.totals.ClosingCredit]); // balances either way
   // Balance Sheet: last year's profit in Retained Earnings, the new year's as "not yet closed".
   const bs = await call('u-admin', 'getBalanceSheet', { params: { AsOfDate: '2026-01-31', CompanyID: 'C1' } });
-  assert.deepEqual(bs.equity.map(x => [x.AccountCode, x.Amount]), [['', 50], ['310000', 430]]);
+  assert.deepEqual(bs.equity.map(x => [x.AccountCode, x.Amount]), [['', 50], ['320001', 430]]);
   assert.equal(bs.balanced, true);
 
   // Years close in order: an earlier year can't close after a later one; nor twice.

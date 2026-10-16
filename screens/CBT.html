@@ -235,17 +235,17 @@
   const COST_CENTER_REQUIRED_TYPES = ['Expense', 'Revenue', 'COGS'];
 
   const TYPE_CONFIG = {
-    'Cash Receipt': { prefix: '10', ledgerLabel: 'Cash Account', linesLabel: 'Received From (Accounts)' },
-    'Bank Receipt': { prefix: '11', ledgerLabel: 'Bank Account', linesLabel: 'Received From (Accounts)' },
-    'Cash Payment': { prefix: '10', ledgerLabel: 'Cash Account', linesLabel: 'Paid To (Accounts)' },
-    'Bank Payment': { prefix: '11', ledgerLabel: 'Bank Account', linesLabel: 'Paid To (Accounts)' },
+    'Cash Receipt': { prefix: 'Cash', ledgerLabel: 'Cash Account', linesLabel: 'Received From (Accounts)' },
+    'Bank Receipt': { prefix: 'Bank', ledgerLabel: 'Bank Account', linesLabel: 'Received From (Accounts)' },
+    'Cash Payment': { prefix: 'Cash', ledgerLabel: 'Cash Account', linesLabel: 'Paid To (Accounts)' },
+    'Bank Payment': { prefix: 'Bank', ledgerLabel: 'Bank Account', linesLabel: 'Paid To (Accounts)' },
     // Between the company's own cash / bank accounts (docs/modules/APPROVAL_ROUTING.md):
     // one From (the ledger, credited) and one To line, itself cash or bank.
-    'Fund Transfer': { prefixes: ['10', '11'], ledgerLabel: 'Transfer From (Cash / Bank)', linesLabel: 'Transfer To (Cash / Bank Account)', transfer: true }
+    'Fund Transfer': { prefixes: ['Cash', 'Bank'], ledgerLabel: 'Transfer From (Cash / Bank)', linesLabel: 'Transfer To (Cash / Bank Account)', transfer: true }
   };
   const prefixesOf = config => config.prefixes || [config.prefix];
   const isTransfer = () => Boolean(currentType && TYPE_CONFIG[currentType] && TYPE_CONFIG[currentType].transfer);
-  const isCashOrBank = a => ['10', '11'].includes(String(a.AccountCode).substring(0, 2));
+  const isCashOrBank = a => a.CashBank === 'Cash' || a.CashBank === 'Bank'; // its group's mark in the Chart of Accounts (docs/modules/COA_NUMBERING.md)
   // Add Line / Paste: shown while the entry is editable, never for a transfer (one To line).
   let lineButtonsEditable = true;
   function syncLineButtons() {
@@ -458,7 +458,7 @@
     if (!companyId) { select.innerHTML = '<option value="">Select a Company first...</option>'; return; }
     select.innerHTML = '<option value="">Select...</option>';
     accounts
-      .filter(a => a.Status === 'Active' && a.IsPostable === true && prefixes.includes(String(a.AccountCode).substring(0, 2)) && accountAllowedForCompany(a, companyId))
+      .filter(a => a.Status === 'Active' && a.IsPostable === true && prefixes.includes(a.CashBank) && accountAllowedForCompany(a, companyId))
       .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }))
       .forEach(a => {
         const opt = document.createElement('option');

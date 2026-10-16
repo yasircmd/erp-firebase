@@ -10,7 +10,7 @@ const D = '2026-09-10';
 function fixture() {
   const f = baseFixture();
   f.coa['A-EXP'] = { AccountCode: '6000', AccountName: 'Office Expense', AccountType: 'Expense', Status: 'Active', IsPostable: true };
-  f.coa['A-BANK2'] = { AccountCode: '1101', AccountName: 'C2 Bank', AccountType: 'Asset', Status: 'Active', IsPostable: true, CompanyID: 'C2' };
+  f.coa['A-BANK2'] = { AccountCode: '1101', AccountName: 'C2 Bank', AccountType: 'Asset', CashBank: 'Bank', Status: 'Active', IsPostable: true, CompanyID: 'C2' };
   f.coa['A-BHDR'] = { AccountCode: '1199', AccountName: 'Banks header', AccountType: 'Asset', Status: 'Active', IsPostable: false };
   return f;
 }

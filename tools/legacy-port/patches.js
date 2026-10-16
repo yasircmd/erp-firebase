@@ -1558,4 +1558,128 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     if (!ofReversedInvoice) requirePostAccess_(idToken, user, 'DELIVERYNOTE');
     if (existing.Status !== 'Posted') throw new Error('Only a posted Delivery Note can be reversed.');`
   }
+  ,
+  {
+    id: 'coa-class-group-seed',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/COA_NUMBERING.md, decisions 197-210). The seeded chart is a class per type (X00000, a heading) ' +
+      'with its groups under it (XN0000); 110000 Cash and 120000 Bank carry the Cash / Bank mark (coaScheme.js SEED).',
+    find: `  const existingCodes = new Set(Object.values(existing).map(a => String(a.AccountCode)));
+  const missing = COA_SUBCATEGORIES.filter(sc => !existingCodes.has(sc.code));
+  if (!missing.length) return existing;
+
+  const now = new Date().toISOString();
+  const updates = {};
+  missing.forEach(sc => {
+    const id = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    updates[id] = {`,
+    replace: `  // [NEW DEVELOPMENT coa-class-group-seed] docs/modules/COA_NUMBERING.md
+  const existingCodes = new Set(Object.values(existing).map(a => String(a.AccountCode)));
+  const missing = __coaScheme.SEED.filter(sc => !existingCodes.has(sc.code));
+  if (!missing.length) return existing;
+
+  const now = new Date().toISOString();
+  const updates = {};
+  const idOfCode = {};
+  Object.keys(existing).forEach(id => { idOfCode[String(existing[id].AccountCode)] = id; });
+  missing.forEach(sc => { idOfCode[sc.code] = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase(); });
+  missing.forEach(sc => {
+    const id = idOfCode[sc.code];
+    updates[id] = {
+      OwnCashBank: sc.cashBank || '', CashBank: sc.cashBank || '',`
+  },
+  {
+    id: 'coa-class-group-seed (parent)',
+    why: 'The seeded groups sit under their class.',
+    find: `      CashFlowCategory: sc.cashFlowCategory || '',
+      ParentAccountID: '',`,
+    replace: `      CashFlowCategory: sc.cashFlowCategory || '',
+      ParentAccountID: sc.parent ? idOfCode[sc.parent] || '' : '',`
+  },
+  {
+    id: 'coa-class-group-mark',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/COA_NUMBERING.md, decision 210): a group or sub-group of the Assets class may be marked Cash or Bank; ' +
+      'its accounts take the mark (cash and bank accounts are found by it, not by their code).',
+    find: `    if (!accountName) {
+      throw new Error('Account name is required.');
+    }
+`,
+    replace: `    if (!accountName) {
+      throw new Error('Account name is required.');
+    }
+    // [NEW DEVELOPMENT coa-class-group-mark] docs/modules/COA_NUMBERING.md
+    const ownMark = isPostable ? '' : String(accountData.CashBank || '').trim();
+    if (ownMark && !__coaScheme.MARKS.includes(ownMark)) throw new Error('Cash / Bank must be Cash, Bank or neither.');
+    if (ownMark && !parentAccountId) throw new Error('Only a group (or sub-group) is marked Cash or Bank, not a class.');
+`
+  },
+  {
+    id: 'coa-class-group-new',
+    why: 'A new account: the mark checked (Assets only) and stored, with the one its accounts take.',
+    find: `      const code = generateAccountCode_(accountType, parentAccountId || null, existing, isPostable);
+      const newId = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase();
+`,
+    replace: `      const code = generateAccountCode_(accountType, parentAccountId || null, existing, isPostable);
+      const newId = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase();
+      // [NEW DEVELOPMENT coa-class-group-new] docs/modules/COA_NUMBERING.md
+      if (ownMark && accountType !== 'Asset') throw new Error('Only an Assets group is marked Cash or Bank.');
+      const cashBank = __coaScheme.markFor({ IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId }, existing);
+`
+  },
+  {
+    id: 'coa-class-group-new (store)',
+    why: 'The mark stored on the new account.',
+    find: `        CashFlowCategory: cashFlowCategory,
+        Status: status,
+        CreatedAt: now, CreatedBy: actor,`,
+    replace: `        CashFlowCategory: cashFlowCategory,
+        OwnCashBank: ownMark, CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
+        Status: status,
+        CreatedAt: now, CreatedBy: actor,`
+  },
+  {
+    id: 'coa-class-group-edit',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/COA_NUMBERING.md, decisions 197, 201, 210). A heading does not become an account (it has a heading code); ' +
+      'the mark checked; accounts already outside a group may still be edited (they are listed to fix).',
+    find: `    const record = {
+      AccountCode: accountCode,`,
+    replace: `    // [NEW DEVELOPMENT coa-class-group-edit] docs/modules/COA_NUMBERING.md
+    if (isPostable && current.IsPostable !== true && __coaScheme.levelOf(accountCode) !== 'account') {
+      throw new Error('Account ' + accountCode + ' is a heading (its code is a class, group or sub-group code): it can' + "'" + 't take postings. Create the account under it instead.');
+    }
+    if (ownMark && current.AccountType !== 'Asset') throw new Error('Only an Assets group is marked Cash or Bank.');
+    const editedMarks = Object.assign({}, existing);
+    editedMarks[accountId] = Object.assign({}, current, { IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId });
+    const cashBank = __coaScheme.markFor(editedMarks[accountId], editedMarks);
+    editedMarks[accountId].CashBank = cashBank;
+
+    const record = {
+      AccountCode: accountCode,`
+  },
+  {
+    id: 'coa-class-group-edit (store)',
+    why: 'The mark stored; the codes it had before (Renumber, coaRenumber.js) kept.',
+    find: `      CashFlowCategory: cashFlowCategory,
+      Status: status,
+      CreatedAt: current.CreatedAt, CreatedBy: current.CreatedBy,`,
+    replace: `      CashFlowCategory: cashFlowCategory,
+      OwnCashBank: ownMark, CashBank: cashBank, FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
+      Status: status,
+      CreatedAt: current.CreatedAt, CreatedBy: current.CreatedBy,`
+  },
+  {
+    id: 'coa-class-group-edit (below)',
+    why: 'A heading saved: the accounts under it take its mark (or lose it).',
+    find: `    firebaseDbRequest_('coa/' + accountId, 'put', record, idToken);
+    return { success: true, accountId: accountId, accountCode: accountCode, codeChangedFrom: codeChangedFrom };`,
+    replace: `    firebaseDbRequest_('coa/' + accountId, 'put', record, idToken);
+    // [NEW DEVELOPMENT coa-class-group-edit] the accounts under a heading follow its mark.
+    if (!isPostable) {
+      const below = __coaScheme.marksBelow(accountId, editedMarks);
+      const marks = {};
+      Object.keys(below).forEach(id => { marks[id + '/CashBank'] = below[id] || ''; });
+      if (Object.keys(marks).length) firebaseDbRequest_('coa', 'patch', marks, idToken);
+    }
+    return { success: true, accountId: accountId, accountCode: accountCode, codeChangedFrom: codeChangedFrom };`
+  }
 ];
+

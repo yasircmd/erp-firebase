@@ -12,7 +12,7 @@
 
 const WAYS = { BankFile: 'Bank file', Cash: 'Cash', Cheque: 'Cheque / transfer' };
 // Cash accounts' codes start 10, banks' 11 (as Cash & Bank Transactions).
-const kindOf = a => (String(a.AccountCode).startsWith('11') ? 'Bank' : String(a.AccountCode).startsWith('10') ? 'Cash' : '');
+const kindOf = a => require('./coaScheme').kindOf(a); // the Cash / Bank mark (docs/modules/COA_NUMBERING.md)
 const usable = (a, co) => a && a.AccountType === 'Asset' && kindOf(a) && a.Status === 'Active' && a.IsPostable && (!a.CompanyID || a.CompanyID === co);
 
 // The company's cash and bank accounts, for the plan.

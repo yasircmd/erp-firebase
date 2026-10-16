@@ -299,3 +299,6 @@ exports.getInvoiceStockSettings = require('./src/invoiceStock').getInvoiceStockS
 exports.saveInvoiceStockSettings = require('./src/invoiceStock').saveInvoiceStockSettings;
 exports.getInvoiceableOrderLines = require('./src/invoiceStock').getInvoiceableOrderLines;
 exports.getSettlementStatement = require('./src/eosStatement').getSettlementStatement;
+exports.getAccountRenumberCodes = require('./src/coaRenumber').getAccountRenumberCodes;
+exports.renumberAccount = require('./src/coaRenumber').renumberAccount;
+exports.getCoaAccountsToFix = require('./src/coaRenumber').getCoaAccountsToFix;

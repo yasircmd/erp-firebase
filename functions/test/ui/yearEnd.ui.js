@@ -19,7 +19,9 @@ const ok = r => { if (r && r.success === false) throw new Error(r.error); return
 
 (async () => {
   const f = baseFixture();
-  f.coa['A-RE'] = { AccountCode: '310000', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: true };
+  // The default Retained Earnings: the first account under the 320000 group (docs/modules/COA_NUMBERING.md).
+  f.coa['A-REG'] = { AccountCode: '320000', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: false };
+  f.coa['A-RE'] = { AccountCode: '320001', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: true, ParentAccountID: 'A-REG' };
   await reset(f);
   const post = async (date, lines) => {
     const id = ok(await call('u-admin', 'saveJournalDraft', { jvData: { JVDate: date, Description: 'Sale', CompanyID: 'C1', Lines: lines } })).jvId;
@@ -58,7 +60,7 @@ const ok = r => { if (r && r.success === false) throw new Error(r.error); return
     p.__dialogs.length = 0;
     await p.click('#pc-close-year');
     await until(p, () => /Year closed/.test(document.getElementById('pc-year-status').textContent));
-    assert.match(p.__dialogs[0], /^confirm: Close the financial year 2025\? A Year-End Closing entry dated (2025-12-31|31\/12\/2025) moves every income, cost of sales and expense balance to 310000 — Retained Earnings/);
+    assert.match(p.__dialogs[0], /^confirm: Close the financial year 2025\? A Year-End Closing entry dated (2025-12-31|31\/12\/2025) moves every income, cost of sales and expense balance to 320001 — Retained Earnings/);
     assert.match(p.__dialogs[1], /^alert: The year 2025 is closed: closing entry YEC-/);
     assert.match(await p.textContent('#pc-year-status'), /by Admin User[\s\S]*closing entry YEC-/);
     assert.equal(await p.isVisible('#pc-close-year'), false);

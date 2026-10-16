@@ -51,7 +51,7 @@ const failed = msg => new HttpsError('failed-precondition', msg);
 const round2 = n => Math.round(n * 100) / 100;
 const num = v => (v === '' || v == null ? NaN : Number(String(v).replace(/,/g, '')));
 const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
-const isCashOrBank = a => a && a.AccountType === 'Asset' && ['10', '11'].includes(String(a.AccountCode).slice(0, 2));
+const isCashOrBank = a => a && a.AccountType === 'Asset' && require('./coaScheme').isCashOrBank(a); // by the Cash / Bank mark (docs/modules/COA_NUMBERING.md)
 const money = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const actorOf = user => user.profile.username || user.uid; // as My Drafts matches
 const actorName = user => user.profile.fullName || user.profile.username || user.uid;
@@ -551,7 +551,7 @@ exports.getSettlementPayment = onCallWithMessages(onCallOptions, async (request)
   const s = await loadSettlement(user, (request.data || {}).settlementId);
   const coa = (await rtdb.ref('coa').get()).val() || {};
   const accounts = Object.entries(coa).filter(([, a]) => a.Status === 'Active' && a.IsPostable && isCashOrBank(a) && (!a.CompanyID || a.CompanyID === s.CompanyID))
-    .map(([id, a]) => ({ AccountID: id, AccountCode: a.AccountCode, AccountName: a.AccountName, Bank: String(a.AccountCode).startsWith('11') }))
+    .map(([id, a]) => ({ AccountID: id, AccountCode: a.AccountCode, AccountName: a.AccountName, Bank: require('./coaScheme').isBank(a) }))
     .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode)));
   const formats = docs(await FORMATS().where('CompanyID', '==', s.CompanyID).get(), 'FormatID').filter(f => f.Active !== false).map(f => ({ FormatID: f.FormatID, Name: f.Name, Bank: f.Bank }));
   const p = s.Status === 'Posted' && s.Net > 0 ? await payee(s) : null;

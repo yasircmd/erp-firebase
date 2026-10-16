@@ -21,6 +21,7 @@ const {
 const L = require('./legacy/codegs');
 const { moduleHasCapability } = require('./auth');
 const listPaging = require('./listPaging');
+const coaScheme = require('./coaScheme');
 const { firestore } = require('./firebaseAdmin');
 const { FieldPath } = require('firebase-admin/firestore');
 const { getUserAssignedCompanies } = require('./companies');
@@ -96,24 +97,22 @@ const STOCK_VOUCHER_TYPE_TO_MODULE = {
 //                         every opposite line is CREDITED
 //   Cash/Bank Payment  -> the selected ledger account is CREDITED,
 //                         every opposite line is DEBITED
-// "Cash" vs "Bank" is determined by the selected account's code prefix,
-// which follows directly from the COA numbering scheme: leaf accounts
-// under the 100000 (Cash/Petty Cash) header start with "10"; leaf
-// accounts under 110000 (Bank Accounts) start with "11".
+// "Cash" vs "Bank" is the selected account's Cash / Bank mark, taken from
+// its group in the Chart of Accounts (owner, 2026-10-16;
+// docs/modules/COA_NUMBERING.md, decision 210), not its code.
 const CBT_VOUCHER_CONFIG = {
-  'Cash Receipt': { ledgerPrefix: '10', ledgerIsDebit: true, voucherPrefix: 'CR' },
-  'Bank Receipt': { ledgerPrefix: '11', ledgerIsDebit: true, voucherPrefix: 'BR' },
-  'Cash Payment': { ledgerPrefix: '10', ledgerIsDebit: false, voucherPrefix: 'CP' },
-  'Bank Payment': { ledgerPrefix: '11', ledgerIsDebit: false, voucherPrefix: 'BP' },
+  'Cash Receipt': { ledger: 'Cash', ledgerIsDebit: true, voucherPrefix: 'CR' },
+  'Bank Receipt': { ledger: 'Bank', ledgerIsDebit: true, voucherPrefix: 'BR' },
+  'Cash Payment': { ledger: 'Cash', ledgerIsDebit: false, voucherPrefix: 'CP' },
+  'Bank Payment': { ledger: 'Bank', ledgerIsDebit: false, voucherPrefix: 'BP' },
   // Between the company's own cash and bank accounts (owner, 2026-09-29;
   // docs/modules/APPROVAL_ROUTING.md, Fund Transfer): the ledger account is
   // the From side (credited), and the single line is the To side (debited),
   // itself a cash or bank account. Either may be cash or bank.
-  'Fund Transfer': { ledgerPrefixes: ['10', '11'], ledgerIsDebit: false, voucherPrefix: 'FT', transfer: true }
+  'Fund Transfer': { ledgers: ['Cash', 'Bank'], ledgerIsDebit: false, voucherPrefix: 'FT', transfer: true }
 };
-const ledgerPrefixesOf = config => config.ledgerPrefixes || [config.ledgerPrefix];
-const isCashOrBankCode = code => ['10', '11'].includes(String(code || '').substring(0, 2));
-const ledgerKindOf = config => config.transfer ? 'From' : (config.ledgerPrefix === '10' ? 'cash' : 'bank');
+const ledgersOf = config => config.ledgers || [config.ledger];
+const ledgerKindOf = config => config.transfer ? 'From' : config.ledger.toLowerCase();
 
 async function getJournalEntries(idToken, limit, page) {
   const user = await requireUser_(idToken);
@@ -570,7 +569,7 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
 // requires a description. headerDimensions supplies the ledger line's
 // Cost/Profit Center default (it isn't part of the editable opposite-lines
 // grid, so it always inherits from the header, never overridden per line).
-function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines, headerDescription, headerDimensions) {
+function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines, headerDescription, headerDimensions, coaData) {
   const config = CBT_VOUCHER_CONFIG[voucherType];
   if (!config) throw new Error('Unknown transaction type: ' + voucherType);
 
@@ -582,7 +581,7 @@ function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines,
     if (code === selectedAccountCode) {
       throw new Error('Line ' + (idx + 1) + ': cannot use the same account selected as the ' + ledgerKindOf(config) + ' ledger.');
     }
-    if (config.transfer && !isCashOrBankCode(code)) {
+    if (config.transfer && !coaScheme.isCashOrBank(Object.values(coaData || {}).find(a => String(a.AccountCode) === code))) {
       throw new Error('A Fund Transfer goes to another cash or bank account; ' + code + ' is neither.');
     }
     const amount = parseAmountServer_(line.Amount);
@@ -642,9 +641,9 @@ async function saveCbtDraft(idToken, cbtData) {
     if (!selectedAccount) throw new Error('Selected ledger account not found.');
     if (selectedAccount.Status !== 'Active') throw new Error('Selected ledger account is inactive.');
     if (selectedAccount.IsPostable !== true) throw new Error('Selected ledger account is a header account and cannot be posted to.');
-    if (!ledgerPrefixesOf(config).includes(String(selectedAccount.AccountCode).substring(0, 2))) {
+    if (!ledgersOf(config).includes(coaScheme.kindOf(selectedAccount))) {
       throw new Error(config.transfer ? 'Transfer from a cash or bank account.'
-        : 'Selected account is not a valid ' + (config.ledgerPrefix === '10' ? 'Cash' : 'Bank') + ' ledger account.');
+        : 'Selected account is not a valid ' + config.ledger + ' ledger account (its group in the Chart of Accounts is not marked ' + config.ledger + ').');
     }
     if (selectedAccount.CompanyID && selectedAccount.CompanyID !== companyId) {
       throw new Error('Selected ledger account is restricted to a specific company — select that company for this entry.');
@@ -661,7 +660,7 @@ async function saveCbtDraft(idToken, cbtData) {
     const rawLines = buildLinesFromVoucher_(
       voucherType, selectedAccountCode, cbtData.OppositeLines,
       cbtData.Description,
-      { CostCenterID: cbtData.CostCenterID, ProfitCenterID: cbtData.ProfitCenterID }
+      { CostCenterID: cbtData.CostCenterID, ProfitCenterID: cbtData.ProfitCenterID }, coaData
     );
 
     return await saveJournalRecord_(

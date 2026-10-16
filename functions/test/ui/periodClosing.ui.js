@@ -19,7 +19,9 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
 
 (async () => {
   const f = baseFixture();
-  f.coa['A-RE'] = { AccountCode: '310000', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: true };
+  // The default Retained Earnings: the first account under the 320000 group (docs/modules/COA_NUMBERING.md).
+  f.coa['A-REG'] = { AccountCode: '320000', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: false };
+  f.coa['A-RE'] = { AccountCode: '320001', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: true, ParentAccountID: 'A-REG' };
   f.coa['A-FRT'] = { AccountCode: '6100', AccountName: 'Freight', AccountType: 'Expense', Status: 'Active', IsPostable: true };
   await reset(f);
   const draft = date => call('u-admin', 'saveCbtDraft', { cbtData: { VoucherType: 'Bank Payment', SelectedAccountCode: '1100', JVDate: date, Description: 'Draft payment', CompanyID: 'C1', CostCenterID: 'CC1',

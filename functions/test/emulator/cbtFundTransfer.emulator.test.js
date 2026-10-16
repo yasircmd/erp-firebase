@@ -14,8 +14,8 @@ function fixture() {
   const f = baseFixture();
   f.users['u-approver2'] = { status: 'Active', role: 'Admin', username: 'approver2', fullName: 'Approver Two', AssignedCompanies: ['C1'] };
   f.coa['A-EXP'] = { AccountCode: '6000', AccountName: 'Office Expense', AccountType: 'Expense', Status: 'Active', IsPostable: true };
-  f.coa['A-PETTY'] = { AccountCode: '1001', AccountName: 'Petty Cash', AccountType: 'Asset', SubCategory: 'Cash', Status: 'Active', IsPostable: true };
-  f.coa['A-BANK2'] = { AccountCode: '1101', AccountName: 'C2 Bank', AccountType: 'Asset', SubCategory: 'Bank', Status: 'Active', IsPostable: true, CompanyID: 'C2' };
+  f.coa['A-PETTY'] = { AccountCode: '1001', AccountName: 'Petty Cash', AccountType: 'Asset', SubCategory: 'Cash', CashBank: 'Cash', Status: 'Active', IsPostable: true };
+  f.coa['A-BANK2'] = { AccountCode: '1101', AccountName: 'C2 Bank', AccountType: 'Asset', SubCategory: 'Bank', CashBank: 'Bank', Status: 'Active', IsPostable: true, CompanyID: 'C2' };
   return f;
 }
 const ft = (from, to, amount, extra, lines) => call('u-admin', 'saveCbtDraft', { cbtData: Object.assign({
@@ -38,7 +38,7 @@ test('a transfer credits From and debits To; FT- numbers; listed with CBT; rever
   assert.equal((await call('u-admin', 'getJournalEntries', {})).total, 0, 'not a JV');
 
   // Bank to bank and cash to cash are allowed too.
-  await rtdb.ref('coa/A-BANK3').set({ AccountCode: '1102', AccountName: 'Savings', AccountType: 'Asset', SubCategory: 'Bank', Status: 'Active', IsPostable: true, NormalBalance: 'Debit' });
+  await rtdb.ref('coa/A-BANK3').set({ AccountCode: '1102', AccountName: 'Savings', AccountType: 'Asset', SubCategory: 'Bank', CashBank: 'Bank', Status: 'Active', IsPostable: true, NormalBalance: 'Debit' });
   assert.equal((await ft('1100', '1102', 100)).success, true);
   assert.equal((await ft('1000', '1001', 50)).success, true);
 

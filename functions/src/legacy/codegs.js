@@ -9,6 +9,7 @@ const { firebaseDbRequest_, firestoreGet_, firestoreSet_, firestoreUpdate_, fire
 const __approvalRegistry = require('../approvalRegistry');
 const __approvals = require('../approvals');
 const __auth = require('../auth');
+const __coaScheme = require('../coaScheme');
 const __coaUsage = require('../coaUsage');
 const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
@@ -39,6 +40,8 @@ const writeStockGlEntry_ = (idToken, ...a) => __glWriting.writeStockGlEntry(...a
 const generateStockVoucherNumber_ = (idToken, ...a) => __glWriting.generateStockVoucherNumber(...a);
 const generateVoucherNumber_ = (idToken, ...a) => __numbering.voucherNumber(...a);
 const generateItemCode_ = (idToken, ...a) => __numbering.itemCode(...a);
+const generateAccountCode_ = (...a) => __coaScheme.generateCode(...a);
+const isCashOrBankAccount_ = (...a) => __coaScheme.isCashOrBank(...a);
 const generateVendorCode_ = (idToken, ...a) => __numbering.vendorCode(...a);
 const generateCustomerCode_ = (idToken, ...a) => __numbering.customerCode(...a);
 const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
@@ -101,35 +104,6 @@ const ACCOUNT_TYPE_CONFIG = {
   COGS:      { digit: '5', normalBalance: 'Debit'  },
   Expense:   { digit: '6', normalBalance: 'Debit'  }
 };
-
-// Fixed reference data — these 16 sub-category headers are seeded into
-// Firebase automatically (idempotently) the first time a writer opens
-// COA. Codes are exact per the agreed numbering table; do not renumber
-// without checking nothing downstream (GL, once built) references them.
-//
-// cashFlowCategory defaults to a sensible Operating/Financing split for
-// the Cash Flow Statement (see CASH FLOW STATEMENT section below). Cash
-// and Bank headers themselves are left blank — they're never categorized,
-// since they're the "cash" side of the movement, not the "why."
-const COA_SUBCATEGORIES = [
-  { code: '100000', name: 'Cash / Petty Cash',              type: 'Asset',     cashFlowCategory: '' },
-  { code: '110000', name: 'Bank Accounts',                  type: 'Asset',     cashFlowCategory: '' },
-  { code: '120000', name: 'Accounts Receivable (Trade)',    type: 'Asset',     cashFlowCategory: 'Operating' },
-  { code: '130000', name: 'Inventory',                      type: 'Asset',     cashFlowCategory: 'Operating' },
-  { code: '200000', name: 'Accounts Payable (Trade)',       type: 'Liability', cashFlowCategory: 'Operating' },
-  { code: '210000', name: 'Short-Term Loans Payable',       type: 'Liability', cashFlowCategory: 'Financing' },
-  { code: '220000', name: 'Accrued Liabilities',            type: 'Liability', cashFlowCategory: 'Operating' },
-  { code: '300000', name: 'Common Stock / Share Capital',   type: 'Equity',    cashFlowCategory: 'Financing' },
-  { code: '310000', name: 'Retained Earnings',              type: 'Equity',    cashFlowCategory: 'Operating' },
-  { code: '400000', name: 'Domestic Sales Revenues',        type: 'Revenue',   cashFlowCategory: 'Operating' },
-  { code: '410000', name: 'Sales Returns & Discounts',      type: 'Revenue',   cashFlowCategory: 'Operating' },
-  { code: '420000', name: 'Interest / Other Income',        type: 'Revenue',   cashFlowCategory: 'Operating' },
-  { code: '500000', name: 'Cost of Goods Sold (COGS)',      type: 'COGS',      cashFlowCategory: 'Operating' },
-  { code: '510000', name: 'Direct Material Cost',           type: 'COGS',      cashFlowCategory: 'Operating' },
-  { code: '600000', name: 'Wages & Salaries Expense',       type: 'Expense',   cashFlowCategory: 'Operating' },
-  { code: '610000', name: 'Rent & Facility Expense',        type: 'Expense',   cashFlowCategory: 'Operating' },
-  { code: '620000', name: 'Depreciation Expense',           type: 'Expense',   cashFlowCategory: 'Operating' }
-];
 
 // ============================================================
 // CASH AND BANK TRANSACTIONS (CBT)
@@ -854,22 +828,27 @@ async function getCoaData_(idToken) {
 }
 
 async function ensureSubCategoriesSeeded_(idToken, existing) {
+  // [NEW DEVELOPMENT coa-class-group-seed] docs/modules/COA_NUMBERING.md
   const existingCodes = new Set(Object.values(existing).map(a => String(a.AccountCode)));
-  const missing = COA_SUBCATEGORIES.filter(sc => !existingCodes.has(sc.code));
+  const missing = __coaScheme.SEED.filter(sc => !existingCodes.has(sc.code));
   if (!missing.length) return existing;
 
   const now = new Date().toISOString();
   const updates = {};
+  const idOfCode = {};
+  Object.keys(existing).forEach(id => { idOfCode[String(existing[id].AccountCode)] = id; });
+  missing.forEach(sc => { idOfCode[sc.code] = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase(); });
   missing.forEach(sc => {
-    const id = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    const id = idOfCode[sc.code];
     updates[id] = {
+      OwnCashBank: sc.cashBank || '', CashBank: sc.cashBank || '',
       AccountCode: sc.code,
       AccountName: sc.name,
       AccountType: sc.type,
       AccountSubType: '',
       NormalBalance: ACCOUNT_TYPE_CONFIG[sc.type].normalBalance,
       CashFlowCategory: sc.cashFlowCategory || '',
-      ParentAccountID: '',
+      ParentAccountID: sc.parent ? idOfCode[sc.parent] || '' : '',
       IsPostable: false,
       CompanyID: '',
       Status: 'Active',
@@ -885,107 +864,6 @@ async function ensureSubCategoriesSeeded_(idToken, existing) {
     // Read-only role — proceed with what already exists.
   }
   return existing;
-}
-
-// Three levels supported: a top-level header (e.g. 220000), an optional
-// non-postable SUB-PARENT directly beneath one header (e.g. 221000 —
-// digit 3 becomes 1-9, distinguishing it from ordinary leaves), and
-// postable leaves under either a header directly (0001-0999, digit 3
-// stays 0) or under a sub-parent (221001, 221002, ... — the sub-parent's
-// own 4 digits plus a 3-digit sequence). The numbering scheme has no
-// room for a further level beneath a sub-parent — see the error thrown
-// in that branch below.
-function generateAccountCode_(accountType, parentAccountId, existingAccounts, isPostable) {
-  const config = ACCOUNT_TYPE_CONFIG[accountType];
-  if (!config) throw new Error('Unknown account type: ' + accountType);
-  const categoryDigit = config.digit;
-
-  if (!parentAccountId) {
-    const used = new Set();
-    Object.values(existingAccounts).forEach(a => {
-      const code = String(a.AccountCode || '');
-      if (code.charAt(0) === categoryDigit && !a.ParentAccountID) {
-        used.add(code.charAt(1));
-      }
-    });
-    for (let d = 0; d <= 9; d++) {
-      if (!used.has(String(d))) {
-        return categoryDigit + String(d) + '0000';
-      }
-    }
-    throw new Error('All 10 sub-category slots for this account type are used.');
-  }
-
-  const parent = existingAccounts[parentAccountId];
-  if (!parent) throw new Error('Parent account not found.');
-  if (parent.IsPostable === true) {
-    throw new Error('Parent account must be a non-postable header or sub-parent.');
-  }
-
-  const parentCode = String(parent.AccountCode || '');
-
-  // Parent is a top-level header (e.g. 220000).
-  if (/^\d{2}0000$/.test(parentCode)) {
-    const prefix = parentCode.substring(0, 2);
-
-    if (!isPostable) {
-      // Creating a SUB-PARENT under this header — takes the next
-      // available "thousand slot" (221000, 222000, ... 229000), kept
-      // visually distinct from ordinary leaves (which stay in the
-      // 0001-0999 range directly under the header, digit 3 fixed at 0).
-      const usedSlots = new Set();
-      Object.values(existingAccounts).forEach(a => {
-        const code = String(a.AccountCode || '');
-        if (code.substring(0, 2) === prefix && /^\d{2}[1-9]000$/.test(code)) {
-          usedSlots.add(code.charAt(2));
-        }
-      });
-      for (let d = 1; d <= 9; d++) {
-        if (!usedSlots.has(String(d))) {
-          return prefix + String(d) + '000';
-        }
-      }
-      throw new Error('All 9 sub-parent slots under this header are used.');
-    }
-
-    // Ordinary postable leaf directly under the header — digit 3 stays 0,
-    // sequence runs 0001-0999 (capped below 1000 so it can never collide
-    // with the X1000-X9000 sub-parent slots above).
-    let maxSeq = 0;
-    Object.values(existingAccounts).forEach(a => {
-      const code = String(a.AccountCode || '');
-      if (code.substring(0, 2) === prefix && /^\d{2}0\d{3}$/.test(code)) {
-        const seq = parseInt(code.substring(3), 10);
-        if (!isNaN(seq)) maxSeq = Math.max(maxSeq, seq);
-      }
-    });
-    const nextSeq = maxSeq + 1;
-    if (nextSeq > 999) throw new Error('This header has reached its maximum of 999 directly-postable accounts — consider grouping further accounts under a sub-parent.');
-    return prefix + '0' + String(nextSeq).padStart(3, '0');
-  }
-
-  // Parent is a sub-parent (e.g. 221000) — its children are always
-  // postable leaves; the 6-digit scheme has no digits left for a further
-  // level beneath this one.
-  if (/^\d{2}[1-9]000$/.test(parentCode)) {
-    if (!isPostable) {
-      throw new Error('A sub-parent cannot itself have another sub-parent — only one level of grouping is supported beneath a header.');
-    }
-    const prefix = parentCode.substring(0, 3);
-    let maxSeq = 0;
-    Object.values(existingAccounts).forEach(a => {
-      const code = String(a.AccountCode || '');
-      if (code.substring(0, 3) === prefix && code !== parentCode) {
-        const seq = parseInt(code.substring(3), 10);
-        if (!isNaN(seq)) maxSeq = Math.max(maxSeq, seq);
-      }
-    });
-    const nextSeq = maxSeq + 1;
-    if (nextSeq > 999) throw new Error('This sub-parent has reached its maximum of 999 accounts.');
-    return prefix + String(nextSeq).padStart(3, '0');
-  }
-
-  throw new Error('New accounts can only be created under a top-level header or a sub-parent beneath one.');
 }
 
 async function getChartOfAccounts(idToken) {
@@ -1038,6 +916,10 @@ async function saveAccount(idToken, accountData) {
     if (!accountName) {
       throw new Error('Account name is required.');
     }
+    // [NEW DEVELOPMENT coa-class-group-mark] docs/modules/COA_NUMBERING.md
+    const ownMark = isPostable ? '' : String(accountData.CashBank || '').trim();
+    if (ownMark && !__coaScheme.MARKS.includes(ownMark)) throw new Error('Cash / Bank must be Cash, Bank or neither.');
+    if (ownMark && !parentAccountId) throw new Error('Only a group (or sub-group) is marked Cash or Bank, not a class.');
 
     const existing = await getCoaData_(idToken);
     const now = new Date().toISOString();
@@ -1062,6 +944,9 @@ async function saveAccount(idToken, accountData) {
 
       const code = generateAccountCode_(accountType, parentAccountId || null, existing, isPostable);
       const newId = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase();
+      // [NEW DEVELOPMENT coa-class-group-new] docs/modules/COA_NUMBERING.md
+      if (ownMark && accountType !== 'Asset') throw new Error('Only an Assets group is marked Cash or Bank.');
+      const cashBank = __coaScheme.markFor({ IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId }, existing);
 
       const record = {
         AccountCode: code,
@@ -1073,6 +958,7 @@ async function saveAccount(idToken, accountData) {
         IsPostable: isPostable,
         CompanyID: companyId,
         CashFlowCategory: cashFlowCategory,
+        OwnCashBank: ownMark, CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
         Status: status,
         CreatedAt: now, CreatedBy: actor,
         UpdatedAt: now, UpdatedBy: actor
@@ -1132,6 +1018,16 @@ async function saveAccount(idToken, accountData) {
       codeChangedFrom = current.AccountCode;
     }
 
+    // [NEW DEVELOPMENT coa-class-group-edit] docs/modules/COA_NUMBERING.md
+    if (isPostable && current.IsPostable !== true && __coaScheme.levelOf(accountCode) !== 'account') {
+      throw new Error('Account ' + accountCode + ' is a heading (its code is a class, group or sub-group code): it can' + "'" + 't take postings. Create the account under it instead.');
+    }
+    if (ownMark && current.AccountType !== 'Asset') throw new Error('Only an Assets group is marked Cash or Bank.');
+    const editedMarks = Object.assign({}, existing);
+    editedMarks[accountId] = Object.assign({}, current, { IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId });
+    const cashBank = __coaScheme.markFor(editedMarks[accountId], editedMarks);
+    editedMarks[accountId].CashBank = cashBank;
+
     const record = {
       AccountCode: accountCode,
       AccountName: accountName,
@@ -1142,12 +1038,20 @@ async function saveAccount(idToken, accountData) {
       IsPostable: isPostable,
       CompanyID: companyId,
       CashFlowCategory: cashFlowCategory,
+      OwnCashBank: ownMark, CashBank: cashBank, FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
       Status: status,
       CreatedAt: current.CreatedAt, CreatedBy: current.CreatedBy,
       UpdatedAt: now, UpdatedBy: actor
     };
 
     await firebaseDbRequest_('coa/' + accountId, 'put', record, idToken);
+    // [NEW DEVELOPMENT coa-class-group-edit] the accounts under a heading follow its mark.
+    if (!isPostable) {
+      const below = __coaScheme.marksBelow(accountId, editedMarks);
+      const marks = {};
+      Object.keys(below).forEach(id => { marks[id + '/CashBank'] = below[id] || ''; });
+      if (Object.keys(marks).length) await firebaseDbRequest_('coa', 'patch', marks, idToken);
+    }
     return { success: true, accountId: accountId, accountCode: accountCode, codeChangedFrom: codeChangedFrom };
   } catch (err) {
     return { success: false, error: err.message };
@@ -2276,14 +2180,6 @@ async function getPostedGlLines_(idToken, filters) {
   });
 
   return lines;
-}
-
-// Leaf accounts under the 100000 (Cash) or 110000 (Bank) headers all get
-// codes starting "10" or "11" per the COA numbering scheme — see COA
-// section above for the full scheme.
-function isCashOrBankAccount_(account) {
-  const prefix = String(account.AccountCode || '').substring(0, 2);
-  return prefix === '10' || prefix === '11';
 }
 
 // Cash Flow Category can only be SET on a non-postable (header) account —
@@ -10397,7 +10293,6 @@ module.exports = {
   requireModuleWrite_,
   getCoaData_,
   ensureSubCategoriesSeeded_,
-  generateAccountCode_,
   getChartOfAccounts,
   saveAccount,
   deactivateAccount,
@@ -10438,7 +10333,6 @@ module.exports = {
   reactivateItem,
   buildDimensionFilters_,
   getPostedGlLines_,
-  isCashOrBankAccount_,
   resolveCashFlowCategory_,
   getGlReport,
   getTrialBalance,

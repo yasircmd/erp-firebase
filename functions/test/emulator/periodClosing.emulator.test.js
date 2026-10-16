@@ -16,7 +16,8 @@ const allModes = mode => Object.fromEntries(CHECK_KEYS.map(k => [k, mode]));
 
 function fixture() {
   const f = baseFixture();
-  f.coa['A-RE'] = { AccountCode: '310000', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: true };
+  f.coa['A-REG'] = { AccountCode: '320000', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: false };
+  f.coa['A-RE'] = { AccountCode: '320001', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: true, ParentAccountID: 'A-REG' };
   f.coa['A-FRT'] = { AccountCode: '6100', AccountName: 'Freight', AccountType: 'Expense', Status: 'Active', IsPostable: true };
   f.customers = { CU1: { CustomerCode: 'C001', CustomerName: 'Retail Co', Status: 'Active', CompanyID: 'C1', TradeReceivablesAccountID: 'A-AR' } };
   return f;
@@ -34,10 +35,10 @@ const postedEntry = (date, lines) => firestore.collection('journalEntries').add(
 test('setup: defaults, financial year April-March, Retained Earnings, checklist modes; the grid follows the year', async () => {
   await reset(fixture());
   let r = await get('2026-05');
-  assert.deepEqual([r.Settings.FiscalYearStart, r.Settings.RetainedEarningsAccountID, r.Settings.Saved], ['Jan', 'A-RE', false]); // 310000 by default
+  assert.deepEqual([r.Settings.FiscalYearStart, r.Settings.RetainedEarningsAccountID, r.Settings.Saved], ['Jan', 'A-RE', false]); // the first account under 320000 by default
   assert.deepEqual(Object.values(r.Settings.Checklist), CHECK_KEYS.map(() => 'Warn'));
   assert.deepEqual([r.Year.Start, r.Year.Label, r.Months.length, r.Months[0].Month, r.Months[11].Month], ['2026-01', '2026', 12, '2026-01', '2026-12']);
-  assert.deepEqual(r.EquityAccounts.map(a => a.Code), ['3000', '310000']);
+  assert.deepEqual(r.EquityAccounts.map(a => a.Code), ['3000', '320001']);
   assert.ok(r.Months.every(m => m.Status === 'Open'));
   assert.deepEqual(r.Rights, { close: true, reopen: true });
 

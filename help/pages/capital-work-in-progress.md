@@ -5,8 +5,8 @@ order: 4
 modules: [FAAUC]
 sources: [functions/src/fixedAssetsConfig.js]
 summary: Track capital work under construction until it is completed and transferred into a fixed asset.
-reviewed: 2026-10-12
-fingerprint: 7f3656992568e2b9
+reviewed: 2026-10-16
+fingerprint: 76023d4789baa91f
 ---
 ## What it is for
 

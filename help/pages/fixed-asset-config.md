@@ -5,8 +5,8 @@ order: 1
 modules: [FACONFIG]
 sources: [functions/src/fixedAssetsConfig.js]
 summary: Configure the fixed asset classes, accounts and defaults used when assets are added and depreciated.
-reviewed: 2026-10-12
-fingerprint: 71c24ed630f5fc3c
+reviewed: 2026-10-16
+fingerprint: b9a5a1ce1a8ad30f
 ---
 ## What it is for
 
