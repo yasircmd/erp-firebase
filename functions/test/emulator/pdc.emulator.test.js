@@ -166,7 +166,7 @@ test('validation: required fields, bank rules, duplicates, clearing account set-
   assert.match(await err(save(received({ DraweeBank: ' ' }))), /Enter the bank the cheque is drawn on/);
   assert.match(await err(save(received({ Direction: 'Sideways' }))), /Direction must be Received or Issued/);
   assert.match(await err(save(issued({ BankAccountID: '' }))), /Select the bank account the cheque is drawn on/);
-  assert.match(await err(save(issued({ BankAccountID: 'A-CASH' }))), /must be a bank account \(code 11…\)/);
+  assert.match(await err(save(issued({ BankAccountID: 'A-CASH' }))), /must be a bank account \(under a group marked Bank in the Chart of Accounts\)/);
   assert.match(await err(save(issued({ BankAccountID: 'A-BANKC2' }))), /belongs to a different company/);
   assert.match(await err(save(received({ PartyID: 'CU9' }))), /belongs to a different company/);
   assert.match(await err(save(received({ Allocations: [{ RefType: 'Against', RefID: 'CustomerInvoice:CI2', Amount: 600 }] }))), /CINV-2 has only 300\.00 outstanding/);

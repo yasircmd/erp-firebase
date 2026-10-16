@@ -58,7 +58,7 @@ test('an employee on a schedule from joining: leave counted by its weekend, the 
 test('a new schedule from a date (Transfer): days before it keep the old weekend, days after use the new', async () => {
   // From 1 Apr 2026 Ahmed follows the company's calendar (Saturday and Sunday off).
   await assert.rejects(call('u-admin', 'saveEmployeeChange', { change: { EmployeeID: AHMED, Type: 'Transfer', EffectiveDate: '2026-04-01', After: { CompanyID: 'C1', ScheduleID: SIX } } }),
-    /A transfer changes the company, division, branch, cost center or work schedule/);
+    /A transfer changes the company, division, branch, cost center, cost split or work schedule/);
   const id = (await call('u-admin', 'saveEmployeeChange', { change: { EmployeeID: AHMED, Type: 'Transfer', EffectiveDate: '2026-04-01', After: { CompanyID: 'C1', ScheduleID: '' }, Reason: 'Moved to the office' } })).changeId;
   const c = (await call('u-admin', 'getEmployeeChange', { changeId: id }));
   assert.deepEqual([c.names.ScheduleID.Before, c.names.ScheduleID.After], ['Six-day (Friday off)', '']);
