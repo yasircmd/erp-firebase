@@ -89,3 +89,39 @@ uses, so every rule (prices, stock reservation, approvals) still applies.
 | 235 | The rep sees the stock free to sell. |
 | 236 | No visit notes or location for now. |
 | (all) | "Go with your recommendations" (owner, 2026-10-16). |
+
+## As built (2026-10-16)
+
+**The office** (`functions/src/salesRep.js`, `getSalesReps` /
+`saveSalesRep`; Sales Invoice Configuration → Sales reps):
+- `salesReps/{employeeId}` holds `{ CompanyID, Active, IsManager,
+  CashAccountID }`.
+- Each customer has one rep, `customers/{id}.SalesRepEmployeeID`, set
+  from the rep's customer list. Customer Master saves with a patch, so it
+  keeps the field.
+
+**The portal** (essPortal actions `salesHome`, `salesItems`,
+`salesOrder`, `salesCollect`; public/ess.html **Sales** tab, shown when
+`me.SalesRep`):
+- The rep sees their own customers; a sales manager sees all (230).
+  Balance and overdue come from the aging.
+- Items are those of the customer's price list at today's price (234),
+  with the stock free to sell per warehouse (235).
+- An order is written as a draft `salesOrders` record, in the shape of
+  the ERP's own draft:
+  - the price is always the price list's, never the phone's;
+  - the cost center is the employee's;
+  - `CreatedBy` is "Portal: EMP-no name", plus `SalesRepEmployeeID`.
+  - The office confirms it in Sales Order, with every rule of confirming
+    (231).
+- A collection (232) goes through the ERP's own CBT and PDC draft code,
+  with the portal rep standing in for the ERP user (`draftUser_` in
+  journal.js, `savePdcDraftForRep` in pdc.js). That marker is set only on
+  the server's own context, after salesRep.js has checked that the rep
+  may serve the customer:
+  - cash becomes a draft Cash Receipt to the rep's cash account;
+  - a cheque becomes a draft PDC Received, its photo in the supporting
+    documents (when document storage is connected).
+- Online only (233). No visit notes (236).
+
+**Tests:** emulator `salesRep`.

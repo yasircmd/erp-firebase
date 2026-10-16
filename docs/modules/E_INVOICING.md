@@ -87,3 +87,45 @@ confirmed there.
 | 228 | Receiving vendors' e-invoices later. |
 | 229 | Customers without a TRN are not e-invoiced. |
 | (all) | "Go with your recommendations" (owner, 2026-10-16). |
+
+## As built (2026-10-16)
+
+**The documents** (`functions/src/eInvoiceDocument.js`, pure):
+- A posted Customer Invoice becomes a PINT AE UBL 2.1 Invoice
+  (CustomizationID `urn:peppol:pint:billing-1@ae-1`, type 380). A Sales
+  Return becomes a CreditNote (381) naming its invoice in
+  BillingReference.
+- Each document carries:
+  - the seller's and buyer's TRN, addresses and names;
+  - the lines;
+  - the VAT by category: S at 5%, Z at 0;
+  - the totals;
+  - for a foreign-currency invoice, the VAT again in AED (decision 218).
+- Readiness:
+  - **NotApplicable** for a customer without a TRN (decision 229);
+  - **NotReady** with the reasons: a missing or non-15-digit TRN, a
+    missing address or number, no lines, or a credit note without its
+    invoice;
+  - else **Ready**.
+
+**The flow** (`functions/src/eInvoicing.js`):
+- `eInvoiceSettings/{company}` holds `{ Enabled, StartDate, AspName }`,
+  set in Sales Invoice Configuration (SALESINVOICESETUP write).
+- On posting (patch `e-invoicing` after the Customer Invoice commit;
+  salesReturn.js after its commit), `recordEInvoice` builds, checks and
+  stores `eInvoices/{Kind}_{id}` with its Status, Issues, Xml and
+  SendStatus. It never throws: a posting is not held up.
+- The invoice and return screens show the status and what is missing,
+  with **Download XML** and **Check again** (`rebuildEInvoice`, refused
+  once sent).
+- Sending: `functions/src/eInvoiceConnector.js` is the one place an
+  e-invoice leaves. With no ASP it returns NotSent. The ASP's API (its
+  credentials in Secret Manager) is plugged in there when one is chosen.
+
+**Not yet:**
+- debit notes: the ERP has no sales debit note document;
+- item classification codes, if the ASP requires them;
+- receiving vendors' e-invoices (decision 228, later);
+- rejections in Home tasks, which come with the connector.
+
+**Tests:** unit `eInvoiceDocument` (3); emulator `eInvoicing`.

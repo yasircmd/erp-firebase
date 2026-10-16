@@ -92,3 +92,54 @@ and the JV and CBT screens read the rule from the server instead of a copy.
 | 223 | Existing postings show under "no project". |
 | 224 | Project budget later. |
 | (all) | "Go with your recommendations" (owner, 2026-10-16). |
+
+## As built (2026-10-16)
+
+**Rules** (`functions/src/dimensionRules.js`):
+- Each heading or account may carry `DimensionRules { CostCenter,
+  ProfitCenter, Project }`, each `Required`, `Optional` or `NotUsed`.
+  Blank or absent follows the nearest heading above.
+- With nothing set anywhere, Expense, Revenue and COGS need a cost center
+  and the rest is optional, exactly as before.
+- `glWriting.validateAndNormalizeLines` applies the rules to every GL
+  line, payroll included:
+  - a required one missing is refused (the cost center message as
+    before: "Line n: account X (Expense) requires a Cost Center.");
+  - a not-used one is dropped;
+  - `ProjectID` is kept when set.
+- The save-time checks of the Customer Invoice, Delivery Note, GRN,
+  Opening Balances and the invoice item lines follow the account's rule
+  (`needsCostCenter`, `ruleOf`). So do payroll's: an Optional expense
+  still takes the slip's cost center.
+- The COA form (SCREEN_EDITS) has the three choices with a "Now: …" hint.
+  The account save is patch `dimension-rules`; an import that doesn't
+  send the field keeps it.
+
+**Projects** (`functions/src/projects.js`):
+- A Project is an Organizational Unit type (patch `projects`, ORGUNITS
+  SCREEN_EDITS) with an optional `CustomerID`, `StartDate` and `EndDate`,
+  and a status of Active or Closed. Closed applies to projects only.
+- `assertProjects` refuses a line whose project is unknown, of another
+  company, or not Active. It runs in buildStockGlEntry (except reversals),
+  journal save and post, and the recurring journal template.
+- Line clubbing keeps projects apart. The JV and CBT screens get a
+  Project column once the company has a project, and their red marks
+  follow the rules.
+- The Customer and Vendor Invoice header Project goes on every posted
+  line (`linesWithProject`). The mirror reversals keep `ProjectID`.
+
+**Reports:**
+- `buildDimensionFilters_` / `getPostedGlLines_` filter by `ProjectID`
+  (`__none__` = no project), so the GL Report, Trial Balance and P&L
+  screens take a Project filter.
+- The new **Project Report** (`PROJECTREPORT`,
+  `functions/src/projectReport.js`, `getProjectReport`) shows each
+  project's Income (Revenue), Costs (Expense, COGS) and Result for a
+  period, by account, with "No project".
+
+**Not yet:**
+- a Project field on the GRN, Purchase Order, Sales Order, Delivery Note
+  and payroll;
+- a project budget (decision 224, later).
+
+**Tests:** unit `dimensionRules` (4); emulator `projectsDimensions`.

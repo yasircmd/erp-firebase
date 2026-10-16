@@ -1,25 +1,83 @@
-# UX testing Tier 3, wave 3, O: foreign currency for vendors, customers and
-# bank accounts (owner, 2026-10-16; docs/modules/MULTI_CURRENCY.md, decisions
-# 211-218). Run with --screens. Hosting too (tools/deploy-hosting.sh): the Help.
-# NEW: getExchangeRates, saveExchangeRate, getExchangeRateOn, getFxSettings,
-#   saveFxSettings (exchangeRates.js).
-# Then every function whose code reaches the changed party ledger (realized
-# exchange differences, open items and statements in the party's currency),
-# journals and CBT (bank accounts in a foreign currency), PDC, returns,
-# openings, asset retirement, statements, aging, and the legacy invoice /
-# vendor / customer saves and posts, the account save and the GL report and
-# the reports reading posted lines (listed by require closure; glWriting's
-# change only carries the foreign amounts, which only these produce).
-# Roles & Permissions: the new "rates" right.
-# After the deploy: tick Currency Configuration "rates" for the roles that
-# enter rates; set each company's Exchange Gain / Loss account.
+# UX testing Tier 3, wave 3: O foreign currency, Q projects and dimension
+# rules, S e-invoicing ready, T sales reps in the Employee Portal (owner,
+# 2026-10-16; docs/modules/MULTI_CURRENCY.md, PROJECTS_DIMENSIONS.md,
+# E_INVOICING.md, SALES_REP_PORTAL.md). Run with --screens (inside tmux: 20
+# per batch). Hosting too (tools/deploy-hosting.sh): the Help and
+# public/ess.html (T: the portal's Sales tab).
+# NEW callables: getExchangeRates, saveExchangeRate, getExchangeRateOn,
+#   getFxSettings, saveFxSettings (O); getProjectReport (Q); getEInvoiceSettings,
+#   saveEInvoiceSettings, getEInvoice, rebuildEInvoice (S); getSalesReps,
+#   saveSalesRep (T).
+# Then every function whose code reaches what changed: glWriting now applies
+# each account's cost center / profit center / project rule to every GL line
+# (Q), so nearly every posting function is in; the party ledger (O), the
+# journal, PDC, returns, openings, payroll posting, the portal, and the
+# legacy invoice / customer / vendor / account / org unit saves and reports.
+# Listed by require closure. Roles & Permissions: the new "rates" right and
+# the PROJECTREPORT module.
+# After the deploy: tick Currency Configuration "rates"; set each company's
+# Exchange Gain / Loss account; add "Project Report" to the tree (Tree
+# Management) and give it to the roles; set up sales reps if wanted.
 getExchangeRates
 saveExchangeRate
+getProjectReport
+getEInvoiceSettings
+saveEInvoiceSettings
+getEInvoice
+rebuildEInvoice
+getSalesReps
+saveSalesRep
 getExchangeRateOn
 getFxSettings
 saveFxSettings
 getInventoryAging
 getPartyAging
+delegateApproval
+delegateApprovalsOf
+getDelegationCandidates
+disconnectDocumentStorage
+driveOAuthCallback
+getAttachmentCounts
+getAttachments
+getDocumentStorage
+openAttachment
+removeAttachment
+saveDocumentStorageClient
+startDriveConnect
+testDocumentStorage
+uploadAttachment
+useTestDocumentStorage
+getAccountRenumberCodes
+getCoaAccountsToFix
+renumberAccount
+getCompanyDocument
+getCompanyDocuments
+getDocumentsExpiringForUser
+getPartyDocumentCounts
+removeCompanyDocument
+renewCompanyDocument
+saveCompanyDocument
+saveCompanyDocumentCategory
+employeeRequests
+getSettlementStatement
+essPortal
+manageEssAccounts
+getFaConfig
+getFaRights
+saveFaAccountDetermination
+saveFaClass
+saveFaSettings
+getFaDepreciationRegister
+getFaRegister
+getFaRuns
+postFaDepreciation
+previewFaDepreciation
+reverseFaDepreciation
+deleteFaAsset
+getFaAsset
+getFaAssetSetup
+getFaAssets
+saveFaAsset
 decideFaPostingApproval
 deleteFaPostingDraft
 getFaClearingItems
@@ -29,12 +87,84 @@ reverseFaPosting
 saveFaPostingDraft
 getFaRetirementSetup
 previewFaRetirement
+getFollowUpTeams
+getMyFollowUpTasksForUser
+saveFollowUpTeam
+getGlListing
+decideGrnApproval
+deleteGrnDraft
+getEligibleApprovedPOsForGRN
+getGrnEntries
+postGrn
+reverseGrn
+saveGrnDraft
+getMyDraftsForUser
+getMyRejectedSubmissions
+getPendingApprovalsForUser
+decideEmployeeChangeApproval
+deleteEmployeeChange
+getEmployeeChange
+getEmployeeChangeStart
+getEmployeeChanges
+saveEmployeeChange
+submitEmployeeChange
+getEmployeeDocuments
+getEmployeeDocumentsExpiringForUser
+removeEmployeeDocument
+renewEmployeeDocument
+saveEmployeeDocument
+getEmployee
+getEmployees
+replaceManager
+saveEmployee
+adjustLeaveBalance
+cancelLeave
+decideLeaveApproval
+deleteLeave
+getLeave
+getLeaveBalances
+getLeaveForm
+getLeaves
+previewLeave
+recordLeaveReturn
+saveLeave
+setLeaveEntitlement
+submitLeave
+closeLeaveYear
+getLeaveMonthSummary
+getLeaveMonths
+lockLeaveMonth
+reopenLeaveMonth
+getLeaveBalanceReport
+getLeaveCalendar
+getLeaveRegisterReport
+getLeaveReportTypes
+getLeaveTasksForUser
+getLeaveSetup
+getWorkCalendar
+saveLeaveEntitlements
+saveLeavePayRules
+saveLeaveType
+saveWorkCalendar
+getCompensation
+getPayElements
+saveCompensation
+savePayElement
+getHrSetup
+saveHrDesignation
+saveHrDocumentType
+saveHrField
+saveHrGrade
+saveHrWorkSchedule
 decideCustomerInvoiceReversalApproval
 decideVendorInvoiceReversalApproval
 getCustomerInvoiceEntries
 getVendorInvoiceEntries
 requestReverseCustomerInvoice
 requestReverseVendorInvoice
+getInvoiceStockSettings
+getInvoiceableOrderLines
+saveInvoiceStockSettings
 generateItemBarcodes
 getBarcodeIndex
 getBarcodeSettings
@@ -42,6 +172,8 @@ getItemBarcodes
 getLabelSheet
 saveBarcodeSettings
 saveItemBarcodes
+getItemCategories
+saveItemCategory
 decideJournalEntryApproval
 deleteJournalDraft
 getCbtEntries
@@ -52,6 +184,8 @@ postJournalEntry
 reverseJournalEntry
 saveCbtDraft
 saveJournalDraft
+refreshLeaverAccess
+setLeaverAccess
 decideCustomerInvoiceApproval
 decideVendorInvoiceApproval
 getBalanceSheet
@@ -64,12 +198,31 @@ postVendorInvoice
 saveAccount
 saveCustomer
 saveCustomerInvoiceDraft
+saveDeliveryNoteDraft
+saveOrgUnit
 saveVendor
 saveVendorInvoiceDraft
+getActiveItems
+getActiveOrgUnits
+getActiveUOMs
+getActiveVendors
+getJournalEntryDetail
+getModulePermissionsForUser
+getMyPendingApprovalLevel
+getStockLedgerEntryPublic
+updatePostedDescription
 checkMasterImport
 getMasterImportRecords
 getMasterImportSpecs
 runMasterImport
+decideMaterialIssueApproval
+deleteMaterialIssueDraft
+getMaterialIssueEntries
+postMaterialIssue
+reverseMaterialIssue
+saveMaterialIssueDraft
+getNumbering
+saveNumberingFormat
 checkOpeningBalances
 findOpeningBatch
 getOpeningBalanceSetup
@@ -77,6 +230,77 @@ postOpeningBalances
 reverseOpeningBalanceBatch
 saveOpeningBalanceSettings
 getPartyStatement
+deleteEarningsDeduction
+getEarningsDeductions
+saveEarningsDeductions
+decideInterimApproval
+deleteInterimBatch
+downloadInterimFile
+getInterimBatch
+getInterimBatches
+markInterimPaid
+reverseInterimPayment
+saveInterimBatch
+saveInterimPlan
+submitInterimBatch
+decideLoanApproval
+deleteLoan
+getLoan
+getLoanForm
+getLoanTypes
+getLoans
+payOutLoan
+recordLoanRepayment
+reverseLoanPayout
+saveLoan
+saveLoanSchedule
+saveLoanType
+submitLoan
+deletePaymentFormat
+downloadPaymentFile
+getPaymentFormats
+getPayrollPayment
+markPayrollPaid
+previewPaymentFile
+reversePayrollPayment
+savePaymentFormat
+savePaymentPlan
+decidePayrollApproval
+getPayrollGlImpact
+getPayrollPayslips
+postPayrollRun
+reversePayrollRun
+submitPayrollRun
+getProvisionBalances
+getProvisionSetup
+recordAccrualClaim
+reverseAccrualClaim
+saveAccrualType
+saveProvisionSettings
+createPayrollRun
+deletePayrollRun
+getPayrollJournalSource
+getPayrollRun
+getPayrollRuns
+recalculatePayrollRun
+savePayrollInputs
+setPayrollCostOverride
+decideSettlementApproval
+deleteSettlement
+downloadSettlementFile
+getSettlement
+getSettlementPayment
+getSettlements
+markSettlementPaid
+postSettlement
+reverseSettlement
+reverseSettlementPayment
+saveSettlement
+submitSettlement
+getPayrollSetup
+previewPayrollFormula
+savePayElementPayroll
+savePayrollCompany
 bouncePdc
 cancelPdc
 clearPdcs
@@ -98,6 +322,10 @@ reopenFinancialYear
 reopenPeriod
 savePeriodClosingSettings
 tickPeriodClosingStep
+deleteProvisionOpening
+getProvisionMovements
+getProvisionStatement
+saveProvisionOpeningEntry
 decidePurchaseReturnApproval
 deletePurchaseReturnDraft
 getPurchaseReturnEntries
@@ -120,6 +348,7 @@ repostRecurringJournalRun
 reverseRecurringJournalRun
 saveRecurringJournalDraft
 skipRecurringJournalRun
+reimbursementSetup
 rematchJournalEntry
 confirmRetailReturn
 confirmRetailSale
@@ -140,8 +369,24 @@ getSalesReturnEntries
 postSalesReturn
 reverseSalesReturn
 saveSalesReturnDraft
+getCompanyShareholders
+removeCompanyShareholder
+saveCompanyIssuedShares
+saveCompanyShareholder
+decideStockAdjustmentApproval
+deleteStockAdjustmentDraft
+getStockAdjustmentEntries
+postStockAdjustment
+reverseStockAdjustment
+saveStockAdjustmentDraft
 getBatchExpiryReport
 getReorderReport
+decideWarehouseMovementApproval
+deleteWarehouseMovementDraft
+getWarehouseMovementEntries
+postWarehouseMovement
+reverseWarehouseMovement
+saveWarehouseMovementDraft
 getModuleRegistry
 getModulePermissionsMatrix
 saveAllModulePermissions
