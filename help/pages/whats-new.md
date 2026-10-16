@@ -12,6 +12,13 @@ screen.
 
 ## 16/10/2026
 
+- **End-of-service statement.** A final settlement now prints an
+  End-of-Service Settlement Statement for the employee (**Print
+  statement**). It shows the service, the gratuity worked out by slab,
+  entitlements, deductions and the net, in figures and in words. It is
+  marked DRAFT until posted. Once the settlement is paid, the employee also
+  finds it in the Employee Portal under **My payslips**. See
+  [Final Settlement](payroll-final-settlement.html).
 - **Sell from stock on the invoice.** Where a company switches it on
   (Sales Invoice Configuration → **Invoices may deliver stock directly**), a
   Customer Invoice can have **item lines**, typed or brought in **From Sales

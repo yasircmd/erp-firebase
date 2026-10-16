@@ -169,7 +169,7 @@ async function compute(emp, d) {
   const unpaid = leaves.filter(l => l.Status === 'Approved' || l.Status === 'Cancelled')
     .reduce((t, l) => t + (l.Lines || []).filter(x => x.Pay === 'Unpaid' && x.Date <= date).reduce((a, x) => a + x.Fraction, 0), 0);
   const g = calc.gratuityFor(prov.Gratuity, { base: prov.Gratuity.Base === 'Gross' ? gross : basic, joinDate: emp.JoinDate, asOf: date, unpaidDays: unpaid, method, month, provision: false });
-  provisionLine('Gratuity', 'Gratuity', g.amount, g.text + (unpaid ? ' (' + round2(unpaid) + ' unpaid days left out)' : ''));
+  provisionLine('Gratuity', 'Gratuity', g.amount, g.text + (unpaid ? ' (' + round2(unpaid) + ' unpaid days left out)' : ''), { Working: Object.assign({ Years: round2(g.years), ServiceDays: g.serviceDays }, g.working || {}) });
   // Leave: the annual leave balance on the leaving date, paid, or deducted if negative.
   const cache = { leaves, grade };
   let days = 0;
@@ -636,4 +636,4 @@ async function unpay(user, s, reason) {
   });
 }
 
-Object.assign(module.exports, { compute, glLinesFor, activeFor, SETTLEMENTS, payee, pay, unpay, isCashOrBank });
+Object.assign(module.exports, { compute, glLinesFor, activeFor, SETTLEMENTS, payee, pay, unpay, isCashOrBank, draftFields });

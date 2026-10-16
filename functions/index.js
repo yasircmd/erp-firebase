@@ -298,3 +298,4 @@ exports.rematchJournalEntry = require('./src/rematch').rematchJournalEntry;
 exports.getInvoiceStockSettings = require('./src/invoiceStock').getInvoiceStockSettings;
 exports.saveInvoiceStockSettings = require('./src/invoiceStock').saveInvoiceStockSettings;
 exports.getInvoiceableOrderLines = require('./src/invoiceStock').getInvoiceableOrderLines;
+exports.getSettlementStatement = require('./src/eosStatement').getSettlementStatement;

@@ -1,5 +1,6 @@
 # UX testing Tier 3, wave 2 (owner, 2026-10-16; docs/modules/UX_TIER3.md, round 15).
-# Run with --screens. Hosting too (tools/deploy-hosting.sh): the Help pages.
+# Run with --screens. Hosting too (tools/deploy-hosting.sh): the Help pages and
+# public/ess.html (J: the statement in the Employee Portal).
 # I: payroll cost centre per run and split by % (PAYROLL_COST_SPLIT.md).
 #    setPayrollCostOverride is NEW.
 createPayrollRun
@@ -36,3 +37,8 @@ decideCustomerInvoiceReversalApproval
 postDeliveryNote
 decideDeliveryNoteApproval
 reverseDeliveryNote
+# J: end-of-service statement (EOS_STATEMENT.md). getSettlementStatement is
+#    NEW; the gratuity's working by slab is kept on the settlement (above).
+getSettlementStatement
+getSettlement
+essPortal

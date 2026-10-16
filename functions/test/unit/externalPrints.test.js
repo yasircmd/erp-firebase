@@ -14,7 +14,7 @@ const read = m => fs.readFileSync(path.join(dir, m + '.html'), 'utf8');
 const printCss = html => (html.match(/@media print\s*\{[\s\S]*?\n\s*\}/g) || []).join('\n');
 const HIDES = /(^|\n)\s*#app-container > div:first-child \{ display: none !important; \}/;
 
-const EXTERNAL = ['CUSTOMERINVOICE', 'DELIVERYNOTE', 'PURCHASEORDER', 'PURCHASERETURN', 'SALESRETURN', 'RETAILSALES', 'CUSTOMERSOA', 'VENDORSOA'];
+const EXTERNAL = ['CUSTOMERINVOICE', 'DELIVERYNOTE', 'PURCHASEORDER', 'PURCHASERETURN', 'SALESRETURN', 'RETAILSALES', 'CUSTOMERSOA', 'VENDORSOA', 'PAYROLLFS'];
 
 test('external documents hide the title bar when printed', () => {
   for (const m of EXTERNAL) assert.match(printCss(read(m)), HIDES, m);

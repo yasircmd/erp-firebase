@@ -398,7 +398,12 @@ const ACTIONS = {
   balances: { run: async (me) => ({ balances: await balances(me.emp), today: today() }) },
   team: { run: team },
   decideLeave: { run: decideLeave },
-  payslips: { run: async (me) => ({ payslips: await payslipList(me.emp) }) },
+  payslips: { run: async (me) => {
+    const fs = await require('./eosStatement').paidSettlementOf(me.emp.EmployeeID);
+    return { payslips: await payslipList(me.emp), statement: fs ? { Number: fs.Number || '', PaymentDate: fs.PaymentDate || '', Net: fs.Net } : null };
+  } },
+  // The end-of-service statement, once the final settlement is paid (docs/modules/EOS_STATEMENT.md, decision 183).
+  statement: { run: (me) => require('./eosStatement').portalStatement(me.emp.EmployeeID) },
   payslip: { run: payslip },
   // Step 2 (docs/modules/EMPLOYEE_PORTAL.md): payroll queries, advance and
   // loan requests (employeeRequests.js).

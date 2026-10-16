@@ -3,10 +3,10 @@ title: Final Settlement
 area: hr
 order: 11
 modules: [PAYROLLFS]
-sources: [functions/src/payrollSettlement.js, functions/src/payrollCalc.js, functions/src/payrollRun.js, functions/src/payrollFiles.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js]
+sources: [functions/src/payrollSettlement.js, functions/src/eosStatement.js, functions/src/payrollCalc.js, functions/src/payrollRun.js, functions/src/payrollFiles.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js]
 summary: Finalise the employee’s end-of-service or exit settlement with all remaining balances and payments.
 reviewed: 2026-10-16
-fingerprint: 519b75d2a42ceb25
+fingerprint: 7a9dabaf7897fe79
 ---
 ## What it is for
 
@@ -30,6 +30,20 @@ fingerprint: 519b75d2a42ceb25
 6. Save the draft and submit on or after the leaving date. The system recalculates, checks leave and salary-month dependencies, and routes through Approval Configuration. Rejection returns it to Draft.
 7. Final approval posts the settlement journal dated on the leaving date. Review the journal and settlement status, then create a payment from the configured bank file or cash/bank account. If sent through Interim Payroll, pay it there instead; do not pay it twice.
 8. If a posted settlement is wrong, reverse its payment first, then reverse the settlement with a reason. Reversal restores loan recoveries and returns the document to Draft for correction.
+
+## The end-of-service statement
+
+**Print statement** (at the top of a saved settlement) prints the End-of-Service Settlement Statement to give the employee. It prints without the ERP title bar, like other documents sent outside. It shows:
+
+- the company and the employee: employee no., name as in passport, nationality, passport and Emirates ID numbers (from Employee Documents), designation, department, joining date, last working day, reason for leaving and length of service;
+- the gratuity worked out: the basic, a day's pay and, for each slab, the years, the days a year and the amount; the cap if it applied; an amount HR changed, with its reason;
+- the entitlements (salary to the last working day, leave salary, accruals, notice pay, other additions) and the deductions (loans, leave taken in advance, other deductions);
+- the net, in figures and in words, in the system currency (the currency marked Default in Currency Configuration);
+- signature lines for preparer, approver and the employee's acknowledgement.
+
+Until the settlement is posted, the statement is marked **DRAFT**, so you can check it with the employee first. A draft shows the figures as they are worked out now, the same as the screen.
+
+Once the settlement is paid, the employee can view and download the same statement in the Employee Portal (**My payslips**), while their portal access lasts. That access normally ends on the payment date, so extend it in Employee Master if they need longer.
 
 ## What happens in the books
 

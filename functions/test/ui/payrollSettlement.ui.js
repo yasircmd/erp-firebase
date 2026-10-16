@@ -80,6 +80,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(await p.textContent('#fs-months'), /^Jul-2026 here \(the leaving month\)draft4,200\.000\.004,200\.00$/);
     assert.ok(await p.isHidden('#fs-salary-none'));
     assert.match(await p.textContent('#fs-info'), /basic 6,000\.00, gross 9,000\.00/);
+    assert.ok(await p.isHidden('#fs-print-btn'), 'not saved yet: nothing to print');
     await p.fill('#fs-notice-days', '10');
     await p.selectOption('#fs-notice-el', notice);
     await p.click('#fs-other-add');
@@ -108,6 +109,21 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(p.__errors, []);
   });
 
+  await check('the end-of-service statement prints from the draft marked DRAFT, without the ERP title bar', async () => {
+    await p.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
+    await p.waitForSelector('#fs-print-btn:not(.hidden)', { timeout: 30000 });
+    await p.click('#fs-print-btn');
+    await p.waitForFunction(() => window.__printed === 1, null, { timeout: 30000 });
+    const t = await p.textContent('#fs-print-document');
+    assert.match(t, /End-of-Service Settlement Statement[\s\S]*DRAFT: not final[\s\S]*Ali Hassan[\s\S]*Accountant[\s\S]*Personal reasons/);
+    assert.match(t, /Year 0 to 5[\s\S]*Damaged equipmentLaptop screen500\.00[\s\S]*Amount in words: /);
+    await p.emulateMedia({ media: 'print' });
+    assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('#app-container > div:first-child')).display), 'none', 'sent outside: no title bar');
+    assert.ok(await p.isVisible('#fs-print-document'));
+    await p.emulateMedia({ media: 'screen' });
+    assert.deepEqual(p.__errors, []);
+  });
+
   await check('after the run is posted: submitted and posted (no approval set up); the air ticket paid at leaving', async () => {
     assert.equal((await call('u-admin', 'submitPayrollRun', { runId: run })).status, 'Posted');
     await p.click('#fs-back-btn');
@@ -121,6 +137,10 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(await p.textContent('#fs-heading'), /^FS-0001 — Ali Hassan$/);
     assert.ok(await p.isHidden('#fs-save-btn'));
     assert.ok(await p.isVisible('#fs-reverse-btn'));
+    await p.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
+    await p.click('#fs-print-btn');
+    await p.waitForFunction(() => window.__printed === 1 && /No\. FS-0001/.test(document.getElementById('fs-print-document').textContent), null, { timeout: 30000 });
+    assert.doesNotMatch(await p.textContent('#fs-print-document'), /DRAFT/, 'posted: printed plainly');
     assert.deepEqual([p.__errors, p.__dialogs], [[], []]);
   });
 

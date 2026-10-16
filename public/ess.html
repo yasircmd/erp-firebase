@@ -559,6 +559,7 @@
       if (c) { cancelLeave(myLeaves.find(l => l.LeaveID === c.dataset.id)); return; }
       const o = e.target.closest('.ps-open');
       if (o) { openPayslip(o.dataset.run); return; }
+      if (e.target.closest('#eos-open')) { openStatement(); return; }
       const d = e.target.closest('.tm-decide');
       if (d) { decide(d.dataset.id, d.dataset.decision); return; }
       const tl = e.target.closest('.tm-loan');
@@ -608,8 +609,13 @@
       page(tabsHtml('pay', [['slips', 'Payslips'], ['loans', 'Loans']], 'slips') + '<div id="pay-body">' + skeleton() + '</div>');
       const payBody = html => { const b = $('pay-body'); if (b) b.innerHTML = html; };
       api('payslips').then(r => {
-        if (!r.payslips.length) { payBody(card(empty('fa-file-invoice-dollar', 'No payslips yet.'))); return; }
-        payBody('<div class="space-y-2">' + r.payslips.map(p => card('<div class="flex items-center gap-3"><span class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300 flex flex-col items-center justify-center text-[10px] font-bold leading-tight">' +
+        // Paid final settlement: the end-of-service statement first (docs/modules/EOS_STATEMENT.md).
+        const eos = r.statement ? card('<div class="flex items-center gap-3"><span class="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300 flex items-center justify-center"><i class="fa-solid fa-door-open"></i></span>' +
+          '<div class="flex-1 min-w-0"><div class="font-semibold">End-of-service statement</div><div class="text-xs text-slate-500 dark:text-slate-400">' + esc(r.statement.Number) + ' · paid ' + esc(showDate(r.statement.PaymentDate)) + '</div></div>' +
+          '<div class="font-bold">' + money(Math.max(0, r.statement.Net)) + '</div></div>' +
+          '<button id="eos-open" class="mt-3 w-full rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 py-2 text-sm font-semibold"><i class="fa-solid fa-eye"></i> View statement</button>', 'p-3') : '';
+        if (!r.payslips.length) { payBody(eos + card(empty('fa-file-invoice-dollar', 'No payslips yet.'))); return; }
+        payBody('<div class="space-y-2">' + eos + r.payslips.map(p => card('<div class="flex items-center gap-3"><span class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300 flex flex-col items-center justify-center text-[10px] font-bold leading-tight">' +
           esc(showMonth(p.Month).slice(0, 3).toUpperCase()) + '<span>' + esc(p.Month.slice(0, 4)) + '</span></span><div class="flex-1 min-w-0"><div class="font-semibold">' + esc(showMonth(p.Month)) + '</div>' +
           '<div class="text-xs text-slate-500 dark:text-slate-400">Earnings ' + money(p.Earnings) + ' · Deductions ' + money(p.Deductions) + '</div></div>' +
           '<div class="text-right"><div class="ps-net font-bold">' + money(Math.max(0, p.Net)) + '</div><div class="text-[11px] ' + (p.Paid ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400') + '">' + (p.Paid ? 'Paid' : 'Not yet paid') + '</div></div></div>' +
@@ -649,6 +655,19 @@
         showDates($('slip-body'));
         slipFile = 'Payslip ' + showMonth(p.month) + ' ' + p.slip.EmployeeNo;
         slipRun = runId;
+        $('slip-query').classList.remove('hidden');
+        $('slip-view').classList.remove('hidden');
+      }, fail);
+    }
+    // The end-of-service statement in the same view (functions/src/eosStatement.js): no pay query on it.
+    function openStatement() {
+      api('statement').then(p => {
+        $('slip-title').textContent = 'End-of-service statement';
+        $('slip-body').innerHTML = '<style>' + p.css + '</style>' + p.html;
+        showDates($('slip-body'));
+        slipFile = 'End-of-service statement ' + p.employeeNo;
+        slipRun = '';
+        $('slip-query').classList.add('hidden');
         $('slip-view').classList.remove('hidden');
       }, fail);
     }
