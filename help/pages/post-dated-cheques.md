@@ -6,7 +6,7 @@ modules: [PDCRECEIVED, PDCISSUED]
 sources: [functions/src/pdc.js]
 summary: Cheques dated in the future: received from customers or issued to vendors, then cleared, bounced or cancelled.
 reviewed: 2026-10-16
-fingerprint: ba5dbc75c0a0ba3c
+fingerprint: 8cdf601c363828bc
 ---
 ## What it is for
 

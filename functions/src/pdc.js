@@ -510,7 +510,7 @@ function mirrorLines(entry, prefix) {
   return (entry.Lines || []).map(l => {
     const out = {
       AccountCode: l.AccountCode, Debit: l.Credit || 0, Credit: l.Debit || 0, Description: prefix + (l.Description || ''),
-      CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+      CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', ProjectID: l.ProjectID || ''
     };
     if (l.PartyType) Object.assign(out, { PartyType: l.PartyType, PartyID: l.PartyID, PartyName: l.PartyName || '', Allocations: [] });
     Object.assign(out, require('./fx').mirrorFc(l), l.FxAdjustment ? { FxAdjustment: true } : {}); // foreign amounts swap too (MULTI_CURRENCY.md)

@@ -244,8 +244,9 @@ async function glLinesFor(s) {
     if (!amount) return;
     const a = coa[accountId];
     if (!accountId || !a) { missing.add(what); return; }
-    const cc = CC_TYPES.includes(a.AccountType);
-    if (cc && !s.CostCenterID) noCc = true;
+    const rule = require('./dimensionRules').ruleOf(a, coa, 'CostCenter').rule; // the account's rule (PROJECTS_DIMENSIONS.md)
+    const needsCc = rule === 'Required', cc = needsCc || (rule === 'Optional' && CC_TYPES.includes(a.AccountType) && Boolean(s.CostCenterID));
+    if (needsCc && !s.CostCenterID) noCc = true;
     (cc ? costSplit.shares(Math.abs(amount), s.CostCenterID, s.CostSplit) : [{ CostCenterID: '', Amount: Math.abs(amount) }]).forEach(p =>
       out.push({ AccountCode: a.AccountCode, Debit: amount > 0 ? p.Amount : 0, Credit: amount < 0 ? p.Amount : 0, Description: what + label, CostCenterID: p.CostCenterID }));
   };

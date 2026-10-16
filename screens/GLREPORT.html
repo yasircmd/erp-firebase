@@ -46,6 +46,7 @@
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="gl-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="gl-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="gl-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Project</label><select id="gl-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
     </div>
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
@@ -201,6 +202,7 @@
     document.getElementById('gl-branch').value = p.BranchID || '';
     document.getElementById('gl-costcenter').value = p.CostCenterID || '';
     document.getElementById('gl-profitcenter').value = p.ProfitCenterID || '';
+    document.getElementById('gl-project').value = p.ProjectID || '';
     document.getElementById('gl-include-draft').checked = Boolean(p.IncludeDraft);
 
     if (match) runReport();
@@ -248,6 +250,7 @@
         populateOrgUnitSelect('gl-branch', 'Branch');
         populateOrgUnitSelect('gl-costcenter', 'CostCenter');
         populateOrgUnitSelect('gl-profitcenter', 'ProfitCenter');
+        populateOrgUnitSelect('gl-project', 'Project'); document.getElementById('gl-project').insertAdjacentHTML('beforeend', '<option value="__none__">No project</option>'); // PROJECTS_DIMENSIONS.md
         orgUnitsReady = true;
         checkReadyAndApplyPending();
       })
@@ -366,7 +369,8 @@
       DivisionID: document.getElementById('gl-division').value,
       BranchID: document.getElementById('gl-branch').value,
       CostCenterID: document.getElementById('gl-costcenter').value,
-      ProfitCenterID: document.getElementById('gl-profitcenter').value
+      ProfitCenterID: document.getElementById('gl-profitcenter').value,
+      ProjectID: document.getElementById('gl-project').value
     };
 
     // Stored under AccountCode (not the internal AccountID) so this can be

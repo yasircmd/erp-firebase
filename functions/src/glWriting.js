@@ -74,10 +74,10 @@ function validateAndNormalizeLines(rawLines, coaData, entryCompanyId) {
     const description = String(line.Description || '').trim();
     if (!description) throw new Error('Line ' + (idx + 1) + ': description is required.');
 
-    const costCenterId = String(line.CostCenterID || '').trim();
-    if (COST_CENTER_REQUIRED_TYPES.includes(account.AccountType) && !costCenterId) {
-      throw new Error('Line ' + (idx + 1) + ': account ' + accountCode + ' (' + account.AccountType + ') requires a Cost Center.');
-    }
+    // The account's rules for cost center, profit center and project
+    // (docs/modules/PROJECTS_DIMENSIONS.md): a required one missing is
+    // refused, a not-used one dropped. With no rules, as before.
+    const dims = require('./dimensionRules').applyRules(line, account, coaData, 'Line ' + (idx + 1) + ': ');
 
     totalDebit += debit;
     totalCredit += credit;
@@ -86,8 +86,9 @@ function validateAndNormalizeLines(rawLines, coaData, entryCompanyId) {
       LineNo: lines.length + 1, AccountID: account.AccountID, AccountCode: account.AccountCode,
       AccountName: account.AccountName, Description: description,
       Debit: Math.round(debit * 100) / 100, Credit: Math.round(credit * 100) / 100,
-      CostCenterID: costCenterId, ProfitCenterID: String(line.ProfitCenterID || '')
+      CostCenterID: dims.CostCenterID, ProfitCenterID: dims.ProfitCenterID
     };
+    if (dims.ProjectID) out.ProjectID = dims.ProjectID;
     // A line in a foreign currency keeps its own amount and rate beside the
     // base amount the books use (docs/modules/MULTI_CURRENCY.md); an
     // exchange difference line is marked as such.
@@ -226,6 +227,8 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
   const glLines = clubGlLines(rawGlLines);
   const normalized = validateAndNormalizeLines(glLines, coaData, dim.CompanyID);
   normalized.lines = carryPartyFields(glLines, normalized.lines);
+  // A closed project takes no new postings; a reversal still posts (PROJECTS_DIMENSIONS.md).
+  if (!extraFields.ReversalOfJV) await require('./projects').assertProjects(normalized.lines, dim.CompanyID);
   const totalDebit = normalized.totalDebit;
   const totalCredit = normalized.totalCredit;
   if (Math.round((totalDebit - totalCredit) * 100) !== 0) {

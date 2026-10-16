@@ -84,7 +84,7 @@ async function cleanItemLines(raw, companyId, customerId, invoiceId, headerCostC
     const u = (uoms || {})[item.UOMID] || {};
     if (u.AllowDecimals === false && Math.round(qty) !== qty) throw new Error(n + item.ItemCode + ' is counted in whole ' + (u.Code || 'units') + '.');
     const ccId = text(l.CostCenterID, 80) || headerCostCenterId;
-    if (!ccId) throw new Error(n + 'a cost center is required (on the line or the header): the cost of sales posts to it.');
+    if (!ccId && await require('./dimensionRules').needsCostCenter({ itemIds: [item.ItemID] })) throw new Error(n + 'a cost center is required (on the line or the header): the cost of sales posts to it.'); // the account's rule (PROJECTS_DIMENSIONS.md)
     out.push({
       LineNo: out.length + 1, ItemID: item.ItemID, ItemCode: item.ItemCode, ItemName: item.ItemName || '', WarehouseID: warehouseId,
       Quantity: round(qty, 6), UnitPrice: round(unitPrice, 4), Amount: round(qty * unitPrice, 2),

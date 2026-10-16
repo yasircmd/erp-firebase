@@ -26,6 +26,7 @@
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Branch</label><select id="tb-branch" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Cost Center</label><select id="tb-costcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="tb-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Project</label><select id="tb-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">All</option></select></div>
     </div>
     <div class="flex justify-end items-center gap-2">
       <label class="mr-auto flex items-center gap-1.5 text-xs text-slate-300" title="Leave out the Year-End Closing entry, to see a closed year's income and expense balances"><input type="checkbox" id="tb-before-close"> Before year-end closing</label>
@@ -124,6 +125,7 @@
     document.getElementById('tb-branch').value = p.BranchID || '';
     document.getElementById('tb-costcenter').value = p.CostCenterID || '';
     document.getElementById('tb-profitcenter').value = p.ProfitCenterID || '';
+    document.getElementById('tb-project').value = p.ProjectID || '';
 
     runReport();
   }
@@ -150,6 +152,7 @@
         populateOrgUnitSelect('tb-branch', 'Branch');
         populateOrgUnitSelect('tb-costcenter', 'CostCenter');
         populateOrgUnitSelect('tb-profitcenter', 'ProfitCenter');
+        populateOrgUnitSelect('tb-project', 'Project'); document.getElementById('tb-project').insertAdjacentHTML('beforeend', '<option value="__none__">No project</option>'); // PROJECTS_DIMENSIONS.md
         orgUnitsReady = true;
         checkReadyAndApplyPending();
       })
@@ -170,6 +173,7 @@
       BranchID: document.getElementById('tb-branch').value,
       CostCenterID: document.getElementById('tb-costcenter').value,
       ProfitCenterID: document.getElementById('tb-profitcenter').value,
+      ProjectID: document.getElementById('tb-project').value,
       BeforeYearEndClose: document.getElementById('tb-before-close').checked
     };
     lastParams = params;
@@ -203,7 +207,8 @@
       DivisionID: lastParams.DivisionID,
       BranchID: lastParams.BranchID,
       CostCenterID: lastParams.CostCenterID,
-      ProfitCenterID: lastParams.ProfitCenterID
+      ProfitCenterID: lastParams.ProfitCenterID,
+      ProjectID: lastParams.ProjectID
     }, [...myReturnChain, { moduleId: 'TRIALBALANCE', label: 'Trial Balance', params: lastParams }]);
   }
 

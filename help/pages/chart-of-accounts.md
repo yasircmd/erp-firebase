@@ -6,7 +6,7 @@ modules: [COA]
 sources: [functions/src/coaUsage.js, functions/src/coaScheme.js, functions/src/coaRenumber.js]
 summary: The list of accounts every entry posts to: heads and postable accounts, types, codes, and shared accounts.
 reviewed: 2026-10-16
-fingerprint: 5108e88c224a8326
+fingerprint: ad1799a1492baeea
 ---
 ## What it is for
 
@@ -55,6 +55,12 @@ always sits under a group or a sub-group, never straight under a class.
    as the cash or bank side. 110000 Cash / Petty Cash and 120000 Bank
    Accounts come marked. Changing the mark changes it for every account
    under the group.
+   For a heading or an account, choose what its lines need: **Cost
+   center**, **Profit center** and **Project**, each **Required**,
+   **Optional** or **Not used**. Blank follows the heading above; the hint
+   says what applies now. With nothing set, Expense, Revenue and Cost of
+   Sales accounts need a cost center, as before. A *Not used* field is
+   greyed out on the entry screens and never posted.
    A cash or bank account itself (one that takes postings) can have a
    **Currency**, for example a USD bank account: its Cash and Bank
    Transactions are then in USD. It can't change once the account has

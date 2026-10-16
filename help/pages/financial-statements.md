@@ -4,8 +4,8 @@ area: finance
 order: 13
 modules: [PROFITLOSS, BALANCESHEET, CASHFLOW]
 summary: The three financial statements, with drill-down from each figure to the ledger.
-reviewed: 2026-10-12
-fingerprint: 2d74ac325ac1491e
+reviewed: 2026-10-16
+fingerprint: 200e7d20e34412a1
 ---
 ## What it is for
 
@@ -37,3 +37,5 @@ fingerprint: 2d74ac325ac1491e
   [Chart of Accounts](chart-of-accounts.html); without one it counts as
   Operating.
 - The figures follow the posted entries only; drafts are not included.
+- The **P&L** can be filtered by **Project** (or **No project**); the
+  [Project Report](project-report.html) shows every project side by side.

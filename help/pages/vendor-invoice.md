@@ -6,7 +6,7 @@ modules: [VENDORINVOICE]
 sources: [functions/src/grn.js, functions/src/partyLedger.js]
 summary: Match the supplier bill to the received GRNs and post the payable amount to the company books.
 reviewed: 2026-10-16
-fingerprint: ec88b0fabd6cffe6
+fingerprint: 9e3da5b26d5e85fd
 ---
 ## What it is for
 
@@ -41,6 +41,12 @@ currency, its invoice is in that currency:
 
 The books are in the default currency, at the invoice's rate; each line
 keeps its foreign amount too. A reversal uses the invoice's own rate.
+
+## Project
+
+Once the company has projects, the invoice has a **Project** field: every
+line the invoice posts carries it, for the
+[Project Report](project-report.html).
 
 ## What happens in the books
 

@@ -6,7 +6,7 @@ modules: [GLREPORT]
 sources: [functions/src/glViews.js]
 summary: Every line posted to an account, with its opening, running and closing balance; or a plain listing across several accounts.
 reviewed: 2026-10-16
-fingerprint: 3f07848af9394ef1
+fingerprint: 7110871578ac3409
 ---
 ## What it is for
 
@@ -49,6 +49,9 @@ two views:
 **Copy Table** and **Print** follow the view on screen.
 
 ## Good to know
+
+- **Project** filters the lines by project; **No project** shows those
+  without one (see also the [Project Report](project-report.html)).
 
 - The **Ledger** of a cash or bank account in a foreign currency (for
   example USD) shows a **Balance (USD)** column beside the balance, and

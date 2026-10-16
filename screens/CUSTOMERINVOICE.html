@@ -93,6 +93,7 @@
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div>
       <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+      <div id="cinv-project-field" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Project <span class="text-slate-500">(every line)</span></label><select id="cinv-form-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
       <select id="cinv-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
     </div>
     <div>
@@ -878,6 +879,7 @@
       BranchID: document.getElementById('cinv-form-branch').value,
       CostCenterID: document.getElementById('cinv-form-costcenter').value,
       ProfitCenterID: document.getElementById('cinv-form-profitcenter').value,
+      ProjectID: document.getElementById('cinv-form-project').value, // docs/modules/PROJECTS_DIMENSIONS.md
       SourceDeliveryNotes: Array.from(selectedDeliveryNoteIds).map(id => ({ DeliveryNoteID: id, SalesTypeID: selectedDeliveryNoteSalesTypes.get(id) || '' })),
       DirectLines: gridLines.filter(l => l.AccountCode).map(l => ({
         AccountCode: l.AccountCode, Description: l.Description, SalesTypeID: l.SalesTypeID, Amount: l.Amount,
@@ -1029,6 +1031,8 @@
     document.getElementById('cinv-form-branch').value = inv.BranchID || '';
     document.getElementById('cinv-form-costcenter').value = inv.CostCenterID || '';
     document.getElementById('cinv-form-profitcenter').value = inv.ProfitCenterID || '';
+    document.getElementById('cinv-form-project').value = inv.ProjectID || '';
+    document.getElementById('cinv-project-field').classList.toggle('hidden', !inv.ProjectID && !orgUnits.some(u => u.Type === 'Project'));
     document.getElementById('cinv-form-discount').value = inv.Discount || 0;
     document.getElementById('cinv-form-taxpercent').value = inv.TaxPercent || 0;
     document.getElementById('cinv-form-roundoff').value = inv.RoundOff || 0;
@@ -1077,6 +1081,7 @@
     document.getElementById('cinv-form-branch').value = '';
     document.getElementById('cinv-form-costcenter').value = '';
     document.getElementById('cinv-form-profitcenter').value = '';
+    document.getElementById('cinv-form-project').value = '';
     document.getElementById('cinv-form-discount').value = 0;
     document.getElementById('cinv-form-taxpercent').value = 0;
     document.getElementById('cinv-form-roundoff').value = 0;
@@ -1127,7 +1132,7 @@
     }
 
     ['cinv-form-company', 'cinv-form-customer', 'cinv-form-date', 'cinv-form-description',
-      'cinv-form-division', 'cinv-form-branch', 'cinv-form-costcenter', 'cinv-form-profitcenter',
+      'cinv-form-division', 'cinv-form-branch', 'cinv-form-costcenter', 'cinv-form-profitcenter', 'cinv-form-project',
       'cinv-form-discount', 'cinv-form-taxpercent', 'cinv-form-roundoff'].forEach(id => {
       document.getElementById(id).disabled = readOnly;
     });
@@ -1326,6 +1331,8 @@
         populateOrgUnitSelect('cinv-form-branch', 'Branch');
         populateOrgUnitSelect('cinv-form-costcenter', 'CostCenter');
         populateOrgUnitSelect('cinv-form-profitcenter', 'ProfitCenter');
+        populateOrgUnitSelect('cinv-form-project', 'Project'); // the field shows once there is a project
+        document.getElementById('cinv-project-field').classList.toggle('hidden', !orgUnits.some(u => u.Type === 'Project'));
         if (!document.getElementById('cinv-entry-view').classList.contains('hidden')) renderGrid();
       })
       .withFailureHandler(err => console.error(err))

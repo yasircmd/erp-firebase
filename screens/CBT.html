@@ -158,6 +158,7 @@
             <th id="cbt-amount-head" class="py-2 px-3 text-right w-32">Amount</th>
             <th class="py-2 px-3 w-24">Cost Ctr</th>
             <th class="py-2 px-3 w-24">Profit Ctr</th>
+            <th id="cbt-project-head" class="hidden py-2 px-3 w-24">Project</th>
             <th class="py-2 px-3 w-10 no-print"></th>
           </tr>
         </thead>
@@ -166,7 +167,7 @@
           <tr class="bg-slate-900 border-t border-slate-700 font-medium text-sm">
             <td class="py-2 px-3" colspan="3">Total</td>
             <td class="py-2 px-3 text-right" id="cbt-total-amount">0.00</td>
-            <td colspan="2"></td>
+            <td colspan="2" id="cbt-total-dims"></td>
             <td class="no-print"></td>
           </tr>
         </tfoot>
@@ -243,10 +244,26 @@
   let pendingOpenEntryId = null;
   let myReturnChain = [];
 
-  // Mirrors Code.gs's COST_CENTER_REQUIRED_TYPES — kept in sync manually
-  // since client and server are separate files. Only P&L-facing account
-  // types require a Cost Center per line.
+  // Which lines need a cost center, profit center or project: the account's
+  // rule, set on its heading in the Chart of Accounts (the server's
+  // dimensionRules.js; docs/modules/PROJECTS_DIMENSIONS.md). With no rule,
+  // Expense, Revenue and COGS accounts need a cost center, as before.
   const COST_CENTER_REQUIRED_TYPES = ['Expense', 'Revenue', 'COGS'];
+  function dimRule(account, key) {
+    let a = account, hops = 0;
+    while (a && hops++ < 50) {
+      const own = a.DimensionRules && a.DimensionRules[key];
+      if (own) return own;
+      a = accounts.find(x => x.AccountID === a.ParentAccountID);
+    }
+    return key === 'CostCenter' && account && COST_CENTER_REQUIRED_TYPES.includes(account.AccountType) ? 'Required' : 'Optional';
+  }
+  // The Project column shows once the company has a project.
+  function projectsOf() { const co = document.getElementById('cbt-form-company').value; return orgUnits.filter(u => u.Type === 'Project' && (!u.CompanyID || u.CompanyID === co)); }
+  function projectOptionsHtml(selectedId) {
+    return '<option value="">—</option>' + projectsOf().sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .map(u => `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code)}</option>`).join('');
+  }
 
   const TYPE_CONFIG = {
     'Cash Receipt': { prefix: 'Cash', ledgerLabel: 'Cash Account', linesLabel: 'Received From (Accounts)' },
@@ -323,7 +340,7 @@
   function gridLinesOf(entry, keepAllocations) {
     return (entry.Lines || []).filter(l => l.AccountCode !== entry.SelectedAccountCode && !l.FxAdjustment)
       .map(l => Object.assign({ AccountCode: l.AccountCode, Description: l.Description, Amount: (entry.LedgerCurrency ? (l.FcDebit || l.FcCredit) : (l.Debit || l.Credit)) || '',
-        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '' }, party.fromServer(l, keepAllocations)));
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', ProjectID: l.ProjectID || '' }, party.fromServer(l, keepAllocations)));
   }
   const isCashOrBank = a => a.CashBank === 'Cash' || a.CashBank === 'Bank'; // its group's mark in the Chart of Accounts (docs/modules/COA_NUMBERING.md)
   // Add Line / Paste: shown while the entry is editable, never for a transfer (one To line).
@@ -876,12 +893,19 @@
     const readOnly = currentEntry && currentEntry.Status === 'Posted';
     const partyReadOnly = (readOnly || Boolean(currentEntry && currentEntry.Status === 'PendingApproval')) && !rematching;
 
+    const withProjects = projectsOf().length > 0 || gridLines.some(l => l.ProjectID);
+    document.getElementById('cbt-project-head').classList.toggle('hidden', !withProjects);
+    document.getElementById('cbt-total-dims').colSpan = withProjects ? 3 : 2;
     gridLines.forEach((line, i) => {
       party.syncLine(line, document.getElementById('cbt-form-company').value);
       const account = accountByCode(line.AccountCode);
       const missingDesc = line.AccountCode && !String(line.Description || '').trim();
-      const ccRequired = account && COST_CENTER_REQUIRED_TYPES.includes(account.AccountType);
+      const rule = k => (account ? dimRule(account, k) : 'Optional');
+      const ccRequired = rule('CostCenter') === 'Required';
       const missingCC = ccRequired && !line.CostCenterID;
+      const missingPC = rule('ProfitCenter') === 'Required' && !line.ProfitCenterID;
+      const missingProject = rule('Project') === 'Required' && !line.ProjectID;
+      const off = k => (rule(k) === 'NotUsed' ? 'disabled title="Not used on this account"' : '');
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
@@ -889,11 +913,12 @@
         <td class="py-1 px-2 text-xs text-slate-400 cbt-account-name">${account ? escapeHtml(account.AccountName) : (line.AccountCode ? '<span class="text-red-400">not found</span>' : '')}</td>
         <td class="py-1 px-1"><input data-row="${i}" data-col="1" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${missingDesc ? 'required' : ''}" class="w-full bg-slate-900 border ${missingDesc ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
         <td class="py-1 px-1"><input data-row="${i}" data-col="2" type="text" inputmode="decimal" value="${line.Amount === '' || line.Amount === 0 ? '' : formatMoney(line.Amount)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
-        <td class="py-1 px-1"><select data-row="${i}" class="cbt-line-cc w-full bg-slate-900 border ${missingCC ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''} title="${missingCC ? 'Required for ' + account.AccountType + ' accounts' : ''}">${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
-        <td class="py-1 px-1"><select data-row="${i}" class="cbt-line-pc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
+        <td class="py-1 px-1"><select data-row="${i}" class="cbt-line-cc w-full bg-slate-900 border ${missingCC ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : off('CostCenter')} title="${missingCC ? 'Required for account ' + account.AccountCode : ''}">${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
+        <td class="py-1 px-1"><select data-row="${i}" class="cbt-line-pc w-full bg-slate-900 border ${missingPC ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : off('ProfitCenter')}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
+        ${withProjects ? `<td class="py-1 px-1"><select data-row="${i}" class="cbt-line-project w-full bg-slate-900 border ${missingProject ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : off('Project')}>${projectOptionsHtml(line.ProjectID)}</select></td>` : ''}
         <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-row="${i}" class="cbt-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
       tbody.appendChild(tr);
-      const partyRow = party.subRowHtml(line, i, partyReadOnly, 7, party.allocAmount(line, amountOf(line)), rematching);
+      const partyRow = party.subRowHtml(line, i, partyReadOnly, withProjects ? 8 : 7, party.allocAmount(line, amountOf(line)), rematching);
       if (partyRow) tbody.insertAdjacentHTML('beforeend', partyRow);
     });
     if (!partyReadOnly) party.bind(tbody, gridLines, () => { isDirty = true; renderGrid(); }, partyLineInfo);
@@ -915,6 +940,9 @@
       });
       tbody.querySelectorAll('.cbt-line-pc').forEach(sel => {
         sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].ProfitCenterID = e.target.value; });
+      });
+      tbody.querySelectorAll('.cbt-line-project').forEach(sel => {
+        sel.addEventListener('change', e => { isDirty = true; gridLines[parseInt(e.target.getAttribute('data-row'), 10)].ProjectID = e.target.value; renderGrid(); });
       });
       tbody.querySelectorAll('.cbt-remove-row').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -965,8 +993,9 @@
     return gridLines.every(l => {
       if (!l.AccountCode) return true;
       const account = accountByCode(l.AccountCode);
-      if (!account || !COST_CENTER_REQUIRED_TYPES.includes(account.AccountType)) return true;
-      return Boolean(l.CostCenterID);
+      if (!account) return true;
+      return (dimRule(account, 'CostCenter') !== 'Required' || Boolean(l.CostCenterID)) && (dimRule(account, 'ProfitCenter') !== 'Required' || Boolean(l.ProfitCenterID)) &&
+        (dimRule(account, 'Project') !== 'Required' || Boolean(l.ProjectID));
     });
   }
 
@@ -1440,7 +1469,7 @@
     if (!currentType) { error.textContent = 'Select a transaction type.'; error.classList.remove('hidden'); return; }
     if (!document.getElementById('cbt-form-company').value) { error.textContent = 'Select a Company for this entry.'; error.classList.remove('hidden'); return; }
     if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an account needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
-    if (!allRequiredCostCentersFilled()) { error.textContent = 'Expense, Revenue, and COGS lines require a Cost Center.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allRequiredCostCentersFilled()) { error.textContent = 'Some lines need a Cost Center, Profit Center or Project (marked in red): their accounts require it.'; error.classList.remove('hidden'); renderGrid(); return; }
     const partyError = party.validate(gridLines, amountOf);
     if (partyError) { error.textContent = partyError; error.classList.remove('hidden'); renderGrid(); return; }
     const btn = document.getElementById('cbt-save-draft-btn');
@@ -1467,7 +1496,7 @@
     if (!currentType) { error.textContent = 'Select a transaction type.'; error.classList.remove('hidden'); return; }
     if (!document.getElementById('cbt-form-company').value) { error.textContent = 'Select a Company for this entry.'; error.classList.remove('hidden'); return; }
     if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an account needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
-    if (!allRequiredCostCentersFilled()) { error.textContent = 'Expense, Revenue, and COGS lines require a Cost Center.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allRequiredCostCentersFilled()) { error.textContent = 'Some lines need a Cost Center, Profit Center or Project (marked in red): their accounts require it.'; error.classList.remove('hidden'); renderGrid(); return; }
     const partyError = party.validate(gridLines, amountOf);
     if (partyError) { error.textContent = partyError; error.classList.remove('hidden'); renderGrid(); return; }
 

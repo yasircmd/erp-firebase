@@ -5,8 +5,8 @@ order: 6
 modules: [GRN]
 sources: [functions/src/grn.js, functions/src/stockMovement.js]
 summary: Receive the purchased goods into stock and match the supplier receipt against the order.
-reviewed: 2026-10-12
-fingerprint: cf81d4a69fd952e8
+reviewed: 2026-10-16
+fingerprint: 8457121ba2f581ed
 ---
 ## What it is for
 
@@ -39,3 +39,5 @@ Users need access and post rights to receive stock against a purchase order.
 - If the item does not appear, check the PO or item master.
 - If the receipt is refused, the supplier or order details may be mismatched.
 - A closed month will reject a GRN date in the closed period.
+- **"select a Cost Center"**: a non-stock category posts to an account that
+  needs one (its rule in the [Chart of Accounts](chart-of-accounts.html)).

@@ -112,6 +112,12 @@
         <select id="coa-form-cashbank" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Neither</option><option value="Cash">Cash: its accounts are cash accounts</option><option value="Bank">Bank: its accounts are bank accounts</option></select>
         <p class="text-xs text-slate-500 mt-1">The accounts under this group are the cash (or bank) accounts that Cash and Bank Transactions, PDCs, Fixed Assets and payroll offer.</p>
       </div>
+      <div id="coa-dims-field" class="space-y-1">
+        <label class="block text-xs font-medium text-slate-300">Lines need <span class="text-slate-500">(blank: as the heading above)</span></label>
+        <div class="grid grid-cols-3 gap-2">
+          <div><span class="block text-[11px] text-slate-400">Cost center</span><select id="coa-dim-CostCenter" data-dim="CostCenter" class="coa-dim w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"><option value="">As the heading</option><option value="Required">Required</option><option value="Optional">Optional</option><option value="NotUsed">Not used</option></select><span id="coa-dim-CostCenter-hint" class="block text-[10px] text-slate-500"></span></div><div><span class="block text-[11px] text-slate-400">Profit center</span><select id="coa-dim-ProfitCenter" data-dim="ProfitCenter" class="coa-dim w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"><option value="">As the heading</option><option value="Required">Required</option><option value="Optional">Optional</option><option value="NotUsed">Not used</option></select><span id="coa-dim-ProfitCenter-hint" class="block text-[10px] text-slate-500"></span></div><div><span class="block text-[11px] text-slate-400">Project</span><select id="coa-dim-Project" data-dim="Project" class="coa-dim w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"><option value="">As the heading</option><option value="Required">Required</option><option value="Optional">Optional</option><option value="NotUsed">Not used</option></select><span id="coa-dim-Project-hint" class="block text-[10px] text-slate-500"></span></div>
+        </div>
+      </div>
       <div id="coa-currency-field" class="hidden">
         <label class="block text-xs font-medium text-slate-300 mb-1">Currency</label>
         <select id="coa-form-currency" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Base currency</option></select>
@@ -305,6 +311,7 @@
       document.getElementById('coa-form-cashflowcategory').value = a.CashFlowCategory || '';
       document.getElementById('coa-form-cashbank').value = a.OwnCashBank || '';
       document.getElementById('coa-form-currency').value = a.Currency || '';
+      ['CostCenter', 'ProfitCenter', 'Project'].forEach(k => { document.getElementById('coa-dim-' + k).value = (a.DimensionRules && a.DimensionRules[k]) || ''; });
       document.getElementById('coa-form-status').value = a.Status;
       document.getElementById('coa-code-value').textContent = a.AccountCode;
       document.getElementById('coa-code-preview').classList.remove('hidden');
@@ -315,6 +322,7 @@
       document.getElementById('coa-form-id').value = '';
       populateParentOptions('', null);
       document.getElementById('coa-form-currency').value = '';
+      document.querySelectorAll('.coa-dim').forEach(el => { el.value = ''; });
     }
     updateCashFlowCategoryVisibility();
     updateCashBankVisibility();
@@ -327,6 +335,21 @@
     document.getElementById('coa-cashbank-field').classList.toggle('hidden', !show);
     const parent = accounts.find(x => x.AccountID === document.getElementById('coa-form-parent').value);
     document.getElementById('coa-currency-field').classList.toggle('hidden', !(document.getElementById('coa-form-postable').checked && parent && parent.CashBank)); // a cash or bank account's currency
+    updateDimHints();
+  }
+
+  // What a blank dimension rule follows: the nearest heading's, else
+  // today's rule (an Expense, Revenue or COGS account needs a cost center).
+  function updateDimHints() {
+    const type = document.getElementById('coa-form-type').value;
+    const byId = id => accounts.find(x => x.AccountID === id);
+    ['CostCenter', 'ProfitCenter', 'Project'].forEach(k => {
+      let a = byId(document.getElementById('coa-form-parent').value), hops = 0, rule = '', from = '';
+      while (a && hops++ < 50 && !rule) { rule = (a.DimensionRules && a.DimensionRules[k]) || ''; from = a.AccountCode; a = byId(a.ParentAccountID); }
+      if (!rule) { rule = k === 'CostCenter' && ['Expense', 'Revenue', 'COGS'].includes(type) ? 'Required' : 'Optional'; from = ''; }
+      const label = { Required: 'required', Optional: 'optional', NotUsed: 'not used' }[rule];
+      document.getElementById('coa-dim-' + k + '-hint').textContent = document.getElementById('coa-dim-' + k).value ? '' : 'Now: ' + label + (from ? ' (from ' + from + ')' : ' (the default)');
+    });
   }
 
   // Renumber (docs/modules/COA_NUMBERING.md, decision 198): another free code of the account's own heading.
@@ -368,6 +391,7 @@
       CashFlowCategory: document.getElementById('coa-form-cashflowcategory').value,
       CashBank: document.getElementById('coa-cashbank-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-cashbank').value,
       Currency: document.getElementById('coa-currency-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-currency').value,
+      DimensionRules: { CostCenter: document.getElementById('coa-dim-CostCenter').value, ProfitCenter: document.getElementById('coa-dim-ProfitCenter').value, Project: document.getElementById('coa-dim-Project').value },
       Status: document.getElementById('coa-form-status').value
     };
     const error = document.getElementById('coa-form-error');
@@ -417,6 +441,7 @@
     document.getElementById('coa-form-parent').addEventListener('change', updateCashFlowCategoryVisibility);
     ['coa-form-parent', 'coa-form-postable', 'coa-form-type'].forEach(id => document.getElementById(id).addEventListener('change', updateCashBankVisibility));
     loadAccountsToFix();
+    document.querySelectorAll('.coa-dim').forEach(el => el.addEventListener('change', updateDimHints));
     // The foreign currencies a cash or bank account may be in (decision 217).
     rpc.withSuccessHandler(base => rpc.withSuccessHandler(list => {
       const sel = document.getElementById('coa-form-currency');

@@ -6,7 +6,7 @@ modules: [JV]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Record any accounting entry by debits and credits: accruals, corrections, reclassifications, write-offs.
 reviewed: 2026-10-16
-fingerprint: 5210781437626e9e
+fingerprint: 26366d229d4cac85
 ---
 ## What it is for
 
@@ -76,6 +76,9 @@ Approval, where set up, is by the approvers in Approval Configuration.
   ([Period Closing](period-closing.html)).
 - **A cost center is required**: expense, revenue and cost-of-sales lines
   need one.
+- **A line marked in red** needs a cost center, profit center or project:
+  its account requires it (Chart of Accounts). The **Project** column
+  shows once the company has a project.
 - **A party is required**: a line on a vendor's payables or customer's
   receivables account must name that party, and only that party's own
   account may be used.

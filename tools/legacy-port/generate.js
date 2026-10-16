@@ -88,6 +88,10 @@ const MAPPED = {
   assertPartyCurrencyKept_: ['fx', 'assertPartyCurrencyKept', 'dropCtx'],
   accountCurrency_: ['fx', 'accountCurrency', 'dropCtx'], // decision 217 (patch bank-currency)
   ledgerFcBalances_: ['fx', 'ledgerFcBalances', 'pure'],
+  projectFields_: ['projects', 'projectFields', 'dropCtx'], // docs/modules/PROJECTS_DIMENSIONS.md (patch projects)
+  cleanDimensionRules_: ['dimensionRules', 'cleanRules', 'pure'],
+  needsCostCenter_: ['dimensionRules', 'needsCostCenter', 'dropCtx'],
+  linesWithProject_: ['projects', 'linesWithProject', 'pure'],
   generateVendorCode_: ['numbering', 'vendorCode', 'dropCtx'],
   generateCustomerCode_: ['numbering', 'customerCode', 'dropCtx'],
   generateStockTransactionRef_: ['glWriting', 'generateStockTransactionRef', 'dropCtx'],
@@ -136,7 +140,9 @@ const SHARED_PATHS = {
   invoiceStock: '../invoiceStock',
   coaScheme: '../coaScheme', // used by name (__coaScheme.) in patches
   itemCategories: '../itemCategories',
-  fx: '../fx'
+  fx: '../fx',
+  projects: '../projects',
+  dimensionRules: '../dimensionRules'
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);
@@ -647,7 +653,79 @@ const SCREEN_EDITS = [
     }).withFailureHandler(() => {}).getActiveCurrencies()).withFailureHandler(() => {}).getDefaultCurrency();
 ` },
   { mod: 'COA', from: '<td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}',
-    to: '<td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.Currency ? \' <span class="coa-currency ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">\' + escapeHtml(a.Currency) + \'</span>\' : \'\'}' }
+    to: '<td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.Currency ? \' <span class="coa-currency ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">\' + escapeHtml(a.Currency) + \'</span>\' : \'\'}' },
+  // Organizational Units: the Project type (owner, 2026-10-16; patch projects;
+  // docs/modules/PROJECTS_DIMENSIONS.md, decision 221): a customer, start and
+  // end dates, and Closed (no new postings).
+  { mod: 'ORGUNITS', from: '      <option value="Location">Location</option>\n    </select>',
+    to: '      <option value="Location">Location</option>\n      <option value="Project">Project</option>\n    </select>' },
+  { mod: 'ORGUNITS', from: '          <option value="Location">Location</option>\n        </select>',
+    to: '          <option value="Location">Location</option>\n          <option value="Project">Project</option>\n        </select>' },
+  { mod: 'ORGUNITS', from: "ProfitCenter: 'Profit Center', Location: 'Location' };",
+    to: "ProfitCenter: 'Profit Center', Location: 'Location', Project: 'Project' };" },
+  { mod: 'ORGUNITS', from: '<option value="">All Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>',
+    to: '<option value="">All Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Closed">Closed</option></select>' },
+  { mod: 'ORGUNITS', from: '<option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>\n      <div id="ou-form-error"',
+    to: `<option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Closed" id="ou-status-closed" class="hidden">Closed: takes no new postings</option></select></div>
+      <div id="ou-project-fields" class="hidden space-y-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Customer <span class="text-slate-500">(optional)</span></label><select id="ou-form-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None</option></select></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Start date</label><input type="date" id="ou-form-start" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">End date</label><input type="date" id="ou-form-end" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        </div>
+      </div>
+      <div id="ou-form-error"` },
+  { mod: 'ORGUNITS', from: "      document.getElementById('ou-form-status').value = u.Status;\n",
+    to: "      document.getElementById('ou-form-status').value = u.Status;\n      document.getElementById('ou-form-customer').value = u.CustomerID || '';\n      document.getElementById('ou-form-start').value = u.StartDate || '';\n      document.getElementById('ou-form-end').value = u.EndDate || '';\n" },
+  { mod: 'ORGUNITS', from: "    document.getElementById('ou-modal').classList.remove('hidden');\n  }",
+    to: "    showProjectFields();\n    document.getElementById('ou-modal').classList.remove('hidden');\n  }\n\n  // A project's own fields (docs/modules/PROJECTS_DIMENSIONS.md).\n  function showProjectFields() {\n    const project = document.getElementById('ou-form-type').value === 'Project';\n    document.getElementById('ou-project-fields').classList.toggle('hidden', !project);\n    document.getElementById('ou-status-closed').classList.toggle('hidden', !project);\n  }" },
+  { mod: 'ORGUNITS', from: "      Status: document.getElementById('ou-form-status').value\n    };",
+    to: "      Status: document.getElementById('ou-form-status').value,\n      CustomerID: document.getElementById('ou-form-customer').value,\n      StartDate: document.getElementById('ou-form-start').value,\n      EndDate: document.getElementById('ou-form-end').value\n    };" },
+  { mod: 'ORGUNITS', from: "    document.getElementById('ou-form-type').addEventListener('change', () => populateParentOptions(document.getElementById('ou-form-id').value || null));\n",
+    to: `    document.getElementById('ou-form-type').addEventListener('change', () => populateParentOptions(document.getElementById('ou-form-id').value || null));
+    document.getElementById('ou-form-type').addEventListener('change', showProjectFields);
+    rpc.withSuccessHandler(list => {
+      const sel = document.getElementById('ou-form-customer');
+      (list || []).sort((a, b) => String(a.CustomerName).localeCompare(String(b.CustomerName))).forEach(c => { const o = document.createElement('option'); o.value = c.CustomerID; o.textContent = c.CustomerCode + ' — ' + c.CustomerName; sel.appendChild(o); });
+    }).withFailureHandler(() => {}).getActiveCustomers();
+` },
+  // COA: which accounts need a cost center, profit center or project (owner,
+  // 2026-10-16; docs/modules/PROJECTS_DIMENSIONS.md, decisions 219-220): set
+  // on a heading, followed by its accounts; an account may differ.
+  { mod: 'COA', from: '      <div id="coa-currency-field" class="hidden">',
+    to: `      <div id="coa-dims-field" class="space-y-1">
+        <label class="block text-xs font-medium text-slate-300">Lines need <span class="text-slate-500">(blank: as the heading above)</span></label>
+        <div class="grid grid-cols-3 gap-2">
+          ${['CostCenter:Cost center', 'ProfitCenter:Profit center', 'Project:Project'].map(x => { const [k, l] = x.split(':'); return '<div><span class="block text-[11px] text-slate-400">' + l + '</span><select id="coa-dim-' + k + '" data-dim="' + k + '" class="coa-dim w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"><option value="">As the heading</option><option value="Required">Required</option><option value="Optional">Optional</option><option value="NotUsed">Not used</option></select><span id="coa-dim-' + k + '-hint" class="block text-[10px] text-slate-500"></span></div>'; }).join('')}
+        </div>
+      </div>
+      <div id="coa-currency-field" class="hidden">` },
+  { mod: 'COA', from: "      document.getElementById('coa-form-currency').value = a.Currency || '';\n",
+    to: "      document.getElementById('coa-form-currency').value = a.Currency || '';\n      ['CostCenter', 'ProfitCenter', 'Project'].forEach(k => { document.getElementById('coa-dim-' + k).value = (a.DimensionRules && a.DimensionRules[k]) || ''; });\n" },
+  { mod: 'COA', from: "      document.getElementById('coa-form-currency').value = '';\n",
+    to: "      document.getElementById('coa-form-currency').value = '';\n      document.querySelectorAll('.coa-dim').forEach(el => { el.value = ''; });\n" },
+  { mod: 'COA', from: "      Currency: document.getElementById('coa-currency-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-currency').value,\n",
+    to: "      Currency: document.getElementById('coa-currency-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-currency').value,\n      DimensionRules: { CostCenter: document.getElementById('coa-dim-CostCenter').value, ProfitCenter: document.getElementById('coa-dim-ProfitCenter').value, Project: document.getElementById('coa-dim-Project').value },\n" },
+  { mod: 'COA', from: "    document.getElementById('coa-currency-field').classList.toggle('hidden', !(document.getElementById('coa-form-postable').checked && parent && parent.CashBank)); // a cash or bank account's currency\n",
+    to: `    document.getElementById('coa-currency-field').classList.toggle('hidden', !(document.getElementById('coa-form-postable').checked && parent && parent.CashBank)); // a cash or bank account's currency
+    updateDimHints();
+  }
+
+  // What a blank dimension rule follows: the nearest heading's, else
+  // today's rule (an Expense, Revenue or COGS account needs a cost center).
+  function updateDimHints() {
+    const type = document.getElementById('coa-form-type').value;
+    const byId = id => accounts.find(x => x.AccountID === id);
+    ['CostCenter', 'ProfitCenter', 'Project'].forEach(k => {
+      let a = byId(document.getElementById('coa-form-parent').value), hops = 0, rule = '', from = '';
+      while (a && hops++ < 50 && !rule) { rule = (a.DimensionRules && a.DimensionRules[k]) || ''; from = a.AccountCode; a = byId(a.ParentAccountID); }
+      if (!rule) { rule = k === 'CostCenter' && ['Expense', 'Revenue', 'COGS'].includes(type) ? 'Required' : 'Optional'; from = ''; }
+      const label = { Required: 'required', Optional: 'optional', NotUsed: 'not used' }[rule];
+      document.getElementById('coa-dim-' + k + '-hint').textContent = document.getElementById('coa-dim-' + k).value ? '' : 'Now: ' + label + (from ? ' (from ' + from + ')' : ' (the default)');
+    });
+` },
+  { mod: 'COA', from: "    loadAccountsToFix();\n",
+    to: "    loadAccountsToFix();\n    document.querySelectorAll('.coa-dim').forEach(el => el.addEventListener('change', updateDimHints));\n" }
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {

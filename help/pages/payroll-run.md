@@ -6,7 +6,7 @@ modules: [PAYROLL]
 sources: [functions/src/payrollRun.js, functions/src/payrollCalc.js, functions/src/payrollInputs.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js, functions/src/payrollPost.js, functions/src/payrollPayment.js]
 summary: Calculate and post the payroll for all employees in the selected pay cycle.
 reviewed: 2026-10-16
-fingerprint: 2e1c715daef2f602
+fingerprint: a3032e3fb6cc1617
 ---
 ## What it is for
 
@@ -61,7 +61,7 @@ PAYROLL **access** allows viewing runs and amounts; **draft** allows creating, r
 - **Submission says recalculate:** the leave month was reopened/changed or Earnings and Deductions changed after calculation. Recalculate and review the new totals.
 - **Employee absent from run:** check company, joining date, leaving date, and any final settlement that is paying that month.
 - **Net differs from expectation:** inspect the detailed slip by element, unpaid/paid leave, overtime formula, variable inputs, loan schedule, carry-forward, arrears, and provision entries.
-- **Missing GL account or cost center:** fix Payroll Setup or Employee Master, then retry posting. Expense accounts requiring cost centers need an employee cost center.
+- **Missing GL account or cost center:** fix Payroll Setup or Employee Master, then retry posting. Accounts that require a cost center (the [Chart of Accounts](chart-of-accounts.html) rule; by default the expense accounts) need an employee cost center.
 - **Approved but not posted:** inspect the posting error; a missing/inactive account can leave an approved run waiting to post.
 - **Run cannot be reversed:** reverse its payments first; reverse later runs or dependent final settlements before this run.
 - **Bank file is wrong:** the payment file is generated from Payroll Setup and employee WPS/bank fields. Preview and validate it against the bank format before marking payment.

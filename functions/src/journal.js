@@ -270,6 +270,7 @@ async function saveJournalRecord_(
   const coaData = await getCoaData_(idToken);
   const normalized = validateAndNormalizeLines_(rawLines, coaData, dimensionFields.CompanyID);
   await assertNoFaControlledAccounts(normalized.lines);
+  await require('./projects').assertProjects(normalized.lines, dimensionFields.CompanyID); // a closed project takes no new postings (PROJECTS_DIMENSIONS.md)
   // Party tags and allocations (docs/modules/PARTY_PAYMENTS.md): checked
   // here for early feedback, and again at post under the lock.
   const party = await resolvePartyLines(attachPartyFields(rawLines, normalized.lines), dimensionFields.CompanyID);
@@ -392,6 +393,7 @@ async function postJournalEntry(idToken, jvId) {
     const coaData = await getCoaData_(idToken);
     const normalized = validateAndNormalizeLines_(existing.Lines, coaData, existing.CompanyID);
     await assertNoFaControlledAccounts(normalized.lines);
+    await require('./projects').assertProjects(normalized.lines, existing.CompanyID);
 
     if (normalized.lines.length < 2) throw new Error('A journal entry needs at least two lines.');
     if (normalized.totalDebit === 0) throw new Error('Entry has no amounts.');
@@ -616,6 +618,7 @@ function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines,
       Credit: config.ledgerIsDebit ? amount : 0,
       CostCenterID: String(line.CostCenterID || ''),
       ProfitCenterID: String(line.ProfitCenterID || ''),
+      ProjectID: String(line.ProjectID || ''), // docs/modules/PROJECTS_DIMENSIONS.md
       // Party tag and allocations, checked by resolvePartyLines. A transfer
       // between the company's own accounts owes nobody.
       PartyType: config.transfer ? undefined : line.PartyType, PartyID: config.transfer ? undefined : line.PartyID,

@@ -52,10 +52,12 @@ function glLinesFor(run, slips, elements, coa, settings, loanAccounts, provAccou
   const add = (accountId, what, amount, debit, slip) => {
     const a = coa[accountId];
     if (!accountId || !a) { missing.add(what); return; }
-    const needsCc = CC_TYPES.includes(a.AccountType);
+    // The account's rule (PROJECTS_DIMENSIONS.md): required, or (optional on an expense) taken when the slip has one.
+    const rule = require('./dimensionRules').ruleOf(a, coa, 'CostCenter').rule;
+    const needsCc = rule === 'Required', useCc = needsCc || (rule === 'Optional' && CC_TYPES.includes(a.AccountType) && Boolean(slip.CostCenterID));
     if (needsCc && !slip.CostCenterID) noCostCenter.add(slip.EmployeeNo + ' ' + slip.EmployeeName);
     // An expense line shared across the slip's cost split, if any (PAYROLL_COST_SPLIT.md).
-    (needsCc ? costSplit.shares(amount, slip.CostCenterID, slip.CostSplit) : [{ CostCenterID: '', Amount: amount }]).forEach(p =>
+    (useCc ? costSplit.shares(amount, slip.CostCenterID, slip.CostSplit) : [{ CostCenterID: '', Amount: amount }]).forEach(p =>
       lines.push({ AccountCode: a.AccountCode, Debit: debit ? p.Amount : 0, Credit: debit ? 0 : p.Amount, Description: what + label, CostCenterID: p.CostCenterID }));
   };
   slips.forEach(s => {

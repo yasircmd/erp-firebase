@@ -57,7 +57,7 @@ const KINDS = {
       C('Debit', 'debit', 'number'),
       C('Credit', 'credit', 'number'),
       C('Description', 'description', 'text', { note: 'Optional; "Opening balance" if blank.' }),
-      C('Cost Center', 'costCenter', 'text', { note: 'Code or name. Required for Expense, Revenue and COGS accounts.' }),
+      C('Cost Center', 'costCenter', 'text', { note: 'Code or name. Required where the account needs one (Chart of Accounts: by default Expense, Revenue and COGS accounts).' }),
       C('Profit Center', 'profitCenter', 'text', { note: 'Code or name. Optional.' })
     ],
     sample: [['1100001', '25000.00', '', 'Bank balance', '', '']]
@@ -252,7 +252,7 @@ function checkGlRow(r, d, companyId, settings, issue, seen, rowNo) {
   };
   r.costCenterId = center('costCenter', 'CostCenter', 'cost center');
   r.profitCenterId = center('profitCenter', 'ProfitCenter', 'profit center');
-  if (r.accountId && COST_CENTER_REQUIRED_TYPES.includes(r.accountType) && !r.costCenterId && !r.costCenter) {
+  if (r.accountId && require('./dimensionRules').ruleOf(d.coa[r.accountId], d.coa, 'CostCenter').rule === 'Required' && !r.costCenterId && !r.costCenter) { // the account's rule (PROJECTS_DIMENSIONS.md)
     issue('costCenter', r.accountCode + ' (' + r.accountType + ') needs a Cost Center.');
   }
 }

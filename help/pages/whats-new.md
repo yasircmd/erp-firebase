@@ -12,6 +12,17 @@ screen.
 
 ## 16/10/2026
 
+- **Projects, and which accounts need a cost center.** A **Project** is
+  a new kind of Organizational Unit, with a customer and dates; a Closed
+  one takes no new postings. Journal and Cash and Bank lines take a
+  project, and an invoice's project goes on all its lines. In the Chart of
+  Accounts each heading (and any account) says whether its lines need a
+  cost center, profit center and project: Required, Optional or Not used.
+  Nothing changes until you set it: expenses still need a cost center. The
+  new [Project Report](project-report.html) shows each project's income,
+  costs and result; the GL Report, Trial Balance and P&L filter by project.
+  See [Organizational Units](org-units.html) and
+  [Chart of Accounts](chart-of-accounts.html).
 - **Vendors and customers in a foreign currency.** A vendor or customer
   whose Default Currency is, say, USD is invoiced, paid and given its
   statement in USD. Enter rates by date in **Currency Configuration →

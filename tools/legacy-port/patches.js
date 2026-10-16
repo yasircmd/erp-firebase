@@ -1737,14 +1737,16 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
       'the invoice keeps the currency, the rate on its date (or the user\'s own, with a reason) and its total in base.',
     find: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,`,
     replace: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
-      ...(invoiceCurrencyFields_(idToken, customerData, invoiceDate, invoiceData, total, { dns: sourceDeliveryNotes.length > 0 })), // [NEW DEVELOPMENT invoice-currency]`
+      ...(invoiceCurrencyFields_(idToken, customerData, invoiceDate, invoiceData, total, { dns: sourceDeliveryNotes.length > 0 })), // [NEW DEVELOPMENT invoice-currency]
+      ProjectID: String(invoiceData.ProjectID || '').trim(), // [NEW DEVELOPMENT projects] the invoice's project, on every line it posts`
   },
   {
     id: 'invoice-currency (vendor save)',
     why: 'As the customer invoice; a foreign vendor\'s invoice takes direct lines only for now (GRNs stay in base, decision 215).',
     find: `      SourceGRNs: sourceGRNs, DirectLines: directLines,`,
     replace: `      SourceGRNs: sourceGRNs, DirectLines: directLines,
-      ...(invoiceCurrencyFields_(idToken, vendorData, invoiceDate, invoiceData, total, { grns: sourceGRNs.length > 0 })), // [NEW DEVELOPMENT invoice-currency]`
+      ...(invoiceCurrencyFields_(idToken, vendorData, invoiceDate, invoiceData, total, { grns: sourceGRNs.length > 0 })), // [NEW DEVELOPMENT invoice-currency]
+      ProjectID: String(invoiceData.ProjectID || '').trim(), // [NEW DEVELOPMENT projects] the invoice's project, on every line it posts`
   },
   {
     id: 'invoice-currency (vendor post)',
@@ -1752,7 +1754,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     find: `    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', existing.InvoiceDate, existing.Description, existing.VendorRefNumber,
       glLines,`,
     replace: `    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', existing.InvoiceDate, existing.Description, existing.VendorRefNumber,
-      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]`
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]`
   },
   {
     id: 'invoice-currency (customer post)',
@@ -1760,7 +1762,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     find: `    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', existing.InvoiceDate, existing.Description, '',
       glLines,`,
     replace: `    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', existing.InvoiceDate, existing.Description, '',
-      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]`
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]`
   },
   {
     id: 'invoice-currency (vendor reversal)',
@@ -1770,7 +1772,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
       glLines,`,
     replace: `    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', date,
       'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.VendorRefNumber,
-      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]`
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]`
   },
   {
     id: 'invoice-currency (customer reversal)',
@@ -1780,7 +1782,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
       glLines,`,
     replace: `    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', date,
       'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, '',
-      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]`
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]`
   },
   {
     id: 'invoice-currency (customer reversal record)',
@@ -1898,5 +1900,103 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
   return {
     fcOpening: fc.opening, fcClosing: fc.closing,
     account: { AccountCode: account.AccountCode, AccountName: account.AccountName, NormalBalance: account.NormalBalance, IsRollup: isRollup, Currency: fc.currency },`
+  }
+  ,
+  {
+    id: 'projects (type)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/PROJECTS_DIMENSIONS.md, decision 221): Project, an Organizational Unit type, with a customer, start and end dates; Active or Closed.',
+    find: `const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter', 'Location'];`,
+    replace: `const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter', 'Location', 'Project']; // [NEW DEVELOPMENT projects]`
+  },
+  {
+    id: 'projects (fields)',
+    why: 'As above: a project saves its customer and dates (functions/src/projects.js).',
+    find: `    if (!ORG_UNIT_TYPES.includes(type)) throw new Error('Type must be one of: ' + ORG_UNIT_TYPES.join(', ') + '.');`,
+    replace: `    if (!ORG_UNIT_TYPES.includes(type)) throw new Error('Type must be one of: ' + ORG_UNIT_TYPES.join(', ') + '.');
+    const projectFields = projectFields_(idToken, type, unitData, companyId, status); // [NEW DEVELOPMENT projects]`
+  },
+  {
+    id: 'projects (edit, store)',
+    why: 'As above.',
+    find: `        Type: type, Code: code, Name: name, ParentUnitID: parentUnitId, CompanyID: companyId, Status: status,
+        UpdatedAt: now, UpdatedBy: actor`,
+    replace: `        Type: type, Code: code, Name: name, ParentUnitID: parentUnitId, CompanyID: companyId, Status: status,
+        ...projectFields, // [NEW DEVELOPMENT projects]
+        UpdatedAt: now, UpdatedBy: actor`
+  },
+  {
+    id: 'projects (new, store)',
+    why: 'As above.',
+    find: `      Type: type, Code: code, Name: name, ParentUnitID: parentUnitId, CompanyID: companyId, Status: status,
+      CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor`,
+    replace: `      Type: type, Code: code, Name: name, ParentUnitID: parentUnitId, CompanyID: companyId, Status: status,
+      ...projectFields, // [NEW DEVELOPMENT projects]
+      CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor`
+  }
+  ,
+  {
+    id: 'dimension-rules (new)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/PROJECTS_DIMENSIONS.md, decisions 219-220): an account or heading says whether its lines need a cost center, profit center and project (functions/src/dimensionRules.js).',
+    find: `CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
+        Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]`,
+    replace: `CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
+        Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]
+        DimensionRules: cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]`
+  },
+  {
+    id: 'dimension-rules (edit)',
+    why: 'As above; not sent (an import): kept.',
+    find: `FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
+      Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]`,
+    replace: `FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
+      Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]
+      DimensionRules: accountData.DimensionRules === undefined ? (current.DimensionRules || null) : cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]`
+  }
+  ,
+  {
+    id: 'dimension-rules (invoice)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/PROJECTS_DIMENSIONS.md, decision 219): the save-time cost center check follows the rule of the revenue account the Sales Types post to, not the account type.',
+    find: `    if ((sourceDeliveryNotes.length || itemLines.length) && !costCenterId) { // [PORT CHANGE invoice-item-lines-save]`,
+    replace: `    if ((sourceDeliveryNotes.length || itemLines.length) && !costCenterId && needsCostCenter_(idToken, { salesTypeIds: sourceDeliveryNotes.map(d => d.SalesTypeID).concat(itemLines.length ? [itemSalesTypeId] : []) })) { // [PORT CHANGE invoice-item-lines-save] [NEW DEVELOPMENT dimension-rules]`
+  },
+  {
+    id: 'dimension-rules (invoice direct lines)',
+    why: 'As above, for the direct lines (each posts to its Sales Type\'s revenue account).',
+    find: `    directLines.forEach((l, idx) => {
+      if (!l.CostCenterID && !costCenterId) {`,
+    replace: `    const directCcSalesTypes = []; // [NEW DEVELOPMENT dimension-rules] the Sales Types whose revenue account needs a cost center
+    for (const st of [...new Set(directLines.map(l => l.SalesTypeID))]) { if (needsCostCenter_(idToken, { salesTypeIds: [st] })) directCcSalesTypes.push(st); }
+    directLines.forEach((l, idx) => {
+      if (!l.CostCenterID && !costCenterId && directCcSalesTypes.includes(l.SalesTypeID)) {`
+  },
+  {
+    id: 'dimension-rules (delivery note)',
+    why: 'As above: the Delivery Note line\'s cost of sales account.',
+    find: `      if (!lineCostCenterId) throw new Error('Line ' + (idx + 1) + ': Cost Center is required — set one on this line or as the header default.');`,
+    replace: `      if (!lineCostCenterId && needsCostCenter_(idToken, { itemIds: [item.ItemID] })) throw new Error('Line ' + (idx + 1) + ': Cost Center is required — set one on this line or as the header default.'); // [NEW DEVELOPMENT dimension-rules]`
+  }
+  ,
+  {
+    id: 'projects (report filter)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/PROJECTS_DIMENSIONS.md, "Reports"): the GL report, Trial Balance and P&L filter by project; __none__ is the lines with none (decision 223).',
+    find: `    profitCenterId: String(params.ProfitCenterID || '').trim()
+  };`,
+    replace: `    profitCenterId: String(params.ProfitCenterID || '').trim(),
+    projectId: String(params.ProjectID || '').trim() // [NEW DEVELOPMENT projects]
+  };`
+  },
+  {
+    id: 'projects (report lines)',
+    why: 'As above.',
+    find: `      if (f.profitCenterId && line.ProfitCenterID !== f.profitCenterId) return;`,
+    replace: `      if (f.profitCenterId && line.ProfitCenterID !== f.profitCenterId) return;
+      if (f.projectId && String(line.ProjectID || '') !== (f.projectId === '__none__' ? '' : f.projectId)) return; // [NEW DEVELOPMENT projects]`
+  },
+  {
+    id: 'projects (report line field)',
+    why: 'As above: each line\'s project, for the Project report.',
+    find: `        FcCurrency: line.FcCurrency || '', FcDebit: Number(line.FcDebit) || 0, FcCredit: Number(line.FcCredit) || 0 // [NEW DEVELOPMENT bank-currency]`,
+    replace: `        FcCurrency: line.FcCurrency || '', FcDebit: Number(line.FcDebit) || 0, FcCredit: Number(line.FcCredit) || 0, // [NEW DEVELOPMENT bank-currency]
+        ProjectID: line.ProjectID || '' // [NEW DEVELOPMENT projects]`
   }
 ];

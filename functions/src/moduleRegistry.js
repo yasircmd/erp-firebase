@@ -37,6 +37,7 @@ const MODULE_REGISTRY = [
   { id: 'STOCKVALUATION', label: 'Stock Valuation Report', capabilities: ['access'] },
   { id: 'TRIALBALANCE', label: 'Trial Balance (TB)', capabilities: ['access'] },
   { id: 'PROFITLOSS', label: 'Profit and Loss Statement (P&L)', capabilities: ['access'] },
+  { id: 'PROJECTREPORT', label: 'Project Report', capabilities: ['access'] }, // docs/modules/PROJECTS_DIMENSIONS.md
   { id: 'BALANCESHEET', label: 'Balance Sheet (BS)', capabilities: ['access'] },
   { id: 'CASHFLOW', label: 'Cash Flow Statement (CFS)', capabilities: ['access'] },
   { id: 'GRN', label: 'Goods Receipt (GRN)', capabilities: ['access', 'draft', 'post'] },
@@ -201,6 +202,7 @@ const DEFAULT_PERMISSIONS = {
   STOCKVALUATION:   { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   TRIALBALANCE: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   PROFITLOSS:   { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  PROJECTREPORT: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   BALANCESHEET: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   CASHFLOW:     { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   GRN:                { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },

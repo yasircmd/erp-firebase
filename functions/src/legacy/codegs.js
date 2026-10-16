@@ -14,6 +14,7 @@ const __coaUsage = require('../coaUsage');
 const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
 const __customerPhone = require('../customerPhone');
+const __dimensionRules = require('../dimensionRules');
 const __fx = require('../fx');
 const __glWriting = require('../glWriting');
 const __invoiceStock = require('../invoiceStock');
@@ -25,6 +26,7 @@ const __moduleRegistry = require('../moduleRegistry');
 const __numbering = require('../numbering');
 const __periodLock = require('../periodLock');
 const __prVisibility = require('../prVisibility');
+const __projects = require('../projects');
 const __reservations = require('../reservations');
 const __roles = require('../roles');
 const __stockMovement = require('../stockMovement');
@@ -52,6 +54,10 @@ const documentBaseLines_ = (...a) => __fx.documentBaseLines(...a);
 const assertPartyCurrencyKept_ = (idToken, ...a) => __fx.assertPartyCurrencyKept(...a);
 const accountCurrency_ = (idToken, ...a) => __fx.accountCurrency(...a);
 const ledgerFcBalances_ = (...a) => __fx.ledgerFcBalances(...a);
+const projectFields_ = (idToken, ...a) => __projects.projectFields(...a);
+const cleanDimensionRules_ = (...a) => __dimensionRules.cleanRules(...a);
+const needsCostCenter_ = (idToken, ...a) => __dimensionRules.needsCostCenter(...a);
+const linesWithProject_ = (...a) => __projects.linesWithProject(...a);
 const generateVendorCode_ = (idToken, ...a) => __numbering.vendorCode(...a);
 const generateCustomerCode_ = (idToken, ...a) => __numbering.customerCode(...a);
 const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
@@ -154,7 +160,7 @@ const CBT_VOUCHER_CONFIG = {
 // PC-2000) the way COA does, say so and it can be added the same way.
 
 // [PORT CHANGE org-unit-location] Location: where employees work and assets are.
-const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter', 'Location'];
+const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter', 'Location', 'Project']; // [NEW DEVELOPMENT projects]
 
 // ---------- Item Master ----------
 // Storage: Firebase RTDB, /items/{itemId}. The Chart-of-Accounts
@@ -971,6 +977,7 @@ async function saveAccount(idToken, accountData) {
         CashFlowCategory: cashFlowCategory,
         OwnCashBank: ownMark, CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
         Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]
+        DimensionRules: cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]
         Status: status,
         CreatedAt: now, CreatedBy: actor,
         UpdatedAt: now, UpdatedBy: actor
@@ -1059,6 +1066,7 @@ async function saveAccount(idToken, accountData) {
       CashFlowCategory: cashFlowCategory,
       OwnCashBank: ownMark, CashBank: cashBank, FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
       Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]
+      DimensionRules: accountData.DimensionRules === undefined ? (current.DimensionRules || null) : cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]
       Status: status,
       CreatedAt: current.CreatedAt, CreatedBy: current.CreatedBy,
       UpdatedAt: now, UpdatedBy: actor
@@ -1570,6 +1578,7 @@ async function saveOrgUnit(idToken, unitData) {
     const status = String(unitData.Status || 'Active').trim();
 
     if (!ORG_UNIT_TYPES.includes(type)) throw new Error('Type must be one of: ' + ORG_UNIT_TYPES.join(', ') + '.');
+    const projectFields = await projectFields_(idToken, type, unitData, companyId, status); // [NEW DEVELOPMENT projects]
     if (!code || !name) throw new Error('Code and name are required.');
     if (unitId && parentUnitId === unitId) throw new Error('An item cannot be its own parent.');
     if (companyId && !userCanAccessCompany_(user.profile, companyId)) {
@@ -1607,6 +1616,7 @@ async function saveOrgUnit(idToken, unitData) {
       if (!existing[unitId]) throw new Error('Item not found.');
       await firebaseDbRequest_('orgUnits/' + unitId, 'patch', {
         Type: type, Code: code, Name: name, ParentUnitID: parentUnitId, CompanyID: companyId, Status: status,
+        ...projectFields, // [NEW DEVELOPMENT projects]
         UpdatedAt: now, UpdatedBy: actor
       }, idToken);
       return { success: true, unitId: unitId };
@@ -1615,6 +1625,7 @@ async function saveOrgUnit(idToken, unitData) {
     const newId = 'ORG-' + Utilities.getUuid().split('-')[0].toUpperCase();
     await firebaseDbRequest_('orgUnits/' + newId, 'put', {
       Type: type, Code: code, Name: name, ParentUnitID: parentUnitId, CompanyID: companyId, Status: status,
+      ...projectFields, // [NEW DEVELOPMENT projects]
       CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
     }, idToken);
     return { success: true, unitId: newId };
@@ -2127,7 +2138,8 @@ function buildDimensionFilters_(params) {
     divisionId: String(params.DivisionID || '').trim(),
     branchId: String(params.BranchID || '').trim(),
     costCenterId: String(params.CostCenterID || '').trim(),
-    profitCenterId: String(params.ProfitCenterID || '').trim()
+    profitCenterId: String(params.ProfitCenterID || '').trim(),
+    projectId: String(params.ProjectID || '').trim() // [NEW DEVELOPMENT projects]
   };
 }
 
@@ -2183,6 +2195,7 @@ async function getPostedGlLines_(idToken, filters) {
     (entry.Lines || []).forEach(line => {
       if (f.costCenterId && line.CostCenterID !== f.costCenterId) return;
       if (f.profitCenterId && line.ProfitCenterID !== f.profitCenterId) return;
+      if (f.projectId && String(line.ProjectID || '') !== (f.projectId === '__none__' ? '' : f.projectId)) return; // [NEW DEVELOPMENT projects]
 
       lines.push({
         JVID: jvId,
@@ -2200,7 +2213,8 @@ async function getPostedGlLines_(idToken, filters) {
         Credit: Number(line.Credit) || 0,
         CostCenterID: line.CostCenterID || '',
         ProfitCenterID: line.ProfitCenterID || '',
-        FcCurrency: line.FcCurrency || '', FcDebit: Number(line.FcDebit) || 0, FcCredit: Number(line.FcCredit) || 0 // [NEW DEVELOPMENT bank-currency]
+        FcCurrency: line.FcCurrency || '', FcDebit: Number(line.FcDebit) || 0, FcCredit: Number(line.FcCredit) || 0, // [NEW DEVELOPMENT bank-currency]
+        ProjectID: line.ProjectID || '' // [NEW DEVELOPMENT projects]
       });
     });
   });
@@ -3553,6 +3567,7 @@ async function saveVendorInvoiceDraft(idToken, invoiceData) {
       CostCenterID: costCenterId, ProfitCenterID: profitCenterId, VendorID: vendorId,
       SourceGRNs: sourceGRNs, DirectLines: directLines,
       ...((await invoiceCurrencyFields_(idToken, vendorData, invoiceDate, invoiceData, total, { grns: sourceGRNs.length > 0 }))), // [NEW DEVELOPMENT invoice-currency]
+      ProjectID: String(invoiceData.ProjectID || '').trim(), // [NEW DEVELOPMENT projects] the invoice's project, on every line it posts
       Discount: discount, TaxPercent: taxPercent, TaxAmount: taxAmount, RoundOff: roundOff,
       Subtotal: subtotal, Total: total,
       Status: 'Draft',
@@ -3708,7 +3723,7 @@ async function commitVendorInvoicePosting_(idToken, user, existing, invoiceId) {
   let glResult;
   try {
     glResult = await writeStockGlEntry_(idToken, user, 'VendorInvoice', existing.InvoiceDate, existing.Description, existing.VendorRefNumber,
-      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
       { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
       { CommitAttemptID: attemptId, SourceTransactionID: invoiceId });
   } catch (err) {
@@ -3853,7 +3868,7 @@ async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId,
   try {
     glResult = await writeStockGlEntry_(idToken, user, 'VendorInvoice', date,
       'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.VendorRefNumber,
-      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
       { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
       { CommitAttemptID: attemptId, SourceTransactionID: newId });
   } catch (err) {
@@ -4237,11 +4252,13 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
     // Cost-Center-required rule, so catching a missing one clearly
     // here, at save time, is better than letting it surface as a
     // cryptic account-code error deep in GL posting at commit time.
-    if ((sourceDeliveryNotes.length || itemLines.length) && !costCenterId) { // [PORT CHANGE invoice-item-lines-save]
+    if ((sourceDeliveryNotes.length || itemLines.length) && !costCenterId && (await needsCostCenter_(idToken, { salesTypeIds: sourceDeliveryNotes.map(d => d.SalesTypeID).concat(itemLines.length ? [itemSalesTypeId] : []) }))) { // [PORT CHANGE invoice-item-lines-save] [NEW DEVELOPMENT dimension-rules]
       throw new Error('A Cost Center is required (set the header default) — every Delivery Note-sourced line posts to a Revenue account, which always needs one.');
     }
+    const directCcSalesTypes = []; // [NEW DEVELOPMENT dimension-rules] the Sales Types whose revenue account needs a cost center
+    for (const st of [...new Set(directLines.map(l => l.SalesTypeID))]) { if (await needsCostCenter_(idToken, { salesTypeIds: [st] })) directCcSalesTypes.push(st); }
     directLines.forEach((l, idx) => {
-      if (!l.CostCenterID && !costCenterId) {
+      if (!l.CostCenterID && !costCenterId && directCcSalesTypes.includes(l.SalesTypeID)) {
         throw new Error('Direct line ' + (idx + 1) + ': Cost Center is required — set one on this line or as the header default.');
       }
     });
@@ -4273,6 +4290,7 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
       CostCenterID: costCenterId, ProfitCenterID: profitCenterId, CustomerID: customerId,
       SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
       ...((await invoiceCurrencyFields_(idToken, customerData, invoiceDate, invoiceData, total, { dns: sourceDeliveryNotes.length > 0 }))), // [NEW DEVELOPMENT invoice-currency]
+      ProjectID: String(invoiceData.ProjectID || '').trim(), // [NEW DEVELOPMENT projects] the invoice's project, on every line it posts
       ItemLines: itemLines, ItemSalesTypeID: itemSalesTypeId, // [PORT CHANGE invoice-item-lines-save]
       Discount: discount, TaxPercent: taxPercent, TaxAmount: taxAmount, RoundOff: roundOff,
       Subtotal: subtotal, Total: total,
@@ -4462,7 +4480,7 @@ async function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId)
   let glResult;
   try {
     glResult = await writeStockGlEntry_(idToken, user, 'CustomerInvoice', existing.InvoiceDate, existing.Description, '',
-      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
       { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
       { CommitAttemptID: attemptId, SourceTransactionID: invoiceId });
   } catch (err) {
@@ -4632,7 +4650,7 @@ async function executeCustomerInvoiceReversal_(idToken, user, existing, invoiceI
   try {
     glResult = await writeStockGlEntry_(idToken, user, 'CustomerInvoice', date,
       'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, '',
-      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
       { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
       { CommitAttemptID: attemptId, SourceTransactionID: newId });
   } catch (err) {
@@ -4934,7 +4952,7 @@ async function saveDeliveryNoteDraft(idToken, dnData) {
       // letting it surface as a cryptic account-code error deep in GL
       // posting at commit time.
       const lineCostCenterId = String(line.CostCenterID || '').trim() || costCenterId;
-      if (!lineCostCenterId) throw new Error('Line ' + (idx + 1) + ': Cost Center is required — set one on this line or as the header default.');
+      if (!lineCostCenterId && (await needsCostCenter_(idToken, { itemIds: [item.ItemID] }))) throw new Error('Line ' + (idx + 1) + ': Cost Center is required — set one on this line or as the header default.'); // [NEW DEVELOPMENT dimension-rules]
 
       lines.push({
         LineNo: lines.length + 1,

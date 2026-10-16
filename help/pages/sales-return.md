@@ -6,7 +6,7 @@ modules: [SALESRETURN]
 sources: [functions/src/salesReturn.js, functions/src/partyLedger.js]
 summary: Record returns from customers, reverse the sale and create the credit note to the customer.
 reviewed: 2026-10-16
-fingerprint: 0a1ce8f526a463e6
+fingerprint: d5cacf868ecad9e7
 ---
 ## What it is for
 

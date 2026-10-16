@@ -3,14 +3,21 @@ title: Organizational Units
 area: admin
 order: 2
 modules: [ORGUNITS]
-sources: [functions/src/companies.js]
-summary: Maintain divisions, branches, warehouses, racks, cost centers, profit centers and locations used by ERP workflows.
-reviewed: 2026-10-14
-fingerprint: 0790ef80a9ec643d
+sources: [functions/src/companies.js, functions/src/projects.js]
+summary: Maintain divisions, branches, warehouses, racks, cost centers, profit centers, locations and projects used by ERP workflows.
+reviewed: 2026-10-16
+fingerprint: 9aa44305cec65ab6
 ---
 ## What it is for
 
 **Organizational Units** maintains reusable operating and reporting dimensions: Divisions, Branches, Warehouses, Racks, Cost Centers, Profit Centers, and Locations. A **Location** is where people work and assets are kept (an office, a site, a yard): it is chosen on the employee record and on the fixed asset record, and does not post to the books. A Cost Center is commonly used as the department for employee/payroll assignment, but there is no separate Department unit type.
+
+A **Project** is a job you want to see the result of (a building, a
+contract). It can name its **Customer** and its **Start** and **End** dates.
+Journal, cash and bank lines and invoices carry it, and the
+[Project Report](project-report.html) shows its income, costs and result.
+A project is **Active** or **Closed**: a closed project takes no new
+postings, though an entry on it can still be reversed.
 
 Units can be shared across companies or restricted to one company. Parent links build a hierarchy; Racks are the exception with a required Warehouse parent.
 
@@ -36,6 +43,9 @@ ORGUNITS **access** allows viewing; **write** allows creating, editing, deactiva
 
 - **Unit missing from a picker:** check its type, Active status, company scope, and the module's company access.
 - **Rack cannot be saved:** it must have an existing Warehouse parent.
+- **"Only a project is Closed"**: other units are Active or Inactive.
+- **"… is closed: it takes no new postings"** on an entry: the project was
+  closed; reopen it (Active) or choose another.
 - **Parent cannot be deactivated:** first deactivate or reassign all active child units.
 - **Parent relationship is refused:** the parent must exist, cannot be the unit itself, and cannot be one of its descendants.
 - **Code is rejected as duplicate:** codes are unique across the Organizational Units list, not only within a single type.

@@ -25,6 +25,7 @@
     </div>
     <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Profit Center</label><select id="pl-profitcenter" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Project</label><select id="pl-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All</option></select></div>
     </div>
     <div class="flex justify-end gap-2">
       <button id="pl-copy-btn" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-copy"></i> Copy Table</button>
@@ -92,6 +93,7 @@
     document.getElementById('pl-branch').value = p.BranchID || '';
     document.getElementById('pl-costcenter').value = p.CostCenterID || '';
     document.getElementById('pl-profitcenter').value = p.ProfitCenterID || '';
+    document.getElementById('pl-project').value = p.ProjectID || '';
 
     runReport();
   }
@@ -118,6 +120,7 @@
         populateOrgUnitSelect('pl-branch', 'Branch');
         populateOrgUnitSelect('pl-costcenter', 'CostCenter');
         populateOrgUnitSelect('pl-profitcenter', 'ProfitCenter');
+        populateOrgUnitSelect('pl-project', 'Project'); document.getElementById('pl-project').insertAdjacentHTML('beforeend', '<option value="__none__">No project</option>'); // PROJECTS_DIMENSIONS.md
         orgUnitsReady = true;
         checkReadyAndApplyPending();
       })
@@ -137,7 +140,8 @@
       DivisionID: document.getElementById('pl-division').value,
       BranchID: document.getElementById('pl-branch').value,
       CostCenterID: document.getElementById('pl-costcenter').value,
-      ProfitCenterID: document.getElementById('pl-profitcenter').value
+      ProfitCenterID: document.getElementById('pl-profitcenter').value,
+      ProjectID: document.getElementById('pl-project').value
     };
     lastParams = params;
 
@@ -168,7 +172,8 @@
       DivisionID: lastParams.DivisionID,
       BranchID: lastParams.BranchID,
       CostCenterID: lastParams.CostCenterID,
-      ProfitCenterID: lastParams.ProfitCenterID
+      ProfitCenterID: lastParams.ProfitCenterID,
+      ProjectID: lastParams.ProjectID
     }, [...myReturnChain, { moduleId: 'PROFITLOSS', label: 'Profit and Loss Statement', params: lastParams }]);
   }
 

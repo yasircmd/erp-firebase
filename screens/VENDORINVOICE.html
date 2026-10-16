@@ -73,6 +73,7 @@
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div>
       <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+      <div id="vinv-project-field" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Project <span class="text-slate-500">(every line)</span></label><select id="vinv-form-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
       <select id="vinv-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
     </div>
     <div>
@@ -643,6 +644,7 @@
       BranchID: document.getElementById('vinv-form-branch').value,
       CostCenterID: document.getElementById('vinv-form-costcenter').value,
       ProfitCenterID: document.getElementById('vinv-form-profitcenter').value,
+      ProjectID: document.getElementById('vinv-form-project').value, // docs/modules/PROJECTS_DIMENSIONS.md
       SourceGRNs: Array.from(selectedGRNIds).map(id => ({ GRNID: id })),
       DirectLines: gridLines.filter(l => l.AccountCode).map(l => ({
         AccountCode: l.AccountCode, Description: l.Description, Amount: l.Amount,
@@ -788,6 +790,8 @@
     document.getElementById('vinv-form-branch').value = inv.BranchID || '';
     document.getElementById('vinv-form-costcenter').value = inv.CostCenterID || '';
     document.getElementById('vinv-form-profitcenter').value = inv.ProfitCenterID || '';
+    document.getElementById('vinv-form-project').value = inv.ProjectID || '';
+    document.getElementById('vinv-project-field').classList.toggle('hidden', !inv.ProjectID && !orgUnits.some(u => u.Type === 'Project'));
     document.getElementById('vinv-form-discount').value = inv.Discount || 0;
     document.getElementById('vinv-form-taxpercent').value = inv.TaxPercent || 0;
     document.getElementById('vinv-form-roundoff').value = inv.RoundOff || 0;
@@ -830,6 +834,7 @@
     document.getElementById('vinv-form-branch').value = '';
     document.getElementById('vinv-form-costcenter').value = '';
     document.getElementById('vinv-form-profitcenter').value = '';
+    document.getElementById('vinv-form-project').value = '';
     document.getElementById('vinv-form-discount').value = 0;
     document.getElementById('vinv-form-taxpercent').value = 0;
     document.getElementById('vinv-form-roundoff').value = 0;
@@ -879,7 +884,7 @@
     }
 
     ['vinv-form-company', 'vinv-form-vendor', 'vinv-form-date', 'vinv-form-vendorref', 'vinv-form-description',
-      'vinv-form-division', 'vinv-form-branch', 'vinv-form-costcenter', 'vinv-form-profitcenter',
+      'vinv-form-division', 'vinv-form-branch', 'vinv-form-costcenter', 'vinv-form-profitcenter', 'vinv-form-project',
       'vinv-form-discount', 'vinv-form-taxpercent', 'vinv-form-roundoff'].forEach(id => {
       document.getElementById(id).disabled = readOnly;
     });
@@ -979,6 +984,8 @@
         populateOrgUnitSelect('vinv-form-branch', 'Branch');
         populateOrgUnitSelect('vinv-form-costcenter', 'CostCenter');
         populateOrgUnitSelect('vinv-form-profitcenter', 'ProfitCenter');
+        populateOrgUnitSelect('vinv-form-project', 'Project'); // the field shows once there is a project
+        document.getElementById('vinv-project-field').classList.toggle('hidden', !orgUnits.some(u => u.Type === 'Project'));
         if (!document.getElementById('vinv-entry-view').classList.contains('hidden')) renderGrid();
       })
       .withFailureHandler(err => console.error(err))

@@ -15,8 +15,9 @@
       <option value="CostCenter">Cost Center</option>
       <option value="ProfitCenter">Profit Center</option>
       <option value="Location">Location</option>
+      <option value="Project">Project</option>
     </select>
-    <select id="ou-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+    <select id="ou-status-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Closed">Closed</option></select>
   </div>
 
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
@@ -47,6 +48,7 @@
           <option value="CostCenter">Cost Center</option>
           <option value="ProfitCenter">Profit Center</option>
           <option value="Location">Location</option>
+          <option value="Project">Project</option>
         </select>
       </div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Code</label><input type="text" id="ou-form-code" required placeholder="e.g. DXB-01" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
@@ -60,7 +62,14 @@
         <select id="ou-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">All Companies — shared</option></select>
         <p class="text-xs text-slate-500 mt-1">Restrict this unit to one company, or leave shared. Particularly relevant for Warehouse — a company-restricted warehouse is only usable by users with access to that company.</p>
       </div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="ou-form-status" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Status</label><select id="ou-form-status" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Closed" id="ou-status-closed" class="hidden">Closed: takes no new postings</option></select></div>
+      <div id="ou-project-fields" class="hidden space-y-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Customer <span class="text-slate-500">(optional)</span></label><select id="ou-form-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None</option></select></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Start date</label><input type="date" id="ou-form-start" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">End date</label><input type="date" id="ou-form-end" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        </div>
+      </div>
       <div id="ou-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
       <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
         <button type="button" id="ou-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
@@ -77,7 +86,7 @@
   let units = [];
   let companies = [];
 
-  const TYPE_LABELS = { Division: 'Division', Branch: 'Branch', Warehouse: 'Warehouse', Rack: 'Rack', CostCenter: 'Cost Center', ProfitCenter: 'Profit Center', Location: 'Location' };
+  const TYPE_LABELS = { Division: 'Division', Branch: 'Branch', Warehouse: 'Warehouse', Rack: 'Rack', CostCenter: 'Cost Center', ProfitCenter: 'Profit Center', Location: 'Location', Project: 'Project' };
 
   function escapeHtml(value) {
     const div = document.createElement('div');
@@ -191,12 +200,23 @@
       document.getElementById('ou-form-parent').value = u.ParentUnitID || '';
       document.getElementById('ou-form-company').value = u.CompanyID || '';
       document.getElementById('ou-form-status').value = u.Status;
+      document.getElementById('ou-form-customer').value = u.CustomerID || '';
+      document.getElementById('ou-form-start').value = u.StartDate || '';
+      document.getElementById('ou-form-end').value = u.EndDate || '';
     } else {
       document.getElementById('ou-modal-title').textContent = 'Add Item';
       document.getElementById('ou-form-id').value = '';
       populateParentOptions(null);
     }
+    showProjectFields();
     document.getElementById('ou-modal').classList.remove('hidden');
+  }
+
+  // A project's own fields (docs/modules/PROJECTS_DIMENSIONS.md).
+  function showProjectFields() {
+    const project = document.getElementById('ou-form-type').value === 'Project';
+    document.getElementById('ou-project-fields').classList.toggle('hidden', !project);
+    document.getElementById('ou-status-closed').classList.toggle('hidden', !project);
   }
 
   function closeModal() { document.getElementById('ou-modal').classList.add('hidden'); }
@@ -210,7 +230,10 @@
       Name: document.getElementById('ou-form-name').value.trim(),
       ParentUnitID: document.getElementById('ou-form-parent').value,
       CompanyID: document.getElementById('ou-form-company').value,
-      Status: document.getElementById('ou-form-status').value
+      Status: document.getElementById('ou-form-status').value,
+      CustomerID: document.getElementById('ou-form-customer').value,
+      StartDate: document.getElementById('ou-form-start').value,
+      EndDate: document.getElementById('ou-form-end').value
     };
     const error = document.getElementById('ou-form-error');
     const btn = document.getElementById('ou-save-btn');
@@ -250,6 +273,11 @@
     document.getElementById('ou-modal-cancel').addEventListener('click', closeModal);
     document.getElementById('ou-form').addEventListener('submit', saveUnit);
     document.getElementById('ou-form-type').addEventListener('change', () => populateParentOptions(document.getElementById('ou-form-id').value || null));
+    document.getElementById('ou-form-type').addEventListener('change', showProjectFields);
+    rpc.withSuccessHandler(list => {
+      const sel = document.getElementById('ou-form-customer');
+      (list || []).sort((a, b) => String(a.CustomerName).localeCompare(String(b.CustomerName))).forEach(c => { const o = document.createElement('option'); o.value = c.CustomerID; o.textContent = c.CustomerCode + ' — ' + c.CustomerName; sel.appendChild(o); });
+    }).withFailureHandler(() => {}).getActiveCustomers();
     document.getElementById('ou-search-input').addEventListener('input', renderTable);
     document.getElementById('ou-type-filter').addEventListener('change', renderTable);
     document.getElementById('ou-status-filter').addEventListener('change', renderTable);

@@ -6,7 +6,7 @@ modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
 reviewed: 2026-10-16
-fingerprint: cefa3aa3986805ac
+fingerprint: cd4364507f492a55
 ---
 ## What it is for
 
@@ -100,5 +100,8 @@ can be set per transaction type (Approval Configuration).
   ([Paying and allocating](payments-and-allocation.html)).
 - **"… is invoiced in USD: enter the line's USD amount beside its
   amount"**: fill the USD amount on that line.
+- **A line marked in red** needs a cost center, profit center or project:
+  its account requires it. The **Project** column shows once the company
+  has a project.
 - **Post-dated cheques** are not entered here: use
   [Post-dated Cheques](post-dated-cheques.html).

@@ -77,6 +77,8 @@ const TREE_SEED_NODES = [
   { text: 'Margin Analysis (Account-Based)', depth: 3 },
   { text: 'Costing-Based Profitability Analysis', depth: 3 },
   { text: 'Customer, Product Line & Market Segment Evaluation', depth: 3 },
+  // New development (not in Code.gs): docs/modules/PROJECTS_DIMENSIONS.md.
+  { text: 'Project Report', depth: 3, moduleId: 'PROJECTREPORT' },
   { text: 'Profit Center Accounting (EC-PCA)', depth: 2 },
   { text: 'Strategic Business Unit (SBU) Reporting', depth: 3 },
   { text: 'Balance Sheet / Income Statement by Profit Center', depth: 3 },
