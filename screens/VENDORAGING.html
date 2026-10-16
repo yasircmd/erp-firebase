@@ -120,9 +120,10 @@
   // Tab-separated, so a paste into Excel lands each field in its own cell.
   function copy() {
     const r = report;
-    const lines = [[CONFIG.partyLabel, 'Code', 'Terms'].concat(r.Buckets.map(b => b.label), ['Owed', 'Unapplied credits', 'Net balance', 'Pending PDCs', 'Currency', 'Net in currency'])]
-      .concat(rows().map(x => [x.Name, x.Code, x.Terms].concat(r.Buckets.map(b => x.Buckets[b.key].toFixed(2)), [x.Owed.toFixed(2), x.Unapplied.toFixed(2), x.Net.toFixed(2), x.PendingPdc.toFixed(2),
-        x.Currency || '', x.Currency ? x.FcNet.toFixed(2) : ''])));
+    const fc = rows().some(x => x.Currency); // a party in a foreign currency: its own net too
+    const lines = [[CONFIG.partyLabel, 'Code', 'Terms'].concat(r.Buckets.map(b => b.label), ['Owed', 'Unapplied credits', 'Net balance', 'Pending PDCs'], fc ? ['Currency', 'Net in currency'] : [])]
+      .concat(rows().map(x => [x.Name, x.Code, x.Terms].concat(r.Buckets.map(b => x.Buckets[b.key].toFixed(2)), [x.Owed.toFixed(2), x.Unapplied.toFixed(2), x.Net.toFixed(2), x.PendingPdc.toFixed(2)],
+        fc ? [x.Currency || '', x.Currency ? x.FcNet.toFixed(2) : ''] : [])));
     const tsv = lines.map(l => l.map(v => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
     const done = () => { $('ag-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { $('ag-copy').innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, () => appAlert('Unable to copy.'));
