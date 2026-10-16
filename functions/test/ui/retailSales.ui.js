@@ -6,6 +6,7 @@
 // sale is reversed with a reason; a sale's journal opens the sale.
 // Seeds its own data (it WIPES the emulator database, like the suites):
 //   node functions/test/ui/retailSales.ui.js
+// Also (UX_TIER3.md E): finding a customer by code, name or mobile.
 const http = require('http');
 const fs = require('fs');
 const assert = require('assert/strict');
@@ -354,6 +355,38 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(await p.innerHTML('#rs-print-document'), /\.rs-roll \{ width: 48mm;/);
     assert.deepEqual(p.__errors, []);
     await p.close();
+  });
+
+  await check('the counter finds a customer by code, name or mobile; an unknown mobile becomes a new customer; counter staff without Customer Master\'s right cannot add one (UX_TIER3.md E)', async () => {
+    await require('../emulator/_helpers').rtdb.ref('customers/CU1/Phone').set('050 765 4321');
+    const p = await open('RETAILSALES', 'u-admin', d => d.type() === 'prompt' ? 'Dana Walk' : undefined);
+    await until(p, () => !document.getElementById('rs-counter-body').classList.contains('hidden') && document.getElementById('rs-items').options.length === 1);
+    for (const q of ['7654321', '+971 50 765 4321', 'beta', 'CL-000001']) {
+      await p.fill('#rs-customer-find', q);
+      assert.equal(await p.inputValue('#rs-customer'), 'CU1', q);
+      assert.equal(await p.$$eval('#rs-customer option', o => o.length), 1, q);
+    }
+    assert.equal(await p.inputValue('#rs-billto-name'), 'Beta Trading', 'the bill-to follows the customer found');
+    await p.fill('#rs-customer-find', '055 999 8888');
+    assert.ok(await p.isVisible('#rs-customer-none'));
+    assert.ok(await p.isVisible('#rs-customer-new'));
+    await p.click('#rs-customer-new');
+    await until(p, () => /Dana Walk/.test(document.getElementById('rs-customer').selectedOptions[0] ? document.getElementById('rs-customer').selectedOptions[0].textContent : ''));
+    assert.ok(p.__dialogs.some(m => /New customer with the mobile 055 999 8888/.test(m)), p.__dialogs.join(' | '));
+    assert.ok(p.__dialogs.some(m => /Customer Dana Walk \(CL-\d+\) added/.test(m)), p.__dialogs.join(' | '));
+    assert.equal(await p.inputValue('#rs-customer-find'), '');
+    const made = Object.values(await val('customers')).find(c => c.CustomerName === 'Dana Walk');
+    assert.deepEqual([made.Phone, made.CompanyID], ['055 999 8888', 'C1']);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+    const c = await open('RETAILSALES', 'u-cash1');
+    await until(c, () => !document.getElementById('rs-counter-body').classList.contains('hidden'));
+    await c.fill('#rs-customer-find', '055 111 2222');
+    assert.ok(await c.isVisible('#rs-customer-none'));
+    assert.ok(await c.isHidden('#rs-customer-new'), 'no right to add customers');
+    await c.fill('#rs-customer-find', '055 999 8888');
+    assert.match(await c.textContent('#rs-customer'), /Dana Walk/);
+    await c.close();
   });
 
   await browser.close(); server.close(); await app.delete();

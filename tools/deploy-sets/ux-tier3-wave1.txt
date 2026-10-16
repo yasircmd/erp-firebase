@@ -15,3 +15,9 @@ getPeriodClosingChecklist
 closePeriod
 reopenPeriod
 tickPeriodClosingStep
+# E: retail customers by code, name or mobile (createRetailCustomer is NEW:
+#    add its public-invoker binding); one mobile per customer of a company,
+#    also in Customer Master (saveCustomer, legacy patch customer-mobile-unique).
+getRetailCounter
+createRetailCustomer
+saveCustomer

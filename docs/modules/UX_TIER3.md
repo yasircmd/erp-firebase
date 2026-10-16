@@ -233,3 +233,15 @@ none, the recommendation is the one written here.
   Checklist items carry `Kind` (check / zero / step). Tests:
   `periodClosing` suite (6, a new D test) and UI (6); negative control
   (invoiced filter, ticks) caught.
+- **E** (2026-10-16): the counter's customers carry their `Phone` (the
+  mobile); **Find** above the customer list filters by code, name or
+  mobile (digits, the last 9). `createRetailCustomer` (Retail Sales access
+  and Customer Master's write right, 161): a name and a mobile; Local, on
+  the Retail Sales receivables account, code from the Local sequence,
+  under the global lock. One mobile per customer of a company (160),
+  `customerPhone.js`: compared on the last 9 digits, against active
+  customers of the same company or shared ones; also in Customer Master's
+  `saveCustomer` (and so the import), legacy patch
+  `customer-mobile-unique`, only when the number is new or changed, so
+  customers saved before keep saving. Tests: `retailSales` suite (a new E
+  test) and UI (11); negative control (full-digit compare) caught.

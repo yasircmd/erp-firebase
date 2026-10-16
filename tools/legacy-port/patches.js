@@ -1397,5 +1397,29 @@ const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter',
     replace: `      if (subCat.ParentCategory !== category) throw new Error('Sub-category does not belong to the selected Category.');
       // [PORT CHANGE item-subcat-company] a shared one, or the item's company's.
       if (subCat.CompanyID && subCat.CompanyID !== companyId) throw new Error('Sub-category "' + subCat.Name + '" belongs to ' + (companyId ? 'another company' : 'one company; a shared item uses a shared sub-category') + '.');`
+  },
+  {
+    id: 'customer-mobile-unique',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/UX_TIER3.md, E, decision 160): a customer's mobile (Phone) is unique per company, so the Retail counter can find a customer by it. Checked when the number is new or changed (customers saved before keep theirs); compared on the last 9 digits (customerPhone.js). Nothing else changes.",
+    find: `      CompanyID: companyId, Notes: String(customerData.Notes || '').trim(),
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    if (customerId) {`,
+    replace: `      CompanyID: companyId, Notes: String(customerData.Notes || '').trim(),
+      UpdatedAt: now, UpdatedBy: actor
+    };
+
+    // [PORT CHANGE customer-mobile-unique] one mobile number per customer of a company.
+    if (__customerPhone.phoneKey(fields.Phone)) {
+      const allCustomers = firebaseDbRequest_('customers', 'get', null, idToken) || {};
+      const before = customerId ? allCustomers[customerId] : null;
+      if (!before || __customerPhone.phoneKey(before.Phone) !== __customerPhone.phoneKey(fields.Phone) || (before.CompanyID || '') !== companyId) {
+        const clash = __customerPhone.phoneClash(allCustomers, fields.Phone, companyId, customerId);
+        if (clash) throw new Error(__customerPhone.clashMessage(fields.Phone, clash));
+      }
+    }
+
+    if (customerId) {`
   }
 ];

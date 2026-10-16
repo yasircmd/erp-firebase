@@ -45,6 +45,7 @@ const { withGlobalLock } = require('./lock');
 const { assertEntryReversible, getOpenItemsForParty } = require('./partyLedger');
 const Barcodes = require('./itemBarcodes');
 const BarcodeSvg = require('./barcodeSvg');
+const CustomerPhone = require('./customerPhone');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'RETAILSALES';
@@ -316,6 +317,12 @@ exports.saveRetailPaymentMethod = onCallWithMessages(onCallOptions, async (reque
 
 // What the counter needs for a company: the setup, active methods, its
 // customers, and its items with their price and the stock at a warehouse.
+// A customer as the counter shows it; found by code, name or mobile (E).
+const counterCustomer = (id, c, settings) => ({
+  CustomerID: id, CustomerCode: c.CustomerCode || '', CustomerName: c.CustomerName || '', Classification: c.Classification || '',
+  Address: [c.AddressLine1, c.AddressLine2].filter(Boolean).join(', '), TaxRegistrationNumber: c.TaxRegistrationNumber || '',
+  Phone: c.Phone || '', Retail: id === settings.RetailCustomerID
+});
 exports.getRetailCounter = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'access');
@@ -326,19 +333,16 @@ exports.getRetailCounter = onCallWithMessages(onCallOptions, async (request) => 
   if (!settings) return { settings: null };
   const warehouseId = String(d.warehouseId || '').trim() || settings.WarehouseID;
   const date = String(d.date || '').trim() || new Date().toISOString().substring(0, 10);
-  const [methods, customers, items, uoms, ledger, prices, barcodes] = await Promise.all([
-    methodsOf(companyId), val('customers'), val('items'), val('uoms'), val('stock/ledger'), pricesOn(settings.PriceListID, date), Barcodes.all()
+  const [methods, customers, items, uoms, ledger, prices, barcodes, canAddCustomer] = await Promise.all([
+    methodsOf(companyId), val('customers'), val('items'), val('uoms'), val('stock/ledger'), pricesOn(settings.PriceListID, date), Barcodes.all(),
+    moduleHasCapability('CUSTOMERMASTER', 'write', user.profile.role)
   ]);
   const codesOf = Barcodes.byItem(barcodes); // the products' own barcodes (docs/modules/ITEM_BARCODES.md)
   return {
-    settings, warehouseId, date,
+    settings, warehouseId, date, canAddCustomer,
     methods: methods.filter(m => m.Status === 'Active'),
     customers: Object.entries(customers || {}).filter(([, c]) => c.Status === 'Active' && c.CompanyID === companyId)
-      .map(([id, c]) => ({
-        CustomerID: id, CustomerCode: c.CustomerCode || '', CustomerName: c.CustomerName || '', Classification: c.Classification || '',
-        Address: [c.AddressLine1, c.AddressLine2].filter(Boolean).join(', '), TaxRegistrationNumber: c.TaxRegistrationNumber || '',
-        Retail: id === settings.RetailCustomerID
-      })).sort((a, b) => (b.Retail - a.Retail) || a.CustomerName.localeCompare(b.CustomerName)),
+      .map(([id, c]) => counterCustomer(id, c, settings)).sort((a, b) => (b.Retail - a.Retail) || a.CustomerName.localeCompare(b.CustomerName)),
     items: Object.entries(items || {}).filter(([, i]) => i.Status === 'Active' && ofCompany(i, companyId) && i.InventoryAccountID)
       .map(([id, i]) => {
         const l = ((ledger || {})[id] || {})[warehouseId] || {};
@@ -448,6 +452,46 @@ async function companyAccount(companyId, field, label, coa) {
   if (!a || !a.IsPostable) throw new Error('This company has no valid ' + label + '. Set it in Company Master Data.');
   return a;
 }
+
+// A new customer from the counter (owner, 2026-10-16; UX_TIER3.md E,
+// decisions 160-161): a name and a mobile number, for a user who may add
+// customers in Customer Master. Local, on the Retail Customer's receivables
+// account; the number must not be another customer's of the company.
+exports.createRetailCustomer = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'access');
+  if (!(await moduleHasCapability('CUSTOMERMASTER', 'write', user.profile.role))) {
+    throw new HttpsError('permission-denied', 'You do not have permission to add customers (Customer Master).');
+  }
+  const d = request.data || {};
+  const companyId = String(d.companyId || '').trim();
+  requireCompany(user, companyId);
+  const settings = await loadSettings(companyId);
+  if (!settings) throw new HttpsError('failed-precondition', 'Retail Sales is not set up for this company.');
+  const name = String(d.name || '').trim().slice(0, 100);
+  const mobile = String(d.mobile || '').trim().slice(0, 30);
+  if (!name) throw new HttpsError('invalid-argument', 'Enter the customer\'s name.');
+  if (!CustomerPhone.phoneKey(mobile)) throw new HttpsError('invalid-argument', 'Enter the mobile number (at least 7 digits).');
+  return withGlobalLock(user.uid, async () => {
+    const customers = (await val('customers')) || {};
+    const clash = CustomerPhone.phoneClash(customers, mobile, companyId, '');
+    if (clash) throw new HttpsError('already-exists', CustomerPhone.clashMessage(mobile, clash));
+    const retail = customers[settings.RetailCustomerID] || {};
+    await classifications();
+    const now = new Date().toISOString(), actor = actorOf(user);
+    const customerCode = await require('./numbering').customerCode(false);
+    const id = 'CST-' + randomUUID().split('-')[0].toUpperCase();
+    const record = {
+      CustomerName: name, CustomerCode: customerCode, Category: '',
+      Classification: retail.Classification || 'Local', Country: '', TradeReceivablesAccountID: settings.ReceivablesAccountID || retail.TradeReceivablesAccountID || '', CompanyID: companyId,
+      ContactPerson: '', Phone: mobile, Email: '', AddressLine1: '', AddressLine2: '', TaxRegistrationNumber: '', PaymentTermsDays: 0,
+      DefaultCurrency: '', BankName: '', BankAccountNumber: '', BankIBAN: '', BankSwift: '',
+      Notes: 'Added at the Retail Sales counter.', Status: 'Active', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    };
+    await rtdb.ref('customers/' + id).set(record);
+    return { success: true, customer: counterCustomer(id, record, settings) };
+  });
+});
 
 exports.confirmRetailSale = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);

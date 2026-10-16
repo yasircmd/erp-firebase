@@ -6,7 +6,7 @@
 // customer only; a whole sale reversed.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, call, reset, baseFixture, val, firestore } = require('./_helpers');
+const { app, call, reset, baseFixture, val, firestore, rtdb } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 
@@ -255,4 +255,40 @@ test('discounts switched off in Setup are refused at the counter; on by default 
   // On again: discounts accepted.
   await settings({ allowDiscount: true });
   assert.equal((await sell({ Lines: [line], Payments: [{ MethodID: M.cash, Amount: 20 }] })).total, 20);
+});
+
+test('E: the counter finds customers by mobile; a new customer from the counter with Customer Master\'s write right; one mobile per customer of a company (decisions 160-161)', async () => {
+  await ready();
+  let c = await call('u-admin', 'getRetailCounter', { companyId: 'C1', date: DAY });
+  assert.equal(c.canAddCustomer, true);
+  assert.equal(c.customers.find(x => x.CustomerID === 'CU1').Phone, '');
+  assert.equal((await call('u-cash1', 'getRetailCounter', { companyId: 'C1', date: DAY })).canAddCustomer, false);
+  await assert.rejects(call('u-cash1', 'createRetailCustomer', { companyId: 'C1', name: 'Walk-in', mobile: '050 123 4567' }), /permission to add customers/);
+  await assert.rejects(call('u-admin', 'createRetailCustomer', { companyId: 'C1', name: '', mobile: '050 123 4567' }), /customer's name/);
+  await assert.rejects(call('u-admin', 'createRetailCustomer', { companyId: 'C1', name: 'Sam', mobile: '12' }), /at least 7 digits/);
+  const r = await call('u-admin', 'createRetailCustomer', { companyId: 'C1', name: 'Sam Walker', mobile: '050 123 4567' });
+  assert.deepEqual([r.customer.CustomerName, r.customer.CustomerCode, r.customer.Phone, r.customer.Retail], ['Sam Walker', 'CL-000003', '050 123 4567', false]);
+  const rec = await val('customers/' + r.customer.CustomerID);
+  assert.deepEqual([rec.Classification, rec.CompanyID, rec.TradeReceivablesAccountID, rec.Status, rec.CreatedBy], ['Local', 'C1', 'A-AR', 'Active', 'admin']);
+  // The same number written another way: refused, naming its customer.
+  await assert.rejects(call('u-admin', 'createRetailCustomer', { companyId: 'C1', name: 'Sam W', mobile: '+971 50 123 4567' }), /already Sam Walker's \(CL-000003\)/);
+  c = await call('u-admin', 'getRetailCounter', { companyId: 'C1', date: DAY });
+  assert.ok(c.customers.some(x => x.CustomerName === 'Sam Walker' && x.Phone === '050 123 4567'));
+  // A sale to them.
+  const sale = await sell({ CustomerID: r.customer.CustomerID, Lines: [{ ItemID: 'I1', Quantity: 1, UnitPrice: 52.5 }], Payments: [{ MethodID: M.cash, Amount: 52.5 }] });
+  assert.equal(sale.success, true, sale.error);
+
+  // Customer Master: the same rule (a changed or new number); another company may have it.
+  const base = { CustomerName: 'Gamma LLC', Classification: 'Local', TradeReceivablesAccountID: 'A-AR', PaymentTermsDays: 0, CompanyID: 'C1' };
+  let s = await call('u-admin', 'saveCustomer', { customerData: Object.assign({}, base, { Phone: '00971501234567' }) });
+  assert.equal(s.success, false);
+  assert.match(s.error, /already Sam Walker's/);
+  s = await call('u-other', 'saveCustomer', { customerData: Object.assign({}, base, { Phone: '050 123 4567', CompanyID: 'C2' }) });
+  assert.equal(s.success, true, s.error);
+  s = await call('u-admin', 'saveCustomer', { customerData: Object.assign({}, base, { CustomerID: 'CU1', CustomerName: 'Beta Trading', Phone: '0501234567' }) });
+  assert.match(s.error || '', /already Sam Walker's/, 'an existing customer changed to the number');
+  // Saved before the rule: two with one number keep saving while the number doesn't change.
+  await rtdb.ref('customers/CU1/Phone').set('050 123 4567');
+  s = await call('u-admin', 'saveCustomer', { customerData: Object.assign({}, base, { CustomerID: 'CU1', CustomerName: 'Beta Trading LLC', Phone: '050 123 4567' }) });
+  assert.equal(s.success, true, s.error);
 });

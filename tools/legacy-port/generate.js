@@ -120,7 +120,8 @@ const SHARED_PATHS = {
   coaUsage: '../coaUsage',
   lineClubbing: '../lineClubbing',
   numbering: '../numbering',
-  periodLock: '../periodLock'
+  periodLock: '../periodLock',
+  customerPhone: '../customerPhone' // used by name (__customerPhone.) in patches
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);

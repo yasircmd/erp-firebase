@@ -256,7 +256,7 @@ const hrLeaveReports = require('./src/hrLeaveReports');
 
 // Direct Retail Sales (docs/modules/RETAIL_SALES.md).
 const retailSales = require('./src/retailSales');
-['getRetailSalesSetup', 'saveRetailSalesSettings', 'saveRetailPaymentMethod', 'getRetailCounter', 'confirmRetailSale', 'getRetailSales', 'getRetailSale', 'reverseRetailSale', 'findRetailSaleForReturn', 'confirmRetailReturn', 'reverseRetailReturn'].forEach(n => { exports[n] = retailSales[n]; });
+['getRetailSalesSetup', 'saveRetailSalesSettings', 'saveRetailPaymentMethod', 'getRetailCounter', 'createRetailCustomer', 'confirmRetailSale', 'getRetailSales', 'getRetailSale', 'reverseRetailSale', 'findRetailSaleForReturn', 'confirmRetailReturn', 'reverseRetailReturn'].forEach(n => { exports[n] = retailSales[n]; });
 
 // HR Payroll step 7b: Earnings & Deductions (docs/modules/HR_PAYROLL.md, step 7).
 const payrollInputs = require('./src/payrollInputs');
