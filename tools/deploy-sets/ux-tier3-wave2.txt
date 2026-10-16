@@ -1,6 +1,7 @@
 # UX testing Tier 3, wave 2 (owner, 2026-10-16; docs/modules/UX_TIER3.md, round 15).
 # Run with --screens. Hosting too (tools/deploy-hosting.sh): the Help pages and
-# public/ess.html (J: the statement in the Employee Portal).
+# public/ess.html (J: the statement in the Employee Portal) and public/index.html
+# (L: the shell's search picker; no function for it).
 # I: payroll cost centre per run and split by % (PAYROLL_COST_SPLIT.md).
 #    setPayrollCostOverride is NEW.
 createPayrollRun

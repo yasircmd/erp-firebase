@@ -5,7 +5,7 @@ order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html]
 reviewed: 2026-10-16
-fingerprint: 996436d093b49f5a
+fingerprint: 974c8f0638d9d0c0
 ---
 ## Company first
 
@@ -40,6 +40,29 @@ steps:
 
 The list on each entry screen shows documents by status; search and open
 any of them.
+
+## Finding an account, item, customer or vendor
+
+Wherever you choose an account, an item, a customer, a vendor or another
+entry from a long list, you can search it:
+
+- In a code box (the account on a journal line, the item on a GRN line),
+  start typing. The matches show under the box straight away. Type **any
+  part** of the code or the name: "trad" finds both *Trade Payables* and
+  *Beta Trading*. Codes that start with what you typed come first, then
+  names. Choose with the mouse, or with the arrow keys and **Enter**
+  (after the arrow keys, **Tab** also chooses). **Esc** closes the list
+  and keeps what you typed.
+- In a long drop-down (a customer or vendor on a document, a journal
+  line's party), click it or start typing a letter: a search box opens
+  above the list.
+- The last five entries you chose from each list appear first, under
+  **Recent**. They are kept in this browser.
+- On a phone the list fills the screen, with a box to type in.
+
+Short drop-downs (a status, a company) work as before. The list offers
+the same entries as before: for example, a journal offers only the
+company's postable accounts.
 
 ## Messages and questions
 

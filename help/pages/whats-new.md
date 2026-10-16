@@ -12,6 +12,11 @@ screen.
 
 ## 16/10/2026
 
+- **Search any long list.** Choosing an account, item, customer, vendor
+  or a line's party now opens a searchable list. Type any part of the code
+  or name ("trad" finds *Beta Trading*), choose with the arrow keys and
+  Enter, and find your recent choices at the top. On a phone it fills the
+  screen. See [Working with screens](working-with-screens.html).
 - **End-of-service statement.** A final settlement now prints an
   End-of-Service Settlement Statement for the employee (**Print
   statement**). It shows the service, the gratuity worked out by slab,
