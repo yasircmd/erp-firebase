@@ -113,3 +113,9 @@ test('the accounts to fix: those that take postings outside a group', async () =
   assert.equal(fix['1000'], 'has no group above it', 'the test chart\'s own accounts');
   assert.equal(fix['110007'], undefined);
 });
+
+test('a save that doesn\'t send the mark (an import) keeps it', async () => {
+  chart = await call('u-admin', 'getChartOfAccounts', {});
+  ok(await call('u-admin', 'saveAccount', { accountData: { AccountID: idOf('120000'), AccountName: 'Bank Accounts', AccountType: 'Asset', IsPostable: false, Status: 'Active', CompanyID: '', ParentAccountID: idOf('100000') } }));
+  assert.equal((await val('coa/' + idOf('120000'))).OwnCashBank, 'Bank');
+});

@@ -921,7 +921,7 @@ async function saveAccount(idToken, accountData) {
       throw new Error('Account name is required.');
     }
     // [NEW DEVELOPMENT coa-class-group-mark] docs/modules/COA_NUMBERING.md
-    const ownMark = isPostable ? '' : String(accountData.CashBank || '').trim();
+    let ownMark = isPostable ? '' : String(accountData.CashBank || '').trim();
     if (ownMark && !__coaScheme.MARKS.includes(ownMark)) throw new Error('Cash / Bank must be Cash, Bank or neither.');
     if (ownMark && !parentAccountId) throw new Error('Only a group (or sub-group) is marked Cash or Bank, not a class.');
 
@@ -1026,6 +1026,7 @@ async function saveAccount(idToken, accountData) {
     if (isPostable && current.IsPostable !== true && __coaScheme.levelOf(accountCode) !== 'account') {
       throw new Error('Account ' + accountCode + ' is a heading (its code is a class, group or sub-group code): it can' + "'" + 't take postings. Create the account under it instead.');
     }
+    if (accountData.CashBank === undefined && !isPostable) ownMark = String(current.OwnCashBank || ''); // not sent (e.g. an import): kept
     if (ownMark && current.AccountType !== 'Asset') throw new Error('Only an Assets group is marked Cash or Bank.');
     const editedMarks = Object.assign({}, existing);
     editedMarks[accountId] = Object.assign({}, current, { IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId });
