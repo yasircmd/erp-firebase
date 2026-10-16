@@ -54,3 +54,24 @@ A new external document follows the same pattern: add
 
 Screens only: the Deploy workflow's **screens only** task (no functions, no
 Hosting).
+
+## One print style (owner, 2026-10-14)
+
+From UX testing: "Print setup, round border & light border". The owner:
+one style for all prints (customizing each module's prints belongs to the
+Tier 3 print customization module).
+
+- The shell's PRINT STYLE (`public/index.html`, print media only): every
+  table in a document print (`#<prefix>-print-document`, the 17 document
+  prints: invoices, vouchers, orders, delivery notes, returns, PDCs, stock
+  documents, the GL report print) gets a light, rounded frame (#cbd5e1,
+  6 px) and light lines between cells (#e2e8f0), a light header (#f1f5f9),
+  in place of each screen's dark 1 px grid (#333). Drawn with separate
+  borders (right and bottom of each cell, none on the outer edge twice), so
+  the frame can be rounded.
+- Not changed: the payslip (`#pr-print-document`, its own layout, also the
+  portal's PDF), Employees' welcome slips (`#emp-print-document`), the
+  retail roll receipt (no tables), and reports printed from their screen.
+- Tests: `printStyle.ui.js` (a posted JV's print, under print media; the
+  harness now includes the shell's PRINT STYLE); negative control caught.
+

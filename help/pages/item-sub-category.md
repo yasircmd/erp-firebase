@@ -5,8 +5,8 @@ order: 3
 modules: [ITEMSUBCAT]
 sources: [functions/src/masterData.js]
 summary: Group items by type or line so stock and reporting match the company’s product structure.
-reviewed: 2026-10-12
-fingerprint: df72675a16769430
+reviewed: 2026-10-14
+fingerprint: d8bdbfbfd7e000d6
 ---
 ## What it is for
 
@@ -15,14 +15,14 @@ fingerprint: df72675a16769430
 ## Before you start
 
 - Agree the sub-category names and which fixed parent category each belongs to: Raw Material, Semi-Finished Good, Finished Good, Consumable, or Scrap.
-- Check the existing list before adding a similar label. Item Sub-Categories are shared classifications, not company-specific records.
+- Check the existing list before adding a similar label. A sub-category is either **shared** by all companies or belongs to **one company**, as items do.
 
 ## Step by step
 
 1. Open **Item Sub-Category** and review the list by name, parent category, and status.
-2. Select **Add Sub-Category**, choose the fixed parent category, enter a name, and save.
+2. Select **Add Sub-Category**, choose the fixed parent category and the company (or *All Companies — shared*), enter a name, and save. From Item Master, **New…** beside Sub-Category opens this form with the item's category and company already chosen; **Back to Item Master** returns (the item is opened again).
 3. To change an existing classification, edit its name, parent category, or status. Reactivate an inactive sub-category if it should be selectable again.
-4. Open Item Master and assign the sub-category to the appropriate items. Item Master filters the available sub-categories by the item's selected parent category.
+4. Open Item Master and assign the sub-category to the appropriate items. Item Master offers the sub-categories of the item's parent category that are shared or belong to the item's company; a shared item can use only shared ones.
 
 ## What happens in the books
 
@@ -37,7 +37,8 @@ ITEMSUBCAT **access** allows viewing; **write** allows adding, editing, deactiva
 - **Parent category is wrong:** edit the sub-category and choose one of the five fixed parent categories; a sub-category cannot belong to multiple parents.
 - **Sub-category is missing on an item:** confirm it is Active and its parent matches the item's fixed Category.
 - **Changing it does not change an item code or ledger:** that is expected; sub-category is for organization/filtering, not item numbering or accounting.
-- **Cannot find company-specific settings:** sub-categories are shared; the same classification list is used across companies.
+- **A sub-category is missing for a company:** it belongs to another company; make one for this company or a shared one.
+- **Can't make a sub-category one company's:** an item of another company, or a shared item, already uses it.
 
 ## Related pages
 

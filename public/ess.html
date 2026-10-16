@@ -881,6 +881,7 @@
             (/pdf/.test(f.MimeType) ? 'fa-file-pdf text-rose-500' : 'fa-file-image text-sky-500') + '"></i> ' + esc(f.FileName) + '</span><i class="fa-solid fa-download text-slate-400"></i></button>').join('') || '<p class="text-sm text-slate-500 dark:text-slate-400">None.</p>') + '</div>' +
             (d.canUpload ? '<div class="mt-2">' + fileInput('rq-add') + '</div>' : ''))) +
           (d.canReopen ? '<button id="rq-reopen" class="w-full rounded-xl border border-indigo-300 text-indigo-700 dark:text-indigo-300 py-2.5 text-sm font-semibold">Not sorted? Reopen (within ' + d.reopenDays + ' days)</button>' : '') +
+          (d.canMarkResolved ? '<button id="rq-resolved" class="w-full rounded-xl border border-emerald-300 text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-300 py-2.5 text-sm font-semibold">Sorted? Mark resolved</button>' : '') +
           (d.canWithdraw ? '<button id="rq-withdraw" class="w-full rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold">Withdraw this request</button>' : '') +
           card('<h3 class="font-semibold text-sm">History</h3>' + timeline(r), 'p-4') + '</div>');
         if (d.canReply) $('rq-reply').addEventListener('submit', e => {
@@ -892,7 +893,10 @@
         if (d.canUpload) $('rq-add').addEventListener('change', () => { const list = [...$('rq-add').files]; uploadAll(id, list).then(() => { toast(list.length === 1 ? 'File added.' : list.length + ' files added.'); reqView(id); }, err => { fail(err); reqView(id); }); });
         if (d.canReopen) $('rq-reopen').addEventListener('click', () => dialog({ title: 'Reopen ' + r.Number, message: 'What is still not right?', input: true, required: true, ok: 'Reopen' })
           .then(t => { if (t !== null) api('reopenQuery', { id, text: t }).then(() => { toast('Reopened.'); reqView(id); }, fail); }));
-        if (d.canWithdraw) $('rq-withdraw').addEventListener('click', () => dialog({ title: 'Withdraw ' + r.Number, message: 'Why? (optional)', input: true, ok: 'Withdraw', danger: true })
+        if (d.canMarkResolved) $('rq-resolved').addEventListener('click', () => dialog({ title: 'Mark ' + r.Number + ' resolved', message: 'Anything to add? (optional)', input: true, ok: 'Mark resolved' })
+          .then(t => { if (t !== null) api('markQueryResolved', { id, text: t }).then(() => { toast('Marked resolved.'); reqView(id); }, fail); }));
+        // A query's withdrawal needs a reason (owner, 2026-10-14); a loan or claim's is optional.
+        if (d.canWithdraw) $('rq-withdraw').addEventListener('click', () => dialog({ title: 'Withdraw ' + r.Number, message: r.Type === 'Query' ? 'Why?' : 'Why? (optional)', input: true, required: r.Type === 'Query', ok: 'Withdraw', danger: true })
           .then(t => { if (t !== null) api('withdrawRequest', { id, reason: t }).then(() => { toast('Withdrawn.'); reqView(id); }, fail); }));
         document.querySelectorAll('.rq-file').forEach(b => b.addEventListener('click', () => api('openFile', { id, attachmentId: b.dataset.id }).then(downloadFile, fail)));
         // A claim's receipts and sending it (step 3).

@@ -1,6 +1,9 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { rtdb } = require('./firebaseAdmin');
 const { DEFAULT_PERMISSIONS } = require('./moduleRegistry');
+// Today in the company's time zone, as leaverAccess.js counts it (kept here:
+// leaverAccess.js itself needs this file).
+const accessEnded = until => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()) > until;
 
 // Callable functions verify the caller's Firebase ID token automatically,
 // before this code ever runs — context.auth.uid is already trustworthy
@@ -20,6 +23,10 @@ async function requireUser(context) {
   const profile = snap.val();
   if (!profile || profile.status !== 'Active') {
     throw new HttpsError('permission-denied', 'This ERP account is inactive or not configured.');
+  }
+  // A leaver's access ends on its own (leaverAccess.js; owner, 2026-10-14).
+  if (profile.AccessUntil && accessEnded(profile.AccessUntil)) {
+    throw new HttpsError('permission-denied', 'Your access ended on ' + profile.AccessUntil + ' (after leaving): ask HR if you still need it.');
   }
   return { uid, profile };
 }

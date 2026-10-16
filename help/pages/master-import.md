@@ -5,8 +5,8 @@ order: 9
 modules: [MASTERIMPORT]
 sources: [functions/src/masterImport.js]
 summary: Add or update ERP masters, employee records, opening balances and item barcodes from an Excel paste.
-reviewed: 2026-10-13
-fingerprint: b43a46033f1d0c76
+reviewed: 2026-10-14
+fingerprint: 6df44f9f6c10eb69
 ---
 ## What it is for
 
@@ -25,7 +25,7 @@ In **Add new** mode, the import list follows this order because later records ca
 
 Some imports use more than one row for a logical record: use one row per BOM component and one row per price-list line. Repeat the BOM or price-list details on its rows. A price-list import can add lines to an existing list; a new list also needs its currency and any classification mapping.
 
-For Employees, active custom fields configured in HR Setup appear as additional columns. Employee numbers, item codes, vendor and customer codes, account codes, fixed-asset numbers and a company's Ref Code are assigned by the system; do not include them as new-record columns. Other references can usually be entered by code or exact name.
+For Employees, active custom fields configured in HR Setup appear as additional columns; **Location** takes a Location's code or name from Organizational Units. Item Sub-Categories have a **Company** column (empty: shared); an item's sub-category is looked for among its company's and the shared ones. Employee numbers, item codes, vendor and customer codes, account codes, fixed-asset numbers and a company's Ref Code are assigned by the system; do not include them as new-record columns. Other references can usually be entered by code or exact name.
 
 **Update existing** is offered for Company, Organizational Units, Chart of Accounts, Currencies, UOM, Items, Vendors, Customers, Fixed Asset Classes, Fixed Asset Master, Users and Employees. Use the record's code as the key (Username for Users and Employee No. for Employees). Item Sub-Categories, Customer Classifications, Sales Types, Requisition Categories, BOMs, Inventory Valuation Lists, Price Lists, openings and Item Barcodes do not have this update mode.
 

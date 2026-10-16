@@ -52,7 +52,8 @@ const at = i => new Date(Date.UTC(2026, 0, 1) + i * 60000).toISOString();
     return page;
   }
   const rows = (page, tbody, n) => page.waitForFunction(([t, n]) => document.querySelectorAll('#' + t + ' tr').length === n, [tbody, n], { timeout: 20000 });
-  const text = async (page, sel) => (await page.textContent(sel)).replace(/\s+/g, ' ').trim();
+  // The notice's text, without the Rows selector (checked on its own below).
+  const text = async (page, sel) => (await page.$eval(sel, el => { const c = el.cloneNode(true); c.querySelectorAll('.list-size-wrap').forEach(n => n.remove()); return c.textContent; })).replace(/\s+/g, ' ').trim();
   const done = async page => { assert.deepEqual(page.__dialogs, []); assert.deepEqual(page.__errors, []); await page.close(); };
 
   await check('JV: the newest 100, then "Load next 50" adds the rest below', async () => {
@@ -62,8 +63,31 @@ const at = i => new Date(Date.UTC(2026, 0, 1) + i * 60000).toISOString();
     assert.equal(await page.$('text=Load all'), null, 'no "Load all"');
     await page.click('#jv-list-notice .list-load-more');
     await rows(page, 'jv-table-body', 150);
-    assert.ok(await page.$eval('#jv-list-notice', el => el.classList.contains('hidden')));
+    // All shown: no "Load next", only the Rows choice (owner, 2026-10-14).
+    assert.equal(await text(page, '#jv-list-notice'), '');
+    assert.equal(await page.$$eval('#jv-list-notice .list-size', s => s.length), 1);
     await done(page);
+  });
+
+  await check('Rows per page: 25, 50 or 100, remembered for every list; "Load next" follows it (owner, 2026-10-14)', async () => {
+    const page = await open('JV');
+    await rows(page, 'jv-table-body', 100);
+    assert.deepEqual(await page.$$eval('#jv-list-notice .list-size option', os => os.map(o => o.value)), ['25', '50', '100']);
+    assert.equal(await page.inputValue('#jv-list-notice .list-size'), '100');
+    await page.selectOption('#jv-list-notice .list-size', '25');
+    await rows(page, 'jv-table-body', 25);
+    assert.equal(await text(page, '#jv-list-notice'), 'Showing 1–25 of 150 entries. Load next 25');
+    await page.click('#jv-list-notice .list-load-more');
+    await rows(page, 'jv-table-body', 50);
+    // Remembered (this browser): another list opens with 25.
+    await page.goto('http://127.0.0.1:8155/?module=PRODUCTION&uid=u-admin');
+    await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
+    const prd = page;
+    await rows(prd, 'prd-table-body', 25);
+    assert.equal(await text(prd, '#prd-list-notice'), 'Showing 1–25 of 105 Production Entries. Load next 25');
+    await prd.selectOption('#prd-list-notice .list-size', '100');
+    await rows(prd, 'prd-table-body', 100);
+    await done(prd);
   });
 
   await check('JV: a search finds entries beyond the first 100, and clearing it returns to the list', async () => {

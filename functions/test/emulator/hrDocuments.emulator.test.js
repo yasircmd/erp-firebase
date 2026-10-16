@@ -98,6 +98,6 @@ test('renew keeps the old one; remove keeps the record and moves its files; the 
   // Someone who has left: no reminders.
   await add({ DocumentTypeID: TYPES['Labour Card'], DocNumber: 'L1', ExpiryDate: addDays(T, 10) });
   const e = (await call('u-admin', 'getEmployee', { employeeId: EMP })).employee;
-  await call('u-admin', 'saveEmployee', { employee: Object.assign(e, { Status: 'Left', LeavingDate: T }) });
+  await call('u-admin', 'saveEmployee', { employee: Object.assign(e, { Status: 'Left', LeavingDate: T, LeavingReason: 'Personal reasons' }) });
   assert.deepEqual(await call('u-admin', 'getEmployeeDocumentsExpiringForUser', {}), []);
 });

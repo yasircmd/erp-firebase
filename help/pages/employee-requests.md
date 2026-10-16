@@ -5,8 +5,8 @@ order: 13
 modules: [EMPREQUESTS]
 sources: [functions/src/employeeRequests.js, functions/src/essPortal.js, functions/src/reimbursements.js, functions/src/payrollLoans.js]
 summary: Manage employee queries, claims and requests from the portal or the ERP’s request workflows.
-reviewed: 2026-10-12
-fingerprint: fd3fafb97588059b
+reviewed: 2026-10-14
+fingerprint: 29cea7c8218c9c71
 ---
 ## What it is for
 
@@ -26,7 +26,7 @@ Requests may include a question or case, reimbursement claim, loan/advance reque
 1. Open Employee Requests and filter the list by company, request type, or status to find new and open work.
 2. Open the request. Confirm the employee, category, submitted details, internal notes, and any supporting files before acting.
 3. Add internal notes for the HR/payroll team. Keep notes factual and do not put sensitive payroll or identity details in a case that is visible to users who should not see them.
-4. For a query, respond or route it to the appropriate handler and close it when resolved.
+4. For a query, respond or route it to the appropriate handler and close it when resolved. The employee can also close their own query from the portal at any time while it is open: **Mark resolved** (with an optional note, shown as the outcome) or **Withdraw** (a reason is required). Either shows in the query's history; a query the employee marked resolved can still be reopened within 14 days. Loan, advance and claim requests are unchanged.
 5. For a reimbursement, use the configured manager and approval flow. If approved, its category-specific earning is carried into the relevant month in Earnings and Deductions and paid with payroll; the claim itself is not a bank payment.
 6. For a loan/advance request, check the configured loan type and limits, then follow the approval and payout workflow in [Loans and Advances](payroll-loan.html).
 7. For leave, use the Leave Register and approval workflow for the authoritative dates, balance, and return handling.

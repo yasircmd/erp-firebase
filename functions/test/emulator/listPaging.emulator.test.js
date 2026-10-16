@@ -206,3 +206,19 @@ test('a company filter that narrows nothing (the single-company default) still r
   const narrowing = await call('u-admin', 'getJournalEntries', { page: { CompanyID: 'C1', Status: 'Draft' } });
   assert.equal(narrowing.filtered, true);
 });
+
+test('rows per page (owner, 2026-10-14): 25 or 50 on request, never more than 100', async () => {
+  // JV unfiltered (Firestore's own paging), JV searched, and a stock list.
+  const jv25 = await allPages('u-admin', 'getJournalEntries', { size: 25 });
+  assert.deepEqual(jv25.map(p => p.entries.length), Array(JV_COUNT / 25).fill(25));
+  assert.equal(new Set(ids(jv25, 'JVID')).size, JV_COUNT, 'every entry once');
+  const jv50 = await allPages('u-admin', 'getJournalEntries', { size: '50' });
+  assert.deepEqual(jv50.map(p => p.entries.length), Array(JV_COUNT / 50).fill(50));
+  assert.equal((await call('u-admin', 'getJournalEntries', { page: { search: 'JV-', size: 25 } })).entries.length, 25);
+  assert.deepEqual((await allPages('u-admin', 'getProductionEntries', { size: 50 })).map(p => p.entries.length), [50, 50, 5]);
+  // Anything else is the default 100.
+  for (const size of [500, 1000, 0, -5, 'all', 30]) {
+    assert.equal((await call('u-admin', 'getJournalEntries', { page: { size } })).entries.length, 100, String(size));
+    assert.equal((await call('u-admin', 'getProductionEntries', { page: { size } })).entries.length, 100, String(size));
+  }
+});

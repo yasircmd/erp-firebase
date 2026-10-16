@@ -4,13 +4,13 @@ area: admin
 order: 2
 modules: [ORGUNITS]
 sources: [functions/src/companies.js]
-summary: Maintain divisions, branches, warehouses, racks, cost centers, and profit centers used by ERP workflows.
-reviewed: 2026-10-12
-fingerprint: f4c5bc49cc455273
+summary: Maintain divisions, branches, warehouses, racks, cost centers, profit centers and locations used by ERP workflows.
+reviewed: 2026-10-14
+fingerprint: 0790ef80a9ec643d
 ---
 ## What it is for
 
-**Organizational Units** maintains reusable operating and reporting dimensions: Divisions, Branches, Warehouses, Racks, Cost Centers, and Profit Centers. A Cost Center is commonly used as the department for employee/payroll assignment, but there is no separate Department unit type.
+**Organizational Units** maintains reusable operating and reporting dimensions: Divisions, Branches, Warehouses, Racks, Cost Centers, Profit Centers, and Locations. A **Location** is where people work and assets are kept (an office, a site, a yard): it is chosen on the employee record and on the fixed asset record, and does not post to the books. A Cost Center is commonly used as the department for employee/payroll assignment, but there is no separate Department unit type.
 
 Units can be shared across companies or restricted to one company. Parent links build a hierarchy; Racks are the exception with a required Warehouse parent.
 

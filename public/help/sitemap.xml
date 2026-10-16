@@ -7,8 +7,8 @@
   <url><loc>https://erp1-8f4cd.web.app/help/chart-of-accounts.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/currencies.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/opening-balances.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/journal-entries.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/cash-and-bank.html</loc><lastmod>2026-10-12</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/journal-entries.html</loc><lastmod>2026-10-14</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/cash-and-bank.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/payments-and-allocation.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/recurring-journals.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/post-dated-cheques.html</loc><lastmod>2026-10-12</lastmod></url>
@@ -26,9 +26,9 @@
   <url><loc>https://erp1-8f4cd.web.app/help/goods-receipt-note.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/vendor-invoice.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/purchase-return.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/item-master.html</loc><lastmod>2026-10-12</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/item-master.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/uom.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/item-sub-category.html</loc><lastmod>2026-10-12</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/item-sub-category.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/material-issue.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/warehouse-movement.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/stock-adjustment.html</loc><lastmod>2026-10-12</lastmod></url>
@@ -49,20 +49,20 @@
   <url><loc>https://erp1-8f4cd.web.app/help/sales-return.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/retail-sales.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/hr-setup.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/employees.html</loc><lastmod>2026-10-12</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/employees.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/employee-change.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/leave.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/leave-reports.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/payroll-setup.html</loc><lastmod>2026-10-12</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/payroll-setup.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/payroll-earnings-deductions.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/payroll-run.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/payroll-interim.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/payroll-loan.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/payroll-final-settlement.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/provisions.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/employee-requests.html</loc><lastmod>2026-10-12</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/payroll-final-settlement.html</loc><lastmod>2026-10-14</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/provisions.html</loc><lastmod>2026-10-14</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/employee-requests.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/fixed-asset-config.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/fixed-asset-master.html</loc><lastmod>2026-10-12</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/fixed-asset-master.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/fixed-asset-capitalization.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/capital-work-in-progress.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/depreciation-run.html</loc><lastmod>2026-10-12</lastmod></url>
@@ -75,14 +75,14 @@
   <url><loc>https://erp1-8f4cd.web.app/help/production-consumption.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/material-variance.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/company-master.html</loc><lastmod>2026-10-14</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/org-units.html</loc><lastmod>2026-10-12</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/org-units.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/user-management.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/roles.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/tree-management.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/approval-configuration.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/approval-tracker.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/numbering.html</loc><lastmod>2026-10-12</lastmod></url>
-  <url><loc>https://erp1-8f4cd.web.app/help/master-import.html</loc><lastmod>2026-10-13</lastmod></url>
+  <url><loc>https://erp1-8f4cd.web.app/help/master-import.html</loc><lastmod>2026-10-14</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/document-storage.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/company-documents.html</loc><lastmod>2026-10-12</lastmod></url>
   <url><loc>https://erp1-8f4cd.web.app/help/data-reset.html</loc><lastmod>2026-10-12</lastmod></url>

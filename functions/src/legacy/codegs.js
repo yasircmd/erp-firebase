@@ -166,7 +166,8 @@ const CBT_VOUCHER_CONFIG = {
 // specified for them. If you want auto-sequenced codes (e.g. CC-1000,
 // PC-2000) the way COA does, say so and it can be added the same way.
 
-const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter'];
+// [PORT CHANGE org-unit-location] Location: where employees work and assets are.
+const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter', 'Location'];
 
 // ---------- Item Master ----------
 // Storage: Firebase RTDB, /items/{itemId}. The Chart-of-Accounts
@@ -606,6 +607,8 @@ async function getAllFirebaseUsers(idToken) {
     role: users[uid].role || 'VIEWER',
     status: users[uid].status || 'Active',
     lastLogin: users[uid].lastLogin || 'Never',
+    // [PORT CHANGE user-access-until] a leaver's last day of access.
+    accessUntil: users[uid].AccessUntil || '',
     assignedCompanies: Array.isArray(users[uid].AssignedCompanies) ? users[uid].AssignedCompanies : []
   }));
 }
@@ -1858,7 +1861,8 @@ async function getActiveItemSubCategories(idToken) {
   const data = (await firebaseDbRequest_('itemSubCategories', 'get', null, idToken)) || {};
   return Object.keys(data)
     .filter(id => data[id].Status === 'Active')
-    .map(id => ({ SubCategoryID: id, Name: data[id].Name, ParentCategory: data[id].ParentCategory }));
+    // [PORT CHANGE subcat-company-read] its company ('' = shared).
+    .map(id => ({ SubCategoryID: id, Name: data[id].Name, ParentCategory: data[id].ParentCategory, CompanyID: data[id].CompanyID || '' }));
 }
 
 async function saveItemSubCategory(idToken, data) {
@@ -1875,6 +1879,14 @@ async function saveItemSubCategory(idToken, data) {
 
     if (!name) throw new Error('Name is required.');
     if (!ITEM_CATEGORY_PREFIXES[parentCategory]) throw new Error('Select a valid parent category.');
+    // [PORT CHANGE subcat-company-save] shared ('') or one company's.
+    const companyId = String(data.CompanyID || '').trim();
+    if (companyId && !userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    if (subCategoryId && companyId) {
+      const items = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+      const other = Object.keys(items).find(id => items[id].SubCategoryID === subCategoryId && (items[id].CompanyID || '') !== companyId);
+      if (other) throw new Error('Item ' + (items[other].ItemCode || other) + ' of ' + (items[other].CompanyID ? 'another company' : 'all companies') + ' uses this sub-category: it cannot belong to one company only.');
+    }
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
@@ -1883,14 +1895,14 @@ async function saveItemSubCategory(idToken, data) {
       const existing = await firebaseDbRequest_('itemSubCategories/' + subCategoryId, 'get', null, idToken);
       if (!existing) throw new Error('Sub-category not found.');
       await firebaseDbRequest_('itemSubCategories/' + subCategoryId, 'patch', {
-        Name: name, ParentCategory: parentCategory, Status: status, UpdatedAt: now, UpdatedBy: actor
+        Name: name, ParentCategory: parentCategory, Status: status, CompanyID: companyId, UpdatedAt: now, UpdatedBy: actor // [PORT CHANGE subcat-company-store]
       }, idToken);
       return { success: true, subCategoryId: subCategoryId };
     }
 
     const newId = 'ISC-' + Utilities.getUuid().split('-')[0].toUpperCase();
     await firebaseDbRequest_('itemSubCategories/' + newId, 'put', {
-      Name: name, ParentCategory: parentCategory, Status: status,
+      Name: name, ParentCategory: parentCategory, Status: status, CompanyID: companyId, // [PORT CHANGE subcat-company-store-new]
       CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
     }, idToken);
     return { success: true, subCategoryId: newId };
@@ -1993,6 +2005,8 @@ async function saveItem(idToken, itemData) {
       const subCat = subCats[subCategoryId];
       if (!subCat) throw new Error('Sub-category not found.');
       if (subCat.ParentCategory !== category) throw new Error('Sub-category does not belong to the selected Category.');
+      // [PORT CHANGE item-subcat-company] a shared one, or the item's company's.
+      if (subCat.CompanyID && subCat.CompanyID !== companyId) throw new Error('Sub-category "' + subCat.Name + '" belongs to ' + (companyId ? 'another company' : 'one company; a shared item uses a shared sub-category') + '.');
     }
 
     const uoms = (await firebaseDbRequest_('uoms', 'get', null, idToken)) || {};

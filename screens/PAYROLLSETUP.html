@@ -9,6 +9,7 @@
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="loans">Loans</button>
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="provisions">Provisions</button>
     <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="reimburse">Reimbursements</button>
+    <button class="ps-tab px-4 py-2 text-sm border-b-2" data-tab="leaving">Leaving Reasons</button>
   </div>
   <p id="ps-readonly" class="hidden text-xs text-slate-400">You can view Payroll Setup but not change it.</p>
 
@@ -181,6 +182,25 @@
   </div>
 
   <!-- REIMBURSEMENTS (docs/modules/EMPLOYEE_PORTAL.md, step 3) -->
+  <div id="ps-pane-leaving" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">Why employees leave. An employee on notice or who has left has one of these (Employees → Leaving reason), with a note for any detail. Each reason is a resignation, a termination or other. A reason no longer in use stays on the employees who have it.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Reason</th><th class="py-2 px-3">Type</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="ps-lr-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <button id="ps-lr-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New reason</button>
+    <div id="ps-lr-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Reason *</label><input id="ps-lr-name" maxlength="60" placeholder="e.g. Career change" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Type *</label><select id="ps-lr-type" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Resignation</option><option>Termination</option><option>Other</option></select></div>
+        <label class="text-xs text-slate-300 flex items-center gap-2 md:pt-6"><input id="ps-lr-active" type="checkbox" checked> In use</label>
+      </div>
+      <div class="flex gap-2"><button id="ps-lr-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="ps-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+  </div>
+
   <div id="ps-pane-reimburse" class="hidden space-y-4">
     <p class="text-xs text-slate-500 max-w-3xl">The kinds of expenses employees claim in the Employee Portal. An approved claim is paid with the next payroll as an earning, "Reimbursement — &lt;category&gt;" (a pay element each category keeps for itself), posted to the category's expense account (the group's, or a company's own). A claim over the monthly limit is flagged to the approvers, who decide.</p>
     <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
@@ -262,7 +282,7 @@
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const statusHtml = active => active === false ? '<span class="text-slate-500">Not in use</span>' : '<span class="text-emerald-400">In use</span>';
   let companies = [], canWrite = false, editing = null, payElements = [];
-  const TABS = ['elements', 'payroll', 'files', 'loans', 'provisions', 'reimburse'];
+  const TABS = ['elements', 'payroll', 'files', 'loans', 'provisions', 'reimburse', 'leaving'];
 
   function showTab(tab) {
     document.querySelectorAll('.ps-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
@@ -533,6 +553,29 @@
       .then(() => { closeForms(); return loadReimburse(); }, err => appAlert(err.message || 'Unable to save.'));
   }
 
+  // ---------- leaving reasons (owner, 2026-10-14; docs/modules/HR_EMPLOYEES.md) ----------
+  let lr = null;
+  function loadLeaving() {
+    return call('leavingReasonSetup', { action: 'list' }).then(r => {
+      lr = r;
+      $('ps-lr-body').innerHTML = lr.reasons.map(x => '<tr data-id="' + escapeHtml(x.ReasonID) + '" class="' + (lr.canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '"><td class="py-2 px-3">' + escapeHtml(x.Name) + '</td>' +
+        '<td class="py-2 px-3 text-xs">' + escapeHtml(x.Type) + '</td><td class="py-2 px-3 text-xs">' + statusHtml(x.Active) + '</td></tr>').join('');
+      $('ps-lr-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => { if (lr.canWrite) editLeaving(tr.dataset.id); }));
+      $('ps-lr-new').classList.toggle('hidden', !lr.canWrite);
+    }, err => appAlert(err.message || 'Unable to load the leaving reasons.'));
+  }
+  function editLeaving(id) {
+    closeForms();
+    const x = lr.reasons.find(r => r.ReasonID === id) || { Type: 'Resignation', Active: true };
+    editing = id || null;
+    $('ps-lr-name').value = x.Name || ''; $('ps-lr-type').value = x.Type; $('ps-lr-active').checked = x.Active !== false;
+    $('ps-lr-form').classList.remove('hidden');
+  }
+  function saveLeaving() {
+    call('leavingReasonSetup', { action: 'save', reason: { ReasonID: editing || '', Name: val('ps-lr-name'), Type: val('ps-lr-type'), Active: $('ps-lr-active').checked } })
+      .then(() => { closeForms(); return loadLeaving(); }, err => appAlert(err.message || 'Unable to save.'));
+  }
+
   // ---------- provisions (step 5a) ----------
   let pv = null;
   const accOpts = (list, sel) => '<option value="">—</option>' + list.map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === sel ? ' selected' : '') + '>' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('');
@@ -618,12 +661,14 @@
       Exceptions: exceptions } }).then(() => { closeForms(); return loadProvisions(); }, err => appAlert(err.message || 'Unable to save.'));
   }
 
-  function closeForms() { ['ps-el-form', 'ps-pe-form', 'ps-pf-form', 'ps-lt-form', 'ps-at-form', 'ps-rb-form'].forEach(id => $(id).classList.add('hidden')); editing = null; pfEditing = null; }
+  function closeForms() { ['ps-el-form', 'ps-pe-form', 'ps-pf-form', 'ps-lt-form', 'ps-at-form', 'ps-rb-form', 'ps-lr-form'].forEach(id => $(id).classList.add('hidden')); editing = null; pfEditing = null; }
   function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
 
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> Payroll Setup';
-    $('ps-tabs').addEventListener('click', e => { const b = e.target.closest('.ps-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'payroll') loadPayroll(); if (b.dataset.tab === 'files') loadFormats(); if (b.dataset.tab === 'loans') loadLoanTypes(); if (b.dataset.tab === 'provisions') loadProvisions(); if (b.dataset.tab === 'reimburse') loadReimburse(); } });
+    $('ps-tabs').addEventListener('click', e => { const b = e.target.closest('.ps-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'payroll') loadPayroll(); if (b.dataset.tab === 'files') loadFormats(); if (b.dataset.tab === 'loans') loadLoanTypes(); if (b.dataset.tab === 'provisions') loadProvisions(); if (b.dataset.tab === 'reimburse') loadReimburse(); if (b.dataset.tab === 'leaving') loadLeaving(); } });
+    $('ps-lr-new').addEventListener('click', () => editLeaving(''));
+    $('ps-lr-save').addEventListener('click', saveLeaving);
     $('ps-rb-new').addEventListener('click', () => editReimburse(''));
     $('ps-rb-save').addEventListener('click', saveReimburse);
     $('ps-pc-body').addEventListener('change', e => { const tr = e.target.closest('tr[data-co]'); if (tr && e.target.closest('.ps-pc-method')) companyExample(tr); });

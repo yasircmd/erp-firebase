@@ -186,10 +186,11 @@ const MASTERS = {
     label: 'Item Sub-Category', module: 'ITEMSUBCAT', save: 'saveItemSubCategory', idKey: 'subCategoryId', path: 'itemSubCategories', nameKey: 'Name',
     columns: [
       C('Name', 'Name', { req: true }),
-      C('Parent Category', 'ParentCategory', { req: true, type: 'enum', values: ITEM_CATEGORIES })
+      C('Parent Category', 'ParentCategory', { req: true, type: 'enum', values: ITEM_CATEGORIES }),
+      companyCol // shared or one company's (owner, 2026-10-14)
     ],
-    sample: ['Steel Sheets', 'Raw Material'],
-    toData: r => ({ Name: r.Name, ParentCategory: r.ParentCategory })
+    sample: ['Steel Sheets', 'Raw Material', ''],
+    toData: r => ({ Name: r.Name, ParentCategory: r.ParentCategory, CompanyID: r.CompanyID || '' })
   },
   ITEM: {
     label: 'Items', module: 'ITEMMASTER', save: 'saveItem', idKey: 'itemId', path: 'items', nameKey: 'ItemName',
@@ -415,6 +416,7 @@ const MASTERS = {
       C('Branch', 'BranchID', { type: 'ref', ref: 'branch' }),
       C('Cost Center (Department)', 'CostCenterID', { type: 'ref', ref: 'costCenter' }),
       C('Work Location', 'WorkLocation'),
+      C('Location', 'LocationID', { type: 'ref', ref: 'location', note: 'A Location in Organizational Units (of the company, or shared).' }),
       C('Work Schedule', 'ScheduleID', { type: 'ref', ref: 'workSchedule', note: 'As in HR Setup; empty: the company\'s weekend and hours.' }),
       C('Employment Type', 'EmploymentType', { type: 'enum', values: labelled(['Permanent', 'Contract', 'Part-time', 'Temporary']), note: 'Empty: Permanent.' }),
       C('Probation End', 'ProbationEndDate', { type: 'date' }),
@@ -429,7 +431,7 @@ const MASTERS = {
       C('Bank', 'BankName', { sensitive: true }), C('Account No. / IBAN', 'IBAN', { sensitive: true }),
       C('Bank Routing Code', 'BankRoutingCode', { sensitive: true }), C('WPS Person ID', 'WpsPersonID', { sensitive: true })
     ],
-    sample: ['Ali Hassan', '01', '01/03/2024', 'Accountant', 'G5', '', '', '', 'CC1', 'Dubai office', '', 'Permanent', '31/08/2024', 'ALI HASSAN', 'Male',
+    sample: ['Ali Hassan', '01', '01/03/2024', 'Accountant', 'G5', '', '', '', 'CC1', 'Dubai office', '', '', 'Permanent', '31/08/2024', 'ALI HASSAN', 'Male',
       '15/06/1990', 'India', 'Married', '+971 50 000 0000', '', 'ali.hassan@example.com', '', '', '', '', '', '', '', ''],
     toData: r => {
       const out = { Custom: {} };
@@ -545,6 +547,7 @@ async function loadExisting() {
     branch: units.filter(x => x.rec.Type === 'Branch'),
     costCenter: units.filter(x => x.rec.Type === 'CostCenter'),
     profitCenter: units.filter(x => x.rec.Type === 'ProfitCenter'),
+    location: units.filter(x => x.rec.Type === 'Location'),
     account: list(data.coa, 'AccountCode', 'AccountName'),
     uom: list(data.uoms, 'Code', 'Name'),
     subCategory: list(data.itemSubCategories, '', 'Name'),
@@ -642,8 +645,8 @@ async function checkPaste(user, masterKey, text, opts) {
     const resolveOne = (col, raw) => {
       let pool = ex[col.ref];
       const co = typeof r.CompanyID === 'string' ? r.CompanyID : '';
-      if (col.ref === 'subCategory') pool = pool.filter(x => x.rec.ParentCategory === r.Category);
-      if (['account', 'faClass', 'division', 'branch', 'costCenter', 'profitCenter'].includes(col.ref) && masterKey !== 'ACCOUNT' && co) {
+      if (col.ref === 'subCategory') pool = pool.filter(x => x.rec.ParentCategory === r.Category && (!x.rec.CompanyID || x.rec.CompanyID === co));
+      if (['account', 'faClass', 'division', 'branch', 'costCenter', 'profitCenter', 'location'].includes(col.ref) && masterKey !== 'ACCOUNT' && co) {
         pool = pool.filter(x => !x.rec.CompanyID || x.rec.CompanyID === co);
       }
       const byCode = pool.filter(x => x.code && norm(x.code) === norm(raw));
@@ -773,7 +776,7 @@ const headerOf = (m, key) => (m.columns.find(c => c.key === key) || {}).h || key
 const companyOf = v => (typeof v === 'string' ? v : '');
 function dupScope(k, r) {
   if (k === 'ORGUNIT') return r.Type + '|' + companyOf(r.CompanyID);
-  if (k === 'SUBCATEGORY') return r.ParentCategory;
+  if (k === 'SUBCATEGORY') return r.ParentCategory + '|' + companyOf(r.CompanyID);
   if (['ACCOUNT', 'ITEM', 'VENDOR', 'CUSTOMER', 'CLASSIFICATION', 'SALESTYPE', 'REQCATEGORY'].includes(k)) return companyOf(r.CompanyID);
   return '';
 }
@@ -786,7 +789,7 @@ function existingSameName(k, r, ex) {
     case 'ORGUNIT': return same(ex.raw.orgUnits, 'Name', x => x.Type === r.Type && (x.CompanyID || '') === co);
     case 'ACCOUNT': return same(ex.raw.coa, 'AccountName', x => (x.CompanyID || '') === co);
     case 'UOM': return same(ex.raw.uoms, 'Name');
-    case 'SUBCATEGORY': return same(ex.raw.itemSubCategories, 'Name', x => x.ParentCategory === r.ParentCategory);
+    case 'SUBCATEGORY': return same(ex.raw.itemSubCategories, 'Name', x => x.ParentCategory === r.ParentCategory && (x.CompanyID || '') === co);
     case 'ITEM': return same(ex.raw.items, 'ItemName', x => (x.CompanyID || '') === co);
     case 'VENDOR': return same(ex.raw.vendors, 'VendorName', x => (x.CompanyID || '') === co);
     case 'CUSTOMER': return same(ex.raw.customers, 'CustomerName', x => (x.CompanyID || '') === co);
@@ -1291,8 +1294,8 @@ async function checkUpdate(user, masterKey, text) {
         // As when adding: by code or exact name; accounts, classes and units
         // of the record's company (or for all); sub-categories of its category.
         let pool = ex[col.ref] || [];
-        if (['account', 'faClass', 'division', 'branch', 'costCenter', 'profitCenter', 'warehouse'].includes(col.ref) && co && masterKey !== 'COMPANY') pool = pool.filter(x => !x.rec.CompanyID || x.rec.CompanyID === co);
-        if (col.ref === 'subCategory' && rec) pool = pool.filter(x => x.rec.ParentCategory === rec.Category);
+        if (['account', 'faClass', 'division', 'branch', 'costCenter', 'profitCenter', 'warehouse', 'location'].includes(col.ref) && co && masterKey !== 'COMPANY') pool = pool.filter(x => !x.rec.CompanyID || x.rec.CompanyID === co);
+        if (col.ref === 'subCategory' && rec) pool = pool.filter(x => x.rec.ParentCategory === rec.Category && (!x.rec.CompanyID || x.rec.CompanyID === (co || rec.CompanyID || '')));
         const one = txt => {
           const byCode = pool.filter(x => x.code && norm(x.code) === norm(txt));
           const hits = byCode.length ? byCode : pool.filter(x => norm(x.name) === norm(txt));

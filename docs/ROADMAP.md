@@ -184,16 +184,69 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
       theme (`erp-theme`), else the device's; its header button switches
       and saves it, for both (docs/modules/HELP.md). `help.ui.js`;
       negative control caught.
-  - **Tier 2, small, waiting on the owner's answer:** rows per list page
-    (100 today; choice and ceiling); leaving reason for resignation and
-    termination (list or free text); auto-disable a leaver's login (when,
-    and the employee ↔ user link); employee location (list or text);
-    employee can withdraw or resolve a request (up to which stage); new
-    Item Category from Item Master (screen or inline); COA 100000 /
-    200000 as heads only (meaning unclear); month-end check for DOs not
-    invoiced (Warn or Block default); print borders (one style or a
-    setting); matching an invoice to an advance (likely Help only:
-    payment matching already covers New Ref / Against Ref).
+  - **Tier 2: the owner's answers (2026-10-14)**, and what the code
+    showed (planning in progress, branch `tier2-ux-fixes`):
+    - Rows per list page: 25, 50 or 100 only (never more).
+    - Leaving reason, for resignation and termination: a list kept in
+      Payroll Setup, with defaults and room to add more.
+    - A leaver's login: disabled 30 days after the final settlement is
+      processed; with no settlement, counted from the last working day.
+    - Employee location: one Location for Employees and Fixed Assets, as
+      an Organizational Unit type (Fixed Assets already reserves it).
+    - Employee Requests: the employee may withdraw at any time, with a
+      reason.
+    - Item Master: "new category" opens the category screen; categories
+      and sub-categories become company level. (Today the categories
+      are a fixed list that drives BOM rules: design needed.)
+    - COA: no account like 100001 directly under 100000; it goes under a
+      group, like 110001. (Today's numbering treats 100000 and 110000 as
+      sibling heads, and the seeded Cash accounts are 1000xx: design.)
+    - Month-end checklist: deliveries posted but not invoiced; balances of
+      chosen clearing accounts; asks how to make it flexible.
+    - Prints: one style for all (rounded, light borders); asks whether
+      each module's prints could be customized (Tier 3 print module).
+    - Advances: asks how to fix a wrong reference without reversing the
+      whole entry (today only a reversal changes allocations).
+    - **Building** (agreed 2026-10-14), deploy set `ux-fixes-2`. All
+      seven built and tested 2026-10-14 on branch `tier2-ux-fixes`: every
+      emulator suite passes (run in groups of 8 with a restart between:
+      in this container even a third of the suite exhausts the emulator's
+      memory), smoke 123/123, unit guards 101/101:
+      - [x] **Rows per page: 25, 50 or 100** (LIST_PAGING.md). `listPaging`
+        suite (12), `listPaging.ui.js` (6); negative controls caught.
+      - [x] **Queries: withdraw (with a reason) or mark resolved at any
+        time while open** (EMPLOYEE_PORTAL.md). `essRequests` suite (7),
+        `essRequests.ui.js` (7); negative controls caught.
+      - [x] **Leaving reasons in Payroll Setup** (HR_EMPLOYEES.md): a list
+        by type with 12 defaults; required on notice or left.
+        `leavingReasons` suite (3), UI checks; negative control caught.
+      - [x] **One print style** (EXTERNAL_PRINTS.md): document prints'
+        tables with a light, rounded frame and light lines; payslips keep
+        theirs. `printStyle.ui.js`; negative control caught. Hosting only.
+      - [x] **A leaver's login cut-off** (HR_EMPLOYEES.md): ERP and portal
+        until the settlement is paid, at most 30 days after the last
+        working day; HR extends / keeps / restores the rule. `leaverAccess`
+        suite (5), UI checks; negative control caught. **After deploying:
+        open Employees once (Admin)**: it fills in the last day for those
+        already leaving, and anyone 30 days past it loses access then.
+      - [x] **Location as an Organizational Unit** (FIXED_ASSETS.md,
+        "Locations"): shared or one company's; on employees and fixed
+        assets (changeable any time). Suites and UI checks; negative
+        control caught.
+      - [x] **More item categories: the light option** (owner,
+        2026-10-14; ITEM_SUBCATEGORIES.md): sub-categories shared or one
+        company's; Item Master offers the company's and shared ones, and
+        New… opens Item Sub-Category with Back. Suite (4), UI (2);
+        negative controls caught.
+    - **Clarified (owner, 2026-10-14):** Employee Requests: only a
+      query can be withdrawn or marked resolved by the employee, at any
+      time; other requests unchanged. A leaver's login (ERP and Employee
+      Portal): at most 30 days after the last working day; "processed"
+      settlement means Paid; Admin or HR can extend or cancel at any time.
+      Location: shared by all companies or one company (a choice per
+      location). Item categories: only an option to add more, no heavy
+      change. COA: asks whether a used account can be renumbered within
+      its group (110001 → 11xxxx) without duplicating it.
   - **Tier 3, design doc first:** multi-currency and a company base
     currency (e.g. INR); inter-company transactions; Project dimension;
     cost centres per company; item categories per company; print

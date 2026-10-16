@@ -40,9 +40,9 @@ test.before(async () => {
   const des = (await call('u-admin', 'saveHrDesignation', { designation: { Title: 'Accountant' } })).designationId;
   const emp = (name, x) => call('u-admin', 'saveEmployee', { employee: Object.assign({ FullName: name, CompanyID: 'C1', DesignationID: des, GradeID: g3, Gender: 'Male', CostCenterID: 'CC1',
     JoinDate: '2025-01-01', IBAN: 'AE070331234567890123456', WpsPersonID: '10000000000001', BankRoutingCode: '803320101' }, x) }).then(r => r.employeeId);
-  DAN = await emp('Dan Leaver', { Status: 'On notice', LeavingDate: '2026-09-10', LeavingReason: 'Resigned' });
+  DAN = await emp('Dan Leaver', { Status: 'On notice', LeavingDate: '2026-09-10', LeavingReason: 'Personal reasons' });
   EVE = await emp('Eve Stays', { IBAN: 'AE460331234567890000001' });
-  FAY = await emp('Fay Later', { Status: 'On notice', LeavingDate: '2026-12-31', LeavingReason: 'Resigned' });
+  FAY = await emp('Fay Later', { Status: 'On notice', LeavingDate: '2026-12-31', LeavingReason: 'Personal reasons' });
   EL = Object.fromEntries((await call('u-admin', 'getPayElements', {})).elements.map(e => [e.Code, e.ElementID]));
   for (const [id, amounts] of [[DAN, [6000, 3000]], [EVE, [4000, 0]], [FAY, [3000, 0]]]) {
     await call('u-admin', 'saveCompensation', { employeeId: id, compensation: { Lines: [{ ElementID: EL.BASIC, Amount: amounts[0] }].concat(amounts[1] ? [{ ElementID: EL.HRA, Amount: amounts[1] }] : []) } });

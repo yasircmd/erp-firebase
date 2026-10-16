@@ -7,7 +7,7 @@
 // and won't reverse an FA entry or a capitalized purchase).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, firestore, call, reset, baseFixture } = require('./_helpers');
+const { app, firestore, rtdb, call, reset, baseFixture } = require('./_helpers');
 
 function fixture() {
   const f = baseFixture();
@@ -523,4 +523,30 @@ test('the brief\'s example on account and a scrap: gain/loss from NBV, customer 
   ok(await call('u-admin', 'reverseFaPosting', { postingId: s.postingId, reason: 'Wrong buyer' }));
   assert.equal((await call('u-admin', 'getPartyOpenItems', { partyType: 'Customer', partyId: 'CU1', companyId: 'C1' })).length, 0);
   assert.equal((await asset(x)).Status, 'Active');
+});
+
+test('a Location (owner, 2026-10-14): an org unit type, shared or one company\'s; an asset\'s location, changed any time, even after depreciation', async () => {
+  await reset(fixture());
+  const { vehClass } = await configure();
+  const shared = ok(await call('u-admin', 'saveOrgUnit', { unitData: { Type: 'Location', Code: 'LOC-DXB', Name: 'Dubai office' } })).unitId;
+  await rtdb.ref('users/u-admin/AssignedCompanies').set(['C1', 'C2']);
+  const c2 = ok(await call('u-admin', 'saveOrgUnit', { unitData: { Type: 'Location', Code: 'LOC-AUH', Name: 'Abu Dhabi yard', CompanyID: 'C2' } })).unitId;
+  await rtdb.ref('users/u-admin/AssignedCompanies').set(['C1']);
+  assert.match(await err(call('u-admin', 'saveOrgUnit', { unitData: { Type: 'Locale', Code: 'X', Name: 'X' } })), /Type must be one of: .*Location/);
+  assert.match(await err(newAsset(vehClass, { LocationID: c2 })), /That Location belongs to a different company/);
+  assert.match(await err(newAsset(vehClass, { LocationID: 'CC1' })), /Unknown Location/);
+  const a = await newAsset(vehClass, { LocationID: shared });
+  assert.equal((await asset(a.assetId)).LocationID, shared);
+  // Capitalized and depreciated: the cost center needs a transfer, the location doesn't.
+  await jvPurchase(12000, '2026-01-05');
+  const it = (await items())[0];
+  ok(await capitalize(a.assetId, [{ JVID: it.JVID, LineNo: it.LineNo, Amount: 12000 }], '2026-01-31'));
+  ok(await call('u-admin', 'postFaDepreciation', { companyId: 'C1', period: '2026-01' }));
+  const now = await asset(a.assetId);
+  const base = { AssetID: a.assetId, CompanyID: 'C1', ClassID: vehClass, Description: now.Description, PurchaseDate: now.PurchaseDate, CostCenterID: now.CostCenterID, ProfitCenterID: now.ProfitCenterID, Method: 'SL', UsefulLifeMonths: 120 };
+  assert.match(await err(call('u-admin', 'saveFaAsset', Object.assign({}, base, { CostCenterID: 'CC2', LocationID: shared }))), /with an Asset Transfer/);
+  const loc2 = ok(await call('u-admin', 'saveOrgUnit', { unitData: { Type: 'Location', Code: 'LOC-SHJ', Name: 'Sharjah store', CompanyID: 'C1' } })).unitId;
+  const r = ok(await call('u-admin', 'saveFaAsset', Object.assign({}, base, { LocationID: loc2 })));
+  assert.equal(r.changes, 1);
+  assert.equal((await asset(a.assetId)).LocationID, loc2);
 });

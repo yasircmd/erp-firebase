@@ -18,6 +18,10 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 (async () => {
   const f = baseFixture();
   f.orgUnits.CC2 = { Type: 'CostCenter', Code: 'CC2', Name: 'Finance', Status: 'Active', CompanyID: 'C1' };
+  // Locations (owner, 2026-10-14): one shared, one of each company.
+  f.orgUnits.LOC1 = { Type: 'Location', Code: 'LOC1', Name: 'Dubai office', Status: 'Active' };
+  f.orgUnits.LOC2 = { Type: 'Location', Code: 'LOC2', Name: 'Abu Dhabi yard', Status: 'Active', CompanyID: 'C2' };
+  f.orgUnits.LOC3 = { Type: 'Location', Code: 'LOC3', Name: 'Sharjah store', Status: 'Active', CompanyID: 'C1' };
   f.permissions.DOCUMENTSTORAGE.access = ['Admin'];
   f.users['u-other'].AssignedCompanies = ['C1', 'C2']; // the org chart across companies
   await reset(f);
@@ -31,7 +35,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const page = await browser.newPage();
     page.__errors = []; page.__dialogs = [];
     page.on('pageerror', e => page.__errors.push(e.message));
-    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.type() === 'prompt' ? d.accept(page.__answer || '') : d.accept(); });
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.type() === 'prompt' ? d.accept((Array.isArray(page.__answer) ? page.__answer.shift() : page.__answer) || '') : d.accept(); });
     await page.goto('http://127.0.0.1:8165/?module=' + module + '&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     return page;
@@ -113,6 +117,37 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.click('#emp-save-btn');
     await page.waitForFunction(() => /Correction — Entered the wrong grade[\s\S]*Grade: G5 → G3/.test(document.getElementById('emp-history').textContent), null, { timeout: 15000 });
     assert.equal(await page.isDisabled('#emp-form-grade'), true);
+  });
+
+  await check('Location: the company\'s and the shared ones to choose from, saved by an ordinary edit (owner, 2026-10-14)', async () => {
+    assert.deepEqual(await page.$$eval('[data-k="LocationID"] option', os => os.map(o => o.textContent)), ['—', 'LOC1 — Dubai office', 'LOC3 — Sharjah store']);
+    await page.selectOption('[data-k="LocationID"]', 'LOC3');
+    await page.click('#emp-save-btn');
+    await page.waitForFunction(() => /Location[\s\S]*Sharjah store/.test(document.getElementById('emp-history').textContent), null, { timeout: 15000 });
+  });
+
+  await check('on notice: a leaving reason from Payroll Setup\'s list, by type, with a note; back to Active clears it (owner, 2026-10-14)', async () => {
+    await page.selectOption('[data-k="Status"]', 'On notice');
+    await page.fill('[data-k="LeavingDate"]', '2026-12-31');
+    await page.click('#emp-save-btn');
+    await page.waitForFunction(() => /Choose the leaving reason of an employee who is on notice/.test(document.getElementById('emp-error').textContent), null, { timeout: 10000 });
+    assert.deepEqual(await page.$$eval('#emp-leave-reason optgroup', g => g.map(x => x.label)), ['Resignation', 'Termination', 'Other']);
+    await page.selectOption('#emp-leave-reason', { label: 'Relocation' });
+    await page.fill('[data-k="LeavingNote"]', 'Moving abroad');
+    await page.click('#emp-save-btn');
+    await page.waitForFunction(() => /Leaving reason[\s\S]*Relocation/.test(document.getElementById('emp-history').textContent), null, { timeout: 15000 });
+    // ERP and portal access: 30 days after the last working day; HR extends it (owner, 2026-10-14).
+    await page.waitForFunction(() => /ERP and portal access: until 30\/01\/2027/.test(document.getElementById('emp-access-text').textContent), null, { timeout: 15000 });
+    page.__answer = ['2027-02-15', 'Handing over the accounts'];
+    await page.click('#emp-access-extend');
+    await page.waitForFunction(() => /until 15\/02\/2027 \(extended by .*: Handing over the accounts\)/.test(document.getElementById('emp-access-text').textContent), null, { timeout: 15000 });
+    assert.match(await page.textContent('#emp-history'), /Access after leaving/);
+    assert.equal(await page.isVisible('#emp-access-rule'), true);
+    await page.selectOption('[data-k="Status"]', 'Active');
+    await page.click('#emp-save-btn');
+    await page.waitForFunction(() => /Relocation → /.test(document.getElementById('emp-history').textContent), null, { timeout: 15000 });
+    assert.equal(await page.inputValue('#emp-leave-reason'), '');
+    assert.equal(await page.isVisible('#emp-access'), false, 'active: no end of access');
   });
 
   await check('line manager, direct reports, Replace manager', async () => {

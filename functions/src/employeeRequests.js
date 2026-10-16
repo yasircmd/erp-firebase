@@ -181,6 +181,7 @@ async function requestDetail(me, d) {
       History: (r.History || []).map(h => ({ Event: h.Event, By: h.By, At: h.At, Note: h.Note || '' }))
     }),
     files: mine, canReply: isOpen(r) && r.Status !== 'Draft', canWithdraw: await canWithdraw(r, st), canReopen,
+    canMarkResolved: r.Type === 'Query' && isOpen(r),
     canUpload: r.Type === 'Claim' ? false : r.Status !== 'Withdrawn' && mine.filter(f => f.UploadedBy === me.uid).length < MAX_EMPLOYEE_FILES,
     canSubmit: r.Type === 'Claim' && r.Status === 'Draft', filesPerBill: RB().FILES_PER_BILL,
     reopenDays: REOPEN_DAYS, maxFiles: MAX_EMPLOYEE_FILES
@@ -188,7 +189,8 @@ async function requestDetail(me, d) {
 }
 async function canWithdraw(r, st) {
   if (r.Type === 'Claim') return isOpen(r);
-  if (r.Type === 'Query') return r.Status === 'New';
+  // A query: at any time while it is open (owner, 2026-10-14).
+  if (r.Type === 'Query') return isOpen(r);
   return r.Status === 'WithManager' || (r.Status === 'WithHR' && (!st.Loan || st.Loan.Status === 'Draft'));
 }
 
@@ -206,11 +208,27 @@ async function employeeReply(me, d) {
 async function withdraw(me, d) {
   const r = await loadOwn(me, d.id);
   const st = await stageOf(r);
-  if (!(await canWithdraw(r, st))) throw failed(r.Type === 'Query' ? 'Only a query nobody has answered yet can be withdrawn.' : 'It is already with the approvers: ask HR.');
+  if (!(await canWithdraw(r, st))) throw failed(r.Type === 'Query' ? 'This query is closed: there is nothing to withdraw.' : 'It is already with the approvers: ask HR.');
+  if (r.Type === 'Query' && !text(d.reason, 500)) bad('Say why you are withdrawing it.');
   if (st.Loan && st.Loan.Status === 'Draft') await LOANS().doc(st.Loan.LoanID).delete();
   if (r.Type === 'Claim') await RB().closeApproval(r);
   const now = new Date().toISOString();
   await REQUESTS().doc(r.RequestID).update({ Status: 'Withdrawn', WithdrawnAt: now, UpdatedAt: now, LoanID: '', History: (r.History || []).concat([entry('Withdrawn', employeeName(me), text(d.reason, 500))]) });
+  return { success: true };
+}
+
+// The employee closes their own query as sorted, at any time while it is
+// open (owner, 2026-10-14). It can be reopened within REOPEN_DAYS, as one
+// HR resolved.
+async function markResolved(me, d) {
+  const r = await loadOwn(me, d.id);
+  if (r.Type !== 'Query' || !isOpen(r)) throw failed('Only an open query can be marked resolved.');
+  const note = text(d.text, 2000);
+  const now = new Date().toISOString();
+  await REQUESTS().doc(r.RequestID).update({ Status: 'Resolved', Outcome: note ? 'Marked resolved by the employee: ' + note : 'Marked resolved by the employee.',
+    ResolvedAt: now, ResolvedByEmployee: true, RejectedAt: '', UpdatedAt: now, LastFrom: 'Employee', LastAt: now, ReadByEmployeeAt: now,
+    Messages: note ? (r.Messages || []).concat([{ From: 'Employee', By: employeeName(me), At: now, Text: note, Internal: false }]) : (r.Messages || []),
+    History: (r.History || []).concat([entry('Marked resolved', employeeName(me), note)]) });
   return { success: true };
 }
 
@@ -568,7 +586,7 @@ async function decideClaimByManager(me, d) {
 
 Object.assign(module.exports, {
   raiseClaim, submitClaim, decideClaimByManager,
-  raiseQuery, myRequests, requestDetail, employeeReply, withdraw, reopen, uploadFile, openFile,
+  raiseQuery, myRequests, requestDetail, employeeReply, withdraw, markResolved, reopen, uploadFile, openFile,
   loanForm, requestLoan, myLoans, teamLoanRequests, decideLoanRequest, portalCounts,
   QUERY_CATEGORIES, LOAN_CATEGORY, MODULE_ID
 });

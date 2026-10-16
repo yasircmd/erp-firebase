@@ -1329,5 +1329,73 @@ function linesForBatch_(idToken, batchId) {
     find: `  const lines = getPostedGlLines_(idToken, filters).filter(l => l.JVDate >= fromDate && l.JVDate <= toDate);`,
     replace: `  // [PORT CHANGE pl-without-year-end-close] the year-end closing entry left out: a closed year's P&L still shows its figures.
   const lines = getPostedGlLines_(idToken, filters).filter(l => l.JVDate >= fromDate && l.JVDate <= toDate && l.VoucherType !== 'YearEndClose');`
+  },
+  {
+    id: 'user-access-until',
+    why: "NEW DEVELOPMENT (owner, 2026-10-14; docs/modules/HR_EMPLOYEES.md, \"A leaver's access\"): User Management shows a leaver's last day of access (users/{uid}/AccessUntil, kept by leaverAccess.js). Nothing else changes.",
+    find: `    lastLogin: users[uid].lastLogin || 'Never',`,
+    replace: `    lastLogin: users[uid].lastLogin || 'Never',
+    // [PORT CHANGE user-access-until] a leaver's last day of access.
+    accessUntil: users[uid].AccessUntil || '',`
+  },
+  {
+    id: 'org-unit-location',
+    why: "NEW DEVELOPMENT (owner, 2026-10-14; docs/modules/FIXED_ASSETS.md, \"Locations\"): a Location org unit type, for employees and fixed assets, shared by all companies or of one (as every org unit). Nothing else changes.",
+    find: `const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter'];`,
+    replace: `// [PORT CHANGE org-unit-location] Location: where employees work and assets are.
+const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter', 'Location'];`
+  },
+  // Item Sub-Categories by company (owner, 2026-10-14; docs/modules/ITEM_SUBCATEGORIES.md):
+  // shared by all companies or one company's, as items are.
+  {
+    id: 'subcat-company-read',
+    why: "NEW DEVELOPMENT (owner, 2026-10-14; docs/modules/ITEM_SUBCATEGORIES.md): Item Master's picker gets each sub-category's company. Nothing else changes.",
+    find: `    .map(id => ({ SubCategoryID: id, Name: data[id].Name, ParentCategory: data[id].ParentCategory }));`,
+    replace: `    // [PORT CHANGE subcat-company-read] its company ('' = shared).
+    .map(id => ({ SubCategoryID: id, Name: data[id].Name, ParentCategory: data[id].ParentCategory, CompanyID: data[id].CompanyID || '' }));`
+  },
+  {
+    id: 'subcat-company-save',
+    why: "NEW DEVELOPMENT (owner, 2026-10-14; docs/modules/ITEM_SUBCATEGORIES.md): a sub-category is shared or one company's; it can't move to a company while items of another company (or shared items) use it.",
+    find: `    if (!name) throw new Error('Name is required.');
+    if (!ITEM_CATEGORY_PREFIXES[parentCategory]) throw new Error('Select a valid parent category.');
+`,
+    replace: `    if (!name) throw new Error('Name is required.');
+    if (!ITEM_CATEGORY_PREFIXES[parentCategory]) throw new Error('Select a valid parent category.');
+    // [PORT CHANGE subcat-company-save] shared ('') or one company's.
+    const companyId = String(data.CompanyID || '').trim();
+    if (companyId && !userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
+    if (subCategoryId && companyId) {
+      const items = firebaseDbRequest_('items', 'get', null, idToken) || {};
+      const other = Object.keys(items).find(id => items[id].SubCategoryID === subCategoryId && (items[id].CompanyID || '') !== companyId);
+      if (other) throw new Error('Item ' + (items[other].ItemCode || other) + ' of ' + (items[other].CompanyID ? 'another company' : 'all companies') + ' uses this sub-category: it cannot belong to one company only.');
+    }
+`
+  },
+  {
+    id: 'subcat-company-store',
+    why: "NEW DEVELOPMENT (owner, 2026-10-14; docs/modules/ITEM_SUBCATEGORIES.md): the sub-category's company is stored.",
+    find: `      firebaseDbRequest_('itemSubCategories/' + subCategoryId, 'patch', {
+        Name: name, ParentCategory: parentCategory, Status: status, UpdatedAt: now, UpdatedBy: actor
+      }, idToken);`,
+    replace: `      firebaseDbRequest_('itemSubCategories/' + subCategoryId, 'patch', {
+        Name: name, ParentCategory: parentCategory, Status: status, CompanyID: companyId, UpdatedAt: now, UpdatedBy: actor // [PORT CHANGE subcat-company-store]
+      }, idToken);`
+  },
+  {
+    id: 'subcat-company-store-new',
+    why: "NEW DEVELOPMENT (owner, 2026-10-14; docs/modules/ITEM_SUBCATEGORIES.md): a new sub-category's company is stored.",
+    find: `    firebaseDbRequest_('itemSubCategories/' + newId, 'put', {
+      Name: name, ParentCategory: parentCategory, Status: status,`,
+    replace: `    firebaseDbRequest_('itemSubCategories/' + newId, 'put', {
+      Name: name, ParentCategory: parentCategory, Status: status, CompanyID: companyId, // [PORT CHANGE subcat-company-store-new]`
+  },
+  {
+    id: 'item-subcat-company',
+    why: "NEW DEVELOPMENT (owner, 2026-10-14; docs/modules/ITEM_SUBCATEGORIES.md): an item uses a shared sub-category or one of its own company's.",
+    find: `      if (subCat.ParentCategory !== category) throw new Error('Sub-category does not belong to the selected Category.');`,
+    replace: `      if (subCat.ParentCategory !== category) throw new Error('Sub-category does not belong to the selected Category.');
+      // [PORT CHANGE item-subcat-company] a shared one, or the item's company's.
+      if (subCat.CompanyID && subCat.CompanyID !== companyId) throw new Error('Sub-category "' + subCat.Name + '" belongs to ' + (companyId ? 'another company' : 'one company; a shared item uses a shared sub-category') + '.');`
   }
 ];

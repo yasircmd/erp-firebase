@@ -132,7 +132,7 @@ test('line manager: optional, no loops, not someone who left; Replace manager mo
   await assert.rejects(save(Object.assign({}, bossRec, { ManagerID: boss })), /own line manager/);
   await assert.rejects(save(Object.assign({}, bossRec, { ManagerID: r1 })), /Rami reports to Omar Boss .*can't be the line manager/);
   const m1Rec = (await get(m1)).employee;
-  await assert.rejects(save(Object.assign({}, m1Rec, { Status: 'Left', LeavingDate: '2026-09-30' })), /still has 3 direct reports: use Replace manager first/);
+  await assert.rejects(save(Object.assign({}, m1Rec, { Status: 'Left', LeavingDate: '2026-09-30', LeavingReason: 'Personal reasons' })), /still has 3 direct reports: use Replace manager first/);
   assert.deepEqual((await get(m1)).reports.map(x => x.FullName).sort(), ['Raed', 'Rami', 'Rana']);
 
   await assert.rejects(call('u-viewer', 'replaceManager', { fromEmployeeId: m1, toEmployeeId: boss }), /permission to change employee records/);
@@ -144,7 +144,7 @@ test('line manager: optional, no loops, not someone who left; Replace manager mo
   const h = (await get(r1)).history[0];
   assert.deepEqual([h.Action, h.Reason, h.Changes[0].From, h.Changes[0].To], ['Replace manager', 'Mona leaving', 'Mona One', 'Rana']);
   // Now Mona can leave; a leaver can't become a manager.
-  await save(Object.assign({}, m1Rec, { Status: 'Left', LeavingDate: '2026-09-30' }));
+  await save(Object.assign({}, m1Rec, { Status: 'Left', LeavingDate: '2026-09-30', LeavingReason: 'Personal reasons' }));
   await assert.rejects(save(emp({ FullName: 'New', ManagerID: m1 })), /Mona One has left/);
   // Loop: Rana's team can't be moved under Rami (who reports to Rana).
   await assert.rejects(call('u-admin', 'replaceManager', { fromEmployeeId: boss, toEmployeeId: r1 }), /Rami reports to Rana .*move them first/);
@@ -182,4 +182,21 @@ test('Master Data Import: an Employees sheet with the extra fields, a manager fr
   await rtdb.ref('permissions/EMPLOYEES/sensitive').set([]);
   const s = await call('u-admin', 'checkMasterImport', { master: 'EMPLOYEE', text: tsv([head, ['Nadia', '01', '01/05/2024', 'Accountant', 'G5', '', '', '784-9', 'AE07']]) });
   assert.deepEqual(s.issues.map(i => i.message), ['You do not have the right to enter Account No. / IBAN (Employees: sensitive).']);
+});
+
+test('Location (owner, 2026-10-14): an org unit of type Location, the company\'s or shared; changed by an ordinary edit', async () => {
+  await rtdb.ref('orgUnits').update({
+    LOC1: { Type: 'Location', Code: 'LOC1', Name: 'Dubai office', Status: 'Active' },
+    LOC2: { Type: 'Location', Code: 'LOC2', Name: 'Abu Dhabi yard', Status: 'Active', CompanyID: 'C2' },
+    LOC3: { Type: 'Location', Code: 'LOC3', Name: 'Sharjah store', Status: 'Active', CompanyID: 'C1' }
+  });
+  await assert.rejects(save(emp({ LocationID: 'LOC2' })), /That location belongs to another company/);
+  await assert.rejects(save(emp({ LocationID: 'CC1' })), /Location not found/);
+  const id = (await save(emp({ LocationID: 'LOC1' }))).employeeId;
+  const e = (await get(id)).employee;
+  assert.equal(e.LocationID, 'LOC1');
+  await save(Object.assign({}, e, { LocationID: 'LOC3' }));
+  const after = await get(id);
+  assert.equal(after.employee.LocationID, 'LOC3');
+  assert.match(JSON.stringify(after.history), /Location.*Dubai office.*Sharjah store/);
 });

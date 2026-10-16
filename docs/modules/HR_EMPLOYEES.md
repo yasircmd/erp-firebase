@@ -544,3 +544,69 @@ ignored.
 
 **Employee Records is complete.** Next: Payroll, with its own design
 (docs/modules/HR_PAYROLL.md).
+
+## Leaving reasons (owner, 2026-10-14)
+
+From UX testing: "If employment is left, need a reason for both resignation
+and termination." The owner: a list kept in Payroll Setup, with defaults
+and the option to add more.
+
+- **Payroll Setup → Leaving Reasons** (`leavingReasons.js`,
+  `leavingReasonSetup` list / save; Firestore `hrLeavingReasons`): a name
+  (unique) and a type, Resignation, Termination or Other, and In use.
+  Twelve defaults are made the first time the list is read (fixed ids, so
+  two first readers write the same): Better opportunity, Personal reasons,
+  Relocation, Further studies (Resignation); Performance, Misconduct,
+  Redundancy, End of contract, Absconding (Termination); Retirement, Death,
+  Mutual agreement (Other). Read by Payroll Setup or Employees users;
+  changed with Payroll Setup's write right.
+- **Employees:** On notice or Left needs a reason from the list, by id (the
+  screen) or by name (an import), stored as `LeavingReasonID`,
+  `LeavingReason` (its name, as before, so the Final Settlement and history
+  read it unchanged) and `LeavingType`; a new **Leaving note** keeps any
+  detail. A reason no longer in use is refused for a new leaver, kept by
+  those who have it. A record from before the list (free text, no id) keeps
+  its reason on ordinary edits, until its status or reason changes. Active
+  clears all of them.
+- Gratuity does not depend on the type today; the type is there for
+  reports and any later end-of-service rule.
+- Tests: `leavingReasons` suite (3); fixtures of the payroll, documents,
+  import and employee suites moved to list reasons; `payrollSetup.ui.js`
+  (5), `hrEmployees.ui.js` (9); negative control caught (reason not
+  required).
+
+## A leaver's access (owner, 2026-10-14)
+
+From UX testing: "Resigned employees' access should be auto disabled." The
+owner: at most 30 days from the last working day; the final settlement
+being **paid** ends it sooner; Admin or HR can extend or cancel it at any
+time; for ERP and Employee Portal logins alike.
+
+- **The last day** (`leaverAccess.js`, `lastDay`): for someone on notice
+  or who has left, the settlement's payment date (not before the last
+  working day), at most 30 days after the last working day; else none. An
+  override: Extend (a date from today on) or Keep (no end).
+- **Kept** on the employee (`AccessUntil`, `AccessOverride`) and the
+  linked ERP user (`users/{uid}/AccessUntil`), worked out again when the
+  status, leaving date or ERP user change (saveEmployee), the settlement is
+  paid or its payment reversed (payrollSettlement `pay` / `unpay`, also
+  through an interim payroll), or an override is set. Back to Active clears
+  it. An unlinked user loses the date.
+- **Enforced** with no scheduled job, by the date: `requireUser` (every
+  ERP call) and the portal's `whoIsAsking` refuse a sign-in after the last
+  day ("Your access ended on …: ask HR"). The portal used to end at once
+  on Left; a leaver now keeps it to the last day (to see the settlement and
+  payslips). A leaver from before this (no date) keeps the old portal rule
+  until the backfill below.
+- **Overrides:** `setLeaverAccess` (Employees write: HR, Admin), Extend /
+  Keep / Rule with a reason, in the employee history ("Access after
+  leaving"). The Employees screen shows the access line and the buttons.
+- **User Management** (patch `user-access-until` + SCREEN_EDITS): the
+  status shows "Leaving: access until …" or "Access ended …".
+- **Backfill, once:** `refreshLeaverAccess`, called when someone with
+  Employees write opens Employees; a marker (`appState/leaverAccess`)
+  keeps it to once. It fills in the last day for everyone already on
+  notice or gone; those 30 days past it lose access then.
+- Tests: `leaverAccess` suite (5), `hrEmployees.ui.js` (9),
+  `userMgmt.ui.js` (3); negative control caught (no check at sign-in).
+

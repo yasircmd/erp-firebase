@@ -5,8 +5,8 @@ order: 2
 modules: [FAASSET]
 sources: [functions/src/fixedAssetsMaster.js]
 summary: Maintain the asset record that contains its details, class, location and book value basis.
-reviewed: 2026-10-12
-fingerprint: 386190fba7860394
+reviewed: 2026-10-14
+fingerprint: 7e1db7806442ae08
 ---
 ## What it is for
 
@@ -28,7 +28,7 @@ Save the Planned record, then use the appropriate Asset Capitalization flow to r
 
 ### Details tab
 
-Review or maintain editable master details. Once capitalized, company and class are fixed; valuation changes apply from the next depreciation period and require a reason. Do not use Master to change a capitalized asset's assignment. Use the designated Asset Transfer workflow when it is available; if it is not on your menu yet, ask the Fixed Asset administrator about the approved transfer process. Planned records may be deleted; posted/capitalized history is retained.
+Review or maintain editable master details. Once capitalized, company and class are fixed; valuation changes apply from the next depreciation period and require a reason. The **Location** (where the asset is kept, from Organizational Units) is not part of the books and can be changed here at any time, even after depreciation; the change is kept in History. Do not use Master to change a capitalized asset's other assignments (division, branch, cost or profit center). Use the designated Asset Transfer workflow when it is available; if it is not on your menu yet, ask the Fixed Asset administrator about the approved transfer process. Planned records may be deleted; posted/capitalized history is retained.
 
 ### History tab
 

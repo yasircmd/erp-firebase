@@ -33,7 +33,7 @@ test.before(async () => {
   const des = (await call('u-admin', 'saveHrDesignation', { designation: { Title: 'Accountant' } })).designationId;
   const add = (name, x) => call('u-admin', 'saveEmployee', { employee: Object.assign({ FullName: name, CompanyID: 'C1', DesignationID: des, GradeID: g, Gender: 'Male', JoinDate: '2024-01-01',
     Mobile: '050 111', WorkEmail: name.split(' ')[0].toLowerCase() + '@x.test', IBAN: 'AE070331234567890123456' }, x) }).then(r => r.employeeId);
-  E.sara = await add('Sara Khan'); E.ali = await add('Ali Hassan'); E.ben = await add('Ben Okafor'); E.omar = await add('Omar Said', { Status: 'Left', LeavingDate: '2026-06-30' });
+  E.sara = await add('Sara Khan'); E.ali = await add('Ali Hassan'); E.ben = await add('Ben Okafor'); E.omar = await add('Omar Said', { Status: 'Left', LeavingDate: '2026-06-30', LeavingReason: 'Personal reasons' });
 });
 
 test('the specs: Employees can be updated, by Employee No., without the job and organization columns; a master without a code can\'t', async () => {

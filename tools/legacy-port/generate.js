@@ -388,6 +388,38 @@ const SCREEN_EDITS = [
   // edited user's id stayed in um-form-id and the save patched that user.
   { mod: 'USERMGMT', from: "document.getElementById('um-modal-title').textContent = 'Add New User';",
     to: "document.getElementById('um-modal-title').textContent = 'Add New User';\n      document.getElementById('um-form-id').value = ''; // reset() keeps a hidden input's value" },
+  // Organizational Units: the Location type (owner, 2026-10-14; patch
+  // org-unit-location): in the type filter, the form and the labels.
+  { mod: 'ORGUNITS', from: '      <option value="ProfitCenter">Profit Center</option>\n    </select>',
+    to: '      <option value="ProfitCenter">Profit Center</option>\n      <option value="Location">Location</option>\n    </select>' },
+  { mod: 'ORGUNITS', from: '          <option value="ProfitCenter">Profit Center</option>\n        </select>',
+    to: '          <option value="ProfitCenter">Profit Center</option>\n          <option value="Location">Location</option>\n        </select>' },
+  { mod: 'ORGUNITS', from: "CostCenter: 'Cost Center', ProfitCenter: 'Profit Center' };",
+    to: "CostCenter: 'Cost Center', ProfitCenter: 'Profit Center', Location: 'Location' };" },
+  // Item Sub-Category: shared or one company's, and opened from Item Master's
+  // "New…" with Back (owner, 2026-10-14; docs/modules/ITEM_SUBCATEGORIES.md).
+  { mod: 'ITEMSUBCAT', from: "<button id=\"isc-add-btn\" class=\"hidden bg-blue-600",
+    to: "<button id=\"isc-back-btn\" class=\"hidden bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700\"><i class=\"fa-solid fa-arrow-left\"></i> <span id=\"isc-back-label\">Back</span></button>\n    <button id=\"isc-add-btn\" class=\"hidden bg-blue-600" },
+  { mod: 'ITEMSUBCAT', from: "<th class=\"py-3 px-4\">Parent Category</th>",
+    to: "<th class=\"py-3 px-4\">Parent Category</th><th class=\"py-3 px-4\">Company</th>" },
+  { mod: 'ITEMSUBCAT', from: "<tr><td colspan=\"4\" class=\"py-6 text-center text-slate-500\">No sub-categories configured yet.</td></tr>",
+    to: "<tr><td colspan=\"5\" class=\"py-6 text-center text-slate-500\">No sub-categories configured yet.</td></tr>" },
+  { mod: 'ITEMSUBCAT', from: "        <td class=\"py-3 px-4 text-xs text-slate-400\">${escapeHtml(CATEGORY_LABELS[s.ParentCategory] || s.ParentCategory)}</td>",
+    to: "        <td class=\"py-3 px-4 text-xs text-slate-400\">${escapeHtml(CATEGORY_LABELS[s.ParentCategory] || s.ParentCategory)}</td>\n        <td class=\"py-3 px-4 text-xs\">${s.CompanyID ? '<span class=\"text-amber-400\">' + escapeHtml(companyLabel(s.CompanyID)) + '</span>' : '<span class=\"text-slate-500\">All Companies</span>'}</td>" },
+  { mod: 'ITEMSUBCAT', from: "      <div><label class=\"block text-xs font-medium text-slate-300 mb-1\">Name</label>",
+    to: "      <div><label class=\"block text-xs font-medium text-slate-300 mb-1\">Company</label><select id=\"isc-form-company\" class=\"w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm\"><option value=\"\">All Companies \u2014 shared</option></select></div>\n      <div><label class=\"block text-xs font-medium text-slate-300 mb-1\">Name</label>" },
+  { mod: 'ITEMSUBCAT', from: "      document.getElementById('isc-form-status').value = s.Status;\n    } else {\n      document.getElementById('isc-modal-title').textContent = 'Add Sub-Category';\n      document.getElementById('isc-form-id').value = '';\n    }",
+    to: "      document.getElementById('isc-form-status').value = s.Status;\n      document.getElementById('isc-form-company').value = s.CompanyID || '';\n    } else {\n      document.getElementById('isc-modal-title').textContent = 'Add Sub-Category';\n      document.getElementById('isc-form-id').value = '';\n      // Opened from Item Master's \"New\u2026\": its category and company.\n      if (prefill) { document.getElementById('isc-form-category').value = prefill.NewFor || ''; document.getElementById('isc-form-company').value = prefill.CompanyID || ''; prefill = null; }\n    }" },
+  { mod: 'ITEMSUBCAT', from: "      Status: document.getElementById('isc-form-status').value\n    };",
+    to: "      Status: document.getElementById('isc-form-status').value,\n      CompanyID: document.getElementById('isc-form-company').value\n    };" },
+  { mod: 'ITEMSUBCAT', from: "  let subCategories = [];\n",
+    to: "  let subCategories = [];\n  // Shared or one company's (owner, 2026-10-14; docs/modules/ITEM_SUBCATEGORIES.md).\n  let companies = [], prefill = null, returnChain = [];\n  const companyLabel = id => { const c = companies.find(x => x.CompanyID === id); return c ? (c.CompanyRefCode ? c.CompanyRefCode + ' - ' : '') + c.LegalName : id; };\n" },
+  { mod: 'ITEMSUBCAT', from: "    document.getElementById('app-title').innerHTML = '<i class=\"fa-solid fa-tags\"></i> Item Sub-Category';\n    fetchAndRender();",
+    to: "    document.getElementById('app-title').innerHTML = '<i class=\"fa-solid fa-tags\"></i> Item Sub-Category';\n    // From Item Master's \"New\u2026\" (owner, 2026-10-14): the Add form, and Back.\n    returnChain = window.__pendingReturnChain || []; window.__pendingReturnChain = [];\n    const params = window.__pendingModuleParams || null; window.__pendingModuleParams = null;\n    if (returnChain.length) {\n      const target = returnChain[returnChain.length - 1];\n      document.getElementById('isc-back-label').textContent = 'Back to ' + (target.label || target.moduleId);\n      document.getElementById('isc-back-btn').classList.remove('hidden');\n      document.getElementById('isc-back-btn').addEventListener('click', () => { const chain = returnChain.slice(); const t = chain.pop(); openModule(t.moduleId, t.params, chain); });\n    }\n    rpc.withSuccessHandler(list => {\n      companies = list || [];\n      document.getElementById('isc-form-company').innerHTML = '<option value=\"\">All Companies \u2014 shared</option>' + companies.map(c => '<option value=\"' + escapeHtml(c.CompanyID) + '\">' + escapeHtml(companyLabel(c.CompanyID)) + '</option>').join('');\n      renderTable();\n      if (params && params.NewFor && canWrite) { prefill = params; openModal(); }\n    }).withFailureHandler(() => {}).getActiveCompanies();\n    fetchAndRender();" },
+  // User Management: a leaver's access (owner, 2026-10-14; leaverAccess.js):
+  // the status shows its last day, or that it has ended.
+  { mod: 'USERMGMT', from: '<td class="py-3 px-4 text-xs">${escapeHtml(u.status)}</td>',
+    to: '<td class="py-3 px-4 text-xs">${escapeHtml(u.status)}${u.accessUntil ? `<div class="um-access text-[11px] ${u.accessUntil < new Date().toISOString().slice(0, 10) ? \'text-red-400\' : \'text-amber-400\'}">${u.accessUntil < new Date().toISOString().slice(0, 10) ? \'Access ended \' : \'Leaving: access until \'}${escapeHtml(u.accessUntil)}</div>` : \'\'}</td>' },
   // User Management: Last Login is now recorded at sign-in (session.js,
   // completeLogin) as a UTC timestamp; shown in local time, dd/mm/yyyy HH:MM.
   { mod: 'USERMGMT', from: '${escapeHtml(u.lastLogin)}',
