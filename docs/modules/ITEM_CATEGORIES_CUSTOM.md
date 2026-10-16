@@ -123,5 +123,7 @@ sit under it.
   - The codes (SP-000001, SP-000002), the base kept, the checks, the lock,
     Numbering's rows and an inactive category.
   - Sub-categories under it.
+  - UI: functions/test/ui/itemCategories.ui.js (2): New category… in the
+    form, an item in it, the list and the filter.
   - Negative control: with the item's code taken from its base category,
     test 2 failed. It was then restored.
