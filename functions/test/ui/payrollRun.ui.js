@@ -15,7 +15,9 @@ const results = [];
 function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, e.message.replace(/\s+/g, ' ').slice(0, 300)]); }); }
 
 (async () => {
-  await reset(baseFixture());
+  const fx = baseFixture();
+  fx.orgUnits.CC2 = { Type: 'CostCenter', Code: 'CC2', Name: 'Office', Status: 'Active', CompanyID: 'C1' };
+  await reset(fx);
   const g = (await call('u-admin', 'saveHrGrade', { grade: { Code: 'G3', Level: 3 } })).gradeId;
   const des = (await call('u-admin', 'saveHrDesignation', { designation: { Title: 'Accountant' } })).designationId;
   const emp = (name, extra) => call('u-admin', 'saveEmployee', { employee: Object.assign({ FullName: name, CompanyID: 'C1', DesignationID: des, GradeID: g, Gender: 'Male' }, extra) }).then(r => r.employeeId);
@@ -98,6 +100,32 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.close();
   });
 
+  await check('a cost centre for this run only (PAYROLL_COST_SPLIT.md): a split typed as codes and %, a reason; back to the employee\'s', async () => {
+    const p = await open('u-admin');
+    await p.click('#pr-runs-body tr[data-id]');
+    await p.waitForSelector('#pr-run-view:not(.hidden)', { timeout: 30000 });
+    await p.click('#pr-reg-body tr[data-emp="' + ali + '"]');
+    await p.waitForSelector('#pr-cc-change:not(.hidden)', { timeout: 20000 });
+    await p.click('#pr-cc-change');
+    await p.selectOption('#pr-cc-select', 'CC1');
+    await p.fill('#pr-cc-split', 'CC1 60, NOPE 40');
+    await p.click('#pr-cc-save');
+    for (let i = 0; i < 50 && !p.__dialogs.length; i++) await p.waitForTimeout(100);
+    assert.match(p.__dialogs.pop() || '', /"NOPE 40" is not a cost center code/);
+    await p.fill('#pr-cc-split', 'CC1 60, CC2 40');
+    await p.fill('#pr-cc-reason', 'Shared with the office in July');
+    await p.click('#pr-cc-save');
+    await p.waitForFunction(() => /changed for this run by Admin User: Shared with the office/.test(document.getElementById('pr-slip-cc').textContent), null, { timeout: 30000 });
+    assert.match(await p.textContent('#pr-slip-cc'), /CC1 — Workshop · split CC1 60, CC2 40/);
+    assert.deepEqual((await slip(ali)).CostSplit.map(x => [x.CostCenterID, x.Percent]), [['CC1', 60], ['CC2', 40]]);
+    await p.click('#pr-cc-change');
+    await p.click('#pr-cc-clear');
+    await p.waitForFunction(() => !/changed for this run/.test(document.getElementById('pr-slip-cc').textContent), null, { timeout: 30000 });
+    assert.equal((await slip(ali)).CostOverride, null);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await check('without the draft right: the run is read-only', async () => {
     const p = await open('u-viewer');
     assert.equal(await p.isHidden('#pr-new-btn'), true);
@@ -106,6 +134,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual([await p.isHidden('#pr-recalc'), await p.isHidden('#pr-delete'), await p.isHidden('#pr-in-actions')], [true, true, true]);
     assert.equal(await p.isDisabled('#pr-in-body .pr-in-emp >> nth=0'), true);
     assert.match(await p.textContent('#pr-totals'), /12,712\.50/, 'Payroll access is enough to see the amounts');
+    await p.click('#pr-reg-body tr[data-emp="' + ali + '"]');
+    await p.waitForFunction(() => /Cost center:/.test(document.getElementById('pr-slip-cc').textContent), null, { timeout: 20000 });
+    assert.ok(await p.isHidden('#pr-cc-change'), 'no changing the cost centre');
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

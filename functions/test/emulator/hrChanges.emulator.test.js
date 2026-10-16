@@ -49,7 +49,7 @@ test('each type is checked; one open change per employee; only with the right to
   await assert.rejects(draft({ Type: 'Promotion', After: after({ GradeID: low }) }), /A promotion moves to a higher grade \(from G3\)/);
   await assert.rejects(draft({ Type: 'Increment', After: after() }), /An increment changes the pay/);
   await assert.rejects(draft({ Type: 'Increment', After: after({ CostCenterID: 'CC2' }), NewPay: newPay(5500) }), /An increment keeps the job and organization/);
-  await assert.rejects(draft({ Type: 'Transfer', After: after() }), /A transfer changes the company, division, branch, cost center or work schedule/);
+  await assert.rejects(draft({ Type: 'Transfer', After: after() }), /A transfer changes the company, division, branch, cost center, cost split or work schedule/);
   await assert.rejects(draft({ Type: 'Transfer', After: after({ CostCenterID: 'CC2', GradeID: G.G5 }) }), /A transfer keeps the grade and designation/);
   await assert.rejects(draft({ Type: 'Increment', EffectiveDate: '2024-01-01', NewPay: newPay(5500), After: after() }), /before the date of joining/);
   await assert.rejects(draft({ Type: 'Increment', EffectiveDate: '2024-03-01', NewPay: newPay(5500), After: after() }), /can't change before its latest version starts \(2024-03-01\)/);

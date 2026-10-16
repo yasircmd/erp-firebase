@@ -26,6 +26,7 @@ const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { withGlobalLock } = require('./lock');
+const costSplit = require('./costSplit');
 const { todayIn } = require('./recurringSchedule');
 const { leaveTypes } = require('./hrLeaveSetup');
 const lv = require('./hrLeave');
@@ -245,7 +246,8 @@ async function glLinesFor(s) {
     if (!accountId || !a) { missing.add(what); return; }
     const cc = CC_TYPES.includes(a.AccountType);
     if (cc && !s.CostCenterID) noCc = true;
-    out.push({ AccountCode: a.AccountCode, Debit: amount > 0 ? amount : 0, Credit: amount < 0 ? -amount : 0, Description: what + label, CostCenterID: cc ? s.CostCenterID : '' });
+    (cc ? costSplit.shares(Math.abs(amount), s.CostCenterID, s.CostSplit) : [{ CostCenterID: '', Amount: Math.abs(amount) }]).forEach(p =>
+      out.push({ AccountCode: a.AccountCode, Debit: amount > 0 ? p.Amount : 0, Credit: amount < 0 ? p.Amount : 0, Description: what + label, CostCenterID: p.CostCenterID }));
   };
   const loanAcc = {};
   for (const l of s.Lines.filter(x => x.LoanID)) {
@@ -315,7 +317,7 @@ async function draftFields(emp, d) {
   if (!LEAVING.includes(emp.Status) || !emp.LeavingDate) throw failed(emp.FullName + ' has no leaving date: set it (On notice or Left) on the employee record first.');
   const c = await compute(emp, d);
   return Object.assign({ EmployeeID: emp.EmployeeID, EmployeeNo: emp.EmployeeNo || '', EmployeeName: emp.FullName || '', CompanyID: emp.CompanyID, CostCenterID: emp.CostCenterID || '',
-    JoinDate: emp.JoinDate, LeavingDate: emp.LeavingDate, LeavingReason: emp.LeavingReason || '', Notice: d.Notice || {}, Overrides: d.Overrides || {}, Others: d.Others || [], Note: text(d.Note, 500),
+    CostSplit: emp.CostSplit || [], JoinDate: emp.JoinDate, LeavingDate: emp.LeavingDate, LeavingReason: emp.LeavingReason || '', Notice: d.Notice || {}, Overrides: d.Overrides || {}, Others: d.Others || [], Note: text(d.Note, 500),
 
     CalculatedAt: new Date().toISOString() }, c);
 }

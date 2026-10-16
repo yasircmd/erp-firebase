@@ -27,6 +27,7 @@ const { todayIn } = require('./recurringSchedule');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { loadSetup } = require('./hrSetup');
 const pay = require('./hrPay');
+const costSplit = require('./costSplit');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'EMPCHANGE';
@@ -118,8 +119,14 @@ async function evaluate(user, input, emp) {
   const grade = setup.grades.find(x => x.GradeID === after.GradeID);
   if (!des || !grade) throw new HttpsError('invalid-argument', 'Choose the designation and grade.');
   const oldGrade = setup.grades.find(x => x.GradeID === emp.GradeID);
-  const changed = k => String(emp[k] || '') !== String(after[k] || '');
-  const jobChanged = JOB.filter(changed), orgChanged = ORG.filter(changed);
+  // The cost split by % (PAYROLL_COST_SPLIT.md, decision 176): set or changed by a Transfer.
+  // Not given: kept, unless the main cost center changed and it no longer includes it.
+  const wantSplit = (d.After || {}).CostSplit;
+  const kept = (emp.CostSplit || []).some(x => x.CostCenterID === after.CostCenterID) ? (emp.CostSplit || []) : [];
+  try { after.CostSplit = wantSplit === undefined ? kept : costSplit.clean(wantSplit, after.CostCenterID, units, after.CompanyID); }
+  catch (e) { throw new HttpsError('invalid-argument', e.message); }
+  const changed = k => k === 'CostSplit' ? JSON.stringify(emp.CostSplit || []) !== JSON.stringify(after.CostSplit) : String(emp[k] || '') !== String(after[k] || '');
+  const jobChanged = JOB.filter(changed), orgChanged = ORG.concat(['CostSplit']).filter(changed);
   if ((jobChanged.includes('DesignationID') && !des.Active) || (jobChanged.includes('GradeID') && !grade.Active)) throw new HttpsError('invalid-argument', 'That designation or grade is no longer in use.');
 
   // Pay: the proposed version, against the one in force on the date.
@@ -146,7 +153,7 @@ async function evaluate(user, input, emp) {
     if (jobChanged.length || orgChanged.length) throw new HttpsError('invalid-argument', 'An increment keeps the job and organization: use a Promotion or a Transfer for those.');
   }
   if (type === 'Transfer') {
-    if (!orgChanged.length) throw new HttpsError('invalid-argument', 'A transfer changes the company, division, branch, cost center or work schedule.');
+    if (!orgChanged.length) throw new HttpsError('invalid-argument', 'A transfer changes the company, division, branch, cost center, cost split or work schedule.');
     if (jobChanged.length) throw new HttpsError('invalid-argument', 'A transfer keeps the grade and designation: use a Promotion for those.');
   }
   // Warnings the approvers see (decision 5).
@@ -161,7 +168,7 @@ async function evaluate(user, input, emp) {
   const toEarn = newPay ? newPay.MonthlyEarnings : fromEarn;
   return {
     Type: type, EffectiveDate: effective, Reason: text(d.Reason, 1000), After: after,
-    Before: Object.fromEntries(JOB.concat(ORG).map(k => [k, emp[k] || ''])),
+    Before: Object.assign(Object.fromEntries(JOB.concat(ORG).map(k => [k, emp[k] || ''])), { CostSplit: emp.CostSplit || [] }),
     PayBefore: before ? { VersionID: before.VersionID, EffectiveFrom: before.EffectiveFrom, Lines: before.Lines, Terms: before.Terms, MonthlyEarnings: before.MonthlyEarnings, Basic: before.Basic } : null,
     NewPay: payChanged ? newPay : null,
     Increase: round2(toEarn - fromEarn), IncreasePercent: fromEarn ? round2((toEarn - fromEarn) / fromEarn * 100) : null,
@@ -170,6 +177,8 @@ async function evaluate(user, input, emp) {
 }
 
 // ---------- applying an approved change ----------
+
+const splitChanged = c => c.After.CostSplit !== undefined && JSON.stringify(c.Before.CostSplit || []) !== JSON.stringify(c.After.CostSplit || []);
 
 async function applyJob(c, user) {
   const emp = await loadEmployee(c.EmployeeID);
@@ -180,6 +189,14 @@ async function applyJob(c, user) {
       { UpdatedAt: new Date().toISOString(), UpdatedBy: user ? user.uid : 'system', UpdatedByName: user ? actorName(user) : 'Employee Change (scheduled)' }));
     await HISTORY().add({ EmployeeID: emp.EmployeeID, Action: c.Type, Changes: keys.map(k => ({ Field: k, Label: LABEL[k], From: name(k, emp[k]), To: name(k, c.After[k]), Sensitive: false })),
       Reason: c.ChangeNumber + ', effective ' + c.EffectiveDate, By: user ? user.uid : 'system', ByName: user ? actorName(user) : 'Employee Change (scheduled)', At: new Date().toISOString() });
+  }
+  // The cost split (decision 176), when the change carries one (changes made before it don't).
+  if (c.After.CostSplit !== undefined && JSON.stringify(emp.CostSplit || []) !== JSON.stringify(c.After.CostSplit || [])) {
+    const units = (await rtdb.ref('orgUnits').get()).val() || {};
+    await EMPLOYEES().doc(emp.EmployeeID).update({ CostSplit: c.After.CostSplit || [], UpdatedAt: new Date().toISOString() });
+    await HISTORY().add({ EmployeeID: emp.EmployeeID, Action: c.Type, Changes: [{ Field: 'CostSplit', Label: 'Cost split', From: costSplit.describe(emp.CostSplit, units) || 'none',
+      To: costSplit.describe(c.After.CostSplit, units) || 'none', Sensitive: false }], Reason: c.ChangeNumber + ', effective ' + c.EffectiveDate,
+      By: user ? user.uid : 'system', ByName: user ? actorName(user) : 'Employee Change (scheduled)', At: new Date().toISOString() });
   }
   await CHANGES().doc(c.ChangeID).update({ JobApplied: true, Scheduled: false, JobAppliedAt: new Date().toISOString() });
 }
@@ -202,7 +219,7 @@ async function apply(c, user) {
       .filter(x => x.From < c.EffectiveDate).concat([{ From: c.EffectiveDate, ScheduleID: c.After.ScheduleID || '' }]);
     await EMPLOYEES().doc(c.EmployeeID).update({ Schedules: list.sort((a, b) => a.From.localeCompare(b.From)) });
   }
-  const hasJob = JOB.concat(ORG).some(k => String(c.Before[k] || '') !== String(c.After[k] || ''));
+  const hasJob = JOB.concat(ORG).some(k => String(c.Before[k] || '') !== String(c.After[k] || '')) || splitChanged(c);
   if (!hasJob) return CHANGES().doc(c.ChangeID).update({ JobApplied: true, Scheduled: false });
   if (c.EffectiveDate <= today()) return applyJob(c, user);
   return CHANGES().doc(c.ChangeID).update({ Scheduled: true });
@@ -233,12 +250,14 @@ exports.getEmployeeChanges = onCallWithMessages(onCallOptions, async (request) =
   await requireCap(user);
   await applyDueChanges();
   const name = await namer();
+  const units = (await rtdb.ref('orgUnits').get()).val() || {};
   const seesPay = await can(user, 'sensitive', 'EMPLOYEES');
   const changes = (await CHANGES().get()).docs.map(d => Object.assign({ ChangeID: d.id }, d.data()))
     .filter(c => userCanAccessCompany(user.profile, c.CompanyID))
     .map(c => ({ ChangeID: c.ChangeID, ChangeNumber: c.ChangeNumber || '', Type: c.Type, Status: c.Status, EmployeeID: c.EmployeeID, EmployeeNo: c.EmployeeNo, EmployeeName: c.EmployeeName,
       CompanyID: c.CompanyID, EffectiveDate: c.EffectiveDate, Scheduled: Boolean(c.Scheduled), Increase: seesPay ? c.Increase : null,
-      Summary: JOB.concat(ORG).filter(k => String(c.Before[k] || '') !== String(c.After[k] || '')).map(k => LABEL[k] + ': ' + name(k, c.Before[k]) + ' → ' + name(k, c.After[k])).join('; '),
+      Summary: JOB.concat(ORG).filter(k => String(c.Before[k] || '') !== String(c.After[k] || '')).map(k => LABEL[k] + ': ' + name(k, c.Before[k]) + ' → ' + name(k, c.After[k]))
+        .concat(splitChanged(c) ? ['Cost split: ' + (costSplit.describe(c.Before.CostSplit, units) || 'none') + ' → ' + (costSplit.describe(c.After.CostSplit, units) || 'none')] : []).join('; '),
       UpdatedAt: c.UpdatedAt || c.CreatedAt }))
     .sort((a, b) => String(b.UpdatedAt).localeCompare(String(a.UpdatedAt)));
   return { changes, canDraft: await can(user, 'draft'), canPost: await can(user, 'post'), canSeePay: seesPay, types: TYPES };
@@ -254,6 +273,8 @@ exports.getEmployeeChange = onCallWithMessages(onCallOptions, async (request) =>
   const name = await namer();
   const seesPay = await payVisible(user, c);
   const names = Object.fromEntries(JOB.concat(ORG).map(k => [k, { Before: name(k, c.Before[k]), After: name(k, c.After[k]) }]));
+  const units = (await rtdb.ref('orgUnits').get()).val() || {};
+  names.CostSplit = { Before: costSplit.describe(c.Before.CostSplit, units) || 'none', After: costSplit.describe(c.After.CostSplit, units) || 'none' };
   return { change: seesPay ? c : withoutPay(c), names, approval: inst ? { Status: inst.Status, Levels: inst.RequiredLevels || [], Decisions: inst.Decisions || [] } : null,
     myLevels, canSeePay: seesPay, canDraft: await can(user, 'draft'), canPost: await can(user, 'post') };
 });
@@ -362,7 +383,7 @@ exports.getEmployeeChangeStart = onCallWithMessages(onCallOptions, async (reques
   const current = pay.inForce(active, today()) || active[active.length - 1] || null;
   return {
     employee: Object.assign({ EmployeeID: emp.EmployeeID, EmployeeNo: emp.EmployeeNo, FullName: emp.FullName, JoinDate: emp.JoinDate, Status: emp.Status },
-      Object.fromEntries(JOB.concat(ORG).map(k => [k, emp[k] || '']))),
+      Object.fromEntries(JOB.concat(ORG).map(k => [k, emp[k] || ''])), { CostSplit: emp.CostSplit || [] }),
     pay: seesPay ? current : null, latestPayFrom: active.length ? active[0].EffectiveFrom : '', elements: seesPay ? await pay.elements() : [], canSeePay: seesPay
   };
 });

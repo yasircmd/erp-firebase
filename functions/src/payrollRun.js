@@ -27,6 +27,8 @@ const calc = require('./payrollCalc');
 const loans = require('./payrollLoans');
 const P = require('./payrollProvisions');
 const ED = require('./payrollInputs');
+const costSplit = require('./costSplit');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const onCallOptions = { region: 'us-central1' };
 const RUNS = () => firestore.collection('payrollRuns');
@@ -240,7 +242,11 @@ async function calculate(run, user) {
     if (!(key in bands)) bands[key] = await pay.band(e);
     const bw = pay.bandWarning(r.Basic || null, bands[key]);
     if (bw) r.Warnings.push(bw);
-    slips.push(Object.assign({ EmployeeID: e.EmployeeID, EmployeeNo: e.EmployeeNo || '', EmployeeName: e.FullName || '', CostCenterID: e.CostCenterID || '',
+    // A cost centre or split for this run only (PAYROLL_COST_SPLIT.md, decision 173), else the employee's.
+    const o = (run.CostOverrides || {})[e.EmployeeID];
+    slips.push(Object.assign({ EmployeeID: e.EmployeeID, EmployeeNo: e.EmployeeNo || '', EmployeeName: e.FullName || '',
+      CostCenterID: o ? o.CostCenterID : (e.CostCenterID || ''), CostSplit: o ? (o.CostSplit || []) : (e.CostSplit || []),
+      CostOverride: o ? { Reason: o.Reason, ByName: o.ByName, At: o.At } : null,
       JoinDate: e.JoinDate, LeavingDate: e.LeavingDate || '', Inputs: inputs[e.EmployeeID] || [], Provisions: await provisionsFor(e, r) }, r));
   }
   // The register's columns: earnings, then deductions, in the elements' order.
@@ -349,6 +355,42 @@ exports.recalculatePayrollRun = onCallWithMessages(onCallOptions, async (request
   const run = await loadRun(user, (request.data || {}).runId);
   requireDraft(run);
   return { success: true, run: await calculate(run, user) };
+});
+
+// A cost centre (or split) for one employee on this run only, with a reason
+// (decision 173: whoever may draft the run). The employee record stays as
+// it is; a recalculation keeps it. clear: back to the employee's own.
+exports.setPayrollCostOverride = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'draft');
+  const d = request.data || {};
+  const run = await loadRun(user, d.runId);
+  requireDraft(run);
+  const empId = text(d.employeeId, 80);
+  const slipRef = SLIPS(run.RunID).doc(empId);
+  const slip = (await slipRef.get()).data();
+  if (!slip) bad('That employee is not on this run.');
+  const emp = (await EMPLOYEES().doc(empId).get()).data() || {};
+  let o = null;
+  if (!d.clear) {
+    const reason = text(d.reason, 300);
+    if (!reason) bad('Enter the reason for the change.');
+    const units = (await rtdb.ref('orgUnits').get()).val() || {};
+    const cc = text(d.costCenterId, 80);
+    const u = units[cc];
+    if (!u || u.Type !== 'CostCenter' || (u.CompanyID && u.CompanyID !== run.CompanyID)) bad('Choose a cost center of the company.');
+    let split;
+    try { split = costSplit.clean(d.costSplit, cc, units, run.CompanyID); } catch (e) { bad(e.message); }
+    o = { CostCenterID: cc, CostSplit: split, Reason: reason, By: user.uid, ByName: actorName(user), At: new Date().toISOString() };
+  }
+  const update = {};
+  update['CostOverrides.' + empId] = o || FieldValue.delete();
+  update.History = (run.History || []).concat([{ Event: o ? 'Cost centre changed for ' + (slip.EmployeeName || empId) + ': ' + o.Reason : 'Cost centre back to the employee\'s for ' + (slip.EmployeeName || empId),
+    By: actorName(user), At: new Date().toISOString() }]);
+  await RUNS().doc(run.RunID).update(update);
+  await slipRef.update(o ? { CostCenterID: o.CostCenterID, CostSplit: o.CostSplit, CostOverride: { Reason: o.Reason, ByName: o.ByName, At: o.At } }
+    : { CostCenterID: emp.CostCenterID || '', CostSplit: emp.CostSplit || [], CostOverride: null });
+  return { success: true };
 });
 
 exports.deletePayrollRun = onCallWithMessages(onCallOptions, async (request) => {

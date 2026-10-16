@@ -1,0 +1,25 @@
+# UX testing Tier 3, wave 2 (owner, 2026-10-16; docs/modules/UX_TIER3.md, round 15).
+# Run with --screens. Hosting too (tools/deploy-hosting.sh): the Help pages.
+# I: payroll cost centre per run and split by % (PAYROLL_COST_SPLIT.md).
+#    setPayrollCostOverride is NEW.
+createPayrollRun
+recalculatePayrollRun
+savePayrollInputs
+getPayrollRun
+setPayrollCostOverride
+submitPayrollRun
+decidePayrollApproval
+postPayrollRun
+getPayrollGlImpact
+getPayrollPayslips
+saveEmployeeChange
+submitEmployeeChange
+decideEmployeeChangeApproval
+getEmployeeChanges
+getEmployeeChange
+getEmployeeChangeStart
+saveSettlement
+submitSettlement
+decideSettlementApproval
+postSettlement
+markInterimPaid

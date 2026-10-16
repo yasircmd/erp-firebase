@@ -78,3 +78,29 @@ through an approved Employee Change, and applies to every expense line
 chosen **main** cost centre; HR_PAYROLL.md decision 4 changes accordingly,
 still with no profit centre. The payslip prints the slip's own cost centre
 (the bug found).
+
+## As built (2026-10-16)
+
+- `costSplit.js`: `shares(amount, main, split)` (the rounding to the
+  largest share), `clean()` (2–10 cost centres of the company, 100%, the
+  main one included, no repeats) and `describe()`.
+- Employee `CostSplit: [{ CostCenterID, Percent }]`, set only by a
+  **Transfer** (`hrChanges.js`). It is kept when not given, dropped if the
+  main cost centre changes away from it, logged in the history, and shown
+  in the change summary. A change of the split only is a transfer.
+- Posting: `payrollPost.js` (every Expense / Revenue / COGS line, the
+  provisions' expense included), `payrollSettlement.js` (the settlement
+  copies the employee's split at draft) and `payrollInputs.js` (interim
+  payments). Balance-sheet lines stay single.
+- Per run: `setPayrollCostOverride({ runId, employeeId, costCenterId,
+  costSplit, reason } | { clear })`, the draft right, a draft run;
+  `run.CostOverrides[empId]`, applied by `calculate` (so a recalculation
+  keeps it), logged in the run's history. On screen it is the slip panel's
+  **Change for this run**; the split is typed as codes and %.
+- Payslip: the slip's own cost centre (`units[s.CostCenterID]`) and its
+  split; the bug of showing the employee's current one is fixed.
+- Tests: `payrollCostSplit` suite (4), `costSplit` unit (3), the payroll
+  and HR suites (68) and UI (payrollRun 5, hrChanges 3, payrollPost,
+  payrollSettlement, payrollInterim, hrEmployees, essPortal). Negative
+  controls: the rounding (unit) and the payslip fix (suite) caught.
+

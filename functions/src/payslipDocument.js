@@ -31,7 +31,7 @@ function payslipHtml(p, s) {
   const ytd = s.YTD || { Earnings: 0, Deductions: 0, Net: 0 };
   return '<div class="payslip-doc"><h1>' + esc(p.company.Name) + '</h1>' + (p.company.Address ? '<div>' + esc(p.company.Address) + '</div>' : '') +
     '<h2>Payslip — ' + esc(p.month) + (p.status && p.status !== 'Posted' ? ' (' + esc(STATUS[p.status] || p.status) + ', not final)' : '') + '</h2>' +
-    '<table><tbody>' + info('Employee', s.EmployeeNo + ' · ' + s.EmployeeName) + info('Designation', s.Designation) + info('Cost center', s.CostCenterName) + info('Joined', s.JoinDate) +
+    '<table><tbody>' + info('Employee', s.EmployeeNo + ' · ' + s.EmployeeName) + info('Designation', s.Designation) + info('Cost center', (s.CostCenterName || '') + (s.CostSplitText ? ' (split: ' + s.CostSplitText + ')' : '')) + info('Joined', s.JoinDate) +
     info('Bank', [s.BankName, s.IBAN].filter(Boolean).join(' · ')) + '</tbody></table>' +
     '<table><thead><tr><th>Earnings</th><th>How</th><th class="r">Amount</th></tr></thead><tbody>' + rows('Earning') + '<tr><th colspan="2">Total earnings</th><th class="r">' + money(s.Earnings) + '</th></tr></tbody></table>' +
     '<table><thead><tr><th>Deductions</th><th>How</th><th class="r">Amount</th></tr></thead><tbody>' + rows('Deduction') + '<tr><th colspan="2">Total deductions</th><th class="r">' + money(s.Deductions) + '</th></tr></tbody></table>' +

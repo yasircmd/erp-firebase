@@ -61,6 +61,10 @@
       <tr><td class="py-1 pr-6 text-xs text-slate-400">Division</td><td class="py-1 pr-6" data-now="DivisionID"></td><td class="py-1"><select data-k="DivisionID" data-unit="Division" class="ec-f ec-after ec-unit bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
       <tr><td class="py-1 pr-6 text-xs text-slate-400">Branch</td><td class="py-1 pr-6" data-now="BranchID"></td><td class="py-1"><select data-k="BranchID" data-unit="Branch" class="ec-f ec-after ec-unit bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
       <tr><td class="py-1 pr-6 text-xs text-slate-400">Cost center (department)</td><td class="py-1 pr-6" data-now="CostCenterID"></td><td class="py-1"><select data-k="CostCenterID" data-unit="CostCenter" class="ec-f ec-after ec-unit bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
+      <tr><td class="py-1 pr-6 text-xs text-slate-400 align-top">Cost split <span class="text-slate-500">(optional, by %)</span></td><td class="py-1 pr-6 align-top" id="ec-split-now"></td>
+        <td class="py-1"><div id="ec-split" class="space-y-1"></div>
+          <button type="button" id="ec-split-add" class="mt-1 text-xs text-blue-400 hover:text-blue-300"><i class="fa-solid fa-plus"></i> Add a share</button>
+          <p class="text-xs text-slate-500 mt-1">Shares its cost across cost centers; they add up to 100% and include the cost center above.</p></td></tr>
       <tr><td class="py-1 pr-6 text-xs text-slate-400">Work schedule</td><td class="py-1 pr-6" data-now="ScheduleID"></td><td class="py-1"><select data-k="ScheduleID" id="ec-after-schedule" class="ec-f ec-after bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-slate-300"></select></td></tr>
     </tbody></table>
   </div>
@@ -171,10 +175,26 @@
   }
   function fillNow(before, names) {
     document.querySelectorAll('[data-now]').forEach(td => { const k = td.dataset.now; td.textContent = names ? (names[k] && names[k].Before) || nameOf(k, '') : nameOf(k, before[k]); });
+    $('ec-split-now').textContent = names && names.CostSplit ? names.CostSplit.Before : (splitText(before.CostSplit) || 'none');
   }
   function fillAfter(afterVals) {
     fillAfterSelects(afterVals.CompanyID);
     document.querySelectorAll('.ec-after').forEach(sel => { sel.value = afterVals[sel.dataset.k] || ''; });
+    splitRows = (afterVals.CostSplit || []).map(x => ({ CostCenterID: x.CostCenterID, Percent: x.Percent }));
+    renderSplit();
+  }
+  // The cost split (docs/modules/PAYROLL_COST_SPLIT.md): cost centers and %.
+  let splitRows = [];
+  const splitText = list => (list || []).map(x => { const u = units.find(v => v.UnitID === x.CostCenterID); return (u ? u.Name : x.CostCenterID) + ' ' + x.Percent + '%'; }).join(', ');
+  function renderSplit() {
+    const co = val('ec-after-company');
+    const ccs = units.filter(u => u.Type === 'CostCenter' && (!u.CompanyID || u.CompanyID === co));
+    $('ec-split').innerHTML = splitRows.map((r, i) => '<div class="flex gap-2 items-center"><select data-i="' + i + '" class="ec-split-cc bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-sm text-slate-300"' + (editable ? '' : ' disabled') + '>' +
+      '<option value="">—</option>' + ccs.map(u => '<option value="' + escapeHtml(u.UnitID) + '"' + (u.UnitID === r.CostCenterID ? ' selected' : '') + '>' + escapeHtml(u.Code + ' — ' + u.Name) + '</option>').join('') + '</select>' +
+      '<input data-i="' + i + '" type="number" min="0" max="100" step="0.01" value="' + (r.Percent === '' || r.Percent == null ? '' : r.Percent) + '" class="ec-split-pct w-20 bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-sm text-right"' + (editable ? '' : ' disabled') + '><span class="text-xs text-slate-400">%</span>' +
+      (editable ? '<button type="button" data-i="' + i + '" class="ec-split-del text-slate-500 hover:text-red-400"><i class="fa-solid fa-xmark"></i></button>' : '') + '</div>').join('') ||
+      '<span class="text-xs text-slate-500">No split: all on the cost center.</span>';
+    $('ec-split-add').classList.toggle('hidden', !editable);
   }
   // Pay: each fixed element, now and new.
   function renderPay(elements, now, proposed, visible) {
@@ -280,6 +300,7 @@
   function collect() {
     const after = {};
     document.querySelectorAll('.ec-after').forEach(sel => { after[sel.dataset.k] = sel.value; });
+    after.CostSplit = splitRows.filter(r => r.CostCenterID || r.Percent !== '').map(r => ({ CostCenterID: r.CostCenterID, Percent: Number(r.Percent) }));
     const lines = proposedLines();
     return { ChangeID: current ? current.ChangeID : '', EmployeeID: val('ec-employee'), Type: val('ec-type'), EffectiveDate: val('ec-effective'), Reason: val('ec-reason'), After: after,
       NewPay: lines.some(l => l.Amount !== '') ? { Lines: lines, Terms: (start && start.pay && start.pay.Terms) || (current && current.NewPay && current.NewPay.Terms) || [] } : null };
@@ -316,7 +337,11 @@
     $('ec-back-btn').addEventListener('click', () => confirmLeave(showList));
     $('ec-type').addEventListener('change', showSections);
     $('ec-employee').addEventListener('change', () => startFor(val('ec-employee')));
-    $('ec-after-company').addEventListener('change', () => fillAfterSelects(val('ec-after-company')));
+    $('ec-after-company').addEventListener('change', () => { fillAfterSelects(val('ec-after-company')); renderSplit(); });
+    $('ec-split-add').addEventListener('click', () => { splitRows.push({ CostCenterID: '', Percent: '' }); isDirty = true; renderSplit(); });
+    $('ec-split').addEventListener('change', e => { const i = Number(e.target.dataset.i); if (e.target.classList.contains('ec-split-cc')) { splitRows[i].CostCenterID = e.target.value; isDirty = true; } });
+    $('ec-split').addEventListener('input', e => { const i = Number(e.target.dataset.i); if (e.target.classList.contains('ec-split-pct')) { splitRows[i].Percent = e.target.value; isDirty = true; } });
+    $('ec-split').addEventListener('click', e => { const b = e.target.closest('.ec-split-del'); if (b) { splitRows.splice(Number(b.dataset.i), 1); isDirty = true; renderSplit(); } });
     $('ec-pct-apply').addEventListener('click', () => {
       const basic = document.querySelector('.ec-pay-amount[data-basic="1"]');
       const now = start && start.pay && start.pay.Lines.find(l => l.IsBasic);

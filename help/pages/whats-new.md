@@ -12,6 +12,13 @@ screen.
 
 ## 16/10/2026
 
+- **Payroll: share an employee's cost across cost centers.** A Transfer in
+  Employee Change can now set a **cost split** by % (for example 60% / 40%).
+  Every payroll expense of the employee is then shared that way. In a draft
+  payroll run you can also change one employee's cost center (or split) for
+  **this run only**, with a reason. The payslip now shows the cost center
+  it posted to, even after a later transfer. See
+  [Employee Change](employee-change.html) and [Payroll Run](payroll-run.html).
 - **Paste lines from Excel** into Purchase Requisition, Inventory Purchase
   Requisition and Sales Order: **Copy Table** gives the columns (also on
   an empty grid), **Paste from Excel** adds the rows. A row that isn't

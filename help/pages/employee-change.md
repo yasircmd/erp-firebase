@@ -5,8 +5,8 @@ order: 3
 modules: [EMPCHANGE]
 sources: [functions/src/hrChanges.js, functions/src/hrPay.js]
 summary: Record changes to an employee’s status, pay, roles or department while keeping the payroll and approvals aligned.
-reviewed: 2026-10-12
-fingerprint: 8482524b8a0d66b1
+reviewed: 2026-10-16
+fingerprint: d320bd2803e0f964
 ---
 ## What it is for
 
@@ -28,7 +28,8 @@ Use it for a real employment change, not to correct a typo. A one-off data-entry
 2. Select the document type:
 	- **Promotion** changes grade or designation; pay may also change. A grade promotion must move to a higher level.
 	- **Increment** changes pay while keeping job and organization unchanged.
-	- **Transfer** changes company, division, branch, cost center, or work schedule while keeping grade and designation unchanged.
+	- **Transfer** changes company, division, branch, cost center, **cost split** or work schedule while keeping grade and designation unchanged.
+	- **Cost split** (optional): share the employee's cost across cost centers by %, for example Workshop 60% and Office 40%. Add a share for each cost center; the shares add up to 100% and include the cost center above (the main one, the department). Once approved, every payroll expense line of the employee (salary, provisions, final settlement, interim payments) is shared the same way. Approvals and reports still use the main cost center.
 3. Enter the effective date and reason. For compensation, enter the new fixed pay-element amounts and terms. A percentage raise can be applied to the basic; review the calculated monthly increase.
 4. Review the validation warnings, including designation grade-range and company pay-band warnings. Check the “before” and “after” summary carefully, especially for a company transfer.
 5. Save as a draft, then submit. The configured approvers act in order; a rejected change can be corrected and resubmitted.
@@ -47,7 +48,8 @@ Employee Changes access is needed to view documents. Its **draft** right prepare
 - **A second change cannot be opened:** only one Draft, Pending Approval, or Rejected change may be open for an employee. Finish, delete, or resolve it first.
 - **Promotion refused:** it must change grade or designation; a grade change must move to a higher level.
 - **Increment refused:** it must change compensation only. Use Promotion or Transfer for job/organization changes.
-- **Transfer refused:** it must change company, division, branch, cost center, or schedule, without changing grade/designation.
+- **Transfer refused:** it must change company, division, branch, cost center, cost split, or schedule, without changing grade/designation.
+- **Cost split refused:** the shares must add up to 100%, have at least two cost centers of the company, and include the main cost center.
 - **Pay date refused:** a new pay version cannot begin on or before the latest pay version's start date.
 - **Approved change not visible yet:** check its effective date. Future-dated job/organization changes do not take effect early.
 - **Pay values are hidden:** grant the sensitive right only to people who need access; approvers can see the pay on the document they must decide.
