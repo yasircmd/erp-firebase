@@ -124,4 +124,4 @@ uses, so every rule (prices, stock reservation, approvals) still applies.
     documents (when document storage is connected).
 - Online only (233). No visit notes (236).
 
-**Tests:** emulator `salesRep`.
+**Tests:** emulator `salesRep` (5); UI `salesRepPortal` (4). Negative control: a rep allowed every customer — 4 tests fail.

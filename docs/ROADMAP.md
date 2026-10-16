@@ -152,18 +152,24 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   Reset (Chart of Accounts and the transactional data) so the chart starts
   on the new seed (decision 209). Wave 3: the owner's direction 2026-10-16
   (round 16); P and R skipped for now; O, Q, S, T designs agreed (211–236,
-  "go with your recommendations"); building in order O, Q, S, T. **O built
-  2026-10-16** on branch `tier3-wave3` (MULTI_CURRENCY.md "As built", O1
-  and O2): rates by date and the "rates" right, the Exchange Gain / Loss
-  account, foreign-currency Customer / Vendor Invoices (print with VAT in
-  AED), Sales Return at the invoice's rate, CBT / JV / PDC lines in FC with
-  realized exchange differences, openings in FC, bank accounts in FC (CBT
-  in that currency, GL ledger balance in it), SOA and aging in FC. Suite
-  multiCurrency (11) and UI multiCurrency (11), three negative controls;
-  deploy set `ux-tier3-wave3` (132 functions, --screens, then Hosting).
-  After it goes live: tick "rates"; set each company's Exchange Gain /
-  Loss account. Later (owner's call): revaluation, orders / GRNs / DNs in
-  FC. **Next: Q, S, T**,
+  "go with your recommendations"); building in order O, Q, S, T. **All four
+  built 2026-10-16** on branch `tier3-wave3` ("As built" in each doc):
+  O foreign currency (MULTI_CURRENCY.md: rates, FC invoices with VAT in AED
+  on the print, returns, CBT / JV / PDC / openings in FC with realized
+  exchange differences, bank accounts in FC, SOA and aging in FC); Q
+  projects and dimension rules (PROJECTS_DIMENSIONS.md: Required / Optional
+  / Not used per heading or account, Project units, the Project Report and
+  project filters); S e-invoicing ready (E_INVOICING.md: PINT AE built on
+  posting, status and XML, no ASP so nothing sent); T sales reps in the
+  Employee Portal (SALES_REP_PORTAL.md: draft orders and collections). Each
+  with tests and a negative control, Help and What's new. Deploy set
+  `ux-tier3-wave3` (372 functions: Q's rule is in glWriting, which nearly
+  every posting function uses; --screens, then Hosting for the Help and
+  ess.html). After it goes live: tick "rates"; set each company's Exchange
+  Gain / Loss account; add "Project Report" in Tree Management; set up
+  sales reps. Later (owner's call): revaluation; orders / GRNs / DNs in FC;
+  a Project on GRN, PO, SO, DN and payroll; project budgets; the ASP
+  connector once chosen**,
   triaged into three tiers (in this session's plan, agreed 2026-10-14).
   - **Tier 1, fix now** (owner said go, 2026-10-14): all nine built and
     tested 2026-10-14 on branch `tier1-ux-fixes` (smoke 123/123; the

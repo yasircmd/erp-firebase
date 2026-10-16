@@ -142,4 +142,4 @@ and the JV and CBT screens read the rule from the server instead of a copy.
   and payroll;
 - a project budget (decision 224, later).
 
-**Tests:** unit `dimensionRules` (4); emulator `projectsDimensions`.
+**Tests:** unit `dimensionRules` (4); emulator `projectsDimensions` (6); UI `projectsEInvoice` (5). Negative control: a required dimension not refused — 3 suite tests and 1 unit test fail.

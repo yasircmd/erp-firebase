@@ -128,4 +128,4 @@ confirmed there.
 - receiving vendors' e-invoices (decision 228, later);
 - rejections in Home tasks, which come with the connector.
 
-**Tests:** unit `eInvoiceDocument` (3); emulator `eInvoicing`.
+**Tests:** unit `eInvoiceDocument` (3); emulator `eInvoicing` (4); UI `projectsEInvoice` (the invoice's block). Negative control: a customer without a TRN treated as ready — 1 test fails.
