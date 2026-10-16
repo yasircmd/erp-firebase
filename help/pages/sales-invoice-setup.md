@@ -3,10 +3,10 @@ title: Sales Invoice Setup
 area: sales
 order: 2
 modules: [SALESINVOICESETUP]
-sources: [functions/src/retailSales.js]
+sources: [functions/src/retailSales.js, functions/src/invoiceStock.js]
 summary: Set the default rules and accounts used when customer sales are invoiced and posted.
 reviewed: 2026-10-16
-fingerprint: 248b713dda8f3548
+fingerprint: f61f98ccb3c66347
 ---
 ## What it is for
 
@@ -24,6 +24,8 @@ fingerprint: 248b713dda8f3548
 2. Review each default that affects invoices, credit notes and tax treatment.
 3. Confirm the sales type defaults and account links.
 4. Save and test with a small sales order or invoice.
+
+**Invoices may deliver stock directly** (per company, off unless you switch it on): choose the company, tick it and **Save**. Then a [Customer Invoice](customer-invoice.html) can have item lines and deliver them itself when posted. Off, stock leaves only with a [Delivery Note](delivery-note.html).
 
 ## What happens in the books
 

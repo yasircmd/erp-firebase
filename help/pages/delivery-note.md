@@ -26,6 +26,8 @@ fingerprint: c0157887ecaff846
 4. Post the note. The stock ledger reduces the item quantity and records the issue to a customer.
 5. Until a posted customer invoice includes it, the delivery is a Home task for the **Invoicing** team set in [Approval Configuration](approval-configuration.html) (or, with no team, for you). The list's invoicing column shows it as **Pending invoice**.
 
+A Delivery Note can also be made by a [Customer Invoice](customer-invoice.html) with item lines, where the company invoices stock directly: it is posted with the invoice, already matched to it, and reversed with it.
+
 ## What happens in the books
 
 The delivery note updates stock movement and supports the later customer invoice. It usually does not create the final trade receivable posting by itself, unless the system is designed to do so.

@@ -293,3 +293,8 @@ exports.removeCompanyShareholder = shareholders.removeCompanyShareholder;
 
 // Re-match a posted JV / CBT entry's references (docs/modules/UX_TIER3.md, G).
 exports.rematchJournalEntry = require('./src/rematch').rematchJournalEntry;
+
+// Direct sales invoice: the company setting (docs/modules/DIRECT_SALES_INVOICE.md, H).
+exports.getInvoiceStockSettings = require('./src/invoiceStock').getInvoiceStockSettings;
+exports.saveInvoiceStockSettings = require('./src/invoiceStock').saveInvoiceStockSettings;
+exports.getInvoiceableOrderLines = require('./src/invoiceStock').getInvoiceableOrderLines;

@@ -14,6 +14,7 @@ const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
 const __customerPhone = require('../customerPhone');
 const __glWriting = require('../glWriting');
+const __invoiceStock = require('../invoiceStock');
 const __lineClubbing = require('../lineClubbing');
 const __listPaging = require('../listPaging');
 const __masterData = require('../masterData');
@@ -58,6 +59,7 @@ const canSeePurchaseRequisition_ = (idToken, ...a) => __prVisibility.canSeeRequi
 const findAccountUsage_ = (idToken, ...a) => __coaUsage.findAccountUsage(...a);
 const clubStockLines_ = (...a) => __lineClubbing.clubStockLines(...a);
 const assertPeriodOpen_ = (idToken, ...a) => __periodLock.assertOpen(...a);
+const cleanInvoiceItemLines_ = (idToken, ...a) => __invoiceStock.cleanItemLines(...a);
 
 // ---- constants ----
 const { MODULE_REGISTRY } = __moduleRegistry;
@@ -4287,8 +4289,16 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
       };
     });
 
-    if (!sourceDeliveryNotes.length && !directLines.length) {
-      throw new Error('Add at least one Delivery Note or one direct line.');
+    // [PORT CHANGE invoice-item-lines-save] item lines that deliver the stock themselves.
+    if (invoiceId) {
+      const beforeItems = await firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken);
+      if (beforeItems && beforeItems.AutoDeliveryNoteID && (beforeItems.Status === 'Draft' || beforeItems.Status === 'Rejected')) throw new Error("This invoice's items are already delivered (" + (beforeItems.AutoDeliveryNoteNumber || beforeItems.AutoDeliveryNoteID) + "): post it as it is.");
+    }
+    const itemLines = await cleanInvoiceItemLines_(idToken, invoiceData.ItemLines || [], companyId, customerId, invoiceId, costCenterId);
+    const itemSalesTypeId = itemLines.length ? (await resolveAndValidateSalesType_(idToken, invoiceData.ItemSalesTypeID, customerData.Classification, 'Item lines')).SalesTypeID : '';
+
+    if (!sourceDeliveryNotes.length && !directLines.length && !itemLines.length) {
+      throw new Error('Add at least one Delivery Note, item line or direct line.');
     }
 
     // Cost Center is required somewhere for the Revenue side of every
@@ -4299,7 +4309,7 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
     // Cost-Center-required rule, so catching a missing one clearly
     // here, at save time, is better than letting it surface as a
     // cryptic account-code error deep in GL posting at commit time.
-    if (sourceDeliveryNotes.length && !costCenterId) {
+    if ((sourceDeliveryNotes.length || itemLines.length) && !costCenterId) { // [PORT CHANGE invoice-item-lines-save]
       throw new Error('A Cost Center is required (set the header default) — every Delivery Note-sourced line posts to a Revenue account, which always needs one.');
     }
     directLines.forEach((l, idx) => {
@@ -4316,7 +4326,9 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
 
     const dnSubtotal = sourceDeliveryNotes.reduce((sum, d) => sum + d.Amount, 0);
     const directTotal = directLines.reduce((sum, l) => sum + l.Amount, 0);
-    const subtotal = Math.round((dnSubtotal + directTotal) * 100) / 100;
+    // [PORT CHANGE invoice-item-lines-save]
+    const itemTotal = itemLines.reduce((sum, l) => sum + l.Amount, 0);
+    const subtotal = Math.round((dnSubtotal + directTotal + itemTotal) * 100) / 100;
     if (discount > subtotal) throw new Error('Discount cannot exceed the invoice subtotal.');
     // Tax computed on the NET of discount, same confirmed formula as
     // Vendor Invoice's own.
@@ -4332,6 +4344,7 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
       CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
       CostCenterID: costCenterId, ProfitCenterID: profitCenterId, CustomerID: customerId,
       SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
+      ItemLines: itemLines, ItemSalesTypeID: itemSalesTypeId, // [PORT CHANGE invoice-item-lines-save]
       Discount: discount, TaxPercent: taxPercent, TaxAmount: taxAmount, RoundOff: roundOff,
       Subtotal: subtotal, Total: total,
       Status: 'Draft',
@@ -4394,6 +4407,14 @@ async function postCustomerInvoice(idToken, invoiceId) {
 
 // Caller MUST already hold LockService.getScriptLock().
 async function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId) {
+  // [PORT CHANGE invoice-item-lines-post] the item lines delivered first, then matched below like any other delivery.
+  if ((existing.ItemLines || []).length && !existing.AutoDeliveryNoteID) {
+    const auto = await createInvoiceDeliveryNote_(idToken, user, existing, invoiceId);
+    existing.SourceDeliveryNotes = (existing.SourceDeliveryNotes || []).concat([auto.entry]);
+    existing.AutoDeliveryNoteID = auto.dnId;
+    existing.AutoDeliveryNoteNumber = auto.entry.DeliveryNoteNumber;
+    await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', { SourceDeliveryNotes: existing.SourceDeliveryNotes, AutoDeliveryNoteID: auto.dnId, AutoDeliveryNoteNumber: auto.entry.DeliveryNoteNumber }, idToken);
+  }
   // [PORT FIX customer-invoice-recheck-dns-at-post] the draft-time Delivery Note checks can be stale by now.
   for (const d of (existing.SourceDeliveryNotes || [])) {
     const dn = await firebaseDbRequest_('stock/transactions/' + d.DeliveryNoteID, 'get', null, idToken);
@@ -4702,6 +4723,11 @@ async function executeCustomerInvoiceReversal_(idToken, user, existing, invoiceI
   await seq.forEach(existing.SourceDeliveryNotes || [], async dn => {
     await firebaseDbRequest_('stock/transactions/' + dn.DeliveryNoteID, 'patch', { MatchedToInvoiceID: '' }, idToken);
   });
+  // [PORT CHANGE invoice-item-lines-reverse] its own delivery, reversed with it.
+  if (existing.AutoDeliveryNoteID) {
+    const dnReversal = await reverseDeliveryNote(idToken, existing.AutoDeliveryNoteID, date);
+    if (!dnReversal.success) throw new Error('The invoice is reversed, but its delivery ' + (existing.AutoDeliveryNoteNumber || existing.AutoDeliveryNoteID) + ' could not be: ' + dnReversal.error);
+  }
 
   return { invoiceId: newId, invoiceNumber: glResult.jvNumber };
 }
@@ -5086,6 +5112,7 @@ async function assertDeliveryNoteStillShippable_(idToken, dn) {
   const wanted = {};
   const order = [];
   for (const l of (dn.Lines || [])) {
+    if (!l.SourceSOID) continue; // [PORT CHANGE invoice-item-lines-post] a line invoiced directly, with no order
     const key = l.SourceSOID + '|' + l.SourceSOLineID;
     if (!wanted.hasOwnProperty(key)) {
       wanted[key] = { soId: l.SourceSOID, lineId: l.SourceSOLineID, label: l.SourceSONumber || l.SourceSOID, itemCode: l.ItemCode, qty: 0 };
@@ -5161,7 +5188,7 @@ async function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
   });
   // Distinct SO ids only — a multi-line delivery from the same SO
   // should only refresh its header status once.
-  const distinctSOIds = Array.from(new Set(existing.Lines.map(l => l.SourceSOID)));
+  const distinctSOIds = Array.from(new Set(existing.Lines.map(l => l.SourceSOID))).filter(Boolean); // [PORT CHANGE invoice-item-lines-post]
   await seq.forEach(
     distinctSOIds,
     async soId => await refreshSalesOrderReservationStatus_(idToken, soId)
@@ -5170,6 +5197,37 @@ async function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
   await finalizeCommitAttempt_(idToken, dnId, glResult, { Lines: movementLines }, actor);
 
   return { dnNumber: glResult.jvNumber };
+}
+
+// [PORT CHANGE invoice-item-lines-post] the Delivery Note behind an invoice's item lines. Caller holds the lock.
+async function createInvoiceDeliveryNote_(idToken, user, inv, invoiceId) {
+  const now = new Date().toISOString();
+  const actor = user.profile.username || user.uid;
+  const dnId = 'DND-' + Utilities.getUuid().split('-')[0].toUpperCase();
+  const lines = (inv.ItemLines || []).map((l, i) => ({
+    LineNo: i + 1, ItemID: l.ItemID, ItemCode: l.ItemCode, ItemName: l.ItemName || '', WarehouseID: l.WarehouseID,
+    Quantity: l.Quantity, UnitPrice: l.UnitPrice, BatchNumber: '', ExpiryDate: '',
+    CostCenterID: l.CostCenterID || inv.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', Description: l.Description || l.ItemName || l.ItemCode,
+    SourceSOID: l.SourceSOID || '', SourceSOLineID: l.SourceSOLineID || '', SourceSONumber: l.SourceSONumber || ''
+  }));
+  const record = {
+    TransactionType: 'DeliveryNote', TransactionDate: inv.InvoiceDate, Description: inv.Description, Reference: '',
+    CompanyID: inv.CompanyID, DivisionID: inv.DivisionID || '', BranchID: inv.BranchID || '', CostCenterID: inv.CostCenterID || '', ProfitCenterID: inv.ProfitCenterID || '',
+    CustomerID: inv.CustomerID, Lines: lines, Status: 'Draft', AutoFromInvoiceID: invoiceId,
+    CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
+  };
+  await firebaseDbRequest_('stock/transactions/' + dnId, 'put', record, idToken);
+  let result;
+  try {
+    result = await commitDeliveryNotePosting_(idToken, user, record, dnId);
+  } catch (err) {
+    const left = await firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
+    if (left && left.Status !== 'Posted') await firebaseDbRequest_('stock/transactions/' + dnId, 'delete', null, idToken);
+    throw err;
+  }
+  const amount = Math.round(lines.reduce((sum, l) => sum + Math.round(l.Quantity * l.UnitPrice * 100) / 100, 0) * 100) / 100;
+  return { dnId: dnId, entry: { DeliveryNoteID: dnId, DeliveryNoteNumber: result.dnNumber || '', SalesTypeID: inv.ItemSalesTypeID, Amount: amount,
+    Lines: lines.map(l => ({ ItemCode: l.ItemCode, Quantity: l.Quantity, UnitPrice: l.UnitPrice, CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID })) } };
 }
 
 async function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason) {
@@ -5218,7 +5276,9 @@ async function reverseDeliveryNote(idToken, dnId, reversalDate) {
     const existing = await firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
     if (!existing || existing.TransactionType !== 'DeliveryNote') throw new Error('Delivery Note not found.');
     if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
-    await requirePostAccess_(idToken, user, 'DELIVERYNOTE');
+    // [PORT CHANGE invoice-item-lines-reverse] made for an invoice that is now reversed: no Delivery Note right needed.
+    const ofReversedInvoice = existing.AutoFromInvoiceID && ((await firebaseDbRequest_('customerInvoices/' + existing.AutoFromInvoiceID, 'get', null, idToken)) || {}).ReversedByInvoiceID;
+    if (!ofReversedInvoice) await requirePostAccess_(idToken, user, 'DELIVERYNOTE');
     if (existing.Status !== 'Posted') throw new Error('Only a posted Delivery Note can be reversed.');
     if (existing.ReversedByDeliveryNoteID) throw new Error('This Delivery Note has already been reversed.');
     if (existing.ReversalOfDeliveryNoteID) throw new Error('A reversal entry cannot itself be reversed.');
@@ -10432,6 +10492,7 @@ module.exports = {
   postDeliveryNote,
   assertDeliveryNoteStillShippable_,
   commitDeliveryNotePosting_,
+  createInvoiceDeliveryNote_,
   decideDeliveryNoteApproval,
   reverseDeliveryNote,
   summarizeDataResetRecord_,

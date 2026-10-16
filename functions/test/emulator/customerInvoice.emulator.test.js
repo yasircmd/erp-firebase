@@ -126,7 +126,7 @@ test('validation, delete, list and access', async () => {
   assert.match((await draft({ SourceDeliveryNotes: [{ DeliveryNoteID: 'N3', SalesTypeID: 'ST1' }] })).error, /different Customer/);
   assert.match((await draft({ SourceDeliveryNotes: [{ DeliveryNoteID: 'N1', SalesTypeID: '' }] })).error, /a Sales Type is required/);
   assert.match((await draft({ CostCenterID: '' })).error, /A Cost Center is required/);
-  assert.match((await draft({ SourceDeliveryNotes: [] })).error, /at least one Delivery Note or one direct line/);
+  assert.match((await draft({ SourceDeliveryNotes: [] })).error, /at least one Delivery Note, item line or direct line/);
   assert.match((await draft({ Discount: 999 })).error, /cannot exceed the invoice subtotal/);
   assert.match((await draft({ SourceDeliveryNotes: [{ DeliveryNoteID: 'G1', SalesTypeID: 'ST1' }] })).error, /not found or not Posted/);
   const s = await draft();

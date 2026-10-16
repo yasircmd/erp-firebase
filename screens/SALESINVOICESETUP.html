@@ -3,6 +3,18 @@
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Accounts Receivable</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-sliders text-blue-500"></i> Sales Invoice Configuration</h2></div>
   </div>
 
+  <!-- Direct sales invoice (docs/modules/DIRECT_SALES_INVOICE.md, decision 167): per company, off by default. -->
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-2">
+    <p class="text-sm font-semibold text-slate-200">Invoices may deliver stock directly</p>
+    <p class="text-xs text-slate-500 max-w-2xl">On: a Customer Invoice can have item lines (typed, or brought in from a Sales Order) and delivers them itself when posted, so no separate Delivery Note is needed. Off: stock leaves only with a Delivery Note, as before.</p>
+    <div class="flex flex-wrap items-center gap-3">
+      <select id="sis-ds-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"><option value="">Select a company...</option></select>
+      <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="sis-ds-on" class="rounded" disabled> Invoices may deliver stock directly</label>
+      <button id="sis-ds-save" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save</button>
+      <span id="sis-ds-note" class="text-xs text-slate-400"></span>
+    </div>
+  </div>
+
   <div>
     <div class="flex items-center justify-between mb-4">
       <div>
@@ -371,6 +383,26 @@
     fetchSalesTypes();
     fetchClassifications();
     loadReferenceData();
+    wireDirectStock();
   };
+
+  // ---------- Invoices may deliver stock directly (decision 167) ----------
+  function wireDirectStock() {
+    const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+    const co = document.getElementById('sis-ds-company'), box = document.getElementById('sis-ds-on'), save = document.getElementById('sis-ds-save'), note = document.getElementById('sis-ds-note');
+    call('getActiveCompanies', {}).then(list => {
+      (list || []).forEach(c => { const o = document.createElement('option'); o.value = c.CompanyID; o.textContent = c.LegalName; co.appendChild(o); });
+      if (co.options.length === 2) { co.selectedIndex = 1; load(); }
+    });
+    function load() {
+      note.textContent = ''; box.disabled = true; save.classList.add('hidden');
+      if (!co.value) { box.checked = false; return; }
+      call('getInvoiceStockSettings', { companyId: co.value }).then(r => { box.checked = Boolean(r.DirectStock); box.disabled = !canWrite; save.classList.toggle('hidden', !canWrite); },
+        err => { note.textContent = err.message || 'Unable to load.'; });
+    }
+    co.addEventListener('change', load);
+    save.addEventListener('click', () => call('saveInvoiceStockSettings', { companyId: co.value, directStock: box.checked })
+      .then(() => { note.textContent = 'Saved.'; }, err => appAlert(err.message || 'Unable to save.')));
+  }
 })();
 </script>

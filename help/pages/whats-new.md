@@ -12,6 +12,13 @@ screen.
 
 ## 16/10/2026
 
+- **Sell from stock on the invoice.** Where a company switches it on
+  (Sales Invoice Configuration → **Invoices may deliver stock directly**), a
+  Customer Invoice can have **item lines**, typed or brought in **From Sales
+  Order**. When it is posted, the invoice delivers them itself: a Delivery
+  Note is made for them, the stock leaves at its cost and the order counts
+  them as delivered. **Print delivery slip** prints the items without
+  prices. See [Customer Invoice](customer-invoice.html).
 - **Payroll: share an employee's cost across cost centers.** A Transfer in
   Employee Change can now set a **cost split** by % (for example 60% / 40%).
   Every payroll expense of the employee is then shared that way. In a draft

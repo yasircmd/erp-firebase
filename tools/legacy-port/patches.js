@@ -1421,5 +1421,141 @@ const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter',
     }
 
     if (customerId) {`
+  },
+  {
+    id: 'invoice-item-lines-save',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): item lines on a Customer Invoice that deliver stock directly (a company setting, off by default), typed or brought in from a Sales Order; checked by invoiceStock.js; one Sales Type for them. Nothing else changes.",
+    find: `    if (!sourceDeliveryNotes.length && !directLines.length) {
+      throw new Error('Add at least one Delivery Note or one direct line.');
+    }`,
+    replace: `    // [PORT CHANGE invoice-item-lines-save] item lines that deliver the stock themselves.
+    if (invoiceId) {
+      const beforeItems = firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken);
+      if (beforeItems && beforeItems.AutoDeliveryNoteID && (beforeItems.Status === 'Draft' || beforeItems.Status === 'Rejected')) throw new Error("This invoice's items are already delivered (" + (beforeItems.AutoDeliveryNoteNumber || beforeItems.AutoDeliveryNoteID) + "): post it as it is.");
+    }
+    const itemLines = cleanInvoiceItemLines_(idToken, invoiceData.ItemLines || [], companyId, customerId, invoiceId, costCenterId);
+    const itemSalesTypeId = itemLines.length ? resolveAndValidateSalesType_(idToken, invoiceData.ItemSalesTypeID, customerData.Classification, 'Item lines').SalesTypeID : '';
+
+    if (!sourceDeliveryNotes.length && !directLines.length && !itemLines.length) {
+      throw new Error('Add at least one Delivery Note, item line or direct line.');
+    }`
+  },
+  {
+    id: 'invoice-item-lines-save (cost center)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the item lines' revenue posts to the header cost center, as a Delivery Note's does.",
+    find: `    if (sourceDeliveryNotes.length && !costCenterId) {`,
+    replace: `    if ((sourceDeliveryNotes.length || itemLines.length) && !costCenterId) { // [PORT CHANGE invoice-item-lines-save]`
+  },
+  {
+    id: 'invoice-item-lines-save (totals)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the item lines count in the subtotal.",
+    find: `    const subtotal = Math.round((dnSubtotal + directTotal) * 100) / 100;`,
+    replace: `    // [PORT CHANGE invoice-item-lines-save]
+    const itemTotal = itemLines.reduce((sum, l) => sum + l.Amount, 0);
+    const subtotal = Math.round((dnSubtotal + directTotal + itemTotal) * 100) / 100;`
+  },
+  {
+    id: 'invoice-item-lines-save (fields)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the item lines and their Sales Type are stored with the invoice.",
+    find: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,`,
+    replace: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
+      ItemLines: itemLines, ItemSalesTypeID: itemSalesTypeId, // [PORT CHANGE invoice-item-lines-save]`
+  },
+  {
+    id: 'invoice-item-lines-post',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): on posting (or final approval), a Delivery Note is made and posted for the item lines, then matched to the invoice like any other: stock out at average cost with its COGS, the order's delivered quantities and reservations, returns and the month-end check all as for a delivery.",
+    find: `function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId) {`,
+    replace: `function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId) {
+  // [PORT CHANGE invoice-item-lines-post] the item lines delivered first, then matched below like any other delivery.
+  if ((existing.ItemLines || []).length && !existing.AutoDeliveryNoteID) {
+    const auto = createInvoiceDeliveryNote_(idToken, user, existing, invoiceId);
+    existing.SourceDeliveryNotes = (existing.SourceDeliveryNotes || []).concat([auto.entry]);
+    existing.AutoDeliveryNoteID = auto.dnId;
+    existing.AutoDeliveryNoteNumber = auto.entry.DeliveryNoteNumber;
+    firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', { SourceDeliveryNotes: existing.SourceDeliveryNotes, AutoDeliveryNoteID: auto.dnId, AutoDeliveryNoteNumber: auto.entry.DeliveryNoteNumber }, idToken);
+  }`
+  },
+  {
+    id: 'invoice-item-lines-post (the delivery)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the Delivery Note behind an invoice's item lines: made and posted under the invoice posting's lock, dated the invoice date; removed again if its posting fails (e.g. not enough stock).",
+    find: `function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason) {`,
+    replace: `// [PORT CHANGE invoice-item-lines-post] the Delivery Note behind an invoice's item lines. Caller holds the lock.
+function createInvoiceDeliveryNote_(idToken, user, inv, invoiceId) {
+  const now = new Date().toISOString();
+  const actor = user.profile.username || user.uid;
+  const dnId = 'DND-' + Utilities.getUuid().split('-')[0].toUpperCase();
+  const lines = (inv.ItemLines || []).map((l, i) => ({
+    LineNo: i + 1, ItemID: l.ItemID, ItemCode: l.ItemCode, ItemName: l.ItemName || '', WarehouseID: l.WarehouseID,
+    Quantity: l.Quantity, UnitPrice: l.UnitPrice, BatchNumber: '', ExpiryDate: '',
+    CostCenterID: l.CostCenterID || inv.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', Description: l.Description || l.ItemName || l.ItemCode,
+    SourceSOID: l.SourceSOID || '', SourceSOLineID: l.SourceSOLineID || '', SourceSONumber: l.SourceSONumber || ''
+  }));
+  const record = {
+    TransactionType: 'DeliveryNote', TransactionDate: inv.InvoiceDate, Description: inv.Description, Reference: '',
+    CompanyID: inv.CompanyID, DivisionID: inv.DivisionID || '', BranchID: inv.BranchID || '', CostCenterID: inv.CostCenterID || '', ProfitCenterID: inv.ProfitCenterID || '',
+    CustomerID: inv.CustomerID, Lines: lines, Status: 'Draft', AutoFromInvoiceID: invoiceId,
+    CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
+  };
+  firebaseDbRequest_('stock/transactions/' + dnId, 'put', record, idToken);
+  let result;
+  try {
+    result = commitDeliveryNotePosting_(idToken, user, record, dnId);
+  } catch (err) {
+    const left = firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
+    if (left && left.Status !== 'Posted') firebaseDbRequest_('stock/transactions/' + dnId, 'delete', null, idToken);
+    throw err;
+  }
+  const amount = Math.round(lines.reduce((sum, l) => sum + Math.round(l.Quantity * l.UnitPrice * 100) / 100, 0) * 100) / 100;
+  return { dnId: dnId, entry: { DeliveryNoteID: dnId, DeliveryNoteNumber: result.dnNumber || '', SalesTypeID: inv.ItemSalesTypeID, Amount: amount,
+    Lines: lines.map(l => ({ ItemCode: l.ItemCode, Quantity: l.Quantity, UnitPrice: l.UnitPrice, CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID })) } };
+}
+
+function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason) {`
+  },
+  {
+    id: 'invoice-item-lines-post (lines without an order)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): an item line typed directly on an invoice has no Sales Order: the delivery's order checks and order updates skip such lines (a delivery made on its own screen always has one).",
+    find: `  for (const l of (dn.Lines || [])) {
+    const key = l.SourceSOID + '|' + l.SourceSOLineID;`,
+    replace: `  for (const l of (dn.Lines || [])) {
+    if (!l.SourceSOID) continue; // [PORT CHANGE invoice-item-lines-post] a line invoiced directly, with no order
+    const key = l.SourceSOID + '|' + l.SourceSOLineID;`
+  },
+  {
+    id: 'invoice-item-lines-post (order status)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the order's status is refreshed only for lines that have one.",
+    find: `  const distinctSOIds = Array.from(new Set(existing.Lines.map(l => l.SourceSOID)));`,
+    replace: `  const distinctSOIds = Array.from(new Set(existing.Lines.map(l => l.SourceSOID))).filter(Boolean); // [PORT CHANGE invoice-item-lines-post]`
+  },
+  {
+    id: 'invoice-item-lines-reverse',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): reversing an invoice with item lines also reverses the Delivery Note made for them (the stock comes back at the cost it left at).",
+    find: `  (existing.SourceDeliveryNotes || []).forEach(dn => {
+    firebaseDbRequest_('stock/transactions/' + dn.DeliveryNoteID, 'patch', { MatchedToInvoiceID: '' }, idToken);
+  });
+
+  return { invoiceId: newId, invoiceNumber: glResult.jvNumber };`,
+    replace: `  (existing.SourceDeliveryNotes || []).forEach(dn => {
+    firebaseDbRequest_('stock/transactions/' + dn.DeliveryNoteID, 'patch', { MatchedToInvoiceID: '' }, idToken);
+  });
+  // [PORT CHANGE invoice-item-lines-reverse] its own delivery, reversed with it.
+  if (existing.AutoDeliveryNoteID) {
+    const dnReversal = reverseDeliveryNote(idToken, existing.AutoDeliveryNoteID, date);
+    if (!dnReversal.success) throw new Error('The invoice is reversed, but its delivery ' + (existing.AutoDeliveryNoteNumber || existing.AutoDeliveryNoteID) + ' could not be: ' + dnReversal.error);
+  }
+
+  return { invoiceId: newId, invoiceNumber: glResult.jvNumber };`
+  },
+  {
+    id: 'invoice-item-lines-reverse (access)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the delivery of a reversed invoice's item lines is reversed by the invoice's reversal: the Delivery Note post right is not asked of the user reversing the invoice.",
+    find: `    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    requirePostAccess_(idToken, user, 'DELIVERYNOTE');
+    if (existing.Status !== 'Posted') throw new Error('Only a posted Delivery Note can be reversed.');`,
+    replace: `    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // [PORT CHANGE invoice-item-lines-reverse] made for an invoice that is now reversed: no Delivery Note right needed.
+    const ofReversedInvoice = existing.AutoFromInvoiceID && (firebaseDbRequest_('customerInvoices/' + existing.AutoFromInvoiceID, 'get', null, idToken) || {}).ReversedByInvoiceID;
+    if (!ofReversedInvoice) requirePostAccess_(idToken, user, 'DELIVERYNOTE');
+    if (existing.Status !== 'Posted') throw new Error('Only a posted Delivery Note can be reversed.');`
   }
 ];

@@ -23,3 +23,16 @@ submitSettlement
 decideSettlementApproval
 postSettlement
 markInterimPaid
+# H: direct sales invoice (DIRECT_SALES_INVOICE.md). getInvoiceStockSettings,
+#    saveInvoiceStockSettings and getInvoiceableOrderLines are NEW.
+getInvoiceStockSettings
+saveInvoiceStockSettings
+getInvoiceableOrderLines
+saveCustomerInvoiceDraft
+postCustomerInvoice
+decideCustomerInvoiceApproval
+requestReverseCustomerInvoice
+decideCustomerInvoiceReversalApproval
+postDeliveryNote
+decideDeliveryNoteApproval
+reverseDeliveryNote

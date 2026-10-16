@@ -100,7 +100,8 @@ const MAPPED = {
   canSeePurchaseRequisition_: ['prVisibility', 'canSeeRequisition', 'dropCtx'],
   findAccountUsage_: ['coaUsage', 'findAccountUsage', 'dropCtx'], // docs/modules/COA_RECODE.md
   clubStockLines_: ['lineClubbing', 'clubStockLines', 'pure'], // docs/modules/LINE_CLUBBING.md
-  assertPeriodOpen_: ['periodLock', 'assertOpen', 'dropCtx'] // docs/modules/PERIOD_CLOSING.md (called only from patches)
+  assertPeriodOpen_: ['periodLock', 'assertOpen', 'dropCtx'], // docs/modules/PERIOD_CLOSING.md (called only from patches)
+  cleanInvoiceItemLines_: ['invoiceStock', 'cleanItemLines', 'dropCtx'] // docs/modules/DIRECT_SALES_INVOICE.md (called only from patches)
 };
 // Constants taken from the already-extracted shared modules (verbatim copies there).
 const IMPORTED_CONSTS = {
@@ -121,7 +122,8 @@ const SHARED_PATHS = {
   lineClubbing: '../lineClubbing',
   numbering: '../numbering',
   periodLock: '../periodLock',
-  customerPhone: '../customerPhone' // used by name (__customerPhone.) in patches
+  customerPhone: '../customerPhone', // used by name (__customerPhone.) in patches
+  invoiceStock: '../invoiceStock'
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);

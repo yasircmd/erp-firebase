@@ -19,12 +19,16 @@
 <ul><li>The delivery note or sales order is complete.</li><li>The customer account and sales type are valid.</li><li>The invoice amount and taxes are ready for review.</li></ul>
 <h2 id="step-by-step">Step by step</h2>
 <ol><li>Open <strong>Customer Invoice</strong> and select the company.</li><li>Choose the customer and the relevant delivery lines.</li><li>Review the items, quantities, amounts and tax before posting.</li><li>Save or post the invoice once the billing is confirmed.</li><li>Review the receivable impact in the ledger and statements.</li></ol>
+<h3 id="selling-from-stock-on-the-invoice">Selling from stock on the invoice</h3>
+<p>Where the company allows it (Sales Invoice Configuration → <strong>Invoices may deliver stock directly</strong>), the invoice has <strong>Item Lines</strong>: goods it delivers itself, without a separate Delivery Note.</p>
+<ul><li><strong>Add Item</strong>: type the item code, choose the warehouse and enter the quantity. The price comes from the customer's price list where the item is on it, and can be changed.</li><li><strong>From Sales Order</strong>: the customer's order lines still to deliver. Tick the lines and the quantities to invoice now; the item, warehouse and price are the order's. Whatever you don't invoice stays open on the order.</li><li>Choose one <strong>Sales Type</strong> for the item lines.</li></ul>
+<p>When the invoice is posted, a <strong>Delivery Note</strong> is made and posted for its item lines: the stock leaves at its average cost (with its cost of sales), the order counts the quantities as delivered, and the invoice shows &quot;Delivered with Delivery Note …&quot;. If there isn't enough stock, the posting is refused and nothing changes. <strong>Print delivery slip</strong> prints the items and quantities, without prices, for the driver or the store. Reversing the invoice also reverses its Delivery Note, so the stock comes back. A return is made in Sales Return, as for any delivered invoice.</p>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
 <p>The customer invoice creates the receivable and the sales revenue or tax entries. It usually represents the formal billing step that follows the delivery.</p>
 <h2 id="rights">Rights</h2>
 <p>Users need access and post rights for sales invoicing, plus approval if the company uses invoice approval.</p>
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
-<ul><li>If the invoice is blocked, check the customer or sales type setup.</li><li>If the amount differs from the order or delivery, recheck the price, taxes and quantity.</li></ul><p class="crumb">Last reviewed 16/10/2026</p></main>
+<ul><li>If the invoice is blocked, check the customer or sales type setup.</li><li><strong>&quot;This company does not invoice stock directly&quot;</strong>: switch it on in Sales Invoice Configuration, or deliver with a Delivery Note.</li><li><strong>&quot;at most N can be invoiced now&quot;</strong>: an order line can be invoiced up to what is still to deliver and reserved for it.</li><li>If the amount differs from the order or delivery, recheck the price, taxes and quantity.</li></ul><p class="crumb">Last reviewed 16/10/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>
