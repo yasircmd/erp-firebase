@@ -1,6 +1,6 @@
 # Projects, and which accounts need a cost centre, profit centre or project (UX Tier 3, Q)
 
-Status: **design, questions open** (owner's direction 2026-10-16, round 16).
+Status: **design agreed** (owner's direction 2026-10-16, round 16).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 3, Q).
 
 ## The owner's direction (2026-10-16)
@@ -80,3 +80,15 @@ and the JV and CBT screens read the rule from the server instead of a copy.
   under "no project")? Recommended: yes.
 - **224.** A project budget, comparing actual against budget, now or
   later? Recommended: later.
+
+## The owner's decisions (2026-10-16)
+
+| # | Decision |
+|---|---|
+| 219 | The rule is set on the account's **group**; its accounts follow it, and an account may differ. |
+| 220 | Required / Optional / Not used for cost centre, profit centre and project. Division and branch unchanged. |
+| 221 | Projects shared or one company's, with customer, start and end dates and a status (a Closed project takes no new postings). |
+| 222 | Each dimension independently, as the rule says. |
+| 223 | Existing postings show under "no project". |
+| 224 | Project budget later. |
+| (all) | "Go with your recommendations" (owner, 2026-10-16). |

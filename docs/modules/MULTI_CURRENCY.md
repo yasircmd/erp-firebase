@@ -1,6 +1,6 @@
 # Foreign currency for customers and vendors (UX Tier 3, O)
 
-Status: **design, questions open** (owner's direction 2026-10-16, round 16).
+Status: **design agreed** (owner's direction 2026-10-16, round 16).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 3, O).
 
 ## The owner's direction (2026-10-16)
@@ -142,3 +142,11 @@ kept in USD as well as in base. Question 217.
 | # | Decision |
 |---|---|
 | 213 | **Skip fetching**: rates are typed in, with their effective date. No online source and no Get today's rate button. |
+| 211 | The party's currency is **fixed**: all of its documents are in it, and its SOA too. |
+| 212 | A new right **rates** on Currency Configuration enters rates. |
+| 214 | A document's rate may differ from the rate on its date, with a reason, logged. |
+| 215 | Phase 1: the party documents only (invoices, returns, CBT, PDC, JV party lines, openings). Orders, GRNs and Delivery Notes later. |
+| 216 | Month-end revaluation **later**; realized differences on payment now. |
+| 217 | A bank account may carry a currency; its CBT vouchers are in it. |
+| 218 | A foreign-currency invoice prints the VAT total in AED at the invoice rate too. |
+| (all) | "Go with your recommendations" (owner, 2026-10-16). |

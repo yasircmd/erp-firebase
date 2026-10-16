@@ -151,8 +151,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   and What's new ("As built" in each doc). **Owner, still to do:** Data
   Reset (Chart of Accounts and the transactional data) so the chart starts
   on the new seed (decision 209). Wave 3: the owner's direction 2026-10-16
-  (round 16); P and R skipped for now; O, Q, S, T design docs written, the
-  owner's answers awaited (211–236)**,
+  (round 16); P and R skipped for now; O, Q, S, T designs agreed (211–236,
+  "go with your recommendations"); building in order O, Q, S, T**,
   triaged into three tiers (in this session's plan, agreed 2026-10-14).
   - **Tier 1, fix now** (owner said go, 2026-10-14): all nine built and
     tested 2026-10-14 on branch `tier1-ux-fixes` (smoke 123/123; the

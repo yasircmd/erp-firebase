@@ -1,6 +1,6 @@
 # Sales reps in the Employee Portal (UX Tier 3, T)
 
-Status: **design, questions open** (owner's direction 2026-10-16, round 16).
+Status: **design agreed** (owner's direction 2026-10-16, round 16).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 3, T).
 
 ## The owner's direction (2026-10-16)
@@ -76,3 +76,16 @@ uses, so every rule (prices, stock reservation, approvals) still applies.
   Recommended: yes, the quantity free to sell.
 - **236.** Visit notes and the rep's location on a visit: needed?
   Recommended: later, if at all.
+
+## The owner's decisions (2026-10-16)
+
+| # | Decision |
+|---|---|
+| 230 | A rep sees only the customers assigned to them; a manager role sees all. |
+| 231 | A rep's order is a draft Sales Order the office confirms. |
+| 232 | Collections are draft CBT receipts or draft PDCs the office posts; a rep may have their own cash account. |
+| 233 | No offline mode in phase 1. |
+| 234 | The customer's price list only. |
+| 235 | The rep sees the stock free to sell. |
+| 236 | No visit notes or location for now. |
+| (all) | "Go with your recommendations" (owner, 2026-10-16). |

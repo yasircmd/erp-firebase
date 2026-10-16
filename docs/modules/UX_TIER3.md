@@ -343,3 +343,5 @@ The owner's points on wave 3, each now a design doc with its open questions
     ASP by 30 October 2026 and go live on 1 January 2027.
 - **T. Sales reps** ([SALES_REP_PORTAL.md](SALES_REP_PORTAL.md), 230–236):
   in the existing Employee Portal, not a new app. It is feasible.
+
+Decisions: 213 (rates typed, no fetch) and 225–226 (e-invoicing made ready, no ASP yet) by the owner; the rest "go with your recommendations" (2026-10-16). Build order O, Q, S, T.

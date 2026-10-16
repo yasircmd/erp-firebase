@@ -1,6 +1,6 @@
 # UAE e-invoicing (UX Tier 3, S)
 
-Status: **design, questions open** (owner's direction 2026-10-16, round 16).
+Status: **design agreed** (owner's direction 2026-10-16, round 16).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 3, S).
 
 ## The owner's direction (2026-10-16)
@@ -83,3 +83,7 @@ confirmed there.
 | # | Decision |
 |---|---|
 | 225, 226 | **Not urgent, and no ASP yet: make the ERP ready.** Build everything up to sending: the switch and settings in Sales Invoice Configuration, the data checks (TRN and the rest), and the PINT AE invoice and credit note built on posting, stored and downloadable (UBL XML) with its readiness status. Sending goes through one connector that is plugged in for the ASP once one is chosen. Until then nothing is sent. |
+| 227 | Credit notes (Sales Returns) and debit notes included. |
+| 228 | Receiving vendors' e-invoices later. |
+| 229 | Customers without a TRN are not e-invoiced. |
+| (all) | "Go with your recommendations" (owner, 2026-10-16). |
