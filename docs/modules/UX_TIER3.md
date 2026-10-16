@@ -140,6 +140,18 @@ and the aging follow at once. Kept in the entry's history.
 
 ## Wave 2: medium features (a design doc each)
 
+Design docs written 2026-10-16, each with its questions for the owner:
+
+| Item | Design doc | Questions |
+|---|---|---|
+| H. Direct sales invoice; SO → invoice without a delivery | [DIRECT_SALES_INVOICE.md](DIRECT_SALES_INVOICE.md) | 166–172 |
+| I. Payroll cost centre per run; split by % | [PAYROLL_COST_SPLIT.md](PAYROLL_COST_SPLIT.md) | 173–178 |
+| J. End-of-service statement | [EOS_STATEMENT.md](EOS_STATEMENT.md) | 179–184 |
+| K. Vendor / customer extra fields | [PARTY_CUSTOM_FIELDS.md](PARTY_CUSTOM_FIELDS.md) | 185–190 |
+| L. Searchable picker | [SEARCH_PICKER.md](SEARCH_PICKER.md) | 191–196 |
+| M. COA numbering; renumber a used account | [COA_NUMBERING.md](COA_NUMBERING.md) | 197–202 |
+| N. Item categories beyond the five | [ITEM_CATEGORIES_CUSTOM.md](ITEM_CATEGORIES_CUSTOM.md) | 203–207 |
+
 - **H. Direct sales invoice, and Sales Order → invoice without a delivery.**
   Today stock leaves at the Delivery Note; the invoice would then post the
   stock and its cost too. Questions on returns, partial invoicing and
@@ -284,3 +296,23 @@ none, the recommendation is the one written here.
   item); the payment that settles it is re-matched. Tests: `rematch` suite
   (2), `rematch` UI (3); party-ledger suites (56) and UI pass; negative
   controls (the New Ref guard, the exclusion, server and screen) caught.
+
+## The owner's decisions, round 15 (2026-10-16): wave 2
+
+The owner answered some questions and left the rest at the
+recommendations. Each design doc has its own table.
+
+- **H** (166–172), **I** (173–178), **L** (191–196): the recommendations.
+- **J** (179–184): the UAE standard layout (to be changed later); sent
+  outside, so no ERP title bar; English only; the amount in words in the
+  **system currency** (the Default one in Currency Configuration).
+- **K** (185–190): **set aside for now**.
+- **M** (197–202): X00000 is the class (Assets, Liabilities …) and an
+  account always sits under a group (110001, never 100001); renumbering by
+  whoever may change the chart, with no new right; nothing kept from the
+  test data. Follow-ups: 6 digits (208), reset the test data (209), cash
+  and bank by a mark on their group (210).
+
+Build order (owner: "all in order"): I, H, J, L, M, N.
+- **N** (203–207): categories of your own, each with its own code prefix;
+  anyone with Item Master access may add one.
