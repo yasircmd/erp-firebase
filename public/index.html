@@ -1662,6 +1662,38 @@
     }
     new MutationObserver(markEmptyGridTails).observe(document.getElementById('module-container'),
       { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+
+    // Copy / Paste with column headings, for the screens that use it
+    // (Purchase and Inventory Purchase Requisition, Sales Order; owner,
+    // 2026-10-16, docs/modules/UX_TIER3.md C; the older grids keep their
+    // own, docs/modules/LINE_GRIDS.md). Copy always puts the headings on
+    // top; a pasted first row that is the headings is skipped.
+    //   gridClipboard.copy(headings, rows, button)  rows: arrays of cell text
+    //   gridClipboard.rows(text, headings)          the pasted rows, as arrays of trimmed cells
+    //   gridClipboard.read()                        the clipboard's text (null if the browser refused: said in-app)
+    window.gridClipboard = {
+      copy(headings, rows, button) {
+        const text = [headings].concat(rows).map(r => r.map(v => String(v == null ? '' : v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+        const done = () => { if (!button) return; const was = button.innerHTML; button.innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { button.innerHTML = was; }, 1500); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => appPrompt('Copy the table (Ctrl+C):', text));
+        else appPrompt('Copy the table (Ctrl+C):', text);
+      },
+      rows(text, headings) {
+        const key = v => String(v || '').trim().toLowerCase().replace(/[^a-z0-9%]/g, '');
+        const heads = headings.map(key);
+        const rows = String(text || '').replace(/\r/g, '').split('\n').filter(r => r.trim() !== '').map(r => r.split('\t').map(c => c.trim()));
+        const first = rows.length ? rows[0].map(key).filter(Boolean) : [];
+        if (first.length && (first[0] === heads[0] || first.filter(v => heads.includes(v)).length >= 2)) rows.shift();
+        return rows;
+      },
+      read() {
+        if (!navigator.clipboard || !navigator.clipboard.readText) {
+          appAlert('Your browser blocked clipboard access here: click into a cell of the grid and paste (Ctrl+V) instead.');
+          return Promise.resolve(null);
+        }
+        return navigator.clipboard.readText().catch(() => { appAlert('Unable to read the clipboard: click into a cell of the grid and paste (Ctrl+V) instead.'); return null; });
+      }
+    };
     // ---------- END LINE GRIDS ----------
 
     // ---------- DATE FORMAT ----------

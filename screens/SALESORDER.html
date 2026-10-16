@@ -85,6 +85,8 @@
 
   <div class="flex flex-wrap items-center gap-2 no-print">
     <button id="so-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+    <button id="so-paste-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
+    <button id="so-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy Table</button>
   </div>
 
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
@@ -397,6 +399,7 @@
     document.getElementById('so-delete-btn').classList.toggle('hidden', !isDraft || !currentSo || !canDraft);
     document.getElementById('so-cancel-btn').classList.toggle('hidden', !currentSo || status === 'Cancelled' || !canPost);
     document.getElementById('so-add-line-btn').classList.toggle('hidden', !isDraft);
+    document.getElementById('so-paste-btn').classList.toggle('hidden', !isDraft);
 
     updateCompanyRequiredNote();
     renderGrid();
@@ -450,6 +453,66 @@
   function today() {
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  // ---------- COPY / PASTE with headings (owner, 2026-10-16; UX_TIER3.md C) ----------
+  const COPY_HEADINGS = ['Item Code', 'Warehouse', 'Quantity', 'Unit Price'];
+  const num = v => { const c = String(v || '').replace(/,/g, ''); return c === '' ? '' : Number(c); };
+  const whOf = code => code ? orgUnits.find(u => u.Type === 'Warehouse' && String(u.Code).toLowerCase() === code.toLowerCase()) : null;
+  function copyTable() {
+    const rows = gridLines.filter(l => l.ItemCode || l.OrderedQuantity).map(l => {
+      const wh = orgUnits.find(u => u.UnitID === l.WarehouseID);
+      return [l.ItemCode, wh ? wh.Code : '', l.OrderedQuantity === '' || l.OrderedQuantity == null ? '' : l.OrderedQuantity, l.UnitPrice === '' || l.UnitPrice == null ? '' : l.UnitPrice];
+    });
+    gridClipboard.copy(COPY_HEADINGS, rows, document.getElementById('so-copy-btn'));
+  }
+  // A line's price is the price list's where the item has one, else the
+  // pasted price (decision 157).
+  function listPrice(code) {
+    if (!currentPriceList) return Promise.resolve(null);
+    return new Promise(ok => rpc.withSuccessHandler(p => ok(p == null ? null : p)).withFailureHandler(() => ok(null))
+      .getItemPriceOnPriceList({ priceListId: currentPriceList.PriceListID, itemCode: code, date: document.getElementById('so-form-date').value }));
+  }
+  async function pasteText(text) {
+    const errors = [], lines = [];
+    gridClipboard.rows(text, COPY_HEADINGS).forEach((r, i) => {
+      const [code, whCode, qty, price] = r;
+      const item = itemByCode(code), wh = whOf(whCode), q = num(qty), pr = num(price);
+      if (!item) errors.push('Row ' + (i + 1) + ': item "' + (code || '') + '" not found.');
+      if (whCode && !wh) errors.push('Row ' + (i + 1) + ': warehouse "' + whCode + '" not found.');
+      if (!(q > 0)) errors.push('Row ' + (i + 1) + ': the quantity "' + (qty || '') + '" is not a number above 0.');
+      if (price && !(pr >= 0)) errors.push('Row ' + (i + 1) + ': the price "' + price + '" is not a number.');
+      lines.push({ LineID: '', ItemCode: item ? item.ItemCode : code, WarehouseID: wh ? wh.UnitID : ((item && item.DefaultWarehouseID) || ''), OrderedQuantity: q,
+        EnteredUOMID: (item && item.UOMID) || '', UnitPrice: pr, LineTotal: 0, ReservedQuantity: 0 });
+    });
+    if (errors.length) return refusePaste(errors);
+    const prices = await Promise.all(lines.map(l => listPrice(l.ItemCode)));
+    lines.forEach((l, i) => { if (prices[i] != null) l.UnitPrice = prices[i]; recomputeLineTotal(l); });
+    if (lines.length) addPastedLines(lines);
+  }
+
+  // The pasted lines replace the empty rows at the end, then a blank row.
+  function addPastedLines(lines) {
+    while (gridLines.length && !gridLines[gridLines.length - 1].ItemCode) gridLines.pop();
+    gridLines.push(...lines);
+    ensureTrailingBlankRow();
+    isDirty = true;
+    renderGrid();
+  }
+  // Nothing is pasted if a row is wrong (decision 156): the rows are named.
+  function refusePaste(errors) {
+    appAlert('Nothing was pasted:\n' + errors.slice(0, 10).join('\n') + (errors.length > 10 ? '\n… and ' + (errors.length - 10) + ' more.' : ''));
+  }
+  function wireCopyPaste() {
+    document.getElementById('so-copy-btn').addEventListener('click', copyTable);
+    document.getElementById('so-paste-btn').addEventListener('click', () => gridClipboard.read().then(t => { if (t) pasteText(t); }));
+    // Ctrl+V of several cells into a cell of the grid pastes them as lines.
+    document.getElementById('so-grid-body').addEventListener('paste', e => {
+      const t = (e.clipboardData || window.clipboardData).getData('text');
+      if (!t || (!t.includes('\t') && !t.includes('\n'))) return; // one value: an ordinary paste
+      e.preventDefault();
+      pasteText(t);
+    });
   }
 
   function ensureTrailingBlankRow() {
@@ -748,6 +811,7 @@
     document.getElementById('so-form-customer').addEventListener('change', () => {
       isDirty = true; updateCompanyRequiredNote(); loadPriceListForCurrentCustomer();
     });
+    wireCopyPaste();
     document.getElementById('so-add-line-btn').addEventListener('click', () => {
       isDirty = true;
       gridLines.push({ LineID: '', ItemCode: '', WarehouseID: '', OrderedQuantity: '', EnteredUOMID: '', UnitPrice: '', LineTotal: 0, ReservedQuantity: 0 });

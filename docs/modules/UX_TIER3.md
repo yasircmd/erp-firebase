@@ -210,3 +210,13 @@ none, the recommendation is the one written here.
   Tests: `followUpTasks` suite, `approvalRouting` suite (8) and UI (4);
   negative control caught.
 
+- **C** (2026-10-16): Purchase Requisition, Inventory Purchase Requisition
+  and Sales Order have **Copy Table** / **Paste from Excel** (Paste only while
+  the document can be edited; Ctrl+V of several cells into the grid does the
+  same). The shared `window.gridClipboard` (index.html, LINE GRIDS) copies
+  with headings and skips them on paste. Each row is checked (category /
+  item, warehouse, unit, cost centre by code; quantity above 0): one wrong
+  row refuses the whole paste and the message names the rows (156). On a
+  Sales Order a line takes the price list's price where the item is on it,
+  else the pasted one (157). Screens only, no functions. Tests:
+  `gridPaste.ui.js` (4); negative control (refusal and list price) caught.

@@ -5,8 +5,8 @@ order: 3
 modules: [PURCHASEREQUISITION]
 sources: [functions/src/partyLedger.js]
 summary: Ask for a purchase before the order is raised, with approval and tracking for the requested item or service.
-reviewed: 2026-10-12
-fingerprint: 8b624994bdb58466
+reviewed: 2026-10-16
+fingerprint: a0550db513af1c82
 ---
 ## What it is for
 
@@ -23,6 +23,14 @@ fingerprint: 8b624994bdb58466
 1. Open **Purchase Requisition** and choose the company.
 2. Enter the request header and the requested lines.
 3. Add the quantities, units and descriptions needed.
+
+To enter many lines at once, fill them in Excel: **Copy Table** copies the
+lines with their headings (Category, Description, Quantity, Unit, Cost Ctr),
+also on an empty grid, so you have the columns to fill. Select the rows in
+Excel, copy them, and click **Paste from Excel** (or click into a cell of the
+grid and press Ctrl+V); the headings row is skipped. If a row has a category
+that isn't found, a quantity that isn't a number above zero or a cost centre
+that isn't found, nothing is pasted and the message names the rows to fix.
 4. Submit the requisition. Where approval is configured, it goes to the approver.
 5. Once approved, create the purchase order from the approved request.
 
