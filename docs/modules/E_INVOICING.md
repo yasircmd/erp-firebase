@@ -77,3 +77,9 @@ confirmed there.
   1 or later? Recommended: later. Your ASP holds them meanwhile.
 - **229.** Customers without a TRN (B2C or not registered): sent as
   usual, without e-invoicing (recommended, B2C is out of scope)?
+
+## The owner's decisions (2026-10-16)
+
+| # | Decision |
+|---|---|
+| 225, 226 | **Not urgent, and no ASP yet: make the ERP ready.** Build everything up to sending: the switch and settings in Sales Invoice Configuration, the data checks (TRN and the rest), and the PINT AE invoice and credit note built on posting, stored and downloadable (UBL XML) with its readiness status. Sending goes through one connector that is plugged in for the ASP once one is chosen. Until then nothing is sent. |

@@ -136,3 +136,9 @@ kept in USD as well as in base. Question 217.
 - **218.** Printed invoices in FC: show the base equivalent too (some UAE
   VAT rules ask for the VAT amount in AED)? Recommended: yes, the VAT total
   in AED at the invoice rate.
+
+## The owner's decisions (2026-10-16)
+
+| # | Decision |
+|---|---|
+| 213 | **Skip fetching**: rates are typed in, with their effective date. No online source and no Get today's rate button. |
