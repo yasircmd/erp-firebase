@@ -12,6 +12,35 @@ screen.
 
 ## 16/10/2026
 
+- **Paste lines from Excel** into Purchase Requisition, Inventory Purchase
+  Requisition and Sales Order: **Copy Table** gives the columns (also on
+  an empty grid), **Paste from Excel** adds the rows. A row that isn't
+  right stops the paste and is named. On a Sales Order the price list's
+  price is used where the item has one. See
+  [Purchase Requisition](purchase-requisition.html),
+  [Inventory Purchase Requisition](inventory-purchase-requisition.html) and
+  [Sales Order](sales-order.html).
+- **Fix a payment's matching without reversing it.** A posted payment or
+  receipt that settles the wrong bill: open it and select **Re-match
+  references**, choose again, and give the reason. The books don't
+  change, and it works in a closed month. It needs the new **rematch**
+  right. See [Paying and allocating](payments-and-allocation.html).
+- **Month-end checklist:** a new check for **deliveries posted but not
+  invoiced**; your own **accounts that must be zero** at month end
+  (clearing accounts); and your own **steps to tick** before closing. See
+  [Period Closing](period-closing.html).
+- **Retail counter: find a customer** by code, name or mobile number; an
+  unknown mobile can become a new customer there. A mobile number now
+  belongs to one customer of a company, also in Customer Master. See
+  [Retail Sales](retail-sales.html) and [Customer Master](customer-master.html).
+- **Shareholders in Company Master**, with their % of the issued shares,
+  their history and a printed company profile. They are seen with a new
+  right, **shareholders**. See [Company Master](company-master.html).
+- **Tasks on Home:** a posted delivery stays a task for the **Invoicing**
+  team (or its maker) until it is invoiced; post-dated cheques coming due
+  go to the **Treasury** team, 3 days before the cheque date (changeable).
+  Both are set in Approval Configuration. See
+  [Approval Configuration](approval-configuration.html).
 - **Lists: choose how many rows a page holds.** Journal entries, cash and
   bank, GRNs, purchase orders and the other document lists have **Rows**
   beside the count: 25, 50 or 100. Your choice is remembered in this
