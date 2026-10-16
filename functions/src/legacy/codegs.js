@@ -50,6 +50,8 @@ const customItemCode_ = (idToken, ...a) => __numbering.customItemCode(...a);
 const invoiceCurrencyFields_ = (idToken, ...a) => __fx.invoiceFields(...a);
 const documentBaseLines_ = (...a) => __fx.documentBaseLines(...a);
 const assertPartyCurrencyKept_ = (idToken, ...a) => __fx.assertPartyCurrencyKept(...a);
+const accountCurrency_ = (idToken, ...a) => __fx.accountCurrency(...a);
+const ledgerFcBalances_ = (...a) => __fx.ledgerFcBalances(...a);
 const generateVendorCode_ = (idToken, ...a) => __numbering.vendorCode(...a);
 const generateCustomerCode_ = (idToken, ...a) => __numbering.customerCode(...a);
 const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
@@ -955,6 +957,7 @@ async function saveAccount(idToken, accountData) {
       // [NEW DEVELOPMENT coa-class-group-new] docs/modules/COA_NUMBERING.md
       if (ownMark && accountType !== 'Asset') throw new Error('Only an Assets group is marked Cash or Bank.');
       const cashBank = __coaScheme.markFor({ IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId }, existing);
+      const accountCurrency = await accountCurrency_(idToken, accountData.Currency, isPostable && Boolean(cashBank)); // [NEW DEVELOPMENT bank-currency]
 
       const record = {
         AccountCode: code,
@@ -967,6 +970,7 @@ async function saveAccount(idToken, accountData) {
         CompanyID: companyId,
         CashFlowCategory: cashFlowCategory,
         OwnCashBank: ownMark, CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
+        Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]
         Status: status,
         CreatedAt: now, CreatedBy: actor,
         UpdatedAt: now, UpdatedBy: actor
@@ -1036,6 +1040,12 @@ async function saveAccount(idToken, accountData) {
     editedMarks[accountId] = Object.assign({}, current, { IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId });
     const cashBank = __coaScheme.markFor(editedMarks[accountId], editedMarks);
     editedMarks[accountId].CashBank = cashBank;
+    // [NEW DEVELOPMENT bank-currency] docs/modules/MULTI_CURRENCY.md, decision 217
+    const accountCurrency = await accountCurrency_(idToken, accountData.Currency === undefined ? current.Currency : accountData.Currency, isPostable && Boolean(cashBank));
+    const currencyUsedIn = accountCurrency !== String(current.Currency || '') ? await findAccountUsage_(idToken, accountId, current.AccountCode, 1) : [];
+    if (currencyUsedIn.length) {
+      throw new Error('Account ' + current.AccountCode + ' already has postings in ' + (current.Currency || 'the base currency') + ', so its currency can' + "'" + 't change. Create a new account for the other currency.');
+    }
 
     const record = {
       AccountCode: accountCode,
@@ -1048,6 +1058,7 @@ async function saveAccount(idToken, accountData) {
       CompanyID: companyId,
       CashFlowCategory: cashFlowCategory,
       OwnCashBank: ownMark, CashBank: cashBank, FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
+      Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]
       Status: status,
       CreatedAt: current.CreatedAt, CreatedBy: current.CreatedBy,
       UpdatedAt: now, UpdatedBy: actor
@@ -2188,7 +2199,8 @@ async function getPostedGlLines_(idToken, filters) {
         Debit: Number(line.Debit) || 0,
         Credit: Number(line.Credit) || 0,
         CostCenterID: line.CostCenterID || '',
-        ProfitCenterID: line.ProfitCenterID || ''
+        ProfitCenterID: line.ProfitCenterID || '',
+        FcCurrency: line.FcCurrency || '', FcDebit: Number(line.FcDebit) || 0, FcCredit: Number(line.FcCredit) || 0 // [NEW DEVELOPMENT bank-currency]
       });
     });
   });
@@ -2285,8 +2297,12 @@ async function getGlReport(idToken, params) {
     };
   });
 
+  // [NEW DEVELOPMENT bank-currency] docs/modules/MULTI_CURRENCY.md, decision 217
+  const fc = ledgerFcBalances_(isRollup ? '' : account.Currency, allLines, periodLines, fromDate, sign);
+  rows.forEach((r, i) => Object.assign(r, fc.rows[i] || {}));
   return {
-    account: { AccountCode: account.AccountCode, AccountName: account.AccountName, NormalBalance: account.NormalBalance, IsRollup: isRollup },
+    fcOpening: fc.opening, fcClosing: fc.closing,
+    account: { AccountCode: account.AccountCode, AccountName: account.AccountName, NormalBalance: account.NormalBalance, IsRollup: isRollup, Currency: fc.currency },
     openingBalance: opening,
     rows: rows,
     closingBalance: running

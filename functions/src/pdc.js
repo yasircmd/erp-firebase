@@ -115,27 +115,35 @@ async function resolvePartyLine(cfg, doc, coa) {
   if (!account) throw new Error('This ' + cfg.partyType.toLowerCase() + ' has no ' + pcfg.accountLabel + ' account configured. Set one in ' + cfg.partyType + ' Master Data.');
   const amount = round2(doc.Amount);
   const received = cfg.partyType === 'Customer';
+  // A foreign party (docs/modules/MULTI_CURRENCY.md): the cheque's amount in
+  // the base currency and in the party's, which the allocations are in; the
+  // rate is what the two work out to.
+  const currency = require('./fx').partyCurrency(party, (await require('./exchangeRates').baseCurrency()).Code);
+  const fcAmount = currency ? round2(parseAmountServer(doc.FcAmount)) : 0;
+  if (currency && !(fcAmount > 0)) throw new Error((party[pcfg.nameField] || cfg.partyType) + ' is invoiced in ' + currency + ': enter the cheque\'s ' + currency + ' amount too.');
+  const settles = currency ? fcAmount : amount;
   // The screen sends what the cheque settles (Against); the rest of the
   // cheque is kept as an advance (one New Ref).
   const against = (doc.Allocations || []).filter(a => a.RefType !== 'New');
   const againstTotal = round2(against.reduce((sum, a) => sum + (Number(a.Amount) || 0), 0));
-  if (againstTotal > amount + 0.005) {
-    throw new Error('The allocations (' + againstTotal.toFixed(2) + ') are more than the cheque amount (' + amount.toFixed(2) + ').');
+  if (againstTotal > settles + 0.005) {
+    throw new Error('The allocations (' + againstTotal.toFixed(2) + ') are more than the cheque amount (' + settles.toFixed(2) + (currency ? ' ' + currency : '') + ').');
   }
-  const allocations = against.concat(amount - againstTotal > 0.005 ? [{ RefType: 'New', RefID: '', Amount: round2(amount - againstTotal) }] : []);
-  const line = {
+  const allocations = against.concat(settles - againstTotal > 0.005 ? [{ RefType: 'New', RefID: '', Amount: round2(settles - againstTotal) }] : []);
+  const line = Object.assign({
     LineNo: 1, AccountID: party[pcfg.accountField], AccountCode: account.AccountCode, AccountName: account.AccountName,
     Debit: received ? 0 : amount, Credit: received ? amount : 0,
     CostCenterID: doc.CostCenterID || '', ProfitCenterID: doc.ProfitCenterID || '',
     PartyType: cfg.partyType, PartyID: doc.PartyID, Allocations: allocations
-  };
+  }, currency ? { FcCurrency: currency, FcDebit: received ? 0 : fcAmount, FcCredit: received ? fcAmount : 0, FcRate: Math.round(amount / fcAmount * 1e6) / 1e6 } : {});
   let resolved;
   try {
     resolved = await resolvePartyLines([line], doc.CompanyID);
   } catch (err) {
     throw new Error(String(err.message || err).replace(/^Line 1: /, ''));
   }
-  return { party, line: resolved.lines[0], fields: resolved.fields };
+  // Any exchange difference (two lines after the party's).
+  return { party, line: resolved.lines[0], extra: resolved.lines.slice(1), fields: resolved.fields, currency, fcAmount };
 }
 
 // Refuses a second live record of the same cheque.
@@ -179,6 +187,7 @@ async function buildDoc(cfg, data, user) {
     CostCenterID: String(data.CostCenterID || '').trim(), ProfitCenterID: String(data.ProfitCenterID || '').trim(),
     PartyType: cfg.partyType, PartyID: partyId,
     TransactionDate: transactionDate, ChequeDate: chequeDate, ChequeNumber: chequeNumber, Amount: amount,
+    FcAmount: data.FcAmount == null ? '' : data.FcAmount,
     Reference: String(data.Reference || '').trim(), Description: description,
     Allocations: (data.Allocations || []).map(a => ({
       RefType: String(a.RefType || '').trim(), RefID: String(a.RefID || '').trim(), Amount: round2(parseAmountServer(a.Amount))
@@ -208,6 +217,7 @@ async function buildDoc(cfg, data, user) {
   const resolved = await resolvePartyLine(cfg, doc, coa);
   doc.PartyName = resolved.line.PartyName;
   doc.Allocations = resolved.line.Allocations;
+  doc.FcCurrency = resolved.currency; doc.FcAmount = resolved.currency ? resolved.fcAmount : '';
   return doc;
 }
 
@@ -232,10 +242,13 @@ exports.getPdcSetup = onCallWithMessages(onCallOptions, async (request) => {
   const parties = partiesSnap.val() || {};
   const coa = coaSnap.val() || {};
   const company = companySnap.val() || {};
+  const baseCode = (await require('./exchangeRates').baseCurrency()).Code;
   return {
+    BaseCurrency: baseCode,
     parties: Object.keys(parties)
       .filter(id => parties[id].Status === 'Active' && (!parties[id].CompanyID || parties[id].CompanyID === companyId))
-      .map(id => ({ PartyID: id, Code: parties[id][pcfg.codeField] || '', Name: parties[id][pcfg.nameField] || '' }))
+      .map(id => ({ PartyID: id, Code: parties[id][pcfg.codeField] || '', Name: parties[id][pcfg.nameField] || '',
+        Currency: require('./fx').partyCurrency(parties[id], baseCode) })) // a foreign party's cheque settles in its currency (MULTI_CURRENCY.md)
       .sort((a, b) => a.Name.localeCompare(b.Name)),
     bankAccounts: Object.keys(coa)
       .filter(id => {
@@ -339,7 +352,7 @@ async function commitPdcPosting(user, existing, pdcId) {
   const cfg = DIRECTIONS[existing.Direction];
   const coa = (await rtdb.ref('coa').get()).val() || {};
   const clearing = await resolveClearingAccount(cfg, existing.CompanyID, coa);
-  const { line, fields } = await resolvePartyLine(cfg, existing, coa);
+  const { line, extra, fields } = await resolvePartyLine(cfg, existing, coa);
   await assertNotDuplicate(existing, pdcId);
 
   const amount = round2(existing.Amount);
@@ -350,8 +363,15 @@ async function commitPdcPosting(user, existing, pdcId) {
   const partyLine = Object.assign({
     AccountCode: line.AccountCode, Debit: line.Debit, Credit: line.Credit, Description: label,
     PartyType: line.PartyType, PartyID: line.PartyID, PartyName: line.PartyName, Allocations: line.Allocations
-  }, dims);
-  const glLines = received ? [clearingLine, partyLine] : [partyLine, clearingLine];
+  }, dims, line.FcCurrency ? { FcCurrency: line.FcCurrency, FcDebit: line.FcDebit, FcCredit: line.FcCredit, FcRate: line.FcRate } : {});
+  // A foreign cheque settling items made at another rate: the exchange difference.
+  const fxLines = (extra || []).map(l => {
+    const out = { AccountCode: l.AccountCode, Debit: l.Debit, Credit: l.Credit, Description: l.Description, CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', FxAdjustment: true };
+    if (l.FcCurrency) Object.assign(out, { FcCurrency: l.FcCurrency, FcDebit: 0, FcCredit: 0, FcRate: l.FcRate });
+    if (l.PartyID) Object.assign(out, { PartyType: l.PartyType, PartyID: l.PartyID, PartyName: l.PartyName, Allocations: [] });
+    return out;
+  });
+  const glLines = (received ? [clearingLine, partyLine] : [partyLine, clearingLine]).concat(fxLines);
 
   const actor = actorOf(user);
   const attemptId = await beginCommitAttempt(pdcId, actor, PATH);
@@ -659,7 +679,8 @@ function pendingPdcsFrom(data, partyType, partyId, companyId, asOf) {
     .map(p => ({
       PdcID: p.PdcID, Direction: p.Direction, Number: p.TransactionNumber || '', LinkedJVID: p.LinkedJVID || '',
       Date: p.TransactionDate, ChequeDate: p.ChequeDate, ChequeNumber: p.ChequeNumber,
-      Bank: p.Direction === 'Received' ? p.DraweeBank : p.BankAccountCode, Amount: round2(p.Amount)
+      Bank: p.Direction === 'Received' ? p.DraweeBank : p.BankAccountCode, Amount: round2(p.Amount),
+      FcCurrency: p.FcCurrency || '', FcAmount: p.FcCurrency ? round2(p.FcAmount) : 0 // a foreign party's cheque, in its currency too
     }))
     .sort((a, b) => (a.ChequeDate + a.Number).localeCompare(b.ChequeDate + b.Number));
 }

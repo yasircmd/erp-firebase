@@ -46,7 +46,7 @@ test('Admin only; the setup lists the three kinds and Equity accounts for cleari
   await assert.rejects(setup('u-viewer'), /do not have access to Opening Balances/);
   const s = await setup();
   assert.deepEqual(s.kinds.map(k => k.key), ['GL', 'STOCK', 'INVOICES']);
-  assert.deepEqual(s.kinds[2].columns.map(c => c.header), INV_HEAD);
+  assert.deepEqual(s.kinds[2].columns.map(c => c.header), INV_HEAD.concat(['Rate']), 'Rate: optional, for a party in a foreign currency (MULTI_CURRENCY.md)');
   assert.deepEqual(s.clearingAccounts.map(a => a.Label), ['3000 — Capital', '3900 — Opening Balance Clearing']);
   assert.equal(s.settings, null);
   // Before the setup, a paste can't be checked.

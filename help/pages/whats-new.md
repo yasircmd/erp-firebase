@@ -22,8 +22,11 @@ screen.
   difference from the bills' rates posts as an exchange gain or loss.
   Statements and aging show USD with the AED beside it. For now: USD
   invoices take direct lines (and item lines for customers), not GRNs or
-  separate Delivery Notes; journals, PDCs, openings and bank accounts in
-  a foreign currency come next. See [Currency Configuration](currencies.html),
+  separate Delivery Notes. Journal Entries and Post-dated Cheques take
+  the USD amount too, and Opening Balances take open documents in USD
+  with their rate. A bank account can be in USD (Chart of Accounts →
+  Currency): its vouchers are in USD and its ledger shows the USD
+  balance. A printed USD invoice shows the VAT and the total in AED. See [Currency Configuration](currencies.html),
   [Customer Invoice](customer-invoice.html), [Vendor Invoice](vendor-invoice.html),
   [Cash and Bank](cash-and-bank.html) and [Statements of account](statements-of-account.html).
 - **Item categories of your own.** Besides the five, add a category

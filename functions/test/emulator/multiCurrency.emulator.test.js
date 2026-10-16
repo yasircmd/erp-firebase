@@ -19,6 +19,10 @@ let INV;
 test.before(async () => {
   const f = baseFixture();
   f.currencies = { CUR1: { Code: 'AED', Name: 'UAE Dirham', IsDefault: true, Status: 'Active' }, CUR2: { Code: 'USD', Name: 'US Dollar', IsDefault: false, Status: 'Active' } };
+  f.coa['A-PDCI'] = { AccountCode: '2150', AccountName: 'PDC Issued Clearing', AccountType: 'Liability', Status: 'Active', IsPostable: true };
+  f.companies.C1.PdcIssuedClearingAccountID = 'A-PDCI';
+  f.coa['G-BANK'] = { AccountCode: '110000', AccountName: 'Banks', AccountType: 'Asset', Status: 'Active', IsPostable: false, OwnCashBank: 'Bank', CashBank: 'Bank' };
+  f.coa['A-USDB'] = { AccountCode: '110002', AccountName: 'USD account', AccountType: 'Asset', Status: 'Active', IsPostable: true, ParentAccountID: 'G-BANK', CashBank: 'Bank' };
   f.coa['A-OBC'] = { AccountCode: '3900', AccountName: 'Opening Balance Clearing', AccountType: 'Equity', Status: 'Active', IsPostable: true };
   f.coa['A-FX'] = { AccountCode: '4950', AccountName: 'Exchange Gain / Loss', AccountType: 'Revenue', Status: 'Active', IsPostable: true };
   f.customers = {
@@ -76,7 +80,7 @@ test('a receipt into the AED bank settling the invoice in USD at another rate: t
   const receipt = line => call('u-admin', 'saveCbtDraft', { cbtData: { VoucherType: 'Bank Receipt', SelectedAccountCode: '1100', JVDate: PAY, Description: 'Global Imports pays', CompanyID: 'C1', CostCenterID: 'CC1',
     OppositeLines: [Object.assign({ AccountCode: '1200', Amount: '3700', Description: 'Receipt', CostCenterID: 'CC1', PartyType: 'Customer', PartyID: 'CU1',
       Allocations: [{ RefType: 'Against', RefID: 'CustomerInvoice:' + INV, Amount: 1000 }] }, line)] } });
-  assert.match(await err(receipt({})), /Global Imports is invoiced in USD: enter the line's USD amount and its rate/);
+  assert.match(await err(receipt({})), /Global Imports is invoiced in USD: enter the line's USD amount beside its amount/);
   assert.match(await err(receipt({ FcCurrency: 'USD', FcAmount: 1000 })), /set the company's Exchange Gain \/ Loss account in Currency Configuration/);
   ok(await call('u-admin', 'saveFxSettings', { companyId: 'C1', gainLossAccountId: 'A-FX', costCenterId: 'CC1' }));
   const d = ok(await receipt({ FcCurrency: 'USD', FcAmount: 1000 }));
@@ -172,13 +176,82 @@ test('paying a USD vendor from the AED bank at a better rate: the gain posts to 
   assert.deepEqual([st.Reconciliation.status, st.Reconciliation.Balance, st.Reconciliation.Difference], ['ok', 0, 0], 'V9 alone on 2010: the base agrees with the GL');
 });
 
-test('until phase 2: a foreign party\'s opening documents and its journal lines are refused, saying where its currency works', async () => {
+test('a JV line of a USD vendor takes its USD amount; the opening documents of a USD vendor in USD at their rate', async () => {
+  const jvDraft = fc => call('u-admin', 'saveJournalDraft', { jvData: { JVDate: PAY, Description: 'Freight credit', CompanyID: 'C1', Lines: [
+    Object.assign({ AccountCode: '2010', Debit: 37, Credit: 0, Description: 'Credit note', PartyType: 'Vendor', PartyID: 'V9', Allocations: [{ RefType: 'New', Amount: fc ? 10 : 37 }] }, fc ? { FcCurrency: 'USD', FcAmount: 10 } : {}),
+    { AccountCode: '6100', Debit: 0, Credit: 37, Description: 'Credit note', CostCenterID: 'CC1' }] } }).catch(e => ({ success: false, error: e.message }));
+  assert.match((await jvDraft(false)).error, /Overseas Supplier is invoiced in USD: enter the line's USD amount beside its amount/);
+  const j = ok(await jvDraft(true));
+  ok(await call('u-admin', 'postJournalEntry', { jvId: j.jvId }));
+  const line = (await jv(j.jvId)).Lines.find(l => l.AccountCode === '2010');
+  assert.deepEqual([line.Debit, line.FcCurrency, line.FcDebit, line.FcRate], [37, 'USD', 10, 3.7]);
+
   ok(await call('u-admin', 'saveOpeningBalanceSettings', { companyId: 'C1', openingDate: '31/12/2025', clearingAccountId: 'A-OBC' }));
-  const c = await call('u-admin', 'checkOpeningBalances', { kind: 'INVOICES', companyId: 'C1', text: [['Party Type', 'Party', 'Document Type', 'Document No', 'Document Date', 'Due Date', 'Amount', 'Description'],
-    ['Vendor', 'V009', 'Invoice', 'OS-0', '01/12/2025', '', '100', ''], ['Vendor', 'V001', 'Invoice', 'AC-0', '01/12/2025', '', '100', '']].map(r => r.join('\t')).join('\n') });
-  assert.deepEqual(c.issues.map(i => i.row + ': ' + i.message), ['1: Overseas Supplier is invoiced in USD: opening balances in a foreign currency are not available yet.']);
-  const j = await call('u-admin', 'saveJournalDraft', { jvData: { JVDate: PAY, Description: 'Adjust', CompanyID: 'C1', Lines: [
-    { AccountCode: '2010', Debit: 10, Credit: 0, Description: 'x', PartyType: 'Vendor', PartyID: 'V9', Allocations: [] },
-    { AccountCode: '6100', Debit: 0, Credit: 10, Description: 'x', CostCenterID: 'CC1' }] } }).catch(e => ({ success: false, error: e.message }));
-  assert.match(j.error, /invoiced in USD: enter the line's USD amount and its rate \(for now in Cash & Bank/);
+  const head = ['Party Type', 'Party', 'Document Type', 'Document No', 'Document Date', 'Due Date', 'Amount', 'Description', 'Rate'];
+  const text = rows => [head].concat(rows).map(r => r.join('\t')).join('\n');
+  const c = await call('u-admin', 'checkOpeningBalances', { kind: 'INVOICES', companyId: 'C1', text: text([
+    ['Vendor', 'V009', 'Invoice', 'OS-0', '01/12/2025', '', '100', '', ''], ['Vendor', 'V001', 'Invoice', 'AC-0', '01/12/2025', '', '100', '', '3.6']]) });
+  assert.deepEqual(c.issues.map(i => i.row + ' ' + i.column + ': ' + i.message), [
+    '1 Rate: No USD rate on or before the document date: enter one in Currency Configuration → Rates, or give the rate here.',
+    '2 Rate: Only a party in a foreign currency takes a rate.']);
+  const p = ok(await call('u-admin', 'postOpeningBalances', { kind: 'INVOICES', companyId: 'C1', text: text([['Vendor', 'V009', 'Invoice', 'OS-0', '01/12/2025', '', '100', '', '3.67']]) }));
+  const e = (await firestore.collection('journalEntries').where('OpeningBatchID', '==', p.batchId).get()).docs[0].data();
+  assert.deepEqual(e.Lines.map(l => [l.AccountCode, l.Debit, l.Credit, l.FcCurrency || '', l.FcCredit || 0]).sort(), [['2010', 0, 367, 'USD', 100], ['3900', 367, 0, '', 0]]);
+  const items = await call('u-admin', 'getPartyOpenItems', { partyType: 'Vendor', partyId: 'V9', companyId: 'C1' });
+  const item = (items.items || items).find(i => i.Number === 'OS-0');
+  assert.deepEqual([item.Outstanding, item.Currency, item.Rate], [100, 'USD', 3.67]);
+});
+
+test('a PDC to a USD vendor: its USD amount settles the bill, the difference to Exchange Gain / Loss; the bounce undoes both', async () => {
+  const items = async () => { const r = await call('u-admin', 'getPartyOpenItems', { partyType: 'Vendor', partyId: 'V9', companyId: 'C1' }); return r.items || r; };
+  const item = (await items()).find(i => i.Number === 'OS-0');
+  const data = extra => Object.assign({ Direction: 'Issued', CompanyID: 'C1', PartyID: 'V9', TransactionDate: PAY, ChequeDate: '2026-10-15', ChequeNumber: '700001',
+    BankAccountID: 'A-BANK', Amount: 365, Description: 'Opening bill', CostCenterID: 'CC1', Allocations: [{ RefType: 'Against', RefID: item.RefID, Amount: 100 }] }, extra);
+  const setup = await call('u-admin', 'getPdcSetup', { direction: 'Issued', companyId: 'C1' });
+  assert.equal(setup.parties.find(x => x.PartyID === 'V9').Currency, 'USD');
+  assert.match(await err(call('u-admin', 'savePdcDraft', data({}))), /Overseas Supplier is invoiced in USD: enter the cheque's USD amount too/);
+  const s = ok(await call('u-admin', 'savePdcDraft', data({ FcAmount: 100 })));
+  ok(await call('u-admin', 'postPdc', { pdcId: s.pdcId }));
+  const pdc = await val('pdcCheques/' + s.pdcId);
+  assert.deepEqual([pdc.FcCurrency, pdc.FcAmount], ['USD', 100]);
+  const e = await jv(pdc.LinkedJVID || pdc.JVIDs[0]);
+  // 100 USD owed at 3.67 = 367, paid with a cheque of 365: a gain of 2.
+  assert.deepEqual(e.Lines.map(l => [l.AccountCode, l.Debit, l.Credit, l.FxAdjustment ? 'fx' : '']).sort(), [['2010', 2, 0, 'fx'], ['2010', 365, 0, ''], ['2150', 0, 365, ''], ['4950', 0, 2, 'fx']]);
+  assert.equal(((await items()).find(i => i.Number === 'OS-0') || { Outstanding: 0 }).Outstanding, 0);
+  ok(await call('u-admin', 'bouncePdc', { pdcId: s.pdcId, date: PAY, reason: 'Stopped' }));
+  assert.equal((await items()).find(i => i.Number === 'OS-0').Outstanding, 100, 'the bounce reopens the bill in USD');
+  const st = await call('u-admin', 'getPartyStatement', { partyType: 'Vendor', partyId: 'V9', companyId: 'C1', fromDate: '2025-01-01', toDate: '2026-09-30' });
+  assert.deepEqual([st.Closing, st.BaseClosing, st.Reconciliation.Difference], [90, 330, 0], 'the opening bill (100 USD, 367) less the JV credit (10 USD, 37)');
+});
+
+test('a bank account in USD: its vouchers in USD at the voucher\'s rate; a transfer into it takes its USD amount; its ledger in USD; its currency fixed once used', async () => {
+  const acct = async (id, extra) => call('u-admin', 'saveAccount', { accountData: Object.assign({}, await val('coa/' + id), { AccountID: id }, extra) });
+  assert.match((await acct('A-FRT', { Currency: 'USD' })).error, /Only a cash or bank account \(one that takes postings\) has a currency of its own/);
+  ok(await acct('A-USDB', { Currency: 'USD' }));
+  assert.equal((await val('coa/A-USDB')).Currency, 'USD');
+  // Global Imports' open USD invoice of 200 (at 3.70), received into the USD account at 3.75.
+  const open = await call('u-admin', 'getPartyOpenItems', { partyType: 'Customer', partyId: 'CU1', companyId: 'C1' });
+  const bill = (open.items || open).find(i => i.Outstanding === 200 && i.Currency === 'USD');
+  const receipt = extra => call('u-admin', 'saveCbtDraft', { cbtData: Object.assign({ VoucherType: 'Bank Receipt', SelectedAccountCode: '110002', JVDate: PAY, Description: 'USD receipt', CompanyID: 'C1', CostCenterID: 'CC1',
+    OppositeLines: [{ AccountCode: '1200', Amount: '200', Description: 'Receipt', CostCenterID: 'CC1', PartyType: 'Customer', PartyID: 'CU1', Allocations: [{ RefType: 'Against', RefID: bill.RefID, Amount: 200 }] }] }, extra) });
+  assert.match((await receipt({ ExchangeRate: 3.75 })).error, /differs from the USD rate on 2026-09-20 \(3.7\): give the reason/);
+  const d = ok(await receipt({ ExchangeRate: 3.75, ExchangeRateReason: 'Bank rate' }));
+  ok(await call('u-admin', 'postJournalEntry', { jvId: d.jvId }));
+  const e = await jv(d.jvId);
+  assert.deepEqual([e.LedgerCurrency, e.ExchangeRate, e.ExchangeRateReason], ['USD', 3.75, 'Bank rate']);
+  // 200 USD at 3.75 = 750 for a bill booked at 740: a gain of 10.
+  assert.deepEqual(e.Lines.map(l => [l.AccountCode, l.Debit, l.Credit, l.FcCurrency ? (l.FcDebit || l.FcCredit) : '', l.FxAdjustment ? 'fx' : '']).sort(),
+    [['110002', 750, 0, 200, ''], ['1200', 0, 750, 200, ''], ['1200', 10, 0, 0, 'fx'], ['4950', 0, 10, '', 'fx']]);
+  assert.match((await acct('A-USDB', { Currency: '' })).error, /already has postings in USD, so its currency can't change/);
+
+  const transfer = extra => call('u-admin', 'saveCbtDraft', { cbtData: { VoucherType: 'Fund Transfer', SelectedAccountCode: '1100', JVDate: PAY, Description: 'Buy USD', CompanyID: 'C1', CostCenterID: 'CC1',
+    OppositeLines: [Object.assign({ AccountCode: '110002', Amount: '370', Description: 'To the USD account' }, extra)] } });
+  assert.match((await transfer({})).error, /Account 110002 is in USD: enter the USD amount it receives/);
+  const t = ok(await transfer({ FcAmount: 100 }));
+  ok(await call('u-admin', 'postJournalEntry', { jvId: t.jvId }));
+  const to = (await jv(t.jvId)).Lines.find(l => l.AccountCode === '110002');
+  assert.deepEqual([to.Debit, to.FcDebit, to.FcRate], [370, 100, 3.7]);
+
+  const gl = await call('u-admin', 'getGlReport', { params: { AccountID: 'A-USDB', FromDate: '2026-09-01', ToDate: '2026-09-30' } });
+  assert.deepEqual([gl.account.Currency, gl.closingBalance, gl.fcClosing, gl.rows.map(r => r.FcBalance)], ['USD', 1120, 300, [200, 300]]);
 });

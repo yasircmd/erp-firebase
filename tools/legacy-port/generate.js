@@ -86,6 +86,8 @@ const MAPPED = {
   invoiceCurrencyFields_: ['fx', 'invoiceFields', 'dropCtx'], // docs/modules/MULTI_CURRENCY.md (called only from patches)
   documentBaseLines_: ['fx', 'documentBaseLines', 'pure'],
   assertPartyCurrencyKept_: ['fx', 'assertPartyCurrencyKept', 'dropCtx'],
+  accountCurrency_: ['fx', 'accountCurrency', 'dropCtx'], // decision 217 (patch bank-currency)
+  ledgerFcBalances_: ['fx', 'ledgerFcBalances', 'pure'],
   generateVendorCode_: ['numbering', 'vendorCode', 'dropCtx'],
   generateCustomerCode_: ['numbering', 'customerCode', 'dropCtx'],
   generateStockTransactionRef_: ['glWriting', 'generateStockTransactionRef', 'dropCtx'],
@@ -618,7 +620,34 @@ const SCREEN_EDITS = [
 
   // ---------- Rates (docs/modules/MULTI_CURRENCY.md) ----------` },
   { mod: 'CURRENCYCONFIG', from: "    document.getElementById('cc-rate-save').addEventListener('click', saveRate);\n",
-    to: "    document.getElementById('cc-rate-save').addEventListener('click', saveRate);\n    loadFx();\n" }
+    to: "    document.getElementById('cc-rate-save').addEventListener('click', saveRate);\n    loadFx();\n" },
+  // COA: a cash or bank account may carry a currency of its own (owner,
+  // 2026-10-16; docs/modules/MULTI_CURRENCY.md, decision 217).
+  { mod: 'COA', from: '      <div id="coa-cashflowcategory-inherited" class="hidden',
+    to: `      <div id="coa-currency-field" class="hidden">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Currency</label>
+        <select id="coa-form-currency" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Base currency</option></select>
+        <p class="text-xs text-slate-500 mt-1">A cash or bank account in a foreign currency: its Cash and Bank Transactions are entered in it, at the rate of their date. It can't change once the account has postings.</p>
+      </div>
+      <div id="coa-cashflowcategory-inherited" class="hidden` },
+  { mod: 'COA', from: "      document.getElementById('coa-form-cashbank').value = a.OwnCashBank || '';\n",
+    to: "      document.getElementById('coa-form-cashbank').value = a.OwnCashBank || '';\n      document.getElementById('coa-form-currency').value = a.Currency || '';\n" },
+  { mod: 'COA', from: "      populateParentOptions('', null);\n",
+    to: "      populateParentOptions('', null);\n      document.getElementById('coa-form-currency').value = '';\n" },
+  { mod: 'COA', from: "    document.getElementById('coa-cashbank-field').classList.toggle('hidden', !show);\n",
+    to: "    document.getElementById('coa-cashbank-field').classList.toggle('hidden', !show);\n    const parent = accounts.find(x => x.AccountID === document.getElementById('coa-form-parent').value);\n    document.getElementById('coa-currency-field').classList.toggle('hidden', !(document.getElementById('coa-form-postable').checked && parent && parent.CashBank)); // a cash or bank account's currency\n" },
+  { mod: 'COA', from: "      CashBank: document.getElementById('coa-cashbank-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-cashbank').value,\n",
+    to: "      CashBank: document.getElementById('coa-cashbank-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-cashbank').value,\n      Currency: document.getElementById('coa-currency-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-currency').value,\n" },
+  { mod: 'COA', from: "    loadAccountsToFix();\n",
+    to: `    loadAccountsToFix();
+    // The foreign currencies a cash or bank account may be in (decision 217).
+    rpc.withSuccessHandler(base => rpc.withSuccessHandler(list => {
+      const sel = document.getElementById('coa-form-currency');
+      (list || []).filter(c => !base || c.Code !== base.Code).forEach(c => { const o = document.createElement('option'); o.value = c.Code; o.textContent = c.Code + ' — ' + c.Name; sel.appendChild(o); });
+    }).withFailureHandler(() => {}).getActiveCurrencies()).withFailureHandler(() => {}).getDefaultCurrency();
+` },
+  { mod: 'COA', from: '<td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}',
+    to: '<td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.Currency ? \' <span class="coa-currency ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">\' + escapeHtml(a.Currency) + \'</span>\' : \'\'}' }
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {

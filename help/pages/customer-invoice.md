@@ -6,7 +6,7 @@ modules: [CUSTOMERINVOICE]
 sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
 reviewed: 2026-10-16
-fingerprint: dfe441e05a0b48f5
+fingerprint: 341df2e90b3c2dba
 ---
 ## What it is for
 
@@ -64,7 +64,9 @@ default currency, its invoice is in that currency:
   be attached to it.
 
 The books are in the default currency, at the invoice's rate; each line
-keeps its foreign amount too.
+keeps its foreign amount too. The printed invoice gives the total in the
+customer's currency and, below it, the rate with the VAT and the total in
+the default currency.
 
 ## What happens in the books
 

@@ -5,8 +5,8 @@ order: 11
 modules: [GLREPORT]
 sources: [functions/src/glViews.js]
 summary: Every line posted to an account, with its opening, running and closing balance; or a plain listing across several accounts.
-reviewed: 2026-10-12
-fingerprint: 3dc683acc64c5af7
+reviewed: 2026-10-16
+fingerprint: 3f07848af9394ef1
 ---
 ## What it is for
 
@@ -49,6 +49,10 @@ two views:
 **Copy Table** and **Print** follow the view on screen.
 
 ## Good to know
+
+- The **Ledger** of a cash or bank account in a foreign currency (for
+  example USD) shows a **Balance (USD)** column beside the balance, and
+  each line's USD amount under its debit or credit.
 
 - Reports such as the [Trial Balance](trial-balance.html) open the
   General Ledger for an account when you select it; **Back** returns.

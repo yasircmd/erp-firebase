@@ -53,7 +53,13 @@ async function invoiceFields(party, date, data, total, opts) {
   if (opts && opts.grns) throw new Error('This vendor is invoiced in ' + code + ': for now a ' + code + ' invoice takes direct lines only (GRNs in a foreign currency come with Purchase Orders, docs/modules/MULTI_CURRENCY.md, decision 215).');
   if (opts && opts.dns) throw new Error('This customer is invoiced in ' + code + ': for now a ' + code + ' invoice takes item lines and direct lines; Delivery Notes made separately are priced in base (Sales Orders and Delivery Notes in a foreign currency come later, docs/modules/MULTI_CURRENCY.md, decision 215).');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) throw new Error('Enter the invoice date: the ' + code + ' rate is taken on it.');
-  const on = await rates.rateOn(code, date, base);
+  const r = await documentRate(code, date, data, base);
+  return Object.assign({ CurrencyCode: code }, r, { TotalBase: round2(total * r.ExchangeRate) });
+}
+// A document's rate (decision 214): the rate of `code` on its date, or the
+// user's own (data.ExchangeRate) with a reason (data.ExchangeRateReason).
+async function documentRate(code, date, data, base) {
+  const on = await require('./exchangeRates').rateOn(code, date, base);
   let rate = on.Rate, reason = '';
   const own = Number(String((data && data.ExchangeRate) == null ? '' : data.ExchangeRate).replace(/,/g, ''));
   if (own > 0 && Math.abs(own - on.Rate) > 1e-9) {
@@ -61,7 +67,23 @@ async function invoiceFields(party, date, data, total, opts) {
     if (!reason) throw new Error('The rate ' + own + ' differs from the ' + code + ' rate on ' + date + ' (' + on.Rate + '): give the reason.');
     rate = Math.round(own * 1e6) / 1e6;
   }
-  return { CurrencyCode: code, ExchangeRate: rate, RateEffectiveDate: on.EffectiveDate, ExchangeRateReason: reason, TotalBase: round2(total * rate) };
+  return { ExchangeRate: rate, RateEffectiveDate: on.EffectiveDate, ExchangeRateReason: reason };
+}
+
+// A cash or bank account's own currency (decision 217; patch bank-currency):
+// '' for the base currency or none. Only a postable cash or bank account has
+// one. Throws Error.
+async function accountCurrency(raw, cashBankPostable) {
+  const c = String(raw || '').trim().toUpperCase();
+  if (!c) return '';
+  const rates = require('./exchangeRates');
+  const base = await rates.baseCurrency();
+  if (c === base.Code) return '';
+  if (!cashBankPostable) throw new Error('Only a cash or bank account (one that takes postings) has a currency of its own.');
+  const { rtdb } = require('./firebaseAdmin');
+  const cur = Object.values((await rtdb.ref('currencies').get()).val() || {}).find(x => x.Code === c);
+  if (!cur || cur.Status !== 'Active') throw new Error('Choose an active currency of Currency Configuration for the account.');
+  return c;
 }
 // The document's GL lines in base, each keeping its foreign amount.
 const documentBaseLines = (lines, doc) => (doc && doc.CurrencyCode ? toBase(lines, doc.CurrencyCode, doc.ExchangeRate) : lines);
@@ -84,4 +106,19 @@ async function assertPartyCurrencyKept(partyType, partyId, newCurrency) {
   if (invoices || !entries.empty) throw new Error('This ' + partyType.toLowerCase() + ' already has invoices or payments in ' + (before || 'the base currency') + ': its currency can\'t change (create a new ' + partyType.toLowerCase() + ' for ' + (after || 'the base currency') + ').');
 }
 
-module.exports = { partyCurrency, toBase, lineFc, round2, invoiceFields, documentBaseLines, mirrorFc, assertPartyCurrencyKept };
+// The ledger of an account in a foreign currency (patch bank-currency):
+// its opening, each row's and its closing balance in that currency. Lines
+// with no foreign amount (none should reach such an account) count 0.
+function ledgerFcBalances(currency, allLines, periodLines, fromDate, sign) {
+  if (!currency) return { currency: '', opening: 0, closing: 0, rows: [] };
+  const fcNet = l => (l.FcCurrency === currency ? (Number(l.FcDebit) || 0) - (Number(l.FcCredit) || 0) : 0);
+  const opening = round2(allLines.filter(l => fromDate && l.JVDate < fromDate).reduce((t, l) => t + sign * fcNet(l), 0));
+  let running = opening;
+  const rows = periodLines.map(l => {
+    running = round2(running + sign * fcNet(l));
+    return { FcDebit: l.FcCurrency === currency ? Number(l.FcDebit) || 0 : 0, FcCredit: l.FcCurrency === currency ? Number(l.FcCredit) || 0 : 0, FcBalance: running };
+  });
+  return { currency, opening, closing: running, rows };
+}
+
+module.exports = { partyCurrency, toBase, lineFc, round2, invoiceFields, documentRate, accountCurrency, ledgerFcBalances, documentBaseLines, mirrorFc, assertPartyCurrencyKept };

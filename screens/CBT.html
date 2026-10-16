@@ -101,6 +101,19 @@
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input type="text" id="cbt-form-reference" placeholder="e.g. Receipt #, Cheque #" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
   </div>
 
+  <div id="cbt-fx" class="hidden">
+    <label class="block text-xs font-medium text-slate-300 mb-1">Currency and rate <span class="text-slate-500">(the account is in its own currency: enter the amounts in it)</span></label>
+    <div class="flex flex-wrap items-center gap-2 text-sm"><span>1 <b id="cbt-fx-code" class="font-mono"></b> =</span>
+      <input id="cbt-fx-rate" inputmode="decimal" class="w-28 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-right"><span class="font-mono cbt-base-code"></span>
+      <input id="cbt-fx-reason" maxlength="200" placeholder="Reason for another rate" class="hidden flex-1 min-w-[10rem] bg-slate-900 border border-amber-500/50 rounded-lg py-1.5 px-2 text-sm"></div>
+    <p id="cbt-fx-note" class="text-xs text-slate-500 mt-1"></p>
+  </div>
+  <div id="cbt-transfer-fc" class="hidden">
+    <label id="cbt-transfer-fc-label" class="block text-xs font-medium text-slate-300 mb-1"></label>
+    <input id="cbt-transfer-fc-amount" inputmode="decimal" class="w-40 bg-slate-900 border border-amber-500/40 rounded-lg py-1.5 px-2 text-sm text-right font-mono">
+    <p class="text-xs text-slate-500 mt-1">The To account is in its own currency: what it receives, in it.</p>
+  </div>
+
   <div>
     <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
     <div class="flex gap-2">
@@ -142,7 +155,7 @@
             <th class="py-2 px-3">Account Code</th>
             <th class="py-2 px-3">Account Name</th>
             <th class="py-2 px-3">Description</th>
-            <th class="py-2 px-3 text-right w-32">Amount</th>
+            <th id="cbt-amount-head" class="py-2 px-3 text-right w-32">Amount</th>
             <th class="py-2 px-3 w-24">Cost Ctr</th>
             <th class="py-2 px-3 w-24">Profit Ctr</th>
             <th class="py-2 px-3 w-10 no-print"></th>
@@ -158,6 +171,7 @@
           </tr>
         </tfoot>
       </table>
+      <p id="cbt-fxdiff-note" class="hidden px-3 py-2 text-xs text-amber-300"></p>
     </div>
   </div>
 
@@ -245,6 +259,72 @@
   };
   const prefixesOf = config => config.prefixes || [config.prefix];
   const isTransfer = () => Boolean(currentType && TYPE_CONFIG[currentType] && TYPE_CONFIG[currentType].transfer);
+
+  // ---------- FOREIGN-CURRENCY ACCOUNTS (docs/modules/MULTI_CURRENCY.md, decision 217) ----------
+  // A cash or bank account in a foreign currency: the voucher's amounts are
+  // in it, at the rate of its date (another rate needs a reason). A saved
+  // voucher keeps its own rate.
+  let fxSuggested = 0;
+  function ledgerCurrency() {
+    const code = document.getElementById('cbt-form-ledger').value;
+    if (currentEntry && currentEntry.LedgerCurrency && (!code || code === currentEntry.SelectedAccountCode)) return currentEntry.LedgerCurrency;
+    return ((accountByCode(code) || {}).Currency) || '';
+  }
+  // A transfer from a base-currency account to one in a foreign currency.
+  function transferToCurrency() {
+    if (!isTransfer() || ledgerCurrency()) return '';
+    return ((accountByCode((gridLines[0] || {}).AccountCode) || {}).Currency) || '';
+  }
+  function fxEditable() { return !currentEntry || currentEntry.Status === 'Draft' || currentEntry.Status === 'Rejected'; }
+  function showFx() {
+    const cur = ledgerCurrency(), base = defaultCurrency ? defaultCurrency.Code : '';
+    document.getElementById('cbt-fx').classList.toggle('hidden', !cur);
+    document.getElementById('cbt-amount-head').textContent = 'Amount' + (cur ? ' (' + cur + ')' : '');
+    document.querySelectorAll('.cbt-base-code').forEach(e => { e.textContent = base; });
+    const toCur = transferToCurrency();
+    document.getElementById('cbt-transfer-fc').classList.toggle('hidden', !toCur);
+    document.getElementById('cbt-transfer-fc-label').textContent = toCur ? toCur + ' amount' : '';
+    if (!cur) return;
+    document.getElementById('cbt-fx-code').textContent = cur;
+    const rateInput = document.getElementById('cbt-fx-rate');
+    rateInput.disabled = !fxEditable();
+    const differs = fxSuggested && Math.abs((parseFloat(String(rateInput.value).replace(/,/g, '')) || 0) - fxSuggested) > 1e-9;
+    document.getElementById('cbt-fx-reason').classList.toggle('hidden', !(fxEditable() && differs));
+  }
+  function loadFxRate() {
+    const cur = ledgerCurrency(), date = document.getElementById('cbt-form-date').value;
+    fxSuggested = 0;
+    showFx();
+    if (!cur || !date || !fxEditable()) return;
+    rpc.withSuccessHandler(r => {
+      fxSuggested = r.Rate;
+      const rateInput = document.getElementById('cbt-fx-rate');
+      if (!rateInput.dataset.touched) rateInput.value = r.Rate;
+      document.getElementById('cbt-fx-note').textContent = 'The rate from ' + r.EffectiveDate + ' (Currency Configuration).';
+      showFx();
+    }).withFailureHandler(err => { document.getElementById('cbt-fx-note').textContent = err.message || 'No rate.'; }).getExchangeRateOn({ code: cur, date: date });
+  }
+  function resetFx(entry) {
+    const rateInput = document.getElementById('cbt-fx-rate');
+    delete rateInput.dataset.touched;
+    rateInput.value = entry && entry.LedgerCurrency ? entry.ExchangeRate || '' : '';
+    document.getElementById('cbt-fx-reason').value = (entry && entry.ExchangeRateReason) || '';
+    const to = entry && !entry.LedgerCurrency ? (entry.Lines || []).find(l => l.AccountCode !== entry.SelectedAccountCode && l.FcCurrency && !l.PartyID) : null;
+    document.getElementById('cbt-transfer-fc-amount').value = to ? (to.FcDebit || to.FcCredit || '') : '';
+    // The exchange differences the server worked out (not lines of the grid).
+    const fxLines = ((entry && entry.Lines) || []).filter(l => l.FxAdjustment && !l.PartyID);
+    const note = document.getElementById('cbt-fxdiff-note');
+    note.classList.toggle('hidden', !fxLines.length);
+    note.textContent = fxLines.map(l => 'Exchange difference: ' + formatMoney(l.Debit || l.Credit) + (l.Credit ? ' gain' : ' loss') + ' on ' + l.AccountCode + (l.AccountName ? ' ' + l.AccountName : '') + '.').join(' ');
+    setTimeout(loadFxRate, 0);
+  }
+  // A stored entry's opposite lines for the grid: in the account's own
+  // currency if it has one; the exchange-difference lines stay the server's.
+  function gridLinesOf(entry, keepAllocations) {
+    return (entry.Lines || []).filter(l => l.AccountCode !== entry.SelectedAccountCode && !l.FxAdjustment)
+      .map(l => Object.assign({ AccountCode: l.AccountCode, Description: l.Description, Amount: (entry.LedgerCurrency ? (l.FcDebit || l.FcCredit) : (l.Debit || l.Credit)) || '',
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '' }, party.fromServer(l, keepAllocations)));
+  }
   const isCashOrBank = a => a.CashBank === 'Cash' || a.CashBank === 'Bank'; // its group's mark in the Chart of Accounts (docs/modules/COA_NUMBERING.md)
   // Add Line / Paste: shown while the entry is editable, never for a transfer (one To line).
   let lineButtonsEditable = true;
@@ -503,7 +583,7 @@
   // earlier advances) its amount settles: Against Ref allocations. Any
   // remainder becomes a New Ref (e.g. an advance). Line state:
   // { PartyType, PartyID, Against: [{ RefID, RefNumber, Amount }] }.
-  function createPartyAllocation(prefix) {
+  function createPartyAllocation(prefix, ledgerCurrencyOf) {
     let partyAccounts = [];
     let loadedFor = null;
     let excludeJvId = ''; // Re-match: the open items as if this entry's own allocations were not there
@@ -528,7 +608,9 @@
     function currencyOf(line) { const p = partyOf(line); return (p && p.Currency) || line.FcCurrency || ''; }
     const fcOf = line => Math.round((parseFloat(String(line.FcAmount == null ? '' : line.FcAmount).replace(/,/g, '')) || 0) * 100) / 100;
     // The amount a line allocates: a foreign party's own amount, else the line's.
-    const allocAmount = (line, amount) => (currencyOf(line) ? fcOf(line) : amount);
+    // Its own amount beside the line's, unless the account is already in the party's currency.
+    const extraFc = line => { const c = currencyOf(line); return c && c !== (ledgerCurrencyOf ? ledgerCurrencyOf() : '') ? c : ''; };
+    const allocAmount = (line, amount) => (extraFc(line) ? fcOf(line) : amount);
 
     // Keeps a line's party consistent with its account: cleared when the
     // account is no longer that party's control account. Only once this
@@ -558,7 +640,7 @@
           <button data-row="${i}" class="${prefix}-allocate-btn bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-xs px-2.5 py-1 rounded border border-blue-500/30"><i class="fa-solid fa-list-check"></i> Allocate…</button>
           <span class="text-slate-400">${summary(line, amount)}</span>`;
       } else if (readOnly) {
-        const cur = currencyOf(line);
+        const cur = extraFc(line);
         body = `<span class="text-slate-300">${escapeHtml(line.PartyType || '')}: ${escapeHtml(line.PartyName || (current ? current.Name : line.PartyID) || '—')}</span>
           ${cur ? '<span class="text-slate-300">' + escapeHtml(cur) + ' ' + money(fcOf(line)) + '</span>' : ''}
           <span class="text-slate-400">${summary(line, amount)}</span>`;
@@ -571,7 +653,7 @@
         body = `<label class="text-slate-400">Vendor / Customer</label>
           <select data-row="${i}" class="${prefix}-party-select bg-slate-900 border ${missing ? 'border-red-500/50' : 'border-slate-700'} rounded py-1 px-2 text-xs max-w-xs">
             <option value="">Select…</option>${options}</select>
-          ${currencyOf(line) ? '<label class="text-slate-400">' + escapeHtml(currencyOf(line)) + ' amount</label><input data-row="' + i + '" inputmode="decimal" value="' + (fcOf(line) ? money(fcOf(line)) : '') + '" class="' + prefix + '-fc-amount w-28 bg-slate-900 border ' + (fcOf(line) ? 'border-slate-700' : 'border-red-500/50') + ' rounded py-1 px-2 text-xs text-right">' : ''}
+          ${extraFc(line) ? '<label class="text-slate-400">' + escapeHtml(extraFc(line)) + ' amount</label><input data-row="' + i + '" inputmode="decimal" value="' + (fcOf(line) ? money(fcOf(line)) : '') + '" class="' + prefix + '-fc-amount w-28 bg-slate-900 border ' + (fcOf(line) ? 'border-slate-700' : 'border-red-500/50') + ' rounded py-1 px-2 text-xs text-right">' : ''}
           <button data-row="${i}" class="${prefix}-allocate-btn ${line.PartyID ? '' : 'hidden'} bg-slate-800 hover:bg-slate-700 text-xs px-2.5 py-1 rounded border border-slate-700"><i class="fa-solid fa-list-check"></i> Allocate…</button>
           <span class="text-slate-400">${line.PartyID ? summary(line, amount) : ''}</span>`;
       }
@@ -721,7 +803,7 @@
         const l = lines[i];
         if (!l.AccountCode) continue;
         if (isControlCode(l.AccountCode) && !l.PartyID) return 'Line ' + (i + 1) + ': select the Vendor or Customer for account ' + l.AccountCode + '.';
-        if (l.PartyID && currencyOf(l) && !(fcOf(l) > 0)) return 'Line ' + (i + 1) + ': enter the ' + currencyOf(l) + ' amount (the party is invoiced in ' + currencyOf(l) + ').';
+        if (l.PartyID && extraFc(l) && !(fcOf(l) > 0)) return 'Line ' + (i + 1) + ': enter the ' + extraFc(l) + ' amount (the party is invoiced in ' + extraFc(l) + ').';
         if (l.PartyID && againstTotal(l) > allocAmount(l, amountOf(l)) + 0.005) return 'Line ' + (i + 1) + ': allocations exceed the line amount.';
       }
       return '';
@@ -733,7 +815,7 @@
       const allocations = (line.Against || []).map(a => ({ RefType: 'Against', RefID: a.RefID, Amount: a.Amount }));
       const rest = round2(amount - againstTotal(line));
       if (rest > 0.005) allocations.push({ RefType: 'New', Amount: rest });
-      const cur = currencyOf(line);
+      const cur = extraFc(line);
       return Object.assign({ PartyType: line.PartyType, PartyID: line.PartyID, Allocations: allocations }, cur ? { FcCurrency: cur, FcAmount: fcOf(line) } : {});
     }
 
@@ -752,7 +834,7 @@
     return { load, isControlCode, syncLine, subRowHtml, bind, validate, toServer, fromServer, summary, setExclude, allocAmount };
   }
 
-  const party = createPartyAllocation('cbt');
+  const party = createPartyAllocation('cbt', () => ledgerCurrency());
   function amountOf(line) { return parseFloat(String(line.Amount).replace(/,/g, '')) || 0; }
   // Every opposite line of a Payment is a debit, of a Receipt a credit.
   function partyLineInfo(line) {
@@ -872,6 +954,7 @@
     let total = 0;
     gridLines.forEach(l => { total += parseFloat(String(l.Amount).replace(/,/g, '')) || 0; });
     document.getElementById('cbt-total-amount').textContent = formatMoney(total);
+    showFx(); // a transfer's To account may be in a foreign currency
   }
 
   function allLineDescriptionsFilled() {
@@ -998,9 +1081,8 @@
     if (!currentEntry) return;
 
     currentType = currentEntry.VoucherType;
-    gridLines = (currentEntry.Lines || [])
-      .filter(l => l.AccountCode !== currentEntry.SelectedAccountCode)
-      .map(l => Object.assign({ AccountCode: l.AccountCode, Description: l.Description, Amount: l.Debit || l.Credit || '', CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '' }, party.fromServer(l, true)));
+    gridLines = gridLinesOf(currentEntry, true);
+    resetFx(currentEntry);
 
     document.getElementById('cbt-form-date').value = currentEntry.JVDate || '';
     document.getElementById('cbt-form-reference').value = currentEntry.Reference || '';
@@ -1043,6 +1125,7 @@
       if (check) check.classList.add('hidden');
     });
     document.getElementById('cbt-form-ledger').innerHTML = '<option value="">Select transaction type first...</option>';
+    resetFx(null);
     renderGrid();
   }
 
@@ -1056,9 +1139,9 @@
     const proceed = () => {
       currentEntry = null;
       currentType = source.VoucherType;
-      gridLines = (source.Lines || [])
-        .filter(l => l.AccountCode !== source.SelectedAccountCode)
-        .map(l => Object.assign({ AccountCode: l.AccountCode, Description: l.Description, Amount: l.Debit || l.Credit || '', CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '' }, party.fromServer(l, false)));
+      gridLines = gridLinesOf(source, false);
+      resetFx(null);
+      if (!source.LedgerCurrency) { const to = (source.Lines || []).find(l => l.AccountCode !== source.SelectedAccountCode && l.FcCurrency && !l.PartyID); document.getElementById('cbt-transfer-fc-amount').value = to ? (to.FcDebit || to.FcCredit || '') : ''; }
 
       document.getElementById('cbt-form-date').value = today();
       document.getElementById('cbt-form-reference').value = '';
@@ -1158,10 +1241,10 @@
       <p style="font-size:11px; margin: 8px 0 12px;">Description: ${escapeHtml(description)}</p>
       <table>
         <thead><tr>
-          <th>#</th><th>Account Code</th><th>Account Name</th><th>Description</th><th style="text-align:right">Amount</th>
+          <th>#</th><th>Account Code</th><th>Account Name</th><th>Description</th><th style="text-align:right">Amount${ledgerCurrency() ? ' (' + escapeHtml(ledgerCurrency()) + ')' : ''}</th>
         </tr></thead>
         <tbody>${rows || '<tr><td colspan="5" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
-        <tfoot><tr><td colspan="4" style="text-align:right; font-weight:bold;">Total</td><td style="text-align:right; font-weight:bold;">${formatMoney(total)}</td></tr></tfoot>
+        <tfoot><tr><td colspan="4" style="text-align:right; font-weight:bold;">Total</td><td style="text-align:right; font-weight:bold;">${formatMoney(total)}</td></tr>${ledgerCurrency() && currentEntry && currentEntry.ExchangeRate ? '<tr><td colspan="5" style="text-align:right; font-size:10px;">At 1 ' + escapeHtml(ledgerCurrency()) + ' = ' + escapeHtml(currentEntry.ExchangeRate) + ' ' + escapeHtml(defaultCurrency ? defaultCurrency.Code : '') + '</td></tr>' : ''}</tfoot>
       </table>
       ${signatureBlock}
       <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>
@@ -1237,7 +1320,7 @@
 
     document.getElementById('cbt-print-btn').classList.toggle('hidden', !posted);
 
-    ['cbt-form-date', 'cbt-form-reference', 'cbt-form-description', 'cbt-form-ledger', 'cbt-form-company', 'cbt-form-division', 'cbt-form-branch', 'cbt-form-costcenter', 'cbt-form-profitcenter'].forEach(id => {
+    ['cbt-form-date', 'cbt-form-reference', 'cbt-form-description', 'cbt-form-ledger', 'cbt-fx-rate', 'cbt-fx-reason', 'cbt-transfer-fc-amount', 'cbt-form-company', 'cbt-form-division', 'cbt-form-branch', 'cbt-form-costcenter', 'cbt-form-profitcenter'].forEach(id => {
       document.getElementById(id).disabled = readOnly;
     });
     document.querySelectorAll('.cbt-type-btn').forEach(btn => { btn.disabled = readOnly; });
@@ -1338,8 +1421,11 @@
       JVDate: document.getElementById('cbt-form-date').value,
       Reference: document.getElementById('cbt-form-reference').value.trim(),
       Description: document.getElementById('cbt-form-description').value.trim(),
-      OppositeLines: gridLines.map(l => Object.assign({}, l, party.toServer(l, party.allocAmount(l, amountOf(l))))),
+      OppositeLines: gridLines.map((l, i) => Object.assign({}, l, party.toServer(l, party.allocAmount(l, amountOf(l))),
+        i === 0 && transferToCurrency() ? { FcAmount: document.getElementById('cbt-transfer-fc-amount').value } : {})),
       CurrencyCode: defaultCurrency ? defaultCurrency.Code : '',
+      ExchangeRate: ledgerCurrency() ? document.getElementById('cbt-fx-rate').value : '',
+      ExchangeRateReason: ledgerCurrency() ? document.getElementById('cbt-fx-reason').value.trim() : '',
       CompanyID: document.getElementById('cbt-form-company').value,
       DivisionID: document.getElementById('cbt-form-division').value,
       BranchID: document.getElementById('cbt-form-branch').value,
@@ -1570,6 +1656,9 @@
       btn.addEventListener('click', () => { isDirty = true; selectType(btn.getAttribute('data-type')); });
     });
     document.getElementById('cbt-form-ledger').addEventListener('change', rebuildOppositeDatalist);
+    document.getElementById('cbt-form-ledger').addEventListener('change', () => { delete document.getElementById('cbt-fx-rate').dataset.touched; loadFxRate(); renderGrid(); });
+    document.getElementById('cbt-form-date').addEventListener('change', () => { if (!document.getElementById('cbt-fx-rate').dataset.touched) loadFxRate(); });
+    document.getElementById('cbt-fx-rate').addEventListener('input', e => { e.target.dataset.touched = '1'; showFx(); });
     document.getElementById('cbt-form-company').addEventListener('change', onCompanyChange);
     document.getElementById('cbt-form-company').addEventListener('change', updatePrintHeader);
     document.getElementById('cbt-add-line-btn').addEventListener('click', () => {

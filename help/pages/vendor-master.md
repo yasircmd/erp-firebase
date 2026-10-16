@@ -6,7 +6,7 @@ modules: [VENDORMASTER]
 sources: [functions/src/partyLedger.js]
 summary: Maintain the supplier record used in requisitions, purchase orders, GRNs and supplier bills.
 reviewed: 2026-10-16
-fingerprint: 7e57b1dff3c80aa8
+fingerprint: e83fae3d8b291c35
 ---
 ## What it is for
 

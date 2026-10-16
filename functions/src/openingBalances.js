@@ -85,10 +85,11 @@ const KINDS = {
       C('Document No', 'docNo', 'text', { req: true, note: 'The original invoice (or receipt) number.' }),
       C('Document Date', 'docDate', 'date', { req: true, note: 'dd/mm/yyyy; on or before the opening date.' }),
       C('Due Date', 'dueDate', 'date', { note: 'dd/mm/yyyy. Blank: document date + the party\'s payment terms.' }),
-      C('Amount', 'amount', 'number', { req: true, note: 'Outstanding amount, base currency.' }),
-      C('Description', 'description', 'text')
+      C('Amount', 'amount', 'number', { req: true, note: 'Outstanding amount: base currency, or the party\'s own for a party in a foreign currency.' }),
+      C('Description', 'description', 'text'),
+      C('Rate', 'rate', 'number', { note: 'Only for a party in a foreign currency: 1 unit in base. Blank: the rate on the document date.' })
     ],
-    sample: [['Vendor', 'V-L-000001', 'Invoice', 'INV-7781', '15/11/2025', '', '4500.00', '']]
+    sample: [['Vendor', 'V-L-000001', 'Invoice', 'INV-7781', '15/11/2025', '', '4500.00', '', '']]
   }
 };
 
@@ -122,6 +123,7 @@ async function loadData() {
   const d = {};
   paths.forEach((p, i) => { d[p] = snaps[i].val() || {}; });
   d.baseCode = (await require('./exchangeRates').baseCurrency()).Code;
+  d.rates = (await rtdb.ref('exchangeRates').get()).val() || {};
   return d;
 }
 
@@ -295,11 +297,20 @@ function checkInvoiceRow(r, d, companyId, openingDate, issue, seen, rowNo, exist
       const acc = d.coa[p[cfg.accountField]];
       const fc = require('./fx').partyCurrency(p, d.baseCode);
       if (!acc || acc.IsPostable !== true) issue('party', (p[cfg.nameField] || p[cfg.codeField]) + ' has no valid ' + cfg.accountLabel + ' account (' + r.partyType + ' Master).');
-      // Openings in a foreign currency come with phase 2 (docs/modules/MULTI_CURRENCY.md).
-      else if (fc) issue('party', (p[cfg.nameField] || p[cfg.codeField]) + ' is invoiced in ' + fc + ': opening balances in a foreign currency are not available yet.');
       else {
         r.partyId = p._id; r.partyName = p[cfg.nameField] || p[cfg.codeField] || '';
         r.accountCode = String(acc.AccountCode); r.paymentTerms = Number(p.PaymentTermsDays) || 0;
+        // A party in a foreign currency (docs/modules/MULTI_CURRENCY.md): the
+        // amount is in its currency, at the given rate or the one on the document date.
+        r.currency = fc;
+        if (!fc && r.rate !== '') issue('rate', 'Only a party in a foreign currency takes a rate.');
+        if (fc && r.rate !== '') r.fxRate = Number(r.rate);
+        if (fc && r.rate === '' && r.docDate) {
+          const hit = require('./exchangeRates').sorted(d.rates[fc]).find(x => String(x.EffectiveDate) <= r.docDate);
+          if (hit) r.fxRate = Number(hit.Rate);
+          else issue('rate', 'No ' + fc + ' rate on or before the document date: enter one in Currency Configuration → Rates, or give the rate here.');
+        }
+        if (fc && r.rate !== '' && !(r.fxRate > 0)) issue('rate', 'Rate must be greater than zero.');
       }
     }
   }
@@ -410,12 +421,14 @@ async function postInvoices(user, companyId, settings, rows, d, batchId) {
     const lines = list.map(r => {
       const side = r.docType === 'Invoice' ? grows : (grows === 'Dr' ? 'Cr' : 'Dr');
       const amount = round2(Number(r.amount));
-      return {
-        AccountCode: r.accountCode, Debit: side === 'Dr' ? amount : 0, Credit: side === 'Cr' ? amount : 0,
+      // In base, keeping the party's own amount (MULTI_CURRENCY.md); the allocation is in its currency.
+      const base = r.currency ? round2(amount * r.fxRate) : amount;
+      return Object.assign({
+        AccountCode: r.accountCode, Debit: side === 'Dr' ? base : 0, Credit: side === 'Cr' ? base : 0,
         Description: r.description || ('Opening ' + r.docType.toLowerCase() + ' ' + r.docNo),
         PartyType: r.partyType, PartyID: r.partyId, PartyName: r.partyName,
         Allocations: [{ RefType: 'New', RefID: '', Amount: amount, DocumentType: r.docType, DocumentNo: r.docNo, DocumentDate: r.docDate, DueDate: r.dueDate }]
-      };
+      }, r.currency ? { FcCurrency: r.currency, FcDebit: side === 'Dr' ? amount : 0, FcCredit: side === 'Cr' ? amount : 0, FcRate: r.fxRate } : {});
     });
     const net = round2(lines.reduce((s, l) => s + l.Debit - l.Credit, 0));
     if (Math.abs(net) >= 0.005) lines.push(clearingLine(clearing, net, 'Opening balances — ' + first.partyName));
@@ -649,7 +662,8 @@ function summarize(kind, rows) {
   if (kind === 'STOCK') return 'Stock value ' + fmt(rows.reduce((s, r) => s + round2((Number(r.quantity) || 0) * (Number(r.unitCost) || 0)), 0)) + '.';
   if (kind === 'INVOICES') {
     const parties = new Set(rows.map(r => r.partyType + ':' + r.partyId)).size;
-    return rows.length + ' documents of ' + parties + ' parties, ' + fmt(rows.reduce((s, r) => s + (Number(r.amount) || 0), 0)) + ' in total.';
+    const base = r => (r.currency ? round2((Number(r.amount) || 0) * (r.fxRate || 0)) : Number(r.amount) || 0);
+    return rows.length + ' documents of ' + parties + ' parties, ' + fmt(rows.reduce((s, r) => s + base(r), 0)) + ' in total' + (rows.some(r => r.currency) ? ' (in base)' : '') + '.';
   }
   return '';
 }

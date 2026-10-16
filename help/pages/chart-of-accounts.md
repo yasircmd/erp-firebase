@@ -6,7 +6,7 @@ modules: [COA]
 sources: [functions/src/coaUsage.js, functions/src/coaScheme.js, functions/src/coaRenumber.js]
 summary: The list of accounts every entry posts to: heads and postable accounts, types, codes, and shared accounts.
 reviewed: 2026-10-16
-fingerprint: b488e1f1b83d4381
+fingerprint: 5108e88c224a8326
 ---
 ## What it is for
 
@@ -55,6 +55,10 @@ always sits under a group or a sub-group, never straight under a class.
    as the cash or bank side. 110000 Cash / Petty Cash and 120000 Bank
    Accounts come marked. Changing the mark changes it for every account
    under the group.
+   A cash or bank account itself (one that takes postings) can have a
+   **Currency**, for example a USD bank account: its Cash and Bank
+   Transactions are then in USD. It can't change once the account has
+   postings; open a new account for another currency.
 8. Select **Save Account**. The code is given automatically: the next
    free number under the parent.
 

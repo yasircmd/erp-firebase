@@ -179,7 +179,7 @@ async function buildStatement(partyType, partyId, companyId, fromDate, toDate) {
 
   // Post-dated cheques still to clear as at the end date (docs/modules/PDC.md).
   const pendingPdcs = (await pendingPdcsForParty(partyType, partyId, companyId, toDate))
-    .map(p => Object.assign(p, { DaysToMaturity: daysBetween(toDate, p.ChequeDate) }));
+    .map(p => Object.assign(p, { DaysToMaturity: daysBetween(toDate, p.ChequeDate) }, currency && p.FcCurrency ? { Amount: p.FcAmount, BaseAmount: p.Amount } : {})); // in the party's currency
   const pendingPdcTotal = round2(pendingPdcs.reduce((sum, p) => sum + p.Amount, 0));
 
   return {

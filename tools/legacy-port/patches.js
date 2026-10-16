@@ -1839,4 +1839,64 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     replace: `    const customerId = String(customerData.CustomerID || '').trim();
     assertPartyCurrencyKept_(idToken, 'Customer', customerId, customerData.DefaultCurrency); // [NEW DEVELOPMENT party-currency-fixed]`
   }
+  ,
+  {
+    id: 'bank-currency (new)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/MULTI_CURRENCY.md, decision 217): a cash or bank account may carry a currency of its own.',
+    find: `      const cashBank = __coaScheme.markFor({ IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId }, existing);`,
+    replace: `      const cashBank = __coaScheme.markFor({ IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId }, existing);
+      const accountCurrency = accountCurrency_(idToken, accountData.Currency, isPostable && Boolean(cashBank)); // [NEW DEVELOPMENT bank-currency]`
+  },
+  {
+    id: 'bank-currency (new, store)',
+    why: 'As above.',
+    find: `        OwnCashBank: ownMark, CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]`,
+    replace: `        OwnCashBank: ownMark, CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
+        Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]`
+  },
+  {
+    id: 'bank-currency (edit)',
+    why: 'As above; the currency is fixed once the account has postings.',
+    find: `    editedMarks[accountId].CashBank = cashBank;`,
+    replace: `    editedMarks[accountId].CashBank = cashBank;
+    // [NEW DEVELOPMENT bank-currency] docs/modules/MULTI_CURRENCY.md, decision 217
+    const accountCurrency = accountCurrency_(idToken, accountData.Currency === undefined ? current.Currency : accountData.Currency, isPostable && Boolean(cashBank));
+    const currencyUsedIn = accountCurrency !== String(current.Currency || '') ? findAccountUsage_(idToken, accountId, current.AccountCode, 1) : [];
+    if (currencyUsedIn.length) {
+      throw new Error('Account ' + current.AccountCode + ' already has postings in ' + (current.Currency || 'the base currency') + ', so its currency can' + "'" + 't change. Create a new account for the other currency.');
+    }`
+  },
+  {
+    id: 'bank-currency (edit, store)',
+    why: 'As above.',
+    find: `      OwnCashBank: ownMark, CashBank: cashBank, FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]`,
+    replace: `      OwnCashBank: ownMark, CashBank: cashBank, FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
+      Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]`
+  }
+  ,
+  {
+    id: 'bank-currency (gl lines)',
+    why: 'NEW DEVELOPMENT (decision 217): the posted lines keep their foreign amounts, for the ledger of an account in a foreign currency.',
+    find: `        Credit: Number(line.Credit) || 0,
+        CostCenterID: line.CostCenterID || '',
+        ProfitCenterID: line.ProfitCenterID || ''
+      });`,
+    replace: `        Credit: Number(line.Credit) || 0,
+        CostCenterID: line.CostCenterID || '',
+        ProfitCenterID: line.ProfitCenterID || '',
+        FcCurrency: line.FcCurrency || '', FcDebit: Number(line.FcDebit) || 0, FcCredit: Number(line.FcCredit) || 0 // [NEW DEVELOPMENT bank-currency]
+      });`
+  },
+  {
+    id: 'bank-currency (gl report)',
+    why: 'NEW DEVELOPMENT (decision 217): the ledger of a cash or bank account in a foreign currency shows its balance in that currency too.',
+    find: `  return {
+    account: { AccountCode: account.AccountCode, AccountName: account.AccountName, NormalBalance: account.NormalBalance, IsRollup: isRollup },`,
+    replace: `  // [NEW DEVELOPMENT bank-currency] docs/modules/MULTI_CURRENCY.md, decision 217
+  const fc = ledgerFcBalances_(isRollup ? '' : account.Currency, allLines, periodLines, fromDate, sign);
+  rows.forEach((r, i) => Object.assign(r, fc.rows[i] || {}));
+  return {
+    fcOpening: fc.opening, fcClosing: fc.closing,
+    account: { AccountCode: account.AccountCode, AccountName: account.AccountName, NormalBalance: account.NormalBalance, IsRollup: isRollup, Currency: fc.currency },`
+  }
 ];

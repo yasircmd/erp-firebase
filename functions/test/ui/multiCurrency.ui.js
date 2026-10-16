@@ -28,6 +28,11 @@ const D = '2026-09-10', PAY = '2026-09-20';
   };
   f.customerClassifications = { CL: { Name: 'Retail', IsExport: false, Status: 'Active', CompanyID: '' } };
   f.salesTypes = { ST1: { Name: 'Services', GLAccountID: 'A-REV', SalesReturnsAccountID: 'A-REV', Status: 'Active', CompanyID: 'C1' } };
+  f.companies.C1.OutputTaxAccountID = 'A-VATOUT';
+  f.companies.C1.PdcIssuedClearingAccountID = 'A-PDCI';
+  f.coa['A-PDCI'] = { AccountCode: '2150', AccountName: 'PDC Issued Clearing', AccountType: 'Liability', Status: 'Active', IsPostable: true };
+  f.coa['G-BANK'] = { AccountCode: '120000', AccountName: 'Bank Accounts', AccountType: 'Asset', Status: 'Active', IsPostable: false, OwnCashBank: 'Bank', CashBank: 'Bank' };
+  f.coa['A-USDB'] = { AccountCode: '120002', AccountName: 'USD account', AccountType: 'Asset', Status: 'Active', IsPostable: true, ParentAccountID: 'G-BANK', CashBank: 'Bank', Currency: 'USD' };
   f.vendors.V9 = { VendorCode: 'V009', VendorName: 'Overseas Supplier', Status: 'Active', CompanyID: 'C1', TradePayablesAccountID: 'A-AP', DefaultCurrency: 'USD' };
   await reset(f);
   ok(await call('u-admin', 'saveExchangeRate', { code: 'USD', effectiveDate: '2026-09-01', rate: 3.6725 }));
@@ -41,6 +46,10 @@ const D = '2026-09-10', PAY = '2026-09-20';
     OppositeLines: [{ AccountCode: '1200', Amount: '1850', FcCurrency: 'USD', FcAmount: 500, Description: 'Receipt', CostCenterID: 'CC1', PartyType: 'Customer', PartyID: 'CU1',
       Allocations: [{ RefType: 'Against', RefID: 'CustomerInvoice:' + posted.invoiceId, Amount: 500 }] }] } }));
   ok(await call('u-admin', 'postJournalEntry', { jvId: rc.jvId }));
+  // After the statement's period: a taxed USD invoice, for the print.
+  const taxed = ok(await call('u-admin', 'saveCustomerInvoiceDraft', { invoiceData: { InvoiceDate: '2026-10-01', Description: 'Taxed sale', CompanyID: 'C1', CustomerID: 'CU1', CostCenterID: 'CC1',
+    SourceDeliveryNotes: [], DirectLines: [{ AccountCode: '4000', Amount: 200, Description: 'Consulting', SalesTypeID: 'ST1' }], Discount: 0, TaxPercent: 5 } }));
+  ok(await call('u-admin', 'postCustomerInvoice', { invoiceId: taxed.invoiceId }));
   ok(await call('u-admin', 'saveCustomerInvoiceDraft', { invoiceData: { InvoiceDate: D, Description: 'Draft for review', CompanyID: 'C1', CustomerID: 'CU1', CostCenterID: 'CC1',
     SourceDeliveryNotes: [], DirectLines: [{ AccountCode: '4000', Amount: 1000, Description: 'Consulting', SalesTypeID: 'ST1' }], Discount: 0, TaxPercent: 0 } }));
 
@@ -95,11 +104,30 @@ const D = '2026-09-10', PAY = '2026-09-20';
   await check('Customer Invoice: a saved USD draft shows its rate and the total in AED', async () => {
     const p = await open('CUSTOMERINVOICE');
     await p.waitForSelector('#cinv-table-body tr', T);
-    await p.locator('#cinv-table-body tr', { hasText: 'Draft for review' }).first().click();
+    await p.waitForFunction(t => [...document.querySelectorAll('#cinv-table-body tr')].some(r => r.textContent.includes(t)), '(unposted)', T);
+    await p.evaluate(t => [...document.querySelectorAll('#cinv-table-body tr')].find(r => r.textContent.includes(t)).click(), '(unposted)');
     await p.waitForFunction(() => document.getElementById('cinv-fx-rate').value === '3.6725', null, T);
     assert.equal((await p.textContent('#cinv-total-code')).trim(), 'USD');
     await p.waitForFunction(() => /3,672\.50/.test(document.getElementById('cinv-total-base-value').textContent), null, T);
     assert.equal(await p.isVisible('#cinv-total-base'), true);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('the printed USD invoice gives the VAT and the total in AED at its rate', async () => {
+    const p = await open('CUSTOMERINVOICE');
+    await p.evaluate(() => { window.print = () => {}; });
+    await p.waitForSelector('#cinv-table-body tr', T);
+    await p.waitForFunction(t => [...document.querySelectorAll('#cinv-table-body tr')].some(r => r.textContent.includes(t)), '210.00', T);
+    await p.evaluate(t => [...document.querySelectorAll('#cinv-table-body tr')].find(r => r.textContent.includes(t)).click(), '210.00');
+    await p.waitForSelector('#cinv-print-btn:not(.hidden)', T);
+    await p.click('#cinv-print-btn');
+    const doc = await p.textContent('#cinv-print-document');
+    // 200 USD + 5% = 210 USD at 3.70: VAT 10 USD = 37.00 AED, total 777.00 AED.
+    assert.match(doc, /Total \(USD\)\s*210\.00/);
+    assert.match(doc, /At 1 USD = 3\.7 AED/);
+    assert.match(await p.textContent('#cinv-print-vat-base'), /VAT \(AED\)\s*37\.00/);
+    assert.match(doc, /Total \(AED\)\s*777\.00/);
     assert.deepEqual(p.__errors, []);
     await p.close();
   });
@@ -138,6 +166,63 @@ const D = '2026-09-10', PAY = '2026-09-20';
     await p.close();
   });
 
+  await check('Chart of Accounts: a bank account shows its currency; the field is offered on a bank account only', async () => {
+    const p = await open('COA');
+    await p.waitForSelector('#coa-table-body .coa-currency', T);
+    const row = p.locator('#coa-table-body tr', { hasText: 'USD account' }).first();
+    assert.match(await row.textContent(), /USD/);
+    await row.locator('.coa-edit').click();
+    await p.waitForSelector('#coa-currency-field:not(.hidden)', T);
+    assert.equal(await p.inputValue('#coa-form-currency'), 'USD');
+    assert.deepEqual(await p.$$eval('#coa-form-currency option', os => os.map(o => o.value)), ['', 'USD'], 'not the base currency');
+    await p.uncheck('#coa-form-postable');
+    await p.waitForSelector('#coa-currency-field', { state: 'hidden', ...T });
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('Cash & Bank: the USD bank account asks for the rate and takes amounts in USD; a USD customer\'s line needs no second amount', async () => {
+    const p = await open('CBT');
+    await p.click('#cbt-new-btn');
+    await p.click('.cbt-type-btn[data-type="Bank Receipt"]');
+    await p.selectOption('#cbt-form-company', 'C1');
+    await option(p, '#cbt-form-ledger', '120002');
+    await p.fill('#cbt-form-date', PAY);
+    await p.selectOption('#cbt-form-ledger', '120002');
+    await p.waitForFunction(() => document.getElementById('cbt-fx-rate').value === '3.7', null, T);
+    assert.equal((await p.textContent('#cbt-amount-head')).trim(), 'Amount (USD)');
+    const acct = p.locator('#cbt-grid-body input[data-row="0"][data-col="0"]');
+    await acct.fill('1200'); await acct.blur();
+    const amt = p.locator('#cbt-grid-body input[data-row="0"][data-col="2"]');
+    await amt.fill('100'); await amt.blur();
+    await p.waitForSelector('.cbt-party-select', { state: 'visible', ...T });
+    await p.selectOption('.cbt-party-select', 'Customer:CU1');
+    await p.waitForTimeout(500);
+    assert.equal(await p.locator('.cbt-fc-amount').count(), 0, 'the account is already in USD');
+    await p.fill('#cbt-fx-rate', '3.75');
+    await p.waitForSelector('#cbt-fx-reason:not(.hidden)', T);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
+  await check('PDC Issued: a USD vendor\'s cheque asks for its USD amount', async () => {
+    const p = await open('PDCISSUED');
+    await p.click('#pdc-new-btn');
+    await p.selectOption('#pdc-form-company', 'C1');
+    await option(p, '#pdc-form-party', 'V9');
+    await p.waitForLoadState('networkidle'); await p.waitForTimeout(3000); // the company's setup reloads the list
+    await p.selectOption('#pdc-form-party', 'V9');
+    await p.waitForFunction(() => !document.getElementById('pdc-fc').classList.contains('hidden'), null, T).catch(async e => {
+      throw new Error(e.message + ' ' + JSON.stringify(await p.evaluate(() => [document.getElementById('pdc-form-party').value, document.getElementById('pdc-alloc-summary').textContent])) + JSON.stringify(p.__errors));
+    });
+    assert.equal((await p.textContent('#pdc-fc-label')).trim(), 'USD amount');
+    await p.fill('#pdc-form-amount', '370');
+    await p.fill('#pdc-form-fc', '100');
+    await p.waitForFunction(() => /1 USD = 3\.7 AED/.test(document.getElementById('pdc-fc-note').textContent), null, T);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await check('Customer SOA: in USD with the AED balance beside it', async () => {
     const p = await open('CUSTOMERSOA');
     await option(p, '#soa-company', 'C1');
@@ -163,7 +248,7 @@ const D = '2026-09-10', PAY = '2026-09-20';
     await p.selectOption('#ag-company', 'C1');
     await p.fill('#ag-asof', '2026-09-30');
     await p.click('#ag-run');
-    await p.waitForSelector('.ag-row[data-id="CU1"]', T);
+    await p.waitForFunction(() => /1,836\.25/.test((document.querySelector('.ag-row[data-id="CU1"] .ag-net') || {}).textContent || ''), null, T);
     const net = await p.textContent('.ag-row[data-id="CU1"] .ag-net');
     assert.match(net, /1,836\.25/);
     assert.match(net, /USD 500\.00/);

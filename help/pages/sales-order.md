@@ -6,7 +6,7 @@ modules: [SALESORDER]
 sources: [functions/src/partyLedger.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
 reviewed: 2026-10-16
-fingerprint: ff21f090a927a226
+fingerprint: fdd7183fb82109aa
 ---
 ## What it is for
 

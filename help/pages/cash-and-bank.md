@@ -6,7 +6,7 @@ modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
 reviewed: 2026-10-16
-fingerprint: 0fb0324e20504a45
+fingerprint: a9ea56449c701a08
 ---
 ## What it is for
 
@@ -52,6 +52,20 @@ the bills were at another rate, the ERP adds the **exchange difference**
 lines itself: one on the party's account and one on the company's
 Exchange Gain / Loss account ([Currency Configuration](currencies.html)).
 
+### A bank account in a foreign currency
+
+If the **Ledger Account** is in a foreign currency (its Currency in the
+[Chart of Accounts](chart-of-accounts.html), say USD), the screen shows
+**Currency and rate**: the rate on the date, which you may change with a
+reason. Enter the amounts in USD; the books take them in the default
+currency at that rate. A vendor or customer paid from it must be in USD
+too (or in no currency of its own for lines without a party).
+
+A **Fund Transfer** from a default-currency account into a USD account
+asks for the **USD amount** the account receives: the rate is what the two
+amounts make. A transfer between two different foreign currencies goes
+through a default-currency account for now.
+
 ### Correcting a posted transaction
 
 Select **Reverse Entry** and choose the date: a mirror entry is posted and
@@ -84,7 +98,7 @@ can be set per transaction type (Approval Configuration).
   **Re-match references** (the **rematch** right): choose the right bill
   without reversing the payment
   ([Paying and allocating](payments-and-allocation.html)).
-- **"… is invoiced in USD: enter the line's USD amount and its rate"**:
-  fill the USD amount on that line.
+- **"… is invoiced in USD: enter the line's USD amount beside its
+  amount"**: fill the USD amount on that line.
 - **Post-dated cheques** are not entered here: use
   [Post-dated Cheques](post-dated-cheques.html).

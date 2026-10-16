@@ -81,10 +81,11 @@
               <th class="py-3 px-4 text-right">Debit</th>
               <th class="py-3 px-4 text-right">Credit</th>
               <th class="py-3 px-4 text-right">Balance</th>
+              <th class="gl-fc-col hidden py-3 px-4 text-right">Balance <span class="gl-fc-code"></span></th>
             </tr>
           </thead>
           <tbody id="gl-table-body" class="divide-y divide-slate-700/60 text-xs">
-            <tr><td class="py-3 px-4 text-slate-400 italic" colspan="6">Opening Balance</td><td></td><td></td><td class="py-3 px-4 text-right font-mono" id="gl-opening-cell"></td></tr>
+            <tr><td class="py-3 px-4 text-slate-400 italic" colspan="6">Opening Balance</td><td></td><td></td><td class="py-3 px-4 text-right font-mono" id="gl-opening-cell"></td><td class="gl-fc-col hidden py-3 px-4 text-right font-mono text-amber-300" id="gl-fc-opening-cell"></td></tr>
           </tbody>
           <tfoot>
             <tr class="bg-slate-900 border-t border-slate-700 font-medium text-xs">
@@ -92,6 +93,7 @@
               <td class="py-2 px-4 text-right" id="gl-total-debit"></td>
               <td class="py-2 px-4 text-right" id="gl-total-credit"></td>
               <td class="py-2 px-4 text-right font-mono" id="gl-closing-cell"></td>
+              <td class="gl-fc-col hidden py-2 px-4 text-right font-mono text-amber-300" id="gl-fc-closing-cell"></td>
             </tr>
           </tfoot>
         </table>
@@ -413,6 +415,13 @@
     document.getElementById('gl-account-normal').textContent = 'Normal Balance: ' + result.account.NormalBalance;
     document.getElementById('gl-rollup-note').classList.toggle('hidden', !result.account.IsRollup);
     document.getElementById('gl-opening-cell').textContent = formatMoney(result.openingBalance);
+    // An account in a foreign currency (docs/modules/MULTI_CURRENCY.md, decision 217): its own balance beside.
+    const fc = result.account.Currency || '';
+    document.querySelectorAll('.gl-fc-col').forEach(e => e.classList.toggle('hidden', !fc));
+    document.querySelectorAll('.gl-fc-code').forEach(e => { e.textContent = '(' + fc + ')'; });
+    document.getElementById('gl-fc-opening-cell').textContent = fc ? formatMoney(result.fcOpening) : '';
+    document.getElementById('gl-fc-closing-cell').textContent = fc ? formatMoney(result.fcClosing) : '';
+    const fcOf = v => (fc && v ? '<div class="text-[10px] text-amber-300">' + escapeHtml(fc) + ' ' + formatMoney(v) + '</div>' : '');
 
     const tbody = document.getElementById('gl-table-body');
     const openingRow = tbody.rows[0];
@@ -422,7 +431,7 @@
     let totalDebit = 0, totalCredit = 0;
     if (!result.rows.length) {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td class="py-4 px-4 text-center text-slate-500" colspan="9">No activity in this period.</td>';
+      tr.innerHTML = '<td class="py-4 px-4 text-center text-slate-500" colspan="' + (fc ? 10 : 9) + '">No activity in this period.</td>';
       tbody.appendChild(tr);
     }
     result.rows.forEach(r => {
@@ -437,9 +446,9 @@
         <td class="py-2 px-4 font-mono text-xs text-slate-400">${escapeHtml(r.AccountCode)}</td>
         <td class="py-2 px-4 text-xs text-slate-400 gl-cc">${escapeHtml(ccName(r.CostCenterID))}</td>
         <td class="gl-desc py-2 px-4 text-slate-200">${escapeHtml(r.Description)}</td>
-        <td class="py-2 px-4 text-right text-xs">${r.Debit ? formatMoney(r.Debit) : ''}</td>
-        <td class="py-2 px-4 text-right text-xs">${r.Credit ? formatMoney(r.Credit) : ''}</td>
-        <td class="py-2 px-4 text-right text-xs font-mono">${formatMoney(r.Balance)}</td>`;
+        <td class="py-2 px-4 text-right text-xs">${r.Debit ? formatMoney(r.Debit) : ''}${fcOf(r.FcDebit)}</td>
+        <td class="py-2 px-4 text-right text-xs">${r.Credit ? formatMoney(r.Credit) : ''}${fcOf(r.FcCredit)}</td>
+        <td class="py-2 px-4 text-right text-xs font-mono">${formatMoney(r.Balance)}</td>${fc ? '<td class="gl-fc-bal py-2 px-4 text-right text-xs font-mono text-amber-300">' + formatMoney(r.FcBalance) + '</td>' : ''}`;
       tr.querySelector('.gl-open-entry').addEventListener('click', () => openSourceEntry(r.JVID, r.SourceModule));
       const link = tr.querySelector('.gl-impact-link');
       if (link) link.addEventListener('click', () => openImpact(r.JVID, r.SourceModule));
