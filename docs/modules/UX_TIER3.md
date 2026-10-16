@@ -220,3 +220,16 @@ none, the recommendation is the one written here.
   Sales Order a line takes the price list's price where the item is on it,
   else the pasted one (157). Screens only, no functions. Tests:
   `gridPaste.ui.js` (4); negative control (refusal and list price) caught.
+- **D** (2026-10-16): `periodClosing.js` adds the built-in check
+  **deliveries** ("Deliveries posted, not invoiced": posted up to the
+  month's end, no `MatchedToInvoiceID`, not reversed; Warn by default, also
+  for settings saved before it, 158). Settings gain `ZeroAccounts` [{
+  AccountID, Mode }] (the company's postable accounts, at most 50; GL
+  balance at the month's end, "Not zero" with Dr / Cr) and `Steps` [{ ID,
+  Text, Mode }] (at most 30). `tickPeriodClosingStep` (the close right,
+  159): `Ticks/{month}/{stepId}`, logged Tick / Untick; refused for a
+  closed month. Closing copies the steps and their ticks into
+  `Closed/{month}/Steps`; reopening clears the reopened months' ticks.
+  Checklist items carry `Kind` (check / zero / step). Tests:
+  `periodClosing` suite (6, a new D test) and UI (6); negative control
+  (invoiced filter, ticks) caught.

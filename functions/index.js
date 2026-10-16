@@ -151,6 +151,7 @@ exports.savePeriodClosingSettings = periodClosing.savePeriodClosingSettings;
 exports.getPeriodClosingChecklist = periodClosing.getPeriodClosingChecklist;
 exports.closePeriod = periodClosing.closePeriod;
 exports.reopenPeriod = periodClosing.reopenPeriod;
+exports.tickPeriodClosingStep = periodClosing.tickPeriodClosingStep; // UX_TIER3.md D
 exports.closeFinancialYear = periodClosing.closeFinancialYear; // step 2
 exports.reopenFinancialYear = periodClosing.reopenFinancialYear;
 exports.getFinancialYearStart = periodClosing.getFinancialYearStart;

@@ -77,6 +77,18 @@
         <p class="text-xs text-slate-500 mb-2">Block: the month can't close while the item has findings. Warn: listed, and the month can still close after confirming. Off: not checked.</p>
         <table class="w-full text-left text-xs"><tbody id="pc-setup-items" class="divide-y divide-slate-700"></tbody></table>
       </div>
+      <div>
+        <h4 class="text-sm font-semibold mb-1">Accounts that must be zero at month end</h4>
+        <p class="text-xs text-slate-500 mb-2">Clearing and suspense accounts (GRN clearing, payroll clearing …): a balance at the month's end is a finding.</p>
+        <table class="w-full text-left text-xs"><tbody id="pc-zero-items" class="divide-y divide-slate-700"></tbody></table>
+        <button id="pc-zero-add" class="mt-2 bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add account</button>
+      </div>
+      <div>
+        <h4 class="text-sm font-semibold mb-1">Steps to tick before closing</h4>
+        <p class="text-xs text-slate-500 mb-2">Your own steps ("Bank reconciliation done"): anyone who can close the month ticks them on its checklist; the log keeps who and when.</p>
+        <table class="w-full text-left text-xs"><tbody id="pc-step-items" class="divide-y divide-slate-700"></tbody></table>
+        <button id="pc-step-add" class="mt-2 bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add step</button>
+      </div>
       <div class="flex justify-end"><button id="pc-save" class="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm font-medium px-4 py-2 rounded-lg">Save</button></div>
     </div>
   </div>
@@ -95,7 +107,7 @@
   const $ = id => document.getElementById(id);
   const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
   const MODES = ['Block', 'Warn', 'Off'];
-  let state = null, tab = 'months', year = '', seq = 0, checkSeq = 0, checkMonth = '';
+  let state = null, tab = 'months', year = '', seq = 0, checkSeq = 0, checkMonth = '', zeroRows = [], stepRows = [];
 
   function showError(msg) { $('pc-error').textContent = msg || ''; $('pc-error').classList.toggle('hidden', !msg); }
   const when = at => at ? window.isoLocalDateTime(new Date(at)) : '';
@@ -149,7 +161,27 @@
     $('pc-re').disabled = !canEdit;
     $('pc-setup-items').innerHTML = state.Checklist.map(c => '<tr><td class="py-1.5 pr-3">' + escapeHtml(c.label) + '</td><td class="py-1.5 w-32"><select data-key="' + c.key + '" class="pc-mode w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"' + (canEdit ? '' : ' disabled') + '>' +
       MODES.map(m => '<option' + (s.Checklist[c.key] === m ? ' selected' : '') + '>' + m + '</option>').join('') + '</select></td></tr>').join('');
+    zeroRows = s.ZeroAccounts.map(z => Object.assign({}, z));
+    stepRows = s.Steps.map(x => Object.assign({}, x));
+    renderLists();
     $('pc-save').disabled = !canEdit;
+  }
+
+  // The accounts that must be zero and the steps to tick (UX_TIER3.md D).
+  const modeSelect = (cls, i, mode, canEdit) => '<select data-i="' + i + '" class="' + cls + ' w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"' + (canEdit ? '' : ' disabled') + '>' +
+    MODES.map(m => '<option' + (mode === m ? ' selected' : '') + '>' + m + '</option>').join('') + '</select>';
+  const removeBtn = (cls, i, canEdit) => canEdit ? '<button data-i="' + i + '" class="' + cls + ' text-red-400 hover:text-red-300" title="Remove"><i class="fa-solid fa-xmark"></i></button>' : '';
+  function renderLists() {
+    const canEdit = state.Rights.close;
+    const accountOptions = sel => '<option value="">Select...</option>' + state.Accounts.map(a => '<option value="' + escapeHtml(a.ID) + '"' + (a.ID === sel ? ' selected' : '') + '>' + escapeHtml(a.Code + ' — ' + a.Name) + '</option>').join('');
+    $('pc-zero-items').innerHTML = zeroRows.map((z, i) => '<tr><td class="py-1.5 pr-3"><select data-i="' + i + '" class="pc-zero-acc w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"' + (canEdit ? '' : ' disabled') + '>' + accountOptions(z.AccountID) + '</select></td>' +
+      '<td class="py-1.5 w-32">' + modeSelect('pc-zero-mode', i, z.Mode, canEdit) + '</td><td class="py-1.5 w-8 text-center">' + removeBtn('pc-zero-del', i, canEdit) + '</td></tr>').join('') ||
+      '<tr><td class="py-1.5 text-slate-500">None.</td></tr>';
+    $('pc-step-items').innerHTML = stepRows.map((x, i) => '<tr><td class="py-1.5 pr-3"><input data-i="' + i + '" maxlength="150" value="' + escapeHtml(x.Text) + '" placeholder="e.g. Bank reconciliation done" class="pc-step-text w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"' + (canEdit ? '' : ' disabled') + '></td>' +
+      '<td class="py-1.5 w-32">' + modeSelect('pc-step-mode', i, x.Mode, canEdit) + '</td><td class="py-1.5 w-8 text-center">' + removeBtn('pc-step-del', i, canEdit) + '</td></tr>').join('') ||
+      '<tr><td class="py-1.5 text-slate-500">None.</td></tr>';
+    $('pc-zero-add').classList.toggle('hidden', !canEdit);
+    $('pc-step-add').classList.toggle('hidden', !canEdit);
   }
 
   function renderLog() {
@@ -178,9 +210,10 @@
       ' · ' + (r.Blocking ? r.Blocking + ' blocking' : 'nothing blocking') + ' · ' + r.Warnings + ' warning(s)';
     const cls = { OK: 'bg-emerald-500/20 text-emerald-300', Warning: 'bg-amber-500/20 text-amber-300', Blocks: 'bg-red-500/20 text-red-300', Off: 'bg-slate-700 text-slate-400' };
     $('pc-check-items').innerHTML = r.Items.map(i => '<div class="pc-item border border-slate-700 rounded-lg" data-key="' + i.Key + '" data-result="' + i.Result + '">' +
-      '<div class="flex items-center justify-between gap-2 px-3 py-2"><div class="text-sm">' + escapeHtml(i.Label) + (i.Note ? ' <span class="text-xs text-slate-400">— ' + escapeHtml(i.Note) + '</span>' : '') + '</div>' +
+      '<div class="flex items-center justify-between gap-2 px-3 py-2"><div class="text-sm">' +
+      (i.Kind === 'step' ? '<label class="inline-flex items-center gap-2"><input type="checkbox" class="pc-tick" data-step="' + escapeHtml(i.StepID) + '"' + (i.Ticked ? ' checked' : '') + (state.Rights.close && i.Mode !== 'Off' ? '' : ' disabled') + '> ' : '') + escapeHtml(i.Label) + (i.Kind === 'step' ? '</label>' : '') + (i.Note ? ' <span class="text-xs text-slate-400">— ' + escapeHtml(i.Note) + '</span>' : '') + '</div>' +
       '<div class="flex items-center gap-2 text-xs"><span class="text-slate-500">' + escapeHtml(i.Mode) + '</span>' + badge(i.Result === 'OK' ? 'OK' : (i.Result === 'Off' ? 'Off' : i.Count + ' found'), cls[i.Result]) + '</div></div>' +
-      (i.Findings.length ? '<table class="w-full text-left text-xs border-t border-slate-700"><tbody class="divide-y divide-slate-700/60">' + i.Findings.map(f =>
+      (i.Findings.length && i.Kind !== 'step' ? '<table class="w-full text-left text-xs border-t border-slate-700"><tbody class="divide-y divide-slate-700/60">' + i.Findings.map(f =>
         '<tr><td class="py-1 px-3">' + escapeHtml(f.Kind) + '</td><td class="py-1 px-3">' + escapeHtml(f.Number) + '</td><td class="py-1 px-3">' + escapeHtml(f.Date) + '</td><td class="py-1 px-3">' + escapeHtml(f.Status) + '</td><td class="py-1 px-3 whitespace-normal text-slate-400">' + escapeHtml(f.Text || '') + '</td>' +
         '<td class="py-1 px-3 text-right"><button class="pc-open text-blue-400 hover:underline" data-module="' + escapeHtml(f.ModuleID) + '">Open</button></td></tr>').join('') + '</tbody></table>' : '') +
       '</div>').join('');
@@ -228,11 +261,18 @@
       .then(() => { appAlert('The year ' + y.Label + ' is open again.'); load(); }, err => appAlert(err.message || 'Unable to reopen the year.'));
   }
 
+  function tick(box) {
+    box.disabled = true;
+    call('tickPeriodClosingStep', { companyId: state.CompanyID, month: checkMonth, stepId: box.dataset.step, ticked: box.checked })
+      .then(() => { openChecklist(checkMonth); load(); }, err => { appAlert(err.message || 'Unable to tick the step.'); openChecklist(checkMonth); });
+  }
+
   function save() {
     const Checklist = {};
     document.querySelectorAll('.pc-mode').forEach(s => { Checklist[s.dataset.key] = s.value; });
     $('pc-save').disabled = true;
-    call('savePeriodClosingSettings', { companyId: state.CompanyID, settings: { FiscalYearStart: $('pc-fy').value, RetainedEarningsAccountID: $('pc-re').value, Checklist } })
+    call('savePeriodClosingSettings', { companyId: state.CompanyID, settings: { FiscalYearStart: $('pc-fy').value, RetainedEarningsAccountID: $('pc-re').value, Checklist,
+      ZeroAccounts: zeroRows.filter(z => z.AccountID), Steps: stepRows.filter(x => x.Text.trim()) } })
       .then(() => { appAlert('Saved.'); year = ''; load(); }, err => { appAlert(err.message || 'Unable to save.'); $('pc-save').disabled = false; });
   }
 
@@ -261,6 +301,21 @@
       if (b) openModule(b.dataset.module, null, [{ moduleId: 'PERIODCLOSE', label: 'Period Closing' }]);
     });
     $('pc-save').addEventListener('click', save);
+    $('pc-zero-add').addEventListener('click', () => { zeroRows.push({ AccountID: '', Mode: 'Warn' }); renderLists(); });
+    $('pc-step-add').addEventListener('click', () => { stepRows.push({ ID: '', Text: '', Mode: 'Warn' }); renderLists(); });
+    $('pc-setup').addEventListener('change', e => {
+      const i = Number(e.target.dataset.i);
+      if (e.target.classList.contains('pc-zero-acc')) zeroRows[i].AccountID = e.target.value;
+      if (e.target.classList.contains('pc-zero-mode')) zeroRows[i].Mode = e.target.value;
+      if (e.target.classList.contains('pc-step-mode')) stepRows[i].Mode = e.target.value;
+    });
+    $('pc-setup').addEventListener('input', e => { if (e.target.classList.contains('pc-step-text')) stepRows[Number(e.target.dataset.i)].Text = e.target.value; });
+    $('pc-setup').addEventListener('click', e => {
+      const z = e.target.closest('.pc-zero-del'), x = e.target.closest('.pc-step-del');
+      if (z) { zeroRows.splice(Number(z.dataset.i), 1); renderLists(); }
+      if (x) { stepRows.splice(Number(x.dataset.i), 1); renderLists(); }
+    });
+    $('pc-check-items').addEventListener('change', e => { if (e.target.classList.contains('pc-tick')) tick(e.target); });
     $('pc-close-year').addEventListener('click', closeYear);
     $('pc-reopen-year').addEventListener('click', reopenYear);
   };

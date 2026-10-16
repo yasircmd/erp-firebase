@@ -5,6 +5,7 @@
 // Viewer seeing it read-only. Seeds its own data (it WIPES the emulator
 // database, like the suites):
 //   node functions/test/ui/periodClosing.ui.js
+// Also (UX_TIER3.md D): accounts that must be zero and steps to tick.
 const http = require('http');
 const fs = require('fs');
 const assert = require('assert/strict');
@@ -63,7 +64,7 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
 
   await check('the checklist lists a draft with a link to its module; closing asks first, then the earlier months close too', async () => {
     await p.click('#pc-grid tr[data-month="2026-03"] .pc-checklist');
-    await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 10);
+    await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 11);
     assert.equal(await p.getAttribute('#pc-check-items .pc-item[data-key="drafts"]', 'data-result'), 'Warning');
     assert.match(await p.textContent('#pc-check-items .pc-item[data-key="drafts"]'), /Bank Payment[\s\S]*(2026-03-05|05\/03\/2026)[\s\S]*Draft/);
     assert.equal(await p.getAttribute('#pc-check-items .pc-item[data-key="drafts"] .pc-open', 'data-module'), 'CBT');
@@ -99,7 +100,7 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     await settled(p); // the reload after saving, too
     await p.click('.pc-tab[data-tab="months"]');
     await p.click('#pc-grid tr[data-month="2026-04"] .pc-checklist');
-    await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 10);
+    await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 11);
     assert.equal(await p.getAttribute('#pc-check-items .pc-item[data-key="drafts"]', 'data-result'), 'Blocks');
     assert.match(await p.textContent('#pc-check-range'), /1 blocking/);
     assert.equal(await p.isDisabled('#pc-close'), true);
@@ -124,6 +125,39 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     assert.equal(await p.$$eval('#pc-log-body tr', r => r.length), 3); // close, setup, reopen
     assert.deepEqual(p.__errors, []);
   });
+
+  await check('Setup (UX_TIER3.md D): an account that must be zero and a step to tick; the step is ticked on the checklist and logged', async () => {
+    await settled(p);
+    await p.click('.pc-tab[data-tab="setup"]');
+    await p.click('#pc-zero-add');
+    await p.selectOption('.pc-zero-acc[data-i="0"]', 'A-FRT');
+    await p.selectOption('.pc-zero-mode[data-i="0"]', 'Block');
+    await p.click('#pc-step-add');
+    await p.fill('.pc-step-text[data-i="0"]', 'Bank reconciliation done');
+    await p.selectOption('.pc-step-mode[data-i="0"]', 'Block');
+    p.__dialogs.length = 0;
+    await p.click('#pc-save');
+    for (let i = 0; i < 100 && !p.__dialogs.includes('alert: Saved.'); i++) await p.waitForTimeout(100);
+    assert.ok(p.__dialogs.includes('alert: Saved.'), p.__dialogs.join(' | '));
+    await settled(p);
+    assert.equal(await p.inputValue('.pc-zero-acc[data-i="0"]'), 'A-FRT', 'shown again after the reload');
+    assert.equal(await p.inputValue('.pc-step-text[data-i="0"]'), 'Bank reconciliation done');
+    await p.click('.pc-tab[data-tab="months"]');
+    await p.click('#pc-grid tr[data-month="2026-02"] .pc-checklist');
+    await until(p, () => document.querySelectorAll('#pc-check-items .pc-item').length === 13);
+    assert.equal(await p.getAttribute('#pc-check-items .pc-item[data-key="zero:A-FRT"]', 'data-result'), 'OK');
+    const step = '#pc-check-items .pc-item[data-key^="step:"]';
+    assert.equal(await p.getAttribute(step, 'data-result'), 'Blocks');
+    assert.equal(await p.isDisabled('#pc-close'), true);
+    await p.check(step + ' .pc-tick');
+    await until(p, s => { const i = document.querySelector(s); return i && i.dataset.result === 'OK'; }, step);
+    assert.match(await p.textContent(step), /Ticked by Admin User/);
+    assert.equal(await p.isDisabled('#pc-close'), false);
+    await settled(p);
+    await p.click('.pc-tab[data-tab="log"]');
+    assert.match(await p.textContent('#pc-log-body tr:first-child'), /Tick[\s\S]*(2026-02|Feb-2026)[\s\S]*Admin User[\s\S]*Bank reconciliation done/);
+    assert.deepEqual(p.__errors, []);
+  });
   await p.close();
 
   await check('a Viewer sees the grid and the checklist, without close, reopen or Setup changes', async () => {
@@ -132,11 +166,14 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     assert.equal(await v.$$eval('#pc-grid .pc-reopen', b => b.length), 0);
     assert.equal((await v.textContent('#pc-grid tr[data-month="2026-02"] .pc-checklist')).trim(), 'Checklist');
     await v.click('#pc-grid tr[data-month="2026-02"] .pc-checklist');
-    await until(v, () => document.querySelectorAll('#pc-check-items .pc-item').length === 10);
+    await until(v, () => document.querySelectorAll('#pc-check-items .pc-item').length === 13);
     assert.equal(await v.isHidden('#pc-close'), true);
+    assert.equal(await v.isDisabled('#pc-check-items .pc-tick'), true, 'a Viewer cannot tick a step');
     await v.click('.pc-tab[data-tab="setup"]');
     assert.equal(await v.isDisabled('#pc-save'), true);
     assert.equal(await v.isDisabled('.pc-mode[data-key="drafts"]'), true);
+    assert.equal(await v.isHidden('#pc-zero-add'), true);
+    assert.equal(await v.isDisabled('.pc-step-text[data-i="0"]'), true);
     assert.deepEqual(v.__errors, []);
     await v.close();
   });

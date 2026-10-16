@@ -11,7 +11,7 @@ const { app, rtdb, firestore, call, reset, baseFixture } = require('./_helpers')
 test.after(async () => { await app.delete(); });
 const ok = r => { assert.equal(r.success, true, r.error); return r; };
 const err = async p => (await p.catch(e => e)).message;
-const CHECK_KEYS = ['drafts', 'approvals', 'recurring', 'depreciation', 'payroll', 'pdc', 'receivables', 'payables', 'stock', 'trialBalance'];
+const CHECK_KEYS = ['drafts', 'approvals', 'recurring', 'depreciation', 'payroll', 'pdc', 'deliveries', 'receivables', 'payables', 'stock', 'trialBalance'];
 const allModes = mode => Object.fromEntries(CHECK_KEYS.map(k => [k, mode]));
 
 function fixture() {
@@ -86,6 +86,11 @@ test('the checklist finds each kind of problem, in the period being closed', asy
   await firestore.collection('employees').doc('E2').set({ CompanyID: 'C1', Status: 'Active', JoinDate: '2026-04-01' }); // joins after March
   // A PDC matured and not cleared.
   await rtdb.ref('pdcCheques/P1').set({ CompanyID: 'C1', Direction: 'Received', Status: 'Pending', TransactionNumber: 'PDCR-1', TransactionDate: '2026-03-01', ChequeDate: '2026-04-20', ChequeNumber: '777', PartyName: 'Retail Co', Amount: 100 });
+  // Deliveries (UX_TIER3.md D): one posted and not invoiced; one invoiced, one reversed.
+  const dn = (id, over) => rtdb.ref('stock/transactions/' + id).set(Object.assign({ TransactionType: 'DeliveryNote', TransactionNumber: id, TransactionDate: '2026-04-08', CompanyID: 'C1',
+    CustomerID: 'CU1', Status: 'Posted', Lines: [] }, over || {}));
+  await dn('DN-1'); await dn('DN-2', { MatchedToInvoiceID: 'INV1' }); await dn('DN-3', { ReversedByDeliveryNoteID: 'DN-3R' });
+  await dn('DN-5', { TransactionDate: '2026-05-02' }); // after April
   // Payables: 50 posted to the control account outside the party ledger.
   await postedEntry('2026-04-15', [{ AccountID: 'A-AP', Debit: 0, Credit: 50 }, { AccountID: 'A-CASH', Debit: 50, Credit: 0 }]);
   // Stock: 10 received for 100, with no GL entry; an unbalanced entry.
@@ -102,18 +107,19 @@ test('the checklist finds each kind of problem, in the period being closed', asy
   assert.deepEqual(item(c, 'payroll').Findings.map(f => [f.ModuleID, f.Status]), [['PAYROLL', 'Not started']]);
   assert.match(item(c, 'payroll').Findings[0].Text, /^2 active employee/);
   assert.deepEqual(item(c, 'pdc').Findings.map(f => [f.Number, f.Date]), [['PDCR-1', '2026-04-20']]);
+  assert.deepEqual(item(c, 'deliveries').Findings.map(f => [f.ModuleID, f.Number, f.Status, f.Text]), [['DELIVERYNOTE', 'DN-1', 'Not invoiced', 'Retail Co']]);
   assert.equal(item(c, 'receivables').Result, 'OK');
   assert.match(item(c, 'payables').Findings[0].Text, /Aging 0\.00, GL 50\.00, difference -50\.00/);
   assert.match(item(c, 'stock').Findings[0].Text, /Stock 100\.00, GL 0\.00, difference 100\.00/);
   assert.deepEqual(item(c, 'trialBalance').Findings.map(f => f.Number), ['JV-2026-04-20']);
   assert.ok(c.Items.every(i => i.Result === (i.Key === 'receivables' ? 'OK' : 'Warning')), JSON.stringify(c.Items.map(i => [i.Key, i.Result])));
-  assert.deepEqual([c.Blocking, c.Warnings], [0, 9]);
+  assert.deepEqual([c.Blocking, c.Warnings], [0, 10]);
 
   // Each one fixed (or the month before them): clean.
   await firestore.collection('faRunState').doc('C1').set({ LastPostedPeriod: '2026-04' });
   await firestore.collection('payrollRuns').doc('C1_2026-04').set({ CompanyID: 'C1', Month: '2026-04', Status: 'Posted' });
   c = await checklist('2026-03');
-  assert.deepEqual(['drafts', 'approvals', 'recurring', 'pdc', 'payroll'].map(k => item(c, k).Count), [0, 0, 0, 0, 1]); // March: none of April's, but March's payroll
+  assert.deepEqual(['drafts', 'approvals', 'recurring', 'pdc', 'deliveries', 'payroll'].map(k => item(c, k).Count), [0, 0, 0, 0, 0, 1]); // March: none of April's, but March's payroll
   assert.match(item(c, 'payroll').Findings[0].Text, /^1 active employee/); // E2 had not joined
   c = await checklist('2026-04');
   assert.deepEqual([item(c, 'depreciation').Count, item(c, 'payroll').Count], [0, 0]);
@@ -173,4 +179,65 @@ test('reopen: a reason, later months reopen too, earlier ones stay closed; logge
   assert.deepEqual([g.ClosedThrough, g.FirstClosed, g.Months.every(m => m.Status === 'Open'), g.Log.length], ['2025-12', '2026-01', true, 6]);
   g = await get('2025-12');
   assert.deepEqual([g.Months[11].Status, g.Months[11].WithFirst, g.Months[11].CanReopen], ['Closed', true, true]);
+});
+
+test('D: accounts that must be zero at the month end, and steps to tick, each Block / Warn / Off', async () => {
+  await reset(fixture());
+  // Saved settings from before D: the deliveries check is Warn (decision 158).
+  await rtdb.ref('periodClosing/C1/Settings').set({ FiscalYearStart: 'Jan', RetainedEarningsAccountID: 'A-RE', Checklist: { drafts: 'Block' } });
+  let g = await get('2026-01');
+  assert.deepEqual([g.Settings.Checklist.deliveries, g.Settings.ZeroAccounts, g.Settings.Steps], ['Warn', [], []]);
+  assert.ok(g.Accounts.some(a => a.ID === 'A-FRT'), 'the postable accounts to choose from');
+  assert.match(await err(save({ ZeroAccounts: [{ AccountID: 'NOPE', Mode: 'Block' }] })), /postable accounts of this company/);
+  assert.match(await err(save({ ZeroAccounts: [{ AccountID: 'A-FRT' }, { AccountID: 'A-FRT' }] })), /listed twice/);
+  assert.match(await err(save({ Steps: [{ Text: 'Bank reconciliation done', Mode: 'Sometimes' }] })), /Block, Warn or Off/);
+  ok(await save({ ZeroAccounts: [{ AccountID: 'A-FRT', Mode: 'Block' }, { AccountID: '', Mode: 'Warn' }], Steps: [{ Text: 'Bank reconciliation done', Mode: 'Block' }, { Text: '  ', Mode: 'Warn' }, { Text: 'Petty cash counted', Mode: 'Warn' }] }));
+  g = await get('2026-01');
+  assert.deepEqual(g.Settings.ZeroAccounts, [{ AccountID: 'A-FRT', Mode: 'Block' }], 'the empty row is dropped');
+  assert.deepEqual(g.Settings.Steps.map(x => [x.Text, x.Mode]), [['Bank reconciliation done', 'Block'], ['Petty cash counted', 'Warn']]);
+  const [bank, petty] = g.Settings.Steps.map(x => x.ID);
+  assert.match(bank, /^S[0-9a-f]{8}$/);
+
+  // A balance on the account at the month's end blocks; a step not ticked blocks or warns.
+  await postedEntry('2026-02-10', [{ AccountID: 'A-FRT', Debit: 30, Credit: 0 }, { AccountID: 'A-CASH', Debit: 0, Credit: 30 }]);
+  let c = await checklist('2026-02');
+  assert.deepEqual(item(c, 'zero:A-FRT').Findings.map(f => [f.Number, f.Status, f.Text]), [['6100 Freight', 'Not zero', 'Balance 30.00 Dr']]);
+  assert.deepEqual([item(c, 'zero:A-FRT').Result, item(c, 'step:' + bank).Result, item(c, 'step:' + petty).Result], ['Blocks', 'Blocks', 'Warning']);
+  assert.equal(item(c, 'step:' + bank).Label, 'Bank reconciliation done');
+  assert.equal(item(c, 'zero:A-FRT').Label, 'Account 6100 Freight is zero');
+  assert.match(await err(close('2026-02')), /can't be closed: Account 6100 Freight is zero \(1\); Bank reconciliation done \(1\)/);
+  assert.equal(item(await checklist('2026-01'), 'zero:A-FRT').Result, 'OK', 'January: before the entry');
+
+  // Ticking: anyone who can close (decision 159); logged; not a stale or unknown step; not by a Viewer.
+  assert.match(await err(call('u-viewer', 'tickPeriodClosingStep', { companyId: 'C1', month: '2026-02', stepId: bank })), /permission|access/);
+  assert.match(await err(call('u-admin', 'tickPeriodClosingStep', { companyId: 'C1', month: '2026-02', stepId: 'S00000000' })), /no longer on the checklist/);
+  ok(await call('u-admin', 'tickPeriodClosingStep', { companyId: 'C1', month: '2026-02', stepId: bank }));
+  await postedEntry('2026-02-20', [{ AccountID: 'A-FRT', Debit: 0, Credit: 30 }, { AccountID: 'A-CASH', Debit: 30, Credit: 0 }]); // cleared
+  c = await checklist('2026-02');
+  assert.deepEqual([item(c, 'zero:A-FRT').Result, item(c, 'step:' + bank).Result, item(c, 'step:' + bank).Ticked.ByName], ['OK', 'OK', 'Admin User']);
+  assert.match(item(c, 'step:' + bank).Note, /Ticked by Admin User/);
+  assert.equal(item(await checklist('2026-03'), 'step:' + bank).Result, 'Blocks', 'a tick is for its month only');
+  g = await get('2026-01');
+  assert.deepEqual([g.Log[0].Action, g.Log[0].Month, g.Log[0].Reason, g.Log[0].ByName], ['Tick', '2026-02', 'Bank reconciliation done', 'Admin User']);
+
+  // Closing keeps the ticks with the month; a closed month's steps can't change.
+  const r = ok(await close('2026-02'));
+  assert.equal(r.warnings, 1, 'petty cash: Warn');
+  const closed = (await rtdb.ref('periodClosing/C1/Closed/2026-02').get()).val();
+  assert.deepEqual(closed.Steps.map(x => [x.Text, Boolean(x.Ticked)]), [['Bank reconciliation done', true], ['Petty cash counted', false]]);
+  assert.deepEqual(closed.Warnings, ['step:' + petty]);
+  assert.equal((await rtdb.ref('periodClosing/C1/Ticks/2026-02').get()).val(), null);
+  assert.match(await err(call('u-admin', 'tickPeriodClosingStep', { companyId: 'C1', month: '2026-02', stepId: petty })), /is closed/);
+
+  // Reopened: the steps are ticked again before it closes again. Untick is logged too.
+  ok(await call('u-admin', 'tickPeriodClosingStep', { companyId: 'C1', month: '2026-03', stepId: bank }));
+  ok(await call('u-admin', 'tickPeriodClosingStep', { companyId: 'C1', month: '2026-03', stepId: bank, ticked: false }));
+  assert.equal((await get('2026-01')).Log[0].Action, 'Untick');
+  ok(await reopen('2026-02', 'Late bill'));
+  assert.equal(item(await checklist('2026-02'), 'step:' + bank).Result, 'Blocks');
+  // Off: not checked.
+  ok(await save({ ZeroAccounts: [{ AccountID: 'A-FRT', Mode: 'Off' }], Steps: [{ ID: bank, Text: 'Bank reconciliation done', Mode: 'Off' }] }));
+  c = await checklist('2026-02');
+  assert.deepEqual([item(c, 'zero:A-FRT').Result, item(c, 'step:' + bank).Result, c.Blocking], ['Off', 'Off', 0]);
+  assert.equal((await get('2026-01')).Settings.Steps[0].ID, bank, 'a step keeps its ID when saved again');
 });

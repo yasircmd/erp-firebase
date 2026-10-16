@@ -8,7 +8,12 @@
 //   Settings: { FiscalYearStart: 'Jan' | 'Apr' (decision 122, fixed after the
 //               first year-end, 129), RetainedEarningsAccountID (an Equity
 //               account, used by the year-end close of step 2),
-//               Checklist: { key: 'Block' | 'Warn' | 'Off' } (decision 128) }
+//               Checklist: { key: 'Block' | 'Warn' | 'Off' } (decision 128),
+//               ZeroAccounts: [{ AccountID, Mode }] — accounts that must be
+//               zero at the month's end (UX_TIER3.md D),
+//               Steps: [{ ID, Text, Mode }] — steps to tick (D, decision 159) }
+//   Ticks: { 'yyyy-mm': { stepId: { By, ByName, At } } } — the ticked steps
+//          of a month not yet closed (copied into Closed/{month} on closing);
 //   ClosedThrough: 'yyyy-mm' — every month up to it is closed;
 //   FirstClosed:   'yyyy-mm' — the first month ever closed (the months
 //                  before it closed with it, unchecked: no Closed entry);
@@ -42,12 +47,14 @@ const CHECKLIST = [
   { key: 'depreciation', label: 'Depreciation not run for the month' },
   { key: 'payroll', label: 'Payroll for the month not posted' },
   { key: 'pdc', label: 'Post-dated cheques matured and not cleared' },
+  { key: 'deliveries', label: 'Deliveries posted, not invoiced' },
   { key: 'receivables', label: 'Customer Aging agrees with the receivables accounts' },
   { key: 'payables', label: 'Vendor Aging agrees with the payables accounts' },
   { key: 'stock', label: 'Stock value agrees with the inventory accounts' },
   { key: 'trialBalance', label: 'The Trial Balance balances' }
 ];
-const DEFAULT_MODE = 'Warn';
+const DEFAULT_MODE = 'Warn'; // also the new deliveries check's (decision 158)
+const MAX_ZERO_ACCOUNTS = 50, MAX_STEPS = 30;
 
 // Where each kind of document is fixed (the screens' module ids).
 const STOCK_MODULES = {
@@ -102,16 +109,27 @@ function equityAccounts(coa, companyId) {
     .map(([id, a]) => ({ ID: id, Code: a.AccountCode || '', Name: a.AccountName || '' })).sort((a, b) => a.Code.localeCompare(b.Code));
 }
 
+// The company's accounts that can take a posting (for "must be zero").
+function postableAccounts(coa, companyId) {
+  return Object.entries(coa).filter(([, a]) => a.IsPostable === true && (!a.CompanyID || a.CompanyID === companyId))
+    .map(([id, a]) => ({ ID: id, Code: a.AccountCode || '', Name: a.AccountName || '', Status: a.Status || '' })).sort((a, b) => a.Code.localeCompare(b.Code));
+}
+const modeOf = m => MODES.includes(m) ? m : DEFAULT_MODE;
+const asList = v => Array.isArray(v) ? v : Object.values(v || {});
+
 function settingsOf(state, coa, companyId) {
   const s = state.Settings || {};
   const checklist = {};
-  CHECKLIST.forEach(c => { checklist[c.key] = MODES.includes((s.Checklist || {})[c.key]) ? s.Checklist[c.key] : DEFAULT_MODE; });
+  CHECKLIST.forEach(c => { checklist[c.key] = modeOf((s.Checklist || {})[c.key]); });
+  const zero = asList(s.ZeroAccounts).filter(z => z && z.AccountID).map(z => ({ AccountID: z.AccountID, Mode: modeOf(z.Mode) }));
+  const steps = asList(s.Steps).filter(x => x && x.ID && x.Text).map(x => ({ ID: x.ID, Text: x.Text, Mode: modeOf(x.Mode) }));
   let re = s.RetainedEarningsAccountID || '';
   if (!re) { // the default chart's Retained Earnings, until one is chosen
     const hit = equityAccounts(coa, companyId).find(a => a.Code === '310000');
     re = hit ? hit.ID : '';
   }
-  return { FiscalYearStart: FY_STARTS[s.FiscalYearStart] ? s.FiscalYearStart : 'Jan', RetainedEarningsAccountID: re, Checklist: checklist, Saved: Boolean(state.Settings) };
+  return { FiscalYearStart: FY_STARTS[s.FiscalYearStart] ? s.FiscalYearStart : 'Jan', RetainedEarningsAccountID: re, Checklist: checklist,
+    ZeroAccounts: zero, Steps: steps, Saved: Boolean(state.Settings) };
 }
 
 async function loadState(companyId) { return (await rtdb.ref(PATH + '/' + companyId).get()).val() || {}; }
@@ -249,6 +267,32 @@ async function stockControl(companyId, month) {
   return { findings, note: findings.length ? '' : 'Agrees (' + accounts.map(a => (coa[a] || {}).AccountCode || a).join(', ') + ').' };
 }
 
+// Posted deliveries up to the month's end that no posted invoice includes
+// (the Delivery Note list's "not invoiced"), not reversed.
+async function deliveriesNotInvoiced(companyId, month) {
+  const end = lastDay(month);
+  const [stockSnap, custSnap] = await Promise.all([rtdb.ref('stock/transactions').get(), rtdb.ref('customers').get()]);
+  const customers = custSnap.val() || {};
+  return Object.values(stockSnap.val() || {})
+    .filter(t => t.TransactionType === 'DeliveryNote' && t.CompanyID === companyId && t.Status === 'Posted' && t.TransactionDate && t.TransactionDate <= end &&
+      !t.MatchedToInvoiceID && !t.ReversedByDeliveryNoteID && !t.ReversalOfDeliveryNoteID)
+    .map(t => docRow('DELIVERYNOTE', 'Delivery Note', t.TransactionNumber, t.TransactionDate, 'Not invoiced', { Text: (customers[t.CustomerID] || {}).CustomerName || t.CustomerID || '' }))
+    .sort((a, b) => (a.Date + a.Number).localeCompare(b.Date + b.Number));
+}
+
+// Each "must be zero" account's GL balance at the month's end.
+async function accountBalances(companyId, month, accountIds) {
+  const end = lastDay(month);
+  const want = new Set(accountIds), bal = {};
+  const snap = await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).where('CompanyID', '==', companyId).get();
+  snap.docs.forEach(d => {
+    const e = d.data();
+    if (e.Status !== 'Posted' || !(String(e.JVDate || '') <= end)) return;
+    (e.Lines || []).forEach(l => { if (want.has(l.AccountID)) bal[l.AccountID] = round2((bal[l.AccountID] || 0) + (Number(l.Debit) || 0) - (Number(l.Credit) || 0)); });
+  });
+  return bal;
+}
+
 async function trialBalance(companyId, month) {
   const end = lastDay(month);
   const snap = await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).where('CompanyID', '==', companyId).get();
@@ -275,26 +319,45 @@ async function runChecklist(companyId, month, state, settings) {
   const to = lastDay(month);
   const mode = k => settings.Checklist[k];
   const need = k => mode(k) !== 'Off';
-  const [docs, rec, dep, pay, pdc, ar, ap, stock, tb] = await Promise.all([
+  const zeroOn = settings.ZeroAccounts.filter(z => z.Mode !== 'Off');
+  const [docs, rec, dep, pay, pdc, dns, ar, ap, stock, tb, balances, coa] = await Promise.all([
     need('drafts') || need('approvals') ? unfinishedDocuments(companyId, from, to) : { drafts: [], approvals: [] },
     need('recurring') ? recurringDue(companyId, from, to) : [],
     need('depreciation') ? depreciationMissing(companyId, month) : [],
     need('payroll') ? payrollMissing(companyId, month) : [],
     need('pdc') ? pdcsMatured(companyId, month) : [],
+    need('deliveries') ? deliveriesNotInvoiced(companyId, month) : [],
     need('receivables') ? partyControl('Customer', companyId, month) : null,
     need('payables') ? partyControl('Vendor', companyId, month) : null,
     need('stock') ? stockControl(companyId, month) : null,
-    need('trialBalance') ? trialBalance(companyId, month) : null
+    need('trialBalance') ? trialBalance(companyId, month) : null,
+    zeroOn.length ? accountBalances(companyId, month, zeroOn.map(z => z.AccountID)) : {},
+    zeroOn.length ? rtdb.ref('coa').get().then(x => x.val() || {}) : {}
   ]);
   const found = {
     drafts: { findings: docs.drafts }, approvals: { findings: docs.approvals }, recurring: { findings: rec }, depreciation: { findings: dep },
-    payroll: { findings: pay }, pdc: { findings: pdc }, receivables: ar, payables: ap, stock, trialBalance: tb
+    payroll: { findings: pay }, pdc: { findings: pdc }, deliveries: { findings: dns }, receivables: ar, payables: ap, stock, trialBalance: tb
   };
-  const items = CHECKLIST.map(c => {
-    const f = mode(c.key) === 'Off' ? null : found[c.key];
-    const findings = f ? f.findings : [];
-    return { Key: c.key, Label: c.label, Mode: mode(c.key), Findings: findings.slice(0, 200), Count: findings.length, Note: (f && f.note) || '',
-      Result: mode(c.key) === 'Off' ? 'Off' : (findings.length ? (mode(c.key) === 'Block' ? 'Blocks' : 'Warning') : 'OK') };
+  const item = (key, label, m, f, extra) => {
+    const findings = m === 'Off' ? [] : ((f && f.findings) || []);
+    return Object.assign({ Key: key, Label: label, Mode: m, Findings: findings.slice(0, 200), Count: findings.length, Note: (m !== 'Off' && f && f.note) || '',
+      Result: m === 'Off' ? 'Off' : (findings.length ? (m === 'Block' ? 'Blocks' : 'Warning') : 'OK') }, extra || {});
+  };
+  const items = CHECKLIST.map(c => item(c.key, c.label, mode(c.key), found[c.key], { Kind: 'check' }));
+  // The accounts that must be zero at the month's end.
+  settings.ZeroAccounts.forEach(z => {
+    const a = coa[z.AccountID] || {}, name = (a.AccountCode || z.AccountID) + (a.AccountName ? ' ' + a.AccountName : '');
+    const b = round2(balances[z.AccountID] || 0);
+    const f = Math.abs(b) < 0.005 ? { findings: [], note: 'Zero.' }
+      : { findings: [docRow('GLREPORT', 'Account', name, to, 'Not zero', { Text: 'Balance ' + Math.abs(b).toFixed(2) + (b > 0 ? ' Dr' : ' Cr') })] };
+    items.push(item('zero:' + z.AccountID, 'Account ' + name + ' is zero', z.Mode, f, { Kind: 'zero', AccountID: z.AccountID }));
+  });
+  // The steps to tick (decision 159): a step not ticked is a finding.
+  const ticks = (state.Ticks || {})[month] || {};
+  settings.Steps.forEach(st => {
+    const t = ticks[st.ID] || null;
+    const f = t ? { findings: [], note: 'Ticked by ' + (t.ByName || t.By) + '.' } : { findings: [docRow('PERIODCLOSE', 'Step', st.Text, to, 'Not ticked')] };
+    items.push(item('step:' + st.ID, st.Text, st.Mode, f, { Kind: 'step', StepID: st.ID, Ticked: t }));
   });
   return { Month: month, From: from, To: to, Items: items, Blocking: items.filter(i => i.Result === 'Blocks').length, Warnings: items.filter(i => i.Result === 'Warning').length };
 }
@@ -478,7 +541,7 @@ function view(state, settings, companyId, year, rights, coa) {
     CompanyID: companyId, Settings: settings, FiscalYearLocked: Boolean(state.YearsClosed && Object.keys(state.YearsClosed).length),
     Year: Object.assign({ Start: start, Label: yearLabel(start), Prev: addMonths(start, -12), Next: addMonths(start, 12), End: lastDay(addMonths(start, 11)) }, yearStatus(state, start)),
     Months: months, ClosedThrough: state.ClosedThrough || '', FirstClosed: state.FirstClosed || '', NextToClose: next,
-    Checklist: CHECKLIST.map(c => ({ key: c.key, label: c.label })), EquityAccounts: equityAccounts(coa, companyId), Log: log, Rights: rights
+    Checklist: CHECKLIST.map(c => ({ key: c.key, label: c.label })), EquityAccounts: equityAccounts(coa, companyId), Accounts: postableAccounts(coa, companyId), Log: log, Rights: rights
   };
 }
 
@@ -506,6 +569,26 @@ exports.savePeriodClosingSettings = onCallWithMessages(onCallOptions, async (req
     checklist[c.key] = m;
   });
   const coa = (await rtdb.ref('coa').get()).val() || {};
+  const accounts = new Set(postableAccounts(coa, companyId).map(a => a.ID));
+  const zeroIn = asList(s.ZeroAccounts);
+  if (zeroIn.length > MAX_ZERO_ACCOUNTS) throw new HttpsError('invalid-argument', 'At most ' + MAX_ZERO_ACCOUNTS + ' accounts that must be zero.');
+  const zero = [], seen = new Set();
+  zeroIn.forEach(z => {
+    const id = text(z && z.AccountID, 80);
+    if (!id) return; // an empty row
+    if (!accounts.has(id)) throw new HttpsError('invalid-argument', 'Accounts that must be zero: choose postable accounts of this company.');
+    if (seen.has(id)) throw new HttpsError('invalid-argument', 'Accounts that must be zero: ' + (coa[id].AccountCode || id) + ' is listed twice.');
+    if (!MODES.includes(z.Mode || DEFAULT_MODE)) throw new HttpsError('invalid-argument', 'Account ' + (coa[id].AccountCode || id) + ': choose Block, Warn or Off.');
+    seen.add(id); zero.push({ AccountID: id, Mode: z.Mode || DEFAULT_MODE });
+  });
+  const stepsIn = asList(s.Steps).filter(x => x && text(x.Text));
+  if (stepsIn.length > MAX_STEPS) throw new HttpsError('invalid-argument', 'At most ' + MAX_STEPS + ' steps to tick.');
+  const steps = stepsIn.map(x => {
+    const t = text(x.Text, 150);
+    if (!MODES.includes(x.Mode || DEFAULT_MODE)) throw new HttpsError('invalid-argument', 'Step "' + t + '": choose Block, Warn or Off.');
+    const id = /^S[0-9a-f]{8}$/.test(x.ID || '') ? x.ID : 'S' + randomUUID().slice(0, 8);
+    return { ID: id, Text: t, Mode: x.Mode || DEFAULT_MODE };
+  });
   const re = text(s.RetainedEarningsAccountID, 80);
   if (!re) throw new HttpsError('invalid-argument', 'Choose the Retained Earnings account.');
   if (!equityAccounts(coa, companyId).some(a => a.ID === re)) throw new HttpsError('invalid-argument', 'The Retained Earnings account must be an active, postable Equity account of this company.');
@@ -516,7 +599,7 @@ exports.savePeriodClosingSettings = onCallWithMessages(onCallOptions, async (req
       throw new HttpsError('failed-precondition', 'The financial year can\'t change after the company\'s first year-end close.');
     }
     const at = new Date().toISOString();
-    const updates = { Settings: { FiscalYearStart: fy, RetainedEarningsAccountID: re, Checklist: checklist, UpdatedAt: at, UpdatedBy: user.uid } };
+    const updates = { Settings: { FiscalYearStart: fy, RetainedEarningsAccountID: re, Checklist: checklist, ZeroAccounts: zero, Steps: steps, UpdatedAt: at, UpdatedBy: user.uid } };
     updates['Log/' + rtdb.ref().push().key] = { Action: 'Setup', Month: '', ClosedThrough: state.ClosedThrough || '', Reason: fy !== before.FiscalYearStart ? 'Financial year starts in ' + fy : '', By: user.uid, ByName: actorName(user), At: at };
     await rtdb.ref(PATH + '/' + companyId).update(updates);
     return { success: true };
@@ -558,10 +641,36 @@ exports.closePeriod = onCallWithMessages(onCallOptions, async (request) => {
     const at = new Date().toISOString();
     const updates = { ClosedThrough: month };
     if (!state.ClosedThrough) updates.FirstClosed = month;
-    updates['Closed/' + month] = { By: user.uid, ByName: actorName(user), At: at, Warnings: list.Items.filter(i => i.Result === 'Warning').map(i => i.Key) };
+    updates['Closed/' + month] = { By: user.uid, ByName: actorName(user), At: at, Warnings: list.Items.filter(i => i.Result === 'Warning').map(i => i.Key),
+      Steps: list.Items.filter(i => i.Kind === 'step').map(i => ({ Text: i.Label, Ticked: i.Ticked || null })) };
+    updates['Ticks/' + month] = null;
     updates['Log/' + rtdb.ref().push().key] = { Action: 'Close', Month: month, ClosedThrough: month, Reason: list.Warnings ? 'Closed with ' + list.Warnings + ' warning(s)' : '', By: user.uid, ByName: actorName(user), At: at };
     await rtdb.ref(PATH + '/' + companyId).update(updates);
     return { success: true, closedThrough: month, warnings: list.Warnings };
+  });
+});
+
+// Tick (or untick) a step for a month not yet closed: anyone who may close
+// months (decision 159); logged with who and when.
+exports.tickPeriodClosingStep = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  await requireCap(user, 'close');
+  const d = request.data || {};
+  const companyId = await companyFor(user, d.companyId);
+  const month = text(d.month, 7);
+  if (!isMonth(month)) throw new HttpsError('invalid-argument', 'Choose a month.');
+  const coa = (await rtdb.ref('coa').get()).val() || {};
+  return withGlobalLock(user.uid, async () => {
+    const state = await loadState(companyId);
+    if (isClosed(state, month)) throw new HttpsError('failed-precondition', monthLabel(month) + ' is closed: its steps can\'t change.');
+    const step = settingsOf(state, coa, companyId).Steps.find(x => x.ID === text(d.stepId, 20));
+    if (!step) throw new HttpsError('not-found', 'That step is no longer on the checklist.');
+    const at = new Date().toISOString(), ticked = d.ticked !== false;
+    const updates = {};
+    updates['Ticks/' + month + '/' + step.ID] = ticked ? { By: user.uid, ByName: actorName(user), At: at } : null;
+    updates['Log/' + rtdb.ref().push().key] = { Action: ticked ? 'Tick' : 'Untick', Month: month, ClosedThrough: state.ClosedThrough || '', Reason: step.Text, By: user.uid, ByName: actorName(user), At: at };
+    await rtdb.ref(PATH + '/' + companyId).update(updates);
+    return { success: true };
   });
 });
 
@@ -587,6 +696,7 @@ exports.reopenPeriod = onCallWithMessages(onCallOptions, async (request) => {
     const at = new Date().toISOString();
     const updates = { ClosedThrough: through };
     Object.keys(state.Closed || {}).forEach(m => { if (m > through) updates['Closed/' + m] = null; });
+    Object.keys(state.Ticks || {}).forEach(m => { if (m > through) updates['Ticks/' + m] = null; }); // ticked again before closing again
     updates['Log/' + rtdb.ref().push().key] = { Action: 'Reopen', Month: month, ClosedThrough: through, Reason: reason, By: user.uid, ByName: actorName(user), At: at };
     await rtdb.ref(PATH + '/' + companyId).update(updates);
     return { success: true, closedThrough: through };
