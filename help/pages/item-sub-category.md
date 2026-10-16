@@ -6,7 +6,7 @@ modules: [ITEMSUBCAT]
 sources: [functions/src/masterData.js]
 summary: Group items by type or line so stock and reporting match the company’s product structure.
 reviewed: 2026-10-16
-fingerprint: d7842de71ae04408
+fingerprint: c71e6e0b222869b6
 ---
 ## What it is for
 
