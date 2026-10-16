@@ -1,7 +1,8 @@
 # UX testing, Tier 3: the plan and the open questions
 
-Status: **design** (2026-10-16). Nothing here is built until the owner has
-answered its questions (CLAUDE.md, "Design before code").
+Status: **wave 1 design agreed** (owner, 2026-10-16: "go with your
+recommendations"); waves 2 and 3 still design. See "The owner's
+decisions, round 14" at the end.
 
 Tier 3 is the part of the 2026-10-14 UX testing (docs/ROADMAP.md) that is a
 feature, not a fix. Each item below says what the system does today (checked
@@ -171,3 +172,26 @@ and the aging follow at once. Kept in the entry's history.
 - **S. UAE e-invoicing**: regulatory; depends on the requirements in force
   and an accredited service provider; the first step is to confirm them.
 - **T. A sales-rep app**: orders and payments on a phone, offline or not.
+
+## The owner's decisions, round 14 (2026-10-16)
+
+The owner: "Go with your recommendations." Where the questions above gave
+none, the recommendation is the one written here.
+
+| # | Question | Decision |
+|---|---|---|
+| 152 | Who gets an approved delivery's invoicing task | The **Invoicing** follow-up team; where no team is set for the scope, the user who made the delivery. |
+| 153 | A delivery invoiced in part | Stays a task until **every line** is invoiced. |
+| 154 | Days before the cheque date | **3 days**, one setting for all companies (changeable in Approval Configuration). |
+| 155 | Who sees PDCs coming due once a team is set | **Only the Treasury team**; where none is set, as today (every role that can post PDCs). |
+| 156 | An unknown item code in a paste | **Refuse the whole paste** and name the rows. |
+| 157 | Prices on a Sales Order paste | The **price list's** price where the item has one; else the pasted price. |
+| 158 | Default for "deliveries not invoiced" | **Warn**. |
+| 159 | Who ticks a closing step | **Anyone who can close the month**; the log records who ticked and when. |
+| 160 | A customer's mobile number | **Unique per company**. |
+| 161 | New customers from the counter | **Yes**, for a user with Customer Master's write right (name and mobile). |
+| 162 | Shareholders' total; history | Not forced to 100%, but **warned** when it isn't; **history kept** (a to date for one who left). |
+| 163 | Who sees shareholders | A **separate right** (Company Master, "shareholders"): it is personal data. |
+| 164 | Who may re-match | A **new right** (Re-match) on the entry's module. |
+| 165 | Re-match in a closed month | **Allowed** (the books don't change), and logged. |
+
