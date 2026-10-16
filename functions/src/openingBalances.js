@@ -454,7 +454,7 @@ async function reverseEntry(user, jvId, entry, extra) {
   const transactionRef = await transactionRefFor(entry.VoucherType); // GL: TXN-, stock: STK- (docs/modules/GL_REFERENCES.md)
   const newId = 'STKJV-' + randomUUID().split('-')[0].toUpperCase();
   const lines = (entry.Lines || []).map(line => {
-    const l = Object.assign({}, line, { Debit: line.Credit, Credit: line.Debit });
+    const l = Object.assign({}, line, { Debit: line.Credit, Credit: line.Debit }, require('./fx').mirrorFc(line)); // foreign amounts swap too
     delete l.Allocations;
     return l;
   });

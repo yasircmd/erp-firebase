@@ -1730,5 +1730,113 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     find: `    if (!ITEM_CATEGORY_PREFIXES[parentCategory]) throw new Error('Select a valid parent category.');`,
     replace: `    if (!validItemCategoryParent_(idToken, parentCategory)) throw new Error('Select a valid parent category.'); // [NEW DEVELOPMENT item-custom-category]`
   }
+  ,
+  {
+    id: 'invoice-currency (customer save)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/MULTI_CURRENCY.md, decisions 211-218). A foreign customer is invoiced in its own currency: ' +
+      'the invoice keeps the currency, the rate on its date (or the user\'s own, with a reason) and its total in base.',
+    find: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,`,
+    replace: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
+      ...(invoiceCurrencyFields_(idToken, customerData, invoiceDate, invoiceData, total)), // [NEW DEVELOPMENT invoice-currency]`
+  },
+  {
+    id: 'invoice-currency (vendor save)',
+    why: 'As the customer invoice; a foreign vendor\'s invoice takes direct lines only for now (GRNs stay in base, decision 215).',
+    find: `      SourceGRNs: sourceGRNs, DirectLines: directLines,`,
+    replace: `      SourceGRNs: sourceGRNs, DirectLines: directLines,
+      ...(invoiceCurrencyFields_(idToken, vendorData, invoiceDate, invoiceData, total, { grns: sourceGRNs.length > 0 })), // [NEW DEVELOPMENT invoice-currency]`
+  },
+  {
+    id: 'invoice-currency (vendor post)',
+    why: 'Posted in base: each GL line keeps its foreign amount and the rate.',
+    find: `    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', existing.InvoiceDate, existing.Description, existing.VendorRefNumber,
+      glLines,`,
+    replace: `    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', existing.InvoiceDate, existing.Description, existing.VendorRefNumber,
+      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]`
+  },
+  {
+    id: 'invoice-currency (customer post)',
+    why: 'Posted in base: each GL line keeps its foreign amount and the rate.',
+    find: `    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', existing.InvoiceDate, existing.Description, '',
+      glLines,`,
+    replace: `    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', existing.InvoiceDate, existing.Description, '',
+      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]`
+  },
+  {
+    id: 'invoice-currency (vendor reversal)',
+    why: 'The reversal at the invoice\'s own rate, so it mirrors the invoice exactly.',
+    find: `    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.VendorRefNumber,
+      glLines,`,
+    replace: `    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.VendorRefNumber,
+      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]`
+  },
+  {
+    id: 'invoice-currency (customer reversal)',
+    why: 'The reversal at the invoice\'s own rate, so it mirrors the invoice exactly.',
+    find: `    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, '',
+      glLines,`,
+    replace: `    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, '',
+      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]`
+  },
+  {
+    id: 'invoice-currency (customer reversal record)',
+    why: 'The reversal record in the invoice\'s currency, for the statement.',
+    find: `    SourceDeliveryNotes: existing.SourceDeliveryNotes || [], DirectLines: existing.DirectLines || [],`,
+    replace: `    SourceDeliveryNotes: existing.SourceDeliveryNotes || [], DirectLines: existing.DirectLines || [],
+    CurrencyCode: existing.CurrencyCode || '', ExchangeRate: existing.ExchangeRate || 1, TotalBase: existing.TotalBase != null ? existing.TotalBase : existing.Total, // [NEW DEVELOPMENT invoice-currency]`
+  },
+  {
+    id: 'invoice-currency (vendor reversal record)',
+    why: 'The reversal record in the invoice\'s currency, for the statement.',
+    find: `    SourceGRNs: existing.SourceGRNs || [], DirectLines: existing.DirectLines || [],`,
+    replace: `    SourceGRNs: existing.SourceGRNs || [], DirectLines: existing.DirectLines || [],
+    CurrencyCode: existing.CurrencyCode || '', ExchangeRate: existing.ExchangeRate || 1, TotalBase: existing.TotalBase != null ? existing.TotalBase : existing.Total, // [NEW DEVELOPMENT invoice-currency]`
+  }
+  ,
+  {
+    id: 'invoice-currency (approval amount, vendor)',
+    why: 'Approval limits are in the base currency: a foreign invoice is gated on its base total (docs/modules/MULTI_CURRENCY.md).',
+    find: `beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, '', scopeKey, existing.Total`,
+    replace: `beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, '', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total)`
+  }
+  ,
+  {
+    id: 'invoice-currency (approval amount, vendor reversal)',
+    why: 'Approval limits are in the base currency: a foreign invoice is gated on its base total (docs/modules/MULTI_CURRENCY.md).',
+    find: `beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, existing.Total`,
+    replace: `beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total)`
+  }
+  ,
+  {
+    id: 'invoice-currency (approval amount, customer)',
+    why: 'Approval limits are in the base currency: a foreign invoice is gated on its base total (docs/modules/MULTI_CURRENCY.md).',
+    find: `beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, '', scopeKey, existing.Total`,
+    replace: `beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, '', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total)`
+  }
+  ,
+  {
+    id: 'invoice-currency (approval amount, customer reversal)',
+    why: 'Approval limits are in the base currency: a foreign invoice is gated on its base total (docs/modules/MULTI_CURRENCY.md).',
+    find: `beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, existing.Total`,
+    replace: `beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total)`
+  }
+  ,
+  {
+    id: 'party-currency-fixed (vendor)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/MULTI_CURRENCY.md, decision 211): a party\'s currency is fixed once it has invoices or payments.',
+    find: `    const vendorId = String(vendorData.VendorID || '').trim();`,
+    replace: `    const vendorId = String(vendorData.VendorID || '').trim();
+    assertPartyCurrencyKept_(idToken, 'Vendor', vendorId, vendorData.DefaultCurrency); // [NEW DEVELOPMENT party-currency-fixed]`
+  },
+  {
+    id: 'party-currency-fixed (customer)',
+    why: 'As the vendor (decision 211).',
+    find: `    const customerId = String(customerData.CustomerID || '').trim();`,
+    replace: `    const customerId = String(customerData.CustomerID || '').trim();
+    assertPartyCurrencyKept_(idToken, 'Customer', customerId, customerData.DefaultCurrency); // [NEW DEVELOPMENT party-currency-fixed]`
+  }
 ];
-

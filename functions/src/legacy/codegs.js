@@ -14,6 +14,7 @@ const __coaUsage = require('../coaUsage');
 const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
 const __customerPhone = require('../customerPhone');
+const __fx = require('../fx');
 const __glWriting = require('../glWriting');
 const __invoiceStock = require('../invoiceStock');
 const __itemCategories = require('../itemCategories');
@@ -46,6 +47,9 @@ const isCashOrBankAccount_ = (...a) => __coaScheme.isCashOrBank(...a);
 const checkItemCategory_ = (idToken, ...a) => __itemCategories.checkForItem(...a);
 const validItemCategoryParent_ = (idToken, ...a) => __itemCategories.validParent(...a);
 const customItemCode_ = (idToken, ...a) => __numbering.customItemCode(...a);
+const invoiceCurrencyFields_ = (idToken, ...a) => __fx.invoiceFields(...a);
+const documentBaseLines_ = (...a) => __fx.documentBaseLines(...a);
+const assertPartyCurrencyKept_ = (idToken, ...a) => __fx.assertPartyCurrencyKept(...a);
 const generateVendorCode_ = (idToken, ...a) => __numbering.vendorCode(...a);
 const generateCustomerCode_ = (idToken, ...a) => __numbering.customerCode(...a);
 const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
@@ -3532,6 +3536,7 @@ async function saveVendorInvoiceDraft(idToken, invoiceData) {
       CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
       CostCenterID: costCenterId, ProfitCenterID: profitCenterId, VendorID: vendorId,
       SourceGRNs: sourceGRNs, DirectLines: directLines,
+      ...((await invoiceCurrencyFields_(idToken, vendorData, invoiceDate, invoiceData, total, { grns: sourceGRNs.length > 0 }))), // [NEW DEVELOPMENT invoice-currency]
       Discount: discount, TaxPercent: taxPercent, TaxAmount: taxAmount, RoundOff: roundOff,
       Subtotal: subtotal, Total: total,
       Status: 'Draft',
@@ -3573,7 +3578,7 @@ async function postVendorInvoice(idToken, invoiceId) {
       CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
       BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
     });
-    const approval = await beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, '', scopeKey, existing.Total, user.uid);
+    const approval = await beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, '', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total), user.uid);
 
     if (approval.required) {
       // Nothing physical happens yet — no GL entry, no GRN matched —
@@ -3687,7 +3692,7 @@ async function commitVendorInvoicePosting_(idToken, user, existing, invoiceId) {
   let glResult;
   try {
     glResult = await writeStockGlEntry_(idToken, user, 'VendorInvoice', existing.InvoiceDate, existing.Description, existing.VendorRefNumber,
-      glLines,
+      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]
       { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
       { CommitAttemptID: attemptId, SourceTransactionID: invoiceId });
   } catch (err) {
@@ -3821,6 +3826,7 @@ async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId,
     CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
     CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID, VendorID: existing.VendorID,
     SourceGRNs: existing.SourceGRNs || [], DirectLines: existing.DirectLines || [],
+    CurrencyCode: existing.CurrencyCode || '', ExchangeRate: existing.ExchangeRate || 1, TotalBase: existing.TotalBase != null ? existing.TotalBase : existing.Total, // [NEW DEVELOPMENT invoice-currency]
     Discount: existing.Discount, TaxPercent: existing.TaxPercent, TaxAmount: existing.TaxAmount, RoundOff: existing.RoundOff,
     Subtotal: existing.Subtotal, Total: existing.Total,
     CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
@@ -3831,7 +3837,7 @@ async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId,
   try {
     glResult = await writeStockGlEntry_(idToken, user, 'VendorInvoice', date,
       'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.VendorRefNumber,
-      glLines,
+      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]
       { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
       { CommitAttemptID: attemptId, SourceTransactionID: newId });
   } catch (err) {
@@ -3893,7 +3899,7 @@ async function requestReverseVendorInvoice(idToken, invoiceId, reversalDate) {
       CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
       BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
     });
-    const approval = await beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, existing.Total, user.uid);
+    const approval = await beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total), user.uid);
 
     if (approval.required) {
       // Nothing physical happens yet — no GL entry, no GRN unmatched —
@@ -4250,6 +4256,7 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
       CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
       CostCenterID: costCenterId, ProfitCenterID: profitCenterId, CustomerID: customerId,
       SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
+      ...((await invoiceCurrencyFields_(idToken, customerData, invoiceDate, invoiceData, total))), // [NEW DEVELOPMENT invoice-currency]
       ItemLines: itemLines, ItemSalesTypeID: itemSalesTypeId, // [PORT CHANGE invoice-item-lines-save]
       Discount: discount, TaxPercent: taxPercent, TaxAmount: taxAmount, RoundOff: roundOff,
       Subtotal: subtotal, Total: total,
@@ -4292,7 +4299,7 @@ async function postCustomerInvoice(idToken, invoiceId) {
       CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
       BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
     });
-    const approval = await beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, '', scopeKey, existing.Total, user.uid);
+    const approval = await beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, '', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total), user.uid);
 
     if (approval.required) {
       await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', {
@@ -4439,7 +4446,7 @@ async function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId)
   let glResult;
   try {
     glResult = await writeStockGlEntry_(idToken, user, 'CustomerInvoice', existing.InvoiceDate, existing.Description, '',
-      glLines,
+      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]
       { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
       { CommitAttemptID: attemptId, SourceTransactionID: invoiceId });
   } catch (err) {
@@ -4598,6 +4605,7 @@ async function executeCustomerInvoiceReversal_(idToken, user, existing, invoiceI
     CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
     CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID, CustomerID: existing.CustomerID,
     SourceDeliveryNotes: existing.SourceDeliveryNotes || [], DirectLines: existing.DirectLines || [],
+    CurrencyCode: existing.CurrencyCode || '', ExchangeRate: existing.ExchangeRate || 1, TotalBase: existing.TotalBase != null ? existing.TotalBase : existing.Total, // [NEW DEVELOPMENT invoice-currency]
     Discount: existing.Discount, TaxPercent: existing.TaxPercent, TaxAmount: existing.TaxAmount, RoundOff: existing.RoundOff,
     Subtotal: existing.Subtotal, Total: existing.Total,
     CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
@@ -4608,7 +4616,7 @@ async function executeCustomerInvoiceReversal_(idToken, user, existing, invoiceI
   try {
     glResult = await writeStockGlEntry_(idToken, user, 'CustomerInvoice', date,
       'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, '',
-      glLines,
+      documentBaseLines_(glLines, existing), // [NEW DEVELOPMENT invoice-currency]
       { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
       { CommitAttemptID: attemptId, SourceTransactionID: newId });
   } catch (err) {
@@ -4665,7 +4673,7 @@ async function requestReverseCustomerInvoice(idToken, invoiceId, reversalDate) {
       CompanyID: existing.CompanyID, DivisionID: existing.DivisionID,
       BranchID: existing.BranchID, CostCenterID: existing.CostCenterID
     });
-    const approval = await beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, existing.Total, user.uid);
+    const approval = await beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total), user.uid);
 
     if (approval.required) {
       await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', {
@@ -6559,6 +6567,7 @@ async function saveVendor(idToken, vendorData) {
     }
 
     const vendorId = String(vendorData.VendorID || '').trim();
+    await assertPartyCurrencyKept_(idToken, 'Vendor', vendorId, vendorData.DefaultCurrency); // [NEW DEVELOPMENT party-currency-fixed]
     const vendorName = String(vendorData.VendorName || '').trim();
     if (!vendorName) throw new Error('Vendor name is required.');
     const category = String(vendorData.Category || '').trim();
@@ -6970,6 +6979,7 @@ async function saveCustomer(idToken, customerData) {
     }
 
     const customerId = String(customerData.CustomerID || '').trim();
+    await assertPartyCurrencyKept_(idToken, 'Customer', customerId, customerData.DefaultCurrency); // [NEW DEVELOPMENT party-currency-fixed]
     const customerName = String(customerData.CustomerName || '').trim();
     if (!customerName) throw new Error('Customer name is required.');
     const category = String(customerData.Category || '').trim();

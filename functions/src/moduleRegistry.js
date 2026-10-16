@@ -24,7 +24,7 @@ const MODULE_REGISTRY = [
   { id: 'JOBORDERREQUEST', label: 'Job Order Request', capabilities: ['access', 'draft', 'post'] },
   { id: 'PRICELISTING', label: 'Price Listing', capabilities: ['access', 'write'] },
   { id: 'SALESORDER', label: 'Sales Order', capabilities: ['access', 'draft', 'post'] },
-  { id: 'CURRENCYCONFIG', label: 'Currency Configuration', capabilities: ['access', 'write'] },
+  { id: 'CURRENCYCONFIG', label: 'Currency Configuration', capabilities: ['access', 'write', 'rates'] }, // rates: docs/modules/MULTI_CURRENCY.md
   { id: 'ORGUNITS', label: 'Organizational Units', capabilities: ['access', 'write'] },
   { id: 'UOM', label: 'Unit of Measure', capabilities: ['access', 'write'] },
   { id: 'ITEMSUBCAT', label: 'Item Sub-Category', capabilities: ['access', 'write'] },
@@ -183,7 +183,7 @@ const DEFAULT_PERMISSIONS = {
   // modules — org-specific SALES_STAFF-style roles assign write access
   // via Roles & Permissions the same way as everywhere else.
   SALESORDER: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'] },
-  CURRENCYCONFIG: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
+  CURRENCYCONFIG: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'], rates: ['ADMIN', 'FINANCE_MGR'] },
   ORGUNITS:       { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
   UOM:            { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
   ITEMSUBCAT:     { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },

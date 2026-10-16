@@ -292,6 +292,7 @@ async function reverse(user, p, reason, settings) {
       CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
     };
     if (l.PartyType) Object.assign(out, { PartyType: l.PartyType, PartyID: l.PartyID, PartyName: l.PartyName || '', Allocations: [] });
+    Object.assign(out, require('./fx').mirrorFc(l), l.FxAdjustment ? { FxAdjustment: true } : {}); // foreign amounts swap too (MULTI_CURRENCY.md)
     return out;
   });
   const revJv = await buildStockGlEntry(user, 'FARetirement', p.Date, 'Reversal of ' + p.JVNumber + ' — ' + reason, p.JVNumber, lines,

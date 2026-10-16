@@ -274,6 +274,7 @@ async function saveJournalRecord_(
   // here for early feedback, and again at post under the lock.
   const party = await resolvePartyLines(attachPartyFields(rawLines, normalized.lines), dimensionFields.CompanyID);
   normalized.lines = party.lines;
+  normalized.totalDebit = party.totalDebit; normalized.totalCredit = party.totalCredit; // with any exchange difference (MULTI_CURRENCY.md)
   const now = new Date().toISOString();
   const actor = user.profile.username || user.uid;
 
@@ -386,6 +387,7 @@ async function postJournalEntry(idToken, jvId) {
     // outstanding right now, not the draft's snapshot.
     const party = await resolvePartyLines(attachPartyFields(existing.Lines, normalized.lines), existing.CompanyID);
     normalized.lines = party.lines;
+    normalized.totalDebit = party.totalDebit; normalized.totalCredit = party.totalCredit;
 
     const year = (new Date(existing.JVDate)).getFullYear() || new Date().getFullYear();
     const prefix = voucherPrefixForEntry_(existing);
@@ -524,7 +526,7 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
     // The reversal keeps the party tags (for statements) but allocates
     // nothing itself.
     const reversedLines = (existing.Lines || []).map(line => {
-      const l = Object.assign({}, line, { Debit: line.Credit, Credit: line.Debit });
+      const l = Object.assign({}, line, { Debit: line.Credit, Credit: line.Debit }, require('./fx').mirrorFc(line)); // foreign amounts swap too
       delete l.Allocations;
       return l;
     });
@@ -599,6 +601,14 @@ function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines,
       PartyType: config.transfer ? undefined : line.PartyType, PartyID: config.transfer ? undefined : line.PartyID,
       Allocations: config.transfer ? undefined : line.Allocations
     });
+    // A foreign party's line (docs/modules/MULTI_CURRENCY.md): its own amount
+    // too; the rate is what the bank amount works out to.
+    const fcAmount = parseAmountServer_(line.FcAmount);
+    if (!config.transfer && line.FcCurrency && fcAmount > 0) {
+      const l = rawLines[rawLines.length - 1];
+      Object.assign(l, { FcCurrency: String(line.FcCurrency).trim().toUpperCase(), FcDebit: l.Debit ? fcAmount : 0, FcCredit: l.Credit ? fcAmount : 0,
+        FcRate: Math.round(amount / fcAmount * 1e6) / 1e6 });
+    }
   });
 
   if (!rawLines.length) throw new Error(config.transfer ? 'Select the account to transfer to, and the amount.' : 'Enter at least one line.');

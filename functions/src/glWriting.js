@@ -42,6 +42,9 @@ function parseAmountServer(value) {
   return isNaN(num) ? 0 : num;
 }
 
+const fcFieldsOf = line => ({ FcCurrency: String(line.FcCurrency).trim().toUpperCase(), FcDebit: Math.round((Number(line.FcDebit) || 0) * 100) / 100,
+  FcCredit: Math.round((Number(line.FcCredit) || 0) * 100) / 100, FcRate: Number(line.FcRate) || 0 });
+
 // Ported from validateAndNormalizeLines_.
 function validateAndNormalizeLines(rawLines, coaData, entryCompanyId) {
   const accountList = Object.keys(coaData).map(id => Object.assign({ AccountID: id }, coaData[id]));
@@ -79,12 +82,18 @@ function validateAndNormalizeLines(rawLines, coaData, entryCompanyId) {
     totalDebit += debit;
     totalCredit += credit;
 
-    lines.push({
+    const out = {
       LineNo: lines.length + 1, AccountID: account.AccountID, AccountCode: account.AccountCode,
       AccountName: account.AccountName, Description: description,
       Debit: Math.round(debit * 100) / 100, Credit: Math.round(credit * 100) / 100,
       CostCenterID: costCenterId, ProfitCenterID: String(line.ProfitCenterID || '')
-    });
+    };
+    // A line in a foreign currency keeps its own amount and rate beside the
+    // base amount the books use (docs/modules/MULTI_CURRENCY.md); an
+    // exchange difference line is marked as such.
+    if (line.FcCurrency) Object.assign(out, fcFieldsOf(line));
+    if (line.FxAdjustment) out.FxAdjustment = true;
+    lines.push(out);
   });
 
   return { lines: lines, totalDebit: Math.round(totalDebit * 100) / 100, totalCredit: Math.round(totalCredit * 100) / 100 };
@@ -176,7 +185,7 @@ function carryPartyFields(rawLines, normalizedLines) {
     if (!r.PartyType) return l;
     return Object.assign({}, l, {
       PartyType: r.PartyType, PartyID: r.PartyID || '', PartyName: r.PartyName || '', Allocations: r.Allocations || []
-    });
+    }, r.FxAdjustment ? { FxAdjustment: true } : {});
   });
 }
 

@@ -24,11 +24,13 @@ function clubGlLines(rawLines) {
   (rawLines || []).forEach(l => {
     const debit = Number(l.Debit) || 0, credit = Number(l.Credit) || 0;
     if (l.PartyType || !text(l.AccountCode) || (debit > 0) === (credit > 0)) { out.push(l); return; }
-    const key = [text(l.AccountCode), debit > 0 ? 'Dr' : 'Cr', text(l.CostCenterID), text(l.ProfitCenterID), text(l.Description)].join('\u0001');
+    // In a foreign currency (docs/modules/MULTI_CURRENCY.md): clubbed only with the same currency and rate, its own amounts summed too.
+    const key = [text(l.AccountCode), debit > 0 ? 'Dr' : 'Cr', text(l.CostCenterID), text(l.ProfitCenterID), text(l.Description), text(l.FcCurrency), l.FcCurrency ? Number(l.FcRate) || 0 : '', l.FxAdjustment ? 'fx' : ''].join('\u0001');
     if (!at.has(key)) { at.set(key, out.length); out.push(Object.assign({}, l, { Debit: debit, Credit: credit })); return; }
     const c = out[at.get(key)];
     c.Debit = round2(c.Debit + debit);
     c.Credit = round2(c.Credit + credit);
+    if (l.FcCurrency) { c.FcDebit = round2((Number(c.FcDebit) || 0) + (Number(l.FcDebit) || 0)); c.FcCredit = round2((Number(c.FcCredit) || 0) + (Number(l.FcCredit) || 0)); }
   });
   return out;
 }

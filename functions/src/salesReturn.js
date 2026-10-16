@@ -390,7 +390,10 @@ async function commitSalesReturnPosting(user, existing, returnId) {
     const acc = await resolveCompanyAccount(existing.CompanyID, 'OutputTaxAccountID', 'Output Tax Account', coaData);
     glLines.push(Object.assign({ AccountCode: acc.AccountCode, Debit: values.TaxAmount, Credit: 0, Description: 'Output tax reversed — ' + existing.Description }, dims));
   }
-  glLines.push(...movement.inventoryGlLines, ...cogsLines(movementLines, itemsData, coaData, dims, false));
+  // In the invoice's currency and at its rate (docs/modules/MULTI_CURRENCY.md); the stock lines are in base already.
+  const priced = require('./fx').documentBaseLines(glLines, inv);
+  glLines.length = 0;
+  glLines.push(...priced, ...movement.inventoryGlLines, ...cogsLines(movementLines, itemsData, coaData, dims, false));
 
   const actor = user.profile.username || user.uid;
   const attemptId = await beginCommitAttempt(returnId, actor);
@@ -526,6 +529,7 @@ exports.reverseSalesReturn = onCallWithMessages(onCallOptions, async (request) =
         CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
       };
       if (l.PartyType) Object.assign(out, { PartyType: l.PartyType, PartyID: l.PartyID, PartyName: l.PartyName || '', Allocations: [] });
+    Object.assign(out, require('./fx').mirrorFc(l), l.FxAdjustment ? { FxAdjustment: true } : {}); // foreign amounts swap too (MULTI_CURRENCY.md)
       return out;
     }).concat(movement.inventoryGlLines, cogsLines(movementLines, itemsData, coaData, dims, true));
 
