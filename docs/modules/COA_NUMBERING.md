@@ -1,6 +1,6 @@
 # Chart of Accounts: headings only at the top, and renumbering a used account (UX Tier 3, M)
 
-Status: **direction agreed** (owner, 2026-10-16; UX_TIER3.md round 15); **three follow-up questions, 208–210**, before building.
+Status: **design agreed** (owner, 2026-10-16; UX_TIER3.md round 15, follow-ups 208–210).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 2, M).
 The owner (Tier 2, 2026-10-16): "an account with 100001 should not be
 created, instead it should be like 110001"; and "is it possible to
@@ -145,3 +145,11 @@ from 310000 to the new group 320000 (Period Closing looks it up).
 - **210.** Cash and bank found by a **Cash / Bank mark on their group**,
   not by the code (recommended), so they can sit under any group you
   name?
+
+### The owner's answers to the follow-ups (2026-10-16)
+
+| # | Decision |
+|---|---|
+| 208 | **6 digits** (110001); "1100001" was a typo. |
+| 209 | **Reset the test data** and start on the new chart. |
+| 210 | Cash and bank are found by a **Cash / Bank mark on their group**, not by the code. |

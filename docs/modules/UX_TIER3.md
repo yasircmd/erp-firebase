@@ -310,6 +310,9 @@ recommendations. Each design doc has its own table.
 - **M** (197–202): X00000 is the class (Assets, Liabilities …) and an
   account always sits under a group (110001, never 100001); renumbering by
   whoever may change the chart, with no new right; nothing kept from the
-  test data. **Follow-up questions 208–210** in COA_NUMBERING.md.
+  test data. Follow-ups: 6 digits (208), reset the test data (209), cash
+  and bank by a mark on their group (210).
+
+Build order (owner: "all in order"): I, H, J, L, M, N.
 - **N** (203–207): categories of your own, each with its own code prefix;
   anyone with Item Master access may add one.

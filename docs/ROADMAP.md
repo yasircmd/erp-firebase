@@ -140,9 +140,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   **Owner, still to do:** in Roles & Permissions tick Company Master
   "shareholders" and JV / CBT "rematch" for the roles that should have
   them (added capabilities are not seeded into the live permissions).
-  Wave 2 (H–N): designs agreed 2026-10-16 (round 15) for H, I, J, L, N;
-  K set aside; M waiting on follow-up questions 208–210; wave 3 still to
-  design**,
+  Wave 2 (H–N): designs agreed 2026-10-16 (round 15, 208–210) for H, I,
+  J, L, M, N; K set aside. Building in order I, H, J, L, M, N on branch
+  `tier3-wave2`; wave 3 still to design**,
   triaged into three tiers (in this session's plan, agreed 2026-10-14).
   - **Tier 1, fix now** (owner said go, 2026-10-14): all nine built and
     tested 2026-10-14 on branch `tier1-ux-fixes` (smoke 123/123; the
