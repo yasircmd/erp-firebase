@@ -1116,4 +1116,19 @@ from, and how it was verified. The deploy procedure is in the
   (04:32–04:33 UTC), from `cac446c` (PR #123), success. The owner confirms
   both are done. Still to do in the app: open Employees once as Admin (fills
   in leavers' last day of access).
-
+- **2026-10-16, Help and the Tier 3 plan (Hosting):** run
+  [#153](https://github.com/yasircmd/erp-firebase/actions/runs/38855266540)
+  (05:20–05:21 UTC), from `50e02d9` (PR #124), success.
+- **2026-10-16, UX testing Tier 3, wave 1 (`ux-tier3-wave1`, with screens;
+  Hosting):** runs
+  [#154](https://github.com/yasircmd/erp-firebase/actions/runs/38864621693)
+  and [#155](https://github.com/yasircmd/erp-firebase/actions/runs/38864945500)
+  (07:01–07:05 UTC, from `15b1e03`, PR #125) failed at the Help check before
+  deploying anything: four pages naming `masterData.js` were not re-stamped
+  after the last change to it (fixed by PR #126). Then
+  [#156](https://github.com/yasircmd/erp-firebase/actions/runs/38865808515)
+  (07:13–07:21 UTC) and
+  [#157](https://github.com/yasircmd/erp-firebase/actions/runs/38866789608)
+  (07:22–07:23 UTC), from `9dea321` (PR #126), success; the owner confirms.
+  Still to do in the app: tick Company Master "shareholders" and JV / CBT
+  "rematch" in Roles & Permissions for the roles that should have them.
