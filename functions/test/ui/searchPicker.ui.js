@@ -58,6 +58,7 @@ const NAMES = ['Alpha Foods', 'Beta Trading', 'Gamma Builders', 'Delta Marine', 
     assert.ok(await jv.isHidden('#erp-picker .erp-picker-search'), 'the typing stays in the cell');
     await jv.keyboard.press('Backspace'); await jv.keyboard.press('Backspace'); await jv.keyboard.press('Backspace'); await jv.keyboard.press('Backspace');
     await jv.keyboard.type('1');
+    await jv.waitForFunction(() => /^1000/.test((document.querySelector('#erp-picker .erp-picker-row') || {}).textContent || ''), null, T).catch(() => {});
     assert.deepEqual((await rows(jv)).slice(0, 3), ['1000Cash', '1100Bank', '1200Trade Receivables'], 'code first');
     await jv.keyboard.type('1');
     await jv.keyboard.press('ArrowDown');
