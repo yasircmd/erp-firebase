@@ -26,8 +26,12 @@ const sdStart = find(/---------- SUPPORTING DOCUMENTS ----------/);
 const sdEnd = find(/---------- END SUPPORTING DOCUMENTS ----------/);
 const psStart = find(/---------- PRINT STYLE ----------/);
 const psEnd = find(/---------- END PRINT STYLE ----------/);
+const pkCssStart = find(/---------- SEARCH PICKER CSS ----------/);
+const pkCssEnd = find(/---------- END SEARCH PICKER CSS ----------/);
+const pkStart = find(/\/\/ ---------- SEARCH PICKER ----------/);
+const pkEnd = find(/\/\/ ---------- END SEARCH PICKER ----------/);
 if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd ||
-    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !psStart || !psEnd) throw new Error('could not locate shell code');
+    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !psStart || !psEnd || !pkCssStart || !pkCssEnd || !pkStart || !pkEnd) throw new Error('could not locate shell code');
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
 <script src="https://cdn.tailwindcss.com"></script>
@@ -35,6 +39,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8">
 <style>.hidden{display:none!important}
 ${slice(lgCssStart, lgCssEnd)}
 ${slice(psStart, psEnd)}
+${slice(pkCssStart, pkCssEnd)}
 </style></head>
 <body class="bg-slate-900 text-slate-100">
 <div id="global-loading-bar"></div>
@@ -71,6 +76,7 @@ ${slice(lgStart, lgEnd)}
 ${slice(dfStart, dfEnd)}
 ${slice(lpStart, lpEnd)}
 ${slice(sdStart, sdEnd)}
+${slice(pkStart, pkEnd)}
   // Same drill-through contract as the shell's openModule: the target
   // reads window.__pendingModuleParams / __pendingReturnChain in initModule.
   window.openModule = function (moduleId, drillParams, returnChain) {

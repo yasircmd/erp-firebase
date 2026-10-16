@@ -8,9 +8,12 @@ test.before(async () => { await reset(baseFixture()); });
 test.after(async () => { await app.delete(); });
 
 test('create header + postable child; code follows the account-type digit', async () => {
-  const hdr = await call('u-admin', 'saveAccount', { accountData: { AccountName: 'Current Assets X', AccountType: 'Asset', IsPostable: false, CashFlowCategory: 'Operating' } });
+  // A class (no parent), a group under it, an account under the group (docs/modules/COA_NUMBERING.md).
+  const cls = await call('u-admin', 'saveAccount', { accountData: { AccountName: 'Assets X', AccountType: 'Asset', IsPostable: false } });
+  assert.deepEqual([cls.success, cls.accountCode], [true, '100000'], JSON.stringify(cls));
+  const hdr = await call('u-admin', 'saveAccount', { accountData: { AccountName: 'Current Assets X', AccountType: 'Asset', IsPostable: false, CashFlowCategory: 'Operating', ParentAccountID: cls.accountId } });
   assert.equal(hdr.success, true, JSON.stringify(hdr));
-  assert.match(hdr.accountCode, /^1/);
+  assert.match(hdr.accountCode, /^1[1-9]0000$/);
   const child = await call('u-admin', 'saveAccount', { accountData: { AccountName: 'Petty Cash X', AccountType: 'Asset', IsPostable: true, ParentAccountID: hdr.accountId } });
   assert.equal(child.success, true, JSON.stringify(child));
   assert.match(child.accountCode, /^1/);
@@ -18,7 +21,7 @@ test('create header + postable child; code follows the account-type digit', asyn
   const list = await call('u-admin', 'getChartOfAccounts');
   assert.ok(list.some(a => a.AccountName === 'Petty Cash X'));
   // Header with children can't become postable.
-  const bad = await call('u-admin', 'saveAccount', { accountData: { AccountID: hdr.accountId, AccountName: 'Current Assets X', AccountType: 'Asset', IsPostable: true } });
+  const bad = await call('u-admin', 'saveAccount', { accountData: { AccountID: hdr.accountId, AccountName: 'Current Assets X', AccountType: 'Asset', IsPostable: true, ParentAccountID: cls.accountId } });
   assert.equal(bad.error, 'This account has child accounts and cannot be marked postable.');
 });
 
@@ -32,9 +35,12 @@ test('validation: type, parent type mismatch, self-parent', async () => {
 });
 
 test('concurrent saves serialize under the global lock and get distinct codes; lock released', async () => {
+  const expenses = (await call('u-admin', 'getChartOfAccounts')).find(x => x.AccountCode === '600000');
+  const g = await call('u-admin', 'saveAccount', { accountData: { AccountName: 'Office X', AccountType: 'Expense', IsPostable: false, ParentAccountID: expenses.AccountID } });
+  assert.equal(g.success, true, JSON.stringify(g));
   const [a, b] = await Promise.all([
-    call('u-admin', 'saveAccount', { accountData: { AccountName: 'Conc A', AccountType: 'Expense', IsPostable: true } }),
-    call('u-admin', 'saveAccount', { accountData: { AccountName: 'Conc B', AccountType: 'Expense', IsPostable: true } })
+    call('u-admin', 'saveAccount', { accountData: { AccountName: 'Conc A', AccountType: 'Expense', IsPostable: true, ParentAccountID: g.accountId } }),
+    call('u-admin', 'saveAccount', { accountData: { AccountName: 'Conc B', AccountType: 'Expense', IsPostable: true, ParentAccountID: g.accountId } })
   ]);
   assert.equal(a.success, true, JSON.stringify(a));
   assert.equal(b.success, true, JSON.stringify(b));

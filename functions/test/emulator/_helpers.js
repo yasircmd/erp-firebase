@@ -71,8 +71,8 @@ function baseFixture() {
       C2: { Status: 'Active', LegalName: 'Test Co Two', CompanyRefCode: '02', GrnClearingAccountID: 'A-CLR', CreatedAt: '2025-01-02' }
     },
     coa: {
-      'A-CASH': { AccountCode: '1000', AccountName: 'Cash', AccountType: 'Asset', SubCategory: 'Cash', Status: 'Active', IsPostable: true },
-      'A-BANK': { AccountCode: '1100', AccountName: 'Bank', AccountType: 'Asset', SubCategory: 'Bank', Status: 'Active', IsPostable: true },
+      'A-CASH': { AccountCode: '1000', AccountName: 'Cash', AccountType: 'Asset', SubCategory: 'Cash', CashBank: 'Cash', Status: 'Active', IsPostable: true },
+      'A-BANK': { AccountCode: '1100', AccountName: 'Bank', AccountType: 'Asset', SubCategory: 'Bank', CashBank: 'Bank', Status: 'Active', IsPostable: true },
       'A-AR': { AccountCode: '1200', AccountName: 'Trade Receivables', AccountType: 'Asset', Status: 'Active', IsPostable: true },
       'A-INV': { AccountCode: '1300', AccountName: 'Inventory', AccountType: 'Asset', Status: 'Active', IsPostable: true },
       'A-VATIN': { AccountCode: '1400', AccountName: 'Input VAT', AccountType: 'Asset', Status: 'Active', IsPostable: true },

@@ -12,6 +12,45 @@ screen.
 
 ## 16/10/2026
 
+- **Item categories of your own.** Besides the five, add a category
+  such as Spare Parts with **New category…** in the item form. It has its
+  own code prefix (SP-000001) and behaves like one of the five for BOMs
+  and production. It can be shared or belong to one company, and can have
+  its own sub-categories. See [Item Master](item-master.html).
+- **Chart of Accounts: classes, groups and renumbering.** Codes now have
+  a level each: a class per type (100000 Assets), groups under it (110000
+  Cash) and the accounts under a group (110001). An account can no longer
+  sit straight under a class. Cash and bank accounts are the ones under a
+  group marked **Cash** or **Bank**, not those with a certain code.
+  **Renumber** gives a used account another code in its own group, and
+  every entry and document follows. See
+  [Chart of Accounts](chart-of-accounts.html).
+- **Search any long list.** Choosing an account, item, customer, vendor
+  or a line's party now opens a searchable list. Type any part of the code
+  or name ("trad" finds *Beta Trading*), choose with the arrow keys and
+  Enter, and find your recent choices at the top. On a phone it fills the
+  screen. See [Working with screens](working-with-screens.html).
+- **End-of-service statement.** A final settlement now prints an
+  End-of-Service Settlement Statement for the employee (**Print
+  statement**). It shows the service, the gratuity worked out by slab,
+  entitlements, deductions and the net, in figures and in words. It is
+  marked DRAFT until posted. Once the settlement is paid, the employee also
+  finds it in the Employee Portal under **My payslips**. See
+  [Final Settlement](payroll-final-settlement.html).
+- **Sell from stock on the invoice.** Where a company switches it on
+  (Sales Invoice Configuration → **Invoices may deliver stock directly**), a
+  Customer Invoice can have **item lines**, typed or brought in **From Sales
+  Order**. When it is posted, the invoice delivers them itself: a Delivery
+  Note is made for them, the stock leaves at its cost and the order counts
+  them as delivered. **Print delivery slip** prints the items without
+  prices. See [Customer Invoice](customer-invoice.html).
+- **Payroll: share an employee's cost across cost centers.** A Transfer in
+  Employee Change can now set a **cost split** by % (for example 60% / 40%).
+  Every payroll expense of the employee is then shared that way. In a draft
+  payroll run you can also change one employee's cost center (or split) for
+  **this run only**, with a reason. The payslip now shows the cost center
+  it posted to, even after a later transfer. See
+  [Employee Change](employee-change.html) and [Payroll Run](payroll-run.html).
 - **Paste lines from Excel** into Purchase Requisition, Inventory Purchase
   Requisition and Sales Order: **Copy Table** gives the columns (also on
   an empty grid), **Paste from Excel** adds the rows. A row that isn't

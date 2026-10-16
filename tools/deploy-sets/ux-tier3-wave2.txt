@@ -1,0 +1,150 @@
+# UX testing Tier 3, wave 2 (owner, 2026-10-16; docs/modules/UX_TIER3.md, round 15).
+# Run with --screens. Hosting too (tools/deploy-hosting.sh): the Help pages and
+# public/ess.html (J: the statement in the Employee Portal) and public/index.html
+# (L: the shell's search picker; no function for it).
+# I: payroll cost centre per run and split by % (PAYROLL_COST_SPLIT.md).
+#    setPayrollCostOverride is NEW.
+createPayrollRun
+recalculatePayrollRun
+savePayrollInputs
+getPayrollRun
+setPayrollCostOverride
+submitPayrollRun
+decidePayrollApproval
+postPayrollRun
+getPayrollGlImpact
+getPayrollPayslips
+saveEmployeeChange
+submitEmployeeChange
+decideEmployeeChangeApproval
+getEmployeeChanges
+getEmployeeChange
+getEmployeeChangeStart
+saveSettlement
+submitSettlement
+decideSettlementApproval
+postSettlement
+markInterimPaid
+# H: direct sales invoice (DIRECT_SALES_INVOICE.md). getInvoiceStockSettings,
+#    saveInvoiceStockSettings and getInvoiceableOrderLines are NEW.
+getInvoiceStockSettings
+saveInvoiceStockSettings
+getInvoiceableOrderLines
+saveCustomerInvoiceDraft
+postCustomerInvoice
+decideCustomerInvoiceApproval
+requestReverseCustomerInvoice
+decideCustomerInvoiceReversalApproval
+postDeliveryNote
+decideDeliveryNoteApproval
+reverseDeliveryNote
+# J: end-of-service statement (EOS_STATEMENT.md). getSettlementStatement is
+#    NEW; the gratuity's working by slab is kept on the settlement (above).
+getSettlementStatement
+getSettlement
+essPortal
+# M: Chart of Accounts numbering (COA_NUMBERING.md). getAccountRenumberCodes,
+#    renumberAccount and getCoaAccountsToFix are NEW. Cash and bank found by
+#    the group's Cash / Bank mark: every function of the modules that read
+#    it (CBT, PDC, Fixed Assets, payroll payments, loans, provisions, the
+#    settlement, interim payroll), Period Closing (the default Retained
+#    Earnings), the account save and seed, the Cash Flow Statement, import.
+#    After the deploy: Data Reset of the test data (decision 209).
+getAccountRenumberCodes
+renumberAccount
+getCoaAccountsToFix
+saveAccount
+getChartOfAccounts
+getCashFlowStatement
+checkMasterImport
+runMasterImport
+getJournalEntries
+getCbtEntries
+saveJournalDraft
+saveCbtDraft
+deleteJournalDraft
+postJournalEntry
+decideJournalEntryApproval
+reverseJournalEntry
+getPartyAccounts
+getPartyOpenItems
+getPdcSetup
+getPdcOpenItems
+savePdcDraft
+deletePdcDraft
+postPdc
+decidePdcApproval
+clearPdcs
+bouncePdc
+cancelPdc
+undoPdcClearing
+getPdcEntries
+getPdcsDueForUser
+getFaRetirementSetup
+previewFaRetirement
+getFaRights
+getFaConfig
+saveFaSettings
+saveFaAccountDetermination
+saveFaClass
+getLoanTypes
+saveLoanType
+getLoans
+getLoanForm
+getLoan
+saveLoan
+deleteLoan
+submitLoan
+decideLoanApproval
+payOutLoan
+reverseLoanPayout
+saveLoanSchedule
+recordLoanRepayment
+getPaymentFormats
+savePaymentFormat
+deletePaymentFormat
+previewPaymentFile
+getPayrollPayment
+savePaymentPlan
+downloadPaymentFile
+markPayrollPaid
+reversePayrollPayment
+getSettlements
+deleteSettlement
+reverseSettlement
+getSettlementPayment
+downloadSettlementFile
+markSettlementPaid
+reverseSettlementPayment
+getProvisionSetup
+saveProvisionSettings
+saveAccrualType
+getProvisionBalances
+recordAccrualClaim
+reverseAccrualClaim
+getPeriodClosing
+savePeriodClosingSettings
+getPeriodClosingChecklist
+closePeriod
+reopenPeriod
+tickPeriodClosingStep
+closeFinancialYear
+reopenFinancialYear
+getFinancialYearStart
+getInterimBatches
+getInterimBatch
+saveInterimBatch
+deleteInterimBatch
+submitInterimBatch
+decideInterimApproval
+saveInterimPlan
+downloadInterimFile
+reverseInterimPayment
+# N: item categories of your own (ITEM_CATEGORIES_CUSTOM.md). getItemCategories
+#    and saveItemCategory are NEW.
+getItemCategories
+saveItemCategory
+saveItem
+saveItemSubCategory
+getNumbering
+saveNumberingFormat

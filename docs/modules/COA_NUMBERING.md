@@ -1,6 +1,6 @@
 # Chart of Accounts: headings only at the top, and renumbering a used account (UX Tier 3, M)
 
-Status: **design agreed** (owner, 2026-10-16; UX_TIER3.md round 15, follow-ups 208–210).
+Status: **built** 2026-10-16 (branch tier3-wave2); design agreed by the owner the same day (UX_TIER3.md round 15, follow-ups 208–210).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 2, M).
 The owner (Tier 2, 2026-10-16): "an account with 100001 should not be
 created, instead it should be like 110001"; and "is it possible to
@@ -153,3 +153,91 @@ from 310000 to the new group 320000 (Period Closing looks it up).
 | 208 | **6 digits** (110001); "1100001" was a typo. |
 | 209 | **Reset the test data** and start on the new chart. |
 | 210 | Cash and bank are found by a **Cash / Bank mark on their group**, not by the code. |
+
+## As built (2026-10-16)
+
+- **functions/src/coaScheme.js** (new, hand-written) holds the scheme:
+  - `generateCode`: class X00000 (only when the type has none), a group
+    XN0000 under the class, a sub-group XNM000 under a group, an account
+    XN0001–XN0999 under a group or XNM001–XNM999 under a sub-group. The
+    first free code is taken, so a renumbered account's old code can be
+    reused.
+  - Refused: an account straight under a class or with no parent, a
+    second class, a heading under a sub-group, a heading becoming an
+    account.
+  - The legacy `generateAccountCode_` is mapped to it (generate.js
+    MAPPED), so saveAccount, the recode on a move (COA_RECODE.md) and
+    Master Data Import use the same rules.
+- **Seed:** `SEED` holds a class per type and its groups, as in the table
+  above. Patch `coa-class-group-seed` gives each group its class as the
+  parent. Seeding still adds only the codes missing, so the old chart's
+  seeded headings (100000 Cash …) stay until the Data Reset (209).
+- **Cash / Bank (210):** stored on the account rather than worked out each
+  time.
+  - A group or sub-group of the Assets class keeps its own choice in
+    `OwnCashBank` (Cash, Bank or empty). Classes and other types are
+    refused.
+  - Every account keeps the effective value in `CashBank`: its own
+    heading's choice, else its nearest marked ancestor's.
+  - The account save writes it (patches `coa-class-group-*`). Saving a
+    heading rewrites it on every account under it.
+  - Every check reads `CashBank` alone (`coaScheme.isCashOrBank / isBank
+    / kindOf`):
+    - journal.js (CBT ledger and Fund Transfer);
+    - pdc.js (a bank account, the bank list, the clearing account not
+      cash or bank);
+    - fixedAssetsConfig.js and fixedAssetsRetirement.js;
+    - payrollLoans, payrollPayment, payrollPlan (and so Interim Payroll),
+      payrollProvisions and payrollSettlement;
+    - the legacy Cash Flow Statement (`isCashOrBankAccount_` mapped);
+    - screens/CBT.html (hand-maintained) filters by `CashBank`.
+  - No code reads the code prefix any more.
+- **Renumber (198–200, 202):** functions/src/coaRenumber.js (new).
+  - `getAccountRenumberCodes` lists the free codes of the account's own
+    group or sub-group. Only accounts that take postings and sit under a
+    group are renumbered.
+  - `renumberAccount({ accountId, newCode, reason })` needs COA write
+    (199: no new right) and runs under the global lock. It rewrites every
+    `…AccountCode` field equal to the old code in the stores coaUsage.js
+    searches: journalEntries (posted and drafts, CBT included),
+    faTransactions, faPostings, stock transactions, vendor and customer
+    invoices, PDCs, recurring journals, requisitions, purchase and sales
+    orders. Only the top-level fields that change are written.
+  - The account then takes the new code. The old code is kept in
+    `FormerCodes` ([{ Code, Until, By, Reason }], kept by later saves and
+    shown on COA as "formerly …"), and the change is logged in
+    `coaRenumberLog`. Amounts don't change, so closed months are not
+    checked.
+  - On screen: a **Renumber** button on each account row, using the
+    in-app prompts (the free range, then the reason).
+- **Accounts to fix (201):** `getCoaAccountsToFix` lists, in a box above
+  the chart, accounts that take postings but have no parent, sit straight
+  under a class, or have a heading's code. Such an account can still be
+  edited, so it can be given its group.
+- **Period Closing:** the default Retained Earnings account is the first
+  active Equity account under the 320000 group
+  (`coaScheme.defaultRetainedEarnings`), instead of the account coded
+  310000.
+- **COA screen (generated):** SCREEN_EDITS in generate.js add:
+  - the Cash / Bank field (shown for an Assets heading with a parent);
+  - the parent list's levels indented;
+  - new help text;
+  - the Cash / Bank badge and "formerly …" on rows;
+  - the Renumber button and the Accounts to fix box.
+- **Tests:**
+  - functions/test/unit/coaScheme.test.js (6).
+  - functions/test/emulator/coaNumbering.emulator.test.js: the seed, the
+    rules, CBT by the mark (and the mark following the group), Renumber
+    rewriting posted lines, drafts and templates (refused outside the
+    heading, without a reason, without the right), and the accounts to
+    fix.
+  - Fixtures: the test chart's cash and bank accounts carry `CashBank`.
+    Retained Earnings moved to 320001 under a 320000 group in the period
+    closing, year-end and rematch tests.
+- **UI:** functions/test/ui/coaNumbering.ui.js (3): the accounts to fix,
+  a Bank group under the class, Renumber through the prompts.
+- **Negative control:** with `kindOf` reading the code prefix again
+  (10…/11…), the CBT test failed ("Cash and Bank Transactions go by the
+  mark"). It was then restored.
+- **The owner, after the deploy:** run Data Reset (Chart of Accounts and
+  the transactional data) so the chart starts from the new seed (209).

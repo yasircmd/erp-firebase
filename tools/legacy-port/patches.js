@@ -1421,5 +1421,314 @@ const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter',
     }
 
     if (customerId) {`
+  },
+  {
+    id: 'invoice-item-lines-save',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): item lines on a Customer Invoice that deliver stock directly (a company setting, off by default), typed or brought in from a Sales Order; checked by invoiceStock.js; one Sales Type for them. Nothing else changes.",
+    find: `    if (!sourceDeliveryNotes.length && !directLines.length) {
+      throw new Error('Add at least one Delivery Note or one direct line.');
+    }`,
+    replace: `    // [PORT CHANGE invoice-item-lines-save] item lines that deliver the stock themselves.
+    if (invoiceId) {
+      const beforeItems = firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken);
+      if (beforeItems && beforeItems.AutoDeliveryNoteID && (beforeItems.Status === 'Draft' || beforeItems.Status === 'Rejected')) throw new Error("This invoice's items are already delivered (" + (beforeItems.AutoDeliveryNoteNumber || beforeItems.AutoDeliveryNoteID) + "): post it as it is.");
+    }
+    const itemLines = cleanInvoiceItemLines_(idToken, invoiceData.ItemLines || [], companyId, customerId, invoiceId, costCenterId);
+    const itemSalesTypeId = itemLines.length ? resolveAndValidateSalesType_(idToken, invoiceData.ItemSalesTypeID, customerData.Classification, 'Item lines').SalesTypeID : '';
+
+    if (!sourceDeliveryNotes.length && !directLines.length && !itemLines.length) {
+      throw new Error('Add at least one Delivery Note, item line or direct line.');
+    }`
+  },
+  {
+    id: 'invoice-item-lines-save (cost center)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the item lines' revenue posts to the header cost center, as a Delivery Note's does.",
+    find: `    if (sourceDeliveryNotes.length && !costCenterId) {`,
+    replace: `    if ((sourceDeliveryNotes.length || itemLines.length) && !costCenterId) { // [PORT CHANGE invoice-item-lines-save]`
+  },
+  {
+    id: 'invoice-item-lines-save (totals)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the item lines count in the subtotal.",
+    find: `    const subtotal = Math.round((dnSubtotal + directTotal) * 100) / 100;`,
+    replace: `    // [PORT CHANGE invoice-item-lines-save]
+    const itemTotal = itemLines.reduce((sum, l) => sum + l.Amount, 0);
+    const subtotal = Math.round((dnSubtotal + directTotal + itemTotal) * 100) / 100;`
+  },
+  {
+    id: 'invoice-item-lines-save (fields)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the item lines and their Sales Type are stored with the invoice.",
+    find: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,`,
+    replace: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
+      ItemLines: itemLines, ItemSalesTypeID: itemSalesTypeId, // [PORT CHANGE invoice-item-lines-save]`
+  },
+  {
+    id: 'invoice-item-lines-post',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): on posting (or final approval), a Delivery Note is made and posted for the item lines, then matched to the invoice like any other: stock out at average cost with its COGS, the order's delivered quantities and reservations, returns and the month-end check all as for a delivery.",
+    find: `function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId) {`,
+    replace: `function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId) {
+  // [PORT CHANGE invoice-item-lines-post] the item lines delivered first, then matched below like any other delivery.
+  if ((existing.ItemLines || []).length && !existing.AutoDeliveryNoteID) {
+    const auto = createInvoiceDeliveryNote_(idToken, user, existing, invoiceId);
+    existing.SourceDeliveryNotes = (existing.SourceDeliveryNotes || []).concat([auto.entry]);
+    existing.AutoDeliveryNoteID = auto.dnId;
+    existing.AutoDeliveryNoteNumber = auto.entry.DeliveryNoteNumber;
+    firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', { SourceDeliveryNotes: existing.SourceDeliveryNotes, AutoDeliveryNoteID: auto.dnId, AutoDeliveryNoteNumber: auto.entry.DeliveryNoteNumber }, idToken);
+  }`
+  },
+  {
+    id: 'invoice-item-lines-post (the delivery)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the Delivery Note behind an invoice's item lines: made and posted under the invoice posting's lock, dated the invoice date; removed again if its posting fails (e.g. not enough stock).",
+    find: `function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason) {`,
+    replace: `// [PORT CHANGE invoice-item-lines-post] the Delivery Note behind an invoice's item lines. Caller holds the lock.
+function createInvoiceDeliveryNote_(idToken, user, inv, invoiceId) {
+  const now = new Date().toISOString();
+  const actor = user.profile.username || user.uid;
+  const dnId = 'DND-' + Utilities.getUuid().split('-')[0].toUpperCase();
+  const lines = (inv.ItemLines || []).map((l, i) => ({
+    LineNo: i + 1, ItemID: l.ItemID, ItemCode: l.ItemCode, ItemName: l.ItemName || '', WarehouseID: l.WarehouseID,
+    Quantity: l.Quantity, UnitPrice: l.UnitPrice, BatchNumber: '', ExpiryDate: '',
+    CostCenterID: l.CostCenterID || inv.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', Description: l.Description || l.ItemName || l.ItemCode,
+    SourceSOID: l.SourceSOID || '', SourceSOLineID: l.SourceSOLineID || '', SourceSONumber: l.SourceSONumber || ''
+  }));
+  const record = {
+    TransactionType: 'DeliveryNote', TransactionDate: inv.InvoiceDate, Description: inv.Description, Reference: '',
+    CompanyID: inv.CompanyID, DivisionID: inv.DivisionID || '', BranchID: inv.BranchID || '', CostCenterID: inv.CostCenterID || '', ProfitCenterID: inv.ProfitCenterID || '',
+    CustomerID: inv.CustomerID, Lines: lines, Status: 'Draft', AutoFromInvoiceID: invoiceId,
+    CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
+  };
+  firebaseDbRequest_('stock/transactions/' + dnId, 'put', record, idToken);
+  let result;
+  try {
+    result = commitDeliveryNotePosting_(idToken, user, record, dnId);
+  } catch (err) {
+    const left = firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
+    if (left && left.Status !== 'Posted') firebaseDbRequest_('stock/transactions/' + dnId, 'delete', null, idToken);
+    throw err;
+  }
+  const amount = Math.round(lines.reduce((sum, l) => sum + Math.round(l.Quantity * l.UnitPrice * 100) / 100, 0) * 100) / 100;
+  return { dnId: dnId, entry: { DeliveryNoteID: dnId, DeliveryNoteNumber: result.dnNumber || '', SalesTypeID: inv.ItemSalesTypeID, Amount: amount,
+    Lines: lines.map(l => ({ ItemCode: l.ItemCode, Quantity: l.Quantity, UnitPrice: l.UnitPrice, CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID })) } };
+}
+
+function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason) {`
+  },
+  {
+    id: 'invoice-item-lines-post (lines without an order)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): an item line typed directly on an invoice has no Sales Order: the delivery's order checks and order updates skip such lines (a delivery made on its own screen always has one).",
+    find: `  for (const l of (dn.Lines || [])) {
+    const key = l.SourceSOID + '|' + l.SourceSOLineID;`,
+    replace: `  for (const l of (dn.Lines || [])) {
+    if (!l.SourceSOID) continue; // [PORT CHANGE invoice-item-lines-post] a line invoiced directly, with no order
+    const key = l.SourceSOID + '|' + l.SourceSOLineID;`
+  },
+  {
+    id: 'invoice-item-lines-post (order status)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the order's status is refreshed only for lines that have one.",
+    find: `  const distinctSOIds = Array.from(new Set(existing.Lines.map(l => l.SourceSOID)));`,
+    replace: `  const distinctSOIds = Array.from(new Set(existing.Lines.map(l => l.SourceSOID))).filter(Boolean); // [PORT CHANGE invoice-item-lines-post]`
+  },
+  {
+    id: 'invoice-item-lines-reverse',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): reversing an invoice with item lines also reverses the Delivery Note made for them (the stock comes back at the cost it left at).",
+    find: `  (existing.SourceDeliveryNotes || []).forEach(dn => {
+    firebaseDbRequest_('stock/transactions/' + dn.DeliveryNoteID, 'patch', { MatchedToInvoiceID: '' }, idToken);
+  });
+
+  return { invoiceId: newId, invoiceNumber: glResult.jvNumber };`,
+    replace: `  (existing.SourceDeliveryNotes || []).forEach(dn => {
+    firebaseDbRequest_('stock/transactions/' + dn.DeliveryNoteID, 'patch', { MatchedToInvoiceID: '' }, idToken);
+  });
+  // [PORT CHANGE invoice-item-lines-reverse] its own delivery, reversed with it.
+  if (existing.AutoDeliveryNoteID) {
+    const dnReversal = reverseDeliveryNote(idToken, existing.AutoDeliveryNoteID, date);
+    if (!dnReversal.success) throw new Error('The invoice is reversed, but its delivery ' + (existing.AutoDeliveryNoteNumber || existing.AutoDeliveryNoteID) + ' could not be: ' + dnReversal.error);
+  }
+
+  return { invoiceId: newId, invoiceNumber: glResult.jvNumber };`
+  },
+  {
+    id: 'invoice-item-lines-reverse (access)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/DIRECT_SALES_INVOICE.md, decisions 166-172): the delivery of a reversed invoice's item lines is reversed by the invoice's reversal: the Delivery Note post right is not asked of the user reversing the invoice.",
+    find: `    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    requirePostAccess_(idToken, user, 'DELIVERYNOTE');
+    if (existing.Status !== 'Posted') throw new Error('Only a posted Delivery Note can be reversed.');`,
+    replace: `    if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
+    // [PORT CHANGE invoice-item-lines-reverse] made for an invoice that is now reversed: no Delivery Note right needed.
+    const ofReversedInvoice = existing.AutoFromInvoiceID && (firebaseDbRequest_('customerInvoices/' + existing.AutoFromInvoiceID, 'get', null, idToken) || {}).ReversedByInvoiceID;
+    if (!ofReversedInvoice) requirePostAccess_(idToken, user, 'DELIVERYNOTE');
+    if (existing.Status !== 'Posted') throw new Error('Only a posted Delivery Note can be reversed.');`
+  }
+  ,
+  {
+    id: 'coa-class-group-seed',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/COA_NUMBERING.md, decisions 197-210). The seeded chart is a class per type (X00000, a heading) ' +
+      'with its groups under it (XN0000); 110000 Cash and 120000 Bank carry the Cash / Bank mark (coaScheme.js SEED).',
+    find: `  const existingCodes = new Set(Object.values(existing).map(a => String(a.AccountCode)));
+  const missing = COA_SUBCATEGORIES.filter(sc => !existingCodes.has(sc.code));
+  if (!missing.length) return existing;
+
+  const now = new Date().toISOString();
+  const updates = {};
+  missing.forEach(sc => {
+    const id = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    updates[id] = {`,
+    replace: `  // [NEW DEVELOPMENT coa-class-group-seed] docs/modules/COA_NUMBERING.md
+  const existingCodes = new Set(Object.values(existing).map(a => String(a.AccountCode)));
+  const missing = __coaScheme.SEED.filter(sc => !existingCodes.has(sc.code));
+  if (!missing.length) return existing;
+
+  const now = new Date().toISOString();
+  const updates = {};
+  const idOfCode = {};
+  Object.keys(existing).forEach(id => { idOfCode[String(existing[id].AccountCode)] = id; });
+  missing.forEach(sc => { idOfCode[sc.code] = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase(); });
+  missing.forEach(sc => {
+    const id = idOfCode[sc.code];
+    updates[id] = {
+      OwnCashBank: sc.cashBank || '', CashBank: sc.cashBank || '',`
+  },
+  {
+    id: 'coa-class-group-seed (parent)',
+    why: 'The seeded groups sit under their class.',
+    find: `      CashFlowCategory: sc.cashFlowCategory || '',
+      ParentAccountID: '',`,
+    replace: `      CashFlowCategory: sc.cashFlowCategory || '',
+      ParentAccountID: sc.parent ? idOfCode[sc.parent] || '' : '',`
+  },
+  {
+    id: 'coa-class-group-mark',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/COA_NUMBERING.md, decision 210): a group or sub-group of the Assets class may be marked Cash or Bank; ' +
+      'its accounts take the mark (cash and bank accounts are found by it, not by their code).',
+    find: `    if (!accountName) {
+      throw new Error('Account name is required.');
+    }
+`,
+    replace: `    if (!accountName) {
+      throw new Error('Account name is required.');
+    }
+    // [NEW DEVELOPMENT coa-class-group-mark] docs/modules/COA_NUMBERING.md
+    let ownMark = isPostable ? '' : String(accountData.CashBank || '').trim();
+    if (ownMark && !__coaScheme.MARKS.includes(ownMark)) throw new Error('Cash / Bank must be Cash, Bank or neither.');
+    if (ownMark && !parentAccountId) throw new Error('Only a group (or sub-group) is marked Cash or Bank, not a class.');
+`
+  },
+  {
+    id: 'coa-class-group-new',
+    why: 'A new account: the mark checked (Assets only) and stored, with the one its accounts take.',
+    find: `      const code = generateAccountCode_(accountType, parentAccountId || null, existing, isPostable);
+      const newId = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase();
+`,
+    replace: `      const code = generateAccountCode_(accountType, parentAccountId || null, existing, isPostable);
+      const newId = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase();
+      // [NEW DEVELOPMENT coa-class-group-new] docs/modules/COA_NUMBERING.md
+      if (ownMark && accountType !== 'Asset') throw new Error('Only an Assets group is marked Cash or Bank.');
+      const cashBank = __coaScheme.markFor({ IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId }, existing);
+`
+  },
+  {
+    id: 'coa-class-group-new (store)',
+    why: 'The mark stored on the new account.',
+    find: `        CashFlowCategory: cashFlowCategory,
+        Status: status,
+        CreatedAt: now, CreatedBy: actor,`,
+    replace: `        CashFlowCategory: cashFlowCategory,
+        OwnCashBank: ownMark, CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
+        Status: status,
+        CreatedAt: now, CreatedBy: actor,`
+  },
+  {
+    id: 'coa-class-group-edit',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/COA_NUMBERING.md, decisions 197, 201, 210). A heading does not become an account (it has a heading code); ' +
+      'the mark checked; accounts already outside a group may still be edited (they are listed to fix).',
+    find: `    const record = {
+      AccountCode: accountCode,`,
+    replace: `    // [NEW DEVELOPMENT coa-class-group-edit] docs/modules/COA_NUMBERING.md
+    if (isPostable && current.IsPostable !== true && __coaScheme.levelOf(accountCode) !== 'account') {
+      throw new Error('Account ' + accountCode + ' is a heading (its code is a class, group or sub-group code): it can' + "'" + 't take postings. Create the account under it instead.');
+    }
+    if (accountData.CashBank === undefined && !isPostable) ownMark = String(current.OwnCashBank || ''); // not sent (e.g. an import): kept
+    if (ownMark && current.AccountType !== 'Asset') throw new Error('Only an Assets group is marked Cash or Bank.');
+    const editedMarks = Object.assign({}, existing);
+    editedMarks[accountId] = Object.assign({}, current, { IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId });
+    const cashBank = __coaScheme.markFor(editedMarks[accountId], editedMarks);
+    editedMarks[accountId].CashBank = cashBank;
+
+    const record = {
+      AccountCode: accountCode,`
+  },
+  {
+    id: 'coa-class-group-edit (store)',
+    why: 'The mark stored; the codes it had before (Renumber, coaRenumber.js) kept.',
+    find: `      CashFlowCategory: cashFlowCategory,
+      Status: status,
+      CreatedAt: current.CreatedAt, CreatedBy: current.CreatedBy,`,
+    replace: `      CashFlowCategory: cashFlowCategory,
+      OwnCashBank: ownMark, CashBank: cashBank, FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
+      Status: status,
+      CreatedAt: current.CreatedAt, CreatedBy: current.CreatedBy,`
+  },
+  {
+    id: 'coa-class-group-edit (below)',
+    why: 'A heading saved: the accounts under it take its mark (or lose it).',
+    find: `    firebaseDbRequest_('coa/' + accountId, 'put', record, idToken);
+    return { success: true, accountId: accountId, accountCode: accountCode, codeChangedFrom: codeChangedFrom };`,
+    replace: `    firebaseDbRequest_('coa/' + accountId, 'put', record, idToken);
+    // [NEW DEVELOPMENT coa-class-group-edit] the accounts under a heading follow its mark.
+    if (!isPostable) {
+      const below = __coaScheme.marksBelow(accountId, editedMarks);
+      const marks = {};
+      Object.keys(below).forEach(id => { marks[id + '/CashBank'] = below[id] || ''; });
+      if (Object.keys(marks).length) firebaseDbRequest_('coa', 'patch', marks, idToken);
+    }
+    return { success: true, accountId: accountId, accountCode: accountCode, codeChangedFrom: codeChangedFrom };`
+  }
+  ,
+  {
+    id: 'item-custom-category',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/ITEM_CATEGORIES_CUSTOM.md, decisions 203-207). An item may be in a category of your own ' +
+      '(itemCategories.js): it keeps the base category it behaves like as its Category (BOM and production rules unchanged), and the category of its own ' +
+      'gives its code (its own prefix and sequence) and its sub-categories.',
+    find: `    if (!ITEM_CATEGORY_PREFIXES[category]) throw new Error('Select a valid item category.');
+`,
+    replace: `    if (!ITEM_CATEGORY_PREFIXES[category]) throw new Error('Select a valid item category.');
+    // [NEW DEVELOPMENT item-custom-category] docs/modules/ITEM_CATEGORIES_CUSTOM.md
+    const customCategoryId = String(itemData.CustomCategoryID || '').trim();
+    const customCategory = customCategoryId ? checkItemCategory_(idToken, customCategoryId, category, String(itemData.CompanyID || '').trim(), !itemId) : null;
+    const ownCategory = customCategoryId ? 'X-' + customCategoryId : category;
+`
+  },
+  {
+    id: 'item-custom-category (sub-category)',
+    why: 'A category of your own has its own sub-categories (ParentCategory X-<id>).',
+    find: `      if (subCat.ParentCategory !== category) throw new Error('Sub-category does not belong to the selected Category.');`,
+    replace: `      if (subCat.ParentCategory !== ownCategory) throw new Error('Sub-category does not belong to the selected Category.'); // [NEW DEVELOPMENT item-custom-category]`
+  },
+  {
+    id: 'item-custom-category (store)',
+    why: 'The category of its own stored on the item.',
+    find: `      SubCategoryID: subCategoryId,
+      UOMID: uomId,`,
+    replace: `      SubCategoryID: subCategoryId,
+      CustomCategoryID: customCategoryId, // [NEW DEVELOPMENT item-custom-category]
+      UOMID: uomId,`
+  },
+  {
+    id: 'item-custom-category (locked)',
+    why: 'As the five: an item never changes category (decision 207).',
+    find: `      if (existing.Category !== category) throw new Error('Item category cannot be changed after creation.');`,
+    replace: `      if (existing.Category !== category || String(existing.CustomCategoryID || '') !== customCategoryId) throw new Error('Item category cannot be changed after creation.'); // [NEW DEVELOPMENT item-custom-category]`
+  },
+  {
+    id: 'item-custom-category (code)',
+    why: 'Its own prefix and sequence (decision 204).',
+    find: `    const itemCode = generateItemCode_(idToken, category);`,
+    replace: `    const itemCode = customCategory ? customItemCode_(idToken, customCategoryId, customCategory) : generateItemCode_(idToken, category); // [NEW DEVELOPMENT item-custom-category]`
+  },
+  {
+    id: 'item-custom-category (sub-category parent)',
+    why: 'A sub-category may sit under a category of your own (docs/modules/ITEM_CATEGORIES_CUSTOM.md).',
+    find: `    if (!ITEM_CATEGORY_PREFIXES[parentCategory]) throw new Error('Select a valid parent category.');`,
+    replace: `    if (!validItemCategoryParent_(idToken, parentCategory)) throw new Error('Select a valid parent category.'); // [NEW DEVELOPMENT item-custom-category]`
   }
 ];
+

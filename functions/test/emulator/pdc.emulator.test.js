@@ -12,8 +12,8 @@ const { app, rtdb, firestore, call, reset, baseFixture, val } = require('./_help
 function fixture() {
   const f = baseFixture();
   Object.assign(f.coa, {
-    'A-BANK2': { AccountCode: '1110', AccountName: 'Second Bank', AccountType: 'Asset', Status: 'Active', IsPostable: true },
-    'A-BANKC2': { AccountCode: '1120', AccountName: 'C2 Bank', AccountType: 'Asset', Status: 'Active', IsPostable: true, CompanyID: 'C2' },
+    'A-BANK2': { AccountCode: '1110', AccountName: 'Second Bank', AccountType: 'Asset', CashBank: 'Bank', Status: 'Active', IsPostable: true },
+    'A-BANKC2': { AccountCode: '1120', AccountName: 'C2 Bank', AccountType: 'Asset', CashBank: 'Bank', Status: 'Active', IsPostable: true, CompanyID: 'C2' },
     'A-PDCR': { AccountCode: '1250', AccountName: 'PDC Received Clearing', AccountType: 'Asset', Status: 'Active', IsPostable: true },
     'A-PDCI': { AccountCode: '2150', AccountName: 'PDC Issued Clearing', AccountType: 'Liability', Status: 'Active', IsPostable: true }
   });
@@ -166,7 +166,7 @@ test('validation: required fields, bank rules, duplicates, clearing account set-
   assert.match(await err(save(received({ DraweeBank: ' ' }))), /Enter the bank the cheque is drawn on/);
   assert.match(await err(save(received({ Direction: 'Sideways' }))), /Direction must be Received or Issued/);
   assert.match(await err(save(issued({ BankAccountID: '' }))), /Select the bank account the cheque is drawn on/);
-  assert.match(await err(save(issued({ BankAccountID: 'A-CASH' }))), /must be a bank account \(code 11…\)/);
+  assert.match(await err(save(issued({ BankAccountID: 'A-CASH' }))), /must be a bank account \(under a group marked Bank in the Chart of Accounts\)/);
   assert.match(await err(save(issued({ BankAccountID: 'A-BANKC2' }))), /belongs to a different company/);
   assert.match(await err(save(received({ PartyID: 'CU9' }))), /belongs to a different company/);
   assert.match(await err(save(received({ Allocations: [{ RefType: 'Against', RefID: 'CustomerInvoice:CI2', Amount: 600 }] }))), /CINV-2 has only 300\.00 outstanding/);

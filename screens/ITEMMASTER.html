@@ -80,6 +80,16 @@
             <option value="Scrap">Scrap</option>
           </select>
           <p id="im-category-locked-note" class="hidden text-xs text-amber-400 mt-1">Category can't be changed after an item is created — its code depends on it.</p>
+          <button type="button" id="im-cat-new" class="mt-1 text-xs text-blue-400 hover:text-blue-300 underline" title="A category of your own, with its own code prefix">New category…</button>
+          <div id="im-cat-panel" class="hidden mt-2 bg-slate-900/60 border border-slate-700 rounded-lg p-3 space-y-2">
+            <p class="text-xs text-slate-400">A category of your own (for example Spare Parts): its items get codes with its own prefix (SP-000001). It behaves like one of the five for BOMs and production.</p>
+            <input id="im-cat-name" maxlength="60" placeholder="Name, e.g. Spare Parts" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-sm">
+            <input id="im-cat-prefix" maxlength="6" placeholder="Code prefix, e.g. SP" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-sm uppercase">
+            <select id="im-cat-base" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-sm"><option value="">Behaves like…</option><option value="RawMaterial">Raw Material</option><option value="SemiFinishedGood">Semi-Finished Good</option><option value="FinishedGood">Finished Good</option><option value="Consumable">Consumable</option><option value="Scrap">Scrap</option></select>
+            <select id="im-cat-company" class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-sm"><option value="">All companies — shared</option></select>
+            <p id="im-cat-error" class="hidden text-xs text-red-400"></p>
+            <div class="flex gap-2"><button type="button" id="im-cat-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Add category</button><button type="button" id="im-cat-cancel" class="bg-slate-700 text-xs px-3 py-1.5 rounded">Cancel</button></div>
+          </div>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">Sub-Category <span class="text-slate-500">(optional)</span> <button type="button" id="im-subcat-new" class="ml-1 text-blue-400 hover:text-blue-300 underline" title="Add a sub-category in Item Sub-Category">New…</button></label>
@@ -222,6 +232,7 @@
   let warehouses = [];
   let accounts = [];
   let subCategories = [];
+  let customCategories = []; // categories of your own (docs/modules/ITEM_CATEGORIES_CUSTOM.md)
   let barcodes = {}; // { [itemId]: [{ Barcode, PackQty }] }
 
   const CATEGORY_LABELS = {
@@ -236,6 +247,37 @@
   }
 
   function itemById(id) { return items.find(i => i.ItemID === id); }
+  // An item's own category: the one of your own (X-<id>) or one of the five.
+  const ownCategory = i => (i.CustomCategoryID ? 'X-' + i.CustomCategoryID : i.Category);
+  const customByKey = key => customCategories.find(c => c.Key === key);
+  const categoryLabel = key => (customByKey(key) ? customByKey(key).Name : CATEGORY_LABELS[key] || key);
+  // The categories of your own in the form's list and the filter, after the five.
+  function renderCustomCategories(selectKey) {
+    ['im-form-category', 'im-category-filter'].forEach(id => {
+      const select = document.getElementById(id), keep = selectKey && id === 'im-form-category' ? selectKey : select.value;
+      select.querySelectorAll('option[data-custom]').forEach(o => o.remove());
+      customCategories.filter(c => c.Status !== 'Inactive' || id === 'im-category-filter' || c.Key === keep).forEach(c => {
+        const opt = document.createElement('option'); opt.value = c.Key; opt.dataset.custom = '1'; opt.dataset.company = c.CompanyID || '';
+        opt.textContent = c.Name + ' (' + c.Prefix + ', like ' + CATEGORY_LABELS[c.BaseCategory] + ')';
+        select.appendChild(opt);
+      });
+      select.value = keep;
+    });
+  }
+  function loadCustomCategories(selectKey) {
+    rpc.withSuccessHandler(r => { customCategories = (r && r.categories) || []; renderCustomCategories(selectKey); if (selectKey) updateSubCategoryOptions(selectKey); renderTable(); })
+      .withFailureHandler(err => console.error(err)).getItemCategories({});
+  }
+  function saveCustomCategory() {
+    const error = document.getElementById('im-cat-error');
+    error.classList.add('hidden');
+    rpc.withSuccessHandler(r => {
+      document.getElementById('im-cat-panel').classList.add('hidden');
+      loadCustomCategories(r.key);
+    }).withFailureHandler(err => { error.textContent = err.message || 'Unable to add the category.'; error.classList.remove('hidden'); })
+      .saveItemCategory({ category: { Name: document.getElementById('im-cat-name').value, Prefix: document.getElementById('im-cat-prefix').value,
+        BaseCategory: document.getElementById('im-cat-base').value, CompanyID: document.getElementById('im-cat-company').value } });
+  }
   function uomById(id) { return uoms.find(u => u.UOMID === id); }
   function companyById(id) { return companies.find(c => c.CompanyID === id); }
   function subCategoryById(id) { return subCategories.find(s => s.SubCategoryID === id); }
@@ -297,13 +339,14 @@
       })
       .withFailureHandler(err => console.error(err))
       .getActiveItemSubCategories();
+    loadCustomCategories();
 
     rpc
       .withSuccessHandler(result => {
         companies = result || [];
-        ['im-form-company', 'im-company-filter'].forEach(id => {
+        ['im-form-company', 'im-company-filter', 'im-cat-company'].forEach(id => {
           const select = document.getElementById(id);
-          const placeholder = id === 'im-form-company' ? 'All Companies — shared' : 'All Companies';
+          const placeholder = id === 'im-form-company' ? 'All Companies — shared' : id === 'im-cat-company' ? 'All companies — shared' : 'All Companies';
           select.innerHTML = `<option value="">${placeholder}</option>`;
           companies.sort((a, b) => a.LegalName.localeCompare(b.LegalName)).forEach(c => {
             const opt = document.createElement('option'); opt.value = c.CompanyID;
@@ -413,7 +456,7 @@
 
     const filtered = items.filter(i => {
       if (search && !`${i.ItemCode} ${i.ItemName} ${(barcodes[i.ItemID] || []).map(b => b.Barcode).join(' ')}`.toLowerCase().includes(search)) return false;
-      if (category && i.Category !== category) return false;
+      if (category && ownCategory(i) !== category) return false;
       if (companyFilter && i.CompanyID !== companyFilter) return false;
       if (status && i.Status !== status) return false;
       return true;
@@ -435,7 +478,7 @@
       row.innerHTML = `
         <td class="py-3 px-4 font-mono text-xs text-slate-200">${escapeHtml(i.ItemCode)}</td>
         <td class="py-3 px-4 text-slate-200">${escapeHtml(i.ItemName)}${(barcodes[i.ItemID] || []).length ? '<div class="im-bc-list text-xs text-slate-500 font-mono"><i class="fa-solid fa-barcode"></i> ' + (barcodes[i.ItemID] || []).map(b => escapeHtml(b.Barcode + (b.PackQty !== 1 ? ' ×' + b.PackQty : ''))).join(', ') + '</div>' : ''}</td>
-        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(CATEGORY_LABELS[i.Category] || i.Category)}</td>
+        <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(categoryLabel(ownCategory(i)))}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${subCat ? escapeHtml(subCat.Name) : '—'}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${uom ? escapeHtml(uom.Code) : '—'}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${company ? escapeHtml(company.LegalName + (company.CompanyRefCode ? ' (' + company.CompanyRefCode + ')' : '')) : '<span class="text-blue-400">Shared</span>'}</td>
@@ -458,6 +501,8 @@
     document.getElementById('im-code-preview').classList.add('hidden');
     document.getElementById('im-category-locked-note').classList.add('hidden');
     document.getElementById('im-form-category').disabled = false;
+    document.getElementById('im-cat-new').classList.remove('hidden');
+    document.getElementById('im-cat-panel').classList.add('hidden');
     updateSubCategoryOptions('');
     updateConversionEnabled();
     setBarcodes([]);
@@ -471,10 +516,12 @@
       if (!i) return;
       document.getElementById('im-modal-title').textContent = 'Edit Item';
       document.getElementById('im-form-id').value = i.ItemID;
-      document.getElementById('im-form-category').value = i.Category;
+      renderCustomCategories(ownCategory(i));
+      document.getElementById('im-form-category').value = ownCategory(i);
       document.getElementById('im-form-category').disabled = true;
       document.getElementById('im-category-locked-note').classList.remove('hidden');
-      updateSubCategoryOptions(i.Category, i.SubCategoryID, i.CompanyID);
+      document.getElementById('im-cat-new').classList.add('hidden');
+      updateSubCategoryOptions(ownCategory(i), i.SubCategoryID, i.CompanyID);
       document.getElementById('im-form-name').value = i.ItemName;
       document.getElementById('im-form-uom').value = i.UOMID;
       document.getElementById('im-form-altuom').value = i.AltUOMID || '';
@@ -512,8 +559,9 @@
 
     document.getElementById('im-modal-title').textContent = 'Add Item';
     document.getElementById('im-form-id').value = '';
-    document.getElementById('im-form-category').value = source.Category;
-    updateSubCategoryOptions(source.Category, source.SubCategoryID, source.CompanyID);
+    renderCustomCategories(ownCategory(source));
+    document.getElementById('im-form-category').value = ownCategory(source);
+    updateSubCategoryOptions(ownCategory(source), source.SubCategoryID, source.CompanyID);
     document.getElementById('im-form-name').value = '';
     document.getElementById('im-form-uom').value = source.UOMID;
     document.getElementById('im-form-altuom').value = source.AltUOMID || '';
@@ -539,7 +587,9 @@
     event.preventDefault();
     const data = {
       ItemID: document.getElementById('im-form-id').value,
-      Category: document.getElementById('im-form-category').value,
+      // A category of your own: the item keeps the one of the five it behaves like.
+      Category: customByKey(document.getElementById('im-form-category').value) ? customByKey(document.getElementById('im-form-category').value).BaseCategory : document.getElementById('im-form-category').value,
+      CustomCategoryID: customByKey(document.getElementById('im-form-category').value) ? customByKey(document.getElementById('im-form-category').value).ItemCategoryID : '',
       SubCategoryID: document.getElementById('im-form-subcategory').value,
       ItemName: document.getElementById('im-form-name').value.trim(),
       UOMID: document.getElementById('im-form-uom').value,
@@ -697,6 +747,17 @@
       openModule('ITEMSUBCAT', { NewFor: category, CompanyID: document.getElementById('im-form-company').value }, [{ moduleId: 'ITEMMASTER', label: 'Item Master' }]);
     });
     document.getElementById('im-form-altuom').addEventListener('change', updateConversionEnabled);
+    document.getElementById('im-cat-new').addEventListener('click', () => {
+      ['im-cat-name', 'im-cat-prefix'].forEach(id => { document.getElementById(id).value = ''; });
+      document.getElementById('im-cat-base').value = '';
+      document.getElementById('im-cat-company').value = document.getElementById('im-form-company').value;
+      document.getElementById('im-cat-error').classList.add('hidden');
+      document.getElementById('im-cat-panel').classList.remove('hidden');
+      document.getElementById('im-cat-name').focus();
+    });
+    document.getElementById('im-cat-cancel').addEventListener('click', () => document.getElementById('im-cat-panel').classList.add('hidden'));
+    document.getElementById('im-cat-save').addEventListener('click', saveCustomCategory);
+    ['im-cat-name', 'im-cat-prefix'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveCustomCategory(); } })); // not the item's form
     document.getElementById('im-search-input').addEventListener('input', renderTable);
     document.getElementById('im-category-filter').addEventListener('change', renderTable);
     document.getElementById('im-company-filter').addEventListener('change', renderTable);

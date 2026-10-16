@@ -38,7 +38,7 @@ const actorOf = user => user.profile.username || user.uid; // as My Drafts match
 const actorName = user => user.profile.fullName || user.profile.username || user.uid;
 const docs = (snap, key) => snap.docs.map(d => Object.assign({ [key]: d.id }, d.data()));
 const num = v => Number(String(v == null ? '' : v).replace(/,/g, ''));
-const isCashOrBank = a => a && a.AccountType === 'Asset' && ['10', '11'].includes(String(a.AccountCode).slice(0, 2));
+const isCashOrBank = a => a && a.AccountType === 'Asset' && require('./coaScheme').isCashOrBank(a); // by the Cash / Bank mark (docs/modules/COA_NUMBERING.md)
 const history = (l, event, user, extra) => (l.History || []).concat([Object.assign({ Event: event, By: actorName(user), At: new Date().toISOString() }, extra || {})]);
 
 // ---------- loan types (Payroll Setup → Loans) ----------

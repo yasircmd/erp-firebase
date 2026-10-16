@@ -34,6 +34,7 @@ const R = require('./payrollRun');
 const ED = require('./payrollInputs');
 const loans = require('./payrollLoans');
 const P = require('./payrollProvisions');
+const costSplit = require('./costSplit');
 
 const onCallOptions = { region: 'us-central1' };
 const VOUCHER_TYPE = 'Payroll';
@@ -53,7 +54,9 @@ function glLinesFor(run, slips, elements, coa, settings, loanAccounts, provAccou
     if (!accountId || !a) { missing.add(what); return; }
     const needsCc = CC_TYPES.includes(a.AccountType);
     if (needsCc && !slip.CostCenterID) noCostCenter.add(slip.EmployeeNo + ' ' + slip.EmployeeName);
-    lines.push({ AccountCode: a.AccountCode, Debit: debit ? amount : 0, Credit: debit ? 0 : amount, Description: what + label, CostCenterID: needsCc ? slip.CostCenterID : '' });
+    // An expense line shared across the slip's cost split, if any (PAYROLL_COST_SPLIT.md).
+    (needsCc ? costSplit.shares(amount, slip.CostCenterID, slip.CostSplit) : [{ CostCenterID: '', Amount: amount }]).forEach(p =>
+      lines.push({ AccountCode: a.AccountCode, Debit: debit ? p.Amount : 0, Credit: debit ? 0 : p.Amount, Description: what + label, CostCenterID: p.CostCenterID }));
   };
   slips.forEach(s => {
     s.Lines.forEach(l => {
@@ -309,7 +312,8 @@ async function payslipsOf(run, only) {
     const leave = [];
     for (const t of balanceTypes) { const b = await lv.balanceOf(e, t, end, null, cache); leave.push({ Code: t.Code, Name: t.Name, Balance: round2(b.Available + b.Booked) }); }
     const y = ytd[s.EmployeeID] || { Earnings: 0, Deductions: 0, Net: 0 };
-    out.push(Object.assign({}, s, { Designation: des ? des.Title : '', CostCenterName: (units[e.CostCenterID] || {}).Name || '', JoinDate: e.JoinDate || '',
+    out.push(Object.assign({}, s, { Designation: des ? des.Title : '', CostCenterName: (units[s.CostCenterID] || {}).Name || '', // the slip's own (it posted there), not the employee's current one
+      CostSplitText: costSplit.describe(s.CostSplit, units), JoinDate: e.JoinDate || '',
       BankName: e.BankName || '', IBAN: maskIban(e.IBAN), Leave: leave,
       Loans: empLoans.filter(l => l.EmployeeID === s.EmployeeID).map(l => {
         const here = run.Status === 'Posted' ? 0 : s.Lines.filter(x => x.Source === 'Loan' && x.LoanID === l._id).reduce((t, x) => t + x.Amount, 0);

@@ -100,6 +100,21 @@
       <th class="py-1 pr-4">Element</th><th class="py-1 pr-4">How</th><th class="py-1 pr-4 text-right">Earnings</th><th class="py-1 text-right">Deductions</th></tr></thead>
       <tbody id="pr-slip-body" class="divide-y divide-slate-700"></tbody><tfoot id="pr-slip-foot"></tfoot></table></div>
     <p id="pr-slip-terms" class="text-xs text-slate-400"></p>
+    <!-- The slip's cost center, changeable for this run only (docs/modules/PAYROLL_COST_SPLIT.md). -->
+    <div class="text-xs text-slate-300 flex flex-wrap items-center gap-2"><span id="pr-slip-cc"></span>
+      <button id="pr-cc-change" class="hidden text-blue-400 hover:text-blue-300 underline">Change for this run</button></div>
+    <div id="pr-cc-form" class="hidden bg-slate-900/60 border border-slate-700 rounded-lg p-3 space-y-2 text-xs">
+      <div class="flex flex-wrap gap-3 items-end">
+        <label class="block">Cost center<br><select id="pr-cc-select" class="bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm"></select></label>
+        <label class="block grow">Split by % (optional: cost center codes and %, e.g. <span class="keep-iso">CC1 60, CC2 40</span>)<br><input id="pr-cc-split" class="w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm"></label>
+      </div>
+      <label class="block">Reason<br><input id="pr-cc-reason" maxlength="300" class="w-full bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm"></label>
+      <div class="flex gap-2 justify-end">
+        <button id="pr-cc-clear" class="hidden px-3 py-1.5 bg-slate-700 rounded">Back to the employee's</button>
+        <button id="pr-cc-cancel" class="px-3 py-1.5 bg-slate-700 rounded">Cancel</button>
+        <button id="pr-cc-save" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded">Save for this run</button>
+      </div>
+    </div>
     <div id="pr-slip-prov-wrap" class="hidden pt-2"><div class="text-xs font-semibold text-slate-300 mb-1">Provisions this month (the company's cost, not paid now)</div>
       <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-4">Provision</th><th class="py-1 pr-4">How</th>
         <th class="py-1 pr-4 text-right">Liability</th><th class="py-1 pr-4 text-right">Provided before</th><th class="py-1 text-right">This month</th></tr></thead>
@@ -391,6 +406,51 @@
     $('pr-slip-warnings').innerHTML = s.Warnings.map(w => '<li><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(w) + '</li>').join('');
     $('pr-slip').dataset.emp = empId;
     $('pr-slip').classList.remove('hidden');
+    showSlipCostCenter(s);
+  }
+
+  // ---------- the slip's cost center for this run (PAYROLL_COST_SPLIT.md, decision 173) ----------
+  let orgUnits = null;
+  const unitsReady = () => orgUnits ? Promise.resolve(orgUnits) : call('getActiveOrgUnits', {}).then(r => { orgUnits = r || []; return orgUnits; });
+  const ccName = id => { const u = (orgUnits || []).find(x => x.UnitID === id); return u ? u.Code + ' — ' + u.Name : (id || 'none'); };
+  const splitText = list => (list || []).map(x => { const u = (orgUnits || []).find(v => v.UnitID === x.CostCenterID); return (u ? u.Code : x.CostCenterID) + ' ' + x.Percent; }).join(', ');
+  function showSlipCostCenter(s) {
+    $('pr-cc-form').classList.add('hidden');
+    unitsReady().then(() => {
+      const o = s.CostOverride;
+      $('pr-slip-cc').textContent = 'Cost center: ' + ccName(s.CostCenterID) + ((s.CostSplit || []).length ? ' · split ' + splitText(s.CostSplit) + ' (%)' : '') +
+        (o ? ' · changed for this run by ' + o.ByName + ': ' + o.Reason : '');
+      $('pr-cc-change').classList.toggle('hidden', !(current.canDraft && current.run.Status === 'Draft'));
+    });
+  }
+  function openCostForm() {
+    const s = current.slips.find(x => x.EmployeeID === $('pr-slip').dataset.emp);
+    const co = current.run.CompanyID;
+    $('pr-cc-select').innerHTML = orgUnits.filter(u => u.Type === 'CostCenter' && (!u.CompanyID || u.CompanyID === co))
+      .map(u => '<option value="' + escapeHtml(u.UnitID) + '"' + (u.UnitID === s.CostCenterID ? ' selected' : '') + '>' + escapeHtml(u.Code + ' — ' + u.Name) + '</option>').join('');
+    $('pr-cc-split').value = splitText(s.CostSplit);
+    $('pr-cc-reason').value = '';
+    $('pr-cc-clear').classList.toggle('hidden', !s.CostOverride);
+    $('pr-cc-form').classList.remove('hidden');
+  }
+  // "CC1 60, CC2 40" → [{ CostCenterID, Percent }]; an unknown code is named.
+  function parseSplit(text) {
+    const out = [];
+    for (const part of String(text || '').split(/[,;\n]/).map(x => x.trim()).filter(Boolean)) {
+      const m = part.match(/^(.+?)\s+([\d.]+)\s*%?$/);
+      const u = m && orgUnits.find(x => x.Type === 'CostCenter' && String(x.Code).toLowerCase() === m[1].trim().toLowerCase());
+      if (!u) throw new Error('Split: "' + part + '" is not a cost center code and a % (e.g. CC1 60).');
+      out.push({ CostCenterID: u.UnitID, Percent: Number(m[2]) });
+    }
+    return out;
+  }
+  function saveCostForm(clear) {
+    const empId = $('pr-slip').dataset.emp;
+    let split = [];
+    if (!clear) { try { split = parseSplit($('pr-cc-split').value); } catch (e) { appAlert(e.message); return; } }
+    call('setPayrollCostOverride', clear ? { runId: current.run.RunID, employeeId: empId, clear: true }
+      : { runId: current.run.RunID, employeeId: empId, costCenterId: $('pr-cc-select').value, costSplit: split, reason: $('pr-cc-reason').value })
+      .then(() => openRun(current.run.RunID).then(() => showSlip(empId)), err => appAlert(err.message || 'Unable to change the cost center.'));
   }
 
 
@@ -598,6 +658,10 @@
     $('pr-new-cancel').addEventListener('click', () => $('pr-new-form').classList.add('hidden'));
     $('pr-new-create').addEventListener('click', createRun);
     $('pr-back').addEventListener('click', () => { if (!isDirty) return showList(); appConfirm('Leave without saving the inputs?').then(ok => { if (ok) showList(); }); });
+    $('pr-cc-change').addEventListener('click', openCostForm);
+    $('pr-cc-cancel').addEventListener('click', () => $('pr-cc-form').classList.add('hidden'));
+    $('pr-cc-save').addEventListener('click', () => saveCostForm(false));
+    $('pr-cc-clear').addEventListener('click', () => saveCostForm(true));
     $('pr-slip-close').addEventListener('click', () => $('pr-slip').classList.add('hidden'));
     $('pr-slip-print').addEventListener('click', () => printPayslips($('pr-slip').dataset.emp));
     $('pr-print-all').addEventListener('click', () => printPayslips(''));

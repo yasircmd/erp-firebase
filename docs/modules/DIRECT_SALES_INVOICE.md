@@ -115,3 +115,52 @@ the rest of a partly delivered order may be invoiced directly, line by
 line; prices from the customer's price list with the Sales Order's
 "may change prices" rule; a delivery slip print; service lines still
 credited by JV; the "deliveries not invoiced" check unchanged.
+
+## As built (2026-10-16)
+
+- **Setting** (167): `salesInvoiceSettings/{companyId}.DirectStock`, via
+  `getInvoiceStockSettings` / `saveInvoiceStockSettings` (Sales Invoice
+  Configuration's write right), on the Sales Invoice Configuration screen.
+- **Save**: `invoiceStock.cleanItemLines`, called from the legacy patch
+  `invoice-item-lines-save` (mapped `cleanInvoiceItemLines_`), checks:
+  - an active stock item of the company, a warehouse of the company,
+    quantity above 0 (whole units where the UOM has no decimals), a price of
+    0 or more, and a cost centre;
+  - from an order: locked to the order's item, warehouse and price, up to
+    what is still to deliver and reserved, summed per order line.
+
+  The lines are stored as `ItemLines`, with one `ItemSalesTypeID`, and
+  counted in the subtotal. The header cost centre is required (their
+  revenue posts there). An invoice whose items were already delivered (a
+  failed post after its delivery) can't change its lines.
+- **Post** (`invoice-item-lines-post`):
+  1. `createInvoiceDeliveryNote_` makes a Delivery Note (`AutoFromInvoiceID`,
+     dated the invoice date) and posts it through the delivery's own
+     `commitDeliveryNotePosting_`: stock out at average cost, its COGS
+     entry, the order's delivered quantity and reservation.
+  2. It is appended to the invoice's `SourceDeliveryNotes` and matched like
+     any delivery (`AutoDeliveryNoteID` / `Number` on the invoice).
+  3. If the delivery fails (not enough stock), its record is removed and the
+     invoice stays a draft.
+
+  A line without an order is skipped by the delivery's order checks and
+  status refresh.
+- **Reverse** (`invoice-item-lines-reverse`): reversing the invoice reverses
+  its delivery, so the stock comes back at its cost. The Delivery Note right
+  is not needed for a reversed invoice's own delivery.
+- **From Sales Order**: `getInvoiceableOrderLines`, with Customer Invoice
+  access (a delivery's picker needs Delivery Note access).
+- **Returns**: as for any delivered invoice (the delivery is one of its
+  `SourceDeliveryNotes`).
+- **Delivery slip** (170): the invoice screen's **Print delivery slip**, with
+  items and quantities and no prices.
+- **Tests**:
+  - `directSalesInvoice` suite (5);
+  - the customerInvoice, deliveryNote, salesReturn and salesOrder suites
+    (40, one message check updated);
+  - `directSalesInvoice` UI (4), plus the invoiceState, salesReturn, smoke,
+    glReferences and draftTasks UI tests.
+
+  Negative controls caught: the delivery's reversal skipped, the order
+  guard removed, and the screen not saving the lines.
+

@@ -31,7 +31,7 @@ const onCallOptions = { region: 'us-central1' };
 const KINDS = { Sale: 'Sale', Scrap: 'Scrapping' };
 const depreciates = kind => kind === 'Tangible' || kind === 'Intangible';
 const amt = v => round2(parseAmountServer(v));
-const isCashOrBank = a => ['10', '11'].includes(String(a.AccountCode || '').substring(0, 2));
+const { isCashOrBank } = require('./coaScheme'); // by the Cash / Bank mark (docs/modules/COA_NUMBERING.md)
 
 // What the screen needs for one company.
 exports.getFaRetirementSetup = onCallWithMessages(onCallOptions, async (request) => {

@@ -14,7 +14,7 @@ const C = require('./fixedAssetsCommon');
 const { COL, str, round2 } = C;
 
 const onCallOptions = { region: 'us-central1' };
-const isCashOrBank = a => ['10', '11'].includes(String(a.AccountCode || '').substring(0, 2));
+const { isCashOrBank } = require('./coaScheme'); // by the Cash / Bank mark (docs/modules/COA_NUMBERING.md)
 
 exports.getFaRights = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);

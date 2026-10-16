@@ -279,18 +279,24 @@ function gratuityFor(cfg, x) {
   }
   const daily = c.DayRule === 'Company' ? x.base / divisor(x.method, x.month) : x.base * 12 / 365;
   let dayCount = 0;
-  const parts = [];
+  const parts = [], slabs = [];
   (c.Slabs || []).slice().sort((a, b) => a.FromYear - b.FromYear).forEach(sl => {
     const inSlab = Math.max(0, Math.min(years, sl.ToYear == null ? Infinity : Number(sl.ToYear)) - Number(sl.FromYear));
     if (!inSlab) return;
     dayCount += inSlab * Number(sl.Days);
     parts.push(trim(Math.round(inSlab * 1000) / 1000) + ' × ' + sl.Days);
+    slabs.push({ FromYear: Number(sl.FromYear), ToYear: sl.ToYear == null ? null : Number(sl.ToYear), Years: Math.round(inSlab * 1000) / 1000, DaysPerYear: Number(sl.Days), Days: Math.round(inSlab * Number(sl.Days) * 1000) / 1000 });
   });
   let amount = round2(dayCount * daily);
   const cap = c.CapYears ? round2(Number(c.CapYears) * 12 * x.base) : null;
   const capped = cap != null && amount > cap;
   if (capped) amount = cap;
-  return { amount, years, serviceDays: days,
+  // The working by slab, for the end-of-service statement (eosStatement.js).
+  // Each slab's amount, the last taking the rounding, so they add up to the amount before any cap.
+  const uncapped = round2(dayCount * daily);
+  slabs.forEach((sl, i) => { sl.Amount = i < slabs.length - 1 ? round2(sl.Days * daily) : round2(uncapped - slabs.slice(0, -1).reduce((t, x) => t + x.Amount, 0)); });
+  const working = { Base: round2(x.base), Daily: round2(daily), Slabs: slabs, Days: round2(dayCount), Uncapped: uncapped, Cap: cap, Capped: capped, CapYears: c.CapYears || null };
+  return { amount, years, serviceDays: days, working,
     text: years.toFixed(2) + ' years: ' + (parts.join(' + ') || '0') + ' = ' + trim(round2(dayCount)) + ' days × ' + money(daily) + (capped ? ', capped at ' + c.CapYears + ' years\' pay' : '') + ' = ' + money(amount) };
 }
 // Leave salary (owner point 2, decision 30): the leave days due × a day at

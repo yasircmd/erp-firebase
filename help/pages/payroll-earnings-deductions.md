@@ -5,8 +5,8 @@ order: 7
 modules: [PAYROLLED]
 sources: [functions/src/payrollInputs.js, functions/src/payrollInterim.js]
 summary: Define the earnings, deductions and allowances that payroll calculations apply each pay cycle.
-reviewed: 2026-10-12
-fingerprint: 390c4a3fc40fdf6e
+reviewed: 2026-10-16
+fingerprint: b2430284e735a7b4
 ---
 ## What it is for
 

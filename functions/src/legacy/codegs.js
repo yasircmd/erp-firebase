@@ -9,11 +9,14 @@ const { firebaseDbRequest_, firestoreGet_, firestoreSet_, firestoreUpdate_, fire
 const __approvalRegistry = require('../approvalRegistry');
 const __approvals = require('../approvals');
 const __auth = require('../auth');
+const __coaScheme = require('../coaScheme');
 const __coaUsage = require('../coaUsage');
 const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
 const __customerPhone = require('../customerPhone');
 const __glWriting = require('../glWriting');
+const __invoiceStock = require('../invoiceStock');
+const __itemCategories = require('../itemCategories');
 const __lineClubbing = require('../lineClubbing');
 const __listPaging = require('../listPaging');
 const __masterData = require('../masterData');
@@ -38,6 +41,11 @@ const writeStockGlEntry_ = (idToken, ...a) => __glWriting.writeStockGlEntry(...a
 const generateStockVoucherNumber_ = (idToken, ...a) => __glWriting.generateStockVoucherNumber(...a);
 const generateVoucherNumber_ = (idToken, ...a) => __numbering.voucherNumber(...a);
 const generateItemCode_ = (idToken, ...a) => __numbering.itemCode(...a);
+const generateAccountCode_ = (...a) => __coaScheme.generateCode(...a);
+const isCashOrBankAccount_ = (...a) => __coaScheme.isCashOrBank(...a);
+const checkItemCategory_ = (idToken, ...a) => __itemCategories.checkForItem(...a);
+const validItemCategoryParent_ = (idToken, ...a) => __itemCategories.validParent(...a);
+const customItemCode_ = (idToken, ...a) => __numbering.customItemCode(...a);
 const generateVendorCode_ = (idToken, ...a) => __numbering.vendorCode(...a);
 const generateCustomerCode_ = (idToken, ...a) => __numbering.customerCode(...a);
 const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
@@ -58,6 +66,7 @@ const canSeePurchaseRequisition_ = (idToken, ...a) => __prVisibility.canSeeRequi
 const findAccountUsage_ = (idToken, ...a) => __coaUsage.findAccountUsage(...a);
 const clubStockLines_ = (...a) => __lineClubbing.clubStockLines(...a);
 const assertPeriodOpen_ = (idToken, ...a) => __periodLock.assertOpen(...a);
+const cleanInvoiceItemLines_ = (idToken, ...a) => __invoiceStock.cleanItemLines(...a);
 
 // ---- constants ----
 const { MODULE_REGISTRY } = __moduleRegistry;
@@ -99,35 +108,6 @@ const ACCOUNT_TYPE_CONFIG = {
   COGS:      { digit: '5', normalBalance: 'Debit'  },
   Expense:   { digit: '6', normalBalance: 'Debit'  }
 };
-
-// Fixed reference data — these 16 sub-category headers are seeded into
-// Firebase automatically (idempotently) the first time a writer opens
-// COA. Codes are exact per the agreed numbering table; do not renumber
-// without checking nothing downstream (GL, once built) references them.
-//
-// cashFlowCategory defaults to a sensible Operating/Financing split for
-// the Cash Flow Statement (see CASH FLOW STATEMENT section below). Cash
-// and Bank headers themselves are left blank — they're never categorized,
-// since they're the "cash" side of the movement, not the "why."
-const COA_SUBCATEGORIES = [
-  { code: '100000', name: 'Cash / Petty Cash',              type: 'Asset',     cashFlowCategory: '' },
-  { code: '110000', name: 'Bank Accounts',                  type: 'Asset',     cashFlowCategory: '' },
-  { code: '120000', name: 'Accounts Receivable (Trade)',    type: 'Asset',     cashFlowCategory: 'Operating' },
-  { code: '130000', name: 'Inventory',                      type: 'Asset',     cashFlowCategory: 'Operating' },
-  { code: '200000', name: 'Accounts Payable (Trade)',       type: 'Liability', cashFlowCategory: 'Operating' },
-  { code: '210000', name: 'Short-Term Loans Payable',       type: 'Liability', cashFlowCategory: 'Financing' },
-  { code: '220000', name: 'Accrued Liabilities',            type: 'Liability', cashFlowCategory: 'Operating' },
-  { code: '300000', name: 'Common Stock / Share Capital',   type: 'Equity',    cashFlowCategory: 'Financing' },
-  { code: '310000', name: 'Retained Earnings',              type: 'Equity',    cashFlowCategory: 'Operating' },
-  { code: '400000', name: 'Domestic Sales Revenues',        type: 'Revenue',   cashFlowCategory: 'Operating' },
-  { code: '410000', name: 'Sales Returns & Discounts',      type: 'Revenue',   cashFlowCategory: 'Operating' },
-  { code: '420000', name: 'Interest / Other Income',        type: 'Revenue',   cashFlowCategory: 'Operating' },
-  { code: '500000', name: 'Cost of Goods Sold (COGS)',      type: 'COGS',      cashFlowCategory: 'Operating' },
-  { code: '510000', name: 'Direct Material Cost',           type: 'COGS',      cashFlowCategory: 'Operating' },
-  { code: '600000', name: 'Wages & Salaries Expense',       type: 'Expense',   cashFlowCategory: 'Operating' },
-  { code: '610000', name: 'Rent & Facility Expense',        type: 'Expense',   cashFlowCategory: 'Operating' },
-  { code: '620000', name: 'Depreciation Expense',           type: 'Expense',   cashFlowCategory: 'Operating' }
-];
 
 // ============================================================
 // CASH AND BANK TRANSACTIONS (CBT)
@@ -852,22 +832,27 @@ async function getCoaData_(idToken) {
 }
 
 async function ensureSubCategoriesSeeded_(idToken, existing) {
+  // [NEW DEVELOPMENT coa-class-group-seed] docs/modules/COA_NUMBERING.md
   const existingCodes = new Set(Object.values(existing).map(a => String(a.AccountCode)));
-  const missing = COA_SUBCATEGORIES.filter(sc => !existingCodes.has(sc.code));
+  const missing = __coaScheme.SEED.filter(sc => !existingCodes.has(sc.code));
   if (!missing.length) return existing;
 
   const now = new Date().toISOString();
   const updates = {};
+  const idOfCode = {};
+  Object.keys(existing).forEach(id => { idOfCode[String(existing[id].AccountCode)] = id; });
+  missing.forEach(sc => { idOfCode[sc.code] = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase(); });
   missing.forEach(sc => {
-    const id = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase();
+    const id = idOfCode[sc.code];
     updates[id] = {
+      OwnCashBank: sc.cashBank || '', CashBank: sc.cashBank || '',
       AccountCode: sc.code,
       AccountName: sc.name,
       AccountType: sc.type,
       AccountSubType: '',
       NormalBalance: ACCOUNT_TYPE_CONFIG[sc.type].normalBalance,
       CashFlowCategory: sc.cashFlowCategory || '',
-      ParentAccountID: '',
+      ParentAccountID: sc.parent ? idOfCode[sc.parent] || '' : '',
       IsPostable: false,
       CompanyID: '',
       Status: 'Active',
@@ -883,107 +868,6 @@ async function ensureSubCategoriesSeeded_(idToken, existing) {
     // Read-only role — proceed with what already exists.
   }
   return existing;
-}
-
-// Three levels supported: a top-level header (e.g. 220000), an optional
-// non-postable SUB-PARENT directly beneath one header (e.g. 221000 —
-// digit 3 becomes 1-9, distinguishing it from ordinary leaves), and
-// postable leaves under either a header directly (0001-0999, digit 3
-// stays 0) or under a sub-parent (221001, 221002, ... — the sub-parent's
-// own 4 digits plus a 3-digit sequence). The numbering scheme has no
-// room for a further level beneath a sub-parent — see the error thrown
-// in that branch below.
-function generateAccountCode_(accountType, parentAccountId, existingAccounts, isPostable) {
-  const config = ACCOUNT_TYPE_CONFIG[accountType];
-  if (!config) throw new Error('Unknown account type: ' + accountType);
-  const categoryDigit = config.digit;
-
-  if (!parentAccountId) {
-    const used = new Set();
-    Object.values(existingAccounts).forEach(a => {
-      const code = String(a.AccountCode || '');
-      if (code.charAt(0) === categoryDigit && !a.ParentAccountID) {
-        used.add(code.charAt(1));
-      }
-    });
-    for (let d = 0; d <= 9; d++) {
-      if (!used.has(String(d))) {
-        return categoryDigit + String(d) + '0000';
-      }
-    }
-    throw new Error('All 10 sub-category slots for this account type are used.');
-  }
-
-  const parent = existingAccounts[parentAccountId];
-  if (!parent) throw new Error('Parent account not found.');
-  if (parent.IsPostable === true) {
-    throw new Error('Parent account must be a non-postable header or sub-parent.');
-  }
-
-  const parentCode = String(parent.AccountCode || '');
-
-  // Parent is a top-level header (e.g. 220000).
-  if (/^\d{2}0000$/.test(parentCode)) {
-    const prefix = parentCode.substring(0, 2);
-
-    if (!isPostable) {
-      // Creating a SUB-PARENT under this header — takes the next
-      // available "thousand slot" (221000, 222000, ... 229000), kept
-      // visually distinct from ordinary leaves (which stay in the
-      // 0001-0999 range directly under the header, digit 3 fixed at 0).
-      const usedSlots = new Set();
-      Object.values(existingAccounts).forEach(a => {
-        const code = String(a.AccountCode || '');
-        if (code.substring(0, 2) === prefix && /^\d{2}[1-9]000$/.test(code)) {
-          usedSlots.add(code.charAt(2));
-        }
-      });
-      for (let d = 1; d <= 9; d++) {
-        if (!usedSlots.has(String(d))) {
-          return prefix + String(d) + '000';
-        }
-      }
-      throw new Error('All 9 sub-parent slots under this header are used.');
-    }
-
-    // Ordinary postable leaf directly under the header — digit 3 stays 0,
-    // sequence runs 0001-0999 (capped below 1000 so it can never collide
-    // with the X1000-X9000 sub-parent slots above).
-    let maxSeq = 0;
-    Object.values(existingAccounts).forEach(a => {
-      const code = String(a.AccountCode || '');
-      if (code.substring(0, 2) === prefix && /^\d{2}0\d{3}$/.test(code)) {
-        const seq = parseInt(code.substring(3), 10);
-        if (!isNaN(seq)) maxSeq = Math.max(maxSeq, seq);
-      }
-    });
-    const nextSeq = maxSeq + 1;
-    if (nextSeq > 999) throw new Error('This header has reached its maximum of 999 directly-postable accounts — consider grouping further accounts under a sub-parent.');
-    return prefix + '0' + String(nextSeq).padStart(3, '0');
-  }
-
-  // Parent is a sub-parent (e.g. 221000) — its children are always
-  // postable leaves; the 6-digit scheme has no digits left for a further
-  // level beneath this one.
-  if (/^\d{2}[1-9]000$/.test(parentCode)) {
-    if (!isPostable) {
-      throw new Error('A sub-parent cannot itself have another sub-parent — only one level of grouping is supported beneath a header.');
-    }
-    const prefix = parentCode.substring(0, 3);
-    let maxSeq = 0;
-    Object.values(existingAccounts).forEach(a => {
-      const code = String(a.AccountCode || '');
-      if (code.substring(0, 3) === prefix && code !== parentCode) {
-        const seq = parseInt(code.substring(3), 10);
-        if (!isNaN(seq)) maxSeq = Math.max(maxSeq, seq);
-      }
-    });
-    const nextSeq = maxSeq + 1;
-    if (nextSeq > 999) throw new Error('This sub-parent has reached its maximum of 999 accounts.');
-    return prefix + String(nextSeq).padStart(3, '0');
-  }
-
-  throw new Error('New accounts can only be created under a top-level header or a sub-parent beneath one.');
 }
 
 async function getChartOfAccounts(idToken) {
@@ -1036,6 +920,10 @@ async function saveAccount(idToken, accountData) {
     if (!accountName) {
       throw new Error('Account name is required.');
     }
+    // [NEW DEVELOPMENT coa-class-group-mark] docs/modules/COA_NUMBERING.md
+    let ownMark = isPostable ? '' : String(accountData.CashBank || '').trim();
+    if (ownMark && !__coaScheme.MARKS.includes(ownMark)) throw new Error('Cash / Bank must be Cash, Bank or neither.');
+    if (ownMark && !parentAccountId) throw new Error('Only a group (or sub-group) is marked Cash or Bank, not a class.');
 
     const existing = await getCoaData_(idToken);
     const now = new Date().toISOString();
@@ -1060,6 +948,9 @@ async function saveAccount(idToken, accountData) {
 
       const code = generateAccountCode_(accountType, parentAccountId || null, existing, isPostable);
       const newId = 'ACC-' + Utilities.getUuid().split('-')[0].toUpperCase();
+      // [NEW DEVELOPMENT coa-class-group-new] docs/modules/COA_NUMBERING.md
+      if (ownMark && accountType !== 'Asset') throw new Error('Only an Assets group is marked Cash or Bank.');
+      const cashBank = __coaScheme.markFor({ IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId }, existing);
 
       const record = {
         AccountCode: code,
@@ -1071,6 +962,7 @@ async function saveAccount(idToken, accountData) {
         IsPostable: isPostable,
         CompanyID: companyId,
         CashFlowCategory: cashFlowCategory,
+        OwnCashBank: ownMark, CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
         Status: status,
         CreatedAt: now, CreatedBy: actor,
         UpdatedAt: now, UpdatedBy: actor
@@ -1130,6 +1022,17 @@ async function saveAccount(idToken, accountData) {
       codeChangedFrom = current.AccountCode;
     }
 
+    // [NEW DEVELOPMENT coa-class-group-edit] docs/modules/COA_NUMBERING.md
+    if (isPostable && current.IsPostable !== true && __coaScheme.levelOf(accountCode) !== 'account') {
+      throw new Error('Account ' + accountCode + ' is a heading (its code is a class, group or sub-group code): it can' + "'" + 't take postings. Create the account under it instead.');
+    }
+    if (accountData.CashBank === undefined && !isPostable) ownMark = String(current.OwnCashBank || ''); // not sent (e.g. an import): kept
+    if (ownMark && current.AccountType !== 'Asset') throw new Error('Only an Assets group is marked Cash or Bank.');
+    const editedMarks = Object.assign({}, existing);
+    editedMarks[accountId] = Object.assign({}, current, { IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId });
+    const cashBank = __coaScheme.markFor(editedMarks[accountId], editedMarks);
+    editedMarks[accountId].CashBank = cashBank;
+
     const record = {
       AccountCode: accountCode,
       AccountName: accountName,
@@ -1140,12 +1043,20 @@ async function saveAccount(idToken, accountData) {
       IsPostable: isPostable,
       CompanyID: companyId,
       CashFlowCategory: cashFlowCategory,
+      OwnCashBank: ownMark, CashBank: cashBank, FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
       Status: status,
       CreatedAt: current.CreatedAt, CreatedBy: current.CreatedBy,
       UpdatedAt: now, UpdatedBy: actor
     };
 
     await firebaseDbRequest_('coa/' + accountId, 'put', record, idToken);
+    // [NEW DEVELOPMENT coa-class-group-edit] the accounts under a heading follow its mark.
+    if (!isPostable) {
+      const below = __coaScheme.marksBelow(accountId, editedMarks);
+      const marks = {};
+      Object.keys(below).forEach(id => { marks[id + '/CashBank'] = below[id] || ''; });
+      if (Object.keys(marks).length) await firebaseDbRequest_('coa', 'patch', marks, idToken);
+    }
     return { success: true, accountId: accountId, accountCode: accountCode, codeChangedFrom: codeChangedFrom };
   } catch (err) {
     return { success: false, error: err.message };
@@ -1879,7 +1790,7 @@ async function saveItemSubCategory(idToken, data) {
     const status = String(data.Status || 'Active').trim();
 
     if (!name) throw new Error('Name is required.');
-    if (!ITEM_CATEGORY_PREFIXES[parentCategory]) throw new Error('Select a valid parent category.');
+    if (!(await validItemCategoryParent_(idToken, parentCategory))) throw new Error('Select a valid parent category.'); // [NEW DEVELOPMENT item-custom-category]
     // [PORT CHANGE subcat-company-save] shared ('') or one company's.
     const companyId = String(data.CompanyID || '').trim();
     if (companyId && !userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
@@ -1994,6 +1905,10 @@ async function saveItem(idToken, itemData) {
 
     if (!itemName) throw new Error('Item name is required.');
     if (!ITEM_CATEGORY_PREFIXES[category]) throw new Error('Select a valid item category.');
+    // [NEW DEVELOPMENT item-custom-category] docs/modules/ITEM_CATEGORIES_CUSTOM.md
+    const customCategoryId = String(itemData.CustomCategoryID || '').trim();
+    const customCategory = customCategoryId ? await checkItemCategory_(idToken, customCategoryId, category, String(itemData.CompanyID || '').trim(), !itemId) : null;
+    const ownCategory = customCategoryId ? 'X-' + customCategoryId : category;
     if (!uomId) throw new Error('Select a Unit of Measure.');
     if (!inventoryAccountId) throw new Error('Select an Inventory (asset) account.');
     if (!consumptionAccountId) throw new Error('Select a Consumption (expense/COGS) account.');
@@ -2005,7 +1920,7 @@ async function saveItem(idToken, itemData) {
       const subCats = (await firebaseDbRequest_('itemSubCategories', 'get', null, idToken)) || {};
       const subCat = subCats[subCategoryId];
       if (!subCat) throw new Error('Sub-category not found.');
-      if (subCat.ParentCategory !== category) throw new Error('Sub-category does not belong to the selected Category.');
+      if (subCat.ParentCategory !== ownCategory) throw new Error('Sub-category does not belong to the selected Category.'); // [NEW DEVELOPMENT item-custom-category]
       // [PORT CHANGE item-subcat-company] a shared one, or the item's company's.
       if (subCat.CompanyID && subCat.CompanyID !== companyId) throw new Error('Sub-category "' + subCat.Name + '" belongs to ' + (companyId ? 'another company' : 'one company; a shared item uses a shared sub-category') + '.');
     }
@@ -2084,6 +1999,7 @@ async function saveItem(idToken, itemData) {
       ItemName: itemName,
       Category: category,
       SubCategoryID: subCategoryId,
+      CustomCategoryID: customCategoryId, // [NEW DEVELOPMENT item-custom-category]
       UOMID: uomId,
       AltUOMID: altUomId,
       ConversionFactor: conversionFactor,
@@ -2105,12 +2021,12 @@ async function saveItem(idToken, itemData) {
       // creation — same reasoning as COA's AccountType lock: changing it
       // would orphan the code's meaning and any future stock ledger
       // history tied to this item.
-      if (existing.Category !== category) throw new Error('Item category cannot be changed after creation.');
+      if (existing.Category !== category || String(existing.CustomCategoryID || '') !== customCategoryId) throw new Error('Item category cannot be changed after creation.'); // [NEW DEVELOPMENT item-custom-category]
       await firebaseDbRequest_('items/' + itemId, 'patch', Object.assign({}, fields, { UpdatedAt: now, UpdatedBy: actor }), idToken);
       return { success: true, itemId: itemId, itemCode: existing.ItemCode };
     }
 
-    const itemCode = await generateItemCode_(idToken, category);
+    const itemCode = customCategory ? await customItemCode_(idToken, customCategoryId, customCategory) : await generateItemCode_(idToken, category); // [NEW DEVELOPMENT item-custom-category]
     const newId = 'ITM-' + Utilities.getUuid().split('-')[0].toUpperCase();
     await firebaseDbRequest_('items/' + newId, 'put', Object.assign({}, fields, {
       ItemCode: itemCode, CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
@@ -2274,14 +2190,6 @@ async function getPostedGlLines_(idToken, filters) {
   });
 
   return lines;
-}
-
-// Leaf accounts under the 100000 (Cash) or 110000 (Bank) headers all get
-// codes starting "10" or "11" per the COA numbering scheme — see COA
-// section above for the full scheme.
-function isCashOrBankAccount_(account) {
-  const prefix = String(account.AccountCode || '').substring(0, 2);
-  return prefix === '10' || prefix === '11';
 }
 
 // Cash Flow Category can only be SET on a non-postable (header) account —
@@ -4287,8 +4195,16 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
       };
     });
 
-    if (!sourceDeliveryNotes.length && !directLines.length) {
-      throw new Error('Add at least one Delivery Note or one direct line.');
+    // [PORT CHANGE invoice-item-lines-save] item lines that deliver the stock themselves.
+    if (invoiceId) {
+      const beforeItems = await firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken);
+      if (beforeItems && beforeItems.AutoDeliveryNoteID && (beforeItems.Status === 'Draft' || beforeItems.Status === 'Rejected')) throw new Error("This invoice's items are already delivered (" + (beforeItems.AutoDeliveryNoteNumber || beforeItems.AutoDeliveryNoteID) + "): post it as it is.");
+    }
+    const itemLines = await cleanInvoiceItemLines_(idToken, invoiceData.ItemLines || [], companyId, customerId, invoiceId, costCenterId);
+    const itemSalesTypeId = itemLines.length ? (await resolveAndValidateSalesType_(idToken, invoiceData.ItemSalesTypeID, customerData.Classification, 'Item lines')).SalesTypeID : '';
+
+    if (!sourceDeliveryNotes.length && !directLines.length && !itemLines.length) {
+      throw new Error('Add at least one Delivery Note, item line or direct line.');
     }
 
     // Cost Center is required somewhere for the Revenue side of every
@@ -4299,7 +4215,7 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
     // Cost-Center-required rule, so catching a missing one clearly
     // here, at save time, is better than letting it surface as a
     // cryptic account-code error deep in GL posting at commit time.
-    if (sourceDeliveryNotes.length && !costCenterId) {
+    if ((sourceDeliveryNotes.length || itemLines.length) && !costCenterId) { // [PORT CHANGE invoice-item-lines-save]
       throw new Error('A Cost Center is required (set the header default) — every Delivery Note-sourced line posts to a Revenue account, which always needs one.');
     }
     directLines.forEach((l, idx) => {
@@ -4316,7 +4232,9 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
 
     const dnSubtotal = sourceDeliveryNotes.reduce((sum, d) => sum + d.Amount, 0);
     const directTotal = directLines.reduce((sum, l) => sum + l.Amount, 0);
-    const subtotal = Math.round((dnSubtotal + directTotal) * 100) / 100;
+    // [PORT CHANGE invoice-item-lines-save]
+    const itemTotal = itemLines.reduce((sum, l) => sum + l.Amount, 0);
+    const subtotal = Math.round((dnSubtotal + directTotal + itemTotal) * 100) / 100;
     if (discount > subtotal) throw new Error('Discount cannot exceed the invoice subtotal.');
     // Tax computed on the NET of discount, same confirmed formula as
     // Vendor Invoice's own.
@@ -4332,6 +4250,7 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
       CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
       CostCenterID: costCenterId, ProfitCenterID: profitCenterId, CustomerID: customerId,
       SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
+      ItemLines: itemLines, ItemSalesTypeID: itemSalesTypeId, // [PORT CHANGE invoice-item-lines-save]
       Discount: discount, TaxPercent: taxPercent, TaxAmount: taxAmount, RoundOff: roundOff,
       Subtotal: subtotal, Total: total,
       Status: 'Draft',
@@ -4394,6 +4313,14 @@ async function postCustomerInvoice(idToken, invoiceId) {
 
 // Caller MUST already hold LockService.getScriptLock().
 async function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId) {
+  // [PORT CHANGE invoice-item-lines-post] the item lines delivered first, then matched below like any other delivery.
+  if ((existing.ItemLines || []).length && !existing.AutoDeliveryNoteID) {
+    const auto = await createInvoiceDeliveryNote_(idToken, user, existing, invoiceId);
+    existing.SourceDeliveryNotes = (existing.SourceDeliveryNotes || []).concat([auto.entry]);
+    existing.AutoDeliveryNoteID = auto.dnId;
+    existing.AutoDeliveryNoteNumber = auto.entry.DeliveryNoteNumber;
+    await firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', { SourceDeliveryNotes: existing.SourceDeliveryNotes, AutoDeliveryNoteID: auto.dnId, AutoDeliveryNoteNumber: auto.entry.DeliveryNoteNumber }, idToken);
+  }
   // [PORT FIX customer-invoice-recheck-dns-at-post] the draft-time Delivery Note checks can be stale by now.
   for (const d of (existing.SourceDeliveryNotes || [])) {
     const dn = await firebaseDbRequest_('stock/transactions/' + d.DeliveryNoteID, 'get', null, idToken);
@@ -4702,6 +4629,11 @@ async function executeCustomerInvoiceReversal_(idToken, user, existing, invoiceI
   await seq.forEach(existing.SourceDeliveryNotes || [], async dn => {
     await firebaseDbRequest_('stock/transactions/' + dn.DeliveryNoteID, 'patch', { MatchedToInvoiceID: '' }, idToken);
   });
+  // [PORT CHANGE invoice-item-lines-reverse] its own delivery, reversed with it.
+  if (existing.AutoDeliveryNoteID) {
+    const dnReversal = await reverseDeliveryNote(idToken, existing.AutoDeliveryNoteID, date);
+    if (!dnReversal.success) throw new Error('The invoice is reversed, but its delivery ' + (existing.AutoDeliveryNoteNumber || existing.AutoDeliveryNoteID) + ' could not be: ' + dnReversal.error);
+  }
 
   return { invoiceId: newId, invoiceNumber: glResult.jvNumber };
 }
@@ -5086,6 +5018,7 @@ async function assertDeliveryNoteStillShippable_(idToken, dn) {
   const wanted = {};
   const order = [];
   for (const l of (dn.Lines || [])) {
+    if (!l.SourceSOID) continue; // [PORT CHANGE invoice-item-lines-post] a line invoiced directly, with no order
     const key = l.SourceSOID + '|' + l.SourceSOLineID;
     if (!wanted.hasOwnProperty(key)) {
       wanted[key] = { soId: l.SourceSOID, lineId: l.SourceSOLineID, label: l.SourceSONumber || l.SourceSOID, itemCode: l.ItemCode, qty: 0 };
@@ -5161,7 +5094,7 @@ async function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
   });
   // Distinct SO ids only — a multi-line delivery from the same SO
   // should only refresh its header status once.
-  const distinctSOIds = Array.from(new Set(existing.Lines.map(l => l.SourceSOID)));
+  const distinctSOIds = Array.from(new Set(existing.Lines.map(l => l.SourceSOID))).filter(Boolean); // [PORT CHANGE invoice-item-lines-post]
   await seq.forEach(
     distinctSOIds,
     async soId => await refreshSalesOrderReservationStatus_(idToken, soId)
@@ -5170,6 +5103,37 @@ async function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
   await finalizeCommitAttempt_(idToken, dnId, glResult, { Lines: movementLines }, actor);
 
   return { dnNumber: glResult.jvNumber };
+}
+
+// [PORT CHANGE invoice-item-lines-post] the Delivery Note behind an invoice's item lines. Caller holds the lock.
+async function createInvoiceDeliveryNote_(idToken, user, inv, invoiceId) {
+  const now = new Date().toISOString();
+  const actor = user.profile.username || user.uid;
+  const dnId = 'DND-' + Utilities.getUuid().split('-')[0].toUpperCase();
+  const lines = (inv.ItemLines || []).map((l, i) => ({
+    LineNo: i + 1, ItemID: l.ItemID, ItemCode: l.ItemCode, ItemName: l.ItemName || '', WarehouseID: l.WarehouseID,
+    Quantity: l.Quantity, UnitPrice: l.UnitPrice, BatchNumber: '', ExpiryDate: '',
+    CostCenterID: l.CostCenterID || inv.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', Description: l.Description || l.ItemName || l.ItemCode,
+    SourceSOID: l.SourceSOID || '', SourceSOLineID: l.SourceSOLineID || '', SourceSONumber: l.SourceSONumber || ''
+  }));
+  const record = {
+    TransactionType: 'DeliveryNote', TransactionDate: inv.InvoiceDate, Description: inv.Description, Reference: '',
+    CompanyID: inv.CompanyID, DivisionID: inv.DivisionID || '', BranchID: inv.BranchID || '', CostCenterID: inv.CostCenterID || '', ProfitCenterID: inv.ProfitCenterID || '',
+    CustomerID: inv.CustomerID, Lines: lines, Status: 'Draft', AutoFromInvoiceID: invoiceId,
+    CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
+  };
+  await firebaseDbRequest_('stock/transactions/' + dnId, 'put', record, idToken);
+  let result;
+  try {
+    result = await commitDeliveryNotePosting_(idToken, user, record, dnId);
+  } catch (err) {
+    const left = await firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
+    if (left && left.Status !== 'Posted') await firebaseDbRequest_('stock/transactions/' + dnId, 'delete', null, idToken);
+    throw err;
+  }
+  const amount = Math.round(lines.reduce((sum, l) => sum + Math.round(l.Quantity * l.UnitPrice * 100) / 100, 0) * 100) / 100;
+  return { dnId: dnId, entry: { DeliveryNoteID: dnId, DeliveryNoteNumber: result.dnNumber || '', SalesTypeID: inv.ItemSalesTypeID, Amount: amount,
+    Lines: lines.map(l => ({ ItemCode: l.ItemCode, Quantity: l.Quantity, UnitPrice: l.UnitPrice, CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID })) } };
 }
 
 async function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason) {
@@ -5218,7 +5182,9 @@ async function reverseDeliveryNote(idToken, dnId, reversalDate) {
     const existing = await firebaseDbRequest_('stock/transactions/' + dnId, 'get', null, idToken);
     if (!existing || existing.TransactionType !== 'DeliveryNote') throw new Error('Delivery Note not found.');
     if (!userCanAccessCompany_(user.profile, existing.CompanyID)) throw new Error('You do not have access to that company.');
-    await requirePostAccess_(idToken, user, 'DELIVERYNOTE');
+    // [PORT CHANGE invoice-item-lines-reverse] made for an invoice that is now reversed: no Delivery Note right needed.
+    const ofReversedInvoice = existing.AutoFromInvoiceID && ((await firebaseDbRequest_('customerInvoices/' + existing.AutoFromInvoiceID, 'get', null, idToken)) || {}).ReversedByInvoiceID;
+    if (!ofReversedInvoice) await requirePostAccess_(idToken, user, 'DELIVERYNOTE');
     if (existing.Status !== 'Posted') throw new Error('Only a posted Delivery Note can be reversed.');
     if (existing.ReversedByDeliveryNoteID) throw new Error('This Delivery Note has already been reversed.');
     if (existing.ReversalOfDeliveryNoteID) throw new Error('A reversal entry cannot itself be reversed.');
@@ -10337,7 +10303,6 @@ module.exports = {
   requireModuleWrite_,
   getCoaData_,
   ensureSubCategoriesSeeded_,
-  generateAccountCode_,
   getChartOfAccounts,
   saveAccount,
   deactivateAccount,
@@ -10378,7 +10343,6 @@ module.exports = {
   reactivateItem,
   buildDimensionFilters_,
   getPostedGlLines_,
-  isCashOrBankAccount_,
   resolveCashFlowCategory_,
   getGlReport,
   getTrialBalance,
@@ -10432,6 +10396,7 @@ module.exports = {
   postDeliveryNote,
   assertDeliveryNoteStillShippable_,
   commitDeliveryNotePosting_,
+  createInvoiceDeliveryNote_,
   decideDeliveryNoteApproval,
   reverseDeliveryNote,
   summarizeDataResetRecord_,

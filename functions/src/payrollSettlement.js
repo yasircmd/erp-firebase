@@ -26,6 +26,7 @@ const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { withGlobalLock } = require('./lock');
+const costSplit = require('./costSplit');
 const { todayIn } = require('./recurringSchedule');
 const { leaveTypes } = require('./hrLeaveSetup');
 const lv = require('./hrLeave');
@@ -50,7 +51,7 @@ const failed = msg => new HttpsError('failed-precondition', msg);
 const round2 = n => Math.round(n * 100) / 100;
 const num = v => (v === '' || v == null ? NaN : Number(String(v).replace(/,/g, '')));
 const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
-const isCashOrBank = a => a && a.AccountType === 'Asset' && ['10', '11'].includes(String(a.AccountCode).slice(0, 2));
+const isCashOrBank = a => a && a.AccountType === 'Asset' && require('./coaScheme').isCashOrBank(a); // by the Cash / Bank mark (docs/modules/COA_NUMBERING.md)
 const money = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const actorOf = user => user.profile.username || user.uid; // as My Drafts matches
 const actorName = user => user.profile.fullName || user.profile.username || user.uid;
@@ -168,7 +169,7 @@ async function compute(emp, d) {
   const unpaid = leaves.filter(l => l.Status === 'Approved' || l.Status === 'Cancelled')
     .reduce((t, l) => t + (l.Lines || []).filter(x => x.Pay === 'Unpaid' && x.Date <= date).reduce((a, x) => a + x.Fraction, 0), 0);
   const g = calc.gratuityFor(prov.Gratuity, { base: prov.Gratuity.Base === 'Gross' ? gross : basic, joinDate: emp.JoinDate, asOf: date, unpaidDays: unpaid, method, month, provision: false });
-  provisionLine('Gratuity', 'Gratuity', g.amount, g.text + (unpaid ? ' (' + round2(unpaid) + ' unpaid days left out)' : ''));
+  provisionLine('Gratuity', 'Gratuity', g.amount, g.text + (unpaid ? ' (' + round2(unpaid) + ' unpaid days left out)' : ''), { Working: Object.assign({ Years: round2(g.years), ServiceDays: g.serviceDays }, g.working || {}) });
   // Leave: the annual leave balance on the leaving date, paid, or deducted if negative.
   const cache = { leaves, grade };
   let days = 0;
@@ -245,7 +246,8 @@ async function glLinesFor(s) {
     if (!accountId || !a) { missing.add(what); return; }
     const cc = CC_TYPES.includes(a.AccountType);
     if (cc && !s.CostCenterID) noCc = true;
-    out.push({ AccountCode: a.AccountCode, Debit: amount > 0 ? amount : 0, Credit: amount < 0 ? -amount : 0, Description: what + label, CostCenterID: cc ? s.CostCenterID : '' });
+    (cc ? costSplit.shares(Math.abs(amount), s.CostCenterID, s.CostSplit) : [{ CostCenterID: '', Amount: Math.abs(amount) }]).forEach(p =>
+      out.push({ AccountCode: a.AccountCode, Debit: amount > 0 ? p.Amount : 0, Credit: amount < 0 ? p.Amount : 0, Description: what + label, CostCenterID: p.CostCenterID }));
   };
   const loanAcc = {};
   for (const l of s.Lines.filter(x => x.LoanID)) {
@@ -315,7 +317,7 @@ async function draftFields(emp, d) {
   if (!LEAVING.includes(emp.Status) || !emp.LeavingDate) throw failed(emp.FullName + ' has no leaving date: set it (On notice or Left) on the employee record first.');
   const c = await compute(emp, d);
   return Object.assign({ EmployeeID: emp.EmployeeID, EmployeeNo: emp.EmployeeNo || '', EmployeeName: emp.FullName || '', CompanyID: emp.CompanyID, CostCenterID: emp.CostCenterID || '',
-    JoinDate: emp.JoinDate, LeavingDate: emp.LeavingDate, LeavingReason: emp.LeavingReason || '', Notice: d.Notice || {}, Overrides: d.Overrides || {}, Others: d.Others || [], Note: text(d.Note, 500),
+    CostSplit: emp.CostSplit || [], JoinDate: emp.JoinDate, LeavingDate: emp.LeavingDate, LeavingReason: emp.LeavingReason || '', Notice: d.Notice || {}, Overrides: d.Overrides || {}, Others: d.Others || [], Note: text(d.Note, 500),
 
     CalculatedAt: new Date().toISOString() }, c);
 }
@@ -549,7 +551,7 @@ exports.getSettlementPayment = onCallWithMessages(onCallOptions, async (request)
   const s = await loadSettlement(user, (request.data || {}).settlementId);
   const coa = (await rtdb.ref('coa').get()).val() || {};
   const accounts = Object.entries(coa).filter(([, a]) => a.Status === 'Active' && a.IsPostable && isCashOrBank(a) && (!a.CompanyID || a.CompanyID === s.CompanyID))
-    .map(([id, a]) => ({ AccountID: id, AccountCode: a.AccountCode, AccountName: a.AccountName, Bank: String(a.AccountCode).startsWith('11') }))
+    .map(([id, a]) => ({ AccountID: id, AccountCode: a.AccountCode, AccountName: a.AccountName, Bank: require('./coaScheme').isBank(a) }))
     .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode)));
   const formats = docs(await FORMATS().where('CompanyID', '==', s.CompanyID).get(), 'FormatID').filter(f => f.Active !== false).map(f => ({ FormatID: f.FormatID, Name: f.Name, Bank: f.Bank }));
   const p = s.Status === 'Posted' && s.Net > 0 ? await payee(s) : null;
@@ -634,4 +636,4 @@ async function unpay(user, s, reason) {
   });
 }
 
-Object.assign(module.exports, { compute, glLinesFor, activeFor, SETTLEMENTS, payee, pay, unpay, isCashOrBank });
+Object.assign(module.exports, { compute, glLinesFor, activeFor, SETTLEMENTS, payee, pay, unpay, isCashOrBank, draftFields });

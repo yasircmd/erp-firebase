@@ -20,6 +20,7 @@ const { rtdb, firestore } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { withGlobalLock } = require('./lock');
+const costSplit = require('./costSplit');
 const setup = require('./payrollSetup');
 const P = require('./payrollProvisions');
 const calc = require('./payrollCalc');
@@ -254,8 +255,8 @@ async function payEntry(user, x, payDate, accountId, batch) {
     let gl;
     try {
       gl = await writeStockGlEntry(user, 'PayrollPayment', payDate, label, batch.Number,
-        [{ AccountCode: exp.AccountCode, Debit: x.Amount, Credit: 0, Description: label, CostCenterID: emp.CostCenterID || '' },
-          { AccountCode: bank.AccountCode, Debit: 0, Credit: x.Amount, Description: label }],
+        costSplit.shares(x.Amount, emp.CostCenterID || '', emp.CostSplit).map(p => ({ AccountCode: exp.AccountCode, Debit: p.Amount, Credit: 0, Description: label, CostCenterID: p.CostCenterID }))
+          .concat([{ AccountCode: bank.AccountCode, Debit: 0, Credit: x.Amount, Description: label }]),
         { CompanyID: x.CompanyID }, { PayrollInterimID: batch.InterimID, SourceTransactionID: x.EntryID, ReversalOfJV: '' });
     } catch (e) { throw failed(e.message); }
     await ENTRIES().doc(x.EntryID).update({ InterimPaid: true, PaymentDate: payDate, PaymentJVID: gl.jvId, PaymentJVNumber: gl.jvNumber, UpdatedAt: new Date().toISOString() });

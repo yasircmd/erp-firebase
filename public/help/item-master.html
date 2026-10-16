@@ -19,6 +19,11 @@
 <ul><li>The item category and units are already set.</li><li>The company has its stock accounts and item coding rules.</li><li>The item is active for the relevant warehouse and company.</li></ul>
 <h2 id="step-by-step">Step by step</h2>
 <ol><li>Open <strong>Item Master</strong> and choose the company.</li><li>Add or edit the item record: code, description, unit and category. The <strong>Sub-Category</strong> list shows the category's shared sub-categories and those of the item's company; <strong>New…</strong> beside it opens Item Sub-Category to add one (save the item first: you come back to Item Master and open it again).</li><li>Set the stock and cost details required by the company.</li><li>Save the item and check it appears in the stock routines.</li></ol>
+<h2 id="categories-of-your-own">Categories of your own</h2>
+<p>Besides the five categories (Raw Material, Semi-Finished Good, Finished Good, Consumable, Scrap), you can add your own, for example <strong>Spare Parts</strong>. Select <strong>New category…</strong> under Category in the item form, then enter:</p>
+<ul><li>the <strong>name</strong>;</li><li>the <strong>code prefix</strong> (2 to 6 letters or digits, for example SP). Its items get codes with it and their own running number: SP-000001, SP-000002 and so on. The format can be changed in <a href="numbering.html">Numbering</a>, like the five;</li><li>which of the five it <strong>behaves like</strong>. That decides what a BOM, a Job Order and Production allow (Spare Parts behaving like Consumable can be a BOM component, but is not produced);</li><li>whether it is <strong>shared</strong> by all companies or one company's.</li></ul>
+<p>Anyone who can open Item Master can add one. The new category then appears in the Category list and the filter, after the five. Sub-categories can sit under it (<a href="item-sub-category.html">Item Sub-Category</a>).</p>
+<p>An item's category, the five or your own, can't change after the item is made, because its code depends on it. Existing items stay where they are.</p>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
 <p>The item master does not create a ledger entry itself. It provides the item definition that the purchase, stock issue, transfer and valuation processes use.</p>
 <h2 id="rights">Rights</h2>

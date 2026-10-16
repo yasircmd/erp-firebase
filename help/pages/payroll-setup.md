@@ -5,8 +5,8 @@ order: 6
 modules: [PAYROLLSETUP]
 sources: [functions/src/hrPay.js, functions/src/payrollSetup.js, functions/src/payrollPayment.js, functions/src/payrollFiles.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js, functions/src/reimbursements.js, functions/src/leavingReasons.js]
 summary: Set the company payroll account, pay elements and defaults used by each payroll run.
-reviewed: 2026-10-14
-fingerprint: 9d0fa650f3c704eb
+reviewed: 2026-10-16
+fingerprint: 3aa33d0d6b2cdc5a
 ---
 ## What it is for
 

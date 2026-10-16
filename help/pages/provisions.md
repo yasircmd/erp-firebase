@@ -5,8 +5,8 @@ order: 12
 modules: [PROVISIONS]
 sources: [functions/src/payrollProvisions.js, functions/src/payrollCalc.js, functions/src/payrollRun.js, functions/src/payrollPost.js, functions/src/payrollSettlement.js]
 summary: Maintain leave, gratuity and other provisions so payroll and year-end reporting stay aligned.
-reviewed: 2026-10-14
-fingerprint: d0da724f85f97809
+reviewed: 2026-10-16
+fingerprint: 60887b9e00da9b83
 ---
 ## What it is for
 

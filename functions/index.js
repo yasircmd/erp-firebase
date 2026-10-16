@@ -226,7 +226,7 @@ const hrPay = require('./src/hrPay');
 const payrollSetup = require('./src/payrollSetup');
 ['getPayrollSetup', 'savePayrollCompany', 'savePayElementPayroll', 'previewPayrollFormula'].forEach(n => { exports[n] = payrollSetup[n]; });
 const payrollRun = require('./src/payrollRun');
-['getPayrollRuns', 'createPayrollRun', 'getPayrollRun', 'savePayrollInputs', 'recalculatePayrollRun', 'deletePayrollRun', 'getPayrollJournalSource'].forEach(n => { exports[n] = payrollRun[n]; });
+['getPayrollRuns', 'createPayrollRun', 'getPayrollRun', 'savePayrollInputs', 'recalculatePayrollRun', 'deletePayrollRun', 'setPayrollCostOverride', 'getPayrollJournalSource'].forEach(n => { exports[n] = payrollRun[n]; });
 const payrollPost = require('./src/payrollPost');
 ['submitPayrollRun', 'decidePayrollApproval', 'postPayrollRun', 'reversePayrollRun', 'getPayrollPayslips', 'getPayrollGlImpact'].forEach(n => { exports[n] = payrollPost[n]; });
 const payrollPayment = require('./src/payrollPayment');
@@ -293,3 +293,14 @@ exports.removeCompanyShareholder = shareholders.removeCompanyShareholder;
 
 // Re-match a posted JV / CBT entry's references (docs/modules/UX_TIER3.md, G).
 exports.rematchJournalEntry = require('./src/rematch').rematchJournalEntry;
+
+// Direct sales invoice: the company setting (docs/modules/DIRECT_SALES_INVOICE.md, H).
+exports.getInvoiceStockSettings = require('./src/invoiceStock').getInvoiceStockSettings;
+exports.saveInvoiceStockSettings = require('./src/invoiceStock').saveInvoiceStockSettings;
+exports.getInvoiceableOrderLines = require('./src/invoiceStock').getInvoiceableOrderLines;
+exports.getSettlementStatement = require('./src/eosStatement').getSettlementStatement;
+exports.getAccountRenumberCodes = require('./src/coaRenumber').getAccountRenumberCodes;
+exports.renumberAccount = require('./src/coaRenumber').renumberAccount;
+exports.getCoaAccountsToFix = require('./src/coaRenumber').getCoaAccountsToFix;
+exports.getItemCategories = require('./src/itemCategories').getItemCategories;
+exports.saveItemCategory = require('./src/itemCategories').saveItemCategory;

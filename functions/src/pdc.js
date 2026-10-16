@@ -77,13 +77,13 @@ function requireCompany(user, companyId) {
   if (!userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
 }
 
-// Cash (10…) and bank (11…) accounts follow the COA numbering, as in CBT.
-const isCashOrBank = a => ['10', '11'].includes(String(a.AccountCode || '').substring(0, 2));
+// Cash and bank accounts by their group's Cash / Bank mark, as in CBT (docs/modules/COA_NUMBERING.md).
+const { isCashOrBank, isBank } = require('./coaScheme');
 
 function assertBankAccount(account, companyId, what) {
   if (!account) throw new Error(what + ' was not found.');
   if (account.Status !== 'Active' || account.IsPostable !== true) throw new Error(what + ' must be an active, postable account.');
-  if (String(account.AccountCode || '').substring(0, 2) !== '11') throw new Error(what + ' must be a bank account (code 11…).');
+  if (!isBank(account)) throw new Error(what + ' must be a bank account (under a group marked Bank in the Chart of Accounts).');
   if (account.CompanyID && account.CompanyID !== companyId) throw new Error(what + ' belongs to a different company.');
 }
 
@@ -240,7 +240,7 @@ exports.getPdcSetup = onCallWithMessages(onCallOptions, async (request) => {
     bankAccounts: Object.keys(coa)
       .filter(id => {
         const a = coa[id];
-        return a.Status === 'Active' && a.IsPostable === true && String(a.AccountCode || '').substring(0, 2) === '11' && (!a.CompanyID || a.CompanyID === companyId);
+        return a.Status === 'Active' && a.IsPostable === true && isBank(a) && (!a.CompanyID || a.CompanyID === companyId);
       })
       .map(id => ({ AccountID: id, AccountCode: String(coa[id].AccountCode), AccountName: coa[id].AccountName || '' }))
       .sort((a, b) => a.AccountCode.localeCompare(b.AccountCode, undefined, { numeric: true })),

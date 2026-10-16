@@ -6,7 +6,7 @@ modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
 reviewed: 2026-10-16
-fingerprint: a521c34aa85a3a32
+fingerprint: a2995548fbe598c3
 ---
 ## What it is for
 
@@ -20,8 +20,9 @@ Records every movement through a cash or bank account:
 
 ## Before you start
 
-- Your cash accounts (codes starting 10) and bank accounts (codes starting
-  11) in the [Chart of Accounts](chart-of-accounts.html).
+- Your cash and bank accounts: the accounts under a group marked **Cash**
+  or **Bank** in the [Chart of Accounts](chart-of-accounts.html) (110000
+  Cash / Petty Cash and 120000 Bank Accounts come marked).
 - Vendors and customers set up with their payables / receivables account.
 
 ## Step by step

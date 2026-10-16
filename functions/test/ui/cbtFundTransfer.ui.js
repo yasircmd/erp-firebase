@@ -16,8 +16,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 (async () => {
   const f = baseFixture();
   f.coa['A-EXP'] = { AccountCode: '6000', AccountName: 'Office Expense', AccountType: 'Expense', Status: 'Active', IsPostable: true };
-  f.coa['A-PETTY'] = { AccountCode: '1001', AccountName: 'Petty Cash', AccountType: 'Asset', SubCategory: 'Cash', Status: 'Active', IsPostable: true };
-  f.coa['A-BANK2'] = { AccountCode: '1101', AccountName: 'C2 Bank', AccountType: 'Asset', SubCategory: 'Bank', Status: 'Active', IsPostable: true, CompanyID: 'C2' };
+  f.coa['A-PETTY'] = { AccountCode: '1001', AccountName: 'Petty Cash', AccountType: 'Asset', SubCategory: 'Cash', CashBank: 'Cash', Status: 'Active', IsPostable: true };
+  f.coa['A-BANK2'] = { AccountCode: '1101', AccountName: 'C2 Bank', AccountType: 'Asset', SubCategory: 'Bank', CashBank: 'Bank', Status: 'Active', IsPostable: true, CompanyID: 'C2' };
   await reset(f);
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
   const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(harness); }).listen(8147);

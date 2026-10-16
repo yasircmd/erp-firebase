@@ -16,7 +16,8 @@ const err = async p => (await p.catch(e => e)).message;
 function fixture() {
   const f = baseFixture();
   f.coa['A-FRT'] = { AccountCode: '6100', AccountName: 'Freight', AccountType: 'Expense', Status: 'Active', IsPostable: true };
-  f.coa['A-RE'] = { AccountCode: '310000', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: true };
+  f.coa['A-REG'] = { AccountCode: '320000', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: false };
+  f.coa['A-RE'] = { AccountCode: '320001', AccountName: 'Retained Earnings', AccountType: 'Equity', Status: 'Active', IsPostable: true, ParentAccountID: 'A-REG' };
   f.vendors.V1.PaymentTermsDays = 30;
   return f;
 }

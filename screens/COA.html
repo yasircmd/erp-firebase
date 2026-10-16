@@ -20,6 +20,12 @@
     <select id="coa-company-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All Companies</option><option value="__shared__">Shared (All Companies)</option></select>
   </div>
 
+  <div id="coa-fix" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-sm">
+    <div class="font-semibold text-amber-300 mb-1"><i class="fa-solid fa-triangle-exclamation"></i> Accounts to fix</div>
+    <p class="text-xs text-slate-400 mb-2">These take postings but are not under a group. Edit each: choose its group as the parent (a used account can't move: create a new account under the group, move the balance with a JV and deactivate this one).</p>
+    <ul id="coa-fix-list" class="text-xs text-slate-300 space-y-0.5"></ul>
+  </div>
+
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
     <div class="overflow-x-auto">
       <table class="w-full text-left">
@@ -75,13 +81,13 @@
 
       <div>
         <label class="block text-xs font-medium text-slate-300 mb-1">Parent Account <span class="text-slate-500">(optional)</span></label>
-        <select id="coa-form-parent" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None — creates a new top-level sub-category</option></select>
-        <p class="text-xs text-slate-500 mt-1">Pick a header to create an account under it, or pick a sub-parent (shown indented) to create one under that instead. Leave blank to create a new top-level sub-category (e.g. "Bank Accounts") under the selected type.</p>
+        <select id="coa-form-parent" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None — the class (one per type, already there)</option></select>
+        <p class="text-xs text-slate-500 mt-1">A class (e.g. 100000 Assets) holds groups; a group (e.g. 110000 Cash) holds accounts and, optionally, sub-groups (shown indented). An account that takes postings always goes under a group or a sub-group, never straight under the class.</p>
       </div>
 
       <div class="flex items-center gap-2 bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3">
         <input type="checkbox" id="coa-form-postable" class="w-4 h-4">
-        <label for="coa-form-postable" class="text-xs text-slate-300">Postable — journal lines can post directly to this account. Leave unchecked for a header, or for a sub-parent grouping (e.g. "Accrued & Clearing Liabilities") under a header — only one level of sub-parent is supported.</label>
+        <label for="coa-form-postable" class="text-xs text-slate-300">Postable — journal lines can post directly to this account. Leave unchecked for a heading: a group under the class, or a sub-group under a group (one level of sub-group).</label>
       </div>
 
       <div>
@@ -101,6 +107,11 @@
         <p class="text-xs text-slate-500 mt-1">Only settable on a header (non-postable) account — leave blank for Cash/Bank headers themselves. Every postable account under this header inherits it automatically.</p>
       </div>
 
+      <div id="coa-cashbank-field" class="hidden">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Cash / Bank</label>
+        <select id="coa-form-cashbank" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Neither</option><option value="Cash">Cash: its accounts are cash accounts</option><option value="Bank">Bank: its accounts are bank accounts</option></select>
+        <p class="text-xs text-slate-500 mt-1">The accounts under this group are the cash (or bank) accounts that Cash and Bank Transactions, PDCs, Fixed Assets and payroll offer.</p>
+      </div>
       <div id="coa-cashflowcategory-inherited" class="hidden text-xs text-slate-400 bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3">
         Cash Flow Category: <span id="coa-cashflowcategory-inherited-value" class="text-slate-200 font-medium"></span> <span class="text-slate-500">(inherited from parent — set it there, not here)</span>
       </div>
@@ -186,7 +197,7 @@
       const parent = a.ParentAccountID ? byId[a.ParentAccountID] : null;
       const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40';
       const actionsHtml = canWrite
-        ? `<button class="coa-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
+        ? `${a.IsPostable === true ? '<button class="coa-renumber text-slate-400 hover:text-blue-400 p-1" title="Renumber within its heading"><i class="fa-solid fa-arrow-down-1-9"></i></button>' : ''}<button class="coa-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
            <button class="coa-toggle text-slate-400 ${a.Status === 'Active' ? 'hover:text-red-400' : 'hover:text-emerald-400'} p-1" title="${a.Status === 'Active' ? 'Deactivate' : 'Reactivate'}">
              <i class="fa-solid ${a.Status === 'Active' ? 'fa-ban' : 'fa-rotate-left'}"></i>
            </button>`
@@ -196,7 +207,7 @@
         : '<span class="text-slate-500">All Companies</span>';
       row.innerHTML = `
         <td class="py-3 px-4 font-mono text-xs text-slate-200">${escapeHtml(a.AccountCode)}</td>
-        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.OwnCashBank ? ' <span class="ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">' + escapeHtml(a.OwnCashBank) + '</span>' : ''}${(a.FormerCodes || []).length ? '<div class="text-[11px] text-slate-500">formerly ' + escapeHtml(a.FormerCodes.map(f => f.Code).join(', ')) + '</div>' : ''}</td>
         <td class="py-3 px-4 text-xs">${escapeHtml(a.AccountType)}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(a.AccountSubType || '—')}</td>
         <td class="py-3 px-4 text-xs">${escapeHtml(a.NormalBalance)}</td>
@@ -207,6 +218,8 @@
         <td class="py-3 px-4 text-right">${actionsHtml}</td>`;
       if (canWrite) {
         row.querySelector('.coa-edit').addEventListener('click', () => openModal(a.AccountID));
+        const rn = row.querySelector('.coa-renumber');
+        if (rn) rn.addEventListener('click', () => renumber(a));
         row.querySelector('.coa-toggle').addEventListener('click', () => toggleStatus(a));
       }
       tbody.appendChild(row);
@@ -218,13 +231,13 @@
   // only kind of parent the numbering scheme in Code.gs can build a code under.
   function populateParentOptions(selectedType, excludeId) {
     const select = document.getElementById('coa-form-parent');
-    select.innerHTML = '<option value="">None — creates a new top-level sub-category</option>';
+    select.innerHTML = '<option value="">None — the class (one per type, already there)</option>';
     accounts
       .filter(a =>
         a.AccountType === selectedType &&
         a.IsPostable !== true &&
         a.AccountID !== excludeId &&
-        /000$/.test(String(a.AccountCode || '')) // header (…0000) OR sub-parent (…1000, …2000, etc.)
+        /000$/.test(String(a.AccountCode || '')) // class (X00000), group (XN0000) or sub-group (XNM000)
       )
       .sort((a, b) => String(a.AccountCode).localeCompare(String(b.AccountCode), undefined, { numeric: true }))
       .forEach(a => {
@@ -232,8 +245,8 @@
         opt.value = a.AccountID;
         // Indent sub-parents under their header visually, so the two
         // levels are easy to tell apart in a flat dropdown list.
-        const isSubParent = /^\d{2}[1-9]000$/.test(String(a.AccountCode || ''));
-        opt.textContent = (isSubParent ? '— ' : '') + a.AccountCode + ' — ' + a.AccountName;
+        const level = /^\d00000$/.test(String(a.AccountCode || '')) ? 0 : /^\d{2}0000$/.test(String(a.AccountCode || '')) ? 1 : 2;
+        opt.textContent = ['', '— ', '—— '][level] + a.AccountCode + ' — ' + a.AccountName;
         select.appendChild(opt);
       });
   }
@@ -285,6 +298,7 @@
       document.getElementById('coa-form-postable').checked = a.IsPostable === true;
       document.getElementById('coa-form-company').value = a.CompanyID || '';
       document.getElementById('coa-form-cashflowcategory').value = a.CashFlowCategory || '';
+      document.getElementById('coa-form-cashbank').value = a.OwnCashBank || '';
       document.getElementById('coa-form-status').value = a.Status;
       document.getElementById('coa-code-value').textContent = a.AccountCode;
       document.getElementById('coa-code-preview').classList.remove('hidden');
@@ -296,7 +310,38 @@
       populateParentOptions('', null);
     }
     updateCashFlowCategoryVisibility();
+    updateCashBankVisibility();
     document.getElementById('coa-modal').classList.remove('hidden');
+  }
+
+  // Cash / Bank: on an Assets heading that has a parent (a group or sub-group).
+  function updateCashBankVisibility() {
+    const show = !document.getElementById('coa-form-postable').checked && document.getElementById('coa-form-type').value === 'Asset' && Boolean(document.getElementById('coa-form-parent').value);
+    document.getElementById('coa-cashbank-field').classList.toggle('hidden', !show);
+  }
+
+  // Renumber (docs/modules/COA_NUMBERING.md, decision 198): another free code of the account's own heading.
+  async function renumber(a) {
+    rpc.withSuccessHandler(async r => {
+      if (!r.codes.length) { appAlert(r.heading.AccountCode + ' ' + r.heading.AccountName + ' has no free code.'); return; }
+      const to = await appPrompt('Renumber ' + r.accountCode + ' ' + r.accountName + ' within ' + r.heading.AccountCode + ' ' + r.heading.AccountName + '.\n\nFree codes: ' + r.codes[0] + ' to ' + r.codes[r.codes.length - 1] +
+        (r.codes.length < 999 ? ' (some taken)' : '') + '. Every posting, draft and document that shows ' + r.accountCode + ' will show the new code. New code:', r.codes[0]);
+      if (to === null) return;
+      const reason = await appPrompt('The reason for renumbering ' + r.accountCode + ' to ' + to.trim() + ':', '');
+      if (reason === null) return;
+      rpc.withSuccessHandler(res => { fetchAndRender(); loadAccountsToFix(); appAlert('Renumbered: ' + res.from + ' is now ' + res.to + '.'); })
+        .withFailureHandler(err => appAlert(err.message || 'Unable to renumber the account.'))
+        .renumberAccount({ accountId: a.AccountID, newCode: to.trim(), reason: reason });
+    }).withFailureHandler(err => appAlert(err.message || 'Unable to renumber the account.')).getAccountRenumberCodes({ accountId: a.AccountID });
+  }
+
+  // Accounts that take postings but are not under a group (decision 201).
+  function loadAccountsToFix() {
+    rpc.withSuccessHandler(r => {
+      const list = (r && r.accounts) || [];
+      document.getElementById('coa-fix').classList.toggle('hidden', !list.length);
+      document.getElementById('coa-fix-list').innerHTML = list.map(x => '<li><span class="font-mono">' + escapeHtml(x.AccountCode) + '</span> ' + escapeHtml(x.AccountName) + ': ' + escapeHtml(x.Problem) + '</li>').join('');
+    }).withFailureHandler(() => {}).getCoaAccountsToFix({});
   }
 
   function closeModal() { document.getElementById('coa-modal').classList.add('hidden'); }
@@ -312,6 +357,7 @@
       IsPostable: document.getElementById('coa-form-postable').checked,
       CompanyID: document.getElementById('coa-form-company').value,
       CashFlowCategory: document.getElementById('coa-form-cashflowcategory').value,
+      CashBank: document.getElementById('coa-cashbank-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-cashbank').value,
       Status: document.getElementById('coa-form-status').value
     };
     const error = document.getElementById('coa-form-error');
@@ -322,7 +368,7 @@
     rpc
       .withSuccessHandler(result => {
         btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Account';
-        if (result.success) { closeModal(); fetchAndRender(); if (result.codeChangedFrom) appAlert('Moved to the new head: code ' + result.codeChangedFrom + ' is now ' + result.accountCode + '.'); }
+        if (result.success) { closeModal(); fetchAndRender(); loadAccountsToFix(); if (result.codeChangedFrom) appAlert('Moved to the new head: code ' + result.codeChangedFrom + ' is now ' + result.accountCode + '.'); }
         else { error.textContent = result.error || 'Unable to save account.'; error.classList.remove('hidden'); }
       })
       .withFailureHandler(err => {
@@ -359,6 +405,8 @@
     document.getElementById('coa-form-type').addEventListener('change', onTypeChange);
     document.getElementById('coa-form-postable').addEventListener('change', updateCashFlowCategoryVisibility);
     document.getElementById('coa-form-parent').addEventListener('change', updateCashFlowCategoryVisibility);
+    ['coa-form-parent', 'coa-form-postable', 'coa-form-type'].forEach(id => document.getElementById(id).addEventListener('change', updateCashBankVisibility));
+    loadAccountsToFix();
     document.getElementById('coa-search-input').addEventListener('input', renderTable);
     document.getElementById('coa-type-filter').addEventListener('change', renderTable);
     document.getElementById('coa-status-filter').addEventListener('change', renderTable);

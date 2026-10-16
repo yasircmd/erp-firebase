@@ -47,20 +47,21 @@ test('the list, in import order, with each one\'s columns; a Viewer has no acces
 test('Chart of Accounts: a header and its children in one paste; codes made by the system', async () => {
   const rows = [
     ['Account Name', 'Account Type', 'Postable', 'Parent Account', 'Company'],
-    ['Current Assets', 'Asset', 'No', '', ''],
+    ['Assets', 'Asset', 'No', '', ''], // the class (docs/modules/COA_NUMBERING.md): accounts go under a group
+    ['Current Assets', 'Asset', 'No', 'Assets', ''],
     ['Petty Cash', 'asset', 'Yes', 'Current Assets', '01'],
     ['Bank - Main', 'Asset', 'y', 'current assets', 'Test Co One']
   ];
   const c = await check('ACCOUNT', rows);
   assert.deepEqual(msgs(c), []);
-  assert.equal(c.rows.length, 3);
+  assert.equal(c.rows.length, 4);
   const r = await run('ACCOUNT', rows);
   assert.equal(r.success, true, JSON.stringify(r));
-  assert.equal(r.created, 3);
+  assert.equal(r.created, 4);
   const coa = await list('coa');
   const header = coa.find(a => a.AccountName === 'Current Assets');
   const petty = coa.find(a => a.AccountName === 'Petty Cash');
-  assert.match(header.AccountCode, /^1\d0000$/);
+  assert.match(header.AccountCode, /^1[1-9]0000$/);
   assert.equal(header.IsPostable, false);
   assert.equal(petty.CompanyID, 'C1');
   assert.equal(petty.AccountCode.slice(0, 2), header.AccountCode.slice(0, 2), 'under its header');

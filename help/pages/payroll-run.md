@@ -5,8 +5,8 @@ order: 8
 modules: [PAYROLL]
 sources: [functions/src/payrollRun.js, functions/src/payrollCalc.js, functions/src/payrollInputs.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js, functions/src/payrollPost.js, functions/src/payrollPayment.js]
 summary: Calculate and post the payroll for all employees in the selected pay cycle.
-reviewed: 2026-10-12
-fingerprint: d87a0983e1a5880d
+reviewed: 2026-10-16
+fingerprint: 2e1c715daef2f602
 ---
 ## What it is for
 
@@ -36,6 +36,7 @@ The screen's list has **Runs** and **Payment** tabs. Within a run, the available
 
 1. Submit the reviewed draft. If Approval Configuration requires approvals, the run becomes Pending Approval; otherwise it is approved and posts immediately.
 2. Approvers review the net-pay amount and employee slips, then approve or reject. Final approval posts the run.
+2a. **A cost center for this run only:** open an employee's payslip in a draft run and select **Change for this run**. Choose the cost center, and optionally a split by % typed as codes and percentages (for example `CC1 60, CC2 40`), and give the reason. The employee record doesn't change, a recalculation keeps it, and the run's history shows who changed it and why. **Back to the employee's** undoes it. For a lasting change, use a Transfer in [Employee Change](employee-change.html).
 3. Once approved, **Costing** shows employer cost by employee and pay element, including provisions accrued (not paid now). **GL Impact** previews the accounts, cost centers, debits, and credits it will post; after posting it shows the posted journal. Verify the posted journal and run status. Posting is one payroll journal dated at the month's end, with lines clubbed by account/cost center as appropriate.
 
 ### Pay and issue payslips
@@ -48,7 +49,7 @@ A posted run can be reversed only when its payments are reversed and later depen
 
 ## What happens in the books
 
-Posting debits earning expense accounts by employee cost center, credits deduction accounts, and credits Salaries Payable for positive net amounts. A negative net is debited to Recoverable from employees and carried forward into a later run. Configured gratuity, leave salary, and other accrual provisions post their expense/liability movements. Loan recoveries reduce the corresponding employee loan receivable; accrual payouts reduce the provision. Payment is a separate journal that debits Salaries Payable and credits the cash/bank account.
+Posting debits earning expense accounts by the payslip's cost center (shared across its cost split, if any, the rounding to the largest share), credits deduction accounts, and credits Salaries Payable for positive net amounts. A negative net is debited to Recoverable from employees and carried forward into a later run. Configured gratuity, leave salary, and other accrual provisions post their expense/liability movements. Loan recoveries reduce the corresponding employee loan receivable; accrual payouts reduce the provision. Payment is a separate journal that debits Salaries Payable and credits the cash/bank account.
 
 ## Rights
 

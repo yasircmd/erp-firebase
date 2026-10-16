@@ -124,10 +124,8 @@ function settingsOf(state, coa, companyId) {
   const zero = asList(s.ZeroAccounts).filter(z => z && z.AccountID).map(z => ({ AccountID: z.AccountID, Mode: modeOf(z.Mode) }));
   const steps = asList(s.Steps).filter(x => x && x.ID && x.Text).map(x => ({ ID: x.ID, Text: x.Text, Mode: modeOf(x.Mode) }));
   let re = s.RetainedEarningsAccountID || '';
-  if (!re) { // the default chart's Retained Earnings, until one is chosen
-    const hit = equityAccounts(coa, companyId).find(a => a.Code === '310000');
-    re = hit ? hit.ID : '';
-  }
+  // The default chart's Retained Earnings, until one is chosen: the first account under 320000 (docs/modules/COA_NUMBERING.md).
+  if (!re) re = require('./coaScheme').defaultRetainedEarnings(coa, companyId);
   return { FiscalYearStart: FY_STARTS[s.FiscalYearStart] ? s.FiscalYearStart : 'Jan', RetainedEarningsAccountID: re, Checklist: checklist,
     ZeroAccounts: zero, Steps: steps, Saved: Boolean(state.Settings) };
 }

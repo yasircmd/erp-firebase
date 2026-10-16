@@ -34,7 +34,7 @@ const num = v => (v === '' || v == null ? null : Number(String(v).replace(/,/g, 
 const isMonth = v => /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
 const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
 const docs = (snap, key) => snap.docs.map(d => Object.assign({ [key]: d.id }, d.data()));
-const isCashOrBank = a => a && a.AccountType === 'Asset' && ['10', '11'].includes(String(a.AccountCode).slice(0, 2));
+const isCashOrBank = a => a && a.AccountType === 'Asset' && require('./coaScheme').isCashOrBank(a); // by the Cash / Bank mark (docs/modules/COA_NUMBERING.md)
 const actorName = user => user.profile.fullName || user.profile.username || user.uid;
 
 const canSetup = (user, cap) => moduleHasCapability('PAYROLLSETUP', cap, user.profile.role);
