@@ -16,6 +16,7 @@ const __companies = require('../companies');
 const __customerPhone = require('../customerPhone');
 const __glWriting = require('../glWriting');
 const __invoiceStock = require('../invoiceStock');
+const __itemCategories = require('../itemCategories');
 const __lineClubbing = require('../lineClubbing');
 const __listPaging = require('../listPaging');
 const __masterData = require('../masterData');
@@ -42,6 +43,9 @@ const generateVoucherNumber_ = (idToken, ...a) => __numbering.voucherNumber(...a
 const generateItemCode_ = (idToken, ...a) => __numbering.itemCode(...a);
 const generateAccountCode_ = (...a) => __coaScheme.generateCode(...a);
 const isCashOrBankAccount_ = (...a) => __coaScheme.isCashOrBank(...a);
+const checkItemCategory_ = (idToken, ...a) => __itemCategories.checkForItem(...a);
+const validItemCategoryParent_ = (idToken, ...a) => __itemCategories.validParent(...a);
+const customItemCode_ = (idToken, ...a) => __numbering.customItemCode(...a);
 const generateVendorCode_ = (idToken, ...a) => __numbering.vendorCode(...a);
 const generateCustomerCode_ = (idToken, ...a) => __numbering.customerCode(...a);
 const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
@@ -1785,7 +1789,7 @@ async function saveItemSubCategory(idToken, data) {
     const status = String(data.Status || 'Active').trim();
 
     if (!name) throw new Error('Name is required.');
-    if (!ITEM_CATEGORY_PREFIXES[parentCategory]) throw new Error('Select a valid parent category.');
+    if (!(await validItemCategoryParent_(idToken, parentCategory))) throw new Error('Select a valid parent category.'); // [NEW DEVELOPMENT item-custom-category]
     // [PORT CHANGE subcat-company-save] shared ('') or one company's.
     const companyId = String(data.CompanyID || '').trim();
     if (companyId && !userCanAccessCompany_(user.profile, companyId)) throw new Error('You do not have access to that company.');
@@ -1900,6 +1904,10 @@ async function saveItem(idToken, itemData) {
 
     if (!itemName) throw new Error('Item name is required.');
     if (!ITEM_CATEGORY_PREFIXES[category]) throw new Error('Select a valid item category.');
+    // [NEW DEVELOPMENT item-custom-category] docs/modules/ITEM_CATEGORIES_CUSTOM.md
+    const customCategoryId = String(itemData.CustomCategoryID || '').trim();
+    const customCategory = customCategoryId ? await checkItemCategory_(idToken, customCategoryId, category, String(itemData.CompanyID || '').trim(), !itemId) : null;
+    const ownCategory = customCategoryId ? 'X-' + customCategoryId : category;
     if (!uomId) throw new Error('Select a Unit of Measure.');
     if (!inventoryAccountId) throw new Error('Select an Inventory (asset) account.');
     if (!consumptionAccountId) throw new Error('Select a Consumption (expense/COGS) account.');
@@ -1911,7 +1919,7 @@ async function saveItem(idToken, itemData) {
       const subCats = (await firebaseDbRequest_('itemSubCategories', 'get', null, idToken)) || {};
       const subCat = subCats[subCategoryId];
       if (!subCat) throw new Error('Sub-category not found.');
-      if (subCat.ParentCategory !== category) throw new Error('Sub-category does not belong to the selected Category.');
+      if (subCat.ParentCategory !== ownCategory) throw new Error('Sub-category does not belong to the selected Category.'); // [NEW DEVELOPMENT item-custom-category]
       // [PORT CHANGE item-subcat-company] a shared one, or the item's company's.
       if (subCat.CompanyID && subCat.CompanyID !== companyId) throw new Error('Sub-category "' + subCat.Name + '" belongs to ' + (companyId ? 'another company' : 'one company; a shared item uses a shared sub-category') + '.');
     }
@@ -1990,6 +1998,7 @@ async function saveItem(idToken, itemData) {
       ItemName: itemName,
       Category: category,
       SubCategoryID: subCategoryId,
+      CustomCategoryID: customCategoryId, // [NEW DEVELOPMENT item-custom-category]
       UOMID: uomId,
       AltUOMID: altUomId,
       ConversionFactor: conversionFactor,
@@ -2011,12 +2020,12 @@ async function saveItem(idToken, itemData) {
       // creation — same reasoning as COA's AccountType lock: changing it
       // would orphan the code's meaning and any future stock ledger
       // history tied to this item.
-      if (existing.Category !== category) throw new Error('Item category cannot be changed after creation.');
+      if (existing.Category !== category || String(existing.CustomCategoryID || '') !== customCategoryId) throw new Error('Item category cannot be changed after creation.'); // [NEW DEVELOPMENT item-custom-category]
       await firebaseDbRequest_('items/' + itemId, 'patch', Object.assign({}, fields, { UpdatedAt: now, UpdatedBy: actor }), idToken);
       return { success: true, itemId: itemId, itemCode: existing.ItemCode };
     }
 
-    const itemCode = await generateItemCode_(idToken, category);
+    const itemCode = customCategory ? await customItemCode_(idToken, customCategoryId, customCategory) : await generateItemCode_(idToken, category); // [NEW DEVELOPMENT item-custom-category]
     const newId = 'ITM-' + Utilities.getUuid().split('-')[0].toUpperCase();
     await firebaseDbRequest_('items/' + newId, 'put', Object.assign({}, fields, {
       ItemCode: itemCode, CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor

@@ -80,6 +80,9 @@ const MAPPED = {
   generateItemCode_: ['numbering', 'itemCode', 'dropCtx'],
   generateAccountCode_: ['coaScheme', 'generateCode', 'pure'], // docs/modules/COA_NUMBERING.md
   isCashOrBankAccount_: ['coaScheme', 'isCashOrBank', 'pure'], // by the Cash / Bank mark, not the code
+  checkItemCategory_: ['itemCategories', 'checkForItem', 'dropCtx'], // docs/modules/ITEM_CATEGORIES_CUSTOM.md (called only from patches)
+  validItemCategoryParent_: ['itemCategories', 'validParent', 'dropCtx'],
+  customItemCode_: ['numbering', 'customItemCode', 'dropCtx'],
   generateVendorCode_: ['numbering', 'vendorCode', 'dropCtx'],
   generateCustomerCode_: ['numbering', 'customerCode', 'dropCtx'],
   generateStockTransactionRef_: ['glWriting', 'generateStockTransactionRef', 'dropCtx'],
@@ -126,7 +129,8 @@ const SHARED_PATHS = {
   periodLock: '../periodLock',
   customerPhone: '../customerPhone', // used by name (__customerPhone.) in patches
   invoiceStock: '../invoiceStock',
-  coaScheme: '../coaScheme' // used by name (__coaScheme.) in patches
+  coaScheme: '../coaScheme', // used by name (__coaScheme.) in patches
+  itemCategories: '../itemCategories'
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);
@@ -509,7 +513,30 @@ const SCREEN_EDITS = [
   { mod: 'COA', from: "/000$/.test(String(a.AccountCode || '')) // header (…0000) OR sub-parent (…1000, …2000, etc.)",
     to: "/000$/.test(String(a.AccountCode || '')) // class (X00000), group (XN0000) or sub-group (XNM000)" },
   { mod: 'COA', from: "        const isSubParent = /^\\d{2}[1-9]000$/.test(String(a.AccountCode || ''));\n        opt.textContent = (isSubParent ? '— ' : '') + a.AccountCode + ' — ' + a.AccountName;",
-    to: "        const level = /^\\d00000$/.test(String(a.AccountCode || '')) ? 0 : /^\\d{2}0000$/.test(String(a.AccountCode || '')) ? 1 : 2;\n        opt.textContent = ['', '— ', '—— '][level] + a.AccountCode + ' — ' + a.AccountName;" }
+    to: "        const level = /^\\d00000$/.test(String(a.AccountCode || '')) ? 0 : /^\\d{2}0000$/.test(String(a.AccountCode || '')) ? 1 : 2;\n        opt.textContent = ['', '— ', '—— '][level] + a.AccountCode + ' — ' + a.AccountName;" },
+  // Item categories of your own (owner, 2026-10-16; docs/modules/
+  // ITEM_CATEGORIES_CUSTOM.md): a sub-category may sit under one (X-<id>).
+  { mod: 'ITEMSUBCAT', from: "  function fetchAndRender() {\n    rpc",
+    to: `  // The categories of your own, after the five (their key X-<id>).
+  function loadOwnCategories() {
+    rpc.withSuccessHandler(r => {
+      const sel = document.getElementById('isc-form-category');
+      sel.querySelectorAll('option[data-custom]').forEach(o => o.remove());
+      ((r && r.categories) || []).forEach(c => {
+        CATEGORY_LABELS[c.Key] = c.Name;
+        const opt = document.createElement('option'); opt.value = c.Key; opt.dataset.custom = '1'; opt.textContent = c.Name + ' (like ' + (CATEGORY_LABELS[c.BaseCategory] || c.BaseCategory) + ')';
+        sel.appendChild(opt);
+      });
+      if (sel.dataset.want) sel.value = sel.dataset.want;
+      renderTable();
+    }).withFailureHandler(() => {}).getItemCategories({});
+  }
+
+  function fetchAndRender() {
+    loadOwnCategories();
+    rpc` },
+  { mod: 'ITEMSUBCAT', from: "document.getElementById('isc-form-category').value = prefill.NewFor || '';",
+    to: "document.getElementById('isc-form-category').value = prefill.NewFor || ''; document.getElementById('isc-form-category').dataset.want = prefill.NewFor || '';" }
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {

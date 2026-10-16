@@ -65,7 +65,23 @@
     return div.innerHTML;
   }
 
+  // The categories of your own, after the five (their key X-<id>).
+  function loadOwnCategories() {
+    rpc.withSuccessHandler(r => {
+      const sel = document.getElementById('isc-form-category');
+      sel.querySelectorAll('option[data-custom]').forEach(o => o.remove());
+      ((r && r.categories) || []).forEach(c => {
+        CATEGORY_LABELS[c.Key] = c.Name;
+        const opt = document.createElement('option'); opt.value = c.Key; opt.dataset.custom = '1'; opt.textContent = c.Name + ' (like ' + (CATEGORY_LABELS[c.BaseCategory] || c.BaseCategory) + ')';
+        sel.appendChild(opt);
+      });
+      if (sel.dataset.want) sel.value = sel.dataset.want;
+      renderTable();
+    }).withFailureHandler(() => {}).getItemCategories({});
+  }
+
   function fetchAndRender() {
+    loadOwnCategories();
     rpc
       .withSuccessHandler(result => { subCategories = result || []; renderTable(); })
       .withFailureHandler(err => alert(err.message || 'Unable to load sub-categories.'))
@@ -114,7 +130,7 @@
       document.getElementById('isc-modal-title').textContent = 'Add Sub-Category';
       document.getElementById('isc-form-id').value = '';
       // Opened from Item Master's "New…": its category and company.
-      if (prefill) { document.getElementById('isc-form-category').value = prefill.NewFor || ''; document.getElementById('isc-form-company').value = prefill.CompanyID || ''; prefill = null; }
+      if (prefill) { document.getElementById('isc-form-category').value = prefill.NewFor || ''; document.getElementById('isc-form-category').dataset.want = prefill.NewFor || ''; document.getElementById('isc-form-company').value = prefill.CompanyID || ''; prefill = null; }
     }
     document.getElementById('isc-modal').classList.remove('hidden');
   }

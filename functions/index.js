@@ -302,3 +302,5 @@ exports.getSettlementStatement = require('./src/eosStatement').getSettlementStat
 exports.getAccountRenumberCodes = require('./src/coaRenumber').getAccountRenumberCodes;
 exports.renumberAccount = require('./src/coaRenumber').renumberAccount;
 exports.getCoaAccountsToFix = require('./src/coaRenumber').getCoaAccountsToFix;
+exports.getItemCategories = require('./src/itemCategories').getItemCategories;
+exports.saveItemCategory = require('./src/itemCategories').saveItemCategory;

@@ -6,11 +6,11 @@ modules: [ITEMSUBCAT]
 sources: [functions/src/masterData.js]
 summary: Group items by type or line so stock and reporting match the company’s product structure.
 reviewed: 2026-10-16
-fingerprint: c71e6e0b222869b6
+fingerprint: d1971262ce4cee6b
 ---
 ## What it is for
 
-**Item Sub-Category** adds a second classification beneath Item Master's fixed item category. For example, a Raw Material item may be classified as Metals or Packaging. Each sub-category belongs to exactly one of the five fixed parent categories; this is an item-list organization/filtering aid, not a new ledger or stock category.
+**Item Sub-Category** adds a second classification beneath Item Master's fixed item category. For example, a Raw Material item may be classified as Metals or Packaging. Each sub-category belongs to exactly one parent category: one of the five, or a category of your own added in [Item Master](item-master.html); this is an item-list organization/filtering aid, not a new ledger or stock category.
 
 ## Before you start
 
@@ -20,7 +20,7 @@ fingerprint: c71e6e0b222869b6
 ## Step by step
 
 1. Open **Item Sub-Category** and review the list by name, parent category, and status.
-2. Select **Add Sub-Category**, choose the fixed parent category and the company (or *All Companies — shared*), enter a name, and save. From Item Master, **New…** beside Sub-Category opens this form with the item's category and company already chosen; **Back to Item Master** returns (the item is opened again).
+2. Select **Add Sub-Category**, choose the parent category (one of the five or one of your own) and the company (or *All Companies — shared*), enter a name, and save. From Item Master, **New…** beside Sub-Category opens this form with the item's category and company already chosen; **Back to Item Master** returns (the item is opened again).
 3. To change an existing classification, edit its name, parent category, or status. Reactivate an inactive sub-category if it should be selectable again.
 4. Open Item Master and assign the sub-category to the appropriate items. Item Master offers the sub-categories of the item's parent category that are shared or belong to the item's company; a shared item can use only shared ones.
 

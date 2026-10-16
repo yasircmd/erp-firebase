@@ -5,8 +5,8 @@ order: 8
 modules: [NUMBERING]
 sources: [functions/src/numbering.js]
 summary: Maintain the document prefixes, numbering format and automatic code generation across modules.
-reviewed: 2026-10-12
-fingerprint: 1154005a4c85b4ac
+reviewed: 2026-10-16
+fingerprint: b58a731280481856
 ---
 ## What it is for
 
@@ -20,7 +20,7 @@ fingerprint: 1154005a4c85b4ac
 
 ## Step by step
 
-1. Open **Numbering** and search by type name or prefix. The table groups document numbers, master codes, and HR documents and shows a sample for company 01/current year.
+1. Open **Numbering** and search by type name or prefix. The table groups document numbers, master codes, and HR documents and shows a sample for company 01/current year. Each item category of your own (added in [Item Master](item-master.html)) has its own row under master codes, like the five.
 2. Select **Edit** for the exact type. Set the prefix (1–10 letters/digits), running-number width (3–10 digits), optional 2- or 4-digit year, optional company code, separator (dash, slash, or none), and year/company order where applicable.
 3. Review the live sample. A year in the format creates a separate sequence per year; omitting the company code shares a sequence across companies. Company-code formats are unavailable for master types that do not belong to one company.
 4. Save. The change is logged and applies only to numbers generated afterwards; existing documents and codes are not renamed.

@@ -140,3 +140,11 @@ decideInterimApproval
 saveInterimPlan
 downloadInterimFile
 reverseInterimPayment
+# N: item categories of your own (ITEM_CATEGORIES_CUSTOM.md). getItemCategories
+#    and saveItemCategory are NEW.
+getItemCategories
+saveItemCategory
+saveItem
+saveItemSubCategory
+getNumbering
+saveNumberingFormat

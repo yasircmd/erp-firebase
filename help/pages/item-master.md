@@ -3,10 +3,10 @@ title: Item Master
 area: inventory
 order: 1
 modules: [ITEMMASTER]
-sources: [functions/src/masterData.js]
+sources: [functions/src/masterData.js, functions/src/itemCategories.js]
 summary: Maintain the master item record used by purchase, stock movement, valuations and stock reports.
 reviewed: 2026-10-16
-fingerprint: c593fc0d724d0e97
+fingerprint: c263e3dfc2241898
 ---
 ## What it is for
 
@@ -24,6 +24,30 @@ fingerprint: c593fc0d724d0e97
 2. Add or edit the item record: code, description, unit and category. The **Sub-Category** list shows the category's shared sub-categories and those of the item's company; **New…** beside it opens Item Sub-Category to add one (save the item first: you come back to Item Master and open it again).
 3. Set the stock and cost details required by the company.
 4. Save the item and check it appears in the stock routines.
+
+## Categories of your own
+
+Besides the five categories (Raw Material, Semi-Finished Good, Finished
+Good, Consumable, Scrap), you can add your own, for example **Spare
+Parts**. Select **New category…** under Category in the item form, then
+enter:
+
+- the **name**;
+- the **code prefix** (2 to 6 letters or digits, for example SP). Its
+  items get codes with it and their own running number: SP-000001,
+  SP-000002 and so on. The format can be changed in
+  [Numbering](numbering.html), like the five;
+- which of the five it **behaves like**. That decides what a BOM, a Job
+  Order and Production allow (Spare Parts behaving like Consumable can be
+  a BOM component, but is not produced);
+- whether it is **shared** by all companies or one company's.
+
+Anyone who can open Item Master can add one. The new category then
+appears in the Category list and the filter, after the five. Sub-categories
+can sit under it ([Item Sub-Category](item-sub-category.html)).
+
+An item's category, the five or your own, can't change after the item is
+made, because its code depends on it. Existing items stay where they are.
 
 ## What happens in the books
 

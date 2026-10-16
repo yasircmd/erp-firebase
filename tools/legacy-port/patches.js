@@ -1681,5 +1681,53 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     }
     return { success: true, accountId: accountId, accountCode: accountCode, codeChangedFrom: codeChangedFrom };`
   }
+  ,
+  {
+    id: 'item-custom-category',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/ITEM_CATEGORIES_CUSTOM.md, decisions 203-207). An item may be in a category of your own ' +
+      '(itemCategories.js): it keeps the base category it behaves like as its Category (BOM and production rules unchanged), and the category of its own ' +
+      'gives its code (its own prefix and sequence) and its sub-categories.',
+    find: `    if (!ITEM_CATEGORY_PREFIXES[category]) throw new Error('Select a valid item category.');
+`,
+    replace: `    if (!ITEM_CATEGORY_PREFIXES[category]) throw new Error('Select a valid item category.');
+    // [NEW DEVELOPMENT item-custom-category] docs/modules/ITEM_CATEGORIES_CUSTOM.md
+    const customCategoryId = String(itemData.CustomCategoryID || '').trim();
+    const customCategory = customCategoryId ? checkItemCategory_(idToken, customCategoryId, category, String(itemData.CompanyID || '').trim(), !itemId) : null;
+    const ownCategory = customCategoryId ? 'X-' + customCategoryId : category;
+`
+  },
+  {
+    id: 'item-custom-category (sub-category)',
+    why: 'A category of your own has its own sub-categories (ParentCategory X-<id>).',
+    find: `      if (subCat.ParentCategory !== category) throw new Error('Sub-category does not belong to the selected Category.');`,
+    replace: `      if (subCat.ParentCategory !== ownCategory) throw new Error('Sub-category does not belong to the selected Category.'); // [NEW DEVELOPMENT item-custom-category]`
+  },
+  {
+    id: 'item-custom-category (store)',
+    why: 'The category of its own stored on the item.',
+    find: `      SubCategoryID: subCategoryId,
+      UOMID: uomId,`,
+    replace: `      SubCategoryID: subCategoryId,
+      CustomCategoryID: customCategoryId, // [NEW DEVELOPMENT item-custom-category]
+      UOMID: uomId,`
+  },
+  {
+    id: 'item-custom-category (locked)',
+    why: 'As the five: an item never changes category (decision 207).',
+    find: `      if (existing.Category !== category) throw new Error('Item category cannot be changed after creation.');`,
+    replace: `      if (existing.Category !== category || String(existing.CustomCategoryID || '') !== customCategoryId) throw new Error('Item category cannot be changed after creation.'); // [NEW DEVELOPMENT item-custom-category]`
+  },
+  {
+    id: 'item-custom-category (code)',
+    why: 'Its own prefix and sequence (decision 204).',
+    find: `    const itemCode = generateItemCode_(idToken, category);`,
+    replace: `    const itemCode = customCategory ? customItemCode_(idToken, customCategoryId, customCategory) : generateItemCode_(idToken, category); // [NEW DEVELOPMENT item-custom-category]`
+  },
+  {
+    id: 'item-custom-category (sub-category parent)',
+    why: 'A sub-category may sit under a category of your own (docs/modules/ITEM_CATEGORIES_CUSTOM.md).',
+    find: `    if (!ITEM_CATEGORY_PREFIXES[parentCategory]) throw new Error('Select a valid parent category.');`,
+    replace: `    if (!validItemCategoryParent_(idToken, parentCategory)) throw new Error('Select a valid parent category.'); // [NEW DEVELOPMENT item-custom-category]`
+  }
 ];
 

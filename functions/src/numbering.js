@@ -192,6 +192,29 @@ async function next(key, ctx) {
   throw new Error(kind.label + ': no free number found; check the format in Numbering.');
 }
 
+// Item categories of the owner's own (docs/modules/ITEM_CATEGORIES_CUSTOM.md,
+// decision 204): one code type each, with its own prefix and sequence,
+// formatted here like the five. itemCategories/{id} { Name, Prefix }.
+const customItemKey = id => 'item:X-' + id;
+function itemCategoryKind(id, c) {
+  let k = kindOf(customItemKey(id));
+  if (!k) { k = codeKind(customItemKey(id), 'Master codes', '', codeFormat(c.Prefix, 6), false, 'itemCounters', () => 'itemCounters/' + c.Prefix); kinds().push(k); }
+  k.label = 'Item — ' + c.Name;
+  return k;
+}
+async function loadItemCategoryKinds() {
+  const all = (await val('itemCategories')) || {};
+  Object.keys(all).forEach(id => { if (all[id] && all[id].Prefix) itemCategoryKind(id, all[id]); });
+}
+const customItemCode = (id, c) => { itemCategoryKind(id, c); return next(customItemKey(id), {}); };
+// A new category's prefix would give the numbers another type gives (as saveNumberingFormat refuses): that type's name.
+async function prefixClash(prefix) {
+  await loadItemCategoryKinds();
+  const f = codeFormat(prefix, 6), all = await formatsNow();
+  const k = kinds().find(x => sameShape(all[x.key], f) || sameShape(x.default, f));
+  return k ? k.label : '';
+}
+
 // The generators the system already had, by their old signatures.
 const voucherNumber = (prefix, year, companyId) => {
   // A prefix added later by new development: numbered by the default.
@@ -249,6 +272,7 @@ async function requireCap(user, cap) {
 exports.getNumbering = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'access');
+  await loadItemCategoryKinds();
   const all = await formatsNow();
   const sample = { year: new Date().getUTCFullYear(), co: '01' };
   const log = Object.values((await val(LOG)) || {}).sort((a, b) => String(b.At).localeCompare(String(a.At))).slice(0, 50);
@@ -265,6 +289,7 @@ exports.getNumbering = onCallWithMessages(onCallOptions, async (request) => {
 exports.saveNumberingFormat = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user, 'write');
+  await loadItemCategoryKinds();
   const d = request.data || {};
   const kind = kindOf(String(d.kind || ''));
   if (!kind) throw new HttpsError('not-found', 'Unknown numbering type.');
@@ -290,6 +315,6 @@ exports.saveNumberingFormat = onCallWithMessages(onCallOptions, async (request) 
 });
 
 module.exports = Object.assign(exports, {
-  next, voucherNumber, itemCode, vendorCode, customerCode, employeeCode, assetNumber, hrNumber, counterPathOfCode, issuedPathOfCode,
+  next, voucherNumber, itemCode, customItemCode, prefixClash, loadItemCategoryKinds, ITEM_CATEGORY_PREFIXES, ITEM_LABELS, vendorCode, customerCode, employeeCode, assetNumber, hrNumber, counterPathOfCode, issuedPathOfCode,
   _test: { render, validate, kinds, keyOf }
 });

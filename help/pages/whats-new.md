@@ -12,6 +12,11 @@ screen.
 
 ## 16/10/2026
 
+- **Item categories of your own.** Besides the five, add a category
+  such as Spare Parts with **New category…** in the item form. It has its
+  own code prefix (SP-000001) and behaves like one of the five for BOMs
+  and production. It can be shared or belong to one company, and can have
+  its own sub-categories. See [Item Master](item-master.html).
 - **Chart of Accounts: classes, groups and renumbering.** Codes now have
   a level each: a class per type (100000 Assets), groups under it (110000
   Cash) and the accounts under a group (110001). An account can no longer
