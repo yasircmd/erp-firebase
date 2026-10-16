@@ -65,6 +65,7 @@ const D = '2026-09-10';
     await p.click('#coa-save-btn');
     await p.waitForSelector('#coa-modal', { state: 'hidden', ...T });
     assert.deepEqual((await val('coa/G-SITE')).DimensionRules, { CostCenter: 'Optional', ProfitCenter: '', Project: 'Required' });
+    await p.waitForLoadState('networkidle'); await p.waitForTimeout(1000); // the list reloads after a save
     await p.locator('#coa-table-body tr', { hasText: 'Site labour' }).first().locator('.coa-edit').click();
     await p.waitForSelector('#coa-modal:not(.hidden)', T);
     assert.match(await p.textContent('#coa-dim-Project-hint'), /Now: required \(from 630000\)/);
