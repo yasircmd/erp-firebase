@@ -702,14 +702,16 @@ async function getPartyAccounts(idToken, companyId) {
   return listPartyAccounts(id);
 }
 
-// One party's open items in this company, outstanding > 0.
-async function getPartyOpenItems(idToken, partyType, partyId, companyId) {
+// One party's open items in this company, outstanding > 0. excludeJvId:
+// as if that entry's own allocations were not there (Re-match shows what
+// it may settle again; docs/modules/UX_TIER3.md G).
+async function getPartyOpenItems(idToken, partyType, partyId, companyId, excludeJvId) {
   const user = await requireUser_(idToken);
   await requireJournalAccess_(user);
   const id = String(companyId || '').trim();
   if (!id) throw new Error('Select a Company first.');
   if (!userCanAccessCompany_(user.profile, id)) throw new Error('You do not have access to that company.');
-  return listOpenItems(String(partyType || '').trim(), String(partyId || '').trim(), id);
+  return listOpenItems(String(partyType || '').trim(), String(partyId || '').trim(), id, String(excludeJvId || '').trim());
 }
 
 // ---- callables ----
@@ -734,4 +736,4 @@ exports.postJournalEntry = callable(postJournalEntry, ['jvId']);
 exports.decideJournalEntryApproval = callable(decideJournalEntryApproval, ['jvId', 'levelNumber', 'decision', 'reason']);
 exports.reverseJournalEntry = callable(reverseJournalEntry, ['jvId', 'reversalDate']);
 exports.getPartyAccounts = callable(getPartyAccounts, ['companyId']);
-exports.getPartyOpenItems = callable(getPartyOpenItems, ['partyType', 'partyId', 'companyId']);
+exports.getPartyOpenItems = callable(getPartyOpenItems, ['partyType', 'partyId', 'companyId', 'excludeJvId']);

@@ -261,3 +261,26 @@ none, the recommendation is the one written here.
   so it keeps the ERP title bar like every print not on the owner's
   external list). Tests: `shareholders` suite (2) and `companyMaster` UI
   (3); negative control (the right ignored) caught.
+- **G** (2026-10-16): `rematch.js`, `rematchJournalEntry({ jvId, lines:
+  [{ LineNo, Allocations }], reason })`: a live entry (posted, not
+  reversed, not a reversal) of the JV or a CBT voucher type only (PDCs,
+  returns, retail sales, opening balances and other modules' entries keep
+  their matching in their own module; a PDC also keeps a copy on its
+  cheque). New right `rematch` on JV and CBT (164; defaults Admin and
+  Finance Manager for new installs; on the live system the owner ticks
+  it). No period check: allowed in a closed month (165). Under the global
+  lock, the lines are checked by `resolvePartyLines` with the new
+  `excludeEntryId` option (as if the entry's own allocations were not
+  there); a New Ref that other live entries settle can't shrink below what
+  they settle. Only party lines' `Allocations` change (with `AllocatedRefs`
+  / `AllocatedRefTypes`); amounts, accounts, date, number stay.
+  `Rematches` [{ At, By, ByName, Reason, Changes [{ LineNo, Before, After }]
+  }] on the entry. `getPartyOpenItems` takes `excludeJvId` (the Allocate
+  dialog in re-match mode); `getModulePermissionsForUser` returns
+  `canRematch`. Screens JV / CBT: **Re-match references** on a posted
+  entry with a party line → Allocate… only (the party stays) → **Save
+  re-match** (reason, in-app prompt) or **Cancel re-match**. The invoice
+  screens needed nothing: an invoice holds no matching (it is the open
+  item); the payment that settles it is re-matched. Tests: `rematch` suite
+  (2), `rematch` UI (3); party-ledger suites (56) and UI pass; negative
+  controls (the New Ref guard, the exclusion, server and screen) caught.

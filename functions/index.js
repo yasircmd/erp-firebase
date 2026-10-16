@@ -290,3 +290,6 @@ exports.getCompanyShareholders = shareholders.getCompanyShareholders;
 exports.saveCompanyIssuedShares = shareholders.saveCompanyIssuedShares;
 exports.saveCompanyShareholder = shareholders.saveCompanyShareholder;
 exports.removeCompanyShareholder = shareholders.removeCompanyShareholder;
+
+// Re-match a posted JV / CBT entry's references (docs/modules/UX_TIER3.md, G).
+exports.rematchJournalEntry = require('./src/rematch').rematchJournalEntry;

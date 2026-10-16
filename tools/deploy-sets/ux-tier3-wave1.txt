@@ -29,3 +29,14 @@ getCompanyShareholders
 saveCompanyIssuedShares
 saveCompanyShareholder
 removeCompanyShareholder
+# G: re-match a posted JV / CBT entry's references (rematchJournalEntry is
+#    NEW: add its public-invoker binding). Then the owner ticks JV and CBT
+#    "rematch" for the roles that may re-match, in Roles & Permissions.
+rematchJournalEntry
+getPartyOpenItems
+getModulePermissionsForUser
+# F and G add capabilities: Roles & Permissions must know them to show and
+# save the new ticks.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions

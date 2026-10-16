@@ -7,8 +7,8 @@
 const MODULE_REGISTRY = [
   { id: 'USERMGMT', label: 'User Management', capabilities: ['access', 'write'] },
   { id: 'COA', label: 'Chart of Accounts', capabilities: ['access', 'write'] },
-  { id: 'JV', label: 'Journal Entry Processing (JV)', capabilities: ['access', 'draft', 'post'] },
-  { id: 'CBT', label: 'Cash and Bank Transactions (CBT)', capabilities: ['access', 'draft', 'post'] },
+  { id: 'JV', label: 'Journal Entry Processing (JV)', capabilities: ['access', 'draft', 'post', 'rematch'] }, // rematch: UX_TIER3.md G
+  { id: 'CBT', label: 'Cash and Bank Transactions (CBT)', capabilities: ['access', 'draft', 'post', 'rematch'] },
   { id: 'TREEMGMT', label: 'Module Tree & Navigation', capabilities: ['access', 'write'] },
   { id: 'ROLES', label: 'Roles & Permissions', capabilities: ['access', 'write'] },
   { id: 'COMPANYMASTER', label: 'Company Master Data', capabilities: ['access', 'write', 'shareholders'] }, // shareholders: UX_TIER3.md F
@@ -137,8 +137,8 @@ const MODULE_REGISTRY = [
 const DEFAULT_PERMISSIONS = {
   USERMGMT: { access: ['ADMIN'], write: ['ADMIN'] },
   COA:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
-  JV:       { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
-  CBT:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
+  JV:       { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'], rematch: ['ADMIN', 'FINANCE_MGR'] },
+  CBT:      { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'], rematch: ['ADMIN', 'FINANCE_MGR'] },
   TREEMGMT: { access: ['ADMIN'], write: ['ADMIN'] },
   ROLES:    { access: ['ADMIN'], write: ['ADMIN'] },
   COMPANYMASTER:  { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN'], shareholders: ['ADMIN'] },

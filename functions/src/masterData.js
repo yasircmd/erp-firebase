@@ -20,7 +20,9 @@ exports.getModulePermissionsForUser = onCallWithMessages(onCallOptions, async (r
   const id = String(request.data && request.data.moduleId || '').trim().toUpperCase();
   return {
     canDraft: await moduleHasCapability(id, 'draft', user.profile.role),
-    canPost: await moduleHasCapability(id, 'post', user.profile.role)
+    canPost: await moduleHasCapability(id, 'post', user.profile.role),
+    // JV / CBT: change a posted entry's matching (docs/modules/UX_TIER3.md G).
+    canRematch: await moduleHasCapability(id, 'rematch', user.profile.role)
   };
 });
 
