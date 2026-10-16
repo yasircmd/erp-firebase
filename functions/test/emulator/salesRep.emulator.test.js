@@ -60,7 +60,7 @@ test('an order: a draft Sales Order at the price list, which the office confirms
   assert.deepEqual([so.Status, so.CustomerID, so.Total, so.Lines[0].UnitPrice, so.CostCenterID, so.SalesRepEmployeeID, so.Description], ['Draft', 'CU1', 120, 60, 'CC1', 'E1', 'Deliver Monday'], 'the price list\'s price, not the phone\'s');
   assert.match(so.CreatedBy, /^Portal: EMP-0001 Sam Seller$/);
   ok(await call('u-admin', 'confirmSalesOrder', { soId: r.soId }));
-  assert.equal((await val('salesOrders/' + r.soId)).Status, 'Confirmed');
+  assert.equal((await val('salesOrders/' + r.soId)).Status, 'Reserved', 'confirmed, the stock reserved');
 });
 
 test('collections: cash a draft Cash Receipt to the rep\'s cash account, a cheque a draft PDC; the office posts', async () => {
@@ -74,7 +74,7 @@ test('collections: cash a draft Cash Receipt to the rep\'s cash account, a chequ
   const p = await val('pdcCheques/' + chq.pdcId);
   assert.deepEqual([p.Status, p.Direction, p.PartyID, p.Amount, p.ChequeNumber, p.DraweeBank], ['Draft', 'Received', 'CU1', 70, '900001', 'Sample Bank']);
   const h = await ess('u-viewer', 'salesHome');
-  assert.deepEqual(h.activity.map(a => [a.Kind, a.Amount, a.Status]).sort(), [['Cash', 50, 'Posted'], ['Cheque', 70, 'Draft'], ['Order', 120, 'Confirmed']]);
+  assert.deepEqual(h.activity.map(a => [a.Kind, a.Amount, a.Status]).sort(), [['Cash', 50, 'Posted'], ['Cheque', 70, 'Draft'], ['Order', 120, 'Reserved']]);
   assert.equal(h.customers[0].Balance, -50, 'nothing invoiced yet: the posted cash is an advance (the cheque is a draft)');
 });
 

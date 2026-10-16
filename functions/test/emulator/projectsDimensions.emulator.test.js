@@ -75,11 +75,14 @@ test('an invoice\'s project goes on every line it posts', async () => {
 });
 
 test('the Project report, the GL Report and the Trial Balance by project, "No project" included', async () => {
+  // A posted cost with no project.
+  const np = ok(await journal([line('640001', 10, 0), line('1100', 0, 10)]));
+  ok(await call('u-admin', 'postJournalEntry', { jvId: np.jvId }));
   const r = await call('u-admin', 'getProjectReport', { params: { CompanyID: 'C1', FromDate: '2026-09-01', ToDate: '2026-09-30' } });
   const p = r.projects.find(x => x.ProjectID === P1), none = r.projects.find(x => !x.ProjectID);
   assert.deepEqual([p.Code, p.Income, p.Costs, p.Result], ['PRJ-1', 500, 100, 400]);
   assert.deepEqual(p.Accounts.map(a => [a.AccountCode, a.Kind, a.Amount]), [['4000', 'Income', 500], ['630001', 'Costs', 100]]);
-  assert.equal(none.Name, 'No project');
+  assert.deepEqual([none.Name, none.Costs], ['No project', 10]);
   const only = await call('u-admin', 'getProjectReport', { params: { CompanyID: 'C1', FromDate: '2026-09-01', ToDate: '2026-09-30', ProjectID: P1 } });
   assert.deepEqual(only.projects.map(x => x.ProjectID), [P1]);
   const tb = await call('u-admin', 'getTrialBalancePeriod', { params: { FromDate: '2026-09-01', ToDate: '2026-09-30', CompanyID: 'C1', ProjectID: P1 } });
