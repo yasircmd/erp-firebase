@@ -391,7 +391,7 @@ async function commitSalesReturnPosting(user, existing, returnId) {
     glLines.push(Object.assign({ AccountCode: acc.AccountCode, Debit: values.TaxAmount, Credit: 0, Description: 'Output tax reversed — ' + existing.Description }, dims));
   }
   // In the invoice's currency and at its rate (docs/modules/MULTI_CURRENCY.md); the stock lines are in base already.
-  const priced = require('./fx').documentBaseLines(glLines, inv);
+  const priced = require('./fx').documentBaseLines(glLines, inv).slice(); // the same array when in base
   glLines.length = 0;
   glLines.push(...priced, ...movement.inventoryGlLines, ...cogsLines(movementLines, itemsData, coaData, dims, false));
 

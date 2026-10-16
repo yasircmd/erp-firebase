@@ -151,7 +151,7 @@ async function partyAging(partyType, companyId, asOf, basis, only) {
     const balance = round2(GROWS[partyType] === 'Dr' ? dr - cr : cr - dr);
     control = { status: 'ok', Accounts: [...mine].map(a => (coa[a] || {}).AccountCode || a).sort(), Balance: balance, Difference: round2(totals.Net - balance) };
   }
-  return { PartyType: partyType, CompanyID: companyId, AsOf: asOf, Basis: basis, Buckets: buckets.map(b => ({ key: b.key, label: b.label })), Rows: rows, Totals: totals, Control: control };
+  return { PartyType: partyType, CompanyID: companyId, AsOf: asOf, Basis: basis, Buckets: buckets.map(b => ({ key: b.key, label: b.label })), Rows: rows, Totals: totals, Control: control, BaseCurrency: baseCode };
 }
 
 exports.getPartyAging = onCallWithMessages(onCallOptions, async (request) => {

@@ -51,6 +51,7 @@ async function invoiceFields(party, date, data, total, opts) {
   const code = partyCurrency(party, base.Code);
   if (!code) return { CurrencyCode: '', ExchangeRate: 1, RateEffectiveDate: '', ExchangeRateReason: '', TotalBase: round2(total) };
   if (opts && opts.grns) throw new Error('This vendor is invoiced in ' + code + ': for now a ' + code + ' invoice takes direct lines only (GRNs in a foreign currency come with Purchase Orders, docs/modules/MULTI_CURRENCY.md, decision 215).');
+  if (opts && opts.dns) throw new Error('This customer is invoiced in ' + code + ': for now a ' + code + ' invoice takes item lines and direct lines; Delivery Notes made separately are priced in base (Sales Orders and Delivery Notes in a foreign currency come later, docs/modules/MULTI_CURRENCY.md, decision 215).');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) throw new Error('Enter the invoice date: the ' + code + ' rate is taken on it.');
   const on = await rates.rateOn(code, date, base);
   let rate = on.Rate, reason = '';

@@ -6,7 +6,7 @@ modules: [PDCRECEIVED, PDCISSUED]
 sources: [functions/src/pdc.js]
 summary: Cheques dated in the future: received from customers or issued to vendors, then cleared, bounced or cancelled.
 reviewed: 2026-10-16
-fingerprint: d55cb1df510d556e
+fingerprint: 3b8a89c3c5817ad4
 ---
 ## What it is for
 
@@ -82,3 +82,6 @@ clear, bounce, cancel and undo).
 - **Can't clear before the cheque date.**
 - **Can't bounce**: an advance the cheque created has since been used
   against an invoice; undo that first.
+- **"… is invoiced in USD …"**: PDCs for a party in a foreign currency
+  come next; for now record its payment in
+  [Cash and Bank](cash-and-bank.html) when the cheque clears.

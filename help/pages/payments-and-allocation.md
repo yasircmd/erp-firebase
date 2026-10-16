@@ -5,7 +5,7 @@ order: 6
 summary: How payments, receipts and adjustments are tied to a vendor or customer and matched to their invoices.
 sources: [functions/src/partyLedger.js]
 reviewed: 2026-10-16
-fingerprint: e11cd5a99a446fd4
+fingerprint: 05103bd9c29be626
 ---
 ## Why it matters
 
@@ -86,3 +86,9 @@ amount on the expense or income account on the other line.
 - An invoice can't be reversed while payments are allocated to it:
   reverse those payments first.
 - Due dates are the invoice date plus the party's payment terms.
+- For a party in a **foreign currency**, bills, payments and allocations
+  are all in its currency. A bill is settled when its foreign amount is;
+  any difference in the default currency is posted as an exchange gain or
+  loss ([Cash and Bank](cash-and-bank.html)). For now foreign-currency
+  allocation is entered in Cash and Bank; journals, PDCs and opening
+  balances in a foreign currency come next.

@@ -5,8 +5,8 @@ order: 10
 modules: [CUSTOMERAGING, VENDORAGING]
 sources: [functions/src/agingReports.js]
 summary: How old each party's open balance is, in buckets, with advances and pending cheques shown apart.
-reviewed: 2026-10-12
-fingerprint: 5425c74afcb69480
+reviewed: 2026-10-16
+fingerprint: 52cc31ee85492163
 ---
 ## What it is for
 
@@ -37,3 +37,7 @@ days — to chase collections or plan payments.
   General Ledger at that date and says whether they agree.
 - Each party's figures agree with its statement of account at the same
   date.
+- A party in a **foreign currency** is shown in the default currency, each
+  document at its own rate, so the totals and the GL check add up; its
+  net balance in its own currency is shown under the net balance (for
+  example USD 200.00). Open the row to see each document's rate.

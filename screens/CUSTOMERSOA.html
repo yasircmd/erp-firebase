@@ -59,6 +59,7 @@
       <div class="text-sm text-slate-300 md:text-right">
         <p id="soa-period"></p>
         <p id="soa-terms" class="text-xs text-slate-500"></p>
+        <p id="soa-currency" class="hidden text-xs text-amber-300"></p>
       </div>
     </div>
 
@@ -68,6 +69,7 @@
           <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
             <th class="py-2 px-3">Date</th><th class="py-2 px-3">Document</th><th class="py-2 px-3">Type</th><th class="py-2 px-3">Reference / Description</th>
             <th class="py-2 px-3 text-right">Debit</th><th class="py-2 px-3 text-right">Credit</th><th class="py-2 px-3 text-right">Balance</th>
+            <th class="soa-fc-col hidden py-2 px-3 text-right">Balance <span class="soa-base-code"></span></th>
           </tr></thead>
           <tbody id="soa-rows" class="divide-y divide-slate-700 text-sm"></tbody>
           <tfoot id="soa-foot" class="text-sm font-medium border-t border-slate-600"></tfoot>
@@ -84,6 +86,7 @@
             <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
               <th class="py-2 px-3">Document</th><th class="py-2 px-3">Type</th><th class="py-2 px-3">Date</th><th class="py-2 px-3">Due</th>
               <th class="py-2 px-3 text-right">Days Overdue</th><th class="py-2 px-3 text-right">Amount</th><th class="py-2 px-3 text-right">Outstanding</th>
+              <th class="soa-fc-col hidden py-2 px-3 text-right">Rate</th><th class="soa-fc-col hidden py-2 px-3 text-right">Outstanding <span class="soa-base-code"></span></th>
             </tr></thead>
             <tbody id="soa-open" class="divide-y divide-slate-700 text-sm"></tbody>
           </table>
@@ -197,9 +200,18 @@
     document.getElementById('soa-period').textContent = 'Period: ' + r.FromDate + ' to ' + r.ToDate;
     document.getElementById('soa-terms').textContent = 'Payment terms: ' + (r.PaymentTermsDays ? r.PaymentTermsDays + ' days' : 'due on invoice');
 
+    // A foreign party's statement is in its currency, with the base beside
+    // it (docs/modules/MULTI_CURRENCY.md, decision 211).
+    const fc = Boolean(r.Currency);
+    const fcCell = v => (fc ? `<td class="py-2 px-3 text-right font-mono text-slate-400">${v}</td>` : '');
+    document.querySelectorAll('.soa-fc-col').forEach(e => e.classList.toggle('hidden', !fc));
+    document.querySelectorAll('.soa-base-code').forEach(e => { e.textContent = '(' + (r.BaseCurrency || '') + ')'; });
+    const cur = document.getElementById('soa-currency');
+    cur.classList.toggle('hidden', !fc);
+    cur.textContent = fc ? 'Amounts in ' + r.Currency + ', the ' + CONFIG.partyLabel.toLowerCase() + '\'s currency; the balance in ' + r.BaseCurrency + ' beside them.' : '';
     const tbody = document.getElementById('soa-rows');
     tbody.innerHTML = `<tr class="text-slate-400"><td class="py-2 px-3 text-xs">${escapeHtml(r.FromDate)}</td><td class="py-2 px-3" colspan="5">Opening balance</td>
-      <td class="py-2 px-3 text-right font-mono">${formatMoney(r.Opening)}</td></tr>`;
+      <td class="py-2 px-3 text-right font-mono">${formatMoney(r.Opening)}</td>${fcCell(formatMoney(r.BaseOpening))}</tr>`;
     r.Rows.forEach(row => {
       const tr = document.createElement('tr');
       const mark = row.IsReversal ? ' <span class="text-purple-400">(reversal)</span>' : (row.Reversed ? ' <span class="text-amber-400">(reversed)</span>' : '');
@@ -211,22 +223,22 @@
         <td class="py-2 px-3 text-xs text-slate-300">${escapeHtml([row.Reference, row.Description].filter(Boolean).join(' — '))}</td>
         <td class="py-2 px-3 text-right font-mono">${money(row.Debit)}</td>
         <td class="py-2 px-3 text-right font-mono">${money(row.Credit)}</td>
-        <td class="py-2 px-3 text-right font-mono">${formatMoney(row.Balance)}</td>`;
+        <td class="py-2 px-3 text-right font-mono">${formatMoney(row.Balance)}</td>${fcCell(formatMoney(row.BaseBalance))}`;
       const btn = tr.querySelector('.soa-open');
       if (btn) btn.addEventListener('click', () => openSource(target, row.LinkedJVID));
       tbody.appendChild(tr);
     });
     document.getElementById('soa-foot').innerHTML = `
       <tr><td class="py-2 px-3" colspan="4">Totals for the period</td><td class="py-2 px-3 text-right font-mono">${formatMoney(r.Totals.Debit)}</td>
-        <td class="py-2 px-3 text-right font-mono">${formatMoney(r.Totals.Credit)}</td><td></td></tr>
-      <tr class="font-bold"><td class="py-2 px-3" colspan="6">Closing balance — ${escapeHtml(r.BalanceLabel.toLowerCase())}</td>
-        <td id="soa-closing" class="py-2 px-3 text-right font-mono">${formatMoney(r.Closing)}</td></tr>`;
+        <td class="py-2 px-3 text-right font-mono">${formatMoney(r.Totals.Credit)}</td><td></td>${fcCell('')}</tr>
+      <tr class="font-bold"><td class="py-2 px-3" colspan="6">Closing balance — ${escapeHtml(r.BalanceLabel.toLowerCase())}${fc ? ' (' + escapeHtml(r.Currency) + ')' : ''}</td>
+        <td id="soa-closing" class="py-2 px-3 text-right font-mono">${formatMoney(r.Closing)}</td>${fc ? `<td id="soa-closing-base" class="py-2 px-3 text-right font-mono text-slate-400">${formatMoney(r.BaseClosing)}</td>` : ''}</tr>`;
     document.getElementById('soa-balance-note').textContent = 'Balance = ' + r.BalanceLabel.toLowerCase() + '. A negative balance is in the ' +
       (CONFIG.partyType === 'Vendor' ? 'company\'s favour (the vendor owes us).' : 'customer\'s favour (we owe the customer).');
 
     document.getElementById('soa-asat').textContent = '(as at ' + r.ToDate + ')';
     const open = document.getElementById('soa-open');
-    open.innerHTML = r.OpenItems.length ? '' : '<tr><td colspan="7" class="py-3 px-3 text-xs text-slate-500 text-center">Nothing open.</td></tr>';
+    open.innerHTML = r.OpenItems.length ? '' : '<tr><td colspan="' + (fc ? 9 : 7) + '" class="py-3 px-3 text-xs text-slate-500 text-center">Nothing open.</td></tr>';
     r.OpenItems.forEach(i => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -236,7 +248,7 @@
         <td class="py-2 px-3 text-xs text-slate-400">${escapeHtml(i.DueDate)}</td>
         <td class="py-2 px-3 text-right text-xs ${i.DaysOverdue > 0 ? 'text-red-400' : 'text-slate-400'}">${i.DaysOverdue || ''}</td>
         <td class="py-2 px-3 text-right font-mono">${formatMoney(i.Amount)}</td>
-        <td class="py-2 px-3 text-right font-mono">${formatMoney(i.Outstanding)}</td>`;
+        <td class="py-2 px-3 text-right font-mono">${formatMoney(i.Outstanding)}</td>${fc ? fcCell(i.Currency ? escapeHtml(i.Rate) : '') + fcCell(formatMoney(i.BaseOutstanding)) : ''}`;
       open.appendChild(tr);
     });
     document.getElementById('soa-aging').innerHTML = r.Aging.concat([{ key: 'total', label: 'Total open', amount: r.OpenTotal }]).map(b => `
@@ -298,7 +310,8 @@
     const r = report;
     if (!r) return;
     const lines = [
-      ['Statement of Account', r.CompanyName], [CONFIG.partyLabel, r.PartyCode + ' — ' + r.PartyName], ['Period', r.FromDate + ' to ' + r.ToDate], [],
+      ['Statement of Account', r.CompanyName], [CONFIG.partyLabel, r.PartyCode + ' — ' + r.PartyName], ['Period', r.FromDate + ' to ' + r.ToDate],
+      r.Currency ? ['Currency', r.Currency, 'Closing in ' + r.BaseCurrency, r.BaseClosing.toFixed(2)] : [], [],
       ['Date', 'Document', 'Type', 'Reference', 'Description', 'Debit', 'Credit', 'Balance'],
       [r.FromDate, '', 'Opening balance', '', '', '', '', r.Opening.toFixed(2)]
     ];

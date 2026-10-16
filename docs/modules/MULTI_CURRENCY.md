@@ -150,3 +150,89 @@ kept in USD as well as in base. Question 217.
 | 217 | A bank account may carry a currency; its CBT vouchers are in it. |
 | 218 | A foreign-currency invoice prints the VAT total in AED at the invoice rate too. |
 | (all) | "Go with your recommendations" (owner, 2026-10-16). |
+
+## As built: phase O1 (2026-10-16)
+
+Built in two steps. **O1** (this one) covers rates, invoices, returns,
+Cash & Bank and the statements. **O2** covers PDCs, openings, JV party
+lines, bank accounts in a foreign currency, and the print with the VAT in
+AED.
+
+**Rates** (`functions/src/exchangeRates.js`):
+- Stored at `exchangeRates/{CODE}/{pushId}` as `{ EffectiveDate, Rate,
+  Note, By, ByName, At }`, with 1 FC = Rate base. They are only added.
+- The rate for a date is the latest one on or before it. On the same date
+  the later entry wins.
+- Currency Configuration → **Rates** lists and adds them. Adding needs the
+  right **rates**: Admin and Finance Manager by default, and the owner
+  ticks it in Roles & Permissions.
+- Each company's **Exchange Gain / Loss** account (Revenue or Expense) and
+  cost center are stored at `fxSettings/{companyId}`.
+
+**The party's currency** (`functions/src/fx.js`):
+- It is the master's `DefaultCurrency` when that is not the base currency.
+- It is fixed once the party has an invoice or a journal line (patch
+  `party-currency-fixed`).
+
+**GL lines:**
+- `Debit` / `Credit` are base, as before. A foreign line adds
+  `FcCurrency`, `FcDebit`, `FcCredit` and `FcRate`.
+- glWriting keeps these fields, and line clubbing keeps foreign lines
+  apart by currency and rate.
+- A reversal swaps the foreign amounts with the base ones (`fx.mirrorFc`)
+  in JV/CBT, PDC, the returns, openings and asset retirement.
+
+**Invoices** (patches `invoice-currency-*`):
+- A foreign party's Customer / Vendor Invoice is in its currency: `Total`
+  is in FC, and the invoice stores `CurrencyCode`, `ExchangeRate`,
+  `RateEffectiveDate`, `ExchangeRateReason` and `TotalBase`.
+- The rate is the one on the invoice date. Another rate needs a reason
+  (decision 214).
+- At posting, the lines are converted to base (`fx.toBase`): each line is
+  rounded, and the cent left over goes to the largest line, so the entry
+  balances.
+- The approval amount is `TotalBase`. A reversal keeps the invoice's rate.
+- **For now** a foreign vendor's invoice takes direct lines only (GRNs are
+  base, decision 215). A foreign customer's invoice takes item lines and
+  direct lines. Delivery Notes made separately are refused, because
+  nothing records the currency of their prices.
+- A **Sales Return** of a foreign invoice converts its invoice-side lines
+  at the invoice's rate. The stock and COGS lines stay in base.
+
+**Cash & Bank:**
+- A line tagged with a foreign party takes the FC amount beside the base
+  amount (`FcCurrency` / `FcAmount`, rate = amount / FC amount), and its
+  allocation is in FC.
+- `resolvePartyLines` refuses a foreign party's line without its FC
+  amount. JV, PDC and openings can't enter one yet: they say so, and
+  openings refuse foreign parties outright.
+
+**Realized differences** (`partyLedger.resolvePartyLines`):
+- For each allocation of a foreign item, d = round2(A × the line's rate) −
+  round2(A × the item's rate).
+- The differences are summed per party line and posted as a pair:
+  - one line on the party's control account, FC 0, `FxAdjustment`, on the
+    item's side when d > 0;
+  - one line on the Exchange Gain / Loss account.
+- They are recomputed on every save and post (the incoming
+  `FxAdjustment` lines are dropped first), and the entry's totals follow.
+- A settlement at another rate is refused until the account is set.
+
+**Statements and aging:**
+- The SOA of a foreign party is in its currency, with a base running
+  balance beside it (`BaseOpening`, `BaseBalance`, `BaseClosing`).
+- Exchange lines move only the base balance. The GL check uses the base.
+- Open items carry `Currency`, `Rate` and `BaseOutstanding`.
+- The aging shows a foreign party in base, each item at its own rate, so
+  the totals and the control-account check still add up. `FcOwed`,
+  `FcUnapplied` and `FcNet` are given beside it.
+
+**Not handled yet:**
+- Re-match of an entry with foreign lines.
+- A draft keeps the rate of its last save until it is saved again.
+- Month-end revaluation (decision 216, later).
+
+**Tests:** `functions/test/emulator/multiCurrency.emulator.test.js`, with
+two verified negative controls:
+- the exchange-difference sign flipped: 3 tests fail;
+- the return's conversion skipped: 1 test fails.

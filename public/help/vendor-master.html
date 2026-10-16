@@ -19,6 +19,8 @@
 <ul><li>The company and the vendor account structure are set up in the ERP.</li><li>The vendor's tax and company details are known.</li><li>If the company wants supplier controls, the approval and payment rules are already defined.</li></ul>
 <h2 id="step-by-step">Step by step</h2>
 <ol><li>Open <strong>Vendor Master</strong> and choose the company.</li><li>Add or update the vendor's basic details: name, address, contact and tax information.</li><li>Complete the trade details needed for purchasing and payment processing.</li><li>Save the vendor and test a PO or GRN using that vendor.</li></ol>
+<h2 id="a-vendor-in-a-foreign-currency">A vendor in a foreign currency</h2>
+<p>Set <strong>Default Currency</strong> to the vendor's currency (for example USD) and its invoices, payments and statement are in it, at the rates in <a href="currencies.html">Currency Configuration</a>. Leave it on the company default for a local vendor. Once the vendor has invoices or payments, its currency can't change: create a new vendor for another currency.</p>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
 <p>Vendor Master stores the supplier identity used by the purchase flow. The actual accounting impact appears later when the supplier bill and any related payments are posted.</p>
 <h2 id="rights">Rights</h2>

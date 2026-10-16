@@ -5,8 +5,8 @@ order: 9
 modules: [VENDORSOA, CUSTOMERSOA]
 sources: [functions/src/partyStatement.js]
 summary: Everything posted with one vendor or customer over a period, the running balance, what is still open, and pending cheques.
-reviewed: 2026-10-12
-fingerprint: e5c99ccdec24332c
+reviewed: 2026-10-16
+fingerprint: b4f20c905f53362c
 ---
 ## What it is for
 
@@ -36,3 +36,9 @@ open by document.
   amount on a party's account is allocated (see
   [Paying and allocating](payments-and-allocation.html)).
 - The print leaves out the internal GL check.
+- For a party in a **foreign currency** the statement is in its currency
+  (it says so under the payment terms), with a **Balance** column in the
+  default currency beside it. The open items show each document's rate
+  and its outstanding amount in the default currency. Exchange
+  differences are in the default-currency balance only. The GL check
+  uses the default-currency balance.

@@ -239,7 +239,7 @@ async function resolvePartyLines(lines, companyId, opts) {
 
     // A foreign party's lines are in its currency (decision 211); a base party's are not.
     const cur = require('./fx').partyCurrency(party, base.Code);
-    if (cur && line.FcCurrency !== cur) throw new Error(n + name + ' is invoiced in ' + cur + ': enter the line\'s ' + cur + ' amount and its rate.');
+    if (cur && line.FcCurrency !== cur) throw new Error(n + name + ' is invoiced in ' + cur + ': enter the line\'s ' + cur + ' amount and its rate (for now in Cash & Bank; journals, PDCs and openings in a foreign currency come next).');
     if (!cur && line.FcCurrency) throw new Error(n + name + ' is in ' + (base.Code || 'the base currency') + ', not ' + line.FcCurrency + '.');
     const amount = lineAmount(line);
     const side = lineSide(line);

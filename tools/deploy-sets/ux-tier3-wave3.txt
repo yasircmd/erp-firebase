@@ -1,0 +1,139 @@
+# UX testing Tier 3, wave 3, O1: foreign currency for vendors and customers
+# (owner, 2026-10-16; docs/modules/MULTI_CURRENCY.md, decisions 211-218).
+# Run with --screens. Hosting too (tools/deploy-hosting.sh): the Help pages.
+# NEW: getExchangeRates, saveExchangeRate, getExchangeRateOn, getFxSettings,
+#   saveFxSettings (exchangeRates.js).
+# Then every function whose code reaches the changed party ledger (realized
+# exchange differences, open items and statements in the party's currency),
+# journals and CBT, PDC, returns, openings, asset retirement, statements,
+# aging and the legacy invoice / vendor / customer saves and posts (listed by
+# require closure; glWriting's change only carries the foreign amounts,
+# which only these produce). Roles & Permissions: the new "rates" right.
+# After the deploy: tick Currency Configuration "rates" for the roles that
+# enter rates; set each company's Exchange Gain / Loss account.
+getExchangeRates
+saveExchangeRate
+getExchangeRateOn
+getFxSettings
+saveFxSettings
+getInventoryAging
+getPartyAging
+decideFaPostingApproval
+deleteFaPostingDraft
+getFaClearingItems
+getFaPostings
+postFaPosting
+reverseFaPosting
+saveFaPostingDraft
+getFaRetirementSetup
+previewFaRetirement
+decideCustomerInvoiceReversalApproval
+decideVendorInvoiceReversalApproval
+getCustomerInvoiceEntries
+getVendorInvoiceEntries
+requestReverseCustomerInvoice
+requestReverseVendorInvoice
+generateItemBarcodes
+getBarcodeIndex
+getBarcodeSettings
+getItemBarcodes
+getLabelSheet
+saveBarcodeSettings
+saveItemBarcodes
+decideJournalEntryApproval
+deleteJournalDraft
+getCbtEntries
+getJournalEntries
+getPartyAccounts
+getPartyOpenItems
+postJournalEntry
+reverseJournalEntry
+saveCbtDraft
+saveJournalDraft
+decideCustomerInvoiceApproval
+decideVendorInvoiceApproval
+postCustomerInvoice
+postVendorInvoice
+saveCustomer
+saveCustomerInvoiceDraft
+saveVendor
+saveVendorInvoiceDraft
+checkMasterImport
+getMasterImportRecords
+getMasterImportSpecs
+runMasterImport
+checkOpeningBalances
+findOpeningBatch
+getOpeningBalanceSetup
+postOpeningBalances
+reverseOpeningBalanceBatch
+saveOpeningBalanceSettings
+getPartyStatement
+bouncePdc
+cancelPdc
+clearPdcs
+decidePdcApproval
+deletePdcDraft
+getPdcEntries
+getPdcOpenItems
+getPdcSetup
+getPdcsDueForUser
+postPdc
+savePdcDraft
+undoPdcClearing
+closeFinancialYear
+closePeriod
+getFinancialYearStart
+getPeriodClosing
+getPeriodClosingChecklist
+reopenFinancialYear
+reopenPeriod
+savePeriodClosingSettings
+tickPeriodClosingStep
+decidePurchaseReturnApproval
+deletePurchaseReturnDraft
+getPurchaseReturnEntries
+getReturnableVendorInvoices
+postPurchaseReturn
+reversePurchaseReturn
+savePurchaseReturnDraft
+activateRecurringJournal
+decideRecurringJournalApproval
+deleteRecurringJournalDraft
+endRecurringJournal
+getRecurringJournal
+getRecurringJournalSetup
+getRecurringJournals
+getRecurringJournalsDueForUser
+pauseRecurringJournal
+postRecurringJournalRuns
+previewRecurringJournal
+repostRecurringJournalRun
+reverseRecurringJournalRun
+saveRecurringJournalDraft
+skipRecurringJournalRun
+rematchJournalEntry
+confirmRetailReturn
+confirmRetailSale
+createRetailCustomer
+findRetailSaleForReturn
+getRetailCounter
+getRetailSale
+getRetailSales
+getRetailSalesSetup
+reverseRetailReturn
+reverseRetailSale
+saveRetailPaymentMethod
+saveRetailSalesSettings
+decideSalesReturnApproval
+deleteSalesReturnDraft
+getReturnableCustomerInvoices
+getSalesReturnEntries
+postSalesReturn
+reverseSalesReturn
+saveSalesReturnDraft
+getBatchExpiryReport
+getReorderReport
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions

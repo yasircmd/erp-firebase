@@ -1737,7 +1737,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
       'the invoice keeps the currency, the rate on its date (or the user\'s own, with a reason) and its total in base.',
     find: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,`,
     replace: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
-      ...(invoiceCurrencyFields_(idToken, customerData, invoiceDate, invoiceData, total)), // [NEW DEVELOPMENT invoice-currency]`
+      ...(invoiceCurrencyFields_(idToken, customerData, invoiceDate, invoiceData, total, { dns: sourceDeliveryNotes.length > 0 })), // [NEW DEVELOPMENT invoice-currency]`
   },
   {
     id: 'invoice-currency (vendor save)',

@@ -19,12 +19,16 @@
 <ul><li>The GRN is posted and the purchase is received.</li><li>The supplier and company match the PO and GRN.</li><li>The invoice amount and quantities are ready for verification.</li></ul>
 <h2 id="step-by-step">Step by step</h2>
 <ol><li>Open <strong>Vendor Invoice</strong> and choose the company.</li><li>Choose the supplier and the relevant GRNs to match.</li><li>Review the items, quantities and amounts before posting.</li><li>Save or post the vendor invoice once the supplier bill is confirmed.</li><li>Review the payables impact in the ledger.</li></ol>
+<h2 id="a-vendor-in-a-foreign-currency">A vendor in a foreign currency</h2>
+<p>If the vendor's <strong>Default Currency</strong> (Vendor Master) is not the default currency, its invoice is in that currency:</p>
+<ul><li>the screen shows <strong>Currency and rate</strong>: the rate on the invoice date, from <a href="currencies.html">Currency Configuration</a>;</li><li>you may type another rate, with a reason;</li><li>the total shows in the vendor's currency, with its value in the default currency beside it;</li><li>for now such an invoice takes <strong>direct lines only</strong>: GRNs stay in the default currency.</li></ul>
+<p>The books are in the default currency, at the invoice's rate; each line keeps its foreign amount too. A reversal uses the invoice's own rate.</p>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
 <p>The vendor invoice records the supplier liability and clears the matched purchase value from the receiving side. This is the main point where the purchase becomes a balance in accounts payable.</p>
 <h2 id="rights">Rights</h2>
 <p>Users need access and post rights for supplier invoice processing; approval may be required in some companies.</p>
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
-<ul><li>If the invoice is refused, the supplier, GRN or company may not match.</li><li>If the amount does not tie to the GRN, recheck the posted receipt and the supplier bill.</li></ul><p class="crumb">Last reviewed 16/10/2026</p></main>
+<ul><li>If the invoice is refused, the supplier, GRN or company may not match.</li><li><strong>&quot;No exchange rate for USD on or before …&quot;</strong>: enter a rate in Currency Configuration → Rates.</li><li>If the amount does not tie to the GRN, recheck the posted receipt and the supplier bill.</li></ul><p class="crumb">Last reviewed 16/10/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>

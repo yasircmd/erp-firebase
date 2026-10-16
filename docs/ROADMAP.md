@@ -152,7 +152,17 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   Reset (Chart of Accounts and the transactional data) so the chart starts
   on the new seed (decision 209). Wave 3: the owner's direction 2026-10-16
   (round 16); P and R skipped for now; O, Q, S, T designs agreed (211–236,
-  "go with your recommendations"); building in order O, Q, S, T**,
+  "go with your recommendations"); building in order O, Q, S, T. **O1
+  built 2026-10-16** on branch `tier3-wave3` (MULTI_CURRENCY.md "As
+  built"): rates by date and the "rates" right, the Exchange Gain / Loss
+  account, foreign-currency Customer / Vendor Invoices, Sales Return at the
+  invoice's rate, CBT lines in FC with realized exchange differences,
+  SOA and aging in FC; suite multiCurrency (9) and UI multiCurrency, two
+  negative controls; deploy set `ux-tier3-wave3` (126 functions,
+  --screens, then Hosting). After it goes live: tick "rates"; set each
+  company's Exchange Gain / Loss account. **Next: O2** (PDC, openings, JV
+  party lines and bank accounts in FC, VAT in AED on the print), then Q,
+  S, T**,
   triaged into three tiers (in this session's plan, agreed 2026-10-14).
   - **Tier 1, fix now** (owner said go, 2026-10-14): all nine built and
     tested 2026-10-14 on branch `tier1-ux-fixes` (smoke 123/123; the

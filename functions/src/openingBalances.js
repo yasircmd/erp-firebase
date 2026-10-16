@@ -121,6 +121,7 @@ async function loadData() {
   const snaps = await Promise.all(paths.map(p => rtdb.ref(p).get()));
   const d = {};
   paths.forEach((p, i) => { d[p] = snaps[i].val() || {}; });
+  d.baseCode = (await require('./exchangeRates').baseCurrency()).Code;
   return d;
 }
 
@@ -292,7 +293,10 @@ function checkInvoiceRow(r, d, companyId, openingDate, issue, seen, rowNo, exist
     else {
       const p = f.hit;
       const acc = d.coa[p[cfg.accountField]];
+      const fc = require('./fx').partyCurrency(p, d.baseCode);
       if (!acc || acc.IsPostable !== true) issue('party', (p[cfg.nameField] || p[cfg.codeField]) + ' has no valid ' + cfg.accountLabel + ' account (' + r.partyType + ' Master).');
+      // Openings in a foreign currency come with phase 2 (docs/modules/MULTI_CURRENCY.md).
+      else if (fc) issue('party', (p[cfg.nameField] || p[cfg.codeField]) + ' is invoiced in ' + fc + ': opening balances in a foreign currency are not available yet.');
       else {
         r.partyId = p._id; r.partyName = p[cfg.nameField] || p[cfg.codeField] || '';
         r.accountCode = String(acc.AccountCode); r.paymentTerms = Number(p.PaymentTermsDays) || 0;

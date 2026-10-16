@@ -6,7 +6,7 @@ modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
 reviewed: 2026-10-16
-fingerprint: a2995548fbe598c3
+fingerprint: 0fb0324e20504a45
 ---
 ## What it is for
 
@@ -43,6 +43,15 @@ Records every movement through a cash or bank account:
    transaction type, it goes for approval instead.
 8. **Print** gives the payment or receipt voucher.
 
+### A vendor or customer in a foreign currency
+
+For a party invoiced in a foreign currency (say USD), the line shows a
+**USD amount** beside the **Amount**: enter both, what the bank moved in
+the default currency and what it is in USD. The allocation is in USD. If
+the bills were at another rate, the ERP adds the **exchange difference**
+lines itself: one on the party's account and one on the company's
+Exchange Gain / Loss account ([Currency Configuration](currencies.html)).
+
 ### Correcting a posted transaction
 
 Select **Reverse Entry** and choose the date: a mirror entry is posted and
@@ -75,5 +84,7 @@ can be set per transaction type (Approval Configuration).
   **Re-match references** (the **rematch** right): choose the right bill
   without reversing the payment
   ([Paying and allocating](payments-and-allocation.html)).
+- **"… is invoiced in USD: enter the line's USD amount and its rate"**:
+  fill the USD amount on that line.
 - **Post-dated cheques** are not entered here: use
   [Post-dated Cheques](post-dated-cheques.html).

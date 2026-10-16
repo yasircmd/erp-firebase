@@ -6,7 +6,7 @@ modules: [VENDORMASTER]
 sources: [functions/src/partyLedger.js]
 summary: Maintain the supplier record used in requisitions, purchase orders, GRNs and supplier bills.
 reviewed: 2026-10-16
-fingerprint: 4037bde21e7047f1
+fingerprint: 7e57b1dff3c80aa8
 ---
 ## What it is for
 
@@ -24,6 +24,14 @@ fingerprint: 4037bde21e7047f1
 2. Add or update the vendor's basic details: name, address, contact and tax information.
 3. Complete the trade details needed for purchasing and payment processing.
 4. Save the vendor and test a PO or GRN using that vendor.
+
+## A vendor in a foreign currency
+
+Set **Default Currency** to the vendor's currency (for example USD) and
+its invoices, payments and statement are in it, at the rates in
+[Currency Configuration](currencies.html). Leave it on the company default
+for a local vendor. Once the vendor has invoices or payments, its currency
+can't change: create a new vendor for another currency.
 
 ## What happens in the books
 

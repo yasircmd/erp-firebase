@@ -6,7 +6,7 @@ modules: [SALESRETURN]
 sources: [functions/src/salesReturn.js, functions/src/partyLedger.js]
 summary: Record returns from customers, reverse the sale and create the credit note to the customer.
 reviewed: 2026-10-16
-fingerprint: 8a52d896828c076a
+fingerprint: 5a170a77e7a3dc75
 ---
 ## What it is for
 
@@ -29,6 +29,11 @@ fingerprint: 8a52d896828c076a
 ## What happens in the books
 
 The return reduces the customer receivable and may re-enter stock. It can also trigger a sales return variance if the value differs from the original invoice.
+
+For a customer in a foreign currency, the credit note is in its currency
+at the **invoice's** rate, not the rate on the return date, so it takes back
+exactly what the invoice booked; the stock comes back at its cost in the
+default currency.
 
 ## Rights
 

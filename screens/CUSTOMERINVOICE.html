@@ -105,7 +105,7 @@
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Invoice Date</label><input type="date" id="cinv-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
     <div id="cinv-fx" class="hidden">
-      <label class="block text-xs font-medium text-slate-300 mb-1">Currency and rate <span class="text-slate-500">(the customer is invoiced in its own currency)</span></label>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Currency and rate <span class="text-slate-500">(the customer is invoiced in its own currency; for now item lines and direct lines, Delivery Notes stay in <span class="cinv-base-code"></span>)</span></label>
       <div class="flex flex-wrap items-center gap-2 text-sm"><span>1 <b id="cinv-fx-code" class="font-mono"></b> =</span>
         <input id="cinv-fx-rate" inputmode="decimal" class="w-28 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-right"><span id="cinv-fx-base" class="font-mono"></span>
         <input id="cinv-fx-reason" maxlength="200" placeholder="Reason for another rate" class="hidden flex-1 min-w-[10rem] bg-slate-900 border border-amber-500/50 rounded-lg py-1.5 px-2 text-sm"></div>

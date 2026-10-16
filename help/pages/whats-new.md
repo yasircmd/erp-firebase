@@ -12,6 +12,20 @@ screen.
 
 ## 16/10/2026
 
+- **Vendors and customers in a foreign currency.** A vendor or customer
+  whose Default Currency is, say, USD is invoiced, paid and given its
+  statement in USD. Enter rates by date in **Currency Configuration →
+  Rates** (1 USD = 3.6725 AED from a date until the next rate) and choose
+  each company's **Exchange Gain / Loss** account. Customer and Vendor
+  Invoices take the rate on their date (another rate needs a reason);
+  in **Cash and Bank** you enter the USD amount beside the amount, and a
+  difference from the bills' rates posts as an exchange gain or loss.
+  Statements and aging show USD with the AED beside it. For now: USD
+  invoices take direct lines (and item lines for customers), not GRNs or
+  separate Delivery Notes; journals, PDCs, openings and bank accounts in
+  a foreign currency come next. See [Currency Configuration](currencies.html),
+  [Customer Invoice](customer-invoice.html), [Vendor Invoice](vendor-invoice.html),
+  [Cash and Bank](cash-and-bank.html) and [Statements of account](statements-of-account.html).
 - **Item categories of your own.** Besides the five, add a category
   such as Spare Parts with **New category…** in the item form. It has its
   own code prefix (SP-000001) and behaves like one of the five for BOMs

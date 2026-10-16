@@ -4256,7 +4256,7 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
       CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
       CostCenterID: costCenterId, ProfitCenterID: profitCenterId, CustomerID: customerId,
       SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
-      ...((await invoiceCurrencyFields_(idToken, customerData, invoiceDate, invoiceData, total))), // [NEW DEVELOPMENT invoice-currency]
+      ...((await invoiceCurrencyFields_(idToken, customerData, invoiceDate, invoiceData, total, { dns: sourceDeliveryNotes.length > 0 }))), // [NEW DEVELOPMENT invoice-currency]
       ItemLines: itemLines, ItemSalesTypeID: itemSalesTypeId, // [PORT CHANGE invoice-item-lines-save]
       Discount: discount, TaxPercent: taxPercent, TaxAmount: taxAmount, RoundOff: roundOff,
       Subtotal: subtotal, Total: total,

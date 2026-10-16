@@ -6,7 +6,7 @@ modules: [JV]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Record any accounting entry by debits and credits: accruals, corrections, reclassifications, write-offs.
 reviewed: 2026-10-16
-fingerprint: 0054ee8a1e6213ad
+fingerprint: f5b543d7b91d6e0e
 ---
 ## What it is for
 
@@ -79,3 +79,7 @@ Approval, where set up, is by the approvers in Approval Configuration.
 - **A party is required**: a line on a vendor's payables or customer's
   receivables account must name that party, and only that party's own
   account may be used.
+- **"… is invoiced in USD: enter the line's USD amount and its rate"**:
+  the party is in a foreign currency. For now enter its payments and
+  receipts in [Cash and Bank](cash-and-bank.html); journal lines in a
+  foreign currency come next.

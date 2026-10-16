@@ -87,6 +87,14 @@
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Vendor's Own Invoice Number</label><input type="text" id="vinv-form-vendorref" placeholder="As printed on their bill" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
   </div>
 
+  <div id="vinv-fx" class="hidden">
+    <label class="block text-xs font-medium text-slate-300 mb-1">Currency and rate <span class="text-slate-500">(the vendor is invoiced in its own currency; for now direct lines only, GRNs stay in <span class="vinv-base-code"></span>)</span></label>
+    <div class="flex flex-wrap items-center gap-2 text-sm"><span>1 <b id="vinv-fx-code" class="font-mono"></b> =</span>
+      <input id="vinv-fx-rate" inputmode="decimal" class="w-28 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-right"><span class="font-mono vinv-base-code"></span>
+      <input id="vinv-fx-reason" maxlength="200" placeholder="Reason for another rate" class="hidden flex-1 min-w-[10rem] bg-slate-900 border border-amber-500/50 rounded-lg py-1.5 px-2 text-sm"></div>
+    <p id="vinv-fx-note" class="text-xs text-slate-500 mt-1"></p>
+  </div>
+
   <div>
     <label class="block text-xs font-medium text-slate-300 mb-1">Description</label>
     <input type="text" id="vinv-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500">
@@ -141,7 +149,8 @@
       <div class="flex justify-between text-slate-400"><span>Discount</span><span id="vinv-discount-display" class="font-mono">0.00</span></div>
       <div class="flex justify-between text-slate-400"><span>Tax Amount</span><span id="vinv-tax-display" class="font-mono">0.00</span></div>
       <div class="flex justify-between text-slate-400"><span>Round Off</span><span id="vinv-roundoff-display" class="font-mono">0.00</span></div>
-      <div class="flex justify-between text-base font-bold pt-1 border-t border-slate-700"><span>Total</span><span id="vinv-total-display" class="font-mono">0.00</span></div>
+      <div class="flex justify-between text-base font-bold pt-1 border-t border-slate-700"><span>Total <span id="vinv-total-code" class="font-mono text-xs text-slate-400"></span></span><span id="vinv-total-display" class="font-mono">0.00</span></div>
+      <div id="vinv-total-base" class="hidden flex justify-between text-xs text-slate-400"><span>In <span class="vinv-base-code"></span> at the rate</span><span id="vinv-total-base-value" class="font-mono"></span></div>
     </div>
   </div>
 
@@ -235,6 +244,47 @@
   function parseAmount(v) { return parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
   function today() { return new Date().toISOString().substring(0, 10); }
   function vendorById(id) { return vendors.find(v => v.VendorID === id); }
+
+  // ---------- FOREIGN CURRENCY (docs/modules/MULTI_CURRENCY.md) ----------
+  // A foreign vendor's invoice is in its currency, at the rate on the
+  // invoice date; another rate needs a reason. A saved invoice shows its own.
+  let baseCode = '', fxSuggested = 0;
+  function fxCurrency() {
+    if (currentInvoice && currentInvoice.CurrencyCode) return currentInvoice.CurrencyCode;
+    const v = vendorById(document.getElementById('vinv-form-vendor').value);
+    const cur = String((v && v.DefaultCurrency) || '').toUpperCase();
+    return cur && cur !== baseCode ? cur : '';
+  }
+  function showFx() {
+    const cur = fxCurrency();
+    document.getElementById('vinv-fx').classList.toggle('hidden', !cur);
+    document.getElementById('vinv-total-code').textContent = cur;
+    document.getElementById('vinv-total-base').classList.toggle('hidden', !cur);
+    if (!cur) return;
+    document.getElementById('vinv-fx-code').textContent = cur;
+    document.querySelectorAll('.vinv-base-code').forEach(e => { e.textContent = baseCode; });
+    const editable = isInvoiceEditable();
+    const rateInput = document.getElementById('vinv-fx-rate');
+    rateInput.disabled = !editable;
+    if (currentInvoice && currentInvoice.CurrencyCode && document.activeElement !== rateInput && !rateInput.dataset.touched) rateInput.value = currentInvoice.ExchangeRate || '';
+    const differs = fxSuggested && Math.abs(parseAmount(rateInput.value) - fxSuggested) > 1e-9;
+    const reason = document.getElementById('vinv-fx-reason');
+    reason.classList.toggle('hidden', !(editable && differs));
+    if (currentInvoice && currentInvoice.ExchangeRateReason && !reason.value) reason.value = currentInvoice.ExchangeRateReason;
+  }
+  function loadFxRate() {
+    const cur = fxCurrency(), date = document.getElementById('vinv-form-date').value;
+    fxSuggested = 0;
+    showFx();
+    if (!cur || !date || !isInvoiceEditable()) return;
+    rpc.withSuccessHandler(r => {
+      fxSuggested = r.Rate;
+      const rateInput = document.getElementById('vinv-fx-rate');
+      if (!rateInput.dataset.touched) rateInput.value = r.Rate;
+      document.getElementById('vinv-fx-note').textContent = 'The rate from ' + r.EffectiveDate + ' (Currency Configuration).';
+      showFx(); updateTotals();
+    }).withFailureHandler(err => { document.getElementById('vinv-fx-note').textContent = err.message || 'No rate.'; }).getExchangeRateOn({ code: cur, date: date });
+  }
   function accountByCode(code) { return coaAccounts.find(a => a.AccountCode === code); }
 
   function currentHeaderDescription() { return document.getElementById('vinv-form-description').value.trim(); }
@@ -560,6 +610,7 @@
       document.getElementById('vinv-tax-display').textContent = formatMoney(currentInvoice.TaxAmount);
       document.getElementById('vinv-roundoff-display').textContent = formatMoney(currentInvoice.RoundOff);
       document.getElementById('vinv-total-display').textContent = formatMoney(currentInvoice.Total);
+      document.getElementById('vinv-total-base-value').textContent = currentInvoice.CurrencyCode ? formatMoney(currentInvoice.TotalBase) : '';
       return;
     }
     const grnSubtotal = eligibleGRNs.filter(g => selectedGRNIds.has(g.GRNID)).reduce((s, g) => s + (Number(g.Amount) || 0), 0);
@@ -576,6 +627,7 @@
     document.getElementById('vinv-tax-display').textContent = formatMoney(taxAmount);
     document.getElementById('vinv-roundoff-display').textContent = formatMoney(roundOff);
     document.getElementById('vinv-total-display').textContent = formatMoney(total);
+    document.getElementById('vinv-total-base-value').textContent = fxCurrency() ? formatMoney(Math.round(total * parseAmount(document.getElementById('vinv-fx-rate').value) * 100) / 100) : '';
   }
 
   // ---------- FORM COLLECTION ----------
@@ -598,7 +650,9 @@
       })),
       Discount: parseAmount(document.getElementById('vinv-form-discount').value),
       TaxPercent: parseAmount(document.getElementById('vinv-form-taxpercent').value),
-      RoundOff: parseAmount(document.getElementById('vinv-form-roundoff').value)
+      RoundOff: parseAmount(document.getElementById('vinv-form-roundoff').value),
+      ExchangeRate: fxCurrency() ? parseAmount(document.getElementById('vinv-fx-rate').value) : '',
+      ExchangeRateReason: fxCurrency() ? document.getElementById('vinv-fx-reason').value.trim() : ''
     };
   }
 
@@ -724,6 +778,10 @@
     document.getElementById('vinv-form-company').value = inv.CompanyID || '';
     document.getElementById('vinv-form-vendor').value = inv.VendorID || '';
     document.getElementById('vinv-form-date').value = inv.InvoiceDate || '';
+    delete document.getElementById('vinv-fx-rate').dataset.touched;
+    document.getElementById('vinv-fx-reason').value = inv.ExchangeRateReason || '';
+    document.getElementById('vinv-fx-rate').value = inv.ExchangeRate || '';
+    setTimeout(loadFxRate, 0);
     document.getElementById('vinv-form-vendorref').value = inv.VendorRefNumber || '';
     document.getElementById('vinv-form-description').value = inv.Description || '';
     document.getElementById('vinv-form-division').value = inv.DivisionID || '';
@@ -761,6 +819,9 @@
     selectedGRNIds = new Set();
     document.getElementById('vinv-form-company').value = '';
     document.getElementById('vinv-form-vendor').value = '';
+    delete document.getElementById('vinv-fx-rate').dataset.touched;
+    document.getElementById('vinv-fx-rate').value = ''; document.getElementById('vinv-fx-reason').value = '';
+    document.getElementById('vinv-fx').classList.add('hidden');
     document.getElementById('vinv-grn-picker-section').classList.add('hidden');
     document.getElementById('vinv-form-date').value = today();
     document.getElementById('vinv-form-vendorref').value = '';
@@ -945,7 +1006,10 @@
     document.getElementById('vinv-to-filter').addEventListener('change', renderList);
 
     document.getElementById('vinv-form-company').addEventListener('change', fetchEligibleGRNs);
-    document.getElementById('vinv-form-vendor').addEventListener('change', fetchEligibleGRNs);
+    document.getElementById('vinv-form-vendor').addEventListener('change', () => { fetchEligibleGRNs(); delete document.getElementById('vinv-fx-rate').dataset.touched; loadFxRate(); });
+    document.getElementById('vinv-form-date').addEventListener('change', () => { if (!document.getElementById('vinv-fx-rate').dataset.touched) loadFxRate(); });
+    document.getElementById('vinv-fx-rate').addEventListener('input', e => { e.target.dataset.touched = '1'; showFx(); updateTotals(); });
+    rpc.withSuccessHandler(c => { baseCode = (c && c.Code) || ''; showFx(); }).withFailureHandler(() => {}).getDefaultCurrency();
     document.getElementById('vinv-form-discount').addEventListener('input', updateTotals);
     document.getElementById('vinv-form-taxpercent').addEventListener('input', updateTotals);
     document.getElementById('vinv-form-roundoff').addEventListener('input', updateTotals);
