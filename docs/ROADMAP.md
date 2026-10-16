@@ -141,18 +141,16 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   "shareholders" and JV / CBT "rematch" for the roles that should have
   them (added capabilities are not seeded into the live permissions).
   Wave 2 (H–N): designs agreed 2026-10-16 (round 15, 208–210); K set
-  aside. **All six built 2026-10-16 on branch `tier3-wave2`**:
+  aside. **All six live 2026-10-16** (PR #128; deploy runs #158–#159):
   I payroll cost centre per run and cost split (PAYROLL_COST_SPLIT.md),
   H direct sales invoice (DIRECT_SALES_INVOICE.md), J end-of-service
   statement (EOS_STATEMENT.md), L the shell's search picker
   (SEARCH_PICKER.md), M Chart of Accounts classes / groups, Cash / Bank
   mark and Renumber (COA_NUMBERING.md), N item categories of your own
   (ITEM_CATEGORIES_CUSTOM.md); each with tests, a negative control, Help
-  and What's new ("As built" in each doc). **To go live:** after merging,
-  `tools/deploy-functions.sh ux-tier3-wave2 --screens`, then Hosting
-  (index.html, ess.html, Help); then the owner runs **Data Reset** (Chart
-  of Accounts and the transactional data) so the chart starts on the new
-  seed (decision 209). Wave 3 still to design**,
+  and What's new ("As built" in each doc). **Owner, still to do:** Data
+  Reset (Chart of Accounts and the transactional data) so the chart starts
+  on the new seed (decision 209). Wave 3 still to design**,
   triaged into three tiers (in this session's plan, agreed 2026-10-14).
   - **Tier 1, fix now** (owner said go, 2026-10-14): all nine built and
     tested 2026-10-14 on branch `tier1-ux-fixes` (smoke 123/123; the

@@ -1132,3 +1132,19 @@ from, and how it was verified. The deploy procedure is in the
   (07:22–07:23 UTC), from `9dea321` (PR #126), success; the owner confirms.
   Still to do in the app: tick Company Master "shareholders" and JV / CBT
   "rematch" in Roles & Permissions for the roles that should have them.
+- **2026-10-16, UX testing Tier 3, wave 2 (`ux-tier3-wave2`, with screens;
+  Hosting):** runs
+  [#158](https://github.com/yasircmd/erp-firebase/actions/runs/38931999696)
+  (16:26–17:03 UTC: 131 functions in 22 batches, then screens release
+  `20261016T170311Z-60437b5`, 86 screens) and
+  [#159](https://github.com/yasircmd/erp-firebase/actions/runs/38936914522)
+  (17:04–17:05 UTC: Hosting — index.html with the search picker, ess.html,
+  Help), from `60437b5` (PR #128), success. New callables:
+  setPayrollCostOverride, getInvoiceStockSettings, saveInvoiceStockSettings,
+  getInvoiceableOrderLines, getSettlementStatement, getAccountRenumberCodes,
+  renumberAccount, getCoaAccountsToFix, getItemCategories, saveItemCategory.
+  The owner confirms both are done. Still to do in the app: **Data Reset**
+  of the Chart of Accounts and the transactional data, so the chart starts
+  on the new class / group seed (COA_NUMBERING.md, decision 209); until
+  then Cash and Bank Transactions offers no cash or bank accounts (the old
+  accounts carry no Cash / Bank mark).
