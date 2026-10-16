@@ -1,6 +1,6 @@
 # End-of-service statement with the final settlement (UX Tier 3, J)
 
-Status: **design, waiting on the owner's answers** (questions 179–184).
+Status: **design agreed** (owner, 2026-10-16; UX_TIER3.md round 15).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 2, J).
 
 ## Today
@@ -67,3 +67,14 @@ once the settlement is paid (question 183).
   own statement once it is paid? Recommended: yes.
 - **184.** The amount in words: in the company's currency (AED, dirhams
   and fils)? Recommended: yes.
+
+## The owner's decisions (2026-10-16)
+
+| # | Decision |
+|---|---|
+| 179 | The **UAE standard** end-of-service statement layout (the one above); the owner may change it later. |
+| 180 | **Sent outside**: it prints without the ERP title bar (added to the external prints). |
+| 181 | English only, no Arabic. |
+| 182 | A draft prints marked DRAFT; the posted one plainly (the recommendation). |
+| 183 | The employee sees and downloads it in the Employee Portal once paid (the recommendation). |
+| 184 | The amount in words is in the **system currency**: the currency marked Default in Currency Configuration (the one JV and CBT record), not AED fixed. |

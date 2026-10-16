@@ -1,6 +1,6 @@
 # A searchable ledger / customer / vendor picker on every screen (UX Tier 3, L)
 
-Status: **design, waiting on the owner's answers** (questions 191–196).
+Status: **design agreed** (owner, 2026-10-16: the recommendations, questions 191–196; UX_TIER3.md round 15).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 2, L).
 
 ## Today
@@ -61,3 +61,10 @@ written and tested once.
 - **196.** Remember each user's **recent picks** at the top (e.g. the 5
   accounts last used on this screen)? Recommended: yes, kept in this
   browser.
+
+## The owner's decisions (2026-10-16)
+
+The recommendations, 191–196: JV, CBT and the invoices first, then the
+documents with a vendor / customer drop-down, then the reports; items too;
+any part of the name; no balance; full screen on a phone; each user's
+recent picks first (kept in the browser).

@@ -296,3 +296,20 @@ none, the recommendation is the one written here.
   item); the payment that settles it is re-matched. Tests: `rematch` suite
   (2), `rematch` UI (3); party-ledger suites (56) and UI pass; negative
   controls (the New Ref guard, the exclusion, server and screen) caught.
+
+## The owner's decisions, round 15 (2026-10-16): wave 2
+
+The owner answered some questions and left the rest at the
+recommendations. Each design doc has its own table.
+
+- **H** (166–172), **I** (173–178), **L** (191–196): the recommendations.
+- **J** (179–184): the UAE standard layout (to be changed later); sent
+  outside, so no ERP title bar; English only; the amount in words in the
+  **system currency** (the Default one in Currency Configuration).
+- **K** (185–190): **set aside for now**.
+- **M** (197–202): X00000 is the class (Assets, Liabilities …) and an
+  account always sits under a group (110001, never 100001); renumbering by
+  whoever may change the chart, with no new right; nothing kept from the
+  test data. **Follow-up questions 208–210** in COA_NUMBERING.md.
+- **N** (203–207): categories of your own, each with its own code prefix;
+  anyone with Item Master access may add one.

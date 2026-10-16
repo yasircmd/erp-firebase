@@ -1,6 +1,6 @@
 # Direct sales invoice, and Sales Order → invoice without a delivery (UX Tier 3, H)
 
-Status: **design, waiting on the owner's answers** (questions 166–172).
+Status: **design agreed** (owner, 2026-10-16: the recommendations, questions 166–172; UX_TIER3.md round 15).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 2, H).
 
 ## Today
@@ -106,3 +106,12 @@ otherwise.
   now (SALES_RETURN.md decision 5); it is a separate change.
 - **172.** The month-end check "Deliveries posted, not invoiced" stays as
   it is (a direct invoice is never in it). Agreed?
+
+## The owner's decisions (2026-10-16)
+
+The recommendations, 166–172: item lines for anyone who may post an
+invoice; skipping the delivery is a company setting, **off** by default;
+the rest of a partly delivered order may be invoiced directly, line by
+line; prices from the customer's price list with the Sales Order's
+"may change prices" rule; a delivery slip print; service lines still
+credited by JV; the "deliveries not invoiced" check unchanged.

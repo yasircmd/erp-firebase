@@ -1,6 +1,6 @@
 # Vendor and customer: your own extra fields (UX Tier 3, K)
 
-Status: **design, waiting on the owner's answers** (questions 185–190).
+Status: **set aside** (owner, 2026-10-16: "skip all now"; questions 185–190 open for later).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 2, K).
 
 ## Today

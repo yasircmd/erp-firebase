@@ -1,6 +1,6 @@
 # Item categories beyond the five (UX Tier 3, N)
 
-Status: **design, waiting on the owner's answers** (questions 203–207).
+Status: **design agreed** (owner, 2026-10-16; UX_TIER3.md round 15).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 2, N).
 The owner chose sub-categories first (Tier 2, 2026-10-16: "just add an
 option to add more categories", ITEM_SUBCATEGORIES.md). This item is only
@@ -57,3 +57,13 @@ sit under it.
 - **207.** Existing items: stay in their base category (recommended), or
   may they be moved to a new category (their code would then change, as a
   renumbering)?
+
+## The owner's decisions (2026-10-16)
+
+| # | Decision |
+|---|---|
+| 203 | Sub-categories **don't** cover it: build categories of your own. |
+| 204 | Each has its **own code prefix** and sequence. |
+| 205 | **Anyone with access** may add categories (Item Master access, not only Admin). |
+| 206 | Shared by all companies or one company's, chosen per category (the recommendation). |
+| 207 | Existing items stay in their category (the recommendation). |

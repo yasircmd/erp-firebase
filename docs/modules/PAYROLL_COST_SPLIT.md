@@ -1,6 +1,6 @@
 # Payroll: a cost centre for one run, and one employee's cost split by % (UX Tier 3, I)
 
-Status: **design, waiting on the owner's answers** (questions 173–178).
+Status: **design agreed** (owner, 2026-10-16: the recommendations, questions 173–178; UX_TIER3.md round 15).
 From the UX testing of 2026-10-14 (docs/modules/UX_TIER3.md, wave 2, I).
 
 ## Today
@@ -68,3 +68,13 @@ department.
   the largest share?
 - **178.** This changes HR_PAYROLL.md decision 4 ("the employee's cost
   centre only"). Agreed, still with **no profit centre** on payroll lines?
+
+## The owner's decisions (2026-10-16)
+
+The recommendations, 173–178: whoever may draft the run changes a cost
+centre for one run (with a reason); the split is on the employee record,
+through an approved Employee Change, and applies to every expense line
+(salary, provisions, final settlement); approvals and reports use the
+chosen **main** cost centre; HR_PAYROLL.md decision 4 changes accordingly,
+still with no profit centre. The payslip prints the slip's own cost centre
+(the bug found).
