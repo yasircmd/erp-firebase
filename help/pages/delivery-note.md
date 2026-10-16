@@ -5,7 +5,7 @@ order: 5
 modules: [DELIVERYNOTE]
 sources: [functions/src/stockMovement.js]
 summary: Deliver the ordered goods and record the stock movement out of the warehouse to the customer.
-reviewed: 2026-10-12
+reviewed: 2026-10-16
 fingerprint: c0157887ecaff846
 ---
 ## What it is for
@@ -24,6 +24,7 @@ fingerprint: c0157887ecaff846
 2. Select the sales order or inventory lines to deliver.
 3. Check the item, quantity, warehouse and delivery date.
 4. Post the note. The stock ledger reduces the item quantity and records the issue to a customer.
+5. Until a posted customer invoice includes it, the delivery is a Home task for the **Invoicing** team set in [Approval Configuration](approval-configuration.html) (or, with no team, for you). The list's invoicing column shows it as **Pending invoice**.
 
 ## What happens in the books
 

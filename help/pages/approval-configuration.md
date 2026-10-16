@@ -5,8 +5,8 @@ order: 6
 modules: [APPROVALCONFIG]
 sources: [functions/src/approvals.js, functions/src/followUps.js, functions/src/approvalRegistry.js]
 summary: Set the approval rules by module, level and company so documents flow to the right approvers.
-reviewed: 2026-10-12
-fingerprint: d8733e332081e8a4
+reviewed: 2026-10-16
+fingerprint: 78d730541c30202a
 ---
 ## What it is for
 
@@ -30,7 +30,10 @@ fingerprint: d8733e332081e8a4
 	- **Flat** is a required approval without amount thresholds.
 3. Select the scope record (skip this picker for Global). Add one or more levels and assign the specific approver user for each. Save the module settings and level records.
 4. Configure the required scope values consistently. A Company-scoped module needs levels saved for each company that should use approval; changing the scope type does not create the levels for you.
-5. For a module with a **Follow-up Team** panel, select the users for that scope and save separately. Follow-up tasks are not approval levels: everyone selected receives the Home task, and the first person to act clears it for the group.
+5. For a module with a **Follow-up Team** panel, select the users for that scope and save separately. Follow-up tasks are not approval levels: everyone selected receives the Home task, and the first person to act clears it for the group. The teams are:
+   - **Production** (Sales Job Orders) and **Procurement** (Purchase and Inventory Purchase Requisitions);
+   - **Invoicing** (Delivery Note): a posted delivery stays in the team's tasks until a posted customer invoice includes it; with no team for its scope, the user who made the delivery gets the task;
+   - **Treasury** (PDC Received and PDC Issued): a pending cheque appears in the team's Home tasks a number of days before its date (**Days before the cheque date**, 3 to start, one setting for every company and both screens). Once a team is set for a scope, only the team sees those cheques; with no team, everyone who may post PDCs sees them from the cheque date.
 6. Test with a draft transaction below and above the intended threshold, and confirm the right approver sees the task. Also test the no-approval case if some scopes intentionally have no levels.
 
 ## What happens in the books

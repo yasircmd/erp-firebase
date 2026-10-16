@@ -1,0 +1,7 @@
+# UX testing Tier 3, wave 1 (owner, 2026-10-16; docs/modules/UX_TIER3.md).
+# Run with --screens. Hosting too (tools/deploy-hosting.sh): the Help pages.
+# A, B: deliveries to invoice and PDCs due, as follow-up teams.
+getMyFollowUpTasksForUser
+getFollowUpTeams
+saveFollowUpTeam
+getPdcsDueForUser

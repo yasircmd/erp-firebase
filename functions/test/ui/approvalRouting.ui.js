@@ -22,7 +22,8 @@ async function seed() {
   f.requisitionCategories = { RC1: { Name: 'Stationery', Type: 'Direct Expense', GLAccountID: 'A-EXP', Status: 'Active', CompanyID: 'C1' } };
   f.approvalConfigurations = { CBT: { Enabled: true, ScopeType: 'Global', GateType: 'Flat' },
     PURCHASEREQUISITION: { Enabled: false, ScopeType: 'CostCenter', GateType: 'Flat' },
-    JOBORDERREQUEST: { Enabled: false, ScopeType: 'Global', GateType: 'Flat' } };
+    JOBORDERREQUEST: { Enabled: false, ScopeType: 'Global', GateType: 'Flat' },
+    PDCRECEIVED: { Enabled: false, ScopeType: 'Global', GateType: 'Flat' } };
   f.approvalLevels = { CBT: { GLOBAL: { Levels: [{ LevelNumber: 1, ApproverUserID: 'u-approver', ThresholdAmount: 0 }] } } };
   f.items.FG1 = { ItemCode: 'FG-001', ItemName: 'Panel', Category: 'FinishedGood', Status: 'Active', CompanyID: 'C1', UOMID: 'UOM-PCS', InventoryAccountID: 'A-INV', ConsumptionAccountID: 'A-CONS' };
   f.jobOrderBatches = { B1: { Origin: 'Sales', CompanyID: 'C1', CostCenterID: 'CC1', Status: 'Submitted', BatchNumber: 'JOB-26-1', JODate: D, Description: 'Panels' } };
@@ -98,6 +99,28 @@ async function seed() {
     await page.click('#ac-followup-save-btn');
     await page.waitForSelector('#ac-followup-saved:not(.hidden)');
     assert.deepEqual(await val('approvalFollowUps/JOBORDERREQUEST/GLOBAL/UserIDs'), ['u-admin'], 'the tick survived the saved team arriving');
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
+  await check('PDC Received: the Treasury team, and the days before the cheque date (3, changed to 5) (owner, 2026-10-16)', async () => {
+    const page = await open('APPROVALCONFIG');
+    await configure(page, 'PDCRECEIVED');
+    await page.waitForSelector('#ac-followup-block:not(.hidden)', { timeout: 5000 });
+    assert.equal(await page.textContent('#ac-followup-team'), 'Treasury');
+    await page.waitForSelector('#ac-followup-days-wrap:not(.hidden)', { timeout: 5000 });
+    assert.equal(await page.inputValue('#ac-followup-days'), '3');
+    await page.fill('#ac-followup-days', '5');
+    await page.check('.ac-followup-user[value="u-approver"]');
+    await page.click('#ac-followup-save-btn');
+    await page.waitForSelector('#ac-followup-saved:not(.hidden)');
+    assert.equal(await val('approvalFollowUpSettings/PDC/DaysBefore'), 5);
+    assert.deepEqual(await val('approvalFollowUps/PDCRECEIVED/GLOBAL/UserIDs'), ['u-approver']);
+    // Not on a module without it.
+    await configure(page, 'JOBORDERREQUEST');
+    await page.waitForSelector('#ac-followup-block:not(.hidden)', { timeout: 5000 });
+    await page.waitForFunction(() => document.getElementById('ac-followup-team').textContent === 'Production');
+    assert.ok(await page.isHidden('#ac-followup-days-wrap'));
     assert.deepEqual(page.__errors, []);
     await page.close();
   });

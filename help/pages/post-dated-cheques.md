@@ -5,8 +5,8 @@ order: 8
 modules: [PDCRECEIVED, PDCISSUED]
 sources: [functions/src/pdc.js]
 summary: Cheques dated in the future: received from customers or issued to vendors, then cleared, bounced or cancelled.
-reviewed: 2026-10-12
-fingerprint: ed58f1a9eede9abb
+reviewed: 2026-10-16
+fingerprint: 85a32fba4ef19cb7
 ---
 ## What it is for
 
@@ -42,6 +42,10 @@ cheque in a clearing account until then.
 
 When the cheque date comes, the cheque appears in Home tasks under
 **Post-dated Cheques Due to Clear** and in the **Due to clear** view.
+If a **Treasury** team is set for the company in
+[Approval Configuration](approval-configuration.html), only the team sees it
+on Home, and a few days before its date (3 to start); a cheque not yet due
+shows its date in amber, an overdue one in red.
 Select **Clear to Bank** with the clearing date (not before the cheque
 date); for a received cheque, choose the bank account it was deposited
 into. Several cheques can be cleared together with **Clear Selected**.

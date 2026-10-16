@@ -17,9 +17,20 @@ const onCallOptions = { region: 'us-central1' };
 const FOLLOW_UP_MODULES = [
   { ModuleID: 'JOBORDERREQUEST', Team: 'Production', When: 'A Sales Job Order line is accepted, until its first production entry or it is stopped.' },
   { ModuleID: 'PURCHASEREQUISITION', Team: 'Procurement', When: 'A requisition is submitted (approved), until a Purchase Order from it is submitted or it is closed.' },
-  { ModuleID: 'INVENTORYPURCHASEREQUISITION', Team: 'Procurement', When: 'A requisition is submitted (approved), until a Purchase Order from it is submitted or it is closed.' }
+  { ModuleID: 'INVENTORYPURCHASEREQUISITION', Team: 'Procurement', When: 'A requisition is submitted (approved), until a Purchase Order from it is submitted or it is closed.' },
+  // Owner, 2026-10-16 (docs/modules/UX_TIER3.md, A; decisions 152-153).
+  { ModuleID: 'PDCRECEIVED', Team: 'Treasury', When: 'A cheque is pending, from some days before its date (below), until it is cleared, bounced or cancelled. Once a team is set, only the team sees it on Home.', DaysBefore: true },
+  { ModuleID: 'PDCISSUED', Team: 'Treasury', When: 'A cheque is pending, from some days before its date (below), until it is cleared, bounced or cancelled. Once a team is set, only the team sees it on Home.', DaysBefore: true },
+  { ModuleID: 'DELIVERYNOTE', Team: 'Invoicing', When: 'A delivery is posted (approved), until a posted Customer Invoice includes it. With no team for its scope, the user who made it.' }
 ];
 const isFollowUpModule = id => FOLLOW_UP_MODULES.some(m => m.ModuleID === id);
+// PDCs: how many days before the cheque date the Treasury team sees it
+// (decision 154: 3, one setting for every company and both directions).
+const PDC_DAYS_DEFAULT = 3;
+async function pdcDaysBefore() {
+  const v = (await rtdb.ref('approvalFollowUpSettings/PDC/DaysBefore').get()).val();
+  return Number.isInteger(v) && v >= 0 ? v : PDC_DAYS_DEFAULT;
+}
 const labelOf = id => (MODULE_REGISTRY.find(m => m.id === id) || {}).label || id;
 
 // The scope key a document falls under, from the module's ScopeType, as the
@@ -50,7 +61,9 @@ exports.getFollowUpTeams = onCallWithMessages(onCallOptions, async (request) => 
   if (!moduleId) return { modules: FOLLOW_UP_MODULES.map(m => Object.assign({ Label: labelOf(m.ModuleID) }, m)) };
   if (!isFollowUpModule(moduleId)) return { teams: [] };
   const data = (await rtdb.ref('approvalFollowUps/' + moduleId).get()).val() || {};
+  const m = FOLLOW_UP_MODULES.find(x => x.ModuleID === moduleId);
   return {
+    daysBefore: m.DaysBefore ? await pdcDaysBefore() : null,
     teams: Object.keys(data).map(scopeKey => ({
       ScopeKey: scopeKey, UserIDs: data[scopeKey].UserIDs || [], UpdatedAt: data[scopeKey].UpdatedAt || '', UpdatedBy: data[scopeKey].UpdatedBy || ''
     }))
@@ -80,6 +93,12 @@ exports.saveFollowUpTeam = onCallWithMessages(onCallOptions, async (request) => 
   userIds.forEach(u => {
     if (!users[u] || users[u].status !== 'Active') throw new HttpsError('invalid-argument', 'Select only active users.');
   });
+  // The PDC modules' days before the cheque date (one setting).
+  if ((FOLLOW_UP_MODULES.find(x => x.ModuleID === moduleId) || {}).DaysBefore && d.daysBefore !== undefined && d.daysBefore !== null && d.daysBefore !== '') {
+    const n = Number(d.daysBefore);
+    if (!Number.isInteger(n) || n < 0 || n > 60) throw new HttpsError('invalid-argument', 'Days before the cheque date: a whole number from 0 to 60.');
+    await rtdb.ref('approvalFollowUpSettings/PDC/DaysBefore').set(n);
+  }
   const ref = rtdb.ref('approvalFollowUps/' + moduleId + '/' + scopeKey);
   if (!userIds.length) { await ref.remove(); return { success: true }; }
   await ref.set({ UserIDs: userIds, UpdatedAt: new Date().toISOString(), UpdatedBy: user.profile.username || user.uid });
@@ -127,8 +146,27 @@ exports.getMyFollowUpTasksForUser = onCallWithMessages(onCallOptions, async (req
         DocumentDate: l.TargetDate || '', ReadySince: l.AcceptedAt || l.UpdatedAt || '' });
     });
   }
+  // Deliveries waiting for their invoice (UX_TIER3.md, A): for the Invoicing
+  // team of the delivery's scope; where it has none, for the user who made
+  // it (decision 152). A delivery is invoiced whole, so it stays until a
+  // posted invoice includes it (decision 153); on a draft invoice it stays.
+  if (await moduleHasCapability('DELIVERYNOTE', 'access', user.profile.role)) {
+    const [tx, customers] = (await Promise.all([rtdb.ref('stock/transactions').get(), rtdb.ref('customers').get()])).map(x => x.val() || {});
+    const me = [user.uid, user.profile.username].filter(Boolean);
+    Object.keys(tx).forEach(id => {
+      const dn = tx[id];
+      if (!dn || dn.TransactionType !== 'DeliveryNote' || dn.Status !== 'Posted' || dn.MatchedToInvoiceID || dn.ReversedByDeliveryNoteID || dn.ReversalOfDeliveryNoteID || !canSee(dn)) return;
+      const key = scopeKeyFor(scopeTypeOf('DELIVERYNOTE'), dn);
+      const team = (key && (((teams.DELIVERYNOTE || {})[key]) || {}).UserIDs) || [];
+      if (team.length ? !team.includes(user.uid) : !me.includes(dn.CreatedBy)) return;
+      tasks.push({ ModuleID: 'DELIVERYNOTE', ModuleLabel: labelOf('DELIVERYNOTE'), DocumentID: id, DocumentNumber: dn.TransactionNumber || '',
+        Description: 'To invoice: ' + (((customers[dn.CustomerID] || {}).CustomerName) || dn.Description || ''),
+        DocumentDate: dn.TransactionDate || '', ReadySince: dn.PostedAt || dn.UpdatedAt || '' });
+    });
+  }
   return tasks.sort((a, b) => (a.ReadySince || '').localeCompare(b.ReadySince || ''));
 });
 
 module.exports.FOLLOW_UP_MODULES = FOLLOW_UP_MODULES;
 module.exports.scopeKeyFor = scopeKeyFor;
+module.exports.pdcDaysBefore = pdcDaysBefore;

@@ -143,7 +143,8 @@ test('follow-up teams: saved per scope, validated, listed', async () => {
   assert.equal((await save('PURCHASEREQUISITION', 'CC1', ['u-buyer', 'u-buyer', ''])).success, true);
   assert.deepEqual((await call('u-admin', 'getFollowUpTeams', { moduleId: 'PURCHASEREQUISITION' })).teams.map(t => [t.ScopeKey, t.UserIDs]), [['CC1', ['u-buyer']]]);
   const mods = (await call('u-admin', 'getFollowUpTeams', {})).modules;
-  assert.deepEqual(mods.map(m => [m.ModuleID, m.Team]), [['JOBORDERREQUEST', 'Production'], ['PURCHASEREQUISITION', 'Procurement'], ['INVENTORYPURCHASEREQUISITION', 'Procurement']]);
+  assert.deepEqual(mods.map(m => [m.ModuleID, m.Team]), [['JOBORDERREQUEST', 'Production'], ['PURCHASEREQUISITION', 'Procurement'], ['INVENTORYPURCHASEREQUISITION', 'Procurement'],
+    ['PDCRECEIVED', 'Treasury'], ['PDCISSUED', 'Treasury'], ['DELIVERYNOTE', 'Invoicing']]); // + Tier 3 wave 1 (owner, 2026-10-16)
   assert.equal((await save('PURCHASEREQUISITION', 'CC1', [])).success, true);
   assert.equal(await val('approvalFollowUps/PURCHASEREQUISITION/CC1'), null, 'an empty team is removed');
 });

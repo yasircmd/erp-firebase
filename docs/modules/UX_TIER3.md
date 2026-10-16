@@ -195,3 +195,18 @@ none, the recommendation is the one written here.
 | 164 | Who may re-match | A **new right** (Re-match) on the entry's module. |
 | 165 | Re-match in a closed month | **Allowed** (the books don't change), and logged. |
 
+## As built: wave 1
+
+- **A** (2026-10-16): `followUps.js` adds DELIVERYNOTE (Invoicing):
+  posted, not reversed, no `MatchedToInvoiceID` (a delivery is invoiced
+  whole), for the team of its scope, else its maker (`CreatedBy`: username
+  or uid); "To invoice: <customer>". Users without Delivery Note access get
+  none. Tests: `followUpTasks` suite; negative control caught.
+- **B** (2026-10-16): PDCRECEIVED / PDCISSUED (Treasury) follow-up modules;
+  `approvalFollowUpSettings/PDC/DaysBefore` (default 3, 0-60, saved with a
+  PDC team in Approval Configuration). `getPdcsDueForUser`: a cheque whose
+  scope has a team goes only to the team (module access), up to DaysBefore
+  ahead; else, as before, to those with the post right, from its date.
+  Tests: `followUpTasks` suite, `approvalRouting` suite (8) and UI (4);
+  negative control caught.
+

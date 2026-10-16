@@ -135,7 +135,8 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 - [ ] **UX testing, 2026-10-14** (owner): 42 issues and suggestions. Tier 1
   live 2026-10-14 (PR #122), Tier 2 live 2026-10-16 (PR #123); **Tier 3:
   [UX_TIER3.md](modules/UX_TIER3.md); wave 1 (A–G) design agreed 2026-10-16
-  (decisions 152–165), to build; waves 2–3 in design**,
+  (decisions 152–165), building on branch `tier3-wave1` (deploy set
+  `ux-tier3-wave1`): A, B done; C–G to do; waves 2–3 in design**,
   triaged into three tiers (in this session's plan, agreed 2026-10-14).
   - **Tier 1, fix now** (owner said go, 2026-10-14): all nine built and
     tested 2026-10-14 on branch `tier1-ux-fixes` (smoke 123/123; the
