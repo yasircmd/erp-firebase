@@ -60,6 +60,10 @@ preserved quirks). Read it when touching a ported module.
   help/areas.json. The Deploy workflow refuses otherwise
   (functions/test/unit/help.test.js). Help is public: made-up examples,
   never real names, accounts or figures. Details: docs/modules/HELP.md.
+  **And always** (owner, 2026-10-16): every change users will see adds a
+  dated entry, newest first, to help/pages/whats-new.md ("What's new", in
+  Getting started), in the same PR, linking to the screen's page; then
+  stamp it.
 - **Keep docs/ROADMAP.md current** after every finished step, then commit
   and push, so a fresh session can continue from GitHub. Record every
   deploy in docs/DEPLOY_LOG.md.
