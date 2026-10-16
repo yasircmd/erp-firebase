@@ -1063,9 +1063,11 @@
       }, err => page(card(empty('fa-triangle-exclamation', err.message))));
     }
     function salesCustomer(id) { return salesData && salesData.customers.find(c => c.CustomerID === id); }
+    // Opened straight on an order or a collection: the customers first, for the name and balance.
+    const withSalesData = () => (salesData ? Promise.resolve(salesData) : api('salesHome', {}).then(r => (salesData = r)));
     function salesOrderForm(customerId) {
       page(skeleton());
-      api('salesItems', { customerId }).then(r => {
+      withSalesData().then(() => api('salesItems', { customerId })).then(r => {
         const c = salesCustomer(customerId) || { Name: '' };
         const lines = [];
         const render = () => {
@@ -1073,9 +1075,9 @@
           page('<div class="space-y-3">' + card('<div class="font-semibold">' + esc(c.Name) + '</div><div class="text-xs text-slate-500">Price list ' + esc(r.priceList) + '</div>', 'p-3') +
             card('<label class="block text-xs font-medium mb-1">Item</label><select id="so-item" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm"><option value="">Choose an item…</option>' +
               r.items.map(i => '<option value="' + esc(i.ItemCode) + '">' + esc(i.ItemName || i.ItemCode) + ' — ' + money(i.UnitPrice) + '</option>').join('') + '</select>' +
-              '<div id="so-stock" class="text-xs text-slate-500 mt-1"></div><div class="flex gap-2 mt-2"><select id="so-wh" class="flex-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm"></select>' +
-              '<input id="so-qty" inputmode="decimal" placeholder="Qty" class="w-24 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-right">' +
-              '<button id="so-add" class="rounded-xl bg-slate-800 text-white px-3 text-sm">Add</button></div>', 'p-3') +
+              '<div id="so-stock" class="text-xs text-slate-500 mt-1"></div><div class="flex gap-2 mt-2"><select id="so-wh" class="flex-1 min-w-0 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm"></select>' +
+              '<input id="so-qty" inputmode="decimal" placeholder="Qty" class="flex-1 min-w-0 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-right">' +
+              '<button id="so-add" class="shrink-0 rounded-xl bg-indigo-600 text-white px-3 text-sm font-semibold">Add</button></div>', 'p-3') +
             (lines.length ? card('<div id="so-lines" class="space-y-1 text-sm">' + lines.map((l, i) => '<div class="flex justify-between gap-2"><span>' + esc(l.name) + ' × ' + l.qty + '</span><span>' + money(l.qty * l.price) +
               ' <button class="so-del text-rose-500 ml-1" data-i="' + i + '"><i class="fa-solid fa-xmark"></i></button></span></div>').join('') + '<div class="flex justify-between font-semibold border-t border-slate-200 dark:border-slate-800 pt-1"><span>Total</span><span id="so-total">' + money(total) + '</span></div></div>', 'p-3') : '') +
             '<input id="so-note" maxlength="200" placeholder="Note for the office (optional)" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">' +
@@ -1106,6 +1108,7 @@
       }, err => page(card(empty('fa-triangle-exclamation', err.message))));
     }
     function salesCollectForm(customerId) {
+      if (!salesData) { page(skeleton()); withSalesData().then(() => salesCollectForm(customerId), err => page(card(empty('fa-triangle-exclamation', err.message)))); return; }
       const c = salesCustomer(customerId) || { Name: '' };
       page('<form id="col-form" class="space-y-3">' + card('<div class="font-semibold">' + esc(c.Name) + '</div><div class="text-xs text-slate-500">Balance ' + money(c.Balance || 0) + '</div>', 'p-3') +
         card('<div class="grid grid-cols-2 gap-2 text-sm"><label class="flex items-center gap-2"><input type="radio" name="col-m" value="Cash" checked> Cash</label><label class="flex items-center gap-2"><input type="radio" name="col-m" value="Cheque"> Cheque</label></div>' +

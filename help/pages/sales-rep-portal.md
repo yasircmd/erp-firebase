@@ -1,5 +1,5 @@
 ---
-fingerprint: 3e897fcd04ed765b
+fingerprint: 339b6fb864fa90d8
 reviewed: 2026-10-16
 title: Sales reps in the Employee Portal
 area: sales
