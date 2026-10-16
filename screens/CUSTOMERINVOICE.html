@@ -70,6 +70,7 @@
   </div>
 
   <div id="cinv-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+  <div id="cinv-einv" class="hidden no-print text-xs rounded-lg border p-3 space-y-1"></div>
   <div id="cinv-txn-ref-line" class="hidden text-xs text-slate-500 font-mono"></div>
 
   <div id="cinv-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
@@ -297,6 +298,39 @@
   function parseAmount(v) { return parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
   function today() { return new Date().toISOString().substring(0, 10); }
   function customerById(id) { return customers.find(c => c.CustomerID === id); }
+
+  // ---------- E-INVOICE (docs/modules/E_INVOICING.md) ----------
+  // A posted invoice of a company that e-invoices: its PINT AE document's
+  // status, what it still needs, the XML to download and "Check again".
+  function loadEInvoice(id) {
+    const box = document.getElementById('cinv-einv');
+    box.classList.add('hidden');
+    if (!id) return;
+    rpc.withSuccessHandler(r => renderEInvoice(id, r)).withFailureHandler(() => {}).getEInvoice({ kind: 'Invoice', id: id });
+  }
+  function renderEInvoice(id, r) {
+    const box = document.getElementById('cinv-einv'), rec = r && r.record;
+    if (!r || (!r.enabled && !rec)) return;
+    const label = rec ? { Ready: 'Ready to send', NotReady: 'Not ready', NotApplicable: 'Not e-invoiced' }[rec.Status] : 'Not built';
+    box.className = 'no-print text-xs rounded-lg border p-3 space-y-1 ' + (rec && rec.Status === 'NotReady' ? 'border-amber-500/30 bg-amber-500/10 text-amber-200' : 'border-slate-700 text-slate-300');
+    box.innerHTML = '<div class="flex flex-wrap items-center gap-2"><b>E-invoice:</b> <span id="cinv-einv-status">' + escapeHtml(label) + '</span>' +
+      (rec && rec.SendNote ? ' <span class="text-slate-400">' + escapeHtml(rec.SendNote) + '</span>' : '') +
+      (rec && rec.Xml ? ' <button id="cinv-einv-xml" class="bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded border border-slate-700"><i class="fa-solid fa-file-code"></i> Download XML</button>' : '') +
+      (!rec || rec.SendStatus !== 'Sent' ? ' <button id="cinv-einv-again" class="bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded border border-slate-700">Check again</button>' : '') + '</div>' +
+      (rec && rec.Issues && rec.Issues.length ? '<ul id="cinv-einv-issues" class="list-disc pl-5">' + rec.Issues.map(i => '<li>' + escapeHtml(i) + '</li>').join('') + '</ul>' : '');
+    box.classList.remove('hidden');
+    const xml = document.getElementById('cinv-einv-xml');
+    if (xml) xml.addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([rec.Xml], { type: 'application/xml' }));
+      a.download = (rec.Number || id) + '.xml';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+    const again = document.getElementById('cinv-einv-again');
+    if (again) again.addEventListener('click', () => rpc.withSuccessHandler(res => renderEInvoice(id, { enabled: true, record: res.record }))
+      .withFailureHandler(err => appAlert(err.message || 'Unable to check the e-invoice.')).rebuildEInvoice({ kind: 'Invoice', id: id }));
+  }
 
   // ---------- FOREIGN CURRENCY (docs/modules/MULTI_CURRENCY.md) ----------
   // A foreign customer's invoice is in its currency, at the rate on the
@@ -1143,6 +1177,7 @@
     document.getElementById('cinv-delete-btn').classList.toggle('hidden', (!currentInvoice || currentInvoice.Status !== 'Draft') || !canDraft);
     document.getElementById('cinv-reverse-btn').classList.toggle('hidden', !posted || Boolean(currentInvoice && (currentInvoice.ReversedByInvoiceID || currentInvoice.ReversalOfInvoiceID)) || !canPost);
     document.getElementById('cinv-print-btn').classList.toggle('hidden', !posted);
+    loadEInvoice(posted && currentInvoice ? currentInvoice.CustomerInvoiceID : '');
     document.getElementById('cinv-print-slip-btn').classList.toggle('hidden', !(posted && currentInvoice && (currentInvoice.ItemLines || []).length));
     renderItems();
     document.getElementById('cinv-gl-impact-btn').classList.toggle('hidden', !(currentInvoice && currentInvoice.LinkedJVID && (posted || currentInvoice.Status === 'PendingReversalApproval')));

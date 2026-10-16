@@ -22,6 +22,8 @@
 <p><strong>Invoices may deliver stock directly</strong> (per company, off unless you switch it on): choose the company, tick it and <strong>Save</strong>. Then a <a href="customer-invoice.html">Customer Invoice</a> can have item lines and deliver them itself when posted. Off, stock leaves only with a <a href="delivery-note.html">Delivery Note</a>.</p>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
 <p>This setup does not create an entry by itself. It determines how the ERP posts customer sales and related receivables and tax entries later in the workflow.</p>
+<h2 id="e-invoicing-uae">E-invoicing (UAE)</h2>
+<p>Under <strong>E-invoicing (UAE)</strong>, choose the company, tick <strong>E-invoicing on</strong> and give the date it starts. From that date each posted Customer Invoice, and each Sales Return (as a credit note), to a customer with a TRN gets its e-invoice in the UAE format (PINT AE), checked for what it needs. The invoice shows <strong>Ready to send</strong>, <strong>Not ready</strong> (with what is missing) or <strong>Not e-invoiced</strong> (a customer without a TRN), and its XML can be downloaded. Sending goes through your Accredited Service Provider (ASP) once one is chosen and connected; until then nothing is sent. The company needs its 15-digit TRN in Company Master (Tax numbers).</p>
 <h2 id="rights">Rights</h2>
 <p>Normally restricted to finance support or admin-level setup roles.</p>
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>

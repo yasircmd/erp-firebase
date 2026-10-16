@@ -12,6 +12,12 @@ screen.
 
 ## 16/10/2026
 
+- **E-invoicing, ready.** Switch it on per company in
+  [Sales Invoice Configuration](sales-invoice-setup.html), from a date: each
+  posted Customer Invoice and Sales Return to a customer with a TRN gets
+  its UAE e-invoice (PINT AE), checked, with its status and the XML to
+  download. It is sent once your Accredited Service Provider is chosen and
+  connected; nothing is sent before.
 - **Projects, and which accounts need a cost center.** A **Project** is
   a new kind of Organizational Unit, with a customer and dates; a Closed
   one takes no new postings. Journal and Cash and Bank lines take a

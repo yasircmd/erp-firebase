@@ -307,6 +307,8 @@ exports.saveItemCategory = require('./src/itemCategories').saveItemCategory;
 exports.getExchangeRates = require('./src/exchangeRates').getExchangeRates;
 exports.saveExchangeRate = require('./src/exchangeRates').saveExchangeRate;
 exports.getProjectReport = require('./src/projectReport').getProjectReport; // docs/modules/PROJECTS_DIMENSIONS.md
+// UAE e-invoicing, ready to send (docs/modules/E_INVOICING.md).
+['getEInvoiceSettings', 'saveEInvoiceSettings', 'getEInvoice', 'rebuildEInvoice'].forEach(n => { exports[n] = require('./src/eInvoicing')[n]; });
 exports.getExchangeRateOn = require('./src/exchangeRates').getExchangeRateOn;
 exports.getFxSettings = require('./src/exchangeRates').getFxSettings;
 exports.saveFxSettings = require('./src/exchangeRates').saveFxSettings;

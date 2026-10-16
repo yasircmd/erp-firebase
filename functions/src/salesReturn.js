@@ -415,6 +415,7 @@ async function commitSalesReturnPosting(user, existing, returnId) {
   // A GL entry genuinely exists from here on — no more reverting.
   await commitStockLedgerUpdates(movement.ledgerUpdates);
   await finalizeCommitAttempt(returnId, glResult, Object.assign({ Lines: movementLines, AllocatedToInvoice: against }, values), actor);
+  await require('./eInvoicing').recordEInvoice('CreditNote', returnId); // its e-invoice credit note, if the company e-invoices (E_INVOICING.md)
   return { returnNumber: glResult.jvNumber };
 }
 

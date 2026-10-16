@@ -15,6 +15,7 @@ const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
 const __customerPhone = require('../customerPhone');
 const __dimensionRules = require('../dimensionRules');
+const __eInvoicing = require('../eInvoicing');
 const __fx = require('../fx');
 const __glWriting = require('../glWriting');
 const __invoiceStock = require('../invoiceStock');
@@ -58,6 +59,7 @@ const projectFields_ = (idToken, ...a) => __projects.projectFields(...a);
 const cleanDimensionRules_ = (...a) => __dimensionRules.cleanRules(...a);
 const needsCostCenter_ = (idToken, ...a) => __dimensionRules.needsCostCenter(...a);
 const linesWithProject_ = (...a) => __projects.linesWithProject(...a);
+const recordEInvoice_ = (idToken, ...a) => __eInvoicing.recordEInvoice(...a);
 const generateVendorCode_ = (idToken, ...a) => __numbering.vendorCode(...a);
 const generateCustomerCode_ = (idToken, ...a) => __numbering.customerCode(...a);
 const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
@@ -4496,6 +4498,7 @@ async function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId)
   });
 
   await finalizeCommitAttempt_(idToken, invoiceId, glResult, {}, actor, 'customerInvoices');
+  await recordEInvoice_(idToken, 'Invoice', invoiceId); // [NEW DEVELOPMENT e-invoicing]
 
   return { invoiceNumber: glResult.jvNumber };
 }

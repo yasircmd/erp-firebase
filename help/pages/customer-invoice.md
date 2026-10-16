@@ -3,10 +3,10 @@ title: Customer Invoice
 area: sales
 order: 6
 modules: [CUSTOMERINVOICE]
-sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js]
+sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js, functions/src/eInvoicing.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
 reviewed: 2026-10-16
-fingerprint: f9fed17fb1a3a9cf
+fingerprint: 18eda66e1470f367
 ---
 ## What it is for
 
@@ -77,6 +77,15 @@ line the invoice posts carries it, for the
 ## What happens in the books
 
 The customer invoice creates the receivable and the sales revenue or tax entries. It usually represents the formal billing step that follows the delivery.
+
+## E-invoice
+
+If the company e-invoices (Sales Invoice Configuration), a posted invoice shows
+its **E-invoice**: **Ready to send**, **Not ready** with what is
+missing (for example the customer's address), or **Not e-invoiced** for a
+customer without a TRN. **Download XML** gives the file; after fixing the
+missing data, **Check again**. Nothing is sent until the company's ASP is
+connected.
 
 ## Rights
 

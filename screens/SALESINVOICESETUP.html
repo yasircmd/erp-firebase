@@ -15,6 +15,21 @@
     </div>
   </div>
 
+  <!-- UAE e-invoicing, ready to send (docs/modules/E_INVOICING.md, decisions 225-229): per company. -->
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-2">
+    <p class="text-sm font-semibold text-slate-200">E-invoicing (UAE)</p>
+    <p class="text-xs text-slate-500 max-w-2xl">On: from its start date, each posted Customer Invoice and Sales Return (a credit note) to a customer with a TRN gets its e-invoice (PINT AE), checked for what it needs and kept with the invoice, to download. It is sent through your Accredited Service Provider once one is connected; until then nothing is sent.</p>
+    <div class="flex flex-wrap items-center gap-3">
+      <select id="sis-ei-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"><option value="">Select a company...</option></select>
+      <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="sis-ei-on" class="rounded" disabled> E-invoicing on</label>
+      <label class="text-xs text-slate-400">from <input type="date" id="sis-ei-start" disabled class="bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-sm"></label>
+      <label class="text-xs text-slate-400">ASP <input id="sis-ei-asp" maxlength="120" disabled placeholder="Not chosen yet" class="bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-sm w-48"></label>
+      <button id="sis-ei-save" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save</button>
+      <span id="sis-ei-note" class="text-xs text-slate-400"></span>
+    </div>
+    <p id="sis-ei-status" class="text-xs text-slate-500"></p>
+  </div>
+
   <div>
     <div class="flex items-center justify-between mb-4">
       <div>
@@ -384,7 +399,33 @@
     fetchClassifications();
     loadReferenceData();
     wireDirectStock();
+    wireEInvoicing();
   };
+
+  // ---------- E-invoicing (docs/modules/E_INVOICING.md) ----------
+  function wireEInvoicing() {
+    const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+    const $ = id => document.getElementById(id);
+    const fields = ['sis-ei-on', 'sis-ei-start', 'sis-ei-asp'];
+    call('getActiveCompanies', {}).then(list => {
+      (list || []).forEach(c => { const o = document.createElement('option'); o.value = c.CompanyID; o.textContent = c.LegalName; $('sis-ei-company').appendChild(o); });
+      if ($('sis-ei-company').options.length === 2) { $('sis-ei-company').selectedIndex = 1; load(); }
+    });
+    function load() {
+      $('sis-ei-note').textContent = ''; $('sis-ei-status').textContent = ''; $('sis-ei-save').classList.add('hidden');
+      fields.forEach(id => { $(id).disabled = true; });
+      if (!$('sis-ei-company').value) return;
+      call('getEInvoiceSettings', { companyId: $('sis-ei-company').value }).then(r => {
+        $('sis-ei-on').checked = r.Enabled; $('sis-ei-start').value = r.StartDate; $('sis-ei-asp').value = r.AspName;
+        fields.forEach(id => { $(id).disabled = !r.canWrite; });
+        $('sis-ei-save').classList.toggle('hidden', !r.canWrite);
+        $('sis-ei-status').textContent = (r.CompanyTrnValid ? 'Company TRN ' + r.CompanyTrn + '.' : 'The company has no valid 15-digit TRN yet (Company Master → Tax numbers): e-invoices will not be ready.') + ' Sending: ' + r.Connector + '.';
+      }, err => { $('sis-ei-note').textContent = err.message || 'Unable to load.'; });
+    }
+    $('sis-ei-company').addEventListener('change', load);
+    $('sis-ei-save').addEventListener('click', () => call('saveEInvoiceSettings', { companyId: $('sis-ei-company').value, enabled: $('sis-ei-on').checked, startDate: $('sis-ei-start').value, aspName: $('sis-ei-asp').value.trim() })
+      .then(() => { $('sis-ei-note').textContent = 'Saved.'; }, err => appAlert(err.message || 'Unable to save.')));
+  }
 
   // ---------- Invoices may deliver stock directly (decision 167) ----------
   function wireDirectStock() {

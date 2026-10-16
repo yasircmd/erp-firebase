@@ -92,6 +92,7 @@ const MAPPED = {
   cleanDimensionRules_: ['dimensionRules', 'cleanRules', 'pure'],
   needsCostCenter_: ['dimensionRules', 'needsCostCenter', 'dropCtx'],
   linesWithProject_: ['projects', 'linesWithProject', 'pure'],
+  recordEInvoice_: ['eInvoicing', 'recordEInvoice', 'dropCtx'], // docs/modules/E_INVOICING.md
   generateVendorCode_: ['numbering', 'vendorCode', 'dropCtx'],
   generateCustomerCode_: ['numbering', 'customerCode', 'dropCtx'],
   generateStockTransactionRef_: ['glWriting', 'generateStockTransactionRef', 'dropCtx'],
@@ -142,7 +143,8 @@ const SHARED_PATHS = {
   itemCategories: '../itemCategories',
   fx: '../fx',
   projects: '../projects',
-  dimensionRules: '../dimensionRules'
+  dimensionRules: '../dimensionRules',
+  eInvoicing: '../eInvoicing'
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);

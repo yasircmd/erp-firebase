@@ -1999,4 +1999,12 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     replace: `        FcCurrency: line.FcCurrency || '', FcDebit: Number(line.FcDebit) || 0, FcCredit: Number(line.FcCredit) || 0, // [NEW DEVELOPMENT bank-currency]
         ProjectID: line.ProjectID || '' // [NEW DEVELOPMENT projects]`
   }
+  ,
+  {
+    id: 'e-invoicing (customer invoice)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/E_INVOICING.md, decisions 225-229): a posted invoice of a company with e-invoicing on gets its PINT AE document built, checked and stored (never holding up the posting).',
+    find: `  finalizeCommitAttempt_(idToken, invoiceId, glResult, {}, actor, 'customerInvoices');`,
+    replace: `  finalizeCommitAttempt_(idToken, invoiceId, glResult, {}, actor, 'customerInvoices');
+  recordEInvoice_(idToken, 'Invoice', invoiceId); // [NEW DEVELOPMENT e-invoicing]`
+  }
 ];
