@@ -1103,3 +1103,17 @@ from, and how it was verified. The deploy procedure is in the
   **Check help** and **Deploy** steps passed; **Check screens are released**
   was skipped. The live Help home and a Finance page were later verified
   with HTTP 200/content checks during the cross-area audit deployment.
+- **2026-10-14, UX testing Tier 1 (`ux-fixes-1`, with screens; Hosting):**
+  runs [#149](https://github.com/yasircmd/erp-firebase/actions/runs/38582236119)
+  (14:37–14:40 UTC) and
+  [#150](https://github.com/yasircmd/erp-firebase/actions/runs/38584457973)
+  (14:52–14:54 UTC), from `da2f0fc` (PR #122), success. The owner confirms
+  both are done (2026-10-16).
+- **2026-10-16, UX testing Tier 2 (`ux-fixes-2`, with screens; Hosting):**
+  runs [#151](https://github.com/yasircmd/erp-firebase/actions/runs/38850046048)
+  (04:19–04:29 UTC) and
+  [#152](https://github.com/yasircmd/erp-firebase/actions/runs/38851149327)
+  (04:32–04:33 UTC), from `cac446c` (PR #123), success. The owner confirms
+  both are done. Still to do in the app: open Employees once as Admin (fills
+  in leavers' last day of access).
+

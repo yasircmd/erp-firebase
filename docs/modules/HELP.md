@@ -255,3 +255,13 @@ switches it and saves it to the same key, so the ERP and Help stay alike.
 The choice is applied by a small script in `<head>`, before the page
 paints (no flash). Built from `tools/help/lib.js` (THEME_HEAD, THEME_JS);
 checked by `help.ui.js` (negative control caught).
+
+## What's new (owner, 2026-10-16)
+
+"Update the Help with new changes, do it always." A page, **What's new**
+(`help/pages/whats-new.md`, Getting started, third), lists the changes users
+see, newest first, under the date they went live (dd/mm/yyyy), each linking
+to the screen's page. Every PR with a visible change adds its entry (CLAUDE.md,
+"Help follows every change"). Started with the UX-testing Tier 1 and Tier 2
+changes.
+
