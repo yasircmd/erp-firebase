@@ -5,8 +5,8 @@ order: 4
 modules: [SALESORDER]
 sources: [functions/src/partyLedger.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
-reviewed: 2026-10-12
-fingerprint: 1436dd56f1d52529
+reviewed: 2026-10-16
+fingerprint: 96585c3401ada853
 ---
 ## What it is for
 
@@ -23,6 +23,15 @@ fingerprint: 1436dd56f1d52529
 1. Open **Sales Order** and choose the customer and company.
 2. Add the item lines, quantity and requested price.
 3. Confirm the delivery schedule and any discounts.
+
+To enter many lines at once, fill them in Excel: **Copy Table** copies the
+lines with their headings (Item Code, Warehouse, Quantity, Unit Price), also
+on an empty grid. Copy the rows from Excel and click **Paste from Excel** (or
+click into a cell of the grid and press Ctrl+V); the headings row is skipped.
+Where the order has a price list and the item is on it, the price list's
+price is used; otherwise the pasted price. If a row has an item code or
+warehouse that isn't found, a quantity that isn't a number above zero or a price that isn't a number,
+nothing is pasted and the message names the rows to fix.
 4. Save or submit for approval if the company requires it.
 5. Use the order to create the delivery note or invoice when the goods are ready.
 

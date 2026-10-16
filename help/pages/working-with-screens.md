@@ -4,8 +4,8 @@ area: start
 order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html]
-reviewed: 2026-10-14
-fingerprint: cf2d446722308455
+reviewed: 2026-10-16
+fingerprint: 996436d093b49f5a
 ---
 ## Company first
 
@@ -60,6 +60,11 @@ every list.
 
 - **Copy** (on lists and reports) copies the table; paste it into Excel
   and each value lands in its own cell.
+- Entry screens with lines (journal entries, cash and bank, GRNs, the
+  requisitions, sales orders and others) have **Copy Table** and **Paste
+  from Excel**: copy the lines with their headings, fill them in Excel and
+  paste them back. The headings row is skipped, and a paste with a wrong row
+  is refused whole, naming the rows to fix.
 - **Print** prints the report or document without the menus and buttons.
   To keep a PDF, choose "Save as PDF" as the printer.
 - Printed documents (invoices, vouchers, orders, delivery notes and the

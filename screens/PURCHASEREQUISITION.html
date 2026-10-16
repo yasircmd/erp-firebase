@@ -91,6 +91,8 @@
 
   <div class="flex flex-wrap items-center gap-2 no-print">
     <button id="pr-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+    <button id="pr-paste-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
+    <button id="pr-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy Table</button>
   </div>
 
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
@@ -345,6 +347,7 @@
     document.getElementById('pr-cancel-btn').classList.toggle('hidden', !currentPr || ['Draft', 'Submitted', 'PendingApproval', 'Rejected'].indexOf(currentPr.Status) === -1 || !canPost);
     document.getElementById('pr-close-btn').classList.toggle('hidden', !currentPr || currentPr.Status !== 'Submitted' || !canPost);
     document.getElementById('pr-add-line-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('pr-paste-btn').classList.toggle('hidden', !editableStatus);
 
     document.getElementById('pr-my-approval-banner').classList.add('hidden');
     if (currentPr && currentPr.Status === 'PendingApproval' && canPost) {
@@ -406,6 +409,57 @@
   function today() {
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  // ---------- COPY / PASTE with headings (owner, 2026-10-16; UX_TIER3.md C) ----------
+  const COPY_HEADINGS = ['Category', 'Description', 'Quantity', 'Unit', 'Cost Ctr'];
+  const num = v => { const c = String(v || '').replace(/,/g, ''); return c === '' ? '' : Number(c); };
+  const ccOf = code => code ? orgUnits.find(u => u.Type === 'CostCenter' && String(u.Code).toLowerCase() === code.toLowerCase()) : null;
+  function copyTable() {
+    const rows = gridLines.filter(l => l.CategoryID || l.Description || l.Quantity).map(l => {
+      const c = categoryById(l.CategoryID), cc = orgUnits.find(u => u.UnitID === l.CostCenterID);
+      return [c ? c.Name : '', l.Description || '', l.Quantity === '' || l.Quantity == null ? '' : l.Quantity, l.Unit || '', cc ? cc.Code : ''];
+    });
+    gridClipboard.copy(COPY_HEADINGS, rows, document.getElementById('pr-copy-btn'));
+  }
+  function pasteText(text) {
+    const companyId = document.getElementById('pr-form-company').value;
+    const errors = [], lines = [];
+    gridClipboard.rows(text, COPY_HEADINGS).forEach((r, i) => {
+      const [name, description, qty, unit, ccCode] = r;
+      const cat = categories.find(c => (!c.CompanyID || c.CompanyID === companyId) && String(c.Name).toLowerCase() === String(name || '').toLowerCase());
+      const cc = ccOf(ccCode), q = num(qty);
+      if (!cat) errors.push('Row ' + (i + 1) + ': category "' + (name || '') + '" not found.');
+      if (ccCode && !cc) errors.push('Row ' + (i + 1) + ': cost center "' + ccCode + '" not found.');
+      if (qty && !(q > 0)) errors.push('Row ' + (i + 1) + ': the quantity "' + qty + '" is not a number above 0.');
+      lines.push({ CategoryID: cat ? cat.CategoryID : '', Description: description || '', Quantity: q, Unit: unit || '', CostCenterID: cc ? cc.UnitID : currentHeaderCostCenter() });
+    });
+    if (errors.length) return refusePaste(errors);
+    if (lines.length) addPastedLines(lines);
+  }
+
+  // The pasted lines replace the empty rows at the end, then a blank row.
+  function addPastedLines(lines) {
+    while (gridLines.length && !gridLines[gridLines.length - 1].CategoryID) gridLines.pop();
+    gridLines.push(...lines);
+    ensureTrailingBlankRow();
+    isDirty = true;
+    renderGrid();
+  }
+  // Nothing is pasted if a row is wrong (decision 156): the rows are named.
+  function refusePaste(errors) {
+    appAlert('Nothing was pasted:\n' + errors.slice(0, 10).join('\n') + (errors.length > 10 ? '\n… and ' + (errors.length - 10) + ' more.' : ''));
+  }
+  function wireCopyPaste() {
+    document.getElementById('pr-copy-btn').addEventListener('click', copyTable);
+    document.getElementById('pr-paste-btn').addEventListener('click', () => gridClipboard.read().then(t => { if (t) pasteText(t); }));
+    // Ctrl+V of several cells into a cell of the grid pastes them as lines.
+    document.getElementById('pr-grid-body').addEventListener('paste', e => {
+      const t = (e.clipboardData || window.clipboardData).getData('text');
+      if (!t || (!t.includes('\t') && !t.includes('\n'))) return; // one value: an ordinary paste
+      e.preventDefault();
+      pasteText(t);
+    });
   }
 
   function ensureTrailingBlankRow() {
@@ -616,6 +670,7 @@
 
     document.getElementById('pr-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; updateCompanyRequiredNote(); renderGrid(); });
     document.getElementById('pr-form-costcenter').addEventListener('change', () => { isDirty = true; updateCompanyRequiredNote(); });
+    wireCopyPaste();
     document.getElementById('pr-add-line-btn').addEventListener('click', () => {
       isDirty = true;
       gridLines.push({ CategoryID: '', Description: '', Quantity: '', Unit: '', CostCenterID: currentHeaderCostCenter() });

@@ -42,7 +42,9 @@
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">Customer</label>
+          <input id="rs-customer-find" type="search" autocomplete="off" placeholder="Find: code, name or mobile" class="w-full mb-1 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-xs">
           <select id="rs-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select>
+          <p id="rs-customer-none" class="hidden text-xs text-amber-300 mt-1">No customer found. <button id="rs-customer-new" class="hidden underline text-blue-400 hover:text-blue-300">New customer with this mobile</button></p>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1">Sales Type</label>
@@ -251,7 +253,7 @@
     return call('getRetailCounter', { companyId, warehouseId: $('rs-warehouse').value || '', date: $('rs-date').value || today() }).then(c => {
       counter = c;
       if (!$('rs-date').value) $('rs-date').value = c.date;
-      $('rs-customer').innerHTML = c.customers.map(x => opt(x.CustomerID, x.CustomerName + (x.CustomerCode ? ' (' + x.CustomerCode + ')' : ''), x.CustomerID === ($('rs-customer').value || c.settings.RetailCustomerID))).join('');
+      renderCustomers($('rs-customer').value || c.settings.RetailCustomerID);
       $('rs-salestype').innerHTML = setup.salesTypes.map(x => opt(x.SalesTypeID, x.Name, x.SalesTypeID === ($('rs-salestype').value || c.settings.SalesTypeID))).join('');
       $('rs-warehouse').innerHTML = setup.warehouses.map(x => opt(x.ID, x.Label, x.ID === c.warehouseId)).join('');
       $('rs-items').innerHTML = c.items.map(i => '<option value="' + escapeHtml(i.ItemCode + ' — ' + i.ItemName) + '"></option>').join('');
@@ -350,7 +352,43 @@
       row('of which tax (' + t.rate + '%)', money(t.tax), 'text-xs text-slate-500') + row('Paid', money(t.paid), 'text-slate-300') +
       (t.change ? row('Change', '<span id="rs-change">' + money(t.change) + '</span>', 'text-emerald-400 font-semibold') : '') +
       (t.due ? row(retail ? 'Still to pay' : 'Left on account', '<span id="rs-due">' + money(t.due) + '</span>', retail ? 'text-amber-300 font-semibold' : 'text-amber-200') : '');
-    $('rs-confirm').disabled = !lines.length || !setup.canSell || (retail && t.due > 0.005);
+    $('rs-confirm').disabled = !lines.length || !setup.canSell || !$('rs-customer').value || (retail && t.due > 0.005); // no customer: the search found none
+  }
+  // Finding a customer by code, name or mobile (owner, 2026-10-16; UX_TIER3.md E).
+  const digits = v => String(v || '').replace(/\D/g, '');
+  function customerMatches(x, q) {
+    if (!q) return true;
+    const t = q.toLowerCase(), d = digits(q);
+    return String(x.CustomerCode).toLowerCase().includes(t) || String(x.CustomerName).toLowerCase().includes(t) ||
+      (d.length >= 3 && digits(x.Phone).slice(-9).includes(d.length > 9 ? d.slice(-9) : d));
+  }
+  function renderCustomers(selected) {
+    const q = $('rs-customer-find').value.trim();
+    const shown = counter.customers.filter(x => customerMatches(x, q));
+    const pick = shown.some(x => x.CustomerID === selected) ? selected : (shown[0] ? shown[0].CustomerID : '');
+    $('rs-customer').innerHTML = shown.map(x => opt(x.CustomerID, x.CustomerName + (x.CustomerCode ? ' (' + x.CustomerCode + ')' : '') + (x.Phone && !x.Retail ? ' · ' + x.Phone : ''), x.CustomerID === pick)).join('');
+    $('rs-customer-none').classList.toggle('hidden', shown.length > 0);
+    // An unknown mobile can be a new customer, for a user who may add customers (decision 161).
+    $('rs-customer-new').classList.toggle('hidden', !(counter.canAddCustomer && digits(q).length >= 7));
+    return pick;
+  }
+  function findCustomer() {
+    const before = $('rs-customer').value;
+    const pick = renderCustomers(before);
+    if (pick !== before) fillBillTo();
+  }
+  async function newCustomer() {
+    const mobile = $('rs-customer-find').value.trim();
+    const name = await appPrompt('New customer with the mobile ' + mobile + '. Name:', '');
+    if (name === null) return;
+    if (!name.trim()) { appAlert('Enter the customer\'s name.'); return; }
+    call('createRetailCustomer', { companyId: $('rs-company').value, name: name.trim(), mobile }).then(r => {
+      counter.customers.push(r.customer);
+      $('rs-customer-find').value = '';
+      renderCustomers(r.customer.CustomerID);
+      fillBillTo();
+      appAlert('Customer ' + r.customer.CustomerName + ' (' + r.customer.CustomerCode + ') added.');
+    }, err => appAlert(err.message || 'Unable to add the customer.'));
   }
   function fillBillTo() {
     const c = counter.customers.find(x => x.CustomerID === $('rs-customer').value);
@@ -371,6 +409,7 @@
       appAlert('Sale ' + r.saleNumber + ' confirmed: ' + money(r.total) + (r.change ? '. Change ' + money(r.change) : '') + (r.onAccount ? '. Left on account ' + money(r.onAccount) : '') + '.');
       $('rs-billto-name').value = $('rs-billto-address').value = $('rs-billto-tax').value = '';
       $('rs-customer').value = counter.settings.RetailCustomerID;
+      $('rs-customer-find').value = '';
       return loadCounter().then(() => openSale(r.saleId, true));
     }, err => { appAlert(err.message || 'Unable to confirm the sale.'); renderTotals(); });
   }
@@ -717,6 +756,8 @@
     $('rs-warehouse').addEventListener('change', () => loadCounter(true));
     $('rs-date').addEventListener('change', () => loadCounter(true));
     $('rs-customer').addEventListener('change', fillBillTo);
+    $('rs-customer-find').addEventListener('input', findCustomer);
+    $('rs-customer-new').addEventListener('click', newCustomer);
     $('rs-add').addEventListener('click', addItem);
     $('rs-item').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } });
     $('rs-lines').addEventListener('input', e => {

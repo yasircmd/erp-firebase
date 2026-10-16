@@ -602,18 +602,35 @@ exports.getPdcEntries = onCallWithMessages(onCallOptions, async (request) => {
 
 // Home screen: Pending cheques dated up to today, for the directions the
 // user can clear, in the user's companies.
+// Home: PDCs to clear. Where the module has a Treasury follow-up team for the
+// cheque's scope (Approval Configuration; owner, 2026-10-16, UX_TIER3.md B,
+// decisions 154-155), only the team sees it, from DaysBefore days before the
+// cheque date; elsewhere, as before, everyone who may post PDCs, from the date.
 exports.getPdcsDueForUser = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const asOf = isDate(request.data && request.data.today) ? request.data.today : todayUtc();
-  const allowed = [];
+  const { scopeKeyFor, pdcDaysBefore } = require('./followUps');
+  const rights = {};
   for (const dir of Object.keys(DIRECTIONS)) {
-    if (await moduleHasCapability(DIRECTIONS[dir].moduleId, 'post', user.profile.role)) allowed.push(dir);
+    const m = DIRECTIONS[dir].moduleId;
+    rights[dir] = { access: await moduleHasCapability(m, 'access', user.profile.role), post: await moduleHasCapability(m, 'post', user.profile.role) };
   }
-  if (!allowed.length) return [];
-  const data = (await rtdb.ref(PATH).get()).val() || {};
+  if (!Object.values(rights).some(r => r.access)) return [];
+  const [data, configs, teams, days] = await Promise.all([rtdb.ref(PATH).get().then(s => s.val() || {}), rtdb.ref('approvalConfigurations').get().then(s => s.val() || {}),
+    rtdb.ref('approvalFollowUps').get().then(s => s.val() || {}), pdcDaysBefore()]);
+  const plusDays = n => { const d = new Date(asOf + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const horizon = plusDays(days);
+  const mine = p => {
+    const m = DIRECTIONS[p.Direction] && DIRECTIONS[p.Direction].moduleId;
+    if (!m || !rights[p.Direction].access) return false;
+    const key = scopeKeyFor((configs[m] || {}).ScopeType, p);
+    const team = (key && (((teams[m] || {})[key]) || {}).UserIDs) || [];
+    if (team.length) return team.includes(user.uid) && p.ChequeDate <= horizon;
+    return rights[p.Direction].post && p.ChequeDate <= asOf;
+  };
   return Object.keys(data)
     .map(id => Object.assign({ PdcID: id }, data[id]))
-    .filter(p => allowed.includes(p.Direction) && p.Status === 'Pending' && p.ChequeDate <= asOf && userCanAccessCompany(user.profile, p.CompanyID))
+    .filter(p => p.Status === 'Pending' && userCanAccessCompany(user.profile, p.CompanyID) && mine(p))
     .map(p => ({
       ModuleID: DIRECTIONS[p.Direction].moduleId, ModuleLabel: DIRECTIONS[p.Direction].label, DocumentID: p.PdcID,
       DocumentNumber: p.TransactionNumber || '', ChequeNumber: p.ChequeNumber, ChequeDate: p.ChequeDate,

@@ -3,10 +3,10 @@ title: Customer Master
 area: sales
 order: 1
 modules: [CUSTOMERMASTER]
-sources: [functions/src/partyLedger.js]
+sources: [functions/src/partyLedger.js, functions/src/customerPhone.js]
 summary: Keep each customer record complete so sales orders, delivery notes and customer invoices can be raised correctly.
-reviewed: 2026-10-12
-fingerprint: 010fdb7dfd061d79
+reviewed: 2026-10-16
+fingerprint: 5f1c1189bace83df
 ---
 ## What it is for
 
@@ -36,4 +36,5 @@ Usually a sales or master-data role can maintain customers; full setup rights st
 ## Questions and mistakes
 
 - If a customer does not appear in sales screens, check that the record is saved for the right company.
+- **"The mobile number … is already … 's"**: each customer of a company has their own phone (mobile) number, so the Retail Sales counter can find them by it. The number is compared on its digits, so 050 123 4567 and +971 50 123 4567 are the same. Use the existing customer, or correct the number. Customers saved with the same number before this rule keep saving while their number doesn't change.
 - If the balance or statement does not match expectation, verify the customer account and sales type setup.

@@ -155,6 +155,9 @@
   <div class="flex justify-end gap-3 pt-3 border-t border-slate-800 no-print">
     <button id="jv-delete-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Delete Draft</button>
     <button id="jv-duplicate-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs"><i class="fa-solid fa-clone"></i> Duplicate Entry</button>
+    <button id="jv-rematch-btn" class="hidden px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-xs"><i class="fa-solid fa-link"></i> Re-match references</button>
+    <button id="jv-rematch-cancel-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel re-match</button>
+    <button id="jv-rematch-save-btn" class="hidden px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-floppy-disk"></i> Save re-match</button>
     <button id="jv-reverse-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Reverse Entry</button>
     <button id="jv-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save as Draft</button>
     <button id="jv-post-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium"><i class="fa-solid fa-lock"></i> Post Entry</button>
@@ -185,6 +188,7 @@
   let token = '';
   let canDraft = false;
   let canPost = false;
+  let canRematch = false, rematching = false; // Re-match a posted entry's references (UX_TIER3.md G)
   let entries = [];
   let entriesTotal = 0;
   let accounts = [];
@@ -340,6 +344,7 @@
   }
 
   function showListView() {
+    stopRematch();
     document.getElementById('jv-entry-view').classList.add('hidden');
     document.getElementById('jv-list-view').classList.remove('hidden');
     isDirty = false;
@@ -382,6 +387,7 @@
   function createPartyAllocation(prefix) {
     let partyAccounts = [];
     let loadedFor = null;
+    let excludeJvId = ''; // Re-match: the open items as if this entry's own allocations were not there
 
     const round2 = n => Math.round(n * 100) / 100;
     const money = n => formatMoney(round2(n));
@@ -418,11 +424,16 @@
     }
 
     // The sub-row under a grid line: party picker + allocation summary.
-    function subRowHtml(line, i, readOnly, colspan, amount) {
+    // allocOnly (Re-match, docs/modules/UX_TIER3.md G): the party stays; only Allocate… changes.
+    function subRowHtml(line, i, readOnly, colspan, amount, allocOnly) {
       if (!line.AccountCode || !(isControlCode(line.AccountCode) || line.PartyID)) return '';
       const current = partyOf(line);
       let body;
-      if (readOnly) {
+      if (allocOnly && line.PartyID) {
+        body = `<span class="text-slate-300">${escapeHtml(line.PartyType || '')}: ${escapeHtml(line.PartyName || (current ? current.Name : line.PartyID) || '—')}</span>
+          <button data-row="${i}" class="${prefix}-allocate-btn bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-xs px-2.5 py-1 rounded border border-blue-500/30"><i class="fa-solid fa-list-check"></i> Allocate…</button>
+          <span class="text-slate-400">${summary(line, amount)}</span>`;
+      } else if (readOnly) {
         body = `<span class="text-slate-300">${escapeHtml(line.PartyType || '')}: ${escapeHtml(line.PartyName || (current ? current.Name : line.PartyID) || '—')}</span>
           <span class="text-slate-400">${summary(line, amount)}</span>`;
       } else {
@@ -542,7 +553,7 @@
       rpc
         .withSuccessHandler(list => { items = list || []; render(); })
         .withFailureHandler(err => { q('body').innerHTML = ''; q('error').textContent = err.message || 'Unable to load open items.'; q('error').classList.remove('hidden'); })
-        .getPartyOpenItems({ partyType: line.PartyType, partyId: line.PartyID, companyId: companyId });
+        .getPartyOpenItems({ partyType: line.PartyType, partyId: line.PartyID, companyId: companyId, excludeJvId: excludeJvId });
 
       const close = () => { el.classList.add('hidden'); ['auto', 'clear', 'cancel', 'ok'].forEach(s => { q(s).onclick = null; }); };
       q('auto').onclick = () => {
@@ -599,12 +610,13 @@
     function fromServer(l, keepAllocations) {
       if (!l.PartyID) return { PartyType: '', PartyID: '', Against: [] };
       return {
-        PartyType: l.PartyType, PartyID: l.PartyID, PartyName: l.PartyName || '',
+        PartyType: l.PartyType, PartyID: l.PartyID, PartyName: l.PartyName || '', LineNo: keepAllocations ? l.LineNo : undefined,
         Against: keepAllocations ? (l.Allocations || []).filter(a => a.RefType === 'Against').map(a => ({ RefID: a.RefID, RefNumber: a.RefNumber || '', Amount: a.Amount })) : []
       };
     }
 
-    return { load, isControlCode, syncLine, subRowHtml, bind, validate, toServer, fromServer, summary };
+    const setExclude = jvId => { excludeJvId = jvId || ''; };
+    return { load, isControlCode, syncLine, subRowHtml, bind, validate, toServer, fromServer, summary, setExclude };
   }
 
   const party = createPartyAllocation('jv');
@@ -683,7 +695,7 @@
     const tbody = document.getElementById('jv-grid-body');
     tbody.innerHTML = '';
     const readOnly = currentJv && currentJv.Status === 'Posted';
-    const partyReadOnly = readOnly || Boolean(currentJv && currentJv.Status === 'PendingApproval');
+    const partyReadOnly = (readOnly || Boolean(currentJv && currentJv.Status === 'PendingApproval')) && !rematching;
 
     gridLines.forEach((line, i) => {
       party.syncLine(line, document.getElementById('jv-form-company').value);
@@ -703,7 +715,7 @@
         <td class="py-1 px-1"><select data-row="${i}" class="jv-line-pc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
         <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-row="${i}" class="jv-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
       tbody.appendChild(tr);
-      const partyRow = party.subRowHtml(line, i, partyReadOnly, 8, amountOf(line));
+      const partyRow = party.subRowHtml(line, i, partyReadOnly, 8, amountOf(line), rematching);
       if (partyRow) tbody.insertAdjacentHTML('beforeend', partyRow);
     });
     if (!partyReadOnly) party.bind(tbody, gridLines, () => { isDirty = true; renderGrid(); }, partyLineInfo);
@@ -912,6 +924,7 @@
   // ---------- ENTRY LOAD / SAVE / POST / REVERSE / DUPLICATE ----------
 
   function openEntry(jvId) {
+    stopRematch();
     currentJv = entries.find(e => e.JVID === jvId) || null;
     if (!currentJv) return;
 
@@ -936,6 +949,7 @@
   }
 
   function newEntry() {
+    stopRematch();
     currentJv = null;
     gridLines = [];
     document.getElementById('jv-form-date').value = today();
@@ -1148,10 +1162,48 @@
     document.getElementById('jv-post-btn').classList.toggle('hidden', !editableStatus || !canPost);
     document.getElementById('jv-delete-btn').classList.toggle('hidden', (!currentJv || currentJv.Status !== 'Draft') || !canDraft);
     document.getElementById('jv-duplicate-btn').classList.toggle('hidden', isNew || !canDraft);
-    document.getElementById('jv-reverse-btn').classList.toggle('hidden', !posted || Boolean(currentJv && currentJv.ReversedByJV) || !canPost);
+    document.getElementById('jv-reverse-btn').classList.toggle('hidden', !posted || Boolean(currentJv && currentJv.ReversedByJV) || !canPost || rematching);
+    syncRematchButtons();
 
     renderGrid();
     isDirty = false;
+  }
+
+  // ---------- RE-MATCH A POSTED ENTRY'S REFERENCES (docs/modules/UX_TIER3.md G) ----------
+  // Its vendor / customer lines settle other items, without reversing it:
+  // the amounts and accounts stay, only Allocate… changes; with a reason.
+  function rematchable() {
+    return Boolean(currentJv && currentJv.Status === 'Posted' && !currentJv.ReversedByJV && !currentJv.ReversalOfJV && (currentJv.Lines || []).some(l => l.PartyID));
+  }
+  function syncRematchButtons() {
+    document.getElementById('jv-rematch-btn').classList.toggle('hidden', !(canRematch && rematchable()) || rematching);
+    document.getElementById('jv-rematch-save-btn').classList.toggle('hidden', !rematching);
+    document.getElementById('jv-rematch-cancel-btn').classList.toggle('hidden', !rematching);
+  }
+  function startRematch() {
+    rematching = true;
+    party.setExclude(currentJv.JVID);
+    document.getElementById('jv-reverse-btn').classList.add('hidden');
+    syncRematchButtons();
+    renderGrid();
+  }
+  function stopRematch() {
+    rematching = false;
+    party.setExclude('');
+  }
+  function cancelRematch() {
+    stopRematch();
+    openEntry(currentJv.JVID); // as it was
+  }
+  async function saveRematch() {
+    const lines = gridLines.filter(l => l.PartyID && l.LineNo).map(l => ({ LineNo: l.LineNo, Allocations: party.toServer(l, amountOf(l)).Allocations }));
+    const reason = await appPrompt('Re-match ' + (currentJv.JVNumber || 'this entry') + '? Only which items it settles changes; the amounts and accounts stay. Enter the reason:', '');
+    if (reason === null) return;
+    if (!reason.trim()) { appAlert('Enter the reason for the re-match.'); return; }
+    rpc
+      .withSuccessHandler(() => { appAlert('Re-matched: ' + (currentJv.JVNumber || '') + '.'); stopRematch(); isDirty = false; showListView(); })
+      .withFailureHandler(err => appAlert(err.message || 'Unable to re-match.'))
+      .rematchJournalEntry({ jvId: currentJv.JVID, lines: lines, reason: reason });
   }
 
   // ---------- EDIT DESCRIPTION AFTER POSTING ----------
@@ -1417,6 +1469,7 @@
       .withSuccessHandler(perm => {
         canDraft = Boolean(perm.canDraft);
         canPost = Boolean(perm.canPost);
+        canRematch = Boolean(perm.canRematch);
         document.getElementById('jv-new-btn').classList.toggle('hidden', !canDraft);
         if (canDraft) document.getElementById('jv-new-btn').addEventListener('click', newEntry);
         renderList();
@@ -1472,6 +1525,9 @@
     document.getElementById('jv-reject-btn').addEventListener('click', () => decide('Rejected'));
     document.getElementById('jv-duplicate-btn').addEventListener('click', () => duplicateEntry(currentJv.JVID));
     document.getElementById('jv-reverse-btn').addEventListener('click', reverseCurrentEntry);
+    document.getElementById('jv-rematch-btn').addEventListener('click', startRematch);
+    document.getElementById('jv-rematch-cancel-btn').addEventListener('click', cancelRematch);
+    document.getElementById('jv-rematch-save-btn').addEventListener('click', saveRematch);
     document.getElementById('jv-form-company').addEventListener('change', rebuildAccountDatalist);
     document.getElementById('jv-form-company').addEventListener('change', updatePrintHeader);
     document.getElementById('jv-desc-edit-btn').addEventListener('click', startDescriptionEdit);

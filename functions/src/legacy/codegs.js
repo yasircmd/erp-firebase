@@ -12,6 +12,7 @@ const __auth = require('../auth');
 const __coaUsage = require('../coaUsage');
 const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
+const __customerPhone = require('../customerPhone');
 const __glWriting = require('../glWriting');
 const __lineClubbing = require('../lineClubbing');
 const __listPaging = require('../listPaging');
@@ -7064,6 +7065,16 @@ async function saveCustomer(idToken, customerData) {
       CompanyID: companyId, Notes: String(customerData.Notes || '').trim(),
       UpdatedAt: now, UpdatedBy: actor
     };
+
+    // [PORT CHANGE customer-mobile-unique] one mobile number per customer of a company.
+    if (__customerPhone.phoneKey(fields.Phone)) {
+      const allCustomers = (await firebaseDbRequest_('customers', 'get', null, idToken)) || {};
+      const before = customerId ? allCustomers[customerId] : null;
+      if (!before || __customerPhone.phoneKey(before.Phone) !== __customerPhone.phoneKey(fields.Phone) || (before.CompanyID || '') !== companyId) {
+        const clash = __customerPhone.phoneClash(allCustomers, fields.Phone, companyId, customerId);
+        if (clash) throw new Error(__customerPhone.clashMessage(fields.Phone, clash));
+      }
+    }
 
     if (customerId) {
       const existing = await firebaseDbRequest_('customers/' + customerId, 'get', null, idToken);

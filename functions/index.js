@@ -151,6 +151,7 @@ exports.savePeriodClosingSettings = periodClosing.savePeriodClosingSettings;
 exports.getPeriodClosingChecklist = periodClosing.getPeriodClosingChecklist;
 exports.closePeriod = periodClosing.closePeriod;
 exports.reopenPeriod = periodClosing.reopenPeriod;
+exports.tickPeriodClosingStep = periodClosing.tickPeriodClosingStep; // UX_TIER3.md D
 exports.closeFinancialYear = periodClosing.closeFinancialYear; // step 2
 exports.reopenFinancialYear = periodClosing.reopenFinancialYear;
 exports.getFinancialYearStart = periodClosing.getFinancialYearStart;
@@ -255,7 +256,7 @@ const hrLeaveReports = require('./src/hrLeaveReports');
 
 // Direct Retail Sales (docs/modules/RETAIL_SALES.md).
 const retailSales = require('./src/retailSales');
-['getRetailSalesSetup', 'saveRetailSalesSettings', 'saveRetailPaymentMethod', 'getRetailCounter', 'confirmRetailSale', 'getRetailSales', 'getRetailSale', 'reverseRetailSale', 'findRetailSaleForReturn', 'confirmRetailReturn', 'reverseRetailReturn'].forEach(n => { exports[n] = retailSales[n]; });
+['getRetailSalesSetup', 'saveRetailSalesSettings', 'saveRetailPaymentMethod', 'getRetailCounter', 'createRetailCustomer', 'confirmRetailSale', 'getRetailSales', 'getRetailSale', 'reverseRetailSale', 'findRetailSaleForReturn', 'confirmRetailReturn', 'reverseRetailReturn'].forEach(n => { exports[n] = retailSales[n]; });
 
 // HR Payroll step 7b: Earnings & Deductions (docs/modules/HR_PAYROLL.md, step 7).
 const payrollInputs = require('./src/payrollInputs');
@@ -282,3 +283,13 @@ exports.refreshLeaverAccess = require('./src/leaverAccess').refreshLeaverAccess;
 
 // GL views (docs/modules/GL_VIEWS.md): GL Listing, several ledgers without balances.
 exports.getGlListing = require('./src/glViews').getGlListing;
+
+// Shareholders in Company Master (docs/modules/UX_TIER3.md, F).
+const shareholders = require('./src/shareholders');
+exports.getCompanyShareholders = shareholders.getCompanyShareholders;
+exports.saveCompanyIssuedShares = shareholders.saveCompanyIssuedShares;
+exports.saveCompanyShareholder = shareholders.saveCompanyShareholder;
+exports.removeCompanyShareholder = shareholders.removeCompanyShareholder;
+
+// Re-match a posted JV / CBT entry's references (docs/modules/UX_TIER3.md, G).
+exports.rematchJournalEntry = require('./src/rematch').rematchJournalEntry;

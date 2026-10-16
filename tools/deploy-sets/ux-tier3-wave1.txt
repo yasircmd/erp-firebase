@@ -1,0 +1,42 @@
+# UX testing Tier 3, wave 1 (owner, 2026-10-16; docs/modules/UX_TIER3.md).
+# Run with --screens. Hosting too (tools/deploy-hosting.sh): the Help pages.
+# A, B: deliveries to invoice and PDCs due, as follow-up teams.
+getMyFollowUpTasksForUser
+getFollowUpTeams
+saveFollowUpTeam
+getPdcsDueForUser
+# C: Copy / Paste on the requisitions and Sales Order: screens, and Hosting
+#    (public/index.html: window.gridClipboard). No functions.
+# D: the month-end checklist (tickPeriodClosingStep is NEW: add its
+#    public-invoker binding after the deploy).
+getPeriodClosing
+savePeriodClosingSettings
+getPeriodClosingChecklist
+closePeriod
+reopenPeriod
+tickPeriodClosingStep
+# E: retail customers by code, name or mobile (createRetailCustomer is NEW:
+#    add its public-invoker binding); one mobile per customer of a company,
+#    also in Customer Master (saveCustomer, legacy patch customer-mobile-unique).
+getRetailCounter
+createRetailCustomer
+saveCustomer
+# F: shareholders in Company Master (all four NEW: add their public-invoker
+#    bindings). Then the owner ticks Company Master "shareholders" for the
+#    roles that may see them in Roles & Permissions (a capability added to an
+#    existing module is not seeded into the live permissions).
+getCompanyShareholders
+saveCompanyIssuedShares
+saveCompanyShareholder
+removeCompanyShareholder
+# G: re-match a posted JV / CBT entry's references (rematchJournalEntry is
+#    NEW: add its public-invoker binding). Then the owner ticks JV and CBT
+#    "rematch" for the roles that may re-match, in Roles & Permissions.
+rematchJournalEntry
+getPartyOpenItems
+getModulePermissionsForUser
+# F and G add capabilities: Roles & Permissions must know them to show and
+# save the new ticks.
+getModuleRegistry
+getModulePermissionsMatrix
+saveAllModulePermissions

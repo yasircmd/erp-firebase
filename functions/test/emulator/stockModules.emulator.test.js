@@ -114,6 +114,10 @@ test.after(async () => { await app.delete(); });
 test('getModulePermissionsForUser: Admin can draft+post, Viewer neither', async () => {
   assert.deepEqual(await call('u-admin', 'getModulePermissionsForUser', { moduleId: 'grn' }), { canDraft: true, canPost: true });
   assert.deepEqual(await call('u-viewer', 'getModulePermissionsForUser', { moduleId: 'GRN' }), { canDraft: false, canPost: false });
+  // JV / CBT also say whether the user may re-match (docs/modules/UX_TIER3.md G).
+  // (this suite's fixture gives no JV / CBT rights; the rematch suite covers the right itself)
+  assert.deepEqual(Object.keys(await call('u-admin', 'getModulePermissionsForUser', { moduleId: 'cbt' })), ['canDraft', 'canPost', 'canRematch']);
+  assert.deepEqual(await call('u-viewer', 'getModulePermissionsForUser', { moduleId: 'JV' }), { canDraft: false, canPost: false, canRematch: false });
 });
 
 test('getActiveItems: only Active items in the caller\'s companies', async () => {

@@ -5,8 +5,8 @@ order: 6
 modules: [CUSTOMERINVOICE]
 sources: [functions/src/partyLedger.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
-reviewed: 2026-10-12
-fingerprint: f11c1d12f3b57cbb
+reviewed: 2026-10-16
+fingerprint: 2fa4639cc3ff1c05
 ---
 ## What it is for
 

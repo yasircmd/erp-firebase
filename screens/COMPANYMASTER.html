@@ -1,4 +1,13 @@
-<div class="space-y-6">
+<style>
+  @media print {
+    #back-to-tree-btn, #tree-controls, #user-menu, .no-print { display: none !important; }
+    body, #app-container { background: white !important; color: black !important; }
+  }
+  #co-print-document { font-size: 11px; }
+  #co-print-document table { border-collapse: collapse; width: 100%; }
+  #co-print-document th, #co-print-document td { padding: 4px 6px; text-align: left; }
+</style>
+<div class="space-y-6 no-print">
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
     <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Enterprise Structure & Organizational Master Data</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-building text-blue-500"></i> Company Master Data</h2></div>
     <button id="co-add-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> Add Company</button>
@@ -16,7 +25,56 @@
   </div>
 </div>
 
-<div id="co-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+<!-- Shareholders (docs/modules/UX_TIER3.md, F): their own right; printed on the company profile. -->
+<div id="co-sh-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-5xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+      <h3 class="text-lg font-bold">Shareholders — <span id="co-sh-company"></span></h3>
+      <div class="flex items-center gap-2">
+        <button id="co-sh-print" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-print"></i> Print company profile</button>
+        <button id="co-sh-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+    </div>
+    <div id="co-sh-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+    <div id="co-sh-warning" class="hidden text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg"></div>
+    <div class="flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Issued shares</label><input id="co-sh-issued" type="text" inputmode="decimal" class="w-40 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm text-right"></div>
+      <button id="co-sh-issued-save" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-2 rounded">Save issued shares</button>
+      <p id="co-sh-summary" class="text-xs text-slate-400"></p>
+    </div>
+    <div class="overflow-x-auto border border-slate-700 rounded-lg">
+      <table class="w-full text-left text-xs">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-slate-400 uppercase"><th class="py-2 px-3">Name</th><th class="py-2 px-3">Nationality</th><th class="py-2 px-3">ID / Passport No.</th><th class="py-2 px-3 text-right">Shares</th><th class="py-2 px-3 text-right">%</th><th class="py-2 px-3">From</th><th class="py-2 px-3">To</th><th class="py-2 px-3"></th><th class="py-2 px-3"></th></tr></thead>
+        <tbody id="co-sh-body" class="divide-y divide-slate-700"></tbody>
+      </table>
+    </div>
+    <form id="co-sh-form" class="hidden bg-slate-900/50 border border-slate-700 rounded-lg p-3 space-y-3">
+      <p id="co-sh-form-title" class="text-xs font-semibold text-slate-300 uppercase">Add a shareholder</p>
+      <input type="hidden" id="co-sh-id">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div><label class="block text-xs text-slate-400 mb-1">Name</label><input id="co-sh-name" maxlength="150" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></div>
+        <div><label class="block text-xs text-slate-400 mb-1">Nationality</label><input id="co-sh-nationality" maxlength="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></div>
+        <div><label class="block text-xs text-slate-400 mb-1">ID / Passport No.</label><input id="co-sh-idnumber" maxlength="40" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></div>
+        <div><label class="block text-xs text-slate-400 mb-1">Shares held</label><input id="co-sh-shares" type="text" inputmode="decimal" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm text-right"></div>
+        <div><label class="block text-xs text-slate-400 mb-1">From</label><input id="co-sh-from" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></div>
+        <div><label class="block text-xs text-slate-400 mb-1">To <span class="text-slate-500">(when they sold or left)</span></label><input id="co-sh-to" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"></div>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button type="button" id="co-sh-cancel" class="px-3 py-1.5 bg-slate-700 rounded text-xs">Cancel</button>
+        <button type="submit" id="co-sh-save" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+      </div>
+    </form>
+    <div class="flex justify-between items-center">
+      <button id="co-sh-add" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add shareholder</button>
+      <span></span>
+    </div>
+    <details class="text-xs"><summary class="cursor-pointer text-slate-400">Changes</summary>
+      <table class="w-full text-left mt-2"><tbody id="co-sh-log" class="divide-y divide-slate-700"></tbody></table>
+    </details>
+  </div>
+</div>
+<div id="co-print-document" class="print-only"></div>
+<div id="co-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50 no-print">
   <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="co-modal-title" class="text-lg font-bold">Add Company</h3><button id="co-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
     <form id="co-form" class="space-y-4">
@@ -130,6 +188,7 @@
   let canWrite = false;
   let companies = [];
   let accounts = [];
+  let shRights = { CanView: false, CanEdit: false }, sh = null, shCompany = null;
 
   // Full chart of accounts — this is an admin screen (COMPANYMASTER
   // write access), so no need to restrict by the acting user's own
@@ -181,10 +240,10 @@
       const taxSummary = (c.TaxNumbers || []).map(t => t.Type + ': ' + t.Number).join(', ') || '—';
       const location = [c.City, c.Country].filter(Boolean).join(', ') || '—';
       const row = document.createElement('tr'); row.className = 'hover:bg-slate-800/40'; row.dataset.partyId = c.CompanyID;
-      const actions = canWrite
+      const actions = (shRights.CanView ? `<button class="co-shareholders text-slate-400 hover:text-blue-400 p-1" title="Shareholders"><i class="fa-solid fa-users"></i></button>` : '') + (canWrite
         ? `<button class="co-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
            <button class="co-toggle text-slate-400 ${c.Status === 'Active' ? 'hover:text-red-400' : 'hover:text-emerald-400'} p-1" title="${c.Status === 'Active' ? 'Deactivate' : 'Reactivate'}"><i class="fa-solid ${c.Status === 'Active' ? 'fa-ban' : 'fa-rotate-left'}"></i></button>`
-        : '';
+        : '');
       row.innerHTML = `
         <td class="py-3 px-4 text-slate-200 font-medium">${escapeHtml(c.LegalName)}</td>
         <td class="py-3 px-4 text-xs font-mono text-slate-300">${escapeHtml(c.CompanyRefCode || '—')}</td>
@@ -193,6 +252,7 @@
         <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(location)}</td>
         <td class="py-3 px-4 text-xs">${c.Status === 'Active' ? '<span class="text-emerald-400">Active</span>' : '<span class="text-slate-500">Inactive</span>'}</td>
         <td class="py-3 px-4 text-right">${actions}</td>`;
+      if (shRights.CanView) row.querySelector('.co-shareholders').addEventListener('click', () => openShareholders(c));
       if (canWrite) {
         row.querySelector('.co-edit').addEventListener('click', () => openModal(c.CompanyID));
         row.querySelector('.co-toggle').addEventListener('click', () => toggleStatus(c));
@@ -341,6 +401,107 @@
       [call]({ __positional: [company.CompanyID] });
   }
 
+  // ---------- Shareholders (UX_TIER3.md F, decisions 162-163) ----------
+  const shCall = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const $ = id => document.getElementById(id);
+  const fmtShares = n => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 4 });
+  function shError(msg) { $('co-sh-error').textContent = msg || ''; $('co-sh-error').classList.toggle('hidden', !msg); }
+  function openShareholders(c) {
+    shCompany = c; sh = null;
+    $('co-sh-company').textContent = c.LegalName;
+    $('co-sh-body').innerHTML = '<tr><td colspan="9" class="py-4 text-center text-slate-500">Loading…</td></tr>';
+    $('co-sh-form').classList.add('hidden');
+    shError('');
+    $('co-sh-modal').classList.remove('hidden');
+    shCall('getCompanyShareholders', { companyId: c.CompanyID }).then(renderShareholders, err => shError(err.message || 'Unable to load the shareholders.'));
+  }
+  function renderShareholders(r) {
+    sh = r;
+    const edit = r.CanEdit;
+    $('co-sh-warning').textContent = r.Warning || '';
+    $('co-sh-warning').classList.toggle('hidden', !r.Warning);
+    $('co-sh-issued').value = r.IssuedShares || '';
+    $('co-sh-issued').disabled = !edit;
+    $('co-sh-issued-save').classList.toggle('hidden', !edit);
+    $('co-sh-add').classList.toggle('hidden', !edit);
+    $('co-sh-summary').textContent = r.Current.Count + ' current shareholder(s), ' + fmtShares(r.Current.Shares) + ' shares' + (r.Current.Percent === null ? '' : ' (' + r.Current.Percent + '%)');
+    const state = { Current: '', Past: '<span class="text-slate-500">Past</span>', Future: '<span class="text-blue-300">From its date</span>' };
+    $('co-sh-body').innerHTML = r.Holders.map(h => '<tr data-id="' + escapeHtml(h.ShareholderID) + '" data-state="' + h.State + '" class="' + (h.State === 'Past' ? 'text-slate-500' : '') + '">' +
+      '<td class="py-1.5 px-3">' + escapeHtml(h.Name) + '</td><td class="py-1.5 px-3">' + escapeHtml(h.Nationality || '') + '</td><td class="py-1.5 px-3">' + escapeHtml(h.IDNumber || '') + '</td>' +
+      '<td class="py-1.5 px-3 text-right">' + fmtShares(h.Shares) + '</td><td class="py-1.5 px-3 text-right">' + (h.Percent === null ? '—' : h.Percent + '%') + '</td>' +
+      '<td class="py-1.5 px-3">' + escapeHtml(h.FromDate) + '</td><td class="py-1.5 px-3">' + escapeHtml(h.ToDate || '') + '</td><td class="py-1.5 px-3">' + state[h.State] + '</td>' +
+      '<td class="py-1.5 px-3 text-right whitespace-nowrap">' + (edit ? '<button class="co-sh-edit text-slate-400 hover:text-blue-400 p-1" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button><button class="co-sh-remove text-slate-400 hover:text-red-400 p-1" title="Remove (entered by mistake)"><i class="fa-solid fa-trash"></i></button>' : '') + '</td></tr>').join('') ||
+      '<tr><td colspan="9" class="py-4 text-center text-slate-500">No shareholders entered yet.</td></tr>';
+    $('co-sh-log').innerHTML = r.Log.map(l => '<tr><td class="py-1 pr-3 whitespace-nowrap">' + window.isoLocalDateTime(new Date(l.At)) + '</td><td class="py-1 pr-3">' + escapeHtml(l.Action) + '</td><td class="py-1 pr-3">' + escapeHtml(l.Name) + '</td><td class="py-1 pr-3 text-slate-400">' + escapeHtml(l.Text) + '</td><td class="py-1">' + escapeHtml(l.ByName) + '</td></tr>').join('') ||
+      '<tr><td class="py-1 text-slate-500">Nothing yet.</td></tr>';
+  }
+  function shForm(h) {
+    $('co-sh-form-title').textContent = h ? 'Change ' + h.Name : 'Add a shareholder';
+    $('co-sh-id').value = h ? h.ShareholderID : '';
+    $('co-sh-name').value = h ? h.Name : '';
+    $('co-sh-nationality').value = h ? h.Nationality || '' : '';
+    $('co-sh-idnumber').value = h ? h.IDNumber || '' : '';
+    $('co-sh-shares').value = h ? h.Shares : '';
+    $('co-sh-from').value = h ? h.FromDate : '';
+    $('co-sh-to').value = h ? h.ToDate || '' : '';
+    $('co-sh-form').classList.remove('hidden');
+    $('co-sh-name').focus();
+  }
+  function shSave(e) {
+    e.preventDefault();
+    const shareholder = { ShareholderID: $('co-sh-id').value, Name: $('co-sh-name').value, Nationality: $('co-sh-nationality').value, IDNumber: $('co-sh-idnumber').value,
+      Shares: Number(String($('co-sh-shares').value).replace(/,/g, '')), FromDate: $('co-sh-from').value, ToDate: $('co-sh-to').value };
+    $('co-sh-save').disabled = true;
+    shCall('saveCompanyShareholder', { companyId: shCompany.CompanyID, shareholder }).then(r => {
+      $('co-sh-save').disabled = false; $('co-sh-form').classList.add('hidden'); shError(''); renderShareholders(r);
+      if (r.Warning) appAlert('Saved. ' + r.Warning);
+    }, err => { $('co-sh-save').disabled = false; shError(err.message || 'Unable to save.'); });
+  }
+  function shSaveIssued() {
+    shCall('saveCompanyIssuedShares', { companyId: shCompany.CompanyID, issuedShares: Number(String($('co-sh-issued').value).replace(/,/g, '') || 0) })
+      .then(r => { shError(''); renderShareholders(r); }, err => shError(err.message || 'Unable to save.'));
+  }
+  async function shRemove(h) {
+    const reason = await appPrompt('Remove ' + h.Name + '? Only for a record entered by mistake: a shareholder who sold gets a To date instead. Enter the reason:', '');
+    if (reason === null) return;
+    if (!reason.trim()) { appAlert('Enter the reason for removing the record.'); return; }
+    shCall('removeCompanyShareholder', { companyId: shCompany.CompanyID, shareholderId: h.ShareholderID, reason })
+      .then(r => { shError(''); renderShareholders(r); }, err => shError(err.message || 'Unable to remove.'));
+  }
+  // The company profile: its details and its current shareholders.
+  function shPrint() {
+    if (!sh) return;
+    const c = shCompany;
+    const address = [c.AddressLine1, c.AddressLine2, c.City, c.StateOrEmirate, c.PostalCode, c.Country].filter(Boolean).join(', ');
+    const current = sh.Holders.filter(h => h.State === 'Current');
+    $('co-print-document').innerHTML = '<h1 style="font-size:16px;font-weight:bold;margin-bottom:2px">' + escapeHtml(c.LegalName) + '</h1>' +
+      '<p>Company profile' + (c.CompanyRefCode ? ' · code ' + escapeHtml(c.CompanyRefCode) : '') + ' · as of ' + escapeHtml(sh.AsOf) + '</p>' +
+      (address ? '<p>' + escapeHtml(address) + '</p>' : '') +
+      ((c.TaxNumbers || []).length ? '<p>' + c.TaxNumbers.map(t => escapeHtml(t.Type + ': ' + t.Number)).join(' · ') + '</p>' : '') +
+      '<h2 style="font-size:13px;font-weight:bold;margin:12px 0 4px">Shareholders</h2>' +
+      (sh.IssuedShares ? '<p>Issued shares: ' + fmtShares(sh.IssuedShares) + '</p>' : '') +
+      '<table><thead><tr><th>Name</th><th>Nationality</th><th>ID / Passport No.</th><th style="text-align:right">Shares</th><th style="text-align:right">%</th><th>Since</th></tr></thead><tbody>' +
+      (current.map(h => '<tr><td>' + escapeHtml(h.Name) + '</td><td>' + escapeHtml(h.Nationality || '') + '</td><td>' + escapeHtml(h.IDNumber || '') + '</td><td style="text-align:right">' + fmtShares(h.Shares) + '</td><td style="text-align:right">' + (h.Percent === null ? '' : h.Percent + '%') + '</td><td>' + escapeHtml(h.FromDate) + '</td></tr>').join('') ||
+        '<tr><td colspan="6">No shareholders entered.</td></tr>') + '</tbody></table>';
+    window.print();
+  }
+  function wireShareholders() {
+    $('co-sh-close').addEventListener('click', () => $('co-sh-modal').classList.add('hidden'));
+    $('co-sh-add').addEventListener('click', () => shForm(null));
+    $('co-sh-cancel').addEventListener('click', () => $('co-sh-form').classList.add('hidden'));
+    $('co-sh-form').addEventListener('submit', shSave);
+    $('co-sh-issued-save').addEventListener('click', shSaveIssued);
+    $('co-sh-print').addEventListener('click', shPrint);
+    $('co-sh-body').addEventListener('click', e => {
+      const tr = e.target.closest('tr[data-id]');
+      const h = tr && sh.Holders.find(x => x.ShareholderID === tr.dataset.id);
+      if (!h) return;
+      if (e.target.closest('.co-sh-edit')) shForm(h);
+      if (e.target.closest('.co-sh-remove')) shRemove(h);
+    });
+    shCall('getCompanyShareholders', { rightsOnly: true }).then(r => { shRights = r || shRights; if (shRights.CanView) renderTable(); }, () => {});
+  }
+
   // Single entry point called by Index.html after this fragment is injected.
   window.initModule = function (idToken, writeAllowed) {
     // "Documents (n)" on each company: its Company Documents (docs/modules/COMPANY_DOCUMENTS.md).
@@ -358,6 +519,7 @@
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-building"></i> Company Master Data';
     fetchAndRender();
     loadAccounts();
+    wireShareholders();
   };
 })();
 </script>

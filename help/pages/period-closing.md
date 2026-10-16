@@ -5,8 +5,8 @@ order: 14
 modules: [PERIODCLOSE]
 sources: [functions/src/periodClosing.js, functions/src/periodLock.js]
 summary: Check and close each month so nothing more can be posted into it, and close the financial year into Retained Earnings.
-reviewed: 2026-10-12
-fingerprint: 646eb651f1ff5506
+reviewed: 2026-10-16
+fingerprint: 89a10f29391588c2
 ---
 ## What it is for
 
@@ -33,10 +33,20 @@ On the **Setup** tab, per company:
 | Depreciation not run for the month |
 | Payroll for the month not posted |
 | Post-dated cheques matured and not cleared |
+| Deliveries posted, not invoiced |
 | Customer Aging agrees with the receivables accounts |
 | Vendor Aging agrees with the payables accounts |
 | Stock value agrees with the inventory accounts |
 | The Trial Balance balances |
+
+Two lists of your own, also each Block, Warn or Off:
+
+- **Accounts that must be zero at month end**: clearing and suspense
+  accounts, such as a GRN clearing or payroll clearing account. A balance on
+  the account at the month's end is a finding, with the amount.
+- **Steps to tick before closing**: your own steps, such as "Bank
+  reconciliation done" or "Petty cash counted". Until the step is ticked
+  for the month, it is a finding.
 
 ## Step by step
 
@@ -46,7 +56,11 @@ On the **Setup** tab, per company:
    shows the year.
 2. On the first open month, run the **Checklist**: each item shows what
    it found, with the documents.
-3. Fix what blocks, then select **Close**. Months close in order.
+3. Tick the steps you have done. Anyone who can close months can tick
+   them; the **Log** keeps who ticked and when, and the closed month keeps
+   its ticked steps. If the month is reopened, its steps are ticked again
+   before it closes again.
+4. Fix what blocks, then select **Close**. Months close in order.
 
 ### Reopen a month
 

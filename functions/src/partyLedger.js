@@ -85,10 +85,12 @@ async function queryEntries(field, op, value) {
 // asOf (optional, 'YYYY-MM-DD', the party statements): only invoices and
 // entries dated on or before it count — both the items and the Against
 // allocations reducing them. Omitted, everything counts (as before).
-async function getOpenItemsForParty(partyType, partyId, party, asOf) {
+// excludeEntryId (optional): leave that journal entry out, as if it were
+// not posted (a re-match replaces its allocations; docs/modules/UX_TIER3.md G).
+async function getOpenItemsForParty(partyType, partyId, party, asOf, excludeEntryId) {
   const cfg = PARTY_TYPES[partyType];
   const invoices = (await rtdb.ref(cfg.invoicePath).get()).val() || {};
-  const entries = await queryEntries('PartyKeys', 'array-contains', partyType + ':' + partyId);
+  const entries = (await queryEntries('PartyKeys', 'array-contains', partyType + ':' + partyId)).filter(e => !excludeEntryId || e._id !== excludeEntryId);
   return openItemsFrom(partyType, partyId, party, asOf, invoices, entries);
 }
 // The same from data already read: the invoices of the party type (RTDB)
@@ -160,7 +162,9 @@ function attachPartyFields(rawLines, normalizedLines) {
 // lines. Run at save, at post (under the global lock — the outstanding
 // check is authoritative only there) and again at final approval.
 // Returns the lines to store plus the entry-level lookup arrays.
-async function resolvePartyLines(lines, companyId) {
+// opts.excludeEntryId: validate as if that entry's own allocations were not
+// there (a re-match of it).
+async function resolvePartyLines(lines, companyId, opts) {
   const parties = await loadParties();
   const controlIds = controlAccountIds(parties);
   const out = [];
@@ -229,7 +233,7 @@ async function resolvePartyLines(lines, companyId) {
   for (const [key, list] of againstByParty) {
     const [partyType, partyId] = key.split(':');
     const party = parties[partyType][partyId];
-    const items = await getOpenItemsForParty(partyType, partyId, party);
+    const items = await getOpenItemsForParty(partyType, partyId, party, undefined, opts && opts.excludeEntryId);
     const used = new Map();
     list.forEach(({ n, side, alloc }) => {
       const item = items.get(alloc.RefID);
@@ -349,12 +353,12 @@ async function listPartyAccounts(companyId) {
   return out.sort((a, b) => (a.PartyType + a.Name).localeCompare(b.PartyType + b.Name));
 }
 
-async function listOpenItems(partyType, partyId, companyId) {
+async function listOpenItems(partyType, partyId, companyId, excludeEntryId) {
   const cfg = PARTY_TYPES[partyType];
   if (!cfg) throw new Error('Party type must be Vendor or Customer.');
   const party = (await rtdb.ref(cfg.path + '/' + partyId).get()).val();
   if (!party) throw new Error(partyType + ' not found.');
-  const items = await getOpenItemsForParty(partyType, partyId, party);
+  const items = await getOpenItemsForParty(partyType, partyId, party, undefined, excludeEntryId);
   return [...items.values()]
     .filter(i => i.Outstanding > 0.005 && (!companyId || !i.CompanyID || i.CompanyID === companyId))
     .sort((a, b) => (a.Date + a.Number).localeCompare(b.Date + b.Number));
@@ -362,5 +366,5 @@ async function listOpenItems(partyType, partyId, companyId) {
 
 module.exports = {
   PARTY_TYPES, isLive, addDays, queryEntries, attachPartyFields, resolvePartyLines, getOpenItemsForParty, openItemsFrom,
-  assertEntryReversible, assertInvoiceHasNoAllocations, annotateInvoiceOutstanding, listPartyAccounts, listOpenItems
+  assertEntryReversible, assertInvoiceHasNoAllocations, liveEntriesAllocating, lineSide, lineAmount, annotateInvoiceOutstanding, listPartyAccounts, listOpenItems
 };

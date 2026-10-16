@@ -195,3 +195,92 @@ none, the recommendation is the one written here.
 | 164 | Who may re-match | A **new right** (Re-match) on the entry's module. |
 | 165 | Re-match in a closed month | **Allowed** (the books don't change), and logged. |
 
+## As built: wave 1
+
+- **A** (2026-10-16): `followUps.js` adds DELIVERYNOTE (Invoicing):
+  posted, not reversed, no `MatchedToInvoiceID` (a delivery is invoiced
+  whole), for the team of its scope, else its maker (`CreatedBy`: username
+  or uid); "To invoice: <customer>". Users without Delivery Note access get
+  none. Tests: `followUpTasks` suite; negative control caught.
+- **B** (2026-10-16): PDCRECEIVED / PDCISSUED (Treasury) follow-up modules;
+  `approvalFollowUpSettings/PDC/DaysBefore` (default 3, 0-60, saved with a
+  PDC team in Approval Configuration). `getPdcsDueForUser`: a cheque whose
+  scope has a team goes only to the team (module access), up to DaysBefore
+  ahead; else, as before, to those with the post right, from its date.
+  Tests: `followUpTasks` suite, `approvalRouting` suite (8) and UI (4);
+  negative control caught.
+
+- **C** (2026-10-16): Purchase Requisition, Inventory Purchase Requisition
+  and Sales Order have **Copy Table** / **Paste from Excel** (Paste only while
+  the document can be edited; Ctrl+V of several cells into the grid does the
+  same). The shared `window.gridClipboard` (index.html, LINE GRIDS) copies
+  with headings and skips them on paste. Each row is checked (category /
+  item, warehouse, unit, cost centre by code; quantity above 0): one wrong
+  row refuses the whole paste and the message names the rows (156). On a
+  Sales Order a line takes the price list's price where the item is on it,
+  else the pasted one (157). Screens only, no functions. Tests:
+  `gridPaste.ui.js` (4); negative control (refusal and list price) caught.
+- **D** (2026-10-16): `periodClosing.js` adds the built-in check
+  **deliveries** ("Deliveries posted, not invoiced": posted up to the
+  month's end, no `MatchedToInvoiceID`, not reversed; Warn by default, also
+  for settings saved before it, 158). Settings gain `ZeroAccounts` [{
+  AccountID, Mode }] (the company's postable accounts, at most 50; GL
+  balance at the month's end, "Not zero" with Dr / Cr) and `Steps` [{ ID,
+  Text, Mode }] (at most 30). `tickPeriodClosingStep` (the close right,
+  159): `Ticks/{month}/{stepId}`, logged Tick / Untick; refused for a
+  closed month. Closing copies the steps and their ticks into
+  `Closed/{month}/Steps`; reopening clears the reopened months' ticks.
+  Checklist items carry `Kind` (check / zero / step). Tests:
+  `periodClosing` suite (6, a new D test) and UI (6); negative control
+  (invoiced filter, ticks) caught.
+- **E** (2026-10-16): the counter's customers carry their `Phone` (the
+  mobile); **Find** above the customer list filters by code, name or
+  mobile (digits, the last 9). `createRetailCustomer` (Retail Sales access
+  and Customer Master's write right, 161): a name and a mobile; Local, on
+  the Retail Sales receivables account, code from the Local sequence,
+  under the global lock. One mobile per customer of a company (160),
+  `customerPhone.js`: compared on the last 9 digits, against active
+  customers of the same company or shared ones; also in Customer Master's
+  `saveCustomer` (and so the import), legacy patch
+  `customer-mobile-unique`, only when the number is new or changed, so
+  customers saved before keep saving. Tests: `retailSales` suite (a new E
+  test) and UI (11); negative control (full-digit compare) caught.
+- **F** (2026-10-16): `shareholders.js`, RTDB
+  `companyShareholders/{companyId}` (IssuedShares, Holders, Log), apart
+  from the company record (which `getCompanies` gives every Company Master
+  user). Right (163): Company Master `shareholders` to see; changing also
+  needs Company Master `write`. Default `shareholders: ['ADMIN']` for new
+  installs; on the live system the owner ticks it in Roles & Permissions
+  (an added capability is not seeded, as Retail Sales "return"). % = shares
+  / issued shares; the current holders (from date ≤ today ≤ to date) not
+  holding exactly the issued shares is a warning (162), as is no issued
+  shares entered. History: a to date (logged "Left"); a record entered by
+  mistake removed with a reason (logged with its details). Company Master:
+  a Shareholders button per company, the panel, **Print company profile**
+  (the company's details and its current shareholders; an internal print,
+  so it keeps the ERP title bar like every print not on the owner's
+  external list). Tests: `shareholders` suite (2) and `companyMaster` UI
+  (3); negative control (the right ignored) caught.
+- **G** (2026-10-16): `rematch.js`, `rematchJournalEntry({ jvId, lines:
+  [{ LineNo, Allocations }], reason })`: a live entry (posted, not
+  reversed, not a reversal) of the JV or a CBT voucher type only (PDCs,
+  returns, retail sales, opening balances and other modules' entries keep
+  their matching in their own module; a PDC also keeps a copy on its
+  cheque). New right `rematch` on JV and CBT (164; defaults Admin and
+  Finance Manager for new installs; on the live system the owner ticks
+  it). No period check: allowed in a closed month (165). Under the global
+  lock, the lines are checked by `resolvePartyLines` with the new
+  `excludeEntryId` option (as if the entry's own allocations were not
+  there); a New Ref that other live entries settle can't shrink below what
+  they settle. Only party lines' `Allocations` change (with `AllocatedRefs`
+  / `AllocatedRefTypes`); amounts, accounts, date, number stay.
+  `Rematches` [{ At, By, ByName, Reason, Changes [{ LineNo, Before, After }]
+  }] on the entry. `getPartyOpenItems` takes `excludeJvId` (the Allocate
+  dialog in re-match mode); `getModulePermissionsForUser` returns
+  `canRematch`. Screens JV / CBT: **Re-match references** on a posted
+  entry with a party line → Allocate… only (the party stays) → **Save
+  re-match** (reason, in-app prompt) or **Cancel re-match**. The invoice
+  screens needed nothing: an invoice holds no matching (it is the open
+  item); the payment that settles it is re-matched. Tests: `rematch` suite
+  (2), `rematch` UI (3); party-ledger suites (56) and UI pass; negative
+  controls (the New Ref guard, the exclusion, server and screen) caught.

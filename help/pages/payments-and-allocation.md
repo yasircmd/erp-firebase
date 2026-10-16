@@ -4,8 +4,8 @@ area: finance
 order: 6
 summary: How payments, receipts and adjustments are tied to a vendor or customer and matched to their invoices.
 sources: [functions/src/partyLedger.js]
-reviewed: 2026-10-12
-fingerprint: acc1a800a6e854d8
+reviewed: 2026-10-16
+fingerprint: e11cd5a99a446fd4
 ---
 ## Why it matters
 
@@ -40,6 +40,36 @@ chosen is kept as a New Ref for its full amount.
 Use a [Journal Entry](journal-entries.html) with two lines on the vendor's
 account: one Against the bill, one Against the advance, same amount on
 opposite sides.
+
+## Fixing a wrong pick: Re-match
+
+A posted payment or receipt that settles the wrong bill (or should have
+left part as an advance) doesn't need to be reversed. Open the posted
+entry in [Cash and Bank Transactions](cash-and-bank.html) or
+[Journal Entries](journal-entries.html) and select **Re-match
+references**:
+
+1. **Allocate…** on the vendor or customer line shows the party's open
+   items, counting this entry's own allocation back in, so the bill it
+   settled now shows its full outstanding again.
+2. Choose again (for example **Clear**, then the right bill), and select
+   **Done**.
+3. Select **Save re-match** and give the reason.
+
+Only which items the entry settles changes: its amounts, accounts and date
+stay, so the books don't change. The bills' outstanding, the statements
+and the aging follow at once. It works in a closed month too, because
+nothing is posted. Each re-match is kept with the entry (who, when, the
+reason, and what it settled before and after). **Cancel re-match** leaves
+the entry as it was.
+
+- Re-match has its own right, **rematch**, on Journal Entries and on Cash
+  and Bank (Roles & Permissions).
+- An advance (New Ref) that another entry has already set against a bill
+  can't become smaller than what that entry uses; re-match that entry
+  first.
+- Entries posted by other modules (post-dated cheques, returns, retail
+  sales, opening balances) keep their matching in their own module.
 
 ## Discounts and write-offs
 

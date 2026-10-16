@@ -5,8 +5,8 @@ order: 5
 modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
-reviewed: 2026-10-14
-fingerprint: 94e41f7de4b51d85
+reviewed: 2026-10-16
+fingerprint: a521c34aa85a3a32
 ---
 ## What it is for
 
@@ -70,5 +70,9 @@ can be set per transaction type (Approval Configuration).
 - **The allocation doesn't fit**: a bill was paid by someone else in the
   meantime; the ERP checks again when posting. Open Allocate and choose
   again.
+- **A posted payment settles the wrong bill**: open it and select
+  **Re-match references** (the **rematch** right): choose the right bill
+  without reversing the payment
+  ([Paying and allocating](payments-and-allocation.html)).
 - **Post-dated cheques** are not entered here: use
   [Post-dated Cheques](post-dated-cheques.html).

@@ -18,10 +18,13 @@ const onCallOptions = { region: 'us-central1' };
 exports.getModulePermissionsForUser = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const id = String(request.data && request.data.moduleId || '').trim().toUpperCase();
-  return {
+  const out = {
     canDraft: await moduleHasCapability(id, 'draft', user.profile.role),
     canPost: await moduleHasCapability(id, 'post', user.profile.role)
   };
+  // JV / CBT: change a posted entry's matching (docs/modules/UX_TIER3.md G).
+  if (id === 'JV' || id === 'CBT') out.canRematch = await moduleHasCapability(id, 'rematch', user.profile.role);
+  return out;
 });
 
 // Ported from getActiveItems.

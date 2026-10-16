@@ -530,3 +530,12 @@ April year), `test/ui/yearEnd.ui.js` (2), `trialBalance.ui.js` updated (the
 default From). Negative controls, all caught.
 
 **Deploy:** `tools/deploy-sets/period-closing-2.txt` with `--screens`.
+
+## Later: deliveries, accounts that must be zero, steps to tick (2026-10-16)
+
+UX testing Tier 3, item D (docs/modules/UX_TIER3.md, decisions 158-159,
+"As built: wave 1"): an eleventh built-in check, "Deliveries posted, not
+invoiced" (Warn by default); per company, accounts that must be zero at the
+month's end and steps to tick, each Block / Warn / Off; steps ticked by
+anyone with the close right (`tickPeriodClosingStep`), logged, kept with
+the closed month.

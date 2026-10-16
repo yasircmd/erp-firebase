@@ -5,8 +5,8 @@ order: 4
 modules: [JV]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Record any accounting entry by debits and credits: accruals, corrections, reclassifications, write-offs.
-reviewed: 2026-10-14
-fingerprint: c474877d4ebf695c
+reviewed: 2026-10-16
+fingerprint: c948539e954c6d66
 ---
 ## What it is for
 
@@ -64,6 +64,9 @@ shows in the [General Ledger](general-ledger.html),
 ## Rights
 
 Viewing, drafting and posting are separate rights (Roles & Permissions).
+**Rematch** lets a user change which bills a posted entry's vendor or
+customer lines settle, without reversing it (**Re-match references**, see
+[Paying and allocating](payments-and-allocation.html)).
 Approval, where set up, is by the approvers in Approval Configuration.
 
 ## Questions and mistakes

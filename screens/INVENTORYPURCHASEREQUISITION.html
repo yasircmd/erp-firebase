@@ -91,6 +91,8 @@
 
   <div class="flex flex-wrap items-center gap-2 no-print">
     <button id="ipr-add-line-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add Line</button>
+    <button id="ipr-paste-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-paste"></i> Paste from Excel</button>
+    <button id="ipr-copy-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-copy"></i> Copy Table</button>
   </div>
 
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
@@ -383,6 +385,7 @@
     document.getElementById('ipr-cancel-btn').classList.toggle('hidden', !currentIpr || ['Draft', 'Submitted', 'PendingApproval', 'Rejected'].indexOf(currentIpr.Status) === -1 || !canPost);
     document.getElementById('ipr-close-btn').classList.toggle('hidden', !currentIpr || currentIpr.Status !== 'Submitted' || !canPost);
     document.getElementById('ipr-add-line-btn').classList.toggle('hidden', !editableStatus);
+    document.getElementById('ipr-paste-btn').classList.toggle('hidden', !editableStatus);
 
     document.getElementById('ipr-my-approval-banner').classList.add('hidden');
     if (currentIpr && currentIpr.Status === 'PendingApproval' && canPost) {
@@ -444,6 +447,60 @@
   function today() {
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  // ---------- COPY / PASTE with headings (owner, 2026-10-16; UX_TIER3.md C) ----------
+  const COPY_HEADINGS = ['Item Code', 'Warehouse', 'Description', 'UOM', 'Quantity', 'Cost Ctr'];
+  const num = v => { const c = String(v || '').replace(/,/g, ''); return c === '' ? '' : Number(c); };
+  const ccOf = code => code ? orgUnits.find(u => u.Type === 'CostCenter' && String(u.Code).toLowerCase() === code.toLowerCase()) : null;
+  const whOf = code => code ? orgUnits.find(u => u.Type === 'Warehouse' && String(u.Code).toLowerCase() === code.toLowerCase()) : null;
+  function copyTable() {
+    const rows = gridLines.filter(l => l.ItemCode || l.EnteredQuantity).map(l => {
+      const wh = orgUnits.find(u => u.UnitID === l.WarehouseID), uom = uomById(l.EnteredUOMID), cc = orgUnits.find(u => u.UnitID === l.CostCenterID);
+      return [l.ItemCode, wh ? wh.Code : '', l.Description || '', uom ? uom.Code : '', l.EnteredQuantity === '' || l.EnteredQuantity == null ? '' : l.EnteredQuantity, cc ? cc.Code : ''];
+    });
+    gridClipboard.copy(COPY_HEADINGS, rows, document.getElementById('ipr-copy-btn'));
+  }
+  function pasteText(text) {
+    const errors = [], lines = [];
+    gridClipboard.rows(text, COPY_HEADINGS).forEach((r, i) => {
+      const [code, whCode, description, uomCode, qty, ccCode] = r;
+      const item = itemByCode(code), wh = whOf(whCode), cc = ccOf(ccCode), q = num(qty);
+      const uom = uomCode ? uoms.find(u => String(u.Code).toLowerCase() === uomCode.toLowerCase()) : null;
+      if (!item) errors.push('Row ' + (i + 1) + ': item "' + (code || '') + '" not found.');
+      if (whCode && !wh) errors.push('Row ' + (i + 1) + ': warehouse "' + whCode + '" not found.');
+      if (uomCode && !uom) errors.push('Row ' + (i + 1) + ': unit "' + uomCode + '" not found.');
+      if (ccCode && !cc) errors.push('Row ' + (i + 1) + ': cost center "' + ccCode + '" not found.');
+      if (!(q > 0)) errors.push('Row ' + (i + 1) + ': the quantity "' + (qty || '') + '" is not a number above 0.');
+      lines.push({ ItemCode: item ? item.ItemCode : code, WarehouseID: wh ? wh.UnitID : ((item && item.DefaultWarehouseID) || ''), Description: description || '',
+        EnteredUOMID: uom ? uom.UOMID : ((item && item.UOMID) || ''), EnteredQuantity: q, CostCenterID: cc ? cc.UnitID : currentHeaderCostCenter() });
+    });
+    if (errors.length) return refusePaste(errors);
+    if (lines.length) addPastedLines(lines);
+  }
+
+  // The pasted lines replace the empty rows at the end, then a blank row.
+  function addPastedLines(lines) {
+    while (gridLines.length && !gridLines[gridLines.length - 1].ItemCode) gridLines.pop();
+    gridLines.push(...lines);
+    ensureTrailingBlankRow();
+    isDirty = true;
+    renderGrid();
+  }
+  // Nothing is pasted if a row is wrong (decision 156): the rows are named.
+  function refusePaste(errors) {
+    appAlert('Nothing was pasted:\n' + errors.slice(0, 10).join('\n') + (errors.length > 10 ? '\n… and ' + (errors.length - 10) + ' more.' : ''));
+  }
+  function wireCopyPaste() {
+    document.getElementById('ipr-copy-btn').addEventListener('click', copyTable);
+    document.getElementById('ipr-paste-btn').addEventListener('click', () => gridClipboard.read().then(t => { if (t) pasteText(t); }));
+    // Ctrl+V of several cells into a cell of the grid pastes them as lines.
+    document.getElementById('ipr-grid-body').addEventListener('paste', e => {
+      const t = (e.clipboardData || window.clipboardData).getData('text');
+      if (!t || (!t.includes('\t') && !t.includes('\n'))) return; // one value: an ordinary paste
+      e.preventDefault();
+      pasteText(t);
+    });
   }
 
   function ensureTrailingBlankRow() {
@@ -670,6 +727,7 @@
 
     document.getElementById('ipr-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; updateCompanyRequiredNote(); populateItemDatalist(document.getElementById('ipr-form-company').value); renderGrid(); });
     document.getElementById('ipr-form-costcenter').addEventListener('change', () => { isDirty = true; updateCompanyRequiredNote(); });
+    wireCopyPaste();
     document.getElementById('ipr-add-line-btn').addEventListener('click', () => {
       isDirty = true;
       gridLines.push({ ItemCode: '', WarehouseID: '', Description: '', EnteredUOMID: '', EnteredQuantity: '', CostCenterID: currentHeaderCostCenter() });
