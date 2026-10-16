@@ -234,5 +234,8 @@ from 310000 to the new group 320000 (Period Closing looks it up).
   - Fixtures: the test chart's cash and bank accounts carry `CashBank`.
     Retained Earnings moved to 320001 under a 320000 group in the period
     closing, year-end and rematch tests.
+- **Negative control:** with `kindOf` reading the code prefix again
+  (10…/11…), the CBT test failed ("Cash and Bank Transactions go by the
+  mark"). It was then restored.
 - **The owner, after the deploy:** run Data Reset (Chart of Accounts and
   the transactional data) so the chart starts from the new seed (209).
