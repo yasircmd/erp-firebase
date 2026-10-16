@@ -221,6 +221,12 @@ none, the recommendation is the one written here.
   ahead; else, as before, to those with the post right, from its date.
   Tests: `followUpTasks` suite, `approvalRouting` suite (8) and UI (4);
   negative control caught.
+  Fix (2026-10-16): opening another module straight after a PDC one left
+  "Days before the cheque date" showing, because `renderFollowUp()`
+  returned at "Loading..." before hiding it. It is now hidden while the
+  module's teams load, and `followUpDaysBefore` resets with them. The UI
+  check now also checks once loaded; negative controls caught (toggle back
+  below the early return; the previous module's value kept).
 
 - **C** (2026-10-16): Purchase Requisition, Inventory Purchase Requisition
   and Sales Order have **Copy Table** / **Paste from Excel** (Paste only while

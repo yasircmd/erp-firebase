@@ -121,6 +121,9 @@ async function seed() {
     await page.waitForSelector('#ac-followup-block:not(.hidden)', { timeout: 5000 });
     await page.waitForFunction(() => document.getElementById('ac-followup-team').textContent === 'Production');
     assert.ok(await page.isHidden('#ac-followup-days-wrap'));
+    // And still hidden once the Job Order team has loaded.
+    await page.waitForSelector('#ac-followup-save-btn:not([disabled])', { timeout: 5000 });
+    assert.ok(await page.isHidden('#ac-followup-days-wrap'));
     assert.deepEqual(page.__errors, []);
     await page.close();
   });

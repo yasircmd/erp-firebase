@@ -136,7 +136,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   live 2026-10-14 (PR #122), Tier 2 live 2026-10-16 (PR #123); **Tier 3:
   [UX_TIER3.md](modules/UX_TIER3.md); wave 1 (A–G) design agreed 2026-10-16
   (decisions 152–165), **all seven live 2026-10-16** (PRs #125, #126;
-  deploy runs #156–#157; "As built: wave 1" in the doc).
+  deploy runs #156–#157; "As built: wave 1" in the doc). B's days field
+  showing on non-PDC modules fixed 2026-10-16 on branch
+  `claude/optimistic-darwin-ome8n7` (screen only; goes live with
+  `tools/release-screens.sh`).
   **Owner, still to do:** in Roles & Permissions tick Company Master
   "shareholders" and JV / CBT "rematch" for the roles that should have
   them (added capabilities are not seeded into the live permissions).

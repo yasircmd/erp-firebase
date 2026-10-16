@@ -12,6 +12,10 @@ screen.
 
 ## 16/10/2026
 
+- **Approval Configuration: the days before the cheque date** now shows
+  only for PDC Received and PDC Issued. Opening another module straight
+  after a PDC one no longer leaves it showing. See
+  [Approval Configuration](approval-configuration.html).
 - **Paste lines from Excel** into Purchase Requisition, Inventory Purchase
   Requisition and Sales Order: **Copy Table** gives the columns (also on
   an empty grid), **Paste from Excel** adds the rows. A row that isn't

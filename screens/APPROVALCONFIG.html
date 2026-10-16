@@ -132,7 +132,7 @@
   function followUpModuleOf(id) { return followUpModules.find(m => m.ModuleID === id); }
 
   function fetchFollowUpTeams() {
-    followUpTeams = []; followUpLoadedFor = '';
+    followUpTeams = []; followUpLoadedFor = ''; followUpDaysBefore = null;
     if (!followUpModuleOf(currentModuleId)) return;
     const moduleId = currentModuleId;
     rpc
@@ -156,9 +156,10 @@
     // Nothing to tick until the saved team is in: a redraw would lose the ticks.
     const loaded = followUpLoadedFor === currentModuleId;
     document.getElementById('ac-followup-save-btn').disabled = !loaded;
+    // Hidden while loading too: else the last module's days field stays up.
+    document.getElementById('ac-followup-days-wrap').classList.toggle('hidden', !loaded || followUpDaysBefore === null);
     if (!loaded) { document.getElementById('ac-followup-users').innerHTML = '<span class="text-xs text-slate-500">Loading...</span>'; return; }
     const team = (followUpTeams.find(t => t.ScopeKey === scopeKey) || {}).UserIDs || [];
-    document.getElementById('ac-followup-days-wrap').classList.toggle('hidden', followUpDaysBefore === null);
     if (followUpDaysBefore !== null) document.getElementById('ac-followup-days').value = followUpDaysBefore;
     document.getElementById('ac-followup-users').innerHTML = users.map(u => `
       <label class="flex items-center gap-2 text-slate-300 cursor-pointer"><input type="checkbox" class="ac-followup-user" value="${escapeHtml(u.UserID)}" ${team.includes(u.UserID) ? 'checked' : ''}> ${escapeHtml(u.FullName || u.Username)}</label>`).join('')
