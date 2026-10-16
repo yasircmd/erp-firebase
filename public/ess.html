@@ -351,10 +351,11 @@
       { id: 'pay', label: 'Pay', icon: 'fa-wallet' },
       { id: 'requests', label: 'Requests', icon: 'fa-inbox' },
       { id: 'team', label: 'Team', icon: 'fa-users', manager: true },
+      { id: 'sales', label: 'Sales', icon: 'fa-handshake', rep: true },
       { id: 'me', label: 'Me', icon: 'fa-user' }
     ];
     function navHtml(current, side) {
-      return PAGES.filter(p => !p.manager || me.IsManager).map(p => {
+      return PAGES.filter(p => (!p.manager || me.IsManager) && (!p.rep || me.SalesRep)).map(p => {
         const on = p.id === current;
         if (side) return '<a href="#' + p.id + '" data-nav="' + p.id + '" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium ' +
           (on ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800') + '"><i class="fa-solid ' + p.icon + ' w-5 text-center"></i>' + p.label +
@@ -372,13 +373,13 @@
     function route() {
       if (!me) return;
       const [page, sub] = (location.hash.slice(1) || 'home').split('/');
-      const p = PAGES.find(x => x.id === page && (!x.manager || me.IsManager)) || PAGES[0];
+      const p = PAGES.find(x => x.id === page && (!x.manager || me.IsManager) && (!x.rep || me.SalesRep)) || PAGES[0];
       $('side-nav').innerHTML = navHtml(p.id, true);
       $('bottom-nav').innerHTML = navHtml(p.id, false);
       badges();
       $('page-title').textContent = p.id === 'home' ? 'Hello, ' + (me.FirstName || me.FullName) : p.label;
       window.scrollTo(0, 0);
-      const pages = { home: pageHome, leave: pageLeave, pay: pagePay, requests: pageRequests, team: pageTeam, me: pageMe };
+      const pages = { home: pageHome, leave: pageLeave, pay: pagePay, requests: pageRequests, team: pageTeam, sales: pageSales, me: pageMe };
       pages[p.id](sub);
     }
     window.addEventListener('hashchange', route);
@@ -1029,6 +1030,109 @@
     }
 
     // ---------- Me ----------
+    // ---------- Sales (docs/modules/SALES_REP_PORTAL.md) ----------
+    // My customers with their balance; a new order (a draft Sales Order the
+    // office confirms) at the customer's price list; a collection (a draft
+    // receipt or PDC the office posts). Online only.
+    let salesData = null;
+    function pageSales(sub) {
+      const parts = location.hash.slice(1).split('/');
+      if (sub === 'order') return salesOrderForm(parts[2]);
+      if (sub === 'collect') return salesCollectForm(parts[2]);
+      page(skeleton());
+      api('salesHome', {}).then(r => {
+        salesData = r;
+        const nameOf = id => ((r.customers.find(c => c.CustomerID === id) || {}).Name || '');
+        const KIND = { Order: 'Order', Cash: 'Cash receipt', Cheque: 'Cheque' };
+        const todays = r.activity.filter(a => a.Date === r.today);
+        page('<div class="space-y-4">' +
+          card('<div class="flex justify-between text-sm"><span class="text-slate-500 dark:text-slate-400">Today</span><span>' + todays.filter(a => a.Kind === 'Order').length + ' orders · collected ' +
+            money(todays.filter(a => a.Kind !== 'Order').reduce((t, a) => t + a.Amount, 0)) + '</span></div>', 'p-3') +
+          '<h3 class="text-xs font-semibold uppercase text-slate-500">' + (r.isManager ? 'All customers' : 'My customers') + '</h3>' +
+          (r.customers.length ? '<div class="space-y-2" id="sales-customers">' + r.customers.map(c => card(
+            '<div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-sm">' + esc(c.Name) + ' <span class="text-xs font-normal text-slate-400">' + esc(c.Code) + '</span></div>' +
+            '<div class="text-xs text-slate-500 dark:text-slate-400">Balance ' + (c.Currency ? esc(c.Currency) + ' ' : '') + money(c.Balance) + (c.Overdue > 0 ? ' · <span class="text-rose-600 dark:text-rose-400">overdue ' + money(c.Overdue) + '</span>' : '') + '</div></div>' +
+            (c.Phone ? '<a href="tel:' + esc(c.Phone) + '" class="text-indigo-600 dark:text-indigo-400 text-sm" title="Call"><i class="fa-solid fa-phone"></i></a>' : '') + '</div>' +
+            '<div class="flex gap-2 mt-2"><a href="#sales/order/' + esc(c.CustomerID) + '" class="sales-order flex-1 text-center text-sm font-semibold rounded-xl bg-indigo-600 text-white py-2">New order</a>' +
+            '<a href="#sales/collect/' + esc(c.CustomerID) + '" class="sales-collect flex-1 text-center text-sm font-semibold rounded-xl border border-slate-300 dark:border-slate-700 py-2">Collect</a></div>', 'p-3')).join('') + '</div>'
+            : card(empty('fa-handshake', 'No customers are assigned to you yet: ask the office.'))) +
+          '<h3 class="text-xs font-semibold uppercase text-slate-500">My orders and collections</h3>' +
+          (r.activity.length ? '<div class="space-y-2">' + r.activity.map(a => card('<div class="flex items-center justify-between gap-2 text-sm"><div class="min-w-0"><div class="font-medium">' + esc(KIND[a.Kind]) + ' · ' + esc(nameOf(a.CustomerID)) + '</div>' +
+            '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc(showDate(a.Date)) + (a.Number ? ' · ' + esc(a.Number) : '') + '</div></div><div class="text-right"><div>' + money(a.Amount) + '</div>' + chip(a.Status, a.Status === 'Draft' ? 'With the office' : a.Status) + '</div></div>', 'p-3')).join('') + '</div>'
+            : card(empty('fa-receipt', 'Nothing yet.'))) + '</div>');
+      }, err => page(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    function salesCustomer(id) { return salesData && salesData.customers.find(c => c.CustomerID === id); }
+    function salesOrderForm(customerId) {
+      page(skeleton());
+      api('salesItems', { customerId }).then(r => {
+        const c = salesCustomer(customerId) || { Name: '' };
+        const lines = [];
+        const render = () => {
+          const total = lines.reduce((t, l) => t + l.qty * l.price, 0);
+          page('<div class="space-y-3">' + card('<div class="font-semibold">' + esc(c.Name) + '</div><div class="text-xs text-slate-500">Price list ' + esc(r.priceList) + '</div>', 'p-3') +
+            card('<label class="block text-xs font-medium mb-1">Item</label><select id="so-item" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm"><option value="">Choose an item…</option>' +
+              r.items.map(i => '<option value="' + esc(i.ItemCode) + '">' + esc(i.ItemName || i.ItemCode) + ' — ' + money(i.UnitPrice) + '</option>').join('') + '</select>' +
+              '<div id="so-stock" class="text-xs text-slate-500 mt-1"></div><div class="flex gap-2 mt-2"><select id="so-wh" class="flex-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm"></select>' +
+              '<input id="so-qty" inputmode="decimal" placeholder="Qty" class="w-24 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-right">' +
+              '<button id="so-add" class="rounded-xl bg-slate-800 text-white px-3 text-sm">Add</button></div>', 'p-3') +
+            (lines.length ? card('<div id="so-lines" class="space-y-1 text-sm">' + lines.map((l, i) => '<div class="flex justify-between gap-2"><span>' + esc(l.name) + ' × ' + l.qty + '</span><span>' + money(l.qty * l.price) +
+              ' <button class="so-del text-rose-500 ml-1" data-i="' + i + '"><i class="fa-solid fa-xmark"></i></button></span></div>').join('') + '<div class="flex justify-between font-semibold border-t border-slate-200 dark:border-slate-800 pt-1"><span>Total</span><span id="so-total">' + money(total) + '</span></div></div>', 'p-3') : '') +
+            '<input id="so-note" maxlength="200" placeholder="Note for the office (optional)" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">' +
+            '<button id="so-send" class="w-full rounded-xl bg-indigo-600 text-white font-semibold py-3"' + (lines.length ? '' : ' disabled') + '>Send the order to the office</button>' +
+            '<p class="text-xs text-slate-500">The office confirms the order; the stock is reserved then.</p></div>');
+          const pick = () => {
+            const it = r.items.find(i => i.ItemCode === $('so-item').value);
+            $('so-wh').innerHTML = (it ? it.Stock : []).map(w => '<option value="' + esc(w.WarehouseID) + '"' + (w.WarehouseID === (it || {}).DefaultWarehouseID ? ' selected' : '') + '>' + esc(w.Code) + ' — ' + w.Free + ' free</option>').join('') || '<option value="">No stock free</option>';
+            $('so-stock').textContent = it ? (it.Stock.length ? 'Free to sell: ' + it.Stock.reduce((t, w) => t + w.Free, 0) : 'No stock free to sell now: the office will plan it.') : '';
+            if (it && !it.Stock.length) $('so-wh').innerHTML = r.warehouses.map(w => '<option value="' + esc(w.WarehouseID) + '">' + esc(w.Code) + '</option>').join('');
+          };
+          $('so-item').addEventListener('change', pick);
+          $('so-add').addEventListener('click', () => {
+            const it = r.items.find(i => i.ItemCode === $('so-item').value), qty = Number($('so-qty').value);
+            if (!it) return say('Choose an item.');
+            if (!(qty > 0)) return say('Enter the quantity.');
+            lines.push({ code: it.ItemCode, name: it.ItemName || it.ItemCode, price: it.UnitPrice, qty, wh: $('so-wh').value });
+            render();
+          });
+          document.querySelectorAll('.so-del').forEach(b => b.addEventListener('click', () => { lines.splice(Number(b.dataset.i), 1); render(); }));
+          $('so-send').addEventListener('click', () => {
+            $('so-send').disabled = true;
+            api('salesOrder', { customerId, note: $('so-note').value, lines: lines.map(l => ({ ItemCode: l.code, Quantity: l.qty, WarehouseID: l.wh })) })
+              .then(res => { toast('Order sent to the office: ' + money(res.total) + '.'); location.hash = 'sales'; }, err => { $('so-send').disabled = false; fail(err); });
+          });
+        };
+        render();
+      }, err => page(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    function salesCollectForm(customerId) {
+      const c = salesCustomer(customerId) || { Name: '' };
+      page('<form id="col-form" class="space-y-3">' + card('<div class="font-semibold">' + esc(c.Name) + '</div><div class="text-xs text-slate-500">Balance ' + money(c.Balance || 0) + '</div>', 'p-3') +
+        card('<div class="grid grid-cols-2 gap-2 text-sm"><label class="flex items-center gap-2"><input type="radio" name="col-m" value="Cash" checked> Cash</label><label class="flex items-center gap-2"><input type="radio" name="col-m" value="Cheque"> Cheque</label></div>' +
+          '<input id="col-amount" inputmode="decimal" placeholder="Amount" class="mt-2 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm text-right">' +
+          '<div id="col-cheque" class="hidden space-y-2 mt-2"><input id="col-no" placeholder="Cheque number" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">' +
+          '<label class="block text-xs">Cheque date <input id="col-date" type="date" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm"></label>' +
+          '<input id="col-bank" placeholder="Bank it is drawn on" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">' +
+          '<label class="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 py-3 text-sm cursor-pointer"><i class="fa-solid fa-camera"></i> <span id="col-photo-label">Photo of the cheque</span><input id="col-photo" type="file" accept="image/*" capture="environment" class="sr-only"></label></div>' +
+          '<input id="col-note" maxlength="200" placeholder="Note (optional)" class="mt-2 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">', 'p-3') +
+        '<button id="col-send" class="w-full rounded-xl bg-indigo-600 text-white font-semibold py-3">Record the collection</button>' +
+        '<p class="text-xs text-slate-500">The office posts it.</p></form>');
+      const method = () => (document.querySelector('input[name="col-m"]:checked') || {}).value;
+      document.querySelectorAll('input[name="col-m"]').forEach(x => x.addEventListener('change', () => $('col-cheque').classList.toggle('hidden', method() !== 'Cheque')));
+      $('col-photo').addEventListener('change', () => { $('col-photo-label').textContent = $('col-photo').files.length ? 'Photo chosen' : 'Photo of the cheque'; });
+      $('col-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        $('col-send').disabled = true;
+        try {
+          const f = $('col-photo').files[0];
+          const res = await api('salesCollect', { customerId, method: method(), amount: $('col-amount').value, note: $('col-note').value,
+            cheque: { number: $('col-no').value, date: $('col-date').value, bank: $('col-bank').value }, photo: method() === 'Cheque' && f ? { name: f.name, data: await readFile(f) } : null });
+          toast(res.kind === 'Cheque' ? 'Cheque recorded for the office' + (res.photo && res.photo !== 'attached' ? ' (photo ' + res.photo + ')' : '') + '.' : 'Cash recorded for the office.');
+          location.hash = 'sales';
+        } catch (err) { $('col-send').disabled = false; fail(err); }
+      });
+    }
+
     function pageMe() {
       const row = (k, v) => v ? '<div class="flex justify-between gap-4 py-2 border-b border-slate-100 dark:border-slate-800 last:border-0 text-sm"><span class="text-slate-500 dark:text-slate-400">' + k + '</span><span class="font-medium text-right">' + esc(v) + '</span></div>' : '';
       const dark = document.documentElement.classList.contains('dark');

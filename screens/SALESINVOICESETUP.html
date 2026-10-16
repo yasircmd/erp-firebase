@@ -30,6 +30,29 @@
     <p id="sis-ei-status" class="text-xs text-slate-500"></p>
   </div>
 
+  <!-- Sales reps in the Employee Portal (docs/modules/SALES_REP_PORTAL.md, decisions 230-236). -->
+  <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
+    <p class="text-sm font-semibold text-slate-200">Sales reps (Employee Portal)</p>
+    <p class="text-xs text-slate-500 max-w-2xl">A sales rep sees their customers in the Employee Portal (a sales manager sees all), with each one's balance; sends orders, saved here as draft Sales Orders for you to confirm, at the customer's price list; and records collections: cash as a draft Cash Receipt to the rep's cash account, a cheque as a draft PDC Received with its photo, for you to post.</p>
+    <div class="flex flex-wrap items-center gap-3">
+      <select id="sis-sr-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"><option value="">Select a company...</option></select>
+      <button id="sis-sr-add" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add a sales rep</button>
+    </div>
+    <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-3">Employee</th><th class="py-1 pr-3">Role</th><th class="py-1 pr-3">Cash account</th><th class="py-1 pr-3">Customers</th><th class="py-1 pr-3">Status</th><th></th></tr></thead>
+      <tbody id="sis-sr-body" class="divide-y divide-slate-800"></tbody></table>
+    <div id="sis-sr-form" class="hidden space-y-2 border-t border-slate-700 pt-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+        <select id="sis-sr-employee" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select>
+        <select id="sis-sr-cash" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">No cash account (cheques only)</option></select>
+        <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="sis-sr-manager"> Sales manager (sees all customers)</label>
+        <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="sis-sr-active" checked> Active</label>
+      </div>
+      <input id="sis-sr-search" placeholder="Search customers" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm">
+      <div id="sis-sr-customers" class="max-h-56 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-1 text-sm"></div>
+      <div class="flex gap-2"><button id="sis-sr-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save</button><button id="sis-sr-cancel" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded">Cancel</button></div>
+    </div>
+  </div>
+
   <div>
     <div class="flex items-center justify-between mb-4">
       <div>
@@ -400,7 +423,65 @@
     loadReferenceData();
     wireDirectStock();
     wireEInvoicing();
+    wireSalesReps();
   };
+
+  // ---------- Sales reps (docs/modules/SALES_REP_PORTAL.md) ----------
+  function wireSalesReps() {
+    const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+    const $ = id => document.getElementById(id);
+    let data = null, chosen = new Set();
+    call('getActiveCompanies', {}).then(list => {
+      (list || []).forEach(c => { const o = document.createElement('option'); o.value = c.CompanyID; o.textContent = c.LegalName; $('sis-sr-company').appendChild(o); });
+      if ($('sis-sr-company').options.length === 2) { $('sis-sr-company').selectedIndex = 1; load(); }
+    });
+    function load() {
+      $('sis-sr-form').classList.add('hidden'); $('sis-sr-body').innerHTML = '';
+      if (!$('sis-sr-company').value) return;
+      call('getSalesReps', { companyId: $('sis-sr-company').value }).then(r => { data = r; render(); }, err => appAlert(err.message || 'Unable to load the sales reps.'));
+    }
+    function render() {
+      $('sis-sr-add').classList.toggle('hidden', !data.canWrite);
+      const acc = id => { const a = data.cashAccounts.find(x => x.AccountID === id); return a ? a.AccountCode + ' ' + a.AccountName : '—'; };
+      $('sis-sr-body').innerHTML = data.reps.map(r => '<tr data-id="' + escapeHtml(r.EmployeeID) + '"><td class="py-1.5 pr-3">' + escapeHtml(r.Employee ? r.Employee.EmployeeNo + ' ' + r.Employee.FullName : r.EmployeeID) + '</td>' +
+        '<td class="py-1.5 pr-3">' + (r.IsManager ? 'Sales manager' : 'Sales rep') + '</td><td class="py-1.5 pr-3">' + escapeHtml(acc(r.CashAccountID)) + '</td><td class="py-1.5 pr-3">' + (r.IsManager ? 'All' : r.Customers.length) + '</td>' +
+        '<td class="py-1.5 pr-3">' + (r.Active === false ? 'Inactive' : 'Active') + '</td><td class="py-1.5 text-right">' + (data.canWrite ? '<button class="sis-sr-edit text-blue-300 text-xs">Edit</button>' : '') + '</td></tr>').join('') ||
+        '<tr><td colspan="6" class="py-2 text-xs text-slate-500">No sales reps yet.</td></tr>';
+      document.querySelectorAll('.sis-sr-edit').forEach(b => b.addEventListener('click', () => edit(b.closest('tr').dataset.id)));
+    }
+    function edit(id) {
+      const r = data.reps.find(x => x.EmployeeID === id) || { Active: true, IsManager: false, CashAccountID: '', Customers: [] };
+      $('sis-sr-employee').innerHTML = data.employees.filter(e => e.EmployeeID === id || !data.reps.some(x => x.EmployeeID === e.EmployeeID))
+        .map(e => '<option value="' + escapeHtml(e.EmployeeID) + '">' + escapeHtml(e.EmployeeNo + ' ' + e.FullName) + '</option>').join('');
+      $('sis-sr-employee').value = id || ($('sis-sr-employee').options[0] || {}).value || '';
+      $('sis-sr-employee').disabled = Boolean(id);
+      $('sis-sr-cash').innerHTML = '<option value="">No cash account (cheques only)</option>' + data.cashAccounts.map(a => '<option value="' + escapeHtml(a.AccountID) + '">' + escapeHtml(a.AccountCode + ' ' + a.AccountName) + '</option>').join('');
+      $('sis-sr-cash').value = r.CashAccountID || '';
+      $('sis-sr-manager').checked = Boolean(r.IsManager); $('sis-sr-active').checked = r.Active !== false;
+      chosen = new Set(r.Customers);
+      $('sis-sr-search').value = '';
+      customers();
+      $('sis-sr-form').classList.remove('hidden');
+    }
+    function customers() {
+      const q = $('sis-sr-search').value.trim().toLowerCase(), me = $('sis-sr-employee').value;
+      $('sis-sr-customers').innerHTML = data.customers.filter(c => !q || (c.Code + ' ' + c.Name).toLowerCase().includes(q)).map(c => {
+        const other = c.SalesRepEmployeeID && c.SalesRepEmployeeID !== me ? data.reps.find(x => x.EmployeeID === c.SalesRepEmployeeID) : null;
+        return '<label class="flex items-center gap-2"><input type="checkbox" class="sis-sr-cust" value="' + escapeHtml(c.CustomerID) + '"' + (chosen.has(c.CustomerID) ? ' checked' : '') + '> ' + escapeHtml(c.Code + ' ' + c.Name) +
+          (other ? ' <span class="text-xs text-amber-300">(now ' + escapeHtml(other.Employee ? other.Employee.FullName : '') + '\'s)</span>' : '') + '</label>';
+      }).join('');
+      document.querySelectorAll('.sis-sr-cust').forEach(x => x.addEventListener('change', () => { if (x.checked) chosen.add(x.value); else chosen.delete(x.value); }));
+    }
+    $('sis-sr-company').addEventListener('change', load);
+    $('sis-sr-add').addEventListener('click', () => edit(''));
+    $('sis-sr-cancel').addEventListener('click', () => $('sis-sr-form').classList.add('hidden'));
+    $('sis-sr-search').addEventListener('input', customers);
+    $('sis-sr-save').addEventListener('click', () => {
+      if (!$('sis-sr-employee').value) { appAlert('Choose the employee.'); return; }
+      call('saveSalesRep', { companyId: $('sis-sr-company').value, employeeId: $('sis-sr-employee').value, cashAccountId: $('sis-sr-cash').value,
+        isManager: $('sis-sr-manager').checked, active: $('sis-sr-active').checked, customerIds: [...chosen] }).then(load, err => appAlert(err.message || 'Unable to save.'));
+    });
+  }
 
   // ---------- E-invoicing (docs/modules/E_INVOICING.md) ----------
   function wireEInvoicing() {

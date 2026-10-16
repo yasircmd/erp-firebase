@@ -12,6 +12,11 @@ screen.
 
 ## 16/10/2026
 
+- **Sales reps in the Employee Portal.** A **Sales** tab for employees the
+  office makes sales reps (Sales Invoice Configuration → Sales reps): their
+  customers with balances, orders at the price list sent to the office as
+  draft Sales Orders, and cash or cheque collections recorded for the
+  office to post. See [Sales reps in the Employee Portal](sales-rep-portal.html).
 - **E-invoicing, ready.** Switch it on per company in
   [Sales Invoice Configuration](sales-invoice-setup.html), from a date: each
   posted Customer Invoice and Sales Return to a customer with a TRN gets

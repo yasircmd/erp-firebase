@@ -3,10 +3,10 @@ title: Sales Invoice Setup
 area: sales
 order: 2
 modules: [SALESINVOICESETUP]
-sources: [functions/src/retailSales.js, functions/src/invoiceStock.js, functions/src/eInvoicing.js, functions/src/eInvoiceDocument.js]
+sources: [functions/src/retailSales.js, functions/src/invoiceStock.js, functions/src/eInvoicing.js, functions/src/eInvoiceDocument.js, functions/src/salesRep.js]
 summary: Set the default rules and accounts used when customer sales are invoiced and posted.
 reviewed: 2026-10-16
-fingerprint: b906a40e5c74cbc5
+fingerprint: 30a7f83026436696
 ---
 ## What it is for
 
@@ -42,6 +42,16 @@ invoice shows **Ready to send**, **Not ready** (with what is missing) or
 downloaded. Sending goes through your Accredited Service Provider (ASP)
 once one is chosen and connected; until then nothing is sent. The company
 needs its 15-digit TRN in Company Master (Tax numbers).
+
+## Sales reps
+
+Under **Sales reps**, choose the company and **Add a sales rep**: the
+employee, their cash account for cash collections (or none: cheques only),
+whether they are a **Sales manager** (sees every customer), and their
+customers (each customer has one rep). The rep then works from the
+Employee Portal: see [Sales reps in the Employee Portal](sales-rep-portal.html).
+Their orders come in as draft Sales Orders and their collections as draft
+Cash Receipts or PDCs Received, for the office to confirm or post.
 
 ## Rights
 

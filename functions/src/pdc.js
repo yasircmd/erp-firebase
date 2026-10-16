@@ -287,6 +287,10 @@ exports.savePdcDraft = onCallWithMessages(onCallOptions, async (request) => {
     if (existing.Direction !== data.Direction) throw new HttpsError('failed-precondition', 'That PDC belongs to the other screen.');
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected PDCs can be edited.');
   }
+  return writePdcDraft(cfg, data, user, pdcId);
+});
+
+async function writePdcDraft(cfg, data, user, pdcId) {
   const doc = await buildDoc(cfg, data, user);
   await assertNotDuplicate(doc, pdcId);
 
@@ -299,7 +303,12 @@ exports.savePdcDraft = onCallWithMessages(onCallOptions, async (request) => {
   const newId = 'PDC-' + randomUUID().split('-')[0].toUpperCase();
   await rtdb.ref(PATH + '/' + newId).set(Object.assign({}, fields, { JVIDs: [], History: [], CreatedAt: now, CreatedBy: actorOf(user) }));
   return { success: true, pdcId: newId };
-});
+}
+// A sales rep's cheque from the Employee Portal (salesRep.js; docs/modules/
+// SALES_REP_PORTAL.md, decision 232): a new draft PDC Received of the rep's
+// company, after salesRep.js's own checks; the office posts it.
+exports.savePdcDraftForRep = (portalRep, data) => writePdcDraft(DIRECTIONS.Received, Object.assign({}, data, { Direction: 'Received', PdcID: '' }),
+  { uid: portalRep.actor, profile: { username: portalRep.actor, AssignedCompanies: [portalRep.companyId] } }, '');
 
 exports.deletePdcDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);

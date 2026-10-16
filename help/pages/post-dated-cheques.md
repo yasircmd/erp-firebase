@@ -6,7 +6,7 @@ modules: [PDCRECEIVED, PDCISSUED]
 sources: [functions/src/pdc.js]
 summary: Cheques dated in the future: received from customers or issued to vendors, then cleared, bounced or cancelled.
 reviewed: 2026-10-16
-fingerprint: 8cdf601c363828bc
+fingerprint: 6dfecae40dd3337e
 ---
 ## What it is for
 
@@ -87,3 +87,6 @@ clear, bounce, cancel and undo).
   bank pays) and its **USD amount**: the cheque settles bills in USD, and a
   difference from their rates posts as an exchange gain or loss. A bounce
   or cancellation undoes both.
+- **A draft made by "Portal: …"** is a cheque a sales rep collected in the
+  Employee Portal, with its photo in the supporting documents
+  ([Sales reps](sales-rep-portal.html)): check it and post it.

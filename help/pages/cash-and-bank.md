@@ -6,7 +6,7 @@ modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
 reviewed: 2026-10-16
-fingerprint: cd4364507f492a55
+fingerprint: fe73584b503d3ef2
 ---
 ## What it is for
 
@@ -103,5 +103,8 @@ can be set per transaction type (Approval Configuration).
 - **A line marked in red** needs a cost center, profit center or project:
   its account requires it. The **Project** column shows once the company
   has a project.
+- **A draft made by "Portal: …"** is a sales rep's cash collection from
+  the Employee Portal ([Sales reps](sales-rep-portal.html)): check it and
+  post it.
 - **Post-dated cheques** are not entered here: use
   [Post-dated Cheques](post-dated-cheques.html).
