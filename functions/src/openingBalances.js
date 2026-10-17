@@ -24,12 +24,10 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
+const stockPosting = require('./stockPosting'); // its postStock: this file has a postStock of its own
 const { requireUser, moduleHasCapability } = require('./auth');
-const {
-  userCanAccessCompany, buildStockGlEntry, generateStockVoucherNumber, transactionRefFor,
-  COST_CENTER_REQUIRED_TYPES, FIRESTORE_JOURNAL_ENTRIES_COLLECTION
-} = require('./glWriting');
-const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
+const { userCanAccessCompany, buildStockGlEntry, generateStockVoucherNumber, transactionRefFor, COST_CENTER_REQUIRED_TYPES, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
+const { computeStockMovement } = require('./stockMovement');
 const { PARTY_TYPES, addDays, assertEntryReversible } = require('./partyLedger');
 const { allocateAvailableStockToShortfalls } = require('./reservations');
 const { withGlobalLock } = require('./lock');
@@ -375,29 +373,25 @@ async function postStock(user, companyId, settings, rows, d, batchId) {
   const total = round2(lines.reduce((s, l) => s + l.TotalValue, 0));
   const txId = 'OPST-' + randomUUID().split('-')[0].toUpperCase();
   const attemptId = randomUUID();
-  await stockStore.setTx(txId, {
+  const doc = {
     TransactionType: STOCK_TYPE, Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
     TransactionDate: settings.OpeningDate, Description: 'Opening stock', Reference: '', CompanyID: companyId,
     DivisionID: '', BranchID: '', CostCenterID: '', ProfitCenterID: '', Lines: lines, OpeningBatchID: batchId,
     CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
-  });
-  let built;
-  try {
-    built = await buildStockGlEntry(user, STOCK_TYPE, settings.OpeningDate, 'Opening stock', '',
-      movement.inventoryGlLines.concat([clearingLine(d.coa[settings.ClearingAccountID], total, 'Opening stock')]),
-      { CompanyID: companyId },
-      { CommitAttemptID: attemptId, SourceTransactionID: txId, OpeningBatchID: batchId, OpeningCompanyID: companyId, OpeningKind: 'STOCK' });
-    await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(built.jvId).set(built.record);
-  } catch (err) {
-    await stockStore.deleteTx(txId);
-    throw err;
-  }
-  // A GL entry exists from here on.
-  await commitStockLedgerUpdates(movement.ledgerUpdates);
-  await stockStore.updateTx(txId, {
-    Status: 'Posted', TransactionNumber: built.jvNumber, TransactionRef: built.transactionRef, LinkedJVID: built.jvId,
-    CommitAttemptID: '', CommitAttemptStartedAt: '', PostedAt: now, PostedBy: actor
-  });
+  };
+  // The GL entry, the balances and the stock transaction in one batch: all
+  // or none (stockPosting.js, TRANSACTIONS_FIRESTORE.md T1b).
+  const built = await stockPosting.postStock(user, {
+    type: STOCK_TYPE, date: settings.OpeningDate, description: 'Opening stock', reference: '',
+    lines: movement.inventoryGlLines.concat([clearingLine(d.coa[settings.ClearingAccountID], total, 'Opening stock')]),
+    dimensions: { CompanyID: companyId },
+    extra: { CommitAttemptID: attemptId, SourceTransactionID: txId, OpeningBatchID: batchId, OpeningCompanyID: companyId, OpeningKind: 'STOCK' }
+  }, movement.ledgerUpdates, gl => ({
+    [txId]: stockStore.applyUpdate(doc, {
+      Status: 'Posted', TransactionNumber: gl.jvNumber, TransactionRef: gl.transactionRef, LinkedJVID: gl.jvId,
+      CommitAttemptID: '', CommitAttemptStartedAt: '', PostedAt: now, PostedBy: actor
+    })
+  }));
   for (const l of lines) {
     await allocateAvailableStockToShortfalls(actor, l.ItemID, l.ItemCode, l.WarehouseID, companyId, l.Quantity, built.jvNumber);
   }
@@ -524,22 +518,24 @@ async function reverseBatch(user, batchId) {
     const total = round2(outLines.reduce((s, l) => s + l.TotalValue, 0));
     const settings = await getSettings(batch.CompanyID);
     stockReversalId = 'OPST-' + randomUUID().split('-')[0].toUpperCase();
-    const built = await buildStockGlEntry(user, STOCK_TYPE, tx.TransactionDate, 'Reversal of ' + tx.TransactionNumber + ' — Opening stock', tx.TransactionNumber,
-      movement.inventoryGlLines.concat([clearingLine(d.coa[settings.ClearingAccountID], -total, 'Reversal of opening stock')]),
-      { CompanyID: batch.CompanyID },
-      { SourceTransactionID: stockReversalId, ReversalOfJV: entries[0].id, OpeningBatchID: batchId, OpeningCompanyID: batch.CompanyID, OpeningKind: 'STOCK' });
-    await stockStore.setTx(stockReversalId, {
-      TransactionType: STOCK_TYPE, Status: 'Posted', TransactionDate: tx.TransactionDate, CompanyID: batch.CompanyID,
-      Description: 'Reversal of ' + tx.TransactionNumber + ' — Opening stock', Reference: tx.TransactionNumber,
-      DivisionID: '', BranchID: '', CostCenterID: '', ProfitCenterID: '', Lines: outLines,
-      TransactionNumber: built.jvNumber, TransactionRef: built.transactionRef, LinkedJVID: built.jvId,
-      ReversalOfTransaction: batch.StockTransactionID, OpeningBatchID: batchId,
-      CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor, PostedAt: now, PostedBy: actor
-    });
-    await col.doc(built.jvId).set(built.record);
-    await commitStockLedgerUpdates(movement.ledgerUpdates);
-    await stockStore.updateTx(batch.StockTransactionID, { ReversedByTransaction: stockReversalId, UpdatedAt: now, UpdatedBy: actor });
-    await col.doc(entries[0].id).update({ ReversedByJV: built.jvId });
+    // The GL entry, the balances, the reversal, the original and its GL
+    // entry's mark in one batch: all or none (stockPosting.js, T1b).
+    const built = await stockPosting.postStock(user, {
+      type: STOCK_TYPE, date: tx.TransactionDate, description: 'Reversal of ' + tx.TransactionNumber + ' — Opening stock', reference: tx.TransactionNumber,
+      lines: movement.inventoryGlLines.concat([clearingLine(d.coa[settings.ClearingAccountID], -total, 'Reversal of opening stock')]),
+      dimensions: { CompanyID: batch.CompanyID },
+      extra: { SourceTransactionID: stockReversalId, ReversalOfJV: entries[0].id, OpeningBatchID: batchId, OpeningCompanyID: batch.CompanyID, OpeningKind: 'STOCK' }
+    }, movement.ledgerUpdates, gl => ({
+      [stockReversalId]: {
+        TransactionType: STOCK_TYPE, Status: 'Posted', TransactionDate: tx.TransactionDate, CompanyID: batch.CompanyID,
+        Description: 'Reversal of ' + tx.TransactionNumber + ' — Opening stock', Reference: tx.TransactionNumber,
+        DivisionID: '', BranchID: '', CostCenterID: '', ProfitCenterID: '', Lines: outLines,
+        TransactionNumber: gl.jvNumber, TransactionRef: gl.transactionRef, LinkedJVID: gl.jvId,
+        ReversalOfTransaction: batch.StockTransactionID, OpeningBatchID: batchId,
+        CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor, PostedAt: now, PostedBy: actor
+      },
+      [batch.StockTransactionID]: stockStore.applyUpdate(tx, { ReversedByTransaction: stockReversalId, UpdatedAt: now, UpdatedBy: actor })
+    }), (b, gl) => b.update(col.doc(entries[0].id), { ReversedByJV: gl.jvId }));
     reversals.push({ newId: built.jvId, jvNumber: built.jvNumber });
   } else {
     for (const { id, entry } of entries) reversals.push(Object.assign(await reverseEntry(user, id, entry), { of: id }));

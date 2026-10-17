@@ -57,6 +57,7 @@ const JOURNAL_WRITERS = {
   'fixedAssetsDepreciation.js': 'entries from buildStockGlEntry',
   'fixedAssetsPostings.js': 'entries from buildStockGlEntry',
   'fixedAssetsRetirement.js': 'entries from buildStockGlEntry',
+  'stockPosting.js': 'entries from buildStockGlEntry: every stock posting, with its balances and documents in one batch (T1b)',
   'masterData.js': 'the Chart of Accounts recode: account codes only, no amount or date (decision 133)',
   'periodClosing.js': 'the year-end closing entry and its reversal: the close itself, the one posting allowed into a closed month (step 2)'
 };
@@ -76,14 +77,16 @@ test('every file that posts stock movements goes through a checked place', () =>
   const files = fs.readdirSync(SRC).filter(f => f.endsWith('.js'));
   // Stock transactions are in Firestore through stockStore.js (T1); the scan
   // finds a file by either name.
-  const posting = files.filter(f => { const s = read(f); return f !== 'stockStore.js' && /stock\/transactions|stockStore\./.test(s) && /Status: 'Posted'|finalizeCommitAttempt\(/.test(s); });
+  // Since T1b a stock posting goes through stockPosting.postStock, which
+  // builds its entry with buildStockGlEntry (checked above).
+  const posting = files.filter(f => { const s = read(f); return !['stockStore.js', 'stockPosting.js'].includes(f) && /stock\/transactions|stockStore\./.test(s) && /Status: 'Posted'|finalizeCommitAttempt\(|postStock\(/.test(s); });
   // Files that only read stock movements (their text matches the scan):
   const READ_ONLY = {
     'commitAttempt.js': 'finishes a posting its caller checked', 'periodClosing.js': 'the checklist reads stock; the year-end entry has no stock',
     'followUps.js': 'queries posted Delivery Notes for the home page', 'agingReports.js': 'queries posted stock for the aging report',
     'stockReports.js': 'queries posted stock for the reports'
   };
-  const unchecked = posting.filter(f => !/(writeStockGlEntry|buildStockGlEntry|assignStockVoucherNumbering)\(/.test(read(f)) && !READ_ONLY[f]);
+  const unchecked = posting.filter(f => !/(writeStockGlEntry|buildStockGlEntry|assignStockVoucherNumbering|postStock)\(/.test(read(f)) && !READ_ONLY[f]);
   assert.deepEqual(unchecked, [], 'posts stock movements without writing a checked GL entry or numbering');
   assert.ok(posting.includes('warehouseMovement.js') && posting.includes('grn.js'), 'the scan still finds the stock modules');
 });
@@ -105,6 +108,20 @@ test('the stock ledger moves only after the lock was checked', () => {
     }
   }
   assert.deepEqual(late, [], 'commitStockLedgerUpdates before the period-checked call');
+  // T1b: postStock builds the entry (its period check) before the batch that
+  // moves the ledger is committed; a posting without an entry (Warehouse
+  // Movement) is numbered, and so checked, before it calls postStock.
+  const post = body('stockPosting.js', 'postStock');
+  assert.ok(post.indexOf('buildStockGlEntry(') >= 0 && post.indexOf('buildStockGlEntry(') < post.indexOf('batch.commit()'), 'postStock builds the checked entry before it commits');
+  for (const f of files) {
+    for (const fn of read(f).split(/\n(?=(?:async )?function |exports\.\w+ = )/)) {
+      const at = fn.indexOf('postStock(user, null');
+      if (at < 0) continue;
+      const checked = fn.indexOf('assignStockVoucherNumbering(');
+      if (checked < 0 || checked > at) late.push(f + ': ' + fn.slice(0, 80).split('\n')[0]);
+    }
+  }
+  assert.deepEqual(late, [], 'a posting without a GL entry is numbered (checked) before postStock');
 });
 
 test('the guard notices an unlisted writer (the scan itself works)', () => {

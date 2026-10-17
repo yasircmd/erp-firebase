@@ -116,7 +116,11 @@ const MAPPED = {
   findAccountUsage_: ['coaUsage', 'findAccountUsage', 'dropCtx'], // docs/modules/COA_RECODE.md
   clubStockLines_: ['lineClubbing', 'clubStockLines', 'pure'], // docs/modules/LINE_CLUBBING.md
   assertPeriodOpen_: ['periodLock', 'assertOpen', 'dropCtx'], // docs/modules/PERIOD_CLOSING.md (called only from patches)
-  cleanInvoiceItemLines_: ['invoiceStock', 'cleanItemLines', 'dropCtx'] // docs/modules/DIRECT_SALES_INVOICE.md (called only from patches)
+  cleanInvoiceItemLines_: ['invoiceStock', 'cleanItemLines', 'dropCtx'], // docs/modules/DIRECT_SALES_INVOICE.md (called only from patches)
+  // docs/modules/TRANSACTIONS_FIRESTORE.md, T1b (called only from patches stock-posting-atomic-*)
+  postStock_: ['stockPosting', 'postStock', 'dropCtx'],
+  stockPostedFields_: ['stockPosting', 'postedFields', 'pure'],
+  applyStockUpdate_: ['stockStore', 'applyUpdate', 'pure']
 };
 // Constants taken from the already-extracted shared modules (verbatim copies there).
 const IMPORTED_CONSTS = {
@@ -134,6 +138,8 @@ const SHARED_PATHS = {
   listPaging: '../listPaging', // used by name (__listPaging.) in patches
   prVisibility: '../prVisibility',
   coaUsage: '../coaUsage',
+  stockPosting: '../stockPosting',
+  stockStore: '../stockStore',
   lineClubbing: '../lineClubbing',
   numbering: '../numbering',
   periodLock: '../periodLock',
