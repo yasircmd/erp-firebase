@@ -1174,3 +1174,11 @@ from, and how it was verified. The deploy procedure is in the
   (10:47–11:03 UTC: 62 functions), from `6cd2261` (PR #131), success, in
   that order (the queries are refused without the indexes). Step 0 of
   TRANSACTIONS_FIRESTORE.md.
+- **2026-10-17, T1a: stock transactions and balances in Firestore
+  (`transactions-t1a`, all 547 functions, no screens):** run
+  [#165](https://github.com/yasircmd/erp-firebase/actions/runs/39041259781)
+  (14:33–16:49 UTC: 92 batches of 6, then the invoker bindings), from
+  `2be059e` (PR #132), success. The app was not used during the deploy, and
+  no stock had been entered since the reset, so there was nothing to move.
+  It took 2 h 16 min: all 547 functions at the Deploy workflow's batches of
+  6 (20 had hit Cloud Functions API errors, 2026-09-26).
