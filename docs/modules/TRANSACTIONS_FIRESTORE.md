@@ -408,3 +408,25 @@ written. Today there is no such limit; no real document comes near it.
 **What is unchanged:** the posted documents' fields. `postedFields()`
 writes what `finalizeCommitAttempt` wrote, the GL entry's fields, the
 numbering and the lock.
+
+**Tests.**
+- **New functions/test/emulator/stockPosting.emulator.test.js:**
+  - a posting writes its GL entry, balances and document together;
+  - a batch the database refuses at commit (marking an original GL entry
+    that no longer exists) leaves no GL entry, no balance and no document;
+  - a posting too large for one batch is refused before anything is
+    written.
+- **unit/periodLockGuard:**
+  - `stockPosting.js` is a covered journal writer, and stock posters are
+    found by `postStock(` too;
+  - `postStock` builds the checked entry before it commits;
+  - a posting without a GL entry is numbered before `postStock`.
+- **Negative controls, verified then restored:**
+  - the GL entry written before the batch, as before T1b: the refused
+    posting leaves its GL entry (test 2 fails);
+  - Warehouse Movement numbered after postStock: the guard fails.
+- **Regression:** the 25 stock-related suites pass on T1b, the ported
+  modules after regeneration included.
+
+**Going live:** deploy set `transactions-t1b`, all functions, no screens;
+don't post stock during the deploy.

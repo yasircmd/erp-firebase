@@ -6,7 +6,7 @@ modules: [OPENINGBALANCES]
 sources: [functions/src/openingBalances.js]
 summary: Bring a company's position on its go-live date into the ERP: the trial balance, opening stock and unpaid invoices.
 reviewed: 2026-10-17
-fingerprint: e9ac3fcd7fc9f19b
+fingerprint: b95a32f514f55560
 ---
 ## What it is for
 

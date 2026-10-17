@@ -12,9 +12,11 @@ const assert = require('node:assert/strict');
 // exists yet, and _helpers makes a named one.
 const { postStock, postedFields } = require('../../src/stockPosting');
 const store = require('../../src/stockStore');
-const { app, reset, baseFixture, firestore, today } = require('./_helpers');
+const { reset, baseFixture, firestore, today } = require('./_helpers');
 
-test.after(async () => { await app.delete(); });
+// The default app (src/firebaseAdmin.js) holds an RTDB connection once a
+// voucher number is taken: closed too, or the run never ends.
+test.after(async () => { await Promise.all(require('firebase-admin').apps.map(a => a.delete())); });
 
 const user = { uid: 'u-admin', profile: { username: 'admin', role: 'Admin', AssignedCompanies: ['C1'] } };
 const gl = id => ({
