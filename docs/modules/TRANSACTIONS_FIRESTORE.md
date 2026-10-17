@@ -587,7 +587,9 @@ where it is (movedPaths.js). Found while moving the sales collections.
   a wrong derived query field (1); the plan not written (1); the
   delivery's eligible orders without Partially Reserved (1, after the new
   test); a whole read added to fx.js (reported).
-- **Regression:** see the PR.
+- **Regression:** every emulator suite passes (121 files, 593 tests); UI
+  checks: the known failures only (help, home, trialBalance row heights,
+  searchPicker's JV order).
 
 **Going live:** deploy set `transactions-t2`, **all functions**, no screens,
 rules or indexes. Don't use the app during the deploy. Sales Orders,
