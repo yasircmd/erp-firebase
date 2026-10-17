@@ -5,8 +5,8 @@ order: 10
 modules: [DOCUMENTSTORAGE]
 sources: [functions/src/documentStorage.js, functions/src/attachments.js]
 summary: Store and retrieve supporting files for modules, documents and approvals without going outside the ERP.
-reviewed: 2026-10-12
-fingerprint: ecc8fa5a43be0ae3
+reviewed: 2026-10-17
+fingerprint: 0bc652be1e2ee53b
 ---
 ## What it is for
 

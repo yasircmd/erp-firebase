@@ -5,8 +5,8 @@ order: 5
 modules: [WAREHOUSEMOVEMENT]
 sources: [functions/src/warehouseMovement.js, functions/src/stockMovement.js]
 summary: Transfer stock between warehouses or locations while keeping the ledger and balances in step.
-reviewed: 2026-10-12
-fingerprint: b406a16c7d029dfe
+reviewed: 2026-10-17
+fingerprint: 423b683de4186b7d
 ---
 ## What it is for
 

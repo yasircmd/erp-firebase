@@ -5,8 +5,8 @@ order: 5
 modules: [MATERIALVARIANCE]
 sources: [functions/src/stockMovement.js]
 summary: Compare BOM-expected component use with net actual stock consumption for production in a date range.
-reviewed: 2026-10-12
-fingerprint: 1eff671ff7dee7ec
+reviewed: 2026-10-17
+fingerprint: 38cb49ac33993709
 ---
 ## What it is for
 

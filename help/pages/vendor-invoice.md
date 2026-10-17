@@ -5,8 +5,8 @@ order: 7
 modules: [VENDORINVOICE]
 sources: [functions/src/grn.js, functions/src/partyLedger.js]
 summary: Match the supplier bill to the received GRNs and post the payable amount to the company books.
-reviewed: 2026-10-16
-fingerprint: 9e3da5b26d5e85fd
+reviewed: 2026-10-17
+fingerprint: 71e1b45f5ca65613
 ---
 ## What it is for
 
