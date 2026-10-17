@@ -1182,3 +1182,12 @@ from, and how it was verified. The deploy procedure is in the
   no stock had been entered since the reset, so there was nothing to move.
   It took 2 h 16 min: all 547 functions at the Deploy workflow's batches of
   6 (20 had hit Cloud Functions API errors, 2026-09-26).
+- **2026-10-17, T1b: a stock posting is one Firestore batch
+  (`transactions-t1b`, all 547 functions, no screens):** run
+  [#166](https://github.com/yasircmd/erp-firebase/actions/runs/39055489184)
+  (17:50–19:58 UTC), from `2cdd2d4` (PR #133), success.
+- **2026-10-17, T1c: the ported modules query their stock reads
+  (`transactions-t1c`, 14 functions, no screens):** run
+  [#167](https://github.com/yasircmd/erp-firebase/actions/runs/39066514567)
+  (20:23–20:29 UTC), from `57572c2` (PR #134), success. **Phase T1 is
+  live.**
