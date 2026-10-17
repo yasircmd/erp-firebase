@@ -1148,3 +1148,13 @@ from, and how it was verified. The deploy procedure is in the
   on the new class / group seed (COA_NUMBERING.md, decision 209); until
   then Cash and Bank Transactions offers no cash or bank accounts (the old
   accounts carry no Cash / Bank mark).
+- **2026-10-17, UX testing Tier 3, wave 3 (`ux-tier3-wave3`, with screens;
+  Hosting):** runs #160 (04:48–06:18 UTC: 372 functions, then the screens
+  release) and #161 (06:23–06:24 UTC: Hosting — ess.html with the Sales
+  tab, Help), from `005f0f4` (PR #129), success. O foreign currency, Q
+  projects and dimension rules, S e-invoicing (nothing sent: no ASP), T
+  sales reps in the Employee Portal. The owner confirms both are done.
+  Still to do in the app: tick Currency Configuration "rates" and give
+  "Project Report" to roles in Roles & Permissions; set each company's
+  Exchange Gain / Loss account; add "Project Report" in Tree Management;
+  set up sales reps and e-invoicing when wanted; and wave 2's Data Reset.
