@@ -21,6 +21,7 @@ const { admin, rtdb, firestore } = require('../firebaseAdmin');
 const { FieldPath, Timestamp } = require('firebase-admin/firestore');
 const { requireUser } = require('../auth');
 const { acquireGlobalLock, releaseGlobalLock } = require('../lock');
+const stockStore = require('../stockStore');
 
 const als = new AsyncLocalStorage();
 
@@ -43,6 +44,16 @@ function jsonClean(value) {
 // ---------- RTDB: firebaseDbRequest_ ----------
 async function firebaseDbRequest_(path, method, payload, idToken) {
   const cleanPath = String(path).replace(/^\/+|\/+$/g, '');
+  // Stock transactions and balances are in Firestore now
+  // (docs/modules/TRANSACTIONS_FIRESTORE.md, T1); stockStore answers their
+  // RTDB paths with the same semantics, so the ported code is unchanged.
+  if (stockStore.isStockPath(cleanPath)) {
+    const m0 = String(method || 'get').toLowerCase();
+    return stockStore.rtdbStyle(cleanPath, m0, m0 === 'get' || m0 === 'delete' ? undefined : jsonClean(payload));
+  }
+  if (!cleanPath && payload && Object.keys(payload).some(k => stockStore.isStockPath(k))) {
+    throw new Error('A multi-path update cannot include stock transactions or balances (they are in Firestore).');
+  }
   const ref = cleanPath ? rtdb.ref(cleanPath) : rtdb.ref();
   const m = String(method || 'get').toLowerCase();
   if (m === 'get') {

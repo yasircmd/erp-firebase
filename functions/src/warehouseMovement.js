@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, assignStockVoucherNumbering } = require('./glWriting');
 const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
@@ -129,16 +130,16 @@ exports.saveWarehouseMovementDraft = onCallWithMessages(onCallOptions, async (re
   };
 
   if (moveId) {
-    const existingSnap = await rtdb.ref('stock/transactions/' + moveId).get();
+    const existingSnap = await stockStore.snapTx(moveId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'Warehouse Movement not found.');
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected Warehouse Movements can be edited.');
-    await rtdb.ref('stock/transactions/' + moveId).update(fields);
+    await stockStore.updateTx(moveId, fields);
     return { success: true, moveId: moveId };
   }
 
   const newId = 'WMD-' + randomUUID().split('-')[0].toUpperCase();
-  await rtdb.ref('stock/transactions/' + newId).set(Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
+  await stockStore.setTx(newId, Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
   return { success: true, moveId: newId };
 });
 
@@ -148,7 +149,7 @@ exports.postWarehouseMovement = onCallWithMessages(onCallOptions, async (request
   const moveId = String(request.data && request.data.moveId || '').trim();
 
   return withGlobalLock(user.uid, async () => {
-    const existingSnap = await rtdb.ref('stock/transactions/' + moveId).get();
+    const existingSnap = await stockStore.snapTx(moveId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'Warehouse Movement not found.');
     if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -182,7 +183,7 @@ exports.postWarehouseMovement = onCallWithMessages(onCallOptions, async (request
     if (approval.required) {
       // Nothing physical happens yet — no stock ledger change, no
       // Sales Order allocation — until this is actually approved.
-      await rtdb.ref('stock/transactions/' + moveId).update({
+      await stockStore.updateTx(moveId, {
         Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
         RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
       });
@@ -236,7 +237,7 @@ async function commitWarehouseMovementPosting(user, existing, moveId) {
 
   const now = new Date().toISOString();
   const actor = user.profile.username || user.uid;
-  await rtdb.ref('stock/transactions/' + moveId).update({
+  await stockStore.updateTx(moveId, {
     Status: 'Posted', TransactionNumber: numbering.voucherNumber, TransactionRef: numbering.transactionRef,
     Lines: outLines.map(l => Object.assign({}, l, { UnitCost: l.UnitCost, TotalValue: l.TotalValue })),
     PostedAt: now, PostedBy: actor, UpdatedAt: now, UpdatedBy: actor
@@ -259,7 +260,7 @@ exports.decideWarehouseMovementApproval = onCallWithMessages(onCallOptions, asyn
   const decision = data.decision;
   const reason = data.reason;
 
-  const existingSnap = await rtdb.ref('stock/transactions/' + moveId).get();
+  const existingSnap = await stockStore.snapTx(moveId);
   const existing = existingSnap.val();
   if (!existing) throw new HttpsError('not-found', 'Warehouse Movement not found.');
   if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -274,7 +275,7 @@ exports.decideWarehouseMovementApproval = onCallWithMessages(onCallOptions, asyn
     });
   } else if (result.status === 'Rejected') {
     const now = new Date().toISOString();
-    await rtdb.ref('stock/transactions/' + moveId).update({
+    await stockStore.updateTx(moveId, {
       Status: 'Rejected', RejectionReason: String(reason || '').trim(),
       UpdatedAt: now, UpdatedBy: user.profile.username || user.uid
     });
@@ -286,13 +287,13 @@ exports.decideWarehouseMovementApproval = onCallWithMessages(onCallOptions, asyn
 exports.deleteWarehouseMovementDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const moveId = String(request.data && request.data.moveId || '').trim();
-  const existingSnap = await rtdb.ref('stock/transactions/' + moveId).get();
+  const existingSnap = await stockStore.snapTx(moveId);
   const existing = existingSnap.val();
   if (!existing) throw new HttpsError('not-found', 'Warehouse Movement not found.');
   if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   await requireDraftAccess('WAREHOUSEMOVEMENT', user.profile.role);
   if (existing.Status !== 'Draft') throw new HttpsError('failed-precondition', 'Only draft Warehouse Movements can be deleted. Posted ones must be reversed instead.');
-  await rtdb.ref('stock/transactions/' + moveId).set(null);
+  await stockStore.deleteTx(moveId);
   return { success: true };
 });
 
@@ -302,8 +303,8 @@ exports.getWarehouseMovementEntries = onCallWithMessages(onCallOptions, async (r
   const canAccess = await moduleHasCapability('WAREHOUSEMOVEMENT', 'access', user.profile.role);
   if (!canAccess) throw new HttpsError('permission-denied', 'You do not have access to Warehouse Movement.');
 
-  const dataSnap = await rtdb.ref('stock/transactions').get();
-  const data = dataSnap.val() || {};
+  // Only this type's documents (stockStore.js), not every stock transaction.
+  const data = await stockStore.queryTx({ TransactionType: 'WarehouseMovement' });
   const all = Object.keys(data)
     .map(id => Object.assign({ MoveID: id }, data[id]))
     .filter(e => e.TransactionType === 'WarehouseMovement')
@@ -330,7 +331,7 @@ exports.reverseWarehouseMovement = onCallWithMessages(onCallOptions, async (requ
   const moveId = String(data.moveId || '').trim();
 
   return withGlobalLock(user.uid, async () => {
-    const existingSnap = await rtdb.ref('stock/transactions/' + moveId).get();
+    const existingSnap = await stockStore.snapTx(moveId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'Warehouse Movement not found.');
     if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -382,7 +383,7 @@ exports.reverseWarehouseMovement = onCallWithMessages(onCallOptions, async (requ
     const actor = user.profile.username || user.uid;
     const newId = 'WMD-' + randomUUID().split('-')[0].toUpperCase();
 
-    await rtdb.ref('stock/transactions/' + newId).set({
+    await stockStore.setTx(newId, {
       TransactionType: 'WarehouseMovement', TransactionNumber: numbering.voucherNumber, TransactionRef: numbering.transactionRef,
       TransactionDate: date, Description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description,
       Reference: existing.TransactionNumber, Status: 'Posted',
@@ -393,7 +394,7 @@ exports.reverseWarehouseMovement = onCallWithMessages(onCallOptions, async (requ
       ReversalOfWarehouseMovement: moveId, ReversedByWarehouseMovement: ''
     });
 
-    await rtdb.ref('stock/transactions/' + moveId).update({ ReversedByWarehouseMovement: newId });
+    await stockStore.updateTx(moveId, { ReversedByWarehouseMovement: newId });
 
     return { success: true, moveId: newId, moveNumber: numbering.voucherNumber };
   });

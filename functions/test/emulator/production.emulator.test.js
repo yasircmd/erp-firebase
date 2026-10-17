@@ -5,7 +5,7 @@
 // approval gate, pickers, access.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val, put } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture() {
@@ -96,7 +96,7 @@ test('reversal: stock out, mirror GL, this posting\'s reservations released, Job
 
 test('a reversal entry cannot itself be reversed (Code.gs took the stock out twice)', async () => {
   await reset(fixture());
-  await rtdb.ref('stock/ledger/FG1/WH1').set({ Quantity: 20, AvgCost: 12, TotalValue: 240 });
+  await put('stock/ledger/FG1/WH1', { Quantity: 20, AvgCost: 12, TotalValue: 240 });
   const p1 = await postNew([line({ EnteredQuantity: 5 })]);
   const r = await call('u-admin', 'reverseProduction', { prodId: p1, reversalDate: D });
   assert.deepEqual(await ledger('FG1', 'WH1'), [20, 12, 240]);
@@ -108,7 +108,7 @@ test('a reversal entry cannot itself be reversed (Code.gs took the stock out twi
 test('reversal is refused once the produced stock has been consumed', async () => {
   await reset(fixture());
   const p1 = await postNew([line({ EnteredQuantity: 5 })]);
-  await rtdb.ref('stock/ledger/FG1/WH1').set({ Quantity: 2, AvgCost: 12, TotalValue: 24 });
+  await put('stock/ledger/FG1/WH1', { Quantity: 2, AvgCost: 12, TotalValue: 24 });
   const r = await call('u-admin', 'reverseProduction', { prodId: p1, reversalDate: D });
   assert.equal(r.success, false);
   assert.match(r.error, /insufficient|not enough|only 2/i);

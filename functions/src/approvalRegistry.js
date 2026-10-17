@@ -49,6 +49,8 @@ const APPROVAL_GATEABLE_MODULES = [
   { ModuleID: 'REIMBURSEMENT', Label: 'Reimbursement claim (the amount is the claim total)' },
 ];
 
+// 'stock/transactions' is the name the stock modules' documents keep; they
+// are in Firestore (stockStore.js), and the readers route by it.
 const APPROVAL_MODULE_STORAGE_ = {
   JV: { type: 'firestore', collection: FIRESTORE_JOURNAL_ENTRIES_COLLECTION },
   CBT: { type: 'firestore', collection: FIRESTORE_JOURNAL_ENTRIES_COLLECTION },

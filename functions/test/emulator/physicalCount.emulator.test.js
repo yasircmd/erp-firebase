@@ -3,7 +3,7 @@
 // clean count, surplus valuation, approval gate, reversal, access.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val, put } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture() {
@@ -32,7 +32,7 @@ test('shortfall: variance vs CURRENT ledger (not the draft snapshot) posts Out +
   assert.equal(s.success, true, s.error);
   assert.match(s.pcId, /^PCD-/);
   // Stock moves after the count was entered: the snapshot (10) is now stale.
-  await rtdb.ref('stock/ledger/I1/WH1').set({ Quantity: 12, AvgCost: 5, TotalValue: 60 });
+  await put('stock/ledger/I1/WH1', { Quantity: 12, AvgCost: 5, TotalValue: 60 });
 
   const p = await call('u-admin', 'postPhysicalCount', { pcId: s.pcId });
   assert.equal(p.success, true, p.error);
@@ -118,7 +118,7 @@ test('approval gate: nothing moves until approved; variance recomputed at approv
   assert.deepEqual(p, { success: true, status: 'PendingApproval' });
   assert.deepEqual(await ledger('I1', 'WH1'), [10, 5, 50], 'nothing moves before approval');
 
-  await rtdb.ref('stock/ledger/I1/WH1').set({ Quantity: 11, AvgCost: 5, TotalValue: 55 });
+  await put('stock/ledger/I1/WH1', { Quantity: 11, AvgCost: 5, TotalValue: 55 });
   const d = await call('u-approver', 'decidePhysicalCountApproval', { pcId: s.pcId, levelNumber: 1, decision: 'Approved', reason: '' });
   assert.equal(d.success, true, d.error);
   assert.equal(d.status, 'Approved');
@@ -131,9 +131,9 @@ test('a posted count stores what it posted, so Stock Ledger and the count list r
   f.stock.ledger = {}; // start from zero and build the ledger from real postings only
   await reset(f);
   // An opening receipt, recorded the way a posted GRN stores it, so the report has a history to run from.
-  await rtdb.ref('stock/transactions/OPEN').set({ TransactionType: 'GRN', Status: 'Posted', CompanyID: 'C1', TransactionDate: '2026-09-01', CreatedAt: '2026-09-01T00:00:00Z',
+  await put('stock/transactions/OPEN', { TransactionType: 'GRN', Status: 'Posted', CompanyID: 'C1', TransactionDate: '2026-09-01', CreatedAt: '2026-09-01T00:00:00Z',
     Lines: [{ ItemID: 'I1', WarehouseID: 'WH1', Direction: 'In', Quantity: 10, UnitCost: 5, TotalValue: 50 }] });
-  await rtdb.ref('stock/ledger/I1/WH1').set({ Quantity: 10, AvgCost: 5, TotalValue: 50 });
+  await put('stock/ledger/I1/WH1', { Quantity: 10, AvgCost: 5, TotalValue: 50 });
 
   const s = await draft([line({ CountedQuantity: 6 }), line({ WarehouseID: 'WH2', CountedQuantity: 0 })]);
   assert.equal((await call('u-admin', 'postPhysicalCount', { pcId: s.pcId })).success, true);

@@ -24,6 +24,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION, generateStockVoucherNumber, transactionRefFor } = require('./glWriting');
 const { randomUUID } = require('crypto');
@@ -142,7 +143,7 @@ const docRow = (moduleId, kind, number, date, status, extra) => Object.assign({ 
 async function unfinishedDocuments(companyId, from, to) {
   const inRange = d => Boolean(d) && (!from || d >= from) && d <= to;
   const [stockSnap, vinvSnap, cinvSnap, pdcSnap, jvSnap, faSnap] = await Promise.all([
-    rtdb.ref('stock/transactions').get(), rtdb.ref('vendorInvoices').get(), rtdb.ref('customerInvoices').get(), rtdb.ref('pdcCheques').get(),
+    stockStore.queryTx({ CompanyID: companyId }).then(v => ({ val: () => v })), rtdb.ref('vendorInvoices').get(), rtdb.ref('customerInvoices').get(), rtdb.ref('pdcCheques').get(),
     firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).where('CompanyID', '==', companyId).get(),
     firestore.collection('faTransactions').where('CompanyID', '==', companyId).get()
   ]);
@@ -269,7 +270,8 @@ async function stockControl(companyId, month) {
 // (the Delivery Note list's "not invoiced"), not reversed.
 async function deliveriesNotInvoiced(companyId, month) {
   const end = lastDay(month);
-  const [stockSnap, custSnap] = await Promise.all([rtdb.ref('stock/transactions').get(), rtdb.ref('customers').get()]);
+  // The company's posted Delivery Notes (stockStore.js), not every stock transaction.
+  const [stockSnap, custSnap] = await Promise.all([stockStore.queryTx({ TransactionType: 'DeliveryNote', CompanyID: companyId, Status: 'Posted' }).then(v => ({ val: () => v })), rtdb.ref('customers').get()]);
   const customers = custSnap.val() || {};
   return Object.values(stockSnap.val() || {})
     .filter(t => t.TransactionType === 'DeliveryNote' && t.CompanyID === companyId && t.Status === 'Posted' && t.TransactionDate && t.TransactionDate <= end &&

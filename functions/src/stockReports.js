@@ -18,6 +18,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { countedTransactions } = require('./agingReports');
@@ -104,7 +105,8 @@ function replayBatches(transactions) {
 }
 
 async function batchExpiry(companyId, asOf, warehouseId, category, withinDays, batchTrackedOnly) {
-  const [txSnap, m] = await Promise.all([rtdb.ref('stock/transactions').get(), masters(companyId)]);
+  // The company's posted stock transactions (stockStore.js), not every one.
+  const [txSnap, m] = await Promise.all([stockStore.queryTx({ CompanyID: companyId, Status: 'Posted' }).then(v => ({ val: () => v })), masters(companyId)]);
   const st = replayBatches(countedTransactions(txSnap.val(), companyId, asOf));
   const until = new Date(Date.parse(asOf + 'T00:00:00Z') + withinDays * 86400000).toISOString().slice(0, 10);
   const rows = [];
@@ -156,7 +158,8 @@ exports.getBatchExpiryReport = onCallWithMessages(onCallOptions, async (request)
 
 async function reorder(companyId, warehouseId, category, onlyBelow) {
   const [ledgerSnap, resSnap, poSnap, txSnap, m] = await Promise.all([
-    rtdb.ref('stock/ledger').get(), rtdb.ref('stock/reservations').get(), rtdb.ref('purchaseOrders').get(), rtdb.ref('stock/transactions').get(), masters(companyId)
+    stockStore.allLedger(warehouseId ? { WarehouseID: warehouseId } : undefined).then(v => ({ val: () => v })), rtdb.ref('stock/reservations').get(), rtdb.ref('purchaseOrders').get(),
+    stockStore.queryTx({ CompanyID: companyId, Status: 'Posted' }).then(v => ({ val: () => v })), masters(companyId)
   ]);
   const ledger = ledgerSnap.val() || {}, reservations = resSnap.val() || {}, pos = poSnap.val() || {};
   const myWh = new Set(m.warehouses.map(w => w.ID));

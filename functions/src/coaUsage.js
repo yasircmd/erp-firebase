@@ -11,6 +11,7 @@
 // which a new code doesn't affect, so they don't count.
 'use strict';
 const { rtdb, firestore } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 
 const RTDB_STORES = [
   ['stock/transactions', 'Stock transaction'], ['vendorInvoices', 'Vendor Invoice'], ['customerInvoices', 'Customer Invoice'],
@@ -42,7 +43,8 @@ async function findAccountUsage(accountId, accountCode, limit) {
     }
   }
   for (const [path, what] of RTDB_STORES) {
-    const data = (await rtdb.ref(path).get()).val() || {};
+    // Stock transactions are in Firestore (stockStore.js), by the same path name.
+    const data = (stockStore.isStockPath(path) ? await stockStore.allTx() : (await rtdb.ref(path).get()).val()) || {};
     for (const id of Object.keys(data)) {
       if (refersTo(data[id], accountId, String(accountCode || ''))) found.push(label(what, id, data[id]));
       if (found.length >= max) return found;

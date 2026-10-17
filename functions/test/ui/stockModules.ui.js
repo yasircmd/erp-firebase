@@ -15,8 +15,14 @@ const assert = require('assert/strict');
 const { chromium } = require('playwright');
 const { onAppDialog } = require('./_appDialogs');
 const admin = require('firebase-admin');
+// Stock transactions and balances are in Firestore (src/stockStore.js),
+// read here by their RTDB paths. Loaded before this file's own app:
+// firebaseAdmin.js makes the default app only when none exists yet.
+process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'erp1-8f4cd';
+const stockStore = require('../../src/stockStore');
 const app = admin.initializeApp({ projectId: 'erp1-8f4cd', databaseURL: 'https://erp1-8f4cd-default-rtdb.firebaseio.com' }, 'ui');
 const rtdb = app.database();
+const val = async p => (stockStore.isStockPath(p) ? stockStore.rtdbStyle(p, 'get') : (await rtdb.ref(p).get()).val());
 
 const today = new Date().toISOString().substring(0, 10);
 function tokenFor(uid) {
@@ -28,7 +34,7 @@ async function call(uid, fn, data) {
   const r = await fetch('http://127.0.0.1:5001/erp1-8f4cd/us-central1/' + fn, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tokenFor(uid) }, body: JSON.stringify({ data: data ?? null }) });
   const b = await r.json(); if (b.error) throw new Error(fn + ': ' + b.error.message); return b.result;
 }
-const qty = async (wh) => ((await rtdb.ref('stock/ledger/I1/' + wh).get()).val() || { Quantity: 0 }).Quantity;
+const qty = async (wh) => ((await val('stock/ledger/I1/' + wh)) || { Quantity: 0 }).Quantity;
 
 const results = [];
 function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, e.message.replace(/\s+/g, ' ').slice(0, 300)]); }); }
@@ -274,7 +280,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.click('#grn-confirm-ok');
     await page.waitForSelector('#grn-list-view:not(.hidden)', { timeout: 20000 });
     assert.deepEqual(await rpcFailures(page), []);
-    const all = (await rtdb.ref('stock/transactions').get()).val();
+    const all = (await val('stock/transactions'));
     const grn = Object.values(all).find(t => t.Description === 'UI non-stock receipt');
     assert.equal(grn.Status, 'Posted');
     assert.deepEqual(grn.NonStockLines.map(l => [l.CategoryID, l.Quantity, l.UnitCost, l.AccountCode, l.CostCenterID]), [['RCAT-X', 2, 75, '5100', 'CC1']]);

@@ -37,6 +37,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
@@ -51,7 +52,6 @@ const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'RETAILSALES';
 const TYPE = 'RetailSale';
 const RTYPE = 'RetailReturn';
-const TX = 'stock/transactions/';
 const SETTINGS = 'retailSales/settings/';
 // The receipt (owner, 2026-10-10, decisions 114-115): the paper per company,
 // a footer message, printed on Confirm or not. A4 is the original layout.
@@ -334,7 +334,7 @@ exports.getRetailCounter = onCallWithMessages(onCallOptions, async (request) => 
   const warehouseId = String(d.warehouseId || '').trim() || settings.WarehouseID;
   const date = String(d.date || '').trim() || new Date().toISOString().substring(0, 10);
   const [methods, customers, items, uoms, ledger, prices, barcodes, canAddCustomer] = await Promise.all([
-    methodsOf(companyId), val('customers'), val('items'), val('uoms'), val('stock/ledger'), pricesOn(settings.PriceListID, date), Barcodes.all(),
+    methodsOf(companyId), val('customers'), val('items'), val('uoms'), stockStore.allLedger({ WarehouseID: warehouseId }), pricesOn(settings.PriceListID, date), Barcodes.all(),
     moduleHasCapability('CUSTOMERMASTER', 'write', user.profile.role)
   ]);
   const codesOf = Barcodes.byItem(barcodes); // the products' own barcodes (docs/modules/ITEM_BARCODES.md)
@@ -544,7 +544,7 @@ exports.confirmRetailSale = onCallWithMessages(onCallOptions, async (request) =>
       CostValue: round2(s.lines.reduce((t, l) => t + l.TotalValue, 0)),
       Status: 'Draft', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
     });
-    await rtdb.ref(TX + saleId).set(record);
+    await stockStore.setTx(saleId, record);
     const attemptId = await beginCommitAttempt(saleId, actor);
     let glResult;
     try {
@@ -555,7 +555,7 @@ exports.confirmRetailSale = onCallWithMessages(onCallOptions, async (request) =>
           PartyKeys: s.pay.onAccount > 0.005 ? ['Customer:' + s.customerId] : [], AllocatedRefs: [], AllocatedRefTypes: []
         });
     } catch (err) {
-      await rtdb.ref(TX + saleId).set(null);
+      await stockStore.deleteTx(saleId);
       throw err;
     }
     // A GL entry genuinely exists from here on — no more reverting.
@@ -587,7 +587,10 @@ exports.getRetailSales = onCallWithMessages(onCallOptions, async (request) => {
   const to = String(d.to || '').trim();
   const all = await canSeeAll(user);
   const billedBy = all ? String(d.billedBy || '').trim() : '';
-  const txs = (await val('stock/transactions')) || {};
+  // This company's sales and returns (stockStore.js), in key order as before.
+  const [saleDocs, returnDocs] = await Promise.all([stockStore.queryTx({ TransactionType: TYPE, CompanyID: companyId }), stockStore.queryTx({ TransactionType: RTYPE, CompanyID: companyId })]);
+  const txs = {};
+  Object.keys(Object.assign({}, saleDocs, returnDocs)).sort(stockStore.keyOrder).forEach(id => { txs[id] = saleDocs[id] || returnDocs[id]; });
   const inRange = Object.entries(txs)
     .filter(([, t]) => (t.TransactionType === TYPE || t.TransactionType === RTYPE) && t.CompanyID === companyId && t.Status === 'Posted' &&
       (!from || t.TransactionDate >= from) && (!to || t.TransactionDate <= to) && (all || isOwn(user, t)));
@@ -632,7 +635,7 @@ exports.getRetailSales = onCallWithMessages(onCallOptions, async (request) => {
 });
 
 async function loadSale(user, saleId) {
-  const t = saleId && (await val(TX + saleId));
+  const t = saleId && (await stockStore.getTx(saleId));
   if (!t || (t.TransactionType !== TYPE && t.TransactionType !== RTYPE)) throw new HttpsError('not-found', 'Retail sale not found.');
   if (!userCanAccessCompany(user.profile, t.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   if (!isOwn(user, t) && !(await canSeeAll(user))) throw new HttpsError('permission-denied', 'You can open only the sales you billed yourself.');
@@ -654,7 +657,7 @@ exports.getRetailSale = onCallWithMessages(onCallOptions, async (request) => {
   const company = (await val('companies/' + t.CompanyID)) || {};
   // A sale's returns, and the barcode of its number for the receipt (a
   // return scans it, decision 76).
-  const returns = t.TransactionType === TYPE ? returnsOf(await val('stock/transactions'), saleId)
+  const returns = t.TransactionType === TYPE ? returnsOf(await saleReturns(saleId), saleId)
     .map(r => ({ ReturnID: r.ReturnID, TransactionNumber: r.TransactionNumber, TransactionDate: r.TransactionDate, Total: r.Total })) : [];
   return {
     sale: Object.assign({ SaleID: saleId }, t),
@@ -684,7 +687,7 @@ exports.reverseRetailSale = onCallWithMessages(onCallOptions, async (request) =>
     if (t.TransactionType !== TYPE) throw new HttpsError('failed-precondition', 'A return is reversed from the return itself.');
     // Partial returns (decisions 76-79): once part of it has come back, what
     // is left is returned instead.
-    const returned = returnsOf(await val('stock/transactions'), saleId);
+    const returned = returnsOf(await saleReturns(saleId), saleId);
     if (returned.length) throw new HttpsError('failed-precondition', 'Part of this sale has been returned (' + returned.map(r => r.TransactionNumber).join(', ') + '); return the rest instead of reversing it.');
     const glRef = firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(t.LinkedJVID);
     const glDoc = await glRef.get();
@@ -711,7 +714,7 @@ exports.reverseRetailSale = onCallWithMessages(onCallOptions, async (request) =>
     const newId = 'RS-' + randomUUID().split('-')[0].toUpperCase();
     const attemptId = randomUUID();
     const description = 'Reversal of ' + t.TransactionNumber + ' — ' + reason;
-    await rtdb.ref(TX + newId).set(Object.assign({}, t, {
+    await stockStore.setTx(newId, Object.assign({}, t, {
       Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now, TransactionDate: date, Description: description,
       Reference: t.TransactionNumber, Lines: movementLines, ReversalOfSaleID: saleId, ReversedBySaleID: '', ReversalReason: reason,
       TransactionNumber: '', TransactionRef: '', LinkedJVID: '', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
@@ -722,13 +725,13 @@ exports.reverseRetailSale = onCallWithMessages(onCallOptions, async (request) =>
         { CompanyID: t.CompanyID, DivisionID: '', BranchID: '', CostCenterID: t.CostCenterID || '', ProfitCenterID: '' },
         { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfJV: t.LinkedJVID, PartyKeys: glEntry.PartyKeys || [], AllocatedRefs: [], AllocatedRefTypes: [] });
     } catch (err) {
-      await rtdb.ref(TX + newId).set(null);
+      await stockStore.deleteTx(newId);
       throw err;
     }
     // A GL entry genuinely exists from here on — no more reverting.
     await commitStockLedgerUpdates(movement.ledgerUpdates);
     await glRef.update({ ReversedByJV: glResult.jvId, UpdatedAt: now, UpdatedBy: actor });
-    await rtdb.ref(TX + saleId).update({ ReversedBySaleID: newId, ReversalReason: reason, UpdatedAt: now, UpdatedBy: actor });
+    await stockStore.updateTx(saleId, { ReversedBySaleID: newId, ReversalReason: reason, UpdatedAt: now, UpdatedBy: actor });
     await finalizeCommitAttempt(newId, glResult, { Lines: movementLines }, actor);
     return { success: true, saleId: newId, saleNumber: glResult.jvNumber };
   });
@@ -738,6 +741,8 @@ exports.reverseRetailSale = onCallWithMessages(onCallOptions, async (request) =>
 
 const liveTx = t => t.Status === 'Posted' && !t.ReversedBySaleID && !t.ReversalOfSaleID && !t.ReversedByReturnID && !t.ReversalOfReturnID;
 // A sale's live returns (neither reversed nor a reversal).
+// A sale's returns, read by the sale (stockStore.js).
+const saleReturns = saleId => stockStore.queryTx({ ReturnOfSaleID: saleId, TransactionType: RTYPE });
 const returnsOf = (txs, saleId) => Object.entries(txs || {})
   .filter(([, t]) => t.TransactionType === RTYPE && t.ReturnOfSaleID === saleId && liveTx(t))
   .map(([id, t]) => Object.assign({ ReturnID: id }, t));
@@ -846,7 +851,7 @@ async function saleByNumber(user, companyId, number) {
   requireCompany(user, companyId);
   const key = String(number || '').trim().toUpperCase();
   if (!key) throw new HttpsError('invalid-argument', 'Enter or scan the invoice number.');
-  const txs = (await val('stock/transactions')) || {};
+  const txs = await stockStore.queryTx({ TransactionType: TYPE, CompanyID: companyId });
   const hit = Object.entries(txs).find(([, t]) => t.TransactionType === TYPE && t.CompanyID === companyId && t.Status === 'Posted' &&
     (String(t.TransactionNumber || '').toUpperCase() === key || String(t.TransactionRef || '').toUpperCase() === key));
   if (!hit) throw new HttpsError('not-found', 'No retail sale ' + key + ' in this company.');
@@ -900,7 +905,7 @@ exports.findRetailSaleForReturn = onCallWithMessages(onCallOptions, async (reque
 // the preview and by Confirm alike.
 async function buildReturn(user, d) {
   const saleId = String(d.saleId || '').trim();
-  const sale = saleId && (await val(TX + saleId));
+  const sale = saleId && (await stockStore.getTx(saleId));
   if (!sale || sale.TransactionType !== TYPE) throw new HttpsError('not-found', 'Retail sale not found.');
   requireCompany(user, sale.CompanyID);
   if (sale.Status !== 'Posted' || sale.ReversalOfSaleID) throw new HttpsError('failed-precondition', 'Only a confirmed sale can be returned.');
@@ -912,7 +917,7 @@ async function buildReturn(user, d) {
   }
   const reason = String(d.reason || '').trim();
   const [txs, items, uoms, coa, customers, salesTypes, methods] = await Promise.all([
-    val('stock/transactions'), val('items'), val('uoms'), val('coa'), val('customers'), val('salesTypes'), methodsOf(sale.CompanyID)
+    saleReturns(saleId), val('items'), val('uoms'), val('coa'), val('customers'), val('salesTypes'), methodsOf(sale.CompanyID)
   ]);
   const prior = returnedSoFar(returnsOf(txs, saleId));
   const itemUoms = {};
@@ -1020,7 +1025,7 @@ exports.confirmRetailReturn = onCallWithMessages(onCallOptions, async (request) 
       CostValue: round2(b.ret.lines.reduce((t, l) => t + l.TotalValue, 0)),
       Status: 'Draft', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
     });
-    await rtdb.ref(TX + returnId).set(record);
+    await stockStore.setTx(returnId, record);
     const attemptId = await beginCommitAttempt(returnId, actor);
     const party = b.split.reduce > 0.005 || b.split.credit > 0.005;
     let glResult;
@@ -1033,7 +1038,7 @@ exports.confirmRetailReturn = onCallWithMessages(onCallOptions, async (request) 
           AllocatedRefs: b.split.reduce > 0.005 ? [b.refId] : [], AllocatedRefTypes: b.split.reduce > 0.005 ? ['NewRef'] : []
         });
     } catch (err) {
-      await rtdb.ref(TX + returnId).set(null);
+      await stockStore.deleteTx(returnId);
       throw err;
     }
     // A GL entry genuinely exists from here on — no more reverting.
@@ -1054,7 +1059,7 @@ exports.reverseRetailReturn = onCallWithMessages(onCallOptions, async (request) 
   if (!reason) throw new HttpsError('invalid-argument', 'Enter the reason for reversing the return.');
 
   return withGlobalLock(user.uid, async () => {
-    const t = returnId && (await val(TX + returnId));
+    const t = returnId && (await stockStore.getTx(returnId));
     if (!t || t.TransactionType !== RTYPE) throw new HttpsError('not-found', 'Return not found.');
     if (!userCanAccessCompany(user.profile, t.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
     if (!isOwn(user, t) && !(await canSeeAll(user))) throw new HttpsError('permission-denied', 'You can reverse only the returns you took yourself.');
@@ -1085,7 +1090,7 @@ exports.reverseRetailReturn = onCallWithMessages(onCallOptions, async (request) 
     const newId = 'RR-' + randomUUID().split('-')[0].toUpperCase();
     const attemptId = randomUUID();
     const description = 'Reversal of ' + t.TransactionNumber + ' — ' + reason;
-    await rtdb.ref(TX + newId).set(Object.assign({}, t, {
+    await stockStore.setTx(newId, Object.assign({}, t, {
       Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now, TransactionDate: date, Description: description,
       Reference: t.TransactionNumber, Lines: movementLines, ReversalOfReturnID: returnId, ReversedByReturnID: '', ReversalReason: reason,
       TransactionNumber: '', TransactionRef: '', LinkedJVID: '', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
@@ -1096,13 +1101,13 @@ exports.reverseRetailReturn = onCallWithMessages(onCallOptions, async (request) 
         { CompanyID: t.CompanyID, DivisionID: '', BranchID: '', CostCenterID: t.CostCenterID || '', ProfitCenterID: '' },
         { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfJV: t.LinkedJVID, PartyKeys: glEntry.PartyKeys || [], AllocatedRefs: [], AllocatedRefTypes: [] });
     } catch (err) {
-      await rtdb.ref(TX + newId).set(null);
+      await stockStore.deleteTx(newId);
       throw err;
     }
     // A GL entry genuinely exists from here on — no more reverting.
     await commitStockLedgerUpdates(movement.ledgerUpdates);
     await glRef.update({ ReversedByJV: glResult.jvId, UpdatedAt: now, UpdatedBy: actor });
-    await rtdb.ref(TX + returnId).update({ ReversedByReturnID: newId, ReversalReason: reason, UpdatedAt: now, UpdatedBy: actor });
+    await stockStore.updateTx(returnId, { ReversedByReturnID: newId, ReversalReason: reason, UpdatedAt: now, UpdatedBy: actor });
     await finalizeCommitAttempt(newId, glResult, { Lines: movementLines }, actor);
     return { success: true, returnId: newId, returnNumber: glResult.jvNumber };
   });

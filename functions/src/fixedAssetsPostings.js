@@ -22,6 +22,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { FieldValue } = require('firebase-admin/firestore');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser } = require('./auth');
 const { userCanAccessCompany, buildStockGlEntry, generateStockVoucherNumber, parseAmountServer, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
@@ -88,7 +89,8 @@ async function clearingItems(companyId) {
     if (e.VoucherType === 'GRN' && e.SourceTransactionID && (e.Lines || []).some(l => accounts.has(l.AccountID))) grnIds.add(e.SourceTransactionID);
   });
   const grnVendors = {};
-  for (const id of grnIds) grnVendors[id] = ((await rtdb.ref('stock/transactions/' + id + '/VendorID').get()).val()) || '';
+  const grns = await stockStore.getTxs([...grnIds]);
+  for (const id of grnIds) grnVendors[id] = (grns[id] || {}).VendorID || '';
   const items = [];
   const credits = [];
   entries.docs.forEach(doc => {
@@ -279,7 +281,7 @@ async function prepare(user, data) {
       if (want[k] > open + 0.005) throw new Error(jv.JVNumber + ' line ' + lineNo + ': only ' + open.toFixed(2) + ' is still open, ' + want[k].toFixed(2) + ' asked.');
       // A GRN's vendor is on the GRN (docs/modules/GRN_NON_STOCK.md).
       const vendorId = vendorOfEntry(jv) || (jv.VoucherType === 'GRN' && jv.SourceTransactionID
-        ? ((await rtdb.ref('stock/transactions/' + jv.SourceTransactionID + '/VendorID').get()).val() || '') : '');
+        ? (((await stockStore.getTx(jv.SourceTransactionID)) || {}).VendorID || '') : '');
       lines.forEach(l => l.Items.forEach(it => {
         if (itemKey(it.JVID, it.LineNo) === k) Object.assign(it, { JVNumber: jv.JVNumber, JVDate: jv.JVDate, AccountID: gl.AccountID, AccountCode: gl.AccountCode, VendorID: vendorId, VoucherType: jv.VoucherType || 'JV', SourceTransactionID: jv.SourceTransactionID || '' });
       }));

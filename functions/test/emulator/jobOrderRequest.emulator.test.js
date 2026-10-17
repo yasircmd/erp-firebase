@@ -4,7 +4,7 @@
 // (reversals net out), Sales Order shortfall picker, access.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val, put } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture() {
@@ -106,7 +106,7 @@ test('lists: produced quantity is summed live from Production postings, reversal
   const s = await saveBatch({ Origin: 'Production', Lines: [{ ItemCode: 'FG-001', OrderedQuantity: 10 }] });
   await act('submitJobOrderBatch', { batchId: s.batchId });
   const [a] = await lines(s.batchId);
-  await rtdb.ref('stock/transactions').set({
+  await put('stock/transactions', {
     P1: { TransactionType: 'Production', Status: 'Posted', CompanyID: 'C1', Lines: [{ ItemCode: 'FG-001', JobOrderLineID: a.LineID, Direction: 'In', Quantity: 7 }] },
     P2: { TransactionType: 'Production', Status: 'Posted', CompanyID: 'C1', Lines: [{ ItemCode: 'FG-001', JobOrderLineID: a.LineID, Direction: 'In', Quantity: 2 }] },
     P2R: { TransactionType: 'Production', Status: 'Posted', CompanyID: 'C1', ReversalOfProduction: 'P2', Lines: [{ ItemCode: 'FG-001', JobOrderLineID: a.LineID, Direction: 'Out', Quantity: 2 }] },

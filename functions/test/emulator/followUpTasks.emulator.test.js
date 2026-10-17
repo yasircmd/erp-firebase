@@ -4,7 +4,7 @@
 // the Treasury team, some days before the cheque date, where one is set.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, call, reset, baseFixture, rtdb } = require('./_helpers');
+const { app, call, reset, baseFixture, rtdb, put } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 
@@ -36,7 +36,7 @@ test('A: a posted delivery not invoiced: its maker\'s task while no team is set;
   // On a draft invoice it stays; matched to a posted one it goes.
   await rtdb.ref('customerInvoices/INV2').set({ Status: 'Draft', SourceDeliveryNotes: [{ DeliveryNoteID: 'D1' }] });
   assert.ok((await deliveries('u-approver')).includes('DN-1'));
-  await rtdb.ref('stock/transactions/D1/MatchedToInvoiceID').set('INV2');
+  await put('stock/transactions/D1/MatchedToInvoiceID', 'INV2');
   assert.deepEqual(await deliveries('u-approver'), ['DN-5']);
   // A user without Delivery Note access gets none.
   await rtdb.ref('permissions/DELIVERYNOTE/access').set(['Viewer']);

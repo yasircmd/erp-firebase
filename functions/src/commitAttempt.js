@@ -1,5 +1,10 @@
 const { randomUUID } = require('crypto');
 const { rtdb } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
+
+// The document's update: stock transactions (no collectionPath) are in
+// Firestore (stockStore.js); the other documents still in RTDB.
+const updateDoc = (collectionPath, id, fields) => (collectionPath ? rtdb.ref(collectionPath + '/' + id).update(fields) : stockStore.updateTx(id, fields));
 
 // Ported from beginCommitAttempt_/abandonCommitAttempt_/finalizeCommitAttempt_.
 // See lock.js and stockMovement.js's own comments for the surrounding
@@ -10,7 +15,7 @@ const { rtdb } = require('./firebaseAdmin');
 async function beginCommitAttempt(transactionId, actor, collectionPath) {
   const attemptId = randomUUID();
   const now = new Date().toISOString();
-  await rtdb.ref((collectionPath || 'stock/transactions') + '/' + transactionId).update({
+  await updateDoc(collectionPath, transactionId, {
     Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
     UpdatedAt: now, UpdatedBy: actor
   });
@@ -21,7 +26,7 @@ async function beginCommitAttempt(transactionId, actor, collectionPath) {
 // the ordering guarantee in the original Code.gs section comment.
 async function abandonCommitAttempt(transactionId, priorStatus, actor, collectionPath) {
   const now = new Date().toISOString();
-  await rtdb.ref((collectionPath || 'stock/transactions') + '/' + transactionId).update({
+  await updateDoc(collectionPath, transactionId, {
     Status: priorStatus, CommitAttemptID: '', CommitAttemptStartedAt: '',
     UpdatedAt: now, UpdatedBy: actor
   });
@@ -29,7 +34,7 @@ async function abandonCommitAttempt(transactionId, priorStatus, actor, collectio
 
 async function finalizeCommitAttempt(transactionId, glResult, extraFields, actor, collectionPath) {
   const now = new Date().toISOString();
-  await rtdb.ref((collectionPath || 'stock/transactions') + '/' + transactionId).update(Object.assign({
+  await updateDoc(collectionPath, transactionId, Object.assign({
     Status: 'Posted', TransactionNumber: glResult.jvNumber, TransactionRef: glResult.transactionRef,
     LinkedJVID: glResult.jvId, CommitAttemptID: '', CommitAttemptStartedAt: '',
     PostedAt: now, PostedBy: actor, UpdatedAt: now, UpdatedBy: actor

@@ -23,6 +23,7 @@
 const { AsyncLocalStorage } = require('async_hooks');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 
 const isDate = d => /^\d{4}-\d{2}-\d{2}/.test(String(d || ''));
 
@@ -51,7 +52,7 @@ async function assertOpen(companyId, date, what) {
 // posting or sending for approval. Modules not listed (requisitions, orders,
 // HR, payroll documents) are not checked there; payroll's entries are
 // checked when written.
-const STOCK = id => rtdb.ref('stock/transactions/' + id).get().then(s => s.val()).then(d => d && { CompanyID: d.CompanyID, Date: d.TransactionDate });
+const STOCK = id => stockStore.snapTx(id).then(s => s.val()).then(d => d && { CompanyID: d.CompanyID, Date: d.TransactionDate });
 const DOCUMENTS = {
   GRN: STOCK, MATERIALISSUE: STOCK, PRODUCTION: STOCK, DELIVERYNOTE: STOCK, WAREHOUSEMOVEMENT: STOCK,
   STOCKADJUSTMENT: STOCK, PHYSICALCOUNT: STOCK, PURCHASERETURN: STOCK, SALESRETURN: STOCK,

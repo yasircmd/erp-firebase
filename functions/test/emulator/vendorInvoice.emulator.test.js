@@ -6,7 +6,7 @@
 // access. Plus the port fix: GRNs are re-checked at post.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val, put } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture() {
@@ -69,7 +69,7 @@ test('PORT FIX: a GRN taken by another invoice (or reversed) since the draft was
   assert.equal((await val('stock/transactions/G1')).MatchedToInvoiceID, a.invoiceId, 'still matched to the first invoice');
 
   const c = await draft({ SourceGRNs: [{ GRNID: 'G2' }] });
-  await rtdb.ref('stock/transactions/G2/ReversedByGRN').set('GRNR-X');
+  await put('stock/transactions/G2/ReversedByGRN', 'GRNR-X');
   assert.match((await call('u-admin', 'postVendorInvoice', { invoiceId: c.invoiceId })).error, /GRN GRN-2 is no longer a posted, unreversed GRN/);
 });
 

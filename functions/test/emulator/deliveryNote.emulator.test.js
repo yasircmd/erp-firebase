@@ -6,7 +6,7 @@
 // reversal doesn't re-reserve on a cancelled Sales Order.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val, put } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture() {
@@ -124,8 +124,8 @@ test('reversal restores stock, GL, delivered qty and reservation; guarded agains
   assert.equal(await reservedFor(so.soId), 6);
   assert.match((await call('u-admin', 'reverseDeliveryNote', { dnId: a.dnId, reversalDate: D })).error, /already been reversed/);
   assert.match((await call('u-admin', 'reverseDeliveryNote', { dnId: r.dnId, reversalDate: D })).error, /reversal entry cannot itself be reversed/);
-  await rtdb.ref('stock/transactions/' + a.dnId + '/ReversedByDeliveryNoteID').set('');
-  await rtdb.ref('stock/transactions/' + a.dnId + '/MatchedToInvoiceID').set('INV-1');
+  await put('stock/transactions/' + a.dnId + '/ReversedByDeliveryNoteID', '');
+  await put('stock/transactions/' + a.dnId + '/MatchedToInvoiceID', 'INV-1');
   assert.match((await call('u-admin', 'reverseDeliveryNote', { dnId: a.dnId, reversalDate: D })).error, /matched to a Customer Invoice/);
 });
 

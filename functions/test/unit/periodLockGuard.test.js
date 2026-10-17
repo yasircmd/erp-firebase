@@ -74,9 +74,15 @@ test('every file that writes journal entries is covered by the lock', () => {
 
 test('every file that posts stock movements goes through a checked place', () => {
   const files = fs.readdirSync(SRC).filter(f => f.endsWith('.js'));
-  const posting = files.filter(f => { const s = read(f); return /stock\/transactions/.test(s) && /Status: 'Posted'|finalizeCommitAttempt\(/.test(s); });
+  // Stock transactions are in Firestore through stockStore.js (T1); the scan
+  // finds a file by either name.
+  const posting = files.filter(f => { const s = read(f); return f !== 'stockStore.js' && /stock\/transactions|stockStore\./.test(s) && /Status: 'Posted'|finalizeCommitAttempt\(/.test(s); });
   // Files that only read stock movements (their text matches the scan):
-  const READ_ONLY = { 'commitAttempt.js': 'finishes a posting its caller checked', 'periodClosing.js': 'the checklist reads stock; the year-end entry has no stock' };
+  const READ_ONLY = {
+    'commitAttempt.js': 'finishes a posting its caller checked', 'periodClosing.js': 'the checklist reads stock; the year-end entry has no stock',
+    'followUps.js': 'queries posted Delivery Notes for the home page', 'agingReports.js': 'queries posted stock for the aging report',
+    'stockReports.js': 'queries posted stock for the reports'
+  };
   const unchecked = posting.filter(f => !/(writeStockGlEntry|buildStockGlEntry|assignStockVoucherNumbering)\(/.test(read(f)) && !READ_ONLY[f]);
   assert.deepEqual(unchecked, [], 'posts stock movements without writing a checked GL entry or numbering');
   assert.ok(posting.includes('warehouseMovement.js') && posting.includes('grn.js'), 'the scan still finds the stock modules');

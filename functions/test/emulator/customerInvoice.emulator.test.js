@@ -6,7 +6,7 @@
 // documents / reversal entries left out of both invoice pickers.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val, put } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture() {
@@ -85,7 +85,7 @@ test('PORT FIX: a delivery already invoiced, reversed, or a reversal entry block
   assert.equal(rv.success, true, 'save accepts it (as in GAS)');
   assert.match((await call('u-admin', 'postCustomerInvoice', { invoiceId: rv.invoiceId })).error, /DN-4 is no longer a posted, unreversed delivery/);
   const c = await draft({ SourceDeliveryNotes: [{ DeliveryNoteID: 'N2', SalesTypeID: 'ST1' }] });
-  await rtdb.ref('stock/transactions/N2/ReversedByDeliveryNoteID').set('NR2');
+  await put('stock/transactions/N2/ReversedByDeliveryNoteID', 'NR2');
   assert.match((await call('u-admin', 'postCustomerInvoice', { invoiceId: c.invoiceId })).error, /DN-2 is no longer a posted, unreversed delivery/);
 });
 
