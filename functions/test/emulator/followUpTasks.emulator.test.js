@@ -62,3 +62,29 @@ test('B: PDCs due: everyone who may post, from the cheque date, until a Treasury
   // A team member without the post right still sees it (they act on it); a Viewer outside the team doesn't.
   assert.deepEqual(await pdcs('u-viewer'), []);
 });
+
+// The home page reads only the records in the status it needs (rtdbStatus.js,
+// owner 2026-10-17): submitted requisitions, accepted Job Order lines and
+// their own batches, still for the team of the document's scope.
+test('C: submitted requisitions and accepted Job Order lines reach the team; other statuses do not', async () => {
+  const f = baseFixture();
+  const pr = (n, status) => ({ PRNumber: n, PRDate: day(-1), CompanyID: 'C1', Status: status, Description: 'Paper ' + n, SubmittedAt: day(-1) + 'T09:00:00.000Z' });
+  f.purchaseRequisitions = { R1: pr('PR-1', 'Submitted'), R2: pr('PR-2', 'Draft'), R3: pr('PR-3', 'Closed') };
+  f.inventoryPurchaseRequisitions = { I1: { IPRNumber: 'IPR-1', IPRDate: day(-2), CompanyID: 'C1', Status: 'Submitted' }, I2: { IPRNumber: 'IPR-2', CompanyID: 'C1', Status: 'Draft' } };
+  f.jobOrderBatches = { B1: { CompanyID: 'C1', Status: 'Submitted' }, B2: { CompanyID: 'C1', Status: 'Draft' } };
+  f.jobOrderLines = {
+    L1: { ParentBatchID: 'B1', SubJONumber: 'JO-1/1', ItemCode: 'CHAIR', OrderedQuantity: 4, Status: 'Accepted', AcceptedAt: day(-1) + 'T10:00:00.000Z' },
+    L2: { ParentBatchID: 'B1', SubJONumber: 'JO-1/2', ItemCode: 'DESK', Status: 'Open' },
+    L3: { ParentBatchID: 'B2', SubJONumber: 'JO-2/1', ItemCode: 'LAMP', Status: 'Draft' }
+  };
+  await reset(f);
+  for (const m of ['PURCHASEREQUISITION', 'INVENTORYPURCHASEREQUISITION', 'JOBORDERREQUEST']) {
+    await rtdb.ref('approvalConfigurations/' + m).set({ Enabled: false, ScopeType: 'Company', GateType: 'Flat' });
+    await call('u-admin', 'saveFollowUpTeam', { moduleId: m, scopeKey: 'C1', userIds: ['u-approver'] });
+  }
+  const tasks = await call('u-approver', 'getMyFollowUpTasksForUser');
+  assert.deepEqual(tasks.map(t => t.ModuleID + ' ' + t.DocumentNumber).sort(),
+    ['INVENTORYPURCHASEREQUISITION IPR-1', 'JOBORDERREQUEST JO-1/1', 'PURCHASEREQUISITION PR-1']);
+  assert.equal(tasks.find(t => t.DocumentNumber === 'JO-1/1').Description, 'CHAIR × 4');
+  assert.deepEqual(await call('u-admin', 'getMyFollowUpTasksForUser'), [], 'not in the team');
+});

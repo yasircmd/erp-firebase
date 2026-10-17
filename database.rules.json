@@ -1,6 +1,18 @@
 {
   "rules": {
     ".read": false,
-    ".write": false
+    ".write": false,
+    "stock": { "transactions": { ".indexOn": ["Status"] } },
+    "purchaseRequisitions": { ".indexOn": ["Status"] },
+    "inventoryPurchaseRequisitions": { ".indexOn": ["Status"] },
+    "purchaseOrders": { ".indexOn": ["Status"] },
+    "salesOrders": { ".indexOn": ["Status"] },
+    "jobOrderBatches": { ".indexOn": ["Status"] },
+    "jobOrderLines": { ".indexOn": ["Status"] },
+    "vendorInvoices": { ".indexOn": ["Status"] },
+    "customerInvoices": { ".indexOn": ["Status"] },
+    "pdcCheques": { ".indexOn": ["Status"] },
+    "recurringJournals": { ".indexOn": ["Status"] },
+    "approvalInstances": { ".indexOn": ["Status"] }
   }
 }

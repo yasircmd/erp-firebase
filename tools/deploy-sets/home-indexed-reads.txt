@@ -1,0 +1,72 @@
+# Step 0 of docs/modules/TRANSACTIONS_FIRESTORE.md (owner, 2026-10-17): the
+# home page reads drafts, approvals and follow-ups by Status from an RTDB
+# index (functions/src/rtdbStatus.js) instead of downloading whole
+# collections. FIRST deploy the rules (Deploy workflow, task "database
+# rules": database.rules.json now carries the .indexOn entries; still
+# deny-all). Without the indexes these queries are refused ("Index not
+# defined") and the home page's task lists fail. Then this set, without
+# --screens. No Hosting.
+# The four functions that change come first; then every function whose code
+# reaches homeTasks.js, followUps.js or rtdbStatus.js (require closure), 62 in all.
+getMyDraftsForUser
+getPendingApprovalsForUser
+getMyRejectedSubmissions
+getMyFollowUpTasksForUser
+getPartyStatement
+getPartyAging
+getInventoryAging
+getBatchExpiryReport
+getReorderReport
+getPeriodClosing
+savePeriodClosingSettings
+getPeriodClosingChecklist
+closePeriod
+reopenPeriod
+tickPeriodClosingStep
+closeFinancialYear
+reopenFinancialYear
+getFinancialYearStart
+getPdcSetup
+getPdcOpenItems
+savePdcDraft
+deletePdcDraft
+postPdc
+decidePdcApproval
+clearPdcs
+bouncePdc
+cancelPdc
+undoPdcClearing
+getPdcEntries
+getPdcsDueForUser
+getFollowUpTeams
+saveFollowUpTeam
+getAttachments
+uploadAttachment
+openAttachment
+removeAttachment
+getAttachmentCounts
+getDocumentStorage
+saveDocumentStorageClient
+startDriveConnect
+driveOAuthCallback
+testDocumentStorage
+disconnectDocumentStorage
+useTestDocumentStorage
+getCompanyDocuments
+getCompanyDocument
+saveCompanyDocument
+renewCompanyDocument
+removeCompanyDocument
+saveCompanyDocumentCategory
+getPartyDocumentCounts
+getDocumentsExpiringForUser
+getEmployeeDocuments
+saveEmployeeDocument
+renewEmployeeDocument
+removeEmployeeDocument
+getEmployeeDocumentsExpiringForUser
+essPortal
+manageEssAccounts
+employeeRequests
+getSalesReps
+saveSalesRep
