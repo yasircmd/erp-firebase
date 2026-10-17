@@ -88,6 +88,11 @@ preserved quirks). Read it when touching a ported module.
   deploy set is then all functions, not the require closure of the rest of
   the change (wave 3 missed 175 and Tree Management refused
   "Unknown module: PROJECTREPORT", 2026-10-17).
+- **An RTDB query needs its index deployed first.** Read by Status
+  through functions/src/rtdbStatus.js only. Each path there has
+  `.indexOn` in database.rules.json, and without it the database refuses
+  the query ("Index not defined"). So the rules deploy goes before the
+  functions that query.
 - Screens (screens/*.html) go live with tools/release-screens.sh, not a
   function deploy. Functions first, then the release (or
   deploy-functions.sh <set> --screens). Never put screens in public/:

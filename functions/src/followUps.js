@@ -11,6 +11,7 @@ const { rtdb } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { MODULE_REGISTRY } = require('./moduleRegistry');
+const { withStatus } = require('./rtdbStatus');
 
 const onCallOptions = { region: 'us-central1' };
 
@@ -125,7 +126,7 @@ exports.getMyFollowUpTasksForUser = onCallWithMessages(onCallOptions, async (req
     ['INVENTORYPURCHASEREQUISITION', 'inventoryPurchaseRequisitions', 'IPRNumber', 'IPRDate']
   ]) {
     if (!modules.has(moduleId)) continue;
-    const data = (await rtdb.ref(path).get()).val() || {};
+    const data = await withStatus(path, 'Submitted'); // only the submitted ones (rtdbStatus.js)
     Object.keys(data).forEach(id => {
       const r = data[id];
       if (!r || r.Status !== 'Submitted' || !canSee(r) || !inTeam(moduleId, r)) return;
@@ -135,7 +136,11 @@ exports.getMyFollowUpTasksForUser = onCallWithMessages(onCallOptions, async (req
   }
 
   if (modules.has('JOBORDERREQUEST')) {
-    const [lines, batches] = (await Promise.all([rtdb.ref('jobOrderLines').get(), rtdb.ref('jobOrderBatches').get()])).map(s => s.val() || {});
+    // The accepted lines (rtdbStatus.js), then only their own batches.
+    const lines = await withStatus('jobOrderLines', 'Accepted');
+    const batchIds = [...new Set(Object.values(lines).map(l => l && l.ParentBatchID).filter(Boolean))];
+    const batches = {};
+    (await Promise.all(batchIds.map(id => rtdb.ref('jobOrderBatches/' + id).get()))).forEach((snap, i) => { batches[batchIds[i]] = snap.val(); });
     Object.keys(lines).forEach(id => {
       const l = lines[id];
       const b = l && batches[l.ParentBatchID];
@@ -151,7 +156,8 @@ exports.getMyFollowUpTasksForUser = onCallWithMessages(onCallOptions, async (req
   // it (decision 152). A delivery is invoiced whole, so it stays until a
   // posted invoice includes it (decision 153); on a draft invoice it stays.
   if (await moduleHasCapability('DELIVERYNOTE', 'access', user.profile.role)) {
-    const [tx, customers] = (await Promise.all([rtdb.ref('stock/transactions').get(), rtdb.ref('customers').get()])).map(x => x.val() || {});
+    // The posted stock transactions only (rtdbStatus.js): no drafts.
+    const [tx, customers] = await Promise.all([withStatus('stock/transactions', 'Posted'), rtdb.ref('customers').get().then(x => x.val() || {})]);
     const me = [user.uid, user.profile.username].filter(Boolean);
     Object.keys(tx).forEach(id => {
       const dn = tx[id];

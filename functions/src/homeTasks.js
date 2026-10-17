@@ -5,6 +5,7 @@ const { APPROVAL_MODULE_STORAGE_, FIRESTORE_JOURNAL_ENTRIES_COLLECTION, approval
 const { MODULE_REGISTRY } = require('./moduleRegistry');
 const { userCanAccessCompany } = require('./glWriting');
 const { moduleIdForEntry } = require('./masterData');
+const { withStatus } = require('./rtdbStatus');
 
 const onCallOptions = { region: 'us-central1' };
 
@@ -31,8 +32,8 @@ async function documentStillExists(moduleId, documentId) {
 exports.getPendingApprovalsForUser = onCall(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const actor = user.uid;
-  const snap = await rtdb.ref('approvalInstances').get();
-  const data = snap.val() || {};
+  // Only the pending instances, from the Status index (rtdbStatus.js).
+  const data = await withStatus('approvalInstances', 'Pending');
 
   const candidates = Object.keys(data)
     .map(id => Object.assign({ InstanceID: id }, data[id]))
@@ -63,8 +64,7 @@ exports.getPendingApprovalsForUser = onCall(onCallOptions, async (request) => {
 exports.getMyRejectedSubmissions = onCall(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const actor = user.uid;
-  const snap = await rtdb.ref('approvalInstances').get();
-  const data = snap.val() || {};
+  const data = await withStatus('approvalInstances', 'Rejected');
 
   const candidates = Object.keys(data)
     .map(id => Object.assign({ InstanceID: id }, data[id]))
@@ -139,9 +139,11 @@ exports.getMyDraftsForUser = onCall(onCallOptions, async (request) => {
   const role = user.profile.role;
 
   const records = [];
-  const rtdbSnaps = await Promise.all(DRAFT_RTDB_SOURCES.map(src => rtdb.ref(src.path).get()));
+  // Only each collection's drafts, from its Status index (rtdbStatus.js),
+  // not the whole collection.
+  const rtdbDrafts = await Promise.all(DRAFT_RTDB_SOURCES.map(src => withStatus(src.path, 'Draft')));
   DRAFT_RTDB_SOURCES.forEach((src, i) => {
-    const data = rtdbSnaps[i].val() || {};
+    const data = rtdbDrafts[i];
     Object.keys(data).forEach(id => { if (data[id] && data[id].Status === 'Draft') records.push({ id, r: data[id], moduleOf: src.moduleOf }); });
   });
   const fsSnaps = await Promise.all(DRAFT_FIRESTORE_SOURCES.map(src => firestore.collection(src.collection).where('Status', '==', 'Draft').get()));
