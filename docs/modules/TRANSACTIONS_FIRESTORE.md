@@ -244,3 +244,10 @@ Each phase is one PR, with:
   transaction documents move, in phases T1–T5; the running stock balances
   move with the stock documents, so a posting is one atomic Firestore
   transaction; approval instances move last (T5); stock first (T1).
+
+## A rule from MULTI_CORPORATE.md (2026-10-17)
+
+One app will serve several corporates, each in its own database. So the new
+code takes `rtdb` / `firestore` from firebaseAdmin.js at call time and keeps
+no data in module-level variables (a cache would be shared between
+corporates in one function instance).
