@@ -319,7 +319,14 @@ writes them:
   they refuse).
 - **Negative controls, verified then restored:**
   - RTDB's array rule loosened by one: 2 tests fail;
-  - the query fields leaked into what is returned: 4 tests fail.
+  - the query fields leaked into what is returned: 4 tests fail;
+  - the GRN list asking for another type: 2 list-paging tests fail;
+  - a purchase return's lines without the invoice's GRNs: 7 tests fail.
+- **Regression:** every emulator suite (119 files, groups of 8 with a
+  restart between) passes.
+- **Found by the regression:** a retail sale's return lookup, narrowed to
+  the sales, lost the sale's returns its callers read (fixed). The
+  glReferences suite made a second default app (fixed in the test).
 - **The suites:** they seed and read stock by its RTDB paths through the
   helpers. Their 42 direct `rtdb.ref('stock/…')` calls became the helpers'
   `put` / `patch` / `val`.
