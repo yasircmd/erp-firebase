@@ -134,6 +134,16 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
+- **Test upkeep (found 2026-10-17, not fixed):**
+  - `ui/searchPicker` "JV: … the code first" fails on `main` too: the JV
+    account picker's order, or its leaving out of the Cash / Bank
+    accounts, no longer matches the test;
+  - `ui/pdc` fails about one run in three (the setup reload resets the
+    party);
+  - `ui/help` and `ui/home`: out-of-date expectations and the offline
+    Tailwind subset;
+  - `ui/trialBalance` row heights: this environment.
+
 - [ ] **UX testing, 2026-10-14** (owner): 42 issues and suggestions. Tier 1
   live 2026-10-14 (PR #122), Tier 2 live 2026-10-16 (PR #123); **Tier 3:
   [UX_TIER3.md](modules/UX_TIER3.md); wave 1 (A–G) design agreed 2026-10-16
