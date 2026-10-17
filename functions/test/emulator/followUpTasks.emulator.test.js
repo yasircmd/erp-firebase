@@ -34,7 +34,7 @@ test('A: a posted delivery not invoiced: its maker\'s task while no team is set;
   assert.deepEqual((await deliveries('u-approver')).sort(), ['DN-1', 'DN-5']);
   assert.deepEqual(await deliveries('u-admin'), []);
   // On a draft invoice it stays; matched to a posted one it goes.
-  await rtdb.ref('customerInvoices/INV2').set({ Status: 'Draft', SourceDeliveryNotes: [{ DeliveryNoteID: 'D1' }] });
+  await put('customerInvoices/INV2', { Status: 'Draft', SourceDeliveryNotes: [{ DeliveryNoteID: 'D1' }] });
   assert.ok((await deliveries('u-approver')).includes('DN-1'));
   await put('stock/transactions/D1/MatchedToInvoiceID', 'INV2');
   assert.deepEqual(await deliveries('u-approver'), ['DN-5']);

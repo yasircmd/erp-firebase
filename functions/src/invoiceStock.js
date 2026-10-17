@@ -18,6 +18,8 @@ const { rtdb } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { getReservationsForSource } = require('./reservations');
+const { salesOrders } = require('./salesStore');
+const { keyOrder } = require('./docStore');
 
 const onCallOptions = { region: 'us-central1' };
 const PATH = 'salesInvoiceSettings/';
@@ -42,7 +44,7 @@ async function cleanItemLines(raw, companyId, customerId, invoiceId, headerCostC
   const byCode = {};
   Object.entries(items || {}).forEach(([id, i]) => { byCode[i.ItemCode] = Object.assign({ ItemID: id }, i); });
   const soCache = {}, resCache = {};
-  const so = async id => (id in soCache ? soCache[id] : (soCache[id] = await val('salesOrders/' + id)));
+  const so = async id => (id in soCache ? soCache[id] : (soCache[id] = await salesOrders.get(id)));
   const reserved = async (soId, lineId) => {
     if (!(soId in resCache)) resCache[soId] = await getReservationsForSource('SalesOrder', soId);
     return resCache[soId].filter(r => r.Status === 'Active' && r.SourceLineID === lineId).reduce((s, r) => s + (Number(r.Quantity) || 0), 0);
@@ -112,9 +114,11 @@ exports.getInvoiceableOrderLines = onCallWithMessages(onCallOptions, async (requ
   const co = text(d.companyId, 80), cust = text(d.customerId, 80);
   if (!co || !cust) return [];
   if (!userCanAccessCompany(user.profile, co)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
-  const orders = (await val('salesOrders')) || {};
+  // The customer's orders still reserving (salesStore.js), in id order as
+  // the whole read had them.
+  const orders = Object.assign({}, ...(await Promise.all(['Reserved', 'Partially Reserved'].map(Status => salesOrders.query({ CompanyID: co, CustomerID: cust, Status })))));
   const out = [];
-  for (const [id, o] of Object.entries(orders)) {
+  for (const [id, o] of Object.entries(orders).sort(([a], [b]) => keyOrder(a, b))) {
     if (o.CompanyID !== co || o.CustomerID !== cust || (o.Status !== 'Reserved' && o.Status !== 'Partially Reserved')) continue;
     const res = (await getReservationsForSource('SalesOrder', id)).filter(r => r.Status === 'Active');
     (o.Lines || []).forEach(l => {

@@ -11,7 +11,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
-const stockStore = require('./stockStore');
+const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { APPROVAL_MODULE_STORAGE_, approvalLabelOf } = require('./approvalRegistry');
@@ -34,7 +34,7 @@ async function companyOfApproval(inst) {
   if (!storage || !inst.DocumentID) return '';
   const doc = storage.type === 'firestore'
     ? (d => (d.exists ? d.data() : null))(await firestore.collection(storage.collection).doc(inst.DocumentID).get())
-    : stockStore.isStockPath(storage.path) ? await stockStore.getTx(inst.DocumentID)
+    : movedPaths.storeOf(storage.path) ? await movedPaths.storeOf(storage.path).get(inst.DocumentID)
     : (await rtdb.ref(storage.path + '/' + inst.DocumentID).get()).val();
   if (!doc) return '';
   if (doc.CompanyID) return doc.CompanyID;

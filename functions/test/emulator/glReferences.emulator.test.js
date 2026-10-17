@@ -10,7 +10,7 @@ const assert = require('node:assert/strict');
 const { app, call, reset, baseFixture, val, firestore, rtdb } = require('./_helpers');
 const admin = require('firebase-admin');
 // src/firebaseAdmin.js initializes the default app only when no app exists;
-// _helpers has already made its own (and, loading stockStore, the default
+// _helpers has already made its own (and, loading movedPaths, the default
 // one too), so the default one is made here only if still missing.
 if (!admin.apps.some(a => a.name === '[DEFAULT]')) admin.initializeApp({ projectId: 'erp1-8f4cd', databaseURL: 'https://erp1-8f4cd-default-rtdb.firebaseio.com' });
 const { transactionRefFor } = require('../../src/glWriting');

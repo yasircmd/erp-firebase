@@ -22,6 +22,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
+const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { PARTY_TYPES, openItemsFrom } = require('./partyLedger');
@@ -84,7 +85,7 @@ async function partyAging(partyType, companyId, asOf, basis, only) {
   const buckets = BUCKETS[basis];
   const [partiesSnap, otherSnap, invSnap, pdcSnap, coaSnap, entrySnap] = await Promise.all([
     rtdb.ref(cfg.path).get(), rtdb.ref(PARTY_TYPES[partyType === 'Vendor' ? 'Customer' : 'Vendor'].path).get(),
-    rtdb.ref(cfg.invoicePath).get(), rtdb.ref(PDC_PATH).get(), rtdb.ref('coa').get(),
+    movedPaths.where(cfg.invoicePath, { Status: 'Posted' }).then(v => ({ val: () => v })), rtdb.ref(PDC_PATH).get(), rtdb.ref('coa').get(),
     firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).where('CompanyID', '==', companyId).get()
   ]);
   const parties = partiesSnap.val() || {}, invoices = invSnap.val() || {}, pdcs = pdcSnap.val() || {}, coa = coaSnap.val() || {};

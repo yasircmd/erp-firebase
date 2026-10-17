@@ -69,6 +69,17 @@ test('eligible SOs carry live caps; post ships at WAC, books COGS, updates the S
   assert.equal(listed.length, 1);
 });
 
+test('eligible SOs: the customer\'s Reserved and Partially Reserved orders, not drafts (a query since T2)', async () => {
+  await reset(fixture());
+  const full = await confirmedSO(6);
+  const part = await confirmedSO(8); // only 4 of the 10 in stock are left to reserve
+  assert.equal((await val('salesOrders/' + part.soId)).Status, 'Partially Reserved');
+  const d = await call('u-admin', 'saveDraftSalesOrder', { header: { SODate: D, CompanyID: 'C1', CostCenterID: 'CC1', CustomerID: 'CU1', Lines: [{ ItemCode: 'RM-001', WarehouseID: 'WH1', OrderedQuantity: 1, UnitPrice: 20 }] } });
+  assert.equal(d.success, true, d.error);
+  const elig = await call('u-admin', 'getEligibleSOsForDelivery', { companyId: 'C1', customerId: 'CU1' });
+  assert.deepEqual(elig.map(s => [s.SOID, s.Lines[0].MaxShippable]).sort(), [[full.soId, 6], [part.soId, 4]].sort());
+});
+
 test('draft validation: ship cap, customer, company, SO status', async () => {
   await reset(fixture());
   const so = await confirmedSO(12); // only 10 on hand: Partially Reserved, 10 reserved

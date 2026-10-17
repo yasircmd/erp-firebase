@@ -12,11 +12,12 @@ for (const v of ['FIREBASE_DATABASE_EMULATOR_HOST', 'FIRESTORE_EMULATOR_HOST']) 
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'erp1-8f4cd';
 const admin = require('firebase-admin');
 const { MODULE_REGISTRY } = require('../../src/moduleRegistry');
-// Stock transactions and balances are in Firestore (src/stockStore.js);
-// the suites still seed and read them by their RTDB paths, answered by
-// stockStore with RTDB's semantics. Loaded before the suite's own app:
-// firebaseAdmin.js makes the default app only when none exists yet.
-const stockStore = require('../../src/stockStore');
+// The transaction documents moved to Firestore (src/movedPaths.js: stock,
+// Sales Orders, Customer Invoices, reservations); the suites still seed and
+// read them by their RTDB paths, answered with RTDB's semantics. Loaded
+// before the suite's own app: firebaseAdmin.js makes the default app only
+// when none exists yet.
+const movedPaths = require('../../src/movedPaths');
 
 const PROJECT = 'erp1-8f4cd';
 const app = admin.initializeApp({ projectId: PROJECT, databaseURL: 'https://' + PROJECT + '-default-rtdb.firebaseio.com' }, 'suite-' + process.pid + '-' + Math.random());
@@ -113,21 +114,23 @@ async function reset(fixture) {
   if (fixture.coa) withNormalBalance(fixture.coa);
   await rtdb.ref('/').set(null);
   await fetch('http://' + process.env.FIRESTORE_EMULATOR_HOST + '/emulator/v1/projects/' + PROJECT + '/databases/(default)/documents', { method: 'DELETE' });
-  const { transactions, ledger } = fixture.stock || {};
-  const rest = Object.assign({}, fixture);
-  if (fixture.stock) {
-    rest.stock = Object.assign({}, fixture.stock);
-    delete rest.stock.transactions; delete rest.stock.ledger;
-  }
+  // The moved paths' data goes to Firestore, the rest to RTDB.
+  const rest = JSON.parse(JSON.stringify(fixture));
+  const moved = [];
+  movedPaths.PATHS.forEach(p => {
+    const parts = p.split('/');
+    const parent = parts.slice(0, -1).reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), rest);
+    const last = parts[parts.length - 1];
+    if (parent && typeof parent === 'object' && parent[last] !== undefined) { moved.push([p, parent[last]]); delete parent[last]; }
+  });
   await rtdb.ref('/').set(rest);
-  if (transactions) await stockStore.rtdbStyle('stock/transactions', 'put', JSON.parse(JSON.stringify(transactions)));
-  if (ledger) await stockStore.rtdbStyle('stock/ledger', 'put', JSON.parse(JSON.stringify(ledger)));
+  for (const [p, v] of moved) await movedPaths.request(p, 'put', v);
 }
 
-// A path's value, set and update, wherever it lives now (stock
-// transactions and balances: Firestore, by their RTDB paths).
-const val = async (p) => (stockStore.isStockPath(p) ? stockStore.rtdbStyle(p, 'get') : (await rtdb.ref(p).get()).val());
-const put = async (p, v) => (stockStore.isStockPath(p) ? stockStore.rtdbStyle(p, 'put', v === undefined ? null : JSON.parse(JSON.stringify(v))) : rtdb.ref(p).set(v));
-const patch = async (p, fields) => (stockStore.isStockPath(p) ? stockStore.rtdbStyle(p, 'patch', fields) : rtdb.ref(p).update(fields));
+// A path's value, set and update, wherever it lives now (the moved
+// documents: Firestore, by their RTDB paths).
+const val = async (p) => (movedPaths.isMoved(p) ? movedPaths.request(p, 'get') : (await rtdb.ref(p).get()).val());
+const put = async (p, v) => (movedPaths.isMoved(p) ? movedPaths.request(p, 'put', v === undefined ? null : JSON.parse(JSON.stringify(v))) : rtdb.ref(p).set(v));
+const patch = async (p, fields) => (movedPaths.isMoved(p) ? movedPaths.request(p, 'patch', fields) : rtdb.ref(p).update(fields));
 
 module.exports = { app, rtdb, firestore, call, tokenFor, reset, baseFixture, allPermissions, today, val, put, patch, PROJECT };

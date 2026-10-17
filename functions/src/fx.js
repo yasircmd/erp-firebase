@@ -101,7 +101,7 @@ async function assertPartyCurrencyKept(partyType, partyId, newCurrency) {
   if (!cur) return;
   const before = String(cur.DefaultCurrency || '').trim().toUpperCase(), after = String(newCurrency || '').trim().toUpperCase();
   if (before === after) return;
-  const invoices = Object.values((await rtdb.ref(cfg[1]).get()).val() || {}).some(i => i && i[cfg[2]] === partyId);
+  const invoices = Object.keys(await require('./movedPaths').where(cfg[1], { [cfg[2]]: partyId })).length > 0; // Customer Invoices: a Firestore query
   const entries = await firestore.collection('journalEntries').where('PartyKeys', 'array-contains', partyType + ':' + partyId).limit(1).get();
   if (invoices || !entries.empty) throw new Error('This ' + partyType.toLowerCase() + ' already has invoices or payments in ' + (before || 'the base currency') + ': its currency can\'t change (create a new ' + partyType.toLowerCase() + ' for ' + (after || 'the base currency') + ').');
 }

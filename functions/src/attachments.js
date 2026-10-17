@@ -21,7 +21,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
-const stockStore = require('./stockStore');
+const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { moduleIdForEntry } = require('./masterData');
@@ -107,8 +107,9 @@ async function loadEntry(module, docId) {
     const snap = await firestore.collection(src.fs).doc(docId).get();
     rec = snap.exists ? snap.data() : null;
   } else {
-    // Stock transactions are in Firestore (stockStore.js), by the same path name.
-    rec = stockStore.isStockPath(src.rtdb) ? await stockStore.getTx(docId) : (await rtdb.ref(src.rtdb + '/' + docId).get()).val();
+    // The moved documents are in Firestore (movedPaths.js), by the same path name.
+    const moved = movedPaths.storeOf(src.rtdb);
+    rec = moved ? await moved.get(docId) : (await rtdb.ref(src.rtdb + '/' + docId).get()).val();
   }
   if (!rec || (src.is && !src.is(rec))) throw new HttpsError('not-found', 'Entry not found.');
   const number = String((src.numberOf ? src.numberOf(rec) : rec[src.number]) || '').trim();

@@ -6,7 +6,7 @@ modules: [COMPANYDOCS]
 sources: [functions/src/companyDocuments.js, functions/src/attachments.js]
 summary: Track company, vendor, customer, and other-party documents, files, renewals, removals, and 30-day expiry reminders.
 reviewed: 2026-10-17
-fingerprint: 45cb1ab1705950aa
+fingerprint: 01ec4e993fe707c1
 ---
 ## What it is for
 

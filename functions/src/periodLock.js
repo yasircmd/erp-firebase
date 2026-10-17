@@ -57,7 +57,7 @@ const DOCUMENTS = {
   GRN: STOCK, MATERIALISSUE: STOCK, PRODUCTION: STOCK, DELIVERYNOTE: STOCK, WAREHOUSEMOVEMENT: STOCK,
   STOCKADJUSTMENT: STOCK, PHYSICALCOUNT: STOCK, PURCHASERETURN: STOCK, SALESRETURN: STOCK,
   VENDORINVOICE: id => rtdb.ref('vendorInvoices/' + id).get().then(s => s.val()).then(d => d && { CompanyID: d.CompanyID, Date: d.InvoiceDate }),
-  CUSTOMERINVOICE: id => rtdb.ref('customerInvoices/' + id).get().then(s => s.val()).then(d => d && { CompanyID: d.CompanyID, Date: d.InvoiceDate }),
+  CUSTOMERINVOICE: id => require('./salesStore').customerInvoices.get(id).then(d => d && { CompanyID: d.CompanyID, Date: d.InvoiceDate }),
   PDCRECEIVED: id => rtdb.ref('pdcCheques/' + id).get().then(s => s.val()).then(d => d && { CompanyID: d.CompanyID, Date: d.TransactionDate }),
   JV: id => firestore.collection('journalEntries').doc(id).get().then(s => s.exists && { CompanyID: s.data().CompanyID, Date: s.data().JVDate }),
   FAACQ: id => firestore.collection('faPostings').doc(id).get().then(s => s.exists && { CompanyID: s.data().CompanyID, Date: s.data().Date })

@@ -25,6 +25,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
+const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION, generateStockVoucherNumber, transactionRefFor } = require('./glWriting');
 const { randomUUID } = require('crypto');
@@ -143,7 +144,7 @@ const docRow = (moduleId, kind, number, date, status, extra) => Object.assign({ 
 async function unfinishedDocuments(companyId, from, to) {
   const inRange = d => Boolean(d) && (!from || d >= from) && d <= to;
   const [stockSnap, vinvSnap, cinvSnap, pdcSnap, jvSnap, faSnap] = await Promise.all([
-    stockStore.queryTx({ CompanyID: companyId }).then(v => ({ val: () => v })), rtdb.ref('vendorInvoices').get(), rtdb.ref('customerInvoices').get(), rtdb.ref('pdcCheques').get(),
+    stockStore.queryTx({ CompanyID: companyId }).then(v => ({ val: () => v })), ...['vendorInvoices', 'customerInvoices'].map(p => movedPaths.where(p, { CompanyID: companyId }).then(v => ({ val: () => v }))), rtdb.ref('pdcCheques').get(),
     firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).where('CompanyID', '==', companyId).get(),
     firestore.collection('faTransactions').where('CompanyID', '==', companyId).get()
   ]);

@@ -22,6 +22,7 @@
 // array-contains queries (no composite index needed).
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { parseAmountServer, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
+const movedPaths = require('./movedPaths');
 
 const PARTY_TYPES = {
   Vendor: {
@@ -93,7 +94,8 @@ async function queryEntries(field, op, value) {
 // not posted (a re-match replaces its allocations; docs/modules/UX_TIER3.md G).
 async function getOpenItemsForParty(partyType, partyId, party, asOf, excludeEntryId) {
   const cfg = PARTY_TYPES[partyType];
-  const invoices = (await rtdb.ref(cfg.invoicePath).get()).val() || {};
+  // The party's invoices (Customer Invoices are a Firestore query, movedPaths.js).
+  const invoices = await movedPaths.where(cfg.invoicePath, { [cfg.invoicePartyField]: partyId });
   const entries = (await queryEntries('PartyKeys', 'array-contains', partyType + ':' + partyId)).filter(e => !excludeEntryId || e._id !== excludeEntryId);
   return openItemsFrom(partyType, partyId, party, asOf, invoices, entries);
 }

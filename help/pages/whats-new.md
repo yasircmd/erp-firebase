@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-16
+reviewed: 2026-10-17
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,19 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 17/10/2026
+
+- **Renumbering an account updates the stock documents too.** When you
+  renumber an account in the [Chart of Accounts](chart-of-accounts.html),
+  GRNs, issues, deliveries, returns and the other stock documents now show
+  its new code as well, like every other document.
+- **Deliveries and customer invoices post all at once.** Posting a
+  [Delivery Note](delivery-note.html) now updates its Sales Orders and
+  reservations in the same step, and posting a
+  [Customer Invoice](customer-invoice.html) marks its deliveries in the
+  same step. If anything stops the posting, nothing of it is saved, so you
+  can correct it and post again.
 
 ## 16/10/2026
 

@@ -20,6 +20,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
+const { customerInvoices } = require('./salesStore');
 const { postStock, postedFields } = require('./stockPosting');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
@@ -251,7 +252,7 @@ exports.getReturnableCustomerInvoices = onCallWithMessages(onCallOptions, async 
   if (!companyId || !customerId) return [];
   if (!userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
 
-  const invoices = (await rtdb.ref('customerInvoices').get()).val() || {};
+  const invoices = await customerInvoices.query({ CompanyID: companyId, CustomerID: customerId }); // the customer's invoices (salesStore.js)
   // The Delivery Notes of this customer's invoices, by id, and this
   // company's returns (stockStore.js), not every stock transaction.
   const dnIds = [];
@@ -292,7 +293,7 @@ exports.saveSalesReturnDraft = onCallWithMessages(onCallOptions, async (request)
   const invoiceId = String(data.SourceInvoiceID || '').trim();
   if (!invoiceId) throw new HttpsError('invalid-argument', 'Select the Customer Invoice the goods are being returned against.');
 
-  const inv = (await rtdb.ref('customerInvoices/' + invoiceId).get()).val();
+  const inv = await customerInvoices.get(invoiceId);
   assertInvoiceReturnable(inv, companyId, customerId);
   if (returnId) {
     const existing = await loadReturn(returnId);
@@ -332,7 +333,7 @@ exports.postSalesReturn = onCallWithMessages(onCallOptions, async (request) => {
     await requirePostAccess(user.profile.role);
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected returns can be posted.');
 
-    const inv = (await rtdb.ref('customerInvoices/' + existing.SourceInvoiceID).get()).val();
+    const inv = await customerInvoices.get(existing.SourceInvoiceID);
     assertInvoiceReturnable(inv, existing.CompanyID, existing.CustomerID);
     const lines = await buildLines(existing.Lines, existing.SourceInvoiceID, inv, returnId);
     const values = computeValues(lines, inv);
@@ -358,7 +359,7 @@ exports.postSalesReturn = onCallWithMessages(onCallOptions, async (request) => {
 
 // Caller holds the global lock. Everything is re-checked from live data.
 async function commitSalesReturnPosting(user, existing, returnId) {
-  const inv = (await rtdb.ref('customerInvoices/' + existing.SourceInvoiceID).get()).val();
+  const inv = await customerInvoices.get(existing.SourceInvoiceID);
   assertInvoiceReturnable(inv, existing.CompanyID, existing.CustomerID);
   const lines = await buildLines(existing.Lines, existing.SourceInvoiceID, inv, returnId);
   const values = computeValues(lines, inv);

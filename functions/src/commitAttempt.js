@@ -1,10 +1,14 @@
 const { randomUUID } = require('crypto');
 const { rtdb } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
+const movedPaths = require('./movedPaths');
 
-// The document's update: stock transactions (no collectionPath) are in
-// Firestore (stockStore.js); the other documents still in RTDB.
-const updateDoc = (collectionPath, id, fields) => (collectionPath ? rtdb.ref(collectionPath + '/' + id).update(fields) : stockStore.updateTx(id, fields));
+// The document's update: stock transactions (no collectionPath) and the
+// other moved documents (movedPaths.js) are in Firestore; the rest still in
+// RTDB.
+const updateDoc = (collectionPath, id, fields) => (!collectionPath ? stockStore.updateTx(id, fields)
+  : movedPaths.storeOf(collectionPath) ? movedPaths.storeOf(collectionPath).update(id, fields)
+  : rtdb.ref(collectionPath + '/' + id).update(fields));
 
 // Ported from beginCommitAttempt_/abandonCommitAttempt_/finalizeCommitAttempt_.
 // See lock.js and stockMovement.js's own comments for the surrounding
