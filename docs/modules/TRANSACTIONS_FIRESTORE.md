@@ -1,6 +1,6 @@
 # Transaction documents from RTDB to Firestore
 
-Status: **design, questions open** (237–242 below). Step 0, the home page,
+Status: **design, questions open** (237, 238, 240–242 below; 239 answered). Step 0, the home page,
 is built (below). Nothing else is built until the owner agrees the design.
 
 ## The owner's direction (2026-10-17)
@@ -232,3 +232,11 @@ Each phase is one PR, with:
      window of about 30 minutes, with no postings, acceptable for each
      phase?
 242. **Order.** T1 stock first, as above (recommended)? Or another order?
+
+## The owner's answers
+
+- **239 (2026-10-17):** the transactional data has been reset ("all
+  transaction data reset now"). There is nothing to migrate, so no
+  migration script. Question 241 (the maintenance window) then does not
+  apply. Each phase switches with a Data Reset of its collections if test
+  data has been entered in the meantime.
