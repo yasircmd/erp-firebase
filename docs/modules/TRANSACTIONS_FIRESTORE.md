@@ -334,9 +334,9 @@ writes them:
 - **Don't use the app during the deploy.** For about 1.5 hours some
   functions read Firestore and some RTDB, and a document saved then could
   be split between the two.
-- **Stock entered before this deploy stays in RTDB, unseen.** The data was
-  reset (decision 239). If stock was entered since, run Data Reset of the
-  transactional data after the deploy, so the GL and the stock agree.
+- **Stock entered before this deploy would stay in RTDB, unseen.** There
+  is none: the owner confirmed (2026-10-17) that nothing was entered after
+  the reset (decision 239). So no Data Reset is needed after the deploy.
 - **The RTDB `.indexOn` Status on stock/transactions** stays until a later
   rules change. It is harmless, and removing it first would break the
   functions still running during the deploy.
