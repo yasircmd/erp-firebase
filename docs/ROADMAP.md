@@ -164,7 +164,10 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   Employee Portal (SALES_REP_PORTAL.md: draft orders and collections). Each
   with tests and a negative control, Help and What's new. Merged as PR
   #129 and **live 2026-10-17** (deploy set `ux-tier3-wave3`, 372 functions
-  with screens, then Hosting; DEPLOY_LOG.md). **Owner, still to do in the
+  with screens, then Hosting; DEPLOY_LOG.md). **Still to deploy:** set
+  `ux-tier3-wave3-rest` (the other 175 functions, no screens): the module
+  list changed, every function reads it, and those 175 still ran the old
+  one, so Tree Management refused "Unknown module: PROJECTREPORT". **Owner, still to do in the
   app:** tick Currency Configuration "rates" and give "Project Report" to
   roles; set each company's Exchange Gain / Loss account; add "Project
   Report" in Tree Management; set up sales reps and e-invoicing when

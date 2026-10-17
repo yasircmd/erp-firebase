@@ -82,6 +82,12 @@ preserved quirks). Read it when touching a ported module.
 - Deploy from a clean checkout only (`git status --porcelain` empty),
   inside tmux: batches of 20 there, 6 outside (the old limit, from Cloud
   Shell connection timeouts). Details: README → Deploying.
+- **A change to functions/src/moduleRegistry.js (or auth.js) reaches every
+  function**: auth.js seeds the default permissions from it, and
+  getModuleFragment and the legacy port check module ids against it. Its
+  deploy set is then all functions, not the require closure of the rest of
+  the change (wave 3 missed 175 and Tree Management refused
+  "Unknown module: PROJECTREPORT", 2026-10-17).
 - Screens (screens/*.html) go live with tools/release-screens.sh, not a
   function deploy. Functions first, then the release (or
   deploy-functions.sh <set> --screens). Never put screens in public/:
