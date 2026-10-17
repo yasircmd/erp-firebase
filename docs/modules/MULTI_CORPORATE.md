@@ -1,6 +1,6 @@
 # One app, each corporate ID's data in the client's own account
 
-Status: **design, questions open** (243–249 below). Nothing built.
+Status: **design agreed** (owner, 2026-10-17: the recommendations, 243–249). Built after phase T1 of TRANSACTIONS_FIRESTORE.md (248).
 
 ## The owner's direction (2026-10-17)
 
@@ -185,3 +185,18 @@ A checklist, and a script for the steps that can be scripted:
 249. **The firm's own staff across clients.** Is a staff member's work
      only ever inside one client's app at a time, with no screen that
      shows several clients together (recommended for privacy)?
+
+## The owner's decisions (2026-10-17)
+
+"Go with your recommendations":
+- **243:** each client's users, the firm's staff included, are in the
+  client's own Firebase Auth (a login per client).
+- **244:** keyless access: the client grants this project's service
+  account a database-only role, revocable; no key is made.
+- **245:** Corporate 100 stays in this project.
+- **246:** each release deploys the rules and indexes to every client's
+  project (one more role in the grant).
+- **247:** a Developer screen, for the Admin of Corporate 100 only.
+- **248:** built after phase T1.
+- **249:** staff work in one client's app at a time; no screen shows
+  several clients together.
