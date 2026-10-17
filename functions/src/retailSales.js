@@ -858,7 +858,8 @@ async function saleByNumber(user, companyId, number) {
   const [saleId, t] = hit;
   if (t.ReversalOfSaleID) throw new HttpsError('failed-precondition', key + ' is the reversal of a sale, not a sale.');
   if (t.ReversedBySaleID) throw new HttpsError('failed-precondition', 'Sale ' + key + ' has been reversed; there is nothing to return.');
-  return { saleId, sale: t, txs };
+  // txs: the sale's returns, which its callers read (returnsOf).
+  return { saleId, sale: t, txs: await saleReturns(saleId) };
 }
 
 // The sale's open on-account balance, from its receivables line.
