@@ -1165,3 +1165,12 @@ from, and how it was verified. The deploy procedure is in the
   reads, but its set covered only 372 of the 547 functions: Tree
   Management refused "Unknown module: PROJECTREPORT" until these went
   out. All 547 functions are now on wave 3.
+- **2026-10-17, home page reads by Status (database rules, then
+  `home-indexed-reads`, no screens):** runs
+  [#163](https://github.com/yasircmd/erp-firebase/actions/runs/39026104144)
+  (10:45–10:46 UTC: database.rules.json with the `.indexOn` Status entries,
+  still deny-all) and
+  [#164](https://github.com/yasircmd/erp-firebase/actions/runs/39026220959)
+  (10:47–11:03 UTC: 62 functions), from `6cd2261` (PR #131), success, in
+  that order (the queries are refused without the indexes). Step 0 of
+  TRANSACTIONS_FIRESTORE.md.

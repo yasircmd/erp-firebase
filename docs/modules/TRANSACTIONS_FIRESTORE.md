@@ -1,6 +1,6 @@
 # Transaction documents from RTDB to Firestore
 
-Status: **design, questions open** (237, 238, 240–242 below; 239 answered). Step 0, the home page,
+Status: **design agreed** (owner, 2026-10-17: the recommendations). Step 0 live 2026-10-17 (runs #163, #164). Next: phase T1. Step 0, the home page,
 is built (below). Nothing else is built until the owner agrees the design.
 
 ## The owner's direction (2026-10-17)
@@ -240,3 +240,7 @@ Each phase is one PR, with:
   migration script. Question 241 (the maintenance window) then does not
   apply. Each phase switches with a Data Reset of its collections if test
   data has been entered in the meantime.
+- **237, 238, 240, 242 (2026-10-17):** "agree all recommendations". All
+  transaction documents move, in phases T1–T5; the running stock balances
+  move with the stock documents, so a posting is one atomic Firestore
+  transaction; approval instances move last (T5); stock first (T1).
