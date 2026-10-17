@@ -1,12 +1,13 @@
-const { rtdb } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 
+// The running balances are in Firestore (stockStore.js, stockLedger); the
+// RTDB path is still the name the ported code and the tests use for them.
 function stockLedgerPath(itemId, warehouseId) {
   return 'stock/ledger/' + itemId + '/' + warehouseId;
 }
 
 async function getStockLedgerEntry(itemId, warehouseId) {
-  const snap = await rtdb.ref(stockLedgerPath(itemId, warehouseId)).get();
-  return snap.val() || { Quantity: 0, AvgCost: 0, TotalValue: 0 };
+  return (await stockStore.getLedgerEntry(itemId, warehouseId)) || { Quantity: 0, AvgCost: 0, TotalValue: 0 };
 }
 
 // Ported from computeStockMovement_ — identical logic, made async only
@@ -126,24 +127,17 @@ async function computeStockMovement(itemsData, coaData, lines, readLedger) {
 // touched by this commit lands in ONE request, genuinely atomic as a
 // single unit. Same input/output shape as the original, so nothing
 // about how callers use this needed to change.
+//
+// In Firestore (TRANSACTIONS_FIRESTORE.md, T1) the same holds: every
+// balance this commit touches is written in one batch, all or none.
 async function commitStockLedgerUpdates(ledgerUpdates) {
   const now = new Date().toISOString();
-  const updates = {};
+  const entries = {};
   Object.keys(ledgerUpdates).forEach(key => {
-    const parts = key.split('|');
-    const itemId = parts[0], warehouseId = parts[1];
     const update = ledgerUpdates[key];
-    updates[stockLedgerPath(itemId, warehouseId)] = {
-      Quantity: update.Quantity, AvgCost: update.AvgCost, TotalValue: update.TotalValue, UpdatedAt: now
-    };
+    entries[key] = { Quantity: update.Quantity, AvgCost: update.AvgCost, TotalValue: update.TotalValue, UpdatedAt: now };
   });
-  if (!Object.keys(updates).length) return;
-  // rtdb.ref() with no path is the database root — update()'s own
-  // keys are then absolute paths (stockLedgerPath's own full strings),
-  // not relative to some sub-location, since the keys touched here
-  // span arbitrary item/warehouse combinations with no common parent
-  // shorter than 'stock/ledger' itself.
-  await rtdb.ref().update(updates);
+  await stockStore.setLedgerEntries(entries);
 }
 
 module.exports = { stockLedgerPath, getStockLedgerEntry, computeStockMovement, commitStockLedgerUpdates };

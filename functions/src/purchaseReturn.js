@@ -23,6 +23,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
@@ -34,7 +35,6 @@ const { getOpenItemsForParty, assertEntryReversible, annotateInvoiceOutstanding 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'PURCHASERETURN';
 const TYPE = 'PurchaseReturn';
-const TX = 'stock/transactions/';
 
 const round2 = n => Math.round(n * 100) / 100;
 const round6 = n => Math.round(n * 1e6) / 1e6;
@@ -51,7 +51,7 @@ async function requirePostAccess(role) {
 }
 
 async function loadReturn(returnId) {
-  const rec = (await rtdb.ref(TX + returnId).get()).val();
+  const rec = (await stockStore.getTx(returnId));
   if (!rec || rec.TransactionType !== TYPE) throw new HttpsError('not-found', 'Purchase Return not found.');
   return rec;
 }
@@ -70,8 +70,10 @@ function isLiveReturn(t) {
 
 // Quantity already returned per GRN line (key → qty) for one invoice,
 // across live returns, leaving out excludeId (the return being posted).
+// allTx: the documents already read (the invoice's GRNs and its returns);
+// else this invoice's returns are read (stockStore.js).
 async function returnedQuantities(invoiceId, excludeId, allTx) {
-  const txs = allTx || (await rtdb.ref('stock/transactions').get()).val() || {};
+  const txs = allTx || (await stockStore.queryTx({ SourceInvoiceID: invoiceId, TransactionType: TYPE }));
   const used = new Map();
   Object.keys(txs).forEach(id => {
     const t = txs[id];
@@ -87,7 +89,7 @@ async function returnedQuantities(invoiceId, excludeId, allTx) {
 // Refuses a Vendor Invoice reversal while a live return exists against it
 // (owner decision 9). Called from invoiceAllocations' reversal guard.
 async function assertInvoiceHasNoLiveReturns(invoiceId) {
-  const txs = (await rtdb.ref('stock/transactions').get()).val() || {};
+  const txs = await stockStore.queryTx({ SourceInvoiceID: invoiceId, TransactionType: TYPE });
   const live = Object.keys(txs).map(id => txs[id]).filter(t => isLiveReturn(t) && t.SourceInvoiceID === invoiceId);
   if (live.length) {
     throw new Error('This invoice has Purchase Returns posted against it (' + live.map(t => t.TransactionNumber || '').join(', ') + ') — reverse those first.');
@@ -102,9 +104,19 @@ function assertInvoiceReturnable(inv, companyId, vendorId) {
   if (inv.CompanyID !== companyId || inv.VendorID !== vendorId) throw new Error('The Vendor Invoice belongs to a different company or vendor.');
 }
 
+// The stock documents an invoice's return lines need: its GRNs, by id, and
+// the returns against it.
+async function invoiceDocs(invoiceId, inv) {
+  const [grns, returns] = await Promise.all([
+    stockStore.getTxs((inv.SourceGRNs || []).map(g => g.GRNID)),
+    stockStore.queryTx({ SourceInvoiceID: invoiceId, TransactionType: TYPE })
+  ]);
+  return Object.assign({}, grns, returns);
+}
+
 // Every item line on the invoice's GRNs, with what's left to return.
 async function invoiceGrnLines(invoiceId, inv, excludeReturnId, allTx) {
-  const txs = allTx || (await rtdb.ref('stock/transactions').get()).val() || {};
+  const txs = allTx || (await invoiceDocs(invoiceId, inv));
   const returned = await returnedQuantities(invoiceId, excludeReturnId, txs);
   const out = [];
   (inv.SourceGRNs || []).forEach(g => {
@@ -208,9 +220,13 @@ exports.getReturnableVendorInvoices = onCallWithMessages(onCallOptions, async (r
   if (!companyId || !vendorId) return [];
   if (!userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
 
-  const [invSnap, txSnap] = await Promise.all([rtdb.ref('vendorInvoices').get(), rtdb.ref('stock/transactions').get()]);
-  const invoices = invSnap.val() || {};
-  const txs = txSnap.val() || {};
+  const invoices = (await rtdb.ref('vendorInvoices').get()).val() || {};
+  // The GRNs of this vendor's invoices, by id, and this company's returns
+  // (stockStore.js), not every stock transaction.
+  const grnIds = [];
+  Object.values(invoices).forEach(inv => { if (inv && inv.CompanyID === companyId && inv.VendorID === vendorId) (inv.SourceGRNs || []).forEach(g => grnIds.push(g.GRNID)); });
+  const [grns, returns] = await Promise.all([stockStore.getTxs(grnIds), stockStore.queryTx({ TransactionType: TYPE, CompanyID: companyId })]);
+  const txs = Object.assign({}, grns, returns);
   const out = [];
   for (const id of Object.keys(invoices)) {
     const inv = invoices[id];
@@ -267,11 +283,11 @@ exports.savePurchaseReturnDraft = onCallWithMessages(onCallOptions, async (reque
   }, computeValues(lines, inv));
 
   if (returnId) {
-    await rtdb.ref(TX + returnId).update(fields);
+    await stockStore.updateTx(returnId, fields);
     return { success: true, returnId: returnId };
   }
   const newId = 'PRTD-' + randomUUID().split('-')[0].toUpperCase();
-  await rtdb.ref(TX + newId).set(Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
+  await stockStore.setTx(newId, Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
   return { success: true, returnId: newId };
 });
 
@@ -299,7 +315,7 @@ exports.postPurchaseReturn = onCallWithMessages(onCallOptions, async (request) =
     });
     const approval = await beginApprovalInstance(MODULE_ID, returnId, '', scopeKey, values.Total, user.uid);
     if (approval.required) {
-      await rtdb.ref(TX + returnId).update(Object.assign({
+      await stockStore.updateTx(returnId, Object.assign({
         Lines: lines, Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
         RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
       }, values));
@@ -436,7 +452,7 @@ exports.decidePurchaseReturnApproval = onCallWithMessages(onCallOptions, async (
             Decisions: (instance.Decisions || []).filter(d => d.LevelNumber !== levelNumber), Status: 'Pending', UpdatedAt: now
           });
         }
-        await rtdb.ref(TX + returnId).update({
+        await stockStore.updateTx(returnId, {
           Status: 'Rejected', RejectionReason: 'Posting failed and could not be completed: ' + err.message + ' — please fix and resubmit.',
           UpdatedAt: now, UpdatedBy: actor
         });
@@ -444,7 +460,7 @@ exports.decidePurchaseReturnApproval = onCallWithMessages(onCallOptions, async (
       }
     }
     if (result.status === 'Rejected') {
-      await rtdb.ref(TX + returnId).update({ Status: 'Rejected', RejectionReason: String(reason || '').trim(), UpdatedAt: now, UpdatedBy: actor });
+      await stockStore.updateTx(returnId, { Status: 'Rejected', RejectionReason: String(reason || '').trim(), UpdatedAt: now, UpdatedBy: actor });
     }
     return { success: true, status: result.status, selfApproved: result.selfApproved };
   });
@@ -457,14 +473,14 @@ exports.deletePurchaseReturnDraft = onCallWithMessages(onCallOptions, async (req
   if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   await requireDraftAccess(user.profile.role);
   if (existing.Status !== 'Draft') throw new HttpsError('failed-precondition', 'Only draft returns can be deleted. Posted returns must be reversed instead.');
-  await rtdb.ref(TX + returnId).set(null);
+  await stockStore.deleteTx(returnId);
   return { success: true };
 });
 
 exports.getPurchaseReturnEntries = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireAccess(user.profile.role);
-  const data = (await rtdb.ref('stock/transactions').get()).val() || {};
+  const data = await stockStore.queryTx({ TransactionType: TYPE });
   const all = Object.keys(data)
     .map(id => Object.assign({ ReturnID: id }, data[id]))
     .filter(e => e.TransactionType === TYPE && userCanAccessCompany(user.profile, e.CompanyID))
@@ -520,7 +536,7 @@ exports.reversePurchaseReturn = onCallWithMessages(onCallOptions, async (request
     const newId = 'PRTD-' + randomUUID().split('-')[0].toUpperCase();
     const attemptId = randomUUID();
     const reversalDescription = 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description;
-    await rtdb.ref(TX + newId).set({
+    await stockStore.setTx(newId, {
       TransactionType: TYPE, Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
       TransactionDate: date, Description: reversalDescription, Reference: existing.TransactionNumber,
       CompanyID: existing.CompanyID, DivisionID: existing.DivisionID || '', BranchID: existing.BranchID || '',
@@ -538,7 +554,7 @@ exports.reversePurchaseReturn = onCallWithMessages(onCallOptions, async (request
         { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
         { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfJV: existing.LinkedJVID, PartyKeys: glEntry.PartyKeys || [], AllocatedRefs: [], AllocatedRefTypes: [] });
     } catch (err) {
-      await rtdb.ref(TX + newId).set(null);
+      await stockStore.deleteTx(newId);
       throw err;
     }
 
@@ -547,7 +563,7 @@ exports.reversePurchaseReturn = onCallWithMessages(onCallOptions, async (request
     // The original is marked first (as reverseGrn does), so a second
     // reversal can't start even if something fails between these writes.
     await glRef.update({ ReversedByJV: glResult.jvId, UpdatedAt: now, UpdatedBy: actor });
-    await rtdb.ref(TX + returnId).update({ ReversedByReturnID: newId, UpdatedAt: now, UpdatedBy: actor });
+    await stockStore.updateTx(returnId, { ReversedByReturnID: newId, UpdatedAt: now, UpdatedBy: actor });
     await finalizeCommitAttempt(newId, glResult, { Lines: movementLines }, actor);
     return { success: true, returnId: newId, returnNumber: glResult.jvNumber };
   });

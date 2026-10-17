@@ -3,7 +3,7 @@
 // the literal role 'ADMIN' (requireAdminRole_), so it runs as u-root.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, firestore, call, reset, baseFixture, today, val } = require('./_helpers');
+const { app, rtdb, firestore, call, reset, baseFixture, today, val, put } = require('./_helpers');
 
 const state = {};
 const strip = (ledger) => {
@@ -61,8 +61,8 @@ test('only the literal ADMIN role gets in; the typed phrase is required', async 
 });
 
 test('recalculateStockLedger rebuilds exactly the live ledger (movements, posting order, reversals)', async () => {
-  await rtdb.ref('stock/ledger/I1/WH1').set({ Quantity: 999, AvgCost: 1, TotalValue: 999 }); // drift to repair
-  await rtdb.ref('stock/ledger/IX/WH9').set({ Quantity: 5, AvgCost: 1, TotalValue: 5 });     // stale key to drop
+  await put('stock/ledger/I1/WH1', { Quantity: 999, AvgCost: 1, TotalValue: 999 }); // drift to repair
+  await put('stock/ledger/IX/WH9', { Quantity: 5, AvgCost: 1, TotalValue: 5 });     // stale key to drop
   const r = await call('u-root', 'recalculateStockLedger', { confirmPhrase: 'DELETE' });
   assert.equal(r.success, true, JSON.stringify(r));
   assert.equal(r.count, 6);
@@ -70,29 +70,29 @@ test('recalculateStockLedger rebuilds exactly the live ledger (movements, postin
 });
 
 test('a replay failure changes nothing and names the transaction; the lock is released', async () => {
-  await rtdb.ref('stock/transactions/BAD').set({ TransactionType: 'MaterialIssue', TransactionNumber: 'MI-BAD', Status: 'Posted',
+  await put('stock/transactions/BAD', { TransactionType: 'MaterialIssue', TransactionNumber: 'MI-BAD', Status: 'Posted',
     CreatedAt: '2999-01-01T00:00:00.000Z', PostedAt: '2999-01-01T00:00:00.000Z',
     Lines: [{ ItemID: 'I1', WarehouseID: 'WH2', Direction: 'Out', Quantity: 50 }] });
   const r = await call('u-root', 'recalculateStockLedger', { confirmPhrase: 'DELETE' });
   assert.equal(r.success, false);
   assert.match(r.error, /^MI-BAD: Line 1: insufficient stock .* Nothing was changed\.$/);
   assert.deepEqual(await ledgerNow(), state.live);
-  await rtdb.ref('stock/transactions/BAD').set(null);
+  await put('stock/transactions/BAD', null);
   assert.equal((await call('u-root', 'recalculateStockLedger', { confirmPhrase: 'DELETE' })).success, true);
 });
 
 test('Physical Counts posted without adjustment details are refused by name, not dropped', async () => {
-  await rtdb.ref('stock/transactions/PC-OLD').set({ TransactionType: 'PhysicalCount', TransactionNumber: 'PC-26-000009', Status: 'Posted',
+  await put('stock/transactions/PC-OLD', { TransactionType: 'PhysicalCount', TransactionNumber: 'PC-26-000009', Status: 'Posted',
     CreatedAt: today, PostedAt: today, Lines: [{ ItemID: 'I1', WarehouseID: 'WH1', CountedQuantity: 10, Variance: -6 }] });
   const r = await call('u-root', 'recalculateStockLedger', { confirmPhrase: 'DELETE' });
   assert.equal(r.success, false);
   assert.match(r.error, /PC-26-000009\. Nothing was changed\.$/);
   assert.deepEqual(await ledgerNow(), state.live);
   // A clean count (no variance, no Direction) replays as a no-op.
-  await rtdb.ref('stock/transactions/PC-OLD/Lines/0/Variance').set(0);
+  await put('stock/transactions/PC-OLD/Lines/0/Variance', 0);
   assert.equal((await call('u-root', 'recalculateStockLedger', { confirmPhrase: 'DELETE' })).success, true);
   assert.deepEqual(await ledgerNow(), state.live);
-  await rtdb.ref('stock/transactions/PC-OLD').set(null);
+  await put('stock/transactions/PC-OLD', null);
 });
 
 test('getDataResetCounts counts every path of every category', async () => {

@@ -5,8 +5,8 @@ order: 6
 modules: [GRN]
 sources: [functions/src/grn.js, functions/src/stockMovement.js]
 summary: Receive the purchased goods into stock and match the supplier receipt against the order.
-reviewed: 2026-10-16
-fingerprint: 8457121ba2f581ed
+reviewed: 2026-10-17
+fingerprint: 1c17a028c58c1bd3
 ---
 ## What it is for
 

@@ -12,6 +12,7 @@ const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { MODULE_REGISTRY } = require('./moduleRegistry');
 const { withStatus } = require('./rtdbStatus');
+const stockStore = require('./stockStore');
 
 const onCallOptions = { region: 'us-central1' };
 
@@ -156,8 +157,8 @@ exports.getMyFollowUpTasksForUser = onCallWithMessages(onCallOptions, async (req
   // it (decision 152). A delivery is invoiced whole, so it stays until a
   // posted invoice includes it (decision 153); on a draft invoice it stays.
   if (await moduleHasCapability('DELIVERYNOTE', 'access', user.profile.role)) {
-    // The posted stock transactions only (rtdbStatus.js): no drafts.
-    const [tx, customers] = await Promise.all([withStatus('stock/transactions', 'Posted'), rtdb.ref('customers').get().then(x => x.val() || {})]);
+    // The posted Delivery Notes only (stockStore.js), not every stock transaction.
+    const [tx, customers] = await Promise.all([stockStore.queryTx({ TransactionType: 'DeliveryNote', Status: 'Posted' }), rtdb.ref('customers').get().then(x => x.val() || {})]);
     const me = [user.uid, user.profile.username].filter(Boolean);
     Object.keys(tx).forEach(id => {
       const dn = tx[id];

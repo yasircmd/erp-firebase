@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry, COST_CENTER_REQUIRED_TYPES } = require('./glWriting');
 const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
@@ -307,16 +308,16 @@ exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
   };
 
   if (grnId) {
-    const existingSnap = await rtdb.ref('stock/transactions/' + grnId).get();
+    const existingSnap = await stockStore.snapTx(grnId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'GRN not found.');
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected GRNs can be edited.');
-    await rtdb.ref('stock/transactions/' + grnId).update(fields);
+    await stockStore.updateTx(grnId, fields);
     return { success: true, grnId: grnId };
   }
 
   const newId = 'GRND-' + randomUUID().split('-')[0].toUpperCase();
-  await rtdb.ref('stock/transactions/' + newId).set(Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
+  await stockStore.setTx(newId, Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
   return { success: true, grnId: newId };
 });
 
@@ -326,7 +327,7 @@ exports.postGrn = onCallWithMessages(onCallOptions, async (request) => {
   const grnId = String(request.data && request.data.grnId || '').trim();
 
   return withGlobalLock(user.uid, async () => {
-    const existingSnap = await rtdb.ref('stock/transactions/' + grnId).get();
+    const existingSnap = await stockStore.snapTx(grnId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'GRN not found.');
     if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -351,7 +352,7 @@ exports.postGrn = onCallWithMessages(onCallOptions, async (request) => {
     const approval = await beginApprovalInstance('GRN', grnId, '', scopeKey, previewAmount, user.uid);
 
     if (approval.required) {
-      await rtdb.ref('stock/transactions/' + grnId).update({
+      await stockStore.updateTx(grnId, {
         Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
         RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
       });
@@ -439,7 +440,7 @@ exports.decideGrnApproval = onCallWithMessages(onCallOptions, async (request) =>
   const decision = data.decision;
   const reason = data.reason;
 
-  const existingSnap = await rtdb.ref('stock/transactions/' + grnId).get();
+  const existingSnap = await stockStore.snapTx(grnId);
   const existing = existingSnap.val();
   if (!existing) throw new HttpsError('not-found', 'GRN not found.');
   if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -454,7 +455,7 @@ exports.decideGrnApproval = onCallWithMessages(onCallOptions, async (request) =>
     });
   } else if (result.status === 'Rejected') {
     const now = new Date().toISOString();
-    await rtdb.ref('stock/transactions/' + grnId).update({
+    await stockStore.updateTx(grnId, {
       Status: 'Rejected', RejectionReason: String(reason || '').trim(),
       UpdatedAt: now, UpdatedBy: user.profile.username || user.uid
     });
@@ -466,13 +467,13 @@ exports.decideGrnApproval = onCallWithMessages(onCallOptions, async (request) =>
 exports.deleteGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const grnId = String(request.data && request.data.grnId || '').trim();
-  const existingSnap = await rtdb.ref('stock/transactions/' + grnId).get();
+  const existingSnap = await stockStore.snapTx(grnId);
   const existing = existingSnap.val();
   if (!existing) throw new HttpsError('not-found', 'GRN not found.');
   if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   await requireDraftAccess('GRN', user.profile.role);
   if (existing.Status !== 'Draft') throw new HttpsError('failed-precondition', 'Only draft GRNs can be deleted. Posted GRNs must be reversed instead.');
-  await rtdb.ref('stock/transactions/' + grnId).set(null);
+  await stockStore.deleteTx(grnId);
   return { success: true };
 });
 
@@ -499,8 +500,8 @@ exports.getGrnEntries = onCallWithMessages(onCallOptions, async (request) => {
   const canAccess = await moduleHasCapability('GRN', 'access', user.profile.role);
   if (!canAccess) throw new HttpsError('permission-denied', 'You do not have access to Goods Receipt.');
 
-  const dataSnap = await rtdb.ref('stock/transactions').get();
-  const data = dataSnap.val() || {};
+  // Only this type's documents (stockStore.js), not every stock transaction.
+  const data = await stockStore.queryTx({ TransactionType: 'GRN' });
   const all = Object.keys(data)
     .map(id => Object.assign({ GRNID: id }, data[id]))
     .filter(e => e.TransactionType === 'GRN')
@@ -535,7 +536,7 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
   const grnId = String(data.grnId || '').trim();
 
   return withGlobalLock(user.uid, async () => {
-    const existingSnap = await rtdb.ref('stock/transactions/' + grnId).get();
+    const existingSnap = await stockStore.snapTx(grnId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'GRN not found.');
     if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -583,7 +584,7 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
     const newId = 'GRND-' + randomUUID().split('-')[0].toUpperCase();
     const attemptId = randomUUID();
 
-    await rtdb.ref('stock/transactions/' + newId).set({
+    await stockStore.setTx(newId, {
       TransactionType: 'GRN', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
       TransactionDate: date, Description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description,
       Reference: existing.TransactionNumber,
@@ -602,7 +603,7 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
         { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
         { CommitAttemptID: attemptId, SourceTransactionID: newId });
     } catch (err) {
-      await rtdb.ref('stock/transactions/' + newId).set(null);
+      await stockStore.deleteTx(newId);
       throw err;
     }
 
@@ -612,7 +613,7 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
     // new reversal to Posted, not after — guarantees a second
     // reversal can never be triggered even if something fails between
     // these two writes.
-    await rtdb.ref('stock/transactions/' + grnId).update({ ReversedByGRN: newId });
+    await stockStore.updateTx(grnId, { ReversedByGRN: newId });
     await finalizeCommitAttempt(newId, glResult, { Lines: movementLines, NonStockLines: nonStockLines }, actor);
 
     // Roll back exactly this GRN's own contribution to each PO line it

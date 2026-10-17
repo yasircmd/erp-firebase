@@ -10,7 +10,7 @@
 // validation and access.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, firestore, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, firestore, call, reset, baseFixture, val, put } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture() {
@@ -157,9 +157,9 @@ test('a chosen warehouse; reversal takes stock out at the current average cost a
   assert.match(await err(reverse(b.returnId)), /already been reversed/);
   assert.match(await err(reverse(r.returnId)), /reversal entry cannot itself be reversed/);
   // Goods that have left the Returns Bay can't be "un-returned".
-  await rtdb.ref('stock/ledger/I1/WH3').set({ Quantity: 1, AvgCost: 12, TotalValue: 12 });
+  await put('stock/ledger/I1/WH3', { Quantity: 1, AvgCost: 12, TotalValue: 12 });
   assert.match(await err(reverse(a.returnId)), /insufficient stock for RM-001 at this warehouse — available 1, requested 2/);
-  await rtdb.ref('stock/ledger/I1/WH3').set({ Quantity: 2, AvgCost: 12, TotalValue: 24 });
+  await put('stock/ledger/I1/WH3', { Quantity: 2, AvgCost: 12, TotalValue: 24 });
   ok(await reverse(a.returnId));
   assert.deepEqual(await openItems(), [[inv.number, 'Dr', 567, 567]]);
   ok(await call('u-admin', 'requestReverseCustomerInvoice', { invoiceId: inv.id, reversalDate: D }));
@@ -253,7 +253,7 @@ test('validation, warehouses, missing account, delete, company scoping and acces
   assert.equal((await rec(s.returnId)).Status, 'Draft');
 
   // A delivery line with no recorded cost can't be returned into stock.
-  await rtdb.ref('stock/transactions/N2/Lines/0/UnitCost').set(0);
+  await put('stock/transactions/N2/Lines/0/UnitCost', 0);
   assert.match(await err(draft(inv, [['N2', 1]])), /left DeliveryNote-5 at no recorded cost/);
 
   assert.deepEqual((await call('u-other', 'getSalesReturnEntries', {})).entries, []);
@@ -286,7 +286,7 @@ test('Sales Type stores its Sales Returns account (required, Revenue, same compa
   ok(await reverse(b.returnId));
   const live = await val('stock/ledger/I1');
   const strip = (l) => Object.fromEntries(Object.entries(l).map(([k, v]) => [k, [v.Quantity, v.AvgCost, v.TotalValue]]));
-  await rtdb.ref('stock/ledger/I1/WH1').set({ Quantity: 999, AvgCost: 1, TotalValue: 999 });
+  await put('stock/ledger/I1/WH1', { Quantity: 999, AvgCost: 1, TotalValue: 999 });
   ok(await call('u-root', 'recalculateStockLedger', { confirmPhrase: 'DELETE' }));
   assert.deepEqual(strip(await val('stock/ledger/I1')), strip(live));
   assert.deepEqual(strip(live).WH3, [2, 12, 24]);

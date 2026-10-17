@@ -6,7 +6,7 @@
 // ageing); a batch reversed any time unless something already used it.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, call, reset, baseFixture, val, firestore } = require('./_helpers');
+const { app, call, reset, baseFixture, val, firestore, patch } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 
@@ -237,10 +237,10 @@ test('Reversal: GL and Open Invoices mirror back; stock comes out unless used; c
 
   // Stock used since the opening (here: 6 of the 10 gone) can't be taken back.
   const { rtdb } = require('./_helpers');
-  await rtdb.ref('stock/ledger/I1/WH1').update({ Quantity: 4, TotalValue: 60 });
+  await patch('stock/ledger/I1/WH1', { Quantity: 4, TotalValue: 60 });
   await assert.rejects(reverse(st.batchId), /cannot be taken back: insufficient stock for RM-001 at this warehouse — available 4, requested 10\. Reverse what used it first/);
   assert.equal((await val('openingBalances/batches/' + st.batchId)).Status, 'Posted');
-  await rtdb.ref('stock/ledger/I1/WH1').update({ Quantity: 10, TotalValue: 150 });
+  await patch('stock/ledger/I1/WH1', { Quantity: 10, TotalValue: 150 });
   ok(await reverse(st.batchId));
   const ledger = await val('stock/ledger/I1/WH1');
   assert.deepEqual([ledger.Quantity, ledger.TotalValue], [0, 0]);

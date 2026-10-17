@@ -1,5 +1,6 @@
 const { onCall } = require('firebase-functions/v2/https');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { APPROVAL_MODULE_STORAGE_, FIRESTORE_JOURNAL_ENTRIES_COLLECTION, approvalLabelOf } = require('./approvalRegistry');
 const { MODULE_REGISTRY } = require('./moduleRegistry');
@@ -19,6 +20,7 @@ async function fetchApprovalSourceDocument(moduleId, documentId) {
     const doc = await firestore.collection(storage.collection).doc(documentId).get();
     return doc.exists ? doc.data() : null;
   }
+  if (stockStore.isStockPath(storage.path)) return stockStore.getTx(documentId);
   const snap = await rtdb.ref(storage.path + '/' + documentId).get();
   return snap.val();
 }
@@ -139,9 +141,10 @@ exports.getMyDraftsForUser = onCall(onCallOptions, async (request) => {
   const role = user.profile.role;
 
   const records = [];
-  // Only each collection's drafts, from its Status index (rtdbStatus.js),
-  // not the whole collection.
-  const rtdbDrafts = await Promise.all(DRAFT_RTDB_SOURCES.map(src => withStatus(src.path, 'Draft')));
+  // Only each collection's drafts, from its Status index (rtdbStatus.js;
+  // stock transactions: a Firestore query, stockStore.js), not the whole
+  // collection.
+  const rtdbDrafts = await Promise.all(DRAFT_RTDB_SOURCES.map(src => (stockStore.isStockPath(src.path) ? stockStore.queryTx({ Status: 'Draft' }) : withStatus(src.path, 'Draft'))));
   DRAFT_RTDB_SOURCES.forEach((src, i) => {
     const data = rtdbDrafts[i];
     Object.keys(data).forEach(id => { if (data[id] && data[id].Status === 'Draft') records.push({ id, r: data[id], moduleOf: src.moduleOf }); });

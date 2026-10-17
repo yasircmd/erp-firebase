@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry } = require('./glWriting');
 const { getStockLedgerEntry, computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
@@ -123,16 +124,16 @@ exports.saveMaterialIssueDraft = onCallWithMessages(onCallOptions, async (reques
   };
 
   if (miId) {
-    const existingSnap = await rtdb.ref('stock/transactions/' + miId).get();
+    const existingSnap = await stockStore.snapTx(miId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'Material Issue not found.');
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected Material Issues can be edited.');
-    await rtdb.ref('stock/transactions/' + miId).update(fields);
+    await stockStore.updateTx(miId, fields);
     return { success: true, miId: miId };
   }
 
   const newId = 'MID-' + randomUUID().split('-')[0].toUpperCase();
-  await rtdb.ref('stock/transactions/' + newId).set(Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
+  await stockStore.setTx(newId, Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
   return { success: true, miId: newId };
 });
 
@@ -142,7 +143,7 @@ exports.postMaterialIssue = onCallWithMessages(onCallOptions, async (request) =>
   const miId = String(request.data && request.data.miId || '').trim();
 
   return withGlobalLock(user.uid, async () => {
-    const existingSnap = await rtdb.ref('stock/transactions/' + miId).get();
+    const existingSnap = await stockStore.snapTx(miId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'Material Issue not found.');
     if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -180,7 +181,7 @@ exports.postMaterialIssue = onCallWithMessages(onCallOptions, async (request) =>
     const approval = await beginApprovalInstance('MATERIALISSUE', miId, '', scopeKey, previewAmount, user.uid);
 
     if (approval.required) {
-      await rtdb.ref('stock/transactions/' + miId).update({
+      await stockStore.updateTx(miId, {
         Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
         RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
       });
@@ -260,7 +261,7 @@ exports.decideMaterialIssueApproval = onCallWithMessages(onCallOptions, async (r
   const decision = data.decision;
   const reason = data.reason;
 
-  const existingSnap = await rtdb.ref('stock/transactions/' + miId).get();
+  const existingSnap = await stockStore.snapTx(miId);
   const existing = existingSnap.val();
   if (!existing) throw new HttpsError('not-found', 'Material Issue not found.');
   if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -275,7 +276,7 @@ exports.decideMaterialIssueApproval = onCallWithMessages(onCallOptions, async (r
     });
   } else if (result.status === 'Rejected') {
     const now = new Date().toISOString();
-    await rtdb.ref('stock/transactions/' + miId).update({
+    await stockStore.updateTx(miId, {
       Status: 'Rejected', RejectionReason: String(reason || '').trim(),
       UpdatedAt: now, UpdatedBy: user.profile.username || user.uid
     });
@@ -287,13 +288,13 @@ exports.decideMaterialIssueApproval = onCallWithMessages(onCallOptions, async (r
 exports.deleteMaterialIssueDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const miId = String(request.data && request.data.miId || '').trim();
-  const existingSnap = await rtdb.ref('stock/transactions/' + miId).get();
+  const existingSnap = await stockStore.snapTx(miId);
   const existing = existingSnap.val();
   if (!existing) throw new HttpsError('not-found', 'Material Issue not found.');
   if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   await requireDraftAccess('MATERIALISSUE', user.profile.role);
   if (existing.Status !== 'Draft') throw new HttpsError('failed-precondition', 'Only draft Material Issues can be deleted. Posted ones must be reversed instead.');
-  await rtdb.ref('stock/transactions/' + miId).set(null);
+  await stockStore.deleteTx(miId);
   return { success: true };
 });
 
@@ -303,8 +304,8 @@ exports.getMaterialIssueEntries = onCallWithMessages(onCallOptions, async (reque
   const canAccess = await moduleHasCapability('MATERIALISSUE', 'access', user.profile.role);
   if (!canAccess) throw new HttpsError('permission-denied', 'You do not have access to Material Issue.');
 
-  const dataSnap = await rtdb.ref('stock/transactions').get();
-  const data = dataSnap.val() || {};
+  // Only this type's documents (stockStore.js), not every stock transaction.
+  const data = await stockStore.queryTx({ TransactionType: 'MaterialIssue' });
   const all = Object.keys(data)
     .map(id => Object.assign({ MIID: id }, data[id]))
     .filter(e => e.TransactionType === 'MaterialIssue')
@@ -333,7 +334,7 @@ exports.reverseMaterialIssue = onCallWithMessages(onCallOptions, async (request)
   const miId = String(data.miId || '').trim();
 
   return withGlobalLock(user.uid, async () => {
-    const existingSnap = await rtdb.ref('stock/transactions/' + miId).get();
+    const existingSnap = await stockStore.snapTx(miId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'Material Issue not found.');
     if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -375,7 +376,7 @@ exports.reverseMaterialIssue = onCallWithMessages(onCallOptions, async (request)
     const newId = 'MID-' + randomUUID().split('-')[0].toUpperCase();
     const attemptId = randomUUID();
 
-    await rtdb.ref('stock/transactions/' + newId).set({
+    await stockStore.setTx(newId, {
       TransactionType: 'MaterialIssue', EntryType: existing.EntryType === 'Return' ? 'Issue' : 'Return',
       Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
       TransactionDate: date, Description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description,
@@ -395,13 +396,13 @@ exports.reverseMaterialIssue = onCallWithMessages(onCallOptions, async (request)
         { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
         { CommitAttemptID: attemptId, SourceTransactionID: newId });
     } catch (err) {
-      await rtdb.ref('stock/transactions/' + newId).set(null);
+      await stockStore.deleteTx(newId);
       throw err;
     }
 
     // A GL entry genuinely exists from here on — no more reverting.
     await commitStockLedgerUpdates(movement.ledgerUpdates);
-    await rtdb.ref('stock/transactions/' + miId).update({ ReversedByMI: newId });
+    await stockStore.updateTx(miId, { ReversedByMI: newId });
     await finalizeCommitAttempt(newId, glResult, { Lines: movementLines }, actor);
 
     return { success: true, miId: newId, miNumber: glResult.jvNumber };

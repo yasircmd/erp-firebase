@@ -5,8 +5,8 @@ order: 14
 modules: [PERIODCLOSE]
 sources: [functions/src/periodClosing.js, functions/src/periodLock.js]
 summary: Check and close each month so nothing more can be posted into it, and close the financial year into Retained Earnings.
-reviewed: 2026-10-16
-fingerprint: e3066acc68e9e221
+reviewed: 2026-10-17
+fingerprint: ec59fbb960962240
 ---
 ## What it is for
 

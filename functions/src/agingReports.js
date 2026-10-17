@@ -21,6 +21,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { PARTY_TYPES, openItemsFrom } = require('./partyLedger');
@@ -220,7 +221,7 @@ function replayLayers(transactions) {
 }
 
 async function inventoryAging(companyId, asOf, warehouseId, category, onlyWithStock) {
-  const [txSnap, itemSnap, unitSnap, uomSnap] = await Promise.all([rtdb.ref('stock/transactions').get(), rtdb.ref('items').get(), rtdb.ref('orgUnits').get(), rtdb.ref('uoms').get()]);
+  const [txSnap, itemSnap, unitSnap, uomSnap] = await Promise.all([stockStore.queryTx({ CompanyID: companyId, Status: 'Posted' }).then(v => ({ val: () => v })), rtdb.ref('items').get(), rtdb.ref('orgUnits').get(), rtdb.ref('uoms').get()]);
   const items = itemSnap.val() || {}, units = unitSnap.val() || {}, uoms = uomSnap.val() || {};
   const st = replayLayers(countedTransactions(txSnap.val(), companyId, asOf));
   // One row per item (per warehouse when one is chosen).

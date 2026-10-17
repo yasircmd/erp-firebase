@@ -1,6 +1,6 @@
 # Transaction documents from RTDB to Firestore
 
-Status: **design, questions open** (237, 238, 240–242 below; 239 answered). Step 0, the home page,
+Status: **design agreed** (owner, 2026-10-17: the recommendations). Step 0 live 2026-10-17 (runs #163, #164). Next: phase T1. Step 0, the home page,
 is built (below). Nothing else is built until the owner agrees the design.
 
 ## The owner's direction (2026-10-17)
@@ -240,3 +240,110 @@ Each phase is one PR, with:
   migration script. Question 241 (the maintenance window) then does not
   apply. Each phase switches with a Data Reset of its collections if test
   data has been entered in the meantime.
+- **237, 238, 240, 242 (2026-10-17):** "agree all recommendations". All
+  transaction documents move, in phases T1–T5; the running stock balances
+  move with the stock documents, so a posting is one atomic Firestore
+  transaction; approval instances move last (T5); stock first (T1).
+
+## A rule from MULTI_CORPORATE.md (2026-10-17)
+
+One app will serve several corporates, each in its own database. So the new
+code takes `rtdb` / `firestore` from firebaseAdmin.js at call time and keeps
+no data in module-level variables (a cache would be shared between
+corporates in one function instance).
+
+## As built: phase T1a (2026-10-17), stock documents and balances in Firestore
+
+T1 is built in two PRs: **T1a** (this) moves the storage; **T1b** makes a
+stock posting one atomic Firestore transaction with its GL entry (it threads
+a transaction through glWriting.js, large enough for its own PR).
+
+**Where they are.**
+- `stockTransactions/{id}`: what was RTDB `stock/transactions/{id}`, same
+  id, same fields.
+- `stockLedger/{itemId}|{warehouseId}`: what was `stock/ledger/{item}/{wh}`.
+- The stock number counters and the reservations (`stock/counters`,
+  `stock/reservations`) stay in RTDB. Reservations move with Sales Orders
+  (T2).
+
+**functions/src/stockStore.js** (new) is the one place that reads and
+writes them:
+- **The same shape as RTDB gave.** `normalize()` reproduces RTDB's storage
+  rules, measured on the RTDB emulator: null and empty objects or arrays
+  vanish; keys are sorted, integer keys first; an integer-keyed object
+  comes back as an array when more than half its indices are present.
+  `toStore()` makes that storable: Firestore refuses holes and arrays
+  directly inside arrays. The query fields are kept under `_q` (the items,
+  the warehouses, the period) and never returned. So no reader had to
+  change what it does with a document.
+- **Queries are equality only:** type, status, company, source invoice,
+  sale, number, vendor, customer, period, and an item or a warehouse
+  (`array-contains`). Firestore serves these from its automatic
+  single-field indexes, so there is no composite index to deploy first. A
+  missing one is refused in production but never on the emulator, so the
+  store refuses any other kind of query. Date ranges are filtered by the
+  caller, as before.
+- **`rtdbStyle(path, method, payload)`** answers the old RTDB paths with
+  RTDB's get / put / patch / post / delete semantics. It serves:
+  - the ported modules: legacy/runtime.js `firebaseDbRequest_` routes the
+    stock paths there, so the generated code and the patches are
+    unchanged. Data Reset clears and counts them the same way. A
+    multi-path root update that names a stock path is refused;
+  - the tests: `_helpers` `reset` / `val` / `put` / `patch`.
+
+**What reads less now.**
+
+| Reader | Before | Now |
+|---|---|---|
+| GRN, MI, WM, Adjustment, Purchase / Sales Return lists | every stock transaction | that type |
+| Returns against an invoice, returnable lines | every stock transaction | the invoice's GRNs / DNs by id, and its returns |
+| Retail sale's returns, receipt, reversal, return lookup | every stock transaction | the sale's returns; the company's sales |
+| Aging, Batch Expiry, Reorder | every stock transaction | the company's posted ones |
+| Period Closing: unfinished, deliveries not invoiced | every stock transaction | the company's; its posted Delivery Notes |
+| Home: drafts; deliveries to invoice | stock by Status (step 0) | a Firestore query; posted Delivery Notes only (RTDB could filter on one field) |
+| Point of sale, Reorder: balances | the whole ledger | the warehouse's |
+| Fixed-asset postings: a GRN's vendor | a field read per GRN | the GRNs by id |
+
+**Still reading everything, as planned (§5):**
+- the ported modules (Delivery Note, Physical Count, Production, the stock
+  ledger / valuation reports, the invoices' eligible GRNs / DNs, Data
+  Reset), until their patches use queries;
+- the chart-of-accounts usage check, which by nature searches every
+  document.
+
+**Tests.**
+- **New:** functions/test/emulator/stockStore.emulator.test.js. Every case
+  runs the same operations against the RTDB emulator itself and through
+  stockStore, and the reads must be identical: tricky values, updates by
+  path, whole-collection writes, the ledger, and the queries (and what
+  they refuse).
+- **Negative controls, verified then restored:**
+  - RTDB's array rule loosened by one: 2 tests fail;
+  - the query fields leaked into what is returned: 4 tests fail;
+  - the GRN list asking for another type: 2 list-paging tests fail;
+  - a purchase return's lines without the invoice's GRNs: 7 tests fail.
+- **Regression:** every emulator suite (119 files, groups of 8 with a
+  restart between) passes.
+- **Found by the regression:** a retail sale's return lookup, narrowed to
+  the sales, lost the sale's returns its callers read (fixed). The
+  glReferences suite made a second default app (fixed in the test).
+- **The suites:** they seed and read stock by its RTDB paths through the
+  helpers. Their 42 direct `rtdb.ref('stock/…')` calls became the helpers'
+  `put` / `patch` / `val`.
+- **unit/periodLockGuard:** finds the stock-posting files by `stockStore.`
+  too. The read-only reports that query posted stock are listed as read
+  only.
+
+**Going live.**
+- **All functions** (stockStore is reached by every stock module, the
+  legacy runtime, commitAttempt and stockMovement), with screens unchanged
+  and no rules or index deploy.
+- **Don't use the app during the deploy.** For about 1.5 hours some
+  functions read Firestore and some RTDB, and a document saved then could
+  be split between the two.
+- **Stock entered before this deploy would stay in RTDB, unseen.** There
+  is none: the owner confirmed (2026-10-17) that nothing was entered after
+  the reset (decision 239). So no Data Reset is needed after the deploy.
+- **The RTDB `.indexOn` Status on stock/transactions** stays until a later
+  rules change. It is harmless, and removing it first would break the
+  functions still running during the deploy.

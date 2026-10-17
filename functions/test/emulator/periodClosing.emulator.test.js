@@ -6,7 +6,7 @@
 // close in order, reopen with a reason, the log, and the rights.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, firestore, call, reset, baseFixture } = require('./_helpers');
+const { app, rtdb, firestore, call, reset, baseFixture, put } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 const ok = r => { assert.equal(r.success, true, r.error); return r; };
@@ -76,8 +76,8 @@ test('the checklist finds each kind of problem, in the period being closed', asy
   await reset(fixture());
   // Drafts and approvals: a CBT draft, a GRN waiting for approval.
   ok(await cbtDraft('2026-04-12'));
-  await rtdb.ref('stock/transactions/G-PA').set({ TransactionType: 'GRN', TransactionNumber: 'GRN-9', TransactionDate: '2026-04-03', CompanyID: 'C1', Status: 'PendingApproval', Lines: [] });
-  await rtdb.ref('stock/transactions/G-C2').set({ TransactionType: 'GRN', TransactionDate: '2026-04-03', CompanyID: 'C2', Status: 'Draft', Lines: [] }); // another company
+  await put('stock/transactions/G-PA', { TransactionType: 'GRN', TransactionNumber: 'GRN-9', TransactionDate: '2026-04-03', CompanyID: 'C1', Status: 'PendingApproval', Lines: [] });
+  await put('stock/transactions/G-C2', { TransactionType: 'GRN', TransactionDate: '2026-04-03', CompanyID: 'C2', Status: 'Draft', Lines: [] }); // another company
   // A recurring journal due on 30 April.
   await rtdb.ref('recurringJournals/R1').set({ CompanyID: 'C1', Status: 'Active', TemplateNumber: 'RJV-1', Description: 'Rent', AmountMode: 'Fixed', Lines: [],
     Schedule: { Frequency: 'MonthEnd', Interval: 1, StartDate: '2026-03-01', EndMode: 'Count', RunCount: 3 }, Runs: { '2026-03-31': { Status: 'Posted' } } });
@@ -88,14 +88,14 @@ test('the checklist finds each kind of problem, in the period being closed', asy
   // A PDC matured and not cleared.
   await rtdb.ref('pdcCheques/P1').set({ CompanyID: 'C1', Direction: 'Received', Status: 'Pending', TransactionNumber: 'PDCR-1', TransactionDate: '2026-03-01', ChequeDate: '2026-04-20', ChequeNumber: '777', PartyName: 'Retail Co', Amount: 100 });
   // Deliveries (UX_TIER3.md D): one posted and not invoiced; one invoiced, one reversed.
-  const dn = (id, over) => rtdb.ref('stock/transactions/' + id).set(Object.assign({ TransactionType: 'DeliveryNote', TransactionNumber: id, TransactionDate: '2026-04-08', CompanyID: 'C1',
+  const dn = (id, over) => put('stock/transactions/' + id, Object.assign({ TransactionType: 'DeliveryNote', TransactionNumber: id, TransactionDate: '2026-04-08', CompanyID: 'C1',
     CustomerID: 'CU1', Status: 'Posted', Lines: [] }, over || {}));
   await dn('DN-1'); await dn('DN-2', { MatchedToInvoiceID: 'INV1' }); await dn('DN-3', { ReversedByDeliveryNoteID: 'DN-3R' });
   await dn('DN-5', { TransactionDate: '2026-05-02' }); // after April
   // Payables: 50 posted to the control account outside the party ledger.
   await postedEntry('2026-04-15', [{ AccountID: 'A-AP', Debit: 0, Credit: 50 }, { AccountID: 'A-CASH', Debit: 50, Credit: 0 }]);
   // Stock: 10 received for 100, with no GL entry; an unbalanced entry.
-  await rtdb.ref('stock/transactions/G1').set({ TransactionType: 'GRN', TransactionNumber: 'GRN-1', TransactionDate: '2026-04-02', CompanyID: 'C1', Status: 'Posted',
+  await put('stock/transactions/G1', { TransactionType: 'GRN', TransactionNumber: 'GRN-1', TransactionDate: '2026-04-02', CompanyID: 'C1', Status: 'Posted',
     Lines: [{ ItemID: 'I1', WarehouseID: 'WH1', Direction: 'In', Quantity: 10, TotalValue: 100 }] });
   await postedEntry('2026-04-20', [{ AccountID: 'A-CASH', Debit: 10, Credit: 0 }]);
 

@@ -25,11 +25,17 @@ for (const v of ['FIREBASE_DATABASE_EMULATOR_HOST', 'FIRESTORE_EMULATOR_HOST']) 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const admin = require('firebase-admin');
+// Stock transactions and balances are in Firestore (src/stockStore.js),
+// read here by their RTDB paths. Loaded before this file's own app:
+// firebaseAdmin.js makes the default app only when none exists yet.
+process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'erp1-8f4cd';
+const stockStore = require('../../src/stockStore');
 
 const PROJECT = 'erp1-8f4cd';
 const FUNCTIONS_BASE = 'http://127.0.0.1:5001/' + PROJECT + '/us-central1/';
 const app = admin.initializeApp({ projectId: PROJECT, databaseURL: 'https://' + PROJECT + '-default-rtdb.firebaseio.com' }, 'emulator-test');
 const rtdb = app.database();
+const val = async p => (stockStore.isStockPath(p) ? stockStore.rtdbStyle(p, 'get') : (await rtdb.ref(p).get()).val());
 const firestore = app.firestore();
 
 function tokenFor(uid) {
@@ -97,7 +103,7 @@ const FIXTURE = {
 // Quantity/cost only — ledger nodes also carry an UpdatedAt stamp.
 function balance(l) { return { Quantity: l.Quantity, AvgCost: l.AvgCost, TotalValue: l.TotalValue }; }
 async function ledger(itemId, wh) {
-  return balance((await rtdb.ref('stock/ledger/' + itemId + '/' + wh).get()).val() || { Quantity: 0, AvgCost: 0, TotalValue: 0 });
+  return balance((await val('stock/ledger/' + itemId + '/' + wh)) || { Quantity: 0, AvgCost: 0, TotalValue: 0 });
 }
 
 const state = {};
@@ -158,7 +164,7 @@ test('GRN: save + post returns success:true and creates stock + GL', async () =>
   assert.equal(post.success, true);
   assert.equal(post.status, 'Posted');
   state.grnId = save.grnId;
-  state.grnJv = (await rtdb.ref('stock/transactions/' + save.grnId).get()).val().LinkedJVID;
+  state.grnJv = (await val('stock/transactions/' + save.grnId)).LinkedJVID;
   assert.ok(state.grnJv, 'GRN has a LinkedJVID');
   assert.deepEqual(await ledger('I1', 'WH1'), { Quantity: 10, AvgCost: 5, TotalValue: 50 });
 });
@@ -251,7 +257,7 @@ test('approval: pending banner level only for the assigned approver; approve pos
   });
   const post = await call('u-admin', 'postStockAdjustment', { adjId: save.adjId });
   assert.deepEqual(post, { success: true, status: 'PendingApproval' });
-  const instanceId = (await rtdb.ref('stock/transactions/' + save.adjId).get()).val().ApprovalInstanceID;
+  const instanceId = (await val('stock/transactions/' + save.adjId)).ApprovalInstanceID;
 
   assert.equal(await call('u-approver', 'getMyPendingApprovalLevel', { approvalInstanceId: instanceId }), 1);
   assert.equal(await call('u-admin', 'getMyPendingApprovalLevel', { approvalInstanceId: instanceId }), null);
@@ -297,7 +303,7 @@ test('delete draft: save then delete removes it', async () => {
     Lines: [{ ItemID: 'I1', WarehouseID: 'WH1', EnteredUOMID: 'UOM-PCS', EnteredQuantity: 1, Description: 'x', CostCenterID: 'CC1' }]
   });
   assert.deepEqual(await call('u-admin', 'deleteMaterialIssueDraft', { miId: save.miId }), { success: true });
-  assert.equal((await rtdb.ref('stock/transactions/' + save.miId).get()).val(), null);
+  assert.equal((await val('stock/transactions/' + save.miId)), null);
 });
 
 // ---------- the screens themselves ----------

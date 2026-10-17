@@ -5,8 +5,8 @@ order: 1
 modules: [COA]
 sources: [functions/src/coaUsage.js, functions/src/coaScheme.js, functions/src/coaRenumber.js]
 summary: The list of accounts every entry posts to: heads and postable accounts, types, codes, and shared accounts.
-reviewed: 2026-10-16
-fingerprint: ad1799a1492baeea
+reviewed: 2026-10-17
+fingerprint: 903b7396532557c0
 ---
 ## What it is for
 

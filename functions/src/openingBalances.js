@@ -23,6 +23,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const {
   userCanAccessCompany, buildStockGlEntry, generateStockVoucherNumber, transactionRefFor,
@@ -374,7 +375,7 @@ async function postStock(user, companyId, settings, rows, d, batchId) {
   const total = round2(lines.reduce((s, l) => s + l.TotalValue, 0));
   const txId = 'OPST-' + randomUUID().split('-')[0].toUpperCase();
   const attemptId = randomUUID();
-  await rtdb.ref('stock/transactions/' + txId).set({
+  await stockStore.setTx(txId, {
     TransactionType: STOCK_TYPE, Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
     TransactionDate: settings.OpeningDate, Description: 'Opening stock', Reference: '', CompanyID: companyId,
     DivisionID: '', BranchID: '', CostCenterID: '', ProfitCenterID: '', Lines: lines, OpeningBatchID: batchId,
@@ -388,12 +389,12 @@ async function postStock(user, companyId, settings, rows, d, batchId) {
       { CommitAttemptID: attemptId, SourceTransactionID: txId, OpeningBatchID: batchId, OpeningCompanyID: companyId, OpeningKind: 'STOCK' });
     await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(built.jvId).set(built.record);
   } catch (err) {
-    await rtdb.ref('stock/transactions/' + txId).set(null);
+    await stockStore.deleteTx(txId);
     throw err;
   }
   // A GL entry exists from here on.
   await commitStockLedgerUpdates(movement.ledgerUpdates);
-  await rtdb.ref('stock/transactions/' + txId).update({
+  await stockStore.updateTx(txId, {
     Status: 'Posted', TransactionNumber: built.jvNumber, TransactionRef: built.transactionRef, LinkedJVID: built.jvId,
     CommitAttemptID: '', CommitAttemptStartedAt: '', PostedAt: now, PostedBy: actor
   });
@@ -508,7 +509,7 @@ async function reverseBatch(user, batchId) {
   const reversals = [];
   let stockReversalId = '';
   if (batch.Kind === 'STOCK') {
-    const tx = (await rtdb.ref('stock/transactions/' + batch.StockTransactionID).get()).val();
+    const tx = (await stockStore.snapTx(batch.StockTransactionID)).val();
     if (!tx) throw new HttpsError('failed-precondition', 'The stock transaction of this batch no longer exists.');
     const d = await loadData();
     // Out at the batch's own cost (stockMovement AtCost), so the cost is as
@@ -527,7 +528,7 @@ async function reverseBatch(user, batchId) {
       movement.inventoryGlLines.concat([clearingLine(d.coa[settings.ClearingAccountID], -total, 'Reversal of opening stock')]),
       { CompanyID: batch.CompanyID },
       { SourceTransactionID: stockReversalId, ReversalOfJV: entries[0].id, OpeningBatchID: batchId, OpeningCompanyID: batch.CompanyID, OpeningKind: 'STOCK' });
-    await rtdb.ref('stock/transactions/' + stockReversalId).set({
+    await stockStore.setTx(stockReversalId, {
       TransactionType: STOCK_TYPE, Status: 'Posted', TransactionDate: tx.TransactionDate, CompanyID: batch.CompanyID,
       Description: 'Reversal of ' + tx.TransactionNumber + ' — Opening stock', Reference: tx.TransactionNumber,
       DivisionID: '', BranchID: '', CostCenterID: '', ProfitCenterID: '', Lines: outLines,
@@ -537,7 +538,7 @@ async function reverseBatch(user, batchId) {
     });
     await col.doc(built.jvId).set(built.record);
     await commitStockLedgerUpdates(movement.ledgerUpdates);
-    await rtdb.ref('stock/transactions/' + batch.StockTransactionID).update({ ReversedByTransaction: stockReversalId, UpdatedAt: now, UpdatedBy: actor });
+    await stockStore.updateTx(batch.StockTransactionID, { ReversedByTransaction: stockReversalId, UpdatedAt: now, UpdatedBy: actor });
     await col.doc(entries[0].id).update({ ReversedByJV: built.jvId });
     reversals.push({ newId: built.jvId, jvNumber: built.jvNumber });
   } else {

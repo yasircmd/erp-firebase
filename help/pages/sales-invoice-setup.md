@@ -5,8 +5,8 @@ order: 2
 modules: [SALESINVOICESETUP]
 sources: [functions/src/retailSales.js, functions/src/invoiceStock.js, functions/src/eInvoicing.js, functions/src/eInvoiceDocument.js, functions/src/salesRep.js]
 summary: Set the default rules and accounts used when customer sales are invoiced and posted.
-reviewed: 2026-10-16
-fingerprint: 30a7f83026436696
+reviewed: 2026-10-17
+fingerprint: 0244f40dfbb0b4f9
 ---
 ## What it is for
 

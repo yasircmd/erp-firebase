@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
+const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry } = require('./glWriting');
 const { getStockLedgerEntry, computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
@@ -127,16 +128,16 @@ exports.saveStockAdjustmentDraft = onCallWithMessages(onCallOptions, async (requ
   };
 
   if (adjId) {
-    const existingSnap = await rtdb.ref('stock/transactions/' + adjId).get();
+    const existingSnap = await stockStore.snapTx(adjId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'Stock Adjustment not found.');
     if (existing.Status !== 'Draft' && existing.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only draft or rejected Stock Adjustments can be edited.');
-    await rtdb.ref('stock/transactions/' + adjId).update(fields);
+    await stockStore.updateTx(adjId, fields);
     return { success: true, adjId: adjId };
   }
 
   const newId = 'ADJD-' + randomUUID().split('-')[0].toUpperCase();
-  await rtdb.ref('stock/transactions/' + newId).set(Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
+  await stockStore.setTx(newId, Object.assign({}, fields, { CreatedAt: now, CreatedBy: actor }));
   return { success: true, adjId: newId };
 });
 
@@ -228,7 +229,7 @@ exports.postStockAdjustment = onCallWithMessages(onCallOptions, async (request) 
   const adjId = String(request.data && request.data.adjId || '').trim();
 
   return withGlobalLock(user.uid, async () => {
-    const existingSnap = await rtdb.ref('stock/transactions/' + adjId).get();
+    const existingSnap = await stockStore.snapTx(adjId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'Stock Adjustment not found.');
     if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -254,7 +255,7 @@ exports.postStockAdjustment = onCallWithMessages(onCallOptions, async (request) 
     const approval = await beginApprovalInstance('STOCKADJUSTMENT', adjId, '', scopeKey, previewAmount, user.uid);
 
     if (approval.required) {
-      await rtdb.ref('stock/transactions/' + adjId).update({
+      await stockStore.updateTx(adjId, {
         Status: 'PendingApproval', ApprovalInstanceID: approval.instanceId,
         RejectionReason: '', SubmittedAt: now, SubmittedBy: actor, UpdatedAt: now, UpdatedBy: actor
       });
@@ -276,7 +277,7 @@ exports.decideStockAdjustmentApproval = onCallWithMessages(onCallOptions, async 
   const decision = data.decision;
   const reason = data.reason;
 
-  const existingSnap = await rtdb.ref('stock/transactions/' + adjId).get();
+  const existingSnap = await stockStore.snapTx(adjId);
   const existing = existingSnap.val();
   if (!existing) throw new HttpsError('not-found', 'Stock Adjustment not found.');
   if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -291,7 +292,7 @@ exports.decideStockAdjustmentApproval = onCallWithMessages(onCallOptions, async 
     });
   } else if (result.status === 'Rejected') {
     const now = new Date().toISOString();
-    await rtdb.ref('stock/transactions/' + adjId).update({
+    await stockStore.updateTx(adjId, {
       Status: 'Rejected', RejectionReason: String(reason || '').trim(),
       UpdatedAt: now, UpdatedBy: user.profile.username || user.uid
     });
@@ -303,13 +304,13 @@ exports.decideStockAdjustmentApproval = onCallWithMessages(onCallOptions, async 
 exports.deleteStockAdjustmentDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const adjId = String(request.data && request.data.adjId || '').trim();
-  const existingSnap = await rtdb.ref('stock/transactions/' + adjId).get();
+  const existingSnap = await stockStore.snapTx(adjId);
   const existing = existingSnap.val();
   if (!existing) throw new HttpsError('not-found', 'Stock Adjustment not found.');
   if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   await requireDraftAccess(moduleHasCapability, 'STOCKADJUSTMENT', user.profile.role);
   if (existing.Status !== 'Draft') throw new HttpsError('failed-precondition', 'Only draft Stock Adjustments can be deleted. Posted ones must be reversed instead.');
-  await rtdb.ref('stock/transactions/' + adjId).set(null);
+  await stockStore.deleteTx(adjId);
   return { success: true };
 });
 
@@ -319,8 +320,8 @@ exports.getStockAdjustmentEntries = onCallWithMessages(onCallOptions, async (req
   const canAccess = await moduleHasCapability('STOCKADJUSTMENT', 'access', user.profile.role);
   if (!canAccess) throw new HttpsError('permission-denied', 'You do not have access to Stock Adjustment.');
 
-  const dataSnap = await rtdb.ref('stock/transactions').get();
-  const data = dataSnap.val() || {};
+  // Only this type's documents (stockStore.js), not every stock transaction.
+  const data = await stockStore.queryTx({ TransactionType: 'StockAdjustment' });
   const all = Object.keys(data)
     .map(id => Object.assign({ AdjustmentID: id }, data[id]))
     .filter(e => e.TransactionType === 'StockAdjustment')
@@ -343,7 +344,7 @@ exports.reverseStockAdjustment = onCallWithMessages(onCallOptions, async (reques
   const adjId = String(data.adjId || '').trim();
 
   return withGlobalLock(user.uid, async () => {
-    const existingSnap = await rtdb.ref('stock/transactions/' + adjId).get();
+    const existingSnap = await stockStore.snapTx(adjId);
     const existing = existingSnap.val();
     if (!existing) throw new HttpsError('not-found', 'Stock Adjustment not found.');
     if (!userCanAccessCompany(user.profile, existing.CompanyID)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
@@ -402,7 +403,7 @@ exports.reverseStockAdjustment = onCallWithMessages(onCallOptions, async (reques
     const newId = 'ADJD-' + randomUUID().split('-')[0].toUpperCase();
     const attemptId = randomUUID();
 
-    await rtdb.ref('stock/transactions/' + newId).set({
+    await stockStore.setTx(newId, {
       TransactionType: 'StockAdjustment', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
       TransactionDate: date, Description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description,
       Reference: existing.TransactionNumber,
@@ -421,13 +422,13 @@ exports.reverseStockAdjustment = onCallWithMessages(onCallOptions, async (reques
         { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
         { CommitAttemptID: attemptId, SourceTransactionID: newId });
     } catch (err) {
-      await rtdb.ref('stock/transactions/' + newId).set(null);
+      await stockStore.deleteTx(newId);
       throw err;
     }
 
     // A GL entry genuinely exists from here on — no more reverting.
     await commitStockLedgerUpdates(movement.ledgerUpdates);
-    await rtdb.ref('stock/transactions/' + adjId).update({ ReversedByAdjustment: newId });
+    await stockStore.updateTx(adjId, { ReversedByAdjustment: newId });
     await finalizeCommitAttempt(newId, glResult, { Lines: movementLines }, actor);
 
     return { success: true, adjId: newId, adjNumber: glResult.jvNumber };

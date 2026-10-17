@@ -7,7 +7,7 @@
 // matching the stock ledger), plus access.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, call, reset, baseFixture } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 const ok = r => { assert.equal(r.success, true, r.error); return r; };
@@ -133,7 +133,7 @@ test('inventory aging: first in first out by receipt date; a transfer keeps the 
   assert.deepEqual([i2.Qty, i2.Value, i2.QtyBuckets.d365plus, i2.Buckets.d365plus], [4, 20, 4, 20]);
   assert.deepEqual([r.Totals.Value, r.Totals.Buckets.d31_60, r.Totals.Buckets.d365plus], [108, 88, 20]);
   // As the stock ledger: the value on hand today.
-  const ledger = (await rtdb.ref('stock/ledger').get()).val();
+  const ledger = (await val('stock/ledger'));
   const ledgerValue = Object.values(ledger).flatMap(w => Object.values(w)).reduce((s, l) => s + l.TotalValue, 0);
   assert.equal((await inv(new Date().toISOString().slice(0, 10))).Totals.Value, ledgerValue);
 

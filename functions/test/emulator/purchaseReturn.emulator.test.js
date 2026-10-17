@@ -8,7 +8,7 @@
 // ledger rebuild, validation and access.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, firestore, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, firestore, call, reset, baseFixture, val, put } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture() {
@@ -255,7 +255,7 @@ test('validation, stock check, delete, company scoping and access', async () => 
   // Stock that has left the warehouse since can't be returned.
   const s = ok(await draft(inv, [['G1', 4]]));
   assert.match(await err(postReturn(s.returnId, 'u-viewer')), /permission to post/);
-  await rtdb.ref('stock/ledger/I1/WH1').set({ Quantity: 3, AvgCost: 22, TotalValue: 66 });
+  await put('stock/ledger/I1/WH1', { Quantity: 3, AvgCost: 22, TotalValue: 66 });
   assert.match(await err(postReturn(s.returnId)), /insufficient stock for RM-001 at this warehouse — available 3, requested 4/);
   assert.equal((await rec(s.returnId)).Status, 'Draft');
 
@@ -266,7 +266,7 @@ test('validation, stock check, delete, company scoping and access', async () => 
 
   ok(await call('u-admin', 'deletePurchaseReturnDraft', { returnId: s.returnId }));
   assert.equal(await rec(s.returnId), null);
-  await rtdb.ref('stock/ledger/I1/WH1').set({ Quantity: 20, AvgCost: 22, TotalValue: 440 });
+  await put('stock/ledger/I1/WH1', { Quantity: 20, AvgCost: 22, TotalValue: 440 });
   const t = ok(await draft(inv, [['G1', 1]]));
   ok(await postReturn(t.returnId));
   assert.match(await err(call('u-admin', 'deletePurchaseReturnDraft', { returnId: t.returnId })), /Only draft returns can be deleted/);
@@ -281,7 +281,7 @@ test('Company Master stores the variance account; the ledger rebuild replays ret
   assert.deepEqual(bad, { success: false, error: 'Purchase Return Variance Account must be an active, postable account.' });
 
   // Ledger seeded to agree with the three GRNs, so a rebuild must reproduce it.
-  await rtdb.ref('stock/ledger/I1').set({ WH1: { Quantity: 20, AvgCost: 22, TotalValue: 440 }, WH2: { Quantity: 5, AvgCost: 10, TotalValue: 50 } });
+  await put('stock/ledger/I1', { WH1: { Quantity: 20, AvgCost: 22, TotalValue: 440 }, WH2: { Quantity: 5, AvgCost: 10, TotalValue: 50 } });
   const inv = await invoice();
   const a = ok(await draft(inv, [['G1', 4], ['G2', 2]]));
   ok(await postReturn(a.returnId));
@@ -291,7 +291,7 @@ test('Company Master stores the variance account; the ledger rebuild replays ret
   const live = await val('stock/ledger/I1');
   const strip = (l) => Object.fromEntries(Object.entries(l).map(([k, v]) => [k, [v.Quantity, v.AvgCost, v.TotalValue]]));
   assert.deepEqual(strip(live), { WH1: [16, 22, 352], WH2: [3, 10, 30] });
-  await rtdb.ref('stock/ledger/I1/WH1').set({ Quantity: 999, AvgCost: 1, TotalValue: 999 });
+  await put('stock/ledger/I1/WH1', { Quantity: 999, AvgCost: 1, TotalValue: 999 });
   ok(await call('u-root', 'recalculateStockLedger', { confirmPhrase: 'DELETE' }));
   assert.deepEqual(strip(await val('stock/ledger/I1')), strip(live));
 });
