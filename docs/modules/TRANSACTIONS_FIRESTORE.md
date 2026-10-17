@@ -464,7 +464,10 @@ function reads every stock transaction. The ones allowed are listed with
 their reason.
 - **Negative controls, verified then restored:** a whole read put back
   into getProductionEntries, and `stockStore.allTx()` added to grn.js:
-  both reported.
+  both reported;
+  - the Vendor Invoice's GRN picker asking for another vendor: the Vendor
+    Invoice suite fails (its picker test).
+- **Regression:** the 15 suites of these functions pass (106 tests).
 
 **Going live:** deploy set `transactions-t1c`, 14 functions. No data
 moves, so the app can be used during the deploy.
