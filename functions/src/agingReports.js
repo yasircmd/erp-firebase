@@ -94,6 +94,7 @@ async function partyAging(partyType, companyId, asOf, basis, only) {
 
   const ids = Object.keys(parties).filter(id => (!parties[id].CompanyID || parties[id].CompanyID === companyId) && (!only || only.includes(id)));
   const rows = [];
+  const baseCode = (await require('./exchangeRates').baseCurrency()).Code;
   for (const id of ids) {
     const party = parties[id];
     const items = openItemsFrom(partyType, id, party, asOf, invoices, byParty[partyType + ':' + id] || []);
@@ -103,20 +104,27 @@ async function partyAging(partyType, companyId, asOf, basis, only) {
     const row = { PartyID: id, Code: party[cfg.codeField] || '', Name: party[cfg.nameField] || '', Classification: party.Classification || '',
       Terms: Number(party.PaymentTermsDays) || 0, Buckets: zeros(buckets), Owed: 0, Unapplied: 0, Net: 0, OldestDays: 0,
       PendingPdc: round2(pending.reduce((s, p) => s + p.Amount, 0)), Items: [] };
+    // A foreign party (docs/modules/MULTI_CURRENCY.md): the row in base, at each item's own rate, so the
+    // totals and the control account compare; its own currency's figures beside it.
+    const cur = require('./fx').partyCurrency(party, baseCode);
+    if (cur) Object.assign(row, { Currency: cur, FcOwed: 0, FcUnapplied: 0, FcNet: 0 });
     open.forEach(i => {
       const age = basis === 'due' ? daysBetween(i.DueDate, asOf) : Math.max(0, daysBetween(i.Date, asOf));
+      if (cur) { if (i.Outstanding > 0) row.FcOwed = round2(row.FcOwed + i.Outstanding); else row.FcUnapplied = round2(row.FcUnapplied - i.Outstanding); }
+      const amt = cur ? i.BaseOutstanding : i.Outstanding;
       if (i.Outstanding > 0) {
         const b = bucketOf(buckets, age);
-        row.Buckets[b] = round2(row.Buckets[b] + i.Outstanding);
-        row.Owed = round2(row.Owed + i.Outstanding);
+        row.Buckets[b] = round2(row.Buckets[b] + amt);
+        row.Owed = round2(row.Owed + amt);
         row.OldestDays = Math.max(row.OldestDays, age);
         row.Items.push(Object.assign({}, i, { Age: age, Bucket: b }));
       } else {
-        row.Unapplied = round2(row.Unapplied - i.Outstanding);
+        row.Unapplied = round2(row.Unapplied - amt);
         row.Items.push(Object.assign({}, i, { Age: age, Bucket: 'unapplied' }));
       }
     });
     row.Net = round2(row.Owed - row.Unapplied);
+    if (cur) row.FcNet = round2(row.FcOwed - row.FcUnapplied);
     rows.push(row);
   }
   rows.sort((a, b) => b.Net - a.Net || a.Name.localeCompare(b.Name));
@@ -143,7 +151,7 @@ async function partyAging(partyType, companyId, asOf, basis, only) {
     const balance = round2(GROWS[partyType] === 'Dr' ? dr - cr : cr - dr);
     control = { status: 'ok', Accounts: [...mine].map(a => (coa[a] || {}).AccountCode || a).sort(), Balance: balance, Difference: round2(totals.Net - balance) };
   }
-  return { PartyType: partyType, CompanyID: companyId, AsOf: asOf, Basis: basis, Buckets: buckets.map(b => ({ key: b.key, label: b.label })), Rows: rows, Totals: totals, Control: control };
+  return { PartyType: partyType, CompanyID: companyId, AsOf: asOf, Basis: basis, Buckets: buckets.map(b => ({ key: b.key, label: b.label })), Rows: rows, Totals: totals, Control: control, BaseCurrency: baseCode };
 }
 
 exports.getPartyAging = onCallWithMessages(onCallOptions, async (request) => {

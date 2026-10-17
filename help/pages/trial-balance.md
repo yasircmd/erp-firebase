@@ -5,8 +5,8 @@ order: 12
 modules: [TRIALBALANCE]
 sources: [functions/src/trialBalance.js]
 summary: Every account's opening balance, movements and closing balance for a period, with drill-down to the ledger.
-reviewed: 2026-10-12
-fingerprint: 7965e241dd51f832
+reviewed: 2026-10-16
+fingerprint: ca78810c67a24cb2
 ---
 ## What it is for
 
@@ -37,4 +37,6 @@ they were.
 ## Good to know
 
 - Anything dated before **From** is in the Opening column.
+- **Project** shows only the lines of one project (or those with **No
+  project**).
 - See [Period Closing](period-closing.html) for the year-end entry.

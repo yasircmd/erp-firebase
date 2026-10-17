@@ -5,8 +5,8 @@ order: 7
 modules: [RECURRINGJV]
 sources: [functions/src/recurringJournal.js, functions/src/recurringSchedule.js]
 summary: Entries that repeat on a schedule — rent, depreciation-like accruals, prepaid expenses spread over months.
-reviewed: 2026-10-12
-fingerprint: ada82bd65a3df6d9
+reviewed: 2026-10-16
+fingerprint: e352c918d51c18bc
 ---
 ## What it is for
 

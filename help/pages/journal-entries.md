@@ -6,7 +6,7 @@ modules: [JV]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Record any accounting entry by debits and credits: accruals, corrections, reclassifications, write-offs.
 reviewed: 2026-10-16
-fingerprint: 0054ee8a1e6213ad
+fingerprint: b86ec67a9db8910f
 ---
 ## What it is for
 
@@ -76,6 +76,16 @@ Approval, where set up, is by the approvers in Approval Configuration.
   ([Period Closing](period-closing.html)).
 - **A cost center is required**: expense, revenue and cost-of-sales lines
   need one.
+- **A line marked in red** needs a cost center, profit center or project:
+  its account requires it (Chart of Accounts). The **Project** column
+  shows once the company has a project.
 - **A party is required**: a line on a vendor's payables or customer's
   receivables account must name that party, and only that party's own
   account may be used.
+- **"… is invoiced in USD: enter the line's USD amount beside its
+  amount"**: the party is in a foreign currency. Its line shows a **USD
+  amount** beside the debit or credit: enter both. The allocation is in
+  USD, and a difference from the bills' rates posts as an exchange gain or
+  loss, as in [Cash and Bank](cash-and-bank.html). Those exchange lines
+  are worked out again each time the entry is saved, so the grid doesn't
+  show them; the GL Impact does.

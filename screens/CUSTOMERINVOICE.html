@@ -70,6 +70,7 @@
   </div>
 
   <div id="cinv-voucher-no-line" class="text-xs text-slate-500 font-mono"></div>
+  <div id="cinv-einv" class="hidden no-print text-xs rounded-lg border p-3 space-y-1"></div>
   <div id="cinv-txn-ref-line" class="hidden text-xs text-slate-500 font-mono"></div>
 
   <div id="cinv-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
@@ -93,6 +94,7 @@
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div>
       <label class="block text-xs font-medium text-slate-300 mb-1">Company</label>
+      <div id="cinv-project-field" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Project <span class="text-slate-500">(every line)</span></label><select id="cinv-form-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">—</option></select></div>
       <select id="cinv-form-company" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company...</option></select>
     </div>
     <div>
@@ -104,7 +106,13 @@
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Invoice Date</label><input type="date" id="cinv-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
-    <div></div>
+    <div id="cinv-fx" class="hidden">
+      <label class="block text-xs font-medium text-slate-300 mb-1">Currency and rate <span class="text-slate-500">(the customer is invoiced in its own currency; for now item lines and direct lines, Delivery Notes stay in <span class="cinv-base-code"></span>)</span></label>
+      <div class="flex flex-wrap items-center gap-2 text-sm"><span>1 <b id="cinv-fx-code" class="font-mono"></b> =</span>
+        <input id="cinv-fx-rate" inputmode="decimal" class="w-28 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm text-right"><span id="cinv-fx-base" class="font-mono"></span>
+        <input id="cinv-fx-reason" maxlength="200" placeholder="Reason for another rate" class="hidden flex-1 min-w-[10rem] bg-slate-900 border border-amber-500/50 rounded-lg py-1.5 px-2 text-sm"></div>
+      <p id="cinv-fx-note" class="text-xs text-slate-500 mt-1"></p>
+    </div>
   </div>
 
   <div>
@@ -187,7 +195,8 @@
       <div class="flex justify-between text-slate-400"><span>Discount</span><span id="cinv-discount-display" class="font-mono">0.00</span></div>
       <div class="flex justify-between text-slate-400"><span>Tax Amount</span><span id="cinv-tax-display" class="font-mono">0.00</span></div>
       <div class="flex justify-between text-slate-400"><span>Round Off</span><span id="cinv-roundoff-display" class="font-mono">0.00</span></div>
-      <div class="flex justify-between text-base font-bold pt-1 border-t border-slate-700"><span>Total</span><span id="cinv-total-display" class="font-mono">0.00</span></div>
+      <div class="flex justify-between text-base font-bold pt-1 border-t border-slate-700"><span>Total <span id="cinv-total-code" class="font-mono text-xs text-slate-400"></span></span><span id="cinv-total-display" class="font-mono">0.00</span></div>
+    <div id="cinv-total-base" class="hidden flex justify-between text-xs text-slate-400"><span>In <span class="cinv-base-code"></span> at the rate</span><span id="cinv-total-base-value" class="font-mono"></span></div>
     </div>
   </div>
 
@@ -289,6 +298,81 @@
   function parseAmount(v) { return parseFloat(String(v == null ? '' : v).replace(/,/g, '')) || 0; }
   function today() { return new Date().toISOString().substring(0, 10); }
   function customerById(id) { return customers.find(c => c.CustomerID === id); }
+
+  // ---------- E-INVOICE (docs/modules/E_INVOICING.md) ----------
+  // A posted invoice of a company that e-invoices: its PINT AE document's
+  // status, what it still needs, the XML to download and "Check again".
+  function loadEInvoice(id) {
+    const box = document.getElementById('cinv-einv');
+    box.classList.add('hidden');
+    if (!id) return;
+    rpc.withSuccessHandler(r => renderEInvoice(id, r)).withFailureHandler(() => {}).getEInvoice({ kind: 'Invoice', id: id });
+  }
+  function renderEInvoice(id, r) {
+    const box = document.getElementById('cinv-einv'), rec = r && r.record;
+    if (!r || (!r.enabled && !rec)) return;
+    const label = rec ? { Ready: 'Ready to send', NotReady: 'Not ready', NotApplicable: 'Not e-invoiced' }[rec.Status] : 'Not built';
+    box.className = 'no-print text-xs rounded-lg border p-3 space-y-1 ' + (rec && rec.Status === 'NotReady' ? 'border-amber-500/30 bg-amber-500/10 text-amber-200' : 'border-slate-700 text-slate-300');
+    box.innerHTML = '<div class="flex flex-wrap items-center gap-2"><b>E-invoice:</b> <span id="cinv-einv-status">' + escapeHtml(label) + '</span>' +
+      (rec && rec.SendNote ? ' <span class="text-slate-400">' + escapeHtml(rec.SendNote) + '</span>' : '') +
+      (rec && rec.Xml ? ' <button id="cinv-einv-xml" class="bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded border border-slate-700"><i class="fa-solid fa-file-code"></i> Download XML</button>' : '') +
+      (!rec || rec.SendStatus !== 'Sent' ? ' <button id="cinv-einv-again" class="bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded border border-slate-700">Check again</button>' : '') + '</div>' +
+      (rec && rec.Issues && rec.Issues.length ? '<ul id="cinv-einv-issues" class="list-disc pl-5">' + rec.Issues.map(i => '<li>' + escapeHtml(i) + '</li>').join('') + '</ul>' : '');
+    box.classList.remove('hidden');
+    const xml = document.getElementById('cinv-einv-xml');
+    if (xml) xml.addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([rec.Xml], { type: 'application/xml' }));
+      a.download = (rec.Number || id) + '.xml';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+    const again = document.getElementById('cinv-einv-again');
+    if (again) again.addEventListener('click', () => rpc.withSuccessHandler(res => renderEInvoice(id, { enabled: true, record: res.record }))
+      .withFailureHandler(err => appAlert(err.message || 'Unable to check the e-invoice.')).rebuildEInvoice({ kind: 'Invoice', id: id }));
+  }
+
+  // ---------- FOREIGN CURRENCY (docs/modules/MULTI_CURRENCY.md) ----------
+  // A foreign customer's invoice is in its currency, at the rate on the
+  // invoice date; another rate needs a reason. A saved invoice shows its own.
+  let baseCode = '', fxRate = 0, fxSuggested = 0;
+  function fxCurrency() {
+    if (currentInvoice && currentInvoice.CurrencyCode) return currentInvoice.CurrencyCode;
+    const c = customerById(document.getElementById('cinv-form-customer').value);
+    const cur = String((c && c.DefaultCurrency) || '').toUpperCase();
+    return cur && cur !== baseCode ? cur : '';
+  }
+  function showFx() {
+    const cur = fxCurrency(), box = document.getElementById('cinv-fx');
+    box.classList.toggle('hidden', !cur);
+    document.getElementById('cinv-total-code').textContent = cur;
+    document.getElementById('cinv-total-base').classList.toggle('hidden', !cur);
+    if (!cur) return;
+    document.getElementById('cinv-fx-code').textContent = cur;
+    document.getElementById('cinv-fx-base').textContent = baseCode;
+    document.querySelectorAll('.cinv-base-code').forEach(e => { e.textContent = baseCode; });
+    const editable = !currentInvoice || ['Draft', 'Rejected'].includes(currentInvoice.Status);
+    const rateInput = document.getElementById('cinv-fx-rate');
+    rateInput.disabled = !editable;
+    if (currentInvoice && currentInvoice.CurrencyCode && document.activeElement !== rateInput && !rateInput.dataset.touched) rateInput.value = currentInvoice.ExchangeRate || '';
+    const differs = fxSuggested && Math.abs(parseAmount(rateInput.value) - fxSuggested) > 1e-9;
+    const reason = document.getElementById('cinv-fx-reason');
+    reason.classList.toggle('hidden', !(editable && differs));
+    if (currentInvoice && currentInvoice.ExchangeRateReason && !reason.value) reason.value = currentInvoice.ExchangeRateReason;
+  }
+  function loadFxRate() {
+    const cur = fxCurrency(), date = document.getElementById('cinv-form-date').value;
+    fxSuggested = 0;
+    showFx();
+    if (!cur || !date || (currentInvoice && !['Draft', 'Rejected'].includes(currentInvoice.Status))) return;
+    rpc.withSuccessHandler(r => {
+      fxSuggested = r.Rate;
+      const rateInput = document.getElementById('cinv-fx-rate');
+      if (!rateInput.dataset.touched) rateInput.value = r.Rate;
+      document.getElementById('cinv-fx-note').textContent = 'The rate from ' + r.EffectiveDate + ' (Currency Configuration).';
+      showFx(); updateTotals();
+    }).withFailureHandler(err => { document.getElementById('cinv-fx-note').textContent = err.message || 'No rate.'; }).getExchangeRateOn({ code: cur, date: date });
+  }
   function itemByCode(code) { return items.find(i => i.ItemCode === code); }
   function uomById(id) { return uoms.find(u => u.UOMID === id); }
   // Same "join whatever's actually filled in, skip the rest" pattern
@@ -678,6 +762,7 @@
       document.getElementById('cinv-tax-display').textContent = formatMoney(currentInvoice.TaxAmount);
       document.getElementById('cinv-roundoff-display').textContent = formatMoney(currentInvoice.RoundOff);
       document.getElementById('cinv-total-display').textContent = formatMoney(currentInvoice.Total);
+      document.getElementById('cinv-total-base-value').textContent = currentInvoice.CurrencyCode ? formatMoney(currentInvoice.TotalBase) : '';
       return;
     }
     const dnSubtotal = eligibleDeliveryNotes.filter(d => selectedDeliveryNoteIds.has(d.DeliveryNoteID)).reduce((s, d) => s + (Number(d.Amount) || 0), 0);
@@ -695,6 +780,7 @@
     document.getElementById('cinv-tax-display').textContent = formatMoney(taxAmount);
     document.getElementById('cinv-roundoff-display').textContent = formatMoney(roundOff);
     document.getElementById('cinv-total-display').textContent = formatMoney(total);
+    document.getElementById('cinv-total-base-value').textContent = fxCurrency() ? formatMoney(Math.round(total * parseAmount(document.getElementById('cinv-fx-rate').value) * 100) / 100) : '';
   }
 
   // ---------- ITEM LINES, DELIVERED WITH THE INVOICE (DIRECT_SALES_INVOICE.md) ----------
@@ -827,6 +913,7 @@
       BranchID: document.getElementById('cinv-form-branch').value,
       CostCenterID: document.getElementById('cinv-form-costcenter').value,
       ProfitCenterID: document.getElementById('cinv-form-profitcenter').value,
+      ProjectID: document.getElementById('cinv-form-project').value, // docs/modules/PROJECTS_DIMENSIONS.md
       SourceDeliveryNotes: Array.from(selectedDeliveryNoteIds).map(id => ({ DeliveryNoteID: id, SalesTypeID: selectedDeliveryNoteSalesTypes.get(id) || '' })),
       DirectLines: gridLines.filter(l => l.AccountCode).map(l => ({
         AccountCode: l.AccountCode, Description: l.Description, SalesTypeID: l.SalesTypeID, Amount: l.Amount,
@@ -837,7 +924,9 @@
       ItemSalesTypeID: document.getElementById('cinv-item-salestype').value,
       Discount: parseAmount(document.getElementById('cinv-form-discount').value),
       TaxPercent: parseAmount(document.getElementById('cinv-form-taxpercent').value),
-      RoundOff: parseAmount(document.getElementById('cinv-form-roundoff').value)
+      RoundOff: parseAmount(document.getElementById('cinv-form-roundoff').value),
+      ExchangeRate: fxCurrency() ? parseAmount(document.getElementById('cinv-fx-rate').value) : '',
+      ExchangeRateReason: fxCurrency() ? document.getElementById('cinv-fx-reason').value.trim() : ''
     };
   }
 
@@ -967,11 +1056,17 @@
     document.getElementById('cinv-form-company').value = inv.CompanyID || '';
     document.getElementById('cinv-form-customer').value = inv.CustomerID || '';
     document.getElementById('cinv-form-date').value = inv.InvoiceDate || '';
+    delete document.getElementById('cinv-fx-rate').dataset.touched;
+    document.getElementById('cinv-fx-reason').value = inv.ExchangeRateReason || '';
+    document.getElementById('cinv-fx-rate').value = inv.ExchangeRate || '';
+    setTimeout(loadFxRate, 0);
     document.getElementById('cinv-form-description').value = inv.Description || '';
     document.getElementById('cinv-form-division').value = inv.DivisionID || '';
     document.getElementById('cinv-form-branch').value = inv.BranchID || '';
     document.getElementById('cinv-form-costcenter').value = inv.CostCenterID || '';
     document.getElementById('cinv-form-profitcenter').value = inv.ProfitCenterID || '';
+    document.getElementById('cinv-form-project').value = inv.ProjectID || '';
+    document.getElementById('cinv-project-field').classList.toggle('hidden', !inv.ProjectID && !orgUnits.some(u => u.Type === 'Project'));
     document.getElementById('cinv-form-discount').value = inv.Discount || 0;
     document.getElementById('cinv-form-taxpercent').value = inv.TaxPercent || 0;
     document.getElementById('cinv-form-roundoff').value = inv.RoundOff || 0;
@@ -1010,6 +1105,9 @@
     selectedDeliveryNoteSalesTypes = new Map();
     document.getElementById('cinv-form-company').value = '';
     document.getElementById('cinv-form-customer').value = '';
+    delete document.getElementById('cinv-fx-rate').dataset.touched;
+    document.getElementById('cinv-fx-rate').value = ''; document.getElementById('cinv-fx-reason').value = '';
+    document.getElementById('cinv-fx').classList.add('hidden');
     document.getElementById('cinv-dn-picker-section').classList.add('hidden');
     document.getElementById('cinv-form-date').value = today();
     document.getElementById('cinv-form-description').value = '';
@@ -1017,6 +1115,7 @@
     document.getElementById('cinv-form-branch').value = '';
     document.getElementById('cinv-form-costcenter').value = '';
     document.getElementById('cinv-form-profitcenter').value = '';
+    document.getElementById('cinv-form-project').value = '';
     document.getElementById('cinv-form-discount').value = 0;
     document.getElementById('cinv-form-taxpercent').value = 0;
     document.getElementById('cinv-form-roundoff').value = 0;
@@ -1067,7 +1166,7 @@
     }
 
     ['cinv-form-company', 'cinv-form-customer', 'cinv-form-date', 'cinv-form-description',
-      'cinv-form-division', 'cinv-form-branch', 'cinv-form-costcenter', 'cinv-form-profitcenter',
+      'cinv-form-division', 'cinv-form-branch', 'cinv-form-costcenter', 'cinv-form-profitcenter', 'cinv-form-project',
       'cinv-form-discount', 'cinv-form-taxpercent', 'cinv-form-roundoff'].forEach(id => {
       document.getElementById(id).disabled = readOnly;
     });
@@ -1078,6 +1177,7 @@
     document.getElementById('cinv-delete-btn').classList.toggle('hidden', (!currentInvoice || currentInvoice.Status !== 'Draft') || !canDraft);
     document.getElementById('cinv-reverse-btn').classList.toggle('hidden', !posted || Boolean(currentInvoice && (currentInvoice.ReversedByInvoiceID || currentInvoice.ReversalOfInvoiceID)) || !canPost);
     document.getElementById('cinv-print-btn').classList.toggle('hidden', !posted);
+    loadEInvoice(posted && currentInvoice ? currentInvoice.CustomerInvoiceID : '');
     document.getElementById('cinv-print-slip-btn').classList.toggle('hidden', !(posted && currentInvoice && (currentInvoice.ItemLines || []).length));
     renderItems();
     document.getElementById('cinv-gl-impact-btn').classList.toggle('hidden', !(currentInvoice && currentInvoice.LinkedJVID && (posted || currentInvoice.Status === 'PendingReversalApproval')));
@@ -1205,7 +1305,10 @@
           ${(Number(currentInvoice.Discount) || 0) !== 0 ? `<tr><td>Discount</td><td style="text-align:right">${formatMoney(currentInvoice.Discount)}</td></tr>` : ''}
           ${(Number(currentInvoice.TaxAmount) || 0) !== 0 ? `<tr><td>Tax</td><td style="text-align:right">${formatMoney(currentInvoice.TaxAmount)}</td></tr>` : ''}
           ${(Number(currentInvoice.RoundOff) || 0) !== 0 ? `<tr><td>Round Off</td><td style="text-align:right">${formatMoney(currentInvoice.RoundOff)}</td></tr>` : ''}
-          <tr style="font-weight:bold; border-top:1px solid #333;"><td>Total</td><td style="text-align:right">${formatMoney(currentInvoice.Total)}</td></tr>
+          <tr style="font-weight:bold; border-top:1px solid #333;"><td>Total${currentInvoice.CurrencyCode ? ' (' + escapeHtml(currentInvoice.CurrencyCode) + ')' : ''}</td><td style="text-align:right">${formatMoney(currentInvoice.Total)}</td></tr>
+          ${currentInvoice.CurrencyCode ? `<tr><td colspan="2" style="font-size:10px; color:#444;">At 1 ${escapeHtml(currentInvoice.CurrencyCode)} = ${escapeHtml(currentInvoice.ExchangeRate)} ${escapeHtml(baseCode)}:</td></tr>
+          ${(Number(currentInvoice.TaxAmount) || 0) !== 0 ? `<tr id="cinv-print-vat-base"><td>VAT (${escapeHtml(baseCode)})</td><td style="text-align:right">${formatMoney(Math.round(currentInvoice.TaxAmount * currentInvoice.ExchangeRate * 100) / 100)}</td></tr>` : ''}
+          <tr><td>Total (${escapeHtml(baseCode)})</td><td style="text-align:right">${formatMoney(currentInvoice.TotalBase)}</td></tr>` : ''}
         </table>
       </div>
       <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>
@@ -1263,6 +1366,8 @@
         populateOrgUnitSelect('cinv-form-branch', 'Branch');
         populateOrgUnitSelect('cinv-form-costcenter', 'CostCenter');
         populateOrgUnitSelect('cinv-form-profitcenter', 'ProfitCenter');
+        populateOrgUnitSelect('cinv-form-project', 'Project'); // the field shows once there is a project
+        document.getElementById('cinv-project-field').classList.toggle('hidden', !orgUnits.some(u => u.Type === 'Project'));
         if (!document.getElementById('cinv-entry-view').classList.contains('hidden')) renderGrid();
       })
       .withFailureHandler(err => console.error(err))
@@ -1310,7 +1415,10 @@
     document.getElementById('cinv-to-filter').addEventListener('change', renderList);
 
     document.getElementById('cinv-form-company').addEventListener('change', () => { fetchEligibleDeliveryNotes(); loadItemContext(); });
-    document.getElementById('cinv-form-customer').addEventListener('change', () => { fetchEligibleDeliveryNotes(); renderGrid(); loadItemContext(); });
+    document.getElementById('cinv-form-customer').addEventListener('change', () => { fetchEligibleDeliveryNotes(); renderGrid(); loadItemContext(); delete document.getElementById('cinv-fx-rate').dataset.touched; loadFxRate(); });
+    document.getElementById('cinv-form-date').addEventListener('change', () => { if (!document.getElementById('cinv-fx-rate').dataset.touched) loadFxRate(); });
+    document.getElementById('cinv-fx-rate').addEventListener('input', e => { e.target.dataset.touched = '1'; showFx(); updateTotals(); });
+    rpc.withSuccessHandler(c => { baseCode = (c && c.Code) || ''; showFx(); }).withFailureHandler(() => {}).getDefaultCurrency();
     document.getElementById('cinv-form-discount').addEventListener('input', updateTotals);
     document.getElementById('cinv-form-taxpercent').addEventListener('input', updateTotals);
     document.getElementById('cinv-form-roundoff').addEventListener('input', updateTotals);

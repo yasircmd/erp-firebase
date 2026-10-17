@@ -173,6 +173,7 @@ async function validateTemplate(t, coa) {
   }));
   raw.forEach(l => { delete l.Allocations; });
   const normalized = validateAndNormalizeLines(raw, coa, t.CompanyID);
+  await require('./projects').assertProjects(normalized.lines, t.CompanyID); // PROJECTS_DIMENSIONS.md
   if (normalized.lines.length < 2) throw new Error('A journal entry needs at least two lines.');
   if (normalized.totalDebit === 0) throw new Error('Entry has no amounts.');
   if (Math.abs(normalized.totalDebit - normalized.totalCredit) > 0.005) {

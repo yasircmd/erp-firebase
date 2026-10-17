@@ -101,10 +101,11 @@
       '<td class="py-1.5 px-3 text-right">' + x.Terms + '</td>' +
       r.Buckets.map(b => '<td class="py-1.5 px-3 text-right font-mono ag-b-' + b.key + '">' + amt(x.Buckets[b.key]) + '</td>').join('') +
       '<td class="py-1.5 px-3 text-right font-mono">' + amt(x.Owed) + '</td><td class="py-1.5 px-3 text-right font-mono">' + amt(x.Unapplied) + '</td>' +
-      '<td class="py-1.5 px-3 text-right font-mono font-semibold ag-net">' + money(x.Net) + '</td><td class="py-1.5 px-3 text-right font-mono text-slate-400">' + amt(x.PendingPdc) + '</td>' +
+      '<td class="py-1.5 px-3 text-right font-mono font-semibold ag-net">' + money(x.Net) + (x.Currency ? '<div class="ag-fc text-[11px] font-normal text-amber-300">' + escapeHtml(x.Currency) + ' ' + money(x.FcNet) + '</div>' : '') + '</td><td class="py-1.5 px-3 text-right font-mono text-slate-400">' + amt(x.PendingPdc) + '</td>' +
       '<td class="py-1.5 px-3 no-print"><button class="ag-soa text-blue-300 hover:text-blue-200" data-id="' + escapeHtml(x.PartyID) + '">SOA</button></td></tr>' +
-      (open.has(x.PartyID) ? '<tr class="ag-items"><td colspan="' + cols + '" class="px-6 py-2 bg-slate-900/40"><table class="w-full"><thead><tr class="text-slate-500 uppercase"><th class="text-left px-2">Document</th><th class="text-left px-2">Type</th><th class="text-left px-2">Date</th><th class="text-left px-2">Due</th><th class="text-right px-2">Days</th><th class="text-right px-2">Outstanding</th></tr></thead><tbody>' +
-        x.Items.map(i => '<tr><td class="px-2 font-mono">' + escapeHtml(i.Number) + '</td><td class="px-2">' + escapeHtml(i.Type) + '</td><td class="px-2">' + escapeHtml(i.Date) + '</td><td class="px-2">' + escapeHtml(i.DueDate) + '</td><td class="px-2 text-right">' + (i.Bucket === 'unapplied' ? '' : i.Age) + '</td><td class="px-2 text-right font-mono">' + money(i.Outstanding) + '</td></tr>').join('') +
+      (open.has(x.PartyID) ? '<tr class="ag-items"><td colspan="' + cols + '" class="px-6 py-2 bg-slate-900/40"><table class="w-full"><thead><tr class="text-slate-500 uppercase"><th class="text-left px-2">Document</th><th class="text-left px-2">Type</th><th class="text-left px-2">Date</th><th class="text-left px-2">Due</th><th class="text-right px-2">Days</th><th class="text-right px-2">Outstanding' + (x.Currency ? ' (' + escapeHtml(x.Currency) + ')</th><th class="text-right px-2">Rate</th><th class="text-right px-2">In ' + escapeHtml(r.BaseCurrency || 'base') : '') + '</th></tr></thead><tbody>' +
+        x.Items.map(i => '<tr><td class="px-2 font-mono">' + escapeHtml(i.Number) + '</td><td class="px-2">' + escapeHtml(i.Type) + '</td><td class="px-2">' + escapeHtml(i.Date) + '</td><td class="px-2">' + escapeHtml(i.DueDate) + '</td><td class="px-2 text-right">' + (i.Bucket === 'unapplied' ? '' : i.Age) + '</td><td class="px-2 text-right font-mono">' + money(i.Outstanding) + '</td>' +
+          (x.Currency ? '<td class="px-2 text-right font-mono">' + escapeHtml(i.Rate) + '</td><td class="px-2 text-right font-mono">' + money(i.BaseOutstanding) + '</td>' : '') + '</tr>').join('') +
         '</tbody></table></td></tr>' : '')).join('') ||
       '<tr><td colspan="' + cols + '" class="py-6 text-center text-slate-500">Nothing outstanding.</td></tr>';
     const t = r.Totals;
@@ -119,8 +120,10 @@
   // Tab-separated, so a paste into Excel lands each field in its own cell.
   function copy() {
     const r = report;
-    const lines = [[CONFIG.partyLabel, 'Code', 'Terms'].concat(r.Buckets.map(b => b.label), ['Owed', 'Unapplied credits', 'Net balance', 'Pending PDCs'])]
-      .concat(rows().map(x => [x.Name, x.Code, x.Terms].concat(r.Buckets.map(b => x.Buckets[b.key].toFixed(2)), [x.Owed.toFixed(2), x.Unapplied.toFixed(2), x.Net.toFixed(2), x.PendingPdc.toFixed(2)])));
+    const fc = rows().some(x => x.Currency); // a party in a foreign currency: its own net too
+    const lines = [[CONFIG.partyLabel, 'Code', 'Terms'].concat(r.Buckets.map(b => b.label), ['Owed', 'Unapplied credits', 'Net balance', 'Pending PDCs'], fc ? ['Currency', 'Net in currency'] : [])]
+      .concat(rows().map(x => [x.Name, x.Code, x.Terms].concat(r.Buckets.map(b => x.Buckets[b.key].toFixed(2)), [x.Owed.toFixed(2), x.Unapplied.toFixed(2), x.Net.toFixed(2), x.PendingPdc.toFixed(2)],
+        fc ? [x.Currency || '', x.Currency ? x.FcNet.toFixed(2) : ''] : [])));
     const tsv = lines.map(l => l.map(v => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
     const done = () => { $('ag-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { $('ag-copy').innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, () => appAlert('Unable to copy.'));

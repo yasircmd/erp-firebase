@@ -231,6 +231,22 @@ async function journalListPage_(where, assignedCompanies, page, spec, voucherTyp
 // which auto-fills; none of these are validated against each other
 // (e.g. a Branch isn't checked to belong to the selected Company) — that
 // cross-validation doesn't exist yet.
+// Who saves a draft: the signed-in ERP user with the module's draft right,
+// or, for a sales rep's collection from the Employee Portal (salesRep.js;
+// docs/modules/SALES_REP_PORTAL.md, decision 232), the rep, after
+// salesRep.js's own checks: only ever a draft, of the rep's company, which
+// the office posts. The marker is set on the server's own context object
+// (never from a request), so no caller can claim it.
+async function draftUser_(idToken, moduleId) {
+  if (idToken && idToken.portalRep) {
+    const r = idToken.portalRep;
+    return { uid: r.actor, profile: { username: r.actor, AssignedCompanies: [r.companyId] } };
+  }
+  const user = await requireUser_(idToken);
+  await requireDraftAccess_(idToken, user, moduleId);
+  return user;
+}
+
 async function saveJournalRecord_(
   idToken,
   moduleId,
@@ -242,8 +258,7 @@ async function saveJournalRecord_(
   dimensions,
   extraFields
 ) {
-  const user = await requireUser_(idToken);
-  await requireDraftAccess_(idToken, user, moduleId);
+  const user = await draftUser_(idToken, moduleId);
 
   if (!jvDate) throw new Error('Entry date is required.');
   if (!description) throw new Error('Description is required.');
@@ -270,10 +285,12 @@ async function saveJournalRecord_(
   const coaData = await getCoaData_(idToken);
   const normalized = validateAndNormalizeLines_(rawLines, coaData, dimensionFields.CompanyID);
   await assertNoFaControlledAccounts(normalized.lines);
+  await require('./projects').assertProjects(normalized.lines, dimensionFields.CompanyID); // a closed project takes no new postings (PROJECTS_DIMENSIONS.md)
   // Party tags and allocations (docs/modules/PARTY_PAYMENTS.md): checked
   // here for early feedback, and again at post under the lock.
   const party = await resolvePartyLines(attachPartyFields(rawLines, normalized.lines), dimensionFields.CompanyID);
   normalized.lines = party.lines;
+  normalized.totalDebit = party.totalDebit; normalized.totalCredit = party.totalCredit; // with any exchange difference (MULTI_CURRENCY.md)
   const now = new Date().toISOString();
   const actor = user.profile.username || user.uid;
 
@@ -312,6 +329,21 @@ async function saveJournalRecord_(
   return { success: true, jvId: newId };
 }
 
+// A JV line of a foreign party (docs/modules/MULTI_CURRENCY.md): the screen
+// sends its own amount (FcAmount) beside the base Debit / Credit; the rate
+// is what the base works out to. Without one, no foreign fields.
+function fcFromAmounts_(lines) {
+  return (lines || []).map(line => {
+    const l = Object.assign({}, line);
+    const fcAmount = parseAmountServer_(l.FcAmount);
+    delete l.FcAmount;
+    if (!l.FcCurrency || !(fcAmount > 0)) { ['FcCurrency', 'FcDebit', 'FcCredit', 'FcRate'].forEach(k => delete l[k]); return l; }
+    const debit = parseAmountServer_(l.Debit), credit = parseAmountServer_(l.Credit), amount = debit || credit;
+    return Object.assign(l, { FcCurrency: String(l.FcCurrency).trim().toUpperCase(), FcDebit: debit ? fcAmount : 0, FcCredit: debit ? 0 : (credit ? fcAmount : 0),
+      FcRate: amount ? Math.round(amount / fcAmount * 1e6) / 1e6 : 0 });
+  });
+}
+
 async function saveJournalDraft(idToken, jvData) {
   try {
     return await saveJournalRecord_(
@@ -320,7 +352,7 @@ async function saveJournalDraft(idToken, jvData) {
       String(jvData.JVDate || '').trim(),
       String(jvData.Description || '').trim(),
       String(jvData.Reference || '').trim(),
-      jvData.Lines,
+      fcFromAmounts_(jvData.Lines),
       {
         CurrencyCode: jvData.CurrencyCode, CompanyID: jvData.CompanyID,
         DivisionID: jvData.DivisionID, BranchID: jvData.BranchID,
@@ -376,6 +408,7 @@ async function postJournalEntry(idToken, jvId) {
     const coaData = await getCoaData_(idToken);
     const normalized = validateAndNormalizeLines_(existing.Lines, coaData, existing.CompanyID);
     await assertNoFaControlledAccounts(normalized.lines);
+    await require('./projects').assertProjects(normalized.lines, existing.CompanyID);
 
     if (normalized.lines.length < 2) throw new Error('A journal entry needs at least two lines.');
     if (normalized.totalDebit === 0) throw new Error('Entry has no amounts.');
@@ -386,6 +419,7 @@ async function postJournalEntry(idToken, jvId) {
     // outstanding right now, not the draft's snapshot.
     const party = await resolvePartyLines(attachPartyFields(existing.Lines, normalized.lines), existing.CompanyID);
     normalized.lines = party.lines;
+    normalized.totalDebit = party.totalDebit; normalized.totalCredit = party.totalCredit;
 
     const year = (new Date(existing.JVDate)).getFullYear() || new Date().getFullYear();
     const prefix = voucherPrefixForEntry_(existing);
@@ -524,7 +558,7 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
     // The reversal keeps the party tags (for statements) but allocates
     // nothing itself.
     const reversedLines = (existing.Lines || []).map(line => {
-      const l = Object.assign({}, line, { Debit: line.Credit, Credit: line.Debit });
+      const l = Object.assign({}, line, { Debit: line.Credit, Credit: line.Debit }, require('./fx').mirrorFc(line)); // foreign amounts swap too
       delete l.Allocations;
       return l;
     });
@@ -569,7 +603,11 @@ async function reverseJournalEntry(idToken, jvId, reversalDate) {
 // requires a description. headerDimensions supplies the ledger line's
 // Cost/Profit Center default (it isn't part of the editable opposite-lines
 // grid, so it always inherits from the header, never overridden per line).
-function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines, headerDescription, headerDimensions, coaData) {
+//
+// ledgerFx { code, rate }: the ledger is a cash or bank account in a foreign
+// currency (docs/modules/MULTI_CURRENCY.md, decision 217). The amounts are
+// then in it, each line in base at the voucher's rate, keeping its own.
+function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines, headerDescription, headerDimensions, coaData, ledgerFx) {
   const config = CBT_VOUCHER_CONFIG[voucherType];
   if (!config) throw new Error('Unknown transaction type: ' + voucherType);
 
@@ -584,8 +622,9 @@ function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines,
     if (config.transfer && !coaScheme.isCashOrBank(Object.values(coaData || {}).find(a => String(a.AccountCode) === code))) {
       throw new Error('A Fund Transfer goes to another cash or bank account; ' + code + ' is neither.');
     }
-    const amount = parseAmountServer_(line.Amount);
-    if (amount <= 0) throw new Error('Line ' + (idx + 1) + ': enter an amount greater than zero.');
+    const typed = parseAmountServer_(line.Amount);
+    if (typed <= 0) throw new Error('Line ' + (idx + 1) + ': enter an amount greater than zero.');
+    const amount = ledgerFx ? Math.round(typed * ledgerFx.rate * 100) / 100 : typed;
 
     rawLines.push({
       AccountCode: code,
@@ -594,11 +633,32 @@ function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines,
       Credit: config.ledgerIsDebit ? amount : 0,
       CostCenterID: String(line.CostCenterID || ''),
       ProfitCenterID: String(line.ProfitCenterID || ''),
+      ProjectID: String(line.ProjectID || ''), // docs/modules/PROJECTS_DIMENSIONS.md
       // Party tag and allocations, checked by resolvePartyLines. A transfer
       // between the company's own accounts owes nobody.
       PartyType: config.transfer ? undefined : line.PartyType, PartyID: config.transfer ? undefined : line.PartyID,
       Allocations: config.transfer ? undefined : line.Allocations
     });
+    // A foreign party's line (docs/modules/MULTI_CURRENCY.md): its own amount
+    // too; the rate is what the bank amount works out to.
+    const l = rawLines[rawLines.length - 1];
+    const fcOn = (cur, fcAmount, rate) => Object.assign(l, { FcCurrency: cur, FcDebit: l.Debit ? fcAmount : 0, FcCredit: l.Credit ? fcAmount : 0, FcRate: rate });
+    const fcAmount = parseAmountServer_(line.FcAmount);
+    if (config.transfer) {
+      // A transfer: the To account's own currency, if it has one.
+      const to = Object.values(coaData || {}).find(a => String(a.AccountCode) === code) || {};
+      const toCur = String(to.Currency || '');
+      if (ledgerFx && toCur && toCur !== ledgerFx.code) throw new Error('A transfer between a ' + ledgerFx.code + ' and a ' + toCur + ' account is not available yet: transfer through a base-currency account.');
+      if (ledgerFx && toCur) fcOn(toCur, typed, ledgerFx.rate);
+      if (!ledgerFx && toCur) {
+        if (!(fcAmount > 0)) throw new Error('Account ' + code + ' is in ' + toCur + ': enter the ' + toCur + ' amount it receives.');
+        fcOn(toCur, fcAmount, Math.round(amount / fcAmount * 1e6) / 1e6);
+      }
+    } else if (ledgerFx) {
+      fcOn(ledgerFx.code, typed, ledgerFx.rate);
+    } else if (line.FcCurrency && fcAmount > 0) {
+      fcOn(String(line.FcCurrency).trim().toUpperCase(), fcAmount, Math.round(amount / fcAmount * 1e6) / 1e6);
+    }
   });
 
   if (!rawLines.length) throw new Error(config.transfer ? 'Select the account to transfer to, and the amount.' : 'Enter at least one line.');
@@ -607,22 +667,26 @@ function buildLinesFromVoucher_(voucherType, selectedAccountCode, oppositeLines,
   const total = rawLines.reduce((sum, l) => sum + l.Debit + l.Credit, 0);
   const dim = headerDimensions || {};
 
-  rawLines.unshift({
+  const ledger = {
     AccountCode: selectedAccountCode,
     Description: String(headerDescription || '').trim(),
     Debit: config.ledgerIsDebit ? total : 0,
     Credit: config.ledgerIsDebit ? 0 : total,
     CostCenterID: String(dim.CostCenterID || ''),
     ProfitCenterID: String(dim.ProfitCenterID || '')
-  });
+  };
+  if (ledgerFx) {
+    const fcTotal = Math.round((oppositeLines || []).filter(x => String(x.AccountCode || '').trim()).reduce((t, x) => t + parseAmountServer_(x.Amount), 0) * 100) / 100;
+    Object.assign(ledger, { FcCurrency: ledgerFx.code, FcDebit: config.ledgerIsDebit ? fcTotal : 0, FcCredit: config.ledgerIsDebit ? 0 : fcTotal, FcRate: ledgerFx.rate });
+  }
+  rawLines.unshift(ledger);
 
   return rawLines;
 }
 
 async function saveCbtDraft(idToken, cbtData) {
   try {
-    const user = await requireUser_(idToken);
-    await requireDraftAccess_(idToken, user, 'CBT');
+    await draftUser_(idToken, 'CBT');
 
     const voucherType = String(cbtData.VoucherType || '').trim();
     const config = CBT_VOUCHER_CONFIG[voucherType];
@@ -657,10 +721,20 @@ async function saveCbtDraft(idToken, cbtData) {
       });
     }
 
+    // A cash or bank account in a foreign currency (decision 217): the
+    // voucher is in it, at the rate of its date (or another, with a reason).
+    let ledgerFx = null, rateFields = { LedgerCurrency: '', ExchangeRate: 1, RateEffectiveDate: '', ExchangeRateReason: '' };
+    const ledgerCurrency = String(selectedAccount.Currency || '');
+    if (ledgerCurrency) {
+      const date = String(cbtData.JVDate || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Entry date is required.');
+      rateFields = Object.assign({ LedgerCurrency: ledgerCurrency }, await require('./fx').documentRate(ledgerCurrency, date, cbtData));
+      ledgerFx = { code: ledgerCurrency, rate: rateFields.ExchangeRate };
+    }
     const rawLines = buildLinesFromVoucher_(
       voucherType, selectedAccountCode, cbtData.OppositeLines,
       cbtData.Description,
-      { CostCenterID: cbtData.CostCenterID, ProfitCenterID: cbtData.ProfitCenterID }, coaData
+      { CostCenterID: cbtData.CostCenterID, ProfitCenterID: cbtData.ProfitCenterID }, coaData, ledgerFx
     );
 
     return await saveJournalRecord_(
@@ -675,7 +749,7 @@ async function saveCbtDraft(idToken, cbtData) {
         DivisionID: cbtData.DivisionID, BranchID: cbtData.BranchID,
         CostCenterID: cbtData.CostCenterID, ProfitCenterID: cbtData.ProfitCenterID
       },
-      { VoucherType: voucherType, SelectedAccountCode: selectedAccountCode }
+      Object.assign({ VoucherType: voucherType, SelectedAccountCode: selectedAccountCode }, rateFields)
     );
   } catch (err) {
     return { success: false, error: err.message };
@@ -736,3 +810,5 @@ exports.decideJournalEntryApproval = callable(decideJournalEntryApproval, ['jvId
 exports.reverseJournalEntry = callable(reverseJournalEntry, ['jvId', 'reversalDate']);
 exports.getPartyAccounts = callable(getPartyAccounts, ['companyId']);
 exports.getPartyOpenItems = callable(getPartyOpenItems, ['partyType', 'partyId', 'companyId', 'excludeJvId']);
+// A sales rep's cash collection as a draft Cash Receipt (salesRep.js).
+exports.saveCbtDraftForRep = (portalRep, cbtData) => saveCbtDraft({ portalRep }, cbtData);

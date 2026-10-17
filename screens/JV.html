@@ -116,6 +116,7 @@
             <th class="py-2 px-3 text-right w-28">Credit</th>
             <th class="py-2 px-3 w-24">Cost Ctr</th>
             <th class="py-2 px-3 w-24">Profit Ctr</th>
+            <th id="jv-project-head" class="hidden py-2 px-3 w-24">Project</th>
             <th class="py-2 px-3 w-10 no-print"></th>
           </tr>
         </thead>
@@ -125,7 +126,7 @@
             <td class="py-2 px-3" colspan="4">Totals</td>
             <td class="py-2 px-3 text-right" id="jv-total-debit">0.00</td>
             <td class="py-2 px-3 text-right" id="jv-total-credit">0.00</td>
-            <td colspan="2"></td>
+            <td colspan="2" id="jv-total-dims"></td>
             <td class="no-print"></td>
           </tr>
         </tfoot>
@@ -201,10 +202,26 @@
   let pendingOpenEntryId = null;
   let myReturnChain = [];
 
-  // Mirrors Code.gs's COST_CENTER_REQUIRED_TYPES — kept in sync manually
-  // since client and server are separate files. Only P&L-facing account
-  // types require a Cost Center per line.
+  // Which lines need a cost center, profit center or project: the account's
+  // rule, set on its heading in the Chart of Accounts (the server's
+  // dimensionRules.js; docs/modules/PROJECTS_DIMENSIONS.md). With no rule,
+  // Expense, Revenue and COGS accounts need a cost center, as before.
   const COST_CENTER_REQUIRED_TYPES = ['Expense', 'Revenue', 'COGS'];
+  function dimRule(account, key) {
+    let a = account, hops = 0;
+    while (a && hops++ < 50) {
+      const own = a.DimensionRules && a.DimensionRules[key];
+      if (own) return own;
+      a = accounts.find(x => x.AccountID === a.ParentAccountID);
+    }
+    return key === 'CostCenter' && account && COST_CENTER_REQUIRED_TYPES.includes(account.AccountType) ? 'Required' : 'Optional';
+  }
+  // The Project column shows once the company has a project.
+  function projectsOf() { const co = document.getElementById('jv-form-company').value; return orgUnits.filter(u => u.Type === 'Project' && (!u.CompanyID || u.CompanyID === co)); }
+  function projectOptionsHtml(selectedId) {
+    return '<option value="">—</option>' + projectsOf().sort((a, b) => String(a.Code).localeCompare(String(b.Code), undefined, { numeric: true }))
+      .map(u => `<option value="${u.UnitID}"${u.UnitID === selectedId ? ' selected' : ''}>${escapeHtml(u.Code)}</option>`).join('');
+  }
 
   function escapeHtml(value) {
     const div = document.createElement('div');
@@ -405,6 +422,11 @@
     function isControlCode(code) { return partyAccounts.some(p => p.AccountCode === String(code || '')); }
     function partyOf(line) { return partyAccounts.find(p => p.PartyType === line.PartyType && p.PartyID === line.PartyID); }
     function againstTotal(line) { return round2((line.Against || []).reduce((s, a) => s + (Number(a.Amount) || 0), 0)); }
+    // A foreign party's currency (docs/modules/MULTI_CURRENCY.md): its line carries its own amount, and allocates in it.
+    function currencyOf(line) { const p = partyOf(line); return (p && p.Currency) || line.FcCurrency || ''; }
+    const fcOf = line => Math.round((parseFloat(String(line.FcAmount == null ? '' : line.FcAmount).replace(/,/g, '')) || 0) * 100) / 100;
+    // The amount a line allocates: a foreign party's own amount, else the line's.
+    const allocAmount = (line, amount) => (currencyOf(line) ? fcOf(line) : amount);
 
     // Keeps a line's party consistent with its account: cleared when the
     // account is no longer that party's control account. Only once this
@@ -434,7 +456,9 @@
           <button data-row="${i}" class="${prefix}-allocate-btn bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-xs px-2.5 py-1 rounded border border-blue-500/30"><i class="fa-solid fa-list-check"></i> Allocate…</button>
           <span class="text-slate-400">${summary(line, amount)}</span>`;
       } else if (readOnly) {
+        const cur = currencyOf(line);
         body = `<span class="text-slate-300">${escapeHtml(line.PartyType || '')}: ${escapeHtml(line.PartyName || (current ? current.Name : line.PartyID) || '—')}</span>
+          ${cur ? '<span class="text-slate-300">' + escapeHtml(cur) + ' ' + money(fcOf(line)) + '</span>' : ''}
           <span class="text-slate-400">${summary(line, amount)}</span>`;
       } else {
         const options = partyAccounts
@@ -445,6 +469,7 @@
         body = `<label class="text-slate-400">Vendor / Customer</label>
           <select data-row="${i}" class="${prefix}-party-select bg-slate-900 border ${missing ? 'border-red-500/50' : 'border-slate-700'} rounded py-1 px-2 text-xs max-w-xs">
             <option value="">Select…</option>${options}</select>
+          ${currencyOf(line) ? '<label class="text-slate-400">' + escapeHtml(currencyOf(line)) + ' amount</label><input data-row="' + i + '" inputmode="decimal" value="' + (fcOf(line) ? money(fcOf(line)) : '') + '" class="' + prefix + '-fc-amount w-28 bg-slate-900 border ' + (fcOf(line) ? 'border-slate-700' : 'border-red-500/50') + ' rounded py-1 px-2 text-xs text-right">' : ''}
           <button data-row="${i}" class="${prefix}-allocate-btn ${line.PartyID ? '' : 'hidden'} bg-slate-800 hover:bg-slate-700 text-xs px-2.5 py-1 rounded border border-slate-700"><i class="fa-solid fa-list-check"></i> Allocate…</button>
           <span class="text-slate-400">${line.PartyID ? summary(line, amount) : ''}</span>`;
       }
@@ -459,6 +484,9 @@
           line.PartyType = pt || ''; line.PartyID = pid || ''; line.Against = [];
           rerender();
         });
+      });
+      tbody.querySelectorAll('.' + prefix + '-fc-amount').forEach(inp => {
+        inp.addEventListener('change', e => { lines[parseInt(e.target.getAttribute('data-row'), 10)].FcAmount = e.target.value; rerender(); });
       });
       tbody.querySelectorAll('.' + prefix + '-allocate-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -591,7 +619,8 @@
         const l = lines[i];
         if (!l.AccountCode) continue;
         if (isControlCode(l.AccountCode) && !l.PartyID) return 'Line ' + (i + 1) + ': select the Vendor or Customer for account ' + l.AccountCode + '.';
-        if (l.PartyID && againstTotal(l) > amountOf(l) + 0.005) return 'Line ' + (i + 1) + ': allocations exceed the line amount.';
+        if (l.PartyID && currencyOf(l) && !(fcOf(l) > 0)) return 'Line ' + (i + 1) + ': enter the ' + currencyOf(l) + ' amount (the party is invoiced in ' + currencyOf(l) + ').';
+        if (l.PartyID && againstTotal(l) > allocAmount(l, amountOf(l)) + 0.005) return 'Line ' + (i + 1) + ': allocations exceed the line amount.';
       }
       return '';
     }
@@ -602,7 +631,8 @@
       const allocations = (line.Against || []).map(a => ({ RefType: 'Against', RefID: a.RefID, Amount: a.Amount }));
       const rest = round2(amount - againstTotal(line));
       if (rest > 0.005) allocations.push({ RefType: 'New', Amount: rest });
-      return { PartyType: line.PartyType, PartyID: line.PartyID, Allocations: allocations };
+      const cur = currencyOf(line);
+      return Object.assign({ PartyType: line.PartyType, PartyID: line.PartyID, Allocations: allocations }, cur ? { FcCurrency: cur, FcAmount: fcOf(line) } : {});
     }
 
     // A stored line's party state, for the grid. keepAllocations false
@@ -611,12 +641,13 @@
       if (!l.PartyID) return { PartyType: '', PartyID: '', Against: [] };
       return {
         PartyType: l.PartyType, PartyID: l.PartyID, PartyName: l.PartyName || '', LineNo: keepAllocations ? l.LineNo : undefined,
+        FcCurrency: l.FcCurrency || '', FcAmount: l.FcCurrency ? (Number(l.FcDebit) || Number(l.FcCredit) || 0) : '',
         Against: keepAllocations ? (l.Allocations || []).filter(a => a.RefType === 'Against').map(a => ({ RefID: a.RefID, RefNumber: a.RefNumber || '', Amount: a.Amount })) : []
       };
     }
 
     const setExclude = jvId => { excludeJvId = jvId || ''; };
-    return { load, isControlCode, syncLine, subRowHtml, bind, validate, toServer, fromServer, summary, setExclude };
+    return { load, isControlCode, syncLine, subRowHtml, bind, validate, toServer, fromServer, summary, setExclude, allocAmount };
   }
 
   const party = createPartyAllocation('jv');
@@ -625,7 +656,7 @@
   }
   function partyLineInfo(line) {
     const side = (parseFloat(String(line.Debit).replace(/,/g, '')) || 0) > 0 ? 'Dr' : ((parseFloat(String(line.Credit).replace(/,/g, '')) || 0) > 0 ? 'Cr' : '');
-    return { amount: amountOf(line), side: side, companyId: document.getElementById('jv-form-company').value };
+    return { amount: party.allocAmount(line, amountOf(line)), side: side, companyId: document.getElementById('jv-form-company').value };
   }
 
   // ---------- ENTRY VIEW / GRID ----------
@@ -697,12 +728,19 @@
     const readOnly = currentJv && currentJv.Status === 'Posted';
     const partyReadOnly = (readOnly || Boolean(currentJv && currentJv.Status === 'PendingApproval')) && !rematching;
 
+    const withProjects = projectsOf().length > 0 || gridLines.some(l => l.ProjectID);
+    document.getElementById('jv-project-head').classList.toggle('hidden', !withProjects);
+    document.getElementById('jv-total-dims').colSpan = withProjects ? 3 : 2;
     gridLines.forEach((line, i) => {
       party.syncLine(line, document.getElementById('jv-form-company').value);
       const account = accountByCode(line.AccountCode);
       const missingDesc = line.AccountCode && !String(line.Description || '').trim();
-      const ccRequired = account && COST_CENTER_REQUIRED_TYPES.includes(account.AccountType);
+      const rule = k => (account ? dimRule(account, k) : 'Optional');
+      const ccRequired = rule('CostCenter') === 'Required';
       const missingCC = ccRequired && !line.CostCenterID;
+      const missingPC = rule('ProfitCenter') === 'Required' && !line.ProfitCenterID;
+      const missingProject = rule('Project') === 'Required' && !line.ProjectID;
+      const off = k => (rule(k) === 'NotUsed' ? 'disabled title="Not used on this account"' : '');
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="py-1.5 px-3 text-xs text-slate-500">${i + 1}</td>
@@ -711,11 +749,12 @@
         <td class="py-1 px-1"><input data-row="${i}" data-col="1" value="${escapeHtml(line.Description)}" ${readOnly ? 'disabled' : ''} placeholder="${missingDesc ? 'required' : ''}" class="w-full bg-slate-900 border ${missingDesc ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs focus:outline-none focus:border-blue-500"></td>
         <td class="py-1 px-1"><input data-row="${i}" data-col="2" type="text" inputmode="decimal" value="${line.Debit === '' || line.Debit === 0 ? '' : formatMoney(line.Debit)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
         <td class="py-1 px-1"><input data-row="${i}" data-col="3" type="text" inputmode="decimal" value="${line.Credit === '' || line.Credit === 0 ? '' : formatMoney(line.Credit)}" ${readOnly ? 'disabled' : ''} class="w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs text-right focus:outline-none focus:border-blue-500"></td>
-        <td class="py-1 px-1"><select data-row="${i}" class="jv-line-cc w-full bg-slate-900 border ${missingCC ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''} title="${missingCC ? 'Required for ' + account.AccountType + ' accounts' : ''}">${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
-        <td class="py-1 px-1"><select data-row="${i}" class="jv-line-pc w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : ''}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
+        <td class="py-1 px-1"><select data-row="${i}" class="jv-line-cc w-full bg-slate-900 border ${missingCC ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : off('CostCenter')} title="${missingCC ? 'Required for account ' + account.AccountCode : ''}">${orgUnitOptionsHtml('CostCenter', line.CostCenterID)}</select></td>
+        <td class="py-1 px-1"><select data-row="${i}" class="jv-line-pc w-full bg-slate-900 border ${missingPC ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : off('ProfitCenter')}>${orgUnitOptionsHtml('ProfitCenter', line.ProfitCenterID)}</select></td>
+        ${withProjects ? `<td class="py-1 px-1"><select data-row="${i}" class="jv-line-project w-full bg-slate-900 border ${missingProject ? 'border-red-500/50' : 'border-slate-700'} rounded py-1.5 px-2 text-xs" ${readOnly ? 'disabled' : off('Project')}>${projectOptionsHtml(line.ProjectID)}</select></td>` : ''}
         <td class="py-1 px-1 text-center no-print">${readOnly ? '' : `<button data-row="${i}" class="jv-remove-row text-slate-500 hover:text-red-400 text-xs"><i class="fa-solid fa-xmark"></i></button>`}</td>`;
       tbody.appendChild(tr);
-      const partyRow = party.subRowHtml(line, i, partyReadOnly, 8, amountOf(line), rematching);
+      const partyRow = party.subRowHtml(line, i, partyReadOnly, withProjects ? 9 : 8, party.allocAmount(line, amountOf(line)), rematching);
       if (partyRow) tbody.insertAdjacentHTML('beforeend', partyRow);
     });
     if (!partyReadOnly) party.bind(tbody, gridLines, () => { isDirty = true; renderGrid(); }, partyLineInfo);
@@ -738,6 +777,9 @@
       });
       tbody.querySelectorAll('.jv-line-pc').forEach(sel => {
         sel.addEventListener('change', e => { gridLines[parseInt(e.target.getAttribute('data-row'), 10)].ProfitCenterID = e.target.value; });
+      });
+      tbody.querySelectorAll('.jv-line-project').forEach(sel => {
+        sel.addEventListener('change', e => { isDirty = true; gridLines[parseInt(e.target.getAttribute('data-row'), 10)].ProjectID = e.target.value; renderGrid(); });
       });
       tbody.querySelectorAll('.jv-remove-row').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -813,8 +855,9 @@
     return gridLines.every(l => {
       if (!l.AccountCode) return true;
       const account = accountByCode(l.AccountCode);
-      if (!account || !COST_CENTER_REQUIRED_TYPES.includes(account.AccountType)) return true;
-      return Boolean(l.CostCenterID);
+      if (!account) return true;
+      return (dimRule(account, 'CostCenter') !== 'Required' || Boolean(l.CostCenterID)) && (dimRule(account, 'ProfitCenter') !== 'Required' || Boolean(l.ProfitCenterID)) &&
+        (dimRule(account, 'Project') !== 'Required' || Boolean(l.ProjectID));
     });
   }
 
@@ -928,9 +971,10 @@
     currentJv = entries.find(e => e.JVID === jvId) || null;
     if (!currentJv) return;
 
-    gridLines = (currentJv.Lines || []).map(l => Object.assign({
+    // The exchange-difference lines are the server's (MULTI_CURRENCY.md): it works them out again on save.
+    gridLines = (currentJv.Lines || []).filter(l => !l.FxAdjustment).map(l => Object.assign({
       AccountCode: l.AccountCode, Description: l.Description, Debit: l.Debit || '', Credit: l.Credit || '',
-      CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+      CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', ProjectID: l.ProjectID || ''
     }, party.fromServer(l, true)));
 
     document.getElementById('jv-form-date').value = currentJv.JVDate || '';
@@ -975,9 +1019,9 @@
 
     const proceed = () => {
       currentJv = null;
-      gridLines = (source.Lines || []).map(l => Object.assign({
+      gridLines = (source.Lines || []).filter(l => !l.FxAdjustment).map(l => Object.assign({
         AccountCode: l.AccountCode, Description: l.Description, Debit: l.Debit || '', Credit: l.Credit || '',
-        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || ''
+        CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', ProjectID: l.ProjectID || ''
       }, party.fromServer(l, false)));
 
       document.getElementById('jv-form-date').value = today();
@@ -1196,7 +1240,7 @@
     openEntry(currentJv.JVID); // as it was
   }
   async function saveRematch() {
-    const lines = gridLines.filter(l => l.PartyID && l.LineNo).map(l => ({ LineNo: l.LineNo, Allocations: party.toServer(l, amountOf(l)).Allocations }));
+    const lines = gridLines.filter(l => l.PartyID && l.LineNo).map(l => ({ LineNo: l.LineNo, Allocations: party.toServer(l, party.allocAmount(l, amountOf(l))).Allocations }));
     const reason = await appPrompt('Re-match ' + (currentJv.JVNumber || 'this entry') + '? Only which items it settles changes; the amounts and accounts stay. Enter the reason:', '');
     if (reason === null) return;
     if (!reason.trim()) { appAlert('Enter the reason for the re-match.'); return; }
@@ -1249,7 +1293,7 @@
       JVDate: document.getElementById('jv-form-date').value,
       Reference: document.getElementById('jv-form-reference').value.trim(),
       Description: document.getElementById('jv-form-description').value.trim(),
-      Lines: gridLines.map(l => Object.assign({}, l, party.toServer(l, amountOf(l)))),
+      Lines: gridLines.map(l => Object.assign({}, l, party.toServer(l, party.allocAmount(l, amountOf(l))))),
       CurrencyCode: defaultCurrency ? defaultCurrency.Code : '',
       CompanyID: document.getElementById('jv-form-company').value,
       DivisionID: document.getElementById('jv-form-division').value,
@@ -1264,7 +1308,7 @@
     error.classList.add('hidden');
     if (!document.getElementById('jv-form-company').value) { error.textContent = 'Select a Company for this entry.'; error.classList.remove('hidden'); return; }
     if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an account needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
-    if (!allRequiredCostCentersFilled()) { error.textContent = 'Expense, Revenue, and COGS lines require a Cost Center.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allRequiredCostCentersFilled()) { error.textContent = 'Some lines need a Cost Center, Profit Center or Project (marked in red): their accounts require it.'; error.classList.remove('hidden'); renderGrid(); return; }
     const partyError = party.validate(gridLines, amountOf);
     if (partyError) { error.textContent = partyError; error.classList.remove('hidden'); renderGrid(); return; }
     // A draft is legitimately allowed to be incomplete/unbalanced work
@@ -1296,7 +1340,7 @@
     error.classList.add('hidden');
     if (!document.getElementById('jv-form-company').value) { error.textContent = 'Select a Company for this entry.'; error.classList.remove('hidden'); return; }
     if (!allLineDescriptionsFilled()) { error.textContent = 'Every line with an account needs a description.'; error.classList.remove('hidden'); renderGrid(); return; }
-    if (!allRequiredCostCentersFilled()) { error.textContent = 'Expense, Revenue, and COGS lines require a Cost Center.'; error.classList.remove('hidden'); renderGrid(); return; }
+    if (!allRequiredCostCentersFilled()) { error.textContent = 'Some lines need a Cost Center, Profit Center or Project (marked in red): their accounts require it.'; error.classList.remove('hidden'); renderGrid(); return; }
     const partyError = party.validate(gridLines, amountOf);
     if (partyError) { error.textContent = partyError; error.classList.remove('hidden'); renderGrid(); return; }
     // Posting, unlike saving a draft, must be balanced — this is a hard

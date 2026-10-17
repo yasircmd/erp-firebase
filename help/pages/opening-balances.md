@@ -5,8 +5,8 @@ order: 3
 modules: [OPENINGBALANCES]
 sources: [functions/src/openingBalances.js]
 summary: Bring a company's position on its go-live date into the ERP: the trial balance, opening stock and unpaid invoices.
-reviewed: 2026-10-12
-fingerprint: 830b9bd695f7cd0b
+reviewed: 2026-10-16
+fingerprint: 8d1bdf95a6564d3a
 ---
 ## What it is for
 
@@ -74,6 +74,10 @@ already been paid, or the stock has since been used; undo those first.
 ## Good to know
 
 - Amounts are in the default currency; quantities in the item's base unit.
+- For a vendor or customer in a **foreign currency**, the **Amount** is in
+  its currency and **Rate** (optional) gives the rate; blank, the rate on
+  the document date from Currency Configuration. The entry is in the
+  default currency at that rate.
 - Dates in the paste may be dd/mm/yyyy or yyyy-mm-dd; at most 2,000 rows.
 - The opening date and clearing account are fixed while any batch is
   posted.

@@ -12,6 +12,45 @@ screen.
 
 ## 16/10/2026
 
+- **Sales reps in the Employee Portal.** A **Sales** tab for employees the
+  office makes sales reps (Sales Invoice Configuration → Sales reps): their
+  customers with balances, orders at the price list sent to the office as
+  draft Sales Orders, and cash or cheque collections recorded for the
+  office to post. See [Sales reps in the Employee Portal](sales-rep-portal.html).
+- **E-invoicing, ready.** Switch it on per company in
+  [Sales Invoice Configuration](sales-invoice-setup.html), from a date: each
+  posted Customer Invoice and Sales Return to a customer with a TRN gets
+  its UAE e-invoice (PINT AE), checked, with its status and the XML to
+  download. It is sent once your Accredited Service Provider is chosen and
+  connected; nothing is sent before.
+- **Projects, and which accounts need a cost center.** A **Project** is
+  a new kind of Organizational Unit, with a customer and dates; a Closed
+  one takes no new postings. Journal and Cash and Bank lines take a
+  project, and an invoice's project goes on all its lines. In the Chart of
+  Accounts each heading (and any account) says whether its lines need a
+  cost center, profit center and project: Required, Optional or Not used.
+  Nothing changes until you set it: expenses still need a cost center. The
+  new [Project Report](project-report.html) shows each project's income,
+  costs and result; the GL Report, Trial Balance and P&L filter by project.
+  See [Organizational Units](org-units.html) and
+  [Chart of Accounts](chart-of-accounts.html).
+- **Vendors and customers in a foreign currency.** A vendor or customer
+  whose Default Currency is, say, USD is invoiced, paid and given its
+  statement in USD. Enter rates by date in **Currency Configuration →
+  Rates** (1 USD = 3.6725 AED from a date until the next rate) and choose
+  each company's **Exchange Gain / Loss** account. Customer and Vendor
+  Invoices take the rate on their date (another rate needs a reason);
+  in **Cash and Bank** you enter the USD amount beside the amount, and a
+  difference from the bills' rates posts as an exchange gain or loss.
+  Statements and aging show USD with the AED beside it. For now: USD
+  invoices take direct lines (and item lines for customers), not GRNs or
+  separate Delivery Notes. Journal Entries and Post-dated Cheques take
+  the USD amount too, and Opening Balances take open documents in USD
+  with their rate. A bank account can be in USD (Chart of Accounts →
+  Currency): its vouchers are in USD and its ledger shows the USD
+  balance. A printed USD invoice shows the VAT and the total in AED. See [Currency Configuration](currencies.html),
+  [Customer Invoice](customer-invoice.html), [Vendor Invoice](vendor-invoice.html),
+  [Cash and Bank](cash-and-bank.html) and [Statements of account](statements-of-account.html).
 - **Item categories of your own.** Besides the five, add a category
   such as Spare Parts with **New category…** in the item form. It has its
   own code prefix (SP-000001) and behaves like one of the five for BOMs

@@ -6,7 +6,7 @@ modules: [FARETIRE]
 sources: [functions/src/fixedAssetsRetirement.js]
 summary: Retire a fixed asset when it is sold, scrapped or otherwise removed from service.
 reviewed: 2026-10-16
-fingerprint: 056b91a5b5992657
+fingerprint: f5daa3e2ec46f240
 ---
 ## What it is for
 

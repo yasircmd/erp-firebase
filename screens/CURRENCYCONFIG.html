@@ -16,6 +16,26 @@
   </div>
 </div>
 
+<div id="cc-fx" class="hidden max-w-5xl mx-auto mt-6 bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2">
+  <div class="text-sm font-semibold">Exchange Gain / Loss account</div>
+  <p class="text-xs text-slate-400">When a payment settles a foreign-currency invoice at another rate, the difference posts to this account (a Revenue or Expense account), on the cost center of the payment line or, if it has none, the one chosen here.</p>
+  <div id="cc-fx-rows" class="space-y-2"></div>
+</div>
+<div id="cc-rates" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="cc-rates-title" class="text-lg font-bold">Rates</h3><button id="cc-rates-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button></div>
+    <p class="text-xs text-slate-400">1 <span id="cc-rates-code"></span> = the rate in <span id="cc-rates-base"></span>, from its date until a later rate. A document keeps the rate it was made with; to correct one, enter the right rate from the same date.</p>
+    <div id="cc-rates-form" class="hidden flex flex-wrap items-end gap-2">
+      <div><label class="block text-xs text-slate-300 mb-1">From</label><input id="cc-rate-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></div>
+      <div><label class="block text-xs text-slate-300 mb-1">Rate</label><input id="cc-rate-value" inputmode="decimal" class="w-32 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></div>
+      <div class="flex-1 min-w-[8rem]"><label class="block text-xs text-slate-300 mb-1">Note</label><input id="cc-rate-note" maxlength="200" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></div>
+      <button id="cc-rate-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-lg">Add rate</button>
+    </div>
+    <p id="cc-rate-error" class="hidden text-xs text-red-400"></p>
+    <div class="max-h-80 overflow-y-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-3">From</th><th class="py-1 pr-3 text-right">Rate</th><th class="py-1 pr-3">Note</th><th class="py-1">Entered by</th></tr></thead><tbody id="cc-rates-body" class="divide-y divide-slate-700"></tbody></table></div>
+  </div>
+</div>
+
 <div id="cc-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
   <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-5">
     <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="cc-modal-title" class="text-lg font-bold">Add Currency</h3><button id="cc-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
@@ -74,7 +94,8 @@
         <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(c.Symbol || '—')}</td>
         <td class="py-3 px-4 text-xs">${c.IsDefault ? '<span class="text-emerald-400"><i class="fa-solid fa-star"></i> Default</span>' : ''}</td>
         <td class="py-3 px-4 text-xs">${c.Status === 'Active' ? '<span class="text-emerald-400">Active</span>' : '<span class="text-slate-500">Inactive</span>'}</td>
-        <td class="py-3 px-4 text-right">${actions}</td>`;
+        <td class="py-3 px-4 text-right">${c.IsDefault ? '' : '<button class="cc-rates-btn text-slate-400 hover:text-blue-400 p-1 text-xs" title="Exchange rates"><i class="fa-solid fa-chart-line"></i> Rates</button>'}${actions}</td>`;
+      if (!c.IsDefault) row.querySelector('.cc-rates-btn').addEventListener('click', () => openRates(c.Code));
       if (canWrite) {
         row.querySelector('.cc-edit').addEventListener('click', () => openModal(c.CurrencyID));
         row.querySelector('.cc-toggle').addEventListener('click', () => toggleStatus(c));
@@ -105,6 +126,48 @@
   }
 
   function closeModal() { document.getElementById('cc-modal').classList.add('hidden'); }
+
+  // ---------- Exchange Gain / Loss account per company ----------
+  function loadFx() {
+    rpc.withSuccessHandler(r => {
+      const box = document.getElementById('cc-fx-rows');
+      box.innerHTML = (r.companies || []).map(c => '<div class="flex flex-wrap items-center gap-2 text-sm" data-co="' + escapeHtml(c.CompanyID) + '"><span class="w-48 truncate">' + escapeHtml(c.LegalName) + '</span>' +
+        '<select class="cc-fx-acc bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm"' + (r.canWrite ? '' : ' disabled') + '><option value="">Not set</option>' + c.Accounts.map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === c.GainLossAccountID ? ' selected' : '') + '>' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('') + '</select>' +
+        '<select class="cc-fx-cc bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm"' + (r.canWrite ? '' : ' disabled') + '><option value="">No default cost center</option>' + c.CostCenters.map(u => '<option value="' + escapeHtml(u.UnitID) + '"' + (u.UnitID === c.CostCenterID ? ' selected' : '') + '>' + escapeHtml(u.Code + ' — ' + u.Name) + '</option>').join('') + '</select>' +
+        (r.canWrite ? '<button class="cc-fx-save bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save</button>' : '') + '<span class="cc-fx-note text-xs text-emerald-400"></span></div>').join('');
+      document.getElementById('cc-fx').classList.toggle('hidden', !(r.companies || []).length);
+      box.querySelectorAll('.cc-fx-save').forEach(b => b.addEventListener('click', () => {
+        const row = b.closest('[data-co]');
+        rpc.withSuccessHandler(() => { row.querySelector('.cc-fx-note').textContent = 'Saved.'; })
+          .withFailureHandler(err => appAlert(err.message || 'Unable to save.'))
+          .saveFxSettings({ companyId: row.dataset.co, gainLossAccountId: row.querySelector('.cc-fx-acc').value, costCenterId: row.querySelector('.cc-fx-cc').value });
+      }));
+    }).withFailureHandler(() => {}).getFxSettings({});
+  }
+
+  // ---------- Rates (docs/modules/MULTI_CURRENCY.md) ----------
+  let ratesCode = '';
+  function openRates(code) {
+    ratesCode = code;
+    document.getElementById('cc-rate-error').classList.add('hidden');
+    rpc.withSuccessHandler(r => {
+      document.getElementById('cc-rates-title').textContent = 'Rates: ' + code;
+      document.getElementById('cc-rates-code').textContent = code;
+      document.getElementById('cc-rates-base').textContent = r.base.Code || 'the default currency';
+      document.getElementById('cc-rates-form').classList.toggle('hidden', !r.canEnter);
+      document.getElementById('cc-rates-body').innerHTML = ((r.rates || {})[code] || []).map(x => '<tr><td class="py-1 pr-3">' + escapeHtml(x.EffectiveDate) + '</td><td class="py-1 pr-3 text-right font-mono">' + escapeHtml(x.Rate) +
+        '</td><td class="py-1 pr-3 text-xs text-slate-400">' + escapeHtml(x.Note || '') + '</td><td class="py-1 text-xs text-slate-400">' + escapeHtml(x.ByName || '') + '</td></tr>').join('') ||
+        '<tr><td colspan="4" class="py-3 text-center text-slate-500 text-xs">No rates yet.</td></tr>';
+      document.getElementById('cc-rates').classList.remove('hidden');
+    }).withFailureHandler(err => appAlert(err.message || 'Unable to load the rates.')).getExchangeRates({});
+  }
+  function saveRate() {
+    const error = document.getElementById('cc-rate-error');
+    error.classList.add('hidden');
+    rpc.withSuccessHandler(() => { document.getElementById('cc-rate-value').value = ''; document.getElementById('cc-rate-note').value = ''; openRates(ratesCode); })
+      .withFailureHandler(err => { error.textContent = err.message || 'Unable to save the rate.'; error.classList.remove('hidden'); })
+      .saveExchangeRate({ code: ratesCode, effectiveDate: document.getElementById('cc-rate-date').value, rate: document.getElementById('cc-rate-value').value, note: document.getElementById('cc-rate-note').value });
+  }
 
   function saveCurrency(event) {
     event.preventDefault();
@@ -153,6 +216,9 @@
     document.getElementById('cc-modal-close').addEventListener('click', closeModal);
     document.getElementById('cc-modal-cancel').addEventListener('click', closeModal);
     document.getElementById('cc-form').addEventListener('submit', saveCurrency);
+    document.getElementById('cc-rates-close').addEventListener('click', () => document.getElementById('cc-rates').classList.add('hidden'));
+    document.getElementById('cc-rate-save').addEventListener('click', saveRate);
+    loadFx();
 
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-coins"></i> Currency Configuration';
     fetchAndRender();

@@ -304,3 +304,13 @@ exports.renumberAccount = require('./src/coaRenumber').renumberAccount;
 exports.getCoaAccountsToFix = require('./src/coaRenumber').getCoaAccountsToFix;
 exports.getItemCategories = require('./src/itemCategories').getItemCategories;
 exports.saveItemCategory = require('./src/itemCategories').saveItemCategory;
+exports.getExchangeRates = require('./src/exchangeRates').getExchangeRates;
+exports.saveExchangeRate = require('./src/exchangeRates').saveExchangeRate;
+exports.getProjectReport = require('./src/projectReport').getProjectReport; // docs/modules/PROJECTS_DIMENSIONS.md
+// UAE e-invoicing, ready to send (docs/modules/E_INVOICING.md).
+['getEInvoiceSettings', 'saveEInvoiceSettings', 'getEInvoice', 'rebuildEInvoice'].forEach(n => { exports[n] = require('./src/eInvoicing')[n]; });
+// Sales reps in the Employee Portal: the office's setup (docs/modules/SALES_REP_PORTAL.md).
+['getSalesReps', 'saveSalesRep'].forEach(n => { exports[n] = require('./src/salesRep')[n]; });
+exports.getExchangeRateOn = require('./src/exchangeRates').getExchangeRateOn;
+exports.getFxSettings = require('./src/exchangeRates').getFxSettings;
+exports.saveFxSettings = require('./src/exchangeRates').saveFxSettings;

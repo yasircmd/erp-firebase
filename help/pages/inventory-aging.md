@@ -5,8 +5,8 @@ order: 12
 modules: [INVENTORYAGING]
 sources: [functions/src/agingReports.js]
 summary: Age stock on hand by FIFO receipt layers as at a date, with value or quantity buckets by warehouse/category.
-reviewed: 2026-10-14
-fingerprint: d2865e4845851c2f
+reviewed: 2026-10-16
+fingerprint: f8d8eabf7d6ae912
 ---
 ## What it is for
 

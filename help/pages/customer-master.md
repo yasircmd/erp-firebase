@@ -6,7 +6,7 @@ modules: [CUSTOMERMASTER]
 sources: [functions/src/partyLedger.js, functions/src/customerPhone.js]
 summary: Keep each customer record complete so sales orders, delivery notes and customer invoices can be raised correctly.
 reviewed: 2026-10-16
-fingerprint: 5f1c1189bace83df
+fingerprint: 8799c66f46993929
 ---
 ## What it is for
 
@@ -24,6 +24,14 @@ fingerprint: 5f1c1189bace83df
 2. Add or update the customer's basic details.
 3. Complete the sales and credit information needed for invoicing and statements.
 4. Save the record and test it in a sales order or invoice.
+
+## A customer in a foreign currency
+
+Set **Default Currency** to the customer's currency (for example USD) and
+its invoices, payments and statement are in it, at the rates in
+[Currency Configuration](currencies.html). Leave it on the company default
+for a local customer. Once the customer has invoices or payments, its currency
+can't change: create a new customer for another currency.
 
 ## What happens in the books
 

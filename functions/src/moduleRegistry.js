@@ -24,7 +24,7 @@ const MODULE_REGISTRY = [
   { id: 'JOBORDERREQUEST', label: 'Job Order Request', capabilities: ['access', 'draft', 'post'] },
   { id: 'PRICELISTING', label: 'Price Listing', capabilities: ['access', 'write'] },
   { id: 'SALESORDER', label: 'Sales Order', capabilities: ['access', 'draft', 'post'] },
-  { id: 'CURRENCYCONFIG', label: 'Currency Configuration', capabilities: ['access', 'write'] },
+  { id: 'CURRENCYCONFIG', label: 'Currency Configuration', capabilities: ['access', 'write', 'rates'] }, // rates: docs/modules/MULTI_CURRENCY.md
   { id: 'ORGUNITS', label: 'Organizational Units', capabilities: ['access', 'write'] },
   { id: 'UOM', label: 'Unit of Measure', capabilities: ['access', 'write'] },
   { id: 'ITEMSUBCAT', label: 'Item Sub-Category', capabilities: ['access', 'write'] },
@@ -37,6 +37,7 @@ const MODULE_REGISTRY = [
   { id: 'STOCKVALUATION', label: 'Stock Valuation Report', capabilities: ['access'] },
   { id: 'TRIALBALANCE', label: 'Trial Balance (TB)', capabilities: ['access'] },
   { id: 'PROFITLOSS', label: 'Profit and Loss Statement (P&L)', capabilities: ['access'] },
+  { id: 'PROJECTREPORT', label: 'Project Report', capabilities: ['access'] }, // docs/modules/PROJECTS_DIMENSIONS.md
   { id: 'BALANCESHEET', label: 'Balance Sheet (BS)', capabilities: ['access'] },
   { id: 'CASHFLOW', label: 'Cash Flow Statement (CFS)', capabilities: ['access'] },
   { id: 'GRN', label: 'Goods Receipt (GRN)', capabilities: ['access', 'draft', 'post'] },
@@ -183,7 +184,7 @@ const DEFAULT_PERMISSIONS = {
   // modules — org-specific SALES_STAFF-style roles assign write access
   // via Roles & Permissions the same way as everywhere else.
   SALESORDER: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'] },
-  CURRENCYCONFIG: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
+  CURRENCYCONFIG: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'], rates: ['ADMIN', 'FINANCE_MGR'] },
   ORGUNITS:       { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
   UOM:            { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
   ITEMSUBCAT:     { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR'] },
@@ -201,6 +202,7 @@ const DEFAULT_PERMISSIONS = {
   STOCKVALUATION:   { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   TRIALBALANCE: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   PROFITLOSS:   { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
+  PROJECTREPORT: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   BALANCESHEET: { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   CASHFLOW:     { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'] },
   GRN:                { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },

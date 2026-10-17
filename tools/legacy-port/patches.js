@@ -1730,5 +1730,281 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     find: `    if (!ITEM_CATEGORY_PREFIXES[parentCategory]) throw new Error('Select a valid parent category.');`,
     replace: `    if (!validItemCategoryParent_(idToken, parentCategory)) throw new Error('Select a valid parent category.'); // [NEW DEVELOPMENT item-custom-category]`
   }
+  ,
+  {
+    id: 'invoice-currency (customer save)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/MULTI_CURRENCY.md, decisions 211-218). A foreign customer is invoiced in its own currency: ' +
+      'the invoice keeps the currency, the rate on its date (or the user\'s own, with a reason) and its total in base.',
+    find: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,`,
+    replace: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
+      ...(invoiceCurrencyFields_(idToken, customerData, invoiceDate, invoiceData, total, { dns: sourceDeliveryNotes.length > 0 })), // [NEW DEVELOPMENT invoice-currency]
+      ProjectID: String(invoiceData.ProjectID || '').trim(), // [NEW DEVELOPMENT projects] the invoice's project, on every line it posts`
+  },
+  {
+    id: 'invoice-currency (vendor save)',
+    why: 'As the customer invoice; a foreign vendor\'s invoice takes direct lines only for now (GRNs stay in base, decision 215).',
+    find: `      SourceGRNs: sourceGRNs, DirectLines: directLines,`,
+    replace: `      SourceGRNs: sourceGRNs, DirectLines: directLines,
+      ...(invoiceCurrencyFields_(idToken, vendorData, invoiceDate, invoiceData, total, { grns: sourceGRNs.length > 0 })), // [NEW DEVELOPMENT invoice-currency]
+      ProjectID: String(invoiceData.ProjectID || '').trim(), // [NEW DEVELOPMENT projects] the invoice's project, on every line it posts`
+  },
+  {
+    id: 'invoice-currency (vendor post)',
+    why: 'Posted in base: each GL line keeps its foreign amount and the rate.',
+    find: `    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', existing.InvoiceDate, existing.Description, existing.VendorRefNumber,
+      glLines,`,
+    replace: `    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', existing.InvoiceDate, existing.Description, existing.VendorRefNumber,
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]`
+  },
+  {
+    id: 'invoice-currency (customer post)',
+    why: 'Posted in base: each GL line keeps its foreign amount and the rate.',
+    find: `    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', existing.InvoiceDate, existing.Description, '',
+      glLines,`,
+    replace: `    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', existing.InvoiceDate, existing.Description, '',
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]`
+  },
+  {
+    id: 'invoice-currency (vendor reversal)',
+    why: 'The reversal at the invoice\'s own rate, so it mirrors the invoice exactly.',
+    find: `    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.VendorRefNumber,
+      glLines,`,
+    replace: `    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.VendorRefNumber,
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]`
+  },
+  {
+    id: 'invoice-currency (customer reversal)',
+    why: 'The reversal at the invoice\'s own rate, so it mirrors the invoice exactly.',
+    find: `    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, '',
+      glLines,`,
+    replace: `    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, '',
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]`
+  },
+  {
+    id: 'invoice-currency (customer reversal record)',
+    why: 'The reversal record in the invoice\'s currency, for the statement.',
+    find: `    SourceDeliveryNotes: existing.SourceDeliveryNotes || [], DirectLines: existing.DirectLines || [],`,
+    replace: `    SourceDeliveryNotes: existing.SourceDeliveryNotes || [], DirectLines: existing.DirectLines || [],
+    CurrencyCode: existing.CurrencyCode || '', ExchangeRate: existing.ExchangeRate || 1, TotalBase: existing.TotalBase != null ? existing.TotalBase : existing.Total, // [NEW DEVELOPMENT invoice-currency]`
+  },
+  {
+    id: 'invoice-currency (vendor reversal record)',
+    why: 'The reversal record in the invoice\'s currency, for the statement.',
+    find: `    SourceGRNs: existing.SourceGRNs || [], DirectLines: existing.DirectLines || [],`,
+    replace: `    SourceGRNs: existing.SourceGRNs || [], DirectLines: existing.DirectLines || [],
+    CurrencyCode: existing.CurrencyCode || '', ExchangeRate: existing.ExchangeRate || 1, TotalBase: existing.TotalBase != null ? existing.TotalBase : existing.Total, // [NEW DEVELOPMENT invoice-currency]`
+  }
+  ,
+  {
+    id: 'invoice-currency (approval amount, vendor)',
+    why: 'Approval limits are in the base currency: a foreign invoice is gated on its base total (docs/modules/MULTI_CURRENCY.md).',
+    find: `beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, '', scopeKey, existing.Total`,
+    replace: `beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, '', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total)`
+  }
+  ,
+  {
+    id: 'invoice-currency (approval amount, vendor reversal)',
+    why: 'Approval limits are in the base currency: a foreign invoice is gated on its base total (docs/modules/MULTI_CURRENCY.md).',
+    find: `beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, existing.Total`,
+    replace: `beginApprovalInstance_(idToken, 'VENDORINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total)`
+  }
+  ,
+  {
+    id: 'invoice-currency (approval amount, customer)',
+    why: 'Approval limits are in the base currency: a foreign invoice is gated on its base total (docs/modules/MULTI_CURRENCY.md).',
+    find: `beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, '', scopeKey, existing.Total`,
+    replace: `beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, '', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total)`
+  }
+  ,
+  {
+    id: 'invoice-currency (approval amount, customer reversal)',
+    why: 'Approval limits are in the base currency: a foreign invoice is gated on its base total (docs/modules/MULTI_CURRENCY.md).',
+    find: `beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, existing.Total`,
+    replace: `beginApprovalInstance_(idToken, 'CUSTOMERINVOICE', invoiceId, (existing.TransactionNumber || '') + ' (Reversal)', scopeKey, (existing.TotalBase != null ? existing.TotalBase : existing.Total)`
+  }
+  ,
+  {
+    id: 'party-currency-fixed (vendor)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/MULTI_CURRENCY.md, decision 211): a party\'s currency is fixed once it has invoices or payments.',
+    find: `    const vendorId = String(vendorData.VendorID || '').trim();`,
+    replace: `    const vendorId = String(vendorData.VendorID || '').trim();
+    assertPartyCurrencyKept_(idToken, 'Vendor', vendorId, vendorData.DefaultCurrency); // [NEW DEVELOPMENT party-currency-fixed]`
+  },
+  {
+    id: 'party-currency-fixed (customer)',
+    why: 'As the vendor (decision 211).',
+    find: `    const customerId = String(customerData.CustomerID || '').trim();`,
+    replace: `    const customerId = String(customerData.CustomerID || '').trim();
+    assertPartyCurrencyKept_(idToken, 'Customer', customerId, customerData.DefaultCurrency); // [NEW DEVELOPMENT party-currency-fixed]`
+  }
+  ,
+  {
+    id: 'bank-currency (new)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/MULTI_CURRENCY.md, decision 217): a cash or bank account may carry a currency of its own.',
+    find: `      const cashBank = __coaScheme.markFor({ IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId }, existing);`,
+    replace: `      const cashBank = __coaScheme.markFor({ IsPostable: isPostable, OwnCashBank: ownMark, ParentAccountID: parentAccountId }, existing);
+      const accountCurrency = accountCurrency_(idToken, accountData.Currency, isPostable && Boolean(cashBank)); // [NEW DEVELOPMENT bank-currency]`
+  },
+  {
+    id: 'bank-currency (new, store)',
+    why: 'As above.',
+    find: `        OwnCashBank: ownMark, CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]`,
+    replace: `        OwnCashBank: ownMark, CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
+        Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]`
+  },
+  {
+    id: 'bank-currency (edit)',
+    why: 'As above; the currency is fixed once the account has postings.',
+    find: `    editedMarks[accountId].CashBank = cashBank;`,
+    replace: `    editedMarks[accountId].CashBank = cashBank;
+    // [NEW DEVELOPMENT bank-currency] docs/modules/MULTI_CURRENCY.md, decision 217
+    const accountCurrency = accountCurrency_(idToken, accountData.Currency === undefined ? current.Currency : accountData.Currency, isPostable && Boolean(cashBank));
+    const currencyUsedIn = accountCurrency !== String(current.Currency || '') ? findAccountUsage_(idToken, accountId, current.AccountCode, 1) : [];
+    if (currencyUsedIn.length) {
+      throw new Error('Account ' + current.AccountCode + ' already has postings in ' + (current.Currency || 'the base currency') + ', so its currency can' + "'" + 't change. Create a new account for the other currency.');
+    }`
+  },
+  {
+    id: 'bank-currency (edit, store)',
+    why: 'As above.',
+    find: `      OwnCashBank: ownMark, CashBank: cashBank, FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]`,
+    replace: `      OwnCashBank: ownMark, CashBank: cashBank, FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
+      Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]`
+  }
+  ,
+  {
+    id: 'bank-currency (gl lines)',
+    why: 'NEW DEVELOPMENT (decision 217): the posted lines keep their foreign amounts, for the ledger of an account in a foreign currency.',
+    find: `        Credit: Number(line.Credit) || 0,
+        CostCenterID: line.CostCenterID || '',
+        ProfitCenterID: line.ProfitCenterID || ''
+      });`,
+    replace: `        Credit: Number(line.Credit) || 0,
+        CostCenterID: line.CostCenterID || '',
+        ProfitCenterID: line.ProfitCenterID || '',
+        FcCurrency: line.FcCurrency || '', FcDebit: Number(line.FcDebit) || 0, FcCredit: Number(line.FcCredit) || 0 // [NEW DEVELOPMENT bank-currency]
+      });`
+  },
+  {
+    id: 'bank-currency (gl report)',
+    why: 'NEW DEVELOPMENT (decision 217): the ledger of a cash or bank account in a foreign currency shows its balance in that currency too.',
+    find: `  return {
+    account: { AccountCode: account.AccountCode, AccountName: account.AccountName, NormalBalance: account.NormalBalance, IsRollup: isRollup },`,
+    replace: `  // [NEW DEVELOPMENT bank-currency] docs/modules/MULTI_CURRENCY.md, decision 217
+  const fc = ledgerFcBalances_(isRollup ? '' : account.Currency, allLines, periodLines, fromDate, sign);
+  rows.forEach((r, i) => Object.assign(r, fc.rows[i] || {}));
+  return {
+    fcOpening: fc.opening, fcClosing: fc.closing,
+    account: { AccountCode: account.AccountCode, AccountName: account.AccountName, NormalBalance: account.NormalBalance, IsRollup: isRollup, Currency: fc.currency },`
+  }
+  ,
+  {
+    id: 'projects (type)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/PROJECTS_DIMENSIONS.md, decision 221): Project, an Organizational Unit type, with a customer, start and end dates; Active or Closed.',
+    find: `const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter', 'Location'];`,
+    replace: `const ORG_UNIT_TYPES = ['Division', 'Branch', 'Warehouse', 'Rack', 'CostCenter', 'ProfitCenter', 'Location', 'Project']; // [NEW DEVELOPMENT projects]`
+  },
+  {
+    id: 'projects (fields)',
+    why: 'As above: a project saves its customer and dates (functions/src/projects.js).',
+    find: `    if (!ORG_UNIT_TYPES.includes(type)) throw new Error('Type must be one of: ' + ORG_UNIT_TYPES.join(', ') + '.');`,
+    replace: `    if (!ORG_UNIT_TYPES.includes(type)) throw new Error('Type must be one of: ' + ORG_UNIT_TYPES.join(', ') + '.');
+    const projectFields = projectFields_(idToken, type, unitData, companyId, status); // [NEW DEVELOPMENT projects]`
+  },
+  {
+    id: 'projects (edit, store)',
+    why: 'As above.',
+    find: `        Type: type, Code: code, Name: name, ParentUnitID: parentUnitId, CompanyID: companyId, Status: status,
+        UpdatedAt: now, UpdatedBy: actor`,
+    replace: `        Type: type, Code: code, Name: name, ParentUnitID: parentUnitId, CompanyID: companyId, Status: status,
+        ...projectFields, // [NEW DEVELOPMENT projects]
+        UpdatedAt: now, UpdatedBy: actor`
+  },
+  {
+    id: 'projects (new, store)',
+    why: 'As above.',
+    find: `      Type: type, Code: code, Name: name, ParentUnitID: parentUnitId, CompanyID: companyId, Status: status,
+      CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor`,
+    replace: `      Type: type, Code: code, Name: name, ParentUnitID: parentUnitId, CompanyID: companyId, Status: status,
+      ...projectFields, // [NEW DEVELOPMENT projects]
+      CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor`
+  }
+  ,
+  {
+    id: 'dimension-rules (new)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/PROJECTS_DIMENSIONS.md, decisions 219-220): an account or heading says whether its lines need a cost center, profit center and project (functions/src/dimensionRules.js).',
+    find: `CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
+        Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]`,
+    replace: `CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
+        Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]
+        DimensionRules: cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]`
+  },
+  {
+    id: 'dimension-rules (edit)',
+    why: 'As above; not sent (an import): kept.',
+    find: `FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
+      Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]`,
+    replace: `FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
+      Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]
+      DimensionRules: accountData.DimensionRules === undefined ? (current.DimensionRules || null) : cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]`
+  }
+  ,
+  {
+    id: 'dimension-rules (invoice)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/PROJECTS_DIMENSIONS.md, decision 219): the save-time cost center check follows the rule of the revenue account the Sales Types post to, not the account type.',
+    find: `    if ((sourceDeliveryNotes.length || itemLines.length) && !costCenterId) { // [PORT CHANGE invoice-item-lines-save]`,
+    replace: `    if ((sourceDeliveryNotes.length || itemLines.length) && !costCenterId && needsCostCenter_(idToken, { salesTypeIds: sourceDeliveryNotes.map(d => d.SalesTypeID).concat(itemLines.length ? [itemSalesTypeId] : []) })) { // [PORT CHANGE invoice-item-lines-save] [NEW DEVELOPMENT dimension-rules]`
+  },
+  {
+    id: 'dimension-rules (invoice direct lines)',
+    why: 'As above, for the direct lines (each posts to its Sales Type\'s revenue account).',
+    find: `    directLines.forEach((l, idx) => {
+      if (!l.CostCenterID && !costCenterId) {`,
+    replace: `    const directCcSalesTypes = []; // [NEW DEVELOPMENT dimension-rules] the Sales Types whose revenue account needs a cost center
+    for (const st of [...new Set(directLines.map(l => l.SalesTypeID))]) { if (needsCostCenter_(idToken, { salesTypeIds: [st] })) directCcSalesTypes.push(st); }
+    directLines.forEach((l, idx) => {
+      if (!l.CostCenterID && !costCenterId && directCcSalesTypes.includes(l.SalesTypeID)) {`
+  },
+  {
+    id: 'dimension-rules (delivery note)',
+    why: 'As above: the Delivery Note line\'s cost of sales account.',
+    find: `      if (!lineCostCenterId) throw new Error('Line ' + (idx + 1) + ': Cost Center is required — set one on this line or as the header default.');`,
+    replace: `      if (!lineCostCenterId && needsCostCenter_(idToken, { itemIds: [item.ItemID] })) throw new Error('Line ' + (idx + 1) + ': Cost Center is required — set one on this line or as the header default.'); // [NEW DEVELOPMENT dimension-rules]`
+  }
+  ,
+  {
+    id: 'projects (report filter)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/PROJECTS_DIMENSIONS.md, "Reports"): the GL report, Trial Balance and P&L filter by project; __none__ is the lines with none (decision 223).',
+    find: `    profitCenterId: String(params.ProfitCenterID || '').trim()
+  };`,
+    replace: `    profitCenterId: String(params.ProfitCenterID || '').trim(),
+    projectId: String(params.ProjectID || '').trim() // [NEW DEVELOPMENT projects]
+  };`
+  },
+  {
+    id: 'projects (report lines)',
+    why: 'As above.',
+    find: `      if (f.profitCenterId && line.ProfitCenterID !== f.profitCenterId) return;`,
+    replace: `      if (f.profitCenterId && line.ProfitCenterID !== f.profitCenterId) return;
+      if (f.projectId && String(line.ProjectID || '') !== (f.projectId === '__none__' ? '' : f.projectId)) return; // [NEW DEVELOPMENT projects]`
+  },
+  {
+    id: 'projects (report line field)',
+    why: 'As above: each line\'s project, for the Project report.',
+    find: `        FcCurrency: line.FcCurrency || '', FcDebit: Number(line.FcDebit) || 0, FcCredit: Number(line.FcCredit) || 0 // [NEW DEVELOPMENT bank-currency]`,
+    replace: `        FcCurrency: line.FcCurrency || '', FcDebit: Number(line.FcDebit) || 0, FcCredit: Number(line.FcCredit) || 0, // [NEW DEVELOPMENT bank-currency]
+        ProjectID: line.ProjectID || '' // [NEW DEVELOPMENT projects]`
+  }
+  ,
+  {
+    id: 'e-invoicing (customer invoice)',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-16; docs/modules/E_INVOICING.md, decisions 225-229): a posted invoice of a company with e-invoicing on gets its PINT AE document built, checked and stored (never holding up the posting).',
+    find: `  finalizeCommitAttempt_(idToken, invoiceId, glResult, {}, actor, 'customerInvoices');`,
+    replace: `  finalizeCommitAttempt_(idToken, invoiceId, glResult, {}, actor, 'customerInvoices');
+  recordEInvoice_(idToken, 'Invoice', invoiceId); // [NEW DEVELOPMENT e-invoicing]`
+  }
 ];
-

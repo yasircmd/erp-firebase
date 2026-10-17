@@ -109,6 +109,10 @@
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Cheque No.</label><input type="text" id="pdc-form-cheque-no" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Amount</label><input type="text" inputmode="decimal" id="pdc-form-amount" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right font-mono"></div>
   </div>
+  <div id="pdc-fc" class="hidden grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="md:col-start-4"><label id="pdc-fc-label" class="block text-xs font-medium text-slate-300 mb-1"></label><input type="text" inputmode="decimal" id="pdc-form-fc" class="w-full bg-slate-900 border border-amber-500/40 rounded-lg py-2 px-3 text-sm text-right font-mono"></div>
+    <p id="pdc-fc-note" class="md:col-span-3 md:row-start-1 self-end text-xs text-slate-500"></p>
+  </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div id="pdc-drawee-wrap">
@@ -403,6 +407,7 @@
     if (missing) note.textContent = 'This company has no ' + CONFIG.heading + ' Clearing Account yet. Set it in Company Master Data before posting.';
     populateOrgUnits();
     populateReplaces();
+    showFc(); // the chosen party's currency, now that the list is in
   }
 
   function populateOrgUnits() {
@@ -493,19 +498,42 @@
     return round2(Object.keys(allocByRef).reduce((s, k) => s + parseAmount(allocByRef[k]), 0));
   }
 
+  // A foreign party (docs/modules/MULTI_CURRENCY.md): the cheque's amount in
+  // its currency too, which is what it settles; the rate is what the two make.
+  function partyCurrency() {
+    if (current && current.FcCurrency && !isEditable()) return current.FcCurrency;
+    const p = setup.parties.find(x => x.PartyID === val('pdc-form-party'));
+    return (p && p.Currency) || '';
+  }
+  function settleAmount() {
+    if (!isEditable()) return Number(current.FcCurrency ? current.FcAmount : current.Amount) || 0;
+    return parseAmount(val(partyCurrency() ? 'pdc-form-fc' : 'pdc-form-amount'));
+  }
+  function showFc() {
+    const cur = partyCurrency();
+    document.getElementById('pdc-fc').classList.toggle('hidden', !cur);
+    if (!cur) return;
+    document.getElementById('pdc-fc-label').textContent = cur + ' amount';
+    const base = parseAmount(val('pdc-form-amount')), fc = parseAmount(val('pdc-form-fc'));
+    document.getElementById('pdc-fc-note').textContent = 'The ' + CONFIG.partyLabel.toLowerCase() + ' is invoiced in ' + cur + ': the cheque settles its ' + cur + ' amount' +
+      (base > 0 && fc > 0 ? ' (1 ' + cur + ' = ' + (Math.round(base / fc * 1e6) / 1e6) + (setup.BaseCurrency ? ' ' + setup.BaseCurrency : '') + ').' : '.');
+  }
+
   function renderAllocSummary() {
-    const amount = isEditable() ? parseAmount(val('pdc-form-amount')) : Number(current.Amount) || 0;
+    showFc();
+    const cur = partyCurrency();
+    const amount = settleAmount();
     const against = isEditable() ? allocatedTotal()
       : round2((current.Allocations || []).filter(a => a.RefType === 'Against').reduce((s, a) => s + a.Amount, 0));
     const rest = round2(amount - against);
     const el = document.getElementById('pdc-alloc-summary');
     el.className = 'text-xs ' + (rest < -0.005 ? 'text-red-400' : 'text-slate-400');
-    el.textContent = 'Cheque ' + formatMoney(amount) + ' — settles ' + formatMoney(against) +
+    el.textContent = 'Cheque ' + (cur ? cur + ' ' : '') + formatMoney(amount) + ' — settles ' + formatMoney(against) +
       (rest < -0.005 ? ' — more than the cheque amount.' : (rest > 0.005 ? ' — ' + formatMoney(rest) + ' kept as an advance (New Ref).' : '.'));
   }
 
   function allocateOldestFirst() {
-    let left = parseAmount(val('pdc-form-amount'));
+    let left = settleAmount();
     allocByRef = {};
     openItems.slice().sort((a, b) => ((a.DueDate || a.Date) + a.Number).localeCompare((b.DueDate || b.Date) + b.Number)).forEach(i => {
       if (left <= 0.005) return;
@@ -522,7 +550,7 @@
       PdcID: current ? current.PdcID : '', Direction: CONFIG.direction,
       CompanyID: val('pdc-form-company'), PartyID: val('pdc-form-party'),
       TransactionDate: val('pdc-form-date'), ChequeDate: val('pdc-form-cheque-date'), ChequeNumber: val('pdc-form-cheque-no').trim(),
-      Amount: parseAmount(val('pdc-form-amount')), DraweeBank: RECEIVED ? val('pdc-form-drawee').trim() : '',
+      Amount: parseAmount(val('pdc-form-amount')), FcAmount: partyCurrency() ? parseAmount(val('pdc-form-fc')) : '', DraweeBank: RECEIVED ? val('pdc-form-drawee').trim() : '',
       BankAccountID: RECEIVED ? '' : val('pdc-form-bank'), Reference: val('pdc-form-reference').trim(), Description: val('pdc-form-description').trim(),
       DivisionID: val('pdc-form-division'), BranchID: val('pdc-form-branch'), CostCenterID: val('pdc-form-costcenter'), ProfitCenterID: val('pdc-form-profitcenter'),
       ReplacesPdcID: val('pdc-form-replaces'),
@@ -692,6 +720,7 @@
     document.getElementById('pdc-form-cheque-date').value = p ? p.ChequeDate || '' : '';
     document.getElementById('pdc-form-cheque-no').value = p ? p.ChequeNumber || '' : '';
     document.getElementById('pdc-form-amount').value = p ? p.Amount || '' : '';
+    document.getElementById('pdc-form-fc').value = p && p.FcCurrency ? p.FcAmount || '' : '';
     document.getElementById('pdc-form-drawee').value = p ? p.DraweeBank || '' : '';
     document.getElementById('pdc-form-reference').value = p ? p.Reference || '' : '';
     document.getElementById('pdc-form-description').value = p ? p.Description || '' : '';
@@ -771,7 +800,7 @@
       }).withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
     }
 
-    ['pdc-form-company', 'pdc-form-party', 'pdc-form-date', 'pdc-form-cheque-date', 'pdc-form-cheque-no', 'pdc-form-amount', 'pdc-form-drawee', 'pdc-form-bank',
+    ['pdc-form-company', 'pdc-form-party', 'pdc-form-date', 'pdc-form-cheque-date', 'pdc-form-cheque-no', 'pdc-form-amount', 'pdc-form-fc', 'pdc-form-drawee', 'pdc-form-bank',
       'pdc-form-reference', 'pdc-form-description', 'pdc-form-division', 'pdc-form-branch', 'pdc-form-costcenter', 'pdc-form-profitcenter', 'pdc-form-replaces']
       .forEach(id => { document.getElementById(id).disabled = !editable; });
     const show = (id, on) => document.getElementById(id).classList.toggle('hidden', !on);
@@ -901,6 +930,7 @@
     });
     document.getElementById('pdc-form-party').addEventListener('change', () => { isDirty = true; allocByRef = {}; populateReplaces(); fetchOpenItems(); });
     document.getElementById('pdc-form-amount').addEventListener('input', () => { isDirty = true; renderAllocSummary(); });
+    document.getElementById('pdc-form-fc').addEventListener('input', () => { isDirty = true; renderAllocSummary(); });
     ['pdc-form-date', 'pdc-form-cheque-date', 'pdc-form-cheque-no', 'pdc-form-drawee', 'pdc-form-bank', 'pdc-form-reference', 'pdc-form-description',
       'pdc-form-division', 'pdc-form-branch', 'pdc-form-costcenter', 'pdc-form-profitcenter', 'pdc-form-replaces']
       .forEach(id => document.getElementById(id).addEventListener('input', () => { isDirty = true; }));

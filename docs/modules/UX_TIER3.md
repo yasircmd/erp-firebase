@@ -316,3 +316,32 @@ recommendations. Each design doc has its own table.
 Build order (owner: "all in order"): I, H, J, L, M, N.
 - **N** (203–207): categories of your own, each with its own code prefix;
   anyone with Item Master access may add one.
+
+## The owner's direction, round 16 (2026-10-16): wave 3
+
+The owner's points on wave 3, each now a design doc with its open questions
+(numbered on from 210):
+
+- **O. Foreign currency** ([MULTI_CURRENCY.md](MULTI_CURRENCY.md),
+  211–218):
+  - one base currency for every company under a corporate ID (another
+    corporate ID comes later);
+  - foreign customers and vendors invoice, pay and get their SOA in their
+    own currency;
+  - exchange rates by effective date, each applying until the next;
+  - check fetching a live rate.
+- **P. Inter-company:** skipped for now (not urgent).
+- **Q. Projects** ([PROJECTS_DIMENSIONS.md](PROJECTS_DIMENSIONS.md),
+  219–224):
+  - projects as a dimension;
+  - the accounts that need a cost centre, profit centre or project become
+    a setting, instead of every expense needing a cost centre.
+- **R. Print customization:** skipped for now, to do later.
+- **S. UAE e-invoicing** ([E_INVOICING.md](E_INVOICING.md), 225–229):
+  - switched on in Sales Invoice Configuration;
+  - Phase 1 businesses (revenue of AED 50 million or more) must appoint an
+    ASP by 30 October 2026 and go live on 1 January 2027.
+- **T. Sales reps** ([SALES_REP_PORTAL.md](SALES_REP_PORTAL.md), 230–236):
+  in the existing Employee Portal, not a new app. It is feasible.
+
+Decisions: 213 (rates typed, no fetch) and 225–226 (e-invoicing made ready, no ASP yet) by the owner; the rest "go with your recommendations" (2026-10-16). Build order O, Q, S, T.

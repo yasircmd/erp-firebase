@@ -83,6 +83,16 @@ const MAPPED = {
   checkItemCategory_: ['itemCategories', 'checkForItem', 'dropCtx'], // docs/modules/ITEM_CATEGORIES_CUSTOM.md (called only from patches)
   validItemCategoryParent_: ['itemCategories', 'validParent', 'dropCtx'],
   customItemCode_: ['numbering', 'customItemCode', 'dropCtx'],
+  invoiceCurrencyFields_: ['fx', 'invoiceFields', 'dropCtx'], // docs/modules/MULTI_CURRENCY.md (called only from patches)
+  documentBaseLines_: ['fx', 'documentBaseLines', 'pure'],
+  assertPartyCurrencyKept_: ['fx', 'assertPartyCurrencyKept', 'dropCtx'],
+  accountCurrency_: ['fx', 'accountCurrency', 'dropCtx'], // decision 217 (patch bank-currency)
+  ledgerFcBalances_: ['fx', 'ledgerFcBalances', 'pure'],
+  projectFields_: ['projects', 'projectFields', 'dropCtx'], // docs/modules/PROJECTS_DIMENSIONS.md (patch projects)
+  cleanDimensionRules_: ['dimensionRules', 'cleanRules', 'pure'],
+  needsCostCenter_: ['dimensionRules', 'needsCostCenter', 'dropCtx'],
+  linesWithProject_: ['projects', 'linesWithProject', 'pure'],
+  recordEInvoice_: ['eInvoicing', 'recordEInvoice', 'dropCtx'], // docs/modules/E_INVOICING.md
   generateVendorCode_: ['numbering', 'vendorCode', 'dropCtx'],
   generateCustomerCode_: ['numbering', 'customerCode', 'dropCtx'],
   generateStockTransactionRef_: ['glWriting', 'generateStockTransactionRef', 'dropCtx'],
@@ -130,7 +140,11 @@ const SHARED_PATHS = {
   customerPhone: '../customerPhone', // used by name (__customerPhone.) in patches
   invoiceStock: '../invoiceStock',
   coaScheme: '../coaScheme', // used by name (__coaScheme.) in patches
-  itemCategories: '../itemCategories'
+  itemCategories: '../itemCategories',
+  fx: '../fx',
+  projects: '../projects',
+  dimensionRules: '../dimensionRules',
+  eInvoicing: '../eInvoicing'
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);
@@ -536,7 +550,184 @@ const SCREEN_EDITS = [
     loadOwnCategories();
     rpc` },
   { mod: 'ITEMSUBCAT', from: "document.getElementById('isc-form-category').value = prefill.NewFor || '';",
-    to: "document.getElementById('isc-form-category').value = prefill.NewFor || ''; document.getElementById('isc-form-category').dataset.want = prefill.NewFor || '';" }
+    to: "document.getElementById('isc-form-category').value = prefill.NewFor || ''; document.getElementById('isc-form-category').dataset.want = prefill.NewFor || '';" },
+  // Exchange rates by effective date (owner, 2026-10-16; docs/modules/
+  // MULTI_CURRENCY.md): a Rates panel for each currency but the default.
+  { mod: 'CURRENCYCONFIG', from: '<div id="cc-modal" ',
+    to: `<div id="cc-rates" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="cc-rates-title" class="text-lg font-bold">Rates</h3><button id="cc-rates-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button></div>
+    <p class="text-xs text-slate-400">1 <span id="cc-rates-code"></span> = the rate in <span id="cc-rates-base"></span>, from its date until a later rate. A document keeps the rate it was made with; to correct one, enter the right rate from the same date.</p>
+    <div id="cc-rates-form" class="hidden flex flex-wrap items-end gap-2">
+      <div><label class="block text-xs text-slate-300 mb-1">From</label><input id="cc-rate-date" type="date" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></div>
+      <div><label class="block text-xs text-slate-300 mb-1">Rate</label><input id="cc-rate-value" inputmode="decimal" class="w-32 bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></div>
+      <div class="flex-1 min-w-[8rem]"><label class="block text-xs text-slate-300 mb-1">Note</label><input id="cc-rate-note" maxlength="200" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></div>
+      <button id="cc-rate-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-lg">Add rate</button>
+    </div>
+    <p id="cc-rate-error" class="hidden text-xs text-red-400"></p>
+    <div class="max-h-80 overflow-y-auto"><table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-3">From</th><th class="py-1 pr-3 text-right">Rate</th><th class="py-1 pr-3">Note</th><th class="py-1">Entered by</th></tr></thead><tbody id="cc-rates-body" class="divide-y divide-slate-700"></tbody></table></div>
+  </div>
+</div>
+
+<div id="cc-modal" ` },
+  { mod: 'CURRENCYCONFIG', from: "        <td class=\"py-3 px-4 text-right\">${actions}</td>`;",
+    to: "        <td class=\"py-3 px-4 text-right\">${c.IsDefault ? '' : '<button class=\"cc-rates-btn text-slate-400 hover:text-blue-400 p-1 text-xs\" title=\"Exchange rates\"><i class=\"fa-solid fa-chart-line\"></i> Rates</button>'}${actions}</td>`;\n      if (!c.IsDefault) row.querySelector('.cc-rates-btn').addEventListener('click', () => openRates(c.Code));" },
+  { mod: 'CURRENCYCONFIG', from: "  function closeModal() { document.getElementById('cc-modal').classList.add('hidden'); }",
+    to: `  function closeModal() { document.getElementById('cc-modal').classList.add('hidden'); }
+
+  // ---------- Rates (docs/modules/MULTI_CURRENCY.md) ----------
+  let ratesCode = '';
+  function openRates(code) {
+    ratesCode = code;
+    document.getElementById('cc-rate-error').classList.add('hidden');
+    rpc.withSuccessHandler(r => {
+      document.getElementById('cc-rates-title').textContent = 'Rates: ' + code;
+      document.getElementById('cc-rates-code').textContent = code;
+      document.getElementById('cc-rates-base').textContent = r.base.Code || 'the default currency';
+      document.getElementById('cc-rates-form').classList.toggle('hidden', !r.canEnter);
+      document.getElementById('cc-rates-body').innerHTML = ((r.rates || {})[code] || []).map(x => '<tr><td class="py-1 pr-3">' + escapeHtml(x.EffectiveDate) + '</td><td class="py-1 pr-3 text-right font-mono">' + escapeHtml(x.Rate) +
+        '</td><td class="py-1 pr-3 text-xs text-slate-400">' + escapeHtml(x.Note || '') + '</td><td class="py-1 text-xs text-slate-400">' + escapeHtml(x.ByName || '') + '</td></tr>').join('') ||
+        '<tr><td colspan="4" class="py-3 text-center text-slate-500 text-xs">No rates yet.</td></tr>';
+      document.getElementById('cc-rates').classList.remove('hidden');
+    }).withFailureHandler(err => appAlert(err.message || 'Unable to load the rates.')).getExchangeRates({});
+  }
+  function saveRate() {
+    const error = document.getElementById('cc-rate-error');
+    error.classList.add('hidden');
+    rpc.withSuccessHandler(() => { document.getElementById('cc-rate-value').value = ''; document.getElementById('cc-rate-note').value = ''; openRates(ratesCode); })
+      .withFailureHandler(err => { error.textContent = err.message || 'Unable to save the rate.'; error.classList.remove('hidden'); })
+      .saveExchangeRate({ code: ratesCode, effectiveDate: document.getElementById('cc-rate-date').value, rate: document.getElementById('cc-rate-value').value, note: document.getElementById('cc-rate-note').value });
+  }` },
+  { mod: 'CURRENCYCONFIG', from: "    document.getElementById('cc-form').addEventListener('submit', saveCurrency);\n",
+    to: "    document.getElementById('cc-form').addEventListener('submit', saveCurrency);\n    document.getElementById('cc-rates-close').addEventListener('click', () => document.getElementById('cc-rates').classList.add('hidden'));\n    document.getElementById('cc-rate-save').addEventListener('click', saveRate);\n" },
+  { mod: 'CURRENCYCONFIG', from: '<div id="cc-rates" ',
+    to: `<div id="cc-fx" class="hidden max-w-5xl mx-auto mt-6 bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2">
+  <div class="text-sm font-semibold">Exchange Gain / Loss account</div>
+  <p class="text-xs text-slate-400">When a payment settles a foreign-currency invoice at another rate, the difference posts to this account (a Revenue or Expense account), on the cost center of the payment line or, if it has none, the one chosen here.</p>
+  <div id="cc-fx-rows" class="space-y-2"></div>
+</div>
+<div id="cc-rates" ` },
+  { mod: 'CURRENCYCONFIG', from: "  // ---------- Rates (docs/modules/MULTI_CURRENCY.md) ----------",
+    to: `  // ---------- Exchange Gain / Loss account per company ----------
+  function loadFx() {
+    rpc.withSuccessHandler(r => {
+      const box = document.getElementById('cc-fx-rows');
+      box.innerHTML = (r.companies || []).map(c => '<div class="flex flex-wrap items-center gap-2 text-sm" data-co="' + escapeHtml(c.CompanyID) + '"><span class="w-48 truncate">' + escapeHtml(c.LegalName) + '</span>' +
+        '<select class="cc-fx-acc bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm"' + (r.canWrite ? '' : ' disabled') + '><option value="">Not set</option>' + c.Accounts.map(a => '<option value="' + escapeHtml(a.AccountID) + '"' + (a.AccountID === c.GainLossAccountID ? ' selected' : '') + '>' + escapeHtml(a.AccountCode + ' — ' + a.AccountName) + '</option>').join('') + '</select>' +
+        '<select class="cc-fx-cc bg-slate-900 border border-slate-700 rounded py-1 px-2 text-sm"' + (r.canWrite ? '' : ' disabled') + '><option value="">No default cost center</option>' + c.CostCenters.map(u => '<option value="' + escapeHtml(u.UnitID) + '"' + (u.UnitID === c.CostCenterID ? ' selected' : '') + '>' + escapeHtml(u.Code + ' — ' + u.Name) + '</option>').join('') + '</select>' +
+        (r.canWrite ? '<button class="cc-fx-save bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save</button>' : '') + '<span class="cc-fx-note text-xs text-emerald-400"></span></div>').join('');
+      document.getElementById('cc-fx').classList.toggle('hidden', !(r.companies || []).length);
+      box.querySelectorAll('.cc-fx-save').forEach(b => b.addEventListener('click', () => {
+        const row = b.closest('[data-co]');
+        rpc.withSuccessHandler(() => { row.querySelector('.cc-fx-note').textContent = 'Saved.'; })
+          .withFailureHandler(err => appAlert(err.message || 'Unable to save.'))
+          .saveFxSettings({ companyId: row.dataset.co, gainLossAccountId: row.querySelector('.cc-fx-acc').value, costCenterId: row.querySelector('.cc-fx-cc').value });
+      }));
+    }).withFailureHandler(() => {}).getFxSettings({});
+  }
+
+  // ---------- Rates (docs/modules/MULTI_CURRENCY.md) ----------` },
+  { mod: 'CURRENCYCONFIG', from: "    document.getElementById('cc-rate-save').addEventListener('click', saveRate);\n",
+    to: "    document.getElementById('cc-rate-save').addEventListener('click', saveRate);\n    loadFx();\n" },
+  // COA: a cash or bank account may carry a currency of its own (owner,
+  // 2026-10-16; docs/modules/MULTI_CURRENCY.md, decision 217).
+  { mod: 'COA', from: '      <div id="coa-cashflowcategory-inherited" class="hidden',
+    to: `      <div id="coa-currency-field" class="hidden">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Currency</label>
+        <select id="coa-form-currency" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Base currency</option></select>
+        <p class="text-xs text-slate-500 mt-1">A cash or bank account in a foreign currency: its Cash and Bank Transactions are entered in it, at the rate of their date. It can't change once the account has postings.</p>
+      </div>
+      <div id="coa-cashflowcategory-inherited" class="hidden` },
+  { mod: 'COA', from: "      document.getElementById('coa-form-cashbank').value = a.OwnCashBank || '';\n",
+    to: "      document.getElementById('coa-form-cashbank').value = a.OwnCashBank || '';\n      document.getElementById('coa-form-currency').value = a.Currency || '';\n" },
+  { mod: 'COA', from: "      populateParentOptions('', null);\n",
+    to: "      populateParentOptions('', null);\n      document.getElementById('coa-form-currency').value = '';\n" },
+  { mod: 'COA', from: "    document.getElementById('coa-cashbank-field').classList.toggle('hidden', !show);\n",
+    to: "    document.getElementById('coa-cashbank-field').classList.toggle('hidden', !show);\n    const parent = accounts.find(x => x.AccountID === document.getElementById('coa-form-parent').value);\n    document.getElementById('coa-currency-field').classList.toggle('hidden', !(document.getElementById('coa-form-postable').checked && parent && parent.CashBank)); // a cash or bank account's currency\n" },
+  { mod: 'COA', from: "      CashBank: document.getElementById('coa-cashbank-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-cashbank').value,\n",
+    to: "      CashBank: document.getElementById('coa-cashbank-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-cashbank').value,\n      Currency: document.getElementById('coa-currency-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-currency').value,\n" },
+  { mod: 'COA', from: "    loadAccountsToFix();\n",
+    to: `    loadAccountsToFix();
+    // The foreign currencies a cash or bank account may be in (decision 217).
+    rpc.withSuccessHandler(base => rpc.withSuccessHandler(list => {
+      const sel = document.getElementById('coa-form-currency');
+      (list || []).filter(c => !base || c.Code !== base.Code).forEach(c => { const o = document.createElement('option'); o.value = c.Code; o.textContent = c.Code + ' — ' + c.Name; sel.appendChild(o); });
+    }).withFailureHandler(() => {}).getActiveCurrencies()).withFailureHandler(() => {}).getDefaultCurrency();
+` },
+  { mod: 'COA', from: '<td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}',
+    to: '<td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.Currency ? \' <span class="coa-currency ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">\' + escapeHtml(a.Currency) + \'</span>\' : \'\'}' },
+  // Organizational Units: the Project type (owner, 2026-10-16; patch projects;
+  // docs/modules/PROJECTS_DIMENSIONS.md, decision 221): a customer, start and
+  // end dates, and Closed (no new postings).
+  { mod: 'ORGUNITS', from: '      <option value="Location">Location</option>\n    </select>',
+    to: '      <option value="Location">Location</option>\n      <option value="Project">Project</option>\n    </select>' },
+  { mod: 'ORGUNITS', from: '          <option value="Location">Location</option>\n        </select>',
+    to: '          <option value="Location">Location</option>\n          <option value="Project">Project</option>\n        </select>' },
+  { mod: 'ORGUNITS', from: "ProfitCenter: 'Profit Center', Location: 'Location' };",
+    to: "ProfitCenter: 'Profit Center', Location: 'Location', Project: 'Project' };" },
+  { mod: 'ORGUNITS', from: '<option value="">All Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>',
+    to: '<option value="">All Statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Closed">Closed</option></select>' },
+  { mod: 'ORGUNITS', from: '<option value="Active">Active</option><option value="Inactive">Inactive</option></select></div>\n      <div id="ou-form-error"',
+    to: `<option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Closed" id="ou-status-closed" class="hidden">Closed: takes no new postings</option></select></div>
+      <div id="ou-project-fields" class="hidden space-y-3">
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Customer <span class="text-slate-500">(optional)</span></label><select id="ou-form-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">None</option></select></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">Start date</label><input type="date" id="ou-form-start" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+          <div><label class="block text-xs font-medium text-slate-300 mb-1">End date</label><input type="date" id="ou-form-end" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        </div>
+      </div>
+      <div id="ou-form-error"` },
+  { mod: 'ORGUNITS', from: "      document.getElementById('ou-form-status').value = u.Status;\n",
+    to: "      document.getElementById('ou-form-status').value = u.Status;\n      document.getElementById('ou-form-customer').value = u.CustomerID || '';\n      document.getElementById('ou-form-start').value = u.StartDate || '';\n      document.getElementById('ou-form-end').value = u.EndDate || '';\n" },
+  { mod: 'ORGUNITS', from: "    document.getElementById('ou-modal').classList.remove('hidden');\n  }",
+    to: "    showProjectFields();\n    document.getElementById('ou-modal').classList.remove('hidden');\n  }\n\n  // A project's own fields (docs/modules/PROJECTS_DIMENSIONS.md).\n  function showProjectFields() {\n    const project = document.getElementById('ou-form-type').value === 'Project';\n    document.getElementById('ou-project-fields').classList.toggle('hidden', !project);\n    document.getElementById('ou-status-closed').classList.toggle('hidden', !project);\n  }" },
+  { mod: 'ORGUNITS', from: "      Status: document.getElementById('ou-form-status').value\n    };",
+    to: "      Status: document.getElementById('ou-form-status').value,\n      CustomerID: document.getElementById('ou-form-customer').value,\n      StartDate: document.getElementById('ou-form-start').value,\n      EndDate: document.getElementById('ou-form-end').value\n    };" },
+  { mod: 'ORGUNITS', from: "    document.getElementById('ou-form-type').addEventListener('change', () => populateParentOptions(document.getElementById('ou-form-id').value || null));\n",
+    to: `    document.getElementById('ou-form-type').addEventListener('change', () => populateParentOptions(document.getElementById('ou-form-id').value || null));
+    document.getElementById('ou-form-type').addEventListener('change', showProjectFields);
+    rpc.withSuccessHandler(list => {
+      const sel = document.getElementById('ou-form-customer');
+      (list || []).sort((a, b) => String(a.CustomerName).localeCompare(String(b.CustomerName))).forEach(c => { const o = document.createElement('option'); o.value = c.CustomerID; o.textContent = c.CustomerCode + ' — ' + c.CustomerName; sel.appendChild(o); });
+    }).withFailureHandler(() => {}).getActiveCustomers();
+` },
+  // COA: which accounts need a cost center, profit center or project (owner,
+  // 2026-10-16; docs/modules/PROJECTS_DIMENSIONS.md, decisions 219-220): set
+  // on a heading, followed by its accounts; an account may differ.
+  { mod: 'COA', from: '      <div id="coa-currency-field" class="hidden">',
+    to: `      <div id="coa-dims-field" class="space-y-1">
+        <label class="block text-xs font-medium text-slate-300">Lines need <span class="text-slate-500">(blank: as the heading above)</span></label>
+        <div class="grid grid-cols-3 gap-2">
+          ${['CostCenter:Cost center', 'ProfitCenter:Profit center', 'Project:Project'].map(x => { const [k, l] = x.split(':'); return '<div><span class="block text-[11px] text-slate-400">' + l + '</span><select id="coa-dim-' + k + '" data-dim="' + k + '" class="coa-dim w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"><option value="">As the heading</option><option value="Required">Required</option><option value="Optional">Optional</option><option value="NotUsed">Not used</option></select><span id="coa-dim-' + k + '-hint" class="block text-[10px] text-slate-500"></span></div>'; }).join('')}
+        </div>
+      </div>
+      <div id="coa-currency-field" class="hidden">` },
+  { mod: 'COA', from: "      document.getElementById('coa-form-currency').value = a.Currency || '';\n",
+    to: "      document.getElementById('coa-form-currency').value = a.Currency || '';\n      ['CostCenter', 'ProfitCenter', 'Project'].forEach(k => { document.getElementById('coa-dim-' + k).value = (a.DimensionRules && a.DimensionRules[k]) || ''; });\n" },
+  { mod: 'COA', from: "      document.getElementById('coa-form-currency').value = '';\n",
+    to: "      document.getElementById('coa-form-currency').value = '';\n      document.querySelectorAll('.coa-dim').forEach(el => { el.value = ''; });\n" },
+  { mod: 'COA', from: "      Currency: document.getElementById('coa-currency-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-currency').value,\n",
+    to: "      Currency: document.getElementById('coa-currency-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-currency').value,\n      DimensionRules: { CostCenter: document.getElementById('coa-dim-CostCenter').value, ProfitCenter: document.getElementById('coa-dim-ProfitCenter').value, Project: document.getElementById('coa-dim-Project').value },\n" },
+  { mod: 'COA', from: "    document.getElementById('coa-currency-field').classList.toggle('hidden', !(document.getElementById('coa-form-postable').checked && parent && parent.CashBank)); // a cash or bank account's currency\n",
+    to: `    document.getElementById('coa-currency-field').classList.toggle('hidden', !(document.getElementById('coa-form-postable').checked && parent && parent.CashBank)); // a cash or bank account's currency
+    updateDimHints();
+  }
+
+  // What a blank dimension rule follows: the nearest heading's, else
+  // today's rule (an Expense, Revenue or COGS account needs a cost center).
+  function updateDimHints() {
+    const type = document.getElementById('coa-form-type').value;
+    const byId = id => accounts.find(x => x.AccountID === id);
+    ['CostCenter', 'ProfitCenter', 'Project'].forEach(k => {
+      let a = byId(document.getElementById('coa-form-parent').value), hops = 0, rule = '', from = '';
+      while (a && hops++ < 50 && !rule) { rule = (a.DimensionRules && a.DimensionRules[k]) || ''; from = a.AccountCode; a = byId(a.ParentAccountID); }
+      if (!rule) { rule = k === 'CostCenter' && ['Expense', 'Revenue', 'COGS'].includes(type) ? 'Required' : 'Optional'; from = ''; }
+      const label = { Required: 'required', Optional: 'optional', NotUsed: 'not used' }[rule];
+      document.getElementById('coa-dim-' + k + '-hint').textContent = document.getElementById('coa-dim-' + k).value ? '' : 'Now: ' + label + (from ? ' (from ' + from + ')' : ' (the default)');
+    });
+` },
+  { mod: 'COA', from: "    loadAccountsToFix();\n",
+    to: "    loadAccountsToFix();\n    document.querySelectorAll('.coa-dim').forEach(el => el.addEventListener('change', updateDimHints));\n" }
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {

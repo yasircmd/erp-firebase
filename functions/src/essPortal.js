@@ -364,7 +364,8 @@ const ACTIONS = {
   // Who is signed in; also records the portal sign-in.
   me: { mustChange: true, run: async (me) => {
     if (me.via === 'portal') await ACCOUNTS().doc(me.emp.EmployeeID).update({ LastSignIn: new Date().toISOString() });
-    return { me: await profileOf(me), today: today() };
+    const rep = await require('./salesRep').repOf(me); // the Sales tab (docs/modules/SALES_REP_PORTAL.md)
+    return { me: Object.assign(await profileOf(me), { SalesRep: rep ? { IsManager: Boolean(rep.IsManager) } : null }), today: today() };
   } },
   changePassword: { mustChange: true, run: async (me, d) => {
     if (me.via !== 'portal') throw failed('You sign in with your ERP user: change its password in the ERP.');
@@ -424,7 +425,13 @@ const ACTIONS = {
   claimForm: { run: async (me) => Object.assign(await require('./reimbursements').claimForm(me), { manager: ((await lineManager(me.emp)) || {}).FullName || '' }) },
   raiseClaim: { run: (me, d) => ER().raiseClaim(me, d) },
   submitClaim: { run: async (me, d) => ER().submitClaim(me, d, await lineManager(me.emp)) },
-  decideClaim: { run: (me, d) => ER().decideClaimByManager(me, d) }
+  decideClaim: { run: (me, d) => ER().decideClaimByManager(me, d) },
+  // Sales reps (salesRep.js; docs/modules/SALES_REP_PORTAL.md): my customers,
+  // a draft order at the price list, a collection as a draft receipt or PDC.
+  salesHome: { run: (me) => require('./salesRep').salesHome(me) },
+  salesItems: { run: (me, d) => require('./salesRep').salesItems(me, d) },
+  salesOrder: { run: (me, d) => require('./salesRep').placeOrder(me, d) },
+  salesCollect: { run: (me, d) => require('./salesRep').collect(me, d) }
 };
 
 exports.essPortal = onCallWithMessages(onCallOptions, async (request) => {

@@ -3,10 +3,10 @@ title: Sales Return / Credit Note
 area: sales
 order: 7
 modules: [SALESRETURN]
-sources: [functions/src/salesReturn.js, functions/src/partyLedger.js]
+sources: [functions/src/salesReturn.js, functions/src/partyLedger.js, functions/src/eInvoicing.js]
 summary: Record returns from customers, reverse the sale and create the credit note to the customer.
 reviewed: 2026-10-16
-fingerprint: 8a52d896828c076a
+fingerprint: 05c7abc5f365224c
 ---
 ## What it is for
 
@@ -29,6 +29,20 @@ fingerprint: 8a52d896828c076a
 ## What happens in the books
 
 The return reduces the customer receivable and may re-enter stock. It can also trigger a sales return variance if the value differs from the original invoice.
+
+For a customer in a foreign currency, the credit note is in its currency
+at the **invoice's** rate, not the rate on the return date, so it takes back
+exactly what the invoice booked; the stock comes back at its cost in the
+default currency.
+
+## E-invoice
+
+If the company e-invoices (Sales Invoice Configuration), a posted return shows
+its **E-invoice** (a credit note): **Ready to send**, **Not ready** with what is
+missing (for example the customer's address), or **Not e-invoiced** for a
+customer without a TRN. **Download XML** gives the file; after fixing the
+missing data, **Check again**. Nothing is sent until the company's ASP is
+connected.
 
 ## Rights
 

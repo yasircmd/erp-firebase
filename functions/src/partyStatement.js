@@ -55,6 +55,7 @@ async function partyMovements(partyType, partyId, companyId) {
       Date: inv.InvoiceDate || '', Order: inv.PostedAt || inv.CreatedAt || '', Number: inv.TransactionNumber || '',
       Type: isReversal ? 'Invoice Reversal' : 'Invoice', Reference: inv.VendorRefNumber || '', Description: inv.Description || '',
       Side: isReversal ? other : grows, Amount: round2(Number(inv.Total) || 0),
+      BaseAmount: round2(inv.TotalBase != null ? Number(inv.TotalBase) || 0 : Number(inv.Total) || 0), // its own currency, and base (MULTI_CURRENCY.md)
       Reversed: Boolean(inv.ReversedByInvoiceID), IsReversal: isReversal, SourceID: id, LinkedJVID: inv.LinkedJVID || ''
     });
   });
@@ -64,12 +65,14 @@ async function partyMovements(partyType, partyId, companyId) {
     (e.Lines || []).forEach(l => {
       if (l.PartyType !== partyType || l.PartyID !== partyId) return;
       const debit = Number(l.Debit) || 0;
+      // A foreign line in its own currency; an exchange difference has none (base only).
+      const fc = l.FcCurrency ? round2((Number(l.FcDebit) || 0) || (Number(l.FcCredit) || 0)) : round2(debit > 0 ? debit : Number(l.Credit) || 0);
       rows.push({
         Date: e.JVDate || '', Order: e.PostedAt || e.CreatedAt || '', Number: e.JVNumber || '',
         // A PDC's bounce or cancellation reverses its post entry.
         Type: (DOC_TYPES[e.VoucherType] || e.VoucherType || 'Journal') + (e.ReversalOfJV ? (e.PdcEvent ? ' ' + e.PdcEvent : ' Reversal') : ''),
         Reference: e.Reference || '', Description: l.Description || e.Description || '',
-        Side: debit > 0 ? 'Dr' : 'Cr', Amount: round2(debit > 0 ? debit : Number(l.Credit) || 0),
+        Side: debit > 0 ? 'Dr' : 'Cr', Amount: fc, BaseAmount: round2(debit > 0 ? debit : Number(l.Credit) || 0), Exchange: Boolean(l.FxAdjustment),
         Reversed: Boolean(e.ReversedByJV), IsReversal: Boolean(e.ReversalOfJV), SourceID: e._id, LinkedJVID: e._id,
         VoucherType: e.VoucherType || ''
       });
@@ -123,7 +126,8 @@ function openItemRows(partyType, party, items, companyId, toDate) {
       return {
         RefID: i.RefID, Number: i.Number, Type: i.DocumentType ? 'Opening ' + i.DocumentType.toLowerCase() : (i.ItemType === 'NewRef' ? 'Open ' + (sign > 0 ? 'balance' : 'credit') : 'Invoice'),
         Date: i.Date, DueDate: dueDate, DaysOverdue: overdue, Description: i.Description,
-        Amount: round2(sign * i.Amount), Outstanding: round2(sign * i.Outstanding)
+        Amount: round2(sign * i.Amount), Outstanding: round2(sign * i.Outstanding),
+        Currency: i.Currency || '', Rate: Number(i.Rate) || 1, BaseOutstanding: round2(sign * i.Outstanding * (Number(i.Rate) || 1)) // at its own rate (MULTI_CURRENCY.md)
       };
     })
     .sort((a, b) => (a.DueDate + a.Number).localeCompare(b.DueDate + b.Number));
@@ -138,18 +142,25 @@ async function buildStatement(partyType, partyId, companyId, fromDate, toDate) {
 
   const grows = GROWS[partyType];
   const signed = r => (r.Side === grows ? r.Amount : -r.Amount);
+  const signedBase = r => (r.Side === grows ? r.BaseAmount : -r.BaseAmount);
   const all = await partyMovements(partyType, partyId, companyId);
-  let opening = 0;
+  // The party's currency (decision 211): the statement is in it, with the base beside it.
+  const base = await require('./exchangeRates').baseCurrency();
+  const currency = require('./fx').partyCurrency(party, base.Code);
+  let opening = 0, baseOpening = 0;
   const rows = [];
-  let running;
+  let running, baseRunning;
   all.forEach(r => {
-    if (r.Date < fromDate) { opening = round2(opening + signed(r)); return; }
+    if (r.Date < fromDate) { opening = round2(opening + signed(r)); baseOpening = round2(baseOpening + signedBase(r)); return; }
     if (r.Date > toDate) return;
-    if (running === undefined) running = opening;
+    if (running === undefined) { running = opening; baseRunning = baseOpening; }
+    if (currency && r.Exchange) { baseRunning = round2(baseRunning + signedBase(r)); return; } // base only: not a line of the party's statement
     running = round2(running + signed(r));
-    rows.push(Object.assign({}, r, { Debit: r.Side === 'Dr' ? r.Amount : 0, Credit: r.Side === 'Cr' ? r.Amount : 0, Balance: running }));
+    baseRunning = round2(baseRunning + signedBase(r));
+    rows.push(Object.assign({}, r, { Debit: r.Side === 'Dr' ? r.Amount : 0, Credit: r.Side === 'Cr' ? r.Amount : 0, Balance: running, BaseBalance: baseRunning }));
   });
   const closing = rows.length ? rows[rows.length - 1].Balance : opening;
+  const baseClosing = baseRunning === undefined ? baseOpening : baseRunning;
   const totals = rows.reduce((t, r) => ({ Debit: round2(t.Debit + r.Debit), Credit: round2(t.Credit + r.Credit) }), { Debit: 0, Credit: 0 });
 
   // Open items as at the end date, signed in the party's natural sense
@@ -164,11 +175,11 @@ async function buildStatement(partyType, partyId, companyId, fromDate, toDate) {
   const openTotal = round2(open.reduce((s, i) => s + i.Outstanding, 0));
 
   const gl = await controlAccountBalance(partyType, partyId, party, companyId, toDate);
-  if (gl.status === 'ok') gl.Difference = round2(closing - gl.Balance);
+  if (gl.status === 'ok') gl.Difference = round2((currency ? baseClosing : closing) - gl.Balance); // the GL is in base
 
   // Post-dated cheques still to clear as at the end date (docs/modules/PDC.md).
   const pendingPdcs = (await pendingPdcsForParty(partyType, partyId, companyId, toDate))
-    .map(p => Object.assign(p, { DaysToMaturity: daysBetween(toDate, p.ChequeDate) }));
+    .map(p => Object.assign(p, { DaysToMaturity: daysBetween(toDate, p.ChequeDate) }, currency && p.FcCurrency ? { Amount: p.FcAmount, BaseAmount: p.Amount } : {})); // in the party's currency
   const pendingPdcTotal = round2(pendingPdcs.reduce((sum, p) => sum + p.Amount, 0));
 
   return {
@@ -178,6 +189,7 @@ async function buildStatement(partyType, partyId, companyId, fromDate, toDate) {
     CompanyID: companyId, CompanyName: company.LegalName || '', FromDate: fromDate, ToDate: toDate,
     BalanceLabel: partyType === 'Vendor' ? 'Payable to vendor' : 'Receivable from customer',
     Opening: opening, Rows: rows, Totals: totals, Closing: closing,
+    Currency: currency, BaseCurrency: base.Code, BaseOpening: baseOpening, BaseClosing: baseClosing,
     OpenItems: open, OpenTotal: openTotal, Aging: aging, Reconciliation: gl,
     PendingPdcs: pendingPdcs, PendingPdcTotal: pendingPdcTotal
   };

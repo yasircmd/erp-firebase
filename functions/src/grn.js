@@ -91,7 +91,7 @@ function resolveCategoryAccount(category, coaData, companyId, costCenterId, labe
     throw new HttpsError('failed-precondition', label + ': the category ' + (category.Name || '') + ' has no valid GL account — check it in Procurement Setup.');
   }
   if (account.CompanyID && account.CompanyID !== companyId) throw new HttpsError('failed-precondition', label + ': the category\'s GL account belongs to a different Company.');
-  if (COST_CENTER_REQUIRED_TYPES.includes(account.AccountType) && !costCenterId) {
+  if (require('./dimensionRules').ruleOf(account, coaData, 'CostCenter').rule === 'Required' && !costCenterId) { // the account's rule (PROJECTS_DIMENSIONS.md)
     throw new HttpsError('invalid-argument', label + ': select a Cost Center (' + (category.Name || 'this category') + ' posts to an ' + account.AccountType + ' account).');
   }
   return account;

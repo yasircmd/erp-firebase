@@ -46,7 +46,11 @@ function isLive(entry) {
 }
 
 function lineSide(line) { return Number(line.Debit) > 0 ? 'Dr' : 'Cr'; }
-function lineAmount(line) { return round2(Number(line.Debit) > 0 ? Number(line.Debit) : Number(line.Credit)); }
+// In the party's terms: a foreign line's own amount (docs/modules/MULTI_CURRENCY.md), else the base amount.
+function lineAmount(line) {
+  if (line.FcCurrency) return round2(Number(line.FcDebit) > 0 ? Number(line.FcDebit) : Number(line.FcCredit) || 0);
+  return round2(Number(line.Debit) > 0 ? Number(line.Debit) : Number(line.Credit));
+}
 
 function addDays(dateStr, days) {
   const d = new Date(String(dateStr || '').substring(0, 10) + 'T00:00:00Z');
@@ -110,6 +114,7 @@ function openItemsFrom(partyType, partyId, party, asOf, invoices, partyEntries) 
       RefID: cfg.invoiceType + ':' + id, ItemType: cfg.invoiceType, Number: inv.TransactionNumber || '',
       Date: inv.InvoiceDate || '', DueDate: addDays(inv.InvoiceDate, party ? party.PaymentTermsDays : 0),
       CompanyID: inv.CompanyID || '', Side: cfg.invoiceSide, Amount: round2(Number(inv.Total) || 0),
+      Currency: inv.CurrencyCode || '', Rate: Number(inv.ExchangeRate) || 1, // its own currency and rate (MULTI_CURRENCY.md)
       Description: inv.Description || '', Allocated: 0
     });
   });
@@ -117,7 +122,7 @@ function openItemsFrom(partyType, partyId, party, asOf, invoices, partyEntries) 
   const entries = partyEntries.filter(e => isLive(e) && dated(e.JVDate));
   const against = [];
   entries.forEach(e => (e.Lines || []).forEach(l => {
-    if (l.PartyType !== partyType || l.PartyID !== partyId) return;
+    if (l.PartyType !== partyType || l.PartyID !== partyId || l.FxAdjustment) return; // an exchange difference settles nothing
     (l.Allocations || []).forEach(a => {
       if (a.RefType === 'New') {
         const refId = 'NewRef:' + e._id + ':' + l.LineNo;
@@ -127,6 +132,7 @@ function openItemsFrom(partyType, partyId, party, asOf, invoices, partyEntries) 
           RefID: refId, ItemType: 'NewRef', Number: a.DocumentNo || e.JVNumber || '', Date: a.DocumentDate || e.JVDate || '',
           DueDate: a.DueDate || a.DocumentDate || e.JVDate || '', DocumentType: a.DocumentType || '',
           CompanyID: e.CompanyID || '', Side: lineSide(l), Amount: round2(Number(a.Amount) || 0),
+          Currency: l.FcCurrency || '', Rate: l.FcCurrency ? Number(l.FcRate) || 1 : 1,
           Description: l.Description || e.Description || '', Allocated: 0
         });
       } else if (a.RefType === 'Against') {
@@ -158,6 +164,39 @@ function attachPartyFields(rawLines, normalizedLines) {
   });
 }
 
+// The realized exchange differences (docs/modules/MULTI_CURRENCY.md): for a
+// foreign line settling items made at another rate, one line on the party's
+// control account (no foreign amount: the foreign balance is settled, only
+// the base differs) and one on the company's Exchange Gain / Loss account.
+// d > 0: the base settled is more than the item's base, so the control
+// account takes d on the item's side.
+async function appendExchangeDifferences(out, diffs, companyId) {
+  if (!diffs.length) return;
+  const settings = (await rtdb.ref('fxSettings/' + companyId).get()).val() || {};
+  const coa = (await rtdb.ref('coa').get()).val() || {};
+  const fxAcc = coa[settings.GainLossAccountID];
+  if (!fxAcc) throw new Error('This entry settles foreign-currency items at another rate: set the company\'s Exchange Gain / Loss account in Currency Configuration first.');
+  const byLine = new Map();
+  diffs.forEach(x => {
+    const k = out.indexOf(x.line);
+    const cur = byLine.get(k) || { line: x.line, dr: 0, labels: [] };
+    cur.dr = round2(cur.dr + (x.itemSide === 'Dr' ? x.d : -x.d));
+    cur.labels.push(x.label);
+    byLine.set(k, cur);
+  });
+  byLine.forEach(({ line, dr, labels }) => {
+    if (!dr) return;
+    const desc = 'Exchange difference — ' + labels.join(', ');
+    const amt = Math.abs(dr);
+    out.push({ LineNo: out.length + 1, AccountID: line.AccountID, AccountCode: line.AccountCode, AccountName: line.AccountName, Description: desc,
+      Debit: dr > 0 ? amt : 0, Credit: dr > 0 ? 0 : amt, CostCenterID: line.CostCenterID || '', ProfitCenterID: line.ProfitCenterID || '',
+      FcCurrency: line.FcCurrency, FcDebit: 0, FcCredit: 0, FcRate: Number(line.FcRate), FxAdjustment: true,
+      PartyType: line.PartyType, PartyID: line.PartyID, PartyName: line.PartyName, Allocations: [] });
+    out.push({ LineNo: out.length + 1, AccountID: settings.GainLossAccountID, AccountCode: fxAcc.AccountCode, AccountName: fxAcc.AccountName, Description: desc,
+      Debit: dr > 0 ? 0 : amt, Credit: dr > 0 ? amt : 0, CostCenterID: line.CostCenterID || settings.CostCenterID || '', ProfitCenterID: line.ProfitCenterID || '', FxAdjustment: true });
+  });
+}
+
 // Validates and normalizes the party fields on already-normalized GL
 // lines. Run at save, at post (under the global lock — the outstanding
 // check is authoritative only there) and again at final approval.
@@ -167,10 +206,12 @@ function attachPartyFields(rawLines, normalizedLines) {
 async function resolvePartyLines(lines, companyId, opts) {
   const parties = await loadParties();
   const controlIds = controlAccountIds(parties);
+  const base = await require('./exchangeRates').baseCurrency();
   const out = [];
   const againstByParty = new Map(); // 'Vendor:V1' -> [{ lineNo, side, alloc }]
 
-  (lines || []).forEach((line, idx) => {
+  // Exchange differences are worked out again each time (MULTI_CURRENCY.md).
+  (lines || []).filter(l => !l.FxAdjustment).forEach((line, idx) => {
     const n = 'Line ' + (idx + 1) + ': ';
     const clean = Object.assign({}, line);
     delete clean.PartyType; delete clean.PartyID; delete clean.PartyName; delete clean.Allocations;
@@ -196,6 +237,10 @@ async function resolvePartyLines(lines, companyId, opts) {
       throw new Error(n + 'a line tagged with ' + name + ' must be on ' + name + '\'s own ' + cfg.accountLabel + ' account, not ' + line.AccountCode + '.');
     }
 
+    // A foreign party's lines are in its currency (decision 211); a base party's are not.
+    const cur = require('./fx').partyCurrency(party, base.Code);
+    if (cur && line.FcCurrency !== cur) throw new Error(n + name + ' is invoiced in ' + cur + ': enter the line\'s ' + cur + ' amount beside its amount.');
+    if (!cur && line.FcCurrency) throw new Error(n + name + ' is in ' + (base.Code || 'the base currency') + ', not ' + line.FcCurrency + '.');
     const amount = lineAmount(line);
     const side = lineSide(line);
     let allocations = (line.Allocations || []).map(a => ({
@@ -222,11 +267,12 @@ async function resolvePartyLines(lines, companyId, opts) {
     const key = partyType + ':' + partyId;
     allocations.filter(a => a.RefType === 'Against').forEach(a => {
       if (!againstByParty.has(key)) againstByParty.set(key, []);
-      againstByParty.get(key).push({ n: n, side: side, alloc: a });
+      againstByParty.get(key).push({ n: n, side: side, alloc: a, line: out.length });
     });
     out.push(Object.assign(clean, { PartyType: partyType, PartyID: partyId, PartyName: name, Allocations: allocations }));
   });
 
+  const fxDiffs = [];
   // Against refs: each must be an open item of that same party, in this
   // company, on the opposite side, and — summed across every line of this
   // entry — no more than its outstanding right now.
@@ -235,7 +281,7 @@ async function resolvePartyLines(lines, companyId, opts) {
     const party = parties[partyType][partyId];
     const items = await getOpenItemsForParty(partyType, partyId, party, undefined, opts && opts.excludeEntryId);
     const used = new Map();
-    list.forEach(({ n, side, alloc }) => {
+    list.forEach(({ n, side, alloc, line }) => {
       const item = items.get(alloc.RefID);
       if (!item) throw new Error(n + 'the item being settled is not an open item of ' + partyLabel(partyType, party) + ' (it may have been reversed).');
       const label = item.Number || alloc.RefID;
@@ -249,13 +295,21 @@ async function resolvePartyLines(lines, companyId, opts) {
       }
       used.set(alloc.RefID, total);
       alloc.RefNumber = item.Number || '';
+      // A foreign item settled at another rate: its base difference (realized exchange gain or loss).
+      const l = out[line];
+      if (l.FcCurrency) {
+        const d = round2(round2(alloc.Amount * Number(l.FcRate)) - round2(alloc.Amount * (Number(item.Rate) || 1)));
+        if (d) fxDiffs.push({ line: l, itemSide: item.Side, d, label });
+      }
     });
   }
+  await appendExchangeDifferences(out, fxDiffs, companyId);
 
   const partyKeys = [...new Set(out.filter(l => l.PartyType).map(l => l.PartyType + ':' + l.PartyID))];
+  const totalDebit = round2(out.reduce((t, l) => t + (Number(l.Debit) || 0), 0)), totalCredit = round2(out.reduce((t, l) => t + (Number(l.Credit) || 0), 0));
   const refs = [...new Set(out.flatMap(l => (l.Allocations || []).filter(a => a.RefType === 'Against').map(a => a.RefID)))];
   return {
-    lines: out,
+    lines: out, totalDebit, totalCredit,
     fields: { PartyKeys: partyKeys, AllocatedRefs: refs, AllocatedRefTypes: [...new Set(refs.map(r => r.split(':')[0]))] }
   };
 }
@@ -335,6 +389,7 @@ async function annotateInvoiceOutstanding(invoiceType, invoices) {
 // company, with its control account.
 async function listPartyAccounts(companyId) {
   const parties = await loadParties();
+  const baseCode = (await require('./exchangeRates').baseCurrency()).Code;
   const coa = (await rtdb.ref('coa').get()).val() || {};
   const out = [];
   Object.keys(PARTY_TYPES).forEach(pt => {
@@ -346,7 +401,8 @@ async function listPartyAccounts(companyId) {
       if (!account) return;
       out.push({
         PartyType: pt, PartyID: id, Code: p[cfg.codeField] || '', Name: p[cfg.nameField] || '', Status: p.Status || '',
-        AccountID: p[cfg.accountField], AccountCode: String(account.AccountCode)
+        AccountID: p[cfg.accountField], AccountCode: String(account.AccountCode),
+        Currency: require('./fx').partyCurrency(p, baseCode) // a foreign party's lines carry its amount (MULTI_CURRENCY.md)
       });
     });
   });
