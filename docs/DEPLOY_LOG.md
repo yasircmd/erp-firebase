@@ -1158,3 +1158,10 @@ from, and how it was verified. The deploy procedure is in the
   "Project Report" to roles in Roles & Permissions; set each company's
   Exchange Gain / Loss account; add "Project Report" in Tree Management;
   set up sales reps and e-invoicing when wanted; and wave 2's Data Reset.
+- **2026-10-17, wave 3, the rest (`ux-tier3-wave3-rest`, no screens):** run
+  [#162](https://github.com/yasircmd/erp-firebase/actions/runs/39011368729)
+  (06:50–07:35 UTC: 175 functions), from `94ea74c` (PR #130), success.
+  Wave 3 changed the module list (moduleRegistry.js), which every function
+  reads, but its set covered only 372 of the 547 functions: Tree
+  Management refused "Unknown module: PROJECTREPORT" until these went
+  out. All 547 functions are now on wave 3.
