@@ -162,12 +162,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   project filters); S e-invoicing ready (E_INVOICING.md: PINT AE built on
   posting, status and XML, no ASP so nothing sent); T sales reps in the
   Employee Portal (SALES_REP_PORTAL.md: draft orders and collections). Each
-  with tests and a negative control, Help and What's new. Deploy set
-  `ux-tier3-wave3` (372 functions: Q's rule is in glWriting, which nearly
-  every posting function uses; --screens, then Hosting for the Help and
-  ess.html). After it goes live: tick "rates"; set each company's Exchange
-  Gain / Loss account; add "Project Report" in Tree Management; set up
-  sales reps. Later (owner's call): revaluation; orders / GRNs / DNs in FC;
+  with tests and a negative control, Help and What's new. Merged as PR
+  #129 and **live 2026-10-17** (deploy set `ux-tier3-wave3`, 372 functions
+  with screens, then Hosting; DEPLOY_LOG.md). **Owner, still to do in the
+  app:** tick Currency Configuration "rates" and give "Project Report" to
+  roles; set each company's Exchange Gain / Loss account; add "Project
+  Report" in Tree Management; set up sales reps and e-invoicing when
+  wanted. Later (owner's call): revaluation; orders / GRNs / DNs in FC;
   a Project on GRN, PO, SO, DN and payroll; project budgets; the ASP
   connector once chosen**,
   triaged into three tiers (in this session's plan, agreed 2026-10-14).
