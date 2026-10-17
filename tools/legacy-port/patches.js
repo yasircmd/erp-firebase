@@ -2323,5 +2323,139 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
       [newId]: applyStockUpdate_(reversal, Object.assign(stockPostedFields_(gl, actor, posted), { Lines: reversalMovementLines }))
     }));
 `
+  },
+  {
+    id: 'stock-queries-getProductionEntries',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T1c): getProductionEntries reads ' +
+      'only that type (stockStore.queryTx, an equality query), instead of downloading every stock transaction.',
+    find: `  const data = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ ProductionID: id }, data[id]))
+`,
+    replace: `  const data = queryStockTx_(idToken, { TransactionType: 'Production' }) || {}; // [NEW DEVELOPMENT stock-queries] that type, not every stock transaction (T1c)
+  const all = Object.keys(data)
+    .map(id => Object.assign({ ProductionID: id }, data[id]))
+`
+  },
+  {
+    id: 'stock-queries-getEligibleGRNsForInvoice',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T1c): getEligibleGRNsForInvoice reads ' +
+      'only the posted GRNs of the company and vendor (stockStore.queryTx, an equality query), instead of downloading every stock transaction.',
+    find: `  const data = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ GRNID: id }, data[id]))
+`,
+    replace: `  const data = queryStockTx_(idToken, { TransactionType: 'GRN', Status: 'Posted', CompanyID: String(companyId || ''), VendorID: String(vendorId || '') }) || {}; // [NEW DEVELOPMENT stock-queries] the posted GRNs of the company and vendor, not every stock transaction (T1c)
+  return Object.keys(data)
+    .map(id => Object.assign({ GRNID: id }, data[id]))
+`
+  },
+  {
+    id: 'stock-queries-getEligibleDeliveryNotesForInvoice',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T1c): getEligibleDeliveryNotesForInvoice reads ' +
+      'only the posted Delivery Notes of the company and customer (stockStore.queryTx, an equality query), instead of downloading every stock transaction.',
+    find: `  const data = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ DeliveryNoteID: id }, data[id]))
+`,
+    replace: `  const data = queryStockTx_(idToken, { TransactionType: 'DeliveryNote', Status: 'Posted', CompanyID: String(companyId || ''), CustomerID: String(customerId || '') }) || {}; // [NEW DEVELOPMENT stock-queries] the posted Delivery Notes of the company and customer, not every stock transaction (T1c)
+  return Object.keys(data)
+    .map(id => Object.assign({ DeliveryNoteID: id }, data[id]))
+`
+  },
+  {
+    id: 'stock-queries-getDeliveryNoteEntries',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T1c): getDeliveryNoteEntries reads ' +
+      'only that type (stockStore.queryTx, an equality query), instead of downloading every stock transaction.',
+    find: `  const data = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ DeliveryNoteID: id }, data[id]))
+`,
+    replace: `  const data = queryStockTx_(idToken, { TransactionType: 'DeliveryNote' }) || {}; // [NEW DEVELOPMENT stock-queries] that type, not every stock transaction (T1c)
+  const all = Object.keys(data)
+    .map(id => Object.assign({ DeliveryNoteID: id }, data[id]))
+`
+  },
+  {
+    id: 'stock-queries-recalculateStockLedger',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T1c): recalculateStockLedger reads ' +
+      'only the posted ones (stockStore.queryTx, an equality query), instead of downloading every stock transaction.',
+    find: `      const allTx = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+`,
+    replace: `      const allTx = queryStockTx_(idToken, { Status: 'Posted' }) || {}; // [NEW DEVELOPMENT stock-queries] the posted ones, not every stock transaction (T1c)
+`
+  },
+  {
+    id: 'stock-queries-getPhysicalCountEntries',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T1c): getPhysicalCountEntries reads ' +
+      'only that type (stockStore.queryTx, an equality query), instead of downloading every stock transaction.',
+    find: `  const data = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+  const all = Object.keys(data)
+    .map(id => Object.assign({ CountID: id }, data[id]))
+`,
+    replace: `  const data = queryStockTx_(idToken, { TransactionType: 'PhysicalCount' }) || {}; // [NEW DEVELOPMENT stock-queries] that type, not every stock transaction (T1c)
+  const all = Object.keys(data)
+    .map(id => Object.assign({ CountID: id }, data[id]))
+`
+  },
+  {
+    id: 'stock-queries-getStockLedgerReport',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T1c): getStockLedgerReport reads ' +
+      'only the documents with that item (stockStore.queryTx, an equality query), instead of downloading every stock transaction.',
+    find: `  const allTx = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+
+  // [PORT FIX stock-ledger-report-transfers-and-multiline] every line of this
+`,
+    replace: `  const allTx = queryStockTx_(idToken, { ItemID: String(itemId || '') }) || {}; // [NEW DEVELOPMENT stock-queries] the documents with that item, not every stock transaction (T1c)
+
+  // [PORT FIX stock-ledger-report-transfers-and-multiline] every line of this
+`
+  },
+  {
+    id: 'stock-queries-getMaterialVarianceReport',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T1c): getMaterialVarianceReport reads ' +
+      'only the company\'s posted ones (stockStore.queryTx, an equality query), instead of downloading every stock transaction.',
+    find: `  const allTx = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+
+  const inWindow = Object.keys(allTx).map(id => allTx[id])
+    .filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);
+
+  // Expected consumption: walk every Production line individually,
+`,
+    replace: `  const allTx = queryStockTx_(idToken, { CompanyID: String(companyId || ''), Status: 'Posted' }) || {}; // [NEW DEVELOPMENT stock-queries] the company's posted ones, not every stock transaction (T1c)
+
+  const inWindow = Object.keys(allTx).map(id => allTx[id])
+    .filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);
+
+  // Expected consumption: walk every Production line individually,
+`
+  },
+  {
+    id: 'stock-queries-getProductionConsumptionReport',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T1c): getProductionConsumptionReport reads ' +
+      'only the company\'s posted ones (stockStore.queryTx, an equality query), instead of downloading every stock transaction.',
+    find: `  const allTx = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+
+  const inWindow = Object.keys(allTx).map(id => allTx[id])
+    .filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);
+
+  const qtyByItem = {};
+`,
+    replace: `  const allTx = queryStockTx_(idToken, { CompanyID: String(companyId || ''), Status: 'Posted' }) || {}; // [NEW DEVELOPMENT stock-queries] the company's posted ones, not every stock transaction (T1c)
+
+  const inWindow = Object.keys(allTx).map(id => allTx[id])
+    .filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);
+
+  const qtyByItem = {};
+`
+  },
+  {
+    id: 'stock-queries-computeJobOrderLineProducedQty_',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T1c): computeJobOrderLineProducedQty_ reads ' +
+      'only the posted Production entries (stockStore.queryTx, an equality query), instead of downloading every stock transaction.',
+    find: `  const productions = firebaseDbRequest_('stock/transactions', 'get', null, idToken) || {};
+`,
+    replace: `  const productions = queryStockTx_(idToken, { TransactionType: 'Production', Status: 'Posted' }) || {}; // [NEW DEVELOPMENT stock-queries] the posted Production entries, not every stock transaction (T1c)
+`
   }
 ];

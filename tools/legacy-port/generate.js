@@ -120,7 +120,8 @@ const MAPPED = {
   // docs/modules/TRANSACTIONS_FIRESTORE.md, T1b (called only from patches stock-posting-atomic-*)
   postStock_: ['stockPosting', 'postStock', 'dropCtx'],
   stockPostedFields_: ['stockPosting', 'postedFields', 'pure'],
-  applyStockUpdate_: ['stockStore', 'applyUpdate', 'pure']
+  applyStockUpdate_: ['stockStore', 'applyUpdate', 'pure'],
+  queryStockTx_: ['stockStore', 'queryTx', 'dropCtx'] // T1c (called only from patches stock-queries-*)
 };
 // Constants taken from the already-extracted shared modules (verbatim copies there).
 const IMPORTED_CONSTS = {

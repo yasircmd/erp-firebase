@@ -85,6 +85,7 @@ const cleanInvoiceItemLines_ = (idToken, ...a) => __invoiceStock.cleanItemLines(
 const postStock_ = (idToken, ...a) => __stockPosting.postStock(...a);
 const stockPostedFields_ = (...a) => __stockPosting.postedFields(...a);
 const applyStockUpdate_ = (...a) => __stockStore.applyUpdate(...a);
+const queryStockTx_ = (idToken, ...a) => __stockStore.queryTx(...a);
 
 // ---- constants ----
 const { MODULE_REGISTRY } = __moduleRegistry;
@@ -3264,7 +3265,7 @@ async function getProductionEntries(idToken, limit, page) {
   if (!(await moduleHasCapability_(idToken, 'PRODUCTION', 'access', user.profile.role))) {
     throw new Error('You do not have access to Production Entry.');
   }
-  const data = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const data = (await queryStockTx_(idToken, { TransactionType: 'Production' })) || {}; // [NEW DEVELOPMENT stock-queries] that type, not every stock transaction (T1c)
   const all = Object.keys(data)
     .map(id => Object.assign({ ProductionID: id }, data[id]))
     .filter(e => e.TransactionType === 'Production')
@@ -3430,7 +3431,7 @@ async function getEligibleGRNsForInvoice(idToken, companyId, vendorId) {
   }
   if (!companyId || !vendorId) return [];
 
-  const data = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const data = (await queryStockTx_(idToken, { TransactionType: 'GRN', Status: 'Posted', CompanyID: String(companyId || ''), VendorID: String(vendorId || '') })) || {}; // [NEW DEVELOPMENT stock-queries] the posted GRNs of the company and vendor, not every stock transaction (T1c)
   return Object.keys(data)
     .map(id => Object.assign({ GRNID: id }, data[id]))
     // [PORT FIX invoice-pickers-skip-reversals] reversed GRNs and reversal entries aren't invoiceable.
@@ -4075,7 +4076,7 @@ async function getEligibleDeliveryNotesForInvoice(idToken, companyId, customerId
   }
   if (!companyId || !customerId) return [];
 
-  const data = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const data = (await queryStockTx_(idToken, { TransactionType: 'DeliveryNote', Status: 'Posted', CompanyID: String(companyId || ''), CustomerID: String(customerId || '') })) || {}; // [NEW DEVELOPMENT stock-queries] the posted Delivery Notes of the company and customer, not every stock transaction (T1c)
   return Object.keys(data)
     .map(id => Object.assign({ DeliveryNoteID: id }, data[id]))
     // [PORT FIX invoice-pickers-skip-reversals] reversed deliveries and reversal entries aren't invoiceable.
@@ -4807,7 +4808,7 @@ async function getDeliveryNoteEntries(idToken, limit) {
   if (!(await moduleHasCapability_(idToken, 'DELIVERYNOTE', 'access', user.profile.role))) {
     throw new Error('You do not have access to Delivery Note.');
   }
-  const data = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const data = (await queryStockTx_(idToken, { TransactionType: 'DeliveryNote' })) || {}; // [NEW DEVELOPMENT stock-queries] that type, not every stock transaction (T1c)
   const all = Object.keys(data)
     .map(id => Object.assign({ DeliveryNoteID: id }, data[id]))
     .filter(dn => dn.TransactionType === 'DeliveryNote')
@@ -5472,7 +5473,7 @@ async function recalculateStockLedger(idToken, confirmPhrase) {
     try {
       const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
       const coaData = await getCoaData_(idToken);
-      const allTx = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+      const allTx = (await queryStockTx_(idToken, { Status: 'Posted' })) || {}; // [NEW DEVELOPMENT stock-queries] the posted ones, not every stock transaction (T1c)
 
       const posted = Object.keys(allTx)
         .map(id => Object.assign({ _id: id }, allTx[id]))
@@ -6020,7 +6021,7 @@ async function getPhysicalCountEntries(idToken, limit, page) {
   if (!(await moduleHasCapability_(idToken, 'PHYSICALCOUNT', 'access', user.profile.role))) {
     throw new Error('You do not have access to Physical / Cycle Count.');
   }
-  const data = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const data = (await queryStockTx_(idToken, { TransactionType: 'PhysicalCount' })) || {}; // [NEW DEVELOPMENT stock-queries] that type, not every stock transaction (T1c)
   const all = Object.keys(data)
     .map(id => Object.assign({ CountID: id }, data[id]))
     .filter(e => e.TransactionType === 'PhysicalCount')
@@ -6259,7 +6260,7 @@ async function getStockLedgerReport(idToken, params) {
   if (!item) throw new Error('Item not found.');
   if (item.CompanyID && !userCanAccessCompany_(user.profile, item.CompanyID)) throw new Error('You do not have access to that company.');
 
-  const allTx = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const allTx = (await queryStockTx_(idToken, { ItemID: String(itemId || '') })) || {}; // [NEW DEVELOPMENT stock-queries] the documents with that item, not every stock transaction (T1c)
 
   // [PORT FIX stock-ledger-report-transfers-and-multiline] every line of this
   // item at this warehouse counts (not just the first), and a Warehouse
@@ -6369,7 +6370,7 @@ async function getMaterialVarianceReport(idToken, params) {
 
   const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
   const bomsByParent = await groupBomsByParent_(idToken);
-  const allTx = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const allTx = (await queryStockTx_(idToken, { CompanyID: String(companyId || ''), Status: 'Posted' })) || {}; // [NEW DEVELOPMENT stock-queries] the company's posted ones, not every stock transaction (T1c)
 
   const inWindow = Object.keys(allTx).map(id => allTx[id])
     .filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);
@@ -6476,7 +6477,7 @@ async function getProductionConsumptionReport(idToken, params) {
   const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
   const subCatsData = (await firebaseDbRequest_('itemSubCategories', 'get', null, idToken)) || {};
   const uomsData = (await firebaseDbRequest_('uoms', 'get', null, idToken)) || {};
-  const allTx = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const allTx = (await queryStockTx_(idToken, { CompanyID: String(companyId || ''), Status: 'Posted' })) || {}; // [NEW DEVELOPMENT stock-queries] the company's posted ones, not every stock transaction (T1c)
 
   const inWindow = Object.keys(allTx).map(id => allTx[id])
     .filter(t => t.Status === 'Posted' && t.CompanyID === companyId && t.TransactionDate >= fromDate && t.TransactionDate <= toDate);
@@ -8810,7 +8811,7 @@ async function getSalesOrderLinesWithShortfall_(idToken, itemCode, companyId) {
 // user picks an item under a batch — see saveProductionDraft), not by
 // re-deriving from item code each time.
 async function computeJobOrderLineProducedQty_(idToken, line) {
-  const productions = (await firebaseDbRequest_('stock/transactions', 'get', null, idToken)) || {};
+  const productions = (await queryStockTx_(idToken, { TransactionType: 'Production', Status: 'Posted' })) || {}; // [NEW DEVELOPMENT stock-queries] the posted Production entries, not every stock transaction (T1c)
   let produced = 0;
   Object.values(productions).forEach(txn => {
     if (txn.TransactionType !== 'Production' || txn.Status !== 'Posted') return;
