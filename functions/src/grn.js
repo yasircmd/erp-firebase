@@ -4,9 +4,9 @@ const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
 const { requireUser, moduleHasCapability } = require('./auth');
-const { userCanAccessCompany, writeStockGlEntry, COST_CENTER_REQUIRED_TYPES } = require('./glWriting');
-const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
-const { beginCommitAttempt, abandonCommitAttempt, finalizeCommitAttempt } = require('./commitAttempt');
+const { userCanAccessCompany, COST_CENTER_REQUIRED_TYPES } = require('./glWriting');
+const { computeStockMovement } = require('./stockMovement');
+const { postStock, postedFields } = require('./stockPosting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { withGlobalLock } = require('./lock');
 
@@ -401,22 +401,16 @@ async function commitGrnPosting(user, existing, grnId) {
   };
 
   const actor = user.profile.username || user.uid;
-  const attemptId = await beginCommitAttempt(grnId, actor);
-
-  let glResult;
-  try {
-    glResult = await writeStockGlEntry(user, 'GRN', existing.TransactionDate, existing.Description, existing.Reference,
-      movement.inventoryGlLines.concat(nonStockGlLines, [offsetLine]),
-      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-      { CommitAttemptID: attemptId, SourceTransactionID: grnId });
-  } catch (err) {
-    await abandonCommitAttempt(grnId, existing.Status, actor);
-    throw err;
-  }
-
-  // A GL entry genuinely exists from here on — no more reverting.
-  await commitStockLedgerUpdates(movement.ledgerUpdates);
-  await finalizeCommitAttempt(grnId, glResult, { Lines: movementLines, NonStockLines: nonStockLines }, actor);
+  // The GL entry, the balances and the GRN in one batch: all or none
+  // (stockPosting.js, TRANSACTIONS_FIRESTORE.md T1b).
+  const glResult = await postStock(user, {
+    type: 'GRN', date: existing.TransactionDate, description: existing.Description, reference: existing.Reference,
+    lines: movement.inventoryGlLines.concat(nonStockGlLines, [offsetLine]),
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: randomUUID(), SourceTransactionID: grnId }
+  }, movement.ledgerUpdates, (gl, now) => ({
+    [grnId]: stockStore.applyUpdate(existing, Object.assign(postedFields(gl, actor, now), { Lines: movementLines, NonStockLines: nonStockLines }))
+  }));
 
   // PO received-quantity progress only ever updates once the
   // transaction is genuinely, finally committed. Direct (non-PO)
@@ -584,7 +578,7 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
     const newId = 'GRND-' + randomUUID().split('-')[0].toUpperCase();
     const attemptId = randomUUID();
 
-    await stockStore.setTx(newId, {
+    const reversal = {
       TransactionType: 'GRN', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
       TransactionDate: date, Description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description,
       Reference: existing.TransactionNumber,
@@ -593,28 +587,20 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
       Lines: movementLines, NonStockLines: nonStockLines,
       CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
       ReversalOfGRN: grnId, ReversedByGRN: '', VendorID: existing.VendorID || ''
-    });
+    };
 
-    let glResult;
-    try {
-      glResult = await writeStockGlEntry(user, 'GRN', date,
-        'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description, existing.TransactionNumber,
-        movement.inventoryGlLines.concat(nonStockGlLines, [offsetLine]),
-        { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-        { CommitAttemptID: attemptId, SourceTransactionID: newId });
-    } catch (err) {
-      await stockStore.deleteTx(newId);
-      throw err;
-    }
-
-    // A GL entry genuinely exists from here on — no more reverting.
-    await commitStockLedgerUpdates(movement.ledgerUpdates);
-    // Deliberately patches the ORIGINAL record before finalizing the
-    // new reversal to Posted, not after — guarantees a second
-    // reversal can never be triggered even if something fails between
-    // these two writes.
-    await stockStore.updateTx(grnId, { ReversedByGRN: newId });
-    await finalizeCommitAttempt(newId, glResult, { Lines: movementLines, NonStockLines: nonStockLines }, actor);
+    // The GL entry, the balances, the reversal and the original's mark in
+    // one batch: all or none (stockPosting.js, T1b), so a second reversal
+    // can never start from a half-done one.
+    const glResult = await postStock(user, {
+      type: 'GRN', date, description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description, reference: existing.TransactionNumber,
+      lines: movement.inventoryGlLines.concat(nonStockGlLines, [offsetLine]),
+      dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }
+    }, movement.ledgerUpdates, (gl, posted) => ({
+      [grnId]: stockStore.applyUpdate(existing, { ReversedByGRN: newId }),
+      [newId]: stockStore.applyUpdate(reversal, Object.assign(postedFields(gl, actor, posted), { Lines: movementLines, NonStockLines: nonStockLines }))
+    }));
 
     // Roll back exactly this GRN's own contribution to each PO line it
     // touched.

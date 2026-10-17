@@ -6,7 +6,7 @@ modules: [PURCHASEORDER]
 sources: [functions/src/grn.js]
 summary: Issue the approved order to the supplier and keep the commitment, delivery and receiving status aligned.
 reviewed: 2026-10-17
-fingerprint: 5ae8cf39c0220adf
+fingerprint: 71b455bbb4685580
 ---
 ## What it is for
 

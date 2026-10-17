@@ -3,9 +3,10 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
+const { postStock } = require('./stockPosting');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, assignStockVoucherNumbering } = require('./glWriting');
-const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
+const { computeStockMovement } = require('./stockMovement');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { allocateAvailableStockToShortfalls } = require('./reservations');
 const { withGlobalLock } = require('./lock');
@@ -199,9 +200,8 @@ exports.postWarehouseMovement = onCallWithMessages(onCallOptions, async (request
 // commit-attempt marker sequence either — that pattern exists
 // specifically to guard against a Firestore GL write and an RTDB
 // ledger write disagreeing, and there's no GL write here at all to
-// disagree with. The only write is the stock ledger update itself
-// (RTDB-only, already atomic as a unit via commitStockLedgerUpdates)
-// plus the transaction record's own status patch.
+// disagree with. The only writes are the stock balances and the
+// transaction record's own status, in one Firestore batch (postStock).
 async function commitWarehouseMovementPosting(user, existing, moveId) {
   const itemsSnap = await rtdb.ref('items').get();
   const itemsData = itemsSnap.val() || {};
@@ -233,15 +233,17 @@ async function commitWarehouseMovementPosting(user, existing, moveId) {
   // Numbered (and the period lock checked) before the ledger moves, so a
   // movement refused for a closed month moves no stock (docs/modules/PERIOD_CLOSING.md, step 1b).
   const numbering = await assignStockVoucherNumbering('WarehouseMovement', existing.TransactionDate, existing.CompanyID);
-  await commitStockLedgerUpdates(combinedLedgerUpdates);
 
-  const now = new Date().toISOString();
   const actor = user.profile.username || user.uid;
-  await stockStore.updateTx(moveId, {
-    Status: 'Posted', TransactionNumber: numbering.voucherNumber, TransactionRef: numbering.transactionRef,
-    Lines: outLines.map(l => Object.assign({}, l, { UnitCost: l.UnitCost, TotalValue: l.TotalValue })),
-    PostedAt: now, PostedBy: actor, UpdatedAt: now, UpdatedBy: actor
-  });
+  // The balances and the movement in one batch: all or none (stockPosting.js,
+  // TRANSACTIONS_FIRESTORE.md T1b). No GL entry: a transfer moves no value.
+  await postStock(user, null, combinedLedgerUpdates, (gl, now) => ({
+    [moveId]: stockStore.applyUpdate(existing, {
+      Status: 'Posted', TransactionNumber: numbering.voucherNumber, TransactionRef: numbering.transactionRef,
+      Lines: outLines.map(l => Object.assign({}, l, { UnitCost: l.UnitCost, TotalValue: l.TotalValue })),
+      PostedAt: now, PostedBy: actor, UpdatedAt: now, UpdatedBy: actor
+    })
+  }));
 
   for (const l of inLines) {
     await allocateAvailableStockToShortfalls(actor, l.ItemID, l.ItemCode, l.ToWarehouseID, existing.CompanyID, Number(l.Quantity) || 0, numbering.voucherNumber);
@@ -377,13 +379,12 @@ exports.reverseWarehouseMovement = onCallWithMessages(onCallOptions, async (requ
     const combinedLedgerUpdates = Object.assign({}, outMovement.ledgerUpdates, inMovement.ledgerUpdates);
     // Numbered (and the reversal's date checked against the period lock) before the ledger moves.
     const numbering = await assignStockVoucherNumbering('WarehouseMovement', date, existing.CompanyID);
-    await commitStockLedgerUpdates(combinedLedgerUpdates);
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
     const newId = 'WMD-' + randomUUID().split('-')[0].toUpperCase();
 
-    await stockStore.setTx(newId, {
+    const reversal = {
       TransactionType: 'WarehouseMovement', TransactionNumber: numbering.voucherNumber, TransactionRef: numbering.transactionRef,
       TransactionDate: date, Description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description,
       Reference: existing.TransactionNumber, Status: 'Posted',
@@ -392,9 +393,14 @@ exports.reverseWarehouseMovement = onCallWithMessages(onCallOptions, async (requ
       Lines: outLines,
       CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor, PostedAt: now, PostedBy: actor,
       ReversalOfWarehouseMovement: moveId, ReversedByWarehouseMovement: ''
-    });
+    };
 
-    await stockStore.updateTx(moveId, { ReversedByWarehouseMovement: newId });
+    // The balances, the reversal and the original's mark in one batch: all
+    // or none (stockPosting.js, T1b).
+    await postStock(user, null, combinedLedgerUpdates, () => ({
+      [moveId]: stockStore.applyUpdate(existing, { ReversedByWarehouseMovement: newId }),
+      [newId]: reversal
+    }));
 
     return { success: true, moveId: newId, moveNumber: numbering.voucherNumber };
   });

@@ -31,6 +31,8 @@ const __projects = require('../projects');
 const __reservations = require('../reservations');
 const __roles = require('../roles');
 const __stockMovement = require('../stockMovement');
+const __stockPosting = require('../stockPosting');
+const __stockStore = require('../stockStore');
 const __tree = require('../tree');
 
 // ---- helpers routed to the hand-ported shared modules ----
@@ -40,7 +42,6 @@ const userCanAccessCompany_ = (...a) => __glWriting.userCanAccessCompany(...a);
 const getUserAssignedCompanies_ = (...a) => __companies.getUserAssignedCompanies(...a);
 const computeStockMovement_ = (idToken, ...a) => __stockMovement.computeStockMovement(...a);
 const getStockLedgerEntry_ = (idToken, ...a) => __stockMovement.getStockLedgerEntry(...a);
-const commitStockLedgerUpdates_ = (idToken, ...a) => __stockMovement.commitStockLedgerUpdates(...a);
 const writeStockGlEntry_ = (idToken, ...a) => __glWriting.writeStockGlEntry(...a);
 const generateStockVoucherNumber_ = (idToken, ...a) => __glWriting.generateStockVoucherNumber(...a);
 const generateVoucherNumber_ = (idToken, ...a) => __numbering.voucherNumber(...a);
@@ -81,6 +82,9 @@ const findAccountUsage_ = (idToken, ...a) => __coaUsage.findAccountUsage(...a);
 const clubStockLines_ = (...a) => __lineClubbing.clubStockLines(...a);
 const assertPeriodOpen_ = (idToken, ...a) => __periodLock.assertOpen(...a);
 const cleanInvoiceItemLines_ = (idToken, ...a) => __invoiceStock.cleanItemLines(...a);
+const postStock_ = (idToken, ...a) => __stockPosting.postStock(...a);
+const stockPostedFields_ = (...a) => __stockPosting.postedFields(...a);
+const applyStockUpdate_ = (...a) => __stockStore.applyUpdate(...a);
 
 // ---- constants ----
 const { MODULE_REGISTRY } = __moduleRegistry;
@@ -3183,22 +3187,16 @@ async function commitProductionPosting_(idToken, user, existing, prodId) {
 
   const actor = user.profile.username || user.uid;
   // Everything above is pure validation and read-only computation.
-  const attemptId = await beginCommitAttempt_(idToken, prodId, actor);
-
-  let glResult;
-  try {
-    glResult = await writeStockGlEntry_(idToken, user, 'Production', existing.TransactionDate, existing.Description, existing.Reference,
-      movement.inventoryGlLines.concat(offsetGlLines),
-      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-      { CommitAttemptID: attemptId, SourceTransactionID: prodId });
-  } catch (err) {
-    await abandonCommitAttempt_(idToken, prodId, existing.Status, actor);
-    throw err;
-  }
-
-  // A GL entry genuinely exists from here on — no more reverting.
-  await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
-  await finalizeCommitAttempt_(idToken, prodId, glResult, { Lines: movementLines }, actor);
+  // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances and the document in one
+  // Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T1b).
+  const glResult = await postStock_(idToken, user, {
+    type: 'Production', date: existing.TransactionDate, description: existing.Description, reference: existing.Reference,
+    lines: movement.inventoryGlLines.concat(offsetGlLines),
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: Utilities.getUuid(), SourceTransactionID: prodId }
+  }, movement.ledgerUpdates, (gl, now) => ({
+    [prodId]: applyStockUpdate_(existing, Object.assign(stockPostedFields_(gl, actor, now), { Lines: movementLines }))
+  }));
 
   // Job Order progress only ever updates once the transaction is
   // genuinely, finally committed — same invariant the approval
@@ -3330,7 +3328,7 @@ async function reverseProduction(idToken, prodId, reversalDate) {
     const newId = 'PRDD-' + Utilities.getUuid().split('-')[0].toUpperCase();
 
     const attemptId = Utilities.getUuid();
-    await firebaseDbRequest_('stock/transactions/' + newId, 'put', {
+    const reversal = {
       TransactionType: 'Production', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
       TransactionDate: date, Description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description,
       Reference: existing.TransactionNumber,
@@ -3339,27 +3337,19 @@ async function reverseProduction(idToken, prodId, reversalDate) {
       Lines: movementLines,
       CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
       ReversalOfProduction: prodId, ReversedByProduction: ''
-    }, idToken);
+    };
 
-    let glResult;
-    try {
-      glResult = await writeStockGlEntry_(idToken, user, 'Production', date,
-        'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description, existing.TransactionNumber,
-        movement.inventoryGlLines.concat(offsetGlLines),
-        { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-        { CommitAttemptID: attemptId, SourceTransactionID: newId });
-    } catch (err) {
-      await firebaseDbRequest_('stock/transactions/' + newId, 'delete', null, idToken);
-      throw err;
-    }
-
-    // A GL entry genuinely exists from here on — no more reverting.
-    await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
-
-    // Original patched before the new reversal finalizes — same
-    // deliberate ordering as GRN/Material Issue's reversals.
-    await firebaseDbRequest_('stock/transactions/' + prodId, 'patch', { ReversedByProduction: newId }, idToken);
-    await finalizeCommitAttempt_(idToken, newId, glResult, { Lines: movementLines }, actor);
+    // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances, the reversal and the
+    // original's mark in one Firestore batch: all or none (T1b).
+    const glResult = await postStock_(idToken, user, {
+      type: 'Production', date: date, description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description, reference: existing.TransactionNumber,
+      lines: movement.inventoryGlLines.concat(offsetGlLines),
+      dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }
+    }, movement.ledgerUpdates, (gl, posted) => ({
+      [prodId]: applyStockUpdate_(existing, { ReversedByProduction: newId }),
+      [newId]: applyStockUpdate_(reversal, Object.assign(stockPostedFields_(gl, actor, posted), { Lines: movementLines }))
+    }));
 
     // Job Order rollback stays at the very end, in the same relative
     // position it held before this retrofit — a separate, pre-existing
@@ -5115,24 +5105,16 @@ async function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
   // Everything above is pure validation and read-only computation —
   // see beginCommitAttempt_'s own section comment for the full
   // reasoning behind what follows.
-  const attemptId = await beginCommitAttempt_(idToken, dnId, actor);
-
-  let glResult;
-  try {
-    glResult = await writeStockGlEntry_(idToken, user, 'DeliveryNote', existing.TransactionDate, existing.Description, existing.Reference,
-      movement.inventoryGlLines.concat(cogsGlLines),
-      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-      { CommitAttemptID: attemptId, SourceTransactionID: dnId });
-  } catch (err) {
-    await abandonCommitAttempt_(idToken, dnId, existing.Status, actor);
-    throw err;
-  }
-
-  // A GL entry genuinely exists from here on — no more reverting.
-  // Stock ledger update, then the three SO-side effects: accumulate
-  // DeliveredQuantity, shrink the matching reservation, refresh the
-  // SO's own header status.
-  await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
+  // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances and the document in one
+  // Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T1b).
+  const glResult = await postStock_(idToken, user, {
+    type: 'DeliveryNote', date: existing.TransactionDate, description: existing.Description, reference: existing.Reference,
+    lines: movement.inventoryGlLines.concat(cogsGlLines),
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: Utilities.getUuid(), SourceTransactionID: dnId }
+  }, movement.ledgerUpdates, (gl, now) => ({
+    [dnId]: applyStockUpdate_(existing, Object.assign(stockPostedFields_(gl, actor, now), { Lines: movementLines }))
+  }));
   await seq.forEach(existing.Lines, async l => {
     await updateSOLineDeliveredQuantity_(idToken, l.SourceSOID, l.SourceSOLineID, l.Quantity);
     await consumeReservationForDelivery_(idToken, l.SourceSOID, l.SourceSOLineID, l.Quantity);
@@ -5144,8 +5126,6 @@ async function commitDeliveryNotePosting_(idToken, user, existing, dnId) {
     distinctSOIds,
     async soId => await refreshSalesOrderReservationStatus_(idToken, soId)
   );
-
-  await finalizeCommitAttempt_(idToken, dnId, glResult, { Lines: movementLines }, actor);
 
   return { dnNumber: glResult.jvNumber };
 }
@@ -5269,7 +5249,7 @@ async function reverseDeliveryNote(idToken, dnId, reversalDate) {
     const newId = 'DND-' + Utilities.getUuid().split('-')[0].toUpperCase();
 
     const attemptId = Utilities.getUuid();
-    await firebaseDbRequest_('stock/transactions/' + newId, 'put', {
+    const reversal = {
       TransactionType: 'DeliveryNote', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
       TransactionDate: date, Description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description,
       Reference: existing.Reference,
@@ -5278,27 +5258,19 @@ async function reverseDeliveryNote(idToken, dnId, reversalDate) {
       Lines: existing.Lines,
       CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
       ReversalOfDeliveryNoteID: dnId, ReversedByDeliveryNoteID: ''
-    }, idToken);
+    };
 
-    let glResult;
-    try {
-      glResult = await writeStockGlEntry_(idToken, user, 'DeliveryNote', date,
-        'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.Reference,
-        movement.inventoryGlLines.concat(cogsGlLines),
-        { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-        { CommitAttemptID: attemptId, SourceTransactionID: newId });
-    } catch (err) {
-      await firebaseDbRequest_('stock/transactions/' + newId, 'delete', null, idToken);
-      throw err;
-    }
-
-    // Original patched before the new reversal finalizes — same
-    // deliberate ordering as every other module's reversal, preventing
-    // double-reversal even under a failure at the worst possible
-    // moment.
-    await firebaseDbRequest_('stock/transactions/' + dnId, 'patch', { ReversedByDeliveryNoteID: newId }, idToken);
-    await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
-    await finalizeCommitAttempt_(idToken, newId, glResult, { Lines: reversalMovementLines }, actor);
+    // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances, the reversal and the
+    // original's mark in one Firestore batch: all or none (T1b).
+    const glResult = await postStock_(idToken, user, {
+      type: 'DeliveryNote', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: existing.Reference,
+      lines: movement.inventoryGlLines.concat(cogsGlLines),
+      dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }
+    }, movement.ledgerUpdates, (gl, posted) => ({
+      [dnId]: applyStockUpdate_(existing, { ReversedByDeliveryNoteID: newId }),
+      [newId]: applyStockUpdate_(reversal, Object.assign(stockPostedFields_(gl, actor, posted), { Lines: reversalMovementLines }))
+    }));
 
     // Roll back the SO-side effects: give back DeliveredQuantity,
     // re-reserve the shipped amount (the stock physically came back),
@@ -5971,21 +5943,6 @@ async function commitPhysicalCountPosting_(idToken, user, existing, pcId) {
     };
   });
 
-  const attemptId = await beginCommitAttempt_(idToken, pcId, actor);
-
-  let glResult;
-  try {
-    glResult = await writeStockGlEntry_(idToken, user, 'PhysicalCount', existing.TransactionDate, existing.Description, existing.Reference,
-      movement.inventoryGlLines.concat(offsetGlLines),
-      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-      { CommitAttemptID: attemptId, SourceTransactionID: pcId });
-  } catch (err) {
-    await abandonCommitAttempt_(idToken, pcId, existing.Status, actor);
-    throw err;
-  }
-
-  // A GL entry genuinely exists from here on — no more reverting.
-  await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
   // [PORT FIX physical-count-store-movement-fields] keep what each variance line actually posted, so the
   // stock reports (and the count list's total) read a count like any other posting.
   const postedByLineNo = {};
@@ -5994,7 +5951,17 @@ async function commitPhysicalCountPosting_(idToken, user, existing, pcId) {
     const a = postedByLineNo[f.LineNo];
     return a ? Object.assign({}, f, { Direction: a.Direction, Quantity: a.Quantity, UnitCost: a.UnitCost, TotalValue: a.TotalValue }) : f;
   });
-  await finalizeCommitAttempt_(idToken, pcId, glResult, { Lines: storedLines }, actor);
+
+  // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances and the document in one
+  // Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T1b).
+  const glResult = await postStock_(idToken, user, {
+    type: 'PhysicalCount', date: existing.TransactionDate, description: existing.Description, reference: existing.Reference,
+    lines: movement.inventoryGlLines.concat(offsetGlLines),
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: Utilities.getUuid(), SourceTransactionID: pcId }
+  }, movement.ledgerUpdates, (gl, now) => ({
+    [pcId]: applyStockUpdate_(existing, Object.assign(stockPostedFields_(gl, actor, now), { Lines: storedLines }))
+  }));
 
   return { pcNumber: glResult.jvNumber, cleanCount: false };
 }
@@ -6135,7 +6102,7 @@ async function reversePhysicalCount(idToken, pcId, reversalDate) {
     const newId = 'PCD-' + Utilities.getUuid().split('-')[0].toUpperCase();
 
     const attemptId = Utilities.getUuid();
-    await firebaseDbRequest_('stock/transactions/' + newId, 'put', {
+    const reversal = {
       TransactionType: 'PhysicalCount', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
       TransactionDate: date, Description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description,
       Reference: existing.TransactionNumber,
@@ -6144,27 +6111,19 @@ async function reversePhysicalCount(idToken, pcId, reversalDate) {
       Lines: movementLines,
       CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
       ReversalOfCount: pcId, ReversedByCount: ''
-    }, idToken);
+    };
 
-    let glResult;
-    try {
-      glResult = await writeStockGlEntry_(idToken, user, 'PhysicalCount', date,
-        'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description, existing.TransactionNumber,
-        movement.inventoryGlLines.concat(offsetGlLines),
-        { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-        { CommitAttemptID: attemptId, SourceTransactionID: newId });
-    } catch (err) {
-      await firebaseDbRequest_('stock/transactions/' + newId, 'delete', null, idToken);
-      throw err;
-    }
-
-    // A GL entry genuinely exists from here on — no more reverting.
-    await commitStockLedgerUpdates_(idToken, movement.ledgerUpdates);
-
-    // Original patched before the new reversal finalizes — same
-    // deliberate ordering as every other module's reversal.
-    await firebaseDbRequest_('stock/transactions/' + pcId, 'patch', { ReversedByCount: newId }, idToken);
-    await finalizeCommitAttempt_(idToken, newId, glResult, { Lines: movementLines }, actor);
+    // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances, the reversal and the
+    // original's mark in one Firestore batch: all or none (T1b).
+    const glResult = await postStock_(idToken, user, {
+      type: 'PhysicalCount', date: date, description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description, reference: existing.TransactionNumber,
+      lines: movement.inventoryGlLines.concat(offsetGlLines),
+      dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }
+    }, movement.ledgerUpdates, (gl, posted) => ({
+      [pcId]: applyStockUpdate_(existing, { ReversedByCount: newId }),
+      [newId]: applyStockUpdate_(reversal, Object.assign(stockPostedFields_(gl, actor, posted), { Lines: movementLines }))
+    }));
 
     return { success: true, pcId: newId, pcNumber: glResult.jvNumber };
   } catch (err) {

@@ -6,7 +6,7 @@ modules: [PROCUREMENTSETUP]
 sources: [functions/src/grn.js]
 summary: Set the company buying defaults that govern requisitions, orders and receiving.
 reviewed: 2026-10-17
-fingerprint: 835ba5db95881407
+fingerprint: ce2b518aa7fc2bbb
 ---
 ## What it is for
 

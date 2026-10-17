@@ -38,10 +38,10 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
+const { postStock, postedFields } = require('./stockPosting');
 const { requireUser, moduleHasCapability } = require('./auth');
-const { userCanAccessCompany, writeStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
-const { computeStockMovement, commitStockLedgerUpdates } = require('./stockMovement');
-const { beginCommitAttempt, abandonCommitAttempt, finalizeCommitAttempt } = require('./commitAttempt');
+const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
+const { computeStockMovement } = require('./stockMovement');
 const { withGlobalLock } = require('./lock');
 const { assertEntryReversible, getOpenItemsForParty } = require('./partyLedger');
 const Barcodes = require('./itemBarcodes');
@@ -544,23 +544,19 @@ exports.confirmRetailSale = onCallWithMessages(onCallOptions, async (request) =>
       CostValue: round2(s.lines.reduce((t, l) => t + l.TotalValue, 0)),
       Status: 'Draft', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
     });
-    await stockStore.setTx(saleId, record);
-    const attemptId = await beginCommitAttempt(saleId, actor);
-    let glResult;
-    try {
-      glResult = await writeStockGlEntry(user, TYPE, s.header.TransactionDate, label, '', glLines,
-        { CompanyID: companyId, DivisionID: '', BranchID: '', CostCenterID: s.costCenterId, ProfitCenterID: '' },
-        {
-          CommitAttemptID: attemptId, SourceTransactionID: saleId, ReversalOfJV: '',
-          PartyKeys: s.pay.onAccount > 0.005 ? ['Customer:' + s.customerId] : [], AllocatedRefs: [], AllocatedRefTypes: []
-        });
-    } catch (err) {
-      await stockStore.deleteTx(saleId);
-      throw err;
-    }
-    // A GL entry genuinely exists from here on — no more reverting.
-    await commitStockLedgerUpdates(movement.ledgerUpdates);
-    await finalizeCommitAttempt(saleId, glResult, { Lines: s.lines, CostValue: record.CostValue }, actor);
+    // The GL entry, the balances and the sale in one batch: all or none
+    // (stockPosting.js, TRANSACTIONS_FIRESTORE.md T1b); a refused sale
+    // leaves nothing behind.
+    const glResult = await postStock(user, {
+      type: TYPE, date: s.header.TransactionDate, description: label, reference: '', lines: glLines,
+      dimensions: { CompanyID: companyId, DivisionID: '', BranchID: '', CostCenterID: s.costCenterId, ProfitCenterID: '' },
+      extra: {
+        CommitAttemptID: randomUUID(), SourceTransactionID: saleId, ReversalOfJV: '',
+        PartyKeys: s.pay.onAccount > 0.005 ? ['Customer:' + s.customerId] : [], AllocatedRefs: [], AllocatedRefTypes: []
+      }
+    }, movement.ledgerUpdates, (gl, posted) => ({
+      [saleId]: stockStore.applyUpdate(record, Object.assign(postedFields(gl, actor, posted), { Lines: s.lines, CostValue: record.CostValue }))
+    }));
     return { success: true, saleId, saleNumber: glResult.jvNumber, total: s.totals.Total, change: s.pay.change, onAccount: s.pay.onAccount };
   });
 });
@@ -714,25 +710,21 @@ exports.reverseRetailSale = onCallWithMessages(onCallOptions, async (request) =>
     const newId = 'RS-' + randomUUID().split('-')[0].toUpperCase();
     const attemptId = randomUUID();
     const description = 'Reversal of ' + t.TransactionNumber + ' — ' + reason;
-    await stockStore.setTx(newId, Object.assign({}, t, {
+    const reversal = Object.assign({}, t, {
       Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now, TransactionDate: date, Description: description,
       Reference: t.TransactionNumber, Lines: movementLines, ReversalOfSaleID: saleId, ReversedBySaleID: '', ReversalReason: reason,
       TransactionNumber: '', TransactionRef: '', LinkedJVID: '', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
-    }));
-    let glResult;
-    try {
-      glResult = await writeStockGlEntry(user, TYPE, date, description, t.TransactionNumber, glLines,
-        { CompanyID: t.CompanyID, DivisionID: '', BranchID: '', CostCenterID: t.CostCenterID || '', ProfitCenterID: '' },
-        { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfJV: t.LinkedJVID, PartyKeys: glEntry.PartyKeys || [], AllocatedRefs: [], AllocatedRefTypes: [] });
-    } catch (err) {
-      await stockStore.deleteTx(newId);
-      throw err;
-    }
-    // A GL entry genuinely exists from here on — no more reverting.
-    await commitStockLedgerUpdates(movement.ledgerUpdates);
-    await glRef.update({ ReversedByJV: glResult.jvId, UpdatedAt: now, UpdatedBy: actor });
-    await stockStore.updateTx(saleId, { ReversedBySaleID: newId, ReversalReason: reason, UpdatedAt: now, UpdatedBy: actor });
-    await finalizeCommitAttempt(newId, glResult, { Lines: movementLines }, actor);
+    });
+    // The GL entry, the balances, the reversal, the sale and its GL entry's
+    // mark in one batch: all or none (stockPosting.js, T1b).
+    const glResult = await postStock(user, {
+      type: TYPE, date, description, reference: t.TransactionNumber, lines: glLines,
+      dimensions: { CompanyID: t.CompanyID, DivisionID: '', BranchID: '', CostCenterID: t.CostCenterID || '', ProfitCenterID: '' },
+      extra: { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfJV: t.LinkedJVID, PartyKeys: glEntry.PartyKeys || [], AllocatedRefs: [], AllocatedRefTypes: [] }
+    }, movement.ledgerUpdates, (gl, posted) => ({
+      [saleId]: stockStore.applyUpdate(t, { ReversedBySaleID: newId, ReversalReason: reason, UpdatedAt: now, UpdatedBy: actor }),
+      [newId]: stockStore.applyUpdate(reversal, Object.assign(postedFields(gl, actor, posted), { Lines: movementLines }))
+    }), (batch, gl) => batch.update(glRef, { ReversedByJV: gl.jvId, UpdatedAt: now, UpdatedBy: actor }));
     return { success: true, saleId: newId, saleNumber: glResult.jvNumber };
   });
 });
@@ -1026,25 +1018,20 @@ exports.confirmRetailReturn = onCallWithMessages(onCallOptions, async (request) 
       CostValue: round2(b.ret.lines.reduce((t, l) => t + l.TotalValue, 0)),
       Status: 'Draft', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
     });
-    await stockStore.setTx(returnId, record);
-    const attemptId = await beginCommitAttempt(returnId, actor);
     const party = b.split.reduce > 0.005 || b.split.credit > 0.005;
-    let glResult;
-    try {
-      glResult = await writeStockGlEntry(user, RTYPE, b.date, description, sale.TransactionNumber, glLines,
-        { CompanyID: sale.CompanyID, DivisionID: '', BranchID: '', CostCenterID: sale.CostCenterID || '', ProfitCenterID: '' },
-        {
-          CommitAttemptID: attemptId, SourceTransactionID: returnId, ReversalOfJV: '',
-          PartyKeys: party ? ['Customer:' + sale.CustomerID] : [],
-          AllocatedRefs: b.split.reduce > 0.005 ? [b.refId] : [], AllocatedRefTypes: b.split.reduce > 0.005 ? ['NewRef'] : []
-        });
-    } catch (err) {
-      await stockStore.deleteTx(returnId);
-      throw err;
-    }
-    // A GL entry genuinely exists from here on — no more reverting.
-    await commitStockLedgerUpdates(movement.ledgerUpdates);
-    await finalizeCommitAttempt(returnId, glResult, { Lines: b.ret.lines, CostValue: record.CostValue }, actor);
+    // The GL entry, the balances and the return in one batch: all or none
+    // (stockPosting.js, TRANSACTIONS_FIRESTORE.md T1b).
+    const glResult = await postStock(user, {
+      type: RTYPE, date: b.date, description, reference: sale.TransactionNumber, lines: glLines,
+      dimensions: { CompanyID: sale.CompanyID, DivisionID: '', BranchID: '', CostCenterID: sale.CostCenterID || '', ProfitCenterID: '' },
+      extra: {
+        CommitAttemptID: randomUUID(), SourceTransactionID: returnId, ReversalOfJV: '',
+        PartyKeys: party ? ['Customer:' + sale.CustomerID] : [],
+        AllocatedRefs: b.split.reduce > 0.005 ? [b.refId] : [], AllocatedRefTypes: b.split.reduce > 0.005 ? ['NewRef'] : []
+      }
+    }, movement.ledgerUpdates, (gl, posted) => ({
+      [returnId]: stockStore.applyUpdate(record, Object.assign(postedFields(gl, actor, posted), { Lines: b.ret.lines, CostValue: record.CostValue }))
+    }));
     return Object.assign({ success: true, returnId, returnNumber: glResult.jvNumber }, summary(b));
   });
 });
@@ -1091,25 +1078,21 @@ exports.reverseRetailReturn = onCallWithMessages(onCallOptions, async (request) 
     const newId = 'RR-' + randomUUID().split('-')[0].toUpperCase();
     const attemptId = randomUUID();
     const description = 'Reversal of ' + t.TransactionNumber + ' — ' + reason;
-    await stockStore.setTx(newId, Object.assign({}, t, {
+    const reversal = Object.assign({}, t, {
       Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now, TransactionDate: date, Description: description,
       Reference: t.TransactionNumber, Lines: movementLines, ReversalOfReturnID: returnId, ReversedByReturnID: '', ReversalReason: reason,
       TransactionNumber: '', TransactionRef: '', LinkedJVID: '', CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
-    }));
-    let glResult;
-    try {
-      glResult = await writeStockGlEntry(user, RTYPE, date, description, t.TransactionNumber, glLines,
-        { CompanyID: t.CompanyID, DivisionID: '', BranchID: '', CostCenterID: t.CostCenterID || '', ProfitCenterID: '' },
-        { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfJV: t.LinkedJVID, PartyKeys: glEntry.PartyKeys || [], AllocatedRefs: [], AllocatedRefTypes: [] });
-    } catch (err) {
-      await stockStore.deleteTx(newId);
-      throw err;
-    }
-    // A GL entry genuinely exists from here on — no more reverting.
-    await commitStockLedgerUpdates(movement.ledgerUpdates);
-    await glRef.update({ ReversedByJV: glResult.jvId, UpdatedAt: now, UpdatedBy: actor });
-    await stockStore.updateTx(returnId, { ReversedByReturnID: newId, ReversalReason: reason, UpdatedAt: now, UpdatedBy: actor });
-    await finalizeCommitAttempt(newId, glResult, { Lines: movementLines }, actor);
+    });
+    // The GL entry, the balances, the reversal, the return and its GL entry's
+    // mark in one batch: all or none (stockPosting.js, T1b).
+    const glResult = await postStock(user, {
+      type: RTYPE, date, description, reference: t.TransactionNumber, lines: glLines,
+      dimensions: { CompanyID: t.CompanyID, DivisionID: '', BranchID: '', CostCenterID: t.CostCenterID || '', ProfitCenterID: '' },
+      extra: { CommitAttemptID: attemptId, SourceTransactionID: newId, ReversalOfJV: t.LinkedJVID, PartyKeys: glEntry.PartyKeys || [], AllocatedRefs: [], AllocatedRefTypes: [] }
+    }, movement.ledgerUpdates, (gl, posted) => ({
+      [returnId]: stockStore.applyUpdate(t, { ReversedByReturnID: newId, ReversalReason: reason, UpdatedAt: now, UpdatedBy: actor }),
+      [newId]: stockStore.applyUpdate(reversal, Object.assign(postedFields(gl, actor, posted), { Lines: movementLines }))
+    }), (batch, gl) => batch.update(glRef, { ReversedByJV: gl.jvId, UpdatedAt: now, UpdatedBy: actor }));
     return { success: true, returnId: newId, returnNumber: glResult.jvNumber };
   });
 });

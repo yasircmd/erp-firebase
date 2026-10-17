@@ -347,3 +347,86 @@ writes them:
 - **The RTDB `.indexOn` Status on stock/transactions** stays until a later
   rules change. It is harmless, and removing it first would break the
   functions still running during the deploy.
+
+## As built: phase T1b (2026-10-17), a stock posting is all or none
+
+**What changed.** A stock posting was three separate writes under the
+global lock: the GL entry, the running balances and the document's status
+('Committing', then 'Posted'; commitAttempt.js). Now
+**functions/src/stockPosting.js** `postStock(user, gl, ledgerUpdates,
+documents, also)` writes them as **one Firestore batch**:
+- the GL entry;
+- every balance the posting moves;
+- every document it changes: the posted one, or a reversal together with
+  its original's mark;
+- any other Firestore write of the posting (`also`): a reversal's mark on
+  its original GL entry.
+
+So all of them land, or none:
+- a document goes from Draft (Rejected, PendingApproval) straight to
+  Posted, and is never left 'Committing';
+- a refused posting leaves no GL entry, no moved balance and no
+  half-made reversal.
+
+**Before the batch:** `buildStockGlEntry` validates the entry, checks the
+period lock and takes the voucher number, so a refused posting moves
+nothing. A voucher number taken by a posting refused at commit is skipped,
+as before. Warehouse Movement has no GL entry: it is numbered
+(`assignStockVoucherNumbering`, the same check) and then `postStock(user,
+null, …)`.
+
+**After the batch:** each posting's side effects in RTDB run as before:
+- PO received quantities (GRN);
+- Sales Order delivered quantities, reservations and their status
+  (Delivery Note);
+- shortfall allocation (Adjustment, Warehouse Movement, opening stock);
+- Job Order progress (Production);
+- the e-invoice (Sales Return).
+
+They move into the batch with their own documents (T2, T3).
+
+**Where.**
+- **Hand-written:**
+  - GRN, Material Issue, Stock Adjustment, Warehouse Movement, Purchase
+    Return, Sales Return: post and reverse;
+  - retail sale and retail return: post and reverse;
+  - opening stock: post and reverse.
+- **Ported:** Delivery Note, Physical Count, Production (post and
+  reverse), through patches `stock-posting-atomic-*` in
+  tools/legacy-port/patches.js. The generator maps `postStock_`,
+  `stockPostedFields_` and `applyStockUpdate_`. Physical Count's
+  `physical-count-store-movement-fields` lines run before the batch (the
+  posted lines need them); the Delivery Note's Sales Order effects run
+  after it.
+- **Unchanged:** commitAttempt.js stays for the documents still in RTDB
+  (Vendor and Customer Invoices, PDCs) until their phases.
+
+**A limit:** a Firestore batch takes 500 writes, so a posting that would
+move more than about 495 balances at once is refused, before anything is
+written. Today there is no such limit; no real document comes near it.
+
+**What is unchanged:** the posted documents' fields. `postedFields()`
+writes what `finalizeCommitAttempt` wrote, the GL entry's fields, the
+numbering and the lock.
+
+**Tests.**
+- **New functions/test/emulator/stockPosting.emulator.test.js:**
+  - a posting writes its GL entry, balances and document together;
+  - a batch the database refuses at commit (marking an original GL entry
+    that no longer exists) leaves no GL entry, no balance and no document;
+  - a posting too large for one batch is refused before anything is
+    written.
+- **unit/periodLockGuard:**
+  - `stockPosting.js` is a covered journal writer, and stock posters are
+    found by `postStock(` too;
+  - `postStock` builds the checked entry before it commits;
+  - a posting without a GL entry is numbered before `postStock`.
+- **Negative controls, verified then restored:**
+  - the GL entry written before the batch, as before T1b: the refused
+    posting leaves its GL entry (test 2 fails);
+  - Warehouse Movement numbered after postStock: the guard fails.
+- **Regression:** the 25 stock-related suites pass on T1b, the ported
+  modules after regeneration included.
+
+**Going live:** deploy set `transactions-t1b`, all functions, no screens;
+don't post stock during the deploy.
