@@ -1,0 +1,20 @@
+# Phase T1c of docs/modules/TRANSACTIONS_FIRESTORE.md (owner, 2026-10-17):
+# the ported modules ask for the stock transactions they need
+# (stockStore.queryTx through patches stock-queries-*) instead of
+# downloading every one. Only the ported functions whose code reaches those
+# reads change: these 14. No screens, no rules, no indexes, no Hosting; no
+# data moves, so the app can be used while it deploys.
+decideProductionApproval
+getDeliveryNoteEntries
+getEligibleDeliveryNotesForInvoice
+getEligibleGRNsForInvoice
+getJobOrderBatches
+getJobOrderLinesFlat
+getMaterialVarianceReport
+getPhysicalCountEntries
+getProductionConsumptionReport
+getProductionEntries
+getStockLedgerReport
+postProduction
+recalculateStockLedger
+reverseProduction

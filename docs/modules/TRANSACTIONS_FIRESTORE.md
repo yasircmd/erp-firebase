@@ -430,3 +430,41 @@ numbering and the lock.
 
 **Going live:** deploy set `transactions-t1b`, all functions, no screens;
 don't post stock during the deploy.
+
+## As built: phase T1c (2026-10-17), the ported modules ask for what they need
+
+T1a left the ported modules reading every stock transaction, as planned (§5).
+Ten of them now ask stockStore for what they show, through patches
+`stock-queries-*` (the generator maps `queryStockTx_` to `stockStore.queryTx`).
+Each query is an equality query only, so no index is needed:
+
+| Ported function | Now reads |
+|---|---|
+| getProductionEntries, getDeliveryNoteEntries, getPhysicalCountEntries (the lists) | that type |
+| getEligibleGRNsForInvoice (Vendor Invoice) | the posted GRNs of the company and vendor |
+| getEligibleDeliveryNotesForInvoice (Customer Invoice) | the posted Delivery Notes of the company and customer |
+| getStockLedgerReport | the documents with that item |
+| getMaterialVarianceReport, getProductionConsumptionReport | the company's posted ones |
+| computeJobOrderLineProducedQty_ (Job Order progress) | the posted Production entries |
+| recalculateStockLedger (Data Reset's rebuild) | the posted ones |
+
+Each function still applies its own filters, unchanged, so what it returns
+is the same. The query only stops it downloading what it would have thrown
+away.
+
+**Still reading everything, on purpose:**
+- Stock Valuation and Stock Availability read the whole running-balance
+  ledger, one small entry per item and warehouse, which they show in full;
+- the chart-of-accounts usage check searches every document;
+- Data Reset counts and clears every one.
+
+**functions/test/unit/stockReads.test.js** fails if a hand-written reader
+calls `stockStore.allTx()` or reads the stock paths whole, or a ported
+function reads every stock transaction. The ones allowed are listed with
+their reason.
+- **Negative controls, verified then restored:** a whole read put back
+  into getProductionEntries, and `stockStore.allTx()` added to grn.js:
+  both reported.
+
+**Going live:** deploy set `transactions-t1c`, 14 functions. No data
+moves, so the app can be used during the deploy.
