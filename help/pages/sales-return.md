@@ -6,7 +6,7 @@ modules: [SALESRETURN]
 sources: [functions/src/salesReturn.js, functions/src/partyLedger.js, functions/src/eInvoicing.js]
 summary: Record returns from customers, reverse the sale and create the credit note to the customer.
 reviewed: 2026-10-17
-fingerprint: e06bf81ef8baaa2c
+fingerprint: b9d09c0d406fd6c8
 ---
 ## What it is for
 

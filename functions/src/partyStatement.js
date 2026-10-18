@@ -13,6 +13,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { PARTY_TYPES, addDays, queryEntries, getOpenItemsForParty } = require('./partyLedger');
@@ -45,7 +46,8 @@ async function partyMovements(partyType, partyId, companyId) {
   const other = grows === 'Dr' ? 'Cr' : 'Dr';
   const rows = [];
 
-  const invoices = (await rtdb.ref(cfg.invoicePath).get()).val() || {};
+  // The party's invoices in this company (Customer Invoices are a Firestore query, movedPaths.js).
+  const invoices = await movedPaths.where(cfg.invoicePath, { [cfg.invoicePartyField]: partyId, CompanyID: companyId });
   Object.keys(invoices).forEach(id => {
     const inv = invoices[id];
     if (inv[cfg.invoicePartyField] !== partyId || inv.CompanyID !== companyId) return;

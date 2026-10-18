@@ -471,3 +471,128 @@ their reason.
 
 **Going live:** deploy set `transactions-t1c`, 14 functions. No data
 moves, so the app can be used during the deploy.
+
+## As built: phase T2 (2026-10-17), Sales Orders, Customer Invoices and reservations
+
+One PR, the three steps of T1 together: the storage, the readers' queries
+and the atomic postings.
+
+**Where they are.** Same ids, same fields, the same shape RTDB gave:
+- `salesOrders/{id}`: what was RTDB `salesOrders/{id}`; query fields under
+  `_q`: the lines' items (`ItemCode`), the period.
+- `customerInvoices/{id}`: what was `customerInvoices/{id}`; `_q`: the
+  Delivery Notes it invoices (`DeliveryNoteID`), the Sales Orders its item
+  lines deliver (`SalesOrderID`), the period.
+- `stockReservations/{id}`: what was `stock/reservations/{id}`.
+
+**The store, shared.** T1's shape-keeping logic moved out of stockStore.js
+into **functions/src/docStore.js**: `normalize` / `toStore` / `fromStore`,
+and `makeStore({ name, path, collection, fields, derived })`, which gives
+a moved collection its get / getMany / all / set / update / remove /
+equality `query` and the RTDB-path adapter. stockStore.js is now that
+store for the stock transactions, plus the ledger; its exports are
+unchanged (stockStore.emulator.test.js passes as before).
+- **functions/src/salesStore.js** declares the three new stores.
+- **functions/src/movedPaths.js** is the one list of moved RTDB paths
+  (T1's and T2's). legacy/runtime.js `firebaseDbRequest_`, the test
+  helpers, the approval registry readers, attachments, the home page,
+  commitAttempt and the chart-of-accounts checks ask it where a path
+  lives. `where(path, filters)` queries a moved collection and filters an
+  RTDB one in memory, so a reader written for both (vendor and customer
+  invoices) needs no change when vendor invoices move (T3).
+- **An empty id is no document** (`get('')` is null). RTDB read the whole
+  collection there, which the callers then found had no Status; the Sales
+  Order of an invoice line without one is read that way.
+
+**Readers that ask for what they need.**
+
+| Reader | Now reads |
+|---|---|
+| Reservations of an order, an item and warehouse, a Production entry | those (equality queries) |
+| Shortfall allocation, Job Order demand picker | the company's reserving orders |
+| Delivery Note: orders to deliver; Customer Invoice: order lines to invoice | the customer's reserving orders |
+| Production allocation to linked orders | those orders, by id |
+| Delivery Note list: its invoice state | the listed deliveries' invoices by id, and the unposted invoices |
+| Stock Availability; the Reorder report | the active reservations; the company's active ones |
+| Sales Return: invoices to return against | the customer's invoices |
+| Party ledger, statement, aging; party currency check | the party's invoices; aging: the posted ones |
+| Period Closing: unfinished documents | the company's invoices |
+| Sales rep portal: my orders | the rep's own |
+| Home page drafts | the drafts (a query, no longer the RTDB Status index) |
+
+Ported, through patches `sales-queries-*` (the generator maps
+`queryMovedAny_`, `getMovedMany_`, `sortedDocs_`): getEligibleSOsForDelivery,
+getDeliveryNoteEntries, getActiveReservationsForItem_,
+getSalesOrderLinesWithShortfall_, allocateProducedQuantityToLinkedSalesOrders_,
+rollbackJobOrderLineAfterReversal_, getStockAvailabilityList. Each still
+applies its own filters, so what it returns is the same; merged queries
+come back in id order, as the whole read had them.
+
+**Still reading everything, on purpose:** the Sales Order and Customer
+Invoice lists (every document of the user's companies, newest first: the
+company filter is a list of companies, not one value), the
+chart-of-accounts usage check and renumbering, Data Reset.
+functions/test/unit/salesReads.test.js fails on any other whole read.
+
+**One posting, all or none** (decision 238, as for stock):
+- **Delivery Note, post and reverse.** `salesPosting.planDelivery` works
+  out, before anything is written, every Sales Order and reservation the
+  posting changes, exactly as the step-by-step code did: each line's
+  delivered quantity; its reservations used up oldest first (post) or the
+  quantity reserved again on an order still reserving (reverse); each
+  order's status refreshed. `planWriter(plan)` adds them to the posting's
+  own batch (`postStock`'s `also`). Patches `sales-posting-atomic-*`.
+- **Customer Invoice, post and reverse.** The GL entry, the posted invoice
+  (or the posted reversal and the original's link) and each matched
+  Delivery Note's mark (or unmark) are one batch, instead of three to five
+  writes with a commit-attempt marker. commitAttempt.js is no longer used
+  for them.
+- **What changes:** a failure in an order or reservation step (a
+  reservation that can't be reduced, a missing item on a reversal) now
+  refuses the whole posting, where before it left a posted delivery with
+  its order half updated. Nothing else: the same fields, numbers and
+  checks.
+- **Still two postings:** an invoice with item lines first posts its own
+  Delivery Note, then itself (DIRECT_SALES_INVOICE.md); a failure between
+  them leaves the delivery posted and the invoice a draft that already
+  carries it, so posting the invoice again finishes it. Its reversal
+  reverses that delivery after the invoice, as before. Shortfall
+  allocation after a stock increase (Adjustment, Warehouse Movement,
+  opening stock) and Production's Job Order effects still run after their
+  posting: the Job Orders move in T4.
+
+**Also fixed: renumbering an account rewrites the moved documents.**
+coaRenumber.js rewrote every stored copy of a renumbered code by reading
+RTDB; since T1a the stock transactions were in Firestore, so their copies
+were left with the old code. It now reads and writes each moved collection
+where it is (movedPaths.js). Found while moving the sales collections.
+
+**Tests.**
+- **New salesStore.emulator.test.js:** the three collections against RTDB
+  itself through every kind of write (differential, as stockStore's); which
+  paths moved; each store's queries and derived lists; merged queries in id
+  order.
+- **New salesPosting.emulator.test.js:** a delivery uses its reservations
+  up oldest first, counts the order delivered and refreshes its status; a
+  reversal gives it back and reserves again only on an order still
+  reserving; a refused batch leaves no order, reservation, invoice, mark or
+  GL entry, and the same posting then lands whole; the same for an invoice
+  and its reversal.
+- **deliveryNote.emulator.test.js:** a Partially Reserved order is offered
+  for delivery, a draft is not (no test covered this; the negative control
+  below found the gap).
+- **unit/salesReads.test.js**, as stockReads for T1.
+- **Negative controls, verified then restored:** reservations used up
+  newest first (2 fail); the invoice written outside the batch (1);
+  a wrong derived query field (1); the plan not written (1); the
+  delivery's eligible orders without Partially Reserved (1, after the new
+  test); a whole read added to fx.js (reported).
+- **Regression:** every emulator suite passes (121 files, 593 tests); UI
+  checks: the known failures only (help, home, trialBalance row heights,
+  searchPicker's JV order).
+
+**Going live:** deploy set `transactions-t2`, **all functions**, no screens,
+rules or indexes. Don't use the app during the deploy. Sales Orders,
+Customer Invoices and reservations entered in RTDB before it are not seen
+afterwards (as agreed for test data, 239). The RTDB `.indexOn` on
+salesOrders and customerInvoices stays until no live function queries it.

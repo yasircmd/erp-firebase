@@ -23,6 +23,7 @@ const { userCanAccessCompany } = require('./glWriting');
 const { withGlobalLock } = require('./lock');
 const scheme = require('./coaScheme');
 const { RTDB_STORES, FIRESTORE_STORES } = require('./coaUsage');
+const movedPaths = require('./movedPaths');
 
 const onCallOptions = { region: 'us-central1' };
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 150);
@@ -87,14 +88,18 @@ async function rewriteCopies(from, to) {
     if (inBatch) await batch.commit();
   }
   for (const [path, what] of RTDB_STORES) {
-    const data = (await rtdb.ref(path).get()).val() || {};
+    // The moved documents are in Firestore (movedPaths.js), by the same path
+    // name; their changed fields are written there.
+    const moved = movedPaths.storeOf(path);
+    const data = (moved ? await moved.all() : (await rtdb.ref(path).get()).val()) || {};
     const updates = {};
-    Object.keys(data).forEach(id => {
+    for (const id of Object.keys(data)) {
       const { fields, n } = changedFields(data[id], from, to);
-      if (!n) return;
-      Object.keys(fields).forEach(k => { updates[id + '/' + k] = fields[k]; });
+      if (!n) continue;
+      if (moved) await moved.update(id, fields);
+      else Object.keys(fields).forEach(k => { updates[id + '/' + k] = fields[k]; });
       counts[what] = (counts[what] || 0) + 1;
-    });
+    }
     if (Object.keys(updates).length) await rtdb.ref(path).update(updates);
   }
   return counts;

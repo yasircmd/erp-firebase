@@ -121,7 +121,17 @@ const MAPPED = {
   postStock_: ['stockPosting', 'postStock', 'dropCtx'],
   stockPostedFields_: ['stockPosting', 'postedFields', 'pure'],
   applyStockUpdate_: ['stockStore', 'applyUpdate', 'pure'],
-  queryStockTx_: ['stockStore', 'queryTx', 'dropCtx'] // T1c (called only from patches stock-queries-*)
+  queryStockTx_: ['stockStore', 'queryTx', 'dropCtx'], // T1c (called only from patches stock-queries-*)
+  // T2 (called only from patches sales-posting-atomic-* and sales-queries-*)
+  planDelivery_: ['salesPosting', 'planDelivery', 'actor'],
+  salesPlanWriter_: ['salesPosting', 'planWriter', 'pure'],
+  invoicePostedWriter_: ['salesPosting', 'invoicePostedWriter', 'pure'],
+  invoiceReversalWriter_: ['salesPosting', 'invoiceReversalWriter', 'pure'],
+  markStockTxs_: ['salesPosting', 'markDocs', 'pure'],
+  getStockTxs_: ['stockStore', 'getTxs', 'dropCtx'],
+  queryMovedAny_: ['movedPaths', 'whereAny', 'dropCtx'],
+  getMovedMany_: ['movedPaths', 'getMany', 'dropCtx'],
+  sortedDocs_: ['docStore', 'sorted', 'pure']
 };
 // Constants taken from the already-extracted shared modules (verbatim copies there).
 const IMPORTED_CONSTS = {
@@ -141,6 +151,7 @@ const SHARED_PATHS = {
   coaUsage: '../coaUsage',
   stockPosting: '../stockPosting',
   stockStore: '../stockStore',
+  salesPosting: '../salesPosting', movedPaths: '../movedPaths', docStore: '../docStore', // T2
   lineClubbing: '../lineClubbing',
   numbering: '../numbering',
   periodLock: '../periodLock',

@@ -17,7 +17,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
-const stockStore = require('./stockStore');
+const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const E = require('./eInvoiceDocument');
@@ -26,8 +26,8 @@ const onCallOptions = { region: 'us-central1' };
 const SETTINGS = 'eInvoiceSettings';
 const DOCS = 'eInvoices';
 const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 120);
-// Stock transactions (a credit note's Sales Return) are in Firestore, by the same path name (stockStore.js).
-const val = async p => (stockStore.isStockPath(p) ? stockStore.rtdbStyle(p, 'get') : (await rtdb.ref(p).get()).val());
+// The moved documents (a credit note's Sales Return, the invoice) are in Firestore, by the same path name (movedPaths.js).
+const val = movedPaths.val;
 const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '');
 const addDays = (d, n) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + (Number(n) || 0)); return t.toISOString().slice(0, 10); };
 const KINDS = { Invoice: { module: 'CUSTOMERINVOICE' }, CreditNote: { module: 'SALESRETURN' } };

@@ -15,14 +15,14 @@ const assert = require('assert/strict');
 const { chromium } = require('playwright');
 const { onAppDialog } = require('./_appDialogs');
 const admin = require('firebase-admin');
-// Stock transactions and balances are in Firestore (src/stockStore.js),
+// The moved transaction documents are in Firestore (src/movedPaths.js),
 // read here by their RTDB paths. Loaded before this file's own app:
 // firebaseAdmin.js makes the default app only when none exists yet.
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'erp1-8f4cd';
-const stockStore = require('../../src/stockStore');
+const movedPaths = require('../../src/movedPaths');
 const app = admin.initializeApp({ projectId: 'erp1-8f4cd', databaseURL: 'https://erp1-8f4cd-default-rtdb.firebaseio.com' }, 'ui');
 const rtdb = app.database();
-const val = async p => (stockStore.isStockPath(p) ? stockStore.rtdbStyle(p, 'get') : (await rtdb.ref(p).get()).val());
+const val = async p => (movedPaths.isMoved(p) ? movedPaths.request(p, 'get') : (await rtdb.ref(p).get()).val());
 
 const today = new Date().toISOString().substring(0, 10);
 function tokenFor(uid) {

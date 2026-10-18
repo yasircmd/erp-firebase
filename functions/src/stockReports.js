@@ -158,7 +158,7 @@ exports.getBatchExpiryReport = onCallWithMessages(onCallOptions, async (request)
 
 async function reorder(companyId, warehouseId, category, onlyBelow) {
   const [ledgerSnap, resSnap, poSnap, txSnap, m] = await Promise.all([
-    stockStore.allLedger(warehouseId ? { WarehouseID: warehouseId } : undefined).then(v => ({ val: () => v })), rtdb.ref('stock/reservations').get(), rtdb.ref('purchaseOrders').get(),
+    stockStore.allLedger(warehouseId ? { WarehouseID: warehouseId } : undefined).then(v => ({ val: () => v })), require('./salesStore').reservations.query({ CompanyID: companyId, Status: 'Active' }).then(v => ({ val: () => v })), rtdb.ref('purchaseOrders').get(),
     stockStore.queryTx({ CompanyID: companyId, Status: 'Posted' }).then(v => ({ val: () => v })), masters(companyId)
   ]);
   const ledger = ledgerSnap.val() || {}, reservations = resSnap.val() || {}, pos = poSnap.val() || {};

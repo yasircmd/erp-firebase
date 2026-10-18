@@ -4,8 +4,8 @@ area: finance
 order: 6
 summary: How payments, receipts and adjustments are tied to a vendor or customer and matched to their invoices.
 sources: [functions/src/partyLedger.js]
-reviewed: 2026-10-16
-fingerprint: 742976c22764dc26
+reviewed: 2026-10-17
+fingerprint: 94bbd5cc57588254
 ---
 ## Why it matters
 

@@ -2457,5 +2457,312 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
 `,
     replace: `  const productions = queryStockTx_(idToken, { TransactionType: 'Production', Status: 'Posted' }) || {}; // [NEW DEVELOPMENT stock-queries] the posted Production entries, not every stock transaction (T1c)
 `
+  },
+  {
+    id: 'sales-posting-atomic-delivery-note-plan',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): ' +
+      'a Delivery Note\'s effects on its Sales Orders (delivered quantities, status) and reservations are worked out before the posting ' +
+      'and written in its Firestore batch (salesPosting.planDelivery / writePlan), all or none, instead of one write at a time after it.',
+    find: `  const actor = user.profile.username || user.uid;
+  // Everything above is pure validation and read-only computation —
+  // see beginCommitAttempt_'s own section comment for the full
+  // reasoning behind what follows.
+  // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances and the document in one
+  // Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T1b).
+`,
+    replace: `  const actor = user.profile.username || user.uid;
+  // Everything above is pure validation and read-only computation —
+  // see beginCommitAttempt_'s own section comment for the full
+  // reasoning behind what follows.
+  // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances and the document in one
+  // Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T1b).
+  // [NEW DEVELOPMENT sales-posting-atomic] Its Sales Orders' delivered quantities, the reservations it
+  // uses up and the orders' status, worked out first, go in the same batch (T2).
+  const salesPlan = planDelivery_(idToken, existing.Lines, 'post', existing.CompanyID);
+`
+  },
+  {
+    id: 'sales-posting-atomic-delivery-note',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): ' +
+      'a Delivery Note\'s effects on its Sales Orders (delivered quantities, status) and reservations are worked out before the posting ' +
+      'and written in its Firestore batch (salesPosting.planDelivery / writePlan), all or none, instead of one write at a time after it.',
+    find: `  }, movement.ledgerUpdates, (gl, now) => ({
+    [dnId]: applyStockUpdate_(existing, Object.assign(stockPostedFields_(gl, actor, now), { Lines: movementLines }))
+  }));
+  existing.Lines.forEach(l => {
+    updateSOLineDeliveredQuantity_(idToken, l.SourceSOID, l.SourceSOLineID, l.Quantity);
+    consumeReservationForDelivery_(idToken, l.SourceSOID, l.SourceSOLineID, l.Quantity);
+  });
+  // Distinct SO ids only — a multi-line delivery from the same SO
+  // should only refresh its header status once.
+  const distinctSOIds = Array.from(new Set(existing.Lines.map(l => l.SourceSOID))).filter(Boolean); // [PORT CHANGE invoice-item-lines-post]
+  distinctSOIds.forEach(soId => refreshSalesOrderReservationStatus_(idToken, soId));
+`,
+    replace: `  }, movement.ledgerUpdates, (gl, now) => ({
+    [dnId]: applyStockUpdate_(existing, Object.assign(stockPostedFields_(gl, actor, now), { Lines: movementLines }))
+  }), salesPlanWriter_(salesPlan));
+`
+  },
+  {
+    id: 'sales-posting-atomic-reverse-dn-plan',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): ' +
+      'a Delivery Note reversal\'s roll-back of its Sales Orders and the re-reserved stock are worked out before the posting ' +
+      'and written in its Firestore batch (salesPosting.planDelivery / writePlan), all or none, instead of one write at a time after it.',
+    find: `    // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances, the reversal and the
+    // original's mark in one Firestore batch: all or none (T1b).
+    const glResult = postStock_(idToken, user, {
+      type: 'DeliveryNote', date: date,`,
+    replace: `    // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances, the reversal and the
+    // original's mark in one Firestore batch: all or none (T1b).
+    // [NEW DEVELOPMENT sales-posting-atomic] Rolling back the SO-side effects goes in the same batch, worked
+    // out first (T2): give back DeliveredQuantity, re-reserve the shipped amount (the stock physically
+    // came back) on an order still reserving ([PORT FIX delivery-note-reversal-no-reserve-on-cancelled-so]),
+    // refresh the header status.
+    const salesPlan = planDelivery_(idToken, existing.Lines, 'reverse', existing.CompanyID);
+    const glResult = postStock_(idToken, user, {
+      type: 'DeliveryNote', date: date,`
+  },
+  {
+    id: 'sales-posting-atomic-reverse-dn',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): ' +
+      'a Delivery Note reversal\'s roll-back of its Sales Orders and the re-reserved stock are worked out before the posting ' +
+      'and written in its Firestore batch (salesPosting.planDelivery / writePlan), all or none, instead of one write at a time after it.',
+    find: `    }, movement.ledgerUpdates, (gl, posted) => ({
+      [dnId]: applyStockUpdate_(existing, { ReversedByDeliveryNoteID: newId }),
+      [newId]: applyStockUpdate_(reversal, Object.assign(stockPostedFields_(gl, actor, posted), { Lines: reversalMovementLines }))
+    }));
+
+    // Roll back the SO-side effects: give back DeliveredQuantity,
+    // re-reserve the shipped amount (the stock physically came back),
+    // refresh the header status.
+    existing.Lines.forEach(l => {
+      rollbackSOLineDeliveredQuantity_(idToken, l.SourceSOID, l.SourceSOLineID, l.Quantity);
+      const so = firebaseDbRequest_('salesOrders/' + l.SourceSOID, 'get', null, idToken);
+      // [PORT FIX delivery-note-reversal-no-reserve-on-cancelled-so] a Cancelled SO's reservation could never be released.
+      if (so && (so.Status === 'Reserved' || so.Status === 'Partially Reserved')) {
+        createStockReservation_(idToken, {
+          ItemID: l.ItemID, ItemCode: l.ItemCode, WarehouseID: l.WarehouseID, CompanyID: existing.CompanyID,
+          Quantity: l.Quantity, SourceType: 'SalesOrder', SourceID: l.SourceSOID, SourceLineID: l.SourceSOLineID,
+          SourceLabel: so.SONumber, Reason: 'Restored by Delivery Note reversal'
+        });
+      }
+    });
+    Array.from(new Set(existing.Lines.map(l => l.SourceSOID))).forEach(soId => refreshSalesOrderReservationStatus_(idToken, soId));
+`,
+    replace: `    }, movement.ledgerUpdates, (gl, posted) => ({
+      [dnId]: applyStockUpdate_(existing, { ReversedByDeliveryNoteID: newId }),
+      [newId]: applyStockUpdate_(reversal, Object.assign(stockPostedFields_(gl, actor, posted), { Lines: reversalMovementLines }))
+    }), salesPlanWriter_(salesPlan));
+`
+  },
+  {
+    id: 'sales-posting-atomic-customer-invoice',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): ' +
+      'a Customer Invoice\'s GL entry, the posted invoice and its Delivery Notes\' marks are one Firestore batch (stockPosting.postStock), ' +
+      'all or none, instead of three writes with a commit-attempt marker between them.',
+    find: `  const actor = user.profile.username || user.uid;
+  const attemptId = beginCommitAttempt_(idToken, invoiceId, actor, 'customerInvoices');
+
+  let glResult;
+  try {
+    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', existing.InvoiceDate, existing.Description, '',
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      { CommitAttemptID: attemptId, SourceTransactionID: invoiceId });
+  } catch (err) {
+    abandonCommitAttempt_(idToken, invoiceId, existing.Status, actor, 'customerInvoices');
+    throw err;
+  }
+
+  // A GL entry genuinely exists from here on — no more reverting.
+  // Marks each matched Delivery Note so it drops out of every future
+  // invoice picker.
+  (existing.SourceDeliveryNotes || []).forEach(dn => {
+    firebaseDbRequest_('stock/transactions/' + dn.DeliveryNoteID, 'patch', { MatchedToInvoiceID: invoiceId }, idToken);
+  });
+
+  finalizeCommitAttempt_(idToken, invoiceId, glResult, {}, actor, 'customerInvoices');
+`,
+    replace: `  const actor = user.profile.username || user.uid;
+  // [NEW DEVELOPMENT sales-posting-atomic] The GL entry, the posted invoice and the mark on each matched
+  // Delivery Note (so it drops out of every future invoice picker) in one Firestore batch: all or none
+  // (docs/modules/TRANSACTIONS_FIRESTORE.md, T2), instead of three writes with a commit-attempt marker.
+  const dnIds = (existing.SourceDeliveryNotes || []).map(dn => dn.DeliveryNoteID);
+  const matchedDns = getStockTxs_(idToken, dnIds);
+  const glResult = postStock_(idToken, user, {
+    type: 'CustomerInvoice', date: existing.InvoiceDate, description: existing.Description, reference: '',
+    lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: Utilities.getUuid(), SourceTransactionID: invoiceId }
+  }, {}, () => markStockTxs_(matchedDns, dnIds, { MatchedToInvoiceID: invoiceId }), invoicePostedWriter_(invoiceId, actor));
+`
+  },
+  {
+    id: 'sales-posting-atomic-reverse-customer-invoice',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): ' +
+      'a Customer Invoice reversal\'s GL entry, the posted reversal, the original\'s link and its Delivery Notes unmatched are one Firestore ' +
+      'batch (stockPosting.postStock), all or none, instead of separate writes with a commit-attempt marker.',
+    find: `  const newId = 'CINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+
+  const attemptId = Utilities.getUuid();
+  firebaseDbRequest_('customerInvoices/' + newId, 'put', {
+    TransactionType: 'CustomerInvoice', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
+    InvoiceDate: date, Description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description,
+    CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
+    CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID, CustomerID: existing.CustomerID,
+    SourceDeliveryNotes: existing.SourceDeliveryNotes || [], DirectLines: existing.DirectLines || [],
+    CurrencyCode: existing.CurrencyCode || '', ExchangeRate: existing.ExchangeRate || 1, TotalBase: existing.TotalBase != null ? existing.TotalBase : existing.Total, // [NEW DEVELOPMENT invoice-currency]
+    Discount: existing.Discount, TaxPercent: existing.TaxPercent, TaxAmount: existing.TaxAmount, RoundOff: existing.RoundOff,
+    Subtotal: existing.Subtotal, Total: existing.Total,
+    CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
+    ReversalOfInvoiceID: invoiceId, ReversedByInvoiceID: ''
+  }, idToken);
+
+  let glResult;
+  try {
+    glResult = writeStockGlEntry_(idToken, user, 'CustomerInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, '',
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      { CommitAttemptID: attemptId, SourceTransactionID: newId });
+  } catch (err) {
+    firebaseDbRequest_('customerInvoices/' + newId, 'delete', null, idToken);
+    throw err;
+  }
+
+  // Status reset back to Posted here too — when a reversal gate is
+  // configured, requestReverseCustomerInvoice already moved the
+  // original to PendingReversalApproval, and nothing else ever moved
+  // it back; leaving it there was a real bug (the invoice stayed
+  // stuck showing "Pending Reversal Approval" forever, even after the
+  // reversal had actually gone through) — same bug also found and
+  // fixed in Vendor Invoice's own reversal.
+  firebaseDbRequest_('customerInvoices/' + invoiceId, 'patch', { Status: 'Posted', ReversalApprovalInstanceID: '', PendingReversalDate: '', ReversedByInvoiceID: newId }, idToken);
+  finalizeCommitAttempt_(idToken, newId, glResult, {}, actor, 'customerInvoices');
+
+  (existing.SourceDeliveryNotes || []).forEach(dn => {
+    firebaseDbRequest_('stock/transactions/' + dn.DeliveryNoteID, 'patch', { MatchedToInvoiceID: '' }, idToken);
+  });
+`,
+    replace: `  const newId = 'CINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+
+  const attemptId = Utilities.getUuid();
+  const reversal = {
+    TransactionType: 'CustomerInvoice', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
+    InvoiceDate: date, Description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description,
+    CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
+    CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID, CustomerID: existing.CustomerID,
+    SourceDeliveryNotes: existing.SourceDeliveryNotes || [], DirectLines: existing.DirectLines || [],
+    CurrencyCode: existing.CurrencyCode || '', ExchangeRate: existing.ExchangeRate || 1, TotalBase: existing.TotalBase != null ? existing.TotalBase : existing.Total, // [NEW DEVELOPMENT invoice-currency]
+    Discount: existing.Discount, TaxPercent: existing.TaxPercent, TaxAmount: existing.TaxAmount, RoundOff: existing.RoundOff,
+    Subtotal: existing.Subtotal, Total: existing.Total,
+    CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
+    ReversalOfInvoiceID: invoiceId, ReversedByInvoiceID: ''
+  };
+
+  // [NEW DEVELOPMENT sales-posting-atomic] The GL entry, the posted reversal, the original back to Posted
+  // with its link (see below) and each Delivery Note unmatched, in one Firestore batch: all or none
+  // (docs/modules/TRANSACTIONS_FIRESTORE.md, T2), instead of five writes with a commit-attempt marker.
+  // Status reset back to Posted here too — when a reversal gate is
+  // configured, requestReverseCustomerInvoice already moved the
+  // original to PendingReversalApproval, and nothing else ever moved
+  // it back; leaving it there was a real bug (the invoice stayed
+  // stuck showing "Pending Reversal Approval" forever, even after the
+  // reversal had actually gone through) — same bug also found and
+  // fixed in Vendor Invoice's own reversal.
+  const dnIds = (existing.SourceDeliveryNotes || []).map(dn => dn.DeliveryNoteID);
+  const matchedDns = getStockTxs_(idToken, dnIds);
+  const glResult = postStock_(idToken, user, {
+    type: 'CustomerInvoice', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: '',
+    lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }
+  }, {}, () => markStockTxs_(matchedDns, dnIds, { MatchedToInvoiceID: '' }), invoiceReversalWriter_(invoiceId, newId, reversal, actor));
+`
+  },
+  {
+    id: 'sales-queries-getEligibleSOsForDelivery',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): getEligibleSOsForDelivery reads ' +
+      'only the customer\'s orders still reserving (two equality queries) (movedPaths.js, equality queries), instead of downloading the whole collection.',
+    find: `  const data = firebaseDbRequest_('salesOrders', 'get', null, idToken) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ SOID: id }, data[id]))
+    .filter(so => (so.Status === 'Reserved' || so.Status === 'Partially Reserved') && so.CompanyID === companyId && so.CustomerID === customerId)
+`,
+    replace: `  const data = queryMovedAny_(idToken, 'salesOrders', ['Reserved', 'Partially Reserved'].map(s => ({ CompanyID: String(companyId), CustomerID: String(customerId), Status: s }))) || {}; // [NEW DEVELOPMENT sales-queries] the customer's reserving orders, not every Sales Order (T2)
+  return Object.keys(data)
+    .map(id => Object.assign({ SOID: id }, data[id]))
+    .filter(so => (so.Status === 'Reserved' || so.Status === 'Partially Reserved') && so.CompanyID === companyId && so.CustomerID === customerId)
+`
+  },
+  {
+    id: 'sales-queries-getDeliveryNoteEntries',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): getDeliveryNoteEntries reads ' +
+      'only the listed deliveries\' matched invoices by id and the unposted invoices (movedPaths.js, equality queries), instead of downloading the whole collection.',
+    find: `  const invoices = firebaseDbRequest_('customerInvoices', 'get', null, idToken) || {};
+  const unposted = ['Draft', 'PendingApproval', 'Rejected'];
+`,
+    replace: `  // [NEW DEVELOPMENT sales-queries] the listed deliveries' matched invoices by id, and the unposted invoices, not every Customer Invoice (T2)
+  const invoices = sortedDocs_(Object.assign({}, getMovedMany_(idToken, 'customerInvoices', capped.map(dn => dn.MatchedToInvoiceID).filter(Boolean)),
+    queryMovedAny_(idToken, 'customerInvoices', [{ Status: 'Draft' }, { Status: 'PendingApproval' }, { Status: 'Rejected' }])));
+  const unposted = ['Draft', 'PendingApproval', 'Rejected'];
+`
+  },
+  {
+    id: 'sales-queries-getActiveReservationsForItem_',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): getActiveReservationsForItem_ reads ' +
+      'only the active reservations of the item and warehouse (movedPaths.js, equality queries), instead of downloading the whole collection.',
+    find: `  const data = firebaseDbRequest_('stock/reservations', 'get', null, idToken) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ ReservationID: id }, data[id]))
+    .filter(r => r.Status === 'Active' && r.ItemID === itemId && r.WarehouseID === warehouseId);
+`,
+    replace: `  const data = queryMovedAny_(idToken, 'stock/reservations', [{ Status: 'Active', ItemID: String(itemId || ''), WarehouseID: String(warehouseId || '') }]) || {}; // [NEW DEVELOPMENT sales-queries] that item's and warehouse's active ones, not every reservation (T2)
+  return Object.keys(data)
+    .map(id => Object.assign({ ReservationID: id }, data[id]))
+    .filter(r => r.Status === 'Active' && r.ItemID === itemId && r.WarehouseID === warehouseId);
+`
+  },
+  {
+    id: 'sales-queries-getSalesOrderLinesWithShortfall_',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): getSalesOrderLinesWithShortfall_ reads ' +
+      'only the company\'s orders still reserving (movedPaths.js, equality queries), instead of downloading the whole collection.',
+    find: `  const soData = firebaseDbRequest_('salesOrders', 'get', null, idToken) || {};
+  const results = [];
+`,
+    replace: `  const soData = queryMovedAny_(idToken, 'salesOrders', ['Reserved', 'Partially Reserved'].map(s => ({ CompanyID: String(companyId || ''), Status: s }))) || {}; // [NEW DEVELOPMENT sales-queries] the company's reserving orders, not every Sales Order (T2)
+  const results = [];
+`
+  },
+  {
+    id: 'sales-queries-allocateProducedQuantityToLinkedSalesOrders_',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): allocateProducedQuantityToLinkedSalesOrders_ reads ' +
+      'only the linked orders by id (movedPaths.js, equality queries), instead of downloading the whole collection.',
+    find: `  const soData = firebaseDbRequest_('salesOrders', 'get', null, idToken) || {};
+  const candidates = links
+`,
+    replace: `  const soData = getMovedMany_(idToken, 'salesOrders', links.map(link => link.SOID)) || {}; // [NEW DEVELOPMENT sales-queries] the linked orders by id, not every Sales Order (T2)
+  const candidates = links
+`
+  },
+  {
+    id: 'sales-queries-rollbackJobOrderLineAfterReversal_',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): rollbackJobOrderLineAfterReversal_ reads ' +
+      'only the reversed posting\'s own active reservations (movedPaths.js, equality queries), instead of downloading the whole collection.',
+    find: `  const data = firebaseDbRequest_('stock/reservations', 'get', null, idToken) || {};
+  const touchedSoIds = new Set();
+`,
+    replace: `  const data = queryMovedAny_(idToken, 'stock/reservations', [{ Status: 'Active', CreatedByProductionID: String(reversedProductionId || '') }]) || {}; // [NEW DEVELOPMENT sales-queries] the posting's own active ones, not every reservation (T2)
+  const touchedSoIds = new Set();
+`
+  },
+  {
+    id: 'sales-queries-getStockAvailabilityList',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T2): getStockAvailabilityList reads ' +
+      'only the active reservations (movedPaths.js, equality queries), instead of downloading the whole collection.',
+    find: `  const reservationsData = firebaseDbRequest_('stock/reservations', 'get', null, idToken) || {};
+`,
+    replace: `  const reservationsData = queryMovedAny_(idToken, 'stock/reservations', [{ Status: 'Active' }]) || {}; // [NEW DEVELOPMENT sales-queries] the active ones, not every reservation (T2)
+`
   }
 ];

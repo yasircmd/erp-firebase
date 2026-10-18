@@ -25,17 +25,17 @@ for (const v of ['FIREBASE_DATABASE_EMULATOR_HOST', 'FIRESTORE_EMULATOR_HOST']) 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const admin = require('firebase-admin');
-// Stock transactions and balances are in Firestore (src/stockStore.js),
+// The moved transaction documents are in Firestore (src/movedPaths.js),
 // read here by their RTDB paths. Loaded before this file's own app:
 // firebaseAdmin.js makes the default app only when none exists yet.
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'erp1-8f4cd';
-const stockStore = require('../../src/stockStore');
+const movedPaths = require('../../src/movedPaths');
 
 const PROJECT = 'erp1-8f4cd';
 const FUNCTIONS_BASE = 'http://127.0.0.1:5001/' + PROJECT + '/us-central1/';
 const app = admin.initializeApp({ projectId: PROJECT, databaseURL: 'https://' + PROJECT + '-default-rtdb.firebaseio.com' }, 'emulator-test');
 const rtdb = app.database();
-const val = async p => (stockStore.isStockPath(p) ? stockStore.rtdbStyle(p, 'get') : (await rtdb.ref(p).get()).val());
+const val = async p => (movedPaths.isMoved(p) ? movedPaths.request(p, 'get') : (await rtdb.ref(p).get()).val());
 const firestore = app.firestore();
 
 function tokenFor(uid) {
