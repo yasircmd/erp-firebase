@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
 const { rtdb } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const { CBT_APPROVAL_KEYS } = require('./approvalRegistry');
 
 // One-time copy of the single CBT approval setup into its four voucher-type
@@ -93,7 +94,7 @@ async function beginApprovalInstance(moduleId, documentId, documentNumber, scope
 
   const now = new Date().toISOString();
   const newId = 'APR-' + randomUUID().split('-')[0].toUpperCase();
-  await rtdb.ref('approvalInstances/' + newId).set(Object.assign({
+  await approvalInstances.set(newId, Object.assign({
     ModuleID: moduleId, DocumentID: documentId, DocumentNumber: documentNumber,
     ScopeKey: scopeKey, Amount: Number(amount) || 0, CreatedBy: createdBy,
     RequiredLevels: levels, Decisions: [], Status: 'Pending',
@@ -114,8 +115,7 @@ async function recordApprovalDecision(user, instanceId, levelNumber, decision, r
   const usersSnap = await rtdb.ref('users').get();
   const activeUsers = usersSnap.val() || {};
   const actorName = (activeUsers[actor] && (activeUsers[actor].fullName || activeUsers[actor].username)) || actor;
-  const instanceSnap = await rtdb.ref('approvalInstances/' + instanceId).get();
-  const instance = instanceSnap.val();
+  const instance = await approvalInstances.get(instanceId);
   if (!instance) throw new Error('Approval record not found.');
   if (instance.Status !== 'Pending') throw new Error('This document has already been ' + instance.Status.toLowerCase() + '.');
 
@@ -144,7 +144,7 @@ async function recordApprovalDecision(user, instanceId, levelNumber, decision, r
     newStatus = 'Approved';
   }
 
-  await rtdb.ref('approvalInstances/' + instanceId).update({ Decisions: decisions, Status: newStatus, UpdatedAt: now });
+  await approvalInstances.update(instanceId, { Decisions: decisions, Status: newStatus, UpdatedAt: now });
   return { status: newStatus, selfApproved: newDecision.SelfApproved };
 }
 

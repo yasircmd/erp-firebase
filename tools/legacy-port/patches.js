@@ -3030,5 +3030,31 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     const jobPlan = planProduction_(idToken, { mode: 'reverse', prodId: prodId, lineIds: Array.from(touchedLineIds), inflightLines: movementLines });
     const glResult = postStock_(idToken, user, {
       type: 'Production', date: date,`
+  },
+  {
+    id: 'approval-queries-getApprovalHistory',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 240; docs/modules/TRANSACTIONS_FIRESTORE.md, T5): getApprovalHistory reads ' +
+      'only the chosen module\'s approvals when one is chosen (movedPaths.js), instead of downloading every approval instance.',
+    find: `  const data = firebaseDbRequest_('approvalInstances', 'get', null, idToken) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ InstanceID: id }, data[id]))
+    .filter(inst => !f.ModuleID || inst.ModuleID === f.ModuleID || inst.ConfigKey === f.ModuleID) // [PORT CHANGE approval-tracker-config-key]
+`,
+    replace: `  // [NEW DEVELOPMENT approval-queries] the chosen module's approvals (by module or config key), not every one (T5);
+  // every one only when no module is chosen
+  const data = (f.ModuleID ? queryMovedAny_(idToken, 'approvalInstances', [{ ModuleID: String(f.ModuleID) }, { ConfigKey: String(f.ModuleID) }]) : firebaseDbRequest_('approvalInstances', 'get', null, idToken)) || {};
+  return Object.keys(data)
+    .map(id => Object.assign({ InstanceID: id }, data[id]))
+    .filter(inst => !f.ModuleID || inst.ModuleID === f.ModuleID || inst.ConfigKey === f.ModuleID) // [PORT CHANGE approval-tracker-config-key]
+`
+  },
+  {
+    id: 'approval-queries-getJobOrderLinesFlat',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 240; docs/modules/TRANSACTIONS_FIRESTORE.md, T5): getJobOrderLinesFlat reads ' +
+      'only the listed lines\' approvals (movedPaths.js), instead of downloading every approval instance.',
+    find: `  const approvalInstances = firebaseDbRequest_('approvalInstances', 'get', null, idToken) || {};
+`,
+    replace: `  const approvalInstances = getMovedMany_(idToken, 'approvalInstances', capped.map(l => l.ApprovalInstanceID).filter(Boolean)) || {}; // [NEW DEVELOPMENT approval-queries] the listed lines' approvals by id, not every one (T5)
+`
   }
 ];

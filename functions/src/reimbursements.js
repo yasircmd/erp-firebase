@@ -16,6 +16,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { todayIn } = require('./recurringSchedule');
@@ -309,7 +310,7 @@ async function decideByApprover(user, r, d) {
 // The approval as the screen shows it, and the levels this user decides.
 async function approvalOf(r, uid) {
   if (!r.ApprovalInstanceID) return null;
-  const inst = (await rtdb.ref('approvalInstances/' + r.ApprovalInstanceID).get()).val();
+  const inst = await approvalInstances.get(r.ApprovalInstanceID);
   if (!inst) return null;
   const decided = new Set((inst.Decisions || []).map(x => x.LevelNumber));
   return { Status: inst.Status, Levels: (inst.RequiredLevels || []).map(x => ({ LevelNumber: x.LevelNumber })), Decisions: inst.Decisions || [],
@@ -317,7 +318,7 @@ async function approvalOf(r, uid) {
 }
 // Withdrawn or rejected before the end: its approval is withdrawn too.
 async function closeApproval(r) {
-  if (r.ApprovalInstanceID) await rtdb.ref('approvalInstances/' + r.ApprovalInstanceID).update({ Status: 'Withdrawn', UpdatedAt: new Date().toISOString() });
+  if (r.ApprovalInstanceID) await approvalInstances.update(r.ApprovalInstanceID, { Status: 'Withdrawn', UpdatedAt: new Date().toISOString() });
 }
 
 // The line manager's claims waiting (Team).

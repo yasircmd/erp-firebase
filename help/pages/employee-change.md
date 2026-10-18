@@ -5,8 +5,8 @@ order: 3
 modules: [EMPCHANGE]
 sources: [functions/src/hrChanges.js, functions/src/hrPay.js]
 summary: Record changes to an employee’s status, pay, roles or department while keeping the payroll and approvals aligned.
-reviewed: 2026-10-16
-fingerprint: d320bd2803e0f964
+reviewed: 2026-10-18
+fingerprint: a6c83daa87cdbeeb
 ---
 ## What it is for
 

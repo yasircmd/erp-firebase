@@ -5,8 +5,8 @@ order: 10
 modules: [PAYROLLLOAN]
 sources: [functions/src/payrollLoans.js, functions/src/payrollCalc.js]
 summary: Manage loan and advance recovery and posting as part of the payroll cycle.
-reviewed: 2026-10-16
-fingerprint: 4b181a9bc943ee06
+reviewed: 2026-10-18
+fingerprint: d396c4b3170ac826
 ---
 ## What it is for
 

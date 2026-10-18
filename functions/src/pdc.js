@@ -26,6 +26,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, parseAmountServer, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { postStock, postedFields } = require('./stockPosting');
@@ -439,9 +440,9 @@ exports.decidePdcApproval = onCallWithMessages(onCallOptions, async (request) =>
       } catch (err) {
         // As the returns: undo the decision and hand the PDC back for
         // editing rather than leave it stuck.
-        const instance = (await rtdb.ref('approvalInstances/' + existing.ApprovalInstanceID).get()).val();
+        const instance = await approvalInstances.get(existing.ApprovalInstanceID);
         if (instance) {
-          await rtdb.ref('approvalInstances/' + existing.ApprovalInstanceID).update({
+          await approvalInstances.update(existing.ApprovalInstanceID, {
             Decisions: (instance.Decisions || []).filter(x => x.LevelNumber !== levelNumber), Status: 'Pending', UpdatedAt: now
           });
         }

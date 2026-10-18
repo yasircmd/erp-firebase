@@ -15,6 +15,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability, ensurePermissionsSeeded } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { todayIn } = require('./recurringSchedule');
@@ -410,7 +411,7 @@ async function loadForUser(user, id, approverMayOpen) {
   if (!s.exists) throw new HttpsError('not-found', 'Request not found.');
   const r = Object.assign({ RequestID: s.id }, s.data());
   if (approverMayOpen && r.Type === 'Claim' && r.ApprovalInstanceID) {
-    const inst = (await rtdb.ref('approvalInstances/' + r.ApprovalInstanceID).get()).val();
+    const inst = await approvalInstances.get(r.ApprovalInstanceID);
     if (inst && (inst.RequiredLevels || []).some(l => l.ApproverUserID === user.uid)) return r;
   }
   await requireCap(user);

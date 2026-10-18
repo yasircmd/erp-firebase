@@ -1,5 +1,6 @@
 const { onCall } = require('firebase-functions/v2/https');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { APPROVAL_MODULE_STORAGE_, FIRESTORE_JOURNAL_ENTRIES_COLLECTION, approvalLabelOf } = require('./approvalRegistry');
@@ -35,8 +36,8 @@ async function documentStillExists(moduleId, documentId) {
 exports.getPendingApprovalsForUser = onCall(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const actor = user.uid;
-  // Only the pending instances, from the Status index (rtdbStatus.js).
-  const data = await withStatus('approvalInstances', 'Pending');
+  // Only the pending instances, a Firestore query (approvalStore.js).
+  const data = await approvalInstances.query({ Status: 'Pending' });
 
   const candidates = Object.keys(data)
     .map(id => Object.assign({ InstanceID: id }, data[id]))
@@ -67,7 +68,7 @@ exports.getPendingApprovalsForUser = onCall(onCallOptions, async (request) => {
 exports.getMyRejectedSubmissions = onCall(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const actor = user.uid;
-  const data = await withStatus('approvalInstances', 'Rejected');
+  const data = await approvalInstances.query({ Status: 'Rejected' });
 
   const candidates = Object.keys(data)
     .map(id => Object.assign({ InstanceID: id }, data[id]))

@@ -6,7 +6,7 @@ modules: [APPROVALTRACKER]
 sources: [functions/src/approvals.js, functions/src/approvalDelegation.js]
 summary: Track each approval request, see who acted and follow the current status of a document.
 reviewed: 2026-10-18
-fingerprint: 1dfd45d4462aa61a
+fingerprint: dada0bc2f0e3ef95
 ---
 ## What it is for
 

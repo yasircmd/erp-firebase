@@ -27,7 +27,7 @@ async function visibilityFor(user) {
   const [config, teams, instances] = (await Promise.all([
     rtdb.ref('approvalConfigurations/' + MODULE_ID).get(),
     rtdb.ref('approvalFollowUps/' + MODULE_ID).get(),
-    rtdb.ref('approvalInstances').get() // (no index on ModuleID: filtered below)
+    require('./approvalStore').approvalInstances.query({ ModuleID: MODULE_ID }).then(v => ({ val: () => v })) // this module's (approvalStore.js)
   ])).map(s => s.val() || {});
   const me = new Set([user.uid, profile.username].filter(Boolean).map(String));
   // Requisition id -> approvers on any of its approval records.

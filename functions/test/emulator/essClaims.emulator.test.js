@@ -7,7 +7,7 @@
 // documents from the portal.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, firestore, call, reset, baseFixture, PROJECT } = require('./_helpers');
+const { app, rtdb, firestore, call, reset, baseFixture, PROJECT, val, put } = require('./_helpers');
 const { todayIn } = require('../../src/recurringSchedule');
 
 test.after(async () => { await app.delete(); });
@@ -162,12 +162,12 @@ test('Approval Configuration "Reimbursement": no manager, straight to the approv
   const r2 = await claim(UID.BEN, [{ categoryId: FUEL, date: ago(1), amount: 20, description: 'Fuel' }]);
   await ess(UID.BEN, 'submitClaim', { id: r2.requestId });
   await ess(UID.BEN, 'withdrawRequest', { id: r2.requestId });
-  const inst = (await rtdb.ref('approvalInstances/' + (await reqDoc(r2.requestId)).ApprovalInstanceID).get()).val();
+  const inst = (await val('approvalInstances/' + (await reqDoc(r2.requestId)).ApprovalInstanceID));
   assert.equal(inst.Status, 'Withdrawn');
   const r3 = await claim(UID.BEN, [{ categoryId: FUEL, date: ago(1), amount: 25, description: 'Fuel' }]);
   await ess(UID.BEN, 'submitClaim', { id: r3.requestId });
   await er('u-admin', 'reject', { id: r3.requestId, text: 'Raise it under the travel policy' });
-  assert.equal((await rtdb.ref('approvalInstances/' + (await reqDoc(r3.requestId)).ApprovalInstanceID).get()).val().Status, 'Withdrawn');
+  assert.equal((await val('approvalInstances/' + (await reqDoc(r3.requestId)).ApprovalInstanceID)).Status, 'Withdrawn');
   await assert.rejects(ess(UID.BEN, 'withdrawRequest', { id: c.requestId }), /already with the approvers|closed|withdraw/i);
   await rtdb.ref('approvalConfigurations/REIMBURSEMENT').remove();
 });

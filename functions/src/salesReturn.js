@@ -19,6 +19,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const stockStore = require('./stockStore');
 const { customerInvoices } = require('./salesStore');
 const { postStock, postedFields } = require('./stockPosting');
@@ -454,9 +455,9 @@ exports.decideSalesReturnApproval = onCallWithMessages(onCallOptions, async (req
       } catch (err) {
         // As Customer Invoice: undo the recorded decision and hand the
         // return back for editing rather than leave it stuck.
-        const instance = (await rtdb.ref('approvalInstances/' + existing.ApprovalInstanceID).get()).val();
+        const instance = await approvalInstances.get(existing.ApprovalInstanceID);
         if (instance) {
-          await rtdb.ref('approvalInstances/' + existing.ApprovalInstanceID).update({
+          await approvalInstances.update(existing.ApprovalInstanceID, {
             Decisions: (instance.Decisions || []).filter(d => d.LevelNumber !== levelNumber), Status: 'Pending', UpdatedAt: now
           });
         }

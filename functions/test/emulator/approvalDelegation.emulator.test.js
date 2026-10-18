@@ -5,7 +5,7 @@
 // real JV approval flow.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, firestore, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, firestore, call, reset, baseFixture, val, put } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 
@@ -105,7 +105,7 @@ test('who can receive it: active, not already on the document, with module and c
 
   // Someone who decided another level can't take this one either.
   await decide('u-ben', jvId, 2, 'Approved');
-  await rtdb.ref('approvalInstances/' + instanceId + '/RequiredLevels/1/ApproverUserID').set('u-cara'); // level 2 re-pointed after Ben decided
+  await put('approvalInstances/' + instanceId + '/RequiredLevels/1/ApproverUserID', 'u-cara'); // level 2 re-pointed after Ben decided
   assert.match(await err('u-ben'), /already approves another level/);
 });
 

@@ -21,6 +21,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { todayIn } = require('./recurringSchedule');
@@ -237,7 +238,7 @@ async function applyDueChanges() {
 async function payVisible(user, c) {
   if (await can(user, 'sensitive', 'EMPLOYEES')) return true;
   if (!c.ApprovalInstanceID) return false;
-  const inst = (await rtdb.ref('approvalInstances/' + c.ApprovalInstanceID).get()).val();
+  const inst = await approvalInstances.get(c.ApprovalInstanceID);
   return Boolean(inst && (inst.RequiredLevels || []).some(l => l.ApproverUserID === user.uid));
 }
 function withoutPay(c) {
@@ -267,7 +268,7 @@ exports.getEmployeeChange = onCallWithMessages(onCallOptions, async (request) =>
   const user = await requireUser(request);
   await requireCap(user);
   const c = await loadChange(user, (request.data || {}).changeId);
-  const inst = c.ApprovalInstanceID ? (await rtdb.ref('approvalInstances/' + c.ApprovalInstanceID).get()).val() : null;
+  const inst = c.ApprovalInstanceID ? await approvalInstances.get(c.ApprovalInstanceID) : null;
   const decided = new Set(((inst && inst.Decisions) || []).map(x => x.LevelNumber));
   const myLevels = inst && inst.Status === 'Pending' ? (inst.RequiredLevels || []).filter(l => l.ApproverUserID === user.uid && !decided.has(l.LevelNumber)).map(l => l.LevelNumber) : [];
   const name = await namer();
@@ -359,8 +360,8 @@ exports.decideEmployeeChangeApproval = onCallWithMessages(onCallOptions, async (
       await apply(fresh, user);
     } catch (err) {
       // As other modules: undo the decision and hand it back for correcting.
-      const inst = (await rtdb.ref('approvalInstances/' + c.ApprovalInstanceID).get()).val();
-      if (inst) await rtdb.ref('approvalInstances/' + c.ApprovalInstanceID).update({ Decisions: (inst.Decisions || []).filter(x => x.LevelNumber !== Number(d.levelNumber)), Status: 'Pending', UpdatedAt: now });
+      const inst = await approvalInstances.get(c.ApprovalInstanceID);
+      if (inst) await approvalInstances.update(c.ApprovalInstanceID, { Decisions: (inst.Decisions || []).filter(x => x.LevelNumber !== Number(d.levelNumber)), Status: 'Pending', UpdatedAt: now });
       throw new HttpsError('failed-precondition', 'It can\'t be applied: ' + err.message + ' Nothing was changed.');
     }
   } else if (result.status === 'Rejected') {

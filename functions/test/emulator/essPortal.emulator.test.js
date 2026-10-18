@@ -8,7 +8,7 @@
 // Signs in through the Auth emulator for real.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, firestore, call, reset, baseFixture, PROJECT } = require('./_helpers');
+const { app, rtdb, firestore, call, reset, baseFixture, PROJECT, val, put } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 
@@ -143,7 +143,7 @@ test('leave with a line manager: applied (With manager, counted in the balance),
   assert.equal((await ess(UID.SARA, 'team')).pending[0].NextStep, 'Then to HR\'s approval');
   assert.equal((await ess(UID.SARA, 'decideLeave', { leaveId: b.leaveId, decision: 'Approved' })).status, 'PendingApproval');
   assert.equal((await ess(UID.ALI, 'leaves')).leaves.find(x => x.LeaveID === b.leaveId).StatusText, 'With HR');
-  const inst = (await rtdb.ref('approvalInstances/' + (await leaveDoc(b.leaveId)).ApprovalInstanceID).get()).val();
+  const inst = (await val('approvalInstances/' + (await leaveDoc(b.leaveId)).ApprovalInstanceID));
   assert.equal(inst.CreatedBy, UID.ALI, 'the employee asked');
   assert.equal((await call('u-approver', 'decideLeaveApproval', { leaveId: b.leaveId, levelNumber: 1, decision: 'Approved' })).status, 'Approved');
   // Rejected by the manager, with the reason, shown to the employee.
@@ -179,7 +179,7 @@ test('withdraw a request not yet approved (with the manager, or with HR); cancel
   const b = await ess(UID.ALI, 'applyLeave', { leave: { LeaveTypeID: TYPE.ANNUAL, FromDate: '2027-02-03', ToDate: '2027-02-03' } });
   await ess(UID.SARA, 'decideLeave', { leaveId: b.leaveId, decision: 'Approved' });
   await ess(UID.ALI, 'cancelLeave', { leaveId: b.leaveId });
-  const inst = (await rtdb.ref('approvalInstances/' + (await leaveDoc(b.leaveId)).ApprovalInstanceID).get()).val();
+  const inst = (await val('approvalInstances/' + (await leaveDoc(b.leaveId)).ApprovalInstanceID));
   assert.equal(inst.Status, 'Withdrawn');
   await assert.rejects(call('u-approver', 'decideLeaveApproval', { leaveId: b.leaveId, levelNumber: 1, decision: 'Approved' }), /not awaiting approval/);
   await rtdb.ref('approvalConfigurations/LEAVE').remove();

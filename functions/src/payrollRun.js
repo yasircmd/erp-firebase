@@ -16,6 +16,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { calendarFor, leaveTypes } = require('./hrLeaveSetup');
@@ -308,7 +309,7 @@ exports.createPayrollRun = onCallWithMessages(onCallOptions, async (request) => 
 // the user may decide now.
 async function approvalOf(run, user) {
   if (!run.ApprovalInstanceID) return null;
-  const inst = (await rtdb.ref('approvalInstances/' + run.ApprovalInstanceID).get()).val();
+  const inst = await approvalInstances.get(run.ApprovalInstanceID);
   if (!inst) return null;
   const decided = new Set((inst.Decisions || []).map(x => x.LevelNumber));
   return { Status: inst.Status, Levels: (inst.RequiredLevels || []).map(l => ({ LevelNumber: l.LevelNumber, ApproverUserID: l.ApproverUserID })), Decisions: inst.Decisions || [],

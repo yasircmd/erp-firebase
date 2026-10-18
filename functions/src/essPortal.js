@@ -17,6 +17,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { admin, rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const leaverAccess = () => require('./leaverAccess');
 const { userCanAccessCompany } = require('./glWriting');
@@ -245,7 +246,7 @@ async function cancelLeave(me, d) {
   }
   if (l.Status === 'PendingManager' || l.Status === 'PendingApproval') {
     const now = new Date().toISOString();
-    if (l.Status === 'PendingApproval' && l.ApprovalInstanceID) await rtdb.ref('approvalInstances/' + l.ApprovalInstanceID).update({ Status: 'Withdrawn', UpdatedAt: now });
+    if (l.Status === 'PendingApproval' && l.ApprovalInstanceID) await approvalInstances.update(l.ApprovalInstanceID, { Status: 'Withdrawn', UpdatedAt: now });
     await LEAVES().doc(l.LeaveID).update({ Status: 'Withdrawn', CancelReason: reason, WithdrawnAt: now, UpdatedAt: now, UpdatedBy: lv.actorOf(me.actor),
       History: (l.History || []).concat([lv.histEntry('Withdrawn by the employee', me.actor, reason)]) });
     return { success: true, status: 'Withdrawn' };

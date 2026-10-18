@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { getStockLedgerEntry } = require('./stockMovement');
@@ -132,7 +133,7 @@ exports.getMyPendingApprovalLevel = onCallWithMessages(onCallOptions, async (req
   const user = await requireUser(request);
   const approvalInstanceId = request.data && request.data.approvalInstanceId;
   if (!approvalInstanceId) return null;
-  const instance = (await rtdb.ref('approvalInstances/' + approvalInstanceId).get()).val();
+  const instance = await approvalInstances.get(approvalInstanceId);
   if (!instance || instance.Status !== 'Pending') return null;
   const decidedLevels = new Set((instance.Decisions || []).map(d => d.LevelNumber));
   const mine = (instance.RequiredLevels || []).find(l => l.ApproverUserID === user.uid && !decidedLevels.has(l.LevelNumber));

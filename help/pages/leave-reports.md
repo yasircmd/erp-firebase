@@ -5,8 +5,8 @@ order: 5
 modules: [LEAVEREPORTS]
 sources: [functions/src/hrLeaveReports.js, functions/src/hrLeave.js, functions/src/hrLeaveSetup.js, functions/src/workCalendar.js]
 summary: Review leave balances, absences and managerial follow-up across the company or department.
-reviewed: 2026-10-12
-fingerprint: 1fbd77e254209c4c
+reviewed: 2026-10-18
+fingerprint: bb5e6c6699ba4f13
 ---
 ## What it is for
 

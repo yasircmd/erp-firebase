@@ -11,6 +11,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
@@ -71,10 +72,9 @@ function whyCannotDelegate(user, inst, levelNumber) {
 // Moves one level, re-checking inside a transaction that nothing changed
 // meanwhile (a decision, or another delegation). Returns the new record.
 async function moveLevel(user, users, instanceId, levelNumber, toUserId, reason) {
-  const ref = rtdb.ref('approvalInstances/' + instanceId);
   let refusal = '';
   let fromUserId = '';
-  const result = await ref.transaction(inst => {
+  const result = await approvalInstances.transact(instanceId, inst => {
     if (!inst) return inst;
     refusal = whyCannotDelegate(user, inst, levelNumber);
     if (refusal) return; // abort
@@ -115,7 +115,7 @@ exports.getDelegationCandidates = onCallWithMessages(onCallOptions, async (reque
   const context = { UserID: user.uid, IsAdmin: isAdmin(user.profile) };
   if (!d.instanceId) return Object.assign(context, { users: active });
   const levelNumber = Number(d.levelNumber);
-  const inst = (await rtdb.ref('approvalInstances/' + d.instanceId).get()).val();
+  const inst = await approvalInstances.get(d.instanceId);
   const why = whyCannotDelegate(user, inst, levelNumber);
   if (why) throw new HttpsError('failed-precondition', why);
   const companyId = await companyOfApproval(inst);
@@ -133,7 +133,7 @@ exports.delegateApproval = onCallWithMessages(onCallOptions, async (request) => 
   const levelNumber = Number(d.levelNumber);
   const toUserId = String(d.toUserId || '').trim();
   if (!toUserId) throw new HttpsError('invalid-argument', 'Select who to delegate to.');
-  const inst = (await rtdb.ref('approvalInstances/' + instanceId).get()).val();
+  const inst = await approvalInstances.get(instanceId);
   const why = whyCannotDelegate(user, inst, levelNumber);
   if (why) throw new HttpsError('failed-precondition', why);
   const users = (await rtdb.ref('users').get()).val() || {};
@@ -157,7 +157,7 @@ exports.delegateApprovalsOf = onCallWithMessages(onCallOptions, async (request) 
   if (!toUserId) throw new HttpsError('invalid-argument', 'Select who to delegate to.');
   if (toUserId === fromUserId) throw new HttpsError('invalid-argument', 'Choose someone other than the absent approver.');
   const users = (await rtdb.ref('users').get()).val() || {};
-  const all = (await rtdb.ref('approvalInstances').get()).val() || {};
+  const all = await approvalInstances.query({ Status: 'Pending' }); // the pending ones (approvalStore.js)
   const moved = [];
   const skipped = [];
   for (const instanceId of Object.keys(all)) {
