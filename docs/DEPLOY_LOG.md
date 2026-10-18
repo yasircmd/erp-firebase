@@ -1203,3 +1203,9 @@ from, and how it was verified. The deploy procedure is in the
   [#169](https://github.com/yasircmd/erp-firebase/actions/runs/39119743557)
   (10:33–12:40 UTC), from `49d146a` (PR #136), success. **Phase T3 is
   live.**
+- **2026-10-18, T4: Job Orders and PDCs in Firestore; PDC postings and a
+  Production Entry's Job Order effects are one batch (`transactions-t4`,
+  all 547 functions, no screens):** run
+  [#170](https://github.com/yasircmd/erp-firebase/actions/runs/39138736046)
+  (15:03–17:20 UTC), from `8d42af9` (PR #137), success. **Phase T4 is
+  live.**
