@@ -15,12 +15,11 @@
 'use strict';
 const { rtdb } = require('./firebaseAdmin');
 
-// (stock/transactions (T1), salesOrders and customerInvoices (T2) moved to
-// Firestore, movedPaths.js; their RTDB indexes stay in database.rules.json
-// until no live function queries them.)
+// (stock/transactions (T1), salesOrders and customerInvoices (T2), the
+// purchase documents (T3) moved to Firestore, movedPaths.js; their RTDB
+// indexes stay in database.rules.json until no live function queries them.)
 const STATUS_INDEXED_PATHS = [
-  'purchaseRequisitions', 'inventoryPurchaseRequisitions', 'purchaseOrders',
-  'jobOrderBatches', 'jobOrderLines', 'vendorInvoices', 'pdcCheques',
+  'jobOrderBatches', 'jobOrderLines', 'pdcCheques',
   'recurringJournals', 'approvalInstances'
 ];
 

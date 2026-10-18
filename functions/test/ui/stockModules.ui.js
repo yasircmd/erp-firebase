@@ -184,7 +184,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   // category and price locked (docs/modules/GRN_NON_STOCK.md).
   await rtdb.ref('requisitionCategories/RCAT-X').set({ Name: 'Consulting', Type: 'DirectExpense', GLAccountID: 'A-CONS', Status: 'Active', CompanyID: 'C1' });
   await check('GRN: PO picker — stock line fills item code, non-stock line fills the non-stock grid', async () => {
-    await rtdb.ref('purchaseOrders/PO-UITEST').set({
+    await movedPaths.request('purchaseOrders/PO-UITEST', 'put', {
       PONumber: 'PO-UI-1', Status: 'Approved', CompanyID: 'C1', VendorID: 'V1',
       Lines: [
         { LineID: 'POL-0', ItemCode: 'RM-001', Description: 'Steel sheets', Quantity: 10, UnitPrice: 6, WarehouseID: 'WH1' },
@@ -211,14 +211,14 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.locator('.grn-po-line-checkbox[data-key="PO-UITEST|POL-1"]').uncheck();
     assert.equal(await ns.count(), 0, 'unticking removes it');
     assert.deepEqual(await rpcFailures(page), []);
-    await rtdb.ref('purchaseOrders/PO-UITEST').set(null);
+    await movedPaths.request('purchaseOrders/PO-UITEST', 'delete');
     await page.close();
   });
 
   // 6. A GRN waiting for approval or posted shows only the PO lines it took,
   // locked; a rejected one is editable again with every line (owner, 2026-09-28).
   await check('GRN: PO picker — pending/posted show only this GRN\'s lines, locked; rejected shows all', async () => {
-    await rtdb.ref('purchaseOrders/PO-UITEST2').set({
+    await movedPaths.request('purchaseOrders/PO-UITEST2', 'put', {
       PONumber: 'PO-UI-2', Status: 'Approved', CompanyID: 'C1', VendorID: 'V1',
       Lines: [
         { LineID: 'POL-A', ItemCode: 'RM-001', Description: 'Line A', Quantity: 10, UnitPrice: 6, WarehouseID: 'WH1' },
@@ -257,7 +257,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(await openGrn('Picker rejected'), { shown: true, boxes: [['POL-A', true, false], ['POL-B', false, false]] });
     assert.deepEqual(await rpcFailures(page), []);
     assert.deepEqual(page.__errors, []);
-    await rtdb.ref('purchaseOrders/PO-UITEST2').set(null);
+    await movedPaths.request('purchaseOrders/PO-UITEST2', 'delete');
     await page.close();
   });
 

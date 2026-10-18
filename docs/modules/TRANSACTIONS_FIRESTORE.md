@@ -532,7 +532,7 @@ come back in id order, as the whole read had them.
 Invoice lists (every document of the user's companies, newest first: the
 company filter is a list of companies, not one value), the
 chart-of-accounts usage check and renumbering, Data Reset.
-functions/test/unit/salesReads.test.js fails on any other whole read.
+functions/test/unit/movedReads.test.js (salesReads until T3) fails on any other whole read.
 
 **One posting, all or none** (decision 238, as for stock):
 - **Delivery Note, post and reverse.** `salesPosting.planDelivery` works
@@ -581,7 +581,7 @@ where it is (movedPaths.js). Found while moving the sales collections.
 - **deliveryNote.emulator.test.js:** a Partially Reserved order is offered
   for delivery, a draft is not (no test covered this; the negative control
   below found the gap).
-- **unit/salesReads.test.js**, as stockReads for T1.
+- **unit/salesReads.test.js** (movedReads since T3), as stockReads for T1.
 - **Negative controls, verified then restored:** reservations used up
   newest first (2 fail); the invoice written outside the batch (1);
   a wrong derived query field (1); the plan not written (1); the
@@ -596,3 +596,65 @@ rules or indexes. Don't use the app during the deploy. Sales Orders,
 Customer Invoices and reservations entered in RTDB before it are not seen
 afterwards (as agreed for test data, 239). The RTDB `.indexOn` on
 salesOrders and customerInvoices stays until no live function queries it.
+
+## As built: phase T3 (2026-10-18), the purchase documents
+
+As T2, in one PR: storage, queries and atomic postings.
+
+**Where they are.** Same ids, same fields, the same shape RTDB gave
+(**functions/src/purchaseStore.js**, listed in movedPaths.js):
+- `vendorInvoices/{id}`; query fields under `_q`: the GRNs it invoices
+  (`GRNID`), the period;
+- `purchaseOrders/{id}`; `_q`: the lines' items (`ItemCode`), the period;
+- `purchaseRequisitions/{id}`, `inventoryPurchaseRequisitions/{id}`.
+
+**Readers that ask for what they need.**
+
+| Reader | Now reads |
+|---|---|
+| GRN: approved orders to receive | the vendor's approved orders |
+| GRN list: its invoice state | the listed GRNs' invoices by id, and the unposted invoices |
+| Purchase Return: invoices to return against | the vendor's invoices |
+| Fixed Assets: the supplier behind a clearing item | those invoices, by id |
+| Reorder: on order | the company's approved orders |
+| Home: ready for you (submitted requisitions) | the submitted ones (a query, no longer the RTDB Status index) |
+| Purchase Order: requisitions to order (ported, patch `purchase-queries-*`) | the company's submitted ones |
+| Party ledger, statement, aging, currency check, period closing (vendors) | through `movedPaths.where` since T2: now a query |
+
+Still read whole, on purpose: the four lists (every document of the user's
+companies, newest first), the chart-of-accounts checks, Data Reset.
+unit/movedReads.test.js covers all seven T2 and T3 collections.
+
+**One posting, all or none:**
+- **GRN, post and reverse** (hand-written grn.js): `planPOReceipts` works
+  out each PO line's received quantity (grown, or given back but never
+  below zero) before the posting, and the POs go in its batch.
+- **Vendor Invoice, post and reverse** (patches
+  `purchase-posting-atomic-*`): the GL entry, the posted invoice (or the
+  posted reversal and the original's link) and each GRN's mark (or unmark)
+  are one batch, with salesPosting.js's invoice writers, which take the
+  collection. commitAttempt.js and writeStockGlEntry are no longer used by
+  the ported code; unit/periodLockGuard now requires its postings to go
+  through `postStock_`.
+
+**Tests.**
+- **New purchaseStore.emulator.test.js:** the four collections against
+  RTDB through every kind of write; their queries; a GRN's PO quantities
+  (a missing PO and a direct line change nothing, a reversal never below
+  zero), and a refused batch leaving no PO, GL entry or GRN; a Vendor
+  Invoice and its reversal, all or none.
+- salesStore's "still in RTDB" example is now PDCs (T4).
+- **Negative controls, verified then restored:** the reversal's sign
+  ignored (1 fails); the POs not written (1); a wrong derived field (1);
+  the PO's requisition picker asking for drafts (1, purchaseOrder suite);
+  the GRN list without the unposted invoices (1, invoiceState suite); the
+  ported postings mapped past stockPosting (periodLockGuard).
+- **Regression:** every emulator suite passes (123 files, 623 tests); UI
+  checks: the known failures only (help, home, trialBalance row heights,
+  searchPicker's JV order, approvalRouting's PDC follow-up days, which
+  fails on `main` too).
+
+**Going live:** deploy set `transactions-t3`, all functions, no screens,
+rules or indexes. Don't use the app during the deploy. Purchase documents
+entered in RTDB before it are not seen afterwards. The RTDB `.indexOn` on
+the four paths stays until no live function queries it.

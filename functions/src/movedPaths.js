@@ -10,14 +10,20 @@
 //   T1  stock/transactions, stock/ledger   stockStore.js
 //   T2  salesOrders, customerInvoices,     salesStore.js
 //       stock/reservations
+//   T3  vendorInvoices, purchaseOrders,    purchaseStore.js
+//       purchaseRequisitions,
+//       inventoryPurchaseRequisitions
 'use strict';
 const firebaseAdmin = require('./firebaseAdmin');
 const { cleanPath, sorted } = require('./docStore');
 const stockStore = require('./stockStore');
 const salesStore = require('./salesStore');
+const purchaseStore = require('./purchaseStore');
 
-const STORES = [stockStore.txStore, salesStore.salesOrders, salesStore.customerInvoices, salesStore.reservations];
-const PATHS = ['stock/transactions', 'stock/ledger', 'salesOrders', 'customerInvoices', 'stock/reservations'];
+const STORES = [stockStore.txStore, salesStore.salesOrders, salesStore.customerInvoices, salesStore.reservations,
+  purchaseStore.vendorInvoices, purchaseStore.purchaseOrders, purchaseStore.purchaseRequisitions, purchaseStore.inventoryPurchaseRequisitions];
+const PATHS = ['stock/transactions', 'stock/ledger', 'salesOrders', 'customerInvoices', 'stock/reservations',
+  'vendorInvoices', 'purchaseOrders', 'purchaseRequisitions', 'inventoryPurchaseRequisitions'];
 
 const under = (p, root) => p === root || p.startsWith(root + '/');
 const isMoved = path => { const p = cleanPath(path); return PATHS.some(r => under(p, r)); };

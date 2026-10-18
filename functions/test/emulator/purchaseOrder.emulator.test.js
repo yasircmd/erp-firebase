@@ -7,7 +7,7 @@
 // ReopenRequested flag until it resolves.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val, put } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture() {
@@ -101,7 +101,7 @@ test('PORT FIX: a requisition already taken by another PO (or cancelled, or unkn
   assert.equal((await call('u-admin', 'submitPurchaseOrder', { poId: b.poId })).status, 'Approved');
 
   const c = await draft([iprLine()]);
-  await rtdb.ref('inventoryPurchaseRequisitions/IPRQ1/Status').set('Cancelled');
+  await put('inventoryPurchaseRequisitions/IPRQ1/Status', 'Cancelled');
   assert.match((await call('u-admin', 'submitPurchaseOrder', { poId: c.poId })).error, /IPR-26-01 is Cancelled/);
 
   const d = await draft([prLine({ SourceRequisitionID: 'NOPE', CategoryID: 'BOGUS' })]);
@@ -196,9 +196,9 @@ test('validation, cancel, delete, list and access', async () => {
   await call('u-admin', 'submitPurchaseOrder', { poId: a.poId });
   assert.match((await draft([directLine()], { POID: a.poId })).error, /Only a Draft Purchase Order can be edited/);
   assert.match((await call('u-admin', 'deleteDraftPurchaseOrder', { poId: a.poId })).error, /Only a Draft/);
-  await rtdb.ref('purchaseOrders/' + a.poId + '/Lines/0/ReceivedQuantity').set(1);
+  await put('purchaseOrders/' + a.poId + '/Lines/0/ReceivedQuantity', 1);
   assert.match((await call('u-admin', 'cancelPurchaseOrder', { poId: a.poId, reason: 'x' })).error, /goods received against it/);
-  await rtdb.ref('purchaseOrders/' + a.poId + '/Lines/0/ReceivedQuantity').set(0);
+  await put('purchaseOrders/' + a.poId + '/Lines/0/ReceivedQuantity', 0);
   assert.deepEqual(await call('u-admin', 'cancelPurchaseOrder', { poId: a.poId, reason: ' Vendor withdrew ' }), { success: true });
   const cancelled = await po(a.poId);
   assert.equal(cancelled.Status, 'Cancelled');

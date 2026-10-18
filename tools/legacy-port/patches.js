@@ -2764,5 +2764,166 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
 `,
     replace: `  const reservationsData = queryMovedAny_(idToken, 'stock/reservations', [{ Status: 'Active' }]) || {}; // [NEW DEVELOPMENT sales-queries] the active ones, not every reservation (T2)
 `
+  },
+  {
+    id: 'purchase-posting-atomic-vendor-invoice',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T3): ' +
+      'a Vendor Invoice\'s GL entry, the posted invoice and its GRNs\' marks are one Firestore batch (stockPosting.postStock), ' +
+      'all or none, instead of three writes with a commit-attempt marker between them.',
+    find: `  const actor = user.profile.username || user.uid;
+  // Everything above is pure validation and read-only computation —
+  // nothing written yet, so any failure up to here is ordinary and
+  // safely retriable. From here on, see beginCommitAttempt_'s own
+  // section comment for the full reasoning.
+  const attemptId = beginCommitAttempt_(idToken, invoiceId, actor, 'vendorInvoices');
+
+  let glResult;
+  try {
+    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', existing.InvoiceDate, existing.Description, existing.VendorRefNumber,
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      { CommitAttemptID: attemptId, SourceTransactionID: invoiceId });
+  } catch (err) {
+    abandonCommitAttempt_(idToken, invoiceId, existing.Status, actor, 'vendorInvoices');
+    throw err;
+  }
+
+  // A GL entry genuinely exists from here on — no more reverting.
+  // Marks each matched GRN so it drops out of every future invoice
+  // picker — the actual double-invoicing prevention, and the RTDB-side
+  // effect this whole commit-marker pattern exists to protect.
+  (existing.SourceGRNs || []).forEach(g => {
+    firebaseDbRequest_('stock/transactions/' + g.GRNID, 'patch', { MatchedToInvoiceID: invoiceId }, idToken);
+  });
+
+  finalizeCommitAttempt_(idToken, invoiceId, glResult, {}, actor, 'vendorInvoices');
+`,
+    replace: `  const actor = user.profile.username || user.uid;
+  // Everything above is pure validation and read-only computation —
+  // nothing written yet, so any failure up to here is ordinary and
+  // safely retriable.
+  // [NEW DEVELOPMENT purchase-posting-atomic] The GL entry, the posted invoice and the mark on each matched
+  // GRN (so it drops out of every future invoice picker — the actual double-invoicing prevention) in one
+  // Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T3), instead of three writes
+  // with a commit-attempt marker.
+  const grnIds = (existing.SourceGRNs || []).map(g => g.GRNID);
+  const matchedGrns = getStockTxs_(idToken, grnIds);
+  const glResult = postStock_(idToken, user, {
+    type: 'VendorInvoice', date: existing.InvoiceDate, description: existing.Description, reference: existing.VendorRefNumber,
+    lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: Utilities.getUuid(), SourceTransactionID: invoiceId }
+  }, {}, () => markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: invoiceId }), invoicePostedWriter_(invoiceId, actor, 'vendorInvoices'));
+`
+  },
+  {
+    id: 'purchase-posting-atomic-reverse-vendor-invoice',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T3): ' +
+      'a Vendor Invoice reversal\'s GL entry, the posted reversal, the original\'s link and its GRNs unmatched are one Firestore ' +
+      'batch (stockPosting.postStock), all or none, instead of separate writes with a commit-attempt marker.',
+    find: `  const newId = 'VINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+
+  const attemptId = Utilities.getUuid();
+  firebaseDbRequest_('vendorInvoices/' + newId, 'put', {
+    TransactionType: 'VendorInvoice', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
+    InvoiceDate: date, Description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description,
+    VendorRefNumber: existing.VendorRefNumber,
+    CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
+    CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID, VendorID: existing.VendorID,
+    SourceGRNs: existing.SourceGRNs || [], DirectLines: existing.DirectLines || [],
+    CurrencyCode: existing.CurrencyCode || '', ExchangeRate: existing.ExchangeRate || 1, TotalBase: existing.TotalBase != null ? existing.TotalBase : existing.Total, // [NEW DEVELOPMENT invoice-currency]
+    Discount: existing.Discount, TaxPercent: existing.TaxPercent, TaxAmount: existing.TaxAmount, RoundOff: existing.RoundOff,
+    Subtotal: existing.Subtotal, Total: existing.Total,
+    CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
+    ReversalOfInvoiceID: invoiceId, ReversedByInvoiceID: ''
+  }, idToken);
+
+  let glResult;
+  try {
+    glResult = writeStockGlEntry_(idToken, user, 'VendorInvoice', date,
+      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.VendorRefNumber,
+      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+      { CommitAttemptID: attemptId, SourceTransactionID: newId });
+  } catch (err) {
+    firebaseDbRequest_('vendorInvoices/' + newId, 'delete', null, idToken);
+    throw err;
+  }
+
+  // Original patched before the new reversal finalizes — same
+  // deliberate ordering as every other module's reversal, preventing
+  // double-reversal even under a failure at the worst possible
+  // moment. Status reset back to Posted here too — when a reversal
+  // gate is configured, requestReverseVendorInvoice already moved the
+  // original to PendingReversalApproval, and nothing else ever moved
+  // it back; leaving it there was a real bug (the invoice stayed
+  // stuck showing "Pending Reversal Approval" forever, even after the
+  // reversal had actually gone through).
+  firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', { Status: 'Posted', ReversalApprovalInstanceID: '', PendingReversalDate: '', ReversedByInvoiceID: newId }, idToken);
+  finalizeCommitAttempt_(idToken, newId, glResult, {}, actor, 'vendorInvoices');
+
+  // Unmatch every GRN this invoice had claimed — they become
+  // available in every future invoice picker again.
+  (existing.SourceGRNs || []).forEach(g => {
+    firebaseDbRequest_('stock/transactions/' + g.GRNID, 'patch', { MatchedToInvoiceID: '' }, idToken);
+  });
+
+`,
+    replace: `  const newId = 'VINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
+
+  const attemptId = Utilities.getUuid();
+  const reversal = {
+    TransactionType: 'VendorInvoice', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
+    InvoiceDate: date, Description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description,
+    VendorRefNumber: existing.VendorRefNumber,
+    CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
+    CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID, VendorID: existing.VendorID,
+    SourceGRNs: existing.SourceGRNs || [], DirectLines: existing.DirectLines || [],
+    CurrencyCode: existing.CurrencyCode || '', ExchangeRate: existing.ExchangeRate || 1, TotalBase: existing.TotalBase != null ? existing.TotalBase : existing.Total, // [NEW DEVELOPMENT invoice-currency]
+    Discount: existing.Discount, TaxPercent: existing.TaxPercent, TaxAmount: existing.TaxAmount, RoundOff: existing.RoundOff,
+    Subtotal: existing.Subtotal, Total: existing.Total,
+    CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
+    ReversalOfInvoiceID: invoiceId, ReversedByInvoiceID: ''
+  };
+
+  // [NEW DEVELOPMENT purchase-posting-atomic] The GL entry, the posted reversal, the original back to Posted
+  // with its link and every GRN it had claimed unmatched (available in every future invoice picker again),
+  // in one Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T3), instead of five
+  // writes with a commit-attempt marker. Status reset back to Posted here too — when a reversal
+  // gate is configured, requestReverseVendorInvoice already moved the
+  // original to PendingReversalApproval, and nothing else ever moved
+  // it back; leaving it there was a real bug (the invoice stayed
+  // stuck showing "Pending Reversal Approval" forever, even after the
+  // reversal had actually gone through).
+  const grnIds = (existing.SourceGRNs || []).map(g => g.GRNID);
+  const matchedGrns = getStockTxs_(idToken, grnIds);
+  const glResult = postStock_(idToken, user, {
+    type: 'VendorInvoice', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: existing.VendorRefNumber,
+    lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }
+  }, {}, () => markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: '' }), invoiceReversalWriter_(invoiceId, newId, reversal, actor, 'vendorInvoices'));
+
+`
+  },
+  {
+    id: 'purchase-queries-getEligibleRequisitionsForPO',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T3): getEligibleRequisitionsForPO reads ' +
+      'only the company\'s submitted requisitions (movedPaths.js, equality queries), instead of downloading both collections.',
+    find: `  const prData = firebaseDbRequest_('purchaseRequisitions', 'get', null, idToken) || {};
+  const pr = Object.keys(prData)
+    .map(id => Object.assign({ RequisitionID: id }, prData[id]))
+    .filter(r => r.Status === 'Submitted' && r.CompanyID === companyId);
+
+  const iprData = firebaseDbRequest_('inventoryPurchaseRequisitions', 'get', null, idToken) || {};
+`,
+    replace: `  // [NEW DEVELOPMENT purchase-queries] the company's submitted requisitions, not every one (T3)
+  const prData = queryMovedAny_(idToken, 'purchaseRequisitions', [{ Status: 'Submitted', CompanyID: String(companyId || '') }]) || {};
+  const pr = Object.keys(prData)
+    .map(id => Object.assign({ RequisitionID: id }, prData[id]))
+    .filter(r => r.Status === 'Submitted' && r.CompanyID === companyId);
+
+  const iprData = queryMovedAny_(idToken, 'inventoryPurchaseRequisitions', [{ Status: 'Submitted', CompanyID: String(companyId || '') }]) || {};
+`
   }
 ];

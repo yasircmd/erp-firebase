@@ -3,6 +3,8 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
+const { purchaseOrders, vendorInvoices } = require('./purchaseStore');
+const { sorted } = require('./docStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, COST_CENTER_REQUIRED_TYPES } = require('./glWriting');
 const { computeStockMovement } = require('./stockMovement');
@@ -43,36 +45,31 @@ async function resolveGrnClearingAccount(companyId) {
   return company.GrnClearingAccountID;
 }
 
-// Ported from updatePOLineReceivedQuantity_. Caller MUST already hold
-// the global lock (see lock.js) — same contract the original had with
-// LockService, and the SAME reasoning as every other per-line
-// progress tracker this session: reads the whole PO, mutates the
-// matching line in place, writes the whole Lines array back, since
-// Lines is a single embedded array on the PO document, not
-// individually addressable nodes.
-async function updatePOLineReceivedQuantity(poId, poLineId, receivedQty) {
-  if (!poId || !poLineId) return;
-  const snap = await rtdb.ref('purchaseOrders/' + poId).get();
-  const po = snap.val();
-  if (!po || !po.Lines) return;
-  const lines = po.Lines.map(l => l.LineID === poLineId
-    ? Object.assign({}, l, { ReceivedQuantity: Number(l.ReceivedQuantity || 0) + Number(receivedQty || 0) })
-    : l);
-  await rtdb.ref('purchaseOrders/' + poId).update({ Lines: lines });
+// Ported from updatePOLineReceivedQuantity_ and
+// rollbackPOLineReceivedQuantity_: each PO line's received quantity, grown
+// by a posted GRN's lines (sign 1) or given back by its reversal (-1, not
+// below zero). Lines is a single embedded array on the PO document, so the
+// whole Lines array is rewritten. Worked out before the posting and written
+// in its batch (TRANSACTIONS_FIRESTORE.md, T3): { poId: the PO as it is to
+// be written }. Direct (non-PO) lines contribute nothing. Caller holds the
+// global lock.
+async function planPOReceipts(lines, sign) {
+  const pos = {};
+  for (const l of lines) {
+    if (!l.SourcePOID || !l.SourcePOLineID) continue;
+    if (!(l.SourcePOID in pos)) pos[l.SourcePOID] = await purchaseOrders.get(l.SourcePOID);
+    const po = pos[l.SourcePOID];
+    if (!po || !po.Lines) continue;
+    pos[l.SourcePOID] = stockStore.applyUpdate(po, { Lines: po.Lines.map(x => x.LineID === l.SourcePOLineID
+      ? Object.assign({}, x, { ReceivedQuantity: sign > 0
+        ? Number(x.ReceivedQuantity || 0) + Number(l.Quantity || 0)
+        : Math.max(0, Number(x.ReceivedQuantity || 0) - Number(l.Quantity || 0)) })
+      : x) });
+  }
+  Object.keys(pos).forEach(id => { if (!pos[id]) delete pos[id]; });
+  return pos;
 }
-
-// Ported from rollbackPOLineReceivedQuantity_ — the reversal
-// counterpart, decrements rather than deletes any tracking.
-async function rollbackPOLineReceivedQuantity(poId, poLineId, reversedQty) {
-  if (!poId || !poLineId) return;
-  const snap = await rtdb.ref('purchaseOrders/' + poId).get();
-  const po = snap.val();
-  if (!po || !po.Lines) return;
-  const lines = po.Lines.map(l => l.LineID === poLineId
-    ? Object.assign({}, l, { ReceivedQuantity: Math.max(0, Number(l.ReceivedQuantity || 0) - Number(reversedQty || 0)) })
-    : l);
-  await rtdb.ref('purchaseOrders/' + poId).update({ Lines: lines });
-}
+const writePOs = pos => async batch => { for (const id of Object.keys(pos)) await purchaseOrders.set(id, pos[id], batch); };
 
 // Non-stock lines (owner, 2026-09-28; docs/modules/GRN_NON_STOCK.md):
 // a category (Procurement Setup) instead of an item, no warehouse, no
@@ -108,8 +105,8 @@ exports.getEligibleApprovedPOsForGRN = onCallWithMessages(onCallOptions, async (
   const vendorId = String(request.data && request.data.vendorId || '').trim();
   if (!companyId || !vendorId) return [];
 
-  const snap = await rtdb.ref('purchaseOrders').get();
-  const data = snap.val() || {};
+  // The vendor's approved orders (purchaseStore.js), not every one.
+  const data = await purchaseOrders.query({ Status: 'Approved', CompanyID: companyId, VendorID: vendorId });
   return Object.keys(data)
     .map(id => Object.assign({ POID: id }, data[id]))
     .filter(po => po.Status === 'Approved' && po.CompanyID === companyId && po.VendorID === vendorId)
@@ -159,8 +156,7 @@ exports.saveGrnDraft = onCallWithMessages(onCallOptions, async (request) => {
   const poCache = {};
   async function loadSourcePO(poId) {
     if (!poCache.hasOwnProperty(poId)) {
-      const snap = await rtdb.ref('purchaseOrders/' + poId).get();
-      poCache[poId] = snap.val();
+      poCache[poId] = await purchaseOrders.get(poId);
     }
     return poCache[poId];
   }
@@ -401,8 +397,10 @@ async function commitGrnPosting(user, existing, grnId) {
   };
 
   const actor = user.profile.username || user.uid;
-  // The GL entry, the balances and the GRN in one batch: all or none
-  // (stockPosting.js, TRANSACTIONS_FIRESTORE.md T1b).
+  // The GL entry, the balances, the GRN and its POs' received quantities in
+  // one batch: all or none (stockPosting.js, TRANSACTIONS_FIRESTORE.md T1b,
+  // T3).
+  const pos = await planPOReceipts(movementLines.concat(nonStockLines), 1);
   const glResult = await postStock(user, {
     type: 'GRN', date: existing.TransactionDate, description: existing.Description, reference: existing.Reference,
     lines: movement.inventoryGlLines.concat(nonStockGlLines, [offsetLine]),
@@ -410,16 +408,7 @@ async function commitGrnPosting(user, existing, grnId) {
     extra: { CommitAttemptID: randomUUID(), SourceTransactionID: grnId }
   }, movement.ledgerUpdates, (gl, now) => ({
     [grnId]: stockStore.applyUpdate(existing, Object.assign(postedFields(gl, actor, now), { Lines: movementLines, NonStockLines: nonStockLines }))
-  }));
-
-  // PO received-quantity progress only ever updates once the
-  // transaction is genuinely, finally committed. Direct (non-PO)
-  // lines simply contribute nothing.
-  for (const l of movementLines.concat(nonStockLines)) {
-    if (l.SourcePOID && l.SourcePOLineID) {
-      await updatePOLineReceivedQuantity(l.SourcePOID, l.SourcePOLineID, l.Quantity);
-    }
-  }
+  }), writePOs(pos));
 
   return { grnNumber: glResult.jvNumber };
 }
@@ -488,6 +477,15 @@ function invoiceStateOf(grn, invoices) {
   return { InvoiceStatus: 'Pending' };
 }
 
+// The invoices invoiceStateOf needs for these GRNs: their matched ones, by
+// id, and every unposted one (purchaseStore.js), in id order, not every
+// Vendor Invoice.
+async function invoicesOf(grns) {
+  const [matched, ...unposted] = await Promise.all([vendorInvoices.getMany(grns.map(g => g.MatchedToInvoiceID).filter(Boolean))]
+    .concat(UNPOSTED_INVOICE.map(Status => vendorInvoices.query({ Status }))));
+  return sorted(Object.assign({}, matched, ...unposted));
+}
+
 // Ported from getGrnEntries.
 exports.getGrnEntries = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
@@ -505,7 +503,7 @@ exports.getGrnEntries = onCallWithMessages(onCallOptions, async (request) => {
   // Gmail-style paging and server-side search (docs/modules/LIST_PAGING.md).
   // The invoice state is worked out first, so the invoice filter sees it.
   if (request.data && request.data.page) {
-    const invoices = (await rtdb.ref('vendorInvoices').get()).val() || {};
+    const invoices = await invoicesOf(all);
     all.forEach(e => Object.assign(e, invoiceStateOf(e, invoices)));
     return pageOf(all, request.data.page, GRN_LIST_SPEC);
   }
@@ -513,7 +511,7 @@ exports.getGrnEntries = onCallWithMessages(onCallOptions, async (request) => {
   const limit = request.data && request.data.limit;
   const useAll = limit === 'all';
   const capped = useAll ? all : all.slice(0, 100);
-  const invoices = (await rtdb.ref('vendorInvoices').get()).val() || {};
+  const invoices = await invoicesOf(capped);
   capped.forEach(e => Object.assign(e, invoiceStateOf(e, invoices)));
   return { entries: capped, total: all.length };
 });
@@ -589,9 +587,11 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
       ReversalOfGRN: grnId, ReversedByGRN: '', VendorID: existing.VendorID || ''
     };
 
-    // The GL entry, the balances, the reversal and the original's mark in
-    // one batch: all or none (stockPosting.js, T1b), so a second reversal
-    // can never start from a half-done one.
+    // The GL entry, the balances, the reversal, the original's mark and
+    // exactly this GRN's own contribution to each PO line rolled back, in
+    // one batch: all or none (stockPosting.js, T1b, T3), so a second
+    // reversal can never start from a half-done one.
+    const pos = await planPOReceipts(movementLines.concat(nonStockLines), -1);
     const glResult = await postStock(user, {
       type: 'GRN', date, description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description, reference: existing.TransactionNumber,
       lines: movement.inventoryGlLines.concat(nonStockGlLines, [offsetLine]),
@@ -600,16 +600,10 @@ exports.reverseGrn = onCallWithMessages(onCallOptions, async (request) => {
     }, movement.ledgerUpdates, (gl, posted) => ({
       [grnId]: stockStore.applyUpdate(existing, { ReversedByGRN: newId }),
       [newId]: stockStore.applyUpdate(reversal, Object.assign(postedFields(gl, actor, posted), { Lines: movementLines, NonStockLines: nonStockLines }))
-    }));
-
-    // Roll back exactly this GRN's own contribution to each PO line it
-    // touched.
-    for (const l of movementLines.concat(nonStockLines)) {
-      if (l.SourcePOID && l.SourcePOLineID) {
-        await rollbackPOLineReceivedQuantity(l.SourcePOID, l.SourcePOLineID, l.Quantity);
-      }
-    }
+    }), writePOs(pos));
 
     return { success: true, grnId: newId, grnNumber: glResult.jvNumber };
   });
 });
+
+module.exports = Object.assign(exports, { planPOReceipts, writePOs }); // for the tests (purchasePosting.emulator.test.js)

@@ -1,16 +1,18 @@
-// No reader downloads every Sales Order, Customer Invoice or reservation
-// (docs/modules/TRANSACTIONS_FIRESTORE.md, T2): each asks salesStore /
-// movedPaths for what it needs (query, where, whereAny, get, getMany). The
+// No reader downloads a whole moved collection (docs/modules/
+// TRANSACTIONS_FIRESTORE.md: T2 Sales Orders, Customer Invoices,
+// reservations; T3 Vendor Invoices, Purchase Orders, requisitions): each
+// asks its store / movedPaths for what it needs (query, where, whereAny,
+// get, getMany). Stock transactions: stockReads.test.js. The
 // few that must see everything are listed here with their reason; a new
 // whole-collection read fails this test until it is narrowed or listed.
-//   node --test functions/test/unit/salesReads.test.js
+//   node --test functions/test/unit/movedReads.test.js
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const SRC = path.join(__dirname, '../../src');
 
-const PATHS = ['salesOrders', 'customerInvoices', 'stock/reservations'];
+const PATHS = ['salesOrders', 'customerInvoices', 'stock/reservations', 'vendorInvoices', 'purchaseOrders', 'purchaseRequisitions', 'inventoryPurchaseRequisitions'];
 // file: why it reads a whole moved collection (store.all()).
 const ALLOWED = {
   'coaUsage.js': 'whether an account was ever used: every document, by nature',
@@ -20,12 +22,16 @@ const ALLOWED = {
 };
 // Ported lists that show every document the user's companies hold, newest
 // first (the company filter is a user's list of companies, not one value).
-const PORTED_WHOLE = { customerInvoices: ['getCustomerInvoiceEntries'], salesOrders: ['getSalesOrderEntries'], 'stock/reservations': [] };
+const PORTED_WHOLE = {
+  customerInvoices: ['getCustomerInvoiceEntries'], salesOrders: ['getSalesOrderEntries'], 'stock/reservations': [],
+  vendorInvoices: ['getVendorInvoiceEntries'], purchaseOrders: ['getPurchaseOrderEntries'],
+  purchaseRequisitions: ['getPurchaseRequisitionEntries'], inventoryPurchaseRequisitions: ['getInventoryPurchaseRequisitionEntries']
+};
 
 const files = fs.readdirSync(SRC).filter(f => f.endsWith('.js'));
 const read = f => fs.readFileSync(path.join(SRC, f), 'utf8');
 
-test('no hand-written reader downloads a whole Sales Order, Customer Invoice or reservation collection', () => {
+test('no hand-written reader downloads a whole moved collection', () => {
   const found = [];
   files.forEach(f => {
     if (ALLOWED[f]) return;
@@ -34,9 +40,9 @@ test('no hand-written reader downloads a whole Sales Order, Customer Invoice or 
       if (new RegExp("rtdb\\.ref\\(['`]" + p.replace('/', '\\/') + "['`]\\)").test(s)) found.push(f + ': rtdb ' + p);
       if (new RegExp("val\\(['`]" + p.replace('/', '\\/') + "['`]\\)").test(s)) found.push(f + ': val(' + p + ')');
     });
-    if (/\b(salesOrders|customerInvoices|reservations|moved|store)\.all\(\)/.test(s)) found.push(f + ': all()');
+    if (/\b(salesOrders|customerInvoices|reservations|vendorInvoices|purchaseOrders|purchaseRequisitions|inventoryPurchaseRequisitions|moved|store)\.all\(\)/.test(s)) found.push(f + ': all()');
   });
-  assert.deepEqual(found, [], 'narrow the read with salesStore query / get / getMany or movedPaths.where, or list it in ALLOWED with its reason');
+  assert.deepEqual(found, [], 'narrow the read with the store\'s query / get / getMany or movedPaths.where, or list it in ALLOWED with its reason');
 });
 
 test('the RTDB paths are not read by the hand-written code at all: they are in Firestore', () => {

@@ -140,7 +140,7 @@ test('capitalization from clearing: JV + CBT + Vendor Invoice, one atomic entry,
   const vi = ok(await call('u-admin', 'saveVendorInvoiceDraft', { invoiceData: { InvoiceDate: '2026-01-07', Description: 'Van body', VendorRefNumber: 'B-1',
     CompanyID: 'C1', VendorID: 'V1', SourceGRNs: [], DirectLines: [{ AccountCode: '2300', Amount: 15000, Description: 'Body work' }, { AccountCode: '6100', Amount: 100, Description: 'Freight', CostCenterID: 'CC1' }] } }));
   ok(await call('u-admin', 'postVendorInvoice', { invoiceId: vi.invoiceId }));
-  const viJv = (await (await require('./_helpers').rtdb.ref('vendorInvoices/' + vi.invoiceId).get()).val()).LinkedJVID;
+  const viJv = (await require('./_helpers').val('vendorInvoices/' + vi.invoiceId)).LinkedJVID;
 
   const open = await call('u-admin', 'getFaClearingItems', { companyId: 'C1' });
   assert.deepEqual(open.items.map(i => [i.VoucherType, i.Open]), [['JV', 100000], ['Bank Payment', 5000], ['VendorInvoice', 15000]]);

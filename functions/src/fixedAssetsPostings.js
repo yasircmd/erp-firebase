@@ -125,7 +125,7 @@ exports.getFaClearingItems = onCallWithMessages(onCallOptions, async (request) =
   const r = await clearingItems(companyId);
   const open = r.items.filter(i => i.Open > 0);
   // The Vendor Invoice behind a VendorInvoice entry, for the asset's supplier and invoice.
-  const vi = (await rtdb.ref('vendorInvoices').get()).val() || {};
+  const vi = await require('./purchaseStore').vendorInvoices.getMany(open.filter(i => i.VoucherType === 'VendorInvoice').map(i => i.SourceTransactionID)); // by id (purchaseStore.js)
   open.forEach(i => {
     const inv = i.VoucherType === 'VendorInvoice' ? vi[i.SourceTransactionID] : null;
     if (inv) { i.VendorID = inv.VendorID || ''; i.VendorRefNumber = inv.VendorRefNumber || ''; i.InvoiceNumber = inv.TransactionNumber || i.JVNumber; }
@@ -501,7 +501,7 @@ function dimsOf(doc) {
 async function originFromItems(a, items) {
   const out = {};
   const inv = items.find(it => it.VoucherType === 'VendorInvoice' && it.SourceTransactionID);
-  const invRec = inv ? (await rtdb.ref('vendorInvoices/' + inv.SourceTransactionID).get()).val() || {} : null;
+  const invRec = inv ? (await require('./purchaseStore').vendorInvoices.get(inv.SourceTransactionID)) || {} : null;
   const vendorId = (items.find(it => it.VendorID) || {}).VendorID || (invRec && invRec.VendorID) || '';
   if (!a.SupplierID && vendorId) {
     const v = (await rtdb.ref('vendors/' + vendorId).get()).val();

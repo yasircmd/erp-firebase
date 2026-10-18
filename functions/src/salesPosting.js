@@ -140,14 +140,16 @@ function markDocs(docs, ids, fields) {
 const { postedFields } = require('./stockPosting');
 // A Delivery Note's plan (planDelivery).
 const planWriter = plan => batch => writePlan(batch, plan);
-// A Customer Invoice, posted.
-const invoicePostedWriter = (invoiceId, actor) => (batch, gl, now) =>
-  updateInBatch('customerInvoices', invoiceId, postedFields(gl, actor, now), batch);
-// A Customer Invoice's reversal (the record to post), and the original back
-// to Posted with its link.
-const invoiceReversalWriter = (invoiceId, newId, reversal, actor) => async (batch, gl, now) => {
-  await setInBatch('customerInvoices', newId, applyUpdate(reversal, postedFields(gl, actor, now)), batch);
-  await updateInBatch('customerInvoices', invoiceId, { Status: 'Posted', ReversalApprovalInstanceID: '', PendingReversalDate: '', ReversedByInvoiceID: newId }, batch);
+// A Customer Invoice (or a Vendor Invoice), posted.
+// (path: the invoices' collection, customerInvoices unless given; T3 posts
+// Vendor Invoices the same way.)
+const invoicePostedWriter = (invoiceId, actor, path) => (batch, gl, now) =>
+  updateInBatch(path || 'customerInvoices', invoiceId, postedFields(gl, actor, now), batch);
+// A Customer (or Vendor) Invoice's reversal (the record to post), and the
+// original back to Posted with its link.
+const invoiceReversalWriter = (invoiceId, newId, reversal, actor, path) => async (batch, gl, now) => {
+  await setInBatch(path || 'customerInvoices', newId, applyUpdate(reversal, postedFields(gl, actor, now)), batch);
+  await updateInBatch(path || 'customerInvoices', invoiceId, { Status: 'Posted', ReversalApprovalInstanceID: '', PendingReversalDate: '', ReversedByInvoiceID: newId }, batch);
 };
 
 module.exports = { planDelivery, writePlan, setInBatch, updateInBatch, markDocs, planWriter, invoicePostedWriter, invoiceReversalWriter };

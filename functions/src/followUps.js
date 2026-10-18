@@ -127,7 +127,7 @@ exports.getMyFollowUpTasksForUser = onCallWithMessages(onCallOptions, async (req
     ['INVENTORYPURCHASEREQUISITION', 'inventoryPurchaseRequisitions', 'IPRNumber', 'IPRDate']
   ]) {
     if (!modules.has(moduleId)) continue;
-    const data = await withStatus(path, 'Submitted'); // only the submitted ones (rtdbStatus.js)
+    const data = await require('./movedPaths').where(path, { Status: 'Submitted' }); // only the submitted ones (a Firestore query, movedPaths.js)
     Object.keys(data).forEach(id => {
       const r = data[id];
       if (!r || r.Status !== 'Submitted' || !canSee(r) || !inTeam(moduleId, r)) return;

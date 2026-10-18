@@ -7,7 +7,7 @@
 // screen is Admin only.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, call, reset, baseFixture, firestore, rtdb } = require('./_helpers');
+const { app, call, reset, baseFixture, firestore, rtdb, put } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 
@@ -99,7 +99,7 @@ test('who may see them: company, module access, the entry\'s own visibility rule
   await rtdb.ref('permissions/JV/access').set(['Admin']);
   await assert.rejects(list('u-viewer', 'JV', jv), /do not have access to Journal Entry Processing \(JV\)/);
   // Purchase Requisition: a draft is seen only by its raiser (and Admins).
-  await rtdb.ref('purchaseRequisitions/PR1').set({ PRNumber: '', Status: 'Draft', CompanyID: 'C1', RequestedBy: 'admin', RequestedByUID: 'u-admin', PRDate: D, Lines: [] });
+  await put('purchaseRequisitions/PR1', { PRNumber: '', Status: 'Draft', CompanyID: 'C1', RequestedBy: 'admin', RequestedByUID: 'u-admin', PRDate: D, Lines: [] });
   assert.equal((await list('u-admin', 'PURCHASEREQUISITION', 'PR1')).files.length, 0);
   await assert.rejects(list('u-viewer', 'PURCHASEREQUISITION', 'PR1'), /do not have access to this entry/);
 });
