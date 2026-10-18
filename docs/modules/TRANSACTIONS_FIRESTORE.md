@@ -725,6 +725,10 @@ free stock, the second is finished by posting again.
   left out of the produced quantity (2 fail); a reversal releasing every
   active reservation (1); a batch's lines asked for the wrong batch (9,
   production and Job Order suites).
+- **Regression:** every emulator suite passes (123 files, 627 tests); UI
+  checks 80 of 84, the known failures only (help, home, trialBalance row
+  heights, approvalRouting's PDC follow-up days, which fails on `main`
+  too).
 
 **Going live:** deploy set `transactions-t4`, all functions, no screens,
 rules or indexes. Don't use the app during the deploy. Job Orders and PDCs
