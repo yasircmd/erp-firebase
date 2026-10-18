@@ -1197,3 +1197,9 @@ from, and how it was verified. The deploy procedure is in the
   [#168](https://github.com/yasircmd/erp-firebase/actions/runs/39099744388)
   (05:12–07:23 UTC), from `ae0d30e` (PR #135), success. The app was not
   used during the deploy. **Phase T2 is live.**
+- **2026-10-18, T3: Vendor Invoices, Purchase Orders and requisitions in
+  Firestore; a GRN's and a Vendor Invoice's posting is one batch
+  (`transactions-t3`, all 547 functions, no screens):** run
+  [#169](https://github.com/yasircmd/erp-firebase/actions/runs/39119743557)
+  (10:33–12:40 UTC), from `49d146a` (PR #136), success. **Phase T3 is
+  live.**
