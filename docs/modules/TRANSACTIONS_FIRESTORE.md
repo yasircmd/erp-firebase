@@ -649,6 +649,10 @@ unit/movedReads.test.js covers all seven T2 and T3 collections.
   the PO's requisition picker asking for drafts (1, purchaseOrder suite);
   the GRN list without the unposted invoices (1, invoiceState suite); the
   ported postings mapped past stockPosting (periodLockGuard).
+- **Regression:** every emulator suite passes (123 files, 623 tests); UI
+  checks: the known failures only (help, home, trialBalance row heights,
+  searchPicker's JV order, approvalRouting's PDC follow-up days, which
+  fails on `main` too).
 
 **Going live:** deploy set `transactions-t3`, all functions, no screens,
 rules or indexes. Don't use the app during the deploy. Purchase documents

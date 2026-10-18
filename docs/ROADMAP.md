@@ -143,6 +143,9 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   - `ui/help` and `ui/home`: out-of-date expectations and the offline
     Tailwind subset;
   - `ui/trialBalance` row heights: this environment.
+  - `ui/approvalRouting` "PDC Received: the Treasury team …" fails on
+    `main` too (2026-10-18): `#ac-followup-days-wrap` stays visible where
+    the test expects it hidden.
 
 - [ ] **UX testing, 2026-10-14** (owner): 42 issues and suggestions. Tier 1
   live 2026-10-14 (PR #122), Tier 2 live 2026-10-16 (PR #123); **Tier 3:
