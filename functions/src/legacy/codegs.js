@@ -11,7 +11,6 @@ const __approvals = require('../approvals');
 const __auth = require('../auth');
 const __coaScheme = require('../coaScheme');
 const __coaUsage = require('../coaUsage');
-const __commitAttempt = require('../commitAttempt');
 const __companies = require('../companies');
 const __customerPhone = require('../customerPhone');
 const __dimensionRules = require('../dimensionRules');
@@ -45,7 +44,6 @@ const userCanAccessCompany_ = (...a) => __glWriting.userCanAccessCompany(...a);
 const getUserAssignedCompanies_ = (...a) => __companies.getUserAssignedCompanies(...a);
 const computeStockMovement_ = (idToken, ...a) => __stockMovement.computeStockMovement(...a);
 const getStockLedgerEntry_ = (idToken, ...a) => __stockMovement.getStockLedgerEntry(...a);
-const writeStockGlEntry_ = (idToken, ...a) => __glWriting.writeStockGlEntry(...a);
 const generateStockVoucherNumber_ = (idToken, ...a) => __glWriting.generateStockVoucherNumber(...a);
 const generateVoucherNumber_ = (idToken, ...a) => __numbering.voucherNumber(...a);
 const generateItemCode_ = (idToken, ...a) => __numbering.itemCode(...a);
@@ -67,9 +65,6 @@ const recordEInvoice_ = (idToken, ...a) => __eInvoicing.recordEInvoice(...a);
 const generateVendorCode_ = (idToken, ...a) => __numbering.vendorCode(...a);
 const generateCustomerCode_ = (idToken, ...a) => __numbering.customerCode(...a);
 const generateStockTransactionRef_ = (idToken, ...a) => __glWriting.generateStockTransactionRef(...a);
-const beginCommitAttempt_ = (idToken, ...a) => __commitAttempt.beginCommitAttempt(...a);
-const abandonCommitAttempt_ = (idToken, ...a) => __commitAttempt.abandonCommitAttempt(...a);
-const finalizeCommitAttempt_ = (idToken, ...a) => __commitAttempt.finalizeCommitAttempt(...a);
 const resolveApprovalScopeKeyForDocument_ = (idToken, ...a) => __approvals.resolveApprovalScopeKeyForDocument(...a);
 const beginApprovalInstance_ = (idToken, ...a) => __approvals.beginApprovalInstance(...a);
 const ensureCbtSplit_ = (idToken, ...a) => __approvals.ensureCbtSplit(...a);
@@ -3676,30 +3671,19 @@ async function commitVendorInvoicePosting_(idToken, user, existing, invoiceId) {
   const actor = user.profile.username || user.uid;
   // Everything above is pure validation and read-only computation —
   // nothing written yet, so any failure up to here is ordinary and
-  // safely retriable. From here on, see beginCommitAttempt_'s own
-  // section comment for the full reasoning.
-  const attemptId = await beginCommitAttempt_(idToken, invoiceId, actor, 'vendorInvoices');
-
-  let glResult;
-  try {
-    glResult = await writeStockGlEntry_(idToken, user, 'VendorInvoice', existing.InvoiceDate, existing.Description, existing.VendorRefNumber,
-      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
-      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-      { CommitAttemptID: attemptId, SourceTransactionID: invoiceId });
-  } catch (err) {
-    await abandonCommitAttempt_(idToken, invoiceId, existing.Status, actor, 'vendorInvoices');
-    throw err;
-  }
-
-  // A GL entry genuinely exists from here on — no more reverting.
-  // Marks each matched GRN so it drops out of every future invoice
-  // picker — the actual double-invoicing prevention, and the RTDB-side
-  // effect this whole commit-marker pattern exists to protect.
-  await seq.forEach(existing.SourceGRNs || [], async g => {
-    await firebaseDbRequest_('stock/transactions/' + g.GRNID, 'patch', { MatchedToInvoiceID: invoiceId }, idToken);
-  });
-
-  await finalizeCommitAttempt_(idToken, invoiceId, glResult, {}, actor, 'vendorInvoices');
+  // safely retriable.
+  // [NEW DEVELOPMENT purchase-posting-atomic] The GL entry, the posted invoice and the mark on each matched
+  // GRN (so it drops out of every future invoice picker — the actual double-invoicing prevention) in one
+  // Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T3), instead of three writes
+  // with a commit-attempt marker.
+  const grnIds = (existing.SourceGRNs || []).map(g => g.GRNID);
+  const matchedGrns = await getStockTxs_(idToken, grnIds);
+  const glResult = await postStock_(idToken, user, {
+    type: 'VendorInvoice', date: existing.InvoiceDate, description: existing.Description, reference: existing.VendorRefNumber,
+    lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: Utilities.getUuid(), SourceTransactionID: invoiceId }
+  }, {}, () => markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: invoiceId }), invoicePostedWriter_(invoiceId, actor, 'vendorInvoices'));
 
   return { invoiceNumber: glResult.jvNumber };
 }
@@ -3810,7 +3794,7 @@ async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId,
   const newId = 'VINVD-' + Utilities.getUuid().split('-')[0].toUpperCase();
 
   const attemptId = Utilities.getUuid();
-  await firebaseDbRequest_('vendorInvoices/' + newId, 'put', {
+  const reversal = {
     TransactionType: 'VendorInvoice', Status: 'Committing', CommitAttemptID: attemptId, CommitAttemptStartedAt: now,
     InvoiceDate: date, Description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description,
     VendorRefNumber: existing.VendorRefNumber,
@@ -3822,37 +3806,25 @@ async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId,
     Subtotal: existing.Subtotal, Total: existing.Total,
     CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor,
     ReversalOfInvoiceID: invoiceId, ReversedByInvoiceID: ''
-  }, idToken);
+  };
 
-  let glResult;
-  try {
-    glResult = await writeStockGlEntry_(idToken, user, 'VendorInvoice', date,
-      'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, existing.VendorRefNumber,
-      linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
-      { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
-      { CommitAttemptID: attemptId, SourceTransactionID: newId });
-  } catch (err) {
-    await firebaseDbRequest_('vendorInvoices/' + newId, 'delete', null, idToken);
-    throw err;
-  }
-
-  // Original patched before the new reversal finalizes — same
-  // deliberate ordering as every other module's reversal, preventing
-  // double-reversal even under a failure at the worst possible
-  // moment. Status reset back to Posted here too — when a reversal
+  // [NEW DEVELOPMENT purchase-posting-atomic] The GL entry, the posted reversal, the original back to Posted
+  // with its link and every GRN it had claimed unmatched (available in every future invoice picker again),
+  // in one Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T3), instead of five
+  // writes with a commit-attempt marker. Status reset back to Posted here too — when a reversal
   // gate is configured, requestReverseVendorInvoice already moved the
   // original to PendingReversalApproval, and nothing else ever moved
   // it back; leaving it there was a real bug (the invoice stayed
   // stuck showing "Pending Reversal Approval" forever, even after the
   // reversal had actually gone through).
-  await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'patch', { Status: 'Posted', ReversalApprovalInstanceID: '', PendingReversalDate: '', ReversedByInvoiceID: newId }, idToken);
-  await finalizeCommitAttempt_(idToken, newId, glResult, {}, actor, 'vendorInvoices');
-
-  // Unmatch every GRN this invoice had claimed — they become
-  // available in every future invoice picker again.
-  await seq.forEach(existing.SourceGRNs || [], async g => {
-    await firebaseDbRequest_('stock/transactions/' + g.GRNID, 'patch', { MatchedToInvoiceID: '' }, idToken);
-  });
+  const grnIds = (existing.SourceGRNs || []).map(g => g.GRNID);
+  const matchedGrns = await getStockTxs_(idToken, grnIds);
+  const glResult = await postStock_(idToken, user, {
+    type: 'VendorInvoice', date: date, description: 'Reversal of ' + (existing.TransactionNumber || '') + ' — ' + existing.Description, reference: existing.VendorRefNumber,
+    lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
+    dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
+    extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }
+  }, {}, () => markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: '' }), invoiceReversalWriter_(invoiceId, newId, reversal, actor, 'vendorInvoices'));
 
   return { invoiceId: newId, invoiceNumber: glResult.jvNumber };
 }
@@ -9718,12 +9690,13 @@ async function getEligibleRequisitionsForPO(idToken, companyId) {
   // CostCenterID is an independent field the PO carries for its own
   // approval scope, not something that has to match — or even be
   // present on — every requisition it happens to pull lines from.
-  const prData = (await firebaseDbRequest_('purchaseRequisitions', 'get', null, idToken)) || {};
+  // [NEW DEVELOPMENT purchase-queries] the company's submitted requisitions, not every one (T3)
+  const prData = (await queryMovedAny_(idToken, 'purchaseRequisitions', [{ Status: 'Submitted', CompanyID: String(companyId || '') }])) || {};
   const pr = Object.keys(prData)
     .map(id => Object.assign({ RequisitionID: id }, prData[id]))
     .filter(r => r.Status === 'Submitted' && r.CompanyID === companyId);
 
-  const iprData = (await firebaseDbRequest_('inventoryPurchaseRequisitions', 'get', null, idToken)) || {};
+  const iprData = (await queryMovedAny_(idToken, 'inventoryPurchaseRequisitions', [{ Status: 'Submitted', CompanyID: String(companyId || '') }])) || {};
   const ipr = Object.keys(iprData)
     .map(id => Object.assign({ RequisitionID: id }, iprData[id]))
     .filter(r => r.Status === 'Submitted' && r.CompanyID === companyId);

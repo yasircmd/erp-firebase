@@ -43,7 +43,7 @@ function guardedReversal(invoiceType, fn, isDecision) {
         try {
           if (invoiceType === 'VendorInvoice') await assertInvoiceHasNoLiveReturns(invoiceId);
           // Fixed Assets: not while its asset-clearing lines are capitalized.
-          if (invoiceType === 'VendorInvoice') await assertEntryNotCapitalized(((await rtdb.ref('vendorInvoices/' + invoiceId).get()).val() || {}).LinkedJVID);
+          if (invoiceType === 'VendorInvoice') await assertEntryNotCapitalized(((await require('./purchaseStore').vendorInvoices.get(invoiceId)) || {}).LinkedJVID);
           if (invoiceType === 'CustomerInvoice') await assertInvoiceHasNoLiveSalesReturns(invoiceId);
           await assertInvoiceHasNoAllocations(invoiceType, invoiceId);
         }

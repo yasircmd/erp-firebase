@@ -24,6 +24,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const stockStore = require('./stockStore');
+const { vendorInvoices } = require('./purchaseStore');
 const { postStock, postedFields } = require('./stockPosting');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
@@ -220,7 +221,7 @@ exports.getReturnableVendorInvoices = onCallWithMessages(onCallOptions, async (r
   if (!companyId || !vendorId) return [];
   if (!userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
 
-  const invoices = (await rtdb.ref('vendorInvoices').get()).val() || {};
+  const invoices = await vendorInvoices.query({ CompanyID: companyId, VendorID: vendorId }); // the vendor's invoices (purchaseStore.js)
   // The GRNs of this vendor's invoices, by id, and this company's returns
   // (stockStore.js), not every stock transaction.
   const grnIds = [];
@@ -261,7 +262,7 @@ exports.savePurchaseReturnDraft = onCallWithMessages(onCallOptions, async (reque
   const invoiceId = String(data.SourceInvoiceID || '').trim();
   if (!invoiceId) throw new HttpsError('invalid-argument', 'Select the Vendor Invoice the goods are being returned against.');
 
-  const inv = (await rtdb.ref('vendorInvoices/' + invoiceId).get()).val();
+  const inv = await vendorInvoices.get(invoiceId);
   assertInvoiceReturnable(inv, companyId, vendorId);
   if (returnId) {
     const existing = await loadReturn(returnId);
@@ -303,7 +304,7 @@ exports.postPurchaseReturn = onCallWithMessages(onCallOptions, async (request) =
 
     // Re-validated now, so a stale draft is refused before an approval
     // instance is started for it.
-    const inv = (await rtdb.ref('vendorInvoices/' + existing.SourceInvoiceID).get()).val();
+    const inv = await vendorInvoices.get(existing.SourceInvoiceID);
     assertInvoiceReturnable(inv, existing.CompanyID, existing.VendorID);
     const lines = await buildLines(existing.Lines, existing.SourceInvoiceID, inv, returnId);
     const values = computeValues(lines, inv);
@@ -330,7 +331,7 @@ exports.postPurchaseReturn = onCallWithMessages(onCallOptions, async (request) =
 // Caller holds the global lock. Everything is re-checked from live data:
 // the invoice, what's left to return, the invoice's outstanding.
 async function commitPurchaseReturnPosting(user, existing, returnId) {
-  const inv = (await rtdb.ref('vendorInvoices/' + existing.SourceInvoiceID).get()).val();
+  const inv = await vendorInvoices.get(existing.SourceInvoiceID);
   assertInvoiceReturnable(inv, existing.CompanyID, existing.VendorID);
   const lines = await buildLines(existing.Lines, existing.SourceInvoiceID, inv, returnId);
   const values = computeValues(lines, inv);

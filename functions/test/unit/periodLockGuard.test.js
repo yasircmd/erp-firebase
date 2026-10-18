@@ -42,7 +42,11 @@ test('the shared places every posting passes through check the lock', () => {
   for (const fn of ['requestReverseVendorInvoice', 'requestReverseCustomerInvoice']) {
     assert.match(body('legacy/codegs.js', fn), /await assertPeriodOpen_\(idToken, existing\.CompanyID, date\)/, fn);
   }
-  assert.match(legacy, /const writeStockGlEntry_ = \(idToken, \.\.\.a\) => __glWriting\.writeStockGlEntry\(\.\.\.a\);/);
+  // Since T3 every ported posting goes through stockPosting.postStock
+  // (buildStockGlEntry); writeStockGlEntry_, if a patch brings it back, must
+  // still be glWriting's.
+  assert.match(legacy, /const postStock_ = \(idToken, \.\.\.a\) => __stockPosting\.postStock\(\.\.\.a\);/);
+  if (/writeStockGlEntry_\(/.test(legacy)) assert.match(legacy, /const writeStockGlEntry_ = \(idToken, \.\.\.a\) => __glWriting\.writeStockGlEntry\(\.\.\.a\);/);
   assert.match(legacy, /const beginApprovalInstance_ = \(idToken, \.\.\.a\) => __approvals\.beginApprovalInstance\(\.\.\.a\);/);
   assert.doesNotMatch(legacy.replace(/FIRESTORE_JOURNAL_ENTRIES_COLLECTION, statusFilter|firestoreDelete_\(FIRESTORE_JOURNAL_ENTRIES_COLLECTION/g, ''), /firestore(Set|Add|Update)_\(FIRESTORE_JOURNAL_ENTRIES_COLLECTION/,
     'a ported module writes journal entries itself: route it through glWriting or check the lock');

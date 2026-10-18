@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-17
+reviewed: 2026-10-18
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,15 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 18/10/2026
+
+- **Goods receipts and vendor invoices post all at once.** Posting a
+  [GRN](goods-receipt-note.html) now updates the quantities received on its Purchase
+  Orders in the same step, and posting a
+  [Vendor Invoice](vendor-invoice.html) marks its GRNs in the same step. If
+  anything stops the posting, nothing of it is saved, so you can correct it
+  and post again.
 
 ## 17/10/2026
 
