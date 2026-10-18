@@ -86,7 +86,7 @@ test('the checklist finds each kind of problem, in the period being closed', asy
   await firestore.collection('employees').doc('E1').set({ CompanyID: 'C1', Status: 'Active', JoinDate: '2025-01-01' });
   await firestore.collection('employees').doc('E2').set({ CompanyID: 'C1', Status: 'Active', JoinDate: '2026-04-01' }); // joins after March
   // A PDC matured and not cleared.
-  await rtdb.ref('pdcCheques/P1').set({ CompanyID: 'C1', Direction: 'Received', Status: 'Pending', TransactionNumber: 'PDCR-1', TransactionDate: '2026-03-01', ChequeDate: '2026-04-20', ChequeNumber: '777', PartyName: 'Retail Co', Amount: 100 });
+  await put('pdcCheques/P1', { CompanyID: 'C1', Direction: 'Received', Status: 'Pending', TransactionNumber: 'PDCR-1', TransactionDate: '2026-03-01', ChequeDate: '2026-04-20', ChequeNumber: '777', PartyName: 'Retail Co', Amount: 100 });
   // Deliveries (UX_TIER3.md D): one posted and not invoiced; one invoiced, one reversed.
   const dn = (id, over) => put('stock/transactions/' + id, Object.assign({ TransactionType: 'DeliveryNote', TransactionNumber: id, TransactionDate: '2026-04-08', CompanyID: 'C1',
     CustomerID: 'CU1', Status: 'Posted', Lines: [] }, over || {}));

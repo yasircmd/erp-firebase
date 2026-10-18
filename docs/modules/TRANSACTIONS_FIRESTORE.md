@@ -658,3 +658,74 @@ unit/movedReads.test.js covers all seven T2 and T3 collections.
 rules or indexes. Don't use the app during the deploy. Purchase documents
 entered in RTDB before it are not seen afterwards. The RTDB `.indexOn` on
 the four paths stays until no live function queries it.
+
+## As built: phase T4 (2026-10-18), Job Orders and PDCs
+
+As T2 and T3, in one PR.
+
+**Where they are** (**functions/src/jobStore.js**, listed in movedPaths.js),
+same ids and fields: `jobOrderBatches/{id}`, `jobOrderLines/{id}`,
+`pdcCheques/{id}`.
+
+**Readers that ask for what they need.**
+
+| Reader | Now reads |
+|---|---|
+| Production: a batch's lines (ported `linesForBatch_`) | that batch's lines |
+| Production: batches to produce against (ported) | the company's batches (every one only when no company is given) |
+| PDC: duplicate cheque check | the same bank account's (issued) or party's (received) cheques |
+| PDC lists; PDCs due; a party's pending cheques | that direction; the pending ones; the party's in the company |
+| Party ledger (cheques pending), period closing, aging, sales rep | the pending ones; the company's; the rep's own |
+| Home "ready for you": accepted Job Order lines, their batches | the accepted lines; their batches by id |
+
+Still read whole, on purpose: the Job Order lists (batches, and the flat
+list of lines with their batches). unit/movedReads.test.js covers all ten
+T2–T4 collections. The RTDB Status index is now used only by recurring
+journals and approval instances (T5).
+
+**One posting, all or none:**
+- **PDC (hand-written pdc.js):** post, clear (each cheque), bounce /
+  cancel and undo clearing each write their GL entry and the cheque in one
+  batch (`postStock`); a reversal also marks the original GL entry in it.
+  commitAttempt.js is no longer used by any module (kept for now; its
+  callers were the stock modules, the invoices and PDCs).
+- **Production, post and reverse (ported, patches
+  `job-posting-atomic-*`):** **functions/src/productionPosting.js**
+  `planProduction` works out, before anything is written, what
+  updateJobOrderLineProgressAfterProduction_,
+  allocateProducedQuantityToLinkedSalesOrders_ and
+  rollbackJobOrderLineAfterReversal_ did one write at a time after the
+  posting:
+  - post: the produced quantity allocated to the line's linked Sales
+    Orders (new reservations carrying the posting's id), their status
+    refreshed, the line In Progress or Completed;
+  - reverse: the posting's own reservations released, the orders
+    refreshed, the line stepped back (Accepted or Open by the batch's
+    origin, or still Completed).
+
+  The produced quantity those functions counted after the batch includes
+  the entry being posted, so the plan counts it in (`inflightLines`).
+  `planWriter(plan)` adds the lines, orders and reservations to the
+  posting's batch. The three ported functions are no longer generated.
+
+**What is still after its posting:** shortfall allocation after a stock
+increase (Adjustment, Warehouse Movement, opening stock), and an invoice's
+own delivery (T2). Both leave nothing half done: the first only reserves
+free stock, the second is finished by posting again.
+
+**Tests.**
+- **New jobStore.emulator.test.js:** the three collections against RTDB
+  through every kind of write; their queries; a production filling its
+  linked order's shortfall and moving its line on, then complete; its
+  reversal releasing only its own reservations and stepping the line back;
+  each refused at commit leaving nothing, then landing whole.
+- Suites that wrote these paths to RTDB directly now use `put`; salesStore's
+  "still in RTDB" example is recurring journals.
+- **Negative controls, verified then restored:** the entry being posted
+  left out of the produced quantity (2 fail); a reversal releasing every
+  active reservation (1); a batch's lines asked for the wrong batch (9,
+  production and Job Order suites).
+
+**Going live:** deploy set `transactions-t4`, all functions, no screens,
+rules or indexes. Don't use the app during the deploy. Job Orders and PDCs
+entered in RTDB before it are not seen afterwards.

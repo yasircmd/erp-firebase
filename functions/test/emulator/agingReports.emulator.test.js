@@ -7,7 +7,7 @@
 // matching the stock ledger), plus access.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val, put } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 const ok = r => { assert.equal(r.success, true, r.error); return r; };
@@ -80,7 +80,7 @@ test('vendor aging: by days overdue and by invoice age; unapplied credits apart;
 test('customer aging: an advance received only is an unapplied credit; pending PDCs shown, not deducted', async () => {
   await reset(fixture());
   await cbt('Bank Receipt', '2026-04-01', ['Customer', 'CU1'], 250, []);
-  await rtdb.ref('pdcCheques/P1').set({ PartyType: 'Customer', PartyID: 'CU1', CompanyID: 'C1', Direction: 'Received', Status: 'Pending', TransactionDate: '2026-04-10',
+  await put('pdcCheques/P1', { PartyType: 'Customer', PartyID: 'CU1', CompanyID: 'C1', Direction: 'Received', Status: 'Pending', TransactionDate: '2026-04-10',
     ChequeDate: '2026-05-15', ChequeNumber: '000123', TransactionNumber: 'PDCR-1', Amount: 500 });
   const r = await aging('Customer', '2026-04-30', 'due');
   assert.deepEqual(r.Rows.map(x => [x.PartyID, x.Owed, x.Unapplied, x.Net, x.PendingPdc]), [['CU1', 0, 250, -250, 500]]);

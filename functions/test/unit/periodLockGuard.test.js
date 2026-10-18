@@ -88,7 +88,8 @@ test('every file that posts stock movements goes through a checked place', () =>
   const READ_ONLY = {
     'commitAttempt.js': 'finishes a posting its caller checked', 'periodClosing.js': 'the checklist reads stock; the year-end entry has no stock',
     'followUps.js': 'queries posted Delivery Notes for the home page', 'agingReports.js': 'queries posted stock for the aging report',
-    'stockReports.js': 'queries posted stock for the reports'
+    'stockReports.js': 'queries posted stock for the reports',
+    'productionPosting.js': 'counts posted Production entries; its writes join the caller\'s postStock batch'
   };
   const unchecked = posting.filter(f => !/(writeStockGlEntry|buildStockGlEntry|assignStockVoucherNumbering|postStock)\(/.test(read(f)) && !READ_ONLY[f]);
   assert.deepEqual(unchecked, [], 'posts stock movements without writing a checked GL entry or numbering');

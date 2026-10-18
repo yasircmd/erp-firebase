@@ -361,7 +361,7 @@ async function annotateInvoiceOutstanding(invoiceType, invoices) {
   const cfg = PARTY_TYPES[partyType];
   const allocated = new Map();
   const byPdc = new Map();
-  const pdcs = (await rtdb.ref('pdcCheques').get()).val() || {};
+  const pdcs = await movedPaths.where('pdcCheques', { Status: 'Pending' }); // the pending ones (jobStore.js)
   const pendingPdcJvIds = new Set(Object.values(pdcs).filter(p => p.Status === 'Pending' && p.LinkedJVID).map(p => p.LinkedJVID));
   (await queryEntries('AllocatedRefTypes', 'array-contains', invoiceType)).filter(isLive).forEach(e => {
     (e.Lines || []).forEach(l => (l.Allocations || []).forEach(a => {

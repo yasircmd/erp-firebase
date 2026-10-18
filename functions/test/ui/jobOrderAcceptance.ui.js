@@ -11,7 +11,7 @@ const fs = require('fs');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
 const { onAppDialog } = require('./_appDialogs');
-const { app, rtdb, call, reset, baseFixture, val } = require('../emulator/_helpers');
+const { app, rtdb, call, reset, baseFixture, val, put } = require('../emulator/_helpers');
 
 const results = [];
 function check(name, fn) { return fn().then(() => { results.push(['PASS', name]); }, e => { results.push(['FAIL', name, e.message.replace(/\s+/g, ' ').slice(0, 300)]); }); }
@@ -33,7 +33,7 @@ async function seed() {
   const ids = Object.entries(await val('jobOrderLines')).filter(([, l]) => l.ParentBatchID === s.batchId)
     .sort(([, a], [, b]) => a.LineNumber - b.LineNumber).map(([id]) => id);
   // The second line as the old code left it: pending with no approval.
-  await rtdb.ref('jobOrderLines/' + ids[1] + '/ApprovalInstanceID').remove();
+  await put('jobOrderLines/' + ids[1] + '/ApprovalInstanceID', null);
   return { gated: ids[0], legacy: ids[1] };
 }
 

@@ -5,7 +5,7 @@
 // IPR is submitted (Procurement), until it's acted on.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, firestore, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, firestore, call, reset, baseFixture, val, put } = require('./_helpers');
 
 const D = '2026-09-10';
 test.after(async () => { await app.delete(); });
@@ -191,11 +191,11 @@ test('Production: an accepted Sales Job Order line is the team\'s task until pro
   const list = await call('u-maker', 'getMyFollowUpTasksForUser', {});
   assert.deepEqual(list.map(t => [t.ModuleID, t.DocumentID, t.DocumentNumber, t.Description, t.DocumentDate]),
     [['JOBORDERREQUEST', 'L1', 'JO-1-1', 'FG-001 × 5', '2026-10-01']], 'pending and in-progress lines are not');
-  await rtdb.ref('jobOrderLines/L1/Status').set('In Progress');
+  await put('jobOrderLines/L1/Status', 'In Progress');
   assert.deepEqual(await tasksOf('u-maker'), []);
-  await rtdb.ref('jobOrderLines/L1/Status').set('Accepted'); // e.g. its production entry reversed
+  await put('jobOrderLines/L1/Status', 'Accepted'); // e.g. its production entry reversed
   assert.deepEqual(await tasksOf('u-maker'), ['JOBORDERREQUEST:L1']);
-  await rtdb.ref('jobOrderLines/L1/Status').set('Stopped');
+  await put('jobOrderLines/L1/Status', 'Stopped');
   assert.deepEqual(await tasksOf('u-maker'), []);
 });
 

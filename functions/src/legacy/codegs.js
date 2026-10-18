@@ -28,6 +28,7 @@ const __movedPaths = require('../movedPaths');
 const __numbering = require('../numbering');
 const __periodLock = require('../periodLock');
 const __prVisibility = require('../prVisibility');
+const __productionPosting = require('../productionPosting');
 const __projects = require('../projects');
 const __reservations = require('../reservations');
 const __roles = require('../roles');
@@ -93,6 +94,8 @@ const getStockTxs_ = (idToken, ...a) => __stockStore.getTxs(...a);
 const queryMovedAny_ = (idToken, ...a) => __movedPaths.whereAny(...a);
 const getMovedMany_ = (idToken, ...a) => __movedPaths.getMany(...a);
 const sortedDocs_ = (...a) => __docStore.sorted(...a);
+const planProduction_ = async (idToken, ...a) => { const u = await requireUser_(idToken); return __productionPosting.planProduction(u.profile.username || u.uid, ...a); };
+const productionPlanWriter_ = (...a) => __productionPosting.planWriter(...a);
 
 // ---- constants ----
 const { MODULE_REGISTRY } = __moduleRegistry;
@@ -3152,6 +3155,11 @@ async function commitProductionPosting_(idToken, user, existing, prodId) {
   // Everything above is pure validation and read-only computation.
   // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances and the document in one
   // Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T1b).
+  // [NEW DEVELOPMENT job-posting-atomic] Job Order progress, worked out first and written in the same
+  // batch (T4): each matched line's status, and the produced quantity allocated to its linked Sales
+  // Orders. It still only ever changes with the posting itself — the invariant the approval retrofit
+  // proved ("never before approval") — and now never without it.
+  const jobPlan = await planProduction_(idToken, { mode: 'post', prodId: prodId, lineQuantities: matchedLineQuantities, inflightLines: movementLines });
   const glResult = await postStock_(idToken, user, {
     type: 'Production', date: existing.TransactionDate, description: existing.Description, reference: existing.Reference,
     lines: movement.inventoryGlLines.concat(offsetGlLines),
@@ -3159,16 +3167,7 @@ async function commitProductionPosting_(idToken, user, existing, prodId) {
     extra: { CommitAttemptID: Utilities.getUuid(), SourceTransactionID: prodId }
   }, movement.ledgerUpdates, (gl, now) => ({
     [prodId]: applyStockUpdate_(existing, Object.assign(stockPostedFields_(gl, actor, now), { Lines: movementLines }))
-  }));
-
-  // Job Order progress only ever updates once the transaction is
-  // genuinely, finally committed — same invariant the approval
-  // retrofit already proved ("never before approval"), now equally
-  // true against a failed GL/ledger write: if either of those failed
-  // above, execution never reaches here at all.
-  await seq.forEach(Object.keys(matchedLineQuantities), async lineId => {
-    await updateJobOrderLineProgressAfterProduction_(idToken, lineId, matchedLineQuantities[lineId], prodId);
-  });
+  }), productionPlanWriter_(jobPlan));
 
   return { prodNumber: glResult.jvNumber };
 }
@@ -3304,6 +3303,11 @@ async function reverseProduction(idToken, prodId, reversalDate) {
 
     // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances, the reversal and the
     // original's mark in one Firestore batch: all or none (T1b).
+    // [NEW DEVELOPMENT job-posting-atomic] The Job Order rollback goes in the same batch, worked out
+    // first (T4): this posting's own reservations released, each line's status stepped back.
+    const touchedLineIds = new Set();
+    (existing.Lines || []).forEach(l => { if (l.JobOrderLineID) touchedLineIds.add(l.JobOrderLineID); });
+    const jobPlan = await planProduction_(idToken, { mode: 'reverse', prodId: prodId, lineIds: Array.from(touchedLineIds), inflightLines: movementLines });
     const glResult = await postStock_(idToken, user, {
       type: 'Production', date: date, description: 'Reversal of ' + existing.TransactionNumber + ' — ' + existing.Description, reference: existing.TransactionNumber,
       lines: movement.inventoryGlLines.concat(offsetGlLines),
@@ -3312,17 +3316,7 @@ async function reverseProduction(idToken, prodId, reversalDate) {
     }, movement.ledgerUpdates, (gl, posted) => ({
       [prodId]: applyStockUpdate_(existing, { ReversedByProduction: newId }),
       [newId]: applyStockUpdate_(reversal, Object.assign(stockPostedFields_(gl, actor, posted), { Lines: movementLines }))
-    }));
-
-    // Job Order rollback stays at the very end, in the same relative
-    // position it held before this retrofit — a separate, pre-existing
-    // RTDB-only side effect that this phase isn't targeting.
-    const touchedLineIds = new Set();
-    (existing.Lines || []).forEach(l => { if (l.JobOrderLineID) touchedLineIds.add(l.JobOrderLineID); });
-    await seq.forEach(
-      touchedLineIds,
-      async lineId => await rollbackJobOrderLineAfterReversal_(idToken, lineId, prodId)
-    );
+    }), productionPlanWriter_(jobPlan));
 
     return { success: true, prodId: newId, prodNumber: glResult.jvNumber };
   } catch (err) {
@@ -8735,176 +8729,6 @@ async function computeJobOrderLineProducedQty_(idToken, line) {
   return produced;
 }
 
-// FIFO allocation — the genuinely new piece. Called with exactly the
-// quantity THIS posting just produced (not the line's running total),
-// since allocation happens incrementally, once per posting.
-// Deliberately does NOT sort by Sales Order confirmation date (FIFO)
-// — confirmed decision, since real prioritization needs a human call
-// (a rush order, a VIP account) that a date-based rule can't make.
-// Sales makes that call directly via claimStockForSalesOrderLine_ /
-// releaseStockForSalesOrderLine_ (Release stock from a lower-priority
-// order, then Claim it for the one that actually needs it first).
-// This function just needs a DETERMINISTIC default when nobody's
-// actively managing priority, so it walks links in the order they
-// were attached to this Job Order line — simple, predictable, and
-// easily corrected afterward if it picks the "wrong" order by
-// business standards.
-//
-// createdByProductionId: threaded onto every reservation this call
-// creates, so a later reversal of that SAME production posting can
-// find and undo exactly its own contribution — never a different
-// posting's, even if they both fed the same Sales Order line.
-async function allocateProducedQuantityToLinkedSalesOrders_(idToken, line, newlyProducedQty, createdByProductionId) {
-  let remaining = newlyProducedQty;
-  const links = line.LinkedSalesOrderLines || [];
-  if (!links.length || remaining <= 0) return;
-
-  const soData = (await getMovedMany_(idToken, 'salesOrders', links.map(link => link.SOID))) || {}; // [NEW DEVELOPMENT sales-queries] the linked orders by id, not every Sales Order (T2)
-  const candidates = (await seq.map(links, async link => {
-      const so = soData[link.SOID];
-      if (!so || (so.Status !== 'Reserved' && so.Status !== 'Partially Reserved')) return null;
-      const soLine = (so.Lines || []).find(l => l.LineID === link.SOLineID);
-      if (!soLine) return null;
-      const reserved = (await getReservationsForSource_(idToken, 'SalesOrder', link.SOID))
-        .filter(r => r.Status === 'Active' && r.SourceLineID === link.SOLineID)
-        .reduce((sum, r) => sum + (Number(r.Quantity) || 0), 0);
-      const shortfall = Number(soLine.OrderedQuantity) - reserved;
-      if (shortfall <= 0) return null;
-      return { SOID: link.SOID, SONumber: so.SONumber, SOLineID: link.SOLineID, WarehouseID: soLine.WarehouseID, Shortfall: shortfall };
-    }))
-    .filter(Boolean);
-  // No sort — candidates stay in the order LinkedSalesOrderLines was
-  // stored, i.e. the order Sales attached them when building this line.
-
-  const itemsData = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
-  const itemEntry = Object.keys(itemsData).find(id => itemsData[id].ItemCode === line.ItemCode);
-  const itemId = itemEntry || '';
-
-  const touchedSoIds = new Set();
-  await seq.forEach(candidates, async c => {
-    if (remaining <= 0) return;
-    const toAllocate = Math.min(remaining, c.Shortfall);
-    if (toAllocate <= 0) return;
-    await createStockReservation_(idToken, {
-      ItemID: itemId, ItemCode: line.ItemCode, WarehouseID: c.WarehouseID,
-      CompanyID: soData[c.SOID].CompanyID, Quantity: toAllocate,
-      SourceType: 'SalesOrder', SourceID: c.SOID, SourceLineID: c.SOLineID, SourceLabel: c.SONumber,
-      CreatedByProductionID: createdByProductionId || ''
-    });
-    remaining -= toAllocate;
-    touchedSoIds.add(c.SOID);
-  });
-  // Whatever's left after every linked Sales Order line is fully
-  // covered is deliberately NOT reserved by anything — it's free
-  // stock the moment it posts, per the confirmed lifecycle.
-
-  // The reservation itself is the source of truth for what's actually
-  // covered — but the Sales Order's own Status field is a separate,
-  // stored value that nothing else here updates automatically. Without
-  // this, Reserved Quantity correctly grows (readers derive it live
-  // from reservations) while Status stays frozen at whatever it was
-  // when the shortfall was first detected, even once every line is
-  // genuinely fully reserved.
-  await seq.forEach(
-    touchedSoIds,
-    async soId => await refreshSalesOrderReservationStatus_(idToken, soId)
-  );
-}
-
-// Called after a Production Entry linked to a Job Order line
-// successfully posts (or is reversed — see rollbackJobOrderLineAfterReversal_
-// for that direction specifically). Same status-transition rules as
-// the original single-item build (completion checked first, takes
-// precedence over a pending Stop Request; terminal statuses never
-// change automatically), now scoped to one line, plus triggers
-// allocation to whatever Sales Orders this line is linked to (see that
-// function's own comment on why this is no longer FIFO-ordered).
-async function updateJobOrderLineProgressAfterProduction_(idToken, lineId, newlyProducedQty, createdByProductionId) {
-  const line = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
-  if (!line) return;
-  line.LineID = lineId;
-  if (line.Status === 'Stopped' || line.Status === 'Cancelled' || line.Status === 'Completed') return;
-
-  await allocateProducedQuantityToLinkedSalesOrders_(idToken, line, newlyProducedQty, createdByProductionId);
-
-  const produced = await computeJobOrderLineProducedQty_(idToken, line);
-  const now = new Date().toISOString();
-
-  if (produced >= line.OrderedQuantity) {
-    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', { Status: 'Completed', CompletedAt: now, UpdatedAt: now }, idToken);
-    return;
-  }
-  if (line.Status === 'Accepted' || line.Status === 'Open') {
-    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', { Status: 'In Progress', UpdatedAt: now }, idToken);
-  }
-}
-
-// The reversal counterpart. A reversed Production Entry's original
-// record never changes its own Status (it stays Posted forever as an
-// audit trail; the reversal is a separate, paired transaction) — so
-// nothing here re-triggers the forward function above. This handles
-// three things a reversal needs that a new posting never does: produced
-// quantity can go DOWN (possibly below the Completed threshold, or all
-// the way to zero), reservations that this specific posting created via
-// allocation need to be released (not just any reservation on the
-// affected Sales Order — only this posting's own contribution, found
-// via CreatedByProductionID), and the Sales Order's own Status needs
-// re-checking afterward, same as the forward path.
-async function rollbackJobOrderLineAfterReversal_(idToken, lineId, reversedProductionId) {
-  const line = await firebaseDbRequest_('jobOrderLines/' + lineId, 'get', null, idToken);
-  if (!line) return;
-  line.LineID = lineId;
-
-  // Release exactly this posting's own contribution — never a
-  // different posting's, even if they fed the same Sales Order line.
-  const data = (await queryMovedAny_(idToken, 'stock/reservations', [{ Status: 'Active', CreatedByProductionID: String(reversedProductionId || '') }])) || {}; // [NEW DEVELOPMENT sales-queries] the posting's own active ones, not every reservation (T2)
-  const touchedSoIds = new Set();
-  await seq.forEach(Object.keys(data), async resId => {
-    const r = data[resId];
-    if (r.Status !== 'Active' || r.CreatedByProductionID !== reversedProductionId) return;
-    await releaseStockReservation_(idToken, resId, 'Production Entry reversed');
-    if (r.SourceType === 'SalesOrder') touchedSoIds.add(r.SourceID);
-  });
-  await seq.forEach(
-    touchedSoIds,
-    async soId => await refreshSalesOrderReservationStatus_(idToken, soId)
-  );
-
-  // Terminal statuses (Stopped/Cancelled) never reopen from a
-  // reversal — a deliberate human decision stays final regardless of
-  // what happens to produced quantity afterward. Pending
-  // Acceptance/Amendment Requested/Stop Requested are also left
-  // alone; none of those are production-derived states.
-  if (line.Status === 'Stopped' || line.Status === 'Cancelled') return;
-
-  const produced = await computeJobOrderLineProducedQty_(idToken, line);
-  const now = new Date().toISOString();
-
-  if (line.OrderedQuantity > 0 && produced >= line.OrderedQuantity) {
-    if (line.Status !== 'Completed') {
-      await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', { Status: 'Completed', CompletedAt: now, UpdatedAt: now }, idToken);
-    }
-    return;
-  }
-
-  if (['Accepted', 'Open', 'In Progress', 'Completed'].indexOf(line.Status) === -1) return;
-
-  // No longer meets the Completed threshold, or produced dropped back
-  // to (or stayed at) zero — step back down to whatever's accurate.
-  // Origin decides the pre-production starting point (Sales lines
-  // start at Accepted, Production-direct at Open), same rule
-  // submitJobOrderBatch itself used originally.
-  const batch = await firebaseDbRequest_('jobOrderBatches/' + line.ParentBatchID, 'get', null, idToken);
-  const preProductionStatus = batch && batch.Origin === 'Production' ? 'Open' : 'Accepted';
-  const targetStatus = produced > 0 ? 'In Progress' : preProductionStatus;
-
-  if (targetStatus !== line.Status) {
-    const fields = { Status: targetStatus, UpdatedAt: now };
-    if (line.Status === 'Completed') fields.CompletedAt = null;
-    await firebaseDbRequest_('jobOrderLines/' + lineId, 'patch', fields, idToken);
-  }
-}
-
 // [PORT CHANGE job-order-approval] Job Order acceptance / stop through
 // Approval Configuration, levels in order (docs/modules/JOB_ORDER_ACCEPTANCE.md).
 // One approval record per line (DocumentID = the line's own ID).
@@ -8954,7 +8778,7 @@ function annotateJobOrderApproval_(line, actorUid, instances, usersData) {
 }
 
 async function linesForBatch_(idToken, batchId) {
-  const data = (await firebaseDbRequest_('jobOrderLines', 'get', null, idToken)) || {};
+  const data = (await queryMovedAny_(idToken, 'jobOrderLines', [{ ParentBatchID: String(batchId || '') }])) || {}; // [NEW DEVELOPMENT job-queries] the batch's own lines, not every Job Order line (T4)
   return Object.keys(data)
     .map(id => Object.assign({ LineID: id }, data[id]))
     .filter(l => l.ParentBatchID === batchId)
@@ -9372,7 +9196,8 @@ async function deleteDraftJobOrderBatch(idToken, batchId) {
 // server-side from the produced item, at save/post time.
 async function getEligibleJobOrderBatchesForProduction(idToken, companyId) {
   const user = await requireUser_(idToken);
-  const batchData = (await firebaseDbRequest_('jobOrderBatches', 'get', null, idToken)) || {};
+  // [NEW DEVELOPMENT job-queries] the company's batches, not every one (T4); every one only when no company is given
+  const batchData = (companyId ? await queryMovedAny_(idToken, 'jobOrderBatches', [{ CompanyID: String(companyId) }]) : await firebaseDbRequest_('jobOrderBatches', 'get', null, idToken)) || {};
   const eligibleLineStatuses = ['Accepted', 'Open', 'In Progress', 'Stop Requested'];
   const result = [];
   await seq.forEach(Object.keys(batchData), async id => {
@@ -10404,9 +10229,6 @@ module.exports = {
   getEligibleJobOrderItems,
   getSalesOrderLinesWithShortfall_,
   computeJobOrderLineProducedQty_,
-  allocateProducedQuantityToLinkedSalesOrders_,
-  updateJobOrderLineProgressAfterProduction_,
-  rollbackJobOrderLineAfterReversal_,
   beginJobOrderLineApproval_,
   jobOrderCurrentLevel_,
   jobOrderPendingApproval_,

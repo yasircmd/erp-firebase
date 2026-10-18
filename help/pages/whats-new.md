@@ -12,6 +12,11 @@ screen.
 
 ## 18/10/2026
 
+- **Production and cheques post all at once.** Posting a [Production Entry](production.html)
+  now updates its Job Order lines and reserves what it made for their
+  Sales Orders in the same step, and posting, clearing, bouncing or
+  cancelling a [post-dated cheque](post-dated-cheques.html) writes its GL entry and the cheque
+  together. If anything stops the posting, nothing of it is saved.
 - **Goods receipts and vendor invoices post all at once.** Posting a
   [GRN](goods-receipt-note.html) now updates the quantities received on its Purchase
   Orders in the same step, and posting a
