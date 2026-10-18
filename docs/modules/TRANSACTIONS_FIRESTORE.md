@@ -787,3 +787,6 @@ on contention.
   - the approvers field built from the level numbers: 1;
   - the Approval Tracker's module filter without the config key: 1
     (approvalTracker suite).
+- **Regression:** every emulator suite passes (124 files, 630 tests); UI
+  checks 81 of 84, the known failures only (help, home, trialBalance row
+  heights).
