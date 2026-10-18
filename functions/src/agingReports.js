@@ -85,7 +85,7 @@ async function partyAging(partyType, companyId, asOf, basis, only) {
   const buckets = BUCKETS[basis];
   const [partiesSnap, otherSnap, invSnap, pdcSnap, coaSnap, entrySnap] = await Promise.all([
     rtdb.ref(cfg.path).get(), rtdb.ref(PARTY_TYPES[partyType === 'Vendor' ? 'Customer' : 'Vendor'].path).get(),
-    movedPaths.where(cfg.invoicePath, { Status: 'Posted' }).then(v => ({ val: () => v })), rtdb.ref(PDC_PATH).get(), rtdb.ref('coa').get(),
+    movedPaths.where(cfg.invoicePath, { Status: 'Posted' }).then(v => ({ val: () => v })), require('./movedPaths').where(PDC_PATH, { CompanyID: companyId }).then(v => ({ val: () => v })), rtdb.ref('coa').get(),
     firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).where('CompanyID', '==', companyId).get()
   ]);
   const parties = partiesSnap.val() || {}, invoices = invSnap.val() || {}, pdcs = pdcSnap.val() || {}, coa = coaSnap.val() || {};

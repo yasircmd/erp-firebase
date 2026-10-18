@@ -242,7 +242,7 @@ async function collect(me, d) {
 // My orders and collections: their status, today's totals.
 async function myDrafts(me) {
   const actor = actorOf(me);
-  const [orders, pdcs, cbt] = await Promise.all([salesOrders.query({ CreatedBy: actor }), val('pdcCheques'), firestore.collection('journalEntries').where('CreatedBy', '==', actor).get()]);
+  const [orders, pdcs, cbt] = await Promise.all([salesOrders.query({ CreatedBy: actor }), require('./jobStore').pdcCheques.query({ CreatedBy: actor }), firestore.collection('journalEntries').where('CreatedBy', '==', actor).get()]);
   const out = [];
   Object.keys(orders || {}).forEach(id => { const o = orders[id]; if (o.CreatedBy === actor) out.push({ Kind: 'Order', ID: id, Number: o.SONumber || '', Date: o.SODate, CustomerID: o.CustomerID, Amount: round2(o.Total), Status: o.Status }); });
   Object.keys(pdcs || {}).forEach(id => { const p = pdcs[id]; if (p.CreatedBy === actor) out.push({ Kind: 'Cheque', ID: id, Number: p.TransactionNumber || '', Date: p.TransactionDate, CustomerID: p.PartyID, Amount: round2(p.Amount), Status: p.Status }); });

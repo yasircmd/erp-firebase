@@ -2925,5 +2925,110 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
 
   const iprData = queryMovedAny_(idToken, 'inventoryPurchaseRequisitions', [{ Status: 'Submitted', CompanyID: String(companyId || '') }]) || {};
 `
+  },
+  {
+    id: 'job-queries-linesForBatch_',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T4): linesForBatch_ reads ' +
+      'only the batch\'s own lines (movedPaths.js, an equality query), instead of downloading the whole collection.',
+    find: `function linesForBatch_(idToken, batchId) {
+  const data = firebaseDbRequest_('jobOrderLines', 'get', null, idToken) || {};
+`,
+    replace: `function linesForBatch_(idToken, batchId) {
+  const data = queryMovedAny_(idToken, 'jobOrderLines', [{ ParentBatchID: String(batchId || '') }]) || {}; // [NEW DEVELOPMENT job-queries] the batch's own lines, not every Job Order line (T4)
+`
+  },
+  {
+    id: 'job-queries-getEligibleJobOrderBatchesForProduction',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; docs/modules/TRANSACTIONS_FIRESTORE.md, T4): getEligibleJobOrderBatchesForProduction reads ' +
+      'only the company\'s batches when a company is given (movedPaths.js, an equality query), instead of downloading the whole collection.',
+    find: `  const batchData = firebaseDbRequest_('jobOrderBatches', 'get', null, idToken) || {};
+  const eligibleLineStatuses = ['Accepted', 'Open', 'In Progress', 'Stop Requested'];`,
+    replace: `  // [NEW DEVELOPMENT job-queries] the company's batches, not every one (T4); every one only when no company is given
+  const batchData = (companyId ? queryMovedAny_(idToken, 'jobOrderBatches', [{ CompanyID: String(companyId) }]) : firebaseDbRequest_('jobOrderBatches', 'get', null, idToken)) || {};
+  const eligibleLineStatuses = ['Accepted', 'Open', 'In Progress', 'Stop Requested'];`
+  },
+  {
+    id: 'job-posting-atomic-production',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T4): ' +
+      'a Production Entry\'s Job Order progress, its allocation to linked Sales Orders and their status are worked out before the ' +
+      'posting and written in its Firestore batch (productionPosting.planProduction / planWriter), all or none.',
+    find: `  }, movement.ledgerUpdates, (gl, now) => ({
+    [prodId]: applyStockUpdate_(existing, Object.assign(stockPostedFields_(gl, actor, now), { Lines: movementLines }))
+  }));
+
+  // Job Order progress only ever updates once the transaction is
+  // genuinely, finally committed — same invariant the approval
+  // retrofit already proved ("never before approval"), now equally
+  // true against a failed GL/ledger write: if either of those failed
+  // above, execution never reaches here at all.
+  Object.keys(matchedLineQuantities).forEach(lineId => {
+    updateJobOrderLineProgressAfterProduction_(idToken, lineId, matchedLineQuantities[lineId], prodId);
+  });
+`,
+    replace: `  }, movement.ledgerUpdates, (gl, now) => ({
+    [prodId]: applyStockUpdate_(existing, Object.assign(stockPostedFields_(gl, actor, now), { Lines: movementLines }))
+  }), productionPlanWriter_(jobPlan));
+`
+  },
+  {
+    id: 'job-posting-atomic-production-plan',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T4): ' +
+      'a Production Entry\'s Job Order progress, its allocation to linked Sales Orders and their status are worked out before the ' +
+      'posting and written in its Firestore batch (productionPosting.planProduction / planWriter), all or none.',
+    find: `  const actor = user.profile.username || user.uid;
+  // Everything above is pure validation and read-only computation.
+  // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances and the document in one
+  // Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T1b).
+  const glResult = postStock_(idToken, user, {
+    type: 'Production',`,
+    replace: `  const actor = user.profile.username || user.uid;
+  // Everything above is pure validation and read-only computation.
+  // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances and the document in one
+  // Firestore batch: all or none (docs/modules/TRANSACTIONS_FIRESTORE.md, T1b).
+  // [NEW DEVELOPMENT job-posting-atomic] Job Order progress, worked out first and written in the same
+  // batch (T4): each matched line's status, and the produced quantity allocated to its linked Sales
+  // Orders. It still only ever changes with the posting itself — the invariant the approval retrofit
+  // proved ("never before approval") — and now never without it.
+  const jobPlan = planProduction_(idToken, { mode: 'post', prodId: prodId, lineQuantities: matchedLineQuantities, inflightLines: movementLines });
+  const glResult = postStock_(idToken, user, {
+    type: 'Production',`
+  },
+  {
+    id: 'job-posting-atomic-reverse-production',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T4): ' +
+      'a Production reversal\'s Job Order rollback (its own reservations released, each line stepped back) is worked out before ' +
+      'the posting and written in its Firestore batch (productionPosting.planProduction / planWriter), all or none.',
+    find: `      [newId]: applyStockUpdate_(reversal, Object.assign(stockPostedFields_(gl, actor, posted), { Lines: movementLines }))
+    }));
+
+    // Job Order rollback stays at the very end, in the same relative
+    // position it held before this retrofit — a separate, pre-existing
+    // RTDB-only side effect that this phase isn't targeting.
+    const touchedLineIds = new Set();
+    (existing.Lines || []).forEach(l => { if (l.JobOrderLineID) touchedLineIds.add(l.JobOrderLineID); });
+    touchedLineIds.forEach(lineId => rollbackJobOrderLineAfterReversal_(idToken, lineId, prodId));
+`,
+    replace: `      [newId]: applyStockUpdate_(reversal, Object.assign(stockPostedFields_(gl, actor, posted), { Lines: movementLines }))
+    }), productionPlanWriter_(jobPlan));
+`
+  },
+  {
+    id: 'job-posting-atomic-reverse-production-plan',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-17; decision 238; docs/modules/TRANSACTIONS_FIRESTORE.md, T4): ' +
+      'a Production reversal\'s Job Order rollback (its own reservations released, each line stepped back) is worked out before ' +
+      'the posting and written in its Firestore batch (productionPosting.planProduction / planWriter), all or none.',
+    find: `    // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances, the reversal and the
+    // original's mark in one Firestore batch: all or none (T1b).
+    const glResult = postStock_(idToken, user, {
+      type: 'Production', date: date,`,
+    replace: `    // [NEW DEVELOPMENT stock-posting-atomic] The GL entry, the balances, the reversal and the
+    // original's mark in one Firestore batch: all or none (T1b).
+    // [NEW DEVELOPMENT job-posting-atomic] The Job Order rollback goes in the same batch, worked out
+    // first (T4): this posting's own reservations released, each line's status stepped back.
+    const touchedLineIds = new Set();
+    (existing.Lines || []).forEach(l => { if (l.JobOrderLineID) touchedLineIds.add(l.JobOrderLineID); });
+    const jobPlan = planProduction_(idToken, { mode: 'reverse', prodId: prodId, lineIds: Array.from(touchedLineIds), inflightLines: movementLines });
+    const glResult = postStock_(idToken, user, {
+      type: 'Production', date: date,`
   }
 ];

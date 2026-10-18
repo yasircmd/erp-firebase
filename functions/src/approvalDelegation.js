@@ -38,7 +38,7 @@ async function companyOfApproval(inst) {
     : (await rtdb.ref(storage.path + '/' + inst.DocumentID).get()).val();
   if (!doc) return '';
   if (doc.CompanyID) return doc.CompanyID;
-  if (doc.ParentBatchID) return ((await rtdb.ref('jobOrderBatches/' + doc.ParentBatchID).get()).val() || {}).CompanyID || '';
+  if (doc.ParentBatchID) return ((await require('./jobStore').jobOrderBatches.get(doc.ParentBatchID)) || {}).CompanyID || '';
   return '';
 }
 

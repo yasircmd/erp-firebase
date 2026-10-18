@@ -62,13 +62,13 @@ test('the three collections come back exactly as RTDB gives them, through every 
 });
 
 test('movedPaths: which paths moved, an empty id is no document, a multi-path list of RTDB paths stays a filter', async () => {
-  await reset({ pdcCheques: { P1: { PartyID: 'VE1', Status: 'Pending' }, P2: { PartyID: 'VE2', Status: 'Pending' } } });
-  assert.deepEqual(['salesOrders/X', 'customerInvoices', 'stock/reservations/R', 'stock/transactions', 'stock/ledger/I/W', 'stock/counters', 'vendorInvoices/V1', 'pdcCheques', 'salesOrdersX'].map(movedPaths.isMoved),
-    [true, true, true, true, true, false, true, false, false]);
+  await reset({ recurringJournals: { P1: { PartyID: 'VE1', Status: 'Active' }, P2: { PartyID: 'VE2', Status: 'Active' } } });
+  assert.deepEqual(['salesOrders/X', 'customerInvoices', 'stock/reservations/R', 'stock/transactions', 'stock/ledger/I/W', 'stock/counters', 'vendorInvoices/V1', 'pdcCheques', 'recurringJournals', 'salesOrdersX'].map(movedPaths.isMoved),
+    [true, true, true, true, true, false, true, true, false, false]);
   assert.equal(await salesOrders.get(''), null);
   assert.equal(await customerInvoices.get(undefined), null);
-  // A collection still in RTDB (T4) is read and filtered by where().
-  assert.deepEqual(Object.keys(await movedPaths.where('pdcCheques', { PartyID: 'VE2' })), ['P2']);
+  // A collection still in RTDB is read and filtered by where().
+  assert.deepEqual(Object.keys(await movedPaths.where('recurringJournals', { PartyID: 'VE2' })), ['P2']);
 });
 
 test('queries: each store\'s fields and derived lists; merged queries in id order', async () => {

@@ -131,7 +131,10 @@ const MAPPED = {
   getStockTxs_: ['stockStore', 'getTxs', 'dropCtx'],
   queryMovedAny_: ['movedPaths', 'whereAny', 'dropCtx'],
   getMovedMany_: ['movedPaths', 'getMany', 'dropCtx'],
-  sortedDocs_: ['docStore', 'sorted', 'pure']
+  sortedDocs_: ['docStore', 'sorted', 'pure'],
+  // T4 (called only from patches job-posting-atomic-*)
+  planProduction_: ['productionPosting', 'planProduction', 'actor'],
+  productionPlanWriter_: ['productionPosting', 'planWriter', 'pure']
 };
 // Constants taken from the already-extracted shared modules (verbatim copies there).
 const IMPORTED_CONSTS = {
@@ -152,6 +155,7 @@ const SHARED_PATHS = {
   stockPosting: '../stockPosting',
   stockStore: '../stockStore',
   salesPosting: '../salesPosting', movedPaths: '../movedPaths', docStore: '../docStore', // T2
+  productionPosting: '../productionPosting', // T4
   lineClubbing: '../lineClubbing',
   numbering: '../numbering',
   periodLock: '../periodLock',

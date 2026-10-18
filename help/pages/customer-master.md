@@ -5,8 +5,8 @@ order: 1
 modules: [CUSTOMERMASTER]
 sources: [functions/src/partyLedger.js, functions/src/customerPhone.js]
 summary: Keep each customer record complete so sales orders, delivery notes and customer invoices can be raised correctly.
-reviewed: 2026-10-17
-fingerprint: a88ad5b5b5206449
+reviewed: 2026-10-18
+fingerprint: 3e21752eb53607b6
 ---
 ## What it is for
 

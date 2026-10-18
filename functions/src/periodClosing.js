@@ -144,7 +144,7 @@ const docRow = (moduleId, kind, number, date, status, extra) => Object.assign({ 
 async function unfinishedDocuments(companyId, from, to) {
   const inRange = d => Boolean(d) && (!from || d >= from) && d <= to;
   const [stockSnap, vinvSnap, cinvSnap, pdcSnap, jvSnap, faSnap] = await Promise.all([
-    stockStore.queryTx({ CompanyID: companyId }).then(v => ({ val: () => v })), ...['vendorInvoices', 'customerInvoices'].map(p => movedPaths.where(p, { CompanyID: companyId }).then(v => ({ val: () => v }))), rtdb.ref('pdcCheques').get(),
+    stockStore.queryTx({ CompanyID: companyId }).then(v => ({ val: () => v })), ...['vendorInvoices', 'customerInvoices'].map(p => movedPaths.where(p, { CompanyID: companyId }).then(v => ({ val: () => v }))), movedPaths.where('pdcCheques', { CompanyID: companyId }).then(v => ({ val: () => v })),
     firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).where('CompanyID', '==', companyId).get(),
     firestore.collection('faTransactions').where('CompanyID', '==', companyId).get()
   ]);
@@ -217,7 +217,7 @@ async function payrollMissing(companyId, month) {
 
 async function pdcsMatured(companyId, month) {
   const end = lastDay(month);
-  const all = (await rtdb.ref('pdcCheques').get()).val() || {};
+  const all = await movedPaths.where('pdcCheques', { CompanyID: companyId, Status: 'Pending' }); // (jobStore.js)
   return Object.values(all).filter(p => p.CompanyID === companyId && p.Status === 'Pending' && p.ChequeDate && p.ChequeDate <= end)
     .map(p => docRow(p.Direction === 'Issued' ? 'PDCISSUED' : 'PDCRECEIVED', 'PDC ' + (p.Direction || ''), p.TransactionNumber, p.ChequeDate, 'Pending',
       { Text: (p.ChequeNumber ? 'cheque ' + p.ChequeNumber + ', ' : '') + (p.PartyName || '') + ', ' + round2(Number(p.Amount) || 0).toFixed(2) }))

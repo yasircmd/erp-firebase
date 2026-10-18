@@ -13,17 +13,22 @@
 //   T3  vendorInvoices, purchaseOrders,    purchaseStore.js
 //       purchaseRequisitions,
 //       inventoryPurchaseRequisitions
+//   T4  jobOrderBatches, jobOrderLines,    jobStore.js
+//       pdcCheques
 'use strict';
 const firebaseAdmin = require('./firebaseAdmin');
 const { cleanPath, sorted } = require('./docStore');
 const stockStore = require('./stockStore');
 const salesStore = require('./salesStore');
 const purchaseStore = require('./purchaseStore');
+const jobStore = require('./jobStore');
 
 const STORES = [stockStore.txStore, salesStore.salesOrders, salesStore.customerInvoices, salesStore.reservations,
-  purchaseStore.vendorInvoices, purchaseStore.purchaseOrders, purchaseStore.purchaseRequisitions, purchaseStore.inventoryPurchaseRequisitions];
+  purchaseStore.vendorInvoices, purchaseStore.purchaseOrders, purchaseStore.purchaseRequisitions, purchaseStore.inventoryPurchaseRequisitions,
+  jobStore.jobOrderBatches, jobStore.jobOrderLines, jobStore.pdcCheques];
 const PATHS = ['stock/transactions', 'stock/ledger', 'salesOrders', 'customerInvoices', 'stock/reservations',
-  'vendorInvoices', 'purchaseOrders', 'purchaseRequisitions', 'inventoryPurchaseRequisitions'];
+  'vendorInvoices', 'purchaseOrders', 'purchaseRequisitions', 'inventoryPurchaseRequisitions',
+  'jobOrderBatches', 'jobOrderLines', 'pdcCheques'];
 
 const under = (p, root) => p === root || p.startsWith(root + '/');
 const isMoved = path => { const p = cleanPath(path); return PATHS.some(r => under(p, r)); };

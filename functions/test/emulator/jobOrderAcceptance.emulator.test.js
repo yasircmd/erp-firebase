@@ -6,7 +6,7 @@
 // configured, legacy lines and Production lines work as before.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, call, reset, baseFixture, val } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val, put } = require('./_helpers');
 
 const D = '2026-09-10';
 function fixture(opts) {
@@ -161,7 +161,7 @@ test('lines already pending before go-live, Production lines, and zero-threshold
 
   // A line left Pending Acceptance by the old code (no approval) keeps working as before.
   const [legacy] = await submitSales();
-  await rtdb.ref('jobOrderLines/' + legacy + '/ApprovalInstanceID').remove();
+  await put('jobOrderLines/' + legacy + '/ApprovalInstanceID', null);
   assert.deepEqual(await act('acceptJobOrderLine', { lineId: legacy }, 'u-admin'), { success: true });
 
   // Production-direct lines start Open with no approval.

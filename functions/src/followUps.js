@@ -138,10 +138,10 @@ exports.getMyFollowUpTasksForUser = onCallWithMessages(onCallOptions, async (req
 
   if (modules.has('JOBORDERREQUEST')) {
     // The accepted lines (rtdbStatus.js), then only their own batches.
-    const lines = await withStatus('jobOrderLines', 'Accepted');
+    const lines = await require('./movedPaths').where('jobOrderLines', { Status: 'Accepted' }); // (jobStore.js)
     const batchIds = [...new Set(Object.values(lines).map(l => l && l.ParentBatchID).filter(Boolean))];
     const batches = {};
-    (await Promise.all(batchIds.map(id => rtdb.ref('jobOrderBatches/' + id).get()))).forEach((snap, i) => { batches[batchIds[i]] = snap.val(); });
+    Object.assign(batches, await require('./jobStore').jobOrderBatches.getMany(batchIds));
     Object.keys(lines).forEach(id => {
       const l = lines[id];
       const b = l && batches[l.ParentBatchID];
