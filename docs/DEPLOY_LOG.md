@@ -1209,3 +1209,10 @@ from, and how it was verified. The deploy procedure is in the
   [#170](https://github.com/yasircmd/erp-firebase/actions/runs/39138736046)
   (15:03–17:20 UTC), from `8d42af9` (PR #137), success. **Phase T4 is
   live.**
+- **2026-10-19, T5: approval instances in Firestore (`transactions-t5`,
+  all 547 functions, no screens):** run
+  [#172](https://github.com/yasircmd/erp-firebase/actions/runs/39191665533)
+  (02:48–04:53 UTC), from `8d13a6b` (PR #138), success. **Phase T5 is
+  live: every transaction document is in Firestore** (T1–T5,
+  TRANSACTIONS_FIRESTORE.md); RTDB keeps master data, settings, counters
+  and logs.
