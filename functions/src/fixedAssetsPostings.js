@@ -22,6 +22,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { FieldValue } = require('firebase-admin/firestore');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const stockStore = require('./stockStore');
 const { requireUser } = require('./auth');
 const { userCanAccessCompany, buildStockGlEntry, generateStockVoucherNumber, parseAmountServer, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
@@ -472,9 +473,9 @@ exports.decideFaPostingApproval = onCallWithMessages(onCallOptions, async (reque
         return { success: true, status: 'Approved', postingNumber: r.postingNumber, selfApproved: result.selfApproved };
       } catch (err) {
         // As PDC: undo the decision and hand the document back for editing.
-        const instance = (await rtdb.ref('approvalInstances/' + existing.ApprovalInstanceID).get()).val();
+        const instance = await approvalInstances.get(existing.ApprovalInstanceID);
         if (instance) {
-          await rtdb.ref('approvalInstances/' + existing.ApprovalInstanceID).update({
+          await approvalInstances.update(existing.ApprovalInstanceID, {
             Decisions: (instance.Decisions || []).filter(x => x.LevelNumber !== d.levelNumber), Status: 'Pending', UpdatedAt: now
           });
         }

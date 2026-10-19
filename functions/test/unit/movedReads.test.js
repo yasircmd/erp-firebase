@@ -1,7 +1,7 @@
 // No reader downloads a whole moved collection (docs/modules/
 // TRANSACTIONS_FIRESTORE.md: T2 Sales Orders, Customer Invoices,
 // reservations; T3 Vendor Invoices, Purchase Orders, requisitions; T4
-// Job Orders, PDCs): each
+// Job Orders, PDCs; T5 approval instances): each
 // asks its store / movedPaths for what it needs (query, where, whereAny,
 // get, getMany). Stock transactions: stockReads.test.js. The
 // few that must see everything are listed here with their reason; a new
@@ -14,7 +14,7 @@ const path = require('path');
 const SRC = path.join(__dirname, '../../src');
 
 const PATHS = ['salesOrders', 'customerInvoices', 'stock/reservations', 'vendorInvoices', 'purchaseOrders', 'purchaseRequisitions', 'inventoryPurchaseRequisitions',
-  'jobOrderBatches', 'jobOrderLines', 'pdcCheques'];
+  'jobOrderBatches', 'jobOrderLines', 'pdcCheques', 'approvalInstances'];
 // file: why it reads a whole moved collection (store.all()).
 const ALLOWED = {
   'coaUsage.js': 'whether an account was ever used: every document, by nature',
@@ -29,7 +29,9 @@ const PORTED_WHOLE = {
   vendorInvoices: ['getVendorInvoiceEntries'], purchaseOrders: ['getPurchaseOrderEntries'],
   purchaseRequisitions: ['getPurchaseRequisitionEntries'], inventoryPurchaseRequisitions: ['getInventoryPurchaseRequisitionEntries'],
   // Production's batch picker reads every batch only when no company is given.
-  jobOrderBatches: ['getJobOrderBatches', 'getJobOrderLinesFlat', 'getEligibleJobOrderBatchesForProduction'], jobOrderLines: ['getJobOrderLinesFlat'], pdcCheques: []
+  jobOrderBatches: ['getJobOrderBatches', 'getJobOrderLinesFlat', 'getEligibleJobOrderBatchesForProduction'], jobOrderLines: ['getJobOrderLinesFlat'], pdcCheques: [],
+  // The Approval Tracker reads every approval only when no module is chosen.
+  approvalInstances: ['getApprovalHistory']
 };
 
 const files = fs.readdirSync(SRC).filter(f => f.endsWith('.js'));
@@ -44,7 +46,7 @@ test('no hand-written reader downloads a whole moved collection', () => {
       if (new RegExp("rtdb\\.ref\\(['`]" + p.replace('/', '\\/') + "['`]\\)").test(s)) found.push(f + ': rtdb ' + p);
       if (new RegExp("val\\(['`]" + p.replace('/', '\\/') + "['`]\\)").test(s)) found.push(f + ': val(' + p + ')');
     });
-    if (/\b(salesOrders|customerInvoices|reservations|vendorInvoices|purchaseOrders|purchaseRequisitions|inventoryPurchaseRequisitions|jobOrderBatches|jobOrderLines|pdcCheques|moved|store)\.all\(\)/.test(s)) found.push(f + ': all()');
+    if (/\b(salesOrders|customerInvoices|reservations|vendorInvoices|purchaseOrders|purchaseRequisitions|inventoryPurchaseRequisitions|jobOrderBatches|jobOrderLines|pdcCheques|approvalInstances|moved|store)\.all\(\)/.test(s)) found.push(f + ': all()');
   });
   assert.deepEqual(found, [], 'narrow the read with the store\'s query / get / getMany or movedPaths.where, or list it in ALLOWED with its reason');
 });

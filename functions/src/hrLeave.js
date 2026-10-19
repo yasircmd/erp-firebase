@@ -20,6 +20,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const { todayIn } = require('./recurringSchedule');
@@ -323,7 +324,7 @@ exports.getLeave = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   await requireCap(user);
   const l = await loadLeave(user, (request.data || {}).leaveId);
-  const inst = l.ApprovalInstanceID ? (await rtdb.ref('approvalInstances/' + l.ApprovalInstanceID).get()).val() : null;
+  const inst = l.ApprovalInstanceID ? await approvalInstances.get(l.ApprovalInstanceID) : null;
   const decided = new Set(((inst && inst.Decisions) || []).map(x => x.LevelNumber));
   const myLevels = inst && inst.Status === 'Pending' ? (inst.RequiredLevels || []).filter(x => x.ApproverUserID === user.uid && !decided.has(x.LevelNumber)).map(x => x.LevelNumber) : [];
   l.DocumentMissing = await documentMissing(l, l.LeaveID);
@@ -465,8 +466,8 @@ exports.decideLeaveApproval = onCallWithMessages(onCallOptions, async (request) 
         History: (l.History || []).concat(missing ? [histEntry('Approved, accepted without the supporting document', user)] : [histEntry('Approved', user)]) }));
     } catch (err) {
       // As other modules: undo the decision and hand it back for correcting.
-      const inst = (await rtdb.ref('approvalInstances/' + l.ApprovalInstanceID).get()).val();
-      if (inst) await rtdb.ref('approvalInstances/' + l.ApprovalInstanceID).update({ Decisions: (inst.Decisions || []).filter(x => x.LevelNumber !== Number(d.levelNumber)), Status: 'Pending', UpdatedAt: now });
+      const inst = await approvalInstances.get(l.ApprovalInstanceID);
+      if (inst) await approvalInstances.update(l.ApprovalInstanceID, { Decisions: (inst.Decisions || []).filter(x => x.LevelNumber !== Number(d.levelNumber)), Status: 'Pending', UpdatedAt: now });
       throw new HttpsError('failed-precondition', 'It can\'t be approved: ' + err.message + ' Nothing was changed.');
     }
   } else if (result.status === 'Rejected') {

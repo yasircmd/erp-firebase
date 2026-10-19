@@ -733,3 +733,60 @@ free stock, the second is finished by posting again.
 **Going live:** deploy set `transactions-t4`, all functions, no screens,
 rules or indexes. Don't use the app during the deploy. Job Orders and PDCs
 entered in RTDB before it are not seen afterwards.
+
+## As built: phase T5 (2026-10-18), approval instances; the move complete
+
+Decision 240: approval instances move last, as every module reads them.
+
+**Where they are** (**functions/src/approvalStore.js**, listed in
+movedPaths.js): `approvalInstances/{id}`, same ids and fields; `_q` keeps
+every approver a level names (`ApproverUserID`, following delegations).
+
+**Readers.** About 30 places read or update one instance by id (each
+module's decide / withdraw, approvals.js itself, the HR and payroll
+modules, the Employee Portal): they go through the store, unchanged
+otherwise. The ones that read many now ask:
+
+| Reader | Now reads |
+|---|---|
+| Home: approvals waiting / rejected submissions | that status (a query, no longer the RTDB Status index) |
+| Delegate all of an approver's approvals | the pending ones |
+| Purchase Requisition visibility (approvers see theirs) | that module's approvals |
+| Approval Tracker with a module chosen (ported) | that module's, by module or config key |
+| Job Order lines' approval state (ported) | the listed lines' approvals by id |
+
+The Approval Tracker with no module chosen still reads every approval (the
+history), as unit/movedReads.test.js lists.
+
+**docStore.transact(id, fn)** replaces the RTDB transaction delegation
+used to move a level: `fn` gets a copy of the record and returns the
+record to write, or undefined to abort; a Firestore transaction, retried
+on contention.
+
+**After T5.**
+- Every transaction document is in Firestore: stock, sales, purchase, Job
+  Orders, PDCs, approvals. RTDB keeps master data, settings, counters and
+  the logs, as the owner asked (2026-10-17).
+- The RTDB Status index is used only by recurring journals
+  (rtdbStatus.js). The `.indexOn` entries of the moved paths in
+  database.rules.json can be removed in a later rules deploy; they cost
+  nothing meanwhile.
+- commitAttempt.js has no callers left; it can go with that cleanup.
+
+**Tests.**
+- **New approvalStore.emulator.test.js:** against RTDB through every kind
+  of write; the queries, a delegated level's new approver included;
+  `transact` as RTDB's (abort, the copy, a missing record).
+- Suites that read or wrote approvals in RTDB directly now use `val` /
+  `put`.
+- **Negative controls, verified then restored:**
+  - `transact` ignoring the abort: 1 fails;
+  - `transact` handing over the stored record, not a copy: 1, after the
+    test was tightened (it first passed: the abort's result was not
+    checked);
+  - the approvers field built from the level numbers: 1;
+  - the Approval Tracker's module filter without the config key: 1
+    (approvalTracker suite).
+- **Regression:** every emulator suite passes (124 files, 630 tests); UI
+  checks 81 of 84, the known failures only (help, home, trialBalance row
+  heights).

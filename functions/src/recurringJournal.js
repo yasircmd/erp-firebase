@@ -21,6 +21,7 @@ const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const {
   userCanAccessCompany, validateAndNormalizeLines, writeStockGlEntry, generateStockVoucherNumber, FIRESTORE_JOURNAL_ENTRIES_COLLECTION
@@ -452,9 +453,9 @@ exports.decideRecurringJournalApproval = onCallWithMessages(onCallOptions, async
         return { success: true, status: 'Approved', templateStatus: status, selfApproved: result.selfApproved };
       } catch (err) {
         // As PDC: undo the decision and hand the template back for editing.
-        const instance = (await rtdb.ref('approvalInstances/' + t.ApprovalInstanceID).get()).val();
+        const instance = await approvalInstances.get(t.ApprovalInstanceID);
         if (instance) {
-          await rtdb.ref('approvalInstances/' + t.ApprovalInstanceID).update({
+          await approvalInstances.update(t.ApprovalInstanceID, {
             Decisions: (instance.Decisions || []).filter(x => x.LevelNumber !== d.levelNumber), Status: 'Pending', UpdatedAt: now
           });
         }

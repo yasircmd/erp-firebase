@@ -47,8 +47,16 @@ preserved quirks). Read it when touching a ported module.
   (functions/test/unit/dateFormat.test.js). Details:
   docs/modules/DATE_FORMAT.md.
 - **Shared logic** is in functions/src/{glWriting,stockMovement,
-  commitAttempt,approvals,lock,reservations}.js. Check these before
+  stockPosting,approvals,lock,reservations}.js. Check these before
   writing new logic that might already exist there.
+- **Transaction documents are in Firestore** (docs/modules/
+  TRANSACTIONS_FIRESTORE.md, T1–T5): reach them through their store
+  (stockStore, salesStore, purchaseStore, jobStore, approvalStore, all on
+  docStore.js) or by their old RTDB path through movedPaths.js, never
+  `rtdb.ref` on a moved path. Read with an equality query, not the whole
+  collection (unit/stockReads and unit/movedReads check it). A posting is
+  one `stockPosting.postStock` batch: its GL entry, its documents and
+  everything it changes.
 - **The global lock** (lock.js) is deliberately whole-system, not
   per-item, matching the original LockService. Don't "improve" this
   without discussing it first.

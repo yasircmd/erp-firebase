@@ -7324,7 +7324,9 @@ async function getApprovalHistory(idToken, filters) {
     throw new Error('You do not have access to Approval Tracker.');
   }
   const f = filters || {};
-  const data = (await firebaseDbRequest_('approvalInstances', 'get', null, idToken)) || {};
+  // [NEW DEVELOPMENT approval-queries] the chosen module's approvals (by module or config key), not every one (T5);
+  // every one only when no module is chosen
+  const data = (f.ModuleID ? await queryMovedAny_(idToken, 'approvalInstances', [{ ModuleID: String(f.ModuleID) }, { ConfigKey: String(f.ModuleID) }]) : await firebaseDbRequest_('approvalInstances', 'get', null, idToken)) || {};
   return Object.keys(data)
     .map(id => Object.assign({ InstanceID: id }, data[id]))
     .filter(inst => !f.ModuleID || inst.ModuleID === f.ModuleID || inst.ConfigKey === f.ModuleID) // [PORT CHANGE approval-tracker-config-key]
@@ -8834,7 +8836,7 @@ async function getJobOrderLinesFlat(idToken, limit) {
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
   const capped = limit ? all.slice(0, limit) : all;
   // [PORT CHANGE job-order-approval] which level each line waits on, and whether the caller can act.
-  const approvalInstances = (await firebaseDbRequest_('approvalInstances', 'get', null, idToken)) || {};
+  const approvalInstances = (await getMovedMany_(idToken, 'approvalInstances', capped.map(l => l.ApprovalInstanceID).filter(Boolean))) || {}; // [NEW DEVELOPMENT approval-queries] the listed lines' approvals by id, not every one (T5)
   const approvalUsers = (await firebaseDbRequest_('users', 'get', null, idToken)) || {};
   capped.forEach(l => annotateJobOrderApproval_(l, user.uid, approvalInstances, approvalUsers));
   return { entries: capped, total: all.length };

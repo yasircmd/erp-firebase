@@ -16,6 +16,7 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
+const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany, writeStockGlEntry, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
@@ -193,7 +194,7 @@ exports.getLoan = onCallWithMessages(onCallOptions, async (request) => {
   const recs = (await recoveriesOf(l.CompanyID))[l.LoanID] || [];
   let approval = null;
   if (l.ApprovalInstanceID) {
-    const inst = (await rtdb.ref('approvalInstances/' + l.ApprovalInstanceID).get()).val();
+    const inst = await approvalInstances.get(l.ApprovalInstanceID);
     if (inst) {
       const decided = new Set((inst.Decisions || []).map(x => x.LevelNumber));
       approval = { Levels: (inst.RequiredLevels || []).map(x => ({ LevelNumber: x.LevelNumber })), Decisions: inst.Decisions || [],

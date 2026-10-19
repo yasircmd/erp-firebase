@@ -5,8 +5,8 @@ order: 4
 modules: [LEAVE]
 sources: [functions/src/hrLeave.js, functions/src/hrLeaveSetup.js, functions/src/hrLeaveClose.js, functions/src/workCalendar.js]
 summary: Register and approve leave so balances, attendance and payroll deductions remain accurate.
-reviewed: 2026-10-12
-fingerprint: 3bcb4789cb2977a5
+reviewed: 2026-10-18
+fingerprint: fdf2fbecf07b4dd4
 ---
 ## What it is for
 

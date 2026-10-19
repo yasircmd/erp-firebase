@@ -218,6 +218,21 @@ function makeStore(spec) {
     });
   }
   async function remove(id) { await ref(id).delete(); }
+  // RTDB transaction(): fn(current) gives the document to write, or
+  // undefined to abort; in a Firestore transaction, retried on contention.
+  // { committed, snapshot } as RTDB's.
+  async function transact(id, fn) {
+    const r = ref(id);
+    return fs().runTransaction(async t => {
+      const s = await t.get(r);
+      const current = s.exists ? fromStore(s.data()) : null;
+      const next = fn(current === null ? null : JSON.parse(JSON.stringify(current)));
+      if (next === undefined) return { committed: false, snapshot: { val: () => current, exists: () => current !== null } };
+      const v = normalize(next);
+      if (v === null) t.delete(r); else t.set(r, stored(v));
+      return { committed: true, snapshot: { val: () => v, exists: () => v !== null } };
+    });
+  }
 
   // Equality filters only (see the header), on `fields` and `derived`.
   async function query(f) {
@@ -287,7 +302,7 @@ function makeStore(spec) {
     throw new Error(name + ': ' + m + ' on ' + [path].concat(rest).join('/') + ' is not supported.');
   }
 
-  return { name, path, collection, fields: filters, ref, get, snap, getMany, all, set, update, remove, query, setAll, rtdbStyle };
+  return { name, path, collection, fields: filters, ref, get, snap, getMany, all, set, update, remove, transact, query, setAll, rtdbStyle };
 }
 
 module.exports = { Q, BATCH, INT, keyOrder, normalize, toStore, fromStore, setAt, applyUpdate, sorted, getPath, cleanPath, deleteAll, writeAll, makeStore };

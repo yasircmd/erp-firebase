@@ -6,7 +6,7 @@ modules: [FAACQ]
 sources: [functions/src/fixedAssetsPostings.js]
 summary: Record the purchase or acquisition of a fixed asset and place it into service for depreciation.
 reviewed: 2026-10-18
-fingerprint: ebff588556d31aba
+fingerprint: 8037fab4ac216c01
 ---
 ## What it is for
 

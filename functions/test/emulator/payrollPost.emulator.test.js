@@ -7,7 +7,7 @@
 // company); reversal (the latest only, back to draft); payslips.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, rtdb, firestore, call, reset, baseFixture } = require('./_helpers');
+const { app, rtdb, firestore, call, reset, baseFixture, val, put } = require('./_helpers');
 
 test.after(async () => { await app.delete(); });
 
@@ -99,7 +99,7 @@ test('approval: rejected back to draft with the reason; approved by an approver 
   assert.equal((await call('u-admin', 'submitPayrollRun', { runId: AUG })).status, 'PendingApproval');
   let r = await run(AUG);
   assert.deepEqual([r.run.Status, r.approval.MyLevels, r.canDraft], ['PendingApproval', [], false]);
-  const inst = (await rtdb.ref('approvalInstances/' + r.run.ApprovalInstanceID).get()).val();
+  const inst = (await val('approvalInstances/' + r.run.ApprovalInstanceID));
   assert.equal(inst.Amount, 9600 + 580 + 1500 + 1000, 'the amount is the net pay');
   await assert.rejects(call('u-admin', 'decidePayrollApproval', { runId: AUG, levelNumber: 1, decision: 'Approved' }), /not the assigned approver/);
   await assert.rejects(call('u-other', 'decidePayrollApproval', { runId: AUG, levelNumber: 1, decision: 'Rejected' }), /reason is required/);
