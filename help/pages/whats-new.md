@@ -12,11 +12,13 @@ screen.
 
 ## 19/10/2026
 
+- **The Corporate ID field starts empty.** On the [sign-in page](getting-started.html),
+  Forgot Password and the Employee Portal, type your Corporate ID; your
+  browser can save it and offer it next time.
 - **Sign in by Corporate ID.** The [sign-in page](getting-started.html)
   now uses the Corporate ID to choose which organisation's ERP you sign in
-  to, and remembers the last one on this browser. **Forgot Password** and
-  the **Employee Portal** ask for the Corporate ID too, already filled in
-  with the one you used last. Nothing else changes when you sign in.
+  to. **Forgot Password** and the **Employee Portal** ask for the
+  Corporate ID too. Nothing else changes when you sign in.
 
 ## 18/10/2026
 

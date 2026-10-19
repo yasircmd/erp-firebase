@@ -424,15 +424,19 @@ that corporate's Auth (a second Firebase app, named
 `corp-<id>-<project>`), and every call carries its corporate and token.
 The corporate is remembered on the device (localStorage `erp-corporate`,
 shared by the ERP and the Employee Portal, as their sign-in is), so a
-reload restores it and the Corporate ID fields start at it. Signing in to
+reload restores its session. The Corporate ID fields start empty (owner,
+2026-10-19, after M1 went live): they are named fields of the sign-in
+form, so the browser can save the ID and offer it, but the page never
+fills it in itself. Signing in to
 another corporate signs out of the first. completeLogin checks that the
 typed ID is the corporate whose Auth signed the user in.
 
 What users see change (also in Help, What's new 19/10/2026):
-- **Forgot Password** asks for the Corporate ID (filled in with the last
-  one), as the reset email comes from that corporate's Auth;
-- the **Employee Portal** asks for the Corporate ID (filled in, 100 by
-  default), before the Employee Code.
+- **Forgot Password** asks for the Corporate ID, as the reset email comes
+  from that corporate's Auth;
+- the **Employee Portal** asks for the Corporate ID, before the Employee
+  Code;
+- the Corporate ID fields start empty (the browser can offer a saved ID).
 
 **Module-level state** is per corporate or gone:
 - the Drive access token (documentStorage.js) is kept per corporate;

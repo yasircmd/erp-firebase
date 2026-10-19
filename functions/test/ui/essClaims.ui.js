@@ -71,7 +71,7 @@ let ALI, SARA, BEN, TYPE;
     p.on('dialog', d => { p.__errors.push('browser popup: ' + d.message()); d.dismiss().catch(() => {}); });
     await p.goto('http://127.0.0.1:8190/ess.html');
     await visible(p, '#si-code');
-    await p.fill('#si-code', code); await p.fill('#si-password', pw); await p.click('#si-submit');
+    await p.fill('#si-corporate', '100'); await p.fill('#si-code', code); await p.fill('#si-password', pw); await p.click('#si-submit');
     await visible(p, '#home-leave-left');
     return p;
   }
