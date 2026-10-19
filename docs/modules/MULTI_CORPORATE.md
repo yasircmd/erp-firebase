@@ -1,6 +1,6 @@
 # One app, each corporate ID's data in the client's own account
 
-Status: **design agreed** (owner, 2026-10-17: the recommendations, 243–249). Built after phase T1 of TRANSACTIONS_FIRESTORE.md (248).
+Status: **design agreed** (owner, 2026-10-17: the recommendations, 243–249). Built after phase T1 of TRANSACTIONS_FIRESTORE.md (248). The Developer module (owner, 2026-10-19): **proposal, questions 250–257 open.**
 
 ## The owner's direction (2026-10-17)
 
@@ -200,3 +200,128 @@ A checklist, and a script for the steps that can be scripted:
 - **248:** built after phase T1.
 - **249:** staff work in one client's app at a time; no screen shows
   several clients together.
+
+## The Developer module (owner, 2026-10-19)
+
+The owner asked, starting the build:
+1. Corporate ID **100** has the development module.
+2. It needs **no Help** information.
+3. It decides **which modules each corporate may use**.
+4. It keeps an **internal note per corporate**: a plain note, a task to
+   complete, a bug to fix and so on.
+5. **Each client can submit an issue** (a bug and the like), with
+   attachments.
+6. **Each corporate's module tree can differ**, laid out as it wants; by
+   default it follows the main one.
+
+### Proposal
+
+**Who sees it.** A new module, **Developer** (DEVELOPER):
+- it exists only in Corporate 100: no other corporate's tree, permissions
+  or getModuleFragment ever offers it, whatever its roles say;
+- within 100, it is given by role like any module (default: Admin), so
+  the firm can grant it to its developers without making them Admin.
+
+**No Help.** The module registry marks it internal: it is left out of
+Help, the Help home page and the search, and the Help test (which now
+requires every module to have a Help area) skips internal modules. The
+client-facing **Support** screen below does get a short Help page, unless
+the owner prefers otherwise (question 256).
+
+**The Developer screen**, in Corporate 100. A list of corporates, and for
+each one:
+- **Connection:** the directory entry (project id, database URL, public
+  web config), a connection test, its release status (rules and indexes
+  deployed, last seed). (247, already agreed.)
+- **Modules:** which modules the corporate may use, ticked per module
+  (point 3; question 250). The firm decides what a client has; the
+  client's own Admin then gives rights only within that, in Roles as
+  today. A module switched off disappears from the client's tree and its
+  screens and functions refuse it (the same check getModuleFragment and
+  moduleHasCapability already make), while its data stays where it is.
+- **Notes:** the firm's internal notes on the corporate (point 4; question
+  251): each with a type (Note, Task, Bug, Change request), a title, the
+  text, a status (Open, In progress, Done) and, for a task or bug, who on
+  the firm's side has it and a due date. Never shown to the client.
+- **Issues:** what the client has submitted (point 5), with their
+  attachments, a status and the firm's reply (questions 252–254).
+- **Tree:** whether the corporate follows the main tree or has its own,
+  and a "back to the main tree" action (point 6; questions 255).
+
+**Where each part is kept**, given the privacy rule (client data in the
+client's account):
+
+| | Where | Why |
+|---|---|---|
+| The directory, module entitlements | the firm's project (erp1-8f4cd) | the firm's commercial terms, not client data; the app needs them before it can open the client's database |
+| Internal notes | the firm's project | the firm's own notes about its work; the client never sees them. **Rule: no client data in a note** (no figures, names or records), as for Help |
+| Issues and their attachments | **the client's own project** (recommended, question 252) | an issue often shows the client's data (a screenshot, an invoice); the firm reads it through the grant it already has, and the client can see and delete what it sent |
+| The tree | the client's own database, as today | it is the client's setting |
+
+**Submitting an issue (each client).** A **Support** screen in every
+corporate's app (point 5):
+- the user picks a type (Bug, Question, Change request), writes what
+  happened, and attaches files (screenshots, documents; up to 5 files of
+  up to 10 MB each, question 253);
+- the screen records where the user was (the module open, the time, the
+  app version), so a bug can be found;
+- the user sees their issues, each one's status (New, In progress,
+  Waiting for you, Resolved, Closed) and the firm's replies, and can
+  answer;
+- who may submit: a capability in Roles (default: every role), question
+  254.
+
+The Developer screen lists every corporate's open issues together. This is
+the firm's own support queue, read through each client's grant, in
+Corporate 100 only. It is not a screen for a client's staff, so 249 (one
+client at a time) still holds for them. The owner confirms this in
+question 257.
+
+**Attachments** go where the client's documents already go: the client's
+own Drive, through Document Storage, in an "ERP support" folder. If the
+client has not connected Drive yet, the files go to their Firebase
+project's Cloud Storage bucket instead, which is still the client's own
+(question 253).
+
+**The tree per corporate (point 6).** The tree is already in each
+client's own database (tree, Tree Management). So:
+- a new corporate starts with the main tree (the seed);
+- while it has not changed its tree, it **follows the main one**: a
+  release that adds or moves modules updates it;
+- once its Admin changes it in Tree Management, it keeps its own layout.
+  A release that adds a module then puts the new module where the main
+  tree has it (its folder, created if missing), so nothing new is lost
+  (question 255);
+- the Developer screen shows which corporates follow the main tree, and
+  can put one back on it.
+
+### Questions for the owner
+
+250. **Module access per corporate.** Ticked **per module** (recommended)?
+     Or per capability (access, draft, post), which is finer but much more
+     to keep up? For a new corporate: start with **every module on**, so
+     you switch off what they have not bought (recommended)? Or start
+     with none?
+251. **Internal notes.** Types **Note, Task, Bug, Change request**, with a
+     status, an owner on your side and a due date for tasks and bugs
+     (recommended)? Any other type, or fields you want?
+252. **Where a client's issues are kept.** In **the client's own project**
+     (recommended: an issue often carries the client's data; the firm
+     reads it through its grant)? Or in your project, which is simpler but
+     moves the client's data out of their account?
+253. **Attachments.** Up to **5 files of 10 MB** each, any image, PDF or
+     office file (recommended)? Kept in the client's Drive (Document
+     Storage), or in their Firebase Storage until Drive is connected?
+254. **Who may submit an issue.** Every user (recommended), or only the
+     roles the client's Admin chooses? And may the client see and answer
+     the firm's replies (recommended)?
+255. **The tree after a customised layout.** A release's new module goes
+     where the main tree has it (recommended)? Or into one "New modules"
+     folder for the client's Admin to place?
+256. **Help for the Support screen.** The Developer module has no Help, as
+     you said. The client-facing Support screen gets a short Help page
+     (recommended, as clients use it)? Or none?
+257. **The support queue.** The Developer screen shows open issues of all
+     corporates in one list, for your developers in Corporate 100 only
+     (recommended)? Or one corporate at a time, as 249 does for client
+     work?
