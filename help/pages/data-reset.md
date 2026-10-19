@@ -5,8 +5,8 @@ order: 12
 modules: [DATARESET]
 sources: [functions/src/companies.js]
 summary: Reset or rebuild data carefully when a clean start or controlled refresh is needed for a company or environment.
-reviewed: 2026-10-12
-fingerprint: 46c38dac09155c10
+reviewed: 2026-10-19
+fingerprint: 98e2f09a06f3bed4
 ---
 ## What it is for
 

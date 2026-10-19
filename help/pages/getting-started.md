@@ -3,9 +3,9 @@ title: Getting started
 area: start
 order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
-sources: [public/index.html]
-reviewed: 2026-10-16
-fingerprint: 974c8f0638d9d0c0
+sources: [public/index.html, public/ess.html]
+reviewed: 2026-10-19
+fingerprint: e736bba76a44b810
 ---
 ## Signing in
 
@@ -15,14 +15,19 @@ fingerprint: 974c8f0638d9d0c0
    - **Email address** and **Password**: your own ERP account.
 3. Select **Sign In**. You arrive at the menu (the *Module Hierarchy*).
 
+The Corporate ID decides which organisation's ERP you sign in to. The
+browser remembers the last one you used, so next time it is already filled
+in. The **Employee Portal** asks for the same Corporate ID, then your
+Employee Code and password.
+
 If the ERP says your account is inactive or not configured, ask your
 administrator: an account must be active and assigned to at least one
 company and role.
 
 ### Forgot your password?
 
-On the sign-in page, open **Forgot Password**, enter your email address and
-select **Send Reset Link**. A link to set a new password arrives by email.
+On the sign-in page, open **Forgot Password**, enter your Corporate ID and
+email address and select **Send Reset Link**. A link to set a new password arrives by email.
 Once signed in, you can change your password at any time from the user menu
 (your name, top right) → **Change Password**.
 

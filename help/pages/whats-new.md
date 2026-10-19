@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-18
+reviewed: 2026-10-19
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,14 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 19/10/2026
+
+- **Sign in by Corporate ID.** The [sign-in page](getting-started.html)
+  now uses the Corporate ID to choose which organisation's ERP you sign in
+  to, and remembers the last one on this browser. **Forgot Password** and
+  the **Employee Portal** ask for the Corporate ID too, already filled in
+  with the one you used last. Nothing else changes when you sign in.
 
 ## 18/10/2026
 

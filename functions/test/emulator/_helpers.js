@@ -18,6 +18,9 @@ const { MODULE_REGISTRY } = require('../../src/moduleRegistry');
 // before the suite's own app: firebaseAdmin.js makes the default app only
 // when none exists yet.
 const movedPaths = require('../../src/movedPaths');
+// The suites call the modules directly too, outside any request: they work
+// in Corporate 100 (src/firebaseAdmin.js).
+require('../../src/firebaseAdmin').useCorporateOutsideRequests({ id: '100' });
 
 const PROJECT = 'erp1-8f4cd';
 const app = admin.initializeApp({ projectId: PROJECT, databaseURL: 'https://' + PROJECT + '-default-rtdb.firebaseio.com' }, 'suite-' + process.pid + '-' + Math.random());

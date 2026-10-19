@@ -57,6 +57,15 @@ preserved quirks). Read it when touching a ported module.
   collection (unit/stockReads and unit/movedReads check it). A posting is
   one `stockPosting.postStock` batch: its GL entry, its documents and
   everything it changes.
+- **One request, one corporate** (docs/modules/MULTI_CORPORATE.md, M1).
+  Every function runs in its request's corporate: a callable through
+  callable.js (`onCallWithMessages` / `onCallInCorporate`, never `onCall`),
+  anything else inside `runInCorporate`. Take `rtdb`, `firestore` and
+  `admin.auth()` from firebaseAdmin.js; they reach the current corporate's
+  project. Keep no data in module scope: it would be shared between
+  corporates. Use `firebaseAdmin.firm` (the firm's own project) only for
+  what the firm keeps (the directory, the screens release), never a
+  corporate's data. unit/corporateContext checks all of this.
 - **The global lock** (lock.js) is deliberately whole-system, not
   per-item, matching the original LockService. Don't "improve" this
   without discussing it first.

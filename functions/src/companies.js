@@ -1,4 +1,4 @@
-const { onCall } = require('firebase-functions/v2/https');
+const { onCallInCorporate } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
 const { requireUser } = require('./auth');
 
@@ -16,7 +16,7 @@ function getUserAssignedCompanies(profile) {
 // noting as exactly the kind of thing a second, careful pass over the
 // actual running code catches that a static call-site grep alone can
 // miss).
-exports.getActiveCompanies = onCall(onCallOptions, async (request) => {
+exports.getActiveCompanies = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const snap = await rtdb.ref('companies').get();
   const data = snap.val() || {};

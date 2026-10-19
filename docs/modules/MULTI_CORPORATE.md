@@ -1,6 +1,6 @@
 # One app, each corporate ID's data in the client's own account
 
-Status: **design agreed** (owner, 2026-10-17: the recommendations, 243–249). Built after phase T1 of TRANSACTIONS_FIRESTORE.md (248). The Developer module (owner, 2026-10-19): **agreed** (250–257, see the decisions at the end).
+Status: **design agreed** (owner, 2026-10-17: the recommendations, 243–249). Built after phase T1 of TRANSACTIONS_FIRESTORE.md (248). The Developer module (owner, 2026-10-19): **agreed** (250–257, see the decisions at the end). **M1 built** 2026-10-19 (see "As built: M1" at the end).
 
 ## The owner's direction (2026-10-17)
 
@@ -372,3 +372,108 @@ Admin chooses to send, with a warning each time. The rest of §7 stands.
    the release rule for new modules (255).
 4. **M4: onboarding** (§6): the rules and indexes loop in the Deploy
    workflow, the seed, the checklist and script.
+
+## As built: M1, one request, one corporate (2026-10-19)
+
+Corporate 100 is still the only corporate, and works as before. What is
+in place for the first client:
+
+**Which corporate a request is for** (functions/src/corporates.js,
+callable.js). It is never taken from what a call says alone, but from the
+Auth that signed its token:
+- a call with no envelope is Corporate 100's. Its token, if any, is this
+  project's Auth, checked by Cloud Functions as always;
+- a client corporate's app signs in to the client's own Auth and sends
+  `{ __corporate: { id, idToken }, __data }`. The function looks the
+  corporate up in the directory (Active only), checks the token against
+  that corporate's project (`verifyIdToken` on its app; only its project
+  id is needed), and gives the handler `__data` as `request.data` and that
+  user as `request.auth`. A token from another project is refused ("Please
+  sign in again."); an unknown or inactive corporate is refused before
+  anything runs ("Invalid Corporate ID."). Corporate 100 never comes in an
+  envelope.
+- `onCallInCorporate` (callable.js) does this for every callable;
+  `onCallWithMessages` is built on it. The 5 files that called `onCall`
+  directly now use `onCallInCorporate` (same error behaviour as before).
+
+**The handles** (firebaseAdmin.js). `rtdb`, `firestore` and `admin.auth()`
+are now handles that always reach the current request's corporate
+(AsyncLocalStorage, `runInCorporate`). The 88 modules and the legacy port
+are unchanged. Outside a request they throw ("No corporate for this
+request"). The test suites declare Corporate 100 with
+`useCorporateOutsideRequests`, which no function calls. A client
+corporate's Admin SDK app is made from its directory entry with no key
+(the grant, §3), once per function instance.
+
+**The firm's own project** (`firebaseAdmin.firm`) is reached for two
+things only: the directory and the screens release (getModuleFragment.js;
+the release is code, the same for every corporate, and its access check is
+still the corporate's own).
+
+**The directory**: Firestore `corporateDirectory/{Corporate ID}` in this
+project: `{ Name, ProjectID, DatabaseURL, WebConfig, Status }`. No screen
+yet (M2). `corporateSignIn` (new, no sign-in needed) gives the sign-in
+page what it needs for an ID: nothing more for 100, else the public web
+config only (apiKey, authDomain, projectId, appId, messagingSenderId).
+Like completeLogin before it, it tells whether a Corporate ID exists.
+
+**Sign-in** (public/index.html CORPORATE SIGN-IN, ess.html ESS SDK): the
+Corporate ID is looked up first (outside any corporate, so a remembered
+corporate since removed never blocks another), then the user signs in to
+that corporate's Auth (a second Firebase app, named
+`corp-<id>-<project>`), and every call carries its corporate and token.
+The corporate is remembered on the device (localStorage `erp-corporate`,
+shared by the ERP and the Employee Portal, as their sign-in is), so a
+reload restores it and the Corporate ID fields start at it. Signing in to
+another corporate signs out of the first. completeLogin checks that the
+typed ID is the corporate whose Auth signed the user in.
+
+What users see change (also in Help, What's new 19/10/2026):
+- **Forgot Password** asks for the Corporate ID (filled in with the last
+  one), as the reset email comes from that corporate's Auth;
+- the **Employee Portal** asks for the Corporate ID (filled in, 100 by
+  default), before the Employee Code.
+
+**Module-level state** is per corporate or gone:
+- the Drive access token (documentStorage.js) is kept per corporate;
+- the screens cache (getModuleFragment.js) is the firm's release, so it
+  stays shared;
+- numbering.js `KINDS` and the legacy port's fixed tables are static.
+  unit/corporateContext checks that no module adds state, that the port's
+  tables are never changed, that every callable goes through callable.js,
+  and that only corporates.js and getModuleFragment.js reach the firm's
+  project.
+
+**The lock** (lock.js) is unchanged code. Its document is in the current
+corporate's Firestore, so it is one lock per corporate: whole-system within
+a client, and no client waits on another (tested).
+
+**The one HTTP function**, driveOAuthCallback (Google's return from
+"Connect Google Drive"), has no caller to take a corporate from. The
+sign-in link now carries it (`state` = `<Corporate ID>.<random>`). The
+callback runs in that corporate, where the pending record still proves the
+state. A link made before M1 (no corporate in it) is Corporate 100's.
+
+**Found while building, for M4 (onboarding):** the client's grant (§3)
+needs **Firebase Authentication Admin** as well as the database roles.
+User Management and the Employee Portal create and disable users in the
+client's own Auth, through this project's service account. This role is
+still revocable by the client, and every use is in the client's audit
+logs.
+
+**Tests:** emulator corporates (a second corporate in project
+`erp-client-demo`, next to 100: sign-in config, completeLogin and calls
+reaching only its own data, tokens from another project refused, writes
+landing in the right database, the screens release shared behind each
+corporate's own access check, the lock per corporate, concurrent requests
+keeping their corporate, nothing reachable outside a request, the Drive
+link's corporate); unit corporateContext (the rules above, and the
+handles in and outside a corporate); UI corporateSignIn (the real
+index.html and ess.html with a stubbed SDK: Corporate 100 as before, a
+client corporate's Auth and envelope, reload, reset, switching corporate,
+an unknown ID refused before any sign-in).
+
+**Deploy:** set `multi-corporate-m1`: every function (548, with
+corporateSignIn), then Hosting. Functions first: the new sign-in page
+calls corporateSignIn, while the old page keeps working against the new
+functions (no envelope: Corporate 100).
