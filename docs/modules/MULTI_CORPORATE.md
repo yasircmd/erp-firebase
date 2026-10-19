@@ -1,6 +1,6 @@
 # One app, each corporate ID's data in the client's own account
 
-Status: **design agreed** (owner, 2026-10-17: the recommendations, 243–249). Built after phase T1 of TRANSACTIONS_FIRESTORE.md (248). The Developer module (owner, 2026-10-19): **proposal, questions 250–257 open.**
+Status: **design agreed** (owner, 2026-10-17: the recommendations, 243–249). Built after phase T1 of TRANSACTIONS_FIRESTORE.md (248). The Developer module (owner, 2026-10-19): **agreed** (250–257, see the decisions at the end).
 
 ## The owner's direction (2026-10-17)
 
@@ -325,3 +325,50 @@ client's own database (tree, Tree Management). So:
      corporates in one list, for your developers in Corporate 100 only
      (recommended)? Or one corporate at a time, as 249 does for client
      work?
+
+### The owner's decisions (2026-10-19)
+
+"Except these, agreed":
+- **250:** module access is ticked per module; a new corporate starts
+  with every module on.
+- **251:** internal notes of type Note, Task, Bug and Change request, with
+  a status, an owner on the firm's side and a due date for tasks and bugs.
+- **252: issues are kept in the firm's project, not the client's.** The
+  Support screen says so before anything is sent: what is written and
+  attached is shared with the firm and leaves the client's account. The
+  user confirms it each time.
+- **253:** up to 5 files of 10 MB each (images, PDF, office files).
+  Following 252, they go with the issue: in the firm's project (its Cloud
+  Storage), under the same warning.
+- **254: only the client's Admin submits issues** (Support in the client's
+  app). Other users will submit theirs from the Employee Portal, later.
+  The Admin sees the firm's replies and answers them.
+- **255: a module a release adds goes into a "New modules" folder** of a
+  corporate that has its own tree, for its Admin to place. A corporate
+  that follows the main tree gets it where the main tree has it.
+- **256:** the Support screen gets a short Help page; the Developer module
+  none.
+- **257:** the Developer screen's issue queue shows all corporates
+  together, for the firm's developers in Corporate 100 only.
+
+**What 252 changes in §7 (privacy).** Issues are the one place where
+client content enters the firm's project, and only what the client's
+Admin chooses to send, with a warning each time. The rest of §7 stands.
+
+### Build order
+
+1. **M1: one request, one corporate** (§2–§4): the Corporate directory;
+   sign-in by Corporate ID to that corporate's Auth; callable.js resolves
+   the corporate and opens its database; firebaseAdmin.js handles that
+   follow the request; per-corporate caches and lock. Corporate 100 keeps
+   working exactly as today, and is the only corporate until the first
+   client is onboarded.
+2. **M2: the Developer module** (Corporate 100): the directory screen and
+   connection test, module access per corporate (enforced in the tree,
+   getModuleFragment and moduleHasCapability), internal notes, the tree
+   status and "back to the main tree".
+3. **M3: Support and the issue queue:** the client Admin's Support screen
+   (warning, attachments, replies), the queue in the Developer screen;
+   the release rule for new modules (255).
+4. **M4: onboarding** (§6): the rules and indexes loop in the Deploy
+   workflow, the seed, the checklist and script.
