@@ -1216,3 +1216,12 @@ from, and how it was verified. The deploy procedure is in the
   live: every transaction document is in Firestore** (T1–T5,
   TRANSACTIONS_FIRESTORE.md); RTDB keeps master data, settings, counters
   and logs.
+- **2026-10-19, M1: one request, one corporate; sign-in by Corporate ID
+  (`multi-corporate-m1`, all 548 functions with the new corporateSignIn,
+  no screens, then Hosting):** functions run
+  [#173](https://github.com/yasircmd/erp-firebase/actions/runs/39218117295)
+  (07:46–10:01 UTC), then the "hosting" run
+  [#174](https://github.com/yasircmd/erp-firebase/actions/runs/39234537405)
+  (10:02–10:03 UTC), both from `9d2cc7e` (PR #139), success. **M1 is
+  live** (MULTI_CORPORATE.md): every function runs in its request's
+  corporate; Corporate 100 is still the only one in use.

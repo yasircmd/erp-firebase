@@ -481,21 +481,21 @@
         <label class="block text-xs font-medium text-slate-300 mb-1">Corporate ID</label>
         <div class="relative">
           <i class="fa-solid fa-building absolute left-3 top-3 text-xs text-slate-500"></i>
-          <input type="text" id="corporate-id" required value="100" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
+          <input type="text" id="corporate-id" name="corporateId" autocomplete="on" required placeholder="Your organisation's ID" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
         </div>
       </div>
       <div>
         <label class="block text-xs font-medium text-slate-300 mb-1">Email address</label>
         <div class="relative">
           <i class="fa-solid fa-envelope absolute left-3 top-3 text-xs text-slate-500"></i>
-          <input type="email" id="email" required placeholder="name@company.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
+          <input type="email" id="email" name="email" autocomplete="username" required placeholder="name@company.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
         </div>
       </div>
       <div>
         <label class="block text-xs font-medium text-slate-300 mb-1">Password</label>
         <div class="relative">
           <i class="fa-solid fa-key absolute left-3 top-3 text-xs text-slate-500"></i>
-          <input type="password" id="password" required placeholder="Enter password" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
+          <input type="password" id="password" name="password" autocomplete="current-password" required placeholder="Enter password" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
         </div>
       </div>
       <div id="login-error-msg" class="hidden text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg p-2.5 text-center"></div>
@@ -508,7 +508,7 @@
       <p class="text-xs text-slate-400">Enter your Corporate ID and email address and we'll send you a link to reset your password.</p>
       <div>
         <label class="block text-xs font-medium text-slate-300 mb-1">Corporate ID</label>
-        <input type="text" id="pwd-corporate-id" required value="100" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-emerald-500">
+        <input type="text" id="pwd-corporate-id" name="corporateId" autocomplete="on" required placeholder="Your organisation's ID" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-emerald-500">
       </div>
       <div>
         <label class="block text-xs font-medium text-slate-300 mb-1">Email address</label>
@@ -944,12 +944,10 @@
     }
 
     window.addEventListener('firebaseSdkReady', function () {
-      // The Corporate ID fields start at the corporate remembered on this
-      // device (100 when none), and a form reset keeps it.
-      ['corporate-id', 'pwd-corporate-id'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.defaultValue = el.value = window.__firebaseSdk.corporateId || '100';
-      });
+      // The Corporate ID fields start empty (owner, 2026-10-19): the browser
+      // can save and offer the ID (they are named fields of the sign-in
+      // form), but the page never shows it on its own. The corporate
+      // remembered on this device only restores its session.
       listenToAuth();
     });
     // ---------- AUTO LOG-OFF (10 min idle) ----------

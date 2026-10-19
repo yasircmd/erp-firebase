@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-10-19
-fingerprint: e736bba76a44b810
+fingerprint: e3b69b62620c62b3
 ---
 ## Signing in
 
@@ -16,9 +16,9 @@ fingerprint: e736bba76a44b810
 3. Select **Sign In**. You arrive at the menu (the *Module Hierarchy*).
 
 The Corporate ID decides which organisation's ERP you sign in to. The
-browser remembers the last one you used, so next time it is already filled
-in. The **Employee Portal** asks for the same Corporate ID, then your
-Employee Code and password.
+field starts empty; your browser can save it with your sign-in and offer
+it next time. The **Employee Portal** asks for the same Corporate ID, then
+your Employee Code and password.
 
 If the ERP says your account is inactive or not configured, ask your
 administrator: an account must be active and assigned to at least one

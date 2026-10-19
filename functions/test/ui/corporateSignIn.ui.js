@@ -107,7 +107,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   await page.goto('http://127.0.0.1:8137/');
 
   await check('Corporate 100: this project\'s Auth, calls as always, nothing remembered', async () => {
-    assert.equal(await page.inputValue('#corporate-id'), '100', 'the field starts at 100');
+    assert.equal(await page.inputValue('#corporate-id'), '', 'the field starts empty');
+    assert.deepEqual(await page.$eval('#corporate-id', el => [el.name, el.autocomplete]), ['corporateId', 'on'], 'one the browser can save');
     await signIn('100', 'admin@firm.test', 'pw100');
     await signedIn();
     assert.deepEqual(await log(), ['signIn [DEFAULT] admin@firm.test']);
@@ -148,14 +149,14 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await signedIn();
     const c = await calls();
     assert.deepEqual(c.find(x => x.name === 'restoreSession').arg, { __corporate: { id: '200', idToken: 'tok:corp-200-erp-client-demo:u-cara' }, __data: null });
-    assert.equal(await page.inputValue('#corporate-id'), '200', 'the field starts at the remembered corporate');
+    assert.equal(await page.inputValue('#corporate-id'), '', 'the field still starts empty');
     await signOut();
-    assert.equal(await page.inputValue('#corporate-id'), '200', 'and keeps it after signing out');
+    assert.equal(await page.inputValue('#corporate-id'), '', 'and is empty after signing out');
   });
 
   await check('a password reset comes from the corporate entered, without switching to it', async () => {
     await page.evaluate(() => { window.__log = []; switchTab('changePassword'); });
-    assert.equal(await page.inputValue('#pwd-corporate-id'), '200');
+    assert.equal(await page.inputValue('#pwd-corporate-id'), '', 'empty, as on Sign In');
     await page.fill('#pwd-corporate-id', '100'); await page.fill('#pwd-email', 'admin@firm.test');
     await page.click('#pwd-btn');
     await page.waitForSelector('#pwd-msg:not(.hidden)');
@@ -187,7 +188,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.evaluate(() => handleLogout());
     await page.goto('http://127.0.0.1:8137/ess.html');
     await page.waitForSelector('#v-signin:not(.hidden)');
-    assert.equal(await page.inputValue('#si-corporate'), '100', 'the remembered corporate: 100');
+    assert.equal(await page.inputValue('#si-corporate'), '', 'the field starts empty');
+    assert.deepEqual(await page.$eval('#si-corporate', el => [el.name, el.autocomplete]), ['corporateId', 'on']);
     const essIn = async (corp, code, pw) => {
       await page.evaluate(() => { window.__calls = []; window.__log = []; });
       await page.fill('#si-corporate', corp); await page.fill('#si-code', code); await page.fill('#si-password', pw);
@@ -205,7 +207,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(JSON.parse(await remembered()).corporateId, '200', 'shared with the ERP sign-in');
     await page.reload();
     await page.waitForSelector('#v-change:not(.hidden)');
-    assert.equal(await page.inputValue('#si-corporate'), '200');
+    assert.equal(await page.inputValue('#si-corporate'), '', 'still empty after a reload');
     assert.equal((await calls()).find(x => x.name === 'essPortal').arg.__corporate.id, '200', 'restored in 200');
   });
 
