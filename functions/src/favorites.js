@@ -1,16 +1,17 @@
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { HttpsError } = require('firebase-functions/v2/https');
+const { onCallInCorporate } = require('./callable');
 const { rtdb } = require('./firebaseAdmin');
 const { requireUser } = require('./auth');
 
 const onCallOptions = { region: 'us-central1' };
 
-exports.getMyFavorites = onCall(onCallOptions, async (request) => {
+exports.getMyFavorites = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const snap = await rtdb.ref('userFavorites/' + user.uid).get();
   return snap.val() || [];
 });
 
-exports.toggleFavorite = onCall(onCallOptions, async (request) => {
+exports.toggleFavorite = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const moduleId = String(request.data && request.data.moduleId || '').trim();
   const moduleLabel = request.data && request.data.moduleLabel;

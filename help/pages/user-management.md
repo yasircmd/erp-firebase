@@ -5,8 +5,8 @@ order: 3
 modules: [USERMGMT]
 sources: [functions/src/roles.js, functions/src/session.js]
 summary: Set up ERP users, assign roles and control which screens they can access and post.
-reviewed: 2026-10-14
-fingerprint: 6d074263d8827e3f
+reviewed: 2026-10-19
+fingerprint: 8236bace31e25f45
 ---
 ## What it is for
 

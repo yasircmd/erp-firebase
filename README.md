@@ -147,6 +147,7 @@ node functions/test/ui/purchaseReturn.ui.js # after the purchaseReturn suite: th
 node functions/test/ui/salesReturn.ui.js    # after the salesReturn suite: the Sales Return screen
 node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: the two SOA screens, compact on screen, print unchanged
 node functions/test/ui/pdc.ui.js            # after the pdc suite: the two PDC screens, SOA pending PDCs
+node functions/test/ui/corporateSignIn.ui.js # sign-in by Corporate ID (index.html, ess.html): 100 as before, a client corporate's own Auth and envelope; no emulators needed
 node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed, but it needs
                                             # cdn.tailwindcss.com: where that's blocked, 8 of its 10 checks fail
 node functions/test/ui/singleCompany.ui.js  # one-company user: company preselected on every screen (after vendorMaster)

@@ -20,6 +20,7 @@ const admin = require('firebase-admin');
 // firebaseAdmin.js makes the default app only when none exists yet.
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'erp1-8f4cd';
 const movedPaths = require('../../src/movedPaths');
+require('../../src/firebaseAdmin').useCorporateOutsideRequests({ id: '100' });
 const app = admin.initializeApp({ projectId: 'erp1-8f4cd', databaseURL: 'https://erp1-8f4cd-default-rtdb.firebaseio.com' }, 'ui');
 const rtdb = app.database();
 const val = async p => (movedPaths.isMoved(p) ? movedPaths.request(p, 'get') : (await rtdb.ref(p).get()).val());

@@ -27,6 +27,15 @@ function portalPage() {
     const CODES = { INVALID_LOGIN_CREDENTIALS: 'auth/invalid-credential', INVALID_PASSWORD: 'auth/wrong-password', EMAIL_NOT_FOUND: 'auth/user-not-found', USER_DISABLED: 'auth/user-disabled' };
     window.__essLog = [];
     window.__ess = {
+      // Corporate 100 only (a client corporate's sign-in is in
+      // corporateSignIn.ui.js): the Corporate ID is checked by the server.
+      corporateId: () => '100',
+      useCorporate: async id => {
+        const res = await fetch('http://127.0.0.1:5001/${PROJECT}/us-central1/corporateSignIn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { corporateId: id } }) });
+        const body = await res.json();
+        if (body.error) throw new Error(body.error.message);
+        if (!body.result.home) throw new Error('This test page signs in to Corporate 100 only.');
+      },
       signIn: async (email, password) => {
         const res = await fetch('${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true }) });
         const body = await res.json();

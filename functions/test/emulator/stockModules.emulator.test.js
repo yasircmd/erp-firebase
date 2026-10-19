@@ -30,6 +30,8 @@ const admin = require('firebase-admin');
 // firebaseAdmin.js makes the default app only when none exists yet.
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'erp1-8f4cd';
 const movedPaths = require('../../src/movedPaths');
+// It reads moved documents directly, outside any request: in Corporate 100.
+require('../../src/firebaseAdmin').useCorporateOutsideRequests({ id: '100' });
 
 const PROJECT = 'erp1-8f4cd';
 const FUNCTIONS_BASE = 'http://127.0.0.1:5001/' + PROJECT + '/us-central1/';

@@ -5,7 +5,7 @@
 // scaffold plan).
 
 const { getModuleFragment } = require('./src/getModuleFragment');
-const { completeLogin, restoreSession, getMyTree } = require('./src/session');
+const { completeLogin, corporateSignIn, restoreSession, getMyTree } = require('./src/session');
 const { getMyFavorites, toggleFavorite } = require('./src/favorites');
 const { getPendingApprovalsForUser, getMyRejectedSubmissions, getMyDraftsForUser } = require('./src/homeTasks');
 const { getActiveCompanies } = require('./src/companies');
@@ -62,6 +62,7 @@ const recurringJournal = require('./src/recurringJournal');
 
 exports.getModuleFragment = getModuleFragment;
 exports.completeLogin = completeLogin;
+exports.corporateSignIn = corporateSignIn;
 exports.restoreSession = restoreSession;
 exports.getMyTree = getMyTree;
 exports.getMyFavorites = getMyFavorites;

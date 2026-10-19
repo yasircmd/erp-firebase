@@ -1,6 +1,6 @@
 # One app, each corporate ID's data in the client's own account
 
-Status: **design agreed** (owner, 2026-10-17: the recommendations, 243–249). Built after phase T1 of TRANSACTIONS_FIRESTORE.md (248).
+Status: **design agreed** (owner, 2026-10-17: the recommendations, 243–249). Built after phase T1 of TRANSACTIONS_FIRESTORE.md (248). The Developer module (owner, 2026-10-19): **agreed** (250–257, see the decisions at the end). **M1 built** 2026-10-19 (see "As built: M1" at the end).
 
 ## The owner's direction (2026-10-17)
 
@@ -200,3 +200,280 @@ A checklist, and a script for the steps that can be scripted:
 - **248:** built after phase T1.
 - **249:** staff work in one client's app at a time; no screen shows
   several clients together.
+
+## The Developer module (owner, 2026-10-19)
+
+The owner asked, starting the build:
+1. Corporate ID **100** has the development module.
+2. It needs **no Help** information.
+3. It decides **which modules each corporate may use**.
+4. It keeps an **internal note per corporate**: a plain note, a task to
+   complete, a bug to fix and so on.
+5. **Each client can submit an issue** (a bug and the like), with
+   attachments.
+6. **Each corporate's module tree can differ**, laid out as it wants; by
+   default it follows the main one.
+
+### Proposal
+
+**Who sees it.** A new module, **Developer** (DEVELOPER):
+- it exists only in Corporate 100: no other corporate's tree, permissions
+  or getModuleFragment ever offers it, whatever its roles say;
+- within 100, it is given by role like any module (default: Admin), so
+  the firm can grant it to its developers without making them Admin.
+
+**No Help.** The module registry marks it internal: it is left out of
+Help, the Help home page and the search, and the Help test (which now
+requires every module to have a Help area) skips internal modules. The
+client-facing **Support** screen below does get a short Help page, unless
+the owner prefers otherwise (question 256).
+
+**The Developer screen**, in Corporate 100. A list of corporates, and for
+each one:
+- **Connection:** the directory entry (project id, database URL, public
+  web config), a connection test, its release status (rules and indexes
+  deployed, last seed). (247, already agreed.)
+- **Modules:** which modules the corporate may use, ticked per module
+  (point 3; question 250). The firm decides what a client has; the
+  client's own Admin then gives rights only within that, in Roles as
+  today. A module switched off disappears from the client's tree and its
+  screens and functions refuse it (the same check getModuleFragment and
+  moduleHasCapability already make), while its data stays where it is.
+- **Notes:** the firm's internal notes on the corporate (point 4; question
+  251): each with a type (Note, Task, Bug, Change request), a title, the
+  text, a status (Open, In progress, Done) and, for a task or bug, who on
+  the firm's side has it and a due date. Never shown to the client.
+- **Issues:** what the client has submitted (point 5), with their
+  attachments, a status and the firm's reply (questions 252–254).
+- **Tree:** whether the corporate follows the main tree or has its own,
+  and a "back to the main tree" action (point 6; questions 255).
+
+**Where each part is kept**, given the privacy rule (client data in the
+client's account):
+
+| | Where | Why |
+|---|---|---|
+| The directory, module entitlements | the firm's project (erp1-8f4cd) | the firm's commercial terms, not client data; the app needs them before it can open the client's database |
+| Internal notes | the firm's project | the firm's own notes about its work; the client never sees them. **Rule: no client data in a note** (no figures, names or records), as for Help |
+| Issues and their attachments | **the client's own project** (recommended, question 252) | an issue often shows the client's data (a screenshot, an invoice); the firm reads it through the grant it already has, and the client can see and delete what it sent |
+| The tree | the client's own database, as today | it is the client's setting |
+
+**Submitting an issue (each client).** A **Support** screen in every
+corporate's app (point 5):
+- the user picks a type (Bug, Question, Change request), writes what
+  happened, and attaches files (screenshots, documents; up to 5 files of
+  up to 10 MB each, question 253);
+- the screen records where the user was (the module open, the time, the
+  app version), so a bug can be found;
+- the user sees their issues, each one's status (New, In progress,
+  Waiting for you, Resolved, Closed) and the firm's replies, and can
+  answer;
+- who may submit: a capability in Roles (default: every role), question
+  254.
+
+The Developer screen lists every corporate's open issues together. This is
+the firm's own support queue, read through each client's grant, in
+Corporate 100 only. It is not a screen for a client's staff, so 249 (one
+client at a time) still holds for them. The owner confirms this in
+question 257.
+
+**Attachments** go where the client's documents already go: the client's
+own Drive, through Document Storage, in an "ERP support" folder. If the
+client has not connected Drive yet, the files go to their Firebase
+project's Cloud Storage bucket instead, which is still the client's own
+(question 253).
+
+**The tree per corporate (point 6).** The tree is already in each
+client's own database (tree, Tree Management). So:
+- a new corporate starts with the main tree (the seed);
+- while it has not changed its tree, it **follows the main one**: a
+  release that adds or moves modules updates it;
+- once its Admin changes it in Tree Management, it keeps its own layout.
+  A release that adds a module then puts the new module where the main
+  tree has it (its folder, created if missing), so nothing new is lost
+  (question 255);
+- the Developer screen shows which corporates follow the main tree, and
+  can put one back on it.
+
+### Questions for the owner
+
+250. **Module access per corporate.** Ticked **per module** (recommended)?
+     Or per capability (access, draft, post), which is finer but much more
+     to keep up? For a new corporate: start with **every module on**, so
+     you switch off what they have not bought (recommended)? Or start
+     with none?
+251. **Internal notes.** Types **Note, Task, Bug, Change request**, with a
+     status, an owner on your side and a due date for tasks and bugs
+     (recommended)? Any other type, or fields you want?
+252. **Where a client's issues are kept.** In **the client's own project**
+     (recommended: an issue often carries the client's data; the firm
+     reads it through its grant)? Or in your project, which is simpler but
+     moves the client's data out of their account?
+253. **Attachments.** Up to **5 files of 10 MB** each, any image, PDF or
+     office file (recommended)? Kept in the client's Drive (Document
+     Storage), or in their Firebase Storage until Drive is connected?
+254. **Who may submit an issue.** Every user (recommended), or only the
+     roles the client's Admin chooses? And may the client see and answer
+     the firm's replies (recommended)?
+255. **The tree after a customised layout.** A release's new module goes
+     where the main tree has it (recommended)? Or into one "New modules"
+     folder for the client's Admin to place?
+256. **Help for the Support screen.** The Developer module has no Help, as
+     you said. The client-facing Support screen gets a short Help page
+     (recommended, as clients use it)? Or none?
+257. **The support queue.** The Developer screen shows open issues of all
+     corporates in one list, for your developers in Corporate 100 only
+     (recommended)? Or one corporate at a time, as 249 does for client
+     work?
+
+### The owner's decisions (2026-10-19)
+
+"Except these, agreed":
+- **250:** module access is ticked per module; a new corporate starts
+  with every module on.
+- **251:** internal notes of type Note, Task, Bug and Change request, with
+  a status, an owner on the firm's side and a due date for tasks and bugs.
+- **252: issues are kept in the firm's project, not the client's.** The
+  Support screen says so before anything is sent: what is written and
+  attached is shared with the firm and leaves the client's account. The
+  user confirms it each time.
+- **253:** up to 5 files of 10 MB each (images, PDF, office files).
+  Following 252, they go with the issue: in the firm's project (its Cloud
+  Storage), under the same warning.
+- **254: only the client's Admin submits issues** (Support in the client's
+  app). Other users will submit theirs from the Employee Portal, later.
+  The Admin sees the firm's replies and answers them.
+- **255: a module a release adds goes into a "New modules" folder** of a
+  corporate that has its own tree, for its Admin to place. A corporate
+  that follows the main tree gets it where the main tree has it.
+- **256:** the Support screen gets a short Help page; the Developer module
+  none.
+- **257:** the Developer screen's issue queue shows all corporates
+  together, for the firm's developers in Corporate 100 only.
+
+**What 252 changes in §7 (privacy).** Issues are the one place where
+client content enters the firm's project, and only what the client's
+Admin chooses to send, with a warning each time. The rest of §7 stands.
+
+### Build order
+
+1. **M1: one request, one corporate** (§2–§4): the Corporate directory;
+   sign-in by Corporate ID to that corporate's Auth; callable.js resolves
+   the corporate and opens its database; firebaseAdmin.js handles that
+   follow the request; per-corporate caches and lock. Corporate 100 keeps
+   working exactly as today, and is the only corporate until the first
+   client is onboarded.
+2. **M2: the Developer module** (Corporate 100): the directory screen and
+   connection test, module access per corporate (enforced in the tree,
+   getModuleFragment and moduleHasCapability), internal notes, the tree
+   status and "back to the main tree".
+3. **M3: Support and the issue queue:** the client Admin's Support screen
+   (warning, attachments, replies), the queue in the Developer screen;
+   the release rule for new modules (255).
+4. **M4: onboarding** (§6): the rules and indexes loop in the Deploy
+   workflow, the seed, the checklist and script.
+
+## As built: M1, one request, one corporate (2026-10-19)
+
+Corporate 100 is still the only corporate, and works as before. What is
+in place for the first client:
+
+**Which corporate a request is for** (functions/src/corporates.js,
+callable.js). It is never taken from what a call says alone, but from the
+Auth that signed its token:
+- a call with no envelope is Corporate 100's. Its token, if any, is this
+  project's Auth, checked by Cloud Functions as always;
+- a client corporate's app signs in to the client's own Auth and sends
+  `{ __corporate: { id, idToken }, __data }`. The function looks the
+  corporate up in the directory (Active only), checks the token against
+  that corporate's project (`verifyIdToken` on its app; only its project
+  id is needed), and gives the handler `__data` as `request.data` and that
+  user as `request.auth`. A token from another project is refused ("Please
+  sign in again."); an unknown or inactive corporate is refused before
+  anything runs ("Invalid Corporate ID."). Corporate 100 never comes in an
+  envelope.
+- `onCallInCorporate` (callable.js) does this for every callable;
+  `onCallWithMessages` is built on it. The 5 files that called `onCall`
+  directly now use `onCallInCorporate` (same error behaviour as before).
+
+**The handles** (firebaseAdmin.js). `rtdb`, `firestore` and `admin.auth()`
+are now handles that always reach the current request's corporate
+(AsyncLocalStorage, `runInCorporate`). The 88 modules and the legacy port
+are unchanged. Outside a request they throw ("No corporate for this
+request"). The test suites declare Corporate 100 with
+`useCorporateOutsideRequests`, which no function calls. A client
+corporate's Admin SDK app is made from its directory entry with no key
+(the grant, §3), once per function instance.
+
+**The firm's own project** (`firebaseAdmin.firm`) is reached for two
+things only: the directory and the screens release (getModuleFragment.js;
+the release is code, the same for every corporate, and its access check is
+still the corporate's own).
+
+**The directory**: Firestore `corporateDirectory/{Corporate ID}` in this
+project: `{ Name, ProjectID, DatabaseURL, WebConfig, Status }`. No screen
+yet (M2). `corporateSignIn` (new, no sign-in needed) gives the sign-in
+page what it needs for an ID: nothing more for 100, else the public web
+config only (apiKey, authDomain, projectId, appId, messagingSenderId).
+Like completeLogin before it, it tells whether a Corporate ID exists.
+
+**Sign-in** (public/index.html CORPORATE SIGN-IN, ess.html ESS SDK): the
+Corporate ID is looked up first (outside any corporate, so a remembered
+corporate since removed never blocks another), then the user signs in to
+that corporate's Auth (a second Firebase app, named
+`corp-<id>-<project>`), and every call carries its corporate and token.
+The corporate is remembered on the device (localStorage `erp-corporate`,
+shared by the ERP and the Employee Portal, as their sign-in is), so a
+reload restores it and the Corporate ID fields start at it. Signing in to
+another corporate signs out of the first. completeLogin checks that the
+typed ID is the corporate whose Auth signed the user in.
+
+What users see change (also in Help, What's new 19/10/2026):
+- **Forgot Password** asks for the Corporate ID (filled in with the last
+  one), as the reset email comes from that corporate's Auth;
+- the **Employee Portal** asks for the Corporate ID (filled in, 100 by
+  default), before the Employee Code.
+
+**Module-level state** is per corporate or gone:
+- the Drive access token (documentStorage.js) is kept per corporate;
+- the screens cache (getModuleFragment.js) is the firm's release, so it
+  stays shared;
+- numbering.js `KINDS` and the legacy port's fixed tables are static.
+  unit/corporateContext checks that no module adds state, that the port's
+  tables are never changed, that every callable goes through callable.js,
+  and that only corporates.js and getModuleFragment.js reach the firm's
+  project.
+
+**The lock** (lock.js) is unchanged code. Its document is in the current
+corporate's Firestore, so it is one lock per corporate: whole-system within
+a client, and no client waits on another (tested).
+
+**The one HTTP function**, driveOAuthCallback (Google's return from
+"Connect Google Drive"), has no caller to take a corporate from. The
+sign-in link now carries it (`state` = `<Corporate ID>.<random>`). The
+callback runs in that corporate, where the pending record still proves the
+state. A link made before M1 (no corporate in it) is Corporate 100's.
+
+**Found while building, for M4 (onboarding):** the client's grant (§3)
+needs **Firebase Authentication Admin** as well as the database roles.
+User Management and the Employee Portal create and disable users in the
+client's own Auth, through this project's service account. This role is
+still revocable by the client, and every use is in the client's audit
+logs.
+
+**Tests:** emulator corporates (a second corporate in project
+`erp-client-demo`, next to 100: sign-in config, completeLogin and calls
+reaching only its own data, tokens from another project refused, writes
+landing in the right database, the screens release shared behind each
+corporate's own access check, the lock per corporate, concurrent requests
+keeping their corporate, nothing reachable outside a request, the Drive
+link's corporate); unit corporateContext (the rules above, and the
+handles in and outside a corporate); UI corporateSignIn (the real
+index.html and ess.html with a stubbed SDK: Corporate 100 as before, a
+client corporate's Auth and envelope, reload, reset, switching corporate,
+an unknown ID refused before any sign-in).
+
+**Deploy:** set `multi-corporate-m1`: every function (548, with
+corporateSignIn), then Hosting. Functions first: the new sign-in page
+calls corporateSignIn, while the old page keeps working against the new
+functions (no envelope: Corporate 100).

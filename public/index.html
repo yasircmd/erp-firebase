@@ -505,7 +505,11 @@
     </form>
 
     <form id="pwd-form" onsubmit="handleForgotPassword(event)" class="space-y-4 hidden">
-      <p class="text-xs text-slate-400">Enter your email address and we'll send you a link to reset your password.</p>
+      <p class="text-xs text-slate-400">Enter your Corporate ID and email address and we'll send you a link to reset your password.</p>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Corporate ID</label>
+        <input type="text" id="pwd-corporate-id" required value="100" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-emerald-500">
+      </div>
       <div>
         <label class="block text-xs font-medium text-slate-300 mb-1">Email address</label>
         <input type="email" id="pwd-email" required placeholder="name@company.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-emerald-500">
@@ -711,17 +715,47 @@
     };
 
     const firebaseApp = initializeApp(firebaseConfig);
-    const auth = getAuth(firebaseApp);
+    const homeAuth = getAuth(firebaseApp);
     // Region must match where the Cloud Functions themselves are
     // deployed (us-central1 — see the top-level migration README for
     // why) or every call pays a needless cross-region hop.
     const functionsInstance = getFunctions(firebaseApp, 'us-central1');
 
+    // ---------- CORPORATE SIGN-IN ----------
+    // One app, each corporate's sign-in its own (docs/modules/
+    // MULTI_CORPORATE.md §2). Corporate 100, the firm's, signs in to this
+    // project's Auth, as always. A client corporate signs in to its own
+    // Auth (its public web config, from corporateSignIn), and the rpc
+    // bridge then sends its token with every call. The corporate is
+    // remembered on this device, so a reload restores the same one.
+    const CORPORATE_KEY = 'erp-corporate';
+    const corporateAuths = {};
+    // The Auth of a corporate (cfg: corporateSignIn's answer; none: 100).
+    function authFor(cfg) {
+      if (!cfg || cfg.home || !cfg.webConfig) return homeAuth;
+      const name = 'corp-' + cfg.corporateId + '-' + cfg.webConfig.projectId;
+      return corporateAuths[name] || (corporateAuths[name] = getAuth(initializeApp(cfg.webConfig, name)));
+    }
+    // Makes a corporate the one this app signs in to and calls.
+    function useCorporate(cfg) {
+      const sdk = window.__firebaseSdk;
+      sdk.auth = authFor(cfg);
+      sdk.corporateId = sdk.auth === homeAuth ? '100' : String(cfg.corporateId);
+      try {
+        if (sdk.corporateId === '100') localStorage.removeItem(CORPORATE_KEY);
+        else localStorage.setItem(CORPORATE_KEY, JSON.stringify(cfg));
+      } catch (e) { /* storage blocked: the next reload asks again */ }
+    }
+    let rememberedCorporate = null;
+    try { rememberedCorporate = JSON.parse(localStorage.getItem(CORPORATE_KEY) || 'null'); } catch (e) { rememberedCorporate = null; }
+    // ---------- END CORPORATE SIGN-IN ----------
+
     window.__firebaseSdk = {
-      auth, functionsInstance, httpsCallable,
+      auth: homeAuth, corporateId: '100', authFor, useCorporate, functionsInstance, httpsCallable,
       signInWithEmailAndPassword, signOut, onAuthStateChanged,
       sendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider, updatePassword
     };
+    useCorporate(rememberedCorporate);
 
     window.dispatchEvent(new Event('firebaseSdkReady'));
   </script>
@@ -776,7 +810,14 @@
             // A document of up to 10 MB going up or coming back can take
             // longer than the SDK's 70 s default on a slow line.
             const long = prop === 'uploadAttachment' || prop === 'openAttachment';
-            sdk.httpsCallable(sdk.functionsInstance, prop, long ? { timeout: 300000 } : undefined)(arg)
+            // A client corporate's call carries its corporate and its own
+            // Auth's token (functions/src/corporates.js); Corporate 100's
+            // goes as always.
+            const corp = sdk.corporateId && sdk.corporateId !== '100' ? sdk.corporateId : null;
+            const user = corp && sdk.auth && sdk.auth.currentUser;
+            Promise.resolve(corp ? (user ? user.getIdToken() : '') : null)
+              .then(idToken => sdk.httpsCallable(sdk.functionsInstance, prop, long ? { timeout: 300000 } : undefined)(
+                corp ? { __corporate: { id: corp, idToken: idToken }, __data: arg === undefined ? null : arg } : arg))
               .then(result => { __rpcFinish(timer); if (ctx.successFn) ctx.successFn(result.data); })
               .catch(err => { __rpcFinish(timer); if (ctx.failureFn) ctx.failureFn({ message: err.message || 'Something went wrong.' }); });
           };
@@ -853,8 +894,24 @@
       showLoginFailure(err);
     }
 
-    window.addEventListener('firebaseSdkReady', function () {
-    window.__firebaseSdk.onAuthStateChanged(window.__firebaseSdk.auth, function (user) {
+    // The sign-in state of the corporate this app signs in to
+    // (CORPORATE SIGN-IN). Listening moves to another corporate's Auth
+    // when the user signs in with another Corporate ID; the promise
+    // settles once that Auth has said who (if anyone) is signed in.
+    let stopAuthListener = null;
+    function listenToAuth() {
+      const sdk = window.__firebaseSdk;
+      if (stopAuthListener) stopAuthListener();
+      return new Promise(resolve => {
+        let first = true;
+        stopAuthListener = sdk.onAuthStateChanged(sdk.auth, function (user) {
+          onAuthChanged(user);
+          if (first) { first = false; resolve(); }
+        });
+      });
+    }
+
+    function onAuthChanged(user) {
       if (!user) {
         currentUser = null;
         pendingCorporateId = null;
@@ -884,9 +941,16 @@
       } else {
         rpc.withSuccessHandler(handleSessionResult).withFailureHandler(handleSessionFailure).restoreSession();
       }
-    });
+    }
 
-
+    window.addEventListener('firebaseSdkReady', function () {
+      // The Corporate ID fields start at the corporate remembered on this
+      // device (100 when none), and a form reset keeps it.
+      ['corporate-id', 'pwd-corporate-id'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.defaultValue = el.value = window.__firebaseSdk.corporateId || '100';
+      });
+      listenToAuth();
     });
     // ---------- AUTO LOG-OFF (10 min idle) ----------
     // Security timeout, not a convenience feature — deliberately does
@@ -1007,12 +1071,25 @@
       // completeLogin), not a restored session — see that handler's
       // own comment for why this indirection exists at all rather
       // than calling completeLogin directly from here.
-      pendingCorporateId = corporateId;
-      sdk.signInWithEmailAndPassword(sdk.auth, email, password)
-        .catch(err => {
-          pendingCorporateId = null;
-          showLoginFailure({ message: mapFirebaseAuthError(err) });
-        });
+      //
+      // The Corporate ID decides which Auth this signs in to (CORPORATE
+      // SIGN-IN). It is looked up as itself, outside any corporate, so a
+      // corporate remembered here but since removed never blocks another.
+      sdk.httpsCallable(sdk.functionsInstance, 'corporateSignIn')({ corporateId: corporateId })
+        .then(r => {
+          const cfg = r.data;
+          if (sdk.authFor(cfg) === sdk.auth) return;
+          const previous = sdk.auth;
+          sdk.useCorporate(cfg);
+          return sdk.signOut(previous).catch(() => {}).then(listenToAuth);
+        })
+        .then(() => {
+          pendingCorporateId = corporateId;
+          return sdk.signInWithEmailAndPassword(sdk.auth, email, password).catch(err => {
+            pendingCorporateId = null;
+            showLoginFailure({ message: mapFirebaseAuthError(err) });
+          });
+        }, err => showLoginFailure({ message: (err && err.message) || 'Invalid Corporate ID.' }));
       // On success, onAuthStateChanged fires automatically and takes
       // it from here — nothing further to do in this function.
     }
@@ -1069,7 +1146,13 @@
       const box = document.getElementById('pwd-msg');
       btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Sending...'; box.classList.add('hidden');
       const sdk = window.__firebaseSdk;
-      sdk.sendPasswordResetEmail(sdk.auth, email)
+      // The reset comes from the Auth of the corporate entered here
+      // (CORPORATE SIGN-IN), without switching this app to it.
+      const corporateId = document.getElementById('pwd-corporate-id').value.trim();
+      sdk.httpsCallable(sdk.functionsInstance, 'corporateSignIn')({ corporateId: corporateId })
+        .then(r => sdk.sendPasswordResetEmail(sdk.authFor(r.data), email), err => {
+          err.corporate = true; throw err;
+        })
         .then(() => {
           btn.disabled = false; btn.textContent = 'Send Reset Link';
           showPasswordMessage('If an account exists for that email, a password reset link has been sent.', true);
@@ -1087,7 +1170,9 @@
           // stops the SDK from ever throwing user-not-found in the
           // first place, rather than this catch having to paper over
           // it after the fact.
-          if (err.code === 'auth/user-not-found') {
+          if (err.corporate) {
+            showPasswordMessage(err.message || 'Invalid Corporate ID.', false);
+          } else if (err.code === 'auth/user-not-found') {
             showPasswordMessage('If an account exists for that email, a password reset link has been sent.', true);
             document.getElementById('pwd-form').reset();
           } else {

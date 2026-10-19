@@ -1,4 +1,4 @@
-const { onCall } = require('firebase-functions/v2/https');
+const { onCallInCorporate } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { approvalInstances } = require('./approvalStore');
 const movedPaths = require('./movedPaths');
@@ -33,7 +33,7 @@ async function documentStillExists(moduleId, documentId) {
   return Boolean(await fetchApprovalSourceDocument(moduleId, documentId));
 }
 
-exports.getPendingApprovalsForUser = onCall(onCallOptions, async (request) => {
+exports.getPendingApprovalsForUser = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const actor = user.uid;
   // Only the pending instances, a Firestore query (approvalStore.js).
@@ -65,7 +65,7 @@ exports.getPendingApprovalsForUser = onCall(onCallOptions, async (request) => {
     .sort((a, b) => (a.CreatedAt || '').localeCompare(b.CreatedAt || ''));
 });
 
-exports.getMyRejectedSubmissions = onCall(onCallOptions, async (request) => {
+exports.getMyRejectedSubmissions = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const actor = user.uid;
   const data = await approvalInstances.query({ Status: 'Rejected' });
@@ -137,7 +137,7 @@ const DRAFT_FIRESTORE_SOURCES = [
 const draftDateOf = r => r.TransactionDate || r.JVDate || r.Date || r.InvoiceDate || r.PRDate || r.IPRDate ||
   r.PODate || r.SODate || r.JODate || r.EffectiveDate || r.FromDate || r.LeavingDate || r.PaymentDate || '';
 
-exports.getMyDraftsForUser = onCall(onCallOptions, async (request) => {
+exports.getMyDraftsForUser = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const actor = user.profile.username || user.uid;
   const role = user.profile.role;

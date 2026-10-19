@@ -1,7 +1,8 @@
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { HttpsError } = require('firebase-functions/v2/https');
+const { onCallInCorporate } = require('./callable');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { MODULE_REGISTRY } = require('./moduleRegistry');
-const { firestore } = require('./firebaseAdmin');
+const { firm } = require('./firebaseAdmin');
 
 // Ported from getModuleFragment in Code.gs. Deliberately preserves the
 // EXACT same access-control sequence as the original — requireUser,
@@ -27,7 +28,7 @@ const onCallOptions = { region: 'us-central1' };
 let cachedRelease = null;
 const cache = new Map();
 
-exports.getModuleFragment = onCall(onCallOptions, async (request) => {
+exports.getModuleFragment = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const id = String(request.data && request.data.moduleId || '').trim().toUpperCase();
   const moduleDef = MODULE_REGISTRY.find(m => m.id === id);
@@ -41,12 +42,14 @@ exports.getModuleFragment = onCall(onCallOptions, async (request) => {
     throw new HttpsError('permission-denied', 'You do not have access to this module.');
   }
 
-  const pointer = await firestore.doc('system/screens').get();
+  // The release is the firm's code, in this project, for every corporate
+  // (docs/modules/MULTI_CORPORATE.md §5): never the corporate's database.
+  const pointer = await firm.firestore.doc('system/screens').get();
   const release = pointer.exists ? pointer.get('activeRelease') : null;
   if (release !== cachedRelease) { cache.clear(); cachedRelease = release; }
   let html = cache.get(id);
   if (html === undefined && release) {
-    const snap = await firestore.doc('screenReleases/' + release + '/screens/' + id).get();
+    const snap = await firm.firestore.doc('screenReleases/' + release + '/screens/' + id).get();
     if (snap.exists) { html = snap.get('html'); cache.set(id, html); }
   }
   if (!html) {

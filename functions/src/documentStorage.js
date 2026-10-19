@@ -10,7 +10,7 @@
 // settings/documentStorage, read and written by Cloud Functions only.
 'use strict';
 const { randomUUID } = require('crypto');
-const { firestore } = require('./firebaseAdmin');
+const { firestore, corporateId } = require('./firebaseAdmin');
 
 const SETTINGS = () => firestore.collection('settings').doc('documentStorage');
 const FOLDER = 'application/vnd.google-apps.folder';
@@ -27,8 +27,12 @@ async function saveSettings(fields) { await SETTINGS().set(fields, { merge: true
 
 // ---------- Google Drive ----------
 
-let cachedToken = null; // { token, expires, refresh }
+// Per corporate (docs/modules/MULTI_CORPORATE.md §4): each one's Drive is
+// its own. { Corporate ID: { token, expires, refresh } }
+const cachedTokens = new Map();
 async function accessToken(s) {
+  const corp = corporateId();
+  const cachedToken = cachedTokens.get(corp);
   if (cachedToken && cachedToken.refresh === s.RefreshToken && cachedToken.expires > Date.now() + 60000) return cachedToken.token;
   const res = await fetch(TOKEN_URL, {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -38,8 +42,8 @@ async function accessToken(s) {
   if (!res.ok || !body.access_token) {
     throw new Error('Google Drive refused the connection (' + (body.error_description || body.error || res.status) + '). Admin: reconnect it in Document Storage.');
   }
-  cachedToken = { token: body.access_token, expires: Date.now() + (Number(body.expires_in) || 3000) * 1000, refresh: s.RefreshToken };
-  return cachedToken.token;
+  cachedTokens.set(corp, { token: body.access_token, expires: Date.now() + (Number(body.expires_in) || 3000) * 1000, refresh: s.RefreshToken });
+  return body.access_token;
 }
 
 async function driveCall(s, url, init) {

@@ -1,23 +1,21 @@
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { HttpsError } = require('firebase-functions/v2/https');
+const { onCallInCorporate } = require('./callable');
 const { requireUser } = require('./auth');
 const { ensureRolesSeeded } = require('./roles');
 const { buildTreeForRole } = require('./tree');
-const { rtdb } = require('./firebaseAdmin');
+const { rtdb, corporateId: currentCorporate } = require('./firebaseAdmin');
+const { signInConfig } = require('./corporates');
 
-// Same server-only constant, same reasoning as the original Code.gs:
-// a shared, organization-wide code, deliberately not stored anywhere
-// editable — only someone with access to this function's own source
-// can ever change it. The one thing that DOES change with the client
-// SDK migration: this is no longer checked before Firebase Auth even
-// attempts the sign-in (the old loginWithFirebase's own sequencing).
-// The client now signs in DIRECTLY against Firebase Auth first, then
-// calls completeLogin — so a correct password with the wrong
-// Corporate ID now means the person briefly holds a valid Firebase
-// Auth session before this check rejects them. The client is
-// responsible for signing them back out (auth.signOut()) the moment
-// completeLogin throws, so they're never left in a signed-in-to-
-// Firebase-but-not-into-the-app limbo state.
-const CORPORATE_ID = '100';
+// The Corporate ID the user typed must be the corporate this request is
+// for (docs/modules/MULTI_CORPORATE.md §2, M1): the one whose Auth signed
+// the user in (callable.js, corporates.js). Corporate 100, the firm's own,
+// is this project; a client's is in the directory. The client signs in to
+// that Auth first, then calls completeLogin, so a correct password with the
+// wrong Corporate ID means the person briefly holds a valid Firebase Auth
+// session before this check rejects them. The client is responsible for
+// signing them back out (auth.signOut()) the moment completeLogin throws,
+// so they're never left in a signed-in-to-Firebase-but-not-into-the-app
+// limbo state.
 const onCallOptions = { region: 'us-central1' };
 
 // Shared by completeLogin and restoreSession — both ultimately need
@@ -41,9 +39,9 @@ async function buildSessionResponse(context) {
   };
 }
 
-exports.completeLogin = onCall(onCallOptions, async (request) => {
+exports.completeLogin = onCallInCorporate(onCallOptions, async (request) => {
   const corporateId = String(request.data && request.data.corporateId || '').trim();
-  if (corporateId !== CORPORATE_ID) {
+  if (!corporateId || corporateId !== currentCorporate()) {
     throw new HttpsError('permission-denied', 'Invalid Corporate ID.');
   }
   const session = await buildSessionResponse(request);
@@ -54,14 +52,22 @@ exports.completeLogin = onCall(onCallOptions, async (request) => {
   return session;
 });
 
-exports.restoreSession = onCall(onCallOptions, async (request) => {
+// Before sign-in, no user yet: what the sign-in screen needs for a
+// Corporate ID (this project's Auth for 100, else the corporate's public
+// web config). An unknown or inactive ID is refused as completeLogin
+// refuses it.
+exports.corporateSignIn = onCallInCorporate(onCallOptions, async (request) => {
+  return signInConfig(request.data && request.data.corporateId);
+});
+
+exports.restoreSession = onCallInCorporate(onCallOptions, async (request) => {
   return buildSessionResponse(request);
 });
 
 // Public entry point for the home-screen Refresh action — re-fetches
 // and re-filters the nav tree for the current user without a full
 // session rebuild. Ported from getMyTree.
-exports.getMyTree = onCall(onCallOptions, async (request) => {
+exports.getMyTree = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
   return buildTreeForRole(user.profile.role);
 });

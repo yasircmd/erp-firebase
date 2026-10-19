@@ -20,7 +20,8 @@
 const { randomUUID } = require('crypto');
 const { HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
-const { rtdb, firestore } = require('./firebaseAdmin');
+const { rtdb, firestore, corporateId, runInCorporate, HOME_ID } = require('./firebaseAdmin');
+const { directoryEntry } = require('./corporates');
 const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
@@ -436,7 +437,9 @@ exports.startDriveConnect = onCallWithMessages({ region: 'us-central1' }, async 
   await requireStorageAdmin(user);
   const s = await store.getSettings();
   if (!s.ClientID || !s.ClientSecret) throw new HttpsError('failed-precondition', 'Save the OAuth client ID and secret first.');
-  const state = randomUUID();
+  // The corporate goes with the link: Google's return to driveOAuthCallback
+  // is not a callable, so nothing else says whose Drive it is.
+  const state = corporateId() + '.' + randomUUID();
   await firestore.collection('settings').doc('documentStorage').collection('pending').doc(state).set({ By: user.uid, ByName: actorName(user), At: Date.now() });
   const params = new URLSearchParams({
     client_id: s.ClientID, redirect_uri: redirectUri(), response_type: 'code', access_type: 'offline', prompt: 'consent',
@@ -478,9 +481,24 @@ async function finishConnect(query, fetchImpl) {
   return page('Google Drive connected', 'Documents will be kept in the folder "ERP Documents" in ' + esc(account || 'this Google account') +
     '. Close this tab and click Test connection in Document Storage.');
 }
+// Whose Drive a returning sign-in is (startDriveConnect's state): its
+// corporate, if still in the directory (a link made before M1 has none:
+// Corporate 100). The pending record in that corporate's own database is
+// what proves the state, as before.
+async function corporateOfState(state) {
+  const s = String(state || '');
+  const id = s.indexOf('.') === -1 ? HOME_ID : s.slice(0, s.indexOf('.'));
+  if (id === HOME_ID) return { id };
+  const entry = await directoryEntry(id);
+  return entry ? { id, entry } : null;
+}
 exports.driveOAuthCallback = onRequest({ region: 'us-central1' }, async (req, res) => {
   try {
-    res.set('Content-Type', 'text/html; charset=utf-8').status(200).send(await finishConnect(req.query || {}));
+    const query = req.query || {};
+    const corporate = await corporateOfState(query.state);
+    const html = corporate ? await runInCorporate(corporate, () => finishConnect(query))
+      : page('Not connected', 'This sign-in link has expired. Close this tab and click Connect Google Drive again.');
+    res.set('Content-Type', 'text/html; charset=utf-8').status(200).send(html);
   } catch (e) {
     res.set('Content-Type', 'text/html; charset=utf-8').status(200).send(page('Not connected', esc(e.message)));
   }
@@ -521,6 +539,7 @@ module.exports.removeAllFiles = removeAllFiles;
 module.exports.fileCounts = fileCounts;
 module.exports.isStorageAdmin = isStorageAdmin;
 module.exports._finishConnect = finishConnect; // for the tests
+module.exports._corporateOfState = corporateOfState;
 module.exports._checkFile = checkFile;
 module.exports.portalFiles = portalFiles;
 module.exports.portalUpload = portalUpload;
