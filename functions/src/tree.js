@@ -75,8 +75,13 @@ function buildVisibleTreeList(nodesById, roleId) {
   return result;
 }
 
+// A module the corporate may not use is left out of its tree
+// (entitlements.js), with anything under it.
 async function buildTreeForRole(roleId) {
-  let nodes = await ensureTreeSeeded();
+  const { moduleAvailable } = require('./entitlements');
+  const all = await ensureTreeSeeded();
+  const nodes = {};
+  Object.keys(all).forEach(id => { if (!all[id].ModuleID || moduleAvailable(all[id].ModuleID)) nodes[id] = all[id]; });
   return buildVisibleTreeList(nodes, roleId);
 }
 

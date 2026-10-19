@@ -3056,5 +3056,44 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
 `,
     replace: `  const approvalInstances = getMovedMany_(idToken, 'approvalInstances', capped.map(l => l.ApprovalInstanceID).filter(Boolean)) || {}; // [NEW DEVELOPMENT approval-queries] the listed lines' approvals by id, not every one (T5)
 `
+  },
+  {
+    id: 'corporate-modules-registry',
+    why: 'NEW DEVELOPMENT (docs/modules/MULTI_CORPORATE.md, M2; owner, 2026-10-19, decision 250): a client corporate ' +
+      'uses only the modules the firm ticked for it, so Tree Management and Roles offer only those ' +
+      '(entitlements.js). Corporate 100 has every module, as before.',
+    find: `function getModuleRegistry(idToken) {
+  requireUser_(idToken);
+  return MODULE_REGISTRY;
+}`,
+    replace: `function getModuleRegistry(idToken) {
+  requireUser_(idToken);
+  // [NEW DEVELOPMENT corporate-modules] the corporate's modules only.
+  return __entitlements.availableModules();
+}`
+  },
+  {
+    id: 'corporate-modules-permissions-matrix',
+    why: 'NEW DEVELOPMENT (MULTI_CORPORATE.md, M2): Roles & Permissions lists only the corporate\'s modules.',
+    find: `    modules: MODULE_REGISTRY,`,
+    replace: `    modules: __entitlements.availableModules(), // [NEW DEVELOPMENT corporate-modules]`
+  },
+  {
+    id: 'corporate-modules-permissions-kept',
+    why: 'NEW DEVELOPMENT (MULTI_CORPORATE.md, M2): Roles saves the modules it lists; the rights of a module the ' +
+      'corporate does not have now are kept as they were (not dropped), so switching it back on finds them.',
+    find: `    firebaseDbRequest_('permissions', 'put', cleaned, idToken);`,
+    replace: `    // [NEW DEVELOPMENT corporate-modules] keep the rights of the modules not listed.
+    const keptPermissions = ensurePermissionsSeeded_(idToken);
+    Object.keys(keptPermissions || {}).forEach(id => {
+      if (!cleaned[id] && !__entitlements.availableModules().some(m => m.id === id)) cleaned[id] = keptPermissions[id];
+    });
+    firebaseDbRequest_('permissions', 'put', cleaned, idToken);`
+  },
+  {
+    id: 'corporate-modules-tree-node',
+    why: 'NEW DEVELOPMENT (MULTI_CORPORATE.md, M2): a menu item can link only a module the corporate has.',
+    find: `    if (moduleId && !MODULE_REGISTRY.some(m => m.id === moduleId)) {`,
+    replace: `    if (moduleId && !__entitlements.availableModules().some(m => m.id === moduleId)) { // [NEW DEVELOPMENT corporate-modules]`
   }
 ];

@@ -156,6 +156,7 @@ const SHARED_PATHS = {
   stockStore: '../stockStore',
   salesPosting: '../salesPosting', movedPaths: '../movedPaths', docStore: '../docStore', // T2
   productionPosting: '../productionPosting', // T4
+  entitlements: '../entitlements', // MULTI_CORPORATE.md M2
   lineClubbing: '../lineClubbing',
   numbering: '../numbering',
   periodLock: '../periodLock',

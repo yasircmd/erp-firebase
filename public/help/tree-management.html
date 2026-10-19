@@ -16,7 +16,7 @@
 <main><div class="crumb"><a href="index.html">Help</a> › Administration</div><h1>Tree Management</h1><p class="lead">Build the menu tree and link each module to the right company, role and section.</p><p class="lead">Screen: Module Tree &amp; Navigation</p><h2 id="what-it-is-for">What it is for</h2>
 <p><strong>Tree Management</strong> builds the hierarchical navigation menu. Each node has display text, a parent, an optional linked module, an order, and a list of roles allowed to see it. A reference node can organize the menu without opening a screen.</p>
 <h2 id="before-you-start">Before you start</h2>
-<ul><li>The intended menu hierarchy and labels are agreed.</li><li>Modules are registered and their permissions are configured in Roles &amp; Permissions.</li><li>Identify which roles should see each menu node. Menu visibility does not itself grant a module capability.</li></ul>
+<ul><li>The intended menu hierarchy and labels are agreed.</li><li>Modules are registered and their permissions are configured in Roles &amp; Permissions.</li><li>Identify which roles should see each menu node. Menu visibility does not itself grant a module capability.</li><li>The modules offered are the ones your organisation has. A module it does not have is left out of the menu, even if a node still links it.</li></ul>
 <h2 id="step-by-step">Step by step</h2>
 <ol><li>Open Tree Management and review the existing hierarchy. Add a top-level item or add a child beneath the intended parent.</li><li>Set the node text, optional parent, optional linked module, and allowed roles. Use a node without a linked module for a heading/reference item.</li><li>Drag a node above or below another node to reorder it; dropping on another node can also move it under that node's parent. Save the move and confirm the final hierarchy.</li><li>Edit the node if its label, parent, module link, or allowed roles change. Check parent visibility: a child is visible only when it and every ancestor allow the user's role.</li><li>Delete a node only after its child nodes are removed or reassigned. Test the menu as representative roles after any structural change.</li></ol>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
@@ -26,7 +26,7 @@
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
 <ul><li><strong>Node is visible but screen access is denied:</strong> configure the module's access capability separately in Roles &amp; Permissions.</li><li><strong>Child is missing for a role:</strong> check the Allowed Roles on the node and every ancestor.</li><li><strong>Node appears but opens no module:</strong> it may be a reference node with no linked module; edit the module link if it should launch a screen.</li><li><strong>Cannot move/delete a node:</strong> ensure it is not being placed under itself/its descendant and remove or reassign its children first.</li></ul>
 <h2 id="related-pages">Related pages</h2>
-<p><a href="roles.html">Roles and Permissions</a> · <a href="user-management.html">User Management</a> · <a href="getting-started.html">Getting Started</a></p><p class="crumb">Last reviewed 12/10/2026</p></main>
+<p><a href="roles.html">Roles and Permissions</a> · <a href="user-management.html">User Management</a> · <a href="getting-started.html">Getting Started</a></p><p class="crumb">Last reviewed 19/10/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>

@@ -1,6 +1,6 @@
 # One app, each corporate ID's data in the client's own account
 
-Status: **design agreed** (owner, 2026-10-17: the recommendations, 243–249). Built after phase T1 of TRANSACTIONS_FIRESTORE.md (248). The Developer module (owner, 2026-10-19): **agreed** (250–257, see the decisions at the end). **M1 built** 2026-10-19 (see "As built: M1" at the end).
+Status: **design agreed** (owner, 2026-10-17: the recommendations, 243–249). Built after phase T1 of TRANSACTIONS_FIRESTORE.md (248). The Developer module (owner, 2026-10-19): **agreed** (250–257, see the decisions at the end). **M1 live** 2026-10-19 and **M2 built** 2026-10-19 (see "As built" at the end).
 
 ## The owner's direction (2026-10-17)
 
@@ -481,3 +481,82 @@ an unknown ID refused before any sign-in).
 corporateSignIn), then Hosting. Functions first: the new sign-in page
 calls corporateSignIn, while the old page keeps working against the new
 functions (no envelope: Corporate 100).
+
+## As built: M2, the Developer module (2026-10-19)
+
+**The module** (moduleRegistry.js): `DEVELOPER`, `internal` (no Help: the
+Help tools leave it out, and it is in no area) and `homeOnly` (only
+Corporate 100 has it, whatever a role says; entitlements.js). Within 100
+it is given by role (default: Admin; `write` changes the corporates).
+After the deploy, link a "Developer" item to it in Corporate 100's Tree
+Management (the seed has it only for an empty tree).
+
+**Module access per corporate** (entitlements.js; decision 250). A client
+corporate's directory entry keeps `Modules: { MODULEID: false }` for each
+module switched off; a module not listed is on, so a new corporate starts
+with every module, and so does a module a later release adds. User
+Management, Roles and the Module Tree are always on (its Admin needs
+them). A module switched off:
+- is left out of the corporate's menu (tree.js), with anything under it;
+- has no capability for anyone (auth.js `moduleHasCapability`), so its
+  screen (getModuleFragment) and every function that checks it refuse it;
+- is not offered in Roles & Permissions or Tree Management (port patches
+  `corporate-modules-*`). Roles keeps the rights given for it when saving,
+  so switching it back on finds them;
+- keeps its data where it is.
+
+Corporate 100 has every module; nothing is taken away there (a tree item
+naming a module no longer registered still shows, as before).
+
+**The Developer screen** (screens/DEVELOPER.html, developer.js), Corporate
+100 only:
+- **Connection:** the directory entry (Corporate ID, name, status, project
+  ID, database URL, web API key, auth domain, app ID), checked when saved.
+  The connection test reaches the corporate's Realtime Database, Firestore
+  and Auth through the grant, each told apart; the last result shows in
+  the list.
+- **Modules:** ticked per module.
+- **Notes** (decision 251): Firestore `corporateNotes` in the firm's
+  project, typed Note, Task, Bug or Change request, with a title, the
+  text and a status (Open, In progress, Done); a task or a bug also has
+  an owner (an active user of Corporate 100) and a due date. The list
+  counts each corporate's open notes. Never shown to the client.
+- **Tree:** the main tree is Corporate 100's. What is compared is its
+  layout (each item's place, text and module, in order), not who may see
+  it: roles are each corporate's own.
+  - **Follows the main tree:** the same layout.
+  - **Behind the main tree:** unchanged since it was last given the main
+    tree, but the main tree has changed since. **"Update corporates that
+    follow the main tree"** brings every such Active corporate up to date
+    (M4: each release will do it too).
+  - **Own layout:** its Admin changed it in Tree Management; updates leave
+    it alone.
+  - **No menu yet.**
+  - **"Back to the main tree"** (asked first) gives a corporate the main
+    layout. An item it already had (the same module, or the same folder
+    path) keeps who may see it; a new item gets the main tree's roles that
+    the corporate has. The Developer item is never copied.
+
+**Tests:**
+- **Emulator `developer`:**
+  - Corporate 100 only, and the write right;
+  - the directory's checks;
+  - the connection test;
+  - a module switched off leaving a client corporate's tree, screen,
+    functions, Roles (its rights kept) and Tree Management, and coming back;
+  - notes;
+  - the tree's four states, its roles kept through an update.
+- **UI `developer`:** the screen, end to end, and read-only for a Viewer.
+- **Negative controls**, each caught, then restored:
+  - in entitlements.js: the entry's modules ignored, and `homeOnly` ignored;
+  - the tree not filtered;
+  - Roles dropping the rights;
+  - the corporate's roles not kept;
+  - no Corporate 100 check;
+  - "behind" never told;
+  - the owner field shown for a plain note.
+
+**Deploy:** set `developer-module`: every function (moduleRegistry.js
+changed), with `--screens` (DEVELOPER.html). Then Hosting (the Help pages
+for Roles and Tree Management now mention that they list the
+organisation's modules).

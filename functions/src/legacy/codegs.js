@@ -16,6 +16,7 @@ const __customerPhone = require('../customerPhone');
 const __dimensionRules = require('../dimensionRules');
 const __docStore = require('../docStore');
 const __eInvoicing = require('../eInvoicing');
+const __entitlements = require('../entitlements');
 const __fx = require('../fx');
 const __glWriting = require('../glWriting');
 const __invoiceStock = require('../invoiceStock');
@@ -460,7 +461,8 @@ async function getRoles(idToken) {
 
 async function getModuleRegistry(idToken) {
   await requireUser_(idToken);
-  return MODULE_REGISTRY;
+  // [NEW DEVELOPMENT corporate-modules] the corporate's modules only.
+  return __entitlements.availableModules();
 }
 
 async function saveRole(idToken, roleData) {
@@ -550,7 +552,7 @@ async function getModulePermissionsMatrix(idToken) {
     throw new Error('You do not have access to Roles & Permissions.');
   }
   return {
-    modules: MODULE_REGISTRY,
+    modules: __entitlements.availableModules(), // [NEW DEVELOPMENT corporate-modules]
     permissions: await ensurePermissionsSeeded_(idToken)
   };
 }
@@ -595,6 +597,11 @@ async function saveAllModulePermissions(idToken, allPermissions) {
       });
     });
 
+    // [NEW DEVELOPMENT corporate-modules] keep the rights of the modules not listed.
+    const keptPermissions = await ensurePermissionsSeeded_(idToken);
+    Object.keys(keptPermissions || {}).forEach(id => {
+      if (!cleaned[id] && !__entitlements.availableModules().some(m => m.id === id)) cleaned[id] = keptPermissions[id];
+    });
     await firebaseDbRequest_('permissions', 'put', cleaned, idToken);
     return { success: true };
   } catch (err) {
@@ -736,7 +743,7 @@ async function saveTreeNode(idToken, nodeData) {
     const allowedRoles = Array.isArray(nodeData.AllowedRoles) ? nodeData.AllowedRoles : [];
 
     if (!text) throw new Error('Item text is required.');
-    if (moduleId && !MODULE_REGISTRY.some(m => m.id === moduleId)) {
+    if (moduleId && !__entitlements.availableModules().some(m => m.id === moduleId)) { // [NEW DEVELOPMENT corporate-modules]
       throw new Error('Unknown module: ' + moduleId);
     }
     if (nodeId && parentId === nodeId) {

@@ -132,7 +132,11 @@ const MODULE_REGISTRY = [
   // Employee Requests (docs/modules/EMPLOYEE_PORTAL.md, step 2): payroll
   // queries and loan requests from the Employee Portal. access sees them,
   // handle replies and decides, setup names the handlers.
-  { id: 'EMPREQUESTS', label: 'Employee Requests', capabilities: ['access', 'handle', 'setup'] }
+  { id: 'EMPREQUESTS', label: 'Employee Requests', capabilities: ['access', 'handle', 'setup'] },
+  // Developer (docs/modules/MULTI_CORPORATE.md, M2; owner, 2026-10-19): the
+  // firm's own screen for its corporates. internal: no Help page.
+  // homeOnly: only Corporate 100 ever has it, whatever a role says.
+  { id: 'DEVELOPER', label: 'Developer', capabilities: ['access', 'write'], internal: true, homeOnly: true }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -263,7 +267,8 @@ const DEFAULT_PERMISSIONS = {
   PROVISIONS:         { access: ['ADMIN', 'FINANCE_MGR'] },
   RETAILSALES:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], post: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], write: ['ADMIN'], report: ['ADMIN', 'FINANCE_MGR'], return: ['ADMIN', 'FINANCE_MGR'] },
   NUMBERING:          { access: ['ADMIN'], write: ['ADMIN'] },
-  EMPREQUESTS:        { access: ['ADMIN', 'FINANCE_MGR'], handle: ['ADMIN', 'FINANCE_MGR'], setup: ['ADMIN'] }
+  EMPREQUESTS:        { access: ['ADMIN', 'FINANCE_MGR'], handle: ['ADMIN', 'FINANCE_MGR'], setup: ['ADMIN'] },
+  DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

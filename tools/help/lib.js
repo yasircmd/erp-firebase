@@ -12,7 +12,10 @@ const REPO = path.join(__dirname, '..', '..');
 const PAGES_DIR = path.join(REPO, 'help', 'pages');
 const OUT_DIR = 'public/help';
 
-function registry() { return require(path.join(REPO, 'functions/src/moduleRegistry.js')).MODULE_REGISTRY; }
+// The modules that have Help: an internal module (the firm's own Developer
+// screen; MULTI_CORPORATE.md, M2) has none, and is in no area.
+function allModules() { return require(path.join(REPO, 'functions/src/moduleRegistry.js')).MODULE_REGISTRY; }
+function registry() { return allModules().filter(m => !m.internal); }
 function areasFile() { return JSON.parse(fs.readFileSync(path.join(REPO, 'help', 'areas.json'), 'utf8')); }
 
 // "---\nkey: value\nlist: [A, B]\n---\nbody"
@@ -56,8 +59,10 @@ function check() {
   const all = pages();
   const bySlug = Object.fromEntries(all.map(p => [p.slug, p]));
   const areaOf = {};
+  const internal = new Set(allModules().filter(m => m.internal).map(m => m.id));
   areas.forEach(a => (a.modules || []).forEach(id => {
-    if (!regIds.has(id)) problems.push('help/areas.json: ' + a.id + ' lists ' + id + ', which is not in the module registry');
+    if (internal.has(id)) problems.push('help/areas.json: ' + a.id + ' lists ' + id + ', an internal module: it has no Help');
+    else if (!regIds.has(id)) problems.push('help/areas.json: ' + a.id + ' lists ' + id + ', which is not in the module registry');
     if (areaOf[id]) problems.push('help/areas.json: ' + id + ' is in both ' + areaOf[id] + ' and ' + a.id);
     areaOf[id] = a.id;
   }));

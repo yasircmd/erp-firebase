@@ -1,0 +1,288 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-code text-blue-500"></i> Developer</h2></div>
+    <div class="flex flex-wrap gap-2">
+      <button id="dv-add" class="hidden bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> Add corporate</button>
+      <button id="dv-followers" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-sitemap"></i> Update corporates that follow the main tree</button>
+      <button id="dv-refresh" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-rotate"></i> Refresh</button>
+    </div>
+  </div>
+
+  <p class="text-xs text-slate-500 max-w-3xl">The firm's corporates (Corporate 100 only). Each one's data is in its own Firebase project; here are where it is, the modules it may use, the firm's internal notes on it (never shown to the client: no client data in a note) and whether its menu follows the main tree (this corporate's).</p>
+
+  <div class="bg-slate-800/60 rounded-xl border border-slate-700 overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-xs text-slate-400 border-b border-slate-700"><tr>
+        <th class="text-left px-3 py-2">Corporate ID</th><th class="text-left px-3 py-2">Name</th><th class="text-left px-3 py-2">Project</th>
+        <th class="text-left px-3 py-2">Status</th><th class="text-left px-3 py-2">Modules off</th><th class="text-left px-3 py-2">Open notes</th><th class="text-left px-3 py-2">Last test</th>
+      </tr></thead>
+      <tbody id="dv-list"><tr><td colspan="7" class="px-3 py-3 text-slate-500">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div id="dv-detail" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="text-lg font-semibold text-slate-100" id="dv-title"></div>
+      <div class="flex gap-1 text-xs" id="dv-tabs">
+        <button data-tab="connection" class="px-3 py-1.5 rounded-lg border border-slate-700">Connection</button>
+        <button data-tab="modules" class="px-3 py-1.5 rounded-lg border border-slate-700">Modules</button>
+        <button data-tab="notes" class="px-3 py-1.5 rounded-lg border border-slate-700">Notes</button>
+        <button data-tab="tree" class="px-3 py-1.5 rounded-lg border border-slate-700">Tree</button>
+      </div>
+    </div>
+
+    <div data-pane="connection" class="space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div><label class="block text-xs text-slate-300 mb-1">Corporate ID</label><input id="dv-id" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" maxlength="20"></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Name</label><input id="dv-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" maxlength="120"></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Status</label><select id="dv-status" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option>Active</option><option>Inactive</option></select></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Firebase project ID</label><input id="dv-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" spellcheck="false"></div>
+        <div class="md:col-span-2"><label class="block text-xs text-slate-300 mb-1">Realtime Database URL</label><input id="dv-dburl" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" spellcheck="false" placeholder="https://project-default-rtdb.firebaseio.com"></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Web API key</label><input id="dv-apikey" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" spellcheck="false"></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Auth domain</label><input id="dv-authdomain" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" spellcheck="false" placeholder="project.firebaseapp.com"></div>
+        <div><label class="block text-xs text-slate-300 mb-1">App ID</label><input id="dv-appid" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" spellcheck="false"></div>
+      </div>
+      <p class="text-xs text-slate-500 max-w-3xl">From the client's Firebase console → Project settings → Your apps (web app). These are public values; the access itself is the client's grant to this project's service account.</p>
+      <div class="flex flex-wrap gap-2 items-center">
+        <button id="dv-save" class="dv-write bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        <button id="dv-test" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plug"></i> Test connection</button>
+      </div>
+      <div id="dv-test-result" class="hidden text-xs space-y-1"></div>
+    </div>
+
+    <div data-pane="modules" class="hidden space-y-3">
+      <p class="text-xs text-slate-500 max-w-3xl">Ticked: the corporate may use the module. Its Admin gives rights only within these, in Roles. A module switched off leaves the corporate's menu, Roles and Tree Management, and its screens and functions refuse it; its data stays. User Management, Roles and the Module Tree are always on.</p>
+      <div class="flex gap-2 text-xs"><button id="dv-mod-all" class="dv-write bg-slate-800 border border-slate-700 px-3 py-1 rounded">Tick all</button><button id="dv-mod-none" class="dv-write bg-slate-800 border border-slate-700 px-3 py-1 rounded">Untick all</button></div>
+      <div id="dv-modules" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 text-sm"></div>
+      <button id="dv-mod-save" class="dv-write bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save modules</button>
+    </div>
+
+    <div data-pane="notes" class="hidden space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-6 gap-2 items-end dv-write">
+        <div><label class="block text-xs text-slate-300 mb-1">Type</label><select id="dv-note-type" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-2 text-sm"></select></div>
+        <div class="md:col-span-2"><label class="block text-xs text-slate-300 mb-1">Title</label><input id="dv-note-title" maxlength="150" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Status</label><select id="dv-note-status" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-2 text-sm"></select></div>
+        <div class="dv-owner"><label class="block text-xs text-slate-300 mb-1">Owner</label><select id="dv-note-owner" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-2 text-sm"></select></div>
+        <div class="dv-owner"><label class="block text-xs text-slate-300 mb-1">Due</label><input id="dv-note-due" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-2 text-sm"></div>
+        <div class="md:col-span-6"><label class="block text-xs text-slate-300 mb-1">Text</label><textarea id="dv-note-text" rows="3" maxlength="5000" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></textarea></div>
+        <div class="md:col-span-6 flex gap-2">
+          <button id="dv-note-save" class="bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> <span>Add note</span></button>
+          <button id="dv-note-cancel" class="hidden bg-slate-800 border border-slate-700 text-xs px-4 py-2 rounded-lg">Cancel</button>
+        </div>
+      </div>
+      <div id="dv-notes" class="space-y-2"></div>
+    </div>
+
+    <div data-pane="tree" class="hidden space-y-3">
+      <div id="dv-tree-status" class="text-sm text-slate-300">Loading…</div>
+      <button id="dv-tree-reset" class="dv-write hidden bg-amber-700 hover:bg-amber-600 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-rotate-left"></i> <span>Back to the main tree</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Developer (docs/modules/MULTI_CORPORATE.md, M2; owner, 2026-10-19):
+  // the firm's corporates, their modules, internal notes and tree.
+  const el = id => document.getElementById(id);
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, arg) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](arg));
+  const fail = what => err => appAlert((err && err.message) || ('Unable to ' + what + '.'));
+  let data = null, current = null, tab = 'connection', notes = [], staff = [], editingNote = null;
+  const time = iso => (iso ? window.isoLocalDateTime(new Date(iso)) : '');
+
+  function load(keep) {
+    return call('getDeveloperCorporates', {}).then(r => {
+      data = r;
+      document.querySelectorAll('.dv-write').forEach(b => b.classList.toggle('hidden', !r.canWrite));
+      el('dv-add').classList.toggle('hidden', !r.canWrite);
+      el('dv-followers').classList.toggle('hidden', !r.canWrite);
+      renderList();
+      const again = keep && r.corporates.find(c => c.CorporateID === keep);
+      if (again) open(again); else if (current && !current.isNew) { current = null; el('dv-detail').classList.add('hidden'); }
+    }, err => { el('dv-list').innerHTML = '<tr><td colspan="7" class="px-3 py-3 text-red-400">' + escapeHtml(err.message || 'Unable to load the corporates.') + '</td></tr>'; });
+  }
+
+  function renderList() {
+    const rows = data.corporates;
+    el('dv-list').innerHTML = rows.length ? rows.map(c => {
+      const off = Object.keys(c.Modules || {}).filter(k => c.Modules[k] === false).length;
+      const test = c.LastTest ? (c.LastTest.Ok ? '<span class="text-emerald-400">OK</span> ' : '<span class="text-red-400">failed</span> ') + escapeHtml(time(c.LastTest.At)) : '<span class="text-slate-500">never</span>';
+      return '<tr data-id="' + escapeHtml(c.CorporateID) + '" class="border-b border-slate-800 hover:bg-slate-700/40 cursor-pointer' + (current && current.CorporateID === c.CorporateID ? ' bg-slate-700/40' : '') + '">' +
+        '<td class="px-3 py-2 font-semibold">' + escapeHtml(c.CorporateID) + '</td><td class="px-3 py-2">' + escapeHtml(c.Name) + '</td>' +
+        '<td class="px-3 py-2 text-slate-400">' + escapeHtml(c.ProjectID) + '</td>' +
+        '<td class="px-3 py-2">' + (c.Status === 'Active' ? '<span class="text-emerald-400">Active</span>' : '<span class="text-slate-500">Inactive</span>') + '</td>' +
+        '<td class="px-3 py-2">' + (off || '—') + '</td><td class="px-3 py-2">' + (c.OpenNotes || '—') + '</td><td class="px-3 py-2">' + test + '</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="px-3 py-3 text-slate-500">No corporates yet: Corporate 100 is this one.</td></tr>';
+    el('dv-list').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => open(data.corporates.find(c => c.CorporateID === tr.dataset.id))));
+  }
+
+  function showTab(name) {
+    tab = current && current.isNew ? 'connection' : name;
+    document.querySelectorAll('#dv-detail [data-pane]').forEach(p => p.classList.toggle('hidden', p.dataset.pane !== tab));
+    el('dv-tabs').querySelectorAll('button').forEach(b => {
+      b.classList.toggle('bg-blue-600', b.dataset.tab === tab);
+      b.classList.toggle('text-white', b.dataset.tab === tab);
+      b.disabled = !!(current && current.isNew) && b.dataset.tab !== 'connection';
+    });
+    if (tab === 'modules') renderModules();
+    if (tab === 'notes') loadNotes();
+    if (tab === 'tree') loadTree();
+  }
+
+  function open(c) {
+    current = c;
+    el('dv-detail').classList.remove('hidden');
+    el('dv-title').textContent = c.isNew ? 'New corporate' : c.CorporateID + ' — ' + (c.Name || '');
+    const w = c.WebConfig || {};
+    el('dv-id').value = c.CorporateID || ''; el('dv-id').disabled = !c.isNew;
+    el('dv-name').value = c.Name || ''; el('dv-status').value = c.Status || 'Active';
+    el('dv-project').value = c.ProjectID || ''; el('dv-dburl').value = c.DatabaseURL || '';
+    el('dv-apikey').value = w.apiKey || ''; el('dv-authdomain').value = w.authDomain || ''; el('dv-appid').value = w.appId || '';
+    el('dv-test').disabled = !!c.isNew;
+    el('dv-test-result').classList.add('hidden');
+    renderList();
+    showTab(c.isNew ? 'connection' : tab);
+  }
+
+  function save() {
+    const d = {
+      isNew: !!current.isNew, CorporateID: el('dv-id').value.trim(), Name: el('dv-name').value, Status: el('dv-status').value,
+      ProjectID: el('dv-project').value.trim(), DatabaseURL: el('dv-dburl').value.trim(),
+      WebConfig: { apiKey: el('dv-apikey').value.trim(), authDomain: el('dv-authdomain').value.trim(), appId: el('dv-appid').value.trim() }
+    };
+    call('saveDeveloperCorporate', d).then(r => { current = null; return load(r.CorporateID); }).then(() => appAlert('Saved.'), fail('save the corporate'));
+  }
+
+  function test() {
+    const box = el('dv-test-result');
+    box.classList.remove('hidden'); box.innerHTML = '<span class="text-slate-400">Testing…</span>';
+    call('testDeveloperCorporate', { CorporateID: current.CorporateID }).then(r => {
+      const row = (label, p) => '<div><span class="' + (p.ok ? 'text-emerald-400' : 'text-red-400') + '"><i class="fa-solid ' + (p.ok ? 'fa-circle-check' : 'fa-circle-xmark') + '"></i> ' + label + '</span>: ' + escapeHtml(p.detail) + '</div>';
+      box.innerHTML = row('Realtime Database', r.database) + row('Firestore', r.firestore) + row('Authentication', r.auth);
+      return load(current.CorporateID);
+    }, err => { box.innerHTML = '<span class="text-red-400">' + escapeHtml(err.message || 'The test failed.') + '</span>'; });
+  }
+
+  // ---------- modules ----------
+  function renderModules() {
+    const off = current.Modules || {};
+    el('dv-modules').innerHTML = data.modules.map(m =>
+      '<label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-700/40"><input type="checkbox" data-mod="' + escapeHtml(m.id) + '"' +
+      (off[m.id] === false && !m.alwaysOn ? '' : ' checked') + (m.alwaysOn || !data.canWrite ? ' disabled' : '') + '> <span>' + escapeHtml(m.label) + '</span>' +
+      (m.alwaysOn ? ' <span class="text-xs text-slate-500">(always on)</span>' : '') + '</label>').join('');
+  }
+  const tickAll = on => el('dv-modules').querySelectorAll('input[data-mod]:not(:disabled)').forEach(i => { i.checked = on; });
+  function saveModules() {
+    const modules = {};
+    el('dv-modules').querySelectorAll('input[data-mod]').forEach(i => { modules[i.dataset.mod] = i.checked; });
+    call('saveDeveloperModules', { CorporateID: current.CorporateID, modules }).then(r => { appAlert(r.off.length ? r.off.length + ' module(s) switched off.' : 'Every module is on.'); return load(current.CorporateID); }, fail('save the modules'));
+  }
+
+  // ---------- notes ----------
+  function loadNotes() {
+    el('dv-notes').innerHTML = '<div class="text-xs text-slate-500">Loading…</div>';
+    return call('getDeveloperNotes', { CorporateID: current.CorporateID }).then(r => { notes = r.notes; staff = r.staff; renderNoteForm(); renderNotes(); }, fail('load the notes'));
+  }
+  function renderNoteForm() {
+    el('dv-note-type').innerHTML = data.noteTypes.map(t => '<option>' + escapeHtml(t) + '</option>').join('');
+    el('dv-note-status').innerHTML = data.noteStatuses.map(t => '<option>' + escapeHtml(t) + '</option>').join('');
+    el('dv-note-owner').innerHTML = '<option value="">—</option>' + staff.map(s => '<option value="' + escapeHtml(s.uid) + '">' + escapeHtml(s.name) + '</option>').join('');
+    fillNote(editingNote);
+  }
+  function ownerShown() {
+    const t = el('dv-note-type').value;
+    document.querySelectorAll('#dv-detail .dv-owner').forEach(d => d.classList.toggle('hidden', !(t === 'Task' || t === 'Bug')));
+  }
+  function fillNote(n) {
+    editingNote = n || null;
+    el('dv-note-type').value = n ? n.Type : data.noteTypes[0];
+    el('dv-note-title').value = n ? n.Title : ''; el('dv-note-text').value = n ? n.Text : '';
+    el('dv-note-status').value = n ? n.Status : 'Open';
+    el('dv-note-owner').value = n ? (n.OwnerUID || '') : ''; el('dv-note-due').value = n ? (n.DueDate || '') : '';
+    el('dv-note-save').querySelector('span').textContent = n ? 'Save note' : 'Add note';
+    el('dv-note-cancel').classList.toggle('hidden', !n);
+    ownerShown();
+  }
+  function renderNotes() {
+    const tone = { Open: 'text-amber-300', 'In progress': 'text-blue-300', Done: 'text-slate-500' };
+    el('dv-notes').innerHTML = notes.length ? notes.map(n =>
+      '<div class="bg-slate-900/60 border border-slate-700 rounded-lg p-3" data-note="' + escapeHtml(n.NoteID) + '">' +
+      '<div class="flex flex-wrap items-center gap-2 text-xs"><span class="px-2 py-0.5 rounded bg-slate-700">' + escapeHtml(n.Type) + '</span>' +
+      '<span class="' + (tone[n.Status] || '') + '">' + escapeHtml(n.Status) + '</span>' +
+      (n.OwnerName ? '<span class="text-slate-400"><i class="fa-solid fa-user"></i> ' + escapeHtml(n.OwnerName) + '</span>' : '') +
+      (n.DueDate ? '<span class="text-slate-400"><i class="fa-regular fa-calendar"></i> ' + escapeHtml(n.DueDate) + '</span>' : '') +
+      '<span class="text-slate-500 ml-auto">' + escapeHtml(n.UpdatedBy || '') + ', ' + escapeHtml(time(n.UpdatedAt)) + '</span>' +
+      (data.canWrite ? '<button class="dv-note-edit text-blue-300 hover:underline">Edit</button><button class="dv-note-del text-red-300 hover:underline">Delete</button>' : '') + '</div>' +
+      '<div class="font-semibold text-slate-100 mt-1">' + escapeHtml(n.Title) + '</div>' +
+      (n.Text ? '<div class="text-sm text-slate-300 whitespace-pre-wrap mt-1">' + escapeHtml(n.Text) + '</div>' : '') + '</div>').join('')
+      : '<div class="text-xs text-slate-500">No notes yet.</div>';
+    el('dv-notes').querySelectorAll('[data-note]').forEach(box => {
+      const n = notes.find(x => x.NoteID === box.dataset.note);
+      const ed = box.querySelector('.dv-note-edit'), del = box.querySelector('.dv-note-del');
+      if (ed) ed.addEventListener('click', () => fillNote(n));
+      if (del) del.addEventListener('click', async () => {
+        if (!(await appConfirm('Delete the note "' + n.Title + '"?'))) return;
+        call('deleteDeveloperNote', { CorporateID: current.CorporateID, NoteID: n.NoteID }).then(() => { if (editingNote && editingNote.NoteID === n.NoteID) fillNote(null); return loadNotes(); }, fail('delete the note'));
+      });
+    });
+  }
+  function saveNote() {
+    const d = {
+      CorporateID: current.CorporateID, NoteID: editingNote ? editingNote.NoteID : '', Type: el('dv-note-type').value, Title: el('dv-note-title').value,
+      Text: el('dv-note-text').value, Status: el('dv-note-status').value, OwnerUID: el('dv-note-owner').value, DueDate: el('dv-note-due').value
+    };
+    call('saveDeveloperNote', d).then(() => { fillNote(null); return loadNotes(); }).then(() => load(current.CorporateID), fail('save the note'));
+  }
+
+  // ---------- tree ----------
+  const TREE = {
+    main: '<span class="text-emerald-400"><i class="fa-solid fa-circle-check"></i> Follows the main tree</span>, and is up to date.',
+    behind: '<span class="text-amber-300"><i class="fa-solid fa-clock"></i> Follows the main tree, but is behind it</span>: the main tree has changed since. "Update corporates that follow the main tree" (top) brings it up to date.',
+    own: '<span class="text-blue-300"><i class="fa-solid fa-pen"></i> Has its own layout</span>: its Admin changed it in Tree Management, and it keeps it.',
+    empty: '<span class="text-slate-400"><i class="fa-regular fa-circle"></i> No menu yet</span>: "Back to the main tree" gives it the main one.'
+  };
+  function loadTree() {
+    el('dv-tree-status').textContent = 'Loading…';
+    el('dv-tree-reset').classList.add('hidden');
+    return call('getDeveloperTree', { CorporateID: current.CorporateID }).then(r => {
+      el('dv-tree-status').innerHTML = TREE[r.status] + (r.syncedAt ? '<div class="text-xs text-slate-500 mt-1">Last given the main tree ' + escapeHtml(time(r.syncedAt)) + ' by ' + escapeHtml(r.syncedBy) + '.</div>' : '');
+      el('dv-tree-reset').classList.toggle('hidden', !data.canWrite || r.status === 'main');
+    }, err => { el('dv-tree-status').innerHTML = '<span class="text-red-400">' + escapeHtml(err.message || 'Unable to read its tree.') + '</span>'; });
+  }
+  async function resetTree() {
+    if (!(await appConfirm('Give ' + current.CorporateID + ' the main tree? Its own menu layout is replaced; who may see each item stays its own.'))) return;
+    call('resetDeveloperTree', { CorporateID: current.CorporateID }).then(loadTree, fail('give it the main tree'));
+  }
+  async function updateFollowers() {
+    if (!(await appConfirm('Bring every corporate that follows the main tree up to date with it? Corporates with their own layout are left as they are.'))) return;
+    call('updateDeveloperTreeFollowers', {}).then(r => {
+      appAlert((r.updated.length ? 'Updated: ' + r.updated.join(', ') + '.' : 'None was behind the main tree.') +
+        (r.failed.length ? ' Not reached: ' + r.failed.map(f => f.CorporateID + ' (' + f.error + ')').join('; ') + '.' : ''));
+      if (current && tab === 'tree') loadTree();
+    }, fail('update the corporates'));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-code"></i> Developer';
+    el('dv-refresh').addEventListener('click', () => load(current && current.CorporateID));
+    el('dv-add').addEventListener('click', () => open({ isNew: true, Status: 'Active' }));
+    el('dv-followers').addEventListener('click', updateFollowers);
+    el('dv-tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    el('dv-save').addEventListener('click', save);
+    el('dv-test').addEventListener('click', test);
+    el('dv-mod-all').addEventListener('click', () => tickAll(true));
+    el('dv-mod-none').addEventListener('click', () => tickAll(false));
+    el('dv-mod-save').addEventListener('click', saveModules);
+    el('dv-note-type').addEventListener('change', ownerShown);
+    el('dv-note-save').addEventListener('click', saveNote);
+    el('dv-note-cancel').addEventListener('click', () => fillNote(null));
+    el('dv-tree-reset').addEventListener('click', resetTree);
+    load();
+  };
+})();
+</script>
