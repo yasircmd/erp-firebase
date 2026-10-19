@@ -63,7 +63,11 @@ async function ensurePermissionsSeeded() {
 // Ported from moduleHasCapability_ — identical logic, just async
 // (RTDB reads via the Admin SDK are promise-based, not the synchronous
 // UrlFetchApp calls GAS made).
+//
+// A module the current corporate may not use (entitlements.js) has no
+// capability for anyone.
 async function moduleHasCapability(moduleId, capability, roleId) {
+  if (!require('./entitlements').moduleAvailable(moduleId)) return false;
   const permissions = await ensurePermissionsSeeded();
   const modulePerm = permissions[moduleId] || {};
   return (modulePerm[capability] || []).includes(roleId);

@@ -48,7 +48,7 @@ test('only tests and tools work outside a request', () => {
 
 test('the firm\'s own project is reached only for the directory and the screens release', () => {
   const users = files.filter(p => rel(p) !== 'firebaseAdmin.js' && /\bfirm\b[\s\S]{0,80}require\('\.\.?\/firebaseAdmin'\)|firebaseAdmin\.firm\b/.test(read(p))).map(rel).sort();
-  assert.deepEqual(users, ['corporates.js', 'getModuleFragment.js']);
+  assert.deepEqual(users, ['corporates.js', 'developer.js', 'getModuleFragment.js']);
 });
 
 test('no module keeps data between requests, except these', () => {
@@ -58,6 +58,7 @@ test('no module keeps data between requests, except these', () => {
     'getModuleFragment.js': ['cachedRelease', 'cache'], // the screens release: code, the firm's
     'numbering.js': ['KINDS'], // the document kinds, static
     'periodLock.js': ['consentStore', 'ADJUSTABLE_TYPES'], // per request; static
+    'developer.js': ['HOME_ONLY'], // static: the registry's Corporate-100-only modules
     'legacy/runtime.js': ['als'] // per request
   };
   const found = {};

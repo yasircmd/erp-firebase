@@ -65,7 +65,9 @@ preserved quirks). Read it when touching a ported module.
   project. Keep no data in module scope: it would be shared between
   corporates. Use `firebaseAdmin.firm` (the firm's own project) only for
   what the firm keeps (the directory, the screens release), never a
-  corporate's data. unit/corporateContext checks all of this.
+  corporate's data. unit/corporateContext checks all of this. Which
+  modules a corporate has is entitlements.js (M2): check a module through
+  `moduleHasCapability`, which refuses one the corporate does not have.
 - **The global lock** (lock.js) is deliberately whole-system, not
   per-item, matching the original LockService. Don't "improve" this
   without discussing it first.

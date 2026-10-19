@@ -3,10 +3,10 @@ title: Roles and Permissions
 area: admin
 order: 4
 modules: [ROLES]
-sources: [functions/src/roles.js]
+sources: [functions/src/roles.js, functions/src/entitlements.js]
 summary: Define which roles can open, edit, approve, post or report on each module.
-reviewed: 2026-10-12
-fingerprint: 593299661ff1e0db
+reviewed: 2026-10-19
+fingerprint: 8ba2df2acc56cd07
 ---
 ## What it is for
 
@@ -17,6 +17,7 @@ fingerprint: 593299661ff1e0db
 - Define role responsibilities and least-privilege capabilities before changing the matrix.
 - Create the required roles before assigning them to users in [User Management](user-management.html).
 - Review the actual capability names for each module; they vary by workflow (for example access, draft, post, pay, report, return, or sensitive).
+- The matrix lists the modules your organisation has. Rights you gave for a module it no longer has are kept, and apply again if it has it back.
 
 ## Step by step
 

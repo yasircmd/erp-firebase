@@ -51,14 +51,14 @@ let outsideRequests = null;
 // Runs fn with the given corporate's data: { id, entry } (entry: its
 // directory record; none for Corporate 100).
 function runInCorporate(corporate, fn) {
-  const c = { id: String(corporate.id), app: appFor(corporate.id, corporate.entry) };
+  const c = { id: String(corporate.id), entry: corporate.entry || null, app: appFor(corporate.id, corporate.entry) };
   return context.run(c, fn);
 }
 
 // For the test suites and tools that call the modules outside a callable.
 // Never called by the functions themselves (unit/corporateContext checks).
 function useCorporateOutsideRequests(corporate) {
-  outsideRequests = corporate ? { id: String(corporate.id), app: appFor(corporate.id, corporate.entry) } : null;
+  outsideRequests = corporate ? { id: String(corporate.id), entry: corporate.entry || null, app: appFor(corporate.id, corporate.entry) } : null;
 }
 
 function current() {
@@ -67,6 +67,9 @@ function current() {
   return c;
 }
 const corporateId = () => current().id;
+// The current corporate's directory entry, as read for this request (null
+// for Corporate 100): what the firm set for it, e.g. its modules.
+const corporateEntry = () => current().entry;
 
 // A handle that is always the current corporate's service.
 function follow(service) {
@@ -96,5 +99,5 @@ const firm = { rtdb: homeApp.database(), firestore: homeApp.firestore(), auth: (
 
 module.exports = {
   admin: adminForRequest, rtdb, firestore, firm, HOME_ID, appFor,
-  runInCorporate, useCorporateOutsideRequests, corporateId
+  runInCorporate, useCorporateOutsideRequests, corporateId, corporateEntry
 };

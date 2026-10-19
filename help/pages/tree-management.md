@@ -3,10 +3,10 @@ title: Tree Management
 area: admin
 order: 5
 modules: [TREEMGMT]
-sources: [functions/src/tree.js]
+sources: [functions/src/tree.js, functions/src/entitlements.js]
 summary: Build the menu tree and link each module to the right company, role and section.
-reviewed: 2026-10-12
-fingerprint: b401cb462f2684a8
+reviewed: 2026-10-19
+fingerprint: e5871f36b0288169
 ---
 ## What it is for
 
@@ -17,6 +17,7 @@ fingerprint: b401cb462f2684a8
 - The intended menu hierarchy and labels are agreed.
 - Modules are registered and their permissions are configured in Roles & Permissions.
 - Identify which roles should see each menu node. Menu visibility does not itself grant a module capability.
+- The modules offered are the ones your organisation has. A module it does not have is left out of the menu, even if a node still links it.
 
 ## Step by step
 
