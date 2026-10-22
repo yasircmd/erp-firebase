@@ -321,3 +321,9 @@ const developer = require('./src/developer');
 ['getDeveloperCorporates', 'saveDeveloperCorporate', 'testDeveloperCorporate', 'saveDeveloperModules',
   'getDeveloperNotes', 'saveDeveloperNote', 'deleteDeveloperNote',
   'getDeveloperTree', 'resetDeveloperTree', 'updateDeveloperTreeFollowers'].forEach(name => { exports[name] = developer[name]; });
+
+// Support (docs/modules/MULTI_CORPORATE.md, M3): client corporates send
+// issues; the firm answers in the Developer screen.
+const support = require('./src/support');
+['getSupportIssues', 'getSupportIssue', 'submitSupportIssue', 'replySupportIssue', 'addSupportFile',
+  'openSupportFile', 'setSupportIssueStatus'].forEach(name => { exports[name] = support[name]; });

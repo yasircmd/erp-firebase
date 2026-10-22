@@ -194,6 +194,24 @@ test('the tree: given the main one, behind it after a change, brought up to date
   await rtdb.ref('tree/N7').set(node('More', '', 6));
   assert.deepEqual((await call('u-admin', 'updateDeveloperTreeFollowers', {})).updated, []);
   assert.equal((await clientRtdb.ref('tree/N4/Text').get()).val(), 'Administration');
+  assert.equal(Object.values((await clientRtdb.ref('tree').get()).val()).some(n => n.Text === 'More'), false, 'its layout kept');
+
+  // A module the main tree gains goes to its "New modules" folder, once
+  // (decision 255).
+  await rtdb.ref('tree/N8').set(node('Payroll', 'N1', 7, 'PAYROLL', ['Admin', 'Clerk']));
+  const r = await call('u-admin', 'updateDeveloperTreeFollowers', {});
+  assert.deepEqual([r.updated, r.offered], [[], [{ CorporateID: '200', modules: ['PAYROLL'] }]]);
+  own = (await clientRtdb.ref('tree').get()).val();
+  const folder = Object.keys(own).find(id => own[id].Text === 'New modules');
+  assert.ok(folder, 'the folder made');
+  const placed = Object.values(own).find(n => n.ModuleID === 'PAYROLL');
+  assert.deepEqual([placed.ParentID, placed.Text, placed.AllowedRoles, own[folder].ParentID], [folder, 'Payroll', ['Admin', 'Clerk'], '']);
+  assert.equal(await status(), 'own', 'still its own layout');
+  // Its Admin takes it out: not offered again.
+  const payrollId = Object.keys(own).find(id => own[id].ModuleID === 'PAYROLL');
+  await clientRtdb.ref('tree/' + payrollId).remove();
+  assert.deepEqual((await call('u-admin', 'updateDeveloperTreeFollowers', {})).offered, []);
+  assert.equal(Object.values((await clientRtdb.ref('tree').get()).val()).some(n => n.ModuleID === 'PAYROLL'), false);
   // Back to the main tree, on request.
   await call('u-admin', 'resetDeveloperTree', { CorporateID: '200' });
   assert.equal(await status(), 'main');

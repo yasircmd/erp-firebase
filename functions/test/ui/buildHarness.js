@@ -51,16 +51,20 @@ ${slice(dlgStart, dlgEnd)}
 </script>
 <script>
   const UID = new URLSearchParams(location.search).get('uid');
+  // ?corp=<id>&project=<its project>: signed in to that client corporate
+  // (docs/modules/MULTI_CORPORATE.md): its Auth's token in the envelope.
+  const CORP = new URLSearchParams(location.search).get('corp');
+  const AUD = new URLSearchParams(location.search).get('project') || 'erp1-8f4cd';
   const b64 = o => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\\+/g, '-').replace(/\\//g, '_');
   const now = Math.floor(Date.now() / 1000);
-  const TOKEN = b64({ alg: 'none', typ: 'JWT' }) + '.' + b64({ iss: 'https://securetoken.google.com/erp1-8f4cd', aud: 'erp1-8f4cd', sub: UID, user_id: UID, auth_time: now, iat: now, exp: now + 3600 }) + '.';
+  const TOKEN = b64({ alg: 'none', typ: 'JWT' }) + '.' + b64({ iss: 'https://securetoken.google.com/' + AUD, aud: AUD, sub: UID, user_id: UID, auth_time: now, iat: now, exp: now + 3600 }) + '.';
   window.__rpcLog = [];
   window.__firebaseSdk = {
     functionsInstance: {},
     httpsCallable: (_inst, name) => async (arg) => {
       const res = await fetch('http://127.0.0.1:5001/erp1-8f4cd/us-central1/' + name, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
-        body: JSON.stringify({ data: arg === undefined ? null : arg })
+        method: 'POST', headers: CORP ? { 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
+        body: JSON.stringify({ data: CORP ? { __corporate: { id: CORP, idToken: TOKEN }, __data: arg === undefined ? null : arg } : (arg === undefined ? null : arg) })
       });
       const body = await res.json();
       window.__rpcLog.push({ name, arg, ok: !body.error, error: body.error && body.error.message });

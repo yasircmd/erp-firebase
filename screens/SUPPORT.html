@@ -1,0 +1,198 @@
+<div class="space-y-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">System Administration</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-life-ring text-blue-500"></i> Support</h2></div>
+    <div class="flex gap-2">
+      <button id="sp-new" class="bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New issue</button>
+      <button id="sp-refresh" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-rotate"></i> Refresh</button>
+    </div>
+  </div>
+
+  <div class="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 max-w-3xl" id="sp-warning">
+    <i class="fa-solid fa-triangle-exclamation"></i> <b>Shared with the support team.</b> What you write and attach here is sent to the ERP's support team and kept in their account, outside your organisation's own. Do not include more than the issue needs (for example, a screenshot of one entry, not a whole report). You are asked to confirm each time you send.
+  </div>
+
+  <div id="sp-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="text-sm font-semibold text-slate-200">New issue</div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div><label class="block text-xs text-slate-300 mb-1">What is it</label><select id="sp-type" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-2 text-sm"></select></div>
+      <div class="md:col-span-2"><label class="block text-xs text-slate-300 mb-1">Title</label><input id="sp-title" maxlength="150" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" placeholder="e.g. The invoice total shows 0"></div>
+      <div><label class="block text-xs text-slate-300 mb-1">Screen</label><select id="sp-screen" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-2 text-sm"></select></div>
+      <div class="md:col-span-4"><label class="block text-xs text-slate-300 mb-1">What happened, or what you need</label><textarea id="sp-text" rows="5" maxlength="10000" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" placeholder="What you did, what you expected, what you saw instead."></textarea></div>
+      <div class="md:col-span-4"><label class="block text-xs text-slate-300 mb-1">Files (up to <span class="sp-max">5</span>, 10 MB each: screenshots, PDF, Word, Excel)</label><input id="sp-files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.webp,.heic" class="text-xs"></div>
+    </div>
+    <div class="flex gap-2">
+      <button id="sp-send" class="bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-paper-plane"></i> Send to support</button>
+      <button id="sp-cancel" class="bg-slate-800 border border-slate-700 text-xs px-4 py-2 rounded-lg">Cancel</button>
+    </div>
+    <p id="sp-status" class="hidden text-xs text-slate-400"></p>
+  </div>
+
+  <div class="bg-slate-800/60 rounded-xl border border-slate-700 overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-xs text-slate-400 border-b border-slate-700"><tr>
+        <th class="text-left px-3 py-2">Number</th><th class="text-left px-3 py-2">Title</th><th class="text-left px-3 py-2">Type</th>
+        <th class="text-left px-3 py-2">Status</th><th class="text-left px-3 py-2">Sent by</th><th class="text-left px-3 py-2">Last change</th>
+      </tr></thead>
+      <tbody id="sp-list"><tr><td colspan="6" class="px-3 py-3 text-slate-500">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div id="sp-issue" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="text-lg font-semibold text-slate-100" id="sp-issue-title"></div>
+      <button id="sp-close" class="hidden bg-slate-800 border border-slate-700 text-xs px-3 py-1.5 rounded-lg"><i class="fa-solid fa-circle-check"></i> Close the issue</button>
+    </div>
+    <div id="sp-issue-meta" class="text-xs text-slate-400"></div>
+    <div id="sp-thread" class="space-y-2"></div>
+    <div id="sp-reply-box" class="space-y-2">
+      <textarea id="sp-reply" rows="3" maxlength="10000" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" placeholder="Your answer"></textarea>
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="sp-reply-files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.webp,.heic" class="text-xs">
+        <button id="sp-reply-send" class="bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-reply"></i> Send answer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Support (docs/modules/MULTI_CORPORATE.md, M3; owner, 2026-10-19,
+  // decisions 252-254): the Admin sends issues to the ERP's support team,
+  // who keep them in their own account; confirmed as shared each time.
+  const el = id => document.getElementById(id);
+  function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+  }
+  const call = (name, arg) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](arg));
+  const time = iso => (iso ? window.isoLocalDateTime(new Date(iso)) : '');
+  const MAX_BYTES = 10 * 1024 * 1024;
+  const SHARE = 'This is sent to the ERP\'s support team and kept in their account, outside your organisation\'s own: what you write and the files you attach. Send it?';
+  let data = null, current = null;
+
+  function readFile(file) {
+    return new Promise((ok, fail) => {
+      const r = new FileReader();
+      r.onload = () => ok(String(r.result).replace(/^data:[^,]*,/, ''));
+      r.onerror = () => fail(new Error('Could not read "' + file.name + '".'));
+      r.readAsDataURL(file);
+    });
+  }
+  function checkedFiles(input) {
+    const files = Array.from(input.files || []);
+    if (files.length > data.maxFiles) throw new Error('Up to ' + data.maxFiles + ' files at a time.');
+    const big = files.find(f => f.size > MAX_BYTES);
+    if (big) throw new Error('"' + big.name + '" is over 10 MB.');
+    return files;
+  }
+  // The files of a message just sent, one call each.
+  async function sendFiles(issueId, messageId, files) {
+    const failed = [];
+    for (const f of files) {
+      el('sp-status').classList.remove('hidden'); el('sp-status').textContent = 'Sending ' + f.name + '…';
+      try { await call('addSupportFile', { IssueID: issueId, MessageID: messageId, fileName: f.name, data: await readFile(f) }); } catch (err) { failed.push(f.name + ': ' + (err.message || 'not sent')); }
+    }
+    el('sp-status').classList.add('hidden');
+    if (failed.length) await appAlert('Sent, but not every file:\n' + failed.join('\n'));
+  }
+
+  function load(keep) {
+    return call('getSupportIssues', {}).then(r => {
+      data = r;
+      el('sp-type').innerHTML = r.types.map(t => '<option>' + escapeHtml(t) + '</option>').join('');
+      el('sp-screen').innerHTML = '<option value="">(no particular screen)</option>' + r.screens.map(s => '<option value="' + escapeHtml(s.id) + '">' + escapeHtml(s.label) + '</option>').join('');
+      document.querySelectorAll('.sp-max').forEach(x => { x.textContent = r.maxFiles; });
+      renderList();
+      if (keep) open(keep);
+    }, err => { el('sp-list').innerHTML = '<tr><td colspan="6" class="px-3 py-3 text-red-400">' + escapeHtml(err.message || 'Unable to load your issues.') + '</td></tr>'; });
+  }
+
+  const TONE = { New: 'text-amber-300', 'In progress': 'text-blue-300', 'Waiting for you': 'text-fuchsia-300 font-semibold', Resolved: 'text-emerald-400', Closed: 'text-slate-500' };
+  function renderList() {
+    el('sp-list').innerHTML = data.issues.length ? data.issues.map(i =>
+      '<tr data-id="' + escapeHtml(i.IssueID) + '" class="border-b border-slate-800 hover:bg-slate-700/40 cursor-pointer">' +
+      '<td class="px-3 py-2 font-semibold">' + escapeHtml(i.Number) + '</td><td class="px-3 py-2">' + escapeHtml(i.Title) + '</td><td class="px-3 py-2">' + escapeHtml(i.Type) + '</td>' +
+      '<td class="px-3 py-2 ' + (TONE[i.Status] || '') + '">' + escapeHtml(i.Status) + '</td><td class="px-3 py-2">' + escapeHtml(i.CreatedByName) + '</td><td class="px-3 py-2">' + escapeHtml(time(i.UpdatedAt)) + '</td></tr>').join('')
+      : '<tr><td colspan="6" class="px-3 py-3 text-slate-500">No issues yet.</td></tr>';
+    el('sp-list').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => open(tr.dataset.id)));
+  }
+
+  async function send() {
+    let files;
+    try { files = checkedFiles(el('sp-files')); } catch (err) { appAlert(err.message); return; }
+    if (!el('sp-title').value.trim() || !el('sp-text').value.trim()) { appAlert('Give it a title and say what happened.'); return; }
+    if (!(await appConfirm(SHARE))) return;
+    el('sp-send').disabled = true;
+    try {
+      const r = await call('submitSupportIssue', { Type: el('sp-type').value, Title: el('sp-title').value, Text: el('sp-text').value, Screen: el('sp-screen').value, shareConfirmed: true });
+      await sendFiles(r.IssueID, r.MessageID, files);
+      el('sp-form').classList.add('hidden');
+      ['sp-title', 'sp-text', 'sp-files'].forEach(id => { el(id).value = ''; });
+      await load(r.IssueID);
+      appAlert('Sent: ' + r.Number + '. The support team\'s answers appear here.');
+    } catch (err) { appAlert(err.message || 'Unable to send the issue.'); }
+    el('sp-send').disabled = false;
+  }
+
+  function open(id) {
+    return call('getSupportIssue', { IssueID: id }).then(i => {
+      current = i;
+      el('sp-issue').classList.remove('hidden');
+      el('sp-issue-title').textContent = i.Number + ' — ' + i.Title;
+      el('sp-issue-meta').innerHTML = escapeHtml(i.Type) + ' · <span class="' + (TONE[i.Status] || '') + '">' + escapeHtml(i.Status) + '</span>' + (i.Screen ? ' · ' + escapeHtml(i.Screen.label) : '') + ' · sent by ' + escapeHtml(i.CreatedByName) + ', ' + escapeHtml(time(i.CreatedAt));
+      el('sp-thread').innerHTML = i.messages.map(m =>
+        '<div class="rounded-lg p-3 border ' + (m.From === 'firm' ? 'border-blue-500/40 bg-blue-500/10' : 'border-slate-700 bg-slate-900/60') + '">' +
+        '<div class="text-xs text-slate-400 mb-1">' + (m.From === 'firm' ? '<b class="text-blue-300">Support</b> · ' : '') + escapeHtml(m.ByName) + ', ' + escapeHtml(time(m.At)) + '</div>' +
+        '<div class="text-sm text-slate-200 whitespace-pre-wrap">' + escapeHtml(m.Text) + '</div>' +
+        ((m.Files || []).length ? '<div class="flex flex-wrap gap-2 mt-2">' + m.Files.map(f => '<button class="sp-file text-xs text-blue-300 hover:underline" data-m="' + escapeHtml(m.MessageID) + '" data-f="' + escapeHtml(f.FileID) + '"><i class="fa-solid fa-paperclip"></i> ' + escapeHtml(f.Name) + '</button>').join('') + '</div>' : '') +
+        '</div>').join('');
+      el('sp-thread').querySelectorAll('.sp-file').forEach(b => b.addEventListener('click', () => openFile(b.dataset.m, b.dataset.f)));
+      el('sp-reply-box').classList.toggle('hidden', i.Status === 'Closed');
+      el('sp-close').classList.toggle('hidden', i.Status === 'Closed');
+      el('sp-issue').scrollIntoView({ block: 'nearest' });
+    }, err => appAlert(err.message || 'Unable to open the issue.'));
+  }
+
+  function openFile(messageId, fileId) {
+    call('openSupportFile', { IssueID: current.IssueID, MessageID: messageId, FileID: fileId }).then(r => {
+      const bin = atob(r.data);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: r.mimeType }));
+      const a = document.createElement('a'); a.href = url; a.download = r.fileName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }, err => appAlert(err.message || 'Unable to open the file.'));
+  }
+
+  async function reply() {
+    let files;
+    try { files = checkedFiles(el('sp-reply-files')); } catch (err) { appAlert(err.message); return; }
+    if (!el('sp-reply').value.trim()) { appAlert('Write your answer first.'); return; }
+    if (!(await appConfirm(SHARE))) return;
+    try {
+      const r = await call('replySupportIssue', { IssueID: current.IssueID, Text: el('sp-reply').value, shareConfirmed: true });
+      await sendFiles(current.IssueID, r.MessageID, files);
+      el('sp-reply').value = ''; el('sp-reply-files').value = '';
+      await load(current.IssueID);
+    } catch (err) { appAlert(err.message || 'Unable to send the answer.'); }
+  }
+
+  async function closeIssue() {
+    if (!(await appConfirm('Close ' + current.Number + '? You can still read it; for anything more, send a new issue.'))) return;
+    call('setSupportIssueStatus', { IssueID: current.IssueID, Status: 'Closed' }).then(() => load(current.IssueID), err => appAlert(err.message || 'Unable to close it.'));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-life-ring"></i> Support';
+    el('sp-new').addEventListener('click', () => { el('sp-form').classList.remove('hidden'); el('sp-title').focus(); });
+    el('sp-cancel').addEventListener('click', () => el('sp-form').classList.add('hidden'));
+    el('sp-refresh').addEventListener('click', () => load(current && current.IssueID));
+    el('sp-send').addEventListener('click', send);
+    el('sp-reply-send').addEventListener('click', reply);
+    el('sp-close').addEventListener('click', closeIssue);
+    load();
+  };
+})();
+</script>

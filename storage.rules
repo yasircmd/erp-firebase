@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Deliberately locked down entirely, as firestore.rules and
+// database.rules.json: the Support attachments (docs/modules/
+// MULTI_CORPORATE.md, M3) are written and read only by the Cloud
+// Functions, with the Admin SDK, which bypasses these rules by design.
+// Never open a path here to clients.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

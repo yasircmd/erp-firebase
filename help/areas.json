@@ -26,6 +26,6 @@
       "modules": ["JOBORDERREQUEST", "BOM", "PRODUCTION", "PRODCONSUMPTION", "MATERIALVARIANCE"] },
     { "id": "admin", "title": "Administration", "written": true,
       "intro": "Companies, users, rights, the menu, approvals, numbering, imports and documents.",
-      "modules": ["COMPANYMASTER", "ORGUNITS", "USERMGMT", "ROLES", "TREEMGMT", "APPROVALCONFIG", "APPROVALTRACKER", "NUMBERING", "MASTERIMPORT", "DOCUMENTSTORAGE", "COMPANYDOCS", "DATARESET"] }
+      "modules": ["COMPANYMASTER", "ORGUNITS", "USERMGMT", "ROLES", "TREEMGMT", "APPROVALCONFIG", "APPROVALTRACKER", "NUMBERING", "MASTERIMPORT", "DOCUMENTSTORAGE", "COMPANYDOCS", "DATARESET", "SUPPORT"] }
   ]
 }

@@ -48,7 +48,7 @@ test('only tests and tools work outside a request', () => {
 
 test('the firm\'s own project is reached only for the directory and the screens release', () => {
   const users = files.filter(p => rel(p) !== 'firebaseAdmin.js' && /\bfirm\b[\s\S]{0,80}require\('\.\.?\/firebaseAdmin'\)|firebaseAdmin\.firm\b/.test(read(p))).map(rel).sort();
-  assert.deepEqual(users, ['corporates.js', 'developer.js', 'getModuleFragment.js']);
+  assert.deepEqual(users, ['corporates.js', 'developer.js', 'getModuleFragment.js', 'support.js']);
 });
 
 test('no module keeps data between requests, except these', () => {

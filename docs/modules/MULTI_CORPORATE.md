@@ -560,3 +560,84 @@ naming a module no longer registered still shows, as before).
 changed), with `--screens` (DEVELOPER.html). Then Hosting (the Help pages
 for Roles and Tree Management now mention that they list the
 organisation's modules).
+
+## As built: M3, Support and the issue queue (2026-10-22)
+
+**The module** (moduleRegistry.js): `SUPPORT`, `clientOnly`: a client
+corporate's module, given by role (default: Admin; decision 254). It is
+never Corporate 100's own, because Corporate 100 is the firm: not in its
+menu, its Roles or its capabilities. Corporate 100's Tree Management can
+still link it, so the main tree, which the client corporates follow, can
+hold its item. After the deploy, add a "Support" item linked to it there.
+The Help page is short (decision 256).
+
+**Where it is kept** (decisions 252–253): in the firm's project.
+- Firestore `supportIssues/{id}`: the issue's corporate, number
+  (`<Corporate ID>-00001`, from `supportCounters/{Corporate ID}`), type
+  (Bug, Question, Change request), title, status, the screen it is about,
+  and where the user was (the time, the screens release, the browser).
+- `supportIssues/{id}/messages/{id}`: what each side wrote, with its files.
+- **Cloud Storage** (the firm's bucket, `support/<corporate>/<issue>/`):
+  the files. There are up to 5 a message, 10 MB each, checked by type and
+  content as for supporting documents. Each is sent with its message, by
+  its author, within 30 minutes of it.
+- `storage.rules`: deny-all, like the other rules; only the functions read
+  and write it.
+
+**The warning:** the Support screen says, before anything is sent, that
+what is written and attached is shared with the support team and leaves
+the organisation's account. Every send (an issue or an answer) asks to
+confirm it, and the function refuses one that was not confirmed.
+
+**The conversation:**
+- **New:** sent.
+- **The firm** (the Developer screen's **Support queue**, decision 257):
+  open issues of every corporate, or all of them. An answer sets the
+  status: In progress, Waiting for you (the default), Resolved or Closed.
+  Viewing needs Developer access; answering needs its write right.
+- **The client** (Support): it sees its own corporate's issues only. Its
+  answer to an issue that is Waiting for you or Resolved puts it back to In
+  progress. It can close an issue; a closed issue takes no more answers
+  (send a new one).
+
+**A new module in a customised tree** (decision 255).
+- **Update corporates that follow the main tree** also gives each corporate
+  with its own layout the main tree's modules it has never been offered.
+  They go in a "New modules" folder at the top of its menu, with the main
+  tree's roles that the corporate has, for its Admin to place.
+- A module offered once and taken out is not offered again (the entry's
+  `TreeOffered`).
+- Giving a corporate the main tree counts all of it as offered.
+
+**Tests:**
+- **Emulator `support`**, with two client corporates:
+  - Support's right and the confirmation, the numbering per corporate,
+    and the data in the firm's project, not the client's;
+  - Corporate 100 without Support but able to link it;
+  - files: checked, limited, by their author, in the firm's Cloud
+    Storage, opened by both sides;
+  - each client seeing only its own issues, and the queue having every
+    corporate's;
+  - the conversation and its statuses.
+- **Emulator `developer`:** the "New modules" folder, and a module taken
+  out not offered again.
+- **UI `support`:** the screen, end to end with the Developer queue
+  (Cancel sends nothing). The UI harness can now be a client corporate
+  (`?corp=`).
+- **Negative controls**, each caught, then restored:
+  - the confirmation not checked;
+  - a client seeing every corporate's list, or opening another's issue;
+  - `clientOnly` ignored;
+  - no file limit;
+  - a module taken out offered again;
+  - the screen sending without asking.
+
+**Before the deploy** (once): Firebase console → Storage → Get started
+(production mode, location `us-central1`), so the bucket
+`erp1-8f4cd.firebasestorage.app` exists. Then the Deploy workflow's
+"database rules" task (it now deploys storage.rules too).
+
+**Deploy:** set `support-module`: every function (moduleRegistry.js
+changed; 7 Support functions, new), with `--screens` (SUPPORT.html,
+DEVELOPER.html). Then Hosting (the Help's Support page, What's new, and
+the shell's longer time-out for Support files).

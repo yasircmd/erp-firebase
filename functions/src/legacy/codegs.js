@@ -462,7 +462,7 @@ async function getRoles(idToken) {
 async function getModuleRegistry(idToken) {
   await requireUser_(idToken);
   // [NEW DEVELOPMENT corporate-modules] the corporate's modules only.
-  return __entitlements.availableModules();
+  return __entitlements.linkableModules();
 }
 
 async function saveRole(idToken, roleData) {
@@ -743,7 +743,7 @@ async function saveTreeNode(idToken, nodeData) {
     const allowedRoles = Array.isArray(nodeData.AllowedRoles) ? nodeData.AllowedRoles : [];
 
     if (!text) throw new Error('Item text is required.');
-    if (moduleId && !__entitlements.availableModules().some(m => m.id === moduleId)) { // [NEW DEVELOPMENT corporate-modules]
+    if (moduleId && !__entitlements.linkableModules().some(m => m.id === moduleId)) { // [NEW DEVELOPMENT corporate-modules]
       throw new Error('Unknown module: ' + moduleId);
     }
     if (nodeId && parentId === nodeId) {

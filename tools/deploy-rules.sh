@@ -1,6 +1,7 @@
 #!/bin/bash
-# Deploys the security rules in database.rules.json (RTDB) and firestore.rules.
-# Both are deny-all: every read and write goes through a Cloud Function with
+# Deploys the security rules in database.rules.json (RTDB), firestore.rules and
+# storage.rules (Cloud Storage: the Support attachments, MULTI_CORPORATE.md M3;
+# Storage must be set up in the Firebase console first). All are deny-all: every read and write goes through a Cloud Function with
 # the Admin SDK, which bypasses rules by design. RTDB was "auth != null" only
 # while the Apps Script system (which read RTDB with users' own ID tokens)
 # was in use; it was retired 2026-09-28. Same clean-copy rule as the other deploys.
@@ -11,6 +12,6 @@ FIREBASE=${FIREBASE:-firebase}
 if [ -n "$(git status --porcelain)" ]; then
   echo "STOP: working copy not clean — commit or 'git stash push -u' first:"; git status --short; exit 1
 fi
-echo "Deploying database.rules.json and firestore.rules from $(git log -1 --format='%h %s'):"
+echo "Deploying database.rules.json, firestore.rules and storage.rules from $(git log -1 --format='%h %s'):"
 cat database.rules.json
-if $FIREBASE deploy --project "$P" --only database,firestore:rules; then echo "ALL DONE"; else echo "RULES DEPLOY FAILED"; exit 1; fi
+if $FIREBASE deploy --project "$P" --only database,firestore:rules,storage; then echo "ALL DONE"; else echo "RULES DEPLOY FAILED"; exit 1; fi

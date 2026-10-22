@@ -95,7 +95,9 @@ const adminForRequest = new Proxy(admin, {
 // The firm's own project, whatever the request: only for what the firm
 // keeps about its corporates (the directory). Never a corporate's data
 // (unit/corporateContext lists who may use it).
-const firm = { rtdb: homeApp.database(), firestore: homeApp.firestore(), auth: () => homeApp.auth(), app: homeApp };
+// The firm's Cloud Storage bucket: the Support attachments (M3, decision 253).
+const FIRM_BUCKET = process.env.ERP_FIRM_BUCKET || 'erp1-8f4cd.firebasestorage.app';
+const firm = { rtdb: homeApp.database(), firestore: homeApp.firestore(), auth: () => homeApp.auth(), bucket: () => homeApp.storage().bucket(FIRM_BUCKET), app: homeApp };
 
 module.exports = {
   admin: adminForRequest, rtdb, firestore, firm, HOME_ID, appFor,
