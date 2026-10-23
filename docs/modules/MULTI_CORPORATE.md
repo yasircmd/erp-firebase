@@ -677,7 +677,7 @@ client's audit logs.
 | Who | Why | Roles on the client's project |
 |---|---|---|
 | The Cloud Functions' runtime account. It is the default compute account, `303168627971-compute@developer.gserviceaccount.com` (confirmed in the Cloud console by the owner, 2026-10-23) | The app reaches the client's data | Firebase Realtime Database Admin, Cloud Datastore User (Firestore), Firebase Authentication Admin (question 258) |
-| The Deploy workflow's account (the `GCP_SA_KEY` secret's; confirmed by the owner, 2026-10-23; its email is sent to each client separately, not kept in this public repository) | Each release deploys the rules | Firebase Rules Admin, Firebase Realtime Database Admin |
+| The Deploy workflow's account (the `GCP_SA_KEY` secret's; confirmed by the owner, 2026-10-23; its email is sent to each client separately, not kept in this public repository) | Each release deploys the rules and indexes | Firebase Rules Admin, Firebase Realtime Database Admin, Cloud Datastore Index Admin (firestore.indexes.json, 2026-10-23) |
 
 ### Proposal
 

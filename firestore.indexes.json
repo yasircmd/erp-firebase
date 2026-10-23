@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "journalEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "VoucherType", "order": "ASCENDING" },
+        { "fieldPath": "CompanyID", "order": "ASCENDING" },
+        { "fieldPath": "CreatedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

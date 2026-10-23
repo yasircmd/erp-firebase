@@ -3,7 +3,8 @@
 // §5 and M4; decisions 246, 263, 265). Run by tools/deploy-rules.sh (the
 // Deploy workflow's "database rules" task) after this project's own rules:
 //   1. deploys the rules (database.rules.json, with its RTDB indexes, and
-//      firestore.rules) to each Active corporate's own project, one by one,
+//      firestore.rules, with firestore.indexes.json) to each Active
+//      corporate's own project, one by one,
 //      and records the result in its directory entry (Rules). A corporate
 //      it cannot reach (grant withdrawn) is reported, and the others go on;
 //   2. brings the corporates that follow the main tree up to date, and
@@ -12,8 +13,8 @@
 //   3. deletes what the firm holds about a corporate set Inactive more than
 //      90 days ago (Support issues and files, internal notes).
 // Runs with the deploy account's credentials (GOOGLE_APPLICATION_CREDENTIALS
-// in the workflow); each client grants it Firebase Rules Admin and Firebase
-// Realtime Database Admin (docs/ONBOARDING.md).
+// in the workflow); each client grants it Firebase Rules Admin, Firebase
+// Realtime Database Admin and Cloud Datastore Index Admin (docs/ONBOARDING.md).
 //   node tools/release-corporates.js [--only rules|tree|purge] [--dry-run]
 'use strict';
 const path = require('path');
@@ -36,7 +37,7 @@ const SYSTEM = { uid: 'release', profile: { fullName: 'Release ' + commit() } };
 
 // deploy(projectId) -> throws on failure (the CLI's last lines).
 function deployRules(projectId) {
-  const out = execFileSync(FIREBASE, ['deploy', '--project', projectId, '--only', 'database,firestore:rules', '--non-interactive'], { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
+  const out = execFileSync(FIREBASE, ['deploy', '--project', projectId, '--only', 'database,firestore:rules,firestore:indexes', '--non-interactive'], { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
   return out.toString().trim().split('\n').slice(-1)[0];
 }
 
