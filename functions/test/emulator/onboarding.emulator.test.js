@@ -178,3 +178,17 @@ test('a client that never answers: the release reports it within the time limit 
   assert.equal((await dev('testDeveloperCorporate', { CorporateID: '200' })).ok, true, 'a reachable client as before');
 });
 
+// The script as the Deploy workflow runs it, not only main() (run #196: it
+// failed at the end on "Cannot find module 'firebase-admin'", and lost the
+// CLI's error, printed on stdout with an empty stderr).
+test('the release script runs as the workflow runs it, and keeps the CLI\'s error', async () => {
+  const { execFileSync } = require('child_process');
+  const path = require('path');
+  const out = execFileSync(process.execPath, [path.join(__dirname, '../../../tools/release-corporates.js'), '--dry-run'], { env: process.env, encoding: 'utf8', timeout: 60000 });
+  assert.match(out, /^Rules deployed to: 200 \(erp-client-demo\), 300 \(erp-client-two\)$/m, out);
+  const cliError = () => { const e = new Error('Command failed: firebase deploy'); e.stderr = Buffer.from(''); e.stdout = Buffer.from('i  deploying database\n\nError: Request had HTTP Error: 403, The caller does not have permission\n\n'); throw e; };
+  const r = await release.main({ deploy: p => { if (p === 'erp-client-two') cliError(); } });
+  assert.match(r.rules.failed[0], /^300 \(erp-client-two\): .*HTTP Error: 403, The caller does not have permission$/);
+  assert.match((await entry('300')).Rules.Error, /403, The caller does not have permission/);
+});
+
