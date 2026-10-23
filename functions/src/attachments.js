@@ -544,3 +544,4 @@ module.exports._checkFile = checkFile;
 module.exports.portalFiles = portalFiles;
 module.exports.portalUpload = portalUpload;
 module.exports.portalOpen = portalOpen;
+module.exports.checkFile = checkFile; // the file checks, also for Support (support.js)

@@ -20,6 +20,31 @@
     </table>
   </div>
 
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="text-sm font-semibold text-slate-200"><i class="fa-solid fa-life-ring"></i> Support queue <span id="dv-q-count" class="text-xs text-slate-400"></span></div>
+      <select id="dv-q-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-xs"><option value="open">Open</option><option value="all">All</option></select>
+    </div>
+    <p class="text-xs text-slate-500">Every corporate's issues, sent by their Admins and kept in this project (their content is the clients': shared with the firm for support only).</p>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead class="text-xs text-slate-400 border-b border-slate-700"><tr><th class="text-left px-3 py-2">Number</th><th class="text-left px-3 py-2">Corporate</th><th class="text-left px-3 py-2">Title</th><th class="text-left px-3 py-2">Type</th><th class="text-left px-3 py-2">Status</th><th class="text-left px-3 py-2">Last change</th></tr></thead>
+      <tbody id="dv-q-list"><tr><td colspan="6" class="px-3 py-3 text-slate-500">Loading…</td></tr></tbody>
+    </table></div>
+    <div id="dv-q-issue" class="hidden space-y-2 border-t border-slate-700 pt-3">
+      <div class="text-base font-semibold text-slate-100" id="dv-q-title"></div>
+      <div class="text-xs text-slate-400" id="dv-q-meta"></div>
+      <div id="dv-q-thread" class="space-y-2"></div>
+      <div class="dv-write space-y-2">
+        <textarea id="dv-q-reply" rows="3" maxlength="10000" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" placeholder="Answer"></textarea>
+        <div class="flex flex-wrap items-center gap-2">
+          <input id="dv-q-files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.webp,.heic" class="text-xs">
+          <label class="text-xs text-slate-300">Then <select id="dv-q-status" class="bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs"></select></label>
+          <button id="dv-q-send" class="bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-reply"></i> Send answer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="dv-detail" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div class="text-lg font-semibold text-slate-100" id="dv-title"></div>
@@ -267,6 +292,68 @@
     }, fail('update the corporates'));
   }
 
+  // ---------- the support queue (M3) ----------
+  let queue = null, qIssue = null;
+  const Q_TONE = { New: 'text-amber-300 font-semibold', 'In progress': 'text-blue-300', 'Waiting for you': 'text-fuchsia-300', Resolved: 'text-emerald-400', Closed: 'text-slate-500' };
+  function loadQueue(keep) {
+    return call('getSupportIssues', { filter: el('dv-q-filter').value }).then(r => {
+      queue = r;
+      el('dv-q-status').innerHTML = r.firmStatuses.map(st => '<option' + (st === 'Waiting for you' ? ' selected' : '') + '>' + escapeHtml(st) + '</option>').join('');
+      el('dv-q-count').textContent = r.issues.length ? '(' + r.issues.length + ')' : '';
+      el('dv-q-list').innerHTML = r.issues.length ? r.issues.map(i =>
+        '<tr data-id="' + escapeHtml(i.IssueID) + '" class="border-b border-slate-800 hover:bg-slate-700/40 cursor-pointer"><td class="px-3 py-2 font-semibold">' + escapeHtml(i.Number) + '</td>' +
+        '<td class="px-3 py-2">' + escapeHtml(i.CorporateID + ' ' + i.CorporateName) + '</td><td class="px-3 py-2">' + escapeHtml(i.Title) + '</td><td class="px-3 py-2">' + escapeHtml(i.Type) + '</td>' +
+        '<td class="px-3 py-2 ' + (Q_TONE[i.Status] || '') + '">' + escapeHtml(i.Status) + '</td><td class="px-3 py-2">' + escapeHtml(time(i.UpdatedAt)) + '</td></tr>').join('')
+        : '<tr><td colspan="6" class="px-3 py-3 text-slate-500">Nothing ' + (el('dv-q-filter').value === 'open' ? 'open' : 'yet') + '.</td></tr>';
+      el('dv-q-list').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => openIssue(tr.dataset.id)));
+      if (keep) openIssue(keep);
+    }, err => { el('dv-q-list').innerHTML = '<tr><td colspan="6" class="px-3 py-3 text-red-400">' + escapeHtml(err.message || 'Unable to load the queue.') + '</td></tr>'; });
+  }
+  function openIssue(id) {
+    return call('getSupportIssue', { IssueID: id }).then(i => {
+      qIssue = i;
+      el('dv-q-issue').classList.remove('hidden');
+      el('dv-q-title').textContent = i.Number + ' — ' + i.Title;
+      const ctx = i.Context || {};
+      el('dv-q-meta').innerHTML = escapeHtml(i.CorporateID + ' ' + i.CorporateName) + ' · ' + escapeHtml(i.Type) + ' · <span class="' + (Q_TONE[i.Status] || '') + '">' + escapeHtml(i.Status) + '</span>' +
+        (i.Screen ? ' · ' + escapeHtml(i.Screen.label) : '') + ' · ' + escapeHtml(i.CreatedByName) + ', ' + escapeHtml(time(i.CreatedAt)) +
+        (ctx.AppVersion ? ' · release ' + escapeHtml(ctx.AppVersion) : '') + (ctx.UserAgent ? '<div class="text-slate-500 truncate" title="' + escapeHtml(ctx.UserAgent) + '">' + escapeHtml(ctx.UserAgent) + '</div>' : '');
+      el('dv-q-thread').innerHTML = i.messages.map(m =>
+        '<div class="rounded-lg p-3 border ' + (m.From === 'firm' ? 'border-blue-500/40 bg-blue-500/10' : 'border-slate-700 bg-slate-900/60') + '">' +
+        '<div class="text-xs text-slate-400 mb-1">' + (m.From === 'firm' ? '<b class="text-blue-300">Support</b> · ' : '') + escapeHtml(m.ByName) + ', ' + escapeHtml(time(m.At)) + '</div>' +
+        '<div class="text-sm text-slate-200 whitespace-pre-wrap">' + escapeHtml(m.Text) + '</div>' +
+        ((m.Files || []).length ? '<div class="flex flex-wrap gap-2 mt-2">' + m.Files.map(f => '<button class="dv-q-file text-xs text-blue-300 hover:underline" data-m="' + escapeHtml(m.MessageID) + '" data-f="' + escapeHtml(f.FileID) + '"><i class="fa-solid fa-paperclip"></i> ' + escapeHtml(f.Name) + '</button>').join('') + '</div>' : '') + '</div>').join('');
+      el('dv-q-thread').querySelectorAll('.dv-q-file').forEach(b => b.addEventListener('click', () => openSupportFile(b.dataset.m, b.dataset.f)));
+    }, fail('open the issue'));
+  }
+  function openSupportFile(messageId, fileId) {
+    call('openSupportFile', { IssueID: qIssue.IssueID, MessageID: messageId, FileID: fileId }).then(r => {
+      const bin = atob(r.data);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: r.mimeType }));
+      const a = document.createElement('a'); a.href = url; a.download = r.fileName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }, fail('open the file'));
+  }
+  function readFile(file) {
+    return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).replace(/^data:[^,]*,/, '')); r.onerror = () => no(new Error('Could not read "' + file.name + '".')); r.readAsDataURL(file); });
+  }
+  async function answer() {
+    const files = Array.from(el('dv-q-files').files || []);
+    if (files.length > 5) { appAlert('Up to 5 files at a time.'); return; }
+    if (!el('dv-q-reply').value.trim()) { appAlert('Write the answer first.'); return; }
+    try {
+      const r = await call('replySupportIssue', { IssueID: qIssue.IssueID, Text: el('dv-q-reply').value, Status: el('dv-q-status').value });
+      const failed = [];
+      for (const f of files) { try { await call('addSupportFile', { IssueID: qIssue.IssueID, MessageID: r.MessageID, fileName: f.name, data: await readFile(f) }); } catch (err) { failed.push(f.name + ': ' + err.message); } }
+      if (failed.length) appAlert('Sent, but not every file:\n' + failed.join('\n'));
+      el('dv-q-reply').value = ''; el('dv-q-files').value = '';
+      await loadQueue(qIssue.IssueID);
+    } catch (err) { appAlert(err.message || 'Unable to send the answer.'); }
+  }
+
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-code"></i> Developer';
     el('dv-refresh').addEventListener('click', () => load(current && current.CorporateID));
@@ -282,7 +369,10 @@
     el('dv-note-save').addEventListener('click', saveNote);
     el('dv-note-cancel').addEventListener('click', () => fillNote(null));
     el('dv-tree-reset').addEventListener('click', resetTree);
+    el('dv-q-filter').addEventListener('change', () => loadQueue());
+    el('dv-q-send').addEventListener('click', answer);
     load();
+    loadQueue();
   };
 })();
 </script>

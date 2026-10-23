@@ -88,8 +88,9 @@ preserved quirks). Read it when touching a ported module.
   deploy in docs/DEPLOY_LOG.md.
 
 ## Deployment facts learned the hard way — don't rediscover these
-- Security rules are deny-all on both RTDB and Firestore: every read and
-  write goes through a Cloud Function with the Admin SDK. RTDB was
+- Security rules are deny-all on RTDB, Firestore and Cloud Storage
+  (storage.rules, M3: the Support files): every read and write goes
+  through a Cloud Function with the Admin SDK. RTDB was
   `auth != null` only while the Apps Script system (which read RTDB with
   users' own ID tokens) was in use. It was retired 2026-09-28 (owner).
   Deploy rules with tools/deploy-rules.sh (or the Deploy workflow's

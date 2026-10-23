@@ -3069,7 +3069,7 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     replace: `function getModuleRegistry(idToken) {
   requireUser_(idToken);
   // [NEW DEVELOPMENT corporate-modules] the corporate's modules only.
-  return __entitlements.availableModules();
+  return __entitlements.linkableModules();
 }`
   },
   {
@@ -3092,8 +3092,9 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
   },
   {
     id: 'corporate-modules-tree-node',
-    why: 'NEW DEVELOPMENT (MULTI_CORPORATE.md, M2): a menu item can link only a module the corporate has.',
+    why: 'NEW DEVELOPMENT (MULTI_CORPORATE.md, M2): a menu item can link only a module the corporate has ' +
+      '(in Corporate 100, the main tree, also the client-only ones, e.g. Support: M3).',
     find: `    if (moduleId && !MODULE_REGISTRY.some(m => m.id === moduleId)) {`,
-    replace: `    if (moduleId && !__entitlements.availableModules().some(m => m.id === moduleId)) { // [NEW DEVELOPMENT corporate-modules]`
+    replace: `    if (moduleId && !__entitlements.linkableModules().some(m => m.id === moduleId)) { // [NEW DEVELOPMENT corporate-modules]`
   }
 ];

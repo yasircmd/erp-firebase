@@ -134,7 +134,7 @@ npm i --no-save --prefix functions playwright && (cd functions && npx playwright
 
 # emulators (the Auth emulator is REQUIRED; without it User Management's
 # create-user test would reach production Auth)
-firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
+firebase emulators:start --only auth,database,firestore,functions,storage --project erp1-8f4cd
 
 node --test functions/test/unit/*.test.js   # no emulators needed; includes the no-browser-popups, date-format, supporting-documents light-mode, period-lock and help-is-current guards
 node --test --test-concurrency=1 functions/test/emulator/*.test.js
@@ -149,6 +149,7 @@ node functions/test/ui/partyStatement.ui.js # after the partyStatement suite: th
 node functions/test/ui/pdc.ui.js            # after the pdc suite: the two PDC screens, SOA pending PDCs
 node functions/test/ui/corporateSignIn.ui.js # sign-in by Corporate ID (index.html, ess.html): 100 as before, a client corporate's own Auth and envelope; no emulators needed
 node functions/test/ui/developer.ui.js       # the Developer screen (Corporate 100): directory, connection test, modules, notes, tree; seeds its own data
+node functions/test/ui/support.ui.js         # Support (a client corporate, ?corp=) and the Developer queue: send with a file after confirming, answer, close; seeds its own data
 node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed, but it needs
                                             # cdn.tailwindcss.com: where that's blocked, 8 of its 10 checks fail
 node functions/test/ui/singleCompany.ui.js  # one-company user: company preselected on every screen (after vendorMaster)

@@ -271,7 +271,9 @@ const TREE_SEED_NODES = [
   { text: 'Company Documents', depth: 2, moduleId: 'COMPANYDOCS' },
   { text: 'Numbering', depth: 2, moduleId: 'NUMBERING' },
   // New development: docs/modules/MULTI_CORPORATE.md, M2 (Corporate 100 only).
-  { text: 'Developer', depth: 1, moduleId: 'DEVELOPER' }
+  { text: 'Developer', depth: 1, moduleId: 'DEVELOPER' },
+  // New development: docs/modules/MULTI_CORPORATE.md, M3 (client corporates only).
+  { text: 'Support', depth: 1, moduleId: 'SUPPORT' }
 ];
 
 module.exports = { TREE_SEED_NODES };

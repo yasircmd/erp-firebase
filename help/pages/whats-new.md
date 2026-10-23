@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-19
+reviewed: 2026-10-22
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,14 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 22/10/2026
+
+- **Support.** Your Admin can send an issue (a bug, a question or a change
+  you need) to the ERP's support team from [Support](support.html), with
+  up to 5 screenshots or files, and follow their answers there. What you
+  send is shared with the support team: the screen asks you to confirm it
+  each time.
 
 ## 19/10/2026
 

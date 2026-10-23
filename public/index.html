@@ -809,7 +809,7 @@
             const sdk = window.__firebaseSdk;
             // A document of up to 10 MB going up or coming back can take
             // longer than the SDK's 70 s default on a slow line.
-            const long = prop === 'uploadAttachment' || prop === 'openAttachment';
+            const long = prop === 'uploadAttachment' || prop === 'openAttachment' || prop === 'addSupportFile' || prop === 'openSupportFile';
             // A client corporate's call carries its corporate and its own
             // Auth's token (functions/src/corporates.js); Corporate 100's
             // goes as always.

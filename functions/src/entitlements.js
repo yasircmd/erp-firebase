@@ -11,8 +11,9 @@
 // refuses it (so getModuleFragment and every function that checks it do
 // too); its data stays where it is.
 //
-// Corporate 100 has every module. A homeOnly module (Developer) is never
-// any other corporate's, whatever its entry or roles say.
+// Corporate 100 has every module but a clientOnly one (Support: it is the
+// firm). A homeOnly module (Developer) is never any other corporate's,
+// whatever its entry or roles say.
 'use strict';
 const { MODULE_REGISTRY } = require('./moduleRegistry');
 const { HOME_ID, corporateId, corporateEntry } = require('./firebaseAdmin');
@@ -23,7 +24,7 @@ const byId = id => MODULE_REGISTRY.find(m => m.id === id);
 function availableIn(id, entry, moduleId) {
   // Corporate 100 as before: nothing is taken away (a tree node naming a
   // module no longer registered still shows, as it always did).
-  if (String(id) === HOME_ID) return true;
+  if (String(id) === HOME_ID) { const h = byId(moduleId); return !(h && h.clientOnly); }
   const m = byId(moduleId);
   if (!m) return false;
   if (m.homeOnly) return false;
@@ -33,5 +34,9 @@ function availableIn(id, entry, moduleId) {
 
 const moduleAvailable = moduleId => availableIn(corporateId(), corporateEntry(), moduleId);
 const availableModules = () => MODULE_REGISTRY.filter(m => moduleAvailable(m.id));
+// What a menu item may link to in Tree Management: the corporate's modules,
+// and in Corporate 100 (the main tree, which the client corporates follow)
+// the clientOnly ones too.
+const linkableModules = () => MODULE_REGISTRY.filter(m => moduleAvailable(m.id) || (corporateId() === HOME_ID && m.clientOnly));
 
-module.exports = { availableIn, moduleAvailable, availableModules };
+module.exports = { availableIn, moduleAvailable, availableModules, linkableModules };

@@ -1225,3 +1225,16 @@ from, and how it was verified. The deploy procedure is in the
   (10:02–10:03 UTC), both from `9d2cc7e` (PR #139), success. **M1 is
   live** (MULTI_CORPORATE.md): every function runs in its request's
   corporate; Corporate 100 is still the only one in use.
+- **2026-10-19, the Corporate ID field starts empty (PR #140, Hosting
+  only):** run
+  [#175](https://github.com/yasircmd/erp-firebase/actions/runs/39241722287)
+  (11:02–11:03 UTC), from `5f74341`, success.
+- **2026-10-19, M2: the Developer module and module access per corporate
+  (`developer-module`, all 558 functions with --screens, then Hosting):**
+  functions and screens run
+  [#176](https://github.com/yasircmd/erp-firebase/actions/runs/39246897238)
+  (11:45–14:04 UTC), then the "hosting" run
+  [#177](https://github.com/yasircmd/erp-firebase/actions/runs/39271574771)
+  (14:43–14:44 UTC), both from `e2cd895` (PR #141), success. **M2 is
+  live.** To do in the app: link a "Developer" item to the DEVELOPER
+  module in Corporate 100's Tree Management.

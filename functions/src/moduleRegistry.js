@@ -136,7 +136,12 @@ const MODULE_REGISTRY = [
   // Developer (docs/modules/MULTI_CORPORATE.md, M2; owner, 2026-10-19): the
   // firm's own screen for its corporates. internal: no Help page.
   // homeOnly: only Corporate 100 ever has it, whatever a role says.
-  { id: 'DEVELOPER', label: 'Developer', capabilities: ['access', 'write'], internal: true, homeOnly: true }
+  { id: 'DEVELOPER', label: 'Developer', capabilities: ['access', 'write'], internal: true, homeOnly: true },
+  // Support (MULTI_CORPORATE.md, M3; decisions 252-254, 256): a client
+  // corporate's Admin sends issues to the firm. clientOnly: never Corporate
+  // 100's own (it is the firm), though its tree can hold the item for the
+  // corporates that follow it.
+  { id: 'SUPPORT', label: 'Support', capabilities: ['access'], clientOnly: true }
 ];
 
 const DEFAULT_PERMISSIONS = {
@@ -268,7 +273,8 @@ const DEFAULT_PERMISSIONS = {
   RETAILSALES:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], post: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], write: ['ADMIN'], report: ['ADMIN', 'FINANCE_MGR'], return: ['ADMIN', 'FINANCE_MGR'] },
   NUMBERING:          { access: ['ADMIN'], write: ['ADMIN'] },
   EMPREQUESTS:        { access: ['ADMIN', 'FINANCE_MGR'], handle: ['ADMIN', 'FINANCE_MGR'], setup: ['ADMIN'] },
-  DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] }
+  DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
+  SUPPORT:            { access: ['ADMIN'] }
 };
 
 module.exports = { MODULE_REGISTRY, DEFAULT_PERMISSIONS };

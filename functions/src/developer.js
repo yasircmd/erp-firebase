@@ -16,7 +16,7 @@
 // corporate's own database is reached only inside runInCorporate, for the
 // connection test and its tree.
 'use strict';
-const { createHash } = require('crypto');
+const { createHash, randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore, admin, firm, HOME_ID, corporateId, runInCorporate } = require('./firebaseAdmin');
@@ -312,7 +312,9 @@ async function giveMainTree(c, user) {
     });
     await db.ref('tree').set(out);
   });
-  await entryRef(c.id).update({ TreeSynced: print, TreeSyncedAt: new Date().toISOString(), TreeSyncedBy: nameOf(user) });
+  // What it has been offered: every module of the main tree (decision 255).
+  const offered = [...new Set(lines.map(l => l.moduleId).filter(Boolean))];
+  await entryRef(c.id).update({ TreeSynced: print, TreeOffered: offered, TreeSyncedAt: new Date().toISOString(), TreeSyncedBy: nameOf(user) });
   return print;
 }
 
@@ -324,23 +326,79 @@ exports.resetDeveloperTree = onCallWithMessages(onCallOptions, async (request) =
   return { success: true, status: 'main' };
 });
 
+// A corporate with its own layout gets the main tree's modules it has
+// never been offered (a module a release added) in a "New modules" folder
+// at the top of its menu, for its Admin to place (decision 255). A module
+// it was offered once and took out stays out. Its layout is otherwise
+// left as it is. Returns the modules added.
+const NEW_MODULES = 'New modules';
+async function offerNewModules(c, main) {
+  const mainLines = layout(main).filter(l => l.moduleId);
+  const first = !Array.isArray(c.entry.TreeOffered);
+  const offered = new Set(first ? mainLines.map(l => l.moduleId) : c.entry.TreeOffered);
+  const added = [];
+  await treeIn(c, async db => {
+    const [ownSnap, rolesSnap] = await Promise.all([db.ref('tree').get(), db.ref('roles').get()]);
+    const own = ownSnap.val() || {};
+    const roles = new Set(Object.keys(rolesSnap.val() || {}));
+    const has = new Set(Object.values(own).map(n => n.ModuleID).filter(Boolean));
+    has.forEach(m => offered.add(m));
+    const toOffer = mainLines.filter(l => !offered.has(l.moduleId) && !has.has(l.moduleId));
+    if (!toOffer.length) return;
+    const now = new Date().toISOString();
+    const updates = {};
+    let folderId = Object.keys(own).find(id => !own[id].ParentID && !own[id].ModuleID && own[id].Text === NEW_MODULES);
+    const order = Math.max(-1, ...Object.values(own).map(n => Number(n.Order) || 0)) + 1;
+    const allowedOf = n => (n.AllowedRoles || []).filter(r => !roles.size || roles.has(r));
+    const folderRoles = new Set(folderId ? own[folderId].AllowedRoles || [] : []);
+    toOffer.forEach((l, i) => {
+      const n = main[l.id];
+      allowedOf(n).forEach(r => folderRoles.add(r));
+      updates['NODE-' + randomUUID().split('-')[0].toUpperCase()] = {
+        Text: n.Text || l.moduleId, ParentID: '', Order: order + 1 + i, ModuleID: l.moduleId, AllowedRoles: allowedOf(n),
+        CreatedAt: now, CreatedBy: 'SYSTEM', UpdatedAt: now, UpdatedBy: 'SYSTEM'
+      };
+      added.push(l.moduleId);
+      offered.add(l.moduleId);
+    });
+    if (!folderId) {
+      folderId = 'NODE-' + randomUUID().split('-')[0].toUpperCase();
+      updates[folderId] = { Text: NEW_MODULES, ParentID: '', Order: order, ModuleID: '', AllowedRoles: [], CreatedAt: now, CreatedBy: 'SYSTEM', UpdatedAt: now, UpdatedBy: 'SYSTEM' };
+    }
+    Object.keys(updates).forEach(id => { if (id !== folderId) updates[id].ParentID = folderId; });
+    updates[folderId] = Object.assign({}, own[folderId] || updates[folderId], { AllowedRoles: [...folderRoles], UpdatedAt: now });
+    const write = {};
+    Object.keys(updates).forEach(id => { write[id] = updates[id]; });
+    await db.ref('tree').update(write);
+  });
+  if (first || added.length) await entryRef(c.id).update({ TreeOffered: [...offered] });
+  return added;
+}
+
 // Brings every Active corporate that follows the main tree, but is behind
-// it, up to date. Own layouts are left as they are.
+// it, up to date. A corporate with its own layout keeps it, and gets the
+// main tree's new modules in its "New modules" folder.
 exports.updateDeveloperTreeFollowers = onCallWithMessages(onCallOptions, async (request) => {
   const user = await developer(request, 'write');
-  const main = fingerprint(await mainTree());
+  const mainNodes = await mainTree();
+  const main = fingerprint(mainNodes);
   const dir = await firm.firestore.collection(DIRECTORY).where('Status', '==', 'Active').get();
-  const updated = [], failed = [];
+  const updated = [], failed = [], offered = [];
   for (const d of dir.docs) {
     const c = { id: d.id, entry: d.data() };
     try {
       const own = fingerprint(await treeIn(c, async db => (await db.ref('tree').get()).val()));
-      if (treeStatus(c.entry, main, own) === 'behind') { await giveMainTree(c, user); updated.push(c.id); }
+      const status = treeStatus(c.entry, main, own);
+      if (status === 'behind') { await giveMainTree(c, user); updated.push(c.id); }
+      if (status === 'own') {
+        const added = await offerNewModules(c, mainNodes);
+        if (added.length) offered.push({ CorporateID: c.id, modules: added });
+      }
     } catch (err) {
       failed.push({ CorporateID: c.id, error: (err && err.message) || String(err) });
     }
   }
-  return { success: true, updated, failed };
+  return { success: true, updated, offered, failed };
 });
 
 module.exports._layout = { layout, fingerprint, treeStatus };
