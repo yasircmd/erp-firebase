@@ -52,7 +52,9 @@ async function rules(deploy) {
       if (!dryRun) await d.ref.update({ Rules: { Ok: true, Commit: commit(), At: at } });
       done.push(d.id + ' (' + p + ')');
     } catch (err) {
-      const why = String((err && (err.stderr || err.stdout || err.message)) || err).trim().split('\n').slice(-3).join(' ').slice(0, 500);
+      // The CLI prints its error on stdout or stderr: both, then the message.
+      const out = [err && err.stderr, err && err.stdout].map(x => String(x || '').trim()).filter(Boolean).join('\n');
+      const why = (out || String((err && err.message) || err)).trim().split('\n').filter(l => l.trim()).slice(-3).join(' ').slice(0, 500);
       if (!dryRun) await d.ref.update({ Rules: { Ok: false, Commit: commit(), At: at, Error: why } });
       failed.push(d.id + ' (' + p + '): ' + why);
     }
@@ -79,7 +81,8 @@ if (require.main === module) {
       (r.tree.failed.length ? '; NOT REACHED ' + r.tree.failed.map(f => f.CorporateID + ' (' + f.error + ')').join(', ') : ''));
     if (r.purged) console.log('Deleted what the firm held about: ' + (r.purged.join(', ') || 'none'));
     // A corporate not reached is reported, not a failed release.
-    return Promise.all(require('firebase-admin').apps.map(a => a.delete()));
+    // The SDK as the functions have it (tools/ has no node_modules of its own).
+    return Promise.all(firebaseAdmin.admin.apps.map(a => a.delete()));
   }).then(() => process.exit(0)).catch(err => { console.error('RELEASE TO CORPORATES FAILED: ' + (err && err.message)); process.exit(1); });
 }
 
