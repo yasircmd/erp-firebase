@@ -30,7 +30,7 @@ client's project only holds data; the functions run in the firm's project.
 | A.5 | Authentication → Email/Password on (A.3). | | |
 | A.6 | Authorized domains: add `erp1-8f4cd.web.app` and `erp1-8f4cd.firebaseapp.com` (A.4). | Both listed with `localhost` and the project's own. | |
 | A.7 | Add a Web app and copy its config, plus the database URL (A.5). | `apiKey`, `authDomain`, `projectId`, `appId`. | |
-| A.8 | The grants (A.6), in the test project's Cloud Shell: the six bindings, the deploy account's email put in. | Each prints the updated policy. **Watch:** a "not found" means a typo in an email. | |
+| A.8 | The grants (A.6), in the test project's Cloud Shell: the seven bindings, the deploy account's email put in. | Each prints the updated policy. **Watch:** a "not found" means a typo in an email. | |
 
 ## B. As the firm (Corporate 100, Developer)
 
@@ -46,7 +46,9 @@ client's project only holds data; the functions run in the firm's project.
 
 **Do B.7 before anyone signs in.** The rules deploy carries the Realtime
 Database indexes (`.indexOn`). Without them the Home page's queries are
-refused ("Index not defined").
+refused ("Index not defined"). It also creates the Firestore index
+(firestore.indexes.json): in the test project, Firestore → Indexes shows
+`journalEntries` building, then Enabled after a few minutes.
 
 ## C. As the client's Admin
 
@@ -57,7 +59,7 @@ refused ("Index not defined").
 | C.3 | Company Master: add a company (made-up details). | Saved. | |
 | C.4 | Chart of Accounts: the headings from B.4, and add a posting account under one. | Headings shown; the account saves under its heading. | |
 | C.5 | User Management: add a second user. | Saved. The new user can sign in with Corporate ID 900. | |
-| C.6 | Post one Journal Entry, then open the JV list. | Posted; listed. **Watch:** in the firm's Cloud console → Logging, a warning "journalListPage_: falling back to a full read" means the list's Firestore index is missing in a client project. It still works, but reads every entry (it counts against Spark's daily limit): note it under Found. | |
+| C.6 | Post one Journal Entry, then open the JV list. | Posted; listed. **Watch:** in the firm's Cloud console → Logging, a warning "journalListPage_: falling back to a full read" means the Firestore index (B.7) is not built yet, or was not deployed. Once it is Enabled the warning stops; if it persists, note it under Found. | |
 | C.7 | Support: send an issue with a small file. | Sent after the warning. In Corporate 100's Developer → Support queue, it shows as from 900, with the file. Answer it; the answer shows in 900. | |
 | C.8 | Sign out, then sign in with Corporate ID **100**, using the 900 Admin's email. | Refused: the 900 Admin is not a user of Corporate 100. | |
 

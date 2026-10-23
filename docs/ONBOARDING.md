@@ -45,7 +45,7 @@ them through two grants, with no key.
    for R in roles/firebasedatabase.admin roles/datastore.user roles/firebaseauth.admin; do
      gcloud projects add-iam-policy-binding "$P" --member="$APP" --role="$R"
    done
-   for R in roles/firebaserules.admin roles/firebasedatabase.admin roles/firebase.viewer; do
+   for R in roles/firebaserules.admin roles/firebasedatabase.admin roles/datastore.indexAdmin roles/firebase.viewer; do
      gcloud projects add-iam-policy-binding "$P" --member="$DEPLOY" --role="$R"
    done
    ```
@@ -53,8 +53,9 @@ them through two grants, with no key.
    - **The ERP's functions** read and write the client's data (Realtime
      Database and Firestore) and manage its users (Authentication: User
      Management and the Employee Portal, decision 258).
-   - **The firm's releases** deploy the security rules (deny-all) with
-     every release.
+   - **The firm's releases** deploy the security rules (deny-all) and the
+     database indexes (Realtime Database and Firestore) with every
+     release.
 
    **Who can see what.** Every use of these grants shows in the client's
    own audit logs (IAM & Admin → Audit Logs). The client can withdraw them
@@ -103,8 +104,9 @@ corporate → Set up shows each step):
 
 The `database rules` task runs this project's rules, then
 tools/release-corporates.js, which:
-- deploys the rules to every Active corporate. One it cannot reach is
-  reported, and the others go on;
+- deploys the rules and the indexes (firestore.indexes.json) to every
+  Active corporate. One it cannot reach is reported, and the others go on.
+  A new Firestore index takes a few minutes to build;
 - brings the corporates that follow the main tree up to date, and offers
   new modules to those with their own layout (decisions 255, 263);
 - deletes what the firm holds about a corporate that has been Inactive
