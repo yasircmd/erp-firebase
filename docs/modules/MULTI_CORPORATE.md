@@ -758,3 +758,28 @@ client's audit logs.
      the client (its Support issues and files, the internal notes) 90 days
      after it is set Inactive (recommended)? Or a different time, or
      never?
+
+### The owner's decisions (2026-10-23)
+
+"Note below", the rest agreed:
+- **258:** the client grants Firebase Authentication Admin too.
+- **259: client groups.** Corporates are put in groups (categories), so
+  that the firm chooses which groups a new module is provided to. Still to
+  confirm: whether groups are built in M4 or later, and whether a module a
+  release adds starts off for every corporate until the firm picks its
+  groups.
+- **260:** the firm creates the client's first Admin from the Developer
+  screen; the client's own Auth sends the password-setting link.
+- **261: the chart starts with the current headers only.** A new client
+  gets Corporate 100's chart headings as they are now (the top headers,
+  headers and sub-headers, codes `X00000`, `XN0000` and `XNN000`), with
+  no posting accounts and no balances. Its Admin adds the accounts (or
+  imports them with Master Import). This is more than the built-in seed,
+  because it follows the firm's own headings.
+- **262:** the client creates the project on its own Google account and
+  billing, following the checklist with the firm's help.
+- **263:** each release's rules task also brings the corporates that
+  follow the main tree up to date.
+- **264: "there should be one option".** Still to confirm what this means.
+- **265:** the firm deletes what it holds about a client (Support issues
+  and files, internal notes) 90 days after it is set Inactive.
