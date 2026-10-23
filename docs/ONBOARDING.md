@@ -1,5 +1,8 @@
 # Onboarding a client corporate
 
+Before the first client, rehearse it on a spare project:
+[ONBOARDING_DRY_RUN.md](ONBOARDING_DRY_RUN.md).
+
 The checklist for a new client (docs/modules/MULTI_CORPORATE.md §6 and M4;
 owner, 2026-10-23, decisions 258–265). The client's data, sign-in and
 documents are in the client's own Firebase project. The firm's app reaches
