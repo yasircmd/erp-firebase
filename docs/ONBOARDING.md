@@ -75,6 +75,10 @@ corporate → Set up shows each step):
    - its **group**, if it is in one.
 2. **Test connection.** All three parts (Realtime Database, Firestore,
    Authentication) must pass. If one fails, a grant is missing (A.6).
+   Until they pass, the corporate cannot be set Active (owner,
+   2026-10-23); a changed project or database URL is tested again first.
+   The deploy account's grant is not part of this test: the rules
+   release (step 3) reports it, with the CLI's reason.
 3. **Rules:** GitHub → Actions → **Deploy** → `database rules` (from
    `main`). It deploys to this project and then to every client corporate
    that is Active.

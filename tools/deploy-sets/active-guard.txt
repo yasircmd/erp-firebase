@@ -1,0 +1,6 @@
+# Owner, 2026-10-23: a corporate is Active only once Test connection has
+# passed for its project and database (C101 was set Active before its
+# grants). The Developer functions that save and test a corporate, and its
+# screen (new corporates start Inactive). With --screens.
+saveDeveloperCorporate
+testDeveloperCorporate
