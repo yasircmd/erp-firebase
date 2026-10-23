@@ -1261,3 +1261,20 @@ from, and how it was verified. The deploy procedure is in the
   **M3 is live.** To do in the app: link a "Support" item to the SUPPORT
   module in Corporate 100's Tree Management (and a "Developer" item, if
   not done yet).
+- **2026-10-23, M4: onboarding, client groups and each release
+  (`onboarding`, all 570 functions with --screens):** run
+  [#188](https://github.com/yasircmd/erp-firebase/actions/runs/39923317925)
+  (08:14–10:18 UTC), from `ba79b06` (PR #144), success. These were the
+  first bindings with retries: none failed. Its Hosting changes (two Help
+  pages re-stamped) went out with run #190. **M4 is live: the
+  multi-corporate build (M1–M4) is complete.**
+- **2026-10-23, fix: a menu folder cannot be linked to a module
+  (`tree-folder-fix`, 4 functions, then Hosting):** run
+  [#189](https://github.com/yasircmd/erp-firebase/actions/runs/39938486960)
+  (10:21–10:23 UTC), then the "hosting" run
+  [#190](https://github.com/yasircmd/erp-firebase/actions/runs/39939337779)
+  (10:28–10:29 UTC), both from `197221f` (PR #145), success. A top-level
+  folder linked to Support had hidden Tree Management in Corporate 100;
+  the menu now keeps such a folder. To do in the app, if not done in the
+  console already: edit that folder in Tree Management, Linked Module:
+  None.
