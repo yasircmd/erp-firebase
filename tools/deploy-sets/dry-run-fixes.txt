@@ -1,0 +1,8 @@
+# Onboarding dry run fixes (owner, 2026-10-23; docs/ONBOARDING_DRY_RUN.md,
+# Found): Test connection checks password sign-in and the API key; the
+# Developer screen keeps the test result, refreshes Set up after the tree,
+# resends the password email; "Update corporates" gives the main tree to
+# an Active corporate with no menu. With --screens, then Hosting (the
+# shell: the company name on returning to Home; Help).
+testDeveloperCorporate
+updateDeveloperTreeFollowers

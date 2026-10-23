@@ -240,6 +240,16 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     page = await open();
     await page.waitForTimeout(300);
     assert.equal(await title(page), 'ERP Module Hierarchy Tree');
+    // A company assigned to the user in a module shows on returning to Home,
+    // without a reload (onboarding dry run, 2026-10-23).
+    await page.click('#toggle-expand-btn');
+    await page.click('#tree-container li[data-module-id="CUSTOMERINVOICE"]');
+    await page.waitForSelector('#stub-module');
+    await page.evaluate(() => { window.__companies = [{ CompanyID: 'C9', LegalName: 'New Client Co', CompanyRefCode: '01' }]; });
+    await page.click('#back-to-tree-btn');
+    await page.waitForFunction(() => /New Client Co/.test(document.getElementById('app-title').textContent));
+    assert.equal(await title(page), 'ERP Module Hierarchy Tree - New Client Co');
+    assert.deepEqual(page.__errors, []);
     await page.close();
   });
 

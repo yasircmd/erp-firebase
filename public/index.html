@@ -2615,6 +2615,10 @@
       // inside a module needs to actually disappear from this list
       // once they come back, not linger with a stale count.
       loadHomeTasks();
+      // And the company name in the title: a company assigned to this
+      // user in a module (User Management) shows without a reload
+      // (onboarding dry run, 2026-10-23).
+      loadMainCompanyName();
     }
 
     function showTreeNav() {

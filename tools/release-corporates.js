@@ -53,8 +53,11 @@ async function rules(deploy) {
       done.push(d.id + ' (' + p + ')');
     } catch (err) {
       // The CLI prints its error on stdout or stderr: both, then the message.
-      const out = [err && err.stderr, err && err.stdout].map(x => String(x || '').trim()).filter(Boolean).join('\n');
-      const why = (out || String((err && err.message) || err)).trim().split('\n').filter(l => l.trim()).slice(-3).join(' ').slice(0, 500);
+      // Without the CLI's colours, from its "Error:" line on (else its last lines).
+      const out = [err && err.stderr, err && err.stdout].map(x => String(x || '').replace(/\x1b\[[0-9;]*m/g, '').trim()).filter(Boolean).join('\n');
+      const lines = (out || String((err && err.message) || err)).split('\n').map(l => l.trim()).filter(Boolean);
+      const at = lines.findIndex(l => /^Error:/.test(l));
+      const why = (at >= 0 ? lines.slice(at) : lines.slice(-3)).join(' ').slice(0, 500);
       if (!dryRun) await d.ref.update({ Rules: { Ok: false, Commit: commit(), At: at, Error: why } });
       failed.push(d.id + ' (' + p + '): ' + why);
     }
@@ -77,7 +80,7 @@ if (require.main === module) {
       console.log('Rules deployed to: ' + (r.rules.done.join(', ') || 'no client corporate'));
       r.rules.failed.forEach(f => console.log('RULES NOT DEPLOYED: ' + f));
     }
-    if (r.tree) console.log('Tree: brought up to date ' + (r.tree.updated.join(', ') || 'none') + '; new modules offered to ' + (r.tree.offered.map(x => x.CorporateID).join(', ') || 'none') +
+    if (r.tree) console.log('Tree: brought up to date ' + (r.tree.updated.join(', ') || 'none') + '; given the main tree ' + ((r.tree.given || []).join(', ') || 'none') + '; new modules offered to ' + (r.tree.offered.map(x => x.CorporateID).join(', ') || 'none') +
       (r.tree.failed.length ? '; NOT REACHED ' + r.tree.failed.map(f => f.CorporateID + ' (' + f.error + ')').join(', ') : ''));
     if (r.purged) console.log('Deleted what the firm held about: ' + (r.purged.join(', ') || 'none'));
     // A corporate not reached is reported, not a failed release.

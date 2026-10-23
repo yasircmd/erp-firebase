@@ -79,6 +79,10 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const text = await p.textContent('#dv-test-result');
     assert.match(text, /Realtime Database: 1 ERP user\(s\)\s*Firestore: reachable\s*Authentication: reachable/);
     await until(p, () => /OK/.test(document.querySelector('#dv-list tr[data-id="200"]').textContent));
+    // Still on screen after the list reloads (dry run, 2026-10-23), with the password check.
+    await p.waitForTimeout(500);
+    assert.equal(await p.isVisible('#dv-test-result'), true);
+    assert.match(await p.textContent('#dv-test-result'), /Authentication: reachable, password sign-in on/);
   });
 
   await check('modules: one ticked off and saved; the always-on ones cannot be', async () => {
@@ -126,6 +130,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await until(p, () => /Follows the main tree/.test(document.getElementById('dv-tree-status').textContent));
     assert.match(p.__dialogs[0], /Give 200 the main tree\?/);
     assert.equal(await p.isHidden('#dv-tree-reset'), true, 'nothing to put back');
+    // Set up says so at once, without opening the corporate again (dry run, 2026-10-23).
+    await p.click('#dv-tabs [data-tab="setup"]');
+    await until(p, () => /3\. Menu: given the main tree/.test(document.getElementById('dv-setup').textContent));
     assert.deepEqual(Object.values((await clientApp.database().ref('tree').get()).val()).map(n => n.Text).sort(), ['Finance', 'Journal Entry']);
   });
 
@@ -163,6 +170,13 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(p.__dialogs.join(' | '), /Create Ann Admin <ann@client\.test> as 200's first Admin/);
     assert.equal((await clientApp.auth().getUserByEmail('ann@client.test')).email, 'ann@client.test', 'in the client\'s own Auth');
     assert.equal(await p.isHidden('#dv-admin-form'), true);
+    // The password email again, from the corporate's own Auth (its link lasts an hour; dry run, 2026-10-23).
+    await p.evaluate(() => { window.__firebaseSdk = { authFor: cfg => cfg, sendPasswordResetEmail: async (auth, email) => { window.__sent = [auth.corporateId, auth.webConfig.projectId, auth.webConfig.apiKey, email]; } }; });
+    await p.click('#dv-admin-resend');
+    await until(p, () => window.__sent);
+    assert.deepEqual(await p.evaluate(() => window.__sent), ['200', 'erp-client-demo', 'demo-key', 'ann@client.test']);
+    for (let i = 0; i < 50 && !p.__dialogs.some(x => /Sent to ann@client\.test\. The link lasts an hour\./.test(x)); i++) await p.waitForTimeout(100);
+    assert.match(p.__dialogs.join(' | '), /Send ann@client\.test the email to set a password again\?.*Sent to ann@client\.test\. The link lasts an hour\./);
   });
 
   await check('a Viewer sees it read-only', async () => {
