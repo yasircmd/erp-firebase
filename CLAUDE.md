@@ -94,7 +94,9 @@ preserved quirks). Read it when touching a ported module.
   `auth != null` only while the Apps Script system (which read RTDB with
   users' own ID tokens) was in use. It was retired 2026-09-28 (owner).
   Deploy rules with tools/deploy-rules.sh (or the Deploy workflow's
-  "database rules" task). Never open a path to clients as a shortcut for
+  "database rules" task): it also deploys them to every Active client
+  corporate's project (tools/release-corporates.js, MULTI_CORPORATE.md M4),
+  so run it with each release that changes the rules or the tree. Never open a path to clients as a shortcut for
   something a Cloud Function should do.
 - Every onCall Cloud Function needs an explicit public-invoker IAM binding
   after deploy (2nd Gen quirk, not automatic):

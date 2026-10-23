@@ -3,9 +3,13 @@
 // development, hand-written.
 //
 // The firm ticks a client corporate's modules in the Developer screen; they
-// are kept in its directory entry (Modules: { MODULEID: false } for one
-// switched off; a module not listed is on, so a new corporate starts with
-// every module). The client's own Admin then gives rights only within
+// are kept in its directory entry (Modules: { MODULEID: true | false }):
+// - a module of the baseline (moduleBaseline.js: those there were when
+//   client groups came in, M4) is on unless set false, so a new corporate
+//   starts with every one of them;
+// - a module added after that is off unless set true: the firm provides it
+//   to groups of corporates (developer.js) or ticks it for one (decision
+//   259). The client's own Admin then gives rights only within
 // that, in Roles as before. A module switched off is not in the
 // corporate's tree, Roles or Tree Management, and moduleHasCapability
 // refuses it (so getModuleFragment and every function that checks it do
@@ -16,6 +20,7 @@
 // whatever its entry or roles say.
 'use strict';
 const { MODULE_REGISTRY } = require('./moduleRegistry');
+const { BASELINE_MODULES } = require('./moduleBaseline');
 const { HOME_ID, corporateId, corporateEntry } = require('./firebaseAdmin');
 
 const byId = id => MODULE_REGISTRY.find(m => m.id === id);
@@ -29,7 +34,7 @@ function availableIn(id, entry, moduleId) {
   if (!m) return false;
   if (m.homeOnly) return false;
   const modules = (entry && entry.Modules) || {};
-  return modules[moduleId] !== false;
+  return BASELINE_MODULES.includes(moduleId) ? modules[moduleId] !== false : modules[moduleId] === true;
 }
 
 const moduleAvailable = moduleId => availableIn(corporateId(), corporateEntry(), moduleId);
@@ -39,4 +44,6 @@ const availableModules = () => MODULE_REGISTRY.filter(m => moduleAvailable(m.id)
 // the clientOnly ones too.
 const linkableModules = () => MODULE_REGISTRY.filter(m => moduleAvailable(m.id) || (corporateId() === HOME_ID && m.clientOnly));
 
-module.exports = { availableIn, moduleAvailable, availableModules, linkableModules };
+const isBaseline = moduleId => BASELINE_MODULES.includes(moduleId);
+
+module.exports = { availableIn, moduleAvailable, availableModules, linkableModules, isBaseline };

@@ -641,3 +641,233 @@ confirm it, and the function refuses one that was not confirmed.
 changed; 7 Support functions, new), with `--screens` (SUPPORT.html,
 DEVELOPER.html). Then Hosting (the Help's Support page, What's new, and
 the shell's longer time-out for Support files).
+
+## M4: onboarding a client — proposal (2026-10-23)
+
+What is already in place after M1–M3: the directory and its connection
+test, modules per corporate, the tree, Support. What M4 adds is getting
+a client from "no project" to "its Admin signed in", and keeping every
+client's rules current with each release (§5, §6).
+
+### What a new client project needs (found in the code)
+
+- **Rules and indexes:** the same deny-all rules as this project's. Its
+  indexes are the RTDB `.indexOn` entries in database.rules.json, deployed
+  with the rules: every Firestore query is an equality query, so there
+  are no composite indexes. Storage rules: none (Support files are the
+  firm's, M3).
+- **Starting data:** almost all of it seeds itself the first time it is
+  needed: roles, permissions, units of measure, sub-categories, customer
+  classifications and the numbering formats. Two things do not:
+  - **the first Admin** (an Auth account and its ERP profile): nobody can
+    sign in without one;
+  - **the menu:** an empty tree would seed itself from the built-in seed,
+    not from the main tree. The Developer screen's "Back to the main tree"
+    already does it right.
+- **Left to the client's Admin, in the app:** the companies (Company
+  Master), the chart of accounts (there is no chart seed: Master Import or
+  by hand), users and roles, and Document Storage with their own Drive.
+
+### The accounts and their roles
+
+Two of the firm's service accounts need a grant on each client project.
+Both grants are keyless and revocable, and every use shows in the
+client's audit logs.
+
+| Who | Why | Roles on the client's project |
+|---|---|---|
+| The Cloud Functions' runtime account. It is the default compute account, `303168627971-compute@developer.gserviceaccount.com` (to be checked in the Cloud console before onboarding) | The app reaches the client's data | Firebase Realtime Database Admin, Cloud Datastore User (Firestore), Firebase Authentication Admin (question 258) |
+| The Deploy workflow's account (the `GCP_SA_KEY` secret's) | Each release deploys the rules | Firebase Rules Admin, Firebase Realtime Database Admin |
+
+### Proposal
+
+1. **The checklist** (docs/ONBOARDING.md, for the client's IT, with the
+   firm's help on a call):
+   - create the Firebase project in `us-central1`, on the client's billing
+     (Blaze, with a budget alert; question 264);
+   - turn on the Realtime Database, Firestore (native mode) and
+     Authentication (email/password);
+   - add a web app;
+   - add `erp1-8f4cd.web.app` to Auth's authorized domains;
+   - give the two accounts above their roles (a `gcloud` command to
+     paste).
+2. **In the Developer screen**, the firm then:
+   - adds the corporate (its project ID, database URL, web config), as
+     today;
+   - runs **Test connection**, as today;
+   - **sets up rules:** asks the Deploy workflow to deploy the rules to
+     this corporate now (or waits for the next release);
+   - **gives it the main tree**, as today;
+   - **creates its first Admin** (new): a name and an email; the account
+     is made in the client's own Auth, and the ERP profile in its
+     database. The client's Admin gets a password-setting link by email
+     from the client's own Auth (question 260);
+   - ticks its modules.
+
+   The screen shows each step's state. The corporate stays Inactive
+   (nobody can sign in) until the firm sets it Active.
+3. **Each release** (the Deploy workflow's "database rules" task):
+   - deploys the rules to this project and then to every Active
+     corporate's project, from the directory, one by one;
+   - records in each entry what was deployed (the commit and the time),
+     shown in the Developer screen;
+   - on a corporate it cannot reach (grant withdrawn), it says so and
+     carries on with the others;
+   - then brings the corporates that follow the main tree up to date
+     (question 263).
+4. **Data changes:** none is needed now. When a release needs one (a
+   backfill, a new seed), it is a script that runs once per corporate, by
+   the same loop, written so it can run twice safely, and recorded in the
+   entry. The mechanism is built with the first one.
+5. **A client leaving** (question 265):
+   - the firm sets it Inactive, so nobody can sign in through the app;
+   - the client withdraws the grants, and its data stays with it;
+   - what the firm holds about it (its issues and their files, the
+     notes, the entry) is deleted after a set time.
+
+### Questions for the owner
+
+258. **User management in the client's Auth.** The client also grants
+     Firebase Authentication Admin, so User Management and the Employee
+     Portal can create and disable its users (recommended: without it,
+     those two screens cannot work for a client)?
+259. **A module a later release adds.** Is it on for every existing client,
+     as for a new corporate (today's behaviour)? Or is it off where the
+     firm marks it as an add-on in the module list, so only clients who
+     buy it get it (recommended: core modules on, add-ons off)?
+260. **The first Admin.** Is it created by the firm from the Developer
+     screen, with a password-setting link sent from the client's own Auth
+     (recommended)? Or does the client create it in its Firebase console
+     and the firm only adds the ERP profile?
+261. **The chart of accounts.** Does a new client start with an empty
+     chart, imported with Master Import (recommended: each client's chart
+     is its own)? Or with a copy of a standard chart (codes and names, no
+     balances)?
+262. **Who creates the project.** The client, on its own Google account
+     and billing, following the checklist with the firm's help
+     (recommended, as §6 says: the client owns it from the start)? Or the
+     firm creates it and then transfers ownership?
+263. **The tree at each release.** Does the "database rules" task also bring
+     the corporates that follow the main tree up to date (recommended)?
+     Or does the firm keep doing it with the Developer screen's button?
+264. **The client's plan.** Is Blaze (pay as you go) with a budget alert
+     required (recommended)? The free Spark plan allows 50,000 Firestore
+     reads a day, which a working ERP passes, and then stops until the
+     next day.
+265. **When a client leaves.** Does the firm delete what it holds about
+     the client (its Support issues and files, the internal notes) 90 days
+     after it is set Inactive (recommended)? Or a different time, or
+     never?
+
+### The owner's decisions (2026-10-23)
+
+"Note below", the rest agreed:
+- **258:** the client grants Firebase Authentication Admin too.
+- **259: client groups, built in M4.** Corporates are put in groups
+  (categories), and the firm chooses which groups a new module is provided
+  to. **A module a release adds is off for every client corporate until
+  the firm picks its groups** (or ticks it for one corporate); Corporate
+  100 has it at once. The modules that exist today stay as they are (on
+  unless switched off).
+- **260:** the firm creates the client's first Admin from the Developer
+  screen; the client's own Auth sends the password-setting link.
+- **261: the chart starts with the current headers only.** A new client
+  gets Corporate 100's chart headings as they are now (the top headers,
+  headers and sub-headers, codes `X00000`, `XN0000` and `XNN000`), with
+  no posting accounts and no balances. Its Admin adds the accounts (or
+  imports them with Master Import). This is more than the built-in seed,
+  because it follows the firm's own headings.
+- **262:** the client creates the project on its own Google account and
+  billing, following the checklist with the firm's help.
+- **263:** each release's rules task also brings the corporates that
+  follow the main tree up to date.
+- **264: the client chooses its plan.** Blaze (pay as you go, with a
+  budget alert) or the free Spark plan. The checklist says plainly what
+  Spark's limit means: 50,000 Firestore reads a day, after which the ERP
+  stops for that client until the next day.
+- **265:** the firm deletes what it holds about a client (Support issues
+  and files, internal notes) 90 days after it is set Inactive.
+
+## As built: M4, onboarding and each release (2026-10-23)
+
+**The checklist:** docs/ONBOARDING.md. It has the client's steps (the
+project, the plan, the databases, Auth, the web app, and the grants as
+`gcloud` commands), the firm's steps in the Developer screen, each
+release, and a client leaving.
+
+**Groups and later modules** (decision 259):
+- **The baseline** (moduleBaseline.js) is the 89 modules there were when
+  groups came in. It is frozen (unit/moduleBaseline checks its
+  fingerprint).
+  - A baseline module is on for a client unless switched off, as before.
+  - A module added to the registry after it is **off for every client
+    corporate** until it is provided (entitlements.js:
+    `Modules[id] === true`).
+- **Groups** (Firestore `corporateGroups`, the firm's): the Developer
+  screen's Groups section.
+  - Providing a later module to a group sets it on for every corporate in
+    the group; taking it away sets it off for them.
+  - A corporate that joins a group gets what the group has.
+  - A corporate can still be ticked on its own in its Modules.
+- Corporate 100 has every module at once.
+
+**The Developer screen's Set up tab** shows each onboarding step's state:
+1. the connection test;
+2. the rules: the release, or why not;
+3. the menu;
+4. the chart headings;
+5. the first Admin;
+6. Active.
+
+For a corporate that left, it also shows when its data will be or was
+deleted. It has two new actions:
+- **Copy the chart headings** (decision 261): Corporate 100's current
+  active headings (non-posting, at heading codes), with their parents,
+  shared (no company), into an empty chart only. A heading whose parent is
+  not copied goes to the top.
+- **Create the first Admin** (decision 260):
+  - an account with no password in the client's own Auth, and its ERP
+    profile (role ADMIN, Active) in its database, with its roles seeded;
+  - refused when the corporate already has an Admin;
+  - the screen then has the client's own Auth send the password-setting
+    email (through the shell's `authFor`).
+
+**Each release** (tools/release-corporates.js, run by tools/deploy-rules.sh
+after this project's rules, decisions 246, 263, 265):
+- deploys `database.rules.json` (with its RTDB indexes) and
+  `firestore.rules` to every Active corporate's project, recorded in its
+  entry (`Rules`); a corporate it cannot reach is reported and the others
+  go on;
+- brings the followers of the main tree up to date and offers the new
+  modules to the own layouts (the same code as the Developer screen's
+  button);
+- deletes the Support issues, their messages and files, the notes and the
+  issue counter of a corporate Inactive for 90 days (`InactiveSince`, set
+  when it is saved Inactive, cleared when Active again), and marks the
+  entry `PurgedAt`.
+
+**Tests:**
+- **Emulator `onboarding`** (in-process, with a stand-in later module):
+  - a later module off until provided to a group or a corporate, and
+    joining and leaving a group;
+  - the first Admin, once, in the client's own Auth;
+  - the headings only, into an empty chart;
+  - the 90 days, and only the leaver's data;
+  - the release: Active corporates only, one not reached reported, the
+    follower updated.
+- **UI `developer`:** adding a group and putting a corporate in it; the
+  Set up steps, copying the headings and creating the first Admin.
+- **Unit:** moduleBaseline.
+- **Negative controls**, each caught, then restored:
+  - later modules on by default;
+  - joining a group giving nothing;
+  - a second first Admin;
+  - posting accounts copied;
+  - deleting at once;
+  - rules deployed to Inactive corporates too;
+  - the screen not sending the group.
+
+**Deploy:** set `onboarding`: every function (entitlements.js through
+auth.js; 5 Developer functions, new), with `--screens` (DEVELOPER.html).
+Then Hosting (the Help's Roles and Tree Management pages, re-stamped).
+From then on, the `database rules` task also releases to the corporates.

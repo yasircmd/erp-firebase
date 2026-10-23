@@ -22,6 +22,15 @@
 
   <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="text-sm font-semibold text-slate-200"><i class="fa-solid fa-layer-group"></i> Groups</div>
+      <button id="dv-group-add" class="dv-write bg-slate-800 border border-slate-700 text-xs px-3 py-1 rounded"><i class="fa-solid fa-plus"></i> Add group</button>
+    </div>
+    <p class="text-xs text-slate-500">Categories of client corporates. A module that came after the groups (a later module) is off for every client until it is provided to their group here, or ticked for one corporate in its Modules.</p>
+    <div id="dv-groups" class="space-y-2 text-sm"></div>
+  </div>
+
+  <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
       <div class="text-sm font-semibold text-slate-200"><i class="fa-solid fa-life-ring"></i> Support queue <span id="dv-q-count" class="text-xs text-slate-400"></span></div>
       <select id="dv-q-filter" class="bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-xs"><option value="open">Open</option><option value="all">All</option></select>
     </div>
@@ -50,6 +59,7 @@
       <div class="text-lg font-semibold text-slate-100" id="dv-title"></div>
       <div class="flex gap-1 text-xs" id="dv-tabs">
         <button data-tab="connection" class="px-3 py-1.5 rounded-lg border border-slate-700">Connection</button>
+        <button data-tab="setup" class="px-3 py-1.5 rounded-lg border border-slate-700">Set up</button>
         <button data-tab="modules" class="px-3 py-1.5 rounded-lg border border-slate-700">Modules</button>
         <button data-tab="notes" class="px-3 py-1.5 rounded-lg border border-slate-700">Notes</button>
         <button data-tab="tree" class="px-3 py-1.5 rounded-lg border border-slate-700">Tree</button>
@@ -61,6 +71,7 @@
         <div><label class="block text-xs text-slate-300 mb-1">Corporate ID</label><input id="dv-id" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" maxlength="20"></div>
         <div><label class="block text-xs text-slate-300 mb-1">Name</label><input id="dv-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" maxlength="120"></div>
         <div><label class="block text-xs text-slate-300 mb-1">Status</label><select id="dv-status" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option>Active</option><option>Inactive</option></select></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Group</label><select id="dv-group" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
         <div><label class="block text-xs text-slate-300 mb-1">Firebase project ID</label><input id="dv-project" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" spellcheck="false"></div>
         <div class="md:col-span-2"><label class="block text-xs text-slate-300 mb-1">Realtime Database URL</label><input id="dv-dburl" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" spellcheck="false" placeholder="https://project-default-rtdb.firebaseio.com"></div>
         <div><label class="block text-xs text-slate-300 mb-1">Web API key</label><input id="dv-apikey" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" spellcheck="false"></div>
@@ -73,6 +84,19 @@
         <button id="dv-test" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plug"></i> Test connection</button>
       </div>
       <div id="dv-test-result" class="hidden text-xs space-y-1"></div>
+    </div>
+
+    <div data-pane="setup" class="hidden space-y-3">
+      <p class="text-xs text-slate-500 max-w-3xl">Onboarding (docs/ONBOARDING.md): the client has made its project and given the grants; then these steps, in order. The corporate stays Inactive (nobody signs in) until it is set Active on Connection.</p>
+      <div id="dv-setup" class="space-y-2 text-sm"></div>
+      <div class="dv-write grid grid-cols-1 md:grid-cols-3 gap-2 items-end" id="dv-admin-form">
+        <div><label class="block text-xs text-slate-300 mb-1">First Admin's name</label><input id="dv-admin-name" maxlength="120" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Email</label><input id="dv-admin-email" type="email" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <button id="dv-admin-create" class="bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-user-plus"></i> Create the first Admin</button>
+      </div>
+      <div class="dv-write flex flex-wrap gap-2">
+        <button id="dv-headings" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-list-ol"></i> Copy the chart headings</button>
+      </div>
     </div>
 
     <div data-pane="modules" class="hidden space-y-3">
@@ -127,6 +151,7 @@
       el('dv-add').classList.toggle('hidden', !r.canWrite);
       el('dv-followers').classList.toggle('hidden', !r.canWrite);
       renderList();
+      renderGroups();
       const again = keep && r.corporates.find(c => c.CorporateID === keep);
       if (again) open(again); else if (current && !current.isNew) { current = null; el('dv-detail').classList.add('hidden'); }
     }, err => { el('dv-list').innerHTML = '<tr><td colspan="7" class="px-3 py-3 text-red-400">' + escapeHtml(err.message || 'Unable to load the corporates.') + '</td></tr>'; });
@@ -155,6 +180,7 @@
       b.disabled = !!(current && current.isNew) && b.dataset.tab !== 'connection';
     });
     if (tab === 'modules') renderModules();
+    if (tab === 'setup') renderSetup();
     if (tab === 'notes') loadNotes();
     if (tab === 'tree') loadTree();
   }
@@ -166,6 +192,8 @@
     const w = c.WebConfig || {};
     el('dv-id').value = c.CorporateID || ''; el('dv-id').disabled = !c.isNew;
     el('dv-name').value = c.Name || ''; el('dv-status').value = c.Status || 'Active';
+    el('dv-group').innerHTML = '<option value="">(no group)</option>' + (data.groups || []).map(g => '<option value="' + escapeHtml(g.GroupID) + '">' + escapeHtml(g.Name) + '</option>').join('');
+    el('dv-group').value = c.Group || '';
     el('dv-project').value = c.ProjectID || ''; el('dv-dburl').value = c.DatabaseURL || '';
     el('dv-apikey').value = w.apiKey || ''; el('dv-authdomain').value = w.authDomain || ''; el('dv-appid').value = w.appId || '';
     el('dv-test').disabled = !!c.isNew;
@@ -176,7 +204,7 @@
 
   function save() {
     const d = {
-      isNew: !!current.isNew, CorporateID: el('dv-id').value.trim(), Name: el('dv-name').value, Status: el('dv-status').value,
+      isNew: !!current.isNew, CorporateID: el('dv-id').value.trim(), Name: el('dv-name').value, Status: el('dv-status').value, Group: el('dv-group').value,
       ProjectID: el('dv-project').value.trim(), DatabaseURL: el('dv-dburl').value.trim(),
       WebConfig: { apiKey: el('dv-apikey').value.trim(), authDomain: el('dv-authdomain').value.trim(), appId: el('dv-appid').value.trim() }
     };
@@ -198,8 +226,8 @@
     const off = current.Modules || {};
     el('dv-modules').innerHTML = data.modules.map(m =>
       '<label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-700/40"><input type="checkbox" data-mod="' + escapeHtml(m.id) + '"' +
-      (off[m.id] === false && !m.alwaysOn ? '' : ' checked') + (m.alwaysOn || !data.canWrite ? ' disabled' : '') + '> <span>' + escapeHtml(m.label) + '</span>' +
-      (m.alwaysOn ? ' <span class="text-xs text-slate-500">(always on)</span>' : '') + '</label>').join('');
+      ((m.alwaysOn || (m.baseline ? off[m.id] !== false : off[m.id] === true)) ? ' checked' : '') + (m.alwaysOn || !data.canWrite ? ' disabled' : '') + '> <span>' + escapeHtml(m.label) + '</span>' +
+      (m.alwaysOn ? ' <span class="text-xs text-slate-500">(always on)</span>' : m.baseline ? '' : ' <span class="text-xs text-amber-300">(later module)</span>') + '</label>').join('');
   }
   const tickAll = on => el('dv-modules').querySelectorAll('input[data-mod]:not(:disabled)').forEach(i => { i.checked = on; });
   function saveModules() {
@@ -292,6 +320,75 @@
     }, fail('update the corporates'));
   }
 
+  // ---------- groups (M4, decision 259) ----------
+  function renderGroups() {
+    const later = data.modules.filter(m => !m.baseline && !m.alwaysOn);
+    el('dv-groups').innerHTML = (data.groups || []).length ? data.groups.map(g => {
+      const members = data.corporates.filter(c => c.Group === g.GroupID).map(c => c.CorporateID);
+      return '<div class="bg-slate-900/60 border border-slate-700 rounded-lg p-3" data-group="' + escapeHtml(g.GroupID) + '">' +
+        '<div class="flex flex-wrap items-center gap-2"><b class="text-slate-100">' + escapeHtml(g.Name) + '</b><span class="text-xs text-slate-400">' + (members.length ? escapeHtml(members.join(', ')) : 'no corporate yet') + '</span>' +
+        (data.canWrite ? '<button class="dv-group-rename text-xs text-blue-300 hover:underline ml-auto">Rename</button>' : '') + '</div>' +
+        (later.length ? '<div class="flex flex-wrap gap-3 mt-2">' + later.map(m => '<label class="text-xs flex items-center gap-1"><input type="checkbox" data-gmod="' + escapeHtml(m.id) + '"' +
+          ((g.Modules || []).includes(m.id) ? ' checked' : '') + (data.canWrite ? '' : ' disabled') + '> ' + escapeHtml(m.label) + '</label>').join('') +
+          (data.canWrite ? '<button class="dv-group-save text-xs bg-blue-600 text-white px-3 py-1 rounded">Save</button>' : '') + '</div>'
+          : '<div class="text-xs text-slate-500 mt-1">No module has come after the groups yet.</div>') + '</div>';
+    }).join('') : '<div class="text-xs text-slate-500">No groups yet.</div>';
+    el('dv-groups').querySelectorAll('[data-group]').forEach(box => {
+      const id = box.dataset.group, g = data.groups.find(x => x.GroupID === id);
+      const rn = box.querySelector('.dv-group-rename'), sv = box.querySelector('.dv-group-save');
+      if (rn) rn.addEventListener('click', async () => {
+        const name = await appPrompt('The group\'s name:', g.Name);
+        if (name) call('saveDeveloperGroup', { GroupID: id, Name: name }).then(() => load(current && current.CorporateID), fail('rename the group'));
+      });
+      if (sv) sv.addEventListener('click', () => {
+        const modules = Array.from(box.querySelectorAll('input[data-gmod]:checked')).map(i => i.dataset.gmod);
+        call('saveDeveloperGroupModules', { GroupID: id, modules }).then(r => { appAlert('Provided to ' + (r.corporates.join(', ') || 'no corporate yet') + '.'); return load(current && current.CorporateID); }, fail('save the group'));
+      });
+    });
+  }
+  async function addGroup() {
+    const name = await appPrompt('The new group\'s name (e.g. Retail, Manufacturing):', '');
+    if (name) call('saveDeveloperGroup', { Name: name }).then(() => load(current && current.CorporateID), fail('add the group'));
+  }
+
+  // ---------- set up (M4) ----------
+  function renderSetup() {
+    const c = current, done = ok => '<i class="fa-solid ' + (ok ? 'fa-circle-check text-emerald-400' : 'fa-circle text-slate-500') + '"></i> ';
+    const rules = c.Rules ? (c.Rules.Ok ? 'deployed with release ' + escapeHtml(c.Rules.Commit) + ', ' + escapeHtml(time(c.Rules.At)) : '<span class="text-red-400">not deployed: ' + escapeHtml(c.Rules.Error || '') + '</span>')
+      : 'not yet: run the Deploy workflow\'s "database rules" task';
+    const leaving = c.Status === 'Inactive' && c.InactiveSince ? (c.PurgedAt ? 'What the firm held about it was deleted ' + escapeHtml(time(c.PurgedAt)) + '.'
+      : 'Inactive since ' + escapeHtml(time(c.InactiveSince)) + ': what the firm holds about it (Support issues and files, notes) is deleted ' + data.keepAfterLeavingDays + ' days after that, at a release.') : '';
+    el('dv-setup').innerHTML = [
+      done(c.LastTest && c.LastTest.Ok) + '<b>1. Connection test</b>: ' + (c.LastTest ? (c.LastTest.Ok ? 'passed ' : 'failed ') + escapeHtml(time(c.LastTest.At)) : 'not run (Connection)'),
+      done(c.Rules && c.Rules.Ok) + '<b>2. Rules</b>: ' + rules,
+      done(!!c.TreeSynced) + '<b>3. Menu</b>: ' + (c.TreeSynced ? 'given the main tree ' + escapeHtml(time(c.TreeSyncedAt)) : 'not yet (Tree → Back to the main tree)'),
+      done(!!c.ChartHeadings) + '<b>4. Chart headings</b>: ' + (c.ChartHeadings ? c.ChartHeadings.Count + ' copied ' + escapeHtml(time(c.ChartHeadings.At)) : 'not yet'),
+      done(!!c.FirstAdmin) + '<b>5. First Admin</b>: ' + (c.FirstAdmin ? escapeHtml(c.FirstAdmin.Name + ' <' + c.FirstAdmin.Email + '>') + ', ' + escapeHtml(time(c.FirstAdmin.At)) : 'not yet'),
+      done(c.Status === 'Active') + '<b>6. Active</b>: ' + escapeHtml(c.Status || '') + (leaving ? '<div class="text-xs text-amber-300 mt-1">' + leaving + '</div>' : '')
+    ].map(x => '<div>' + x + '</div>').join('');
+    el('dv-admin-form').classList.toggle('hidden', !data.canWrite || !!c.FirstAdmin);
+    el('dv-headings').classList.toggle('hidden', !data.canWrite || !!c.ChartHeadings);
+  }
+  async function createAdmin() {
+    const name = el('dv-admin-name').value.trim(), email = el('dv-admin-email').value.trim();
+    if (!(await appConfirm('Create ' + name + ' <' + email + '> as ' + current.CorporateID + '\'s first Admin, in its own sign-in? An email from it then lets them set their password.'))) return;
+    try {
+      const r = await call('createDeveloperAdmin', { CorporateID: current.CorporateID, Name: name, Email: email });
+      // The password email comes from the corporate's own Auth (decision 260).
+      const sdk = window.__firebaseSdk;
+      let sent = false;
+      if (sdk && sdk.authFor && sdk.sendPasswordResetEmail) {
+        try { await sdk.sendPasswordResetEmail(sdk.authFor({ corporateId: current.CorporateID, home: false, webConfig: r.webConfig }), r.email); sent = true; } catch (err) { sent = false; }
+      }
+      await load(current.CorporateID);
+      appAlert(sent ? 'Created. ' + r.email + ' has been sent the email to set a password.' : 'Created. Send the password email from the sign-in page: Forgot Password, Corporate ID ' + current.CorporateID + ', ' + r.email + '.');
+    } catch (err) { appAlert(err.message || 'Unable to create the Admin.'); }
+  }
+  async function copyHeadings() {
+    if (!(await appConfirm('Copy Corporate 100\'s chart headings (no posting accounts, no balances) into ' + current.CorporateID + '\'s empty chart?'))) return;
+    call('copyDeveloperChartHeaders', { CorporateID: current.CorporateID }).then(r => { appAlert(r.count + ' headings copied.'); return load(current.CorporateID); }, fail('copy the headings'));
+  }
+
   // ---------- the support queue (M3) ----------
   let queue = null, qIssue = null;
   const Q_TONE = { New: 'text-amber-300 font-semibold', 'In progress': 'text-blue-300', 'Waiting for you': 'text-fuchsia-300', Resolved: 'text-emerald-400', Closed: 'text-slate-500' };
@@ -370,6 +467,9 @@
     el('dv-note-cancel').addEventListener('click', () => fillNote(null));
     el('dv-tree-reset').addEventListener('click', resetTree);
     el('dv-q-filter').addEventListener('change', () => loadQueue());
+    el('dv-group-add').addEventListener('click', addGroup);
+    el('dv-admin-create').addEventListener('click', createAdmin);
+    el('dv-headings').addEventListener('click', copyHeadings);
     el('dv-q-send').addEventListener('click', answer);
     load();
     loadQueue();
