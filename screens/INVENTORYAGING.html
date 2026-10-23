@@ -106,7 +106,7 @@
     const lines = [['Item', 'Name', 'Category', 'On hand', 'UOM', 'Value'].concat(r.Buckets.map(b => b.label + ' (value)'), r.Buckets.map(b => b.label + ' (qty)'), ['Last receipt', 'Last issue'])]
       .concat(rows().map(x => [x.ItemCode, x.ItemName, x.Category, x.Qty, x.UOM, x.Value.toFixed(2)].concat(r.Buckets.map(b => x.Buckets[b.key].toFixed(2)), r.Buckets.map(b => x.QtyBuckets[b.key]), [x.LastIn, x.LastOut])));
     const tsv = lines.map(l => l.map(v => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
-    const done = () => { $('ia-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { $('ia-copy').innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
+    const done = () => { $('ia-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { const b = $('ia-copy'); if (b) b.innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, () => appAlert('Unable to copy.'));
     else appAlert('Copying is not available in this browser.');
   }

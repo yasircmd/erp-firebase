@@ -65,8 +65,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const areas = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../help/areas.json'), 'utf8')).areas;
     assert.deepEqual(await p.$$eval('.card h3', hs => hs.map(h => h.textContent)), areas.map(a => a.title));
     assert.match(await p.textContent('.card'), /Getting started[\s\S]*Working with screens[\s\S]*Approvals/);
-    assert.match(await p.textContent('main'), /Coming: Procurement Setup/);
-    assert.doesNotMatch(await p.textContent('main'), /Coming: Chart of Accounts/, 'Finance is written');
+    // Every area is written (help/areas.json): nothing listed as coming.
+    assert.ok(areas.every(a => a.written), 'every area written');
+    assert.doesNotMatch(await p.textContent('main'), /Coming:/);
     // Crawl every page reachable from the home page.
     const seen = new Set(), queue = ['/help/'];
     while (queue.length) {
@@ -106,7 +107,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await p.getAttribute('nav a.here', 'href'), 'getting-started.html');
     await p.fill('#q', 'corporate id');
     await p.waitForSelector('#results li');
-    assert.deepEqual(await p.$$eval('#results a', as => as.map(a => a.textContent)), ['Getting started']);
+    assert.deepEqual(await p.$$eval('#results a', as => as.map(a => a.textContent)), ['Getting started', "What's new"]);
     await p.fill('#q', 'reject reason');
     await p.waitForFunction(() => /Approvals/.test((document.querySelector('#results') || {}).textContent || ''));
     await p.fill('#q', 'zzzz nothing');
@@ -117,14 +118,17 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.close();
   });
 
-  await check('"?m=MODULE": a written screen opens its page; one not written yet says so on the home page', async () => {
+  await check('"?m=MODULE": a written screen opens its page; one without a page says so on the home page', async () => {
     const p = await newPage();
-    await p.goto(base + '/help/?m=GRN');
+    // The Developer module has no Help (owner, 2026-10-19).
+    await p.goto(base + '/help/?m=DEVELOPER');
     await p.waitForFunction(() => getComputedStyle(document.getElementById('notice')).display === 'block');
     assert.match(await p.textContent('#notice'), /no help page for that screen yet/);
     // Screens with a page: one page per screen, or one page for two.
     await p.goto(base + '/help/?m=JV');
     await p.waitForURL(/\/help\/journal-entries\.html$/);
+    await p.goto(base + '/help/?m=GRN');
+    await p.waitForURL(/\/help\/goods-receipt-note\.html$/);
     await p.goto(base + '/help/?m=PDCISSUED');
     await p.waitForURL(/\/help\/post-dated-cheques\.html$/);
     assert.match(await p.textContent('main .lead + .lead, main p.lead:nth-of-type(2)'), /Screens: PDC Received, PDC Issued/);

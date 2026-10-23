@@ -34,8 +34,7 @@ if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlg
     !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !psStart || !psEnd || !pkCssStart || !pkCssEnd || !pkStart || !pkEnd) throw new Error('could not locate shell code');
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+${require('./_cdnStyles').harnessHead()}
 <style>.hidden{display:none!important}
 ${slice(lgCssStart, lgCssEnd)}
 ${slice(psStart, psEnd)}

@@ -101,10 +101,8 @@ on 2026-10-04. Still to do in the app before the first payroll:
 - **Stock reports, PO units:** the Reorder report's "on order" treats a
   purchase order line's quantity as in the item's base unit (as GRN does).
   The owner to confirm whether orders are ever entered in other units.
-- **Copy button on the other report screens:** leaving a screen within 2
-  seconds of Copy throws a page error (found by the stock reports' UI
-  check; fixed in BATCHEXPIRY and REORDER). Inventory Aging and the other
-  report screens built the same way need the same one-line guard.
+- ~~**Copy button on the other report screens**~~: done 2026-10-23 (see
+  Follow-ups: "Copy then leaving a screen").
 - **Period Closing step 3:** April–March for Fixed Assets depreciation and
   the leave year; needs its own design first.
 
@@ -134,18 +132,38 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
 
 ## Follow-ups from new development
 
-- **Test upkeep (found 2026-10-17, not fixed):**
-  - `ui/searchPicker` "JV: … the code first" fails on `main` too: the JV
-    account picker's order, or its leaving out of the Cash / Bank
-    accounts, no longer matches the test;
-  - `ui/pdc` fails about one run in three (the setup reload resets the
-    party);
-  - `ui/help` and `ui/home`: out-of-date expectations and the offline
-    Tailwind subset;
-  - `ui/trialBalance` row heights: this environment.
-  - `ui/approvalRouting` "PDC Received: the Treasury team …" fails on
-    `main` too (2026-10-18): `#ac-followup-days-wrap` stays visible where
-    the test expects it hidden.
+- [x] **Test upkeep (found 2026-10-17; done 2026-10-23, branch
+  `copy-guard-tests`):**
+  - `ui/searchPicker` and `ui/approvalRouting`: pass on `main` (4/4 each);
+    fixed by earlier work, nothing changed.
+  - `ui/pdc`: 9/9 in three runs after its suite; the "one run in three"
+    did not recur. It fails only when the pdc suite has not run first, as
+    its header says.
+  - `ui/trialBalance` row heights and most of `ui/home`: the cloud test
+    container blocks cdn.tailwindcss.com and cdnjs, so the checks ran
+    without styles or icons (a star button 0 px tall). New
+    `tools/ui-tailwind.sh` builds the same Tailwind (v3) from npm;
+    `UI_TAILWIND_CSS` gives it to the harness and to `ui/home`
+    (functions/test/ui/_cdnStyles.js, with a 1em box per icon), as
+    `ESS_TAILWIND_CSS` already did for the portal. trialBalance 8/8.
+  - `ui/home` 11/11: three task rows expected yyyy-mm-dd; the shell shows
+    dd/mm/yyyy since 2026-09-29 (the screen was right).
+  - `ui/help` 5/5: every area is written now (nothing "Coming"), GRN has
+    its page (the "no page" example is now Developer, which has no Help),
+    and a search for "corporate id" finds What's new too.
+- [x] **Copy then leaving a screen threw a page error** (found 2026-10-12;
+  done 2026-10-23, same branch): the timer turning "Copied" back to
+  "Copy" looked the button up after the screen was gone. Guarded in
+  Customer / Vendor / Inventory Aging and Employee Requests, and Fixed
+  Asset Configuration's "saved" message. New unit guard
+  `unit/timersAfterLeave` checks every screen; `ui/agingReports` leaves
+  right after Copy. Also Retail Sales: typing in the counter's customer
+  Find before the counter had loaded threw a page error; it now waits
+  for the load, which applies the search (`ui/retailSales` holds the load
+  back and types). Inventory Aging's drill check waited on the rows of the
+  run the screen starts itself (as at today); it now waits for its own.
+  Deploy: **screens only**, then **hosting** (five Help pages re-stamped,
+  nothing in them changed).
 
 - [ ] **UX testing, 2026-10-14** (owner): 42 issues and suggestions. Tier 1
   live 2026-10-14 (PR #122), Tier 2 live 2026-10-16 (PR #123); **Tier 3:

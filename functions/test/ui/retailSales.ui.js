@@ -43,11 +43,12 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const harness = (require('./buildHarness'), fs.readFileSync(__dirname + '/harness.html'));
   const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(harness); }).listen(8178);
   const browser = await chromium.launch();
-  async function open(module, uid, answer) {
+  async function open(module, uid, answer, prepare) {
     const page = await browser.newPage();
     page.__errors = []; page.__dialogs = [];
     page.on('pageerror', e => page.__errors.push(e.message));
     await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(answer ? answer(d) : undefined); });
+    if (prepare) await prepare(page);
     await page.goto('http://127.0.0.1:8178/?module=' + module + '&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     return page;
@@ -379,13 +380,20 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual([made.Phone, made.CompanyID], ['055 999 8888', 'C1']);
     assert.deepEqual(p.__errors, []);
     await p.close();
-    const c = await open('RETAILSALES', 'u-cash1');
+    // Typed while the counter is still loading (held back here): no page
+    // error, and the search applies once it has loaded.
+    let release;
+    const held = new Promise(r => { release = r; });
+    const c = await open('RETAILSALES', 'u-cash1', null, pg => pg.route('**/getRetailCounter', async route => { await held; await route.continue(); }));
     await until(c, () => !document.getElementById('rs-counter-body').classList.contains('hidden'));
     await c.fill('#rs-customer-find', '055 111 2222');
+    release();
+    await until(c, () => document.getElementById('rs-items').options.length >= 1);
     assert.ok(await c.isVisible('#rs-customer-none'));
     assert.ok(await c.isHidden('#rs-customer-new'), 'no right to add customers');
     await c.fill('#rs-customer-find', '055 999 8888');
     assert.match(await c.textContent('#rs-customer'), /Dana Walk/);
+    assert.deepEqual(c.__errors, []);
     await c.close();
   });
 
