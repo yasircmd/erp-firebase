@@ -1,0 +1,7 @@
+# Bug fix (owner, 2026-10-23: "I still can create a folder with link"): a
+# top-level item (an area of the menu) opens no module, saved or dragged
+# there; nothing is dragged under an item that opens a module (patches
+# tree-folder-or-module, tree-folder-or-module-move). The two Tree
+# Management functions. No screens. Then the "hosting" task (Help).
+saveTreeNode
+moveTreeNode

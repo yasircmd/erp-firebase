@@ -83,7 +83,8 @@ test('only a client corporate\'s Support right sends issues, and only after conf
   await assert.rejects(firmAdmin('submitSupportIssue', issue()), /sent from a client corporate/);
   await assert.rejects(firmAdmin('getModuleFragment', { moduleId: 'SUPPORT' }), /You do not have access to this module/);
   assert.ok((await firmAdmin('getModuleRegistry', {})).some(m => m.id === 'SUPPORT'), 'linkable in the main tree');
-  assert.equal((await firmAdmin('saveTreeNode', { nodeData: { Text: 'Support', ParentID: '', ModuleID: 'SUPPORT', AllowedRoles: ['Admin'] } })).success, true);
+  const area = await firmAdmin('saveTreeNode', { nodeData: { Text: 'SYSTEM ADMIN', ParentID: '', ModuleID: '', AllowedRoles: ['Admin'] } });
+  assert.equal((await firmAdmin('saveTreeNode', { nodeData: { Text: 'Support', ParentID: area.nodeId, ModuleID: 'SUPPORT', AllowedRoles: ['Admin'] } })).success, true);
   assert.equal((await firmAdmin('getMyTree', {})).some(t => t.moduleId === 'SUPPORT'), false, 'but not in its own menu');
   assert.equal((await cara('getModuleRegistry', {})).some(m => m.id === 'SUPPORT'), true);
 });

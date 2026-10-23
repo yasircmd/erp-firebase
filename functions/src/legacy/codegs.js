@@ -762,7 +762,11 @@ async function saveTreeNode(idToken, nodeData) {
         walkId = existingAll[walkId] ? existingAll[walkId].ParentID : '';
       }
     }
-    // [NEW DEVELOPMENT tree-folder-or-module] an item opens a module or holds sub-items, never both.
+    // [NEW DEVELOPMENT tree-folder-or-module] an item opens a module or holds sub-items, never both;
+    // and the top level is the menu's areas, which open no module.
+    if (moduleId && !parentId) {
+      throw new Error('A top-level item is an area of the menu: it cannot open a module. Choose a parent for it, or set Linked Module to None.');
+    }
     if (moduleId && nodeId && Object.keys(existingAll).some(id => existingAll[id] && existingAll[id].ParentID === nodeId)) {
       throw new Error('This item has sub-items, so it is a folder: it cannot open a module. Link the module to an item without sub-items.');
     }
@@ -843,6 +847,13 @@ async function moveTreeNode(idToken, draggedNodeId, targetNodeId, position) {
     }
 
     const newParentId = target.ParentID || '';
+    // [NEW DEVELOPMENT tree-folder-or-module-move]
+    if (!newParentId && dragged.ModuleID) {
+      throw new Error('"' + dragged.Text + '" opens a module, so it cannot go to the top level: the top level is the menu\'s areas.');
+    }
+    if (newParentId && existingAll[newParentId] && existingAll[newParentId].ModuleID) {
+      throw new Error('"' + existingAll[newParentId].Text + '" opens a module, so it cannot hold sub-items: choose a folder.');
+    }
     const siblings = Object.keys(existingAll)
       .filter(id => (existingAll[id].ParentID || '') === newParentId && id !== draggedNodeId)
       .sort((a, b) => (existingAll[a].Order || 0) - (existingAll[b].Order || 0));

@@ -14,8 +14,9 @@ screen.
 
 - **A menu folder can no longer be linked to a module.** In
   [Tree Management](tree-management.html), an item either opens a screen or
-  holds sub-items. A folder linked to a module by mistake now stays in the
-  menu, with everything under it, so it can be put right.
+  holds sub-items, and a top-level item (an area of the menu) never opens a
+  screen. A folder linked to a module by mistake now stays in the menu,
+  with everything under it, so it can be put right.
 
 ## 22/10/2026
 

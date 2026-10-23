@@ -3102,7 +3102,8 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     why: 'NEW DEVELOPMENT (bug, owner, 2026-10-23): a menu item either opens a module or holds sub-items, never both. ' +
       'Linking a module to an item with sub-items (a folder) was allowed; the menu then dropped the folder and everything ' +
       'under it when the module was not the corporate\'s (e.g. Support in Corporate 100), Tree Management with it, so it could not ' +
-      'be undone. Refused now, as is adding a sub-item under an item that opens a module (tree.js also keeps such a folder).',
+      'be undone. Refused now, as is adding a sub-item under an item that opens a module (tree.js also keeps such a folder), ' +
+      'and a module on a top-level item (the top level is the menu\'s areas; owner, 2026-10-23: "I still can create a folder with link").',
     find: `    if (nodeId && parentId) {
       let walkId = parentId;
       while (walkId) {
@@ -3118,12 +3119,32 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
         walkId = existingAll[walkId] ? existingAll[walkId].ParentID : '';
       }
     }
-    // [NEW DEVELOPMENT tree-folder-or-module] an item opens a module or holds sub-items, never both.
+    // [NEW DEVELOPMENT tree-folder-or-module] an item opens a module or holds sub-items, never both;
+    // and the top level is the menu's areas, which open no module.
+    if (moduleId && !parentId) {
+      throw new Error('A top-level item is an area of the menu: it cannot open a module. Choose a parent for it, or set Linked Module to None.');
+    }
     if (moduleId && nodeId && Object.keys(existingAll).some(id => existingAll[id] && existingAll[id].ParentID === nodeId)) {
       throw new Error('This item has sub-items, so it is a folder: it cannot open a module. Link the module to an item without sub-items.');
     }
     if (parentId && existingAll[parentId] && existingAll[parentId].ModuleID) {
       throw new Error('"' + existingAll[parentId].Text + '" opens a module, so it cannot hold sub-items: choose a folder as the parent.');
+    }
+`
+  },
+  {
+    id: 'tree-folder-or-module-move',
+    why: 'NEW DEVELOPMENT (bug, owner, 2026-10-23), as tree-folder-or-module for dragging: an item that opens a module ' +
+      'cannot be dropped at the top level, and nothing can be dropped under an item that opens a module.',
+    find: `    const newParentId = target.ParentID || '';
+`,
+    replace: `    const newParentId = target.ParentID || '';
+    // [NEW DEVELOPMENT tree-folder-or-module-move]
+    if (!newParentId && dragged.ModuleID) {
+      throw new Error('"' + dragged.Text + '" opens a module, so it cannot go to the top level: the top level is the menu\\'s areas.');
+    }
+    if (newParentId && existingAll[newParentId] && existingAll[newParentId].ModuleID) {
+      throw new Error('"' + existingAll[newParentId].Text + '" opens a module, so it cannot hold sub-items: choose a folder.');
     }
 `
   }
