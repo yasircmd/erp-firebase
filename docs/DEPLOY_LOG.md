@@ -1238,3 +1238,26 @@ from, and how it was verified. The deploy procedure is in the
   (14:43–14:44 UTC), both from `e2cd895` (PR #141), success. **M2 is
   live.** To do in the app: link a "Developer" item to the DEVELOPER
   module in Corporate 100's Tree Management.
+- **2026-10-23, M3: Support and the issue queue (`support-module`, all 565
+  functions with --screens, then Hosting):** after Storage was set up in
+  the Firebase console (`erp1-8f4cd.firebasestorage.app`), from `78faba2`
+  (PR #142):
+  - run [#184](https://github.com/yasircmd/erp-firebase/actions/runs/39905128379)
+    (05:19–05:20 UTC): the rules, storage.rules included, success;
+  - run [#185](https://github.com/yasircmd/erp-firebase/actions/runs/39905374706)
+    (05:22–07:41 UTC), the functions: **every function deployed, but 30
+    public-invoker bindings failed** ("IAM FAILED"). The screens were not
+    released. The bindings were then 8 at a time, with one try each and
+    their errors hidden.
+
+  Then, from `2bb51cc` (PR #143: the bindings retried, and the "access,
+  then screens" task):
+  - run [#186](https://github.com/yasircmd/erp-firebase/actions/runs/39920733470)
+    (07:52–08:01 UTC): "access, then screens" re-bound all 565 and released
+    the screens, success;
+  - run [#187](https://github.com/yasircmd/erp-firebase/actions/runs/39921913955)
+    (08:03 UTC): Hosting, success.
+
+  **M3 is live.** To do in the app: link a "Support" item to the SUPPORT
+  module in Corporate 100's Tree Management (and a "Developer" item, if
+  not done yet).
