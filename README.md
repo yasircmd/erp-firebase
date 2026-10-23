@@ -137,10 +137,13 @@ npm i --no-save --prefix functions playwright && (cd functions && npx playwright
 # create-user test would reach production Auth)
 firebase emulators:start --only auth,database,firestore,functions,storage --project erp1-8f4cd
 
-node --test functions/test/unit/*.test.js   # no emulators needed; includes the no-browser-popups, date-format, supporting-documents light-mode, period-lock and help-is-current guards
+node --test functions/test/unit/*.test.js   # no emulators needed; includes the no-browser-popups, date-format, supporting-documents light-mode, period-lock, help-is-current and timers-after-leaving guards
 node --test --test-concurrency=1 functions/test/emulator/*.test.js
 # while developing, run just the module's suite (seconds, not the full run):
 #   node --test functions/test/emulator/salesReturn.emulator.test.js
+# where cdn.tailwindcss.com and cdnjs are blocked (the cloud test container),
+# build the Tailwind styles from npm first; the UI checks then use them:
+eval "$(tools/ui-tailwind.sh)"              # sets UI_TAILWIND_CSS and ESS_TAILWIND_CSS
 node functions/test/ui/smoke.ui.js          # every screen loads cleanly (Admin + Viewer)
 node functions/test/ui/dynamicToggle.ui.js  # a real deactivate/reactivate click
 node functions/test/ui/partyPayments.ui.js  # right after the partyPayments suite, every time: JV/CBT allocation screens
@@ -151,8 +154,7 @@ node functions/test/ui/pdc.ui.js            # after the pdc suite: the two PDC s
 node functions/test/ui/corporateSignIn.ui.js # sign-in by Corporate ID (index.html, ess.html): 100 as before, a client corporate's own Auth and envelope; no emulators needed
 node functions/test/ui/developer.ui.js       # the Developer screen (Corporate 100): directory, connection test, modules, notes, tree; seeds its own data
 node functions/test/ui/support.ui.js         # Support (a client corporate, ?corp=) and the Developer queue: send with a file after confirming, answer, close; seeds its own data
-node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed, but it needs
-                                            # cdn.tailwindcss.com: where that's blocked, 8 of its 10 checks fail
+node functions/test/ui/home.ui.js           # the Home shell (public/index.html); no emulators needed (the styles: see ui-tailwind above)
 node functions/test/ui/singleCompany.ui.js  # one-company user: company preselected on every screen (after vendorMaster)
 node functions/test/ui/fixedAssets.ui.js    # the Fixed Asset screens, incl. Retirement and Capital Work in Progress; seeds its own data
 node functions/test/ui/stockModules.ui.js   # after the stockModules suite: the four stock screens, GRN PO picker and non-stock lines
@@ -250,7 +252,8 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
   - UI checks: Fixed Assets 9/9, stock screens 14/14, Purchase Return
     4/4, requisitions 6/6, Job Order 4/4.
   - Home: 2/8, only because the cloud test container blocks the Tailwind
-    CDN (see above); unaffected by those changes.
+    CDN (see above); unaffected by those changes. Since 2026-10-23,
+    `tools/ui-tailwind.sh` supplies the styles there: Home 11/11.
 - **Party payments:** its check waits for elements, not fixed times, so it
   passes right after an emulator restart. Each run adds a bill, so rerun
   the partyPayments suite before rerunning it, or "oldest first" allocates

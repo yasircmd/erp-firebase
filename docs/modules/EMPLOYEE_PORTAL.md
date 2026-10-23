@@ -373,7 +373,7 @@ dates as the ERP's), `test/ui/essPortal.ui.js` (7, on a 390 px phone and a
 desktop). The page is also in the no-popups and date-format guards. Where
 the Tailwind CDN is unreachable, the UI check takes the styles from
 `ESS_TAILWIND_CSS` (built with `tailwindcss` from public/ess.html,
-`darkMode: 'class'`).
+`darkMode: 'class'`, by `tools/ui-tailwind.sh`).
 
 **Deploy:** `tools/deploy-sets/employee-portal.txt` with `--screens`
 (EMPLOYEES, LEAVE), then **Hosting** (index.html: My Portal; ess.html: the

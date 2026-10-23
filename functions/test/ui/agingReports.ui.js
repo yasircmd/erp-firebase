@@ -103,6 +103,9 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     const clip = (await p.evaluate(() => navigator.clipboard.readText())).split('\n');
     assert.equal(clip[0], 'Vendor\tCode\tTerms\t0–30\t31–60\t61–90\t91–120\t120+\tOwed\tUnapplied credits\tNet balance\tPending PDCs');
     assert.equal(clip[1], 'Beta Supplies\tV002\t60\t300.00\t0.00\t0.00\t0.00\t0.00\t300.00\t0.00\t300.00\t0.00');
+    // Leaving the screen before the button turns back to Copy: no page error.
+    await p.evaluate(() => document.getElementById('ag-copy').remove());
+    await p.waitForTimeout(2300);
     assert.deepEqual(p.__errors, []);
     await p.close();
   });
@@ -145,6 +148,8 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     await p.selectOption('#ia-company', 'C1');
     await p.fill('#ia-asof', '2026-04-30');
     await p.click('#ia-run');
+    // Wait for this run, not the one the screen starts by itself (as at today).
+    await until(p, () => /2026-04-30|30\/04\/2026/.test(document.getElementById('ia-title').textContent));
     await until(p, () => document.querySelector('#ia-body tr[data-id="I1"] .ia-ledger'));
     // All warehouses: the ledger opens on the item and dates and asks for a warehouse.
     await p.click('#ia-body tr[data-id="I1"] .ia-ledger');
@@ -160,6 +165,7 @@ const ok = r => { if (!r.success) throw new Error(r.error); return r; };
     await p.selectOption('#ia-company', 'C1');
     await p.fill('#ia-asof', '2026-04-30');
     await p.click('#ia-run');
+    await until(p, () => /2026-04-30|30\/04\/2026/.test(document.getElementById('ia-title').textContent));
     await until(p, () => document.getElementById('ia-warehouse').options.length > 1);
     await p.selectOption('#ia-warehouse', 'WH2');
     await p.click('#ia-run');

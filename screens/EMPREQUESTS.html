@@ -144,7 +144,7 @@
     const tsv = [['No.', 'Employee No.', 'Employee', 'Company', 'Type', 'Category', 'About', 'Status', 'With', 'Raised', 'Last activity']].concat(rows().map(r =>
       [r.Number, r.EmployeeNo, r.EmployeeName, coLabel(r.CompanyID), r.Type === 'Query' ? 'Payroll query' : r.Type === 'Claim' ? 'Expense claim' : 'Advance / loan', r.Category, r.Title, r.StatusText, r.AssignedName, isoLocalDateTime(new Date(r.CreatedAt)), isoLocalDateTime(new Date(r.LastAt))]))
       .map(c => c.map(x => String(x == null ? '' : x).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
-    const done = () => { $('erq-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { $('erq-copy').innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
+    const done = () => { $('erq-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { const b = $('erq-copy'); if (b) b.innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, () => appAlert('Unable to copy.'));
     else appAlert('Copying is not available in this browser.');
   }

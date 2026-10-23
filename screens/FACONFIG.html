@@ -108,7 +108,7 @@
   function flash(ok, msg) {
     $('fac-error').classList.toggle('hidden', ok); $('fac-ok').classList.toggle('hidden', !ok);
     (ok ? $('fac-ok') : $('fac-error')).textContent = msg;
-    if (ok) setTimeout(() => $('fac-ok').classList.add('hidden'), 3000);
+    if (ok) setTimeout(() => { const m = $('fac-ok'); if (m) m.classList.add('hidden'); }, 3000);
   }
   function call(fn, data, done) {
     rpc.withSuccessHandler(r => { if (r && r.success === false) flash(false, r.error); else done(r); })

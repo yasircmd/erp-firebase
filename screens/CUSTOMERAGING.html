@@ -125,7 +125,7 @@
       .concat(rows().map(x => [x.Name, x.Code, x.Terms].concat(r.Buckets.map(b => x.Buckets[b.key].toFixed(2)), [x.Owed.toFixed(2), x.Unapplied.toFixed(2), x.Net.toFixed(2), x.PendingPdc.toFixed(2)],
         fc ? [x.Currency || '', x.Currency ? x.FcNet.toFixed(2) : ''] : [])));
     const tsv = lines.map(l => l.map(v => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
-    const done = () => { $('ag-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { $('ag-copy').innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
+    const done = () => { $('ag-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { const b = $('ag-copy'); if (b) b.innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, () => appAlert('Unable to copy.'));
     else appAlert('Copying is not available in this browser.');
   }

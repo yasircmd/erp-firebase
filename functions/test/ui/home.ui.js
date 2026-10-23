@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
+const { routeCdnStyles } = require('./_cdnStyles');
 
 const INDEX = fs.readFileSync(path.join(__dirname, '../../../public/index.html'));
 const SDK = {
@@ -77,6 +78,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     page.__errors = [];
     page.on('pageerror', e => page.__errors.push(e.message));
+    await routeCdnStyles(page);
     await page.route('https://www.gstatic.com/firebasejs/**', route => {
       const file = route.request().url().split('/').pop();
       route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[file] });
@@ -269,6 +271,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     page = await context.newPage();
     page.__errors = [];
     page.on('pageerror', e => page.__errors.push(e.message));
+    await routeCdnStyles(page);
     await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
     await page.addInitScript(stubs);
     await page.addInitScript(() => { window.__recurringDue = [{ ModuleID: 'RECURRINGJV', ModuleLabel: 'Recurring Journal Entries', DocumentID: 'RJ-1', DocumentNumber: 'RJT-26-01-000001', Description: 'Rent {MONTH}', DueCount: 2, FailedCount: 1, OldestDueDate: '2026-08-01' }]; });
@@ -276,7 +279,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.waitForSelector('#home-recurring-due-block:not(.hidden)', { state: 'attached', timeout: 30000 });
     assert.equal((await page.textContent('#home-tasks-count')).trim(), '(1)');
     const row = await page.textContent('#home-recurring-due-list');
-    assert.match(row, /RJT-26-01-000001.*Rent \{MONTH\}.*2 due since 2026-08-01.*1 failed/s);
+    assert.match(row, /RJT-26-01-000001.*Rent \{MONTH\}.*2 due since 01\/08\/2026.*1 failed/s);
     await page.evaluate(() => toggleHomeTasksSection());
     await page.click('#home-recurring-due-list > div');
     await page.waitForSelector('#stub-module');
@@ -293,6 +296,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     page = await context.newPage();
     page.__errors = [];
     page.on('pageerror', e => page.__errors.push(e.message));
+    await routeCdnStyles(page);
     await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
     await page.addInitScript(stubs);
     await page.addInitScript(() => {
@@ -309,7 +313,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal((await page.textContent('#home-tasks-count')).trim(), '(3)', 'drafts counted with the other tasks');
     const rows = await page.$$eval('#home-drafts-list > div', ds => ds.map(d => d.textContent.replace(/\s+/g, ' ').trim()));
     assert.equal(rows.length, 2);
-    assert.match(rows[0], /^Purchase Order Steel <b>for<\/b> May · 2026-09-20 saved /, 'escaped, with the date and when it was saved');
+    assert.match(rows[0], /^Purchase Order Steel <b>for<\/b> May · 20\/09\/2026 saved /, 'escaped, with the date and when it was saved');
     assert.equal(rows[1], 'Goods Receipt (GRN) (no description)');
     await page.evaluate(() => toggleHomeTasksSection());
     await page.click('#home-drafts-list > div >> nth=0');
@@ -328,6 +332,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     page = await context.newPage();
     page.__errors = [];
     page.on('pageerror', e => page.__errors.push(e.message));
+    await routeCdnStyles(page);
     await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
     await page.addInitScript(stubs);
     await page.addInitScript(() => {
@@ -342,7 +347,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.waitForSelector('#home-followup-block:not(.hidden)', { state: 'attached', timeout: 30000 });
     assert.equal((await page.textContent('#home-tasks-count')).trim(), '(3)', 'counted with the other tasks');
     const rows = await page.$$eval('#home-followup-list > div', ds => ds.map(d => d.textContent.replace(/\s+/g, ' ').trim()));
-    assert.deepEqual(rows, ['JO-26-1-1 Job Order Request · FG-001 × 5 2026-10-01', 'PR-26-01 Purchase Requisition · <i>Paper</i> 2026-09-10']);
+    assert.deepEqual(rows, ['JO-26-1-1 Job Order Request · FG-001 × 5 01/10/2026', 'PR-26-01 Purchase Requisition · <i>Paper</i> 10/09/2026']);
     await page.evaluate(() => toggleHomeTasksSection());
     await page.click('#home-followup-list > div >> nth=1');
     await page.waitForSelector('#stub-module');
