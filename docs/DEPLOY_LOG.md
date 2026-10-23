@@ -1297,3 +1297,26 @@ from, and how it was verified. The deploy procedure is in the
   Aging and Employee Requests (nor Fixed Asset Configuration's saved
   message), and nor does typing in Retail Sales' customer Find while the
   counter loads; five Help pages re-stamped (unchanged).
+- **2026-10-23, Firestore indexes, and the release to client corporates
+  (PRs #152, #153, #154):**
+  - run [#195](https://github.com/yasircmd/erp-firebase/actions/runs/39962206725)
+    ("database rules", from `20ca12b`, PR #152), 13:33 UTC, **cancelled**
+    13:58: Corporate 100's rules and the new firestore.indexes.json
+    deployed, then the release waited for ever on test client C101, whose
+    deploy-account grant was missing (the Realtime Database SDK retries,
+    "Provided authentication credentials ... are invalid");
+  - run [#196](https://github.com/yasircmd/erp-firebase/actions/runs/39966119245)
+    ("functions set" `release-timeout`, from `451c372`, PR #153),
+    14:01–14:04 UTC, success: Test connection gives up on a part after 20 s;
+  - run [#197](https://github.com/yasircmd/erp-firebase/actions/runs/39966603640)
+    ("database rules", same commit), 14:05–14:06 UTC, **failure**: C101
+    reported after 20 s as intended, then the script's last line failed
+    ("Cannot find module 'firebase-admin'") and C101's rules failure had no
+    reason; Corporate 100's deploy itself was complete;
+  - run [#198](https://github.com/yasircmd/erp-firebase/actions/runs/39972982283)
+    ("database rules", from `bb873f4`, PR #154), 14:49–14:50 UTC,
+    success, with C101 set Inactive by the owner.
+
+  Corporate 100 has one more Firestore index than firestore.indexes.json
+  (made from the console; the deploy left it, no `--force`): to be added
+  to the file once listed.
