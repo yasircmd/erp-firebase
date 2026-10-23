@@ -373,6 +373,7 @@
     return pick;
   }
   function findCustomer() {
+    if (!counter) return; // typed before the counter loaded: loadCounter applies the search
     const before = $('rs-customer').value;
     const pick = renderCustomers(before);
     if (pick !== before) fillBillTo();

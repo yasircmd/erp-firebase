@@ -157,8 +157,13 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   Customer / Vendor / Inventory Aging and Employee Requests, and Fixed
   Asset Configuration's "saved" message. New unit guard
   `unit/timersAfterLeave` checks every screen; `ui/agingReports` leaves
-  right after Copy. Deploy: **screens only**, then **hosting** (four Help
-  pages re-stamped, nothing in them changed).
+  right after Copy. Also Retail Sales: typing in the counter's customer
+  Find before the counter had loaded threw a page error; it now waits
+  for the load, which applies the search (`ui/retailSales` holds the load
+  back and types). Inventory Aging's drill check waited on the rows of the
+  run the screen starts itself (as at today); it now waits for its own.
+  Deploy: **screens only**, then **hosting** (five Help pages re-stamped,
+  nothing in them changed).
 
 - [ ] **UX testing, 2026-10-14** (owner): 42 issues and suggestions. Tier 1
   live 2026-10-14 (PR #122), Tier 2 live 2026-10-16 (PR #123); **Tier 3:
