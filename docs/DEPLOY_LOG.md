@@ -1320,3 +1320,13 @@ from, and how it was verified. The deploy procedure is in the
   Corporate 100 has one more Firestore index than firestore.indexes.json
   (made from the console; the deploy left it, no `--force`): to be added
   to the file once listed.
+- **2026-10-23, a corporate is Active only once tested (`active-guard`):**
+  run [#199](https://github.com/yasircmd/erp-firebase/actions/runs/39977582192)
+  ("screens only", 15:21–15:22 UTC), from `7eea76d` (PR #156), success:
+  the Developer screen (a new corporate starts Inactive) only. The two
+  functions were **not** deployed, so Active was still accepted (owner,
+  2026-10-23). Then run
+  [#200](https://github.com/yasircmd/erp-firebase/actions/runs/39979077891)
+  ("functions set" `active-guard`, 15:31–15:34 UTC), same commit,
+  success. Verified by the owner: setting a corporate Active without a
+  passing connection test is refused.
