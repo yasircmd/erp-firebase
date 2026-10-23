@@ -14,4 +14,7 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 echo "Deploying database.rules.json, firestore.rules and storage.rules from $(git log -1 --format='%h %s'):"
 cat database.rules.json
-if $FIREBASE deploy --project "$P" --only database,firestore:rules,storage; then echo "ALL DONE"; else echo "RULES DEPLOY FAILED"; exit 1; fi
+if ! $FIREBASE deploy --project "$P" --only database,firestore:rules,storage; then echo "RULES DEPLOY FAILED"; exit 1; fi
+# Then every client corporate's project, its tree and the leavers
+# (tools/release-corporates.js; MULTI_CORPORATE.md M4).
+if FIREBASE="$FIREBASE" node tools/release-corporates.js; then echo "ALL DONE"; else echo "RELEASE TO CORPORATES FAILED"; exit 1; fi

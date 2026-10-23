@@ -787,3 +787,87 @@ client's audit logs.
   stops for that client until the next day.
 - **265:** the firm deletes what it holds about a client (Support issues
   and files, internal notes) 90 days after it is set Inactive.
+
+## As built: M4, onboarding and each release (2026-10-23)
+
+**The checklist:** docs/ONBOARDING.md. It has the client's steps (the
+project, the plan, the databases, Auth, the web app, and the grants as
+`gcloud` commands), the firm's steps in the Developer screen, each
+release, and a client leaving.
+
+**Groups and later modules** (decision 259):
+- **The baseline** (moduleBaseline.js) is the 89 modules there were when
+  groups came in. It is frozen (unit/moduleBaseline checks its
+  fingerprint).
+  - A baseline module is on for a client unless switched off, as before.
+  - A module added to the registry after it is **off for every client
+    corporate** until it is provided (entitlements.js:
+    `Modules[id] === true`).
+- **Groups** (Firestore `corporateGroups`, the firm's): the Developer
+  screen's Groups section.
+  - Providing a later module to a group sets it on for every corporate in
+    the group; taking it away sets it off for them.
+  - A corporate that joins a group gets what the group has.
+  - A corporate can still be ticked on its own in its Modules.
+- Corporate 100 has every module at once.
+
+**The Developer screen's Set up tab** shows each onboarding step's state:
+1. the connection test;
+2. the rules: the release, or why not;
+3. the menu;
+4. the chart headings;
+5. the first Admin;
+6. Active.
+
+For a corporate that left, it also shows when its data will be or was
+deleted. It has two new actions:
+- **Copy the chart headings** (decision 261): Corporate 100's current
+  active headings (non-posting, at heading codes), with their parents,
+  shared (no company), into an empty chart only. A heading whose parent is
+  not copied goes to the top.
+- **Create the first Admin** (decision 260):
+  - an account with no password in the client's own Auth, and its ERP
+    profile (role ADMIN, Active) in its database, with its roles seeded;
+  - refused when the corporate already has an Admin;
+  - the screen then has the client's own Auth send the password-setting
+    email (through the shell's `authFor`).
+
+**Each release** (tools/release-corporates.js, run by tools/deploy-rules.sh
+after this project's rules, decisions 246, 263, 265):
+- deploys `database.rules.json` (with its RTDB indexes) and
+  `firestore.rules` to every Active corporate's project, recorded in its
+  entry (`Rules`); a corporate it cannot reach is reported and the others
+  go on;
+- brings the followers of the main tree up to date and offers the new
+  modules to the own layouts (the same code as the Developer screen's
+  button);
+- deletes the Support issues, their messages and files, the notes and the
+  issue counter of a corporate Inactive for 90 days (`InactiveSince`, set
+  when it is saved Inactive, cleared when Active again), and marks the
+  entry `PurgedAt`.
+
+**Tests:**
+- **Emulator `onboarding`** (in-process, with a stand-in later module):
+  - a later module off until provided to a group or a corporate, and
+    joining and leaving a group;
+  - the first Admin, once, in the client's own Auth;
+  - the headings only, into an empty chart;
+  - the 90 days, and only the leaver's data;
+  - the release: Active corporates only, one not reached reported, the
+    follower updated.
+- **UI `developer`:** adding a group and putting a corporate in it; the
+  Set up steps, copying the headings and creating the first Admin.
+- **Unit:** moduleBaseline.
+- **Negative controls**, each caught, then restored:
+  - later modules on by default;
+  - joining a group giving nothing;
+  - a second first Admin;
+  - posting accounts copied;
+  - deleting at once;
+  - rules deployed to Inactive corporates too;
+  - the screen not sending the group.
+
+**Deploy:** set `onboarding`: every function (entitlements.js through
+auth.js; 5 Developer functions, new), with `--screens` (DEVELOPER.html).
+Then Hosting (the Help's Roles and Tree Management pages, re-stamped).
+From then on, the `database rules` task also releases to the corporates.

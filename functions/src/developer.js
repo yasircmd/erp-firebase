@@ -23,10 +23,16 @@ const { rtdb, firestore, admin, firm, HOME_ID, corporateId, runInCorporate } = r
 const { requireUser, moduleHasCapability } = require('./auth');
 const { DIRECTORY } = require('./corporates');
 const { MODULE_REGISTRY } = require('./moduleRegistry');
+const { isBaseline } = require('./entitlements');
+const { levelOf } = require('./coaScheme');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'DEVELOPER';
 const NOTES = 'corporateNotes';
+const GROUPS = 'corporateGroups';
+// What the firm holds about a client is deleted this long after it is set
+// Inactive (decision 265).
+const KEEP_AFTER_LEAVING_DAYS = 90;
 const VALID_ID = /^[A-Za-z0-9-]{1,20}$/;
 const NOTE_TYPES = ['Note', 'Task', 'Bug', 'Change request'];
 const NOTE_STATUSES = ['Open', 'In progress', 'Done'];
@@ -82,7 +88,8 @@ function validEntry(d) {
 // The corporates, with their open notes counted.
 exports.getDeveloperCorporates = onCallWithMessages(onCallOptions, async (request) => {
   const user = await developer(request, 'access');
-  const [dir, notes] = await Promise.all([firm.firestore.collection(DIRECTORY).get(), firm.firestore.collection(NOTES).where('Status', 'in', ['Open', 'In progress']).get()]);
+  const [dir, notes, groups] = await Promise.all([firm.firestore.collection(DIRECTORY).get(), firm.firestore.collection(NOTES).where('Status', 'in', ['Open', 'In progress']).get(),
+    firm.firestore.collection(GROUPS).get()]);
   const open = {};
   notes.forEach(n => { const c = n.get('CorporateID'); open[c] = (open[c] || 0) + 1; });
   const corporates = dir.docs.map(d => Object.assign({ CorporateID: d.id, OpenNotes: open[d.id] || 0 }, d.data()))
@@ -90,7 +97,9 @@ exports.getDeveloperCorporates = onCallWithMessages(onCallOptions, async (reques
   return {
     canWrite: await moduleHasCapability(MODULE_ID, 'write', user.profile.role),
     corporates,
-    modules: MODULE_REGISTRY.filter(m => !m.homeOnly).map(m => ({ id: m.id, label: m.label, alwaysOn: ALWAYS_ON.includes(m.id) })),
+    modules: MODULE_REGISTRY.filter(m => !m.homeOnly).map(m => ({ id: m.id, label: m.label, alwaysOn: ALWAYS_ON.includes(m.id), baseline: isBaseline(m.id) })),
+    groups: groups.docs.map(g => Object.assign({ GroupID: g.id }, g.data())).sort((a, b) => String(a.Name).localeCompare(String(b.Name))),
+    keepAfterLeavingDays: KEEP_AFTER_LEAVING_DAYS,
     noteTypes: NOTE_TYPES, noteStatuses: NOTE_STATUSES
   };
 });
@@ -106,12 +115,27 @@ exports.saveDeveloperCorporate = onCallWithMessages(onCallOptions, async (reques
   const e = validEntry(d);
   const now = new Date().toISOString();
   const ref = entryRef(id);
+  // Its group (decision 259): joining one gives it the modules provided to
+  // the group.
+  // (Not given: it keeps its group.)
+  const groupGiven = d.Group !== undefined;
+  const groupId = str(d.Group, 40);
+  const group = groupGiven && groupId ? await firm.firestore.doc(GROUPS + '/' + groupId).get() : null;
+  if (group && !group.exists) throw new HttpsError('invalid-argument', 'That group is not there any more.');
   await firm.firestore.runTransaction(async tx => {
     const snap = await tx.get(ref);
     if (d.isNew === true && snap.exists) throw new HttpsError('already-exists', 'Corporate ' + id + ' is already in the directory.');
     if (d.isNew !== true && !snap.exists) throw new HttpsError('not-found', 'Corporate ' + id + ' is not in the directory.');
-    if (snap.exists) tx.update(ref, Object.assign(e, { UpdatedAt: now, UpdatedBy: nameOf(user) }));
-    else tx.set(ref, Object.assign(e, { Modules: {}, CreatedAt: now, CreatedBy: nameOf(user), UpdatedAt: now, UpdatedBy: nameOf(user) }));
+    const was = snap.exists ? snap.data() : {};
+    e.Group = groupGiven ? groupId : (was.Group || '');
+    const modules = Object.assign({}, was.Modules || {});
+    if (group && was.Group !== groupId) (group.get('Modules') || []).forEach(m => { modules[m] = true; });
+    // When it stopped being Active: what the firm holds about it is deleted
+    // KEEP_AFTER_LEAVING_DAYS later (decision 265).
+    const inactiveSince = e.Status === 'Inactive' ? (was.Status === 'Inactive' && was.InactiveSince ? was.InactiveSince : now) : '';
+    Object.assign(e, { Modules: modules, InactiveSince: inactiveSince, UpdatedAt: now, UpdatedBy: nameOf(user) });
+    if (snap.exists) tx.update(ref, e);
+    else tx.set(ref, Object.assign(e, { CreatedAt: now, CreatedBy: nameOf(user) }));
   });
   return { success: true, CorporateID: id };
 });
@@ -149,14 +173,66 @@ exports.saveDeveloperModules = onCallWithMessages(onCallOptions, async (request)
   const d = request.data || {};
   const { id } = await entryOf(d.CorporateID);
   const given = d.modules || {};
-  const off = {};
+  // A baseline module is kept only when switched off; a later one only when
+  // switched on (entitlements.js).
+  const set = {};
   MODULE_REGISTRY.forEach(m => {
     if (HOME_ONLY.has(m.id) || ALWAYS_ON.includes(m.id)) return;
-    if (given[m.id] === false) off[m.id] = false;
+    if (isBaseline(m.id)) { if (given[m.id] === false) set[m.id] = false; } else if (given[m.id] === true) set[m.id] = true;
   });
   // The whole map is replaced (a set, not a merge of fields).
-  await entryRef(id).update({ Modules: off, ModulesUpdatedAt: new Date().toISOString(), ModulesUpdatedBy: nameOf(user) });
-  return { success: true, off: Object.keys(off) };
+  await entryRef(id).update({ Modules: set, ModulesUpdatedAt: new Date().toISOString(), ModulesUpdatedBy: nameOf(user) });
+  return { success: true, off: Object.keys(set).filter(k => set[k] === false), on: Object.keys(set).filter(k => set[k] === true) };
+});
+
+// ---------- groups (decision 259) ----------
+//
+// A group (Firestore corporateGroups, the firm's) is a category of client
+// corporates. The firm provides a module that came after the baseline to
+// groups: every corporate in a ticked group gets it, and one in a group
+// it is taken from loses it. A corporate can still be ticked one by one
+// afterwards (Modules).
+
+exports.saveDeveloperGroup = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await developer(request, 'write');
+  const d = request.data || {};
+  const name = str(d.Name, 80);
+  if (!name) throw new HttpsError('invalid-argument', 'Give the group a name.');
+  const now = new Date().toISOString();
+  const all = await firm.firestore.collection(GROUPS).get();
+  if (all.docs.some(g => g.id !== d.GroupID && String(g.get('Name')).toLowerCase() === name.toLowerCase())) throw new HttpsError('already-exists', 'There is a group "' + name + '" already.');
+  if (d.GroupID) {
+    const ref = firm.firestore.doc(GROUPS + '/' + str(d.GroupID, 40));
+    if (!(await ref.get()).exists) throw new HttpsError('not-found', 'That group is not there any more.');
+    await ref.update({ Name: name, UpdatedAt: now, UpdatedBy: nameOf(user) });
+    return { success: true, GroupID: ref.id };
+  }
+  const ref = await firm.firestore.collection(GROUPS).add({ Name: name, Modules: [], CreatedAt: now, CreatedBy: nameOf(user), UpdatedAt: now, UpdatedBy: nameOf(user) });
+  return { success: true, GroupID: ref.id };
+});
+
+// modules: the later (non-baseline) modules provided to the group.
+exports.saveDeveloperGroupModules = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await developer(request, 'write');
+  const d = request.data || {};
+  const ref = firm.firestore.doc(GROUPS + '/' + (str(d.GroupID, 40) || '-'));
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'That group is not there any more.');
+  const later = MODULE_REGISTRY.filter(m => !isBaseline(m.id) && !m.homeOnly).map(m => m.id);
+  const wanted = (Array.isArray(d.modules) ? d.modules : []).filter(m => later.includes(m));
+  const before = snap.get('Modules') || [];
+  const now = new Date().toISOString();
+  const members = await firm.firestore.collection(DIRECTORY).where('Group', '==', snap.id).get();
+  const batch = firm.firestore.batch();
+  batch.update(ref, { Modules: wanted, UpdatedAt: now, UpdatedBy: nameOf(user) });
+  members.forEach(c => {
+    const modules = Object.assign({}, c.get('Modules') || {});
+    wanted.forEach(m => { modules[m] = true; });
+    before.filter(m => !wanted.includes(m)).forEach(m => { delete modules[m]; });
+    batch.update(c.ref, { Modules: modules, ModulesUpdatedAt: now, ModulesUpdatedBy: nameOf(user) });
+  });
+  await batch.commit();
+  return { success: true, corporates: members.docs.map(c => c.id), modules: wanted };
 });
 
 // ---------- notes ----------
@@ -380,6 +456,12 @@ async function offerNewModules(c, main) {
 // main tree's new modules in its "New modules" folder.
 exports.updateDeveloperTreeFollowers = onCallWithMessages(onCallOptions, async (request) => {
   const user = await developer(request, 'write');
+  return updateFollowers(user);
+});
+
+// Also run by each release (tools/release-corporates.js, decision 263), as
+// SYSTEM. In Corporate 100.
+async function updateFollowers(user) {
   const mainNodes = await mainTree();
   const main = fingerprint(mainNodes);
   const dir = await firm.firestore.collection(DIRECTORY).where('Status', '==', 'Active').get();
@@ -399,6 +481,102 @@ exports.updateDeveloperTreeFollowers = onCallWithMessages(onCallOptions, async (
     }
   }
   return { success: true, updated, offered, failed };
+}
+
+// ---------- onboarding (M4) ----------
+
+// The client's first Admin (decision 260): an account in the client's own
+// Auth, with no password, and its ERP profile (role ADMIN) in its
+// database. The screen then has the client's Auth send the password-setting
+// email.
+exports.createDeveloperAdmin = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await developer(request, 'write');
+  const d = request.data || {};
+  const c = await entryOf(d.CorporateID);
+  const email = str(d.Email, 200).toLowerCase(), name = str(d.Name, 120);
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpsError('invalid-argument', 'Give the Admin\'s email address.');
+  if (!name) throw new HttpsError('invalid-argument', 'Give the Admin\'s name.');
+  const out = await runInCorporate(c, async () => {
+    const users = (await rtdb.ref('users').get()).val() || {};
+    if (Object.values(users).some(u => u && u.role === 'ADMIN' && u.status === 'Active')) {
+      throw new HttpsError('failed-precondition', 'Corporate ' + c.id + ' has an Admin already: its own Admin adds users in User Management.');
+    }
+    let account;
+    try { account = await admin.auth().getUserByEmail(email); } catch (err) { account = null; }
+    if (!account) account = await admin.auth().createUser({ email, displayName: name, emailVerified: false });
+    await require('./roles').ensureRolesSeeded();
+    const now = new Date().toISOString();
+    await rtdb.ref('users/' + account.uid).set({
+      username: email.split('@')[0], fullName: name, email, role: 'ADMIN', status: 'Active', AssignedCompanies: [],
+      createdAt: now, createdBy: nameOf(user) + ' (the support team)'
+    });
+    return { uid: account.uid };
+  });
+  await entryRef(c.id).update({ FirstAdmin: { Email: email, Name: name, At: new Date().toISOString(), By: nameOf(user) } });
+  return { success: true, uid: out.uid, email, webConfig: c.entry.WebConfig || {} };
+});
+
+// The chart's headings as Corporate 100's are now (decision 261): its
+// non-posting accounts at heading codes, with no posting account and no
+// balance. Only into an empty chart.
+exports.copyDeveloperChartHeaders = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await developer(request, 'write');
+  const c = await entryOf((request.data || {}).CorporateID);
+  const main = (await rtdb.ref('coa').get()).val() || {};
+  const now = new Date().toISOString();
+  const headings = {};
+  Object.keys(main).forEach(id => {
+    const a = main[id];
+    if (!a || a.Status !== 'Active' || a.IsPostable !== false || levelOf(a.AccountCode) === 'account') return;
+    headings[id] = {
+      AccountCode: String(a.AccountCode), AccountName: a.AccountName || '', AccountType: a.AccountType || '', AccountSubType: a.AccountSubType || '',
+      NormalBalance: a.NormalBalance || '', CashFlowCategory: a.CashFlowCategory || '', CashBank: a.CashBank || '', OwnCashBank: a.OwnCashBank || '',
+      ParentAccountID: a.ParentAccountID || '', IsPostable: false, CompanyID: '', Status: 'Active',
+      CreatedAt: now, CreatedBy: 'SYSTEM', UpdatedAt: now, UpdatedBy: 'SYSTEM'
+    };
+  });
+  // A heading whose parent is not copied (a company's own, or inactive) goes to the top.
+  Object.values(headings).forEach(h => { if (h.ParentAccountID && !headings[h.ParentAccountID]) h.ParentAccountID = ''; });
+  if (!Object.keys(headings).length) throw new HttpsError('failed-precondition', 'Corporate 100 has no headings to copy.');
+  await runInCorporate(c, async () => {
+    const own = (await rtdb.ref('coa').get()).val() || {};
+    if (Object.keys(own).length) throw new HttpsError('failed-precondition', 'Corporate ' + c.id + '\'s chart has accounts already: its Admin keeps it.');
+    await rtdb.ref('coa').set(headings);
+  });
+  await entryRef(c.id).update({ ChartHeadings: { Count: Object.keys(headings).length, At: now, By: nameOf(user) } });
+  return { success: true, count: Object.keys(headings).length };
+});
+
+// What the firm holds about a client that left (decision 265): its Support
+// issues and their files, and the internal notes, KEEP_AFTER_LEAVING_DAYS
+// after it was set Inactive. The directory entry stays, marked.
+async function purgeLeavers(now) {
+  const t = now || Date.now();
+  const dir = await firm.firestore.collection(DIRECTORY).where('Status', '==', 'Inactive').get();
+  const purged = [];
+  for (const d of dir.docs) {
+    const since = Date.parse(d.get('InactiveSince') || '');
+    if (!since || d.get('PurgedAt') || t - since < KEEP_AFTER_LEAVING_DAYS * 86400000) continue;
+    const issues = await firm.firestore.collection('supportIssues').where('CorporateID', '==', d.id).get();
+    for (const i of issues.docs) {
+      const msgs = await i.ref.collection('messages').get();
+      for (const m of msgs.docs) await m.ref.delete();
+      await i.ref.delete();
+    }
+    await firm.bucket().deleteFiles({ prefix: 'support/' + d.id + '/' }).catch(() => {});
+    const notes = await firm.firestore.collection(NOTES).where('CorporateID', '==', d.id).get();
+    for (const n of notes.docs) await n.ref.delete();
+    await firm.firestore.doc('supportCounters/' + d.id).delete().catch(() => {});
+    await d.ref.update({ PurgedAt: new Date(t).toISOString(), PurgedIssues: issues.size, PurgedNotes: notes.size });
+    purged.push(d.id);
+  }
+  return purged;
+}
+
+exports.purgeDeveloperLeavers = onCallWithMessages(onCallOptions, async (request) => {
+  await developer(request, 'write');
+  return { success: true, purged: await purgeLeavers() };
 });
 
 module.exports._layout = { layout, fingerprint, treeStatus };
+module.exports._release = { updateFollowers, purgeLeavers, KEEP_AFTER_LEAVING_DAYS };

@@ -5,8 +5,8 @@ order: 4
 modules: [ROLES]
 sources: [functions/src/roles.js, functions/src/entitlements.js]
 summary: Define which roles can open, edit, approve, post or report on each module.
-reviewed: 2026-10-22
-fingerprint: 34fce1f681312285
+reviewed: 2026-10-23
+fingerprint: b359347a151f6ef2
 ---
 ## What it is for
 

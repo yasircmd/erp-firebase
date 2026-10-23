@@ -320,7 +320,9 @@ exports.saveFxSettings = require('./src/exchangeRates').saveFxSettings;
 const developer = require('./src/developer');
 ['getDeveloperCorporates', 'saveDeveloperCorporate', 'testDeveloperCorporate', 'saveDeveloperModules',
   'getDeveloperNotes', 'saveDeveloperNote', 'deleteDeveloperNote',
-  'getDeveloperTree', 'resetDeveloperTree', 'updateDeveloperTreeFollowers'].forEach(name => { exports[name] = developer[name]; });
+  'getDeveloperTree', 'resetDeveloperTree', 'updateDeveloperTreeFollowers',
+  'saveDeveloperGroup', 'saveDeveloperGroupModules', 'createDeveloperAdmin', 'copyDeveloperChartHeaders', 'purgeDeveloperLeavers' // M4
+].forEach(name => { exports[name] = developer[name]; });
 
 // Support (docs/modules/MULTI_CORPORATE.md, M3): client corporates send
 // issues; the firm answers in the Developer screen.

@@ -81,6 +81,7 @@ tools/
   legacy-port/                  — the Code.gs → Cloud Functions generator (migration only)
   deploy-migration.sh           — deploys pending generated-port functions
   deploy-functions.sh           — deploys a named set (tools/deploy-sets/<set>.txt) for new development
+  release-corporates.js         — run by deploy-rules.sh: the rules to every client corporate, their tree, the leavers (docs/ONBOARDING.md)
   deploy-runtime.sh             — moves every live function onto engines.node's runtime
   (.github/workflows/deploy.yml — runs the deploy scripts from GitHub Actions, manual only)
   help/                         — build.js (public/help from help/pages), stamp.js (a page reviewed against its code), lib.js (the checks)

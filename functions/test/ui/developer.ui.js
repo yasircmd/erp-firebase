@@ -12,7 +12,8 @@ const assert = require('assert/strict');
 const admin = require('firebase-admin');
 const { chromium } = require('playwright');
 const { onAppDialog } = require('./_appDialogs');
-const { call, reset, baseFixture, firestore } = require('../emulator/_helpers');
+const { call, reset, baseFixture, firestore, rtdb } = require('../emulator/_helpers');
+let promptAnswer = '';
 
 const CLIENT = 'erp-client-demo';
 const CLIENT_DB = 'https://' + CLIENT + '-default-rtdb.firebaseio.com';
@@ -29,6 +30,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const c = baseFixture();
   c.users = { 'u-cara': { status: 'Active', role: 'Admin', username: 'cara', fullName: 'Cara Client' } };
   delete c.tree;
+  delete c.coa; // an empty chart, for the headings
   await clientApp.database().ref('/').set(c);
   // The emulator starts each function on its first call: start them before the browser times them.
   for (const fn of ['getDeveloperCorporates', 'getDeveloperNotes', 'getDeveloperTree', 'testDeveloperCorporate']) await call('u-admin', fn, { CorporateID: '200' }).catch(() => {});
@@ -40,7 +42,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     page.__errors = []; page.__dialogs = [];
     page.on('pageerror', e => page.__errors.push(e.message));
-    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(); });
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); if (d.type() === 'prompt') d.accept(promptAnswer); else d.accept(); });
     await page.goto('http://127.0.0.1:8191/?module=DEVELOPER&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForSelector('#dv-list tr[data-id="200"]', { timeout: 30000 });
@@ -125,6 +127,42 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.match(p.__dialogs[0], /Give 200 the main tree\?/);
     assert.equal(await p.isHidden('#dv-tree-reset'), true, 'nothing to put back');
     assert.deepEqual(Object.values((await clientApp.database().ref('tree').get()).val()).map(n => n.Text).sort(), ['Finance', 'Journal Entry']);
+  });
+
+  await check('groups: one added, a corporate put in it', async () => {
+    p.__dialogs = [];
+    promptAnswer = 'Retail';
+    await p.click('#dv-group-add');
+    await until(p, () => /Retail\s*no corporate yet/.test(document.getElementById('dv-groups').textContent));
+    assert.match(await p.textContent('#dv-groups'), /No module has come after the groups yet/);
+    await p.click('#dv-list tr[data-id="200"]');
+    await p.click('#dv-tabs [data-tab="connection"]');
+    await p.selectOption('#dv-group', { label: 'Retail' });
+    await p.click('#dv-save');
+    await until(p, () => /Retail\s*200/.test(document.getElementById('dv-groups').textContent));
+    assert.ok((await entry('200')).Group);
+  });
+
+  await check('set up: the steps, the chart headings and the first Admin', async () => {
+    p.__dialogs = [];
+    await rtdb.ref('coa/H1').set({ AccountCode: '100000', AccountName: 'Assets', AccountType: 'Asset', NormalBalance: 'Debit', IsPostable: false, Status: 'Active', CompanyID: '' });
+    await p.click('#dv-list tr[data-id="200"]');
+    await p.click('#dv-tabs [data-tab="setup"]');
+    const steps = await p.textContent('#dv-setup');
+    assert.match(steps, /1\. Connection test: passed/);
+    assert.match(steps, /2\. Rules: not yet: run the Deploy workflow's "database rules" task/);
+    assert.match(steps, /3\. Menu: given the main tree/);
+    assert.match(steps, /5\. First Admin: not yet/);
+    await p.click('#dv-headings');
+    await until(p, () => /4\. Chart headings: \d+ copied/.test(document.getElementById('dv-setup').textContent));
+    assert.ok(Object.values((await clientApp.database().ref('coa').get()).val()).every(a => a.IsPostable === false), 'headings only');
+    assert.equal(await p.isHidden('#dv-headings'), true, 'once');
+    await p.fill('#dv-admin-name', 'Ann Admin'); await p.fill('#dv-admin-email', 'ann@client.test');
+    await p.click('#dv-admin-create');
+    await until(p, () => /5\. First Admin: Ann Admin <ann@client\.test>/.test(document.getElementById('dv-setup').textContent));
+    assert.match(p.__dialogs.join(' | '), /Create Ann Admin <ann@client\.test> as 200's first Admin/);
+    assert.equal((await clientApp.auth().getUserByEmail('ann@client.test')).email, 'ann@client.test', 'in the client\'s own Auth');
+    assert.equal(await p.isHidden('#dv-admin-form'), true);
   });
 
   await check('a Viewer sees it read-only', async () => {
