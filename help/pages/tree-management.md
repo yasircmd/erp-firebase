@@ -22,7 +22,7 @@ fingerprint: 3d7566ff6bfa60c3
 ## Step by step
 
 1. Open Tree Management and review the existing hierarchy. Add a top-level item or add a child beneath the intended parent.
-2. Set the node text, optional parent, optional linked module, and allowed roles. Use a node without a linked module for a heading/reference item. An item either opens a module or holds sub-items, never both: the ERP refuses a module on an item that has sub-items, and a sub-item under an item that opens a module.
+2. Set the node text, optional parent, optional linked module, and allowed roles. Use a node without a linked module for a heading/reference item. An item either opens a module or holds sub-items, never both: the ERP refuses a module on an item that has sub-items, and a sub-item under an item that opens a module. A top-level item is an area of the menu: it never opens a module, whether you save it there or drag it there.
 3. Drag a node above or below another node to reorder it; dropping on another node can also move it under that node's parent. Save the move and confirm the final hierarchy.
 4. Edit the node if its label, parent, module link, or allowed roles change. Check parent visibility: a child is visible only when it and every ancestor allow the user's role.
 5. Delete a node only after its child nodes are removed or reassigned. Test the menu as representative roles after any structural change.
