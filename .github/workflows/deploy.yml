@@ -17,6 +17,7 @@ on:
         options:
           - functions set                 # tools/deploy-functions.sh <set>
           - functions set, then screens   # tools/deploy-functions.sh <set> --screens
+          - access, then screens          # tools/deploy-functions.sh <set> --access-only --screens: after "IAM FAILED", without redeploying
           - screens only                  # tools/release-screens.sh
           - runtime                       # tools/deploy-runtime.sh
           - database rules                # tools/deploy-rules.sh (RTDB + Firestore rules)
@@ -126,6 +127,7 @@ jobs:
           case "$TASK" in
             "functions set")               bash tools/deploy-functions.sh "$SET" ;;
             "functions set, then screens") bash tools/deploy-functions.sh "$SET" --screens ;;
+            "access, then screens")        bash tools/deploy-functions.sh "$SET" --access-only --screens ;;
             "screens only")                bash tools/release-screens.sh ;;
             "runtime")                     bash tools/deploy-runtime.sh ;;
             "database rules")              bash tools/deploy-rules.sh ;;
