@@ -1318,8 +1318,12 @@ from, and how it was verified. The deploy procedure is in the
     success, with C101 set Inactive by the owner.
 
   Corporate 100 has one more Firestore index than firestore.indexes.json
-  (made from the console; the deploy left it, no `--force`): to be added
-  to the file once listed.
+  (made from the console; the deploy left it, no `--force`). Listed by the
+  owner 2026-10-23: `journalEntries` CompanyID, VoucherType, CreatedAt ↓,
+  the same fields as the file's VoucherType, CompanyID, CreatedAt ↓ in
+  another order. Equality fields may come in any order, so it serves the
+  same queries: a duplicate in Corporate 100 only, not added to the file
+  (clients would only pay for its writes).
 - **2026-10-23, a corporate is Active only once tested (`active-guard`):**
   run [#199](https://github.com/yasircmd/erp-firebase/actions/runs/39977582192)
   ("screens only", 15:21–15:22 UTC), from `7eea76d` (PR #156), success:
