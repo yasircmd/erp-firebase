@@ -1,2 +1,6 @@
+# Bug fix (2026-10-23, run #195 held by C101): a client that cannot be
+# reached is reported after 20 s, not waited on for ever. Test connection
+# (each part) and the Developer screen's "update the followers". The release
+# itself (tools/release-corporates.js) runs from the repository. No screens.
 testDeveloperCorporate
 updateDeveloperTreeFollowers
