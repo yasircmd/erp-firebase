@@ -38,11 +38,45 @@ const HOME_ID = '100';
 // its directory entry (corporates.js): no key, the client's grant to this
 // project's service account (§3). Named by the entry's project and database
 // too, so a changed entry gets a fresh app.
+const appName = (id, entry) => 'corp-' + id + '-' + entry.ProjectID + '-' + entry.DatabaseURL;
 function appFor(id, entry) {
   if (String(id) === HOME_ID) return homeApp;
   if (!entry || !entry.ProjectID || !entry.DatabaseURL) throw new Error('Corporate ' + id + ' is not set up.');
-  const name = 'corp-' + id + '-' + entry.ProjectID + '-' + entry.DatabaseURL;
+  const name = appName(id, entry);
   return admin.apps.find(a => a.name === name) || admin.initializeApp({ projectId: entry.ProjectID, databaseURL: entry.DatabaseURL }, name);
+}
+
+// A client corporate's data within a time limit (2026-10-23). Its Realtime
+// Database does not fail when the client's grant is missing or the URL is
+// wrong: the SDK retries for ever ("Provided authentication credentials ...
+// are invalid") and a read waits with it, which held a whole release. So:
+// withinTime fails after ms instead, saying what to check; withinReach also
+// closes the corporate's app then, which ends the retrying.
+const REACH_MS = Number(process.env.ERP_REACH_MS) || 20000; // ERP_REACH_MS: shorter in the tests
+function withinTime(promise, ms, what) {
+  let timer;
+  const limit = ms || REACH_MS;
+  const late = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(what + ' did not answer within ' + Math.round(limit / 1000) + ' s: check the client\'s grants (docs/ONBOARDING.md A.6) and the database URL.');
+      err.unreachable = true;
+      reject(err);
+    }, limit);
+  });
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+}
+async function closeCorporate(corporate) {
+  if (String(corporate.id) === HOME_ID || !corporate.entry) return;
+  const a = admin.apps.find(x => x && x.name === appName(corporate.id, corporate.entry));
+  if (a) await a.delete().catch(() => {});
+}
+async function withinReach(corporate, work, ms) {
+  try {
+    return await withinTime(Promise.resolve().then(work), ms, 'Corporate ' + corporate.id);
+  } catch (err) {
+    if (err && err.unreachable) await closeCorporate(corporate);
+    throw err;
+  }
 }
 
 const context = new AsyncLocalStorage();
@@ -101,5 +135,6 @@ const firm = { rtdb: homeApp.database(), firestore: homeApp.firestore(), auth: (
 
 module.exports = {
   admin: adminForRequest, rtdb, firestore, firm, HOME_ID, appFor,
-  runInCorporate, useCorporateOutsideRequests, corporateId, corporateEntry
+  runInCorporate, useCorporateOutsideRequests, corporateId, corporateEntry,
+  withinTime, withinReach, closeCorporate, REACH_MS
 };

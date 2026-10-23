@@ -105,7 +105,9 @@ corporate → Set up shows each step):
 The `database rules` task runs this project's rules, then
 tools/release-corporates.js, which:
 - deploys the rules and the indexes (firestore.indexes.json) to every
-  Active corporate. One it cannot reach is reported, and the others go on.
+  Active corporate. One it cannot reach is reported, and the others go on
+  (a client whose database does not answer within 20 s, as when its grant
+  is missing, is reported as "did not answer");
   A new Firestore index takes a few minutes to build;
 - brings the corporates that follow the main tree up to date, and offers
   new modules to those with their own layout (decisions 255, 263);

@@ -19,7 +19,7 @@
 const { createHash, randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
-const { rtdb, firestore, admin, firm, HOME_ID, corporateId, runInCorporate } = require('./firebaseAdmin');
+const { rtdb, firestore, admin, firm, HOME_ID, corporateId, runInCorporate, withinTime, withinReach, closeCorporate } = require('./firebaseAdmin');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { DIRECTORY } = require('./corporates');
 const { MODULE_REGISTRY } = require('./moduleRegistry');
@@ -145,21 +145,31 @@ exports.saveDeveloperCorporate = onCallWithMessages(onCallOptions, async (reques
 exports.testDeveloperCorporate = onCallWithMessages(onCallOptions, async (request) => {
   await developer(request, 'access');
   const { id, entry } = await entryOf((request.data || {}).CorporateID);
-  const part = async fn => { try { return { ok: true, detail: await fn() }; } catch (err) { return { ok: false, detail: (err && err.message) || String(err) }; } };
+  // Each part within a time limit: one the client has not granted may never
+  // answer (Realtime Database retries for ever), and says so.
+  let late = false;
+  const part = async (what, fn) => {
+    try { return { ok: true, detail: await withinTime(fn(), 0, what) }; } catch (err) {
+      if (err && err.unreachable) late = true;
+      return { ok: false, detail: (err && err.message) || String(err) };
+    }
+  };
   let result;
   try {
-    result = await runInCorporate({ id, entry }, async () => ({
-      database: await part(async () => {
+    const [database, store, auth] = await runInCorporate({ id, entry }, () => Promise.all([
+      part('Realtime Database', async () => {
         const users = (await rtdb.ref('users').get()).val() || {};
         return Object.keys(users).length ? Object.keys(users).length + ' ERP user(s)' : 'reachable, no ERP users yet';
       }),
-      firestore: await part(async () => { await firestore.doc('settings/documentStorage').get(); return 'reachable'; }),
-      auth: await part(async () => { await admin.auth().listUsers(1); return 'reachable'; })
-    }));
+      part('Firestore', async () => { await firestore.doc('settings/documentStorage').get(); return 'reachable'; }),
+      part('Authentication', async () => { await admin.auth().listUsers(1); return 'reachable'; })
+    ]));
+    result = { database, firestore: store, auth };
   } catch (err) {
     const failed = { ok: false, detail: (err && err.message) || String(err) };
     result = { database: failed, firestore: failed, auth: failed };
   }
+  if (late) await closeCorporate({ id, entry });
   const ok = result.database.ok && result.firestore.ok && result.auth.ok;
   await entryRef(id).update({ LastTest: { At: new Date().toISOString(), Ok: ok } });
   return Object.assign({ ok }, result);
@@ -469,13 +479,17 @@ async function updateFollowers(user) {
   for (const d of dir.docs) {
     const c = { id: d.id, entry: d.data() };
     try {
-      const own = fingerprint(await treeIn(c, async db => (await db.ref('tree').get()).val()));
-      const status = treeStatus(c.entry, main, own);
-      if (status === 'behind') { await giveMainTree(c, user); updated.push(c.id); }
-      if (status === 'own') {
-        const added = await offerNewModules(c, mainNodes);
-        if (added.length) offered.push({ CorporateID: c.id, modules: added });
-      }
+      // Within a time limit: a client that cannot be reached is reported and
+      // the others go on (it held the whole release, 2026-10-23).
+      await withinReach(c, async () => {
+        const own = fingerprint(await treeIn(c, async db => (await db.ref('tree').get()).val()));
+        const status = treeStatus(c.entry, main, own);
+        if (status === 'behind') { await giveMainTree(c, user); updated.push(c.id); }
+        if (status === 'own') {
+          const added = await offerNewModules(c, mainNodes);
+          if (added.length) offered.push({ CorporateID: c.id, modules: added });
+        }
+      });
     } catch (err) {
       failed.push({ CorporateID: c.id, error: (err && err.message) || String(err) });
     }
