@@ -10,6 +10,7 @@ process.env.FIREBASE_DATABASE_EMULATOR_HOST = process.env.FIREBASE_DATABASE_EMUL
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = process.env.FIREBASE_STORAGE_EMULATOR_HOST || '127.0.0.1:9199';
+process.env.ERP_REACH_MS = '1500'; // a client that never answers is given up on after 1.5 s here
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const admin = require('firebase-admin');
@@ -142,3 +143,38 @@ test('each release: rules to every Active corporate (one not reached is reported
   assert.ok(Object.values((await apps['200'].database().ref('tree').get()).val()).some(n => n.Text === 'Reports'));
   assert.deepEqual(r.purged, []);
 });
+
+// A client whose Realtime Database never answers (2026-10-23: C101's grant
+// was missing; the SDK retried for ever and the release waited with it).
+// Its app is made against a closed port, as the grant's refusal behaves.
+async function neverAnswers(id, project) {
+  const e = { Name: 'Client ' + id, ProjectID: project, DatabaseURL: 'https://' + project + '-default-rtdb.firebaseio.com', Status: 'Active', WebConfig: { apiKey: 'k', projectId: project }, Modules: {} };
+  await firestore.doc('corporateDirectory/' + id).set(e);
+  const host = process.env.FIREBASE_DATABASE_EMULATOR_HOST;
+  process.env.FIREBASE_DATABASE_EMULATOR_HOST = '127.0.0.1:9';
+  try { firebaseAdmin.appFor(id, e).database(); } finally { process.env.FIREBASE_DATABASE_EMULATOR_HOST = host; }
+}
+
+test('a client that never answers: the release reports it within the time limit and goes on; Test connection names the part', async () => {
+  await rtdb.ref('tree').set({ N1: { Text: 'Finance', ParentID: '', Order: 0, ModuleID: '', AllowedRoles: ['Admin'] } });
+  await dev('resetDeveloperTree', { CorporateID: '200' });
+  await rtdb.ref('tree/N2').set({ Text: 'Reports', ParentID: '', Order: 1, ModuleID: '', AllowedRoles: ['Admin'] });
+  await neverAnswers('500', 'erp-client-silent');
+  const t = Date.now();
+  const r = await release.main({ deploy: () => {} });
+  assert.ok(Date.now() - t < 15000, 'not held: ' + (Date.now() - t) + ' ms');
+  const silent = r.tree.failed.find(f => f.CorporateID === '500');
+  assert.ok(silent, JSON.stringify(r.tree));
+  assert.match(silent.error, /^Corporate 500 did not answer within 2 s: check the client's grants \(docs\/ONBOARDING\.md A\.6\)/);
+  assert.deepEqual(r.tree.updated, ['200'], 'the others go on');
+  assert.equal(admin.apps.some(a => a && /^corp-500-/.test(a.name)), false, 'its app closed: no more retrying');
+
+  await neverAnswers('500', 'erp-client-silent');
+  const c = await dev('testDeveloperCorporate', { CorporateID: '500' });
+  assert.equal(c.ok, false);
+  assert.match(c.database.detail, /^Realtime Database did not answer within 2 s/);
+  assert.deepEqual([c.firestore.ok, c.auth.ok], [true, true], 'the other parts still tested');
+  assert.equal(admin.apps.some(a => a && /^corp-500-/.test(a.name)), false);
+  assert.equal((await dev('testDeveloperCorporate', { CorporateID: '200' })).ok, true, 'a reachable client as before');
+});
+

@@ -80,7 +80,7 @@ if (require.main === module) {
     if (r.purged) console.log('Deleted what the firm held about: ' + (r.purged.join(', ') || 'none'));
     // A corporate not reached is reported, not a failed release.
     return Promise.all(require('firebase-admin').apps.map(a => a.delete()));
-  }).catch(err => { console.error('RELEASE TO CORPORATES FAILED: ' + (err && err.message)); process.exit(1); });
+  }).then(() => process.exit(0)).catch(err => { console.error('RELEASE TO CORPORATES FAILED: ' + (err && err.message)); process.exit(1); });
 }
 
 module.exports = { main };
