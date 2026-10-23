@@ -76,12 +76,21 @@ function buildVisibleTreeList(nodesById, roleId) {
 }
 
 // A module the corporate may not use is left out of its tree
-// (entitlements.js), with anything under it.
+// (entitlements.js). An item with sub-items is a folder whatever module it
+// names (the menu shows it as one): it stays, with what is under it, so a
+// module linked to a folder by mistake never hides the folder (bug, owner,
+// 2026-10-23: a top-level folder linked to Support hid Tree Management in
+// Corporate 100, with no way back).
 async function buildTreeForRole(roleId) {
   const { moduleAvailable } = require('./entitlements');
   const all = await ensureTreeSeeded();
+  const parents = new Set(Object.values(all).map(n => n && n.ParentID).filter(Boolean));
   const nodes = {};
-  Object.keys(all).forEach(id => { if (!all[id].ModuleID || moduleAvailable(all[id].ModuleID)) nodes[id] = all[id]; });
+  Object.keys(all).forEach(id => {
+    const n = all[id];
+    if (!n.ModuleID || moduleAvailable(n.ModuleID)) nodes[id] = n;
+    else if (parents.has(id)) nodes[id] = Object.assign({}, n, { ModuleID: '' });
+  });
   return buildVisibleTreeList(nodes, roleId);
 }
 

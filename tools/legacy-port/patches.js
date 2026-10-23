@@ -3096,5 +3096,35 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
       '(in Corporate 100, the main tree, also the client-only ones, e.g. Support: M3).',
     find: `    if (moduleId && !MODULE_REGISTRY.some(m => m.id === moduleId)) {`,
     replace: `    if (moduleId && !__entitlements.linkableModules().some(m => m.id === moduleId)) { // [NEW DEVELOPMENT corporate-modules]`
+  },
+  {
+    id: 'tree-folder-or-module',
+    why: 'NEW DEVELOPMENT (bug, owner, 2026-10-23): a menu item either opens a module or holds sub-items, never both. ' +
+      'Linking a module to an item with sub-items (a folder) was allowed; the menu then dropped the folder and everything ' +
+      'under it when the module was not the corporate\'s (e.g. Support in Corporate 100), Tree Management with it, so it could not ' +
+      'be undone. Refused now, as is adding a sub-item under an item that opens a module (tree.js also keeps such a folder).',
+    find: `    if (nodeId && parentId) {
+      let walkId = parentId;
+      while (walkId) {
+        if (walkId === nodeId) throw new Error('Cannot move an item under one of its own descendants.');
+        walkId = existingAll[walkId] ? existingAll[walkId].ParentID : '';
+      }
+    }
+`,
+    replace: `    if (nodeId && parentId) {
+      let walkId = parentId;
+      while (walkId) {
+        if (walkId === nodeId) throw new Error('Cannot move an item under one of its own descendants.');
+        walkId = existingAll[walkId] ? existingAll[walkId].ParentID : '';
+      }
+    }
+    // [NEW DEVELOPMENT tree-folder-or-module] an item opens a module or holds sub-items, never both.
+    if (moduleId && nodeId && Object.keys(existingAll).some(id => existingAll[id] && existingAll[id].ParentID === nodeId)) {
+      throw new Error('This item has sub-items, so it is a folder: it cannot open a module. Link the module to an item without sub-items.');
+    }
+    if (parentId && existingAll[parentId] && existingAll[parentId].ModuleID) {
+      throw new Error('"' + existingAll[parentId].Text + '" opens a module, so it cannot hold sub-items: choose a folder as the parent.');
+    }
+`
   }
 ];
