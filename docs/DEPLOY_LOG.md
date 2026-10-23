@@ -1320,3 +1320,10 @@ from, and how it was verified. The deploy procedure is in the
   Corporate 100 has one more Firestore index than firestore.indexes.json
   (made from the console; the deploy left it, no `--force`): to be added
   to the file once listed.
+- **2026-10-23, a corporate is Active only once tested (`active-guard`,
+  2 functions, then screens):** run
+  [#199](https://github.com/yasircmd/erp-firebase/actions/runs/39977582192)
+  ("functions set, then screens", 15:21–15:22 UTC), from `7eea76d`
+  (PR #156), success. saveDeveloperCorporate refuses Active until Test
+  connection has passed for the corporate's project and database; the
+  Developer screen adds a new corporate Inactive.
