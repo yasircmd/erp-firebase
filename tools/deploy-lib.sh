@@ -27,14 +27,22 @@ deploy_batches() {
   done
 }
 
-# grant_invokers fn... — the public-invoker binding for each, 8 at a time.
-# Idempotent, so every function in the set is (re)bound: a function created
-# by an earlier, interrupted run still gets its binding. Sets fail=1 on error.
+# grant_invokers fn... — the public-invoker binding for each, 4 at a time,
+# each tried up to 4 times with a growing pause (IAM_RETRY_SLEEP, 15 s, then
+# 30, 45): run #178 (2026-10-23) lost 30 of 565 bindings, 8 at a time with
+# one try each, to Cloud Run's policy-write limits. Idempotent, so every
+# function in the set is (re)bound: a function created by an earlier,
+# interrupted run still gets its binding. Sets fail=1 on error, naming the
+# function and gcloud's last line.
 grant_invokers() {
   local out
-  out=$(printf '%s\n' "$@" | xargs -P 8 -I{} sh -c \
-    '"$1" functions add-invoker-policy-binding "$2" --region=us-central1 --member=allUsers --gen2 --project="$3" >/dev/null 2>&1 || echo "IAM FAILED: $2"' \
-    _ "$GCLOUD" {} "$P")
+  out=$(printf '%s\n' "$@" | xargs -P "${IAM_PARALLEL:-4}" -I{} sh -c '
+    for a in 1 2 3 4; do
+      err=$("$1" functions add-invoker-policy-binding "$2" --region=us-central1 --member=allUsers --gen2 --project="$3" 2>&1 >/dev/null) && exit 0
+      [ $a = 4 ] || sleep $((a * $4))
+    done
+    echo "IAM FAILED: $2 ($(printf "%s" "$err" | tail -1))"' \
+    _ "$GCLOUD" {} "$P" "${IAM_RETRY_SLEEP:-15}")
   [ -n "$out" ] && { echo "$out"; fail=1; }
   return 0
 }
