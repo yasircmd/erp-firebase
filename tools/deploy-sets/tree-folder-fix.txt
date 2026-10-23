@@ -1,0 +1,9 @@
+# Bug fix (owner, 2026-10-23): a menu item opens a module or holds
+# sub-items, never both (tree.js keeps a folder linked to a module by
+# mistake, with what is under it; Tree Management's saveTreeNode refuses
+# it). The functions that build the menu and the one that saves an item.
+# No screens. Then the "hosting" task (Help).
+completeLogin
+restoreSession
+getMyTree
+saveTreeNode

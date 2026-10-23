@@ -762,6 +762,13 @@ async function saveTreeNode(idToken, nodeData) {
         walkId = existingAll[walkId] ? existingAll[walkId].ParentID : '';
       }
     }
+    // [NEW DEVELOPMENT tree-folder-or-module] an item opens a module or holds sub-items, never both.
+    if (moduleId && nodeId && Object.keys(existingAll).some(id => existingAll[id] && existingAll[id].ParentID === nodeId)) {
+      throw new Error('This item has sub-items, so it is a folder: it cannot open a module. Link the module to an item without sub-items.');
+    }
+    if (parentId && existingAll[parentId] && existingAll[parentId].ModuleID) {
+      throw new Error('"' + existingAll[parentId].Text + '" opens a module, so it cannot hold sub-items: choose a folder as the parent.');
+    }
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;

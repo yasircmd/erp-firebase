@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-22
+reviewed: 2026-10-23
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,13 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 23/10/2026
+
+- **A menu folder can no longer be linked to a module.** In
+  [Tree Management](tree-management.html), an item either opens a screen or
+  holds sub-items. A folder linked to a module by mistake now stays in the
+  menu, with everything under it, so it can be put right.
 
 ## 22/10/2026
 
