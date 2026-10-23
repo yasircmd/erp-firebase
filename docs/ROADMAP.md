@@ -162,8 +162,7 @@ Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged
   for the load, which applies the search (`ui/retailSales` holds the load
   back and types). Inventory Aging's drill check waited on the rows of the
   run the screen starts itself (as at today); it now waits for its own.
-  Deploy: **screens only**, then **hosting** (five Help pages re-stamped,
-  nothing in them changed).
+  Live 2026-10-23 (PR #149; runs #193 screens, #194 Hosting).
 
 - [ ] **UX testing, 2026-10-14** (owner): 42 issues and suggestions. Tier 1
   live 2026-10-14 (PR #122), Tier 2 live 2026-10-16 (PR #123); **Tier 3:
