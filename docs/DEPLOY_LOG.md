@@ -1278,3 +1278,11 @@ from, and how it was verified. The deploy procedure is in the
   the menu now keeps such a folder. To do in the app, if not done in the
   console already: edit that folder in Tree Management, Linked Module:
   None.
+- **2026-10-23, fix: a top-level menu item opens no module
+  (`tree-top-level`, 2 functions):** run
+  [#191](https://github.com/yasircmd/erp-firebase/actions/runs/39944220844)
+  (11:10–11:12 UTC), from `6eb10a7` (PR #147), success. Tree Management
+  now refuses a module on a top-level item, saved or dragged there, and
+  dragging anything under a module item. Its Hosting change (the Tree
+  Management Help page and What's new) goes out with the next "hosting"
+  run.
