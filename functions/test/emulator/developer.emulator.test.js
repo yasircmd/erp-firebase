@@ -88,11 +88,24 @@ test('the directory: add, check, change; a new corporate can sign in', async () 
   await assert.rejects(add({ DatabaseURL: 'https://evil.example.com' }), /Realtime Database URL/);
   await assert.rejects(add({ WebConfig: {} }), /API key/);
   await assert.rejects(add({ Name: '' }), /a name/);
-  assert.equal((await add()).CorporateID, '300');
-  await assert.rejects(add(), /already in the directory/);
+  // Active only once Test connection has passed (owner, 2026-10-23).
+  await assert.rejects(add({ Status: 'Active' }), /Add it Inactive, then Test connection/);
+  assert.equal((await add({ Status: 'Inactive' })).CorporateID, '300');
+  await assert.rejects(add({ Status: 'Inactive' }), /already in the directory/);
   const e = await entry('300');
   assert.deepEqual([e.DatabaseURL, e.WebConfig, e.Modules, e.CreatedBy], ['https://third-co-erp-default-rtdb.firebaseio.com', { apiKey: 'k3', appId: '1:3:web:3', projectId: 'third-co-erp', authDomain: 'third-co-erp.firebaseapp.com' }, {}, 'Admin User']);
+  const save = o => call('u-admin', 'saveDeveloperCorporate', Object.assign({ CorporateID: '300', Name: 'Third Co', ProjectID: 'third-co-erp', DatabaseURL: e.DatabaseURL, Status: 'Active', WebConfig: { apiKey: 'k3' } }, o));
+  await assert.rejects(save(), /Test connection first/);
+  await firestore.doc('corporateDirectory/300').update({ LastTest: { At: '2026-10-23T10:00:00Z', Ok: false, ProjectID: 'third-co-erp', DatabaseURL: e.DatabaseURL } });
+  await assert.rejects(save(), /Test connection first/, 'a failed test');
+  assert.equal((await call('u-admin', 'testDeveloperCorporate', { CorporateID: '300' })).ok, true);
+  assert.deepEqual([(await entry('300')).LastTest.ProjectID, (await entry('300')).LastTest.DatabaseURL], ['third-co-erp', e.DatabaseURL], 'what was tested');
+  assert.equal((await save()).CorporateID, '300');
   assert.deepEqual((await call('u-admin', 'corporateSignIn', { corporateId: '300' })).webConfig.projectId, 'third-co-erp');
+  // Active: its other details save as before; another project is tested first.
+  assert.equal((await save({ Name: 'Third Co' })).CorporateID, '300');
+  await assert.rejects(save({ ProjectID: 'third-co-two', DatabaseURL: 'https://third-co-two-default-rtdb.firebaseio.com' }), /A new project or database URL is tested before it is used/);
+  assert.equal((await entry('300')).ProjectID, 'third-co-erp', 'unchanged');
   // A change keeps its modules; Inactive refuses its sign-in.
   await firestore.doc('corporateDirectory/300').update({ Modules: { JV: false } });
   await call('u-admin', 'saveDeveloperCorporate', { CorporateID: '300', Name: 'Third Co LLC', ProjectID: 'third-co-erp', DatabaseURL: e.DatabaseURL, Status: 'Inactive', WebConfig: { apiKey: 'k3' } });

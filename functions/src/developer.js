@@ -85,6 +85,24 @@ function validEntry(d) {
   return e;
 }
 
+// Active only once Test connection has passed, all three parts, for the
+// project and database the corporate has (owner, 2026-10-23: C101 was set
+// Active before its grants were made, and every request and release then
+// waited on it). Setting it Inactive, or saving an Active one's other
+// details, is never refused.
+function activeRefusal(isNew, was, e) {
+  if (e.Status !== 'Active') return '';
+  const t = was.LastTest || {};
+  const tested = t.Ok === true && t.ProjectID === e.ProjectID && t.DatabaseURL === e.DatabaseURL;
+  if (tested) return '';
+  if (isNew) return 'Add it Inactive, then Test connection: it can be Active once all three parts pass.';
+  if (was.Status !== 'Active') return 'Test connection first: it can be Active once all three parts pass for this project and database.';
+  if (was.ProjectID !== e.ProjectID || was.DatabaseURL !== e.DatabaseURL) {
+    return 'A new project or database URL is tested before it is used: save it Inactive, Test connection, then set it Active.';
+  }
+  return '';
+}
+
 // The corporates, with their open notes counted.
 exports.getDeveloperCorporates = onCallWithMessages(onCallOptions, async (request) => {
   const user = await developer(request, 'access');
@@ -127,6 +145,8 @@ exports.saveDeveloperCorporate = onCallWithMessages(onCallOptions, async (reques
     if (d.isNew === true && snap.exists) throw new HttpsError('already-exists', 'Corporate ' + id + ' is already in the directory.');
     if (d.isNew !== true && !snap.exists) throw new HttpsError('not-found', 'Corporate ' + id + ' is not in the directory.');
     const was = snap.exists ? snap.data() : {};
+    const refused = activeRefusal(!snap.exists, was, e);
+    if (refused) throw new HttpsError('failed-precondition', refused);
     e.Group = groupGiven ? groupId : (was.Group || '');
     const modules = Object.assign({}, was.Modules || {});
     if (group && was.Group !== groupId) (group.get('Modules') || []).forEach(m => { modules[m] = true; });
@@ -171,7 +191,8 @@ exports.testDeveloperCorporate = onCallWithMessages(onCallOptions, async (reques
   }
   if (late) await closeCorporate({ id, entry });
   const ok = result.database.ok && result.firestore.ok && result.auth.ok;
-  await entryRef(id).update({ LastTest: { At: new Date().toISOString(), Ok: ok } });
+  // For the project and database tested: Active needs a pass for those (activeRefusal).
+  await entryRef(id).update({ LastTest: { At: new Date().toISOString(), Ok: ok, ProjectID: entry.ProjectID, DatabaseURL: entry.DatabaseURL } });
   return Object.assign({ ok }, result);
 });
 

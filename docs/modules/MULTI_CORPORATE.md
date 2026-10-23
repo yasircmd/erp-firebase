@@ -871,3 +871,18 @@ after this project's rules, decisions 246, 263, 265):
 auth.js; 5 Developer functions, new), with `--screens` (DEVELOPER.html).
 Then Hosting (the Help's Roles and Tree Management pages, re-stamped).
 From then on, the `database rules` task also releases to the corporates.
+
+### Change after go-live: Active only once tested (owner, 2026-10-23)
+
+Test client C101 was set Active before its grants were made; every request
+in it, and the next release, then waited on its database (the Realtime
+Database SDK retries a refused account for ever). `saveDeveloperCorporate`
+now refuses **Active** until Test connection has passed, all three parts,
+for the project and database URL the corporate has: `LastTest` records
+which were tested. A new corporate is added Inactive (the screen's
+default); an Active one's name, group and other details save as before; a
+changed project or database URL is saved Inactive, tested, then set
+Active. Setting a corporate Inactive is never refused. The deploy
+account's grant is checked by the rules release, not here. Separately,
+the release and Test connection give up on a corporate after 20 s
+(`firebaseAdmin.withinReach`).

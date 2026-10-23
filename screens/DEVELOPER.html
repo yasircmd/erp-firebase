@@ -364,7 +364,7 @@
       done(!!c.TreeSynced) + '<b>3. Menu</b>: ' + (c.TreeSynced ? 'given the main tree ' + escapeHtml(time(c.TreeSyncedAt)) : 'not yet (Tree → Back to the main tree)'),
       done(!!c.ChartHeadings) + '<b>4. Chart headings</b>: ' + (c.ChartHeadings ? c.ChartHeadings.Count + ' copied ' + escapeHtml(time(c.ChartHeadings.At)) : 'not yet'),
       done(!!c.FirstAdmin) + '<b>5. First Admin</b>: ' + (c.FirstAdmin ? escapeHtml(c.FirstAdmin.Name + ' <' + c.FirstAdmin.Email + '>') + ', ' + escapeHtml(time(c.FirstAdmin.At)) : 'not yet'),
-      done(c.Status === 'Active') + '<b>6. Active</b>: ' + escapeHtml(c.Status || '') + (leaving ? '<div class="text-xs text-amber-300 mt-1">' + leaving + '</div>' : '')
+      done(c.Status === 'Active') + '<b>6. Active</b>: ' + escapeHtml(c.Status || '') + (c.Status !== 'Active' ? ' <span class="text-xs text-slate-400">(once the connection test has passed for this project)</span>' : '') + (leaving ? '<div class="text-xs text-amber-300 mt-1">' + leaving + '</div>' : '')
     ].map(x => '<div>' + x + '</div>').join('');
     el('dv-admin-form').classList.toggle('hidden', !data.canWrite || !!c.FirstAdmin);
     el('dv-headings').classList.toggle('hidden', !data.canWrite || !!c.ChartHeadings);
@@ -454,7 +454,7 @@
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-code"></i> Developer';
     el('dv-refresh').addEventListener('click', () => load(current && current.CorporateID));
-    el('dv-add').addEventListener('click', () => open({ isNew: true, Status: 'Active' }));
+    el('dv-add').addEventListener('click', () => open({ isNew: true, Status: 'Inactive' })); // Active once Test connection passes
     el('dv-followers').addEventListener('click', updateFollowers);
     el('dv-tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
     el('dv-save').addEventListener('click', save);

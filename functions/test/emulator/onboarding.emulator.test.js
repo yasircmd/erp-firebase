@@ -123,6 +123,7 @@ test('what the firm holds about a client is deleted 90 days after it left, not b
   assert.deepEqual(await developer._release.purgeLeavers(since + 200 * 86400000), [], 'once');
   // Active again before the time: nothing to delete.
   await saveCorp(C200, { Status: 'Inactive' });
+  assert.equal((await dev('testDeveloperCorporate', { CorporateID: '200' })).ok, true, 'Active again once tested');
   await saveCorp(C200, { Status: 'Active' });
   assert.equal((await entry('200')).InactiveSince, '');
 });
