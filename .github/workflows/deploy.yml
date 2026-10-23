@@ -19,7 +19,7 @@ on:
           - functions set, then screens   # tools/deploy-functions.sh <set> --screens
           - screens only                  # tools/release-screens.sh
           - runtime                       # tools/deploy-runtime.sh
-          - database rules                # tools/deploy-rules.sh (RTDB + Firestore rules)
+          - database rules                # tools/deploy-rules.sh (RTDB, Firestore and Storage rules)
           - hosting                       # tools/deploy-hosting.sh (public/index.html, the app shell; public/ess.html, the Employee Portal; public/help/, the Help)
         default: functions set
       set:
