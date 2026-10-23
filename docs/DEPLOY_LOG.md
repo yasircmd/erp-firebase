@@ -1284,5 +1284,16 @@ from, and how it was verified. The deploy procedure is in the
   (11:10–11:12 UTC), from `6eb10a7` (PR #147), success. Tree Management
   now refuses a module on a top-level item, saved or dragged there, and
   dragging anything under a module item. Its Hosting change (the Tree
-  Management Help page and What's new) goes out with the next "hosting"
-  run.
+  Management Help page and What's new) went out with the "hosting" run
+  [#192](https://github.com/yasircmd/erp-firebase/actions/runs/39944763576)
+  (11:15 UTC, same commit), success.
+- **2026-10-23, fix: page errors on six screens (screens only, then
+  Hosting):** from `aec96fe` (PR #149): the "screens only" run
+  [#193](https://github.com/yasircmd/erp-firebase/actions/runs/39957790401)
+  (13:01–13:02 UTC), then the "hosting" run
+  [#194](https://github.com/yasircmd/erp-firebase/actions/runs/39958215632)
+  (13:04–13:05 UTC), both success. No functions. Copy then leaving the
+  screen no longer throws a page error in Customer / Vendor / Inventory
+  Aging and Employee Requests (nor Fixed Asset Configuration's saved
+  message), and nor does typing in Retail Sales' customer Find while the
+  counter loads; five Help pages re-stamped (unchanged).

@@ -30,7 +30,10 @@ them through two grants, with no key.
    These values are not secrets.
 6. **Grant the firm's two accounts their roles.** In Google Cloud console →
    IAM & Admin → IAM → Grant access, or in Cloud Shell (replace
-   `CLIENT_PROJECT`, and the firm gives the deploy account's email):
+   `CLIENT_PROJECT`, and `THE-FIRMS-DEPLOY-ACCOUNT` with the email the
+   firm sends the client separately; it is kept out of this public
+   repository, owner 2026-10-23). Both accounts were confirmed in the
+   Cloud console by the owner on 2026-10-23:
 
    ```bash
    P=CLIENT_PROJECT
