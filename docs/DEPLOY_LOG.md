@@ -1323,7 +1323,8 @@ from, and how it was verified. The deploy procedure is in the
   the same fields as the file's VoucherType, CompanyID, CreatedAt ↓ in
   another order. Equality fields may come in any order, so it serves the
   same queries: a duplicate in Corporate 100 only, not added to the file
-  (clients would only pay for its writes).
+  (clients would only pay for its writes). Deleted from Corporate 100 by
+  the owner the same day, in the Firebase console; the file's index stays.
 - **2026-10-23, a corporate is Active only once tested (`active-guard`):**
   run [#199](https://github.com/yasircmd/erp-firebase/actions/runs/39977582192)
   ("screens only", 15:21–15:22 UTC), from `7eea76d` (PR #156), success:
