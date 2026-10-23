@@ -763,11 +763,12 @@ client's audit logs.
 
 "Note below", the rest agreed:
 - **258:** the client grants Firebase Authentication Admin too.
-- **259: client groups.** Corporates are put in groups (categories), so
-  that the firm chooses which groups a new module is provided to. Still to
-  confirm: whether groups are built in M4 or later, and whether a module a
-  release adds starts off for every corporate until the firm picks its
-  groups.
+- **259: client groups, built in M4.** Corporates are put in groups
+  (categories), and the firm chooses which groups a new module is provided
+  to. **A module a release adds is off for every client corporate until
+  the firm picks its groups** (or ticks it for one corporate); Corporate
+  100 has it at once. The modules that exist today stay as they are (on
+  unless switched off).
 - **260:** the firm creates the client's first Admin from the Developer
   screen; the client's own Auth sends the password-setting link.
 - **261: the chart starts with the current headers only.** A new client
@@ -780,6 +781,9 @@ client's audit logs.
   billing, following the checklist with the firm's help.
 - **263:** each release's rules task also brings the corporates that
   follow the main tree up to date.
-- **264: "there should be one option".** Still to confirm what this means.
+- **264: the client chooses its plan.** Blaze (pay as you go, with a
+  budget alert) or the free Spark plan. The checklist says plainly what
+  Spark's limit means: 50,000 Firestore reads a day, after which the ERP
+  stops for that client until the next day.
 - **265:** the firm deletes what it holds about a client (Support issues
   and files, internal notes) 90 days after it is set Inactive.
