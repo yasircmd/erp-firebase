@@ -47,7 +47,7 @@ help/                           — the Help: areas.json (every module's area) a
 functions/
   index.js                      — exports every callable
   src/                          — hand-written server code
-    lock.js, approvals.js, commitAttempt.js, glWriting.js,
+    lock.js, approvals.js, glWriting.js, stockPosting.js,
     stockMovement.js, reservations.js
                                 — SHARED LOGIC: check here before writing anything new
     auth.js, session.js, tree.js, roles.js, companies.js, favorites.js, homeTasks.js

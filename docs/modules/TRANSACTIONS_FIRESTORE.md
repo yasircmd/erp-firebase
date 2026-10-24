@@ -768,10 +768,11 @@ on contention.
   Orders, PDCs, approvals. RTDB keeps master data, settings, counters and
   the logs, as the owner asked (2026-10-17).
 - The RTDB Status index is used only by recurring journals
-  (rtdbStatus.js). The `.indexOn` entries of the moved paths in
-  database.rules.json can be removed in a later rules deploy; they cost
-  nothing meanwhile.
-- commitAttempt.js has no callers left; it can go with that cleanup.
+  (rtdbStatus.js). **Done 2026-10-24:** the moved paths' `.indexOn`
+  entries are removed from database.rules.json (unit/rtdbStatus now also
+  refuses an index no path is read by), and commitAttempt.js, which had no
+  callers left, is deleted with the generator's mappings to it (the
+  regenerated legacy code is unchanged).
 
 **Tests.**
 - **New approvalStore.emulator.test.js:** against RTDB through every kind
