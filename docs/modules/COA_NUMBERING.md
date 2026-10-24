@@ -57,7 +57,8 @@ question 197.
      GL lines, drafts, invoice and PDC lines, recurring templates,
      requisitions and orders;
    - the change is logged (old, new, who, when, reason), and the account
-     keeps "formerly 110001" so old printouts can still be found.
+     keeps "formerly 110001" so old printouts can still be found (in the
+     account's details only since 2026-10-24, decision 267: not on the list).
 
    The account's ID doesn't change, so its balance, history and every link
    by ID stay as they are. Nothing is duplicated: the old code becomes free
@@ -205,7 +206,7 @@ from 310000 to the new group 320000 (Period Closing looks it up).
     orders. Only the top-level fields that change are written.
   - The account then takes the new code. The old code is kept in
     `FormerCodes` ([{ Code, Until, By, Reason }], kept by later saves and
-    shown on COA as "formerly …"), and the change is logged in
+    shown on COA as "formerly …", in the account's details since decision 267), and the change is logged in
     `coaRenumberLog`. Amounts don't change, so closed months are not
     checked.
   - On screen: a **Renumber** button on each account row, using the
@@ -222,7 +223,7 @@ from 310000 to the new group 320000 (Period Closing looks it up).
   - the Cash / Bank field (shown for an Assets heading with a parent);
   - the parent list's levels indented;
   - new help text;
-  - the Cash / Bank badge and "formerly …" on rows;
+  - the Cash / Bank badge on rows, and "formerly …" in the account's details (decision 267);
   - the Renumber button and the Accounts to fix box.
 - **Tests:**
   - functions/test/unit/coaScheme.test.js (6).

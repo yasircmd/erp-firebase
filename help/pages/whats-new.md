@@ -12,6 +12,14 @@ screen.
 
 ## 24/10/2026
 
+- **An export invoice prints in the customer's currency only.** A Customer
+  Invoice in a foreign currency with no VAT no longer shows the rate and
+  amounts in the default currency on its print. With VAT, they still show.
+  See [Customer Invoice](customer-invoice.html#a-customer-in-a-foreign-currency).
+- **Chart of Accounts: a renumbered account's old code is in its
+  details.** The list no longer shows "formerly …" under it; open the
+  account (Edit) to see its former codes and until when. See
+  [Chart of Accounts](chart-of-accounts.html).
 - **More room on wide screens.** [Employees](employees.html) and
   [Sales Order](sales-order.html) use the width of a wide monitor, and the
   Sales Order's item names have more space. Other screens keep the usual

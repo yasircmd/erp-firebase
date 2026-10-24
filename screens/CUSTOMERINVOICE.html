@@ -1306,8 +1306,9 @@
           ${(Number(currentInvoice.TaxAmount) || 0) !== 0 ? `<tr><td>Tax</td><td style="text-align:right">${formatMoney(currentInvoice.TaxAmount)}</td></tr>` : ''}
           ${(Number(currentInvoice.RoundOff) || 0) !== 0 ? `<tr><td>Round Off</td><td style="text-align:right">${formatMoney(currentInvoice.RoundOff)}</td></tr>` : ''}
           <tr style="font-weight:bold; border-top:1px solid #333;"><td>Total${currentInvoice.CurrencyCode ? ' (' + escapeHtml(currentInvoice.CurrencyCode) + ')' : ''}</td><td style="text-align:right">${formatMoney(currentInvoice.Total)}</td></tr>
-          ${currentInvoice.CurrencyCode ? `<tr><td colspan="2" style="font-size:10px; color:#444;">At 1 ${escapeHtml(currentInvoice.CurrencyCode)} = ${escapeHtml(currentInvoice.ExchangeRate)} ${escapeHtml(baseCode)}:</td></tr>
-          ${(Number(currentInvoice.TaxAmount) || 0) !== 0 ? `<tr id="cinv-print-vat-base"><td>VAT (${escapeHtml(baseCode)})</td><td style="text-align:right">${formatMoney(Math.round(currentInvoice.TaxAmount * currentInvoice.ExchangeRate * 100) / 100)}</td></tr>` : ''}
+          ${/* In the base currency only where VAT needs it (owner, 2026-10-24, decision 268): an invoice in a foreign currency with no VAT, an export, shows none. */ ''}
+          ${currentInvoice.CurrencyCode && (Number(currentInvoice.TaxAmount) || 0) !== 0 ? `<tr><td colspan="2" style="font-size:10px; color:#444;">At 1 ${escapeHtml(currentInvoice.CurrencyCode)} = ${escapeHtml(currentInvoice.ExchangeRate)} ${escapeHtml(baseCode)}:</td></tr>
+          <tr id="cinv-print-vat-base"><td>VAT (${escapeHtml(baseCode)})</td><td style="text-align:right">${formatMoney(Math.round(currentInvoice.TaxAmount * currentInvoice.ExchangeRate * 100) / 100)}</td></tr>
           <tr><td>Total (${escapeHtml(baseCode)})</td><td style="text-align:right">${formatMoney(currentInvoice.TotalBase)}</td></tr>` : ''}
         </table>
       </div>

@@ -1,6 +1,7 @@
 # UX round 2, wave 1: the first fixes (owner, 2026-10-24; docs/modules/
-# UX_ROUND2.md items 1-6). Run with --screens (Approval Tracker's Close,
-# Production Entry, the Employees and Sales Order widths). Hosting too
+# UX_ROUND2.md). Run with --screens (Approval Tracker's Close, Production
+# Entry, the Employees and Sales Order widths, Chart of Accounts' former
+# codes in the details, the Customer Invoice print). Hosting too
 # (tools/deploy-hosting.sh): public/index.html (Home's Close, leaving a
 # screen while it loads, wide screens) and the Help.
 # Items 2-3: a rejected document leaves Home tasks once posted or

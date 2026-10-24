@@ -5,8 +5,8 @@ order: 1
 modules: [COA]
 sources: [functions/src/coaUsage.js, functions/src/coaScheme.js, functions/src/coaRenumber.js]
 summary: The list of accounts every entry posts to: heads and postable accounts, types, codes, and shared accounts.
-reviewed: 2026-10-17
-fingerprint: d86ef8fe542b6a14
+reviewed: 2026-10-24
+fingerprint: 771ff44486c74d62
 ---
 ## What it is for
 
@@ -92,8 +92,9 @@ enter the one you want and the reason.
 
 Everything that shows the old code shows the new one from then on:
 posted entries, drafts, invoices, cheques, recurring templates, orders
-and requisitions. The account keeps its balance and history. Its row
-says "formerly 110001", and the change is logged.
+and requisitions. The account keeps its balance and history. Its old
+code stays in its details (Edit: "formerly 110001", with the date), so an
+old printout can still be traced, and the change is logged.
 
 You can't renumber an account into another group, because its history
 would move to another part of the financial statements. Headings are not
