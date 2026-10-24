@@ -46,12 +46,65 @@ each step. In outline:
    without it your staff cannot set their passwords.
 5. **Add our two web addresses** to Authentication's authorised domains:
    `erp1-8f4cd.web.app` and `erp1-8f4cd.firebaseapp.com`.
-6. **Grant our two service accounts their roles**, using the commands in
-   the guide:
-   - our application: `303168627971-compute@developer.gserviceaccount.com`
-   - our release service: **[DEPLOY ACCOUNT EMAIL]**
+6. **Give our two service accounts access to your project.** A service
+   account is an account for a program, not a person: nobody signs in with
+   it, and it has no password or key that we could lose. Ours are:
+   - **Our application**,
+     `303168627971-compute@developer.gserviceaccount.com`: the ERP itself.
+     It reads and writes your data (Realtime Database and Firestore) and
+     manages your ERP users' sign-in (it creates their accounts, and your
+     project sends their password emails). Its roles: *Firebase Realtime
+     Database Admin*, *Cloud Datastore User*, *Firebase Authentication
+     Admin* and *Service Usage Consumer*.
+   - **Our release service**, **[DEPLOY ACCOUNT EMAIL]**: used when we
+     release an update. It applies the security rules (which block all
+     direct access to your data) and the database indexes, and brings your
+     menu up to date. Its roles: *Firebase Rules Admin*, *Firebase Realtime
+     Database Admin*, *Cloud Datastore Index Admin*, *Firebase Viewer* and
+     *Service Usage Consumer*.
 
-   The commands should print nine "OK" lines.
+   *Service Usage Consumer* lets each account use your project's Google
+   services; without it Google refuses them even with the other roles.
+
+   **How:**
+   1. Open https://console.cloud.google.com, signed in with the account
+      that owns the project, and select your project at the top.
+   2. Click **Activate Cloud Shell** (the `>_` icon, top right). A terminal
+      opens at the bottom of the page; click **Authorize** if asked.
+   3. Copy the commands below. In the first line, replace `YOUR-PROJECT-ID`
+      with your project ID (Firebase console → Project settings). Paste
+      them into the terminal and press Enter.
+
+   ```bash
+   P=YOUR-PROJECT-ID
+   APP=serviceAccount:303168627971-compute@developer.gserviceaccount.com   # the ERP's functions
+   DEPLOY=serviceAccount:[DEPLOY ACCOUNT EMAIL]                          # the firm's releases
+   case "$DEPLOY" in
+     serviceAccount:*@*.iam.gserviceaccount.com)
+       for R in roles/firebasedatabase.admin roles/datastore.user roles/firebaseauth.admin roles/serviceusage.serviceUsageConsumer; do
+         gcloud projects add-iam-policy-binding "$P" --member="$APP" --role="$R" --condition=None --quiet >/dev/null && echo "OK app $R"
+       done
+       for R in roles/firebaserules.admin roles/firebasedatabase.admin roles/datastore.indexAdmin roles/firebase.viewer roles/serviceusage.serviceUsageConsumer; do
+         gcloud projects add-iam-policy-binding "$P" --member="$DEPLOY" --role="$R" --condition=None --quiet >/dev/null && echo "OK deploy $R"
+       done ;;
+     *) echo "STOP: DEPLOY must be serviceAccount:<name>@erp1-8f4cd.iam.gserviceaccount.com" ;;
+   esac
+   ```
+
+   4. The commands should print nine "OK" lines: four starting `OK app`
+      and five starting `OK deploy`. Lines such as "Updated IAM policy for
+      project" in between are normal.
+
+   **If a line starts with ERROR,** it names the problem:
+   - *not found* or *INVALID_ARGUMENT*: usually a mistyped project ID;
+   - *PERMISSION_DENIED*: the signed-in account does not own the project.
+
+   Correct it and paste the commands again: running them twice is safe,
+   since a role granted twice changes nothing. If in doubt, send us the
+   output; it contains nothing secret.
+
+   **Without the terminal:** IAM & Admin → IAM → **Grant access**. Add each
+   account above as a new principal, with the roles listed for it.
 
 **Please then send us:**
 - your project ID;

@@ -1360,3 +1360,14 @@ from, and how it was verified. The deploy procedure is in the
     (04:01 UTC): Hosting again.
 
   All success.
+- **2026-10-24, "database rules" twice:**
+  - run [#207](https://github.com/yasircmd/erp-firebase/actions/runs/40063823663)
+    (04:49 UTC), from `8672ad9`;
+  - run [#208](https://github.com/yasircmd/erp-firebase/actions/runs/40064062608)
+    (04:52–04:53 UTC), from `93c64a2` (PR #163, the cleanups: only
+    recurringJournals' RTDB index remains).
+
+  Both success, Corporate 100 and "Rules deployed to: 900
+  (dry-run-trading)". 900 is Active again, so it receives each release
+  before real clients, as a rehearsal corporate; its grants must stay in
+  place, or it is set Inactive.
