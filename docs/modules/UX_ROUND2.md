@@ -45,11 +45,11 @@ document.
 
 | # | Item | Plan / questions |
 |---|---|---|
-| 21 | Link the steps: approved SO → DN → invoice → payment, and the like | A "Create next" action on each posted document, opening the next one filled from it (as SO → invoice does since wave 2, H). Purchasing too: PR → PO → GRN → vendor invoice → payment. Its own design: which steps, partial quantities. |
+| 21 | Link the steps: approved SO → DN → invoice → payment, and the like | A "Create next" action on each posted document, opening the next one filled from it (as SO → invoice does since wave 2, H). Purchasing too: PR → PO → GRN → vendor invoice → payment. Its own design: which steps, partial quantities. **Designed:** [LINKED_FLOWS.md](LINKED_FLOWS.md), decisions Q287–Q289 (owner, 2026-10-24): the eight steps plus invoice → PDC, shown only to users who may open the next module; payments open on Bank; the document chain in the same step. |
 | 22 | Proforma invoice from a Sales Order | A print / PDF of the SO as "Proforma Invoice", no posting. **Q275:** its own numbering, or the SO number? **Decided (owner, 2026-10-24):** its own numbering, a PI series in Numbering, issued on the first print and kept on the SO (every reprint shows the same PI number); any saved SO may print one, a draft or one not yet approved marked DRAFT on the print. |
 | 23 | Re-match: also add a new reference | In Re-match, a line can become a New Ref (e.g. an advance) as well as Against Ref. |
 | 24 | Stock Availability: what the reserved quantity is for | The reserved figure links to the Sales Orders reserving it. |
-| 25 | Several cheques in one PDC entry, same vendor / customer | One entry with cheque lines (number, date, amount, bank each); each cheque still cleared / bounced on its own. Its own design (how the GL entry is made per cheque). |
+| 25 | Several cheques in one PDC entry, same vendor / customer | One entry with cheque lines (number, date, amount, bank each); each cheque still cleared / bounced on its own. Its own design (how the GL entry is made per cheque). **Designed:** [PDC_MULTI_CHEQUE.md](PDC_MULTI_CHEQUE.md), decisions Q290–Q292 (owner, 2026-10-24): a GL entry per cheque, allocated once and settled in cheque-date order, one number with -01, -02. |
 | 26 | Item code chosen by the user, apart from the system code and the barcode | A "User code" per item, unique per company, shown and searched everywhere; the system ID stays internal. **Q276:** may the user code replace the system code on prints and lists? **Decided (owner, 2026-10-24):** yes, where set: lists, pickers and prints show the user code when an item has one, else the system code; search finds either; the system code stays in the item's details. Unique in the corporate (shared and company items alike), ignoring case. |
 
 ## Wave 4: Employee Portal, HR and payroll
@@ -75,5 +75,5 @@ document.
 
 ## Open questions, in the order they are needed
 
-Wave 1: Q266–Q269 all decided. Wave 2: Q270–Q274 decided. Wave 3: Q275, Q276 decided.
+Wave 1: Q266–Q269 all decided. Wave 2: Q270–Q274 decided. Wave 3: Q275, Q276 and Q287–Q292 decided.
 Wave 4: Q277–Q279. Wave 5: Q280–Q282.
