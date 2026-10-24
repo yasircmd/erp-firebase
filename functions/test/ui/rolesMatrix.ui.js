@@ -70,6 +70,31 @@ const EXTRA = ['ACCOUNTANT', 'ADMIN_TESTER', 'CASHIER', 'FINANCE_MGR', 'HR Execu
     await p.close();
   });
 
+  await check('default favourites per role: the star opens up to 5 choices; saved; the row shows how many (decision 270)', async () => {
+    const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const errors = [];
+    p.on('pageerror', e => errors.push(e.message));
+    await onAppDialog(p, d => { errors.push('dialog: ' + d.message()); d.accept(); });
+    await p.goto('http://127.0.0.1:8167/?module=ROLES&uid=u-admin');
+    await p.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
+    await p.waitForFunction(() => document.querySelectorAll('#perm-table-body input[type=checkbox]').length > 0, null, { timeout: 30000 });
+    const row = p.locator('#role-table-body tr', { hasText: 'Viewer' });
+    await row.locator('.role-favs').click();
+    await p.waitForSelector('#favs-modal:not(.hidden)');
+    assert.equal(await p.locator('.favs-select').count(), 5);
+    await p.selectOption('.favs-select >> nth=0', 'JV');
+    await p.selectOption('.favs-select >> nth=1', 'CBT');
+    await p.click('#favs-save');
+    await p.waitForSelector('#favs-modal.hidden', { state: 'attached', timeout: 15000 });
+    assert.equal((await row.locator('.role-favs').textContent()).trim(), '2');
+    assert.deepEqual((await call('u-admin', 'getRoleFavorites', {})).Viewer.map(f => f.moduleId), ['JV', 'CBT']);
+    // Opened again: what is saved.
+    await row.locator('.role-favs').click();
+    assert.deepEqual(await p.$$eval('.favs-select', ss => ss.map(s => s.value)), ['JV', 'CBT', '', '', '']);
+    assert.deepEqual(errors, []);
+    await p.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   results.forEach(r => console.log(r.join('  ')));
   const failed = results.filter(r => r[0] === 'FAIL').length;

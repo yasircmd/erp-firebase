@@ -57,7 +57,8 @@ company is assigned to you, it shows as soon as you come back to Home.
 
 Put the screens you use most at the top of the menu: user menu →
 **Configure Favourites**, select the star next to each screen you want,
-then **Done**.
+then **Done**. Until you choose your own, you see your role's defaults, if
+your administrator has set some ([Roles & Permissions](roles.html)).
 
 ## Home tasks
 

@@ -12,6 +12,9 @@ screen.
 
 ## 24/10/2026
 
+- **Default favourites per role.** In [Roles & Permissions](roles.html),
+  the star on a role sets up to 5 favourites for its users who haven't
+  chosen their own. Nobody's own favourites are changed.
 - **Light or dark, everywhere you sign in.** Your choice of Light mode or
   Dark mode now goes with you to every computer. The ERP starts in light
   mode until you choose. See [Getting started](getting-started.html#the-user-menu).

@@ -6,7 +6,7 @@
 
 const { getModuleFragment } = require('./src/getModuleFragment');
 const { completeLogin, corporateSignIn, restoreSession, getMyTree } = require('./src/session');
-const { getMyFavorites, toggleFavorite, saveMyTheme } = require('./src/favorites');
+const { getMyFavorites, toggleFavorite, saveMyTheme, getRoleFavorites, saveRoleFavorites } = require('./src/favorites');
 const { getPendingApprovalsForUser, getMyRejectedSubmissions, closeRejectedSubmission, getMyDraftsForUser } = require('./src/homeTasks');
 const { getActiveCompanies } = require('./src/companies');
 const {
@@ -68,6 +68,8 @@ exports.getMyTree = getMyTree;
 exports.getMyFavorites = getMyFavorites;
 exports.toggleFavorite = toggleFavorite;
 exports.saveMyTheme = saveMyTheme;
+exports.getRoleFavorites = getRoleFavorites;
+exports.saveRoleFavorites = saveRoleFavorites;
 exports.getPendingApprovalsForUser = getPendingApprovalsForUser;
 exports.getMyRejectedSubmissions = getMyRejectedSubmissions;
 exports.closeRejectedSubmission = closeRejectedSubmission;
