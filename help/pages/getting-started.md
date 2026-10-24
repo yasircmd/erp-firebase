@@ -4,8 +4,8 @@ area: start
 order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
-reviewed: 2026-10-23
-fingerprint: a0bd727754a2e4fa
+reviewed: 2026-10-24
+fingerprint: 92754a2540ebf158
 ---
 ## Signing in
 
@@ -64,7 +64,7 @@ role:
 | Block | What it means |
 |---|---|
 | Your Pending Approvals | Documents waiting for your approval. |
-| Rejected — Needs Your Resubmission | Your documents an approver rejected, with the reason. Correct and submit again. |
+| Rejected — Needs Your Resubmission | Your documents an approver rejected, with the reason. Correct and submit again, or **Close** one you will not resubmit ([Approvals](approvals.html#rejected-documents)). |
 | Ready for You to Act On | Approved documents your team follows up (for example, raising the purchase order for an approved requisition). The teams are set in Approval Configuration. |
 | My Drafts — Not Yet Submitted or Posted | Documents you saved as drafts. |
 | Post-dated Cheques Due to Clear | Cheques whose date has come. |

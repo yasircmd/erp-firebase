@@ -807,6 +807,14 @@
           return function (arg) {
             const timer = __rpcStart();
             const sdk = window.__firebaseSdk;
+            // A call made from a screen is answered only while that screen
+            // is still open: once the user has gone Back or to another
+            // module (a new __activeModuleToken), its elements are gone and
+            // its handlers would fail on them, shown as an error (PDC,
+            // owner 2026-10-24). Home's own calls are always answered.
+            const fromScreen = !document.getElementById('module-container').classList.contains('hidden');
+            const token = window.__activeModuleToken;
+            const current = () => !fromScreen || window.__activeModuleToken === token;
             // A document of up to 10 MB going up or coming back can take
             // longer than the SDK's 70 s default on a slow line.
             const long = prop === 'uploadAttachment' || prop === 'openAttachment' || prop === 'addSupportFile' || prop === 'openSupportFile';
@@ -818,8 +826,8 @@
             Promise.resolve(corp ? (user ? user.getIdToken() : '') : null)
               .then(idToken => sdk.httpsCallable(sdk.functionsInstance, prop, long ? { timeout: 300000 } : undefined)(
                 corp ? { __corporate: { id: corp, idToken: idToken }, __data: arg === undefined ? null : arg } : arg))
-              .then(result => { __rpcFinish(timer); if (ctx.successFn) ctx.successFn(result.data); })
-              .catch(err => { __rpcFinish(timer); if (ctx.failureFn) ctx.failureFn({ message: err.message || 'Something went wrong.' }); });
+              .then(result => { __rpcFinish(timer); if (ctx.successFn && current()) ctx.successFn(result.data); })
+              .catch(err => { __rpcFinish(timer); if (ctx.failureFn && current()) ctx.failureFn({ message: err.message || 'Something went wrong.' }); });
           };
         }
       });
@@ -1511,10 +1519,25 @@
               <span class="text-slate-200 font-medium">${escapeHtml(item.DocumentNumber || item.DocumentID)}</span>
               <span class="text-slate-500 text-xs ml-2">${escapeHtml(item.ModuleLabel)}</span>
             </div>
-            <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+            <div class="flex items-center gap-3 shrink-0">
+              <button type="button" class="home-rejected-close text-xs text-slate-400 hover:text-slate-200 hover:underline" title="Not resubmitting it: close it">Close</button>
+              <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+            </div>
           </div>
           ${item.RejectionReason ? `<p class="text-xs text-red-400/80 truncate">${escapeHtml(item.RejectionReason)}</p>` : ''}`;
         row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
+        // Not resubmitting it (owner, 2026-10-24): closed, kept for the audit
+        // trail, and off Tasks. The document itself stays as it is.
+        row.querySelector('.home-rejected-close').addEventListener('click', async e => {
+          e.stopPropagation();
+          if (!(await appConfirm('Close ' + (item.DocumentNumber || item.DocumentID) + ' without resubmitting it? It leaves your tasks; the rejection stays on record as "Closed, not resubmitted".'))) return;
+          rpc
+            .withSuccessHandler(() => {
+              rpc.withSuccessHandler(r => renderRejectedSubmissions(r || [])).withFailureHandler(() => {}).getMyRejectedSubmissions();
+            })
+            .withFailureHandler(err => appAlert((err && err.message) || 'Unable to close it.'))
+            .closeRejectedSubmission({ InstanceID: item.InstanceID });
+        });
         list.appendChild(row);
       });
     }
@@ -2636,7 +2659,18 @@
       // module (owner, 2026-09-29).
       document.getElementById('app-copyright').classList.remove('hidden');
       document.getElementById('help-btn').href = '/help/';
+      setPageWidth(false);
       applyTreeTitle();
+    }
+
+    // A screen with wide tables (Employees, Sales Order) marks itself
+    // data-wide-screen and gets the screen's width, up to 1792px, instead of
+    // the usual 1152px column (owner, 2026-10-24). Home and every other
+    // screen keep the column.
+    function setPageWidth(wide) {
+      const app = document.getElementById('app-container');
+      app.classList.toggle('max-w-6xl', !wide);
+      app.classList.toggle('max-w-[112rem]', wide);
     }
 
     // ---------- GENERIC MODULE LOADER ----------
@@ -2733,7 +2767,10 @@
           // a value guaranteed correct for this load (not window.__activeModuleToken
           // read independently later, which is the same trap as above).
           window.__thisModuleToken = myToken;
+          // Never the previous screen's entry point, run again on this one.
+          window.initModule = undefined;
           injectHtmlWithScripts(container, result.html);
+          setPageWidth(Boolean(container.querySelector('[data-wide-screen]')));
           // Each fragment defines window.initModule(token, canWrite) as
           // its single entry point. The "token" concept itself is now
           // obsolete for any PORTED module (callable functions verify

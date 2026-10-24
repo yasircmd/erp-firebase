@@ -1021,6 +1021,33 @@ function linesForBatch_(idToken, batchId) {
 `
   },
   {
+    id: 'production-job-order-number',
+    why: "NEW DEVELOPMENT (owner, 2026-10-24; docs/modules/UX_ROUND2.md item 4): each listed Production Entry carries its Job Order's number, so an entry whose Job Order is no longer open for production (once posted) still shows it, by number, rather than as not linked. Read by id for the entries returned only.",
+    find: `  // [PORT CHANGE list-paging-production] Gmail-style paging and server-side search.
+  if (page) {
+    return __listPaging.pageOf(all, page, { idField: 'ProductionID', idAlso: ['LinkedJVID'], dateField: 'TransactionDate', equals: ['CompanyID', 'Status'],
+      text: e => \`\${e.TransactionNumber} \${e.Description}\` });
+  }
+
+  const useAll = limit === 'all';
+  const capped = useAll ? all : all.slice(0, 100);
+  return { entries: capped, total: all.length };`,
+    replace: `  // [PORT CHANGE list-paging-production] Gmail-style paging and server-side search.
+  let result;
+  if (page) {
+    result = __listPaging.pageOf(all, page, { idField: 'ProductionID', idAlso: ['LinkedJVID'], dateField: 'TransactionDate', equals: ['CompanyID', 'Status'],
+      text: e => \`\${e.TransactionNumber} \${e.Description}\` });
+  } else {
+    const useAll = limit === 'all';
+    const capped = useAll ? all : all.slice(0, 100);
+    result = { entries: capped, total: all.length };
+  }
+  // [NEW DEVELOPMENT production-job-order-number] the returned entries' Job Order numbers, by id.
+  const batches = getMovedMany_(idToken, 'jobOrderBatches', [...new Set(result.entries.map(e => e.JobOrderID).filter(Boolean))]) || {};
+  result.entries.forEach(e => { if (e.JobOrderID) e.JobOrderNumber = (batches[e.JobOrderID] && batches[e.JobOrderID].BatchNumber) || ''; });
+  return result;`
+  },
+  {
     id: 'list-paging-physical-count',
     why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/LIST_PAGING.md): Gmail-style paging. With a `page` argument the list returns 100 at a time after a marker (`next`), and search and filters run here over every entry the user can see. Without it the list behaves as before.",
     find: `function getPhysicalCountEntries(idToken, limit) {

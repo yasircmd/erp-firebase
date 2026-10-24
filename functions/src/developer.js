@@ -528,14 +528,11 @@ async function offerNewModules(c, main) {
 
 // Brings every Active corporate that follows the main tree, but is behind
 // it, up to date. A corporate with its own layout keeps it, and gets the
-// main tree's new modules in its "New modules" folder.
-exports.updateDeveloperTreeFollowers = onCallWithMessages(onCallOptions, async (request) => {
-  const user = await developer(request, 'write');
-  return updateFollowers(user);
-});
-
-// Also run by each release (tools/release-corporates.js, decision 263), as
-// SYSTEM. In Corporate 100.
+// main tree's new modules in its "New modules" folder. Run by each release
+// only (tools/release-corporates.js, decision 263), as SYSTEM, in Corporate
+// 100: its button, which reached every client at once, was removed (owner,
+// 2026-10-24, decision 269); one corporate's Tree tab still gives it the
+// main tree now (resetDeveloperTree).
 async function updateFollowers(user) {
   const mainNodes = await mainTree();
   const main = fingerprint(mainNodes);

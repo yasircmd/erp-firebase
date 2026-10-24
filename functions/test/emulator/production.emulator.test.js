@@ -75,6 +75,14 @@ test('Job Order: matched line gets JobOrderLineID, progress, and FIFO allocation
   assert.equal(jl.Status, 'Completed');
   assert.deepEqual(await reservations(), [['SO1', 6, 'Active']], 'nothing left to allocate');
   assert.deepEqual(await ledger('FG1', 'WH1'), [10, 12, 120]);
+
+  // Completed, the Job Order is no longer offered; its entries still name it
+  // by number (UX_ROUND2.md item 4), in both forms of the list.
+  assert.deepEqual((await call('u-admin', 'getEligibleJobOrderBatchesForProduction', { companyId: 'C1' })).map(b => b.BatchID), []);
+  for (const arg of [{ page: {} }, { limit: 'all' }]) {
+    const listed = (await call('u-admin', 'getProductionEntries', arg)).entries;
+    assert.deepEqual(listed.map(e => [e.JobOrderID, e.JobOrderNumber]), [['JB1', 'JOB-26-01-000001'], ['JB1', 'JOB-26-01-000001']], JSON.stringify(arg));
+  }
 });
 
 test('reversal: stock out, mirror GL, this posting\'s reservations released, Job Order rolled back', async () => {

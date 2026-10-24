@@ -4,8 +4,8 @@ area: start
 order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html]
-reviewed: 2026-10-23
-fingerprint: 7db2f961f8622362
+reviewed: 2026-10-24
+fingerprint: e3f827116956b2c4
 ---
 ## Company first
 
@@ -113,6 +113,9 @@ someone with the reopen right to reopen the month.
 Reports link to their detail (a Trial Balance line to its ledger, a ledger
 line to its document). Use **Back to …** on the opened screen to return to
 the report where you left it.
+
+You can leave a screen at any time, even while it is still loading: what
+it was loading is dropped, and nothing on it is saved unless you saved it.
 
 ## Saving your place
 

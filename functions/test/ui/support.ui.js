@@ -82,7 +82,12 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   });
 
   await check('the firm\'s queue (Corporate 100): every corporate\'s, answered with a status', async () => {
-    const d = await open('module=DEVELOPER&uid=u-admin', '#dv-q-list tr[data-id]');
+    const d = await open('module=DEVELOPER&uid=u-admin', '#dv-pages');
+    // On its own tab (owner, 2026-10-24), its count shown on the tab.
+    await until(d, () => /\(1\)/.test(document.getElementById('dv-q-tab-count').textContent));
+    assert.ok(await d.isHidden('#dv-q-list'));
+    await d.click('#dv-pages [data-page="support"]');
+    await d.waitForSelector('#dv-q-list tr[data-id]');
     assert.match(await d.textContent('#dv-q-list'), /200-00001\s*200 Demo client\s*Invoice total wrong\s*Bug\s*New/);
     await d.click('#dv-q-list tr[data-id]');
     await until(d, () => /The total shows 0/.test(document.getElementById('dv-q-thread').textContent));

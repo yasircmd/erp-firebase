@@ -12,6 +12,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const admin = require('firebase-admin');
 const { rtdb, firestore, reset, baseFixture, call, PROJECT } = require('./_helpers');
+// What each release runs (tools/release-corporates.js), in-process: its
+// button was removed (decision 269).
+const developer = require('../../src/developer');
+const follow = () => developer._release.updateFollowers({ uid: 'release', profile: { fullName: 'Release test' } });
 
 const CLIENT = 'erp-client-demo';
 const CLIENT_DB = 'https://' + CLIENT + '-default-rtdb.firebaseio.com';
@@ -192,10 +196,10 @@ test('the tree: given the main one, behind it after a change, brought up to date
   await clientRtdb.ref('tree/N2/AllowedRoles').set(['Clerk']);
   assert.equal(await status(), 'main', 'roles are not the layout');
 
-  // The main tree changes: the corporate is behind; "update" brings it up.
+  // The main tree changes: the corporate is behind; a release brings it up.
   await rtdb.ref('tree/N6').set(node('Reports', '', 5));
   assert.equal(await status(), 'behind');
-  assert.deepEqual((await call('u-admin', 'updateDeveloperTreeFollowers', {})).updated, ['200']);
+  assert.deepEqual((await follow()).updated, ['200']);
   assert.equal(await status(), 'main');
   own = (await clientRtdb.ref('tree').get()).val();
   assert.deepEqual(own.N2.AllowedRoles, ['Clerk'], 'its roles kept');
@@ -205,14 +209,14 @@ test('the tree: given the main one, behind it after a change, brought up to date
   await clientRtdb.ref('tree/N4/Text').set('Administration');
   assert.equal(await status(), 'own');
   await rtdb.ref('tree/N7').set(node('More', '', 6));
-  assert.deepEqual((await call('u-admin', 'updateDeveloperTreeFollowers', {})).updated, []);
+  assert.deepEqual((await follow()).updated, []);
   assert.equal((await clientRtdb.ref('tree/N4/Text').get()).val(), 'Administration');
   assert.equal(Object.values((await clientRtdb.ref('tree').get()).val()).some(n => n.Text === 'More'), false, 'its layout kept');
 
   // A module the main tree gains goes to its "New modules" folder, once
   // (decision 255).
   await rtdb.ref('tree/N8').set(node('Payroll', 'N1', 7, 'PAYROLL', ['Admin', 'Clerk']));
-  const r = await call('u-admin', 'updateDeveloperTreeFollowers', {});
+  const r = await follow();
   assert.deepEqual([r.updated, r.offered], [[], [{ CorporateID: '200', modules: ['PAYROLL'] }]]);
   own = (await clientRtdb.ref('tree').get()).val();
   const folder = Object.keys(own).find(id => own[id].Text === 'New modules');
@@ -223,7 +227,7 @@ test('the tree: given the main one, behind it after a change, brought up to date
   // Its Admin takes it out: not offered again.
   const payrollId = Object.keys(own).find(id => own[id].ModuleID === 'PAYROLL');
   await clientRtdb.ref('tree/' + payrollId).remove();
-  assert.deepEqual((await call('u-admin', 'updateDeveloperTreeFollowers', {})).offered, []);
+  assert.deepEqual((await follow()).offered, []);
   assert.equal(Object.values((await clientRtdb.ref('tree').get()).val()).some(n => n.ModuleID === 'PAYROLL'), false);
   // Back to the main tree, on request.
   await call('u-admin', 'resetDeveloperTree', { CorporateID: '200' });

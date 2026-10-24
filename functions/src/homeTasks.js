@@ -1,4 +1,4 @@
-const { onCallInCorporate } = require('./callable');
+const { onCallInCorporate, onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { approvalInstances } = require('./approvalStore');
 const movedPaths = require('./movedPaths');
@@ -8,6 +8,8 @@ const { MODULE_REGISTRY } = require('./moduleRegistry');
 const { userCanAccessCompany } = require('./glWriting');
 const { moduleIdForEntry } = require('./masterData');
 const { withStatus } = require('./rtdbStatus');
+const { HttpsError } = require('firebase-functions/v2/https');
+const { isAdminProfile } = require('./approvalDelegation');
 
 const onCallOptions = { region: 'us-central1' };
 
@@ -65,6 +67,17 @@ exports.getPendingApprovalsForUser = onCallInCorporate(onCallOptions, async (req
     .sort((a, b) => (a.CreatedAt || '').localeCompare(b.CreatedAt || ''));
 });
 
+// A rejection is still the submitter's task while its document points to
+// it and still waits to be corrected. A resubmission that needs no approval
+// (e.g. a lower amount) posts at once and leaves the old ApprovalInstanceID
+// on the document, so its status says it has moved on (owner, 2026-10-24).
+// Rejected, or back to Draft (payroll), or Amendment Requested (a Job Order
+// line), or a Closed PO whose reopening was refused.
+function awaitsResubmission(doc, inst) {
+  if (!doc || doc.ApprovalInstanceID !== inst.InstanceID) return false;
+  return ['Rejected', 'Draft', 'Amendment Requested'].includes(doc.Status) || (doc.Status === 'Closed' && Boolean(doc.ReopenRequested));
+}
+
 exports.getMyRejectedSubmissions = onCallInCorporate(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const actor = user.uid;
@@ -86,7 +99,7 @@ exports.getMyRejectedSubmissions = onCallInCorporate(onCallOptions, async (reque
   const stillActiveFlags = await Promise.all(candidates.map(async inst => {
     if (!APPROVAL_MODULE_STORAGE_[inst.ModuleID]) return true; // unknown module — safe default, don't hide
     const doc = await fetchApprovalSourceDocument(inst.ModuleID, inst.DocumentID);
-    return Boolean(doc) && doc.ApprovalInstanceID === inst.InstanceID;
+    return awaitsResubmission(doc, inst);
   }));
 
   return candidates
@@ -101,6 +114,22 @@ exports.getMyRejectedSubmissions = onCallInCorporate(onCallOptions, async (reque
       };
     })
     .sort((a, b) => (b.RejectedAt || '').localeCompare(a.RejectedAt || ''));
+});
+
+// Closing a rejected item that will not be resubmitted (owner, 2026-10-24,
+// decision 266): its submitter or an Admin. The approval is kept, marked
+// Closed, for the audit trail, and leaves Tasks; the document is untouched.
+exports.closeRejectedSubmission = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const id = String((request.data || {}).InstanceID || '');
+  const inst = id ? await approvalInstances.get(id) : null;
+  if (!inst) throw new HttpsError('not-found', 'Approval record not found.');
+  if (inst.Status !== 'Rejected') throw new HttpsError('failed-precondition', 'Only a rejected item can be closed; this one is ' + String(inst.Status || '').toLowerCase() + '.');
+  if (inst.CreatedBy !== user.uid && !isAdminProfile(user.profile)) throw new HttpsError('permission-denied', 'Only its submitter or an Admin can close a rejected item.');
+  const now = new Date().toISOString();
+  await approvalInstances.update(id, { Status: 'Closed', ClosedNote: 'Closed, not resubmitted', ClosedAt: now, ClosedBy: user.uid,
+    ClosedByName: user.profile.fullName || user.profile.username || user.uid, UpdatedAt: now });
+  return { success: true };
 });
 
 // ---------- My Drafts (docs/modules/DRAFT_TASKS.md, owner 2026-09-28) ----------

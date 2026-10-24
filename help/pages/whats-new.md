@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-23
+reviewed: 2026-10-24
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,37 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 24/10/2026
+
+- **An export invoice prints in the customer's currency only.** A Customer
+  Invoice in a foreign currency with no VAT no longer shows the rate and
+  amounts in the default currency on its print. With VAT, they still show.
+  See [Customer Invoice](customer-invoice.html#a-customer-in-a-foreign-currency).
+- **Chart of Accounts: a renumbered account's old code is in its
+  details.** The list no longer shows "formerly …" under it; open the
+  account (Edit) to see its former codes and until when. See
+  [Chart of Accounts](chart-of-accounts.html).
+- **More room on wide screens.** [Employees](employees.html) and
+  [Sales Order](sales-order.html) use the width of a wide monitor, and the
+  Sales Order's item names have more space. Other screens keep the usual
+  width.
+- **Production Entry opens complete.** An entry opened while the screen
+  was still loading showed its items as "not found" and its Job Order as
+  not linked. It now waits for the lists, and a posted entry's Job Order
+  shows by its number even once it is complete. See
+  [Production Entry](production.html).
+- **No error after going Back while a screen loads.** Leaving a screen
+  (for example PDC Received or PDC Issued) before it has finished loading,
+  by Back or by opening another module, no longer shows an error message.
+  See [Working with screens](working-with-screens.html).
+- **Rejected documents leave your tasks when they should.** A rejected
+  document that you correct and post without approval (for example at a
+  lower amount) no longer stays under Rejected in your Home tasks.
+- **Close a rejection you will not resubmit.** Choose **Close** on it in
+  your Home tasks; an Admin can also close one in Approval Tracker. The
+  rejection stays on record as "Closed, not resubmitted". See
+  [Approvals](approvals.html#rejected-documents).
 
 ## 23/10/2026
 

@@ -99,8 +99,12 @@ test('approval amount includes non-stock; rejected GRNs are corrected and posted
   assert.equal((await val('approvalInstances/' + (await val('stock/transactions/' + s.grnId)).ApprovalInstanceID)).Amount, 50);
   assert.equal((await poLine('L2')).ReceivedQuantity || 0, 0, 'not received until posted');
   await call('u-approver', 'decideGrnApproval', { grnId: s.grnId, levelNumber: 1, decision: 'Rejected', reason: 'Only 1' });
+  const rejectedTasks = async () => (await call('u-admin', 'getMyRejectedSubmissions', {})).map(t => t.DocumentID);
+  assert.deepEqual(await rejectedTasks(), [s.grnId], 'the rejection is the submitter\'s task');
   assert.equal((await call('u-admin', 'saveGrnDraft', base({ GRNID: s.grnId, NonStockLines: [poPaper(1)] }))).success, true);
   assert.equal((await call('u-admin', 'postGrn', { grnId: s.grnId })).status, 'Posted', '25 is under the threshold');
+  // Posted with no approval needed: the old rejection leaves Tasks (owner, 2026-10-24).
+  assert.deepEqual(await rejectedTasks(), []);
   assert.equal((await poLine('L2')).ReceivedQuantity, 1);
 
   const r = await call('u-admin', 'reverseGrn', { grnId: s.grnId, reversalDate: today });

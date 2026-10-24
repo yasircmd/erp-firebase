@@ -59,7 +59,7 @@
       <input type="hidden" id="coa-form-id">
 
       <div id="coa-code-preview" class="hidden text-xs text-slate-400 bg-slate-900/60 border border-slate-700 rounded-lg py-2 px-3">
-        Account code: <span id="coa-code-value" class="font-mono text-slate-200"></span>
+        Account code: <span id="coa-code-value" class="font-mono text-slate-200"></span><span id="coa-code-former" class="text-slate-500"></span>
       </div>
 
       <div>
@@ -218,7 +218,7 @@
         : '<span class="text-slate-500">All Companies</span>';
       row.innerHTML = `
         <td class="py-3 px-4 font-mono text-xs text-slate-200">${escapeHtml(a.AccountCode)}</td>
-        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.Currency ? ' <span class="coa-currency ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">' + escapeHtml(a.Currency) + '</span>' : ''}${a.OwnCashBank ? ' <span class="ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">' + escapeHtml(a.OwnCashBank) + '</span>' : ''}${(a.FormerCodes || []).length ? '<div class="text-[11px] text-slate-500">formerly ' + escapeHtml(a.FormerCodes.map(f => f.Code).join(', ')) + '</div>' : ''}</td>
+        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.Currency ? ' <span class="coa-currency ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">' + escapeHtml(a.Currency) + '</span>' : ''}${a.OwnCashBank ? ' <span class="ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">' + escapeHtml(a.OwnCashBank) + '</span>' : ''}</td>
         <td class="py-3 px-4 text-xs">${escapeHtml(a.AccountType)}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(a.AccountSubType || '—')}</td>
         <td class="py-3 px-4 text-xs">${escapeHtml(a.NormalBalance)}</td>
@@ -314,6 +314,7 @@
       ['CostCenter', 'ProfitCenter', 'Project'].forEach(k => { document.getElementById('coa-dim-' + k).value = (a.DimensionRules && a.DimensionRules[k]) || ''; });
       document.getElementById('coa-form-status').value = a.Status;
       document.getElementById('coa-code-value').textContent = a.AccountCode;
+      document.getElementById('coa-code-former').textContent = (a.FormerCodes || []).length ? ' · formerly ' + a.FormerCodes.map(f => f.Code + (f.Until ? ' (until ' + String(f.Until).substring(0, 10) + ')' : '')).join(', ') : '';
       document.getElementById('coa-code-preview').classList.remove('hidden');
       populateParentOptions(a.AccountType, a.AccountID);
       document.getElementById('coa-form-parent').value = a.ParentAccountID || '';

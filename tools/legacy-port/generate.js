@@ -539,7 +539,14 @@ const SCREEN_EDITS = [
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
     <div class="overflow-x-auto">` },
   { mod: 'COA', from: '        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}</td>',
-    to: '        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.OwnCashBank ? \' <span class="ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">\' + escapeHtml(a.OwnCashBank) + \'</span>\' : \'\'}${(a.FormerCodes || []).length ? \'<div class="text-[11px] text-slate-500">formerly \' + escapeHtml(a.FormerCodes.map(f => f.Code).join(\', \')) + \'</div>\' : \'\'}</td>' },
+    to: '        <td class="py-3 px-4 text-slate-200">${escapeHtml(a.AccountName)}${a.OwnCashBank ? \' <span class="ml-1 text-[10px] uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">\' + escapeHtml(a.OwnCashBank) + \'</span>\' : \'\'}</td>' },
+  // The former codes of a renumbered account: off the list, in its details
+  // only (owner, 2026-10-24, decision 267), so an old code on a printed
+  // report can still be traced.
+  { mod: 'COA', from: '        Account code: <span id="coa-code-value" class="font-mono text-slate-200"></span>',
+    to: '        Account code: <span id="coa-code-value" class="font-mono text-slate-200"></span><span id="coa-code-former" class="text-slate-500"></span>' },
+  { mod: 'COA', from: "      document.getElementById('coa-code-value').textContent = a.AccountCode;\n",
+    to: "      document.getElementById('coa-code-value').textContent = a.AccountCode;\n      document.getElementById('coa-code-former').textContent = (a.FormerCodes || []).length ? ' · formerly ' + a.FormerCodes.map(f => f.Code + (f.Until ? ' (until ' + String(f.Until).substring(0, 10) + ')' : '')).join(', ') : '';\n" },
   { mod: 'COA', from: "        ? `<button class=\"coa-edit text-slate-400 hover:text-blue-400 p-1\" title=\"Edit\"><i class=\"fa-solid fa-pen-to-square\"></i></button>",
     to: "        ? `${a.IsPostable === true ? '<button class=\"coa-renumber text-slate-400 hover:text-blue-400 p-1\" title=\"Renumber within its heading\"><i class=\"fa-solid fa-arrow-down-1-9\"></i></button>' : ''}<button class=\"coa-edit text-slate-400 hover:text-blue-400 p-1\" title=\"Edit\"><i class=\"fa-solid fa-pen-to-square\"></i></button>" },
   { mod: 'COA', from: "        row.querySelector('.coa-edit').addEventListener('click', () => openModal(a.AccountID));\n",

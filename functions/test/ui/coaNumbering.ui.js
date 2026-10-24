@@ -56,11 +56,16 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual([g.AccountCode, g.OwnCashBank, g.CashBank], ['150000', 'Bank', 'Bank']);
   });
 
-  await check('Renumber: the free codes of its group, a reason; the row shows "formerly"', async () => {
+  await check('Renumber: the free codes of its group, a reason; "formerly" in the account\'s details, not on the list (decision 267)', async () => {
     page.__answers.push('110009', 'Match the old ledger');
     const row = page.locator('#coa-table-body tr', { hasText: 'Petty cash' });
     await row.locator('.coa-renumber').click();
-    await page.waitForFunction(() => /formerly 110001/.test(document.getElementById('coa-table-body').textContent), null, T);
+    await page.waitForFunction(() => /110009/.test(document.getElementById('coa-table-body').textContent), null, T);
+    assert.doesNotMatch(await page.textContent('#coa-table-body'), /formerly/);
+    await page.locator('#coa-table-body tr', { hasText: '110009' }).locator('.coa-edit').click();
+    await page.waitForSelector('#coa-modal:not(.hidden)');
+    assert.match(await page.textContent('#coa-code-preview'), /Account code: 110009 · formerly 110001 \(until \d\d\/\d\d\/\d{4}\)/);
+    await page.click('#coa-modal-cancel');
     assert.match(page.__dialogs[0], /^Renumber 110001 Petty cash within 110000 Cash \/ Petty Cash\.[\s\S]*Free codes: 110002 to 110999/);
     assert.match(page.__dialogs[1], /reason for renumbering 110001 to 110009/);
     assert.match(page.__dialogs[2], /Renumbered: 110001 is now 110009\./);

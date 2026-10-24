@@ -5,8 +5,8 @@ order: 6
 modules: [CUSTOMERINVOICE]
 sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js, functions/src/eInvoicing.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
-reviewed: 2026-10-18
-fingerprint: a7340c5c8a8d5457
+reviewed: 2026-10-24
+fingerprint: 67c5edc8300e766c
 ---
 ## What it is for
 
@@ -65,8 +65,9 @@ default currency, its invoice is in that currency:
 
 The books are in the default currency, at the invoice's rate; each line
 keeps its foreign amount too. The printed invoice gives the total in the
-customer's currency and, below it, the rate with the VAT and the total in
-the default currency.
+customer's currency. With VAT, it also gives, below it, the rate with the
+VAT and the total in the default currency, as VAT rules require. With no
+VAT (an export, for example), it shows nothing in the default currency.
 
 ## Project
 

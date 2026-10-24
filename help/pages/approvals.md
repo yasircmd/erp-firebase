@@ -3,9 +3,9 @@ title: Approvals
 area: start
 order: 3
 summary: How documents are submitted, approved, rejected and delegated.
-sources: [functions/src/approvals.js]
-reviewed: 2026-10-18
-fingerprint: b8b92e59a13fcc5f
+sources: [functions/src/approvals.js, functions/src/homeTasks.js]
+reviewed: 2026-10-24
+fingerprint: 6e52a9f04b2b0667
 ---
 ## When a document needs approval
 
@@ -32,6 +32,13 @@ in that team's Home tasks under **Ready for You to Act On**.
 
 A rejected document returns to its submitter, with the reason, under
 **Rejected — Needs Your Resubmission**. Correct it and submit it again.
+It leaves your tasks once it is submitted again, or posted (a corrected
+document that no longer needs approval posts at once).
+
+If it will not be submitted again, choose **Close** on it. It leaves your
+tasks, and the rejection stays on record, marked "Closed, not
+resubmitted"; the document itself is not changed. Its submitter or an
+Admin can close it (an Admin from [Approval Tracker](approval-tracker.html)).
 
 ## Following a document
 

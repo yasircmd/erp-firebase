@@ -7,7 +7,7 @@
 const { getModuleFragment } = require('./src/getModuleFragment');
 const { completeLogin, corporateSignIn, restoreSession, getMyTree } = require('./src/session');
 const { getMyFavorites, toggleFavorite } = require('./src/favorites');
-const { getPendingApprovalsForUser, getMyRejectedSubmissions, getMyDraftsForUser } = require('./src/homeTasks');
+const { getPendingApprovalsForUser, getMyRejectedSubmissions, closeRejectedSubmission, getMyDraftsForUser } = require('./src/homeTasks');
 const { getActiveCompanies } = require('./src/companies');
 const {
   saveStockAdjustmentDraft, postStockAdjustment, decideStockAdjustmentApproval,
@@ -69,6 +69,7 @@ exports.getMyFavorites = getMyFavorites;
 exports.toggleFavorite = toggleFavorite;
 exports.getPendingApprovalsForUser = getPendingApprovalsForUser;
 exports.getMyRejectedSubmissions = getMyRejectedSubmissions;
+exports.closeRejectedSubmission = closeRejectedSubmission;
 exports.getMyDraftsForUser = getMyDraftsForUser;
 exports.getActiveCompanies = getActiveCompanies;
 exports.saveStockAdjustmentDraft = saveStockAdjustmentDraft;
@@ -320,7 +321,7 @@ exports.saveFxSettings = require('./src/exchangeRates').saveFxSettings;
 const developer = require('./src/developer');
 ['getDeveloperCorporates', 'saveDeveloperCorporate', 'testDeveloperCorporate', 'saveDeveloperModules',
   'getDeveloperNotes', 'saveDeveloperNote', 'deleteDeveloperNote',
-  'getDeveloperTree', 'resetDeveloperTree', 'updateDeveloperTreeFollowers',
+  'getDeveloperTree', 'resetDeveloperTree',
   'saveDeveloperGroup', 'saveDeveloperGroupModules', 'createDeveloperAdmin', 'copyDeveloperChartHeaders', 'purgeDeveloperLeavers' // M4
 ].forEach(name => { exports[name] = developer[name]; });
 

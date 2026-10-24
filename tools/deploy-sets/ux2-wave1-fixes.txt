@@ -1,0 +1,22 @@
+# UX round 2, wave 1: the first fixes (owner, 2026-10-24; docs/modules/
+# UX_ROUND2.md). Run with --screens (Approval Tracker's Close, Production
+# Entry, the Employees and Sales Order widths, Chart of Accounts' former
+# codes in the details, the Customer Invoice print, Developer's tabs).
+# Hosting too
+# (tools/deploy-hosting.sh): public/index.html (Home's Close, leaving a
+# screen while it loads, wide screens) and the Help.
+# Items 2-3: a rejected document leaves Home tasks once posted or
+# resubmitted; its submitter or an Admin can close one that will not be
+# resubmitted. NEW callable: closeRejectedSubmission; then the rest of
+# homeTasks.js (only index.js requires it).
+closeRejectedSubmission
+getMyRejectedSubmissions
+getPendingApprovalsForUser
+getMyDraftsForUser
+# Item 4: the Production Entry list carries each entry's Job Order number
+# (patch production-job-order-number).
+getProductionEntries
+# Items 11-12 (Developer): its tabs are the screen's; the all-corporates
+# button is gone, and its callable with it. After the deploy, delete the
+# live function (a deploy of a set never deletes one):
+#   firebase functions:delete updateDeveloperTreeFollowers --region us-central1 --project erp1-8f4cd

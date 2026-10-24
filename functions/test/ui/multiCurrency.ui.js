@@ -132,6 +132,22 @@ const D = '2026-09-10', PAY = '2026-09-20';
     await p.close();
   });
 
+  await check('the printed USD invoice with no VAT (an export) shows nothing in AED (decision 268)', async () => {
+    const p = await open('CUSTOMERINVOICE');
+    await p.evaluate(() => { window.print = () => {}; });
+    await p.waitForSelector('#cinv-table-body tr', T);
+    // The posted 1,000 USD invoice at 0% (the draft of the same amount is "(unposted)").
+    const pick = () => { const r = [...document.querySelectorAll('#cinv-table-body tr')].find(x => x.textContent.includes('1,000.00') && !x.textContent.includes('(unposted)')); if (r) r.click(); return Boolean(r); };
+    await p.waitForFunction(pick, null, T);
+    await p.waitForSelector('#cinv-print-btn:not(.hidden)', T);
+    await p.click('#cinv-print-btn');
+    const doc = await p.textContent('#cinv-print-document');
+    assert.match(doc, /Total \(USD\)\s*1,000\.00/);
+    assert.doesNotMatch(doc, /AED/);
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await check('Vendor Invoice: a USD vendor shows the rate and says direct lines only', async () => {
     const p = await open('VENDORINVOICE');
     await p.click('#vinv-new-btn');
