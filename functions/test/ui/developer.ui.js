@@ -158,6 +158,9 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const steps = await p.textContent('#dv-setup');
     assert.match(steps, /1\. Connection test: passed/);
     assert.match(steps, /2\. Rules: not yet: run the Deploy workflow's "database rules" task/);
+    // One click to the workflow; the app itself never deploys rules (owner, 2026-10-24).
+    assert.equal(await p.getAttribute('#dv-setup a', 'href'), 'https://github.com/yasircmd/erp-firebase/actions/workflows/deploy.yml');
+    assert.equal((await p.textContent('#dv-setup a')).trim(), 'Run "database rules" in GitHub');
     assert.match(steps, /3\. Menu: given the main tree/);
     assert.match(steps, /5\. First Admin: not yet/);
     await p.click('#dv-headings');

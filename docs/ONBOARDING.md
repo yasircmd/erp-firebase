@@ -99,7 +99,10 @@ corporate → Set up shows each step):
    The deploy account's grant is not part of this test: the rules
    release (step 3) reports it, with the CLI's reason.
 3. **Rules:** GitHub → Actions → **Deploy** → `database rules` (from
-   `main`). It deploys to this project and then to every client corporate
+   `main`); Set up's step 2 links straight to it. The rules never go out
+   from the app itself: the app's account cannot change a client's
+   security rules, only the deploy account can, from reviewed code
+   (owner, 2026-10-24). It deploys to this project and then to every client corporate
    that is Active.
    - The new corporate is still Inactive, so set it Active just for this
      run, or wait until step 7 and run it then. Nobody can sign in before
