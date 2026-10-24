@@ -12,6 +12,9 @@ screen.
 
 ## 23/10/2026
 
+- **Your company's name on Home without a reload.** When a company is
+  assigned to you, the title above the menu shows it as soon as you come
+  back to Home. See [Getting started](getting-started.html#the-menu).
 - **A menu folder can no longer be linked to a module.** In
   [Tree Management](tree-management.html), an item either opens a screen or
   holds sub-items, and a top-level item (an area of the menu) never opens a

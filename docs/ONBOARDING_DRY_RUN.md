@@ -30,15 +30,15 @@ client's project only holds data; the functions run in the firm's project.
 | A.5 | Authentication → Email/Password on (A.3). | | |
 | A.6 | Authorized domains: add `erp1-8f4cd.web.app` and `erp1-8f4cd.firebaseapp.com` (A.4). | Both listed with `localhost` and the project's own. | |
 | A.7 | Add a Web app and copy its config, plus the database URL (A.5). | `apiKey`, `authDomain`, `projectId`, `appId`. | |
-| A.8 | The grants (A.6), in the test project's Cloud Shell: the seven bindings, the deploy account's email put in. | Each prints the updated policy. **Watch:** a "not found" means a typo in an email. | |
+| A.8 | The grants (A.6), in the test project's Cloud Shell, the deploy account's email put in. | Nine "OK" lines (four app, five deploy). "STOP: DEPLOY must be …" means the email is not a full service-account email. | |
 
 ## B. As the firm (Corporate 100, Developer)
 
 | # | Step (ONBOARDING.md) | Expect | ✓ |
 |---|---|---|---|
 | B.1 | Developer → **Add corporate**: 900, the name, project ID, database URL, web config; **Status Inactive** (B.1). | Saved; 900 in the list. | |
-| B.2 | **Test connection** (B.2). | Realtime Database "reachable, no ERP users yet", Firestore "reachable", Authentication "reachable". **If one fails**, its grant is missing: Realtime Database and Firestore are the functions' account's first two roles, Authentication its third. | |
-| B.3 | Tree → **Back to the main tree** (B.4). | Tree status "follows the main tree". | |
+| B.2 | **Test connection** (B.2). | Realtime Database "reachable, no ERP users yet", Firestore "reachable", Authentication "reachable, password sign-in on". The result stays on screen. **If one fails**, its grant is missing: Realtime Database and Firestore are the functions' account's first two roles, Authentication its third. | |
+| B.3 | The corporate's own **Tree** tab → **Back to the main tree** (B.4). | Tree status "follows the main tree"; Set up step 3 "given the main tree" at once. | |
 | B.4 | Set up → **Copy the chart headings** (B.5). | "N headings copied". Run it again: refused, "chart has accounts already". | |
 | B.5 | Set up → first Admin: a name and an email **you can read** → **Create the first Admin** (B.6). | "Created. … has been sent the email to set a password." (If it says to use Forgot Password instead, the email was not sent: note it, then do that.) The email comes **from the test project** (its name in the sender), not from the ERP's. Run it again: refused, "has an Admin already". | |
 | B.6 | Modules: tick a few (e.g. the Finance ones) → Save; then **Status Active** → Save (B.7). | Saved. Set up shows modules and Active ticked. | |
@@ -88,6 +88,20 @@ nobody reuses it.
 Write each finding here: the step, what happened, and what was expected.
 Then decide for each: fix the guide, fix the app, or accept it.
 
-| Step | What happened | Decision |
-|---|---|---|
-| | | |
+**First run, 2026-10-23** (owner; project `dry-run-trading`, a separate
+Google account, Corporate 900). Every part passed once these were dealt
+with; all ten fixed on branch `dry-run-fixes` (the steps above are
+updated to match).
+
+| # | Step | What happened | Decision |
+|---|---|---|---|
+| 1 | A.8 | The guide's `THE-FIRMS-DEPLOY-ACCOUNT` gave no idea of the email's form: "Invalid service account (erp1-8f4cd)" | Guide: the form shown; the commands stop on a value that is not a service-account email |
+| 2 | B.2 | Test connection's result vanished at once (the reload after it) | App: it stays on screen |
+| 3 | B.2 | Authentication failed: the functions' account also needs **Service Usage Consumer** | Guide: added to the grants (blocking for every client) |
+| 4 | B.7 | Rules not deployed, same reason, for the deploy account | Guide: added to the grants (blocking for every client) |
+| 5 | B.7 | "Rules: not deployed" full of colour codes and cut before the error | App: colours stripped, the reason from the CLI's "Error:" line |
+| 6 | B.3 | Set up still said "Menu: not yet" after Back to the main tree | App: the corporate reloads too |
+| 7 | B.3 | "Update corporates that follow the main tree" skipped a corporate with no menu ("None was behind") | App: it, and each release, give the main tree to an Active corporate with no menu, and say so |
+| 8 | C.1 | The password link from B.5 had expired (one hour) | App: Set up → Send the password email again; guide: the hour said |
+| 9 | C.1 | Email/Password had not been switched on; Test connection passed; the link failed as "expired or already used" (`PASSWORD_LOGIN_DISABLED`) | App: Test connection checks password sign-in (and the API key), so the corporate cannot go Active; guide: A.3 spelt out (blocking) |
+| 10 | C.2 | The company name stayed off Home's title until a reload after the company was assigned | App: refreshed on returning to Home |

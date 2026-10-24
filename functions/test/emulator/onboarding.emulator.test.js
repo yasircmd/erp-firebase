@@ -141,6 +141,8 @@ test('each release: rules to every Active corporate (one not reached is reported
   const [e200, e300] = [await entry('200'), await entry('300')];
   assert.deepEqual([e200.Rules.Ok, e300.Rules.Ok, e300.Rules.Error], [true, false, 'Permission denied on erp-client-two']);
   assert.deepEqual(r.tree.updated, ['200'], 'the follower brought up to date');
+  assert.deepEqual(r.tree.given, ['300'], 'an Active corporate with no menu is given the main tree (dry run, 2026-10-23)');
+  assert.ok((await entry('300')).TreeSynced);
   assert.ok(Object.values((await apps['200'].database().ref('tree').get()).val()).some(n => n.Text === 'Reports'));
   assert.deepEqual(r.purged, []);
 });
@@ -187,9 +189,38 @@ test('the release script runs as the workflow runs it, and keeps the CLI\'s erro
   const path = require('path');
   const out = execFileSync(process.execPath, [path.join(__dirname, '../../../tools/release-corporates.js'), '--dry-run'], { env: process.env, encoding: 'utf8', timeout: 60000 });
   assert.match(out, /^Rules deployed to: 200 \(erp-client-demo\), 300 \(erp-client-two\)$/m, out);
-  const cliError = () => { const e = new Error('Command failed: firebase deploy'); e.stderr = Buffer.from(''); e.stdout = Buffer.from('i  deploying database\n\nError: Request had HTTP Error: 403, The caller does not have permission\n\n'); throw e; };
+  // The CLI's colours, and lines after its error (dry run, 2026-10-23).
+  const cliError = () => {
+    const e = new Error('Command failed: firebase deploy'); e.stderr = Buffer.from('');
+    e.stdout = Buffer.from('\x1b[32m\x1b[1m✔ \x1b[22m\x1b[39m database: rules syntax is valid\n\x1b[36mi  firestore:\x1b[39m ensuring required API is enabled...\n\x1b[1m\x1b[31mError:\x1b[39m\x1b[22m Request had HTTP Error: 403, The caller does not have permission\n\nHaving trouble? Try firebase [command] --help\n');
+    throw e;
+  };
   const r = await release.main({ deploy: p => { if (p === 'erp-client-two') cliError(); } });
-  assert.match(r.rules.failed[0], /^300 \(erp-client-two\): .*HTTP Error: 403, The caller does not have permission$/);
+  assert.equal(r.rules.failed[0], '300 (erp-client-two): Error: Request had HTTP Error: 403, The caller does not have permission Having trouble? Try firebase [command] --help');
   assert.match((await entry('300')).Rules.Error, /403, The caller does not have permission/);
+});
+
+// Test connection checks that the client's Auth lets users sign in with a
+// password (dry run, 2026-10-23: Email/Password was off, the test passed,
+// and the Admin's password link failed). The emulators cannot switch it
+// off, so the Auth API's answer is stood in for.
+test('Test connection: password sign-in off, or a wrong API key, fails Authentication, and the corporate cannot go Active', async () => {
+  assert.match((await dev('testDeveloperCorporate', { CorporateID: '200' })).auth.detail, /^reachable, password sign-in on$/, 'on, in the emulators');
+  const real = global.fetch;
+  const answer = message => { global.fetch = async (url, o) => /signInWithPassword/.test(String(url)) ? { ok: false, status: 400, json: async () => ({ error: { message } }) } : real(url, o); };
+  try {
+    await saveCorp(C200, { Status: 'Inactive' });
+    answer('PASSWORD_LOGIN_DISABLED');
+    let c = await dev('testDeveloperCorporate', { CorporateID: '200' });
+    assert.deepEqual([c.ok, c.database.ok, c.firestore.ok, c.auth.ok], [false, true, true, false]);
+    assert.match(c.auth.detail, /^Email\/Password sign-in is off in the client's project: Firebase console → Authentication → Sign-in method/);
+    await assert.rejects(saveCorp(C200, { Status: 'Active' }), /Test connection first/);
+    answer('API key not valid. Please pass a valid API key.');
+    c = await dev('testDeveloperCorporate', { CorporateID: '200' });
+    assert.match(c.auth.detail, /^The web config's API key is not valid/);
+    answer('INVALID_LOGIN_CREDENTIALS');
+    assert.equal((await dev('testDeveloperCorporate', { CorporateID: '200' })).auth.ok, true, 'on, with email enumeration protection');
+  } finally { global.fetch = real; }
+  await saveCorp(C200, { Status: 'Active' });
 });
 

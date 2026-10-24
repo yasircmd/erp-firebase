@@ -23,8 +23,12 @@ them through two grants, with no key.
    - Build → **Realtime Database** → Create database → locked mode;
    - Build → **Firestore Database** → Create database → native mode,
      production rules;
-   - Build → **Authentication** → Get started → **Email/Password**:
-     enable.
+   - Build → **Authentication** → Get started → **Email/Password**: switch
+     on the **first** switch ("Email/Password"; the second, "Email link", is
+     not needed), then **Save**. The Sign-in method list must then say
+     Email/Password **Enabled**. Left off, the Admin's password link fails
+     as "expired or already used" (dry run, 2026-10-23); Test connection
+     now checks it.
 4. **Authentication → Settings → Authorized domains:** add
    `erp1-8f4cd.web.app` and `erp1-8f4cd.firebaseapp.com`.
 5. **Project settings → Your apps → Add app → Web.** Send the firm the
@@ -33,22 +37,33 @@ them through two grants, with no key.
    These values are not secrets.
 6. **Grant the firm's two accounts their roles.** In Google Cloud console →
    IAM & Admin → IAM → Grant access, or in Cloud Shell (replace
-   `CLIENT_PROJECT`, and `THE-FIRMS-DEPLOY-ACCOUNT` with the email the
-   firm sends the client separately; it is kept out of this public
-   repository, owner 2026-10-23). Both accounts were confirmed in the
-   Cloud console by the owner on 2026-10-23:
+   `CLIENT_PROJECT` with the project ID, and `THE-FIRMS-DEPLOY-ACCOUNT`
+   with the email the firm sends the client separately; it is kept out of
+   this public repository, owner 2026-10-23). That email has the form
+   `some-name@erp1-8f4cd.iam.gserviceaccount.com`, and the commands stop
+   on anything else. Both accounts were confirmed in the Cloud console by
+   the owner on 2026-10-23. Each account also needs **Service Usage
+   Consumer**: without it Authentication refuses the functions' account
+   and the rules release fails ("Caller does not have required permission
+   to use project", dry run 2026-10-23):
 
    ```bash
    P=CLIENT_PROJECT
    APP=serviceAccount:303168627971-compute@developer.gserviceaccount.com   # the ERP's functions
    DEPLOY=serviceAccount:THE-FIRMS-DEPLOY-ACCOUNT                          # the firm's releases
-   for R in roles/firebasedatabase.admin roles/datastore.user roles/firebaseauth.admin; do
-     gcloud projects add-iam-policy-binding "$P" --member="$APP" --role="$R"
-   done
-   for R in roles/firebaserules.admin roles/firebasedatabase.admin roles/datastore.indexAdmin roles/firebase.viewer; do
-     gcloud projects add-iam-policy-binding "$P" --member="$DEPLOY" --role="$R"
-   done
+   case "$DEPLOY" in
+     serviceAccount:*@*.iam.gserviceaccount.com)
+       for R in roles/firebasedatabase.admin roles/datastore.user roles/firebaseauth.admin roles/serviceusage.serviceUsageConsumer; do
+         gcloud projects add-iam-policy-binding "$P" --member="$APP" --role="$R" --condition=None --quiet >/dev/null && echo "OK app $R"
+       done
+       for R in roles/firebaserules.admin roles/firebasedatabase.admin roles/datastore.indexAdmin roles/firebase.viewer roles/serviceusage.serviceUsageConsumer; do
+         gcloud projects add-iam-policy-binding "$P" --member="$DEPLOY" --role="$R" --condition=None --quiet >/dev/null && echo "OK deploy $R"
+       done ;;
+     *) echo "STOP: DEPLOY must be serviceAccount:<name>@erp1-8f4cd.iam.gserviceaccount.com" ;;
+   esac
    ```
+
+   It prints nine "OK" lines: four "app", five "deploy".
 
    - **The ERP's functions** read and write the client's data (Realtime
      Database and Firestore) and manage its users (Authentication: User
@@ -74,7 +89,9 @@ corporate → Set up shows each step):
    - **Status: Inactive** until the end;
    - its **group**, if it is in one.
 2. **Test connection.** All three parts (Realtime Database, Firestore,
-   Authentication) must pass. If one fails, a grant is missing (A.6).
+   Authentication) must pass. If one fails, a grant is missing (A.6); for
+   Authentication it can also be Email/Password left off (A.3) or a wrong
+   API key (A.5), which the test names.
    Until they pass, the corporate cannot be set Active (owner,
    2026-10-23); a changed project or database URL is tested again first.
    The deploy account's grant is not part of this test: the rules
@@ -86,14 +103,20 @@ corporate → Set up shows each step):
      run, or wait until step 7 and run it then. Nobody can sign in before
      there is an Admin anyway.
    - Set up shows "deployed with release …" once it has run.
-4. **Menu:** Tree → **Back to the main tree**.
+4. **Menu:** the corporate's own **Tree** tab → **Back to the main tree**.
+   (Not "Update corporates that follow the main tree" at the top, which is
+   for those that have it already. Since 2026-10-23 that button, and each
+   release, also give the main tree to an Active corporate with no menu.)
 5. **Chart headings:** Set up → **Copy the chart headings**
    (decision 261). This copies Corporate 100's current headings, with no
    posting accounts and no balances. The client's Admin then adds the
    accounts, or imports them with Master Import.
 6. **First Admin:** Set up → the Admin's name and email → **Create the
    first Admin** (decision 260). The client's own Authentication sends
-   them the email to set their password.
+   them the email to set their password. Its link lasts **one hour** and
+   works once: when the Admin is not ready, Set up → **Send the password
+   email again** (or Forgot Password on the sign-in page, with the
+   Corporate ID) sends a new one.
 7. **Modules:** tick what the client has bought. A later module comes
    from its group (Groups) or is ticked here. Then set the corporate
    **Active** (Connection → Status → Save).

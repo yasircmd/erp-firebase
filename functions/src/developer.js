@@ -182,7 +182,10 @@ exports.testDeveloperCorporate = onCallWithMessages(onCallOptions, async (reques
         return Object.keys(users).length ? Object.keys(users).length + ' ERP user(s)' : 'reachable, no ERP users yet';
       }),
       part('Firestore', async () => { await firestore.doc('settings/documentStorage').get(); return 'reachable'; }),
-      part('Authentication', async () => { await admin.auth().listUsers(1); return 'reachable'; })
+      part('Authentication', async () => {
+        await admin.auth().listUsers(1);
+        return module.exports._auth.passwordSignIn(entry);
+      })
     ]));
     result = { database, firestore: store, auth };
   } catch (err) {
@@ -195,6 +198,30 @@ exports.testDeveloperCorporate = onCallWithMessages(onCallOptions, async (reques
   await entryRef(id).update({ LastTest: { At: new Date().toISOString(), Ok: ok, ProjectID: entry.ProjectID, DatabaseURL: entry.DatabaseURL } });
   return Object.assign({ ok }, result);
 });
+
+// Whether the client's Auth lets users sign in with a password (onboarding
+// dry run, 2026-10-23: Email/Password was off; the test passed, and the
+// Admin's password link then failed as "expired or already used"). Asked
+// as the sign-in page does, with the client's public API key and an
+// address nobody has: "no such user" means password sign-in is on.
+// The page's own domain goes as the referrer, for a key restricted to it.
+async function passwordSignIn(entry) {
+  const key = (entry.WebConfig || {}).apiKey || '';
+  const host = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+  const url = (host ? 'http://' + host + '/' : 'https://') + 'identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + encodeURIComponent(key);
+  const res = await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Referer: 'https://erp1-8f4cd.web.app/' },
+    body: JSON.stringify({ email: 'no-such-user-' + randomUUID() + '@example.com', password: randomUUID(), returnSecureToken: false })
+  });
+  const body = await res.json().catch(() => ({}));
+  const code = String((body.error && body.error.message) || (res.ok ? 'OK' : res.status));
+  if (/^(EMAIL_NOT_FOUND|INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD)/.test(code)) return 'reachable, password sign-in on';
+  if (/^PASSWORD_LOGIN_DISABLED/.test(code)) {
+    throw new Error('Email/Password sign-in is off in the client\'s project: Firebase console → Authentication → Sign-in method → Email/Password, the first switch, then Save (docs/ONBOARDING.md A.3).');
+  }
+  if (/API key not valid|API_KEY_INVALID/.test(code)) throw new Error('The web config\'s API key is not valid: copy it again from the client\'s Project settings → Your apps (docs/ONBOARDING.md A.5).');
+  throw new Error('Could not check password sign-in: ' + code);
+}
 
 // ---------- modules ----------
 
@@ -496,7 +523,7 @@ async function updateFollowers(user) {
   const mainNodes = await mainTree();
   const main = fingerprint(mainNodes);
   const dir = await firm.firestore.collection(DIRECTORY).where('Status', '==', 'Active').get();
-  const updated = [], failed = [], offered = [];
+  const updated = [], failed = [], offered = [], given = [];
   for (const d of dir.docs) {
     const c = { id: d.id, entry: d.data() };
     try {
@@ -506,6 +533,9 @@ async function updateFollowers(user) {
         const own = fingerprint(await treeIn(c, async db => (await db.ref('tree').get()).val()));
         const status = treeStatus(c.entry, main, own);
         if (status === 'behind') { await giveMainTree(c, user); updated.push(c.id); }
+        // No menu yet (onboarding dry run, 2026-10-23): nothing of its own
+        // to keep, so it is given the main one.
+        if (status === 'empty') { await giveMainTree(c, user); given.push(c.id); }
         if (status === 'own') {
           const added = await offerNewModules(c, mainNodes);
           if (added.length) offered.push({ CorporateID: c.id, modules: added });
@@ -515,7 +545,7 @@ async function updateFollowers(user) {
       failed.push({ CorporateID: c.id, error: (err && err.message) || String(err) });
     }
   }
-  return { success: true, updated, offered, failed };
+  return { success: true, updated, given, offered, failed };
 }
 
 // ---------- onboarding (M4) ----------
@@ -614,4 +644,6 @@ exports.purgeDeveloperLeavers = onCallWithMessages(onCallOptions, async (request
 });
 
 module.exports._layout = { layout, fingerprint, treeStatus };
+// Swappable in the tests: the emulators cannot switch password sign-in off.
+module.exports._auth = { passwordSignIn };
 module.exports._release = { updateFollowers, purgeLeavers, KEEP_AFTER_LEAVING_DAYS };

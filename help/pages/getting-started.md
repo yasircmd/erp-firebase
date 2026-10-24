@@ -4,8 +4,8 @@ area: start
 order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
-reviewed: 2026-10-22
-fingerprint: 8b6b58a755987614
+reviewed: 2026-10-23
+fingerprint: a0bd727754a2e4fa
 ---
 ## Signing in
 
@@ -28,6 +28,7 @@ company and role.
 
 On the sign-in page, open **Forgot Password**, enter your Corporate ID and
 email address and select **Send Reset Link**. A link to set a new password arrives by email.
+The link works once and for an hour: if it has expired, ask for a new one the same way.
 Once signed in, you can change your password at any time from the user menu
 (your name, top right) → **Change Password**.
 
@@ -35,6 +36,10 @@ Once signed in, you can change your password at any time from the user menu
 
 The menu is a tree of areas (Finance, Procurement, Inventory and so on).
 You see only the screens your role allows.
+
+The title above the menu names your company: your only company, or else
+the main one (reference code 01) of the companies you are assigned. When a
+company is assigned to you, it shows as soon as you come back to Home.
 
 - Select an area to open it; select a screen to start working in it.
 - **Search modules** (top bar): type part of a screen's name to filter the

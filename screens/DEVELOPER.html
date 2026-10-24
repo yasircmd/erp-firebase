@@ -95,6 +95,7 @@
         <button id="dv-admin-create" class="bg-blue-600 hover:bg-blue-500 text-xs text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-user-plus"></i> Create the first Admin</button>
       </div>
       <div class="dv-write flex flex-wrap gap-2">
+        <button id="dv-admin-resend" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-envelope"></i> Send the password email again</button>
         <button id="dv-headings" class="bg-slate-700 hover:bg-slate-600 text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-list-ol"></i> Copy the chart headings</button>
       </div>
     </div>
@@ -216,8 +217,10 @@
     box.classList.remove('hidden'); box.innerHTML = '<span class="text-slate-400">Testing…</span>';
     call('testDeveloperCorporate', { CorporateID: current.CorporateID }).then(r => {
       const row = (label, p) => '<div><span class="' + (p.ok ? 'text-emerald-400' : 'text-red-400') + '"><i class="fa-solid ' + (p.ok ? 'fa-circle-check' : 'fa-circle-xmark') + '"></i> ' + label + '</span>: ' + escapeHtml(p.detail) + '</div>';
-      box.innerHTML = row('Realtime Database', r.database) + row('Firestore', r.firestore) + row('Authentication', r.auth);
-      return load(current.CorporateID);
+      const html = row('Realtime Database', r.database) + row('Firestore', r.firestore) + row('Authentication', r.auth);
+      // Shown again after the reload (which opens the corporate afresh), so
+      // it stays until the next test (onboarding dry run, 2026-10-23).
+      return load(current.CorporateID).then(() => { const b = el('dv-test-result'); b.classList.remove('hidden'); b.innerHTML = html; });
     }, err => { box.innerHTML = '<span class="text-red-400">' + escapeHtml(err.message || 'The test failed.') + '</span>'; });
   }
 
@@ -309,12 +312,14 @@
   }
   async function resetTree() {
     if (!(await appConfirm('Give ' + current.CorporateID + ' the main tree? Its own menu layout is replaced; who may see each item stays its own.'))) return;
-    call('resetDeveloperTree', { CorporateID: current.CorporateID }).then(loadTree, fail('give it the main tree'));
+    // The corporate reloaded too, so Set up shows the menu as given.
+    call('resetDeveloperTree', { CorporateID: current.CorporateID }).then(() => load(current.CorporateID)).then(loadTree, fail('give it the main tree'));
   }
   async function updateFollowers() {
     if (!(await appConfirm('Bring every corporate that follows the main tree up to date with it? Corporates with their own layout are left as they are.'))) return;
     call('updateDeveloperTreeFollowers', {}).then(r => {
       appAlert((r.updated.length ? 'Updated: ' + r.updated.join(', ') + '.' : 'None was behind the main tree.') +
+        ((r.given || []).length ? ' Given the main tree (they had no menu): ' + r.given.join(', ') + '.' : '') +
         (r.failed.length ? ' Not reached: ' + r.failed.map(f => f.CorporateID + ' (' + f.error + ')').join('; ') + '.' : ''));
       if (current && tab === 'tree') loadTree();
     }, fail('update the corporates'));
@@ -367,6 +372,8 @@
       done(c.Status === 'Active') + '<b>6. Active</b>: ' + escapeHtml(c.Status || '') + (c.Status !== 'Active' ? ' <span class="text-xs text-slate-400">(once the connection test has passed for this project)</span>' : '') + (leaving ? '<div class="text-xs text-amber-300 mt-1">' + leaving + '</div>' : '')
     ].map(x => '<div>' + x + '</div>').join('');
     el('dv-admin-form').classList.toggle('hidden', !data.canWrite || !!c.FirstAdmin);
+    // Its link lasts an hour (onboarding dry run, 2026-10-23).
+    el('dv-admin-resend').classList.toggle('hidden', !data.canWrite || !c.FirstAdmin);
     el('dv-headings').classList.toggle('hidden', !data.canWrite || !!c.ChartHeadings);
   }
   async function createAdmin() {
@@ -383,6 +390,19 @@
       await load(current.CorporateID);
       appAlert(sent ? 'Created. ' + r.email + ' has been sent the email to set a password.' : 'Created. Send the password email from the sign-in page: Forgot Password, Corporate ID ' + current.CorporateID + ', ' + r.email + '.');
     } catch (err) { appAlert(err.message || 'Unable to create the Admin.'); }
+  }
+  // The password email from the corporate's own Auth, sent again: a link
+  // lasts an hour, and the Admin may not be ready when it is created.
+  async function resendAdminEmail() {
+    const c = current, email = c.FirstAdmin && c.FirstAdmin.Email;
+    if (!email || !(await appConfirm('Send ' + email + ' the email to set a password again? The link in it lasts an hour.'))) return;
+    const sdk = window.__firebaseSdk;
+    try {
+      await sdk.sendPasswordResetEmail(sdk.authFor({ corporateId: c.CorporateID, home: false, webConfig: Object.assign({}, c.WebConfig, { projectId: c.ProjectID }) }), email);
+      appAlert('Sent to ' + email + '. The link lasts an hour.');
+    } catch (err) {
+      appAlert('Not sent (' + ((err && err.code) || (err && err.message) || 'unknown') + '). Test connection says what the client\'s Authentication lacks.');
+    }
   }
   async function copyHeadings() {
     if (!(await appConfirm('Copy Corporate 100\'s chart headings (no posting accounts, no balances) into ' + current.CorporateID + '\'s empty chart?'))) return;
@@ -469,6 +489,7 @@
     el('dv-q-filter').addEventListener('change', () => loadQueue());
     el('dv-group-add').addEventListener('click', addGroup);
     el('dv-admin-create').addEventListener('click', createAdmin);
+    el('dv-admin-resend').addEventListener('click', resendAdminEmail);
     el('dv-headings').addEventListener('click', copyHeadings);
     el('dv-q-send').addEventListener('click', answer);
     load();
