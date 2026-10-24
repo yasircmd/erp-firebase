@@ -61,6 +61,11 @@ async function resolveCorporate(request) {
 
 // What the sign-in screen needs for a Corporate ID: nothing more for 100
 // (this project's Auth), else that corporate's public web config.
+// Corporate 100's public web API key, the one public/index.html signs in
+// with (unit/userIdSignIn keeps them the same). Only to check a password
+// through Google's own sign-in (session.js userIdSignIn).
+const HOME_WEB_API_KEY = 'AIzaSyDmCsLCTsWbkztfHlwj5Qgag8cQksIgfbM';
+
 async function signInConfig(corporateId) {
   const id = String(corporateId || '').trim();
   if (id === HOME_ID) return { corporateId: HOME_ID, home: true };
@@ -72,4 +77,4 @@ async function signInConfig(corporateId) {
   return { corporateId: id, home: false, webConfig };
 }
 
-module.exports = { DIRECTORY, ENVELOPE, directoryEntry, resolveCorporate, signInConfig };
+module.exports = { DIRECTORY, ENVELOPE, HOME_WEB_API_KEY, directoryEntry, resolveCorporate, signInConfig };

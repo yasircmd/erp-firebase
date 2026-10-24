@@ -12,6 +12,9 @@ screen.
 
 ## 24/10/2026
 
+- **Sign in with your user ID.** On the sign-in page, enter your email or
+  your user ID (your Username in User Management). Usernames are now
+  unique in your organisation. See [Getting started](getting-started.html#signing-in).
 - **Default favourites per role.** In [Roles & Permissions](roles.html),
   the star on a role sets up to 5 favourites for its users who haven't
   chosen their own. Nobody's own favourites are changed.

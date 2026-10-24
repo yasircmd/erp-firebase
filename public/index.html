@@ -488,10 +488,10 @@
         </div>
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-300 mb-1">Email address</label>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Email or user ID</label>
         <div class="relative">
-          <i class="fa-solid fa-envelope absolute left-3 top-3 text-xs text-slate-500"></i>
-          <input type="email" id="email" name="email" autocomplete="username" required placeholder="name@company.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
+          <i class="fa-solid fa-user absolute left-3 top-3 text-xs text-slate-500"></i>
+          <input type="text" id="email" name="email" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="name@company.com or your user ID" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
         </div>
       </div>
       <div>
@@ -1095,12 +1095,20 @@
           return sdk.signOut(previous).catch(() => {}).then(listenToAuth);
         })
         .then(() => {
+          // A user ID, not an email (owner, 2026-10-24, decision 271): the
+          // corporate gives its email once the password is right.
+          if (email.includes('@')) return email;
+          return sdk.httpsCallable(sdk.functionsInstance, 'userIdSignIn')({ corporateId, userId: email, password })
+            .then(r => r.data.email, err => { throw Object.assign(new Error(err.message || 'Invalid user ID or password.'), { shown: true }); });
+        }, err => { throw Object.assign(new Error((err && err.message) || 'Invalid Corporate ID.'), { shown: true }); })
+        .then(signInEmail => {
           pendingCorporateId = corporateId;
-          return sdk.signInWithEmailAndPassword(sdk.auth, email, password).catch(err => {
+          return sdk.signInWithEmailAndPassword(sdk.auth, signInEmail, password).catch(err => {
             pendingCorporateId = null;
             showLoginFailure({ message: mapFirebaseAuthError(err) });
           });
-        }, err => showLoginFailure({ message: (err && err.message) || 'Invalid Corporate ID.' }));
+        })
+        .catch(err => showLoginFailure({ message: err.message }));
       // On success, onAuthStateChanged fires automatically and takes
       // it from here — nothing further to do in this function.
     }
@@ -1108,7 +1116,7 @@
     function mapFirebaseAuthError(err) {
       const code = err && err.code;
       if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
-        return 'Invalid email or password.';
+        return 'Invalid email (or user ID) or password.';
       }
       if (code === 'auth/too-many-requests') return 'Too many attempts — please wait a moment and try again.';
       if (code === 'auth/user-disabled') return 'This account has been disabled.';

@@ -5,7 +5,7 @@
 //   firebase emulators:start --only auth,database,firestore,functions --project erp1-8f4cd
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { app, call, reset, baseFixture, val, PROJECT } = require('./_helpers');
+const { app, rtdb, call, reset, baseFixture, val, PROJECT } = require('./_helpers');
 
 const AUTH = 'http://127.0.0.1:9099';
 
@@ -79,4 +79,40 @@ test('theme: light until chosen; saved with the user; kept through a User Manage
   assert.equal(saved.success, true, JSON.stringify(saved));
   assert.equal((await call('u-viewer', 'restoreSession')).theme, 'dark');
   await assert.rejects(call('u-viewer', 'saveMyTheme', { theme: 'blue' }), /light or dark/);
+});
+
+// Decision 271 (owner, 2026-10-24): sign-in with the Username, unique in the
+// corporate (ignoring case). The email is told only for the right password,
+// and every failure says the same, so nothing tells which user IDs exist.
+const anon = async (fn, data) => {
+  const res = await fetch('http://127.0.0.1:5001/' + PROJECT + '/us-central1/' + fn, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data }) });
+  const body = await res.json();
+  if (body.error) throw new Error(body.error.message);
+  return body.result;
+};
+const FAILED = /Invalid user ID or password\. A user ID shared by two users signs in by email\.$/;
+
+test('usernames are unique, ignoring case; a user keeps their own on a save', async () => {
+  const add = (username, email) => call('u-admin', 'saveFirebaseUser', { userData: { username, email, fullName: 'Kim ' + username, role: 'Viewer', password: 'secret123', assignedCompanies: ['C1'] } });
+  const kim = await add('kim', 'kim@example.test');
+  assert.equal(kim.success, true, kim.error);
+  assert.equal((await add('KIM', 'kim2@example.test')).error, 'The username "KIM" is already Kim kim\'s: choose another.');
+  // A rename onto another's is refused; saving with one's own is not.
+  assert.match((await call('u-admin', 'saveFirebaseUser', { userData: { id: 'u-viewer', username: 'Kim', fullName: 'Viewer', role: 'Viewer', status: 'Active', assignedCompanies: ['C1'] } })).error, /already Kim kim's/);
+  assert.equal((await call('u-admin', 'saveFirebaseUser', { userData: { id: kim.userId, username: 'kim', fullName: 'Kim Lee', role: 'Viewer', status: 'Active', assignedCompanies: ['C1'] } })).success, true);
+});
+
+test('sign-in by user ID: the email once the password is right; otherwise the same message for everything', async () => {
+  assert.deepEqual(await anon('userIdSignIn', { corporateId: '100', userId: ' KIM ', password: 'secret123' }), { email: 'kim@example.test' });
+  await assert.rejects(anon('userIdSignIn', { corporateId: '100', userId: 'kim', password: 'wrong-one' }), FAILED);
+  await assert.rejects(anon('userIdSignIn', { corporateId: '100', userId: 'nobody', password: 'secret123' }), FAILED);
+  await assert.rejects(anon('userIdSignIn', { corporateId: '999', userId: 'kim', password: 'secret123' }), /Invalid Corporate ID/);
+  // Two users sharing one from before (written directly): by email only.
+  await rtdb.ref('users/u-dup').set({ username: 'Kim', email: 'other@example.test', fullName: 'Other Kim', role: 'Viewer', status: 'Active' });
+  await assert.rejects(anon('userIdSignIn', { corporateId: '100', userId: 'kim', password: 'secret123' }), FAILED);
+  await rtdb.ref('users/u-dup').remove();
+  // An inactive user signs in by no route.
+  const kimUid = Object.entries((await rtdb.ref('users').get()).val()).find(([, u]) => u.username === 'kim')[0];
+  await rtdb.ref('users/' + kimUid + '/status').set('Inactive');
+  await assert.rejects(anon('userIdSignIn', { corporateId: '100', userId: 'kim', password: 'secret123' }), FAILED);
 });

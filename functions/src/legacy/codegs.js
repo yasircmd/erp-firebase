@@ -657,6 +657,10 @@ async function saveFirebaseUser(idToken, userData) {
     if (!username || !fullName) {
       throw new Error('Username and full name are required.');
     }
+    // [NEW DEVELOPMENT username-unique] the Username signs in, so it is the corporate's only one.
+    const others = (await firebaseDbRequest_('users', 'get', null, idToken)) || {};
+    const takenBy = Object.keys(others).find(uid => uid !== id && String((others[uid] || {}).username || '').trim().toLowerCase() === username.toLowerCase());
+    if (takenBy) throw new Error('The username "' + username + '" is already ' + ((others[takenBy] || {}).fullName || 'another user') + "'s: choose another.");
 
     const roles = await ensureRolesSeeded_(idToken);
     if (!roles[role]) throw new Error('Unknown role: ' + role);
