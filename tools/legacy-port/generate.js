@@ -382,6 +382,27 @@ const { toGridClipboard } = require('./gridClipboard');
 // Exact-text edits to generated screens (each fails the run if its text is
 // no longer there). Keep this short: prefer a rule in the shell.
 const SCREEN_EDITS = [
+  // Stock Availability: what the reserved quantity is for (owner, 2026-10-24;
+  // UX_ROUND2.md item 24; patch stock-availability-reserved-by): the figure
+  // opens the row's reserving Sales Orders, each opened from there by a user
+  // who may open Sales Orders.
+  { mod: 'STOCKAVAILABILITY', from: '        <td class="py-2 px-4 text-right font-mono text-amber-400">${formatMoney(r.Reserved)}</td>',
+    to: '        <td class="py-2 px-4 text-right font-mono text-amber-400">${(r.ReservedBy || []).length ? \'<button class="sa-reserved-btn underline decoration-dotted hover:text-amber-300" title="The Sales Orders reserving it">\' + formatMoney(r.Reserved) + \'</button>\' : formatMoney(r.Reserved)}</td>' },
+  { mod: 'STOCKAVAILABILITY', from: '      tbody.appendChild(row);\n',
+    to: `      tbody.appendChild(row);
+      const btn = row.querySelector('.sa-reserved-btn');
+      if (btn) btn.addEventListener('click', () => {
+        const open = row.nextElementSibling && row.nextElementSibling.classList.contains('sa-reserved-row');
+        if (open) { row.nextElementSibling.remove(); return; }
+        const detail = document.createElement('tr');
+        detail.className = 'sa-reserved-row bg-slate-900/40';
+        detail.innerHTML = '<td></td><td colspan="5" class="py-2 px-4"><table class="w-full text-xs"><thead><tr class="text-slate-500 uppercase"><th class="py-1 pr-3 text-left">Reserved by</th><th class="py-1 pr-3 text-left">Date</th><th class="py-1 pr-3 text-left">Customer</th><th class="py-1 text-right">Quantity</th></tr></thead><tbody>' +
+          r.ReservedBy.map(b => '<tr><td class="py-1 pr-3 font-mono">' + (b.CanOpen ? '<button class="sa-open-so text-blue-400 hover:text-blue-300 underline" data-id="' + escapeHtml(b.SourceID) + '">' + escapeHtml(b.Number || 'Sales Order') + '</button>' : escapeHtml(b.Number || b.SourceType)) +
+            '</td><td class="py-1 pr-3">' + escapeHtml(b.SODate) + '</td><td class="py-1 pr-3 text-slate-300">' + escapeHtml(b.CustomerName) + '</td><td class="py-1 text-right font-mono text-amber-400">' + formatMoney(b.Quantity) + '</td></tr>').join('') + '</tbody></table></td>';
+        detail.querySelectorAll('.sa-open-so').forEach(a => a.addEventListener('click', () => openModule('SALESORDER', { OpenEntryId: a.getAttribute('data-id') })));
+        row.after(detail);
+      });
+` },
   // Default favourites per role (owner, 2026-10-24, decision 270): a star on
   // each role opens up to 5 module choices; a user with no favourites of
   // their own gets their role's.

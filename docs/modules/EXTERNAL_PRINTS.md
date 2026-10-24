@@ -20,6 +20,7 @@ strip is left):
 | Screen | Document |
 |---|---|
 | CUSTOMERINVOICE | Tax invoice |
+| SALESORDER | Proforma invoice (UX_ROUND2.md item 22) |
 | DELIVERYNOTE | Delivery note |
 | PURCHASEORDER | Purchase order |
 | PURCHASERETURN | Debit note |

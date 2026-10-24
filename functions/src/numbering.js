@@ -38,12 +38,14 @@ const val = async path => (await rtdb.ref(path).get()).val();
 
 // Document and voucher prefixes (the GL and the documents before it).
 // Stock and finance documents come from glWriting's own map; these are the
-// rest (Journal, Cash & Bank, purchasing, sales orders, job orders, the
-// recurring-journal templates).
+// rest (Journal, Cash & Bank, purchasing, sales orders and their proforma
+// invoices, job orders, the recurring-journal templates).
 const OTHER_DOCUMENTS = [
   ['JV', 'Journal Voucher'], ['CR', 'Cash Receipt'], ['BR', 'Bank Receipt'], ['CP', 'Cash Payment'], ['BP', 'Bank Payment'],
   ['FT', 'Fund Transfer'], ['PR', 'Purchase Requisition'], ['IPR', 'Internal Purchase Request'], ['PO', 'Purchase Order'],
-  ['SO', 'Sales Order'], ['JOB', 'Job Order Batch']
+  ['SO', 'Sales Order'], ['JOB', 'Job Order Batch'],
+  // Printed from a Sales Order, posting nothing (docs/modules/UX_ROUND2.md item 22).
+  ['PI', 'Proforma Invoice']
 ];
 // Numbered from stock/counters/voucher like the stock documents, though not
 // in their map.

@@ -4,7 +4,7 @@ area: finance
 order: 6
 summary: How payments, receipts and adjustments are tied to a vendor or customer and matched to their invoices.
 sources: [functions/src/partyLedger.js]
-reviewed: 2026-10-18
+reviewed: 2026-10-24
 fingerprint: c567f7852a2fdfa8
 ---
 ## Why it matters
@@ -32,7 +32,9 @@ chosen is kept as a New Ref for its full amount.
 2. Select **Allocate**. The vendor's open items show with their date, due
    date and **Outstanding** amount.
 3. Enter the amount against each bill, or select **Oldest first** to fill
-   from the oldest. **Clear** starts again; **Done** keeps it.
+   from the oldest. The **New Ref** line under the list shows what is
+   left, kept open for later (for example an advance); **All as New Ref**
+   settles nothing now. **Done** keeps it.
 4. Post. The bills show as Paid or Partly paid in the invoice lists.
 
 ## Settling an advance against a bill
@@ -52,8 +54,9 @@ references**:
 1. **Allocate…** on the vendor or customer line shows the party's open
    items, counting this entry's own allocation back in, so the bill it
    settled now shows its full outstanding again.
-2. Choose again (for example **Clear**, then the right bill), and select
-   **Done**.
+2. Choose again, and select **Done**: for example **All as New Ref**,
+   then the right bill; or **All as New Ref** alone, to make the payment
+   an advance. The **New Ref** line shows what stays open.
 3. Select **Save re-match** and give the reason.
 
 Only which items the entry settles changes: its amounts, accounts and date

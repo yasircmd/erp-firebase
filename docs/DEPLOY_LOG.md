@@ -1404,3 +1404,14 @@ from, and how it was verified. The deploy procedure is in the
   89/89). Then Hosting, run
   [#214](https://github.com/yasircmd/erp-firebase/actions/runs/40086116197)
   (10:29–10:30 UTC), success. Wave 1 of UX round 2 is complete.
+- **2026-10-24, UX round 2 wave 2 (`ux2-wave2`, PR #171, from
+  `67ebdec`):** run
+  [#215](https://github.com/yasircmd/erp-firebase/actions/runs/40099482973)
+  ("functions set, then screens", 13:45–13:50 UTC), success: `SUMMARY:
+  functions deployed: 13 (userIdSignIn completeLogin restoreSession
+  corporateSignIn getMyTree getMyFavorites toggleFavorite saveMyTheme
+  getRoleFavorites saveRoleFavorites getActiveCompanies saveMyCompanies
+  saveFirebaseUser); access granted: 13; screens released: yes` (release
+  `20261024T134959Z-67ebdec`, 89/89 verified). Then Hosting, run
+  [#216](https://github.com/yasircmd/erp-firebase/actions/runs/40100598594)
+  (14:00–14:01 UTC), success. Wave 2 of UX round 2 is complete.

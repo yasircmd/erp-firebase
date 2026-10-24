@@ -15,11 +15,21 @@ test.before(async () => {
       I3: { WH1: { Quantity: 99, AvgCost: 1, TotalValue: 99 } }
     },
     reservations: {
-      R1: { ItemID: 'I2', WarehouseID: 'WH1', Quantity: 2, Status: 'Active' },
-      R2: { ItemID: 'I2', WarehouseID: 'WH2', Quantity: 1, Status: 'Active' },
-      R3: { ItemID: 'I2', WarehouseID: 'WH1', Quantity: 5, Status: 'Released' }
+      R1: { ItemID: 'I2', WarehouseID: 'WH1', Quantity: 2, Status: 'Active', SourceType: 'SalesOrder', SourceID: 'SO2', SourceLineID: 'L1' },
+      R2: { ItemID: 'I2', WarehouseID: 'WH2', Quantity: 1, Status: 'Active', SourceType: 'SalesOrder', SourceID: 'SO1', SourceLineID: 'L1' },
+      R3: { ItemID: 'I2', WarehouseID: 'WH1', Quantity: 5, Status: 'Released', SourceType: 'SalesOrder', SourceID: 'SO1', SourceLineID: 'L2' },
+      // Two lines of one order on one row: one entry, their sum.
+      R4: { ItemID: 'I2', WarehouseID: 'WH1', Quantity: 0.5, Status: 'Active', SourceType: 'SalesOrder', SourceID: 'SO1', SourceLineID: 'L3' },
+      R5: { ItemID: 'I2', WarehouseID: 'WH1', Quantity: 0.25, Status: 'Active', SourceType: 'SalesOrder', SourceID: 'SO1', SourceLineID: 'L4' }
     }
   };
+  f.customers = { CU1: { CustomerCode: 'CL-000001', CustomerName: 'Example Buyer LLC', Status: 'Active' } };
+  f.salesOrders = {
+    SO1: { SONumber: 'SO-26-01-000001', SODate: '2026-10-01', CompanyID: 'C1', CustomerID: 'CU1', Status: 'Reserved' },
+    SO2: { SONumber: 'SO-26-01-000002', SODate: '2026-10-05', CompanyID: 'C1', CustomerID: 'CU1', Status: 'Partially Reserved' }
+  };
+  // The Viewer sees Stock Availability but may not open Sales Orders.
+  f.permissions.SALESORDER.access = ['Admin'];
   await reset(f);
 });
 test.after(async () => { await app.delete(); });
@@ -27,10 +37,21 @@ test.after(async () => { await app.delete(); });
 test('on hand - active reservations, sellable items only, zero rows dropped', async () => {
   const rows = await call('u-admin', 'getStockAvailabilityList', { companyId: 'C1' });
   assert.deepEqual(rows.map(r => [r.ItemCode, r.WarehouseCode, r.OnHand, r.Reserved, r.Available]), [
-    ['FG-001', 'WH1', 3, 2, 1],
+    ['FG-001', 'WH1', 3, 2.75, 0.25],
     ['FG-001', 'WH2', 0, 1, -1],
     ['RM-001', 'WH1', 10, 0, 10]
   ]);
+});
+
+// What the reserved quantity is for (owner, 2026-10-24; UX_ROUND2.md item 24).
+test('each row: the Sales Orders reserving it, oldest first, one entry per order; openable only with access to Sales Orders', async () => {
+  const rows = await call('u-admin', 'getStockAvailabilityList', { companyId: 'C1' });
+  const by = (ws) => rows.find(r => r.ItemCode === 'FG-001' && r.WarehouseCode === ws).ReservedBy.map(b => [b.Number, b.SODate, b.CustomerName, b.Quantity, b.CanOpen, b.SourceID]);
+  assert.deepEqual(by('WH1'), [['SO-26-01-000001', '2026-10-01', 'Example Buyer LLC', 0.75, true, 'SO1'], ['SO-26-01-000002', '2026-10-05', 'Example Buyer LLC', 2, true, 'SO2']]);
+  assert.deepEqual(by('WH2'), [['SO-26-01-000001', '2026-10-01', 'Example Buyer LLC', 1, true, 'SO1']]);
+  assert.deepEqual(rows.find(r => r.ItemCode === 'RM-001').ReservedBy, [], 'nothing reserved');
+  const viewer = await call('u-viewer', 'getStockAvailabilityList', { companyId: 'C1' });
+  assert.ok(viewer.some(r => r.ReservedBy.length) && viewer.every(r => r.ReservedBy.every(b => b.CanOpen === false)), 'listed, not openable');
 });
 
 test('company required and access-checked', async () => {

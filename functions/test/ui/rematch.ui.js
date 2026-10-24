@@ -107,6 +107,28 @@ const D = '2026-09-10';
     await page.close();
   });
 
+  await check('the New Ref shown as its own line; All as New Ref makes the whole payment an advance, saved as a re-match (UX_ROUND2.md item 23)', async () => {
+    const page = await open('CBT', 'u-admin', 'Paid in advance');
+    await openFirst(page, 'cbt');
+    await page.click('#cbt-rematch-btn');
+    await page.click('.cbt-allocate-btn');
+    await page.waitForSelector('#cbt-alloc-modal input[data-ref="' + b2.ref + '"]', T);
+    assert.equal((await page.textContent('.cbt-alloc-newref-amount')).trim(), '0.00', 'all of it against B2 now');
+    await page.fill('#cbt-alloc-modal input[data-ref="' + b2.ref + '"]', '150');
+    assert.equal((await page.textContent('.cbt-alloc-newref-amount')).trim(), '50.00', 'the rest, as it is typed');
+    await page.click('.cbt-alloc-clear');
+    assert.equal((await page.textContent('.cbt-alloc-clear')).trim(), 'All as New Ref');
+    assert.equal((await page.textContent('.cbt-alloc-newref-amount')).trim(), '200.00');
+    await page.click('.cbt-alloc-ok');
+    assert.match(await page.textContent('.cbt-party-row'), /New Ref 200\.00/);
+    await page.click('#cbt-rematch-save-btn');
+    await page.waitForSelector('#cbt-list-view', { state: 'visible', ...T });
+    const line = (await firestore.collection('journalEntries').doc(pay).get()).data().Lines.find(l => l.PartyType === 'Vendor');
+    assert.deepEqual(line.Allocations.map(a => [a.RefType, a.Amount]), [['New', 200]]);
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
   await check('JV: a posted entry with a party line offers Re-match; a poster without the right does not see it', async () => {
     const page = await open('JV', 'u-admin');
     await openFirst(page, 'jv');
