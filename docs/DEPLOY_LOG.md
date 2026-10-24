@@ -1335,3 +1335,28 @@ from, and how it was verified. The deploy procedure is in the
   ("functions set" `active-guard`, 15:31–15:34 UTC), same commit,
   success. Verified by the owner: setting a corporate Active without a
   passing connection test is refused.
+- **2026-10-23, the onboarding dry run's rules runs (Corporate 900):**
+  "database rules" runs
+  [#201](https://github.com/yasircmd/erp-firebase/actions/runs/39997107948)
+  (17:41 UTC) and
+  [#202](https://github.com/yasircmd/erp-firebase/actions/runs/39998292401)
+  (17:50 UTC), from `bd9347d`, both success for Corporate 100. #201 reported
+  "RULES NOT DEPLOYED: 900 (dry-run-trading)": the deploy account lacked
+  Service Usage Consumer (dry-run finding #4); after the owner granted it,
+  #202 deployed to 900.
+- **2026-10-24, the dry run's fixes (`dry-run-fixes`, PR #160, from
+  `ddf3cdc`):**
+  - run [#203](https://github.com/yasircmd/erp-firebase/actions/runs/40059588885)
+    (03:45 UTC): "access, then screens" by mistake. It re-bound the two
+    functions and released the screens, but deployed **no** functions,
+    although it printed "Deploying 2 functions" (now fixed: an access-only
+    run says so, and every run ends with a SUMMARY line);
+  - run [#204](https://github.com/yasircmd/erp-firebase/actions/runs/40059672329)
+    (03:46 UTC): Hosting;
+  - run [#205](https://github.com/yasircmd/erp-firebase/actions/runs/40060433867)
+    (03:57–03:59 UTC): "functions set, then screens", the two functions
+    deployed;
+  - run [#206](https://github.com/yasircmd/erp-firebase/actions/runs/40060681826)
+    (04:01 UTC): Hosting again.
+
+  All success.
