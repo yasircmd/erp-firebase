@@ -1,5 +1,5 @@
 // Leaving reasons (owner, 2026-10-14; docs/modules/HR_EMPLOYEES.md,
-// "Leaving reasons"): Payroll Setup's list with its defaults, and an
+// "Leaving reasons"): HR Setup's list (Payroll Setup's until 2026-10-24) with its defaults, and an
 // employee on notice or who has left having one of them.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -19,7 +19,7 @@ const setup = (action, data, uid) => call(uid || 'u-admin', 'leavingReasonSetup'
 const doc = async id => (await firestore.collection('employees').doc(id).get()).data();
 const reasonId = async name => (await setup('list')).reasons.find(r => r.Name === name).ReasonID;
 
-test('Payroll Setup: the default reasons by type; add one; names unique; the type checked; who may change them', async () => {
+test('HR Setup: the default reasons by type; add one; names unique; the type checked; who may change them', async () => {
   const l = await setup('list');
   assert.deepEqual(l.types, ['Resignation', 'Termination', 'Other']);
   assert.deepEqual(l.reasons.map(r => r.Type + ': ' + r.Name), [
@@ -36,7 +36,7 @@ test('Payroll Setup: the default reasons by type; add one; names unique; the typ
   await assert.rejects(setup('save', { reason: { Name: '', Type: 'Other' } }), /Name the reason/);
   // A Viewer may read (to choose), not change.
   assert.equal((await setup('list', {}, 'u-viewer')).canWrite, false);
-  await assert.rejects(setup('save', { reason: { Name: 'X', Type: 'Other' } }, 'u-viewer'), /permission to change Payroll Setup/);
+  await assert.rejects(setup('save', { reason: { Name: 'X', Type: 'Other' } }, 'u-viewer'), /permission to change HR Setup/);
 });
 
 test('an employee on notice or who has left: a reason from the list, by id or by name; Active clears it', async () => {
@@ -76,4 +76,21 @@ test('a reason no longer in use: not for a new leaver, kept by those who have it
   await save(Object.assign({}, await doc(c), { EmployeeID: c, Mobile: '050 333' }));
   assert.deepEqual([(await doc(c)).LeavingReason, (await doc(c)).Mobile], ['Went home', '050 333'], 'kept on an ordinary edit');
   await assert.rejects(save(Object.assign({}, await doc(c), { EmployeeID: c, Status: 'On notice' })), /Unknown leaving reason "Went home"/);
+});
+
+// In HR Setup since 2026-10-24 (owner, UX_ROUND2.md item 10): HR Setup's
+// write right changes the list, Payroll Setup's no longer does.
+test('who may change them: HR Setup write, not Payroll Setup write', async () => {
+  const f = baseFixture();
+  f.roles.Payroll = { Name: 'Payroll', Status: 'Active' };
+  f.roles.HR = { Name: 'HR', Status: 'Active' };
+  f.users['u-pay'] = { status: 'Active', role: 'Payroll', username: 'pay', fullName: 'Pay Clerk', AssignedCompanies: ['C1'] };
+  f.users['u-hr'] = { status: 'Active', role: 'HR', username: 'hr', fullName: 'HR Officer', AssignedCompanies: ['C1'] };
+  f.permissions.PAYROLLSETUP = { access: ['Admin', 'Payroll'], write: ['Admin', 'Payroll'] };
+  f.permissions.HRSETUP = { access: ['Admin', 'HR'], write: ['Admin', 'HR'] };
+  await reset(f);
+  await assert.rejects(setup('list', {}, 'u-pay'), /do not have access to the leaving reasons/);
+  await assert.rejects(setup('save', { reason: { Name: 'Visa issue', Type: 'Other' } }, 'u-pay'), /permission to change HR Setup/);
+  assert.equal((await setup('list', {}, 'u-hr')).canWrite, true);
+  assert.equal((await setup('save', { reason: { Name: 'Visa issue', Type: 'Other' } }, 'u-hr')).success, true);
 });

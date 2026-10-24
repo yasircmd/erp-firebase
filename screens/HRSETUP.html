@@ -10,6 +10,7 @@
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="leavetypes">Leave Types</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="calendar">Working Calendar</button>
     <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="schedules">Work Schedules</button>
+    <button class="hs-tab px-4 py-2 text-sm border-b-2" data-tab="leaving">Leaving Reasons</button>
   </div>
   <p id="hs-readonly" class="hidden text-xs text-slate-400">You can view HR Setup but not change it.</p>
 
@@ -208,6 +209,27 @@
     </div>
     <button id="hs-dt-new" class="hs-write bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New document type</button>
   </div>
+
+  <!-- LEAVING REASONS (moved from Payroll Setup, owner 2026-10-24) -->
+  <div id="hs-pane-leaving" class="hidden space-y-4">
+    <p class="text-xs text-slate-500 max-w-3xl">Why employees leave. An employee on notice or who has left has one of these (Employees → Leaving reason), with a note for any detail. Each reason is a resignation, a termination or other. A reason no longer in use stays on the employees who have it.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Reason</th><th class="py-2 px-3">Type</th><th class="py-2 px-3">Status</th></tr></thead>
+      <tbody id="hs-lr-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+    <button id="hs-lr-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New reason</button>
+    <div id="hs-lr-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Reason *</label><input id="hs-lr-name" maxlength="60" placeholder="e.g. Career change" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Type *</label><select id="hs-lr-type" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option>Resignation</option><option>Termination</option><option>Other</option></select></div>
+        <label class="text-xs text-slate-300 flex items-center gap-2 md:pt-6"><input id="hs-lr-active" type="checkbox" checked> In use</label>
+      </div>
+      <div class="flex gap-2"><button id="hs-lr-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Save</button>
+        <button class="hs-cancel bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -231,7 +253,7 @@
 
   function showTab(tab) {
     document.querySelectorAll('.hs-tab').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('border-blue-500', on); b.classList.toggle('text-blue-400', on); b.classList.toggle('border-transparent', !on); b.classList.toggle('text-slate-400', !on); });
-    ['grades', 'designations', 'fields', 'doctypes', 'leavetypes', 'calendar', 'schedules'].forEach(t => $('hs-pane-' + t).classList.toggle('hidden', t !== tab));
+    ['grades', 'designations', 'fields', 'doctypes', 'leavetypes', 'calendar', 'schedules', 'leaving'].forEach(t => $('hs-pane-' + t).classList.toggle('hidden', t !== tab));
   }
   function load() {
     return Promise.all([call('getHrSetup', {}), call('getPayElements', {}), call('getLeaveSetup', {})]).then(([s, pe, ls]) => {
@@ -418,7 +440,7 @@
     $('hs-ws-form').classList.remove('hidden');
   }
 
-  function closeForms() { ['hs-grade-form', 'hs-des-form', 'hs-field-form', 'hs-dt-form', 'hs-lt-form', 'hs-ws-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
+  function closeForms() { ['hs-grade-form', 'hs-des-form', 'hs-field-form', 'hs-dt-form', 'hs-lt-form', 'hs-ws-form', 'hs-lr-form'].forEach(id => $(id).classList.add('hidden')); editing = null; }
   function saved(p) { return p.then(() => { closeForms(); return load(); }, err => appAlert(err.message || 'Unable to save.')); }
 
   function editGrade(id) {
@@ -462,9 +484,34 @@
     $('hs-dt-form').classList.remove('hidden');
   }
 
+  // ---------- leaving reasons (owner, 2026-10-14; docs/modules/HR_EMPLOYEES.md; in HR Setup since 2026-10-24) ----------
+  let lr = null;
+  function loadLeaving() {
+    return call('leavingReasonSetup', { action: 'list' }).then(r => {
+      lr = r;
+      $('hs-lr-body').innerHTML = lr.reasons.map(x => '<tr data-id="' + escapeHtml(x.ReasonID) + '" class="' + (lr.canWrite ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '"><td class="py-2 px-3">' + escapeHtml(x.Name) + '</td>' +
+        '<td class="py-2 px-3 text-xs">' + escapeHtml(x.Type) + '</td><td class="py-2 px-3 text-xs">' + statusHtml(x.Active) + '</td></tr>').join('');
+      $('hs-lr-body').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => { if (lr.canWrite) editLeaving(tr.dataset.id); }));
+      $('hs-lr-new').classList.toggle('hidden', !lr.canWrite);
+    }, err => appAlert(err.message || 'Unable to load the leaving reasons.'));
+  }
+  function editLeaving(id) {
+    closeForms();
+    const x = lr.reasons.find(r => r.ReasonID === id) || { Type: 'Resignation', Active: true };
+    editing = id || null;
+    $('hs-lr-name').value = x.Name || ''; $('hs-lr-type').value = x.Type; $('hs-lr-active').checked = x.Active !== false;
+    $('hs-lr-form').classList.remove('hidden');
+  }
+  function saveLeaving() {
+    call('leavingReasonSetup', { action: 'save', reason: { ReasonID: editing || '', Name: val('hs-lr-name'), Type: val('hs-lr-type'), Active: $('hs-lr-active').checked } })
+      .then(() => { closeForms(); return loadLeaving(); }, err => appAlert(err.message || 'Unable to save.'));
+  }
+
   window.initModule = function () {
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-sliders"></i> HR Setup';
-    $('hs-tabs').addEventListener('click', e => { const b = e.target.closest('.hs-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'calendar' && !calLoaded) loadCalendar(); } });
+    $('hs-tabs').addEventListener('click', e => { const b = e.target.closest('.hs-tab'); if (b) { closeForms(); showTab(b.dataset.tab); if (b.dataset.tab === 'calendar' && !calLoaded) loadCalendar(); if (b.dataset.tab === 'leaving') loadLeaving(); } });
+    $('hs-lr-new').addEventListener('click', () => editLeaving(''));
+    $('hs-lr-save').addEventListener('click', saveLeaving);
     $('hs-lt-new').addEventListener('click', () => editLeaveType(''));
     $('hs-ws-new').addEventListener('click', () => editSchedule(''));
     $('hs-ws-save').addEventListener('click', () => saved(call('saveHrWorkSchedule', { schedule: { ScheduleID: editing || '', Name: val('hs-ws-name'), HoursPerDay: val('hs-ws-hours'),

@@ -3,10 +3,10 @@ title: Payroll Setup
 area: hr
 order: 6
 modules: [PAYROLLSETUP]
-sources: [functions/src/hrPay.js, functions/src/payrollSetup.js, functions/src/payrollPayment.js, functions/src/payrollFiles.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js, functions/src/reimbursements.js, functions/src/leavingReasons.js]
+sources: [functions/src/hrPay.js, functions/src/payrollSetup.js, functions/src/payrollPayment.js, functions/src/payrollFiles.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js, functions/src/reimbursements.js]
 summary: Set the company payroll account, pay elements and defaults used by each payroll run.
-reviewed: 2026-10-18
-fingerprint: aad913bacd8b7024
+reviewed: 2026-10-24
+fingerprint: 635532a477d9760b
 ---
 ## What it is for
 
@@ -16,7 +16,7 @@ It does not calculate an employee's monthly salary by itself. It defines the ele
 
 ## Tabs at a glance
 
-The seven Payroll Setup tabs are **Pay Elements**, **Payroll Accounting**, **Payment Files**, **Loans**, **Provisions**, **Reimbursements**, and **Leaving Reasons**. Use the matching section below for the setup maintained in each tab.
+The six Payroll Setup tabs are **Pay Elements**, **Payroll Accounting**, **Payment Files**, **Loans**, **Provisions** and **Reimbursements** (Leaving Reasons are in [HR Setup](hr-setup.html#leaving-reasons) since 24/10/2026). Use the matching section below for the setup maintained in each tab.
 
 ## Before you start
 
@@ -55,10 +55,6 @@ For each company, configure gratuity (salary base, day-rate rule, minimum servic
 ### Reimbursements
 
 Create each employee claim category with its expense account, optional company override, monthly per-employee limit, receipt requirement, and maximum age of bills. Each category has its own reimbursement pay element. Approved claims are added to the relevant month's Earnings and Deductions and paid through payroll; an over-limit flag is visible to approvers, who decide whether to approve it.
-
-### Leaving Reasons
-
-The reasons an employee leaves, each a **Resignation**, **Termination** or **Other**. The list starts with common ones (for example Better opportunity, Relocation, Performance, Redundancy, End of contract, Retirement); add your own with **New reason**. In [Employee Master](employees.html), an employee on notice or who has left must have one of these, with an optional note for any detail. Untick **In use** to retire a reason: employees who already have it keep it.
 
 ### Finish and test
 

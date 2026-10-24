@@ -12,6 +12,9 @@ screen.
 
 ## 24/10/2026
 
+- **Leaving Reasons are in HR Setup.** The list moved from Payroll Setup to
+  [HR Setup](hr-setup.html#leaving-reasons), with the same reasons. Who may
+  change it is now the HR Setup right. Employees choose from it as before.
 - **An export invoice prints in the customer's currency only.** A Customer
   Invoice in a foreign currency with no VAT no longer shows the rate and
   amounts in the default currency on its print. With VAT, they still show.

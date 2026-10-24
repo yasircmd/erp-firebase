@@ -6,7 +6,7 @@ modules: [EMPLOYEES]
 sources: [functions/src/hrEmployees.js, functions/src/hrDocuments.js, functions/src/hrPay.js, functions/src/leavingReasons.js]
 summary: Maintain the employee record used for payroll, leave, portal access and the employee approval flow.
 reviewed: 2026-10-24
-fingerprint: 4dcfb6b1a66cf591
+fingerprint: 3c1ec66d7d8d1d55
 ---
 ## What it is for
 
@@ -17,7 +17,7 @@ The employee number is generated using the system's employee numbering format. A
 ## What the record contains
 
 - Personal details, contact information, emergency contact, and configured HR custom fields.
-- Employment details: company, joining and probation dates, employment type, status, and leaving date, reason and note. For someone on notice or who has left, the record shows until when they can still sign in to the ERP and the Employee Portal: until the final settlement is paid (not before the last working day), and never more than 30 days after the last working day. **Extend…** (to a date), **Keep access** and **Use the rule** change it for that person, with a reason kept in the history. An employee **On notice** or who has **Left** needs a leaving reason, chosen from the list in [Payroll Setup → Leaving Reasons](payroll-setup.html); the note keeps any detail. A reason typed before the list existed stays until the status or reason changes.
+- Employment details: company, joining and probation dates, employment type, status, and leaving date, reason and note. For someone on notice or who has left, the record shows until when they can still sign in to the ERP and the Employee Portal: until the final settlement is paid (not before the last working day), and never more than 30 days after the last working day. **Extend…** (to a date), **Keep access** and **Use the rule** change it for that person, with a reason kept in the history. An employee **On notice** or who has **Left** needs a leaving reason, chosen from the list in [HR Setup → Leaving Reasons](hr-setup.html#leaving-reasons); the note keeps any detail. A reason typed before the list existed stays until the status or reason changes.
 - Organization and job: division, branch, cost center (the department for payroll costing), location (a Location from Organizational Units, the company's or a shared one; an ordinary edit changes it), a work location note, grade, designation, manager, and work schedule.
 - Bank details, IBAN, and WPS person/routing details where applicable.
 - Employee documents, with document type, number or expiry where configured, files, renewal history, and removal reason.

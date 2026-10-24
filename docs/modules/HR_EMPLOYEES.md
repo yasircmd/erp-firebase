@@ -551,7 +551,8 @@ From UX testing: "If employment is left, need a reason for both resignation
 and termination." The owner: a list kept in Payroll Setup, with defaults
 and the option to add more.
 
-- **Payroll Setup → Leaving Reasons** (`leavingReasons.js`,
+- **HR Setup → Leaving Reasons** (Payroll Setup until 2026-10-24, owner: its
+  rights follow HR Setup's) (`leavingReasons.js`,
   `leavingReasonSetup` list / save; Firestore `hrLeavingReasons`): a name
   (unique) and a type, Resignation, Termination or Other, and In use.
   Twelve defaults are made the first time the list is read (fixed ids, so
