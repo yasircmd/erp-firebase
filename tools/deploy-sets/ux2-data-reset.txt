@@ -1,0 +1,14 @@
+# UX round 2, wave 1, items 9, 10 and 37 (owner, 2026-10-24;
+# docs/modules/DATA_RESET.md, decisions 283-286; UX_ROUND2.md).
+# Run with --screens (Data Reset's Setup group and Browse; HR Setup's new
+# Leaving Reasons tab; Payroll Setup without it). Hosting too
+# (tools/deploy-hosting.sh): the Help.
+# Data Reset: the ported callables now hand the 29 new categories to
+# functions/src/dataReset.js and refuse a master still in use (patches
+# data-reset-all-modules). getCategoryRecords lists their records.
+getDataResetCounts
+clearDataCategories
+clearSelectedRecords
+getCategoryRecords
+# Item 10: Leaving Reasons take HR Setup's rights.
+leavingReasonSetup

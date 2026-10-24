@@ -3,10 +3,10 @@ title: HR Setup
 area: hr
 order: 1
 modules: [HRSETUP]
-sources: [functions/src/hrSetup.js, functions/src/hrLeaveSetup.js, functions/src/workCalendar.js]
+sources: [functions/src/hrSetup.js, functions/src/hrLeaveSetup.js, functions/src/workCalendar.js, functions/src/leavingReasons.js]
 summary: Set the company HR defaults that drive employee configuration, leave rules and payroll controls.
-reviewed: 2026-10-12
-fingerprint: c3bc37996153efea
+reviewed: 2026-10-24
+fingerprint: 265ebe7c191881a5
 ---
 ## What it is for
 
@@ -14,7 +14,7 @@ fingerprint: c3bc37996153efea
 
 ## Tabs at a glance
 
-HR Setup has seven tabs: **Grades**, **Designations**, **Employee Fields**, **Document Types**, **Leave Types**, **Working Calendar**, and **Work Schedules**. Each tab maintains a separate setup register; the sections below explain what belongs in each one.
+HR Setup has eight tabs: **Grades**, **Designations**, **Employee Fields**, **Document Types**, **Leave Types**, **Working Calendar**, **Work Schedules**, and **Leaving Reasons**. Each tab maintains a separate setup register; the sections below explain what belongs in each one.
 
 ### Grades
 
@@ -35,6 +35,10 @@ Document Types control whether an employee document needs a document number or e
 ### Work Schedules
 
 Create named schedules with their weekend days and hours per working day. Schedules support different patterns, such as a Friday-only weekend. An employee's schedule is assigned on the employee record and can be changed through an approved Employee Change from an effective date. Do not change the weekend on a schedule already used by employees; create a new schedule and transfer employees to it so leave day calculations retain their history.
+
+### Leaving Reasons
+
+The reasons an employee leaves, each a **Resignation**, **Termination** or **Other**. The list starts with common ones (for example Better opportunity, Relocation, Performance, Redundancy, End of contract, Retirement); add your own with **New reason**. In [Employee Master](employees.html), an employee on notice or who has left must have one of these, with an optional note for any detail. Untick **In use** to retire a reason: employees who already have it keep it.
 
 ### Leave Types
 

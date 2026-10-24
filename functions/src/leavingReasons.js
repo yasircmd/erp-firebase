@@ -1,5 +1,7 @@
 // Leaving reasons (owner, 2026-10-14; docs/modules/HR_EMPLOYEES.md,
-// "Leaving reasons"): a list kept in Payroll Setup → Leaving Reasons, each
+// "Leaving reasons"): a list kept in HR Setup → Leaving Reasons (Payroll
+// Setup until 2026-10-24, owner: it is HR's, and its rights follow HR
+// Setup's), each
 // of a type (Resignation, Termination or Other), with defaults the owner
 // can add to. An employee on notice or who has left has one of them
 // (hrEmployees.js).
@@ -43,7 +45,7 @@ async function resolveReason(id, name, current) {
   if (!id && !name) return null;
   const all = await reasons();
   const r = id ? all.find(x => x.ReasonID === id) : all.find(x => x.Name.toLowerCase() === String(name).trim().toLowerCase());
-  if (!r) bad(id ? 'Leaving reason not found.' : 'Unknown leaving reason "' + name + '": choose one of Payroll Setup → Leaving Reasons.');
+  if (!r) bad(id ? 'Leaving reason not found.' : 'Unknown leaving reason "' + name + '": choose one of HR Setup → Leaving Reasons.');
   if (r.Active === false && r.ReasonID !== current) bad('The leaving reason "' + r.Name + '" is no longer in use.');
   return r;
 }
@@ -51,15 +53,15 @@ async function resolveReason(id, name, current) {
 exports.leavingReasonSetup = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   const d = request.data || {};
-  const [setupRead, setupWrite, employees] = await Promise.all([moduleHasCapability('PAYROLLSETUP', 'access', user.profile.role),
-    moduleHasCapability('PAYROLLSETUP', 'write', user.profile.role), moduleHasCapability('EMPLOYEES', 'access', user.profile.role)]);
+  const [setupRead, setupWrite, employees] = await Promise.all([moduleHasCapability('HRSETUP', 'access', user.profile.role),
+    moduleHasCapability('HRSETUP', 'write', user.profile.role), moduleHasCapability('EMPLOYEES', 'access', user.profile.role)]);
   // The Employees screen reads the list to choose from.
   if (d.action === 'list') {
     if (!setupRead && !employees) throw new HttpsError('permission-denied', 'You do not have access to the leaving reasons.');
     return { reasons: await reasons(), types: TYPES, canWrite: setupWrite };
   }
   if (d.action !== 'save') bad('Unknown request.');
-  if (!setupWrite) throw new HttpsError('permission-denied', 'You do not have permission to change Payroll Setup.');
+  if (!setupWrite) throw new HttpsError('permission-denied', 'You do not have permission to change HR Setup.');
   const r = d.reason || {};
   const id = text(r.ReasonID, 80);
   const all = await reasons();

@@ -187,7 +187,8 @@ node functions/test/ui/hrLeaveSetup.ui.js     # HR Setup: Leave Types (pay by gr
 node functions/test/ui/hrLeave.ui.js          # Leave Register: from the employee card, days/pay/balance as typed, approve, early return, over-balance split, certificate, filters, adjustment; seeds its own data
 node functions/test/ui/hrLeaveClose.ui.js     # Leave Register: an absence, Month close (lock, summary, reopen), the year close (carry, lapse); seeds its own data
 node functions/test/ui/hrLeaveReports.ui.js   # Leave Reports: balances (copy to Excel), register, absences, who is away; seeds its own data
-node functions/test/ui/hrSchedules.ui.js      # Work schedules: HR Setup tab, company hours, an employee on a schedule, a Transfer from a date; seeds its own data
+node functions/test/ui/hrSchedules.ui.js      # Work schedules: HR Setup tab, company hours, an employee on a schedule, a Transfer from a date; HR Setup's Leaving Reasons; seeds its own data
+node functions/test/ui/dataReset.ui.js        # Data Reset: every category in its group (Transactional, Master, Setup), Browse only where offered, a master still in use refused; seeds its own data
 node functions/test/ui/payrollSetup.ui.js     # Payroll setup: a company's daily rate and payable, an element's GL with a company's own, an overtime example, read-only; seeds its own data
 node functions/test/ui/payrollRun.ui.js       # Payroll run: a new run, the register and a payslip, inputs typed and pasted, read-only, delete; seeds its own data
 node functions/test/ui/payrollPost.ui.js      # Payroll approval, posting, printed payslips, reversal; Payroll Setup's Recoverable from employees; seeds its own data

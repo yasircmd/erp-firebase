@@ -3,36 +3,83 @@ title: Data Reset
 area: admin
 order: 12
 modules: [DATARESET]
-sources: [functions/src/companies.js]
-summary: Reset or rebuild data carefully when a clean start or controlled refresh is needed for a company or environment.
-reviewed: 2026-10-19
-fingerprint: 98e2f09a06f3bed4
+sources: [functions/src/dataReset.js, functions/src/documentStorage.js]
+summary: Clear test data module by module, or rebuild the stock balances, before going live.
+reviewed: 2026-10-24
+fingerprint: ec614d771879d4c6
 ---
 ## What it is for
 
-**Data Reset** is the controlled reset screen used by the ERP admin when a company, ledger or data set needs to be cleared or rebuilt in a controlled way.
+**Data Reset** deletes data, for a fresh start while setting up: the test
+entries made while learning the ERP, or the masters and setup to enter
+again. It deletes for good: there is no undo. Never use it on live records.
+
+It works in your corporate only: a reset never touches another corporate's
+data.
 
 ## Before you start
 
-- The reset is approved by the ERP owner or admin.
-- A backup or recovery plan is in place.
-- The specific company or data set to reset is confirmed.
+- You are signed in with the **ADMIN** role: no other role can open it.
+- You know which categories to clear. Nothing is ticked for you.
+- To clear supporting documents, the document storage is connected
+  (Document Storage).
+
+## The categories
+
+- **Transactional data:** what accumulates from use. GL entries; stock
+  transactions with the stock balances and reservations; vendor and
+  customer invoices; PDCs; fixed assets; recurring journals; opening
+  balances; Sales Orders; Purchase Requisitions and Orders; Job Orders;
+  approval records; e-invoices; employee changes; leave; payroll runs and
+  payslips; final settlements; payroll loans; employee requests;
+  supporting documents; company documents; period closing; the logs.
+- **Master data:** items and their categories, sub-categories, units and
+  barcodes; the chart of accounts; companies; org units; sales types;
+  customer classifications; BOMs; vendors; customers; price lists; the
+  inventory valuation list; requisition categories; currencies and
+  exchange rates; shareholders; employees.
+- **Setup:** HR Setup, Payroll Setup, Approval Configuration, and the
+  numbering formats and settings.
+
+Users, roles, permissions and the menu are never offered.
 
 ## Step by step
 
-1. Open **Data Reset** and choose the correct company or module area.
-2. Review the scope of the reset and the records that will be affected.
-3. Confirm the reset request and review the warning message.
-4. Run the reset only after the approval is in place.
+1. Open **Data Reset**. Each category shows how many records it has.
+2. To delete a whole category, tick it. To delete some records only, use
+   **Browse & select…** on its row (where offered).
+3. Type **DELETE** and confirm.
 
-## What happens in the books
+## What it refuses, and what goes with a category
 
-This screen changes the data used in the ERP. It may remove or rebuild existing entries and should always be used only with a clear control and approval process.
+- **A master still in use is refused.** For example, Employees while
+  payroll runs exist, or Customers while invoices exist. The message names
+  what still uses it and how many records it has. Tick those too, or clear
+  them first. Nothing is deleted until the whole selection may go.
+- A master that others use is cleared whole, never one record at a time.
+- Clearing a category restarts its numbering (for example, employee
+  numbers or vendor codes).
+- **Employees** also removes their Employee Portal sign-ins, but never an
+  ERP user's own sign-in.
+- **Supporting Documents** also moves the files to the document storage's
+  trash. Google Drive keeps them there for 30 days.
+- A payroll run goes with its payslips, and a Sales Order with its
+  reservations.
+
+## Recalculate Stock Ledger
+
+After deleting single stock transactions, the stock balances may no
+longer match them. **Recalculate Stock Ledger** rebuilds the balances from
+the posted transactions that remain.
 
 ## Rights
 
-Only admin users with reset rights should use this screen.
+Only the **ADMIN** role, whatever Roles & Permissions say.
 
 ## Questions and mistakes
 
-- If a reset is not allowed, check whether the company or data set is protected or whether the correct admin rights are assigned.
+- **"… is still used by …":** clear what it names first, or with it.
+- **"… not connected":** connect the document storage in Document Storage,
+  then clear Supporting Documents again.
+- **Deleted the wrong thing:** there is no undo. Enter the data again, or
+  restore from your own backup.

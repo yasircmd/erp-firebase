@@ -12,6 +12,17 @@ screen.
 
 ## 24/10/2026
 
+- **Data Reset covers every module.** It can now clear HR and payroll
+  (employees, leave, payroll runs and payslips, settlements, loans,
+  requests), Sales and Purchase Orders, Job Orders, vendors, customers,
+  price lists, supporting documents, and a new **Setup** group. It refuses
+  to clear a master still in use, and says what uses it. Clearing
+  employees also removes their Employee Portal sign-ins. Clearing
+  supporting documents moves their files to the storage's trash. See
+  [Data Reset](data-reset.html).
+- **Leaving Reasons are in HR Setup.** The list moved from Payroll Setup to
+  [HR Setup](hr-setup.html#leaving-reasons), with the same reasons. Who may
+  change it is now the HR Setup right. Employees choose from it as before.
 - **An export invoice prints in the customer's currency only.** A Customer
   Invoice in a foreign currency with no VAT no longer shows the rate and
   amounts in the default currency on its print. With VAT, they still show.

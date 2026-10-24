@@ -53,6 +53,26 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await p.close();
   });
 
+  await check('HR Setup → Leaving Reasons (moved from Payroll Setup, 2026-10-24): the defaults by type; a new one added', async () => {
+    const p = await open('HRSETUP', 'u-admin');
+    await p.waitForSelector('#hs-grades-body tr', { timeout: 30000 });
+    await p.click('.hs-tab[data-tab="leaving"]');
+    await p.waitForFunction(() => document.querySelectorAll('#hs-lr-body tr[data-id]').length === 12, null, { timeout: 30000 });
+    assert.ok(await p.isHidden('#hs-pane-schedules'), 'one tab at a time');
+    await p.click('#hs-lr-new');
+    await p.fill('#hs-lr-name', 'Career change');
+    await p.selectOption('#hs-lr-type', 'Resignation');
+    await p.click('#hs-lr-save');
+    await p.waitForFunction(() => /Career change\s*Resignation\s*In use/.test(document.getElementById('hs-lr-body').textContent), null, { timeout: 15000 });
+    assert.ok((await call('u-admin', 'leavingReasonSetup', { action: 'list' })).reasons.some(r => r.Name === 'Career change' && r.Type === 'Resignation'));
+    // The form closes with the other HR Setup forms.
+    await p.click('#hs-lr-body tr[data-id]');
+    await p.click('.hs-tab[data-tab="grades"]');
+    assert.ok(await p.isHidden('#hs-lr-form'));
+    assert.deepEqual(p.__errors, []);
+    await p.close();
+  });
+
   await check('a new employee on the schedule; locked after creation', async () => {
     const p = await open('EMPLOYEES', 'u-admin');
     await p.waitForFunction(() => !document.getElementById('emp-new-btn').classList.contains('hidden'), null, { timeout: 30000 });

@@ -1048,6 +1048,98 @@ function linesForBatch_(idToken, batchId) {
   return result;`
   },
   {
+    id: 'data-reset-all-modules (categories)',
+    why: "NEW DEVELOPMENT (owner, 2026-10-24; docs/modules/DATA_RESET.md): every module's data, from functions/src/dataReset.js, which clears, counts and deletes the records of the categories it adds (handledBy). The Chart of Accounts' renumber log and the stock reservations (moved to Firestore, cleared by no category) go with their categories.",
+    find: `  customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications', detail: 'Local/Export and any other classification configured for Customer Master Data — will reseed the Local/Export defaults next time it\\'s opened.', group: 'master' }
+};`,
+    replace: `  customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications', detail: 'Local/Export and any other classification configured for Customer Master Data — will reseed the Local/Export defaults next time it\\'s opened.', group: 'master' },
+  // [NEW DEVELOPMENT data-reset-all-modules] docs/modules/DATA_RESET.md
+  ...__dataReset.legacyShaped()
+};`
+  },
+  {
+    id: 'data-reset-all-modules (stock reservations)',
+    why: 'Stock reservations went with no category: they go with the stock (docs/modules/DATA_RESET.md).',
+    find: `  stockData: { paths: ['stock/transactions', 'stock/ledger', 'stock/counters'], recordsPath: 'stock/transactions',`,
+    replace: `  // [NEW DEVELOPMENT data-reset-all-modules] the stock reservations too
+  stockData: { paths: ['stock/transactions', 'stock/ledger', 'stock/counters', 'stock/reservations'], recordsPath: 'stock/transactions',`
+  },
+  {
+    id: 'data-reset-all-modules (summary)',
+    why: "How a record of a category from dataReset.js is listed when browsing it.",
+    find: `    default:
+      return id;
+  }
+}
+
+// Lists individual records in a category with a display summary — the`,
+    replace: `    default:
+      return __dataReset.CATEGORIES[categoryKey] ? __dataReset.summary(categoryKey, id, r) : id; // [NEW DEVELOPMENT data-reset-all-modules]
+  }
+}
+
+// Lists individual records in a category with a display summary — the`
+  },
+  {
+    id: 'data-reset-all-modules (counts)',
+    why: "The counts of dataReset.js's categories are its own (records, not counters); and the screen is told which may be browsed.",
+    find: `  Object.keys(DATA_RESET_CATEGORIES).forEach(key => {
+    const cat = DATA_RESET_CATEGORIES[key];
+    let total = 0;
+    cat.paths.forEach(path => {`,
+    replace: `  Object.keys(DATA_RESET_CATEGORIES).forEach(key => {
+    const cat = DATA_RESET_CATEGORIES[key];
+    let total = 0;
+    if (cat.handledBy) { // [NEW DEVELOPMENT data-reset-all-modules]
+      counts[key] = { label: cat.label, detail: cat.detail, group: cat.group, count: dataResetCount_(idToken, key), browse: Boolean(cat.recordsPath) };
+      return;
+    }
+    cat.paths.forEach(path => {`
+  },
+  {
+    id: 'data-reset-all-modules (counts, browse)',
+    why: 'The screen shows Browse only for a category whose records may be deleted one by one.',
+    find: `    counts[key] = { label: cat.label, detail: cat.detail, group: cat.group, count: total };`,
+    replace: `    counts[key] = { label: cat.label, detail: cat.detail, group: cat.group, count: total, browse: Boolean(cat.recordsPath) };`
+  },
+  {
+    id: 'data-reset-all-modules (clear)',
+    why: "Decision 284: a master is not cleared while what uses it still has records and is not chosen too (it was only a warning). Then dataReset.js clears its categories (sub-collections, the Employee Portal sign-ins (283), the files to the storage's trash (286)).",
+    find: `    const clearedLabels = [];
+    categoryKeys.forEach(key => {
+      const cat = DATA_RESET_CATEGORIES[key];
+      cat.paths.forEach(path => {`,
+    replace: `    // [NEW DEVELOPMENT data-reset-all-modules] decision 284, before anything is deleted
+    const refused = dataResetRefusal_(idToken, categoryKeys, DATA_RESET_CATEGORIES);
+    if (refused) throw new Error(refused);
+
+    const clearedLabels = [];
+    categoryKeys.forEach(key => {
+      const cat = DATA_RESET_CATEGORIES[key];
+      if (cat.handledBy) { dataResetClear_(idToken, key); clearedLabels.push(cat.label); return; }
+      cat.paths.forEach(path => {`
+  },
+  {
+    id: 'data-reset-all-modules (records)',
+    why: "Chosen records of dataReset.js's categories are deleted there (with their sub-collections; a Sales Order with its reservations).",
+    find: `    const cat = DATA_RESET_CATEGORIES[categoryKey];
+    if (!cat || !cat.recordsPath) throw new Error('Unknown or unsupported category.');
+
+    let linkedCleared = 0;`,
+    replace: `    const cat = DATA_RESET_CATEGORIES[categoryKey];
+    if (!cat || !cat.recordsPath) throw new Error('Unknown or unsupported category.');
+    if (cat.handledBy) return { success: true, count: dataResetDeleteRecords_(idToken, categoryKey, recordIds), linkedCleared: 0 }; // [NEW DEVELOPMENT data-reset-all-modules]
+
+    let linkedCleared = 0;`
+  },
+  {
+    id: 'data-reset-all-modules (coa renumber log)',
+    why: "The Chart of Accounts' renumber log goes with the chart.",
+    find: `  coa: { paths: ['coa'], recordsPath: 'coa',`,
+    replace: `  // [NEW DEVELOPMENT data-reset-all-modules] its renumber log too
+  coa: { paths: ['coa', 'coaRenumberLog'], recordsPath: 'coa',`
+  },
+  {
     id: 'list-paging-physical-count',
     why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/LIST_PAGING.md): Gmail-style paging. With a `page` argument the list returns 100 at a time after a marker (`next`), and search and filters run here over every entry the user can see. Without it the list behaves as before.",
     find: `function getPhysicalCountEntries(idToken, limit) {

@@ -1382,3 +1382,15 @@ from, and how it was verified. The deploy procedure is in the
   (05:30–05:31 UTC), success: the rules reached test client C101
   (`client-test-1-4eb19`), its grants made by the owner that morning, as
   well as 900.
+- **2026-10-24, UX round 2 wave 1 (`ux2-wave1-fixes`, PR #169, from
+  `e288466`):** run
+  [#211](https://github.com/yasircmd/erp-firebase/actions/runs/40073543164)
+  ("functions set, then screens", 07:17–07:19 UTC), success: `SUMMARY:
+  functions deployed: 5 (closeRejectedSubmission getMyRejectedSubmissions
+  getPendingApprovalsForUser getMyDraftsForUser getProductionEntries);
+  access granted: 5; screens released: yes` (release
+  `20261024T071927Z-e288466`, 89/89 verified). Then Hosting, run
+  [#212](https://github.com/yasircmd/erp-firebase/actions/runs/40073751278)
+  (07:20–07:21 UTC), success. The owner deleted the retired
+  `updateDeveloperTreeFollowers` from Cloud Shell (`firebase
+  functions:delete`, decision 269): "Successful delete operation".
