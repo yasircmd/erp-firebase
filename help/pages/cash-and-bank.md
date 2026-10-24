@@ -5,8 +5,8 @@ order: 5
 modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
-reviewed: 2026-10-18
-fingerprint: a533d213beeddbd1
+reviewed: 2026-10-24
+fingerprint: 7c280ee2a7216bc5
 ---
 ## What it is for
 
