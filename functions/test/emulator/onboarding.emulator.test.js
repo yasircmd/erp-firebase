@@ -221,6 +221,14 @@ test('Test connection: password sign-in off, or a wrong API key, fails Authentic
     answer('INVALID_LOGIN_CREDENTIALS');
     assert.equal((await dev('testDeveloperCorporate', { CorporateID: '200' })).auth.ok, true, 'on, with email enumeration protection');
   } finally { global.fetch = real; }
+  // Google's raw response told as its one sentence (C101, 2026-10-24).
+  const probe = developer._auth.passwordSignIn;
+  const say = 'Caller does not have required permission to use project erp-client-demo.';
+  developer._auth.passwordSignIn = async () => { throw new Error(say + ' Raw server response: "' + JSON.stringify({ error: { code: 403, message: say, status: 'PERMISSION_DENIED' } }) + '"'); };
+  try {
+    assert.equal((await dev('testDeveloperCorporate', { CorporateID: '200' })).auth.detail, say);
+  } finally { developer._auth.passwordSignIn = probe; }
+  assert.equal((await dev('testDeveloperCorporate', { CorporateID: '200' })).ok, true, 'passing again, so it may go Active');
   await saveCorp(C200, { Status: 'Active' });
 });
 

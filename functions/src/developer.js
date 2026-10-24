@@ -171,7 +171,7 @@ exports.testDeveloperCorporate = onCallWithMessages(onCallOptions, async (reques
   const part = async (what, fn) => {
     try { return { ok: true, detail: await withinTime(fn(), 0, what) }; } catch (err) {
       if (err && err.unreachable) late = true;
-      return { ok: false, detail: (err && err.message) || String(err) };
+      return { ok: false, detail: shortError(err) };
     }
   };
   let result;
@@ -198,6 +198,23 @@ exports.testDeveloperCorporate = onCallWithMessages(onCallOptions, async (reques
   await entryRef(id).update({ LastTest: { At: new Date().toISOString(), Ok: ok, ProjectID: entry.ProjectID, DatabaseURL: entry.DatabaseURL } });
   return Object.assign({ ok }, result);
 });
+
+// An error as one readable sentence (2026-10-24: Authentication's showed
+// Google's whole raw response, JSON and all). When the message carries a
+// "Raw server response", its own error message is the one that says what
+// to do; whitespace is folded and the length capped.
+function shortError(err) {
+  let text = String((err && err.message) || err || '');
+  const raw = text.indexOf('Raw server response:');
+  if (raw >= 0) {
+    try {
+      const body = JSON.parse(text.slice(text.indexOf('{', raw), text.lastIndexOf('}') + 1));
+      if (body && body.error && body.error.message) text = String(body.error.message);
+    } catch (e) { text = text.slice(0, raw); }
+  }
+  text = text.replace(/\s+/g, ' ').trim();
+  return text.length > 400 ? text.slice(0, 397) + '...' : text;
+}
 
 // Whether the client's Auth lets users sign in with a password (onboarding
 // dry run, 2026-10-23: Email/Password was off; the test passed, and the
@@ -646,4 +663,5 @@ exports.purgeDeveloperLeavers = onCallWithMessages(onCallOptions, async (request
 module.exports._layout = { layout, fingerprint, treeStatus };
 // Swappable in the tests: the emulators cannot switch password sign-in off.
 module.exports._auth = { passwordSignIn };
+module.exports._text = { shortError };
 module.exports._release = { updateFollowers, purgeLeavers, KEEP_AFTER_LEAVING_DAYS };

@@ -359,8 +359,12 @@
   // ---------- set up (M4) ----------
   function renderSetup() {
     const c = current, done = ok => '<i class="fa-solid ' + (ok ? 'fa-circle-check text-emerald-400' : 'fa-circle text-slate-500') + '"></i> ';
-    const rules = c.Rules ? (c.Rules.Ok ? 'deployed with release ' + escapeHtml(c.Rules.Commit) + ', ' + escapeHtml(time(c.Rules.At)) : '<span class="text-red-400">not deployed: ' + escapeHtml(c.Rules.Error || '') + '</span>')
-      : 'not yet: run the Deploy workflow\'s "database rules" task';
+    // The rules go out from GitHub, with the deploy account, never from the
+    // app (its account cannot change a client's rules, by design); one click
+    // away from here (owner, 2026-10-24).
+    const runIt = ' <a href="https://github.com/yasircmd/erp-firebase/actions/workflows/deploy.yml" target="_blank" rel="noopener" class="text-blue-400 underline">Run "database rules" in GitHub</a>';
+    const rules = c.Rules ? (c.Rules.Ok ? 'deployed with release ' + escapeHtml(c.Rules.Commit) + ', ' + escapeHtml(time(c.Rules.At)) : '<span class="text-red-400">not deployed: ' + escapeHtml(c.Rules.Error || 'no reason recorded') + '</span>' + runIt)
+      : 'not yet: run the Deploy workflow\'s "database rules" task.' + runIt;
     const leaving = c.Status === 'Inactive' && c.InactiveSince ? (c.PurgedAt ? 'What the firm held about it was deleted ' + escapeHtml(time(c.PurgedAt)) + '.'
       : 'Inactive since ' + escapeHtml(time(c.InactiveSince)) + ': what the firm holds about it (Support issues and files, notes) is deleted ' + data.keepAfterLeavingDays + ' days after that, at a release.') : '';
     el('dv-setup').innerHTML = [

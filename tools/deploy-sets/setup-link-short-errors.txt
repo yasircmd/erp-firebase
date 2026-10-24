@@ -1,0 +1,4 @@
+# Owner, 2026-10-24: Test connection shows an error as one sentence (not
+# Google's raw response), and Set up's step 2 links to the Deploy workflow.
+# With --screens (DEVELOPER.html).
+testDeveloperCorporate
