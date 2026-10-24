@@ -20,6 +20,8 @@
 <h2 id="step-by-step">Step by step</h2>
 <h3 id="maintain-roles">Maintain roles</h3>
 <ol><li>Add a role with a unique name and a brief description of its purpose, or edit the existing role.</li><li>Delete a role only when no user currently has it and another role retains the required administrative write access.</li></ol>
+<h3 id="default-favourites">Default favourites</h3>
+<p>The star on a role's row sets up to 5 screens to show at the top of the menu for users of that role. It applies only to users who haven't chosen favourites of their own, and only to screens the user may open. Once a user changes their favourites (user menu → <strong>Configure Favourites</strong>), the list is theirs, and later changes to the role's defaults leave it alone. The row shows how many defaults the role has.</p>
 <h3 id="maintain-module-capabilities">Maintain module capabilities</h3>
 <ol><li>In <strong>Module Permissions</strong>, read across each module/capability row and role column. A checked box grants that capability to that role.</li><li>Grant only the actions needed for the role: viewing is different from drafting, submitting/posting, paying, reporting, returning, or viewing sensitive data.</li><li>Save the matrix once after reviewing the full set of changes. The system prevents removing the last role's write access to Roles &amp; Permissions or User Management.</li><li>Test with a representative user assigned to the role: confirm both allowed actions and actions that should be denied.</li></ol>
 <p>Menu visibility is not a permission grant. Configure the navigation separately in <a href="tree-management.html">Tree Management</a>, and assign companies separately in <a href="user-management.html">User Management</a>.</p>
@@ -30,7 +32,7 @@
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
 <ul><li><strong>User can see a menu item but cannot open/use it:</strong> check the module capability and company assignment; tree visibility alone is not enough.</li><li><strong>User cannot see the module in navigation:</strong> check Tree Management role visibility separately from module capabilities.</li><li><strong>Capability is absent from the matrix:</strong> capabilities are module-specific; use the exact available capability rather than assuming every module has generic read/write/post rights.</li><li><strong>Role cannot be deleted:</strong> reassign its users first; the last administrative role cannot be removed if it is the only one retaining required write access.</li><li><strong>A permission change did not affect an already-open screen:</strong> have the user refresh/reopen the module and test the current role assignment.</li></ul>
 <h2 id="related-pages">Related pages</h2>
-<p><a href="user-management.html">User Management</a> · <a href="tree-management.html">Tree Management</a> · <a href="approval-configuration.html">Approval Configuration</a></p><p class="crumb">Last reviewed 23/10/2026</p></main>
+<p><a href="user-management.html">User Management</a> · <a href="tree-management.html">Tree Management</a> · <a href="approval-configuration.html">Approval Configuration</a></p><p class="crumb">Last reviewed 24/10/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>

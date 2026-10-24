@@ -5,20 +5,24 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-10-24
-fingerprint: 92754a2540ebf158
+fingerprint: 358cf990d75778e2
 ---
 ## Signing in
 
 1. Open the ERP's address in your browser (Chrome, Edge, Safari or Firefox).
 2. On **Sign In**, enter:
    - **Corporate ID**: your organisation's ID, given by your administrator;
-   - **Email address** and **Password**: your own ERP account.
+   - **Email or user ID** and **Password**: your own ERP account. The user
+     ID is your Username in User Management; your email works as before.
 3. Select **Sign In**. You arrive at the menu (the *Module Hierarchy*).
 
 The Corporate ID decides which organisation's ERP you sign in to. The
 field starts empty; your browser can save it with your sign-in and offer
 it next time. The **Employee Portal** asks for the same Corporate ID, then
 your Employee Code and password.
+
+If two users were given the same user ID before user IDs had to be
+unique, they sign in with their email until one is renamed.
 
 If the ERP says your account is inactive or not configured, ask your
 administrator: an account must be active and assigned to at least one
@@ -41,11 +45,33 @@ The title above the menu names your company: your only company, or else
 the main one (reference code 01) of the companies you are assigned. When a
 company is assigned to you, it shows as soon as you come back to Home.
 
+### Choosing your companies
+
+With more than one company, the button after the title (**All companies**
+at first) chooses which of them you work in. Tick the companies and select
+**Apply**:
+
+- The screens offer only the companies you chose in their company lists,
+  and with one chosen they fill it in for you, as for a user with only one
+  company. The title then names it.
+- It's a filter, not a change of what you may do: every company is still
+  yours, and **Select all** brings them all back. A document already saved
+  for another company still shows its company.
+- Your choice is kept for the next time you sign in, on any computer.
+
+For example, an accountant assigned *Example Trading* and *Example
+Services* who works on Example Services all week chooses it alone, and no
+longer picks the company on each entry.
+
 - Select an area to open it; select a screen to start working in it.
 - **Search modules** (top bar): type part of a screen's name to filter the
   menu. **Enter** opens the screen when only one matches; **Esc** clears the
   search.
 - The double-arrow button expands or collapses the whole tree.
+- **Without the mouse:** **F2** goes to Search modules. **↓** moves to the
+  first row shown, and **↑ ↓** move through the menu. **→** opens an area or
+  folder and **←** closes it. **Enter** opens a screen. **Tab** reaches the
+  same rows, each outlined when it has the focus.
 - Inside a screen, **Back to Hierarchy** returns to the menu. If you have
   unsaved changes, the ERP asks before leaving.
 
@@ -53,7 +79,8 @@ company is assigned to you, it shows as soon as you come back to Home.
 
 Put the screens you use most at the top of the menu: user menu →
 **Configure Favourites**, select the star next to each screen you want,
-then **Done**.
+then **Done**. Until you choose your own, you see your role's defaults, if
+your administrator has set some ([Roles & Permissions](roles.html)).
 
 ## Home tasks
 
@@ -80,7 +107,8 @@ Select your name (top right) for:
 
 - **My Portal**: your own leave, payslips and requests, when your ERP user
   is linked to an employee record;
-- **Light mode / Dark mode**;
+- **Light mode / Dark mode**: your choice is kept with you, on every
+  computer you sign in on. The ERP starts in light mode until you choose;
 - **Configure Favourites**;
 - **Refresh**: reloads the menu (after an administrator changed it or your
   rights);
@@ -89,8 +117,8 @@ Select your name (top right) for:
 
 ## Help
 
-The **Help** button (top bar) opens this help in a new tab. Inside a screen,
-it opens that screen's page directly. Help uses the ERP's light or dark
+The **Help** button (top bar), or **F1**, opens this help in a new tab.
+Inside a screen, it opens that screen's page directly. Help uses the ERP's light or dark
 theme; its **Light mode** / **Dark mode** button switches both.
 
 ## Signing out, and the automatic sign-out

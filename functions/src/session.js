@@ -3,8 +3,8 @@ const { onCallInCorporate } = require('./callable');
 const { requireUser } = require('./auth');
 const { ensureRolesSeeded } = require('./roles');
 const { buildTreeForRole } = require('./tree');
-const { rtdb, corporateId: currentCorporate } = require('./firebaseAdmin');
-const { signInConfig } = require('./corporates');
+const { rtdb, corporateId: currentCorporate, runInCorporate } = require('./firebaseAdmin');
+const { signInConfig, directoryEntry, HOME_WEB_API_KEY } = require('./corporates');
 
 // The Corporate ID the user typed must be the corporate this request is
 // for (docs/modules/MULTI_CORPORATE.md §2, M1): the one whose Auth signed
@@ -30,8 +30,12 @@ async function buildSessionResponse(context) {
   const roles = await ensureRolesSeeded();
   const roleName = (roles[user.profile.role] && roles[user.profile.role].Name) || user.profile.role || 'VIEWER';
 
+  // The user's own light / dark choice, on every device; light for one who
+  // never chose (owner, 2026-10-24, decision 272).
+  const prefs = (await rtdb.ref('userPreferences/' + user.uid).get()).val() || {};
   return {
     uid: user.uid,
+    theme: prefs.Theme === 'dark' ? 'dark' : 'light',
     fullName: user.profile.fullName || '',
     role: user.profile.role || 'VIEWER',
     roleName: roleName,
@@ -58,6 +62,41 @@ exports.completeLogin = onCallInCorporate(onCallOptions, async (request) => {
 // refuses it.
 exports.corporateSignIn = onCallInCorporate(onCallOptions, async (request) => {
   return signInConfig(request.data && request.data.corporateId);
+});
+
+// Sign-in with the Username as well as the email (owner, 2026-10-24,
+// decision 271). Firebase signs in by email, so this finds the user by
+// Username in the corporate's own users and returns their email, but only
+// once Google's own sign-in has accepted the password: the email of a user
+// is never told to someone who doesn't know their password. The browser then
+// signs in with that email as usual. Every failure is the same message, so
+// nothing tells which user IDs exist. A Username two users share signs in
+// by email only.
+const ID_FAILED = 'Invalid user ID or password. A user ID shared by two users signs in by email.';
+exports.userIdSignIn = onCallInCorporate(onCallOptions, async (request) => {
+  const d = request.data || {};
+  const userId = String(d.userId || '').trim().toLowerCase();
+  const password = String(d.password || '');
+  if (!userId || !password || userId.length > 120) throw new HttpsError('invalid-argument', ID_FAILED);
+  const cfg = await signInConfig(d.corporateId);
+  const inCorporate = cfg.home ? fn => fn() : async fn => runInCorporate({ id: cfg.corporateId, entry: await directoryEntry(cfg.corporateId) }, fn);
+  const email = await inCorporate(async () => {
+    const users = (await rtdb.ref('users').get()).val() || {};
+    const hits = Object.values(users).filter(u => u && String(u.username || '').trim().toLowerCase() === userId);
+    return hits.length === 1 && hits[0].status === 'Active' && hits[0].email ? String(hits[0].email) : '';
+  });
+  if (!email) throw new HttpsError('permission-denied', ID_FAILED);
+  const key = cfg.home ? HOME_WEB_API_KEY : cfg.webConfig.apiKey;
+  const host = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+  const res = await fetch((host ? 'http://' + host + '/' : 'https://') + 'identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + encodeURIComponent(key), {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Referer: 'https://erp1-8f4cd.web.app/' },
+    body: JSON.stringify({ email, password, returnSecureToken: false })
+  });
+  if (res.ok) return { email };
+  const code = String(((await res.json().catch(() => ({}))).error || {}).message || '');
+  if (/^TOO_MANY_ATTEMPTS/.test(code)) throw new HttpsError('resource-exhausted', 'Too many attempts — please wait a moment and try again.');
+  if (/^USER_DISABLED/.test(code)) throw new HttpsError('permission-denied', 'This account has been disabled.');
+  throw new HttpsError('permission-denied', ID_FAILED);
 });
 
 exports.restoreSession = onCallInCorporate(onCallOptions, async (request) => {

@@ -5,14 +5,15 @@ order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html]
 reviewed: 2026-10-24
-fingerprint: e3f827116956b2c4
+fingerprint: 50e2070058acedb4
 ---
 ## Company first
 
 The ERP holds several companies. Most screens start with a **Company**
-choice; you see only the companies assigned to you. When you have only one,
-it is chosen for you. Lists, numbers and reports always belong to the
-company chosen.
+choice; you see only the companies assigned to you, and of those only the
+ones you chose at the top of Home (see [Choosing your companies](getting-started.html#choosing-your-companies)).
+When you have only one, or chose one, it is chosen for you. Lists, numbers
+and reports always belong to the company chosen.
 
 ## Dates and periods
 

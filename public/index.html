@@ -331,9 +331,12 @@
     // Applied before the body renders (this script runs synchronously
     // in <head>, before <body>) to avoid a flash of the wrong theme on
     // load — reading localStorage here, not after DOMContentLoaded.
+    // Light unless this device last showed dark (owner, 2026-10-24,
+    // decision 272); after sign-in the user's own saved theme applies.
     (function () {
-      const saved = localStorage.getItem('erp-theme');
-      if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      let saved = null;
+      try { saved = localStorage.getItem('erp-theme'); } catch (e) { /* storage off: light */ }
+      if (saved !== 'dark') document.documentElement.setAttribute('data-theme', 'light');
     })();
   </script>
   <script>
@@ -485,10 +488,10 @@
         </div>
       </div>
       <div>
-        <label class="block text-xs font-medium text-slate-300 mb-1">Email address</label>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Email or user ID</label>
         <div class="relative">
-          <i class="fa-solid fa-envelope absolute left-3 top-3 text-xs text-slate-500"></i>
-          <input type="email" id="email" name="email" autocomplete="username" required placeholder="name@company.com" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
+          <i class="fa-solid fa-user absolute left-3 top-3 text-xs text-slate-500"></i>
+          <input type="text" id="email" name="email" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="name@company.com or your user ID" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-8 pr-3 text-sm focus:outline-none focus:border-blue-500">
         </div>
       </div>
       <div>
@@ -525,12 +528,25 @@
       <div class="flex items-center gap-3">
         <button id="back-to-tree-btn" onclick="handleBackToHierarchy()" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to Hierarchy</button>
         <h1 id="app-title" class="text-xl font-bold text-blue-400"><i class="fa-solid fa-sitemap"></i> ERP Module Hierarchy Tree</h1>
+        <!-- Which of the user's companies the screens default to (COMPANY FILTER below); Home only, for a user with more than one. -->
+        <div id="company-filter" class="relative hidden">
+          <button id="company-filter-btn" onclick="toggleCompanyFilter()" title="Which of your companies the screens offer and default to" class="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700">
+            <i class="fa-solid fa-building text-slate-500"></i> <span id="company-filter-label">All companies</span> <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 ml-1"></i>
+          </button>
+          <div id="company-filter-panel" class="hidden absolute left-0 mt-2 w-72 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 p-3">
+            <div id="company-filter-list" class="space-y-1 max-h-64 overflow-y-auto text-xs text-slate-300"></div>
+            <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-700">
+              <button type="button" onclick="document.querySelectorAll('.company-filter-check').forEach(c => { c.checked = true; })" class="text-xs text-blue-400 hover:text-blue-300">Select all</button>
+              <button type="button" id="company-filter-apply" onclick="saveCompanyFilter()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-1.5 rounded">Apply</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="flex items-center gap-2">
         <div id="tree-controls" class="flex items-center gap-2">
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500"></i>
-            <input type="search" id="module-search" placeholder="Search modules" autocomplete="off" title="Type to filter the menu; Enter opens the only match, Esc clears" class="w-44 bg-slate-800 border border-slate-700 rounded text-xs py-1.5 pl-7 pr-2 focus:outline-none focus:border-blue-500">
+            <input type="search" id="module-search" placeholder="Search modules" autocomplete="off" title="F2: type to filter the menu; ↓ to the matches, Enter opens; Esc clears" class="w-44 bg-slate-800 border border-slate-700 rounded text-xs py-1.5 pl-7 pr-2 focus:outline-none focus:border-blue-500">
           </div>
           <button id="toggle-expand-btn" onclick="toggleExpandCollapse()" title="Expand all" aria-label="Expand all" class="bg-slate-800 hover:bg-slate-700 text-xs w-8 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-angles-down"></i></button>
           <button id="fav-config-done-btn" onclick="setFavoriteConfigMode(false)" class="hidden bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-check"></i> Done</button>
@@ -923,7 +939,7 @@
       if (!user) {
         currentUser = null;
         pendingCorporateId = null;
-        mainCompanyName = ''; setSingleCompany([]);
+        myCompanies = []; chosenCompanyIds = []; showCompanyChoice();
         clearTimeout(idleTimer); clearTimeout(idleWarningTimer); hideIdleWarning();
         showTreeNav();
         document.getElementById('tree-container').innerHTML = '';
@@ -1038,16 +1054,18 @@
       document.getElementById('theme-toggle-icon').className = isLight ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
       document.getElementById('theme-toggle-label').textContent = isLight ? 'Dark mode' : 'Light mode';
     }
-    function toggleTheme() {
-      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-      if (isLight) {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('erp-theme', 'dark');
-      } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-        localStorage.setItem('erp-theme', 'light');
-      }
+    // Shown at once, kept on this device for the next page load, and saved
+    // with the signed-in user for every device (decision 272).
+    function applyTheme(theme) {
+      if (theme === 'dark') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', 'light');
+      try { localStorage.setItem('erp-theme', theme === 'dark' ? 'dark' : 'light'); } catch (e) { /* this device only */ }
       updateThemeIcon();
+    }
+    function toggleTheme() {
+      const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      applyTheme(theme);
+      if (currentUser) rpc.withSuccessHandler(() => {}).withFailureHandler(() => {}).saveMyTheme({ theme });
     }
     updateThemeIcon();
 
@@ -1090,12 +1108,20 @@
           return sdk.signOut(previous).catch(() => {}).then(listenToAuth);
         })
         .then(() => {
+          // A user ID, not an email (owner, 2026-10-24, decision 271): the
+          // corporate gives its email once the password is right.
+          if (email.includes('@')) return email;
+          return sdk.httpsCallable(sdk.functionsInstance, 'userIdSignIn')({ corporateId, userId: email, password })
+            .then(r => r.data.email, err => { throw Object.assign(new Error(err.message || 'Invalid user ID or password.'), { shown: true }); });
+        }, err => { throw Object.assign(new Error((err && err.message) || 'Invalid Corporate ID.'), { shown: true }); })
+        .then(signInEmail => {
           pendingCorporateId = corporateId;
-          return sdk.signInWithEmailAndPassword(sdk.auth, email, password).catch(err => {
+          return sdk.signInWithEmailAndPassword(sdk.auth, signInEmail, password).catch(err => {
             pendingCorporateId = null;
             showLoginFailure({ message: mapFirebaseAuthError(err) });
           });
-        }, err => showLoginFailure({ message: (err && err.message) || 'Invalid Corporate ID.' }));
+        })
+        .catch(err => showLoginFailure({ message: err.message }));
       // On success, onAuthStateChanged fires automatically and takes
       // it from here — nothing further to do in this function.
     }
@@ -1103,7 +1129,7 @@
     function mapFirebaseAuthError(err) {
       const code = err && err.code;
       if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
-        return 'Invalid email or password.';
+        return 'Invalid email (or user ID) or password.';
       }
       if (code === 'auth/too-many-requests') return 'Too many attempts — please wait a moment and try again.';
       if (code === 'auth/user-disabled') return 'This account has been disabled.';
@@ -1137,6 +1163,7 @@
       // Name and role are cut to a fixed width in the header; the full text is in the tooltip.
       document.getElementById('user-menu-btn').title = [response.fullName, response.roleName || response.role].filter(Boolean).join(' · ');
       document.getElementById('user-menu').classList.remove('hidden');
+      if (response.theme) applyTheme(response.theme); // the user's own, on every device
 
       buildTreeUI(response.data);
       loadMainCompanyName();
@@ -1716,6 +1743,45 @@
         const hits = visibleSearchModules();
         if (hits.length === 1) openModule(hits[0].getAttribute('data-module-id'));
       }
+      if (e.key === 'ArrowDown') { const rows = visibleTreeRows(); if (rows.length) { e.preventDefault(); rows[0].focus(); } }
+    });
+
+    // ---------- KEYBOARD (owner, 2026-10-24; UX_ROUND2.md items 13-15) ----------
+    // F2 finds a module (the search box), ↑ ↓ move through the menu's
+    // shown rows (folders and modules), → ← open and close a folder, Enter
+    // opens; Tab reaches the same rows. F1 opens the Help of the screen in
+    // use (Home: the Help's start).
+    function visibleTreeRows() {
+      return Array.from(document.querySelectorAll('#tree-container .tree-row')).filter(row => {
+        const li = row.closest('li');
+        if (li && li.closest('li.hidden')) return false;
+        const own = row.tagName === 'SUMMARY' ? row.parentElement : null;
+        for (let d = row.parentElement.closest('details'); d; d = d.parentElement.closest('details')) if (d !== own && !d.open) return false;
+        return true;
+      });
+    }
+    function onHome() { return !document.getElementById('tree-view-container').classList.contains('hidden') && !document.getElementById('app-container').classList.contains('hidden'); }
+    document.getElementById('tree-container').addEventListener('keydown', e => {
+      const row = e.target.closest && e.target.closest('.tree-row');
+      if (!row) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        const rows = visibleTreeRows(), i = rows.indexOf(row);
+        e.preventDefault();
+        if (e.key === 'ArrowDown' && i < rows.length - 1) rows[i + 1].focus();
+        if (e.key === 'ArrowUp') (i > 0 ? rows[i - 1] : document.getElementById('module-search')).focus();
+      }
+      if (row.tagName === 'SUMMARY' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); row.parentElement.open = e.key === 'ArrowRight'; }
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'F1') {
+        e.preventDefault();
+        if (!document.getElementById('app-container').classList.contains('hidden')) document.getElementById('help-btn').click();
+      }
+      if (e.key === 'F2' && onHome() && !document.querySelector('#app-dialog:not(.hidden)')) {
+        e.preventDefault();
+        const input = document.getElementById('module-search');
+        input.focus(); input.select();
+      }
     });
 
     // "Main company" = whichever company has CompanyRefCode '01' — the
@@ -1728,15 +1794,57 @@
     function loadMainCompanyName() {
       rpc
         .withSuccessHandler(result => {
-          const companies = result || [];
-          const main = companies.length === 1 ? companies[0] : companies.find(c => c.CompanyRefCode === '01');
-          mainCompanyName = main ? main.LegalName : '';
-          applyTreeTitle();
-          setSingleCompany(companies);
+          myCompanies = result || [];
+          chosenCompanyIds = myCompanies.filter(c => c.Chosen !== false).map(c => c.CompanyID);
+          showCompanyChoice();
         })
-        .withFailureHandler(() => { mainCompanyName = ''; setSingleCompany([]); })
+        .withFailureHandler(() => { myCompanies = []; chosenCompanyIds = []; showCompanyChoice(); })
         .getActiveCompanies();
     }
+
+    // ---------- COMPANY FILTER ----------
+    // A user with several companies chooses, after the company name at the
+    // top, which of them the screens offer and default to (owner,
+    // 2026-10-24, decision 273). A filter, not rights: every company stays
+    // theirs, and choosing all of them again brings each back. One chosen
+    // is the one-company rule below; the title then names it. Saved with
+    // the user (saveMyCompanies) for the next sign-in, on any device.
+    let myCompanies = [], chosenCompanyIds = [];
+    function showCompanyChoice() {
+      const chosen = myCompanies.filter(c => chosenCompanyIds.includes(c.CompanyID));
+      const main = chosen.length === 1 ? chosen[0] : chosen.find(c => c.CompanyRefCode === '01');
+      mainCompanyName = main ? main.LegalName : '';
+      applyTreeTitle();
+      document.getElementById('company-filter').classList.toggle('hidden', myCompanies.length < 2 || !onHome());
+      document.getElementById('company-filter-label').textContent = chosen.length === myCompanies.length ? 'All companies' : chosen.length + ' of ' + myCompanies.length + ' companies';
+      setCompanyFilter(chosen.map(c => c.CompanyID), myCompanies.map(c => c.CompanyID));
+    }
+    function toggleCompanyFilter() {
+      const panel = document.getElementById('company-filter-panel');
+      if (panel.classList.contains('hidden')) {
+        document.getElementById('company-filter-list').innerHTML = myCompanies.map(c =>
+          '<label class="flex items-center gap-2 px-1 py-1 rounded hover:bg-slate-700 cursor-pointer"><input type="checkbox" class="company-filter-check" value="' + escapeHtml(c.CompanyID) + '"' +
+          (chosenCompanyIds.includes(c.CompanyID) ? ' checked' : '') + '> <span class="truncate">' + escapeHtml(c.LegalName || c.CompanyID) + '</span></label>').join('');
+      }
+      panel.classList.toggle('hidden');
+    }
+    function closeCompanyFilter() { document.getElementById('company-filter-panel').classList.add('hidden'); }
+    function saveCompanyFilter() {
+      const ids = Array.from(document.querySelectorAll('.company-filter-check:checked')).map(c => c.value);
+      if (!ids.length) { appAlert('Choose at least one company.'); return; }
+      const btn = document.getElementById('company-filter-apply');
+      btn.disabled = true;
+      rpc
+        .withSuccessHandler(r => {
+          btn.disabled = false;
+          chosenCompanyIds = r.companyIds;
+          closeCompanyFilter();
+          showCompanyChoice();
+        })
+        .withFailureHandler(err => { btn.disabled = false; appAlert(err.message || String(err)); })
+        .saveMyCompanies({ companyIds: ids });
+    }
+    // ---------- END COMPANY FILTER ----------
 
     // ---------- SINGLE-COMPANY DEFAULT ----------
     // A user assigned exactly one active company never has to pick it:
@@ -1755,15 +1863,25 @@
     // event.isTrusted for the same reason.
     // A blank option that is a real choice ("Shared across all
     // companies" on master data, "None") is left alone.
-    let singleCompanyId = '';
-    function setSingleCompany(companies) {
-      singleCompanyId = companies && companies.length === 1 ? companies[0].CompanyID : '';
+    // The company filter (above) narrows the same dropdowns: a company not
+    // chosen is hidden from them (and so from the search picker), unless
+    // it's the one already set, e.g. on a saved document.
+    let singleCompanyId = '', knownCompanyIds = new Set(), hiddenCompanyIds = new Set();
+    function setCompanyFilter(chosenIds, allIds) {
+      singleCompanyId = chosenIds.length === 1 ? chosenIds[0] : '';
+      knownCompanyIds = new Set(allIds);
+      hiddenCompanyIds = new Set(allIds.filter(id => !chosenIds.includes(id)));
       applySingleCompanyDefault();
     }
     function applySingleCompanyDefault() {
-      if (!singleCompanyId) return;
+      if (!knownCompanyIds.size) return;
       document.querySelectorAll('#module-container select[id*="company"]').forEach(select => {
-        if (select.value !== '' || select.disabled) return;
+        Array.from(select.options).forEach(o => {
+          if (!knownCompanyIds.has(o.value)) return;
+          const hide = hiddenCompanyIds.has(o.value) && o.value !== select.value;
+          if (o.hidden !== hide) o.hidden = hide;
+        });
+        if (!singleCompanyId || select.value !== '' || select.disabled) return;
         const options = Array.from(select.options);
         if (!options.some(o => o.value === singleCompanyId)) return;
         const blank = options.find(o => o.value === '');
@@ -2479,7 +2597,7 @@
         const li = document.createElement('li');
         if (hasChildren) {
           const details = document.createElement('details'); details.className = 'group';
-          const summary = document.createElement('summary'); summary.className = 'cursor-pointer py-2.5 px-3 flex items-center gap-2.5 font-medium text-slate-200 hover:bg-slate-800';
+          const summary = document.createElement('summary'); summary.className = 'tree-row cursor-pointer py-2.5 px-3 flex items-center gap-2.5 font-medium text-slate-200 hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
           summary.innerHTML = `<i class="fa-solid fa-chevron-right text-xs text-slate-400 group-open:rotate-90"></i><i class="fa-solid ${item.depth === 0 ? 'fa-layer-group text-blue-400' : 'fa-folder text-emerald-400'} text-xs"></i><span>${escapeHtml(item.text)}</span>`;
           const children = document.createElement('ul'); children.className = 'pl-6 pr-2 pb-1.5 border-l border-slate-800 ml-4';
           details.append(summary, children); li.appendChild(details); stack[stack.length - 1].container.appendChild(li); stack.push({ depth: item.depth, container: children });
@@ -2490,6 +2608,10 @@
             li.classList.add('text-blue-400', 'font-medium');
             li.setAttribute('data-module-id', item.moduleId);
             li.addEventListener('click', () => openModule(item.moduleId));
+            // Reached by Tab or the arrow keys, opened by Enter (owner, 2026-10-24).
+            li.tabIndex = 0;
+            li.classList.add('tree-row', 'focus:outline-none', 'focus-visible:ring-2', 'focus-visible:ring-blue-500');
+            li.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target === li) { e.preventDefault(); openModule(item.moduleId); } });
 
             const starBtn = document.createElement('button');
             starBtn.type = 'button';
@@ -2614,6 +2736,8 @@
     document.addEventListener('click', function (e) {
       const menu = document.getElementById('user-menu');
       if (menu && !menu.contains(e.target)) closeUserMenu();
+      const filter = document.getElementById('company-filter');
+      if (filter && !filter.contains(e.target) && !e.target.closest('#app-dialog')) closeCompanyFilter(); // its own message keeps it open
     });
 
     // Same reasoning as the activity listeners above — wrapped rather
@@ -2655,6 +2779,7 @@
       document.getElementById('tree-view-container').classList.remove('hidden');
       document.getElementById('tree-controls').classList.remove('hidden');
       document.getElementById('user-menu').classList.remove('hidden');
+      document.getElementById('company-filter').classList.toggle('hidden', myCompanies.length < 2);
       // The copyright line shows on the login page and Home only, not in a
       // module (owner, 2026-09-29).
       document.getElementById('app-copyright').classList.remove('hidden');
@@ -2736,8 +2861,9 @@
       document.getElementById('tree-controls').classList.add('hidden');
       document.getElementById('tree-view-container').classList.add('hidden');
       document.getElementById('user-menu').classList.add('hidden');
+      document.getElementById('company-filter').classList.add('hidden');
       document.getElementById('app-copyright').classList.add('hidden'); // login and Home only
-      closeUserMenu();
+      closeUserMenu(); closeCompanyFilter();
       document.getElementById('help-btn').href = '/help/?m=' + encodeURIComponent(moduleId); // this screen's help page
 
       // Only ONE loading indicator now, not two — the module container's

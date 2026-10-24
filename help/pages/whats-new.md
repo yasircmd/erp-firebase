@@ -12,6 +12,23 @@ screen.
 
 ## 24/10/2026
 
+- **Choose your companies at the top.** With more than one company, the
+  button after the title chooses which of them the screens offer; with one
+  chosen, they fill it in for you. Your choice is kept for the next sign-in.
+  See [Getting started](getting-started.html#choosing-your-companies).
+- **Sign in with your user ID.** On the sign-in page, enter your email or
+  your user ID (your Username in User Management). Usernames are now
+  unique in your organisation. See [Getting started](getting-started.html#signing-in).
+- **Default favourites per role.** In [Roles & Permissions](roles.html),
+  the star on a role sets up to 5 favourites for its users who haven't
+  chosen their own. Nobody's own favourites are changed.
+- **Light or dark, everywhere you sign in.** Your choice of Light mode or
+  Dark mode now goes with you to every computer. The ERP starts in light
+  mode until you choose. See [Getting started](getting-started.html#the-user-menu).
+- **The menu by keyboard.** **F2** goes to Search modules, the arrow keys
+  move through the menu, **Enter** opens a screen, and **F1** opens Help.
+  See [Getting started](getting-started.html#the-menu).
+
 - **Data Reset covers every module.** It can now clear HR and payroll
   (employees, leave, payroll runs and payslips, settlements, loans,
   requests), Sales and Purchase Orders, Job Orders, vendors, customers,

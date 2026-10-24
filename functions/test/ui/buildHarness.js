@@ -94,9 +94,10 @@ ${slice(pkStart, pkEnd)}
       .getModuleFragment({ moduleId });
   };
   // As at the shell's login: the user's companies first (a user with
-  // exactly one gets it filled into every company dropdown), then the module.
+  // exactly one, or who chose one at the top, gets it filled into every
+  // company dropdown; those not chosen are hidden), then the module.
   rpc.withSuccessHandler(companies => {
-    setSingleCompany(companies);
+    setCompanyFilter(companies.filter(c => c.Chosen !== false).map(c => c.CompanyID), companies.map(c => c.CompanyID));
     openModule(new URLSearchParams(location.search).get('module'));
   }).withFailureHandler(err => { document.getElementById('module-container').textContent = 'LOAD FAILED: ' + err.message; })
     .getActiveCompanies();

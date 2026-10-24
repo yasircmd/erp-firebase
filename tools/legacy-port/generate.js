@@ -382,6 +382,58 @@ const { toGridClipboard } = require('./gridClipboard');
 // Exact-text edits to generated screens (each fails the run if its text is
 // no longer there). Keep this short: prefer a rule in the shell.
 const SCREEN_EDITS = [
+  // Default favourites per role (owner, 2026-10-24, decision 270): a star on
+  // each role opens up to 5 module choices; a user with no favourites of
+  // their own gets their role's.
+  { mod: 'ROLES', from: '<td class="py-3 px-4 text-right"><button class="role-edit text-slate-400 hover:text-blue-400 p-1" title="Edit">',
+    to: '<td class="py-3 px-4 text-right"><button class="role-favs text-slate-400 hover:text-amber-400 p-1 text-xs" title="Default favourites">${roleFavs[r.RoleID] && roleFavs[r.RoleID].length ? \'<i class="fa-solid fa-star text-amber-400"></i> \' + roleFavs[r.RoleID].length : \'<i class="fa-regular fa-star"></i>\'}</button><button class="role-edit text-slate-400 hover:text-blue-400 p-1" title="Edit">' },
+  { mod: 'ROLES', from: "      row.querySelector('.role-edit').addEventListener('click', () => openRoleModal(r.RoleID));",
+    to: "      row.querySelector('.role-favs').addEventListener('click', () => openFavsModal(r.RoleID));\n      row.querySelector('.role-edit').addEventListener('click', () => openRoleModal(r.RoleID));" },
+  { mod: 'ROLES', from: "      .withSuccessHandler(result => { roles = result || []; renderRoleTable(); renderPermMatrix(); })",
+    to: "      .withSuccessHandler(result => { roles = result || []; renderRoleTable(); renderPermMatrix(); loadRoleFavs(); })" },
+  { mod: 'ROLES', from: '<div id="role-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">',
+    to: `<div id="favs-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">
+  <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 shadow-2xl space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-700 pb-3"><h3 id="favs-modal-title" class="text-lg font-bold">Default favourites</h3><button id="favs-modal-close" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <p class="text-xs text-slate-400">Up to 5 screens at the top of the menu for a user of this role who has not chosen favourites of their own. A user who has, keeps theirs.</p>
+    <div id="favs-selects" class="space-y-2"></div>
+    <div id="favs-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg"></div>
+    <div class="flex justify-end gap-3 pt-3 border-t border-slate-700"><button type="button" id="favs-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button><button type="button" id="favs-save" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs text-white"><i class="fa-solid fa-floppy-disk"></i> Save</button></div>
+  </div>
+</div>
+<div id="role-modal" class="fixed inset-0 bg-slate-950/80 hidden flex items-center justify-center p-4 z-50">` },
+  { mod: 'ROLES', from: '  window.initModule = function (idToken) {\n',
+    to: `  // ---------- default favourites per role (decision 270) ----------
+  let roleFavs = {}, favsRole = null;
+  function loadRoleFavs() {
+    rpc.withSuccessHandler(r => { roleFavs = r || {}; renderRoleTable(); }).withFailureHandler(() => {}).getRoleFavorites();
+  }
+  function openFavsModal(roleId) {
+    const r = roles.find(x => x.RoleID === roleId);
+    if (!r) return;
+    favsRole = roleId;
+    document.getElementById('favs-modal-title').textContent = 'Default favourites: ' + r.Name;
+    document.getElementById('favs-error').classList.add('hidden');
+    const chosen = (roleFavs[roleId] || []).map(f => f.moduleId);
+    const options = sel => '<option value="">—</option>' + modules.slice().sort((a, b) => a.label.localeCompare(b.label))
+      .map(m => '<option value="' + escapeHtml(m.id) + '"' + (m.id === sel ? ' selected' : '') + '>' + escapeHtml(m.label) + '</option>').join('');
+    document.getElementById('favs-selects').innerHTML = [0, 1, 2, 3, 4].map(i =>
+      '<select class="favs-select w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">' + options(chosen[i] || '') + '</select>').join('');
+    document.getElementById('favs-modal').classList.remove('hidden');
+  }
+  function closeFavsModal() { document.getElementById('favs-modal').classList.add('hidden'); favsRole = null; }
+  function saveFavs() {
+    const moduleIds = [...document.querySelectorAll('.favs-select')].map(s => s.value).filter(Boolean);
+    rpc.withSuccessHandler(r => { roleFavs[r.roleId] = r.favorites; closeFavsModal(); renderRoleTable(); })
+      .withFailureHandler(err => { const e = document.getElementById('favs-error'); e.textContent = err.message || 'Unable to save.'; e.classList.remove('hidden'); })
+      .saveRoleFavorites({ roleId: favsRole, moduleIds });
+  }
+
+  window.initModule = function (idToken) {
+    document.getElementById('favs-modal-close').addEventListener('click', closeFavsModal);
+    document.getElementById('favs-cancel').addEventListener('click', closeFavsModal);
+    document.getElementById('favs-save').addEventListener('click', saveFavs);
+` },
   // Data Reset for every module (docs/modules/DATA_RESET.md): a Setup group
   // (decision 285), and Browse only for a category whose records may be
   // deleted one by one (a master others use is cleared whole).

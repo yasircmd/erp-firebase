@@ -3,10 +3,10 @@ title: Roles and Permissions
 area: admin
 order: 4
 modules: [ROLES]
-sources: [functions/src/roles.js, functions/src/entitlements.js]
+sources: [functions/src/roles.js, functions/src/entitlements.js, functions/src/favorites.js]
 summary: Define which roles can open, edit, approve, post or report on each module.
-reviewed: 2026-10-23
-fingerprint: b359347a151f6ef2
+reviewed: 2026-10-24
+fingerprint: 4f67911e8145e8ad
 ---
 ## What it is for
 
@@ -25,6 +25,15 @@ fingerprint: b359347a151f6ef2
 
 1. Add a role with a unique name and a brief description of its purpose, or edit the existing role.
 2. Delete a role only when no user currently has it and another role retains the required administrative write access.
+
+### Default favourites
+
+The star on a role's row sets up to 5 screens to show at the top of the
+menu for users of that role. It applies only to users who haven't chosen
+favourites of their own, and only to screens the user may open. Once a user
+changes their favourites (user menu → **Configure Favourites**), the list is
+theirs, and later changes to the role's defaults leave it alone. The row
+shows how many defaults the role has.
 
 ### Maintain module capabilities
 

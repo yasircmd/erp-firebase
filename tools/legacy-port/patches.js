@@ -1140,6 +1140,24 @@ function linesForBatch_(idToken, batchId) {
   coa: { paths: ['coa', 'coaRenumberLog'], recordsPath: 'coa',`
   },
   {
+    id: 'username-unique',
+    why: "NEW DEVELOPMENT (owner, 2026-10-24; docs/modules/UX_ROUND2.md item 17, decision 271): a user may sign in with their Username, so it is unique in the corporate, ignoring case. A save that would give a second user the same one is refused; users who already share one sign in by email until one is renamed.",
+    find: `    if (!username || !fullName) {
+      throw new Error('Username and full name are required.');
+    }
+
+    const roles = ensureRolesSeeded_(idToken);`,
+    replace: `    if (!username || !fullName) {
+      throw new Error('Username and full name are required.');
+    }
+    // [NEW DEVELOPMENT username-unique] the Username signs in, so it is the corporate's only one.
+    const others = firebaseDbRequest_('users', 'get', null, idToken) || {};
+    const takenBy = Object.keys(others).find(uid => uid !== id && String((others[uid] || {}).username || '').trim().toLowerCase() === username.toLowerCase());
+    if (takenBy) throw new Error('The username "' + username + '" is already ' + ((others[takenBy] || {}).fullName || 'another user') + "'s: choose another.");
+
+    const roles = ensureRolesSeeded_(idToken);`
+  },
+  {
     id: 'list-paging-physical-count',
     why: "NEW DEVELOPMENT (owner, 2026-10-02; docs/modules/LIST_PAGING.md): Gmail-style paging. With a `page` argument the list returns 100 at a time after a marker (`next`), and search and filters run here over every entry the user can see. Without it the list behaves as before.",
     find: `function getPhysicalCountEntries(idToken, limit) {

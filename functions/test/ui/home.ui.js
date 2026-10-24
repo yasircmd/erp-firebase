@@ -50,7 +50,8 @@ function stubs() {
   window.__stub = async (name, arg) => {
     window.__calls.push(name);
     switch (name) {
-      case 'restoreSession': return { fullName: 'Muhammad Yasir Abdul Rahman Al Long Surname', roleName: 'Administrator', data: tree };
+      case 'restoreSession': return { fullName: 'Muhammad Yasir Abdul Rahman Al Long Surname', roleName: 'Administrator', data: tree, theme: window.__userTheme || 'light' };
+      case 'saveMyTheme': window.__savedTheme = arg.theme; return { theme: arg.theme };
       case 'getMyTree': return tree;
       case 'getMyFavorites': return favorites;
       case 'toggleFavorite':
@@ -59,6 +60,10 @@ function stubs() {
           : favorites.concat([{ moduleId: arg.moduleId, label: arg.moduleLabel }]);
         return { favorites };
       case 'getActiveCompanies': return window.__companies || [];
+      case 'saveMyCompanies':
+        window.__savedCompanies = arg.companyIds;
+        (window.__companies || []).forEach(c => { c.Chosen = arg.companyIds.includes(c.CompanyID); });
+        return { companyIds: arg.companyIds };
       case 'getRecurringJournalsDueForUser': return window.__recurringDue || [];
       case 'getMyDraftsForUser': return window.__drafts || [];
       case 'getMyFollowUpTasksForUser': return window.__followUps || [];
@@ -84,7 +89,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(INDEX); }).listen(8131);
   const browser = await chromium.launch();
 
-  async function open(theme, companies) {
+  async function open(theme, companies, userTheme) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     page.__errors = [];
     page.on('pageerror', e => page.__errors.push(e.message));
@@ -95,6 +100,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     });
     await page.addInitScript(stubs);
     if (theme) await page.addInitScript(t => localStorage.setItem('erp-theme', t), theme);
+    // The signed-in user's own theme (decision 272): what they last chose, else light.
+    await page.addInitScript(t => { window.__userTheme = t; }, userTheme || theme || 'light');
     if (companies) await page.addInitScript(c => { window.__companies = c; }, companies);
     await page.goto('http://127.0.0.1:8131/');
     await page.waitForSelector('#tree-container li[data-module-id]', { state: 'attached', timeout: 30000 });
@@ -115,14 +122,20 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
-  await check('theme: switched from the user menu, which is hidden inside a module', async () => {
+  await check('theme: light by default; switched from the user menu and saved with the user; hidden inside a module (decision 272)', async () => {
     const page = await open();
     assert.equal(await page.locator('#user-menu-panel #theme-toggle-btn').count(), 1);
-    assert.equal(await page.textContent('#theme-toggle-label'), 'Light mode');
-    await menu(page, '#theme-toggle-btn');
-    assert.equal(await page.getAttribute('html', 'data-theme'), 'light');
+    assert.equal(await page.getAttribute('html', 'data-theme'), 'light', 'a user who never chose: light');
     assert.equal(await page.textContent('#theme-toggle-label'), 'Dark mode');
-    assert.equal(await page.evaluate(() => localStorage.getItem('erp-theme')), 'light');
+    await menu(page, '#theme-toggle-btn');
+    assert.equal(await page.getAttribute('html', 'data-theme'), null);
+    assert.equal(await page.textContent('#theme-toggle-label'), 'Light mode');
+    assert.equal(await page.evaluate(() => localStorage.getItem('erp-theme')), 'dark');
+    assert.equal(await page.evaluate(() => window.__savedTheme), 'dark', 'saved with the user');
+    if (await page.isHidden('#theme-toggle-btn')) await page.click('#user-menu-btn');
+    await page.click('#theme-toggle-btn');
+    assert.equal(await page.getAttribute('html', 'data-theme'), 'light');
+    assert.equal(await page.evaluate(() => window.__savedTheme), 'light');
     await page.click('#toggle-expand-btn');
     await page.click('#tree-container li[data-module-id="CUSTOMERINVOICE"]');
     await page.waitForSelector('#stub-module');
@@ -473,6 +486,106 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.waitForSelector('#stub-module[data-wide-screen]');
     const narrow = await width();
     assert.ok(narrow > 1152 && narrow <= 1300, 'the window\'s width, its padding aside: ' + narrow);
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
+  await check('keyboard: F2 to the search, arrows through the matches and the menu, Enter opens; Tab reaches the rows; F1 opens Help (UX_ROUND2.md 13-15)', async () => {
+    const page = await open();
+    const focused = () => page.evaluate(() => { const a = document.activeElement; return a.id || a.getAttribute('data-module-id') || (a.tagName === 'SUMMARY' ? 'folder:' + a.textContent.trim() : a.tagName); });
+    await page.keyboard.press('F2');
+    assert.equal(await focused(), 'module-search');
+    await page.keyboard.type('invoice');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'folder:Accounts Payable', 'the first shown row');
+    // Shown: Accounts Payable, Vendor Invoice, Accounts Receivable, Customer Invoice (Purchasing has no match).
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'VENDORINVOICE');
+    await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'CUSTOMERINVOICE');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'CUSTOMERINVOICE', 'the last row stays');
+    await page.keyboard.press('ArrowUp');
+    assert.equal(await focused(), 'folder:Accounts Receivable');
+    await page.keyboard.press('ArrowUp'); await page.keyboard.press('ArrowUp'); await page.keyboard.press('ArrowUp');
+    assert.equal(await focused(), 'module-search', 'up from the first row: back to the search');
+    // Esc clears; a folder opens with →, its module is reached and opened with Enter.
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('F2');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'folder:Accounts Payable');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'PURCHASEORDER');
+    assert.equal(await page.$eval('[data-module-id="PURCHASEORDER"]', el => getComputedStyle(el).boxShadow !== 'none'), true, 'a visible focus ring');
+    // Tab from a module goes on to the next row (the stars show only in Configure Favourites).
+    await page.keyboard.press('Tab');
+    assert.equal(await focused(), 'PURCHASERETURN');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('#stub-module');
+    assert.match(await page.textContent('#stub-module'), /Module PURCHASERETURN/);
+    // F1: the Help of the screen in use.
+    const [help] = await Promise.all([page.waitForEvent('popup'), page.keyboard.press('F1')]);
+    assert.match(help.url(), /\/help\/\?m=PURCHASERETURN$/);
+    await help.close();
+    // F2 does nothing inside a screen.
+    await page.keyboard.press('F2');
+    assert.notEqual(await focused(), 'module-search');
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
+  await check('theme: the user\'s own choice follows them to another device (decision 272)', async () => {
+    // A device that last showed light; the user chose dark elsewhere.
+    const page = await open('light', null, 'dark');
+    assert.equal(await page.getAttribute('html', 'data-theme'), null, 'dark once signed in');
+    assert.equal(await page.evaluate(() => localStorage.getItem('erp-theme')), 'dark', 'and remembered on this device');
+    assert.equal(await page.evaluate(() => window.__savedTheme), undefined, 'nothing saved: it was not changed');
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
+  await check('company filter: after the name, for several companies; one chosen names it; saved; kept for the next sign-in; Home only (decision 273)', async () => {
+    const two = [{ CompanyID: 'C1', LegalName: 'Main Co', CompanyRefCode: '01' }, { CompanyID: 'C2', LegalName: 'Second Co', CompanyRefCode: '02' }];
+    let page = await open(null, [two[0]]);
+    await page.waitForFunction(() => /Main Co/.test(document.getElementById('app-title').textContent));
+    assert.equal(await page.isVisible('#company-filter-btn'), false, 'one company: nothing to choose');
+    await page.close();
+
+    page = await open(null, two);
+    await page.waitForSelector('#company-filter-btn', { state: 'visible' });
+    assert.equal((await page.textContent('#company-filter-label')).trim(), 'All companies');
+    await page.click('#company-filter-btn');
+    assert.deepEqual(await page.$$eval('.company-filter-check', cs => cs.map(c => c.checked)), [true, true]);
+    // None chosen: refused, nothing saved.
+    await page.uncheck('.company-filter-check[value="C1"]');
+    await page.uncheck('.company-filter-check[value="C2"]');
+    await page.click('#company-filter-apply');
+    await page.waitForSelector('#app-dialog:not(.hidden)');
+    assert.match(await page.textContent('#app-dialog'), /Choose at least one company/);
+    await page.click('#app-dialog-ok');
+    assert.equal(await page.evaluate(() => window.__savedCompanies), undefined);
+    await page.check('.company-filter-check[value="C2"]');
+    await page.click('#company-filter-apply');
+    await page.waitForFunction(() => /Second Co/.test(document.getElementById('app-title').textContent));
+    assert.deepEqual(await page.evaluate(() => window.__savedCompanies), ['C2'], 'saved with the user');
+    assert.equal(await page.isVisible('#company-filter-panel'), false, 'closed once applied');
+    assert.equal((await page.textContent('#company-filter-label')).trim(), '1 of 2 companies');
+    assert.equal((await page.textContent('#app-title')).trim(), 'ERP Module Hierarchy Tree - Second Co', 'one chosen: its name');
+    // Not inside a module.
+    await page.click('#toggle-expand-btn');
+    await page.click('#tree-container li[data-module-id="CUSTOMERINVOICE"]');
+    await page.waitForSelector('#stub-module');
+    assert.equal(await page.isVisible('#company-filter-btn'), false, 'Home only');
+    await page.click('#back-to-tree-btn');
+    await page.waitForSelector('#company-filter-btn', { state: 'visible' });
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+
+    // The next sign-in: the saved choice comes back from the server.
+    page = await open(null, [Object.assign({ Chosen: false }, two[0]), Object.assign({ Chosen: true }, two[1])]);
+    await page.waitForFunction(() => /Second Co/.test(document.getElementById('app-title').textContent));
+    assert.equal((await page.textContent('#company-filter-label')).trim(), '1 of 2 companies');
     assert.deepEqual(page.__errors, []);
     await page.close();
   });

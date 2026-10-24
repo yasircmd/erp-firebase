@@ -32,14 +32,14 @@ document.
 
 | # | Item | Plan / questions |
 |---|---|---|
-| 13 | F2: find a module; arrow keys to choose | F2 focuses the module search; ↑ ↓ move through the matches, Enter opens. |
-| 14 | Tab and Enter to open modules without the mouse | The menu's items reachable by Tab, opened by Enter; a visible focus ring. |
-| 15 | F1: Help | F1 opens the Help page of the screen in use (Home: Getting started). |
-| 16 | Default 5 favourites per role | **Q270:** set by whom (Admin in Roles & Permissions)? Given to a user who has none yet, or also added to users who have some? Recommendation: per role in Roles, given only to users with no favourites, so nobody's own choice is overwritten. |
-| 17 | Sign in with a user ID as well as the email | Firebase signs in by email; the ERP can look the user ID up and sign in with its email. **Q271:** is the user ID the existing "username" (unique per corporate)? |
-| 18 | Light / dark remembered with the user, light by default | **Q272:** saved with the user (every device) and light for a new user? Today it is per device. |
-| 19 | Choose companies at the top, after the company name; one chosen = the one-company rule; remembered | **Q273:** a filter of the companies a user is assigned (not a change of rights)? Every screen then defaults to the chosen ones, as the one-company rule does today. |
-| 20 | Hide details in view-source before login | **Already decided "not planned"** (2026-10-14): the page holds only the public web config; security is the deny-all rules and the functions' checks. Offered again: a review that nothing sensitive is in the page source (minifying would hide nothing real). **Q274:** confirm. |
+| 13 | F2: find a module; arrow keys to choose | **Built (2026-10-24, Hosting):** F2 focuses Search modules (Home only); ↓ to the first shown row; ↑ ↓ through the shown rows, ↑ from the first back to the search; → ← open and close a folder; Enter opens. |
+| 14 | Tab and Enter to open modules without the mouse | **Built (2026-10-24, Hosting):** every module row is reachable by Tab and opened by Enter (folders by the browser's own summary), with a focus ring. |
+| 15 | F1: Help | **Built (2026-10-24, Hosting):** F1 does what the Help button does: the screen's page inside a screen, the Help's start on Home. |
+| 16 | Default 5 favourites per role | **Built (2026-10-24):** `roleFavorites/{roleId}` (getRoleFavorites / saveRoleFavorites, the ROLES write right), the star on each role in Roles & Permissions (SCREEN_EDITS); getMyFavorites gives a user with none of their own the role's they may open; the first change makes the list theirs (`userPreferences/{uid}/OwnFavorites`). **Decided (Q270, owner 2026-10-24):** up to 5 per role, set in Roles & Permissions; a user with no favourites of their own gets their role's; nobody's own choice is overwritten. |
+| 17 | Sign in with a user ID as well as the email | **Built (2026-10-24):** `userIdSignIn` (session.js, called outside any corporate like corporateSignIn): finds the Username in the corporate's users and returns its email only once Google's own sign-in has accepted the password, so no one learns an email without the password; every failure is the same message. The browser then signs in with the email as before. User Management refuses a Username another user has, ignoring case (patch `username-unique`). **Decided (Q271):** the existing Username, made unique per corporate (case-insensitive); email sign-in stays. A username two users share signs in by email only until one is renamed. |
+| 18 | Light / dark remembered with the user, light by default | **Built (2026-10-24):** `userPreferences/{uid}/Theme` (saveMyTheme; apart from the profile, so a User Management save keeps it), returned by the sign-in (session.js); the page starts light unless the device last showed dark, then takes the user's own. **Decided (Q272):** saved with the user, on every device; light for a user who never chose (today: per device, dark by default). |
+| 19 | Choose companies at the top, after the company name; one chosen = the one-company rule; remembered | **Decided (Q273):** a filter among the user's assigned companies, not a change of rights; screens default to the chosen ones (one chosen = the one-company rule); remembered for the next sign-in. **Built (2026-10-24):** a button after the title on Home, for a user with more than one company; the chosen ones are saved in userPreferences/{uid}/Companies (`saveMyCompanies`; all chosen keeps nothing), and `getActiveCompanies` marks each company `Chosen`. The shell hides the companies not chosen from every module company dropdown (and so from the search picker) unless already set on the document, and one chosen fills it in (the one-company rule). The server's checks are unchanged. |
+| 20 | Hide details in view-source before login | **Already decided "not planned"** (2026-10-14): the page holds only the public web config; security is the deny-all rules and the functions' checks. Offered again: a review that nothing sensitive is in the page source (minifying would hide nothing real). **Q274:** stays not planned (2026-10-14). |
 
 ## Wave 3: sales, purchasing and finance flows
 
@@ -75,5 +75,5 @@ document.
 
 ## Open questions, in the order they are needed
 
-Wave 1: Q266–Q269 all decided. Wave 2: Q270–Q274. Wave 3: Q275, Q276.
+Wave 1: Q266–Q269 all decided. Wave 2: Q270–Q274 decided. Wave 3: Q275, Q276.
 Wave 4: Q277–Q279. Wave 5: Q280–Q282.

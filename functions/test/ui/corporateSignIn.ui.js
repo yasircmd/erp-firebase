@@ -67,6 +67,14 @@ function stubs() {
         if (id === '200') return { corporateId: '200', home: false, webConfig: { apiKey: 'demo-key', authDomain: 'erp-client-demo.firebaseapp.com', projectId: 'erp-client-demo', appId: '1:1:web:1' } };
         throw new Error('Invalid Corporate ID.');
       }
+      case 'userIdSignIn': {
+        // The server's answer (session.js): the email, once the password is right.
+        const corp = String(data.corporateId || '');
+        const known = { '100:admin': 'admin@firm.test', '200:cara': 'cara@client.test' }[corp + ':' + String(data.userId).toLowerCase()];
+        const auth = corp === '100' ? '[DEFAULT]' : 'corp-200-erp-client-demo';
+        if (known && window.__accounts[auth][known + ':' + data.password]) return { email: known };
+        throw new Error('Invalid user ID or password. A user ID shared by two users signs in by email.');
+      }
       case 'completeLogin':
       case 'restoreSession':
         return { fullName: env ? 'Cara Client' : 'Admin User', roleName: 'Administrator', data: tree };
@@ -119,6 +127,25 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await signOut();
   });
 
+  await check('a user ID instead of the email: its email from the corporate, then the usual sign-in (decision 271)', async () => {
+    assert.equal(await page.getAttribute('#email', 'type'), 'text', 'not an email-only field');
+    await signIn('200', 'Cara', 'wrong');
+    await page.waitForSelector('#login-error-msg:not(.hidden)');
+    assert.equal(await page.textContent('#login-error-msg'), 'Invalid user ID or password. A user ID shared by two users signs in by email.');
+    assert.deepEqual((await log()).filter(x => x.startsWith('signIn')), [], 'no sign-in attempted');
+    await signIn('200', 'Cara', 'pw200');
+    await signedIn();
+    const c = await calls();
+    assert.deepEqual(c.find(x => x.name === 'userIdSignIn').arg, { corporateId: '200', userId: 'Cara', password: 'pw200' }, 'asked outside any corporate, like the Corporate ID');
+    assert.ok((await log()).includes('signIn corp-200-erp-client-demo cara@client.test'));
+    await signOut();
+    // An email never asks for one.
+    await signIn('100', 'admin@firm.test', 'pw100');
+    await signedIn();
+    assert.ok(!(await calls()).some(x => x.name === 'userIdSignIn'));
+    await signOut();
+  });
+
   await check('an unknown Corporate ID is refused before any sign-in', async () => {
     await signIn('999', 'admin@firm.test', 'pw100');
     await page.waitForSelector('#login-error-msg:not(.hidden)');
@@ -130,7 +157,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   await check('a client corporate: its own Auth, and every call carries its corporate and token', async () => {
     await signIn('200', 'cara@client.test', 'wrong');
     await page.waitForSelector('#login-error-msg:not(.hidden)');
-    assert.equal(await page.textContent('#login-error-msg'), 'Invalid email or password.');
+    assert.equal(await page.textContent('#login-error-msg'), 'Invalid email (or user ID) or password.');
     await signIn('200', 'cara@client.test', 'pw200');
     await signedIn();
     assert.ok((await log()).includes('signIn corp-200-erp-client-demo cara@client.test'), JSON.stringify(await log()));

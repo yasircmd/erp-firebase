@@ -5,8 +5,8 @@ order: 3
 modules: [USERMGMT]
 sources: [functions/src/roles.js, functions/src/session.js]
 summary: Set up ERP users, assign roles and control which screens they can access and post.
-reviewed: 2026-10-19
-fingerprint: 8236bace31e25f45
+reviewed: 2026-10-24
+fingerprint: 146bb833f453b24e
 ---
 ## What it is for
 
@@ -23,7 +23,7 @@ fingerprint: 8236bace31e25f45
 1. Open User Management and search/filter by username, email/name, role, or Active/Inactive status.
    A user linked to an employee who is leaving shows **Leaving: access until** a date under the status, or **Access ended** once it has passed: from then on they can't sign in. The date is set from the employee record (Employees), where HR can extend it.
    **Last Login** shows when each user last signed in, in your local time. **Never** means they have not signed in since the column started being recorded (October 2026). Reopening the ERP in a tab where you are still signed in does not count as a new sign-in.
-2. To add a user, click **Add New User** and enter username, email, full name, role, status, password (minimum six characters), and one or more assigned companies. Review the company list carefully before saving.
+2. To add a user, click **Add New User** and enter username, email, full name, role, status, password (minimum six characters), and one or more assigned companies. Review the company list carefully before saving. The username is also the user's **user ID** for signing in, so no two users may share it (capitals don't count: "Kim" and "kim" are the same).
 3. To edit a user, update full name, role, status, and company assignments. Username/email are not edited from the existing-user form; coordinate account identity changes through the approved identity process.
 4. Test access using the assigned role and company. Menu visibility comes from Tree Management, while actual read/draft/post capabilities come from Roles & Permissions.
 5. To remove ERP access, use Remove Access. This removes the ERP profile/access; it does not delete the user's Firebase Authentication account.

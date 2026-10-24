@@ -5,8 +5,8 @@ order: 1
 modules: [COMPANYMASTER]
 sources: [functions/src/companies.js, functions/src/shareholders.js]
 summary: Keep the company profile, chart links and the legal defaults used across the ERP.
-reviewed: 2026-10-19
-fingerprint: 893174536d10e45f
+reviewed: 2026-10-24
+fingerprint: 7fafe7fa2300ca6a
 ---
 ## What it is for
 
