@@ -12,6 +12,10 @@ screen.
 
 ## 24/10/2026
 
+- **No error after going Back while a screen loads.** Leaving a screen
+  (for example PDC Received or PDC Issued) before it has finished loading,
+  by Back or by opening another module, no longer shows an error message.
+  See [Working with screens](working-with-screens.html).
 - **Rejected documents leave your tasks when they should.** A rejected
   document that you correct and post without approval (for example at a
   lower amount) no longer stays under Rejected in your Home tasks.

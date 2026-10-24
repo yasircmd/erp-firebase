@@ -807,6 +807,14 @@
           return function (arg) {
             const timer = __rpcStart();
             const sdk = window.__firebaseSdk;
+            // A call made from a screen is answered only while that screen
+            // is still open: once the user has gone Back or to another
+            // module (a new __activeModuleToken), its elements are gone and
+            // its handlers would fail on them, shown as an error (PDC,
+            // owner 2026-10-24). Home's own calls are always answered.
+            const fromScreen = !document.getElementById('module-container').classList.contains('hidden');
+            const token = window.__activeModuleToken;
+            const current = () => !fromScreen || window.__activeModuleToken === token;
             // A document of up to 10 MB going up or coming back can take
             // longer than the SDK's 70 s default on a slow line.
             const long = prop === 'uploadAttachment' || prop === 'openAttachment' || prop === 'addSupportFile' || prop === 'openSupportFile';
@@ -818,8 +826,8 @@
             Promise.resolve(corp ? (user ? user.getIdToken() : '') : null)
               .then(idToken => sdk.httpsCallable(sdk.functionsInstance, prop, long ? { timeout: 300000 } : undefined)(
                 corp ? { __corporate: { id: corp, idToken: idToken }, __data: arg === undefined ? null : arg } : arg))
-              .then(result => { __rpcFinish(timer); if (ctx.successFn) ctx.successFn(result.data); })
-              .catch(err => { __rpcFinish(timer); if (ctx.failureFn) ctx.failureFn({ message: err.message || 'Something went wrong.' }); });
+              .then(result => { __rpcFinish(timer); if (ctx.successFn && current()) ctx.successFn(result.data); })
+              .catch(err => { __rpcFinish(timer); if (ctx.failureFn && current()) ctx.failureFn({ message: err.message || 'Something went wrong.' }); });
           };
         }
       });
@@ -2748,6 +2756,8 @@
           // a value guaranteed correct for this load (not window.__activeModuleToken
           // read independently later, which is the same trap as above).
           window.__thisModuleToken = myToken;
+          // Never the previous screen's entry point, run again on this one.
+          window.initModule = undefined;
           injectHtmlWithScripts(container, result.html);
           // Each fragment defines window.initModule(token, canWrite) as
           // its single entry point. The "token" concept itself is now

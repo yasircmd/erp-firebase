@@ -64,7 +64,13 @@ function stubs() {
       case 'getMyFollowUpTasksForUser': return window.__followUps || [];
       case 'getMyRejectedSubmissions': return window.__rejected || [];
       case 'closeRejectedSubmission': window.__closed = arg; window.__rejected = []; return { success: true };
-      case 'getModuleFragment': return { html: '<div id="stub-module">Module ' + arg.moduleId + '</div>', canWrite: true };
+      // A screen whose list answers late, and whose handler needs its own
+      // elements (as PDC's did when the user went Back while it loaded).
+      case 'getModuleFragment': return arg.moduleId === 'SLOWSCREEN'
+        ? { html: '<div id="stub-module"><span id="slow-out"></span></div><script>window.initModule = () => rpc.withSuccessHandler(r => { document.getElementById("slow-out").textContent = r; })' +
+          '.withFailureHandler(e => appAlert(e.message)).slowList(); <\/script>', canWrite: true }
+        : { html: '<div id="stub-module">Module ' + arg.moduleId + '</div>', canWrite: true };
+      case 'slowList': await new Promise(r => setTimeout(r, window.__slowMs || 0)); if (window.__slowFails) throw new Error('Nothing to list.'); return 'loaded';
       default: return [];
     }
   };
@@ -399,6 +405,42 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(await page.evaluate(() => window.__closed), { InstanceID: 'APR-1' });
     assert.equal(await page.evaluate(() => window.__opened), undefined);
     assert.deepEqual(page.__errors, []);
+    await context.close();
+  });
+
+  await check('leaving a screen while it loads: its late answer is dropped, no error shown; staying, it arrives (UX_ROUND2.md item 1)', async () => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    page.__errors = [];
+    page.on('pageerror', e => page.__errors.push(e.message));
+    const shown = [];
+    await onAppDialog(page, d => { shown.push(d.message()); return d.accept(); });
+    await routeCdnStyles(page);
+    await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
+    await page.addInitScript(stubs);
+    await page.goto('http://127.0.0.1:8131/');
+    await page.waitForSelector('#tree-container li[data-module-id]', { state: 'attached', timeout: 30000 });
+    await page.waitForTimeout(300); // as open(): the sign-in's own Home rendering done
+    // Staying: the answer reaches the screen.
+    await page.evaluate(() => { window.__slowMs = 300; openModule('SLOWSCREEN'); });
+    await page.waitForFunction(() => (document.getElementById('slow-out') || {}).textContent === 'loaded', null, { timeout: 5000 });
+    // Leaving before it answers, by Back, then by opening another module.
+    for (const leave of ['back', 'other']) {
+      for (const fails of [false, true]) {
+        await page.evaluate(f => { window.__slowMs = 600; window.__slowFails = f; }, fails);
+        if (await page.isVisible('#back-to-tree-btn')) await page.click('#back-to-tree-btn');
+        await page.waitForSelector('#tree-view-container:not(.hidden)');
+        await page.evaluate(() => openModule('SLOWSCREEN'));
+        await page.waitForSelector('#slow-out', { state: 'attached' });
+        if (leave === 'back') await page.click('#back-to-tree-btn');
+        else await page.evaluate(() => openModule('CUSTOMERINVOICE'));
+        await page.waitForTimeout(900);
+      }
+    }
+    assert.deepEqual(shown, [], 'no message from a screen already left');
+    assert.deepEqual(page.__errors, []);
+    // Home's own calls are answered whatever happens (its tasks, favourites).
+    assert.ok(await page.evaluate(() => window.__calls.includes('getMyFavorites')));
     await context.close();
   });
 
