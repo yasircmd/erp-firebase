@@ -136,12 +136,17 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(Object.values((await clientApp.database().ref('tree').get()).val()).map(n => n.Text).sort(), ['Finance', 'Journal Entry']);
   });
 
-  await check('groups: one added, a corporate put in it', async () => {
+  await check('groups: on their own tab; one added, a corporate put in it', async () => {
     p.__dialogs = [];
     promptAnswer = 'Retail';
+    assert.ok(await p.isHidden('#dv-group-add'), 'not on the Corporates tab');
+    assert.equal(await p.locator('#dv-followers').count(), 0, 'no button that reaches every client at once (decision 269)');
+    await p.click('#dv-pages [data-page="groups"]');
+    assert.ok(await p.isHidden('#dv-list'), 'the corporates are on their own tab');
     await p.click('#dv-group-add');
     await until(p, () => /Retail\s*no corporate yet/.test(document.getElementById('dv-groups').textContent));
     assert.match(await p.textContent('#dv-groups'), /No module has come after the groups yet/);
+    await p.click('#dv-pages [data-page="corporates"]');
     await p.click('#dv-list tr[data-id="200"]');
     await p.click('#dv-tabs [data-tab="connection"]');
     await p.selectOption('#dv-group', { label: 'Retail' });

@@ -62,7 +62,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await row.locator('.coa-renumber').click();
     await page.waitForFunction(() => /110009/.test(document.getElementById('coa-table-body').textContent), null, T);
     assert.doesNotMatch(await page.textContent('#coa-table-body'), /formerly/);
-    await page.locator('#coa-table-body tr', { hasText: 'Petty cash' }).locator('.coa-edit').click();
+    await page.locator('#coa-table-body tr', { hasText: '110009' }).locator('.coa-edit').click();
     await page.waitForSelector('#coa-modal:not(.hidden)');
     assert.match(await page.textContent('#coa-code-preview'), /Account code: 110009 · formerly 110001 \(until \d\d\/\d\d\/\d{4}\)/);
     await page.click('#coa-modal-cancel');

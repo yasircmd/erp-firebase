@@ -601,7 +601,8 @@ confirm it, and the function refuses one that was not confirmed.
   (send a new one).
 
 **A new module in a customised tree** (decision 255).
-- **Update corporates that follow the main tree** also gives each corporate
+- **Each release** (formerly also the button "Update corporates that follow
+  the main tree", removed 2026-10-24, decision 269) also gives each corporate
   with its own layout the main tree's modules it has never been offered.
   They go in a "New modules" folder at the top of its menu, with the main
   tree's roles that the corporate has, for its Admin to place.

@@ -321,7 +321,7 @@ exports.saveFxSettings = require('./src/exchangeRates').saveFxSettings;
 const developer = require('./src/developer');
 ['getDeveloperCorporates', 'saveDeveloperCorporate', 'testDeveloperCorporate', 'saveDeveloperModules',
   'getDeveloperNotes', 'saveDeveloperNote', 'deleteDeveloperNote',
-  'getDeveloperTree', 'resetDeveloperTree', 'updateDeveloperTreeFollowers',
+  'getDeveloperTree', 'resetDeveloperTree',
   'saveDeveloperGroup', 'saveDeveloperGroupModules', 'createDeveloperAdmin', 'copyDeveloperChartHeaders', 'purgeDeveloperLeavers' // M4
 ].forEach(name => { exports[name] = developer[name]; });
 

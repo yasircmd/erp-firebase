@@ -109,9 +109,9 @@ corporate → Set up shows each step):
      there is an Admin anyway.
    - Set up shows "deployed with release …" once it has run.
 4. **Menu:** the corporate's own **Tree** tab → **Back to the main tree**.
-   (Not "Update corporates that follow the main tree" at the top, which is
-   for those that have it already. Since 2026-10-23 that button, and each
-   release, also give the main tree to an Active corporate with no menu.)
+   (Each release also gives the main tree to an Active corporate with no
+   menu, since 2026-10-23. The all-corporates button that did it between
+   releases was removed on 2026-10-24, decision 269.)
 5. **Chart headings:** Set up → **Copy the chart headings**
    (decision 261). This copies Corporate 100's current headings, with no
    posting accounts and no balances. The client's Admin then adds the
