@@ -530,7 +530,7 @@
         <div id="tree-controls" class="flex items-center gap-2">
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-500"></i>
-            <input type="search" id="module-search" placeholder="Search modules" autocomplete="off" title="Type to filter the menu; Enter opens the only match, Esc clears" class="w-44 bg-slate-800 border border-slate-700 rounded text-xs py-1.5 pl-7 pr-2 focus:outline-none focus:border-blue-500">
+            <input type="search" id="module-search" placeholder="Search modules" autocomplete="off" title="F2: type to filter the menu; ↓ to the matches, Enter opens; Esc clears" class="w-44 bg-slate-800 border border-slate-700 rounded text-xs py-1.5 pl-7 pr-2 focus:outline-none focus:border-blue-500">
           </div>
           <button id="toggle-expand-btn" onclick="toggleExpandCollapse()" title="Expand all" aria-label="Expand all" class="bg-slate-800 hover:bg-slate-700 text-xs w-8 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-angles-down"></i></button>
           <button id="fav-config-done-btn" onclick="setFavoriteConfigMode(false)" class="hidden bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-check"></i> Done</button>
@@ -1716,6 +1716,45 @@
         const hits = visibleSearchModules();
         if (hits.length === 1) openModule(hits[0].getAttribute('data-module-id'));
       }
+      if (e.key === 'ArrowDown') { const rows = visibleTreeRows(); if (rows.length) { e.preventDefault(); rows[0].focus(); } }
+    });
+
+    // ---------- KEYBOARD (owner, 2026-10-24; UX_ROUND2.md items 13-15) ----------
+    // F2 finds a module (the search box), ↑ ↓ move through the menu's
+    // shown rows (folders and modules), → ← open and close a folder, Enter
+    // opens; Tab reaches the same rows. F1 opens the Help of the screen in
+    // use (Home: the Help's start).
+    function visibleTreeRows() {
+      return Array.from(document.querySelectorAll('#tree-container .tree-row')).filter(row => {
+        const li = row.closest('li');
+        if (li && li.closest('li.hidden')) return false;
+        const own = row.tagName === 'SUMMARY' ? row.parentElement : null;
+        for (let d = row.parentElement.closest('details'); d; d = d.parentElement.closest('details')) if (d !== own && !d.open) return false;
+        return true;
+      });
+    }
+    function onHome() { return !document.getElementById('tree-view-container').classList.contains('hidden') && !document.getElementById('app-container').classList.contains('hidden'); }
+    document.getElementById('tree-container').addEventListener('keydown', e => {
+      const row = e.target.closest && e.target.closest('.tree-row');
+      if (!row) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        const rows = visibleTreeRows(), i = rows.indexOf(row);
+        e.preventDefault();
+        if (e.key === 'ArrowDown' && i < rows.length - 1) rows[i + 1].focus();
+        if (e.key === 'ArrowUp') (i > 0 ? rows[i - 1] : document.getElementById('module-search')).focus();
+      }
+      if (row.tagName === 'SUMMARY' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); row.parentElement.open = e.key === 'ArrowRight'; }
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'F1') {
+        e.preventDefault();
+        if (!document.getElementById('app-container').classList.contains('hidden')) document.getElementById('help-btn').click();
+      }
+      if (e.key === 'F2' && onHome() && !document.querySelector('#app-dialog:not(.hidden)')) {
+        e.preventDefault();
+        const input = document.getElementById('module-search');
+        input.focus(); input.select();
+      }
     });
 
     // "Main company" = whichever company has CompanyRefCode '01' — the
@@ -2479,7 +2518,7 @@
         const li = document.createElement('li');
         if (hasChildren) {
           const details = document.createElement('details'); details.className = 'group';
-          const summary = document.createElement('summary'); summary.className = 'cursor-pointer py-2.5 px-3 flex items-center gap-2.5 font-medium text-slate-200 hover:bg-slate-800';
+          const summary = document.createElement('summary'); summary.className = 'tree-row cursor-pointer py-2.5 px-3 flex items-center gap-2.5 font-medium text-slate-200 hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
           summary.innerHTML = `<i class="fa-solid fa-chevron-right text-xs text-slate-400 group-open:rotate-90"></i><i class="fa-solid ${item.depth === 0 ? 'fa-layer-group text-blue-400' : 'fa-folder text-emerald-400'} text-xs"></i><span>${escapeHtml(item.text)}</span>`;
           const children = document.createElement('ul'); children.className = 'pl-6 pr-2 pb-1.5 border-l border-slate-800 ml-4';
           details.append(summary, children); li.appendChild(details); stack[stack.length - 1].container.appendChild(li); stack.push({ depth: item.depth, container: children });
@@ -2490,6 +2529,10 @@
             li.classList.add('text-blue-400', 'font-medium');
             li.setAttribute('data-module-id', item.moduleId);
             li.addEventListener('click', () => openModule(item.moduleId));
+            // Reached by Tab or the arrow keys, opened by Enter (owner, 2026-10-24).
+            li.tabIndex = 0;
+            li.classList.add('tree-row', 'focus:outline-none', 'focus-visible:ring-2', 'focus-visible:ring-blue-500');
+            li.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target === li) { e.preventDefault(); openModule(item.moduleId); } });
 
             const starBtn = document.createElement('button');
             starBtn.type = 'button';

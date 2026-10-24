@@ -32,9 +32,9 @@ document.
 
 | # | Item | Plan / questions |
 |---|---|---|
-| 13 | F2: find a module; arrow keys to choose | F2 focuses the module search; ↑ ↓ move through the matches, Enter opens. |
-| 14 | Tab and Enter to open modules without the mouse | The menu's items reachable by Tab, opened by Enter; a visible focus ring. |
-| 15 | F1: Help | F1 opens the Help page of the screen in use (Home: Getting started). |
+| 13 | F2: find a module; arrow keys to choose | **Built (2026-10-24, Hosting):** F2 focuses Search modules (Home only); ↓ to the first shown row; ↑ ↓ through the shown rows, ↑ from the first back to the search; → ← open and close a folder; Enter opens. |
+| 14 | Tab and Enter to open modules without the mouse | **Built (2026-10-24, Hosting):** every module row is reachable by Tab and opened by Enter (folders by the browser's own summary), with a focus ring. |
+| 15 | F1: Help | **Built (2026-10-24, Hosting):** F1 does what the Help button does: the screen's page inside a screen, the Help's start on Home. |
 | 16 | Default 5 favourites per role | **Decided (Q270, owner 2026-10-24):** up to 5 per role, set in Roles & Permissions; a user with no favourites of their own gets their role's; nobody's own choice is overwritten. |
 | 17 | Sign in with a user ID as well as the email | Firebase signs in by email; the ERP can look the user ID up and sign in with its email. **Decided (Q271):** the existing Username, made unique per corporate (case-insensitive); email sign-in stays. A username two users share signs in by email only until one is renamed. |
 | 18 | Light / dark remembered with the user, light by default | **Decided (Q272):** saved with the user, on every device; light for a user who never chose (today: per device, dark by default). |

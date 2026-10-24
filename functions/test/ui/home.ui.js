@@ -477,6 +477,51 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  await check('keyboard: F2 to the search, arrows through the matches and the menu, Enter opens; Tab reaches the rows; F1 opens Help (UX_ROUND2.md 13-15)', async () => {
+    const page = await open();
+    const focused = () => page.evaluate(() => { const a = document.activeElement; return a.id || a.getAttribute('data-module-id') || (a.tagName === 'SUMMARY' ? 'folder:' + a.textContent.trim() : a.tagName); });
+    await page.keyboard.press('F2');
+    assert.equal(await focused(), 'module-search');
+    await page.keyboard.type('invoice');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'folder:Accounts Payable', 'the first shown row');
+    // Shown: Accounts Payable, Vendor Invoice, Accounts Receivable, Customer Invoice (Purchasing has no match).
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'VENDORINVOICE');
+    await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'CUSTOMERINVOICE');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'CUSTOMERINVOICE', 'the last row stays');
+    await page.keyboard.press('ArrowUp');
+    assert.equal(await focused(), 'folder:Accounts Receivable');
+    await page.keyboard.press('ArrowUp'); await page.keyboard.press('ArrowUp'); await page.keyboard.press('ArrowUp');
+    assert.equal(await focused(), 'module-search', 'up from the first row: back to the search');
+    // Esc clears; a folder opens with →, its module is reached and opened with Enter.
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('F2');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'folder:Accounts Payable');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowDown');
+    assert.equal(await focused(), 'PURCHASEORDER');
+    assert.equal(await page.$eval('[data-module-id="PURCHASEORDER"]', el => getComputedStyle(el).boxShadow !== 'none'), true, 'a visible focus ring');
+    // Tab from a module goes on to the next row (the stars show only in Configure Favourites).
+    await page.keyboard.press('Tab');
+    assert.equal(await focused(), 'PURCHASERETURN');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('#stub-module');
+    assert.match(await page.textContent('#stub-module'), /Module PURCHASERETURN/);
+    // F1: the Help of the screen in use.
+    const [help] = await Promise.all([page.waitForEvent('popup'), page.keyboard.press('F1')]);
+    assert.match(help.url(), /\/help\/\?m=PURCHASERETURN$/);
+    await help.close();
+    // F2 does nothing inside a screen.
+    await page.keyboard.press('F2');
+    assert.notEqual(await focused(), 'module-search');
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
   await browser.close(); server.close();
   for (const r of results) console.log(r.join('  '));
   const passed = results.filter(r => r[0] === 'PASS').length;

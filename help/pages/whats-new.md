@@ -12,6 +12,10 @@ screen.
 
 ## 24/10/2026
 
+- **The menu by keyboard.** **F2** goes to Search modules, the arrow keys
+  move through the menu, **Enter** opens a screen, and **F1** opens Help.
+  See [Getting started](getting-started.html#the-menu).
+
 - **Data Reset covers every module.** It can now clear HR and payroll
   (employees, leave, payroll runs and payslips, settlements, loans,
   requests), Sales and Purchase Orders, Job Orders, vendors, customers,

@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-10-24
-fingerprint: 92754a2540ebf158
+fingerprint: ed6b583e3119029d
 ---
 ## Signing in
 
@@ -46,6 +46,10 @@ company is assigned to you, it shows as soon as you come back to Home.
   menu. **Enter** opens the screen when only one matches; **Esc** clears the
   search.
 - The double-arrow button expands or collapses the whole tree.
+- **Without the mouse:** **F2** goes to Search modules. **↓** moves to the
+  first row shown, and **↑ ↓** move through the menu. **→** opens an area or
+  folder and **←** closes it. **Enter** opens a screen. **Tab** reaches the
+  same rows, each outlined when it has the focus.
 - Inside a screen, **Back to Hierarchy** returns to the menu. If you have
   unsaved changes, the ERP asks before leaving.
 
@@ -89,8 +93,8 @@ Select your name (top right) for:
 
 ## Help
 
-The **Help** button (top bar) opens this help in a new tab. Inside a screen,
-it opens that screen's page directly. Help uses the ERP's light or dark
+The **Help** button (top bar), or **F1**, opens this help in a new tab.
+Inside a screen, it opens that screen's page directly. Help uses the ERP's light or dark
 theme; its **Light mode** / **Dark mode** button switches both.
 
 ## Signing out, and the automatic sign-out
