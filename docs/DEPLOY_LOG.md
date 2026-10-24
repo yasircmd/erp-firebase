@@ -1394,3 +1394,13 @@ from, and how it was verified. The deploy procedure is in the
   (07:20–07:21 UTC), success. The owner deleted the retired
   `updateDeveloperTreeFollowers` from Cloud Shell (`firebase
   functions:delete`, decision 269): "Successful delete operation".
+- **2026-10-24, Data Reset for every module and Leaving Reasons in HR
+  Setup (`ux2-data-reset`, PR #170, from `54f6389`):** run
+  [#213](https://github.com/yasircmd/erp-firebase/actions/runs/40085766484)
+  ("functions set, then screens", 10:24–10:26 UTC), success: `SUMMARY:
+  functions deployed: 5 (getDataResetCounts clearDataCategories
+  clearSelectedRecords getCategoryRecords leavingReasonSetup); access
+  granted: 5; screens released: yes` (release `20261024T102622Z-54f6389`,
+  89/89). Then Hosting, run
+  [#214](https://github.com/yasircmd/erp-firebase/actions/runs/40086116197)
+  (10:29–10:30 UTC), success. Wave 1 of UX round 2 is complete.
