@@ -105,3 +105,14 @@ updated to match).
 | 8 | C.1 | The password link from B.5 had expired (one hour) | App: Set up → Send the password email again; guide: the hour said |
 | 9 | C.1 | Email/Password had not been switched on; Test connection passed; the link failed as "expired or already used" (`PASSWORD_LOGIN_DISABLED`) | App: Test connection checks password sign-in (and the API key), so the corporate cannot go Active; guide: A.3 spelt out (blocking) |
 | 10 | C.2 | The company name stayed off Home's title until a reload after the company was assigned | App: refreshed on returning to Home |
+
+**Second run, 2026-10-24** (owner; test client C101, `client-test-1-4eb19`,
+made before the grant list was settled, so with no grants at all). Test
+connection named each part that failed; after the grants (ONBOARDING.md
+A.6) it passed, the corporate went Active, the rules release reached it,
+and its first Admin signed in. Two findings, both dealt with:
+
+| # | Step | What happened | Decision |
+|---|---|---|---|
+| 11 | B.2 | Authentication's failure showed Google's whole raw response (JSON) | App: one sentence, the response's own message (PR #165) |
+| 12 | A.8 | "THE-FIRMS-DEPLOY-ACCOUNT" was not understood as the deploy account's email | Message: step 6 says what each account is, with the commands (PR #164); keep the email at hand for each client |
