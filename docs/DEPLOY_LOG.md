@@ -1371,3 +1371,14 @@ from, and how it was verified. The deploy procedure is in the
   (dry-run-trading)". 900 is Active again, so it receives each release
   before real clients, as a rehearsal corporate; its grants must stay in
   place, or it is set Inactive.
+- **2026-10-24, Test connection's short errors and Set up's link
+  (`setup-link-short-errors`, PR #165, from `8843a88`):** run
+  [#209](https://github.com/yasircmd/erp-firebase/actions/runs/40066203036)
+  ("functions set, then screens", 05:25–05:28 UTC), success; the first run
+  with the new last line, `SUMMARY: functions deployed: 1
+  (testDeveloperCorporate); access granted: 1; screens released: yes`.
+  Then "database rules" run
+  [#210](https://github.com/yasircmd/erp-firebase/actions/runs/40066526667)
+  (05:30–05:31 UTC), success: the rules reached test client C101
+  (`client-test-1-4eb19`), its grants made by the owner that morning, as
+  well as 900.
