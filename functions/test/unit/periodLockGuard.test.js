@@ -86,7 +86,7 @@ test('every file that posts stock movements goes through a checked place', () =>
   const posting = files.filter(f => { const s = read(f); return !['stockStore.js', 'stockPosting.js'].includes(f) && /stock\/transactions|stockStore\./.test(s) && /Status: 'Posted'|finalizeCommitAttempt\(|postStock\(/.test(s); });
   // Files that only read stock movements (their text matches the scan):
   const READ_ONLY = {
-    'commitAttempt.js': 'finishes a posting its caller checked', 'periodClosing.js': 'the checklist reads stock; the year-end entry has no stock',
+    'periodClosing.js': 'the checklist reads stock; the year-end entry has no stock',
     'followUps.js': 'queries posted Delivery Notes for the home page', 'agingReports.js': 'queries posted stock for the aging report',
     'stockReports.js': 'queries posted stock for the reports',
     'productionPosting.js': 'counts posted Production entries; its writes join the caller\'s postStock batch'

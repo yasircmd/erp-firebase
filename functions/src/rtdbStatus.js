@@ -17,8 +17,8 @@ const { rtdb } = require('./firebaseAdmin');
 
 // (stock/transactions (T1), salesOrders and customerInvoices (T2), the
 // purchase documents (T3), Job Orders and PDCs (T4), approval instances (T5)
-// moved to Firestore, movedPaths.js; their RTDB indexes stay in
-// database.rules.json until no live function queries them.)
+// moved to Firestore, movedPaths.js; their RTDB indexes were removed from
+// database.rules.json on 2026-10-24, once no live function queried them.)
 const STATUS_INDEXED_PATHS = [
   'recurringJournals'
 ];

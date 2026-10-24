@@ -20,6 +20,20 @@ test('every path read by Status has its Status index', () => {
   });
 });
 
+// And no index is left behind for a path no longer read that way: the
+// eleven of the documents moved to Firestore (T1–T5) were removed
+// 2026-10-24. Each index costs the database work on every write.
+test('every Status index in the rules is one a path is read by', () => {
+  const indexed = [];
+  (function walk(n, at) {
+    Object.keys(n).forEach(k => {
+      if (k === '.indexOn') indexed.push(at);
+      else if (n[k] && typeof n[k] === 'object' && !Array.isArray(n[k])) walk(n[k], at ? at + '/' + k : k);
+    });
+  })(rules, '');
+  assert.deepEqual(indexed.sort(), [...STATUS_INDEXED_PATHS].sort(), 'an index in database.rules.json that no path in rtdbStatus.js uses');
+});
+
 test('the rules stay deny-all: an index opens nothing', () => {
   assert.equal(rules['.read'], false);
   assert.equal(rules['.write'], false);

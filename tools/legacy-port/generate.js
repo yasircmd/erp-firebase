@@ -96,9 +96,6 @@ const MAPPED = {
   generateVendorCode_: ['numbering', 'vendorCode', 'dropCtx'],
   generateCustomerCode_: ['numbering', 'customerCode', 'dropCtx'],
   generateStockTransactionRef_: ['glWriting', 'generateStockTransactionRef', 'dropCtx'],
-  beginCommitAttempt_: ['commitAttempt', 'beginCommitAttempt', 'dropCtx'],
-  abandonCommitAttempt_: ['commitAttempt', 'abandonCommitAttempt', 'dropCtx'],
-  finalizeCommitAttempt_: ['commitAttempt', 'finalizeCommitAttempt', 'dropCtx'],
   resolveRequiredApprovalLevels_: ['approvals', 'resolveRequiredApprovalLevels', 'dropCtx'],
   resolveApprovalScopeKeyForDocument_: ['approvals', 'resolveApprovalScopeKeyForDocument', 'dropCtx'],
   beginApprovalInstance_: ['approvals', 'beginApprovalInstance', 'dropCtx'],
@@ -146,7 +143,7 @@ const IMPORTED_CONSTS = {
 const DROPPED_CONSTS = new Set(['FIREBASE_URL', 'FIRESTORE_BASE_URL', 'FIRESTORE_PROJECT_ID']);
 const SHARED_PATHS = {
   auth: '../auth', glWriting: '../glWriting', companies: '../companies', stockMovement: '../stockMovement',
-  commitAttempt: '../commitAttempt', approvals: '../approvals', reservations: '../reservations',
+  approvals: '../approvals', reservations: '../reservations',
   tree: '../tree', roles: '../roles', masterData: '../masterData', moduleRegistry: '../moduleRegistry',
   treeSeedNodes: '../treeSeedNodes', approvalRegistry: '../approvalRegistry',
   listPaging: '../listPaging', // used by name (__listPaging.) in patches
