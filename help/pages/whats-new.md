@@ -12,6 +12,9 @@ screen.
 
 ## 24/10/2026
 
+- **What reserved stock is for.** In [Stock Availability](stock-availability.html),
+  select a Reserved quantity to see the Sales Orders reserving it, and open
+  one from there.
 - **New Ref shown in Allocate.** When matching a payment to bills, and in
   Re-match, the part left over shows as its own **New Ref** line, and
   **All as New Ref** makes the whole line an advance. See

@@ -118,9 +118,21 @@
         <td class="py-2 px-4 text-slate-200">${escapeHtml(r.ItemName)}</td>
         <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(r.WarehouseCode)} — ${escapeHtml(r.WarehouseName)}</td>
         <td class="py-2 px-4 text-right font-mono">${formatMoney(r.OnHand)}</td>
-        <td class="py-2 px-4 text-right font-mono text-amber-400">${formatMoney(r.Reserved)}</td>
+        <td class="py-2 px-4 text-right font-mono text-amber-400">${(r.ReservedBy || []).length ? '<button class="sa-reserved-btn underline decoration-dotted hover:text-amber-300" title="The Sales Orders reserving it">' + formatMoney(r.Reserved) + '</button>' : formatMoney(r.Reserved)}</td>
         <td class="py-2 px-4 text-right font-mono ${availableClass}">${formatMoney(r.Available)}</td>`;
       tbody.appendChild(row);
+      const btn = row.querySelector('.sa-reserved-btn');
+      if (btn) btn.addEventListener('click', () => {
+        const open = row.nextElementSibling && row.nextElementSibling.classList.contains('sa-reserved-row');
+        if (open) { row.nextElementSibling.remove(); return; }
+        const detail = document.createElement('tr');
+        detail.className = 'sa-reserved-row bg-slate-900/40';
+        detail.innerHTML = '<td></td><td colspan="5" class="py-2 px-4"><table class="w-full text-xs"><thead><tr class="text-slate-500 uppercase"><th class="py-1 pr-3 text-left">Reserved by</th><th class="py-1 pr-3 text-left">Date</th><th class="py-1 pr-3 text-left">Customer</th><th class="py-1 text-right">Quantity</th></tr></thead><tbody>' +
+          r.ReservedBy.map(b => '<tr><td class="py-1 pr-3 font-mono">' + (b.CanOpen ? '<button class="sa-open-so text-blue-400 hover:text-blue-300 underline" data-id="' + escapeHtml(b.SourceID) + '">' + escapeHtml(b.Number || 'Sales Order') + '</button>' : escapeHtml(b.Number || b.SourceType)) +
+            '</td><td class="py-1 pr-3">' + escapeHtml(b.SODate) + '</td><td class="py-1 pr-3 text-slate-300">' + escapeHtml(b.CustomerName) + '</td><td class="py-1 text-right font-mono text-amber-400">' + formatMoney(b.Quantity) + '</td></tr>').join('') + '</tbody></table></td>';
+        detail.querySelectorAll('.sa-open-so').forEach(a => a.addEventListener('click', () => openModule('SALESORDER', { OpenEntryId: a.getAttribute('data-id') })));
+        row.after(detail);
+      });
     });
   }
 

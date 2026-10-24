@@ -9338,9 +9338,30 @@ async function getStockAvailabilityList(idToken, companyId) {
     const key = r.ItemID + '|' + r.WarehouseID;
     combos[key] = combos[key] || { itemId: r.ItemID, warehouseId: r.WarehouseID, onHand: 0, reserved: 0 };
     combos[key].reserved += Number(r.Quantity) || 0;
+    // [NEW DEVELOPMENT stock-availability-reserved-by] by source document.
+    const by = (combos[key].by = combos[key].by || {});
+    const src = (r.SourceType || '') + ':' + (r.SourceID || '');
+    by[src] = by[src] || { SourceType: r.SourceType || '', SourceID: r.SourceID || '', Quantity: 0 };
+    by[src].Quantity += Number(r.Quantity) || 0;
   });
 
   const orgUnitsData = (await firebaseDbRequest_('orgUnits', 'get', null, idToken)) || {};
+  // [NEW DEVELOPMENT stock-availability-reserved-by-rows]
+  const soIds = [];
+  Object.values(combos).forEach(c => Object.values(c.by || {}).forEach(b => { if (b.SourceType === 'SalesOrder' && b.SourceID && !soIds.includes(b.SourceID)) soIds.push(b.SourceID); }));
+  const orders = {};
+  await seq.forEach(
+    soIds,
+    async id => { orders[id] = (await firebaseDbRequest_('salesOrders/' + id, 'get', null, idToken)) || {}; }
+  );
+  const customersData = soIds.length ? ((await firebaseDbRequest_('customers', 'get', null, idToken)) || {}) : {};
+  const canOpenOrders = await moduleHasCapability_(idToken, 'SALESORDER', 'access', user.profile.role);
+  const reservedBy = c => Object.values(c.by || {}).map(b => {
+    const so = b.SourceType === 'SalesOrder' ? (orders[b.SourceID] || {}) : {};
+    const customer = customersData[so.CustomerID] || {};
+    return { SourceType: b.SourceType, SourceID: b.SourceID, Number: so.SONumber || '', SODate: so.SODate || '',
+      CustomerName: customer.CustomerName || '', Quantity: b.Quantity, CanOpen: b.SourceType === 'SalesOrder' && canOpenOrders };
+  }).sort((a, b) => String(a.SODate).localeCompare(String(b.SODate)) || String(a.Number).localeCompare(String(b.Number)));
   return Object.values(combos)
     .filter(c => c.onHand !== 0 || c.reserved !== 0)
     .map(c => {
@@ -9349,7 +9370,8 @@ async function getStockAvailabilityList(idToken, companyId) {
       return {
         ItemID: c.itemId, ItemCode: item.ItemCode || '', ItemName: item.ItemName || '',
         WarehouseID: c.warehouseId, WarehouseCode: warehouse.Code || '', WarehouseName: warehouse.Name || '',
-        OnHand: c.onHand, Reserved: c.reserved, Available: c.onHand - c.reserved
+        OnHand: c.onHand, Reserved: c.reserved, Available: c.onHand - c.reserved,
+        ReservedBy: reservedBy(c) // [NEW DEVELOPMENT stock-availability-reserved-by-field]
       };
     })
     .sort((a, b) => a.ItemCode.localeCompare(b.ItemCode) || a.WarehouseCode.localeCompare(b.WarehouseCode));
