@@ -26,7 +26,7 @@ document.
 | 9 | Data Reset | Payroll and the HR data are missing; check what else | Add the missing categories (employees and their records, payroll runs and payslips, leave, loans and advances, settlements, provisions, employee requests, sales orders / POs / GRNs / DNs if missing), with the same dependency checks. A test that a reset in Corporate 100 leaves a client's data untouched (it runs in its own project since M1; the test proves it). |
 | 10 | Payroll Setup → HR Setup | Move Leaving Reasons to HR Setup | Move the tab; the data stays where it is, so nothing is lost. |
 | 11 | Developer | Groups and the Support queue on tabs of their own | Tabs: Corporates, Groups, Support queue. |
-| 12 | Developer | Is "Update corporates that follow the main tree" still needed? | Since PR #160 every release does it (and gives a corporate with no menu the main tree). The button only does it **now**, without a release. **Q269:** keep it or remove it? The owner's concern (2026-10-24): a click by accident reaches every client. It asks first, keeps each corporate's own layout and who may see each item, and does only what the next release would do; but it would send a half-finished main tree to every client at once. Recommendation now: **remove it**; releases do it, and a corporate's own Tree tab (Back to the main tree) still does one corporate now. |
+| 12 | Developer | Is "Update corporates that follow the main tree" still needed? | Since PR #160 every release does it (and gives a corporate with no menu the main tree). The button only does it **now**, without a release. **Decided (Q269, owner 2026-10-24): removed.** The owner's concern (2026-10-24): a click by accident reaches every client. It asks first, keeps each corporate's own layout and who may see each item, and does only what the next release would do; but it would send a half-finished main tree to every client at once. So releases alone do it for every client, and a corporate's own Tree tab (Back to the main tree) still does one corporate now. |
 
 ## Wave 2: Home, sign-in and keyboard
 
@@ -75,5 +75,5 @@ document.
 
 ## Open questions, in the order they are needed
 
-Wave 1: Q266–Q268 decided; Q269. Wave 2: Q270–Q274. Wave 3: Q275, Q276.
+Wave 1: Q266–Q269 all decided. Wave 2: Q270–Q274. Wave 3: Q275, Q276.
 Wave 4: Q277–Q279. Wave 5: Q280–Q282.
