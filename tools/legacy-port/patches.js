@@ -3332,5 +3332,33 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
     replace: `        OnHand: c.onHand, Reserved: c.reserved, Available: c.onHand - c.reserved,
         ReservedBy: reservedBy(c) // [NEW DEVELOPMENT stock-availability-reserved-by-field]
 `
+  },
+  {
+    id: 'item-user-code',
+    why: 'NEW DEVELOPMENT (owner, 2026-10-24; docs/modules/ITEM_USER_CODE.md, decisions Q276, Q293): an optional user code per item, ' +
+      'unique in the corporate ignoring case, and never another item\'s system code, so a code typed or shown means one item.',
+    find: `    const reorderLevel = Number(itemData.ReorderLevel) || 0;
+`,
+    replace: `    const reorderLevel = Number(itemData.ReorderLevel) || 0;
+    // [NEW DEVELOPMENT item-user-code]
+    const userCode = String(itemData.UserCode || '').trim();
+    if (userCode) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9\\-_\\/.]{0,29}$/.test(userCode)) throw new Error('The user code is 1 to 30 letters, digits, - _ / or . (starting with a letter or digit).');
+      const allItems = firebaseDbRequest_('items', 'get', null, idToken) || {};
+      const self = String(itemData.ItemID || '').trim();
+      const same = Object.keys(allItems).find(id => id !== self && allItems[id] &&
+        (String(allItems[id].UserCode || '').toLowerCase() === userCode.toLowerCase() || String(allItems[id].ItemCode || '').toLowerCase() === userCode.toLowerCase()));
+      if (same) throw new Error('The user code "' + userCode + '" is already item ' + allItems[same].ItemCode + ' (' + allItems[same].ItemName + '): choose another.');
+    }
+`
+  },
+  {
+    id: 'item-user-code-field',
+    why: 'NEW DEVELOPMENT (as item-user-code): stored on the item; blank clears it.',
+    find: `      ReorderLevel: reorderLevel,
+`,
+    replace: `      ReorderLevel: reorderLevel,
+      UserCode: userCode, // [NEW DEVELOPMENT item-user-code-field]
+`
   }
 ];

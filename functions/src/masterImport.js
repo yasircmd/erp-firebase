@@ -198,6 +198,8 @@ const MASTERS = {
     columns: [
       C('Item Name', 'ItemName', { req: true }),
       C('Category', 'Category', { req: true, type: 'enum', values: ITEM_CATEGORIES }),
+      // docs/modules/ITEM_USER_CODE.md: shown in place of the item code; unique.
+      C('User Code', 'UserCode', { note: 'Optional: your own code, shown in place of the item code; unique.' }),
       C('Sub-Category', 'SubCategoryID', { type: 'ref', ref: 'subCategory', note: 'Name of a sub-category of that category.' }),
       C('UOM', 'UOMID', { req: true, type: 'ref', ref: 'uom', note: 'UOM code, e.g. PCS.' }),
       C('Alternate UOM', 'AltUOMID', { type: 'ref', ref: 'uom' }),
@@ -211,8 +213,8 @@ const MASTERS = {
       C('Batch Tracked', 'BatchTracked', { type: 'yesno' }),
       C('Reorder Level', 'ReorderLevel', { type: 'number' })
     ],
-    sample: ['Steel Sheet 2mm', 'Raw Material', 'Steel Sheets', 'PCS', '', '', '01', 'WH-MAIN', '130100', '510100', '', '', 'No', '0'],
-    toData: r => ({ ItemName: r.ItemName, Category: r.Category, SubCategoryID: r.SubCategoryID, UOMID: r.UOMID, AltUOMID: r.AltUOMID,
+    sample: ['Steel Sheet 2mm', 'Raw Material', 'SS-2MM', 'Steel Sheets', 'PCS', '', '', '01', 'WH-MAIN', '130100', '510100', '', '', 'No', '0'],
+    toData: r => ({ ItemName: r.ItemName, Category: r.Category, UserCode: r.UserCode, SubCategoryID: r.SubCategoryID, UOMID: r.UOMID, AltUOMID: r.AltUOMID,
       ConversionFactor: r.AltUOMID ? r.ConversionFactor : '', CompanyID: r.CompanyID, DefaultWarehouseID: r.DefaultWarehouseID,
       InventoryAccountID: r.InventoryAccountID, ConsumptionAccountID: r.ConsumptionAccountID, SalesCogsAccountID: r.SalesCogsAccountID,
       WriteOffAccountID: r.WriteOffAccountID, BatchTracked: r.BatchTracked, ReorderLevel: r.ReorderLevel === '' ? 0 : r.ReorderLevel })

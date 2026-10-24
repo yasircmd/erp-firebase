@@ -1982,6 +1982,16 @@ async function saveItem(idToken, itemData) {
     const writeOffAccountId = String(itemData.WriteOffAccountID || '').trim();
     const batchTracked = itemData.BatchTracked === true || itemData.BatchTracked === 'true';
     const reorderLevel = Number(itemData.ReorderLevel) || 0;
+    // [NEW DEVELOPMENT item-user-code]
+    const userCode = String(itemData.UserCode || '').trim();
+    if (userCode) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9\-_\/.]{0,29}$/.test(userCode)) throw new Error('The user code is 1 to 30 letters, digits, - _ / or . (starting with a letter or digit).');
+      const allItems = (await firebaseDbRequest_('items', 'get', null, idToken)) || {};
+      const self = String(itemData.ItemID || '').trim();
+      const same = Object.keys(allItems).find(id => id !== self && allItems[id] &&
+        (String(allItems[id].UserCode || '').toLowerCase() === userCode.toLowerCase() || String(allItems[id].ItemCode || '').toLowerCase() === userCode.toLowerCase()));
+      if (same) throw new Error('The user code "' + userCode + '" is already item ' + allItems[same].ItemCode + ' (' + allItems[same].ItemName + '): choose another.');
+    }
     const status = String(itemData.Status || 'Active').trim();
 
     if (!itemName) throw new Error('Item name is required.');
@@ -2092,6 +2102,7 @@ async function saveItem(idToken, itemData) {
       WriteOffAccountID: writeOffAccountId,
       BatchTracked: batchTracked,
       ReorderLevel: reorderLevel,
+      UserCode: userCode, // [NEW DEVELOPMENT item-user-code-field]
       Status: status
     };
 

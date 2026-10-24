@@ -12,6 +12,9 @@ screen.
 
 ## 24/10/2026
 
+- **Your own item codes.** Give an item a User code in
+  [Item Master](item-master.html#your-own-item-code): it shows in place of
+  the item code everywhere, and you can type it wherever you enter an item.
 - **What reserved stock is for.** In [Stock Availability](stock-availability.html),
   select a Reserved quantity to see the Sales Orders reserving it, and open
   one from there.

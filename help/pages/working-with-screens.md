@@ -5,7 +5,7 @@ order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html]
 reviewed: 2026-10-24
-fingerprint: 50e2070058acedb4
+fingerprint: 6b56e7fdfc52e628
 ---
 ## Company first
 
@@ -14,6 +14,12 @@ choice; you see only the companies assigned to you, and of those only the
 ones you chose at the top of Home (see [Choosing your companies](getting-started.html#choosing-your-companies)).
 When you have only one, or chose one, it is chosen for you. Lists, numbers
 and reports always belong to the company chosen.
+
+## Item codes
+
+An item with a user code of your own shows it in place of its item code on
+every screen, print and copy, and you can type either where you enter an
+item. See [Item Master](item-master.html#your-own-item-code).
 
 ## Dates and periods
 

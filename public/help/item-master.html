@@ -19,6 +19,10 @@
 <ul><li>The item category and units are already set.</li><li>The company has its stock accounts and item coding rules.</li><li>The item is active for the relevant warehouse and company.</li></ul>
 <h2 id="step-by-step">Step by step</h2>
 <ol><li>Open <strong>Item Master</strong> and choose the company.</li><li>Add or edit the item record: code, description, unit and category. The <strong>Sub-Category</strong> list shows the category's shared sub-categories and those of the item's company; <strong>New…</strong> beside it opens Item Sub-Category to add one (save the item first: you come back to Item Master and open it again).</li><li>Set the stock and cost details required by the company.</li><li>Save the item and check it appears in the stock routines.</li></ol>
+<h2 id="your-own-item-code">Your own item code</h2>
+<p>The system gives each item its <strong>item code</strong> from its category (for example RM-000123). You can also give an item a <strong>User code</strong> of your own in the item form, for example <em>BRG-6204</em> or <em>A100</em>: up to 30 letters, digits, - _ / or . (starting with a letter or digit).</p>
+<ul><li>Everywhere else in the ERP, the item shows its user code in place of the item code: lists, reports, prints and what you copy to Excel. Hold the mouse over it to see the item code.</li><li>Where you enter an item on a line, you can type either code, and the search list shows and finds both. Once chosen, the box shows the item code with the user code beneath it.</li><li>A pasted line can have the user code in its first column.</li><li>A user code is unique in your organisation (ignoring capitals), and can't be another item's item code. Leave it blank for none.</li><li>Item Master itself shows both: the item code, with the user code beneath it. Search finds either.</li></ul>
+<p>The item code stays what the ERP stores on every document, so adding or changing a user code changes nothing already entered.</p>
 <h2 id="categories-of-your-own">Categories of your own</h2>
 <p>Besides the five categories (Raw Material, Semi-Finished Good, Finished Good, Consumable, Scrap), you can add your own, for example <strong>Spare Parts</strong>. Select <strong>New category…</strong> under Category in the item form, then enter:</p>
 <ul><li>the <strong>name</strong>;</li><li>the <strong>code prefix</strong> (2 to 6 letters or digits, for example SP). Its items get codes with it and their own running number: SP-000001, SP-000002 and so on. The format can be changed in <a href="numbering.html">Numbering</a>, like the five;</li><li>which of the five it <strong>behaves like</strong>. That decides what a BOM, a Job Order and Production allow (Spare Parts behaving like Consumable can be a BOM component, but is not produced);</li><li>whether it is <strong>shared</strong> by all companies or one company's.</li></ul>
@@ -29,7 +33,7 @@
 <h2 id="rights">Rights</h2>
 <p>Users need write access for item setup. Read access is often broader than write access.</p>
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
-<ul><li>If an item does not appear on a stock screen, check the item status and the company assignment.</li><li>If the item has no cost basis, the system will not post a trade movement correctly.</li></ul><p class="crumb">Last reviewed 18/10/2026</p></main>
+<ul><li>If an item does not appear on a stock screen, check the item status and the company assignment.</li><li>If the item has no cost basis, the system will not post a trade movement correctly.</li></ul><p class="crumb">Last reviewed 24/10/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>

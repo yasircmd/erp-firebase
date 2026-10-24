@@ -5,8 +5,8 @@ order: 1
 modules: [ITEMMASTER]
 sources: [functions/src/masterData.js, functions/src/itemCategories.js]
 summary: Maintain the master item record used by purchase, stock movement, valuations and stock reports.
-reviewed: 2026-10-18
-fingerprint: 0928376e6280ccce
+reviewed: 2026-10-24
+fingerprint: 2cc6a77d54f4a4f7
 ---
 ## What it is for
 
@@ -24,6 +24,28 @@ fingerprint: 0928376e6280ccce
 2. Add or edit the item record: code, description, unit and category. The **Sub-Category** list shows the category's shared sub-categories and those of the item's company; **New…** beside it opens Item Sub-Category to add one (save the item first: you come back to Item Master and open it again).
 3. Set the stock and cost details required by the company.
 4. Save the item and check it appears in the stock routines.
+
+## Your own item code
+
+The system gives each item its **item code** from its category (for
+example RM-000123). You can also give an item a **User code** of your own
+in the item form, for example *BRG-6204* or *A100*: up to 30 letters,
+digits, - _ / or . (starting with a letter or digit).
+
+- Everywhere else in the ERP, the item shows its user code in place of the
+  item code: lists, reports, prints and what you copy to Excel. Hold the
+  mouse over it to see the item code.
+- Where you enter an item on a line, you can type either code, and the
+  search list shows and finds both. Once chosen, the box shows the item
+  code with the user code beneath it.
+- A pasted line can have the user code in its first column.
+- A user code is unique in your organisation (ignoring capitals), and can't
+  be another item's item code. Leave it blank for none.
+- Item Master itself shows both: the item code, with the user code
+  beneath it. Search finds either.
+
+The item code stays what the ERP stores on every document, so adding or
+changing a user code changes nothing already entered.
 
 ## Categories of your own
 

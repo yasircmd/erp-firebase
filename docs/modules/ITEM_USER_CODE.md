@@ -49,3 +49,37 @@ how it's **shown and typed**.
 - **(b) Screen by screen:** each of the 27 screens and their prints
   changed to show the user code, the item boxes too. Exact everywhere, but
   several PRs, and every screen added later must remember it.
+
+## As built (2026-10-24)
+
+- **Server.** Patches `item-user-code` / `item-user-code-field` on
+  saveItem: `UserCode`, optional, 1–30 letters, digits, `- _ / .`
+  (starting with a letter or digit), unique in the corporate ignoring
+  case, and never another item's system code; blank clears it. Master
+  Import's Items have a **User Code** column (its update mode too).
+  `getItemUserCodes` (functions/src/itemCodes.js) gives the shell
+  `{ ItemCode: UserCode }` for the items of the user's companies and the
+  shared ones.
+- **Shell** (public/index.html, ITEM CODES, after DATE FORMAT; loaded at
+  sign-in and on every return to Home, and after an Item Master save):
+  - shown text whose whole text is a system code, or that starts with one
+    before " — ", shows the user code, the system code in the tooltip;
+  - an item box (an input with a list, or the search picker's
+    `data-picker-list`) takes the user code: on change it becomes the
+    list's own option for that item, and the screen hears an input as
+    well; once chosen, the user code shows beneath the box
+    (`.item-ucode`);
+  - the search picker shows the user code as the item's code and finds the
+    system code too;
+  - Copy to Excel: cells that are a system code read as the user code;
+    paste (the clipboard read and paste events): a first-column cell that
+    is a user code becomes the system code, on a screen with an item list
+    (item code is the first column of every item grid);
+  - `keep-code` opts an element out (Item Master's code column and its
+    form).
+- **Limits.** A screen's own search box (for example a report's item
+  filter) matches what that screen searches: the system code and the name,
+  not the user code. Item Master's search finds either.
+- **Tests:** itemUserCode suite (3), itemUserCode UI (4); negative
+  controls (the system-code check on the server; shown text, and the typed
+  code, in the shell) caught.

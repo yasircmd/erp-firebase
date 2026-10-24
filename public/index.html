@@ -940,6 +940,7 @@
         currentUser = null;
         pendingCorporateId = null;
         myCompanies = []; chosenCompanyIds = []; showCompanyChoice();
+        setItemUserCodes({});
         clearTimeout(idleTimer); clearTimeout(idleWarningTimer); hideIdleWarning();
         showTreeNav();
         document.getElementById('tree-container').innerHTML = '';
@@ -1167,6 +1168,7 @@
 
       buildTreeUI(response.data);
       loadMainCompanyName();
+      loadItemUserCodes();
       loadFavorites();
       loadHomeTasks();
       resetIdleTimer();
@@ -2009,6 +2011,130 @@
     window.appPrompt = (message, defaultValue, opts) => appPromptAsIs(message,
       /^Copy this text/.test(String(message)) ? formatDatesInText(defaultValue) : defaultValue, opts);
     // ---------- END DATE FORMAT ----------
+    // ---------- ITEM CODES ----------
+    // An item's user code, chosen by the owner, shows wherever its system
+    // code would (owner, 2026-10-24; docs/modules/ITEM_USER_CODE.md,
+    // decisions Q276, Q293), once here for every screen, as dates are
+    // formatted above. The system code stays the key every line stores and
+    // every screen reads; only what is shown and typed changes:
+    //   - shown text (lists, reports, prints, Copy to Excel): a text that is
+    //     a system code, or starts with one before " — " (an option's
+    //     "CODE — Name"), shows the user code, the system code in its
+    //     tooltip;
+    //   - an item box (an input with an item list) takes the user code too:
+    //     on change it becomes the system code before the screen sees it,
+    //     and the box shows the user code beside it; the search picker lists
+    //     the user code and finds either;
+    //   - pasted lines: a first-column cell that is a user code becomes the
+    //     system code, on a screen with an item list.
+    // An element that must show the system code has class "keep-code"
+    // (Item Master's own code).
+    let itemUserCodes = {}, itemByUserCode = {};
+    function setItemUserCodes(map) {
+      itemUserCodes = map || {};
+      itemByUserCode = {};
+      Object.keys(itemUserCodes).forEach(code => { itemByUserCode[String(itemUserCodes[code]).toLowerCase()] = code; });
+      showItemCodesIn(document.body);
+    }
+    window.itemUserCode = code => itemUserCodes[code] || '';
+    window.refreshItemUserCodes = () => loadItemUserCodes();
+    function loadItemUserCodes() {
+      rpc.withSuccessHandler(setItemUserCodes).withFailureHandler(() => {}).getItemUserCodes();
+    }
+    const ITEM_TEXT = /^(\s*)(\S+)(\s+[—–]\s[\s\S]*|\s*)$/;
+    function itemCodeText(text) {
+      const m = typeof text === 'string' && text.length < 400 ? text.match(ITEM_TEXT) : null;
+      return m && itemUserCodes[m[2]] ? { shown: m[1] + itemUserCodes[m[2]] + m[3], code: m[2] } : null;
+    }
+    function showItemCodesIn(root) {
+      if (!Object.keys(itemUserCodes).length) return;
+      const skip = el => el && el.closest && el.closest('script, style, textarea, .keep-code');
+      const fix = node => {
+        const el = node.parentElement;
+        if (!el || skip(el)) return;
+        const r = itemCodeText(node.data);
+        if (!r) return;
+        node.data = r.shown;
+        if (!el.title) el.title = 'System code: ' + r.code;
+      };
+      if (root.nodeType === Node.TEXT_NODE) fix(root);
+      else if (root.nodeType === Node.ELEMENT_NODE && !skip(root)) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) fix(n);
+        root.querySelectorAll(ITEM_BOX).forEach(markItemBox);
+        if (root.matches && root.matches(ITEM_BOX)) markItemBox(root);
+      }
+    }
+    // An item box: an input whose list holds the item, as its code or as
+    // "CODE — Name". The typed user code becomes that option's own value,
+    // as if it had been chosen from the list.
+    const codeOf = value => String(value || '').trim().split(/\s+[—–]\s/)[0];
+    // The search picker keeps a box's list as data-picker-list.
+    const listOfBox = input => input.list || (input.dataset && input.dataset.pickerList ? document.getElementById(input.dataset.pickerList) : null);
+    const ITEM_BOX = 'input[list], input[data-picker-list]';
+    function systemCodeFor(input, value) {
+      const code = itemByUserCode[String(value || '').trim().toLowerCase()];
+      if (!code || itemUserCodes[String(value || '').trim()] !== undefined) return '';
+      const list = listOfBox(input);
+      const option = list && Array.from(list.options).find(o => codeOf(o.value) === code);
+      return option ? option.value : '';
+    }
+    function markItemBox(input) {
+      const user = itemUserCodes[codeOf(input.value)] || '';
+      let badge = input.nextElementSibling && input.nextElementSibling.classList.contains('item-ucode') ? input.nextElementSibling : null;
+      if (!user) { if (badge) badge.remove(); return; }
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'item-ucode keep-code block text-[10px] text-amber-400 font-mono leading-tight';
+        input.after(badge);
+      }
+      if (badge.textContent !== user) badge.textContent = user;
+      badge.title = 'User code of ' + codeOf(input.value);
+    }
+    // Before the screen's own listeners: the typed user code becomes the
+    // system code, then the screen hears an input as well as the change.
+    document.addEventListener('change', e => {
+      const el = e.target;
+      if (!(el instanceof HTMLInputElement) || !listOfBox(el)) return;
+      const code = systemCodeFor(el, el.value);
+      if (code) { el.value = code; el.dispatchEvent(new Event('input', { bubbles: true })); }
+      markItemBox(el);
+    }, true);
+    document.addEventListener('input', e => { if (e.target instanceof HTMLInputElement && listOfBox(e.target)) markItemBox(e.target); }, true);
+    new MutationObserver(mutations => mutations.forEach(m => {
+      if (m.type === 'characterData') showItemCodesIn(m.target);
+      else m.addedNodes.forEach(showItemCodesIn);
+    })).observe(document.body, { childList: true, subtree: true, characterData: true });
+    // Copied tables read as shown: a cell that is a system code.
+    function itemCodesInTable(text, toSystem) {
+      if (typeof text !== 'string' || !Object.keys(itemUserCodes).length) return text;
+      return text.split('\n').map(row => row.split('\t').map((cell, i) => {
+        const v = cell.trim();
+        if (!toSystem) return itemUserCodes[v] ? cell.replace(v, itemUserCodes[v]) : cell;
+        const code = i === 0 && itemUserCodes[v] === undefined ? itemByUserCode[v.toLowerCase()] : '';
+        return code ? cell.replace(v, code) : cell;
+      }).join('\t')).join('\n');
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      const writeCodes = navigator.clipboard.writeText.bind(navigator.clipboard);
+      navigator.clipboard.writeText = text => writeCodes(itemCodesInTable(text, false));
+    }
+    // Pasted into a screen with an item list: the first column's user codes.
+    const screenHasItemList = () => Array.from(document.querySelectorAll('#module-container datalist')).some(dl =>
+      Array.from(dl.options).some(o => itemUserCodes[codeOf(o.value)] !== undefined));
+    const pasted = text => (screenHasItemList() ? itemCodesInTable(text, true) : text);
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      const readCodes = navigator.clipboard.readText.bind(navigator.clipboard);
+      navigator.clipboard.readText = () => readCodes().then(pasted);
+    }
+    if (window.DataTransfer) {
+      const getData = DataTransfer.prototype.getData;
+      DataTransfer.prototype.getData = function (format) {
+        const v = getData.call(this, format);
+        return /^text(\/plain)?$/i.test(format) ? pasted(v) : v;
+      };
+    }
+    // ---------- END ITEM CODES ----------
 
     // ---------- LIST PAGING ----------
     // Gmail-style document lists (owner, 2026-10-02; docs/modules/
@@ -2154,7 +2280,9 @@
         const dl = listOf(el);
         return dl ? Array.from(dl.options).filter(o => o.value !== '').map(o => {
           const text = (o.label || o.textContent || '').trim();
-          return { value: o.value, code: o.value, name: text === o.value ? '' : text, extra: o.dataset.search || '' };
+          // An item's user code shows as its code; its system code is still found (ITEM CODES).
+          const sys = String(o.value).split(/\s+[—–]\s/)[0], user = window.itemUserCode ? window.itemUserCode(sys) : '';
+          return { value: o.value, code: user ? String(o.value).replace(sys, user) : o.value, name: text === o.value ? '' : text, extra: (o.dataset.search || '') + (user ? ' ' + sys : '') };
         }) : [];
       }
       // Lower is better; -1: no match. Every word typed must appear.
@@ -2766,6 +2894,8 @@
       // user in a module (User Management) shows without a reload
       // (onboarding dry run, 2026-10-23).
       loadMainCompanyName();
+      // And item user codes changed in Item Master.
+      loadItemUserCodes();
     }
 
     function showTreeNav() {
