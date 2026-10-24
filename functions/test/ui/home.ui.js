@@ -13,6 +13,7 @@ const path = require('path');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
 const { routeCdnStyles } = require('./_cdnStyles');
+const { onAppDialog } = require('./_appDialogs');
 
 const INDEX = fs.readFileSync(path.join(__dirname, '../../../public/index.html'));
 const SDK = {
@@ -61,6 +62,8 @@ function stubs() {
       case 'getRecurringJournalsDueForUser': return window.__recurringDue || [];
       case 'getMyDraftsForUser': return window.__drafts || [];
       case 'getMyFollowUpTasksForUser': return window.__followUps || [];
+      case 'getMyRejectedSubmissions': return window.__rejected || [];
+      case 'closeRejectedSubmission': window.__closed = arg; window.__rejected = []; return { success: true };
       case 'getModuleFragment': return { html: '<div id="stub-module">Module ' + arg.moduleId + '</div>', canWrite: true };
       default: return [];
     }
@@ -362,6 +365,39 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.click('#home-followup-list > div >> nth=1');
     await page.waitForSelector('#stub-module');
     assert.deepEqual(await page.evaluate(() => window.__opened), ['PURCHASEREQUISITION', 'PRQ-1']);
+    assert.deepEqual(page.__errors, []);
+    await context.close();
+  });
+
+  await check('tasks: a rejection can be closed without resubmitting, after a confirmation, and leaves the list (UX_ROUND2.md item 3)', async () => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    page.__errors = [];
+    page.on('pageerror', e => page.__errors.push(e.message));
+    const asked = [];
+    let answer = false;
+    await onAppDialog(page, d => { asked.push(d.message()); return answer ? d.accept() : d.dismiss(); });
+    await routeCdnStyles(page);
+    await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
+    await page.addInitScript(stubs);
+    await page.addInitScript(() => {
+      window.__rejected = [{ InstanceID: 'APR-1', ModuleID: 'GRN', ModuleLabel: 'Goods Receipt (GRN)', DocumentID: 'GRN-X', DocumentNumber: 'GRN-0001', RejectionReason: 'Wrong qty' }];
+      const open = () => { const o = window.openModule; window.openModule = (m, p) => { window.__opened = [m, p && p.OpenEntryId]; return o(m, p); }; };
+      document.addEventListener('DOMContentLoaded', () => setTimeout(open, 0));
+    });
+    await page.goto('http://127.0.0.1:8131/');
+    await page.waitForSelector('#home-rejected-block:not(.hidden)', { state: 'attached', timeout: 30000 });
+    await page.evaluate(() => toggleHomeTasksSection());
+    await page.click('#home-rejected-list .home-rejected-close');
+    await page.waitForTimeout(300);
+    assert.match(asked[0] || '', /Close GRN-0001 without resubmitting it\?/);
+    assert.equal(await page.evaluate(() => window.__closed), undefined, 'Cancel closes nothing');
+    assert.equal(await page.evaluate(() => window.__opened), undefined, 'Close does not open the document');
+    answer = true;
+    await page.click('#home-rejected-list .home-rejected-close');
+    await page.waitForSelector('#home-rejected-block.hidden', { state: 'attached', timeout: 5000 });
+    assert.deepEqual(await page.evaluate(() => window.__closed), { InstanceID: 'APR-1' });
+    assert.equal(await page.evaluate(() => window.__opened), undefined);
     assert.deepEqual(page.__errors, []);
     await context.close();
   });

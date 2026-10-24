@@ -5,8 +5,8 @@ order: 7
 modules: [APPROVALTRACKER]
 sources: [functions/src/approvals.js, functions/src/approvalDelegation.js]
 summary: Track each approval request, see who acted and follow the current status of a document.
-reviewed: 2026-10-18
-fingerprint: dada0bc2f0e3ef95
+reviewed: 2026-10-24
+fingerprint: 62ee29aea584c2f7
 ---
 ## What it is for
 
@@ -25,10 +25,11 @@ fingerprint: dada0bc2f0e3ef95
 3. Inspect the rejection/approval reason, self-approved indicator, and any current delegation note. Copy the filtered rows to Excel for audit follow-up.
 4. If the user is authorized, select **Delegate** on a pending level to assign that one level to another user with a reason. Admins may also delegate all pending levels of an absent approver; an approver may delegate their own pending levels.
 5. Verify the delegate and reason in the tracker. A delegation changes who can act on the pending level; it does not change the approval threshold or approve the document.
+6. An Admin can **Close** a rejected document that will not be submitted again: it leaves its submitter's tasks, and its row shows "Closed, not resubmitted" and who closed it. The rejection and its reason stay on record.
 
 ## What happens in the books
 
-The tracker is read-only apart from delegation. It does not post journals or change the underlying transaction. The originating module posts only when its approval workflow reaches the required final state.
+The tracker is read-only apart from delegation and closing a rejection. It does not post journals or change the underlying transaction. The originating module posts only when its approval workflow reaches the required final state.
 
 ## Rights
 

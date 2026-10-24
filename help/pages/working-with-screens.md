@@ -4,8 +4,8 @@ area: start
 order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
 sources: [public/index.html]
-reviewed: 2026-10-23
-fingerprint: 7db2f961f8622362
+reviewed: 2026-10-24
+fingerprint: 518119f9fe27b469
 ---
 ## Company first
 

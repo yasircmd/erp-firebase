@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-23
+reviewed: 2026-10-24
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,16 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 24/10/2026
+
+- **Rejected documents leave your tasks when they should.** A rejected
+  document that you correct and post without approval (for example at a
+  lower amount) no longer stays under Rejected in your Home tasks.
+- **Close a rejection you will not resubmit.** Choose **Close** on it in
+  your Home tasks; an Admin can also close one in Approval Tracker. The
+  rejection stays on record as "Closed, not resubmitted". See
+  [Approvals](approvals.html#rejected-documents).
 
 ## 23/10/2026
 

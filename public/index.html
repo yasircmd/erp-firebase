@@ -1511,10 +1511,25 @@
               <span class="text-slate-200 font-medium">${escapeHtml(item.DocumentNumber || item.DocumentID)}</span>
               <span class="text-slate-500 text-xs ml-2">${escapeHtml(item.ModuleLabel)}</span>
             </div>
-            <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+            <div class="flex items-center gap-3 shrink-0">
+              <button type="button" class="home-rejected-close text-xs text-slate-400 hover:text-slate-200 hover:underline" title="Not resubmitting it: close it">Close</button>
+              <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+            </div>
           </div>
           ${item.RejectionReason ? `<p class="text-xs text-red-400/80 truncate">${escapeHtml(item.RejectionReason)}</p>` : ''}`;
         row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
+        // Not resubmitting it (owner, 2026-10-24): closed, kept for the audit
+        // trail, and off Tasks. The document itself stays as it is.
+        row.querySelector('.home-rejected-close').addEventListener('click', async e => {
+          e.stopPropagation();
+          if (!(await appConfirm('Close ' + (item.DocumentNumber || item.DocumentID) + ' without resubmitting it? It leaves your tasks; the rejection stays on record as "Closed, not resubmitted".'))) return;
+          rpc
+            .withSuccessHandler(() => {
+              rpc.withSuccessHandler(r => renderRejectedSubmissions(r || [])).withFailureHandler(() => {}).getMyRejectedSubmissions();
+            })
+            .withFailureHandler(err => appAlert((err && err.message) || 'Unable to close it.'))
+            .closeRejectedSubmission({ InstanceID: item.InstanceID });
+        });
         list.appendChild(row);
       });
     }

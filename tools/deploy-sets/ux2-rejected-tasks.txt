@@ -1,0 +1,12 @@
+# UX round 2, wave 1, items 2 and 3 (owner, 2026-10-24; docs/modules/
+# UX_ROUND2.md): a rejected document leaves Home tasks once it is posted or
+# resubmitted, even with no approval needed; its submitter or an Admin can
+# close one that will not be resubmitted. Run with --screens (Approval
+# Tracker's Close). Hosting too (tools/deploy-hosting.sh): public/index.html
+# (Home's Close) and the Help.
+# NEW callable: closeRejectedSubmission.
+# Then the rest of homeTasks.js (only index.js requires it).
+closeRejectedSubmission
+getMyRejectedSubmissions
+getPendingApprovalsForUser
+getMyDraftsForUser

@@ -1,6 +1,6 @@
 # UX round 2: the owner's issues and suggestions (2026-10-24)
 
-Status: **plan, for the owner to agree**. 37 items from the owner's own
+Status: **plan agreed** (owner, 2026-10-24, PR #168); wave 1 in progress. 37 items from the owner's own
 work in the ERP, studied against the code and earlier decisions, sorted
 into five waves. Wave 1 needs almost no decisions and can start at once;
 each later wave starts with its open questions answered (decisions 266
@@ -16,8 +16,8 @@ document.
 | # | Module | Item | Finding / plan |
 |---|---|---|---|
 | 1 | PDC Issued / Received | Going Back while the screen is still loading shows an error | A bug: a late answer reaches a screen that is gone (the same family as the Copy fix, PR #149). Guard the loading callbacks; a UI check that leaves mid-load. |
-| 2 | Approvals / Home tasks | A rejected transaction stays in Tasks even after it is resubmitted with changes | A bug: the task should follow the document's current state. Find why the rejection's task is not cleared on resubmission; test both. |
-| 3 | Approvals / Home tasks | A rejected item can be closed when no resubmission is wanted | **Decided (Q266, owner 2026-10-24):** the submitter or an Admin may close it. Closing marks it "Closed, not resubmitted" (kept for the audit trail) and removes the task. |
+| 2 | Approvals / Home tasks | A rejected transaction stays in Tasks even after it is resubmitted with changes | **Built (2026-10-24, deploy set `ux2-rejected-tasks`).** The cause: corrected to need no approval (e.g. a lower amount), the document posts at once and keeps the old approval's id, which was all Tasks checked. Now the document's status must also still wait for correction (Rejected; Draft for payroll; Amendment Requested for a Job Order line; a Closed PO whose reopening was refused). |
+| 3 | Approvals / Home tasks | A rejected item can be closed when no resubmission is wanted | **Built (2026-10-24, `ux2-rejected-tasks`):** Close on the task in Home, and for an Admin in Approval Tracker; the approval record gets Status Closed with ClosedNote / ClosedBy / ClosedAt, its decisions kept, the document untouched. **Decided (Q266, owner 2026-10-24):** the submitter or an Admin may close it. Closing marks it "Closed, not resubmitted" (kept for the audit trail) and removes the task. |
 | 4 | Production Entry | Opening an entry sometimes shows item names "not found" and the Job Order not linked | Likely a race: the entry draws before its item / Job Order lists load. Investigate, fix, a UI check that slows the lists. |
 | 5 | Sales Order | The item name field is too short | Widen the item column / let the name wrap. Check the other order and invoice screens for the same. |
 | 6 | Employees | Reduce margins (a wider page) | The Employees screen's container width and padding, to the width the other wide screens use. |

@@ -117,6 +117,25 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
+  await check('an Admin closes a rejection that will not be resubmitted; others see no Close (UX_ROUND2.md item 3)', async () => {
+    const level2 = await val('approvalInstances/' + instanceId + '/RequiredLevels/1/ApproverUserID'); // after the delegations above
+    const r = await call(level2, 'decideJournalEntryApproval', { jvId: s.jvId, levelNumber: 2, decision: 'Rejected', reason: 'No support' });
+    assert.ok(r && r.success !== false, JSON.stringify(r));
+    let page = await open('u-ben');
+    assert.equal(await page.locator('.at-close-btn').count(), 0, 'not an Admin');
+    await page.close();
+    page = await open('u-admin');
+    assert.equal(await page.locator('.at-close-btn').count(), 1, 'on the rejected level only');
+    await page.click('.at-close-btn');
+    await page.waitForSelector('.at-closed', { timeout: 15000 });
+    assert.match(page.__alerts[0], /Close the rejected .* without resubmission\?/);
+    assert.equal(await page.textContent('.at-closed'), 'Closed, not resubmitted, by Admin User');
+    assert.equal(await page.locator('.at-close-btn').count(), 0);
+    assert.equal(await val('approvalInstances/' + instanceId + '/Status'), 'Closed');
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
   await browser.close(); server.close(); await app.delete();
   results.forEach(r => console.log(r.join('  ')));
   const failed = results.filter(r => r[0] === 'FAIL').length;

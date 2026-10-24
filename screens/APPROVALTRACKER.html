@@ -209,6 +209,9 @@
         const assignedName = assignedUser ? (assignedUser.FullName || assignedUser.Username) : level.ApproverUserID;
         rows.push({
           InstanceID: inst.InstanceID, Delegation: delegation, CanDelegate: canDelegate,
+          // A rejection nobody will resubmit: an Admin closes it (owner, 2026-10-24).
+          CanClose: Boolean(decision) && decision.Decision === 'Rejected' && inst.Status === 'Rejected' && Boolean(me.IsAdmin),
+          Closed: inst.Status === 'Closed' && decision && decision.Decision === 'Rejected' ? inst : null,
           ModuleID: inst.ModuleID, DocumentNumber: inst.DocumentNumber, Amount: inst.Amount,
           CreatedAt: inst.CreatedAt, LevelNumber: level.LevelNumber,
           ApproverName: (decision && decision.ApproverName) || assignedName,
@@ -237,16 +240,23 @@
         <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(formatDateTime(r.CreatedAt))}</td>
         <td class="py-2 px-4 text-xs text-slate-400">${r.LevelNumber}</td>
         <td class="py-2 px-4 text-slate-200">${escapeHtml(r.ApproverName)}${r.Delegation ? `<div class="at-delegation text-xs text-slate-500">delegated from ${escapeHtml(r.Delegation.FromName)} by ${escapeHtml(r.Delegation.ByName)}, ${escapeHtml(formatDateTime(r.Delegation.At))}: ${escapeHtml(r.Delegation.Reason)}</div>` : ''}</td>
-        <td class="py-2 px-4">${decisionBadgeHtml(r.Decision)}</td>
+        <td class="py-2 px-4">${decisionBadgeHtml(r.Decision)}${r.Closed ? `<div class="at-closed text-xs text-slate-500 mt-1">${escapeHtml(r.Closed.ClosedNote || 'Closed, not resubmitted')}${r.Closed.ClosedByName ? ', by ' + escapeHtml(r.Closed.ClosedByName) : ''}</div>` : ''}</td>
         <td class="py-2 px-4 text-xs text-slate-400">${r.DecidedAt ? escapeHtml(formatDateTime(r.DecidedAt)) : '—'}</td>
         <td class="py-2 px-4 text-xs ${r.DecidedAt ? 'text-slate-400' : 'text-amber-400'}">${escapeHtml(timeTaken)}</td>
         <td class="py-2 px-4 text-xs">${r.SelfApproved === null ? '—' : (r.SelfApproved ? '<span class="text-amber-400">Yes</span>' : 'No')}</td>
         <td class="py-2 px-4 text-xs text-slate-400">${escapeHtml(r.Reason || '')}</td>
-        <td class="py-2 px-4 text-right">${r.CanDelegate ? `<button class="at-delegate-btn text-xs text-blue-400 hover:underline underline-offset-2" data-instance="${escapeHtml(r.InstanceID)}" data-level="${r.LevelNumber}" data-doc="${escapeHtml(r.DocumentNumber)}">Delegate</button>` : ''}</td>`;
+        <td class="py-2 px-4 text-right">${r.CanDelegate ? `<button class="at-delegate-btn text-xs text-blue-400 hover:underline underline-offset-2" data-instance="${escapeHtml(r.InstanceID)}" data-level="${r.LevelNumber}" data-doc="${escapeHtml(r.DocumentNumber)}">Delegate</button>` : ''}${r.CanClose ? `<button class="at-close-btn text-xs text-blue-400 hover:underline underline-offset-2" data-instance="${escapeHtml(r.InstanceID)}" data-doc="${escapeHtml(r.DocumentNumber)}">Close</button>` : ''}</td>`;
       tbody.appendChild(row);
     });
     tbody.querySelectorAll('.at-delegate-btn').forEach(b => b.addEventListener('click', () =>
       openDelegate({ instanceId: b.dataset.instance, levelNumber: Number(b.dataset.level), doc: b.dataset.doc })));
+    tbody.querySelectorAll('.at-close-btn').forEach(b => b.addEventListener('click', async () => {
+      if (!(await appConfirm('Close the rejected ' + b.dataset.doc + ' without resubmission? It leaves its submitter\'s tasks and stays on record as "Closed, not resubmitted".'))) return;
+      rpc
+        .withSuccessHandler(() => fetchHistory())
+        .withFailureHandler(err => appAlert(err.message || 'Unable to close it.'))
+        .closeRejectedSubmission({ InstanceID: b.dataset.instance });
+    }));
   }
 
   // ---------- DELEGATE ----------
