@@ -17,16 +17,16 @@ document.
 |---|---|---|---|
 | 1 | PDC Issued / Received | Going Back while the screen is still loading shows an error | A bug: a late answer reaches a screen that is gone (the same family as the Copy fix, PR #149). Guard the loading callbacks; a UI check that leaves mid-load. |
 | 2 | Approvals / Home tasks | A rejected transaction stays in Tasks even after it is resubmitted with changes | A bug: the task should follow the document's current state. Find why the rejection's task is not cleared on resubmission; test both. |
-| 3 | Approvals / Home tasks | A rejected item can be closed when no resubmission is wanted | **Q266:** who may close it (the submitter, an Admin, both)? Closing marks it "Closed, not resubmitted" (kept for the audit trail) and removes the task. |
+| 3 | Approvals / Home tasks | A rejected item can be closed when no resubmission is wanted | **Decided (Q266, owner 2026-10-24):** the submitter or an Admin may close it. Closing marks it "Closed, not resubmitted" (kept for the audit trail) and removes the task. |
 | 4 | Production Entry | Opening an entry sometimes shows item names "not found" and the Job Order not linked | Likely a race: the entry draws before its item / Job Order lists load. Investigate, fix, a UI check that slows the lists. |
 | 5 | Sales Order | The item name field is too short | Widen the item column / let the name wrap. Check the other order and invoice screens for the same. |
 | 6 | Employees | Reduce margins (a wider page) | The Employees screen's container width and padding, to the width the other wide screens use. |
-| 7 | Chart of Accounts | Remove the "formerly …" code under renumbered accounts | **Q267:** remove it entirely, or keep it only in the account's details (hover / edit form), so an old code on a printed report can still be traced? |
-| 8 | Invoice print (Employee Portal / export) | An export invoice need not show the base currency | **Q268:** which print (the sales rep's portal invoice, the ERP's Customer Invoice, both)? Plan: for a foreign-currency invoice, show the base-currency (AED) VAT block only where the law needs it, else hide it. |
+| 7 | Chart of Accounts | Remove the "formerly …" code under renumbered accounts | **Decided (Q267, owner 2026-10-24):** off the list; kept only in the account's details, so an old code on a printed report can still be traced. |
+| 8 | Invoice print (Employee Portal / export) | An export invoice need not show the base currency | **Decided (Q268, owner 2026-10-24):** both prints (the ERP's Customer Invoice and the sales rep's portal invoice). For a foreign-currency invoice, show the base-currency (AED) VAT block only where the law needs it, else hide it. |
 | 9 | Data Reset | Payroll and the HR data are missing; check what else | Add the missing categories (employees and their records, payroll runs and payslips, leave, loans and advances, settlements, provisions, employee requests, sales orders / POs / GRNs / DNs if missing), with the same dependency checks. A test that a reset in Corporate 100 leaves a client's data untouched (it runs in its own project since M1; the test proves it). |
 | 10 | Payroll Setup → HR Setup | Move Leaving Reasons to HR Setup | Move the tab; the data stays where it is, so nothing is lost. |
 | 11 | Developer | Groups and the Support queue on tabs of their own | Tabs: Corporates, Groups, Support queue. |
-| 12 | Developer | Is "Update corporates that follow the main tree" still needed? | Since PR #160 every release does it (and gives a corporate with no menu the main tree). The button only does it **now**, without a release. **Q269:** keep it (moved onto the Groups / Corporates tab as "Update menus now") or remove it? Recommendation: keep, renamed. |
+| 12 | Developer | Is "Update corporates that follow the main tree" still needed? | Since PR #160 every release does it (and gives a corporate with no menu the main tree). The button only does it **now**, without a release. **Q269:** keep it or remove it? The owner's concern (2026-10-24): a click by accident reaches every client. It asks first, keeps each corporate's own layout and who may see each item, and does only what the next release would do; but it would send a half-finished main tree to every client at once. Recommendation now: **remove it**; releases do it, and a corporate's own Tree tab (Back to the main tree) still does one corporate now. |
 
 ## Wave 2: Home, sign-in and keyboard
 
@@ -75,5 +75,5 @@ document.
 
 ## Open questions, in the order they are needed
 
-Wave 1: Q266, Q267, Q268, Q269. Wave 2: Q270–Q274. Wave 3: Q275, Q276.
+Wave 1: Q266–Q268 decided; Q269. Wave 2: Q270–Q274. Wave 3: Q275, Q276.
 Wave 4: Q277–Q279. Wave 5: Q280–Q282.
