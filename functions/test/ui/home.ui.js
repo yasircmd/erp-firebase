@@ -69,6 +69,7 @@ function stubs() {
       case 'getModuleFragment': return arg.moduleId === 'SLOWSCREEN'
         ? { html: '<div id="stub-module"><span id="slow-out"></span></div><script>window.initModule = () => rpc.withSuccessHandler(r => { document.getElementById("slow-out").textContent = r; })' +
           '.withFailureHandler(e => appAlert(e.message)).slowList(); <\/script>', canWrite: true }
+        : arg.moduleId === 'WIDESCREEN' ? { html: '<div id="stub-module" data-wide-screen>Wide</div>', canWrite: true }
         : { html: '<div id="stub-module">Module ' + arg.moduleId + '</div>', canWrite: true };
       case 'slowList': await new Promise(r => setTimeout(r, window.__slowMs || 0)); if (window.__slowFails) throw new Error('Nothing to list.'); return 'loaded';
       default: return [];
@@ -442,6 +443,38 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     // Home's own calls are answered whatever happens (its tasks, favourites).
     assert.ok(await page.evaluate(() => window.__calls.includes('getMyFavorites')));
     await context.close();
+  });
+
+  await check('a wide screen gets the page\'s width (up to 1792px); Home and other screens keep 1152px (UX_ROUND2.md items 5-6)', async () => {
+    const page = await browser.newPage({ viewport: { width: 1920, height: 900 } });
+    page.__errors = [];
+    page.on('pageerror', e => page.__errors.push(e.message));
+    await routeCdnStyles(page);
+    await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
+    await page.addInitScript(stubs);
+    await page.goto('http://127.0.0.1:8131/');
+    await page.waitForSelector('#tree-container li[data-module-id]', { state: 'attached', timeout: 30000 });
+    await page.waitForTimeout(300);
+    const width = () => page.$eval('#app-container', el => Math.round(el.getBoundingClientRect().width));
+    assert.equal(await width(), 1152, 'Home');
+    await page.evaluate(() => openModule('WIDESCREEN'));
+    await page.waitForSelector('#stub-module');
+    assert.equal(await width(), 1792, 'a wide screen');
+    await page.evaluate(() => openModule('CUSTOMERINVOICE'));
+    await page.waitForFunction(() => /CUSTOMERINVOICE/.test((document.getElementById('stub-module') || {}).textContent || ''));
+    assert.equal(await width(), 1152, 'another screen');
+    await page.evaluate(() => openModule('WIDESCREEN'));
+    await page.waitForSelector('#stub-module[data-wide-screen]');
+    await page.click('#back-to-tree-btn');
+    await page.waitForSelector('#tree-view-container:not(.hidden)');
+    assert.equal(await width(), 1152, 'back on Home');
+    await page.setViewportSize({ width: 1300, height: 900 });
+    await page.evaluate(() => openModule('WIDESCREEN'));
+    await page.waitForSelector('#stub-module[data-wide-screen]');
+    const narrow = await width();
+    assert.ok(narrow > 1152 && narrow <= 1300, 'the window\'s width, its padding aside: ' + narrow);
+    assert.deepEqual(page.__errors, []);
+    await page.close();
   });
 
   await browser.close(); server.close();

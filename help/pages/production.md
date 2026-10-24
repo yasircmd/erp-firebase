@@ -5,8 +5,8 @@ order: 3
 modules: [PRODUCTION]
 sources: [functions/src/stockMovement.js]
 summary: Record produced output into stock and post its assigned inventory/consumption accounting; component issue remains separate.
-reviewed: 2026-10-17
-fingerprint: 8141b4371d648987
+reviewed: 2026-10-24
+fingerprint: b31436ea00439309
 ---
 ## What it is for
 
@@ -38,6 +38,7 @@ PRODUCTION **access** controls viewing; **draft** creates/edits/deletes Draft or
 ## Questions and mistakes
 
 - **Expected components were not deducted:** Production records output only. Enter actual component use in Material Issue.
+- **A posted entry's Job Order shows "no longer open for production":** its lines are complete (often by this very entry). It stays linked; it is only no longer offered for new entries.
 - **Job Order progress did not update:** check the selected batch and eligible matching item lines; progress updates only after the production commit succeeds.
 - **Cost/account error:** use a positive unit cost, verify the item's Consumption account, and ensure the inventory account is configured.
 - **Batch-tracked output rejected:** enter a batch number and valid expiry where the item requires it.

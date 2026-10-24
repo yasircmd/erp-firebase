@@ -3258,14 +3258,19 @@ async function getProductionEntries(idToken, limit, page) {
     .filter(e => userCanAccessCompany_(user.profile, e.CompanyID))
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
   // [PORT CHANGE list-paging-production] Gmail-style paging and server-side search.
+  let result;
   if (page) {
-    return __listPaging.pageOf(all, page, { idField: 'ProductionID', idAlso: ['LinkedJVID'], dateField: 'TransactionDate', equals: ['CompanyID', 'Status'],
+    result = __listPaging.pageOf(all, page, { idField: 'ProductionID', idAlso: ['LinkedJVID'], dateField: 'TransactionDate', equals: ['CompanyID', 'Status'],
       text: e => `${e.TransactionNumber} ${e.Description}` });
+  } else {
+    const useAll = limit === 'all';
+    const capped = useAll ? all : all.slice(0, 100);
+    result = { entries: capped, total: all.length };
   }
-
-  const useAll = limit === 'all';
-  const capped = useAll ? all : all.slice(0, 100);
-  return { entries: capped, total: all.length };
+  // [NEW DEVELOPMENT production-job-order-number] the returned entries' Job Order numbers, by id.
+  const batches = (await getMovedMany_(idToken, 'jobOrderBatches', [...new Set(result.entries.map(e => e.JobOrderID).filter(Boolean))])) || {};
+  result.entries.forEach(e => { if (e.JobOrderID) e.JobOrderNumber = (batches[e.JobOrderID] && batches[e.JobOrderID].BatchNumber) || ''; });
+  return result;
 }
 
 // Reversing a Production Entry takes the produced item back OUT — same

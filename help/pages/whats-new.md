@@ -12,6 +12,15 @@ screen.
 
 ## 24/10/2026
 
+- **More room on wide screens.** [Employees](employees.html) and
+  [Sales Order](sales-order.html) use the width of a wide monitor, and the
+  Sales Order's item names have more space. Other screens keep the usual
+  width.
+- **Production Entry opens complete.** An entry opened while the screen
+  was still loading showed its items as "not found" and its Job Order as
+  not linked. It now waits for the lists, and a posted entry's Job Order
+  shows by its number even once it is complete. See
+  [Production Entry](production.html).
 - **No error after going Back while a screen loads.** Leaving a screen
   (for example PDC Received or PDC Issued) before it has finished loading,
   by Back or by opening another module, no longer shows an error message.

@@ -2659,7 +2659,18 @@
       // module (owner, 2026-09-29).
       document.getElementById('app-copyright').classList.remove('hidden');
       document.getElementById('help-btn').href = '/help/';
+      setPageWidth(false);
       applyTreeTitle();
+    }
+
+    // A screen with wide tables (Employees, Sales Order) marks itself
+    // data-wide-screen and gets the screen's width, up to 1792px, instead of
+    // the usual 1152px column (owner, 2026-10-24). Home and every other
+    // screen keep the column.
+    function setPageWidth(wide) {
+      const app = document.getElementById('app-container');
+      app.classList.toggle('max-w-6xl', !wide);
+      app.classList.toggle('max-w-[112rem]', wide);
     }
 
     // ---------- GENERIC MODULE LOADER ----------
@@ -2759,6 +2770,7 @@
           // Never the previous screen's entry point, run again on this one.
           window.initModule = undefined;
           injectHtmlWithScripts(container, result.html);
+          setPageWidth(Boolean(container.querySelector('[data-wide-screen]')));
           // Each fragment defines window.initModule(token, canWrite) as
           // its single entry point. The "token" concept itself is now
           // obsolete for any PORTED module (callable functions verify
