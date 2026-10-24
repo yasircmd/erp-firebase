@@ -35,11 +35,11 @@ document.
 | 13 | F2: find a module; arrow keys to choose | F2 focuses the module search; ↑ ↓ move through the matches, Enter opens. |
 | 14 | Tab and Enter to open modules without the mouse | The menu's items reachable by Tab, opened by Enter; a visible focus ring. |
 | 15 | F1: Help | F1 opens the Help page of the screen in use (Home: Getting started). |
-| 16 | Default 5 favourites per role | **Q270:** set by whom (Admin in Roles & Permissions)? Given to a user who has none yet, or also added to users who have some? Recommendation: per role in Roles, given only to users with no favourites, so nobody's own choice is overwritten. |
-| 17 | Sign in with a user ID as well as the email | Firebase signs in by email; the ERP can look the user ID up and sign in with its email. **Q271:** is the user ID the existing "username" (unique per corporate)? |
-| 18 | Light / dark remembered with the user, light by default | **Q272:** saved with the user (every device) and light for a new user? Today it is per device. |
-| 19 | Choose companies at the top, after the company name; one chosen = the one-company rule; remembered | **Q273:** a filter of the companies a user is assigned (not a change of rights)? Every screen then defaults to the chosen ones, as the one-company rule does today. |
-| 20 | Hide details in view-source before login | **Already decided "not planned"** (2026-10-14): the page holds only the public web config; security is the deny-all rules and the functions' checks. Offered again: a review that nothing sensitive is in the page source (minifying would hide nothing real). **Q274:** confirm. |
+| 16 | Default 5 favourites per role | **Decided (Q270, owner 2026-10-24):** up to 5 per role, set in Roles & Permissions; a user with no favourites of their own gets their role's; nobody's own choice is overwritten. |
+| 17 | Sign in with a user ID as well as the email | Firebase signs in by email; the ERP can look the user ID up and sign in with its email. **Decided (Q271):** the existing Username, made unique per corporate (case-insensitive); email sign-in stays. A username two users share signs in by email only until one is renamed. |
+| 18 | Light / dark remembered with the user, light by default | **Decided (Q272):** saved with the user, on every device; light for a user who never chose (today: per device, dark by default). |
+| 19 | Choose companies at the top, after the company name; one chosen = the one-company rule; remembered | **Decided (Q273):** a filter among the user's assigned companies, not a change of rights; screens default to the chosen ones (one chosen = the one-company rule); remembered for the next sign-in. |
+| 20 | Hide details in view-source before login | **Already decided "not planned"** (2026-10-14): the page holds only the public web config; security is the deny-all rules and the functions' checks. Offered again: a review that nothing sensitive is in the page source (minifying would hide nothing real). **Q274:** stays not planned (2026-10-14). |
 
 ## Wave 3: sales, purchasing and finance flows
 
@@ -75,5 +75,5 @@ document.
 
 ## Open questions, in the order they are needed
 
-Wave 1: Q266–Q269 all decided. Wave 2: Q270–Q274. Wave 3: Q275, Q276.
+Wave 1: Q266–Q269 all decided. Wave 2: Q270–Q274 decided. Wave 3: Q275, Q276.
 Wave 4: Q277–Q279. Wave 5: Q280–Q282.
