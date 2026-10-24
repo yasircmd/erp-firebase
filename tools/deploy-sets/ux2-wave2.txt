@@ -1,0 +1,27 @@
+# UX round 2, wave 2: Home, sign-in and keyboard (owner, 2026-10-24;
+# docs/modules/UX_ROUND2.md items 13-19, decisions 270-273).
+# Run with --screens (Roles & Permissions: each role's default favourites).
+# Hosting too (tools/deploy-hosting.sh): the shell (keyboard, theme, user ID
+# sign-in, company filter) and the Help.
+# No rules change: userPreferences and roleFavorites sit under the deny-all
+# rules like every other path, read and written only by these functions.
+#
+# Sign-in and the session (session.js): sign-in by user ID (userIdSignIn,
+# new: needs the public-invoker binding, as every new callable); the
+# session returns the user's theme.
+userIdSignIn
+completeLogin
+restoreSession
+corporateSignIn
+getMyTree
+# Favourites and theme (favorites.js): role defaults, saved theme.
+getMyFavorites
+toggleFavorite
+saveMyTheme
+getRoleFavorites
+saveRoleFavorites
+# Company filter (companies.js): getActiveCompanies marks the chosen ones.
+getActiveCompanies
+saveMyCompanies
+# Usernames unique in the corporate (patch username-unique).
+saveFirebaseUser
