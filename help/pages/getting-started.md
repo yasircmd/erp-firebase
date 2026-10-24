@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-10-24
-fingerprint: 42a38366521be530
+fingerprint: 358cf990d75778e2
 ---
 ## Signing in
 
@@ -44,6 +44,24 @@ You see only the screens your role allows.
 The title above the menu names your company: your only company, or else
 the main one (reference code 01) of the companies you are assigned. When a
 company is assigned to you, it shows as soon as you come back to Home.
+
+### Choosing your companies
+
+With more than one company, the button after the title (**All companies**
+at first) chooses which of them you work in. Tick the companies and select
+**Apply**:
+
+- The screens offer only the companies you chose in their company lists,
+  and with one chosen they fill it in for you, as for a user with only one
+  company. The title then names it.
+- It's a filter, not a change of what you may do: every company is still
+  yours, and **Select all** brings them all back. A document already saved
+  for another company still shows its company.
+- Your choice is kept for the next time you sign in, on any computer.
+
+For example, an accountant assigned *Example Trading* and *Example
+Services* who works on Example Services all week chooses it alone, and no
+longer picks the company on each entry.
 
 - Select an area to open it; select a screen to start working in it.
 - **Search modules** (top bar): type part of a screen's name to filter the

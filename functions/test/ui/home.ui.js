@@ -60,6 +60,10 @@ function stubs() {
           : favorites.concat([{ moduleId: arg.moduleId, label: arg.moduleLabel }]);
         return { favorites };
       case 'getActiveCompanies': return window.__companies || [];
+      case 'saveMyCompanies':
+        window.__savedCompanies = arg.companyIds;
+        (window.__companies || []).forEach(c => { c.Chosen = arg.companyIds.includes(c.CompanyID); });
+        return { companyIds: arg.companyIds };
       case 'getRecurringJournalsDueForUser': return window.__recurringDue || [];
       case 'getMyDraftsForUser': return window.__drafts || [];
       case 'getMyFollowUpTasksForUser': return window.__followUps || [];
@@ -537,6 +541,51 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await page.getAttribute('html', 'data-theme'), null, 'dark once signed in');
     assert.equal(await page.evaluate(() => localStorage.getItem('erp-theme')), 'dark', 'and remembered on this device');
     assert.equal(await page.evaluate(() => window.__savedTheme), undefined, 'nothing saved: it was not changed');
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
+  await check('company filter: after the name, for several companies; one chosen names it; saved; kept for the next sign-in; Home only (decision 273)', async () => {
+    const two = [{ CompanyID: 'C1', LegalName: 'Main Co', CompanyRefCode: '01' }, { CompanyID: 'C2', LegalName: 'Second Co', CompanyRefCode: '02' }];
+    let page = await open(null, [two[0]]);
+    await page.waitForFunction(() => /Main Co/.test(document.getElementById('app-title').textContent));
+    assert.equal(await page.isVisible('#company-filter-btn'), false, 'one company: nothing to choose');
+    await page.close();
+
+    page = await open(null, two);
+    await page.waitForSelector('#company-filter-btn', { state: 'visible' });
+    assert.equal((await page.textContent('#company-filter-label')).trim(), 'All companies');
+    await page.click('#company-filter-btn');
+    assert.deepEqual(await page.$$eval('.company-filter-check', cs => cs.map(c => c.checked)), [true, true]);
+    // None chosen: refused, nothing saved.
+    await page.uncheck('.company-filter-check[value="C1"]');
+    await page.uncheck('.company-filter-check[value="C2"]');
+    await page.click('#company-filter-apply');
+    await page.waitForSelector('#app-dialog:not(.hidden)');
+    assert.match(await page.textContent('#app-dialog'), /Choose at least one company/);
+    await page.click('#app-dialog-ok');
+    assert.equal(await page.evaluate(() => window.__savedCompanies), undefined);
+    await page.check('.company-filter-check[value="C2"]');
+    await page.click('#company-filter-apply');
+    await page.waitForFunction(() => /Second Co/.test(document.getElementById('app-title').textContent));
+    assert.deepEqual(await page.evaluate(() => window.__savedCompanies), ['C2'], 'saved with the user');
+    assert.equal(await page.isVisible('#company-filter-panel'), false, 'closed once applied');
+    assert.equal((await page.textContent('#company-filter-label')).trim(), '1 of 2 companies');
+    assert.equal((await page.textContent('#app-title')).trim(), 'ERP Module Hierarchy Tree - Second Co', 'one chosen: its name');
+    // Not inside a module.
+    await page.click('#toggle-expand-btn');
+    await page.click('#tree-container li[data-module-id="CUSTOMERINVOICE"]');
+    await page.waitForSelector('#stub-module');
+    assert.equal(await page.isVisible('#company-filter-btn'), false, 'Home only');
+    await page.click('#back-to-tree-btn');
+    await page.waitForSelector('#company-filter-btn', { state: 'visible' });
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+
+    // The next sign-in: the saved choice comes back from the server.
+    page = await open(null, [Object.assign({ Chosen: false }, two[0]), Object.assign({ Chosen: true }, two[1])]);
+    await page.waitForFunction(() => /Second Co/.test(document.getElementById('app-title').textContent));
+    assert.equal((await page.textContent('#company-filter-label')).trim(), '1 of 2 companies');
     assert.deepEqual(page.__errors, []);
     await page.close();
   });

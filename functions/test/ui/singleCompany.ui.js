@@ -8,7 +8,9 @@
 //  - on entry screens, New opens a form with the company already set,
 //    and Back leaves straight away (the fill doesn't count as an unsaved
 //    change);
-//  - a user with two companies gets nothing filled in.
+//  - a user with two companies gets nothing filled in, and both offered;
+//  - one with two who chose one at the top (the company filter, decision
+//    273) gets the chosen one filled in, and the other hidden.
 //   node functions/test/ui/singleCompany.ui.js [MODULE ...]
 // Run an emulator suite that uses _helpers.js's all-modules permissions
 // first (e.g. vendorMaster), so the fixture data exists.
@@ -33,13 +35,19 @@ async function seedMultiCompanyUser() {
     method: 'PUT', headers: { Authorization: 'Bearer owner' },
     body: JSON.stringify({ status: 'Active', role: 'Admin', username: 'multi', fullName: 'Two Companies', AssignedCompanies: ['C1', 'C2'] })
   });
+  for (const [path, body] of [
+    ['users/u-chose', { status: 'Active', role: 'Admin', username: 'chose', fullName: 'Chose One', AssignedCompanies: ['C1', 'C2'] }],
+    ['userPreferences/u-chose', { Companies: ['C1'] }]]) {
+    await fetch('http://127.0.0.1:9000/' + path + '.json?ns=erp1-8f4cd-default-rtdb', { method: 'PUT', headers: { Authorization: 'Bearer owner' }, body: JSON.stringify(body) });
+  }
 }
 
 // Every company select on the page: id, value, the blank option's label,
 // and whether the user's companies are among its options.
 const companySelects = page => page.$$eval('#module-container select[id*="company"]', ss => ss.map(s => {
   const blank = Array.from(s.options).find(o => o.value === '');
-  return { id: s.id, value: s.value, blank: blank ? blank.textContent : null, hasC1: Array.from(s.options).some(o => o.value === 'C1') };
+  const c2 = Array.from(s.options).find(o => o.value === 'C2');
+  return { id: s.id, value: s.value, blank: blank ? blank.textContent : null, hasC1: Array.from(s.options).some(o => o.value === 'C1'), c2: c2 ? (c2.hidden ? 'hidden' : 'shown') : 'none' };
 }));
 
 (async () => {
@@ -107,7 +115,10 @@ const companySelects = page => page.$$eval('#module-container select[id*="compan
     const problems = [];
     try {
       const page = await open(mod, 'u-multi');
-      for (const s of await companySelects(page)) if (s.hasC1 && s.value !== '') problems.push(s.id + ' filled with "' + s.value + '" for a two-company user');
+      for (const s of await companySelects(page)) {
+        if (s.hasC1 && s.value !== '') problems.push(s.id + ' filled with "' + s.value + '" for a two-company user');
+        if (s.c2 === 'hidden') problems.push(s.id + ' hides C2 from a user who chose both');
+      }
       const prefix = await page.evaluate(() => {
         const btn = document.querySelector('#module-container [id$="-new-btn"]');
         return btn && btn.checkVisibility() ? btn.id.replace(/-new-btn$/, '') : '';
@@ -124,6 +135,28 @@ const companySelects = page => page.$$eval('#module-container select[id*="compan
       problems.push(e.message.split('\n')[0]);
     }
     results.push([problems.length ? 'FAIL' : 'PASS', mod, 'u-multi', '', '', problems.join(' | ')]);
+  }
+
+  // Two companies, C1 chosen at the top: as one.
+  for (const mod of MULTI_MODULES) {
+    const problems = [];
+    let hidden = 0;
+    try {
+      const page = await open(mod, 'u-chose');
+      for (const s of await companySelects(page)) {
+        if (!s.hasC1) continue;
+        const want = s.blank !== null && SHARED.test(s.blank) ? '' : 'C1';
+        if (s.value !== want) problems.push(s.id + ' is "' + s.value + '", expected "' + want + '"');
+        if (s.c2 === 'shown') problems.push(s.id + ' offers C2, not chosen');
+        if (s.c2 === 'hidden') hidden++;
+      }
+      if (!hidden) problems.push('no company dropdown with C2 to check');
+      problems.push(...await failedCalls(page), ...page.__errors);
+      await page.close();
+    } catch (e) {
+      problems.push(e.message.split('\n')[0]);
+    }
+    results.push([problems.length ? 'FAIL' : 'PASS', mod, 'u-chose', hidden + ' hide C2', '', problems.join(' | ')]);
   }
 
   await browser.close(); server.close();

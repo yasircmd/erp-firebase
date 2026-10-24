@@ -528,6 +528,19 @@
       <div class="flex items-center gap-3">
         <button id="back-to-tree-btn" onclick="handleBackToHierarchy()" class="hidden bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-arrow-left"></i> Back to Hierarchy</button>
         <h1 id="app-title" class="text-xl font-bold text-blue-400"><i class="fa-solid fa-sitemap"></i> ERP Module Hierarchy Tree</h1>
+        <!-- Which of the user's companies the screens default to (COMPANY FILTER below); Home only, for a user with more than one. -->
+        <div id="company-filter" class="relative hidden">
+          <button id="company-filter-btn" onclick="toggleCompanyFilter()" title="Which of your companies the screens offer and default to" class="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white px-3 py-1.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700">
+            <i class="fa-solid fa-building text-slate-500"></i> <span id="company-filter-label">All companies</span> <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 ml-1"></i>
+          </button>
+          <div id="company-filter-panel" class="hidden absolute left-0 mt-2 w-72 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 p-3">
+            <div id="company-filter-list" class="space-y-1 max-h-64 overflow-y-auto text-xs text-slate-300"></div>
+            <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-700">
+              <button type="button" onclick="document.querySelectorAll('.company-filter-check').forEach(c => { c.checked = true; })" class="text-xs text-blue-400 hover:text-blue-300">Select all</button>
+              <button type="button" id="company-filter-apply" onclick="saveCompanyFilter()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-1.5 rounded">Apply</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="flex items-center gap-2">
         <div id="tree-controls" class="flex items-center gap-2">
@@ -926,7 +939,7 @@
       if (!user) {
         currentUser = null;
         pendingCorporateId = null;
-        mainCompanyName = ''; setSingleCompany([]);
+        myCompanies = []; chosenCompanyIds = []; showCompanyChoice();
         clearTimeout(idleTimer); clearTimeout(idleWarningTimer); hideIdleWarning();
         showTreeNav();
         document.getElementById('tree-container').innerHTML = '';
@@ -1781,15 +1794,57 @@
     function loadMainCompanyName() {
       rpc
         .withSuccessHandler(result => {
-          const companies = result || [];
-          const main = companies.length === 1 ? companies[0] : companies.find(c => c.CompanyRefCode === '01');
-          mainCompanyName = main ? main.LegalName : '';
-          applyTreeTitle();
-          setSingleCompany(companies);
+          myCompanies = result || [];
+          chosenCompanyIds = myCompanies.filter(c => c.Chosen !== false).map(c => c.CompanyID);
+          showCompanyChoice();
         })
-        .withFailureHandler(() => { mainCompanyName = ''; setSingleCompany([]); })
+        .withFailureHandler(() => { myCompanies = []; chosenCompanyIds = []; showCompanyChoice(); })
         .getActiveCompanies();
     }
+
+    // ---------- COMPANY FILTER ----------
+    // A user with several companies chooses, after the company name at the
+    // top, which of them the screens offer and default to (owner,
+    // 2026-10-24, decision 273). A filter, not rights: every company stays
+    // theirs, and choosing all of them again brings each back. One chosen
+    // is the one-company rule below; the title then names it. Saved with
+    // the user (saveMyCompanies) for the next sign-in, on any device.
+    let myCompanies = [], chosenCompanyIds = [];
+    function showCompanyChoice() {
+      const chosen = myCompanies.filter(c => chosenCompanyIds.includes(c.CompanyID));
+      const main = chosen.length === 1 ? chosen[0] : chosen.find(c => c.CompanyRefCode === '01');
+      mainCompanyName = main ? main.LegalName : '';
+      applyTreeTitle();
+      document.getElementById('company-filter').classList.toggle('hidden', myCompanies.length < 2 || !onHome());
+      document.getElementById('company-filter-label').textContent = chosen.length === myCompanies.length ? 'All companies' : chosen.length + ' of ' + myCompanies.length + ' companies';
+      setCompanyFilter(chosen.map(c => c.CompanyID), myCompanies.map(c => c.CompanyID));
+    }
+    function toggleCompanyFilter() {
+      const panel = document.getElementById('company-filter-panel');
+      if (panel.classList.contains('hidden')) {
+        document.getElementById('company-filter-list').innerHTML = myCompanies.map(c =>
+          '<label class="flex items-center gap-2 px-1 py-1 rounded hover:bg-slate-700 cursor-pointer"><input type="checkbox" class="company-filter-check" value="' + escapeHtml(c.CompanyID) + '"' +
+          (chosenCompanyIds.includes(c.CompanyID) ? ' checked' : '') + '> <span class="truncate">' + escapeHtml(c.LegalName || c.CompanyID) + '</span></label>').join('');
+      }
+      panel.classList.toggle('hidden');
+    }
+    function closeCompanyFilter() { document.getElementById('company-filter-panel').classList.add('hidden'); }
+    function saveCompanyFilter() {
+      const ids = Array.from(document.querySelectorAll('.company-filter-check:checked')).map(c => c.value);
+      if (!ids.length) { appAlert('Choose at least one company.'); return; }
+      const btn = document.getElementById('company-filter-apply');
+      btn.disabled = true;
+      rpc
+        .withSuccessHandler(r => {
+          btn.disabled = false;
+          chosenCompanyIds = r.companyIds;
+          closeCompanyFilter();
+          showCompanyChoice();
+        })
+        .withFailureHandler(err => { btn.disabled = false; appAlert(err.message || String(err)); })
+        .saveMyCompanies({ companyIds: ids });
+    }
+    // ---------- END COMPANY FILTER ----------
 
     // ---------- SINGLE-COMPANY DEFAULT ----------
     // A user assigned exactly one active company never has to pick it:
@@ -1808,15 +1863,25 @@
     // event.isTrusted for the same reason.
     // A blank option that is a real choice ("Shared across all
     // companies" on master data, "None") is left alone.
-    let singleCompanyId = '';
-    function setSingleCompany(companies) {
-      singleCompanyId = companies && companies.length === 1 ? companies[0].CompanyID : '';
+    // The company filter (above) narrows the same dropdowns: a company not
+    // chosen is hidden from them (and so from the search picker), unless
+    // it's the one already set, e.g. on a saved document.
+    let singleCompanyId = '', knownCompanyIds = new Set(), hiddenCompanyIds = new Set();
+    function setCompanyFilter(chosenIds, allIds) {
+      singleCompanyId = chosenIds.length === 1 ? chosenIds[0] : '';
+      knownCompanyIds = new Set(allIds);
+      hiddenCompanyIds = new Set(allIds.filter(id => !chosenIds.includes(id)));
       applySingleCompanyDefault();
     }
     function applySingleCompanyDefault() {
-      if (!singleCompanyId) return;
+      if (!knownCompanyIds.size) return;
       document.querySelectorAll('#module-container select[id*="company"]').forEach(select => {
-        if (select.value !== '' || select.disabled) return;
+        Array.from(select.options).forEach(o => {
+          if (!knownCompanyIds.has(o.value)) return;
+          const hide = hiddenCompanyIds.has(o.value) && o.value !== select.value;
+          if (o.hidden !== hide) o.hidden = hide;
+        });
+        if (!singleCompanyId || select.value !== '' || select.disabled) return;
         const options = Array.from(select.options);
         if (!options.some(o => o.value === singleCompanyId)) return;
         const blank = options.find(o => o.value === '');
@@ -2671,6 +2736,8 @@
     document.addEventListener('click', function (e) {
       const menu = document.getElementById('user-menu');
       if (menu && !menu.contains(e.target)) closeUserMenu();
+      const filter = document.getElementById('company-filter');
+      if (filter && !filter.contains(e.target) && !e.target.closest('#app-dialog')) closeCompanyFilter(); // its own message keeps it open
     });
 
     // Same reasoning as the activity listeners above — wrapped rather
@@ -2712,6 +2779,7 @@
       document.getElementById('tree-view-container').classList.remove('hidden');
       document.getElementById('tree-controls').classList.remove('hidden');
       document.getElementById('user-menu').classList.remove('hidden');
+      document.getElementById('company-filter').classList.toggle('hidden', myCompanies.length < 2);
       // The copyright line shows on the login page and Home only, not in a
       // module (owner, 2026-09-29).
       document.getElementById('app-copyright').classList.remove('hidden');
@@ -2793,8 +2861,9 @@
       document.getElementById('tree-controls').classList.add('hidden');
       document.getElementById('tree-view-container').classList.add('hidden');
       document.getElementById('user-menu').classList.add('hidden');
+      document.getElementById('company-filter').classList.add('hidden');
       document.getElementById('app-copyright').classList.add('hidden'); // login and Home only
-      closeUserMenu();
+      closeUserMenu(); closeCompanyFilter();
       document.getElementById('help-btn').href = '/help/?m=' + encodeURIComponent(moduleId); // this screen's help page
 
       // Only ONE loading indicator now, not two — the module container's

@@ -8,7 +8,7 @@ const { getModuleFragment } = require('./src/getModuleFragment');
 const { completeLogin, corporateSignIn, userIdSignIn, restoreSession, getMyTree } = require('./src/session');
 const { getMyFavorites, toggleFavorite, saveMyTheme, getRoleFavorites, saveRoleFavorites } = require('./src/favorites');
 const { getPendingApprovalsForUser, getMyRejectedSubmissions, closeRejectedSubmission, getMyDraftsForUser } = require('./src/homeTasks');
-const { getActiveCompanies } = require('./src/companies');
+const { getActiveCompanies, saveMyCompanies } = require('./src/companies');
 const {
   saveStockAdjustmentDraft, postStockAdjustment, decideStockAdjustmentApproval,
   deleteStockAdjustmentDraft, getStockAdjustmentEntries, reverseStockAdjustment
@@ -76,6 +76,7 @@ exports.getMyRejectedSubmissions = getMyRejectedSubmissions;
 exports.closeRejectedSubmission = closeRejectedSubmission;
 exports.getMyDraftsForUser = getMyDraftsForUser;
 exports.getActiveCompanies = getActiveCompanies;
+exports.saveMyCompanies = saveMyCompanies;
 exports.saveStockAdjustmentDraft = saveStockAdjustmentDraft;
 exports.postStockAdjustment = postStockAdjustment;
 exports.decideStockAdjustmentApproval = decideStockAdjustmentApproval;

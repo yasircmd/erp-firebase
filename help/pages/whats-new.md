@@ -12,6 +12,10 @@ screen.
 
 ## 24/10/2026
 
+- **Choose your companies at the top.** With more than one company, the
+  button after the title chooses which of them the screens offer; with one
+  chosen, they fill it in for you. Your choice is kept for the next sign-in.
+  See [Getting started](getting-started.html#choosing-your-companies).
 - **Sign in with your user ID.** On the sign-in page, enter your email or
   your user ID (your Username in User Management). Usernames are now
   unique in your organisation. See [Getting started](getting-started.html#signing-in).
