@@ -32,3 +32,13 @@ exports.toggleFavorite = onCallInCorporate(onCallOptions, async (request) => {
   await ref.set(favorites);
   return { favorites: favorites };
 });
+
+// The light / dark theme, saved with the user (owner, 2026-10-24, decision
+// 272): userPreferences/{uid}, apart from the profile User Management saves.
+exports.saveMyTheme = onCallInCorporate(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const theme = String(request.data && request.data.theme || '');
+  if (theme !== 'light' && theme !== 'dark') throw new HttpsError('invalid-argument', 'The theme is light or dark.');
+  await rtdb.ref('userPreferences/' + user.uid + '/Theme').set(theme);
+  return { theme };
+});

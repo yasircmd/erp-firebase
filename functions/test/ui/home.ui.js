@@ -50,7 +50,8 @@ function stubs() {
   window.__stub = async (name, arg) => {
     window.__calls.push(name);
     switch (name) {
-      case 'restoreSession': return { fullName: 'Muhammad Yasir Abdul Rahman Al Long Surname', roleName: 'Administrator', data: tree };
+      case 'restoreSession': return { fullName: 'Muhammad Yasir Abdul Rahman Al Long Surname', roleName: 'Administrator', data: tree, theme: window.__userTheme || 'light' };
+      case 'saveMyTheme': window.__savedTheme = arg.theme; return { theme: arg.theme };
       case 'getMyTree': return tree;
       case 'getMyFavorites': return favorites;
       case 'toggleFavorite':
@@ -84,7 +85,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
   const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(INDEX); }).listen(8131);
   const browser = await chromium.launch();
 
-  async function open(theme, companies) {
+  async function open(theme, companies, userTheme) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     page.__errors = [];
     page.on('pageerror', e => page.__errors.push(e.message));
@@ -95,6 +96,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     });
     await page.addInitScript(stubs);
     if (theme) await page.addInitScript(t => localStorage.setItem('erp-theme', t), theme);
+    // The signed-in user's own theme (decision 272): what they last chose, else light.
+    await page.addInitScript(t => { window.__userTheme = t; }, userTheme || theme || 'light');
     if (companies) await page.addInitScript(c => { window.__companies = c; }, companies);
     await page.goto('http://127.0.0.1:8131/');
     await page.waitForSelector('#tree-container li[data-module-id]', { state: 'attached', timeout: 30000 });
@@ -115,14 +118,20 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.close();
   });
 
-  await check('theme: switched from the user menu, which is hidden inside a module', async () => {
+  await check('theme: light by default; switched from the user menu and saved with the user; hidden inside a module (decision 272)', async () => {
     const page = await open();
     assert.equal(await page.locator('#user-menu-panel #theme-toggle-btn').count(), 1);
-    assert.equal(await page.textContent('#theme-toggle-label'), 'Light mode');
-    await menu(page, '#theme-toggle-btn');
-    assert.equal(await page.getAttribute('html', 'data-theme'), 'light');
+    assert.equal(await page.getAttribute('html', 'data-theme'), 'light', 'a user who never chose: light');
     assert.equal(await page.textContent('#theme-toggle-label'), 'Dark mode');
-    assert.equal(await page.evaluate(() => localStorage.getItem('erp-theme')), 'light');
+    await menu(page, '#theme-toggle-btn');
+    assert.equal(await page.getAttribute('html', 'data-theme'), null);
+    assert.equal(await page.textContent('#theme-toggle-label'), 'Light mode');
+    assert.equal(await page.evaluate(() => localStorage.getItem('erp-theme')), 'dark');
+    assert.equal(await page.evaluate(() => window.__savedTheme), 'dark', 'saved with the user');
+    if (await page.isHidden('#theme-toggle-btn')) await page.click('#user-menu-btn');
+    await page.click('#theme-toggle-btn');
+    assert.equal(await page.getAttribute('html', 'data-theme'), 'light');
+    assert.equal(await page.evaluate(() => window.__savedTheme), 'light');
     await page.click('#toggle-expand-btn');
     await page.click('#tree-container li[data-module-id="CUSTOMERINVOICE"]');
     await page.waitForSelector('#stub-module');
@@ -518,6 +527,16 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     // F2 does nothing inside a screen.
     await page.keyboard.press('F2');
     assert.notEqual(await focused(), 'module-search');
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
+  await check('theme: the user\'s own choice follows them to another device (decision 272)', async () => {
+    // A device that last showed light; the user chose dark elsewhere.
+    const page = await open('light', null, 'dark');
+    assert.equal(await page.getAttribute('html', 'data-theme'), null, 'dark once signed in');
+    assert.equal(await page.evaluate(() => localStorage.getItem('erp-theme')), 'dark', 'and remembered on this device');
+    assert.equal(await page.evaluate(() => window.__savedTheme), undefined, 'nothing saved: it was not changed');
     assert.deepEqual(page.__errors, []);
     await page.close();
   });

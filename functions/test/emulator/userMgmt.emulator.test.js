@@ -66,3 +66,17 @@ test('Last Login: set by a sign-in (completeLogin), not by a wrong Corporate ID 
   const list = await call('u-admin', 'getAllFirebaseUsers');
   assert.equal(list.find(u => u.id === 'u-viewer').lastLogin, stamp);
 });
+
+// Decision 272 (owner, 2026-10-24): light / dark saved with the user, on
+// every device; light for one who never chose. Kept apart from the profile,
+// so a User Management save can't lose it.
+test('theme: light until chosen; saved with the user; kept through a User Management save', async () => {
+  assert.equal((await call('u-viewer', 'restoreSession')).theme, 'light');
+  assert.deepEqual(await call('u-viewer', 'saveMyTheme', { theme: 'dark' }), { theme: 'dark' });
+  assert.equal((await call('u-viewer', 'restoreSession')).theme, 'dark');
+  assert.equal((await call('u-admin', 'restoreSession')).theme, 'light', 'each user their own');
+  const saved = await call('u-admin', 'saveFirebaseUser', { userData: { id: 'u-viewer', username: 'viewer', fullName: 'Viewer', role: 'Viewer', status: 'Active', assignedCompanies: ['C1'] } });
+  assert.equal(saved.success, true, JSON.stringify(saved));
+  assert.equal((await call('u-viewer', 'restoreSession')).theme, 'dark');
+  await assert.rejects(call('u-viewer', 'saveMyTheme', { theme: 'blue' }), /light or dark/);
+});

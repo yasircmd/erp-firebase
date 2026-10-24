@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-10-24
-fingerprint: ed6b583e3119029d
+fingerprint: 0a8604a4a5b037f5
 ---
 ## Signing in
 
@@ -84,7 +84,8 @@ Select your name (top right) for:
 
 - **My Portal**: your own leave, payslips and requests, when your ERP user
   is linked to an employee record;
-- **Light mode / Dark mode**;
+- **Light mode / Dark mode**: your choice is kept with you, on every
+  computer you sign in on. The ERP starts in light mode until you choose;
 - **Configure Favourites**;
 - **Refresh**: reloads the menu (after an administrator changed it or your
   rights);

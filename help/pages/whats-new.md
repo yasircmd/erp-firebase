@@ -12,6 +12,9 @@ screen.
 
 ## 24/10/2026
 
+- **Light or dark, everywhere you sign in.** Your choice of Light mode or
+  Dark mode now goes with you to every computer. The ERP starts in light
+  mode until you choose. See [Getting started](getting-started.html#the-user-menu).
 - **The menu by keyboard.** **F2** goes to Search modules, the arrow keys
   move through the menu, **Enter** opens a screen, and **F1** opens Help.
   See [Getting started](getting-started.html#the-menu).

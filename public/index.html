@@ -331,9 +331,12 @@
     // Applied before the body renders (this script runs synchronously
     // in <head>, before <body>) to avoid a flash of the wrong theme on
     // load — reading localStorage here, not after DOMContentLoaded.
+    // Light unless this device last showed dark (owner, 2026-10-24,
+    // decision 272); after sign-in the user's own saved theme applies.
     (function () {
-      const saved = localStorage.getItem('erp-theme');
-      if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      let saved = null;
+      try { saved = localStorage.getItem('erp-theme'); } catch (e) { /* storage off: light */ }
+      if (saved !== 'dark') document.documentElement.setAttribute('data-theme', 'light');
     })();
   </script>
   <script>
@@ -1038,16 +1041,18 @@
       document.getElementById('theme-toggle-icon').className = isLight ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
       document.getElementById('theme-toggle-label').textContent = isLight ? 'Dark mode' : 'Light mode';
     }
-    function toggleTheme() {
-      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-      if (isLight) {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('erp-theme', 'dark');
-      } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-        localStorage.setItem('erp-theme', 'light');
-      }
+    // Shown at once, kept on this device for the next page load, and saved
+    // with the signed-in user for every device (decision 272).
+    function applyTheme(theme) {
+      if (theme === 'dark') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', 'light');
+      try { localStorage.setItem('erp-theme', theme === 'dark' ? 'dark' : 'light'); } catch (e) { /* this device only */ }
       updateThemeIcon();
+    }
+    function toggleTheme() {
+      const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      applyTheme(theme);
+      if (currentUser) rpc.withSuccessHandler(() => {}).withFailureHandler(() => {}).saveMyTheme({ theme });
     }
     updateThemeIcon();
 
@@ -1137,6 +1142,7 @@
       // Name and role are cut to a fixed width in the header; the full text is in the tooltip.
       document.getElementById('user-menu-btn').title = [response.fullName, response.roleName || response.role].filter(Boolean).join(' · ');
       document.getElementById('user-menu').classList.remove('hidden');
+      if (response.theme) applyTheme(response.theme); // the user's own, on every device
 
       buildTreeUI(response.data);
       loadMainCompanyName();

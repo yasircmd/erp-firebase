@@ -38,7 +38,8 @@ Types; Customer Classifications.
 | Logs | COA renumber log, master import log, period closing state |
 | Setup | HR Setup (grades, designations, fields, document types, leave types, working calendars, schedules, leaving reasons), Payroll Setup (pay elements, accounting, payment formats, loan and accrual types, reimbursement categories, request handlers), Approval Configuration, numbering formats, invoice, e-invoice, barcode, retail and FX settings |
 
-**Never offered (as today):** users, roles, permissions, the menu tree and
+**Never offered (as today):** users, roles, permissions, the menu tree, the
+users' own preferences (theme) and
 favourites; the firm's own stores (the corporate directory, groups, notes,
 Support, screen releases, document storage connection, system flags).
 

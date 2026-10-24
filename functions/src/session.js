@@ -30,8 +30,12 @@ async function buildSessionResponse(context) {
   const roles = await ensureRolesSeeded();
   const roleName = (roles[user.profile.role] && roles[user.profile.role].Name) || user.profile.role || 'VIEWER';
 
+  // The user's own light / dark choice, on every device; light for one who
+  // never chose (owner, 2026-10-24, decision 272).
+  const prefs = (await rtdb.ref('userPreferences/' + user.uid).get()).val() || {};
   return {
     uid: user.uid,
+    theme: prefs.Theme === 'dark' ? 'dark' : 'light',
     fullName: user.profile.fullName || '',
     role: user.profile.role || 'VIEWER',
     roleName: roleName,

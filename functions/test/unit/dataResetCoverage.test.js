@@ -17,7 +17,7 @@ const files = fs.readdirSync(SRC).filter(f => f.endsWith('.js')).concat(['legacy
 
 // Never offered: who may sign in and see what (users, roles, permissions,
 // the menu and favourites), the firm's own stores, and system state.
-const NEVER = ['users', 'roles', 'permissions', 'tree', 'userFavorites', 'approvalMigrations', 'appState', 'settings', 'system', 'screenReleases',
+const NEVER = ['users', 'roles', 'permissions', 'tree', 'userFavorites', 'userPreferences', 'approvalMigrations', 'appState', 'settings', 'system', 'screenReleases',
   'corporateDirectory', 'corporateGroups', 'corporateNotes', 'supportIssues', 'supportCounters', '__documentStorage'];
 
 // Sub-collections, cleared with their documents (recursive delete): a
