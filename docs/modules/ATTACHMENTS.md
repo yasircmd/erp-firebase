@@ -156,7 +156,7 @@ once, plus the screens.
 |---|---|---|
 | 1 | Storage | **Google Drive.** For now, the owner's own Google Drive, connected once by Admin (owner, 2026-10-03, follow-up); later a Workspace Shared Drive |
 | 2 | Who sees and adds | **Anyone who can open the entry** (module + company access), approvers included |
-| 3 | Removing | **Before posting: the uploader or Admin; after posting: Admin only.** A removed file moves to a "Removed" folder, never deleted |
+| 3 | Removing | **Before posting: the uploader or Admin; after posting: Admin only.** A removed file moves to a "Removed" folder, never deleted (one exception: Data Reset's Supporting Documents moves every file to the storage's trash, DATA_RESET.md decision 286) |
 | 4 | Modules | **All 27 entry modules at once** (one shared component) |
 | 5 | Year folder | The document's own date (as proposed; not asked) |
 | 6 | Master data | Not now (as proposed; not asked) |

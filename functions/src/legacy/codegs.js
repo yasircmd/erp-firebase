@@ -13,6 +13,7 @@ const __coaScheme = require('../coaScheme');
 const __coaUsage = require('../coaUsage');
 const __companies = require('../companies');
 const __customerPhone = require('../customerPhone');
+const __dataReset = require('../dataReset');
 const __dimensionRules = require('../dimensionRules');
 const __docStore = require('../docStore');
 const __eInvoicing = require('../eInvoicing');
@@ -94,6 +95,10 @@ const markStockTxs_ = (...a) => __salesPosting.markDocs(...a);
 const getStockTxs_ = (idToken, ...a) => __stockStore.getTxs(...a);
 const queryMovedAny_ = (idToken, ...a) => __movedPaths.whereAny(...a);
 const getMovedMany_ = (idToken, ...a) => __movedPaths.getMany(...a);
+const dataResetRefusal_ = (idToken, ...a) => __dataReset.refusal(...a);
+const dataResetClear_ = (idToken, ...a) => __dataReset.clear(...a);
+const dataResetDeleteRecords_ = (idToken, ...a) => __dataReset.deleteRecords(...a);
+const dataResetCount_ = (idToken, ...a) => __dataReset.recordCount(...a);
 const sortedDocs_ = (...a) => __docStore.sorted(...a);
 const planProduction_ = async (idToken, ...a) => { const u = await requireUser_(idToken); return __productionPosting.planProduction(u.profile.username || u.uid, ...a); };
 const productionPlanWriter_ = (...a) => __productionPosting.planWriter(...a);
@@ -281,7 +286,8 @@ const DATA_RESET_CATEGORIES = {
   // every function below that walks .paths or uses .recordsPath checks
   // for this prefix rather than assuming everything is an RTDB path.
   glEntries: { paths: ['firestore:journalEntries', 'gl/counters', 'gl/transactionRefCounter'], recordsPath: 'firestore:journalEntries', label: 'GL Journal Entries', detail: 'JV, CBT, and every stock- or AP/AR-originated entry (GRN, Material Issue, Production, Warehouse Movement, Stock Adjustment, Physical Count, Delivery Note, Vendor Invoice, Customer Invoice) — plus their voucher numbering sequences and the lifetime TXN- audit reference.', group: 'transactional' },
-  stockData: { paths: ['stock/transactions', 'stock/ledger', 'stock/counters'], recordsPath: 'stock/transactions', label: 'Stock Transactions & Ledger', detail: 'GRN, Material Issue, Production, Warehouse Movement, Stock Adjustment, Physical Count, and Delivery Note records, current stock-on-hand balances, stock voucher numbering, and the lifetime STK- audit reference (nested under stock/counters, cleared along with it).', group: 'transactional' },
+  // [NEW DEVELOPMENT data-reset-all-modules] the stock reservations too
+  stockData: { paths: ['stock/transactions', 'stock/ledger', 'stock/counters', 'stock/reservations'], recordsPath: 'stock/transactions', label: 'Stock Transactions & Ledger', detail: 'GRN, Material Issue, Production, Warehouse Movement, Stock Adjustment, Physical Count, and Delivery Note records, current stock-on-hand balances, stock voucher numbering, and the lifetime STK- audit reference (nested under stock/counters, cleared along with it).', group: 'transactional' },
   vendorInvoices: { paths: ['vendorInvoices'], recordsPath: 'vendorInvoices', label: 'Vendor Invoice Processing', detail: 'Every Vendor Invoice record (its own collection, separate from GL Journal Entries and Stock Transactions) — Draft, Posted, and reversal entries alike.', group: 'transactional' },
   customerInvoices: { paths: ['customerInvoices'], recordsPath: 'customerInvoices', label: 'Customer Invoice Processing', detail: 'Every Customer Invoice record (its own collection, separate from GL Journal Entries and Stock Transactions) — Draft, Posted, and reversal entries alike.', group: 'transactional' },
   // [NEW DEVELOPMENT data-reset-opening-balances] docs/modules/OPENING_BALANCES.md
@@ -290,7 +296,8 @@ const DATA_RESET_CATEGORIES = {
   items: { paths: ['items', 'itemCounters'], recordsPath: 'items', label: 'Item Master', detail: 'Every item and the item-code numbering sequence.', group: 'master' },
   itemSubCategories: { paths: ['itemSubCategories'], recordsPath: 'itemSubCategories', label: 'Item Sub-Categories', detail: 'Sub-category master list.', group: 'master' },
   uoms: { paths: ['uoms'], recordsPath: 'uoms', label: 'Units of Measure', detail: 'UOM master list — will reseed defaults (KG/PCS/etc.) next time it\'s opened.', group: 'master' },
-  coa: { paths: ['coa'], recordsPath: 'coa', label: 'Chart of Accounts', detail: 'The entire chart. Clearing this alone, without also clearing GL Journal Entries, will leave every posted entry referencing accounts that no longer exist.', group: 'master' },
+  // [NEW DEVELOPMENT data-reset-all-modules] its renumber log too
+  coa: { paths: ['coa', 'coaRenumberLog'], recordsPath: 'coa', label: 'Chart of Accounts', detail: 'The entire chart. Clearing this alone, without also clearing GL Journal Entries, will leave every posted entry referencing accounts that no longer exist.', group: 'master' },
   companies: { paths: ['companies'], recordsPath: 'companies', label: 'Company Master Data', detail: 'Every company record and its configured accounts.', group: 'master' },
   orgUnits: { paths: ['orgUnits'], recordsPath: 'orgUnits', label: 'Organizational Units', detail: 'Divisions, Branches, Warehouses, Racks, Cost Centers, Profit Centers.', group: 'master' },
   salesTypes: { paths: ['salesTypes'], recordsPath: 'salesTypes', label: 'Sales Types', detail: 'Local Sales, Export Sales, and any other Sales Type configured for Customer Invoice — clearing this without also addressing Customer Invoice will leave posted invoices referencing a Sales Type that no longer exists.', group: 'master' },
@@ -301,7 +308,9 @@ const DATA_RESET_CATEGORIES = {
   fixedAssetSetup: { paths: ['firestore:faClasses', 'firestore:faAccountDetermination', 'firestore:faSettings'], recordsPath: 'firestore:faClasses', label: 'Fixed Asset Configuration', detail: 'Asset classes, account determination and the Fixed Asset Clearing Account of each company. Clearing this while assets exist leaves them without a class.', group: 'master' },
   // [NEW DEVELOPMENT data-reset-recurring-journals] docs/modules/RECURRING_JOURNAL.md
   recurringJournals: { paths: ['recurringJournals'], recordsPath: 'recurringJournals', label: 'Recurring Journal Entries', detail: 'Every recurring journal template with its schedule and run log — Draft, Active, Paused, Completed and Ended alike. The entries its runs posted are in GL Journal Entries: clear both together.', group: 'transactional' },
-  customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications', detail: 'Local/Export and any other classification configured for Customer Master Data — will reseed the Local/Export defaults next time it\'s opened.', group: 'master' }
+  customerClassifications: { paths: ['customerClassifications'], recordsPath: 'customerClassifications', label: 'Customer Classifications', detail: 'Local/Export and any other classification configured for Customer Master Data — will reseed the Local/Export defaults next time it\'s opened.', group: 'master' },
+  // [NEW DEVELOPMENT data-reset-all-modules] docs/modules/DATA_RESET.md
+  ...__dataReset.legacyShaped()
 };
 
 // ============================================================
@@ -5267,7 +5276,7 @@ function summarizeDataResetRecord_(categoryKey, id, r) {
     case 'openingBalanceBatches':
       return 'Opening ' + (r.Kind || '') + ' ' + ((r.JVNumbers || [])[0] || '') + ' — ' + (r.Rows || 0) + ' rows dated ' + (r.OpeningDate || '') + ' [' + (r.Status || '') + ']';
     default:
-      return id;
+      return __dataReset.CATEGORIES[categoryKey] ? __dataReset.summary(categoryKey, id, r) : id; // [NEW DEVELOPMENT data-reset-all-modules]
   }
 }
 
@@ -5317,6 +5326,7 @@ async function clearSelectedRecords(idToken, categoryKey, recordIds, confirmPhra
 
     const cat = DATA_RESET_CATEGORIES[categoryKey];
     if (!cat || !cat.recordsPath) throw new Error('Unknown or unsupported category.');
+    if (cat.handledBy) return { success: true, count: await dataResetDeleteRecords_(idToken, categoryKey, recordIds), linkedCleared: 0 }; // [NEW DEVELOPMENT data-reset-all-modules]
 
     let linkedCleared = 0;
 
@@ -5477,6 +5487,10 @@ async function getDataResetCounts(idToken) {
   await seq.forEach(Object.keys(DATA_RESET_CATEGORIES), async key => {
     const cat = DATA_RESET_CATEGORIES[key];
     let total = 0;
+    if (cat.handledBy) { // [NEW DEVELOPMENT data-reset-all-modules]
+      counts[key] = { label: cat.label, detail: cat.detail, group: cat.group, count: await dataResetCount_(idToken, key), browse: Boolean(cat.recordsPath) };
+      return;
+    }
     await seq.forEach(cat.paths, async path => {
       if (path.indexOf('firestore:') === 0) {
         // A genuine improvement over the RTDB path below, not just
@@ -5488,7 +5502,7 @@ async function getDataResetCounts(idToken) {
       const data = await firebaseDbRequest_(path, 'get', null, idToken);
       if (data && typeof data === 'object') total += Object.keys(data).length;
     });
-    counts[key] = { label: cat.label, detail: cat.detail, group: cat.group, count: total };
+    counts[key] = { label: cat.label, detail: cat.detail, group: cat.group, count: total, browse: Boolean(cat.recordsPath) };
   });
   return counts;
 }
@@ -5549,9 +5563,14 @@ async function clearDataCategories(idToken, categoryKeys, confirmPhrase) {
     const invalid = categoryKeys.filter(key => !DATA_RESET_CATEGORIES[key]);
     if (invalid.length) throw new Error('Unknown category: ' + invalid.join(', '));
 
+    // [NEW DEVELOPMENT data-reset-all-modules] decision 284, before anything is deleted
+    const refused = await dataResetRefusal_(idToken, categoryKeys, DATA_RESET_CATEGORIES);
+    if (refused) throw new Error(refused);
+
     const clearedLabels = [];
     await seq.forEach(categoryKeys, async key => {
       const cat = DATA_RESET_CATEGORIES[key];
+      if (cat.handledBy) { await dataResetClear_(idToken, key); clearedLabels.push(cat.label); return; }
       await seq.forEach(cat.paths, async path => {
         if (path.indexOf('firestore:') === 0) {
           // Firestore's REST API has no single-call "delete this whole

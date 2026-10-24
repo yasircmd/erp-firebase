@@ -97,6 +97,12 @@ const drive = {
   async remove(s, fileId) {
     await driveCall(s, DRIVE + '/files/' + encodeURIComponent(fileId), { method: 'DELETE' });
   },
+  // To the Drive's trash, where it stays 30 days (Data Reset, decision 286).
+  async trash(s, fileId) {
+    await driveCall(s, DRIVE + '/files/' + encodeURIComponent(fileId) + '?fields=id', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true })
+    });
+  },
   async whoAmI(s) {
     const res = await driveCall(s, DRIVE + '/about?fields=user(emailAddress)');
     return ((await res.json()).user || {}).emailAddress || '';
@@ -130,6 +136,7 @@ const memory = {
     await MEM().doc(fileId).update(Object.assign({ Parent: newParentId }, newName ? { Name: newName } : {}));
   },
   async remove(s, fileId) { await MEM().doc(fileId).delete(); },
+  async trash(s, fileId) { await MEM().doc(fileId).update({ Trashed: true }); },
   async whoAmI() { return 'emulator@local'; }
 };
 

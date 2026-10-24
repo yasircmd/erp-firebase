@@ -5,8 +5,8 @@ order: 10
 modules: [DOCUMENTSTORAGE]
 sources: [functions/src/documentStorage.js, functions/src/attachments.js]
 summary: Store and retrieve supporting files for modules, documents and approvals without going outside the ERP.
-reviewed: 2026-10-22
-fingerprint: 1017a1a3ed9666be
+reviewed: 2026-10-24
+fingerprint: 252041a234743159
 ---
 ## What it is for
 
@@ -41,6 +41,7 @@ Only Admin can open Document Storage and connect/disconnect the provider. Other 
 - **A user cannot open a Drive folder:** that is expected; files are opened through ERP records, not by granting direct folder access.
 - **A document is under Drafts or Removed:** draft numbering moves files into their final document folder; removals are retained in the Removed folder for audit.
 - **Disconnecting storage:** this interrupts all file add/open operations; it does not delete existing files from Drive.
+- **Data Reset:** clearing Supporting Documents in [Data Reset](data-reset.html) moves every file to the Drive's trash (kept 30 days), so the storage must be connected at the time. It is the only time the ERP deletes files.
 
 ## Related pages
 

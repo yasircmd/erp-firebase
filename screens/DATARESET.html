@@ -47,6 +47,12 @@
       <div id="dr-master-list" class="space-y-2"></div>
     </div>
 
+    <div>
+      <p class="text-xs font-semibold text-red-400 uppercase mb-2">Setup — Danger Zone</p>
+      <p class="text-xs text-slate-500 mb-3">How the system is set up: HR and Payroll Setup, approvals, numbering and settings. Cleared, they are set again from scratch. Nothing here is pre-selected.</p>
+      <div id="dr-setup-list" class="space-y-2"></div>
+    </div>
+
     <div id="dr-selection-summary" class="hidden bg-slate-800/60 border border-slate-700 rounded-xl p-4">
       <p class="text-xs font-semibold text-slate-400 uppercase mb-2">You are about to permanently delete these ENTIRE categories:</p>
       <ul id="dr-selection-items" class="text-sm text-slate-200 space-y-1 list-disc list-inside"></ul>
@@ -128,12 +134,14 @@
   function renderCategoryLists() {
     const transactionalContainer = document.getElementById('dr-transactional-list');
     const masterContainer = document.getElementById('dr-master-list');
+    const setupContainer = document.getElementById('dr-setup-list');
     transactionalContainer.innerHTML = '';
     masterContainer.innerHTML = '';
+    setupContainer.innerHTML = '';
 
     Object.keys(counts).forEach(key => {
       const cat = counts[key];
-      const container = cat.group === 'master' ? masterContainer : transactionalContainer;
+      const container = cat.group === 'master' ? masterContainer : cat.group === 'setup' ? setupContainer : transactionalContainer;
       const row = document.createElement('div');
       row.className = 'flex items-start gap-3 bg-slate-800/60 border border-slate-700 rounded-lg p-3';
       row.innerHTML = `
@@ -143,7 +151,7 @@
             <span class="text-sm font-medium text-slate-200">${escapeHtml(cat.label)}</span>
             <div class="flex items-center gap-2 shrink-0">
               <span class="text-xs font-mono ${cat.count > 0 ? 'text-amber-400' : 'text-slate-600'}">${cat.count} record${cat.count === 1 ? '' : 's'}</span>
-              ${cat.count > 0 ? `<button data-key="${key}" class="dr-browse-btn text-xs text-blue-400 hover:text-blue-300 underline whitespace-nowrap">Browse &amp; select...</button>` : ''}
+              ${cat.count > 0 && cat.browse !== false ? `<button data-key="${key}" class="dr-browse-btn text-xs text-blue-400 hover:text-blue-300 underline whitespace-nowrap">Browse &amp; select...</button>` : ''}
             </div>
           </div>
           <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(cat.detail)}</p>

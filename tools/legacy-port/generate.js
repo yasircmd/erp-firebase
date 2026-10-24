@@ -128,6 +128,11 @@ const MAPPED = {
   getStockTxs_: ['stockStore', 'getTxs', 'dropCtx'],
   queryMovedAny_: ['movedPaths', 'whereAny', 'dropCtx'],
   getMovedMany_: ['movedPaths', 'getMany', 'dropCtx'],
+  // Data Reset for every module (docs/modules/DATA_RESET.md; patches data-reset-all-modules)
+  dataResetRefusal_: ['dataReset', 'refusal', 'dropCtx'],
+  dataResetClear_: ['dataReset', 'clear', 'dropCtx'],
+  dataResetDeleteRecords_: ['dataReset', 'deleteRecords', 'dropCtx'],
+  dataResetCount_: ['dataReset', 'recordCount', 'dropCtx'],
   sortedDocs_: ['docStore', 'sorted', 'pure'],
   // T4 (called only from patches job-posting-atomic-*)
   planProduction_: ['productionPosting', 'planProduction', 'actor'],
@@ -164,7 +169,8 @@ const SHARED_PATHS = {
   fx: '../fx',
   projects: '../projects',
   dimensionRules: '../dimensionRules',
-  eInvoicing: '../eInvoicing'
+  eInvoicing: '../eInvoicing',
+  dataReset: '../dataReset' // used by name (__dataReset.) in patches
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);
@@ -376,6 +382,17 @@ const { toGridClipboard } = require('./gridClipboard');
 // Exact-text edits to generated screens (each fails the run if its text is
 // no longer there). Keep this short: prefer a rule in the shell.
 const SCREEN_EDITS = [
+  // Data Reset for every module (docs/modules/DATA_RESET.md): a Setup group
+  // (decision 285), and Browse only for a category whose records may be
+  // deleted one by one (a master others use is cleared whole).
+  { mod: 'DATARESET', from: '      <div id="dr-master-list" class="space-y-2"></div>\n',
+    to: '      <div id="dr-master-list" class="space-y-2"></div>\n    </div>\n\n    <div>\n      <p class="text-xs font-semibold text-red-400 uppercase mb-2">Setup — Danger Zone</p>\n      <p class="text-xs text-slate-500 mb-3">How the system is set up: HR and Payroll Setup, approvals, numbering and settings. Cleared, they are set again from scratch. Nothing here is pre-selected.</p>\n      <div id="dr-setup-list" class="space-y-2"></div>\n' },
+  { mod: 'DATARESET', from: "    const masterContainer = document.getElementById('dr-master-list');\n    transactionalContainer.innerHTML = '';\n    masterContainer.innerHTML = '';\n",
+    to: "    const masterContainer = document.getElementById('dr-master-list');\n    const setupContainer = document.getElementById('dr-setup-list');\n    transactionalContainer.innerHTML = '';\n    masterContainer.innerHTML = '';\n    setupContainer.innerHTML = '';\n" },
+  { mod: 'DATARESET', from: "      const container = cat.group === 'master' ? masterContainer : transactionalContainer;",
+    to: "      const container = cat.group === 'master' ? masterContainer : cat.group === 'setup' ? setupContainer : transactionalContainer;" },
+  { mod: 'DATARESET', from: "              ${cat.count > 0 ? `<button data-key=\"${key}\" class=\"dr-browse-btn",
+    to: "              ${cat.count > 0 && cat.browse !== false ? `<button data-key=\"${key}\" class=\"dr-browse-btn" },
   // Icons Font Awesome 6.0.0 (the version the shell loads) has; the newer
   // ones showed blank (owner, 2026-10-11; functions/test/unit/iconsExist.test.js).
   { mod: 'STOCKVALUATION', from: 'fa-sack-dollar text-blue-500">', to: 'fa-coins text-blue-500">' },
