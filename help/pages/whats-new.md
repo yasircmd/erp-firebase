@@ -12,6 +12,9 @@ screen.
 
 ## 24/10/2026
 
+- **Proforma Invoice from a Sales Order.** Print a saved Sales Order as a
+  Proforma Invoice with its own PI number, the same on every reprint; a
+  draft prints marked DRAFT. See [Sales Order](sales-order.html#proforma-invoice).
 - **Choose your companies at the top.** With more than one company, the
   button after the title chooses which of them the screens offer; with one
   chosen, they fill it in for you. Your choice is kept for the next sign-in.

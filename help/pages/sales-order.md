@@ -3,10 +3,10 @@ title: Sales Order
 area: sales
 order: 4
 modules: [SALESORDER]
-sources: [functions/src/partyLedger.js]
+sources: [functions/src/partyLedger.js, functions/src/proforma.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
 reviewed: 2026-10-24
-fingerprint: 974584f85ed25537
+fingerprint: 11c09dab563e6f2d
 ---
 ## What it is for
 
@@ -34,6 +34,21 @@ warehouse that isn't found, a quantity that isn't a number above zero or a price
 nothing is pasted and the message names the rows to fix.
 4. Save or submit for approval if the company requires it.
 5. Use the order to create the delivery note or invoice when the goods are ready.
+
+## Proforma Invoice
+
+**Proforma Invoice** (at the top of a saved order) prints the order for the
+customer, or saves it as a PDF from the print dialog, for example for an
+advance payment or a letter of credit. It posts nothing and is not a tax
+invoice.
+
+- It has its own number, from the **PI** series in
+  [Numbering](numbering.html), for example *PI-26-01-000004*. The number is
+  given the first time the proforma is printed and kept with the order, so
+  every reprint shows the same one.
+- It prints what is saved: save your changes first.
+- A draft order (not yet confirmed) prints marked **DRAFT**. A cancelled
+  order has no proforma.
 
 ## What happens in the books
 
