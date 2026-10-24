@@ -2,6 +2,8 @@
 
 Before the first client, rehearse it on a spare project:
 [ONBOARDING_DRY_RUN.md](ONBOARDING_DRY_RUN.md).
+The message that goes to the client's IT with Part A:
+[ONBOARDING_MESSAGE.md](ONBOARDING_MESSAGE.md). A change to Part A changes it too.
 
 The checklist for a new client (docs/modules/MULTI_CORPORATE.md §6 and M4;
 owner, 2026-10-23, decisions 258–265). The client's data, sign-in and
