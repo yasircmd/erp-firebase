@@ -59,4 +59,17 @@ reset; out=$(run IAM_FLAKY=fn12)
 ok "a transient IAM failure is retried and passes" "$(echo "$out" | tail -1)" "fail=0"
 ok "the retry is the second try" "$(grep -c '^fn12$' "$STUB_LOG.iam")" 2
 
+# The script itself, in a clean checkout of HEAD (it refuses a dirty one):
+# what it says it did (runs #199 and #203 were taken for deploys).
+W="$T/wt"; git worktree add -q --detach "$W" HEAD 2>/dev/null
+script() { (cd "$W" && env -u TMUX -u STY FIREBASE="$T/firebase" GCLOUD="$T/gcloud" bash tools/deploy-functions.sh tree-top-level "$@" 2>&1); }
+reset; out=$(script --access-only)
+ok "access only: says so first" "$(echo "$out" | grep -c '^ACCESS ONLY, NO DEPLOY: the invoker bindings of 2 functions')" 1
+ok "access only: nothing deployed" "$([ -f "$STUB_LOG.fb" ] && wc -l < "$STUB_LOG.fb" || echo 0)" 0
+ok "access only: the summary" "$(echo "$out" | grep '^SUMMARY')" "SUMMARY: functions deployed: none (access only); access granted: 2; screens released: no"
+reset; out=$(script)
+ok "a deploy: says so" "$(echo "$out" | grep -c '^Deploying 2 functions from')" 1
+ok "a deploy: the summary" "$(echo "$out" | grep '^SUMMARY')" "SUMMARY: functions deployed: 2 (saveTreeNode moveTreeNode); access granted: 2; screens released: no"
+git worktree remove --force "$W"
+
 echo "$pass/$((pass+failed)) passed"; [ $failed = 0 ]

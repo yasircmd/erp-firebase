@@ -28,10 +28,20 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 mapfile -t FNS < <(sed -e 's/#.*//' -e 's/[[:space:]]//g' "$SET" | grep -v '^$')
-echo "Deploying ${#FNS[@]} functions from $(git log -1 --format='%h %s'):"; echo "${FNS[*]}"
+# Said plainly: an access-only run deploys nothing (runs #199 and #203 were
+# taken for deploys, 2026-10-23/24).
+if [ $ACCESS_ONLY = 1 ]; then
+  echo "ACCESS ONLY, NO DEPLOY: the invoker bindings of ${#FNS[@]} functions, from $(git log -1 --format='%h %s'):"
+else
+  echo "Deploying ${#FNS[@]} functions from $(git log -1 --format='%h %s'):"
+fi
+echo "${FNS[*]}"
 
 fail=0
 [ $ACCESS_ONLY = 1 ] || deploy_batches "" "${FNS[@]}"
 grant_invokers "${FNS[@]}"
 if [ $fail = 0 ] && [ $SCREENS = 1 ]; then tools/release-screens.sh || fail=1; fi
+# One line saying what this run changed.
+DEPLOYED=$([ $ACCESS_ONLY = 1 ] && echo "none (access only)" || echo "${#FNS[@]} (${FNS[*]})")
+echo "SUMMARY: functions deployed: $DEPLOYED; access granted: ${#FNS[@]}; screens released: $([ $SCREENS = 1 ] && [ $fail = 0 ] && echo yes || echo no)"
 if [ $fail = 0 ]; then echo "ALL DONE"; else echo "SOME STEPS FAILED — re-run this script"; exit 1; fi
