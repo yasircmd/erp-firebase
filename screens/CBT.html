@@ -855,7 +855,7 @@
     }
 
     const setExclude = jvId => { excludeJvId = jvId || ''; };
-    return { load, isControlCode, syncLine, subRowHtml, bind, validate, toServer, fromServer, summary, setExclude, allocAmount };
+    return { load, isControlCode, syncLine, subRowHtml, bind, validate, toServer, fromServer, summary, setExclude, allocAmount, partyOf };
   }
 
   const party = createPartyAllocation('cbt', () => ledgerCurrency());
@@ -1660,6 +1660,36 @@
   }
 
   // Single entry point called by Index.html after this fragment is injected.
+  // Create next from an invoice (docs/modules/LINKED_FLOWS.md, decisions
+  // Q287-Q288): a Bank Receipt (a customer's invoice) or Bank Payment (a
+  // vendor's), which may be changed to Cash here; its one line on the
+  // party's account, allocated against the invoice's open amount. The
+  // shell calls it once the screen is open (DOCUMENT LINKS).
+  window.startCreateFrom = cf => new Promise((ok, fail) => {
+    const t0 = Date.now();
+    (function ready() {
+      if (!canDraft || !document.querySelector('#cbt-form-company option[value="' + cf.companyId + '"]')) {
+        if (Date.now() - t0 > 20000) { fail(new Error('timeout')); return; }
+        setTimeout(ready, 150); return;
+      }
+      newEntry();
+      document.getElementById('cbt-form-company').value = cf.companyId;
+      selectType(cf.voucherType);
+      party.load(cf.companyId, () => {
+        const partyType = cf.customerId ? 'Customer' : 'Vendor', partyId = cf.customerId || cf.vendorId;
+        const p = party.partyOf({ PartyType: partyType, PartyID: partyId });
+        if (!p) { fail(new Error('party')); return; }
+        rebuildOppositeDatalist();
+        gridLines = [{ AccountCode: p.AccountCode, Description: (cf.customerId ? 'Receipt for ' : 'Payment of ') + cf.number, Amount: cf.amount,
+          CostCenterID: currentHeaderCostCenter(), ProfitCenterID: currentHeaderProfitCenter(), PartyType: partyType, PartyID: partyId, PartyName: p.Name,
+          Against: [{ RefID: cf.type + ':' + cf.id, RefNumber: cf.number, Amount: cf.amount }] }];
+        isDirty = true;
+        renderGrid();
+        ok();
+      });
+    })();
+  });
+
   window.initModule = function (idToken) {
     // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
     supportingDocs.mount({ module: 'CBT', view: 'cbt-entry-view', id: () => currentEntry && currentEntry.JVID, list: 'cbt-table-body' });

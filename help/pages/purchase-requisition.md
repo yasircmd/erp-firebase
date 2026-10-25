@@ -5,7 +5,7 @@ order: 3
 modules: [PURCHASEREQUISITION]
 sources: [functions/src/partyLedger.js]
 summary: Ask for a purchase before the order is raised, with approval and tracking for the requested item or service.
-reviewed: 2026-10-18
+reviewed: 2026-10-25
 fingerprint: 8adbf98cdd0331c0
 ---
 ## What it is for
@@ -33,6 +33,9 @@ that isn't found, a quantity that isn't a number above zero or a cost centre
 that isn't found, nothing is pasted and the message names the rows to fix.
 4. Submit the requisition. Where approval is configured, it goes to the approver.
 5. Once approved, create the purchase order from the approved request.
+
+
+From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## What happens in the books
 

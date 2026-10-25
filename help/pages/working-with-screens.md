@@ -3,9 +3,9 @@ title: Working with screens
 area: start
 order: 2
 summary: What every screen has in common: companies, dates, drafts and posting, messages, Copy to Excel, printing, attachments and closed months.
-sources: [public/index.html]
-reviewed: 2026-10-24
-fingerprint: 6b56e7fdfc52e628
+sources: [public/index.html, functions/src/flows.js]
+reviewed: 2026-10-25
+fingerprint: 976ed1c6fdf342db
 ---
 ## Company first
 
@@ -100,6 +100,40 @@ every list.
 - Printed documents (invoices, vouchers, orders, delivery notes and the
   like) share one look: their tables have a light, rounded frame and light
   lines between the cells. Payslips keep their own layout.
+
+## Linked documents and Create next
+
+On the documents of a sale or a purchase (requisitions, Purchase Orders,
+Goods Receipts, Vendor Invoices, Sales Orders, Delivery Notes, Customer
+Invoices, and the payments and receipts that settle them), a **Linked
+documents** section sits just above the supporting documents:
+
+- **Create next** has a button for each step the document can still be
+  followed by, for example **Delivery Note** on an approved Sales Order
+  with quantity still to deliver, or **Receipt** and **PDC Received** on an
+  invoice with an amount still open (shown beside them). The button opens
+  the next screen with a new document already started: the company, the
+  customer or vendor, and this document chosen. Check it, change what you
+  need (for example the quantities, or Cash instead of Bank), then save it
+  as usual. Nothing is saved until you do.
+- **Comes from** and **Followed by** list the documents before and after
+  it, for example on an invoice its Sales Order and Delivery Notes, and the
+  receipts, cheques and credit notes settling it. Select a number to open
+  that document.
+
+You see a button or a link only for the screens you may open (and, for
+Create next, create documents in). When a document is fully delivered,
+received, invoiced or paid, its Create next buttons go.
+
+| From | Create next |
+|---|---|
+| Purchase Requisition, Inventory Purchase Requisition | Purchase Order |
+| Purchase Order | Goods Receipt |
+| Goods Receipt | Vendor Invoice |
+| Vendor Invoice | Payment (Cash and Bank), PDC Issued |
+| Sales Order | Delivery Note; Customer Invoice where the company lets invoices deliver |
+| Delivery Note | Customer Invoice |
+| Customer Invoice | Receipt (Cash and Bank), PDC Received |
 
 ## Supporting documents
 

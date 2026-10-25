@@ -5,8 +5,8 @@ order: 5
 modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
-reviewed: 2026-10-24
-fingerprint: 7c280ee2a7216bc5
+reviewed: 2026-10-25
+fingerprint: 7de6fb04f0e6717b
 ---
 ## What it is for
 
@@ -70,6 +70,9 @@ through a default-currency account for now.
 
 Select **Reverse Entry** and choose the date: a mirror entry is posted and
 any bills it settled become unpaid again. Then enter it correctly.
+
+
+From an invoice's **Linked documents**, **Create next** opens a new one here already started for the invoice's open amount. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## What happens in the books
 

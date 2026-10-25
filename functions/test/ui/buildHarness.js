@@ -26,6 +26,8 @@ const lpStart = find(/---------- LIST PAGING ----------/);
 const lpEnd = find(/---------- END LIST PAGING ----------/);
 const sdStart = find(/---------- SUPPORTING DOCUMENTS ----------/);
 const sdEnd = find(/---------- END SUPPORTING DOCUMENTS ----------/);
+const dlStart = find(/---------- DOCUMENT LINKS ----------/);
+const dlEnd = find(/---------- END DOCUMENT LINKS ----------/);
 const psStart = find(/---------- PRINT STYLE ----------/);
 const psEnd = find(/---------- END PRINT STYLE ----------/);
 const pkCssStart = find(/---------- SEARCH PICKER CSS ----------/);
@@ -33,7 +35,7 @@ const pkCssEnd = find(/---------- END SEARCH PICKER CSS ----------/);
 const pkStart = find(/\/\/ ---------- SEARCH PICKER ----------/);
 const pkEnd = find(/\/\/ ---------- END SEARCH PICKER ----------/);
 if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd ||
-    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !icStart || !icEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !psStart || !psEnd || !pkCssStart || !pkCssEnd || !pkStart || !pkEnd) throw new Error('could not locate shell code');
+    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !icStart || !icEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !dlStart || !dlEnd || !psStart || !psEnd || !pkCssStart || !pkCssEnd || !pkStart || !pkEnd) throw new Error('could not locate shell code');
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
 ${require('./_cdnStyles').harnessHead()}
@@ -81,6 +83,7 @@ ${slice(lgStart, lgEnd)}
 ${slice(dfStart, dfEnd)}
 ${slice(icStart, icEnd)}
 ${slice(lpStart, lpEnd)}
+${slice(dlStart, dlEnd)}
 ${slice(sdStart, sdEnd)}
 ${slice(pkStart, pkEnd)}
   // Same drill-through contract as the shell's openModule: the target
@@ -92,6 +95,7 @@ ${slice(pkStart, pkEnd)}
     rpc.withSuccessHandler(result => {
       injectHtmlWithScripts(container, result.html);
       if (typeof window.initModule === 'function') window.initModule(null, result.canWrite);
+      if (drillParams && drillParams.CreateFrom) window.documentLinks.start(moduleId, drillParams.CreateFrom); // as the shell's openModule
       window.__moduleReady = true;
     }).withFailureHandler(err => { container.textContent = 'LOAD FAILED: ' + err.message; })
       .getModuleFragment({ moduleId });

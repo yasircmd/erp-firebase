@@ -4,8 +4,8 @@ area: start
 order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
-reviewed: 2026-10-24
-fingerprint: 0bc4d4f75e015f73
+reviewed: 2026-10-25
+fingerprint: 9c0c954001b0b608
 ---
 ## Signing in
 

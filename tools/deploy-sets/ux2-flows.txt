@@ -1,0 +1,9 @@
+# UX round 2, item 21: Create next and the Linked documents panel (owner,
+# 2026-10-24; docs/modules/LINKED_FLOWS.md, decisions Q287-Q289).
+# Run with --screens (Customer Invoice's order-line rows, Cash and Bank's
+# startCreateFrom, JV / CBT's party block). Hosting too
+# (tools/deploy-hosting.sh): the shell's DOCUMENT LINKS block and the Help.
+# No rules change.
+#
+# New (deploy-functions.sh binds its invoker): read only.
+getDocumentLinks

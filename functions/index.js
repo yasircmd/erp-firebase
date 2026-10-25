@@ -11,6 +11,7 @@ const { getPendingApprovalsForUser, getMyRejectedSubmissions, closeRejectedSubmi
 const { getActiveCompanies, saveMyCompanies } = require('./src/companies');
 const { issueProformaNumber } = require('./src/proforma');
 const { getItemUserCodes } = require('./src/itemCodes');
+const { getDocumentLinks } = require('./src/flows');
 const {
   saveStockAdjustmentDraft, postStockAdjustment, decideStockAdjustmentApproval,
   deleteStockAdjustmentDraft, getStockAdjustmentEntries, reverseStockAdjustment
@@ -81,6 +82,7 @@ exports.getActiveCompanies = getActiveCompanies;
 exports.saveMyCompanies = saveMyCompanies;
 exports.issueProformaNumber = issueProformaNumber;
 exports.getItemUserCodes = getItemUserCodes;
+exports.getDocumentLinks = getDocumentLinks;
 exports.saveStockAdjustmentDraft = saveStockAdjustmentDraft;
 exports.postStockAdjustment = postStockAdjustment;
 exports.decideStockAdjustmentApproval = decideStockAdjustmentApproval;
