@@ -194,6 +194,11 @@ async function calculate(run, user) {
   for (const r of posted) postedSlips[r._id] = Object.fromEntries(docs(await SLIPS(r._id).get()).map(x => [x.EmployeeID, x]));
   const extraFor = e => extrasFor(e, { posted, postedSlips, versions: versions[e.EmployeeID] || [], leaveBy, elements, system });
   const loansBy = await loans.loansDue(co, month, run.RunID);
+  // Salary holds (SALARY_HOLD.md): the one in force this month, else what is still held, paid now.
+  const SH = require('./salaryHold');
+  const holdsBy = await SH.holdsByEmployee(co);
+  const holdOf = e => SH.holdFor(holdsBy[e.EmployeeID], month);
+  const releasedOf = e => (holdsBy[e.EmployeeID] && !holdOf(e)) ? SH.heldFrom(posted.map(r => postedSlips[r._id][e.EmployeeID] && Object.assign({ Month: r.Month }, postedSlips[r._id][e.EmployeeID])).filter(Boolean)) : null;
   // An employee whose final settlement pays this month (step 5c) is left off.
   const settled = await settledIn(co, month);
   const bands = {};
@@ -237,7 +242,8 @@ async function calculate(run, user) {
     const cal = await calendarFor(e);
     const r = calc.computeEmployee({ month, method: settings.DailyRateMethod, emp: e, versions: versions[e.EmployeeID] || [], elements,
       leave: leave[e.EmployeeID] || [], inputs: inputs[e.EmployeeID] || [], hoursPerDay: hoursOn(cal, e.LeavingDate && e.LeavingDate < end ? e.LeavingDate : end), system,
-      extra: extraFor(e), loans: loansBy[e.EmployeeID] || [] });
+      extra: extraFor(e), loans: loansBy[e.EmployeeID] || [], hold: holdOf(e), released: releasedOf(e) });
+    if (holdOf(e)) r.Warnings.push('Salary held from ' + holdOf(e).FromMonth + ': ' + holdOf(e).Reason);
     if (!e.IBAN) r.Warnings.push('No bank account / IBAN on the employee record.');
     const key = (e.GradeID || '') + '|' + co;
     if (!(key in bands)) bands[key] = await pay.band(e);

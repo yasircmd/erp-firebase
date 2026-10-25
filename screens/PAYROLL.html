@@ -26,6 +26,7 @@
   <div class="flex gap-1 border-b border-slate-700">
     <button data-tab="runs" class="pr-tab px-4 py-2 text-xs border-b-2 border-blue-500 text-blue-300">Runs</button>
     <button data-tab="payment" class="pr-tab px-4 py-2 text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-200">Payment</button>
+    <button data-tab="holds" class="pr-tab px-4 py-2 text-xs border-b-2 border-transparent text-slate-400 hover:text-slate-200">Salary holds</button>
   </div>
   <div class="flex flex-wrap items-end gap-3">
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="pr-f-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm text-slate-300"><option value="">All</option></select></div>
@@ -40,6 +41,22 @@
       <th class="py-3 px-3">Month</th><th class="py-3 px-3">Company</th><th class="py-3 px-3 text-right">Employees</th><th class="py-3 px-3 text-right">Net to pay</th><th class="py-3 px-3">Payment</th><th class="py-3 px-3">Paid on</th></tr></thead>
     <tbody id="pr-pay-runs-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
   </div></div>
+  <!-- Stop salary (docs/modules/SALARY_HOLD.md): a held month's payslip has a Stop Salary deduction to zero, kept on Salary held; released, it is paid in the next run. -->
+  <div id="pr-holds-wrap" class="hidden space-y-3">
+    <p class="text-xs text-slate-500 max-w-3xl">A held employee's salary is worked out as usual; a <strong>Stop Salary</strong> deduction takes the net to zero and the amount waits on the company's Salary held account (HR Setup → Payroll). Released, what was held is paid with the next payroll run.</p>
+    <div id="pr-hold-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex flex-wrap items-end gap-3">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Employee</label><select id="pr-hold-emp" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Held from</label><input id="pr-hold-from" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Until <span class="text-slate-500">(blank: until released)</span></label><input id="pr-hold-until" type="month" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="flex-1 min-w-[16rem]"><label class="block text-xs font-medium text-slate-300 mb-1">Reason</label><input id="pr-hold-reason" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <button id="pr-hold-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg">Hold salary</button>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
+      <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-3 px-3">Employee</th><th class="py-3 px-3">Held from</th><th class="py-3 px-3">Until</th><th class="py-3 px-3">Reason</th><th class="py-3 px-3">Status</th><th class="py-3 px-3 text-right">Held now</th><th class="py-3 px-3"></th></tr></thead>
+      <tbody id="pr-holds-body" class="divide-y divide-slate-700 text-sm"></tbody></table>
+    </div></div>
+  </div>
   <div id="pr-runs-wrap" class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
     <table class="w-full text-left"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
       <th class="py-3 px-3">Month</th><th class="py-3 px-3">Company</th><th class="py-3 px-3 text-right">Employees</th><th class="py-3 px-3 text-right">Earnings</th>
@@ -223,7 +240,47 @@
     $('pr-f-status-wrap').classList.toggle('hidden', tab !== 'runs');
     $('pr-pay-list-wrap').classList.toggle('hidden', tab !== 'payment');
     $('pr-f-pay-wrap').classList.toggle('hidden', tab !== 'payment');
+    $('pr-holds-wrap').classList.toggle('hidden', tab !== 'holds');
+    if (tab === 'holds') loadHolds();
     renderList();
+  }
+
+  // ---------- salary holds (docs/modules/SALARY_HOLD.md) ----------
+  // For the company chosen above (the first of the user's companies for "All").
+  let holds = null;
+  const holdCompany = () => val('pr-f-company') || (list && list.companies[0]) || '';
+  const nextMonth = m => { if (!m) return window.isoLocalDateTime(new Date()).slice(0, 7); const [y, mo] = m.split('-').map(Number); return mo === 12 ? (y + 1) + '-01' : y + '-' + String(mo + 1).padStart(2, '0'); };
+  function loadHolds() {
+    const co = holdCompany();
+    if (!co) return;
+    return call('getSalaryHolds', { companyId: co }).then(r => { holds = r; renderHolds(); }, err => appAlert(err.message || 'Unable to load the salary holds.'));
+  }
+  function renderHolds() {
+    const r = holds;
+    $('pr-hold-form').classList.toggle('hidden', !r.canHold);
+    $('pr-hold-emp').innerHTML = '<option value="">Select…</option>' + r.employees.map(e => '<option value="' + escapeHtml(e.EmployeeID) + '">' + escapeHtml(e.EmployeeNo + ' ' + e.FullName) + '</option>').join('');
+    if (!val('pr-hold-from')) $('pr-hold-from').value = nextMonth(r.firstOpenMonth);
+    $('pr-holds-body').innerHTML = r.holds.length ? r.holds.map(h => '<tr data-id="' + escapeHtml(h.HoldID) + '">' +
+      '<td class="py-2 px-3">' + escapeHtml(h.EmployeeNo + ' ' + h.EmployeeName) + '</td><td class="py-2 px-3">' + escapeHtml(h.FromMonth) + '</td>' +
+      '<td class="py-2 px-3">' + escapeHtml(h.ReleasedFromMonth ? 'released from ' + h.ReleasedFromMonth : (h.UntilMonth || 'until released')) + '</td>' +
+      '<td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml(h.Reason) + (h.ReleaseNote ? '<br><span class="text-slate-500">Released: ' + escapeHtml(h.ReleaseNote) + '</span>' : '') + '</td>' +
+      '<td class="py-2 px-3 text-xs ' + (h.Status === 'Active' ? 'text-amber-400' : 'text-slate-400') + '">' + escapeHtml(h.Status === 'Active' ? 'Held' : 'Released') + '</td>' +
+      '<td class="py-2 px-3 text-right font-mono">' + money(h.HeldAmount) + '</td>' +
+      '<td class="py-2 px-3">' + (r.canHold && h.Status === 'Active' ? '<button class="pr-hold-release bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1 rounded">Release</button>' : '') + '</td></tr>').join('')
+      : '<tr><td colspan="7" class="py-6 px-3 text-center text-xs text-slate-500">No salary is held in this company.</td></tr>';
+    document.querySelectorAll('.pr-hold-release').forEach(b => b.addEventListener('click', () => releaseHold(b.closest('tr').dataset.id)));
+  }
+  function placeHold() {
+    call('placeSalaryHold', { employeeId: val('pr-hold-emp'), fromMonth: val('pr-hold-from'), untilMonth: val('pr-hold-until'), reason: val('pr-hold-reason').trim() })
+      .then(() => { $('pr-hold-reason').value = ''; $('pr-hold-until').value = ''; return loadHolds(); }, err => appAlert(err.message || 'Unable to hold the salary.'));
+  }
+  async function releaseHold(holdId) {
+    const from = await appPrompt('Paid again from which payroll month (yyyy-mm)? What was held is added to that month\'s run.', nextMonth(holds.firstOpenMonth));
+    if (from === null) return;
+    const note = await appPrompt('A note on the release (for the employee\'s history):', '');
+    if (note === null) return;
+    call('releaseSalaryHold', { holdId, fromMonth: from.trim(), note: note.trim() })
+      .then(r => { appAlert(r.heldAmount ? money(r.heldAmount) + ' held is added to the ' + from.trim() + ' payroll run.' : 'Released: nothing was held yet.'); return loadHolds(); }, err => appAlert(err.message || 'Unable to release the hold.'));
   }
   function renderList() {
     if (!list) return;
@@ -688,6 +745,8 @@
     document.querySelectorAll('.pr-tab').forEach(b => b.addEventListener('click', () => showListTab(b.dataset.tab)));
     document.querySelectorAll('.pr-view').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
     ['pr-f-company', 'pr-f-from', 'pr-f-to', 'pr-f-status', 'pr-f-pay'].forEach(id => $(id).addEventListener('change', renderList));
+    $('pr-f-company').addEventListener('change', () => { if (listTab === 'holds') loadHolds(); });
+    $('pr-hold-save').addEventListener('click', placeHold);
     $('pr-f-clear').addEventListener('click', () => { ['pr-f-company', 'pr-f-from', 'pr-f-to', 'pr-f-status'].forEach(id => { $(id).value = ''; }); $('pr-f-pay').value = 'open'; renderList(); });
     $('pr-runs-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openRun(tr.dataset.id); });
     $('pr-pay-runs-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openRun(tr.dataset.id, 'payment'); });

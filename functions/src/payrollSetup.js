@@ -63,6 +63,7 @@ function checkAccount(coa, id, label, types, companyId) {
 async function companySettings(companyId) {
   const s = (await SETTINGS().doc(companyId).get()).data() || {};
   return { CompanyID: companyId, DailyRateMethod: s.DailyRateMethod || 'DIV30', PayableAccountID: s.PayableAccountID || '', ReceivableAccountID: s.ReceivableAccountID || '',
+    HeldAccountID: s.HeldAccountID || '', // a held salary waits here (SALARY_HOLD.md)
     // Leave deductions in the GL (step 6, decision 46): their own ledger, or pro rata on the earnings.
     LeaveDeductionGL: s.LeaveDeductionGL === 'ProRata' ? 'ProRata' : 'Ledger',
     // The cut-off day (step 7, decision 56): the leave month locks, and the
@@ -98,10 +99,13 @@ exports.savePayrollCompany = onCallWithMessages(onCallOptions, async (request) =
   if (payable) checkAccount(coa, payable, 'Salaries Payable', ['Liability'], co);
   // A net shortfall carried to the next run (decision 9) waits here.
   if (receivable) checkAccount(coa, receivable, 'Recoverable from employees', ['Asset'], co);
+  const held = d.heldAccountId === undefined ? ((await SETTINGS().doc(co).get()).data() || {}).HeldAccountID || '' : text(d.heldAccountId, 80);
+  if (held) checkAccount(coa, held, 'Salary held', ['Liability'], co);
+  if (held && (held === payable)) bad('Salary held must be its own account, not Salaries Payable.');
   const leaveGL = d.leaveDeductionGL === 'ProRata' ? 'ProRata' : 'Ledger';
   const cutOff = d.cutOffDay === undefined || d.cutOffDay === '' || d.cutOffDay === null ? 0 : Number(d.cutOffDay);
   if (!(Number.isInteger(cutOff) && cutOff >= 0 && cutOff <= 28)) bad('The cut-off day is a day from 1 to 28, or blank for the month\'s end.');
-  await SETTINGS().doc(co).set({ DailyRateMethod: method, PayableAccountID: payable, ReceivableAccountID: receivable, LeaveDeductionGL: leaveGL, CutOffDay: cutOff, UpdatedAt: new Date().toISOString(), UpdatedBy: user.uid });
+  await SETTINGS().doc(co).set({ DailyRateMethod: method, PayableAccountID: payable, ReceivableAccountID: receivable, HeldAccountID: held, LeaveDeductionGL: leaveGL, CutOffDay: cutOff, UpdatedAt: new Date().toISOString(), UpdatedBy: user.uid });
   return { success: true };
 });
 

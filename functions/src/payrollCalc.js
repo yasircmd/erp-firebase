@@ -195,6 +195,18 @@ function computeEmployee(x) {
       Text: (amt < ln.Due ? money(ln.Due) + ' due, ' + money(amt) + ' recovered' : money(amt)) + '; balance after ' + money(round2(ln.Balance - amt)) });
   });
 
+  // A salary held (docs/modules/SALARY_HOLD.md): released, what was held is
+  // paid with this run; held, a Stop Salary deduction takes the net to zero
+  // (it goes to Salary held, not to Salaries Payable).
+  if (x.released && x.released.amount > 0) {
+    lines.push({ ElementID: 'sys-salreleased', Code: 'SALREL', Name: 'Salary released', Kind: 'Earning', Source: 'HoldRelease', Amount: round2(x.released.amount),
+      Text: 'held ' + (x.released.months || []).join(', ') + ', released' });
+  }
+  if (x.hold) {
+    const before = round2(lines.reduce((t, l) => t + (l.Kind === 'Earning' ? l.Amount : -l.Amount), 0));
+    if (before > 0) lines.push({ ElementID: 'sys-stopsalary', Code: 'STOPSAL', Name: 'Stop Salary', Kind: 'Deduction', Source: 'Hold', Amount: before, Text: 'salary held from ' + x.hold.FromMonth });
+  }
+
   const earnings = round2(lines.filter(l => l.Kind === 'Earning').reduce((s, l) => s + l.Amount, 0));
   const deductions = round2(lines.filter(l => l.Kind === 'Deduction').reduce((s, l) => s + l.Amount, 0));
   const net = round2(earnings - deductions);

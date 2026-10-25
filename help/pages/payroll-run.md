@@ -5,8 +5,8 @@ order: 8
 modules: [PAYROLL]
 sources: [functions/src/payrollRun.js, functions/src/payrollCalc.js, functions/src/payrollInputs.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js, functions/src/payrollPost.js, functions/src/payrollPayment.js]
 summary: Calculate and post the payroll for all employees in the selected pay cycle.
-reviewed: 2026-10-18
-fingerprint: c986b4765ada4ef3
+reviewed: 2026-10-25
+fingerprint: fee9692d6e11c11b
 ---
 ## What it is for
 
@@ -43,13 +43,35 @@ The screen's list has **Runs** and **Payment** tabs. Within a run, the available
 
 After posting, review and print employee payslips. In the run's **Payment** view, group employees by payment method/account, review each amount, payment date/reference, and bank file, then mark groups paid. A run can be paid in parts; track unpaid balances in the list's **Payment** tab, which can filter posted runs still to pay or already paid. Reverse payments before reversing a paid run.
 
+### Hold an employee's salary
+
+Use the **Salary holds** tab when a salary must not be paid for now (for
+example, an employee who has not reported for work).
+
+1. Choose the company in the filter above, then the employee, the month the
+   hold starts from (a month whose payroll is not yet posted), an end month
+   if you know it (blank: until released), and the reason. Select **Hold
+   salary**.
+2. The run works out the salary as usual. The payslip shows a **Stop
+   Salary** deduction that brings the net to zero, so the employee is not
+   paid; the amount waits on the company's **Salary held** account. The run
+   lists the hold among its warnings.
+3. **Release** asks the month the salary is paid again from and a note.
+   Everything held is added to that month's run as **Salary released** and
+   paid with it. For example, two months of 4,500.00 held are paid as
+   9,000.00 in the release month, on top of that month's salary.
+
+Each hold and release is in the employee's history. A leaver's
+[final settlement](payroll-final-settlement.html) pays whatever is still
+held. Holding and releasing need the Payroll **post** right.
+
 ### Correct a posted run
 
 A posted run can be reversed only when its payments are reversed and later dependent payroll runs/settlements are dealt with first. Supply a reason, correct the source data, recalculate, and submit the run again. A closed accounting period may require the adjustment/repost to be dated in the first open month.
 
 ## What happens in the books
 
-Posting debits earning expense accounts by the payslip's cost center (shared across its cost split, if any, the rounding to the largest share), credits deduction accounts, and credits Salaries Payable for positive net amounts. A negative net is debited to Recoverable from employees and carried forward into a later run. Configured gratuity, leave salary, and other accrual provisions post their expense/liability movements. Loan recoveries reduce the corresponding employee loan receivable; accrual payouts reduce the provision. Payment is a separate journal that debits Salaries Payable and credits the cash/bank account.
+Posting debits earning expense accounts by the payslip's cost center (shared across its cost split, if any, the rounding to the largest share), credits deduction accounts, and credits Salaries Payable for positive net amounts. A negative net is debited to Recoverable from employees and carried forward into a later run. Configured gratuity, leave salary, and other accrual provisions post their expense/liability movements. Loan recoveries reduce the corresponding employee loan receivable; accrual payouts reduce the provision. A **Stop Salary** deduction is credited to Salary held, and a **Salary released** earning is debited to it. Payment is a separate journal that debits Salaries Payable and credits the cash/bank account.
 
 ## Rights
 
