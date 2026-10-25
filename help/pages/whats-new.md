@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-24
+reviewed: 2026-10-25
 title: What's new
 area: start
 order: 3
@@ -9,6 +9,14 @@ sources: []
 ---
 The latest changes, newest first. Each links to the page that explains the
 screen.
+
+## 25/10/2026
+
+- **Create next, and linked documents.** From a Sales Order, Delivery Note,
+  invoice, requisition, Purchase Order or Goods Receipt, **Create next**
+  starts the next document already filled in, and **Linked documents**
+  lists the documents before and after it, each opened from its number.
+  See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## 24/10/2026
 

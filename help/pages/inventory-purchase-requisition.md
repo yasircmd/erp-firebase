@@ -5,7 +5,7 @@ order: 4
 modules: [INVENTORYPURCHASEREQUISITION]
 sources: [functions/src/stockMovement.js]
 summary: Raise a stock requisition for inventory needs before the warehouse buys and receives the goods.
-reviewed: 2026-10-17
+reviewed: 2026-10-25
 fingerprint: 6a0c9fb19f4f9bdf
 ---
 ## What it is for
@@ -33,6 +33,9 @@ that isn't found, or a quantity that isn't a number above zero, nothing is
 pasted and the message names the rows to fix.
 4. Submit it for approval when required.
 5. When approved, it can be used to raise the purchase order.
+
+
+From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## What happens in the books
 

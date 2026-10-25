@@ -5,7 +5,7 @@ order: 5
 modules: [DELIVERYNOTE]
 sources: [functions/src/stockMovement.js]
 summary: Deliver the ordered goods and record the stock movement out of the warehouse to the customer.
-reviewed: 2026-10-17
+reviewed: 2026-10-25
 fingerprint: d6f503d1a023cec9
 ---
 ## What it is for
@@ -27,6 +27,9 @@ fingerprint: d6f503d1a023cec9
 5. Until a posted customer invoice includes it, the delivery is a Home task for the **Invoicing** team set in [Approval Configuration](approval-configuration.html) (or, with no team, for you). The list's invoicing column shows it as **Pending invoice**.
 
 A Delivery Note can also be made by a [Customer Invoice](customer-invoice.html) with item lines, where the company invoices stock directly: it is posted with the invoice, already matched to it, and reversed with it.
+
+
+From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## What happens in the books
 

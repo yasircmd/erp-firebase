@@ -5,7 +5,7 @@ order: 4
 modules: [SALESORDER]
 sources: [functions/src/partyLedger.js, functions/src/proforma.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
-reviewed: 2026-10-24
+reviewed: 2026-10-25
 fingerprint: 11c09dab563e6f2d
 ---
 ## What it is for
@@ -49,6 +49,9 @@ invoice.
 - It prints what is saved: save your changes first.
 - A draft order (not yet confirmed) prints marked **DRAFT**. A cancelled
   order has no proforma.
+
+
+From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## What happens in the books
 

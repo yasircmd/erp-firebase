@@ -5,7 +5,7 @@ order: 6
 modules: [GRN]
 sources: [functions/src/grn.js, functions/src/stockMovement.js]
 summary: Receive the purchased goods into stock and match the supplier receipt against the order.
-reviewed: 2026-10-18
+reviewed: 2026-10-25
 fingerprint: eb6b35d746507fe1
 ---
 ## What it is for
@@ -25,6 +25,9 @@ fingerprint: eb6b35d746507fe1
 3. Enter the received quantities, item by item.
 4. Check the warehouse, unit and any batch or expiry details.
 5. Post the GRN. The stock ledger and item availability update with the receipt.
+
+
+From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## What happens in the books
 

@@ -5,7 +5,7 @@ order: 5
 modules: [PURCHASEORDER]
 sources: [functions/src/grn.js]
 summary: Issue the approved order to the supplier and keep the commitment, delivery and receiving status aligned.
-reviewed: 2026-10-18
+reviewed: 2026-10-25
 fingerprint: 1c6348b35f14c57f
 ---
 ## What it is for
@@ -25,6 +25,9 @@ fingerprint: 1c6348b35f14c57f
 3. Confirm the quantity, prices, delivery date and warehouse.
 4. Submit it. If configured, it goes for approval before the order is active.
 5. Track the order until receipt or closure.
+
+
+From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## What happens in the books
 

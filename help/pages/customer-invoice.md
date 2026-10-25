@@ -5,8 +5,8 @@ order: 6
 modules: [CUSTOMERINVOICE]
 sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js, functions/src/eInvoicing.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
-reviewed: 2026-10-24
-fingerprint: 67c5edc8300e766c
+reviewed: 2026-10-25
+fingerprint: 9ce0c71d99284319
 ---
 ## What it is for
 
@@ -74,6 +74,9 @@ VAT (an export, for example), it shows nothing in the default currency.
 Once the company has projects, the invoice has a **Project** field: every
 line the invoice posts carries it, for the
 [Project Report](project-report.html).
+
+
+From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## What happens in the books
 

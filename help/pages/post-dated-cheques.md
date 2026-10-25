@@ -5,7 +5,7 @@ order: 8
 modules: [PDCRECEIVED, PDCISSUED]
 sources: [functions/src/pdc.js]
 summary: Cheques dated in the future: received from customers or issued to vendors, then cleared, bounced or cancelled.
-reviewed: 2026-10-18
+reviewed: 2026-10-25
 fingerprint: e38287ad4d6274aa
 ---
 ## What it is for
@@ -58,6 +58,9 @@ into. Several cheques can be cleared together with **Clear Selected**.
 - **Undo Clearing**: a clearing entered by mistake goes back to Pending.
 
 Bank charges for a bounced cheque are entered separately (a JV or CBT).
+
+
+From an invoice's **Linked documents**, **Create next** opens a new one here already started for the invoice's open amount. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## What happens in the books
 

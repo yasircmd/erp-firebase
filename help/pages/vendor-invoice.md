@@ -5,7 +5,7 @@ order: 7
 modules: [VENDORINVOICE]
 sources: [functions/src/grn.js, functions/src/partyLedger.js]
 summary: Match the supplier bill to the received GRNs and post the payable amount to the company books.
-reviewed: 2026-10-18
+reviewed: 2026-10-25
 fingerprint: 806c83f9db4d4cb1
 ---
 ## What it is for
@@ -47,6 +47,9 @@ keeps its foreign amount too. A reversal uses the invoice's own rate.
 Once the company has projects, the invoice has a **Project** field: every
 line the invoice posts carries it, for the
 [Project Report](project-report.html).
+
+
+From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
 
 ## What happens in the books
 
