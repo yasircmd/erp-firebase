@@ -40,6 +40,24 @@
 | Q303 | **Submitting the settlement** waits for the clearance; drafting does not. |
 | Q304 | The leaver sees their clearance in the Employee Portal, **read only** (each step's state and what is outstanding, no notes). |
 
+## Build notes (2026-10-25)
+
+- **Its own module, Clearances** (`CLEARANCE`: access sees the company's
+  clearances; manage signs off or reopens any step and starts one by hand;
+  setup sets the steps). A step's team member needs only access and can
+  sign their own step, so IT or Admin staff never need the Employees
+  screen. Adding a module means its deploy is all functions (CLAUDE.md).
+- **Switching it off:** a company with no set-up uses the default
+  (Finance → IT → HR). One that saves an **empty** list of steps has no
+  clearance, and its settlements don't wait.
+- **Recovery amounts** post through a deduction pay element chosen in the
+  set-up (its account, as any settlement deduction). An amount can't be
+  entered until it is chosen.
+- A clearance starts when it is first needed (the list, Home, the portal,
+  the settlement) for an employee on notice or left, whose final settlement
+  is not yet posted. So leavers from before the deploy who are still to be
+  settled get one, and long-settled leavers don't.
+
 ## The questions as asked
 
 | # | Question | Recommendation |
