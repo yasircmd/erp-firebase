@@ -37,6 +37,8 @@ const CATEGORIES = {
     detail: 'Every final (end-of-service) settlement. Their GL entries are in GL Journal Entries: clear both together.' },
   payrollLoans: { label: 'Payroll Loans & Advances', group: T, fs: ['payrollLoans'], records: 'payrollLoans',
     detail: 'Every loan and salary advance with its schedule. Payouts and repayments posted are in GL Journal Entries and Payroll Runs.' },
+  clearances: { label: 'Clearances', group: T, fs: ['clearances'], records: 'clearances',
+    detail: 'Every leaver\'s clearance, with its steps, checklists, notes and amounts to recover. A leaver still to be settled gets a new one, from the company\'s set-up.' },
   employeeRequests: { label: 'Employee Requests', group: T, fs: ['employeeRequests'], records: 'employeeRequests',
     detail: 'Payroll queries, expense claims and loan requests from the Employee Portal, with their messages.' },
   supportingDocuments: { label: 'Supporting Documents', group: T, fs: ['attachments', 'attachmentLog', 'attachmentFolders'], count: ['attachments'],  files: true,
@@ -69,8 +71,8 @@ const CATEGORIES = {
   shareholders: { label: 'Shareholders', group: M, rtdb: ['companyShareholders'],
     detail: 'Each company\'s shareholders and issued shares.' },
 
-  hrSetup: { label: 'HR Setup', group: S, fs: ['hrGrades', 'hrDesignations', 'hrFields', 'hrDocumentTypes', 'hrLeaveTypes', 'hrWorkCalendars', 'hrWorkSchedules', 'hrLeavingReasons'],
-    detail: 'Grades, designations, employee fields, document types, leave types, working calendars, work schedules and leaving reasons. The defaults come back when HR Setup is next opened.' },
+  hrSetup: { label: 'HR Setup', group: S, fs: ['hrGrades', 'hrDesignations', 'hrFields', 'hrDocumentTypes', 'hrLeaveTypes', 'hrWorkCalendars', 'hrWorkSchedules', 'hrLeavingReasons', 'clearanceSetup'],
+    detail: 'Grades, designations, employee fields, document types, leave types, working calendars, work schedules, leaving reasons and the clearance steps. The defaults come back when HR Setup is next opened.' },
   payrollSetup: { label: 'Payroll Setup', group: S, fs: ['hrPayElements', 'payrollSettings', 'payrollPaymentFormats', 'payrollLoanTypes', 'payrollAccrualTypes', 'reimbursementCategories', 'employeeRequestHandlers'],
     detail: 'Pay elements, payroll accounting, payment file formats, loan and provision types, reimbursement categories and who handles employee requests.' },
   approvalSetup: { label: 'Approval Configuration', group: S, rtdb: ['approvalConfigurations', 'approvalLevels', 'approvalFollowUpSettings', 'approvalFollowUps'],
@@ -83,7 +85,7 @@ const CATEGORIES = {
 // are empty, or cleared in the same reset. The ported categories' keys are
 // the ported Data Reset's own (glEntries, stockData, ...).
 const TXN = ['glEntries', 'stockData', 'vendorInvoices', 'customerInvoices', 'openingBalanceBatches', 'pdcCheques', 'fixedAssets', 'recurringJournals',
-  'salesOrders', 'purchasing', 'jobOrders', 'employeeChanges', 'leave', 'payrollRuns', 'payrollSettlements', 'payrollLoans', 'employeeRequests'];
+  'salesOrders', 'purchasing', 'jobOrders', 'employeeChanges', 'leave', 'payrollRuns', 'payrollSettlements', 'payrollLoans', 'employeeRequests', 'clearances'];
 const USED_BY = {
   companies: TXN.concat(['employees']),
   coa: ['glEntries', 'recurringJournals', 'openingBalanceBatches'],
@@ -96,7 +98,7 @@ const USED_BY = {
   salesTypes: ['customerInvoices'],
   vendors: ['vendorInvoices', 'purchasing', 'pdcCheques', 'stockData'],
   customers: ['customerInvoices', 'salesOrders', 'pdcCheques', 'stockData'],
-  employees: ['employeeChanges', 'leave', 'payrollRuns', 'payrollSettlements', 'payrollLoans', 'employeeRequests'],
+  employees: ['employeeChanges', 'leave', 'payrollRuns', 'payrollSettlements', 'payrollLoans', 'employeeRequests', 'clearances'],
   requisitionCategories: ['purchasing'],
   fixedAssetSetup: ['fixedAssets'],
   hrSetup: ['employees', 'leave'],

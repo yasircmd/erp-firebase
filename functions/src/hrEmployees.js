@@ -302,6 +302,10 @@ async function saveEmployeeFor(user, input, opts) {
     await log(existing.EmployeeID, correction ? 'Correction' : 'Edit', changes, user, correction || opts.source || '');
     // A leaver's last day of access follows the status, leaving date and ERP user.
     if (['Status', 'LeavingDate', 'UserUID'].some(k => String(existing[k] || '') !== String(out[k] || ''))) await leaverAccess().refresh(existing.EmployeeID, existing.UserUID || '');
+    // A leaver's clearance starts (or, active again, goes) with the status (docs/modules/LEAVER_CLEARANCE.md).
+    if (['Status', 'LeavingDate'].some(k => String(existing[k] || '') !== String(out[k] || ''))) {
+      await require('./clearance').ensureFor(Object.assign({}, existing, out)).catch(e => console.error('clearance', existing.EmployeeID, e.message));
+    }
     return { success: true, employeeId: existing.EmployeeID, employeeNo: existing.EmployeeNo, warnings };
   }
   const employeeNo = await nextEmployeeNo();

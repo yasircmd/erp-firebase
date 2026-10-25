@@ -200,6 +200,7 @@ const TREE_SEED_NODES = [
   { text: 'Earnings & Deductions', depth: 2, moduleId: 'PAYROLLED' },
   { text: 'Provisions', depth: 2, moduleId: 'PROVISIONS' },
   { text: 'Employee Requests', depth: 2, moduleId: 'EMPREQUESTS' },
+  { text: 'Clearances', depth: 2, moduleId: 'CLEARANCE' },
   { text: 'Personnel Administration (PA - Organizational Assignment, Personal Data)', depth: 2 },
   { text: 'Organizational Management (OM - Organizational Units, Jobs, Positions)', depth: 2 },
   { text: 'Time & Attendance Management (Work Schedules, Time Recording, Absence Tracking)', depth: 2 },

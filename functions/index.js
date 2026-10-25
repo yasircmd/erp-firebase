@@ -247,6 +247,9 @@ const payrollPayment = require('./src/payrollPayment');
 const payrollProvisions = require('./src/payrollProvisions');
 ['getProvisionSetup', 'saveProvisionSettings', 'saveAccrualType', 'getProvisionBalances', 'recordAccrualClaim', 'reverseAccrualClaim'].forEach(n => { exports[n] = payrollProvisions[n]; });
 const payrollSettlement = require('./src/payrollSettlement');
+// A leaver's clearance (docs/modules/LEAVER_CLEARANCE.md).
+const clearance = require('./src/clearance');
+['getClearanceSetup', 'saveClearanceSetup', 'getClearances', 'getClearance', 'saveClearanceStep', 'signClearanceStep', 'reopenClearanceStep', 'getClearanceTasksForUser'].forEach(n => { exports[n] = clearance[n]; });
 // Stop salary (docs/modules/SALARY_HOLD.md).
 const salaryHold = require('./src/salaryHold');
 ['getSalaryHolds', 'placeSalaryHold', 'releaseSalaryHold'].forEach(n => { exports[n] = salaryHold[n]; });

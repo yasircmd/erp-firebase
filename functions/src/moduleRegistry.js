@@ -133,6 +133,10 @@ const MODULE_REGISTRY = [
   // queries and loan requests from the Employee Portal. access sees them,
   // handle replies and decides, setup names the handlers.
   { id: 'EMPREQUESTS', label: 'Employee Requests', capabilities: ['access', 'handle', 'setup'] },
+  // A leaver's clearance (docs/modules/LEAVER_CLEARANCE.md; owner, 2026-10-25):
+  // access sees a company's clearances and signs off a step of one's own
+  // team; manage signs off any step and reopens; setup sets the steps.
+  { id: 'CLEARANCE', label: 'Clearances', capabilities: ['access', 'manage', 'setup'] },
   // Developer (docs/modules/MULTI_CORPORATE.md, M2; owner, 2026-10-19): the
   // firm's own screen for its corporates. internal: no Help page.
   // homeOnly: only Corporate 100 ever has it, whatever a role says.
@@ -273,6 +277,7 @@ const DEFAULT_PERMISSIONS = {
   RETAILSALES:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], post: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], write: ['ADMIN'], report: ['ADMIN', 'FINANCE_MGR'], return: ['ADMIN', 'FINANCE_MGR'] },
   NUMBERING:          { access: ['ADMIN'], write: ['ADMIN'] },
   EMPREQUESTS:        { access: ['ADMIN', 'FINANCE_MGR'], handle: ['ADMIN', 'FINANCE_MGR'], setup: ['ADMIN'] },
+  CLEARANCE:          { access: ['ADMIN', 'FINANCE_MGR'], manage: ['ADMIN'], setup: ['ADMIN'] },
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
   SUPPORT:            { access: ['ADMIN'] }
 };

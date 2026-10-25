@@ -31,6 +31,8 @@ test.before(async () => {
   // The system currency: whichever is Default in Currency Configuration (decision 184), not AED fixed.
   f.currencies = { CUR1: { Code: 'AED', Name: 'UAE Dirham', IsDefault: false, Status: 'Active' }, CUR2: { Code: 'QAR', Name: 'Qatari Riyal', IsDefault: true, Status: 'Active' } };
   await reset(f);
+  // No clearance here: these checks are the settlement's own (docs/modules/LEAVER_CLEARANCE.md).
+  await call('u-admin', 'saveClearanceSetup', { companyId: 'C1', mode: 'InOrder', steps: [] });
   const g3 = (await call('u-admin', 'saveHrGrade', { grade: { Code: 'G3', Level: 3 } })).gradeId;
   const des = (await call('u-admin', 'saveHrDesignation', { designation: { Title: 'Storekeeper' } })).designationId;
   ALI = (await call('u-admin', 'saveEmployee', { employee: { FullName: 'Ali Hassan', PassportName: 'ALI HASSAN AHMED', Nationality: 'Jordanian', CompanyID: 'C1', DesignationID: des, GradeID: g3, Gender: 'Male',
