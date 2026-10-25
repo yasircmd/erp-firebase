@@ -1435,3 +1435,12 @@ from, and how it was verified. The deploy procedure is in the
   Then Hosting, run
   [#220](https://github.com/yasircmd/erp-firebase/actions/runs/40181522130)
   (09:39 UTC), success.
+- **2026-10-25, UX round 2 item 25, several cheques per PDC (`ux2-pdc`,
+  PR #174, from `9798f49`):** run
+  [#221](https://github.com/yasircmd/erp-firebase/actions/runs/40199364214)
+  ("functions set, then screens", 13:49–13:51 UTC), success: `SUMMARY:
+  functions deployed: 5 (savePdcDraft postPdc decidePdcApproval
+  getPdcEntries essPortal); access granted: 5; screens released: yes`
+  (release `20261025T135116Z-9798f49`, 89/89 verified). Then Hosting, run
+  [#222](https://github.com/yasircmd/erp-firebase/actions/runs/40199859068)
+  (13:55–13:56 UTC), success. Wave 3 of UX round 2 is complete.
