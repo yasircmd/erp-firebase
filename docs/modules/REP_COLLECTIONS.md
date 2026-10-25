@@ -1,6 +1,6 @@
 # A sales rep's collections, balance and receipts (UX round 2, items 30 and 31)
 
-**Status:** proposed, questions Q294–Q298 open · **Roadmap:** [#19](../ROADMAP.md) ·
+**Status:** design agreed (owner, 2026-10-25, decisions Q294–Q298) · **Roadmap:** [#19](../ROADMAP.md) ·
 **Plan:** [UX_ROUND2.md](UX_ROUND2.md) wave 4 · **Builds on:**
 [SALES_REP_PORTAL.md](SALES_REP_PORTAL.md) (decisions 230–236), [PDC.md](PDC.md)
 
@@ -23,7 +23,7 @@ Cash Receipt to the rep's cash account, or a PDC Received. The customer
 gets nothing until then. The owner's answer reverses this: **the
 collection is final when the rep records it.**
 
-## Proposed
+## Proposed (as first written; the decisions below change the hand-over and the clearing account)
 
 **The rep's clearing account.** Each rep has one account of their own,
 which can't be the main cash or another rep's (Sales Invoice
@@ -62,7 +62,24 @@ collections, and for the office per rep:
 The office sees every rep's balance (Sales reps), and Home shows a
 cashier's hand-overs waiting for confirmation.
 
-## Questions for the owner
+## The owner's decisions (2026-10-25)
+
+| # | Decision |
+|---|---|
+| Q294 | A cheque is posted at once as a **PDC Received**, marked "with the rep" until handed over; the rep's cheques on hand are those PDCs. |
+| Q295 | **Reps work like customers** ("we will have to develop a module"): the rep is a party in the ledger, with one **Rep Cash Clearing** control account; each cash collection is an open item on the rep (Dr Rep Cash Clearing, tagged with the rep · Cr the customer). The cashier hands over with an ordinary **Cash Receipt** in Cash & Bank: chooses the rep and matches the rep's receipts (or an amount on account), Dr main cash · Cr Rep Cash Clearing. The rep's balance in the portal drops by itself. There is no separate hand-over step in the portal. This replaces the per-rep cash account above. |
+| Q296 | The rep may pick the customer's open invoices (oldest first offered); otherwise it is on account. |
+| Q297 | Only the office cancels a receipt (a reversal with a reason); the number stays, marked cancelled. |
+| Q298 | The receipt number uses a short code set per rep (e.g. RR-AK-000001), defaulting to the employee number. |
+
+So, as agreed: a **Sales Rep** party type beside Vendor and Customer
+(partyLedger.js): its control account (Rep Cash Clearing, per company, in
+Sales Invoice Configuration), its open items (the rep's receipts), its
+statement, and Cash & Bank's party picker taking a rep. A rep's PDCs "with
+the rep" are handed over by ticking them in PDC Received ("received from
+the rep"), which moves no money.
+
+## The questions as asked
 
 | # | Question | Recommendation |
 |---|---|---|

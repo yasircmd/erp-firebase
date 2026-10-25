@@ -1,41 +1,42 @@
 # Stop salary: holding an employee's salary (UX round 2, item 29)
 
-**Status:** proposed, questions Q299–Q300 open · **Roadmap:** [#19](../ROADMAP.md) ·
+**Status:** design agreed (owner, 2026-10-25, decisions Q299–Q300) · **Roadmap:** [#19](../ROADMAP.md) ·
 **Plan:** [UX_ROUND2.md](UX_ROUND2.md) wave 4 · **Builds on:**
 [HR_PAYROLL.md](HR_PAYROLL.md) (payment, step 4; final settlement, step 5b)
 
-## Decided (owner, 2026-10-25, Q279)
-
-**Computed, payment held.** The run computes a held employee's salary as
-usual, so the expense and Salaries Payable are booked in the month. Only
-the **payment** leaves them out until the hold is released.
-
-## Proposed
+## Agreed design (owner, 2026-10-25, Q279, Q299, Q300)
 
 - **A hold on the employee** (Employees → the employee → Pay, "Hold
-  salary"):
-  - from a payroll month, until a month or open-ended;
-  - a reason (required);
-  - who placed it and when.
-  - **Release** ends it (with a note). The history keeps every hold.
-- **The run:** computed as always. The payslip and the run's list show
-  **Payment held** on that employee.
-- **Payment** (Payroll → pay):
-  - A held employee is left out of the bank file and out of Mark paid.
-  - They are listed apart as "Held: <reason>", with their net.
-  - The run shows "Paid, except held (1)" rather than Paid.
-  - The run's existing part payments already allow this (each payment
-    names its employees).
-- **On release:**
-  - The held salaries stay owed on Salaries Payable, run by run.
-  - Each run with a held line shows them as due again, and they are paid
-    from that run's payment screen as any part payment.
-  - Home shows the Payroll role "Held salaries released, waiting to be paid".
-- **Final settlement:** a hold also holds the settlement's payment (Q300).
-- **Reports:** a "Held salaries" list per company (employee, months,
-  amount owed, reason).
+  salary"): from a payroll month, until a month or open-ended, a reason;
+  placed and released by users with Payroll's **post** right, no approval;
+  every hold and release in the employee's history.
+- **The run computes the salary as usual**, and a held employee's payslip
+  gets a **Stop Salary** deduction equal to the net, so the net is zero.
+  The payslip is otherwise normal, and the employee sees it in the portal.
+- **Posting:** the Stop Salary deduction is credited to **Salary held** (a
+  new Payroll Setup → Payroll Accounting account, required once a hold
+  exists), not to Salaries Payable; so the expense is in the month and
+  the money owed sits on Salary held.
+- **Payment:** nothing to pay for that employee (net zero); the bank file
+  leaves them out as any zero net.
+- **Release:** the total held for the employee is added to **the next
+  payroll run** as a **Salary released** earning, debited to Salary held
+  at that run's posting, and paid with that run.
+- **Final settlement:** a held amount not yet released is added to the
+  settlement (as Salary released), so a leaver is never left with money on
+  Salary held.
+- **Report:** Salary held per employee (months held, amount, reason,
+  released in which run).
 
-## Questions for the owner
+## The owner's decisions (2026-10-25)
+
+| # | Decision |
+|---|---|
+| Q299 | Users with Payroll's **post** right place and release a hold, with a reason; no approval. |
+| Q300 | **The payslip is normal, with a "Stop Salary" deduction** that brings the net to zero; the amount goes to a **Salary held** account (a new Payroll Setup → Payroll Accounting account). The employee sees that payslip in the portal. |
+| (release) | **On release, the held amount is added to the next payroll run** as an earning ("Salary released"), taken back from Salary held, and paid with that run. |
+
+## The questions as asked
 
 | # | Question | Recommendation |
 |---|---|---|
@@ -44,9 +45,9 @@ the **payment** leaves them out until the hold is released.
 
 ## Build plan (after the answers)
 
-1. Server: holds on the employee (place / release, history); the payment
-   and the bank file leaving held lines out; the run's "except held" state;
-   the settlement's payment; the list.
-2. Screens: Employees (Hold / Release), Payroll's payment (the held list),
-   the payslip mark, the portal (per Q300).
+1. Server: holds on the employee (place / release, history); the Stop
+   Salary deduction and the Salary released earning in the run; the
+   posting to Salary held; the settlement; the report.
+2. Screens: Employees (Hold / Release), Payroll Setup's Salary held
+   account, the payslip lines, the report.
 3. Tests, negative controls, Help, What's new.

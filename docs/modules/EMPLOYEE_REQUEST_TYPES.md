@@ -1,6 +1,6 @@
 # Employee requests of any type (UX round 2, item 27)
 
-**Status:** proposed, questions Q305–Q308 open · **Roadmap:** [#19](../ROADMAP.md) ·
+**Status:** design agreed (owner, 2026-10-25, decisions Q305–Q308) · **Roadmap:** [#19](../ROADMAP.md) ·
 **Plan:** [UX_ROUND2.md](UX_ROUND2.md) wave 4 · **Builds on:**
 [EMPLOYEE_PORTAL.md](EMPLOYEE_PORTAL.md) (Employee Requests, steps 2–3)
 
@@ -56,7 +56,16 @@ files, resolve / reject / reopen, and Home tasks. Leave has its own flow
   notes, files, Resolve (an outcome; the file for a document type),
   Reject, Reassign.
 
-## Questions for the owner
+## The owner's decisions (2026-10-25)
+
+| # | Decision |
+|---|---|
+| Q305 | Per type: straight to its handler, or through the line manager first. |
+| Q306 | One token series for every new type, **RQ-2026-0001** (Numbering). |
+| Q307 | An optional "answer within N days" per type, shown overdue (red) to the handler and on Home; nothing is blocked. |
+| Q308 | A type is seen by every employee of the companies it is set for. |
+
+## The questions as asked
 
 | # | Question | Recommendation |
 |---|---|---|

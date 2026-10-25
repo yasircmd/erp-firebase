@@ -1,6 +1,6 @@
 # A leaver's clearance, step by step (UX round 2, item 28)
 
-**Status:** proposed, questions Q301–Q304 open · **Roadmap:** [#19](../ROADMAP.md) ·
+**Status:** design agreed (owner, 2026-10-25, decisions Q301–Q304) · **Roadmap:** [#19](../ROADMAP.md) ·
 **Plan:** [UX_ROUND2.md](UX_ROUND2.md) wave 4 · **Builds on:**
 [HR_EMPLOYEES.md](HR_EMPLOYEES.md) (leaving), [HR_PAYROLL.md](HR_PAYROLL.md) (final settlement, step 5b)
 
@@ -31,7 +31,16 @@
   (open, done; per company).
 - **The settlement waits** for the last step (Q303).
 
-## Questions for the owner
+## The owner's decisions (2026-10-25)
+
+| # | Decision |
+|---|---|
+| Q301 | **Both, chosen in the set-up**: per company, the steps run in order or all at once. |
+| Q302 | An amount to recover becomes a **deduction line** on the final settlement (naming the step and its note); HR can change it there, with a reason. |
+| Q303 | **Submitting the settlement** waits for the clearance; drafting does not. |
+| Q304 | The leaver sees their clearance in the Employee Portal, **read only** (each step's state and what is outstanding, no notes). |
+
+## The questions as asked
 
 | # | Question | Recommendation |
 |---|---|---|
