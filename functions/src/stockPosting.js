@@ -55,21 +55,23 @@ function ledgerEntries(ledgerUpdates, now) {
 // gives an existing one with its changes). also(batch, gl, now), optional:
 // the posting's other Firestore writes (a reversed GL entry's mark), in the
 // same batch. Returns the GL result, as writeStockGlEntry did (null without
-// a GL entry).
+// a GL entry). gl may also be a list of entries, all in the one batch (the
+// cheques of a PDC entry, docs/modules/PDC_MULTI_CHEQUE.md, Q290): the GL
+// result is then their list.
 async function postStock(user, gl, ledgerUpdates, documents, also) {
   const now = new Date().toISOString();
-  let glResult = null, built = null;
-  if (gl) {
-    built = await buildStockGlEntry(user, gl.type, gl.date, gl.description, gl.reference, gl.lines, gl.dimensions, gl.extra);
-    glResult = { jvId: built.jvId, jvNumber: built.jvNumber, transactionRef: built.transactionRef, jvDate: built.record.JVDate, adjustedFrom: built.record.AdjustedFromDate || '' };
-  }
+  const specs = Array.isArray(gl) ? gl : (gl ? [gl] : []);
+  const builts = [];
+  for (const g of specs) builts.push(await buildStockGlEntry(user, g.type, g.date, g.description, g.reference, g.lines, g.dimensions, g.extra));
+  const results = builts.map(b => ({ jvId: b.jvId, jvNumber: b.jvNumber, transactionRef: b.transactionRef, jvDate: b.record.JVDate, adjustedFrom: b.record.AdjustedFromDate || '' }));
+  const glResult = Array.isArray(gl) ? results : (results[0] || null);
   const docs = documents(glResult, now) || {};
   const balances = ledgerEntries(ledgerUpdates, now);
-  const writes = (built ? 1 : 0) + Object.keys(docs).length + Object.keys(balances).length;
+  const writes = builts.length + Object.keys(docs).length + Object.keys(balances).length;
   if (writes > MAX_WRITES) throw new Error('This posting moves too many stock balances at once (' + writes + ' writes; at most ' + MAX_WRITES + '). Split it into smaller documents.');
 
   const batch = firestore.batch();
-  if (built) batch.set(firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(built.jvId), built.record);
+  builts.forEach(b => batch.set(firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(b.jvId), b.record));
   await stockStore.setLedgerEntries(balances, batch);
   for (const id of Object.keys(docs)) await stockStore.setTx(id, docs[id], batch);
   if (also) {

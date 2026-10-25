@@ -1426,3 +1426,12 @@ from, and how it was verified. The deploy procedure is in the
   (release `20261025T041130Z-2dbf642`, 89/89 verified). Then Hosting, run
   [#218](https://github.com/yasircmd/erp-firebase/actions/runs/40161723302)
   (04:23–04:24 UTC), success.
+- **2026-10-25, UX round 2 item 21, linked flows (`ux2-flows`, PR #173,
+  from `a255554`):** run
+  [#219](https://github.com/yasircmd/erp-firebase/actions/runs/40181314023)
+  ("functions set, then screens", 09:36–09:38 UTC), success: `SUMMARY:
+  functions deployed: 1 (getDocumentLinks); access granted: 1; screens
+  released: yes` (release `20261025T093744Z-a255554`, 89/89 verified).
+  Then Hosting, run
+  [#220](https://github.com/yasircmd/erp-firebase/actions/runs/40181522130)
+  (09:39 UTC), success.

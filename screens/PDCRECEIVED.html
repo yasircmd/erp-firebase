@@ -103,28 +103,38 @@
     </div>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
     <div><label id="pdc-date-label" class="block text-xs font-medium text-slate-300 mb-1">Date</label><input type="date" id="pdc-form-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Cheque Date</label><input type="date" id="pdc-form-cheque-date" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Cheque No.</label><input type="text" id="pdc-form-cheque-no" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">Amount</label><input type="text" inputmode="decimal" id="pdc-form-amount" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right font-mono"></div>
-  </div>
-  <div id="pdc-fc" class="hidden grid grid-cols-1 md:grid-cols-4 gap-4">
-    <div class="md:col-start-4"><label id="pdc-fc-label" class="block text-xs font-medium text-slate-300 mb-1"></label><input type="text" inputmode="decimal" id="pdc-form-fc" class="w-full bg-slate-900 border border-amber-500/40 rounded-lg py-2 px-3 text-sm text-right font-mono"></div>
-    <p id="pdc-fc-note" class="md:col-span-3 md:row-start-1 self-end text-xs text-slate-500"></p>
-  </div>
-
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <div id="pdc-drawee-wrap">
-      <label class="block text-xs font-medium text-slate-300 mb-1">Drawee Bank <span class="text-slate-500">(the customer's bank the cheque is drawn on)</span></label>
-      <input type="text" id="pdc-form-drawee" list="pdc-drawee-list" placeholder="e.g. Emirates NBD" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
-      <datalist id="pdc-drawee-list"></datalist>
-    </div>
     <div id="pdc-bank-wrap" class="hidden">
-      <label class="block text-xs font-medium text-slate-300 mb-1">Bank Account <span class="text-slate-500">(our account the cheque is drawn on)</span></label>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Bank Account <span class="text-slate-500">(our account the cheques are drawn on)</span></label>
       <select id="pdc-form-bank" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first</option></select>
     </div>
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Reference <span class="text-slate-500">(optional)</span></label><input type="text" id="pdc-form-reference" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+  </div>
+
+  <!-- The entry's cheques (docs/modules/PDC_MULTI_CHEQUE.md): one or more; once posted, each is its own PDC. -->
+  <div class="space-y-2">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-semibold text-slate-400 uppercase">Cheques <span id="pdc-cheques-hint" class="normal-case font-normal text-slate-500"></span></p>
+      <div id="pdc-cheque-tools" class="flex gap-2">
+        <button id="pdc-add-cheque" class="bg-slate-800 hover:bg-slate-700 text-xs px-2.5 py-1 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add cheque</button>
+        <button id="pdc-series-btn" class="bg-slate-800 hover:bg-slate-700 text-xs px-2.5 py-1 rounded border border-slate-700" title="More cheques after the last one, a month apart"><i class="fa-solid fa-calendar-plus"></i> Monthly series</button>
+      </div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left">
+        <thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+          <th class="py-2 px-3 w-12">#</th><th class="py-2 px-3">Cheque No.</th><th class="py-2 px-3">Cheque Date</th>
+          <th class="py-2 px-3 pdc-col-drawee">Drawee Bank <span class="normal-case font-normal text-slate-500">(the customer's bank)</span></th>
+          <th class="py-2 px-3 text-right">Amount</th><th id="pdc-fc-label" class="py-2 px-3 text-right pdc-col-fc hidden"></th>
+          <th class="py-2 px-3 pdc-col-status">Status</th><th class="py-2 px-3 w-8 pdc-col-remove"></th>
+        </tr></thead>
+        <tbody id="pdc-cheques-body" class="divide-y divide-slate-700 text-sm"></tbody>
+      </table>
+    </div>
+    <p id="pdc-cheques-total" class="text-xs text-slate-400"></p>
+    <div id="pdc-fc" class="hidden"><p id="pdc-fc-note" class="text-xs text-slate-500"></p></div>
+    <datalist id="pdc-drawee-list"></datalist>
   </div>
 
   <div><label class="block text-xs font-medium text-slate-300 mb-1">Description</label><input type="text" id="pdc-form-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
@@ -226,6 +236,7 @@
   let setupCompany = '';
   let openItems = [];
   let allocByRef = {};    // RefID -> entered amount
+  let chequeRows = [];    // an unposted entry's cheques, as typed
   let current = null;
   let isDirty = false;
   let selected = new Set();
@@ -257,6 +268,20 @@
   function bankOf(e) { return RECEIVED ? (e.DraweeBank || '') : (e.BankAccountCode || ''); }
   function isDue(e) { return e.Status === 'Pending' && e.ChequeDate <= today(); }
   function val(id) { return document.getElementById(id).value; }
+  const pad2 = n => String(n).padStart(2, '0');
+  const entryOf = e => e.EntryID || e.PdcID;
+  // A posted cheque's entry: its cheques in order (a PDC from before entries is its own).
+  function entryCheques() {
+    if (!current || isEditable()) return [];
+    return entries.filter(e => entryOf(e) === entryOf(current))
+      .sort((a, b) => (a.ChequeIndex || 0) - (b.ChequeIndex || 0) || String(a.ChequeDate).localeCompare(String(b.ChequeDate)));
+  }
+  // "1 of 3 cleared · 2 pending": the entry's status, read from its cheques.
+  function entrySummary(list) {
+    const counts = {};
+    list.forEach(e => { counts[e.Status] = (counts[e.Status] || 0) + 1; });
+    return Object.keys(counts).map((k, i) => (i === 0 ? counts[k] + ' of ' + list.length + ' ' : counts[k] + ' ') + (STATUS_LABELS[k] || k).toLowerCase()).join(' · ');
+  }
 
   // ---------- LIST VIEW ----------
   function filtered() {
@@ -295,7 +320,7 @@
         <td class="py-2.5 px-3">${e.Status === 'Pending' && canPost ? `<input type="checkbox" class="pdc-row-check accent-blue-500" data-id="${escapeHtml(e.PdcID)}" ${selected.has(e.PdcID) ? 'checked' : ''}>` : ''}</td>
         <td class="py-2.5 px-3 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}</td>
         <td class="py-2.5 px-3">${escapeHtml(e.PartyName || '')}</td>
-        <td class="py-2.5 px-3 font-mono text-xs">${escapeHtml(e.ChequeNumber || '')}</td>
+        <td class="py-2.5 px-3 font-mono text-xs">${escapeHtml((e.Cheques || []).length > 1 ? e.Cheques.length + ' cheques' : e.ChequeNumber || '')}</td>
         <td class="py-2.5 px-3 text-xs text-slate-400">${escapeHtml(bankOf(e))}</td>
         <td class="py-2.5 px-3 text-xs ${overdue ? 'text-red-400 font-medium' : 'text-slate-400'}">${escapeHtml(e.ChequeDate || '')}</td>
         <td class="py-2.5 px-3 text-right font-mono">${formatMoney(e.Amount)}</td>
@@ -490,7 +515,10 @@
     empty.textContent = !val('pdc-form-party') ? 'Choose the ' + CONFIG.partyLabel.toLowerCase() + ' to see what this cheque can settle.'
       : (editable ? 'No open invoices — the whole cheque is kept as an advance (New Ref).' : 'Nothing settled — kept as an advance (New Ref).');
     document.getElementById('pdc-oldest-btn').classList.toggle('hidden', !editable || !openItems.length);
-    document.getElementById('pdc-alloc-hint').textContent = editable ? '(open ' + (RECEIVED ? 'invoices' : 'bills') + ' of the ' + CONFIG.partyLabel.toLowerCase() + '; what isn\'t allocated is kept as an advance)' : '';
+    document.getElementById('pdc-alloc-hint').textContent = editable
+      ? '(open ' + (RECEIVED ? 'invoices' : 'bills') + ' of the ' + CONFIG.partyLabel.toLowerCase() + '; what isn\'t allocated is kept as an advance' +
+        (chequeRows.length > 1 ? '; the cheques settle them in cheque-date order, the earliest the oldest' : '') + ')'
+      : (entryCheques().length > 1 ? '(this cheque\'s share of the entry)' : '');
     renderAllocSummary();
   }
 
@@ -505,16 +533,21 @@
     const p = setup.parties.find(x => x.PartyID === val('pdc-form-party'));
     return (p && p.Currency) || '';
   }
+  function rowsTotal(field) { return round2(chequeRows.reduce((sum, c) => sum + parseAmount(c[field]), 0)); }
+  // What the allocations are against: the entry's total while it is typed,
+  // a posted cheque's own amount (its share) once posted.
   function settleAmount() {
     if (!isEditable()) return Number(current.FcCurrency ? current.FcAmount : current.Amount) || 0;
-    return parseAmount(val(partyCurrency() ? 'pdc-form-fc' : 'pdc-form-amount'));
+    return rowsTotal(partyCurrency() ? 'FcAmount' : 'Amount');
   }
   function showFc() {
     const cur = partyCurrency();
     document.getElementById('pdc-fc').classList.toggle('hidden', !cur);
+    document.querySelectorAll('.pdc-col-fc').forEach(el => el.classList.toggle('hidden', !cur));
     if (!cur) return;
     document.getElementById('pdc-fc-label').textContent = cur + ' amount';
-    const base = parseAmount(val('pdc-form-amount')), fc = parseAmount(val('pdc-form-fc'));
+    const list = isEditable() ? chequeRows : entryCheques();
+    const base = round2(list.reduce((sum, c) => sum + parseAmount(c.Amount), 0)), fc = round2(list.reduce((sum, c) => sum + parseAmount(c.FcAmount), 0));
     document.getElementById('pdc-fc-note').textContent = 'The ' + CONFIG.partyLabel.toLowerCase() + ' is invoiced in ' + cur + ': the cheque settles its ' + cur + ' amount' +
       (base > 0 && fc > 0 ? ' (1 ' + cur + ' = ' + (Math.round(base / fc * 1e6) / 1e6) + (setup.BaseCurrency ? ' ' + setup.BaseCurrency : '') + ').' : '.');
   }
@@ -528,7 +561,7 @@
     const rest = round2(amount - against);
     const el = document.getElementById('pdc-alloc-summary');
     el.className = 'text-xs ' + (rest < -0.005 ? 'text-red-400' : 'text-slate-400');
-    el.textContent = 'Cheque ' + (cur ? cur + ' ' : '') + formatMoney(amount) + ' — settles ' + formatMoney(against) +
+    el.textContent = (isEditable() && chequeRows.length > 1 ? 'Cheques ' : 'Cheque ') + (cur ? cur + ' ' : '') + formatMoney(amount) + ' — settles ' + formatMoney(against) +
       (rest < -0.005 ? ' — more than the cheque amount.' : (rest > 0.005 ? ' — ' + formatMoney(rest) + ' kept as an advance (New Ref).' : '.'));
   }
 
@@ -544,13 +577,121 @@
     renderAllocations();
   }
 
+  // ---------- CHEQUES ----------
+  const blankCheque = () => ({ ChequeNumber: '', ChequeDate: '', Amount: '', FcAmount: '', DraweeBank: '' });
+  function chequeRowsOf(p) {
+    if (!p) return [blankCheque()];
+    if ((p.Cheques || []).length) return p.Cheques.map(c => ({ ChequeNumber: c.ChequeNumber || '', ChequeDate: c.ChequeDate || '', Amount: c.Amount == null ? '' : String(c.Amount),
+      FcAmount: c.FcAmount == null ? '' : String(c.FcAmount), DraweeBank: c.DraweeBank || '' }));
+    return [{ ChequeNumber: p.ChequeNumber || '', ChequeDate: p.ChequeDate || '', Amount: p.Amount == null ? '' : String(p.Amount),
+      FcAmount: p.FcCurrency ? String(p.FcAmount || '') : '', DraweeBank: p.DraweeBank || '' }];
+  }
+
+  function renderCheques() {
+    const editable = isEditable();
+    const cur = partyCurrency();
+    const tbody = document.getElementById('pdc-cheques-body');
+    tbody.innerHTML = '';
+    const cell = (cls, field, i, value, extra) => `<td class="py-1 px-1"><input data-i="${i}" data-f="${field}" value="${escapeHtml(value)}" class="${cls} w-full bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-xs" ${extra || ''}></td>`;
+    if (editable) {
+      chequeRows.forEach((c, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td class="py-1.5 px-3 text-xs text-slate-500">${pad2(i + 1)}</td>` +
+          cell('pdc-chq-no font-mono', 'ChequeNumber', i, c.ChequeNumber) +
+          cell('pdc-chq-date', 'ChequeDate', i, c.ChequeDate, 'type="date"') +
+          (RECEIVED ? cell('pdc-chq-bank', 'DraweeBank', i, c.DraweeBank, 'list="pdc-drawee-list" placeholder="e.g. National Bank"') : '') +
+          cell('pdc-chq-amount text-right font-mono', 'Amount', i, c.Amount, 'type="text" inputmode="decimal"') +
+          (cur ? cell('pdc-chq-fc text-right font-mono border-amber-500/40', 'FcAmount', i, c.FcAmount, 'type="text" inputmode="decimal"') : '') +
+          `<td class="pdc-col-status hidden"></td><td class="py-1 px-2 text-center">${chequeRows.length > 1
+            ? `<button class="pdc-chq-remove text-slate-500 hover:text-red-400" data-i="${i}" title="Remove this cheque"><i class="fa-solid fa-xmark"></i></button>` : ''}</td>`;
+        tbody.appendChild(tr);
+      });
+      tbody.querySelectorAll('input[data-i]').forEach(el => el.addEventListener('input', e => {
+        chequeRows[+e.target.dataset.i][e.target.dataset.f] = e.target.value;
+        isDirty = true; renderChequesTotal(); renderAllocSummary();
+      }));
+      tbody.querySelectorAll('.pdc-chq-remove').forEach(b => b.addEventListener('click', () => {
+        chequeRows.splice(+b.dataset.i, 1); isDirty = true; renderCheques(); renderAllocations();
+      }));
+    } else {
+      // A posted entry: every cheque, the open one marked; a click opens another.
+      entryCheques().forEach(e => {
+        const tr = document.createElement('tr');
+        tr.dataset.id = e.PdcID;
+        tr.className = 'pdc-chq-row cursor-pointer ' + (e.PdcID === current.PdcID ? 'bg-blue-500/10' : 'hover:bg-slate-700/30');
+        tr.innerHTML = `<td class="py-2 px-3 text-xs text-slate-500">${pad2(e.ChequeIndex || 1)}</td>
+          <td class="py-2 px-3 font-mono text-xs">${escapeHtml(e.ChequeNumber || '')}</td>
+          <td class="py-2 px-3 text-xs text-slate-400">${escapeHtml(e.ChequeDate || '')}</td>
+          ${RECEIVED ? `<td class="py-2 px-3 text-xs text-slate-400">${escapeHtml(e.DraweeBank || '')}</td>` : ''}
+          <td class="py-2 px-3 text-right font-mono text-xs">${formatMoney(e.Amount)}</td>
+          ${cur ? `<td class="py-2 px-3 text-right font-mono text-xs">${e.FcCurrency ? formatMoney(e.FcAmount) : ''}</td>` : ''}
+          <td class="py-2 px-3 pdc-col-status">${badge(e.Status)} <span class="font-mono text-[10px] text-slate-500">${escapeHtml(e.TransactionNumber || '')}</span></td><td></td>`;
+        tr.addEventListener('click', () => { if (e.PdcID !== current.PdcID) confirmLeave(() => openEntry(e.PdcID)); });
+        tbody.appendChild(tr);
+      });
+    }
+    document.querySelectorAll('.pdc-col-drawee').forEach(el => el.classList.toggle('hidden', !RECEIVED));
+    document.querySelectorAll('.pdc-col-status').forEach(el => el.classList.toggle('hidden', editable));
+    document.querySelectorAll('.pdc-col-remove').forEach(el => el.classList.toggle('hidden', !editable));
+    document.getElementById('pdc-cheque-tools').classList.toggle('hidden', !editable || !canDraft);
+    document.getElementById('pdc-cheques-hint').textContent = editable ? '(one or more; once posted, each clears or bounces by itself)' : '';
+    renderChequesTotal();
+    showFc();
+  }
+
+  function renderChequesTotal() {
+    const list = isEditable() ? chequeRows : entryCheques();
+    const total = round2(list.reduce((sum, c) => sum + parseAmount(c.Amount), 0));
+    const el = document.getElementById('pdc-cheques-total');
+    el.textContent = list.length > 1 ? list.length + ' cheques, total ' + formatMoney(total) + (isEditable() ? '' : ' — ' + entrySummary(list)) : '';
+  }
+
+  function addCheque() {
+    const last = chequeRows[chequeRows.length - 1] || blankCheque();
+    chequeRows.push(Object.assign(blankCheque(), { DraweeBank: last.DraweeBank })); // the same bank, most often
+    isDirty = true; renderCheques(); renderAllocSummary();
+    const inputs = document.querySelectorAll('.pdc-chq-no');
+    inputs[inputs.length - 1].focus();
+  }
+
+  // The next number after a cheque's (its digits counted on, zeros kept).
+  function nextNumber(n) {
+    const m = String(n).match(/^(.*?)(\d+)$/);
+    return m ? m[1] + String(Number(m[2]) + 1).padStart(m[2].length, '0') : '';
+  }
+  // A date k months on, kept within the month (31 Jan + 1 month: 28/29 Feb).
+  function addMonths(iso, k) {
+    const [y, mo, d] = iso.split('-').map(Number);
+    const first = new Date(Date.UTC(y, mo - 1 + k, 1));
+    const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+    return first.getUTCFullYear() + '-' + pad2(first.getUTCMonth() + 1) + '-' + pad2(Math.min(d, last));
+  }
+  // More cheques after the last one, a month apart: the next numbers, the same amount and bank.
+  async function addSeries() {
+    const last = chequeRows[chequeRows.length - 1];
+    if (!last || !last.ChequeNumber.trim() || !last.ChequeDate || !(parseAmount(last.Amount) > 0)) {
+      return appAlert('Fill in the last cheque first: its number, date and amount. The series follows on from it.');
+    }
+    const answer = await appPrompt('How many more cheques, one a month after the last?', '11');
+    if (answer === null) return;
+    const count = parseInt(answer, 10);
+    if (!(count > 0) || chequeRows.length + count > 60) return appAlert('Enter a number from 1 to ' + (60 - chequeRows.length) + ' (an entry takes at most 60 cheques).');
+    let number = last.ChequeNumber.trim();
+    for (let k = 1; k <= count; k++) {
+      number = nextNumber(number);
+      chequeRows.push({ ChequeNumber: number, ChequeDate: addMonths(last.ChequeDate, k), Amount: last.Amount, FcAmount: last.FcAmount, DraweeBank: last.DraweeBank });
+    }
+    isDirty = true; renderCheques(); renderAllocations();
+  }
+
   // ---------- SAVE / POST / DELETE / DECIDE ----------
   function collect() {
     return {
       PdcID: current ? current.PdcID : '', Direction: CONFIG.direction,
       CompanyID: val('pdc-form-company'), PartyID: val('pdc-form-party'),
-      TransactionDate: val('pdc-form-date'), ChequeDate: val('pdc-form-cheque-date'), ChequeNumber: val('pdc-form-cheque-no').trim(),
-      Amount: parseAmount(val('pdc-form-amount')), FcAmount: partyCurrency() ? parseAmount(val('pdc-form-fc')) : '', DraweeBank: RECEIVED ? val('pdc-form-drawee').trim() : '',
+      TransactionDate: val('pdc-form-date'),
+      Cheques: chequeRows.map(c => ({ ChequeNumber: c.ChequeNumber.trim(), ChequeDate: c.ChequeDate, Amount: parseAmount(c.Amount),
+        FcAmount: partyCurrency() ? parseAmount(c.FcAmount) : '', DraweeBank: RECEIVED ? c.DraweeBank.trim() : '' })),
       BankAccountID: RECEIVED ? '' : val('pdc-form-bank'), Reference: val('pdc-form-reference').trim(), Description: val('pdc-form-description').trim(),
       DivisionID: val('pdc-form-division'), BranchID: val('pdc-form-branch'), CostCenterID: val('pdc-form-costcenter'), ProfitCenterID: val('pdc-form-profitcenter'),
       ReplacesPdcID: val('pdc-form-replaces'),
@@ -564,9 +705,13 @@
     const d = collect();
     if (!d.CompanyID) { showError('Select a Company.'); return false; }
     if (!d.PartyID) { showError('Select a ' + CONFIG.partyLabel + '.'); return false; }
-    if (!d.ChequeNumber) { showError('Enter the cheque number.'); return false; }
-    if (!(d.Amount > 0)) { showError('Enter the amount.'); return false; }
-    if (allocatedTotal() > d.Amount + 0.005) { showError('The allocations are more than the cheque amount.'); return false; }
+    for (let i = 0; i < d.Cheques.length; i++) {
+      const c = d.Cheques[i], name = d.Cheques.length > 1 ? 'Cheque ' + (i + 1) + ': e' : 'E';
+      if (!c.ChequeNumber) { showError(name + 'nter the cheque number.'); return false; }
+      if (!c.ChequeDate) { showError(name + 'nter the cheque date.'); return false; }
+      if (!(c.Amount > 0)) { showError(name + 'nter the amount.'); return false; }
+    }
+    if (allocatedTotal() > settleAmount() + 0.005) { showError('The allocations are more than the cheque' + (d.Cheques.length > 1 ? 's\' total.' : ' amount.')); return false; }
     return true;
   }
 
@@ -717,11 +862,7 @@
   function fillForm(p) {
     document.getElementById('pdc-form-company').value = p ? p.CompanyID || '' : '';
     document.getElementById('pdc-form-date').value = p ? p.TransactionDate || '' : today();
-    document.getElementById('pdc-form-cheque-date').value = p ? p.ChequeDate || '' : '';
-    document.getElementById('pdc-form-cheque-no').value = p ? p.ChequeNumber || '' : '';
-    document.getElementById('pdc-form-amount').value = p ? p.Amount || '' : '';
-    document.getElementById('pdc-form-fc').value = p && p.FcCurrency ? p.FcAmount || '' : '';
-    document.getElementById('pdc-form-drawee').value = p ? p.DraweeBank || '' : '';
+    chequeRows = chequeRowsOf(p);
     document.getElementById('pdc-form-reference').value = p ? p.Reference || '' : '';
     document.getElementById('pdc-form-description').value = p ? p.Description || '' : '';
     populateOrgUnits();
@@ -732,6 +873,7 @@
     });
     allocByRef = {};
     ((p && p.Allocations) || []).filter(a => a.RefType === 'Against').forEach(a => { allocByRef[a.RefID] = String(a.Amount); });
+    renderCheques();
   }
 
   function openEntry(pdcId) {
@@ -741,7 +883,8 @@
     fillForm(current);
     document.getElementById('pdc-entry-title').textContent = current.TransactionNumber || '(unposted)';
     document.getElementById('pdc-voucher-no-line').textContent = current.TransactionNumber
-      ? 'PDC No: ' + current.TransactionNumber + (current.TransactionRef ? '   TXN Ref: ' + current.TransactionRef : '') : '';
+      ? 'PDC No: ' + current.TransactionNumber + (current.TransactionRef ? '   TXN Ref: ' + current.TransactionRef : '') +
+        ((current.ChequeCount || 1) > 1 ? '   Entry: ' + current.EntryNumber + ', cheque ' + current.ChequeIndex + ' of ' + current.ChequeCount : '') : '';
     document.getElementById('pdc-form-error').classList.add('hidden');
     refreshStatusUI();
     loadSetup(current.CompanyID, current, () => { fillForm(current); populateReplaces(); fetchOpenItems(); });
@@ -800,7 +943,7 @@
       }).withFailureHandler(() => {}).getMyPendingApprovalLevel({ approvalInstanceId: current.ApprovalInstanceID });
     }
 
-    ['pdc-form-company', 'pdc-form-party', 'pdc-form-date', 'pdc-form-cheque-date', 'pdc-form-cheque-no', 'pdc-form-amount', 'pdc-form-fc', 'pdc-form-drawee', 'pdc-form-bank',
+    ['pdc-form-company', 'pdc-form-party', 'pdc-form-date', 'pdc-form-bank',
       'pdc-form-reference', 'pdc-form-description', 'pdc-form-division', 'pdc-form-branch', 'pdc-form-costcenter', 'pdc-form-profitcenter', 'pdc-form-replaces']
       .forEach(id => { document.getElementById(id).disabled = !editable; });
     const show = (id, on) => document.getElementById(id).classList.toggle('hidden', !on);
@@ -812,6 +955,7 @@
     show('pdc-cancel-btn', status === 'Pending' && canPost);
     show('pdc-undo-btn', status === 'Cleared' && canPost);
     show('pdc-print-btn', Boolean(current && current.TransactionNumber));
+    renderCheques();
   }
 
   function openGlImpact(jvId) {
@@ -842,25 +986,38 @@
   }
   function closeGlImpact() { document.getElementById('pdc-gl-modal').classList.add('hidden'); }
 
-  // A cheque receipt (received) or a cheque voucher (issued).
+  // A cheque receipt (received) or a cheque voucher (issued): for the whole
+  // entry, every cheque in it, under the entry's number.
   function printVoucher() {
     if (!current) return;
     const company = companies.find(c => c.CompanyID === current.CompanyID);
-    const settled = (current.Allocations || []).filter(a => a.RefType === 'Against');
-    const rows = settled.map(a => `<tr><td>${escapeHtml(a.RefNumber || a.RefID)}</td><td style="text-align:right">${formatMoney(a.Amount)}</td></tr>`).join('');
-    const advance = round2((Number(current.Amount) || 0) - settled.reduce((s, a) => s + a.Amount, 0));
+    const group = entryCheques().length ? entryCheques() : [current];
+    const many = group.length > 1;
+    const bySettled = {};
+    group.forEach(e => (e.Allocations || []).filter(a => a.RefType === 'Against').forEach(a => {
+      const k = a.RefNumber || a.RefID;
+      bySettled[k] = round2((bySettled[k] || 0) + a.Amount);
+    }));
+    const rows = Object.keys(bySettled).map(k => `<tr><td>${escapeHtml(k)}</td><td style="text-align:right">${formatMoney(bySettled[k])}</td></tr>`).join('');
+    const total = round2(group.reduce((s, e) => s + (Number(e.Amount) || 0), 0));
+    const advance = round2(total - Object.values(bySettled).reduce((s, x) => s + x, 0));
+    const chequeTable = many
+      ? `<table style="margin:8px 0;"><thead><tr><th>#</th><th>Cheque No.</th><th>Cheque Date</th><th>Bank</th><th style="text-align:right">Amount</th></tr></thead><tbody>` +
+        group.map(e => `<tr><td>${escapeHtml(e.TransactionNumber || '')}</td><td>${escapeHtml(e.ChequeNumber)}</td><td>${escapeHtml(e.ChequeDate)}</td><td>${escapeHtml(bankOf(e))}</td><td style="text-align:right">${formatMoney(e.Amount)}</td></tr>`).join('') +
+        `<tr><td colspan="4"><strong>Total (${group.length} cheques)</strong></td><td style="text-align:right"><strong>${formatMoney(total)}</strong></td></tr></tbody></table>`
+      : `<table style="margin:8px 0;"><tbody>
+        <tr><td>Cheque No.</td><td>${escapeHtml(current.ChequeNumber)}</td><td>Cheque Date</td><td>${escapeHtml(current.ChequeDate)}</td></tr>
+        <tr><td>Bank</td><td>${escapeHtml(bankOf(current))}</td><td>Amount</td><td style="text-align:right"><strong>${formatMoney(current.Amount)}</strong></td></tr>
+      </tbody></table>`;
     document.getElementById('pdc-print-document').innerHTML = `
       <p style="text-align:center; font-size:12px; margin:0;">${escapeHtml(company ? company.LegalName : '')}</p>
       <h2 style="text-align:center; font-size:16px; font-weight:bold; text-decoration:underline; margin:8px 0 16px;">${RECEIVED ? 'POST-DATED CHEQUE RECEIPT' : 'POST-DATED CHEQUE VOUCHER'}</h2>
-      <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;"><span>No: <strong>${escapeHtml(current.TransactionNumber)}</strong></span><span>Date: <strong>${escapeHtml(current.TransactionDate)}</strong></span></div>
+      <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px;"><span>No: <strong>${escapeHtml(many ? current.EntryNumber : current.TransactionNumber)}</strong></span><span>Date: <strong>${escapeHtml(current.TransactionDate)}</strong></span></div>
       <p style="font-size:11px; margin:4px 0;">${RECEIVED ? 'Received from' : 'Issued to'}: <strong>${escapeHtml(current.PartyName)}</strong></p>
-      <table style="margin:8px 0;"><tbody>
-        <tr><td>Cheque No.</td><td>${escapeHtml(current.ChequeNumber)}</td><td>Cheque Date</td><td>${escapeHtml(current.ChequeDate)}</td></tr>
-        <tr><td>Bank</td><td>${escapeHtml(bankOf(current))}</td><td>Amount</td><td style="text-align:right"><strong>${formatMoney(current.Amount)}</strong></td></tr>
-      </tbody></table>
+      ${chequeTable}
       <p style="font-size:11px; margin: 8px 0;">Description: ${escapeHtml(current.Description)}</p>
       ${rows || advance > 0.005 ? `<table><thead><tr><th>Against</th><th style="text-align:right">Amount</th></tr></thead><tbody>${rows}${advance > 0.005 ? `<tr><td>On account (advance)</td><td style="text-align:right">${formatMoney(advance)}</td></tr>` : ''}</tbody></table>` : ''}
-      <p style="font-size:10px; margin-top:12px;">${RECEIVED ? 'Subject to realisation of the cheque on or after its date.' : ''}</p>
+      <p style="font-size:10px; margin-top:12px;">${RECEIVED ? (many ? 'Subject to realisation of each cheque on or after its date.' : 'Subject to realisation of the cheque on or after its date.') : ''}</p>
       <div style="display:flex; justify-content:space-between; margin-top:60px; font-size:11px;"><div>Prepared By: _________________</div><div>${RECEIVED ? 'Received By' : 'Approved By'}: _________________</div></div>
       <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a system-generated document.</p>`;
     // A cheque receipt is handed to the customer; an issued cheque's voucher stays internal.
@@ -873,13 +1030,12 @@
   // ---------- INIT ----------
   window.initModule = function () {
     // Supporting documents at the bottom of the entry, and the paperclip in the list (docs/modules/ATTACHMENTS.md).
-    supportingDocs.mount({ module: CONFIG.moduleId, view: 'pdc-entry-view', id: () => current && current.PdcID, list: 'pdc-table-body' });
+    supportingDocs.mount({ module: CONFIG.moduleId, view: 'pdc-entry-view', id: () => current && entryOf(current), list: 'pdc-table-body' }); // one set for the whole entry
     document.getElementById('pdc-kicker').textContent = CONFIG.kicker;
     document.getElementById('pdc-heading').textContent = CONFIG.heading;
     document.getElementById('pdc-col-party').textContent = CONFIG.partyLabel;
     document.getElementById('pdc-party-label').textContent = CONFIG.partyLabel;
     document.getElementById('pdc-date-label').textContent = CONFIG.dateLabel;
-    document.getElementById('pdc-drawee-wrap').classList.toggle('hidden', !RECEIVED);
     document.getElementById('pdc-bank-wrap').classList.toggle('hidden', RECEIVED);
     document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-money-check"></i> ' + escapeHtml(CONFIG.heading);
 
@@ -928,10 +1084,10 @@
       if (e.isTrusted) isDirty = true; allocByRef = {};
       loadSetup(val('pdc-form-company'), {}, fetchOpenItems);
     });
-    document.getElementById('pdc-form-party').addEventListener('change', () => { isDirty = true; allocByRef = {}; populateReplaces(); fetchOpenItems(); });
-    document.getElementById('pdc-form-amount').addEventListener('input', () => { isDirty = true; renderAllocSummary(); });
-    document.getElementById('pdc-form-fc').addEventListener('input', () => { isDirty = true; renderAllocSummary(); });
-    ['pdc-form-date', 'pdc-form-cheque-date', 'pdc-form-cheque-no', 'pdc-form-drawee', 'pdc-form-bank', 'pdc-form-reference', 'pdc-form-description',
+    document.getElementById('pdc-form-party').addEventListener('change', () => { isDirty = true; allocByRef = {}; populateReplaces(); renderCheques(); fetchOpenItems(); });
+    document.getElementById('pdc-add-cheque').addEventListener('click', addCheque);
+    document.getElementById('pdc-series-btn').addEventListener('click', addSeries);
+    ['pdc-form-date', 'pdc-form-bank', 'pdc-form-reference', 'pdc-form-description',
       'pdc-form-division', 'pdc-form-branch', 'pdc-form-costcenter', 'pdc-form-profitcenter', 'pdc-form-replaces']
       .forEach(id => document.getElementById(id).addEventListener('input', () => { isDirty = true; }));
     document.getElementById('pdc-oldest-btn').addEventListener('click', allocateOldestFirst);

@@ -2793,7 +2793,7 @@
         PDCISSUED: cf => pdcSteps(cf)
       };
       const pdcSteps = cf => [['click', '#pdc-new-btn'], ['select', '#pdc-form-company', cf.companyId], ['select', '#pdc-form-party', party(cf)],
-        ['fill', '#pdc-form-amount', cf.amount], ['fill', '.pdc-alloc[data-ref="' + cf.type + ':' + cf.id + '"]', cf.amount]];
+        ['fill', '.pdc-chq-amount', cf.amount], ['fill', '.pdc-alloc[data-ref="' + cf.type + ':' + cf.id + '"]', cf.amount]];
       const waitFor = (test, ms) => new Promise((ok, fail) => {
         const t0 = Date.now();
         (function poll() { const v = test(); if (v) ok(v); else if (Date.now() - t0 > (ms || 20000)) fail(new Error('timeout')); else setTimeout(poll, 150); })();

@@ -59,7 +59,9 @@ always uses that account.
 
 ## Document
 
-One document per cheque (one party, one amount).
+One document per cheque (one party, one amount). **Since 2026-10-25** an
+entry may hold several cheques, each still its own PDC once posted:
+[PDC_MULTI_CHEQUE.md](PDC_MULTI_CHEQUE.md).
 
 | Field | Received | Issued |
 |---|---|---|

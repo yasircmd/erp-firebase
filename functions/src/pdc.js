@@ -22,15 +22,26 @@
 // (post, clear, bounce / cancel, undo clearing) writes its GL entry and the
 // cheque in one Firestore batch (stockPosting.postStock): all or none.
 // JVIDs lists every GL entry the cheque has posted (drill-through).
+//
+// An entry may hold several cheques (UX round 2, item 25, docs/modules/
+// PDC_MULTI_CHEQUE.md, Q290-Q292): one party, company and date, its cheques
+// in Cheques until it is posted. Posting turns it into one record per
+// cheque, each with its own GL entry, all in one batch: the entry's own
+// record becomes the first cheque, the others are {id}-02, -03 …; all carry
+// EntryID and EntryNumber, and each cheque's number (and its GL entry's) is
+// the entry's with -01, -02 … (an entry of one keeps the plain number). The
+// entry's allocations are checked once on its total and the cheques settle
+// them in cheque-date order. From then on each cheque lives on its own, as a
+// PDC always has: cleared, bounced, cancelled or replaced by itself.
 const { randomUUID } = require('crypto');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
 const { approvalInstances } = require('./approvalStore');
 const { requireUser, moduleHasCapability } = require('./auth');
-const { userCanAccessCompany, parseAmountServer, FIRESTORE_JOURNAL_ENTRIES_COLLECTION } = require('./glWriting');
+const { userCanAccessCompany, parseAmountServer, FIRESTORE_JOURNAL_ENTRIES_COLLECTION, STOCK_TRANSACTION_PREFIXES, generateStockVoucherNumber } = require('./glWriting');
 const { postStock, postedFields } = require('./stockPosting');
-const { updateInBatch } = require('./salesPosting');
+const { updateInBatch, setInBatch } = require('./salesPosting');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { withGlobalLock } = require('./lock');
 const { pdcCheques } = require('./jobStore');
@@ -54,11 +65,24 @@ const DIRECTIONS = {
 // Cheques that still hold their number: a duplicate of any of these is
 // refused. Bounced and Cancelled ones free it (a replacement may reuse it).
 const HOLDS_NUMBER = ['Draft', 'Rejected', 'PendingApproval', 'Committing', 'Pending', 'Cleared'];
+// Not yet posted: the entry's cheques are still in its Cheques.
+const UNPOSTED = ['Draft', 'Rejected', 'PendingApproval', 'Committing'];
+// One entry posts a GL entry and a record per cheque in one batch (at most
+// 500 writes): five years of monthly cheques, with room to spare.
+const MAX_CHEQUES = 60;
 
 const round2 = n => Math.round(n * 100) / 100;
 const isDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
 const todayUtc = () => new Date().toISOString().substring(0, 10);
 const norm = s => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+const pad2 = n => String(n).padStart(2, '0');
+
+// The cheques of a record: an unposted entry's lines, else the record itself
+// (a posted cheque, or a draft saved before entries had lines).
+function chequesOf(rec) {
+  if ((!rec.Status || UNPOSTED.includes(rec.Status)) && Array.isArray(rec.Cheques) && rec.Cheques.length) return rec.Cheques; // (no Status: one being saved)
+  return [{ ChequeNumber: rec.ChequeNumber, ChequeDate: rec.ChequeDate, Amount: rec.Amount, FcAmount: rec.FcAmount == null ? '' : rec.FcAmount, DraweeBank: rec.DraweeBank || '' }];
+}
 
 function directionOf(d) {
   const cfg = DIRECTIONS[String(d || '').trim()];
@@ -159,17 +183,15 @@ async function assertNotDuplicate(doc, excludeId) {
   const all = await pdcCheques.query(doc.Direction === 'Issued'
     ? { Direction: 'Issued', BankAccountID: String(doc.BankAccountID || '') }
     : { Direction: String(doc.Direction || ''), PartyID: String(doc.PartyID || '') });
-  const dup = Object.keys(all).find(id => {
+  // Every cheque of this entry against every cheque of the others.
+  const same = (a, b) => norm(a.ChequeNumber) === norm(b.ChequeNumber) && (doc.Direction === 'Issued' || norm(a.DraweeBank) === norm(b.DraweeBank));
+  for (const id of Object.keys(all)) {
     const p = all[id];
-    if (id === excludeId || p.Direction !== doc.Direction || !HOLDS_NUMBER.includes(p.Status)) return false;
-    if (norm(p.ChequeNumber) !== norm(doc.ChequeNumber)) return false;
-    return doc.Direction === 'Issued'
-      ? p.BankAccountID === doc.BankAccountID
-      : p.PartyID === doc.PartyID && norm(p.DraweeBank) === norm(doc.DraweeBank);
-  });
-  if (dup) {
-    const p = all[dup];
-    throw new Error('Cheque ' + doc.ChequeNumber + ' is already recorded (' + (p.TransactionNumber || 'draft ' + dup) + ', ' + p.Status + ').');
+    if (id === excludeId || p.Direction !== doc.Direction || !HOLDS_NUMBER.includes(p.Status)) continue;
+    if (doc.Direction === 'Issued' ? p.BankAccountID !== doc.BankAccountID : p.PartyID !== doc.PartyID) continue;
+    const theirs = chequesOf(p);
+    const mine = chequesOf(doc).find(c => theirs.some(t => same(c, t)));
+    if (mine) throw new Error('Cheque ' + mine.ChequeNumber + ' is already recorded (' + (p.TransactionNumber || 'draft ' + id) + ', ' + p.Status + ').');
   }
 }
 
@@ -182,12 +204,32 @@ async function buildDoc(cfg, data, user) {
   if (!partyId) throw new HttpsError('invalid-argument', 'Select a ' + cfg.partyType + '.');
   const transactionDate = String(data.TransactionDate || '').trim();
   if (!isDate(transactionDate)) throw new HttpsError('invalid-argument', (cfg.partyType === 'Customer' ? 'Receipt' : 'Issue') + ' date is required.');
-  const chequeDate = String(data.ChequeDate || '').trim();
-  if (!isDate(chequeDate)) throw new HttpsError('invalid-argument', 'Cheque date is required.');
-  const chequeNumber = String(data.ChequeNumber || '').trim();
-  if (!chequeNumber) throw new HttpsError('invalid-argument', 'Cheque number is required.');
-  const amount = round2(parseAmountServer(data.Amount));
-  if (!(amount > 0)) throw new HttpsError('invalid-argument', 'Amount must be greater than zero.');
+  // The entry's cheques. A caller sending one cheque's own fields (the
+  // Employee Portal) gives an entry of one.
+  const raw = Array.isArray(data.Cheques) && data.Cheques.length ? data.Cheques
+    : [{ ChequeNumber: data.ChequeNumber, ChequeDate: data.ChequeDate, Amount: data.Amount, FcAmount: data.FcAmount, DraweeBank: data.DraweeBank }];
+  if (raw.length > MAX_CHEQUES) throw new HttpsError('invalid-argument', 'One entry takes at most ' + MAX_CHEQUES + ' cheques.');
+  const received = cfg.partyType === 'Customer';
+  const cheques = raw.map((c, i) => {
+    const name = raw.length > 1 ? 'Cheque ' + (i + 1) + ': ' : '';
+    const chequeDate = String(c.ChequeDate || '').trim();
+    if (!isDate(chequeDate)) throw new HttpsError('invalid-argument', name + 'Cheque date is required.');
+    const chequeNumber = String(c.ChequeNumber || '').trim();
+    if (!chequeNumber) throw new HttpsError('invalid-argument', name + 'Cheque number is required.');
+    const amount = round2(parseAmountServer(c.Amount));
+    if (!(amount > 0)) throw new HttpsError('invalid-argument', name + 'Amount must be greater than zero.');
+    const draweeBank = received ? String(c.DraweeBank || '').trim() : '';
+    if (received && !draweeBank) throw new HttpsError('invalid-argument', name + 'Enter the bank the cheque is drawn on.');
+    return { ChequeNumber: chequeNumber, ChequeDate: chequeDate, Amount: amount, FcAmount: c.FcAmount == null ? '' : c.FcAmount, DraweeBank: draweeBank, at: i };
+  });
+  cheques.forEach((c, i) => {
+    const twin = cheques.slice(0, i).find(o => norm(o.ChequeNumber) === norm(c.ChequeNumber) && norm(o.DraweeBank) === norm(c.DraweeBank));
+    if (twin) throw new HttpsError('invalid-argument', 'Cheque ' + c.ChequeNumber + ' is entered twice.');
+  });
+  // Numbered in cheque-date order (-01 the earliest), as typed where equal.
+  cheques.sort((a, b) => a.ChequeDate.localeCompare(b.ChequeDate) || a.at - b.at).forEach(c => { delete c.at; });
+  const first = cheques[0];
+  const amount = round2(cheques.reduce((sum, c) => sum + c.Amount, 0));
   const description = String(data.Description || '').trim();
   if (!description) throw new HttpsError('invalid-argument', 'Description is required.');
 
@@ -196,8 +238,9 @@ async function buildDoc(cfg, data, user) {
     DivisionID: String(data.DivisionID || '').trim(), BranchID: String(data.BranchID || '').trim(),
     CostCenterID: String(data.CostCenterID || '').trim(), ProfitCenterID: String(data.ProfitCenterID || '').trim(),
     PartyType: cfg.partyType, PartyID: partyId,
-    TransactionDate: transactionDate, ChequeDate: chequeDate, ChequeNumber: chequeNumber, Amount: amount,
-    FcAmount: data.FcAmount == null ? '' : data.FcAmount,
+    TransactionDate: transactionDate, ChequeDate: first.ChequeDate, ChequeNumber: first.ChequeNumber, Amount: amount,
+    FcAmount: cheques.length === 1 ? first.FcAmount : (cheques.every(c => c.FcAmount === '') ? '' : round2(cheques.reduce((sum, c) => sum + (parseAmountServer(c.FcAmount) || 0), 0))),
+    Cheques: cheques,
     Reference: String(data.Reference || '').trim(), Description: description,
     Allocations: (data.Allocations || []).map(a => ({
       RefType: String(a.RefType || '').trim(), RefID: String(a.RefID || '').trim(), Amount: round2(parseAmountServer(a.Amount))
@@ -207,10 +250,10 @@ async function buildDoc(cfg, data, user) {
   };
 
   const coa = (await rtdb.ref('coa').get()).val() || {};
-  if (cfg.partyType === 'Customer') {
-    doc.DraweeBank = String(data.DraweeBank || '').trim();
-    if (!doc.DraweeBank) throw new HttpsError('invalid-argument', 'Enter the bank the cheque is drawn on.');
+  if (received) {
+    doc.DraweeBank = first.DraweeBank;
   } else {
+    // One bank account for the entry's cheques (one cheque book).
     doc.BankAccountID = String(data.BankAccountID || '').trim();
     if (!doc.BankAccountID) throw new HttpsError('invalid-argument', 'Select the bank account the cheque is drawn on.');
     assertBankAccount(coa[doc.BankAccountID], companyId, 'The bank account');
@@ -228,6 +271,12 @@ async function buildDoc(cfg, data, user) {
   doc.PartyName = resolved.line.PartyName;
   doc.Allocations = resolved.line.Allocations;
   doc.FcCurrency = resolved.currency; doc.FcAmount = resolved.currency ? resolved.fcAmount : '';
+  doc.Cheques = cheques.map((c, i) => {
+    if (!resolved.currency) return Object.assign(c, { FcAmount: '' });
+    const fc = round2(parseAmountServer(c.FcAmount));
+    if (!(fc > 0)) throw new Error((cheques.length > 1 ? 'Cheque ' + c.ChequeNumber + ': ' : '') + 'enter the cheque\'s ' + resolved.currency + ' amount too.');
+    return Object.assign(c, { FcAmount: fc });
+  });
   return doc;
 }
 
@@ -367,42 +416,98 @@ exports.postPdc = onCallWithMessages(onCallOptions, async (request) => {
 });
 
 // Caller holds the global lock. Everything is re-checked from live data.
+// The entry's GL entries (one per cheque) and its cheques, Pending, in one
+// batch: all or none.
 async function commitPdcPosting(user, existing, pdcId) {
   const cfg = DIRECTIONS[existing.Direction];
   const coa = (await rtdb.ref('coa').get()).val() || {};
   const clearing = await resolveClearingAccount(cfg, existing.CompanyID, coa);
-  const { line, extra, fields } = await resolvePartyLine(cfg, existing, coa);
+  // The allocations checked once, on the entry's total (Q291).
+  const whole = await resolvePartyLine(cfg, existing, coa);
   await assertNotDuplicate(existing, pdcId);
 
-  const amount = round2(existing.Amount);
+  const cheques = chequesOf(existing);
+  const settlesOf = c => round2(whole.currency ? parseAmountServer(c.FcAmount) : c.Amount);
+  const shares = cheques.length === 1 ? [whole.line.Allocations] : await splitAllocations(cfg, existing, whole.line.Allocations, cheques.map(settlesOf));
+  // Each cheque's party line, with its share (the rest of a cheque is its own New Ref).
+  const lines = [];
+  for (let i = 0; i < cheques.length; i++) {
+    const c = cheques[i];
+    lines.push(await resolvePartyLine(cfg, Object.assign({}, existing, { Amount: c.Amount, FcAmount: c.FcAmount, Allocations: shares[i] }), coa));
+  }
+
+  // One number for the entry; its cheques are that number -01, -02 … (Q292).
+  await require('./periodLock').assertOpen(existing.CompanyID, existing.TransactionDate);
+  const year = (new Date(existing.TransactionDate)).getFullYear() || new Date().getFullYear();
+  const entryNumber = await generateStockVoucherNumber(STOCK_TRANSACTION_PREFIXES[cfg.postType], year, existing.CompanyID);
+  const numberOf = i => cheques.length === 1 ? entryNumber : entryNumber + '-' + pad2(i + 1);
+  const idOf = i => i === 0 ? pdcId : pdcId + '-' + pad2(i + 1);
+
   const received = existing.Direction === 'Received';
-  const label = cfg.label + ' ' + existing.ChequeNumber + ' — ' + existing.Description;
   const dims = { CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' };
-  const clearingLine = Object.assign({ AccountCode: clearing.AccountCode, Debit: received ? amount : 0, Credit: received ? 0 : amount, Description: label }, dims);
-  const partyLine = Object.assign({
-    AccountCode: line.AccountCode, Debit: line.Debit, Credit: line.Credit, Description: label,
-    PartyType: line.PartyType, PartyID: line.PartyID, PartyName: line.PartyName, Allocations: line.Allocations
-  }, dims, line.FcCurrency ? { FcCurrency: line.FcCurrency, FcDebit: line.FcDebit, FcCredit: line.FcCredit, FcRate: line.FcRate } : {});
-  // A foreign cheque settling items made at another rate: the exchange difference.
-  const fxLines = (extra || []).map(l => {
-    const out = { AccountCode: l.AccountCode, Debit: l.Debit, Credit: l.Credit, Description: l.Description, CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', FxAdjustment: true };
-    if (l.FcCurrency) Object.assign(out, { FcCurrency: l.FcCurrency, FcDebit: 0, FcCredit: 0, FcRate: l.FcRate });
-    if (l.PartyID) Object.assign(out, { PartyType: l.PartyType, PartyID: l.PartyID, PartyName: l.PartyName, Allocations: [] });
-    return out;
+  const specs = cheques.map((c, i) => {
+    const { line, extra, fields } = lines[i];
+    const amount = round2(c.Amount);
+    const label = cfg.label + ' ' + c.ChequeNumber + ' — ' + existing.Description;
+    const clearingLine = Object.assign({ AccountCode: clearing.AccountCode, Debit: received ? amount : 0, Credit: received ? 0 : amount, Description: label }, dims);
+    const partyLine = Object.assign({
+      AccountCode: line.AccountCode, Debit: line.Debit, Credit: line.Credit, Description: label,
+      PartyType: line.PartyType, PartyID: line.PartyID, PartyName: line.PartyName, Allocations: line.Allocations
+    }, dims, line.FcCurrency ? { FcCurrency: line.FcCurrency, FcDebit: line.FcDebit, FcCredit: line.FcCredit, FcRate: line.FcRate } : {});
+    // A foreign cheque settling items made at another rate: the exchange difference.
+    const fxLines = (extra || []).map(l => {
+      const out = { AccountCode: l.AccountCode, Debit: l.Debit, Credit: l.Credit, Description: l.Description, CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '', FxAdjustment: true };
+      if (l.FcCurrency) Object.assign(out, { FcCurrency: l.FcCurrency, FcDebit: 0, FcCredit: 0, FcRate: l.FcRate });
+      if (l.PartyID) Object.assign(out, { PartyType: l.PartyType, PartyID: l.PartyID, PartyName: l.PartyName, Allocations: [] });
+      return out;
+    });
+    return {
+      type: cfg.postType, date: existing.TransactionDate, description: label, reference: existing.Reference || c.ChequeNumber,
+      lines: (received ? [clearingLine, partyLine] : [partyLine, clearingLine]).concat(fxLines), dimensions: dimsOf(existing),
+      extra: Object.assign({ CommitAttemptID: randomUUID(), SourceTransactionID: idOf(i), ReversalOfJV: '', NumberAs: numberOf(i) }, fields)
+    };
   });
-  const glLines = (received ? [clearingLine, partyLine] : [partyLine, clearingLine]).concat(fxLines);
 
   const actor = actorOf(user);
-  // The GL entry and the cheque, Pending, in one batch: all or none.
-  const glResult = await postStock(user, {
-    type: cfg.postType, date: existing.TransactionDate, description: label, reference: existing.Reference || existing.ChequeNumber,
-    lines: glLines, dimensions: dimsOf(existing),
-    extra: Object.assign({ CommitAttemptID: randomUUID(), SourceTransactionID: pdcId, ReversalOfJV: '' }, fields)
-  }, {}, () => ({}), (batch, gl, now) => updateInBatch(PATH, pdcId, Object.assign(postedFields(gl, actor, now), {
-    Status: 'Pending', Allocations: line.Allocations, PartyName: line.PartyName,
-    JVIDs: [gl.jvId], History: historyWith(existing, 'Posted', existing.TransactionDate, gl, actor)
-  }), batch));
-  return { pdcNumber: glResult.jvNumber };
+  await postStock(user, specs, {}, () => ({}), async (batch, gls, now) => {
+    for (let i = 0; i < cheques.length; i++) {
+      const c = cheques[i], gl = gls[i], line = lines[i].line;
+      const fields = Object.assign(postedFields(gl, actor, now), {
+        Status: 'Pending', ChequeNumber: c.ChequeNumber, ChequeDate: c.ChequeDate, Amount: round2(c.Amount),
+        FcAmount: whole.currency ? c.FcAmount : '', DraweeBank: c.DraweeBank || '',
+        Allocations: line.Allocations, PartyName: line.PartyName, Cheques: null,
+        EntryID: pdcId, EntryNumber: entryNumber, ChequeIndex: i + 1, ChequeCount: cheques.length,
+        JVIDs: [gl.jvId], History: historyWith(existing, 'Posted', existing.TransactionDate, gl, actor)
+      });
+      if (i === 0) await updateInBatch(PATH, pdcId, fields, batch);
+      else await setInBatch(PATH, idOf(i), Object.assign({}, existing, fields, { Cheques: [] }), batch);
+    }
+  });
+  return { pdcNumber: entryNumber };
+}
+
+// The entry's allocations shared among its cheques (Q291): the earliest
+// cheque settles the oldest item, and so on; what is left of the cheques
+// (the entry's New Ref) falls to the latest ones.
+async function splitAllocations(cfg, doc, allocations, amounts) {
+  const items = await listOpenItems(cfg.partyType, doc.PartyID, doc.CompanyID);
+  const order = new Map(items.map((it, i) => [it.RefID, i]));
+  const rank = a => order.has(a.RefID) ? order.get(a.RefID) : items.length;
+  const queue = allocations.filter(a => a.RefType !== 'New').map((a, i) => ({ RefType: a.RefType, RefID: a.RefID, Amount: round2(a.Amount), at: i }))
+    .sort((a, b) => rank(a) - rank(b) || a.at - b.at);
+  return amounts.map(amount => {
+    let left = amount;
+    const mine = [];
+    while (left > 0.005 && queue.length) {
+      const a = queue[0];
+      const take = round2(Math.min(left, a.Amount));
+      mine.push({ RefType: a.RefType, RefID: a.RefID, Amount: take });
+      a.Amount = round2(a.Amount - take);
+      left = round2(left - take);
+      if (a.Amount <= 0.005) queue.shift();
+    }
+    return mine;
+  });
 }
 
 function dimsOf(p) {
@@ -630,10 +735,14 @@ exports.getPdcEntries = onCallWithMessages(onCallOptions, async (request) => {
     .filter(e => e.Direction === d.direction && userCanAccessCompany(user.profile, e.CompanyID))
     .sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
   if (d.limit === 'all') return { entries: all, total: all.length };
+  // By entry (a cheque's EntryID, PDC_MULTI_CHEQUE.md): every entry with a
+  // cheque still in play, and the latest 100 of the rest, whole.
   const done = ['Cleared', 'Bounced', 'Cancelled'];
-  const open = all.filter(e => !done.includes(e.Status));
-  const closed = all.filter(e => done.includes(e.Status)).slice(0, 100);
-  return { entries: open.concat(closed).sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || '')), total: all.length };
+  const entryOf = e => e.EntryID || e.PdcID;
+  const open = new Set(all.filter(e => !done.includes(e.Status)).map(entryOf));
+  const closed = [...new Set(all.map(entryOf))].filter(k => !open.has(k)).slice(0, 100);
+  const keep = new Set([...open, ...closed]);
+  return { entries: all.filter(e => keep.has(entryOf(e))), total: all.length };
 });
 
 // Home screen: Pending cheques dated up to today, for the directions the
