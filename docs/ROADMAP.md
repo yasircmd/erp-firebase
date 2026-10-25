@@ -131,6 +131,133 @@ invoice. Each vendor and customer does have its own
 
 Decision (owner, 2026-09-25): **A plus allocation.** JV and CBT lines are tagged with the vendor or customer, as a New Ref (for example an advance) or Against Ref (offsetting posted bills). Design: [PARTY_PAYMENTS.md](modules/PARTY_PAYMENTS.md).
 
+## Before scaling (commercial readiness)
+
+Owner, 2026-10-25: things to consider before the system runs for many
+clients at scale. They come from a review of the architecture and of how
+it is operated, not from missing features (the next stage's feature list
+is the owner's). Nothing here is designed or agreed yet. Each item needs
+the owner's call, and its own design doc where it changes behavior. Items
+marked *verify* were inferred from the docs and a search of the code, not
+confirmed. **Suggested first:** SC1, SC2, SC5, SC13, SC9–SC11, SC20, SC7.
+
+**Architecture and volume**
+- [ ] **SC1. The global lock serializes every posting in a corporate**
+  (lock.js): JV, GRN, invoices, payroll, retail, all of it. A waiter gives
+  up after 10 s. Fine for a few users. With tens of users, or a busy
+  retail counter during a payroll post, users will see "busy" refusals.
+  The lock is deliberately whole-system (standing convention), so any
+  finer locking (per company, per item) is a discussion first.
+- [ ] **SC2. A live lock can be taken over.** A lock older than 30 s
+  (`LOCK_STALE_MS`) is treated as abandoned. A posting still running
+  past 30 s (a large payroll, a depreciation run) could then overlap
+  another: a risk of double posting or wrong balances, not only of
+  slowness. Proposed: renew the lock while its holder is still running,
+  or check the holder before taking it over. Measure the longest
+  postings first.
+- [ ] **SC3. 500 writes per posting** (stockPosting.js `MAX_WRITES`): the
+  GL entry, the documents and every balance it changes are one batch. Find
+  the real maximum per document type (a long invoice, a whole stock count,
+  payroll for hundreds of employees) and decide how a larger one is
+  refused or split.
+- [ ] **SC4. Master data in RTDB read whole** (*verify* per screen):
+  items, customers and the chart of accounts. That is fine at hundreds of
+  records, but slow and costly at tens of thousands (a distributor with
+  30,000 items). Paged or queried reads where needed.
+- [ ] **SC5. Load testing:** nothing today tests concurrent postings,
+  large documents or large masters. Know the limits before the first
+  large client finds them.
+- [ ] **SC6. Reports compute on demand** over all the history (trial
+  balance, aging, stock valuation). Plan period summaries or a reporting
+  copy (e.g. a BigQuery export) before they get slow and expensive.
+
+**The shared app (the firm's project)**
+- [ ] **SC7. A single point of failure:** every function (about 700) runs
+  in the firm's project for every corporate. An outage, quota, billing
+  problem or bad deploy there stops all clients at once. Consider quotas,
+  budget alerts and a recovery plan.
+- [ ] **SC8. Cost and noisy neighbours:** the firm pays for all compute,
+  while clients pay their own storage and database. Price for growth in
+  usage. Per-project limits (instances, requests, connections) are shared,
+  so one heavy client can slow the others: consider per-corporate rate
+  limits.
+- [ ] **SC9. Region and data residency:** everything runs in us-central1
+  (standing decision, MULTI_CORPORATE.md). That means latency for Gulf
+  users, and UAE PDPL / Saudi residency questions from regulated or
+  government-facing clients. Decide whether a regional deployment is
+  offered, before it costs a deal.
+
+**Releases and operations**
+- [ ] **SC10. Releases:** a moduleRegistry change redeploys every function.
+  Deploys run in tmux batches, and each function needs its public-invoker
+  binding after deploy. With paying clients that window is downtime or a
+  mix of old and new. Wanted: automated releases, a canary group of
+  clients first, and a tested rollback.
+- [ ] **SC11. The rules release runs one corporate at a time**
+  (tools/release-corporates.js, 20 s timeout each). At 100 clients a
+  release can take half an hour, and a client whose grant has lapsed
+  falls behind quietly unless someone reads the report. Consider running
+  corporates in parallel and alerting on any corporate that falls behind.
+- [ ] **SC12. One version for all:** a release reaches every client at
+  once, a client cannot be held back during its year-end, and a bespoke
+  change cannot be made without a fork. Decide on release windows (avoid
+  month-end and payroll dates), and on a freeze per client if wanted.
+- [ ] **SC13. Monitoring and alerting** (*verify*: none found): error
+  tracking, uptime and failed postings per corporate, and broken
+  connections. Know before the client phones.
+- [ ] **SC14. Backups and restore:** the data is in the clients' projects,
+  but a loss there will still be ours to answer for. Decide who runs the
+  backups (Firestore / RTDB exports), write a restore procedure, and test
+  it on a schedule.
+
+**Security, compliance and trust**
+- [ ] **SC15. The firm's service accounts hold broad access to every
+  client's project** (including Auth admin, decision 258). This is the
+  largest single risk: one leaked credential or careless change reaches
+  every client. Keep it keyless (already), least privilege, and an audit
+  of the accounts' actions. Separate the deploy and runtime accounts
+  (partly done).
+- [ ] **SC16. Two-factor sign-in and a general audit trail** (*verify*:
+  neither found): who changed which master or document, and when.
+  Auditors and mid-size clients' security questionnaires will ask for
+  both.
+- [ ] **SC17. The Employee Portal's default password follows a known
+  pattern** (the name's first 4 letters + the code's last 4 digits,
+  decision 88). The forced change helps, but it is guessable until the
+  employee changes it. Consider a one-time random password on the
+  welcome slip, or expiring the default.
+- [ ] **SC18. An external penetration test** and a written
+  incident-response process before larger clients.
+- [ ] **SC19. Tax and statutory liability:** once e-invoicing, VAT and WPS
+  are sold, a bug becomes a client's penalty. Wanted: a process to track
+  FTA and Ministry rule changes (dates already move, e.g. Ministerial
+  Decision No. 66 of 2026), and contracts that limit liability.
+
+**Code and team**
+- [ ] **SC20. Too few people know how to maintain and release it:** the
+  legacy port (about 10,000 lines, regenerated), about 700 functions,
+  many conventions, and deploy knowledge kept in CLAUDE.md and this file.
+  At least two people should be able to release, fix and support it.
+- [ ] **SC21. Legacy quirks kept on purpose** (MIGRATION.md) will reach
+  large clients as bugs. Fixing them goes through the port tooling, which
+  is slow. Consider rewriting the most-used ported modules by hand.
+
+**Commercial and support**
+- [ ] **SC22. Onboarding per client is manual:** its own Firebase project
+  and Blaze plan, grants, rules and Test connection (ONBOARDING.md, ten
+  findings in the dry run). Fine at 5, too slow at 50, and many SMEs
+  cannot create a GCP project themselves. Script it, or offer a managed
+  setup.
+- [ ] **SC23. Data migration from other systems** (Tally, QuickBooks,
+  Zoho, Excel): Master Import covers the masters. Open documents and
+  history need tools and a playbook. This will be the main support
+  effort in a client's first year.
+- [ ] **SC24. Support terms:** response times, cover on month-end and
+  payroll dates, and an escalation path behind the Support module.
+- [ ] **SC25. A rule for customization requests** before the first
+  contract. With one version for all, a client's change either goes into
+  the product for everyone or is declined.
+
 ## Follow-ups from new development
 
 - [x] **Test upkeep (found 2026-10-17; done 2026-10-23, branch
