@@ -506,7 +506,7 @@
       el.innerHTML = `
         <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-3xl p-6 shadow-2xl space-y-4">
           <h3 class="text-lg font-bold text-slate-100">Allocate — <span class="${prefix}-alloc-party"></span></h3>
-          <p class="text-xs text-slate-400">Enter how much of this line settles each open item. Whatever is left becomes a New Ref (for example an advance).</p>
+          <p class="text-xs text-slate-400">Enter how much of this line settles each open item. The rest is a <b>New Ref</b>, kept open for what comes later (for example an advance); <b>All as New Ref</b> settles nothing now.</p>
           <div class="overflow-x-auto max-h-80 overflow-y-auto border border-slate-700 rounded-lg">
             <table class="w-full text-left text-sm">
               <thead><tr class="bg-slate-900 text-xs text-slate-400 uppercase">
@@ -515,6 +515,11 @@
               </tr></thead>
               <tbody class="${prefix}-alloc-body divide-y divide-slate-700"></tbody>
             </table>
+          </div>
+          <!-- The New Ref, shown as a line of its own (owner, 2026-10-24; UX_ROUND2.md item 23). -->
+          <div class="${prefix}-alloc-newref flex items-center justify-between gap-2 border border-emerald-500/30 bg-emerald-500/5 rounded-lg px-3 py-2 text-xs">
+            <span class="text-emerald-300"><i class="fa-solid fa-plus"></i> New Ref <span class="text-slate-400">(open for later, e.g. an advance)</span></span>
+            <b class="${prefix}-alloc-newref-amount text-emerald-300"></b>
           </div>
           <div class="flex flex-wrap justify-between gap-2 text-xs text-slate-300">
             <span>Line amount: <b class="${prefix}-alloc-line"></b></span>
@@ -525,7 +530,7 @@
           <div class="flex justify-between gap-3 pt-2">
             <div class="flex gap-2">
               <button class="${prefix}-alloc-auto px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Oldest first</button>
-              <button class="${prefix}-alloc-clear px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Clear</button>
+              <button class="${prefix}-alloc-clear px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs" title="Settle nothing now: the whole line is a New Ref">All as New Ref</button>
             </div>
             <div class="flex gap-2">
               <button class="${prefix}-alloc-cancel px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel</button>
@@ -555,6 +560,8 @@
         const total = round2(inputs().reduce((s, inp) => s + (parseFloat(String(inp.value).replace(/,/g, '')) || 0), 0));
         q('total').textContent = money(total);
         q('rest').textContent = money(Math.max(0, amount - total));
+        q('newref-amount').textContent = money(Math.max(0, amount - total));
+        q('newref').classList.toggle('opacity-40', amount - total <= 0.005);
         return total;
       }
       function render() {

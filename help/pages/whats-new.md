@@ -12,6 +12,19 @@ screen.
 
 ## 24/10/2026
 
+- **Your own item codes.** Give an item a User code in
+  [Item Master](item-master.html#your-own-item-code): it shows in place of
+  the item code everywhere, and you can type it wherever you enter an item.
+- **What reserved stock is for.** In [Stock Availability](stock-availability.html),
+  select a Reserved quantity to see the Sales Orders reserving it, and open
+  one from there.
+- **New Ref shown in Allocate.** When matching a payment to bills, and in
+  Re-match, the part left over shows as its own **New Ref** line, and
+  **All as New Ref** makes the whole line an advance. See
+  [Paying and allocating](payments-and-allocation.html#fixing-a-wrong-pick-re-match).
+- **Proforma Invoice from a Sales Order.** Print a saved Sales Order as a
+  Proforma Invoice with its own PI number, the same on every reprint; a
+  draft prints marked DRAFT. See [Sales Order](sales-order.html#proforma-invoice).
 - **Choose your companies at the top.** With more than one company, the
   button after the title chooses which of them the screens offer; with one
   chosen, they fill it in for you. Your choice is kept for the next sign-in.

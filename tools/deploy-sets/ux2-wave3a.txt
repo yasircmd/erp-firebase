@@ -1,0 +1,25 @@
+# UX round 2, wave 3, part 1: items 22, 23, 24 and 26 (owner, 2026-10-24;
+# docs/modules/UX_ROUND2.md, decisions Q275, Q276, Q293).
+# Run with --screens (Sales Order's Proforma Invoice; JV / CBT's Allocate
+# with the New Ref line; Stock Availability's reserving orders; Item
+# Master's User code). Hosting too (tools/deploy-hosting.sh): the shell's
+# ITEM CODES block and the Help. No rules change.
+# Before deploying: in Numbering, no type of any corporate should have a
+# customized prefix "PI" (the new Proforma Invoice type's default).
+#
+# Item 22, Proforma Invoice: its PI number (new: proforma.js); Numbering
+# lists the new type.
+issueProformaNumber
+getNumbering
+saveNumberingFormat
+# Item 24: each row's reserving Sales Orders (patch stock-availability-reserved-by).
+getStockAvailabilityList
+# Item 26, item user code: the item save (patch item-user-code), the
+# shell's pairs (new: itemCodes.js), Master Import's User Code column.
+saveItem
+getItemUserCodes
+getMasterImportSpecs
+checkMasterImport
+runMasterImport
+getMasterImportRecords
+# Item 23 needs no function: screens only.

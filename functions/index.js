@@ -9,6 +9,8 @@ const { completeLogin, corporateSignIn, userIdSignIn, restoreSession, getMyTree 
 const { getMyFavorites, toggleFavorite, saveMyTheme, getRoleFavorites, saveRoleFavorites } = require('./src/favorites');
 const { getPendingApprovalsForUser, getMyRejectedSubmissions, closeRejectedSubmission, getMyDraftsForUser } = require('./src/homeTasks');
 const { getActiveCompanies, saveMyCompanies } = require('./src/companies');
+const { issueProformaNumber } = require('./src/proforma');
+const { getItemUserCodes } = require('./src/itemCodes');
 const {
   saveStockAdjustmentDraft, postStockAdjustment, decideStockAdjustmentApproval,
   deleteStockAdjustmentDraft, getStockAdjustmentEntries, reverseStockAdjustment
@@ -77,6 +79,8 @@ exports.closeRejectedSubmission = closeRejectedSubmission;
 exports.getMyDraftsForUser = getMyDraftsForUser;
 exports.getActiveCompanies = getActiveCompanies;
 exports.saveMyCompanies = saveMyCompanies;
+exports.issueProformaNumber = issueProformaNumber;
+exports.getItemUserCodes = getItemUserCodes;
 exports.saveStockAdjustmentDraft = saveStockAdjustmentDraft;
 exports.postStockAdjustment = postStockAdjustment;
 exports.decideStockAdjustmentApproval = decideStockAdjustmentApproval;

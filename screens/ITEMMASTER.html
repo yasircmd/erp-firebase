@@ -66,7 +66,7 @@
     <form id="im-form" class="space-y-4">
       <input type="hidden" id="im-form-id">
 
-      <div id="im-code-preview" class="hidden text-xs text-slate-400 font-mono">Item Code: <span id="im-code-value" class="text-slate-200"></span></div>
+      <div id="im-code-preview" class="keep-code hidden text-xs text-slate-400 font-mono">Item Code: <span id="im-code-value" class="text-slate-200"></span></div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -98,6 +98,8 @@
       </div>
 
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Item Name</label><input type="text" id="im-form-name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
+      <!-- The item's own code, apart from the system code and barcodes (docs/modules/ITEM_USER_CODE.md): shown in its place everywhere. -->
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">User code <span class="text-slate-500">(optional; shown in place of the item code, unique)</span></label><input type="text" id="im-form-usercode" maxlength="30" autocomplete="off" class="keep-code w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono focus:outline-none focus:border-blue-500"></div>
 
       <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
         <p class="text-xs font-semibold text-slate-400 uppercase">Unit of Measure</p>
@@ -455,7 +457,7 @@
     const status = document.getElementById('im-status-filter').value;
 
     const filtered = items.filter(i => {
-      if (search && !`${i.ItemCode} ${i.ItemName} ${(barcodes[i.ItemID] || []).map(b => b.Barcode).join(' ')}`.toLowerCase().includes(search)) return false;
+      if (search && !`${i.ItemCode} ${i.UserCode || ''} ${i.ItemName} ${(barcodes[i.ItemID] || []).map(b => b.Barcode).join(' ')}`.toLowerCase().includes(search)) return false;
       if (category && ownCategory(i) !== category) return false;
       if (companyFilter && i.CompanyID !== companyFilter) return false;
       if (status && i.Status !== status) return false;
@@ -476,7 +478,7 @@
            <button class="im-toggle text-slate-400 ${i.Status === 'Active' ? 'hover:text-red-400' : 'hover:text-emerald-400'} p-1" title="${i.Status === 'Active' ? 'Deactivate' : 'Reactivate'}"><i class="fa-solid ${i.Status === 'Active' ? 'fa-ban' : 'fa-rotate-left'}"></i></button>`;
       }
       row.innerHTML = `
-        <td class="py-3 px-4 font-mono text-xs text-slate-200">${escapeHtml(i.ItemCode)}</td>
+        <td class="keep-code py-3 px-4 font-mono text-xs text-slate-200">${escapeHtml(i.ItemCode)}${i.UserCode ? '<div class="im-usercode text-amber-400" title="User code">' + escapeHtml(i.UserCode) + '</div>' : ''}</td>
         <td class="py-3 px-4 text-slate-200">${escapeHtml(i.ItemName)}${(barcodes[i.ItemID] || []).length ? '<div class="im-bc-list text-xs text-slate-500 font-mono"><i class="fa-solid fa-barcode"></i> ' + (barcodes[i.ItemID] || []).map(b => escapeHtml(b.Barcode + (b.PackQty !== 1 ? ' ×' + b.PackQty : ''))).join(', ') + '</div>' : ''}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${escapeHtml(categoryLabel(ownCategory(i)))}</td>
         <td class="py-3 px-4 text-xs text-slate-400">${subCat ? escapeHtml(subCat.Name) : '—'}</td>
@@ -523,6 +525,7 @@
       document.getElementById('im-cat-new').classList.add('hidden');
       updateSubCategoryOptions(ownCategory(i), i.SubCategoryID, i.CompanyID);
       document.getElementById('im-form-name').value = i.ItemName;
+      document.getElementById('im-form-usercode').value = i.UserCode || '';
       document.getElementById('im-form-uom').value = i.UOMID;
       document.getElementById('im-form-altuom').value = i.AltUOMID || '';
       document.getElementById('im-form-conversion').value = i.ConversionFactor || '';
@@ -563,6 +566,7 @@
     document.getElementById('im-form-category').value = ownCategory(source);
     updateSubCategoryOptions(ownCategory(source), source.SubCategoryID, source.CompanyID);
     document.getElementById('im-form-name').value = '';
+    document.getElementById('im-form-usercode').value = '';
     document.getElementById('im-form-uom').value = source.UOMID;
     document.getElementById('im-form-altuom').value = source.AltUOMID || '';
     document.getElementById('im-form-conversion').value = source.ConversionFactor || '';
@@ -592,6 +596,7 @@
       CustomCategoryID: customByKey(document.getElementById('im-form-category').value) ? customByKey(document.getElementById('im-form-category').value).ItemCategoryID : '',
       SubCategoryID: document.getElementById('im-form-subcategory').value,
       ItemName: document.getElementById('im-form-name').value.trim(),
+      UserCode: document.getElementById('im-form-usercode').value.trim(),
       UOMID: document.getElementById('im-form-uom').value,
       AltUOMID: document.getElementById('im-form-altuom').value,
       ConversionFactor: document.getElementById('im-form-conversion').value,
@@ -617,6 +622,7 @@
         // problem the form stays open on it (no second item on retry).
         document.getElementById('im-form-id').value = result.itemId;
         const list = formBarcodes();
+        if (typeof window.refreshItemUserCodes === 'function') window.refreshItemUserCodes(); // the shell shows the new user code at once
         if (!list.length && !(barcodes[result.itemId] || []).length) { closeModal(); fetchAndRender(); return; }
         btn.disabled = true;
         rpc
@@ -661,7 +667,7 @@
   const lblItems = () => {
     const co = lblVal('im-lbl-company'), q = lblVal('im-lbl-search').trim().toLowerCase();
     return items.filter(i => i.Status === 'Active' && (!i.CompanyID || i.CompanyID === co))
-      .filter(i => !q || (i.ItemCode + ' ' + i.ItemName + ' ' + (barcodes[i.ItemID] || []).map(b => b.Barcode).join(' ')).toLowerCase().includes(q))
+      .filter(i => !q || (i.ItemCode + ' ' + (i.UserCode || '') + ' ' + i.ItemName + ' ' + (barcodes[i.ItemID] || []).map(b => b.Barcode).join(' ')).toLowerCase().includes(q))
       .sort((a, b) => String(a.ItemCode).localeCompare(String(b.ItemCode), undefined, { numeric: true }));
   };
   function renderLblItems() {

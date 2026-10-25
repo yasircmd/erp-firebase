@@ -20,6 +20,8 @@ const lgStart = find(/\/\/ ---------- LINE GRIDS ----------/);
 const lgEnd = find(/\/\/ ---------- END LINE GRIDS ----------/);
 const dfStart = find(/---------- DATE FORMAT ----------/);
 const dfEnd = find(/---------- END DATE FORMAT ----------/);
+const icStart = find(/---------- ITEM CODES ----------/);
+const icEnd = find(/---------- END ITEM CODES ----------/);
 const lpStart = find(/---------- LIST PAGING ----------/);
 const lpEnd = find(/---------- END LIST PAGING ----------/);
 const sdStart = find(/---------- SUPPORTING DOCUMENTS ----------/);
@@ -31,7 +33,7 @@ const pkCssEnd = find(/---------- END SEARCH PICKER CSS ----------/);
 const pkStart = find(/\/\/ ---------- SEARCH PICKER ----------/);
 const pkEnd = find(/\/\/ ---------- END SEARCH PICKER ----------/);
 if (!rpcStart || !rpcEnd || !escStart || !injStart || !scStart || !scEnd || !dlgStart || !dlgEnd ||
-    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !psStart || !psEnd || !pkCssStart || !pkCssEnd || !pkStart || !pkEnd) throw new Error('could not locate shell code');
+    !lgCssStart || !lgCssEnd || !lgStart || !lgEnd || !dfStart || !dfEnd || !icStart || !icEnd || !lpStart || !lpEnd || !sdStart || !sdEnd || !psStart || !psEnd || !pkCssStart || !pkCssEnd || !pkStart || !pkEnd) throw new Error('could not locate shell code');
 
 const html = `<!doctype html><html><head><meta charset="utf-8">
 ${require('./_cdnStyles').harnessHead()}
@@ -77,6 +79,7 @@ ${slice(injStart, injStart + 9)}
 ${slice(scStart, scEnd)}
 ${slice(lgStart, lgEnd)}
 ${slice(dfStart, dfEnd)}
+${slice(icStart, icEnd)}
 ${slice(lpStart, lpEnd)}
 ${slice(sdStart, sdEnd)}
 ${slice(pkStart, pkEnd)}
@@ -96,6 +99,8 @@ ${slice(pkStart, pkEnd)}
   // As at the shell's login: the user's companies first (a user with
   // exactly one, or who chose one at the top, gets it filled into every
   // company dropdown; those not chosen are hidden), then the module.
+  // And the item user codes (ITEM CODES), loaded at sign-in.
+  rpc.withSuccessHandler(setItemUserCodes).withFailureHandler(() => {}).getItemUserCodes();
   rpc.withSuccessHandler(companies => {
     setCompanyFilter(companies.filter(c => c.Chosen !== false).map(c => c.CompanyID), companies.map(c => c.CompanyID));
     openModule(new URLSearchParams(location.search).get('module'));
