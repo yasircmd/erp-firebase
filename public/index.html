@@ -2768,7 +2768,68 @@
         new MutationObserver(sync).observe(view, { attributes: true, attributeFilter: ['class'] });
         const timer = setInterval(sync, 700);
       }
-      return { attach, MODULES };
+
+      // ---- Create next: the new document, started from its source ----
+      // Done on the screen as a user would: New, the company and the party,
+      // then the source ticked in the screen's own picker (or, for a PDC,
+      // the amount allocated against the invoice), so each screen's rules
+      // and checks stay as they are. Cash and Bank starts its own
+      // (window.startCreateFrom: its line needs the party's account). Each
+      // step waits for its element; if one doesn't come, the user is told
+      // and carries on by hand.
+      const party = cf => cf.customerId || cf.vendorId;
+      const STARTS = {
+        DELIVERYNOTE: cf => [['click', '#dn-new-btn'], ['select', '#dn-form-company', cf.companyId], ['select', '#dn-form-customer', cf.customerId],
+          ['checkAll', '.dn-so-line-checkbox[data-key^="' + cf.id + '|"]:not(:disabled)']],
+        CUSTOMERINVOICE: cf => [['click', '#cinv-new-btn'], ['select', '#cinv-form-company', cf.companyId], ['select', '#cinv-form-customer', cf.customerId]].concat(cf.type === 'SalesOrder'
+          ? [['click', '#cinv-item-so-btn'], ['checkAll', '.cinv-so-pick[data-so="' + cf.id + '"]'], ['click', '#cinv-so-add']]
+          : [['check', '.cinv-dn-checkbox[data-id="' + cf.id + '"]']]),
+        PURCHASEORDER: cf => [['click', '#po-new-btn'], ['select', '#po-form-company', cf.companyId], ['check', '.po-req-checkbox[data-key="' + cf.type + '|' + cf.id + '"]']],
+        GRN: cf => [['click', '#grn-new-btn'], ['select', '#grn-form-company', cf.companyId], ['select', '#grn-form-vendor', cf.vendorId],
+          ['checkAll', '.grn-po-line-checkbox[data-key^="' + cf.id + '|"]:not(:disabled)']],
+        VENDORINVOICE: cf => [['click', '#vinv-new-btn'], ['select', '#vinv-form-company', cf.companyId], ['select', '#vinv-form-vendor', cf.vendorId],
+          ['check', '.vinv-grn-checkbox[data-id="' + cf.id + '"]']],
+        PDCRECEIVED: cf => pdcSteps(cf),
+        PDCISSUED: cf => pdcSteps(cf)
+      };
+      const pdcSteps = cf => [['click', '#pdc-new-btn'], ['select', '#pdc-form-company', cf.companyId], ['select', '#pdc-form-party', party(cf)],
+        ['fill', '#pdc-form-amount', cf.amount], ['fill', '.pdc-alloc[data-ref="' + cf.type + ':' + cf.id + '"]', cf.amount]];
+      const waitFor = (test, ms) => new Promise((ok, fail) => {
+        const t0 = Date.now();
+        (function poll() { const v = test(); if (v) ok(v); else if (Date.now() - t0 > (ms || 20000)) fail(new Error('timeout')); else setTimeout(poll, 150); })();
+      });
+      const shown = el => el && el.checkVisibility();
+      async function step([kind, sel, value]) {
+        if (kind === 'click') (await waitFor(() => { const el = document.querySelector(sel); return shown(el) && !el.disabled && el; })).click();
+        else if (kind === 'select') {
+          // Set, then held: a late answer (e.g. the one-company default's own
+          // load) may rebuild the list and drop it, so it is set again.
+          for (let tries = 0; tries < 10; tries++) {
+            const el = await waitFor(() => { const x = document.querySelector(sel); return x && !x.disabled && Array.from(x.options).some(o => o.value === value) && x; });
+            if (el.value !== value) { el.value = value; el.dispatchEvent(new Event('change', { bubbles: true })); }
+            await new Promise(r => setTimeout(r, 400));
+            const now = document.querySelector(sel);
+            if (now && now.value === value) break;
+          }
+        } else if (kind === 'fill') {
+          const el = await waitFor(() => { const x = document.querySelector(sel); return x && !x.disabled && x; });
+          el.value = String(value); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+          const els = await waitFor(() => { const xs = Array.from(document.querySelectorAll(sel)); return xs.length && xs; });
+          for (const el of (kind === 'check' ? els.slice(0, 1) : els)) if (!el.checked) el.click();
+        }
+      }
+      async function start(moduleId, cf) {
+        try {
+          if (moduleId === 'CBT') { await waitFor(() => typeof window.startCreateFrom === 'function'); await window.startCreateFrom(cf); return; }
+          const steps = STARTS[moduleId] ? STARTS[moduleId](cf) : null;
+          if (!steps) return;
+          for (const s of steps) await step(s);
+        } catch (e) {
+          appAlert('The new document is open, but ' + (cf.number || 'its source') + ' could not be brought in by itself: choose it on the screen.');
+        }
+      }
+      return { attach, start, MODULES };
     })();
     // ---------- END DOCUMENT LINKS ----------
 
@@ -3110,6 +3171,8 @@
           if (typeof window.initModule === 'function') {
             try { window.initModule(null, result.canWrite); } catch (e) { console.error(e); }
           }
+          // Opened by Create next: start the new document from its source (DOCUMENT LINKS).
+          if (drillParams && drillParams.CreateFrom) window.documentLinks.start(moduleId, drillParams.CreateFrom);
         })
         .withFailureHandler(err => {
           container.innerHTML = '<div class="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">' + escapeHtml(err.message) + '</div>';

@@ -95,6 +95,7 @@ ${slice(pkStart, pkEnd)}
     rpc.withSuccessHandler(result => {
       injectHtmlWithScripts(container, result.html);
       if (typeof window.initModule === 'function') window.initModule(null, result.canWrite);
+      if (drillParams && drillParams.CreateFrom) window.documentLinks.start(moduleId, drillParams.CreateFrom); // as the shell's openModule
       window.__moduleReady = true;
     }).withFailureHandler(err => { container.textContent = 'LOAD FAILED: ' + err.message; })
       .getModuleFragment({ moduleId });

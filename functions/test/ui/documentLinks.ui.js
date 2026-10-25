@@ -63,7 +63,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.click('.doclinks-next:has-text("Receipt")');
     const [m, p] = await page.evaluate(() => window.__opened[0]);
     assert.equal(m, 'CBT');
-    assert.deepEqual(p.CreateFrom, { type: 'CustomerInvoice', id: 'CI1', companyId: 'C1', customerId: 'CU1', amount: 40, voucherType: 'Bank Receipt' });
+    assert.deepEqual(p.CreateFrom, { type: 'CustomerInvoice', id: 'CI1', number: 'CI-26-01-000001', companyId: 'C1', customerId: 'CU1', amount: 40, voucherType: 'Bank Receipt' });
     await openInvoice();
     await page.evaluate(() => { const o = window.openModule; window.__opened = []; window.openModule = (m, p, c) => { window.__opened.push([m, p]); return o(m, p, c); }; });
     await page.click('.doclinks-open:has-text("DN-26-01-000001")');

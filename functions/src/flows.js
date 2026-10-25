@@ -113,7 +113,7 @@ async function salesOrderLinks(id, so) {
       return Math.min(remaining, reserved) > 0.000001;
     });
   }
-  const from = { type: 'SalesOrder', id, companyId: so.CompanyID, customerId: so.CustomerID };
+  const from = { type: 'SalesOrder', id, number: so.SONumber || '', companyId: so.CompanyID, customerId: so.CustomerID };
   const next = [];
   if (shippable) {
     next.push({ module: 'DELIVERYNOTE', label: 'Delivery Note', from });
@@ -129,7 +129,7 @@ async function deliveryNoteLinks(id, t) {
   const invoices = await customerInvoices.query({ DeliveryNoteID: id });
   Object.entries(invoices).forEach(([iid, i]) => chain.push(ciEntry(iid, i, 'after')));
   const next = live(t) && !t.MatchedToInvoiceID
-    ? [{ module: 'CUSTOMERINVOICE', label: 'Customer Invoice', from: { type: 'DeliveryNote', id, companyId: t.CompanyID, customerId: t.CustomerID } }] : [];
+    ? [{ module: 'CUSTOMERINVOICE', label: 'Customer Invoice', from: { type: 'DeliveryNote', id, number: t.TransactionNumber || '', companyId: t.CompanyID, customerId: t.CustomerID } }] : [];
   return { chain, next };
 }
 
@@ -146,7 +146,7 @@ async function customerInvoiceLinks(id, inv) {
   for (const soId of soIds) { const so = await salesOrders.get(soId); if (so) chain.unshift(soEntry(soId, so, 'before')); }
   const s = await settlement('CustomerInvoice', id, inv.Total);
   s.entries.forEach(e => chain.push(glEntry(e, 'after')));
-  const from = { type: 'CustomerInvoice', id, companyId: inv.CompanyID, customerId: inv.CustomerID, amount: s.outstanding };
+  const from = { type: 'CustomerInvoice', id, number: inv.TransactionNumber || '', companyId: inv.CompanyID, customerId: inv.CustomerID, amount: s.outstanding };
   const next = invoiceLive(inv) && s.outstanding > 0.005
     ? [{ module: 'CBT', label: 'Receipt', from: Object.assign({ voucherType: 'Bank Receipt' }, from) }, { module: 'PDCRECEIVED', label: 'PDC Received', from }] : [];
   return { chain, next, outstanding: invoiceLive(inv) ? s.outstanding : null };
@@ -158,7 +158,7 @@ async function requisitionLinks(module, id, r) {
   Object.entries(await purchaseOrders.query({ CompanyID: r.CompanyID }))
     .filter(([, po]) => listOf(po.Lines).some(l => l.SourceRequisitionID === id && (!l.SourceRequisitionType || l.SourceRequisitionType === type)))
     .forEach(([pid, po]) => chain.push(poEntry(pid, po, 'after')));
-  const next = r.Status === 'Submitted' ? [{ module: 'PURCHASEORDER', label: 'Purchase Order', from: { type, id, companyId: r.CompanyID } }] : [];
+  const next = r.Status === 'Submitted' ? [{ module: 'PURCHASEORDER', label: 'Purchase Order', from: { type, id, number: r.PRNumber || r.IPRNumber || '', companyId: r.CompanyID } }] : [];
   return { chain, next };
 }
 
@@ -174,7 +174,7 @@ async function purchaseOrderLinks(id, po) {
   grns.forEach(t => chain.push(grnEntry(t._id, t, 'after')));
   for (const t of grns) Object.entries(await vendorInvoices.query({ GRNID: t._id })).forEach(([vid, v]) => chain.push(viEntry(vid, v, 'after')));
   const open = po.Status === 'Approved' && listOf(po.Lines).some(l => Number(l.Quantity || 0) - Number(l.ReceivedQuantity || 0) > 0.000001);
-  const next = open ? [{ module: 'GRN', label: 'Goods Receipt', from: { type: 'PurchaseOrder', id, companyId: po.CompanyID, vendorId: po.VendorID } }] : [];
+  const next = open ? [{ module: 'GRN', label: 'Goods Receipt', from: { type: 'PurchaseOrder', id, number: po.PONumber || '', companyId: po.CompanyID, vendorId: po.VendorID } }] : [];
   return { chain, next };
 }
 
@@ -184,7 +184,7 @@ async function grnLinks(id, t) {
   for (const poId of poIds) { const po = await purchaseOrders.get(poId); if (po) chain.push(poEntry(poId, po, 'before')); }
   Object.entries(await vendorInvoices.query({ GRNID: id })).forEach(([vid, v]) => chain.push(viEntry(vid, v, 'after')));
   const next = live(t) && !t.MatchedToInvoiceID
-    ? [{ module: 'VENDORINVOICE', label: 'Vendor Invoice', from: { type: 'GRN', id, companyId: t.CompanyID, vendorId: t.VendorID } }] : [];
+    ? [{ module: 'VENDORINVOICE', label: 'Vendor Invoice', from: { type: 'GRN', id, number: t.TransactionNumber || '', companyId: t.CompanyID, vendorId: t.VendorID } }] : [];
   return { chain, next };
 }
 
@@ -201,7 +201,7 @@ async function vendorInvoiceLinks(id, inv) {
   for (const poId of poIds) { const po = await purchaseOrders.get(poId); if (po) chain.unshift(poEntry(poId, po, 'before')); }
   const s = await settlement('VendorInvoice', id, inv.Total);
   s.entries.forEach(e => chain.push(glEntry(e, 'after')));
-  const from = { type: 'VendorInvoice', id, companyId: inv.CompanyID, vendorId: inv.VendorID, amount: s.outstanding };
+  const from = { type: 'VendorInvoice', id, number: inv.TransactionNumber || '', companyId: inv.CompanyID, vendorId: inv.VendorID, amount: s.outstanding };
   const next = invoiceLive(inv) && s.outstanding > 0.005
     ? [{ module: 'CBT', label: 'Payment', from: Object.assign({ voucherType: 'Bank Payment' }, from) }, { module: 'PDCISSUED', label: 'PDC Issued', from }] : [];
   return { chain, next, outstanding: invoiceLive(inv) ? s.outstanding : null };

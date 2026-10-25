@@ -858,7 +858,7 @@
       const taken = new Set(itemLines.map(l => l.SourceSOLineID).filter(Boolean));
       orderLines = (list || []).filter(l => !taken.has(l.LineID));
       const wh = id => { const u = orgUnits.find(x => x.UnitID === id); return u ? u.Code : id; };
-      document.getElementById('cinv-so-body').innerHTML = orderLines.map((l, i) => '<tr><td class="py-1 pr-2"><input type="checkbox" data-i="' + i + '" class="cinv-so-pick"></td>' +
+      document.getElementById('cinv-so-body').innerHTML = orderLines.map((l, i) => '<tr><td class="py-1 pr-2"><input type="checkbox" data-i="' + i + '" data-so="' + escapeHtml(l.SOID) + '" class="cinv-so-pick"></td>' +
         '<td class="py-1 pr-2">' + escapeHtml(l.SONumber) + ' <span class="text-slate-500">' + escapeHtml(l.SODate) + '</span></td><td class="py-1 pr-2 font-mono">' + escapeHtml(l.ItemCode) + '</td><td class="py-1 pr-2">' + escapeHtml(wh(l.WarehouseID)) + '</td>' +
         '<td class="py-1 pr-2 text-right">' + formatMoney(l.UnitPrice) + '</td><td class="py-1 pr-2 text-right">' + l.MaxQuantity + '</td>' +
         '<td class="py-1 text-right"><input data-i="' + i + '" value="' + l.MaxQuantity + '" inputmode="decimal" class="cinv-so-qty w-20 bg-slate-900 border border-slate-700 rounded py-0.5 px-1 text-right"></td></tr>').join('') ||
