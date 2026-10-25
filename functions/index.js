@@ -247,6 +247,9 @@ const payrollPayment = require('./src/payrollPayment');
 const payrollProvisions = require('./src/payrollProvisions');
 ['getProvisionSetup', 'saveProvisionSettings', 'saveAccrualType', 'getProvisionBalances', 'recordAccrualClaim', 'reverseAccrualClaim'].forEach(n => { exports[n] = payrollProvisions[n]; });
 const payrollSettlement = require('./src/payrollSettlement');
+// Stop salary (docs/modules/SALARY_HOLD.md).
+const salaryHold = require('./src/salaryHold');
+['getSalaryHolds', 'placeSalaryHold', 'releaseSalaryHold'].forEach(n => { exports[n] = salaryHold[n]; });
 ['getSettlements', 'getSettlement', 'saveSettlement', 'deleteSettlement', 'submitSettlement', 'decideSettlementApproval', 'postSettlement', 'reverseSettlement',
   'getSettlementPayment', 'downloadSettlementFile', 'markSettlementPaid', 'reverseSettlementPayment'].forEach(n => { exports[n] = payrollSettlement[n]; });
 const payrollInterim = require('./src/payrollInterim');

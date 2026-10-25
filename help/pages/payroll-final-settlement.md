@@ -5,8 +5,8 @@ order: 11
 modules: [PAYROLLFS]
 sources: [functions/src/payrollSettlement.js, functions/src/eosStatement.js, functions/src/payrollCalc.js, functions/src/payrollRun.js, functions/src/payrollFiles.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js]
 summary: Finalise the employee’s end-of-service or exit settlement with all remaining balances and payments.
-reviewed: 2026-10-18
-fingerprint: 4605e5e0f38fba2a
+reviewed: 2026-10-25
+fingerprint: 6018333fc7f81d81
 ---
 ## What it is for
 
@@ -24,7 +24,7 @@ fingerprint: 4605e5e0f38fba2a
 
 1. Open Final Settlements and choose an employee on notice or marked Left with a leaving date. Only one settlement exists per employee.
 2. Review the salary months listed. The leaving month is paid through the settlement; earlier unpaid months can be assigned either to a payroll run or to the settlement, subject to the sequence shown.
-3. Review calculated lines for salary, unpaid/paid leave, gratuity, leave salary, accruals, loan balance, and any arrears or monthly inputs. Confirm the chosen salary basis and rates against the employee's compensation and Payroll Setup.
+3. Review calculated lines for salary, unpaid/paid leave, gratuity, leave salary, accruals, loan balance, any salary still held (a **Salary released** line, paid from Salary held), and any arrears or monthly inputs. Confirm the chosen salary basis and rates against the employee's compensation and Payroll Setup.
 4. Enter notice days and choose whether notice is paid in lieu or deducted for short notice. Add other earning/deduction elements only when supported by the relevant business decision.
 5. If an automatically calculated gratuity, leave-salary, or accrual amount must be overridden, enter the agreed amount and a reason. Check all warnings and the final net: a positive amount is payable; a negative amount is due from the employee.
 6. Save the draft and submit on or after the leaving date. The system recalculates, checks leave and salary-month dependencies, and routes through Approval Configuration. Rejection returns it to Draft.

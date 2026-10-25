@@ -1,0 +1,36 @@
+# UX round 2, item 29: stop salary (owner, 2026-10-25; docs/modules/
+# SALARY_HOLD.md, decisions Q279, Q299, Q300). Run with --screens (Payroll's
+# Salary holds tab, Payroll Setup's Salary held account). Hosting too
+# (tools/deploy-hosting.sh): the Help. No rules change.
+# After deploying: set each company's Salary held account in HR Setup →
+# Payroll before placing a hold.
+#
+# New (salaryHold.js; deploy-functions.sh binds their invokers).
+getSalaryHolds
+placeSalaryHold
+releaseSalaryHold
+# The run: the Stop Salary / Salary released lines (payrollRun.js, payrollCalc.js).
+createPayrollRun
+getPayrollRun
+savePayrollInputs
+recalculatePayrollRun
+setPayrollCostOverride
+# Posting to Salary held (payrollPost.js).
+submitPayrollRun
+decidePayrollApproval
+postPayrollRun
+getPayrollGlImpact
+# Payroll Setup's Salary held account (payrollSetup.js).
+getPayrollSetup
+savePayrollCompany
+# The settlement pays what is still held (payrollSettlement.js).
+getSettlement
+saveSettlement
+submitSettlement
+decideSettlementApproval
+postSettlement
+# Data Reset: the holds go with Payroll Runs (dataReset.js).
+getDataResetCounts
+clearDataCategories
+clearSelectedRecords
+getCategoryRecords

@@ -193,3 +193,21 @@ test('leave salary (owner point 2, decision 30) and accruals (owner point 3, dec
   const edu = { Basis: 'Percent', Of: 'Basic', Rules: [{ LevelFrom: 1, LevelTo: 99, Value: 5 }] };
   assert.deepEqual(calc.accrualShareFor(edu, x), { amount: 300, text: '3,600.00 a year (5% of the basic) ÷ 12 = 300.00' });
 });
+
+// Stop salary (docs/modules/SALARY_HOLD.md): a held month's payslip is normal
+// with a Stop Salary deduction taking the net to zero, after the loans; a
+// released hold pays what was held as a Salary released earning.
+test('a held salary: Stop Salary equal to the net, after loan recovery; released, paid as an earning', () => {
+  const loans = [{ LoanID: 'L1', LoanNumber: 'LN-1', TypeName: 'Advance', Due: 1000, Balance: 3000 }];
+  let r = run({ versions: [v('2025-01-01', { b: 6000, h: 3000, pen: 300 })], loans, hold: { FromMonth: '2026-07', Reason: 'Absconding' } });
+  assert.deepEqual([amt(r, 'LOAN'), amt(r, 'STOPSAL'), r.Earnings, r.Deductions, r.Net], [1000, 7700, 9000, 9000, 0]);
+  assert.equal(r.Lines.find(l => l.Code === 'STOPSAL').Source, 'Hold');
+  assert.equal(r.Lines.find(l => l.Code === 'STOPSAL').Text, 'salary held from 2026-07', 'no reason on the payslip');
+  // A negative net is not held.
+  r = run({ versions: [v('2025-01-01', { b: 100, pen: 300 })], hold: { FromMonth: '2026-07', Reason: 'x' } });
+  assert.equal(amt(r, 'STOPSAL'), undefined);
+  // Released: the months held, paid now, out of the loans' reach.
+  r = run({ versions: [v('2025-01-01', { b: 6000 })], loans: [{ LoanID: 'L1', LoanNumber: 'LN-1', TypeName: 'Advance', Due: 9000, Balance: 9000 }], released: { amount: 7700, months: ['2026-05', '2026-06'] } });
+  assert.deepEqual([amt(r, 'SALREL'), amt(r, 'LOAN'), r.Net], [7700, 6000, 7700]);
+  assert.equal(r.Lines.find(l => l.Code === 'SALREL').Text, 'held 2026-05, 2026-06, released');
+});

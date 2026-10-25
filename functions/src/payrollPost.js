@@ -65,6 +65,7 @@ function glLinesFor(run, slips, elements, coa, settings, loanAccounts, provAccou
       if (!l.Amount) return;
       const debit = (l.Kind === 'Earning') === (l.Amount > 0);
       if (l.Source === 'CarryForward') return add(settings.ReceivableAccountID, 'Recoverable from employees', Math.abs(l.Amount), debit, s);
+      if (l.Source === 'Hold' || l.Source === 'HoldRelease') return add(settings.HeldAccountID, 'Salary held', Math.abs(l.Amount), debit, s); // SALARY_HOLD.md
       if (l.Source === 'Loan') return add((loanAccounts || {})[l.LoanID] || '', l.Name.replace(/ LN-\d+$/, ''), Math.abs(l.Amount), debit, s); // to the loan type's receivable (step 4b)
       if (l.Source === 'AccrualPayout') return add(provAccount ? provAccount('Accrual', l.AccrualTypeID, 'Provision') : '', l.Name, Math.abs(l.Amount), debit, s); // from its provision (step 5a)
       // A leave deduction pro rata (step 6, decision 46): back off each earning it came from.

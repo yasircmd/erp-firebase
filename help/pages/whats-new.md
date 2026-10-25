@@ -12,6 +12,11 @@ screen.
 
 ## 25/10/2026
 
+- **Hold a salary.** Payroll's new **Salary holds** tab stops an
+  employee's salary from a month: the payslip shows a Stop Salary
+  deduction and the amount waits on a Salary held account (set it in
+  Payroll Setup). Released, it is paid with the next run. See
+  [Payroll](payroll-run.html#hold-an-employee-s-salary).
 - **Several post-dated cheques in one entry.** Enter a customer's or
   vendor's set of cheques at once, with a **Monthly series** for a run of
   monthly cheques. They post under one number, -01, -02 …, and each then

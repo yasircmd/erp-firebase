@@ -213,6 +213,9 @@ async function compute(emp, d) {
       if (balance > 0) lines.push({ Key: 'Loan:' + l.LoanID, Kind: 'Deduction', Name: 'Loan recovery: ' + l.TypeName + ' ' + l.LoanNumber, Amount: balance, LoanID: l.LoanID, Text: 'the balance owed' });
     });
   }
+  // A salary still held (SALARY_HOLD.md) is paid with the settlement, from Salary held.
+  const held = await require('./salaryHold').heldBefore(co, emp.EmployeeID);
+  if (held.amount > 0) lines.push({ Key: 'HeldSalary', Kind: 'Earning', Name: 'Salary released', Amount: held.amount, Source: 'HoldRelease', Text: 'held ' + held.months.join(', ') });
   const earnings = round2(lines.filter(l => l.Kind === 'Earning').reduce((t, l) => t + l.Amount, 0));
   const deductions = round2(lines.filter(l => l.Kind === 'Deduction').reduce((t, l) => t + l.Amount, 0));
   const net = round2(earnings - deductions);
@@ -263,6 +266,7 @@ async function glLinesFor(s) {
       add(provAccount(l.Key, 'Expense'), name + ' expense', l.Signed - l.Provided);
     } else if (l.Salary && l.Source === 'CarryForward') add(settings.ReceivableAccountID, 'Recoverable from employees', l.Kind === 'Earning' ? l.Amount : -l.Amount);
     else if (l.LoanID) add(loanAcc[l.LoanID], l.Name.replace(/ LN-\d+$/, ''), -l.Amount);
+    else if (l.Key === 'HeldSalary') add(settings.HeldAccountID, 'Salary held', l.Amount); // what was held, paid now (SALARY_HOLD.md)
     // A leave deduction pro rata (step 6, decision 46): back off each earning it came from.
     else if (l.Salary && settings.LeaveDeductionGL === 'ProRata' && (l.Split || []).length) {
       l.Split.forEach(p => { const el = elements[p.ElementID]; add(el ? calc.accountFor(el, co) : '', (el ? el.Name : p.ElementID) + ' (' + l.Name.toLowerCase() + ')', l.Kind === 'Earning' ? p.Amount : -p.Amount); });

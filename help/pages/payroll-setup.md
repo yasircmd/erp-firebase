@@ -5,8 +5,8 @@ order: 6
 modules: [PAYROLLSETUP]
 sources: [functions/src/hrPay.js, functions/src/payrollSetup.js, functions/src/payrollPayment.js, functions/src/payrollFiles.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js, functions/src/reimbursements.js]
 summary: Set the company payroll account, pay elements and defaults used by each payroll run.
-reviewed: 2026-10-24
-fingerprint: 635532a477d9760b
+reviewed: 2026-10-25
+fingerprint: 44299de7f2123b14
 ---
 ## What it is for
 
@@ -34,7 +34,7 @@ Create each element with a unique code/name and classify it as **Earning** or **
 
 ### Payroll Accounting
 
-For each company, choose the daily-rate method: monthly amount divided by 30, by the actual days in that month, or monthly amount × 12 ÷ 365/366. Set **Salaries Payable** (liability) and **Recoverable from employees** (asset), and choose how leave deductions appear in the GL: pro-rata against the original earnings accounts or through the element's ledger mapping. Set the optional cut-off day (1–28) if the leave month is to lock before month end; blank means after month end.
+For each company, choose the daily-rate method: monthly amount divided by 30, by the actual days in that month, or monthly amount × 12 ÷ 365/366. Set **Salaries Payable** (liability), **Recoverable from employees** (asset) and **Salary held** (a liability of its own: a held salary waits there until released, see [Payroll](payroll-run.html#hold-an-employee-s-salary)), and choose how leave deductions appear in the GL: pro-rata against the original earnings accounts or through the element's ledger mapping. Set the optional cut-off day (1–28) if the leave month is to lock before month end; blank means after month end.
 
 For each pay element, select its shared/group GL account and any company-specific override. Earnings require an expense account; deductions may post to a liability or receivable. Decide whether the fixed amount is prorated for joiners, leavers and unpaid days, and whether an earning counts in gross for leave pay/overtime calculations.
 
