@@ -113,7 +113,7 @@ const XLSX = Buffer.concat([Buffer.from('PK\u0003\u0004'), Buffer.from('zip body
       const v = document.createElement('div'); v.id = 'sd-test-view'; document.body.appendChild(v);
       supportingDocs.mount({ module: 'JV', view: 'sd-test-view', id: () => window.__sdId });
     });
-    const t = '#sd-test-view + .supdocs';
+    const t = '#sd-test-view ~ .supdocs'; // its own section (the Linked documents panel may sit between, DOCUMENT LINKS)
     await page.waitForFunction(s => /Save the draft/.test(document.querySelector(s + ' .supdocs-note').textContent), t, { timeout: 5000 });
     await page.evaluate(id => { window.__sdId = id; }, jvId);
     await page.waitForFunction(s => document.querySelectorAll(s + ' .supdocs-list li').length === 1, t, { timeout: 15000 });
