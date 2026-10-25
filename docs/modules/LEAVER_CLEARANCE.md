@@ -114,7 +114,7 @@
 - **Tests:** clearance emulator suite (3): the default steps, the start on
   notice, the order, the team and manage, the amount and its element, Home,
   the portal's view; the settlement's wait and deduction, reopening, the
-  list, active again; all at once and an empty set-up. clearance UI (3):
+  list, active again; all at once and an empty set-up. home UI (one more: Home's block, counted and opened); clearance UI (3):
   the list and signing a step, the set-up, the portal card. The settlement
   suites (payrollSettlement, payrollInterim, eosStatement, emulator and UI)
   set an empty set-up, being about the settlement itself. **Negative
