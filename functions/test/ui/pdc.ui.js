@@ -4,7 +4,8 @@
 // the due view and clearing from the list; bouncing an issued cheque from
 // its screen with the history; GL drill-through; the Viewer's read-only
 // list; the Customer SOA's pending PDCs; Company Master's two accounts;
-// and PDCISSUED.html in step with its template. Run the pdc emulator
+// an entry of several cheques (a monthly series, posted as -01 …, the entry
+// view, its receipt); and PDCISSUED.html in step with its template. Run the pdc emulator
 // suite first — its last test leaves the fixture this relies on (CINV-1
 // with 400 outstanding, issued cheque 500001 pending):
 //   node --test functions/test/emulator/pdc.emulator.test.js
@@ -45,7 +46,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     page.__errors = [];
     page.__dialogs = [];
     page.on('pageerror', e => page.__errors.push(e.message));
-    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(); });
+    await onAppDialog(page, d => { page.__dialogs.push(d.message()); d.accept(d.type() === 'prompt' ? page.__answer : undefined); });
     await page.goto('http://127.0.0.1:8128/?module=' + module + '&uid=' + uid);
     await page.waitForFunction(() => window.__moduleReady === true, null, { timeout: 30000 });
     await page.waitForLoadState('networkidle');
@@ -66,14 +67,14 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.click('#pdc-new-btn');
     await page.selectOption('#pdc-form-company', 'C1');
     await settle(page);
-    assert.ok(await page.isVisible('#pdc-form-drawee'));
+    assert.ok(await page.isVisible('.pdc-chq-bank'));
     assert.ok(!(await page.isVisible('#pdc-form-bank')));
     await page.selectOption('#pdc-form-party', 'CU1');
     await page.waitForSelector('#pdc-alloc-body tr', { timeout: 15000 });
-    await page.fill('#pdc-form-cheque-date', today);
-    await page.fill('#pdc-form-cheque-no', 'UI-777');
-    await page.fill('#pdc-form-amount', '250');
-    await page.fill('#pdc-form-drawee', 'Mashreq');
+    await page.fill('.pdc-chq-date', today);
+    await page.fill('.pdc-chq-no', 'UI-777');
+    await page.fill('.pdc-chq-amount', '250');
+    await page.fill('.pdc-chq-bank', 'Mashreq');
     await page.fill('#pdc-form-description', 'UI cheque');
     const items = await page.locator('#pdc-alloc-body tr').allTextContents();
     assert.match(items[0], /CINV-1.*1,000\.00.*400\.00/s);
@@ -247,6 +248,57 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.equal(await page.inputValue('#co-form-pdc-received'), 'A-PDCR');
     assert.equal(await page.inputValue('#co-form-pdc-issued'), 'A-PDCI');
     assert.match(await page.locator('#co-form-pdc-received option[value="A-PDCR"]').textContent(), /1250 — PDC Received Clearing/);
+    assert.deepEqual(page.__errors, []);
+    await page.close();
+  });
+
+  // Several cheques in one entry (docs/modules/PDC_MULTI_CHEQUE.md). Last, so
+  // its pending cheques stay out of the SOA check above.
+  await check('an entry of three cheques: a monthly series, posted as -01 to -03, the entry view, one receipt for all', async () => {
+    const page = await open('PDCRECEIVED', 'u-admin');
+    await page.click('#pdc-new-btn');
+    await page.selectOption('#pdc-form-company', 'C1');
+    await settle(page);
+    await page.selectOption('#pdc-form-party', 'CU1');
+    await page.waitForSelector('#pdc-alloc-body tr', { timeout: 15000 });
+    await page.fill('.pdc-chq-no', 'SR-008');
+    await page.fill('.pdc-chq-date', '2026-01-31');
+    await page.fill('.pdc-chq-amount', '50');
+    await page.fill('.pdc-chq-bank', 'Mashreq');
+    page.__answer = '2';
+    await page.click('#pdc-series-btn');
+    await page.waitForFunction(() => document.querySelectorAll('.pdc-chq-no').length === 3, null, { timeout: 15000 });
+    const grid = await page.evaluate(() => [...document.querySelectorAll('#pdc-cheques-body tr')].map(tr => [...tr.querySelectorAll('input')].map(i => i.value)));
+    assert.deepEqual(grid, [['SR-008', '2026-01-31', 'Mashreq', '50'], ['SR-009', '2026-02-28', 'Mashreq', '50'], ['SR-010', '2026-03-31', 'Mashreq', '50']], 'the next numbers, a month apart, kept within the month');
+    assert.equal(await page.textContent('#pdc-cheques-total'), '3 cheques, total 150.00');
+    await page.fill('#pdc-form-description', 'Rent cheques');
+    await page.click('#pdc-oldest-btn');
+    assert.match(await page.textContent('#pdc-alloc-summary'), /^Cheques 150\.00 — settles 150\.00\.$/);
+    assert.match(await page.textContent('#pdc-alloc-hint'), /cheque-date order/);
+    await page.click('#pdc-post-btn');
+    await page.waitForSelector('#pdc-list-view', { state: 'visible', timeout: 30000 });
+    await settle(page);
+    const mine = (await entries('Received')).filter(e => /^SR-0/.test(e.ChequeNumber)).sort((a, b) => a.ChequeIndex - b.ChequeIndex);
+    const n = mine[0].EntryNumber;
+    assert.deepEqual(mine.map(e => [e.ChequeNumber, e.Status, e.TransactionNumber, e.Allocations.map(a => a.RefNumber + ' ' + a.Amount).join()]),
+      [['SR-008', 'Pending', n + '-01', 'CINV-1 50'], ['SR-009', 'Pending', n + '-02', 'CINV-1 50'], ['SR-010', 'Pending', n + '-03', 'CINV-1 50']]);
+
+    // One cheque opens its entry: all three listed, this one marked; another opens on a click.
+    await page.locator('#pdc-table-body tr', { hasText: 'SR-009' }).click();
+    await settle(page);
+    assert.equal(await page.locator('#pdc-cheques-body .pdc-chq-row').count(), 3);
+    assert.equal(await page.textContent('#pdc-cheques-total'), '3 cheques, total 150.00 — 3 of 3 pending');
+    assert.match(await page.textContent('#pdc-voucher-no-line'), /Entry: .*cheque 2 of 3/);
+    assert.match(await page.locator('#pdc-cheques-body tr.bg-blue-500\\/10').textContent(), /SR-009/);
+    await page.locator('#pdc-cheques-body .pdc-chq-row', { hasText: 'SR-010' }).click();
+    await page.waitForFunction(n => document.getElementById('pdc-entry-title').textContent === n, mine[2].TransactionNumber, { timeout: 15000 });
+    await page.evaluate(() => { window.print = () => { window.__printed = document.getElementById('pdc-print-document').innerText; }; });
+    await page.evaluate(() => document.getElementById('pdc-print-btn').click());
+    const printed = await page.evaluate(() => window.__printed);
+    assert.match(printed, new RegExp('No: ' + mine[0].EntryNumber));
+    assert.match(printed, /SR-008[\s\S]*SR-009[\s\S]*SR-010[\s\S]*Total \(3 cheques\)\s*150\.00/);
+    assert.match(printed, /CINV-1\s*150\.00/);
+    assert.deepEqual(await rpcFailures(page), []);
     assert.deepEqual(page.__errors, []);
     await page.close();
   });

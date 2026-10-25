@@ -100,7 +100,7 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     const p = await createNext('PDCRECEIVED', Object.assign({ type: 'CustomerInvoice', id: 'CI1', number: 'CI-26-01-000001', amount: 40 }, sales));
     await p.waitForFunction(() => { const i = document.querySelector('.pdc-alloc[data-ref="CustomerInvoice:CI1"]'); return i && i.value === '40'; }, null, { timeout: 30000 });
     assert.equal(await p.inputValue('#pdc-form-party'), 'CU1');
-    assert.equal(await p.inputValue('#pdc-form-amount'), '40');
+    assert.equal(await p.inputValue('.pdc-chq-amount'), '40');
     assert.deepEqual(p.__errors, []);
     await p.close();
   });
