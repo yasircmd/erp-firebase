@@ -12,6 +12,11 @@ screen.
 
 ## 25/10/2026
 
+- **Several post-dated cheques in one entry.** Enter a customer's or
+  vendor's set of cheques at once, with a **Monthly series** for a run of
+  monthly cheques. They post under one number, -01, -02 …, and each then
+  clears or bounces by itself. See
+  [Post-dated Cheques](post-dated-cheques.html#record-a-cheque-or-a-set-of-cheques).
 - **Create next, and linked documents.** From a Sales Order, Delivery Note,
   invoice, requisition, Purchase Order or Goods Receipt, **Create next**
   starts the next document already filled in, and **Linked documents**

@@ -1,0 +1,17 @@
+# UX round 2, item 25: several cheques in one PDC entry (owner, 2026-10-24;
+# docs/modules/PDC_MULTI_CHEQUE.md, decisions Q290-Q292).
+# Run with --screens (PDC Received / PDC Issued: the cheque lines, the
+# entry view, one receipt). Hosting too (tools/deploy-hosting.sh): the
+# shell's Create next fills the first cheque, and the Help. No rules change.
+#
+# pdc.js: the entry's cheques saved, checked for duplicates line by line,
+# posted as a GL entry and a record per cheque in one batch (glWriting's
+# NumberAs, postStock taking several entries: both used by pdc.js only, so
+# nothing else changes and no other function needs deploying); the list by
+# entry.
+savePdcDraft
+postPdc
+decidePdcApproval
+getPdcEntries
+# The Employee Portal's collected cheque (salesRep.js → savePdcDraftForRep).
+essPortal
