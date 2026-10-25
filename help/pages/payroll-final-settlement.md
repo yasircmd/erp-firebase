@@ -6,7 +6,7 @@ modules: [PAYROLLFS]
 sources: [functions/src/payrollSettlement.js, functions/src/eosStatement.js, functions/src/payrollCalc.js, functions/src/payrollRun.js, functions/src/payrollFiles.js, functions/src/payrollLoans.js, functions/src/payrollProvisions.js]
 summary: Finalise the employee’s end-of-service or exit settlement with all remaining balances and payments.
 reviewed: 2026-10-25
-fingerprint: 6018333fc7f81d81
+fingerprint: 748ea12bd449e3b4
 ---
 ## What it is for
 
@@ -27,7 +27,7 @@ fingerprint: 6018333fc7f81d81
 3. Review calculated lines for salary, unpaid/paid leave, gratuity, leave salary, accruals, loan balance, any salary still held (a **Salary released** line, paid from Salary held), and any arrears or monthly inputs. Confirm the chosen salary basis and rates against the employee's compensation and Payroll Setup.
 4. Enter notice days and choose whether notice is paid in lieu or deducted for short notice. Add other earning/deduction elements only when supported by the relevant business decision.
 5. If an automatically calculated gratuity, leave-salary, or accrual amount must be overridden, enter the agreed amount and a reason. Check all warnings and the final net: a positive amount is payable; a negative amount is due from the employee.
-6. Save the draft and submit on or after the leaving date. The system recalculates, checks leave and salary-month dependencies, and routes through Approval Configuration. Rejection returns it to Draft.
+6. Save the draft and submit on or after the leaving date, once the employee's [clearance](clearances.html) is complete (where the company uses one); its amounts to recover are already deduction lines ("Clearance: IT"). The system recalculates, checks leave and salary-month dependencies, and routes through Approval Configuration. Rejection returns it to Draft.
 7. Final approval posts the settlement journal dated on the leaving date. Review the journal and settlement status, then create a payment from the configured bank file or cash/bank account. If sent through Interim Payroll, pay it there instead; do not pay it twice.
 8. If a posted settlement is wrong, reverse its payment first, then reverse the settlement with a reason. Reversal restores loan recoveries and returns the document to Draft for correction.
 

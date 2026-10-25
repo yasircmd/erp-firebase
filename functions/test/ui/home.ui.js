@@ -67,6 +67,7 @@ function stubs() {
       case 'getRecurringJournalsDueForUser': return window.__recurringDue || [];
       case 'getMyDraftsForUser': return window.__drafts || [];
       case 'getMyFollowUpTasksForUser': return window.__followUps || [];
+      case 'getClearanceTasksForUser': return window.__clearances || [];
       case 'getMyRejectedSubmissions': return window.__rejected || [];
       case 'closeRejectedSubmission': window.__closed = arg; window.__rejected = []; return { success: true };
       // A screen whose list answers late, and whose handler needs its own
@@ -385,6 +386,32 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     await page.click('#home-followup-list > div >> nth=1');
     await page.waitForSelector('#stub-module');
     assert.deepEqual(await page.evaluate(() => window.__opened), ['PURCHASEREQUISITION', 'PRQ-1']);
+    assert.deepEqual(page.__errors, []);
+    await context.close();
+  });
+
+  // A leaver's clearance step for the user's team (docs/modules/LEAVER_CLEARANCE.md).
+  await check('tasks: a clearance step for my team, counted and opened on the employee (LEAVER_CLEARANCE.md)', async () => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    page.__errors = [];
+    page.on('pageerror', e => page.__errors.push(e.message));
+    await routeCdnStyles(page);
+    await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK[route.request().url().split('/').pop()] }));
+    await page.addInitScript(stubs);
+    await page.addInitScript(() => {
+      window.__clearances = [{ EmployeeID: 'E7', EmployeeName: 'Sam Example', EmployeeNo: 'EMP-0007', LeavingDate: '2026-11-30', Step: 'IT', Progress: '1 of 3 signed' }];
+      document.addEventListener('DOMContentLoaded', () => setTimeout(() => { const o = window.openModule; window.openModule = (m, p) => { window.__opened = [m, p && p.OpenEntryId]; return o(m, p); }; }, 0));
+    });
+    await page.goto('http://127.0.0.1:8131/');
+    await page.waitForSelector('#home-clearance-block:not(.hidden)', { state: 'attached', timeout: 30000 });
+    assert.equal((await page.textContent('#home-tasks-count')).trim(), '(1)', 'counted with the other tasks');
+    const rows = await page.$$eval('#home-clearance-list > div', ds => ds.map(d => d.textContent.replace(/\s+/g, ' ').trim()));
+    assert.deepEqual(rows, ['Sam Example leaving 30/11/2026 · 1 of 3 signed IT']);
+    await page.evaluate(() => toggleHomeTasksSection());
+    await page.click('#home-clearance-list > div');
+    await page.waitForSelector('#stub-module');
+    assert.deepEqual(await page.evaluate(() => window.__opened), ['CLEARANCE', 'E7']);
     assert.deepEqual(page.__errors, []);
     await context.close();
   });

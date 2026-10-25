@@ -641,6 +641,14 @@
           </div>
           <div id="home-emp-requests-list" class="divide-y divide-slate-800"></div>
         </div>
+        <!-- A leaver's clearance step waiting for this user's team (docs/modules/LEAVER_CLEARANCE.md). -->
+        <div id="home-clearance-block" class="hidden bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-700 bg-slate-800/60 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-blue-400 text-xs"></i>
+            <p class="text-xs font-semibold text-slate-300 uppercase">Clearances Waiting for You</p>
+          </div>
+          <div id="home-clearance-list" class="divide-y divide-slate-800"></div>
+        </div>
       </div>
       <div id="fav-config-banner" class="hidden mb-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2"><i class="fa-solid fa-star"></i> Click a star to add or remove a favourite (up to 5). Click Done when finished.</div>
       <div id="module-search-empty" class="hidden mb-3 p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 text-sm">No modules match your search.</div>
@@ -1258,6 +1266,7 @@
     let homeDocsExpiringCount = 0;
     let homeEmpDocsExpiringCount = 0;
     let homeEmpRequestsCount = 0;
+    let homeClearanceCount = 0;
 
     function loadHomeTasks() {
       // My Portal: shown only to an ERP user linked to an employee record.
@@ -1271,6 +1280,12 @@
         .withSuccessHandler(result => { renderEmpRequests((result && result.items) || []); })
         .withFailureHandler(() => { renderEmpRequests([]); })
         .employeeRequests({ action: 'tasks' });
+
+      // A leaver's clearance step for this user's team (docs/modules/LEAVER_CLEARANCE.md).
+      rpc
+        .withSuccessHandler(result => { renderClearanceTasks(result || []); })
+        .withFailureHandler(() => { renderClearanceTasks([]); })
+        .getClearanceTasksForUser();
 
       rpc
         .withSuccessHandler(result => { renderPendingApprovals(result || []); })
@@ -1373,6 +1388,29 @@
             <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
           </div>`;
         row.addEventListener('click', () => openHomeTaskDocument(item.ModuleID, item.DocumentID));
+        list.appendChild(row);
+      });
+    }
+
+    function renderClearanceTasks(items) {
+      homeClearanceCount = items.length;
+      const list = document.getElementById('home-clearance-list');
+      document.getElementById('home-clearance-block').classList.toggle('hidden', items.length === 0);
+      updateHomeTasksToggleButton();
+      list.innerHTML = '';
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-700/30 cursor-pointer text-sm';
+        row.innerHTML = `
+          <div class="min-w-0">
+            <span class="text-slate-200 font-medium">${escapeHtml(item.EmployeeName)}</span>
+            <span class="text-slate-500 text-xs ml-2">${escapeHtml(['leaving ' + item.LeavingDate, item.Progress].join(' · '))}</span>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-xs text-amber-400">${escapeHtml(item.Step)}</span>
+            <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+          </div>`;
+        row.addEventListener('click', () => openHomeTaskDocument('CLEARANCE', item.EmployeeID));
         list.appendChild(row);
       });
     }
@@ -1579,7 +1617,7 @@
     // count, since either one changing can change the combined total.
     function updateHomeTasksToggleButton() {
       const total = homePendingCount + homeRejectedCount + homePdcDueCount + homeRecurringDueCount + homeDraftsCount + homeFollowUpCount + homeDocsExpiringCount + homeEmpDocsExpiringCount +
-        homeEmpRequestsCount;
+        homeEmpRequestsCount + homeClearanceCount;
       const countSpan = document.getElementById('home-tasks-count');
       // Button itself is always visible now — only the red count badge
       // shows or hides based on whether there's actually anything

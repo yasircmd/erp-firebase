@@ -6,7 +6,7 @@ modules: [DATARESET]
 sources: [functions/src/dataReset.js, functions/src/documentStorage.js]
 summary: Clear test data module by module, or rebuild the stock balances, before going live.
 reviewed: 2026-10-25
-fingerprint: e83fe5776d2f4f97
+fingerprint: f0f0359029f11f06
 ---
 ## What it is for
 

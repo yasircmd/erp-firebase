@@ -432,7 +432,9 @@ const ACTIONS = {
   salesHome: { run: (me) => require('./salesRep').salesHome(me) },
   salesItems: { run: (me, d) => require('./salesRep').salesItems(me, d) },
   salesOrder: { run: (me, d) => require('./salesRep').placeOrder(me, d) },
-  salesCollect: { run: (me, d) => require('./salesRep').collect(me, d) }
+  salesCollect: { run: (me, d) => require('./salesRep').collect(me, d) },
+  // A leaver's clearance, read only (clearance.js; docs/modules/LEAVER_CLEARANCE.md, Q304).
+  myClearance: { run: async (me) => ({ clearance: await require('./clearance').forPortal(me.emp) }) }
 };
 
 exports.essPortal = onCallWithMessages(onCallOptions, async (request) => {

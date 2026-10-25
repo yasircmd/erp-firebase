@@ -28,6 +28,8 @@ const shown = d => d.split('-').reverse().join('/');
   });
   f.currencies = { CUR1: { Code: 'AED', Name: 'UAE Dirham', IsDefault: true, Status: 'Active' } };
   await reset(f);
+  // No clearance here: these checks are the settlement's own (docs/modules/LEAVER_CLEARANCE.md).
+  await call('u-admin', 'saveClearanceSetup', { companyId: 'C1', mode: 'InOrder', steps: [] });
   const g3 = (await call('u-admin', 'saveHrGrade', { grade: { Code: 'G3', Level: 3 } })).gradeId;
   const des = (await call('u-admin', 'saveHrDesignation', { designation: { Title: 'Storekeeper' } })).designationId;
   const ali = (await call('u-admin', 'saveEmployee', { employee: { FullName: 'Ali Hassan', CompanyID: 'C1', DesignationID: des, GradeID: g3, Gender: 'Male', CostCenterID: 'CC1',

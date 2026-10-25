@@ -213,6 +213,14 @@ async function compute(emp, d) {
       if (balance > 0) lines.push({ Key: 'Loan:' + l.LoanID, Kind: 'Deduction', Name: 'Loan recovery: ' + l.TypeName + ' ' + l.LoanNumber, Amount: balance, LoanID: l.LoanID, Text: 'the balance owed' });
     });
   }
+  // The clearance's amounts to recover (LEAVER_CLEARANCE.md, Q302): a
+  // deduction each, through the set-up's element; HR may change one with a reason.
+  const cl = await require('./clearance').forSettlement(emp);
+  (cl ? cl.recoveries : []).forEach(r => {
+    const key = 'Clearance:' + r.StepID, o = over[key];
+    const amount = o ? round2(num(o.Amount)) : r.Amount;
+    if (amount > 0) lines.push({ Key: key, Kind: 'Deduction', Name: 'Clearance: ' + r.Name, Amount: amount, ElementID: r.ElementID, Worked: r.Amount, Text: r.Note, Reason: o ? text(o.Reason, 300) : '' });
+  });
   // A salary still held (SALARY_HOLD.md) is paid with the settlement, from Salary held.
   const held = await require('./salaryHold').heldBefore(co, emp.EmployeeID);
   if (held.amount > 0) lines.push({ Key: 'HeldSalary', Kind: 'Earning', Name: 'Salary released', Amount: held.amount, Source: 'HoldRelease', Text: 'held ' + held.months.join(', ') });
@@ -310,6 +318,9 @@ async function employeeFor(user, id) {
 // run past its draft.
 async function readyToSubmit(emp, s) {
   if (todayIn('Asia/Dubai') < emp.LeavingDate) throw failed('A final settlement is submitted from the leaving date (' + emp.LeavingDate + ').');
+  // The clearance first (docs/modules/LEAVER_CLEARANCE.md, Q303).
+  const cl = await require('./clearance').forSettlement(emp);
+  if (cl && !cl.complete) throw failed('Complete ' + emp.FullName + '\'s clearance first (Clearances): still open: ' + cl.outstanding.join(', ') + '.');
   const open = (await lv.leavesOf(emp.EmployeeID)).filter(l => ['Draft', 'PendingManager', 'PendingApproval'].includes(l.Status) && l.FromDate <= emp.LeavingDate);
   if (open.length) throw failed('Decide or delete ' + emp.FullName + '\'s leave up to the leaving date first: ' + open.map(l => l.LeaveNumber || 'draft').join(', ') + '.');
   for (const m of s.Salary || []) {

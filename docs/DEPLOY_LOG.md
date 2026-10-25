@@ -1444,3 +1444,17 @@ from, and how it was verified. The deploy procedure is in the
   (release `20261025T135116Z-9798f49`, 89/89 verified). Then Hosting, run
   [#222](https://github.com/yasircmd/erp-firebase/actions/runs/40199859068)
   (13:55–13:56 UTC), success. Wave 3 of UX round 2 is complete.
+- **2026-10-25, UX round 2 item 29, stop salary (`ux2-salary-hold`, PR #175,
+  from `0aa14f1`):** run
+  [#223](https://github.com/yasircmd/erp-firebase/actions/runs/40212766472)
+  ("functions set, then screens", 16:40–17:08 UTC), success: `SUMMARY:
+  functions deployed: 23 (getSalaryHolds placeSalaryHold releaseSalaryHold
+  createPayrollRun getPayrollRun savePayrollInputs recalculatePayrollRun
+  setPayrollCostOverride submitPayrollRun decidePayrollApproval
+  postPayrollRun getPayrollGlImpact getPayrollSetup savePayrollCompany
+  getSettlement saveSettlement submitSettlement decideSettlementApproval
+  postSettlement getDataResetCounts clearDataCategories clearSelectedRecords
+  getCategoryRecords); access granted: 23; screens released: yes` (release
+  `20261025T170842Z-0aa14f1`, 89/89 verified). Then Hosting, run
+  [#224](https://github.com/yasircmd/erp-firebase/actions/runs/40216919151)
+  (17:31–17:32 UTC), success.

@@ -27,6 +27,8 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     'A-LPRO': { AccountCode: '2410', AccountName: 'Leave Salary Provision', AccountType: 'Liability', Status: 'Active', IsPostable: true }
   });
   await reset(f);
+  // No clearance here: these checks are the settlement's own (docs/modules/LEAVER_CLEARANCE.md).
+  await call('u-admin', 'saveClearanceSetup', { companyId: 'C1', mode: 'InOrder', steps: [] });
   const g3 = (await call('u-admin', 'saveHrGrade', { grade: { Code: 'G3', Level: 3 } })).gradeId;
   const des = (await call('u-admin', 'saveHrDesignation', { designation: { Title: 'Accountant' } })).designationId;
   const emp = (name, x) => call('u-admin', 'saveEmployee', { employee: Object.assign({ FullName: name, CompanyID: 'C1', DesignationID: des, GradeID: g3, Gender: 'Male', CostCenterID: 'CC1',

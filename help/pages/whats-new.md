@@ -12,6 +12,11 @@ screen.
 
 ## 25/10/2026
 
+- **Leaver clearance.** The new [Clearances](clearances.html) screen takes
+  each leaver through the company's steps (Finance, IT, HR by default),
+  each signed off by its team, with a checklist and any amount to recover.
+  The final settlement goes for approval once every step is signed; the
+  leaver follows it in the Employee Portal.
 - **Hold a salary.** Payroll's new **Salary holds** tab stops an
   employee's salary from a month: the payslip shows a Stop Salary
   deduction and the amount waits on a Salary held account (set it in
