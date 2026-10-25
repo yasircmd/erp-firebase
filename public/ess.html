@@ -474,7 +474,24 @@
           (h.open.length ? '<div class="space-y-2">' + h.open.map(l => card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold text-sm">' + esc(l.LeaveTypeName) + '</div><div class="text-xs text-slate-500 dark:text-slate-400">' + esc(dateRange(l.FromDate, l.ToDate, l)) + ' · ' + days(l.Days) + '</div></div>' + chip(l.Status, l.StatusText) + '</div>', 'p-3')).join('') + '</div>'
             : card(empty('fa-mug-hot', 'Nothing pending. Enjoy your day!'), 'p-2')) +
           '</div></div>');
+        homeClearance();
       }, err => { page(card(empty('fa-triangle-exclamation', err.message))); });
+    }
+    // A leaver's clearance, read only (docs/modules/LEAVER_CLEARANCE.md, Q304):
+    // each step's state and what is still open, never HR's notes.
+    const CLEAR_STYLE = { Signed: 'Approved', Open: 'PendingManager', Waiting: '' };
+    function homeClearance() {
+      api('myClearance').then(r => {
+        const c = r && r.clearance, root = $('page').firstChild;
+        if (!c || c.Status === 'Cancelled' || !root) return;
+        const box = document.createElement('div');
+        box.id = 'home-clearance';
+        box.innerHTML = card('<div class="flex items-center justify-between gap-2 mb-2"><div class="font-semibold">Your clearance before leaving</div><span class="text-xs text-slate-500 dark:text-slate-400">' + esc(c.Status === 'Complete' ? 'Complete' : c.Progress) + '</span></div>' +
+          '<div class="space-y-2">' + c.Steps.map(st => '<div class="ess-clear-step"><div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">' + esc(st.Name) + '</span>' +
+            chip(CLEAR_STYLE[st.State], st.State === 'Signed' ? 'Done' : st.State === 'Open' ? 'In progress' : 'Waiting') + '</div>' +
+            (st.Outstanding.length ? '<div class="text-xs text-slate-500 dark:text-slate-400">Still open: ' + esc(st.Outstanding.join(', ')) + '</div>' : '') + '</div>').join('') + '</div>');
+        root.insertBefore(box, root.children[1] || null);
+      }, () => {});
     }
 
     // ---------- Leave ----------

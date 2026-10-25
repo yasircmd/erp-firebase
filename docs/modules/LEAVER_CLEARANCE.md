@@ -1,6 +1,6 @@
 # A leaver's clearance, step by step (UX round 2, item 28)
 
-**Status:** design agreed (owner, 2026-10-25, decisions Q301–Q304) · **Roadmap:** [#19](../ROADMAP.md) ·
+**Status:** built 2026-10-25 (design agreed by the owner, decisions Q278, Q301–Q304) · **Roadmap:** [#19](../ROADMAP.md) ·
 **Plan:** [UX_ROUND2.md](UX_ROUND2.md) wave 4 · **Builds on:**
 [HR_EMPLOYEES.md](HR_EMPLOYEES.md) (leaving), [HR_PAYROLL.md](HR_PAYROLL.md) (final settlement, step 5b)
 
@@ -75,3 +75,48 @@
 2. Screens: HR Setup → Clearance; the clearance on the employee and the
    Clearances list; the settlement's notice; the portal (per Q304).
 3. Tests, negative controls, Help, What's new.
+
+## As built (2026-10-25)
+
+- **Module** `CLEARANCE` (Clearances; access ADMIN, FINANCE_MGR; manage and
+  setup ADMIN by default), a later module (off for client groups until
+  provided). Menu seed under HR. Screen `screens/CLEARANCE.html`: the list
+  per company (open only, waiting for my team), one clearance (its steps,
+  checklist, notes, amount to recover, Save, Sign off, Reopen, the history)
+  and the set-up.
+- **Server** functions/src/clearance.js: `getClearanceSetup`,
+  `saveClearanceSetup`, `getClearances`, `getClearance`, `saveClearanceStep`,
+  `signClearanceStep`, `reopenClearanceStep`, `getClearanceTasksForUser`.
+  Firestore `clearanceSetup/{company}` (Mode, Steps [{StepID, Name,
+  TeamUserIDs, Checklist}], RecoveryElementID) and `clearances/{employee}`
+  (the steps copied at start, with Items, Notes, RecoverAmount, RecoverNote,
+  SignedAt / By; Status Open, Complete or Cancelled; the history).
+- **Started** when an employee is saved On notice or Left with a leaving
+  date (hrEmployees.js), and whenever it is needed (the list, the portal,
+  the settlement) for a leaver whose settlement is not posted. Active again:
+  a clearance nobody signed goes; one with a signature is kept, Cancelled.
+- **The rules:** in order, a step opens once the ones before are signed. A
+  step's team (or manage) works on it, and a step with no team is
+  manage's. An amount to recover needs a note and the set-up's deduction
+  element. Reopening needs manage and a reason, and is refused once the
+  settlement is posted.
+- **The settlement** (payrollSettlement.js): `submitSettlement` refuses
+  until the clearance is complete ("Complete … clearance first
+  (Clearances): still open: …"). Each amount to recover is a deduction
+  line, Key `Clearance:<step>`, through the element, that HR may override
+  with a reason as any line.
+- **Home:** "Clearances Waiting for You" (the shell). **Portal:** essPortal
+  `myClearance`, and on Home the leaver's card "Your clearance before
+  leaving", each step's state and its unticked items, never the notes, the
+  team or the amounts.
+- **Data Reset:** `clearances` is its own category (Transactions);
+  `clearanceSetup` goes with HR Setup.
+- **Tests:** clearance emulator suite (3): the default steps, the start on
+  notice, the order, the team and manage, the amount and its element, Home,
+  the portal's view; the settlement's wait and deduction, reopening, the
+  list, active again; all at once and an empty set-up. clearance UI (3):
+  the list and signing a step, the set-up, the portal card. The settlement
+  suites (payrollSettlement, payrollInterim, eosStatement, emulator and UI)
+  set an empty set-up, being about the settlement itself. **Negative
+  controls**, each caught then restored: the settlement not waiting, the
+  steps not kept in order, the portal card without what is open.

@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-10-25
-fingerprint: 6dce082a8ebc2681
+fingerprint: ca878e8570a20289
 ---
 ## Signing in
 
@@ -98,6 +98,7 @@ role:
 | Recurring Journal Entries Due to Post | Recurring entries whose date has come. |
 | Company / Employee Documents Expiring | Licences, contracts or employee documents near or past expiry. |
 | Employee Requests Waiting for You | Employees' queries, loan requests and claims to handle. |
+| Clearances Waiting for You | A leaver's clearance step for your team to sign off ([Clearances](clearances.html)). |
 
 How approvals work is explained in [Approvals](approvals.html).
 

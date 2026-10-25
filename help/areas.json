@@ -17,7 +17,7 @@
       "modules": ["CUSTOMERMASTER", "SALESINVOICESETUP", "PRICELISTING", "SALESORDER", "DELIVERYNOTE", "CUSTOMERINVOICE", "SALESRETURN", "RETAILSALES"] },
     { "id": "hr", "title": "HR and Payroll", "written": true,
       "intro": "Employees, leave, payroll, loans, settlements, provisions and employee requests.",
-      "modules": ["HRSETUP", "EMPLOYEES", "EMPCHANGE", "LEAVE", "LEAVEREPORTS", "PAYROLLSETUP", "PAYROLLED", "PAYROLL", "PAYROLLIP", "PAYROLLLOAN", "PAYROLLFS", "PROVISIONS", "EMPREQUESTS"] },
+      "modules": ["HRSETUP", "EMPLOYEES", "EMPCHANGE", "LEAVE", "LEAVEREPORTS", "PAYROLLSETUP", "PAYROLLED", "PAYROLL", "PAYROLLIP", "PAYROLLLOAN", "PAYROLLFS", "PROVISIONS", "EMPREQUESTS", "CLEARANCE"] },
     { "id": "assets", "title": "Fixed Assets", "written": true,
       "intro": "Asset setup, capitalization, depreciation, work in progress and retirement.",
       "modules": ["FACONFIG", "FAASSET", "FAACQ", "FAAUC", "FADEPRUN", "FAADDDEP", "FAREGISTER", "FARETIRE"] },

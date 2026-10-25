@@ -5,8 +5,8 @@ order: 2
 modules: [EMPLOYEES]
 sources: [functions/src/hrEmployees.js, functions/src/hrDocuments.js, functions/src/hrPay.js, functions/src/leavingReasons.js]
 summary: Maintain the employee record used for payroll, leave, portal access and the employee approval flow.
-reviewed: 2026-10-24
-fingerprint: 3c1ec66d7d8d1d55
+reviewed: 2026-10-25
+fingerprint: e0837e1315b5abe8
 ---
 ## What it is for
 
