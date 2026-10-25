@@ -213,6 +213,10 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
   extraFields = Object.assign({}, extraFields || {});
   const redo = extraFields.AdjustableRedo === true;
   delete extraFields.AdjustableRedo;
+  // A number the caller took already: the cheques of one PDC entry are its
+  // number with -01, -02 … (docs/modules/PDC_MULTI_CHEQUE.md, Q292).
+  const numberAs = extraFields.NumberAs || '';
+  delete extraFields.NumberAs;
   if (periodLock.ADJUSTABLE_TYPES.has(stockTransactionType) && (redo || extraFields.ReversalOfJV)) {
     const posted = await periodLock.adjustableDate(dim.CompanyID, transactionDate, redo || periodLock.consentGiven());
     if (posted !== transactionDate) { extraFields.AdjustedFromDate = transactionDate; transactionDate = posted; }
@@ -241,7 +245,7 @@ async function buildStockGlEntry(user, stockTransactionType, transactionDate, de
   const prefix = STOCK_TRANSACTION_PREFIXES[stockTransactionType];
   if (!prefix) throw new Error('Unknown stock transaction type: ' + stockTransactionType);
 
-  const jvNumber = await generateStockVoucherNumber(prefix, year, dim.CompanyID);
+  const jvNumber = numberAs || await generateStockVoucherNumber(prefix, year, dim.CompanyID);
   const transactionRef = await transactionRefFor(stockTransactionType);
   const newId = 'STKJV-' + randomUUID().split('-')[0].toUpperCase();
 
