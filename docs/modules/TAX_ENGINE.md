@@ -117,6 +117,8 @@ follows it. New documents use the line codes (Q317).
 | Q320 | A new **Tax Configuration** module (setup right, Admin by default), its own Help page. |
 | Q321 | India's e-invoice: **ready, not connected**, as UAE e-invoicing: the IRP-schema JSON built and kept, the IRN and QR entered once a GSP provider is chosen. E-way bills later. |
 | Q322 | The Indian company is **its own corporate, with INR as its base currency**: its GST figures are in rupees directly. |
+| Q323 | (Part 3, 2026-10-26) Input tax that can't be reclaimed on a GRN (stock) line goes **into the stock's cost**: the item's value in its warehouse rises, and later issues and sales carry it. |
+| Q324 | (Part 3, 2026-10-26) A Vendor Invoice direct line's default tax code comes from **its account** (Chart of Accounts gains an optional default tax code), changeable with Vendor Invoice's new "change tax code" right. |
 
 ## The questions as asked
 
