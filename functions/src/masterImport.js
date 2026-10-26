@@ -211,7 +211,10 @@ const MASTERS = {
       C('Sales COGS Account', 'SalesCogsAccountID', { type: 'ref', ref: 'account', note: 'Postable Expense or COGS.' }),
       C('Write-off Account', 'WriteOffAccountID', { type: 'ref', ref: 'account', note: 'Postable Expense or COGS.' }),
       C('Batch Tracked', 'BatchTracked', { type: 'yesno' }),
-      C('Reorder Level', 'ReorderLevel', { type: 'number' })
+      C('Reorder Level', 'ReorderLevel', { type: 'number' }),
+      // docs/modules/TAX_ENGINE.md: the item's tax code (Tax Configuration's) and India's HSN / SAC.
+      C('Tax Code', 'TaxCode', { note: 'Optional: a code of Tax Configuration, e.g. SR or GST18.' }),
+      C('HSN / SAC', 'HSNCode', { note: 'Optional: HSN 4, 6 or 8 digits; a service\'s SAC 6 digits starting 99.' })
     ],
     sample: ['Steel Sheet 2mm', 'Raw Material', 'SS-2MM', 'Steel Sheets', 'PCS', '', '', '01', 'WH-MAIN', '130100', '510100', '', '', 'No', '0'],
     toData: r => ({ ItemName: r.ItemName, Category: r.Category, UserCode: r.UserCode, SubCategoryID: r.SubCategoryID, UOMID: r.UOMID, AltUOMID: r.AltUOMID,
@@ -233,6 +236,9 @@ const MASTERS = {
       C('Contact Person', 'ContactPerson'), C('Phone', 'Phone'), C('Email', 'Email', { type: 'email' }),
       C('Address Line 1', 'AddressLine1'), C('Address Line 2', 'AddressLine2'),
       C('Tax Registration Number', 'TaxRegistrationNumber'), C('Default Currency', 'DefaultCurrency', { note: 'Currency code, e.g. AED.' }),
+      // docs/modules/TAX_ENGINE.md: the registration type and the state or emirate (a GSTIN is checked against it).
+      C('Tax Registration Type', 'TaxRegistrationType', { type: 'enum', values: ['Registered', 'Unregistered', 'Composition', 'SEZ', 'Overseas', 'Consumer'] }),
+      C('State / Emirate', 'TaxState', { note: 'GST state code (e.g. 27) or emirate code (e.g. DXB).' }),
       C('Bank Name', 'BankName'), C('Bank Account Number', 'BankAccountNumber'), C('IBAN', 'BankIBAN'), C('SWIFT', 'BankSwift'),
       C('Notes', 'Notes')
     ],
@@ -253,6 +259,9 @@ const MASTERS = {
       C('Contact Person', 'ContactPerson'), C('Phone', 'Phone'), C('Email', 'Email', { type: 'email' }),
       C('Address Line 1', 'AddressLine1'), C('Address Line 2', 'AddressLine2'),
       C('Tax Registration Number', 'TaxRegistrationNumber'), C('Default Currency', 'DefaultCurrency', { note: 'Currency code, e.g. AED.' }),
+      // docs/modules/TAX_ENGINE.md: the registration type and the state or emirate (a GSTIN is checked against it).
+      C('Tax Registration Type', 'TaxRegistrationType', { type: 'enum', values: ['Registered', 'Unregistered', 'Composition', 'SEZ', 'Overseas', 'Consumer'] }),
+      C('State / Emirate', 'TaxState', { note: 'GST state code (e.g. 27) or emirate code (e.g. DXB).' }),
       C('Bank Name', 'BankName'), C('Bank Account Number', 'BankAccountNumber'), C('IBAN', 'BankIBAN'), C('SWIFT', 'BankSwift'),
       C('Notes', 'Notes')
     ],

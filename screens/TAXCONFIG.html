@@ -1,0 +1,171 @@
+<div class="space-y-5">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Financial Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-percent text-blue-500"></i> Tax Configuration</h2></div>
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="tax-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="tax-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+    </div>
+  </div>
+
+  <p class="text-xs text-slate-400 max-w-3xl">The company's sales tax: its regime (UAE VAT, India GST or its own), the components it is charged as, each with its output and input account, and its tax codes with their rates by date. An item takes its tax code in Item Master; a customer or vendor its registration type, state and tax number. A document takes the rate valid on its date, so a change of rate is a new row with the date it applies from.</p>
+
+  <!-- no configuration yet: choose where to start -->
+  <div id="tax-start" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+    <p class="text-sm text-slate-200">This company has no tax configuration yet. Start from:</p>
+    <div id="tax-presets" class="flex flex-wrap gap-2"></div>
+  </div>
+
+  <div id="tax-form" class="hidden space-y-4">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Regime</label><div id="tax-regime" class="text-sm font-semibold text-slate-100 py-2"></div></div>
+      <div><label for="tax-name" class="block text-xs font-medium text-slate-300 mb-1">Name</label><input id="tax-name" maxlength="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div id="tax-state-wrap"><label for="tax-state" id="tax-state-label" class="block text-xs font-medium text-slate-300 mb-1">State</label><select id="tax-state" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
+      <div><label for="tax-rounding" class="block text-xs font-medium text-slate-300 mb-1">Rounding</label><select id="tax-rounding" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
+        <option value="document">Per rate on the document</option><option value="line">Per line</option></select></div>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2">
+      <div class="flex items-center justify-between"><p class="text-sm font-semibold text-slate-200">Components</p>
+        <button id="tax-add-comp" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add a component</button></div>
+      <p class="text-xs text-slate-500">What the tax is charged as, each posted to its own accounts: output tax on sales, input tax on purchases (reverse charge posts both).</p>
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-2">Code</th><th class="py-1 pr-2">Name</th><th class="py-1 pr-2">Output tax account</th><th class="py-1 pr-2">Input tax account</th><th></th></tr></thead>
+        <tbody id="tax-comps" class="divide-y divide-slate-800"></tbody></table>
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2">
+      <div class="flex items-center justify-between"><p class="text-sm font-semibold text-slate-200">Tax codes</p>
+        <button id="tax-add-code" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add a tax code</button></div>
+      <p class="text-xs text-slate-500">A code's rate is the one valid on the document's date. <span id="tax-gst-note" class="hidden">GST: within the company's state the rate is charged as CGST and SGST (UTGST in a union territory), half each; to another state, an SEZ or abroad as IGST.</span> Recoverable: how much of the input tax on a purchase may be reclaimed (the rest is part of the cost).</p>
+      <div id="tax-codes" class="space-y-2"></div>
+    </div>
+
+    <div class="flex gap-2"><button id="tax-save" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg">Save</button>
+      <button id="tax-restart" class="hidden bg-slate-700 hover:bg-slate-600 text-sm px-4 py-2 rounded-lg">Start again from a preset</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  let data = null, cfg = null;
+  const opt = (v, label, sel) => '<option value="' + escapeHtml(v) + '"' + (v === sel ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+  const REGIME = { AE_VAT: 'UAE VAT', IN_GST: 'India GST', OWN: 'Own regime' };
+
+  function load() {
+    $('tax-form').classList.add('hidden'); $('tax-start').classList.add('hidden');
+    if (!$('tax-company').value) return;
+    call('getTaxConfig', { companyId: $('tax-company').value }).then(r => {
+      data = r;
+      if (r.config) { cfg = JSON.parse(JSON.stringify(r.config)); render(); return; }
+      cfg = null;
+      $('tax-presets').innerHTML = r.presets.map(p => '<button class="tax-preset bg-slate-700 hover:bg-slate-600 text-sm px-4 py-2 rounded-lg" data-regime="' + escapeHtml(p.Regime) + '">' + escapeHtml(p.Regime === 'OWN' ? 'An own regime' : p.Name) + '</button>').join('');
+      $('tax-presets').querySelectorAll('.tax-preset').forEach(b => b.disabled = !r.canWrite);
+      $('tax-start').classList.remove('hidden');
+    }, err => appAlert(err.message || 'Unable to load the tax configuration.'));
+  }
+  function startFrom(regime) {
+    const p = data.presets.find(x => x.Regime === regime);
+    cfg = JSON.parse(JSON.stringify(p.config));
+    if (regime === 'OWN' && !cfg.Codes.length) cfg.Codes = [{ Code: 'STD', Name: 'Standard', Category: 'STANDARD', RecoverablePercent: 100, Active: true, Rates: [{ From: '', Parts: {} }] }];
+    $('tax-start').classList.add('hidden');
+    render();
+  }
+
+  function accountOptions(sel) { return '<option value="">—</option>' + data.accounts.map(a => opt(a.AccountID, a.AccountCode + ' ' + a.AccountName, sel)).join(''); }
+  function render() {
+    const own = cfg.Regime === 'OWN', gst = cfg.Regime === 'IN_GST', w = data.canWrite;
+    $('tax-regime').textContent = REGIME[cfg.Regime] || cfg.Regime;
+    $('tax-name').value = cfg.Name || '';
+    $('tax-rounding').value = cfg.Rounding || 'document';
+    $('tax-state-wrap').classList.toggle('hidden', own);
+    $('tax-state-label').textContent = gst ? 'GST state (GSTIN\'s first two digits)' : 'Emirate';
+    const states = gst ? data.gstStates : data.emirates;
+    $('tax-state').innerHTML = '<option value="">Choose…</option>' + Object.keys(states).map(k => opt(k, (gst ? k + ' ' : '') + states[k], cfg.StateCode)).join('');
+    $('tax-gst-note').classList.toggle('hidden', !gst);
+    $('tax-comps').innerHTML = cfg.Components.map((c, i) => '<tr class="tax-comp" data-i="' + i + '">' +
+      '<td class="py-1 pr-2"><input class="tax-comp-code w-24 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs uppercase" value="' + escapeHtml(c.Code) + '"' + (own ? '' : ' disabled') + '></td>' +
+      '<td class="py-1 pr-2"><input class="tax-comp-name w-40 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs" value="' + escapeHtml(c.Name || '') + '"></td>' +
+      '<td class="py-1 pr-2"><select class="tax-comp-out bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs max-w-xs">' + accountOptions(c.OutputAccountID) + '</select></td>' +
+      '<td class="py-1 pr-2"><select class="tax-comp-in bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs max-w-xs">' + accountOptions(c.InputAccountID) + '</select></td>' +
+      '<td class="py-1 text-right">' + (own && w ? '<button class="tax-comp-del text-red-300 text-xs">Remove</button>' : '') + '</td></tr>').join('');
+    $('tax-codes').innerHTML = cfg.Codes.map((c, i) => codeHtml(c, i, own, gst)).join('');
+    $('tax-add-comp').classList.toggle('hidden', !(own && w));
+    $('tax-add-code').classList.toggle('hidden', !w);
+    $('tax-save').classList.toggle('hidden', !w);
+    $('tax-restart').classList.toggle('hidden', !w || Boolean(data.config));
+    $('tax-form').querySelectorAll('input, select').forEach(x => { if (!w) x.disabled = true; });
+    $('tax-form').classList.remove('hidden');
+  }
+  function codeHtml(c, i, own, gst) {
+    const cats = data.categories.filter(x => gst || !['NIL', 'NON_GST'].includes(x.Category));
+    const taxed = (data.categories.find(x => x.Category === c.Category) || {}).Taxed;
+    const rateRow = (r, j) => '<div class="tax-rate flex flex-wrap items-center gap-2" data-j="' + j + '"><label class="text-xs text-slate-400">From</label><input type="date" class="tax-rate-from bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs" value="' + escapeHtml(r.From || '') + '">' +
+      (!taxed ? '<span class="text-xs text-slate-500">no tax</span>' : own
+        ? readComps().map(k => '<label class="text-xs text-slate-400">' + escapeHtml(k) + ' %</label><input inputmode="decimal" class="tax-rate-part w-16 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right" data-comp="' + escapeHtml(k) + '" value="' + escapeHtml(String((r.Parts || {})[k] || '')) + '">').join('')
+        : '<label class="text-xs text-slate-400">Rate %</label><input inputmode="decimal" class="tax-rate-pct w-16 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right" value="' + escapeHtml(String(r.Percent == null ? '' : r.Percent)) + '">' +
+          (gst ? '<label class="text-xs text-slate-400">Cess %</label><input inputmode="decimal" class="tax-rate-cess w-16 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right" value="' + escapeHtml(String(r.Cess || '')) + '">' : '')) +
+      (data.canWrite && j > 0 ? '<button class="tax-rate-del text-red-300 text-xs">Remove</button>' : '') + '</div>';
+    return '<div class="tax-code border border-slate-700 rounded-lg p-3 space-y-2" data-i="' + i + '"><div class="flex flex-wrap items-center gap-2">' +
+      '<input class="tax-code-code w-24 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs uppercase font-mono" placeholder="Code" value="' + escapeHtml(c.Code || '') + '">' +
+      '<input class="tax-code-name w-56 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs" placeholder="Name" value="' + escapeHtml(c.Name || '') + '">' +
+      '<select class="tax-code-cat bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs">' + cats.map(x => opt(x.Category, x.Label, c.Category)).join('') + '</select>' +
+      '<label class="text-xs text-slate-400">Recoverable %</label><input inputmode="decimal" class="tax-code-rec w-16 bg-slate-900 border border-slate-700 rounded py-1 px-2 text-xs text-right" value="' + escapeHtml(String(c.RecoverablePercent == null ? 100 : c.RecoverablePercent)) + '">' +
+      '<label class="flex items-center gap-1 text-xs text-slate-300"><input type="checkbox" class="tax-code-active"' + (c.Active !== false ? ' checked' : '') + '> Active</label>' +
+      (data.canWrite ? '<button class="tax-rate-add text-blue-300 text-xs">Add a rate</button><button class="tax-code-del text-red-300 text-xs ml-auto">Remove</button>' : '') + '</div>' +
+      '<div class="tax-rates space-y-1 pl-2">' + (c.Rates || []).map(rateRow).join('') + '</div></div>';
+  }
+  const num = v => { const n = Number(String(v || '').replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
+  function readComps() { return [...document.querySelectorAll('.tax-comp')].map(tr => tr.querySelector('.tax-comp-code').value.trim().toUpperCase()).filter(Boolean); }
+  // The form back into cfg, as typed (the server checks it).
+  function read() {
+    cfg.Name = $('tax-name').value.trim();
+    cfg.StateCode = $('tax-state').value;
+    cfg.Rounding = $('tax-rounding').value;
+    cfg.Components = [...document.querySelectorAll('.tax-comp')].map(tr => ({ Code: tr.querySelector('.tax-comp-code').value.trim().toUpperCase(), Name: tr.querySelector('.tax-comp-name').value.trim(),
+      OutputAccountID: tr.querySelector('.tax-comp-out').value, InputAccountID: tr.querySelector('.tax-comp-in').value }));
+    cfg.Codes = [...document.querySelectorAll('.tax-code')].map(box => ({
+      Code: box.querySelector('.tax-code-code').value.trim().toUpperCase(), Name: box.querySelector('.tax-code-name').value.trim(),
+      Category: box.querySelector('.tax-code-cat').value, RecoverablePercent: num(box.querySelector('.tax-code-rec').value), Active: box.querySelector('.tax-code-active').checked,
+      Rates: [...box.querySelectorAll('.tax-rate')].map(r => {
+        const parts = {};
+        r.querySelectorAll('.tax-rate-part').forEach(p => { if (num(p.value)) parts[p.dataset.comp] = num(p.value); });
+        const out = { From: r.querySelector('.tax-rate-from').value };
+        const pct = r.querySelector('.tax-rate-pct'), cess = r.querySelector('.tax-rate-cess');
+        if (pct) out.Percent = num(pct.value);
+        if (cess && num(cess.value)) out.Cess = num(cess.value);
+        if (cfg.Regime === 'OWN') out.Parts = parts;
+        return out;
+      })
+    }));
+    return cfg;
+  }
+  function save() {
+    call('saveTaxConfig', { companyId: $('tax-company').value, config: read() })
+      .then(() => { appAlert('Saved.'); load(); }, err => appAlert(err.message || 'Unable to save.'));
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-percent"></i> Tax Configuration';
+    $('tax-company').addEventListener('change', load);
+    $('tax-presets').addEventListener('click', e => { const b = e.target.closest('.tax-preset'); if (b) startFrom(b.dataset.regime); });
+    $('tax-restart').addEventListener('click', async () => { if (await appConfirm('Discard what is here and choose a preset again?')) { $('tax-form').classList.add('hidden'); load(); } });
+    $('tax-add-comp').addEventListener('click', () => { read(); cfg.Components.push({ Code: '', Name: '' }); render(); });
+    $('tax-comps').addEventListener('click', e => { const b = e.target.closest('.tax-comp-del'); if (!b) return; read(); cfg.Components.splice(Number(b.closest('.tax-comp').dataset.i), 1); render(); });
+    $('tax-add-code').addEventListener('click', () => { read(); cfg.Codes.push({ Code: '', Name: '', Category: 'STANDARD', RecoverablePercent: 100, Active: true, Rates: [{ From: '' }] }); render(); });
+    $('tax-codes').addEventListener('click', e => {
+      const box = e.target.closest('.tax-code');
+      if (!box) return;
+      const i = Number(box.dataset.i);
+      if (e.target.closest('.tax-code-del')) { read(); cfg.Codes.splice(i, 1); render(); }
+      else if (e.target.closest('.tax-rate-add')) { read(); cfg.Codes[i].Rates.push({ From: '' }); render(); }
+      else if (e.target.closest('.tax-rate-del')) { read(); cfg.Codes[i].Rates.splice(Number(e.target.closest('.tax-rate').dataset.j), 1); render(); }
+    });
+    // A category with no tax shows no rate; one with tax, its rate fields.
+    $('tax-codes').addEventListener('change', e => { if (e.target.classList.contains('tax-code-cat')) { read(); render(); } });
+    $('tax-save').addEventListener('click', save);
+    call('getActiveCompanies', {}).then(list => {
+      $('tax-company').innerHTML = (list || []).map(c => '<option value="' + escapeHtml(c.CompanyID) + '">' + escapeHtml(c.LegalName || c.CompanyID) + '</option>').join('');
+    }, () => {}).then(load);
+  };
+})();
+</script>

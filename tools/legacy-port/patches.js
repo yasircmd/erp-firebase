@@ -3361,4 +3361,32 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
       UserCode: userCode, // [NEW DEVELOPMENT item-user-code-field]
 `
   }
+  ,
+  // ---- Sales tax of any kind (docs/modules/TAX_ENGINE.md; owner, 2026-10-26, Q311-Q322) ----
+  {
+    id: 'tax-party-customer',
+    why: 'NEW DEVELOPMENT (TAX_ENGINE.md, part 1): a customer\'s tax registration type, state or emirate (India\'s place of supply, ' +
+      'Q318; the UAE return\'s emirate) and tax number, checked by taxEngine.partyTaxFields (a GSTIN against its state and check character, a UAE TRN\'s form).',
+    find: `      TaxRegistrationNumber: String(customerData.TaxRegistrationNumber || '').trim(),
+`,
+    replace: `      ...__taxEngine.partyTaxFields(customerData), // [NEW DEVELOPMENT tax-party-customer] TaxRegistrationNumber, TaxRegistrationType, TaxState
+`
+  },
+  {
+    id: 'tax-party-vendor',
+    why: 'NEW DEVELOPMENT (as tax-party-customer): a vendor\'s tax registration type, state or emirate and tax number, checked.',
+    find: `      TaxRegistrationNumber: String(vendorData.TaxRegistrationNumber || '').trim(),
+`,
+    replace: `      ...__taxEngine.partyTaxFields(vendorData), // [NEW DEVELOPMENT tax-party-vendor] TaxRegistrationNumber, TaxRegistrationType, TaxState
+`
+  },
+  {
+    id: 'tax-item',
+    why: 'NEW DEVELOPMENT (TAX_ENGINE.md, part 1, Q313): an item\'s default tax code (a line takes it) and its HSN or SAC code, checked by taxEngine.itemTaxFields.',
+    find: `      UserCode: userCode, // [NEW DEVELOPMENT item-user-code-field]
+`,
+    replace: `      UserCode: userCode, // [NEW DEVELOPMENT item-user-code-field]
+      ...__taxEngine.itemTaxFields(itemData), // [NEW DEVELOPMENT tax-item] TaxCode, HSNCode
+`
+  }
 ];

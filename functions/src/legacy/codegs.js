@@ -38,6 +38,7 @@ const __salesPosting = require('../salesPosting');
 const __stockMovement = require('../stockMovement');
 const __stockPosting = require('../stockPosting');
 const __stockStore = require('../stockStore');
+const __taxEngine = require('../taxEngine');
 const __tree = require('../tree');
 
 // ---- helpers routed to the hand-ported shared modules ----
@@ -2103,6 +2104,7 @@ async function saveItem(idToken, itemData) {
       BatchTracked: batchTracked,
       ReorderLevel: reorderLevel,
       UserCode: userCode, // [NEW DEVELOPMENT item-user-code-field]
+      ...__taxEngine.itemTaxFields(itemData), // [NEW DEVELOPMENT tax-item] TaxCode, HSNCode
       Status: status
     };
 
@@ -6571,7 +6573,7 @@ async function saveVendor(idToken, vendorData) {
       Phone: String(vendorData.Phone || '').trim(), Email: email,
       AddressLine1: String(vendorData.AddressLine1 || '').trim(),
       AddressLine2: String(vendorData.AddressLine2 || '').trim(),
-      TaxRegistrationNumber: String(vendorData.TaxRegistrationNumber || '').trim(),
+      ...__taxEngine.partyTaxFields(vendorData), // [NEW DEVELOPMENT tax-party-vendor] TaxRegistrationNumber, TaxRegistrationType, TaxState
       PaymentTermsDays: paymentTermsDays,
       DefaultCurrency: String(vendorData.DefaultCurrency || '').trim(),
       BankName: String(vendorData.BankName || '').trim(),
@@ -6987,7 +6989,7 @@ async function saveCustomer(idToken, customerData) {
       Phone: String(customerData.Phone || '').trim(), Email: email,
       AddressLine1: String(customerData.AddressLine1 || '').trim(),
       AddressLine2: String(customerData.AddressLine2 || '').trim(),
-      TaxRegistrationNumber: String(customerData.TaxRegistrationNumber || '').trim(),
+      ...__taxEngine.partyTaxFields(customerData), // [NEW DEVELOPMENT tax-party-customer] TaxRegistrationNumber, TaxRegistrationType, TaxState
       PaymentTermsDays: paymentTermsDays,
       DefaultCurrency: String(customerData.DefaultCurrency || '').trim(),
       BankName: String(customerData.BankName || '').trim(),

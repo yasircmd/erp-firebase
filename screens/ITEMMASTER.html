@@ -100,6 +100,9 @@
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Item Name</label><input type="text" id="im-form-name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500"></div>
       <!-- The item's own code, apart from the system code and barcodes (docs/modules/ITEM_USER_CODE.md): shown in its place everywhere. -->
       <div><label class="block text-xs font-medium text-slate-300 mb-1">User code <span class="text-slate-500">(optional; shown in place of the item code, unique)</span></label><input type="text" id="im-form-usercode" maxlength="30" autocomplete="off" class="keep-code w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono focus:outline-none focus:border-blue-500"></div>
+      <!-- The item's tax (docs/modules/TAX_ENGINE.md, Q313): a line takes its code; India needs its HSN (goods) or SAC (services). -->
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">Tax code <span class="text-slate-500">(Tax Configuration's, e.g. SR, GST18)</span></label><input type="text" id="im-form-taxcode" maxlength="12" autocomplete="off" class="keep-code w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono uppercase focus:outline-none focus:border-blue-500"></div>
+      <div><label class="block text-xs font-medium text-slate-300 mb-1">HSN / SAC code <span class="text-slate-500">(India: 4, 6 or 8 digits; a service's SAC starts 99)</span></label><input type="text" id="im-form-hsn" maxlength="8" inputmode="numeric" autocomplete="off" class="keep-code w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm font-mono focus:outline-none focus:border-blue-500"></div>
 
       <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
         <p class="text-xs font-semibold text-slate-400 uppercase">Unit of Measure</p>
@@ -526,6 +529,8 @@
       updateSubCategoryOptions(ownCategory(i), i.SubCategoryID, i.CompanyID);
       document.getElementById('im-form-name').value = i.ItemName;
       document.getElementById('im-form-usercode').value = i.UserCode || '';
+      document.getElementById('im-form-taxcode').value = i.TaxCode || '';
+      document.getElementById('im-form-hsn').value = i.HSNCode || '';
       document.getElementById('im-form-uom').value = i.UOMID;
       document.getElementById('im-form-altuom').value = i.AltUOMID || '';
       document.getElementById('im-form-conversion').value = i.ConversionFactor || '';
@@ -567,6 +572,8 @@
     updateSubCategoryOptions(ownCategory(source), source.SubCategoryID, source.CompanyID);
     document.getElementById('im-form-name').value = '';
     document.getElementById('im-form-usercode').value = '';
+    document.getElementById('im-form-taxcode').value = '';
+    document.getElementById('im-form-hsn').value = '';
     document.getElementById('im-form-uom').value = source.UOMID;
     document.getElementById('im-form-altuom').value = source.AltUOMID || '';
     document.getElementById('im-form-conversion').value = source.ConversionFactor || '';
@@ -597,6 +604,8 @@
       SubCategoryID: document.getElementById('im-form-subcategory').value,
       ItemName: document.getElementById('im-form-name').value.trim(),
       UserCode: document.getElementById('im-form-usercode').value.trim(),
+      TaxCode: document.getElementById('im-form-taxcode').value.trim().toUpperCase(),
+      HSNCode: document.getElementById('im-form-hsn').value.trim(),
       UOMID: document.getElementById('im-form-uom').value,
       AltUOMID: document.getElementById('im-form-altuom').value,
       ConversionFactor: document.getElementById('im-form-conversion').value,

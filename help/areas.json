@@ -5,7 +5,7 @@
       "intro": "Signing in, finding your way around, and what every screen has in common." },
     { "id": "finance", "title": "Finance", "written": true,
       "intro": "Accounts, journals, cash and bank, cheques, statements and the financial reports.",
-      "modules": ["COA", "CURRENCYCONFIG", "OPENINGBALANCES", "JV", "CBT", "RECURRINGJV", "PDCRECEIVED", "PDCISSUED", "VENDORSOA", "CUSTOMERSOA", "VENDORAGING", "CUSTOMERAGING", "GLREPORT", "TRIALBALANCE", "PROFITLOSS", "PROJECTREPORT", "BALANCESHEET", "CASHFLOW", "PERIODCLOSE"] },
+      "modules": ["COA", "CURRENCYCONFIG", "OPENINGBALANCES", "JV", "CBT", "RECURRINGJV", "PDCRECEIVED", "PDCISSUED", "VENDORSOA", "CUSTOMERSOA", "VENDORAGING", "CUSTOMERAGING", "GLREPORT", "TRIALBALANCE", "PROFITLOSS", "PROJECTREPORT", "BALANCESHEET", "CASHFLOW", "PERIODCLOSE", "TAXCONFIG"] },
     { "id": "procurement", "title": "Procurement", "written": true,
       "intro": "From a requisition to the purchase order, the goods receipt, the vendor's invoice and returns.",
       "modules": ["PROCUREMENTSETUP", "VENDORMASTER", "PURCHASEREQUISITION", "INVENTORYPURCHASEREQUISITION", "PURCHASEORDER", "GRN", "VENDORINVOICE", "PURCHASERETURN"] },
