@@ -6,7 +6,7 @@ modules: [VENDORMASTER]
 sources: [functions/src/partyLedger.js]
 summary: Maintain the supplier record used in requisitions, purchase orders, GRNs and supplier bills.
 reviewed: 2026-10-26
-fingerprint: 8f6c72f2c8a412c0
+fingerprint: 4a0b83e6c758f79d
 ---
 ## What it is for
 
@@ -36,6 +36,9 @@ as CGST and SGST, otherwise as IGST (see
 needs its GSTIN, which is checked: its first two digits must be the state
 chosen, and its last character must agree with the rest. A UAE TRN of a
 registered party is 15 digits starting 100.
+
+The **City** and **PIN / postal code** go on the vendor's e-invoices. India's
+e-invoice needs both; an Indian PIN code is 6 digits, not starting with 0.
 
 ## A vendor in a foreign currency
 

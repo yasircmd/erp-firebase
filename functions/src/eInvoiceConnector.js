@@ -8,7 +8,10 @@
 
 const NAME = 'None (no ASP connected yet)';
 
+// India's e-invoice (Format IRP, TAX_ENGINE.md Q321) is reported to the IRP
+// through a GSP the same way once one is chosen; its IRN and signed QR come back.
 async function send(record, settings) { // eslint-disable-line no-unused-vars
+  if (record && record.Format === 'IRP') return { SendStatus: 'NotSent', SendNote: 'Ready to report: no GSP is connected yet (the IRN and QR come from the IRP through it).', AspReference: '' };
   return { SendStatus: 'NotSent', SendNote: 'Ready to send: no ASP is connected yet.', AspReference: '' };
 }
 

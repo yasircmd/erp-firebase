@@ -127,7 +127,8 @@ function hsnProblem(v) {
 }
 
 // A customer's or vendor's tax fields, checked (the legacy port's patches
-// tax-party-*). Returns the fields to store; throws a plain message.
+// tax-party-*), with the city and PIN / postal code. Returns the fields to
+// store; throws a plain message.
 function partyTaxFields(data) {
   const d = data || {};
   const type = String(d.TaxRegistrationType || '').trim();
@@ -146,7 +147,10 @@ function partyTaxFields(data) {
   } else {
     trn = String(d.TaxRegistrationNumber || '').trim(); // as typed, where there is no rule to check it by
   }
-  return { TaxRegistrationNumber: trn, TaxRegistrationType: type, TaxState: state };
+  // The city and PIN / postal code an e-invoice needs (India's IRP: a 6-digit PIN).
+  const postal = String(d.PostalCode || '').trim().replace(/\s+/g, '');
+  if (postal && indian && !/^[1-9]\d{5}$/.test(postal)) throw new Error('An Indian PIN code is 6 digits, not starting with 0.');
+  return { TaxRegistrationNumber: trn, TaxRegistrationType: type, TaxState: state, City: String(d.City || '').trim().slice(0, 60), PostalCode: postal.slice(0, 12) };
 }
 // An item's tax fields (patch tax-item-*): its default tax code and HSN / SAC.
 function itemTaxFields(data) {

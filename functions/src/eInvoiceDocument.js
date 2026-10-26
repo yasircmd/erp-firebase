@@ -25,13 +25,33 @@ function companyTrn(company) {
 
 // A tax category per the UAE VAT rates: S (standard, 5%), Z (zero-rated).
 const taxCategory = percent => (Number(percent) > 0 ? 'S' : 'Z');
+const TAX_CATEGORIES = require('./taxEngine').CATEGORIES;
 
 // The document's facts, from the posted record (amounts in its own currency).
 //   kind: 'Invoice' | 'CreditNote'
 function documentOf(kind, doc, company, customer, base) {
   const currency = doc.CurrencyCode || (base || 'AED');
-  const lines = (doc.EInvoiceLines || []).map((l, i) => ({ id: i + 1, name: l.Description || '', quantity: Number(l.Quantity) || 1, unitPrice: round2(l.UnitPrice != null ? l.UnitPrice : l.Amount), amount: round2(l.Amount) }));
+  let lines = (doc.EInvoiceLines || []).map((l, i) => ({ id: i + 1, name: l.Description || '', quantity: Number(l.Quantity) || 1, unitPrice: round2(l.UnitPrice != null ? l.UnitPrice : l.Amount), amount: round2(l.Amount) }));
+  // Taxed line by line (TAX_ENGINE.md, part 2): each line its category and
+  // rate, at its taxable value (the discount, and the tax of a price that
+  // included it, already out of it); a subtotal per category and rate.
+  let subtotals = null;
+  if (doc.TaxLines) {
+    const byKey = new Map(doc.TaxLines.map(t => [t.Key, t]));
+    const groups = new Map();
+    lines = lines.map((l, i) => {
+      const t = byKey.get((doc.EInvoiceLines[i] || {}).Key) || { Category: 'OUT_OF_SCOPE', Percent: 0, Taxable: l.amount, Tax: 0 };
+      const cat = (TAX_CATEGORIES[t.Category] || {}).einvoice || 'O';
+      const percent = Number(t.Percent) || 0;
+      const g = groups.get(cat + '|' + percent) || { category: cat, percent, taxable: 0, tax: 0 };
+      g.taxable = round2(g.taxable + t.Taxable); g.tax = round2(g.tax + t.Tax);
+      groups.set(cat + '|' + percent, g);
+      return Object.assign(l, { amount: round2(t.Taxable), unitPrice: Math.round(t.Taxable / l.quantity * 10000) / 10000, category: cat, percent });
+    });
+    subtotals = [...groups.values()];
+  }
   return {
+    byLine: Boolean(subtotals), subtotals,
     kind, number: doc.TransactionNumber || '', date: doc.InvoiceDate || doc.TransactionDate || '', dueDate: doc.DueDate || '',
     currency, taxCurrency: base || 'AED', rate: Number(doc.ExchangeRate) || 1,
     seller: { name: company.LegalName || '', trn: companyTrn(company), street: company.AddressLine1 || '', city: company.City || '', emirate: company.StateOrEmirate || '', country: company.Country || 'AE' },
@@ -70,7 +90,12 @@ function toXml(d) {
     '    <cac:PartyTaxScheme><cbc:CompanyID>' + esc(p.trn) + '</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>',
     '    <cac:PartyLegalEntity><cbc:RegistrationName>' + esc(p.name) + '</cbc:RegistrationName></cac:PartyLegalEntity>',
     '  </cac:Party></cac:' + role + '>'].join('\n');
-  const net = round2(d.subtotal - d.discount);
+  // Taxed by line: the lines at their taxable values, the discount already in them.
+  const lineTotal = d.byLine ? round2(d.lines.reduce((t, l) => t + l.amount, 0)) : d.subtotal;
+  const discount = d.byLine ? 0 : d.discount;
+  const net = round2(lineTotal - discount);
+  const taxCat = (c, p) => '<cac:TaxCategory><cbc:ID>' + c + '</cbc:ID><cbc:Percent>' + p + '</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory>';
+  const subtotals = d.byLine ? d.subtotals : [{ category: cat, percent: d.taxPercent, taxable: net, tax: d.taxAmount }];
   const out = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<' + root + ' xmlns="urn:oasis:names:specification:ubl:schema:xsd:' + root + '-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">',
@@ -85,22 +110,21 @@ function toXml(d) {
     d.billingReference ? '  <cac:BillingReference><cac:InvoiceDocumentReference><cbc:ID>' + esc(d.billingReference) + '</cbc:ID></cac:InvoiceDocumentReference></cac:BillingReference>' : '',
     party(d.seller, 'AccountingSupplierParty'),
     party(d.buyer, 'AccountingCustomerParty'),
-    d.discount ? '  <cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator><cbc:AllowanceChargeReason>Discount</cbc:AllowanceChargeReason>' + amt('Amount', d.discount, d.currency) +
-      '<cac:TaxCategory><cbc:ID>' + cat + '</cbc:ID><cbc:Percent>' + d.taxPercent + '</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory></cac:AllowanceCharge>' : '',
+    discount ? '  <cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator><cbc:AllowanceChargeReason>Discount</cbc:AllowanceChargeReason>' + amt('Amount', discount, d.currency) +
+      taxCat(cat, d.taxPercent) + '</cac:AllowanceCharge>' : '',
     '  <cac:TaxTotal>' + amt('TaxAmount', d.taxAmount, d.currency),
-    '    <cac:TaxSubtotal>' + amt('TaxableAmount', net, d.currency) + amt('TaxAmount', d.taxAmount, d.currency) +
-      '<cac:TaxCategory><cbc:ID>' + cat + '</cbc:ID><cbc:Percent>' + d.taxPercent + '</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal>',
+    ...subtotals.map(g => '    <cac:TaxSubtotal>' + amt('TaxableAmount', g.taxable, d.currency) + amt('TaxAmount', g.tax, d.currency) + taxCat(g.category, g.percent) + '</cac:TaxSubtotal>'),
     '  </cac:TaxTotal>',
     // The VAT in the base currency too (decision 218).
     d.currency !== d.taxCurrency ? '  <cac:TaxTotal>' + amt('TaxAmount', d.taxAmount * d.rate, d.taxCurrency) + '</cac:TaxTotal>' : '',
-    '  <cac:LegalMonetaryTotal>' + amt('LineExtensionAmount', d.subtotal, d.currency) + amt('TaxExclusiveAmount', net, d.currency) +
-      amt('TaxInclusiveAmount', round2(net + d.taxAmount), d.currency) + (d.discount ? amt('AllowanceTotalAmount', d.discount, d.currency) : '') +
+    '  <cac:LegalMonetaryTotal>' + amt('LineExtensionAmount', lineTotal, d.currency) + amt('TaxExclusiveAmount', net, d.currency) +
+      amt('TaxInclusiveAmount', round2(net + d.taxAmount), d.currency) + (discount ? amt('AllowanceTotalAmount', discount, d.currency) : '') +
       (d.roundOff ? amt('PayableRoundingAmount', d.roundOff, d.currency) : '') + amt('PayableAmount', d.total, d.currency) + '</cac:LegalMonetaryTotal>'
   ];
   d.lines.forEach(l => out.push(
     '  <cac:' + lineTag + '><cbc:ID>' + l.id + '</cbc:ID><cbc:' + qtyTag + ' unitCode="C62">' + l.quantity + '</cbc:' + qtyTag + '>' + amt('LineExtensionAmount', l.amount, d.currency) +
-    '<cac:Item><cbc:Name>' + esc(l.name) + '</cbc:Name><cac:ClassifiedTaxCategory><cbc:ID>' + cat + '</cbc:ID><cbc:Percent>' + d.taxPercent + '</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory></cac:Item>' +
-    '<cac:Price>' + amt('PriceAmount', l.unitPrice, d.currency) + '</cac:Price></cac:' + lineTag + '>'));
+    '<cac:Item><cbc:Name>' + esc(l.name) + '</cbc:Name><cac:ClassifiedTaxCategory><cbc:ID>' + (l.category || cat) + '</cbc:ID><cbc:Percent>' + (l.category ? l.percent : d.taxPercent) + '</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory></cac:Item>' +
+    '<cac:Price>' + (l.category ? '<cbc:PriceAmount currencyID="' + esc(d.currency) + '">' + l.unitPrice + '</cbc:PriceAmount>' : amt('PriceAmount', l.unitPrice, d.currency)) + '</cac:Price></cac:' + lineTag + '>'));
   out.push('</' + root + '>');
   return out.filter(Boolean).join('\n');
 }

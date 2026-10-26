@@ -74,13 +74,17 @@ test('GSTIN: format, state code, check character; a party\'s tax fields; UAE TRN
   assert.match(t.gstinProblem('99ABCDE1234F1Z0'), /not a GST state code/);
   assert.match(t.gstinProblem('27ABCDE1234F1'), /15 characters/);
   assert.deepEqual(t.partyTaxFields({ TaxRegistrationType: 'Registered', TaxState: '27', TaxRegistrationNumber: ' 27abcde1234f1z0 ' }),
-    { TaxRegistrationNumber: '27ABCDE1234F1Z0', TaxRegistrationType: 'Registered', TaxState: '27' }, 'upper-cased, no spaces');
+    { TaxRegistrationNumber: '27ABCDE1234F1Z0', TaxRegistrationType: 'Registered', TaxState: '27', City: '', PostalCode: '' }, 'upper-cased, no spaces');
   assert.throws(() => t.partyTaxFields({ TaxRegistrationType: 'Registered', TaxState: '29', TaxRegistrationNumber: '27ABCDE1234F1Z0' }), /of state 27 \(Maharashtra\), not the state chosen/);
   assert.throws(() => t.partyTaxFields({ TaxRegistrationType: 'Registered', TaxState: '27', TaxRegistrationNumber: '' }), /needs its GSTIN/);
   assert.deepEqual(t.partyTaxFields({ TaxRegistrationType: 'Unregistered', TaxState: '27' }).TaxRegistrationNumber, '', 'unregistered: no GSTIN needed');
   assert.throws(() => t.partyTaxFields({ TaxRegistrationType: 'Registered', TaxState: 'DXB', TaxRegistrationNumber: '12345' }), /UAE TRN is 15 digits starting 100/);
   assert.equal(t.partyTaxFields({ TaxRegistrationType: 'Registered', TaxState: 'DXB', TaxRegistrationNumber: '100000000000003' }).TaxState, 'DXB');
-  assert.deepEqual(t.partyTaxFields({}), { TaxRegistrationNumber: '', TaxRegistrationType: '', TaxState: '' }, 'nothing given: as before');
+  assert.deepEqual(t.partyTaxFields({}), { TaxRegistrationNumber: '', TaxRegistrationType: '', TaxState: '', City: '', PostalCode: '' }, 'nothing given: as before');
+  // The city and PIN an e-invoice needs: an Indian PIN is 6 digits, not starting 0.
+  assert.deepEqual(t.partyTaxFields({ TaxState: '27', City: ' Pune ', PostalCode: '411 001' }).PostalCode, '411001');
+  assert.throws(() => t.partyTaxFields({ TaxState: '27', PostalCode: '011001' }), /Indian PIN code is 6 digits/);
+  assert.equal(t.partyTaxFields({ TaxState: 'DXB', PostalCode: 'PO 1234' }).PostalCode, 'PO1234', 'elsewhere: as typed');
   assert.equal(t.partyTaxFields({ TaxRegistrationNumber: 'any text' }).TaxRegistrationNumber, 'any text', 'no rule to check by: kept as typed');
   assert.throws(() => t.partyTaxFields({ TaxRegistrationType: 'Friendly' }), /registration type/);
   assert.throws(() => t.partyTaxFields({ TaxState: 'ZZ' }), /state or emirate from the list/);

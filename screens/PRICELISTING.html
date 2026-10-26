@@ -60,6 +60,11 @@
       <label class="block text-xs font-medium text-slate-300 mb-1">Currency</label>
       <select id="pl-form-currency" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
     </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Prices</label>
+      <label class="inline-flex items-center gap-2 text-sm py-2"><input type="checkbox" id="pl-form-inclusive" class="rounded"> Include tax</label>
+      <p class="text-xs text-slate-500">Where the company has a Tax Configuration: the invoice takes the tax out of these prices.</p>
+    </div>
   </div>
 
   <div id="pl-mapping-note" class="hidden text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg py-2 px-3">Only one Active price list per company can auto-apply to a given classification — saving will fail if another one already claims it.</div>
@@ -263,6 +268,7 @@
     document.getElementById('pl-form-name').value = currentPl.Name || '';
     document.getElementById('pl-form-mapping').value = currentPl.CustomerClassificationMapping || '';
     document.getElementById('pl-form-currency').value = currentPl.CurrencyID || '';
+    document.getElementById('pl-form-inclusive').checked = Boolean(currentPl.PricesIncludeTax);
     showEntryView();
   }
 
@@ -272,6 +278,7 @@
     document.getElementById('pl-form-name').value = '';
     document.getElementById('pl-form-mapping').value = '';
     document.getElementById('pl-form-currency').value = '';
+    document.getElementById('pl-form-inclusive').checked = false;
     showEntryView();
   }
 
@@ -281,7 +288,8 @@
       CompanyID: document.getElementById('pl-form-company').value,
       Name: document.getElementById('pl-form-name').value.trim(),
       CustomerClassificationMapping: document.getElementById('pl-form-mapping').value,
-      CurrencyID: document.getElementById('pl-form-currency').value
+      CurrencyID: document.getElementById('pl-form-currency').value,
+      PricesIncludeTax: document.getElementById('pl-form-inclusive').checked
     };
   }
 

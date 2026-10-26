@@ -12,6 +12,23 @@ screen.
 
 ## 26/10/2026
 
+- **Invoices taxed line by line.** For a company with a Tax Configuration,
+  each [Customer Invoice](customer-invoice.html) line now takes its tax code
+  from its item or Sales Type, at the rate on the invoice date: standard,
+  zero-rated and exempt lines on one invoice, GST as CGST + SGST or IGST by
+  the place of supply, and prices that include tax from a
+  [price list](price-listing.html) marked so. Each component posts to its
+  own account and prints with its rate; [Sales Returns](sales-return.html)
+  take back their share. Changing a line's code needs the new **change tax
+  code** right.
+
+- **India's e-invoice, ready.** Under India GST, each posted invoice and
+  credit note to a registered business, an SEZ or a customer abroad gets
+  its e-invoice as the IRP's JSON, checked for what it needs (GSTINs,
+  addresses and PIN codes, HSN codes) and downloadable from the invoice. See
+  [Sales Invoice Configuration](sales-invoice-setup.html). Customers and
+  vendors gain a [City and PIN code](customer-master.html).
+
 - **Tax Configuration, for VAT, GST or a tax of your own.** Each company
   now sets its sales tax in [Tax Configuration](tax-configuration.html):
   UAE VAT or India GST ready-made, or its own, with each component's

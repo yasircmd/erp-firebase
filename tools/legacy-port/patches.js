@@ -3389,4 +3389,87 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
       ...__taxEngine.itemTaxFields(itemData), // [NEW DEVELOPMENT tax-item] TaxCode, HSNCode
 `
   }
+  ,
+  {
+    id: 'invoice-line-tax (save)',
+    why: 'NEW DEVELOPMENT (TAX_ENGINE.md, part 2, Q313-Q318): a company with a Tax Configuration taxes a Customer Invoice line by line (salesTax.invoiceTax): each line\'s code from its item or Sales Type, the rate on the invoice date, GST\'s components from the place of supply, inclusive prices from the order\'s price list. Only the tax added to exclusive lines adds to the total. A company without one keeps the single Tax %.',
+    find: `    // Tax computed on the NET of discount, same confirmed formula as
+    // Vendor Invoice's own.
+    const taxAmount = Math.round(((subtotal - discount) * taxPercent / 100) * 100) / 100;
+    const total = Math.round((subtotal - discount + taxAmount + roundOff) * 100) / 100;`,
+    replace: `    // Tax computed on the NET of discount, same confirmed formula as
+    // Vendor Invoice's own.
+    // [NEW DEVELOPMENT invoice-line-tax] line by line where the company has a Tax Configuration.
+    const lineTax = invoiceLineTax_(idToken, { companyId: companyId, customer: customerData, date: invoiceDate, invoiceData: invoiceData, role: user.profile.role,
+      before: invoiceId ? firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken) : null,
+      sourceDeliveryNotes: sourceDeliveryNotes, itemLines: itemLines, directLines: directLines, discount: discount });
+    const taxAmount = lineTax ? lineTax.TaxAmount : Math.round(((subtotal - discount) * taxPercent / 100) * 100) / 100;
+    const total = Math.round((subtotal - discount + (lineTax ? lineTax.TaxAdded : taxAmount) + roundOff) * 100) / 100;`
+  },
+  {
+    id: 'invoice-line-tax (fields)',
+    why: 'The line tax kept with the invoice: each line\'s code, rate and components, the summary by code, the place of supply.',
+    find: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,`,
+    replace: `      SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
+      ...(lineTax || {}), // [NEW DEVELOPMENT invoice-line-tax] TaxLines, TaxSummary, TaxComponents, PlaceOfSupply …`
+  },
+  {
+    id: 'invoice-line-tax (post revenue)',
+    why: 'A delivery priced inclusive of tax: its revenue is net of the tax it holds.',
+    find: `    addRevenue_(dn.SalesTypeID, dn.Amount, existing.CostCenterID || '', existing.ProfitCenterID || '', 'Delivery Note ' + (dn.DeliveryNoteNumber || dn.DeliveryNoteID));`,
+    replace: `    addRevenue_(dn.SalesTypeID, dn.Amount - includedTaxOf_(existing, dn.DeliveryNoteID), existing.CostCenterID || '', existing.ProfitCenterID || '', 'Delivery Note ' + (dn.DeliveryNoteNumber || dn.DeliveryNoteID)); // [NEW DEVELOPMENT invoice-line-tax]`
+  },
+  {
+    id: 'invoice-line-tax (post tax)',
+    why: 'Each tax component (VAT; CGST, SGST, IGST, cess …) credited to its own output account (Tax Configuration).',
+    find: `  if (existing.TaxAmount > 0) {
+    const taxAccountId = resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'OutputTaxAccountID', 'Output Tax Account');`,
+    replace: `  if (existing.TaxComponents) { // [NEW DEVELOPMENT invoice-line-tax]
+    taxComponentGlLines_(existing, coaData, { description: existing.Description, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '' }).forEach(l => glLines.push(l));
+  } else if (existing.TaxAmount > 0) {
+    const taxAccountId = resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'OutputTaxAccountID', 'Output Tax Account');`
+  },
+  {
+    id: 'invoice-line-tax (codes used)',
+    why: 'The codes a posted invoice uses are recorded, so Tax Configuration keeps them (made inactive, not removed).',
+    find: `  recordEInvoice_(idToken, 'Invoice', invoiceId); // [NEW DEVELOPMENT e-invoicing]`,
+    replace: `  recordEInvoice_(idToken, 'Invoice', invoiceId); // [NEW DEVELOPMENT e-invoicing]
+  recordTaxCodeUse_(idToken, existing.CompanyID, existing); // [NEW DEVELOPMENT invoice-line-tax]`
+  },
+  {
+    id: 'invoice-line-tax (reversal revenue)',
+    why: 'The reversal mirrors the posting: revenue net of the tax inclusive prices held.',
+    find: `    addReversalRevenue_(dn.SalesTypeID, dn.Amount, existing.CostCenterID || '', existing.ProfitCenterID || '');`,
+    replace: `    addReversalRevenue_(dn.SalesTypeID, dn.Amount - includedTaxOf_(existing, dn.DeliveryNoteID), existing.CostCenterID || '', existing.ProfitCenterID || ''); // [NEW DEVELOPMENT invoice-line-tax]`
+  },
+  {
+    id: 'invoice-line-tax (reversal tax)',
+    why: 'The reversal debits each component back to the account it was credited to.',
+    find: `  if (existing.TaxAmount > 0) {
+    const taxAccount = coaData[resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'OutputTaxAccountID', 'Output Tax Account')];
+    glLines.push({ AccountCode: taxAccount.AccountCode, Debit: Math.round(existing.TaxAmount * 100) / 100, Credit: 0,`,
+    replace: `  if (existing.TaxComponents) { // [NEW DEVELOPMENT invoice-line-tax]
+    taxComponentGlLines_(existing, coaData, { reverse: true, label: 'Reversal of output tax', description: existing.TransactionNumber, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '' }).forEach(l => glLines.push(l));
+  } else if (existing.TaxAmount > 0) {
+    const taxAccount = coaData[resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'OutputTaxAccountID', 'Output Tax Account')];
+    glLines.push({ AccountCode: taxAccount.AccountCode, Debit: Math.round(existing.TaxAmount * 100) / 100, Credit: 0,`
+  },
+  {
+    id: 'invoice-line-tax (sales type code)',
+    why: 'A Sales Type\'s default tax code: the code of its direct lines, and of item lines whose item has none.',
+    find: `    const fields = { Name: name, GLAccountID: glAccountId, SalesReturnsAccountID: salesReturnsAccountId, CompanyID: companyId, RestrictedToClassificationID: restrictedToClassificationId, UpdatedAt: now, UpdatedBy: actor };`,
+    replace: `    const fields = { Name: name, GLAccountID: glAccountId, SalesReturnsAccountID: salesReturnsAccountId, CompanyID: companyId, RestrictedToClassificationID: restrictedToClassificationId, UpdatedAt: now, UpdatedBy: actor,
+      TaxCode: __taxEngine.itemTaxFields({ TaxCode: data.TaxCode }).TaxCode }; // [NEW DEVELOPMENT invoice-line-tax]`
+  },
+  {
+    id: 'invoice-line-tax (price list)',
+    why: 'Q314: a price list\'s prices may include tax (an order on it, and its deliveries and invoice, then take tax out of the price).',
+    find: `      Name: name, CustomerClassificationMapping: mapping, CurrencyID: currencyId,
+      CompanyID: companyId, UpdatedAt: now, UpdatedBy: actor
+    };`,
+    replace: `      Name: name, CustomerClassificationMapping: mapping, CurrencyID: currencyId,
+      CompanyID: companyId, UpdatedAt: now, UpdatedBy: actor,
+      PricesIncludeTax: header.PricesIncludeTax === true // [NEW DEVELOPMENT invoice-line-tax]
+    };`
+  }
 ];

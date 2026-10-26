@@ -52,7 +52,7 @@ const MODULE_REGISTRY = [
   // New development (not in Code.gs): docs/modules/PURCHASE_RETURN.md.
   { id: 'PURCHASERETURN', label: 'Purchase Return / Debit Note', capabilities: ['access', 'draft', 'post'] },
   { id: 'DELIVERYNOTE', label: 'Delivery Note (Goods Dispatch)', capabilities: ['access', 'draft', 'post'] },
-  { id: 'CUSTOMERINVOICE', label: 'Customer Invoice Processing', capabilities: ['access', 'draft', 'post'] },
+  { id: 'CUSTOMERINVOICE', label: 'Customer Invoice Processing', capabilities: ['access', 'draft', 'post', 'taxcode'] },
   // New development (not in Code.gs): docs/modules/SALES_RETURN.md.
   { id: 'SALESRETURN', label: 'Sales Return / Credit Note', capabilities: ['access', 'draft', 'post'] },
   // New development (not in Code.gs): docs/modules/VENDOR_SOA.md, CUSTOMER_SOA.md.
@@ -226,7 +226,7 @@ const DEFAULT_PERMISSIONS = {
   // Same as Vendor Invoice (owner decision 7, docs/modules/PURCHASE_RETURN.md).
   PURCHASERETURN:     { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   DELIVERYNOTE:       { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
-  CUSTOMERINVOICE:    { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
+  CUSTOMERINVOICE:    { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'], taxcode: ['ADMIN', 'FINANCE_MGR'] },
   // Same as Customer Invoice (owner decision 6, docs/modules/SALES_RETURN.md).
   SALESRETURN:        { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], draft: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], post: ['ADMIN', 'FINANCE_MGR'] },
   // Read-only reports, same broad access as the other reports (SOA decision 6).

@@ -239,6 +239,7 @@ const MASTERS = {
       // docs/modules/TAX_ENGINE.md: the registration type and the state or emirate (a GSTIN is checked against it).
       C('Tax Registration Type', 'TaxRegistrationType', { type: 'enum', values: ['Registered', 'Unregistered', 'Composition', 'SEZ', 'Overseas', 'Consumer'] }),
       C('State / Emirate', 'TaxState', { note: 'GST state code (e.g. 27) or emirate code (e.g. DXB).' }),
+      C('City', 'City'), C('PIN / Postal Code', 'PostalCode', { note: 'India: the 6-digit PIN code (for e-invoices).' }),
       C('Bank Name', 'BankName'), C('Bank Account Number', 'BankAccountNumber'), C('IBAN', 'BankIBAN'), C('SWIFT', 'BankSwift'),
       C('Notes', 'Notes')
     ],
@@ -262,6 +263,7 @@ const MASTERS = {
       // docs/modules/TAX_ENGINE.md: the registration type and the state or emirate (a GSTIN is checked against it).
       C('Tax Registration Type', 'TaxRegistrationType', { type: 'enum', values: ['Registered', 'Unregistered', 'Composition', 'SEZ', 'Overseas', 'Consumer'] }),
       C('State / Emirate', 'TaxState', { note: 'GST state code (e.g. 27) or emirate code (e.g. DXB).' }),
+      C('City', 'City'), C('PIN / Postal Code', 'PostalCode', { note: 'India: the 6-digit PIN code (for e-invoices).' }),
       C('Bank Name', 'BankName'), C('Bank Account Number', 'BankAccountNumber'), C('IBAN', 'BankIBAN'), C('SWIFT', 'BankSwift'),
       C('Notes', 'Notes')
     ],

@@ -6,7 +6,7 @@ modules: [CUSTOMERMASTER]
 sources: [functions/src/partyLedger.js, functions/src/customerPhone.js]
 summary: Keep each customer record complete so sales orders, delivery notes and customer invoices can be raised correctly.
 reviewed: 2026-10-26
-fingerprint: e5676144a90a231a
+fingerprint: 9f464cc9b98b3996
 ---
 ## What it is for
 
@@ -36,6 +36,9 @@ as CGST and SGST, otherwise as IGST (see
 needs its GSTIN, which is checked: its first two digits must be the state
 chosen, and its last character must agree with the rest. A UAE TRN of a
 registered party is 15 digits starting 100.
+
+The **City** and **PIN / postal code** go on the customer's e-invoices. India's
+e-invoice needs both; an Indian PIN code is 6 digits, not starting with 0.
 
 ## A customer in a foreign currency
 

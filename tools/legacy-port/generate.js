@@ -113,6 +113,10 @@ const MAPPED = {
   findAccountUsage_: ['coaUsage', 'findAccountUsage', 'dropCtx'], // docs/modules/COA_RECODE.md
   clubStockLines_: ['lineClubbing', 'clubStockLines', 'pure'], // docs/modules/LINE_CLUBBING.md
   assertPeriodOpen_: ['periodLock', 'assertOpen', 'dropCtx'], // docs/modules/PERIOD_CLOSING.md (called only from patches)
+  invoiceLineTax_: ['salesTax', 'invoiceTax', 'dropCtx'], // docs/modules/TAX_ENGINE.md, part 2 (called only from patches)
+  taxComponentGlLines_: ['salesTax', 'componentGlLines', 'pure'],
+  includedTaxOf_: ['salesTax', 'includedTaxOf', 'pure'],
+  recordTaxCodeUse_: ['salesTax', 'recordCodeUse', 'dropCtx'],
   cleanInvoiceItemLines_: ['invoiceStock', 'cleanItemLines', 'dropCtx'], // docs/modules/DIRECT_SALES_INVOICE.md (called only from patches)
   // docs/modules/TRANSACTIONS_FIRESTORE.md, T1b (called only from patches stock-posting-atomic-*)
   postStock_: ['stockPosting', 'postStock', 'dropCtx'],
@@ -171,6 +175,7 @@ const SHARED_PATHS = {
   dimensionRules: '../dimensionRules',
   eInvoicing: '../eInvoicing',
   dataReset: '../dataReset', // used by name (__dataReset.) in patches
+  salesTax: '../salesTax', // TAX_ENGINE.md, part 2
   taxEngine: '../taxEngine' // used by name (__taxEngine.) in patches (TAX_ENGINE.md)
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
@@ -396,20 +401,57 @@ function taxPartyEdits(mod, p) {
     { mod, from: `        <div><label class="block text-xs font-medium text-slate-300 mb-1">Tax Registration No. <span class="text-slate-500">(optional)</span></label><input type="text" id="${p}-form-taxreg" class="${field}"></div>`,
       to: `        <div><label class="block text-xs font-medium text-slate-300 mb-1">Tax Registration No. <span class="text-slate-500">(GSTIN, TRN …)</span></label><input type="text" id="${p}-form-taxreg" class="${field}"></div>
         <div><label class="block text-xs font-medium text-slate-300 mb-1">Tax registration type</label><select id="${p}-form-taxtype" class="${field}"><option value="">—</option>${types}</select></div>
-        <div><label class="block text-xs font-medium text-slate-300 mb-1">State / emirate <span class="text-slate-500">(place of supply)</span></label><select id="${p}-form-taxstate" class="${field}"><option value="">—</option>${states}</select></div>` },
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">State / emirate <span class="text-slate-500">(place of supply)</span></label><select id="${p}-form-taxstate" class="${field}"><option value="">—</option>${states}</select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">City <span class="text-slate-500">(optional)</span></label><input type="text" id="${p}-form-city" maxlength="60" class="${field}"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">PIN / postal code <span class="text-slate-500">(optional)</span></label><input type="text" id="${p}-form-postal" maxlength="12" class="${field}"></div>` },
     { mod, from: `      document.getElementById('${p}-form-taxreg').value = v.TaxRegistrationNumber || '';\n`,
       to: `      document.getElementById('${p}-form-taxreg').value = v.TaxRegistrationNumber || '';
       document.getElementById('${p}-form-taxtype').value = v.TaxRegistrationType || '';
-      document.getElementById('${p}-form-taxstate').value = v.TaxState || '';\n` },
+      document.getElementById('${p}-form-taxstate').value = v.TaxState || '';
+      document.getElementById('${p}-form-city').value = v.City || '';
+      document.getElementById('${p}-form-postal').value = v.PostalCode || '';\n` },
     { mod, from: `      TaxRegistrationNumber: document.getElementById('${p}-form-taxreg').value.trim(),\n`,
       to: `      TaxRegistrationNumber: document.getElementById('${p}-form-taxreg').value.trim(),
       TaxRegistrationType: document.getElementById('${p}-form-taxtype').value,
-      TaxState: document.getElementById('${p}-form-taxstate').value,\n` }
+      TaxState: document.getElementById('${p}-form-taxstate').value,
+      City: document.getElementById('${p}-form-city').value.trim(),
+      PostalCode: document.getElementById('${p}-form-postal').value.trim(),\n` }
   ];
 }
 const SCREEN_EDITS = [
   ...taxPartyEdits('CUSTOMERMASTER', 'cus'),
   ...taxPartyEdits('VENDORMASTER', 'ven'),
+  // A price list's prices may include tax (TAX_ENGINE.md, part 2, Q314; patch
+  // invoice-line-tax (price list)): the invoice then takes the tax out of them.
+  { mod: 'PRICELISTING', from: `    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Currency</label>
+      <select id="pl-form-currency" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+    </div>
+`, to: `    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Currency</label>
+      <select id="pl-form-currency" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-300 mb-1">Prices</label>
+      <label class="inline-flex items-center gap-2 text-sm py-2"><input type="checkbox" id="pl-form-inclusive" class="rounded"> Include tax</label>
+      <p class="text-xs text-slate-500">Where the company has a Tax Configuration: the invoice takes the tax out of these prices.</p>
+    </div>
+` },
+  { mod: 'PRICELISTING', from: `    document.getElementById('pl-form-currency').value = currentPl.CurrencyID || '';
+`,
+    to: `    document.getElementById('pl-form-currency').value = currentPl.CurrencyID || '';
+    document.getElementById('pl-form-inclusive').checked = Boolean(currentPl.PricesIncludeTax);
+` },
+  { mod: 'PRICELISTING', from: `    document.getElementById('pl-form-currency').value = '';
+    showEntryView();`,
+    to: `    document.getElementById('pl-form-currency').value = '';
+    document.getElementById('pl-form-inclusive').checked = false;
+    showEntryView();` },
+  { mod: 'PRICELISTING', from: `      CurrencyID: document.getElementById('pl-form-currency').value
+    };`,
+    to: `      CurrencyID: document.getElementById('pl-form-currency').value,
+      PricesIncludeTax: document.getElementById('pl-form-inclusive').checked
+    };` },
   // Stock Availability: what the reserved quantity is for (owner, 2026-10-24;
   // UX_ROUND2.md item 24; patch stock-availability-reserved-by): the figure
   // opens the row's reserving Sales Orders, each opened from there by a user
