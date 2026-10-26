@@ -1475,6 +1475,19 @@ from, and how it was verified. The deploy procedure is in the
   manageEssAccounts getNumbering saveNumberingFormat getDataResetCounts
   clearDataCategories clearSelectedRecords getCategoryRecords); access
   granted: 9; screens released: yes` (release `20261026T040451Z-51f7a7f`,
-  90/90 verified). Hosting (the portal's Requests → Other and Team
-  approvals, the Help): no run after #227 as of this entry; to be recorded
-  when it runs.
+  90/90 verified). Its Hosting (the portal's Requests → Other and Team
+  approvals, the Help) went out with run #230 below.
+- **2026-10-26, UX round 2 items 30-31, rep collections
+  (`ux2-rep-collections`, PR #178, from `08a5583`):** run
+  [#228](https://github.com/yasircmd/erp-firebase/actions/runs/40277324636)
+  ("functions set, then screens", 06:00–08:08 UTC), success:
+  `SUMMARY: functions deployed: 593 (every function: glWriting.js has the
+  new RepReceipt type; four new: saveSalesRepSettings, getRepReceipts,
+  cancelRepReceipt, receivePdcsFromRep); access granted: 593; screens
+  released: yes` (release `20261026T080817Z-08a5583`, 90/90 verified). Then
+  run [#229](https://github.com/yasircmd/erp-firebase/actions/runs/40282874689)
+  ("database rules", 08:08–08:09 UTC), success: no rules change in this
+  release; deployed to the main project and to 900, C101 and C102, the tree
+  task found nothing to do. Then Hosting, run
+  [#230](https://github.com/yasircmd/erp-firebase/actions/runs/40290524966)
+  (08:11 UTC), success: items 27 and 30-31's portal and Help.
