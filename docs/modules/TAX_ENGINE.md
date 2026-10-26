@@ -190,3 +190,61 @@ port's patches and SCREEN_EDITS.
 - Tests: unit/taxEngine (7), emulator/taxConfig (4), ui/taxConfig (4).
   Negative controls: a GSTIN of another state accepted; a used code
   removed; Customer Master's state not saved (UI). All caught, restored.
+
+### Part 2: sales (2026-10-26; deploy set `ux2-tax2`)
+
+- **functions/src/salesTax.js**: `computeTax` (pure) taxes a document's
+  lines: the discount spread over them in proportion (cents to the last
+  line), each line's components from `taxEngine.componentsOf` on the
+  document's date and place of supply, a price inclusive of tax divided by
+  (1 + rate), rounded per line (GST) or per code and component on the
+  document with the cents put on its largest line (VAT). A sale under
+  reverse charge charges nothing (the buyer accounts for it). Stored on the
+  document: `TaxLines` (per line: Key, Label, TaxCode, Category, Percent,
+  Taxable, Tax, Inclusive, Components, HSNCode), `TaxSummary` (per code and
+  rate), `TaxComponents` (per component, with the output and input
+  accounts as configured at the time), `TaxAmount`, `TaxAdded` (on
+  exclusive prices: added to the total), `TaxIncluded`, `PlaceOfSupply`,
+  `TaxRegime`, `TaxRounding`. Line keys: `<DeliveryNoteID>#<LineNo>`,
+  `item#n` (the invoice's own item lines, delivered by its automatic
+  Delivery Note), `direct#n`.
+- **Customer Invoice** (patches `invoice-line-tax (…)`): where the company
+  has a Tax Configuration, the save calls `invoiceTax`. A line's code is its
+  item's, else its Sales Type's default (`TaxCode`, Sales Invoice
+  Configuration). A code other than that, not already saved on the line,
+  needs CUSTOMERINVOICE `taxcode` (Q313, Admin and Finance Manager by
+  default; existing corporates tick it in Roles & Permissions). An inactive
+  code is refused unless the line already had it. The place of supply is
+  the invoice's `PlaceOfSupply`, else the customer's `TaxState` (Q318);
+  India needs one unless the buyer is Overseas or an SEZ. A line delivered
+  against a Sales Order on a price list with `PricesIncludeTax` is
+  inclusive (Q314); direct and typed item lines are exclusive. Total =
+  subtotal − discount + `TaxAdded` + round off. Posting credits each
+  component to its output account and records the codes in `taxCodeUse`;
+  revenue is net of the tax inclusive prices held (`includedTaxOf`). The
+  reversal mirrors both. A company without a Tax Configuration, and an
+  invoice saved before it had one, keeps the single Tax % (Q317).
+- **Sales Return**: each returned line takes its invoice line's share by
+  quantity (`shareOf`), at the invoice's codes, rates and accounts; its
+  Sales Returns debit leaves out a line's included tax.
+- **The screen**: `previewInvoiceTax` (the save's own calculation, its
+  problems returned, not thrown) feeds the Tax box: per line its code
+  (changeable with the right), rate, components and tax, the summary, the
+  place of supply. The print shows each line's rate and tax, HSN under GST,
+  a summary by code with each component, and the place of supply. Sales
+  Return shows and prints its share.
+- **E-invoices**: PINT AE takes each line's category (S, Z, E, O, AE) and
+  rate at its taxable value, with a subtotal per category and rate (the
+  discount is already in the lines). Fixed with it: after posting, an
+  invoice's item lines were listed twice in its e-invoice (once as its
+  automatic Delivery Note). **India** (Q321, `eInvoiceIndia.js`): a company
+  under India GST gets the IRP's JSON (schema 1.1, `Format: 'IRP'`, `Json`)
+  for supplies to a registered business, an SEZ or abroad (else
+  NotApplicable), checked for the GSTINs, addresses, cities and PIN codes,
+  the place of supply and an HSN / SAC on every line. Nothing is reported
+  until a GSP is connected (eInvoiceConnector.js).
+- Customers and vendors gain **City** and **PIN / postal code** (an Indian
+  PIN is 6 digits), on their screens and in Master Import. Price lists gain
+  **Prices include tax**; Sales Types a default tax code.
+- Tests: unit/salesTax (8), unit/eInvoiceIndia (4), emulator/salesTax (8),
+  ui/salesTax (3).

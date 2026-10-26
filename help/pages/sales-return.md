@@ -3,10 +3,10 @@ title: Sales Return / Credit Note
 area: sales
 order: 7
 modules: [SALESRETURN]
-sources: [functions/src/salesReturn.js, functions/src/partyLedger.js, functions/src/eInvoicing.js]
+sources: [functions/src/salesReturn.js, functions/src/partyLedger.js, functions/src/eInvoicing.js, functions/src/salesTax.js]
 summary: Record returns from customers, reverse the sale and create the credit note to the customer.
 reviewed: 2026-10-26
-fingerprint: fbb73a3b37c4db78
+fingerprint: 8098d7245a0f18f5
 ---
 ## What it is for
 
@@ -35,6 +35,12 @@ at the **invoice's** rate, not the rate on the return date, so it takes back
 exactly what the invoice booked; the stock comes back at its cost in the
 default currency.
 
+An invoice taxed by line ([Tax Configuration](tax-configuration.html)):
+each returned line takes back its share of that line's tax, by quantity, at
+the codes and rates the invoice was posted with. Each component goes back
+to the account the invoice credited, and the Tax line shows **by line**.
+A line whose price included tax takes back its tax from within the price.
+
 ## E-invoice
 
 If the company e-invoices (Sales Invoice Configuration), a posted return shows
@@ -42,7 +48,9 @@ its **E-invoice** (a credit note): **Ready to send**, **Not ready** with what is
 missing (for example the customer's address), or **Not e-invoiced** for a
 customer without a TRN. **Download XML** gives the file; after fixing the
 missing data, **Check again**. Nothing is sent until the company's ASP is
-connected.
+connected. Under India GST it is the IRP's JSON instead (**Download JSON
+(IRP)**), for a registered business, an SEZ or a customer abroad: see
+[Sales Invoice Configuration](sales-invoice-setup.html).
 
 ## Rights
 

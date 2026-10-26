@@ -328,9 +328,10 @@ exports.saveExchangeRate = require('./src/exchangeRates').saveExchangeRate;
 exports.getProjectReport = require('./src/projectReport').getProjectReport; // docs/modules/PROJECTS_DIMENSIONS.md
 // UAE e-invoicing, ready to send (docs/modules/E_INVOICING.md).
 ['getEInvoiceSettings', 'saveEInvoiceSettings', 'getEInvoice', 'rebuildEInvoice'].forEach(n => { exports[n] = require('./src/eInvoicing')[n]; });
-// Sales reps in the Employee Portal: the office's setup (docs/modules/SALES_REP_PORTAL.md).
 // Tax Configuration (docs/modules/TAX_ENGINE.md).
 ['getTaxConfig', 'saveTaxConfig'].forEach(n => { exports[n] = require('./src/taxConfig')[n]; });
+['previewInvoiceTax'].forEach(n => { exports[n] = require('./src/salesTax')[n]; }); // TAX_ENGINE.md, part 2
+// Sales reps in the Employee Portal: the office's setup (docs/modules/SALES_REP_PORTAL.md).
 ['getSalesReps', 'saveSalesRep', 'saveSalesRepSettings', 'getRepReceipts', 'cancelRepReceipt'].forEach(n => { exports[n] = require('./src/salesRep')[n]; });
 // The office takes a sales rep's cheques (docs/modules/REP_COLLECTIONS.md, Q294).
 exports.receivePdcsFromRep = require('./src/pdc').receivePdcsFromRep;

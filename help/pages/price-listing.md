@@ -5,8 +5,8 @@ order: 3
 modules: [PRICELISTING]
 sources: [functions/src/masterData.js]
 summary: Review and maintain the item prices and rates used for sales transactions and customer orders.
-reviewed: 2026-10-18
-fingerprint: 738474a921e669ab
+reviewed: 2026-10-26
+fingerprint: 71e3f040017bff69
 ---
 ## What it is for
 
@@ -24,6 +24,13 @@ fingerprint: 738474a921e669ab
 2. Review the effective price and any discount or price basis.
 3. Update the list or customer price when the commercial terms change.
 4. Save and test the quotation or sales order using the new price.
+
+**Prices include tax**: tick it for a list whose prices already hold the tax
+(a shop's prices, for example). Where the company has a
+[Tax Configuration](tax-configuration.html), a
+[Customer Invoice](customer-invoice.html) for an order on this list takes
+the tax out of the price instead of adding it. Untick it (as it starts) for
+prices before tax.
 
 ## What happens in the books
 

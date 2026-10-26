@@ -3,10 +3,10 @@ title: Sales Invoice Setup
 area: sales
 order: 2
 modules: [SALESINVOICESETUP]
-sources: [functions/src/retailSales.js, functions/src/invoiceStock.js, functions/src/eInvoicing.js, functions/src/eInvoiceDocument.js, functions/src/salesRep.js]
+sources: [functions/src/retailSales.js, functions/src/invoiceStock.js, functions/src/eInvoicing.js, functions/src/eInvoiceDocument.js, functions/src/eInvoiceIndia.js, functions/src/salesRep.js]
 summary: Set the default rules and accounts used when customer sales are invoiced and posted.
 reviewed: 2026-10-26
-fingerprint: 936d9581a8bdd983
+fingerprint: d1fe2410254c997e
 ---
 ## What it is for
 
@@ -27,11 +27,19 @@ fingerprint: 936d9581a8bdd983
 
 **Invoices may deliver stock directly** (per company, off unless you switch it on): choose the company, tick it and **Save**. Then a [Customer Invoice](customer-invoice.html) can have item lines and deliver them itself when posted. Off, stock leaves only with a [Delivery Note](delivery-note.html).
 
+**Default tax code** (a Sales Type, optional): where the company has a
+[Tax Configuration](tax-configuration.html), the tax code of the Sales Type's
+direct lines on a [Customer Invoice](customer-invoice.html), and of its
+items that have no code of their own (for example SR, or GST18).
+
 ## What happens in the books
 
 This setup does not create an entry by itself. It determines how the ERP posts customer sales and related receivables and tax entries later in the workflow.
 
 ## E-invoicing (UAE)
+
+An invoice taxed by line carries each line's VAT category (S, Z, E, O, AE)
+and rate, with a subtotal per category, in its e-invoice.
 
 Under **E-invoicing (UAE)**, choose the company, tick **E-invoicing on**
 and give the date it starts. From that date each posted Customer Invoice,
@@ -42,6 +50,21 @@ invoice shows **Ready to send**, **Not ready** (with what is missing) or
 downloaded. Sending goes through your Accredited Service Provider (ASP)
 once one is chosen and connected; until then nothing is sent. The company
 needs its 15-digit TRN in Company Master (Tax numbers).
+
+**India GST.** A company under India GST in
+[Tax Configuration](tax-configuration.html) uses the same switch. Its
+e-invoice is the IRP's JSON (schema 1.1), built for each posted invoice and
+credit note to a registered business, an SEZ or a customer abroad. A
+consumer or an unregistered buyer is **Not e-invoiced**. It needs:
+
+- the company's GSTIN (Company Master → Tax numbers, type GSTIN), address,
+  city and PIN code;
+- the customer's GSTIN, address, city and PIN code (Customer Master);
+- an HSN or SAC code on every item (Item Master).
+
+**Download JSON (IRP)** gives the file. The IRN and the signed QR code come
+from the IRP through a GSP once one is chosen and connected; until then
+nothing is reported.
 
 ## Sales reps
 

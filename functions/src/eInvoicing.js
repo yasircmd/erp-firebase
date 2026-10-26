@@ -21,6 +21,7 @@ const movedPaths = require('./movedPaths');
 const { requireUser, moduleHasCapability } = require('./auth');
 const { userCanAccessCompany } = require('./glWriting');
 const E = require('./eInvoiceDocument');
+const IN = require('./eInvoiceIndia'); // India GST's IRP JSON (TAX_ENGINE.md, part 2)
 
 const onCallOptions = { region: 'us-central1' };
 const SETTINGS = 'eInvoiceSettings';
@@ -35,12 +36,18 @@ const KINDS = { Invoice: { module: 'CUSTOMERINVOICE' }, CreditNote: { module: 'S
 async function settingsOf(companyId) { return (await val(SETTINGS + '/' + companyId)) || { Enabled: false, StartDate: '', AspName: '' }; }
 
 // The document's lines, from the posted record.
+// Each carries its line tax's Key where the document is taxed line by line
+// (TAX_ENGINE.md, part 2).
 function linesOf(kind, doc) {
-  if (kind === 'CreditNote') return (doc.Lines || []).map(l => ({ Description: l.ItemName || l.ItemCode || '', Quantity: Number(l.Quantity) || 0, UnitPrice: Number(l.UnitPrice) || 0, Amount: Math.round((Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0) * 100) / 100 }));
+  if (kind === 'CreditNote') return (doc.Lines || []).map(l => ({ Key: l.TaxKey || '', ItemCode: l.ItemCode || '', Description: l.ItemName || l.ItemCode || '', Quantity: Number(l.Quantity) || 0, UnitPrice: Number(l.UnitPrice) || 0, Amount: Math.round((Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0) * 100) / 100 }));
   const out = [];
-  (doc.SourceDeliveryNotes || []).forEach(dn => (dn.Lines || []).forEach(l => out.push({ Description: l.ItemCode || dn.DeliveryNoteNumber || '', Quantity: l.Quantity, UnitPrice: l.UnitPrice, Amount: Math.round(l.Quantity * l.UnitPrice * 100) / 100 })));
-  (doc.ItemLines || []).forEach(l => out.push({ Description: l.Description || l.ItemCode || '', Quantity: l.Quantity, UnitPrice: l.UnitPrice, Amount: l.Amount }));
-  (doc.DirectLines || []).forEach(l => out.push({ Description: l.Description || '', Quantity: 1, UnitPrice: l.Amount, Amount: l.Amount }));
+  (doc.SourceDeliveryNotes || []).forEach(dn => {
+    const auto = doc.AutoDeliveryNoteID && dn.DeliveryNoteID === doc.AutoDeliveryNoteID;
+    (dn.Lines || []).forEach((l, i) => out.push({ Key: (auto ? 'item' : dn.DeliveryNoteID) + '#' + (i + 1), ItemCode: l.ItemCode || '', Description: l.ItemCode || dn.DeliveryNoteNumber || '', Quantity: l.Quantity, UnitPrice: l.UnitPrice, Amount: Math.round(l.Quantity * l.UnitPrice * 100) / 100 }));
+  });
+  // Item lines are delivered by the invoice's own Delivery Note once posted, listed above.
+  if (!doc.AutoDeliveryNoteID) (doc.ItemLines || []).forEach((l, i) => out.push({ Key: 'item#' + (i + 1), ItemCode: l.ItemCode || '', Description: l.Description || l.ItemCode || '', Quantity: l.Quantity, UnitPrice: l.UnitPrice, Amount: l.Amount }));
+  (doc.DirectLines || []).forEach((l, i) => out.push({ Key: 'direct#' + (i + 1), Description: l.Description || '', Quantity: 1, UnitPrice: l.Amount, Amount: l.Amount }));
   return out;
 }
 
@@ -65,13 +72,33 @@ async function recordEInvoice(kind, sourceId) {
       CurrencyCode: kind === 'CreditNote' && doc.SourceInvoiceID ? ((await val('customerInvoices/' + doc.SourceInvoiceID)) || {}).CurrencyCode || '' : doc.CurrencyCode,
       ExchangeRate: kind === 'CreditNote' && doc.SourceInvoiceID ? ((await val('customerInvoices/' + doc.SourceInvoiceID)) || {}).ExchangeRate || 1 : doc.ExchangeRate
     });
-    const d = E.documentOf(kind, facts, company || {}, customer || {}, base.Code || 'AED');
-    const r = E.readiness(d);
-    const rec = {
-      Kind: kind, SourceID: sourceId, Number: d.number, CompanyID: doc.CompanyID, CustomerID: doc.CustomerID || '', Date: d.date,
-      Currency: d.currency, Total: d.total, Status: r.status, Issues: r.issues, Xml: r.status === 'NotApplicable' ? '' : E.toXml(d),
-      SendStatus: 'NotSent', SendNote: '', BuiltAt: new Date().toISOString()
-    };
+    let rec;
+    if (doc.TaxRegime === 'IN_GST') {
+      // India (TAX_ENGINE.md, Q321): the IRP's JSON, each line by its item's name and unit.
+      const [items, uoms, config, source] = await Promise.all([val('items'), val('uoms'), require('./taxConfig').configFor(doc.CompanyID),
+        kind === 'CreditNote' && doc.SourceInvoiceID ? val('customerInvoices/' + doc.SourceInvoiceID) : null]);
+      const byCode = {};
+      Object.values(items || {}).forEach(it => { byCode[it.ItemCode] = it; });
+      const lines = facts.EInvoiceLines.map(l => {
+        const it = byCode[l.ItemCode];
+        return Object.assign({}, l, it ? { Description: it.ItemName || l.Description, Unit: ((uoms || {})[it.UOMID] || {}).Code || '' } : {});
+      });
+      const d = IN.documentOf(kind, Object.assign({}, facts, { BillingDate: source ? source.InvoiceDate || '' : '' }),
+        Object.assign({}, company || {}, { TaxStateCode: (config || {}).StateCode || '' }), customer || {}, lines);
+      const r = IN.readiness(d);
+      rec = { Kind: kind, SourceID: sourceId, Number: d.number, CompanyID: doc.CompanyID, CustomerID: doc.CustomerID || '', Date: d.date,
+        Currency: 'INR', Total: d.values.TotInvVal, Format: 'IRP', Status: r.status, Issues: r.issues, Xml: '', Json: r.status === 'NotApplicable' ? '' : IN.toJson(d),
+        SendStatus: 'NotSent', SendNote: '', BuiltAt: new Date().toISOString() };
+    } else {
+      const d = E.documentOf(kind, facts, company || {}, customer || {}, base.Code || 'AED');
+      const r = E.readiness(d);
+      rec = {
+        Kind: kind, SourceID: sourceId, Number: d.number, CompanyID: doc.CompanyID, CustomerID: doc.CustomerID || '', Date: d.date,
+        Currency: d.currency, Total: d.total, Status: r.status, Issues: r.issues, Xml: r.status === 'NotApplicable' ? '' : E.toXml(d),
+        SendStatus: 'NotSent', SendNote: '', BuiltAt: new Date().toISOString()
+      };
+    }
+    const r = { status: rec.Status };
     // Sending: only through the ASP's connector, once one is plugged in.
     if (r.status === 'Ready') Object.assign(rec, await require('./eInvoiceConnector').send(rec, settings));
     await rtdb.ref(DOCS + '/' + kind + '_' + sourceId).set(rec);
