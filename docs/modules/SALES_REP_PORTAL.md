@@ -83,7 +83,7 @@ uses, so every rule (prices, stock reservation, approvals) still applies.
 |---|---|
 | 230 | A rep sees only the customers assigned to them; a manager role sees all. |
 | 231 | A rep's order is a draft Sales Order the office confirms. |
-| 232 | Collections are draft CBT receipts or draft PDCs the office posts; a rep may have their own cash account. |
+| 232 | Collections are draft CBT receipts or draft PDCs the office posts; a rep may have their own cash account. **Superseded 2026-10-26** (UX round 2 items 30-31, [REP_COLLECTIONS.md](REP_COLLECTIONS.md)): a collection is final at once, the rep's receipt, on the company's Rep Cash Clearing account. |
 | 233 | No offline mode in phase 1. |
 | 234 | The customer's price list only. |
 | 235 | The rep sees the stock free to sell. |

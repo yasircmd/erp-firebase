@@ -5,8 +5,8 @@ order: 9
 modules: [VENDORSOA, CUSTOMERSOA]
 sources: [functions/src/partyStatement.js]
 summary: Everything posted with one vendor or customer over a period, the running balance, what is still open, and pending cheques.
-reviewed: 2026-10-17
-fingerprint: 68e348df723484df
+reviewed: 2026-10-26
+fingerprint: 9c455198688a3b85
 ---
 ## What it is for
 

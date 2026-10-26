@@ -5,8 +5,8 @@ order: 6
 modules: [CUSTOMERINVOICE]
 sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js, functions/src/eInvoicing.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
-reviewed: 2026-10-25
-fingerprint: 9ce0c71d99284319
+reviewed: 2026-10-26
+fingerprint: d71c5cc609cf3f46
 ---
 ## What it is for
 

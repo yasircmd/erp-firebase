@@ -1,6 +1,6 @@
 # A sales rep's collections, balance and receipts (UX round 2, items 30 and 31)
 
-**Status:** design agreed (owner, 2026-10-25, decisions Q294–Q298) · **Roadmap:** [#19](../ROADMAP.md) ·
+**Status:** built 2026-10-26 (design agreed by the owner 2026-10-25, decisions Q294–Q298; Q309–Q310 2026-10-26) · **Roadmap:** [#19](../ROADMAP.md) ·
 **Plan:** [UX_ROUND2.md](UX_ROUND2.md) wave 4 · **Builds on:**
 [SALES_REP_PORTAL.md](SALES_REP_PORTAL.md) (decisions 230–236), [PDC.md](PDC.md)
 
@@ -101,3 +101,80 @@ the rep"), which moves no money.
 3. ERP: Sales reps (the clearing account, the code, balances), the
    cashier's confirmation screen and its Home task.
 4. Tests (emulator and UI, negative controls), Help, What's new.
+
+## As built (2026-10-26)
+
+- **The rep as a party** (functions/src/partyLedger.js, `PARTY_TYPES.SalesRep`):
+  its records are built by `salesRep.repParties` from `salesReps/{employee}`
+  (RepCode, the employee's name, company) and `salesRepSettings/{company}`
+  (ClearingAccountID, the company's Rep Cash Clearing account, the same for
+  every rep of the company). No invoices: its open items are its receipts'
+  New Refs. Cash & Bank, JV, the allocation and the re-match work on it as on
+  a vendor or customer (`getPartyAccounts`, `getPartyOpenItems`); a line on
+  Rep Cash Clearing without a rep is refused ("… is the Rep Cash Clearing
+  account — select the Sales rep …"). The vendor/customer messages are
+  unchanged. The party statement and aging stay Vendor / Customer only.
+- **Set-up** (Sales Invoice Configuration → Sales reps):
+  `saveSalesRepSettings` (the clearing account: postable, the company's, not
+  cash or bank, not a vendor's or customer's control account; it can't change
+  while a rep still holds cash on it); `saveSalesRep` takes `repCode` (1–12
+  letters or digits, the employee number without its dash by default; a
+  code used once is the rep's for good, `salesRepCodes/{code}`, so no receipt
+  number can repeat). The rep's old CashAccountID is no longer used.
+- **A collection** (essPortal `salesCollect` → `salesRep.collect`, under the
+  global lock): the rep's next number, `salesRepCounters/{employee}`,
+  RC-<code>-000001 (Q298, Q309), for cash and cheques alike.
+  - Cash: one posted entry, VoucherType `RepReceipt` (glWriting, numbered
+    with the receipt's own number, never by Numbering, which doesn't list
+    it): Dr Rep Cash Clearing (SalesRep, a New Ref) · Cr the customer
+    (Against the invoices picked, the rest a New Ref, Q296).
+  - Cheque: `pdc.postPdcForRep`, a PDC Received posted at once with no
+    approval, WithRep, RepEmployeeID, RepName, RepReceiptNumber (Q294); its
+    photo on the PDC as before.
+  - The receipt, `repReceipts/{number}` (Firestore), written in the same
+    batch as the posting: customer, amount, method, cheque, what it settles,
+    the rep. A customer invoiced in a foreign currency is refused (the
+    office records its receipts).
+- **The cashier** (Q295): an ordinary Cash Receipt, a line on Rep Cash
+  Clearing tagged with the rep, allocated against the rep's receipts. The
+  receipt's status is derived: *With the rep*, *Part handed over*, *Handed
+  over* (its New Ref's outstanding); a cheque *With the rep* until
+  `receivePdcsFromRep` (PDC Received's post right; no money moves), then the
+  PDC's own state. Clearing or bouncing a cheque still with the rep is
+  refused.
+- **Cancelling** (`cancelRepReceipt`, Cash & Bank's post right, Q297, Q310):
+  cash, a reversal numbered RC-…-C, refused once the cashier has taken any of
+  it ("reverse that Cash Receipt first"); a cheque, the PDC cancelled
+  (`pdc.cancelPdcFor`, Pending only). The receipt keeps its number, marked
+  Cancelled with the reason.
+- **The portal** (public/ess.html): Sales → *I hold* (cash and cheques),
+  *My receipts* (`salesCollections`), the collection form with the
+  customer's open invoices oldest first (`salesInvoices`), and the receipt
+  (`salesReceipt`) with **Share** (Web Share API with the PDF file; a
+  download where there is no share sheet) and **Download PDF**. The PDF is
+  one A5 page written by hand in the page (Helvetica, WinAnsi), no library;
+  the amount in words from eosStatement's `amountInWords`.
+- **The office**: Sales reps shows each rep's code, cash and cheques held,
+  their receipts (`getRepReceipts`) and Cancel. PDC Received marks a rep's
+  cheque *with <rep>* and has **Received from the rep** (one or the ticked
+  ones); Clear and Bounced appear once received.
+- **Removed**: decision 232's drafts (`savePdcDraftForRep`,
+  `saveCbtDraftForRep`) and journal.js's portal-rep path past the draft
+  right. Drafts saved before the deploy stay drafts for the office.
+- **Data Reset**: *Sales Rep Receipts* (repReceipts, the reps' counters), a
+  transaction category that Employees and Customers wait for;
+  salesRepCodes with Employees; salesRepSettings with Numbering & Settings.
+- **Tests**: repCollections emulator suite (6): the set-up rules, cash
+  settling a picked invoice and the rest on account, the cashier's Cash
+  Receipt matching part then all, a cheque with the rep through to cleared,
+  cancelling (rights, cash taken, a cheque), the portal's and the office's
+  views. salesRep emulator suite updated (collections no longer drafts);
+  Data Reset counts. salesRepPortal UI (8): the set-up, the collection and
+  its PDF (checked as a real PDF: pypdf strict and pdftotext read it), what
+  the rep holds, PDC Received's hand-over, the office's receipts and Cancel,
+  the cashier's Cash Receipt choosing the rep. **Negative controls**, each
+  caught then restored: a cheque with the rep cleared; the picked invoices
+  not settled; cash the cashier took cancelled; the PDF without what it
+  pays; Clear offered for a cheque with the rep.
+- **Deploy set** `ux2-rep-collections`: every function (glWriting.js), four
+  new; --screens; then Hosting.

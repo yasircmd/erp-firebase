@@ -6,7 +6,7 @@ modules: [EMPREQUESTS]
 sources: [functions/src/employeeRequests.js, functions/src/requestTypes.js, functions/src/essPortal.js, functions/src/reimbursements.js, functions/src/payrollLoans.js]
 summary: Manage employee queries, claims and requests from the portal or the ERP’s request workflows.
 reviewed: 2026-10-26
-fingerprint: 4a3554ce2daf70b3
+fingerprint: 0828598efd9e5d4a
 ---
 ## What it is for
 

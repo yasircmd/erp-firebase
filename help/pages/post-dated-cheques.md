@@ -5,8 +5,8 @@ order: 8
 modules: [PDCRECEIVED, PDCISSUED]
 sources: [functions/src/pdc.js]
 summary: Cheques dated in the future: received from customers or issued to vendors, then cleared, bounced or cancelled.
-reviewed: 2026-10-25
-fingerprint: be33dd9a9660658f
+reviewed: 2026-10-26
+fingerprint: 42e628751cb37bc8
 ---
 ## What it is for
 
@@ -66,6 +66,15 @@ shows its date in amber, an overdue one in red.
 Select **Clear to Bank** with the clearing date (not before the cheque
 date); for a received cheque, choose the bank account it was deposited
 into. Several cheques can be cleared together with **Clear Selected**.
+
+### Cheques a sales rep collected
+
+A cheque a rep collected in the Employee Portal (see
+[Sales reps](sales-rep-portal.html)) is posted at once, with its receipt,
+and marked **with** the rep in the list. When the rep hands it over, open
+it and choose **Received from the rep** (or tick several and **Received
+from the rep** above the list): no money moves, and the cheque can then be
+cleared. **Clear to Bank** and **Bounced** wait until then.
 
 ### If it doesn't go through
 
