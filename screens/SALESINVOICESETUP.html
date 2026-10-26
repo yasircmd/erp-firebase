@@ -30,20 +30,34 @@
     <p id="sis-ei-status" class="text-xs text-slate-500"></p>
   </div>
 
-  <!-- Sales reps in the Employee Portal (docs/modules/SALES_REP_PORTAL.md, decisions 230-236). -->
+  <!-- Sales reps in the Employee Portal (docs/modules/SALES_REP_PORTAL.md, decisions 230-236;
+       their collections and receipts, docs/modules/REP_COLLECTIONS.md, items 30-31). -->
   <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 space-y-3">
     <p class="text-sm font-semibold text-slate-200">Sales reps (Employee Portal)</p>
-    <p class="text-xs text-slate-500 max-w-2xl">A sales rep sees their customers in the Employee Portal (a sales manager sees all), with each one's balance; sends orders, saved here as draft Sales Orders for you to confirm, at the customer's price list; and records collections: cash as a draft Cash Receipt to the rep's cash account, a cheque as a draft PDC Received with its photo, for you to post.</p>
+    <p class="text-xs text-slate-500 max-w-2xl">A sales rep sees their customers in the Employee Portal (a sales manager sees all), with each one's balance; sends orders, saved here as draft Sales Orders for you to confirm, at the customer's price list; and collects cash and cheques, giving the customer a receipt at once, numbered from the rep's own series (RC-&lt;code&gt;-000001). The cash stays on the Rep Cash Clearing account, against the rep, until the cashier takes it with a Cash Receipt in Cash &amp; Bank (choose the rep and match their receipts). A cheque is a PDC Received, with the rep until you tick it received from the rep in PDC Received.</p>
     <div class="flex flex-wrap items-center gap-3">
       <select id="sis-sr-company" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-3 text-sm"><option value="">Select a company...</option></select>
       <button id="sis-sr-add" class="hidden bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add a sales rep</button>
     </div>
-    <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-3">Employee</th><th class="py-1 pr-3">Role</th><th class="py-1 pr-3">Cash account</th><th class="py-1 pr-3">Customers</th><th class="py-1 pr-3">Status</th><th></th></tr></thead>
+    <div id="sis-sr-clearing-row" class="hidden flex flex-wrap items-center gap-2 text-sm">
+      <label for="sis-sr-clearing" class="text-slate-300">Rep Cash Clearing account</label>
+      <select id="sis-sr-clearing" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">Choose…</option></select>
+      <button id="sis-sr-clearing-save" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save</button>
+      <span id="sis-sr-clearing-note" class="text-xs text-slate-500"></span>
+    </div>
+    <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-3">Employee</th><th class="py-1 pr-3">Code</th><th class="py-1 pr-3">Role</th><th class="py-1 pr-3">Customers</th><th class="py-1 pr-3 text-right">Cash held</th><th class="py-1 pr-3 text-right">Cheques held</th><th class="py-1 pr-3">Status</th><th></th></tr></thead>
       <tbody id="sis-sr-body" class="divide-y divide-slate-800"></tbody></table>
+    <div id="sis-sr-receipts" class="hidden space-y-2 border-t border-slate-700 pt-3">
+      <div class="flex flex-wrap items-center justify-between gap-2"><p id="sis-sr-rc-title" class="text-sm font-semibold text-slate-200"></p>
+        <button id="sis-sr-rc-close" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded">Close</button></div>
+      <p id="sis-sr-rc-balance" class="text-xs text-slate-400"></p>
+      <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-3">Receipt</th><th class="py-1 pr-3">Date</th><th class="py-1 pr-3">Customer</th><th class="py-1 pr-3">Cash / cheque</th><th class="py-1 pr-3 text-right">Amount</th><th class="py-1 pr-3">Status</th><th></th></tr></thead>
+        <tbody id="sis-sr-rc-body" class="divide-y divide-slate-800"></tbody></table>
+    </div>
     <div id="sis-sr-form" class="hidden space-y-2 border-t border-slate-700 pt-3">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
         <select id="sis-sr-employee" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"></select>
-        <select id="sis-sr-cash" class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm"><option value="">No cash account (cheques only)</option></select>
+        <input id="sis-sr-code" maxlength="12" placeholder="Rep code (e.g. AK)" title="In the rep's receipt numbers, RC-<code>-000001. Letters and digits; the employee number if left blank." class="bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-sm uppercase">
         <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="sis-sr-manager"> Sales manager (sees all customers)</label>
         <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="sis-sr-active" checked> Active</label>
       </div>
@@ -436,27 +450,60 @@
       if ($('sis-sr-company').options.length === 2) { $('sis-sr-company').selectedIndex = 1; load(); }
     });
     function load() {
-      $('sis-sr-form').classList.add('hidden'); $('sis-sr-body').innerHTML = '';
+      $('sis-sr-form').classList.add('hidden'); $('sis-sr-receipts').classList.add('hidden'); $('sis-sr-body').innerHTML = '';
+      $('sis-sr-clearing-row').classList.add('hidden');
       if (!$('sis-sr-company').value) return;
       call('getSalesReps', { companyId: $('sis-sr-company').value }).then(r => { data = r; render(); }, err => appAlert(err.message || 'Unable to load the sales reps.'));
     }
+    const amt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     function render() {
       $('sis-sr-add').classList.toggle('hidden', !data.canWrite);
-      const acc = id => { const a = data.cashAccounts.find(x => x.AccountID === id); return a ? a.AccountCode + ' ' + a.AccountName : '—'; };
+      // The company's Rep Cash Clearing account (REP_COLLECTIONS.md, Q295).
+      $('sis-sr-clearing-row').classList.remove('hidden');
+      $('sis-sr-clearing').innerHTML = '<option value="">Choose…</option>' + data.clearingAccounts.map(a => '<option value="' + escapeHtml(a.AccountID) + '">' + escapeHtml(a.AccountCode + ' ' + a.AccountName) + '</option>').join('');
+      $('sis-sr-clearing').value = data.clearingAccountId || '';
+      $('sis-sr-clearing').disabled = !data.canWrite;
+      $('sis-sr-clearing-save').classList.toggle('hidden', !data.canWrite);
+      $('sis-sr-clearing-note').textContent = data.clearingAccountId ? 'The reps\' cash waits here until the cashier takes it.' : 'Choose it before the reps collect cash.';
       $('sis-sr-body').innerHTML = data.reps.map(r => '<tr data-id="' + escapeHtml(r.EmployeeID) + '"><td class="py-1.5 pr-3">' + escapeHtml(r.Employee ? r.Employee.EmployeeNo + ' ' + r.Employee.FullName : r.EmployeeID) + '</td>' +
-        '<td class="py-1.5 pr-3">' + (r.IsManager ? 'Sales manager' : 'Sales rep') + '</td><td class="py-1.5 pr-3">' + escapeHtml(acc(r.CashAccountID)) + '</td><td class="py-1.5 pr-3">' + (r.IsManager ? 'All' : r.Customers.length) + '</td>' +
-        '<td class="py-1.5 pr-3">' + (r.Active === false ? 'Inactive' : 'Active') + '</td><td class="py-1.5 text-right">' + (data.canWrite ? '<button class="sis-sr-edit text-blue-300 text-xs">Edit</button>' : '') + '</td></tr>').join('') ||
-        '<tr><td colspan="6" class="py-2 text-xs text-slate-500">No sales reps yet.</td></tr>';
+        '<td class="py-1.5 pr-3 font-mono text-xs">' + escapeHtml(r.RepCode || '') + '</td>' +
+        '<td class="py-1.5 pr-3">' + (r.IsManager ? 'Sales manager' : 'Sales rep') + '</td><td class="py-1.5 pr-3">' + (r.IsManager ? 'All' : r.Customers.length) + '</td>' +
+        '<td class="py-1.5 pr-3 text-right sis-sr-cash-held">' + amt(r.Balance.Cash) + '</td><td class="py-1.5 pr-3 text-right">' + amt(r.Balance.ChequeTotal) + (r.Balance.Cheques.length ? ' <span class="text-xs text-slate-500">(' + r.Balance.Cheques.length + ')</span>' : '') + '</td>' +
+        '<td class="py-1.5 pr-3">' + (r.Active === false ? 'Inactive' : 'Active') + '</td><td class="py-1.5 text-right whitespace-nowrap"><button class="sis-sr-rc text-blue-300 text-xs mr-3">Receipts</button>' + (data.canWrite ? '<button class="sis-sr-edit text-blue-300 text-xs">Edit</button>' : '') + '</td></tr>').join('') ||
+        '<tr><td colspan="8" class="py-2 text-xs text-slate-500">No sales reps yet.</td></tr>';
       document.querySelectorAll('.sis-sr-edit').forEach(b => b.addEventListener('click', () => edit(b.closest('tr').dataset.id)));
+      document.querySelectorAll('.sis-sr-rc').forEach(b => b.addEventListener('click', () => receipts(b.closest('tr').dataset.id)));
+    }
+    // A rep's receipts, what each is now, and Cancel (Cash & Bank's post right, Q297, Q310).
+    let shownRep = '';
+    function receipts(id) {
+      shownRep = id;
+      const r = data.reps.find(x => x.EmployeeID === id);
+      call('getRepReceipts', { employeeId: id }).then(x => {
+        $('sis-sr-rc-title').textContent = 'Receipts of ' + (r && r.Employee ? r.Employee.FullName : id) + ' (' + (r ? r.RepCode : '') + ')';
+        $('sis-sr-rc-balance').textContent = 'Holds ' + amt(x.balance.Cash) + ' in cash, and ' + x.balance.Cheques.length + ' cheque' + (x.balance.Cheques.length === 1 ? '' : 's') + ' (' + amt(x.balance.ChequeTotal) + ').';
+        $('sis-sr-rc-body').innerHTML = x.receipts.map(c => '<tr data-number="' + escapeHtml(c.Number) + '"><td class="py-1.5 pr-3 font-mono text-xs">' + escapeHtml(c.Number) + '</td><td class="py-1.5 pr-3">' + escapeHtml(c.Date) + '</td>' +
+          '<td class="py-1.5 pr-3">' + escapeHtml(c.CustomerName) + '</td><td class="py-1.5 pr-3">' + escapeHtml(c.Method === 'Cheque' ? 'Cheque ' + (c.Cheque ? c.Cheque.Number : '') : 'Cash') + '</td>' +
+          '<td class="py-1.5 pr-3 text-right">' + amt(c.Amount) + '</td><td class="py-1.5 pr-3 sis-sr-rc-status">' + escapeHtml(c.StatusText) + (c.Status === 'Cancelled' && c.CancelReason ? ' <span class="text-xs text-slate-500">(' + escapeHtml(c.CancelReason) + ')</span>' : '') + '</td>' +
+          '<td class="py-1.5 text-right">' + (x.canCancel && c.Status !== 'Cancelled' ? '<button class="sis-sr-rc-cancel text-red-300 text-xs">Cancel</button>' : '') + '</td></tr>').join('') ||
+          '<tr><td colspan="7" class="py-2 text-xs text-slate-500">No receipts yet.</td></tr>';
+        document.querySelectorAll('.sis-sr-rc-cancel').forEach(b => b.addEventListener('click', () => cancelReceipt(b.closest('tr').dataset.number)));
+        $('sis-sr-receipts').classList.remove('hidden');
+      }, err => appAlert(err.message || 'Unable to load the receipts.'));
+    }
+    async function cancelReceipt(number) {
+      const reason = await appPrompt('Cancel receipt ' + number + '? It is reversed, and the number stays, marked cancelled. The reason:', '');
+      if (reason === null) return;
+      if (!reason.trim()) { appAlert('Give the reason for cancelling the receipt.'); return; }
+      call('cancelRepReceipt', { number, reason: reason.trim() }).then(() => { appAlert(number + ' is cancelled.'); load(); receipts(shownRep); }, err => appAlert(err.message || 'Unable to cancel.'));
     }
     function edit(id) {
-      const r = data.reps.find(x => x.EmployeeID === id) || { Active: true, IsManager: false, CashAccountID: '', Customers: [] };
+      const r = data.reps.find(x => x.EmployeeID === id) || { Active: true, IsManager: false, RepCode: '', Customers: [] };
       $('sis-sr-employee').innerHTML = data.employees.filter(e => e.EmployeeID === id || !data.reps.some(x => x.EmployeeID === e.EmployeeID))
         .map(e => '<option value="' + escapeHtml(e.EmployeeID) + '">' + escapeHtml(e.EmployeeNo + ' ' + e.FullName) + '</option>').join('');
       $('sis-sr-employee').value = id || ($('sis-sr-employee').options[0] || {}).value || '';
       $('sis-sr-employee').disabled = Boolean(id);
-      $('sis-sr-cash').innerHTML = '<option value="">No cash account (cheques only)</option>' + data.cashAccounts.map(a => '<option value="' + escapeHtml(a.AccountID) + '">' + escapeHtml(a.AccountCode + ' ' + a.AccountName) + '</option>').join('');
-      $('sis-sr-cash').value = r.CashAccountID || '';
+      $('sis-sr-code').value = r.RepCode || '';
       $('sis-sr-manager').checked = Boolean(r.IsManager); $('sis-sr-active').checked = r.Active !== false;
       chosen = new Set(r.Customers);
       $('sis-sr-search').value = '';
@@ -475,10 +522,15 @@
     $('sis-sr-company').addEventListener('change', load);
     $('sis-sr-add').addEventListener('click', () => edit(''));
     $('sis-sr-cancel').addEventListener('click', () => $('sis-sr-form').classList.add('hidden'));
+    $('sis-sr-rc-close').addEventListener('click', () => $('sis-sr-receipts').classList.add('hidden'));
     $('sis-sr-search').addEventListener('input', customers);
+    $('sis-sr-clearing-save').addEventListener('click', () => {
+      if (!$('sis-sr-clearing').value) { appAlert('Choose the Rep Cash Clearing account.'); return; }
+      call('saveSalesRepSettings', { companyId: $('sis-sr-company').value, clearingAccountId: $('sis-sr-clearing').value }).then(() => { appAlert('Saved.'); load(); }, err => appAlert(err.message || 'Unable to save.'));
+    });
     $('sis-sr-save').addEventListener('click', () => {
       if (!$('sis-sr-employee').value) { appAlert('Choose the employee.'); return; }
-      call('saveSalesRep', { companyId: $('sis-sr-company').value, employeeId: $('sis-sr-employee').value, cashAccountId: $('sis-sr-cash').value,
+      call('saveSalesRep', { companyId: $('sis-sr-company').value, employeeId: $('sis-sr-employee').value, repCode: $('sis-sr-code').value.trim(),
         isManager: $('sis-sr-manager').checked, active: $('sis-sr-active').checked, customerIds: [...chosen] }).then(load, err => appAlert(err.message || 'Unable to save.'));
     });
   }

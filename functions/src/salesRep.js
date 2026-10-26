@@ -385,7 +385,14 @@ async function collect(me, d) {
     });
     return no;
   });
-  return { success: true, number, receipt: await receiptView(number) };
+  // The cheque's photo, on its PDC (as before, decision 232): the receipt stands without it.
+  let photo = '';
+  if (isCheque && d.photo && d.photo.data) {
+    const pdcId = ((await RECEIPTS().doc(number).get()).data() || {}).PdcID;
+    try { await require('./attachments').portalUpload({ uid: actor, profile: { username: actor, fullName: me.emp.FullName } }, 'PDCRECEIVED', pdcId, text(d.photo.name, 120) || 'cheque.jpg', d.photo.data); photo = 'attached'; }
+    catch (e) { photo = 'not attached: ' + (e.message || 'the document storage is not connected'); }
+  }
+  return { success: true, number, photo, receipt: await receiptView(number) };
 }
 
 // ---------- a receipt and the rep's balance ----------
