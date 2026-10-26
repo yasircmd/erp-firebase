@@ -73,8 +73,8 @@ const CATEGORIES = {
 
   hrSetup: { label: 'HR Setup', group: S, fs: ['hrGrades', 'hrDesignations', 'hrFields', 'hrDocumentTypes', 'hrLeaveTypes', 'hrWorkCalendars', 'hrWorkSchedules', 'hrLeavingReasons', 'clearanceSetup'],
     detail: 'Grades, designations, employee fields, document types, leave types, working calendars, work schedules, leaving reasons and the clearance steps. The defaults come back when HR Setup is next opened.' },
-  payrollSetup: { label: 'Payroll Setup', group: S, fs: ['hrPayElements', 'payrollSettings', 'payrollPaymentFormats', 'payrollLoanTypes', 'payrollAccrualTypes', 'reimbursementCategories', 'employeeRequestHandlers'],
-    detail: 'Pay elements, payroll accounting, payment file formats, loan and provision types, reimbursement categories and who handles employee requests.' },
+  payrollSetup: { label: 'Payroll Setup', group: S, fs: ['hrPayElements', 'payrollSettings', 'payrollPaymentFormats', 'payrollLoanTypes', 'payrollAccrualTypes', 'reimbursementCategories', 'employeeRequestHandlers', 'employeeRequestTypes'],
+    detail: 'Pay elements, payroll accounting, payment file formats, loan and provision types, reimbursement categories, the employee request types and who handles employee requests.' },
   approvalSetup: { label: 'Approval Configuration', group: S, rtdb: ['approvalConfigurations', 'approvalLevels', 'approvalFollowUpSettings', 'approvalFollowUps'],
     detail: 'Which documents need approval, their levels and approvers, and the follow-up teams. Cleared, documents post without approval until it is set again.' },
   settings: { label: 'Numbering & Settings', group: S, rtdb: ['numbering', 'salesInvoiceSettings', 'eInvoiceSettings', 'barcodeSettings', 'retailSales', 'fxSettings', 'openingBalances/settings'], fs: ['companyDocumentCategories'],

@@ -109,7 +109,9 @@ function kinds() {
     // Employee Portal requests (docs/modules/EMPLOYEE_PORTAL.md, step 2).
     codeKind('hr:PQ', 'HR documents', 'Payroll Query', Object.assign(codeFormat('PQ', 4), { Year: 'YYYY' }), false, 'hrCounters', c => 'hrCounters/PQ-' + c.year),
     codeKind('hr:LR', 'HR documents', 'Loan / Advance Request', Object.assign(codeFormat('LR', 4), { Year: 'YYYY' }), false, 'hrCounters', c => 'hrCounters/LR-' + c.year),
-    codeKind('hr:RC', 'HR documents', 'Reimbursement Claim', Object.assign(codeFormat('RC', 4), { Year: 'YYYY' }), false, 'hrCounters', c => 'hrCounters/RC-' + c.year)
+    codeKind('hr:RC', 'HR documents', 'Reimbursement Claim', Object.assign(codeFormat('RC', 4), { Year: 'YYYY' }), false, 'hrCounters', c => 'hrCounters/RC-' + c.year),
+    // Requests of the types HR sets up (docs/modules/EMPLOYEE_REQUEST_TYPES.md, Q306): one series.
+    codeKind('hr:RQ', 'HR documents', 'Employee Request', Object.assign(codeFormat('RQ', 4), { Year: 'YYYY' }), false, 'hrCounters', c => 'hrCounters/RQ-' + c.year)
   );
   KINDS = list;
   return list;
