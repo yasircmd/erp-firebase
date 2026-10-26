@@ -1,0 +1,24 @@
+# UX round 2, item 27: employee requests of any type (owner, 2026-10-25;
+# docs/modules/EMPLOYEE_REQUEST_TYPES.md, decisions Q277, Q305-Q308).
+# Run with --screens (Employee Requests' Types tab, a request's answers and
+# due date), then the "hosting" task (the Employee Portal's Requests → Other
+# and Team approvals, the Help). No new functions, no rules change.
+# Before deploying: in Numbering, no type of any corporate should have a
+# customized prefix "RQ" (the new Employee Request type's default).
+# After it: set up the types in Employee Requests → Types (setup right), and
+# name each type's handler in the Handlers tab.
+#
+# The types, requests of a type, the line manager's approval, the due date
+# (new: requestTypes.js; employeeRequests.js, essPortal.js).
+employeeRequests
+essPortal
+manageEssAccounts
+# Numbering lists the new RQ series (numbering.js); the request numbers
+# itself through employeeRequests.
+getNumbering
+saveNumberingFormat
+# Data Reset: the request types go with Payroll Setup (dataReset.js).
+getDataResetCounts
+clearDataCategories
+clearSelectedRecords
+getCategoryRecords

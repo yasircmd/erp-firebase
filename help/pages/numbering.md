@@ -5,8 +5,8 @@ order: 8
 modules: [NUMBERING]
 sources: [functions/src/numbering.js]
 summary: Maintain the document prefixes, numbering format and automatic code generation across modules.
-reviewed: 2026-10-24
-fingerprint: f4394d3e57dd64f9
+reviewed: 2026-10-26
+fingerprint: a3339ecc181a6c61
 ---
 ## What it is for
 
@@ -20,7 +20,7 @@ fingerprint: f4394d3e57dd64f9
 
 ## Step by step
 
-1. Open **Numbering** and search by type name or prefix. The table groups document numbers, master codes, and HR documents and shows a sample for company 01/current year. Each item category of your own (added in [Item Master](item-master.html)) has its own row under master codes, like the five. The **Proforma Invoice** (PI) series numbers the proformas printed from a [Sales Order](sales-order.html#proforma-invoice).
+1. Open **Numbering** and search by type name or prefix. The table groups document numbers, master codes, and HR documents and shows a sample for company 01/current year. Each item category of your own (added in [Item Master](item-master.html)) has its own row under master codes, like the five. The **Proforma Invoice** (PI) series numbers the proformas printed from a [Sales Order](sales-order.html#proforma-invoice). Under HR documents, **Employee Request** (RQ) numbers the requests of the types HR sets up in [Employee Requests](employee-requests.html#request-types).
 2. Select **Edit** for the exact type. Set the prefix (1–10 letters/digits), running-number width (3–10 digits), optional 2- or 4-digit year, optional company code, separator (dash, slash, or none), and year/company order where applicable.
 3. Review the live sample. A year in the format creates a separate sequence per year; omitting the company code shares a sequence across companies. Company-code formats are unavailable for master types that do not belong to one company.
 4. Save. The change is logged and applies only to numbers generated afterwards; existing documents and codes are not renamed.

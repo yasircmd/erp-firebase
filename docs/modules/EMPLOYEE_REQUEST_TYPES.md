@@ -1,6 +1,6 @@
 # Employee requests of any type (UX round 2, item 27)
 
-**Status:** design agreed (owner, 2026-10-25, decisions Q305–Q308) · **Roadmap:** [#19](../ROADMAP.md) ·
+**Status:** built 2026-10-26 (design agreed by the owner 2026-10-25, decisions Q277, Q305–Q308) · **Roadmap:** [#19](../ROADMAP.md) ·
 **Plan:** [UX_ROUND2.md](UX_ROUND2.md) wave 4 · **Builds on:**
 [EMPLOYEE_PORTAL.md](EMPLOYEE_PORTAL.md) (Employee Requests, steps 2–3)
 
@@ -82,3 +82,56 @@ files, resolve / reject / reopen, and Home tasks. Leave has its own flow
 2. Screens: Employee Requests → Types; the request view's fields and
    timeline; the portal's New request and the timeline.
 3. Tests, negative controls, Help, What's new.
+
+## As built (2026-10-26)
+
+- **Types** in Firestore `employeeRequestTypes` (functions/src/requestTypes.js):
+  Name (unique, ignoring case, and not one of the portal's own request
+  names), Description, Fields [{Key, Label, Kind, Required, Options}] (up to
+  20; kinds text, longtext, number, date, choice with 2–30 options, yesno,
+  file), Route (Handler or Manager), AnswerDays (1–365 or none),
+  DocumentAnswer, CompanyIDs (none: every company, Q308), Active. Set up in
+  Employee Requests → **Types** with the module's setup right
+  (employeeRequests actions `types`, `saveType`). Data Reset clears them
+  with Payroll Setup.
+- **A request of a type** is an `employeeRequests` record of Type `Custom`:
+  Category and TypeName are the type's name (so the Handlers tab names its
+  handler), Answers [{Key, Label, Kind, Value}] checked against the fields
+  (required, number, date, a choice from its list; files are uploaded after
+  it is raised, as for any request), numbered from one series `hr:RQ`,
+  RQ-2026-0001 (Q306). Statuses: WithManager (With the line manager), New
+  (Sent to HR), InProgress, Resolved (Done), Rejected, Withdrawn.
+- **The route** (Q305): through the line manager, it waits in the
+  manager's Team (essPortal `team().requests`, `decideTeamRequest`: approve,
+  or reject with a reason the employee sees) and counts in Team's badge; an
+  employee with no line manager goes straight to HR. The history reads
+  Sent → With the line manager → Approved by the line manager → Sent to HR.
+- **Due and overdue** (Q307): DueDate = the type's days from the day it
+  reaches HR. The list and the request show Answer by and overdue; Home's
+  task reads "New request · overdue". Shown, never blocking.
+- **A document answer** (Q277): Resolve is refused ("Attach the document…")
+  until a file uploaded by someone other than the employee is attached;
+  the employee downloads it from the request.
+- **Otherwise as a query:** replies, internal notes, files, Resolve,
+  Reject, reassign; the employee withdraws one with a reason while it is
+  open and reopens it within 14 days (the query's `reopenQuery` action).
+- **The portal:** Requests → **Other** (#requests/other, then the type's
+  form at #requests/other/<type>), the type's answers and "HR answers by"
+  in the request's view, Team's "Other requests". No Home tile: the Home
+  grid keeps its three (claim, query, loan).
+- **Tests:** requestTypes emulator suite (3): the types and their checks,
+  per company; a request straight to the handler, numbered, resolved and
+  reopened; through the line manager, the due date, overdue on Home and in
+  the list, the document answer, the manager's rejection, no manager.
+  requestTypes UI (4): the Types tab, the portal's form, Team's approval,
+  HR's view and the document check. **Negative controls**, each caught then
+  restored: the document check removed, the required-field check removed
+  (emulator); Team's approve button broken, the due date dropped from HR's
+  view (UI).
+- **Found on the way:** the portal UI suites' sign-in helper raced the
+  page's 50 ms focus on the Employee Code: a Corporate ID typed before it
+  landed in the code field, the browser refused the empty form silently,
+  and every later step failed. This was the "random" essPortal / essClaims
+  / essRequests failures. The helpers now refill until the three fields
+  hold (essPortal, essClaims, essRequests, corporateSignIn).
+- **Deploy set** `ux2-requests` (with --screens, then Hosting).
