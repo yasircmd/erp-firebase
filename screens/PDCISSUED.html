@@ -15,6 +15,7 @@
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
     <div><div id="pdc-kicker" class="text-xs font-semibold text-blue-400 uppercase mb-1"></div><h2 class="text-2xl font-bold"><i class="fa-solid fa-money-check text-blue-500"></i> <span id="pdc-heading"></span></h2></div>
     <div class="flex gap-2">
+      <button id="pdc-fromrep-selected-btn" class="hidden bg-amber-600 hover:bg-amber-500 text-white font-medium px-4 py-2 rounded-lg text-sm" title="The cheques a sales rep collected, now handed to you (REP_COLLECTIONS.md)"><i class="fa-solid fa-user-check"></i> Received from the rep (<span id="pdc-fromrep-count">0</span>)</button>
       <button id="pdc-clear-selected-btn" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-building-columns"></i> Clear Selected (<span id="pdc-selected-count">0</span>)</button>
       <button id="pdc-new-btn" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus"></i> New PDC</button>
     </div>
@@ -182,6 +183,7 @@
     <button id="pdc-cancel-btn" class="hidden px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Cancel Cheque</button>
     <button id="pdc-bounce-btn" class="hidden px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-xs">Bounced</button>
     <button id="pdc-undo-btn" class="hidden px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-lg text-xs">Undo Clearing</button>
+    <button id="pdc-fromrep-btn" class="hidden px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-medium">Received from the rep</button>
     <button id="pdc-clear-btn" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium">Clear to Bank</button>
     <button id="pdc-save-draft-btn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">Save Draft</button>
     <button id="pdc-post-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">Post</button>
@@ -319,7 +321,7 @@
       tr.innerHTML = `
         <td class="py-2.5 px-3">${e.Status === 'Pending' && canPost ? `<input type="checkbox" class="pdc-row-check accent-blue-500" data-id="${escapeHtml(e.PdcID)}" ${selected.has(e.PdcID) ? 'checked' : ''}>` : ''}</td>
         <td class="py-2.5 px-3 font-mono text-xs">${escapeHtml(e.TransactionNumber || '(unposted)')}</td>
-        <td class="py-2.5 px-3">${escapeHtml(e.PartyName || '')}</td>
+        <td class="py-2.5 px-3">${escapeHtml(e.PartyName || '')}${e.WithRep ? ` <span class="pdc-with-rep text-xs text-amber-300 whitespace-nowrap">with ${escapeHtml(e.RepName || 'the sales rep')}</span>` : ''}</td>
         <td class="py-2.5 px-3 font-mono text-xs">${escapeHtml((e.Cheques || []).length > 1 ? e.Cheques.length + ' cheques' : e.ChequeNumber || '')}</td>
         <td class="py-2.5 px-3 text-xs text-slate-400">${escapeHtml(bankOf(e))}</td>
         <td class="py-2.5 px-3 text-xs ${overdue ? 'text-red-400 font-medium' : 'text-slate-400'}">${escapeHtml(e.ChequeDate || '')}</td>
@@ -356,6 +358,10 @@
   function updateSelection() {
     document.getElementById('pdc-selected-count').textContent = selected.size;
     document.getElementById('pdc-clear-selected-btn').classList.toggle('hidden', !canPost || selected.size === 0);
+    // A sales rep's cheques among them (REP_COLLECTIONS.md, Q294): taken from the rep first.
+    const withRep = entries.filter(e => selected.has(e.PdcID) && e.WithRep).length;
+    document.getElementById('pdc-fromrep-count').textContent = withRep;
+    document.getElementById('pdc-fromrep-selected-btn').classList.toggle('hidden', !canPost || !withRep);
     const checks = [...document.querySelectorAll('.pdc-row-check')];
     const all = document.getElementById('pdc-select-all');
     all.checked = checks.length > 0 && checks.every(c => c.checked);
@@ -838,6 +844,16 @@
     clearCheques(chosen.map(e => e.PdcID), companyIds[0], latest > today() ? latest : today());
   }
 
+  // The office takes a sales rep's cheques (REP_COLLECTIONS.md, Q294): no money moves.
+  async function receiveFromRep(ids) {
+    const chosen = entries.filter(e => ids.includes(e.PdcID) && e.WithRep);
+    if (!chosen.length) return;
+    const reps = [...new Set(chosen.map(e => e.RepName || 'the sales rep'))].join(', ');
+    if (!(await appConfirm('Received ' + chosen.length + ' cheque' + (chosen.length === 1 ? '' : 's') + ' from ' + reps + '? No money moves; the cheque' + (chosen.length === 1 ? ' can' : 's can') + ' then be deposited.'))) return;
+    rpc.withSuccessHandler(() => { chosen.forEach(e => selected.delete(e.PdcID)); showListView(); })
+      .withFailureHandler(err => appAlert(err.message || 'Unable to record it.')).receivePdcsFromRep({ pdcIds: chosen.map(e => e.PdcID) });
+  }
+
   function closeCheque(event) {
     const bounce = event === 'Bounced';
     openAction({
@@ -950,8 +966,11 @@
     show('pdc-save-draft-btn', editable && canDraft);
     show('pdc-post-btn', editable && canPost);
     show('pdc-delete-btn', status === 'Draft' && canDraft);
-    show('pdc-clear-btn', status === 'Pending' && canPost);
-    show('pdc-bounce-btn', status === 'Pending' && canPost);
+    // A cheque still with the sales rep was never deposited: taken from the rep first.
+    const withRep = Boolean(current && current.WithRep);
+    show('pdc-fromrep-btn', status === 'Pending' && canPost && withRep);
+    show('pdc-clear-btn', status === 'Pending' && canPost && !withRep);
+    show('pdc-bounce-btn', status === 'Pending' && canPost && !withRep);
     show('pdc-cancel-btn', status === 'Pending' && canPost);
     show('pdc-undo-btn', status === 'Cleared' && canPost);
     show('pdc-print-btn', Boolean(current && current.TransactionNumber));
@@ -1080,6 +1099,8 @@
       updateSelection();
     });
     document.getElementById('pdc-clear-selected-btn').addEventListener('click', clearSelected);
+    document.getElementById('pdc-fromrep-selected-btn').addEventListener('click', () => receiveFromRep([...selected]));
+    document.getElementById('pdc-fromrep-btn').addEventListener('click', () => { if (current) receiveFromRep([current.PdcID]); });
     document.getElementById('pdc-form-company').addEventListener('change', e => {
       if (e.isTrusted) isDirty = true; allocByRef = {};
       loadSetup(val('pdc-form-company'), {}, fetchOpenItems);

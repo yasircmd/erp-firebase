@@ -50,6 +50,9 @@ const OTHER_DOCUMENTS = [
 // Numbered from stock/counters/voucher like the stock documents, though not
 // in their map.
 const MORE_STOCK_DOCUMENTS = [['RJT', 'Recurring Journal Template']];
+// Numbered elsewhere, by a series of their own: a sales rep's receipts,
+// RC-<rep code>-000001 (salesRep.js; docs/modules/REP_COLLECTIONS.md, Q298, Q309).
+const NOT_NUMBERED_HERE = ['RepReceipt'];
 const STOCK_LABELS = {
   GRN: 'Goods Receipt', MaterialIssue: 'Material Issue', Production: 'Production', WarehouseMovement: 'Warehouse Movement',
   StockAdjustment: 'Stock Adjustment', PhysicalCount: 'Physical Count', VendorInvoice: 'Vendor Invoice', DeliveryNote: 'Delivery Note',
@@ -90,6 +93,7 @@ function kinds() {
   OTHER_DOCUMENTS.forEach(([p, label]) => { docs[p] = { tree: GL, labels: [label] }; });
   MORE_STOCK_DOCUMENTS.forEach(([p, label]) => { docs[p] = { tree: STOCK, labels: [label] }; });
   Object.entries(STOCK_TRANSACTION_PREFIXES).forEach(([type, p]) => {
+    if (NOT_NUMBERED_HERE.includes(type)) return;
     (docs[p] = docs[p] || { tree: STOCK, labels: [] }).labels.push(STOCK_LABELS[type] || type);
   });
   const list = Object.keys(docs).sort().map(p => docKind(p, docs[p].labels.join(' / '), docs[p].tree));

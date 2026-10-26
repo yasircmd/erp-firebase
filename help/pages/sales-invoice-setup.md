@@ -5,8 +5,8 @@ order: 2
 modules: [SALESINVOICESETUP]
 sources: [functions/src/retailSales.js, functions/src/invoiceStock.js, functions/src/eInvoicing.js, functions/src/eInvoiceDocument.js, functions/src/salesRep.js]
 summary: Set the default rules and accounts used when customer sales are invoiced and posted.
-reviewed: 2026-10-18
-fingerprint: 61ef6f8f4a6ccaeb
+reviewed: 2026-10-26
+fingerprint: 936d9581a8bdd983
 ---
 ## What it is for
 
@@ -45,13 +45,34 @@ needs its 15-digit TRN in Company Master (Tax numbers).
 
 ## Sales reps
 
-Under **Sales reps**, choose the company and **Add a sales rep**: the
-employee, their cash account for cash collections (or none: cheques only),
-whether they are a **Sales manager** (sees every customer), and their
-customers (each customer has one rep). The rep then works from the
-Employee Portal: see [Sales reps in the Employee Portal](sales-rep-portal.html).
-Their orders come in as draft Sales Orders and their collections as draft
-Cash Receipts or PDCs Received, for the office to confirm or post.
+Under **Sales reps**, choose the company.
+
+- **Rep Cash Clearing account**: the account the reps' cash waits on until
+  the cashier takes it (a postable account of the company; not a cash or
+  bank account, nor a vendor's or customer's control account). Choose it
+  before the reps collect cash. It can't change while a rep still holds
+  cash on it.
+- **Add a sales rep**: the employee, their **code** (letters and digits,
+  e.g. AK; the employee number if left blank), whether they are a **Sales
+  manager** (sees every customer), and their customers (each customer has
+  one rep). The code is in their receipt numbers, RC-AK-000001, and stays
+  theirs: no other rep can take it.
+
+The rep then works from the Employee Portal: see
+[Sales reps in the Employee Portal](sales-rep-portal.html). Their orders
+come in as draft Sales Orders to confirm. Their collections are final at
+once, each with its receipt.
+
+The list shows what each rep holds: **Cash held** (not yet taken by the
+cashier) and **Cheques held** (not yet received from the rep).
+**Receipts** lists a rep's receipts with what each is now: *With the rep*,
+*Part handed over*, *Handed over*, *Cleared*, *Bounced* or *Cancelled*.
+
+**Cancel** (with Cash & Bank's post right) cancels a wrong receipt, with
+the reason: it is reversed, and the customer owes it again. Its number
+stays, marked cancelled. Cash the cashier has already taken can't be
+cancelled until that Cash Receipt is reversed, and a cheque only while it
+is pending.
 
 ## Rights
 

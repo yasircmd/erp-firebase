@@ -1163,22 +1163,30 @@
     // ---------- Me ----------
     // ---------- Sales (docs/modules/SALES_REP_PORTAL.md) ----------
     // My customers with their balance; a new order (a draft Sales Order the
-    // office confirms) at the customer's price list; a collection (a draft
-    // receipt or PDC the office posts). Online only.
+    // office confirms) at the customer's price list; a collection, final at
+    // once: the customer's receipt, shared from the phone (REP_COLLECTIONS.md,
+    // items 30-31); what I hold, cash and cheques. Online only.
     let salesData = null;
     function pageSales(sub) {
       const parts = location.hash.slice(1).split('/');
       if (sub === 'order') return salesOrderForm(parts[2]);
       if (sub === 'collect') return salesCollectForm(parts[2]);
+      if (sub === 'collections') return salesCollections();
+      if (sub === 'receipt') return salesReceipt(decodeURIComponent(parts[2] || ''));
       page(skeleton());
       api('salesHome', {}).then(r => {
         salesData = r;
         const nameOf = id => ((r.customers.find(c => c.CustomerID === id) || {}).Name || '');
         const KIND = { Order: 'Order', Cash: 'Cash receipt', Cheque: 'Cheque' };
         const todays = r.activity.filter(a => a.Date === r.today);
+        const b = r.balance || { Cash: 0, Cheques: [], ChequeTotal: 0 };
         page('<div class="space-y-4">' +
-          card('<div class="flex justify-between text-sm"><span class="text-slate-500 dark:text-slate-400">Today</span><span>' + todays.filter(a => a.Kind === 'Order').length + ' orders · collected ' +
-            money(todays.filter(a => a.Kind !== 'Order').reduce((t, a) => t + a.Amount, 0)) + '</span></div>', 'p-3') +
+          // What I hold (item 30): the cash not yet with the cashier, the cheques not yet with the office.
+          '<a href="#sales/collections" id="sales-holding" class="block">' + card('<div class="flex items-center justify-between gap-2"><div><div class="text-xs text-slate-500 dark:text-slate-400">I hold</div>' +
+            '<div class="font-bold"><span id="sales-cash">' + money(b.Cash) + '</span> cash</div>' +
+            '<div class="text-xs text-slate-500 dark:text-slate-400"><span id="sales-cheques">' + b.Cheques.length + '</span> cheque' + (b.Cheques.length === 1 ? '' : 's') + (b.Cheques.length ? ' · ' + money(b.ChequeTotal) : '') + '</div></div>' +
+            '<div class="text-sm text-indigo-600 dark:text-indigo-400">My receipts <i class="fa-solid fa-chevron-right"></i></div></div>', 'p-3') + '</a>' +
+          card('<div class="flex justify-between text-sm"><span class="text-slate-500 dark:text-slate-400">Today</span><span>' + todays.filter(a => a.Kind === 'Order').length + ' orders</span></div>', 'p-3') +
           '<h3 class="text-xs font-semibold uppercase text-slate-500">' + (r.isManager ? 'All customers' : 'My customers') + '</h3>' +
           (r.customers.length ? '<div class="space-y-2" id="sales-customers">' + r.customers.map(c => card(
             '<div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="font-semibold text-sm">' + esc(c.Name) + ' <span class="text-xs font-normal text-slate-400">' + esc(c.Code) + '</span></div>' +
@@ -1187,7 +1195,7 @@
             '<div class="flex gap-2 mt-2"><a href="#sales/order/' + esc(c.CustomerID) + '" class="sales-order flex-1 text-center text-sm font-semibold rounded-xl bg-indigo-600 text-white py-2">New order</a>' +
             '<a href="#sales/collect/' + esc(c.CustomerID) + '" class="sales-collect flex-1 text-center text-sm font-semibold rounded-xl border border-slate-300 dark:border-slate-700 py-2">Collect</a></div>', 'p-3')).join('') + '</div>'
             : card(empty('fa-handshake', 'No customers are assigned to you yet: ask the office.'))) +
-          '<h3 class="text-xs font-semibold uppercase text-slate-500">My orders and collections</h3>' +
+          '<h3 class="text-xs font-semibold uppercase text-slate-500">My orders</h3>' +
           (r.activity.length ? '<div class="space-y-2">' + r.activity.map(a => card('<div class="flex items-center justify-between gap-2 text-sm"><div class="min-w-0"><div class="font-medium">' + esc(KIND[a.Kind]) + ' · ' + esc(nameOf(a.CustomerID)) + '</div>' +
             '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc(showDate(a.Date)) + (a.Number ? ' · ' + esc(a.Number) : '') + '</div></div><div class="text-right"><div>' + money(a.Amount) + '</div>' + chip(a.Status, a.Status === 'Draft' ? 'With the office' : a.Status) + '</div></div>', 'p-3')).join('') + '</div>'
             : card(empty('fa-receipt', 'Nothing yet.'))) + '</div>');
@@ -1249,9 +1257,36 @@
           '<input id="col-bank" placeholder="Bank it is drawn on" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">' +
           '<label class="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 py-3 text-sm cursor-pointer"><i class="fa-solid fa-camera"></i> <span id="col-photo-label">Photo of the cheque</span><input id="col-photo" type="file" accept="image/*" capture="environment" class="sr-only"></label></div>' +
           '<input id="col-note" maxlength="200" placeholder="Note (optional)" class="mt-2 w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">', 'p-3') +
-        '<button id="col-send" class="w-full rounded-xl bg-indigo-600 text-white font-semibold py-3">Record the collection</button>' +
-        '<p class="text-xs text-slate-500">The office posts it.</p></form>');
+        // What it settles (Q296): the customer's open invoices, oldest first; the rest on account.
+        card('<div class="text-xs font-semibold uppercase text-slate-500 mb-2">What it pays</div><div id="col-invoices" class="space-y-2 text-sm">' + skeleton() + '</div><div id="col-rest" class="text-xs text-slate-500 dark:text-slate-400 mt-2"></div>', 'p-3') +
+        '<button id="col-send" class="w-full rounded-xl bg-indigo-600 text-white font-semibold py-3">Record and give the receipt</button>' +
+        '<p class="text-xs text-slate-500">The receipt is final: share it with the customer. You hold the cash or the cheque until you hand it to the office.</p></form>');
       const method = () => (document.querySelector('input[name="col-m"]:checked') || {}).value;
+      let invoices = [];
+      const num = v => Number(String(v || '').replace(/,/g, '')) || 0;
+      const rest = () => {
+        const amount = num($('col-amount').value), picked = [...document.querySelectorAll('.col-inv-amt')].filter(x => x.closest('.col-inv').querySelector('input[type=checkbox]').checked).reduce((t, x) => t + num(x.value), 0);
+        const left = Math.round((amount - picked) * 100) / 100;
+        $('col-rest').textContent = amount ? (left < 0 ? 'The invoices come to more than the amount.' : left > 0 ? 'On account: ' + money(left) : '') : '';
+      };
+      api('salesInvoices', { customerId }).then(r => {
+        invoices = r.invoices;
+        $('col-invoices').innerHTML = invoices.length ? invoices.map((i, k) => '<label class="col-inv flex items-center gap-2" data-ref="' + esc(i.RefID) + '"><input type="checkbox" data-k="' + k + '"><span class="flex-1 min-w-0"><span class="font-medium">' + esc(i.Number) + '</span> <span class="text-xs text-slate-500">' + esc(showDate(i.Date)) + ' · due ' + money(i.Outstanding) + '</span></span>' +
+          '<input class="col-inv-amt w-24 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-2 py-1 text-sm text-right" inputmode="decimal" disabled></label>').join('') : '<div class="text-xs text-slate-500">No open invoices: it goes on account.</div>';
+        document.querySelectorAll('.col-inv input[type=checkbox]').forEach(cb => cb.addEventListener('change', () => {
+          const i = invoices[Number(cb.dataset.k)], box = cb.closest('.col-inv').querySelector('.col-inv-amt');
+          box.disabled = !cb.checked;
+          if (cb.checked) {
+            // The amount still to place, up to what the invoice owes.
+            const used = [...document.querySelectorAll('.col-inv-amt')].filter(x => x !== box && !x.disabled).reduce((t, x) => t + num(x.value), 0);
+            const free = Math.max(0, num($('col-amount').value) - used);
+            box.value = String(Math.round(Math.min(i.Outstanding, free || i.Outstanding) * 100) / 100);
+          } else box.value = '';
+          rest();
+        }));
+        document.querySelectorAll('.col-inv-amt').forEach(x => x.addEventListener('input', rest));
+      }, () => { $('col-invoices').innerHTML = '<div class="text-xs text-slate-500">The open invoices could not be loaded: it goes on account.</div>'; });
+      $('col-amount').addEventListener('input', rest);
       document.querySelectorAll('input[name="col-m"]').forEach(x => x.addEventListener('change', () => $('col-cheque').classList.toggle('hidden', method() !== 'Cheque')));
       $('col-photo').addEventListener('change', () => { $('col-photo-label').textContent = $('col-photo').files.length ? 'Photo chosen' : 'Photo of the cheque'; });
       $('col-form').addEventListener('submit', async e => {
@@ -1259,12 +1294,106 @@
         $('col-send').disabled = true;
         try {
           const f = $('col-photo').files[0];
-          const res = await api('salesCollect', { customerId, method: method(), amount: $('col-amount').value, note: $('col-note').value,
+          const picked = [...document.querySelectorAll('.col-inv')].filter(l => l.querySelector('input[type=checkbox]').checked).map(l => ({ refId: l.dataset.ref, amount: l.querySelector('.col-inv-amt').value }));
+          const res = await api('salesCollect', { customerId, method: method(), amount: $('col-amount').value, note: $('col-note').value, invoices: picked,
             cheque: { number: $('col-no').value, date: $('col-date').value, bank: $('col-bank').value }, photo: method() === 'Cheque' && f ? { name: f.name, data: await readFile(f) } : null });
-          toast(res.kind === 'Cheque' ? 'Cheque recorded for the office' + (res.photo && res.photo !== 'attached' ? ' (photo ' + res.photo + ')' : '') + '.' : 'Cash recorded for the office.');
-          location.hash = 'sales';
+          salesData = null; // the balances moved
+          toast(res.number + ': recorded' + (res.photo && res.photo !== 'attached' ? ' (photo ' + res.photo + ')' : '') + '.');
+          location.hash = 'sales/receipt/' + encodeURIComponent(res.number);
         } catch (err) { $('col-send').disabled = false; fail(err); }
       });
+    }
+
+    // What I hold and my receipts (item 30).
+    function salesCollections() {
+      page(skeleton());
+      api('salesCollections', {}).then(r => {
+        const b = r.balance;
+        const tone = { 'With the rep': 'Pending', 'Part handed over': 'Pending', 'Handed over': 'Approved', Cleared: 'Approved', Bounced: 'Rejected', Cancelled: 'Rejected' };
+        page('<div class="space-y-4">' + card('<div class="text-xs text-slate-500 dark:text-slate-400">I hold, in cash</div><div class="text-2xl font-extrabold" id="col-cash">' + money(b.Cash) + '</div>' +
+          '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1">Hand it to the cashier: they take it against your receipts.</div>', 'p-4') +
+          '<h3 class="text-xs font-semibold uppercase text-slate-500">Cheques I hold (' + b.Cheques.length + ')</h3>' +
+          (b.Cheques.length ? '<div class="space-y-2" id="col-cheques">' + b.Cheques.map(c => card('<div class="flex justify-between gap-2 text-sm"><div class="min-w-0"><div class="font-medium">' + esc(c.Customer) + '</div><div class="text-xs text-slate-500">Cheque ' + esc(c.ChequeNumber) + ' · ' + esc(c.DraweeBank) + ' · dated ' + esc(showDate(c.ChequeDate)) + '</div></div>' +
+            '<div class="font-semibold">' + money(c.Amount) + '</div></div>', 'p-3')).join('') + '</div>' : card(empty('fa-money-check', 'No cheques with you.'))) +
+          '<h3 class="text-xs font-semibold uppercase text-slate-500">My receipts</h3>' +
+          (r.receipts.length ? '<div class="space-y-2" id="col-receipts">' + r.receipts.map(x => '<a href="#sales/receipt/' + encodeURIComponent(x.Number) + '" class="col-receipt block" data-number="' + esc(x.Number) + '">' + card('<div class="flex justify-between gap-2 text-sm"><div class="min-w-0"><div class="font-medium">' + esc(x.Number) + ' · ' + esc(x.CustomerName) + '</div>' +
+            '<div class="text-xs text-slate-500">' + esc(showDate(x.Date)) + ' · ' + esc(x.Method === 'Cheque' ? 'Cheque' : 'Cash') + '</div></div><div class="text-right"><div>' + money(x.Amount) + '</div>' + chip(tone[x.StatusText] || 'Pending', x.StatusText) + '</div></div>', 'p-3') + '</a>').join('') + '</div>'
+            : card(empty('fa-receipt', 'No receipts yet.'))) + '</div>');
+      }, err => page(card(empty('fa-triangle-exclamation', err.message))));
+    }
+
+    // One receipt, as the customer gets it, with Share (the phone's own) and Download (item 31).
+    function salesReceipt(number) {
+      page(skeleton());
+      api('salesReceipt', { number }).then(({ receipt: r }) => {
+        const row = (k, v) => '<div class="flex justify-between gap-4 py-1.5 text-sm border-b border-slate-100 dark:border-slate-800 last:border-0"><span class="text-slate-500 dark:text-slate-400">' + k + '</span><span class="font-medium text-right">' + v + '</span></div>';
+        page('<div class="space-y-3">' + card('<div class="flex items-start justify-between gap-2"><div><div class="text-xs text-slate-500">' + esc(r.Company.Name) + '</div><div class="font-bold" id="rc-number">Receipt ' + esc(r.Number) + '</div></div>' +
+          (r.Status === 'Cancelled' ? chip('Rejected', 'Cancelled') : '') + '</div><div class="mt-2">' +
+          row('Date', esc(showTime(r.At) || showDate(r.Date))) + row('Received from', esc(r.CustomerName)) + row('Amount', esc(r.Currency) + ' ' + money(r.Amount)) +
+          row(r.Method === 'Cheque' ? 'By cheque' : 'In', r.Method === 'Cheque' ? esc(r.Cheque.Number) + ', ' + esc(r.Cheque.Bank) + ', dated ' + esc(showDate(r.Cheque.Date)) : 'cash') +
+          (r.Settles || []).map(x => row(x.OnAccount ? 'On account' : 'Invoice ' + esc(x.Number), money(x.Amount))).join('') + '</div>' +
+          '<div class="text-xs text-slate-500 dark:text-slate-400 mt-2" id="rc-words">' + esc(r.Words) + '</div>', 'p-4') +
+          '<div class="grid grid-cols-2 gap-2"><button id="rc-share" class="rounded-xl bg-indigo-600 text-white font-semibold py-3"><i class="fa-solid fa-share-nodes"></i> Share</button>' +
+          '<button id="rc-download" class="rounded-xl border border-slate-300 dark:border-slate-700 font-semibold py-3"><i class="fa-solid fa-file-pdf"></i> Download PDF</button></div>' +
+          '<a href="#sales/collections" class="block text-center text-sm text-indigo-600 dark:text-indigo-400">My receipts</a></div>');
+        $('rc-share').addEventListener('click', () => shareReceipt(r));
+        $('rc-download').addEventListener('click', () => downloadBlob(receiptPdf(r), r.Number + '.pdf'));
+      }, err => page(card(empty('fa-triangle-exclamation', err.message))));
+    }
+    async function shareReceipt(r) {
+      const blob = receiptPdf(r), name = r.Number + '.pdf';
+      const file = typeof File === 'function' ? new File([blob], name, { type: 'application/pdf' }) : null;
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: 'Receipt ' + r.Number, text: 'Receipt ' + r.Number + ': ' + r.Currency + ' ' + money(r.Amount) }); return; }
+        catch (e) { if (e && e.name === 'AbortError') return; }
+      }
+      downloadBlob(blob, name); // no share sheet here (a computer): the file instead
+    }
+    function downloadBlob(blob, name) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    }
+    // The receipt as a one-page PDF (A5), text only, made here on the phone:
+    // a few PDF objects written by hand, Helvetica in WinAnsi (a character
+    // outside it prints as ?), so no library is needed.
+    function receiptPdf(r) {
+      const W = 420, H = 595, X = 36;
+      const ops = [];
+      let y = H - 44;
+      const ansi = t => String(t == null ? '' : t).replace(/[–—]/g, '-').replace(/[‘’]/g, "'").replace(/[^\x20-\x7e\xa0-\xff]/g, '?').replace(/([\\()])/g, '\\$1');
+      const wrap = (t, n) => { const out = []; let cur = ''; String(t).split(/\s+/).forEach(w => { if ((cur + ' ' + w).trim().length > n) { if (cur) out.push(cur); cur = w; } else cur = (cur + ' ' + w).trim(); }); if (cur) out.push(cur); return out.length ? out : ['']; };
+      const put = (t, size, bold, x) => wrap(t, Math.floor(620 / (size || 10))).forEach(l => { ops.push('BT /' + (bold ? 'F2' : 'F1') + ' ' + (size || 10) + ' Tf ' + (x || X) + ' ' + y + ' Td (' + ansi(l) + ') Tj ET'); y -= (size || 10) + 5; });
+      const gap = n => { y -= n; };
+      put(r.Company.Name, 14, true);
+      if (r.Company.Address) put(r.Company.Address, 9);
+      if (r.Company.Phone || r.Company.TRN) put([r.Company.Phone ? 'Tel ' + r.Company.Phone : '', r.Company.TRN ? 'TRN ' + r.Company.TRN : ''].filter(Boolean).join('   '), 9);
+      gap(10); put('RECEIPT ' + r.Number, 13, true);
+      if (r.Status === 'Cancelled') put('CANCELLED' + (r.CancelReason ? ': ' + r.CancelReason : ''), 12, true);
+      put('Date ' + (showTime(r.At) || showDate(r.Date)), 10);
+      gap(6); put('Received from: ' + r.CustomerName + (r.CustomerCode ? ' (' + r.CustomerCode + ')' : ''), 11);
+      put('Amount: ' + r.Currency + ' ' + money(r.Amount), 12, true);
+      put(r.Words, 9);
+      put(r.Method === 'Cheque' ? 'By cheque ' + r.Cheque.Number + ', ' + r.Cheque.Bank + ', dated ' + showDate(r.Cheque.Date) : 'In cash', 10);
+      gap(6); put('In payment of:', 10, true);
+      (r.Settles || []).forEach(x => put((x.OnAccount ? 'On account' : 'Invoice ' + x.Number) + ': ' + money(x.Amount), 10, false, X + 12));
+      if (r.Note) { gap(4); put('Note: ' + r.Note, 9); }
+      gap(14); put('Received by ' + r.RepName + ', sales rep (' + r.RepCode + ')', 10);
+      put('This receipt was given when the ' + (r.Method === 'Cheque' ? 'cheque was' : 'cash was') + ' collected.', 8);
+      const content = ops.join('\n');
+      const objs = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + W + ' ' + H + '] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+        '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+        '<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream'];
+      let pdf = '%PDF-1.4\n';
+      const offsets = objs.map((o, i) => { const at = pdf.length; pdf += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; return at; });
+      const xref = pdf.length;
+      pdf += 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n' + offsets.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('') +
+        'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF';
+      const bytes = new Uint8Array(pdf.length);
+      for (let i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 0xff;
+      return new Blob([bytes], { type: 'application/pdf' });
     }
 
     function pageMe() {

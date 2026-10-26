@@ -419,6 +419,8 @@
         .getPartyAccounts({ companyId: companyId });
     }
 
+    // A sales rep is a party too (docs/modules/REP_COLLECTIONS.md): its cash on Rep Cash Clearing.
+    function partyTypeLabel(t) { return t === 'SalesRep' ? 'Sales rep' : (t || ''); }
     function isControlCode(code) { return partyAccounts.some(p => p.AccountCode === String(code || '')); }
     function partyOf(line) { return partyAccounts.find(p => p.PartyType === line.PartyType && p.PartyID === line.PartyID); }
     function againstTotal(line) { return round2((line.Against || []).reduce((s, a) => s + (Number(a.Amount) || 0), 0)); }
@@ -452,21 +454,21 @@
       const current = partyOf(line);
       let body;
       if (allocOnly && line.PartyID) {
-        body = `<span class="text-slate-300">${escapeHtml(line.PartyType || '')}: ${escapeHtml(line.PartyName || (current ? current.Name : line.PartyID) || '—')}</span>
+        body = `<span class="text-slate-300">${escapeHtml(partyTypeLabel(line.PartyType))}: ${escapeHtml(line.PartyName || (current ? current.Name : line.PartyID) || '—')}</span>
           <button data-row="${i}" class="${prefix}-allocate-btn bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-xs px-2.5 py-1 rounded border border-blue-500/30"><i class="fa-solid fa-list-check"></i> Allocate…</button>
           <span class="text-slate-400">${summary(line, amount)}</span>`;
       } else if (readOnly) {
         const cur = currencyOf(line);
-        body = `<span class="text-slate-300">${escapeHtml(line.PartyType || '')}: ${escapeHtml(line.PartyName || (current ? current.Name : line.PartyID) || '—')}</span>
+        body = `<span class="text-slate-300">${escapeHtml(partyTypeLabel(line.PartyType))}: ${escapeHtml(line.PartyName || (current ? current.Name : line.PartyID) || '—')}</span>
           ${cur ? '<span class="text-slate-300">' + escapeHtml(cur) + ' ' + money(fcOf(line)) + '</span>' : ''}
           <span class="text-slate-400">${summary(line, amount)}</span>`;
       } else {
         const options = partyAccounts
           .filter(p => p.AccountCode === String(line.AccountCode) && (p.Status === 'Active' || key(p) === key(line)))
-          .map(p => `<option value="${escapeHtml(key(p))}"${key(p) === key(line) ? ' selected' : ''}>${escapeHtml(p.PartyType + ' — ' + (p.Code ? p.Code + ' ' : '') + p.Name)}</option>`)
+          .map(p => `<option value="${escapeHtml(key(p))}"${key(p) === key(line) ? ' selected' : ''}>${escapeHtml(partyTypeLabel(p.PartyType) + ' — ' + (p.Code ? p.Code + ' ' : '') + p.Name)}</option>`)
           .join('');
         const missing = !line.PartyID;
-        body = `<label class="text-slate-400">Vendor / Customer</label>
+        body = `<label class="text-slate-400">Vendor / Customer / Sales rep</label>
           <select data-row="${i}" class="${prefix}-party-select bg-slate-900 border ${missing ? 'border-red-500/50' : 'border-slate-700'} rounded py-1 px-2 text-xs max-w-xs">
             <option value="">Select…</option>${options}</select>
           ${currencyOf(line) ? '<label class="text-slate-400">' + escapeHtml(currencyOf(line)) + ' amount</label><input data-row="' + i + '" inputmode="decimal" value="' + (fcOf(line) ? money(fcOf(line)) : '') + '" class="' + prefix + '-fc-amount w-28 bg-slate-900 border ' + (fcOf(line) ? 'border-slate-700' : 'border-red-500/50') + ' rounded py-1 px-2 text-xs text-right">' : ''}
@@ -546,7 +548,7 @@
       const el = modal();
       const q = s => el.querySelector('.' + prefix + '-alloc-' + s);
       const party = partyOf(line);
-      q('party').textContent = (party ? party.Name : line.PartyID) + ' (' + line.PartyType + ')';
+      q('party').textContent = (party ? party.Name : line.PartyID) + ' (' + partyTypeLabel(line.PartyType) + ')';
       q('line').textContent = money(amount);
       q('error').classList.add('hidden');
       q('body').innerHTML = '<tr><td colspan="6" class="py-3 px-3 text-xs text-slate-500">Loading open items…</td></tr>';

@@ -4,8 +4,8 @@ area: finance
 order: 6
 summary: How payments, receipts and adjustments are tied to a vendor or customer and matched to their invoices.
 sources: [functions/src/partyLedger.js]
-reviewed: 2026-10-24
-fingerprint: c567f7852a2fdfa8
+reviewed: 2026-10-26
+fingerprint: b00a3e1c149537f2
 ---
 ## Why it matters
 
@@ -82,7 +82,9 @@ amount on the expense or income account on the other line.
 ## Good to know
 
 - A party line may only use **that party's own** payables or receivables
-  account.
+  account. A **Sales rep** is a party too: their line is on the company's
+  Rep Cash Clearing account, and their open items are their receipts (see
+  [Cash and Bank](cash-and-bank.html#cash-from-a-sales-rep)).
 - When posting, the ERP checks again that each bill still has enough
   outstanding; if someone else paid it meanwhile, the post is refused with
   the reason.

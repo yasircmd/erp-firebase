@@ -23,7 +23,7 @@ const jobOrderLines = makeStore({
 
 const pdcCheques = makeStore({
   name: 'PDC', path: 'pdcCheques', collection: 'pdcCheques',
-  fields: ['Status', 'CompanyID', 'Direction', 'PartyType', 'PartyID', 'BankAccountID', 'ChequeNumber', 'CreatedBy', 'LinkedJVID']
+  fields: ['Status', 'CompanyID', 'Direction', 'PartyType', 'PartyID', 'BankAccountID', 'ChequeNumber', 'CreatedBy', 'LinkedJVID', 'RepEmployeeID']
 });
 
 module.exports = { jobOrderBatches, jobOrderLines, pdcCheques };

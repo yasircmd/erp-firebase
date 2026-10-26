@@ -5,8 +5,8 @@ order: 3
 modules: [PURCHASEREQUISITION]
 sources: [functions/src/partyLedger.js]
 summary: Ask for a purchase before the order is raised, with approval and tracking for the requested item or service.
-reviewed: 2026-10-25
-fingerprint: 8adbf98cdd0331c0
+reviewed: 2026-10-26
+fingerprint: 3293fcfca269e367
 ---
 ## What it is for
 

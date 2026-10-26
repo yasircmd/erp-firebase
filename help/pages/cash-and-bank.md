@@ -5,8 +5,8 @@ order: 5
 modules: [CBT]
 sources: [functions/src/journal.js, functions/src/partyLedger.js]
 summary: Payments, receipts and transfers through cash and bank accounts, with vendor and customer allocation.
-reviewed: 2026-10-25
-fingerprint: 7de6fb04f0e6717b
+reviewed: 2026-10-26
+fingerprint: 4500a5d272729d19
 ---
 ## What it is for
 
@@ -65,6 +65,17 @@ A **Fund Transfer** from a default-currency account into a USD account
 asks for the **USD amount** the account receives: the rate is what the two
 amounts make. A transfer between two different foreign currencies goes
 through a default-currency account for now.
+
+### Cash from a sales rep
+
+A sales rep's cash (their receipts from the Employee Portal, see
+[Sales reps](sales-rep-portal.html)) waits on the company's **Rep Cash
+Clearing** account, against the rep. To take it: a **Cash Receipt** into
+the cash account, a line on the Rep Cash Clearing account, then choose the
+**Sales rep** (shown as *Sales rep — AK Ahmed Khan*) and **Allocate** the
+amount to the rep's receipts (RC-AK-000001 …). The rep's balance in the
+portal drops by itself, and each receipt shows *Handed over*. A short
+count is simply a smaller amount: what is left stays on the rep.
 
 ### Correcting a posted transaction
 

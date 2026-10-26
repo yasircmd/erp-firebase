@@ -231,17 +231,10 @@ async function journalListPage_(where, assignedCompanies, page, spec, voucherTyp
 // which auto-fills; none of these are validated against each other
 // (e.g. a Branch isn't checked to belong to the selected Company) — that
 // cross-validation doesn't exist yet.
-// Who saves a draft: the signed-in ERP user with the module's draft right,
-// or, for a sales rep's collection from the Employee Portal (salesRep.js;
-// docs/modules/SALES_REP_PORTAL.md, decision 232), the rep, after
-// salesRep.js's own checks: only ever a draft, of the rep's company, which
-// the office posts. The marker is set on the server's own context object
-// (never from a request), so no caller can claim it.
+// Who saves a draft: the signed-in ERP user with the module's draft right.
+// (A sales rep's cash collection was a draft saved here for the rep until
+// items 30-31; it now posts as the rep's receipt, salesRep.js.)
 async function draftUser_(idToken, moduleId) {
-  if (idToken && idToken.portalRep) {
-    const r = idToken.portalRep;
-    return { uid: r.actor, profile: { username: r.actor, AssignedCompanies: [r.companyId] } };
-  }
   const user = await requireUser_(idToken);
   await requireDraftAccess_(idToken, user, moduleId);
   return user;
@@ -810,5 +803,3 @@ exports.decideJournalEntryApproval = callable(decideJournalEntryApproval, ['jvId
 exports.reverseJournalEntry = callable(reverseJournalEntry, ['jvId', 'reversalDate']);
 exports.getPartyAccounts = callable(getPartyAccounts, ['companyId']);
 exports.getPartyOpenItems = callable(getPartyOpenItems, ['partyType', 'partyId', 'companyId', 'excludeJvId']);
-// A sales rep's cash collection as a draft Cash Receipt (salesRep.js).
-exports.saveCbtDraftForRep = (portalRep, cbtData) => saveCbtDraft({ portalRep }, cbtData);

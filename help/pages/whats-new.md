@@ -10,6 +10,17 @@ sources: []
 The latest changes, newest first. Each links to the page that explains the
 screen.
 
+## 26/10/2026
+
+- **Sales reps' receipts, final at once.** A rep's collection in the
+  Employee Portal now gives the customer its receipt straight away,
+  numbered from the rep's own series (RC-AK-000001), shared as a PDF from
+  the phone. The rep picks the invoices it pays, and sees the cash and
+  cheques they hold. The cashier takes the cash with a Cash Receipt that
+  chooses the rep; the office ticks the cheques received from the rep. See
+  [Sales reps](sales-rep-portal.html), set up in
+  [Sales Invoice Configuration](sales-invoice-setup.html#sales-reps).
+
 ## 25/10/2026
 
 - **Request types of your own.** In [Employee Requests](employee-requests.html#request-types)

@@ -90,8 +90,7 @@ async function partyMovements(partyType, partyId, companyId) {
 async function controlAccountBalance(partyType, partyId, party, companyId, toDate) {
   const accountId = party[PARTY_TYPES[partyType].accountField];
   if (!accountId) return { status: 'none' };
-  const [vendors, customers] = await Promise.all([rtdb.ref('vendors').get(), rtdb.ref('customers').get()]);
-  const all = { Vendor: vendors.val() || {}, Customer: customers.val() || {} };
+  const all = await require('./partyLedger').loadParties();
   // Only parties usable in this company can post to this company's GL.
   const shared = Object.keys(PARTY_TYPES).some(pt => Object.keys(all[pt]).some(id => {
     const p = all[pt][id];

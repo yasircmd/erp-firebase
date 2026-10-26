@@ -1,10 +1,11 @@
 // Sales reps in the Employee Portal (owner, 2026-10-16; docs/modules/
 // SALES_REP_PORTAL.md, decisions 230-236): the office marks an employee a
-// sales rep with their customers and cash account; in the portal the rep
-// sees only their customers (a sales manager all), with balances; an order
-// is a draft Sales Order at the customer's price list (the price never the
-// phone's) which the office confirms; a collection is a draft Cash Receipt
-// to the rep's cash account, or a draft PDC Received, which the office posts.
+// sales rep with their customers; in the portal the rep sees only their
+// customers (a sales manager all), with balances; an order is a draft Sales
+// Order at the customer's price list (the price never the phone's) which the
+// office confirms. A collection is now final, the rep's receipt (items
+// 30-31, repCollections.emulator.test.js): here only that it no longer
+// waits as a draft for the office.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { app, firestore, call, reset, baseFixture, val } = require('./_helpers');
@@ -13,7 +14,7 @@ test.after(async () => { await app.delete(); });
 const ok = r => { assert.equal(r && r.success, true, r && r.error); return r; };
 const err = async p => { const r = await p.catch(e => ({ success: false, error: e.message })); assert.equal(r.success, false, 'expected a refusal: ' + JSON.stringify(r)); return r.error; };
 const ess = (uid, action, data) => call(uid, 'essPortal', Object.assign({ action }, data || {}));
-const saveRep = (data, uid) => call(uid || 'u-admin', 'saveSalesRep', Object.assign({ companyId: 'C1', active: true, isManager: false, cashAccountId: '', customerIds: [] }, data));
+const saveRep = (data, uid) => call(uid || 'u-admin', 'saveSalesRep', Object.assign({ companyId: 'C1', active: true, isManager: false, customerIds: [] }, data));
 
 test.before(async () => {
   const f = baseFixture();
@@ -26,6 +27,7 @@ test.before(async () => {
   f.stock = { ledger: { I1: { WH1: { Quantity: 30, AvgCost: 35, TotalValue: 1050 } } } };
   Object.assign(f.companies.C1, { PdcReceivedClearingAccountID: 'A-PDCR' });
   f.coa['A-PDCR'] = { AccountCode: '1250', AccountName: 'PDC Received Clearing', AccountType: 'Asset', Status: 'Active', IsPostable: true };
+  f.coa['A-RCC'] = { AccountCode: '1260', AccountName: 'Rep Cash Clearing', AccountType: 'Asset', Status: 'Active', IsPostable: true };
   await reset(f);
   const emp = (id, no, name, uid) => firestore.collection('employees').doc(id).set({ EmployeeNo: no, FullName: name, CompanyID: 'C1', Status: 'Active', UserUID: uid, CostCenterID: 'CC1' });
   await emp('E1', 'EMP-0001', 'Sam Seller', 'u-viewer');
@@ -36,12 +38,13 @@ test('not a rep: no Sales tab and no sales actions; the office sets reps with th
   assert.equal((await ess('u-viewer', 'me')).me.SalesRep, null);
   assert.match(await err(ess('u-viewer', 'salesHome')), /You are not set up as a sales rep/);
   assert.match(await err(saveRep({ employeeId: 'E1' }, 'u-viewer')), /permission to change Sales Invoice Configuration/);
-  assert.match(await err(saveRep({ employeeId: 'E1', cashAccountId: 'A-AR' })), /Choose a cash account of the company/);
-  ok(await saveRep({ employeeId: 'E1', cashAccountId: 'A-CASH', customerIds: ['CU1'] }));
+  ok(await saveRep({ employeeId: 'E1', customerIds: ['CU1'] }));
+  ok(await call('u-admin', 'saveSalesRepSettings', { companyId: 'C1', clearingAccountId: 'A-RCC' }));
   assert.equal((await val('customers/CU1')).SalesRepEmployeeID, 'E1');
   const list = await call('u-admin', 'getSalesReps', { companyId: 'C1' });
   assert.deepEqual(list.reps.map(r => [r.EmployeeID, r.Customers]), [['E1', ['CU1']]]);
-  assert.ok(list.cashAccounts.some(a => a.AccountID === 'A-CASH'));
+  assert.ok(list.clearingAccounts.some(a => a.AccountID === 'A-RCC'));
+  assert.ok(!list.clearingAccounts.some(a => a.AccountID === 'A-CASH'), 'the cashier\'s cash is not a rep\'s clearing account');
 });
 
 test('the rep sees only their customers, with balances; items at the price list with the stock free to sell', async () => {
@@ -63,19 +66,15 @@ test('an order: a draft Sales Order at the price list, which the office confirms
   assert.equal((await val('salesOrders/' + r.soId)).Status, 'Reserved', 'confirmed, the stock reserved');
 });
 
-test('collections: cash a draft Cash Receipt to the rep\'s cash account, a cheque a draft PDC; the office posts', async () => {
+test('collections: no longer drafts for the office; the orders\' activity lists only orders and older drafts', async () => {
   const cash = ok(await ess('u-viewer', 'salesCollect', { customerId: 'CU1', method: 'Cash', amount: '50' }));
-  const e = (await firestore.collection('journalEntries').doc(cash.jvId).get()).data();
-  assert.deepEqual([e.Status, e.VoucherType, e.SelectedAccountCode], ['Draft', 'Cash Receipt', '1000']);
-  assert.deepEqual(e.Lines.map(l => [l.AccountCode, l.Debit, l.Credit, l.PartyID || '']).sort(), [['1000', 50, 0, ''], ['1200', 0, 50, 'CU1']]);
-  ok(await call('u-admin', 'postJournalEntry', { jvId: cash.jvId }));
+  const e = (await firestore.collection('journalEntries').doc((await firestore.collection('repReceipts').doc(cash.number).get()).data().JVID).get()).data();
+  assert.deepEqual([e.Status, e.VoucherType, e.JVNumber], ['Posted', 'RepReceipt', 'RC-EMP0001-000001']);
   assert.match(await err(ess('u-viewer', 'salesCollect', { customerId: 'CU1', method: 'Cheque', amount: '70', cheque: { number: '', date: '2026-11-01', bank: 'Sample Bank' } })), /Enter the cheque number/);
-  const chq = ok(await ess('u-viewer', 'salesCollect', { customerId: 'CU1', method: 'Cheque', amount: '70', cheque: { number: '900001', date: '2026-11-01', bank: 'Sample Bank' } }));
-  const p = await val('pdcCheques/' + chq.pdcId);
-  assert.deepEqual([p.Status, p.Direction, p.PartyID, p.Amount, p.ChequeNumber, p.DraweeBank], ['Draft', 'Received', 'CU1', 70, '900001', 'Sample Bank']);
   const h = await ess('u-viewer', 'salesHome');
-  assert.deepEqual(h.activity.map(a => [a.Kind, a.Amount, a.Status]).sort(), [['Cash', 50, 'Posted'], ['Cheque', 70, 'Draft'], ['Order', 120, 'Reserved']]);
-  assert.equal(h.customers[0].Balance, -50, 'nothing invoiced yet: the posted cash is an advance (the cheque is a draft)');
+  assert.deepEqual(h.activity.map(a => [a.Kind, a.Amount, a.Status]), [['Order', 120, 'Reserved']]);
+  assert.equal(h.balance.Cash, 50, 'what the rep holds');
+  assert.equal(h.customers[0].Balance, -50, 'nothing invoiced yet: the cash is on account');
 });
 
 test('a sales manager sees all the company\'s customers', async () => {
