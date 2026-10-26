@@ -150,3 +150,43 @@ Large; in parts, each its own PR:
 Each part: tests (emulator and UI, negative controls), Help, What's new.
 The ported screens (Customer and Vendor Invoice) change through the legacy
 port's patches and SCREEN_EDITS.
+
+## As built
+
+### Part 1: Tax Configuration (2026-10-26; deploy set `ux2-tax1`)
+
+- **functions/src/taxEngine.js** (pure, no data): the categories (STANDARD,
+  ZERO, EXEMPT, OUT_OF_SCOPE, REVERSE_CHARGE, NIL, NON_GST, each with its
+  e-invoice category S / Z / E / O / AE), the emirates, the GST states and
+  union territories, the registration types (Registered, Unregistered,
+  Composition, SEZ, Overseas, Consumer); the presets AE_VAT (SR 5 %, ZR, EX,
+  OS, RC; rounding per document), IN_GST (components CGST, SGST, UTGST,
+  IGST, CESS; GST5, GST18, GST40 from 2025-09-22, GST3, GST0_25, the old
+  GST12 and GST28 inactive, ZERO, NIL, EXEMPT, NONGST, RCM5, RCM18;
+  rounding per line) and OWN (up to six components of the company's own).
+  It checks a configuration (`validateConfig`), a GSTIN (format, its
+  mod-36 check character, its state against the party's) and a UAE TRN,
+  an HSN / SAC (4, 6 or 8 digits); and gives a code's rate on a date
+  (`rateOn`) and its split into components for a place of supply
+  (`componentsOf`: CGST + SGST, or UTGST in a union territory, within the
+  state; IGST to another state, an SEZ or abroad). Parts 2-5 use these.
+- **functions/src/taxConfig.js**: `getTaxConfig` / `saveTaxConfig`, one
+  Firestore document per company, `taxConfig/{companyId}`. Rights
+  TAXCONFIG access (Admin, Finance Manager, Accountant, Viewer) and setup
+  (Admin), plus the company's access. A code recorded in
+  `taxCodeUse/{companyId}` (written by postings from part 2) can't be
+  removed, only made inactive, and the regime can't change once one is.
+- **TAXCONFIG** is a later module (not in moduleBaseline.js): off for a
+  client corporate until provided in the Developer screen. Tree: General
+  Ledger → Tax Configuration, after Period Closing. Data Reset: category
+  Tax Configuration (Setup).
+- **Items** (hand screen ITEMMASTER and patch `tax-item`): Tax code and
+  HSN / SAC. **Customers and vendors** (patches `tax-party-customer`,
+  `tax-party-vendor`, SCREEN_EDITS `taxPartyEdits`): registration type,
+  state / emirate, the tax number checked against them. A party saved
+  without the new fields (an older form, an import) keeps its tax number
+  as free text, as before. Master Import: the matching columns.
+- Documents still charge one tax % per document, as before, until part 2.
+- Tests: unit/taxEngine (7), emulator/taxConfig (4), ui/taxConfig (4).
+  Negative controls: a GSTIN of another state accepted; a used code
+  removed; Customer Master's state not saved (UI). All caught, restored.
