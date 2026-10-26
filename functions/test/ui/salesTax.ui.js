@@ -64,7 +64,7 @@ const D = '2026-10-20';
     await p.check('.cinv-dn-checkbox[data-id="N1"]');
     await p.selectOption('.cinv-dn-salestype[data-dn-salestype="N1"]', 'ST1');
   }
-  const taxRows = p => p.$$eval('#cinv-tax-lines tr', rows => rows.map(r => [...r.children].map(td => td.textContent.trim())));
+  const taxRows = p => p.$$eval('#cinv-tax-lines tr', rows => rows.map(r => [...r.children].map(td => (td.querySelector('select') ? td.querySelector('select').value : td.textContent).trim())));
 
   await check('the line taxed by its item\'s code: CGST + SGST within the state; no Tax %; another state gives IGST', async () => {
     const p = await open('CUSTOMERINVOICE');
@@ -73,7 +73,7 @@ const D = '2026-10-20';
     assert.ok(await p.isHidden('#cinv-taxpercent-field'), 'no single Tax %');
     assert.equal(await p.inputValue('#cinv-tax-place'), '27', 'the customer\'s state');
     let rows = await taxRows(p);
-    assert.match(rows[0].join(' | '), /DN-1 RM-001 HSN 7208 \| 500\.00 \| GST18 .*\| 18 \| CGST 9%: 45\.00, SGST 9%: 45\.00 \| 90\.00/);
+    assert.match(rows[0].join(' | '), /DN-1 RM-001 HSN 7208 \| 500\.00 \| GST18 \| 18 \| CGST 9%: 45\.00, SGST 9%: 45\.00 \| 90\.00/);
     await p.waitForFunction(() => document.getElementById('cinv-total-display').textContent.trim() === '590.00', null, T);
     await p.selectOption('#cinv-tax-place', '29');
     await p.waitForFunction(() => /IGST 18%: 90\.00/.test(document.getElementById('cinv-tax-lines').textContent), null, T);
@@ -116,8 +116,8 @@ const D = '2026-10-20';
     assert.match(doc, /Place of supply: 29/);
     assert.match(doc, /7208/, 'the HSN code');
     assert.match(doc, /GST5 5%/);
-    assert.match(doc, /IGST 25\.00/);
-    assert.ok(await p.isVisible('#cinv-print-tax-summary') || (await p.locator('#cinv-print-tax-summary').count()) === 1);
+    assert.match(doc, /IGST\s*25\.00\s*Total\s*525\.00/, 'the component in the totals');
+    assert.match(doc, /GST5\s*5%\s*500\.00\s*25\.00\s*25\.00/, 'the summary by code');
     assert.deepEqual(p.__errors, []);
     await p.close();
   });

@@ -65,10 +65,16 @@ const D = '2026-09-10';
     await p.click('#coa-save-btn');
     await p.waitForSelector('#coa-modal', { state: 'hidden', ...T });
     assert.deepEqual((await val('coa/G-SITE')).DimensionRules, { CostCenter: 'Optional', ProfitCenter: '', Project: 'Required' });
-    await p.waitForLoadState('networkidle'); await p.waitForTimeout(1000); // the list reloads after a save
-    await p.locator('#coa-table-body tr', { hasText: 'Site labour' }).first().locator('.coa-edit').click();
-    await p.waitForSelector('#coa-modal:not(.hidden)', T);
-    assert.match(await p.textContent('#coa-dim-Project-hint'), /Now: required \(from 630000\)/);
+    // The list reloads after a save (its time varies): reopen until the account shows the heading's new rule.
+    let hint = '';
+    for (let i = 0; i < 20 && !/Now: required \(from 630000\)/.test(hint); i++) {
+      if (i) { await p.click('#coa-modal-cancel'); await p.waitForTimeout(500); }
+      await p.waitForLoadState('networkidle');
+      await p.locator('#coa-table-body tr', { hasText: 'Site labour' }).first().locator('.coa-edit').click();
+      await p.waitForSelector('#coa-modal:not(.hidden)', T);
+      hint = await p.textContent('#coa-dim-Project-hint');
+    }
+    assert.match(hint, /Now: required \(from 630000\)/);
     assert.deepEqual(p.__errors, []);
     await p.close();
   });
