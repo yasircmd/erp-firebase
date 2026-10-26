@@ -29,6 +29,7 @@ const { computeStockMovement } = require('./stockMovement');
 const { resolveApprovalScopeKeyForDocument, beginApprovalInstance, recordApprovalDecision } = require('./approvals');
 const { withGlobalLock } = require('./lock');
 const { getOpenItemsForParty, assertEntryReversible, annotateInvoiceOutstanding } = require('./partyLedger');
+const salesTax = require('./salesTax');
 
 const onCallOptions = { region: 'us-central1' };
 const MODULE_ID = 'SALESRETURN';
@@ -124,7 +125,8 @@ async function invoiceDnLines(invoiceId, inv, excludeReturnId, allTx) {
         ItemID: l.ItemID, ItemCode: l.ItemCode || '', ItemName: l.ItemName || '', WarehouseID: l.WarehouseID,
         BatchNumber: l.BatchNumber || '', CostCenterID: l.CostCenterID || '', ProfitCenterID: l.ProfitCenterID || '',
         UnitPrice: Number(l.UnitPrice) || 0, UnitCost: Number(l.UnitCost) || 0,
-        Quantity: qty, ReturnedQuantity: done, ReturnableQuantity: Math.max(0, round6(qty - done))
+        Quantity: qty, ReturnedQuantity: done, ReturnableQuantity: Math.max(0, round6(qty - done)),
+        TaxKey: invoiceTaxKey(inv, { SourceDNID: d.DeliveryNoteID, SourceDNLineNo: lineNo })
       });
     });
   });
@@ -133,16 +135,35 @@ async function invoiceDnLines(invoiceId, inv, excludeReturnId, allTx) {
 
 // The invoice's own formula (saveCustomerInvoiceDraft): discount on the
 // subtotal, tax on the net of discount.
+// An invoice taxed line by line (TAX_ENGINE.md, part 2): each returned line
+// takes its invoice line's share of the tax, by quantity, at the codes and
+// rates it was invoiced at (Q317); a line priced inclusive of tax gets its
+// TaxIncluded (set on the line here), which its Sales Returns debit leaves out.
 function computeValues(lines, inv) {
   const returnValue = round2(lines.reduce((s, l) => s + l.ReturnValue, 0));
   const subtotal = Number(inv.Subtotal) || 0;
   const discount = subtotal > 0 ? round2((Number(inv.Discount) || 0) * returnValue / subtotal) : 0;
+  const costValue = round2(lines.reduce((s, l) => s + l.CostValue, 0));
+  if (inv.TaxLines) {
+    const fractions = {};
+    lines.forEach(l => { fractions[invoiceTaxKey(inv, l)] = l.InvoicedQuantity ? l.Quantity / l.InvoicedQuantity : 0; });
+    const share = salesTax.shareOf(inv, fractions);
+    const byKey = new Map(share.TaxLines.map(t => [t.Key, t]));
+    lines.forEach(l => { l.TaxKey = invoiceTaxKey(inv, l); const t = byKey.get(l.TaxKey); l.TaxIncluded = t && t.Inclusive ? t.Tax : 0; });
+    return Object.assign({
+      ReturnValue: returnValue, DiscountAmount: discount, TaxPercent: 0, TaxAmount: share.TaxAmount,
+      Total: round2(returnValue - discount + share.TaxAdded), CostValue: costValue
+    }, share);
+  }
   const tax = round2((returnValue - discount) * (Number(inv.TaxPercent) || 0) / 100);
   return {
     ReturnValue: returnValue, DiscountAmount: discount, TaxPercent: Number(inv.TaxPercent) || 0, TaxAmount: tax,
-    Total: round2(returnValue - discount + tax), CostValue: round2(lines.reduce((s, l) => s + l.CostValue, 0))
+    Total: round2(returnValue - discount + tax), CostValue: costValue
   };
 }
+// The invoice's tax line for a returned Delivery Note line: its own item
+// lines (delivered by its automatic Delivery Note) are keyed item#n.
+const invoiceTaxKey = (inv, l) => (inv.AutoDeliveryNoteID && l.SourceDNID === inv.AutoDeliveryNoteID ? 'item' : l.SourceDNID) + '#' + l.SourceDNLineNo;
 
 // Builds the stored lines from requested { SourceDNID, SourceDNLineNo,
 // Quantity, WarehouseID } rows against what's returnable now. Used at save
@@ -186,7 +207,7 @@ async function buildLines(rawLines, invoiceId, inv, excludeReturnId) {
       SourceDNID: src.SourceDNID, SourceDNNumber: src.SourceDNNumber, SourceDNLineNo: src.SourceDNLineNo, SalesTypeID: src.SalesTypeID,
       ItemID: src.ItemID, ItemCode: src.ItemCode || (item && item.ItemCode) || '', ItemName: src.ItemName || (item && item.ItemName) || '',
       WarehouseID: warehouseId, BatchNumber: src.BatchNumber, CostCenterID: src.CostCenterID, ProfitCenterID: src.ProfitCenterID,
-      Quantity: round6(qty), UnitPrice: src.UnitPrice, ReturnValue: round2(qty * src.UnitPrice),
+      Quantity: round6(qty), InvoicedQuantity: src.Quantity, UnitPrice: src.UnitPrice, ReturnValue: round2(qty * src.UnitPrice),
       UnitCost: src.UnitCost, CostValue: round2(qty * src.UnitCost),
       Description: String(raw.Description || '').trim() || ('Return ' + (src.ItemCode || '') + ' — ' + src.SourceDNNumber)
     });
@@ -221,7 +242,7 @@ function salesReturnsDebits(lines, salesTypes, coaData) {
       throw new Error('Sales Type "' + (st.Name || l.SalesTypeID) + '": its Sales Returns Account is no longer valid. Check it in Sales Invoice Configuration.');
     }
     const d = byAccount.get(account.AccountCode) || { AccountCode: account.AccountCode, Amount: 0 };
-    d.Amount = round2(d.Amount + l.ReturnValue);
+    d.Amount = round2(d.Amount + l.ReturnValue - (l.TaxIncluded || 0)); // revenue net of the tax an inclusive price held
     byAccount.set(account.AccountCode, d);
   });
   return [...byAccount.values()];
@@ -270,7 +291,8 @@ exports.getReturnableCustomerInvoices = onCallWithMessages(onCallOptions, async 
     out.push({
       CustomerInvoiceID: id, TransactionNumber: inv.TransactionNumber || '', InvoiceDate: inv.InvoiceDate || '',
       Description: inv.Description || '', Status: inv.Status,
-      Subtotal: inv.Subtotal, Discount: inv.Discount || 0, TaxPercent: inv.TaxPercent || 0, Total: inv.Total, Lines: lines
+      Subtotal: inv.Subtotal, Discount: inv.Discount || 0, TaxPercent: inv.TaxPercent || 0, Total: inv.Total, Lines: lines,
+      TaxLines: inv.TaxLines || null // line tax (TAX_ENGINE.md, part 2): the screen's share of it
     });
   }
   await annotateInvoiceOutstanding('CustomerInvoice', out);
@@ -402,7 +424,9 @@ async function commitSalesReturnPosting(user, existing, returnId) {
     const acc = await resolveCompanyAccount(existing.CompanyID, 'DiscountGivenAccountID', 'Discount Given Account', coaData);
     glLines.push(Object.assign({ AccountCode: acc.AccountCode, Debit: 0, Credit: values.DiscountAmount, Description: 'Discount given reversed — ' + existing.Description }, dims));
   }
-  if (values.TaxAmount > 0) {
+  if (values.TaxComponents) { // each component back to the account the invoice credited (TAX_ENGINE.md)
+    glLines.push(...salesTax.componentGlLines(values, coaData, { reverse: true, label: 'Output tax reversed', description: existing.Description, costCenterId: dims.CostCenterID, profitCenterId: dims.ProfitCenterID }));
+  } else if (values.TaxAmount > 0) {
     const acc = await resolveCompanyAccount(existing.CompanyID, 'OutputTaxAccountID', 'Output Tax Account', coaData);
     glLines.push(Object.assign({ AccountCode: acc.AccountCode, Debit: values.TaxAmount, Credit: 0, Description: 'Output tax reversed — ' + existing.Description }, dims));
   }
@@ -558,6 +582,7 @@ exports.reverseSalesReturn = onCallWithMessages(onCallOptions, async (request) =
       CustomerID: existing.CustomerID, SourceInvoiceID: existing.SourceInvoiceID, SourceInvoiceNumber: existing.SourceInvoiceNumber || '',
       ReturnValue: existing.ReturnValue, DiscountAmount: existing.DiscountAmount, TaxPercent: existing.TaxPercent,
       TaxAmount: existing.TaxAmount, Total: existing.Total,
+      ...(existing.TaxLines ? { TaxLines: existing.TaxLines, TaxSummary: existing.TaxSummary, TaxComponents: existing.TaxComponents, PlaceOfSupply: existing.PlaceOfSupply || '', TaxRegime: existing.TaxRegime || '' } : {}),
       Lines: movementLines, ReversalOfReturnID: returnId, ReversedByReturnID: '',
       CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
     };

@@ -35,6 +35,7 @@ const __projects = require('../projects');
 const __reservations = require('../reservations');
 const __roles = require('../roles');
 const __salesPosting = require('../salesPosting');
+const __salesTax = require('../salesTax');
 const __stockMovement = require('../stockMovement');
 const __stockPosting = require('../stockPosting');
 const __stockStore = require('../stockStore');
@@ -83,6 +84,10 @@ const canSeePurchaseRequisition_ = (idToken, ...a) => __prVisibility.canSeeRequi
 const findAccountUsage_ = (idToken, ...a) => __coaUsage.findAccountUsage(...a);
 const clubStockLines_ = (...a) => __lineClubbing.clubStockLines(...a);
 const assertPeriodOpen_ = (idToken, ...a) => __periodLock.assertOpen(...a);
+const invoiceLineTax_ = (idToken, ...a) => __salesTax.invoiceTax(...a);
+const taxComponentGlLines_ = (...a) => __salesTax.componentGlLines(...a);
+const includedTaxOf_ = (...a) => __salesTax.includedTaxOf(...a);
+const recordTaxCodeUse_ = (idToken, ...a) => __salesTax.recordCodeUse(...a);
 const cleanInvoiceItemLines_ = (idToken, ...a) => __invoiceStock.cleanItemLines(...a);
 const postStock_ = (idToken, ...a) => __stockPosting.postStock(...a);
 const stockPostedFields_ = (...a) => __stockPosting.postedFields(...a);
@@ -4259,8 +4264,12 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
     if (discount > subtotal) throw new Error('Discount cannot exceed the invoice subtotal.');
     // Tax computed on the NET of discount, same confirmed formula as
     // Vendor Invoice's own.
-    const taxAmount = Math.round(((subtotal - discount) * taxPercent / 100) * 100) / 100;
-    const total = Math.round((subtotal - discount + taxAmount + roundOff) * 100) / 100;
+    // [NEW DEVELOPMENT invoice-line-tax] line by line where the company has a Tax Configuration.
+    const lineTax = await invoiceLineTax_(idToken, { companyId: companyId, customer: customerData, date: invoiceDate, invoiceData: invoiceData, role: user.profile.role,
+      before: invoiceId ? await firebaseDbRequest_('customerInvoices/' + invoiceId, 'get', null, idToken) : null,
+      sourceDeliveryNotes: sourceDeliveryNotes, itemLines: itemLines, directLines: directLines, discount: discount });
+    const taxAmount = lineTax ? lineTax.TaxAmount : Math.round(((subtotal - discount) * taxPercent / 100) * 100) / 100;
+    const total = Math.round((subtotal - discount + (lineTax ? lineTax.TaxAdded : taxAmount) + roundOff) * 100) / 100;
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
@@ -4271,6 +4280,7 @@ async function saveCustomerInvoiceDraft(idToken, invoiceData) {
       CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
       CostCenterID: costCenterId, ProfitCenterID: profitCenterId, CustomerID: customerId,
       SourceDeliveryNotes: sourceDeliveryNotes, DirectLines: directLines,
+      ...(lineTax || {}), // [NEW DEVELOPMENT invoice-line-tax] TaxLines, TaxSummary, TaxComponents, PlaceOfSupply …
       ...((await invoiceCurrencyFields_(idToken, customerData, invoiceDate, invoiceData, total, { dns: sourceDeliveryNotes.length > 0 }))), // [NEW DEVELOPMENT invoice-currency]
       ProjectID: String(invoiceData.ProjectID || '').trim(), // [NEW DEVELOPMENT projects] the invoice's project, on every line it posts
       ItemLines: itemLines, ItemSalesTypeID: itemSalesTypeId, // [PORT CHANGE invoice-item-lines-save]
@@ -4396,7 +4406,7 @@ async function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId)
     revenueByKey[key].amount += amount;
   }
   (existing.SourceDeliveryNotes || []).forEach(dn => {
-    addRevenue_(dn.SalesTypeID, dn.Amount, existing.CostCenterID || '', existing.ProfitCenterID || '', 'Delivery Note ' + (dn.DeliveryNoteNumber || dn.DeliveryNoteID));
+    addRevenue_(dn.SalesTypeID, dn.Amount - includedTaxOf_(existing, dn.DeliveryNoteID), existing.CostCenterID || '', existing.ProfitCenterID || '', 'Delivery Note ' + (dn.DeliveryNoteNumber || dn.DeliveryNoteID)); // [NEW DEVELOPMENT invoice-line-tax]
   });
   (existing.DirectLines || []).forEach(l => {
     // A direct line's OWN account (l.AccountCode) is what it's
@@ -4425,7 +4435,9 @@ async function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId)
     });
   }
 
-  if (existing.TaxAmount > 0) {
+  if (existing.TaxComponents) { // [NEW DEVELOPMENT invoice-line-tax]
+    taxComponentGlLines_(existing, coaData, { description: existing.Description, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '' }).forEach(l => glLines.push(l));
+  } else if (existing.TaxAmount > 0) {
     const taxAccountId = await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'OutputTaxAccountID', 'Output Tax Account');
     const taxAccount = coaData[taxAccountId];
     if (!taxAccount || !taxAccount.IsPostable) throw new Error('This company\'s Output Tax Account is no longer valid.');
@@ -4469,6 +4481,7 @@ async function commitCustomerInvoicePosting_(idToken, user, existing, invoiceId)
     extra: { CommitAttemptID: Utilities.getUuid(), SourceTransactionID: invoiceId }
   }, {}, () => markStockTxs_(matchedDns, dnIds, { MatchedToInvoiceID: invoiceId }), invoicePostedWriter_(invoiceId, actor));
   await recordEInvoice_(idToken, 'Invoice', invoiceId); // [NEW DEVELOPMENT e-invoicing]
+  await recordTaxCodeUse_(idToken, existing.CompanyID, existing); // [NEW DEVELOPMENT invoice-line-tax]
 
   return { invoiceNumber: glResult.jvNumber };
 }
@@ -4573,7 +4586,7 @@ async function executeCustomerInvoiceReversal_(idToken, user, existing, invoiceI
     revenueByKey[key].amount += amount;
   }
   (existing.SourceDeliveryNotes || []).forEach(dn => {
-    addReversalRevenue_(dn.SalesTypeID, dn.Amount, existing.CostCenterID || '', existing.ProfitCenterID || '');
+    addReversalRevenue_(dn.SalesTypeID, dn.Amount - includedTaxOf_(existing, dn.DeliveryNoteID), existing.CostCenterID || '', existing.ProfitCenterID || ''); // [NEW DEVELOPMENT invoice-line-tax]
   });
   (existing.DirectLines || []).forEach(l => {
     addReversalRevenue_(l.SalesTypeID, l.Amount, l.CostCenterID || existing.CostCenterID || '', l.ProfitCenterID || existing.ProfitCenterID || '');
@@ -4586,7 +4599,9 @@ async function executeCustomerInvoiceReversal_(idToken, user, existing, invoiceI
     const discountAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'DiscountGivenAccountID', 'Discount Given Account')];
     glLines.push({ AccountCode: discountAccount.AccountCode, Debit: 0, Credit: Math.round(existing.Discount * 100) / 100, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
   }
-  if (existing.TaxAmount > 0) {
+  if (existing.TaxComponents) { // [NEW DEVELOPMENT invoice-line-tax]
+    taxComponentGlLines_(existing, coaData, { reverse: true, label: 'Reversal of output tax', description: existing.TransactionNumber, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '' }).forEach(l => glLines.push(l));
+  } else if (existing.TaxAmount > 0) {
     const taxAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'OutputTaxAccountID', 'Output Tax Account')];
     glLines.push({ AccountCode: taxAccount.AccountCode, Debit: Math.round(existing.TaxAmount * 100) / 100, Credit: 0, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
   }
@@ -6730,7 +6745,8 @@ async function saveSalesType(idToken, data) {
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
-    const fields = { Name: name, GLAccountID: glAccountId, SalesReturnsAccountID: salesReturnsAccountId, CompanyID: companyId, RestrictedToClassificationID: restrictedToClassificationId, UpdatedAt: now, UpdatedBy: actor };
+    const fields = { Name: name, GLAccountID: glAccountId, SalesReturnsAccountID: salesReturnsAccountId, CompanyID: companyId, RestrictedToClassificationID: restrictedToClassificationId, UpdatedAt: now, UpdatedBy: actor,
+      TaxCode: __taxEngine.itemTaxFields({ TaxCode: data.TaxCode }).TaxCode }; // [NEW DEVELOPMENT invoice-line-tax]
 
     if (salesTypeId) {
       const existing = await firebaseDbRequest_('salesTypes/' + salesTypeId, 'get', null, idToken);
@@ -8075,7 +8091,8 @@ async function savePriceList(idToken, header) {
     const actor = user.profile.username || user.uid;
     const fields = {
       Name: name, CustomerClassificationMapping: mapping, CurrencyID: currencyId,
-      CompanyID: companyId, UpdatedAt: now, UpdatedBy: actor
+      CompanyID: companyId, UpdatedAt: now, UpdatedBy: actor,
+      PricesIncludeTax: header.PricesIncludeTax === true // [NEW DEVELOPMENT invoice-line-tax]
     };
 
     if (priceListId) {

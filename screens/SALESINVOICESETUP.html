@@ -132,6 +132,11 @@
         <select id="sis-type-form-returns-account" required class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select...</option></select>
         <p class="text-xs text-slate-500 mt-1">Sales Return debits returned goods of this Sales Type here at the invoice price (e.g. a Sales Returns account per tax treatment).</p>
       </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-300 mb-1">Default tax code <span class="text-slate-500">(optional)</span></label>
+        <input type="text" id="sis-type-form-taxcode" maxlength="12" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase" placeholder="e.g. SR, GST18">
+        <p class="text-xs text-slate-500 mt-1">Where the company has a Tax Configuration: the code of this Sales Type's direct lines, and of items that have none of their own.</p>
+      </div>
       <div id="sis-type-form-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg text-center"></div>
       <div class="flex justify-end gap-3 pt-3 border-t border-slate-700">
         <button type="button" id="sis-type-modal-cancel" class="px-4 py-2 bg-slate-700 rounded-lg text-xs">Cancel</button>
@@ -288,9 +293,11 @@
       document.getElementById('sis-type-form-classification').value = t.RestrictedToClassificationID || '';
       document.getElementById('sis-type-form-account').value = t.GLAccountID || '';
       document.getElementById('sis-type-form-returns-account').value = t.SalesReturnsAccountID || '';
+      document.getElementById('sis-type-form-taxcode').value = t.TaxCode || '';
     } else {
       document.getElementById('sis-type-modal-title').textContent = 'Add Sales Type';
       document.getElementById('sis-type-form-id').value = '';
+      document.getElementById('sis-type-form-taxcode').value = '';
     }
     document.getElementById('sis-type-modal').classList.remove('hidden');
   }
@@ -304,7 +311,8 @@
       CompanyID: document.getElementById('sis-type-form-company').value,
       RestrictedToClassificationID: document.getElementById('sis-type-form-classification').value,
       GLAccountID: document.getElementById('sis-type-form-account').value,
-      SalesReturnsAccountID: document.getElementById('sis-type-form-returns-account').value
+      SalesReturnsAccountID: document.getElementById('sis-type-form-returns-account').value,
+      TaxCode: document.getElementById('sis-type-form-taxcode').value.trim().toUpperCase()
     };
     const error = document.getElementById('sis-type-form-error');
     const btn = document.getElementById('sis-type-save-btn');

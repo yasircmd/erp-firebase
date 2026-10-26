@@ -3,10 +3,10 @@ title: Customer Invoice
 area: sales
 order: 6
 modules: [CUSTOMERINVOICE]
-sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js, functions/src/eInvoicing.js]
+sources: [functions/src/invoiceStock.js, functions/src/partyLedger.js, functions/src/eInvoicing.js, functions/src/salesTax.js]
 summary: Raise the customer bill and post the receivable to the company books against the delivered goods or services.
 reviewed: 2026-10-26
-fingerprint: d71c5cc609cf3f46
+fingerprint: 332233fc8caa283b
 ---
 ## What it is for
 
@@ -49,6 +49,48 @@ quantities, without prices, for the driver or the store. Reversing the
 invoice also reverses its Delivery Note, so the stock comes back. A return is
 made in Sales Return, as for any delivered invoice.
 
+## Tax by line
+
+Where the company has a [Tax Configuration](tax-configuration.html) (UAE VAT,
+India GST or a tax of its own), the invoice has no **Tax %**. Each line is
+taxed by its own **tax code** instead:
+
+- a delivered or item line takes its **item's** code (Item Master); a direct
+  line, its **Sales Type's** default code (Sales Invoice Configuration), as
+  does an item without a code;
+- the rate is the code's rate on the **invoice date**;
+- the **discount** is spread over the lines in proportion before tax;
+- the **Tax** box lists each line: its taxable value, code, rate, the
+  components (for example CGST 9 % and SGST 9 %) and the tax, and a summary
+  by code. The total adds the tax.
+
+To give a line another code, choose it in the line's **Tax code**. That
+needs Customer Invoice's **change tax code** right (Admin and Finance
+Manager by default); without it the codes are shown, not changed.
+
+**Place of supply** (India GST): the customer's state from Customer Master.
+Change it when the goods go to another state (a ship-to address). Within the
+company's own state the tax is CGST + SGST (UTGST in a union territory); to
+another state, an SEZ or abroad, IGST. Under UAE VAT, the emirate is kept
+for the VAT return.
+
+**Prices that include tax**: a line delivered against a Sales Order on a
+price list marked **Prices include tax** (Price Listing) holds its tax: the
+tax is taken out of the price and nothing is added to the total. Its
+revenue is the price less that tax.
+
+Posting credits each component to its own output account (Tax
+Configuration), and records the codes as used, so they can no longer be
+removed there. The printed invoice shows each line's rate and tax (with the
+HSN / SAC code under GST), a summary by code with each component, and the
+place of supply. A posted invoice keeps the codes and rates it was posted
+with, whatever changes later.
+
+For example: *Example Traders*, a registered customer in the company's own
+state, is invoiced 10 steel sheets at 50.00 (GST 18 %) and freight of
+100.00 (GST 5 %), with 60.00 off. The taxable values are 450.00 and 90.00;
+CGST and SGST are 42.75 each; the total is 625.50.
+
 ## A customer in a foreign currency
 
 If the customer's **Default Currency** (Customer Master) is not the
@@ -89,7 +131,9 @@ its **E-invoice**: **Ready to send**, **Not ready** with what is
 missing (for example the customer's address), or **Not e-invoiced** for a
 customer without a TRN. **Download XML** gives the file; after fixing the
 missing data, **Check again**. Nothing is sent until the company's ASP is
-connected.
+connected. Under India GST it is the IRP's JSON instead (**Download JSON
+(IRP)**), for a registered business, an SEZ or a customer abroad: see
+[Sales Invoice Configuration](sales-invoice-setup.html).
 
 ## Rights
 

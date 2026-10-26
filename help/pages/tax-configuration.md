@@ -1,5 +1,5 @@
 ---
-fingerprint: 7e2f8640e9562803
+fingerprint: 68251d843c72516e
 reviewed: 2026-10-26
 title: Tax Configuration
 area: finance
@@ -18,9 +18,10 @@ code in [Item Master](item-master.html); customers and vendors their
 registration type, state or emirate, and tax number in
 [Customer Master](customer-master.html) and [Vendor Master](vendor-master.html).
 
-The invoices, returns and reports take their tax from here in the parts
-that follow: until then, documents work as before, with one tax % per
-document.
+[Customer Invoices](customer-invoice.html) and their
+[Sales Returns](sales-return.html) take their tax from here, line by line.
+Purchases, Retail Sales and the tax reports follow in later releases: until
+then they work as before, with one tax % per document.
 
 ## Before you start
 
