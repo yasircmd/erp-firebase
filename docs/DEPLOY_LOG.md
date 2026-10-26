@@ -1467,3 +1467,14 @@ from, and how it was verified. The deploy procedure is in the
   (release `20261025T213831Z-a70c2b3`, 90/90 verified). Then Hosting, run
   [#226](https://github.com/yasircmd/erp-firebase/actions/runs/40258142447)
   (2026-10-26 02:14–02:15 UTC), success.
+- **2026-10-26, UX round 2 item 27, employee request types (`ux2-requests`,
+  PR #177, from `51f7a7f`):** run
+  [#227](https://github.com/yasircmd/erp-firebase/actions/runs/40266838202)
+  ("functions set, then screens", 04:00–04:05 UTC), success:
+  `SUMMARY: functions deployed: 9 (employeeRequests essPortal
+  manageEssAccounts getNumbering saveNumberingFormat getDataResetCounts
+  clearDataCategories clearSelectedRecords getCategoryRecords); access
+  granted: 9; screens released: yes` (release `20261026T040451Z-51f7a7f`,
+  90/90 verified). Hosting (the portal's Requests → Other and Team
+  approvals, the Help): no run after #227 as of this entry; to be recorded
+  when it runs.
