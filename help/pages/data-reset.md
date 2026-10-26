@@ -6,7 +6,7 @@ modules: [DATARESET]
 sources: [functions/src/dataReset.js, functions/src/documentStorage.js]
 summary: Clear test data module by module, or rebuild the stock balances, before going live.
 reviewed: 2026-10-26
-fingerprint: d00e1db0b9e44d0d
+fingerprint: 83cb229d943d4cde
 ---
 ## What it is for
 
@@ -39,8 +39,8 @@ data.
   inventory valuation list; requisition categories; currencies and
   exchange rates; shareholders; employees.
 - **Setup:** HR Setup, Payroll Setup (with the employee request types),
-  Approval Configuration, and the numbering formats and settings (with the
-  Rep Cash Clearing account).
+  Approval Configuration, Tax Configuration, and the numbering formats and
+  settings (with the Rep Cash Clearing account).
 
 **Sales Rep Receipts** (a transaction) are the receipts the reps gave from
 the Employee Portal; each rep's numbers restart. Their GL entries and
