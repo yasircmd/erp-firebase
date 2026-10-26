@@ -363,11 +363,52 @@ async function writePdcDraft(cfg, data, user, pdcId) {
   await pdcCheques.set(newId, Object.assign({}, fields, { JVIDs: [], History: [], CreatedAt: now, CreatedBy: actorOf(user) }));
   return { success: true, pdcId: newId };
 }
-// A sales rep's cheque from the Employee Portal (salesRep.js; docs/modules/
-// SALES_REP_PORTAL.md, decision 232): a new draft PDC Received of the rep's
-// company, after salesRep.js's own checks; the office posts it.
-exports.savePdcDraftForRep = (portalRep, data) => writePdcDraft(DIRECTIONS.Received, Object.assign({}, data, { Direction: 'Received', PdcID: '' }),
-  { uid: portalRep.actor, profile: { username: portalRep.actor, AssignedCompanies: [portalRep.companyId] } }, '');
+// A cheque a sales rep collected (salesRep.js; docs/modules/REP_COLLECTIONS.md,
+// Q294): posted at once, the rep's receipt being final, with no approval,
+// and marked "with the rep" (repFields) until the office ticks it received
+// from the rep. The caller holds the global lock and has made its checks.
+exports.postPdcForRep = async (user, data, repFields, also) => {
+  const cfg = DIRECTIONS.Received;
+  const doc = await buildDoc(cfg, Object.assign({}, data, { Direction: 'Received' }), user);
+  await assertNotDuplicate(doc, '');
+  const now = new Date().toISOString();
+  const pdcId = 'PDC-' + randomUUID().split('-')[0].toUpperCase();
+  const draft = Object.assign(doc, repFields, { Status: 'Draft', JVIDs: [], History: [], CreatedAt: now, CreatedBy: actorOf(user), UpdatedAt: now, UpdatedBy: actorOf(user) });
+  await pdcCheques.set(pdcId, draft);
+  try {
+    const r = await commitPdcPosting(user, draft, pdcId, also);
+    return { pdcId, pdcNumber: r.pdcNumber };
+  } catch (e) {
+    await pdcCheques.remove(pdcId).catch(() => {});
+    throw e;
+  }
+};
+
+// The office takes the reps' cheques (Q294): ticked "received from the rep"
+// in PDC Received. No money moves; the cheque can then be deposited.
+exports.receivePdcsFromRep = onCallWithMessages(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const d = request.data || {};
+  const ids = [...new Set((d.pdcIds || []).map(x => String(x || '').trim()).filter(Boolean))];
+  if (!ids.length) throw new HttpsError('invalid-argument', 'Tick the cheques received from the rep.');
+  return withGlobalLock(user.uid, async () => {
+    const now = new Date().toISOString(), today = now.slice(0, 10);
+    const list = [];
+    for (const id of ids) {
+      const p = await loadPdc(id);
+      requireCompany(user, p.CompanyID);
+      await requireCap(DIRECTIONS[p.Direction], 'post', user.profile.role);
+      if (p.WithRep !== true) throw new HttpsError('failed-precondition', (p.TransactionNumber || id) + ' is not with a sales rep.');
+      if (p.Status !== 'Pending') throw new HttpsError('failed-precondition', (p.TransactionNumber || id) + ' is ' + p.Status + ', not Pending.');
+      list.push([id, p]);
+    }
+    for (const [id, p] of list) {
+      await pdcCheques.update(id, { WithRep: false, ReceivedFromRepAt: now, ReceivedFromRepBy: actorOf(user), UpdatedAt: now, UpdatedBy: actorOf(user),
+        History: historyWith(p, 'Received from the rep', today, null, actorOf(user), p.RepName || '') });
+    }
+    return { success: true, received: list.length };
+  });
+});
 
 exports.deletePdcDraft = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
@@ -417,8 +458,9 @@ exports.postPdc = onCallWithMessages(onCallOptions, async (request) => {
 
 // Caller holds the global lock. Everything is re-checked from live data.
 // The entry's GL entries (one per cheque) and its cheques, Pending, in one
-// batch: all or none.
-async function commitPdcPosting(user, existing, pdcId) {
+// batch: all or none. also(batch, pdcId, { number, allocations }): more
+// writes in the same batch (a sales rep's receipt, salesRep.js).
+async function commitPdcPosting(user, existing, pdcId, also) {
   const cfg = DIRECTIONS[existing.Direction];
   const coa = (await rtdb.ref('coa').get()).val() || {};
   const clearing = await resolveClearingAccount(cfg, existing.CompanyID, coa);
@@ -482,6 +524,7 @@ async function commitPdcPosting(user, existing, pdcId) {
       if (i === 0) await updateInBatch(PATH, pdcId, fields, batch);
       else await setInBatch(PATH, idOf(i), Object.assign({}, existing, fields, { Cheques: [] }), batch);
     }
+    if (also) await also(batch, pdcId, { number: entryNumber, allocations: whole.line.Allocations });
   });
   return { pdcNumber: entryNumber };
 }
@@ -585,6 +628,7 @@ exports.clearPdcs = onCallWithMessages(onCallOptions, async (request) => {
       await requireCap(cfg, 'post', user.profile.role);
       const name = (p.TransactionNumber || id) + ': ';
       if (p.Status !== 'Pending') throw new Error(name + 'only a Pending PDC can be cleared (this one is ' + p.Status + ').');
+      if (p.WithRep === true) throw new Error(name + 'the cheque is still with the sales rep: tick it received from the rep first.');
       if (clearDate < p.ChequeDate) throw new Error(name + 'the clearing date is before the cheque date ' + p.ChequeDate + '.');
       if (clearDate < p.TransactionDate) throw new Error(name + 'the clearing date is before the PDC\'s own date ' + p.TransactionDate + '.');
       let bankId = p.BankAccountID;
@@ -640,7 +684,7 @@ function mirrorLines(entry, prefix) {
 
 // The reversal, the original's mark (so a second reversal can't start) and
 // the cheque's own fields (pdcFields(gl, now)) in one batch: all or none.
-async function reverseGlEntry(user, jvId, voucherType, date, description, reference, dims, extra, pdcId, pdcFields) {
+async function reverseGlEntry(user, jvId, voucherType, date, description, reference, dims, extra, pdcId, pdcFields, also) {
   const glRef = firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(jvId);
   const glDoc = await glRef.get();
   if (!glDoc.exists) throw new Error('The GL entry of this PDC was not found.');
@@ -653,6 +697,7 @@ async function reverseGlEntry(user, jvId, voucherType, date, description, refere
   }, {}, () => ({}), async (batch, gl, now) => {
     batch.update(glRef, { ReversedByJV: gl.jvId, UpdatedAt: now, UpdatedBy: actorOf(user) });
     await updateInBatch(PATH, pdcId, pdcFields(gl, now), batch);
+    if (also) await also(batch, gl, now);
   });
 }
 
@@ -670,26 +715,36 @@ async function closePdc(request, event) {
 
   return withGlobalLock(user.uid, async () => {
     const p = await loadPdc(pdcId);
-    const cfg = DIRECTIONS[p.Direction];
     requireCompany(user, p.CompanyID);
-    await requireCap(cfg, 'post', user.profile.role);
-    if (p.Status === 'Cleared') throw new HttpsError('failed-precondition', 'This PDC has cleared — undo the clearing first.');
-    if (p.Status !== 'Pending') throw new HttpsError('failed-precondition', 'Only a Pending PDC can be ' + event.toLowerCase() + '.');
-    if (date < p.TransactionDate) throw new Error('The date is before the PDC\'s own date ' + p.TransactionDate + '.');
-
-    const glDoc = await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(p.LinkedJVID).get();
-    if (!glDoc.exists) throw new Error('The GL entry of this PDC was not found.');
-    await assertEntryReversible(p.LinkedJVID, Object.assign({}, glDoc.data(), { ReversalOfJV: '' }));
-
-    const description = cfg.label + ' ' + p.ChequeNumber + ' ' + event.toLowerCase() + ' — ' + reason;
-    const glResult = await reverseGlEntry(user, p.LinkedJVID, cfg.postType, date, description, p.TransactionNumber, dimsOf(p), { PdcEvent: event }, pdcId, (gl, now) => ({
-      Status: event, ClosedDate: date, ClosedReason: reason, ReversalJVID: gl.jvId, ReversalJVNumber: gl.jvNumber,
-      JVIDs: (p.JVIDs || []).concat([gl.jvId]), History: historyWith(p, event, date, gl, actorOf(user), reason),
-      UpdatedAt: now, UpdatedBy: actorOf(user)
-    }));
+    await requireCap(DIRECTIONS[p.Direction], 'post', user.profile.role);
+    // A cheque still with the sales rep was never deposited (REP_COLLECTIONS.md).
+    if (event === 'Bounced' && p.WithRep === true) throw new HttpsError('failed-precondition', 'This cheque is still with the sales rep: tick it received from the rep first.');
+    const glResult = await closeAs(user, p, pdcId, event, date, reason);
     return { success: true, reversalNumber: glResult.jvNumber };
   });
 }
+// The reversal itself (the caller holds the lock and checked the rights).
+async function closeAs(user, p, pdcId, event, date, reason, also) {
+  const cfg = DIRECTIONS[p.Direction];
+  if (p.Status === 'Cleared') throw new HttpsError('failed-precondition', 'This PDC has cleared — undo the clearing first.');
+  if (p.Status !== 'Pending') throw new HttpsError('failed-precondition', 'Only a Pending PDC can be ' + event.toLowerCase() + '.');
+  if (date < p.TransactionDate) throw new Error('The date is before the PDC\'s own date ' + p.TransactionDate + '.');
+
+  const glDoc = await firestore.collection(FIRESTORE_JOURNAL_ENTRIES_COLLECTION).doc(p.LinkedJVID).get();
+  if (!glDoc.exists) throw new Error('The GL entry of this PDC was not found.');
+  await assertEntryReversible(p.LinkedJVID, Object.assign({}, glDoc.data(), { ReversalOfJV: '' }));
+
+  const description = cfg.label + ' ' + p.ChequeNumber + ' ' + event.toLowerCase() + ' — ' + reason;
+  return reverseGlEntry(user, p.LinkedJVID, cfg.postType, date, description, p.TransactionNumber, dimsOf(p), { PdcEvent: event }, pdcId, (gl, now) => Object.assign({
+    Status: event, ClosedDate: date, ClosedReason: reason, ReversalJVID: gl.jvId, ReversalJVNumber: gl.jvNumber,
+    JVIDs: (p.JVIDs || []).concat([gl.jvId]), History: historyWith(p, event, date, gl, actorOf(user), reason),
+    UpdatedAt: now, UpdatedBy: actorOf(user)
+  }, p.WithRep ? { WithRep: false } : {}), also);
+}
+// A sales rep's cheque receipt cancelled by the office (salesRep.js,
+// cancelRepReceipt: Cash & Bank's post right, Q310). The caller holds the lock.
+exports.cancelPdcFor = async (user, pdcId, date, reason, also) => closeAs(user, await loadPdc(pdcId), pdcId, 'Cancelled', date, reason, also);
+exports.mirrorLines = (entry, prefix) => mirrorLines(entry, prefix);
 
 exports.bouncePdc = onCallWithMessages(onCallOptions, request => closePdc(request, 'Bounced'));
 exports.cancelPdc = onCallWithMessages(onCallOptions, request => closePdc(request, 'Cancelled'));

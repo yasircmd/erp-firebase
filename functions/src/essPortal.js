@@ -438,6 +438,10 @@ const ACTIONS = {
   salesItems: { run: (me, d) => require('./salesRep').salesItems(me, d) },
   salesOrder: { run: (me, d) => require('./salesRep').placeOrder(me, d) },
   salesCollect: { run: (me, d) => require('./salesRep').collect(me, d) },
+  // A collection is final, the rep's receipt (REP_COLLECTIONS.md): the invoices it may settle, what I hold, one receipt again.
+  salesInvoices: { run: (me, d) => require('./salesRep').openInvoices(me, d) },
+  salesCollections: { run: (me) => require('./salesRep').myCollections(me) },
+  salesReceipt: { run: (me, d) => require('./salesRep').myReceipt(me, d) },
   // A leaver's clearance, read only (clearance.js; docs/modules/LEAVER_CLEARANCE.md, Q304).
   myClearance: { run: async (me) => ({ clearance: await require('./clearance').forPortal(me.emp) }) }
 };

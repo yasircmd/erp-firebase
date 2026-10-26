@@ -329,7 +329,9 @@ exports.getProjectReport = require('./src/projectReport').getProjectReport; // d
 // UAE e-invoicing, ready to send (docs/modules/E_INVOICING.md).
 ['getEInvoiceSettings', 'saveEInvoiceSettings', 'getEInvoice', 'rebuildEInvoice'].forEach(n => { exports[n] = require('./src/eInvoicing')[n]; });
 // Sales reps in the Employee Portal: the office's setup (docs/modules/SALES_REP_PORTAL.md).
-['getSalesReps', 'saveSalesRep'].forEach(n => { exports[n] = require('./src/salesRep')[n]; });
+['getSalesReps', 'saveSalesRep', 'saveSalesRepSettings', 'getRepReceipts', 'cancelRepReceipt'].forEach(n => { exports[n] = require('./src/salesRep')[n]; });
+// The office takes a sales rep's cheques (docs/modules/REP_COLLECTIONS.md, Q294).
+exports.receivePdcsFromRep = require('./src/pdc').receivePdcsFromRep;
 exports.getExchangeRateOn = require('./src/exchangeRates').getExchangeRateOn;
 exports.getFxSettings = require('./src/exchangeRates').getFxSettings;
 exports.saveFxSettings = require('./src/exchangeRates').saveFxSettings;

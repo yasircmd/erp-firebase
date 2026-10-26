@@ -34,6 +34,16 @@ const PARTY_TYPES = {
     path: 'customers', accountField: 'TradeReceivablesAccountID', accountLabel: 'Trade Receivables',
     codeField: 'CustomerCode', nameField: 'CustomerName',
     invoicePath: 'customerInvoices', invoiceType: 'CustomerInvoice', invoicePartyField: 'CustomerID', invoiceSide: 'Dr'
+  },
+  // A sales rep (docs/modules/REP_COLLECTIONS.md, Q295): the cash they
+  // collected and have not yet handed to the cashier. Its open items are
+  // their receipts only (no invoices); its control account is the company's
+  // Rep Cash Clearing account, the same for every rep of the company. The
+  // party records are built by loadParties from salesReps (salesRep.js).
+  SalesRep: {
+    path: 'salesReps', accountField: 'ClearingAccountID', accountLabel: 'Rep Cash Clearing',
+    codeField: 'RepCode', nameField: 'RepName', label: 'Sales rep',
+    invoicePath: '', invoiceType: '', invoicePartyField: '', invoiceSide: 'Dr'
   }
 };
 const INVOICE_TYPES = { VendorInvoice: 'Vendor', CustomerInvoice: 'Customer' };
@@ -61,17 +71,22 @@ function addDays(dateStr, days) {
 }
 
 async function loadParties() {
-  const [vendors, customers] = await Promise.all([rtdb.ref('vendors').get(), rtdb.ref('customers').get()]);
-  return { Vendor: vendors.val() || {}, Customer: customers.val() || {} };
+  const [vendors, customers, reps] = await Promise.all([rtdb.ref('vendors').get(), rtdb.ref('customers').get(), require('./salesRep').repParties()]);
+  return { Vendor: vendors.val() || {}, Customer: customers.val() || {}, SalesRep: reps };
+}
+// One party record, by type (a rep's is built as in loadParties).
+async function loadParty(partyType, partyId) {
+  if (partyType === 'SalesRep') return (await require('./salesRep').repParties([partyId]))[partyId] || null;
+  return (await rtdb.ref(PARTY_TYPES[partyType].path + '/' + partyId).get()).val();
 }
 
-// AccountID -> true for every account that is some vendor's payables or
-// some customer's receivables account.
+// Every account that is some vendor's payables, some customer's receivables
+// or a company's Rep Cash Clearing account: AccountID -> its party type.
 function controlAccountIds(parties) {
-  const ids = new Set();
+  const ids = new Map();
   Object.keys(PARTY_TYPES).forEach(pt => {
     const f = PARTY_TYPES[pt].accountField;
-    Object.values(parties[pt]).forEach(p => { if (p && p[f]) ids.add(p[f]); });
+    Object.values(parties[pt]).forEach(p => { if (p && p[f] && !ids.has(p[f])) ids.set(p[f], pt); });
   });
   return ids;
 }
@@ -94,8 +109,8 @@ async function queryEntries(field, op, value) {
 // not posted (a re-match replaces its allocations; docs/modules/UX_TIER3.md G).
 async function getOpenItemsForParty(partyType, partyId, party, asOf, excludeEntryId) {
   const cfg = PARTY_TYPES[partyType];
-  // The party's invoices (Customer Invoices are a Firestore query, movedPaths.js).
-  const invoices = await movedPaths.where(cfg.invoicePath, { [cfg.invoicePartyField]: partyId });
+  // The party's invoices (Customer Invoices are a Firestore query, movedPaths.js); a rep has none.
+  const invoices = cfg.invoicePath ? await movedPaths.where(cfg.invoicePath, { [cfg.invoicePartyField]: partyId }) : {};
   const entries = (await queryEntries('PartyKeys', 'array-contains', partyType + ':' + partyId)).filter(e => !excludeEntryId || e._id !== excludeEntryId);
   return openItemsFrom(partyType, partyId, party, asOf, invoices, entries);
 }
@@ -221,16 +236,19 @@ async function resolvePartyLines(lines, companyId, opts) {
     const partyId = String(line.PartyID || '').trim();
 
     if (!partyType && !partyId) {
+      if (controlIds.get(line.AccountID) === 'SalesRep') {
+        throw new Error(n + 'account ' + line.AccountCode + ' is the Rep Cash Clearing account — select the Sales rep this line belongs to.');
+      }
       if (controlIds.has(line.AccountID)) {
         throw new Error(n + 'account ' + line.AccountCode + ' is a vendor or customer control account — select the Vendor or Customer this line belongs to.');
       }
-      if ((line.Allocations || []).length) throw new Error(n + 'allocations need a Vendor or Customer on the line.');
+      if ((line.Allocations || []).length) throw new Error(n + 'allocations need a Vendor or Customer (or a Sales rep) on the line.');
       out.push(clean);
       return;
     }
 
     const cfg = PARTY_TYPES[partyType];
-    if (!cfg) throw new Error(n + 'party type must be Vendor or Customer.');
+    if (!cfg) throw new Error(n + 'party type must be Vendor or Customer (or Sales rep).');
     const party = parties[partyType][partyId];
     if (!party) throw new Error(n + partyType + ' not found.');
     const name = partyLabel(partyType, party);
@@ -413,8 +431,8 @@ async function listPartyAccounts(companyId) {
 
 async function listOpenItems(partyType, partyId, companyId, excludeEntryId) {
   const cfg = PARTY_TYPES[partyType];
-  if (!cfg) throw new Error('Party type must be Vendor or Customer.');
-  const party = (await rtdb.ref(cfg.path + '/' + partyId).get()).val();
+  if (!cfg) throw new Error('Party type must be Vendor or Customer (or Sales rep).');
+  const party = await loadParty(partyType, partyId);
   if (!party) throw new Error(partyType + ' not found.');
   const items = await getOpenItemsForParty(partyType, partyId, party, undefined, excludeEntryId);
   return [...items.values()]
@@ -423,6 +441,6 @@ async function listOpenItems(partyType, partyId, companyId, excludeEntryId) {
 }
 
 module.exports = {
-  PARTY_TYPES, isLive, addDays, queryEntries, attachPartyFields, resolvePartyLines, getOpenItemsForParty, openItemsFrom,
+  PARTY_TYPES, isLive, addDays, queryEntries, loadParties, loadParty, attachPartyFields, resolvePartyLines, getOpenItemsForParty, openItemsFrom,
   assertEntryReversible, assertInvoiceHasNoAllocations, liveEntriesAllocating, lineSide, lineAmount, annotateInvoiceOutstanding, listPartyAccounts, listOpenItems
 };

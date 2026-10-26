@@ -71,6 +71,8 @@ cashier's hand-overs waiting for confirmation.
 | Q296 | The rep may pick the customer's open invoices (oldest first offered); otherwise it is on account. |
 | Q297 | Only the office cancels a receipt (a reversal with a reason); the number stays, marked cancelled. |
 | Q298 | The receipt number uses a short code set per rep (e.g. RR-AK-000001), defaulting to the employee number. |
+| Q309 (2026-10-26) | The receipt prefix is **RC** (RC-AK-000001), not RR: RR already numbers Retail Sales returns (RR-26-01-000001). |
+| Q310 (2026-10-26) | Cancelling a rep's receipt needs **Cash & Bank's post right** (a rep receipt is a cash receipt, reversed by the same people). |
 
 So, as agreed: a **Sales Rep** party type beside Vendor and Customer
 (partyLedger.js): its control account (Rep Cash Clearing, per company, in

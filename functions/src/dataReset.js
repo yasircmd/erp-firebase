@@ -39,6 +39,8 @@ const CATEGORIES = {
     detail: 'Every loan and salary advance with its schedule. Payouts and repayments posted are in GL Journal Entries and Payroll Runs.' },
   clearances: { label: 'Clearances', group: T, fs: ['clearances'], records: 'clearances',
     detail: 'Every leaver\'s clearance, with its steps, checklists, notes and amounts to recover. A leaver still to be settled gets a new one, from the company\'s set-up.' },
+  repReceipts: { label: 'Sales Rep Receipts', group: T, fs: ['repReceipts'], counters: ['salesRepCounters'], records: 'repReceipts',
+    detail: 'The receipts the sales reps gave customers from the Employee Portal (their GL entries and cheques are the GL and PDCs\' own). Each rep\'s receipt numbers restart.' },
   employeeRequests: { label: 'Employee Requests', group: T, fs: ['employeeRequests'], records: 'employeeRequests',
     detail: 'Payroll queries, expense claims and loan requests from the Employee Portal, with their messages.' },
   supportingDocuments: { label: 'Supporting Documents', group: T, fs: ['attachments', 'attachmentLog', 'attachmentFolders'], count: ['attachments'],  files: true,
@@ -50,7 +52,7 @@ const CATEGORIES = {
   logs: { label: 'Logs', group: T, rtdb: ['masterImports', 'coaRenumberLog'],
     detail: 'The Master Import log and the Chart of Accounts renumbering log.' },
 
-  employees: { label: 'Employees', group: M, fs: ['employees', 'employeeCompensation', 'employeeHistory', 'employeeDocuments', 'essAccounts', 'essUids'], count: ['employees'],  rtdb: ['salesReps'], counters: ['hrCounters'], ess: true,
+  employees: { label: 'Employees', group: M, fs: ['employees', 'employeeCompensation', 'employeeHistory', 'employeeDocuments', 'essAccounts', 'essUids'], count: ['employees'],  rtdb: ['salesReps', 'salesRepCodes'], counters: ['hrCounters'], ess: true,
     detail: 'Every employee with their compensation, history, documents register and sales-rep set-up, and their Employee Portal sign-ins (decision 283). The HR numbering (employee numbers, leave and other HR documents) restarts. Their documents\' files are Supporting Documents.' },
   vendors: { label: 'Vendors', group: M, rtdb: ['vendors'], counters: ['vendorCounters'],
     detail: 'Every vendor; vendor codes restart.' },
@@ -77,7 +79,7 @@ const CATEGORIES = {
     detail: 'Pay elements, payroll accounting, payment file formats, loan and provision types, reimbursement categories, the employee request types and who handles employee requests.' },
   approvalSetup: { label: 'Approval Configuration', group: S, rtdb: ['approvalConfigurations', 'approvalLevels', 'approvalFollowUpSettings', 'approvalFollowUps'],
     detail: 'Which documents need approval, their levels and approvers, and the follow-up teams. Cleared, documents post without approval until it is set again.' },
-  settings: { label: 'Numbering & Settings', group: S, rtdb: ['numbering', 'salesInvoiceSettings', 'eInvoiceSettings', 'barcodeSettings', 'retailSales', 'fxSettings', 'openingBalances/settings'], fs: ['companyDocumentCategories'],
+  settings: { label: 'Numbering & Settings', group: S, rtdb: ['numbering', 'salesInvoiceSettings', 'eInvoiceSettings', 'barcodeSettings', 'retailSales', 'fxSettings', 'openingBalances/settings', 'salesRepSettings'], fs: ['companyDocumentCategories'],
     detail: 'Document numbering formats; Sales Invoice, e-invoicing, barcode, retail counter, exchange-rate and opening-balance settings; company document categories.' }
 };
 
@@ -85,7 +87,7 @@ const CATEGORIES = {
 // are empty, or cleared in the same reset. The ported categories' keys are
 // the ported Data Reset's own (glEntries, stockData, ...).
 const TXN = ['glEntries', 'stockData', 'vendorInvoices', 'customerInvoices', 'openingBalanceBatches', 'pdcCheques', 'fixedAssets', 'recurringJournals',
-  'salesOrders', 'purchasing', 'jobOrders', 'employeeChanges', 'leave', 'payrollRuns', 'payrollSettlements', 'payrollLoans', 'employeeRequests', 'clearances'];
+  'salesOrders', 'purchasing', 'jobOrders', 'employeeChanges', 'leave', 'payrollRuns', 'payrollSettlements', 'payrollLoans', 'employeeRequests', 'clearances', 'repReceipts'];
 const USED_BY = {
   companies: TXN.concat(['employees']),
   coa: ['glEntries', 'recurringJournals', 'openingBalanceBatches'],
@@ -97,8 +99,8 @@ const USED_BY = {
   customerClassifications: ['customers'],
   salesTypes: ['customerInvoices'],
   vendors: ['vendorInvoices', 'purchasing', 'pdcCheques', 'stockData'],
-  customers: ['customerInvoices', 'salesOrders', 'pdcCheques', 'stockData'],
-  employees: ['employeeChanges', 'leave', 'payrollRuns', 'payrollSettlements', 'payrollLoans', 'employeeRequests', 'clearances'],
+  customers: ['customerInvoices', 'salesOrders', 'pdcCheques', 'stockData', 'repReceipts'],
+  employees: ['employeeChanges', 'leave', 'payrollRuns', 'payrollSettlements', 'payrollLoans', 'employeeRequests', 'clearances', 'repReceipts'],
   requisitionCategories: ['purchasing'],
   fixedAssetSetup: ['fixedAssets'],
   hrSetup: ['employees', 'leave'],

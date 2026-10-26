@@ -29,7 +29,10 @@ const STOCK_TRANSACTION_PREFIXES = {
   FinalSettlement: 'FS', // an employee's final settlement (step 5b)
   RetailSale: 'RS', // hand-written module, docs/modules/RETAIL_SALES.md: a sale and its reversal
   RetailReturn: 'RR', // its partial returns (decisions 76-79) and their reversal
-  YearEndClose: 'YEC' // hand-written module, docs/modules/PERIOD_CLOSING.md: the year-end closing entry and its reversal
+  YearEndClose: 'YEC', // hand-written module, docs/modules/PERIOD_CLOSING.md: the year-end closing entry and its reversal
+  // A sales rep's receipt and its cancellation (docs/modules/REP_COLLECTIONS.md):
+  // always numbered by the rep's own series, RC-<rep code>-000001 (salesRep.js).
+  RepReceipt: 'RC'
 };
 
 function userCanAccessCompany(profile, companyId) {
