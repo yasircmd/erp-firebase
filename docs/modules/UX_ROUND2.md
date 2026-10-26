@@ -66,14 +66,14 @@ document.
 
 | # | Item | Plan / questions |
 |---|---|---|
-| 32 | Tax per item or line (some items exempt or at another rate) | Today one tax for the invoice. Line-level tax categories (standard, zero-rated, exempt, out of scope), on sales and purchases, in the GL, the VAT return figures and e-invoicing (PINT AE carries tax per line). Large: touches every invoice, return and print. **Recommendation: the most valuable of wave 5**, for VAT accuracy. |
-| 33 | A mobile-friendly view | The most used screens first. **Q280:** which screens matter most on a phone? |
+| 32 | Tax per item or line (some items exempt or at another rate) | Today one tax for the invoice. Line-level tax categories (standard, zero-rated, exempt, out of scope), on sales and purchases, in the GL, the VAT return figures and e-invoicing (PINT AE carries tax per line). Large: touches every invoice, return and print. **Recommendation: the most valuable of wave 5**, for VAT accuracy. **Widened (owner, 2026-10-26)** to a configurable tax module for any sales tax (UAE VAT, India GST): [TAX_ENGINE.md](TAX_ENGINE.md), decisions Q311–Q322 agreed. Part 1 (Tax Configuration) built 2026-10-26, deploy set `ux2-tax1`. |
+| 33 | A mobile-friendly view | The most used screens first. **Q280:** which screens matter most on a phone? **Decided (owner, 2026-10-26), Q280:** Home with its tasks and approvals, and the reports and balances (stock availability, statements, aging, trial balance): looked up and approved, not entered. |
 | 34 | An offline / installable app that loads faster | An installable web app (PWA): the shell and screens cached, so they open faster. True offline work (saving without a connection) is not proposed: postings must reach the server to be checked. |
-| 35 | FX rates from a Google Sheet without an API | Feasible: the sheet uses GOOGLEFINANCE, is published to the web as CSV, and the ERP reads it daily, the rates shown for review before they apply. **Q281:** applied automatically, or only after someone confirms? (GOOGLEFINANCE rates can be delayed; they are indicative.) |
-| 36 | A default chart heading for any new corporate | Set up already copies Corporate 100's current headings (decision 261). **Q282:** is something more wanted (done automatically when a corporate is added, or another default set)? |
+| 35 | FX rates from a Google Sheet without an API | Feasible: the sheet uses GOOGLEFINANCE, is published to the web as CSV, and the ERP reads it daily, the rates shown for review before they apply. **Q281:** applied automatically, or only after someone confirms? (GOOGLEFINANCE rates can be delayed; they are indicative.) **Decided (owner, 2026-10-26), Q281:** only after someone confirms: the day's rates are shown for review, and a user with the right applies them. |
+| 36 | A default chart heading for any new corporate | Set up already copies Corporate 100's current headings (decision 261). **Q282:** is something more wanted (done automatically when a corporate is added, or another default set)? **Decided (owner, 2026-10-26), Q282:** nothing more: Set up's copy of Corporate 100's headings stays as it is. **Closed** (already done, decision 261). |
 | 37 | Data Reset in 100 must not clear a client's | **Proved (2026-10-24):** emulator/dataResetAll resets Corporate 200 and Corporate 100 in turn; each leaves the other's data as it was. |
 
 ## Open questions, in the order they are needed
 
 Wave 1: Q266–Q269 all decided. Wave 2: Q270–Q274 decided. Wave 3: Q275, Q276 and Q287–Q292 decided.
-Wave 4: Q277–Q279. Wave 5: Q280–Q282.
+Wave 4: Q277–Q279. Wave 5: Q280–Q282 (decided 2026-10-26).

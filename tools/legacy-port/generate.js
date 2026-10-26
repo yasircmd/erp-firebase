@@ -170,7 +170,8 @@ const SHARED_PATHS = {
   projects: '../projects',
   dimensionRules: '../dimensionRules',
   eInvoicing: '../eInvoicing',
-  dataReset: '../dataReset' // used by name (__dataReset.) in patches
+  dataReset: '../dataReset', // used by name (__dataReset.) in patches
+  taxEngine: '../taxEngine' // used by name (__taxEngine.) in patches (TAX_ENGINE.md)
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
 const LOCK_METHODS = new Set(['waitLock', 'releaseLock', 'tryLock']);
@@ -381,7 +382,34 @@ const { toCompactForms } = require('./compactForms');
 const { toGridClipboard } = require('./gridClipboard');
 // Exact-text edits to generated screens (each fails the run if its text is
 // no longer there). Keep this short: prefer a rule in the shell.
+// A customer's or vendor's tax registration (docs/modules/TAX_ENGINE.md, part 1;
+// patches tax-party-*): the registration type and the state or emirate, beside
+// the tax number. The lists are taxEngine.js's own.
+function taxPartyEdits(mod, p) {
+  const tax = require(path.join(REPO, 'functions/src/taxEngine'));
+  const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/'/g, '&#39;');
+  const types = tax.REGISTRATION_TYPES.filter(Boolean).map(t => '<option value="' + t + '">' + t + '</option>').join('');
+  const states = '<optgroup label="UAE: emirates">' + Object.keys(tax.EMIRATES).map(k => '<option value="' + k + '">' + esc(tax.EMIRATES[k]) + '</option>').join('') + '</optgroup>' +
+    '<optgroup label="India: GST states">' + Object.keys(tax.GST_STATES).map(k => '<option value="' + k + '">' + k + ' ' + esc(tax.GST_STATES[k]) + '</option>').join('') + '</optgroup>';
+  const field = 'w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-blue-500';
+  return [
+    { mod, from: `        <div><label class="block text-xs font-medium text-slate-300 mb-1">Tax Registration No. <span class="text-slate-500">(optional)</span></label><input type="text" id="${p}-form-taxreg" class="${field}"></div>`,
+      to: `        <div><label class="block text-xs font-medium text-slate-300 mb-1">Tax Registration No. <span class="text-slate-500">(GSTIN, TRN …)</span></label><input type="text" id="${p}-form-taxreg" class="${field}"></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">Tax registration type</label><select id="${p}-form-taxtype" class="${field}"><option value="">—</option>${types}</select></div>
+        <div><label class="block text-xs font-medium text-slate-300 mb-1">State / emirate <span class="text-slate-500">(place of supply)</span></label><select id="${p}-form-taxstate" class="${field}"><option value="">—</option>${states}</select></div>` },
+    { mod, from: `      document.getElementById('${p}-form-taxreg').value = v.TaxRegistrationNumber || '';\n`,
+      to: `      document.getElementById('${p}-form-taxreg').value = v.TaxRegistrationNumber || '';
+      document.getElementById('${p}-form-taxtype').value = v.TaxRegistrationType || '';
+      document.getElementById('${p}-form-taxstate').value = v.TaxState || '';\n` },
+    { mod, from: `      TaxRegistrationNumber: document.getElementById('${p}-form-taxreg').value.trim(),\n`,
+      to: `      TaxRegistrationNumber: document.getElementById('${p}-form-taxreg').value.trim(),
+      TaxRegistrationType: document.getElementById('${p}-form-taxtype').value,
+      TaxState: document.getElementById('${p}-form-taxstate').value,\n` }
+  ];
+}
 const SCREEN_EDITS = [
+  ...taxPartyEdits('CUSTOMERMASTER', 'cus'),
+  ...taxPartyEdits('VENDORMASTER', 'ven'),
   // Stock Availability: what the reserved quantity is for (owner, 2026-10-24;
   // UX_ROUND2.md item 24; patch stock-availability-reserved-by): the figure
   // opens the row's reserving Sales Orders, each opened from there by a user

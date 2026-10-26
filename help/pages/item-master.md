@@ -5,8 +5,8 @@ order: 1
 modules: [ITEMMASTER]
 sources: [functions/src/masterData.js, functions/src/itemCategories.js]
 summary: Maintain the master item record used by purchase, stock movement, valuations and stock reports.
-reviewed: 2026-10-24
-fingerprint: 2cc6a77d54f4a4f7
+reviewed: 2026-10-26
+fingerprint: 2ea79a4536c7a9bf
 ---
 ## What it is for
 
@@ -46,6 +46,15 @@ digits, - _ / or . (starting with a letter or digit).
 
 The item code stays what the ERP stores on every document, so adding or
 changing a user code changes nothing already entered.
+
+## Its tax
+
+**Tax code** is the code a document line takes for the item, from the
+company's [Tax Configuration](tax-configuration.html) (for example SR for
+standard-rated VAT, GST18 for 18% GST). **HSN / SAC** is India's
+classification: an HSN code for goods (4, 6 or 8 digits), a SAC code for
+services (6 digits starting 99). Both are optional where the company has no
+use for them.
 
 ## Categories of your own
 

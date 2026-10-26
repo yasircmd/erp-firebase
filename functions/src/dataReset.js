@@ -73,6 +73,8 @@ const CATEGORIES = {
   shareholders: { label: 'Shareholders', group: M, rtdb: ['companyShareholders'],
     detail: 'Each company\'s shareholders and issued shares.' },
 
+  taxConfig: { label: 'Tax Configuration', group: S, fs: ['taxConfig', 'taxCodeUse'],
+    detail: 'Each company\'s tax regime, its components and accounts, and its tax codes with their rates. Documents already posted keep the tax they posted.' },
   hrSetup: { label: 'HR Setup', group: S, fs: ['hrGrades', 'hrDesignations', 'hrFields', 'hrDocumentTypes', 'hrLeaveTypes', 'hrWorkCalendars', 'hrWorkSchedules', 'hrLeavingReasons', 'clearanceSetup'],
     detail: 'Grades, designations, employee fields, document types, leave types, working calendars, work schedules, leaving reasons and the clearance steps. The defaults come back when HR Setup is next opened.' },
   payrollSetup: { label: 'Payroll Setup', group: S, fs: ['hrPayElements', 'payrollSettings', 'payrollPaymentFormats', 'payrollLoanTypes', 'payrollAccrualTypes', 'reimbursementCategories', 'employeeRequestHandlers', 'employeeRequestTypes'],

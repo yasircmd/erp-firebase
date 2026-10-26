@@ -6,7 +6,7 @@ modules: [CUSTOMERMASTER]
 sources: [functions/src/partyLedger.js, functions/src/customerPhone.js]
 summary: Keep each customer record complete so sales orders, delivery notes and customer invoices can be raised correctly.
 reviewed: 2026-10-26
-fingerprint: 5aa2b10ef2b60f52
+fingerprint: e5676144a90a231a
 ---
 ## What it is for
 
@@ -24,6 +24,18 @@ fingerprint: 5aa2b10ef2b60f52
 2. Add or update the customer's basic details.
 3. Complete the sales and credit information needed for invoicing and statements.
 4. Save the record and test it in a sales order or invoice.
+
+## Tax registration
+
+Beside the **Tax Registration No.** (a UAE TRN, an Indian GSTIN …), choose the
+customer's **tax registration type** (registered, unregistered, composition,
+SEZ, overseas, consumer) and its **state / emirate**. In India the state
+decides the place of supply: within the company's own state GST is charged
+as CGST and SGST, otherwise as IGST (see
+[Tax Configuration](tax-configuration.html)). A registered party in India
+needs its GSTIN, which is checked: its first two digits must be the state
+chosen, and its last character must agree with the rest. A UAE TRN of a
+registered party is 15 digits starting 100.
 
 ## A customer in a foreign currency
 

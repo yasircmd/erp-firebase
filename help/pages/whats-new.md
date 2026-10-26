@@ -12,6 +12,13 @@ screen.
 
 ## 26/10/2026
 
+- **Tax Configuration, for VAT, GST or a tax of your own.** Each company
+  now sets its sales tax in [Tax Configuration](tax-configuration.html):
+  UAE VAT or India GST ready-made, or its own, with each component's
+  accounts and its tax codes rated by date. Items take a tax code and HSN /
+  SAC; customers and vendors a registration type, state or emirate, and a
+  checked GSTIN or TRN. Invoices start using it in the next release.
+
 - **Sales reps' receipts, final at once.** A rep's collection in the
   Employee Portal now gives the customer its receipt straight away,
   numbered from the rep's own series (RC-AK-000001), shared as a PDF from

@@ -6,7 +6,7 @@ modules: [VENDORMASTER]
 sources: [functions/src/partyLedger.js]
 summary: Maintain the supplier record used in requisitions, purchase orders, GRNs and supplier bills.
 reviewed: 2026-10-26
-fingerprint: 261de8a946a2c975
+fingerprint: 8f6c72f2c8a412c0
 ---
 ## What it is for
 
@@ -24,6 +24,18 @@ fingerprint: 261de8a946a2c975
 2. Add or update the vendor's basic details: name, address, contact and tax information.
 3. Complete the trade details needed for purchasing and payment processing.
 4. Save the vendor and test a PO or GRN using that vendor.
+
+## Tax registration
+
+Beside the **Tax Registration No.** (a UAE TRN, an Indian GSTIN …), choose the
+vendor's **tax registration type** (registered, unregistered, composition,
+SEZ, overseas, consumer) and its **state / emirate**. In India the state
+decides the place of supply: within the company's own state GST is charged
+as CGST and SGST, otherwise as IGST (see
+[Tax Configuration](tax-configuration.html)). A registered party in India
+needs its GSTIN, which is checked: its first two digits must be the state
+chosen, and its last character must agree with the rest. A UAE TRN of a
+registered party is 15 digits starting 100.
 
 ## A vendor in a foreign currency
 
