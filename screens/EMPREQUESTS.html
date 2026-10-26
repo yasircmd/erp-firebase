@@ -4,6 +4,7 @@
     <div class="flex gap-2">
       <button id="erq-tab-list" class="erq-tab bg-slate-800 text-xs px-3 py-2 rounded-lg border border-slate-700">Requests</button>
       <button id="erq-tab-handlers" class="erq-tab bg-slate-800 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-user-gear"></i> Handlers</button>
+      <button id="erq-tab-types" class="erq-tab bg-slate-800 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-shapes"></i> Types</button>
     </div>
   </div>
 
@@ -14,7 +15,7 @@
       <input id="erq-search" placeholder="Search no., employee..." class="md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
       <select id="erq-status" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300">
         <option value="waiting">Waiting for HR</option><option value="open">Open</option><option value="">All</option><option value="closed">Closed</option></select>
-      <select id="erq-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All types</option><option value="Query">Payroll queries</option><option value="Loan">Advance / loan requests</option><option value="Claim">Expense claims</option></select>
+      <select id="erq-type" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All types</option><option value="Query">Payroll queries</option><option value="Loan">Advance / loan requests</option><option value="Claim">Expense claims</option><option value="Custom">Other requests (types)</option></select>
       <select id="erq-cat" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="">All categories</option></select>
       <div class="flex gap-2"><label class="flex items-center gap-2 text-xs text-slate-300"><input id="erq-mine" type="checkbox"> Mine</label>
         <button id="erq-copy" class="ml-auto bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2 rounded-lg border border-slate-700"><i class="fa-solid fa-copy"></i> Copy</button></div>
@@ -67,6 +68,32 @@
           <ul id="erq-history" class="text-xs text-slate-400 space-y-1"></ul>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- request types (docs/modules/EMPLOYEE_REQUEST_TYPES.md, item 27) -->
+  <div id="erq-types-view" class="hidden space-y-4">
+    <p class="text-xs text-slate-400 max-w-3xl">The requests employees can raise from the portal besides payroll queries, loans and claims: a salary certificate, IT support … Each has its fields, goes to its handler (Handlers tab, by the type's name) or to the line manager first, and may have a time to answer. A certificate type is answered with a document HR attaches. Requests are numbered RQ-.</p>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-x-auto">
+      <table class="w-full text-left text-sm"><thead><tr class="bg-slate-900 border-b border-slate-700 text-xs text-slate-400 uppercase">
+        <th class="py-2 px-3">Type</th><th class="py-2 px-3">Goes to</th><th class="py-2 px-3">Answer within</th><th class="py-2 px-3">Fields</th><th class="py-2 px-3">Status</th></tr></thead>
+        <tbody id="erq-t-body" class="divide-y divide-slate-700"></tbody></table>
+    </div>
+    <button id="erq-t-new" class="hidden bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-plus"></i> New type</button>
+    <div id="erq-t-form" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="md:col-span-2"><label class="block text-xs text-slate-300 mb-1">Name</label><input id="erq-t-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" placeholder="e.g. Salary certificate"></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Goes to</label><select id="erq-t-route" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"><option value="Handler">Its handler</option><option value="Manager">The line manager first</option></select></div>
+        <div><label class="block text-xs text-slate-300 mb-1">Answer within (days)</label><input id="erq-t-days" type="number" min="1" max="365" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" placeholder="blank: no limit"></div>
+        <div class="md:col-span-4"><label class="block text-xs text-slate-300 mb-1">Description for the employee</label><input id="erq-t-desc" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      </div>
+      <div class="flex flex-wrap gap-4 text-xs text-slate-300"><label class="flex items-center gap-2"><input id="erq-t-doc" type="checkbox"> The answer is a document (HR attaches it)</label>
+        <label class="flex items-center gap-2"><input id="erq-t-active" type="checkbox" checked> Active</label>
+        <span id="erq-t-cos" class="flex flex-wrap gap-3"></span></div>
+      <div><p class="text-xs text-slate-400 mb-1">Fields</p><div id="erq-t-fields" class="space-y-2"></div>
+        <button id="erq-t-add" class="mt-2 bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add field</button></div>
+      <div class="flex gap-2"><button id="erq-t-save" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-2 rounded-lg"><i class="fa-solid fa-floppy-disk"></i> Save type</button>
+        <button id="erq-t-cancel" class="bg-slate-800 hover:bg-slate-700 text-xs px-4 py-2 rounded-lg border border-slate-700">Cancel</button></div>
     </div>
   </div>
 
@@ -133,8 +160,8 @@
       '<td class="py-2.5 px-3 font-mono text-xs whitespace-nowrap">' + (r.Waiting ? '<span class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1" title="Waiting for HR"></span>' : '') + escapeHtml(r.Number) + '</td>' +
       '<td class="py-2.5 px-3">' + escapeHtml(r.EmployeeName) + ' <span class="text-xs text-slate-500">' + escapeHtml(r.EmployeeNo) + '</span></td>' +
       '<td class="py-2.5 px-3 text-xs">' + escapeHtml(coLabel(r.CompanyID)) + '</td>' +
-      '<td class="py-2.5 px-3 text-xs">' + (r.Type === 'Query' ? 'Query: ' : r.Type === 'Claim' ? 'Claim: ' : '') + escapeHtml(r.Title) + '</td>' +
-      '<td class="py-2.5 px-3 text-xs ' + (STAGE_CLASS[r.Stage] || '') + '">' + escapeHtml(r.StatusText) + '</td>' +
+      '<td class="py-2.5 px-3 text-xs">' + (r.Type === 'Query' ? 'Query: ' : r.Type === 'Claim' ? 'Claim: ' : r.Type === 'Custom' ? 'Request: ' : '') + escapeHtml(r.Title) + '</td>' +
+      '<td class="py-2.5 px-3 text-xs ' + (STAGE_CLASS[r.Stage] || '') + '">' + escapeHtml(r.StatusText) + (r.Overdue ? ' <span class="erq-overdue text-red-400 font-semibold">· overdue</span>' : '') + '</td>' +
       '<td class="py-2.5 px-3 text-xs">' + escapeHtml(r.AssignedName || '—') + '</td>' +
       '<td class="py-2.5 px-3 text-xs whitespace-nowrap">' + escapeHtml(isoLocalDateTime(new Date(r.LastAt))) + '</td></tr>').join('') ||
       '<tr><td colspan="7" class="py-6 text-center text-slate-500">No requests.</td></tr>';
@@ -142,7 +169,7 @@
   // Tab-separated, so a paste into Excel lands each field in its own cell.
   function copyList() {
     const tsv = [['No.', 'Employee No.', 'Employee', 'Company', 'Type', 'Category', 'About', 'Status', 'With', 'Raised', 'Last activity']].concat(rows().map(r =>
-      [r.Number, r.EmployeeNo, r.EmployeeName, coLabel(r.CompanyID), r.Type === 'Query' ? 'Payroll query' : r.Type === 'Claim' ? 'Expense claim' : 'Advance / loan', r.Category, r.Title, r.StatusText, r.AssignedName, isoLocalDateTime(new Date(r.CreatedAt)), isoLocalDateTime(new Date(r.LastAt))]))
+      [r.Number, r.EmployeeNo, r.EmployeeName, coLabel(r.CompanyID), r.Type === 'Query' ? 'Payroll query' : r.Type === 'Claim' ? 'Expense claim' : r.Type === 'Custom' ? 'Request' : 'Advance / loan', r.Category, r.Title, r.StatusText, r.AssignedName, isoLocalDateTime(new Date(r.CreatedAt)), isoLocalDateTime(new Date(r.LastAt))]))
       .map(c => c.map(x => String(x == null ? '' : x).replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
     const done = () => { $('erq-copy').innerHTML = '<i class="fa-solid fa-check"></i> Copied'; setTimeout(() => { const b = $('erq-copy'); if (b) b.innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 2000); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, () => appAlert('Unable to copy.'));
@@ -150,7 +177,7 @@
   }
 
   // ---------- one request ----------
-  function show(view) { ['erq-list-view', 'erq-detail', 'erq-handlers-view'].forEach(v => $(v).classList.toggle('hidden', v !== view)); }
+  function show(view) { ['erq-list-view', 'erq-detail', 'erq-handlers-view', 'erq-types-view'].forEach(v => $(v).classList.toggle('hidden', v !== view)); }
   function open(id) {
     return er('get', { id }).then(d => {
       current = d;
@@ -159,7 +186,7 @@
       $('erq-status-badge').innerHTML = '<span class="' + (STAGE_CLASS[r.Stage] || '') + '">' + escapeHtml(r.StatusText) + '</span>';
       const row = (k, v) => v === '' || v == null ? '' : '<div class="flex gap-3"><span class="w-40 shrink-0 text-slate-400">' + k + '</span><span class="text-slate-200">' + v + '</span></div>';
       $('erq-facts').innerHTML = row('Employee', escapeHtml(r.EmployeeNo + ' · ' + r.EmployeeName)) + row('Company', escapeHtml(coLabel(r.CompanyID))) + row('Raised', escapeHtml(isoLocalDateTime(new Date(r.CreatedAt)))) +
-        (r.Type === 'Claim' ? claimFacts(r) : r.Type === 'Query'
+        (r.Type === 'Claim' ? claimFacts(r) : r.Type === 'Custom' ? customFacts(r, row) : r.Type === 'Query'
           ? row('Payslip', escapeHtml(r.Month)) + row('About', escapeHtml(r.Category)) + r.Lines.map(l => row(escapeHtml(l.Name) + ' <span class="text-xs">(' + escapeHtml(l.Kind.toLowerCase()) + ')</span>', money(l.Amount))).join('') +
             (r.Expected != null ? row('Expected', money(r.Expected)) : '') + row('Description', '<span class="whitespace-pre-line">' + escapeHtml(r.Description) + '</span>')
           : row('Type', escapeHtml(r.TypeName)) + row('Amount', money(r.Amount)) + (r.Kind === 'Loan' ? row('Instalments', money(r.Instalment) + ' × ' + r.Months) : '') + row('Recovery from', escapeHtml(r.StartMonth)) +
@@ -179,7 +206,7 @@
       const canAct = d.canHandle && d.isOpen;
       $('erq-compose').classList.toggle('hidden', !canAct || r.Stage === 'Draft');
       renderApproval(r);
-      $('erq-resolve').classList.toggle('hidden', r.Type !== 'Query');
+      $('erq-resolve').classList.toggle('hidden', !(r.Type === 'Query' || (r.Type === 'Custom' && r.Stage !== 'WithManager')));
       $('erq-text').value = '';
       $('erq-assigned').innerHTML = escapeHtml(r.AssignedName || 'Nobody: everyone who handles ' + coLabel(r.CompanyID) + '\'s requests') + (r.BackupName ? ' <span class="text-xs text-slate-500">(backup ' + escapeHtml(r.BackupName) + ')</span>' : '');
       $('erq-assign-wrap').classList.toggle('hidden', !canAct);
@@ -187,6 +214,15 @@
       $('erq-history').innerHTML = r.History.map(h => '<li><span class="text-slate-300">' + escapeHtml(isoLocalDateTime(new Date(h.At))) + ' · ' + escapeHtml(h.By) + ' · ' + escapeHtml(h.Event) + '</span>' + (h.Note ? ' — ' + escapeHtml(h.Note) : '') + '</li>').join('');
       show('erq-detail');
     }, err => appAlert(err.message || 'Unable to open the request.'));
+  }
+  // A request of a type (docs/modules/EMPLOYEE_REQUEST_TYPES.md): its answers, the route, when it is due.
+  function customFacts(r, row) {
+    const value = a => a.Kind === 'date' && a.Value ? escapeHtml(a.Value) : '<span class="whitespace-pre-line">' + escapeHtml(a.Value || '—') + '</span>';
+    return row('Type', escapeHtml(r.TypeName)) + (r.Answers || []).map(a => row(escapeHtml(a.Label), value(a))).join('') +
+      (r.Description ? row('Details', '<span class="whitespace-pre-line">' + escapeHtml(r.Description) + '</span>') : '') +
+      (r.ManagerName ? row('Line manager', escapeHtml(r.ManagerName + (r.Stage === 'WithManager' ? ' (deciding)' : ''))) : '') +
+      (r.DueDate ? row('Answer by', '<span class="' + (r.Overdue ? 'text-red-400 font-semibold' : '') + '">' + escapeHtml(r.DueDate) + (r.Overdue ? ' (overdue)' : '') + '</span>') : '') +
+      (r.DocumentAnswer ? row('Answer', 'a document: attach it under Supporting documents, then Resolve') : '');
   }
   // A claim's bills (step 3): claimed, approved (in part), receipts.
   function claimFacts(r) {
@@ -252,6 +288,45 @@
     else if (kind === 'draft') er('draftLoan', { id: r.RequestID }).then(x => openModule('PAYROLLLOAN', { OpenEntryId: x.loanId }, back()), err => appAlert(err.message || 'Unable to draft the loan.'));
   }
 
+  // ---------- request types (item 27) ----------
+  const KIND_LABEL = { text: 'Short text', longtext: 'Long text', number: 'Number', date: 'Date', choice: 'Choice', yesno: 'Yes / no', file: 'Files' };
+  let types = null, editing = null;
+  function loadTypes() {
+    return er('types').then(t => {
+      types = t;
+      $('erq-t-new').classList.toggle('hidden', !t.canSetup);
+      $('erq-t-body').innerHTML = t.types.map(x => '<tr data-id="' + escapeHtml(x.TypeID) + '" class="' + (t.canSetup ? 'hover:bg-slate-800/40 cursor-pointer' : '') + '"><td class="py-2 px-3">' + escapeHtml(x.Name) +
+        (x.DocumentAnswer ? ' <span class="text-xs text-slate-500">(a document)</span>' : '') + '</td><td class="py-2 px-3 text-xs">' + (x.Route === 'Manager' ? 'Line manager, then handler' : 'Handler') + '</td>' +
+        '<td class="py-2 px-3 text-xs">' + (x.AnswerDays ? x.AnswerDays + ' days' : '—') + '</td><td class="py-2 px-3 text-xs text-slate-400">' + escapeHtml((x.Fields || []).map(f => f.Label).join(', ') || '—') + '</td>' +
+        '<td class="py-2 px-3 text-xs">' + (x.Active === false ? 'Off' : 'Active') + '</td></tr>').join('') || '<tr><td colspan="5" class="py-4 text-center text-slate-500">No request types yet.</td></tr>';
+      $('erq-t-form').classList.add('hidden');
+    }, err => appAlert(err.message || 'Unable to load the request types.'));
+  }
+  function fieldRow(f) {
+    return '<div class="erq-t-field grid grid-cols-1 md:grid-cols-6 gap-2 items-center" data-key="' + escapeHtml(f.Key || '') + '">' +
+      '<input class="erq-tf-label md:col-span-2 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-sm" placeholder="Label" value="' + escapeHtml(f.Label || '') + '">' +
+      '<select class="erq-tf-kind bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-sm text-slate-300">' + Object.keys(KIND_LABEL).map(k => '<option value="' + k + '"' + (k === (f.Kind || 'text') ? ' selected' : '') + '>' + KIND_LABEL[k] + '</option>').join('') + '</select>' +
+      '<input class="erq-tf-options md:col-span-2 bg-slate-900 border border-slate-700 rounded py-1.5 px-2 text-sm" placeholder="Choices, comma-separated (for a choice)" value="' + escapeHtml((f.Options || []).join(', ')) + '">' +
+      '<div class="flex items-center gap-3 text-xs"><label class="flex items-center gap-1"><input class="erq-tf-req" type="checkbox"' + (f.Required ? ' checked' : '') + '> Required</label><button class="erq-tf-del text-red-300"><i class="fa-solid fa-trash"></i></button></div></div>';
+  }
+  function editType(t) {
+    editing = t || null;
+    const x = t || { Name: '', Description: '', Route: 'Handler', AnswerDays: null, DocumentAnswer: false, Active: true, Fields: [], CompanyIDs: [] };
+    $('erq-t-name').value = x.Name; $('erq-t-desc').value = x.Description || ''; $('erq-t-route').value = x.Route; $('erq-t-days').value = x.AnswerDays || '';
+    $('erq-t-doc').checked = Boolean(x.DocumentAnswer); $('erq-t-active').checked = x.Active !== false;
+    $('erq-t-cos').innerHTML = '<span class="text-slate-400">For:</span>' + companies.map(c => '<label class="flex items-center gap-1"><input type="checkbox" class="erq-t-co" value="' + escapeHtml(c.CompanyID) + '"' + ((x.CompanyIDs || []).includes(c.CompanyID) ? ' checked' : '') + '> ' + escapeHtml(coLabel(c.CompanyID)) + '</label>').join('') +
+      '<span class="text-slate-500">(none ticked: every company)</span>';
+    $('erq-t-fields').innerHTML = (x.Fields || []).map(fieldRow).join('');
+    $('erq-t-form').classList.remove('hidden');
+  }
+  function saveType() {
+    const fields = [...document.querySelectorAll('.erq-t-field')].map(b => ({ Key: b.dataset.key, Label: b.querySelector('.erq-tf-label').value.trim(), Kind: b.querySelector('.erq-tf-kind').value,
+      Required: b.querySelector('.erq-tf-req').checked, Options: b.querySelector('.erq-tf-options').value.split(',').map(o => o.trim()).filter(Boolean) }));
+    er('saveType', { typeId: editing ? editing.TypeID : '', name: val('erq-t-name').trim(), description: val('erq-t-desc').trim(), route: val('erq-t-route'), answerDays: val('erq-t-days'),
+      documentAnswer: $('erq-t-doc').checked, active: $('erq-t-active').checked, companyIds: [...document.querySelectorAll('.erq-t-co:checked')].map(x => x.value), fields })
+      .then(() => loadTypes(), err => appAlert(err.message || 'Unable to save the type.'));
+  }
+
   // ---------- handlers ----------
   function loadHandlers() {
     return er('handlers').then(h => {
@@ -287,6 +362,13 @@
     $('erq-tab-list').addEventListener('click', () => { current = null; show('erq-list-view'); });
     $('erq-tab-handlers').addEventListener('click', () => loadHandlers().then(() => show('erq-handlers-view')));
     $('erq-h-co').addEventListener('change', people);
+    $('erq-tab-types').addEventListener('click', () => loadTypes().then(() => show('erq-types-view')));
+    $('erq-t-new').addEventListener('click', () => editType(null));
+    $('erq-t-body').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr && types.canSetup) editType(types.types.find(t => t.TypeID === tr.dataset.id)); });
+    $('erq-t-add').addEventListener('click', () => $('erq-t-fields').insertAdjacentHTML('beforeend', fieldRow({})));
+    $('erq-t-fields').addEventListener('click', e => { const b = e.target.closest('.erq-tf-del'); if (b) b.closest('.erq-t-field').remove(); });
+    $('erq-t-save').addEventListener('click', saveType);
+    $('erq-t-cancel').addEventListener('click', () => $('erq-t-form').classList.add('hidden'));
     $('erq-h-save').addEventListener('click', () => er('saveHandler', { companyId: val('erq-h-co'), category: val('erq-h-cat'), handlerUid: val('erq-h-user'), backupUid: val('erq-h-backup') })
       .then(loadHandlers, err => appAlert(err.message || 'Unable to save.')));
     $('erq-h-body').addEventListener('click', async e => {

@@ -267,7 +267,7 @@ async function reportsOf(emp) {
 async function team(me) {
   const reports = await reportsOf(me.emp);
   const ids = new Set(reports.map(e => e.EmployeeID));
-  if (!ids.size) return { isManager: false, pending: [], decided: [], loanRequests: [], claims: [], onLeaveToday: [], returnsDue: [] };
+  if (!ids.size) return { isManager: false, pending: [], decided: [], loanRequests: [], claims: [], requests: [], onLeaveToday: [], returnsDue: [] };
   const pending = docs(await LEAVES().where('Status', '==', 'PendingManager').get()).filter(l => ids.has(l.EmployeeID)).map(l => Object.assign(l, { LeaveID: l._id }));
   const out = [];
   for (const l of pending.sort((a, b) => String(a.FromDate).localeCompare(String(b.FromDate)))) {
@@ -287,11 +287,12 @@ async function team(me) {
   // Advance and loan requests (step 2, decision 102).
   const loanRequests = await ER().teamLoanRequests(ids);
   const claims = await require('./reimbursements').teamClaims(ids);
+  const requests = await ER().teamCustomRequests(ids); // requests of a type routed through the manager (item 27)
   // The reports away today and their returns due, to see: HR records a
   // return in the Leave Register (owner, 2026-10-10).
   const lt = await leaveTasks(me);
   const theirs = x => x.As === 'Line manager';
-  return { isManager: true, pending: out, decided, loanRequests, claims, onLeaveToday: lt.onLeaveToday.filter(theirs), returnsDue: lt.returnsToRecord.filter(theirs) };
+  return { isManager: true, pending: out, decided, loanRequests, claims, requests, onLeaveToday: lt.onLeaveToday.filter(theirs), returnsDue: lt.returnsToRecord.filter(theirs) };
 }
 
 async function decideLeave(me, d) {
@@ -379,7 +380,7 @@ const ACTIONS = {
     const [bal, leaves, slips, t, lt] = await Promise.all([balances(me.emp), myLeaves(me.emp), payslipList(me.emp), team(me), leaveTasks(me)]);
     const own = x => x.As === 'Employee';
     return { balances: bal, open: leaves.filter(l => ['PendingManager', 'PendingApproval'].includes(l.Status) || (l.Status === 'Approved' && l.ToDate >= today())).slice(0, 5),
-      lastPayslip: slips[0] || null, teamPending: t.pending.length + (t.loanRequests || []).length + (t.claims || []).length, requests: await ER().portalCounts(me), today: today(),
+      lastPayslip: slips[0] || null, teamPending: t.pending.length + (t.loanRequests || []).length + (t.claims || []).length + (t.requests || []).length, requests: await ER().portalCounts(me), today: today(),
       // The employee's own: back from leave, still to be recorded by HR.
       myReturnDue: lt.returnsToRecord.filter(own)[0] || null, teamAway: t.onLeaveToday.length, teamReturnsDue: t.returnsDue.length };
   } },
@@ -422,6 +423,10 @@ const ACTIONS = {
   requestLoan: { run: async (me, d) => ER().requestLoan(me, d, await lineManager(me.emp)) },
   loans: { run: async (me) => ({ loans: await ER().myLoans(me) }) },
   decideLoanRequest: { run: (me, d) => ER().decideLoanRequest(me, d) },
+  // Requests of the types HR sets up (requestTypes.js; docs/modules/EMPLOYEE_REQUEST_TYPES.md).
+  requestForm: { run: (me) => ER().requestForm(me) },
+  raiseRequest: { run: async (me, d) => ER().raiseRequest(me, d, await lineManager(me.emp)) },
+  decideTeamRequest: { run: (me, d) => ER().decideTeamRequest(me, d) },
   // Step 3: reimbursement claims (reimbursements.js).
   claimForm: { run: async (me) => Object.assign(await require('./reimbursements').claimForm(me), { manager: ((await lineManager(me.emp)) || {}).FullName || '' }) },
   raiseClaim: { run: (me, d) => ER().raiseClaim(me, d) },

@@ -1458,3 +1458,12 @@ from, and how it was verified. The deploy procedure is in the
   `20261025T170842Z-0aa14f1`, 89/89 verified). Then Hosting, run
   [#224](https://github.com/yasircmd/erp-firebase/actions/runs/40216919151)
   (17:31–17:32 UTC), success.
+- **2026-10-25/26, UX round 2 item 28, leaver clearance (`ux2-clearance`,
+  PR #176, from `a70c2b3`):** run
+  [#225](https://github.com/yasircmd/erp-firebase/actions/runs/40225564673)
+  ("functions set, then screens", 2026-10-25 19:20–21:38 UTC), success:
+  `SUMMARY: functions deployed: 589 (every function: moduleRegistry.js has
+  the new CLEARANCE module); access granted: 589; screens released: yes`
+  (release `20261025T213831Z-a70c2b3`, 90/90 verified). Then Hosting, run
+  [#226](https://github.com/yasircmd/erp-firebase/actions/runs/40258142447)
+  (2026-10-26 02:14–02:15 UTC), success.

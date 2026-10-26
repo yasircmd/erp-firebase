@@ -85,7 +85,8 @@ let ALI, SARA, TYPE, AUG;
   // The toast once it says what is expected (an earlier one may still show).
   const toast = (p, re) => until(p, src => { const t = document.getElementById('ess-toast'); return !t.classList.contains('hidden') && new RegExp(src).test(t.textContent); }, re.source).then(() => p.textContent('#ess-toast'));
   const fits = p => p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
-  const signIn = async (p, code, pw) => { await visible(p, '#si-code'); await p.fill('#si-corporate', '100'); await p.fill('#si-code', code); await p.fill('#si-password', pw); await p.click('#si-submit'); };
+  const signIn = async (p, code, pw) => { await visible(p, '#si-code');
+    for (let i = 0; i < 20; i++) { await p.fill('#si-corporate', '100'); await p.fill('#si-code', code); await p.fill('#si-password', pw); await p.waitForTimeout(100); if (await p.evaluate(v => ['si-corporate', 'si-code', 'si-password'].every((id, k) => document.getElementById(id).value.toUpperCase() === v[k].toUpperCase()), ['100', code, pw])) break; } /* the page focuses the code 50 ms after showing it: typing before then can land in the wrong field */ await p.click('#si-submit'); };
 
   await check('Employees: HR switches the portal on for an employee, the default password shown and the welcome slip printed; the list shows it', async () => {
     const page = await browser.newPage();

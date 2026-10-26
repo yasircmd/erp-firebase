@@ -34,6 +34,9 @@ const LOAN_CATEGORY = 'Loan / advance';
 const CLAIM_CATEGORY = 'Reimbursement'; // step 3 (reimbursements.js)
 const CATEGORIES = QUERY_CATEGORIES.concat([LOAN_CATEGORY, CLAIM_CATEGORY]);
 const RB = () => require('./reimbursements');
+// Requests of the types HR sets up (docs/modules/EMPLOYEE_REQUEST_TYPES.md, item 27): Type "Custom".
+const RT = () => require('./requestTypes');
+const CUSTOM_STATUS = { WithManager: 'With the line manager', New: 'Sent to HR', InProgress: 'In progress', Resolved: 'Done', Rejected: 'Rejected', Withdrawn: 'Withdrawn' };
 const ALL = 'All categories';
 const REOPEN_DAYS = 14; // decision 91
 const MAX_EMPLOYEE_FILES = 5; // decision 98
@@ -96,6 +99,7 @@ async function loanOf(r) {
 async function stageOf(r) {
   if (r.Type === 'Claim') return Object.assign(await RB().stage(r), { Loan: null });
   if (r.Type === 'Query') return { Stage: r.Status, StatusText: QUERY_STATUS[r.Status] || r.Status, Loan: null };
+  if (r.Type === 'Custom') return { Stage: r.Status, StatusText: CUSTOM_STATUS[r.Status] || r.Status, Loan: null };
   const loan = await loanOf(r);
   const [stage, label] = loanStage(r, loan);
   return { Stage: stage, StatusText: label, Loan: loan };
@@ -106,17 +110,19 @@ function waiting(r, loan) {
   // A claim goes to its approvers (Home → Approvals); HR is waited for only
   // when the employee has written.
   if (r.Type === 'Claim') return isOpen(r) && r.LastFrom === 'Employee' && (r.Messages || []).some(m => m.From === 'Employee');
-  if (r.Type === 'Query') return r.Status === 'New' || (r.Status === 'InProgress' && r.LastFrom === 'Employee');
+  if (r.Type === 'Query' || r.Type === 'Custom') return r.Status === 'New' || (r.Status === 'InProgress' && r.LastFrom === 'Employee');
   return r.Status === 'WithHR' && (!loan || loan.Status === 'Draft');
 }
-const OPEN = { Query: ['New', 'InProgress'], Loan: ['WithManager', 'WithHR'], Claim: ['Draft', 'WithManager', 'InApproval'] };
+const OPEN = { Query: ['New', 'InProgress'], Loan: ['WithManager', 'WithHR'], Claim: ['Draft', 'WithManager', 'InApproval'], Custom: ['WithManager', 'New', 'InProgress'] };
 const isOpen = r => (OPEN[r.Type] || []).includes(r.Status);
 async function nextNumber(prefix) { return require('./numbering').hrNumber(prefix, Number(today().slice(0, 4))); }
 
 function summary(r, st) {
   return {
     RequestID: r.RequestID, Type: r.Type, Number: r.Number, Category: r.Category, EmployeeID: r.EmployeeID, EmployeeNo: r.EmployeeNo, EmployeeName: r.EmployeeName, CompanyID: r.CompanyID,
-    Month: r.Month || '', Title: r.Type === 'Query' ? r.Category + (r.Month ? ' · ' + r.Month : '') : r.Type === 'Claim' ? 'Reimbursement · ' + money(r.Total) : r.TypeName + ' · ' + money(r.Amount),
+    Month: r.Month || '', Title: r.Type === 'Query' ? r.Category + (r.Month ? ' · ' + r.Month : '') : r.Type === 'Claim' ? 'Reimbursement · ' + money(r.Total) : r.Type === 'Custom' ? r.TypeName : r.TypeName + ' · ' + money(r.Amount),
+    // Answer within N days (Q307): shown, never blocking.
+    DueDate: r.DueDate || '', Overdue: Boolean(r.DueDate) && isOpen(r) && r.Status !== 'WithManager' && today() > r.DueDate,
     Stage: st.Stage, StatusText: st.StatusText, AssignedName: r.AssignedName || '', AssignedUid: r.AssignedUid || '', CreatedAt: r.CreatedAt, LastAt: r.LastAt || r.CreatedAt, LastFrom: r.LastFrom || ''
   };
 }
@@ -170,7 +176,7 @@ async function requestDetail(me, d) {
   const st = await stageOf(r);
   await REQUESTS().doc(r.RequestID).update({ ReadByEmployeeAt: new Date().toISOString() });
   const done = r.ResolvedAt || r.RejectedAt;
-  const canReopen = r.Type === 'Query' && ['Resolved', 'Rejected'].includes(r.Status) && done && (Date.now() - Date.parse(done)) <= REOPEN_DAYS * 86400000;
+  const canReopen = (r.Type === 'Query' || r.Type === 'Custom') && ['Resolved', 'Rejected'].includes(r.Status) && done && (Date.now() - Date.parse(done)) <= REOPEN_DAYS * 86400000;
   const mine = (await files.portalFiles(MODULE_ID, r.RequestID));
   const claim = r.Type === 'Claim' ? await RB().claimView(r) : {};
   return {
@@ -178,6 +184,7 @@ async function requestDetail(me, d) {
       Description: r.Description || '', Lines: r.Lines || [], Expected: r.Expected == null ? null : r.Expected, Outcome: r.Outcome || '', RejectionReason: r.RejectionReason || '',
       TypeName: r.TypeName || '', Kind: r.Kind || '', Amount: r.Amount || 0, Instalment: r.Instalment || 0, Months: r.Months || 0, StartMonth: r.StartMonth || '', Reason: r.Reason || '',
       ManagerName: r.ManagerName || '', LoanNumber: st.Loan ? st.Loan.LoanNumber || '' : '', Balance: st.Loan && st.Loan.Balance != null ? round2(st.Loan.Balance) : null,
+      Answers: r.Answers || [], DocumentAnswer: Boolean(r.DocumentAnswer),
       Messages: (r.Messages || []).filter(m => !m.Internal).map(m => ({ From: m.From, By: m.By, At: m.At, Text: m.Text })),
       History: (r.History || []).map(h => ({ Event: h.Event, By: h.By, At: h.At, Note: h.Note || '' }))
     }),
@@ -190,8 +197,8 @@ async function requestDetail(me, d) {
 }
 async function canWithdraw(r, st) {
   if (r.Type === 'Claim') return isOpen(r);
-  // A query: at any time while it is open (owner, 2026-10-14).
-  if (r.Type === 'Query') return isOpen(r);
+  // A query: at any time while it is open (owner, 2026-10-14); a request of a type too.
+  if (r.Type === 'Query' || r.Type === 'Custom') return isOpen(r);
   return r.Status === 'WithManager' || (r.Status === 'WithHR' && (!st.Loan || st.Loan.Status === 'Draft'));
 }
 
@@ -209,8 +216,8 @@ async function employeeReply(me, d) {
 async function withdraw(me, d) {
   const r = await loadOwn(me, d.id);
   const st = await stageOf(r);
-  if (!(await canWithdraw(r, st))) throw failed(r.Type === 'Query' ? 'This query is closed: there is nothing to withdraw.' : 'It is already with the approvers: ask HR.');
-  if (r.Type === 'Query' && !text(d.reason, 500)) bad('Say why you are withdrawing it.');
+  if (!(await canWithdraw(r, st))) throw failed(r.Type === 'Query' ? 'This query is closed: there is nothing to withdraw.' : r.Type === 'Custom' ? 'This request is closed: there is nothing to withdraw.' : 'It is already with the approvers: ask HR.');
+  if ((r.Type === 'Query' || r.Type === 'Custom') && !text(d.reason, 500)) bad('Say why you are withdrawing it.');
   if (st.Loan && st.Loan.Status === 'Draft') await LOANS().doc(st.Loan.LoanID).delete();
   if (r.Type === 'Claim') await RB().closeApproval(r);
   const now = new Date().toISOString();
@@ -236,8 +243,8 @@ async function markResolved(me, d) {
 async function reopen(me, d) {
   const r = await loadOwn(me, d.id);
   const done = r.ResolvedAt || r.RejectedAt;
-  if (r.Type !== 'Query' || !['Resolved', 'Rejected'].includes(r.Status)) throw failed('Only a resolved or rejected query can be reopened.');
-  if (!done || Date.now() - Date.parse(done) > REOPEN_DAYS * 86400000) throw failed('A query can be reopened within ' + REOPEN_DAYS + ' days: raise a new one, mentioning ' + r.Number + '.');
+  if (!['Query', 'Custom'].includes(r.Type) || !['Resolved', 'Rejected'].includes(r.Status)) throw failed('Only a resolved or rejected request can be reopened.');
+  if (!done || Date.now() - Date.parse(done) > REOPEN_DAYS * 86400000) throw failed('A request can be reopened within ' + REOPEN_DAYS + ' days: raise a new one, mentioning ' + r.Number + '.');
   const msg = text(d.text, 2000);
   if (!msg) bad('Say why you are reopening it.');
   const now = new Date().toISOString();
@@ -392,6 +399,60 @@ async function decideLoanRequest(me, d) {
   return { success: true, status: 'WithHR' };
 }
 
+// ---------- requests of the types HR sets up (item 27) ----------
+
+// The types the employee may raise (their company's, Q308).
+async function requestForm(me) {
+  return { types: (await RT().typesFor(me.emp.CompanyID)).map(t => ({ TypeID: t.TypeID, Name: t.Name, Description: t.Description || '', Fields: t.Fields || [], Route: t.Route,
+    AnswerDays: t.AnswerDays || null, DocumentAnswer: Boolean(t.DocumentAnswer) })) };
+}
+// A request of a type: to its handler, or (Q305) the line manager first;
+// numbered RQ- (Q306); due in the type's days from reaching HR (Q307).
+async function raiseRequest(me, d, manager) {
+  const type = await RT().typeOf(d.typeId);
+  if (!type || type.Active === false || ((type.CompanyIDs || []).length && !type.CompanyIDs.includes(me.emp.CompanyID))) bad('Choose the kind of request.');
+  const answers = RT().answersFor(type, d.answers);
+  const details = text(d.details, 2000);
+  const viaManager = type.Route === 'Manager' && manager;
+  const day = today();
+  const r = Object.assign(await base(me, 'Custom', type.Name), {
+    Number: await nextNumber('RQ'), TypeID: type.TypeID, TypeName: type.Name, Answers: answers, Description: details, DocumentAnswer: Boolean(type.DocumentAnswer),
+    Route: type.Route, Status: viaManager ? 'WithManager' : 'New', ManagerID: viaManager ? manager.EmployeeID : '', ManagerName: viaManager ? manager.FullName || '' : '',
+    AnswerDays: type.AnswerDays || null, DueDate: viaManager ? '' : RT().dueFrom(type, day),
+    History: [entry('Sent', employeeName(me))].concat(viaManager ? [entry('With the line manager', manager.FullName || '')] : type.Route === 'Manager' ? [entry('No line manager: sent to HR', 'System')] : [])
+  });
+  const ref = await REQUESTS().add(r);
+  return { success: true, requestId: ref.id, number: r.Number, status: r.Status, assignedTo: r.AssignedName };
+}
+// The line manager's requests of a type waiting for them (Q305).
+async function teamCustomRequests(reportIds) {
+  if (!reportIds.size) return [];
+  return docs(await REQUESTS().where('Status', '==', 'WithManager').get()).filter(r => r.Type === 'Custom' && reportIds.has(r.EmployeeID))
+    .sort((a, b) => String(a.CreatedAt).localeCompare(String(b.CreatedAt)))
+    .map(r => ({ RequestID: r.RequestID, Number: r.Number, EmployeeNo: r.EmployeeNo, EmployeeName: r.EmployeeName, TypeName: r.TypeName, Answers: r.Answers || [], Details: r.Description || '', CreatedAt: r.CreatedAt }));
+}
+async function decideTeamRequest(me, d) {
+  const s = await REQUESTS().doc(text(d.id, 80) || '-').get();
+  if (!s.exists) throw new HttpsError('not-found', 'Request not found.');
+  const r = Object.assign({ RequestID: s.id }, s.data());
+  const emp = (await EMPLOYEES().doc(r.EmployeeID).get()).data() || {};
+  if (r.Type !== 'Custom' || emp.ManagerID !== me.emp.EmployeeID) throw new HttpsError('permission-denied', 'Only the employee\'s line manager decides this request.');
+  if (r.Status !== 'WithManager') throw failed('This request is no longer waiting for you.');
+  const now = new Date().toISOString();
+  if (d.decision === 'Rejected') {
+    const reason = text(d.reason, 500);
+    if (!reason) bad('Give the reason for rejecting.');
+    await REQUESTS().doc(r.RequestID).update({ Status: 'Rejected', RejectionReason: reason, RejectedAt: now, UpdatedAt: now, ManagerDecision: 'Rejected', ManagerDecidedAt: now,
+      History: (r.History || []).concat([entry('Rejected by the line manager', me.emp.FullName, reason)]) });
+    return { success: true, status: 'Rejected' };
+  }
+  if (d.decision !== 'Approved') bad('Approve or reject.');
+  const type = await RT().typeOf(r.TypeID);
+  await REQUESTS().doc(r.RequestID).update({ Status: 'New', UpdatedAt: now, LastAt: now, LastFrom: 'Employee', ManagerDecision: 'Approved', ManagerDecidedAt: now,
+    DueDate: type ? RT().dueFrom(type, today()) : '', History: (r.History || []).concat([entry('Approved by the line manager', me.emp.FullName), entry('Sent to HR', 'System')]) });
+  return { success: true, status: 'New' };
+}
+
 async function portalCounts(me) {
   const list = docs(await REQUESTS().where('EmployeeID', '==', me.emp.EmployeeID).get());
   return { unread: list.filter(unreadFor).length, open: list.filter(isOpen).length };
@@ -419,7 +480,9 @@ async function loadForUser(user, id, approverMayOpen) {
   return r;
 }
 // The first word from HR moves a new query to In progress.
-const inProgress = r => (r.Type === 'Query' && r.Status === 'New' ? { Status: 'InProgress' } : {});
+const inProgress = r => ((r.Type === 'Query' || r.Type === 'Custom') && r.Status === 'New' ? { Status: 'InProgress' } : {});
+// The categories: the portal's own, then the types' names (their handlers, Handlers tab).
+const categoriesNow = async () => CATEGORIES.concat((await RT().allTypes()).map(t => t.Name).filter(n => !CATEGORIES.includes(n)));
 
 const ERP = {
   async list(user) {
@@ -427,7 +490,7 @@ const ERP = {
     const list = docs(await REQUESTS().get()).filter(r => userCanAccessCompany(user.profile, r.CompanyID));
     const out = [];
     for (const r of list) { const st = await stageOf(r); out.push(Object.assign(summary(r, st), { Waiting: waiting(r, st.Loan) })); }
-    return { requests: out.sort((a, b) => String(b.LastAt).localeCompare(String(a.LastAt))), categories: CATEGORIES, canHandle: await can(user, 'handle'), canSetup: await can(user, 'setup'), me: user.uid };
+    return { requests: out.sort((a, b) => String(b.LastAt).localeCompare(String(a.LastAt))), categories: await categoriesNow(), canHandle: await can(user, 'handle'), canSetup: await can(user, 'setup'), me: user.uid };
   },
   async get(user, d) {
     const r = await loadForUser(user, d.id, true);
@@ -440,6 +503,7 @@ const ERP = {
         TypeName: r.TypeName || '', Kind: r.Kind || '', Amount: r.Amount || 0, Instalment: r.Instalment || 0, Months: r.Months || 0, StartMonth: r.StartMonth || '', Reason: r.Reason || '',
         ManagerName: r.ManagerName || '', LoanID: st.Loan ? st.Loan.LoanID : '', LoanNumber: st.Loan ? st.Loan.LoanNumber || '' : '', LoanRejectedReason: st.Loan ? st.Loan.RejectedReason || '' : '',
         BackupName: r.BackupName || '', Messages: r.Messages || [], History: r.History || [], Waiting: waiting(r, st.Loan),
+        Answers: r.Answers || [], DocumentAnswer: Boolean(r.DocumentAnswer), AnswerDays: r.AnswerDays || null,
         Designation: emp.DesignationID || '', Mobile: emp.Mobile || ''
       }),
       handlers: await handlersFor(r.CompanyID), canHandle: await can(user, 'handle'), canDraftLoan: await moduleHasCapability('PAYROLLLOAN', 'draft', user.profile.role),
@@ -471,9 +535,13 @@ const ERP = {
   async resolve(user, d) {
     await requireCap(user, 'handle');
     const r = await loadForUser(user, d.id);
-    if (r.Type !== 'Query' || !isOpen(r)) throw failed('Only an open query is resolved.');
+    if (!['Query', 'Custom'].includes(r.Type) || !isOpen(r) || r.Status === 'WithManager') throw failed('Only an open query or request with HR is resolved.');
     const outcome = text(d.text, 2000);
     if (!outcome) bad('Say what was done (the employee sees it).');
+    // A document is the answer (a certificate, Q277): HR's file first.
+    if (r.Type === 'Custom' && r.DocumentAnswer && !(await files.portalFiles(MODULE_ID, r.RequestID)).some(f => f.UploadedBy !== r.CreatedByUid)) {
+      throw failed('Attach the document (e.g. the signed certificate) to the request first: the employee downloads it from the portal.');
+    }
     const now = new Date().toISOString();
     await REQUESTS().doc(r.RequestID).update({ Status: 'Resolved', Outcome: outcome, ResolvedAt: now, RejectedAt: '', UpdatedAt: now, LastFrom: 'HR', LastAt: now,
       Messages: (r.Messages || []).concat([{ From: 'HR', By: nameOf(user), ByUid: user.uid, At: now, Text: outcome, Internal: false }]), History: (r.History || []).concat([entry('Resolved', nameOf(user))]) });
@@ -517,19 +585,28 @@ const ERP = {
     await REQUESTS().doc(r.RequestID).update({ LoanID: ref.id, UpdatedAt: now, History: (r.History || []).concat([entry('Drafted in Loans & Advances', nameOf(user))]) });
     return { success: true, loanId: ref.id };
   },
+  // Request types (item 27): the list for everyone with access, saved with "setup".
+  async types(user) {
+    await requireCap(user);
+    return { types: await RT().allTypes(), kinds: RT().KINDS, canSetup: await can(user, 'setup') };
+  },
+  async saveType(user, d) {
+    await requireCap(user, 'setup');
+    return RT().saveType(user, d, CATEGORIES);
+  },
   async handlers(user) {
     await requireCap(user);
     const rows = (await HANDLERS().get()).docs.map(x => Object.assign({ HandlerKey: x.id }, x.data())).filter(h => userCanAccessCompany(user.profile, h.CompanyID));
     const companies = Object.entries((await rtdb.ref('companies').get()).val() || {}).filter(([id, c]) => c && c.Status !== 'Inactive' && userCanAccessCompany(user.profile, id)).map(([id, c]) => id);
     const people = {};
     for (const co of companies) people[co] = await handlersFor(co);
-    return { handlers: rows.sort((a, b) => (a.CompanyID + a.Category).localeCompare(b.CompanyID + b.Category)), people, categories: [ALL].concat(CATEGORIES), canSetup: await can(user, 'setup') };
+    return { handlers: rows.sort((a, b) => (a.CompanyID + a.Category).localeCompare(b.CompanyID + b.Category)), people, categories: [ALL].concat(await categoriesNow()), canSetup: await can(user, 'setup') };
   },
   async saveHandler(user, d) {
     await requireCap(user, 'setup');
     const co = text(d.companyId, 80), cat = text(d.category, 40);
     if (!userCanAccessCompany(user.profile, co)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
-    if (![ALL].concat(CATEGORIES).includes(cat)) bad('Choose the category.');
+    if (![ALL].concat(await categoriesNow()).includes(cat)) bad('Choose the category.');
     const people = await handlersFor(co);
     const h = people.find(x => x.Uid === text(d.handlerUid, 128));
     if (!h) bad('Choose the handler: an ERP user with "handle" in Employee Requests for that company.');
@@ -559,7 +636,8 @@ const ERP = {
       const st = await stageOf(r);
       if (!waiting(r, st.Loan)) continue;
       items.push({ ModuleID: MODULE_ID, DocumentID: r.RequestID, Number: r.Number, Type: r.Type, Category: r.Category, EmployeeName: r.EmployeeName, StatusText: st.StatusText,
-        What: r.Type === 'Query' ? (r.Status === 'New' ? 'New query' : 'Employee replied') : 'Loan request to review', Since: r.LastAt || r.CreatedAt });
+        What: (r.Type === 'Query' ? (r.Status === 'New' ? 'New query' : 'Employee replied') : r.Type === 'Custom' ? (r.Status === 'New' ? 'New request' : 'Employee replied') : 'Loan request to review')
+          + (summary(r, st).Overdue ? ' · overdue' : ''), Overdue: summary(r, st).Overdue, Since: r.LastAt || r.CreatedAt });
     }
     return { items: items.sort((a, b) => String(a.Since).localeCompare(String(b.Since))) };
   }
@@ -589,5 +667,6 @@ Object.assign(module.exports, {
   raiseClaim, submitClaim, decideClaimByManager,
   raiseQuery, myRequests, requestDetail, employeeReply, withdraw, markResolved, reopen, uploadFile, openFile,
   loanForm, requestLoan, myLoans, teamLoanRequests, decideLoanRequest, portalCounts,
+  requestForm, raiseRequest, teamCustomRequests, decideTeamRequest,
   QUERY_CATEGORIES, LOAN_CATEGORY, MODULE_ID
 });

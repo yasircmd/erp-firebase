@@ -219,7 +219,10 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
     assert.deepEqual(await page.$eval('#si-corporate', el => [el.name, el.autocomplete]), ['corporateId', 'on']);
     const essIn = async (corp, code, pw) => {
       await page.evaluate(() => { window.__calls = []; window.__log = []; });
-      await page.fill('#si-corporate', corp); await page.fill('#si-code', code); await page.fill('#si-password', pw);
+      for (let i = 0; i < 20; i++) { // the page focuses the code 50 ms after showing it: typing before then can land in the wrong field
+        await page.fill('#si-corporate', corp); await page.fill('#si-code', code); await page.fill('#si-password', pw); await page.waitForTimeout(100);
+        if (await page.evaluate(v => ['si-corporate', 'si-code', 'si-password'].every((id, k) => document.getElementById(id).value.toUpperCase() === v[k].toUpperCase()), [corp, code, pw])) break;
+      }
       await page.click('#si-submit');
     };
     await essIn('999', 'EMP-0001', 'e200');

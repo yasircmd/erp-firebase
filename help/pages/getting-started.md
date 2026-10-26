@@ -4,8 +4,8 @@ area: start
 order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
-reviewed: 2026-10-25
-fingerprint: ca878e8570a20289
+reviewed: 2026-10-26
+fingerprint: 3f5f0499c14309ce
 ---
 ## Signing in
 
@@ -97,7 +97,7 @@ role:
 | Post-dated Cheques Due to Clear | Cheques whose date has come. |
 | Recurring Journal Entries Due to Post | Recurring entries whose date has come. |
 | Company / Employee Documents Expiring | Licences, contracts or employee documents near or past expiry. |
-| Employee Requests Waiting for You | Employees' queries, loan requests and claims to handle. |
+| Employee Requests Waiting for You | Employees' queries, loan requests, claims and requests of the types HR sets up, to handle (an overdue one says so). |
 | Clearances Waiting for You | A leaver's clearance step for your team to sign off ([Clearances](clearances.html)). |
 
 How approvals work is explained in [Approvals](approvals.html).

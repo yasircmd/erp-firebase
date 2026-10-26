@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-25
+reviewed: 2026-10-26
 title: What's new
 area: start
 order: 3
@@ -12,6 +12,12 @@ screen.
 
 ## 25/10/2026
 
+- **Request types of your own.** In [Employee Requests](employee-requests.html#request-types)
+  HR sets up the requests employees raise from the portal: a salary
+  certificate, IT support … each with its own form, straight to its
+  handler or through the line manager first, an optional time to answer
+  (overdue shown), and a document as the answer. Employees find them under
+  **Requests → Other**; numbered RQ-.
 - **Leaver clearance.** The new [Clearances](clearances.html) screen takes
   each leaver through the company's steps (Finance, IT, HR by default),
   each signed off by its team, with a checklist and any amount to recover.

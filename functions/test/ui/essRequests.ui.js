@@ -82,7 +82,7 @@ let ALI, SARA, JULY, ADV;
     p.on('dialog', d => { p.__errors.push('browser popup: ' + d.message()); d.dismiss().catch(() => {}); });
     await p.goto('http://127.0.0.1:8189/ess.html');
     await visible(p, '#si-code');
-    await p.fill('#si-corporate', '100'); await p.fill('#si-code', code); await p.fill('#si-password', pw); await p.click('#si-submit');
+    for (let i = 0; i < 20; i++) { await p.fill('#si-corporate', '100'); await p.fill('#si-code', code); await p.fill('#si-password', pw); await p.waitForTimeout(100); if (await p.evaluate(v => ['si-corporate', 'si-code', 'si-password'].every((id, k) => document.getElementById(id).value.toUpperCase() === v[k].toUpperCase()), ['100', code, pw])) break; } /* the page focuses the code 50 ms after showing it: typing before then can land in the wrong field */ await p.click('#si-submit');
     await visible(p, '#home-leave-left');
     return p;
   }

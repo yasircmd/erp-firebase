@@ -5,8 +5,8 @@ order: 12
 modules: [DATARESET]
 sources: [functions/src/dataReset.js, functions/src/documentStorage.js]
 summary: Clear test data module by module, or rebuild the stock balances, before going live.
-reviewed: 2026-10-25
-fingerprint: f0f0359029f11f06
+reviewed: 2026-10-26
+fingerprint: 0ba3e735fa13f540
 ---
 ## What it is for
 
@@ -38,8 +38,8 @@ data.
   customer classifications; BOMs; vendors; customers; price lists; the
   inventory valuation list; requisition categories; currencies and
   exchange rates; shareholders; employees.
-- **Setup:** HR Setup, Payroll Setup, Approval Configuration, and the
-  numbering formats and settings.
+- **Setup:** HR Setup, Payroll Setup (with the employee request types),
+  Approval Configuration, and the numbering formats and settings.
 
 Users, roles, permissions and the menu are never offered.
 
