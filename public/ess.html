@@ -627,6 +627,8 @@
       if (tl) { decideLoan(tl.dataset.id, tl.dataset.decision); return; }
       const tc = e.target.closest('.tm-claim');
       if (tc) { decideClaim(tc.dataset.id, tc.dataset.decision); return; }
+      const tq = e.target.closest('.tm-req');
+      if (tq) { decideTeamReq(tq.dataset.id, tq.dataset.decision); return; }
       const lf = e.target.closest('.lv-file');
       if (lf) { api('openLeaveFile', { leaveId: lf.dataset.leave, attachmentId: lf.dataset.id }).then(downloadFile, fail); return; }
       const ls = e.target.closest('.lv-send');
@@ -749,11 +751,58 @@
     const reqBody = html => { const b = $('req-body'); if (b) b.innerHTML = html; };
     function pageRequests() {
       const parts = location.hash.slice(1).split('/');
-      const sub = ['list', 'query', 'loan', 'claim', 'view'].includes(parts[1]) ? parts[1] : 'list', arg = parts[2] || '';
-      page(tabsHtml('requests', [['list', 'Mine'], ['query', 'Pay query'], ['claim', 'Expenses'], ['loan', 'Loan']], sub === 'view' ? 'list' : sub) + '<div id="req-body">' + skeleton() + '</div>');
-      ({ list: reqList, query: () => reqQuery(arg), loan: reqLoan, claim: reqClaim, view: () => reqView(arg) })[sub]();
+      const sub = ['list', 'query', 'loan', 'claim', 'other', 'view'].includes(parts[1]) ? parts[1] : 'list', arg = parts[2] || '';
+      page(tabsHtml('requests', [['list', 'Mine'], ['query', 'Pay query'], ['claim', 'Expenses'], ['loan', 'Loan'], ['other', 'Other']], sub === 'view' ? 'list' : sub) + '<div id="req-body">' + skeleton() + '</div>');
+      ({ list: reqList, query: () => reqQuery(arg), loan: reqLoan, claim: reqClaim, other: () => reqOther(arg), view: () => reqView(arg) })[sub]();
     }
-    const TYPE_TEXT = { Query: 'Pay query', Loan: 'Advance / loan', Claim: 'Expense claim' };
+    const TYPE_TEXT = { Query: 'Pay query', Loan: 'Advance / loan', Claim: 'Expense claim', Custom: 'Request' };
+
+    // Requests of the types HR sets up (docs/modules/EMPLOYEE_REQUEST_TYPES.md):
+    // the list of types, then the type's own form.
+    function reqOther(typeId) {
+      api('requestForm').then(f => {
+        if (!f.types.length) { reqBody(card(empty('fa-shapes', 'No other requests are set up yet: ask HR.'))); return; }
+        const t = f.types.find(x => x.TypeID === typeId);
+        if (!t) {
+          reqBody('<div class="space-y-2">' + f.types.map(x => '<a href="#requests/other/' + esc(x.TypeID) + '" class="rq-type block">' + card('<div class="flex items-center justify-between gap-2"><div><div class="font-semibold text-sm">' + esc(x.Name) + '</div>' +
+            (x.Description ? '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc(x.Description) + '</div>' : '') + '</div><i class="fa-solid fa-chevron-right text-slate-400"></i></div>', 'p-3') + '</a>').join('') + '</div>');
+          return;
+        }
+        const input = (fl, i) => {
+          const id = 'rqt-f-' + i, req = fl.Required ? ' required' : '';
+          if (fl.Kind === 'longtext') return '<textarea id="' + id + '" rows="3" maxlength="2000" class="' + inputCls + '"' + req + '></textarea>';
+          if (fl.Kind === 'number') return '<input id="' + id + '" inputmode="decimal" class="' + inputCls + '"' + req + '>';
+          if (fl.Kind === 'date') return '<input id="' + id + '" type="date" class="' + inputCls + '"' + req + '>';
+          if (fl.Kind === 'choice') return '<select id="' + id + '" class="' + inputCls + '"' + req + '><option value="">Choose…</option>' + fl.Options.map(o => '<option>' + esc(o) + '</option>').join('') + '</select>';
+          if (fl.Kind === 'yesno') return '<select id="' + id + '" class="' + inputCls + '"' + req + '><option value="">Choose…</option><option>Yes</option><option>No</option></select>';
+          if (fl.Kind === 'file') return fileInput(id);
+          return '<input id="' + id + '" maxlength="200" class="' + inputCls + '"' + req + '>';
+        };
+        reqBody(card('<form id="rqt-form" class="space-y-3"><div><div class="font-semibold">' + esc(t.Name) + '</div>' + (t.Description ? '<div class="text-xs text-slate-500 dark:text-slate-400">' + esc(t.Description) + '</div>' : '') + '</div>' +
+          t.Fields.map((fl, i) => field(esc(fl.Label) + (fl.Required ? '' : ' <span class="text-slate-400 font-normal">(optional)</span>'), input(fl, i))).join('') +
+          field('Anything else <span class="text-slate-400 font-normal">(optional)</span>', '<textarea id="rqt-details" rows="2" maxlength="2000" class="' + inputCls + '"></textarea>') +
+          '<p class="text-xs text-slate-500 dark:text-slate-400"><i class="fa-solid fa-route"></i> ' + (t.Route === 'Manager' ? 'Goes to your line manager, then HR.' : 'Goes to HR.') +
+            (t.AnswerDays ? ' HR answers within ' + t.AnswerDays + ' day' + (t.AnswerDays === 1 ? '' : 's') + '.' : '') + (t.DocumentAnswer ? ' HR sends the document here, for you to download.' : '') + '</p>' +
+          '<button id="rqt-submit" type="submit" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 disabled:opacity-50">Send request</button></form>'));
+        t.Fields.forEach((fl, i) => { if (fl.Kind === 'file') watchFiles('rqt-f-' + i); });
+        $('rqt-form').addEventListener('submit', async e => {
+          e.preventDefault();
+          const answers = {}, uploads = [];
+          for (let i = 0; i < t.Fields.length; i++) {
+            const fl = t.Fields[i], el = $('rqt-f-' + i);
+            if (fl.Kind === 'file') { const list = [...el.files]; if (fl.Required && !list.length) { say('Add ' + fl.Label + '.'); return; } uploads.push(...list); }
+            else answers[fl.Key] = el.value;
+          }
+          $('rqt-submit').disabled = true;
+          try {
+            const r = await api('raiseRequest', { typeId: t.TypeID, answers, details: $('rqt-details').value });
+            if (uploads.length) await uploadAll(r.requestId, uploads);
+            toast(r.number + ': ' + (r.status === 'WithManager' ? 'sent to your line manager.' : 'sent to HR.'));
+            location.hash = 'requests/view/' + r.requestId;
+          } catch (err) { fail(err); const b = $('rqt-submit'); if (b) b.disabled = false; }
+        });
+      }, err => reqBody(card(empty('fa-triangle-exclamation', err.message))));
+    }
     function reqList() {
       api('requests').then(r => {
         reqUnread = r.requests.filter(x => x.Unread).length; badges();
@@ -942,7 +991,9 @@
             (r.ApprovedTotal !== r.Total && ['Approved', 'Paid'].includes(r.Stage) ? '<div class="flex justify-between text-sm"><span>Approved</span><span class="font-bold">' + money(r.ApprovedTotal) + '</span></div>' : '') +
             (r.Flags || []).map(f => '<div class="text-xs text-amber-700 dark:text-amber-300"><i class="fa-solid fa-triangle-exclamation"></i> ' + esc(f) + '</div>').join('') +
             (d.canSubmit ? '<button id="rq-send" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 mt-2">Send claim</button>' : '') + '</div>';
-        const facts = r.Type === 'Claim' ? claimFacts() : r.Type === 'Query'
+        const customFacts = () => row('Type', esc(r.TypeName)) + (r.Answers || []).map(a => row(esc(a.Label), esc(a.Kind === 'date' ? showDate(a.Value) : a.Value))).join('') +
+          (r.Description ? '<div class="mt-2 text-sm whitespace-pre-line">' + esc(r.Description) + '</div>' : '') + (r.DueDate ? row('HR answers by', esc(showDate(r.DueDate))) : '');
+        const facts = r.Type === 'Claim' ? claimFacts() : r.Type === 'Custom' ? customFacts() : r.Type === 'Query'
           ? row('Payslip', esc(showMonth(r.Month))) + row('About', esc(r.Category)) + r.Lines.map(l => row(esc(l.Name), money(l.Amount))).join('') + (r.Expected != null ? row('Expected', money(r.Expected)) : '') +
             '<div class="mt-2 text-sm whitespace-pre-line">' + esc(r.Description) + '</div>'
           : row('Type', esc(r.TypeName)) + row('Amount', money(r.Amount)) + (r.Kind === 'Loan' ? row('Instalments', money(r.Instalment) + ' × ' + r.Months) : '') + row('Recovery from', esc(showMonth(r.StartMonth))) +
@@ -951,7 +1002,7 @@
           (m.From === 'Employee' ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-slate-100 dark:bg-slate-800 rounded-bl-sm') + '"><div class="whitespace-pre-line">' + esc(m.Text) + '</div>' +
           '<div class="text-[10px] mt-1 ' + (m.From === 'Employee' ? 'text-indigo-200' : 'text-slate-400') + '">' + esc(m.From === 'Employee' ? 'You' : m.By + ' · HR') + ' · ' + esc(showTime(m.At)) + '</div></div></div>').join('');
         reqBody('<div class="space-y-3">' +
-          card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(TYPE_TEXT[r.Type] || r.Type) + ' <span class="text-xs font-normal text-slate-400">' + esc(r.Number) + '</span></div>' +
+          card('<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(r.Type === 'Custom' ? r.TypeName : TYPE_TEXT[r.Type] || r.Type) + ' <span class="text-xs font-normal text-slate-400">' + esc(r.Number) + '</span></div>' +
             (r.AssignedName ? '<div class="text-xs text-slate-500 dark:text-slate-400">With ' + esc(r.AssignedName) + '</div>' : '') + '</div>' + chip(r.Stage, r.StatusText) + '</div><div class="mt-3">' + facts + '</div>' +
             (r.Outcome ? '<div class="mt-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-sm"><i class="fa-solid fa-circle-check text-emerald-600"></i> ' + esc(r.Outcome) + '</div>' : '') +
             (r.RejectionReason ? '<div class="mt-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-sm"><i class="fa-solid fa-circle-xmark text-rose-600"></i> ' + esc(r.RejectionReason) + '</div>' : '')) +
@@ -976,7 +1027,7 @@
         if (d.canMarkResolved) $('rq-resolved').addEventListener('click', () => dialog({ title: 'Mark ' + r.Number + ' resolved', message: 'Anything to add? (optional)', input: true, ok: 'Mark resolved' })
           .then(t => { if (t !== null) api('markQueryResolved', { id, text: t }).then(() => { toast('Marked resolved.'); reqView(id); }, fail); }));
         // A query's withdrawal needs a reason (owner, 2026-10-14); a loan or claim's is optional.
-        if (d.canWithdraw) $('rq-withdraw').addEventListener('click', () => dialog({ title: 'Withdraw ' + r.Number, message: r.Type === 'Query' ? 'Why?' : 'Why? (optional)', input: true, required: r.Type === 'Query', ok: 'Withdraw', danger: true })
+        if (d.canWithdraw) $('rq-withdraw').addEventListener('click', () => dialog({ title: 'Withdraw ' + r.Number, message: r.Type === 'Query' || r.Type === 'Custom' ? 'Why?' : 'Why? (optional)', input: true, required: r.Type === 'Query' || r.Type === 'Custom', ok: 'Withdraw', danger: true })
           .then(t => { if (t !== null) api('withdrawRequest', { id, reason: t }).then(() => { toast('Withdrawn.'); reqView(id); }, fail); }));
         document.querySelectorAll('.rq-file').forEach(b => b.addEventListener('click', () => api('openFile', { id, attachmentId: b.dataset.id }).then(downloadFile, fail)));
         // A claim's receipts and sending it (step 3).
@@ -1000,7 +1051,7 @@
     }
 
     // ---------- Team (the line manager, decision 90) ----------
-    let teamList = [], teamLoans = [], teamClaims = [];
+    let teamList = [], teamLoans = [], teamClaims = [], teamReqs = [];
     async function decideClaim(id, decision) {
       const r = teamClaims.find(x => x.RequestID === id);
       if (!r) return;
@@ -1011,6 +1062,17 @@
         data.reason = reason;
       }
       api('decideClaim', data).then(x => { toast(decision === 'Rejected' ? 'Rejected.' : x.status === 'Approved' ? 'Approved.' : 'Approved: sent on for approval.'); pageTeam(); }, fail);
+    }
+    async function decideTeamReq(id, decision) {
+      const r = teamReqs.find(x => x.RequestID === id);
+      if (!r) return;
+      const data = { id, decision };
+      if (decision === 'Rejected') {
+        const reason = await dialog({ title: 'Reject ' + r.EmployeeName + '\'s request', message: r.TypeName + '. The reason is shown to ' + r.EmployeeName.split(/\s+/)[0] + '.', input: true, required: true, ok: 'Reject', danger: true });
+        if (reason === null) return;
+        data.reason = reason;
+      }
+      api('decideTeamRequest', data).then(() => { toast(decision === 'Rejected' ? 'Rejected.' : 'Approved: sent on to HR.'); pageTeam(); }, fail);
     }
     async function decideLoan(id, decision) {
       const r = teamLoans.find(x => x.RequestID === id);
@@ -1026,7 +1088,16 @@
     function pageTeam() {
       page(skeleton());
       api('team').then(t => {
-        teamList = t.pending; teamLoans = t.loanRequests || []; teamClaims = t.claims || []; teamPending = t.pending.length + teamLoans.length + teamClaims.length; badges();
+        teamList = t.pending; teamLoans = t.loanRequests || []; teamClaims = t.claims || []; teamReqs = t.requests || []; teamPending = t.pending.length + teamLoans.length + teamClaims.length + teamReqs.length; badges();
+        // Requests of a type routed through the line manager (EMPLOYEE_REQUEST_TYPES.md, Q305).
+        const reqsHtml = teamReqs.length ? '<h2 class="font-semibold mt-6 mb-2">Other requests</h2><div id="tm-reqs" class="space-y-3">' + teamReqs.map(r => card(
+          '<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(r.EmployeeName) + ' <span class="text-xs font-normal text-slate-400">' + esc(r.EmployeeNo) + '</span></div>' +
+          '<div class="text-sm">' + esc(r.TypeName) + ' · ' + esc(r.Number) + '</div></div>' + chip('WithManager', 'With you') + '</div>' +
+          '<div class="mt-2 space-y-0.5">' + r.Answers.filter(a => a.Value).map(a => '<div class="flex justify-between gap-3 text-xs"><span class="text-slate-500 dark:text-slate-400">' + esc(a.Label) + '</span><span class="font-medium text-right">' + esc(a.Kind === 'date' ? showDate(a.Value) : a.Value) + '</span></div>').join('') + '</div>' +
+          (r.Details ? '<div class="mt-2 text-sm italic text-slate-600 dark:text-slate-300">“' + esc(r.Details) + '”</div>' : '') +
+          '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1"><i class="fa-solid fa-route"></i> Then to HR</div>' +
+          '<div class="grid grid-cols-2 gap-2 mt-3"><button class="tm-req rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(r.RequestID) + '" data-decision="Rejected">Reject</button>' +
+          '<button class="tm-req rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 text-sm font-semibold" data-id="' + esc(r.RequestID) + '" data-decision="Approved">Approve</button></div>')).join('') + '</div>' : '';
         const claimsHtml = teamClaims.length ? '<h2 class="font-semibold mt-6 mb-2">Expense claims</h2><div class="space-y-3">' + teamClaims.map(r => card(
           '<div class="flex items-start justify-between gap-2"><div><div class="font-semibold">' + esc(r.EmployeeName) + ' <span class="text-xs font-normal text-slate-400">' + esc(r.EmployeeNo) + '</span></div>' +
           '<div class="text-sm">' + esc(r.Number) + (r.Description ? ' · ' + esc(r.Description) : '') + '</div></div><div class="font-extrabold">' + money(r.Total) + '</div></div>' +
@@ -1066,7 +1137,7 @@
           '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1"><i class="fa-solid fa-route"></i> ' + esc(l.NextStep) + '</div>' +
           '<div class="grid grid-cols-2 gap-2 mt-3"><button class="tm-decide rounded-xl border border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-300 py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '" data-decision="Rejected">Reject</button>' +
           '<button class="tm-decide rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 text-sm font-semibold" data-id="' + esc(l.LeaveID) + '" data-decision="Approved">Approve</button></div>')).join('') + '</div>'
-          : (teamLoans.length || teamClaims.length ? '' : card(empty('fa-circle-check', 'No requests waiting for you.')))) + loansHtml + claimsHtml + awayHtml + returnsHtml + decided);
+          : (teamLoans.length || teamClaims.length || teamReqs.length ? '' : card(empty('fa-circle-check', 'No requests waiting for you.')))) + loansHtml + claimsHtml + reqsHtml + awayHtml + returnsHtml + decided);
       }, err => page(card(empty('fa-triangle-exclamation', err.message))));
     }
     async function decide(id, decision) {
