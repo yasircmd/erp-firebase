@@ -1,6 +1,6 @@
 # Sales tax of any kind: VAT, GST and others (UX round 2, item 32, widened)
 
-**Status:** design, waiting for the owner's decisions (Q311–Q320) · **Roadmap:** [#19](../ROADMAP.md) ·
+**Status:** design agreed (owner, 2026-10-26, decisions Q311–Q322) · **Roadmap:** [#19](../ROADMAP.md) ·
 **Plan:** [UX_ROUND2.md](UX_ROUND2.md) wave 5, item 32 · **Touches:** every invoice,
 return and print; e-invoicing ([E_INVOICING.md](E_INVOICING.md)); Retail Sales.
 
@@ -101,7 +101,24 @@ are prepared for the person who files.
 Documents posted before the change keep their single rate; a return of one
 follows it. New documents use the line codes (Q317).
 
-## The questions for the owner
+## The owner's decisions (2026-10-26)
+
+| # | Decision |
+|---|---|
+| Q311 | Presets: **UAE VAT and India GST**, plus the own-regime builder; more presets are data, added when a client needs one. |
+| Q312 | **A company trades in India now**: GST is needed live. |
+| Q313 | A line's tax code comes from its item (or Sales Type / account); changing it on a line needs a **new right**. |
+| Q314 | Prices exclusive or inclusive **per price list**, defaulting to today's behaviour (exclusive; Retail inclusive). |
+| Q315 | Rounding **per regime**: UAE VAT per rate on the document, India GST per line. |
+| Q316 | Input tax recoverable **per tax code** (the rest to the expense or cost); reverse charge posts both output and input. |
+| Q317 | Documents posted before **keep their single rate**; a return of one follows it. |
+| Q318 | India's place of supply: the **customer's state** from Customer Master, changeable per invoice (a ship-to state). |
+| Q319 | Reports **all together** in the first release (follows from Q312): the tax summary, the UAE VAT 201 figures, India's GSTR-1 and GSTR-3B figures. |
+| Q320 | A new **Tax Configuration** module (setup right, Admin by default), its own Help page. |
+| Q321 | India's e-invoice: **ready, not connected**, as UAE e-invoicing: the IRP-schema JSON built and kept, the IRN and QR entered once a GSP provider is chosen. E-way bills later. |
+| Q322 | The Indian company is **its own corporate, with INR as its base currency**: its GST figures are in rupees directly. |
+
+## The questions as asked
 
 | # | Question | Recommendation |
 |---|---|---|
