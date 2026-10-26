@@ -158,6 +158,7 @@ the rep"), which moves no money.
   their receipts (`getRepReceipts`) and Cancel. PDC Received marks a rep's
   cheque *with <rep>* and has **Received from the rep** (one or the ticked
   ones); Clear and Bounced appear once received.
+- **No Home task**: the first draft's "hand-overs waiting for the cashier" went with Q295 (there is no hand-over step to confirm: the cashier enters the Cash Receipt). What each rep holds is in Sales reps and the portal.
 - **Removed**: decision 232's drafts (`savePdcDraftForRep`,
   `saveCbtDraftForRep`) and journal.js's portal-rep path past the draft
   right. Drafts saved before the deploy stay drafts for the office.
