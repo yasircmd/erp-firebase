@@ -153,6 +153,72 @@ Each part: tests (emulator and UI, negative controls), Help, What's new.
 The ported screens (Customer and Vendor Invoice) change through the legacy
 port's patches and SCREEN_EDITS.
 
+## Part 5: the reports (proposed, 2026-10-30)
+
+One screen, for one company and a period (any From and To dates, with
+month and quarter shortcuts), built from the **posted documents**, not the
+GL: Customer Invoices and Sales Returns, Vendor Invoices and Purchase
+Returns, Retail Sales and returns, and asset sales. A document counts on its
+own date; a reversed document and its reversal both drop out. Each figure
+opens the documents behind it, and each table copies to Excel through the
+shell's copy, so the filer can paste it.
+
+- **Tax summary** (any regime): for sales and for purchases, taxable value
+  and tax by tax code and by component, with the part reclaimed and the
+  part to cost, reverse charge apart.
+- **UAE VAT 201** (AE_VAT):
+  - boxes 1a–1g, standard-rated supplies by emirate, the emirate being the
+    place of supply (the customer's, or the company's own for the Retail
+    Customer and a sale with no customer);
+  - box 3, purchases under reverse charge other than goods imported
+    (services from abroad, domestic reverse charge);
+  - box 4, zero-rated supplies; box 5, exempt supplies;
+  - box 6, goods imported (Goods Receipts from an Overseas vendor under
+    reverse charge);
+  - box 8, the totals;
+  - box 9, standard-rated expenses and their recoverable VAT;
+  - box 10, reverse-charge supplies and their recoverable VAT;
+  - boxes 11–14, totals, the tax due, the tax recoverable, and the net
+    payable or refundable.
+  - Box 2 (tourist refunds) and box 7 (adjustments to customs imports) are
+    shown as zero.
+  - Credit notes reduce the boxes of their own period.
+  - Out-of-scope lines are left out.
+- **India GSTR-1** (IN_GST), the GST offline tool's sheets:
+  - B2B (by GSTIN, invoice and rate; reverse charge marked);
+  - B2CL (inter-state invoices to unregistered buyers over a limit, ₹1,00,000
+    by default, kept in Tax Configuration);
+  - B2CS (the rest, by state and rate, Retail Sales included);
+  - EXP (exports, with or without payment);
+  - SEZ;
+  - CDNR / CDNUR (credit notes);
+  - nil, exempt and non-GST;
+  - HSN summary (B2B and B2C apart);
+  - documents issued (number ranges by series).
+- **India GSTR-3B** (IN_GST):
+  - 3.1 (a) to (e): outward taxable, zero-rated, nil and exempt, inward
+    reverse charge, non-GST;
+  - 3.2, inter-state supplies to unregistered buyers by state;
+  - 4 (A), input tax credit: imports of goods, imports of services, inward
+    reverse charge, all other;
+  - 4 (B), the credit not reclaimed (reversed);
+  - 4 (C), the net credit;
+  - 5, exempt and non-GST inward supplies;
+  - 6.1, the tax due by component, less the credit.
+
+Reads go by company with an equality query (TRANSACTIONS_FIRESTORE.md), the
+period filtered in memory. Filing stays outside: the figures are prepared
+for the person who files (Section 4).
+
+### Open questions (the owner's)
+
+| # | Question | Recommendation |
+|---|---|---|
+| Q325 | Where the reports live: **(a)** a new **Tax Reports** module (its own access right, Admin, Finance Manager and Accountant by default) in Finance's reports, or **(b)** a Reports tab in Tax Configuration? | **(a)**: reports are read by more people than set the tax up, and get their own Help page. |
+| Q326 | Documents posted before line tax (one tax % per document): **(a)** included, as standard-rated at their single rate (zero-rated if 0%), or **(b)** left out (the reports start from when line tax went live)? | **(a)**: a return period that spans the change would otherwise be understated. |
+| Q327 | VAT 201 adjustments (bad-debt relief, corrections, box 7): **(a)** the figures only, adjustments made on the FTA portal, or **(b)** adjustment amounts entered on the report and kept with the period? | **(a)** for this release: fewer moving parts, and the portal is where they are declared; (b) can follow. |
+| Q328 | GSTR-1 for the filer: **(a)** the offline tool's Excel sheets (copy and paste), or **(b)** also the portal's JSON file to upload? | **(a)** now: the offline tool reads the sheets and checks them; the JSON can follow once the sheets are proven with your filer. |
+
 ## As built
 
 ### Part 1: Tax Configuration (2026-10-26; deploy set `ux2-tax1`)
