@@ -402,3 +402,65 @@ for the person who files (Section 4).
   (caught); the screens never asking for the estimate (both caught). All
   restored. Full regression 728 passed, 0 failed; the affected UI suites
   pass.
+
+### Part 5: the reports (2026-10-30; deploy set `ux2-tax5`)
+
+- **functions/src/taxReports.js**, `getTaxReport({ companyId, from, to,
+  report })`. The new TAXREPORTS module's `access` right (Admin, Finance
+  Manager and Accountant by default, Q325); the company is checked; a later
+  module, provided per corporate. `report: 'regime'` gives only the
+  company's regime, for the screen's list.
+- **What it reads.** By month, with the stores' `Period` query plus
+  `CompanyID` (and `TransactionType` for stock documents), the period's
+  dates then filtered in memory:
+  - Customer Invoices and Vendor Invoices;
+  - Sales Returns, Retail Sales and returns, Purchase Returns (stock
+    documents);
+  - `faPostings` retirements with proceeds (asset sales).
+- **What counts.** A document posted with `TaxLines` becomes rows, one per
+  tax line:
+  - signed: a note, a return or a reversal counts minus;
+  - in the base currency, at the document's (or a return's invoice's)
+    exchange rate;
+  - a reversal on its own date, with the figures of the document it
+    reverses (the legacy invoice reversal copies none);
+  - a reversed asset sale (Status Reversed) out;
+  - a document with one tax % left out and counted in `leftOut` (Q326).
+- **The parties.** Registration type, GSTIN and state come from Customer
+  and Vendor Master as they are when the report runs.
+- **The builders** are pure, so unit-tested on rows:
+  - `summary`;
+  - `vat201` (Q327: no adjustments). Box 6 is reverse charge on Goods
+    Receipt lines from an Overseas vendor; box 3 the other reverse charge;
+    boxes 9 and 10 take the recoverable VAT;
+  - `gstr1`, the offline tool's sheets (Q328):
+    - b2b (SEZ with its invoice type), b2cl (above Tax Configuration's new
+      `B2CLLimit`, ₹1,00,000 by default, India GST only), b2cs (credit
+      notes to consumers net into it);
+    - exp, cdnr, cdnur, exemp;
+    - hsn(b2b) and hsn(b2c), quantities from the documents' lines, the
+      unit from the item's UOM (eInvoiceIndia's `UQC`);
+    - docs by number series, a reversed invoice counted cancelled;
+  - `gstr3b`: 3.1 (a)–(e), 3.2, 4 (A) full tax, (B)(1) the
+    non-recoverable part, (C) net, 5, and 6.1 by component (reverse charge
+    in cash; cross set-off left to the portal).
+- **screens/TAXREPORTS.html**: company, report (by regime), period with
+  shortcuts, Run.
+  - Each table copies to Excel. GSTR-1's dates copy as dd-mmm-yyyy and its
+    units as the tool's (for example NOS-NUMBERS): the GST tool's format,
+    deliberately, in the copy only. The screen shows dates as everywhere
+    else.
+  - A row opens its documents; the left-out documents are said.
+- **Tax Configuration** gains the B2CL limit (India GST).
+- **Tests:** unit/taxReports (4), emulator/taxReports (3: seeded documents
+  across months, a reversal of September's invoice, a draft, another
+  company, a reversed asset sale, a single-rate invoice, a part-month
+  period; the right, the company, the period and the regime; a real counter
+  sale and its return in GSTR-1 and 3B), ui/taxReports (2).
+- **Negative controls**, each caught and restored:
+  - a reversal not counted minus;
+  - every sale in the company's emirate;
+  - the period's dates ignored (caught only after the part-month period
+    was added to the suite);
+  - GSTR-1's copy without the tool's dates.
+

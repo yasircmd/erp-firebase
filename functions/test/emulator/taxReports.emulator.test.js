@@ -64,6 +64,9 @@ test('UAE VAT 201 from the posted documents of the period', async () => {
   assert.deepEqual(b['1b'].docs.sort(), ['CustomerInvoice:CI1', 'CustomerInvoice:CINVD1', 'SalesReturn:SR1']);
   assert.deepEqual([r.docs['CustomerInvoice:CINVD1'].Number, r.docs['CustomerInvoice:CINVD1'].Taxable], ['CI-3-R', -200]);
   assert.deepEqual([r.leftOut.count, r.leftOut.tax, r.leftOut.documents[0].Number], [1, 25, 'CI-5'], 'the single-rate invoice left out, and said');
+  // Part of a month: from the 6th, only the credit note of the 10th is in Dubai's box.
+  const part = (await report('vat201', null, { from: '2026-10-06', to: '2026-10-31' })).data['1b'];
+  assert.deepEqual([part.Amount, part.Vat, part.docs], [-100, -5, ['SalesReturn:SR1']]);
   // September holds CI-3 itself; November only CI-7.
   assert.equal((await report('vat201', null, { from: '2026-09-01', to: '2026-09-30' })).data['1b'].Amount, 200);
   assert.equal((await report('summary', null, { from: '2026-11-01', to: '2026-11-30' })).data.sales.Taxable, 8000);
