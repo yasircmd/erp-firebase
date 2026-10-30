@@ -43,6 +43,8 @@ const CATEGORIES = {
     detail: 'The receipts the sales reps gave customers from the Employee Portal (their GL entries and cheques are the GL and PDCs\' own). Each rep\'s receipt numbers restart.' },
   employeeRequests: { label: 'Employee Requests', group: T, fs: ['employeeRequests'], records: 'employeeRequests',
     detail: 'Payroll queries, expense claims and loan requests from the Employee Portal, with their messages.' },
+  budgets: { label: 'Budgets', group: T, fs: ['budgets'], records: 'budgets',
+    detail: 'Every budget, each version of each company\'s year: drafts, revisions and approved ones (their approval records are Approval Records\').' },
   supportingDocuments: { label: 'Supporting Documents', group: T, fs: ['attachments', 'attachmentLog', 'attachmentFolders'], count: ['attachments'],  files: true,
     detail: 'Every supporting document attached to an entry or record (employees\' and company documents included), and their files: moved to the trash of the connected document storage (Google Drive keeps them there for 30 days). Needs the document storage connected.' },
   companyDocuments: { label: 'Company Documents', group: T, fs: ['companyDocuments', 'companyDocumentLog'], count: ['companyDocuments'],  records: 'companyDocuments',
@@ -73,6 +75,8 @@ const CATEGORIES = {
   shareholders: { label: 'Shareholders', group: M, rtdb: ['companyShareholders'],
     detail: 'Each company\'s shareholders and issued shares.' },
 
+  budgetSetup: { label: 'Budget Setup', group: S, fs: ['budgetSetup'],
+    detail: 'Each company\'s Budget Setup; the defaults apply until it is set again. Budgets already made keep their own method.' },
   taxConfig: { label: 'Tax Configuration', group: S, fs: ['taxConfig', 'taxCodeUse'],
     detail: 'Each company\'s tax regime, its components and accounts, and its tax codes with their rates. Documents already posted keep the tax they posted.' },
   hrSetup: { label: 'HR Setup', group: S, fs: ['hrGrades', 'hrDesignations', 'hrFields', 'hrDocumentTypes', 'hrLeaveTypes', 'hrWorkCalendars', 'hrWorkSchedules', 'hrLeavingReasons', 'clearanceSetup'],
@@ -89,11 +93,11 @@ const CATEGORIES = {
 // are empty, or cleared in the same reset. The ported categories' keys are
 // the ported Data Reset's own (glEntries, stockData, ...).
 const TXN = ['glEntries', 'stockData', 'vendorInvoices', 'customerInvoices', 'openingBalanceBatches', 'pdcCheques', 'fixedAssets', 'recurringJournals',
-  'salesOrders', 'purchasing', 'jobOrders', 'employeeChanges', 'leave', 'payrollRuns', 'payrollSettlements', 'payrollLoans', 'employeeRequests', 'clearances', 'repReceipts'];
+  'salesOrders', 'purchasing', 'jobOrders', 'employeeChanges', 'leave', 'payrollRuns', 'payrollSettlements', 'payrollLoans', 'employeeRequests', 'clearances', 'repReceipts', 'budgets'];
 const USED_BY = {
   companies: TXN.concat(['employees']),
-  coa: ['glEntries', 'recurringJournals', 'openingBalanceBatches'],
-  orgUnits: ['glEntries', 'stockData'],
+  coa: ['glEntries', 'recurringJournals', 'openingBalanceBatches', 'budgets'],
+  orgUnits: ['glEntries', 'stockData', 'budgets'],
   items: ['stockData', 'salesOrders', 'purchasing', 'jobOrders', 'boms', 'vendorInvoices', 'customerInvoices'],
   uoms: ['stockData', 'items'],
   itemSubCategories: ['items'],

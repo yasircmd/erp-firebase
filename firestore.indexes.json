@@ -4,9 +4,32 @@
       "collectionGroup": "journalEntries",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "VoucherType", "order": "ASCENDING" },
-        { "fieldPath": "CompanyID", "order": "ASCENDING" },
-        { "fieldPath": "CreatedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "VoucherType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "CompanyID",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "CreatedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "journalEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "CompanyID",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "JVDate",
+          "order": "ASCENDING"
+        }
       ]
     }
   ],

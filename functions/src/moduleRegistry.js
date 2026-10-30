@@ -143,6 +143,10 @@ const MODULE_REGISTRY = [
   // Tax Reports (TAX_ENGINE.md, part 5; owner, 2026-10-30, Q325): the tax
   // summary, UAE VAT 201, India GSTR-1 and GSTR-3B; access reads them.
   { id: 'TAXREPORTS', label: 'Tax Reports', capabilities: ['access'] },
+  // Budget and forecast (docs/modules/BUDGET.md; owner, 2026-10-30): access
+  // reads budgets and Budget vs Actual, write prepares and submits them,
+  // setup changes each company's Budget Setup; approving is the approval levels'.
+  { id: 'BUDGET', label: 'Budget', capabilities: ['access', 'write', 'setup'] },
   // Developer (docs/modules/MULTI_CORPORATE.md, M2; owner, 2026-10-19): the
   // firm's own screen for its corporates. internal: no Help page.
   // homeOnly: only Corporate 100 ever has it, whatever a role says.
@@ -286,6 +290,7 @@ const DEFAULT_PERMISSIONS = {
   CLEARANCE:          { access: ['ADMIN', 'FINANCE_MGR'], manage: ['ADMIN'], setup: ['ADMIN'] },
   TAXCONFIG:          { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], setup: ['ADMIN'] },
   TAXREPORTS:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'] },
+  BUDGET:             { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], write: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'], setup: ['ADMIN', 'FINANCE_MGR'] },
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
   SUPPORT:            { access: ['ADMIN'] }
 };
