@@ -111,3 +111,6 @@ Negative controls, each caught and restored:
 - a big move ticked by default;
 - Apply trusting the browser's rate instead of the sheet's.
 
+**Results:** full regression 734 passed, 0 failed. UI suites pass: fxSheet,
+developer and multiCurrency.
+
