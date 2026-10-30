@@ -155,6 +155,11 @@ exports.getBudget = onCallWithMessages(onCallOptions, async (request) => {
   await requireCap(user, 'access');
   const b = await load(request.data && request.data.budgetId);
   requireCompany(user, b.CompanyID);
+  // Waiting on this user: their level, so the screen offers Approve and Reject.
+  if (b.Status === 'PendingApproval' && b.ApprovalInstanceID) {
+    const inst = await approvalInstances.get(b.ApprovalInstanceID);
+    b.MyLevel = inst && inst.Status === 'Pending' ? require('./approvalCard').myLevel(inst, user.uid) : null;
+  }
   return b;
 });
 
