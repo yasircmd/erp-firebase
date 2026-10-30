@@ -118,6 +118,11 @@
           <div><span class="block text-[11px] text-slate-400">Cost center</span><select id="coa-dim-CostCenter" data-dim="CostCenter" class="coa-dim w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"><option value="">As the heading</option><option value="Required">Required</option><option value="Optional">Optional</option><option value="NotUsed">Not used</option></select><span id="coa-dim-CostCenter-hint" class="block text-[10px] text-slate-500"></span></div><div><span class="block text-[11px] text-slate-400">Profit center</span><select id="coa-dim-ProfitCenter" data-dim="ProfitCenter" class="coa-dim w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"><option value="">As the heading</option><option value="Required">Required</option><option value="Optional">Optional</option><option value="NotUsed">Not used</option></select><span id="coa-dim-ProfitCenter-hint" class="block text-[10px] text-slate-500"></span></div><div><span class="block text-[11px] text-slate-400">Project</span><select id="coa-dim-Project" data-dim="Project" class="coa-dim w-full bg-slate-900 border border-slate-700 rounded-lg py-1.5 px-2 text-xs"><option value="">As the heading</option><option value="Required">Required</option><option value="Optional">Optional</option><option value="NotUsed">Not used</option></select><span id="coa-dim-Project-hint" class="block text-[10px] text-slate-500"></span></div>
         </div>
       </div>
+      <div id="coa-taxcode-field">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Default tax code <span class="text-slate-500">(optional, postable accounts)</span></label>
+        <input type="text" id="coa-form-taxcode" maxlength="12" placeholder="e.g. SR, GST18" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase">
+        <p class="text-xs text-slate-500 mt-1">Where the company has a Tax Configuration: the code of a Vendor Invoice's direct lines on this account.</p>
+      </div>
       <div id="coa-currency-field" class="hidden">
         <label class="block text-xs font-medium text-slate-300 mb-1">Currency</label>
         <select id="coa-form-currency" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Base currency</option></select>
@@ -311,6 +316,7 @@
       document.getElementById('coa-form-cashflowcategory').value = a.CashFlowCategory || '';
       document.getElementById('coa-form-cashbank').value = a.OwnCashBank || '';
       document.getElementById('coa-form-currency').value = a.Currency || '';
+      document.getElementById('coa-form-taxcode').value = a.TaxCode || '';
       ['CostCenter', 'ProfitCenter', 'Project'].forEach(k => { document.getElementById('coa-dim-' + k).value = (a.DimensionRules && a.DimensionRules[k]) || ''; });
       document.getElementById('coa-form-status').value = a.Status;
       document.getElementById('coa-code-value').textContent = a.AccountCode;
@@ -323,6 +329,7 @@
       document.getElementById('coa-form-id').value = '';
       populateParentOptions('', null);
       document.getElementById('coa-form-currency').value = '';
+      document.getElementById('coa-form-taxcode').value = '';
       document.querySelectorAll('.coa-dim').forEach(el => { el.value = ''; });
     }
     updateCashFlowCategoryVisibility();
@@ -392,6 +399,7 @@
       CashFlowCategory: document.getElementById('coa-form-cashflowcategory').value,
       CashBank: document.getElementById('coa-cashbank-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-cashbank').value,
       Currency: document.getElementById('coa-currency-field').classList.contains('hidden') ? '' : document.getElementById('coa-form-currency').value,
+      TaxCode: document.getElementById('coa-form-taxcode').value.trim().toUpperCase(),
       DimensionRules: { CostCenter: document.getElementById('coa-dim-CostCenter').value, ProfitCenter: document.getElementById('coa-dim-ProfitCenter').value, Project: document.getElementById('coa-dim-Project').value },
       Status: document.getElementById('coa-form-status').value
     };

@@ -408,7 +408,7 @@
     if (!isEditable()) {
       document.getElementById('prt-value-display').textContent = formatMoney(current.ReturnValue);
       document.getElementById('prt-discount-display').textContent = formatMoney(current.DiscountAmount);
-      document.getElementById('prt-taxpct-display').textContent = current.TaxPercent || 0;
+      document.getElementById('prt-taxpct-display').textContent = current.TaxLines ? 'by line' : (current.TaxPercent || 0);
       document.getElementById('prt-tax-display').textContent = formatMoney(current.TaxAmount);
       document.getElementById('prt-total-display').textContent = formatMoney(current.Total);
       settle.textContent = '';
@@ -427,11 +427,25 @@
     const subtotal = inv ? Number(inv.Subtotal) || 0 : 0;
     const discount = subtotal > 0 ? round2((Number(inv.Discount) || 0) * value / subtotal) : 0;
     const taxPct = inv ? Number(inv.TaxPercent) || 0 : 0;
-    const tax = round2((value - discount) * taxPct / 100);
-    const total = round2(value - discount + tax);
+    let tax = round2((value - discount) * taxPct / 100), added = tax;
+    if (inv && inv.TaxLines) {
+      // Taxed line by line (TAX_ENGINE.md, part 3): each line's share of its invoice line's tax, by quantity;
+      // the vendor refunds what it charged (not reverse charge).
+      const byKey = new Map(inv.TaxLines.map(t => [t.Key, t]));
+      tax = 0; added = 0;
+      gridRows().forEach(r => {
+        const t = byKey.get(r.key), q = parseQty(r.qty);
+        if (!t || !q || !r.Quantity) return;
+        const f = Math.min(1, q / r.Quantity);
+        const lineTax = round2((t.Components || []).reduce((s, x) => s + (f >= 1 ? x.Amount : round2(x.Amount * f)), 0));
+        tax = round2(tax + lineTax);
+        if (!t.Reverse) added = round2(added + lineTax);
+      });
+    }
+    const total = round2(value - discount + added);
     document.getElementById('prt-value-display').textContent = formatMoney(value);
     document.getElementById('prt-discount-display').textContent = formatMoney(discount);
-    document.getElementById('prt-taxpct-display').textContent = taxPct;
+    document.getElementById('prt-taxpct-display').textContent = inv && inv.TaxLines ? 'by line' : taxPct;
     document.getElementById('prt-tax-display').textContent = formatMoney(tax);
     document.getElementById('prt-total-display').textContent = formatMoney(total);
     if (inv && inv.Outstanding !== undefined && total > 0) {
@@ -677,7 +691,8 @@
         <table style="width:260px; font-size:11px;">
           <tr><td>Subtotal</td><td style="text-align:right">${formatMoney(current.ReturnValue)}</td></tr>
           ${(Number(current.DiscountAmount) || 0) !== 0 ? `<tr><td>Discount</td><td style="text-align:right">${formatMoney(current.DiscountAmount)}</td></tr>` : ''}
-          ${(Number(current.TaxAmount) || 0) !== 0 ? `<tr><td>Tax${pct ? ' (' + pct + '%)' : ''}</td><td style="text-align:right">${formatMoney(current.TaxAmount)}</td></tr>` : ''}
+          ${current.TaxComponents ? /* line tax: each component (TAX_ENGINE.md, part 3) */ current.TaxComponents.filter(c => !c.Reverse).map(c => `<tr><td>${escapeHtml(c.Component)}</td><td style="text-align:right">${formatMoney(c.Amount)}</td></tr>`).join('')
+            : (Number(current.TaxAmount) || 0) !== 0 ? `<tr><td>Tax${pct ? ' (' + pct + '%)' : ''}</td><td style="text-align:right">${formatMoney(current.TaxAmount)}</td></tr>` : ''}
           <tr style="font-weight:bold; border-top:1px solid #333;"><td>Total</td><td style="text-align:right">${formatMoney(current.Total)}</td></tr>
         </table>
       </div>

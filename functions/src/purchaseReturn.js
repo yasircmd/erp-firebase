@@ -20,6 +20,7 @@
 // the vendor that a later JV/CBT settles. partyLedger derives both from
 // the GL entry like any JV line, so nothing else is stored.
 const { randomUUID } = require('crypto');
+const purchaseTax = require('./purchaseTax');
 const { HttpsError } = require('firebase-functions/v2/https');
 const { onCallWithMessages } = require('./callable');
 const { rtdb, firestore } = require('./firebaseAdmin');
@@ -145,10 +146,19 @@ async function invoiceGrnLines(invoiceId, inv, excludeReturnId, allTx) {
 // The invoice's own formula (saveVendorInvoiceDraft): discount on the
 // subtotal, tax on the net of discount. A return takes the discount in
 // proportion to its value and recomputes tax on its own net.
+// An invoice taxed line by line (TAX_ENGINE.md, part 3): each returned line
+// takes its invoice line's share, by quantity, at its codes and rates;
+// the vendor refunds the tax it charged (not reverse charge's).
 function computeValues(lines, inv) {
   const returnValue = round2(lines.reduce((s, l) => s + l.ReturnValue, 0));
   const subtotal = Number(inv.Subtotal) || 0;
   const discount = subtotal > 0 ? round2((Number(inv.Discount) || 0) * returnValue / subtotal) : 0;
+  if (inv.TaxLines) {
+    const fractions = {};
+    lines.forEach(l => { fractions[grnLineKey(l.SourceGRNID, l.SourceGRNLineNo)] = l.ReceivedQuantity ? l.Quantity / l.ReceivedQuantity : 0; });
+    const share = purchaseTax.returnShare(inv, fractions);
+    return Object.assign({ ReturnValue: returnValue, DiscountAmount: discount, TaxPercent: 0, Total: round2(returnValue - discount + share.TaxAdded) }, share);
+  }
   const tax = round2((returnValue - discount) * (Number(inv.TaxPercent) || 0) / 100);
   return { ReturnValue: returnValue, DiscountAmount: discount, TaxPercent: Number(inv.TaxPercent) || 0, TaxAmount: tax, Total: round2(returnValue - discount + tax) };
 }
@@ -190,7 +200,7 @@ async function buildLines(rawLines, invoiceId, inv, excludeReturnId) {
       ItemID: src.ItemID, ItemCode: src.ItemCode || (item && item.ItemCode) || '', ItemName: src.ItemName || (item && item.ItemName) || '',
       WarehouseID: src.WarehouseID, BatchNumber: src.BatchNumber,
       CostCenterID: src.CostCenterID || inv.CostCenterID || '', ProfitCenterID: src.ProfitCenterID || inv.ProfitCenterID || '',
-      Quantity: round6(qty), InvoiceUnitCost: src.UnitCost, ReturnValue: round2(qty * src.UnitCost),
+      Quantity: round6(qty), ReceivedQuantity: src.Quantity, InvoiceUnitCost: src.UnitCost, ReturnValue: round2(qty * src.UnitCost),
       Description: String(raw.Description || '').trim() || ('Return ' + (src.ItemCode || '') + ' — ' + src.SourceGRNNumber)
     });
   });
@@ -239,7 +249,8 @@ exports.getReturnableVendorInvoices = onCallWithMessages(onCallOptions, async (r
     out.push({
       VendorInvoiceID: id, TransactionNumber: inv.TransactionNumber || '', InvoiceDate: inv.InvoiceDate || '',
       VendorRefNumber: inv.VendorRefNumber || '', Description: inv.Description || '', Status: inv.Status,
-      Subtotal: inv.Subtotal, Discount: inv.Discount || 0, TaxPercent: inv.TaxPercent || 0, Total: inv.Total, Lines: lines
+      Subtotal: inv.Subtotal, Discount: inv.Discount || 0, TaxPercent: inv.TaxPercent || 0, Total: inv.Total, Lines: lines,
+      TaxLines: inv.TaxLines || null // line tax (TAX_ENGINE.md, part 3): the screen's share of it
     });
   }
   await annotateInvoiceOutstanding('VendorInvoice', out);
@@ -373,7 +384,14 @@ async function commitPurchaseReturnPosting(user, existing, returnId) {
     glLines.push(Object.assign({ AccountCode: acc.AccountCode, Debit: values.DiscountAmount, Credit: 0, Description: 'Discount received reversed — ' + existing.Description }, dims));
   }
   glLines.push(...movement.inventoryGlLines);
-  if (values.TaxAmount > 0) {
+  if (values.TaxComponents) { // each component back to the account the invoice posted to (TAX_ENGINE.md)
+    glLines.push(...purchaseTax.returnGl(values, coaData, { description: existing.Description, costCenterId: dims.CostCenterID, profitCenterId: dims.ProfitCenterID }));
+    if (values.TaxNonRecoverable) {
+      // The tax that couldn't be reclaimed was in the goods' cost: refunded with them, it goes with the return's variance.
+      const acc = await resolveCompanyAccount(existing.CompanyID, 'PurchaseReturnVarianceAccountID', 'Purchase Return Variance Account', coaData);
+      glLines.push(Object.assign({ AccountCode: acc.AccountCode, Debit: 0, Credit: values.TaxNonRecoverable, Description: 'Input tax not reclaimed, refunded — ' + existing.Description }, dims));
+    }
+  } else if (values.TaxAmount > 0) {
     const acc = await resolveCompanyAccount(existing.CompanyID, 'InputTaxAccountID', 'Input Tax Account', coaData);
     glLines.push(Object.assign({ AccountCode: acc.AccountCode, Debit: 0, Credit: values.TaxAmount, Description: 'Input tax reversed — ' + existing.Description }, dims));
   }
@@ -541,6 +559,7 @@ exports.reversePurchaseReturn = onCallWithMessages(onCallOptions, async (request
       VendorID: existing.VendorID, SourceInvoiceID: existing.SourceInvoiceID, SourceInvoiceNumber: existing.SourceInvoiceNumber || '',
       ReturnValue: existing.ReturnValue, DiscountAmount: existing.DiscountAmount, TaxPercent: existing.TaxPercent,
       TaxAmount: existing.TaxAmount, Total: existing.Total,
+      ...(existing.TaxLines ? { TaxLines: existing.TaxLines, TaxComponents: existing.TaxComponents, TaxRegime: existing.TaxRegime || '' } : {}),
       Lines: movementLines, ReversalOfReturnID: returnId, ReversedByReturnID: '',
       CreatedAt: now, CreatedBy: actor, UpdatedAt: now, UpdatedBy: actor
     };

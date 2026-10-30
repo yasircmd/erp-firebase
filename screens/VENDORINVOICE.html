@@ -142,8 +142,20 @@
     <p class="text-xs font-semibold text-slate-400 uppercase">Adjustments</p>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Discount</label><input type="text" inputmode="decimal" id="vinv-form-discount" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
-      <div><label class="block text-xs font-medium text-slate-300 mb-1">Tax %</label><input type="text" inputmode="decimal" id="vinv-form-taxpercent" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
+      <div id="vinv-taxpercent-field"><label class="block text-xs font-medium text-slate-300 mb-1">Tax %</label><input type="text" inputmode="decimal" id="vinv-form-taxpercent" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Round Off <span class="text-slate-500">(+/-)</span></label><input type="text" inputmode="decimal" id="vinv-form-roundoff" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-right focus:outline-none focus:border-blue-500"></div>
+    </div>
+    <!-- Line tax, where the company has a Tax Configuration (docs/modules/TAX_ENGINE.md, part 3) -->
+    <div id="vinv-tax-box" class="hidden space-y-2">
+      <p id="vinv-tax-note" class="text-xs text-slate-400"></p>
+      <p id="vinv-tax-problem" class="hidden text-xs text-amber-400"></p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead><tr class="text-slate-400 border-b border-slate-700"><th class="text-left py-1 pr-2">Line</th><th class="text-right py-1 pr-2">Taxable</th><th class="text-left py-1 pr-2">Tax code</th><th class="text-right py-1 pr-2">Rate %</th><th class="text-left py-1 pr-2">Components</th><th class="text-right py-1 pr-2">Tax</th><th class="text-right py-1">Reclaimed</th></tr></thead>
+          <tbody id="vinv-tax-lines"></tbody>
+        </table>
+      </div>
+      <div id="vinv-tax-summary" class="text-xs text-slate-400"></div>
     </div>
     <div class="border-t border-slate-700 pt-3 space-y-1 text-sm">
       <div class="flex justify-between text-slate-400"><span>Subtotal (GRNs + direct lines)</span><span id="vinv-subtotal-display" class="font-mono">0.00</span></div>
@@ -598,8 +610,78 @@
     });
   }
 
+  // ---------- LINE TAX (docs/modules/TAX_ENGINE.md, part 3) ----------
+  // A company with a Tax Configuration: each line's tax as the save will
+  // work it out (previewVendorInvoiceTax), its code changeable with the
+  // "change tax code" right, the part reclaimed; reverse charge shown.
+  let taxState = { configured: false };
+  let taxTimer = null, taxSeq = 0;
+  const lineTaxCodes = new Map(); // Key -> the code chosen for the line
+  const callFn = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  function taxReadOnly() { return currentInvoice && !isInvoiceEditable(); }
+  function scheduleTaxPreview() { clearTimeout(taxTimer); taxTimer = setTimeout(loadTaxPreview, 300); }
+  function loadTaxPreview() {
+    const seq = ++taxSeq;
+    const data = collectHeader();
+    if (!data.CompanyID) { applyTaxState({ configured: false }); return; }
+    callFn('previewVendorInvoiceTax', { invoiceData: data }).then(r => { if (seq === taxSeq && !taxReadOnly()) applyTaxState(r || { configured: false }); })
+      .catch(err => console.error(err));
+  }
+  function applyTaxState(r) {
+    taxState = r;
+    const on = Boolean(r.configured);
+    document.getElementById('vinv-taxpercent-field').classList.toggle('hidden', on);
+    document.getElementById('vinv-tax-box').classList.toggle('hidden', !on);
+    if (on) {
+      document.getElementById('vinv-tax-note').textContent = r.regime === 'IN_GST'
+        ? 'From a vendor in state ' + (r.companyState || '') + ': CGST + SGST; from another state or abroad: IGST. The vendor\'s state: ' + (r.vendorState || 'not given') + '.' : '';
+      const problem = document.getElementById('vinv-tax-problem');
+      problem.textContent = r.problem || '';
+      problem.classList.toggle('hidden', !r.problem);
+      renderTaxLines(r.tax, isInvoiceEditable() && r.canChangeTaxCode, r.codes || []);
+    }
+    renderTotals();
+  }
+  function renderTaxLines(tax, canChange, codes) {
+    const lines = (tax && tax.TaxLines) || [];
+    document.getElementById('vinv-tax-lines').innerHTML = lines.map(t => {
+      const options = codes.filter(c => c.Active || c.Code === t.TaxCode)
+        .map(c => '<option value="' + escapeHtml(c.Code) + '"' + (c.Code === t.TaxCode ? ' selected' : '') + '>' + escapeHtml(c.Code + ' — ' + c.Name) + '</option>').join('');
+      return '<tr class="border-b border-slate-800" data-key="' + escapeHtml(t.Key) + '">' +
+        '<td class="py-1 pr-2">' + escapeHtml(t.Label || t.Key) + (t.Reverse ? ' <span class="text-amber-400">(reverse charge)</span>' : '') + '</td>' +
+        '<td class="py-1 pr-2 text-right font-mono">' + formatMoney(t.Taxable) + '</td>' +
+        '<td class="py-1 pr-2">' + (canChange ? '<select class="vinv-tax-code bg-slate-900 border border-slate-700 rounded py-0.5 px-1">' + options + '</select>' : '<span class="vinv-tax-code-text">' + escapeHtml(t.TaxCode) + '</span>') + '</td>' +
+        '<td class="py-1 pr-2 text-right font-mono">' + escapeHtml(String(t.Percent)) + '</td>' +
+        '<td class="py-1 pr-2">' + (t.Components || []).map(x => escapeHtml(x.Component + ' ' + x.Percent + '%: ' + formatMoney(x.Amount))).join(', ') + '</td>' +
+        '<td class="py-1 pr-2 text-right font-mono">' + formatMoney(t.Tax) + '</td>' +
+        '<td class="py-1 text-right font-mono">' + formatMoney(t.Recoverable) + '</td></tr>';
+    }).join('');
+    document.querySelectorAll('#vinv-tax-lines .vinv-tax-code').forEach(sel => sel.addEventListener('change', () => {
+      lineTaxCodes.set(sel.closest('tr').dataset.key, sel.value);
+      scheduleTaxPreview();
+    }));
+    document.getElementById('vinv-tax-summary').textContent = tax && tax.TaxLines
+      ? 'Charged by the vendor ' + formatMoney(tax.TaxAdded) + (tax.TaxReverse ? '; reverse charge ' + formatMoney(tax.TaxReverse) : '') + '; reclaimed ' + formatMoney(tax.TaxRecoverable) +
+        (tax.TaxAmount - tax.TaxRecoverable > 0.004 ? '; not reclaimed (to cost) ' + formatMoney(Math.round((tax.TaxAmount - tax.TaxRecoverable) * 100) / 100) : '') + '.'
+      : '';
+  }
+  // A posted (or pending) invoice: its tax as it was saved.
+  function showSavedTax(inv) {
+    const on = Boolean(inv && inv.TaxLines);
+    document.getElementById('vinv-taxpercent-field').classList.toggle('hidden', on);
+    document.getElementById('vinv-tax-box').classList.toggle('hidden', !on);
+    if (!on) return;
+    document.getElementById('vinv-tax-note').textContent = '';
+    document.getElementById('vinv-tax-problem').classList.add('hidden');
+    renderTaxLines(inv, false, []);
+  }
+
   // ---------- LIVE TOTALS ----------
   function updateTotals() {
+    renderTotals();
+    if (!taxReadOnly()) scheduleTaxPreview();
+  }
+  function renderTotals() {
     if (currentInvoice && !isInvoiceEditable()) {
       // Historical record — show exactly what was actually posted,
       // not a live recomputation. This also completely removes any
@@ -620,8 +702,10 @@
     const discount = parseAmount(document.getElementById('vinv-form-discount').value);
     const taxPercent = parseAmount(document.getElementById('vinv-form-taxpercent').value);
     const roundOff = parseAmount(document.getElementById('vinv-form-roundoff').value);
-    const taxAmount = (subtotal - discount) * taxPercent / 100;
-    const total = subtotal - discount + taxAmount + roundOff;
+    // With line tax, only the tax the vendor charges adds to the total (not reverse charge).
+    const lineTax = taxState.configured ? (taxState.tax || { TaxAmount: 0, TaxAdded: 0 }) : null;
+    const taxAmount = lineTax ? lineTax.TaxAmount : (subtotal - discount) * taxPercent / 100;
+    const total = subtotal - discount + (lineTax ? lineTax.TaxAdded : taxAmount) + roundOff;
 
     document.getElementById('vinv-subtotal-display').textContent = formatMoney(subtotal);
     document.getElementById('vinv-discount-display').textContent = formatMoney(discount);
@@ -651,7 +735,8 @@
         CostCenterID: l.CostCenterID, ProfitCenterID: l.ProfitCenterID
       })),
       Discount: parseAmount(document.getElementById('vinv-form-discount').value),
-      TaxPercent: parseAmount(document.getElementById('vinv-form-taxpercent').value),
+      TaxPercent: taxState.configured ? 0 : parseAmount(document.getElementById('vinv-form-taxpercent').value),
+      LineTaxCodes: Array.from(lineTaxCodes, ([Key, TaxCode]) => ({ Key, TaxCode })),
       RoundOff: parseAmount(document.getElementById('vinv-form-roundoff').value),
       ExchangeRate: fxCurrency() ? parseAmount(document.getElementById('vinv-fx-rate').value) : '',
       ExchangeRateReason: fxCurrency() ? document.getElementById('vinv-fx-reason').value.trim() : ''
@@ -795,6 +880,11 @@
     document.getElementById('vinv-form-discount').value = inv.Discount || 0;
     document.getElementById('vinv-form-taxpercent').value = inv.TaxPercent || 0;
     document.getElementById('vinv-form-roundoff').value = inv.RoundOff || 0;
+    // Its line tax: the codes as saved.
+    lineTaxCodes.clear();
+    (inv.TaxLines || []).forEach(t => lineTaxCodes.set(t.Key, t.TaxCode));
+    taxState = { configured: false };
+    if (!isInvoiceEditable()) showSavedTax(inv);
   }
 
   function openEntry(invoiceId) {
@@ -838,6 +928,9 @@
     document.getElementById('vinv-form-discount').value = 0;
     document.getElementById('vinv-form-taxpercent').value = 0;
     document.getElementById('vinv-form-roundoff').value = 0;
+    lineTaxCodes.clear();
+    taxState = { configured: false };
+    showSavedTax(null);
     document.getElementById('vinv-entry-title').textContent = 'New Vendor Invoice';
     document.getElementById('vinv-voucher-no-line').textContent = '';
     document.getElementById('vinv-txn-ref-line').classList.add('hidden');
@@ -1019,6 +1112,7 @@
     rpc.withSuccessHandler(c => { baseCode = (c && c.Code) || ''; showFx(); }).withFailureHandler(() => {}).getDefaultCurrency();
     document.getElementById('vinv-form-discount').addEventListener('input', updateTotals);
     document.getElementById('vinv-form-taxpercent').addEventListener('input', updateTotals);
+    document.getElementById('vinv-form-vendor').addEventListener('change', scheduleTaxPreview); // its state decides the components (TAX_ENGINE.md)
     document.getElementById('vinv-form-roundoff').addEventListener('input', updateTotals);
 
     document.getElementById('vinv-add-line-btn').addEventListener('click', () => {

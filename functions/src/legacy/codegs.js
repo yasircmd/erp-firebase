@@ -32,6 +32,7 @@ const __periodLock = require('../periodLock');
 const __prVisibility = require('../prVisibility');
 const __productionPosting = require('../productionPosting');
 const __projects = require('../projects');
+const __purchaseTax = require('../purchaseTax');
 const __reservations = require('../reservations');
 const __roles = require('../roles');
 const __salesPosting = require('../salesPosting');
@@ -88,6 +89,8 @@ const invoiceLineTax_ = (idToken, ...a) => __salesTax.invoiceTax(...a);
 const taxComponentGlLines_ = (...a) => __salesTax.componentGlLines(...a);
 const includedTaxOf_ = (...a) => __salesTax.includedTaxOf(...a);
 const recordTaxCodeUse_ = (idToken, ...a) => __salesTax.recordCodeUse(...a);
+const vendorLineTax_ = (idToken, ...a) => __purchaseTax.vendorInvoiceTax(...a);
+const purchaseTaxGl_ = (idToken, ...a) => __purchaseTax.purchaseGl(...a);
 const cleanInvoiceItemLines_ = (idToken, ...a) => __invoiceStock.cleanItemLines(...a);
 const postStock_ = (idToken, ...a) => __stockPosting.postStock(...a);
 const stockPostedFields_ = (...a) => __stockPosting.postedFields(...a);
@@ -1039,6 +1042,7 @@ async function saveAccount(idToken, accountData) {
         OwnCashBank: ownMark, CashBank: cashBank, // [NEW DEVELOPMENT coa-class-group-new]
         Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]
         DimensionRules: cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]
+        TaxCode: isPostable ? __taxEngine.itemTaxFields({ TaxCode: accountData.TaxCode }).TaxCode : '', // [NEW DEVELOPMENT vendor-line-tax]
         Status: status,
         CreatedAt: now, CreatedBy: actor,
         UpdatedAt: now, UpdatedBy: actor
@@ -1128,6 +1132,7 @@ async function saveAccount(idToken, accountData) {
       OwnCashBank: ownMark, CashBank: cashBank, FormerCodes: current.FormerCodes || null, // [NEW DEVELOPMENT coa-class-group-edit]
       Currency: accountCurrency, // [NEW DEVELOPMENT bank-currency]
       DimensionRules: accountData.DimensionRules === undefined ? (current.DimensionRules || null) : cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]
+      TaxCode: !isPostable ? '' : accountData.TaxCode === undefined ? (current.TaxCode || '') : __taxEngine.itemTaxFields({ TaxCode: accountData.TaxCode }).TaxCode, // [NEW DEVELOPMENT vendor-line-tax]
       Status: status,
       CreatedAt: current.CreatedAt, CreatedBy: current.CreatedBy,
       UpdatedAt: now, UpdatedBy: actor
@@ -3564,8 +3569,12 @@ async function saveVendorInvoiceDraft(idToken, invoiceData) {
     if (discount > subtotal) throw new Error('Discount cannot exceed the invoice subtotal.');
     // Tax computed on the NET of discount, per the confirmed formula —
     // most tax regimes calculate this way, not on the gross.
-    const taxAmount = Math.round(((subtotal - discount) * taxPercent / 100) * 100) / 100;
-    const total = Math.round((subtotal - discount + taxAmount + roundOff) * 100) / 100;
+    // [NEW DEVELOPMENT vendor-line-tax] line by line where the company has a Tax Configuration.
+    const lineTax = await vendorLineTax_(idToken, { companyId: companyId, vendor: vendorData, date: invoiceDate, invoiceData: invoiceData, role: user.profile.role,
+      before: invoiceId ? await firebaseDbRequest_('vendorInvoices/' + invoiceId, 'get', null, idToken) : null,
+      sourceGRNs: sourceGRNs, directLines: directLines, discount: discount });
+    const taxAmount = lineTax ? lineTax.TaxAmount : Math.round(((subtotal - discount) * taxPercent / 100) * 100) / 100;
+    const total = Math.round((subtotal - discount + (lineTax ? lineTax.TaxAdded : taxAmount) + roundOff) * 100) / 100;
 
     const now = new Date().toISOString();
     const actor = user.profile.username || user.uid;
@@ -3576,6 +3585,7 @@ async function saveVendorInvoiceDraft(idToken, invoiceData) {
       CompanyID: companyId, DivisionID: divisionId, BranchID: branchId,
       CostCenterID: costCenterId, ProfitCenterID: profitCenterId, VendorID: vendorId,
       SourceGRNs: sourceGRNs, DirectLines: directLines,
+      ...(lineTax || {}), // [NEW DEVELOPMENT vendor-line-tax] TaxLines, TaxSummary, TaxComponents …
       ...((await invoiceCurrencyFields_(idToken, vendorData, invoiceDate, invoiceData, total, { grns: sourceGRNs.length > 0 }))), // [NEW DEVELOPMENT invoice-currency]
       ProjectID: String(invoiceData.ProjectID || '').trim(), // [NEW DEVELOPMENT projects] the invoice's project, on every line it posts
       Discount: discount, TaxPercent: taxPercent, TaxAmount: taxAmount, RoundOff: roundOff,
@@ -3696,7 +3706,12 @@ async function commitVendorInvoicePosting_(idToken, user, existing, invoiceId) {
     });
   }
 
-  if (existing.TaxAmount > 0) {
+  let inputTax = null; // [NEW DEVELOPMENT vendor-line-tax]
+  if (existing.TaxComponents) {
+    inputTax = await purchaseTaxGl_(idToken, existing, coaData, (await firebaseDbRequest_('items', 'get', null, idToken)) || {}, { description: existing.Description, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
+      invoiceId: invoiceId, date: existing.InvoiceDate, actor: user.profile.username || user.uid });
+    inputTax.glLines.forEach(l => glLines.push(l));
+  } else if (existing.TaxAmount > 0) {
     const taxAccountId = await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'InputTaxAccountID', 'Input Tax Account');
     const taxAccount = coaData[taxAccountId];
     if (!taxAccount || !taxAccount.IsPostable) throw new Error('This company\'s Input Tax Account is no longer valid.');
@@ -3738,7 +3753,8 @@ async function commitVendorInvoicePosting_(idToken, user, existing, invoiceId) {
     lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
     dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
     extra: { CommitAttemptID: Utilities.getUuid(), SourceTransactionID: invoiceId }
-  }, {}, () => markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: invoiceId }), invoicePostedWriter_(invoiceId, actor, 'vendorInvoices'));
+  }, inputTax ? inputTax.ledgerUpdates : {}, (gl, at) => Object.assign(markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: invoiceId }), inputTax ? inputTax.docs(gl, at) : {}), invoicePostedWriter_(invoiceId, actor, 'vendorInvoices')); // [NEW DEVELOPMENT vendor-line-tax]
+  if (existing.TaxComponents) await recordTaxCodeUse_(idToken, existing.CompanyID, existing); // [NEW DEVELOPMENT vendor-line-tax]
 
   return { invoiceNumber: glResult.jvNumber };
 }
@@ -3829,7 +3845,12 @@ async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId,
     const discountAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'DiscountReceivedAccountID', 'Discount Received Account')];
     glLines.push({ AccountCode: discountAccount.AccountCode, Debit: Math.round(existing.Discount * 100) / 100, Credit: 0, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
   }
-  if (existing.TaxAmount > 0) {
+  let inputTax = null; // [NEW DEVELOPMENT vendor-line-tax]
+  if (existing.TaxComponents) {
+    inputTax = await purchaseTaxGl_(idToken, existing, coaData, (await firebaseDbRequest_('items', 'get', null, idToken)) || {}, { reverse: true, description: 'Reversal of ' + existing.TransactionNumber, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
+      invoiceId: invoiceId, date: date, actor: user.profile.username || user.uid });
+    inputTax.glLines.forEach(l => glLines.push(l));
+  } else if (existing.TaxAmount > 0) {
     const taxAccount = coaData[await resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'InputTaxAccountID', 'Input Tax Account')];
     glLines.push({ AccountCode: taxAccount.AccountCode, Debit: 0, Credit: Math.round(existing.TaxAmount * 100) / 100, Description: 'Reversal of ' + existing.TransactionNumber, CostCenterID: existing.CostCenterID || '', ProfitCenterID: existing.ProfitCenterID || '' });
   }
@@ -3856,6 +3877,7 @@ async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId,
     CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID,
     CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID, VendorID: existing.VendorID,
     SourceGRNs: existing.SourceGRNs || [], DirectLines: existing.DirectLines || [],
+    ...(existing.TaxLines ? { TaxLines: existing.TaxLines, TaxSummary: existing.TaxSummary, TaxComponents: existing.TaxComponents, TaxRegime: existing.TaxRegime || '', PlaceOfSupply: existing.PlaceOfSupply || '' } : {}), // [NEW DEVELOPMENT vendor-line-tax]
     CurrencyCode: existing.CurrencyCode || '', ExchangeRate: existing.ExchangeRate || 1, TotalBase: existing.TotalBase != null ? existing.TotalBase : existing.Total, // [NEW DEVELOPMENT invoice-currency]
     Discount: existing.Discount, TaxPercent: existing.TaxPercent, TaxAmount: existing.TaxAmount, RoundOff: existing.RoundOff,
     Subtotal: existing.Subtotal, Total: existing.Total,
@@ -3879,7 +3901,7 @@ async function executeVendorInvoiceReversal_(idToken, user, existing, invoiceId,
     lines: linesWithProject_(documentBaseLines_(glLines, existing), existing.ProjectID), // [NEW DEVELOPMENT invoice-currency] [NEW DEVELOPMENT projects]
     dimensions: { CompanyID: existing.CompanyID, DivisionID: existing.DivisionID, BranchID: existing.BranchID, CostCenterID: existing.CostCenterID, ProfitCenterID: existing.ProfitCenterID },
     extra: { CommitAttemptID: attemptId, SourceTransactionID: newId }
-  }, {}, () => markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: '' }), invoiceReversalWriter_(invoiceId, newId, reversal, actor, 'vendorInvoices'));
+  }, inputTax ? inputTax.ledgerUpdates : {}, (gl, at) => Object.assign(markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: '' }), inputTax ? inputTax.docs(gl, at) : {}), invoiceReversalWriter_(invoiceId, newId, reversal, actor, 'vendorInvoices')); // [NEW DEVELOPMENT vendor-line-tax]
 
   return { invoiceId: newId, invoiceNumber: glResult.jvNumber };
 }

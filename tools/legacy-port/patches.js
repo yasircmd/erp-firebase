@@ -3472,4 +3472,88 @@ function decideDeliveryNoteApproval(idToken, dnId, levelNumber, decision, reason
       PricesIncludeTax: header.PricesIncludeTax === true // [NEW DEVELOPMENT invoice-line-tax]
     };`
   }
+  ,
+  {
+    id: 'vendor-line-tax (save)',
+    why: 'NEW DEVELOPMENT (TAX_ENGINE.md, part 3, Q313-Q318, Q323-Q324): a company with a Tax Configuration taxes a Vendor Invoice line by line (purchaseTax.vendorInvoiceTax): a GRN line\'s code from its item, a direct line\'s from its account, GST\'s components from the vendor\'s state, each code\'s recoverable %, reverse charge. Only the tax the vendor charges (not reverse charge) adds to the total. A company without one keeps the single Tax %.',
+    find: `    // Tax computed on the NET of discount, per the confirmed formula —
+    // most tax regimes calculate this way, not on the gross.
+    const taxAmount = Math.round(((subtotal - discount) * taxPercent / 100) * 100) / 100;
+    const total = Math.round((subtotal - discount + taxAmount + roundOff) * 100) / 100;`,
+    replace: `    // Tax computed on the NET of discount, per the confirmed formula —
+    // most tax regimes calculate this way, not on the gross.
+    // [NEW DEVELOPMENT vendor-line-tax] line by line where the company has a Tax Configuration.
+    const lineTax = vendorLineTax_(idToken, { companyId: companyId, vendor: vendorData, date: invoiceDate, invoiceData: invoiceData, role: user.profile.role,
+      before: invoiceId ? firebaseDbRequest_('vendorInvoices/' + invoiceId, 'get', null, idToken) : null,
+      sourceGRNs: sourceGRNs, directLines: directLines, discount: discount });
+    const taxAmount = lineTax ? lineTax.TaxAmount : Math.round(((subtotal - discount) * taxPercent / 100) * 100) / 100;
+    const total = Math.round((subtotal - discount + (lineTax ? lineTax.TaxAdded : taxAmount) + roundOff) * 100) / 100;`
+  },
+  {
+    id: 'vendor-line-tax (fields)',
+    why: 'The line tax kept with the invoice: each line\'s code, rate, components and the part reclaimed, the summary.',
+    find: `      SourceGRNs: sourceGRNs, DirectLines: directLines,`,
+    replace: `      SourceGRNs: sourceGRNs, DirectLines: directLines,
+      ...(lineTax || {}), // [NEW DEVELOPMENT vendor-line-tax] TaxLines, TaxSummary, TaxComponents …`
+  },
+  {
+    id: 'vendor-line-tax (post tax)',
+    why: 'The part reclaimed debited to each component\'s input account; reverse charge credited to its output account; the rest is cost: a direct line\'s own account, a GRN line\'s goods (a value-only stock line, Q323) or, with none left in stock, the item\'s consumption account (purchaseTax.purchaseGl).',
+    find: `  if (existing.TaxAmount > 0) {
+    const taxAccountId = resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'InputTaxAccountID', 'Input Tax Account');`,
+    replace: `  let inputTax = null; // [NEW DEVELOPMENT vendor-line-tax]
+  if (existing.TaxComponents) {
+    inputTax = purchaseTaxGl_(idToken, existing, coaData, firebaseDbRequest_('items', 'get', null, idToken) || {}, { description: existing.Description, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
+      invoiceId: invoiceId, date: existing.InvoiceDate, actor: user.profile.username || user.uid });
+    inputTax.glLines.forEach(l => glLines.push(l));
+  } else if (existing.TaxAmount > 0) {
+    const taxAccountId = resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'InputTaxAccountID', 'Input Tax Account');`
+  },
+  {
+    id: 'vendor-line-tax (post batch)',
+    why: 'The goods\' added cost (their balances and its stock document) in the posting\'s own batch: all or none. The codes it used are recorded, so Tax Configuration keeps them.',
+    find: `  }, {}, () => markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: invoiceId }), invoicePostedWriter_(invoiceId, actor, 'vendorInvoices'));`,
+    replace: `  }, inputTax ? inputTax.ledgerUpdates : {}, (gl, at) => Object.assign(markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: invoiceId }), inputTax ? inputTax.docs(gl, at) : {}), invoicePostedWriter_(invoiceId, actor, 'vendorInvoices')); // [NEW DEVELOPMENT vendor-line-tax]
+  if (existing.TaxComponents) recordTaxCodeUse_(idToken, existing.CompanyID, existing); // [NEW DEVELOPMENT vendor-line-tax]`
+  },
+  {
+    id: 'vendor-line-tax (reversal tax)',
+    why: 'The reversal mirrors the tax lines; the goods\' added cost comes off them again (or off the consumption account when none is left).',
+    find: `  if (existing.TaxAmount > 0) {
+    const taxAccount = coaData[resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'InputTaxAccountID', 'Input Tax Account')];`,
+    replace: `  let inputTax = null; // [NEW DEVELOPMENT vendor-line-tax]
+  if (existing.TaxComponents) {
+    inputTax = purchaseTaxGl_(idToken, existing, coaData, firebaseDbRequest_('items', 'get', null, idToken) || {}, { reverse: true, description: 'Reversal of ' + existing.TransactionNumber, costCenterId: existing.CostCenterID || '', profitCenterId: existing.ProfitCenterID || '',
+      invoiceId: invoiceId, date: date, actor: user.profile.username || user.uid });
+    inputTax.glLines.forEach(l => glLines.push(l));
+  } else if (existing.TaxAmount > 0) {
+    const taxAccount = coaData[resolveCompanyFixedAccount_(idToken, existing.CompanyID, 'InputTaxAccountID', 'Input Tax Account')];`
+  },
+  {
+    id: 'vendor-line-tax (reversal batch)',
+    why: 'As the posting: the goods\' balances and the stock document in the reversal\'s batch.',
+    find: `  }, {}, () => markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: '' }), invoiceReversalWriter_(invoiceId, newId, reversal, actor, 'vendorInvoices'));`,
+    replace: `  }, inputTax ? inputTax.ledgerUpdates : {}, (gl, at) => Object.assign(markStockTxs_(matchedGrns, grnIds, { MatchedToInvoiceID: '' }), inputTax ? inputTax.docs(gl, at) : {}), invoiceReversalWriter_(invoiceId, newId, reversal, actor, 'vendorInvoices')); // [NEW DEVELOPMENT vendor-line-tax]`
+  },
+  {
+    id: 'vendor-line-tax (reversal record)',
+    why: 'The reversal record keeps the invoice\'s line tax, for the reports.',
+    find: `    SourceGRNs: existing.SourceGRNs || [], DirectLines: existing.DirectLines || [],`,
+    replace: `    SourceGRNs: existing.SourceGRNs || [], DirectLines: existing.DirectLines || [],
+    ...(existing.TaxLines ? { TaxLines: existing.TaxLines, TaxSummary: existing.TaxSummary, TaxComponents: existing.TaxComponents, TaxRegime: existing.TaxRegime || '', PlaceOfSupply: existing.PlaceOfSupply || '' } : {}), // [NEW DEVELOPMENT vendor-line-tax]`
+  },
+  {
+    id: 'vendor-line-tax (account code, new)',
+    why: 'Q324: an account\'s default tax code, taken by a Vendor Invoice\'s direct lines (and a GRN\'s non-stock lines) on it.',
+    find: `        DimensionRules: cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]`,
+    replace: `        DimensionRules: cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]
+        TaxCode: isPostable ? __taxEngine.itemTaxFields({ TaxCode: accountData.TaxCode }).TaxCode : '', // [NEW DEVELOPMENT vendor-line-tax]`
+  },
+  {
+    id: 'vendor-line-tax (account code, edit)',
+    why: 'As above; not sent (an import): kept.',
+    find: `      DimensionRules: accountData.DimensionRules === undefined ? (current.DimensionRules || null) : cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]`,
+    replace: `      DimensionRules: accountData.DimensionRules === undefined ? (current.DimensionRules || null) : cleanDimensionRules_(accountData.DimensionRules), // [NEW DEVELOPMENT dimension-rules]
+      TaxCode: !isPostable ? '' : accountData.TaxCode === undefined ? (current.TaxCode || '') : __taxEngine.itemTaxFields({ TaxCode: accountData.TaxCode }).TaxCode, // [NEW DEVELOPMENT vendor-line-tax]`
+  }
 ];
