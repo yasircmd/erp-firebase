@@ -15,6 +15,15 @@
             "value": "no-cache"
           }
         ]
+      },
+      {
+        "source": "**/*.@(css|webmanifest|js)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       }
     ]
   },

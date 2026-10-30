@@ -12,6 +12,11 @@ screen.
 
 ## 30/10/2026
 
+- **Install the ERP and the Employee Portal as apps.** Each has its own
+  icon and window and opens faster, because its pages and styles are kept
+  on the device. Pages also load faster in the browser. See [Installing the
+  app](getting-started.html#installing-the-app).
+
 - **Exchange rates from the sheet.** In [Currency
   Configuration](currencies.html), **Get rates from the sheet** reads the
   firm's Google Sheet of rates and shows each beside your last one. A move

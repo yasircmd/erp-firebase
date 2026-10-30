@@ -2,7 +2,13 @@
 <html>
 <head>
   <base target="_top">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Styles built ahead of time by tools/build-styles.sh, no longer compiled in the browser (docs/modules/PWA.md, Q332). -->
+  <link href="/css/erp.css" rel="stylesheet">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="apple-touch-icon" href="/icons/apple-erp.png">
+  <!-- Installable, the shell kept on the device (docs/modules/PWA.md): https only, so local test servers are untouched. -->
+  <script>if ('serviceWorker' in navigator && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));</script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
     details > summary { list-style: none; }

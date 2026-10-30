@@ -119,6 +119,14 @@ preserved quirks). Read it when touching a ported module.
   function deploy. Functions first, then the release (or
   deploy-functions.sh <set> --screens). Never put screens in public/:
   they stay behind getModuleFragment's access check (owner, 2026-09-26).
+- **The styles are built, not compiled in the browser** (docs/modules/
+  PWA.md, 2026-10-30): tools/build-styles.sh makes public/css/{erp,ess}.css
+  (Tailwind 3, from the shell and every screen; gitignored). The Hosting
+  deploy builds them, and a screens release rebuilds and redeploys Hosting
+  after it, so a new screen's classes are never missing. Both need npm.
+  A class assembled at run time ('bg-' + x) is never built: write whole
+  class names. public/sw.js keeps the shell on the device and never
+  touches a function call.
 - Firebase config in public/index.html must be the REAL values, not
   REPLACE_ME placeholders. Verify with: grep REPLACE_ME public/index.html
   (should return nothing). tools/deploy-hosting.sh (the Deploy workflow's

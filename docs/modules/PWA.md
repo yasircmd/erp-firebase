@@ -1,6 +1,6 @@
 # An installable app that loads faster (UX round 2, item 34)
 
-Status: **proposed** (2026-10-30). Q332-Q334 open.
+Status: **built** (2026-10-30, Q332-Q334; a Hosting deploy, no function).
 
 ## What the owner asked
 
@@ -54,10 +54,74 @@ to be checked (UX_ROUND2.md, item 34).
    - Sign-in is as today.
    - Screens stay behind getModuleFragment, never in public/.
 
-## Open questions (the owner's)
+## The owner's decisions (2026-10-30)
+
+| # | Decision |
+|---|---|
+| Q332 | **(a)**: the installable app, the shell cached on the device, the styles built ahead of time; screens still fetched from the server each time. |
+| Q333 | The Employee Portal is **installable as its own app**. |
+| Q334 | **"ERP" and "Employee Portal"**, with plain generated icons, replaceable later by a logo. |
+
+## The questions as asked
 
 | # | Question | Recommendation |
 |---|---|---|
 | Q332 | What "faster" covers: **(a)** the installable app, the shell cached on the device and the styles built ahead of time, screens still fetched from the server each time; or **(b)** also each screen kept on the device after its first opening, per user, cleared at sign-out (opening it again then needs no server call; its data is still checked by the server)? | **(a)** first: it removes the slowest part (styles compiled in the browser) with no change to how screens are protected. (b) gains less than it seems, because a screen's data still needs the server, and it keeps screens on shared devices between sign-outs. |
 | Q333 | The Employee Portal: **(a)** installable as its own app ("Employee Portal" icon), or **(b)** only the ERP? | **(a)**: phones mostly use the portal (sales reps, leave, requests). |
 | Q334 | The name under the icon: **(a)** "ERP" and "Employee Portal", with a plain generated icon (the letters on the theme colour), replaceable later by your logo; or **(b)** a name and logo you give now? | **(a)**, unless the product has a name already: the icon files can be swapped without code. |
+
+## As built (2026-10-30)
+
+- **Styles** (`tools/build-styles.sh`): Tailwind 3.4.17 builds
+  `public/css/erp.css` (from public/index.html and every screen) and
+  `public/css/ess.css` (the portal, dark mode by class), minified, about
+  30 KB and 25 KB, in place of the Play CDN.
+  - They are not committed (.gitignore).
+  - `tools/deploy-hosting.sh` builds them before its checks and refuses to
+    deploy if the build fails.
+  - `tools/release-screens.sh` runs `tools/deploy-hosting.sh` after a
+    release, so the styles follow the screens. A screens rollback keeps
+    today's styles, which cover the current screens.
+  - No class is assembled at run time in the shell or the screens (checked
+    when built). Write whole class names.
+- **Pages**: index.html and ess.html link their styles, their manifest,
+  the theme colour and the home-screen icon. The worker is registered on
+  https only, so local test servers are untouched.
+- **Manifests**: `public/manifest.webmanifest` (ERP: start and scope `/`,
+  #2563eb) and `public/ess.webmanifest` (Employee Portal: `/ess.html`,
+  #4f46e5). Each has a 192 and a 512 icon and a maskable 512 (letters on
+  the colour, `public/icons/`, drawn once; a logo can replace the files).
+- **Worker** (`public/sw.js`):
+  - **Pages, styles, manifests, icons and Help:** the network first, so a
+    deploy shows at once. The kept copy is used when the network fails or
+    takes over 4 s, and a page never seen offline gets "You're offline".
+  - **Font Awesome and the Firebase SDK:** their versioned addresses are
+    kept once fetched.
+  - **Untouched:** non-GET requests, and every other address (the
+    functions, sign-in, Firestore).
+  - **Updates:** the cache name is the worker's version; an older cache is
+    dropped when a new worker activates.
+- **Hosting**: `.css`, `.webmanifest` and `.js` are served `no-cache` like
+  the pages, so the network answer is a quick "unchanged". The deploy guard
+  (`tools/deploy-hosting.sh`) and unit/hostingGuards allow exactly these
+  new files in public/; screens still may not go there.
+- **Tests:**
+  - unit/pwa (3): the manifests and icon sizes, the pages' links, the
+    worker's kept files;
+  - ui/pwa (2): registered; with the server stopped, the ERP and the portal
+    open from the kept copy and an unseen page shows "You're offline";
+    online again, a new deploy shows at once;
+  - tools/test-deploy-hosting.sh (17): a failed style build stops the
+    deploy; the app's files deploy; a stray file doesn't.
+  - The UI helpers (`_cdnStyles.js`, `_essPage.js`) serve the built styles
+    for `/css/*.css`.
+- **Negative controls**, each caught and restored:
+  - the pages kept-copy first: a new deploy not shown;
+  - no offline page.
+- **Results:** UI suites pass with the built styles, among them home 18/18
+  (which failed 2 checks before, on the Play CDN's stand-in), help,
+  corporateSignIn, essPortal, essRequests, essClaims, salesRepPortal,
+  appDialogs, dateFormat, lineGrids, searchPicker, singleCompany and smoke.
+  essPortal failed its first two runs here, then passed three in a row with
+  the same code: its sign-in step is sensitive to what ran before it.
+
