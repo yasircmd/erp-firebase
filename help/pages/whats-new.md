@@ -12,6 +12,13 @@ screen.
 
 ## 30/10/2026
 
+- **Tax Reports.** The new [Tax Reports](tax-reports.html) screen works
+  out a company's tax for a period from its posted documents: the tax
+  summary, UAE VAT 201, and India's GSTR-1 (the GST offline tool's sheets)
+  and GSTR-3B. Each figure opens its documents, and each table copies to
+  Excel. Documents posted with one tax % before line tax are listed apart.
+  India's B2CL limit is set in [Tax Configuration](tax-configuration.html).
+
 - **Retail Sales, asset sales and orders taxed by code.** For a company
   with a Tax Configuration, [Retail Sales](retail-sales.html) takes each
   line's tax out of its price by the item's code, posts each component to

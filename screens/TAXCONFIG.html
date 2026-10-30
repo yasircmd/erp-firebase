@@ -15,12 +15,14 @@
   </div>
 
   <div id="tax-form" class="hidden space-y-4">
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700">
       <div><label class="block text-xs font-medium text-slate-300 mb-1">Regime</label><div id="tax-regime" class="text-sm font-semibold text-slate-100 py-2"></div></div>
       <div><label for="tax-name" class="block text-xs font-medium text-slate-300 mb-1">Name</label><input id="tax-name" maxlength="60" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
       <div id="tax-state-wrap"><label for="tax-state" id="tax-state-label" class="block text-xs font-medium text-slate-300 mb-1">State</label><select id="tax-state" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select></div>
       <div><label for="tax-rounding" class="block text-xs font-medium text-slate-300 mb-1">Rounding</label><select id="tax-rounding" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm">
         <option value="document">Per rate on the document</option><option value="line">Per line</option></select></div>
+      <!-- GSTR-1's B2CL (TAX_ENGINE.md, part 5) -->
+      <div id="tax-b2cl-wrap" class="hidden"><label for="tax-b2cl" class="block text-xs font-medium text-slate-300 mb-1">B2CL limit (₹)</label><input id="tax-b2cl" type="number" min="1" step="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm" title="GSTR-1: inter-state invoices to unregistered buyers above this are listed one by one (B2CL)"></div>
     </div>
 
     <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2">
@@ -78,6 +80,8 @@
     $('tax-name').value = cfg.Name || '';
     $('tax-rounding').value = cfg.Rounding || 'document';
     $('tax-state-wrap').classList.toggle('hidden', own);
+    $('tax-b2cl-wrap').classList.toggle('hidden', !gst);
+    $('tax-b2cl').value = gst ? (cfg.B2CLLimit || 100000) : '';
     $('tax-state-label').textContent = gst ? 'GST state (GSTIN\'s first two digits)' : 'Emirate';
     const states = gst ? data.gstStates : data.emirates;
     $('tax-state').innerHTML = '<option value="">Choose…</option>' + Object.keys(states).map(k => opt(k, (gst ? k + ' ' : '') + states[k], cfg.StateCode)).join('');
@@ -121,6 +125,7 @@
     cfg.Name = $('tax-name').value.trim();
     cfg.StateCode = $('tax-state').value;
     cfg.Rounding = $('tax-rounding').value;
+    if (cfg.Regime === 'IN_GST') cfg.B2CLLimit = $('tax-b2cl').value;
     cfg.Components = [...document.querySelectorAll('.tax-comp')].map(tr => ({ Code: tr.querySelector('.tax-comp-code').value.trim().toUpperCase(), Name: tr.querySelector('.tax-comp-name').value.trim(),
       OutputAccountID: tr.querySelector('.tax-comp-out').value, InputAccountID: tr.querySelector('.tax-comp-in').value }));
     cfg.Codes = [...document.querySelectorAll('.tax-code')].map(box => ({

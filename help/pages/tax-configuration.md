@@ -1,5 +1,5 @@
 ---
-fingerprint: 68251d843c72516e
+fingerprint: f88be32650744fa4
 reviewed: 2026-10-30
 title: Tax Configuration
 area: finance
@@ -24,7 +24,9 @@ and their returns take their tax from here, line by line, and so do
 [Fixed Asset Retirement](fixed-asset-retirement.html).
 [Sales Orders](sales-order.html), their Proforma Invoices and
 [Purchase Orders](purchase-order.html) show an estimate of the tax. The tax
-reports follow in a later release.
+reports are in [Tax Reports](tax-reports.html); India's **B2CL limit**
+(GSTR-1's invoice value above which an inter-state sale to an unregistered
+buyer is listed on its own, ₹1,00,000 by default) is set here.
 
 ## Before you start
 

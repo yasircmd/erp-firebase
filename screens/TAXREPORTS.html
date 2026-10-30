@@ -1,0 +1,175 @@
+<div class="space-y-5">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+    <div><div class="text-xs font-semibold text-blue-400 uppercase mb-1">Financial Accounting</div><h2 class="text-2xl font-bold"><i class="fa-solid fa-file-invoice-dollar text-blue-500"></i> Tax Reports</h2></div>
+    <div class="flex flex-wrap items-end gap-2">
+      <div><label for="txr-company" class="block text-xs font-medium text-slate-300 mb-1">Company</label><select id="txr-company" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label for="txr-report" class="block text-xs font-medium text-slate-300 mb-1">Report</label><select id="txr-report" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300"></select></div>
+      <div><label for="txr-from" class="block text-xs font-medium text-slate-300 mb-1">From</label><input type="date" id="txr-from" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div><label for="txr-to" class="block text-xs font-medium text-slate-300 mb-1">To</label><input type="date" id="txr-to" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></div>
+      <div class="flex gap-1 pb-0.5">
+        <button class="txr-period bg-slate-700 hover:bg-slate-600 text-xs px-2 py-2 rounded" data-p="month">This month</button>
+        <button class="txr-period bg-slate-700 hover:bg-slate-600 text-xs px-2 py-2 rounded" data-p="last">Last month</button>
+        <button class="txr-period bg-slate-700 hover:bg-slate-600 text-xs px-2 py-2 rounded" data-p="quarter">Last quarter</button>
+      </div>
+      <button id="txr-run" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-play"></i> Run</button>
+    </div>
+  </div>
+
+  <p class="text-xs text-slate-400 max-w-3xl">The company's tax for a period, from its posted documents taxed line by line: Customer Invoices and Sales Returns, Retail Sales and returns, asset sales, Vendor Invoices and Purchase Returns. A document counts on its own date; a reversal counts minus on its date. Click a figure to see the documents behind it. Each table copies to Excel for the person who files.</p>
+
+  <div id="txr-none" class="hidden bg-slate-800/60 p-4 rounded-xl border border-slate-700 text-sm text-slate-300">This company has no Tax Configuration: set its tax up in Tax Configuration first.</div>
+  <div id="txr-leftout" class="hidden bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs px-4 py-3 rounded-xl"></div>
+  <div id="txr-out" class="space-y-6"></div>
+
+  <!-- the documents behind a figure -->
+  <div id="txr-docs" class="hidden bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2">
+    <div class="flex items-center justify-between"><p id="txr-docs-title" class="text-sm font-semibold text-slate-200"></p><button id="txr-docs-close" class="text-xs text-slate-400 hover:text-slate-200">Close</button></div>
+    <table class="w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700"><th class="py-1 pr-2">Document</th><th class="py-1 pr-2">Number</th><th class="py-1 pr-2">Date</th><th class="py-1 pr-2">Party</th><th class="py-1 pr-2 text-right">Taxable</th><th class="py-1 text-right">Tax</th></tr></thead>
+      <tbody id="txr-docs-body"></tbody></table>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const call = (name, data) => new Promise((ok, fail) => rpc.withSuccessHandler(ok).withFailureHandler(fail)[name](data));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = n => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const plain = n => String(Math.round((Number(n) || 0) * 100) / 100);
+  const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const KIND = { CustomerInvoice: 'Customer Invoice', SalesReturn: 'Sales Return', RetailSale: 'Retail Sale', RetailReturn: 'Retail Return', AssetSale: 'Asset sale', VendorInvoice: 'Vendor Invoice', PurchaseReturn: 'Purchase Return' };
+  const REPORTS = { summary: 'Tax summary', vat201: 'VAT 201 (UAE)', gstr1: 'GSTR-1 (India)', gstr3b: 'GSTR-3B (India)' };
+  // The GST offline tool's dates (dd-mmm-yyyy) and units, for its sheets only.
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const gstDate = v => (/^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v.slice(8) + '-' + MON[Number(v.slice(5, 7)) - 1] + '-' + v.slice(0, 4) : v || '');
+  const UQC = { BOX: 'BOX-BOX', DOZ: 'DOZ-DOZENS', GMS: 'GMS-GRAMMES', KGS: 'KGS-KILOGRAMS', LTR: 'LTR-LITRES', MTR: 'MTR-METERS', NOS: 'NOS-NUMBERS', PAC: 'PAC-PACKS', PCS: 'PCS-PIECES', ROL: 'ROL-ROLLS', SET: 'SET-SETS', SQM: 'SQM-SQUARE METERS', TON: 'TON-TONNES', OTH: 'OTH-OTHERS' };
+  let last = null;
+  const tables = [];
+
+  // A table: columns [{ k, label, num, get, copy }]; a row with docs opens them.
+  function table(title, cols, rows, opts) {
+    const o = opts || {};
+    const i = tables.length;
+    tables.push({ title, cols, rows, gst: o.gst });
+    const cell = (c, r) => (c.get ? c.get(r) : r[c.k]);
+    const body = rows.map((r, j) => '<tr class="border-b border-slate-800 ' + (r.docs && r.docs.length ? 'txr-row cursor-pointer hover:bg-slate-800/60' : '') + '" data-t="' + i + '" data-r="' + j + '">' +
+      cols.map(c => '<td class="py-1 pr-3 ' + (c.num ? 'text-right font-mono' : '') + '">' + esc(c.num ? fmt(cell(c, r)) : cell(c, r)) + '</td>').join('') + '</tr>').join('');
+    return '<div class="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-2 overflow-x-auto">' +
+      '<div class="flex items-center justify-between"><p class="text-sm font-semibold text-slate-200">' + esc(title) + '</p>' +
+      '<button class="txr-copy bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1 rounded" data-t="' + i + '"><i class="fa-solid fa-copy"></i> Copy</button></div>' +
+      '<table class="txr-table w-full text-left text-sm"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-700">' +
+      cols.map(c => '<th class="py-1 pr-3 ' + (c.num ? 'text-right' : '') + '">' + esc(c.label) + '</th>').join('') + '</tr></thead><tbody>' +
+      (body || '<tr><td class="py-2 text-xs text-slate-500" colspan="' + cols.length + '">Nothing in this period.</td></tr>') + '</tbody></table></div>';
+  }
+  async function copy(i) {
+    const t = tables[i];
+    const val = (c, r) => { const v = c.copy ? c.copy(r) : c.get ? c.get(r) : r[c.k]; return c.num ? plain(v) : String(v == null ? '' : v); };
+    const text = [t.cols.map(c => c.label).join('\t')].concat(t.rows.map(r => t.cols.map(c => val(c, r)).join('\t'))).join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => appAlert('Copied: paste it into Excel.'), async () => (await appPrompt('Copy this text:', text)));
+    else await appPrompt('Copy this text:', text);
+  }
+  function showDocs(i, j) {
+    const t = tables[i], r = t.rows[j];
+    $('txr-docs-title').textContent = t.title + ': the documents';
+    $('txr-docs-body').innerHTML = (r.docs || []).map(k => last.docs[k]).filter(Boolean).map(d => '<tr class="border-b border-slate-800"><td class="py-1 pr-2">' + esc(KIND[d.Kind] || d.Kind) + '</td><td class="py-1 pr-2">' + esc(d.Number) + '</td><td class="py-1 pr-2">' + esc(d.Date) + '</td><td class="py-1 pr-2">' + esc(d.Party) + '</td><td class="py-1 pr-2 text-right font-mono">' + fmt(d.Taxable) + '</td><td class="py-1 text-right font-mono">' + fmt(d.Tax) + '</td></tr>').join('');
+    $('txr-docs').classList.remove('hidden');
+  }
+
+  const num = (k, label) => ({ k, label, num: true });
+  const txt = (k, label) => ({ k, label });
+  function render(r) {
+    tables.length = 0;
+    const d = r.data;
+    let html = '';
+    if (r.report === 'summary') {
+      const codes = (title, list, purchase) => table(title, [txt('TaxCode', 'Tax code'), txt('Category', 'Category'), num('Percent', 'Rate %'), num('Taxable', 'Taxable'), num('Tax', 'Tax')]
+        .concat(purchase ? [num('Recoverable', 'Reclaimed'), num('NonRecoverable', 'To cost'), { label: 'Reverse charge', get: x => (x.Reverse ? 'Yes' : '') }] : []), list);
+      const comps = (title, list, purchase) => table(title, [txt('Component', 'Component'), num('Amount', 'Tax')].concat(purchase ? [num('Recoverable', 'Reclaimed'), num('NonRecoverable', 'To cost'), num('Reverse', 'Reverse charge')] : []), list);
+      html = codes('Sales by tax code', d.sales.codes) + comps('Sales by component', d.sales.components) +
+        codes('Purchases by tax code', d.purchases.codes, true) + comps('Purchases by component', d.purchases.components, true) +
+        table('Totals', [txt('Label', ''), num('Amount', 'Amount')], [{ Label: 'Tax due (output tax and reverse charge)', Amount: d.due }, { Label: 'Tax reclaimed', Amount: d.reclaimed }, { Label: 'Net', Amount: d.net }]);
+    } else if (r.report === 'vat201') {
+      const order = ['1a', '1b', '1c', '1d', '1e', '1f', '1g', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'];
+      html = table('VAT 201', [txt('Box', 'Box'), txt('Label', 'Description'), { label: 'Amount (AED)', num: true, get: x => x.Amount }, { label: 'VAT (AED)', num: true, get: x => x.Vat }],
+        order.map(n => Object.assign({ Box: n }, d[n], { Amount: d[n].Amount == null ? '' : d[n].Amount })));
+    } else if (r.report === 'gstr1') {
+      const dt = k => ({ label: k === 'Note' ? 'Note Date' : 'Invoice date', get: x => x.Date, copy: x => gstDate(x.Date) });
+      const blank = label => ({ label, get: () => '' });
+      html =
+        table('b2b', [txt('GSTIN', 'GSTIN/UIN of Recipient'), txt('Name', 'Receiver Name'), txt('Invoice', 'Invoice Number'), dt(), num('Value', 'Invoice Value'), txt('POS', 'Place Of Supply'), txt('ReverseCharge', 'Reverse Charge'), blank('Applicable % of Tax Rate'), txt('Type', 'Invoice Type'), blank('E-Commerce GSTIN'), num('Rate', 'Rate'), num('Taxable', 'Taxable Value'), num('Cess', 'Cess Amount')], d.b2b, { gst: true }) +
+        table('b2cl', [txt('Invoice', 'Invoice Number'), dt(), num('Value', 'Invoice Value'), txt('POS', 'Place Of Supply'), blank('Applicable % of Tax Rate'), num('Rate', 'Rate'), num('Taxable', 'Taxable Value'), num('Cess', 'Cess Amount'), blank('E-Commerce GSTIN')], d.b2cl) +
+        table('b2cs', [txt('Type', 'Type'), txt('POS', 'Place Of Supply'), blank('Applicable % of Tax Rate'), num('Rate', 'Rate'), num('Taxable', 'Taxable Value'), num('Cess', 'Cess Amount'), blank('E-Commerce GSTIN')], d.b2cs) +
+        table('exp', [txt('ExportType', 'Export Type'), txt('Invoice', 'Invoice Number'), dt(), num('Value', 'Invoice Value'), blank('Port Code'), blank('Shipping Bill Number'), blank('Shipping Bill Date'), num('Rate', 'Rate'), num('Taxable', 'Taxable Value'), num('Cess', 'Cess Amount')], d.exp) +
+        table('cdnr', [txt('GSTIN', 'GSTIN/UIN of Recipient'), txt('Name', 'Receiver Name'), txt('Note', 'Note Number'), dt('Note'), txt('NoteType', 'Note Type'), txt('POS', 'Place Of Supply'), txt('ReverseCharge', 'Reverse Charge'), txt('SupplyType', 'Note Supply Type'), num('Value', 'Note Value'), blank('Applicable % of Tax Rate'), num('Rate', 'Rate'), num('Taxable', 'Taxable Value'), num('Cess', 'Cess Amount')], d.cdnr) +
+        table('cdnur', [txt('URType', 'UR Type'), txt('Note', 'Note Number'), dt('Note'), txt('NoteType', 'Note Type'), txt('POS', 'Place Of Supply'), num('Value', 'Note Value'), blank('Applicable % of Tax Rate'), num('Rate', 'Rate'), num('Taxable', 'Taxable Value'), num('Cess', 'Cess Amount')], d.cdnur) +
+        table('exemp', [txt('Description', 'Description'), num('Nil', 'Nil Rated Supplies'), num('Exempted', 'Exempted(other than nil rated/non GST supply)'), num('NonGST', 'Non-GST Supplies')], d.exemp) +
+        ['hsnB2B', 'hsnB2C'].map(k => table(k === 'hsnB2B' ? 'hsn(b2b)' : 'hsn(b2c)', [txt('HSN', 'HSN'), blank('Description'), { label: 'UQC', get: x => x.UQC, copy: x => UQC[x.UQC] || 'OTH-OTHERS' }, { label: 'Total Quantity', num: true, get: x => x.Qty }, num('Value', 'Total Value'), num('Rate', 'Rate'), num('Taxable', 'Taxable Value'), num('Igst', 'Integrated Tax Amount'), num('Cgst', 'Central Tax Amount'), num('Sgst', 'State/UT Tax Amount'), num('Cess', 'Cess Amount')], d[k])).join('') +
+        table('docs', [txt('Nature', 'Nature of Document'), txt('From', 'Sr. No. From'), txt('To', 'Sr. No. To'), { label: 'Total Number', get: x => x.Total }, { label: 'Cancelled', get: x => x.Cancelled }], d.docs);
+    } else if (r.report === 'gstr3b') {
+      const gst = [num('Igst', 'Integrated tax'), num('Cgst', 'Central tax'), num('Sgst', 'State/UT tax'), num('Cess', 'Cess')];
+      html =
+        table('3.1 Outward supplies and inward supplies liable to reverse charge', [txt('Label', 'Nature of supplies'), num('Taxable', 'Total taxable value')].concat(gst), ['a', 'b', 'c', 'd', 'e'].map(k => d.t31[k])) +
+        table('3.2 Inter-state supplies to unregistered persons', [txt('POS', 'Place of supply'), num('Taxable', 'Total taxable value'), num('Igst', 'Integrated tax')], d.t32) +
+        table('4 Eligible ITC', [txt('Label', 'Details')].concat(gst), [{ Label: '(A) ITC available (whether in full or part)' }].concat([1, 2, 3, 4, 5].map(n => d.t4.a[n]), [{ Label: '(B) ITC reversed' }, d.t4.b[1], d.t4.b[2], d.t4.net])) +
+        table('5 Exempt, nil rated and non-GST inward supplies', [txt('Label', 'Nature of supplies'), num('Inter', 'Inter-state supplies'), num('Intra', 'Intra-state supplies')], d.t5) +
+        table('6.1 Payment of tax', [txt('Tax', 'Description'), num('Payable', 'Tax payable (other than reverse charge)'), num('ReverseCharge', 'Reverse charge (paid in cash)'), num('Credit', 'Net ITC'), num('Cash', 'Paid in cash')], d.t61);
+    }
+    $('txr-out').innerHTML = html;
+  }
+
+  function run() {
+    $('txr-docs').classList.add('hidden');
+    const q = { companyId: $('txr-company').value, report: $('txr-report').value, from: $('txr-from').value, to: $('txr-to').value };
+    if (!q.companyId || !q.report) return;
+    $('txr-out').innerHTML = '<p class="text-xs text-slate-500">Working it out…</p>';
+    call('getTaxReport', q).then(r => {
+      last = r;
+      $('txr-none').classList.toggle('hidden', r.configured !== false);
+      if (!r.configured) { $('txr-out').innerHTML = ''; return; }
+      // Documents posted with one tax % are not in the reports (owner, Q326).
+      const lo = r.leftOut || { count: 0 };
+      $('txr-leftout').classList.toggle('hidden', !lo.count);
+      $('txr-leftout').textContent = lo.count ? lo.count + (lo.count === 1 ? ' document in this period was' : ' documents in this period were') + ' posted with one tax % before line tax, and ' + (lo.count === 1 ? 'is' : 'are') + ' not in this report (tax: ' + fmt(lo.tax) + '): ' +
+        lo.documents.slice(0, 20).map(x => x.Number || x.DocID).join(', ') + (lo.count > 20 ? ' …' : '') + '. Add them from the old figures.' : '';
+      render(r);
+    }, err => { $('txr-out').innerHTML = ''; appAlert(err.message || 'Unable to run the report.'); });
+  }
+  // The reports the company's regime has.
+  function loadRegime() {
+    $('txr-out').innerHTML = ''; $('txr-leftout').classList.add('hidden'); $('txr-docs').classList.add('hidden');
+    if (!$('txr-company').value) return;
+    call('getTaxReport', { companyId: $('txr-company').value, report: 'regime' }).then(r => {
+      $('txr-none').classList.toggle('hidden', r.configured !== false);
+      const list = !r.configured ? [] : ['summary'].concat(r.regime === 'AE_VAT' ? ['vat201'] : r.regime === 'IN_GST' ? ['gstr1', 'gstr3b'] : []);
+      $('txr-report').innerHTML = list.map(k => '<option value="' + k + '">' + esc(REPORTS[k]) + '</option>').join('');
+      if (list.length > 1) $('txr-report').value = list[1];
+    }, err => appAlert(err.message || 'Unable to load the company\'s tax.'));
+  }
+  function setPeriod(p) {
+    const now = new Date();
+    let from, to;
+    if (p === 'month') { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now.getFullYear(), now.getMonth() + 1, 0); }
+    else if (p === 'last') { from = new Date(now.getFullYear(), now.getMonth() - 1, 1); to = new Date(now.getFullYear(), now.getMonth(), 0); }
+    else { const q = Math.floor(now.getMonth() / 3) * 3; from = new Date(now.getFullYear(), q - 3, 1); to = new Date(now.getFullYear(), q, 0); }
+    $('txr-from').value = iso(from); $('txr-to').value = iso(to);
+  }
+
+  window.initModule = function () {
+    document.getElementById('app-title').innerHTML = '<i class="fa-solid fa-file-invoice-dollar"></i> Tax Reports';
+    setPeriod('last');
+    $('txr-company').addEventListener('change', loadRegime);
+    document.querySelectorAll('.txr-period').forEach(b => b.addEventListener('click', () => setPeriod(b.dataset.p)));
+    $('txr-run').addEventListener('click', run);
+    $('txr-out').addEventListener('click', e => {
+      const c = e.target.closest('.txr-copy');
+      if (c) { copy(Number(c.dataset.t)); return; }
+      const row = e.target.closest('.txr-row');
+      if (row) showDocs(Number(row.dataset.t), Number(row.dataset.r));
+    });
+    $('txr-docs-close').addEventListener('click', () => $('txr-docs').classList.add('hidden'));
+    call('getActiveCompanies', {}).then(list => {
+      $('txr-company').innerHTML = (list || []).map(c => '<option value="' + esc(c.CompanyID) + '">' + esc(c.LegalName || c.CompanyID) + '</option>').join('');
+    }, () => {}).then(loadRegime);
+  };
+})();
+</script>

@@ -1523,3 +1523,17 @@ from, and how it was verified. The deploy procedure is in the
   rules change. Still to do in the app: tick Vendor Invoice "taxcode" in
   Roles & Permissions; give the accounts used on direct lines a default tax
   code; set each tax code's recoverable %.
+- **2026-10-30, UX round 2 item 32, tax part 4, Retail Sales, asset sales,
+  orders and proformas (`ux2-tax4`, PR #183, from `2e3821a`):** run
+  [#236](https://github.com/yasircmd/erp-firebase/actions/runs/41018945168)
+  ("functions set, then screens", 07:15–07:29 UTC), success:
+  `SUMMARY: functions deployed: 61 (the require closure of retailSales.js,
+  fixedAssetsRetirement.js and salesTax.js; one new: previewOrderTax);
+  access granted: 61; screens released: yes` (release
+  `20261030T072933Z-2e3821a`, 91/91 verified). Then Hosting, run
+  [#237](https://github.com/yasircmd/erp-firebase/actions/runs/41022886854)
+  (07:53–07:54 UTC), success: the Help (Retail Sales, Fixed Asset
+  Retirement, Sales Order, Purchase Order, Tax Configuration, What's new).
+  No rules change and no new right. Still to do in the app: give every item
+  sold at the counter a tax code in Item Master (a company with a Tax
+  Configuration refuses a counter sale of an item without one).
