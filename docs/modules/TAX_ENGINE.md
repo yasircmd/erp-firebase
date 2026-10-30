@@ -117,6 +117,8 @@ follows it. New documents use the line codes (Q317).
 | Q320 | A new **Tax Configuration** module (setup right, Admin by default), its own Help page. |
 | Q321 | India's e-invoice: **ready, not connected**, as UAE e-invoicing: the IRP-schema JSON built and kept, the IRN and QR entered once a GSP provider is chosen. E-way bills later. |
 | Q322 | The Indian company is **its own corporate, with INR as its base currency**: its GST figures are in rupees directly. |
+| Q323 | (Part 3, 2026-10-26) Input tax that can't be reclaimed on a GRN (stock) line goes **into the stock's cost**: the item's value in its warehouse rises, and later issues and sales carry it. |
+| Q324 | (Part 3, 2026-10-26) A Vendor Invoice direct line's default tax code comes from **its account** (Chart of Accounts gains an optional default tax code), changeable with Vendor Invoice's new "change tax code" right. |
 
 ## The questions as asked
 
@@ -248,3 +250,44 @@ port's patches and SCREEN_EDITS.
   **Prices include tax**; Sales Types a default tax code.
 - Tests: unit/salesTax (8), unit/eInvoiceIndia (4), emulator/salesTax (8),
   ui/salesTax (3).
+
+### Part 3: purchases (2026-10-30; deploy set `ux2-tax3`)
+
+- **functions/src/purchaseTax.js**: `vendorInvoiceTax` gathers a Vendor
+  Invoice's lines and calls `salesTax.computeTax` (sale: false): a GRN's
+  goods by their item's code, a GRN's non-stock lines and the direct lines
+  by their account's `TaxCode` (Q324, Chart of Accounts); another code needs
+  VENDORINVOICE `taxcode` (Admin and Finance Manager by default; existing
+  corporates tick it). GST's place of supply is the vendor's `TaxState`
+  (IGST from another state, an SEZ or abroad). `splitRecoverable` gives each
+  line and component its `Recoverable` and `NonRecoverable` part by the
+  code's `RecoverablePercent` (Q316), and marks reverse charge (`Reverse`).
+  `TaxAdded` (what the vendor charges: not reverse charge) adds to the
+  total; `TaxReverse`, `TaxRecoverable` are kept.
+- **Posting** (patches `vendor-line-tax (…)`, `purchaseGl`): the part
+  reclaimed Dr each component's input account; reverse charge Cr its output
+  account; the part not reclaimed is cost: a direct (or non-stock) line's own
+  account, a GRN line's goods (Q323) as a **value-only stock line** in an
+  `InputTaxCost` stock document posted in the invoice's own batch (Dr the
+  item's inventory account, the balance's value and average cost up), or,
+  when none of the goods is left in that warehouse, the item's consumption
+  account. The reversal mirrors it (a value-only Out line). The codes used
+  are recorded in `taxCodeUse`.
+- **Value-only lines** (`stockMovement.computeStockMovement`): `ValueOnly`,
+  `Direction` In or Out, `TotalValue`, quantity 0; the balance must hold
+  stock. The ledger rebuild (Data Reset) replays them like any line; the
+  Stock Ledger shows the value; Inventory Aging and Batch Expiry move the
+  value only.
+- **Purchase Return**: each returned line takes its share by quantity
+  (`returnShare`); the input tax reclaimed is credited back, reverse
+  charge's output debited back (`returnGl`); the part not reclaimed was in
+  the goods' cost, so the vendor's refund of it is credited to the
+  Purchase Return Variance account.
+- **Screens**: Vendor Invoice's Tax box (`previewVendorInvoiceTax`): per
+  line its code (changeable with the right), rate, components, tax and the
+  part reclaimed, reverse charge marked, the totals charged / reverse /
+  reclaimed / to cost. Purchase Return shows and prints its share. Chart of
+  Accounts: Default tax code (postable accounts; SCREEN_EDITS).
+- Tests: unit/purchaseTax (2), emulator/purchaseTax (6), ui/purchaseTax
+  (2). Negative controls: the goods never given the tax (emulator); every
+  code fully reclaimed (unit). Both caught, restored.

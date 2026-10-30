@@ -117,6 +117,8 @@ const MAPPED = {
   taxComponentGlLines_: ['salesTax', 'componentGlLines', 'pure'],
   includedTaxOf_: ['salesTax', 'includedTaxOf', 'pure'],
   recordTaxCodeUse_: ['salesTax', 'recordCodeUse', 'dropCtx'],
+  vendorLineTax_: ['purchaseTax', 'vendorInvoiceTax', 'dropCtx'], // TAX_ENGINE.md, part 3 (called only from patches)
+  purchaseTaxGl_: ['purchaseTax', 'purchaseGl', 'dropCtx'],
   cleanInvoiceItemLines_: ['invoiceStock', 'cleanItemLines', 'dropCtx'], // docs/modules/DIRECT_SALES_INVOICE.md (called only from patches)
   // docs/modules/TRANSACTIONS_FIRESTORE.md, T1b (called only from patches stock-posting-atomic-*)
   postStock_: ['stockPosting', 'postStock', 'dropCtx'],
@@ -176,6 +178,7 @@ const SHARED_PATHS = {
   eInvoicing: '../eInvoicing',
   dataReset: '../dataReset', // used by name (__dataReset.) in patches
   salesTax: '../salesTax', // TAX_ENGINE.md, part 2
+  purchaseTax: '../purchaseTax', // TAX_ENGINE.md, part 3
   taxEngine: '../taxEngine' // used by name (__taxEngine.) in patches (TAX_ENGINE.md)
 };
 const COMBINATORS = new Set(['forEach', 'map', 'filter', 'find', 'findIndex', 'some', 'every', 'flatMap', 'reduce']);
@@ -914,7 +917,25 @@ const SCREEN_EDITS = [
     });
 ` },
   { mod: 'COA', from: "    loadAccountsToFix();\n",
-    to: "    loadAccountsToFix();\n    document.querySelectorAll('.coa-dim').forEach(el => el.addEventListener('change', updateDimHints));\n" }
+    to: "    loadAccountsToFix();\n    document.querySelectorAll('.coa-dim').forEach(el => el.addEventListener('change', updateDimHints));\n" },
+  // An account's default tax code (TAX_ENGINE.md, part 3, Q324; patch
+  // vendor-line-tax (account code …)): a Vendor Invoice's direct lines on it take it.
+  { mod: 'COA', from: `      <div id="coa-currency-field" class="hidden">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Currency</label>`,
+    to: `      <div id="coa-taxcode-field">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Default tax code <span class="text-slate-500">(optional, postable accounts)</span></label>
+        <input type="text" id="coa-form-taxcode" maxlength="12" placeholder="e.g. SR, GST18" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm uppercase">
+        <p class="text-xs text-slate-500 mt-1">Where the company has a Tax Configuration: the code of a Vendor Invoice's direct lines on this account.</p>
+      </div>
+      <div id="coa-currency-field" class="hidden">
+        <label class="block text-xs font-medium text-slate-300 mb-1">Currency</label>` },
+  { mod: 'COA', from: `      document.getElementById('coa-form-currency').value = a.Currency || '';\n`,
+    to: `      document.getElementById('coa-form-currency').value = a.Currency || '';\n      document.getElementById('coa-form-taxcode').value = a.TaxCode || '';\n` },
+  { mod: 'COA', from: `      document.getElementById('coa-form-currency').value = '';\n      document.querySelectorAll('.coa-dim').forEach(el => { el.value = ''; });`,
+    to: `      document.getElementById('coa-form-currency').value = '';\n      document.getElementById('coa-form-taxcode').value = '';\n      document.querySelectorAll('.coa-dim').forEach(el => { el.value = ''; });` },
+  { mod: 'COA', from: `      DimensionRules: { CostCenter: document.getElementById('coa-dim-CostCenter').value,`,
+    to: `      TaxCode: document.getElementById('coa-form-taxcode').value.trim().toUpperCase(),
+      DimensionRules: { CostCenter: document.getElementById('coa-dim-CostCenter').value,` }
 ];
 const HAND_ARGS = require('./hand-args.json'); // arg names for hand-ported callables the new screens call
 function splitTopLevel(s) {

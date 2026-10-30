@@ -3,10 +3,10 @@ title: Vendor Invoice
 area: procurement
 order: 7
 modules: [VENDORINVOICE]
-sources: [functions/src/grn.js, functions/src/partyLedger.js]
+sources: [functions/src/grn.js, functions/src/partyLedger.js, functions/src/purchaseTax.js]
 summary: Match the supplier bill to the received GRNs and post the payable amount to the company books.
-reviewed: 2026-10-26
-fingerprint: 58b2b32c2107dd86
+reviewed: 2026-10-30
+fingerprint: a0c100447c21ce24
 ---
 ## What it is for
 
@@ -25,6 +25,46 @@ fingerprint: 58b2b32c2107dd86
 3. Review the items, quantities and amounts before posting.
 4. Save or post the vendor invoice once the supplier bill is confirmed.
 5. Review the payables impact in the ledger.
+
+## Tax by line
+
+Where the company has a [Tax Configuration](tax-configuration.html), the
+invoice has no **Tax %**. Each line is taxed by its own **tax code**:
+
+- a GRN's goods take their **item's** code (Item Master);
+- a direct line, and a GRN's non-stock line, takes its **account's**
+  default code, from the [Chart of Accounts](chart-of-accounts.html);
+- the rate is the code's rate on the invoice date, and the discount is
+  spread over the lines before tax;
+- under India GST, a vendor in the company's own state charges CGST + SGST,
+  and one in another state or abroad IGST. The state comes from the
+  vendor's **State / emirate** (Vendor Master).
+
+The **Tax** box lists each line: its code, rate, components, the tax, and
+the part **reclaimed**. To give a line another code, choose it there. That
+needs Vendor Invoice's **change tax code** right (Admin and Finance
+Manager by default).
+
+**Tax that can't be reclaimed.** A tax code says how much of its input tax
+is recoverable (100 % unless part of it is blocked). Posting debits the part
+reclaimed to each component's input account. The rest is part of the cost:
+
+- on a **direct line**, it goes to the line's own account;
+- on **goods received**, it is added to their cost in the warehouse they
+  came into, which raises their average cost. If none of the goods is left
+  in stock there, it goes to the item's consumption account.
+
+**Reverse charge** (a code of that kind): the vendor charges no tax and the
+total doesn't include it. The company accounts for the tax itself: it is
+credited to the component's output account, and its recoverable part is
+reclaimed as input tax, so the two cancel out.
+
+Reversing the invoice reverses all of it, the goods' added cost included.
+
+For example: *Sample Supplies*, in the company's state, bills 10 sheets
+received at 20.00 each (GST 18 %) and freight of 100.00 (GST 5 %). CGST and
+SGST are 20.50 each and the total is 341.00. With a code that reclaims
+nothing, the 36.00 of tax on the sheets goes into their cost instead.
 
 ## A vendor in a foreign currency
 

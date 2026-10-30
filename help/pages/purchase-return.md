@@ -3,10 +3,10 @@ title: Purchase Return / Debit Note
 area: procurement
 order: 8
 modules: [PURCHASERETURN]
-sources: [functions/src/purchaseReturn.js, functions/src/grn.js]
+sources: [functions/src/purchaseReturn.js, functions/src/grn.js, functions/src/purchaseTax.js]
 summary: Return goods to the supplier, reverse the stock and capture the debit note for the vendor return.
-reviewed: 2026-10-18
-fingerprint: 86687fe803babe7f
+reviewed: 2026-10-30
+fingerprint: be577db14cfa84cf
 ---
 ## What it is for
 
@@ -29,6 +29,19 @@ fingerprint: 86687fe803babe7f
 ## What happens in the books
 
 The return reduces stock and may create a variance if the return value differs from the original cost. The supplier balance also reflects the return or debit note.
+
+### An invoice taxed by line
+
+When the invoice was taxed by line ([Tax Configuration](tax-configuration.html)),
+each returned line takes its share of its invoice line's tax, by quantity,
+at the codes and rates the invoice used:
+
+- the input tax the invoice reclaimed is credited back;
+- under reverse charge, the output tax is debited back;
+- tax that couldn't be reclaimed was in the goods' cost. The goods leave at
+  that cost, so the vendor's refund of it goes with the return's variance.
+
+The Tax line shows **by line**.
 
 ## Rights
 

@@ -5,8 +5,8 @@ order: 9
 modules: [STOCKLEDGER]
 sources: [functions/src/stockMovement.js]
 summary: Review the full stock movement history for items and warehouses, by date and transaction.
-reviewed: 2026-10-17
-fingerprint: bb23a7d5e31be8a9
+reviewed: 2026-10-30
+fingerprint: af81a31d24a02174
 ---
 ## What it is for
 
@@ -24,6 +24,10 @@ fingerprint: bb23a7d5e31be8a9
 2. Run the report. Review the opening quantity/value, movement date, voucher number/type, description, In/Out quantities, running balance, average cost, and value.
 3. Click a voucher number to open the source transaction. Use Back to return to this report with the same filters.
 4. Copy the table or print it for reconciliation. Compare the closing balance with the stock ledger/valuation at the end of the range.
+
+An **InputTaxCost** row changes the value, not the quantity. It is input
+tax that couldn't be reclaimed on a [Vendor Invoice](vendor-invoice.html),
+added to the goods' cost, and the average cost rises with it.
 
 ## What happens in the books
 

@@ -204,6 +204,11 @@ function replayLayers(transactions) {
     return out;
   };
   transactions.forEach(t => (t.Lines || []).forEach(l => {
+    if (l.ValueOnly && l.ItemID) { // value only (TAX_ENGINE.md, Q323): the cost changes, not the quantity
+      const v = at(l.ItemID, l.WarehouseID);
+      v.value = round2(v.value + (l.Direction === 'Out' ? -1 : 1) * (Number(l.TotalValue) || 0));
+      return;
+    }
     const qty = Number(l.Quantity) || 0;
     if (!(qty > 0) || !l.ItemID) return;
     const value = Number(l.TotalValue) || 0;

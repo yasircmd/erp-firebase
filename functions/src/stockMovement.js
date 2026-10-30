@@ -35,8 +35,33 @@ async function computeStockMovement(itemsData, coaData, lines, readLedger) {
   }
 
   const inventoryGlLines = [];
-  const outLines = lines.filter(l => l.Direction === 'Out');
-  const inLines = lines.filter(l => l.Direction === 'In');
+  // A value-only line (TAX_ENGINE.md, Q323: input tax that can't be
+  // reclaimed, added to the goods' cost) changes a balance's value, not its
+  // quantity: In adds TotalValue, Out takes it back. The stock must be on hand.
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx];
+    if (!line.ValueOnly) continue;
+    const item = itemsData[line.ItemID];
+    if (!item) throw new Error('Line ' + (idx + 1) + ': item not found.');
+    const value = Math.round((Number(line.TotalValue) || 0) * 100) / 100;
+    if (!(value > 0)) throw new Error('Line ' + (idx + 1) + ': a value-only line needs a value greater than zero.');
+    const key = ledgerKey(line.ItemID, line.WarehouseID);
+    const ledger = await currentLedger(line.ItemID, line.WarehouseID);
+    if (!(ledger.Quantity > 0.000001)) throw new Error('Line ' + (idx + 1) + ': ' + item.ItemCode + ' has no stock left at this warehouse to carry the value.');
+    const sign = line.Direction === 'Out' ? -1 : 1;
+    const newTotalValue = Math.max(0, Math.round((ledger.TotalValue + sign * value) * 100) / 100);
+    ledgerUpdates[key] = { Quantity: ledger.Quantity, AvgCost: Math.round((newTotalValue / ledger.Quantity) * 10000) / 10000, TotalValue: newTotalValue };
+    line.Quantity = 0; line.UnitCost = 0; line.TotalValue = value;
+    const account = coaData[item.InventoryAccountID];
+    if (!account) throw new Error('Line ' + (idx + 1) + ': ' + item.ItemCode + ' has no valid Inventory account configured.');
+    inventoryGlLines.push({
+      AccountCode: account.AccountCode, Debit: sign > 0 ? value : 0, Credit: sign > 0 ? 0 : value,
+      Description: line.Description || (item.ItemCode + ' — ' + item.ItemName),
+      CostCenterID: line.CostCenterID || '', ProfitCenterID: line.ProfitCenterID || ''
+    });
+  }
+  const outLines = lines.filter(l => l.Direction === 'Out' && !l.ValueOnly);
+  const inLines = lines.filter(l => l.Direction === 'In' && !l.ValueOnly);
 
   for (let idx = 0; idx < outLines.length; idx++) {
     const line = outLines[idx];
