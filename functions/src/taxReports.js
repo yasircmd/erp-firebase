@@ -403,7 +403,8 @@ function gstr3b(rows, config) {
 const REPORTS = { summary: null, vat201: 'AE_VAT', gstr1: 'IN_GST', gstr3b: 'IN_GST' };
 
 // getTaxReport({ companyId, from, to, report }) -> the report, the
-// documents behind it (by "Kind:DocID") and what was left out.
+// documents behind it (by "Kind:DocID") and what was left out;
+// report 'regime' -> the company's regime only.
 exports.getTaxReport = onCallWithMessages(onCallOptions, async (request) => {
   const user = await requireUser(request);
   if (!(await moduleHasCapability('TAXREPORTS', 'access', user.profile.role))) throw new HttpsError('permission-denied', 'You do not have access to Tax Reports.');
@@ -411,6 +412,11 @@ exports.getTaxReport = onCallWithMessages(onCallOptions, async (request) => {
   const companyId = text(d.companyId, 80);
   if (!companyId || !userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
   const from = text(d.from, 10), to = text(d.to, 10), report = text(d.report, 20);
+  // The screen first asks which reports the company's regime has.
+  if (report === 'regime') {
+    const c = await taxConfig.configFor(companyId);
+    return c ? { configured: true, regime: c.Regime, B2CLLimit: c.B2CLLimit || null } : { configured: false };
+  }
   if (!isDate(from) || !isDate(to) || from > to) throw new HttpsError('invalid-argument', 'Choose the period: a From date on or before the To date.');
   if (!(report in REPORTS)) throw new HttpsError('invalid-argument', 'Choose a report.');
   const config = await taxConfig.configFor(companyId);
