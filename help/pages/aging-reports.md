@@ -5,8 +5,8 @@ order: 10
 modules: [CUSTOMERAGING, VENDORAGING]
 sources: [functions/src/agingReports.js]
 summary: How old each party's open balance is, in buckets, with advances and pending cheques shown apart.
-reviewed: 2026-10-23
-fingerprint: b035bdf10233f807
+reviewed: 2026-10-30
+fingerprint: 5de1069f7a59e53f
 ---
 ## What it is for
 

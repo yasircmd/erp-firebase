@@ -5,8 +5,8 @@ order: 3
 modules: [PRODUCTION]
 sources: [functions/src/stockMovement.js]
 summary: Record produced output into stock and post its assigned inventory/consumption accounting; component issue remains separate.
-reviewed: 2026-10-24
-fingerprint: b31436ea00439309
+reviewed: 2026-10-30
+fingerprint: dbf381063c5e22c9
 ---
 ## What it is for
 

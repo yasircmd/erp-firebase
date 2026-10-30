@@ -5,8 +5,8 @@ order: 1
 modules: [COA]
 sources: [functions/src/coaUsage.js, functions/src/coaScheme.js, functions/src/coaRenumber.js]
 summary: The list of accounts every entry posts to: heads and postable accounts, types, codes, and shared accounts.
-reviewed: 2026-10-24
-fingerprint: 771ff44486c74d62
+reviewed: 2026-10-30
+fingerprint: 834147b4ee6575f8
 ---
 ## What it is for
 
@@ -114,6 +114,14 @@ account under the group, move the balance with a
 Set its Status to **Inactive**. It stays in the history and reports but
 can't be used in new entries. It then leaves the list, which shows Active
 accounts unless you change the status filter.
+
+### An account's default tax code
+
+On a postable account, **Default tax code** (optional) is the
+[tax code](tax-configuration.html) a [Vendor Invoice](vendor-invoice.html)'s
+direct lines on the account take, for example a blocked code on an
+entertainment account. A line may still be given another code with Vendor
+Invoice's change tax code right.
 
 ## Good to know
 

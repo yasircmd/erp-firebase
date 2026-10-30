@@ -1,6 +1,6 @@
 ---
 fingerprint: e3b0c44298fc1c14
-reviewed: 2026-10-26
+reviewed: 2026-10-30
 title: What's new
 area: start
 order: 3
@@ -10,6 +10,17 @@ sources: []
 The latest changes, newest first. Each links to the page that explains the
 screen.
 
+## 30/10/2026
+
+- **Vendor Invoices taxed line by line.** For a company with a Tax
+  Configuration, each [Vendor Invoice](vendor-invoice.html) line takes its
+  tax code from its item, or from its account's new default code in the
+  [Chart of Accounts](chart-of-accounts.html), with GST from the vendor's
+  state. The part of the tax a code lets you reclaim goes to the input
+  accounts. The rest is cost: the line's own account, or the goods' cost in
+  stock. Reverse charge posts the tax both ways.
+  [Purchase Returns](purchase-return.html) take back their share. Changing a
+  line's code needs the new **change tax code** right.
 ## 26/10/2026
 
 - **Invoices taxed line by line.** For a company with a Tax Configuration,

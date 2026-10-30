@@ -5,8 +5,8 @@ order: 4
 modules: [INVENTORYPURCHASEREQUISITION]
 sources: [functions/src/stockMovement.js]
 summary: Raise a stock requisition for inventory needs before the warehouse buys and receives the goods.
-reviewed: 2026-10-25
-fingerprint: 6a0c9fb19f4f9bdf
+reviewed: 2026-10-30
+fingerprint: cb3c01feedbbb19f
 ---
 ## What it is for
 

@@ -19,6 +19,7 @@
 <ul><li>The item, specific warehouse/rack, and date range are known.</li><li>The source transactions are posted. Reversed transactions appear according to their reversal history and the report's date range.</li><li>The user has Stock Ledger access to the selected company.</li></ul>
 <h2 id="step-by-step">Step by step</h2>
 <ol><li>Select company, item, Warehouse/Rack, and From/To dates. This report requires one item and one location; use Stock Valuation for a multi-item snapshot.</li><li>Run the report. Review the opening quantity/value, movement date, voucher number/type, description, In/Out quantities, running balance, average cost, and value.</li><li>Click a voucher number to open the source transaction. Use Back to return to this report with the same filters.</li><li>Copy the table or print it for reconciliation. Compare the closing balance with the stock ledger/valuation at the end of the range.</li></ol>
+<p>An <strong>InputTaxCost</strong> row changes the value, not the quantity. It is input tax that couldn't be reclaimed on a <a href="vendor-invoice.html">Vendor Invoice</a>, added to the goods' cost, and the average cost rises with it.</p>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
 <p>The report is read-only. It does not change stock or create a journal. Transactions before the From date are folded into the opening balance; transactions after To are excluded. Movement order follows the order that originally determined moving-average cost, rather than sorting solely by the displayed date.</p>
 <h2 id="rights">Rights</h2>
@@ -26,7 +27,7 @@
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
 <ul><li><strong>Transaction is missing:</strong> check company, item, selected warehouse/rack, From/To range, and Posted status.</li><li><strong>Opening balance is not zero:</strong> it includes all qualifying stock history before the selected start date.</li><li><strong>Destination warehouse misses an inbound transfer:</strong> confirm the movement posted and that the destination location, not the source, is selected.</li><li><strong>Balance differs from a date-sorted reconstruction:</strong> moving-average cost follows original posting order; later-dated entries posted earlier can affect WAC sequence.</li><li><strong>Voucher cannot open:</strong> the report can show movement history while the source module still enforces its own access and company permissions.</li></ul>
 <h2 id="related-pages">Related pages</h2>
-<p><a href="stock-availability.html">Stock Availability</a> · <a href="stock-valuation.html">Stock Valuation</a> · <a href="inventory-aging.html">Inventory Aging</a> · <a href="warehouse-movement.html">Warehouse Movement</a></p><p class="crumb">Last reviewed 17/10/2026</p></main>
+<p><a href="stock-availability.html">Stock Availability</a> · <a href="stock-valuation.html">Stock Valuation</a> · <a href="inventory-aging.html">Inventory Aging</a> · <a href="warehouse-movement.html">Warehouse Movement</a></p><p class="crumb">Last reviewed 30/10/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>

@@ -19,6 +19,15 @@
 <ul><li>The GRN is posted and the purchase is received.</li><li>The supplier and company match the PO and GRN.</li><li>The invoice amount and quantities are ready for verification.</li></ul>
 <h2 id="step-by-step">Step by step</h2>
 <ol><li>Open <strong>Vendor Invoice</strong> and choose the company.</li><li>Choose the supplier and the relevant GRNs to match.</li><li>Review the items, quantities and amounts before posting.</li><li>Save or post the vendor invoice once the supplier bill is confirmed.</li><li>Review the payables impact in the ledger.</li></ol>
+<h2 id="tax-by-line">Tax by line</h2>
+<p>Where the company has a <a href="tax-configuration.html">Tax Configuration</a>, the invoice has no <strong>Tax %</strong>. Each line is taxed by its own <strong>tax code</strong>:</p>
+<ul><li>a GRN's goods take their <strong>item's</strong> code (Item Master);</li><li>a direct line, and a GRN's non-stock line, takes its <strong>account's</strong> default code, from the <a href="chart-of-accounts.html">Chart of Accounts</a>;</li><li>the rate is the code's rate on the invoice date, and the discount is spread over the lines before tax;</li><li>under India GST, a vendor in the company's own state charges CGST + SGST, and one in another state or abroad IGST. The state comes from the vendor's <strong>State / emirate</strong> (Vendor Master).</li></ul>
+<p>The <strong>Tax</strong> box lists each line: its code, rate, components, the tax, and the part <strong>reclaimed</strong>. To give a line another code, choose it there. That needs Vendor Invoice's <strong>change tax code</strong> right (Admin and Finance Manager by default).</p>
+<p><strong>Tax that can't be reclaimed.</strong> A tax code says how much of its input tax is recoverable (100 % unless part of it is blocked). Posting debits the part reclaimed to each component's input account. The rest is part of the cost:</p>
+<ul><li>on a <strong>direct line</strong>, it goes to the line's own account;</li><li>on <strong>goods received</strong>, it is added to their cost in the warehouse they came into, which raises their average cost. If none of the goods is left in stock there, it goes to the item's consumption account.</li></ul>
+<p><strong>Reverse charge</strong> (a code of that kind): the vendor charges no tax and the total doesn't include it. The company accounts for the tax itself: it is credited to the component's output account, and its recoverable part is reclaimed as input tax, so the two cancel out.</p>
+<p>Reversing the invoice reverses all of it, the goods' added cost included.</p>
+<p>For example: <em>Sample Supplies</em>, in the company's state, bills 10 sheets received at 20.00 each (GST 18 %) and freight of 100.00 (GST 5 %). CGST and SGST are 20.50 each and the total is 341.00. With a code that reclaims nothing, the 36.00 of tax on the sheets goes into their cost instead.</p>
 <h2 id="a-vendor-in-a-foreign-currency">A vendor in a foreign currency</h2>
 <p>If the vendor's <strong>Default Currency</strong> (Vendor Master) is not the default currency, its invoice is in that currency:</p>
 <ul><li>the screen shows <strong>Currency and rate</strong>: the rate on the invoice date, from <a href="currencies.html">Currency Configuration</a>;</li><li>you may type another rate, with a reason;</li><li>the total shows in the vendor's currency, with its value in the default currency beside it;</li><li>for now such an invoice takes <strong>direct lines only</strong>: GRNs stay in the default currency.</li></ul>
@@ -31,7 +40,7 @@
 <h2 id="rights">Rights</h2>
 <p>Users need access and post rights for supplier invoice processing; approval may be required in some companies.</p>
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
-<ul><li>If the invoice is refused, the supplier, GRN or company may not match.</li><li><strong>&quot;No exchange rate for USD on or before …&quot;</strong>: enter a rate in Currency Configuration → Rates.</li><li>If the amount does not tie to the GRN, recheck the posted receipt and the supplier bill.</li></ul><p class="crumb">Last reviewed 26/10/2026</p></main>
+<ul><li>If the invoice is refused, the supplier, GRN or company may not match.</li><li><strong>&quot;No exchange rate for USD on or before …&quot;</strong>: enter a rate in Currency Configuration → Rates.</li><li>If the amount does not tie to the GRN, recheck the posted receipt and the supplier bill.</li></ul><p class="crumb">Last reviewed 30/10/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>

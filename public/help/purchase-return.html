@@ -21,10 +21,14 @@
 <ol><li>Open <strong>Purchase Return / Debit Note</strong> and choose the company.</li><li>Select the vendor and the source invoice or GRN line.</li><li>Enter the return quantity and the reason for the return.</li><li>Post the return. The system updates the stock and the supplier return ledger.</li><li>Review the resulting value and any variance entries created by the return.</li></ol>
 <h2 id="what-happens-in-the-books">What happens in the books</h2>
 <p>The return reduces stock and may create a variance if the return value differs from the original cost. The supplier balance also reflects the return or debit note.</p>
+<h3 id="an-invoice-taxed-by-line">An invoice taxed by line</h3>
+<p>When the invoice was taxed by line (<a href="tax-configuration.html">Tax Configuration</a>), each returned line takes its share of its invoice line's tax, by quantity, at the codes and rates the invoice used:</p>
+<ul><li>the input tax the invoice reclaimed is credited back;</li><li>under reverse charge, the output tax is debited back;</li><li>tax that couldn't be reclaimed was in the goods' cost. The goods leave at that cost, so the vendor's refund of it goes with the return's variance.</li></ul>
+<p>The Tax line shows <strong>by line</strong>.</p>
 <h2 id="rights">Rights</h2>
 <p>Users need access and post rights for returns, plus approval rights if the company uses approval on returns.</p>
 <h2 id="questions-and-mistakes">Questions and mistakes</h2>
-<ul><li>A return can be refused if the source invoice or GRN line is already fully returned or reversed.</li><li>If the return value differs from the expected value, review the original vendor invoice and the stock cost used in the receipt.</li></ul><p class="crumb">Last reviewed 18/10/2026</p></main>
+<ul><li>A return can be refused if the source invoice or GRN line is already fully returned or reversed.</li><li>If the return value differs from the expected value, review the original vendor invoice and the stock cost used in the receipt.</li></ul><p class="crumb">Last reviewed 30/10/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>

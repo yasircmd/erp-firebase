@@ -5,8 +5,8 @@ order: 1
 modules: [JOBORDERREQUEST]
 sources: [functions/src/stockMovement.js]
 summary: Open a job order request to start production and confirm the required materials and output.
-reviewed: 2026-10-17
-fingerprint: 682ed1bc84b6d408
+reviewed: 2026-10-30
+fingerprint: 5cc7ce838085a025
 ---
 ## What it is for
 
