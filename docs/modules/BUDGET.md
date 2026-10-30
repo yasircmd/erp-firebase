@@ -1,8 +1,9 @@
 # Budget and forecast (new module)
 
-Status: **draft, questions open** (owner, 2026-10-30: "Prepare a Budget
-and forecast module first, then customer credit control"). Q338–Q343
-below are the owner's decisions; nothing is built until they are made.
+Status: **decisions made** (owner, 2026-10-30), Q338–Q345 below; the
+design as revised for them is under "Agreed". Requested 2026-10-30:
+"Prepare a Budget and forecast module first, then customer credit
+control".
 
 ## Today
 
@@ -73,18 +74,81 @@ below are the owner's decisions; nothing is built until they are made.
    account (and cost centre) over its budget, counting open orders as
    committed.
 
-## Build plan (once agreed)
+## Agreed (the owner's decisions, 2026-10-30)
 
-- **B1:** budgets (grid, Excel paste, copy from last year, spread),
-  versions, approval; the Firestore index; Budget vs Actual.
-- **B2:** forecasts (methods, saved snapshots), Budget / Forecast /
-  Actual in the report.
-- **B3 (if chosen in Q342):** the spending check on PR, PO and Vendor
-  Invoice.
+| # | Decision |
+|---|---|
+| Q338 | **The P&L and the balance sheet** are budgeted. |
+| Q339 | **By account, optionally per cost centre and / or project**; a line without one is the company's. |
+| Q340 | **The approved Original kept; Revisions approved on top**, both reportable; spending is held to the latest revision. |
+| Q341 | **Both forecasts:** the rolling P&L forecast and a cash flow forecast. |
+| Q342 | **A per-company setting** in Budget Setup: reports only, warn, or block. |
+| Q343 | **A per-company setting:** project budgets within each year only, or also a life-of-project budget. |
+| Q344 | **A per-company setting:** balance-sheet lines entered as monthly movements, or as month-end closing balances. |
+| Q345 | **A per-company setting:** the cash flow forecast from open items and the budget, open items only, or the budget only. |
+
+**Budget Setup** (per company, in the Budget module, a setup right): the
+four settings above, each starting at the recommended option:
+
+| Setting | Options | Starts at |
+|---|---|---|
+| Spending check (Q342) | Off (reports only) · Warn · Block | Warn |
+| Project budgets (Q343) | Within each year · Also life of project | Within each year |
+| Balance-sheet lines (Q344) | Monthly movements · Closing balances | Monthly movements |
+| Cash flow forecast (Q345) | Open items + budget · Open items only · Budget only | Open items + budget |
+
+What the settings mean in use:
+
+- **Spending check:**
+  - It applies to Purchase Requisitions, Purchase Orders and Vendor
+    Invoices, by account and, where budgeted, cost centre or project,
+    for the month, the year to date or the year (a setting too, starting
+    at year to date).
+  - Open POs count as committed.
+  - **Warn** shows the overrun to the user and to the approvers (on the
+    approval card too).
+  - **Block** refuses the document over budget. A user with a new
+    "override budget" right may go ahead, giving a reason, and the
+    reason is kept.
+- **A budget keeps the method it was made with.** A setting can change
+  at any time, but a budget already made keeps its own (stored on it),
+  so approved figures never change meaning; the next budget or revision
+  uses the new setting.
+- **Closing balances (Q344):** a balance-sheet line is entered as the
+  balance expected at each month-end; the report compares it with the
+  actual balance. **Movements:** the expected change each month; the
+  budgeted balance is the actual opening plus the movements.
+- **Life-of-project (Q343):** a project then has a budget of its own
+  (per account, for its whole life, revised like a yearly budget),
+  compared with all its actuals since it started, as well as its lines
+  in each year's budget.
+- **The cash flow forecast (Q345):** by week for the next 13 weeks and
+  by month to the year's end, from today's bank and cash balances:
+  - **open items:** customer and vendor invoices by due date, post-dated
+    cheques by date, open orders, payroll and recurring journals;
+  - **the budget:** the budgeted P&L and balance-sheet movements turned
+    into cash, for what open items don't yet cover;
+  - "open items + budget" uses both: the open items first, the budget
+    for the rest.
+
+## Build plan
+
+- **B1:** Budget Setup; budgets for the P&L and the balance sheet
+  (grid, Excel paste, copy from last year, spread; movements or closing
+  balances), Original and Revisions, approval; the Firestore index;
+  Budget vs Actual.
+- **B2:** the rolling P&L forecast (methods, saved snapshots), Budget /
+  Forecast / Actual in the report.
+- **B3:** the spending check (off, warn or block, per company) on PR, PO
+  and Vendor Invoice, with the override right.
+- **B4:** the cash flow forecast.
+- **B5:** life-of-project budgets.
+
+Then customer credit control (owner, 2026-10-30), its own design.
 
 Each step with tests, Help (a new page in Finance), What's new.
 
-## The questions
+## The questions as asked
 
 | # | Question | Options | Recommendation |
 |---|---|---|---|
