@@ -4,8 +4,8 @@ area: start
 order: 3
 summary: How documents are submitted, approved, rejected and delegated.
 sources: [functions/src/approvals.js, functions/src/homeTasks.js]
-reviewed: 2026-10-24
-fingerprint: 6e52a9f04b2b0667
+reviewed: 2026-10-30
+fingerprint: d09a7f519395f916
 ---
 ## When a document needs approval
 
@@ -27,6 +27,18 @@ document is posted (or, for an order or a request, becomes approved for
 the next step). Where a follow-up team is set in Approval Configuration
 (for example Procurement for approved requisitions), the document appears
 in that team's Home tasks under **Ready for You to Act On**.
+
+### On a phone
+
+On a phone, selecting a pending approval opens an **approval card**
+instead of the full screen: the document's number, date, party and
+amount, its lines in short, who submitted it, and each level's decision so
+far. **Approve** and **Reject** (with a reason) there do exactly what they
+do on the document's screen, with the same rights and levels. **Open the
+full document** shows everything else, such as attachments. A few kinds of
+approval (a Job Order line, a reimbursement claim, an absence) need more
+than approve or reject; their card offers the full document only. See
+[On a phone](getting-started.html#on-a-phone).
 
 ## Rejected documents
 

@@ -1562,3 +1562,12 @@ from, and how it was verified. The deploy procedure is in the
   (14:55 UTC), success: the Help (Currency Configuration's rates from the
   sheet, What's new). No rules change. Still to do in the app: save the
   firm's sheet link in the Developer screen (Groups).
+- **2026-10-30, UX round 2 item 34, the installable app (`ux2-pwa`, PR #186,
+  from `510f340`):** Hosting only, run
+  [#242](https://github.com/yasircmd/erp-firebase/actions/runs/41084566368)
+  (15:51–15:52 UTC), success: `Built public/css/erp.css (29843 bytes) and
+  public/css/ess.css (25234 bytes)`, then Hosting (114 files): the pages on
+  the built styles, both manifests, icons, the service worker, the Help
+  (Installing the app, What's new). No function, screens release or rules
+  change. From now on a screens release also redeploys Hosting (the
+  styles follow the screens).

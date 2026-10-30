@@ -5,7 +5,7 @@ order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
 reviewed: 2026-10-30
-fingerprint: 4ba226596e3d1d7a
+fingerprint: 9ba607d9a674494a
 ---
 ## Signing in
 
@@ -146,6 +146,31 @@ the device, and a newer version is fetched each time you open it. You
 still sign in as usual. Everything you open or save goes to the server,
 so the app needs a connection: without one it says *You're offline*, and
 nothing is saved.
+
+## On a phone
+
+The ERP works on a phone for looking things up and approving; data entry
+is for a computer.
+
+- **Home** fits the phone's screen: the menu, the search and your tasks.
+- **Approvals** open as a compact card, where you approve or reject
+  ([Approvals](approvals.html#on-a-phone)).
+- **These reports fit the phone's screen**:
+  - [Trial Balance](trial-balance.html) and the aging reports
+    ([Customer and Vendor Aging](aging-reports.html),
+    [Inventory Aging](inventory-aging.html)) keep their first column fixed;
+    swipe the table sideways for the other figures;
+  - [Stock Availability](stock-availability.html) and the
+    [statements of account](statements-of-account.html) show each row as a
+    card, each figure with its heading.
+
+  Their filters wrap to the phone's width. Copy to Excel and Print are
+  better done on a computer.
+- **Every other screen** opens at a computer's width, as before: pinch to
+  zoom. A notice says *This screen is best on a computer*; close it with ×
+  and it stays closed until you close the ERP's tab or app.
+
+Nothing changes on a computer or a tablet.
 
 ## Next
 

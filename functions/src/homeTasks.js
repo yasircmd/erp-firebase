@@ -67,6 +67,42 @@ exports.getPendingApprovalsForUser = onCallInCorporate(onCallOptions, async (req
     .sort((a, b) => (a.CreatedAt || '').localeCompare(b.CreatedAt || ''));
 });
 
+// The approval card on a phone (docs/modules/PHONE_VIEW.md, Q336): an
+// approval waiting on this user, its document in short, and how to decide
+// it (the module's own decide function, which checks everything again).
+// Refused to anyone who isn't an approver of an undecided level.
+exports.getApprovalSummary = onCallInCorporate(onCallOptions, async (request) => {
+  const user = await requireUser(request);
+  const card = require('./approvalCard');
+  const id = String((request.data || {}).instanceId || '').slice(0, 60);
+  const inst = id ? await approvalInstances.get(id) : null;
+  if (!inst) throw new HttpsError('not-found', 'Approval record not found.');
+  if (inst.Status !== 'Pending') throw new HttpsError('failed-precondition', 'This document has already been ' + String(inst.Status || '').toLowerCase() + '.');
+  const level = card.myLevel(inst, user.uid);
+  if (level === null) throw new HttpsError('permission-denied', 'This approval is not waiting on you.');
+  const doc = await fetchApprovalSourceDocument(inst.ModuleID, inst.DocumentID);
+  if (!doc) throw new HttpsError('not-found', 'The document of this approval no longer exists.');
+  const users = (await rtdb.ref('users').get()).val() || {};
+  const nameOf = uid => (users[uid] && (users[uid].fullName || users[uid].username)) || uid || '';
+  const partyId = doc.CustomerID || doc.VendorID || doc.EmployeeID || '';
+  const names = {};
+  if (partyId) {
+    // Customers and vendors are in RTDB, employees in Firestore.
+    const p = doc.CustomerID || doc.VendorID
+      ? (await rtdb.ref((doc.CustomerID ? 'customers/' : 'vendors/') + partyId).get()).val() || {}
+      : ((await firestore.collection('employees').doc(String(partyId)).get()).data() || {});
+    names[partyId] = p.CustomerName || p.VendorName || p.FullName || [p.FirstName, p.LastName].filter(Boolean).join(' ') || '';
+  }
+  const decide = card.decideOf(inst.ModuleID, doc);
+  return Object.assign({
+    InstanceID: id, ModuleID: inst.ModuleID, ModuleLabel: approvalLabelOf(inst), DocumentID: inst.DocumentID, DocumentNumber: inst.DocumentNumber || inst.DocumentID,
+    SubmittedBy: nameOf(inst.CreatedBy), SubmittedAt: inst.CreatedAt || '', MyLevel: level,
+    Levels: (inst.RequiredLevels || []).map(l => ({ LevelNumber: l.LevelNumber, Approver: nameOf(l.ApproverUserID) })),
+    Decisions: (inst.Decisions || []).map(d => ({ LevelNumber: d.LevelNumber, Decision: d.Decision, By: d.ApproverName || nameOf(d.ApproverUserID), At: d.DecidedAt || '', Reason: d.Reason || '' })),
+    Decide: decide ? { fn: decide.fn, id: decide.id || '', positional: Boolean(decide.positional) } : null
+  }, card.summarize(inst, doc, names));
+});
+
 // A rejection is still the submitter's task while its document points to
 // it and still waits to be corrected. A resubmission that needs no approval
 // (e.g. a lower amount) posts at once and leaves the old ApprovalInstanceID
