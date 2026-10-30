@@ -52,7 +52,8 @@
     <div><label class="block text-xs font-medium text-slate-300 mb-1">Proceeds go to</label><select id="frt-form-to" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="Bank">Bank / cash account</option><option value="Customer">Customer on account</option></select></div>
     <div id="frt-bank-wrap" class="md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Bank / Cash Account</label><select id="frt-form-bank" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first</option></select></div>
     <div id="frt-customer-wrap" class="hidden md:col-span-2"><label class="block text-xs font-medium text-slate-300 mb-1">Customer</label><select id="frt-form-customer" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><option value="">Select a company first</option></select></div>
-    <div><label class="block text-xs font-medium text-slate-300 mb-1">VAT %</label><input id="frt-form-vat" type="number" step="0.01" min="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><p id="frt-vat-hint" class="hidden text-xs text-amber-400 mt-1">No Output Tax account on this company.</p></div>
+    <div id="frt-taxcode-field" class="hidden"><label class="block text-xs font-medium text-slate-300 mb-1">Tax code</label><select id="frt-form-taxcode" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"></select><p class="text-xs text-slate-500 mt-1">The sale's tax, by Tax Configuration; under GST from the buyer's state.</p></div>
+    <div id="frt-vat-field"><label class="block text-xs font-medium text-slate-300 mb-1">VAT %</label><input id="frt-form-vat" type="number" step="0.01" min="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm"><p id="frt-vat-hint" class="hidden text-xs text-amber-400 mt-1">No Output Tax account on this company.</p></div>
   </div>
 
   <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden"><div class="overflow-x-auto">
@@ -157,7 +158,13 @@
     if (keepCust && !setup.customers.some(c => c.CustomerID === keepCust) && current) $('frt-form-customer').innerHTML += '<option value="' + escapeHtml(keepCust) + '">' + escapeHtml(current.CustomerName || keepCust) + '</option>';
     $('frt-form-customer').value = keepCust || '';
     $('frt-date-hint').textContent = setup.lastPostedPeriod && isEditable() ? 'After ' + setup.lastPostedPeriod + ' (last posted depreciation).' : '';
-    $('frt-vat-hint').classList.toggle('hidden', !co || setup.outputTaxConfigured);
+    $('frt-vat-hint').classList.toggle('hidden', !co || setup.outputTaxConfigured || Boolean(setup.taxCodes));
+    // Line tax (TAX_ENGINE.md, part 4): a tax code in place of the VAT %.
+    const keepCode = current ? current.TaxCode : val('frt-form-taxcode');
+    $('frt-taxcode-field').classList.toggle('hidden', !setup.taxCodes);
+    $('frt-vat-field').classList.toggle('hidden', Boolean(setup.taxCodes));
+    $('frt-form-taxcode').innerHTML = '<option value="">Select...</option>' + (setup.taxCodes || []).map(c => '<option value="' + escapeHtml(c.Code) + '">' + escapeHtml(c.Code + ' — ' + c.Name) + '</option>').join('');
+    $('frt-form-taxcode').value = keepCode || '';
   }
   function syncType() {
     const sale = isSale();
@@ -196,7 +203,7 @@
     $('frt-calc-btn').classList.toggle('hidden', !editable);
     const t = calc || (current && !editable ? current : null);
     $('frt-lines-foot').innerHTML = t ? '<tr class="border-t border-slate-700 text-sm font-semibold"><td class="py-2 px-3" colspan="4">Total' +
-      (t.VatAmount ? ' <span class="font-normal text-xs text-slate-400">· VAT ' + formatMoney(t.VatAmount) + ' · received ' + formatMoney(t.ReceiptTotal) + '</span>' : '') +
+      (t.VatAmount ? ' <span class="font-normal text-xs text-slate-400">· ' + (t.TaxComponents ? t.TaxComponents.map(c => c.Component + ' ' + formatMoney(c.Amount)).join(' · ') : 'VAT ' + formatMoney(t.VatAmount)) + ' · received ' + formatMoney(t.ReceiptTotal) + '</span>' : '') +
       '</td><td class="py-2 px-3 text-right font-mono">' + formatMoney(t.Total) + '</td><td class="py-2 px-3 text-right font-mono frt-sale-col' + (sale ? '' : ' hidden') + '">' + formatMoney(t.ProceedsTotal) +
       '</td><td class="py-2 px-3 text-right font-mono">' + signed(t.GainLossTotal) + '</td><td></td></tr>' : '';
   }
@@ -204,7 +211,7 @@
     return {
       PostingID: current ? current.PostingID : '', Type: 'Retirement', CompanyID: val('frt-form-company'), Date: val('frt-form-date'),
       RetirementType: val('frt-form-type'), Reason: val('frt-form-reason'), Description: val('frt-form-description'), Reference: val('frt-form-reference'),
-      ProceedsTo: isSale() ? val('frt-form-to') : '', BankAccountID: val('frt-form-bank'), CustomerID: val('frt-form-customer'), VatPercent: val('frt-form-vat'),
+      ProceedsTo: isSale() ? val('frt-form-to') : '', BankAccountID: val('frt-form-bank'), CustomerID: val('frt-form-customer'), VatPercent: val('frt-form-vat'), TaxCode: val('frt-form-taxcode'),
       Lines: lines.filter(l => l.AssetID).map(l => ({ AssetID: l.AssetID, Proceeds: isSale() ? l.Proceeds : '' }))
     };
   }
@@ -330,7 +337,7 @@
     ['frt-company-filter', 'frt-type-filter', 'frt-status-filter'].forEach(id => $(id).addEventListener('change', renderList));
     $('frt-form-company').addEventListener('change', e => { if (e.isTrusted) isDirty = true; lines = [{ AssetID: '', Proceeds: '' }]; calc = null; loadCompany(val('frt-form-company')); });
     ['frt-form-date', 'frt-form-reason', 'frt-form-description', 'frt-form-reference', 'frt-form-vat'].forEach(id => $(id).addEventListener('input', () => { isDirty = true; }));
-    ['frt-form-date', 'frt-form-vat', 'frt-form-bank', 'frt-form-customer'].forEach(id => $(id).addEventListener('change', () => { isDirty = true; calculate(); }));
+    ['frt-form-date', 'frt-form-vat', 'frt-form-taxcode', 'frt-form-bank', 'frt-form-customer'].forEach(id => $(id).addEventListener('change', () => { isDirty = true; calculate(); }));
     $('frt-form-type').addEventListener('change', () => { isDirty = true; syncType(); calculate(); });
     $('frt-form-to').addEventListener('change', () => { isDirty = true; syncType(); calculate(); });
     $('frt-add-line').addEventListener('click', () => { lines.push({ AssetID: '', Proceeds: '' }); renderLines(); });

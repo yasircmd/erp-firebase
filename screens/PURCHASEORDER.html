@@ -113,6 +113,17 @@
           <td colspan="6" class="py-2 px-3 text-right text-xs font-semibold text-slate-400 uppercase">Total</td>
           <td class="py-2 px-3 text-right font-mono font-bold" id="po-grand-total">0.00</td>
           <td colspan="4"></td>
+        </tr>
+        <!-- An estimate of the vendor's tax, where the company has a Tax Configuration (TAX_ENGINE.md, part 4) -->
+        <tr id="po-tax-row" class="hidden bg-slate-900/50">
+          <td colspan="6" class="py-1 px-3 text-right text-xs text-slate-400">Estimated tax <span id="po-tax-problem" class="text-amber-400"></span></td>
+          <td id="po-tax-amount" class="py-1 px-3 text-right font-mono text-xs text-slate-300"></td>
+          <td colspan="4"></td>
+        </tr>
+        <tr id="po-taxtotal-row" class="hidden bg-slate-900/50">
+          <td colspan="6" class="py-1 px-3 text-right text-xs text-slate-400">Total with tax</td>
+          <td id="po-taxtotal-amount" class="py-1 px-3 text-right font-mono text-xs font-semibold"></td>
+          <td colspan="4"></td>
         </tr></tfoot>
       </table>
     </div>
@@ -617,6 +628,31 @@
     renderGrid();
   }
 
+  // ---------- ESTIMATED TAX (docs/modules/TAX_ENGINE.md, part 4) ----------
+  // What the vendor will charge, by each item's code and the vendor's state; nothing is posted.
+  let poTaxTimer = null, poTaxSeq = 0;
+  function schedulePoTax(grandTotal) {
+    clearTimeout(poTaxTimer);
+    poTaxTimer = setTimeout(() => {
+      const seq = ++poTaxSeq;
+      const companyId = document.getElementById('po-form-company').value;
+      const show = r => {
+        if (seq !== poTaxSeq) return;
+        const on = Boolean(r && r.configured);
+        document.getElementById('po-tax-row').classList.toggle('hidden', !on);
+        document.getElementById('po-taxtotal-row').classList.toggle('hidden', !on || Boolean(r && r.problem));
+        if (!on) return;
+        document.getElementById('po-tax-problem').textContent = r.problem || '';
+        document.getElementById('po-tax-amount').textContent = r.tax ? formatMoney(r.tax.TaxAmount) : '';
+        document.getElementById('po-taxtotal-amount').textContent = r.tax ? formatMoney(Math.round((grandTotal + r.tax.TaxAdded) * 100) / 100) : '';
+      };
+      if (!companyId) { show(null); return; }
+      rpc.withSuccessHandler(show).withFailureHandler(() => show(null))
+        .previewOrderTax({ kind: 'purchase', CompanyID: companyId, PartyID: document.getElementById('po-form-vendor').value, Date: document.getElementById('po-form-date').value,
+          Lines: gridLines.filter(l => l.ItemCode).map(l => ({ ItemCode: l.ItemCode, Amount: (Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0) })) });
+    }, 300);
+  }
+
   function renderGrid() {
     const tbody = document.getElementById('po-grid-body');
     tbody.innerHTML = '';
@@ -651,6 +687,7 @@
       tbody.appendChild(tr);
     });
     document.getElementById('po-grand-total').textContent = formatMoney(grandTotal);
+    schedulePoTax(grandTotal);
     tbody.querySelectorAll('input').forEach(input => {
       input.addEventListener('input', e => {
         const row = parseInt(e.target.getAttribute('data-row'), 10);
