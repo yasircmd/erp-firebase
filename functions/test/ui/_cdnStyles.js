@@ -7,7 +7,11 @@
 // ESS_TAILWIND_CSS.
 const fs = require('fs');
 
-const css = process.env.UI_TAILWIND_CSS ? fs.readFileSync(process.env.UI_TAILWIND_CSS, 'utf8') : null;
+// The shell now links /css/erp.css, built ahead of time (tools/build-styles.sh;
+// docs/modules/PWA.md): from UI_TAILWIND_CSS, else the repository's built file.
+const BUILT = require('path').join(__dirname, '../../../public/css/erp.css');
+const cssFile = process.env.UI_TAILWIND_CSS || (fs.existsSync(BUILT) ? BUILT : '');
+const css = cssFile ? fs.readFileSync(cssFile, 'utf8') : null;
 const ICONS = '.fa,.fa-solid,.fa-regular,.fa-brands,.fas,.far,.fab{display:inline-block;width:1em;height:1em;line-height:1}';
 const FA_URL = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/';
 
@@ -28,6 +32,10 @@ async function routeCdnStyles(target) {
     try { await route.fulfill({ response: await route.fetch() }); } catch (e) {
       throw new Error('the Tailwind CDN is unreachable: eval "$(tools/ui-tailwind.sh)" first');
     }
+  });
+  await target.route('**/css/erp.css', route => {
+    if (!css) throw new Error('no built styles: run tools/build-styles.sh (or eval "$(tools/ui-tailwind.sh)")');
+    return route.fulfill({ contentType: 'text/css', body: css });
   });
   if (css) await target.route(FA_URL + '**', route => route.fulfill({ contentType: 'text/css', body: ICONS }));
 }

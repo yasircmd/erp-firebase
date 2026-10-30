@@ -62,7 +62,9 @@ function portalPage() {
 
 // A browser context on a phone (or as opts say) with the Tailwind styles:
 // from the CDN, else from ESS_TAILWIND_CSS where the CDN is blocked.
-const twCss = process.env.ESS_TAILWIND_CSS ? fs.readFileSync(process.env.ESS_TAILWIND_CSS, 'utf8') : null;
+const BUILT_ESS = path.join(__dirname, '../../../public/css/ess.css');
+const twFile = process.env.ESS_TAILWIND_CSS || (fs.existsSync(BUILT_ESS) ? BUILT_ESS : '');
+const twCss = twFile ? fs.readFileSync(twFile, 'utf8') : null;
 const PHONE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 async function portalContext(browser, opts) {
   const ctx = await browser.newContext(Object.assign({}, PHONE, opts || {}));
@@ -71,6 +73,11 @@ async function portalContext(browser, opts) {
       if (!twCss) throw new Error('the Tailwind CDN is unreachable: set ESS_TAILWIND_CSS');
       await route.fulfill({ contentType: 'application/javascript', body: 'window.tailwind = {}; (function () { const s = document.createElement("style"); s.textContent = ' + JSON.stringify(twCss) + '; document.head.appendChild(s); })();' });
     }
+  });
+  // The portal links /css/ess.css, built ahead of time (docs/modules/PWA.md).
+  await ctx.route('**/css/ess.css', route => {
+    if (!twCss) throw new Error('no built styles: run tools/build-styles.sh (or set ESS_TAILWIND_CSS)');
+    return route.fulfill({ contentType: 'text/css', body: twCss });
   });
   return ctx;
 }

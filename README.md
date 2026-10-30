@@ -289,6 +289,9 @@ node functions/test/ui/recurringJournal.ui.js # after the recurringJournal suite
   last 10 are kept. `tools/release-screens.sh compare` says whether the
   active release matches `screens/` (exit 3 if not). Record releases in
   the deploy log.
+  After the release it runs `tools/deploy-hosting.sh`, which rebuilds the
+  styles from the screens (`tools/build-styles.sh`, see
+  [PWA.md](docs/modules/PWA.md)) and deploys Hosting.
 - **Generated-port functions:** `tools/deploy-migration.sh` (reads the
   pending list from `tools/legacy-port/status.js`).
 - **Security rules:** `tools/deploy-rules.sh` deploys `database.rules.json`

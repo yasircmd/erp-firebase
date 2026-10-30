@@ -21,4 +21,8 @@ esac
 if [ -n "$(git status --porcelain)" ]; then
   echo "STOP: working copy not clean — commit or 'git stash push -u' first:"; git status --short; exit 1
 fi
-node tools/screen-release.js release --project $P
+node tools/screen-release.js release --project $P || exit 1
+# The styles are built from the screens too (docs/modules/PWA.md): build and
+# deploy them again, so a new screen's classes are never missing.
+echo "Rebuilding and deploying the styles for the released screens"
+tools/deploy-hosting.sh || { echo "STOP: the screens are released, but the styles were not deployed: run tools/deploy-hosting.sh"; exit 1; }

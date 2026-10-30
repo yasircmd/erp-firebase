@@ -14,3 +14,10 @@ for how the shell was ported.
 ([docs/modules/HELP.md](../docs/modules/HELP.md)): built from `help/pages/`
 by `node tools/help/build.js`, never edited here. Help holds no data and
 needs no sign-in.
+
+The installable app ([docs/modules/PWA.md](../docs/modules/PWA.md)):
+`sw.js`, the service worker, keeps the pages, styles and Help on the device
+and never touches a function call; `manifest.webmanifest` (the ERP) and
+`ess.webmanifest` (the Employee Portal) name each app; `icons/` holds their
+icons. `css/` holds the styles, built at deploy by `tools/build-styles.sh`
+from the shell and every screen (never committed).

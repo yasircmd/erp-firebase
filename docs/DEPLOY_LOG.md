@@ -1550,3 +1550,15 @@ from, and how it was verified. The deploy procedure is in the
   B2CL limit, What's new). No rules change. Still to do in the app: provide
   Tax Reports in the Developer screen to the corporates that have Tax
   Configuration. Item 32 (tax) complete.
+- **2026-10-30, UX round 2 item 35, exchange rates from the firm's Google
+  Sheet (`ux2-fx-sheet`, PR #185, from `e31b758`):** run
+  [#240](https://github.com/yasircmd/erp-firebase/actions/runs/41074393209)
+  ("functions set, then screens", 14:45–14:50 UTC), success:
+  `SUMMARY: functions deployed: 17 (the require closure of fxSheet.js and
+  developer.js; three new: getSheetRates, applySheetRates,
+  saveDeveloperFxSheet); access granted: 17; screens released: yes`. Then
+  Hosting, run
+  [#241](https://github.com/yasircmd/erp-firebase/actions/runs/41075887536)
+  (14:55 UTC), success: the Help (Currency Configuration's rates from the
+  sheet, What's new). No rules change. Still to do in the app: save the
+  firm's sheet link in the Developer screen (Groups).

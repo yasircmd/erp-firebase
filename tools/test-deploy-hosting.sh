@@ -17,6 +17,14 @@ ok() { if [ "$2" = "$3" ]; then pass=$((pass+1)); else failed=$((failed+1)); ech
 
 R="$T/repo"; mkdir -p "$R/tools" "$R/public"
 cp tools/deploy-hosting.sh "$R/tools/"
+# The styles' build (tools/build-styles.sh) stubbed: it writes the two files, or fails when BUILD_FAIL is set.
+cat > "$R/tools/build-styles.sh" <<'STUB'
+#!/bin/bash
+[ -n "$BUILD_FAIL" ] && exit 1
+mkdir -p public/css && echo 'x{}' > public/css/erp.css && echo 'x{}' > public/css/ess.css
+STUB
+chmod +x "$R/tools/build-styles.sh"
+printf 'public/css/\n' > "$R/.gitignore"
 echo '<script>const firebaseConfig = { apiKey: "real" };</script>' > "$R/public/index.html"
 echo '# public/' > "$R/public/README.md"
 git -C "$R" init -q && git -C "$R" -c user.name=t -c user.email=t@t add -A && git -C "$R" -c user.name=t -c user.email=t@t commit -qm init
@@ -60,5 +68,22 @@ mkdir -p "$R/public/help/screens"; echo '<div>screen</div>' > "$R/public/help/sc
 out=$(run)
 ok "a screen under public/help/: stops before deploying" "$([ -f "$STUB_LOG" ] && echo deployed || echo none)" "none"
 ok "a screen under public/help/: names both" "$(echo "$out" | grep -cE '^public/help/(screens/GRN.html|GRN.HTML.bak)$')" "2"
+
+git -C "$R" rm -rq public/help/screens public/help/GRN.HTML.bak; commit "no screen under help"
+
+# The installable app (docs/modules/PWA.md): the styles are built first, a failed
+# build stops the deploy; the service worker, manifests and icons deploy; any
+# other file beside them still stops it.
+out=$(run BUILD_FAIL=1)
+ok "the styles not built: stops before deploying" "$([ -f "$STUB_LOG" ] && echo deployed || echo none)" "none"
+ok "the styles not built: says so" "$(echo "$out" | grep -c 'styles could not be built')" "1"
+mkdir -p "$R/public/icons"
+echo 'self' > "$R/public/sw.js"; echo '{}' > "$R/public/manifest.webmanifest"; echo '{}' > "$R/public/ess.webmanifest"; echo x > "$R/public/icons/erp-192.png"; commit app
+out=$(run)
+ok "the app's files and the built styles: deploy" "$(echo "$out" | tail -2 | tr '\n' ' ')" "ALL DONE exit=0 "
+echo x > "$R/public/icons/GRN.html"; echo x > "$R/public/app.js"; commit "stray files"
+out=$(run)
+ok "a stray file beside the app's: stops before deploying" "$([ -f "$STUB_LOG" ] && echo deployed || echo none)" "none"
+ok "a stray file beside the app's: names both" "$(echo "$out" | grep -cE '^public/(icons/GRN.html|app.js)$')" "2"
 
 echo "$pass/$((pass+failed)) passed"; [ $failed = 0 ]

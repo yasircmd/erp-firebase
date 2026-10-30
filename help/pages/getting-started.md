@@ -4,8 +4,8 @@ area: start
 order: 1
 summary: Signing in, the menu, Home tasks, favourites, and signing out.
 sources: [public/index.html, public/ess.html]
-reviewed: 2026-10-26
-fingerprint: 406f689372a7e0e3
+reviewed: 2026-10-30
+fingerprint: 4ba226596e3d1d7a
 ---
 ## Signing in
 
@@ -128,6 +128,24 @@ Use **Log Out** in the user menu when you finish, especially on a shared
 computer. After **10 minutes** without activity the ERP warns you, and signs
 you out 30 seconds later unless you select **Stay Signed In**. Anything not
 saved is lost, so save drafts as you go.
+
+## Installing the app
+
+The ERP and the Employee Portal can each be installed as an app, with its
+own icon (**ERP** and **Employee Portal**) and its own window.
+
+- **On a computer** (Chrome or Edge): open the ERP, then click the
+  **Install** icon at the right of the address bar.
+- **On an Android phone**: open the page in Chrome, then use the menu (⋮) →
+  **Add to Home screen** or **Install app**.
+- **On an iPhone or iPad**: open the page in Safari, then use **Share** →
+  **Add to Home Screen**.
+
+Once installed, the app opens quickly: its pages and styles are kept on
+the device, and a newer version is fetched each time you open it. You
+still sign in as usual. Everything you open or save goes to the server,
+so the app needs a connection: without one it says *You're offline*, and
+nothing is saved.
 
 ## Next
 
