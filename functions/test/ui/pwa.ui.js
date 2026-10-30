@@ -2,7 +2,8 @@
 // public/ served as Hosting does (each page carrying a deploy number); the
 // worker registered; offline, the ERP and the portal open from the copy kept
 // on the device, a page never seen shows "You're offline"; back online, a new
-// deploy shows at once (the pages come from the network first).
+// deploy shows at once (the pages come from the network first); on a slow
+// network the ERP opens from its kept copy, Help waits for the network.
 // No emulators needed:
 //   node functions/test/ui/pwa.ui.js
 const http = require('http');
@@ -16,11 +17,16 @@ function check(name, fn) { return fn().then(() => { results.push(['PASS', name])
 const PUB = path.join(__dirname, '../../../public');
 const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
 let deploy = 1;
+let slow = 0; // ms the server waits before answering
 
 (async () => {
   if (!fs.existsSync(path.join(PUB, 'css/erp.css'))) throw new Error('run tools/build-styles.sh first');
   // As Hosting: a file of public/ (no-cache), "/" its index.html; a page gets the deploy number.
   const handler = (req, res) => {
+    if (slow) return setTimeout(() => answer(req, res), slow);
+    answer(req, res);
+  };
+  const answer = (req, res) => {
     let p = decodeURIComponent(req.url.split('?')[0]);
     if (p === '/') p = '/index.html';
     const f = path.join(PUB, p);
@@ -66,6 +72,21 @@ let deploy = 1;
     assert.ok(await q.evaluate(() => Boolean(navigator.serviceWorker.controller)), 'through the worker');
     assert.equal(await q.evaluate(() => (document.querySelector('meta[name="deploy"]') || {}).content || ''), '2');
     assert.equal(await q.evaluate(() => fetch('/css/erp.css').then(r => r.headers.get('content-type'))), 'text/css', 'the styles served');
+  });
+
+  await check('a slow network (over 4 s): the ERP opens from its kept copy; Help waits for the network, never an old page (owner, 2026-10-30)', async () => {
+    const q = await ctx.newPage();
+    await q.goto(base + '/help/getting-started.html'); // seen once: kept
+    const dep = () => q.evaluate(() => (document.querySelector('meta[name="deploy"]') || {}).content || '');
+    assert.equal(await dep(), '2');
+    deploy = 3; slow = 6000;
+    await q.goto(base + '/', { timeout: 20000 });
+    assert.equal(await dep(), '2', 'the ERP: the kept copy, at once');
+    await q.goto(base + '/help/getting-started.html', { timeout: 20000 });
+    assert.equal(await dep(), '3', 'Help: the new deploy, not the kept page');
+    assert.ok(await q.isVisible('#back'), 'Back to the ERP');
+    slow = 0;
+    await q.close();
   });
 
   await browser.close(); server.closeAllConnections(); server.close();

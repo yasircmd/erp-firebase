@@ -1583,3 +1583,13 @@ from, and how it was verified. The deploy procedure is in the
   (17:51–17:57 UTC), success: the shell's phone view and approval card,
   its styles, the Help (Getting started and Approvals "On a phone",
   What's new). No rules change. UX round 2 is complete.
+- **2026-10-30, Help on a phone and Approval Configuration (`ux2-help-phone`,
+  PR #189, from `2652e03`):** screens only, run
+  [#245](https://github.com/yasircmd/erp-firebase/actions/runs/41106801381)
+  (18:25–18:26 UTC), success: `Released and active:
+  20261030T182558Z-2652e03` (92 screens written and verified; APPROVALCONFIG
+  changed), then Hosting from the same commit (114 files): Help's Back to
+  the ERP, the page before the list on a phone, bold over a line break, What's
+  new. No function or rules change. The owner then saw, in the installed
+  app, a first Help page without Back to the ERP: the worker's kept copy,
+  served on a slow start; fixed in `ux2-help-cache`.

@@ -15,7 +15,8 @@ screen.
 - **Help on a phone.** Every Help page has **Back to the ERP**, the way
   back from Help in the installed app. On a phone a page starts with its
   own text, not the list of pages; **All pages** jumps to the list. Bold
-  text that ran over two lines in a list now shows as bold. See
+  text that ran over two lines in a list now shows as bold. In the app,
+  Help always opens its latest version, even on a slow connection. See
   [Help](getting-started.html#help).
 
 - **The ERP on a phone.** Home, your tasks and the chosen reports (Trial

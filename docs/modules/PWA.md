@@ -95,6 +95,10 @@ to be checked (UX_ROUND2.md, item 34).
   - **Pages, styles, manifests, icons and Help:** the network first, so a
     deploy shows at once. The kept copy is used when the network fails or
     takes over 4 s, and a page never seen offline gets "You're offline".
+    **Help** waits for the network however slow, and uses its kept copy
+    only without one (owner, 2026-10-30: a slow start showed a kept Help
+    page from before Back to the ERP). The cache is `erp-shell-v2`; the
+    new name drops what v1 kept. ui/pwa checks a slow network both ways.
   - **Font Awesome and the Firebase SDK:** their versioned addresses are
     kept once fetched.
   - **Untouched:** non-GET requests, and every other address (the
