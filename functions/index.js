@@ -330,6 +330,8 @@ exports.getProjectReport = require('./src/projectReport').getProjectReport; // d
 ['getEInvoiceSettings', 'saveEInvoiceSettings', 'getEInvoice', 'rebuildEInvoice'].forEach(n => { exports[n] = require('./src/eInvoicing')[n]; });
 // Tax Configuration (docs/modules/TAX_ENGINE.md).
 ['getTaxConfig', 'saveTaxConfig'].forEach(n => { exports[n] = require('./src/taxConfig')[n]; });
+// Tax Reports (docs/modules/TAX_ENGINE.md, part 5).
+exports.getTaxReport = require('./src/taxReports').getTaxReport;
 ['previewInvoiceTax', 'previewOrderTax'].forEach(n => { exports[n] = require('./src/salesTax')[n]; }); // TAX_ENGINE.md, parts 2 and 4
 ['previewVendorInvoiceTax'].forEach(n => { exports[n] = require('./src/purchaseTax')[n]; }); // part 3
 // Sales reps in the Employee Portal: the office's setup (docs/modules/SALES_REP_PORTAL.md).

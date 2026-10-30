@@ -245,7 +245,14 @@ function validateConfig(raw, coaOk) {
     return { Code: codeId, Name: String(c.Name || '').trim().slice(0, 60) || codeId, Category: category, RecoverablePercent: recoverable, Active: c.Active !== false, Rates: rates };
   });
   if (!codes.length) throw new Error('Add at least one tax code.');
-  return { Regime: regime, Name: name, StateCode: stateCode, Rounding: rounding, Components: comps, Codes: codes };
+  // GSTR-1's B2CL: inter-state invoices to unregistered buyers above this (₹; TAX_ENGINE.md, part 5).
+  const extra = {};
+  if (regime === 'IN_GST') {
+    const limit = r.B2CLLimit === undefined || r.B2CLLimit === '' || r.B2CLLimit === null ? 100000 : Number(r.B2CLLimit);
+    if (!(limit > 0) || limit > 100000000) throw new Error('The B2CL limit is an amount above 0 (₹1,00,000 today).');
+    extra.B2CLLimit = Math.round(limit);
+  }
+  return Object.assign({ Regime: regime, Name: name, StateCode: stateCode, Rounding: rounding, Components: comps, Codes: codes }, extra);
 }
 const round4 = n => Math.round((Number(n) || 0) * 10000) / 10000;
 

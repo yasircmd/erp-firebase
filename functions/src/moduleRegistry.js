@@ -140,6 +140,9 @@ const MODULE_REGISTRY = [
   // Sales tax of any kind (docs/modules/TAX_ENGINE.md; owner, 2026-10-26, Q320):
   // access sees a company's regime, codes and rates; setup changes them.
   { id: 'TAXCONFIG', label: 'Tax Configuration', capabilities: ['access', 'setup'] },
+  // Tax Reports (TAX_ENGINE.md, part 5; owner, 2026-10-30, Q325): the tax
+  // summary, UAE VAT 201, India GSTR-1 and GSTR-3B; access reads them.
+  { id: 'TAXREPORTS', label: 'Tax Reports', capabilities: ['access'] },
   // Developer (docs/modules/MULTI_CORPORATE.md, M2; owner, 2026-10-19): the
   // firm's own screen for its corporates. internal: no Help page.
   // homeOnly: only Corporate 100 ever has it, whatever a role says.
@@ -282,6 +285,7 @@ const DEFAULT_PERMISSIONS = {
   EMPREQUESTS:        { access: ['ADMIN', 'FINANCE_MGR'], handle: ['ADMIN', 'FINANCE_MGR'], setup: ['ADMIN'] },
   CLEARANCE:          { access: ['ADMIN', 'FINANCE_MGR'], manage: ['ADMIN'], setup: ['ADMIN'] },
   TAXCONFIG:          { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT', 'VIEWER'], setup: ['ADMIN'] },
+  TAXREPORTS:         { access: ['ADMIN', 'FINANCE_MGR', 'ACCOUNTANT'] },
   DEVELOPER:          { access: ['ADMIN'], write: ['ADMIN'] },
   SUPPORT:            { access: ['ADMIN'] }
 };

@@ -111,4 +111,4 @@ function toJson(d) {
   return JSON.stringify(out, null, 2);
 }
 
-module.exports = { companyGstin, supplyType, documentOf, readiness, toJson, irpDate };
+module.exports = { companyGstin, supplyType, documentOf, readiness, toJson, irpDate, UQC };
