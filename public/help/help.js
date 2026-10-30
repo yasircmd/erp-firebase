@@ -9,3 +9,4 @@ var m=new URLSearchParams(location.search).get('m');if(m){load(function(){var s=
 function dark(){var t=r.getAttribute('data-theme');return t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches}
 function label(){b.textContent=dark()?'Light mode':'Dark mode'}
 b.addEventListener('click',function(){var t=dark()?'light':'dark';r.setAttribute('data-theme',t);try{localStorage.setItem('erp-theme',t)}catch(e){}label()});label()})();
+(function(){var b=document.getElementById('back');if(!b)return;b.addEventListener('click',function(e){e.preventDefault();try{window.close()}catch(x){}setTimeout(function(){location.href='/'},300)})})();

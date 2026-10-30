@@ -120,7 +120,8 @@ main{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);bor
 code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:13px}table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}th{background:var(--bg)}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}.card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--bg)}.card h3{margin:0 0 6px;font-size:16px}.card ul{margin:0;padding-left:18px;font-size:14px}
 footer{max-width:1100px;margin:0 auto;padding:4px 16px 30px;font-size:12px;color:var(--muted)}#results{list-style:none;padding:0}#results li{margin:8px 0}#results small{color:var(--muted)}
-#notice{display:none}@media (max-width:760px){.wrap{flex-direction:column}nav{width:auto}main{padding:18px}}
+#notice{display:none}header .back{font-size:13px;text-decoration:none;white-space:nowrap}header .jump,nav .toc{display:none}
+@media (max-width:760px){.wrap{flex-direction:column}nav{width:auto;order:2}main{order:1;padding:18px}header{gap:10px}header .jump{display:inline;font-size:13px;white-space:nowrap}nav .toc{display:block;margin:4px 0 0;font-size:17px}}
 @media print{header,nav,footer{display:none}main{border:0;padding:0}body{background:#fff;color:#000}}`;
 
 // Search and "?m=MODULE" (the ERP's Help button): plain JavaScript, no data from the ERP.
@@ -135,6 +136,13 @@ var m=new URLSearchParams(location.search).get('m');if(m){load(function(){var s=
 // Light / dark (owner, 2026-10-14): the ERP's saved theme (erp-theme, the
 // same site, so one setting for both), else the device's. Set in <head>,
 // before the page paints; the header button switches and saves it.
+// Back to the ERP (owner, 2026-10-30): the ERP opens Help in a tab or, in
+// the installed app, a window of its own, with no way back on a phone.
+// Closing it returns to the ERP as it was; a tab that can't be closed
+// (moved between pages, or not opened by the ERP) opens the ERP instead,
+// still signed in.
+const BACK_JS = `(function(){var b=document.getElementById('back');if(!b)return;b.addEventListener('click',function(e){e.preventDefault();try{window.close()}catch(x){}setTimeout(function(){location.href='/'},300)})})();`;
+
 const THEME_HEAD = "<script>try{var t=localStorage.getItem('erp-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>";
 const THEME_JS = `(function(){var b=document.getElementById('theme');if(!b)return;var r=document.documentElement;
 function dark(){var t=r.getAttribute('data-theme');return t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches}
@@ -145,8 +153,8 @@ function layout({ title, description, body, nav, canonical, crumb }) {
   return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
     '<title>' + esc(title) + '</title>\n<meta name="description" content="' + esc(description || '') + '">\n' +
     '<link rel="canonical" href="' + esc(canonical) + '">\n' + THEME_HEAD + '\n<link rel="stylesheet" href="help.css">\n</head>\n<body>\n' +
-    '<header><a class="brand" href="index.html">ERP Help</a><input id="q" type="search" placeholder="Search help" aria-label="Search help"><button id="theme" type="button" title="Switch between light and dark"></button></header>\n' +
-    '<div class="wrap">\n<nav>' + nav + '</nav>\n<main>' + (crumb ? '<div class="crumb">' + crumb + '</div>' : '') + body + '</main>\n</div>\n' +
+    '<header><a class="brand" href="index.html">ERP Help</a><a id="back" class="back" href="/">&larr; Back to the ERP</a><a class="jump" href="#topics">All pages</a><input id="q" type="search" placeholder="Search help" aria-label="Search help"><button id="theme" type="button" title="Switch between light and dark"></button></header>\n' +
+    '<div class="wrap">\n<nav id="topics"><h3 class="toc">All help pages</h3>' + nav + '</nav>\n<main>' + (crumb ? '<div class="crumb">' + crumb + '</div>' : '') + body + '</main>\n</div>\n' +
     '<footer>Free to read and share. © Yasir AV. All rights reserved.</footer>\n<script src="help.js"></script>\n</body>\n</html>\n';
 }
 
@@ -191,7 +199,7 @@ function build() {
   files[OUT_DIR + '/search.json'] = JSON.stringify({ modules, pages: all.map(p => ({ slug: p.slug, title: p.meta.title, summary: p.meta.summary || '',
     text: (p.modules.map(id => label[id] || '').join(' ') + ' ' + text(p.body)).slice(0, 20000) })) }) + '\n';
   files[OUT_DIR + '/help.css'] = CSS + '\n';
-  files[OUT_DIR + '/help.js'] = JS + '\n' + THEME_JS + '\n';
+  files[OUT_DIR + '/help.js'] = JS + '\n' + THEME_JS + '\n' + BACK_JS + '\n';
   files[OUT_DIR + '/sitemap.xml'] = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
     ['index'].concat(all.map(p => p.slug)).map(s => {
       const p = all.find(x => x.slug === s);

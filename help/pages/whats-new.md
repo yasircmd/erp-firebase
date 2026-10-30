@@ -12,6 +12,12 @@ screen.
 
 ## 30/10/2026
 
+- **Help on a phone.** Every Help page has **Back to the ERP**, the way
+  back from Help in the installed app. On a phone a page starts with its
+  own text, not the list of pages; **All pages** jumps to the list. Bold
+  text that ran over two lines in a list now shows as bold. See
+  [Help](getting-started.html#help).
+
 - **The ERP on a phone.** Home, your tasks and the chosen reports (Trial
   Balance, aging, Stock Availability, the statements of account) now fit a
   phone's screen. A pending approval opens as a compact card where you

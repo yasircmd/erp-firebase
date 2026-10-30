@@ -122,6 +122,11 @@ The **Help** button (top bar), or **F1**, opens this help in a new tab.
 Inside a screen, it opens that screen's page directly. Help uses the ERP's light or dark
 theme; its **Light mode** / **Dark mode** button switches both.
 
+**Back to the ERP** (top of every Help page) closes Help and returns you
+to the ERP where you were; in the installed app, where Help has no back
+button of its own, this is the way back. On a phone, each page starts
+with its own text; **All pages** jumps to the list of every page, below.
+
 ## Signing out, and the automatic sign-out
 
 Use **Log Out** in the user menu when you finish, especially on a shared
