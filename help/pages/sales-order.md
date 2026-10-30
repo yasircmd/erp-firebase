@@ -6,7 +6,7 @@ modules: [SALESORDER]
 sources: [functions/src/partyLedger.js, functions/src/proforma.js, functions/src/salesTax.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
 reviewed: 2026-10-30
-fingerprint: 713cb5e6202f8e08
+fingerprint: f7d4e498ea515ee1
 ---
 ## What it is for
 

@@ -6,7 +6,7 @@ modules: [PURCHASEORDER]
 sources: [functions/src/grn.js, functions/src/salesTax.js]
 summary: Issue the approved order to the supplier and keep the commitment, delivery and receiving status aligned.
 reviewed: 2026-10-30
-fingerprint: bc4d61f243016a4a
+fingerprint: 924c13cf167b138d
 ---
 ## What it is for
 

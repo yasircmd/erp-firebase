@@ -939,6 +939,9 @@
     document.getElementById('so-form-customer').addEventListener('change', () => {
       isDirty = true; updateCompanyRequiredNote(); loadPriceListForCurrentCustomer();
     });
+    // The estimate follows the customer's state and the order date (TAX_ENGINE.md, part 4).
+    ['so-form-customer', 'so-form-date'].forEach(id => document.getElementById(id).addEventListener('change', () =>
+      scheduleOrderTax(gridLines.reduce((s, l) => s + (Number(l.LineTotal) || 0), 0))));
     wireCopyPaste();
     document.getElementById('so-add-line-btn').addEventListener('click', () => {
       isDirty = true;

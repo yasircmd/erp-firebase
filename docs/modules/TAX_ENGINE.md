@@ -324,10 +324,11 @@ port's patches and SCREEN_EDITS.
   Order's and Purchase Order's grids show the **Estimated tax** and the
   **Total with tax**; the Proforma Invoice prints the tax by code and the
   total with tax. Each line's components are rounded as the invoice rounds
-  them.
+  them. A change of the party or the order date asks again.
 - Tests: emulator/retailTax (3), emulator/orderTax (4), the fixedAssets sale
   with tax (1), ui/orderTax (3). Negative controls: retail prices taken as
   excluding tax (2 of 3 caught); the price list's inclusion and the party's
   state ignored (3 of 4 caught); the asset sale's components not posted
   (caught); the screens never asking for the estimate (both caught). All
-  restored.
+  restored. Full regression 728 passed, 0 failed; the affected UI suites
+  pass.

@@ -1074,6 +1074,9 @@
     document.getElementById('po-status-filter').addEventListener('change', () => { renderList(); listPager.reload(); });
 
     document.getElementById('po-form-company').addEventListener('change', onCompanyChange);
+    // The estimate follows the vendor's state and the order date (TAX_ENGINE.md, part 4).
+    ['po-form-vendor', 'po-form-date'].forEach(id => document.getElementById(id).addEventListener('change', () =>
+      schedulePoTax(gridLines.reduce((s, l) => s + (Number(l.Quantity) || 0) * (Number(l.UnitPrice) || 0), 0))));
     document.getElementById('po-form-vendor').addEventListener('change', () => {
       const vendor = vendorById(document.getElementById('po-form-vendor').value);
       const note = document.getElementById('po-currency-note');
