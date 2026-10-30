@@ -1,0 +1,72 @@
+# UX round 2, item 32, part 4: Retail Sales, asset sales, orders and
+# proformas taxed by code (2026-10-30; docs/modules/TAX_ENGINE.md, part 4).
+# The require closure of the three changed modules (retailSales.js,
+# fixedAssetsRetirement.js, salesTax.js): 61 functions. moduleRegistry.js and
+# auth.js are unchanged, and the legacy port's helpers from salesTax.js are
+# unchanged (only previewOrderTax is added), so no other function changes.
+# One function is new (deploy-functions.sh binds its invoker):
+# previewOrderTax. Run WITH --screens (Retail Sales' tax by item and its
+# receipts, Fixed Asset Retirement's tax code, Sales Order's and Purchase
+# Order's estimated tax, the Proforma Invoice's tax), then the "hosting" task
+# (the Help). No rules change, no new right. Deploy after part 3 (ux2-tax3).
+checkMasterImport
+checkOpeningBalances
+confirmRetailReturn
+confirmRetailSale
+createRetailCustomer
+decideCustomerInvoiceReversalApproval
+decideFaPostingApproval
+decidePurchaseReturnApproval
+decideSalesReturnApproval
+decideVendorInvoiceReversalApproval
+deleteFaPostingDraft
+deletePurchaseReturnDraft
+deleteSalesReturnDraft
+findOpeningBatch
+findRetailSaleForReturn
+generateItemBarcodes
+getBarcodeIndex
+getBarcodeSettings
+getCustomerInvoiceEntries
+getFaClearingItems
+getFaPostings
+getFaRetirementSetup
+getItemBarcodes
+getLabelSheet
+getMasterImportRecords
+getMasterImportSpecs
+getOpeningBalanceSetup
+getPurchaseReturnEntries
+getRetailCounter
+getRetailSale
+getRetailSales
+getRetailSalesSetup
+getReturnableCustomerInvoices
+getReturnableVendorInvoices
+getSalesReturnEntries
+getVendorInvoiceEntries
+postFaPosting
+postOpeningBalances
+postPurchaseReturn
+postSalesReturn
+previewFaRetirement
+previewInvoiceTax
+previewOrderTax
+previewVendorInvoiceTax
+requestReverseCustomerInvoice
+requestReverseVendorInvoice
+reverseFaPosting
+reverseOpeningBalanceBatch
+reversePurchaseReturn
+reverseRetailReturn
+reverseRetailSale
+reverseSalesReturn
+runMasterImport
+saveBarcodeSettings
+saveFaPostingDraft
+saveItemBarcodes
+saveOpeningBalanceSettings
+savePurchaseReturnDraft
+saveRetailPaymentMethod
+saveRetailSalesSettings
+saveSalesReturnDraft

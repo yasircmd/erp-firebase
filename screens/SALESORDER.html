@@ -138,6 +138,17 @@
             <td id="so-grand-total" class="py-2 px-3 text-right font-mono font-bold text-slate-200"></td>
             <td colspan="6" class="no-print"></td>
           </tr>
+          <!-- An estimate of the invoice's tax, where the company has a Tax Configuration (TAX_ENGINE.md, part 4) -->
+          <tr id="so-tax-row" class="hidden bg-slate-900/50">
+            <td colspan="6" class="py-1 px-3 text-right text-xs text-slate-400"><span id="so-tax-label">Estimated tax</span> <span id="so-tax-problem" class="text-amber-400"></span></td>
+            <td id="so-tax-amount" class="py-1 px-3 text-right font-mono text-xs text-slate-300"></td>
+            <td colspan="6" class="no-print"></td>
+          </tr>
+          <tr id="so-taxtotal-row" class="hidden bg-slate-900/50">
+            <td colspan="6" class="py-1 px-3 text-right text-xs text-slate-400">Total with tax</td>
+            <td id="so-taxtotal-amount" class="py-1 px-3 text-right font-mono text-xs font-semibold text-slate-200"></td>
+            <td colspan="6" class="no-print"></td>
+          </tr>
         </tfoot>
       </table>
     </div>
@@ -561,6 +572,33 @@
     return html;
   }
 
+  // ---------- ESTIMATED TAX (docs/modules/TAX_ENGINE.md, part 4) ----------
+  // What the invoice will charge, by each item's code; nothing is posted.
+  let orderTax = null, orderTaxTimer = null, orderTaxSeq = 0;
+  function scheduleOrderTax(grandTotal) {
+    clearTimeout(orderTaxTimer);
+    orderTaxTimer = setTimeout(() => {
+      const seq = ++orderTaxSeq;
+      const companyId = document.getElementById('so-form-company').value;
+      if (!companyId) { showOrderTax(null, grandTotal); return; }
+      rpc.withSuccessHandler(r => { if (seq === orderTaxSeq) showOrderTax(r, grandTotal); }).withFailureHandler(() => showOrderTax(null, grandTotal))
+        .previewOrderTax({ kind: 'sale', CompanyID: companyId, PartyID: document.getElementById('so-form-customer').value, Date: document.getElementById('so-form-date').value,
+          PriceListID: currentPriceList ? currentPriceList.PriceListID : '', Lines: gridLines.filter(l => l.ItemCode).map(l => ({ ItemCode: l.ItemCode, Amount: Number(l.LineTotal) || 0 })) });
+    }, 300);
+  }
+  function showOrderTax(r, grandTotal) {
+    orderTax = r && r.configured ? r : null;
+    const on = Boolean(orderTax);
+    document.getElementById('so-tax-row').classList.toggle('hidden', !on);
+    document.getElementById('so-taxtotal-row').classList.toggle('hidden', !on || Boolean(orderTax.problem));
+    if (!on) return;
+    document.getElementById('so-tax-problem').textContent = orderTax.problem || '';
+    const t = orderTax.tax;
+    document.getElementById('so-tax-label').textContent = t && orderTax.inclusive ? 'Estimated tax (included in the prices)' : 'Estimated tax';
+    document.getElementById('so-tax-amount').textContent = t ? formatMoney(t.TaxAmount) : '';
+    document.getElementById('so-taxtotal-amount').textContent = t ? formatMoney(Math.round((grandTotal + t.TaxAdded) * 100) / 100) : '';
+  }
+
   function renderGrid() {
     const readOnly = currentSo && currentSo.Status !== 'Draft';
     if (!readOnly) ensureTrailingBlankRow();
@@ -603,6 +641,7 @@
     });
 
     document.getElementById('so-grand-total').textContent = formatMoney(grandTotal);
+    scheduleOrderTax(grandTotal);
 
     if (readOnly && canPost) {
       tbody.querySelectorAll('.so-claim-btn').forEach(btn => {
@@ -863,7 +902,10 @@
         <tbody>${rows || '<tr><td colspan="5" style="text-align:center; color:#888;">No lines</td></tr>'}</tbody>
       </table>
       <div style="display:flex; justify-content:flex-end; margin-top:12px;">
-        <table style="width:260px; font-size:11px;"><tr style="font-weight:bold;"><td>Total</td><td id="so-print-total" style="text-align:right">${formatMoney(total)}</td></tr></table>
+        <table style="width:260px; font-size:11px;"><tr style="font-weight:bold;"><td>Total</td><td id="so-print-total" style="text-align:right">${formatMoney(total)}</td></tr>
+          ${orderTax && orderTax.tax ? /* the estimate's tax (TAX_ENGINE.md, part 4) */ (orderTax.tax.TaxSummary || []).filter(x => x.Tax).map(x => '<tr><td>' + escapeHtml(x.TaxCode + ' ' + x.Percent + '%') + (orderTax.inclusive ? ' (included)' : '') + '</td><td style="text-align:right">' + formatMoney(x.Tax) + '</td></tr>').join('') +
+            '<tr id="so-print-taxtotal" style="font-weight:bold; border-top:1px solid #333;"><td>Total with tax</td><td style="text-align:right">' + formatMoney(Math.round((total + orderTax.tax.TaxAdded) * 100) / 100) + '</td></tr>' : ''}
+        </table>
       </div>
       <p style="text-align:center; font-size:9px; color:#888; margin-top:24px;">This is a proforma invoice, not a tax invoice. It is not a demand for payment and posts nothing.</p>
     `;
@@ -897,6 +939,9 @@
     document.getElementById('so-form-customer').addEventListener('change', () => {
       isDirty = true; updateCompanyRequiredNote(); loadPriceListForCurrentCustomer();
     });
+    // The estimate follows the customer's state and the order date (TAX_ENGINE.md, part 4).
+    ['so-form-customer', 'so-form-date'].forEach(id => document.getElementById(id).addEventListener('change', () =>
+      scheduleOrderTax(gridLines.reduce((s, l) => s + (Number(l.LineTotal) || 0), 0))));
     wireCopyPaste();
     document.getElementById('so-add-line-btn').addEventListener('click', () => {
       isDirty = true;

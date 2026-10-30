@@ -1509,3 +1509,17 @@ from, and how it was verified. The deploy procedure is in the
   app: provide TAXCONFIG to the Indian corporate and set up its Tax
   Configuration; tick Customer Invoice "taxcode" in Roles & Permissions;
   give Sales Types and items their tax codes (and HSN / SAC).
+- **2026-10-30, UX round 2 item 32, tax part 3, purchases (`ux2-tax3`, PR
+  #182, from `0022de4`):** run
+  [#234](https://github.com/yasircmd/erp-firebase/actions/runs/40996909656)
+  ("functions set, then screens", 03:21–05:29 UTC), success:
+  `SUMMARY: functions deployed: 597 (every function: moduleRegistry has
+  Vendor Invoice's taxcode right; one new: previewVendorInvoiceTax); access
+  granted: 597; screens released: yes` (release `20261030T052857Z-0022de4`,
+  91/91 verified). Then Hosting, run
+  [#235](https://github.com/yasircmd/erp-firebase/actions/runs/41010131605)
+  (05:44–05:45 UTC), success: the Help (Vendor Invoice's tax by line,
+  Purchase Return, Chart of Accounts' default tax code, What's new). No
+  rules change. Still to do in the app: tick Vendor Invoice "taxcode" in
+  Roles & Permissions; give the accounts used on direct lines a default tax
+  code; set each tax code's recoverable %.

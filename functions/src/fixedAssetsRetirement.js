@@ -27,6 +27,8 @@ const E = require('./faDepreciation');
 const C = require('./fixedAssetsCommon');
 const { COL, AREA, str, round2 } = C;
 
+const salesTax = require('./salesTax');
+const taxConfig = require('./taxConfig');
 const onCallOptions = { region: 'us-central1' };
 const KINDS = { Sale: 'Sale', Scrap: 'Scrapping' };
 const depreciates = kind => kind === 'Tangible' || kind === 'Intangible';
@@ -52,6 +54,8 @@ exports.getFaRetirementSetup = onCallWithMessages(onCallOptions, async (request)
       .map(id => ({ CustomerID: id, Code: customers[id].CustomerCode || '', Name: customers[id].CustomerName || '' }))
       .sort((a, b) => a.Name.localeCompare(b.Name)),
     outputTaxConfigured: Boolean((companySnap.val() || {}).OutputTaxAccountID),
+    // Line tax (TAX_ENGINE.md, part 4): the codes a sale may take.
+    taxCodes: await taxConfig.configFor(companyId).then(c => (c ? (c.Codes || []).filter(x => x.Active !== false).map(x => ({ Code: x.Code, Name: x.Name })) : null)),
     lastPostedPeriod: settings.LastPostedPeriod || ''
   };
 });
@@ -149,10 +153,29 @@ async function prepare(user, data) {
     } else {
       throw new HttpsError('invalid-argument', 'Choose where the proceeds go: a bank/cash account or a customer on account.');
     }
+    // A company with a Tax Configuration (TAX_ENGINE.md, part 4): the sale's tax
+    // code, its components from the buyer's state, each to its output account.
+    const config = await taxConfig.configFor(companyId);
+    if (config) {
+      const code = str(data.TaxCode).toUpperCase();
+      const c = (config.Codes || []).find(x => x.Code === code);
+      if (!c) throw new HttpsError('invalid-argument', 'Choose the sale\'s tax code (Tax Configuration).');
+      if (c.Active === false) throw new HttpsError('invalid-argument', 'Tax code ' + code + ' is inactive (Tax Configuration).');
+      const buyer = receipt.CustomerID ? ((await rtdb.ref('customers/' + receipt.CustomerID).get()).val() || {}) : {};
+      const tax = salesTax.computeTax(config, lines.map(l => ({ Key: 'asset#' + l.AssetID, Code: code, Amount: l.Proceeds })),
+        { date, placeOfSupply: buyer.TaxState || config.StateCode || '', partyType: buyer.TaxRegistrationType || '', sale: true, regime: config.Regime, rounding: config.Rounding });
+      tax.TaxLines.forEach((t, i) => { t.Label = lines[i].AssetNumber; });
+      Object.assign(receipt, { TaxCode: code, VatPercent: 0, VatAmount: tax.TaxAmount, TaxLines: tax.TaxLines, TaxSummary: tax.TaxSummary, TaxComponents: tax.TaxComponents, TaxRegime: tax.TaxRegime, PlaceOfSupply: tax.PlaceOfSupply });
+      tax.TaxComponents.forEach(x => {
+        const acc = chart[x.OutputAccountID];
+        if (!acc || acc.Status !== 'Active' || acc.IsPostable !== true) throw new Error('The ' + x.Component + ' output tax account is not set or no longer valid: check Tax Configuration.');
+      });
+    } else {
     receipt.VatPercent = Number(data.VatPercent) || 0;
     if (receipt.VatPercent < 0 || receipt.VatPercent >= 100) throw new HttpsError('invalid-argument', 'VAT % must be from 0 to less than 100.');
     receipt.VatAmount = round2(proceedsTotal * receipt.VatPercent / 100);
-    if (receipt.VatAmount > 0) {
+    }
+    if (receipt.VatAmount > 0 && !receipt.TaxComponents) {
       const company = (await rtdb.ref('companies/' + companyId).get()).val() || {};
       receipt.OutputTaxAccountID = company.OutputTaxAccountID || '';
       const tax = chart[receipt.OutputTaxAccountID];
@@ -223,7 +246,8 @@ async function commit(user, postingId, existing, prepared) {
       partyFields = resolved.fields;
     }
     glLines.push(receiptLine);
-    if (doc.VatAmount > 0) glLines.push({ AccountCode: chart[doc.OutputTaxAccountID].AccountCode, Debit: 0, Credit: doc.VatAmount, Description: 'Output VAT — ' + text, CostCenterID: '', ProfitCenterID: '' });
+    if (doc.TaxComponents) glLines.push(...salesTax.componentGlLines(doc, chart, { description: text })); // each component (TAX_ENGINE.md)
+    else if (doc.VatAmount > 0) glLines.push({ AccountCode: chart[doc.OutputTaxAccountID].AccountCode, Debit: 0, Credit: doc.VatAmount, Description: 'Output VAT — ' + text, CostCenterID: '', ProfitCenterID: '' });
   }
   const built = await buildStockGlEntry(user, 'FARetirement', doc.Date, doc.Description, doc.Reference, glLines,
     { CompanyID: doc.CompanyID, DivisionID: doc.DivisionID || '', BranchID: doc.BranchID || '', CostCenterID: doc.CostCenterID || '', ProfitCenterID: '' },

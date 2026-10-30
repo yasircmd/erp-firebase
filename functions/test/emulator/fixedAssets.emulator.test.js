@@ -550,3 +550,26 @@ test('a Location (owner, 2026-10-14): an org unit type, shared or one company\'s
   assert.equal(r.changes, 1);
   assert.equal((await asset(a.assetId)).LocationID, loc2);
 });
+
+test('a sale with a Tax Configuration (TAX_ENGINE.md, part 4): its tax code, the components from the buyer\'s state, each to its output account', async () => {
+  const f = retireFixture();
+  ['CGST', 'SGST', 'UTGST', 'IGST', 'CESS'].forEach((k, i) => { f.coa['A-' + k] = { AccountCode: '22' + (i + 1) + '9', AccountName: 'Output ' + k, AccountType: 'Liability', Status: 'Active', IsPostable: true }; });
+  Object.assign(f.customers.CU1, { TaxRegistrationType: 'Registered', TaxState: '29', TaxRegistrationNumber: '29ABCDE1234F1ZW' });
+  await reset(f);
+  const cfg = Object.assign(require('../../src/taxEngine').preset('IN_GST'), { StateCode: '27' });
+  cfg.Components.forEach(c => { c.OutputAccountID = 'A-' + c.Code; c.InputAccountID = 'A-VATIN'; });
+  ok(await call('u-admin', 'saveTaxConfig', { companyId: 'C1', config: cfg }));
+  const { a } = await twoVans();
+  const setup = await call('u-admin', 'getFaRetirementSetup', { companyId: 'C1' });
+  assert.ok(setup.taxCodes.some(c => c.Code === 'GST18'));
+  const base = { RetirementType: 'Sale', Date: '2026-03-16', ProceedsTo: 'Bank', BankAccountID: 'A-BANK', Lines: [{ AssetID: a, Proceeds: 100000 }] };
+  assert.match(await err(retire(base)), /Choose the sale's tax code/);
+  // Within the state: CGST + SGST on 100,000 at 18%.
+  const pv = await call('u-admin', 'previewFaRetirement', Object.assign({ CompanyID: 'C1', Reason: 'Sold', TaxCode: 'GST18' }, base));
+  assert.deepEqual([pv.VatAmount, pv.ReceiptTotal, pv.TaxComponents.map(c => [c.Component, c.Amount]).join(';')], [18000, 118000, 'CGST,9000;SGST,9000']);
+  // Sold on account to a customer in another state: IGST.
+  const r = await retired(Object.assign({}, base, { ProceedsTo: 'Customer', BankAccountID: '', CustomerID: 'CU1', TaxCode: 'GST18' }));
+  const p = await doc('faPostings', r.postingId);
+  const lines = await glLines(p.JVID);
+  assert.ok(lines.some(l => l[0] === '2249' && l[2] === 18000) && lines.some(l => l[0] === '1200' && l[1] === 118000), JSON.stringify(lines));
+});

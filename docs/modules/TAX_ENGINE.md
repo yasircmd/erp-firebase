@@ -291,3 +291,44 @@ port's patches and SCREEN_EDITS.
 - Tests: unit/purchaseTax (2), emulator/purchaseTax (6), ui/purchaseTax
   (2). Negative controls: the goods never given the tax (emulator); every
   code fully reclaimed (unit). Both caught, restored.
+
+### Part 4: Retail Sales, asset sales, orders and proformas (2026-10-30; deploy set `ux2-tax4`)
+
+- **Retail Sales** (functions/src/retailSales.js): for a company with a Tax
+  Configuration, each counter line (`line#<LineNo>`) is taxed by its item's
+  code at the rate on the sale date; an item without a code is refused.
+  Retail prices include the tax (`Inclusive`), so the tax comes out of each
+  line's amount after its discount; the line's `DiscountNet` is the discount
+  less its tax, `Revenue` the total less tax plus that. The place of supply
+  is the company's state for the Retail Customer, the customer's `TaxState`
+  otherwise. The sale posts `componentGlLines` (each component to its output
+  account) and keeps `TaxLines`, `TaxSummary`, `TaxComponents`,
+  `TaxRegime`, `PlaceOfSupply`; the codes used go to `taxCodeUse`. The
+  counter returns `lineTax` and each item's `TaxPercent`, so the screen's
+  totals and receipts show the tax by code. A return takes each line's share
+  by quantity; the last return of a line takes what is left of its tax and
+  discount (`lineTaxReturn`), so the returns give back exactly the sale's
+  tax. Without a Tax Configuration, Setup's single rate stays.
+- **Asset sales** (functions/src/fixedAssetsRetirement.js): a Sale needs a
+  `TaxCode` when a Tax Configuration exists (`getFaRetirementSetup` returns
+  the codes); `computeTax` on `asset#<id>` lines, the place of supply the
+  buying customer's `TaxState` or, to the bank, the company's state. The
+  receipt carries the proceeds plus the tax; each component is credited to
+  its output account (the output accounts are checked first). Fixed Asset
+  Retirement's Tax code replaces the VAT % field then.
+- **Order estimates** (`salesTax.previewOrderTax`, new callable; SALESORDER
+  or PURCHASEORDER `access`, and the company): the lines' items and amounts,
+  the party (customer or vendor) for the place of supply, the price list's
+  `PricesIncludeTax` on a Sales Order. It returns the tax and its summary,
+  or the problem (an item without a code), and posts nothing. The Sales
+  Order's and Purchase Order's grids show the **Estimated tax** and the
+  **Total with tax**; the Proforma Invoice prints the tax by code and the
+  total with tax. Each line's components are rounded as the invoice rounds
+  them. A change of the party or the order date asks again.
+- Tests: emulator/retailTax (3), emulator/orderTax (4), the fixedAssets sale
+  with tax (1), ui/orderTax (3). Negative controls: retail prices taken as
+  excluding tax (2 of 3 caught); the price list's inclusion and the party's
+  state ignored (3 of 4 caught); the asset sale's components not posted
+  (caught); the screens never asking for the estimate (both caught). All
+  restored. Full regression 728 passed, 0 failed; the affected UI suites
+  pass.

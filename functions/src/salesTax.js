@@ -262,4 +262,41 @@ exports.previewInvoiceTax = onCallWithMessages({ region: 'us-central1' }, async 
   }
 });
 
+// An order's tax, as an estimate (TAX_ENGINE.md, part 4): a Sales Order and
+// its Proforma Invoice, or a Purchase Order. Each line by its item's code on
+// the order's date, the party's state for GST, a sales price list's prices
+// inclusive where it says so. Posts nothing; the invoice works the tax out.
+// { configured: false } for a company without a Tax Configuration.
+exports.previewOrderTax = onCallWithMessages({ region: 'us-central1' }, async (request) => {
+  const user = await requireUser(request);
+  const d = request.data || {};
+  const purchase = d.kind === 'purchase';
+  const mod = purchase ? 'PURCHASEORDER' : 'SALESORDER';
+  if (!(await moduleHasCapability(mod, 'access', user.profile.role))) throw new HttpsError('permission-denied', 'You do not have access to that order.');
+  const companyId = text(d.CompanyID, 80);
+  if (!companyId || !userCanAccessCompany(user.profile, companyId)) throw new HttpsError('permission-denied', 'You do not have access to that company.');
+  const config = await taxConfig.configFor(companyId);
+  if (!config) return { configured: false };
+  try {
+    const [items, party, pl] = await Promise.all([
+      rtdb.ref('items').get().then(x => x.val() || {}),
+      d.PartyID ? rtdb.ref((purchase ? 'vendors/' : 'customers/') + text(d.PartyID, 80)).get().then(x => x.val() || {}) : {},
+      !purchase && d.PriceListID ? rtdb.ref('priceLists/' + text(d.PriceListID, 80)).get().then(x => x.val() || {}) : {}
+    ]);
+    const byCode = {};
+    Object.values(items).forEach(it => { byCode[it.ItemCode] = it; });
+    const inclusive = Boolean(pl && pl.PricesIncludeTax);
+    const lines = (Array.isArray(d.Lines) ? d.Lines : []).filter(l => l && l.ItemCode && Number(l.Amount)).slice(0, 300).map((l, i) => {
+      const it = byCode[text(l.ItemCode, 60)];
+      if (!it || !it.TaxCode) throw new Error(text(l.ItemCode, 60) + ' has no tax code: give it one in Item Master.');
+      return { Key: 'line#' + (i + 1), Code: it.TaxCode, Amount: round2(Number(l.Amount)), Inclusive: inclusive };
+    });
+    const place = party.TaxState || config.StateCode || '';
+    const tax = computeTax(config, lines, { date: text(d.Date, 10) || new Date().toISOString().slice(0, 10), placeOfSupply: place, partyType: party.TaxRegistrationType || '', sale: !purchase, regime: config.Regime, rounding: config.Rounding });
+    return { configured: true, inclusive, tax: { TaxAmount: tax.TaxAmount, TaxAdded: tax.TaxAdded, TaxIncluded: tax.TaxIncluded, TaxSummary: tax.TaxSummary, TaxComponents: tax.TaxComponents.map(c => ({ Component: c.Component, Amount: c.Amount })) } };
+  } catch (e) {
+    return { configured: true, problem: e.message };
+  }
+});
+
 module.exports = Object.assign(exports, { apportion, computeTax, summarize, shareOf, componentGlLines, includedTaxOf, invoiceTax, recordCodeUse });

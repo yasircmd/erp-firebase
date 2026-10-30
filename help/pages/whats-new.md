@@ -12,6 +12,15 @@ screen.
 
 ## 30/10/2026
 
+- **Retail Sales, asset sales and orders taxed by code.** For a company
+  with a Tax Configuration, [Retail Sales](retail-sales.html) takes each
+  line's tax out of its price by the item's code, posts each component to
+  its account and prints it on the receipt; returns give back each line's
+  share. An asset sale in [Fixed Asset Retirement](fixed-asset-retirement.html)
+  takes a tax code. [Sales Orders](sales-order.html), their Proforma
+  Invoices and [Purchase Orders](purchase-order.html) show the estimated
+  tax and the total with tax.
+
 - **Vendor Invoices taxed line by line.** For a company with a Tax
   Configuration, each [Vendor Invoice](vendor-invoice.html) line takes its
   tax code from its item, or from its account's new default code in the

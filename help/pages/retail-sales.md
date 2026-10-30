@@ -5,8 +5,8 @@ order: 8
 modules: [RETAILSALES]
 sources: [functions/src/retailSales.js]
 summary: Process a retail transaction at the counter, settle the sale and print or record the receipt.
-reviewed: 2026-10-23
-fingerprint: f9f42c615bda1909
+reviewed: 2026-10-30
+fingerprint: d68b61f04d688422
 ---
 ## What it is for
 
@@ -15,6 +15,7 @@ fingerprint: f9f42c615bda1909
 ## Before you start
 
 - In **Setup**, configure the default Sales Type, store warehouse, sales cost center, tax-inclusive retail price list/tax rate, Retail Customer receivable account, return period, counter price/discount permissions, receipt options, and payment methods/account mappings.
+- For a company with a [Tax Configuration](tax-configuration.html), every item sold has a tax code in [Item Master](item-master.html); Setup's single tax rate is then not used.
 - Items are active, stocked in the store warehouse, and have a retail price or the user is permitted to change prices.
 - User rights are set for selling, setup changes, reports, reversal, and returns.
 
@@ -26,7 +27,7 @@ fingerprint: f9f42c615bda1909
    To find a customer, type part of their code, name or mobile number in **Find** above the customer list. If no customer has that mobile number, **New customer with this mobile** adds one there (you enter the name), for a user who may add customers in Customer Master. The new customer is a Local customer of the company, on the Retail Customer's receivables account; complete their details in Customer Master later if needed. A mobile number belongs to one customer of a company.
 2. Scan the item's barcode or enter its code/name. Confirm stock, quantity, price, and any allowed line discount. A barcode configured as a pack can add its pack quantity.
 3. Add one or more payment lines. Cash may be over-tendered and produces change; non-cash methods cannot exceed the sale total. A Retail Customer must pay in full; an existing customer may leave an on-account balance.
-4. Review the totals: **Items** is the number of units on the sale; with a discount, **Subtotal** is the amount before it. Then the tax-inclusive total, tax, discount, paid amount, change, and any balance due. Confirm the sale. The screen assigns a transaction number and can print the configured receipt on confirmation.
+4. Review the totals: **Items** is the number of units on the sale; with a discount, **Subtotal** is the amount before it. Then the tax-inclusive total, tax (by each item's rate, when the company has a Tax Configuration), discount, paid amount, change, and any balance due. Confirm the sale. The screen assigns a transaction number and can print the configured receipt on confirmation.
 
 ### Sales tab
 
@@ -44,6 +45,8 @@ Set the company defaults and receipt options, then map every payment method to i
 
 Confirming a sale posts one journal and an inventory transaction: payment accounts are debited for amounts received, Trade Receivables is debited for any customer balance, Discount Given is debited, Sales revenue and Output Tax are credited, and inventory cost is debited to Sales COGS/credited to inventory. The sale number uses the retail reference sequence. A full reversal mirrors the original sale. A partial return posts the return's sales/tax/discount/refund and restores stock at the cost it left at.
 
+With a [Tax Configuration](tax-configuration.html), each line is taxed by its item's code at the rate on the sale date. Retail prices include the tax, so the tax is taken out of each line's price after its discount. The place of supply is the company's own state for the Retail Customer, and the customer's state otherwise, so under India GST a counter sale is CGST + SGST. Each component posts to its own output account, and the receipt prints the tax by code. A return takes back each line's share of the tax by quantity, and the last return of a line takes exactly what is left of it.
+
 ## Rights
 
 RETAILSALES **access** opens the screen; **post** permits selling and full reversal; **write** maintains Setup; **report** permits viewing all users' sales; **return** permits partial returns. Without report, users see their own billed sales. Company access applies.
@@ -51,6 +54,7 @@ RETAILSALES **access** opens the screen; **post** permits selling and full rever
 ## Questions and mistakes
 
 - **Counter is unavailable:** configure the company in Setup first; the default warehouse, Sales Type, cost center, and receivables account are required.
+- **An item has no tax code:** with a Tax Configuration the sale is refused; give the item its code in Item Master.
 - **Item cannot be added:** check company eligibility, status, barcode, stock in the store warehouse, price-list date, and whether price changes are allowed.
 - **Sale cannot be confirmed:** check quantities, payment totals, required payment references, Retail Customer full-payment rule, and the company's open-period status.
 - **Payment method/account is wrong:** correct the mapping in Setup; a confirmed sale is corrected by reversal, not by changing its original payment line.

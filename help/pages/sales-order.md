@@ -3,10 +3,10 @@ title: Sales Order
 area: sales
 order: 4
 modules: [SALESORDER]
-sources: [functions/src/partyLedger.js, functions/src/proforma.js]
+sources: [functions/src/partyLedger.js, functions/src/proforma.js, functions/src/salesTax.js]
 summary: Record the customer order before delivery and invoicing, with the right pricing and quantities.
-reviewed: 2026-10-26
-fingerprint: ab0dda01a309d335
+reviewed: 2026-10-30
+fingerprint: f7d4e498ea515ee1
 ---
 ## What it is for
 
@@ -52,6 +52,23 @@ invoice.
 
 
 From a saved document, **Create next** starts the next step and **Linked documents** shows the documents before and after it. See [Working with screens](working-with-screens.html#linked-documents-and-create-next).
+
+## Estimated tax
+
+For a company with a [Tax Configuration](tax-configuration.html), the
+grid shows below its total the **Estimated tax** and the **Total with tax**:
+what the invoice will charge, by each item's tax code at its rate on the
+order date and, under India GST, CGST + SGST or IGST by the customer's
+state. It is an estimate: nothing is posted, and the invoice works out the
+tax again when it is made. Each line's components are rounded as the
+invoice rounds them.
+With a [price list](price-listing.html) whose prices include tax, the tax
+shown is the part included in the prices, and nothing is added.
+The [Proforma Invoice](#proforma-invoice) prints the same estimate, by tax
+code, and the total with tax.
+
+An item without a tax code is named in place of the estimate: give it one
+in [Item Master](item-master.html).
 
 ## What happens in the books
 
