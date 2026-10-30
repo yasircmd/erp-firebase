@@ -495,7 +495,7 @@
     html.phone-view #user-menu-panel a, html.phone-view #user-menu-panel button { padding-top: 0.8rem; padding-bottom: 0.8rem; font-size: 0.85rem; }
     /* A report's table, a fixed first column (Q337). */
     html.phone-view .phone-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
-    html.phone-view .phone-scroll table th:first-child, html.phone-view .phone-scroll table td:first-child { position: sticky; left: 0; z-index: 1; background: #0f172a; }
+    html.phone-view .phone-scroll table th:first-child, html.phone-view .phone-scroll table td:first-child { position: sticky; left: 0; z-index: 1; background: #0f172a; min-width: 9rem; max-width: 45vw; }
     html[data-theme="light"].phone-view .phone-scroll table th:first-child, html[data-theme="light"].phone-view .phone-scroll table td:first-child { background: #ffffff; }
     /* ...or a card per row, each figure under its heading (Q337). */
     html.phone-view table.phone-cards thead { display: none; }
@@ -2428,7 +2428,7 @@
     // A screen opts an element out with data-no-picker (on it or a parent).
     (function () {
       const MIN_OPTIONS = 12, MAX_ROWS = 80, RECENT_MAX = 5;
-      // The device's own width: the ERP has no viewport tag, so a phone lays the page out ~980px wide.
+      // The device's own width: a data entry screen keeps a desktop-width viewport on a phone (PHONE VIEW).
       const isPhone = () => Math.min(window.screen.width || 9999, window.innerWidth) < 640;
       const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' })[c]);
       const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
