@@ -1,6 +1,6 @@
 # A phone view (UX round 2, item 33)
 
-Status: **agreed** (2026-10-30). Q280 decided (owner, 2026-10-26): Home
+Status: **agreed** (2026-10-30), **built** (2026-10-30; As built below). Q280 decided (owner, 2026-10-26): Home
 with its tasks and approvals, and the reports and balances (Stock
 Availability, the statements, aging, the Trial Balance): looked up and
 approved on a phone, not entered. Q335-Q337 decided (owner, 2026-10-30), below.
@@ -64,3 +64,69 @@ approved on a phone, not entered. Q335-Q337 decided (owner, 2026-10-30), below.
 | Q335 | The screens not chosen (data entry, setup), on a phone: **(a)** as today, desktop-width (pinch to zoom), or **(b)** the same, with a notice "This screen is best on a computer"? | **(b)**: a one-line notice that can be closed, so a phone user knows why the page is small, without blocking anyone who needs it. |
 | Q336 | Approving on a phone: **(a)** a compact approval card on Home (summary, lines, history, Approve / Reject with reason; "Open the full document" for more), or **(b)** each document's own screen made phone-friendly? | **(a)**: one card serves all 25 kinds of document; (b) would rework 25 desktop screens for a task a card does better on a small screen. |
 | Q337 | Wide report tables on a phone: **(a)** the first column fixed and the rest scrolled sideways, or **(b)** one card per row (item, party or account) with its figures listed? | **(a)** for the Trial Balance and aging (figures read across columns); **(b)** for Stock Availability and the statements, where a row is a thing to look up. |
+
+## As built (2026-10-30)
+
+- **The switch** (public/index.html, the PHONE VIEW block): a phone is a
+  device under 640 px wide (the smaller of the screen's and the window's
+  width). On a phone, the sign-in, Home and the seven screens of Q280
+  (`PHONE_SCREENS`: STOCKAVAILABILITY, CUSTOMERSOA, VENDORSOA,
+  CUSTOMERAGING, VENDORAGING, INVENTORYAGING, TRIALBALANCE) get the
+  viewport `width=device-width` and the class `phone-view` on `<html>`.
+  Every other screen gets `width=1024` (as a phone showed it before) and,
+  until closed, the notice "This screen is best on a computer"
+  (`phone-desktop-screen`). Closing it holds for the tab's session
+  (sessionStorage `erp-phone-notice`). A computer and a tablet are
+  unchanged. The switch runs on Home (`showTreeNav`), when a screen opens
+  (`openModule`), and on a resize or rotation.
+- **Home:** the top bar and the menu's controls wrap to the phone's
+  width, task lines are taller, and the company filter and the user menu
+  open as sheets from the bottom.
+- **The reports, by report (Q337),** shaped in the shell once their
+  tables are drawn (and redrawn: a MutationObserver on the screen), so
+  the generated screens are unchanged:
+  - Trial Balance and the three aging screens (`SCROLL_SCREENS`): the
+    table's container scrolls sideways, with the first column fixed
+    (sticky, at least 9rem, at most 45% of the width);
+  - Stock Availability and the statements: one card per row, each cell
+    under its column's heading (`data-label` from the `thead`; a cell
+    spanning columns, such as a total's label, has none).
+
+  Not built as proposed: the "Filters" sheet. The filters wrap to the
+  phone's width instead, which keeps every screen's own controls
+  untouched. Copy to Excel and Print are not hidden; the Help says they
+  are better done on a computer.
+- **The approval card (Q336):** on a phone, a pending approval on Home
+  opens `#approval-card` instead of the document's screen.
+  - `getApprovalSummary({instanceId})` (functions/src/homeTasks.js)
+    refuses unless the approval is Pending and holds an undecided level
+    of the caller's ("This approval is not waiting on you."). A Job
+    Order line counts only its lowest undecided level, as Home does. It
+    reads the document through `fetchApprovalSourceDocument`. It returns
+    the document in short (`approvalCard.summarize`: date, party,
+    description, amount and currency, status, up to 15 lines and how many
+    more), the levels with their approvers, the decisions so far, who
+    submitted it, the caller's level, and `Decide`.
+  - `Decide` is the module's own decide function and the name of its id
+    (`approvalCard.DECIDE`, 29 modules; the Purchase Order and the
+    invoices with the ported modules' positional arguments; an invoice's
+    reversal and a PO's reopening through their own functions). The card
+    calls it exactly as the module's screen does, so the module's own
+    checks, rights and levels apply. A refusal, which these functions
+    return as `{success: false, error}`, is shown, and the card stays
+    open.
+  - A Job Order line, a reimbursement claim and an absence have more to
+    decide than approve or reject: no `Decide`, so their card offers
+    "Open the full document" only.
+- **Tests:** unit/approvalCard (every decide function is deployed and
+  reads the id the card sends; the reversal and reopening variants; the
+  level rule; the summary), emulator/approvalCard (a gated Purchase
+  Order: the approver's card, others refused, decided through `Decide`),
+  ui/phoneView (Home at the phone's width; the card, a refusal and an
+  approval; the fixed column and the cards; the notice; a computer
+  unchanged). Negative controls: the decide map's id key (`grnId` →
+  `grnID`), the switch (`isPhone` always false) and the refusal check,
+  each caught and restored.
+- **Deploy:** set `ux2-phone` (5 functions: the closure of homeTasks.js,
+  with `getApprovalSummary` new), then the "hosting" task (the shell, its
+  styles and the Help). No screen, rule or moduleRegistry change.

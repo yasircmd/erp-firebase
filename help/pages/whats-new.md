@@ -12,6 +12,13 @@ screen.
 
 ## 30/10/2026
 
+- **The ERP on a phone.** Home, your tasks and the chosen reports (Trial
+  Balance, aging, Stock Availability, the statements of account) now fit a
+  phone's screen. A pending approval opens as a compact card where you
+  approve, or reject with a reason. Other screens stay at a computer's
+  width, with a notice you can close. See [On a
+  phone](getting-started.html#on-a-phone).
+
 - **Install the ERP and the Employee Portal as apps.** Each has its own
   icon and window and opens faster, because its pages and styles are kept
   on the device. Pages also load faster in the browser. See [Installing the

@@ -597,7 +597,9 @@
               if (decision === 'Rejected') { reason = await appPrompt('Reject ' + s.DocumentNumber + ': the reason?', ''); if (reason == null) return; if (!reason.trim()) { appAlert('A reason is required to reject.'); return; } }
               else if (!(await appConfirm('Approve ' + s.DocumentNumber + '?'))) return;
               const args = s.Decide.positional ? { __positional: [s.DocumentID, s.MyLevel, decision, reason] } : { [s.Decide.id]: s.DocumentID, levelNumber: s.MyLevel, decision, reason };
-              rpc.withSuccessHandler(() => { box.classList.add('hidden'); appAlert(decision === 'Approved' ? 'Approved.' : 'Rejected.'); if (typeof loadHomeTasks === 'function') loadHomeTasks(); })
+              // A module's refusal comes back as { success: false, error }, not thrown.
+              rpc.withSuccessHandler(r => { if (r && r.success === false) { appAlert(r.error || r.message || 'Unable to record the decision.'); return; }
+                box.classList.add('hidden'); appAlert(decision === 'Approved' ? 'Approved.' : 'Rejected.'); if (typeof loadHomeTasks === 'function') loadHomeTasks(); })
                 .withFailureHandler(err => appAlert(err.message || 'Unable to record the decision.'))[s.Decide.fn](args);
             };
             document.getElementById('ac-approve').addEventListener('click', () => decide('Approved'));

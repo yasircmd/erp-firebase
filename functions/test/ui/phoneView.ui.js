@@ -2,8 +2,9 @@
 // public/index.html, a phone's size, the server stubbed as in home.ui.js:
 // Home at the phone's width, nothing wider than the screen; an approval
 // opens the card, Approve calls the module's own decide function with what
-// the card was given; the Trial Balance's table keeps its first column and
-// scrolls, Stock Availability's rows become cards with their headings; a
+// the card was given (a refusal is said, the card stays); the Trial
+// Balance's table keeps its first column and scrolls, Stock Availability's
+// rows become cards with their headings; a
 // data entry screen stays desktop-width with its notice, which closes; on a
 // computer nothing changes (an approval opens the document's screen).
 //   node functions/test/ui/phoneView.ui.js
@@ -49,7 +50,9 @@ function stubs() {
         Date: '2026-10-20', Party: 'Example Supplies', Amount: 60, Currency: 'AED', Description: '', Status: 'PendingApproval', SubmittedBy: 'Sample Buyer', SubmittedAt: '2026-10-20T08:00:00Z',
         MyLevel: 1, Levels: [{ LevelNumber: 1, Approver: 'Example User' }], Decisions: [], Lines: [{ Text: 'Paper', Quantity: 10, Amount: 50 }, { Text: 'Pens', Quantity: 4, Amount: 10 }], MoreLines: 0,
         Decide: { fn: 'decidePurchaseOrderApproval', id: '', positional: true } };
-      case 'decidePurchaseOrderApproval': window.__decided = arg; window.__pending = []; return { success: true, status: 'Approved' };
+      case 'decidePurchaseOrderApproval':
+        if (window.__refuse) return { success: false, error: 'This level has already been decided.' };
+        window.__decided = arg; window.__pending = []; return { success: true, status: 'Approved' };
       case 'getModuleFragment':
         if (arg.moduleId === 'TRIALBALANCE' || arg.moduleId === 'STOCKAVAILABILITY') {
           // The report draws its table after its data arrives, as the real screens do.
@@ -103,6 +106,15 @@ const PHONE = { viewport: { width: 390, height: 844 }, screen: { width: 390, hei
     const text = (await p.textContent('#approval-card-body')).replace(/\s+/g, ' ');
     assert.match(text, /PO-26-01-000001.*Example Supplies.*AED 60\.00.*Paper × 10.*50\.00.*Level 1: Example User \(you\)/);
     assert.equal(await p.evaluate(() => document.getElementById('stub-module')), null, 'the full screen not opened');
+    // The module refuses (as { success: false }): said, and the card stays.
+    await p.evaluate(() => { window.__refuse = true; });
+    await p.click('#ac-approve');
+    for (let i = 0; i < 50 && !p.__dialogs.length; i++) await p.waitForTimeout(100);
+    await p.waitForTimeout(300);
+    assert.ok(p.__dialogs.includes('This level has already been decided.'), p.__dialogs.join(' | '));
+    assert.ok(!p.__dialogs.includes('Approved.'), 'not said approved');
+    assert.ok(await p.isVisible('#approval-card'), 'the card stays open');
+    await p.evaluate(() => { window.__refuse = false; });
     await p.click('#ac-approve');
     await p.waitForFunction(() => window.__decided, null, { timeout: 15000 });
     assert.deepEqual(await p.evaluate(() => window.__decided), { __positional: ['PO-1', 1, 'Approved', ''] });

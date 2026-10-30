@@ -1,0 +1,13 @@
+# UX round 2, item 33: the phone view (owner, 2026-10-26/30;
+# docs/modules/PHONE_VIEW.md, Q280, Q335-Q337).
+# The require closure of homeTasks.js and approvalCard.js (new): 5
+# functions. moduleRegistry.js and auth.js are unchanged; no new right.
+# One function is new (deploy-functions.sh binds its invoker):
+# getApprovalSummary. No --screens (no screen changed). Then the "hosting"
+# task: the shell (public/index.html), its styles and the Help. No rules
+# change.
+closeRejectedSubmission
+getApprovalSummary
+getMyDraftsForUser
+getMyRejectedSubmissions
+getPendingApprovalsForUser
