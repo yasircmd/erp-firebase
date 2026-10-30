@@ -1537,3 +1537,16 @@ from, and how it was verified. The deploy procedure is in the
   No rules change and no new right. Still to do in the app: give every item
   sold at the counter a tax code in Item Master (a company with a Tax
   Configuration refuses a counter sale of an item without one).
+- **2026-10-30, UX round 2 item 32, tax part 5, the reports (`ux2-tax5`,
+  PR #184, from `56401dc`):** run
+  [#238](https://github.com/yasircmd/erp-firebase/actions/runs/41037194572)
+  ("functions set, then screens", 09:57–12:13 UTC), success:
+  `SUMMARY: functions deployed: 599 (every function: moduleRegistry has
+  TAXREPORTS; one new: getTaxReport); access granted: 599; screens
+  released: yes` (release `20261030T121307Z-56401dc`, 92/92 verified). Then
+  Hosting, run
+  [#239](https://github.com/yasircmd/erp-firebase/actions/runs/41055267111)
+  (12:25–12:26 UTC), success: the Help (Tax Reports, Tax Configuration's
+  B2CL limit, What's new). No rules change. Still to do in the app: provide
+  Tax Reports in the Developer screen to the corporates that have Tax
+  Configuration. Item 32 (tax) complete.
