@@ -23,12 +23,19 @@
 <p>A vendor or customer can be in a <strong>foreign currency</strong> (its <strong>Default Currency</strong> in Vendor or Customer Master). Its invoices, payments and statement are then in that currency, at a rate you enter here.</p>
 <ol><li>Select <strong>Rates</strong> on the foreign currency's row.</li><li>Enter the date the rate takes effect and the rate: how much of the default currency one unit is (for example 1 USD = 3.6725 AED).</li><li><strong>Add</strong>. The rate applies from that date until a later one.</li></ol>
 <p>Rates are only added, never edited: a document keeps the rate it was made with. To correct a rate, enter the right one from the same date; the later entry wins from then on.</p>
+<h3 id="rates-from-the-sheet">Rates from the sheet</h3>
+<p>Rates can also come from a Google Sheet, which the firm keeps for every client. It uses GOOGLEFINANCE, so its rates are indicative and can be up to 20 minutes late. Nothing applies until you confirm it:</p>
+<ol><li>Under <strong>Rates from the sheet</strong>, click <strong>Get rates from the sheet</strong>.</li><li>For each currency you see:<ul><li>the sheet's rate;</li><li>the last rate you entered and its date;</li><li>the change.</li></ul></li></ol>
+<p>A rate more than 5% from the last one is marked and left unticked: tick it only if it is right (for example after a devaluation).</p>
+<ol><li>Choose the date the rates take effect (today by default), tick the ones to use, and click <strong>Apply the ticked rates</strong>.</li></ol>
+<p>An applied rate is an ordinary rate, its note <em>From the sheet</em>.</p>
+<p>Apply is refused if the sheet's rate changed after you read it: get the rates again. A currency the sheet lacks, or a cell still calculating, is listed and left out.</p>
 <h2 id="exchange-gain-loss">Exchange Gain / Loss</h2>
 <p>When a foreign bill is paid at a rate other than its own, the difference in the default currency is a realized exchange gain or loss. Choose, for each company, the <strong>Exchange Gain / Loss</strong> account (a Revenue or Expense account) and the cost center its lines take when the payment line has none. A payment that settles a foreign bill at another rate is refused until it is set.</p>
 <h2 id="rights">Rights</h2>
-<ul><li><strong>Write</strong>: add currencies, set the default, choose the Exchange Gain / Loss account.</li><li><strong>Rates</strong>: enter exchange rates (Roles &amp; Permissions, Currency Configuration).</li></ul>
+<ul><li><strong>Write</strong>: add currencies, set the default, choose the Exchange Gain / Loss account.</li><li><strong>Rates</strong>: enter exchange rates, and get and apply them from the sheet (Roles &amp; Permissions, Currency Configuration).</li></ul>
 <h2 id="good-to-know">Good to know</h2>
-<ul><li>The books, the Trial Balance and every report stay in the default currency. Foreign amounts are kept beside the default-currency amounts on each line.</li><li>Rates are typed in; nothing is fetched from the internet.</li><li>Changing the default later does not convert anything already posted, so choose it before going live.</li></ul><p class="crumb">Last reviewed 16/10/2026</p></main>
+<ul><li>The books, the Trial Balance and every report stay in the default currency. Foreign amounts are kept beside the default-currency amounts on each line.</li><li>Rates are typed in, or read from the firm's sheet when you click; the sheet is never read on its own, and nothing applies without your Apply.</li><li>Changing the default later does not convert anything already posted, so choose it before going live.</li></ul><p class="crumb">Last reviewed 30/10/2026</p></main>
 </div>
 <footer>Free to read and share. © Yasir AV. All rights reserved.</footer>
 <script src="help.js"></script>
